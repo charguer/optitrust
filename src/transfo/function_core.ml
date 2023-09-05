@@ -58,7 +58,7 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
   let f_update (t : trm) : trm =
     let fun_call = Path.resolve_path p_local t in
     begin match fun_call.desc with
-    | Trm_apps(tfun, fun_call_args) ->
+    | Trm_apps (tfun, fun_call_args) ->
       let fun_decl = begin match tfun.desc with
       | Trm_var (_, f) ->
         begin match Internal.toplevel_decl ~require_body:true f with
@@ -71,23 +71,16 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
       begin match fun_decl.desc with
       | Trm_let_fun (_f, ty, args, body, _) ->
         let fun_decl_arg_vars = fst (List.split args) in
-        (* DEPRECATED: let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in *)
-        let fresh_args = List.map Internal.fresh_args fun_call_args in
-        let fun_decl_body = List.fold_left2 (fun acc x y -> trm_subst_var x y acc) (trm_copy body) fun_decl_arg_vars fresh_args in
-        let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x (trm_may_add_mark subst_mark y) acc) fun_decl_body fresh_args fun_call_args in
+        let subst_map = Var_map.of_seq (List.to_seq (List.map2 (fun dv cv ->
+            (dv, (trm_may_add_mark subst_mark cv))
+          ) fun_decl_arg_vars fun_call_args)) in
+        let fun_decl_body = trm_subst subst_map (trm_copy body) in
         let name = match t.desc with | Trm_let (vk, (x, _), _, _) -> x| _ -> dummy_var in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
         let marked_body = begin match body_mark with
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Nobrace.set_if_sequence processed_body
         | _ -> Nobrace.set_if_sequence processed_body
         end  in
-        let marked_body = if trm_has_cstyle Method_call fun_call
-          then
-            let class_name = fst (Xlist.uncons fun_call_args) in
-            match trm_var_inv (get_operation_arg class_name) with
-            | Some c_name -> Internal.fix_class_member_accesses c_name marked_body
-            | _ -> fail class_name.loc "Function_core.inline_aux: bad encodings."
-          else marked_body in
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
           if is_type_unit(ty)

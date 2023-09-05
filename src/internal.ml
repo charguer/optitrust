@@ -208,12 +208,6 @@ let is_decl_body (dl : path) : bool =
   | Dir_body :: _ -> true
   | _ -> false
 
-(* [fresh_args t]: rename all the occurrences of a variable by changing their id. *)
-let fresh_args (t : trm) : trm =
-  match t.desc with
-  | Trm_var (kind, x) -> trm_var ~kind (new_var ~qualifier:x.qualifier x.name)
-  | _ -> t
-
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (field * typ) list =
   match td.typdef_body with
@@ -510,18 +504,3 @@ let get_field_name (rf : record_field) : string option =
     | Trm_let_fun (qn, _, _, _, _) -> Some qn.name
     | _ -> None
     end
-
-(* [fix_class_member_accesses class_name t]: when class methods are inlined fixes all the direct accesses to class members
-      on method definitions. *)
-let fix_class_member_accesses (class_name : var) (t : trm) : trm =
-  let rec aux (t : trm) : trm =
-    match struct_get_inv t with
-    | Some (base, field) ->
-      begin match base.desc with
-      (* FIXME: use var id? *)
-      | Trm_var (_, qn) when var_has_name qn "this" ->
-        trm_struct_get ~annot:t.annot (trm_var_get class_name) field
-      | _ -> trm_map aux t
-      end
-    | _ -> trm_map aux t
-   in aux t

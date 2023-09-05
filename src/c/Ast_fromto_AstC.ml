@@ -371,7 +371,7 @@ let method_call_elim (t : trm) : trm =
       | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var ~qualifier f))
       | None -> fail t.loc "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
       end in
-      trm_add_cstyle Method_call (trm_apps (t_var) ([base] @ args))
+      trm_add_cstyle Method_call (trm_apps (t_var) ([trm_address_of base] @ args))
     | _ -> trm_map aux t
    in
    debug_before_after_trm "mcall" aux t
@@ -386,7 +386,7 @@ let method_call_intro (t : trm) : trm =
       let base, args = Xlist.uncons args in
       let struct_access =
         begin match f.desc with
-        | Trm_var (_, f) -> trm_struct_get base f.name
+        | Trm_var (_, f) -> trm_struct_get (trm_get base) f.name
         (* Special case when function_beta transformation is applied. *)
         | _ -> failwith "DEPRECATED?" (* f *)
         end in
@@ -417,7 +417,7 @@ let class_member_elim (t : trm) : trm =
       to_subst := Var_map.add var_this typed_this !to_subst;
       trm_alter ~desc:(Trm_let_fun (v, ty, (var_this, this_typ) :: vl, body, contract)) t
     | Trm_let_fun (v, ty, vl, body, contract) when is_class_constructor t ->
-      let this_mut = Var_mutable in
+      let this_mut = Var_immutable in
       let var_this = new_var "this" in
       let this_typ = get_class_typ current_class v in
       let this_body = trm_apps (trm_toplevel_free_var  "malloc") [trm_toplevel_free_var ("sizeof(" ^ v.name ^ ")")] in

@@ -431,7 +431,7 @@ let heapify_on (t : trm) : trm =
             if is_typ_const ty then
               begin
                 let _ = Printf.printf "const %s" (var_to_string v) in
-                let _ = Debug_transfo.typ "of ty" ty in 
+                let _ = Debug_transfo.typ "of ty" ty in
                 let _ = Debug_transfo.typ "and tyi" tyi in
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
@@ -457,7 +457,7 @@ let heapify_on (t : trm) : trm =
             else if is_typ_array ty then
               begin
                 let _ = Printf.printf "array %s" (var_to_string v) in
-                let _ = Debug_transfo.typ "of ty" ty in 
+                let _ = Debug_transfo.typ "of ty" ty in
                 let _ = Debug_transfo.typ "and tyi" tyi in
                 (* To transform a static array allocation to a dynamic array
                    allocation, we need to determine its inner type, i.e. the
@@ -485,7 +485,7 @@ let heapify_on (t : trm) : trm =
             else
               begin
                 let _ = Printf.printf "other %s" (var_to_string v) in
-                let _ = Debug_transfo.typ " of ty" ty in 
+                let _ = Debug_transfo.typ " of ty" ty in
                 let _ = Debug_transfo.typ " and tyi" tyi in
                 (*let tya = if is_typ_array tyi then get_inner_array_type tyi else ty in*)
                 (* If the variable is already a pointer, we do not need to
@@ -549,14 +549,14 @@ let heapify_on (t : trm) : trm =
                    multiple variable declaration (see above). *)
                 let tyc = get_inner_const_type ty in
                 let _ = Printf.printf "const simple %s" (var_to_string v) in
-                let _ = Debug_transfo.typ " of ty" ty in 
+                let _ = Debug_transfo.typ " of ty" ty in
                 let _ = Debug_transfo.typ " and tyc" tyc in
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
                   if is_typ_ptr tyc then tyc else typ_ptr Ptr_kind_mut tyc in
                 (* Then, we have to restore the const status of the variable. *)
-                let ty2 = typ_const ty2 in                
+                let ty2 = typ_const ty2 in
                 (* If the variable is a pointer, we consider that it already
                    points to some data in the heap. If it is not the case, e.g.
                    in [int i = 1; int * a = &i], it is not of the responsibility
@@ -584,7 +584,7 @@ let heapify_on (t : trm) : trm =
                    of constants, e.g. [int const tab[2]], [tya] shall be [const
                    int]. *)
                 let tya = get_inner_array_type tyi in
-                let _ = Debug_transfo.typ " and tya" tya in                
+                let _ = Debug_transfo.typ " and tya" tya in
                 (* We then transform the lvalue type to a pointer, e.g. [int
                    tab[2]] becomes [int * tab]. *)
                 let ty2 = typ_ptr Ptr_kind_mut tya in
@@ -607,8 +607,8 @@ let heapify_on (t : trm) : trm =
                none of the two. *)
             else
               let _ = Printf.printf "other simple %s" (var_to_string v) in
-              let _ = Debug_transfo.typ " of ty" ty in 
-              let _ = Debug_transfo.typ " and tyi" tyi in               
+              let _ = Debug_transfo.typ " of ty" ty in
+              let _ = Debug_transfo.typ " and tyi" tyi in
               (* We then transform the lvalue type to a pointer, e.g. [int a]
                  becomes [int * a]. *)
               let ty2 = typ_ptr Ptr_kind_mut tyi in
@@ -651,7 +651,7 @@ let heapify_on (t : trm) : trm =
 (* [heapify tg]: expects the target [tg] to point at a simple or a multiple
    variable declaration. Then, if it is necessary, i.e. if the variable is not a
    reference or a pointer to a previously user-allocated memory location, the
-   function shall promote the variable from the stack to the heap. 
+   function shall promote the variable from the stack to the heap.
 
    Example:
 
@@ -695,7 +695,7 @@ let unfold_let_mult_aux (t : trm) : trm =
 let unfold_let_mult_on (t : trm) : trm =
   let error = "Apac_basic.unfold_let_mult_on: expected a target to a multiple \
                variable declaration." in
-  let _ = Debug_transfo.trm ~internal:true "let_mult_before" t in
+  let _ = Debug_transfo.trm ~style:Internal "let_mult_before" t in
   let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
   let declarations = List.map2 (fun tv ti -> let out = trm_let vk tv ti in out) tvs tis in
   let nt = trm_seq_no_brace declarations in
