@@ -2,7 +2,7 @@ open Ast
 open Trm
 open Typ
 
-let debug = true
+let debug = false
 
 let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
   if debug then (fun t ->
@@ -407,7 +407,7 @@ let class_member_elim (t : trm) : trm =
     typ_ptr_generated (typ_constr ([], c) ~tid:(Clang_to_astRawC.get_typid_for_type [] c))
   in
   let rec aux (current_class : typvar option) (t : trm) : trm =
-    match t.desc with
+    begin match t.desc with
     | Trm_typedef td ->
       trm_map (aux (Some td.typdef_tconstr)) t
     | Trm_let_fun (v, ty, vl, body, contract) when trm_has_cstyle Method t ->
@@ -436,17 +436,12 @@ let class_member_elim (t : trm) : trm =
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
     | _ -> trm_map (aux current_class) t
+    end
   in
   let on_subst old_t new_t =
     (* keep implicit this annotations etc *)
-    if trm_has_cstyle Implicit_this old_t then
-      Printf.printf "Implicit_this\n";
-    let r = trm_alter ~annot:old_t.annot ~loc:old_t.loc new_t in
-    if trm_has_cstyle Implicit_this r then
-      Printf.printf "-- still Implicit_this\n";
-    r
+    trm_alter ~annot:old_t.annot ~loc:old_t.loc new_t
   in
-  Printf.printf "to_subst size: %d\n" (List.length (Var_map.bindings !to_subst));
   debug_before_after_trm "cmember" (fun t ->
     aux None t |> C_scope.infer_var_ids |> trm_subst ~on_subst !to_subst
   ) t

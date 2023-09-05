@@ -48,9 +48,12 @@ let toplevel_scope_ctx (): scope_ctx = {
 (** internal *)
 let check_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
   let qualified = (var.qualifier, var.name) in
-  if Qualified_map.find_opt qualified scope_ctx.var_ids <> Some var.id then
-    raise (InvalidVarId (sprintf "variable use %s does not satisfy C/C++ scoping rules" (var_to_string var)))
-  else
+  match Qualified_map.find_opt qualified scope_ctx.var_ids with
+  | None ->
+    raise (InvalidVarId (sprintf "variable %s is used but not in scope." (var_to_string var)))
+  | Some id when id <> var.id ->
+    raise (InvalidVarId (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) var.id))
+  | _ ->
     trm_var ~annot ?loc ?typ ~ctx ~kind var
 
 (** internal *)
@@ -95,7 +98,8 @@ let enter_scope map_binder scope_ctx t =
     | Typdef_alias _ -> scope_ctx
     | Typdef_record rfl ->
       let scope_ctx = { scope_ctx with prefix_qualifier_rev = td.typdef_tconstr :: scope_ctx.prefix_qualifier_rev; conflicts = Qualified_set.empty } in
-      (* order of declaration does not matter for class members: this equivalent to implicit predefinitions. *)
+      (* order of declaration does not matter for class members:
+         this is equivalent to implicit predefinitions. *)
       List.fold_left (fun scope_ctx (rf, _) ->
         begin match rf with
         | Record_field_member _ -> scope_ctx

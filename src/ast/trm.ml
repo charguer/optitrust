@@ -1355,9 +1355,10 @@ let trm_subst
   ?(on_subst : trm -> trm -> trm = fun old_t new_t -> trm_copy new_t)
   (subst_map: trm varmap) (t: trm) =
   let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): metadata) (var: var) =
+    let var_t = trm_var ~annot ?loc ?typ ~kind var in
     match Var_map.find_opt var subst_map with
-    | Some subst_t -> on_subst t subst_t
-    | None -> trm_var ~annot ?loc ?typ ~kind var
+    | Some subst_t -> on_subst var_t subst_t
+    | None -> var_t
   in
   trm_map_vars subst_var subst_map t
 
