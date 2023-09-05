@@ -4,27 +4,10 @@ open Typ (* TODO: avoid this *)
 open Ast
 
 let _ = Run.script_cpp (fun () ->
-(******************************************************************************)
-(*                                Pre-processing                              *)
-(******************************************************************************)
-  bigstep "constification";
-  let target = [nbAny; cFunDefAndDecl ""] in
-              !! Apac_basic.const_lookup_candidates target;
-              !! Apac_basic.const_compute_all target;
-              !! Apac_basic.unconst ();
-              !! Apac_basic.constify_args target;
-              !! Apac_basic.constify_aliases target;
-(******************************************************************************)
-(*                                Processing                                  *)
-(******************************************************************************)
-  (*!! Apac.mark_taskable_function "taskable" [nbAny; cFunDef ""];
+  !! Apac.constify [nbAny; cFunDefAndDecl ""];
+  !! Apac_basic.mark_taskification_candidates [nbAny; cFunDef ""];
 
-  (* unfold call taskable *)
-  Apac.unfold_funcalls [
-    nbAny; cDiff [[cMark "taskable"]] [[cHasTypeAst (typ_unit ())]]
-  ];
-
-  (* heapify *)
+  (* heapify
   (* uses add/remove mark to target sequence with depth > 0 *)
   !! Marks.add "heapify" [nbAny; cMark "taskable"; dBody; cInDepth; cSeq()];
   !! Marks.remove "heapify" [nbAny; cMark "taskable"; dBody; cStrictNew; cSeq()];
