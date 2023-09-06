@@ -72,7 +72,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
      in
      let new_index = iteration_to_index iteration in
      trm_for (tile_index, (trm_int 0), DirUp, tile_count, Post_inc, is_parallel) (trm_seq_nomarks [
-       trm_for (index, (trm_int 0), DirUp, tile_size, Post_inc, is_parallel) (Internal.change_trm (trm_var index) new_index body)
+       trm_for (index, (trm_int 0), DirUp, tile_size, Post_inc, is_parallel) (trm_subst_var index new_index body)
      ])
   end else begin
   Trace.justif "Tiling in this form is always correct.";

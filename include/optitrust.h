@@ -152,6 +152,20 @@ __ghost ghost_matrix2_focus(float* M, int i, int j) {
     __admitted();
 }
 
+__ghost ghost_tile_divides(
+  int tile_count,
+  int tile_size
+) {
+  __requires(
+    "gn: int; to_item: int -> resource;"
+    "tile_size * tile_count = gn;"
+  );
+  __consumes("A: Group(range(0, gn, 1), to_item)");
+  __produces("B: Group(range(0, tile_count, 1), fun bi ->"
+             "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i))); B -* A");
+  __admitted();
+}
+
 __ghost ghost_matrix2_unfocus(float* M) {
     __requires("m: int; n: int; i: int; j: int;");
     __consumes("M ~> FocussedMatrix2(m, n, i); &M[MINDEX2(m, n, i, j)] ~> Cell;");

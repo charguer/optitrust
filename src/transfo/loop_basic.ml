@@ -509,7 +509,7 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
       in
     let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
       else trm_prim_compound Binop_add (trm_var index) (loop_step_to_trm step) in
-    let new_body = Internal.change_trm (trm_var index) (trm_var_get index) body in
+    let new_body = trm_subst_var index (trm_var_get index) body in
     trm_for_c init cond step new_body
   end in
   (* NOTE: only outer loop differs from tiling? *)

@@ -21,8 +21,13 @@ let _ = Run.script_cpp (fun () ->
   Resources.show ();
 
   !! Function.inline_def [cFunDef "mm"];
+  Resources.recompute_all_resources ();
+
   let tile (loop_id, tile_size) = Loop.tile (int tile_size) ~index:("b" ^ loop_id) ~bound:TileDivides [cFor loop_id] in
   !! List.iter tile [("i", 32); ("j", 32); ("k", 4)];
+  (* !! Resources.set_contract []; *)
+  !! Resources.recompute_all_resources ();
+
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEq [cVar "sum"]];
 
   (* TODO *)

@@ -256,7 +256,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : string) (t : trm)
     in
   let fst_instr = trm_let_mut (local_var, var_type) (trm_var_possibly_mut ~typ:var_type curr_var) in
   let lst_instr = trm_set (trm_var ~typ:var_type curr_var) (trm_var_possibly_mut ~typ:var_type local_var) in
-  let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
+  let new_t = trm_subst_var curr_var (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
   trm_add_mark mark final_trm
 
