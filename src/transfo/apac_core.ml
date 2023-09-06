@@ -551,7 +551,6 @@ let trm_let_update_aliases ?(reference = false)
          it. *)
       | Some (_, aliased) ->
          begin
-           let _ = Printf.printf "rval is aliasing: %s\n" (lvar_to_string aliased) in
            LVar_Hashtbl.add aliases lv (aliased, typ_get_degree ty);
            (* Return 1 because declared variable is a pointer. *)
            2
@@ -609,7 +608,6 @@ let unconstify_mutables () : unit =
     (* Pop out an element from [to_unconst]. *)
     match Stack.pop_opt to_unconst with
     | Some (fn, ar) ->
-       Printf.printf "Unconst on (%s, %s)...\n" (var_to_string fn) (var_to_string ar);
        (* Find the corresponding function constification record in
           [const_records]. *)
        let const_record = Var_Hashtbl.find const_records fn in
@@ -667,7 +665,6 @@ let unconstify_mutables () : unit =
            let (_, arg) =
              List.find (fun (x, _) -> x.id = ar.id) const_record_fn.const_args
            in
-           Printf.printf "Unconst on (%s, %s) because of (%s)...\n" (var_to_string fn) (var_to_string ar) (var_to_string ff);
            (* Then, if needed, *)
            if arg.is_const then
              begin
@@ -696,12 +693,10 @@ let build_constification_records_on (t : trm) : unit =
   let (var, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv t in
   (* Extract the first argument of the function. *)
   let (first, _) = List.hd args in
-  let _ = Printf.printf "first : %s\n" (var_to_string first) in
   (* If the function is a class member method, its first argument is the [this]
      variable referring to the parent class. In this case, we do not need to
      include it in the resulting constification record. *)
   let args = if first.name = "this" then List.tl args else args in
-  let _ = Printf.printf "Candidate : %s\n" (var_to_string var) in
   (* Create an argument constification record for the function's arguments. *)
   let const_args = List.map (
                        fun (arg, ty) -> (arg, {
@@ -724,7 +719,6 @@ let build_constification_records_on (t : trm) : unit =
      pre-declaration. *)
   if not (Var_Hashtbl.mem const_records var) then
     begin
-      Printf.printf "Accepted : %s\n" (var_to_string var);
       Var_Hashtbl.add const_records var const
     end
       
@@ -754,12 +748,10 @@ let identify_mutables_on (p : path) (t : trm) : unit =
     (* Function call: update dependencies. *)
     | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) when
            Var_Hashtbl.mem const_records name ->
-       let _ = Printf.printf "Call to %s\n" (var_to_string name) in
        (* Find the corresponding function constification record containing the
           constification records of all of the arguments. *)
        let fun_call_const = Var_Hashtbl.find const_records name in
        let fun_args_const = fun_call_const.const_args in
-       let _ = Printf.printf "Parsed args: %d, nb args in record: %d\n" (List.length args) (List.length fun_args_const) in
        (* In the case of a call to a class member method, the first argument is
           the variable referring to the parent class instance, e.g. in
           [this->p(i, j)] the first argument is [this]] and in [a.f(i, j)] the
@@ -775,7 +767,6 @@ let identify_mutables_on (p : path) (t : trm) : unit =
               argument in the form of a labelled variable, if any, and *)
            match (trm_strip_accesses_and_references_and_get_lvar arg) with
            | Some arg_lvar ->
-              let _ = Printf.printf "call arg: %s\n" (lvar_to_string arg_lvar) in
               (* if the variable is an alias, we have to *)
               if LVar_Hashtbl.mem aliases arg_lvar then
                 begin
@@ -795,11 +786,9 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                       (* there is the corresponding argument constification
                          record to be gathered *)
                       let (_, arg_const) = List.nth fun_args_const (index - shift) in
-                      let _ = Printf.printf "alias: %s\n" (lvar_to_string arg_lvar) in
                       (* and if the latter is a pointer or a reference, *)
                       if arg_const.is_ptr_or_ref then
                         begin
-                          Printf.printf "arg is ptr or ref (%s, %s)\n" (var_to_string fun_var) (lvar_to_string aliased);
                           (* we will have to unconstify it by propagation. *)
                           arg_const.to_unconst_by_propagation <-
                             (fun_var, aliased.v) ::
@@ -833,7 +822,6 @@ let identify_mutables_on (p : path) (t : trm) : unit =
             dereferenced. *)
          match trm_resolve_binop_lval_and_get_with_deref lval with
          | Some (lval_lvar, lval_deref) ->
-            let _ = Printf.printf "set on %s\n" (lvar_to_string lval_lvar) in
             (* If the lvalue is [this], it means that the function we are in is
                modifying a member variable of the parent class. Therefore, we
                will have to unconstify the method itself. *)
@@ -903,7 +891,6 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                         dereferenced, we have to check that the pointer degree
                         of the lvalue is still greater than 0. *)
                      if not lval_deref || (lval_lvar.v.name = "this" && lval_degree > 0) then
-                       let _ = Printf.printf "alias changes target to %s, lval_degree is %d\n" (lvar_to_string aliased) lval_degree in
                        LVar_Hashtbl.add aliases
                          lval_lvar (aliased, lval_degree)
                   | None -> ()
@@ -969,7 +956,6 @@ let identify_mutables_on (p : path) (t : trm) : unit =
            match (trm_resolve_pointer_and_aliased_variable ret aliases) with
            (* If it is the case, we need it to be unconstified. *)
            | Some (_, aliased) -> 
-              Printf.printf "return in %s is aliasing %s\n" (var_to_string fun_var) (lvar_to_string aliased);
               (* Again, we do not consider parent class members because the
                  constification process does not analyze entire classes yet. See
                  an aforementioned TODO. *)
@@ -1007,7 +993,6 @@ let identify_mutables_on (p : path) (t : trm) : unit =
       List.iteri (fun index (label, ty) ->
           (* build the corresponding labelled variable and *)
           let lv : lvar = { v = this; l = label } in
-          Printf.printf "Class sibling for aliases : %s\n" (lvar_to_string lv);
           (* add it to the hash table of aliases. *)
           LVar_Hashtbl.add aliases lv (lv, typ_get_degree ty)
         ) class_siblings
@@ -1028,7 +1013,6 @@ let identify_mutables_on (p : path) (t : trm) : unit =
   let args = if const_record.is_class_method then List.tl args else args in
   List.iteri (fun index (v, ty) ->
       let lv : lvar = { v = v; l = String.empty } in
-      Printf.printf "Arg name for aliases : %s\n" (lvar_to_string lv);
       LVar_Hashtbl.add aliases lv (lv, typ_get_degree ty)
     ) args;
   (* Actually compute the dependencies of the function definition at [path]

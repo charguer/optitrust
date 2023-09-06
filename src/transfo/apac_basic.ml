@@ -188,8 +188,6 @@ let constify_args_on ?(force = false) (t : trm) : trm =
   else
     (* Gather the constification record of the function. *)
     let const_record = Var_Hashtbl.find Apac_core.const_records var in
-    let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_class_method then "in class" else "not in class") in
-    let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_const then "is const" else "not const") in
   (* If the function is a class member method, its first argument is the [this]
      variable referring to the parent class. In this case, we do not need to
      include it in the resulting constification record. *)
@@ -200,7 +198,6 @@ let constify_args_on ?(force = false) (t : trm) : trm =
        that should be constified according to the corresponding constification
        record. *)
     let (_, const_args_record) = List.split const_record.const_args in
-    let _ = Printf.printf "args is %d long and arg_records are %d long\n" (List.length args) (List.length const_args_record) in
     let const_args = List.map2 (fun (v, ty) (cr : const_arg) ->
                          if cr.is_const then (v, (typ_constify ty)) else (v, ty)
                        ) args const_args_record in
@@ -367,7 +364,6 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   else
     begin
       let (_, const_args_record) = List.split const_record.const_args in
-      let _ = Printf.printf "aliases: args is %d long and arg_records are %d long for %s\n" (List.length args) (List.length const_args_record) (var_to_string var) in
       List.iter2 (fun (arg_var, arg_ty) (arg_cr : const_arg) ->
           if arg_cr.is_const then
             begin
