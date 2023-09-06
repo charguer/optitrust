@@ -2,7 +2,7 @@
   open Ast
   open Trm
   open Typ
-  open Resources_contract
+  open Resource_formula
 %}
 
 %token <string> IDENT

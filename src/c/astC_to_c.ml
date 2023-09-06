@@ -1298,7 +1298,7 @@ and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
     trm_for_c ?loc init cond step body
 
 and formula_to_doc (f: formula): document =
-  let open Resources_contract in
+  let open Resource_formula in
   match formula_matrix_inv f with
   | Some (m, dims) -> formula_to_doc (formula_model m (trm_apps (trm_var (name_to_var (sprintf "Matrix%d" (List.length dims)))) dims))
   | None ->

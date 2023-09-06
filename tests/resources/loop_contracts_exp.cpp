@@ -4,29 +4,29 @@
 __ghost ghost_array_focus(float* M, int i) {
   __requires("dim: int;");
   __consumes("M ~> Array(dim);");
-  __produces("M ~> FocussedArray(dim, i); M[i] ~> Cell;");
+  __produces("M[i] ~> Cell; M ~> FocussedArray(dim, i);");
   __admitted();
 }
 
 __ghost ghost_array_unfocus(float* M) {
-  __requires("i: int; dim: int;");
-  __consumes("M[i] ~> Cell; M ~> FocussedArray(dim, i);");
+  __requires("dim: int; i: int;");
+  __consumes("M ~> FocussedArray(dim, i); M[i] ~> Cell;");
   __produces("M ~> Array(dim);");
   __admitted();
 }
 
 __ghost ghost_array_ro_focus(float* M, int i) {
-  __requires("f: _Fraction; dim: int;");
+  __requires("dim: int; f: _Fraction;");
   __consumes("_RO(f, M ~> Array(dim));");
-  __produces("_RO(f, M ~> FocussedArray(dim, i)); _RO(f, M[i] ~> Cell);");
+  __produces("_RO(f, M[i] ~> Cell); _RO(f, M ~> FocussedArray(dim, i));");
   __admitted();
 }
 
 __ghost ghost_array_ro_unfocus(float* M) {
-  __requires("f: _Fraction; i: int; dim: int;");
+  __requires("dim: int; i: int; f: _Fraction;");
   __consumes(
-      "_RO(_Full(f), M[i] ~> Cell); _RO(_Full(f), M ~> FocussedArray(dim, "
-      "i));");
+      "_RO(_Full(f), M ~> FocussedArray(dim, i)); _RO(_Full(f), M[i] ~> "
+      "Cell);");
   __produces("_RO(f, M ~> Array(dim));");
   __admitted();
 }
@@ -107,7 +107,7 @@ void array_copy_with_tmp(float* A, float* B, int n) {
   ghost_array_unfold(B);
   for (int i = 0; i < n; ++i) {
     __sequentially_reads("A ~> Array(n);");
-    __modifies("T[i] ~> Cell; B[i] ~> Cell;");
+    __modifies("B[i] ~> Cell; T[i] ~> Cell;");
     ghost_array_ro_focus(A, i);
     T[i] = A[i];
     ghost_array_ro_unfocus(A);
@@ -121,7 +121,7 @@ void array_copy_with_tmp(float* A, float* B, int n) {
 void g(int* x) { __reads("x ~> Cell;"); }
 
 void f(int* x, int* y) {
-  __modifies("y ~> Cell; x ~> Cell;");
+  __modifies("x ~> Cell; y ~> Cell;");
   *x = 4;
   g(x);
   *y += 1;

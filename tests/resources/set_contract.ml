@@ -1,19 +1,17 @@
 open Optitrust
 open Syntax
-open Resources_contract
-
-let _ = Flags.dump_ast_details := true
-(*let _ = Flags.bypass_cfeatures := true*)
-
-let cell (x: string) =
-  (new_anon_hyp (), formula_cell (name_to_var x))
+open Resource_contract
 
 let _ = Run.script_cpp (fun () ->
-    let r = { pure = []; linear = [cell "a"]; fun_contracts = Var_map.empty } in
-    !! Resources.set_fun_contract { pre = r ; post = r } [multi cFunDef ["incr"; "incr_twice"]];
+    !! Resources.set_fun_contract (parse_fun_contract [__modifies("a ~> Cell;")]) [multi cFunDef ["incr"; "incr_twice"]];
 
-    let r2 = { pure = []; linear = [cell "n"; cell "m"]; fun_contracts = Var_map.empty } in
-    !! Resources.set_fun_contract { pre = r2 ; post = r2 } [cFunDef "incr_both"];
+    !! Resources.set_fun_contract (parse_fun_contract [__modifies("n ~> Cell;"); __modifies("m ~> Cell;")]) [cFunDef "incr_both"];
+
+    (* Should produce empty diff: *)
+    !! Resources.set_fun_contract (parse_fun_contract [__modifies("n ~> Cell; m ~> Cell;")]) [cFunDef "incr_both"];
+
+    !! Resources.set_fun_contract (parse_fun_contract [__modifies("m ~> Matrix1(sz);")]) [cFunDef "incr_range"];
+    !! Resources.set_loop_contract (parse_loop_contract [__modifies("&m[MINDEX1(sz, i)] ~> Cell;")]) [cFor "i"];
 
     Resources.show ();
 )

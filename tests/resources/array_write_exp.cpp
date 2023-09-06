@@ -16,13 +16,13 @@ void array_free(float* M) {
 __ghost array_focus(float* M, int i) {
   __requires("dim: int;");
   __consumes("M ~> Array(dim);");
-  __produces("M ~> FocussedArray(dim, i); M[i] ~> Cell;");
+  __produces("M[i] ~> Cell; M ~> FocussedArray(dim, i);");
   __admitted();
 }
 
 __ghost array_unfocus(float* M) {
-  __requires("i: int; dim: int;");
-  __consumes("M[i] ~> Cell; M ~> FocussedArray(dim, i);");
+  __requires("dim: int; i: int;");
+  __consumes("M ~> FocussedArray(dim, i); M[i] ~> Cell;");
   __produces("M ~> Array(dim);");
   __admitted();
 }

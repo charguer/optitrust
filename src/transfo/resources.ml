@@ -1,13 +1,21 @@
 open Syntax
 open Target
-open Resources_contract
+open Resource_formula
+open Resource_contract
 
 let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
   let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
   trm_like ~old:t (trm_let_fun name ret_typ args ~contract body)
 
-let set_fun_contract (contract: fun_contract) (tg : Target.target) : unit =
+let%transfo set_fun_contract (contract: fun_contract) (tg : Target.target) : unit =
   Target.apply_at_target_paths (set_fun_contract_on contract) tg
+
+let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
+  let range, body = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
+  trm_like ~old:t (trm_for ~contract range body)
+
+let%transfo set_loop_contract (contract: loop_contract) (tg: Target.target): unit =
+  Target.apply_at_target_paths (set_loop_contract_on contract) tg
 
 (*let recompute_resources (tg : Target.target) : unit =
   Target.apply_at_target_paths (Resources_core.trm_recompute_resources) tg*)
@@ -16,7 +24,7 @@ let recompute_all_resources () : unit =
   let t = Trace.ast () in
   let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
   (* TODO: Configurable base environment *)
-  let t = Resources_computation.(trm_recompute_resources builtin_env t) in
+  let t = Resource_computation.(trm_recompute_resources builtin_env t) in
   Trace.set_ast t
 
 (* TODO: avoid recomputing all resources for validity checks. *)
@@ -79,7 +87,7 @@ let loop_minimize_on (t: trm): trm =
 
   let new_contract = { contract with loop_ghosts = !new_fracs @ contract.loop_ghosts; invariant = new_invariant } in
   let t = trm_like ~old:t (trm_for range ~contract:new_contract body) in
-  Resources_computation.(trm_recompute_resources res_before t)
+  Resource_computation.(trm_recompute_resources res_before t)
 
 (* [loop_minimize]: minimize linear invariants of a loop contract *)
 let%transfo loop_minimize (tg: target) : unit =
@@ -115,5 +123,5 @@ let assert_commute (before : trm) (after : trm) : unit =
 let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
   let t = Trace.ast() in
   let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
-  let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
+  let tres = Resource_computation.(trm_recompute_resources builtin_env t) in
   show_computed_res ~line ~ast:tres ()

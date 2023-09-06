@@ -15,4 +15,10 @@ void incr_both(int* n, int* m) {
     incr(m);
 }
 
+void incr_range(int* m, int sz) {
+    for (int i = 0; i < sz; ++i) {
+        incr(&m[MINDEX1(sz, i)]);
+    }
+}
+
 int main() {}

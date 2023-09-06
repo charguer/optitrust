@@ -1,5 +1,6 @@
 open Syntax
-open Resources_contract
+open Resource_formula
+open Resource_contract
 
 type pure_resource_set = resource_item list
 type linear_resource_set = resource_item list
@@ -725,8 +726,8 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
     end with e when !Flags.resource_errors_as_warnings ->
       Printf.eprintf "%s: Resource computation warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
       None, None
-    | ResourceError (None, place, err) -> raise (ResourceError (t.loc, place, err))
-    | ResourceError (Some _, _, _) as e -> raise e
+    | ResourceError (None, place, err) -> Printexc.(raise_with_backtrace (ResourceError (t.loc, place, err)) (get_raw_backtrace ()))
+    | ResourceError (Some _, _, _) as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
     | e -> Printexc.(raise_with_backtrace (ResourceError (t.loc, ResourceComputation, e)) (get_raw_backtrace ()))
   in
 

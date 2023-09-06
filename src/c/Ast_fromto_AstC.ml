@@ -478,7 +478,8 @@ in aux t
 
 (********************** Decode contract annotations ***************************)
 
-open Resources_contract
+open Resource_formula
+open Resource_contract
 
 let __pure = name_to_var "__pure"
 let __requires = name_to_var "__requires"
@@ -534,16 +535,9 @@ let rec extract_encoded_contract_clauses (seq: trm mlist):
 
 let extract_contract (empty_contract: 'c) (push_contract_clause: contract_clause_type -> contract_resource -> 'c -> 'c) (seq: trm mlist) : 'c option * trm mlist =
   let enc_contract, seq = extract_encoded_contract_clauses seq in
-  let contract = List.fold_left (fun contract (clause, desc) ->
-      let contract = Option.value ~default:empty_contract contract in
-      try
-        let res_list = Resource_cparser.resource_list (Resource_clexer.lex_resources) (Lexing.from_string desc) in
-        Some (List.fold_left (fun contract res -> push_contract_clause clause res contract) contract res_list)
-      with Resource_cparser.Error ->
-        failwith ("Failed to parse resource: " ^ desc)
-    ) None enc_contract
-  in
-  (contract, seq)
+  match enc_contract with
+  | [] -> None, seq
+  | _ -> Some (parse_contract_clauses empty_contract push_contract_clause enc_contract), seq
 
 let extract_fun_contract (seq: trm mlist) : fun_spec * trm mlist =
   extract_contract empty_fun_contract push_fun_contract_clause seq

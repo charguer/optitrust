@@ -1022,7 +1022,9 @@ and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx o
   | Trm_apps (fe, argse) ->
     let* f, args = trm_apps_inv t in
     let* evar_ctx = unify_trm f fe evar_ctx in
-    List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
+    begin try
+      List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
+    with Invalid_argument _ -> None end
   | Trm_fun (argse, _, bodye, _) ->
     let* args, _, body, _ = trm_fun_inv t in
     let* evar_ctx, masked_ctx =

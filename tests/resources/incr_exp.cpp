@@ -13,7 +13,7 @@ void incr_twice(int* k) {
 }
 
 void incr_both(int* n, int* m) {
-  __modifies("m ~> Cell; n ~> Cell;");
+  __modifies("n ~> Cell; m ~> Cell;");
   incr(n);
   incr(m);
 }
