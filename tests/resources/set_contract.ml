@@ -13,5 +13,8 @@ let _ = Run.script_cpp (fun () ->
     !! Resources.set_fun_contract (parse_fun_contract [__modifies("m ~> Matrix1(sz);")]) [cFunDef "incr_range"];
     !! Resources.set_loop_contract (parse_loop_contract [__modifies("&m[MINDEX1(sz, i)] ~> Cell;")]) [cFor "i"];
 
+    (*!! Trace.apply Scope.infer_var_ids;
+    !! Trace.apply Scope.unique_alpha_rename;*)
+
     Resources.show ();
 )

@@ -149,6 +149,24 @@ and merge that contents just before the final closing brace of the existing file
     "args": "Save intermediate state",
     "when": "config.optitrust.enableKeybindings"
   },
+  {
+    "key": "shift+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Run all the tests",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Rerun the last-tried test(s)",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "ctrl+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Run the current test",
+    "when": "config.optitrust.enableKeybindings"
+  }
 ```
 
 Note: the shortcuts refer to tasks that are defined in `.vscode/tasks.json`,
@@ -285,26 +303,39 @@ The FFTW (fast fourier transform) library is used by the Poison solver in the PI
 
 Optional: install the VSCode C++ extension:
 `ctrl+P` then `ext install ms-vscode.cpptools`
+For Codium: install instead `llvm-vs-code-extensions.vscode-clangd`
 
 Optional: install the GitLens extension:
 `ctrl+P` then `ext install eamodio.gitlens`
+Variant: install the GitGraph extension:
+`ctrl+P` then `ext install mhutchie.git-graph`
 
 In your `~/.config/Code/User/settings.json` file, add the lines:
 
 ```jsonc
-   // Whitespace trimming is already activated in OptiTrust's local settings.json file
-	"files.trimTrailingWhitespace": true,
+  // Whitespace trimming is already activated in OptiTrust's local settings.json file
+  "files.trimTrailingWhitespace": true,
 
-   // To allow reading C++ code in ifdef sections
-   "C_Cpp.dimInactiveRegions": false,
+  "files.insertFinalNewline": true,
 
-   // To enlarge the editing space
-   "editor.minimap.enabled": false,
+  // To allow reading C++ code in ifdef sections
+  "C_Cpp.dimInactiveRegions": false,
 
-   // View long lines in a reasonable way
-   "editor.wordWrap": "on",
-   "editor.wordWrapColumn": 100,
+  // To enlarge the editing space
+  "editor.minimap.enabled": false,
 
+  "editor.mouseWheelZoom": true,
+
+  "workbench.list.smoothScrolling": true,
+
+  "files.simpleDialog.enable": true,
+
+  // View long lines in a reasonable way
+  "editor.wordWrap": "on",
+  "editor.wordWrapColumn": 100,
+  // Alternative:
+  "editor.wordWrap": "on",
+  "editor.wrappingIndent": "indent",
 ```
 
 In case you wish to use a specific opam switch for VScode, e.g.:
@@ -402,7 +433,7 @@ In case you don't like automatic inserts and popups while you are typing code:
   "editor.inlineSuggest.enabled": false,
   "editor.lightbulb.enabled": false,
   "editor.codeLens": false,
-  "editor.inlayHints.enabled": "off",
+  "editor.inlayHints.enabled": "offUnlessPressed", // or "off"
 	"editor.acceptSuggestionOnCommitCharacter": false,
 	"editor.suggestOnTriggerCharacters": false,
 	"editor.quickSuggestions": {
@@ -414,4 +445,9 @@ In case you don't like automatic inserts and popups while you are typing code:
 	"editor.autoClosingBrackets": "never",
 	"editor.autoSurround": "never",
   "gitlens.currentLine.enabled": false,
+  "workbench.editor.decorations.badges": false,
+
+  "gitblame.inlineMessageFormat": "${author.name} (${time.ago})",
+  "gitblame.statusBarMessageClickAction": "Open git show",
+  "gitblame.statusBarMessageFormat": "${author.name} (${time.ago})",
 ```

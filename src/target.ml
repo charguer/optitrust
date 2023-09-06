@@ -1581,6 +1581,9 @@ let apply ?(rev : bool = false) (tr : trm -> path -> trm) (tg : target) : unit =
 let apply_at_target_paths ?(rev : bool = false) (transfo : trm -> trm) (tg : target) : unit =
   apply ~rev (fun t p -> Path.apply_on_path transfo t p) tg
 
+let applyi_at_target_paths ?(rev : bool = false) (transfo : int -> trm -> trm) (tg : target) : unit =
+  applyi ~rev (fun i t p -> Path.apply_on_path (transfo i) t p) tg
+
 (* ... [transfo t i] where [t] denotes the sequence and [i] denotes the index
    of the item in the sequence before which the target is aiming at. *)
 let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : unit =

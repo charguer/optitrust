@@ -5,6 +5,8 @@ open Mark
 
 type contract_resource = var option * formula
 
+(* TODO: Treat hyp_id as regular var_id *)
+
 let next_hyp_id = Tools.fresh_generator ()
 
 let new_hyp ?(qualifier = []) (name : string) : hyp =

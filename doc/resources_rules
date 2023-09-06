@@ -1,0 +1,103 @@
+T ::= types du langage source
+U ::= types de la logique
+G ::= x: T; ...
+D ::= x: U; ...
+E ::= h: H; ...
+H ::= p => Cell | RO(p => Cell)
+I, J, K ::= (D, E)
+
+Dans les D | E, les variables de D scopent sur E
+D est un téléscope
+E sont des hypothèses indépendantes
+
+{ G | D | E } t { res | D' | E' }
+Les bindings G avec types liftés scopent dans D, E, D', E'
+Les bindings D scope dans E, D', E'
+res scope après lifting dans D', E'
+D' scope dans E'
+
+G' = map logic_type_of_program_type G
+forall G', forall D, { stars(E) } t { fun res: T -> \exists D', stars(E') }
+
+forall s sur dom(D),
+si s(E)(m) et t/m -->* t'/m'
+si t' = v alors exists s', s(D) |-s' s(D')[res:=v] et s'(s(E'))(m')[res:=v]
+sinon t'/m' non bloqué
+
+Dans D' on peut faire référence à \res qui dénote le résultat de t
+
+x fresh
+{ G; x: T | D; D0 | E0 } t { res | D1 | E1 }
+--------------------------------
+{ G | D | E }
+    fun x: T ->
+    pre = { D0 | E0 }
+    post = { res | D1 | E1 }
+    t
+{ res_fn: val | D, (spec_f: U) | E }
+U := { x: T | D0 | E0 } res_fn(x) { res: T | D1 | E1 }
+
+Instantiates G, D |-s D0
+
+G, D |- s(a): U    G, D |-s D0[a := s(a)]
+------------------------------------
+        G, D |-s a: U, D0
+
+On note s(D) ou s(E) l'application de la substitution s dans toutes les valeurs de D ou E
+
+exemple D0 = n: int, p: a = n + n; obligation exhiber n tel que x = n + n
+s(n) = x/2 : int
+s(p) = terme de preuve : D |- x = x/2 + x/2, prouvable si x pair
+
+U = { a: T | D0 | E0 } f(a) { res: T' | D1 | E1 }
+fraicheur dans res et D1 ?
+r = la substitution des a par x
+s = une map du domaine de D0 vers des éléments de U potentiellement dépendant de D
+D |-s r(D0)
+E ==> s(r(E0)); Ef où Ef peut contenir des magic wands correspondant aux permissions affaiblies
+D' = s(r(D1))
+E' = s(r(E1)); Ef avec refermeture des magic wands
+----------------------------------------
+{ G | D; (spec_f: U) | E } f(x) { res | D' | E' }
+
+{ G0 | D0 | E0 } t1 { res1: T | D1 | E1 }
+{ G0; x: T | D1[res1:=x] | E1[res1:=x] } t2 { res2 | D2 | E2 }
+remark x cannot in D2, E2
+---------------------------------------------
+{ G0 | D0 | E0 } let x = t1 in t2 { res2 | D2 | E2 }
+
+{ G0 | D0 | E0 } t1 { res: T | D1 | E1 }
+{ G0; x: T | D1[res:=x] | E1[res:=x] } t2 { D2 | E2 }
+y not in D0, E0
+---------------------------------------------
+{ G0 | D0 | E0 } let x = t1 in t2 { y: lift(T) | D2[x:=y] | E2[x:=y] }
+
+let x = t1;
+t1; { let x = t2; t3 }; t4
+
+ID et KD ont des domaines disjoints
+ID ne fait pas référence à KD et réciproquement
+Pareil pour ID et JD
+{ G, i: int | D; Hi: a <= i < b; D0; ID(i); JD(i) | IE(i); JE(i) }
+    t_body
+{ _ | ID(i + 1); KD(i) | IE(i + 1); KE(i) }
+D ==> D0; ID(a); Conj_i(JD(i))
+E ==> IE(a); Stars_i(JE(i)); Ef
+D' = ID(b); Conj_i(KD(i))
+E' = IE(b); Stars_i(KE(i)); Ef
+---------------------------------------------
+{ G | D | E }
+    for i = a to b do
+        loop_ghosts = D0
+        invariant = { ID(i) | IE(i) }
+        iter_contract_pre = { JD(i) | JE(i) }
+        iter_contract_post = { KD(i) | KE(i) }
+        t_body
+    done
+{ _ | D' | E' }
+
+fun i => \exists q, r => Cell(q) && q => Cell(i)
+
+{ J(i) } t_body { K(i) }
+
+en bonus on pourrait écrire frame et conseq

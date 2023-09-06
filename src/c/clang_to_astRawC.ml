@@ -842,6 +842,10 @@ and tr_expr (e : expr) : trm =
     | [e] -> tr_expr e
     | _ -> fail loc "Clang_to_astRawC.tr_expr: inheritance not yet supported."
     end
+
+  | UnexposedExpr RecoveryExpr ->
+    fail loc "Clang_to_astRawC.tr_expr: parsing failure"
+
   | _ ->
     fail loc
       ("Clang_to_astRawC.tr_expr: the following expression is unsupported: " ^
