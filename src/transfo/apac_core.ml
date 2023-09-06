@@ -220,17 +220,27 @@ let typ_get_degree (ty : typ) : int =
      parameter to the outside world. *)
   aux 0 ty
 
-(* [trm_strip_accesses_and_references_and_get t]: strips [*t, &t, ...]
-    recursively and returns [t]. *)
-let rec trm_strip_accesses_and_references_and_get (t : trm) : trm =
-  match t.desc with
-  | Trm_apps
-    ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) ->
-    trm_strip_accesses_and_references_and_get t
-  | Trm_apps
-    ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) ->
-    trm_strip_accesses_and_references_and_get t
-  | _ -> t
+(* [trm_strip_accesses_and_references_and_get_lvar t]: strips [*t, &t, ...]
+   recursively and if [t] is a variable, it returns the associated labelled
+   variable. *)
+let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
+  let rec aux (l : label) (t : trm) : lvar option =
+    match t.desc with
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+       begin
+         match op with
+         | Unop_struct_access field -> aux field t
+         | Unop_struct_get field -> aux field t
+         | _ -> aux l t
+       end
+    | Trm_apps ({ desc = Trm_val (
+                             Val_prim (Prim_binop array_access)
+                           ); _ }, [t; _]) -> aux l t
+    | Trm_var (_, var) ->
+       let lv : lvar = { v = var; l = l } in Some lv
+    | _ -> None
+  in
+  aux "" t
 
 (************************)
 (* III.2 Constification *)
@@ -451,33 +461,25 @@ let trm_let_update_aliases ?(reference = false)
   let (v, ty) = tv in
   (* and build the corresponding labelled variable. *)
   let lv : lvar = { v = v; l = String.empty } in
-  let error = "Apac_basic.trm_let_update_aliases: unable to retrieve qualified \
-               name of a variable initialization term" in
   (* If we are working with a reference, *)
   if is_reference ty || reference then
     begin
       (* we need to go through the access and reference operations to obtain the
-         AST term corresponding to the variable we might be aliasing. *)
-      let ti_trm_var = trm_strip_accesses_and_references_and_get ti in
-      if trm_is_var ti_trm_var then
-        begin
-          (* Once we have found the variable term, we deconstruct it, *)
-          let ti_var = trm_inv ~error trm_var_inv ti_trm_var in
-          (* build a labelled variable from it, *)
-          let ti_lvar : lvar = { v = ti_var; l = String.empty } in
-          (* check whether it represents an alias to an existing variable or
-             argument *)
-          if LVar_Hashtbl.mem aliases ti_lvar then
-            begin
-              (* and if it is the case, create a new entry in [aliases] to keep
-                 trace of it. *)
-              let (aliased, _) = LVar_Hashtbl.find aliases ti_lvar in
-              LVar_Hashtbl.add aliases lv (aliased, 0);
-              1
-            end
-          else 0
-        end
-      else 0
+         variable we might be aliasing, if any. *)
+      match (trm_strip_accesses_and_references_and_get_lvar ti) with
+      | Some ti_lvar ->
+         (* check whether it represents an alias to an existing variable or
+            argument *)
+         if LVar_Hashtbl.mem aliases ti_lvar then
+           begin
+             (* and if it is the case, create a new entry in [aliases] to keep
+                trace of it. *)
+             let (aliased, _) = LVar_Hashtbl.find aliases ti_lvar in
+             LVar_Hashtbl.add aliases lv (aliased, 0);
+             1
+           end
+         else 0
+      | None -> 0
     end
       (* If we are working with a pointer, *)
   else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then
@@ -675,42 +677,35 @@ let identify_mutables_on (p : path) (t : trm) : unit =
        let shift = (List.length args) - (List.length fun_args_const) in
        (* For each argument of the function call, we *)
        List.iteri (fun index arg ->
-           (* go through the access and reference operations to obtain the AST
-              term corresponding to the argument variable and *)
-           let arg_trm_var = trm_strip_accesses_and_references_and_get arg in
-           if trm_is_var arg_trm_var then
-             begin
-               let error = "Apac_basic.identify_mutables_on: unable to \
-                            retrieve qualified name of an argument" in
-               (* deconstruct the variable term *)
-               let arg_var = trm_inv ~error trm_var_inv arg_trm_var in
-               let _ = Printf.printf "call arg: %s\n" (var_to_string arg_var) in
-               (* and build the associated labelled variable. *)
-               let arg_lvar : lvar = { v = arg_var; l = String.empty } in
-               (* If the variable is an alias, we have to *)
-               if LVar_Hashtbl.mem aliases arg_lvar then
-                 begin
-                   (* determine the index of the argument it is aliasing, *)
-                   let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
-                   if (index - shift) < 0 then
-                     Stack.push (fun_var, arg_var, name) to_unconst_objects
-                   else
-                     begin
-                       (* find the contification record of that argument *)
-                       let (_, arg_const) = List.nth fun_args_const (index - shift) in
-                       let _ = Printf.printf "alias: %s\n" (lvar_to_string arg_lvar) in
-                       (* and if the latter is a pointer or a reference, *)
-                       if arg_const.is_ptr_or_ref then
-                         begin
-                           Printf.printf "arg is ptr or ref (%s, %s)\n" (var_to_string fun_var) (lvar_to_string aliased);
-                           (* we will have to unconstify it by propagation. *)
-                           arg_const.to_unconst_by_propagation <-
-                             (fun_var, aliased.v) ::
-                               arg_const.to_unconst_by_propagation
-                         end
-                     end
-                 end
-             end
+           (* go through the access and reference operations to obtain the
+              argument labelled variable, if any, and *)
+           match (trm_strip_accesses_and_references_and_get_lvar arg) with
+           | Some arg_lvar ->
+              let _ = Printf.printf "call arg: %s\n" (lvar_to_string arg_lvar) in
+              (* If the variable is an alias, we have to *)
+              if LVar_Hashtbl.mem aliases arg_lvar then
+                begin
+                  (* determine the index of the argument it is aliasing, *)
+                  let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
+                  if (index - shift) < 0 && arg_lvar.v.name <> "this" then
+                    Stack.push (fun_var, arg_lvar.v, name) to_unconst_objects
+                  else
+                    begin
+                      (* find the contification record of that argument *)
+                      let (_, arg_const) = List.nth fun_args_const (index - shift) in
+                      let _ = Printf.printf "alias: %s\n" (lvar_to_string arg_lvar) in
+                      (* and if the latter is a pointer or a reference, *)
+                      if arg_const.is_ptr_or_ref then
+                        begin
+                          Printf.printf "arg is ptr or ref (%s, %s)\n" (var_to_string fun_var) (lvar_to_string aliased);
+                          (* we will have to unconstify it by propagation. *)
+                          arg_const.to_unconst_by_propagation <-
+                            (fun_var, aliased.v) ::
+                              arg_const.to_unconst_by_propagation
+                        end
+                    end
+                end
+           | None -> ()
          ) args;
        trm_iter (aux aliases fun_var) fun_body
     | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) ->
