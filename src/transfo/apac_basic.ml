@@ -434,9 +434,6 @@ let heapify_on (t : trm) : trm =
                [int const * a = &i, * const b = &j] it is the case of [b]. *)
             if is_typ_const ty then
               begin
-                let _ = Printf.printf "const %s" (var_to_string v) in
-                let _ = Debug_transfo.typ "of ty" ty in
-                let _ = Debug_transfo.typ "and tyi" tyi in
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
@@ -460,9 +457,6 @@ let heapify_on (t : trm) : trm =
                or not), e.g. [int * a[10]]. *)
             else if is_typ_array ty then
               begin
-                let _ = Printf.printf "array %s" (var_to_string v) in
-                let _ = Debug_transfo.typ "of ty" ty in
-                let _ = Debug_transfo.typ "and tyi" tyi in
                 (* To transform a static array allocation to a dynamic array
                    allocation, we need to determine its inner type, i.e. the
                    type of the values stored in the array (without the square
@@ -488,10 +482,6 @@ let heapify_on (t : trm) : trm =
                none of the two. *)
             else
               begin
-                let _ = Printf.printf "other %s" (var_to_string v) in
-                let _ = Debug_transfo.typ " of ty" ty in
-                let _ = Debug_transfo.typ " and tyi" tyi in
-                (*let tya = if is_typ_array tyi then get_inner_array_type tyi else ty in*)
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
@@ -552,9 +542,6 @@ let heapify_on (t : trm) : trm =
                    inner const type directly from [ty] unlike in the case of a
                    multiple variable declaration (see above). *)
                 let tyc = get_inner_const_type ty in
-                let _ = Printf.printf "const simple %s" (var_to_string v) in
-                let _ = Debug_transfo.typ " of ty" ty in
-                let _ = Debug_transfo.typ " and tyc" tyc in
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
@@ -577,9 +564,6 @@ let heapify_on (t : trm) : trm =
                or not), e.g. [int * a[10]]. *)
             else if is_typ_array tyi then
               begin
-                let _ = Printf.printf "array simple %s" (var_to_string v) in
-                let _ = Debug_transfo.typ " of ty" ty in
-                let _ = Debug_transfo.typ " and tyi" tyi in
                 (* To transform a static array allocation to a dynamic array
                    allocation, we need to determine its inner type, i.e. the
                    type of the values stored in the array (without the square
@@ -588,7 +572,6 @@ let heapify_on (t : trm) : trm =
                    of constants, e.g. [int const tab[2]], [tya] shall be [const
                    int]. *)
                 let tya = get_inner_array_type tyi in
-                let _ = Debug_transfo.typ " and tya" tya in
                 (* We then transform the lvalue type to a pointer, e.g. [int
                    tab[2]] becomes [int * tab]. *)
                 let ty2 = typ_ptr Ptr_kind_mut tya in
@@ -610,9 +593,6 @@ let heapify_on (t : trm) : trm =
                where either the value or the memory location is not const or
                none of the two. *)
             else
-              let _ = Printf.printf "other simple %s" (var_to_string v) in
-              let _ = Debug_transfo.typ " of ty" ty in
-              let _ = Debug_transfo.typ " and tyi" tyi in
               (* We then transform the lvalue type to a pointer, e.g. [int a]
                  becomes [int * a]. *)
               let ty2 = typ_ptr Ptr_kind_mut tyi in
