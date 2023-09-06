@@ -190,6 +190,9 @@ let constify_args_on ?(force = false) (t : trm) : trm =
     let const_record = Var_Hashtbl.find Apac_core.const_records var in
     let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_class_method then "in class" else "not in class") in
     let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_const then "is const" else "not const") in
+  (* If the function is a class member method, its first argument is the [this]
+     variable referring to the parent class. In this case, we do not need to
+     include it in the resulting constification record. *)
     let this = List.hd args in
     let args = if const_record.is_class_method then List.tl args else args in
     (* Simultaneously loop over the list of function's arguments as well as over
@@ -202,7 +205,8 @@ let constify_args_on ?(force = false) (t : trm) : trm =
                          if cr.is_const then (v, (typ_constify ty)) else (v, ty)
                        ) args const_args_record in
     (* Rebuild the function definition term using the list of constified
-       arguments. *)
+       arguments. If it is a class member method, we have to bring back [this]
+       to the list of arguments. *)
     let const_args =
       if const_record.is_class_method then this::const_args else const_args in
     let let_fun_with_const_args =
@@ -335,6 +339,9 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
   (* Gather the constification record of the function. *)
   let const_record = Var_Hashtbl.find Apac_core.const_records var in
+  (* If the function is a class member method, its first argument is the [this]
+     variable referring to the parent class. In this case, we do not need to
+     include it in the resulting constification record. *)
   let this = List.hd args in
   let args = if const_record.is_class_method then List.tl args else args in
   (* Create an alias hash table. *)
@@ -370,7 +377,8 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
         ) args const_args_record
     end;
   (* Call the auxiliary function to constify the aliases in the body of the
-     function. *)
+     function. If it is a class member method, we have to bring back [this] to
+     the list of arguments. *)
   let args = if const_record.is_class_method then this::args else args in
   let body_with_const_aliases = aux aliases body in
   (* Rebuild and return the function definition term with the updated body. *)

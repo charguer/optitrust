@@ -33,6 +33,8 @@ open Path
 *)
 type lvar = { v : var; l : label; }
 
+(* [lvar_to_string] returns a string representation of the labelled variable
+   [lv]. *)
 let lvar_to_string (lv : lvar) : string =
   let q_str = String.concat "" (List.map (fun q -> q ^ "::") lv.v.qualifier) in
   let id_str = if lv.v.id = -1 then "?" else (string_of_int lv.v.id) in
@@ -116,8 +118,8 @@ type const_funs = const_fun Var_Hashtbl.t
    2. *)
 type const_aliases = (lvar * int) LVar_Hashtbl.t
 
-(* [const_unconst]: type of stack of function arguments that must not be
-   constified.
+(* [const_unconst]: type of stack of function arguments, except for objects,
+   that must not be constified.
 
    At the beginning of the constification process, we assume that every function
    argument in every function can be constified, see
@@ -137,9 +139,26 @@ type const_aliases = (lvar * int) LVar_Hashtbl.t
    identifying the target function and the [var] identifying its argument to
    unconstify. If the latter represents the [lvar] of the function, i.e. when
    both of the elements of the pair are equal [lvars], it means that the
-   function itself should be unconstified. *)
+   function itself should be unconstified. See
+   [unconstify_mutables.unconstify_to_unconst_objects]. *)
 type const_unconst = (var * var) Stack.t
 
+(* [const_unconst_objects]: type of stack of function arguments, represented by
+   objects, that must not be constified. 
+
+   When an object is passed as argument to a function, it must not be constified
+   if it is used to call a non-const class method which may modify one or more
+   members of the class. However, this information is not know before the
+   elements in a [const_unconst] stack are processed (see
+   [unconstify_mutables]). This is why a second phase is necessary to process
+   the elements of a [const_unconst_objects] stack (see [unconstify_mutables]).
+   Here, an element is represented by a triplet of [var]s where the first [var]
+   identifies the target function, the second [var] identifies the argument of
+   that function to unconstify and the third [var] represents the class member
+   method called on that argument. Then, during the unconstification process
+   (see [unconstify_mutables]), if the method represented by the third [var]
+   gets unconstified, the argument (second [var]) of the function targeted by
+   the first [var] will be unconstified too. *)
 type const_unconst_objects = (var * var * var) Stack.t
 
 (******************************************************************)
@@ -224,19 +243,32 @@ let typ_get_degree (ty : typ) : int =
    recursively and if [t] is a variable, it returns the associated labelled
    variable. *)
 let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
+  (* Internal auxiliary recursive function allowing us to hide the [l] parameter
+     to the outside world. *)
   let rec aux (l : label) (t : trm) : lvar option =
     match t.desc with
+    (* [t] is a unary operation *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
        begin
          match op with
+         (* Whenever we stumble upon a structure access or get operation, we
+            extract the label of the structure field involved in the
+            operation. *)
          | Unop_struct_access field -> aux field t
          | Unop_struct_get field -> aux field t
+         (* In case of another unary operations, we simply recurse on the
+            internal term. *)
          | _ -> aux l t
        end
+    (* [t] is a binary operation corresponding to an array access *)
     | Trm_apps ({ desc = Trm_val (
                              Val_prim (Prim_binop array_access)
+                             (* We continue to recurse on the internal term. *)
                            ); _ }, [t; _]) -> aux l t
+    (* [t] actually leads to a variable *)
     | Trm_var (_, var) ->
+       (* Use [var] and the label [l] to build the associated labelled
+          variable and return it. *)
        let lv : lvar = { v = var; l = l } in Some lv
     | _ -> None
   in
@@ -340,30 +372,38 @@ let trm_resolve_binop_lval_and_get_with_deref (t : trm) : (lvar * bool) option =
 (* [trm_resolve_var_in_unop_or_array_access_and_get t] tries to resolve the
    variable (including the associated label if we are dealing with a class
    member variable) involved in a unary operation (++, --, & or get) or array
-   access [t] and return it. *)
+   access [t] and return it in a form of a labelled variable. *)
 let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
-  (* Simply recurse over unary operations and array accesses, *)
+  (* Simply recurse over unary operations and array accesses. *)
   let rec aux (l : label) (t : trm) : lvar option =
     match t.desc with
+    (* [t] is a unary operation *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [term]) ->
        begin
-         (* except when the operation involves a struct or a class member. In
-            this case, we need to keep track of the label of the member invovled
-            in the operation. *)
          match op with
+         (* Whenever we stumble upon a structure access or get operation, we
+            extract the label of the structure field involved in the
+            operation. *)
          | Unop_struct_access field -> aux field term
          | Unop_struct_get field -> aux field term
+         (* When [t] is a get, an [&] operation, a prefix or a postfix unary
+            operation ([++i] or [i++]), we continue to recurse on the internal
+            term. *)
          | Unop_get
            | Unop_address -> aux l term
          | _ when (is_prefix_unary op || is_postfix_unary op) -> aux l term
+         (* Otherwise, there is nothing to resolve. *)
          | _ -> None
        end
+    (* [t] is a binary operation corresponding to an array access *)
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            (* We continue to recurse on the internal term. *)
             _}, [term; _]) -> aux l term
-    (* We found the variable term, build and return the resulting labelled
-       variable. *)
+    (* [t] actually leads to a variable *)
     | Trm_var (_, var) ->
+       (* Use [var] and the label [l] to build the associated labelled
+          variable and return it. *)
        let lv : lvar = { v = var; l = l } in Some lv
     | _ -> None
   in
@@ -373,29 +413,41 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
    pointer operation [t] and checks in [aliases] whether the resulting pointer
    is an argument or an alias to an argument. If the pointer operation succeedes
    and if the resulting pointer is an argument or an alias to an argument, the
-   function returns the variable corresponding to the resulting pointer as well
-   as the aliased variable. *)
+   function returns the labelled variable corresponding to the resulting pointer
+   as well as the aliased labelled variable. *)
 let trm_resolve_pointer_and_aliased_variable
       (t : trm) (aliases : const_aliases) : (lvar * lvar) option =
+  (* Simply recurse over different kinds of operations. *)
   let rec aux (degree : int) (l : label) (t : trm) : (lvar * lvar) option =
     match t.desc with
-    (* Unary operation: strip, update degree and recurse. *)
+    (* [t] is a unary operation *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
        begin match op with
+         (* When it is a get operation such as [*i], the pointer degree
+            decreases. *)
        | Unop_get -> aux (degree - 1) l t
+       (* When it is an [&] operation, the pointer degree raises. *)
        | Unop_address -> aux (degree + 1) l t
+       (* When it is a cast operation, the pointer degree is represented by the
+          sum of the current degree and the degree of the target type. *)
        | Unop_cast ty -> aux (degree + typ_get_degree ty) l t
+       (* Whenever we stumble upon a structure access or get operation, we
+          extract the label of the structure field involved in the operation.
+          However, the degree remains the same. *)
        | Unop_struct_access field -> aux degree field t
        | Unop_struct_get field -> aux degree field t
+       (* Otherwise, there is nothing to resolve. *)
        | _ -> None
        end
-    (* Array access: strip, update degree and recurse. *)
+    (* [t] is a binary operation corresponding to an array access *)
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            (* We continue to recurse on the internal term. *)
             _ }, [t; _]) -> aux (degree - 1) l t
-    (* Other binary operation: strip, update degree and recurse on both left and
-       right-hand sides. *)
+    (* [t] is a binary operation of another type *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+       (* We continue to recurse on both the left and the right internal
+          terms. *)
        begin match (aux degree l lhs, aux degree l rhs) with
        | Some (res), None -> Some (res)
        | None, Some (res) -> Some (res)
@@ -404,13 +456,16 @@ let trm_resolve_pointer_and_aliased_variable
             C/C++ can not lead to a valid alias of one of them. *)
          | Some (_), Some (_) -> None
        end
-    (* Variable: build the associated labelled variable and check if its an
-       argument or an alias to an argument, then return the corresponding
-       argument index and labelled variable. *)
+    (* [t] actually leads to a variable *)
     | Trm_var (_, v) ->
+       (* Use [var] and the label [l] to build the associated labelled
+          variable. *)
        let lv : lvar = { v = v; l = l } in
+       (* Check if its an argument or an alias to an argument, then return the
+          corresponding argument index and labelled variable. *)       
        begin match LVar_Hashtbl.find_opt aliases lv with
        | Some (aliased, deg) when (degree + deg) > 0 -> Some (lv, aliased)
+       (* Otherwise, there is nothing to return. *)
        | _ -> None
        end
     | _ -> None
@@ -421,7 +476,7 @@ let trm_resolve_pointer_and_aliased_variable
    variable and returns [true] on success and [false] otherwise. *)
 let rec trm_can_resolve_pointer (t : trm) : bool =
     match t.desc with
-    (* Unary operation: strip, update degree and recurse. *)
+    (* [t] is unary operation: strip, update degree and recurse. *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
        begin match op with
        | Unop_get
@@ -429,15 +484,16 @@ let rec trm_can_resolve_pointer (t : trm) : bool =
          | Unop_cast _ -> trm_can_resolve_pointer t
        | _ -> false
        end
-    (* Array access: strip, update degree and recurse. *)
+    (* [t] is a binary operation corresponding to an array access: strip, update
+       degree and recurse. *)
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
             _ }, [t; _]) -> trm_can_resolve_pointer t
-    (* Other binary operation: strip, update degree and recurse on both left and
-       right-hand sides. *)
+    (* [t] is a binary operation of another type: strip, update degree and
+       recurse on both left and right-hand sides. *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
        (trm_can_resolve_pointer lhs) || (trm_can_resolve_pointer rhs)
-    (* Variable: success. Return [true]. *)
+    (* [t] actually leads to a variable: success. Return [true]. *)
     | Trm_var _ -> true
     | _ -> false
 
@@ -465,7 +521,7 @@ let trm_let_update_aliases ?(reference = false)
   if is_reference ty || reference then
     begin
       (* we need to go through the access and reference operations to obtain the
-         variable we might be aliasing, if any. *)
+         variable we might be aliasing in the form of a labelled variable. *)
       match (trm_strip_accesses_and_references_and_get_lvar ti) with
       | Some ti_lvar ->
          (* check whether it represents an alias to an existing variable or
@@ -476,9 +532,12 @@ let trm_let_update_aliases ?(reference = false)
                 trace of it. *)
              let (aliased, _) = LVar_Hashtbl.find aliases ti_lvar in
              LVar_Hashtbl.add aliases lv (aliased, 0);
+             (* Return 1 because declared variable is a reference. *)
              1
            end
+             (* There is nothing to do, return 0. *)
          else 0
+      (* There is nothing to do, return 0. *)
       | None -> 0
     end
       (* If we are working with a pointer, *)
@@ -494,10 +553,13 @@ let trm_let_update_aliases ?(reference = false)
          begin
            let _ = Printf.printf "rval is aliasing: %s\n" (lvar_to_string aliased) in
            LVar_Hashtbl.add aliases lv (aliased, typ_get_degree ty);
+           (* Return 1 because declared variable is a pointer. *)
            2
          end
+      (* There is nothing to do, return 0. *)
       | None -> 0
     end
+      (* There is nothing to do, return 0. *)
   else 0
 
 (* [find_parent_typedef_record p]: goes back up the path [p] and returns the
@@ -528,11 +590,21 @@ let find_parent_typedef_record (p : path) : trm option =
   in
   aux reversed
 
-(* [unconstify_mutables] pops out the elements from [to_unconst] (global
-   variable, see Part II.1) one by one and propagates the unconstification
-   through the concerned function constification records in [const_records]
-   (global variable, see Part II.1). *)
+(* [unconstify_mutables] proceeds in two phases, i.e. [unconstify_to_unconst]
+   and [unconstify_to_unconst_objects]. At first, it pops out the elements from
+   [to_unconst] and then from [to_unconst_objects] (global variables, see Part
+   II.1) one by one and propagates the unconstification through the concerned
+   function constification records in [const_records] (global variable, see Part
+   II.1). *)
 let unconstify_mutables () : unit =
+  (* [unconstify_to_unconst] propagates the unconstification through the
+     concerned function constification records but it does not apply to
+     arguments representing objects. Indeed, such an argument cannot be
+     constified if it is used to call a non-const class method which may modify
+     one or more members of the class. However, this information is not know
+     before the end of the unconstification propagation, i.e. before returning
+     from [unconstify_to_unconst]. This is why a second phase is necessary, see
+     [unconstify_to_unconst_objects]. *)
   let rec unconstify_to_unconst () : unit =
     (* Pop out an element from [to_unconst]. *)
     match Stack.pop_opt to_unconst with
@@ -572,15 +644,26 @@ let unconstify_mutables () : unit =
     (* When the stack is empty, stop and return. *)
     | None -> ()
   in
+  (* [unconstify_to_unconst_objects] propagates the unconstification through the
+     concerned function constification records and applies exclusively to
+     arguments representing objects. If such an argument is used to call a
+     non-const class method which may modify one or more members of the class,
+     the argument is unconstified. *)
   let rec unconstify_to_unconst_objects () : unit =
+    (* Pop out an element from [to_unconst_objects]. *)
     match Stack.pop_opt to_unconst_objects with
     | Some (fn, ar, ff) ->
-       (* Find the corresponding function constification record in
-          [const_records]. *)
+       (* Find the constification record of the function that has been called,
+          i.e. [ff] . *)
        let const_record_ff = Var_Hashtbl.find const_records ff in
+       (* If it is a class member method and it has been unconstified in the
+          previous phase, *)
        if const_record_ff.is_class_method && not const_record_ff.is_const then
          begin
+           (* find the constification record of the function that has called
+              [ff], i.e. [fn], and *)
            let const_record_fn = Var_Hashtbl.find const_records fn in
+           (* gather the corresponding argument constification record. *)
            let (_, arg) =
              List.find (fun (x, _) -> x.id = ar.id) const_record_fn.const_args
            in
@@ -611,12 +694,15 @@ let build_constification_records_on (t : trm) : unit =
   let error = "Apac_basic.const_lookup_candidates: expected a target to a \
                function definition!" in
   let (var, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv t in
+  (* Extract the first argument of the function. *)
   let (first, _) = List.hd args in
   let _ = Printf.printf "first : %s\n" (var_to_string first) in
+  (* If the function is a class member method, its first argument is the [this]
+     variable referring to the parent class. In this case, we do not need to
+     include it in the resulting constification record. *)
   let args = if first.name = "this" then List.tl args else args in
   let _ = Printf.printf "Candidate : %s\n" (var_to_string var) in
-  (* Create an argument constification record for all of the function's
-     arguments. *)
+  (* Create an argument constification record for the function's arguments. *)
   let const_args = List.map (
                        fun (arg, ty) -> (arg, {
                            is_ptr_or_ref =
@@ -674,24 +760,40 @@ let identify_mutables_on (p : path) (t : trm) : unit =
        let fun_call_const = Var_Hashtbl.find const_records name in
        let fun_args_const = fun_call_const.const_args in
        let _ = Printf.printf "Parsed args: %d, nb args in record: %d\n" (List.length args) (List.length fun_args_const) in
+       (* In the case of a call to a class member method, the first argument is
+          the variable referring to the parent class instance, e.g. in
+          [this->p(i, j)] the first argument is [this]] and in [a.f(i, j)] the
+          first argument is [a]]. This is why the number of arguments in the
+          function and the number of argument constification records associated
+          with the function may not be the same. If [shift], the difference of
+          these two values, has a positive value, we know that the current
+          function call as a call to a class member method. *)
        let shift = (List.length args) - (List.length fun_args_const) in
        (* For each argument of the function call, we *)
        List.iteri (fun index arg ->
            (* go through the access and reference operations to obtain the
-              argument labelled variable, if any, and *)
+              argument in the form of a labelled variable, if any, and *)
            match (trm_strip_accesses_and_references_and_get_lvar arg) with
            | Some arg_lvar ->
               let _ = Printf.printf "call arg: %s\n" (lvar_to_string arg_lvar) in
-              (* If the variable is an alias, we have to *)
+              (* if the variable is an alias, we have to *)
               if LVar_Hashtbl.mem aliases arg_lvar then
                 begin
-                  (* determine the index of the argument it is aliasing, *)
+                  (* determine the index of the argument it is aliasing. *)
                   let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
+                  (* If a class member method has been called and if the parent
+                     is not [this], we may have to unconstify the argument. See
+                     [unconstify_mutables] for more details. The constification
+                     transformation does not take into account class member
+                     variables for now. *)
+                  (* TODO: Consider parent class member variables in constif. *)
                   if (index - shift) < 0 && arg_lvar.v.name <> "this" then
                     Stack.push (fun_var, arg_lvar.v, name) to_unconst_objects
+                  (* In the opposite case, *)
                   else
                     begin
-                      (* find the contification record of that argument *)
+                      (* there is the corresponding argument constification
+                         record to be gathered *)
                       let (_, arg_const) = List.nth fun_args_const (index - shift) in
                       let _ = Printf.printf "alias: %s\n" (lvar_to_string arg_lvar) in
                       (* and if the latter is a pointer or a reference, *)
@@ -708,8 +810,6 @@ let identify_mutables_on (p : path) (t : trm) : unit =
            | None -> ()
          ) args;
        trm_iter (aux aliases fun_var) fun_body
-    | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) ->
-       Printf.printf "External Call to %s\n" (var_to_string name)
     (* Variable declaration: update list of aliases. *)
     | Trm_let (_, lval, { desc = Trm_apps (_, [rval]); _ }, _) ->
        let _ =
@@ -728,15 +828,21 @@ let identify_mutables_on (p : path) (t : trm) : unit =
        let error = "Apac_basic.identify_mutables_on: expected set operation." in
        let (lval, rval) = trm_inv ~error set_inv fun_body in
        begin
+         (* The lvalue has been modified by assignment. Resolve the labelled
+            variable behind the lvalue and determine whether it has been
+            dereferenced. *)
          match trm_resolve_binop_lval_and_get_with_deref lval with
-         (* The lvalue has been modified by assignment, if it is an argument or
-            an alias to an argument, we must not constify it. *)
          | Some (lval_lvar, lval_deref) ->
             let _ = Printf.printf "set on %s\n" (lvar_to_string lval_lvar) in
+            (* If the lvalue is [this], it means that the function we are in is
+               modifying a member variable of the parent class. Therefore, we
+               will have to unconstify the method itself. *)
             if lval_lvar.v.name = "this" then
               begin
                 Stack.push (fun_var, fun_var) to_unconst
               end;
+            (* If it is an argument or an alias to an argument, we must not
+               constify it. *)
             if LVar_Hashtbl.mem aliases lval_lvar then
               begin
                 (* An alias of the same name may have been used multiple times
@@ -769,19 +875,33 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                    stack. *)
                 let all_aliases = LVar_Hashtbl.find_all aliases lval_lvar in
                 List.iter (fun (aliased, _) ->
+                    (* Again, we do not consider parent class members because
+                       the constification process does not analyze entire
+                       classes yet. See an aforementioned TODO. *)
                     if aliased.v.name <> "this" then
                       Stack.push (fun_var, aliased.v) to_unconst
                   ) all_aliases;
                 (* When an alias changes a target, i.e. when the lvalue variable
-                   was not dereferenced, we have to add a new entry into
-                   [aliases]. This happens, for example, on L3 in the
-                   aforementioned example. *)
+                   was not dereferenced, *)
                 begin
+                  (* we have to resolve the pointer labelled variable behind the
+                     rvalue and check if it is an argument an alias to an
+                     argument. *)
                   match (
                     trm_resolve_pointer_and_aliased_variable rval aliases
                   ) with
+                  (* If it is the case, we have to add a new entry into
+                     [aliases]. This happens, for example, on L3 in the
+                     aforementioned example. *)
                   | Some (_, aliased) ->
                      let (_, lval_degree) = List.nth all_aliases 0 in
+                     (* The value of [lval_deref] is incorrect when the lvalue
+                        refers to the parent [this]. This is because
+                        [trm_resolve_binop_lval_and_get_with_deref] operates on
+                        [this] and not on the concerned structure member. In
+                        this case, to verify that the lvalue was not
+                        dereferenced, we have to check that the pointer degree
+                        of the lvalue is still greater than 0. *)
                      if not lval_deref || (lval_lvar.v.name = "this" && lval_degree > 0) then
                        let _ = Printf.printf "alias changes target to %s, lval_degree is %d\n" (lvar_to_string aliased) lval_degree in
                        LVar_Hashtbl.add aliases
@@ -804,6 +924,9 @@ let identify_mutables_on (p : path) (t : trm) : unit =
        (* Propagate the unconstification to all previously aliased arguments. *)
        let all_aliases = LVar_Hashtbl.find_all aliases var_lvar in
        List.iter (fun (aliased , _) ->
+           (* Again, we do not consider parent class members because the
+              constification process does not analyze entire classes yet. See an
+              aforementioned TODO. *)
            if aliased.v.name <> "this" then
              Stack.push (fun_var, aliased.v) to_unconst
          ) all_aliases;
@@ -824,6 +947,9 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                    arguments. *)
                 let all_aliases = LVar_Hashtbl.find_all aliases ret_lvar in
                 List.iter (fun (aliased, _) ->
+                    (* Again, we do not consider parent class members because
+                       the constification process does not analyze entire
+                       classes yet. See an aforementioned TODO. *)
                     if aliased.v.name <> "this" then
                       Stack.push (fun_var, aliased.v) to_unconst
                   ) all_aliases
@@ -844,6 +970,9 @@ let identify_mutables_on (p : path) (t : trm) : unit =
            (* If it is the case, we need it to be unconstified. *)
            | Some (_, aliased) -> 
               Printf.printf "return in %s is aliasing %s\n" (var_to_string fun_var) (lvar_to_string aliased);
+              (* Again, we do not consider parent class members because the
+                 constification process does not analyze entire classes yet. See
+                 an aforementioned TODO. *)
               if aliased.v.name <> "this" then
                 Stack.push (fun_var, aliased.v) to_unconst
            | None -> ()
@@ -866,22 +995,36 @@ let identify_mutables_on (p : path) (t : trm) : unit =
   let class_siblings = match (find_parent_typedef_record p) with
     | Some (td) -> typedef_get_members td
     | None -> [] in
-  (* add them to the table of aliases as well as *)
+  (* add them to the table of aliases in the form of labelled variables. *)
   if List.length class_siblings > 0 then
     begin
+      (* In the case of class member methods, the first argument of the function
+         is the variable referring to the parent class instance, i.e. [this]. *)
       let (this, _) = List.hd args in
+      (* Record that this is a class member method. *)
       const_record.is_class_method <- true;
+      (* For each member variable of the parent class, *)
       List.iteri (fun index (label, ty) ->
+          (* build the corresponding labelled variable and *)
           let lv : lvar = { v = this; l = label } in
           Printf.printf "Class sibling for aliases : %s\n" (lvar_to_string lv);
+          (* add it to the hash table of aliases. *)
           LVar_Hashtbl.add aliases lv (lv, typ_get_degree ty)
         ) class_siblings
     end;
+  (* If the function is not a class member method, it cannot be constified. It
+     is not taken into account in C/C++. *)
   if not const_record.is_class_method then
     const_record.is_const <- false;
-  (* the arguments of the function itself. This is necessary in order to be able
-     to identify possible aliases to these variables within the body of the
-     function during the analysis using the auxiliary function defined above. *)
+  (* Then, of course, we have also to add the arguments of the function itself
+     to the hash table of aliases. This is necessary in order to be able to
+     identify possible aliases to these variables within the body of the
+     function during the analysis using the auxiliary function defined above.
+
+     Note that in the case of class member methods, we do not need to add the
+     first argument which is a variable referring to the parent class instance.
+     Indeed, we have already added sibling class member values into the hash
+     table of aliases above. *)
   let args = if const_record.is_class_method then List.tl args else args in
   List.iteri (fun index (v, ty) ->
       let lv : lvar = { v = v; l = String.empty } in
