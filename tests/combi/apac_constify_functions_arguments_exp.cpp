@@ -75,11 +75,14 @@ void p(int a, const int b) { AA::f(a); }
 class CC {
  public:
   int* i;
+  int* j;
   void f(int* a, const int b) {
     i = a;
-    *i = 1;
+    *j = 42;
+    p(i, j);
   }
   int q(const int a) const;
+  void p(int* a, const int* const b) const { *a = *b + 1; }
 };
 
 int CC::q(const int a) const { return a; }

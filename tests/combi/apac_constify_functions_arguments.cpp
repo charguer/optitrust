@@ -94,19 +94,18 @@ void p(int a, int b) {
 class CC {
 public:
     int * i;
-    // int * j;
+    int * j;
     
     void f(int * a, int b) {
         i = a;
-        // j = c;
-        *i = 1;
-        // *j = 42;
-        // this->p(i, j);
+        j = c;
+        *j = 42;
+        p(i, j);
     }
     
     int q(int a);
 
-    // void p(int * a, int * b) { *a = *b + 1; }
+    void p(int * a, int * b) { *a = *b + 1; }
 };
 
 int CC::q(int a) {
