@@ -737,6 +737,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
          (* The lvalue has been modified by assignment, if it is an argument or
             an alias to an argument, we must not constify it. *)
          | Some (lval_lvar, lval_deref) ->
+            let _ = Printf.printf "set on %s\n" (lvar_to_string lval_lvar) in
             if lval_lvar.v.name = "this" then
               begin
                 Stack.push (fun_var, fun_var) to_unconst
@@ -785,8 +786,9 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                     trm_resolve_pointer_and_aliased_variable rval aliases
                   ) with
                   | Some (_, aliased) ->
-                     if not lval_deref then
-                       let (_, lval_degree) = List.nth all_aliases 0 in
+                     let (_, lval_degree) = List.nth all_aliases 0 in
+                     if not lval_deref || (lval_lvar.v.name = "this" && lval_degree > 0) then
+                       let _ = Printf.printf "alias changes target to %s, lval_degree is %d\n" (lvar_to_string aliased) lval_degree in
                        LVar_Hashtbl.add aliases
                          lval_lvar (aliased, lval_degree)
                   | None -> ()
