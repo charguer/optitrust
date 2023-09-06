@@ -55,7 +55,7 @@ type strm = string
 type styp = string
 
 type var_id = int
-(* [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
+(** [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
 type var = { qualifier: string list; name: string; id: var_id }
 
 let var_to_string (v : var) : string =

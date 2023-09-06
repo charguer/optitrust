@@ -217,6 +217,7 @@ let dsp_call_aux (dsp : string) (t : trm) : trm =
     begin match rhs.desc with
     | Trm_apps ({desc = Trm_var (_, f); _}, args) ->
         let dsp_name = if dsp = "" then f.name ^ "_dsp" else dsp in
+        (* TODO: avoid using name_to_var, take var as arg. *)
         trm_apps (trm_var (name_to_var dsp_name)) (args @ [lhs])
     | _ -> fail rhs.loc "Function_core.dsp_call_aux: expected a target to a function call."
     end

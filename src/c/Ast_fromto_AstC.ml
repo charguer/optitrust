@@ -779,6 +779,7 @@ let cfeatures_elim: trm -> trm =
   class_member_elim |>
   method_call_elim |>
   infix_elim |>
+  (* TODO: remove some infer var ids? *)
   C_scope.infer_var_ids |>
   stackvar_elim |>
   C_scope.infer_var_ids |>

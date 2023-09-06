@@ -2,35 +2,47 @@ open Ast
 open Trm
 module String_map = Tools.String_map
 
-let unique_alpha_rename (t : trm) : trm =
-  (* NOTE: using unqualified names to detect conflict because
-     namespace management is language-dependant.contents
+let ends_with_num_suffix_rexp = Str.regexp ".*_[0-9]+"
+let ends_with_num_suffix name =
+  Str.string_match ends_with_num_suffix_rexp name 0
 
-     LATER: also add language-specific ability to correct qualifiers?
+(* first binding of 'x' keeps the name 'x',
+   second one takes name 'x_2',
+   third one takes name 'x_3', ...
+
+   note: if name already ends with '_N', first binding ends with `_N_1`.
+   *)
+(* NOTE: using unqualified names to detect conflict because
+  namespace management is language-dependant.contents
+  We keep qualifiers from original AST. *)
+(* LATER: also add language-specific ability to correct qualifiers?
     *)
-  let in_use = ref (
-    String_map.of_seq (
-      Seq.map (fun ((_q, n), v) -> (n, 0)) (
-        Qualified_map.to_seq (
-          !toplevel_free_vars)))) in
-  let var_map = ref (
-    Var_map.of_seq (
-      Seq.map (fun ((q, n), id) ->
-        let var = { qualifier = q; name = n; id = id } in
-        (var, n)) (
-        Qualified_map.to_seq (
-          !toplevel_free_vars)))) in
+let unique_alpha_rename (t : trm) : trm =
+  (* map from name to next suffix number *)
+  (* use deterministic hash table ? *)
+  let nb_uses_of_name = ref String_map.empty in
+  (* map from var to new name *)
+  (* could be map from id to names? *)
+  let name_of_id = ref Var_map.empty in
   let common_map_var v =
-    let v' = match Var_map.find_opt v !var_map with
+    let v' = match Var_map.find_opt v !name_of_id with
     | Some name' -> { v with name = name' }
     | None ->
-      let (v', i) = begin
-        match String_map.find_opt v.name !in_use with
-        | Some i -> ({ v with name = v.name ^ "__" ^ (string_of_int i) }, i)
-        | None -> (v, -1)
+      let (v', nb_uses) = begin
+        match String_map.find_opt v.name !nb_uses_of_name with
+        | Some prev_nb_uses ->
+          let nb_uses = prev_nb_uses + 1 in
+          ({ v with name = v.name ^ "_" ^ (string_of_int nb_uses) },
+           nb_uses)
+        | None ->
+          ((if ends_with_num_suffix v.name
+            then { v with name = v.name ^ "_1" }
+            else v),
+           1)
       end in
-      in_use := String_map.add v.name (i + 1) !in_use;
-      var_map := Var_map.add v v'.name !var_map;
+      (* TODO: check that add overrides previous entry *)
+      nb_uses_of_name := String_map.add v.name nb_uses !nb_uses_of_name;
+      name_of_id := Var_map.add v v'.name !name_of_id;
       v'
     in
     (* DEBUG:
@@ -45,9 +57,16 @@ let unique_alpha_rename (t : trm) : trm =
     let var' = common_map_var var in
     trm_var ~annot ?loc ?typ ~ctx ~kind var'
   in
+  (* initialize entries for toplevel variables. *)
+  Qualified_map.iter (fun (q, n) id ->
+    let var = { qualifier = q; name = n; id = id } in
+    ignore (common_map_var var)
+  ) !toplevel_free_vars;
   trm_map_vars ~map_binder map_var () t
 
 (* LATER: #var-id, flag to disable check for performance *)
+(* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
+(* TODO: raise error or ignore the dimmy ids (-1) *)
 let check_unique_var_ids (t : trm) : unit =
   (* LATER: refactor with function mapping over bindings? *)
   let vars = ref Var_set.empty in
