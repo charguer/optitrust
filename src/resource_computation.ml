@@ -754,7 +754,7 @@ and compute_resources_and_merge_usage ?(expected_res: resource_spec) (res: resou
 let ctx_copy (ctx: ctx): ctx = { ctx with ctx_types = ctx.ctx_types }
 
 let rec trm_deep_copy (t: trm) : trm =
-  let t = trm_map_with_terminal_unopt false (fun _ ti -> trm_deep_copy ti) t in
+  let t = trm_map_with_terminal ~share_if_no_change:false false (fun _ ti -> trm_deep_copy ti) t in
   t.ctx <- ctx_copy unknown_ctx; (* LATER *)
   t
 

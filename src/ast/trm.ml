@@ -691,225 +691,156 @@ let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
   end;
   t
 
-(* [trm_map_with_terminal_unop is_terminal f t]: applies function [f] over ast nodes, if nodes are terminal nodes than
-    specific treatment is considered depending on the definition of function f
-    For this function terminal means that the end of the term would be the end of the function.
-    Note: This is an unoptimized version of trm_map_with_terminal *)
-let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
+(* [trm_map_with_terminal]: applies function [f] over ast nodes,
+   where [f] may treat terminal nodes differently.
+   Here, terminal means that the end of the term would be the end of the function.
+   - [share_if_no_change]: enables sharing trm nodes if they are unchanged by [f].
+  *)
+let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
   let typ = t.typ in
+  let ctx = if keep_ctx then t.ctx else unknown_ctx in
+
+  let list_map f tf old_list =
+    let new_list = List.map f old_list in
+    if share_if_no_change && List.for_all2 tf old_list new_list
+      then old_list
+      else new_list in
+  let mlist_map f tf old_list =
+    let new_list = Mlist.map f old_list in
+    if share_if_no_change && Mlist.for_all2 tf old_list new_list
+      then old_list
+      else new_list in
+
   match t.desc with
   | Trm_val _ | Trm_var _ -> t
   | Trm_array tl ->
-    let tl' = Mlist.map (f false) tl in
-    trm_array ~annot ?loc ?typ tl'
+    let tl' = mlist_map (f false) (==) tl in
+    if (share_if_no_change(*redundant*) && tl' == tl)
+      then t
+      else (trm_array ~annot ?loc ?typ ~ctx tl')
   | Trm_record tl ->
-    let tl' = Mlist.map (fun (lb, t) -> (lb, f false t)) tl in
-    trm_record ~annot ?loc ?typ tl'
-  | Trm_let (vk, tv, init, resource_spec) ->
+    let tl' = mlist_map
+      (fun (lb, t) -> (lb, f false t))
+      (fun (_, ta) (_, tb) -> ta == tb) tl
+    in
+    if (share_if_no_change(*redundant*) && tl' == tl)
+      then t
+      else (trm_record ~annot ?loc ?typ ~ctx tl')
+  | Trm_let (vk, tv, init, bound_resources) ->
     let init' = f false init in
-    trm_let ~annot ?loc vk tv init'
+    if (share_if_no_change && init' == init)
+      then t
+      else (trm_let ~annot ?loc ?bound_resources ~ctx vk tv init')
+  (* TODO: Trm_let_mult *)
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
-    trm_let_fun ~annot ?loc ?contract f' res args body'
+    if (share_if_no_change && body' == body)
+      then t
+      else (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body' )
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
     let else_' = f is_terminal else_ in
-    trm_if ~annot ?loc cond' then_' else_'
+    if (share_if_no_change && cond' == cond && then_' == then_ && else_' == else_)
+      then t
+      else (trm_if ~annot ?loc ~ctx cond' then_' else_')
   | Trm_seq tl ->
-    let n = Mlist.length tl in
-    let tl' = Mlist.mapi(fun i tsub ->
-      let sub_is_terminal = is_terminal && i == n-1 in
-      f sub_is_terminal tsub
-    ) tl in
-    trm_seq ~annot ?loc tl'
-  | Trm_apps (f', args) ->
-    let f'' = f false f' in
-    let args' = List.map (f false) args in
-      (*
-        warning: f'' may have different type
-        -> print and reparse to have the right type
-      *)
-    trm_apps ~annot ?loc ?typ f'' args'
+    let n = ref (Mlist.length tl) in
+    let tl' = mlist_map
+      (fun tsub ->
+        n := !n - 1;
+        let sub_is_terminal = (is_terminal && !n == 0) in
+        f sub_is_terminal tsub)
+      (==) tl
+    in
+    if (share_if_no_change(*redundant*) && tl == tl')
+      then t
+      else (trm_seq ~annot ?loc ~ctx tl')
+  | Trm_apps (func, args) ->
+    let func' = f false func in
+    let args' = list_map (f false) (==) args in
+    if (share_if_no_change(*redundant*) && func' == func && args' == args)
+      then t
+      (* warning: may have different type *)
+      else (trm_apps ~annot ?loc ?typ ~ctx func' args')
   | Trm_while (cond, body) ->
-      let cond' = f false cond in
-      let body' = f false body in
-      trm_while ~annot ?loc cond' body'
+    let cond' = f false cond in
+    let body' = f false body in
+    if (share_if_no_change && cond' == cond && body' == body)
+      then t
+      else (trm_while ~annot ?loc ~ctx cond' body')
   | Trm_for_c (init, cond, step, body, invariant) ->
       let init' = f false init in
       let cond' = f false cond in
       let step' = f false step in
       let body' = f is_terminal body in
-      trm_for_c ~annot ?loc ?invariant init' cond' step' body'
-  | Trm_for (l_range, body, contract) ->
-    let (index, start, direction, stop, step, is_parallel) = l_range in
-    let m_step = match step with
-    | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
-    | Step sp -> Step (f is_terminal sp)
-    in
-    let start' = f false start in
-    let stop' = f false stop in
-    let body' = f is_terminal body in
-    trm_for ~annot ?loc ?contract (index, start', direction, stop', m_step, is_parallel) body'
-  | Trm_switch (cond, cases) ->
-      let cond' = f false cond in
-      let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in
-      trm_switch ~annot ?loc cond' cases'
-  | Trm_abort a ->
-      begin match a with
-      | Ret (Some t') -> trm_ret ~annot ?loc (Some (f false t'))
-      (* return without value, continue, break *)
-      | _ -> t
-      end
-  | Trm_namespace (name, t, inline) ->
-    trm_namespace ~annot ?loc name (f false t) inline
-  | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rfl ->
-      let rfl = List.map (fun (rf, rf_ann) ->
-        match rf with
-        | Record_field_method t1 ->  (Record_field_method (f false t1), rf_ann)
-        | _ -> (rf, rf_ann)
-      ) rfl in
-      let td = {td with typdef_body = Typdef_record rfl} in
-      trm_typedef ~annot ?loc td
-    | _ -> t
-    end
-  | _ ->
-    trm_combinators_unsupported_case "trm_map_with_terminal_unopt"  t
-
-(* TODO ARTHUR: think about how to factorize this.
-
-  trm_map (f: bool -> trm -> trm) (t : trm) : trm =
-
-  trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
-    using trm_map, and only duplicating 5 cases *)
-
-(* [trm_map_with_terminal_opt is_terminal f]: trm_map_with_terminal derived from trm_map *)
-let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
-  let annot = t.annot in
-  let loc = t.loc in
-  let typ = t.typ in
-  let ctx = if keep_ctx then t.ctx else unknown_ctx in
-  let aux = f is_terminal in
-
-  (* [flist tl]: applies [f] to all the elements of a list [tl] *)
-  let flist tl =
-    let tl' = List.map (f false) tl in
-    if List.for_all2 (==) tl tl' then tl else tl'
-  in
-  (* [fmlist]: is like [flist] but for marked lists *)
-  let fmlist is_terminal tl =
-    let tl' = Mlist.map (f is_terminal) tl in
-    if Mlist.for_all2 (==) tl tl' then tl else tl' in
-
-  match t.desc with
-  | Trm_val _ | Trm_var _ -> t
-  | Trm_array tl ->
-    let tl' = fmlist false tl in
-    if (tl' == tl) then t else
-        (trm_array ~annot ?loc ?typ ~ctx tl')
-  | Trm_record tl ->
-    let tl' = Mlist.map (fun (lb, t) -> (lb, f false t)) tl in
-    let tl' = if Mlist.for_all2 (==) tl tl' then tl else tl' in
-    if (tl' == tl) then t else
-        (trm_record ~annot ?loc ?typ ~ctx tl')
-  | Trm_let (vk, tv, init, bound_resources) ->
-    let init' = f false init in
-    if (init' == init) then t else
-        (trm_let ~annot ?loc ?bound_resources ~ctx vk tv init')
-  (* Trm_let_mult *)
-  | Trm_let_fun (f', res, args, body, contract) ->
-    let body' = f false body in
-    if (body' == body) then t else
-        (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body' )
-  | Trm_typedef td ->
-    let body' = begin match td.typdef_body with
-    | Typdef_alias _ -> td.typdef_body
-    | Typdef_record rfl ->
-      let rfl' = List.map (fun (rf, rf_ann) ->
-        let rf' = begin match rf with
-        | Record_field_method rft ->
-          let rft' = f false rft in
-          if rft == rft' then rf else
-            Record_field_method rft'
-        | Record_field_member _ -> rf
-        end in
-        rf', rf_ann
-      ) rfl in
-      if List.for_all2 (==) rfl rfl' then td.typdef_body else Typdef_record rfl'
-    | _ -> failwith "trm_map_with_terminal_opt: unexpected typdef_body"
-    end in
-    if (body' == td.typdef_body) then t else
-      trm_typedef ~annot ?loc ~ctx { td with typdef_body = body' }
-  | Trm_if (cond, then_, else_) ->
-    let cond' = f false cond in
-    let then_' = aux then_ in
-    let else_' = aux else_ in
-    if (cond' == cond && then_' == then_ && else_' == else_) then t else
-        (trm_if ~annot ?loc ~ctx cond' then_' else_')
-  | Trm_seq tl ->
-    let n = Mlist.length tl in
-    let tl' = Mlist.mapi (fun i tsub ->
-        let sub_is_terminal = (is_terminal && i == n-1) in
-        f sub_is_terminal tsub
-      ) tl in
-    if (Mlist.for_all2 (==) tl tl') then t else
-        (trm_seq ~annot ?loc ~ctx tl')
-  | Trm_apps (func, args) ->
-    let func' = f false func in
-    let args' = flist args in
-    if (func' == func && args' == args) then t else
-      (trm_apps ~annot ?loc ?typ ~ctx func' args')
-  | Trm_while (cond, body) ->
-    let cond' = f false cond in
-    let body' = f false body in
-    if (cond' == cond && body' == body) then t else
-        (trm_while ~annot ?loc ~ctx cond' body')
-  | Trm_for_c (init, cond, step, body, invariant) ->
-      let init' = f false init in
-      let cond' = f false cond in
-      let step' = f false step in
-      let body' = aux body in
-      if (init' == init && cond' == cond && step' == step && body' == body) then t else
-          (trm_for_c ~annot ?loc ?invariant ~ctx init' cond' step' body')
+      if (share_if_no_change && init' == init && cond' == cond && step' == step && body' == body)
+        then t
+        else (trm_for_c ~annot ?loc ?invariant ~ctx init' cond' step' body')
   | Trm_for (l_range, body, contract) ->
     let (index, start, direction, stop, step, is_parallel) = l_range in
     let start' = f false start in
     let stop' = f false stop in
     let step' = match step with
       | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
-      | Step sp -> Step (aux sp)
+      | Step sp -> Step (f is_terminal sp)
       in
-    let body' = aux body in
-    if (step' == step && start' == start && stop' == stop && body' == body) then t else
-        (trm_for ~annot ?loc ?contract ~ctx (index, start', direction, stop', step', is_parallel) body')
+    let body' = f is_terminal body in
+    if (share_if_no_change && step' == step && start' == start && stop' == stop && body' == body)
+      then t
+      else (trm_for ~annot ?loc ?contract ~ctx (index, start', direction, stop', step', is_parallel) body')
   | Trm_switch (cond, cases) ->
       let cond' = f false cond in
-      let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
-      if (cond' == cond && List.for_all2 (fun (_tl1,body1) (_tl2,body2) -> body1 == body2) cases' cases) then t else
-          (trm_switch ~annot ?loc ~ctx cond' cases')
+      let cases' = list_map
+        (fun (tl, body) -> (tl, f is_terminal body))
+        (fun (_, body1) (_, body2) -> body1 == body2) cases in
+      if (share_if_no_change(*redundant*) && cond' == cond && cases' == cases)
+        then t
+        else (trm_switch ~annot ?loc ~ctx cond' cases')
   | Trm_abort a ->
     begin match a with
-    | Ret (Some t') ->
-        let t'2 = f false t' in
-        if (t'2 == t') then t else
-            (trm_ret ~annot ?loc ~ctx (Some t'2))
+    | Ret (Some r) ->
+        let r' = f false r in
+        if (share_if_no_change && r' == r)
+          then t
+          else (trm_ret ~annot ?loc ~ctx (Some r'))
     | _ -> t
     end
-  | Trm_namespace (name, body, b) ->
+  | Trm_namespace (name, body, inline) ->
     let body' = f false body in
-    if (body == body') then t else
-      (trm_namespace ~annot ?loc ~ctx name body' b)
-
+    if (share_if_no_change && body == body')
+      then t
+      else (trm_namespace ~annot ?loc ~ctx name body' inline)
+  | Trm_typedef td ->
+    let body' = begin match td.typdef_body with
+    | Typdef_alias _ -> td.typdef_body
+    | Typdef_record rfl ->
+      let rfl' = list_map
+        (fun (rf, rf_ann) ->
+          let rf' = begin match rf with
+          | Record_field_method rft ->
+            let rft' = f false rft in
+            if share_if_no_change && rft == rft'
+              then rf
+              else Record_field_method rft'
+          | Record_field_member _ -> rf
+          end in
+          rf', rf_ann
+        )
+        (fun (rfa, _) (rfb, _) -> rfa == rfb)
+        rfl in
+      if share_if_no_change(*redundant*) && rfl == rfl'
+        then td.typdef_body
+        else Typdef_record rfl'
+    | _ -> failwith "trm_map_with_terminal: unexpected typdef_body"
+    end in
+    if (share_if_no_change(*redundant*) && body' == td.typdef_body)
+      then t
+      else trm_typedef ~annot ?loc ~ctx { td with typdef_body = body' }
   | _ ->
-    trm_combinators_unsupported_case "trm_map_with_terminal_opt"  t
-
-(* [trm_map_with_terminal is_terminal f t] *)
-let trm_map_with_terminal ?(keep_ctx = false) (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
-  trm_map_with_terminal_opt ~keep_ctx is_terminal f t
+    trm_combinators_unsupported_case "trm_map_with_terminal"  t
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =
@@ -1113,10 +1044,17 @@ let trm_map_vars
       (ctx, map_var ctx (annot, loc, typ, t_ctx, kind) x)
 
     | Trm_let (var_kind, (var, typ), body, bound_resources) ->
-      (* TODO: map inside bound_resources *)
       let _, body' = f_map ctx body in
       let cont_ctx, var' = map_binder ctx var (Some t) in
-      let t' = if (body == body' && var == var')
+      let bound_resources' = bound_resources in
+      (* TODO:
+      let ctx, bound_resources' = begin match bound_resources with
+      | None -> (ctx, None)
+      | Some rset ->
+        let ctx, rset' = resource_set_map ctx rset in
+        (ctx, Some rset')
+      end in *)
+      let t' = if (body == body' && var == var' && bound_resources == bound_resources')
         then t
         else (trm_let ~annot ?loc ~ctx:t_ctx ?bound_resources var_kind (var', typ) body')
       in
@@ -1142,7 +1080,7 @@ let trm_map_vars
         let ctx, arg' = map_binder ctx arg None in
         (ctx, (arg', typ))
       ) (enter_scope ctx t) args in
-      let body_ctx, contract = match contract with
+      let body_ctx, contract' = match contract with
         | None -> (body_ctx, None)
         | Some contract ->
           let body_ctx, contract = fun_contract_map body_ctx contract in
@@ -1150,9 +1088,10 @@ let trm_map_vars
       in
       let _, body' = f_map body_ctx body in
       let cont_ctx, fn' = map_binder ctx fn (Some t) in
-      let t' = if (body' == body && args == args' && fn == fn')
+      (* TODO: (List.for_all2 (==) args args') ? *)
+      let t' = if (body' == body && args == args' && fn == fn' && contract == contract')
         then t
-        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract fn' resources args' body')
+        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' fn' resources args' body')
       in
       (* TODO: Proper function type here *)
       (cont_ctx, t')
@@ -1199,14 +1138,17 @@ let trm_map_vars
 
     | Trm_fun (args, ret, body, contract) ->
       let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg (Some t) in (ctx, (arg', typ))) (enter_scope ctx t) args in
-      let body_ctx, contract = match contract with
+      let body_ctx, contract' = match contract with
         | None -> (body_ctx, None)
         | Some contract ->
           let body_ctx, contract = fun_contract_map body_ctx contract in
           (body_ctx, Some contract)
       in
       let _, body' = f_map body_ctx body in
-      let t' = trm_fun ~annot ?loc ~ctx:t_ctx ?contract args' ret body' in
+      (* TODO: (List.for_all2 (==) args args') ? *)
+      let t' = if (args == args' && body == body' && contract == contract')
+        then t
+        else trm_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' args' ret body' in
       (* TODO: Proper function type here *)
       (ctx, t')
 
