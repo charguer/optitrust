@@ -820,7 +820,10 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     let init' = f false init in
     if (init' == init) then t else
         (trm_let ~annot ?loc ?bound_resources ~ctx vk tv init')
-  (* Trm_let_mult *)
+  | Trm_let_mult (vk, tvs, tis) ->
+     let tis' = flist tis in
+     if (tis' == tis) then t else
+       (trm_let_mult ~annot ?loc ~ctx vk tvs tis')
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
     if (body' == body) then t else
