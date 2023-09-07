@@ -654,47 +654,29 @@ let heapify_on (t : trm) : trm =
 let heapify (tg : target) : unit =
   Target.apply_at_target_paths (heapify_on) tg
 
-(* [unfold_let_mult_aux t]: transforms multiple variable declaration instruction
-    to a sequence of variable declarations.
-
-    DOES NOT WORK : causes different variable encoding between Trm_let,
-    Trm_let_mult and function's arguments. Here some examples:
-
-    Example : int i; int a = i, b = 1;
-    Example : int a, *b = &a, *c = b;
-    Example : void f(int i) { int a = i, int b = 1; }.
-
-    Also see the test file apac_unfold_let_mult.cpp. *)
-let unfold_let_mult_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_let_mult (vk, tvl, tl) ->
-    let decls = List.map2 (fun (x, ty) t ->
-      let t = match t.desc with
-      | Trm_val _ | Trm_array _ -> t | _ -> trm_get t in
-      if is_typ_const ty then trm_let_immut (x, get_inner_const_type (ty)) t else trm_let_mut (x, ty) t
-    ) tvl tl in
-    trm_seq_no_brace decls
-  | _ -> fail None "Apac_basic.unfold_let_mult: expected a target to a multiple variable declaration."
-
+(* [unfold_let_mult_on t]: see [unfold_let_mult]. *)
 let unfold_let_mult_on (t : trm) : trm =
   let error = "Apac_basic.unfold_let_mult_on: expected a target to a multiple \
                variable declaration." in
-  let _ = Debug_transfo.trm ~style:Internal "let_mult_before" t in
   let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
-  let declarations = List.map2 (fun tv ti -> let out = trm_let vk tv ti in out) tvs tis in
-  let nt = trm_seq_no_brace declarations in
-  let _ = Debug_transfo.trm "seq_after" nt in
-  nt
+  let declarations = List.map2 (fun tv ti -> trm_let vk tv ti) tvs tis in
+  trm_seq_no_brace declarations
 
 (* [unfold_let_mult tg]: expects target [tg] to point at a multiple variable
-    declaration. Then, it will replace it by a sequence of simple variable
-    declarations.
+   declaration. Then, it replaces it by a sequence of equivalent simple variable
+   declarations.
 
-    DOES NOT WORK : causes different variable encoding between Trm_let,
-    Trm_let_mult and function's arguments. *)
+   For example:
+
+     int a = 1, b = a;
+
+   becomes:
+
+     int a = 1;
+     int b = a; *)
 let unfold_let_mult (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    Target.apply_at_target_paths (unfold_let_mult_on) tg)
+      Target.apply_at_target_paths (unfold_let_mult_on) tg)
 
 (* [vars_tbl]: hashtable generic to keep track of variables and their pointer
     depth. This abstrastion is used for generic functions. *)
