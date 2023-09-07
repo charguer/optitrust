@@ -152,17 +152,27 @@ __ghost ghost_matrix2_focus(float* M, int i, int j) {
     __admitted();
 }
 
-__ghost ghost_tile_divides(
-  int tile_count,
-  int tile_size
-) {
+__ghost ghost_tile_divides() {
   __requires(
+    "tile_count: int; tile_size: int;"
     "gn: int; to_item: int -> resource;"
-    "tile_size * tile_count = gn;"
+    "__assert_eq(gn, tile_size * tile_count);"
   );
-  __consumes("A: Group(range(0, gn, 1), to_item)");
-  __produces("B: Group(range(0, tile_count, 1), fun bi ->"
-             "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i))); B -* A");
+  __consumes("Group(range(0, gn, 1), to_item);");
+  __produces("Group(range(0, tile_count, 1), fun bi ->"
+             "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)));");
+  __admitted();
+}
+
+__ghost ghost_tile_divides_reverse() {
+  __requires(
+    "tile_count: int; tile_size: int;"
+    "gn: int; to_item: int -> resource;"
+    "__assert_eq(gn, tile_size * tile_count);"
+  );
+  __consumes("Group(range(0, tile_count, 1), fun bi ->"
+             "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)));");
+  __produces("Group(range(0, gn, 1), to_item);");
   __admitted();
 }
 

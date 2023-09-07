@@ -67,7 +67,8 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
        | Some r -> trm_int r
        | None -> trm_exact_div count tile_size
        in
-     let iteration = trm_add (trm_mul (trm_var ?typ:start.typ tile_index) tile_size)
+     let iteration = trm_add
+      (trm_mul (trm_var ?typ:start.typ tile_index) tile_size)
       (trm_var ?typ:start.typ index)
      in
      let new_index = iteration_to_index iteration in

@@ -43,6 +43,7 @@ let same_val (v1 : value) (v2 : value) : bool =
 (* [change_trm ~change_at t_before t_after t]: replace all the occurrences of [t_before] with [t_after]
    If [change_at] is not equal to [[]] then this function is applied only to descendants of the trm corresponding to
    the targets [change_at] *)
+(* FIXME: use targets instead of same_trm. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
