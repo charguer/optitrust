@@ -17,8 +17,8 @@ type debug_trm_style =
 
 let trm ?(style = Display) (msg : string) (t : trm) : unit =
   let t_str = match style with
-  | Display -> Ast_to_text.ast_to_string t
-  | Internal -> AstC_to_c.ast_to_string t
+  | Display -> AstC_to_c.ast_to_string t
+  | Internal -> Ast_to_text.ast_to_string t
   | InternalDisplay -> AstC_to_c.ast_to_string ~optitrust_syntax:true t
   in
   prt "%s: %s\n" msg t_str

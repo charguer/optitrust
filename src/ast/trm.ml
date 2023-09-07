@@ -820,7 +820,10 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     let init' = f false init in
     if (init' == init) then t else
         (trm_let ~annot ?loc ?bound_resources ~ctx vk tv init')
-  (* Trm_let_mult *)
+  | Trm_let_mult (vk, tvs, tis) ->
+     let tis' = flist tis in
+     if (tis' == tis) then t else
+       (trm_let_mult ~annot ?loc ~ctx vk tvs tis')
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
     if (body' == body) then t else
@@ -1121,14 +1124,16 @@ let trm_map_vars
       (cont_ctx, t')
 
     | Trm_let_mult (vk, tvs, ts) ->
-      let ts' = List.map (fun t -> snd (f_map ctx t)) ts in
       let cont_ctx = ref ctx in
-      let tvs' = List.map (fun tv ->
-        let var, typ = tv in
-        let cont_ctx', var' = map_binder !cont_ctx var None in
-        cont_ctx := cont_ctx';
-        if var == var' then tv else (var', typ)
-      ) tvs in
+      let tvsts' = List.map2 (fun tv t ->
+                     let var, typ = tv in
+                     let t' = snd (f_map !cont_ctx t) in
+                     let cont_ctx', var' = map_binder !cont_ctx var None in
+                     cont_ctx := cont_ctx';
+                     let tv' = if var == var' then tv else (var', typ) in
+                     (tv', t')
+                     ) tvs ts in
+      let (tvs', ts') = List.split tvsts' in
       let t' = if ((List.for_all2 (==) ts ts') && List.for_all2 (==) tvs tvs')
         then t
         else (trm_let_mult ~annot ?loc ~ctx:t_ctx vk tvs' ts')

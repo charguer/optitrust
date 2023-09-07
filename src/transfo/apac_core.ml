@@ -785,7 +785,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                     begin
                       (* there is the corresponding argument constification
                          record to be gathered *)
-                      let (_, arg_const) = List.nth fun_args_const (index - shift) in
+                      let (_, arg_const) =
+                        List.nth fun_args_const (index - shift) in
                       (* and if the latter is a pointer or a reference, *)
                       if arg_const.is_ptr_or_ref then
                         begin
@@ -890,7 +891,9 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                         this case, to verify that the lvalue was not
                         dereferenced, we have to check that the pointer degree
                         of the lvalue is still greater than 0. *)
-                     if not lval_deref || (lval_lvar.v.name = "this" && lval_degree > 0) then
+                     if
+                       not lval_deref ||
+                         (lval_lvar.v.name = "this" && lval_degree > 0) then
                        LVar_Hashtbl.add aliases
                          lval_lvar (aliased, lval_degree)
                   | None -> ()
