@@ -1124,14 +1124,16 @@ let trm_map_vars
       (cont_ctx, t')
 
     | Trm_let_mult (vk, tvs, ts) ->
-      let ts' = List.map (fun t -> snd (f_map ctx t)) ts in
       let cont_ctx = ref ctx in
-      let tvs' = List.map (fun tv ->
-        let var, typ = tv in
-        let cont_ctx', var' = map_binder !cont_ctx var None in
-        cont_ctx := cont_ctx';
-        if var == var' then tv else (var', typ)
-      ) tvs in
+      let tvsts' = List.map2 (fun tv t ->
+                     let var, typ = tv in
+                     let t' = snd (f_map !cont_ctx t) in
+                     let cont_ctx', var' = map_binder !cont_ctx var None in
+                     cont_ctx := cont_ctx';
+                     let tv' = if var == var' then tv else (var', typ) in
+                     (tv', t')
+                     ) tvs ts in
+      let (tvs', ts') = List.split tvsts' in
       let t' = if ((List.for_all2 (==) ts ts') && List.for_all2 (==) tvs tvs')
         then t
         else (trm_let_mult ~annot ?loc ~ctx:t_ctx vk tvs' ts')
