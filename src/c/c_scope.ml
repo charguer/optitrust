@@ -1,7 +1,7 @@
 open Ast
 open Trm
 
-let debug = true
+let debug = false
 
 (* FIXME: triggers on multiple function declarations/definitions. *)
 exception InvalidVarId of string
@@ -52,7 +52,7 @@ let check_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
   | None ->
     raise (InvalidVarId (sprintf "variable %s is used but not in scope." (var_to_string var)))
   | Some id when id <> var.id ->
-    raise (InvalidVarId (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) var.id))
+    raise (InvalidVarId (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) id))
   | _ ->
     trm_var ~annot ?loc ?typ ~ctx ~kind var
 

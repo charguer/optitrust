@@ -188,8 +188,9 @@ let constify_args_on ?(force = false) (t : trm) : trm =
   else
     (* Gather the constification record of the function. *)
     let const_record = Var_Hashtbl.find Apac_core.const_records var in
-    let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_class_method then "in class" else "not in class") in
-    let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_const then "is const" else "not const") in
+  (* If the function is a class member method, its first argument is the [this]
+     variable referring to the parent class. In this case, we do not need to
+     include it in the resulting constification record. *)
     let this = List.hd args in
     let args = if const_record.is_class_method then List.tl args else args in
     (* Simultaneously loop over the list of function's arguments as well as over
@@ -197,12 +198,12 @@ let constify_args_on ?(force = false) (t : trm) : trm =
        that should be constified according to the corresponding constification
        record. *)
     let (_, const_args_record) = List.split const_record.const_args in
-    let _ = Printf.printf "args is %d long and arg_records are %d long\n" (List.length args) (List.length const_args_record) in
     let const_args = List.map2 (fun (v, ty) (cr : const_arg) ->
                          if cr.is_const then (v, (typ_constify ty)) else (v, ty)
                        ) args const_args_record in
     (* Rebuild the function definition term using the list of constified
-       arguments. *)
+       arguments. If it is a class member method, we have to bring back [this]
+       to the list of arguments. *)
     let const_args =
       if const_record.is_class_method then this::const_args else const_args in
     let let_fun_with_const_args =
@@ -335,6 +336,9 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
   (* Gather the constification record of the function. *)
   let const_record = Var_Hashtbl.find Apac_core.const_records var in
+  (* If the function is a class member method, its first argument is the [this]
+     variable referring to the parent class. In this case, we do not need to
+     include it in the resulting constification record. *)
   let this = List.hd args in
   let args = if const_record.is_class_method then List.tl args else args in
   (* Create an alias hash table. *)
@@ -360,7 +364,6 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   else
     begin
       let (_, const_args_record) = List.split const_record.const_args in
-      let _ = Printf.printf "aliases: args is %d long and arg_records are %d long for %s\n" (List.length args) (List.length const_args_record) (var_to_string var) in
       List.iter2 (fun (arg_var, arg_ty) (arg_cr : const_arg) ->
           if arg_cr.is_const then
             begin
@@ -370,7 +373,8 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
         ) args const_args_record
     end;
   (* Call the auxiliary function to constify the aliases in the body of the
-     function. *)
+     function. If it is a class member method, we have to bring back [this] to
+     the list of arguments. *)
   let args = if const_record.is_class_method then this::args else args in
   let body_with_const_aliases = aux aliases body in
   (* Rebuild and return the function definition term with the updated body. *)
@@ -430,9 +434,6 @@ let heapify_on (t : trm) : trm =
                [int const * a = &i, * const b = &j] it is the case of [b]. *)
             if is_typ_const ty then
               begin
-                let _ = Printf.printf "const %s" (var_to_string v) in
-                let _ = Debug_transfo.typ "of ty" ty in
-                let _ = Debug_transfo.typ "and tyi" tyi in
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
@@ -456,9 +457,6 @@ let heapify_on (t : trm) : trm =
                or not), e.g. [int * a[10]]. *)
             else if is_typ_array ty then
               begin
-                let _ = Printf.printf "array %s" (var_to_string v) in
-                let _ = Debug_transfo.typ "of ty" ty in
-                let _ = Debug_transfo.typ "and tyi" tyi in
                 (* To transform a static array allocation to a dynamic array
                    allocation, we need to determine its inner type, i.e. the
                    type of the values stored in the array (without the square
@@ -484,10 +482,6 @@ let heapify_on (t : trm) : trm =
                none of the two. *)
             else
               begin
-                let _ = Printf.printf "other %s" (var_to_string v) in
-                let _ = Debug_transfo.typ " of ty" ty in
-                let _ = Debug_transfo.typ " and tyi" tyi in
-                (*let tya = if is_typ_array tyi then get_inner_array_type tyi else ty in*)
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
@@ -548,9 +542,6 @@ let heapify_on (t : trm) : trm =
                    inner const type directly from [ty] unlike in the case of a
                    multiple variable declaration (see above). *)
                 let tyc = get_inner_const_type ty in
-                let _ = Printf.printf "const simple %s" (var_to_string v) in
-                let _ = Debug_transfo.typ " of ty" ty in
-                let _ = Debug_transfo.typ " and tyc" tyc in
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
@@ -573,9 +564,6 @@ let heapify_on (t : trm) : trm =
                or not), e.g. [int * a[10]]. *)
             else if is_typ_array tyi then
               begin
-                let _ = Printf.printf "array simple %s" (var_to_string v) in
-                let _ = Debug_transfo.typ " of ty" ty in
-                let _ = Debug_transfo.typ " and tyi" tyi in
                 (* To transform a static array allocation to a dynamic array
                    allocation, we need to determine its inner type, i.e. the
                    type of the values stored in the array (without the square
@@ -584,7 +572,6 @@ let heapify_on (t : trm) : trm =
                    of constants, e.g. [int const tab[2]], [tya] shall be [const
                    int]. *)
                 let tya = get_inner_array_type tyi in
-                let _ = Debug_transfo.typ " and tya" tya in
                 (* We then transform the lvalue type to a pointer, e.g. [int
                    tab[2]] becomes [int * tab]. *)
                 let ty2 = typ_ptr Ptr_kind_mut tya in
@@ -606,9 +593,6 @@ let heapify_on (t : trm) : trm =
                where either the value or the memory location is not const or
                none of the two. *)
             else
-              let _ = Printf.printf "other simple %s" (var_to_string v) in
-              let _ = Debug_transfo.typ " of ty" ty in
-              let _ = Debug_transfo.typ " and tyi" tyi in
               (* We then transform the lvalue type to a pointer, e.g. [int a]
                  becomes [int * a]. *)
               let ty2 = typ_ptr Ptr_kind_mut tyi in
@@ -670,47 +654,29 @@ let heapify_on (t : trm) : trm =
 let heapify (tg : target) : unit =
   Target.apply_at_target_paths (heapify_on) tg
 
-(* [unfold_let_mult_aux t]: transforms multiple variable declaration instruction
-    to a sequence of variable declarations.
-
-    DOES NOT WORK : causes different variable encoding between Trm_let,
-    Trm_let_mult and function's arguments. Here some examples:
-
-    Example : int i; int a = i, b = 1;
-    Example : int a, *b = &a, *c = b;
-    Example : void f(int i) { int a = i, int b = 1; }.
-
-    Also see the test file apac_unfold_let_mult.cpp. *)
-let unfold_let_mult_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_let_mult (vk, tvl, tl) ->
-    let decls = List.map2 (fun (x, ty) t ->
-      let t = match t.desc with
-      | Trm_val _ | Trm_array _ -> t | _ -> trm_get t in
-      if is_typ_const ty then trm_let_immut (x, get_inner_const_type (ty)) t else trm_let_mut (x, ty) t
-    ) tvl tl in
-    trm_seq_no_brace decls
-  | _ -> fail None "Apac_basic.unfold_let_mult: expected a target to a multiple variable declaration."
-
+(* [unfold_let_mult_on t]: see [unfold_let_mult]. *)
 let unfold_let_mult_on (t : trm) : trm =
   let error = "Apac_basic.unfold_let_mult_on: expected a target to a multiple \
                variable declaration." in
-  let _ = Debug_transfo.trm ~style:Internal "let_mult_before" t in
   let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
-  let declarations = List.map2 (fun tv ti -> let out = trm_let vk tv ti in out) tvs tis in
-  let nt = trm_seq_no_brace declarations in
-  let _ = Debug_transfo.trm "seq_after" nt in
-  nt
+  let declarations = List.map2 (fun tv ti -> trm_let vk tv ti) tvs tis in
+  trm_seq_no_brace declarations
 
 (* [unfold_let_mult tg]: expects target [tg] to point at a multiple variable
-    declaration. Then, it will replace it by a sequence of simple variable
-    declarations.
+   declaration. Then, it replaces it by a sequence of equivalent simple variable
+   declarations.
 
-    DOES NOT WORK : causes different variable encoding between Trm_let,
-    Trm_let_mult and function's arguments. *)
+   For example:
+
+     int a = 1, b = a;
+
+   becomes:
+
+     int a = 1;
+     int b = a; *)
 let unfold_let_mult (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    Target.apply_at_target_paths (unfold_let_mult_on) tg)
+      Target.apply_at_target_paths (unfold_let_mult_on) tg)
 
 (* [vars_tbl]: hashtable generic to keep track of variables and their pointer
     depth. This abstrastion is used for generic functions. *)

@@ -100,9 +100,14 @@ let vars_to_string vs = Trace_printers.(list_arg_printer var_to_string vs)
 let next_var_int : unit -> int =
   Tools.fresh_generator()
 
+(* [next_fresh_var_int]: generates an integer for variable names that is safe to
+   reset with [reset_fresh_var_int]. *)
+let (next_fresh_var_int, reset_fresh_var_int) : (unit -> int) * (unit -> unit) =
+  Tools.resetable_fresh_generator ()
+
 (* [fresh_var]: creates a variable name based on [next_var_int] generator *)
 let fresh_var_name ?(prefix = "_v") (): string =
-  let id = next_var_int () in
+  let id = next_fresh_var_int () in
   prefix ^ string_of_int id
 
 module Qualified_name = struct
