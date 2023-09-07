@@ -98,7 +98,6 @@ public:
     
     void f(int * a, int b) {
         i = a;
-        j = c;
         *j = 42;
         p(i, j);
     }
