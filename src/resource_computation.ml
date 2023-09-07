@@ -36,29 +36,24 @@ let __pre_dec = toplevel_free_var "__pre_dec"
 (* The environment containing the contracts of builtin functions. *)
 let builtin_env =
   let h x = new_hyp x in
-  let p1 = h "p" in let p2 = h "p" in
-  let p3 = h "p" in let p4 = h "p" in
-  let p5 = h "p" in let p6 = h "p" in
-  let p7 = h "p" in let p8 = h "p" in
-  let p9 = h "p" in
   resource_set ~fun_contracts:(var_map_of_list [
     __new, ([h "init"],
       { pre = empty_resource_set;
         post = resource_set ~linear:[(new_anon_hyp (), formula_cell var_result)] () });
-    __get, ([p1],
-      push_read_only_fun_contract_res (None, formula_cell p1) empty_fun_contract);
-    __set, ([p2; h "x"], set_fun_contract p2);
+    __get, (let p = h "p" in ([p],
+      push_read_only_fun_contract_res (None, formula_cell p) empty_fun_contract));
+    __set, (let p = h "p" in ([p; h "x"], set_fun_contract p));
     __add, ([h "x1"; h "x2"], empty_fun_contract);
     __sub, ([h "x1"; h "x2"], empty_fun_contract);
     __mul, ([h "x1"; h "x2"], empty_fun_contract);
     __array_access, ([h "tab"; h "i"], empty_fun_contract);
-    __add_inplace, ([p3; h "x"], set_fun_contract p3);
-    __sub_inplace, ([p4; h "x"], set_fun_contract p4);
-    __mul_inplace, ([p5; h "x"], set_fun_contract p5);
-    __post_inc, ([p6], set_fun_contract p6);
-    __post_dec, ([p7], set_fun_contract p7);
-    __pre_inc, ([p8], set_fun_contract p8);
-    __pre_dec, ([p9], set_fun_contract p9);
+    __add_inplace, (let p = h "p" in ([p; h "x"], set_fun_contract p));
+    __sub_inplace, (let p = h "p" in ([p; h "x"], set_fun_contract p));
+    __mul_inplace, (let p = h "p" in ([p; h "x"], set_fun_contract p));
+    __post_inc, (let p = h "p" in ([p], set_fun_contract p));
+    __post_dec, (let p = h "p" in ([p], set_fun_contract p));
+    __pre_inc, (let p = h "p" in ([p], set_fun_contract p));
+    __pre_dec, (let p = h "p" in ([p], set_fun_contract p));
   ]) ()
 
 (* A formula that may instantiate contract variables with

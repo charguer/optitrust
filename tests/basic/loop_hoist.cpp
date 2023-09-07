@@ -4,7 +4,13 @@ int *t;
 int *u;
 
 int main() {
+  __reads("Group(range(0, 10, 1), fun i -> &t[i] ~> Cell);");
+  __modifies("Group(range(0, 10, 1), fun i -> &u[i] ~> Cell);");
+
   for (int i = 0; i < 10; i++) {
+    __reads("&t[i] ~> Cell;");
+    __modifies("&u[i] ~> Cell;");
+
     int x;
     x = t[i];
     u[i] = x;
@@ -15,6 +21,8 @@ int main() {
 
   for (int l = 0; l < 5; l++) {
     for (int m = 2; m < 6; m++) {
+      __modifies("&u[i] ~> Cell;");
+
       for (int n = 4; n < 11; n += 2) {
         int y;
         y = 0;
