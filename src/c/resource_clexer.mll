@@ -25,7 +25,6 @@ rule lex_resources = parse
   | '*' { STAR }
   | '+' { PLUS }
   | '-' { MINUS }
-  | '/' { SLASH }
   | blank { lex_resources lexbuf }
   | newline { new_line lexbuf; lex_resources lexbuf }
   | ident { IDENT (lexeme lexbuf) }

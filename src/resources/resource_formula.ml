@@ -182,3 +182,8 @@ let formula_matrix_inv (f: formula): (trm * trm list) option =
     | _ -> None
   in
   check_dim_args mindex_args dims
+
+let var_fun_type = toplevel_free_var "_Fun"
+
+let formula_fun_type (targ: trm) (tres: trm) =
+  trm_apps (trm_var var_fun_type) [targ; tres]

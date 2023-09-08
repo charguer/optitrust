@@ -49,7 +49,7 @@ formula_arrow:
     { a }
 
 formula:
-  | f=arith_term;
+  | f=formula_arrow;
     { f }
   | t=atomic_formula; SQUIG_ARROW; f=atomic_formula;
     { formula_model t f }
