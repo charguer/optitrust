@@ -202,6 +202,9 @@
         "label": "Run all the tests",
         "type": "shell",
         "command": "./tester",
+        "args": [
+          "all"
+        ],
         "options": {
           "cwd": "${workspaceFolder}"
         }
@@ -211,7 +214,7 @@
         "type": "shell",
         "command": "./tester",
         "args": [
-          "__last"
+          "last"
         ],
         "options": {
           "cwd": "${workspaceFolder}"
