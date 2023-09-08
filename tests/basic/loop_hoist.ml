@@ -21,6 +21,8 @@ int main() {
 
 
 let _ = Run.script_cpp (fun () ->
+  !! Resources.show();
+
   let x = find_var_in_current_ast "x" in
   let z = find_var_in_current_ast "z" in
   let y = find_var_in_current_ast "y" in

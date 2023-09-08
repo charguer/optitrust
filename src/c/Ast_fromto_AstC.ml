@@ -652,7 +652,7 @@ let computed_resources_intro (t: trm): trm =
       let tl_before = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before) in
       let tl_post_inst = Option.to_list (Option.map (ctx_used_res_to_trm ~clause:__post_inst) t.ctx.ctx_resources_post_inst) in
       trm_like ~old:t (trm_seq (Mlist.of_list (tl_before @ List.concat_map (fun instr -> display_ctx_resources (aux instr)) (Mlist.to_list instrs) @ tl_post_inst)))
-    | _ -> trm_map_with_terminal_opt ~keep_ctx:true false (fun _ -> aux) t
+    | _ -> trm_map ~keep_ctx:true aux t
   in
   aux t
 
