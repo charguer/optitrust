@@ -27,9 +27,9 @@ let%transfo read_last_write ?(write_mark : mark option) ?(write : target = []) (
                 if i >= index
                   then ()
                   else begin match t1.desc with
-                       | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
+                       | Trm_apps (_, [ls; _rs], _) when is_set_operation t1 ->
                          if Internal.same_trm ls arg then write_index := Some i else ()
-                       | Trm_let (_, (x, _), _, _) when Internal.same_trm (trm_var x) arg ->
+                       | Trm_let (_, (x, _), _) when Internal.same_trm (trm_var x) arg ->
                           write_index := Some i
                        | _ -> ()
                        end

@@ -205,7 +205,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_array l ->
         [ kind_to_field "array";
           children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
-    | Trm_let (_,(x,typ),init,_) ->
+    | Trm_let (_,(x,typ),init) ->
         [ kind_to_field "var-def";
           (strquote "name", strquote x.name); (* TODO: #var-id , also encode qualifier and id ? *)
           (strquote "def-type", typ_to_json typ);
@@ -232,7 +232,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         let l = Mlist.to_list l in
         [ kind_to_field "seq";
           children_to_field (List.mapi ichild_to_json (List.map aux l))]
-    | Trm_apps (f,args) ->
+    | Trm_apps (f,args,_) ->
         let args_children = List.mapi (ichild_to_json ~prefix:"_arg" ) (List.map aux args) in
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";

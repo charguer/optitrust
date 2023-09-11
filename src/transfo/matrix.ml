@@ -10,17 +10,17 @@ let%transfo intro_calloc (tg : target) : unit =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
-    | Trm_let (_, (x,_), init, _) ->
+    | Trm_let (_, (x,_), init) ->
       begin match get_init_val init with
       | Some t1 ->
         begin match t1.desc with
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[calloc_trm]) ->
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[calloc_trm], _) ->
           begin match calloc_trm.desc with
-          | Trm_apps ({desc = Trm_var (_, f);_}, _) when (var_has_name f "calloc") ->
+          | Trm_apps ({desc = Trm_var (_, f);_}, _, _) when (var_has_name f "calloc") ->
             Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
           | _ -> fail t1.loc "intro_calloc: couldn't find the call to calloc function"
           end
-        | Trm_apps ({desc = Trm_var (_, f);_},_) when (var_has_name f "calloc") ->
+        | Trm_apps ({desc = Trm_var (_, f);_},_,_) when (var_has_name f "calloc") ->
           Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
         | _ -> try Matrix_basic.intro_calloc [cWriteVar x.name; cFun "calloc"]
           with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
@@ -54,17 +54,17 @@ let%transfo intro_malloc (tg : target) : unit =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
-    | Trm_let (_, (x,_), init, _) ->
+    | Trm_let (_, (x,_), init) ->
       begin match get_init_val init with
       | Some t1 ->
         begin match t1.desc with
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm], _) ->
           begin match malloc_trm.desc with
-          | Trm_apps ({desc = Trm_var (_, f);_}, _) when (var_has_name f "malloc") ->
+          | Trm_apps ({desc = Trm_var (_, f);_}, _, _) when (var_has_name f "malloc") ->
             Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
           | _ -> fail t1.loc "intro_malloc: couldn't find the call to malloc function"
           end
-        | Trm_apps ({desc = Trm_var (_, f);_},_) when  (var_has_name f "malloc") ->
+        | Trm_apps ({desc = Trm_var (_, f);_},_,_) when  (var_has_name f "malloc") ->
           Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
         | _ ->
          try Matrix_basic.intro_malloc [cWriteVar x.name; cFun "malloc"]
@@ -88,9 +88,9 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with
-    | Trm_let (_, (p, _), _, _) ->
+    | Trm_let (_, (p, _), _) ->
       Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
-    | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm ->
+    | Trm_apps (_, [{desc = Trm_var (_, p)}; _], _)  when is_set_operation tg_trm ->
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
     | _ -> fail tg_trm.loc "biject: expected a variable declaration"
   ) tg

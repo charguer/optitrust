@@ -6,7 +6,7 @@ open Target
      [t] - ast of the assignment. *)
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps (f, [lt; rt]) ->
+  | Trm_apps (f, [lt; rt], _) ->
     (* Temporary hack for overloaded set operator *)
     let lt = begin match trm_prim_inv f with
       | Some (Prim_overloaded_op (Prim_binop Binop_set)) ->
@@ -34,9 +34,9 @@ let set_explicit_aux (t : trm) : trm =
       in
       let field_list = Internal.get_field_list struct_def in
       begin match rt.desc with
-      | Trm_apps (f1, [rt1]) when is_get_operation rt ->
+      | Trm_apps (f1, [rt1], _) when is_get_operation rt ->
          let exp_assgn = List.mapi (fun i (sf, ty) ->
-          trm_set (trm_struct_access ~typ:ty lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf]); typ = Some ty}
+          trm_set (trm_struct_access ~typ:ty lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
          ) field_list in
          trm_seq_no_brace exp_assgn
       | Trm_record st ->
@@ -66,13 +66,13 @@ let set_implicit_aux (t: trm) : trm =
   | Trm_seq tl ->
      let rhs_trms = Mlist.fold_left ( fun acc instr ->
       match instr.desc with
-      | Trm_apps (_, [_;rhs]) ->
+      | Trm_apps (_, [_;rhs], _) ->
         begin match rhs.desc with
-        | Trm_apps(f', [rt])  ->
+        | Trm_apps(f', [rt], _)  ->
           begin match f'.desc with
           | Trm_val ( Val_prim ( Prim_unop Unop_get ) ) ->
             begin match rt.desc with
-              | Trm_apps(f'',[rt]) ->
+              | Trm_apps(f'',[rt], _) ->
                begin match f''.desc with
                | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
                | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))->
@@ -92,11 +92,11 @@ let set_implicit_aux (t: trm) : trm =
     ) [] tl in
     let first_instruction = Mlist.nth tl 0 in
     begin match first_instruction.desc with
-    | Trm_apps(f,[lhs;_]) ->
+    | Trm_apps(f,[lhs;_], _) ->
           begin match f.desc with
           | Trm_val ( Val_prim ( Prim_binop Binop_set) ) ->
             let lt = begin match lhs.desc with
-            | Trm_apps(f', [lt]) ->
+            | Trm_apps(f', [lt], _) ->
               begin match f'.desc with
               | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
               | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> lt
@@ -128,7 +128,7 @@ let set_implicit (keep_label : bool) : Transfo.local =
 let inline_struct_accesses (x : field) (t : trm) : trm =
   let rec aux (outer_field : string) (t : trm) : trm =
     match t.desc with
-    | Trm_apps (f, base) ->
+    | Trm_apps (f, base, _) ->
       begin match f.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access z))) ->
         begin match base with
@@ -179,7 +179,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
             let new_term_list = Mlist.merge_list [lfront; sl; lback] in
             trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
-          | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
+          | Trm_apps (_, [{desc = Trm_var (_, p);_} as v], _) when is_get_operation trm_to_change ->
             let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ?typ:v.typ p) f))) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
             trm_record ~annot:t.annot ?typ:t.typ new_term_list
@@ -374,7 +374,7 @@ let reorder_fields (order : fields_order) (index : int) : Transfo.local =
 let inline_struct_accesses (name : var) (field : field) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     begin match t.desc with
-    | Trm_apps (f, [base]) ->
+    | Trm_apps (f, [base], _) ->
       begin match f.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
@@ -417,7 +417,7 @@ let to_variables_aux (index : int) (t : trm) : trm =
        in
       field_list := Internal.get_field_list struct_def;
       let struct_init_list = begin match init.desc with
-                           | Trm_apps(_, [base]) ->
+                           | Trm_apps(_, [base], _) ->
                             begin match base.desc with
                             | Trm_record ls -> Xlist.split_pairs_snd (Mlist.to_list ls)
                             | _ -> fail init.loc "Record_core.struct_to_variables_aux: expected a struct initialisation"
@@ -469,7 +469,7 @@ type rename = Rename.t
 let rename_struct_accesses (struct_name : string) (rename : rename) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps (f, [base]) ->
+    | Trm_apps (f, [base], _) ->
       begin match f.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y))) ->
           begin match base.typ with
@@ -494,14 +494,14 @@ let rename_struct_accesses (struct_name : string) (rename : rename) (t : trm) : 
 
       | _ -> trm_map aux t
       end
-    | Trm_apps ({desc = Trm_var (vk, qf); _} as f, args) when trm_has_cstyle Method_call t ->
+    | Trm_apps ({desc = Trm_var (vk, qf); _} as f, args, ghost_args) when trm_has_cstyle Method_call t ->
         let member_base = fst (Xlist.uncons args) in
         begin match (get_operation_arg member_base).typ with
         | Some ty ->
           begin match ty.typ_desc with
           | Typ_constr (x, _, _) when (typconstr_has_name x struct_name) ->
             let renamed_var = { qualifier = qf.qualifier; name = rename qf.name; id = qf.id } in
-            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_var (vk, renamed_var)} args
+            trm_apps ~annot:t.annot ?typ:t.typ ~ghost_args {f with desc = Trm_var (vk, renamed_var)} args
           | _ -> trm_map aux t
           end
 
@@ -573,7 +573,7 @@ let update_fields_type (pattern : string) (typ_update : typ -> typ) : Transfo.lo
 let simpl_proj_aux (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps (f, [struct_list]) ->
+    | Trm_apps (f, [struct_list], _) ->
       begin match trm_prim_inv f with
       | Some (Prim_unop (Unop_struct_get x)) | Some (Prim_unop (Unop_struct_access x))->
         begin match struct_list.desc with

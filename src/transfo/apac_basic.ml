@@ -14,7 +14,7 @@ let mark_taskification_candidates_on (t : trm) : trm =
     match t.desc with
     (* If [t] is a function call, increase [count] and recurse deeper in the
        AST. *)
-    | Trm_apps ({ desc = Trm_var _}, _) -> incr count; trm_iter aux t
+    | Trm_apps ({ desc = Trm_var _}, _, _) -> incr count; trm_iter aux t
     (* Otherwise, recurse deeper in the AST. *)
     | _ -> trm_iter aux t
   in
@@ -241,7 +241,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
       | Trm_while _ -> trm_map (aux aliases) t
     (* Variable declaration: update list of aliases and constify the lvalue if
        it is an alias to a constant variable. *)
-    | Trm_let (_, lval, { desc = Trm_apps (_, [rval]); _ }, _) ->
+    | Trm_let (_, lval, { desc = Trm_apps (_, [rval], _); _ }) ->
        (* Check whether the declared variable is a reference. *)
        let reference = trm_has_cstyle Reference t in
        (* Check whether the declared variable is an alias to a function argument
@@ -611,7 +611,7 @@ let heapify_on (t : trm) : trm =
   (* [t] must be either *)
   match t.desc with
   (* a simple variable declaration, or *)
-  | Trm_let (kind, (v, ty), init, _) ->
+  | Trm_let (kind, (v, ty), init) ->
      (* Call [heapify_on.single] once. *)
      let ((v2, ty2), init2) =
        single ~reference:(trm_has_cstyle Reference t) v ty init in
@@ -688,7 +688,7 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
   let rec aux (depth : int) (t: trm) : 'a option =
     match t.desc with
     (* unop : progress deeper + update depth *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t], _) ->
       begin match uo with
       | Unop_get -> aux (depth-1) t
       | Unop_address -> aux (depth+1) t
@@ -697,9 +697,9 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
       end
     (* binop array access : progress deeper + update depth *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ },
-        [t; _]) -> aux (depth-1) t
+        [t; _], _) -> aux (depth-1) t
     (* binop : progress deeper + resolve left and right sides *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs], _) ->
       begin match (aux depth lhs, aux depth rhs) with
       | Some(res), None -> Some(res)
       | None, Some(res) -> Some(res)

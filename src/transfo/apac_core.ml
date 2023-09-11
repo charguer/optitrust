@@ -60,7 +60,7 @@ type const_arg = {
   (* If the argument is a reference or a pointer, i.e. when [is_ptr_or_ref] is
      true, and if the value in memory it refers or points to is modified within
      the body of the associated function, the argument must not be constified.
-     
+
      To explain [to_unconst_by_propagation] let us consider a function [g]
      defined as follows:
 
@@ -130,7 +130,7 @@ type const_aliases = (lvar * int) LVar_Hashtbl.t
    the associated constification record so as to mark the argument as
    non-consitifiable. The same goes also for class methods modifying sibling
    class members. Such methods should not be consitified either. See [const_arg]
-   and [const_fun] for more details. 
+   and [const_fun] for more details.
 
    However, the constification records are not modified directly during the
    analysis. Instead, we use a stack keeping trace of functions arguments and
@@ -144,7 +144,7 @@ type const_aliases = (lvar * int) LVar_Hashtbl.t
 type const_unconst = (var * var) Stack.t
 
 (* [const_unconst_objects]: type of stack of function arguments, represented by
-   objects, that must not be constified. 
+   objects, that must not be constified.
 
    When an object is passed as argument to a function, it must not be constified
    if it is used to call a non-const class method which may modify one or more
@@ -248,7 +248,7 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
   let rec aux (l : label) (t : trm) : lvar option =
     match t.desc with
     (* [t] is a unary operation *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t], _) ->
        begin
          match op with
          (* Whenever we stumble upon a structure access or get operation, we
@@ -264,7 +264,7 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
     | Trm_apps ({ desc = Trm_val (
                              Val_prim (Prim_binop array_access)
                              (* We continue to recurse on the internal term. *)
-                           ); _ }, [t; _]) -> aux l t
+                           ); _ }, [t; _], _) -> aux l t
     (* [t] actually leads to a variable *)
     | Trm_var (_, var) ->
        (* Use [var] and the label [l] to build the associated labelled
@@ -303,7 +303,7 @@ let typ_constify (ty : typ) : typ =
        (* [ty] is a 'typedef' declaration. *)
        | Some td ->
           begin match td.typdef_body with
-          (* If the constructed type is an alias to another type, recurse. *) 
+          (* If the constructed type is an alias to another type, recurse. *)
           | Typdef_alias ty -> aux ty
           (* Otherwise, constify the constructed type and return. *)
           | _ -> typ_const ty
@@ -347,9 +347,9 @@ let trm_resolve_binop_lval_and_get_with_deref (t : trm) : (lvar * bool) option =
        Continue resolution on the latter. *)
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> aux true l t
+            _ }, [t; _], _) -> aux true l t
     (* [t] is a unary operation. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (op))); _ }, [t]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (op))); _ }, [t], _) ->
        begin
          match op with
          (* A get operation, e.g. [*operand], as well as a structure access,
@@ -378,7 +378,7 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
   let rec aux (l : label) (t : trm) : lvar option =
     match t.desc with
     (* [t] is a unary operation *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [term]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [term], _) ->
        begin
          match op with
          (* Whenever we stumble upon a structure access or get operation, we
@@ -399,7 +399,7 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
             (* We continue to recurse on the internal term. *)
-            _}, [term; _]) -> aux l term
+            _}, [term; _], _) -> aux l term
     (* [t] actually leads to a variable *)
     | Trm_var (_, var) ->
        (* Use [var] and the label [l] to build the associated labelled
@@ -421,7 +421,7 @@ let trm_resolve_pointer_and_aliased_variable
   let rec aux (degree : int) (l : label) (t : trm) : (lvar * lvar) option =
     match t.desc with
     (* [t] is a unary operation *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t], _) ->
        begin match op with
          (* When it is a get operation such as [*i], the pointer degree
             decreases. *)
@@ -443,9 +443,9 @@ let trm_resolve_pointer_and_aliased_variable
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
             (* We continue to recurse on the internal term. *)
-            _ }, [t; _]) -> aux (degree - 1) l t
+            _ }, [t; _], _) -> aux (degree - 1) l t
     (* [t] is a binary operation of another type *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs], _) ->
        (* We continue to recurse on both the left and the right internal
           terms. *)
        begin match (aux degree l lhs, aux degree l rhs) with
@@ -462,7 +462,7 @@ let trm_resolve_pointer_and_aliased_variable
           variable. *)
        let lv : lvar = { v = v; l = l } in
        (* Check if its an argument or an alias to an argument, then return the
-          corresponding argument index and labelled variable. *)       
+          corresponding argument index and labelled variable. *)
        begin match LVar_Hashtbl.find_opt aliases lv with
        | Some (aliased, deg) when (degree + deg) > 0 -> Some (lv, aliased)
        (* Otherwise, there is nothing to return. *)
@@ -477,7 +477,7 @@ let trm_resolve_pointer_and_aliased_variable
 let rec trm_can_resolve_pointer (t : trm) : bool =
     match t.desc with
     (* [t] is unary operation: strip, update degree and recurse. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t], _) ->
        begin match op with
        | Unop_get
          | Unop_address
@@ -488,10 +488,10 @@ let rec trm_can_resolve_pointer (t : trm) : bool =
        degree and recurse. *)
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> trm_can_resolve_pointer t
+            _ }, [t; _], _) -> trm_can_resolve_pointer t
     (* [t] is a binary operation of another type: strip, update degree and
        recurse on both left and right-hand sides. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs], _) ->
        (trm_can_resolve_pointer lhs) || (trm_can_resolve_pointer rhs)
     (* [t] actually leads to a variable: success. Return [true]. *)
     | Trm_var _ -> true
@@ -574,7 +574,7 @@ let find_parent_typedef_record (p : path) : trm option =
   let rec aux (p : path) : trm option =
     (* The function simply goes recursively through the reversed [p] *)
     match p with
-    | e :: f -> 
+    | e :: f ->
        begin
          (* and if it detects a class or a structure definition, it returns
             it. *)
@@ -678,7 +678,7 @@ let unconstify_mutables () : unit =
     | None -> ()
   in
   unconstify_to_unconst ();
-  unconstify_to_unconst_objects ()       
+  unconstify_to_unconst_objects ()
 
 (******************************************)
 (* PART IV: CORE TRANSFORMATION FUNCTIONS *)
@@ -721,7 +721,7 @@ let build_constification_records_on (t : trm) : unit =
     begin
       Var_Hashtbl.add const_records var const
     end
-      
+
 
 (* [build_constification_records]: expects the target [tg] to point at a
    function definition. It adds a new entry into [const_records] (global
@@ -746,7 +746,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
       | Trm_while _ ->
        trm_iter (aux aliases fun_var) fun_body
     (* Function call: update dependencies. *)
-    | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) when
+    | Trm_apps ({ desc = Trm_var (_ , name); _ }, args, _) when
            Var_Hashtbl.mem const_records name ->
        (* Find the corresponding function constification record containing the
           constification records of all of the arguments. *)
@@ -801,7 +801,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
          ) args;
        trm_iter (aux aliases fun_var) fun_body
     (* Variable declaration: update list of aliases. *)
-    | Trm_let (_, lval, { desc = Trm_apps (_, [rval]); _ }, _) ->
+    | Trm_let (_, lval, { desc = Trm_apps (_, [rval], _); _ }) ->
        let _ =
          trm_let_update_aliases ~reference:(trm_has_cstyle Reference fun_body)
            lval rval aliases in
@@ -836,15 +836,15 @@ let identify_mutables_on (p : path) (t : trm) : unit =
               begin
                 (* An alias of the same name may have been used multiple times
                    to alias different memory locations.
-                   
+
                    For example, in:
-                   
+
                    L1: void f(int * a, int * b, int * c) {
                    L2:   int * d = a;
-                   L3:   d = c; 
+                   L3:   d = c;
                    L4:   *d = 1;
                    L5: }
-                   
+
                    [d] is declared as an alias to [a] on L2. The data pointed to
                    by [a] is not modified within the function. On L3, [d]
                    becomes an alias for [c]. Then, on L4, the data pointed to by
@@ -855,7 +855,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                    never modified within the function. In the end, this will
                    produce a compilation error as [a], which became const, is
                    assigned to the non-const [d] on L2.
-                   
+
                    In order to prevent this situation from happening, we must
                    propagate the unconstification to previously aliased
                    arguments too. As the [aliases] hash table stores all the
@@ -958,7 +958,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
               argument. *)
            match (trm_resolve_pointer_and_aliased_variable ret aliases) with
            (* If it is the case, we need it to be unconstified. *)
-           | Some (_, aliased) -> 
+           | Some (_, aliased) ->
               (* Again, we do not consider parent class members because the
                  constification process does not analyze entire classes yet. See
                  an aforementioned TODO. *)

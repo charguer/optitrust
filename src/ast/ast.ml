@@ -599,13 +599,13 @@ and trm_desc =
   | Trm_var of varkind * var (* TODO: varkind ?? *)
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
-  | Trm_let of varkind * typed_var * trm * resource_spec (* int x = 3 *)
+  | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_mult of varkind * typed_vars * trm list
   | Trm_let_fun of var * typ * typed_vars * trm * fun_spec
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
-  | Trm_apps of trm * trm list (* f(t1, t2) *)
+  | Trm_apps of trm * trm list * (hyp * formula) list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
   | Trm_while of trm * trm     (* while (t1) { t2 } *)
   | Trm_for of loop_range  * trm * loop_spec
   | Trm_for_c of trm * trm * trm * trm * resource_spec
@@ -1073,19 +1073,19 @@ type trm_access =
 let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _},
-              [t']) ->
+              [t'], _) ->
      let (base, al) = get_nested_accesses t' in
      (base, Struct_access_addr f :: al)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _},
-              [t']) ->
+              [t'], _) ->
      let (base, al) = get_nested_accesses t' in
      (base, Struct_access_get f :: al)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
-              [t'; i]) ->
+              [t'; i], _) ->
      let (base, al) = get_nested_accesses t' in
      (base, Array_access_addr i :: al)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
-              [t'; i]) ->
+              [t'; i], _) ->
      let (base, al) = get_nested_accesses t' in
      (base, Array_access_get i :: al)
   | _ -> (t, [])
@@ -1097,7 +1097,7 @@ let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
 let contains_decl (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
-    | Trm_let (_, (y, _), _, _) when y = x -> true
+    | Trm_let (_, (y, _), _) when y = x -> true
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
     | Trm_for (l_range, body, _) ->
         let (y, _, _, _, _, _) = l_range in
@@ -1111,7 +1111,7 @@ let contains_decl (x : var) (t : trm) : bool =
 let contains_field_access (f : field) (t : trm) : bool =
   let rec aux (t : trm) : bool =
    match t.desc with
-   | Trm_apps (f', tl) ->
+   | Trm_apps (f', tl, _) ->
       begin match f'.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access f1))) -> f = f1
       | Trm_val (Val_prim (Prim_unop (Unop_struct_get f1))) -> f = f1
@@ -1236,7 +1236,7 @@ let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
     otherwise return nothing *)
 let get_mutability (t : trm) : varkind option =
   match t.desc with
-  | Trm_let (vk, _, _, _) -> Some vk
+  | Trm_let (vk, _, _) -> Some vk
   | Trm_var (vk, _) -> Some vk
   | _ -> None
 

@@ -81,6 +81,8 @@ module Pattern = struct
 
   let __ (v: 'a) (k:'a -> 'b): 'b = k v
   let any (v: 'a) (k: 'b): 'b = k
+  let check (f: 'a -> bool) (v: 'a) (k: 'b): 'b = if f v then k else raise PatternFailed
+
   let trm_apps (fn: trm -> 'a -> 'b) (args: trm list -> 'b -> 'c) (t: trm) (k: 'a): 'c =
     match trm_apps_inv t with
     | Some (f, a) ->
@@ -94,11 +96,10 @@ module Pattern = struct
     | Some v -> var v k
     | None -> raise PatternFailed
 
-  let specific_var (v: var) (pat_var: var) (k: 'a): 'a =
-    if var_eq v pat_var then k else raise PatternFailed
+  let var_eq (v: var): var -> 'a -> 'a = check (var_eq v)
 
   (* Probably useless? *)
-  let trm_apps_specific_var (v: var) = trm_apps (trm_var (specific_var v))
+  let trm_apps_specific_var (v: var) = trm_apps (trm_var (var_eq v))
 
   let nil (l: _ list) (k: 'a) : 'a =
     match l with
@@ -132,6 +133,11 @@ module Pattern = struct
       let k = f_body body k in
       let k = f_contract contract k in
       k
+    | _ -> raise PatternFailed
+
+  let trm_string f t k =
+    match trm_lit_inv t with
+    | Some (Lit_string str) -> f str k
     | _ -> raise PatternFailed
 
   let pair f1 f2 (x1, x2) k =

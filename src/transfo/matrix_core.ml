@@ -21,7 +21,7 @@ let access ?(annot : trm_annot = trm_annot_default) (t : trm) (dims : trms) (ind
 (* [access_inv t]: returns the array access base, the list of dimensions and indices used as args at matrix access [t]. *)
 let access_inv (t : trm) : (trm * trms * trms) option=
   match t.desc with
-  | Trm_apps (f, [base;index]) ->
+  | Trm_apps (f, [base;index], _) ->
     begin match trm_prim_inv f with
     | Some (Prim_binop Binop_array_access) ->
       begin match mindex_inv index with
@@ -40,7 +40,7 @@ let get (base : trm) (dims : trms) (indices : trms) : trm =
 (* [get_inv t]: gets the trm inside a get oepration on an access. *)
 let get_inv (t : trm) : (trm * trms * trms) option =
   match t.desc with
-  | Trm_apps (_f,[base]) when is_get_operation t -> access_inv base
+  | Trm_apps (_f,[base], _) when is_get_operation t -> access_inv base
   | _ -> None
 
 (* [set base dims indices arg]: creates a set operation on which the address where the write is done
@@ -53,7 +53,7 @@ let set (base : trm) (dims : trms) (indices : trms) (arg : trm) : trm =
 (* [set_inv t]: returns the arguments used in the function [set]. *)
 let set_inv (t : trm) : (trm * trms * trms * trm)  option =
   match t.desc with
-  | Trm_apps (_f, [addr;v]) when is_set_operation t ->
+  | Trm_apps (_f, [addr;v], _) when is_set_operation t ->
     begin match access_inv addr with
     | Some (base, dims, indices) -> Some (base, dims, indices, v)
     | None -> None
@@ -113,7 +113,7 @@ type zero_initialized = bool
 (* [alloc_inv t]:  returns all the args used in function alloc [t]. *)
 let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
   match t.desc with
-  | Trm_apps (f, args) ->
+  | Trm_apps (f, args,_) ->
     begin match f.desc with
     | Trm_var (_, f_var) ->
       let dims , size = Xlist.unlast args in
@@ -127,7 +127,7 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) option =
   match t.desc with
-  | Trm_let (_, (x, ty), init, _) ->
+  | Trm_let (_, (x, ty), init) ->
     begin match get_init_val init with
     | Some init1 ->
       begin match alloc_inv  init1 with
@@ -181,7 +181,7 @@ let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices
      [t] - ast of the call to alloc. *)
 let intro_calloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when var_has_name f "calloc" ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size], _) when var_has_name f "calloc" ->
     alloc ~init:(trm_int 0) [dim] size
   | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
@@ -193,7 +193,7 @@ let intro_calloc : Target.Transfo.local =
      [t] - ast of the call to alloc. *)
 let intro_malloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size]);_}]) when (var_has_name f "malloc") ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size],_);_}],_) when (var_has_name f "malloc") ->
     alloc [dim] size
   | _ -> fail t.loc "Matrix_core.intro_malloc: expected a function call to malloc"
 
@@ -208,7 +208,7 @@ let intro_malloc : Target.Transfo.local =
       [t] - the ast of the array access. *)
 let intro_mindex_aux (dim : trm) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (f, [base;index]) ->
+  | Trm_apps (f, [base;index], _) ->
     begin match trm_prim_inv f with
     | Some (Prim_binop Binop_array_access) ->
       trm_apps ~annot:t.annot f [base; mindex [dim] [index]]
@@ -402,11 +402,11 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
     let add_labels = List.length labels = 3 in
     let decl = Mlist.nth tl 0 in
     begin match decl.desc with
-    | Trm_let (_, (local_var, ty), init, _) ->
+    | Trm_let (_, (local_var, ty), init) ->
       begin match get_init_val init with
       | Some init1 ->
         begin match init1.desc with
-         | Trm_apps (_, [alloc_trm]) ->
+         | Trm_apps (_, [alloc_trm], _) ->
           begin match alloc_inv alloc_trm with
           | Some (dims, _, _) ->
               let alloc_arity = List.length dims in

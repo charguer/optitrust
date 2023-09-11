@@ -424,7 +424,7 @@ and tr_stmt (s : stmt) : trm =
        let dls = tr_decl_list dl in
        let typed_vars, init_list = List.fold_left (fun (acc1, acc2) t1 ->
         begin match t1.desc with
-        | Trm_let (_, (x, ty), init, _) ->
+        | Trm_let (_, (x, ty), init) ->
           ((x, ty) :: acc1, init :: acc2)
         | _ -> fail loc "Clang_to_astRawC.tr_stmr: expected a multip declaration statemnt"
         end

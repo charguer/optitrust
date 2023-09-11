@@ -10,15 +10,15 @@ open Syntax
 let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base; index]) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base; index], _) ->
       begin match base.desc with
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x)}]) when (var_eq x array_var) ->
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x)}], _) when (var_eq x array_var) ->
         begin match index.desc with
         | Trm_val (Val_lit (Lit_int i)) ->
           if i >= List.length new_vars
             then fail index.loc "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
             else (trm_var (List.nth new_vars i))
-        | Trm_apps ({desc = Trm_var (_, x); _}, _) when var_has_name x "ANY" ->
+        | Trm_apps ({desc = Trm_var (_, x); _}, _, _) when var_has_name x "ANY" ->
           let nb_vars = List.length new_vars in
           trm_address_of (trm_apps (trm_var (name_to_var "CHOOSE")) ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars)))
         | _ -> fail index.loc "Arrays_core.inline_array_access: only integer indices are supported"
@@ -42,7 +42,7 @@ let to_variables_aux (new_vars : string list) (index : int) (t : trm) : trm =
     let array_var = ref dummy_var in
     let f_update_at (t : trm) : trm =
       begin match t.desc with
-        | Trm_let (_, (x , tx), init, _) ->
+        | Trm_let (_, (x , tx), init) ->
           array_var := x;
           begin match (get_inner_ptr_type tx).typ_desc with
           | Typ_array (t_var,_) ->
@@ -95,9 +95,9 @@ let to_variables (new_vars : string list) (index : int): Target.Transfo.local =
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar) (t : trm) : trm =
   let aux = apply_tiling base_type block_name b x in
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [arg]) ->
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [arg], _) ->
     begin match arg.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base;index]) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base;index], _) ->
       begin match base.typ with
       | Some {typ_desc = Typ_constr (y,_, _); _} when (snd y) = x ->
           get_array_access (get_array_access base (trm_div index b)) (trm_mod index b)
@@ -148,7 +148,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
     let new_alloc (t_alloc : trm) : trm =
       match t_alloc.desc with
       (* expectation: my_alloc(nb_elements, size_element) *)
-      | Trm_apps (t_alloc_fun, [t_nb_elts; t_size_elt]) ->
+      | Trm_apps (t_alloc_fun, [t_nb_elts; t_size_elt], _) ->
          (* goal: my_alloc(nb_elements / b, b * size_element) *)
          let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; trm_var block_size] in
          let t_size_elt = new_size t_size_elt in
@@ -156,7 +156,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
       (* there's possibly a cast first *)
       | Trm_apps (t_cast,
                   [{desc = Trm_apps (t_alloc_fun,
-                                     [t_nb_elts; t_size_elt]); _}]) ->
+                                     [t_nb_elts; t_size_elt], _); _}], _) ->
          let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; trm_var block_size] in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
@@ -212,14 +212,14 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
       | _ -> fail t.loc "Arrays_core.tile_aux: no enums expected"
       end
 
-    | Trm_let (Var_mutable, (y,ty), init, _) when var_has_name y base_type_name ->
+    | Trm_let (Var_mutable, (y,ty), init) when var_has_name y base_type_name ->
         begin match ty.typ_desc with
         | Typ_ptr {inner_typ = {typ_desc = Typ_constr (yc, _, _); _};_} when typconstr_has_name yc base_type_name ->
           trm_let Var_mutable ~annot:d.annot (y, ty) init
         | _ -> fail t.loc "Arrays_core.tile_aux: expected a pointer because of heap allocation"
         end
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-              [lhs; rhs]) ->
+              [lhs; rhs], _) ->
         (* lhs should have type x *)
         begin match lhs.typ with
         | Some {typ_desc = Typ_constr (y, _, _); _} when (typconstr_has_name y base_type_name) ->
@@ -247,9 +247,9 @@ let tile (block_name : typvar) (block_size : var) (index : int) : Target.Transfo
 let rec apply_swapping (x : typvar) (t : trm) : trm =
   let aux = apply_swapping x in
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [arg]) ->
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [arg], _) ->
     begin match arg.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index]) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index], _) ->
       begin match get_array_access_inv base with
       | Some (base1, index1) ->
         begin match base1.typ with
@@ -260,7 +260,7 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
       end
     | _ -> trm_map aux t
     end
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index]) ->
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index], _) ->
       begin match get_array_access_inv base with
       | Some (base1, index1) ->
         begin match base1.typ with
@@ -338,14 +338,14 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     (* LATER: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
-    | Trm_apps(_,[get_base]) when is_access t  ->
+    | Trm_apps(_,[get_base], _) when is_access t  ->
       begin match get_base.desc with
-      | Trm_apps (f, [base]) ->
+      | Trm_apps (f, [base], _) ->
          begin match f.desc with
          | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
            | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
             begin match base.desc with
-            | Trm_apps (f', [base'; index]) ->
+            | Trm_apps (f', [base'; index], _) ->
                begin match f'.desc with
                | Trm_val (Val_prim (Prim_binop Binop_array_access))
                  | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
@@ -361,11 +361,11 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
                    (* TODO ARTHUR *)
 
                   let base'  = match base'.desc with
-                  | Trm_apps (_, [base'']) when is_get_operation base'  -> base''
+                  | Trm_apps (_, [base''], _) when is_get_operation base'  -> base''
                   | _ -> base'
                    in
                   let index  = match index.desc with
-                  | Trm_apps (_, [index']) when is_get_operation index -> index'
+                  | Trm_apps (_, [index'], _) when is_get_operation index -> index'
                   | _ -> index
                    in
                   begin match base'.typ with
@@ -439,7 +439,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         | _ -> trm_map aux t
         end
 
-    | Trm_let (vk, (n, dx), init, _) ->
+    | Trm_let (vk, (n, dx), init) ->
        begin match dx.typ_desc with
        | Typ_ptr {inner_typ = ty;_} ->
         begin match ty.typ_desc with
@@ -465,7 +465,7 @@ let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
     [t] - ast of the array declaration. *)
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
-  | Trm_let (vk, (x, tx), init, _) ->
+  | Trm_let (vk, (x, tx), init) ->
     let init = match get_init_val init with
     | Some init -> init
     | None -> fail t.loc "set_explicit_aux: could not get the initialization trms for the targeted array declaration" in

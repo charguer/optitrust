@@ -13,7 +13,7 @@ let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
     else if is_set_operation t
      then begin match args with
       | [addr; targ] ->
-        trm_replace (Trm_apps (f, [addr; f_set targ])) t
+        trm_replace (Trm_apps (f, [addr; f_set targ], [])) t
       | _ -> fail t.loc "Accesses_core.transform_aux: expected either a get or a set operation"
       end
     else fail t.loc "Accesses_core.transform_aux: expected a get operation"
@@ -28,11 +28,11 @@ let transform (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.local =
 let intro_aux (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps (f, [arg]) ->
+    | Trm_apps (f, [arg], _) ->
       begin match trm_prim_inv f with
       | Some (Prim_unop (Unop_struct_get x)) ->
         begin match arg.desc with
-        | Trm_apps (_, [arg1]) when is_get_operation arg ->
+        | Trm_apps (_, [arg1], _) when is_get_operation arg ->
           trm_get ~annot:arg.annot (trm_apps (trm_unop (Unop_struct_access x)) [arg1])
         | _ -> t
         end

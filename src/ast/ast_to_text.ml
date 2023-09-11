@@ -221,7 +221,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
       let td = print_trm ~only_desc t in
       match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
      print_node "Trm_record" ^^ print_list dtl
-  | Trm_let (vk,(x,tx),t,_) ->
+  | Trm_let (vk,(x,tx),t) ->
     let dvk = match vk with
     | Var_immutable -> string "Var_immutable"
     | Var_mutable ->  string "Var_mutable"
@@ -262,7 +262,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_seq tl ->
      let dtl = List.map (print_trm ~only_desc) (Mlist.to_list tl) in
      print_node "Trm_seq" ^^ print_list dtl
-  | Trm_apps (f, tl) ->
+  | Trm_apps (f, tl, _) ->
      let df = print_trm ~only_desc f in
      let dtl = List.map (print_trm ~only_desc) tl in
      print_node "Trm_apps" ^^ parens (df ^^ comma ^/^ print_list dtl)

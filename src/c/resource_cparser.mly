@@ -8,10 +8,11 @@
 %token <string> IDENT
 %token <int> INT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token SEMICOLON COLON COMMA AMPERSAND ARROW SQUIG_ARROW FUN EOF
+%token SEMICOLON COLON COMMA AMPERSAND ARROW SQUIG_ARROW FUN COLON_EQUAL EOF
 %token STAR PLUS MINUS
 
 %start <contract_resource list> resource_list
+%start <(hyp * formula) list> ghost_arg_list
 
 %%
 
@@ -60,7 +61,13 @@ resource:
   | f=formula; SEMICOLON
     { (None, f) }
   | hyp=IDENT; COLON; f=formula; SEMICOLON
-    { (Some { qualifier = []; name = hyp; id = -1 }, f) }
+    { (Some (name_to_var hyp), f) }
 
 resource_list:
   | res_list=resource*; EOF { res_list }
+
+ghost_arg:
+  | ghost_var=IDENT; COLON_EQUAL; formula=formula { (name_to_var ghost_var, formula) }
+
+ghost_arg_list:
+  | ghost_args=separated_list(COMMA, ghost_arg); EOF { ghost_args }

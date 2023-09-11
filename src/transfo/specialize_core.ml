@@ -22,14 +22,14 @@ let any (e : trm) : Target.Transfo.local =
       [t] - ast of the call to function choose. *)
 let choose_aux (select_arg : var list -> int) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (_f, argnb :: args)  ->
+  | Trm_apps (_f, argnb :: args, _)  ->
     begin match argnb.desc with
     | Trm_val (Val_lit (Lit_int nb)) ->
        if nb <> List.length args then fail t.loc "Specialize_core.choose_aux: number of args is not correct";
         let choices = List.map (fun arg ->
           match arg.desc with
           | Trm_var (_, s) -> s
-          | Trm_apps (_, [v])  ->
+          | Trm_apps (_, [v], _)  ->
             begin match v.desc with
             | Trm_var (_, v) -> v
             | _ -> fail arg.loc "Specialize_core.choose_aux: could not match non constant variable"
@@ -104,7 +104,7 @@ let fun_defs (spec_name : string) (spec_args : (trm option) list) : Target.Trans
         from the current call should be kept.*)
 let fun_calls_aux (spec_name : var) (args_to_choose : bool list) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (_f, args) ->
+  | Trm_apps (_f, args, _) ->
     let new_args = List.fold_left2 (fun acc b t1 ->
       if b
         then t1 :: acc

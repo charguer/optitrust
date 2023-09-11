@@ -231,7 +231,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       let mark_added = ref false in
       let call_trm = Path.get_trm_at_path path_to_call t in
       begin match call_trm.desc with
-        | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_names := Var_set.add f !function_names;
+        | Trm_apps ({desc = Trm_var (_, f)}, _, _) -> function_names := Var_set.add f !function_names;
         | _ ->  fail t.loc "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;
 
@@ -285,7 +285,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ();
-      | Trm_apps (_, [ls; rs]) when is_set_operation tg_out_trm ->
+      | Trm_apps (_, [ls; rs], _) when is_set_operation tg_out_trm ->
         Stats.comp_stats "bind_intro2" (fun () ->
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
         mark_added := true;
@@ -347,7 +347,7 @@ let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target
       let parent_path, _ = Xlist.unlast p in
       let parent_node = Path.resolve_path parent_path t in
       begin match parent_node.desc with
-      | Trm_apps (_, _args) -> Function_basic.beta ~body_mark (target_of_path parent_path)
+      | Trm_apps _ -> Function_basic.beta ~body_mark (target_of_path parent_path)
       | _ -> ()
       end
     | _ -> fail t.loc "Function.beta: this transformation expects a target to a function call"

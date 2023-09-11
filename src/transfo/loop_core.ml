@@ -130,7 +130,7 @@ let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : 
       let new_name = ref dummy_var in
       let f_update (t : trm) : trm =
         match t.desc with
-        | Trm_let (vk, (x, tx), _, _) ->
+        | Trm_let (vk, (x, tx), _) ->
           new_name := new_var (Tools.string_subst "${var}" x.name name);
           ty := get_inner_ptr_type tx;
           trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var index] )
@@ -218,7 +218,7 @@ let unroll_aux (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : 
   let (index, start, _, stop, _, _) = l_range in
   let unrolled_loop_range =
     begin match stop.desc with
-    | Trm_apps(_,[_; bnd]) ->
+    | Trm_apps(_,[_; bnd],_) ->
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int bnd)) ->
           Xlist.range 0 (bnd - 1)

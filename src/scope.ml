@@ -77,7 +77,7 @@ let check_unique_var_ids (t : trm) : unit =
   in
   let rec aux t =
     begin match t.desc with
-    | Trm_let (_, (x, _), _, _) ->
+    | Trm_let (_, (x, _), _) ->
       add_var x
     | Trm_let_mult (_, tvs, _) ->
       List.iter (fun (x, _) -> add_var x) tvs

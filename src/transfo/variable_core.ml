@@ -12,7 +12,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   let f_update_further (t1 : trm) : trm =
     let t_dl = Mlist.nth tl index in
     match t_dl.desc with
-    | Trm_let (vk, (x, tx), dx, _) ->
+    | Trm_let (vk, (x, tx), dx) ->
       (* check if the declaration is of the form int*x = &y *)
       let as_reference = is_typ_ptr (get_inner_ptr_type tx) && not (trm_has_cstyle Reference t_dl) in
       let t_x =
@@ -24,7 +24,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
           begin match vk with
           | Var_immutable -> dx
           | _ -> begin match dx.desc with
-                 | Trm_apps(_, [init]) -> init
+                 | Trm_apps(_, [init], _) -> init
                  | _ -> dx
                  end
           end
@@ -56,7 +56,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
     let dl = Mlist.nth tl index in
     let dl = Path.resolve_path p_local dl in
     match dl.desc with
-    | Trm_let (vk, (x, _), init, _) ->
+    | Trm_let (vk, (x, _), init) ->
       let init = trm_add_mark mark init in
       begin match vk with
       | Var_immutable ->
@@ -110,7 +110,7 @@ let rename_aux (index : int) (new_name : string) (t : trm) : trm =
   let new_var = new_var new_name in
   let f_update (t : trm) : trm =
     match t.desc with
-    | Trm_let (vk,( x, tx), init, _) ->
+    | Trm_let (vk,( x, tx), init) ->
       trm_let ~annot:t.annot vk (new_var, tx) init
     | _ -> fail t.loc "Variable_core.rename_aux: expected a target to variable declaration"
     in
@@ -175,7 +175,7 @@ let init_detach_aux  (t : trm) : trm =
   | _ ->
     let init =
       begin match init.desc with
-      | Trm_apps(_,[init]) -> init
+      | Trm_apps(_,[init],_) -> init
       | _ -> fail t.loc "init_detach_aux: can't detach an uninitialized declaration"
       end in
     let var_type = get_inner_ptr_type tx in
@@ -224,7 +224,7 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
       if i = 0 then begin
       apply_on_path (fun t1 ->
         begin match t1.desc with
-        | Trm_apps (_, [_;rs]) ->
+        | Trm_apps (_, [_;rs],_) ->
           let decl = if const then trm_let_immut (x, tx) rs else trm_let_mut (x, get_inner_ptr_type tx) rs in
           trm_pass_marks trm_to_change decl
         | _ -> t1
@@ -278,7 +278,7 @@ let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : tr
     let def = Mlist.nth tl 0 in
     let snd_instr = Mlist.nth tl 1 in
     begin match def.desc with
-    | Trm_let (vk, (x, tx), init, _) ->
+    | Trm_let (vk, (x, tx), init) ->
       let local_var = x in
       let curr_var_trm = match get_init_val init with
         | Some init1 -> init1
@@ -446,14 +446,14 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     in
     match t.desc with
     | Trm_var (_, y) when y = x -> (true, t)
-    | Trm_apps (_, [t1]) when is_get_operation t ->
+    | Trm_apps (_, [t1], _) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1]) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1], _) ->
       let r, t1' = aux t1 in
       if r then (true, trm_struct_get ?typ:t.typ ~annot:t.annot t1' f)
       else (false, trm_struct_access ?typ:t.typ ~annot:t.annot t1' f)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2]) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2], _) ->
       let r, t1' = aux t1 in
       let _, t2' = aux t2 in
       if r then (true, trm_array_get ~annot:t.annot t1' t2')
@@ -465,7 +465,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
 (* [remove_get_operations_on_var_temporary x t]: to be removed. *)
 let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when y = x -> ty
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty], _) when y = x -> ty
   | _ -> trm_map (remove_get_operations_on_var_temporary x) t
 
 (* [Variable_to_const_abort]: exception raised by [from_to_const_aux]. *)
@@ -482,7 +482,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
 
     let lfront, dl, lback = Mlist.get_item_and_its_relatives index tl in
     begin match dl.desc with
-    | Trm_let (vk, (x, tx), init, _) ->
+    | Trm_let (vk, (x, tx), init) ->
       let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm =
         let new_tl = Mlist.merge lfront new_lback in
         let new_tl = Mlist.insert_at index new_dl new_tl in
@@ -509,7 +509,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
             (* Search if there are any write operations on variable x *)
             Mlist.iter (fun t1 ->
               begin match t1.desc with
-              | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
+              | Trm_apps (_, [ls; _rs], _) when is_set_operation t1 ->
                 begin match ls.desc with
                 | Trm_var (_, y) when y = x -> fail ls.loc "Variable_core.to_const_aux: variables with one or more write operations can't be converted to immutable ones"
                 | _ ->
@@ -563,7 +563,7 @@ let ref_to_pointer_aux (index : int) (t : trm) : trm =
   let var_name = ref dummy_var in
   let f_update (t : trm) : trm =
     match t.desc with
-    | Trm_let (vk,( x, tx), init, _) when trm_has_cstyle Reference t ->
+    | Trm_let (vk,( x, tx), init) when trm_has_cstyle Reference t ->
       var_name := x;
       let tx = get_inner_ptr_type tx in
       trm_let_mut (x, typ_ptr_generated tx) init
@@ -583,7 +583,7 @@ let ref_to_pointer (index : int) : Transfo.local =
      [t] - ast of the refernce declaration *)
 let ref_to_var_aux (t : trm) : trm =
   match t.desc with
-  | Trm_let (vk, (x, tx), init, _) when trm_has_cstyle Reference t ->
+  | Trm_let (vk, (x, tx), init) when trm_has_cstyle Reference t ->
     let t_annot = trm_rem_cstyle Reference t in
     let t_annot = trm_add_cstyle Stackvar t_annot in
     (trm_let ~annot:t_annot.annot vk (x, tx) (trm_new (get_inner_ptr_type tx) (trm_get init)))

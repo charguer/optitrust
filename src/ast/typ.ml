@@ -244,7 +244,7 @@ let is_generated_typ (ty : typ) : bool =
   (* [decl_type t]: returns the type of declaration [t]. *)
   let decl_type (t : trm) : typ option =
     match t.desc with
-    | Trm_let (_, (_, tx), _, _) -> Some (get_inner_ptr_type tx)
+    | Trm_let (_, (_, tx), _) -> Some (get_inner_ptr_type tx)
     | Trm_let_fun (_, ty, _, _, _) -> Some ty
     | _ -> None
 

@@ -38,18 +38,18 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
     in
   let trm_apps_binop t1 t2 = trm_apps (trm_binop binop_op) [t1; t2] in
   match t.desc with
-  | Trm_apps(f, [lhs; rhs]) when is_set_operation t ->
+  | Trm_apps(f, [lhs; rhs],_) when is_set_operation t ->
     begin match pre_cast, post_cast with
-     | None, None -> trm_replace (Trm_apps (f, [lhs; trm_apps_binop rhs u])) t
+     | None, None -> trm_replace (Trm_apps (f, [lhs; trm_apps_binop rhs u], [])) t
 
-     | None, Some ty -> trm_replace (Trm_apps (f, [lhs;trm_cast ty (trm_apps_binop rhs u)])) t
+     | None, Some ty -> trm_replace (Trm_apps (f, [lhs;trm_cast ty (trm_apps_binop rhs u)], [])) t
 
      | Some ty, None -> trm_replace (Trm_apps (f, [lhs;
-                    trm_apps_binop (trm_cast ty rhs) u])) t
+                    trm_apps_binop (trm_cast ty rhs) u], [])) t
      | _ -> fail t.loc "Arith_core.transform_aux: can't apply both pre-casting
                         and post-casting"
     end
-  | Trm_apps (_, [arg]) when is_get_operation t ->
+  | Trm_apps (_, [arg], _) when is_get_operation t ->
     begin match pre_cast, post_cast with
      | None , None -> trm_apps_binop t u
      | None, Some ty -> trm_cast ty (trm_apps_binop t u)
@@ -371,7 +371,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
             begin match t1.desc with
             | Trm_var (_, x) -> AstC_to_c.var_to_doc x
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _},
-               [{desc = Trm_var (_, x); _}]) -> AstC_to_c.var_to_doc x
+               [{desc = Trm_var (_, x); _}], _) -> AstC_to_c.var_to_doc x
             | _ -> braces (AstC_to_c.trm_to_doc t1)
             end
         | _  ->
@@ -545,13 +545,13 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
      | Trm_val (Val_lit (Lit_int n)) -> expr_int ?loc n
      | Trm_val (Val_lit (Lit_double n)) -> expr_float ?loc ~typ n
      (* Recognize unary operators *)
-     | Trm_apps (f, [t1]) ->
+     | Trm_apps (f, [t1], _) ->
        begin match trm_prim_inv f with
         | Some (Prim_unop Unop_minus) -> expr_neg ?loc ~typ (aux t1)
         | _ -> force_atom()
        end
      (* Recognize binary operators *)
-     | Trm_apps (f, [t1; t2]) ->
+     | Trm_apps (f, [t1; t2], _) ->
        let is_integer_op () = (* indicate if operation is on int or double *)
           match is_integer_typ t1.typ, is_integer_typ t2.typ with
           | true, true -> true

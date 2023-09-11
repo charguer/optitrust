@@ -58,7 +58,7 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
   let f_update (t : trm) : trm =
     let fun_call = Path.resolve_path p_local t in
     begin match fun_call.desc with
-    | Trm_apps (tfun, fun_call_args) ->
+    | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
       let fun_decl = begin match tfun.desc with
       | Trm_var (_, f) ->
         begin match Internal.toplevel_decl ~require_body:true f with
@@ -71,16 +71,20 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
       begin match fun_decl.desc with
       | Trm_let_fun (_f, ty, args, body, _) ->
         let fun_decl_arg_vars = fst (List.split args) in
-        let subst_map = Var_map.of_seq (List.to_seq (List.map2 (fun dv cv ->
-            (dv, (trm_may_add_mark subst_mark cv))
-          ) fun_decl_arg_vars fun_call_args)) in
+        let subst_map = Var_map.of_seq (Seq.append
+          (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_may_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
+          (Seq.map (fun (g, f) -> (g, trm_may_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
+        in
         let fun_decl_body = trm_subst subst_map (trm_copy body) in
-        let name = match t.desc with | Trm_let (vk, (x, _), _, _) -> x| _ -> dummy_var in
+        let name = match t.desc with
+          | Trm_let (vk, (x, _), _) -> x
+          | _ -> dummy_var
+        in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
-        let marked_body = begin match body_mark with
+        let marked_body = match body_mark with
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Nobrace.set_if_sequence processed_body
         | _ -> Nobrace.set_if_sequence processed_body
-        end  in
+        in
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
           if is_type_unit(ty)
@@ -108,9 +112,9 @@ let inline (index: int) (body_mark : string option) ~(subst_mark : mark option) 
       [t] - ast of the write operation *)
 let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (f, [ls; rs]) when is_set_operation t ->
+  | Trm_apps (f, [ls; rs], _) when is_set_operation t ->
     begin match rs.desc with
-    | Trm_apps (f1, [get_ls; arg]) ->
+    | Trm_apps (f1, [get_ls; arg], _) ->
       begin match trm_prim_inv f1 with
       | Some p when is_infix_prim_fun p ->
         let aux s = AstC_to_c.ast_to_string s in
@@ -174,7 +178,7 @@ let replace_with_change_args_aux (new_fun_name : var) (arg_mapper : trms -> trms
   (* to change name and keep qualifier/id:
   let fv = trm_inv ~error trm_var_inv f in
   { qualifier = fv.qualifier; name = new_fun_name; id = fv.id } *)
-  trm_replace (Trm_apps ((trm_var new_fun_name), arg_mapper args)) t
+  trm_replace (Trm_apps ((trm_var new_fun_name), arg_mapper args, [])) t
 
 (* [replace_with_change_args new_fun_name arg_mapper t p]: applies [replace_with_change_args_aux] at trm [t] with path [p]. *)
 let replace_with_change_args (new_fun_name : var) (arg_mapper : trms -> trms) : Transfo.local =
@@ -213,9 +217,9 @@ let dsp_def_aux (index : int) (arg : string) (func : string) (t : trm) : trm =
     [t] - ast of the write operation. *)
 let dsp_call_aux (dsp : string) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
+  | Trm_apps (_, [lhs; rhs], _) when is_set_operation t ->
     begin match rhs.desc with
-    | Trm_apps ({desc = Trm_var (_, f); _}, args) ->
+    | Trm_apps ({desc = Trm_var (_, f); _}, args, _) ->
         let dsp_name = if dsp = "" then f.name ^ "_dsp" else dsp in
         (* TODO: avoid using name_to_var, take var as arg. *)
         trm_apps (trm_var (name_to_var dsp_name)) (args @ [lhs])

@@ -250,9 +250,8 @@ exception ImpureFunctionArgument of exn
    after instantiation.
    Pure resources (ghosts) can be inferred using unification.
 
-   If given [evar_ctx] is used as an initial unification context, and replaces
-   the context inferred from pure resources. In that case, pure ressources must
-   already be filtered out of [res_to].
+   If given [evar_ctx] is used as an initial unification context.
+   In that case, already instantiated pure ressources must already be filtered out of [res_to].
 
    TODO: Add unit tests for this specific function
 *)
@@ -497,7 +496,7 @@ let rec formula_of_trm (t: trm): formula option =
   let open Tools.OptionMonad in
   match t.desc with
   | Trm_val _ | Trm_var _ -> Some t
-  | Trm_apps (fn, args) ->
+  | Trm_apps (fn, args, _) ->
     let* f_args = try Some (List.map (fun arg -> Option.get (formula_of_trm arg)) args) with Invalid_argument _ -> None in
     begin match trm_prim_inv fn with
       | Some Prim_binop Binop_add
@@ -611,20 +610,11 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       in
       usage_map, res
 
-    | Trm_let (_, (var, typ), body, spec) ->
-      begin match spec with
-      | Some bound_res ->
-        (* FIXME: This breaks usage_map because it allows renaming without using the renamed hypothesis *)
-        let expected_res = rename_var_in_resources var var_result bound_res in
-        let usage_map, _ = compute_resources_and_merge_usage ~expected_res (Some res) (Some usage_map) body in
-        (* Use the bound_res contract but keep res existing pure facts *)
-        usage_map, Some (bind_new_resources ~old_res:res ~new_res:bound_res)
-      | None ->
-        let usage_map, res_after = compute_resources_and_merge_usage (Some res) (Some usage_map) body in
-        usage_map, Option.map (fun res_after -> rename_var_in_resources var_result var res_after) res_after
-      end
+    | Trm_let (_, (var, typ), body) ->
+      let usage_map, res_after = compute_resources_and_merge_usage (Some res) (Some usage_map) body in
+      usage_map, Option.map (fun res_after -> rename_var_in_resources var_result var res_after) res_after
 
-    | Trm_apps (fn, effective_args) ->
+    | Trm_apps (fn, effective_args, ghost_args) ->
       let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
       begin match Var_map.find_opt fn res.fun_contracts with
       | Some (contract_args, contract) ->
@@ -659,6 +649,27 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           failwith (Printf.sprintf "Mismatching number of arguments for %s" (var_to_string fn))
         in
 
+        (* Name resolution for contracts is done here, since we cannot do it before knowing the contract *)
+        (* FIXME: The resolved ghost names should be stored in order to fix inlining. *)
+        let ghost_name_map = List.fold_left (fun qualified_map (ghost_var, _) -> Tools.String_map.add ghost_var.name ghost_var qualified_map) Tools.String_map.empty contract.pre.pure in
+        let ghost_args_vars = ref Var_set.empty in
+        let subst_ctx = List.fold_left (fun subst_ctx (ghost_var, ghost_inst) ->
+          let ghost_var = if ghost_var.id = -1
+            then (match Tools.String_map.find_opt ghost_var.name ghost_name_map with
+              | Some v -> v
+              | None -> failwith (sprintf "Invalid ghost argument %s for function %s" (var_to_string ghost_var) (var_to_string fn))
+            )
+            else ghost_var in
+          if Var_set.mem ghost_var !ghost_args_vars then (failwith (sprintf "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (var_to_string fn)));
+          ghost_args_vars := Var_set.add ghost_var !ghost_args_vars;
+          Var_map.add ghost_var ghost_inst subst_ctx) subst_ctx ghost_args
+        in
+        let contract = { contract with pre = { contract.pre with pure = List.filter (fun (ghost_var, _) ->
+          let manually_given = Var_set.mem ghost_var !ghost_args_vars in
+          ghost_args_vars := Var_set.remove ghost_var !ghost_args_vars;
+          not manually_given) contract.pre.pure } }
+        in
+
         let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
 
         let usage_map = Option.map (fun usage_map -> add_used_set_to_usage_map res_used usage_map) usage_map in
@@ -686,7 +697,6 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_for (range, body, None) ->
       (* If no spec is given, put all the resources in the invariant (best effort) *)
-      (* TODO: Still try to be clever about Group with a corresponding range *)
       let expected_res = resource_set ~linear:res.linear () in
       let usage_map, _ = compute_resources_and_merge_usage ~expected_res (Some res) (Some usage_map) body in
       usage_map, Some res
@@ -715,6 +725,10 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       Some usage_map, Some (bind_new_resources ~old_res:res ~new_res:(resource_merge_after_frame after_loop_res res_frame))
 
     | Trm_typedef _ ->
+      Some usage_map, Some res
+
+    | Trm_template _ ->
+      (* FIXME: Manage this case or change the encoding of templates *)
       Some usage_map, Some res
 
     | _ -> fail t.loc ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)

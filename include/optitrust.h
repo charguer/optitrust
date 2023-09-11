@@ -21,10 +21,10 @@ void __admitted() {}
 
 typedef void __ghost;
 
+template<typename T> T __ghost_args(T ret_val, const char*) { return ret_val; }
 /*
-template<typename T> T __spec_hint(T, const char*);
-template<typename T> T __spec_out_name(T, const char*);
-void __res_rename(const char*);
+template<typename T> T __ghost_bind(T ret_val, const char*) { return ret_val; }
+void __res_rename(const char*) {}
 */
 
 /* ---- Matrix Functions ---- */

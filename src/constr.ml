@@ -1008,7 +1008,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_then then_t &&
         check_target p_else else_t
-      | Constr_decl_var (ty_pred, name, p_body) , Trm_let (_,(x,tx), body, _) ->
+      | Constr_decl_var (ty_pred, name, p_body) , Trm_let (_,(x,tx), body) ->
         ty_pred (get_inner_ptr_type tx) &&
         check_name name x.name &&
         check_target p_body body
@@ -1055,7 +1055,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_name name x.name
      | Constr_lit pred_l, Trm_val (Val_lit l) ->
         pred_l l
-     | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->
+     | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
         if not accept_encoded then
           begin match f.desc with
           | Trm_val (Val_prim (Prim_new _))
@@ -1104,7 +1104,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
-     | Constr_var_init , Trm_apps ({desc = Trm_val (Val_prim (Prim_new _)); _}, [arg]) -> false
+     | Constr_var_init , Trm_apps ({desc = Trm_val (Val_prim (Prim_new _)); _}, [arg], _) -> false
      | Constr_var_init, Trm_val (Val_lit (Lit_uninitialized)) -> false
      | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
@@ -1543,7 +1543,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      end
   else
      begin match t.desc with
-     | Trm_let (_ ,(_, _), body, _) ->
+     | Trm_let (_ ,(_, _), body) ->
        add_dir Dir_body (aux body)
      | Trm_let_fun (_, _ , _,body, _) ->
         add_dir Dir_body (aux_body body)
@@ -1614,7 +1614,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (add_dir Dir_then (aux_body then_t)) @
         (* else *)
         (add_dir Dir_else (aux_body else_t))
-     | Trm_apps (f, args) ->
+     | Trm_apps (f, args, _) ->
         (* fun *)
         (add_dir Dir_app_fun (aux f)) @
         (* args *)
@@ -1685,10 +1685,10 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
-  | Dir_var_body, Trm_let (_, _, body, _) ->
+  | Dir_var_body, Trm_let (_, _, body) ->
      let new_op_arg = new_operation_arg body in
      add_dir Dir_var_body (aux new_op_arg)
-  | Dir_body, Trm_let (_, _,body, _)
+  | Dir_body, Trm_let (_, _,body)
     | Dir_body, Trm_let_fun (_, _, _, body, _)
     | Dir_body, Trm_for_c (_, _, _, body, _)
     | Dir_body, Trm_for (_, body, _)
@@ -1706,8 +1706,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_for_stop, Trm_for (l_range, _, _) ->
      let (_, _, _, stop, _, _) = l_range in
      add_dir Dir_for_stop (aux stop)
-  | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (aux f)
-  | Dir_arg_nth n, Trm_apps (_, tl) ->
+  | Dir_app_fun, Trm_apps (f, _, _) -> add_dir Dir_app_fun (aux f)
+  | Dir_arg_nth n, Trm_apps (_, tl, _) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
@@ -1719,7 +1719,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = -2 }))
   | Dir_name, Trm_let_fun (x, _, _, _, _) ->
     add_dir Dir_name (aux (trm_var ?loc x))
-  | Dir_name, Trm_let (_,(x,_),_, _) ->
+  | Dir_name, Trm_let (_,(x,_),_) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_goto x ->
     (* CHECK: #var-id-dir-name , is this correct? *)

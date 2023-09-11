@@ -48,8 +48,8 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) 
   let remove = (my_mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
-      | Trm_let (_, (_, ty), _, _) -> get_inner_ptr_type ty
-      | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
+      | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
+      | Trm_apps (_, [lhs; _rhs], _) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty
         | None -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" (var_to_string v))

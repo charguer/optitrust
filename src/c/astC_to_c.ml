@@ -403,7 +403,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         end
       in
       dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
-    | Trm_let (_,tx,t,_) -> dattr ^^ trm_let_to_doc ~semicolon tx t
+    | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, tvl, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon tvl tl
     | Trm_let_fun (f, r, tvl, b, _) ->
       let fun_annot = trm_get_cstyles t in
@@ -459,7 +459,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           dattr ^^ res
     | Trm_apps _ when trm_has_cstyle ResourceFormula t ->
       dattr ^^ formula_to_doc t ^^ dsemi
-    | Trm_apps (f, tl) ->
+    | Trm_apps (f, tl, _) ->
       dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
     | Trm_while (b, t) ->
       let db = decorate_trm b in
@@ -592,7 +592,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   *)
   match init.desc with
   | Trm_val (Val_lit Lit_uninitialized) -> dtx ^^ semi
-  | Trm_apps (_, args) when trm_has_cstyle Constructed_init init ->
+  | Trm_apps (_, args, _) when trm_has_cstyle Constructed_init init ->
     dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm) args) ^^ dsemi
   | Trm_array tl when trm_has_cstyle Brace_init init ->
       let tl = Mlist.to_list tl in
@@ -810,7 +810,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
 and multi_decl_to_doc (loc : location) (tl : trms) : document =
  let get_info (t : trm) : document =
   begin match t.desc with
-  | Trm_let (vk, (x, _), init, _) ->
+  | Trm_let (vk, (x, _), init) ->
     begin match vk with
     | Var_immutable ->
       begin match init.desc with
@@ -819,7 +819,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
       end
     | _ ->
       begin match init.desc with
-      | Trm_apps (_, [base])-> var_to_doc x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm base
+      | Trm_apps (_, [base], _)-> var_to_doc x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm base
       | _ -> var_to_doc x
       end
     end
@@ -836,7 +836,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
            end
   | hd :: _ ->
     match hd.desc with
-    | Trm_let (vk, (_, ty), _, _) ->
+    | Trm_let (vk, (_, ty), _) ->
       begin match vk with
       | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
       | _ -> begin match ty.typ_desc with
@@ -855,13 +855,13 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
       in
   let is_get_implicit_this t =
     match t.desc with
-    | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _}, [base]) -> trm_has_cstyle Implicit_this base
+    | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _}, [base], _) -> trm_has_cstyle Implicit_this base
     | _ -> false
   in
 
   match f.desc with
   (* Case of function pointers *)
-  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ]) ->
+  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ], _) ->
       aux_arguments (var_to_doc x)
   (* Case of MALLOC *)
   | Trm_var (_, x) when (!print_beautify_mindex && Tools.pattern_matches "MALLOC" x.name) ->

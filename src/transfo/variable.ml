@@ -44,7 +44,7 @@ let%transfo fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : 
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_let (vk, (_, tx), _, _) ->
+    | Trm_let (vk, (_, tx), _) ->
       let ty = get_inner_ptr_type tx in
       begin match ty.typ_desc with
       (* If the declared variable has a refernce type checking its mutability is not needed*)
@@ -196,12 +196,12 @@ let%transfo detach_if_needed (tg : target) : unit =
   iter_on_targets (fun t p ->
     let decl_t  = Path.resolve_path p t in
     match decl_t.desc with
-    | Trm_let(vk,(_, _), init, _) ->
+    | Trm_let(vk,(_, _), init) ->
       begin match vk with
       | Var_immutable -> ()
       | _ ->
         begin match init.desc with
-        | Trm_apps (_,[_init]) ->
+        | Trm_apps (_,[_init], _) ->
           Variable_basic.init_detach (target_of_path p)
         | _ -> ()
         end
@@ -336,7 +336,7 @@ let%transfo unfold ?(accept_functions : bool = false) ?(simpl : Transfo.t = defa
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
     match tg_trm.desc with
-    | Trm_let (vk, (x, _tx), init, _) ->
+    | Trm_let (vk, (x, _tx), init) ->
 
       let mark = begin match get_init_val init with
       | Some init -> Mark.next ()
@@ -383,7 +383,7 @@ let%transfo inline_and_rename ?(simpl: Transfo.t = default_inline_simpl) (tg : t
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     let tg_scope = target_of_path path_to_seq in
     match tg_trm.desc with
-    | Trm_let (vk, (y, ty), init, _) ->
+    | Trm_let (vk, (y, ty), init) ->
         let spec_target = tg_scope @ [cVarDef y.name] in
         begin match get_init_val init with
         | Some v ->
@@ -398,7 +398,7 @@ let%transfo inline_and_rename ?(simpl: Transfo.t = default_inline_simpl) (tg : t
               inline ~simpl spec_target;
               renames (ByList [(x.name,y.name)]) tg_scope
               end
-          | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation v ->
+          | Trm_apps (_, [{desc = Trm_var (_, x);_}], _) when is_get_operation v ->
              if is_typ_const ty then begin
                 inline ~simpl spec_target;
                 renames (ByList [(x.name,y.name)]) tg_scope
@@ -427,7 +427,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
     match tg_trm.desc with
-    | Trm_let (_, (x, _), init_x, _) ->
+    | Trm_let (_, (x, _), init_x) ->
       let source_var = ref dummy_var in
       if source = []
         then
@@ -437,7 +437,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
             if i >= index then ()
                 else
                 begin match t1.desc with
-                | Trm_let (_, (y, _), init_y, _) when Internal.same_trm init_x init_y ->
+                | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
                   source_var := y
                 | _ -> ()
                 end
@@ -451,7 +451,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
             | Some p -> Path.resolve_path p t
             | None -> fail t.loc "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
           match source_decl_trm.desc with
-          | Trm_let (_, (y, _), init_y, _) when Internal.same_trm init_x init_y ->
+          | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
             source_var := y
           | _ -> fail source_decl_trm.loc "Variable.elim_redundant: the soource target should point to a variable declaration"
         end;

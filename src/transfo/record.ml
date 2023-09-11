@@ -9,7 +9,7 @@ let set_explicit (tg : Target.target) : unit =
     let surrounding_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm = Path.resolve_path p t in
       begin match tg_trm.desc with
-      | Trm_let (_, (x,tx), _, _) ->
+      | Trm_let (_, (x,tx), _) ->
         if is_reference tx then Printf.printf "WARNING: set_explicit on a reference can only be correct if the reference is used for read-only purpose\n";
         Variable_basic.init_detach (Target.target_of_path p);
         Record_basic.set_explicit ((Target.target_of_path surrounding_seq) @ [Target.cStrict;Target.cWriteVar x.name])
@@ -25,7 +25,7 @@ let set_implicit (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_apps (_, [lt;rt]) ->
+    | Trm_apps (_, [lt;rt], _) ->
       let tid_r = Internal.get_typid_from_trm ~first_match:false rt  in
       let tid_l = Internal.get_typid_from_trm ~first_match:false  lt  in
       let tid = match tid_r, tid_l with

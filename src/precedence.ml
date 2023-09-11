@@ -49,7 +49,7 @@ let precedence_prim (p : prim) : precedence =
 (* [precedence_trm t]: computes precedence of the trm [t]. *)
 let precedence_trm (t : trm) : precedence =
   match t.desc with
-  | Trm_apps (f, _) ->
+  | Trm_apps (f, _, _) ->
      begin match trm_prim_inv f with
      | Some p -> precedence_prim p
      | _ -> (16, LtoR)

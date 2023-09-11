@@ -19,7 +19,7 @@ let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : 
     let tg_trm = Path.resolve_path p t in
       let detach_first =
       match tg_trm.desc with
-        | Trm_let (_, (_, _), init, _) ->
+        | Trm_let (_, (_, _), init) ->
           begin match init.desc with
           | Trm_val(Val_lit (Lit_uninitialized)) -> false
           | Trm_val(Val_prim (Prim_new _))-> false
@@ -140,7 +140,7 @@ let%transfo hoist_alloc_loop_list
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_let (_, (x, _), init, _) ->
+    | Trm_let (_, (x, _), init) ->
       if 1 <= (List.length loops) then begin
         let name_template = Tools.string_subst "${var}" x.name tmp_names in
         let alloc_name =
@@ -749,7 +749,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
     | Trm_for (l_range, _, _) ->
       let (_, start, _, stop, _, _) = l_range in
       let nb_instr = begin match stop.desc with
-      | Trm_apps (_, [_;bnd]) ->
+      | Trm_apps (_, [_;bnd], _) ->
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
         | Trm_var (_, x) -> aux x t
@@ -978,7 +978,7 @@ let%transfo unfold_bound (tg : target) : unit =
       begin match stop.desc with
       | Trm_var (_, x) ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
-      | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation stop ->
+      | Trm_apps (_, [{desc = Trm_var (_, x);_}], _) when is_get_operation stop ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
       | _ -> fail tg_trm.loc "Loop.unfold_bound: can't unfold loop bounds that are not variables"
       end
