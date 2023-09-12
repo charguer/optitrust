@@ -223,12 +223,13 @@
       {
         "label": "Open unit test ML and CPP files",
         "type": "shell",
-        "command": "./.vscode/open_test.sh",
+        "command": "${workspaceFolder}/.vscode/open_test.sh",
         "args": [
-          "${fileDirname}",
           "${fileBasename}",
-          "${lineNumber}"
-        ]
+        ],
+        "options": {
+          "cwd": "${fileDirname}"
+        }
       }
     ]
 }

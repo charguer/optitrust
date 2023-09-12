@@ -2,7 +2,9 @@ optitrust.opam
 .vscode/action.sh
 .vscode/action_out.txt
 last.tests
-errors.tests
+failed.tests
+missing_exp.tests
+wrong.tests
 *_trace*.js
 *_trace*.txt
 *_trace*.html

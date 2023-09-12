@@ -207,7 +207,7 @@ let _main : unit =
     else
       List.rev !keys_to_process in
   save_last_tests keys_to_process;
-  let (tests_to_process, ignored_tests) = compute_tests_to_process keys_to_process in
+  let (tests_to_process, tests_ignored) = compute_tests_to_process keys_to_process in
 
   if List.length tests_to_process > 1
     then Flags.print_backtrace_on_error := false;
@@ -304,11 +304,13 @@ let _main : unit =
 
   *)
 
-  let ok_count = ref 0 in
-  let ko_count = ref 0 in
   let meld_args = ref [] in
-  let ignore_args = ref [] in
-  let error_tests = ref [] in
+  let ignore_cmd = ref [] in
+  let mkexp_cmd = ref [] in
+  let tests_failed = ref [] in
+  let tests_noexp = ref [] in
+  let tests_wrong = ref [] in
+  let tests_success = ref [] in
   (* Compare all text outputs if necessary *)
   if !comparison_method = Comparison_method_text then
     let check_output test =
@@ -318,38 +320,57 @@ let _main : unit =
       if Sys.file_exists filename_out then begin
         if Sys.file_exists filename_exp then begin
           if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
-            printf "ERROR: unexpected output for %s\n" test_prefix;
             meld_args := sprintf "--diff %s %s" filename_out filename_exp :: !meld_args;
-            ignore_args := sprintf "echo \"%s.ml\" >> %s/ignored.tests && sed -i '\\,%s.ml,d' errors.tests" (Filename.basename test_prefix) (Filename.dirname test_prefix) (test_prefix) :: !ignore_args;
-            error_tests := sprintf "%s.ml" test_prefix :: !error_tests;
-            incr ko_count;
+            ignore_cmd := sprintf "echo \"%s.ml\" >> %s/ignored.tests && sed -i '\\,%s.ml,d' wrong.tests" (Filename.basename test_prefix) (Filename.dirname test_prefix) (test_prefix) :: !ignore_cmd;
+            tests_wrong := test :: !tests_wrong;
           end else
-            incr ok_count;
+            tests_success := test :: !tests_success;
         end else begin
-            printf "MISSING: no expected output for %s\n   cp %s %s; git add %s\n" test_prefix filename_out filename_exp filename_exp;
-            incr ko_count;
+            mkexp_cmd := sprintf "cp %s %s; git add %s\n" filename_out filename_exp filename_exp :: !mkexp_cmd;
+            tests_noexp := test :: !tests_noexp;
         end
       end else begin
         (* NOTE: we assume that only a script exception can
            lead to the absence of a _out.cpp;
            this error is already displayed *)
         (* printf "No output %s\n" test_prefix;*)
-        incr ko_count;
+        tests_failed := test :: !tests_failed;
+        ignore_cmd := sprintf "echo \"%s.ml\" >> %s/ignored.tests && sed -i '\\,%s.ml,d' failed.tests" (Filename.basename test_prefix) (Filename.dirname test_prefix) (test_prefix) :: !ignore_cmd;
       end
     in
     List.iter check_output tests_to_process;
 
-  begin match !meld_args with
-  | [] -> ()
-  | args -> printf "%s" (Tools.list_to_string ~sep:"" ~bounds:["  meld "; "\n"] args)
-  end;
-  begin match !ignore_args with
+  if !tests_failed <> [] then
+    printf "Failed tests:\n%s\n" (Tools.list_to_string ~sep:"\n  " ~bounds:["   "; "\n"] !tests_failed);
+
+  if !tests_noexp <> [] then
+    printf "Missing expected:\n%s\n" (Tools.list_to_string ~sep:"\n  " ~bounds:["   "; "\n"] !tests_noexp);
+
+  if !tests_wrong <> [] then
+    printf "Wrong tests:\n%s\n" (Tools.list_to_string ~sep:"\n  " ~bounds:["   "; "\n"] !tests_wrong);
+
+  (*begin match !tests_ignored with
   | [] -> ()
   | args -> printf "%s" (Tools.list_to_string ~sep:"\n  " ~bounds:["  "; "\n"] args)
-  end;
-  Xfile.put_lines "errors.tests" !error_tests;
+  end;*)
 
-  printf "%i tests passed, %i tests failed, %i tests ignored\n" !ok_count !ko_count (List.length ignored_tests);
+  Xfile.put_lines "failed.tests" !tests_failed;
+  Xfile.put_lines "wrong.tests" !tests_wrong;
+  Xfile.put_lines "missing_exp.tests" !tests_noexp;
+
+  let print_count (name: string) (tests: string list): unit =
+    let len = List.length tests in
+    if len > 0 then printf "%i %s, " len name
+  in
+  print_count "failed" !tests_failed;
+  print_count "missing exp" !tests_noexp;
+  print_count "wrong" !tests_wrong;
+  print_count "ignored" tests_ignored;
+  print_count "success" !tests_success;
+  printf "\n";
+
+  (* On voudrait ajouter add_missing_exp.sh, diff.sh, meld.sh, ignore.sh avec argument, fix.sh *)
+
   (*
      Produire une liste de (testname, result)
 
