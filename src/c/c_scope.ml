@@ -6,10 +6,11 @@ let debug = false
 (* FIXME: triggers on multiple function declarations/definitions. *)
 exception InvalidVarId of string
 
-(** Prefix qualifier corresponding to the current namespace,
+(** Prefix qualifier corresponding to the current namespace (if at top level),
     Set of variables defined in the current surrounding sequence and cannot be shadowed,
     Set of variables pre-defined in the current scope that can be redefined reusing the same id,
     Map from variables to their unique ids. *)
+(* LATER: support overloading. here or encoding? *)
 type scope_ctx = {
   prefix_qualifier_rev: string list; (* in namespace X::Y, it is Y :: X :: [] *)
   conflicts: Qualified_set.t;
@@ -64,27 +65,23 @@ let check_map_binder (scope_ctx : scope_ctx) var t =
      perform more complex .mem checks taking qualifiers into account. *)
   let add_for_each_qualifier obj_add obj =
     let qualifier = ref var.qualifier in
-    let prefix_qualifier_rev =
-      (* FIXME? assuming only and all functions are top-level in the current namespace. *)
-      if Option.is_some (Option.bind t trm_let_fun_inv) then
-        scope_ctx.prefix_qualifier_rev
-      else [] in
     List.fold_left (fun obj q ->
       qualifier := q :: !qualifier;
       obj_add (!qualifier, var.name) obj
-    ) (obj_add qualified obj) prefix_qualifier_rev
+    ) (obj_add qualified obj) scope_ctx.prefix_qualifier_rev
   in
   ((if var.name = "" then
     (* C/C++ allows giving no variable names *)
     scope_ctx
-  else if Qualified_set.mem qualified scope_ctx.conflicts then
-    raise (InvalidVarId (sprintf "redefinition of variable '%s' is illegal in C/C++" (var_to_string var)))
   else if (Option.map Trm.is_fun_with_empty_body t) = (Some true) then
     (* predeclarations don't conflict *)
     { scope_ctx with predefined = add_for_each_qualifier Qualified_set.add scope_ctx.predefined;
      var_ids = add_for_each_qualifier (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids }
+  else if Qualified_set.mem qualified scope_ctx.conflicts then
+    raise (InvalidVarId (sprintf "redefinition of variable '%s' is illegal in C/C++" (var_to_string var)))
   else
     { scope_ctx with conflicts = add_for_each_qualifier Qualified_set.add scope_ctx.conflicts;
+      predefined = add_for_each_qualifier Qualified_set.add scope_ctx.predefined;
       var_ids = add_for_each_qualifier (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids }
   ), var)
 
@@ -93,12 +90,12 @@ let enter_scope map_binder scope_ctx t =
   match t.desc with
   | Trm_namespace (name, _, _) ->
     (* TODO: conflicts ~= filter_map is_qualified conflicts *)
-    { scope_ctx with prefix_qualifier_rev = name :: scope_ctx.prefix_qualifier_rev; conflicts = Qualified_set.empty }
+    { scope_ctx with prefix_qualifier_rev = name :: scope_ctx.prefix_qualifier_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty }
   | Trm_typedef td ->
     begin match td.typdef_body with
     | Typdef_alias _ -> scope_ctx
     | Typdef_record rfl ->
-      let scope_ctx = { scope_ctx with prefix_qualifier_rev = td.typdef_tconstr :: scope_ctx.prefix_qualifier_rev; conflicts = Qualified_set.empty } in
+      let scope_ctx = { scope_ctx with prefix_qualifier_rev = td.typdef_tconstr :: scope_ctx.prefix_qualifier_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty } in
       (* order of declaration does not matter for class members:
          this is equivalent to implicit predefinitions. *)
       List.fold_left (fun scope_ctx (rf, _) ->
@@ -114,7 +111,7 @@ let enter_scope map_binder scope_ctx t =
     | _ -> failwith "unexpected typdef_body"
     end
   | _ ->
-    { scope_ctx with conflicts = Qualified_set.empty }
+    { scope_ctx with prefix_qualifier_rev = []; conflicts = Qualified_set.empty; predefined = Qualified_set.empty }
 
 (** internal *)
 let scope_ctx_exit_namespace name outer_ctx inner_ctx =

@@ -99,3 +99,22 @@ namespace Q { */
     return;
   }
 }
+
+namespace Q2 {
+  void f() {}
+}
+void Q2::f();
+
+namespace N2 {
+  int x;
+  void f() {
+    int x; // != N2::x
+  }
+  int g() {
+    return x;
+  }
+}
+
+int qskj() {
+  return N2::x;
+}
