@@ -100,6 +100,7 @@ let enter_scope map_binder scope_ctx t =
          this is equivalent to implicit predefinitions. *)
       List.fold_left (fun scope_ctx (rf, _) ->
         begin match rf with
+        (* TODO: also predefine members *)
         | Record_field_member _ -> scope_ctx
         | Record_field_method rfm ->
           let error = "C_scope.enter_scope: expected field method" in
@@ -171,6 +172,7 @@ let infer_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
   if var.id = -1 then
     trm_var ~annot ?loc ?typ ~ctx ~kind begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id -> { qualifier = var.qualifier; name = var.name; id }
+    (* LATER: this can be confusing if triggered when not expected *)
     | None -> toplevel_free_var ~qualifier:var.qualifier var.name
     end
   else check_map_var scope_ctx (annot, loc, typ, ctx, kind) var
