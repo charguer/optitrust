@@ -91,6 +91,7 @@ void cc3_bis(CC3* cc3) {
 namespace Q {
   void f();
 /* LATER: namespace extension }
+on enter_scope namespace, "open" conflicts and predefined
 
 namespace Q { */
   void f() {

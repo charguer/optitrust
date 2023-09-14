@@ -7,11 +7,11 @@ let debug = false
 exception InvalidVarId of string
 
 (** Prefix qualifier corresponding to the current namespace,
-    Set of variables defined in the current surrounding sequence,
-    Set of variables pre-defined in the current scope,
+    Set of variables defined in the current surrounding sequence and cannot be shadowed,
+    Set of variables pre-defined in the current scope that can be redefined reusing the same id,
     Map from variables to their unique ids. *)
 type scope_ctx = {
-  prefix_qualifier_rev: string list;
+  prefix_qualifier_rev: string list; (* in namespace X::Y, it is Y :: X :: [] *)
   conflicts: Qualified_set.t;
   predefined: Qualified_set.t;
   var_ids: var_id Qualified_map.t;
@@ -92,6 +92,7 @@ let check_map_binder (scope_ctx : scope_ctx) var t =
 let enter_scope map_binder scope_ctx t =
   match t.desc with
   | Trm_namespace (name, _, _) ->
+    (* TODO: conflicts ~= filter_map is_qualified conflicts *)
     { scope_ctx with prefix_qualifier_rev = name :: scope_ctx.prefix_qualifier_rev; conflicts = Qualified_set.empty }
   | Trm_typedef td ->
     begin match td.typdef_body with
@@ -117,18 +118,20 @@ let enter_scope map_binder scope_ctx t =
 
 (** internal *)
 let scope_ctx_exit_namespace name outer_ctx inner_ctx =
-  (* DEPRECATED: namespace prefix is already added on bind.
-  let update_qualifier (q, n) = (name :: q, n) in
-  let may_update_qualifier ((qname, id): Qualified_name.t * var_id) =
-    if (Qualified_map.find_opt qname outer_ctx.var_ids) = (Some id)
-    then (qname, id) (* this variable was the same in the outer scope *)
-    else (update_qualifier qname, id)
-  in *)
-  let is_qualified ((q, n): typconstr) : bool =
-    match (q, inner_ctx.prefix_qualifier_rev) with
-    | (fq :: _, pq :: _) -> fq = pq
-    | _ ->
-      false
+  (* q1::q2::...::qN::n, is qualified by N if q1 = N
+    example:
+     namespace q0 { namespace q2 { void f(); }}
+     namespace q1 { void f(); namespace q2 { void f() { return q0::q2::f(); } }}
+     [q0::q2::f; q1::f; f; q2::f; q1::q2::f;] --exit q2--> prefix_qualifier_rev = q2::q1::[]
+     [q0::q2::f; q1::f; q2::f; q1::q2::f] --exit q1--> prefix_qualifier_rev = q1::[]
+     [q0::q2::f; q1::f; q1::q2::f] *)
+  let rec is_qualified ?(prefix_qualifier_rev = inner_ctx.prefix_qualifier_rev) ((q, n): typconstr)  : bool =
+    match (q, prefix_qualifier_rev) with
+    (* Case 1. qualifier starts with current namespace *)
+    | (fq :: _, pq :: _) when fq = pq -> true
+    (* Case 2. qualifier starts with other namespace *)
+    | (_, _ :: pqr) -> is_qualified (q, n) ~prefix_qualifier_rev:pqr
+    | _ -> false
   in
   let union_var_ids (q, n) a b =
     if debug then begin
@@ -140,6 +143,7 @@ let scope_ctx_exit_namespace name outer_ctx inner_ctx =
     raise (InvalidVarId (sprintf "variable '%s' is defined both inside and outside of namespace" (var_to_string (name_to_var ~qualifier:q n))))
   in
   { prefix_qualifier_rev = outer_ctx.prefix_qualifier_rev;
+    (* conflict in inner_ctx: [f; N::f], keep [N::f] conflict. *)
     conflicts = Qualified_set.union outer_ctx.conflicts (Qualified_set.filter is_qualified (inner_ctx.conflicts));
     predefined = Qualified_set.union outer_ctx.predefined (Qualified_set.filter is_qualified (inner_ctx.predefined));
     var_ids = Qualified_map.union union_var_ids outer_ctx.var_ids (Qualified_map.filter (fun k v -> is_qualified k) inner_ctx.var_ids) }
