@@ -58,6 +58,29 @@ void o(int a, int b, const int c) {
   *e = 1;
 }
 
+void c1(int* a, const int* const b, const int* const c, int* d) {
+  int* aa = a;
+  const int* const bb = b;
+  const int* const cc = c;
+  int* dd = d;
+  *aa = 42;
+  *dd = 12;
+}
+
+void c2(int* a, const int* const b, const int* const c, int* d) {
+  int *aa = a, *dd = d;
+  const int *const bb = b, *const cc = c;
+  *aa = 42;
+  *dd = 12;
+}
+
+void c3(int* a, const int* const b, const int* const c, int* d) {
+  int *aa = a, *dd = d;
+  const int *const bb = b, *const cc = c, e = 2;
+  *aa = 42;
+  *dd = 12;
+}
+
 namespace BB {
 void h(int& a) { a = 1; }
 }  // namespace BB
