@@ -173,7 +173,6 @@ let const_records : const_funs = Var_Hashtbl.create 10
 (* Create a stack of arguments that must not be constified. See [const_unconst]
    for more details. *)
 let to_unconst : const_unconst = Stack.create ()
-
 let to_unconst_objects : const_unconst_objects = Stack.create ()
 
 (******************************)
