@@ -15,9 +15,9 @@ int main() {
     __pure();
     ...
 
-    ghost_foo("g := 3"); __bind("d as k");
+    ghost_foo("g := 3"); __bind("h as k");
     // This is a form of mandatory syntactic sugar for:
-    ghost_foo(); __with("g := 3"); __bind("d as k");
+    ghost_foo(); __with("g := 3"); __bind("h as k");
 }
 ```
 
@@ -44,10 +44,13 @@ int main() {
     __pure();
     ...
 
-    g(8); __with("c := 3, d := 9"); __bind("d as k");
+    g(8); __with("c := 3, d := 9"); __bind("e as k");
     g(8); __with("3, 9"); __bind("k"); // positional syntax
 
     g(__call_with(f(5), "a := 9")); // no __bind in subexpressions
+
+    // bind possible for a function with a return that is bound in a declaration
+    int x = f(5); __with("a := 9"); __bind("b as t");
 }
 ```
 

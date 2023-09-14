@@ -34,6 +34,8 @@ typedef const char* __ghost_args;
 /// Postfix call for specifying ghost arguments
 inline void __with(__ghost_args) {}
 template<typename T> T __call_with(T ret_val, __ghost_args) { return ret_val; }
+
+// TODO: bind et call_with
 /*
 template<typename T> T __bind(T ret_val, const char*) { return ret_val; }
 inline void __rename(const char*) {}

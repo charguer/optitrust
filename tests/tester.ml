@@ -54,6 +54,7 @@ let do_or_die (cmd : string) : unit =
 
 
 
+
 (*****************************************************************************)
 (* Options *)
 
@@ -86,6 +87,9 @@ let discard_cache : bool ref = ref false
 
 (* Flag to enable verbose mode *)
 let verbose_mode : bool ref = ref false
+
+(* Flag to enable dry-run mode *)
+let dry_run : bool ref = ref false
 
 (* Flag to control at which level the comparison is performed (AST or text).
    If Comparison_method_text, then implies Outfile_gen_always. *)
@@ -183,7 +187,8 @@ type cmdline_args = (string * Arg.spec * string) list
 
 (* [spec]: possible command line arguments. *)
 let spec : cmdline_args =
-   [ ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
+   [ ("-dry", Arg.Set dry_run, " only display the list of tests to process");
+     ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
      ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for
      tests that are executed.");
