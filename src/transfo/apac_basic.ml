@@ -164,6 +164,64 @@ let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
     Target.apply_at_target_paths (use_goto_for_return_on mark) tg
   )
 
+(* [unfold_let_mult_on ?constify t]: see [unfold_let_mult]. *)
+let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
+  (* Deconstruct the target multiple variable declaration term [t] into the
+     variable kind [vk], the list of typed variables [tvs] being declared and
+     the list of initialization terms [tis]. *)
+  let error = "Apac_basic.unfold_let_mult_on: expected a target to a multiple \
+               variable declaration." in
+  let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
+  (* In addition to the unfolding of the target multiple variable declaration,
+     this transformation allows for constifying one or more of the underlying
+     declarations. Which declarations will be constified, if any, will be
+     determined by the list of booleans [constify]. This list contains one
+     boolean value for each element in [tvs] telling whether the corresponding
+     declaration should be constified or not. This information is determined
+     earlier during the constification process in [constify_args] and can be
+     found in the hash table [Apac_core.const_mult]. 
+
+     If [constify] is empty, no constification should take place. In this case,
+     [constify] becomes a list full of [false] values. *)
+  let constify =
+    if constify <> [] then
+      constify
+    else
+      List.init (List.length tvs) (Fun.const false)
+  in
+  (* Perform the constification of the concerned variable declarations. *)
+  let tvs' = List.map2 (
+                 fun (v, ty) const ->
+                 if const then (v, typ_constify ty) else (v, ty)
+               ) tvs constify
+  in
+  (* Transform the multiple variable declaration into a sequence of simple
+     variable declarations. *)
+  let simple = List.map2 (fun tv ti -> trm_let vk tv ti) tvs' tis in
+  (* Return a new sequence (without braces) containing the newly generated
+     simple variable declarations. *)
+    trm_seq_no_brace simple
+
+(* [unfold_let_mult ~constify tg]: expects target [tg] to point
+   at a multiple variable declaration. Then, it replaces it by a sequence of
+   simple variable declarations.
+
+   For example:
+
+     int a = 1, b = a;
+
+   becomes:
+
+     int a = 1;
+     int b = a; 
+
+   If [constify] is [true] one or more variable declarations from the target
+   multiple variable declaration [tg] will be constified. See comments in
+   [unfold_let_mult_on] for more details. *)
+let unfold_let_mult ?(constify : bool list = []) (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun _ ->
+      Target.apply_at_target_paths (unfold_let_mult_on ~constify) tg)
+
 (* [constify_args_on ?force t]: see [constify_args]. *)
 let constify_args_on ?(force = false) (t : trm) : trm =
   (* Try to deconstruct the target function definition term. *)
@@ -275,56 +333,61 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
          t
     (* Multiple variable declaration: update list of aliases and constify the
        lvalues if they are alias to constant variables. *)
-    | Trm_let_mult (vk, lvals, rvals) ->
+    | Trm_let_mult (vk, tvs, tis) ->
        (* Check whether the declared variables represent aliases to function
-          arguments or previously declared variables and return the alias types
-          in a list where (1) corresponds to a reference, (2) to a pointer and
-          (0) means that the variable is not an alias. *)
-       let which_aliases : int list =
+          arguments or previously declared variables and return the test results
+          in the form of a list of boolean values. *)
+       let which_aliases : bool list =
          List.map2 (
-             fun lval rval -> trm_let_update_aliases lval rval aliases
-           ) lvals rvals in
-       (* Compute the sum of values in [which_aliases]. *)
-       let sum_aliases = List.fold_left (fun a b -> a + b) 0 which_aliases in
-       (* If there is at least one alias in the multiple variable declaration,
-          [sum_aliases] shall be non-zero. *)
-       if sum_aliases > 0 then
-         begin
-           (* In this case, we have two possible cases. One, all of the
-              variables are aliases and have to be consitifed. Two, only some of
-              the variables are aliases and not all of them have to be
-              constified.
-
-              To determine whether at least one of the variables is not an
-              alias, we check the positivity of all values in [which_aliases]
-              and compute a logical AND. *)
-           let all_const_aliases =
-             List.fold_left (fun a b -> a && (b > 0)) true which_aliases in
-           (* If the result is [true], all of the variables are aliases and have
-              to be constified. *)
-           if all_const_aliases then
-             begin
-               let const_lvals = List.map (fun (lval_var, lval_ty) ->
-                                     (lval_var, typ_constify lval_ty)
-                                   ) lvals in
-               trm_let_mult vk const_lvals rvals
-             end
-           (* FIXME: The other case is not implemented yet. Indeed, to ensure a
-              partial constification of a multiple variable declaration, i.e.
-              when not all of the declared variables have to be constified, is
-              legal, we would have to transform the corresponding [trm_let_mult]
-              into a sequence of [trm_let], i.e. a sequence of simple variable
-              declarations. However, this transformation function, see
-              [apac_unfold_let_mult], is not working properly yet. *)
-           else
-             begin
-               fail t.loc "Apac_basic.constify_aliases_on: partial \
-                           consitification of a multiple variable declaration \
-                           is not supported yet."
-             end
-         end
-       else
+             fun tv ti ->
+             let res = trm_let_update_aliases tv ti aliases in res > 0
+           ) tvs tis in
+       let _ = Printf.printf "which_aliases is %d long\n" (List.length which_aliases) in 
+       (* If all the elements of [which_aliases] are [false], *)
+       if (List.for_all (fun a -> a = false) which_aliases) then
+         let _ = Printf.printf "all false\n" in
+         (* there are no aliases to constant variables and there is nothing
+            todo. Return [t] unchanged. *)
          t
+           (* If all the elements of [which_aliases] are [true], *)
+       else if (List.for_all (fun a -> a = true) which_aliases) then
+         let _ = Printf.printf "all true\n" in
+         (* we can safely constify all the variable declarations in the multiple
+            variable declaration without splitting it into a sequence of simple
+            variable declarations beforehand. *)
+         let tvs' = List.map (fun (v, ty) -> (v, typ_constify ty)) tvs in
+         trm_let_mult vk tvs' tis
+       else
+         begin
+           (* If only some of the elements of [which_aliases] are [true] but the
+              inner type of the multiple variable declaration is already
+              constant, *)
+           let (_, fty) = List.nth tvs 0 in
+           if is_typ_const (get_inner_type fty) then
+             (* we can complete the constification of selected variables within
+                the multiple variable declaration without splitting it. *)
+             let _ = Printf.printf "Partial constification possible\n" in
+             let tvs' = List.map2 (
+                            fun (v, ty) const ->
+                            if const then (v, typ_constify ty) else (v, ty)
+                          ) tvs which_aliases in
+             trm_let_mult vk tvs' tis
+           else
+             (* Otherwise, we will have to split the multiple variable
+                delcaration into a sequence of simple variable declarations and
+                constify selected variables according to the values in
+                [which_aliases]. However, this cannot be done directly within
+                this transformation. Therefore, we mark the multiple variable
+                declaration and store the necessary information in
+                [Apac_core.to_const_mult] which will be processed in
+                [Apac.constify]. See also [Apac_core.const_mult] and
+                [unfold_let_mult]. *)
+             let mark = "apac_let_mult" ^ (Mark.next ()) in
+             Hashtbl.add Apac_core.to_const_mult mark which_aliases;
+             (* At this stage, the original is left unchanged. We only mark
+                it. *)
+             trm_add_mark mark t
+         end
     (* Other cases: do nothing and recurse deeper. *)
     | _ -> trm_map (aux aliases) t
   in
@@ -653,30 +716,6 @@ let heapify_on (t : trm) : trm =
    nor [a] nor [b] are transformed. *)
 let heapify (tg : target) : unit =
   Target.apply_at_target_paths (heapify_on) tg
-
-(* [unfold_let_mult_on t]: see [unfold_let_mult]. *)
-let unfold_let_mult_on (t : trm) : trm =
-  let error = "Apac_basic.unfold_let_mult_on: expected a target to a multiple \
-               variable declaration." in
-  let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
-  let declarations = List.map2 (fun tv ti -> trm_let vk tv ti) tvs tis in
-  trm_seq_no_brace declarations
-
-(* [unfold_let_mult tg]: expects target [tg] to point at a multiple variable
-   declaration. Then, it replaces it by a sequence of equivalent simple variable
-   declarations.
-
-   For example:
-
-     int a = 1, b = a;
-
-   becomes:
-
-     int a = 1;
-     int b = a; *)
-let unfold_let_mult (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
-      Target.apply_at_target_paths (unfold_let_mult_on) tg)
 
 (* [vars_tbl]: hashtable generic to keep track of variables and their pointer
     depth. This abstrastion is used for generic functions. *)

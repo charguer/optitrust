@@ -32,8 +32,25 @@ let constify (tg : target) : unit =
   (* Step 6: Effectively transform the AST so as to add 'const' keywords to
      function arguments, functions and *)
   Apac_basic.constify_args tg;
-  (* Step 7: aliases of function arguments. *)
-  Apac_basic.constify_aliases tg
+  (* Step 7: aliases of function arguments. Here, we begin by clearing the
+     global hash table of multiple variable declarations that are subject to
+     partial constification, i.e. one or more of the underlying variable
+     declarations should be constified. *)
+  Hashtbl.clear Apac_core.to_const_mult;
+  (* We then perform the constification of aliases. However, this transformation
+     cannot perform partial constification. In such cases, it only collects the
+     necessary information about the concerned multiple variable declarations
+     and inserts it into [Apac_core.to_const_mult]. *)
+  Apac_basic.constify_aliases tg;
+  (* At the end, we iterate over the key-value pairs of
+     [Apac_core.to_const_mult], unfold the concerned multiple variable
+     declarations having a specific mark (see [Apac_core.const_mult] and the
+     comments in [Apac_basic.constify_arguments]) into sequences of simple
+     variable declarations and constify those declaration which should be
+     constified. *)
+  Hashtbl.iter (fun k v ->
+      Apac_basic.unfold_let_mult ~constify:v (tg @ [cMark k])
+    ) Apac_core.to_const_mult
 
 (* [unfold_function_calls tg]: expects target [tg] to point at a function
    definition. It moves all function calls under target [tg] out of variable
