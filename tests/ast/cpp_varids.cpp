@@ -91,10 +91,30 @@ void cc3_bis(CC3* cc3) {
 namespace Q {
   void f();
 /* LATER: namespace extension }
+on enter_scope namespace, "open" conflicts and predefined
 
 namespace Q { */
   void f() {
     Q::f();
     return;
   }
+}
+
+namespace Q2 {
+  void f() {}
+}
+void Q2::f();
+
+namespace N2 {
+  int x;
+  void f() {
+    int x; // != N2::x
+  }
+  int g() {
+    return x;
+  }
+}
+
+int qskj() {
+  return N2::x;
 }
