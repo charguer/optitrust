@@ -161,6 +161,59 @@ type const_unconst = (var * var) Stack.t
    the first [var] will be unconstified too. *)
 type const_unconst_objects = (var * var * var) Stack.t
 
+(* [const_mult]: type of hash table for multiple variable declarations that must
+   be transformed into sequences of simple variable declarations while
+   constifying one or more of the variables being declared.
+
+   When a function argument is constified, it is necessary to propagate the
+   constification to the aliases of the argument as well. This is done with the
+   [Apac_basic.constify_arguments] function. This process is straightforward in
+   the case of simple variable declarations. However, if an argument alias is
+   declared within a multiple variable declaration, we have two different
+   situations to consider: 
+
+   1) the inner type of the multiple variable declaration is already constant:
+    
+      // [i] is a constant integer, [j] is a mutable pointer to a constant
+      // integer
+      int const i, * j;
+
+   2) the inner type of the multiple variable declaration is not constant:
+
+      // [i] is a mutable integer, [j] is a mutable pointer to a mutable integer
+      int i, * j;
+
+   If we want to constify [j] in 1), it is possible without breaking the parent
+   multiple variable declaration:
+
+   int const i, * const j;
+
+   In 2) we cannot fully constify [j], i.e. [int const * const j], without
+   constifying [i], which is not always desirable. In this case, we have to
+   split the parent multiple variable declaration into a sequence of simple
+   variable declarations and then constify the declaration of [j] only. However,
+   this transformation cannot be directly applied within
+   [Apac_basic.constify_aliases_on]. Indeed, the introduction of a new sequence
+   of instructions changes the scope of the declared variables. This can be
+   prevented, but not in a term to term transformation function such as
+   [Apac_basic.constify_aliases_on]. It must be done in a transformation
+   function modyfing the AST by side-effect, i.e. a target to unit
+   transformation, in which we can call [Nobrace_transfo.remove_after] to
+   effectively remove the braces from the sequence of simple variable
+   declarations so as to preserve their initial scope. Therefore,
+   [Apac_basic.constify_aliases_on] should only mark those multiple variable
+   declarations which need to be split into simple variable declarations and
+   determine which declarations should be constified. To keep track of this
+   information, so we can actually perform the transformations (using
+   [Apac_basic.unfold_let_mult]), we use a hash table where the keys are the
+   marks (strings) added to the concerned multiple variable declarations and
+   where the values are lists of booleans. The latter have as many elements as
+   there are declarations in the target multiple variable declaration. In other
+   terms, a boolean value is associated to each variable declaration. If the
+   value is [true], it means that the corresponding variable declaration should
+   be constified. *)
+type const_mult = (mark, bool list) Hashtbl.t
+
 (******************************************************************)
 (* PART II: DECLARATION AND/OR INITIALIZATION OF GLOBAL VARIABLES *)
 (* II.1 Constification                                            *)
@@ -173,8 +226,12 @@ let const_records : const_funs = Var_Hashtbl.create 10
 (* Create a stack of arguments that must not be constified. See [const_unconst]
    for more details. *)
 let to_unconst : const_unconst = Stack.create ()
-
 let to_unconst_objects : const_unconst_objects = Stack.create ()
+
+(* [const_mult]: hash table for multiple variable declarations that must be
+   transformed into sequences of simple variable declarations while constifying
+   one or more of the variables being declared. See [const_mult]. *)
+let to_const_mult : const_mult = Hashtbl.create 10
 
 (******************************)
 (* PART III: HELPER FUNCTIONS *)
