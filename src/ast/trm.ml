@@ -686,716 +686,6 @@ let trm_mlist_inv (t : trm) : mark list list option =
 
 
 
-
-
-(* ********************************************************************************************** *)
-
-let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
-  if !Flags.trm_combinators_warn_unsupported_case then begin
-    Printf.printf "WARNING: don't know how to '%s' on '%s'\n" f_name (trm_desc_to_string t.desc);
-    Printf.printf "<suppressing similar warnings henceforth>\n";
-    Flags.trm_combinators_warn_unsupported_case := false;
-  end;
-  t
-
-(* [trm_map_with_terminal]: applies function [f] over ast nodes,
-   where [f] may treat terminal nodes differently.
-   Here, terminal means that the end of the term would be the end of the function.
-   - [share_if_no_change]: enables sharing trm nodes if they are unchanged by [f].
-  *)
-let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
-  let annot = t.annot in
-  let loc = t.loc in
-  let typ = t.typ in
-  let ctx = if keep_ctx then t.ctx else unknown_ctx in
-
-  let list_map f tf old_list =
-    let new_list = List.map f old_list in
-    if share_if_no_change && List.for_all2 tf old_list new_list
-      then old_list
-      else new_list in
-  let mlist_map f tf old_list =
-    let new_list = Mlist.map f old_list in
-    if share_if_no_change && Mlist.for_all2 tf old_list new_list
-      then old_list
-      else new_list in
-
-  match t.desc with
-  | Trm_val _ | Trm_var _ -> t
-  | Trm_array tl ->
-    let tl' = mlist_map (f false) (==) tl in
-    if (share_if_no_change(*redundant*) && tl' == tl)
-      then t
-      else (trm_array ~annot ?loc ?typ ~ctx tl')
-  | Trm_record tl ->
-    let tl' = mlist_map
-      (fun (lb, t) -> (lb, f false t))
-      (fun (_, ta) (_, tb) -> ta == tb) tl
-    in
-    if (share_if_no_change(*redundant*) && tl' == tl)
-      then t
-      else (trm_record ~annot ?loc ?typ ~ctx tl')
-  | Trm_let (vk, tv, init) ->
-    let init' = f false init in
-    if (share_if_no_change && init' == init)
-      then t
-      else (trm_let ~annot ?loc ~ctx vk tv init')
-  | Trm_let_mult (vk, tvs, tis) ->
-    let tis' = list_map (f false) (==) tis in
-    if (tis' == tis) then t else
-      (trm_let_mult ~annot ?loc ~ctx vk tvs tis')
-  | Trm_let_fun (f', res, args, body, contract) ->
-    let body' = f false body in
-    if (share_if_no_change && body' == body)
-      then t
-      else (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body' )
-  | Trm_if (cond, then_, else_) ->
-    let cond' = f false cond in
-    let then_' = f is_terminal then_ in
-    let else_' = f is_terminal else_ in
-    if (share_if_no_change && cond' == cond && then_' == then_ && else_' == else_)
-      then t
-      else (trm_if ~annot ?loc ~ctx cond' then_' else_')
-  | Trm_seq tl ->
-    let n = ref (Mlist.length tl) in
-    let tl' = mlist_map
-      (fun tsub ->
-        n := !n - 1;
-        let sub_is_terminal = (is_terminal && !n == 0) in
-        f sub_is_terminal tsub)
-      (==) tl
-    in
-    if (share_if_no_change(*redundant*) && tl == tl')
-      then t
-      else (trm_seq ~annot ?loc ~ctx tl')
-  | Trm_apps (func, args, ghost_args) ->
-    let func' = f false func in
-    let args' = list_map (f false) (==) args in
-    if (share_if_no_change(*redundant*) && func' == func && args' == args)
-      then t
-      (* warning: may have different type *)
-      else (trm_apps ~annot ?loc ?typ ~ctx ~ghost_args func' args')
-  | Trm_while (cond, body) ->
-    let cond' = f false cond in
-    let body' = f false body in
-    if (share_if_no_change && cond' == cond && body' == body)
-      then t
-      else (trm_while ~annot ?loc ~ctx cond' body')
-  | Trm_for_c (init, cond, step, body, invariant) ->
-      let init' = f false init in
-      let cond' = f false cond in
-      let step' = f false step in
-      let body' = f is_terminal body in
-      if (share_if_no_change && init' == init && cond' == cond && step' == step && body' == body)
-        then t
-        else (trm_for_c ~annot ?loc ?invariant ~ctx init' cond' step' body')
-  | Trm_for (l_range, body, contract) ->
-    let (index, start, direction, stop, step, is_parallel) = l_range in
-    let start' = f false start in
-    let stop' = f false stop in
-    let step' = match step with
-      | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
-      | Step sp -> Step (f is_terminal sp)
-      in
-    let body' = f is_terminal body in
-    if (share_if_no_change && step' == step && start' == start && stop' == stop && body' == body)
-      then t
-      else (trm_for ~annot ?loc ?contract ~ctx (index, start', direction, stop', step', is_parallel) body')
-  | Trm_switch (cond, cases) ->
-      let cond' = f false cond in
-      let cases' = list_map
-        (fun (tl, body) -> (tl, f is_terminal body))
-        (fun (_, body1) (_, body2) -> body1 == body2) cases in
-      if (share_if_no_change(*redundant*) && cond' == cond && cases' == cases)
-        then t
-        else (trm_switch ~annot ?loc ~ctx cond' cases')
-  | Trm_abort a ->
-    begin match a with
-    | Ret (Some r) ->
-        let r' = f false r in
-        if (share_if_no_change && r' == r)
-          then t
-          else (trm_ret ~annot ?loc ~ctx (Some r'))
-    | _ -> t
-    end
-  | Trm_namespace (name, body, inline) ->
-    let body' = f false body in
-    if (share_if_no_change && body == body')
-      then t
-      else (trm_namespace ~annot ?loc ~ctx name body' inline)
-  | Trm_typedef td ->
-    let body' = begin match td.typdef_body with
-    | Typdef_alias _ -> td.typdef_body
-    | Typdef_record rfl ->
-      let rfl' = list_map
-        (fun (rf, rf_ann) ->
-          let rf' = begin match rf with
-          | Record_field_method rft ->
-            let rft' = f false rft in
-            if share_if_no_change && rft == rft'
-              then rf
-              else Record_field_method rft'
-          | Record_field_member _ -> rf
-          end in
-          rf', rf_ann
-        )
-        (fun (rfa, _) (rfb, _) -> rfa == rfb)
-        rfl in
-      if share_if_no_change(*redundant*) && rfl == rfl'
-        then td.typdef_body
-        else Typdef_record rfl'
-    | _ -> failwith "trm_map_with_terminal: unexpected typdef_body"
-    end in
-    if (share_if_no_change(*redundant*) && body' == td.typdef_body)
-      then t
-      else trm_typedef ~annot ?loc ~ctx { td with typdef_body = body' }
-  | _ ->
-    trm_combinators_unsupported_case "trm_map_with_terminal"  t
-
-(* [trm_map f]: applies f on t recursively *)
-let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =
-  trm_map_with_terminal ~keep_ctx false (fun _is_terminal t -> f t) t
-
-(* [trm_bottom_up]: applies f on t recursively from bottom to top. *)
-let rec trm_bottom_up (f : trm -> trm) (t : trm) : trm =
-  let t2 = trm_map (trm_bottom_up f) t in
-  f t2
-
-(* [trm_iter f t]: similar to [trm_map] but this one doesn't return a trm at the end. *)
-let trm_iter (f : trm -> unit) (t : trm) : unit =
-  match t.desc with
-  | Trm_array tl ->
-    Mlist.iter f tl
-  | Trm_record tl ->
-    Mlist.iter (function (_, t) -> f t) tl
-  | Trm_let (vk, tv, init) ->
-    f init
-  | Trm_let_mult (vk, tvl, tl) ->
-    List.iter f tl
-  | Trm_let_fun (f', res, args, body, _) ->
-    f body
-  | Trm_if (cond, then_, else_) ->
-    f cond;  f then_ ; f else_
-  | Trm_seq tl ->
-    Mlist.iter f tl
-  | Trm_apps (func, args, ghost_args) ->
-    f func; List.iter f args; List.iter (fun (_, t) -> f t) ghost_args
-  | Trm_while (cond, body) ->
-    f cond; f body
-  | Trm_for_c (init, cond, step, body, _) ->
-    f init; f cond; f step; f body
-  | Trm_for (l_range, body, _) ->
-    let (index, start, direction, stop, step, is_parallel) = l_range in
-    f start; f stop;
-    begin match step with
-     | Post_inc | Post_dec | Pre_inc | Pre_dec -> ()
-     | Step sp -> f sp
-    end;
-    f body
-  | Trm_do_while (body, cond) ->
-    f body; f cond
-  | Trm_switch (cond, cases) ->
-     f cond;
-     List.iter (fun (tl, body) -> f body) cases
-  | Trm_abort a ->
-    begin match a with
-    | Ret (Some t') -> f t'
-    | _ -> ()
-    end
-  | Trm_namespace (name, t, b) ->
-    f t
-  | Trm_delete (is_array, t) ->
-    f t
-  | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rfl ->
-      List.iter (fun (rf, rf_ann) ->
-        match rf with
-        | Record_field_method t1 -> f t1
-        | _ -> ()
-      ) rfl
-    | _ -> ()
-    end
-  | Trm_fun (_, _, body, _) -> f body
-  | Trm_arbitrary _ ->
-    ignore (trm_combinators_unsupported_case "trm_iter" t)
-  | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
-
-
-
-(* The value associated with an existential variable (evar).
-   None if the value is unknown, Some if the value is known (it was unified). *)
-type eval = trm option
-
-(* The unification context is a map from variables to evals.
-   If a variable is not in the map, then it is not an evar, and should not be substituted/unified.
-   If a variable is in the map, then it is an evar, and should be substituted/unified (i.e. its eval should eventually become Some). *)
-type unification_ctx = eval varmap
-
-let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_ctx option =
-  let open Tools.OptionMonad in
-  match Var_map.find_opt xe evar_ctx with
-  | None ->
-    (* [xe] cannot be substituted, it must be equal to [t]. *)
-    let* x = trm_var_inv t in
-    if x = xe then Some evar_ctx else None
-  | Some None ->
-    (* [xe] can be substituted, do it. *)
-    Some (Var_map.add xe (Some t) evar_ctx)
-  | Some (Some t_evar) ->
-    (* [xe] was already substituted, its substitution must be equal to [t]. *)
-    if are_same_trm t t_evar then Some evar_ctx else None
-
-and are_same_trm (t1: trm) (t2: trm): bool =
-  (* they are the same if they can be unified without allowing substitutions. *)
-  Option.is_some (unify_trm t1 t2 Var_map.empty)
-
-and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx option =
-  let open Tools.OptionMonad in
-  (* Pattern match on one component to get a warning if there is a missing one *)
-  let check cond = if cond then Some evar_ctx else None in
-  match te.desc with
-  | Trm_var (_, xe) ->
-    unify_var xe t evar_ctx
-  | Trm_val ve ->
-    let* v = trm_val_inv t in
-    check (ve = v)
-  | Trm_apps (fe, argse, ghost_args) ->
-    let* f, args = trm_apps_inv t in
-    let* evar_ctx = unify_trm f fe evar_ctx in
-    begin try
-      List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
-    with Invalid_argument _ -> None end
-  | Trm_fun (argse, _, bodye, _) ->
-    let* args, _, body, _ = trm_fun_inv t in
-    let* evar_ctx, masked_ctx =
-      try
-        Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
-            let masked_entry = Var_map.find_opt arge evar_ctx in
-            let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
-            (evar_ctx, (arge, masked_entry) :: masked)
-          ) (evar_ctx, []) argse args)
-      with Invalid_argument _ -> None
-    in
-    let* evar_ctx = unify_trm body bodye evar_ctx in
-    Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
-        match masked_entry with
-        | Some entry -> Var_map.add arge entry evar_ctx
-        | None -> Var_map.remove arge evar_ctx
-      ) evar_ctx masked_ctx)
-  | _ -> failwith (sprintf "unify_trm: unhandled constructor") (* TODO: Implement the rest of constructors *)
-
-(* TODO: this is different from trm_free_vars because bound variables are not treated. delete ? *)
-let trm_used_vars (t: trm): Var_set.t =
-  let vars = ref Var_set.empty in
-  let rec aux t = match trm_var_inv t with
-  | Some x -> vars := Var_set.add x !vars
-  | _ -> trm_iter aux t
-  in
-  aux t;
-  !vars
-
-(* Combinator to apply a context dependant transformation on a trm.
-   [f ctx t] returns the modified trm along with the context that should be
-   used for the continuation of t (if it has any).
-   This combinator allows one to get a view with continuations while the AST
-   stores sequences. *)
-let trm_map_with_ctx ?(keep_ctx = false) (f: 'ctx -> trm -> 'ctx * trm) (ctx: 'ctx) (t: trm): trm =
-  let annot = t.annot in
-  let loc = t.loc in
-  let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
-
-  (* Sequence-like constructors must propagate context between their children.
-     The rest of the constructors just follow the hierarchy. *)
-  match t.desc with
-  | Trm_seq tl ->
-    let ctx = ref ctx in
-    let tl' =
-      Mlist.map (fun t ->
-          let new_ctx, t' = f !ctx t in
-          ctx := new_ctx;
-          t'
-        ) tl
-    in
-    if (Mlist.for_all2 (==) tl tl')
-      then t
-      else (trm_seq ~annot ?loc ~ctx:t_ctx tl')
-
-  | Trm_for_c (init, cond, step, body, invariant) ->
-    let ctx, init' = f ctx init in
-    let _, cond' = f ctx cond in
-    let _, step' = f ctx step in
-    let _, body' = f ctx body in
-    if (init' == init && cond' == cond && step' == step && body' == body)
-      then t
-      else (trm_for_c ~annot ?loc ~ctx:t_ctx ?invariant init' cond' step' body')
-
-  | _ ->
-    trm_map ~keep_ctx (fun ti -> snd (f ctx ti)) t
-
-type metadata = trm_annot * location * typ option * ctx * varkind
-
-let trm_map_vars
-  ?(keep_ctx = false)
-  ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
-  ?(exit_typedef: typedef -> 'ctx -> 'ctx -> 'ctx = fun _ old_ctx _ -> old_ctx)
-  ?(exit_namespace: string -> 'ctx -> 'ctx -> 'ctx = fun _ old_ctx _ -> old_ctx)
-  ?(map_binder: 'ctx -> var -> trm option -> 'ctx * var = fun ctx bind t -> (ctx, bind))
-  (map_var: 'ctx -> metadata -> var -> trm)
-  (ctx: 'ctx) (t: trm): trm =
-  let rec f_map ctx t: 'ctx * trm =
-    let annot = t.annot in
-    let loc = t.loc in
-    let typ = t.typ in
-    let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
-
-    match t.desc with
-    | Trm_var (kind, x) ->
-      (ctx, map_var ctx (annot, loc, typ, t_ctx, kind) x)
-
-    | Trm_let (var_kind, (var, typ), body) ->
-      let _, body' = f_map ctx body in
-      let cont_ctx, var' = map_binder ctx var (Some t) in
-      let t' = if (body == body' && var == var')
-        then t
-        else (trm_let ~annot ?loc ~ctx:t_ctx var_kind (var', typ) body')
-      in
-      (cont_ctx, t')
-
-    | Trm_let_mult (vk, tvs, ts) ->
-      let cont_ctx = ref ctx in
-      let tvsts' = List.map2 (fun tv t ->
-        let var, typ = tv in
-        let (_, t') = f_map !cont_ctx t in
-        let cont_ctx', var' = map_binder !cont_ctx var None in
-        cont_ctx := cont_ctx';
-        let tv' = if var == var' then tv else (var', typ) in
-        (tv', t')
-      ) tvs ts in
-      let (tvs', ts') = List.split tvsts' in
-      let t' = if ((List.for_all2 (==) ts ts') && List.for_all2 (==) tvs tvs')
-        then t
-        else (trm_let_mult ~annot ?loc ~ctx:t_ctx vk tvs' ts')
-      in
-      (!cont_ctx, t')
-
-    | Trm_let_fun (fn, resources, args, body, contract) ->
-      let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) ->
-        let ctx, arg' = map_binder ctx arg None in
-        (ctx, (arg', typ))
-      ) (enter_scope ctx t) args in
-      let body_ctx, contract' = match contract with
-        | None -> (body_ctx, None)
-        | Some contract ->
-          let body_ctx, contract = fun_contract_map body_ctx contract in
-          (body_ctx, Some contract)
-      in
-      let _, body' = f_map body_ctx body in
-      let cont_ctx, fn' = map_binder ctx fn (Some t) in
-      (* TODO: (List.for_all2 (==) args args') ? *)
-      let t' = if (body' == body && args == args' && fn == fn' && contract == contract')
-        then t
-        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' fn' resources args' body')
-      in
-      (* TODO: Proper function type here *)
-      (cont_ctx, t')
-
-    | Trm_for ((index, start, dir, stop, step, is_par), body, contract) ->
-      let loop_ctx, index' = map_binder (enter_scope ctx t) index (Some t) in
-      let loop_ctx, contract' = match contract with
-      | None -> (loop_ctx, None)
-      | Some c ->
-        let loop_ctx, c' = loop_contract_map loop_ctx c in
-        let c' = if (c == c') then contract else Some c' in
-        (loop_ctx, c')
-      in
-      let step' = match step with
-      | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
-      | Step sp -> Step (snd (f_map loop_ctx sp))
-      in
-      let _, start' = f_map loop_ctx start in
-      let _, stop' = f_map loop_ctx stop in
-      let _, body' = f_map loop_ctx body in
-      let t' = if (index' == index && step' == step && start' == start && stop' == stop && body' == body && contract == contract')
-        then t
-        else (trm_for ~annot ?loc ~ctx:t_ctx ?contract:contract' (index', start', dir, stop', step', is_par) body')
-      in
-      (ctx, t')
-
-    | Trm_for_c (init, cond, step, body, invariant) ->
-      let loop_ctx, init' = f_map ctx init in
-      let loop_ctx, invariant' = match invariant with
-      | None -> (loop_ctx, None)
-      | Some inv ->
-        let loop_ctx, inv' = resource_set_map loop_ctx inv in
-        let inv' = if inv == inv' then invariant else Some inv' in
-        (loop_ctx, inv')
-      in
-      let _, cond' = f_map loop_ctx cond in
-      let _, step' = f_map loop_ctx step in
-      let _, body' = f_map loop_ctx body in
-      let t' = if (init' == init && cond' == cond && step' == step && body' == body && invariant == invariant')
-        then t
-        else (trm_for_c ~annot ?loc ~ctx:t_ctx ?invariant:invariant' init' cond' step' body')
-      in
-      (ctx, t')
-
-    | Trm_fun (args, ret, body, contract) ->
-      let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg (Some t) in (ctx, (arg', typ))) (enter_scope ctx t) args in
-      let body_ctx, contract' = match contract with
-        | None -> (body_ctx, None)
-        | Some contract ->
-          let body_ctx, contract = fun_contract_map body_ctx contract in
-          (body_ctx, Some contract)
-      in
-      let _, body' = f_map body_ctx body in
-      (* TODO: (List.for_all2 (==) args args') ? *)
-      let t' = if (args == args' && body == body' && contract == contract')
-        then t
-        else trm_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' args' ret body' in
-      (* TODO: Proper function type here *)
-      (ctx, t')
-
-    (* LATER: add bool for no scope seq? *)
-    | Trm_seq instrs when trm_is_include t ->
-      (* FIXME: almost duplicated code with 'trm_map_with_ctx' for Trm_seq *)
-      let cont_ctx = ref ctx in
-      let instrs' = Mlist.map (fun t ->
-        let cont_ctx', t' = f_map !cont_ctx t in
-        cont_ctx := cont_ctx';
-        t'
-      ) instrs in
-      let t' = if Mlist.for_all2 (==) instrs instrs'
-        then t
-        else trm_seq ~annot ?loc ~ctx:t_ctx instrs'
-      in
-      (!cont_ctx, t')
-
-    | Trm_seq _ -> (ctx, trm_map_with_ctx ~keep_ctx f_map (enter_scope ctx t) t)
-
-    | Trm_typedef td ->
-      (* Class namespace *)
-      (* FIXME: almost duplicated code with 'trm_map_with_ctx' for Trm_seq *)
-      let class_ctx = ref (enter_scope ctx t) in
-      let body' = begin match td.typdef_body with
-      | Typdef_alias _ -> td.typdef_body
-      | Typdef_record rfl ->
-        let rfl' = List.map (fun (rf, rf_ann) ->
-          let rf' = begin match rf with
-          | Record_field_method rft ->
-            let (class_ctx', rft') = f_map !class_ctx rft in
-            class_ctx := class_ctx';
-            if rft == rft' then rf else
-              Record_field_method rft'
-          | Record_field_member _ -> rf
-          end in
-          rf', rf_ann
-        ) rfl in
-        if List.for_all2 (==) rfl rfl' then td.typdef_body else Typdef_record rfl'
-      | _ -> failwith "unexpected typdef_body"
-      end in
-      let td' = if (body' == td.typdef_body)
-        then td
-        else { td with typdef_body = body' }
-      in
-      let t' = if (td == td')
-        then t
-        else (trm_typedef ~annot ?loc ~ctx:t_ctx td')
-      in
-      let cont_ctx = exit_typedef td' ctx !class_ctx in
-      (cont_ctx, t')
-
-    | Trm_namespace (name, body, inline) ->
-      let body_ctx = ref (enter_scope ctx t) in
-      let body' = begin match body.desc with
-      | Trm_seq instrs ->
-        (* FIXME: duplicated code with 'trm_map_with_ctx' for Trm_seq *)
-        let instrs' = Mlist.map (fun t ->
-          let body_ctx', t' = f_map !body_ctx t in
-          body_ctx := body_ctx';
-          t'
-        ) instrs in
-        if Mlist.for_all2 (==) instrs instrs'
-          then body
-          else trm_seq ~annot:body.annot ?loc:body.loc ~ctx:body.ctx instrs'
-      | _ ->
-        failwith "unexpected namespace body"
-      end in
-      let t' = if (body == body')
-        then t
-        else (trm_namespace ~annot ?loc ~ctx:t_ctx name body' inline)
-      in
-      let cont_ctx = exit_namespace name ctx !body_ctx in
-      (cont_ctx, t')
-
-    | _ -> (ctx, trm_map_with_ctx ~keep_ctx f_map ctx t)
-
-  and resource_items_map ctx resources: 'ctx * resource_item list =
-    List.fold_left_map (fun ctx resources ->
-      let (name, formula) = resources in
-      let _, formula' = f_map ctx formula in
-      let ctx, name' = map_binder ctx name None in
-      let resources' = if (name == name' && formula == formula')
-        then resources else (name', formula')
-      in
-      (ctx, resources')
-    ) (enter_scope ctx (trm_seq_nomarks [])) resources
-
-  and resource_set_map ctx resources: 'ctx * resource_set =
-    let ctx, pure = resource_items_map ctx resources.pure in
-    let _, linear = resource_items_map ctx resources.linear in
-    let resources' = if (List.for_all2 (==) pure resources.pure && List.for_all2 (==) linear resources.linear)
-      then resources
-      else { resources with pure; linear }
-    in
-    (ctx, resources')
-
-  and fun_contract_map ctx contract: 'ctx * fun_contract =
-    let ctx, pre = resource_set_map ctx contract.pre in
-    let _, post = resource_set_map ctx contract.post in
-    let contract = if (pre == contract.pre && post == contract.post) then contract else { pre; post } in
-    (ctx, contract)
-
-  and loop_contract_map ctx contract: 'ctx * loop_contract =
-    let ctx, loop_ghosts = resource_items_map ctx contract.loop_ghosts in
-    let ctx, invariant = resource_set_map ctx contract.invariant in
-    let ctx, iter_contract = fun_contract_map ctx contract.iter_contract in
-    let contract =
-      if (loop_ghosts == contract.loop_ghosts && invariant == contract.invariant && iter_contract == contract.iter_contract)
-      then contract
-      else { loop_ghosts; invariant; iter_contract }
-    in
-    (ctx, contract)
-
-  in
-  snd (f_map ctx t)
-
-
-(** Erase variable identifiers, useful for e.g. embedding a subexpression in a new context. *)
-let trm_erase_var_ids (t : trm) : trm =
-  let rec aux t =
-    match trm_var_inv t with
-    | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~qualifier:x.qualifier x.name)
-    | _ -> trm_map aux t
-  in
-  aux t
-
-(** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
-let trm_copy (t : trm) : trm =
-  let map_binder var_map v _ =
-    assert (not (Var_map.mem v var_map));
-    let new_v = new_var ~qualifier:v.qualifier v.name in
-    (Var_map.add v new_v var_map, new_v)
-  in
-  let map_var var_map (annot, loc, typ, ctx, kind) v =
-    let new_v =
-      if v.id = -1 then v
-      else match Var_map.find_opt v var_map with
-      | Some nv -> nv
-      | None -> v
-    in
-    trm_var ~annot ?loc ?typ ~ctx new_v
-  in
-  trm_map_vars ~map_binder map_var Var_map.empty t
-
-(* Assumes var-id's are unique, can locally break scope rules and might require a binder renaming. *)
-let trm_subst
-  ?(on_subst : trm -> trm -> trm = fun old_t new_t -> trm_copy new_t)
-  (subst_map: trm varmap) (t: trm) =
-  let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): metadata) (var: var) =
-    let var_t = trm_var ~annot ?loc ?typ ~kind var in
-    match Var_map.find_opt var subst_map with
-    | Some subst_t -> on_subst var_t subst_t
-    | None -> var_t
-  in
-  trm_map_vars subst_var subst_map t
-
-(*** [subst x u t]: replace all the occurences of x with u in t *)
-let trm_subst_var (x : var) (u : trm) (t : trm) =
-  trm_subst (Var_map.singleton x u) t
-
-(* TODO: Use a real trm_fold later to avoid reconstructing trm *)
-let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
-  let fv = ref Var_set.empty in
-  let _ = trm_map_vars ~map_binder:(fun bound_set binder _ -> (Var_set.add binder bound_set, binder))
-    (fun bound_set _ var ->
-      (if Var_set.mem var bound_set then () else fv := Var_set.add var !fv); trm_var var)
-    bound_vars t
-  in
-  !fv
-
-(*****************************************************************************)
-
-exception Unknown_key
-
-(* [tmap_to_list keys map]: gets the list of values for all keys [keys] in [map] *)
-let tmap_to_list (keys : vars) (map : tmap) : trms =
-  List.map (fun x -> match Var_map.find_opt x map with
-    | Some v -> v
-    | None -> raise Unknown_key
-  ) keys
-
-(* [tmap_filter keys tmap]: removes all the bindings with [keys] in [map] and return [map] *)
-let tmap_filter (keys : vars) (map : tmap) : tmap =
-  Var_map.filter (fun k _ -> not (List.mem k keys)) map
-
-(* [hide_function_bodies f_pred tl]: all the toplevel function with their names satisfying [f_pred] will have hidden bodies.
-    Others will be kept unchanged. The new ast is called the chopped_ast. This function wlll return the choped_ast and
-    a map with keys the names of the functions whose body has been removed and values their removed body. *)
-let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
-  let t_map = ref Var_map.empty in
-    let rec aux (t : trm) : trm =
-      match t.desc with
-      | Trm_let_fun (f, ty, tv, _, _) ->
-        if f_pred f then begin
-          t_map := Var_map.add f t !t_map;
-         trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_lit Lit_uninitialized) end
-        else t
-      | _ -> trm_map aux t
-      in
-  let res = aux t in
-  res, !t_map
-
-(* [update_chopped_ast chopped_ast chopped_fun_map]: for all the functions whose bodies were removed during the creation
-    of the chopped_ast restore their bodies by using [chopped_fun_map], which is map with keys beingthe the names
-    of the functions that were chopped and values being their actual declaration *)
-let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
-  match chopped_ast.desc with
-  | Trm_seq tl ->
-      let new_tl =
-      Mlist.map (fun def -> match def.desc with
-      | Trm_let_fun (f, _, _, _, _) ->
-        begin match Var_map.find_opt f chopped_fun_map with
-        | Some tdef ->  tdef
-        | _ -> def
-        end
-      | Trm_let (_, (x, _), _) ->
-        (* There is a slight difference between clang and menhir how they handle function declarations, that's why we
-         need to check if there are variables inside the function map *)
-        begin match Var_map.find_opt x chopped_fun_map with
-        | Some tdef -> tdef
-        | _ -> def
-        end
-      |_ ->  def
-    ) tl in trm_seq ~annot:chopped_ast.annot new_tl
-  | _ -> fail chopped_ast.loc "Ast.update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
-
-
-
-
-(* [label_subterms_with_fresh_stringreprids f t]: annotates all the subterms of [t]
-   that satisfy the boolean predicate [f] with a fresh string representation identifier.
-   This operation should be performed to enable the term to doc function to memoize
-   its results, and possibly export a table mapping subterms to their string representation. *)
-   let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : trm =
-    let t2 =
-      if not (f t) then t else begin
-        let id = next_stringreprid () in
-        trm_set_stringreprid id t
-      end in
-    trm_map (label_subterms_with_fresh_stringreprids f) t2
-
-
 (* [decl_name t]: returns the name of the declared variable/function. *)
 let decl_name (t : trm) : var option =
   match t.desc with
@@ -2215,39 +1505,6 @@ let var_any_bool = new_var "ANY_BOOL"
 let empty_ast : trm =
   trm_set_mainfile (trm_seq_nomarks [])
 
-(* [trm_simplify_addressof_and_get t]: simplifies [&*t] and [*&t] to [t] *)
-let trm_simplify_addressof_and_get (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [
-      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1], _) }
-    ], _)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [
-      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [t1], _) }
-    ], _) -> t1
-  | _ -> t
-
-(* [simpl_struct_get_get t]: transform struct_get (get(t1), f) to get(struct_access (t1, f)) *)
-let simpl_struct_get_get (t : trm) : trm = (* DEPRECATED? *)
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1], _) ->
-    begin match t1.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [t2], _) ->
-      {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t2], []))}], []))}
-    | _ -> t
-    end
-  | _ -> t
-
-(* [simpl_array_get t]: tranform array_get (get(t1), index) to get(array_access (t1), index) *)
-let rec simpl_array_get_get (t : trm) : trm = (* DEPRECATED? *)
-  let aux = simpl_array_get_get in
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index], _) ->
-    begin match base.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [base1], _) ->
-       {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base1; index], []))}], []))}
-    | _ -> trm_map aux t
-    end
-  | _ -> trm_map aux t
 
 
 (* [array_access base index]: generates array_access (base, index) *)
@@ -2492,6 +1749,682 @@ let fun_with_empty_body (t : trm) : trm =
       | _ -> None
 
 
+(* ********************************************************************************************** *)
+
+let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
+  if !Flags.trm_combinators_warn_unsupported_case then begin
+    Printf.printf "WARNING: don't know how to '%s' on '%s'\n" f_name (trm_desc_to_string t.desc);
+    Printf.printf "<suppressing similar warnings henceforth>\n";
+    Flags.trm_combinators_warn_unsupported_case := false;
+  end;
+  t
+
+(* [trm_map_with_terminal]: applies function [f] over ast nodes,
+   where [f] may treat terminal nodes differently.
+   Here, terminal means that the end of the term would be the end of the function.
+   - [share_if_no_change]: enables sharing trm nodes if they are unchanged by [f].
+  *)
+let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
+  let annot = t.annot in
+  let loc = t.loc in
+  let typ = t.typ in
+  let ctx = if keep_ctx then t.ctx else unknown_ctx in
+
+  let list_map f tf old_list =
+    let new_list = List.map f old_list in
+    if share_if_no_change && List.for_all2 tf old_list new_list
+      then old_list
+      else new_list in
+  let mlist_map f tf old_list =
+    let new_list = Mlist.map f old_list in
+    if share_if_no_change && Mlist.for_all2 tf old_list new_list
+      then old_list
+      else new_list in
+
+  match t.desc with
+  | Trm_val _ | Trm_var _ -> t
+  | Trm_array tl ->
+    let tl' = mlist_map (f false) (==) tl in
+    if (share_if_no_change(*redundant*) && tl' == tl)
+      then t
+      else (trm_array ~annot ?loc ?typ ~ctx tl')
+  | Trm_record tl ->
+    let tl' = mlist_map
+      (fun (lb, t) -> (lb, f false t))
+      (fun (_, ta) (_, tb) -> ta == tb) tl
+    in
+    if (share_if_no_change(*redundant*) && tl' == tl)
+      then t
+      else (trm_record ~annot ?loc ?typ ~ctx tl')
+  | Trm_let (vk, tv, init) ->
+    let init' = f false init in
+    if (share_if_no_change && init' == init)
+      then t
+      else (trm_let ~annot ?loc ~ctx vk tv init')
+  | Trm_let_mult (vk, tvs, tis) ->
+    let tis' = list_map (f false) (==) tis in
+    if (tis' == tis) then t else
+      (trm_let_mult ~annot ?loc ~ctx vk tvs tis')
+  | Trm_let_fun (f', res, args, body, contract) ->
+    let body' = f false body in
+    if (share_if_no_change && body' == body)
+      then t
+      else (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body' )
+  | Trm_if (cond, then_, else_) ->
+    let cond' = f false cond in
+    let then_' = f is_terminal then_ in
+    let else_' = f is_terminal else_ in
+    if (share_if_no_change && cond' == cond && then_' == then_ && else_' == else_)
+      then t
+      else (trm_if ~annot ?loc ~ctx cond' then_' else_')
+  | Trm_seq tl ->
+    let n = ref (Mlist.length tl) in
+    let tl' = mlist_map
+      (fun tsub ->
+        n := !n - 1;
+        let sub_is_terminal = (is_terminal && !n == 0) in
+        f sub_is_terminal tsub)
+      (==) tl
+    in
+    if (share_if_no_change(*redundant*) && tl == tl')
+      then t
+      else (trm_seq ~annot ?loc ~ctx tl')
+  | Trm_apps (func, args, ghost_args) ->
+    let func' = f false func in
+    let args' = list_map (f false) (==) args in
+    if (share_if_no_change(*redundant*) && func' == func && args' == args)
+      then t
+      (* warning: may have different type *)
+      else (trm_apps ~annot ?loc ?typ ~ctx ~ghost_args func' args')
+  | Trm_while (cond, body) ->
+    let cond' = f false cond in
+    let body' = f false body in
+    if (share_if_no_change && cond' == cond && body' == body)
+      then t
+      else (trm_while ~annot ?loc ~ctx cond' body')
+  | Trm_for_c (init, cond, step, body, invariant) ->
+      let init' = f false init in
+      let cond' = f false cond in
+      let step' = f false step in
+      let body' = f is_terminal body in
+      if (share_if_no_change && init' == init && cond' == cond && step' == step && body' == body)
+        then t
+        else (trm_for_c ~annot ?loc ?invariant ~ctx init' cond' step' body')
+  | Trm_for (l_range, body, contract) ->
+    let (index, start, direction, stop, step, is_parallel) = l_range in
+    let start' = f false start in
+    let stop' = f false stop in
+    let step' = match step with
+      | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
+      | Step sp -> Step (f is_terminal sp)
+      in
+    let body' = f is_terminal body in
+    if (share_if_no_change && step' == step && start' == start && stop' == stop && body' == body)
+      then t
+      else (trm_for ~annot ?loc ?contract ~ctx (index, start', direction, stop', step', is_parallel) body')
+  | Trm_switch (cond, cases) ->
+      let cond' = f false cond in
+      let cases' = list_map
+        (fun (tl, body) -> (tl, f is_terminal body))
+        (fun (_, body1) (_, body2) -> body1 == body2) cases in
+      if (share_if_no_change(*redundant*) && cond' == cond && cases' == cases)
+        then t
+        else (trm_switch ~annot ?loc ~ctx cond' cases')
+  | Trm_abort a ->
+    begin match a with
+    | Ret (Some r) ->
+        let r' = f false r in
+        if (share_if_no_change && r' == r)
+          then t
+          else (trm_ret ~annot ?loc ~ctx (Some r'))
+    | _ -> t
+    end
+  | Trm_namespace (name, body, inline) ->
+    let body' = f false body in
+    if (share_if_no_change && body == body')
+      then t
+      else (trm_namespace ~annot ?loc ~ctx name body' inline)
+  | Trm_typedef td ->
+    let body' = begin match td.typdef_body with
+    | Typdef_alias _ -> td.typdef_body
+    | Typdef_record rfl ->
+      let rfl' = list_map
+        (fun (rf, rf_ann) ->
+          let rf' = begin match rf with
+          | Record_field_method rft ->
+            let rft' = f false rft in
+            if share_if_no_change && rft == rft'
+              then rf
+              else Record_field_method rft'
+          | Record_field_member _ -> rf
+          end in
+          rf', rf_ann
+        )
+        (fun (rfa, _) (rfb, _) -> rfa == rfb)
+        rfl in
+      if share_if_no_change(*redundant*) && rfl == rfl'
+        then td.typdef_body
+        else Typdef_record rfl'
+    | _ -> failwith "trm_map_with_terminal: unexpected typdef_body"
+    end in
+    if (share_if_no_change(*redundant*) && body' == td.typdef_body)
+      then t
+      else trm_typedef ~annot ?loc ~ctx { td with typdef_body = body' }
+  | _ ->
+    trm_combinators_unsupported_case "trm_map_with_terminal"  t
+
+(* [trm_map f]: applies f on t recursively *)
+let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =
+  trm_map_with_terminal ~keep_ctx false (fun _is_terminal t -> f t) t
+
+(* [trm_bottom_up]: applies f on t recursively from bottom to top. *)
+let rec trm_bottom_up (f : trm -> trm) (t : trm) : trm =
+  let t2 = trm_map (trm_bottom_up f) t in
+  f t2
+
+(* [trm_iter f t]: similar to [trm_map] but this one doesn't return a trm at the end. *)
+let trm_iter (f : trm -> unit) (t : trm) : unit =
+  match t.desc with
+  | Trm_array tl ->
+    Mlist.iter f tl
+  | Trm_record tl ->
+    Mlist.iter (function (_, t) -> f t) tl
+  | Trm_let (vk, tv, init) ->
+    f init
+  | Trm_let_mult (vk, tvl, tl) ->
+    List.iter f tl
+  | Trm_let_fun (f', res, args, body, _) ->
+    f body
+  | Trm_if (cond, then_, else_) ->
+    f cond;  f then_ ; f else_
+  | Trm_seq tl ->
+    Mlist.iter f tl
+  | Trm_apps (func, args, ghost_args) ->
+    f func; List.iter f args; List.iter (fun (_, t) -> f t) ghost_args
+  | Trm_while (cond, body) ->
+    f cond; f body
+  | Trm_for_c (init, cond, step, body, _) ->
+    f init; f cond; f step; f body
+  | Trm_for (l_range, body, _) ->
+    let (index, start, direction, stop, step, is_parallel) = l_range in
+    f start; f stop;
+    begin match step with
+     | Post_inc | Post_dec | Pre_inc | Pre_dec -> ()
+     | Step sp -> f sp
+    end;
+    f body
+  | Trm_do_while (body, cond) ->
+    f body; f cond
+  | Trm_switch (cond, cases) ->
+     f cond;
+     List.iter (fun (tl, body) -> f body) cases
+  | Trm_abort a ->
+    begin match a with
+    | Ret (Some t') -> f t'
+    | _ -> ()
+    end
+  | Trm_namespace (name, t, b) ->
+    f t
+  | Trm_delete (is_array, t) ->
+    f t
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_record rfl ->
+      List.iter (fun (rf, rf_ann) ->
+        match rf with
+        | Record_field_method t1 -> f t1
+        | _ -> ()
+      ) rfl
+    | _ -> ()
+    end
+  | Trm_fun (_, _, body, _) -> f body
+  | Trm_arbitrary _ ->
+    ignore (trm_combinators_unsupported_case "trm_iter" t)
+  | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
+
+
+
+(* The value associated with an existential variable (evar).
+   None if the value is unknown, Some if the value is known (it was unified). *)
+type eval = trm option
+
+(* The unification context is a map from variables to evals.
+   If a variable is not in the map, then it is not an evar, and should not be substituted/unified.
+   If a variable is in the map, then it is an evar, and should be substituted/unified (i.e. its eval should eventually become Some). *)
+type unification_ctx = eval varmap
+
+let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_ctx option =
+  let open Tools.OptionMonad in
+  match Var_map.find_opt xe evar_ctx with
+  | None ->
+    (* [xe] cannot be substituted, it must be equal to [t]. *)
+    let* x = trm_var_inv t in
+    if x = xe then Some evar_ctx else None
+  | Some None ->
+    (* [xe] can be substituted, do it. *)
+    Some (Var_map.add xe (Some t) evar_ctx)
+  | Some (Some t_evar) ->
+    (* [xe] was already substituted, its substitution must be equal to [t]. *)
+    if are_same_trm t t_evar then Some evar_ctx else None
+
+and are_same_trm (t1: trm) (t2: trm): bool =
+  (* they are the same if they can be unified without allowing substitutions. *)
+  Option.is_some (unify_trm t1 t2 Var_map.empty)
+
+and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx option =
+  let open Tools.OptionMonad in
+  (* Pattern match on one component to get a warning if there is a missing one *)
+  let check cond = if cond then Some evar_ctx else None in
+  match te.desc with
+  | Trm_var (_, xe) ->
+    unify_var xe t evar_ctx
+  | Trm_val ve ->
+    let* v = trm_val_inv t in
+    check (ve = v)
+  | Trm_apps (fe, argse, ghost_args) ->
+    let* f, args = trm_apps_inv t in
+    let* evar_ctx = unify_trm f fe evar_ctx in
+    begin try
+      List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
+    with Invalid_argument _ -> None end
+  | Trm_fun (argse, _, bodye, _) ->
+    let* args, _, body, _ = trm_fun_inv t in
+    let* evar_ctx, masked_ctx =
+      try
+        Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
+            let masked_entry = Var_map.find_opt arge evar_ctx in
+            let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
+            (evar_ctx, (arge, masked_entry) :: masked)
+          ) (evar_ctx, []) argse args)
+      with Invalid_argument _ -> None
+    in
+    let* evar_ctx = unify_trm body bodye evar_ctx in
+    Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
+        match masked_entry with
+        | Some entry -> Var_map.add arge entry evar_ctx
+        | None -> Var_map.remove arge evar_ctx
+      ) evar_ctx masked_ctx)
+  | _ -> failwith (sprintf "unify_trm: unhandled constructor") (* TODO: Implement the rest of constructors *)
+
+(* TODO: this is different from trm_free_vars because bound variables are not treated. delete ? *)
+let trm_used_vars (t: trm): Var_set.t =
+  let vars = ref Var_set.empty in
+  let rec aux t = match trm_var_inv t with
+  | Some x -> vars := Var_set.add x !vars
+  | _ -> trm_iter aux t
+  in
+  aux t;
+  !vars
+
+type metadata = trm_annot * location * typ option * ctx * varkind
+
+let trm_map_vars
+  ?(keep_ctx = false)
+  ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
+  ?(exit_scope: 'ctx -> 'ctx -> trm -> 'ctx = fun outer_ctx inner_ctx t -> outer_ctx)
+  ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
+  (map_var: 'ctx -> metadata -> var -> trm)
+  (ctx: 'ctx) (t: trm): trm =
+  let rec f_map ctx t: 'ctx * trm =
+    let annot = t.annot in
+    let loc = t.loc in
+    let typ = t.typ in
+    let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
+
+    match t.desc with
+    | Trm_var (kind, x) ->
+      (ctx, map_var ctx (annot, loc, typ, t_ctx, kind) x)
+
+    | Trm_let (var_kind, (var, typ), body) ->
+      let _, body' = f_map ctx body in
+      (* FIXME: in C, extern int x; is a predeclaration, however, it is not stored in the AST *)
+      let cont_ctx, var' = map_binder ctx var false in
+      let t' = if (body == body' && var == var')
+        then t
+        else (trm_let ~annot ?loc ~ctx:t_ctx var_kind (var', typ) body')
+      in
+      (cont_ctx, t')
+
+    | Trm_let_mult (vk, tvs, ts) ->
+      let cont_ctx = ref ctx in
+      let tvsts' = List.map2 (fun tv t ->
+        let var, typ = tv in
+        let (_, t') = f_map !cont_ctx t in
+        let cont_ctx', var' = map_binder !cont_ctx var false in
+        cont_ctx := cont_ctx';
+        let tv' = if var == var' then tv else (var', typ) in
+        (tv', t')
+      ) tvs ts in
+      let (tvs', ts') = List.split tvsts' in
+      let t' = if ((List.for_all2 (==) ts ts') && List.for_all2 (==) tvs tvs')
+        then t
+        else (trm_let_mult ~annot ?loc ~ctx:t_ctx vk tvs' ts')
+      in
+      (!cont_ctx, t')
+
+    | Trm_let_fun (fn, resources, args, body, contract) ->
+      let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) ->
+        let ctx, arg' = map_binder ctx arg false in
+        (ctx, (arg', typ))
+      ) (enter_scope ctx t) args in
+      let body_ctx, contract' = match contract with
+        | None -> (body_ctx, None)
+        | Some contract ->
+          let body_ctx, contract = fun_contract_map body_ctx contract in
+          (body_ctx, Some contract)
+      in
+      let body_ctx, body' = f_map body_ctx body in
+      let cont_ctx, fn' = map_binder ctx fn (is_fun_with_empty_body t) in
+      (* TODO: (List.for_all2 (==) args args') ? *)
+      let t' = if (body' == body && args == args' && fn == fn' && contract == contract')
+        then t
+        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' fn' resources args' body')
+      in
+      (* TODO: Proper function type here *)
+      let ctx = exit_scope cont_ctx body_ctx t' in
+      (ctx, t')
+
+    | Trm_for ((index, start, dir, stop, step, is_par), body, contract) ->
+      let loop_ctx, index' = map_binder (enter_scope ctx t) index false in
+      let loop_ctx, contract' = match contract with
+      | None -> (loop_ctx, None)
+      | Some c ->
+        let loop_ctx, c' = loop_contract_map loop_ctx c in
+        let c' = if (c == c') then contract else Some c' in
+        (loop_ctx, c')
+      in
+      let step' = match step with
+      | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
+      | Step sp -> Step (snd (f_map loop_ctx sp))
+      in
+      let _, start' = f_map loop_ctx start in
+      let _, stop' = f_map loop_ctx stop in
+      let loop_ctx, body' = f_map loop_ctx body in
+      let t' = if (index' == index && step' == step && start' == start && stop' == stop && body' == body && contract == contract')
+        then t
+        else (trm_for ~annot ?loc ~ctx:t_ctx ?contract:contract' (index', start', dir, stop', step', is_par) body')
+      in
+      let ctx = exit_scope ctx loop_ctx t' in
+      (ctx, t')
+
+    | Trm_for_c (init, cond, step, body, invariant) ->
+      let loop_ctx, init' = f_map (enter_scope ctx t) init in
+      let loop_ctx, invariant' = match invariant with
+      | None -> (loop_ctx, None)
+      | Some inv ->
+        let loop_ctx, inv' = resource_set_map loop_ctx inv in
+        let inv' = if inv == inv' then invariant else Some inv' in
+        (loop_ctx, inv')
+      in
+      let _, cond' = f_map loop_ctx cond in
+      let _, step' = f_map loop_ctx step in
+      let loop_ctx, body' = f_map loop_ctx body in
+      let t' = if (init' == init && cond' == cond && step' == step && body' == body && invariant == invariant')
+        then t
+        else (trm_for_c ~annot ?loc ~ctx:t_ctx ?invariant:invariant' init' cond' step' body')
+      in
+      let ctx = exit_scope ctx loop_ctx t' in
+      (ctx, t')
+
+    | Trm_fun (args, ret, body, contract) ->
+      let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) ->
+        let ctx, arg' = map_binder ctx arg false in
+        (ctx, (arg', typ))) (enter_scope ctx t) args in
+      let body_ctx, contract' = match contract with
+        | None -> (body_ctx, None)
+        | Some contract ->
+          let body_ctx, contract = fun_contract_map body_ctx contract in
+          (body_ctx, Some contract)
+      in
+      let body_ctx, body' = f_map body_ctx body in
+      (* TODO: (List.for_all2 (==) args args') ? *)
+      let t' = if (args == args' && body == body' && contract == contract')
+        then t
+        else trm_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' args' ret body' in
+      (* TODO: Proper function type here *)
+      let ctx = exit_scope ctx body_ctx t' in
+      (ctx, t')
+
+    | Trm_seq instrs ->
+      (* LATER: add bool for no scope seq? *)
+      let no_scope = trm_is_include t in
+      let cont_ctx = ref (if no_scope then ctx else enter_scope ctx t) in
+      let instrs' = Mlist.map (fun t ->
+        let cont_ctx', t' = f_map !cont_ctx t in
+        cont_ctx := cont_ctx';
+        t'
+      ) instrs in
+      let t' = if Mlist.for_all2 (==) instrs instrs'
+        then t
+        else trm_seq ~annot ?loc ~ctx:t_ctx instrs'
+      in
+      let ctx = if no_scope then !cont_ctx else exit_scope ctx !cont_ctx t' in
+      (ctx, t')
+
+    | Trm_typedef td ->
+      (* Class namespace *)
+      let class_ctx = ref (enter_scope ctx t) in
+      let body' = begin match td.typdef_body with
+      | Typdef_alias _ -> td.typdef_body
+      | Typdef_record rfl ->
+        let rfl' = List.map (fun (rf, rf_ann) ->
+          let rf' = begin match rf with
+          | Record_field_method rft ->
+            let (class_ctx', rft') = f_map !class_ctx rft in
+            class_ctx := class_ctx';
+            if rft == rft' then rf else
+              Record_field_method rft'
+          | Record_field_member _ -> rf
+          end in
+          rf', rf_ann
+        ) rfl in
+        if List.for_all2 (==) rfl rfl' then td.typdef_body else Typdef_record rfl'
+      | _ -> failwith "unexpected typdef_body"
+      end in
+      let td' = if (body' == td.typdef_body)
+        then td
+        else { td with typdef_body = body' }
+      in
+      let t' = if (td == td')
+        then t
+        else (trm_typedef ~annot ?loc ~ctx:t_ctx td')
+      in
+      let cont_ctx = exit_scope ctx !class_ctx t' in
+      (cont_ctx, t')
+
+    | Trm_namespace (name, body, inline) ->
+      let body_ctx = ref (enter_scope ctx t) in
+      let body' = begin match body.desc with
+      | Trm_seq instrs ->
+        (* FIXME: duplicated code with Trm_seq case *)
+        let instrs' = Mlist.map (fun t ->
+          let body_ctx', t' = f_map !body_ctx t in
+          body_ctx := body_ctx';
+          t'
+        ) instrs in
+        if Mlist.for_all2 (==) instrs instrs'
+          then body
+          else trm_seq ~annot:body.annot ?loc:body.loc ~ctx:body.ctx instrs'
+      | _ ->
+        failwith "unexpected namespace body"
+      end in
+      let t' = if (body == body')
+        then t
+        else (trm_namespace ~annot ?loc ~ctx:t_ctx name body' inline)
+      in
+      let cont_ctx = exit_scope ctx !body_ctx t' in
+      (cont_ctx, t')
+
+    | _ ->
+      (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
+
+  and resource_items_map ctx resources: 'ctx * resource_item list =
+    List.fold_left_map (fun ctx resources ->
+      let (name, formula) = resources in
+      let _, formula' = f_map ctx formula in
+      let ctx, name' = map_binder ctx name false in
+      let resources' = if (name == name' && formula == formula')
+        then resources else (name', formula')
+      in
+      (ctx, resources')
+    ) (enter_scope ctx (trm_seq_nomarks [])) resources
+
+  and resource_set_map ctx resources: 'ctx * resource_set =
+    let ctx, pure = resource_items_map ctx resources.pure in
+    let _, linear = resource_items_map ctx resources.linear in
+    let resources' = if (List.for_all2 (==) pure resources.pure && List.for_all2 (==) linear resources.linear)
+      then resources
+      else { resources with pure; linear }
+    in
+    (ctx, resources')
+
+  and fun_contract_map ctx contract: 'ctx * fun_contract =
+    let ctx, pre = resource_set_map ctx contract.pre in
+    let _, post = resource_set_map ctx contract.post in
+    let contract = if (pre == contract.pre && post == contract.post) then contract else { pre; post } in
+    (ctx, contract)
+
+  and loop_contract_map ctx contract: 'ctx * loop_contract =
+    let ctx, loop_ghosts = resource_items_map ctx contract.loop_ghosts in
+    let ctx, invariant = resource_set_map ctx contract.invariant in
+    let ctx, iter_contract = fun_contract_map ctx contract.iter_contract in
+    let contract =
+      if (loop_ghosts == contract.loop_ghosts && invariant == contract.invariant && iter_contract == contract.iter_contract)
+      then contract
+      else { loop_ghosts; invariant; iter_contract }
+    in
+    (ctx, contract)
+
+  in
+  snd (f_map ctx t)
+
+
+(** Erase variable identifiers, useful for e.g. embedding a subexpression in a new context. *)
+let trm_erase_var_ids (t : trm) : trm =
+  let rec aux t =
+    match trm_var_inv t with
+    | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~qualifier:x.qualifier x.name)
+    | _ -> trm_map aux t
+  in
+  aux t
+
+(** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
+let trm_copy (t : trm) : trm =
+  let map_binder var_map v _ =
+    assert (not (Var_map.mem v var_map));
+    let new_v = new_var ~qualifier:v.qualifier v.name in
+    (Var_map.add v new_v var_map, new_v)
+  in
+  let map_var var_map (annot, loc, typ, ctx, kind) v =
+    let new_v =
+      if v.id = -1 then v
+      else match Var_map.find_opt v var_map with
+      | Some nv -> nv
+      | None -> v
+    in
+    trm_var ~annot ?loc ?typ ~ctx new_v
+  in
+  trm_map_vars ~map_binder map_var Var_map.empty t
+
+(* Assumes var-id's are unique, can locally break scope rules and might require a binder renaming. *)
+let trm_subst
+  ?(on_subst : trm -> trm -> trm = fun old_t new_t -> trm_copy new_t)
+  (subst_map: trm varmap) (t: trm) =
+  let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): metadata) (var: var) =
+    let var_t = trm_var ~annot ?loc ?typ ~kind var in
+    match Var_map.find_opt var subst_map with
+    | Some subst_t -> on_subst var_t subst_t
+    | None -> var_t
+  in
+  trm_map_vars subst_var subst_map t
+
+(*** [subst x u t]: replace all the occurences of x with u in t *)
+let trm_subst_var (x : var) (u : trm) (t : trm) =
+  trm_subst (Var_map.singleton x u) t
+
+(* TODO: Use a real trm_fold later to avoid reconstructing trm *)
+let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
+  let fv = ref Var_set.empty in
+  let _ = trm_map_vars ~map_binder:(fun bound_set binder _ -> (Var_set.add binder bound_set, binder))
+    (fun bound_set _ var ->
+      (if Var_set.mem var bound_set then () else fv := Var_set.add var !fv); trm_var var)
+    bound_vars t
+  in
+  !fv
+
+(*****************************************************************************)
+
+exception Unknown_key
+
+(* [tmap_to_list keys map]: gets the list of values for all keys [keys] in [map] *)
+let tmap_to_list (keys : vars) (map : tmap) : trms =
+  List.map (fun x -> match Var_map.find_opt x map with
+    | Some v -> v
+    | None -> raise Unknown_key
+  ) keys
+
+(* [tmap_filter keys tmap]: removes all the bindings with [keys] in [map] and return [map] *)
+let tmap_filter (keys : vars) (map : tmap) : tmap =
+  Var_map.filter (fun k _ -> not (List.mem k keys)) map
+
+(* [hide_function_bodies f_pred tl]: all the toplevel function with their names satisfying [f_pred] will have hidden bodies.
+    Others will be kept unchanged. The new ast is called the chopped_ast. This function wlll return the choped_ast and
+    a map with keys the names of the functions whose body has been removed and values their removed body. *)
+let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
+  let t_map = ref Var_map.empty in
+    let rec aux (t : trm) : trm =
+      match t.desc with
+      | Trm_let_fun (f, ty, tv, _, _) ->
+        if f_pred f then begin
+          t_map := Var_map.add f t !t_map;
+         trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_lit Lit_uninitialized) end
+        else t
+      | _ -> trm_map aux t
+      in
+  let res = aux t in
+  res, !t_map
+
+(* [update_chopped_ast chopped_ast chopped_fun_map]: for all the functions whose bodies were removed during the creation
+    of the chopped_ast restore their bodies by using [chopped_fun_map], which is map with keys beingthe the names
+    of the functions that were chopped and values being their actual declaration *)
+let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
+  match chopped_ast.desc with
+  | Trm_seq tl ->
+      let new_tl =
+      Mlist.map (fun def -> match def.desc with
+      | Trm_let_fun (f, _, _, _, _) ->
+        begin match Var_map.find_opt f chopped_fun_map with
+        | Some tdef ->  tdef
+        | _ -> def
+        end
+      | Trm_let (_, (x, _), _) ->
+        (* There is a slight difference between clang and menhir how they handle function declarations, that's why we
+         need to check if there are variables inside the function map *)
+        begin match Var_map.find_opt x chopped_fun_map with
+        | Some tdef -> tdef
+        | _ -> def
+        end
+      |_ ->  def
+    ) tl in trm_seq ~annot:chopped_ast.annot new_tl
+  | _ -> fail chopped_ast.loc "Ast.update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
+
+
+
+
+(* [label_subterms_with_fresh_stringreprids f t]: annotates all the subterms of [t]
+   that satisfy the boolean predicate [f] with a fresh string representation identifier.
+   This operation should be performed to enable the term to doc function to memoize
+   its results, and possibly export a table mapping subterms to their string representation. *)
+   let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : trm =
+    let t2 =
+      if not (f t) then t else begin
+        let id = next_stringreprid () in
+        trm_set_stringreprid id t
+      end in
+    trm_map (label_subterms_with_fresh_stringreprids f) t2
+
+
+
 (*****************************************************************************)
 (* [build_nested_accesses base access_list]: from a list of accesses build the original trm *)
 let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
@@ -2527,3 +2460,38 @@ let trm_def_or_used_vars (t : trm) : Var_set.t =
   in
   aux t;
   !vars
+
+
+(* [trm_simplify_addressof_and_get t]: simplifies [&*t] and [*&t] to [t] *)
+let trm_simplify_addressof_and_get (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [
+      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1], _) }
+    ], _)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [
+      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [t1], _) }
+    ], _) -> t1
+  | _ -> t
+
+(* [simpl_struct_get_get t]: transform struct_get (get(t1), f) to get(struct_access (t1, f)) *)
+let simpl_struct_get_get (t : trm) : trm = (* DEPRECATED? *)
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1], _) ->
+    begin match t1.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [t2], _) ->
+      {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t2], []))}], []))}
+    | _ -> t
+    end
+  | _ -> t
+
+(* [simpl_array_get t]: tranform array_get (get(t1), index) to get(array_access (t1), index) *)
+let rec simpl_array_get_get (t : trm) : trm = (* DEPRECATED? *)
+  let aux = simpl_array_get_get in
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index], _) ->
+    begin match base.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [base1], _) ->
+       {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base1; index], []))}], []))}
+    | _ -> trm_map aux t
+    end
+  | _ -> trm_map aux t
