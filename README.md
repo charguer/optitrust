@@ -12,7 +12,9 @@ It takes about 30 minutes to install the required OCaml software.
 Installation of system packages:
 
 ```sh
-   sudo apt-get install opam clang-format meld libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
+   sudo apt-get install opam clang-format libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
+   # optional:
+   sudo apt-get install meld
 ```
 
 Installation of OCaml ecosystem:
@@ -23,6 +25,8 @@ Installation of OCaml ecosystem:
    opam pin add pprint 20220103
    opam pin add clangml 4.8.0
    opam install dune clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server
+   # optional:
+   opam install odoc
    eval $(opam env)
 ```
 
