@@ -389,7 +389,7 @@ let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : reco
 
 
 (* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
-(* FIXME: #var-id , sets id to -1, requiring id inference afterwards. *)
+(* FIXME: #var-id , sets id to inferred_var_id, requiring id inference afterwards. *)
 let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =
   let app_fun (rf : record_field) : record_field =
     match rf with

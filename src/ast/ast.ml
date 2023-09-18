@@ -58,9 +58,12 @@ type var_id = int
 (** [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
 type var = { qualifier: string list; name: string; id: var_id }
 
+let inferred_var_id = -1
+let dummy_var_id = -2
+
 let var_to_string (v : var) : string =
   let q_str = String.concat "" (List.map (fun q -> q ^ "::") v.qualifier) in
-  let id_str = if v.id = -1 then "?" else (string_of_int v.id) in
+  let id_str = if v.id = inferred_var_id then "?" else (string_of_int v.id) in
   q_str ^ v.name ^ "#" ^ id_str
 
 let var_eq (v1 : var) (v2 : var) : bool =
@@ -70,7 +73,7 @@ let var_eq (v1 : var) (v2 : var) : bool =
 module Var = struct
   type t = var
   let compare v1 v2 =
-    if not (v1.id >= 0 && v2.id >= 0) then failwith "Var.compare: Found ids that are still -1 (maybe forgot to call Trace.apply Scope.infer_var_ids)";
+    if not (v1.id >= 0 && v2.id >= 0) then failwith "Var.compare: Found ids that are still not set (maybe forgot to call Trace.apply Scope.infer_var_ids)";
     Int.compare v1.id v2.id
   let equal v1 v2 = var_eq v1 v2
   let hash v = Hashtbl.hash v.id

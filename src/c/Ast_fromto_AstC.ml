@@ -56,9 +56,6 @@ let env_extend (env : env) (e : var) (varkind : varkind) : env =
 let add_var (env : env ref) (x : var) (xm : varkind) : unit =
   env := env_extend !env x xm
 
-let name_to_var ?(qualifier = []) (n : string) : var =
-  { qualifier; name = n; id = -1 }
-
 (* [trm_address_of t]: adds the "&" operator before [t]
     Note: if for example t = *a then [trm_address_of t] = &( *a) = a *)
 let trm_address_of (t : trm) : trm =

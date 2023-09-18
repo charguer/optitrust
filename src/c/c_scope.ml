@@ -153,7 +153,7 @@ let check_var_ids (t : trm) : unit =
 
 (** internal *)
 let infer_map_binder (scope_ctx : scope_ctx) var t =
-  let var' = if var.id = -1
+  let var' = if var.id = inferred_var_id
     then begin
       let qualified = (var.qualifier, var.name) in
       if Qualified_set.mem qualified scope_ctx.predefined
@@ -166,7 +166,7 @@ let infer_map_binder (scope_ctx : scope_ctx) var t =
 (** internal *)
 let infer_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
   let qualified = (var.qualifier, var.name) in
-  if var.id = -1 then
+  if var.id = inferred_var_id then
     trm_var ~annot ?loc ?typ ~ctx ~kind begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id -> { qualifier = var.qualifier; name = var.name; id }
     (* LATER: this can be confusing if triggered when not expected *)
@@ -175,7 +175,7 @@ let infer_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
   else check_map_var scope_ctx (annot, loc, typ, ctx, kind) var
 
 (** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
-  Only variable ids equal to [-1] are inferred, other ids are checked. *)
+  Only variable ids equal to [inferred_var_id] are inferred, other ids are checked. *)
 let infer_var_ids (t : trm) : trm =
   if debug then Xfile.put_contents "/tmp/ids_before.txt" (Ast_to_text.ast_to_string t);
   let t2 = trm_map_vars ~keep_ctx:true ~enter_scope:(enter_scope infer_map_binder) ~exit_scope:scope_ctx_exit ~map_binder:infer_map_binder infer_map_var (toplevel_scope_ctx ()) t in

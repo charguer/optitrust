@@ -66,7 +66,7 @@ let unique_alpha_rename (t : trm) : trm =
 
 (* LATER: #var-id, flag to disable check for performance *)
 (* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
-(* TODO: raise error or ignore the dimmy ids (-1) *)
+(* TODO: raise error or ignore the dummy ids (-1) *)
 let check_unique_var_ids (t : trm) : unit =
   (* LATER: refactor with function mapping over bindings? *)
   let vars = ref Var_set.empty in

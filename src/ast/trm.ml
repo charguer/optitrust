@@ -123,9 +123,9 @@ let new_var ?(qualifier : string list = []) (name : string) : var =
 (** Refers to a variable by name, letting its identifier be inferred.
     This variable cannot be stored in a [varmap] before its identifier is inferred. *)
 let name_to_var ?(qualifier : string list = []) (name : string) : var =
-  { qualifier; name; id = -1 }
+  { qualifier; name; id = inferred_var_id }
 
-let dummy_var = { qualifier = []; name = ""; id = -2 }
+let dummy_var = { qualifier = []; name = ""; id = dummy_var_id }
 
 (* FIXME: #var-id , do we want this global map or should this be context ? *)
 (** Map of toplevel free variables, i.e. variables that are never bound in the current file. *)
@@ -171,10 +171,9 @@ let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contra
   trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let_fun (v, ret_typ, args, body, contract))
 
 (* [trm_fun ~annot ?loc args ret_typ body]: anonymous function.  *)
-(* FIXME; WRONG type for this expression... *)
 let trm_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec)
   (args : typed_vars) (ret_typ : typ option) (body : trm) =
-  trm_make ~annot ?loc ~typ:(typ_unit()) ?ctx (Trm_fun (args, ret_typ, body, contract))
+  trm_make ~annot ?loc ?ctx (Trm_fun (args, ret_typ, body, contract))
 
 let trm_fun_inv (t: trm) : (typed_vars * typ option * trm * fun_spec) option =
     match t.desc with
@@ -270,11 +269,11 @@ let trm_using_directive ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx o
   (namespace : string) =
   trm_make ~annot ?loc ?typ ?ctx (Trm_using_directive namespace)
 
-(* NOTE: var id = -1 *)
+(* NOTE: var id = inferred_var_id *)
 let var_this = name_to_var "this"
 
 (* [trm_this ~annot ?loc ?typ ?ctx ()]: this pointer.
-   NOTE: var id = -1 *)
+   NOTE: var id = inferred_var_id *)
 let trm_this ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () =
   trm_make ~annot ?loc ?typ ?ctx (Trm_var (Var_immutable, var_this))
 
@@ -2062,7 +2061,7 @@ let trm_map_vars
   ?(keep_ctx = false)
   ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
   ?(exit_scope: 'ctx -> 'ctx -> trm -> 'ctx = fun outer_ctx inner_ctx t -> outer_ctx)
-  ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
+    ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
   (map_var: 'ctx -> metadata -> var -> trm)
   (ctx: 'ctx) (t: trm): trm =
   let rec f_map ctx t: 'ctx * trm =
@@ -2258,7 +2257,7 @@ let trm_map_vars
     | _ ->
       (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
 
-  and resource_items_map ctx resources: 'ctx * resource_item list =
+      and resource_items_map ctx resources: 'ctx * resource_item list =
     List.fold_left_map (fun ctx resources ->
       let (name, formula) = resources in
       let _, formula' = f_map ctx formula in
@@ -2317,7 +2316,7 @@ let trm_copy (t : trm) : trm =
   in
   let map_var var_map (annot, loc, typ, ctx, kind) v =
     let new_v =
-      if v.id = -1 then v
+      if v.id = inferred_var_id then v
       else match Var_map.find_opt v var_map with
       | Some nv -> nv
       | None -> v

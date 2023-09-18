@@ -654,7 +654,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         let ghost_name_map = List.fold_left (fun qualified_map (ghost_var, _) -> Tools.String_map.add ghost_var.name ghost_var qualified_map) Tools.String_map.empty contract.pre.pure in
         let ghost_args_vars = ref Var_set.empty in
         let subst_ctx = List.fold_left (fun subst_ctx (ghost_var, ghost_inst) ->
-          let ghost_var = if ghost_var.id = -1
+          let ghost_var = if ghost_var.id = inferred_var_id
             then (match Tools.String_map.find_opt ghost_var.name ghost_name_map with
               | Some v -> v
               | None -> failwith (sprintf "Invalid ghost argument %s for function %s" (var_to_string ghost_var) (var_to_string fn))

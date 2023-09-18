@@ -98,7 +98,7 @@ let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
 
 (* [get_ctx]: gets the current context *)
 let get_ctx () : ctx =
-  (* FIXME: #var-id , ids are -1 wich breaks all varmaps. *)
+  (* FIXME: #var-id , ids are dummy wich breaks all varmaps. *)
   typing_ctx {
     ctx_var = !ctx_var;
     ctx_tconstr = !ctx_tconstr;
