@@ -480,17 +480,17 @@ open Resource_formula
 let ghost_args_var = name_to_var "__ghost_args"
 
 let rec ghost_args_elim (t: trm): trm =
-  try
-    Pattern.(trm_apps (trm_var (check (fun v -> var_has_name v "__ghost_args"))) (trm_apps __ __ ^:: trm_string __ ^:: nil)) t (fun fn args ghost_args_str ->
+  Pattern.pattern_match t [
+    Pattern.(trm_apps (trm_var (check (fun v -> var_has_name v "__ghost_args"))) (trm_apps !__ !__ __ ^:: trm_string !__ ^:: nil) __) (fun fn args ghost_args_str ->
       try
         let fn = ghost_args_elim fn in
         let args = List.map ghost_args_elim args in
         let ghost_args = Resource_cparser.ghost_arg_list Resource_clexer.lex_resources (Lexing.from_string ghost_args_str) in
         trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t
       with Resource_cparser.Error ->
-        failwith ("Failed to parse ghost argument: " ^ ghost_args_str)
-    )
-  with Pattern.PatternFailed -> trm_map ghost_args_elim t
+        failwith ("Failed to parse ghost argument: " ^ ghost_args_str));
+    Pattern.(!__) (fun t -> trm_map ghost_args_elim t)
+  ]
 
 let formula_to_string (f: formula) : string =
   AstC_to_c.ast_to_string ~optitrust_syntax:true f
