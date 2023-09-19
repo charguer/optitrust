@@ -649,17 +649,8 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           failwith (Printf.sprintf "Mismatching number of arguments for %s" (var_to_string fn))
         in
 
-        (* Name resolution for contracts is done here, since we cannot do it before knowing the contract *)
-        (* FIXME: The resolved ghost names should be stored in order to fix inlining. *)
-        let ghost_name_map = List.fold_left (fun qualified_map (ghost_var, _) -> Tools.String_map.add ghost_var.name ghost_var qualified_map) Tools.String_map.empty contract.pre.pure in
         let ghost_args_vars = ref Var_set.empty in
         let subst_ctx = List.fold_left (fun subst_ctx (ghost_var, ghost_inst) ->
-          let ghost_var = if ghost_var.id = inferred_var_id
-            then (match Tools.String_map.find_opt ghost_var.name ghost_name_map with
-              | Some v -> v
-              | None -> failwith (sprintf "Invalid ghost argument %s for function %s" (var_to_string ghost_var) (var_to_string fn))
-            )
-            else ghost_var in
           if Var_set.mem ghost_var !ghost_args_vars then (failwith (sprintf "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (var_to_string fn)));
           ghost_args_vars := Var_set.add ghost_var !ghost_args_vars;
           Var_map.add ghost_var ghost_inst subst_ctx) subst_ctx ghost_args

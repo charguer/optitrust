@@ -544,6 +544,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Brace_init -> string "Brace_init"
  | Clang_cursor _ -> string "Clang_cursor"
  | Display_null_uppercase -> string "Display_null_uppercase"
+ | GhostCall -> string "GhostCall"
  | ResourceFormula -> string "ResourceFormula"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)

@@ -477,31 +477,96 @@ in aux t
 
 open Resource_formula
 
-let ghost_args_var = name_to_var "__ghost_args"
+let parse_ghost_args ghost_args_str =
+  try
+    Resource_cparser.ghost_arg_list Resource_clexer.lex_resources (Lexing.from_string ghost_args_str)
+  with Resource_cparser.Error ->
+    failwith ("Failed to parse ghost arguments: " ^ ghost_args_str)
+
+let trm_var_with_name (name: string) = Pattern.(trm_var (check (fun v -> var_has_name v name)))
 
 let rec ghost_args_elim (t: trm): trm =
   Pattern.pattern_match t [
-    Pattern.(trm_apps (trm_var (check (fun v -> var_has_name v "__ghost_args"))) (trm_apps !__ !__ __ ^:: trm_string !__ ^:: nil) __) (fun fn args ghost_args_str ->
-      try
+    Pattern.(trm_apps2 (trm_var_with_name "__call_with") (trm_apps !__ !__ nil) (trm_string !__)) (fun fn args ghost_args_str ->
         let fn = ghost_args_elim fn in
         let args = List.map ghost_args_elim args in
-        let ghost_args = Resource_cparser.ghost_arg_list Resource_clexer.lex_resources (Lexing.from_string ghost_args_str) in
+        let ghost_args = parse_ghost_args ghost_args_str in
         trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t
-      with Resource_cparser.Error ->
-        failwith ("Failed to parse ghost argument: " ^ ghost_args_str));
+      );
+    Pattern.(trm_apps2 (trm_var_with_name "__ghost") !__ (trm_string !__)) (fun ghost_fn ghost_args_str ->
+        let fn = ghost_args_elim ghost_fn in
+        let ghost_args = parse_ghost_args ghost_args_str in
+        trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (fn, [], ghost_args)) t
+      );
+    Pattern.(trm_seq !__) (fun seq -> trm_alter ~desc:(Trm_seq (Mlist.of_list (ghost_args_elim_in_seq (Mlist.to_list seq)))) t);
     Pattern.(!__) (fun t -> trm_map ghost_args_elim t)
   ]
+
+and ghost_args_elim_in_seq (ts: trm list): trm list =
+  match ts with
+  | [] -> []
+  | t :: ts ->
+    let grab_ghost_args ts =
+      Pattern.pattern_match ts [
+        Pattern.(trm_apps1 (trm_var_with_name "__with") (trm_string !__) ^:: !__)
+          (fun ghost_args_str ts -> (parse_ghost_args ghost_args_str, ts));
+        Pattern.__ ([], ts)
+      ]
+    in
+
+    let t = ghost_args_elim t in
+    let t, ts = Pattern.pattern_match t [
+      Pattern.(trm_apps !__ !__ nil) (fun f args ->
+        let ghost_args, ts = grab_ghost_args ts in
+        (trm_alter ~desc:(Trm_apps (f, args, ghost_args)) t, ts)
+      );
+      Pattern.(trm_let !__ !__ !__ !(trm_apps !__ !__ nil)) (fun mut var typ body f args ->
+        let ghost_args, ts = grab_ghost_args ts in
+        (trm_alter ~desc:(Trm_let (mut, (var, typ), trm_alter ~desc:(Trm_apps (f,args,ghost_args)) body)) t, ts));
+      Pattern.__ (t, ts)
+    ]
+    in
+    t :: ghost_args_elim_in_seq ts
 
 let formula_to_string (f: formula) : string =
   AstC_to_c.ast_to_string ~optitrust_syntax:true f
 
-let rec ghost_args_intro (t: trm): trm =
-  let t = trm_map ghost_args_intro t in
+let var__with = trm_var (name_to_var "__with")
+let var__call_with = trm_var (name_to_var "__call_with")
+let var__ghost = trm_var (name_to_var "__ghost")
+
+let rec ghost_args_intro (t: trm) : trm =
+  let ghost_args_to_trm_string ghost_args =
+    trm_string (String.concat ", " (List.map (fun (ghost_var, ghost_formula) -> sprintf "%s := %s" (ghost_var.name) (formula_to_string ghost_formula)) ghost_args))
+  in
+
   match t.desc with
   | Trm_apps (fn, args, (_ :: _ as ghost_args)) ->
-    let ghost_args_str = String.concat ", " (List.map (fun (ghost_var, ghost_formula) -> sprintf "%s := %s" (ghost_var.name) (formula_to_string ghost_formula)) ghost_args) in
-    trm_apps (trm_var ghost_args_var) [t; trm_string ghost_args_str]
-  | _ -> t
+    (* Outside sequence add __call_with *)
+    let t = trm_map ghost_args_intro t in
+    trm_apps var__call_with [t; ghost_args_to_trm_string ghost_args]
+  | Trm_seq seq ->
+    (* Inside sequence add __with *)
+    Nobrace.enter ();
+    let seq = Mlist.map (fun t -> Pattern.pattern_match t [
+      Pattern.(trm_apps !__ nil !__) (fun fn ghost_args ->
+        if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
+        trm_apps var__ghost [fn; ghost_args_to_trm_string ghost_args]
+      );
+      Pattern.(trm_apps __ __ !(__ ^:: __)) (fun ghost_args ->
+        let t = trm_map ghost_args_intro t in
+        Nobrace.trm_seq [t; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
+      );
+      Pattern.(trm_let !__ !__ !__ !(trm_apps __ __ !(__ ^:: __))) (fun mut var typ call ghost_args ->
+        let call = trm_map ghost_args_intro call in
+        Nobrace.trm_seq [trm_let mut (var, typ) call; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
+      );
+      Pattern.(!__) (fun t -> trm_map ghost_args_intro t)
+    ]) seq in
+    let nobrace_id = Nobrace.exit () in
+    let seq = Nobrace.flatten_seq nobrace_id seq in
+    trm_alter ~desc:(Trm_seq seq) t
+  | _ -> trm_map ghost_args_intro t
 
 (********************** Decode contract annotations ***************************)
 
@@ -601,8 +666,8 @@ let contract_elim (t: trm): trm =
 let named_formula_to_string (hyp, formula): string =
   let sformula = formula_to_string formula in
   if not !Flags.always_name_resource_hyp && hyp.name.[0] = '#'
-    then Printf.sprintf "%s;" sformula
-    else Printf.sprintf "%s: %s;" hyp.name sformula
+    then Printf.sprintf "%s" sformula
+    else Printf.sprintf "%s: %s" hyp.name sformula
 
 (* FIXME: Copied from Sequence_core to avoid circular dependancy *)
 (* [insert_aux index code t]: inserts trm [code] at index [index] in sequence [t],
@@ -616,7 +681,7 @@ let insert_aux (index : int) (code : trm) (t : trm) : trm =
   (* TODO: Should use alter here ? *)
   trm_seq ~annot:t.annot new_tl
 
-let ctx_resource_list_to_string ?(sep = " ") (res: resource_item list) : string =
+let ctx_resource_list_to_string ?(sep = ", ") (res: resource_item list) : string =
   String.concat sep (List.map named_formula_to_string res)
 
 let ctx_resources_to_trm (res: resource_set) : trm =
@@ -627,20 +692,20 @@ let ctx_resources_to_trm (res: resource_set) : trm =
 let ctx_used_res_item_to_string (res: used_resource_item) : string =
   let sinst = formula_to_string res.inst_by in
   let sformula = formula_to_string res.used_formula in
-  Printf.sprintf "%s := %s : %s;" res.hyp_to_inst.name sinst sformula
+  Printf.sprintf "%s := %s : %s" res.hyp_to_inst.name sinst sformula
 
 let ctx_used_res_to_trm ~(clause: var) (used_res: used_resource_set) : trm =
-  let spure = String.concat " " (List.map ctx_used_res_item_to_string used_res.used_pure) in
-  let slin = String.concat " " (List.map ctx_used_res_item_to_string used_res.used_linear) in
+  let spure = String.concat ", " (List.map ctx_used_res_item_to_string used_res.used_pure) in
+  let slin = String.concat ", " (List.map ctx_used_res_item_to_string used_res.used_linear) in
   trm_apps (trm_var clause) [trm_string spure; trm_string slin]
 
 let ctx_produced_res_item_to_string (res: produced_resource_item) : string =
   let sformula = formula_to_string res.produced_formula in
-  Printf.sprintf "%s := %s : %s;" res.produced_hyp.name res.produced_from.name sformula
+  Printf.sprintf "%s := %s : %s" res.produced_hyp.name res.produced_from.name sformula
 
 let ctx_produced_res_to_trm (produced_res: produced_resource_set) : trm =
-  let spure = String.concat " " (List.map ctx_produced_res_item_to_string produced_res.produced_pure) in
-  let slin = String.concat " " (List.map ctx_produced_res_item_to_string produced_res.produced_linear) in
+  let spure = String.concat ", " (List.map ctx_produced_res_item_to_string produced_res.produced_pure) in
+  let slin = String.concat ", " (List.map ctx_produced_res_item_to_string produced_res.produced_linear) in
   trm_apps (trm_var __produced_res) [trm_string spure; trm_string slin]
 
 let display_ctx_resources (t: trm): trm list =
@@ -650,10 +715,10 @@ let display_ctx_resources (t: trm): trm list =
     | _ -> t
   in
   let tl_used = Option.to_list (Option.map (fun res_used ->
-      let s_used = String.concat " " (List.filter_map (function
+      let s_used = String.concat ", " (List.filter_map (function
           | _, NotUsed -> None
-          | hyp, UsedReadOnly -> Some (sprintf "RO(%s);" hyp.name)
-          | hyp, UsedFull -> Some (sprintf "%s;" hyp.name))
+          | hyp, UsedReadOnly -> Some (sprintf "RO(%s)" hyp.name)
+          | hyp, UsedFull -> Some (sprintf "%s" hyp.name))
           (Hyp_map.bindings res_used))
       in
       trm_apps (trm_var __used_res) [trm_string s_used]) t.ctx.ctx_resources_usage) in

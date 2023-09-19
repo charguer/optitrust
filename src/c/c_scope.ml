@@ -6,6 +6,11 @@ let debug = false
 (* FIXME: triggers on multiple function declarations/definitions. *)
 exception InvalidVarId of string
 
+type fun_prototype = {
+  (* args: var list; *)
+  ghost_args: var list;
+}
+
 (* LATER: support overloading. here or encoding? *)
 type scope_ctx = {
   prefix_qualifier_rev: string list; (** Prefix qualifier corresponding to the current namespace (if at the top level)
@@ -13,6 +18,8 @@ type scope_ctx = {
   conflicts: Qualified_set.t; (** Set of variables defined in the current surrounding sequence and cannot be shadowed *)
   predefined: Qualified_set.t; (** Set of variables pre-defined in the current scope that can be redefined reusing the same id *)
   var_ids: var_id Qualified_map.t; (** Map from variables to their unique ids *)
+  (* constr_name / field_names *)
+  fun_prototypes: fun_prototype Var_map.t; (** Map from variable storing functions to their prototype *)
 }
 
 let print_scope_ctx scope_ctx =
@@ -41,6 +48,7 @@ let toplevel_scope_ctx (): scope_ctx = {
   conflicts = Qualified_set.empty;
   predefined = Qualified_set.empty; (* LATER: could add some toplevel vars that we allow redefining here. *)
   var_ids = !toplevel_free_vars;
+  fun_prototypes = Var_map.empty;
 }
 
 (** internal *)
@@ -144,7 +152,12 @@ let scope_ctx_exit outer_ctx inner_ctx t =
       (* conflict in inner_ctx: [f; N::f], keep [N::f] conflict. *)
       conflicts = Qualified_set.union outer_ctx.conflicts (Qualified_set.filter is_qualified (inner_ctx.conflicts));
       predefined = Qualified_set.union outer_ctx.predefined (Qualified_set.filter is_qualified (inner_ctx.predefined));
-      var_ids = Qualified_map.union union_var_ids outer_ctx.var_ids (Qualified_map.filter (fun k v -> is_qualified k) inner_ctx.var_ids) }
+      var_ids = Qualified_map.union union_var_ids outer_ctx.var_ids (Qualified_map.filter (fun k v -> is_qualified k) inner_ctx.var_ids);
+      fun_prototypes = Var_map.union (fun x _ _ ->
+        raise (InvalidVarId (sprintf "variable '%s' has a function specification both inside and outside the namespace" (var_to_string x))))
+        outer_ctx.fun_prototypes (Var_map.filter (fun x _ -> is_qualified (x.qualifier, x.name)) inner_ctx.fun_prototypes) }
+  | Trm_let_fun (f_var, _, _, _, Some spec) ->
+    { outer_ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map fst spec.pre.pure } outer_ctx.fun_prototypes }
   | _ -> outer_ctx
 
 (** Given term [t], check that all variable ids agree with their qualified name for C/C++ scoping rules. *)
@@ -174,10 +187,44 @@ let infer_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
     end
   else check_map_var scope_ctx (annot, loc, typ, ctx, kind) var
 
+let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
+  match t.desc with
+  | Trm_var (_, x) ->
+    begin try
+      Var_map.find x scope_ctx.fun_prototypes
+    with Not_found -> failwith (sprintf "Could not find a prototype for function %s" (var_to_string x))
+    end
+  | _ -> failwith (sprintf "Could not find a prototype for trm at location %s" (loc_to_string t.loc))
+
+let post_process_trm (scope_ctx: scope_ctx) (t: trm): trm =
+  match t.desc with
+  | Trm_apps (fn, args, []) -> t
+  | Trm_apps (fn, args, ghost_args) ->
+    let fn_prototype = find_prototype scope_ctx fn in
+    let ghost_proto_arg_map = List.fold_left (fun map ghost_var ->
+      Qualified_map.add (ghost_var.qualifier, ghost_var.name) ghost_var map
+    ) Qualified_map.empty fn_prototype.ghost_args in
+    let rec process_ghost_args ghost_args ghost_proto_args = match ghost_args, ghost_proto_args with
+    | [], _ -> []
+    | (g, gval) :: gs, g_proto :: gs_proto when g == dummy_var ->
+      (g_proto, gval) :: process_ghost_args gs gs_proto
+    | (g, _) :: gs, [] when g == dummy_var ->
+      failwith "Invalid positionnal ghost argument"
+    | (g, gval) :: gs, _ when g.id = inferred_var_id ->
+      let g = try Qualified_map.find (g.qualifier, g.name) ghost_proto_arg_map
+        with Not_found -> failwith (sprintf "Ghost argument %s is not part of the function prototype" (var_to_string g))
+      in
+      (g, gval) :: process_ghost_args gs []
+    | g :: gs, _ -> g :: process_ghost_args gs []
+    in
+    let ghost_args = process_ghost_args ghost_args fn_prototype.ghost_args in
+    trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t
+  | _ -> t
+
 (** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
   Only variable ids equal to [inferred_var_id] are inferred, other ids are checked. *)
 let infer_var_ids (t : trm) : trm =
   if debug then Xfile.put_contents "/tmp/ids_before.txt" (Ast_to_text.ast_to_string t);
-  let t2 = trm_map_vars ~keep_ctx:true ~enter_scope:(enter_scope infer_map_binder) ~exit_scope:scope_ctx_exit ~map_binder:infer_map_binder infer_map_var (toplevel_scope_ctx ()) t in
+  let t2 = trm_map_vars ~keep_ctx:true ~enter_scope:(enter_scope infer_map_binder) ~exit_scope:scope_ctx_exit ~map_binder:infer_map_binder ~post_process_trm infer_map_var (toplevel_scope_ctx ()) t in
   if debug then Xfile.put_contents "/tmp/ids_after.txt" (Ast_to_text.ast_to_string t2);
   t2

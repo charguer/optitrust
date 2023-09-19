@@ -11,7 +11,6 @@ let blank = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 
 rule lex_resources = parse
-  | ';' { SEMICOLON }
   | ':' { COLON }
   | ',' { COMMA }
   | '&' { AMPERSAND }

@@ -1,9 +1,9 @@
 # Definition of a ghost function
 
 ```c
-__GHOST(ghost_foo) {
-    __require("g: int;");
-    __ensures("h: int;");
+__GHOST(foo) {
+    __require("g: int");
+    __ensures("h: int");
 
 }
 ```
@@ -15,9 +15,9 @@ int main() {
     __pure();
     ...
 
-    ghost_foo("g := 3"); __bind("h as k");
-    // This is a form of mandatory syntactic sugar for:
-    ghost_foo(); __with("g := 3"); __bind("h as k");
+    __ghost(foo, "g := 3"); __bind("h as k");
+    // This is syntactic sugar for:
+    foo(); __with("g := 3"); __bind("h as k");
 }
 ```
 
@@ -25,14 +25,14 @@ int main() {
 
 ```c
 int f(int x) {
-    __require("a: int;");
-    __ensures("b: int;");
+    __require("a: int");
+    __ensures("b: int");
     ...
 }
 
 void g(int x) {
-    __require("c: int; d: int;");
-    __ensures("e: int;");
+    __require("c: int, d: int");
+    __ensures("e: int");
     ...
 }
 ```

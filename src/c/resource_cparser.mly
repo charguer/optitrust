@@ -8,13 +8,21 @@
 %token <string> IDENT
 %token <int> INT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token SEMICOLON COLON COMMA AMPERSAND ARROW SQUIG_ARROW FUN COLON_EQUAL EOF
+%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW FUN COLON_EQUAL EOF
 %token STAR PLUS MINUS
 
 %start <contract_resource list> resource_list
 %start <(hyp * formula) list> ghost_arg_list
 
 %%
+
+flex_list(delimiter, X):
+| (* nothing *)
+    { [] }
+| x = X
+    { [x] }
+| x = X; delimiter; xs = flex_list(delimiter, X)
+    { x :: xs }
 
 atomic_formula:
   | x=IDENT
@@ -44,7 +52,7 @@ arith_term:
     { a }
 
 formula_arrow:
-  | a=formula_arrow; ARROW; b=arith_term;
+  | a=arith_term; ARROW; b=formula_arrow;
     { formula_fun_type a b }
   | a=arith_term;
     { a }
@@ -58,16 +66,19 @@ formula:
     { trm_fun ~annot:formula_annot (List.map (fun x -> { qualifier = []; name = x; id = -1 }, typ_make Typ_auto) args) None body }
 
 resource:
-  | f=formula; SEMICOLON
+  | f=formula
     { (None, f) }
-  | hyp=IDENT; COLON; f=formula; SEMICOLON
+  | hyp=IDENT; COLON; f=formula
     { (Some (name_to_var hyp), f) }
 
 resource_list:
-  | res_list=resource*; EOF { res_list }
+  | res_list=flex_list(COMMA, resource); EOF { res_list }
 
 ghost_arg:
-  | ghost_var=IDENT; COLON_EQUAL; formula=formula { (name_to_var ghost_var, formula) }
+  | ghost_var=IDENT; COLON_EQUAL; formula=formula
+    { (name_to_var ghost_var, formula) }
+  | formula=formula
+    { (dummy_var, formula) }
 
 ghost_arg_list:
   | ghost_args=separated_list(COMMA, ghost_arg); EOF { ghost_args }

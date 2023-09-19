@@ -24,7 +24,7 @@ let unique_alpha_rename (t : trm) : trm =
   (* map from var to new name *)
   (* could be map from id to names? *)
   let name_of_id = ref Var_map.empty in
-  let common_map_var v =
+  let map_var () v =
     let v' = match Var_map.find_opt v !name_of_id with
     | Some name' -> { v with name = name' }
     | None ->
@@ -50,19 +50,12 @@ let unique_alpha_rename (t : trm) : trm =
     Printf.printf "v': %s\n" (var_to_string v'); *)
     v'
   in
-  let map_binder () var _t =
-    ((), common_map_var var)
-  in
-  let map_var () (annot, loc, typ, ctx, kind) var =
-    let var' = common_map_var var in
-    trm_var ~annot ?loc ?typ ~ctx ~kind var'
-  in
   (* initialize entries for toplevel variables. *)
   Qualified_map.iter (fun (q, n) id ->
     let var = { qualifier = q; name = n; id = id } in
-    ignore (common_map_var var)
+    ignore (map_var () var)
   ) !toplevel_free_vars;
-  trm_map_vars ~map_binder map_var () t
+  trm_rename_vars map_var () t
 
 (* LATER: #var-id, flag to disable check for performance *)
 (* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)

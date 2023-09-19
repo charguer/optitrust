@@ -1831,10 +1831,11 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   | Trm_apps (func, args, ghost_args) ->
     let func' = f false func in
     let args' = list_map (f false) (==) args in
-    if (share_if_no_change(*redundant*) && func' == func && args' == args)
+    let ghost_args' = list_map (fun (g, t) -> (g, f false t)) (==) ghost_args in
+    if (share_if_no_change(*redundant*) && func' == func && args' == args && ghost_args' == ghost_args)
       then t
       (* warning: may have different type *)
-      else (trm_apps ~annot ?loc ?typ ~ctx ~ghost_args func' args')
+      else (trm_apps ~annot ?loc ?typ ~ctx ~ghost_args:ghost_args' func' args')
   | Trm_while (cond, body) ->
     let cond' = f false cond in
     let body' = f false body in
@@ -2061,7 +2062,8 @@ let trm_map_vars
   ?(keep_ctx = false)
   ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
   ?(exit_scope: 'ctx -> 'ctx -> trm -> 'ctx = fun outer_ctx inner_ctx t -> outer_ctx)
-    ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
+  ?(post_process_trm: 'ctx -> trm -> trm = fun _ t -> t)
+  ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
   (map_var: 'ctx -> metadata -> var -> trm)
   (ctx: 'ctx) (t: trm): trm =
   let rec f_map ctx t: 'ctx * trm =
@@ -2070,7 +2072,7 @@ let trm_map_vars
     let typ = t.typ in
     let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
 
-    match t.desc with
+    let ctx, trm = match t.desc with
     | Trm_var (kind, x) ->
       (ctx, map_var ctx (annot, loc, typ, t_ctx, kind) x)
 
@@ -2257,7 +2259,10 @@ let trm_map_vars
     | _ ->
       (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
 
-      and resource_items_map ctx resources: 'ctx * resource_item list =
+    in
+    (ctx, post_process_trm ctx trm)
+
+  and resource_items_map ctx resources: 'ctx * resource_item list =
     List.fold_left_map (fun ctx resources ->
       let (name, formula) = resources in
       let _, formula' = f_map ctx formula in
@@ -2297,6 +2302,22 @@ let trm_map_vars
   in
   snd (f_map ctx t)
 
+let trm_rename_vars
+  ?(keep_ctx = false)
+  ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
+  ?(exit_scope: 'ctx -> 'ctx -> trm -> 'ctx = fun outer_ctx inner_ctx t -> outer_ctx)
+  ?(post_process_trm: 'ctx -> trm -> trm = fun _ t -> t)
+  (map_var: 'ctx -> var -> var)
+  ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, map_var ctx bind))
+  (ctx: 'ctx) (t: trm): trm =
+  trm_map_vars ~keep_ctx ~enter_scope ~exit_scope ~post_process_trm:(fun ctx t ->
+    let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
+    match t.desc with
+    | Trm_apps (fn, args, ghost_args) when ghost_args <> [] ->
+      let ghost_args = List.map (fun (g, gt) -> (map_var ctx g, gt)) ghost_args in
+      post_process_trm ctx (trm_apps ~ctx:t_ctx fn args ~ghost_args)
+    | _ -> post_process_trm ctx t
+    ) ~map_binder (fun ctx (annot, loc, typ, vctx, kind) var -> trm_var ~annot ?loc ?typ ~ctx:vctx ~kind (map_var ctx var)) ctx t
 
 (** Erase variable identifiers, useful for e.g. embedding a subexpression in a new context. *)
 let trm_erase_var_ids (t : trm) : trm =
@@ -2314,16 +2335,13 @@ let trm_copy (t : trm) : trm =
     let new_v = new_var ~qualifier:v.qualifier v.name in
     (Var_map.add v new_v var_map, new_v)
   in
-  let map_var var_map (annot, loc, typ, ctx, kind) v =
-    let new_v =
-      if v.id = inferred_var_id then v
-      else match Var_map.find_opt v var_map with
-      | Some nv -> nv
-      | None -> v
-    in
-    trm_var ~annot ?loc ?typ ~ctx new_v
+  let map_var var_map v =
+    if v.id = inferred_var_id then v
+    else match Var_map.find_opt v var_map with
+    | Some nv -> nv
+    | None -> v
   in
-  trm_map_vars ~map_binder map_var Var_map.empty t
+  trm_rename_vars ~map_binder map_var Var_map.empty t
 
 (* Assumes var-id's are unique, can locally break scope rules and might require a binder renaming. *)
 let trm_subst

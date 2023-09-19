@@ -411,6 +411,9 @@ and cstyle_annot =
   (* tag for printing [NULL] instead of [nullptr] *)
   | Display_null_uppercase
 
+  (* Use the __ghost syntax for a ghost call *)
+  | GhostCall
+
   (* tag for printing using resource syntax
      LATER: Use different printers for different languages *)
   | ResourceFormula
