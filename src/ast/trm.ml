@@ -1808,7 +1808,12 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     let body' = f false body in
     if (share_if_no_change && body' == body)
       then t
-      else (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body' )
+      else (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body')
+  | Trm_fun (args, ret, body, contract) ->
+    let body' = f false body in
+    if (share_if_no_change && body' == body)
+      then t
+      else (trm_fun ~annot ?loc ?contract ~ctx args ret body')
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -1910,6 +1915,11 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     if (share_if_no_change(*redundant*) && body' == td.typdef_body)
       then t
       else trm_typedef ~annot ?loc ~ctx { td with typdef_body = body' }
+  | Trm_template (typ_params, templated) ->
+    let templated' = f false templated in
+    if (share_if_no_change && templated == templated')
+      then t
+      else trm_template ~annot ?loc ~ctx typ_params templated'
   | _ ->
     trm_combinators_unsupported_case "trm_map_with_terminal"  t
 
