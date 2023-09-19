@@ -225,10 +225,22 @@
         "type": "shell",
         "command": "${workspaceFolder}/.vscode/open_test.sh",
         "args": [
-          "${fileBasename}",
+          "${fileBasename}"
         ],
         "options": {
           "cwd": "${fileDirname}"
+        }
+      },
+      {
+        "label": "Diff wrong tests output",
+        "type": "shell",
+        "command": ".vscode/diff_wrong_tests_output.sh",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "never"
         }
       }
     ]
