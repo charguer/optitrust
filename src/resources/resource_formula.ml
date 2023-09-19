@@ -85,20 +85,17 @@ module Pattern = struct
     trm_apps_specific_var var_range (f_begin ^:: f_end ^:: f_step ^:: nil)
 end
 
-let trm_apps_specific_var_inv (f: var) (t: trm): trm list option =
-  try
-    Pattern.(trm_apps_specific_var f !__) (fun args -> Some args) t
-  with Pattern.PatternFailed -> None
-
 let formula_matrix_inv (f: formula): (trm * trm list) option =
   let open Tools.OptionMonad in
   let rec nested_group_inv (f: formula): (formula * var list * trm list) =
-    try
-      Pattern.(formula_group (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) (trm_fun (pair !__ __ ^:: nil) !__)) (fun dim idx inner_formula ->
-        let inner_formula, indices, dims = nested_group_inv inner_formula in
-        (inner_formula, idx::indices, dim::dims)
-      ) f
-    with Pattern.PatternFailed -> (f, [], [])
+    Pattern.pattern_match f [
+      Pattern.(formula_group (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) (trm_fun (pair !__ __ ^:: nil) !__))
+        (fun dim idx inner_formula ->
+          let inner_formula, indices, dims = nested_group_inv inner_formula in
+          (inner_formula, idx::indices, dim::dims)
+        );
+      Pattern.__ (f, [], [])
+    ]
   in
   let inner_formula, indices, dims = nested_group_inv f in
 
