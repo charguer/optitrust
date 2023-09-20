@@ -101,3 +101,24 @@ fun i => \exists q, r => Cell(q) && q => Cell(i)
 { J(i) } t_body { K(i) }
 
 en bonus on pourrait écrire frame et conseq
+
+Résolution des entailments
+
+D, E |- D', E' * ?R
+
+1) Généraliser les arguments purs dans D' qui sont des ghosts (ils réapparaissent ailleurs dans D' ou E')
+2) Pour chaque élément de E':
+  a. Si c'est une ressource read only sans marqueur _Full:
+    Pour chaque ressource dans E,
+      si la ressource commence par RO, on tente d'unifier les deux formules sous le RO,
+      sinon on unifie la partie sous le RO de la ressource de E' avec la ressource de E
+    On consomme une sous fraction de la première ressource pour laquelle l'unification réussit
+    Cela laisse RO(frac_orig - frac_fresh, formula) dans E pour instantier les autres ressources
+  b. Sinon:
+    Pour chaque ressource dans E, on essaie de l'unifier avec la ressource dans E'
+    On consomme en entier la première ressource qui unifie en la retirant de E
+3) Tout ce qui reste dans E après avoir traité E' constitue R
+4) On instantie les ressources non ghost de D' à partir des éléments de D
+   Pour cela on unifie tous les éléments de D' avec un élément de D
+   Pas de consommation vu qu'il s'agit de fait purs
+5) On vérifie que tous les ghosts sont bien instantiés (sanity check)
