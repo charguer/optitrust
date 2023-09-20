@@ -161,28 +161,27 @@ inline void MFREE4(int N1, int N2, int N3, int N4, void* p) {
 
 /* ---- Matrix Ghosts ---- */
 
-__GHOST(tile_divides) {
-  __requires(
-    "tile_count: int, tile_size: int,"
-    "gn: int, to_item: int -> resource,"
-    "__assert_eq(gn, tile_size * tile_count)"
-  );
-  __consumes("Group(range(0, gn, 1), to_item)");
-  __produces("Group(range(0, tile_count, 1), fun bi ->"
-             "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)))");
+__GHOST(close_wand) {
+  /* LATER: Replace that id with a generated name on the respective open */
+  __requires("wand_id: int, H1: formula, H2: formula");
+  __consumes("Wand(wand_id, H1, H2), H1");
+  __produces("H2");
   __admitted();
 }
 
-// TODO: Could be inferred from ghost_tile_divides?
-__GHOST(tile_divides_reverse) {
+__GHOST(tile_divides) {
   __requires(
-    "tile_count: int, tile_size: int,"
+    "wand_id: int, tile_count: int, tile_size: int,"
     "gn: int, to_item: int -> resource,"
-    "__assert_eq(gn, tile_size * tile_count)"
+    "bound_check: __assert_eq(gn, tile_size * tile_count)"
   );
-  __consumes("Group(range(0, tile_count, 1), fun bi ->"
-             "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)))");
-  __produces("Group(range(0, gn, 1), to_item)");
+  __consumes("Group(range(0, gn, 1), to_item)");
+  __produces("Group(range(0, tile_count, 1), fun bi ->"
+               "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)))");
+  __produces("Wand(wand_id,"
+                  "Group(range(0, tile_count, 1), fun bi ->"
+                    "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i))),"
+                  "Group(range(0, gn, 1), to_item))");
   __admitted();
 }
 
