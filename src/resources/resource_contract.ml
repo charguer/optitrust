@@ -79,6 +79,11 @@ let push_loop_contract_clause (clause: contract_clause_type)
     (res: contract_resource) (contract: loop_contract) =
   match clause with
   | Invariant -> { contract with invariant = push_pure_res res contract.invariant }
+  | Reads ->
+    let name, formula = res in
+    let frac_var, frac_ghost = new_frac () in
+    let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+    { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; iter_contract = push_fun_contract_clause Modifies (name, ro_formula) contract.iter_contract }
   | SequentiallyReads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in

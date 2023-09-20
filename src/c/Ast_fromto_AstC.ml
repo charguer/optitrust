@@ -756,8 +756,8 @@ let rec contract_intro (t: trm): trm =
       insert_aux 0 tres t
   in
 
-  let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) (pre: resource_set) (post: resource_set) (t: trm): resource_set * resource_set * trm =
-    let post_linear = ref post.linear in
+  let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
+    let post_linear = ref post_linear in
     let rec try_remove_same_formula formula l =
       match l with
       | [] -> None
@@ -769,17 +769,18 @@ let rec contract_intro (t: trm): trm =
         match try_remove_same_formula formula !post_linear with
         | None -> false
         | Some new_post_linear -> post_linear := new_post_linear; true)
-      pre.linear
+      pre_linear
     in
 
-    (* FIXME: This assumes that all fractions were auto-generated *)
+    (* FIXME: This turns two reads formulas with a shared id into reads formulas with distinct id.
+       Maybe this is not a problem in practice. *)
     let frac_to_remove = Hashtbl.create (List.length common_linear) in
     let reads_res, modifies_res =
       List.partition_map (fun (h, formula) ->
         match formula_read_only_inv formula with
         | Some { frac; formula = ro_formula } ->
           begin match trm_var_inv frac with
-          | Some frac_atom ->
+            | Some frac_atom ->
             Hashtbl.add frac_to_remove frac_atom ();
             Left (h, ro_formula)
           | None -> Right (h, formula)
@@ -793,21 +794,12 @@ let rec contract_intro (t: trm): trm =
         false
       ) else true
     in
-    let pre_pure = List.filter hyp_not_mem_before_pop pre.pure in
+    let pre_pure = List.filter hyp_not_mem_before_pop pure_with_fracs in
     assert (Hashtbl.length frac_to_remove = 0);
 
     let t = push_named_formulas reads_prim reads_res t in
     let t = push_named_formulas modifies_prim modifies_res t in
-    ({ pre with pure = pre_pure; linear = pre_linear }, { post with linear = !post_linear }, t)
-  in
-
-  let push_fun_contract (contract: fun_contract) (body: trm): trm =
-    let pre, post, body = push_reads_and_modifies __reads __modifies contract.pre contract.post body in
-    let body = push_named_formulas __produces post.linear body in
-    let body = push_named_formulas __ensures post.pure body in
-    let body = push_named_formulas __consumes pre.linear body in
-    let body = push_named_formulas __requires pre.pure body in
-    body
+    (pre_pure, pre_linear, !post_linear, t)
   in
 
   match t.desc with
@@ -818,7 +810,14 @@ let rec contract_intro (t: trm): trm =
       | Some contract when contract = empty_fun_contract ->
         insert_aux 0 (trm_apps (trm_var __pure) []) body
       | Some contract ->
-        push_fun_contract contract body
+        let pre_pure, pre_linear, post_linear, body =
+          push_reads_and_modifies __reads __modifies contract.pre.pure contract.pre.linear contract.post.linear body
+        in
+        let body = push_named_formulas __produces post_linear body in
+        let body = push_named_formulas __ensures contract.post.pure body in
+        let body = push_named_formulas __consumes pre_linear body in
+        let body = push_named_formulas __requires pre_pure body in
+        body
       | None -> body
     in
     if body == body0
@@ -832,10 +831,22 @@ let rec contract_intro (t: trm): trm =
       | Some contract when contract = empty_loop_contract ->
         insert_aux 0 (trm_apps (trm_var __pure) []) body
       | Some contract ->
-        let body = push_fun_contract contract.iter_contract body in
-        let _, invariant, body = push_reads_and_modifies __sequentially_reads __sequentially_modifies { contract.invariant with pure = contract.loop_ghosts @ contract.invariant.pure } contract.invariant body in
-        assert (invariant.linear = []);
-        push_named_formulas __invariant invariant.pure body
+        let loop_ghosts, pre_linear, post_linear, body =
+          push_reads_and_modifies __reads __modifies
+            contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
+        in
+        let body = push_named_formulas __produces post_linear body in
+        let body = push_named_formulas __ensures contract.iter_contract.post.pure body in
+        let body = push_named_formulas __consumes pre_linear body in
+        let body = push_named_formulas __requires contract.iter_contract.pre.pure body in
+        let loop_ghosts, invariant_linear, _, body =
+          push_reads_and_modifies __sequentially_reads __sequentially_modifies
+            loop_ghosts contract.invariant.linear contract.invariant.linear body
+        in
+        (* Currently loop ghosts can only occur for reads varaibles, so they should always completely disappear. *)
+        assert (loop_ghosts = []);
+        assert (invariant_linear = []);
+        push_named_formulas __invariant contract.invariant.pure body
       | None -> body
     in
     if body == body0
