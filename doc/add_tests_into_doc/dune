@@ -1,0 +1,5 @@
+(executable
+ (name add_tests_into_doc)
+ (modules add_tests_into_doc)
+ (libraries lambdasoup optitrust)
+ )

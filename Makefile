@@ -35,7 +35,7 @@ CSS    = $(DOCDIR)/odoc.css
 
 .PHONY: doc
 doc:
-	@ dune build @doc
+	@ dune build -p $(THIS) @doc
 	# @ sed -i.bak 's/font-weight: 500;/font-weight: bold;/' $(CSS) && rm -f $(CSS).bak
 	@ echo "You can view the documentation by typing 'make viewdoc'".
 

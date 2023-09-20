@@ -26,7 +26,7 @@ Installation of OCaml ecosystem:
    opam pin add clangml 4.8.0
    opam install dune clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server
    # optional:
-   opam install odoc
+   opam install odoc lambdasoup
    eval $(opam env)
 ```
 

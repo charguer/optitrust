@@ -1,3 +1,6 @@
+(** Loop transformations.
+    *)
+
 open Syntax
 open Target
 include Loop_basic
