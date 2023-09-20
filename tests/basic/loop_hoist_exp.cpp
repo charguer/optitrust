@@ -1,10 +1,9 @@
 #include "../../include/optitrust.h"
 
-int* t;
-
-int* u;
-
-int main() {
+void f(int* t, int* u) {
+  __modifies("Group(range(0, 10, 1), fun i -> u[i] ~> Cell)");
+  __reads("Group(range(0, 10, 1), fun i -> t[i] ~> Cell)");
+  __ghost(push_ro_in_group, "wand_id := 0");
   int* const x_step = (int* const)MALLOC1(10, sizeof(int));
   int* const z_step = (int* const)MALLOC1(10, sizeof(int));
   for (int i = 0; i < 10; i++) {
@@ -17,8 +16,12 @@ int main() {
   }
   MFREE1(10, z_step);
   MFREE1(10, x_step);
+  __ghost(close_wand, "wand_id := 0");
   int* const yl = (int* const)MALLOC3(5, 4, 8 / 2, sizeof(int));
   for (int l = 0; l < 5; l++) {
+    __ghost(group_focus_subrange,
+            "wand_id := 1, start := 2, stop := 6, bound_check_start := "
+            "checked, bound_check_stop := checked");
     int* const ym = &yl[MINDEX3(5, 4, 8 / 2, l, 0, 0)];
     for (int m = 2; m < 6; m++) {
       int* const yn = &ym[MINDEX2(4, 8 / 2, m - 2, 0)];
@@ -28,6 +31,7 @@ int main() {
         u[m] = y[MINDEX0()];
       }
     }
+    __ghost(close_wand, "wand_id := 1");
   }
   MFREE3(5, 4, 8 / 2, yl);
 }

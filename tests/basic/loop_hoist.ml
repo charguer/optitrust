@@ -19,9 +19,11 @@ int main() {
 }
 "
 
+(*let _ = Flags.resource_errors_as_warnings := true*)
 
 let _ = Run.script_cpp (fun () ->
-  !! Resources.show();
+  !! ();
+  Resources.show ();
 
   let x = find_var_in_current_ast "x" in
   let z = find_var_in_current_ast "z" in
@@ -41,5 +43,5 @@ let _ = Run.script_cpp (fun () ->
   !! Loop_basic.hoist ~name:"ym" [cVarDef "yn"];
   !! Loop_basic.hoist ~name:"yl" [cVarDef "ym"];
 
-  !!! ();
+  (*!!! ();*)
 )
