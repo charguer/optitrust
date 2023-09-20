@@ -116,12 +116,6 @@ let __produces (r: string) = Produces, r
 let __sequentially_reads (r: string) = SequentiallyReads, r
 let __sequentially_modifies (r: string) = SequentiallyModifies, r
 
-let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) (fi: formula) =
-  if dir <> DirUp then failwith "formula_group_range only supports DirUp";
-  let range_var = new_var ~qualifier:idx.qualifier idx.name in
-  let fi = trm_subst_var idx (trm_var range_var) fi in
-  trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [tfrom; tto; loop_step_to_trm step]; trm_fun ~annot:formula_annot [range_var, typ_int ()] None fi]
-
 let res_group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
     linear = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.linear;
