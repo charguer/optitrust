@@ -29,6 +29,21 @@ reinstall: uninstall
 show_install:
 	@ echo "#require \"$(THIS)\";;\nopen Optitrust;;\n#show Run;;" | ocaml
 
+DOCDIR = _build/default/_doc/_html
+DOC    = $(DOCDIR)/index.html
+CSS    = $(DOCDIR)/odoc.css
+
+.PHONY: doc
+doc:
+	@ dune build -p $(THIS) @doc
+	# @ sed -i.bak 's/font-weight: 500;/font-weight: bold;/' $(CSS) && rm -f $(CSS).bak
+	@ echo "You can view the documentation by typing 'make viewdoc'".
+
+.PHONY: viewdoc
+viewdoc: doc
+	@ echo Attempting to open $(DOC)...
+	$(BROWSER) $(DOC)
+
 # Also for testing:
 #   in terminal, execute utop-full
 #   type: #require "optitrust";;

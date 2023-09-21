@@ -1,7 +1,8 @@
 open Syntax
 open Target
 
-(* [swap_on t]: swaps the order of two nested loops, the targeted loop with the immediate inner loop,
+(** <private>
+  [swap_on t]: swaps the order of two nested loops, the targeted loop with the immediate inner loop,
        [t] - ast of the targeted loop. *)
 let swap_on (t : trm) : trm =
   match Internal.extract_loop t with
@@ -20,7 +21,7 @@ let swap_on (t : trm) : trm =
     end
   | None -> fail t.loc "Loop_core.swap_aux: should target a loop"
 
-(* [swap tg]: expects the target [tg] to point at a loop that contains an
+(** [swap tg]: expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
 let%transfo swap (tg : target) : unit =
   apply_at_target_paths swap_on tg;

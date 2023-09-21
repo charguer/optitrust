@@ -70,6 +70,26 @@ void o(int a, int b, int c) {
     *e = 1;
 }
 
+void c1(int * a, int * b, int * c, int * d) {
+  int * aa = a, * bb = b, * cc = c, * dd = d;
+  *aa = 42;
+  *dd = 12;
+}
+
+void c2(int * a, int * b, int * c, int * d) {
+  int * aa = a, * dd = d;
+  int * bb = b, * cc = c;
+  *aa = 42;
+  *dd = 12;
+}
+
+void c3(int * a, int * b, int * c, int * d) {
+  int * aa = a, * dd = d;
+  int const * bb = b, * cc = c, e = 2;
+  *aa = 42;
+  *dd = 12;
+}
+
 namespace BB {
     void h(int& a) {
         a = 1;

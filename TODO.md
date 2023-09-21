@@ -177,9 +177,11 @@
 
 # Documentation
 
+- dune build @doc on a single file / file subset
+  - exclude compcert from doc
+
 - Complete the `/doc/*.md` files that present the structure of OptiTrust.
-  Investigate how to use `sphinx` or equivalent for generating nice-looking
-  webpages.
+  Move them to *.ml documentation.
 
 - Extend the tester program to generate a version of batch.ml that executes
   only the `doc_script_cpp` and ignores the `script_cpp` calls. Follow the
@@ -384,3 +386,4 @@ grep -r '[tag]' .
   - #var-id-dir-name
   - #this-id
   - #type-id
+- #odoc

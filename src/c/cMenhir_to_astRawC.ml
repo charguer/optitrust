@@ -1,6 +1,9 @@
-open! Syntax
-open Tools
 open Compcert_parser
+open Ast
+open Trm
+open Typ
+open Mark
+open Tools
 
 (* [loc_of_node cloc ]: transforms a C.location into Ast.location
 
@@ -10,7 +13,6 @@ let loc_of_cloc (cloc : C.location) : location =
   match cloc with
   | ("", -1) -> None
   | (file, line) -> Some {loc_file = file; loc_start = {pos_line = line; pos_col = 0}; loc_end = {pos_line = line; pos_col = 0}} (* LATER: Find the correct location *)
-
 
 (* maps from [typ_ctx] *)
 let ctx_tconstr : typconstrid Qualified_map.t ref = ref Qualified_map.empty
@@ -142,7 +144,6 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     typ_constr (name_to_typconstr n) ~tid:(get_typid_from_trm n)
   | C.TVoid _ -> typ_unit ()
 
-
 (* [tr_stmt s]: translates C.stms to Ast.stmt *)
 and tr_stmt (s : C.stmt) : trm =
   let loc = loc_of_cloc s.sloc in
@@ -199,7 +200,7 @@ and tr_stmt (s : C.stmt) : trm =
     begin match init_opt with
     | Some re ->
        let t = tr_init re in
-       trm_abort?loc ~ctx  (Ret (Some t))
+       trm_abort ?loc ~ctx (Ret (Some t))
     |_ -> trm_abort ?loc ~ctx (Ret None)
     end
   | Sblock sl ->
@@ -218,7 +219,8 @@ and tr_stmt (s : C.stmt) : trm =
     let tt = tr_type ty in
     let te = begin match init_opt with
              | None -> trm_lit ?loc Lit_uninitialized
-             | Some init -> tr_init ?loc init
+             (* FIXME: #odoc why is annotation required? *)
+             | Some init -> (tr_init : ?loc:trm_loc -> C.init -> trm) ?loc init
              end
       in
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in
@@ -258,7 +260,7 @@ and tr_pragma ?(loc : location) (p : string) : cpragma =
       fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p) *)
 
 (* [tr_init i]: translates C.inti into OptiTrust trm *)
-and tr_init ?(loc : location) (i : C.init) : trm =
+and tr_init ?(loc : trm_loc option) (i : C.init) : trm =
   match i with
   | Init_single e -> tr_expr e
   | Init_array il -> trm_array ?loc (Mlist.of_list (List.map tr_init il))
@@ -268,7 +270,7 @@ and tr_init ?(loc : location) (i : C.init) : trm =
   | Init_union _ -> fail loc "CMenhir_to_astRawC.tr_init: union not supported yet"
 
 (* [tr_constant c]: translates C.constant into OptiTrust trm *)
-and tr_constant ?(loc : location) ?(typ : typ option) ?(is_boolean : bool = false) (c : C.constant) : trm =
+and tr_constant ?(loc : trm_loc option) ?(typ : typ option) ?(is_boolean : bool = false) (c : C.constant) : trm =
   match c with
   | C.CInt (i, ik, s)->
     let i = Int64.to_int i in
@@ -303,7 +305,8 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
   let typ = tr_type e.etyp in
   let ctx = get_ctx () in
   match e.edesc with
-  | EConst c -> tr_constant ~typ ?loc ~is_boolean c
+  (* FIXME: #odoc why is annotation required? *)
+  | EConst c -> (tr_constant : (?loc:trm_loc -> ?typ:typ -> ?is_boolean:bool -> C.constant -> trm)) ~typ ?loc ~is_boolean c
   | ESizeof ty ->
     let ty = tr_type ty in
     trm_var ?loc (name_to_var ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")"))
@@ -317,7 +320,6 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
       trm_lit ?loc (Lit_bool b)
     | None -> trm_var ?loc ~ctx ~typ (name_to_var n)
     end
-
   | EUnop (unop, e) ->
     let t = tr_expr e in
     let trm_apps1 unop t1 = trm_apps ?loc ~typ ~ctx (trm_unop ?loc unop) [t1] in
@@ -405,7 +407,8 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
     if is_null_pointer ty te (* Menhir encodes NULL as [( void* ) 0], we decode it here *)
       then trm_null ?loc ~ctx ()
       else  trm_apps ?loc ~ctx ~typ (trm_unop ?loc ~ctx (Unop_cast ty)) [te]
-  | ECompound (_, init) -> tr_init init ?loc
+  (* FIXME: #odoc why is annotation required? *)
+  | ECompound (_, init) -> (tr_init : ?loc:trm_loc -> C.init -> trm) init ?loc
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with
@@ -553,7 +556,7 @@ let tr_globdefs (gs : C.globdecl list) : trms =
         fail None "CMenhir_to_astRawC.tr_globdefs: struct and unions are not supported"
     | g :: gs' -> aux (tr_globdef g :: acc) gs'
   in
-    List.rev( aux [] gs)
+    List.rev (aux [] gs)
 
 (* [tr_ast tl]: translates a C.program into OptiTrust AST *)
 let tr_ast (tl : C.program) : trm =

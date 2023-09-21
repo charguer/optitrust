@@ -559,6 +559,7 @@ Resources.compute = Resources.Computation.compute_resource
 when dune supports this.
 *)
 (* compute_resource = compute_resources_and_merge_usage ~current_usage:(empty_usage_map res) *)
+(* FIXME: #odoc why is annotation required on callees? *)
 let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: trm): resource_usage_map option * resource_spec =
   if debug_print_computation_stack then Printf.eprintf "With resources: %s\nComputing %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_before <- res;
@@ -752,7 +753,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
   usage_map, res
 
 and compute_resources_and_merge_usage ?(expected_res: resource_spec) (res: resource_spec) (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_spec =
-  let child_usage, res = compute_resources ?expected_res res t in
+  let child_usage, res = (compute_resources : ?expected_res:resource_set -> resource_spec -> trm -> (resource_usage_map option * resource_spec)) ?expected_res res t in
   let usage_map = update_usage_map_opt ~current_usage ~child_usage in
   (usage_map, res)
 
