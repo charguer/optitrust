@@ -356,6 +356,10 @@ let trm_neq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
 let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (tl : trms) : trm =
   trm_seq ~annot ?loc ?ctx (Mlist.of_list tl)
 
+(** Construct a ghost call *)
+let trm_ghost (ghost_var: var) (ghost_args: (string * formula) list) =
+  trm_add_cstyle GhostCall
+    (trm_apps (trm_var ghost_var) [] ~ghost_args:(List.map (fun (g, t) -> (name_to_var g, t)) ghost_args))
 
 (*****************************************************************************)
 

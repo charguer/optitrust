@@ -32,7 +32,9 @@ let%transfo color (nb_colors : trm) ?(index : string option) (tg : target) : uni
 let%transfo tile ?(index : string = "b${id}")
          ?(bound : tile_bound = TileBoundMin)
          (tile_size : trm) (tg : target) : unit =
-  apply_on_targets (Loop_core.tile index bound tile_size) tg
+  Nobrace_transfo.remove_after (fun () ->
+    apply_on_targets (Loop_core.tile index bound tile_size) tg
+  )
 
 (* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
     simple loop. Let's say for {int i ...} {
@@ -50,7 +52,7 @@ let%transfo tile ?(index : string = "b${id}")
     for each index of the for loop. *)
 (* LATER/ deprecated *)
 let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun () ->
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
      (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
 

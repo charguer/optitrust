@@ -28,6 +28,9 @@ let full_frac = trm_int 1
 
 let formula_annot = {trm_annot_default with trm_annot_cstyle = [ResourceFormula]}
 
+let formula_fun =
+  trm_fun ~annot:formula_annot
+
 let formula_model (x: trm) (model: formula): formula =
   trm_apps ~annot:formula_annot var_has_model [x; model]
 
@@ -78,7 +81,7 @@ let formula_matrix (m: trm) (dims: trm list) : formula =
   let mindex_n = trm_var (name_to_var (sprintf "MINDEX%d" (List.length dims))) in
   let inner_trm = formula_model (trm_array_access m (trm_apps mindex_n (dims @ List.map trm_var indices))) trm_cell in
   List.fold_right2 (fun idx dim formula ->
-    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [trm_int 0; dim; trm_int 1]; trm_fun ~annot:formula_annot [idx, typ_int ()] None formula])
+    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [trm_int 0; dim; trm_int 1]; formula_fun [idx, typ_int ()] None formula])
     indices dims inner_trm
 
 let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) =
@@ -86,7 +89,7 @@ let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) =
     if dir <> DirUp then failwith "formula_group_range only supports DirUp";
     let range_var = new_var ~qualifier:idx.qualifier idx.name in
     let fi = trm_subst_var idx (trm_var range_var) fi in
-    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [tfrom; tto; loop_step_to_trm step]; trm_fun ~annot:formula_annot [range_var, typ_int ()] None fi]
+    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [tfrom; tto; loop_step_to_trm step]; formula_fun [range_var, typ_int ()] None fi]
   )
 
 module Pattern = struct
@@ -143,3 +146,6 @@ let var_fun_type = toplevel_free_var "_Fun"
 
 let formula_fun_type (targ: trm) (tres: trm) =
   trm_apps (trm_var var_fun_type) [targ; tres]
+
+let var_checked = toplevel_free_var "checked"
+let formula_checked = trm_var var_checked

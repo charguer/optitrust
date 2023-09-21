@@ -20,9 +20,10 @@ void f() {
 }
 
 void g(float* M) {
-  __modifies("M ~> Matrix2(1024, 1024)");
+  __modifies("M ~> Matrix1(1024)");
   __ghost(tile_divides,
-          "tile_size := 256, tile_count := 4, wand_id := 0, bound_check := "
-          "checked");
-  __ghost(close_wand, "wand_id := 0");
+          "tile_size := 256, tile_count := 4, bound_check := checked");
+  __ghost(untile_divides,
+          "n := 1024, to_item := fun i -> &M[MINDEX1(1024, i)] ~> Cell, "
+          "bound_check := checked");
 }

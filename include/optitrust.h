@@ -171,17 +171,25 @@ __GHOST(close_wand) {
 
 __GHOST(tile_divides) {
   __requires(
-    "wand_id: int, tile_count: int, tile_size: int,"
-    "gn: int, to_item: int -> resource,"
-    "bound_check: __assert_eq(gn, tile_size * tile_count)"
+    "tile_count: int, tile_size: int,"
+    "n: int, to_item: int -> resource,"
+    "bound_check: __assert_eq(n, tile_size * tile_count)"
   );
-  __consumes("Group(range(0, gn, 1), to_item)");
+  __consumes("Group(range(0, n, 1), to_item)");
   __produces("Group(range(0, tile_count, 1), fun bi ->"
                "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)))");
-  __produces("Wand(wand_id,"
-                  "Group(range(0, tile_count, 1), fun bi ->"
-                    "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i))),"
-                  "Group(range(0, gn, 1), to_item))");
+  __admitted();
+}
+
+__GHOST(untile_divides) {
+  __requires(
+    "tile_count: int, tile_size: int,"
+    "n: int, to_item: int -> resource,"
+    "bound_check: __assert_eq(n, tile_size * tile_count)"
+  );
+  __consumes("Group(range(0, tile_count, 1), fun bi ->"
+               "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)))");
+  __produces("Group(range(0, n, 1), to_item)");
   __admitted();
 }
 

@@ -29,6 +29,9 @@ let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
 let color (nb_colors : trm) (i_color : string option ) : Transfo.local =
     apply_on_path (color_aux nb_colors  i_color)
 
+let ghost_tile_divides = name_to_var "tile_divides"
+let ghost_untile_divides = name_to_var "untile_divides"
+
 (*  [tile_aux divides b tile_index t]: tiles loop [t],
       [tile_index] - string representing the index used for the new outer loop,
       [bound] - a tile_bound type variable representing the type of the bound used in
@@ -36,7 +39,7 @@ let color (nb_colors : trm) (i_color : string option ) : Transfo.local =
       [t] - ast of targeted loop. *)
 let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
   let error = "Loop_core.tile_aux: only simple loops are supported." in
-  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+  let ((index, start, direction, stop, step, is_parallel), body, contract_opt) = trm_inv ~error Resources.trm_for_inv_contract t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   (* TODO: enable other styles for TileDivides *)
   if bound = TileDivides then begin
@@ -72,9 +75,65 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
       (trm_var ?typ:start.typ index)
      in
      let new_index = iteration_to_index iteration in
-     trm_for (tile_index, (trm_int 0), DirUp, tile_count, Post_inc, is_parallel) (trm_seq_nomarks [
-       trm_for (index, (trm_int 0), DirUp, tile_size, Post_inc, is_parallel) (trm_subst_var index new_index body)
-     ])
+     let outer_range = (tile_index, (trm_int 0), DirUp, tile_count, Post_inc, is_parallel) in
+     let inner_range = (index, (trm_int 0), DirUp, tile_size, Post_inc, is_parallel) in
+
+     match contract_opt with
+     | None ->
+        trm_for outer_range (trm_seq_nomarks [
+          trm_for inner_range (trm_subst_var index new_index body)
+        ])
+     | Some contract ->
+        let open Resource_formula in
+
+        let update_index new_index =
+          List.map (fun (h, formula) -> (h, trm_subst_var index new_index formula))
+        in
+        let update_index_resource_set new_index res =
+          { pure = update_index new_index res.pure; linear = update_index new_index res.linear; fun_contracts = Var_map.empty }
+        in
+        let contract_inner = {
+          loop_ghosts = contract.loop_ghosts;
+          invariant = update_index_resource_set new_index contract.invariant;
+          iter_contract = {
+            pre = update_index_resource_set new_index contract.iter_contract.pre;
+            post = update_index_resource_set new_index contract.iter_contract.post }} in
+
+        let outer_index = iteration_to_index (trm_mul (trm_var ?typ:start.typ tile_index) tile_size) in
+
+        let add_inner_range_group =
+          List.map (fun (h, formula) -> (h, formula_group_range inner_range formula))
+        in
+        let add_inner_range_group_resource_set res =
+          { pure = add_inner_range_group res.pure; linear = add_inner_range_group res.linear; fun_contracts = Var_map.empty }
+        in
+
+        let contract_outer = {
+          loop_ghosts = contract.loop_ghosts;
+          invariant = update_index_resource_set outer_index contract.invariant;
+          iter_contract = {
+            pre = add_inner_range_group_resource_set contract_inner.iter_contract.pre;
+            post = add_inner_range_group_resource_set contract_inner.iter_contract.post }} in
+
+        (* TODO: Also tile groups in pure resources *)
+        (* TODO: Give the used resource instead of specifying ghost parameters? *)
+        let add_tiling_ghost ghost =
+          List.map (fun (_, formula) ->
+              let i = new_var index.name in
+              let to_item = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
+              trm_ghost ghost [("tile_count", tile_count); ("tile_size", tile_size); ("n", count); ("to_item", to_item); ("bound_check", formula_checked)]
+            )
+        in
+        let ghosts_before = add_tiling_ghost ghost_tile_divides contract.iter_contract.pre.linear in
+        let ghosts_after = add_tiling_ghost ghost_untile_divides contract.iter_contract.post.linear in
+
+        trm_seq_no_brace (ghosts_before @ [
+          trm_for ~contract:contract_outer outer_range (trm_seq_nomarks [
+            trm_for ~contract:contract_inner inner_range (trm_subst_var index new_index body)
+          ])
+        ] @ ghosts_after)
+
+
   end else begin
   Trace.justif "Tiling in this form is always correct.";
   let tile_bound =
