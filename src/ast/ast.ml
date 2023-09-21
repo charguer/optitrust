@@ -656,7 +656,7 @@ and resource_item = hyp * formula
 and resource_set = {
   pure: resource_item list;
   linear: resource_item list;
-  fun_contracts: (var list * fun_contract) varmap;
+  fun_contracts: (var list * fun_contract) varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup, the var list is the list of program arguments of the function. *)
 }
 
 and resource_spec = resource_set option

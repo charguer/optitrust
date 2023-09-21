@@ -957,6 +957,31 @@ let check_name (name : constr_name) (s : string) : bool =
   | Some r ->
      match_regexp_str r s
 
+
+(* [explore_list tl d cont]: calls [cont] on each element of the list and gathers the results
+    used for seq, array, struct, and fun arguments
+   [d] is the function that gives the direction to add depending on the index *)
+let explore_list (tl : 'a list) (d : int -> dir)
+  (cont : 'a -> paths) : paths =
+  Xlist.fold_lefti (fun i epl t -> epl @ add_dir (d i) (cont t)) [] tl
+
+(*
+  call cont on each element of the list whose index is in the domain and
+  gather the results
+  d: function that gives the direction to add depending on the index
+ *)
+
+(* [explore_list_ind tl d dom cont]: calls [cont] on each element of the list,
+   [index] is in the domain and gather results
+   [d] is a fucntion that gives direction to add depending on the [index] *)
+let explore_list_ind (tl : 'a list) (d : int -> dir) (dom : int list)
+  (cont : 'a -> paths) : paths =
+  Xlist.fold_lefti
+    (fun i epl t ->
+      if List.mem i dom then epl @ add_dir (d i) (cont t) else epl)
+    []
+    tl
+
 (* [check_constraint c]: checks if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
    if trm_has_cstyle Multi_decl t then
@@ -1528,6 +1553,15 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      because traversing the [Trm_seq] just below will already decrease the depth *)
   let aux_body = resolve_target_simple ~depth p in
 
+  let aux_resource_set_dir contract_dir resource_set_dir res_list =
+    explore_list res_list (fun n -> Dir_contract (contract_dir, resource_set_dir, n)) (fun (h, f) -> aux f)
+  in
+
+  let aux_contract_dir contract_dir res =
+    aux_resource_set_dir contract_dir Resource_set_pure res.pure @
+    aux_resource_set_dir contract_dir Resource_set_linear res.linear
+  in
+
   let loc = t.loc in
   (* no exploration in depth in included files *)
   if trm_is_include t then begin
@@ -1545,8 +1579,13 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      begin match t.desc with
      | Trm_let (_ ,(_, _), body) ->
        add_dir Dir_body (aux body)
-     | Trm_let_fun (_, _ , _,body, _) ->
-        add_dir Dir_body (aux_body body)
+     | Trm_let_fun (_, _ , _, body, contract)
+     | Trm_fun (_, _, body, contract) ->
+        add_dir Dir_body (aux_body body) @
+        option_flat_map (fun contract ->
+          (aux_contract_dir Contract_pre contract.pre) @
+          (aux_contract_dir Contract_post contract.post)
+        ) contract
      | Trm_typedef td  ->
       begin match td.typdef_body with
       | Typdef_record rfl ->
@@ -1581,14 +1620,20 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
-     | Trm_for (l_range, body, _) ->
+     | Trm_for (l_range, body, contract) ->
         let ( _, start, _, stop, step, is_parallel) = l_range in
         let step_t = loop_step_to_trm step in
         (add_dir Dir_for_start (aux start)) @
         (add_dir Dir_for_stop (aux stop)) @
         (add_dir Dir_for_step (aux step_t)) @
-        (add_dir Dir_body (aux_body body))
-     | Trm_for_c (init, cond, step, body, _) ->
+        (add_dir Dir_body (aux_body body)) @
+        option_flat_map (fun contract ->
+          (aux_contract_dir Contract_pre contract.iter_contract.pre) @
+          (aux_contract_dir Contract_post contract.iter_contract.post) @
+          (aux_contract_dir Contract_invariant contract.invariant)
+        ) contract
+
+     | Trm_for_c (init, cond, step, body, invariant) ->
         (* init *)
         (add_dir Dir_for_c_init (aux init)) @
         (* cond *)
@@ -1596,7 +1641,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (* step *)
         (add_dir Dir_for_c_step (aux step)) @
         (* body *)
-        (add_dir Dir_body (aux_body body))
+        (add_dir Dir_body (aux_body body)) @
+        option_flat_map (fun invariant -> aux_contract_dir Contract_invariant invariant) invariant
      | Trm_while (cond, body) ->
         (* cond *)
         (add_dir Dir_cond (aux cond)) @
@@ -1614,11 +1660,13 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (add_dir Dir_then (aux_body then_t)) @
         (* else *)
         (add_dir Dir_else (aux_body else_t))
-     | Trm_apps (f, args, _) ->
+     | Trm_apps (f, args, ghost_args) ->
         (* fun *)
         (add_dir Dir_app_fun (aux f)) @
         (* args *)
-        (explore_list args (fun n -> Dir_arg_nth n) (aux))
+        (explore_list args (fun n -> Dir_arg_nth n) (aux)) @
+        (* ghost args *)
+        (explore_list ghost_args (fun n -> Dir_ghost_arg_nth n) (fun (g, t) -> aux t))
      | Trm_array tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
      | Trm_seq tl ->
@@ -1773,29 +1821,6 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
        (dir_to_string d);
      []
 
-(* [explore_list tl d cont]: calls [cont] on each element of the list and gathers the results
-    used for seq, array, struct, and fun arguments
-   [d] is the function that gives the direction to add depending on the index *)
-and explore_list (tl : trms) (d : int -> dir)
-  (cont : trm -> paths) : paths =
-  Xlist.fold_lefti (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
-
-(*
-  call cont on each element of the list whose index is in the domain and
-  gather the results
-  d: function that gives the direction to add depending on the index
- *)
-
-(* [explore_list_ind tl d dom cont]: calls [cont] on each element of the list,
-   [index] is in the domain and gather results
-   [d] is a fucntion that gives direction to add depending on the [index] *)
-and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)
-  (cont : trm -> paths) : paths =
-  Xlist.fold_lefti
-    (fun i epl t ->
-      if List.mem i dom then epl@add_dir (d i) (cont t) else epl)
-    []
-    tl
 
 
 (******************************************************************************)

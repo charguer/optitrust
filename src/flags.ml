@@ -190,6 +190,7 @@ let spec : cmdline_args =
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
+     ("-bypass-cfeatures-decoding", Arg.Set bypass_cfeatures_decoding, " print output using syntax for internal AST");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]

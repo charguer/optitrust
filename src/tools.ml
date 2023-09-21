@@ -221,6 +221,8 @@ let unsome ?(error:string="Tools.unsome found None") (x_opt : 'a option) : 'a =
   | Some x -> x
   | None -> failwith error
 
+let option_flat_map (f: 'a -> 'b list) (opt: 'a option): 'b list =
+  Option.value ~default:[] (Option.map f opt)
 
 (* [OptionMonad]: when opened add the operators [let*] and [and*] for the
    option monad. *)

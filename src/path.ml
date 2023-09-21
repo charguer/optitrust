@@ -58,6 +58,10 @@ and dir =
   | Dir_record_field of int
   (* namespace *)
   | Dir_namespace
+  (* contracts inside let_fun, for, for_c *)
+  | Dir_contract of contract_dir * resource_set_dir * int
+  (* ghost argument in apps *)
+  | Dir_ghost_arg_nth of int
 
 (* [case_dir]: direction to a switch case *)
 and case_dir =
@@ -68,6 +72,16 @@ and case_dir =
 and enum_const_dir =
   | Enum_const_name
   | Enum_const_val
+
+and contract_dir =
+  | Contract_pre
+  | Contract_post
+  | Contract_invariant
+
+and resource_set_dir =
+  | Resource_set_pure
+  | Resource_set_linear
+  | Resource_set_fun_contracts
 
 (* [paths]: target resolutions produces a list of paths(explicit list of directions),
             we let [paths] be a shorthand for such type. *)
@@ -111,6 +125,17 @@ let dir_to_string (d : dir) : string =
   | Dir_record_field i ->
     "Dir_record_field " ^ string_of_int i
   | Dir_namespace -> "Dir_namespace"
+  | Dir_contract (cdir, rdir, i) -> sprintf "Dir_contract(%s, %s, %d)"
+    (match cdir with
+    | Contract_pre -> "Contract_pre"
+    | Contract_post -> "Contract_post"
+    | Contract_invariant -> "Contract_invariant")
+    (match rdir with
+    | Resource_set_pure -> "Resource_set_pure"
+    | Resource_set_linear -> "Resource_set_linear"
+    | Resource_set_fun_contracts -> "Resource_set_fun_contracts")
+    i
+  | Dir_ghost_arg_nth n -> "Dir_ghost_arg_nth " ^ (string_of_int n)
 
 (* [path_to_string dl]: print the path [dl] *)
 let path_to_string (dl : path) : string =
@@ -152,6 +177,8 @@ let compare_dir (d : dir) (d' : dir) : int =
        | Enum_const_name, _ -> -1
        | Enum_const_val, _ -> 1
        end
+  | Dir_ghost_arg_nth n, Dir_ghost_arg_nth m -> compare n m
+  (* FIXME: There are a lot of missing cases including Dir_contract *)
   | d, d' when d = d' -> 0
   | Dir_before _, _ -> -1
   | _, Dir_before _ -> 1
@@ -192,7 +219,11 @@ let compare_dir (d : dir) (d' : dir) : int =
   | Dir_record_field _, _ -> -1
   | _ , Dir_record_field _ -> 1
   | Dir_namespace, _ -> -1
-  | _, Dir_namespace -> -1
+  | _, Dir_namespace -> 1
+  | Dir_contract _, _ -> -1
+  | _, Dir_contract _ -> 1
+  | Dir_ghost_arg_nth _, _ -> -1
+  | _, Dir_ghost_arg_nth _ -> 1
 
 (* [compare_path dl dl']: compare paths [dl] and [dl'] based on function compare_dir *)
 let rec compare_path (dl : path) (dl' : path) : int =
@@ -276,6 +307,13 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
     | [] -> transfo t
     | d :: dl ->
        let aux t = aux_on_path_rec dl t in
+       let aux_resource_item (h, formula) = (h, aux formula) in
+       let apply_on_resource_set resource_set_dir i res =
+         match resource_set_dir with
+         | Resource_set_pure -> { res with pure = Xlist.update_nth i aux_resource_item res.pure }
+         | Resource_set_linear -> { res with linear = Xlist.update_nth i aux_resource_item res.linear }
+         | Resource_set_fun_contracts -> failwith "apply_on_resource_set: not handled Resource_set_fun_contract"
+       in
        let newt = begin match d, t.desc with
        | Dir_before _, _ -> fail t.loc "apply_on_path: Dir_before should not remain at this stage"
        | Dir_array_nth n, Trm_array tl ->
@@ -325,6 +363,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           trm_replace (Trm_do_while (aux body, cond)) t
        | Dir_body, Trm_abort (Ret (Some body)) ->
           { t with desc = Trm_abort (Ret (Some (aux body)))}
+       | Dir_body, Trm_fun (params, tyret, body, contract) ->
+          trm_replace (Trm_fun (params, tyret, aux body, contract)) t
        | Dir_for_start, Trm_for ((index, start, direction, stop, step,is_parallel), body, contract) ->
           { t with desc = Trm_for ((index, aux start, direction, stop, step, is_parallel), body, contract)}
        | Dir_for_stop, Trm_for ((index, start, direction, stop, step, is_parallel), body, contract) ->
@@ -343,6 +383,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_apps (aux f, tl, gargs)}
        | Dir_arg_nth n, Trm_apps (f, tl, gargs) ->
           { t with desc = Trm_apps (f, Xlist.update_nth n aux tl, gargs)}
+       | Dir_ghost_arg_nth n, Trm_apps (f, tl, gargs) ->
+          { t with desc = Trm_apps (f, tl, Xlist.update_nth n aux_resource_item gargs)}
        | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body, contract) ->
           let txl' =
             Xlist.update_nth n
@@ -395,6 +437,35 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           end
         | Dir_namespace, Trm_namespace (name, body, inline) ->
           { t with desc = Trm_namespace (name, aux body, inline) }
+
+        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_let_fun (v, vty, args, body, Some contract) ->
+          let pre = apply_on_resource_set resource_set_dir i contract.pre in
+          trm_replace (Trm_let_fun (v, vty, args, body, Some { contract with pre })) t
+        | Dir_contract (Contract_post, resource_set_dir, i), Trm_let_fun (v, vty, args, body, Some contract) ->
+          let post = apply_on_resource_set resource_set_dir i contract.post in
+          trm_replace (Trm_let_fun (v, vty, args, body, Some { contract with post })) t
+
+        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, Some contract) ->
+          let pre = apply_on_resource_set resource_set_dir i contract.pre in
+          trm_replace (Trm_fun (params, tyret, body, Some { contract with pre })) t
+        | Dir_contract (Contract_post, resource_set_dir, i), Trm_fun (params, tyret, body, Some contract) ->
+          let post = apply_on_resource_set resource_set_dir i contract.post in
+          trm_replace (Trm_fun (params, tyret, body, Some { contract with post })) t
+
+        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, body, Some contract) ->
+          let pre = apply_on_resource_set resource_set_dir i contract.iter_contract.pre in
+          trm_replace (Trm_for (range, body, Some { contract with iter_contract = { contract.iter_contract with pre } })) t
+        | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, body, Some contract) ->
+          let post = apply_on_resource_set resource_set_dir i contract.iter_contract.post in
+          trm_replace (Trm_for (range, body, Some { contract with iter_contract = { contract.iter_contract with post } })) t
+        | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, body, Some contract) ->
+          let invariant = apply_on_resource_set resource_set_dir i contract.invariant in
+          trm_replace (Trm_for (range, body, Some { contract with invariant })) t
+
+        | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for_c (start, cond, incr, body, Some invariant) ->
+          let invariant = apply_on_resource_set resource_set_dir i invariant in
+          trm_replace (Trm_for_c (start, cond, incr, body, Some invariant)) t
+
         | _, _ ->
            let s = dir_to_string d in
            fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
