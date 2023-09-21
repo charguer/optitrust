@@ -246,11 +246,12 @@ let reset_flags_to_default () : unit =
   trm_combinators_warn_unsupported_case := true;
   warned_array_subscript_not_supported := Tools.String_set.empty
 
-let with_flag (flag: 'a ref) (value: 'a) (func: unit -> unit): unit =
+let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =
   let init_value = !flag in
   flag := value;
-  func ();
-  flag := init_value
+  let x = func () in
+  flag := init_value;
+  x
 
 (* *************************************************************************************************************
   Note: to see a diff at the level of the OptiTrust AST, use:

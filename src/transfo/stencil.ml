@@ -10,7 +10,7 @@ let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : 
   Target.iter (fun t p ->
     let loop_t = Path.resolve_path p t in
     let error = "Stencil.loop_align_stop_extend_start: expected simple loop" in
-    let ((_index, start', _dir, stop', _step, _par), _body) = trm_inv ~error trm_for_inv loop_t in
+    let ((_index, start', _dir, stop', _step, _par), _body, _contract) = trm_inv ~error trm_for_inv loop_t in
     if (Internal.same_trm start start') && (Internal.same_trm stop stop') then
       ()
     else begin
@@ -32,11 +32,11 @@ let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1
       Loop.simpl_range ~simpl (target_of_path orig_p);
       let t = Path.resolve_path orig_p (Trace.ast ()) in
       let error = "Stencil.loop_align_stop_extend_start_like: expected simple loop" in
-      let ((index, start, _dir, stop, _step, _par), _body) = trm_inv ~error trm_for_inv t in
+      let ((index, start, _dir, stop, _step, _par), _body, _contract) = trm_inv ~error trm_for_inv t in
       let map_vars' = List.map2 (fun p map_var ->
         let start = trm_subst map_var start in
         let stop = trm_subst map_var stop in
-        let ((tg_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv (Path.resolve_path p (Trace.ast ())) in
+        let ((tg_index, _, _, _, _, _), _, _) = trm_inv ~error trm_for_inv (Path.resolve_path p (Trace.ast ())) in
         loop_align_stop_extend_start ~start ~stop ~simpl (target_of_path p);
         Var_map.add index (trm_var tg_index) map_var
       ) ps map_vars in

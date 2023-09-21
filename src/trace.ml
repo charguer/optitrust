@@ -159,7 +159,7 @@ type stepdescr = {
 
 
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_scoped | Step_aborted | Step_interactive | Step_error
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_scoped | Step_aborted | Step_interactive | Step_typing | Step_error
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -173,6 +173,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_scoped -> "Scoped"
   | Step_aborted -> "Aborted"
   | Step_interactive -> "Interactive"
+  | Step_typing -> "Typing"
   | Step_error -> "Error"
 
 (* [step_infos] *)
@@ -281,9 +282,9 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     in
   the_trace.step_stack <- [step_root]
 
-(* [step_set_validity s] sets a computation to be valid if all its substeps are valid
+(* [try_validate_step_by_compostion s] sets a computation to be valid if all its substeps are valid
    and form a contiguous chain *)
-let step_set_validity (s : step_tree) : unit =
+let try_validate_step_by_compostion (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
     let kinds_excluded = [Step_target_resolve; Step_io; Step_aborted] in
@@ -313,7 +314,13 @@ let finalize_step (step : step_tree) : unit =
   infos.step_args <- List.rev infos.step_args;
   step.step_ast_after <- the_trace.cur_ast;
   step.step_sub <- List.rev step.step_sub;
-  step_set_validity step
+  if !Flags.check_validity then
+    try_validate_step_by_compostion step
+  else
+    step.step_infos.step_valid <- false
+
+let without_substep_validity_checks (f: unit -> 'a): 'a =
+  Flags.with_flag Flags.check_validity false f
 
 (* [get_root_step()] returns the root step, after close_root_step has been called *)
 let get_root_step () : step_tree =
@@ -518,6 +525,10 @@ let dumping_step (f : unit -> unit) : unit =
 let error_step (error : string) : unit =
   step ~valid:false ~kind:Step_error ~name:error (fun () -> ())
 
+(* [typing_step f] adds a step accounting for a typing recomputation *)
+let typing_step ~name (f : unit -> unit) : unit =
+  step ~valid:true ~kind:Step_typing ~name ~tags:["typing"] f
+
 (* [open_target_resolve_step] *)
 let open_target_resolve_step () : unit =
   ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"" ())
@@ -619,10 +630,11 @@ let finalize () : unit =
 
 (* [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
 let finalize_on_error ~(error:string) : unit =
+  error_step error;
   let rec close_all_steps () : unit =
     match the_trace.step_stack with
     | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
-    | [_root_step] -> error_step error; finalize()
+    | [_root_step] -> finalize()
     | _step :: _ -> close_step(); close_all_steps()
     in
   close_all_steps()
@@ -989,8 +1001,14 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
     if details then begin
       let ast_before = !trace_custom_postprocessing s.step_ast_before in
       let ast_after = !trace_custom_postprocessing s.step_ast_after in
-      output_prog ~beautify ctx "tmp_before" ast_before;
-      output_prog ~beautify ctx "tmp_after" ast_after;
+      begin try
+        output_prog ~beautify ctx "tmp_before" ast_before;
+        output_prog ~beautify ctx "tmp_after" ast_after
+      with e ->
+        (* Prevent any exception during printing to corrupt the entire trace *)
+        let exn = Printexc.to_string e in
+        Printf.eprintf "Error while saving trace:\n%s\n" exn
+      end;
       let sBefore = compute_command_base64 "cat tmp_before.cpp" in
       let sAfter = compute_command_base64 "cat tmp_after.cpp" in
       let sDiff = compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in

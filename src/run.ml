@@ -175,9 +175,11 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
       | Stop -> ()
       | e when !Flags.dump_trace ->
           (* If dump-trace, try best effort to produce a partial trace *)
-          Trace.finalize_on_error ~error:(Printexc.to_string e);
+          let exc = Printexc.to_string e in
+          Trace.finalize_on_error ~error:exc;
           produce_trace();
-          Printf.printf "========> ERROR! showing trace nontheless\n";
+          let backtrace = Printexc.get_backtrace () in
+          Printf.eprintf "========> ERROR:\n%s\n%s\n" exc backtrace;
           exit 0
     end;
     flush stdout;

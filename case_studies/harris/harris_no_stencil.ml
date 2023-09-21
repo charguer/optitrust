@@ -14,7 +14,7 @@ module Image = struct
   let loop_align_stop_extend_start_like ~(orig:target) (tg:target) : unit =
     let t = get_trm_at_exn orig in
     let error = "Image.loop_align_stop_extend_start_like: expected simple loop" in
-    let ((_index, start, _dir, stop, _step, _par), _body) = trm_inv ~error trm_for_inv t in
+    let ((_index, start, _dir, stop, _step, _par), _body, _contract) = trm_inv ~error trm_for_inv t in
     loop_align_stop_extend_start ~start ~stop tg
 end
 

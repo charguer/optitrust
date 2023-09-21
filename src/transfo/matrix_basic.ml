@@ -164,7 +164,7 @@ let simpl_index_add_on (t : trm) : trm =
    For correctness, size and index expressions must be pure.
    *)
 let%transfo simpl_index_add (tg : target) : unit =
-  Resources.justif_correct "arguments are pure/reproducible";
+  Resources.justif_correct "arguments are reproducible";
   Trace.tag_simpl_access ();
   Target.apply_at_target_paths simpl_index_add_on tg
 

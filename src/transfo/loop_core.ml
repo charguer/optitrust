@@ -7,7 +7,7 @@ open Target
       [t] - ast of the loop. *)
 let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let error = "Loop_core.color_aux: only simple loops are supported." in
-  let ((index , start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+  let ((index , start, direction, stop, step, is_parallel), body, _contract) = trm_inv ~error trm_for_inv t in
   let i_color = new_var (match i_color with
    | Some cl -> cl
    | _ -> "c" ^ index.name
@@ -39,7 +39,7 @@ let ghost_untile_divides = name_to_var "untile_divides"
       [t] - ast of targeted loop. *)
 let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
   let error = "Loop_core.tile_aux: only simple loops are supported." in
-  let ((index, start, direction, stop, step, is_parallel), body, contract_opt) = trm_inv ~error Resources.trm_for_inv_contract t in
+  let ((index, start, direction, stop, step, is_parallel), body, contract_opt) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   (* TODO: enable other styles for TileDivides *)
   if bound = TileDivides then begin
@@ -242,7 +242,7 @@ let fusion_on_block (keep_label : bool): Transfo.local =
       [t] - ast of the loop. *)
 let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : trm =
   let error = "Loop_core.grid_enumerate_aux: expected a simple for loop" in
-  let (l_range, body) = trm_inv ~error trm_for_inv t in
+  let (l_range, body, _contract) = trm_inv ~error trm_for_inv t in
   let (index, _, direction, _, _, is_parallel) = l_range in
   let indices_and_bounds = List.map (fun (i, b) -> Trm.new_var i, b) indices_and_bounds in
   let new_body =
@@ -273,7 +273,7 @@ let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
       [t] - ast of the loop. *)
 let unroll_aux (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark option) (t : trm) : trm =
   let error = "Loop_core.unroll_aux: only simple loops supported" in
-  let (l_range, body) = trm_inv ~error trm_for_inv t in
+  let (l_range, body, _) = trm_inv ~error trm_for_inv t in
   let (index, start, _, stop, _, _) = l_range in
   let unrolled_loop_range =
     begin match stop.desc with
@@ -354,7 +354,7 @@ let unswitch (trm_index : int) : Transfo.local =
       [t] - ast of the loop to be transformed. *)
 let to_unit_steps_aux (new_index : string) (t : trm) : trm =
   let error = "Loop_core.to_unit_steps: only simple loops are supported." in
-  let ((index, start, direction, stop, step, is_parallel), _) = trm_inv ~error trm_for_inv t in
+  let ((index, start, direction, stop, step, is_parallel), _, _) = trm_inv ~error trm_for_inv t in
   let new_index = new_var (match new_index with
   | "" -> index.name ^ "_step"
   | _ -> new_index) in
@@ -426,7 +426,7 @@ let fold (index : string) (start : int) (step : int) : Transfo.local =
      [t] - ast of the for loop. *)
 let split_range_aux (nb : int)(cut : trm)(t : trm) : trm =
   let error = "Loop_core.split_range: expected a target to a simple for loop" in
-  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+  let ((index, start, direction, stop, step, is_parallel), body, _contract) = trm_inv ~error trm_for_inv t in
   let split_index =
   begin match nb, cut with
   | 0, {desc = Trm_val (Val_lit (Lit_unit )); _} -> fail t.loc "Loop_core.split_range_aux: one of the args nb or cut should be set "
@@ -446,7 +446,8 @@ let split_range (nb : int) (cut : trm) : Transfo.local =
 let rename_index (new_index : string) : Transfo.local =
   apply_on_path (fun t ->
     let error = "Loop_core.shift: expected a target to a simple for loop" in
-    let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+    let ((index, start, direction, stop, step, is_parallel), body, _contract) = trm_inv ~error trm_for_inv t in
+    (* TODO: Rename inside contract to preserve it *)
     let new_index = { qualifier = []; name = new_index; id = index.id } in
     let new_body = trm_subst_var index (trm_var new_index) body in
     trm_for ~annot:t.annot (new_index, start, direction, stop, step, is_parallel) new_body

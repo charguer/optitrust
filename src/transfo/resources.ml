@@ -11,7 +11,7 @@ let%transfo set_fun_contract (contract: fun_contract) (tg : Target.target) : uni
   Target.apply_at_target_paths (set_fun_contract_on contract) tg
 
 let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
-  let range, body = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
+  let range, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
   trm_like ~old:t (trm_for ~contract range body)
 
 let%transfo set_loop_contract (contract: loop_contract) (tg: Target.target): unit =
@@ -21,11 +21,13 @@ let%transfo set_loop_contract (contract: loop_contract) (tg: Target.target): uni
   Target.apply_at_target_paths (Resources_core.trm_recompute_resources) tg*)
 
 let recompute_all_resources () : unit =
-  let t = Trace.ast () in
-  let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
-  (* TODO: Configurable base environment *)
-  let t = Resource_computation.(trm_recompute_resources builtin_env t) in
-  Trace.set_ast t
+  Trace.typing_step ~name:"Resource recomputation" (fun () ->
+    let t = Trace.ast () in
+    let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
+    (* TODO: Configurable base environment *)
+    let t = Resource_computation.(trm_recompute_resources builtin_env t) in
+    Trace.set_ast t
+  )
 
 (* TODO: avoid recomputing all resources for validity checks. *)
 let required_for_check () : unit =
@@ -37,18 +39,13 @@ let justif_correct (why : string) : unit =
     Trace.justif (sprintf "resources are correct: %s" why)
   end
 
-let trm_for_inv_contract t =
-  match t.desc with
-  | Trm_for (range, body, contract) -> Some (range, body, contract)
-  | _ -> None
-
 let trm_for_contract t =
-  match trm_for_inv_contract t with
+  match trm_for_inv t with
   | Some (_, _, Some c) -> Some c
   | _ -> None
 
 let loop_minimize_on (t: trm): trm =
-  let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv_contract t in
+  let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
   let res_before =
     match t.ctx.ctx_resources_before with
     | None -> fail t.loc "loop_minimize_on: resources need to be computed before this transformation"

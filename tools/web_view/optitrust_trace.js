@@ -116,7 +116,7 @@ var optionsDescr = [ // extended by initAllTags
   { key: "noop_steps",
     name: "noop-steps",
     kind: "UI",
-    default: false,
+    default: true,
   },
   { key: "atomic_substeps",
     name: "atomic-substeps",
@@ -126,7 +126,7 @@ var optionsDescr = [ // extended by initAllTags
   { key: "basic_modules",
     name: "basic-modules",
     kind: "UI",
-    default: false,
+    default: true,
   }
 ];
 var options = {}; // filled by initOptions

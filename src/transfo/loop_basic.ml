@@ -62,7 +62,7 @@ let hoist_on (name : string)
              (arith_f : trm -> trm)
              (decl_index : int) (t : trm) : trm =
   let error = "Loop_basic.hoist_on: only simple loops are supported" in
-  let (range, body) = trm_inv ~error trm_for_inv t in
+  let (range, body, contract) = trm_inv ~error trm_for_inv t in
   let (index, start, dir, stop, step, _par) = range in
   assert (dir = DirUp); (* TODO: other directions *)
   let (array_size, new_index) = match step with
@@ -120,7 +120,7 @@ let hoist_on (name : string)
   trm_seq_no_brace [
     trm_may_add_mark mark
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
-    trm_for ~annot:t.annot range new_body;
+    trm_for ?contract ~annot:t.annot range new_body;
     Matrix_core.free !new_dims (trm_var !new_var);
   ]
 
@@ -142,10 +142,11 @@ let%transfo hoist ?(name : string = "${var}_step")
     [t]: ast of the loop
     *)
 let fission_on (index : int) (t : trm) : trm =
-  let (l_range, tl) = trm_inv
+  let (l_range, tl, _contract) = trm_inv
     ~error:"Loop_basic.fission_on: only simple loops are supported"
     trm_for_inv_instrs t
   in
+  (* TODO: Repair contract *)
   let tl1, tl2 = Mlist.split index tl in
   trm_seq_no_brace [
     trm_for_instrs l_range tl1;
@@ -257,13 +258,13 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     trm_for_inv_instrs
   ) loops in
   match loops_ri with
-  | [(loop_range1, loop_instrs1); (loop_range2, loop_instrs2)] ->
+  | [(loop_range1, loop_instrs1, _contract1); (loop_range2, loop_instrs2, _contract2)] ->
     (* DEPRECATED: need to rename index anyway since #var-id
     if not (same_loop_index loop_range1 loop_range2) then
       fail t.loc "Loop_basic.fusion_on: expected matching loop indices"; *)
     if not (same_loop_range loop_range1 loop_range2) then
       fail t.loc "Loop_basic.fusion_on: expected matching loop ranges";
-    let new_loop_range = fst (List.nth loops_ri target_loop_i) in
+    let new_loop_range, _, _ = List.nth loops_ri target_loop_i in
     let (idx1, _, _, _, _, _) = loop_range1 in
     let (idx2, _, _, _, _, _) = loop_range2 in
     let loop_instrs1', loop_instrs2' =
@@ -406,7 +407,8 @@ let shift_kind_to_string = function
 let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let index' = new_var index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
-  let ((index, start, direction, stop, step, is_parallel), body_terms) = trm_inv ~error trm_for_inv_instrs t in
+  let ((index, start, direction, stop, step, is_parallel), body_terms, _contract) =
+    trm_inv ~error trm_for_inv_instrs t in
   let (shift, start', stop') = match kind with
   (* spec:
     let start' = trm_add start shift in
@@ -445,7 +447,7 @@ let extension_kind_to_string = function
 
 let extend_range_on (start_extension : extension_kind) (stop_extension : extension_kind) (t : trm) : trm =
   let error = "Loop_basic.extend_range_on: expected a target to a simple for loop" in
-  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+  let ((index, start, direction, stop, step, is_parallel), body, _contract) = trm_inv ~error trm_for_inv t in
   assert (direction = DirUp);
   (* TODO: does it work in other cases?
      assert (is_step_one step); *)
@@ -490,7 +492,7 @@ let%transfo rename_index (new_index : string) (tg : target) : unit =
 (* FIXME: duplicated code from tiling. *)
 let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_step : trm) (t : trm) : trm =
   let error = "Loop_basic.slide_on: only simple loops are supported." in
-  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+  let ((index, start, direction, stop, step, is_parallel), body, _contract) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   let tile_bound =
    if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step)) in
@@ -536,7 +538,7 @@ let%transfo slide ?(index : string = "b${id}")
 let delete_void_on (i : int) (t_seq : trm) : trm option =
   (* 1. check empty body *)
   Option.bind (trm_seq_nth_inv i t_seq) (fun t_loop ->
-    Option.bind (trm_for_inv_instrs t_loop) (fun (_, body) ->
+    Option.bind (trm_for_inv_instrs t_loop) (fun (_, body, _) ->
       if Mlist.is_empty body
       (* 2. delete *)
       then Some (Sequence_core.delete i 1 t_seq [])

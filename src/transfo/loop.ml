@@ -55,108 +55,110 @@ let%transfo hoist_alloc_loop_list
   (tg : target) : unit
   =
   Trace.justif "always correct: per-iteration storage is allocated outside the loop";
-  (*Trace.tag_valid_by_composition ();*)
-  let tmp_marks = ref [] in
-  let alloc_mark = Mark.next () in
-  let dim_count = ref 0 in
-  let may_detach_init (x : var) (init : trm) (p : path) =
-    let is_trm_malloc = match Matrix_core.alloc_inv_with_ty init with
-    | Some (dims, _, _) ->
-      dim_count := List.length dims;
-      true
-    | None -> false
+  Trace.without_substep_validity_checks (fun () ->
+    (*Trace.tag_valid_by_composition ();*)
+    let tmp_marks = ref [] in
+    let alloc_mark = Mark.next () in
+    let dim_count = ref 0 in
+    let may_detach_init (x : var) (init : trm) (p : path) =
+      let is_trm_malloc = match Matrix_core.alloc_inv_with_ty init with
+      | Some (dims, _, _) ->
+        dim_count := List.length dims;
+        true
+      | None -> false
+      in
+      let detach_first = not (is_trm_malloc || (is_trm_uninitialized init) || (is_trm_new_uninitialized init)) in
+      if detach_first then begin
+        Variable_basic.init_detach (target_of_path p);
+        let (_, seq_path) = Path.index_in_seq p in
+        Matrix_basic.intro_malloc0 x (target_of_path seq_path);
+      end
     in
-    let detach_first = not (is_trm_malloc || (is_trm_uninitialized init) || (is_trm_new_uninitialized init)) in
-    if detach_first then begin
-      Variable_basic.init_detach (target_of_path p);
-      let (_, seq_path) = Path.index_in_seq p in
-      Matrix_basic.intro_malloc0 x (target_of_path seq_path);
-    end
-  in
-  let rec mark_and_hoist prev_name name_template (i : int) (p : path) =
-    let more_hoists = i + 1 <= (List.length loops) in
-    let maybe_mark = if more_hoists then None else Some alloc_mark in
-    let varies_in_current_loop = List.nth loops ((List.length loops) - i) in
-    let next_name = match varies_in_current_loop with
-    | 0 -> begin
-      (* following may also swap instrs *)
-      Loop_basic.move_out ?mark:maybe_mark (target_of_path p);
-      let (outer_i, outer_path) = Path.index_in_seq (snd (Path.index_in_surrounding_loop p)) in
-      let new_loop_path = outer_path @ [Dir_seq_nth (outer_i + 1)] in
-      Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:((List.init !dim_count (fun _ -> [])) @ [[cVar prev_name]]) (sprintf "MFREE%d" !dim_count)];
-      prev_name
-    end
-    | 1 -> begin
-      let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
-      let (instr_index, seq_path) = Path.index_in_seq p in
-      let seq_target = target_of_path seq_path in
-      let seq_mark = Mark.next () in
-      Marks.add seq_mark seq_target;
-      tmp_marks := (seq_mark, instr_index) :: !tmp_marks;
+    let rec mark_and_hoist prev_name name_template (i : int) (p : path) =
+      let more_hoists = i + 1 <= (List.length loops) in
+      let maybe_mark = if more_hoists then None else Some alloc_mark in
+      let varies_in_current_loop = List.nth loops ((List.length loops) - i) in
+      let next_name = match varies_in_current_loop with
+      | 0 -> begin
+        (* following may also swap instrs *)
+        Loop_basic.move_out ?mark:maybe_mark (target_of_path p);
+        let (outer_i, outer_path) = Path.index_in_seq (snd (Path.index_in_surrounding_loop p)) in
+        let new_loop_path = outer_path @ [Dir_seq_nth (outer_i + 1)] in
+        Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:((List.init !dim_count (fun _ -> [])) @ [[cVar prev_name]]) (sprintf "MFREE%d" !dim_count)];
+        prev_name
+      end
+      | 1 -> begin
+        let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
+        let (instr_index, seq_path) = Path.index_in_seq p in
+        let seq_target = target_of_path seq_path in
+        let seq_mark = Mark.next () in
+        Marks.add seq_mark seq_target;
+        tmp_marks := (seq_mark, instr_index) :: !tmp_marks;
 
-      Loop_basic.hoist ~name:next_name ?mark:maybe_mark (target_of_path p);
-      next_name
-      end
-    | _ -> fail None "expected list of 0 and 1s"
+        Loop_basic.hoist ~name:next_name ?mark:maybe_mark (target_of_path p);
+        next_name
+        end
+      | _ -> fail None "expected list of 0 and 1s"
+      in
+      dim_count := !dim_count + varies_in_current_loop;
+      let (_, loop_path) = Path.index_in_surrounding_loop p in
+      let next_target = (target_of_path loop_path) @ [cVarDef next_name] in
+      if more_hoists then
+        iter_on_targets (fun t p -> mark_and_hoist next_name name_template (i + 1) p) next_target;
     in
-    dim_count := !dim_count + varies_in_current_loop;
-    let (_, loop_path) = Path.index_in_surrounding_loop p in
-    let next_target = (target_of_path loop_path) @ [cVarDef next_name] in
-    if more_hoists then
-      iter_on_targets (fun t p -> mark_and_hoist next_name name_template (i + 1) p) next_target;
-  in
-  let simpl_index_after_inline (tg : target) : unit =
-    Target.iter (fun _t p_nested ->
-      let p = p_nested |> Path.parent in
-      Matrix_basic.simpl_access_of_access (target_of_path p);
-      Matrix_basic.simpl_index_add ((target_of_path p) @ [dArg 1]);
-      Arith.(simpl_rec gather_rec ((target_of_path p) @ [dArg 1]));
+    let simpl_index_after_inline (tg : target) : unit =
+      Target.iter (fun _t p_nested ->
+        let p = p_nested |> Path.parent in
+        Matrix_basic.simpl_access_of_access (target_of_path p);
+        Matrix_basic.simpl_index_add ((target_of_path p) @ [dArg 1]);
+        Arith.(simpl_rec gather_rec ((target_of_path p) @ [dArg 1]));
+      ) tg
+    in
+    let make_pretty_and_unmark (alloc_name: string) : unit =
+      List.iteri (fun i (seq_mark, instr_index) ->
+        if inline then
+          iter_on_targets (fun t loop_p ->
+            let instr_path = loop_p @ [Dir_seq_nth instr_index] in
+            let instr_target = target_of_path instr_path in
+            (* DEPRECATED since MALLOC0/MINDEX0
+            let instr = Path.resolve_path instr_path t in
+            let is_partial_mindex = not (trm_has_cstyle Reference instr) in
+            if is_partial_mindex then begin
+            *)
+              Variable_basic.to_const instr_target;
+              Marks.with_fresh_mark (fun mark ->
+                Variable_basic.inline ~mark instr_target;
+                simpl_index_after_inline [nbAny; cMark mark]
+              )
+            (* end else
+              Variable_basic.inline instr_target; *)
+          ) [cMark seq_mark];
+          (* FIXME if not inline, we have MINDEX0 artifacts *)
+        Marks.remove seq_mark [cMark seq_mark];
+      ) !tmp_marks;
+      tmp_marks := [];
+      if alloc_name <> "" then
+        Variable_basic.rename ~into:alloc_name [cMark alloc_mark];
+      Marks.remove alloc_mark [cMark alloc_mark];
+    in
+    iter_on_targets (fun t p ->
+      let tg_trm = Path.resolve_path p t in
+      match tg_trm.desc with
+      | Trm_let (_, (x, _), init) ->
+        if 1 <= (List.length loops) then begin
+          let name_template = Tools.string_subst "${var}" x.name tmp_names in
+          let alloc_name =
+            if inline && (name = "")
+            then x.name
+            else Tools.string_subst "${var}" x.name name
+          in
+          may_detach_init x init p;
+          mark_and_hoist x.name name_template 1 p;
+          make_pretty_and_unmark alloc_name;
+        end
+      | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
     ) tg
-  in
-  let make_pretty_and_unmark (alloc_name: string) : unit =
-    List.iteri (fun i (seq_mark, instr_index) ->
-      if inline then
-        iter_on_targets (fun t loop_p ->
-          let instr_path = loop_p @ [Dir_seq_nth instr_index] in
-          let instr_target = target_of_path instr_path in
-          (* DEPRECATED since MALLOC0/MINDEX0
-          let instr = Path.resolve_path instr_path t in
-          let is_partial_mindex = not (trm_has_cstyle Reference instr) in
-          if is_partial_mindex then begin
-          *)
-            Variable_basic.to_const instr_target;
-            Marks.with_fresh_mark (fun mark ->
-              Variable_basic.inline ~mark instr_target;
-              simpl_index_after_inline [nbAny; cMark mark]
-            )
-          (* end else
-            Variable_basic.inline instr_target; *)
-        ) [cMark seq_mark];
-        (* FIXME if not inline, we have MINDEX0 artifacts *)
-      Marks.remove seq_mark [cMark seq_mark];
-    ) !tmp_marks;
-    tmp_marks := [];
-    if alloc_name <> "" then
-      Variable_basic.rename ~into:alloc_name [cMark alloc_mark];
-    Marks.remove alloc_mark [cMark alloc_mark];
-  in
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with
-    | Trm_let (_, (x, _), init) ->
-      if 1 <= (List.length loops) then begin
-        let name_template = Tools.string_subst "${var}" x.name tmp_names in
-        let alloc_name =
-          if inline && (name = "")
-          then x.name
-          else Tools.string_subst "${var}" x.name name
-        in
-        may_detach_init x init p;
-        mark_and_hoist x.name name_template 1 p;
-        make_pretty_and_unmark alloc_name;
-      end
-    | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
-  ) tg
+  )
 
 (* [hoist ~name ~array_size ~inline tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations as well as hoisting through multiple loops.
@@ -296,7 +298,7 @@ begin
     assert ((List.hd target_relpath) = (Dir_seq_nth hoist_before_index));
     let (rev_loop_list, _) = List.fold_left (fun (rev_loop_list, p) elem ->
       let new_rev_loop_list = match trm_for_inv (resolve_path_current_ast p) with
-      | Some ((i, _start, _dir, _stop, _step, _par), _) ->
+      | Some ((i, _start, _dir, _stop, _step, _par), _, _) ->
         let loop_val = if List.mem i.name indep then 0 else 1 in
         loop_val :: rev_loop_list
       | None -> rev_loop_list
@@ -361,7 +363,7 @@ let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift
   Target.iter (fun t p ->
   let tg_trm = Path.resolve_path p t in
   let error = "Loop.shift: expected target to be a simple loop" in
-  let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
+  let ((prev_index, _, _, _, _, _), _, _) = trm_inv ~error trm_for_inv tg_trm in begin
   Loop_basic.shift index' kind (target_of_path p);
   simpl_range ~simpl (target_of_path p);
   if inline then begin
@@ -384,15 +386,15 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
     simpl (target_of_path (p @ [Dir_for_start]));
     simpl (target_of_path (p @ [Dir_for_stop]));
     let tg_loop = Target.resolve_path_current_ast p in
-    let (_, loop_instrs) = trm_inv ~error:"Loop.extend_range: expected simple loop"
+    let (_, loop_instrs, _) = trm_inv ~error:"Loop.extend_range: expected simple loop"
       trm_for_inv_instrs tg_loop in
     match Mlist.to_list loop_instrs with
-    | [single_intsr] ->
+    | [single_instr] ->
       (* TODO: simplify conditions such as:
           start <= index,
           index < stop
          *)
-      if Option.is_some (trm_if_inv single_intsr) then begin
+      if Option.is_some (trm_if_inv single_instr) then begin
         simpl (target_of_path (p @ [Dir_body; Dir_seq_nth 0; Dir_cond]));
       end
     | _ -> ()
@@ -849,7 +851,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (p : path
   Marks.with_fresh_mark_on p (fun m ->
     let (_, loop_path) = Path.index_in_surrounding_loop p in
     let loop_trm = Path.resolve_path loop_path (Trace.ast ()) in
-    let ((i, _start, _dir, _stop, _step, _par), body) = trm_inv
+    let ((i, _start, _dir, _stop, _step, _par), body, _contract) = trm_inv
       ~error:"Loop.reorder_at: expected simple loop."
       trm_for_inv loop_trm in
     (* Printf.printf "before i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
@@ -1143,7 +1145,7 @@ let%transfo delete_all_void (tg : target) : unit =
 let rec get_indices (nest_of : int) (outer_p : path) : var list =
   if nest_of > 0 then
     let error = "Loop.get_indices: expected simple loop" in
-    let ((index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv (Path.resolve_path outer_p (Trace.ast ())) in
+    let ((index, _, _, _, _, _), _, _) = trm_inv ~error trm_for_inv (Path.resolve_path outer_p (Trace.ast ())) in
     let nested_indices = get_indices (nest_of - 1) (Path.to_inner_loop outer_p) in
     index :: nested_indices
   else []

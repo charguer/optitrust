@@ -1167,15 +1167,15 @@ let is_postfix_unary (unop : unary_op) : bool =
     | _ -> false
 
 (* [trm_for_inv t]: gets the loop range from loop [t] *)
-let trm_for_inv (t : trm) : (loop_range * trm)  option =
+let trm_for_inv (t : trm) : (loop_range * trm * loop_spec)  option =
 match t.desc with
-| Trm_for (l_range, body, _) -> Some (l_range, body)
+| Trm_for (l_range, body, contract) -> Some (l_range, body, contract)
 | _ -> None
 
 (* [trm_for_inv_instrs t]: gets the loop range and body instructions from loop [t]. *)
-let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist) option =
-Option.bind (trm_for_inv t) (fun (r, b) ->
-  Option.map (fun instrs -> (r, instrs)) (trm_seq_inv b))
+let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist * loop_spec) option =
+Option.bind (trm_for_inv t) (fun (r, b, c) ->
+  Option.map (fun instrs -> (r, instrs, c)) (trm_seq_inv b))
 
 (* [is_trm_seq t]: checks if [t] is a sequence. *)
 let is_trm_seq (t : trm) : bool =
@@ -2523,7 +2523,7 @@ let trm_def_or_used_vars (t : trm) : Var_set.t =
     | Some (x, _, _, _) -> vars := Var_set.add x !vars
     | _ ->
     begin match trm_for_inv t with
-    | Some ((x, _, _, _, _, _), _) -> vars := Var_set.add x !vars
+    | Some ((x, _, _, _, _, _), _, _) -> vars := Var_set.add x !vars
     | _ -> ()
     end end end;
     trm_iter aux t
