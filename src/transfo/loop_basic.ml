@@ -82,6 +82,7 @@ let hoist_on (name : string)
   let old_var = ref dummy_var in
   let new_var = ref dummy_var in
   let new_dims = ref [] in
+  let new_access = ref trm_dummy in
   let with_mindex (dims : trms) : trm =
     new_dims := (arith_f array_size) :: dims;
     let partial_indices = (arith_f new_index) ::
@@ -95,8 +96,8 @@ let hoist_on (name : string)
     new_var := Trm.new_var (Tools.string_subst "${var}" x.name name);
     elem_ty := etyp;
     let mindex = with_mindex dims in
-    trm_let Var_immutable (x, typ_const_ptr etyp)
-      (trm_array_access (trm_var !new_var) mindex)
+    new_access := trm_array_access (trm_var !new_var) mindex;
+    trm_let Var_immutable (x, typ_const_ptr etyp) !new_access
   in
   let body_instrs_new_decl = Mlist.update_nth decl_index update_decl body_instrs in
   let new_body_instrs = begin
@@ -116,11 +117,19 @@ let hoist_on (name : string)
     | Some free_index -> Mlist.remove free_index 1 body_instrs_new_decl
     | None -> fail body.loc "Loop_basic.hoist: expected free instruction"
   end in
+  let new_body_instrs, new_contract = match contract with
+  | Some contract ->
+    let new_resource = Resource_formula.(formula_model !new_access trm_cell) in
+    new_body_instrs, Some (Resource_contract.push_loop_contract_clause Modifies (None, new_resource) contract)
+  | None ->
+    (* TODO: Generate ghost focus *)
+    new_body_instrs, None
+  in
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_no_brace [
     trm_may_add_mark mark
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
-    trm_for ?contract ~annot:t.annot range new_body;
+    trm_for ?contract:new_contract ~annot:t.annot range new_body;
     Matrix_core.free !new_dims (trm_var !new_var);
   ]
 
