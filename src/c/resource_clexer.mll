@@ -23,8 +23,16 @@ rule lex_resources = parse
   | '[' { LBRACKET }
   | ']' { RBRACKET }
   | '*' { STAR }
+  | '/' { SLASH }
+  | '%' { PERCENT }
   | '+' { PLUS }
   | '-' { MINUS }
+  | '=' { EQUAL }
+  | '<' { LT }
+  | '>' { GT }
+  | "<=" { LEQ }
+  | ">=" { GEQ }
+  | "<>" { NEQ }
   | blank { lex_resources lexbuf }
   | newline { new_line lexbuf; lex_resources lexbuf }
   | ident { IDENT (lexeme lexbuf) }

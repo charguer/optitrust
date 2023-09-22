@@ -1,7 +1,7 @@
 #include "../../include/optitrust.h"
 
 int f(int x) {
-    __ensures("__assert_eq(_Res, x * x)");
+    __ensures("_Res = x * x");
     __admitted();
     return x*x;
 }

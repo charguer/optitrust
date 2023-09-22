@@ -173,7 +173,7 @@ __GHOST(tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
     "n: int, to_item: int -> resource,"
-    "bound_check: __assert_eq(n, tile_size * tile_count)"
+    "bound_check: n = tile_size * tile_count"
   );
   __consumes("Group(range(0, n, 1), to_item)");
   __produces("Group(range(0, tile_count, 1), fun bi ->"
@@ -185,7 +185,7 @@ __GHOST(untile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
     "n: int, to_item: int -> resource,"
-    "bound_check: __assert_eq(n, tile_size * tile_count)"
+    "bound_check: n = tile_size * tile_count"
   );
   __consumes("Group(range(0, tile_count, 1), fun bi ->"
                "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)))");
@@ -223,7 +223,7 @@ __GHOST(matrix2_ro_unfocus) {
 
 __GHOST(group_focus_subrange) {
   __requires("wand_id: int, start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
-  __requires("bound_check_start: __assert_lt(old_start, start), bound_check_stop: __assert_lt(stop, old_stop)");
+  __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
   __consumes("Group(range(old_start, old_stop, step), items)");
   __produces("Group(range(start, stop, step), items), Wand(wand_id, Group(range(start, stop, step), items), Group(range(old_start, old_stop, step), items))");
   __admitted();

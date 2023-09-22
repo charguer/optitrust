@@ -147,5 +147,22 @@ let var_fun_type = toplevel_free_var "_Fun"
 let formula_fun_type (targ: trm) (tres: trm) =
   trm_apps (trm_var var_fun_type) [targ; tres]
 
+let formula_assert_eq = toplevel_free_var "__assert_eq"
+let formula_assert_neq = toplevel_free_var "__assert_neq"
+let formula_assert_lt = toplevel_free_var "__assert_lt"
+let formula_assert_gt = toplevel_free_var "__assert_gt"
+let formula_assert_leq = toplevel_free_var "__assert_leq"
+let formula_assert_geq = toplevel_free_var "__assert_geq"
+
+let formula_cmp (cmp: var) (a: formula) (b: formula): formula =
+  trm_apps ~annot:formula_annot (trm_var cmp) [a; b]
+
+let formula_eq = formula_cmp formula_assert_eq
+let formula_neq = formula_cmp formula_assert_neq
+let formula_lt = formula_cmp formula_assert_lt
+let formula_gt = formula_cmp formula_assert_gt
+let formula_leq = formula_cmp formula_assert_leq
+let formula_geq = formula_cmp formula_assert_geq
+
 let var_checked = toplevel_free_var "checked"
 let formula_checked = trm_var var_checked

@@ -9,7 +9,8 @@
 %token <int> INT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
 %token COLON COMMA AMPERSAND ARROW SQUIG_ARROW FUN COLON_EQUAL EOF
-%token STAR PLUS MINUS
+%token PLUS MINUS STAR SLASH PERCENT
+%token EQUAL LT GT LEQ GEQ NEQ
 
 %start <contract_resource list> resource_list
 %start <(hyp * formula) list> ghost_arg_list
@@ -39,7 +40,10 @@ atomic_formula:
 arith_factor:
   | a=arith_factor; STAR; b=atomic_formula;
     { trm_mul a b }
-  (* semantics of trm_div for SLASH? *)
+  | a=arith_factor; SLASH; b=atomic_formula;
+    { trm_div a b }
+  | a=arith_factor; PERCENT; b=atomic_formula;
+    { trm_mod a b }
   | a=atomic_formula;
     { a }
 
@@ -51,10 +55,26 @@ arith_term:
   | a=arith_factor;
     { a }
 
-formula_arrow:
-  | a=arith_term; ARROW; b=formula_arrow;
-    { formula_fun_type a b }
+formula_cmp:
+  | a=arith_term; EQUAL; b=arith_term;
+    { formula_eq a b }
+  | a=arith_term; LT; b=arith_term;
+    { formula_lt a b }
+  | a=arith_term; GT; b=arith_term;
+    { formula_gt a b }
+  | a=arith_term; LEQ; b=arith_term;
+    { formula_leq a b }
+  | a=arith_term; GEQ; b=arith_term;
+    { formula_geq a b }
+  | a=arith_term; NEQ; b=arith_term;
+    { formula_neq a b }
   | a=arith_term;
+    { a }
+
+formula_arrow:
+  | a=formula_cmp; ARROW; b=formula_arrow;
+    { formula_fun_type a b }
+  | a=formula_cmp;
     { a }
 
 formula:

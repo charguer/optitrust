@@ -2,8 +2,8 @@
 
 int div_exact(int a, int b) {
   __requires("q:int");
-  __requires("proof: __assert_eq(a, b * q)");
-  __ensures("__assert_eq(_Res, q)");
+  __requires("proof: a = b * q");
+  __ensures("_Res = q");
   __admitted();
   return a / b;
 }
