@@ -166,7 +166,8 @@ let simpl_index_add_on (t : trm) : trm =
 let%transfo simpl_index_add (tg : target) : unit =
   Resources.justif_correct "arguments are reproducible";
   Trace.tag_simpl_access ();
-  Target.apply_at_target_paths simpl_index_add_on tg
+  Target.apply_at_target_paths simpl_index_add_on tg;
+  Trace.apply Scope.infer_var_ids (* Needed because we generate MINDEX variables by name *)
 
 let simpl_access_of_access_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in

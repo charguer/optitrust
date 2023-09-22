@@ -111,14 +111,19 @@ let var_to_string (v : var) : string =
   let id_str = if v.id = inferred_var_id then "?" else (string_of_int v.id) in
   q_str ^ v.name ^ "#" ^ id_str
 
+let assert_var_id_set ~error_loc v =
+  if not (v.id >= 0) then failwith (sprintf "%s: Variable %s has an id that is not set (maybe forgot to call Trace.apply Scope.infer_var_ids)" error_loc (var_to_string v))
+
 let var_eq (v1 : var) (v2 : var) : bool =
-  assert (v1.id >= 0 && v2.id >= 0);
+  assert_var_id_set ~error_loc:"var_eq" v1;
+  assert_var_id_set ~error_loc:"var_eq" v2;
   v1.id = v2.id
 
 module Var = struct
   type t = var
   let compare v1 v2 =
-    if not (v1.id >= 0 && v2.id >= 0) then failwith "Var.compare: Found ids that are still not set (maybe forgot to call Trace.apply Scope.infer_var_ids)";
+    assert_var_id_set ~error_loc:"Var.compare" v1;
+    assert_var_id_set ~error_loc:"Var.compare" v2;
     Int.compare v1.id v2.id
   let equal v1 v2 = var_eq v1 v2
   let hash v = Hashtbl.hash v.id
