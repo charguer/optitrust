@@ -107,46 +107,8 @@ let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_
 let rename_aux (index : int) (new_name : string) (t : trm) : trm =
   let error = "Variable_core.rename_aux: expected the surrounding sequence of the targeted declaration." in
   let tl = trm_inv ~error trm_seq_inv t in
-  let new_var = new_var new_name in
-  let f_update (t : trm) : trm =
-    match t.desc with
-    | Trm_let (vk,( x, tx), init) ->
-      trm_let ~annot:t.annot vk (new_var, tx) init
-    | _ -> fail t.loc "Variable_core.rename_aux: expected a target to variable declaration"
-    in
-  let f_update_further (t : trm) : trm =
-    let dl = Mlist.nth tl index in
-    let x = begin match decl_name dl with
-    | Some x -> x
-    | None -> fail t.loc "Variable_core.rename_aux: expected a target to a variable declaration"
-    end in
-    let rec aux (t1 : trm) : trm =
-      match t1.desc with
-      | Trm_var (vk, y) when y = x ->
-          trm_replace (Trm_var (vk, new_var)) t1
-      | _ -> trm_map aux t1
-    in aux t
-  in
-  let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-  trm_seq ~annot:t.annot new_tl
-
-(*
-
-  instead of when y = x
-  when qvar_eq y x
-    ignores the string repr in the comparison
-
-
-
-
-    M :: f(int x)
-
-    rename ~new_name:"N :: g" [cFunDef "M :: f"];
-
-
-
- *)
-
+  let _, old_var, _, _ = trm_inv ~error:"Variable_core.rename_aux: expected a tartget to variable declaration." trm_let_inv (Mlist.nth tl index) in
+  trm_rename_vars (fun () var -> if var_eq var old_var then { var with name = new_name } else var) () t
 
 
 (* [rename new_name index t p]: applies [rename_aux] at trm [t] with path [p]. *)
