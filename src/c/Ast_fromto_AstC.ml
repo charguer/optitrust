@@ -417,7 +417,7 @@ let class_member_elim (t : trm) : trm =
       let this_mut = Var_immutable in
       let var_this = new_var "this" in
       let this_typ = get_class_typ current_class v in
-      let this_body = trm_apps (trm_toplevel_free_var  "malloc") [trm_toplevel_free_var ("sizeof(" ^ v.name ^ ")")] in
+      let this_body = trm_apps (trm_toplevel_free_var "malloc") [trm_toplevel_free_var ("sizeof(" ^ v.name ^ ")")] in
       let this_alloc = trm_let this_mut (var_this, this_typ) this_body in
       let typed_this = trm_var ~typ:this_typ var_this in
       to_subst := Var_map.add var_this typed_this !to_subst;
@@ -529,7 +529,7 @@ and ghost_args_elim_in_seq (ts: trm list): trm list =
     t :: ghost_args_elim_in_seq ts
 
 let formula_to_string (f: formula) : string =
-  AstC_to_c.ast_to_string ~optitrust_syntax:true f
+  AstC_to_c.ast_to_string (caddress_intro (Resource_contract.encode_formula f))
 
 let var__with = trm_var (name_to_var "__with")
 let var__call_with = trm_var (name_to_var "__call_with")

@@ -95,6 +95,9 @@ let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) =
 module Pattern = struct
   include Pattern
 
+  let formula_model f_var f_model =
+    trm_apps2 (trm_var (check (fun v -> v.name = "_HasModel"))) f_var f_model
+
   let formula_group f_range f_group_body =
     trm_apps_specific_var var_group (f_range ^:: f_group_body ^:: nil)
 

@@ -1300,12 +1300,9 @@ and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
 
 and formula_to_doc (f: formula): document =
   let open Resource_formula in
-  match formula_matrix_inv f with
-  | Some (m, dims) -> formula_to_doc (formula_model m (trm_apps (trm_var (name_to_var (sprintf "Matrix%d" (List.length dims)))) dims))
-  | None ->
-    match formula_model_inv f with
-    | Some (t, formula) -> (trm_to_doc t) ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ (trm_to_doc formula)
-    | None -> trm_to_doc {f with annot = {f.annot with trm_annot_cstyle = []}}
+  match formula_model_inv f with
+  | Some (t, formula) -> (trm_to_doc t) ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ (trm_to_doc formula)
+  | None -> trm_to_doc {f with annot = {f.annot with trm_annot_cstyle = []}}
 
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)

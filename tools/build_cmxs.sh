@@ -24,7 +24,7 @@ mkdir -p ${TMP_FOLDER}
 
 # TIMER4=`date +%s%3N`
 
-LAST_MODIF_LIB=`find ${OPTITRUST_FOLDER}/src -name "*.ml" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f2-2 -d" "`
+LAST_MODIF_LIB=`find ${OPTITRUST_FOLDER}/src -name "*.ml*" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f2-2 -d" "`
 
 NEEDS_REBUILD="0"
 

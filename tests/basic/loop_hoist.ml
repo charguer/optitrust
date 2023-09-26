@@ -37,11 +37,12 @@ let _ = Run.script_cpp (fun () ->
   (*
   !! Ast.assert_transfo_error "expected uninitialized allocation" (fun _ ->
     Loop_basic.hoist [cVarDef "w"]);
-*)
+  *)
 
   !! Loop_basic.hoist ~name:"yn" [cVarDef "y"];
   !! Loop_basic.hoist ~name:"ym" [cVarDef "yn"];
   !! Loop_basic.hoist ~name:"yl" [cVarDef "ym"];
 
-  (*!!! ();*)
+  (* TODO: Loop_basic.hoist cannot recheck resources because we don't handle aliases *)
+  !!! ();
 )

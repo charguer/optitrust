@@ -16,13 +16,13 @@ void array_free(float* M) {
 __ghost_ret array_focus() {
   __requires("M: ptr, i: int, dim: int");
   __consumes("M ~> Array(dim)");
-  __produces("M[i] ~> Cell, M ~> FocussedArray(dim, i)");
+  __produces("&M[i] ~> Cell, M ~> FocussedArray(dim, i)");
   __admitted();
 }
 
 __ghost_ret array_unfocus() {
   __requires("M: ptr, i: int, dim: int");
-  __consumes("M ~> FocussedArray(dim, i), M[i] ~> Cell");
+  __consumes("M ~> FocussedArray(dim, i), &M[i] ~> Cell");
   __produces("M ~> Array(dim)");
   __admitted();
 }
@@ -37,6 +37,6 @@ void f() {
 }
 
 void g(float* t) {
-  __modifies("t[0] ~> Cell");
+  __modifies("&t[0] ~> Cell");
   t[0] = 0;
 }

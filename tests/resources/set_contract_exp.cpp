@@ -21,7 +21,7 @@ void incr_both(int* n, int* m) {
 void incr_range(int* m, int sz) {
   __modifies("m ~> Matrix1(sz)");
   for (int i = 0; i < sz; ++i) {
-    __modifies("m[MINDEX1(sz, i)] ~> Cell");
+    __modifies("&m[MINDEX1(sz, i)] ~> Cell");
     incr(&m[MINDEX1(sz, i)]);
   }
 }

@@ -45,6 +45,11 @@ let rec desugar_formula (formula: formula): formula =
     end
   | None -> trm_map desugar_formula formula
 
+let rec encode_formula (formula: formula): formula =
+  match formula_matrix_inv formula with
+  | Some (m, dims) -> formula_model m (trm_apps (trm_var (name_to_var (sprintf "Matrix%d" (List.length dims)))) dims)
+  | None -> trm_map encode_formula formula
+
 let desugar_res ((name, formula): contract_resource): contract_resource =
   (name, desugar_formula formula)
 
