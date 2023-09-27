@@ -25,7 +25,7 @@ let recompute_all_resources () : unit =
     let t = Trace.ast () in
     let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
     (* TODO: Configurable base environment *)
-    let t = Resource_computation.(trm_recompute_resources builtin_env t) in
+    let t = Resource_computation.(trm_recompute_resources empty_resource_set t) in
     Trace.set_ast t
   )
 
@@ -120,5 +120,5 @@ let assert_commute (before : trm) (after : trm) : unit =
 let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
   let t = Trace.ast() in
   let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
-  let tres = Resource_computation.(trm_recompute_resources builtin_env t) in
+  let tres = Resource_computation.(trm_recompute_resources empty_resource_set t) in
   show_computed_res ~line ~ast:tres ()

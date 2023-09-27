@@ -43,6 +43,92 @@ template<typename T> T __bind(T ret_val, const char*) { return ret_val; }
 inline void __rename(const char*) {}
 */
 
+/* ---- Contract for primitive functions ---- */
+
+template<typename T> T* __new(T init) {
+  __produces("_Res ~> Cell");
+  __admitted();
+  return new T(init);
+}
+
+template<typename T> T __get(T* p) {
+  __reads("p ~> Cell");
+  __admitted();
+  return *p;
+}
+
+template<typename T> void __set(T* p, T x) {
+  __modifies("p ~> Cell");
+  __admitted();
+  *p = x;
+}
+
+template<typename T> T __add(T x1, T x2) {
+  __pure();
+  __admitted();
+  return x1 + x2;
+}
+
+template<typename T> T __sub(T x1, T x2) {
+  __pure();
+  __admitted();
+  return x1 - x2;
+}
+
+template<typename T> T __mul(T x1, T x2) {
+  __pure();
+  __admitted();
+  return x1 * x2;
+}
+
+template<typename T> T* __array_access(T* tab, int i) {
+  __pure();
+  __admitted();
+  return &tab[i];
+}
+
+template<typename T> void __add_inplace(T* p, T x) {
+  __modifies("p ~> Cell");
+  __admitted();
+  *p += x;
+}
+
+template<typename T> void __sub_inplace(T* p, T x) {
+  __modifies("p ~> Cell");
+  __admitted();
+  *p -= x;
+}
+
+template<typename T> void __mul_inplace(T* p, T x) {
+  __modifies("p ~> Cell");
+  __admitted();
+  *p *= x;
+}
+
+template<typename T> T __post_inc(T* p) {
+  __modifies("p ~> Cell");
+  __admitted();
+  return p++;
+}
+
+template<typename T> T __post_dec(T* p) {
+  __modifies("p ~> Cell");
+  __admitted();
+  return p--;
+}
+
+template<typename T> T __pre_inc(T* p) {
+  __modifies("p ~> Cell");
+  __admitted();
+  return ++p;
+}
+
+template<typename T> T __pre_dec(T* p) {
+  __modifies("p ~> Cell");
+  __admitted();
+  return --p;
+}
+
 /* ---- Matrix Functions ---- */
 
 inline int MINDEX0() {

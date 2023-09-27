@@ -10,13 +10,8 @@ type linear_resource_set = resource_item list
 let var_result = toplevel_var "_Res"
 let trm_result: formula = trm_var var_result
 let _Full = toplevel_var "_Full"
+let __admitted = toplevel_var "__admitted"
 
-(* The contract of the [set] function. *)
-let set_fun_contract p =
-  { pre = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] ();
-    post = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] (); }
-
-(* LATER: express these as parsed C function definitions *)
 let __cast = toplevel_var "__cast"
 let __new = toplevel_var "__new"
 let __get = toplevel_var "__get"
@@ -32,29 +27,6 @@ let __post_inc = toplevel_var "__post_inc"
 let __post_dec = toplevel_var "__post_dec"
 let __pre_inc = toplevel_var "__pre_inc"
 let __pre_dec = toplevel_var "__pre_dec"
-
-(* The environment containing the contracts of builtin functions. *)
-let builtin_env =
-  let h x = new_hyp x in
-  resource_set ~fun_contracts:(var_map_of_list [
-    __new, ([h "init"],
-      { pre = empty_resource_set;
-        post = resource_set ~linear:[(new_anon_hyp (), formula_cell var_result)] () });
-    __get, (let p = h "p" in ([p],
-      push_read_only_fun_contract_res (None, formula_cell p) empty_fun_contract));
-    __set, (let p = h "p" in ([p; h "x"], set_fun_contract p));
-    __add, ([h "x1"; h "x2"], empty_fun_contract);
-    __sub, ([h "x1"; h "x2"], empty_fun_contract);
-    __mul, ([h "x1"; h "x2"], empty_fun_contract);
-    __array_access, ([h "tab"; h "i"], empty_fun_contract);
-    __add_inplace, (let p = h "p" in ([p; h "x"], set_fun_contract p));
-    __sub_inplace, (let p = h "p" in ([p; h "x"], set_fun_contract p));
-    __mul_inplace, (let p = h "p" in ([p; h "x"], set_fun_contract p));
-    __post_inc, (let p = h "p" in ([p], set_fun_contract p));
-    __post_dec, (let p = h "p" in ([p], set_fun_contract p));
-    __pre_inc, (let p = h "p" in ([p], set_fun_contract p));
-    __pre_dec, (let p = h "p" in ([p], set_fun_contract p));
-  ]) ()
 
 (* A formula that may instantiate contract variables with
    hypotheses from the calling context.
@@ -681,8 +653,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         | [arg] -> compute_resources_and_merge_usage (Some res) (Some usage_map) arg
         | _ -> failwith "expected 1 argument for cast"
         end
-      | None when fn.name = "__admitted" ->
-        (* LATER: Force the function __admitted inside optitrust.h to have a predefined id to make this check faster and allow proper shadowing *)
+      | None when var_eq fn __admitted ->
         None, None
       | None -> raise (Spec_not_found fn)
       end
@@ -719,9 +690,8 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
     | Trm_typedef _ ->
       Some usage_map, Some res
 
-    | Trm_template _ ->
-      (* FIXME: Manage this case or change the encoding of templates *)
-      Some usage_map, Some res
+    | Trm_template (params, t) ->
+      compute_resources (Some res) t
 
     | _ -> fail t.loc ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
     end with e when !Flags.resource_errors_as_warnings ->
