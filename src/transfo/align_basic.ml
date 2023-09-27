@@ -15,5 +15,5 @@ let header () =
 (* [assume alignment var tg]: expects the target [tg] to be a relative target, then it will insert an instruction of the
     form var = __builtin_assume_aligned(var, alignment) at that location.*)
 let assume (alignment : trm) (var : var) : Transfo.t =
-  let call_to_insert = trm_apps (trm_toplevel_free_var "__builtin_assume_aligned") [trm_var var; alignment] in
+  let call_to_insert = trm_apps (trm_toplevel_var "__builtin_assume_aligned") [trm_var var; alignment] in
   Sequence_basic.insert call_to_insert

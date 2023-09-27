@@ -54,7 +54,7 @@ let unique_alpha_rename (t : trm) : trm =
   Qualified_map.iter (fun (q, n) id ->
     let var = { qualifier = q; name = n; id = id } in
     ignore (map_var () var)
-  ) !toplevel_free_vars;
+  ) !toplevel_vars;
   trm_rename_vars map_var () t
 
 (* LATER: #var-id, flag to disable check for performance *)

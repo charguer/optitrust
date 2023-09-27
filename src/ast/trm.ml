@@ -127,23 +127,23 @@ let name_to_var ?(qualifier : string list = []) (name : string) : var =
 
 let dummy_var = { qualifier = []; name = ""; id = dummy_var_id }
 
-(* FIXME: #var-id , do we want this global map or should this be context ? *)
-(** Map of toplevel free variables, i.e. variables that are never bound in the current file. *)
-let toplevel_free_vars: var_id Qualified_map.t ref = ref Qualified_map.empty
+(** Map of toplevel variables. Note that some of them can be declared but never defined. *)
+let toplevel_vars: var_id Qualified_map.t ref = ref Qualified_map.empty
 
-(** [trm_toplevel_free_var]: creates a toplevel free variable occurence.
-  A new variable identifier is created if the variable did not exist.
+(* TODO: Decide if we want to change the pattern to fail if the toplevel_var already exists. *)
+(** [toplevel_var]: return the toplevel variable with the given name
+  A new variable identifier is predeclared if the variable did not exist.
     *)
-let toplevel_free_var ?(qualifier : string list = []) (name : string) : var =
-  match Qualified_map.find_opt (qualifier, name) !toplevel_free_vars with
+let toplevel_var ?(qualifier : string list = []) (name : string) : var =
+  match Qualified_map.find_opt (qualifier, name) !toplevel_vars with
   | None ->
     let v = new_var ~qualifier name in
-    toplevel_free_vars := Qualified_map.add (qualifier, name) v.id !toplevel_free_vars;
+    toplevel_vars := Qualified_map.add (qualifier, name) v.id !toplevel_vars;
     v
   | Some id -> { qualifier; name; id }
 
-let trm_toplevel_free_var ?(qualifier : string list = []) (name : string) : trm =
-  trm_var (toplevel_free_var ~qualifier name)
+let trm_toplevel_var ?(qualifier : string list = []) (name : string) : trm =
+  trm_var (toplevel_var ~qualifier name)
 
 (* [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
@@ -332,7 +332,7 @@ let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(c
   let t = trm_lit ?loc ?ctx Lit_nullptr in
   if uppercase then trm_add_cstyle Display_null_uppercase t else t
 
-let var_free = toplevel_free_var "free"
+let var_free = toplevel_var "free"
 
 (* [trm_free]: build a term calling the 'free' function. *)
 let trm_free ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (memory : trm) : trm =
@@ -1723,6 +1723,10 @@ let fun_with_empty_body (t : trm) : trm =
 
 (* ========== matrix helpers =========== *)
 
+let mindex_vars = Array.init 5 (fun n -> toplevel_var (sprintf "MINDEX%d" n))
+
+let mindex_var (n: int) = try mindex_vars.(n) with Invalid_argument _ -> failwith (sprintf "MINDEX%d is not defined (too many dimensions)" n)
+
 (* [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
     [dims] - dimensions of the matrix access,
     [indices ] - indices of the matrix access.
@@ -1730,26 +1734,25 @@ let fun_with_empty_body (t : trm) : trm =
      Example:
      MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3
      Here, dims = [N1, N2, N3] and indices = [i1, i2, i3]. *)
-     let mindex (dims : trms) (indices : trms) : trm =
-      if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
-          dimension should correspond to the number of indices";
-      let n = List.length dims in
-      let mindex = trm_var (name_to_var ("MINDEX" ^ (string_of_int n))) in
-      trm_apps mindex (dims @ indices)
+let mindex (dims : trms) (indices : trms) : trm =
+  if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
+      dimension should correspond to the number of indices";
+  let n = List.length dims in
+  trm_apps (trm_var (mindex_var n)) (dims @ indices)
 
-    (* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]/ *)
-    let mindex_inv (t : trm) : (trms * trms) option =
-      match t.desc with
-      | Trm_apps (f, dims_and_indices, _) ->
-        begin match f.desc with
-        | Trm_var (_, fv) when (Tools.pattern_matches "MINDEX" fv.name) ->
-          let n = List.length dims_and_indices in
-          if (n mod 2 = 0) then
-            Some (Xlist.split_at (n/2) dims_and_indices)
-          else None
-        | _ -> None
-        end
+(* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t] *)
+let mindex_inv (t : trm) : (trms * trms) option =
+  match t.desc with
+  | Trm_apps (f, dims_and_indices, _) ->
+    let n = List.length dims_and_indices in
+    if (n mod 2 = 0 && n/2 <= Array.length mindex_vars) then
+      begin match f.desc with
+      | Trm_var (_, fv) when var_eq mindex_vars.(n/2) fv ->
+          Some (Xlist.split_at (n/2) dims_and_indices)
       | _ -> None
+      end
+    else None
+  | _ -> None
 
 
 (* ********************************************************************************************** *)
@@ -2140,7 +2143,7 @@ let trm_map_vars
 
     | Trm_seq instrs ->
       (* LATER: add bool for no scope seq? *)
-      let no_scope = trm_is_include t in
+      let no_scope = trm_is_include t || trm_is_mainfile t in
       let cont_ctx = ref (if no_scope then ctx else enter_scope ctx t) in
       let instrs' = Mlist.map (fun t ->
         let cont_ctx', t' = f_map !cont_ctx t in

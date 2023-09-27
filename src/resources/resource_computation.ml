@@ -7,9 +7,9 @@ type linear_resource_set = resource_item list
 
 (* The built-in variable representing a function's return value. *)
 (* FIXME: #var-id, id should change *)
-let var_result = toplevel_free_var "_Res"
+let var_result = toplevel_var "_Res"
 let trm_result: formula = trm_var var_result
-let _Full = toplevel_free_var "_Full"
+let _Full = toplevel_var "_Full"
 
 (* The contract of the [set] function. *)
 let set_fun_contract p =
@@ -17,21 +17,21 @@ let set_fun_contract p =
     post = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] (); }
 
 (* LATER: express these as parsed C function definitions *)
-let __cast = toplevel_free_var "__cast"
-let __new = toplevel_free_var "__new"
-let __get = toplevel_free_var "__get"
-let __set = toplevel_free_var "__set"
-let __add = toplevel_free_var "__add"
-let __sub = toplevel_free_var "__sub"
-let __mul = toplevel_free_var "__mul"
-let __array_access = toplevel_free_var "__array_access"
-let __add_inplace = toplevel_free_var "__add_inplace"
-let __sub_inplace = toplevel_free_var "__sub_inplace"
-let __mul_inplace = toplevel_free_var "__mul_inplace"
-let __post_inc = toplevel_free_var "__post_inc"
-let __post_dec = toplevel_free_var "__post_dec"
-let __pre_inc = toplevel_free_var "__pre_inc"
-let __pre_dec = toplevel_free_var "__pre_dec"
+let __cast = toplevel_var "__cast"
+let __new = toplevel_var "__new"
+let __get = toplevel_var "__get"
+let __set = toplevel_var "__set"
+let __add = toplevel_var "__add"
+let __sub = toplevel_var "__sub"
+let __mul = toplevel_var "__mul"
+let __array_access = toplevel_var "__array_access"
+let __add_inplace = toplevel_var "__add_inplace"
+let __sub_inplace = toplevel_var "__sub_inplace"
+let __mul_inplace = toplevel_var "__mul_inplace"
+let __post_inc = toplevel_var "__post_inc"
+let __post_dec = toplevel_var "__post_dec"
+let __pre_inc = toplevel_var "__pre_inc"
+let __pre_dec = toplevel_var "__pre_dec"
 
 (* The environment containing the contracts of builtin functions. *)
 let builtin_env =
@@ -71,7 +71,7 @@ let inst_hyp_inv (f: formula_inst) =
   | Trm_var (Var_immutable, h) -> Some h
   | _ -> None
 
-let var_SplitRO = toplevel_free_var "SplitRO"
+let var_SplitRO = toplevel_var "SplitRO"
 
 let inst_split_read_only ~(new_frac: var) (h: hyp) : formula_inst =
   trm_apps (trm_var var_SplitRO) [trm_var new_frac; inst_hyp h]
@@ -441,7 +441,7 @@ let binop_to_var_name (u: binary_op): string =
   | _ -> raise Unimplemented
 
 let prim_to_var (p: prim): var =
-  toplevel_free_var (match p with
+  toplevel_var (match p with
   | Prim_unop u -> unop_to_var_name u
   | Prim_binop b -> binop_to_var_name b
   | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
@@ -509,8 +509,8 @@ let rec formula_of_trm (t: trm): formula option =
       | Some _ -> None
       | None ->
         begin match trm_var_inv fn with
-          | Some fv when String.starts_with ~prefix:"MINDEX" fv.name
-            -> Some (trm_apps fn f_args)
+          | Some fv when Array.exists (fun mindex -> var_eq mindex fv) mindex_vars
+              -> Some (trm_apps fn f_args)
           | _ -> None
         end
     end

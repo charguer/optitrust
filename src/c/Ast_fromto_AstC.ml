@@ -417,7 +417,7 @@ let class_member_elim (t : trm) : trm =
       let this_mut = Var_immutable in
       let var_this = new_var "this" in
       let this_typ = get_class_typ current_class v in
-      let this_body = trm_apps (trm_toplevel_free_var "malloc") [trm_toplevel_free_var ("sizeof(" ^ v.name ^ ")")] in
+      let this_body = trm_apps (trm_toplevel_var "malloc") [trm_toplevel_var ("sizeof(" ^ v.name ^ ")")] in
       let this_alloc = trm_let this_mut (var_this, this_typ) this_body in
       let typed_this = trm_var ~typ:this_typ var_this in
       to_subst := Var_map.add var_this typed_this !to_subst;
@@ -572,6 +572,7 @@ let rec ghost_args_intro (t: trm) : trm =
 
 open Resource_contract
 
+(* These pseudo-variables will never get an id since they disappear before *)
 let __pure = name_to_var "__pure"
 let __requires = name_to_var "__requires"
 let __ensures = name_to_var "__ensures"

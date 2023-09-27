@@ -72,7 +72,7 @@ let alloc ?(init : trm option) (dims : trms) (size : trm) : trm =
 
 let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
-  let size = trm_toplevel_free_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
+  let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
   trm_cast ~annot (typ_const_ptr ty) (
     trm_apps (trm_var (name_to_var ("MALLOC" ^  (string_of_int n)))) (dims @ [size]))
 
@@ -103,7 +103,7 @@ let let_alloc_inv_with_ty (t : trm) : (var * trms * typ * trm) option =
      the memory and [alignment] is the alignment size. *)
 let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
   let n = List.length dims in
-  trm_apps (trm_toplevel_free_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
+  trm_apps (trm_toplevel_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
 
 
 (* [zero_initialized]: a boolean type used as flag to tell if the array cells should be initialized to zero or not. *)

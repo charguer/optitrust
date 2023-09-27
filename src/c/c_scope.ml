@@ -46,8 +46,8 @@ let print_scope_ctx scope_ctx =
 let toplevel_scope_ctx (): scope_ctx = {
   prefix_qualifier_rev = [];
   conflicts = Qualified_set.empty;
-  predefined = Qualified_set.empty; (* LATER: could add some toplevel vars that we allow redefining here. *)
-  var_ids = !toplevel_free_vars;
+  predefined = Qualified_map.fold (fun qname _ set -> Qualified_set.add qname set) !toplevel_vars Qualified_set.empty;
+  var_ids = !toplevel_vars;
   fun_prototypes = Var_map.empty;
 }
 
@@ -183,7 +183,7 @@ let infer_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
     trm_var ~annot ?loc ?typ ~ctx ~kind begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id -> { qualifier = var.qualifier; name = var.name; id }
     (* LATER: this can be confusing if triggered when not expected *)
-    | None -> toplevel_free_var ~qualifier:var.qualifier var.name
+    | None -> toplevel_var ~qualifier:var.qualifier var.name
     end
   else check_map_var scope_ctx (annot, loc, typ, ctx, kind) var
 

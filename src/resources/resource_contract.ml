@@ -29,21 +29,15 @@ let empty_loop_contract =
   { loop_ghosts = []; invariant = empty_resource_set; iter_contract = empty_fun_contract }
 
 
-
 let rec desugar_formula (formula: formula): formula =
-  match formula_model_inv formula with
-  | Some (var, model) ->
-    begin
-    match trm_apps_inv model with
-    | Some (f, args) ->
-      begin match trm_var_inv f with
-      | Some f when f.name = sprintf "Matrix%d" (List.length args) ->
+  (* Warning: this function is called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
+  Pattern.pattern_match formula [
+    Pattern.(trm_apps2 (trm_var (check (fun v -> v.name = "_HasModel"))) !__ (trm_apps (trm_var !__) !__ __)) (fun var f args ->
+        if f.name <> sprintf "Matrix%d" (List.length args) then raise Pattern.Next;
         formula_matrix var args
-      | _ -> trm_map desugar_formula formula
-      end
-    | None -> trm_map desugar_formula formula
-    end
-  | None -> trm_map desugar_formula formula
+      );
+    Pattern.(!__) (fun formula -> trm_map desugar_formula formula)
+  ]
 
 let rec encode_formula (formula: formula): formula =
   match formula_matrix_inv formula with

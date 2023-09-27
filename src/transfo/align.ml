@@ -12,7 +12,7 @@ let alloc (vec_align : trm) : Target.Transfo.t =
       if zero_init
         then fail tg_trm.loc "Align.alloc: can't align calloc macros";
       let num_dims = List.length dims in
-      let new_fun_name = toplevel_free_var ("MALLOC_ALIGNED" ^ (string_of_int num_dims)) in
+      let new_fun_name = toplevel_var ("MALLOC_ALIGNED" ^ (string_of_int num_dims)) in
       Function_basic.replace_with_change_args new_fun_name (fun tl ->
         tl @ [vec_align]) (target_of_path p)
     | None -> fail tg_trm.loc "Align.alloc: expected a call to MALLOC function "
