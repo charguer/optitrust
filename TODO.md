@@ -185,6 +185,8 @@
 
 # Documentation
 
+- apply changes in tree.md and remove this file
+
 - dune build @doc on a single file / file subset
   - exclude compcert from doc
 

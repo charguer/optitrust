@@ -1,4 +1,5 @@
 
+(* TODO: perhaps split this file between runflags and syntaxflags *)
 (* TODO: group options that are relevant for "reset in batching" into a record data structure;
    so that we can save its state, and restore it, in between tests;
    - options for interactivity
