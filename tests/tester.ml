@@ -102,6 +102,7 @@ let comparison_method : comparison_method ref = ref Comparison_method_text
 let _remove_later = comparison_method := Comparison_method_ast;
   comparison_method := Comparison_method_text
 
+  (* TODO: add a flag to capture stdout *)
 
 (*****************************************************************************)
 (* Saving arguments of the last call in the last target *)
