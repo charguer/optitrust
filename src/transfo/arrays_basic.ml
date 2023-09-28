@@ -73,7 +73,7 @@ let%transfo set_explicit (tg : target) : unit =
 
 let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses : mark option) (t : trm) : trm =
   let error = "Arrays_basic.inline_constant_on: expected array access with constant index" in
-  (* Debug_transfo.trm "t" t; *)
+  (* Transfo_debug.trm "t" t; *)
   let ptr_t = trm_inv ~error trm_get_inv t in
   let (base, index) = trm_inv ~error array_access_inv ptr_t in
   let var = trm_inv ~error trm_var_inv base in

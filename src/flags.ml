@@ -10,6 +10,9 @@ let code_print_width = ref 80
 (* [verbose]: flag to activate the printing of debug information *)
 let verbose : bool ref = ref false
 
+(* Flag to hide stdout produced by tests when executed from ./tester *)
+let hide_stdout : bool ref = ref false
+
 (* [analyse_stats]: flag to meansure the time taken by each transformation. *)
 let analyse_stats : bool ref = ref false
 

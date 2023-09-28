@@ -177,8 +177,8 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
     let ps = resolve_target tg new_t in
     let nb_occs = List.length ps in
     let nb_seq_occs = List.length (List.filter (fun p -> List.length p = 1) ps) in
-    (* Debug_transfo.trm "new_t" new_t;
-    Debug_transfo.current_ast_at_target "tg" tg;
+    (* Transfo_debug.trm "new_t" new_t;
+    Transfo_debug.current_ast_at_target "tg" tg;
     printf "nb_seq_occs: %d\n" nb_seq_occs; *)
     if nb_occs = 0 then raise Init_attach_no_occurrences
      else if nb_occs > nb_seq_occs then raise Init_attach_occurrence_below_control;

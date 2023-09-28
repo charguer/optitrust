@@ -1094,7 +1094,7 @@ let%transfo slides ?(index : string = "b${id}")
       match size_step with
       | Some (size, step) ->
         let target_p = Path.to_inner_loop_n i p in
-        (* Debug_transfo.current_ast_at_path "sliding" target_p; *)
+        (* Transfo_debug.current_ast_at_path "sliding" target_p; *)
         slide ~index ~bound ~iter ~size ~step ~simpl (target_of_path target_p);
         let tile_loop_p = Path.to_inner_loop target_p in
         begin match !prev_outer_elt_loop with

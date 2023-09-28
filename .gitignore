@@ -12,3 +12,4 @@ wrong.tests
 *_inlined.cpp
 tools/_last_view_result.sh
 .idea
+_tests_stdout.txt

@@ -120,8 +120,8 @@ let assert_same_dims (a : trms) (b : trms) : unit =
   (* TODO: need something better for term equality *)
   if not (List.for_all2 Internal.same_trm a b) then begin
     Printf.printf "WARNING: Matrix_basic: dimensions mismatch\n";
-    Debug_transfo.trms "a" a;
-    Debug_transfo.trms "a" b;
+    Transfo_debug.trms "a" a;
+    Transfo_debug.trms "a" b;
   end
 
 (* TODO: check that size and index expressions are pure, otherwise fail *)
