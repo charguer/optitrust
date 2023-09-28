@@ -151,15 +151,66 @@ let%transfo hoist ?(name : string = "${var}_step")
     [t]: ast of the loop
     *)
 let fission_on (index : int) (t : trm) : trm =
-  let (l_range, tl, _contract) = trm_inv
+  let (l_range, tl, contract) = trm_inv
     ~error:"Loop_basic.fission_on: only simple loops are supported"
     trm_for_inv_instrs t
   in
   (* TODO: Repair contract *)
   let tl1, tl2 = Mlist.split index tl in
+  let fst_contract = ref None in
+  let snd_contract = ref None in
+  begin match contract with
+  | _ when not !Flags.check_validity -> ()
+  | None -> fail t.loc "Loop_basic.fission_on: requires an annotated for loop to check validity"
+  | Some contract ->
+    let open Resource_formula in
+
+    let error = "Loop_basic.fission_on: the for loop is not parallelizable" in
+    List.iter (Resources.assert_hyp_read_only ~error) contract.invariant.linear;
+    Trace.justif "The for loop is parallelizable";
+
+    let tl2_ctx_res = Tools.unsome ((Mlist.nth tl2 0).ctx.ctx_resources_before) in
+    (* let tl2_resource_usage = Mlist.fold_left (fun current_usage ti ->
+      let extra_usage = Tools.unsome (c.ctx.ctx_resources_usage) in
+      update_usage_map ~current_usage ~extra_usage
+    ) (empty_usage_map tl2_ctx_res) tl2; *)
+    let bound_in_tl1 = Mlist.fold_left (fun acc ti ->
+        match trm_let_inv ti with
+        | Some (vk, v, typ, init) -> Var_set.add v acc
+        | None -> acc
+      ) Var_set.empty tl1
+    in
+    let filter_resource_items its =
+      List.filter (fun (h, formula) -> Var_set.disjoint (trm_free_vars formula) bound_in_tl1) its
+    in
+    let filter_resource_set res =
+      { pure = filter_resource_items res.pure;
+        linear = filter_resource_items res.linear;
+        fun_contracts = Var_map.empty }
+    in
+    let resources_after_tl1 = filter_resource_set tl2_ctx_res in
+    fst_contract := Some {
+      loop_ghosts = contract.loop_ghosts;
+      invariant = contract.invariant;
+      iter_contract = {
+        pre = contract.iter_contract.pre;
+        post = resources_after_tl1;
+      }
+    };
+    snd_contract := Some {
+      loop_ghosts = contract.loop_ghosts;
+      invariant = contract.invariant;
+      iter_contract = {
+        pre = resources_after_tl1;
+        post = contract.iter_contract.post;
+      }
+    };
+  end;
+  Debug_transfo.trm "fst" (trm_for_instrs ?contract:!fst_contract l_range tl1);
+  Debug_transfo.trm "snd" (trm_for_instrs ?contract:!snd_contract l_range tl2);
   trm_seq_no_brace [
-    trm_for_instrs l_range tl1;
-    trm_copy (trm_for_instrs l_range tl2);]
+    trm_for_instrs ?contract:!fst_contract l_range tl1;
+    trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2);]
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -168,12 +219,14 @@ let fission_on (index : int) (t : trm) : trm =
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
 let%transfo fission (tg : target) : unit =
+  Resources.required_for_check ();
   Nobrace_transfo.remove_after (fun _ ->
     Target.apply (fun t p_before ->
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       apply_on_path (fission_on split_i) t p_loop)
-    tg)
+    tg);
+  Resources.justif_correct "loop resources where successfully split"
 
 (* [fission_all_instrs_on]: split loop [t] into N loops,
    one per instruction in the loop body

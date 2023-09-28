@@ -491,7 +491,7 @@ let rec formula_of_trm (t: trm): formula option =
 let empty_usage_map (res: resource_set): resource_usage_map =
  List.fold_left (fun acc (h, _) -> Hyp_map.add h NotUsed acc) Hyp_map.empty res.linear
 
-let update_usage_map ~(current_usage: resource_usage_map) ~(child_usage: resource_usage_map): resource_usage_map =
+let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resource_usage_map): resource_usage_map =
   Hyp_map.merge (fun _ cur_use ch_use ->
       match cur_use, ch_use with
       | None, _ -> None
@@ -501,13 +501,13 @@ let update_usage_map ~(current_usage: resource_usage_map) ~(child_usage: resourc
       | Some UsedReadOnly, Some u -> Some u
       | Some u, Some UsedReadOnly -> Some u
       | Some UsedFull, Some UsedFull -> Some UsedFull
-    ) current_usage child_usage
+    ) current_usage extra_usage
 
-let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(child_usage: resource_usage_map option): resource_usage_map option =
+let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usage: resource_usage_map option): resource_usage_map option =
   let open Tools.OptionMonad in
   let* current_usage in
-  let* child_usage in
-  Some (update_usage_map ~current_usage ~child_usage)
+  let* extra_usage in
+  Some (update_usage_map ~current_usage ~extra_usage)
 
 let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource_usage_map) : resource_usage_map =
   (* TODO: Maybe manage pure as well *)
@@ -521,7 +521,7 @@ let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource
         | None -> failwith "Weird resource used"
     ) Hyp_map.empty res_used.used_linear
   in
-  update_usage_map ~current_usage:usage_map ~child_usage:locally_used
+  update_usage_map ~current_usage:usage_map ~extra_usage:locally_used
 
 let debug_print_computation_stack = false
 
@@ -723,8 +723,8 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
   usage_map, res
 
 and compute_resources_and_merge_usage ?(expected_res: resource_spec) (res: resource_spec) (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_spec =
-  let child_usage, res = (compute_resources : ?expected_res:resource_set -> resource_spec -> trm -> (resource_usage_map option * resource_spec)) ?expected_res res t in
-  let usage_map = update_usage_map_opt ~current_usage ~child_usage in
+  let extra_usage, res = (compute_resources : ?expected_res:resource_set -> resource_spec -> trm -> (resource_usage_map option * resource_spec)) ?expected_res res t in
+  let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
   (usage_map, res)
 
 let ctx_copy (ctx: ctx): ctx = { ctx with ctx_types = ctx.ctx_types }

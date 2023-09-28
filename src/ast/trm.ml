@@ -238,9 +238,9 @@ let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: 
   (loop_range : loop_range) (body : trm) : trm =
   trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_for (loop_range, body, contract))
 
-let trm_for_instrs ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
+let trm_for_instrs ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_spec)
 (loop_range : loop_range) (body_instrs : trm mlist) : trm =
-  trm_for ~annot ?loc ?ctx loop_range (trm_seq body_instrs)
+  trm_for ~annot ?loc ?ctx ?contract loop_range (trm_seq body_instrs)
 
 (* [code code_str ]: arbitrary code entered by the user *)
 let code (code_str : code_kind) : trm =

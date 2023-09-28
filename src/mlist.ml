@@ -164,6 +164,10 @@ let pop_back (ml : 'a t) : 'a t =
   let ln = length ml in
   remove (ln - 1) 1 ml
 
+(* [lst ml]: returns the last element from the mlist [ml]. *)
+let lst (ml : 'a t) : 'a option =
+  let ln = length ml in
+  nth_opt ml (ln - 1)
 
 (* [update_nth n transfo ml]: applies function [transfo] at the item with index [n] in mlist [ml]. *)
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
