@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 
 
 (* [insert_aux ty t]: adds a type in front of [t] to cast its current type to [ty],

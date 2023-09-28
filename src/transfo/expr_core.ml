@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 
 (* [update f t]: replaces an expression [t] with [f t]. *)
 let update (f : trm -> trm) : Target.Transfo.local =

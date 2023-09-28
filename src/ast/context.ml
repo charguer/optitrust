@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 
 (* [typid_to_typedef tid ]: gets the declaration of a typedef with id [tid]. *)
 let typid_to_typedef (tid : typconstrid) : typedef option =

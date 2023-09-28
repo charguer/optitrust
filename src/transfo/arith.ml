@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Path
 open Target
 include Arith_basic

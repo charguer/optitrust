@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [delete tg]: delete the targeted function definition.

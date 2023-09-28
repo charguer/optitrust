@@ -1,7 +1,7 @@
 (** Loop transformations.
     *)
 
-open Syntax
+open Prelude
 open Target
 include Loop_basic
 include Loop_swap

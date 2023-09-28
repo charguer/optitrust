@@ -1,7 +1,7 @@
 include Arrays_basic
 
 open Target
-open Syntax
+open Prelude
 
 (* returns the [i] and [indices - i] if [t] is a loop over index [i]. *)
 let inv_loop_with_index_in (indices : Var_set.t) (t : trm) : (var * Var_set.t) option =

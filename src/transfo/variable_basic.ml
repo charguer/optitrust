@@ -1,5 +1,5 @@
 open Target
-open Syntax
+open Prelude
 
 
 (* [fold ~at tg]: expects the target [tg] to point at a variable declaration,

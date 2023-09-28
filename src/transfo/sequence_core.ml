@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [insert_aux index code t]: inserts trm [code] at index [index] in sequence [t],

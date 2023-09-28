@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [to_variables new_vars tg]: expects the target [tg] to point at an array declaration.

@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Syntax
+open Prelude
 open Ast_fromto_AstC
 
 (* let _ = Flags.set_dump_clang_ast() *)

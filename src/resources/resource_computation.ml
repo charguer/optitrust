@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Resource_formula
 open Resource_contract
 

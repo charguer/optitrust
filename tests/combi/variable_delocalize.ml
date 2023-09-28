@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Syntax
+open Prelude
 
 let _ = Run.doc_script_cpp (fun () ->
   let a = find_var_in_current_ast "a" in

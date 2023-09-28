@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Syntax
+open Prelude
 
 let _ = Flags.execute_show_even_in_batch_mode := true
 

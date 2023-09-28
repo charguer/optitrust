@@ -1,5 +1,5 @@
 open Target
-open Syntax
+open Prelude
 include Expr_basic
 
 (* [replace_fun code tg]: expects the target [tg] to point at a function call,

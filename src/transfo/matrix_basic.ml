@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [intro_calloc tg]: expects the target [tg] to point at  a call to funciton alloc then it will

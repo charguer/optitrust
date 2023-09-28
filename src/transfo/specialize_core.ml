@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [any_aux e t]: replaces the function call [t] with [e]

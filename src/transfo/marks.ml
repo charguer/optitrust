@@ -1,7 +1,7 @@
 include Marks_basic
 
 open Target
-open Syntax
+open Prelude
 
 let with_fresh_mark (f : mark -> unit) : unit =
   let m = Mark.next () in

@@ -1,5 +1,5 @@
 
-open Syntax
+open Prelude
 open PPrint
 open Target
 

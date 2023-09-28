@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [any e tg]: expects the target [tg] to be point at a call to the function [ANY], then it will replace it with [e]. *)

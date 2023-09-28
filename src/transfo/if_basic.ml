@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 
 (* [insert cond tg]: expects the target [tg] to point at an instruction
     inside a sequence. Then it will create an if statement with the condition entered by the user

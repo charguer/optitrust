@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 open Path
 include Function_basic

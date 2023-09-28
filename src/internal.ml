@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [same_kind t1 t2]: check if two ast nodes are of the same kind or not *)

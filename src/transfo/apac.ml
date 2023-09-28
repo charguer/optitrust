@@ -1,5 +1,5 @@
 
-open Syntax
+open Prelude
 open Target
 open Path
 open Mlist

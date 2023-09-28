@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 open Path
 include Apac_core
@@ -179,7 +179,7 @@ let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
      boolean value for each element in [tvs] telling whether the corresponding
      declaration should be constified or not. This information is determined
      earlier during the constification process in [constify_args] and can be
-     found in the hash table [Apac_core.const_mult]. 
+     found in the hash table [Apac_core.const_mult].
 
      If [constify] is empty, no constification should take place. In this case,
      [constify] becomes a list full of [false] values. *)
@@ -213,7 +213,7 @@ let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
    becomes:
 
      int a = 1;
-     int b = a; 
+     int b = a;
 
    If [constify] is [true] one or more variable declarations from the target
    multiple variable declaration [tg] will be constified. See comments in
@@ -342,7 +342,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
              fun tv ti ->
              let res = trm_let_update_aliases tv ti aliases in res > 0
            ) tvs tis in
-       let _ = Printf.printf "which_aliases is %d long\n" (List.length which_aliases) in 
+       let _ = Printf.printf "which_aliases is %d long\n" (List.length which_aliases) in
        (* If all the elements of [which_aliases] are [false], *)
        if (List.for_all (fun a -> a = false) which_aliases) then
          let _ = Printf.printf "all false\n" in

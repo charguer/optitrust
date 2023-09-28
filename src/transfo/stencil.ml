@@ -1,5 +1,5 @@
 open Target
-open Syntax
+open Prelude
 
 (* TODO: unit tests + document *)
 

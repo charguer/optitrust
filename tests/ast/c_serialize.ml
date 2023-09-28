@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Syntax
+open Prelude
 open Ast_fromto_AstC
 
 (* This test is used to check if we can serialize the current ast

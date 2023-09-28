@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 
 (* [copy_aux dest_index index t]: copies instruction with [index] to the [dest_index],
      [dest_index] - the relative [index] where the target instruction will be copied,

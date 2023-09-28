@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [delete tg]: expects the target [tg] to point at an instruction inside a sequence

@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [fold ~at tg]: expects the target [tg] to point at a typedef, then it will fold its definition,

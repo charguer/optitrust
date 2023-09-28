@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 
 (* [fold_aux as_reference fold_at index t]: fold the targeted variable declaration,
       [fold_at] - target where folding should be performed, if left empty

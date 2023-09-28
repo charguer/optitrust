@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (*  [color_aux nb_colors i_color t]: transform a loop into two nested loops based on the coloring pattern,
