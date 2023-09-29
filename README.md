@@ -34,7 +34,7 @@ Installation of OCaml ecosystem:
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
    opam pin add clangml 4.8.0
-   opam install dune clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server
+   opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server
    # next line used only for generating the documentation of OptiTrust:
    opam install odoc lambdasoup
    # then in any case execute the last line below
@@ -137,6 +137,12 @@ and merge that contents just before the final closing brace of the existing file
 ```jsonc
   // OptiTrust keybindings
   {
+    "key": "f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Redo last view command",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
     "key": "shift+f5",
     "command": "workbench.action.tasks.runTask",
     "args": "View trace",
@@ -160,10 +166,29 @@ and merge that contents just before the final closing brace of the existing file
     "args": "View diff for ast encoding",
     "when": "config.optitrust.enableKeybindings"
   },
+  // For working with unit tests
   {
-    "key": "f5",
+    "key": "f10",
     "command": "workbench.action.tasks.runTask",
-    "args": "Redo last view command",
+    "args": "Rerun the last-tried test(s)",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "ctrl+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Run the current test",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "shift+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Run all the tests",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "alt+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open unit test ML and CPP files",
     "when": "config.optitrust.enableKeybindings"
   },
   // For working with long transformation scripts
@@ -185,24 +210,13 @@ and merge that contents just before the final closing brace of the existing file
     "args": "Save intermediate state",
     "when": "config.optitrust.enableKeybindings"
   },
+  // For killing a task, type 'ctrl+k' twice, then 'enter'
   {
-    "key": "shift+f10",
-    "command": "workbench.action.tasks.runTask",
-    "args": "Run all the tests",
-    "when": "config.optitrust.enableKeybindings"
+     "key": "ctrl+k ctrl+k",
+     "command": "workbench.action.tasks.terminate",
+     "when": "config.optitrust.enableKeybindings"
   },
-  {
-    "key": "f10",
-    "command": "workbench.action.tasks.runTask",
-    "args": "Rerun the last-tried test(s)",
-    "when": "config.optitrust.enableKeybindings"
-  },
-  {
-    "key": "ctrl+f10",
-    "command": "workbench.action.tasks.runTask",
-    "args": "Run the current test",
-    "when": "config.optitrust.enableKeybindings"
-  }
+
 ```
 
 Note: the shortcuts refer to tasks that are defined in `.vscode/tasks.json`,
@@ -221,11 +235,23 @@ but instead from the line of the snapshot taken using `ctrl+F7`.
 
 ### Deactivate conficting Ubuntu binding
 
-IMPORTANT: on Ubuntu, `Alt+F6` is bound to a window moving operation;
-you can either modify the shortcut, or simpler deactivate the Ubuntu binding.
-To that end, open the settings panel, the keyboard menu, the shortcut submenu,
-then in the 'window' group, type on the `Alt+F6` shortcut, type `Backspace`
-to disable the shortcut.
+IMPORTANT: on Ubuntu, `Alt+F6`, `Alt+F7` etc. are bound to window manipulation operations,
+e.g. resize. You can either modify the shortcut, or (easier) deactivate the Ubuntu binding.
+To that end you may use the following commands:
+
+```sh
+  sudo apt-get install dconf-editor
+  gsettings set org.gnome.desktop.wm.keybindings begin-move []
+  gsettings set org.gnome.desktop.wm.keybindings begin-resize []
+  gsettings set org.gnome.desktop.wm.keybindings cycle-group []
+  gsettings set org.gnome.desktop.wm.keybindings cycle-group-backward []
+  gsettings set org.gnome.desktop.wm.keybindings toggle-maximized []
+```
+
+Alternatively, you can open the settings panel, the keyboard menu, the
+shortcut submenu, then in the search bar type `Alt+F` (or go to the
+'window' group), then select an action, and type `Backspace` to disable
+the shortcut, then click on the `save` button.
 
 
 --------------------------------------------------------------------------------

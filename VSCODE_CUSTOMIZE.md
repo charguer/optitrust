@@ -1,5 +1,6 @@
 
 
+
 # general-purpose customization for VScode (OPTIONAL)
 
 
@@ -17,10 +18,6 @@ Variant: install the GitGraph extension:
 In your `~/.config/Code/User/settings.json` file, add the lines:
 
 ```jsonc
-  // Whitespace trimming is already activated in OptiTrust's local settings.json file
-  "files.trimTrailingWhitespace": true,
-
-  "files.insertFinalNewline": true,
 
   // To allow reading C++ code in ifdef sections
   "C_Cpp.dimInactiveRegions": false,
@@ -28,10 +25,13 @@ In your `~/.config/Code/User/settings.json` file, add the lines:
   // To enlarge the editing space
   "editor.minimap.enabled": false,
 
+  // To support zooming using the mouse
   "editor.mouseWheelZoom": true,
 
+  // To make scrolling smoother
   "workbench.list.smoothScrolling": true,
 
+  // To work-around a bug of VScode, which currently opens dialog boxes in the background
   "files.simpleDialog.enable": true,
 
   // View long lines in a reasonable way

@@ -33,6 +33,11 @@
             "args": ["-i"]
           }
         },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
+        },
         "args": [
           "${fileDirname}",
           "${fileBasenameNoExtension}",
@@ -50,6 +55,11 @@
             "args": ["-i"]
           }
         },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
+        },
         "args": [
           "${fileDirname}",
           "${fileBasenameNoExtension}",
@@ -66,6 +76,11 @@
           "shell": {
             "args": ["-i"]
           }
+        },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
         },
         "args": [
           "${fileDirname}",
@@ -85,6 +100,11 @@
             "args": ["-i"]
           }
         },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
+        },
         "args": [
           "${fileDirname}",
           "${fileBasenameNoExtension}",
@@ -103,6 +123,11 @@
             "args": ["-i"]
           }
         },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
+        },
         "args": [
           "${fileDirname}",
           "${fileBasenameNoExtension}",
@@ -120,6 +145,11 @@
             "args": ["-i"]
           }
         },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
+        },
         "args": [
           "${fileDirname}",
           "${fileBasenameNoExtension}",
@@ -136,6 +166,11 @@
           "shell": {
             "args": ["-i"]
           }
+        },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
         },
         "args": [
           "${fileDirname}",
@@ -155,6 +190,11 @@
             "args": ["-i"]
           }
         },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
+        },
         "args": [
           "${fileDirname}",
           "${fileBasenameNoExtension}",
@@ -171,6 +211,11 @@
           "shell": {
             "args": ["-i"]
           }
+        },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
         }
       },
 
@@ -229,6 +274,11 @@
         ],
         "options": {
           "cwd": "${fileDirname}"
+        },
+        "presentation": {
+          "reveal": "silent",
+          "revealProblems": "onProblem",
+          "clear": true
         }
       },
       {
