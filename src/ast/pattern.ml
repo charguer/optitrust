@@ -83,13 +83,20 @@ let trm_int (f: 'a -> int -> 'b) (k: 'a) (t: trm): 'b =
   | Some x -> f k x
   | _ -> raise Next
 
-let trm_fun args ?(ret_type = __) ?(contract = __) body k t =
+let trm_fun args body k t =
   match t.desc with
   | Trm_fun (targs, tret_type, tbody, tcontract) ->
     let k = args k targs in
-    let k = ret_type k tret_type in
     let k = body k tbody in
-    let k = contract k tcontract in
+    k
+  | _ -> raise Next
+
+let trm_for range body spec k t =
+  match t.desc with
+  | Trm_for (trange, tbody, tspec) ->
+    let k = range k trange in
+    let k = body k tbody in
+    let k = spec k tspec in
     k
   | _ -> raise Next
 
@@ -98,7 +105,19 @@ let trm_string f k t =
   | Some (Lit_string str) -> f k str
   | _ -> raise Next
 
+let mlist f k t = f k (Mlist.to_list t)
+
 let pair f1 f2 k (x1, x2) =
   let k = f1 k x1 in
   let k = f2 k x2 in
   k
+
+let some f k xo =
+  match xo with
+  | Some x -> f k x
+  | None -> raise Next
+
+let none k xo =
+  match xo with
+  | None -> k
+  | Some _ -> raise Next

@@ -1,3 +1,5 @@
+#include "../../include/optitrust.h"
+
 int* t;
 
 int main() {
@@ -12,4 +14,31 @@ int main() {
     for (int j = i; j < i + 1; j++) {
     }
   }
+}
+
+void f(int* t, int* u, int* v, int n, int m) {
+  __modifies("t ~> Matrix1(n), v ~> Matrix2(n, m)");
+  __reads("u ~> Matrix1(n)");
+  __ghost(rewrite,
+          "H1 := Group(range(0, n, 1), fun x -> Group(range(0, m, 1), fun y -> "
+          "&v[MINDEX2(n, m, x, y)] ~> Cell)), H2 := Group(range(0, m, 1), fun "
+          "y -> Group(range(0, n, 1), fun x -> &v[MINDEX2(n, m, x, y)] ~> "
+          "Cell)), by := swap_groups");
+  for (int y = 0; y < m; y++) {
+    __sequentially_modifies("t ~> Matrix1(n)");
+    __sequentially_reads("u ~> Matrix1(n)");
+    __modifies(
+        "Group(range(0, n, 1), fun x -> &v[MINDEX2(n, m, x, y)] ~> Cell)");
+    for (int x = 0; x < n; x++) {
+      __modifies("&t[MINDEX1(n, x)] ~> Cell, &v[MINDEX2(n, m, x, y)] ~> Cell");
+      __reads("&u[MINDEX1(n, x)] ~> Cell");
+      t[MINDEX1(n, x)] = y * u[MINDEX1(n, x)];
+      v[MINDEX2(n, m, x, y)] = t[MINDEX1(n, x)];
+    }
+  }
+  __ghost(rewrite,
+          "H1 := Group(range(0, m, 1), fun y -> Group(range(0, n, 1), fun x -> "
+          "&v[MINDEX2(n, m, x, y)] ~> Cell)), H2 := Group(range(0, n, 1), fun "
+          "x -> Group(range(0, m, 1), fun y -> &v[MINDEX2(n, m, x, y)] ~> "
+          "Cell)), by := swap_groups");
 }

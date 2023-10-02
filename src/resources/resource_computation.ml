@@ -61,24 +61,6 @@ let inst_split_read_only_inv (f: formula_inst): (var * hyp) option =
     end
   | _ -> None
 
-let subst_in_resources ?(forbidden_binders = Var_set.empty) (subst_map: tmap) (res: resource_set): tmap * resource_set =
-  let subst_var_in_resource_list =
-    List.fold_left_map (fun subst_ctx (h, t) ->
-        let t = trm_subst subst_map t in
-        (subst_ctx, (h, t))
-      )
-  in
-  let subst_ctx, pure = subst_var_in_resource_list (forbidden_binders, subst_map) res.pure in
-  let _, linear = subst_var_in_resource_list subst_ctx res.linear in
-  (snd subst_ctx, { pure; linear;
-    fun_contracts = res.fun_contracts (* TODO: subst here as well? *) })
-
-let subst_var_in_resources (x: var) (t: trm) (res: resource_set) : resource_set =
-  snd (subst_in_resources (Var_map.singleton x t) res)
-
-let rename_var_in_resources (x: var) (new_x: var) (res: resource_set) : resource_set =
-  subst_var_in_resources x (trm_var new_x) res
-
 
 let fun_contract_free_vars (contract: fun_contract): Var_set.t =
   let fold_res_list bound_vars fv res =
@@ -666,7 +648,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_for ((index, tstart, _, tend, step, _) as range, body, Some contract) ->
       (* Compute resources outside the loop *)
-      let invariant_before = subst_var_in_resources index tstart contract.invariant in
+      let invariant_before = subst_invariant_start range contract.invariant in
       let before_loop_res = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
       let before_loop_res = { before_loop_res with pure = contract.loop_ghosts @ before_loop_res.pure } in
       let ghost_subst_ctx, res_used, res_frame = extract_resources ~split_frac:true res before_loop_res in
@@ -674,7 +656,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       (* Compute resources inside the loop body *)
       let loop_body_pre = res_union contract.invariant contract.iter_contract.pre in
       let loop_body_pre = { loop_body_pre with pure = contract.loop_ghosts @ loop_body_pre.pure; fun_contracts = res.fun_contracts } in
-      let invariant_after_one_iter = subst_var_in_resources index (trm_add (trm_var index) (loop_step_to_trm step)) contract.invariant in
+      let invariant_after_one_iter = subst_invariant_step range contract.invariant in
       let loop_body_post = res_union invariant_after_one_iter contract.iter_contract.post in
       ignore (compute_resources ~expected_res:loop_body_post (Some loop_body_pre) body);
 
