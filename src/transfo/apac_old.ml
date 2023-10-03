@@ -1,3 +1,4 @@
+(*
 (* [decl_cptrs]: hashtable storing available varaibles and whether they are
     arrays. *)
 type decl_cptrs = (var, bool) Hashtbl.t
@@ -490,3 +491,4 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
       Target.apply_at_target_paths (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"
   )
+ *)
