@@ -1,13 +1,16 @@
 #include "../../include/optitrust.h"
 
 __ghost_ret test() {
-  __requires("f: _Fun(int, formula), k: int, valid: f(k)");
+  __requires("f: _Fun(int, formula)");
+  __requires("k: int");
+  __requires("valid: f(k)");
   __ensures("f(k + 1)");
   __admitted();
 }
 
 __ghost_ret two_closures() {
-  __requires("f: _Fun(_Fun(formula, formula), formula), g: _Fun(int, formula)");
+  __requires("f: _Fun(_Fun(formula, formula), formula)");
+  __requires("g: _Fun(int, formula)");
   __ensures("f(g)");
   __admitted();
 }

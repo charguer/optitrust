@@ -529,7 +529,7 @@ and ghost_args_elim_in_seq (ts: trm list): trm list =
     t :: ghost_args_elim_in_seq ts
 
 let formula_to_string (f: formula) : string =
-  AstC_to_c.ast_to_string (caddress_intro (Resource_contract.encode_formula f))
+  AstC_to_c.ast_to_string ~beautify_mindex:!Flags.pretty_matrix_notation (caddress_intro (Resource_contract.encode_formula f))
 
 let var__with = trm_var (name_to_var "__with")
 let var__call_with = trm_var (name_to_var "__call_with")
@@ -670,17 +670,14 @@ let named_formula_to_string (hyp, formula): string =
     then Printf.sprintf "%s" sformula
     else Printf.sprintf "%s: %s" hyp.name sformula
 
-(* FIXME: Copied from Sequence_core to avoid circular dependancy *)
-(* [insert_aux index code t]: inserts trm [code] at index [index] in sequence [t],
-    [index] - a valid index where the instruction can be added,
-    [code] - instruction to be added as an arbitrary trm,
+(* [seq_push code t]: inserts trm [code] at the begining of sequence [t],
+    [code] - instruction to be added,
     [t] - ast of the outer sequence where the insertion will be performed. *)
-let insert_aux (index : int) (code : trm) (t : trm) : trm =
-  let error = "Sequence_core.insert_aux: expected the sequence on where insertion is performed." in
+let seq_push (code : trm) (t : trm) : trm =
+  let error = "seq_push: expected a sequence where insertion is performed." in
   let tl = trm_inv ~error trm_seq_inv t in
-  let new_tl = Mlist.insert_at index code tl in
-  (* TODO: Should use alter here ? *)
-  trm_seq ~annot:t.annot new_tl
+  let new_tl = Mlist.push_front code tl in
+  trm_replace (Trm_seq new_tl) t
 
 let ctx_resource_list_to_string ?(sep = ", ") (res: resource_item list) : string =
   String.concat sep (List.map named_formula_to_string res)
@@ -749,12 +746,10 @@ let computed_resources_intro (t: trm): trm =
 let rec contract_intro (t: trm): trm =
   (* debug_current_stage "contract_intro"; *)
   let push_named_formulas (contract_prim: var) (named_formulas: resource_item list) (t: trm): trm =
-    if named_formulas = [] then
-      t
-    else
-      let sres = ctx_resource_list_to_string named_formulas in
+    List.fold_right (fun named_formula t ->
+      let sres = named_formula_to_string named_formula in
       let tres = trm_apps (trm_var contract_prim) [trm_string sres] in
-      insert_aux 0 tres t
+      seq_push tres t) named_formulas t
   in
 
   let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
@@ -809,7 +804,7 @@ let rec contract_intro (t: trm): trm =
     let body =
       match contract with
       | Some contract when contract = empty_fun_contract ->
-        insert_aux 0 (trm_apps (trm_var __pure) []) body
+        seq_push (trm_apps (trm_var __pure) []) body
       | Some contract ->
         let pre_pure, pre_linear, post_linear, body =
           push_reads_and_modifies __reads __modifies contract.pre.pure contract.pre.linear contract.post.linear body
@@ -830,7 +825,7 @@ let rec contract_intro (t: trm): trm =
     let body =
       match contract with
       | Some contract when contract = empty_loop_contract ->
-        insert_aux 0 (trm_apps (trm_var __pure) []) body
+        seq_push (trm_apps (trm_var __pure) []) body
       | Some contract ->
         let loop_ghosts, pre_linear, post_linear, body =
           push_reads_and_modifies __reads __modifies

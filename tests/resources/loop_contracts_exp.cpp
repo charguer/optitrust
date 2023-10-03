@@ -2,31 +2,43 @@
 #include "omp.h"
 
 __ghost_ret array_focus() {
-  __requires("M: ptr, i: int, dim: int");
+  __requires("M: ptr");
+  __requires("i: int");
+  __requires("dim: int");
   __consumes("M ~> Array(dim)");
-  __produces("&M[i] ~> Cell, M ~> FocussedArray(dim, i)");
+  __produces("&M[i] ~> Cell");
+  __produces("M ~> FocussedArray(dim, i)");
   __admitted();
 }
 
 __ghost_ret array_unfocus() {
-  __requires("M: ptr, i: int, dim: int");
-  __consumes("M ~> FocussedArray(dim, i), &M[i] ~> Cell");
+  __requires("M: ptr");
+  __requires("i: int");
+  __requires("dim: int");
+  __consumes("M ~> FocussedArray(dim, i)");
+  __consumes("&M[i] ~> Cell");
   __produces("M ~> Array(dim)");
   __admitted();
 }
 
 __ghost_ret array_ro_focus() {
-  __requires("M: ptr, i: int, dim: int, f: _Fraction");
+  __requires("M: ptr");
+  __requires("i: int");
+  __requires("dim: int");
+  __requires("f: _Fraction");
   __consumes("_RO(f, M ~> Array(dim))");
-  __produces("_RO(f, &M[i] ~> Cell), _RO(f, M ~> FocussedArray(dim, i))");
+  __produces("_RO(f, &M[i] ~> Cell)");
+  __produces("_RO(f, M ~> FocussedArray(dim, i))");
   __admitted();
 }
 
 __ghost_ret array_ro_unfocus() {
-  __requires("M: ptr, i: int, dim: int, f: _Fraction");
-  __consumes(
-      "_RO(_Full(f), M ~> FocussedArray(dim, i)), _RO(_Full(f), &M[i] ~> "
-      "Cell)");
+  __requires("M: ptr");
+  __requires("i: int");
+  __requires("dim: int");
+  __requires("f: _Fraction");
+  __consumes("_RO(_Full(f), M ~> FocussedArray(dim, i))");
+  __consumes("_RO(_Full(f), &M[i] ~> Cell)");
   __produces("_RO(f, M ~> Array(dim))");
   __admitted();
 }
@@ -58,14 +70,16 @@ void array_copy_explicit(float* A, float* B, int n) {
 }
 
 __ghost_ret array_unfold() {
-  __requires("M: ptr, dim: int");
+  __requires("M: ptr");
+  __requires("dim: int");
   __consumes("M ~> Array(dim)");
   __produces("Group(range(0, dim, 1), fun i -> &M[i] ~> Cell)");
   __admitted();
 }
 
 __ghost_ret array_fold() {
-  __requires("M: ptr, dim: int");
+  __requires("M: ptr");
+  __requires("dim: int");
   __consumes("Group(range(0, dim, 1), fun i -> &M[i] ~> Cell)");
   __produces("M ~> Array(dim)");
   __admitted();
@@ -107,7 +121,8 @@ void array_copy_with_tmp(float* A, float* B, int n) {
   __ghost(array_unfold, "M := B");
   for (int i = 0; i < n; ++i) {
     __sequentially_reads("A ~> Array(n)");
-    __modifies("&B[i] ~> Cell, &T[i] ~> Cell");
+    __modifies("&B[i] ~> Cell");
+    __modifies("&T[i] ~> Cell");
     __ghost(array_ro_focus, "M := A, i := i");
     T[i] = A[i];
     __ghost(array_ro_unfocus, "M := A");
@@ -121,7 +136,8 @@ void array_copy_with_tmp(float* A, float* B, int n) {
 void g(int* x) { __reads("x ~> Cell"); }
 
 void f(int* x, int* y) {
-  __modifies("x ~> Cell, y ~> Cell");
+  __modifies("x ~> Cell");
+  __modifies("y ~> Cell");
   *x = 4;
   g(x);
   *y += 1;

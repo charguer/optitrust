@@ -1327,8 +1327,8 @@ let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : u
   close_out out
 
 (* [ast_to_string ~optitrust_syntax t]: converts ast [t] to string *)
-let ast_to_string ?(optitrust_syntax : bool = false) (t : trm) : string =
-  document_to_string (ast_to_doc t)
+let ast_to_string ?(optitrust_syntax : bool = false) ?(beautify_mindex : bool = false) (t : trm) : string =
+  document_to_string (ast_to_doc ~beautify_mindex t)
 
 (* [typ_to_string ty]: converts type [ty] to string *)
 let typ_to_string (ty : typ) : string =
