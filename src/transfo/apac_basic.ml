@@ -249,8 +249,7 @@ let constify_args_on ?(force = false) (t : trm) : trm =
   (* If the function is a class member method, its first argument is the [this]
      variable referring to the parent class. In this case, we do not need to
      include it in the resulting constification record. *)
-    let this = List.hd args in
-    let args = if const_record.is_class_method then List.tl args else args in
+    let args' = if const_record.is_class_method then List.tl args else args in
     (* Simultaneously loop over the list of function's arguments as well as over
        the list of argument constification records and constify the arguments
        that should be constified according to the corresponding constification
@@ -258,12 +257,15 @@ let constify_args_on ?(force = false) (t : trm) : trm =
     let (_, const_args_record) = List.split const_record.const_args in
     let const_args = List.map2 (fun (v, ty) (cr : const_arg) ->
                          if cr.is_const then (v, (typ_constify ty)) else (v, ty)
-                       ) args const_args_record in
+                       ) args' const_args_record in
     (* Rebuild the function definition term using the list of constified
-       arguments. If it is a class member method, we have to bring back [this]
-       to the list of arguments. *)
+       arguments. We have to bring back [this] to the list of arguments. If it
+       is a class member method, [this] is a non-empty list. *)
     let const_args =
-      if const_record.is_class_method then this::const_args else const_args in
+      if const_record.is_class_method then
+        (List.hd args)::const_args
+      else
+        const_args in
     let let_fun_with_const_args =
       trm_let_fun ~annot:t.annot var ret_typ const_args body in
     (* Constify the function too if the constification record says so. *)
@@ -402,8 +404,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   (* If the function is a class member method, its first argument is the [this]
      variable referring to the parent class. In this case, we do not need to
      include it in the resulting constification record. *)
-  let this = List.hd args in
-  let args = if const_record.is_class_method then List.tl args else args in
+  let args' = if const_record.is_class_method then List.tl args else args in
   (* Create an alias hash table. *)
   let aliases : const_aliases = LVar_Hashtbl.create 10 in
   (* Optionally, force the constification of all of the aliases by adding all of
@@ -413,7 +414,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
       List.iter (fun (arg_var, arg_ty) ->
           let arg_lv : lvar = { v = arg_var; l = String.empty } in
           LVar_Hashtbl.add aliases arg_lv (arg_lv, typ_get_degree arg_ty)
-        ) args
+        ) args'
     end
   (* Otherwise, have a look at the constification record of the function to find
      out which of its arguments have been constified, if any. Then, add them to
@@ -433,12 +434,10 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
               let arg_lv : lvar = { v = arg_var; l = String.empty } in
               LVar_Hashtbl.add aliases arg_lv (arg_lv, typ_get_degree arg_ty)
             end
-        ) args const_args_record
+        ) args' const_args_record
     end;
   (* Call the auxiliary function to constify the aliases in the body of the
-     function. If it is a class member method, we have to bring back [this] to
-     the list of arguments. *)
-  let args = if const_record.is_class_method then this::args else args in
+     function. *)
   let body_with_const_aliases = aux aliases body in
   (* Rebuild and return the function definition term with the updated body. *)
   trm_let_fun ~annot:t.annot var ret_ty args body_with_const_aliases
