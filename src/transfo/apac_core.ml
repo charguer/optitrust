@@ -216,6 +216,36 @@ type const_unconst_objects = (var * var * var) Stack.t
    be constified. *)
 type const_mult = (mark, bool list) Hashtbl.t
 
+(*********************)
+(* I.2 Taskification *)
+(*********************)
+
+(* [atrm]: augmented term type. The initial task DAG of a function considers
+   each instruction and each block of instructions (loops, scopes, switches,
+   ...) as a separate task. Prior to building the initial task DAG of a
+   function, we have to compute the potential data dependencies between the
+   future tasks. During this process, we iterate over the local AST of the
+   target function and build an augmented local AST holding the dependency
+   information. This augmented local AST is built out of [atrm] elements. Each
+   [atrm] can represent a task by itself. An [atrm] element is composed of: *)
+type atrm = {
+    (* - the original AST term, *)
+    current : trm;
+    (* - a list of input dependencies (read-only within the instruction), *)
+    mutable ins : deps;
+    (* - a list of in/out dependencies (read-write within the instruction), *)
+    mutable inouts : deps;
+    (* - a list of child augmented terms, *)
+    children : atrms;
+    (* - a list of child terms that are essential for the dependency computation
+       but cannot represent tasks by themselves, e.g. the initialization term in
+       a for-loop or the condition term in an if-conditional. *)
+    params : trms;
+  }
+
+(* [atrms]: list of augmented terms (see [atrm]). *)
+and atrms = atrm list
+
 (******************************************************************)
 (* PART II: DECLARATION AND/OR INITIALIZATION OF GLOBAL VARIABLES *)
 (* II.1 Constification                                            *)
@@ -234,6 +264,15 @@ let to_unconst_objects : const_unconst_objects = Stack.create ()
    transformed into sequences of simple variable declarations while constifying
    one or more of the variables being declared. See [const_mult]. *)
 let to_const_mult : const_mult = Hashtbl.create 10
+
+(**********************)
+(* II.2 Taskification *)
+(**********************)
+
+(* [task_group_mark]: string used to mark instruction sequences targeted by task
+   group insertion. See [Apac_basic.task_group] and
+   [Apac_basic.use_goto_for_return]. *)
+let task_group_mark : mark = "__apac_task_group"
 
 (******************************)
 (* PART III: HELPER FUNCTIONS *)
@@ -737,7 +776,34 @@ let unconstify_mutables () : unit =
     | None -> ()
   in
   unconstify_to_unconst ();
-  unconstify_to_unconst_objects ()       
+  unconstify_to_unconst_objects ()
+
+(***********************)
+(* III.3 Taskification *)
+(***********************)
+
+let rec dep_to_string (d : dep) : string =
+  match d with
+  | Dep_ptr d' ->
+     "*" ^ (dep_to_string d')
+  | Dep_var v ->
+     var_to_string v
+
+let atrm_to_string (a : atrm) : string =
+  let rec aux (a : atrm) (indent : string) : string =
+    let what = trm_desc_to_string a.current.desc in
+    let ins = List.fold_left
+                (fun acc a -> acc ^ " " ^ (dep_to_string a)) "" a.ins in
+    let inouts = List.fold_left
+                   (fun acc a -> acc ^ " " ^ (dep_to_string a)) "" a.inouts in
+    let result =
+      indent ^ what ^ " (in: [" ^ ins ^ " ], inouts: [" ^ inouts ^ " ])\n" in
+    match a.children with
+    | h::_ as l ->
+       List.fold_left (fun acc a -> acc ^ (aux a (indent ^ "  "))) result l
+    | [] -> result
+  in
+  aux a ""
 
 (******************************************)
 (* PART IV: CORE TRANSFORMATION FUNCTIONS *)
@@ -750,12 +816,15 @@ let build_constification_records_on (t : trm) : unit =
   let error = "Apac_basic.const_lookup_candidates: expected a target to a \
                function definition!" in
   let (var, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv t in
-  (* Extract the first argument of the function. *)
-  let (first, _) = List.hd args in
   (* If the function is a class member method, its first argument is the [this]
      variable referring to the parent class. In this case, we do not need to
      include it in the resulting constification record. *)
-  let args = if first.name = "this" then List.tl args else args in
+  let args =
+    if var.name <> "main" then
+      (* Extract the first argument of the function. *)
+      let (first, _) = List.hd args in
+      if first.name = "this" then List.tl args else args
+    else args in
   (* Create an argument constification record for the function's arguments. *)
   let const_args = List.map (
                        fun (arg, ty) -> (arg, {
@@ -1088,3 +1157,130 @@ let identify_mutables_on (p : path) (t : trm) : unit =
    (global variable, see Part II.1). *)
 let identify_mutables (tg : target) : unit =
   Target.iter (fun t p -> identify_mutables_on p (get_trm_at_path p t)) tg
+
+(**********************)
+(* IV.2 Taskification *)
+(**********************)
+
+(* [taskify_on p t]: see [taskify]. *)
+let taskify_on (p : path) (t : trm) : unit =
+  (* Auxiliary function to transform a portion of the existing AST into a local
+     augmented AST (see [atrm]). *)
+  let rec augment (t : trm) : atrm =
+    match t.desc with
+    | Trm_seq tl ->
+       let tl' = Mlist.to_list tl in
+       {
+         current = t;
+         ins = [];
+         inouts = [];
+         children = List.map (fun child -> augment child) tl';
+         params = []
+       }
+    | Trm_for_c (init, cond, inc, instr, _) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [(augment instr)];
+        params = [init; cond; inc]
+      }
+ (* | Trm_for (range, body, _) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [(augment body)];
+        params = [range]
+      } *)
+    | Trm_let (vk, tv, init, _) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [];
+        params = []
+      }
+    | Trm_let_mult (vk, tvs, inits) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [];
+        params = []
+      }
+    | Trm_if (cond, yes, no) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [(augment yes); (augment no)];
+        params = [cond]
+      }
+    | Trm_apps (f, args) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [];
+        params = args
+      }
+    | Trm_while (cond, body) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [(augment body)];
+        params = [cond]
+      }
+    | Trm_do_while (body, cond) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [(augment body)];
+        params = [cond]
+      }
+    | Trm_switch (cond, cases) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = List.map (fun (labels, block) -> augment block) cases;
+        params = [cond]
+      }
+    | Trm_delete (_, target) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [];
+        params = [target]
+      }
+    | Trm_abort _
+      | Trm_goto _ -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [];
+        params = []
+      }
+    | Trm_omp_routine r -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [];
+        params = []
+      }
+    | _ ->
+       let _ = Printf.printf "I don't know '%s'\n" (trm_desc_to_string t.desc) in
+       {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [];
+        params = []
+      }
+       (*fail t.loc "Apac_core.taskify_on: unsupported instruction kind."*)
+  in            
+  (* Deconstruct the target function definition term. *)
+  let error = "Apac_core.taskify_on: expected target to a function \
+               definition." in
+  let (v, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+  (* Build the augmented AST correspoding to the function's body. *)
+  let aast = augment body in
+  Printf.printf "Augmented AST for <%s> follows:\n%s\n"
+    (var_to_string v) (atrm_to_string aast)
+    
+let taskify (tg : target) : unit =
+  Target.iter (fun t p -> taskify_on p (get_trm_at_path p t)) tg
