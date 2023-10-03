@@ -9,7 +9,7 @@ open Path
 (* I.1 Constification        *)
 (*****************************)
 
-(* [lvar] Labelled variable type. We make use of this type to make a difference
+(* [lvar]: labelled variable type. We make use of this type to make a difference
    between class member variables. Indeed, in the case of a class member, the
    associated variable is represented always by [this]. As a result every member
    of a given class ends up with [this] as name and the same identifier (which
@@ -53,37 +53,39 @@ module LVar_Hashtbl = Hashtbl.Make(LVar)
 
 (* [const_arg]: an argument constification record. *)
 type const_arg = {
-  (* Tells whether the argument is a reference or a pointer. *)
-  is_ptr_or_ref : bool;
-  (* Tells whether the argument can be constified. *)
-  mutable is_const : bool;
-  (* If the argument is a reference or a pointer, i.e. when [is_ptr_or_ref] is
-     true, and if the value in memory it refers or points to is modified within
-     the body of the associated function, the argument must not be constified.
-     
-     To explain [to_unconst_by_propagation] let us consider a function [g]
-     defined as follows:
-
-       void g(int &val) { val += 4; }
-
-     and a function [f] defined as follows:
-
-       int f(int a, int b) { g(b); return a + b; }
-
-     In [g], [val] is a reference and the referenced value is modified within
-     the function's body. Therefore, the argument [val] must not be constified.
-     However, [f] calls [g] and passes one of its arguments, i.e. [b], by
-     reference to [g]. This way, the value referenced by [b] will be modified
-     within [g]. We already know that [val] in [g] must not be constified.
-     Because of this dependency, we must propagate this decision also to [b] in
-     [f]. To achieve this and keep track of the dependency, we will add:
-
-       (f, b)
-
-     to the [to_unconst_by_propagation] associative (function variable [var] ->
-     argument variable [lvar]) list in the [const_arg] record in [g]. *)
-  mutable to_unconst_by_propagation : (var * var) list;
-}
+    (* Tells whether the argument is a reference or a pointer. *)
+    is_ptr_or_ref : bool;
+    (* Tells whether the argument can be constified. *)
+    mutable is_const : bool;
+    (* If the argument is a reference or a pointer, i.e. when [is_ptr_or_ref] is
+       true, and if the value in memory it refers or points to is modified
+       within the body of the associated function, the argument must not be
+       constified.
+       
+       To explain [to_unconst_by_propagation] let us consider a function [g]
+       defined as follows:
+       
+         void g(int &val) { val += 4; }
+       
+       and a function [f] defined as follows:
+       
+         int f(int a, int b) { g(b); return a + b; }
+       
+       In [g], [val] is a reference and the referenced value is modified within
+       the function's body. Therefore, the argument [val] must not be
+       constified. However, [f] calls [g] and passes one of its arguments, i.e.
+       [b], by reference to [g]. This way, the value referenced by [b] will be
+       modified within [g]. We already know that [val] in [g] must not be
+       constified. Because of this dependency, we must propagate this decision
+       also to [b] in [f]. To achieve this and keep track of the dependency, we
+       will add:
+       
+         (f, b)
+       
+       to the [to_unconst_by_propagation] associative (function variable [var]
+       -> argument variable [lvar]) list in the [const_arg] record in [g]. *)
+    mutable to_unconst_by_propagation : (var * var) list;
+  }
 
 (* [const_fun]: a function constification record. *)
 type const_fun = {
@@ -99,7 +101,7 @@ type const_fun = {
     is_ret_ref : bool;
     (* Tells whether the function is a class member method. *)
     mutable is_class_method : bool;
-}
+  }
 
 (* [const_funs]: type for a hash table of [const_fun]. The keys are functions
    represented by terms of type [var]. *)
