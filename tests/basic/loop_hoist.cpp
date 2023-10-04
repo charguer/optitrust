@@ -4,6 +4,7 @@ void f(int *t, int *u) {
   __reads("Group(range(0, 10, 1), fun i -> &t[i] ~> Cell)");
   __modifies("Group(range(0, 10, 1), fun i -> &u[i] ~> Cell)");
 
+  __ghost(push_ro_in_group, "wand_id := 0");
   for (int i = 0; i < 10; i++) {
     __reads("&t[i] ~> Cell");
     __modifies("&u[i] ~> Cell");
@@ -15,6 +16,7 @@ void f(int *t, int *u) {
     z = x;
     int w = 0;
   }
+  __ghost(close_wand, "0");
 
   for (int l = 0; l < 5; l++) {
     __ghost(group_focus_subrange, "wand_id := 1, start := 2, stop := 6, bound_check_start := checked, bound_check_stop := checked");
