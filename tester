@@ -1,12 +1,13 @@
 #!/bin/bash
 
-# This script calls `tests/tester.ml` by adding:
+# This script calls `tests/tester.ml` by:
 # (1) changing the working directory to be the root of OptiTrust
 # (2) inserting as first argument the relative path from the
 #     OptiTrust root to the path of the current folder (pwd)
 #
 # The script also generates a bash file `tester_last.sh` at the
 # OptiTrust root storing the command for replaying the exact same tests.
+
 
 OPTITRUST_PATH=$(dirname $0)
 FOLDER_RELATIVE_PATH=$(realpath --relative-to=${OPTITRUST_PATH} $(pwd))
@@ -22,82 +23,6 @@ echo "cd ${OPTITRUST_ABSOLUTE_PATH}; ${CMD}" >> ./tester_last.sh
 chmod +x ./tester_last.sh
 
 # Run the command
-echo "Running: ${CMD}"
-
-exit
-
-
-
-
-
-
-
-
-
-
-
-###########DEPRECATED
-
-ARGS=()
-
-
-# If file is in the /src folder, then target the last test
-if [ "$#" -eq 1 ] && ! [[ "$*" = \-* ]]; then
-
-  SRCFOLDER=`realpath ${OPTITRUST}/src`
-  FILEPATH=`realpath $@`
-  if [[ ${FILEPATH} = "${SRCFOLDER}"* ]]; then
-    ARGS+=("last")
-  fi
-fi
-
-# TODO: hande the arguments that begin with a "-" symbol through to the tester, e.g. -dry
-
-# TODO: the call to "find" selects files that are then passed explicitly to tester, and thus are eliminated by the ignore-list. Idea: the items added by "find" could be tagged with a prefix e.g. '#' to mean that they are "ignorable".
-
-OPTIONS=()
-
-# Otherwise
-if [ -z ${ARGS} ]; then
-
-  for arg in $@; do
-      if [ $arg == "-hide-stdout" ]; then
-        OPTIONS+=("${arg}")
-        continue;
-      fi
-
-      if [ ${CURRENT_PATH} != "." ] && ([ -e $arg ] || [ -f $arg.tests ]); then
-          if [ $arg = "." ]; then
-            ARGS+=("${CURRENT_PATH}")
-          else
-            ARGS+=("${CURRENT_PATH}/$arg")
-          fi
-
-      elif [ -e ${OPTITRUST}/$arg ] || [ -f ${OPTITRUST}/$arg.tests ] || [ $arg = "last" ]; then
-          ARGS+=("$arg")
-      elif [ -e ${OPTITRUST}/tests/$arg ] || [ -f ${OPTITRUST}/tests/$arg.tests ]; then
-          ARGS+=("tests/$arg")
-      elif [ -e ${OPTITRUST}/case_studies/$arg ] || [ -f ${OPTITRUST}/case_studies/$arg.tests ]; then
-          ARGS+=("case_studies/$arg")
-
-      else
-        # If argument is a single key that has no extension and has not been recognized as a key,
-        # then we use 'find' to figure out what tests might be targeted, e.g. "./tester swap"
-
-        RES=$(find tests -name "*${arg}*.ml" -and -not -name "*_with_lines.ml")
-        if [ -z "${RES}" ]; then
-          echo "Unknown test target, and no test with name '*${arg}*.ml'"
-          exit 1
-        fi
-
-        for res in "${RES}"; do
-          ARGS+=("${res}")
-        done
-      fi
-  done
-
-fi
-
-cd ${OPTITRUST}
-OCAMLRUNPARAM=b dune exec tests/tester.exe -- ${OPTIONS[*]} ${ARGS[*]}
+# echo "Running: ${CMD}"
+${CMD}
 
