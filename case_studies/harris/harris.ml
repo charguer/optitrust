@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Syntax
+open Prelude
 
 let _ = Flags.pretty_matrix_notation := true
 

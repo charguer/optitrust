@@ -1,5 +1,5 @@
 include Rewrite_basic
-open Syntax
+open Prelude
 open Target
 
 (* FIXME: move somewhere else *)

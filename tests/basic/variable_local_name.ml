@@ -1,5 +1,5 @@
 open Optitrust
-open Syntax
+open Prelude
 
 let _ = Run.doc_script_cpp (fun _ ->
   let x = find_var_in_current_ast "x" in

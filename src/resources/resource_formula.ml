@@ -127,7 +127,7 @@ let formula_matrix_inv (f: formula): (trm * trm list) option =
   let* () = if var_eq cell_candidate var_cell then Some () else None in
   let* matrix, mindex = array_access_inv location in
   let* mindex_dims, mindex_indices = mindex_inv mindex in
-  let* () = if mindex_dims = dims then Some () else None in
+  let* () = if List.length mindex_dims = List.length dims then Some () else None in
   let* () = if List.for_all2 are_same_trm mindex_dims dims then Some () else None in
   if List.for_all2 (fun mindex_idx idx ->
       match trm_var_inv mindex_idx with

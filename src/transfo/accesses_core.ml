@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 
 (* [transform_aux f_get f_set t]: applies f_get or f_set depending on the fact if
     [t] is a get operation or a set operation,

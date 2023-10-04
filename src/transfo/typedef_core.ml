@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [fold_aux fold_at index]: replaces occurrences of the typedef underlying type with the defined type,

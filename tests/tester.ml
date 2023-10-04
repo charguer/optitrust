@@ -103,6 +103,7 @@ let _remove_later = comparison_method := Comparison_method_ast;
   comparison_method := Comparison_method_text
 
 
+
 (*****************************************************************************)
 (* Saving arguments of the last call in the last target *)
 
@@ -192,6 +193,7 @@ let spec : cmdline_args =
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
      ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for
      tests that are executed.");
+     ("-hide-stdout", Arg.Set Flags.hide_stdout, " hide the contents that tests print on standard output ");
      ("-v", Arg.Set verbose_mode, " report details on the testing process.");
   ]
 
@@ -286,16 +288,37 @@ let _main : unit =
   (* TODO: flags *)
   (* DEPRECATED:
      do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe -- tests/batch/batch.cmxs"; *)
+
+  (* Optionally start redirect stdout during execution *)
+  let oldstdout = Unix.dup Unix.stdout in
+  let newstdout = ref None in
+  if !Flags.hide_stdout then begin
+    let c = open_out "_tests_stdout.txt" in
+    Unix.dup2 (Unix.descr_of_out_channel c) Unix.stdout;
+    newstdout := Some c;
+  end;
+  let close_redirected_stdout () =
+    if !Flags.hide_stdout then begin
+      flush stdout;
+      let c = Option.get !newstdout in
+      close_out c;
+      Unix.dup2 oldstdout Unix.stdout;
+    end in
+
+  (* Execute tests *)
   begin try
     Flags.program_name := "tester.ml";
     Dynlink.loadfile "tests/batch/batch.cmxs"
   with
     Dynlink.Error err -> begin
+      close_redirected_stdout();
       let sbt = Printexc.get_backtrace() in
       Printf.eprintf "%s\n%s" (Dynlink.error_message err) sbt;
       exit 1
     end
   end;
+  close_redirected_stdout();
+
 
   (* c'est le code de batch.ml
      qui fait la gestion des cached_inputs/cached_outputs

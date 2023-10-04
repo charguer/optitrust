@@ -1,5 +1,5 @@
 open Optitrust
-open Syntax
+open Prelude
 
 let _ = Run.script_cpp (fun () ->
   !! Trace.apply Scope.infer_var_ids;

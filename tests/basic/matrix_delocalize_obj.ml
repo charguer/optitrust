@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Syntax
+open Prelude
 
 (* TODO: Add a minimal documentation test *)
 

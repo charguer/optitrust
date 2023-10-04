@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 include Variable_basic

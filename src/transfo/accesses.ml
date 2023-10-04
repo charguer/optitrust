@@ -1,2 +1,2 @@
-open Syntax
+open Prelude
 include Accesses_basic

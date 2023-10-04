@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* LATER: ARTHUR: find out whether other languages consider label

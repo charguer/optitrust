@@ -1,5 +1,5 @@
 open Target
-open Syntax
+open Prelude
 
 (* TODO: unit tests + document *)
 
@@ -162,7 +162,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
         assert (not (Var_map.mem w !all_writes));
         all_writes := Var_map.add w (sizes, inner_loop_indices) !all_writes
       ) writes;
-      (* Debug_transfo.current_ast_at_path "slided" p; *)
+      (* Transfo_debug.current_ast_at_path "slided" p; *)
       Marks.add to_fuse (target_of_path p);
     ) tg;
     (* 2. fuse loop nests *)
@@ -179,9 +179,9 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       let writes = List.map (fun v -> v.name) (Var_set.elements (collect_writes loop_p)) in
       Some (Variable.Rename.AddSuffix (Tools.list_to_string ~sep:"_" ~bounds:["_";""] ~add_space:false writes))
     in
-    (* Debug_transfo.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
+    (* Transfo_debug.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
     Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:(target_of_path (snd (Xlist.unlast to_fuse_paths))) (target_of_paths to_fuse_paths);
-    (* Debug_transfo.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
+    (* Transfo_debug.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
     (* 3. reduce temporary storage *)
     let surrounding_seq = Tools.unsome !surrounding_sequence in
     let local_memory = Var_map.filter (fun v _ -> not (Var_set.mem v !outputs')) !all_writes in

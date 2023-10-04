@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Syntax
+open Prelude
 
 let _ = Run.doc_script_cpp (fun _ ->
   !! Loop_basic.slide ~size:(trm_int 3) ~step:(trm_int 1) ~index:"bi" [cFor "i"];

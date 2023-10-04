@@ -1,4 +1,5 @@
 
+(* TODO: perhaps split this file between runflags and syntaxflags *)
 (* TODO: group options that are relevant for "reset in batching" into a record data structure;
    so that we can save its state, and restore it, in between tests;
    - options for interactivity
@@ -9,6 +10,9 @@ let code_print_width = ref 80
 
 (* [verbose]: flag to activate the printing of debug information *)
 let verbose : bool ref = ref false
+
+(* Flag to hide stdout produced by tests when executed from ./tester *)
+let hide_stdout : bool ref = ref false
 
 (* [analyse_stats]: flag to meansure the time taken by each transformation. *)
 let analyse_stats : bool ref = ref false

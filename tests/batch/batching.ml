@@ -29,6 +29,15 @@ let save_batch_result ~(basename : string) ~(exec_success : bool) ~(diff_success
 let compare_expected_serialized : bool ref = ref false
 let stop_on_error : bool ref = ref false
 
+(* Function to report progress, can be overwritten by tester.ml *)
+(* TODO: not sure if eprintf should be used by default ;
+         should be using a flag to control verbosity *)
+let report_progress script_name =
+  if !Flags.hide_stdout
+    then (Printf.eprintf "Batch test executing: %s\n" script_name; flush stderr)
+    else (Printf.printf "Batch test executing: %s\n" script_name; flush stdout)
+
+
 (******************************************************************************)
 (*                               Batch execution                              *)
 (******************************************************************************)
@@ -43,7 +52,7 @@ let run_test ~(script_name:string) (test: unit -> (module TEST)) =
   let program_name = !Flags.program_name in
   let program_path = Filename.dirname program_name in
   Flags.program_name := program_path ^ "/" ^ script_name;
-  Printf.printf "Batch test executing: %s\n" script_name;
+  report_progress script_name;
   begin try
     let _ = test () in
     ()

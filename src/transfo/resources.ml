@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 open Resource_formula
 open Resource_contract
@@ -95,6 +95,9 @@ let assert_hyp_read_only ~(error : string) ((x, t) : (hyp * formula)) : unit =
   match formula_read_only_inv t with
   | Some _ -> ()
   | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.named_formula_to_string (x, t)))
+
+let assert_parallelizable_loop_contract ~error (contract: loop_contract): unit =
+  List.iter (assert_hyp_read_only ~error) contract.invariant.linear
 
 (* checks that effects commute, infer var ids to check pure facts scope. *)
 let assert_commute (before : trm) (after : trm) : unit =

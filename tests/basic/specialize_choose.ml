@@ -1,5 +1,5 @@
 open Optitrust
-open Syntax
+open Prelude
 open Target
 
 (* LATER: wait until we have support for templates to properly implementation CHOOSE

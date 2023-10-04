@@ -1,5 +1,5 @@
 open Optitrust
-open Syntax
+open Prelude
 
 let _ = Flags.check_validity := true
 
@@ -28,4 +28,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.failure_expected (fun () ->
     Loop.swap [cFor "i"]);
 
+  !! Loop.swap [cFor "x"];
+  !! Resources.recompute_all_resources ();
 )

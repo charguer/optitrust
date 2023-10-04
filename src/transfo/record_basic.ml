@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 include Record_core
 include Record_core.Rename

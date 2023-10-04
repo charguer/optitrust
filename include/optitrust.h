@@ -247,6 +247,13 @@ inline void MFREE4(int N1, int N2, int N3, int N4, void* p) {
 
 /* ---- Matrix Ghosts ---- */
 
+__GHOST(rewrite) {
+  __requires("H1: formula, H2: formula, by: H1 = H2");
+  __consumes("H1");
+  __produces("H2");
+  __admitted();
+}
+
 __GHOST(close_wand) {
   /* LATER: Replace that id with a generated name on the respective open */
   __requires("wand_id: int, H1: formula, H2: formula");
@@ -279,11 +286,41 @@ __GHOST(untile_divides) {
   __admitted();
 }
 
+__GHOST(group_focus) {
+  __requires("wand_id: int, i: int, start: int, stop: int, step: int, items: int -> formula");
+  __requires("bound_check_start: start <= i, bound_check_stop: i < stop, bound_check_step: (start + i) % step = 0");
+  __consumes("Group(range(start, stop, step), items)");
+  __produces("items(i), Wand(wand_id, items(i), Group(range(start, stop, step), items))");
+  __admitted();
+}
+
+__GHOST(group_ro_focus) {
+  __requires("wand_id: int, i: int, start: int, stop: int, step: int, items: int -> formula, f: _Fraction");
+  __requires("bound_check_start: start <= i, bound_check_stop: i < stop, bound_check_step: (start + i) % step = 0");
+  __consumes("RO(f, Group(range(start, stop, step), items))");
+  __produces("RO(f, items(i)), Wand(wand_id, RO(f, items(i)), RO(f, Group(range(start, stop, step), items)))");
+  __admitted();
+}
+
+__GHOST(wand_simplify) {
+  __requires("wand1: int, wand2: int, H1: formula, H2: formula, H3: formula");
+  __consumes("Wand(wand1, H1, H2), Wand(wand2, H2, H3)");
+  __produces("Wand(wand1, H1, H3)");
+  __admitted();
+}
+
+// FIXME: matrix2_*focus ghosts are not checking bounds
 __GHOST(matrix2_focus)  {
-    __requires("M: ptr, i: int, j: int, m: int, n: int");
-    __consumes("M ~> Matrix2(m, n)");
-    __produces("&M[MINDEX2(m, n, i, j)] ~> Cell, M ~> FocussedMatrix2(m, n, i)");
-    __admitted();
+  __requires("M: ptr, i: int, j: int, m: int, n: int");
+  __consumes("M ~> Matrix2(m, n)");
+  __produces("&M[MINDEX2(m, n, i, j)] ~> Cell, M ~> FocussedMatrix2(m, n, i)");
+  __admitted();
+  /* TODO: Stop admitting this and define it using other ghosts instead:
+  __ghost(group_focus, "wand_id := 0, i := i");
+  __ghost(group_focus, "wand_id := 0, i := j");
+  __ghost(wand_simplify, "");
+  __ghost(rewrite, "H1 := Wand(0, &M[MINDEX2(m, n, i, j)] ~> Cell, M ~> Matrix2(m, n)), H2 := M ~> FocussedMatrix2(m, n, i), by := focussed_matrix2_fold");
+  */
 }
 
 __GHOST(matrix2_unfocus) {

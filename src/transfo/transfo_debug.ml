@@ -1,5 +1,5 @@
 open Printf
-open Syntax
+open Prelude
 open Target
 
 let prt = printf

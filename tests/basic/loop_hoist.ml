@@ -1,5 +1,5 @@
 open Optitrust
-open Syntax
+open Prelude
 open Target
 
 let _ = Flags.check_validity := true
@@ -24,14 +24,12 @@ int main() {
 let _ = Run.script_cpp (fun () ->
   !! ();
   Resources.show ();
-
   let x = find_var_in_current_ast "x" in
   let z = find_var_in_current_ast "z" in
   let y = find_var_in_current_ast "y" in
   !! Matrix_basic.intro_malloc0 x [cFor "i"; dBody];
   !! Matrix_basic.intro_malloc0 z [cFor "i"; dBody];
   !! Matrix_basic.intro_malloc0 y [cFor "n"; dBody];
-
   !! Loop_basic.hoist [cVarDef "x"];
   !! Loop_basic.hoist [cVarDef "z"];
   (*

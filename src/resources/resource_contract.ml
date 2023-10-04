@@ -123,3 +123,25 @@ let res_group_range (range: loop_range) (res: resource_set): resource_set =
 let res_union (res1: resource_set) (res2: resource_set): resource_set =
   { pure = res1.pure @ res2.pure; linear = res1.linear @ res2.linear;
     fun_contracts = Var_map.union (fun _ _ c -> Some c) res1.fun_contracts res2.fun_contracts }
+
+let subst_in_resources ?(forbidden_binders = Var_set.empty) (subst_map: tmap) (res: resource_set): tmap * resource_set =
+  let subst_var_in_resource_list =
+    List.fold_left_map (fun subst_ctx (h, t) ->
+        let t = trm_subst subst_map t in
+        (subst_ctx, (h, t))
+      )
+  in
+  let subst_ctx, pure = subst_var_in_resource_list (forbidden_binders, subst_map) res.pure in
+  let _, linear = subst_var_in_resource_list subst_ctx res.linear in
+  (snd subst_ctx, { pure; linear;
+    fun_contracts = res.fun_contracts (* TODO: subst here as well? *) })
+
+let subst_var_in_resources (x: var) (t: trm) (res: resource_set) : resource_set =
+  snd (subst_in_resources (Var_map.singleton x t) res)
+
+let rename_var_in_resources (x: var) (new_x: var) (res: resource_set) : resource_set =
+  subst_var_in_resources x (trm_var new_x) res
+
+let subst_invariant_start (index, tstart, _, _, _, _) = subst_var_in_resources index tstart
+let subst_invariant_step (index, _, _, _, step, _) = subst_var_in_resources index (trm_add (trm_var index) (loop_step_to_trm step))
+let subst_invariant_end (index, _, _, tend, _, _) = subst_var_in_resources index tend

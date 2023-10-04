@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open Target
 
 (* [add m tg]: adds mark [m] to the trm that correpsonds to target [tg].

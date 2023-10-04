@@ -4,6 +4,7 @@
     "**/_build": true,
   },
   "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
 	"editor.tabSize": 2,
 	"editor.detectIndentation": false,
   "ocaml.server.args": [

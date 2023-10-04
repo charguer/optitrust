@@ -5,8 +5,10 @@ CURRENT_PATH=$(realpath --relative-to=${OPTITRUST} $(pwd))
 
 ARGS=()
 
+
 # If file is in the /src folder, then target the last test
-if [ "$#" -eq 1 ]; then
+if [ "$#" -eq 1 ] && ! [[ "$*" = \-* ]]; then
+
   SRCFOLDER=`realpath ${OPTITRUST}/src`
   FILEPATH=`realpath $@`
   if [[ ${FILEPATH} = "${SRCFOLDER}"* ]]; then
@@ -18,10 +20,16 @@ fi
 
 # TODO: the call to "find" selects files that are then passed explicitly to tester, and thus are eliminated by the ignore-list. Idea: the items added by "find" could be tagged with a prefix e.g. '#' to mean that they are "ignorable".
 
+OPTIONS=()
+
 # Otherwise
 if [ -z ${ARGS} ]; then
 
   for arg in $@; do
+      if [ $arg == "-hide-stdout" ]; then
+        OPTIONS+=("${arg}")
+        continue;
+      fi
 
       if [ ${CURRENT_PATH} != "." ] && ([ -e $arg ] || [ -f $arg.tests ]); then
           if [ $arg = "." ]; then
@@ -56,4 +64,5 @@ if [ -z ${ARGS} ]; then
 fi
 
 cd ${OPTITRUST}
-OCAMLRUNPARAM=b dune exec tests/tester.exe -- ${ARGS[*]}
+OCAMLRUNPARAM=b dune exec tests/tester.exe -- ${OPTIONS[*]} ${ARGS[*]}
+

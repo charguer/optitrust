@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 open AstParser
 
 (* CHECK: #var-id, uses of x.name in this file *)

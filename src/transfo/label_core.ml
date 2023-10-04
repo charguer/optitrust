@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 
 (* [add_aux label t]: adds label [label] to trm [t]
       [label] - label that is going to label trm [t]

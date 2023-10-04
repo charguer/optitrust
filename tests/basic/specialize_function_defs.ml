@@ -1,5 +1,5 @@
 open Optitrust
-open Syntax
+open Prelude
 
 (* TODO: Cover more cases *)
 

@@ -1,7 +1,7 @@
 (* A test for the parsing of C++ features *)
 
 open Optitrust
-open Syntax
+open Prelude
 
 let _ = Flags.use_light_diff := false
 

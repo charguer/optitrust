@@ -1,5 +1,5 @@
 open Optitrust
-open Syntax
+open Prelude
 open Target
 
 let _ = Run.script_cpp (fun _ ->

@@ -1,4 +1,4 @@
-open Syntax
+open Prelude
 include Record_basic
 
 (* [set_explicit tg]: an extension to [Record_basic.set_explicit](see Record_basic.ml), contrary to the basic

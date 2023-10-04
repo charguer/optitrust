@@ -15,6 +15,14 @@
 
 - Remove file ast_data.ml, moving stuff into typing.ml and cpp.ml.
 
+- Cleanup tools/*
+  Declare  List.ml and inside place include Stdlib.List  and add extra functions
+
+- TO REMOVE:
+../src/internal.ml
+../src/convention.ml
+
+
 # Features
 
 - `Trm_files` do deal with multiple files, and simplify includes
@@ -176,6 +184,8 @@
 
 
 # Documentation
+
+- apply changes in tree.md and remove this file
 
 - dune build @doc on a single file / file subset
   - exclude compcert from doc
