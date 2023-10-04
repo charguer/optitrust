@@ -1,7 +1,42 @@
 #!/bin/bash
 
-OPTITRUST=$(dirname $0)
-CURRENT_PATH=$(realpath --relative-to=${OPTITRUST} $(pwd))
+# This script calls `tests/tester.ml` by adding:
+# (1) changing the working directory to be the root of OptiTrust
+# (2) inserting as first argument the relative path from the
+#     OptiTrust root to the path of the current folder (pwd)
+#
+# The script also generates a bash file `tester_last.sh` at the
+# OptiTrust root storing the command for replaying the exact same tests.
+
+OPTITRUST_PATH=$(dirname $0)
+FOLDER_RELATIVE_PATH=$(realpath --relative-to=${OPTITRUST_PATH} $(pwd))
+OPTITRUST_ABSOLUTE_PATH=$(realpath ${OPTITRUST_PATH})
+
+cd ${OPTITRUST_PATH}
+
+CMD="OCAMLRUNPARAM=b dune exec tests/tester.exe -- '${FOLDER_RELATIVE_PATH}' $@"
+
+# Save the command
+echo "#!/bin/bash" > ./tester_last.sh
+echo "cd ${OPTITRUST_ABSOLUTE_PATH}; ${CMD}" >> ./tester_last.sh
+chmod +x ./tester_last.sh
+
+# Run the command
+echo "Running: ${CMD}"
+
+exit
+
+
+
+
+
+
+
+
+
+
+
+###########DEPRECATED
 
 ARGS=()
 

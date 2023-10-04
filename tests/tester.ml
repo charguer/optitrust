@@ -5,33 +5,93 @@ module StringSet = Set.Make(String)
 
 (**
 
-  This file tester.ml is the source for the program ./tester.exe, for executing unit tests.
-  Assume for simplicity that ./tester.exe is executed from the project root (containing dune-project), using, e.g:
+  This file is the source for the program `./tester.exe` used for executing unit tests.
+  This program is meant to be called by the bash script `./tester`.
+  It expects as arguments:
 
-  ./tester args
+  1. the relative path from the optitrust root to the folder from which the user invoked the tester
+  2. the name of an action to perform, e.g. 'run' (see further for other actions)
+  3. other arguments, e.g. a list of test names, of test folder names.
 
-  It features:
-  - caching of AST representation for input and expected output files
-  - management of dependencies on the source code of optitrust
-  - selection of a subset of tests to process (${args} is by default "all")
-    (either via filenames, or via a 'key' name refering to a groupe of files)
-  - comparison either at the AST level or at the cpp source level via diff
-  - call to "./tester last" reuses the arguments provided to the last call
-    (these arguments are saved in the file ./last.tests,
-    the target "all" is taken if this file does not exist yet)
+  Usage: `tester run [options] [test1] .. [testN]`
 
-  It produces as output:
-  - information on which test fails
-  - if requested or else only for tests that fail, produce the output files *_out.cpp
-  - generates a bash script to be used for approving changes on expected files
-    in case of test failures that result from intended changes.
+  Options
+  =======
+  "-dry": only display list of tests to process
+  "-hide-stdout": hide stdout contents produced by tests
+  "-dump-trace": generate an html pages describing every steps performed by each test
+  "-with-ignored": do not take into consideration the `ignored.tests`
+  "-only-ignored": filter-out files that do not appear in an `ignored.tests` file
 
+  Action 'run'
+  ==============
+  Each [argi] must correspond to one of:
+  - the full path to a `.ml` file, e.g., 'tests/loop/loop_fusion.ml'
+  - the basename of a `.ml` file, e.g., 'loop_fusion.ml'
+  - the basename without extension, e.g. 'loop_fusion'
+  - the name of a folder appearing in 'tests/' or 'case_studies/', possibly in depth, e.g. 'loop'
+  If no [argi] is provided, then `tests case_studies` the arguments are used.
 
+  The tester program produces as output information on which test fails.
+  It generates a number of `*.tests` files:
+  - `ignored.tests`: tests that have been ignored
+  - `failed.tests`: tests whose execution raised an error
+  - `missing_exp.tests`: tests not accompanied with a `_exp.cpp` file
+  - `wrong.tests`: tests whose `_out.cpp` does not match the `_exp.cpp`.
+  These files are exploited by other actions meant for handling unsuccessful tests.
 
-LATER: add options to control whether to generate for each test
-(1) the JS trace, and (2) the JS documentation snippet
+  The tester program ignores a `.ml` test file if its name appears in a file
+  named `ignored.tests` and appearing in one of the folders containing that test file.
 
-VERY-LATER: mode for compiling sources with gcc at a given standard
+  Action 'create'
+  ==============
+  Each [argi] must be a path to a test to create, e.g. `tests/loop/loop_fusion.ml`.
+  The tester program creates in that folder `loop_fusion.ml`, `loop_fusion.cpp`
+  as well as `loop_fusion_doc.ml`, `loop_fusion_doc.cpp`, and automatically `git add`
+  those files. (TODO: add a flag to disable auto git add).
+
+  Action 'addexp'
+  ==============
+  If no [argi] is provided, the list of tests found in `missing_exp.tests` is used.
+  For each test `foo` considered, the tester program checks that `foo_exp.cpp` does
+  not yet exist, then copies the `foo_out.cpp` test to a `foo_exp.cpp`, and
+  `git add` that later file.
+
+  Action 'fixexp'
+  ==============
+  If no [argi] is provided, the list of tests found in `wrong.tests` is used.
+  For each test `foo` considered, the tester program copies checks that `foo_exp.cpp`
+  exists, then copies the `foo_out.cpp` test to a `foo_exp.cpp`, and `git add`
+  that later file.
+
+  Action 'ignore'
+  ==============
+  If no [argi] is provided, the list of tests found in `failed.tests` and
+  `wrong.tests` is used.
+  For each test `foo` considered, the tester program adds the relative path to
+  `foo.ml` into the deepest existing `ignore.tests` file found in a folder
+  containing `foo.ml`.
+
+  Action 'code'
+  ==============
+  If no [argi] is provided, the list of tests found in `failed.tests` and
+  `wrong.tests` is used.
+  For each test `foo` considered, the files `foo.ml` and `foo.cpp` are opened in VSCode.
+
+  Action 'diff'
+  ==============
+  If no [argi] is provided, the list of tests found in `failed.tests` and
+  `wrong.tests` is used.
+  For each test `foo` considered, the command `code -d foo_out.cpp foo_exp.cpp`
+  is executed.
+
+  Action 'meld'
+  ==============
+  If no [argi] is provided, the list of tests found in `failed.tests` and
+  `wrong.tests` is used.
+  For each test `foo` considered, the command `meld foo_out.cpp foo_exp.cpp`
+  is executed. Technically, a single call to `meld` is performed, opening
+  all the pairs of files at once.
 
 *)
 
@@ -189,12 +249,17 @@ type cmdline_args = (string * Arg.spec * string) list
 (* [spec]: possible command line arguments. *)
 let spec : cmdline_args =
    [ ("-dry", Arg.Set dry_run, " only display the list of tests to process");
+     ("-hide-stdout", Arg.Set Flags.hide_stdout, " hide the contents that tests print on standard output ");
+     ("-dump-trace", Arg.Set Flags.dump_trace, " generate html pages containing a full trace of the steps performed by every test  ");
+     ("-with-ignored", Arg.Set Flags.dump_trace, " do not take into consideration the `ignored.tests`  ");
+     ("-only-ignored", Arg.Set Flags.dump_trace, " filter-out files that do not appear in an `ignored.tests` file  ");
+
+     (* NOT YET IMPLEMENTED *)
+     ("-v", Arg.Set verbose_mode, " report details on the testing process.");
      ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
      ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for
      tests that are executed.");
-     ("-hide-stdout", Arg.Set Flags.hide_stdout, " hide the contents that tests print on standard output ");
-     ("-v", Arg.Set verbose_mode, " report details on the testing process.");
   ]
 
 let _main : unit =
@@ -397,8 +462,6 @@ let _main : unit =
   print_count "success" !tests_success;
   printf "\n";
 
-  (* On voudrait ajouter add_missing_exp.sh, diff.sh, meld.sh, ignore.sh avec argument, fix.sh *)
-
   (*
      Produire une liste de (testname, result)
 
@@ -455,6 +518,12 @@ need to compare dependency on
 
 *)
 
-(* --makefile:
-    make tester   pour compiler tester.ml
+(* -
+NOT YET IMPLEMENTED
+- caching of AST representation for input and expected output files
+- management of dependencies on the source code of optitrust
+- selection of a subset of tests to process (${args} is by default "all")
+  (either via filenames, or via a 'key' name refering to a groupe of files)
+- comparison either at the AST level or at the cpp source level via diff
+----------
 *)
