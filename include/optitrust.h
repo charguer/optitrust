@@ -274,13 +274,15 @@ __GHOST(wand_simplify) {
 __GHOST(ro_fork_group) {
   __requires("f: _Fraction, R: formula, r: range");
   __consumes("_RO(f, R)");
-  __produces("Group(r, fun _ -> _RO(f / (range_count(r)), R))");
+  // TODO: can we write: Group(r, fun _ -> _RO(f / range_count(r), R)) ?
+  __produces("_RO(f / range_count(r), Group(r, fun _ -> R))");
   __admitted();
 }
 
 __GHOST(ro_join_group) {
   __requires("f: _Fraction, R: formula, r: range");
-  __consumes("Group(r, fun _ -> _RO(f / (range_count(r)), R))");
+  // TODO: can we write: Group(r, fun _ -> _RO(f / range_count(r), R)) ?
+  __consumes("_RO(f / range_count(r), Group(r, fun _ -> R))");
   __produces("_RO(f, R)");
   __admitted();
 }

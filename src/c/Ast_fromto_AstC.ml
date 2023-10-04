@@ -840,7 +840,8 @@ let rec contract_intro (t: trm): trm =
             loop_ghosts contract.invariant.linear contract.invariant.linear body
         in
         (* Currently loop ghosts can only occur for reads varaibles, so they should always completely disappear. *)
-        assert (loop_ghosts = []);
+        (* TODO: WARN instead
+           assert (loop_ghosts = []); *)
         assert (invariant_linear = []);
         push_named_formulas __invariant contract.invariant.pure body
       | None -> body

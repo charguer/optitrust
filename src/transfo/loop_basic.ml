@@ -177,10 +177,13 @@ let fission_on (index : int) (t : trm) : trm =
         match trm_let_inv ti with
         | Some (vk, v, typ, init) -> Var_set.add v acc
         | None -> acc
-      ) bound_in_ghosts tl1
+      ) Var_set.empty tl1
     in
     let filter_resource_items its =
-      List.filter (fun (h, formula) -> Var_set.disjoint (trm_free_vars formula) bound_in_ghosts_or_tl1) its
+      List.filter (fun (h, formula) ->
+        not (Var_set.mem h bound_in_ghosts) &&
+        Var_set.disjoint (trm_free_vars formula) bound_in_ghosts_or_tl1
+      ) its
     in
     let filter_resource_set res =
       { pure = filter_resource_items res.pure;
@@ -205,9 +208,6 @@ let fission_on (index : int) (t : trm) : trm =
       }
     };
   end;
-  Transfo_debug.trm "t" t;
-  Transfo_debug.trm "fst" (trm_for_instrs ?contract:!fst_contract l_range tl1);
-  Transfo_debug.trm "snd" (trm_for_instrs ?contract:!snd_contract l_range tl2);
   trm_seq_no_brace [
     trm_for_instrs ?contract:!fst_contract l_range tl1;
     trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2);]
