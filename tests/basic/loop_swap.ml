@@ -2,6 +2,7 @@ open Optitrust
 open Prelude
 
 let _ = Flags.check_validity := true
+let _ = Flags.pretty_matrix_notation := true
 
 let _ = Run.doc_script_cpp (fun _ ->
 

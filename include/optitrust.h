@@ -344,6 +344,15 @@ __GHOST(matrix2_ro_unfocus) {
     __admitted();
 }
 
+__GHOST(push_ro_in_group) {
+  __requires("wand_id: int, range: formula, items: int -> formula, f: _Fraction");
+  __consumes("_RO(f, Group(range, items))");
+  __ensures("f_inner: _Fraction");
+  __produces("Group(range, fun i -> _RO(f_inner, items(i)))");
+  __produces("Wand(wand_id, Group(range, fun i -> _RO(f_inner, items(i))), _RO(f, Group(range, items)))");
+  __admitted();
+}
+
 __GHOST(group_focus_subrange) {
   __requires("wand_id: int, start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
   __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");

@@ -8,7 +8,8 @@ float* matrix_alloc(int N1, int N2) {
 }
 
 void matrix_free(float* p) {
-  __requires("N1: int, N2: int");
+  __requires("N1: int");
+  __requires("N2: int");
   __consumes("p ~> Matrix2(N1, N2)");
   __admitted();
   free(p);

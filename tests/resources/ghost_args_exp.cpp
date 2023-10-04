@@ -1,7 +1,8 @@
 #include "../../include/optitrust.h"
 
 int div_exact(int a, int b) {
-  __requires("q: int, proof: __assert_eq(a, b * q)");
+  __requires("q: int");
+  __requires("proof: __assert_eq(a, b * q)");
   __ensures("__assert_eq(_Res, q)");
   __admitted();
   return a / b;
@@ -15,7 +16,10 @@ int g(int x) {
   return x;
 }
 
-__ghost_ret any_proof() { __requires("prop: formula, proof: prop"); }
+__ghost_ret any_proof() {
+  __requires("prop: formula");
+  __requires("proof: prop");
+}
 
 void caller() {
   __pure();
