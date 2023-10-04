@@ -3,7 +3,6 @@
 void f(int* t, int* u) {
   __modifies("Group(range(0, 10, 1), fun i -> &u[i] ~> Cell)");
   __reads("Group(range(0, 10, 1), fun i -> &t[i] ~> Cell)");
-  __ghost(push_ro_in_group, "wand_id := 0");
   int* const x_step = (int* const)MALLOC1(10, sizeof(int));
   int* const z_step = (int* const)MALLOC1(10, sizeof(int));
   for (int i = 0; i < 10; i++) {
@@ -20,7 +19,6 @@ void f(int* t, int* u) {
   }
   MFREE1(10, z_step);
   MFREE1(10, x_step);
-  __ghost(close_wand, "wand_id := 0");
   int* const yl = (int* const)MALLOC3(5, 4, 8 / 2, sizeof(int));
   for (int l = 0; l < 5; l++) {
     __ghost(group_focus_subrange,
