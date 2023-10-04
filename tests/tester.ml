@@ -132,7 +132,7 @@ let caller_folder : string = ref ""
 let action : string = ref ""
 
 (* List of the [argi] arguments provided. *)
-let args_to_process : string list ref = ref []
+let args : string list ref = ref []
 
 (* Flag to enable verbose mode *)
 let verbose_mode : bool ref = ref false
@@ -291,7 +291,7 @@ let compute_tests_to_process (targets: string list): (string list * string list)
 let action_run () : unit =
 
   (* Compute tests to proces *)
-  let (tests_to_process, tests_ignored) = compute_tests_to_process !args_to_process in
+  let (tests_to_process, tests_ignored) = compute_tests_to_process !args in
   let nb_tests_to_process = List.length tests_to_process in
   let tests_to_process_string = String.concat " " tests_to_process in
   if !dry_run || !verbose_mode
@@ -480,7 +480,7 @@ let _main : unit =
       else if !action = ""
         then action := arg
       else
-        args_to_process := arg :: !args_to_process)
+        args := arg :: !args)
 
   (* Check caller_folder has been provided *)
   if !caller_folder = ""
@@ -491,10 +491,10 @@ let _main : unit =
     then failwith "Invalid usage: an action must be provided as second argument.";
 
   (* Handle empty list of [argi] *)
-  if !args_to_process = [] then begin
+  if !args = [] then begin
     if !caller_folder = "."
-      then args_to_process := ["tests"; "case_studies"]
-      else args_to_process := !caller_folder
+      then args := ["tests"; "case_studies"]
+      else args := !caller_folder
   end;
 
   (* Switch according to action *)
