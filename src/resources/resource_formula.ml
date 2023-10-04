@@ -63,6 +63,12 @@ let formula_read_only_inv (t: formula): read_only_formula option =
     end
   | _ -> None
 
+let formula_read_only_map (f_map: formula -> formula) (formula: formula) =
+  match formula_read_only_inv formula with
+  | Some { frac; formula } ->
+    formula_read_only ~frac (f_map formula)
+  | None -> f_map formula
+
 let var_cell = toplevel_var "Cell"
 let trm_cell = trm_var var_cell
 let var_group = toplevel_var "Group"
@@ -81,11 +87,13 @@ let formula_matrix (m: trm) (dims: trm list) : formula =
     trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [trm_int 0; dim; trm_int 1]; formula_fun [idx, typ_int ()] None formula])
     indices dims inner_trm
 
-let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) (fi: formula) =
-  if dir <> DirUp then failwith "formula_group_range only supports DirUp";
-  let range_var = new_var ~qualifier:idx.qualifier idx.name in
-  let fi = trm_subst_var idx (trm_var range_var) fi in
-  trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [tfrom; tto; loop_step_to_trm step]; trm_fun ~annot:formula_annot [range_var, typ_int ()] None fi]
+let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) =
+  formula_read_only_map (fun fi ->
+    if dir <> DirUp then failwith "formula_group_range only supports DirUp";
+    let range_var = new_var ~qualifier:idx.qualifier idx.name in
+    let fi = trm_subst_var idx (trm_var range_var) fi in
+    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [tfrom; tto; loop_step_to_trm step]; formula_fun [range_var, typ_int ()] None fi]
+  )
 
 module Pattern = struct
   include Pattern

@@ -285,6 +285,8 @@ __GHOST(ro_join_group) {
   __admitted();
 }
 
+/* identities due to normal form:
+
 __GHOST(ro_distribute_group) {
   __requires("range: range, items: int -> formula, f: _Fraction");
   __consumes("_RO(f, Group(range, items))");
@@ -298,6 +300,7 @@ __GHOST(ro_factorize_group) {
   __produces("Group(range, fun i -> _RO(f, items(i)))");
   __admitted();
 }
+*/
 
 __GHOST(tile_divides) {
   __requires(
