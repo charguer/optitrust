@@ -20,11 +20,13 @@ int main() {
   }
 
   for (int i = 0; (i < 5); i++) {
+    __pure();
     int y = i;
     int z = i;
   }
 
   for (int i = 0; i < 3; i++) {
+    __pure();
     int* const m1 = (int* const) MALLOC1(5, sizeof(int));
     MFREE1(5, m1);
     int* const m2 = (int* const) MALLOC1(5, sizeof(int));

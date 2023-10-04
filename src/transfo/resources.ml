@@ -96,8 +96,10 @@ let assert_hyp_read_only ~(error : string) ((x, t) : (hyp * formula)) : unit =
   | Some _ -> ()
   | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.named_formula_to_string (x, t)))
 
-let assert_parallelizable_loop_contract ~error (contract: loop_contract): unit =
-  List.iter (assert_hyp_read_only ~error) contract.invariant.linear
+let justif_parallelizable_loop_contract ~error (contract: loop_contract): unit =
+  if contract.invariant.linear <> []
+    then failwith (sprintf "%s: the for loop is not parallelizable, invariant non empty." error)
+    else Trace.justif "The for loop is parallelizable"
 
 (* checks that effects commute, infer var ids to check pure facts scope. *)
 let assert_commute (before : trm) (after : trm) : unit =

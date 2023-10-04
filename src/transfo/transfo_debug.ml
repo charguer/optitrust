@@ -12,12 +12,14 @@ let paths (msg : string) (ps : paths) : unit =
 
 type debug_trm_style =
   | Display
+  | ContractDisplay
   | Internal
   | InternalDisplay
 
-let trm ?(style = Display) (msg : string) (t : trm) : unit =
+let trm ?(style = ContractDisplay) (msg : string) (t : trm) : unit =
   let t_str = match style with
   | Display -> AstC_to_c.ast_to_string t
+  | ContractDisplay -> AstC_to_c.ast_to_string (Ast_fromto_AstC.contract_intro (Ast_fromto_AstC.ghost_args_intro t))
   | Internal -> Ast_to_text.ast_to_string t
   | InternalDisplay -> AstC_to_c.ast_to_string ~optitrust_syntax:true t
   in

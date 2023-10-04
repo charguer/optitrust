@@ -1776,6 +1776,11 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   let typ = t.typ in
   let ctx = if keep_ctx then t.ctx else unknown_ctx in
 
+  let opt_map f tf old_opt =
+    let new_opt = Option.map f old_opt in
+    if share_if_no_change && Option.equal tf old_opt new_opt
+      then old_opt
+      else new_opt in
   let list_map f tf old_list =
     let new_list = List.map f old_list in
     if share_if_no_change && List.for_all2 tf old_list new_list
@@ -1786,6 +1791,35 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     if share_if_no_change && Mlist.for_all2 tf old_list new_list
       then old_list
       else new_list in
+
+  let resource_items_map resources: resource_item list =
+    list_map
+      (fun (name, formula) -> (name, f false formula))
+      (fun (_, fa) (_, fb) -> fa == fb)
+      resources
+  in
+  let resource_set_map resources: resource_set =
+    let pure = resource_items_map resources.pure in
+    let linear = resource_items_map resources.linear in
+    if share_if_no_change && pure == resources.pure && linear == resources.linear
+      then resources
+      else { resources with pure; linear }
+  in
+  let fun_contract_map contract: fun_contract =
+    let pre = resource_set_map contract.pre in
+    let post = resource_set_map contract.post in
+    if share_if_no_change && pre == contract.pre && post == contract.post
+      then contract
+    else { pre; post }
+  in
+  let loop_contract_map contract: loop_contract =
+    let loop_ghosts = resource_items_map contract.loop_ghosts in
+    let invariant = resource_set_map contract.invariant in
+    let iter_contract = fun_contract_map contract.iter_contract in
+    if share_if_no_change && loop_ghosts == contract.loop_ghosts && invariant == contract.invariant && iter_contract == contract.iter_contract
+      then contract
+      else { loop_ghosts; invariant; iter_contract }
+  in
 
   match t.desc with
   | Trm_val _ | Trm_var _ -> t
@@ -1813,14 +1847,16 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       (trm_let_mult ~annot ?loc ~ctx vk tvs tis')
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
-    if (share_if_no_change && body' == body)
+    let contract' = opt_map fun_contract_map (==) contract in
+    if (share_if_no_change && body' == body && contract' == contract)
       then t
-      else (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body')
+      else (trm_let_fun ~annot ?loc ?contract:contract' ~ctx f' res args body')
   | Trm_fun (args, ret, body, contract) ->
     let body' = f false body in
-    if (share_if_no_change && body' == body)
+    let contract' = opt_map fun_contract_map (==) contract in
+    if (share_if_no_change && body' == body && contract' == contract)
       then t
-      else (trm_fun ~annot ?loc ?contract ~ctx args ret body')
+      else (trm_fun ~annot ?loc ?contract:contract' ~ctx args ret body')
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -1843,7 +1879,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   | Trm_apps (func, args, ghost_args) ->
     let func' = f false func in
     let args' = list_map (f false) (==) args in
-    let ghost_args' = list_map (fun (g, t) -> (g, f false t)) (==) ghost_args in
+    let ghost_args' = resource_items_map ghost_args in
     if (share_if_no_change(*redundant*) && func' == func && args' == args && ghost_args' == ghost_args)
       then t
       (* warning: may have different type *)
@@ -1859,9 +1895,10 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       let cond' = f false cond in
       let step' = f false step in
       let body' = f is_terminal body in
-      if (share_if_no_change && init' == init && cond' == cond && step' == step && body' == body)
+      let invariant' = opt_map resource_set_map (==) invariant in
+      if (share_if_no_change && init' == init && cond' == cond && step' == step && body' == body && invariant' == invariant)
         then t
-        else (trm_for_c ~annot ?loc ?invariant ~ctx init' cond' step' body')
+        else (trm_for_c ~annot ?loc ?invariant:invariant' ~ctx init' cond' step' body')
   | Trm_for (l_range, body, contract) ->
     let (index, start, direction, stop, step, is_parallel) = l_range in
     let start' = f false start in
@@ -1871,9 +1908,10 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       | Step sp -> Step (f is_terminal sp)
       in
     let body' = f is_terminal body in
-    if (share_if_no_change && step' == step && start' == start && stop' == stop && body' == body)
+    let contract' = opt_map loop_contract_map (==) contract in
+    if (share_if_no_change && step' == step && start' == start && stop' == stop && body' == body && contract' == contract)
       then t
-      else (trm_for ~annot ?loc ?contract ~ctx (index, start', direction, stop', step', is_parallel) body')
+      else (trm_for ~annot ?loc ?contract:contract' ~ctx (index, start', direction, stop', step', is_parallel) body')
   | Trm_switch (cond, cases) ->
       let cond' = f false cond in
       let cases' = list_map
@@ -1929,6 +1967,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       else trm_template ~annot ?loc ~ctx typ_params templated'
   | _ ->
     trm_combinators_unsupported_case "trm_map_with_terminal"  t
+
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =

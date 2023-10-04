@@ -32,10 +32,16 @@ atomic_formula:
     { trm_int x }
   | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
     { trm_apps func args }
-  | AMPERSAND; tab=atomic_formula; LBRACKET; index=atomic_formula; RBRACKET;
-    { trm_array_access tab index }
+  | AMPERSAND; x=address_formula;
+    { trm_address_of x }
   | LPAR; f=formula; RPAR
     { f }
+
+address_formula:
+  | tab=address_formula; LBRACKET; index=atomic_formula; RBRACKET;
+    { trm_array_get tab index }
+  | x=IDENT
+    { trm_var { qualifier = []; name = x; id = -1 } }
 
 arith_factor:
   | a=arith_factor; STAR; b=atomic_formula;

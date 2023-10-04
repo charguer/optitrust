@@ -165,23 +165,22 @@ let fission_on (index : int) (t : trm) : trm =
   | Some contract ->
     let open Resource_formula in
 
-    let error = "Loop_basic.fission_on: the for loop is not parallelizable" in
-    List.iter (Resources.assert_hyp_read_only ~error) contract.invariant.linear;
-    Trace.justif "The for loop is parallelizable";
+    let error = "Loop_basic.fission_on is invalid" in
+    Resources.justif_parallelizable_loop_contract ~error contract;
 
     let tl2_ctx_res = Tools.unsome ((Mlist.nth tl2 0).ctx.ctx_resources_before) in
-    (* let tl2_resource_usage = Mlist.fold_left (fun current_usage ti ->
-      let extra_usage = Tools.unsome (c.ctx.ctx_resources_usage) in
-      update_usage_map ~current_usage ~extra_usage
-    ) (empty_usage_map tl2_ctx_res) tl2; *)
-    let bound_in_tl1 = Mlist.fold_left (fun acc ti ->
+    let bound_in_ghosts = List.fold_left (fun acc (g, _) ->
+        Var_set.add g acc
+      ) Var_set.empty contract.loop_ghosts
+    in
+    let bound_in_ghosts_or_tl1 = Mlist.fold_left (fun acc ti ->
         match trm_let_inv ti with
         | Some (vk, v, typ, init) -> Var_set.add v acc
         | None -> acc
-      ) Var_set.empty tl1
+      ) bound_in_ghosts tl1
     in
     let filter_resource_items its =
-      List.filter (fun (h, formula) -> Var_set.disjoint (trm_free_vars formula) bound_in_tl1) its
+      List.filter (fun (h, formula) -> Var_set.disjoint (trm_free_vars formula) bound_in_ghosts_or_tl1) its
     in
     let filter_resource_set res =
       { pure = filter_resource_items res.pure;
@@ -206,8 +205,9 @@ let fission_on (index : int) (t : trm) : trm =
       }
     };
   end;
-  Debug_transfo.trm "fst" (trm_for_instrs ?contract:!fst_contract l_range tl1);
-  Debug_transfo.trm "snd" (trm_for_instrs ?contract:!snd_contract l_range tl2);
+  Transfo_debug.trm "t" t;
+  Transfo_debug.trm "fst" (trm_for_instrs ?contract:!fst_contract l_range tl1);
+  Transfo_debug.trm "snd" (trm_for_instrs ?contract:!snd_contract l_range tl2);
   trm_seq_no_brace [
     trm_for_instrs ?contract:!fst_contract l_range tl1;
     trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2);]
