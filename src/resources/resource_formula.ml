@@ -161,3 +161,8 @@ let formula_geq = formula_cmp formula_assert_geq
 
 let var_checked = toplevel_var "checked"
 let formula_checked = trm_var var_checked
+
+let ghost_rewrite = toplevel_var "rewrite"
+
+let trm_ghost_rewrite (before: formula) (after: formula) (by: formula): formula =
+  trm_ghost ghost_rewrite ["H1", before; "H2", after; "by", by]

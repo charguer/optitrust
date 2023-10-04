@@ -306,6 +306,8 @@
 
 - Revive the trace.ml code for generating a cpp file for every small/big step.
 
+- Verify that a ghost/contract modifiying transformation indeed modifies only ghosts and contracts
+
 
 # Flags
 
@@ -378,6 +380,18 @@
 - Augment the trace view with floating-point divergence figures for every small-step.
 
 - Create a mechanism for scripting the generation of interactive demos, for the webiste.
+
+# AST representation
+
+- Add a checker for AST invariants
+
+
+# Debugger
+
+- Try usage of ocamldebug
+  https://github.com/hackwaly/ocamlearlybird
+  https://github.com/ocamllabs/vscode-ocaml-platform#debugging-ocaml-programs-experimental
+
 
 # Pending Issues to Track
 
