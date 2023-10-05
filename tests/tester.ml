@@ -13,31 +13,35 @@ module StringSet = Set.Make(String)
   2. the name of an action to perform, e.g. 'run' (see further for other actions)
   3. other arguments, e.g. a list of test names, of test folder names.
 
-  Usage: `tester [folder] [action] [options] [arg1] .. [argN]`.
+  Usage: `./tester.exe [folder] [action] [options] [arg1] .. [argN]`.
+  Usage:              `./tester [action] [options] [arg1] .. [argN]`.
 
   Options
   =======
   "-dry": only display list of tests to process
   "-hide-stdout": hide stdout contents produced by tests
-  "-dump-trace": generate an html pages describing every steps performed by each test
+  "-dump-trace": generate an html page describing every step performed for each test
   "-with-ignored": do not take into consideration the `ignored.tests`
   "-only-ignored": filter-out files that do not appear in an `ignored.tests` file
+  TODO: "-no-doc": do not run or create documentation tests?
+  TODO: "-i": interactive prompts asking for confirmations before actions?
 
   Action 'run'
   ==============
   Each [argi] must correspond to one of:
   - the full path to a `.ml` file, e.g., 'tests/loop/loop_fusion.ml'
-  - the basename of a `.ml` file, e.g., 'loop_fusion.ml'
-  - the basename without extension, e.g. 'loop_fusion'
+    TODO: handle paths relative to [folder]?
+  - a substring of a test name, e.g. 'fus', including:
+    - the basename of a `.ml` file, e.g., 'loop_fusion.ml'
+    - the basename without extension, e.g. 'loop_fusion'
   - the name of a folder appearing in 'tests/' or 'case_studies/', possibly in depth, e.g. 'loop'
-  - a substring of a test name, e.g. 'fus'.
 
   If no [argi] is provided, then:
   - if [folder] is "." (the root of optitrust), then `tests case_studies` are used
     as the two [argi] arguments.
   - otherwise, [folder] is used as an [argi] argument.
 
-  The tester program produces as output information on which test fails.
+  The tester program produces as output information on which tests fail.
   It generates a number of `*.tests` files:
   - `ignored.tests`: tests that have been ignored
   - `failed.tests`: tests whose execution raised an error
@@ -45,8 +49,7 @@ module StringSet = Set.Make(String)
   - `wrong.tests`: tests whose `_out.cpp` does not match the `_exp.cpp`.
   These files are exploited by other actions meant for handling unsuccessful tests.
 
-  The tester program ignores a `.ml` test file if its name appears in a file
-  named `ignored.tests` and appearing in one of the folders containing that test file.
+  The tester program ignores a `.ml` test file if there exists an `ignored.tests` file containing its name, in one of the folders containing the test file.
 
   Action 'create'
   ==============
@@ -107,7 +110,7 @@ module StringSet = Set.Make(String)
 (*****************************************************************************)
 (** Tools (LATER: move to tools/*.ml) *)
 
-let ref_list_add (r:'a ref) (x:'a) : unit :=
+let ref_list_add (r: 'a list ref) (x: 'a) : unit =
   r := x :: !r
 
 let (~~) iter l f =
@@ -125,10 +128,6 @@ let do_or_die (cmd : string) : unit =
   if exit_code != 0 then
     failwith (sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
 
-let do_or_die_with_print (cmd : string) : unit =
-  printf "%s\n" cmd;
-  do_or_die cmd
-
   (* LATER: rediriiger des erreurs dans un fichier  2>&
     Sys.command en version booléenne
     ERRLINE = cat errorlog | head -n 1 | awk '{print $2}'
@@ -143,10 +142,10 @@ let do_or_die_with_print (cmd : string) : unit =
 let tests_folders = ["tests"; "case_studies"]
 
 (* Folder from which the user invoked 'tester' *)
-let caller_folder : string = ref ""
+let caller_folder : string ref = ref ""
 
 (* Action requested, e.g. 'run' *)
-let action : string = ref ""
+let action : string ref = ref ""
 
 (* List of the [argi] arguments provided. *)
 let args : string list ref = ref []
@@ -257,8 +256,12 @@ let file_set_ref_add r x =
 
 let tmpfile = Filename.temp_file "command_output" ".txt"
 
+let foreach_test_from_file file add_f : unit =
+  let tests = Xfile.get_lines_or_empty file in
+  ~~ List.iter tests add_f
+
 (** Compute the list of all ignored tests *)
-let find_all_tests_to_ignore () : File_set =
+let find_all_tests_to_ignore () : File_set.t =
   let target = String.concat " " tests_folders in
   (* LATER: use a version of Sys.command that captures the output *)
   do_or_die (sprintf "find %s -name 'ignore.tests' > %s" target tmpfile);
@@ -267,67 +270,76 @@ let find_all_tests_to_ignore () : File_set =
   (* For each file named `ignore.tests` *)
   ~~ List.iter ignore_tests_files (fun ignore_tests_file ->
     let folder = Filename.dirname ignore_tests_file in
-    let ignore_tests = Xfile.get_lines_or_empty ignore_tests_file in
     (* For each test listed in that `ignore.tests` *)
-    ~~ List.iter ignore_tests (fun ignore_test ->
+    foreach_test_from_file ignore_tests_file (fun ignore_test ->
       let test = folder ^ "/" ^ ignore_test in
-      file_set_ref_add result test));
+      file_set_ref_add result test
+    )
+  );
   (* Return result *)
   !result
+
+(** Resolve one [argi] to a list of tests (without filtering ignored tests),
+    assuming its the name of a folder. *)
+let resolve_arg_as_folder (arg : string) : string list =
+  let sfolders = String.concat " " tests_folders in
+  (* TODO: deal with relative [folder]. *)
+  do_or_die (sprintf "find %s -type d -name '%s' > %s" sfolders arg tmpfile);
+  Xfile.get_lines_or_empty tmpfile
 
 (** Resolve one [argi] to a list of tests (without filtering ignored tests) *)
 let resolve_arg (arg : string) : string list =
   if Sys.file_exists arg && not (Sys.is_directory arg) then begin
-     (* Case exactly a file name *)
-     arg
+    (* Case exactly a file name *)
+    [arg]
   end else begin
-    let folders_to_search_from, pattern_on_the_name : string list * string option =
-      begin match resolve_arg_as_folder arg then
-      | Some folder ->
-          (* Case [arg] is exactly a directory name, possibly in depth *)
-          [folder], None
-      | None ->
-          (* Else [arg] is treated as a substring of a test name
-             (which must be a [*.ml] file and not a [_with_lines.ml] file) *)
-          tests_folders, Some arg
-      in
+    let (folders_to_search_from, pattern_on_the_name) : (string list * string option) =
+      begin match resolve_arg_as_folder arg with
+      | [] ->
+        (* [arg] is not a folder, it is treated as a substring of a test name *)
+        (* TODO: deal with relative [folder]. *)
+        tests_folders, Some arg
+      | folders ->
+        (* Case [arg] is exactly a directory name, possibly in depth *)
+        folders, None
+      end in
     let sfolders = String.concat " " folders_to_search_from in
-    let sname =
-      match pattern_on_the_name with
-      | None -> ""
-      | Some pat -> sprintf "-name '*%s*' -and -name '*.ml' -and -not -name '*_with_lines.ml'" pat
+    let sname = "-name '*.ml' -and -not -name '*_with_lines.ml'" in
+    let sname = match pattern_on_the_name with
+      | None -> sname
+      | Some pat -> sprintf "-name '*%s*' -and %s" pat sname
       in
     (* LATER: use a version of Sys.command that captures the output *)
     do_or_die (sprintf "find %s %s > %s" sfolders sname tmpfile);
     let tests = Xfile.get_lines_or_empty tmpfile in
     tests
+  end
 
 (** Takes the [argi] arguments, and resolve them to tests, then filter out
-   ignore tests based on the contents of all the `ignore.tests` files,
-   each of which refer to tests with path relative to the location of the
-   `ignore.tests` file that contains them. Variation applies if the flags
-   [-only-ignored] or [-with-ignored] have been provided.
+   ignored tests based on the contents of all the `ignore.tests` files,
+   each of which refers to tests with path relative to the location of the
+   `ignore.tests` file that contains them.
+   Influenced by the flags [-only-ignored] and [-with-ignored].
    Returns [tests_to_process, ignored_tests]. *)
 let get_tests_and_ignored (args : string list) : (string list * string list) =
   let tests = File_set.of_list (List.concat_map resolve_arg args) in
-  let ignores = find_all_tests_to_ignore () in
-  let tests_not_ignored = File_set.diff tests ignores in
-  let tests_and_ignored = File_set.inter tests ignores in
+  let ignored = find_all_tests_to_ignore () in
+  let tests_not_ignored = File_set.diff tests ignored in
+  let tests_and_ignored = File_set.inter tests ignored in
   let set_to_process, set_to_ignore =
     if !flags_with_ignored then
-      (tests, [])
+      (tests, File_set.empty)
     else if !flags_only_ignored then
       (tests_and_ignored, tests_not_ignored)
     else
       (tests_not_ignored, tests_and_ignored) in
-  File_set.to_list set_to_process, File_set.to_list set_to_ignore
+  File_set.elements set_to_process, File_set.elements set_to_ignore
 
 
 (*****************************************************************************)
 (** Action 'run' *)
 
 let action_run (tests : string list) : unit =
-
   (* Compute tests to proces *)
   let (tests_to_process, tests_ignored) = get_tests_and_ignored tests in
   let nb_tests_to_process = List.length tests_to_process in
@@ -406,8 +418,8 @@ let action_run (tests : string list) : unit =
         (* TODO: use -q in the diff? *)
         let mismatches_expected = do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) in
         if mismatches_expected
-          then ref_list_add tests_wrong test;
-          else ref_list_add tests_success test;
+          then ref_list_add tests_wrong test
+          else ref_list_add tests_success test
       end else begin
           ref_list_add tests_noexp test;
       end
@@ -417,12 +429,13 @@ let action_run (tests : string list) : unit =
     end);
 
   (* Produce summary of errors *)
-  if !tests_failed <> [] then
-    printf "Failed tests:\n%s\n" (Tools.list_to_string ~sep:"\n  " ~bounds:["   "; "\n"] !tests_failed);
-  if !tests_noexp <> [] then
-    printf "Missing expected:\n%s\n" (Tools.list_to_string ~sep:"\n  " ~bounds:["   "; "\n"] !tests_noexp);
-  if !tests_wrong <> [] then
-    printf "Wrong tests:\n%s\n" (Tools.list_to_string ~sep:"\n  " ~bounds:["   "; "\n"] !tests_wrong);
+  let print_errors msg tests =
+    if tests <> [] then
+      printf "%s:\n%s\n" msg (Tools.list_to_string ~sep:"\n  " ~bounds:[""; "\n"] tests)
+  in
+  print_errors "Failed tests" !tests_failed;
+  print_errors "Missing expected" !tests_noexp;
+  print_errors "Wrong tests" !tests_wrong;
 
   (* Produce .tests files *)
   Xfile.put_lines "ignored.tests" tests_ignored;
@@ -449,12 +462,12 @@ let action_run (tests : string list) : unit =
 let action_create (tests : string list) : unit =
   ~~ List.iter tests (fun test ->
     let prefix = Filename.remove_extension test in
-    let extensions = [".ml", ".cpp", "_doc.ml", "_doc.cpp"] in
+    let extensions = [".ml"; ".cpp"; "_doc.ml"; "_doc.cp@p"] in
     let files = List.map (fun s -> prefix ^ s) extensions in
     printf "Creating %s.{ml,cpp,_doc.ml,_doc.cpp}\n" prefix;
     ~~ List.iter files (fun file ->
       run_action (sprintf "touch %s" file);
-      if !git_add_new_files then ifnotdry_do_or_die (sprintf "git add %s" file);
+      if !git_add_new_files then run_action (sprintf "git add %s" file);
       );
   )
 
@@ -466,8 +479,10 @@ let action_addexp (tests : string list) : unit =
     let prefix = Filename.remove_extension test in
     let outfile = prefix ^ "_out.cpp" in
     let expfile = prefix ^ "_exp.cpp" in
+    (* TODO: the tester program checks that `foo_exp.cpp` does
+  not yet exist *)
     run_action ~print:true (sprintf "cp %s %s" outfile expfile);
-    if !git_add_new_files then do_or_die (sprintf "git add %s" expfile);
+    if !git_add_new_files then run_action (sprintf "git add %s" expfile);
   )
 
 
@@ -490,7 +505,7 @@ let action_fixexp (tests : string list) : unit =
 
 let action_ignore (tests : string list) : unit =
   ~~ List.iter tests (fun test ->
-    let ignorefile = "./ignore_tests" in
+    let ignorefile = "./ignore.tests" in
     run_action (sprintf "echo '%s' >> %s" test ignorefile)
   )
 
@@ -529,7 +544,7 @@ let action_meld (tests : string list) : unit =
     let expfile = prefix ^ "_exp.cpp" in
     ref_list_add meldargs (sprintf "--diff %s %s " outfile expfile);
   );
-  run_action (sprintf "meld %s" (String.concat "" !meldargs));
+  run_action (sprintf "meld %s" (String.concat "" !meldargs))
 
 
 (*****************************************************************************)
@@ -540,12 +555,13 @@ let _main : unit =
   Arg.parse
     (Arg.align (spec @ Flags.spec))
     (fun arg ->
-       if !caller_folder = ""
+      if !caller_folder = ""
         then caller_folder := arg
       else if !action = ""
         then action := arg
       else
         ref_list_add args arg)
+    "Usage: TODO";
 
   (* Check caller_folder has been provided *)
   if !caller_folder = ""
@@ -558,20 +574,19 @@ let _main : unit =
   (* Handle the case of an empty list of [argi], depending on [action] *)
   if !args = [] then begin
     if !action = "run" then begin
-        if !caller_folder = "."
-          then args := tests_folders
-          else args := !caller_folder
-      end;
+      if !caller_folder = "."
+        then args := tests_folders
+        else args := [!caller_folder]
     end else if List.mem !action ["ignore"; "code"] then begin
-      args := tests_from_file "failed.tests"
-            @ tests_from_file "wrong.tests";
-    end else if List.mem !action ["ignore"; "code"] then begin
-      args := tests_from_file "wrong.tests";
+      foreach_test_from_file "failed.tests" (ref_list_add args);
+      foreach_test_from_file "wrong.tests" (ref_list_add args);
+    end else if List.mem !action ["diff"; "meld"] then begin
+      foreach_test_from_file "wrong.tests" (ref_list_add args);
     end
   end;
 
   (* Switch according to action *)
-  let args := !args in
+  let args = !args in
   match !action with
   | "run" -> action_run args
   | "create" -> action_create args
@@ -692,8 +707,6 @@ NOT YET IMPLEMENTED
 (*****************************************************************************)
 (** Processing of tests list DEPRECATED *)
 (*
-module File_set = Set.Make(String)
-
 
 let filename_concat folder filename =
   if folder = "." then filename else Filename.concat folder filename
