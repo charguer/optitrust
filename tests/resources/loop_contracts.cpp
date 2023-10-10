@@ -76,20 +76,33 @@ __GHOST(array_fold) {
     __admitted();
 }
 
+__GHOST(ro_array_unfold) {
+    __requires("M: ptr, dim: int, f: _Fraction");
+    __consumes("_RO(f, M ~> Array(dim))");
+    __produces("_RO(f, Group(range(0, dim, 1), fun i -> &M[i] ~> Cell))");
+    __admitted();
+}
+
+__GHOST(ro_array_fold) {
+    __requires("M: ptr, dim: int, f: _Fraction");
+    __consumes("_RO(_Full(f), Group(range(0, dim, 1), fun i -> &M[i] ~> Cell))");
+    __produces("_RO(f, M ~> Array(dim))");
+    __admitted();
+}
+
 void array_copy_par(float* A, float* B, int n) {
     __reads("A ~> Array(n)");
     __modifies("B ~> Array(n)");
 
+    __ghost(ro_array_unfold, "A");
     __ghost(array_unfold, "B");
     for (int i = 0; i < n; ++i) {
-        __sequentially_reads("A ~> Array(n)");
+        __reads("&A[i] ~> Cell");
         __modifies("&B[i] ~> Cell");
-
-        __ghost(array_ro_focus, "A, i"); // Will be removed
         B[i] = A[i];
-        __ghost(array_ro_unfocus, "A"); // Will be removed
     }
     __ghost(array_fold, "B");
+    __ghost(ro_array_fold, "A");
 }
 
 float* array_alloc(int sz) {

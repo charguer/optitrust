@@ -30,7 +30,8 @@ let empty_loop_contract =
 
 
 let rec desugar_formula (formula: formula): formula =
-  (* Warning: this function is called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
+  (* Warning: this function can be called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
+  (* With incremental var-id resolution we could heavily simplify this *)
   Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_var (check (fun v -> v.name = "_HasModel"))) !__ (trm_apps (trm_var !__) !__ __)) (fun var f args ->
         if f.name <> sprintf "Matrix%d" (List.length args) then raise Pattern.Next;
@@ -41,17 +42,14 @@ let rec desugar_formula (formula: formula): formula =
 
 let rec encode_formula (formula: formula): formula =
   match formula_matrix_inv formula with
-  | Some (m, dims) -> formula_model m (trm_apps (trm_var (name_to_var (sprintf "Matrix%d" (List.length dims)))) dims)
+  | Some (m, dims) -> formula_model m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) dims)
   | None -> trm_map encode_formula formula
 
-let desugar_res ((name, formula): contract_resource): contract_resource =
-  (name, desugar_formula formula)
-
 let push_pure_res (res: contract_resource) (res_set: resource_set) =
-  { res_set with pure = new_res_item (desugar_res res) :: res_set.pure }
+  { res_set with pure = new_res_item res :: res_set.pure }
 
 let push_linear_res (res: contract_resource) (res_set: resource_set) =
-  { res_set with linear = new_res_item (desugar_res res) :: res_set.linear }
+  { res_set with linear = new_res_item res :: res_set.linear }
 
 let push_read_only_fun_contract_res ((name, formula): contract_resource) (contract: fun_contract): fun_contract =
   let frac_var, frac_ghost = new_frac () in
@@ -100,20 +98,6 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: contract_
       with Resource_cparser.Error ->
         failwith ("Failed to parse resource: " ^ desc)
     ) clauses empty_contract
-
-let parse_fun_contract = parse_contract_clauses empty_fun_contract push_fun_contract_clause
-let parse_loop_contract = parse_contract_clauses empty_loop_contract push_loop_contract_clause
-
-let __pure () = Requires, ""
-let __requires (r: string) = Requires, r
-let __ensures (r: string) = Ensures, r
-let __invariant (r: string) = Invariant, r
-let __reads (r: string) = Reads, r
-let __modifies (r: string) = Modifies, r
-let __consumes (r: string) = Consumes, r
-let __produces (r: string) = Produces, r
-let __sequentially_reads (r: string) = SequentiallyReads, r
-let __sequentially_modifies (r: string) = SequentiallyModifies, r
 
 let res_group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;

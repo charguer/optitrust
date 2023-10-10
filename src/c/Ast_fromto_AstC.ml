@@ -529,7 +529,7 @@ and ghost_args_elim_in_seq (ts: trm list): trm list =
     t :: ghost_args_elim_in_seq ts
 
 let formula_to_string (f: formula) : string =
-  AstC_to_c.ast_to_string ~beautify_mindex:!Flags.pretty_matrix_notation (*(caddress_intro *) (Resource_contract.encode_formula f) (* ) *)
+  AstC_to_c.ast_to_string ~beautify_mindex:!Flags.pretty_matrix_notation f
 
 let var__with = trm_var (name_to_var "__with")
 let var__call_with = trm_var (name_to_var "__call_with")
@@ -855,6 +855,21 @@ let rec contract_intro (t: trm): trm =
 
   | _ -> trm_map contract_intro t
 
+
+(*************************************** Formula syntactic sugar *********************************************)
+
+let rec formula_sugar_elim (t: trm): trm =
+  if trm_has_cstyle ResourceFormula t then
+    desugar_formula t
+  else
+    trm_map formula_sugar_elim t
+
+let rec formula_sugar_intro (t: trm): trm =
+  if trm_has_cstyle ResourceFormula t then
+    encode_formula t
+  else
+    trm_map formula_sugar_intro t
+
 (*************************************** Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
@@ -873,12 +888,14 @@ let cfeatures_elim: trm -> trm =
   caddress_elim |>
   C_scope.infer_var_ids |>
   cseq_items_void_type |>
+  formula_sugar_elim |>
   C_scope.infer_var_ids)
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro : trm -> trm =
   debug_before_after_trm "cfeatures_intro" (fun t ->
   C_scope.infer_var_ids t |>
+  formula_sugar_intro |>
   caddress_intro |>
   stackvar_intro |>
   infix_intro |>
