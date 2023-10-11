@@ -1,6 +1,6 @@
 On suppose une paires de ghosts g, g'
 
-Il faut savoir les gérer sur les fissions, move_out et hoist
+Il faut savoir les gérer sur les fissions, move_out, hoist, et swap
 
 # fission
 
@@ -98,6 +98,14 @@ for i {
   with g { t }
 }
 
+# swap
+
+pfor i { for j { t } } --> for j { pfor i { t } }
+
+pfor i { with g { for j { t } } } --> with { for j { g } } { for j { pfor i { t } } }
+
+avec with de code arbitraire:
+with F F' --> with { for j F } { for j F' }
 
 # Enlever un with
 
