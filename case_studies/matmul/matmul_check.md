@@ -16,11 +16,11 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
 
       float sum = 0.0f;
       for (int k = 0; k < p; k++) {
-        __ghost(matrix2_ro_focus, "A, i, k");
-        __ghost(matrix2_ro_focus, "B, k, j");
+        __scoped_ghost(matrix2_ro_focus, "A, i, k");
+        __scoped_ghost(matrix2_ro_focus, "B, k, j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
-        __ghost(matrix2_ro_unfocus, "A");
-        __ghost(matrix2_ro_unfocus, "B");
+        // __ghost(matrix2_ro_unfocus, "A");
+        // __ghost(matrix2_ro_unfocus, "B");
       }
 
       C[MINDEX2(m, n, i, j)] = sum;
@@ -54,11 +54,9 @@ void mm1024(float* C, float* A, float* B) {
 
       float sum = 0.0f;
       for (int k = 0; k < 1024; k++) {
-        __ghost(matrix2_ro_focus, "A, i, k");
-        __ghost(matrix2_ro_focus, "B, k, j");
+        __scoped_ghost(matrix2_ro_focus, "A, i, k");
+        __scoped_ghost(matrix2_ro_focus, "B, k, j");
         sum += A[MINDEX2(1024, 1024, i, k)] * B[MINDEX2(1024, 1024, k, j)];
-        __ghost(matrix2_ro_unfocus, "A");
-        __ghost(matrix2_ro_unfocus, "B");
       }
 
       C[MINDEX2(m, n, i, j)] = sum;
@@ -70,11 +68,8 @@ void mm1024(float* C, float* A, float* B) {
 ## 2. List.iter tile
 
 ```c
-void mm1024(float* C, float* A, float* B) {
-  __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-  __modifies("C ~> Matrix2(1024, 1024)");
-
-  __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
+[...]
+  __scoped_ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
     " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
   for (int bi = 0; bi < 32; bi++) {
     __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
@@ -84,7 +79,7 @@ void mm1024(float* C, float* A, float* B) {
       __modifies("Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell)");
       __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-      __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
+      __scoped_ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
         " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
       for (int bj = 0; bj < 32; bj++) {
         __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
@@ -97,23 +92,21 @@ void mm1024(float* C, float* A, float* B) {
           float sum = 0.f;
           for (int bk = 0; bk < 256; bk++) {
             for (int k = 0; k < 4; k++) {
-              __ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
               sum += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
-              __ghost(matrix2_ro_unfocus, "A");
-              __ghost(matrix2_ro_unfocus, "B");
             }
           }
           C[bi * 32 + i][bj * 32 + j] = sum;
         }
       }
-      __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
+      /* __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
+        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)"); */
     }
   }
-  __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-}
+  /* __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
+    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)"); */
+[...]
 ```
 
 # 3. Loop.reorder_at
@@ -121,26 +114,7 @@ void mm1024(float* C, float* A, float* B) {
 ## 3.1. Loop.hoist_alloc
 
 ```c
-void mm1024(float* C, float* A, float* B) {
-  __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-  __modifies("C ~> Matrix2(1024, 1024)");
-
-  __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-  for (int bi = 0; bi < 32; bi++) {
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-    for (int i = 0; i < 32; i++) {
-      __modifies("Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-      __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      for (int bj = 0; bj < 32; bj++) {
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
-        __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
+[...]
         float* const sum = (float* const)malloc(sizeof(float[32]));
         for (int j = 0; j < 32; j++) {
           __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
@@ -150,24 +124,15 @@ void mm1024(float* C, float* A, float* B) {
           sum[j] = 0.f;
           for (int bk = 0; bk < 256; bk++) {
             for (int k = 0; k < 4; k++) {
-              __ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
-              __ghost(matrix2_ro_unfocus, "A");
-              __ghost(matrix2_ro_unfocus, "B");
             }
           }
           C[bi * 32 + i][bj * 32 + j] = sum[j];
         }
         free(sum);
-      }
-      __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
-    }
-  }
-  __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-}
+[...]
 ```
 
 ## 3.2. Loop.fission_all_instrs
@@ -178,69 +143,41 @@ void mm1024(float* C, float* A, float* B) {
 TODO: minimize contracts?
 
 ```c
-void mm1024(float* C, float* A, float* B) {
-  __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-  __modifies("C ~> Matrix2(1024, 1024)");
-
-  __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-  for (int bi = 0; bi < 32; bi++) {
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-    for (int i = 0; i < 32; i++) {
-      __modifies("Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-      __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      for (int bj = 0; bj < 32; bj++) {
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
-        __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
+[...]
         float* const sum = (float* const)malloc(sizeof(float[32]));
-        __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        for (int j = 0; j < 32; j++) {
-          // __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __modifies("&sum[j] ~> Cell"); // write-only
-          // __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+        { // not a seq
+          __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          for (int j = 0; j < 32; j++) {
+            // __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+            __modifies("&sum[j] ~> Cell"); // write-only
+            // __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-          sum[j] = 0.f;
-        }
-        for (int j = 0; j < 32; j++) {
-          // __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __modifies("&sum[j] ~> Cell");
-          __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+            sum[j] = 0.f;
+          }
+          for (int j = 0; j < 32; j++) {
+            // __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+            __modifies("&sum[j] ~> Cell");
+            __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-          for (int bk = 0; bk < 256; bk++) {
-            for (int k = 0; k < 4; k++) {
-              __ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
-              sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
-              __ghost(matrix2_ro_unfocus, "A");
-              __ghost(matrix2_ro_unfocus, "B");
+            for (int bk = 0; bk < 256; bk++) {
+              for (int k = 0; k < 4; k++) {
+                __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
+                __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+                sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
+              }
             }
           }
-        }
-        for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell"); // write-only
-          __modifies("&sum[j] ~> Cell"); // read-only
-          // __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+          for (int j = 0; j < 32; j++) {
+            __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell"); // write-only
+            __modifies("&sum[j] ~> Cell"); // read-only
+            // __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-          C[bi * 32 + i][bj * 32 + j] = sum[j];
+            C[bi * 32 + i][bj * 32 + j] = sum[j];
+          }
         }
-        __ghost(ro_join_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        __ghost(ro_join_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
         free(sum);
-      }
-      __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
-    }
-  }
-  __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-}
+[...]
 ```
 
 ## 3.3. Loop.swap
@@ -248,69 +185,24 @@ void mm1024(float* C, float* A, float* B) {
 - 'j' loop must be parallel
 
 ```c
-void mm1024(float* C, float* A, float* B) {
-  __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-  __modifies("C ~> Matrix2(1024, 1024)");
-
-  __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-  for (int bi = 0; bi < 32; bi++) {
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-    for (int i = 0; i < 32; i++) {
-      __modifies("Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-      __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      for (int bj = 0; bj < 32; bj++) {
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
-        __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-        float* const sum = (float* const)malloc(sizeof(float[32]));
-        __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        for (int j = 0; j < 32; j++) {
-          __modifies("&sum[j] ~> Cell");
-
-          sum[j] = 0.f;
-        }
+[...]
         for (int bk = 0; bk < 256; bk++) {
           __sequentially_modifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
-          __sequentially_reads("Group(range(j), A ~> Matrix2(1024, 1024)),"
-                               "Group(range(j), B ~> Matrix2(1024, 1024))");
+          __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+                               "Group(range(32), B ~> Matrix2(1024, 1024))");
 
           for (int j = 0; j < 32; j++) {
             __modifies("&sum[j] ~> Cell");
             __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
             for (int k = 0; k < 4; k++) {
-              __ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
-              __ghost(matrix2_ro_unfocus, "A");
-              __ghost(matrix2_ro_unfocus, "B");
             }
           }
         }
-        for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell"); // write-only
-          __reads("&sum[j] ~> Cell");
-
-          C[bi * 32 + i][bj * 32 + j] = sum[j];
-        }
-        __ghost(ro_join_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        __ghost(ro_join_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        free(sum);
-      }
-      __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
-    }
-  }
-  __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-}
+[...]
 ```
 
 ## 3.4. Loop.swap
@@ -318,34 +210,7 @@ void mm1024(float* C, float* A, float* B) {
 - 'j' loop must be parallel
 
 ```c
-void mm1024(float* C, float* A, float* B) {
-  __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-  __modifies("C ~> Matrix2(1024, 1024)");
-
-  __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-  for (int bi = 0; bi < 32; bi++) {
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-    for (int i = 0; i < 32; i++) {
-      __modifies("Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-      __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      for (int bj = 0; bj < 32; bj++) {
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
-        __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-        float* const sum = (float* const)malloc(sizeof(float[32]));
-        __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        for (int j = 0; j < 32; j++) {
-          __modifies("&sum[j] ~> Cell");
-
-          sum[j] = 0.f;
-        }
+[...]
         for (int bk = 0; bk < 256; bk++) {
           __sequentially_modifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
           __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
@@ -360,31 +225,13 @@ void mm1024(float* C, float* A, float* B) {
               __modifies("&sum[j] ~> Cell");
               __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-              __ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
-              __ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
+              __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
+              __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
               sum[j] += A[bi * 32 + i][bk * 4 + k] * B[bk * 4 + k][bj * 32 + j];
-              __ghost(matrix2_ro_unfocus, "A");
-              __ghost(matrix2_ro_unfocus, "B");
             }
           }
         }
-        for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __reads("&sum[j] ~> Cell");
-
-          C[bi * 32 + i][bj * 32 + j] = sum[j];
-        }
-        __ghost(ro_join_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        __ghost(ro_join_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        free(sum);
-      }
-      __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-        " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
-    }
-  }
-  __ghost(untile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-}
+[...]
 ```
 
 ## 3.5. Loop.swap
@@ -393,18 +240,9 @@ void mm1024(float* C, float* A, float* B) {
 - 'i' loop must be parallel
 
 ```c
-void mm1024(float* C, float* A, float* B) {
-  __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-  __modifies("C ~> Matrix2(1024, 1024)");
-
-  __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
-    " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
-  for (int bi = 0; bi < 32; bi++) {
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-
-    __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-    __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+[...]
+    __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+    __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
 
     for (int i = 0; i < 32; i++) {
       __consumes("Group(range(0, 1024, 1), fun j -> &C[bi * 32 + i][j] ~> Cell)");
