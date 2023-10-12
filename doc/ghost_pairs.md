@@ -147,16 +147,57 @@ affaibli les modifies
 =======================================================
 # Ghost scoped
 
-ghost_begin("fend", f, "...");
-...
-ghost_end("fend");
+  ghost(f, "...") // general syntax
 
 
-=>
+approach1
+
+  ghost_begin("fend", f, "...");
+  ...
+  ghost_end("fend");
 
 explaination of ghost_begin:
 
    ghost(f, "..."); __bind("fend := reverse");
+   ghost(fend) // if is a name
+   // encoded as  Trm_apps(Trm_apps(Trm_prim_ghost_call, "fend"), [])
+   // could have challenges with variable checks?
+
+
+approach 2: (==> try this first)
+
+  GHOST_BEGIN(fend, f, "x := a")
+  => // is macro for
+  ghost_scope fend = ghost_begin(f, "x := a");
+  // resource typing adds a spec for fend in the ghost_spec_table
+  ...
+  ghost_end(fend); // interpreted like ghost(fend)
+  // make sure that we have a proper id for fend
+
+
+
+alternative presentation: (with explicit args for reverse)
+
+  ghost_begin("fend", f, "...");
+  ...
+  ghost_end("fend", f_reverse, "...");
+
+
+alternative presentation:
+
+  ghost_begin(f, "x, y");
+  ...
+  ghost_end(f_reverse, "y, x");
+
+
+strategy for geenrated names:
+
+  ghost_begin("f_scope1", f, "...");
+  ...
+  ghost_end("f_scope1");
+
+
+
 
 
 
@@ -168,6 +209,7 @@ GHOST_REVERSIBLE(f) {
   produces H2
 }
 
+
 means
 
 GHOST(f) {
@@ -178,6 +220,25 @@ GHOST(f) {
     consumes H2
     produces H1)
 }
+
+GHOST(f_fwd) {
+  requires x
+  consumes H1
+  produces H2
+}
+
+GHOST(f_back) {
+  requires x
+  consumes H1
+  produces H2
+}
+
+
+// idea: ghost(rev(f))
+// idea: ghost_rev(f)
+// idea: GHOST_REVERSIBLE builds a class/struct with 3 functions
+//    ghost(f.back), ghost(f), ghost(f.fwd) ==> looks good
+
 
 ensures (
   fend : ghost_val;
@@ -215,7 +276,7 @@ GHOST(f) {
 }
 
 =======================================================
-# Splitting scoped ghost
+# Splitting scoped ghost => TO implement
 
 {
   ghost_begin(T)
@@ -254,6 +315,26 @@ and attempt to typecheck resources
 =======================================================
 # Minimize
 
+3 choices for implementing cancel: => TO implement
+  => cancel
+  => move down
+  => swap
+
+  t0
+  ghost_begin(T) <- target this
+  t1
+  t2
+  ghost_end(T)
+  t3
+
+Are resources from T used in t1,t2?
+
+=> union of t1,t2 uses disjoint from resources produced by T
+
+// see loop_basic.fission
+
+
+
 Operation take a ghost in a sequence, and move it either up or down as far as possible;
 with an option to cancel it out if we reach the inverse, with two modes for cancel:
   - either cancel only pairs with similar token
@@ -264,7 +345,9 @@ with an option to cancel it out if we reach the inverse, with two modes for canc
   ghost(f)
   t3
   t4
+
 -> move up
+
   t1 // instruction that produces a resource consumed by ghost(f)
   ghost(f)
   t2 // does not interfer
@@ -288,8 +371,14 @@ and "move_up" on "ghost_end",
   t3
   t4
 
+
+
+
+
+
+
 =======================================================
-# Fission
+# Fission => unit test
 
 Prelude of fission:
 (1) attempt to split scoped ghost and minimize them,
@@ -361,10 +450,29 @@ NOTE: minimize loop contract should attempt to
  minimize scoped ghost systematically
 
 
+
+
+=======================================================
+# Descope ghost // NOT NEEDED YET
+
+  ghost_begin(T, "..")
+  t1
+  t2
+  ghost_end(T)
+
+->
+
+  ghost(T, "..")
+  t1
+  t2
+  ghost(T_reverse, "..") // with the same arguments
+
+
+
 =======================================================
 # Swap
 
-Transfo "scoped_ghost_hoist":
+Transfo "scoped_ghost_hoist": // TO IMPLEMENT
 
 pfor i
   ghost_begin(T, H1i, H2i)
@@ -386,7 +494,7 @@ ghost_end(T')
 
 
 Remark: check in the unit test that it works on nested ops
-by applygin
+by applying
 
 pfor i
   ghost_begin(T)
@@ -429,6 +537,35 @@ void f(takes function g as arg) : return function h {
 
 
 }
+
+
+
+
+
+=========================
+# Typing read variables
+
+  how to type
+  // t ~>RO Array
+  y = t[i] + t[j]
+
+  needs two focus
+  // t[i] ~>RO Cell,  t[j] ~>RO Cell ,   +reverse-wand
+  y = t[i] + t[j]
+
+  presentation with on-the-fly focus
+  y = with(array_focus, t[i]) + with(array_focus, t[j])
+
+
+  alternative: ability to read with larger permissions
+  t ->RO Array
+  t[i]
+
+
+
+
+
+
 
 
 
