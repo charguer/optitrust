@@ -27,7 +27,7 @@ let __sequentially_modifies (r: string) = SequentiallyModifies, r
 
 let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
   let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
-  trm_like ~old:t (trm_let_fun name ret_typ args ~contract body)
+  trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
 
 let%transfo set_fun_contract (contract: unparsed_contract) (tg : Target.target) : unit =
   Target.apply_at_target_paths (set_fun_contract_on (parse_fun_contract contract)) tg

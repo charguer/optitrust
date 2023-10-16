@@ -724,7 +724,10 @@ and fun_contract = {
   post: resource_set;
 }
 
-and fun_spec = fun_contract option
+and fun_spec =
+  | FunSpecUnknown
+  | FunSpecContract of fun_contract
+  | FunSpecReverts of var
 
 (* forall ghosts, { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } loop { invariant(n) * Group(iter_contract.post(i)) } *)
 (* forall ghosts, { invariant(i) * iter_contract.pre(i) } loop body { invariant(i) * iter_contract.post(i) } *)

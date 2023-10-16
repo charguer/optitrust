@@ -583,6 +583,9 @@ let __consumes = name_to_var "__consumes"
 let __produces = name_to_var "__produces"
 let __sequentially_reads = name_to_var "__sequentially_reads"
 let __sequentially_modifies = name_to_var "__sequentially_modifies"
+
+let __reverts = name_to_var "__reverts"
+
 let __ctx_res = name_to_var "__ctx_res"
 let __produced_res = name_to_var "__produced_res"
 let __used_res = name_to_var "__used_res"
@@ -631,10 +634,25 @@ let extract_contract (empty_contract: 'c) (push_contract_clause: contract_clause
   | [] -> None, seq
   | _ -> Some (parse_contract_clauses empty_contract push_contract_clause enc_contract), seq
 
-let extract_fun_contract (seq: trm mlist) : fun_spec * trm mlist =
-  extract_contract empty_fun_contract push_fun_contract_clause seq
+let encoded_reverts_inv (t: trm): var option =
+  Pattern.pattern_match t [
+    Pattern.(trm_apps1 (trm_var (check (fun v -> v.name = "__reverts"))) (trm_var !__)) (fun revert_fn ->
+      Some revert_fn
+    );
+    Pattern.__ None
+  ]
 
-let extract_loop_contract (seq: trm mlist) : loop_spec * trm mlist =
+let extract_fun_spec (seq: trm mlist) : fun_spec * trm mlist =
+  match Option.bind (Mlist.nth_opt seq 0) encoded_reverts_inv with
+  | Some reverts_fn -> FunSpecReverts reverts_fn, Mlist.pop_front seq
+  | None ->
+    let contract_opt, seq = extract_contract empty_fun_contract push_fun_contract_clause seq in
+    match contract_opt with
+    | None -> FunSpecUnknown, seq
+    | Some c -> FunSpecContract c, seq
+
+
+let extract_loop_spec (seq: trm mlist) : loop_spec * trm mlist =
   extract_contract empty_loop_contract push_loop_contract_clause seq
 
 let contract_elim (t: trm): trm =
@@ -642,10 +660,10 @@ let contract_elim (t: trm): trm =
   let rec aux t =
   match t.desc with
   | Trm_let_fun (qv, ty, args, body, contract) ->
-    assert (contract = None);
+    assert (contract = FunSpecUnknown);
     begin match trm_seq_inv body with
     | Some body_seq ->
-      let contract, new_body = extract_fun_contract body_seq in
+      let contract, new_body = extract_fun_spec body_seq in
       let new_body = Mlist.map aux new_body in
       trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
     | None -> trm_map aux t
@@ -655,7 +673,7 @@ let contract_elim (t: trm): trm =
     assert (contract = None);
     begin match trm_seq_inv body with
     | Some body_seq ->
-      let contract, new_body = extract_loop_contract body_seq in
+      let contract, new_body = extract_loop_spec body_seq in
       let new_body = Mlist.map aux new_body in
       trm_alter ~desc:(Trm_for (range, trm_seq new_body, contract)) t
     | None -> trm_map aux t
@@ -803,9 +821,9 @@ let rec contract_intro (t: trm): trm =
     let body = contract_intro body0 in
     let body =
       match contract with
-      | Some contract when contract = empty_fun_contract ->
+      | FunSpecContract contract when contract = empty_fun_contract ->
         seq_push (trm_apps (trm_var __pure) []) body
-      | Some contract ->
+      | FunSpecContract contract ->
         let pre_pure, pre_linear, post_linear, body =
           push_reads_and_modifies __reads __modifies contract.pre.pure contract.pre.linear contract.post.linear body
         in
@@ -814,7 +832,9 @@ let rec contract_intro (t: trm): trm =
         let body = push_named_formulas __consumes pre_linear body in
         let body = push_named_formulas __requires pre_pure body in
         body
-      | None -> body
+      | FunSpecReverts reverted_fn ->
+        seq_push (trm_apps (trm_var __reverts) [trm_var reverted_fn]) body
+      | FunSpecUnknown -> body
     in
     if body == body0
       then t

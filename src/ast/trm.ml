@@ -166,12 +166,12 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind :
   trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let_mult (kind, tvl, tl))
 
 (* [trm_let ~annot ?loc ?ctx name ret_typ args body]: function definition *)
-let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec)
+let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec = FunSpecUnknown)
   (v : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
   trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let_fun (v, ret_typ, args, body, contract))
 
 (* [trm_fun ~annot ?loc args ret_typ body]: anonymous function.  *)
-let trm_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec)
+let trm_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec = FunSpecUnknown)
   (args : typed_vars) (ret_typ : typ option) (body : trm) =
   trm_make ~annot ?loc ?ctx (Trm_fun (args, ret_typ, body, contract))
 
@@ -1776,6 +1776,15 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   let typ = t.typ in
   let ctx = if keep_ctx then t.ctx else unknown_ctx in
 
+  let fun_spec_map f tf old_spec =
+    match old_spec with
+    | FunSpecContract old_contract ->
+      let new_contract = f old_contract in
+      if share_if_no_change && tf old_contract new_contract
+        then old_spec
+        else FunSpecContract new_contract
+    | _ -> old_spec
+  in
   let opt_map f tf old_opt =
     let new_opt = Option.map f old_opt in
     if share_if_no_change && Option.equal tf old_opt new_opt
@@ -1847,16 +1856,16 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       (trm_let_mult ~annot ?loc ~ctx vk tvs tis')
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
-    let contract' = opt_map fun_contract_map (==) contract in
+    let contract' = fun_spec_map fun_contract_map (==) contract in
     if (share_if_no_change && body' == body && contract' == contract)
       then t
-      else (trm_let_fun ~annot ?loc ?contract:contract' ~ctx f' res args body')
+      else (trm_let_fun ~annot ?loc ~contract:contract' ~ctx f' res args body')
   | Trm_fun (args, ret, body, contract) ->
     let body' = f false body in
-    let contract' = opt_map fun_contract_map (==) contract in
+    let contract' = fun_spec_map fun_contract_map (==) contract in
     if (share_if_no_change && body' == body && contract' == contract)
       then t
-      else (trm_fun ~annot ?loc ?contract:contract' ~ctx args ret body')
+      else (trm_fun ~annot ?loc ~contract:contract' ~ctx args ret body')
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -2055,7 +2064,7 @@ let trm_map_vars
   ?(keep_ctx = false)
   ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
   ?(exit_scope: 'ctx -> 'ctx -> trm -> 'ctx = fun outer_ctx inner_ctx t -> outer_ctx)
-  ?(post_process_trm: 'ctx -> trm -> trm = fun _ t -> t)
+  ?(post_process: 'ctx -> trm -> 'ctx * trm = fun ctx t -> (ctx, t))
   ?(enter_beta_redex: ('ctx -> (var * trm) list -> 'ctx) option)
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
   (map_var: 'ctx -> var_metadata -> var -> trm)
@@ -2102,18 +2111,13 @@ let trm_map_vars
         let ctx, arg' = map_binder ctx arg false in
         (ctx, (arg', typ))
       ) (enter_scope ctx t) args in
-      let body_ctx, contract' = match contract with
-        | None -> (body_ctx, None)
-        | Some contract ->
-          let body_ctx, contract = fun_contract_map body_ctx contract in
-          (body_ctx, Some contract)
-      in
+      let body_ctx, contract' = fun_spec_map body_ctx contract in
       let body_ctx, body' = f_map body_ctx body in
       let cont_ctx, fn' = map_binder ctx fn (is_fun_with_empty_body t) in
       (* TODO: (List.for_all2 (==) args args') ? *)
       let t' = if (body' == body && args == args' && fn == fn' && contract == contract')
         then t
-        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' fn' rettyp args' body')
+        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ~contract:contract' fn' rettyp args' body')
       in
       (* TODO: Proper function type here *)
       let ctx = exit_scope cont_ctx body_ctx t' in
@@ -2165,17 +2169,12 @@ let trm_map_vars
       let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) ->
         let ctx, arg' = map_binder ctx arg false in
         (ctx, (arg', typ))) (enter_scope ctx t) args in
-      let body_ctx, contract' = match contract with
-        | None -> (body_ctx, None)
-        | Some contract ->
-          let body_ctx, contract = fun_contract_map body_ctx contract in
-          (body_ctx, Some contract)
-      in
+      let body_ctx, contract' = fun_spec_map body_ctx contract in
       let body_ctx, body' = f_map body_ctx body in
       (* TODO: (List.for_all2 (==) args args') ? *)
       let t' = if (args == args' && body == body' && contract == contract')
         then t
-        else trm_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' args' ret body' in
+        else trm_fun ~annot ?loc ~ctx:t_ctx ~contract:contract' args' ret body' in
       (* TODO: Proper function type here *)
       let ctx = exit_scope ctx body_ctx t' in
       (ctx, t')
@@ -2201,7 +2200,7 @@ let trm_map_vars
       let args' = List.map (fun arg -> snd (f_map ctx arg)) args in
       let ghost_args' = List.map (fun (g, t) -> (g, snd (f_map ctx t))) ghost_args in
       begin match func'.desc, enter_beta_redex with
-      | Trm_fun (params, _, body, None), Some enter_beta_redex ->
+      | Trm_fun (params, _, body, FunSpecUnknown), Some enter_beta_redex ->
         (* LATER: deal with ghost_args and spec *)
         let args_inst = List.map2 (fun (param, _) arg -> (param, arg)) params args' in
         let inner_ctx = enter_beta_redex ctx args_inst in
@@ -2274,7 +2273,7 @@ let trm_map_vars
       (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
 
     in
-    (ctx, post_process_trm ctx trm)
+    post_process ctx trm
 
   and resource_items_map ctx resources: 'ctx * resource_item list =
     List.fold_left_map (fun ctx resources ->
@@ -2296,6 +2295,13 @@ let trm_map_vars
     in
     (ctx, resources')
 
+  and fun_spec_map ctx fun_spec: 'ctx * fun_spec =
+    match fun_spec with
+    | FunSpecContract contract ->
+      let ctx, contract' = fun_contract_map ctx contract in
+      if contract == contract' then (ctx, fun_spec) else (ctx, FunSpecContract contract')
+    | _ -> (ctx, fun_spec)
+
   and fun_contract_map ctx contract: 'ctx * fun_contract =
     let ctx, pre = resource_set_map ctx contract.pre in
     let _, post = resource_set_map ctx contract.post in
@@ -2316,32 +2322,41 @@ let trm_map_vars
   in
   snd (f_map ctx t)
 
+
 let trm_rename_vars
   ?(keep_ctx = false)
   ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
   ?(exit_scope: 'ctx -> 'ctx -> trm -> 'ctx = fun outer_ctx inner_ctx t -> outer_ctx)
-  ?(post_process_trm: 'ctx -> trm -> trm = fun _ t -> t)
+  ?(post_process: 'ctx -> trm -> 'ctx * trm = fun ctx t -> (ctx, t))
   (map_var: 'ctx -> var -> var)
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, map_var ctx bind))
   ?(map_ghost_arg_name: 'ctx -> trm -> hyp -> hyp = fun ctx _ g -> map_var ctx g)
   (ctx: 'ctx) (t: trm): trm =
-  trm_map_vars ~keep_ctx ~enter_scope ~exit_scope ~post_process_trm:(fun ctx t ->
+  trm_map_vars ~keep_ctx ~enter_scope ~exit_scope ~post_process:(fun ctx t ->
     match t.desc with
     | Trm_apps (fn, args, ghost_args) when ghost_args <> [] ->
       let map_ghost_arg_name = map_ghost_arg_name ctx fn in
       let ghost_args = List.map (fun (g, gt) -> (map_ghost_arg_name g, gt)) ghost_args in
-      post_process_trm ctx (trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t)
-    | _ -> post_process_trm ctx t
+      post_process ctx (trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t)
+    | Trm_let_fun (fn, rettyp, args, body, FunSpecReverts other_fn) ->
+      let other_fn' = map_var ctx other_fn in
+      post_process ctx (trm_alter ~desc:(Trm_let_fun (fn, rettyp, args, body, FunSpecReverts other_fn')) t)
+    | Trm_fun (args, rettyp, body, FunSpecReverts other_fn) ->
+      let other_fn' = map_var ctx other_fn in
+      post_process ctx (trm_alter ~desc:(Trm_fun (args, rettyp, body, FunSpecReverts other_fn')) t)
+    | _ -> post_process ctx t
     ) ~map_binder (fun ctx (annot, loc, typ, vctx, kind) var -> trm_var ~annot ?loc ?typ ~ctx:vctx ~kind (map_var ctx var)) ctx t
 
 let trm_iter_vars
   ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
   ?(exit_scope: 'ctx -> 'ctx -> trm -> 'ctx = fun outer_ctx inner_ctx t -> outer_ctx)
+  ?(post_process: 'ctx -> trm -> 'ctx = fun ctx _ -> ctx)
   (iter_var: 'ctx -> var -> unit)
   ?(iter_binder: 'ctx -> var -> bool -> 'ctx = fun ctx bind is_predecl -> iter_var ctx bind; ctx)
   ?(iter_ghost_arg_name: 'ctx -> trm -> hyp -> unit = fun ctx _ g -> iter_var ctx g)
   (ctx: 'ctx) (t: trm): unit =
   ignore (trm_rename_vars ~keep_ctx:true ~enter_scope ~exit_scope
+    ~post_process:(fun ctx trm -> (post_process ctx trm, trm))
     (fun ctx x -> iter_var ctx x; x)
     ~map_binder:(fun ctx bind is_predecl -> (iter_binder ctx bind is_predecl, bind))
     ~map_ghost_arg_name:(fun ctx fn g -> iter_ghost_arg_name ctx fn g; g)

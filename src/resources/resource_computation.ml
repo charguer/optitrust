@@ -530,13 +530,35 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       begin match contract with
-      | Some contract ->
+      | FunSpecContract contract ->
         let body_res = bind_new_resources ~old_res:res ~new_res:contract.pre in
         (* LATER: Merge used pure facts *)
         ignore (compute_resources ~expected_res:contract.post (Some body_res) body);
         let args = List.map (fun (x, _) -> x) args in
         (Some usage_map, Some { res with fun_contracts = Var_map.add name (args, contract) res.fun_contracts })
-      | None -> (Some usage_map, Some res)
+      | FunSpecReverts reverted_fn ->
+        (* LATER: allow non empty arg list for reversible functions, this requires subtitution in the reversed contract *)
+        assert (args = []);
+        (* TODO: Also register reverse in the fun_contracts entry *)
+        let reverted_args, reverted_contract = Var_map.find reverted_fn res.fun_contracts in
+        assert (reverted_args = []);
+        assert (reverted_contract.post.pure = []);
+        assert (reverted_contract.post.fun_contracts = Var_map.empty);
+        let reverse_contract = {
+          pre = {
+            pure = reverted_contract.pre.pure;
+            linear = reverted_contract.post.linear;
+            fun_contracts = reverted_contract.pre.fun_contracts
+          };
+          post = {
+            pure = [];
+            linear = reverted_contract.pre.linear;
+            fun_contracts = Var_map.empty
+          }
+        } in
+        let args = List.map (fun (x, _) -> x) args in
+        (Some usage_map, Some { res with fun_contracts = Var_map.add name (args, reverse_contract) res.fun_contracts })
+      | FunSpecUnknown -> (Some usage_map, Some res)
       end
 
     | Trm_seq instrs ->
