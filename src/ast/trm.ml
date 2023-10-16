@@ -2049,7 +2049,7 @@ let trm_used_vars (t: trm): Var_set.t =
   aux t;
   !vars
 
-type metadata = trm_annot * location * typ option * ctx * varkind
+type var_metadata = trm_annot * location * typ option * ctx * varkind
 
 let trm_map_vars
   ?(keep_ctx = false)
@@ -2058,7 +2058,7 @@ let trm_map_vars
   ?(post_process_trm: 'ctx -> trm -> trm = fun _ t -> t)
   ?(enter_beta_redex: ('ctx -> (var * trm) list -> 'ctx) option)
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
-  (map_var: 'ctx -> metadata -> var -> trm)
+  (map_var: 'ctx -> var_metadata -> var -> trm)
   (ctx: 'ctx) (t: trm): trm =
   let rec f_map ctx t: 'ctx * trm =
     let annot = t.annot in
@@ -2097,7 +2097,7 @@ let trm_map_vars
       in
       (!cont_ctx, t')
 
-    | Trm_let_fun (fn, resources, args, body, contract) ->
+    | Trm_let_fun (fn, rettyp, args, body, contract) ->
       let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) ->
         let ctx, arg' = map_binder ctx arg false in
         (ctx, (arg', typ))
@@ -2113,7 +2113,7 @@ let trm_map_vars
       (* TODO: (List.for_all2 (==) args args') ? *)
       let t' = if (body' == body && args == args' && fn == fn' && contract == contract')
         then t
-        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' fn' resources args' body')
+        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract:contract' fn' rettyp args' body')
       in
       (* TODO: Proper function type here *)
       let ctx = exit_scope cont_ctx body_ctx t' in
@@ -2323,15 +2323,29 @@ let trm_rename_vars
   ?(post_process_trm: 'ctx -> trm -> trm = fun _ t -> t)
   (map_var: 'ctx -> var -> var)
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, map_var ctx bind))
+  ?(map_ghost_arg_name: 'ctx -> trm -> hyp -> hyp = fun ctx _ g -> map_var ctx g)
   (ctx: 'ctx) (t: trm): trm =
   trm_map_vars ~keep_ctx ~enter_scope ~exit_scope ~post_process_trm:(fun ctx t ->
-    let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
     match t.desc with
     | Trm_apps (fn, args, ghost_args) when ghost_args <> [] ->
-      let ghost_args = List.map (fun (g, gt) -> (map_var ctx g, gt)) ghost_args in
-      post_process_trm ctx (trm_apps ~ctx:t_ctx fn args ~ghost_args)
+      let map_ghost_arg_name = map_ghost_arg_name ctx fn in
+      let ghost_args = List.map (fun (g, gt) -> (map_ghost_arg_name g, gt)) ghost_args in
+      post_process_trm ctx (trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t)
     | _ -> post_process_trm ctx t
     ) ~map_binder (fun ctx (annot, loc, typ, vctx, kind) var -> trm_var ~annot ?loc ?typ ~ctx:vctx ~kind (map_var ctx var)) ctx t
+
+let trm_iter_vars
+  ?(enter_scope: 'ctx -> trm -> 'ctx = fun ctx t -> ctx)
+  ?(exit_scope: 'ctx -> 'ctx -> trm -> 'ctx = fun outer_ctx inner_ctx t -> outer_ctx)
+  (iter_var: 'ctx -> var -> unit)
+  ?(iter_binder: 'ctx -> var -> bool -> 'ctx = fun ctx bind is_predecl -> iter_var ctx bind; ctx)
+  ?(iter_ghost_arg_name: 'ctx -> trm -> hyp -> unit = fun ctx _ g -> iter_var ctx g)
+  (ctx: 'ctx) (t: trm): unit =
+  ignore (trm_rename_vars ~keep_ctx:true ~enter_scope ~exit_scope
+    (fun ctx x -> iter_var ctx x; x)
+    ~map_binder:(fun ctx bind is_predecl -> (iter_binder ctx bind is_predecl, bind))
+    ~map_ghost_arg_name:(fun ctx fn g -> iter_ghost_arg_name ctx fn g; g)
+    ctx t)
 
 (** Erase variable identifiers, useful for e.g. embedding a subexpression in a new context. *)
 let trm_erase_var_ids (t : trm) : trm =
@@ -2361,7 +2375,7 @@ let trm_copy (t : trm) : trm =
 let trm_subst
   ?(on_subst : trm -> trm -> trm = fun old_t new_t -> trm_copy new_t)
   (subst_map: trm varmap) (t: trm) =
-  let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): metadata) (var: var) =
+  let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): var_metadata) (var: var) =
     let var_t = trm_var ~annot ?loc ?typ ~kind var in
     match Var_map.find_opt var subst_map with
     | Some subst_t -> on_subst var_t subst_t
