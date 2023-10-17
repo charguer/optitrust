@@ -230,13 +230,14 @@ Current plan:
 
   // current implementation:
 
-  GHOST_BEGIN(fend, fghost, "a:=1") --> Let ("fend", [], trm_call(trm_var "GHOST_BEGIN", trm_call(fghost, [], [("a", 1)]))
+  GHOST_BEGIN(fend, fghost, "a:=1") --> Let ("fend", [], trm_call(trm_var "GHOST_BEGIN", trm_call(fghost, [], [("a", 1)]))@annot_ghost
 
     // with custom typing rule saying that fend is added to the specification map, with the reverse entailment.
-  GHOST_END(fend) --> Let^ghostend (None, [], trm_call(trm_var "GHOST_END", trm_call(trm_var "fend", [], [])))
+  GHOST_END(fend) --> trm_call(trm_var "GHOST_END", trm_call(trm_var "fend", [], []))@annot_ghost
 
+  __ghost(f, "a:=1"); --> trm_call(trm_var "f", [("a",1)])@annot_ghost
 
-
+  ::: function is_trm_ghost
 
 
   // Choice 1: all ghost variables live in the same namespace as C variables
