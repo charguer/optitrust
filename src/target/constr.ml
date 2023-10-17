@@ -1582,10 +1582,12 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_let_fun (_, _ , _, body, contract)
      | Trm_fun (_, _, body, contract) ->
         add_dir Dir_body (aux_body body) @
-        option_flat_map (fun contract ->
+        begin match contract with
+        | FunSpecContract contract ->
           (aux_contract_dir Contract_pre contract.pre) @
           (aux_contract_dir Contract_post contract.post)
-        ) contract
+        | _ -> []
+        end
      | Trm_typedef td  ->
       begin match td.typdef_body with
       | Typdef_record rfl ->

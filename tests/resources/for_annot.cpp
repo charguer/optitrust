@@ -10,7 +10,7 @@ void matmul(float* C, float* A, float* B, int m, int n, int p) {
       float sum = 0.0f;
       for (int k = 0; k < p; k++) {
         __sequentially_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
-        __sequentially_modifies("sum ~> Cell");
+        __sequentially_modifies("&sum ~> Cell");
 
         __ghost(matrix2_ro_focus, "A, i, k");
         __ghost(matrix2_ro_focus, "B, k, j");

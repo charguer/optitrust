@@ -27,4 +27,11 @@ void incr_range(int* m, int sz) {
   }
 }
 
-int main() {}
+void loop(int n) {
+  __pure();
+  int acc = 0;
+  for (int j = 0; j < n; ++j) {
+    __sequentially_modifies("&acc ~> Cell");
+    ++acc;
+  }
+}

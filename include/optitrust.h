@@ -24,6 +24,9 @@ inline void __admitted() {}
 // Return type for ghost functions
 typedef void __ghost_ret;
 
+// Type of ghost function pointers
+typedef __ghost_ret (*__ghost_fn)();
+
 // Argument type for ghost functions
 typedef const char* __ghost_args;
 
@@ -31,7 +34,7 @@ typedef const char* __ghost_args;
 #define __GHOST(f) inline __ghost_ret f()
 
 // Invoke a ghost function
-inline void __ghost(__ghost_ret (*)(), __ghost_args) {}
+inline void __ghost(__ghost_fn, __ghost_args) {}
 
 /// Postfix call for specifying ghost arguments
 inline void __with(__ghost_args) {}
@@ -42,6 +45,14 @@ template<typename T> T __call_with(T ret_val, __ghost_args) { return ret_val; }
 template<typename T> T __bind(T ret_val, const char*) { return ret_val; }
 inline void __rename(const char*) {}
 */
+
+inline __ghost_fn __ghost_begin(__ghost_fn, __ghost_args) { return __admitted; }
+inline void __ghost_end(__ghost_fn) {}
+
+#define __GHOST_BEGIN(rev_ghost, ghost, ghost_args) __ghost_fn rev_ghost = __ghost_begin(ghost, ghost_args)
+#define __GHOST_END(rev_ghost) __ghost_end(rev_ghost)
+
+inline void __reverts(__ghost_fn) {}
 
 /* ---- Contract for primitive functions ---- */
 
@@ -280,10 +291,7 @@ __GHOST(ro_fork_group) {
 }
 
 __GHOST(ro_join_group) {
-  __requires("f: _Fraction, R: formula, r: range");
-  // TODO: can we write: Group(r, fun _ -> _RO(f / range_count(r), R)) ?
-  __consumes("_RO(f / range_count(r), Group(r, fun _ -> R))");
-  __produces("_RO(f, R)");
+  __reverts(ro_fork_group);
   __admitted();
 }
 
@@ -297,9 +305,7 @@ __GHOST(ro_distribute_group) {
 }
 
 __GHOST(ro_factorize_group) {
-  __requires("range: range, items: int -> formula, f: _Fraction");
-  __consumes("_RO(f, Group(range, items))");
-  __produces("Group(range, fun i -> _RO(f, items(i)))");
+  __reverts(ro_distribute_group)
   __admitted();
 }
 */
@@ -317,14 +323,7 @@ __GHOST(tile_divides) {
 }
 
 __GHOST(untile_divides) {
-  __requires(
-    "tile_count: int, tile_size: int,"
-    "n: int, to_item: int -> resource,"
-    "bound_check: n = tile_size * tile_count"
-  );
-  __consumes("Group(range(0, tile_count, 1), fun bi ->"
-               "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)))");
-  __produces("Group(range(0, n, 1), to_item)");
+  __reverts(tile_divides);
   __admitted();
 }
 
@@ -369,10 +368,8 @@ __GHOST(matrix2_focus)  {
 }
 
 __GHOST(matrix2_unfocus) {
-    __requires("M: ptr, m: int, n: int, i: int, j: int");
-    __consumes("M ~> FocussedMatrix2(m, n, i), &M[MINDEX2(m, n, i, j)] ~> Cell");
-    __produces("M ~> Matrix2(m, n)");
-    __admitted();
+  __reverts(matrix2_focus);
+  __admitted();
 }
 
 __GHOST(matrix2_ro_focus) {

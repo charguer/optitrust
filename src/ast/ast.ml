@@ -42,6 +42,13 @@ This function renames program variables to give each binder a unique name.
 For example 'x' with id #18 could be printed as 'x__0' and 'x' with id #29 as 'x__1'.
 
 TODO: call [Flags.display_var_ids := true] in your script to activate this renaming.
+
+{1 AST design choices}
+
+Some AST nodes such as Trm_for must respect the invariant that their body is always a Trm_seq.
+This might seem inefficient and insufficiently typed but it allows to target the body sequence like any other sequence,
+and still distinguish the body from the whole loop (or any other construction that respects the Trm_seq invariant) after
+target resolution.
 *)
 
 (* for debugging and message printing *)
@@ -717,7 +724,10 @@ and fun_contract = {
   post: resource_set;
 }
 
-and fun_spec = fun_contract option
+and fun_spec =
+  | FunSpecUnknown
+  | FunSpecContract of fun_contract
+  | FunSpecReverts of var
 
 (* forall ghosts, { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } loop { invariant(n) * Group(iter_contract.post(i)) } *)
 (* forall ghosts, { invariant(i) * iter_contract.pre(i) } loop body { invariant(i) * iter_contract.post(i) } *)

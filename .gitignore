@@ -1,5 +1,6 @@
 # Artifacts
 _build
+tmp
 *.ast
 *_out.cpp
 *_out.c

@@ -85,19 +85,37 @@ __ghost_ret array_fold() {
   __admitted();
 }
 
+__ghost_ret ro_array_unfold() {
+  __requires("M: ptr");
+  __requires("dim: int");
+  __requires("f: _Fraction");
+  __consumes("_RO(f, M ~> Array(dim))");
+  __produces("_RO(f, Group(range(0, dim, 1), fun i -> &M[i] ~> Cell))");
+  __admitted();
+}
+
+__ghost_ret ro_array_fold() {
+  __requires("M: ptr");
+  __requires("dim: int");
+  __requires("f: _Fraction");
+  __consumes("_RO(_Full(f), Group(range(0, dim, 1), fun i -> &M[i] ~> Cell))");
+  __produces("_RO(f, M ~> Array(dim))");
+  __admitted();
+}
+
 void array_copy_par(float* A, float* B, int n) {
   __modifies("B ~> Array(n)");
   __reads("A ~> Array(n)");
+  __ghost(ro_array_unfold, "M := A");
   __ghost(array_unfold, "M := B");
 #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
-    __sequentially_reads("A ~> Array(n)");
     __modifies("&B[i] ~> Cell");
-    __ghost(array_ro_focus, "M := A, i := i");
+    __reads("&A[i] ~> Cell");
     B[i] = A[i];
-    __ghost(array_ro_unfocus, "M := A");
   }
   __ghost(array_fold, "M := B");
+  __ghost(ro_array_fold, "M := A");
 }
 
 float* array_alloc(int sz) {

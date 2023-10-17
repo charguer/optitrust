@@ -52,18 +52,17 @@ let toplevel_scope_ctx (): scope_ctx = {
 }
 
 (** internal *)
-let check_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
+let check_var (scope_ctx : scope_ctx) var =
   let qualified = (var.qualifier, var.name) in
   match Qualified_map.find_opt qualified scope_ctx.var_ids with
   | None ->
     raise (InvalidVarId (sprintf "variable %s is used but not in scope." (var_to_string var)))
   | Some id when id <> var.id ->
     raise (InvalidVarId (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) id))
-  | _ ->
-    trm_var ~annot ?loc ?typ ~ctx ~kind var
+  | _ -> ()
 
 (** internal *)
-let check_map_binder (scope_ctx : scope_ctx) var is_predecl =
+let check_binder (scope_ctx : scope_ctx) var is_predecl =
   let qualified = (var.qualifier, var.name) in
   (* currently we add all possible qualifiers to the data structures,
      the alternative is to add only one qualifier (absolute?) and to
@@ -75,7 +74,7 @@ let check_map_binder (scope_ctx : scope_ctx) var is_predecl =
       obj_add (!qualifier, var.name) obj
     ) (obj_add qualified obj) scope_ctx.prefix_qualifier_rev
   in
-  ((if var.name = "" then
+  (if var.name = "" then
     (* C/C++ allows giving no variable names *)
     scope_ctx
   else if is_predecl then
@@ -88,10 +87,31 @@ let check_map_binder (scope_ctx : scope_ctx) var is_predecl =
     { scope_ctx with conflicts = add_for_each_qualifier Qualified_set.add scope_ctx.conflicts;
       predefined = add_for_each_qualifier Qualified_set.add scope_ctx.predefined;
       var_ids = add_for_each_qualifier (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids }
-  ), var)
+  )
+
+let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
+  match t.desc with
+  | Trm_var (_, x) ->
+    begin try
+      Var_map.find x scope_ctx.fun_prototypes
+    with Not_found -> failwith (sprintf "Could not find a prototype for function %s" (var_to_string x))
+    end
+  | _ -> failwith (sprintf "Could not find a prototype for trm at location %s" (loc_to_string t.loc))
+
+let check_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> unit =
+  let fn_prototype = find_prototype scope_ctx fn in
+  let ghost_proto_arg_map = List.fold_left (fun map ghost_var ->
+    Qualified_map.add (ghost_var.qualifier, ghost_var.name) ghost_var map
+  ) Qualified_map.empty fn_prototype.ghost_args in
+  fun (g: hyp) ->
+    try
+      let g' = Qualified_map.find (g.qualifier, g.name) ghost_proto_arg_map in
+      if g.id <> g'.id then
+        failwith (sprintf "Ghost argument %s is not the same as the ghost in the prototype %s." (var_to_string g) (var_to_string g'))
+    with Not_found -> failwith (sprintf "Ghost argument %s is not part of the function prototype" (var_to_string g))
 
 (** internal *)
-let enter_scope map_binder scope_ctx t =
+let enter_scope check_binder scope_ctx t =
   match t.desc with
   | Trm_namespace (name, _, _) ->
     (* TODO: conflicts ~= filter_map is_qualified conflicts *)
@@ -111,7 +131,7 @@ let enter_scope map_binder scope_ctx t =
           let error = "C_scope.enter_scope: expected field method" in
           let (v, _, _, _) = trm_inv ~error trm_let_fun_inv rfm in
           assert (v.qualifier = []);
-          fst (map_binder scope_ctx v true)
+          check_binder scope_ctx v true
         end
       ) scope_ctx rfl
     | _ -> failwith "unexpected typdef_body"
@@ -156,13 +176,23 @@ let scope_ctx_exit outer_ctx inner_ctx t =
       fun_prototypes = Var_map.union (fun x _ _ ->
         raise (InvalidVarId (sprintf "variable '%s' has a function specification both inside and outside the namespace" (var_to_string x))))
         outer_ctx.fun_prototypes (Var_map.filter (fun x _ -> is_qualified (x.qualifier, x.name)) inner_ctx.fun_prototypes) }
-  | Trm_let_fun (f_var, _, _, _, Some spec) ->
-    { outer_ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map fst spec.pre.pure } outer_ctx.fun_prototypes }
   | _ -> outer_ctx
+
+let post_process_ctx ctx t =
+  match t.desc with
+  | Trm_let_fun (f_var, _, _, _, FunSpecContract spec) ->
+    { ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map fst spec.pre.pure } ctx.fun_prototypes }
+  | Trm_let_fun (f_var, _, _, _, FunSpecReverts f_reverted) ->
+    check_var ctx f_reverted;
+    begin match Var_map.find_opt f_reverted ctx.fun_prototypes with
+    | Some proto -> { ctx with fun_prototypes = Var_map.add f_var proto ctx.fun_prototypes }
+    | None -> failwith (sprintf "Function %s cannot revert %s because its contract is undefined" (var_to_string f_var) (var_to_string f_reverted))
+    end
+  | _ -> ctx
 
 (** Given term [t], check that all variable ids agree with their qualified name for C/C++ scoping rules. *)
 let check_var_ids (t : trm) : unit =
-  ignore (trm_map_vars ~keep_ctx: true ~enter_scope:(enter_scope check_map_binder) ~exit_scope:scope_ctx_exit ~map_binder:check_map_binder check_map_var (toplevel_scope_ctx ()) t)
+  trm_iter_vars ~enter_scope:(enter_scope check_binder) ~exit_scope:scope_ctx_exit ~post_process:post_process_ctx ~iter_binder:check_binder ~iter_ghost_arg_name:check_ghost_arg_name check_var (toplevel_scope_ctx ()) t
 
 (** internal *)
 let infer_map_binder (scope_ctx : scope_ctx) var t =
@@ -174,57 +204,54 @@ let infer_map_binder (scope_ctx : scope_ctx) var t =
       else new_var ~qualifier:var.qualifier var.name
     end else var
   in
-  check_map_binder scope_ctx var' t
+  (check_binder scope_ctx var' t, var')
 
 (** internal *)
-let infer_map_var (scope_ctx : scope_ctx) (annot, loc, typ, ctx, kind) var =
+let infer_map_var (scope_ctx : scope_ctx) var =
   let qualified = (var.qualifier, var.name) in
   if var.id = inferred_var_id then
-    trm_var ~annot ?loc ?typ ~ctx ~kind begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
+    match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id -> { qualifier = var.qualifier; name = var.name; id }
     (* LATER: this can be confusing if triggered when not expected *)
     | None -> toplevel_var ~qualifier:var.qualifier var.name
-    end
-  else check_map_var scope_ctx (annot, loc, typ, ctx, kind) var
+  else begin
+    check_var scope_ctx var;
+    var
+  end
 
-let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
-  match t.desc with
-  | Trm_var (_, x) ->
-    begin try
-      Var_map.find x scope_ctx.fun_prototypes
-    with Not_found -> failwith (sprintf "Could not find a prototype for function %s" (var_to_string x))
-    end
-  | _ -> failwith (sprintf "Could not find a prototype for trm at location %s" (loc_to_string t.loc))
 
-let post_process_trm (scope_ctx: scope_ctx) (t: trm): trm =
-  match t.desc with
-  | Trm_apps (fn, args, []) -> t
-  | Trm_apps (fn, args, ghost_args) ->
-    let fn_prototype = find_prototype scope_ctx fn in
-    let ghost_proto_arg_map = List.fold_left (fun map ghost_var ->
-      Qualified_map.add (ghost_var.qualifier, ghost_var.name) ghost_var map
-    ) Qualified_map.empty fn_prototype.ghost_args in
-    let rec process_ghost_args ghost_args ghost_proto_args = match ghost_args, ghost_proto_args with
-    | [], _ -> []
-    | (g, gval) :: gs, g_proto :: gs_proto when g == dummy_var ->
-      (g_proto, gval) :: process_ghost_args gs gs_proto
-    | (g, _) :: gs, [] when g == dummy_var ->
-      failwith "Invalid positionnal ghost argument"
-    | (g, gval) :: gs, _ when g.id = inferred_var_id ->
-      let g = try Qualified_map.find (g.qualifier, g.name) ghost_proto_arg_map
-        with Not_found -> failwith (sprintf "Ghost argument %s is not part of the function prototype" (var_to_string g))
-      in
-      (g, gval) :: process_ghost_args gs []
-    | g :: gs, _ -> g :: process_ghost_args gs []
-    in
-    let ghost_args = process_ghost_args ghost_args fn_prototype.ghost_args in
-    trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t
-  | _ -> t
+let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> hyp =
+  let fn_prototype = find_prototype scope_ctx fn in
+  let ghost_proto_arg_map = List.fold_left (fun map ghost_var ->
+    Qualified_map.add (ghost_var.qualifier, ghost_var.name) ghost_var map
+  ) Qualified_map.empty fn_prototype.ghost_args in
+  let ghost_args_proto = ref fn_prototype.ghost_args in
+  fun (g: hyp) ->
+    if g == dummy_var then
+      match !ghost_args_proto with
+      | [] -> failwith "Invalid positionnal ghost argument"
+      | g_proto :: gs_proto ->
+        ghost_args_proto := gs_proto;
+        g_proto
+    else try
+      ghost_args_proto := [];
+      let g' = Qualified_map.find (g.qualifier, g.name) ghost_proto_arg_map in
+      if g.id <> inferred_var_id && g.id <> g'.id then
+        failwith (sprintf "Ghost argument %s is not the same as the ghost in the prototype %s." (var_to_string g) (var_to_string g'));
+      g'
+    with Not_found -> failwith (sprintf "Ghost argument %s is not part of the function prototype" (var_to_string g))
 
 (** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
   Only variable ids equal to [inferred_var_id] are inferred, other ids are checked. *)
 let infer_var_ids (t : trm) : trm =
   if debug then Xfile.put_contents "/tmp/ids_before.txt" (Ast_to_text.ast_to_string t);
-  let t2 = trm_map_vars ~keep_ctx:true ~enter_scope:(enter_scope infer_map_binder) ~exit_scope:scope_ctx_exit ~map_binder:infer_map_binder ~post_process_trm infer_map_var (toplevel_scope_ctx ()) t in
+  let t2 = trm_rename_vars ~keep_ctx:true
+    ~enter_scope:(enter_scope (fun ctx binder predecl -> fst (infer_map_binder ctx binder predecl)))
+    ~exit_scope:scope_ctx_exit
+    ~post_process:(fun ctx t -> (post_process_ctx ctx t, t))
+    ~map_binder:infer_map_binder
+    ~map_ghost_arg_name:infer_ghost_arg_name
+    infer_map_var
+    (toplevel_scope_ctx ()) t in
   if debug then Xfile.put_contents "/tmp/ids_after.txt" (Ast_to_text.ast_to_string t2);
   t2

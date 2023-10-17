@@ -3,19 +3,41 @@ open Target
 open Resource_formula
 open Resource_contract
 
+type unparsed_contract = (contract_clause_type * string) list
+
+let with_desugared_res push_fn clause (x, formula) contract =
+  push_fn clause (x, (desugar_formula (Ast_fromto_AstC.caddress_elim formula))) contract
+
+let parse_fun_contract =
+  parse_contract_clauses empty_fun_contract (with_desugared_res push_fun_contract_clause)
+
+let parse_loop_contract =
+  parse_contract_clauses empty_loop_contract (with_desugared_res push_loop_contract_clause)
+
+let __pure () = Requires, ""
+let __requires (r: string) = Requires, r
+let __ensures (r: string) = Ensures, r
+let __invariant (r: string) = Invariant, r
+let __reads (r: string) = Reads, r
+let __modifies (r: string) = Modifies, r
+let __consumes (r: string) = Consumes, r
+let __produces (r: string) = Produces, r
+let __sequentially_reads (r: string) = SequentiallyReads, r
+let __sequentially_modifies (r: string) = SequentiallyModifies, r
+
 let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
   let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
-  trm_like ~old:t (trm_let_fun name ret_typ args ~contract body)
+  trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
 
-let%transfo set_fun_contract (contract: fun_contract) (tg : Target.target) : unit =
-  Target.apply_at_target_paths (set_fun_contract_on contract) tg
+let%transfo set_fun_contract (contract: unparsed_contract) (tg : Target.target) : unit =
+  Target.apply_at_target_paths (set_fun_contract_on (parse_fun_contract contract)) tg
 
 let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
   let range, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
   trm_like ~old:t (trm_for ~contract range body)
 
-let%transfo set_loop_contract (contract: loop_contract) (tg: Target.target): unit =
-  Target.apply_at_target_paths (set_loop_contract_on contract) tg
+let%transfo set_loop_contract (contract: unparsed_contract) (tg: Target.target): unit =
+  Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract contract)) tg
 
 (*let recompute_resources (tg : Target.target) : unit =
   Target.apply_at_target_paths (Resources_core.trm_recompute_resources) tg*)

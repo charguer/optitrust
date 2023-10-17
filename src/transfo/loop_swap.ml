@@ -21,36 +21,37 @@ let swap_on_any_loop (t : trm) : trm =
     end
   | None -> fail t.loc "Loop_core.swap_aux: should target a loop"
 
-let ghost_rewrite = toplevel_var "rewrite"
 let swap_groups = toplevel_var "swap_groups"
 
 let ghost_swap outer_range inner_range (_, formula) =
   let open Resource_formula in
   let before = formula_group_range outer_range (formula_group_range inner_range formula) in
   let after = formula_group_range inner_range (formula_group_range outer_range formula) in
-  trm_ghost ghost_rewrite ["H1", before; "H2", after; "by", trm_var swap_groups]
+  trm_ghost_rewrite before after (trm_var swap_groups)
 
-(* This transformation turns:
 
-    ctx |- stars_j R(j)
+(** This transformation turns:
+
+    // stars_j R(j)
     pfor j
       consumes R(j)
       produces R'(j)
-      R(j) |- S(j,0) * stars_k P(j,k)
+      // R(j) |- S(j,0) * stars_k P(j,k) * F(j)
       for k
           invariant S(j,k)
           consumes P(j, k)
           produces P'(j, k)
-          I(j, k)
-      S(j,n) * stars_k P'(j,k) |- R'(j)
-    stars_j R'(j)
+          Instrs(j, k)
+      // S(j,n) * stars_k P'(j,k) * F(j) |- R'(j)
+    // stars_j R'(j)
 
   into:
 
-    ctx |- stars_j R(j)
-        |- stars_j S(j,0) * stars_j stars_k P(j,k)
-                            vvvvvvvvvvvvvvvvvvvvvv swap
-        |- stars_j S(j,0) * stars_k stars_j P(j,k)
+    // stars_j R(j)
+    // stars_j S(j,0) * stars_j stars_k P(j,k) * stars_j F(j)
+    ghost rewrite stars_j stars_k P(j,k)
+                = stars_k stars_j P(j,k)
+    // stars_j S(j,0) * stars_k stars_j P(j,k) * stars_j F(j)
     for k
       invariant stars_j S(j,k)
       consumes stars_j P(j,k)
@@ -58,12 +59,13 @@ let ghost_swap outer_range inner_range (_, formula) =
       pfor j
         consumes S(j,k) * P(j,k)
         produces S(j,k+1) * P'(j,k)
-        I(j, k)
-      stars_j S(j,k+1) * stars_j P'(j,k)
-    stars_j S(j,n) * stars_k stars_j P'(j,k)
-                      vvvvvvvvvvvvvvvvvvvvvvv swap
-    stars_j S(j,n) * stars_j stars_k P'(j,k)
-      |- stars_j R'(j)
+        Instrs(j, k)
+      // stars_j S(j,k+1) * stars_j P'(j,k)
+    // stars_j S(j,n) * stars_k stars_j P'(j,k) * stars_j F(j)
+    ghost rewrite stars_k stars_j P'(j,k)
+                = stars_j stars_k P'(j,k)
+    // stars_j S(j,n) * stars_j stars_k P'(j,k) * stars_j F(j)
+    // stars_j R'(j)
 *)
 let swap_on (t: trm): trm =
   Pattern.pattern_match t [

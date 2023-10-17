@@ -438,19 +438,19 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         | Dir_namespace, Trm_namespace (name, body, inline) ->
           { t with desc = Trm_namespace (name, aux body, inline) }
 
-        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_let_fun (v, vty, args, body, Some contract) ->
+        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_let_fun (v, vty, args, body, FunSpecContract contract) ->
           let pre = apply_on_resource_set resource_set_dir i contract.pre in
-          trm_replace (Trm_let_fun (v, vty, args, body, Some { contract with pre })) t
-        | Dir_contract (Contract_post, resource_set_dir, i), Trm_let_fun (v, vty, args, body, Some contract) ->
+          trm_replace (Trm_let_fun (v, vty, args, body, FunSpecContract { contract with pre })) t
+        | Dir_contract (Contract_post, resource_set_dir, i), Trm_let_fun (v, vty, args, body, FunSpecContract contract) ->
           let post = apply_on_resource_set resource_set_dir i contract.post in
-          trm_replace (Trm_let_fun (v, vty, args, body, Some { contract with post })) t
+          trm_replace (Trm_let_fun (v, vty, args, body, FunSpecContract { contract with post })) t
 
-        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, Some contract) ->
+        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
           let pre = apply_on_resource_set resource_set_dir i contract.pre in
-          trm_replace (Trm_fun (params, tyret, body, Some { contract with pre })) t
-        | Dir_contract (Contract_post, resource_set_dir, i), Trm_fun (params, tyret, body, Some contract) ->
+          trm_replace (Trm_fun (params, tyret, body, FunSpecContract { contract with pre })) t
+        | Dir_contract (Contract_post, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
           let post = apply_on_resource_set resource_set_dir i contract.post in
-          trm_replace (Trm_fun (params, tyret, body, Some { contract with post })) t
+          trm_replace (Trm_fun (params, tyret, body, FunSpecContract { contract with post })) t
 
         | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, body, Some contract) ->
           let pre = apply_on_resource_set resource_set_dir i contract.iter_contract.pre in
