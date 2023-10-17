@@ -143,6 +143,122 @@ enlève les morceaux de reads et modifies jamais utilisés
 affaibli les modifies
 
 
+=======================================================
+# Bind
+
+int f(int x)
+  requires (a : int)
+  ensures (b : int)
+
+
+  f(1); __with("a := 2"); __bind("b as g");  // C syntax
+  trm_call(f, [1], [("a", 2)])
+  trm_call(f, [1], [("a", 2)], [("b", "g")]);
+  trm_let(None, [("b", "g")],  trm_call(f, [1], [("a", 2)])) -> all nodes are let in a sequence
+
+    val f : ~a:int -> ~b:int
+
+  int a = f(1); -> target all:  cLet "a"  or  cLet ""; cCall "f"
+  int a = f(1); -> target f:    cCall "f"
+
+
+
+  int a = f(1); __with("b := 2"); __bind("b as g");  // C syntax
+
+
+  int a = 3;  -> trm_let ("a", 3)
+  3;   -> trm_let ("", 3) -> invisible let
+
+
+for i
+
+  f(1); -> target   cFor "i"; cStrict; cCall "f"
+  let a = f(4)   -> cFor "i; cLet "a"; cCall "f"
+  f(1); __with("a := 2"); __bind("b as g");  // C syntax
+
+
+  let _ = f(1);
+  let _ = f(2);
+
+  let x = f(1)
+
+
+
+  ghost(foo(g));
+
+
+Design space:
+
+  trm_ghost(trm_call(f, [a])) -> syntactic annotation
+  trm_call_ghost(f, [a]) -> strictly less interesting than above
+  trm_call(prim_ghost, trm_call(f, "x:=a"))) -> interest to avoid introducing a new trm node "trm_ghost"
+  trm_call(f, [a])) -> leverages typing of f (its return type) to know if it is a ghost operation or not
+
+Current plan:
+    let tfghost be a shorthand for [trm_var "fghost"]
+    let tfcode be a shorthand for [trm_var "fcode"]
+  Let^ghost (None, [("g","b")], trm_call(tfghost, [], [("a", 1)]) --> ghost(fghost, "a:=1");__bind("b as g");
+  Let^ghost (None, [], trm_call(tfghost, [], [("a", 1)]) --> ghost(fghost, "a:=1");
+  Let^real  ("x", [("g","b")], trm_call(tfcode, [3], [("a",1)]))  --> let x = f(3); __with("a:=1"); __bind("b as g");
+  Let^real  ("x", [], trm_call(tfcode, [3], []))                  --> let x = f(3)
+  Let^real  (None, [], trm_call(tfcode, [3], []))                 --> f(3)
+
+  Let^real (x, gargs, body) = Trm_let (Let_real, x, gargs, body)
+  Let^ghost (x, gargs, body) = Trm_let (Let_ghost, x, gargs, body)
+  // LATER: see if recflag ghost there too or not.
+  // TEMPORARILY: can use annotations on let-terms to tag them as "^ghost".
+  // TEMPORARILY: can use nesting in trm_call(prim_begin, ..)
+
+
+
+
+  // Ghost variables bound by Let (ghost or real) scope within ghost_args of trm_calls but also in Let^ghost:>trm_call.
+
+
+  // long term solution:
+
+  GHOST_BEGIN(fend, fghost, "a:=1") --> Let^ghost (None, [("reverse","fend")], trm_call(fghost, [], [("a", 1)])
+  GHOST_END(fend) --> Let^ghost (None, [], trm_call(fend, [], []))
+
+  // short term solution
+  // Currently: map a C/ghost function names "f"  to its specs "Sf"; interpreted in coq as [f_spec : Spec f Sf]
+
+  GHOST_BEGIN(fend, fghost, "a:=1") --> Let^ghostbegin ("fend", [], trm_call(fghost, [], [("a", 1)])
+
+    // with custom typing rule saying that fend is added to the specification map, with the reverse entailment.
+  GHOST_END(fend) --> Let^ghostend (None, [], trm_call(trm_var "fend", [], []))
+
+  // current implementation:
+
+  GHOST_BEGIN(fend, fghost, "a:=1") --> Let ("fend", [], trm_call(trm_var "GHOST_BEGIN", trm_call(fghost, [], [("a", 1)]))
+
+    // with custom typing rule saying that fend is added to the specification map, with the reverse entailment.
+  GHOST_END(fend) --> Let^ghostend (None, [], trm_call(trm_var "GHOST_END", trm_call(trm_var "fend", [], [])))
+
+
+
+
+
+  // Choice 1: all ghost variables live in the same namespace as C variables
+  // Choice 2: they live in different namespaces
+  // Choice 3: ghost function names live in C namespace, the rest does not
+
+  // Long term solution : all ghosts live in separate namespace (i.e. choice 2)
+
+  GHOST(f) consumes H1 produces H2
+  -->
+  void __GHOSTDEF_f() { consumes H1; produces H2 }
+
+  __ghost("f", "x:=a");  // variante 1
+  __ghost("f(x:=a)");    // variante 2 -> slightly better
+  __ghost("f(x:=a); bind g as b");
+  __ghost("let { b := g } = f { x := a }"); // variante 3
+  // take into account that we don't want to name all args or all ret values explicitly, only a subset.
+
+  // forall a, H1 |- exists g, H2  --> to respect reading order:  __ghost("myconv(a); bind g as b")
+  // or with ocaml syntax: __ghost("let { g := b } = myconv(a)")  __ghost("let { g } = myconv(a)")
+  // H1 |- H1 \* (x <> null)  --> to respect order:  __ghost("let Hx = extract_nonnull(H1)")
+
 
 =======================================================
 # Ghost scoped
@@ -169,11 +285,17 @@ approach 2: (==> try this first)
   GHOST_BEGIN(fend, f, "x := a")
   => // is macro for
   ghost_scope fend = ghost_begin(f, "x := a");
+
   // resource typing adds a spec for fend in the ghost_spec_table
   ...
-  ghost_end(fend); // interpreted like ghost(fend)
+  ghost_end(fend); // interpreted like ghost(fend) // currently represented as [fend()]
+
   // make sure that we have a proper id for fend
 
+
+
+
+LATER: provide operation is_trm_ghost
 
 
 alternative presentation: (with explicit args for reverse)
