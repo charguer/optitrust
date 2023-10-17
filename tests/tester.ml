@@ -23,18 +23,23 @@ module StringSet = Set.Make(String)
   "-dump-trace": generate an html page describing every step performed for each test
   "-with-ignored": do not take into consideration the `ignored.tests`
   "-only-ignored": filter-out files that do not appear in an `ignored.tests` file
-  TODO: "-no-doc": do not run or create documentation tests?
-  TODO: "-i": interactive prompts asking for confirmations before actions?
+  "-yes": force the "yes" answer to actions requesting a confirmation
+  "-no-doc": filter-out all files whose name contains the token "_doc_"
+
 
   Action 'run'
   ==============
   Each [argi] must correspond to one of:
-  - the full path to a `.ml` file, e.g., 'tests/loop/loop_fusion.ml'
-    TODO: handle paths relative to [folder]?
+  - the full path to a `.ml` file, e.g., 'tests/loop/loop_fusion.ml', either relative to the root or relative to the caller's folder
   - a substring of a test name, e.g. 'fus', including:
     - the basename of a `.ml` file, e.g., 'loop_fusion.ml'
     - the basename without extension, e.g. 'loop_fusion'
   - the name of a folder appearing in 'tests/' or 'case_studies/', possibly in depth, e.g. 'loop'
+   (LATER: should we restrict to subfolder of the caller's folder?)
+  - the name 'ignore.tests', in this case the option "-with-ignored" is automatically added
+  - the name of a '*.tests' file, e.g. 'fixme.tests';
+
+
 
   If no [argi] is provided, then:
   - if [folder] is "." (the root of optitrust), then `tests case_studies` are used
@@ -43,11 +48,15 @@ module StringSet = Set.Make(String)
 
   The tester program produces as output information on which tests fail.
   It generates a number of `*.tests` files:
+  - `success.tests`: tests that have succeeded
   - `ignored.tests`: tests that have been ignored
   - `failed.tests`: tests whose execution raised an error
   - `missing_exp.tests`: tests not accompanied with a `_exp.cpp` file
   - `wrong.tests`: tests whose `_out.cpp` does not match the `_exp.cpp`.
+  - `errors.tests`: tests that are not success (i.e. 'failed' or 'wrong' or 'missing_exp').
   These files are exploited by other actions meant for handling unsuccessful tests.
+
+  In addition, the tester program updates the file `tofix.tests`, if this file exists, by removing from it the lines that correspond to a test listed in `success.tests`. If the file `tofix.tests` does not exist, it is initialized with the contents of `errors.tests`.
 
   The tester program ignores a `.ml` test file if there exists an `ignored.tests` file containing its name, in one of the folders containing the test file.
 
@@ -72,8 +81,7 @@ module StringSet = Set.Make(String)
 
   Action 'ignore'
   ==============
-  If no [argi] is provided, the list of tests found in `failed.tests` and
-  `wrong.tests` is used.
+  If no [argi] is provided, the list of tests found either in `failed.tests` or `wrong.tests` is used.
   For each test `foo` considered, the tester program adds the relative path to
   `foo.ml` as a line at the end of the `ignore.tests` located at the OptiTrust root.
   The purpose of this root `ignore.tests` is to act as a short-term buffer of broken
@@ -82,8 +90,7 @@ module StringSet = Set.Make(String)
 
   Action 'code'
   ==============
-  If no [argi] is provided, the list of tests found in `failed.tests` and
-  `wrong.tests` is used.
+  If no [argi] is provided, the list of tests found in `failed.tests` or `wrong.tests` is used.
   For each test `foo` considered, the files `foo.ml` and `foo.cpp` are opened in VSCode.
 
   Action 'diff'
@@ -99,12 +106,15 @@ module StringSet = Set.Make(String)
   is executed. Technically, a single call to `meld` is performed, opening
   all the pairs of files at once.
 
-
-  TODO: action 'sort':
+  ----
+  LATER: an action 'sort':
   interactively navigate through the list of unsuccessful tests,
   (wrong.tests + failed.tests + missing_exp)
   and for each test ask an input key to decide wether to
   open in code, put in ignore, open diff, open meld, addexp, fixexp.
+
+  LATER: an option to compare for each test in failed.tests the _out.cpp with the _exp.cpp,
+  this is useful after modifying the _exp files by hand.
 *)
 
 (*****************************************************************************)
@@ -138,32 +148,38 @@ let do_or_die (cmd : string) : unit =
 (*****************************************************************************)
 (** Options *)
 
-(* Folders where tests might be located *)
+(** Folders where tests might be located *)
 let tests_folders = ["tests"; "case_studies"]
 
-(* Folder from which the user invoked 'tester' *)
+(*** Folder from which the user invoked 'tester' *)
 let caller_folder : string ref = ref ""
 
 (* Action requested, e.g. 'run' *)
 let action : string ref = ref ""
 
-(* List of the [argi] arguments provided. *)
+(** List of the [argi] arguments provided. *)
 let args : string list ref = ref []
 
-(* Flag to enable verbose mode *)
-let verbose_mode : bool ref = ref false
+(** Flag to enable verbose mode *)
+let verbose : bool ref = ref false
 
-(* Flag to enable dry-run mode *)
+(** Flag to enable dry-run mode *)
 let dry_run : bool ref = ref false
 
-(* Flag to include tests appearing in ignored.tests files *)
+(** Flag to include tests appearing in ignored.tests files *)
 let flags_with_ignored : bool ref = ref false
 
-(* Flag to filter-out tests that do not appear in ignored.tests files *)
+(** Flag to filter-out tests that do not appear in ignored.tests files *)
 let flags_only_ignored : bool ref = ref false
 
-(* Automatically git add new files *)
+(** Automatically git add new files *)
 let git_add_new_files : bool ref = ref false
+
+(** Flag to disable interactive confirmations *)
+let skip_confirmation : bool ref = ref false
+
+(** Flag to skip documentation-related tests *)
+let skip_doc_tests : bool ref = ref false
 
 
 (*****************************************************************************)
@@ -222,21 +238,25 @@ let spec : cmdline_args =
      ("-with-ignored", Arg.Set flags_with_ignored, " do not take into consideration the `ignore.tests` files  ");
      ("-only-ignored", Arg.Set flags_only_ignored, " filter-out files that do not appear in an `ignore.tests` file  ");
      ("-gitadd", Arg.Set git_add_new_files, " automatically call git add on files generated by `create` and `addexp`.");
-     ("-v", Arg.Set verbose_mode, " report details on the testing process.");
+     ("-v", Arg.Set verbose, " report details on the testing process.");
      (* NOT YET IMPLEMENTED *)
      ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
-     ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for
-     tests that are executed.");
+     ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for tests that are executed.");
+     ("-no-doc", Arg.Set skip_doc_tests, " skip tests whose names contains '_doc_' as a substring.");
+     ("-yes", Arg.Set skip_confirmation, " answer 'yes' to confirmation prompts.");
   ]
 
-
 (*****************************************************************************)
-(** Processing of tests list *)
+(** Auxiliary function for handling dry-mode *)
 
 (* [run_action] is like [do_or_die], with an option to print the command,
    and only prints the command if [-dry] flag has been set *)
+
 let run_action ?(print = false) (cmd : string) : unit =
+  (* FOR DEBUG:
+   let _ = ignore print in
+   printf "%s: %s\n" (if !dry_run then "[DRY]" else "[REAL]") cmd *)
   let pr () = printf "%s\n" cmd in
   if !dry_run then begin
     pr()
@@ -244,7 +264,6 @@ let run_action ?(print = false) (cmd : string) : unit =
     if print then pr();
     do_or_die cmd
   end
-
 
 (*****************************************************************************)
 (** Processing of lists of tests provided as arguments *)
@@ -256,41 +275,76 @@ let file_set_ref_add r x =
 
 let tmpfile = Filename.temp_file "command_output" ".txt"
 
-let foreach_test_from_file file add_f : unit =
-  let tests = Xfile.get_lines_or_empty file in
-  ~~ List.iter tests add_f
+(** Return the list of tests mentioned in file [f], ignoring empty lines *)
+let tests_from_file (file : string) : string list =
+  List.filter (fun s -> s <> "") (Xfile.get_lines_or_empty file)
 
-(** Compute the list of all ignored tests *)
+(** Call [f] on every test listed in file [f] *)
+let foreach_test_from_file (file : string) (f : string -> unit) : unit =
+  List.iter f (tests_from_file file)
+
+(** Compute the list of all ignored tests listed in 'ignore.tests' files *)
 let find_all_tests_to_ignore () : File_set.t =
   let target = String.concat " " tests_folders in
   (* LATER: use a version of Sys.command that captures the output *)
   do_or_die (sprintf "find %s -name 'ignore.tests' > %s" target tmpfile);
-  let ignore_tests_files = Xfile.get_lines_or_empty tmpfile in
+  let ignore_tests_files =
+      (if Sys.file_exists "ignore.tests" then ["ignore.tests"] else [])
+    @ (Xfile.get_lines_or_empty tmpfile) in
+  if !verbose
+    then eprintf "All ignore.tests files:\n  %s\n" (String.concat "\n  " ignore_tests_files);
   let result = ref File_set.empty in
   (* For each file named `ignore.tests` *)
   ~~ List.iter ignore_tests_files (fun ignore_tests_file ->
     let folder = Filename.dirname ignore_tests_file in
-    (* For each test listed in that `ignore.tests` *)
+    (* For each test listed in that `ignore.tests`, ignoring lines starting with '#' *)
     foreach_test_from_file ignore_tests_file (fun ignore_test ->
-      let test = folder ^ "/" ^ ignore_test in
-      file_set_ref_add result test
+      if ignore_test <> "" && ignore_test.[0] <> '#' then begin
+        let test = if folder = "." then ignore_test else folder ^ "/" ^ ignore_test in
+        file_set_ref_add result test
+      end
     )
   );
   (* Return result *)
+  if !verbose
+    then eprintf "All tests ignored:\n  %s\n" (String.concat "\n  " (File_set.elements !result));
   !result
 
 (** Resolve one [argi] to a list of tests (without filtering ignored tests),
     assuming its the name of a folder. *)
+    (* LATER: do we want to deal with relative [folder]? *)
 let resolve_arg_as_folder (arg : string) : string list =
-  let sfolders = String.concat " " tests_folders in
-  (* TODO: deal with relative [folder]. *)
-  do_or_die (sprintf "find %s -type d -name '%s' > %s" sfolders arg tmpfile);
-  Xfile.get_lines_or_empty tmpfile
+  if Sys.file_exists arg && Sys.is_directory arg then [arg] else begin
+    let sfolders = String.concat " " tests_folders in
+    do_or_die (sprintf "find %s -type d -name '%s' > %s" sfolders arg tmpfile);
+    Xfile.get_lines_or_empty tmpfile
+  end
 
 (** Resolve one [argi] to a list of tests (without filtering ignored tests) *)
 let resolve_arg (arg : string) : string list =
-  if Sys.file_exists arg && not (Sys.is_directory arg) then begin
-    (* Case exactly a file name *)
+  let is_file (fname : string) : bool =
+    Sys.file_exists fname && not (Sys.is_directory fname) in
+  let relarg = !caller_folder ^ "/" ^ arg in
+  let extension = Filename.extension arg in
+  if extension = ".tests" then begin
+    if Filename.basename arg = "ignore.tests"
+      then flags_with_ignored := true;
+    if is_file relarg then begin
+      if !verbose then eprintf "Resolved %s as relative .tests file: %s\n" arg relarg;
+      tests_from_file relarg
+    end else if is_file arg then begin
+      if !verbose then eprintf "Resolved %s as absolute .tests file\n" arg;
+      tests_from_file arg
+    end else begin
+      failwith (sprintf "tester could not find file %s not %s" arg relarg)
+    end
+  end else if is_file relarg then begin
+    (* Case is a relative file path *)
+    if !verbose then eprintf "Resolved %s as relative filepath: %s\n" arg relarg;
+    [relarg]
+  end else if is_file arg then begin
+    (* Case an absolute file path *)
+    if !verbose then eprintf "Resolved %s as absolute filepath\n" arg;
     [arg]
   end else begin
     let (folders_to_search_from, pattern_on_the_name) : (string list * string option) =
@@ -298,9 +352,11 @@ let resolve_arg (arg : string) : string list =
       | [] ->
         (* [arg] is not a folder, it is treated as a substring of a test name *)
         (* TODO: deal with relative [folder]. *)
+        if !verbose then eprintf "Resolved %s as a substring\n" arg;
         tests_folders, Some arg
       | folders ->
         (* Case [arg] is exactly a directory name, possibly in depth *)
+        if !verbose then eprintf "Resolved %s as folder name\n" arg;
         folders, None
       end in
     let sfolders = String.concat " " folders_to_search_from in
@@ -322,6 +378,7 @@ let resolve_arg (arg : string) : string list =
    Influenced by the flags [-only-ignored] and [-with-ignored].
    Returns [tests_to_process, ignored_tests]. *)
 let get_tests_and_ignored (args : string list) : (string list * string list) =
+  if !skip_doc_tests then failwith "option -no-doc is not yet supported"; (* TODO *)
   let tests = File_set.of_list (List.concat_map resolve_arg args) in
   let ignored = find_all_tests_to_ignore () in
   let tests_not_ignored = File_set.diff tests ignored in
@@ -339,14 +396,29 @@ let get_tests_and_ignored (args : string list) : (string list * string list) =
 (*****************************************************************************)
 (** Action 'run' *)
 
+(** Auxiliary function for updating the contents of 'tofix.tests',
+    by removing contents from `success.tests`, or copying contents from
+    'errors.tests' if 'tofix.tests' does not exist *)
+let update_tofix_tests_list () : unit =
+  let tofix_file = "tofix.tests" in
+  let success_file = "success.tests" in
+  let errors_file = "errors.tests" in
+  if Sys.file_exists tofix_file then begin
+    do_or_die (sprintf "cat %s %s %s | sort | uniq --unique > %s"
+      errors_file success_file success_file tofix_file)
+  end else begin
+    do_or_die (sprintf "cp %s %s" errors_file tofix_file);
+  end
+
 let action_run (tests : string list) : unit =
   (* Compute tests to proces *)
   let (tests_to_process, tests_ignored) = get_tests_and_ignored tests in
   let nb_tests_to_process = List.length tests_to_process in
   let tests_to_process_string = String.concat " " tests_to_process in
-  if !dry_run || !verbose_mode
-   then eprintf "Tester considering: \n  %s\n"
-        (String.concat "\n  " tests_to_process);
+  if !dry_run || !verbose
+   then eprintf "Tester considering: \n  %s\nTester ignoring: \n  %s\nDry run completed.\n"
+        (String.concat "\n  " tests_to_process)
+        (String.concat "\n  " tests_ignored);
   if !dry_run then exit 0;
   if nb_tests_to_process = 0 then eprintf "Empty set of tests considered.";
 
@@ -438,10 +510,13 @@ let action_run (tests : string list) : unit =
   print_errors "Wrong tests" !tests_wrong;
 
   (* Produce .tests files *)
+  Xfile.put_lines "success.tests" !tests_success;
   Xfile.put_lines "ignored.tests" tests_ignored;
   Xfile.put_lines "failed.tests" !tests_failed;
   Xfile.put_lines "wrong.tests" !tests_wrong;
   Xfile.put_lines "missing_exp.tests" !tests_noexp;
+  Xfile.put_lines "errors.tests" (!tests_wrong @ !tests_failed @ !tests_noexp);
+  update_tofix_tests_list();
 
   (* Produce general summary *)
   let print_count (name: string) (tests: string list): unit =
@@ -462,7 +537,7 @@ let action_run (tests : string list) : unit =
 let action_create (tests : string list) : unit =
   ~~ List.iter tests (fun test ->
     let prefix = Filename.remove_extension test in
-    let extensions = [".ml"; ".cpp"; "_doc.ml"; "_doc.cp@p"] in
+    let extensions = [".ml"; ".cpp"; "_doc.ml"; "_doc.cpp"] in
     let files = List.map (fun s -> prefix ^ s) extensions in
     printf "Creating %s.{ml,cpp,_doc.ml,_doc.cpp}\n" prefix;
     ~~ List.iter files (fun file ->
@@ -496,7 +571,7 @@ let action_fixexp (tests : string list) : unit =
     let expfile = prefix ^ "_exp.cpp" in
     if Sys.file_exists expfile
       then run_action ~print:true (sprintf "cp %s %s" outfile expfile)
-      else eprintf "tester fixexp: missing file %s\n" expfile;
+      else eprintf "Warning: tester-fixexp does not find file %s\n" expfile;
   )
 
 
@@ -578,25 +653,54 @@ let _main : unit =
         then args := tests_folders
         else args := [!caller_folder]
     end else if List.mem !action ["ignore"; "code"] then begin
-      foreach_test_from_file "failed.tests" (ref_list_add args);
-      foreach_test_from_file "wrong.tests" (ref_list_add args);
-    end else if List.mem !action ["diff"; "meld"] then begin
-      foreach_test_from_file "wrong.tests" (ref_list_add args);
+      args :=   tests_from_file "failed.tests"
+              @ tests_from_file "wrong.tests";
+    end else if List.mem !action ["diff"; "meld"; "fixexp"] then begin
+      args := tests_from_file "wrong.tests";
+    end else if !action = "addexp" then begin
+      args := tests_from_file "missing_exp.tests";
     end
   end;
 
   (* Switch according to action *)
-  let args = !args in
-  match !action with
-  | "run" -> action_run args
-  | "create" -> action_create args
-  | "addexp" -> action_addexp args
-  | "fixexp" -> action_fixexp args
-  | "ignore" -> action_ignore args
-  | "code" -> action_code args
-  | "diff" -> action_diff args
-  | "meld" -> action_meld args
-  | x -> failwith (sprintf "Invalid usage: unknown action %s" x)
+  let execute () =
+    let args = !args in
+    match !action with
+    | "run" -> action_run args
+    | "create" -> action_create args
+    | "addexp" -> action_addexp args
+    | "fixexp" -> action_fixexp args
+    | "ignore" -> action_ignore args
+    | "code" -> action_code args
+    | "diff" -> action_diff args
+    | "meld" -> action_meld args
+    | x -> failwith (sprintf "Invalid usage: unknown action %s" x)
+    in
+
+  (* Handle confirmation *)
+  let needs_confirmation = (!action <> "run") && not !skip_confirmation in
+  if not needs_confirmation then begin
+    execute()
+  end else begin
+    let old_dry_run = !dry_run in
+    dry_run := true;
+    execute();
+    dry_run := old_dry_run;
+    if !dry_run then begin
+      printf "Dry run completed.\n";
+      exit 0;
+    end;
+    flush stderr;
+    printf "Confirm? Press ENTER to continue...\n";
+    flush stdout;
+    let answer = input_char stdin in
+    if answer <> '\n' then begin
+      printf "Aborted.\n";
+      exit 0;
+    end;
+    execute();
+    printf "Done.\n"
+  end
 
 
 (*****************************************************************************)
