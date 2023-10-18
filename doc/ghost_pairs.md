@@ -189,10 +189,13 @@ for i
 
 Design space:
 
+  //current implementation, temporary: annote with ghost_call.
   trm_ghost(trm_call(f, [a])) -> syntactic annotation
   trm_call_ghost(f, [a]) -> strictly less interesting than above
   trm_call(prim_ghost, trm_call(f, "x:=a"))) -> interest to avoid introducing a new trm node "trm_ghost"
   trm_call(f, [a])) -> leverages typing of f (its return type) to know if it is a ghost operation or not
+  // idea: user could force type to be "noop_type", and take care during reparsing
+  // to wrap t into trm_ghost(t)
 
 Current plan:
     let tfghost be a shorthand for [trm_var "fghost"]
@@ -202,6 +205,7 @@ Current plan:
   Let^real  ("x", [("g","b")], trm_call(tfcode, [3], [("a",1)]))  --> let x = f(3); __with("a:=1"); __bind("b as g");
   Let^real  ("x", [], trm_call(tfcode, [3], []))                  --> let x = f(3)
   Let^real  (None, [], trm_call(tfcode, [3], []))                 --> f(3)
+
 
   Let^real (x, gargs, body) = Trm_let (Let_real, x, gargs, body)
   Let^ghost (x, gargs, body) = Trm_let (Let_ghost, x, gargs, body)
@@ -217,16 +221,19 @@ Current plan:
 
   // long term solution:
 
-  GHOST_BEGIN(fend, fghost, "a:=1") --> Let^ghost (None, [("reverse","fend")], trm_call(fghost, [], [("a", 1)])
+  GHOST_BEGIN(fend, fghost, "a:=1") -->
+    Let^ghost (None, [("reverse","fend")], trm_call(fghost, [], [("a", 1)])
   GHOST_END(fend) --> Let^ghost (None, [], trm_call(fend, [], []))
 
   // short term solution
   // Currently: map a C/ghost function names "f"  to its specs "Sf"; interpreted in coq as [f_spec : Spec f Sf]
 
-  GHOST_BEGIN(fend, fghost, "a:=1") --> Let^ghostbegin ("fend", [], trm_call(fghost, [], [("a", 1)])
+  GHOST_BEGIN(fend, fghost, "a:=1") -->
+    Let^ghostbegin ("fend", [], trm_call(fghost, [], [("a", 1)])
 
     // with custom typing rule saying that fend is added to the specification map, with the reverse entailment.
-  GHOST_END(fend) --> Let^ghostend (None, [], trm_call(trm_var "fend", [], []))
+  GHOST_END(fend) -->
+    Let^ghostend (None, [], trm_call(trm_var "fend", [], []))
 
   // current implementation:
 
@@ -250,7 +257,7 @@ Current plan:
   -->
   void __GHOSTDEF_f() { consumes H1; produces H2 }
 
-  __ghost("f", "x:=a");  // variante 1
+  __ghost(f, "x:=a");  // variante 1
   __ghost("f(x:=a)");    // variante 2 -> slightly better
   __ghost("f(x:=a); bind g as b");
   __ghost("let { b := g } = f { x := a }"); // variante 3
@@ -259,6 +266,9 @@ Current plan:
   // forall a, H1 |- exists g, H2  --> to respect reading order:  __ghost("myconv(a); bind g as b")
   // or with ocaml syntax: __ghost("let { g := b } = myconv(a)")  __ghost("let { g } = myconv(a)")
   // H1 |- H1 \* (x <> null)  --> to respect order:  __ghost("let Hx = extract_nonnull(H1)")
+
+
+ // TODO: check scopes for conflict between program vars and logical vars.
 
 
 =======================================================
