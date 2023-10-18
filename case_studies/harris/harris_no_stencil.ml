@@ -72,8 +72,8 @@ let _ = Run.script_cpp ~filename:"harris.cpp" (fun () ->
   !! simpl_mins [];
   !! Loop.fusion_targets [cFor "y" ~body:[any cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
   let local_matrix (m, tile) =
-    let mv = find_var_in_current_ast m in
-    Matrix.local_name_tile mv ~simpl ~alloc_instr:[cVarDef m] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"]
+    (* let mv = find_var_in_current_ast m in *)
+    Matrix.local_name_tile ~simpl ~alloc_instr:[cVarDef m] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"]
   in
   !! List.iter local_matrix [
     ("gray", [(expr "by", int 36); (int 0, expr "w")]);

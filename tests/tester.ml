@@ -1,5 +1,6 @@
 open Optitrust
 open Printf
+module Terminal = Tools.Terminal
 
 module StringSet = Set.Make(String)
 
@@ -42,7 +43,7 @@ module StringSet = Set.Make(String)
 
 
   If no [argi] is provided, then:
-  - if [folder] is "." (the root of optitrust), then `tests case_studies` are used
+  - if [folder] is "." (the root of optitrust), then `all.tests` is used
     as the two [argi] arguments.
   - otherwise, [folder] is used as an [argi] argument.
 
@@ -130,14 +131,18 @@ let ref_list_add (r: 'a list ref) (x: 'a) : unit =
 let (~~) iter l f =
   iter f l
 
+let debug = false
+
 let do_is_ko (cmd : string) : bool =
+  if debug then printf "%s\n" cmd;
   let exit_code = Sys.command cmd in
   exit_code != 0
 
-let _do_is_ok (cmd : string) : bool =
+let do_is_ok (cmd : string) : bool =
   not (do_is_ko cmd)
 
 let do_or_die (cmd : string) : unit =
+  if debug then printf "%s\n" cmd;
   let exit_code = Sys.command cmd in
   if exit_code != 0 then
     failwith (sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
@@ -153,6 +158,7 @@ let do_or_die (cmd : string) : unit =
 (** Options *)
 
 (** Folders where tests might be located *)
+(* LATER: remove and consider all mentioned directories instead *)
 let tests_folders = ["tests"; "case_studies"]
 
 (*** Folder from which the user invoked 'tester' *)
@@ -279,13 +285,32 @@ let file_set_ref_add r x =
 
 let tmp_file = Filename.temp_file "command_output" ".txt"
 
+let is_folder (file: string): bool =
+  Sys.file_exists file && Sys.is_directory file
+
 (** Return the list of tests mentioned in file [f], ignoring empty lines *)
-let tests_from_file (file : string) : string list =
-  List.filter (fun s -> s <> "") (Xfile.get_lines_or_empty file)
+let rec tests_from_file ?(relative = false) (file : string) : string list =
+  if debug then printf "tests_from_file %s\n" file;
+  let folder = Filename.dirname file in
+  let lines = List.filter (fun s -> s <> "" && s.[0] <> '#') (Xfile.get_lines_or_empty file) in
+  ~~ List.concat_map lines (fun test ->
+    let test = if not relative || folder = "." then test else folder ^ "/" ^ test in
+    if Filename.extension test = ".tests" then begin
+      tests_from_file ~relative test
+    end else if is_folder test then begin
+      (* TODO: function for find all tests somewhere *)
+      (* TODO: call resolve_arg on all 'test'? *)
+      let sname = "-name '*.ml' -and -not -name '*_with_lines.ml'" in
+      do_or_die (sprintf "find %s %s > %s" test sname tmp_file);
+      Xfile.get_lines_or_empty tmp_file
+    end else begin
+      [test]
+    end
+  )
 
 (** Call [f] on every test listed in file [f] *)
-let foreach_test_from_file (file : string) (f : string -> unit) : unit =
-  List.iter f (tests_from_file file)
+let foreach_test_from_file ?(relative = false) (file : string) (f : string -> unit) : unit =
+  List.iter f (tests_from_file ~relative file)
 
 (** Compute the list of all ignored tests listed in 'ignore.tests' files *)
 let find_all_tests_to_ignore () : File_set.t =
@@ -296,29 +321,25 @@ let find_all_tests_to_ignore () : File_set.t =
       (if Sys.file_exists "ignore.tests" then ["ignore.tests"] else [])
     @ (Xfile.get_lines_or_empty tmp_file) in
   if !verbose
-    then eprintf "All ignore.tests files:\n  %s\n" (String.concat "\n  " ignore_tests_files);
+    then printf "All ignore.tests files:\n  %s\n" (String.concat "\n  " ignore_tests_files);
   let result = ref File_set.empty in
   (* For each file named `ignore.tests` *)
   ~~ List.iter ignore_tests_files (fun ignore_tests_file ->
-    let folder = Filename.dirname ignore_tests_file in
     (* For each test listed in that `ignore.tests`, ignoring lines starting with '#' *)
-    foreach_test_from_file ignore_tests_file (fun ignore_test ->
-      if ignore_test <> "" && ignore_test.[0] <> '#' then begin
-        let test = if folder = "." then ignore_test else folder ^ "/" ^ ignore_test in
-        file_set_ref_add result test
-      end
+    foreach_test_from_file ~relative:true ignore_tests_file (fun ignore_test ->
+        file_set_ref_add result ignore_test
     )
   );
   (* Return result *)
   if !verbose
-    then eprintf "All tests ignored:\n  %s\n" (String.concat "\n  " (File_set.elements !result));
+    then printf "All tests ignored:\n  %s\n" (String.concat "\n  " (File_set.elements !result));
   !result
 
 (** Resolve one [argi] to a list of tests (without filtering ignored tests),
     assuming its the name of a folder. *)
     (* LATER: do we want to deal with relative [folder]? *)
 let resolve_arg_as_folder (arg : string) : string list =
-  if Sys.file_exists arg && Sys.is_directory arg then [arg] else begin
+  if is_folder arg then [arg] else begin
     let sfolders = String.concat " " tests_folders in
     do_or_die (sprintf "find %s -type d -name '%s' > %s" sfolders arg tmp_file);
     Xfile.get_lines_or_empty tmp_file
@@ -334,21 +355,21 @@ let resolve_arg (arg : string) : string list =
     if Filename.basename arg = "ignore.tests"
       then flags_with_ignored := true;
     if is_file relarg then begin
-      if !verbose then eprintf "Resolved %s as relative .tests file: %s\n" arg relarg;
-      tests_from_file relarg
+      if !verbose then printf "Resolved %s as relative .tests file: %s\n" arg relarg;
+      tests_from_file ~relative:true relarg
     end else if is_file arg then begin
-      if !verbose then eprintf "Resolved %s as absolute .tests file\n" arg;
-      tests_from_file arg
+      if !verbose then printf "Resolved %s as absolute .tests file\n" arg;
+      tests_from_file ~relative:true arg
     end else begin
       failwith (sprintf "tester could not find file %s not %s" arg relarg)
     end
   end else if is_file relarg then begin
     (* Case is a relative file path *)
-    if !verbose then eprintf "Resolved %s as relative filepath: %s\n" arg relarg;
+    if !verbose then printf "Resolved %s as relative filepath: %s\n" arg relarg;
     [relarg]
   end else if is_file arg then begin
     (* Case an absolute file path *)
-    if !verbose then eprintf "Resolved %s as absolute filepath\n" arg;
+    if !verbose then printf "Resolved %s as absolute filepath\n" arg;
     [arg]
   end else begin
     let (folders_to_search_from, pattern_on_the_name) : (string list * string option) =
@@ -356,11 +377,11 @@ let resolve_arg (arg : string) : string list =
       | [] ->
         (* [arg] is not a folder, it is treated as a substring of a test name *)
         (* TODO: deal with relative [folder]. *)
-        if !verbose then eprintf "Resolved %s as a substring\n" arg;
+        if !verbose then printf "Resolved %s as a substring\n" arg;
         tests_folders, Some arg
       | folders ->
         (* Case [arg] is exactly a directory name, possibly in depth *)
-        if !verbose then eprintf "Resolved %s as folder name\n" arg;
+        if !verbose then printf "Resolved %s as folder name\n" arg;
         folders, None
       end in
     let sfolders = String.concat " " folders_to_search_from in
@@ -433,11 +454,11 @@ let action_run (tests : string list) : unit =
   let nb_tests_to_process = List.length tests_to_process in
   let tests_to_process_string = String.concat " " tests_to_process in
   if !dry_run || !verbose
-   then eprintf "Tester considering: \n  %s\nTester ignoring: \n  %s\nDry run completed.\n"
+   then printf "Tester considering: \n  %s\nTester ignoring: \n  %s\nDry run completed.\n"
         (String.concat "\n  " tests_to_process)
         (String.concat "\n  " tests_ignored);
   if !dry_run then exit 0;
-  if nb_tests_to_process = 0 then eprintf "Empty set of tests considered.";
+  if nb_tests_to_process = 0 then printf "Empty set of tests considered.";
 
   (* Enable backtrace display only when running an individual test *)
   if nb_tests_to_process > 1
@@ -459,7 +480,12 @@ let action_run (tests : string list) : unit =
 
   (* Compile the `batch.ml` file, using dune hacks *)
   do_or_die "cp tests/batch/dune_disabled tests/batch/dune";
-  do_or_die "dune build tests/batch/batch.cmxs; rm tests/batch/dune";
+  let compile_success = do_is_ok "dune build tests/batch/batch.cmxs" in
+  do_or_die "rm tests/batch/dune";
+  if not compile_success then begin
+    eprintf "failed to compile tests/batch/batch.ml";
+    exit 1
+  end;
   (* DEPRECATED printf "\n"; *)
 
   (* If -hide-stdout option is used, start redirecting stdout into
@@ -536,15 +562,21 @@ let action_run (tests : string list) : unit =
   update_tofix_tests_list();
 
   (* Produce general summary *)
-  let print_count (name: string) (tests: string list): unit =
+  let first_count = ref true in
+  let print_count (color: string) (name: string) (tests: string list): unit =
     let len = List.length tests in
-    if len > 0 then printf "%i %s, " len name
+    if len > 0 then begin
+      if !first_count
+        then first_count := false
+        else print_string ", ";
+      print_string (Terminal.with_color color (sprintf "%i %s" len name))
+    end
   in
-  print_count "failed" !tests_failed;
-  print_count "missing exp" !tests_noexp;
-  print_count "wrong" !tests_wrong;
-  print_count "ignored" tests_ignored;
-  print_count "success" !tests_success;
+  print_count Terminal.red "failed" !tests_failed;
+  print_count Terminal.orange "missing exp" !tests_noexp;
+  print_count Terminal.red "wrong" !tests_wrong;
+  print_count Terminal.light_gray "ignored" tests_ignored;
+  print_count Terminal.green "success" !tests_success;
   printf "\n"
 
 
@@ -667,7 +699,7 @@ let _main : unit =
   if !args = [] then begin
     if !action = "run" then begin
       if !caller_folder = "."
-        then args := tests_folders
+        then args := ["all.tests"]
         else args := [!caller_folder]
     end else if List.mem !action ["ignore"; "code"] then begin
       args :=   tests_from_file "failed.tests"
@@ -676,7 +708,8 @@ let _main : unit =
       args := tests_from_file "wrong.tests";
     end else if !action = "addexp" then begin
       args := tests_from_file "missing_exp.tests";
-    end
+    end;
+    if !verbose then printf "empty args resolved as: %s\n" (Tools.list_to_string !args)
   end;
 
   (* Switch according to action *)

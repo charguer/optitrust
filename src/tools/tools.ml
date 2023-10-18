@@ -264,6 +264,34 @@ let hashtbl_to_list (h : ('a, 'b) Hashtbl.t) : ('a * 'b) list =
   Hashtbl.fold (fun k v acc -> (k, v) :: acc) h []
 
 (******************************************************************************)
+(*                                Bash Utilities                              *)
+(******************************************************************************)
+
+module Terminal = struct
+  let no_color = "\027[0m"
+
+  let black = "\027[0;30m"
+  let red = "\027[0;31m"
+  let green = "\027[0;32m"
+  let orange = "\027[0;33m"
+  let blue = "\027[0;34m"
+  let purple = "\027[0;35m"
+  let cyan = "\027[0;36m"
+  let light_gray = "\027[0;37m"
+  let dark_gray = "\027[1;30m"
+  let light_red = "\027[1;31m"
+  let light_green = "\027[1;32m"
+  let yellow = "\027[1;33m"
+  let light_blue = "\027[1;34m"
+  let light_purple = "\027[1;35m"
+  let light_cyan = "\027[1;36m"
+  let white = "\027[1;37m"
+
+  let with_color c msg =
+    Printf.sprintf "%s%s%s" c msg no_color
+end
+
+(******************************************************************************)
 (*                          Functor Applications                         *)
 (******************************************************************************)
 
