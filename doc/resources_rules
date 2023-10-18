@@ -122,3 +122,21 @@ D, E |- D', E' * ?R
    Pour cela on unifie tous les éléments de D' avec un élément de D
    Pas de consommation vu qu'il s'agit de fait purs
 5) On vérifie que tous les ghosts sont bien instantiés (sanity check)
+
+
+
+=========================
+# Plan pour retirer seq_reads
+
+RO(f, Group(H)) = Group(RO(f, H))
+RO(f, H) != RO(f, Group(H))
+
+ctx: RO(f1, H)
+pre d'un appel: RO(?f, Group(fun _ -> H))
+instantiable avec
+RO(f1, H) => RO(f1 - f3), H) * RO(f3, H)
+          => RO(f1 - f2 * range(n)), H) * RO(f2 * range(n), H)
+          => RO(f1 - f2, H) * RO(f2, Group(fun _ -> H))
+
+refold
+RO(f2, Group(fun _ -> H)) * RO(f1 - f2 * range(i), H) => RO(f1, H)
