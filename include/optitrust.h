@@ -49,7 +49,7 @@ inline void __rename(const char*) {}
 inline __ghost_fn __ghost_begin(__ghost_fn, __ghost_args) { return __admitted; }
 inline void __ghost_end(__ghost_fn) {}
 
-#define __GHOST_BEGIN(rev_ghost, ghost, ghost_args) __ghost_fn rev_ghost = __ghost_begin(ghost, ghost_args)
+#define __GHOST_BEGIN(rev_ghost, ghost, ghost_args) const __ghost_fn rev_ghost = __ghost_begin(ghost, ghost_args)
 #define __GHOST_END(rev_ghost) __ghost_end(rev_ghost)
 
 inline void __reverts(__ghost_fn) {}

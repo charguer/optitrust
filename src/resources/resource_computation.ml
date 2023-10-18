@@ -5,13 +5,6 @@ open Resource_contract
 type pure_resource_set = resource_item list
 type linear_resource_set = resource_item list
 
-(* The built-in variable representing a function's return value. *)
-(* FIXME: #var-id, id should change *)
-let var_result = toplevel_var "_Res"
-let trm_result: formula = trm_var var_result
-let _Full = toplevel_var "_Full"
-let __admitted = toplevel_var "__admitted"
-
 let __cast = toplevel_var "__cast"
 let __new = toplevel_var "__new"
 let __get = toplevel_var "__get"
@@ -237,11 +230,9 @@ let rec extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_c
               | _, None -> None (* We can drop extra specifications *)
               | None, Some _ -> raise (Spec_not_found fn_name)
               | Some spec_from, Some spec_to ->
-                if spec_from = spec_to
-                  then None
-                  else failwith "extract_resources: Unimplemented complex contract implications"
+                failwith (sprintf "higher order functions are not yet implemented (found a spec for %s in pre-condition)" (var_to_string fn_name))
             )
-            res_from.fun_contracts res_to.fun_contracts);
+            res_from.fun_specs res_to.fun_specs);
 
   (subst_ctx, { used_pure; used_linear }, leftover_linear)
 
@@ -273,7 +264,7 @@ let produced_resources_to_resource_set (res_produced: produced_resource_set): re
   in
   let pure = forget_origin res_produced.produced_pure in
   let linear = forget_origin res_produced.produced_linear in
-  { pure; linear; fun_contracts = Var_map.empty }
+  { pure; linear; fun_specs = Var_map.empty }
 
 
 (* [resource_merge_after_frame]:
@@ -330,9 +321,10 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
       match formula_read_only_inv formula with
       | Some { frac; formula = ro_formula } ->
         let frac = reunite_fracs frac ro_formula in
-        if frac = full_frac
-          then (x, ro_formula)
-          else (x, formula_read_only ~frac ro_formula)
+        begin match frac.desc with
+        | Trm_val Val_lit Lit_int 1 -> (x, ro_formula)
+        | _ -> (x, formula_read_only ~frac ro_formula)
+        end
       | None -> (x, formula)
     ) frame in
 
@@ -355,7 +347,7 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
 let bind_new_resources ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
   { pure = new_res.pure @ old_res.pure;
     linear = new_res.linear;
-    fun_contracts = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_contracts old_res.fun_contracts }
+    fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs }
 
 let resource_names (res: resource_set) : Var_set.t =
   let res_list_names (res: resource_item list) =
@@ -535,29 +527,35 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         (* LATER: Merge used pure facts *)
         ignore (compute_resources ~expected_res:contract.post (Some body_res) body);
         let args = List.map (fun (x, _) -> x) args in
-        (Some usage_map, Some { res with fun_contracts = Var_map.add name (args, contract) res.fun_contracts })
+        (Some usage_map, Some { res with fun_specs = Var_map.add name {args; contract; inverse = None} res.fun_specs })
       | FunSpecReverts reverted_fn ->
         (* LATER: allow non empty arg list for reversible functions, this requires subtitution in the reversed contract *)
         assert (args = []);
         (* TODO: Also register reverse in the fun_contracts entry *)
-        let reverted_args, reverted_contract = Var_map.find reverted_fn res.fun_contracts in
-        assert (reverted_args = []);
+        let reverted_spec = Var_map.find reverted_fn res.fun_specs in
+        let reverted_contract = reverted_spec.contract in
+        assert (reverted_spec.args = []);
         assert (reverted_contract.post.pure = []);
-        assert (reverted_contract.post.fun_contracts = Var_map.empty);
+        assert (reverted_contract.post.fun_specs = Var_map.empty);
         let reverse_contract = {
           pre = {
             pure = reverted_contract.pre.pure;
             linear = reverted_contract.post.linear;
-            fun_contracts = reverted_contract.pre.fun_contracts
+            fun_specs = reverted_contract.pre.fun_specs
           };
           post = {
             pure = [];
             linear = reverted_contract.pre.linear;
-            fun_contracts = Var_map.empty
+            fun_specs = Var_map.empty
           }
         } in
         let args = List.map (fun (x, _) -> x) args in
-        (Some usage_map, Some { res with fun_contracts = Var_map.add name (args, reverse_contract) res.fun_contracts })
+        let fun_specs =
+          res.fun_specs |>
+          Var_map.add reverted_fn { reverted_spec with inverse = Some name } |>
+          Var_map.add name { args; contract = reverse_contract; inverse = Some reverted_fn }
+        in
+        (Some usage_map, Some { res with fun_specs })
       | FunSpecUnknown -> (Some usage_map, Some res)
       end
 
@@ -588,17 +586,17 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       usage_map, res
 
     | Trm_let (_, (var, typ), body) ->
-      let usage_map, res_after = compute_resources_and_merge_usage (Some res) (Some usage_map) body in
+      let usage_map, res_after = compute_resources (Some res) body in
       usage_map, Option.map (fun res_after -> rename_var_in_resources var_result var res_after) res_after
 
     | Trm_apps (fn, effective_args, ghost_args) ->
       let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
-      begin match Var_map.find_opt fn res.fun_contracts with
-      | Some (contract_args, contract) ->
+      begin match Var_map.find_opt fn res.fun_specs with
+      | Some spec ->
         (* The arguments of the function call cannot have write effects, and cannot be referred to in the function contract unless they are formula-convertible (cf. formula_of_term). *)
         (* TODO: Cast into readonly: better error message when a resource exists in RO only but asking for RW *)
         let read_only_res = cast_into_read_only res in
-        let contract_fv = fun_contract_free_vars contract in
+        let contract_fv = fun_contract_free_vars spec.contract in
         let subst_ctx, usage_map = try
           List.fold_left2 (fun (subst_map, usage_map) contract_arg effective_arg ->
             (* Give resources as read only and check that they are still there after the argument evaluation *)
@@ -621,7 +619,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
               Var_map.add contract_arg arg_formula subst_map, usage_map
             end else
               subst_map, usage_map
-          ) (Var_map.empty, Some usage_map) contract_args effective_args;
+          ) (Var_map.empty, Some usage_map) spec.args effective_args;
         with Invalid_argument _ ->
           failwith (Printf.sprintf "Mismatching number of arguments for %s" (var_to_string fn))
         in
@@ -632,10 +630,10 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           ghost_args_vars := Var_set.add ghost_var !ghost_args_vars;
           Var_map.add ghost_var ghost_inst subst_ctx) subst_ctx ghost_args
         in
-        let contract = { contract with pre = { contract.pre with pure = List.filter (fun (ghost_var, _) ->
+        let contract = { spec.contract with pre = { spec.contract.pre with pure = List.filter (fun (ghost_var, _) ->
           let manually_given = Var_set.mem ghost_var !ghost_args_vars in
           ghost_args_vars := Var_set.remove ghost_var !ghost_args_vars;
-          not manually_given) contract.pre.pure } }
+          not manually_given) spec.contract.pre.pure } }
         in
 
         let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
@@ -654,8 +652,38 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         (* TK: we treat cast as identity function. *)
         (* FIXME: this breaks invariant that function arguments are pure/reproducible. *)
         begin match effective_args with
-        | [arg] -> compute_resources_and_merge_usage (Some res) (Some usage_map) arg
+        | [arg] -> compute_resources (Some res) arg
         | _ -> failwith "expected 1 argument for cast"
+        end
+      | None when var_eq fn ghost_begin ->
+        Pattern.pattern_match effective_args [
+          Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn ->
+            let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv ghost_fn in
+            match Var_map.find_opt fn res.fun_specs with
+            | Some { inverse = Some _ } ->
+              let usage_map, res = compute_resources (Some res) ghost_call in
+              begin match res, ghost_call.ctx.ctx_resources_contract_invoc with
+              | Some res, Some invoc ->
+                assert (invoc.contract_produced.produced_pure = []);
+                let inverse_pre = List.map (fun { produced_hyp; produced_formula } -> (produced_hyp, produced_formula)) invoc.contract_produced.produced_linear in
+                let inverse_post = List.map (fun { hyp_to_inst; used_formula } -> (hyp_to_inst, used_formula))
+                  invoc.contract_inst.used_linear
+                in
+                let inverse_spec = { args = [];
+                  contract = { pre = resource_set ~linear:inverse_pre (); post = resource_set ~linear:inverse_post () };
+                  inverse = None }
+                in
+                usage_map, Some { res with fun_specs = Var_map.add var_result inverse_spec res.fun_specs }
+              | _ -> failwith "Ghost call inside __ghost_begin should have generated a contract_invoc"
+              end
+            | _ -> failwith (sprintf "%s is not reversible but is used inside __ghost_begin" (var_to_string fn))
+          );
+          Pattern.(!__) (fun _ -> failwith "expected a ghost call inside __ghost_begin")
+        ]
+      | None when var_eq fn ghost_end ->
+        begin match effective_args with
+        | [fn] -> compute_resources (Some res) (trm_apps fn [])
+        | _ -> failwith "__ghost_end with invalid number of arguments"
         end
       | None when var_eq fn __admitted ->
         None, None
@@ -665,7 +693,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
     | Trm_for (range, body, None) ->
       (* If no spec is given, put all the resources in the invariant (best effort) *)
       let expected_res = resource_set ~linear:res.linear () in
-      let usage_map, _ = compute_resources_and_merge_usage ~expected_res (Some res) (Some usage_map) body in
+      let usage_map, _ = compute_resources ~expected_res (Some res) body in
       usage_map, Some res
 
     | Trm_for ((index, tstart, _, tend, step, _) as range, body, Some contract) ->
@@ -677,7 +705,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
       (* Compute resources inside the loop body *)
       let loop_body_pre = res_union contract.invariant contract.iter_contract.pre in
-      let loop_body_pre = { loop_body_pre with pure = contract.loop_ghosts @ loop_body_pre.pure; fun_contracts = res.fun_contracts } in
+      let loop_body_pre = { loop_body_pre with pure = contract.loop_ghosts @ loop_body_pre.pure; fun_specs = res.fun_specs } in
       let invariant_after_one_iter = subst_invariant_step range contract.invariant in
       let loop_body_post = res_union invariant_after_one_iter contract.iter_contract.post in
       ignore (compute_resources ~expected_res:loop_body_post (Some loop_body_pre) body);

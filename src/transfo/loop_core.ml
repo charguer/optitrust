@@ -90,7 +90,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
           List.map (fun (h, formula) -> (h, trm_subst_var index new_index formula))
         in
         let update_index_resource_set new_index res =
-          { pure = update_index new_index res.pure; linear = update_index new_index res.linear; fun_contracts = Var_map.empty }
+          { pure = update_index new_index res.pure; linear = update_index new_index res.linear; fun_specs = Var_map.empty }
         in
         let contract_inner = {
           loop_ghosts = contract.loop_ghosts;
@@ -105,7 +105,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
           List.map (fun (h, formula) -> (h, formula_group_range inner_range formula))
         in
         let add_inner_range_group_resource_set res =
-          { pure = add_inner_range_group res.pure; linear = add_inner_range_group res.linear; fun_contracts = Var_map.empty }
+          { pure = add_inner_range_group res.pure; linear = add_inner_range_group res.linear; fun_specs = Var_map.empty }
         in
 
         let contract_outer = {

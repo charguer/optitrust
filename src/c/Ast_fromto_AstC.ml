@@ -494,9 +494,14 @@ let rec ghost_args_elim (t: trm): trm =
         trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t
       );
     Pattern.(trm_apps2 (trm_var_with_name "__ghost") !__ (trm_string !__)) (fun ghost_fn ghost_args_str ->
-        let fn = ghost_args_elim ghost_fn in
         let ghost_args = parse_ghost_args ghost_args_str in
-        trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (fn, [], ghost_args)) t
+        trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
+      );
+    Pattern.(trm_apps2 (trm_var_with_name "__ghost_begin") !__ (trm_string !__)) (fun ghost_fn ghost_args_str ->
+        let ghost_args = parse_ghost_args ghost_args_str in
+        trm_apps (trm_var ghost_begin) [
+          trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
+        ]
       );
     Pattern.(trm_seq !__) (fun seq -> trm_alter ~desc:(Trm_seq (Mlist.of_list (ghost_args_elim_in_seq (Mlist.to_list seq)))) t);
     Pattern.(!__) (fun t -> trm_map ghost_args_elim t)

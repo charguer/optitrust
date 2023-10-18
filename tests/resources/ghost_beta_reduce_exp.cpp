@@ -30,3 +30,11 @@ void g(float* M) {
           "n := 1024, to_item := fun i -> &M[MINDEX1(1024, i)] ~> Cell, "
           "bound_check := checked");
 }
+
+void g2(float* M) {
+  __modifies("M ~> Matrix1(1024)");
+  const __ghost_fn tileM = __ghost_begin(
+      __call_with(tile_divides(),
+                  "tile_size := 256, tile_count := 4, bound_check := checked"));
+  __ghost_end(tileM);
+}

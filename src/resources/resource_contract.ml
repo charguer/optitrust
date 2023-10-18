@@ -17,8 +17,8 @@ type contract_clause_type =
 
 type contract_clause = contract_clause_type * contract_resource
 
-let resource_set ?(pure = []) ?(linear = []) ?(fun_contracts = Var_map.empty) () =
-  { pure; linear; fun_contracts }
+let resource_set ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) () =
+  { pure; linear; fun_specs }
 
 let empty_resource_set = resource_set ()
 
@@ -27,6 +27,14 @@ let empty_fun_contract =
 
 let empty_loop_contract =
   { loop_ghosts = []; invariant = empty_resource_set; iter_contract = empty_fun_contract }
+
+
+(* The built-in variable representing a function's return value. *)
+(* FIXME: #var-id, id should change *)
+let var_result = toplevel_var "_Res"
+let trm_result: formula = trm_var var_result
+let _Full = toplevel_var "_Full"
+let __admitted = toplevel_var "__admitted"
 
 
 let rec desugar_formula (formula: formula): formula =
@@ -102,29 +110,34 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: contract_
 let res_group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
     linear = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.linear;
-    fun_contracts = res.fun_contracts; }
+    fun_specs = res.fun_specs; }
 
 let res_union (res1: resource_set) (res2: resource_set): resource_set =
   { pure = res1.pure @ res2.pure; linear = res1.linear @ res2.linear;
-    fun_contracts = Var_map.union (fun _ _ c -> Some c) res1.fun_contracts res2.fun_contracts }
+    fun_specs = Var_map.union (fun _ _ c -> Some c) res1.fun_specs res2.fun_specs }
 
-let subst_in_resources ?(forbidden_binders = Var_set.empty) (subst_map: tmap) (res: resource_set): tmap * resource_set =
+let rec subst_in_resources (subst_map: tmap) (res: resource_set): resource_set =
   let subst_var_in_resource_list =
-    List.fold_left_map (fun subst_ctx (h, t) ->
-        let t = trm_subst subst_map t in
-        (subst_ctx, (h, t))
-      )
+    List.map (fun (h, t) -> (h, trm_subst subst_map t))
   in
-  let subst_ctx, pure = subst_var_in_resource_list (forbidden_binders, subst_map) res.pure in
-  let _, linear = subst_var_in_resource_list subst_ctx res.linear in
-  (snd subst_ctx, { pure; linear;
-    fun_contracts = res.fun_contracts (* TODO: subst here as well? *) })
+  let pure = subst_var_in_resource_list res.pure in
+  let linear = subst_var_in_resource_list res.linear in
+  let nores_subst_map = Var_map.remove var_result subst_map in
+  let fun_specs =
+    Var_map.map (fun spec ->
+      { spec with contract = { pre = subst_in_resources nores_subst_map spec.contract.pre; post = subst_in_resources nores_subst_map spec.contract.post } })
+      res.fun_specs
+  in
+  { pure; linear; fun_specs }
 
 let subst_var_in_resources (x: var) (t: trm) (res: resource_set) : resource_set =
-  snd (subst_in_resources (Var_map.singleton x t) res)
+  subst_in_resources (Var_map.singleton x t) res
 
 let rename_var_in_resources (x: var) (new_x: var) (res: resource_set) : resource_set =
-  subst_var_in_resources x (trm_var new_x) res
+  let res = subst_var_in_resources x (trm_var new_x) res in
+  match Var_map.find_opt x res.fun_specs with
+  | None -> res
+  | Some spec -> { res with fun_specs = Var_map.add new_x spec (Var_map.remove x res.fun_specs) }
 
 let subst_invariant_start (index, tstart, _, _, _, _) = subst_var_in_resources index tstart
 let subst_invariant_step (index, _, _, _, step, _) = subst_var_in_resources index (trm_add (trm_var index) (loop_step_to_trm step))

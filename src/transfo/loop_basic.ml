@@ -188,7 +188,7 @@ let fission_on (index : int) (t : trm) : trm =
     let filter_resource_set res =
       { pure = filter_resource_items res.pure;
         linear = filter_resource_items res.linear;
-        fun_contracts = Var_map.empty }
+        fun_specs = Var_map.empty }
     in
     let resources_after_tl1 = filter_resource_set tl2_ctx_res in
     fst_contract := Some {
