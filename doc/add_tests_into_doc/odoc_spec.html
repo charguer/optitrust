@@ -1,3 +1,216 @@
+
+<html>
+  <head>
+
+   <!--Make sure to load the CSS file in that order-->
+   <link rel="stylesheet" type="text/css" href="../../tools/web_view/lib/highlight.js_github.min.css" />
+   <link rel="stylesheet" type="text/css" href="../../tools/web_view/lib/diff2html.min.css" />
+
+   <!--custom highlightjs with only ocaml and C/C++ supported-->
+   <script src="../../tools/web_view/lib/highlight_custom/highlight.pack.js"></script>
+   <script src="../../tools/web_view/lib/jquery.min.js"></script>
+   <script src="../../tools/web_view/lib/jquery-ui.min.js"></script>
+   <script type="text/javascript" src="../../tools/web_view/lib/diff2html-ui.min.js"></script>
+
+<style>
+
+pre {
+  margin: 0;
+}
+
+/* Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+   display: none;
+}
+
+/* Hide the diff line number because we're showing full file comparisons */
+.d2h-info {
+   display: none;
+}
+
+.title {
+   font-size: 300%;
+   font-weight: bold;
+   text-align: center;
+}
+
+h1 {
+   padding: 4px;
+   /*color: #0000CC;*/
+   background: #ADAFAF;
+}
+
+h2 {
+   padding: 4px;
+   /*color: #006600;*/
+   background: #00FFFF;
+   padding-left: 1em;
+}
+
+
+.name {
+   border: 1px solid black;
+   padding: 5px 5px 5px 10px;
+   background: #FFCFA0;
+   font-weight: bold;
+   font-size: 22px;
+}
+
+.spec {
+  margin-top: 0.5em;
+}
+
+.src {
+   /* border: 1px solid black; */
+   padding-bottom: 5px;
+   padding-top: 5px;
+   margin-top: 1em;
+   margin-bottom: 0.5em;
+   background: #FFE0FF;
+   font-weight: bold;
+}
+
+.src {
+   /*border: 1px solid black;*/
+   padding: 3px 5px 3px 5px;
+   background: #FFFFA0;
+   font-weight: bold;
+}
+
+.diff {
+   margin: 2px 0px 2px 0px;
+}
+
+.error {
+   padding: 2em;
+   background: red;
+   font-weight: bold;
+   font-size: 2em;
+}
+
+.warning {
+   padding: 1em;
+   background: red;
+   font-weight: bold;
+   font-size: 1em;
+}
+
+.d2h-code-side-linenumber {
+  display: none;
+  width: 2em;
+}
+.d2h-code-side-line {
+  padding-left:2em;
+}
+
+.d2h-file-side-diff {
+  overflow-x: auto;
+}
+
+.d2h-diff-table {
+  margin: 5px 5px 5px 5px;
+  width: 85%; /* hack to avoid the scrollbar showing up all the time */
+}
+
+.d2h-code-line ins, .d2h-code-side-line ins {
+    background-color: inherit;
+}
+
+.d2h-code-line del, .d2h-code-side-line del {
+    background-color: inherit;
+}
+</style>
+
+<script>
+
+
+var enableWarning = false;
+
+var configuration = {
+   inputFormat: 'json',
+   drawFileList: false,
+   // fileListToggle: false,
+   // fileListStartVisible: false
+   fileContentToggle: false,
+   matching: 'lines',
+   outputFormat: 'side-by-side',
+   synchronisedScroll: true,
+   highlight: true,
+   renderNothingWhenEmpty: false,
+   // LATER tune?
+   // matchWordsThreshold : similarity threshold for word matching, default is 0.25
+   // matchWordsThresholdmatchingMaxComparisons: perform at most this much comparisons for line matching a block of changes, default is 2500
+   // maxLineSizeInBlockForComparison: maximum number os characters of the bigger line in a block to apply comparison, default is 200
+   // maxLineLengthHighlight: only perform diff changes highlight if lines are smaller than this, default is 10000
+   };
+
+// TODO: the horizontal scrollbars should not be needed if the diff contains no long lines.
+
+
+function escapeHTML(s) {
+   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// removes from src everything between the line that contains ".cpp" or "fun" and the line that contains "dump" or ")"
+function shrinkSrc(src) {
+   src = src.replace("\n\n","\n");
+   src = src.replace("  \n\n","\n");
+   var start = src.indexOf(".cpp");
+   if (start == -1)
+      start = src.indexOf("fun _");
+   if (start == -1)
+      return src;
+   start = src.indexOf("\n", start);
+   if (start == -1)
+      return src;
+   src = src.substr(start+1);
+   var stop = src.lastIndexOf("dump");
+   if (stop == -1) {
+      stop = src.lastIndexOf(")");
+   }
+   if (stop != -1) {
+      return src.substr(0,stop);
+   }
+   return src;
+}
+
+// TODO: for inserting code excerpt
+// var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
+
+var exampleDiffString = window.atob("ZGlmZiAtLWdpdCBhL3ZhcmlhYmxlX2lubGluZV9kb2NfYmVmb3JlLmNwcCBiL3ZhcmlhYmxlX2lubGluZV9kb2NfYWZ0ZXIuY3BwCmluZGV4IDBjZTEwNmI3Li5jMTBhOGQ4MiAxMDA2NDQKLS0tIGEvdmFyaWFibGVfaW5saW5lX2RvY19iZWZvcmUuY3BwCisrKyBiL3ZhcmlhYmxlX2lubGluZV9kb2NfYWZ0ZXIuY3BwCkBAIC0xLDUgKzEsNCBAQAogaW50IG1haW4oKSB7Ci0gIGNvbnN0IGludCBhID0gMzsKICAgY29uc3QgaW50IGIgPSA0OwotICBpbnQgciA9IGEgKyBhICsgYjsKKyAgaW50IHIgPSAzICsgMyArIGI7CiB9Cg==");
+
+
+var diffStrings = { };
+diffStrings["variable_inline"] = exampleDiffString;
+
+// Load the diff for a given target
+function loadDiff(targetId) {
+   // this function should be called only after DOM contents is loaded
+  var targetElement = document.getElementById(targetId);
+  if (! diffStrings.hasOwnProperty(targetId)) {
+    console.log("Error: loadDiff found no entry for " + targetId);
+    return;
+  }
+  var diffString = diffStrings[targetId];
+  var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+  diff2htmlUi.draw();
+  diff2htmlUi.highlightCode();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+   var all = $(".diff-unit-test").each(function() {
+     loadDiff(this.id);
+   });
+});
+</script>
+
+
+  </head>
+<body>
 <div class="odoc-spec"><div class="spec value anchored" id="val-swap_on"><a href="#val-swap_on" class="anchor"></a><code><span><span class="keyword">val</span> swap_on : <span><a href="../Syntax/index.html#type-trm">Syntax.trm</a> <span class="arrow">-&gt;</span></span> <a href="../Syntax/index.html#type-trm">Syntax.trm</a></span></code></div><div class="spec-doc"><p>&lt;private&gt; <code>swap_on t</code>: swaps the order of two nested loops, the targeted loop with the immediate inner loop, <code>t</code> - ast of the targeted loop.</p></div></div>
 <div class="odoc-spec"><div class="spec value anchored" id="val-swap"><a href="#val-swap" class="anchor"></a><code><span><span class="keyword">val</span> swap : <span><a href="../Target/index.html#type-target">Target.target</a> <span class="arrow">-&gt;</span></span> unit</span></code></div><div class="spec-doc"><p><code>swap tg</code>: expects the target <code>tg</code> to point at a loop that contains an immediately-nested loop. The transformation swaps the two loops.</p></div></div>
-<div class="odoc-spec"><div class="spec value anchored" id="val-inline"><a href="#val-inline" class="anchor"></a><code><span><span class="keyword">val</span> swap : <span><a href="../Target/index.html#type-target">Target.target</a> <span class="arrow">-&gt;</span></span> unit</span></code></div><div class="spec-doc"><p><code>swap tg</code>: expects the target <code>tg</code> to point at a loop that contains an immediately-nested loop. The transformation swaps the two loops.</p></div></div>
+<div class="odoc-spec"><div class="spec value anchored" id="val-inline"><a href="#val-inline" class="anchor"></a><code><span><span class="keyword">val</span> inline : <span><a href="../Target/index.html#type-target">Target.target</a> <span class="arrow">-&gt;</span></span> unit</span></code></div><div class="spec-doc"><p><code>inline</code>: explain how it work.</p></div></div>
+
+</body>
+</html>
+

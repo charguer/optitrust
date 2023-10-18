@@ -282,6 +282,18 @@
         }
       },
       {
+        "label": "Execute doc/add_tests_into_doc/run.sh",
+        "type": "shell",
+        "command": "./run.sh",
+        "args": [],
+        "options": {
+          "cwd": "${workspaceFolder}/doc/add_tests_into_doc",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
+      {
         "label": "Diff wrong tests output",
         "type": "shell",
         "command": ".vscode/diff_wrong_tests_output.sh",
