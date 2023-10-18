@@ -536,15 +536,18 @@ let action_run (tests : string list) : unit =
   update_tofix_tests_list();
 
   (* Produce general summary *)
-  let print_count (name: string) (tests: string list): unit =
+  let print_count ?(last=false) (name: string) (tests: string list): unit =
     let len = List.length tests in
-    if len > 0 then printf "%i %s, " len name
+    (*if len > 0 then*)
+    printf "%i %s%s"  len name (if last then "" else ", ")
   in
+  let full_success = (!tests_failed = [] && !tests_noexp = [] && !tests_wrong = []) in
+  if full_success then printf "TOTAL SUCCESS: ";
   print_count "failed" !tests_failed;
   print_count "missing exp" !tests_noexp;
   print_count "wrong" !tests_wrong;
   print_count "ignored" tests_ignored;
-  print_count "success" !tests_success;
+  print_count ~last:true "success" !tests_success;
   printf "\n"
 
 
