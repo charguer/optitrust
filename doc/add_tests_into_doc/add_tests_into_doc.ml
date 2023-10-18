@@ -13,6 +13,8 @@ let path_to_webview_folder = "../../tools/web_view"
 let current_module = "Variable"
 let prefix = (String.lowercase_ascii current_module) ^ "_"
 
+let example_diff_string = "ZGlmZiAtLWdpdCBhL3ZhcmlhYmxlX2lubGluZV9kb2NfYmVmb3JlLmNwcCBiL3ZhcmlhYmxlX2lubGluZV9kb2NfYWZ0ZXIuY3BwCmluZGV4IDBjZTEwNmI3Li5jMTBhOGQ4MiAxMDA2NDQKLS0tIGEvdmFyaWFibGVfaW5saW5lX2RvY19iZWZvcmUuY3BwCisrKyBiL3ZhcmlhYmxlX2lubGluZV9kb2NfYWZ0ZXIuY3BwCkBAIC0xLDUgKzEsNCBAQAogaW50IG1haW4oKSB7Ci0gIGNvbnN0IGludCBhID0gMzsKICAgY29uc3QgaW50IGIgPSA0OwotICBpbnQgciA9IGEgKyBhICsgYjsKKyAgaW50IHIgPSAzICsgMyArIGI7CiB9Cg=="
+
 let do_or_die (cmd : string) : unit =
   let exit_code = Sys.command cmd in
   if exit_code != 0 then
@@ -37,7 +39,7 @@ let compute_test_map () : test_map =
 
 let insert_contents_for_test (test_name: string) (_path:string) (target_div : 'a node) : unit =
   (* Generate a div with class "diff-unit-test" and id e.g. "variable_inline" *) (* LATER:could add a prefix to the id *)
-  let diff_div = create_element ~id:test_name ~classes:["diff-unit-test"] "div" in
+  let diff_div = create_element ~id:test_name ~classes:["diff-unit-test"] "div" ~inner_text:example_diff_string in
   append_child target_div diff_div
 
   (* Extract the OCaml source code *)
