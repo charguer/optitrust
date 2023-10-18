@@ -283,6 +283,17 @@ If you don't see a diff, possible issues include:
      messages in the terminal.
 
 
+
+--------------------------------------------------------------------------------
+## Optional suggestions
+
+In your `~/.bashrc` you can add an alias to make it easier to invoke the tester.
+
+```sh
+  alias t='~/optitrust/tester'
+```
+
+
 --------------------------------------------------------------------------------
 ## Optional tools
 

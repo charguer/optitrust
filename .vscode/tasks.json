@@ -207,6 +207,7 @@
         "type": "shell",
         "command": "./tester",
         "args": [
+          "run",
           "${relativeFile}"
         ],
         "options": {
@@ -218,6 +219,7 @@
         "type": "shell",
         "command": "./tester",
         "args": [
+          "run",
           "${relativeFile}",
           "-dump-trace"
         ],
@@ -230,7 +232,8 @@
         "type": "shell",
         "command": "./tester",
         "args": [
-          "all"
+          "run",
+          "tests"
         ],
         "options": {
           "cwd": "${workspaceFolder}"
@@ -242,10 +245,7 @@
       {
         "label": "Rerun the last-tried test(s)",
         "type": "shell",
-        "command": "./tester",
-        "args": [
-          "last"
-        ],
+        "command": "./tester_last.sh",
         "options": {
           "cwd": "${workspaceFolder}"
         },
