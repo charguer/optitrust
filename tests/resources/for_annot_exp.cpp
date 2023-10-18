@@ -14,15 +14,18 @@ void matmul(float* C, float* A, float* B, int m, int n, int p) {
         __sequentially_modifies("&sum ~> Cell");
         __sequentially_reads("A ~> Matrix2(m, p)");
         __sequentially_reads("B ~> Matrix2(p, n)");
-        __ghost(matrix2_ro_focus, "M := A, i := i, j := k");
-        __ghost(matrix2_ro_focus, "M := B, i := k, j := j");
+        const __ghost_fn focusA =
+            __ghost_begin(matrix2_ro_focus, "M := A, i := i, j := k");
+        const __ghost_fn focusB =
+            __ghost_begin(matrix2_ro_focus, "M := B, i := k, j := j");
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
-        __ghost(matrix2_ro_unfocus, "M := A");
-        __ghost(matrix2_ro_unfocus, "M := B");
+        __ghost_end(focusA);
+        __ghost_end(focusB);
       }
-      __ghost(matrix2_focus, "M := C, i := i, j := j");
+      const __ghost_fn focusC =
+          __ghost_begin(matrix2_focus, "M := C, i := i, j := j");
       C[MINDEX2(m, n, i, j)] = sum;
-      __ghost(matrix2_unfocus, "M := C");
+      __ghost_end(focusC);
     }
   }
 }
