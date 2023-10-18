@@ -266,6 +266,22 @@
         }
       },
       {
+        "label": "Open unit test ML and CPP files and documentation",
+        "type": "shell",
+        "command": "${workspaceFolder}/.vscode/open_test.sh",
+        "args": [
+          "${fileBasename}",
+          "withdoc"
+        ],
+        "options": {
+          "cwd": "${fileDirname}"
+        },
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "never"
+        }
+      },
+      {
         "label": "Diff wrong tests output",
         "type": "shell",
         "command": ".vscode/diff_wrong_tests_output.sh",
