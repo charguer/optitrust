@@ -12,6 +12,7 @@ let run_tester = false
 let verbose = true
 let path_to_webview_folder = "../../tools/web_view"
 
+
 let current_module = "Variable"
 let prefix = (String.lowercase_ascii current_module) ^ "_"
 
