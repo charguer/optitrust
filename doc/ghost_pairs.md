@@ -687,6 +687,142 @@ void f(takes function g as arg) : return function h {
 
 
 
+=========================
+
+  splittable H :=
+    { H = RO(1,H)
+      RO(a+b, H) = RO(a, H) * RO(b, H)
+
+
+
+  unroll_array_RW
+    consumes ((p -> Array n))
+    produces (stars_{j in 0..n} (p[j] -> Cell))
+
+  unroll_array_RO
+    consumes RO((p -> Array n))
+    produces RO(stars_{j in 0..n} (p[j] -> Cell))
+
+  unroll_array_frac
+    requires f:frac
+    consumes FRAC(f, p -> Array n)
+    produces FRAC(f, stars_{j in 0..n} (p[j] -> Cell))
+
+    RO(H) = FRAC(f, H)  for some f to be inferred
+
+  // do we need both? is the RO version stronger than previous
+
+
+
+=========================
+
+
+  ctx(RO(stars_i t[i] -> Array S[i])
+  pfor i
+    ctx(RO(t[i] -> Array S[i])
+    GHOST_BEGIN(op, unroll_array_RO)
+    ctx((stars_{j in 0..S[i]} (t[i][j] -> Cell))
+    instr
+    GHOST_END(op)
+
+-> hoist
+
+  ctx(RO(stars_i t[i] -> Array S[i])
+  GHOST_BEGIN(op, [&]{ // anonymous function "myop"
+    __requires f'
+    __consumes(RO(f', stars_i t[i] -> Array S[i]))
+    __produces(RO(f', stars_i stars_{j in 0..S[i]} (t[i][j] -> Cell))
+    __ensures
+    pfor i
+      requires (f : frac)
+      consumes (RO(f,t[i] -> Array S[i])
+      produces ((stars_{j in 0..S[i]} (t[i][j] -> Cell))
+      ghost(unroll_array_RO)
+  },
+  [&]{ // REVRSE
+      pfor i
+        requires (f : frac)
+        consumes ((stars_{j in 0..S[i]} (t[i][j] -> Cell))
+        produces (RO(f,t[i] -> Array S[i])
+        ghost(unroll_array_RO)
+    },
+  "");
+  pfor i
+    ctx((RO(f, stars_{j in 0..S[i]} (t[i][j] -> Cell)))
+    instr
+  GHOST_END(op)
+
+
+
+// alternative, using syntax of higher-order functions
+
+  ghost_begin(op, rewrite,
+    "arg :=
+      fun myop ->
+        spec myop
+        requires (f : frac)
+        consumes (RO(f,t[i] -> Array S[i])
+        produces ((stars_{j in 0..S[i]} (t[i][j] -> Cell)",
+      Iter(unroll_array_RO)
+        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
