@@ -267,16 +267,16 @@ __GHOST(rewrite) {
 
 __GHOST(close_wand) {
   /* LATER: Replace that id with a generated name on the respective open */
-  __requires("wand_id: int, H1: formula, H2: formula");
-  __consumes("Wand(wand_id, H1, H2), H1");
+  __requires("H1: formula, H2: formula");
+  __consumes("Wand(H1, H2), H1");
   __produces("H2");
   __admitted();
 }
 
 __GHOST(wand_simplify) {
-  __requires("wand1: int, wand2: int, H1: formula, H2: formula, H3: formula");
-  __consumes("Wand(wand1, H1, H2), Wand(wand2, H2, H3)");
-  __produces("Wand(wand1, H1, H3)");
+  __requires("H1: formula, H2: formula, H3: formula");
+  __consumes("Wand(H1, H2), Wand(H2, H3)");
+  __produces("Wand(H1, H3)");
   __admitted();
 }
 
@@ -328,27 +328,42 @@ __GHOST(untile_divides) {
 }
 
 __GHOST(group_focus) {
-  __requires("wand_id: int, i: int, start: int, stop: int, step: int, items: int -> formula");
+  __requires("i: int, start: int, stop: int, step: int, items: int -> formula");
   __requires("bound_check_start: start <= i, bound_check_stop: i < stop, bound_check_step: (start + i) % step = 0");
   __consumes("Group(range(start, stop, step), items)");
-  __produces("items(i), Wand(wand_id, items(i), Group(range(start, stop, step), items))");
+  __produces("items(i), Wand(items(i), Group(range(start, stop, step), items))");
   __admitted();
+}
+
+__GHOST(group_unfocus) {
+  __reverts(group_focus);
+  __ghost(close_wand, "");
 }
 
 __GHOST(group_ro_focus) {
-  __requires("wand_id: int, i: int, start: int, stop: int, step: int, items: int -> formula, f: _Fraction");
+  __requires("i: int, start: int, stop: int, step: int, items: int -> formula, f: _Fraction");
   __requires("bound_check_start: start <= i, bound_check_stop: i < stop, bound_check_step: (start + i) % step = 0");
   __consumes("RO(f, Group(range(start, stop, step), items))");
-  __produces("RO(f, items(i)), Wand(wand_id, RO(f, items(i)), RO(f, Group(range(start, stop, step), items)))");
+  __produces("RO(f, items(i)), Wand(RO(f, items(i)), RO(f, Group(range(start, stop, step), items)))");
   __admitted();
 }
 
+__GHOST(group_ro_unfocus) {
+  __reverts(group_ro_focus);
+  __ghost(close_wand, "");
+}
+
 __GHOST(group_focus_subrange) {
-  __requires("wand_id: int, start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
+  __requires("start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
   __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
   __consumes("Group(range(old_start, old_stop, step), items)");
-  __produces("Group(range(start, stop, step), items), Wand(wand_id, Group(range(start, stop, step), items), Group(range(old_start, old_stop, step), items))");
+  __produces("Group(range(start, stop, step), items), Wand(Group(range(start, stop, step), items), Group(range(old_start, old_stop, step), items))");
   __admitted();
+}
+
+__GHOST(group_unfocus_subrange) {
+  __reverts(group_focus_subrange);
+  __ghost(close_wand, "");
 }
 
 /* ---- Matrix Ghosts ---- */
@@ -373,17 +388,17 @@ __GHOST(matrix2_unfocus) {
 }
 
 __GHOST(matrix2_ro_focus) {
-    __requires("M: ptr, i: int, j: int, m: int, n: int, f: _Fraction");
-    __consumes("_RO(f, M ~> Matrix2(m, n))");
-    __produces("_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, M ~> FocussedMatrix2(m, n, i, j))");
-    __admitted();
+  __requires("M: ptr, i: int, j: int, m: int, n: int, f: _Fraction");
+  __consumes("_RO(f, M ~> Matrix2(m, n))");
+  __produces("_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, M ~> FocussedMatrix2(m, n, i, j))");
+  __admitted();
 }
 
 __GHOST(matrix2_ro_unfocus) {
-    __requires("M: ptr, m: int, n: int, i: int, j: int, f: _Fraction");
-    __consumes("_RO(_Full(f), M ~> FocussedMatrix2(m, n, i, j)), _RO(_Full(f), &M[MINDEX2(m, n, i, j)] ~> Cell)");
-    __produces("_RO(f, M ~> Matrix2(m, n))");
-    __admitted();
+  __requires("M: ptr, m: int, n: int, i: int, j: int, f: _Fraction");
+  __consumes("_RO(_Full(f), M ~> FocussedMatrix2(m, n, i, j)), _RO(_Full(f), &M[MINDEX2(m, n, i, j)] ~> Cell)");
+  __produces("_RO(f, M ~> Matrix2(m, n))");
+  __admitted();
 }
 
 /* ---- Arithmetic Functions ---- */

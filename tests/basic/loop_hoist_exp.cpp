@@ -21,9 +21,10 @@ void f(int* t, int* u) {
   MFREE1(10, x_step);
   int* const yl = (int* const)MALLOC3(5, 4, 8 / 2, sizeof(int));
   for (int l = 0; l < 5; l++) {
-    __ghost(group_focus_subrange,
-            "wand_id := 1, start := 2, stop := 6, bound_check_start := "
-            "checked, bound_check_stop := checked");
+    const __ghost_fn focus2_6 =
+        __ghost_begin(group_focus_subrange,
+                      "start := 2, stop := 6, bound_check_start := checked, "
+                      "bound_check_stop := checked");
     int* const ym = &yl[MINDEX3(5, 4, 8 / 2, l, 0, 0)];
     for (int m = 2; m < 6; m++) {
       __modifies("&ym[MINDEX2(4, 8 / 2, m - 2, 0)] ~> Cell");
@@ -35,7 +36,7 @@ void f(int* t, int* u) {
         u[m] = y[MINDEX0()];
       }
     }
-    __ghost(close_wand, "wand_id := 1");
+    __ghost_end(focus2_6);
   }
   MFREE3(5, 4, 8 / 2, yl);
 }
