@@ -14,9 +14,8 @@ let path_to_webview_folder = "../../tools/web_view"
 let current_module = "Variable"
 let prefix = (String.lowercase_ascii current_module) ^ "_"
 
-let tmp_file_excerpt = Filename.temp_file "ocaml_excerpt" ".txt"
+let tmp_file = Filename.temp_file "ocaml_excerpt" ".txt"
 
-let example_diff_string = "ZGlmZiAtLWdpdCBhL3ZhcmlhYmxlX2lubGluZV9kb2NfYmVmb3JlLmNwcCBiL3ZhcmlhYmxlX2lubGluZV9kb2NfYWZ0ZXIuY3BwCmluZGV4IDBjZTEwNmI3Li5jMTBhOGQ4MiAxMDA2NDQKLS0tIGEvdmFyaWFibGVfaW5saW5lX2RvY19iZWZvcmUuY3BwCisrKyBiL3ZhcmlhYmxlX2lubGluZV9kb2NfYWZ0ZXIuY3BwCkBAIC0xLDUgKzEsNCBAQAogaW50IG1haW4oKSB7Ci0gIGNvbnN0IGludCBhID0gMzsKICAgY29uc3QgaW50IGIgPSA0OwotICBpbnQgciA9IGEgKyBhICsgYjsKKyAgaW50IHIgPSAzICsgMyArIGI7CiB9Cg=="
 
 let do_or_die (cmd : string) : unit =
   if debug then printf "Exec: %s\n" cmd;
@@ -27,12 +26,12 @@ let do_or_die (cmd : string) : unit =
 type test_map = (string * string) list
 
 let compute_test_map () : test_map =
-  let tmp_file =
-    if debug
-    then "all.tests"
-    else Filename.temp_file "all" ".tests" in
   (* LATER: batch find for multiple modules. *) (* NOTE: excluding with_lines.ml seems no longer needed *)
   do_or_die(sprintf "find ../../tests/ -name '%s*_doc.ml' -and -not -name '*_with_lines.ml' > %s" prefix tmp_file);
+  if debug && false then begin
+    printf "List of *_doc.ml find found:\n";
+    do_or_die (sprintf "cat %s" tmp_file);
+  end;
   let remove_doc_suffix (name : string) : string =
     let n = String.length name in
     if n < 4 then failwith "no _doc suffix";
@@ -46,20 +45,18 @@ let compute_test_map () : test_map =
 let insert_contents_for_test (test_name: string) (test_path:string) (target_div : 'a node) : unit =
   let add : 'a node -> unit = append_child target_div in
   (* Generate a div for the ml excerpt *)
-  do_or_die (sprintf "../extract_demo.sh %s %s" test_path tmp_file_excerpt);
-  let ml_excerpt = Xfile.get_contents_or_empty tmp_file_excerpt in
+  do_or_die (sprintf "../extract_demo.sh %s %s" test_path tmp_file);
+  let ml_excerpt = Xfile.get_contents_or_empty tmp_file in
   add (create_element ~classes:["code-unit-test"] "pre" ~inner_text:ml_excerpt);
   (* Generate a div for the diff
      with class "diff-unit-test" and id e.g. "variable_inline" *)
     (* LATER:could add a prefix to the id *)
-  add (create_element ~id:test_name ~classes:["diff-unit-test"] "div" ~inner_text:example_diff_string)
-
-
-
- (**
-	@echo "function get_diff_$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
-*)
-
+  let test_base = Filename.remove_extension test_path in
+  let input_cpp_file = test_base ^ ".cpp" in
+  let output_cpp_file = test_base ^ "_out.cpp" in
+  do_or_die (sprintf "git diff --ignore-blank-lines --ignore-all-space --no-index -U100 %s %s | base64 -w 0 > %s" input_cpp_file output_cpp_file tmp_file);
+  let diff_string = Xfile.get_contents_or_empty tmp_file in
+  add (create_element ~id:test_name ~classes:["diff-unit-test"] "div" ~inner_text:diff_string)
 
 
 
@@ -107,6 +104,7 @@ let process_documentation (test_map : test_map) : unit =
 
 let _ =
   (* Run all documentation unit tests *)
+  (* TODO : add an arg -skip-run to set run_tester to false *)
   if run_tester then do_or_die "../../tester run _doc.ml";
   (* Build a map from test names to test paths *)
   let test_map = compute_test_map () in
