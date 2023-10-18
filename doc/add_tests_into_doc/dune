@@ -3,3 +3,7 @@
  (modules add_tests_into_doc)
  (libraries lambdasoup optitrust)
  )
+(env
+  (dev
+    (flags (:standard -w -32))))
+

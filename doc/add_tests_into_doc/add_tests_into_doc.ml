@@ -6,6 +6,7 @@ open Soup
 open Printf
 open Optitrust
 
+let debug = true
 let run_tester = false
 let verbose = true
 let path_to_webview_folder = "../../tools/web_view"
@@ -13,9 +14,12 @@ let path_to_webview_folder = "../../tools/web_view"
 let current_module = "Variable"
 let prefix = (String.lowercase_ascii current_module) ^ "_"
 
+let tmp_file_excerpt = Filename.temp_file "ocaml_excerpt" ".txt"
+
 let example_diff_string = "ZGlmZiAtLWdpdCBhL3ZhcmlhYmxlX2lubGluZV9kb2NfYmVmb3JlLmNwcCBiL3ZhcmlhYmxlX2lubGluZV9kb2NfYWZ0ZXIuY3BwCmluZGV4IDBjZTEwNmI3Li5jMTBhOGQ4MiAxMDA2NDQKLS0tIGEvdmFyaWFibGVfaW5saW5lX2RvY19iZWZvcmUuY3BwCisrKyBiL3ZhcmlhYmxlX2lubGluZV9kb2NfYWZ0ZXIuY3BwCkBAIC0xLDUgKzEsNCBAQAogaW50IG1haW4oKSB7Ci0gIGNvbnN0IGludCBhID0gMzsKICAgY29uc3QgaW50IGIgPSA0OwotICBpbnQgciA9IGEgKyBhICsgYjsKKyAgaW50IHIgPSAzICsgMyArIGI7CiB9Cg=="
 
 let do_or_die (cmd : string) : unit =
+  if debug then printf "Exec: %s\n" cmd;
   let exit_code = Sys.command cmd in
   if exit_code != 0 then
     failwith (sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
@@ -23,8 +27,10 @@ let do_or_die (cmd : string) : unit =
 type test_map = (string * string) list
 
 let compute_test_map () : test_map =
-  (* let tmp_file = Filename.temp_file "all" ".tests" in *)
-  let tmp_file = "all.tests" in
+  let tmp_file =
+    if debug
+    then "all.tests"
+    else Filename.temp_file "all" ".tests" in
   (* LATER: batch find for multiple modules. *) (* NOTE: excluding with_lines.ml seems no longer needed *)
   do_or_die(sprintf "find ../../tests/ -name '%s*_doc.ml' -and -not -name '*_with_lines.ml' > %s" prefix tmp_file);
   let remove_doc_suffix (name : string) : string =
@@ -37,28 +43,21 @@ let compute_test_map () : test_map =
     (test_name, p)
   )
 
-let insert_contents_for_test (test_name: string) (_path:string) (target_div : 'a node) : unit =
-  (* Generate a div with class "diff-unit-test" and id e.g. "variable_inline" *) (* LATER:could add a prefix to the id *)
-  let diff_div = create_element ~id:test_name ~classes:["diff-unit-test"] "div" ~inner_text:example_diff_string in
-  append_child target_div diff_div
+let insert_contents_for_test (test_name: string) (test_path:string) (target_div : 'a node) : unit =
+  let add : 'a node -> unit = append_child target_div in
+  (* Generate a div for the ml excerpt *)
+  do_or_die (sprintf "../extract_demo.sh %s %s" test_path tmp_file_excerpt);
+  let ml_excerpt = Xfile.get_contents_or_empty tmp_file_excerpt in
+  add (create_element ~classes:["code-unit-test"] "pre" ~inner_text:ml_excerpt);
+  (* Generate a div for the diff
+     with class "diff-unit-test" and id e.g. "variable_inline" *)
+    (* LATER:could add a prefix to the id *)
+  add (create_element ~id:test_name ~classes:["diff-unit-test"] "div" ~inner_text:example_diff_string)
 
-  (* Extract the OCaml source code *)
-  (*let mldiv = create_element ~classes:["spec-unit-test"] "div" in
-  *)
+
 
  (**
-
-# Generate an OCaml file containing the script executed by the demo
-%_doc.txt: %.ml
-	$(V)$(OPTITRUST)/doc/extract_demo.sh $<
-	@echo Produced $@
-
 	@echo "function get_diff_$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
-
-
-	  JSFILE="${BASENAME}_doc.js"
-  echo "<script src="${JSFILE}"></script>" >> ${OUTFILE}
-  echo "<div class="test" id="${BASENAME}"></div>" >> ${OUTFILE}
 *)
 
 
