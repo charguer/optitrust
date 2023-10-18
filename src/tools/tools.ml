@@ -136,6 +136,11 @@ let spaces (nb : int) : string =
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
 
+(* [string_contains needle haystack] *)
+let string_contains needle haystack =
+  let re = Str.regexp_string needle in
+  try ignore (Str.search_forward re haystack 0); true
+  with Not_found -> false
 
 (* [clean_class_name class_name]: avoids printing the angle bracket for template class constructors. *)
 let clean_class_name (class_name : string) : string =

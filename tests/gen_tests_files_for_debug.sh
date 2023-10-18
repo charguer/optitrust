@@ -8,6 +8,7 @@
 
 echo "
 tests/basic/variable_rename.ml
+tests/basic/variable_rename_doc.ml
 tests/basic/variable_to_const.ml
 " > ignored.tests
 
@@ -18,12 +19,12 @@ tests/basic/variable_bind.ml
 
 echo "
 tests/basic/variable_rename.ml
+tests/basic/variable_rename_doc.ml
 tests/basic/variable_subst.ml
 " > failed.tests
 
 echo "
 tests/basic/variable_fold.ml
-tests/basic/variable_exchange.ml
 " > wrong.tests
 
 cat failed.tests > errors.tests
