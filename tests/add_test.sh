@@ -1,4 +1,5 @@
-
+# DEPRECATED, COULD BE UPDATED
+exit 1
 
 TEMPLATE="variable_unfold"
 TARGET="$1"
