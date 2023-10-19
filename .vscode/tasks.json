@@ -282,6 +282,19 @@
         }
       },
       {
+        "label": "Diff wrong tests output",
+        "type": "shell",
+        "command": ".vscode/diff_wrong_tests_output.sh",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "never"
+        }
+      },
+      // Run script
+      {
         "label": "Execute doc/add_tests_into_doc/run.sh",
         "type": "shell",
         "command": "./run.sh",
@@ -294,16 +307,17 @@
         },
       },
       {
-        "label": "Diff wrong tests output",
+        "label": "Run bash script",
         "type": "shell",
-        "command": ".vscode/diff_wrong_tests_output.sh",
+        "command": "bash",
+        "args": [
+          "-c",
+          "${file}",
+        ],
         "options": {
-          "cwd": "${workspaceFolder}"
+          "cwd": "${fileDirname}",
         },
-        "problemMatcher": [],
-        "presentation": {
-          "reveal": "never"
-        }
       }
+
     ]
 }
