@@ -11,7 +11,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 "
 #include <stdlib.h>
 
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 
 int main() {
   const int N1 = 10;

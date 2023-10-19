@@ -1,7 +1,7 @@
 
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 typedef int T;
-T* b; 
+T* b;
 
 int main(){
   const int N0 = 5;

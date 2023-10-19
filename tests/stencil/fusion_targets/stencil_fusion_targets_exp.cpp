@@ -1,4 +1,4 @@
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 
 void add(int* out, int* xs, int* ys, int h, int w) {
   for (int y = 0; y < h; y++) {

@@ -8,7 +8,7 @@ let _ = Run.doc_script_cpp (fun () ->
 
 )
 "
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 typedef int T;
 
 int main(){

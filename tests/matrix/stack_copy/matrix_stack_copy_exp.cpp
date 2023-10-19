@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 
 int main() {
   float* const s = (float* const)MALLOC2(32, 32, sizeof(float));

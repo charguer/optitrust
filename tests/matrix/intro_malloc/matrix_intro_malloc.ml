@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun () -> 
+let _ = Run.doc_script_cpp (fun () ->
 
   !! Matrix.intro_malloc [cVarDef "p"];
 
@@ -10,7 +10,7 @@ let _ = Run.doc_script_cpp (fun () ->
 
 "
 #include <stdlib.h>
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 
 int main() {
   const int N = 10;

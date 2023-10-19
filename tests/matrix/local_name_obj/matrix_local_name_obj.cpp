@@ -1,4 +1,4 @@
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 
 
 typedef struct {
@@ -45,27 +45,27 @@ int main() {
   int const N3 = 12;
 
 // Allocate bagsNext and bagsCur with empty bags in every cell
-  
+
   bag* bagCur = (bag*) MALLOC1(nbCells, sizeof(bag));
   bag_iter bag_it;
-  
+
   bag* bagNext = (bag*) MALLOC1(nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++){
     bag_init(&bagNext[MINDEX1(nbCells,idCell)], 0, idCell);
   }
-  
+
   for (int idCell = 0; idCell < nbCells; idCell++){
     for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
       bag_push(&bagNext[MINDEX1(nbCells, idCell)],*p);
     }
   }
-    
+
   for (int idCell = 0; idCell < nbCells; idCell++){
     bag_swap(&bagNext[MINDEX1(nbCells,idCell)], &bagCur[MINDEX1(nbCells,idCell)]);
   }
   MFREE(bagCur);
   MFREE(bagNext);
-  
+
   return 0;
 
 }

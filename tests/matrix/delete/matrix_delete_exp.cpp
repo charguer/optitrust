@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 
 int N;
 

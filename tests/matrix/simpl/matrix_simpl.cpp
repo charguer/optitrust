@@ -1,4 +1,4 @@
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 
 // TODO: handle non-const, but locally pure int
 extern const int i0, i1, i2, i3, i4;

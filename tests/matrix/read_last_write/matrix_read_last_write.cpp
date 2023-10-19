@@ -1,4 +1,4 @@
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 
 int main() {
   int* t = (int*) MALLOC1(2, sizeof(int));

@@ -9,7 +9,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 )
 
 "
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 
 int main (){
   // FIXME: CALLOC

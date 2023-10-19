@@ -460,7 +460,7 @@ let action_run (tests : string list) : unit =
         (String.concat "\n  " tests_to_process)
         (String.concat "\n  " tests_ignored);
   if !dry_run then exit 0;
-  if nb_tests_to_process = 0 then printf "Empty set of tests considered.";
+  if nb_tests_to_process = 0 then printf "Empty set of tests considered.\n";
 
   (* Enable backtrace display only when running an individual test *)
   if nb_tests_to_process > 1
@@ -564,11 +564,13 @@ let action_run (tests : string list) : unit =
   update_tofix_tests_list();
 
   (* Produce general summary *)
-  let print_count ?(last=false) (color: string) (name: string) (tests: string list): unit =
+  let isfirst = ref true in
+  let print_count (color: string) (name: string) (tests: string list): unit =
     let len = List.length tests in
     if len > 0 then begin
-      print_string (if last then "" else ", ");
-      print_string (Terminal.with_color color (sprintf "%i %s" len name))
+      if not !isfirst then print_string ", ";
+      print_string (Terminal.with_color color (sprintf "%i %s" len name));
+      isfirst := false
     end
   in
   let full_success = (!tests_failed = [] && !tests_noexp = [] && !tests_wrong = []) in
@@ -577,7 +579,7 @@ let action_run (tests : string list) : unit =
   print_count Terminal.orange "missing exp" !tests_noexp;
   print_count Terminal.red "wrong" !tests_wrong;
   print_count Terminal.light_gray "ignored" tests_ignored;
-  print_count ~last:true Terminal.green "success" !tests_success;
+  print_count Terminal.green "success" !tests_success;
   printf "\n"
 
 

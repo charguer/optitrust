@@ -10,7 +10,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 "
 #include <stdlib.h>
 
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 
 int nbParticlesInCell(int idCell);
 int computeParticleDestination(int idCell, int i);
@@ -69,7 +69,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 "
 #include <stdlib.h>
 
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 
 int nbParticlesInCell(int idCell);
 int computeParticleDestination(int idCell, int i);

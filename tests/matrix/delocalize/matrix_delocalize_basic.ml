@@ -10,7 +10,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 )
 
 "
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 typedef int T;
 int main(){
   int const N1 = 5;

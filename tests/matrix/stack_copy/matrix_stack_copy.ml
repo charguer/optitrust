@@ -11,7 +11,7 @@ let _ = Run.doc_script_cpp (fun () ->
 )
 
 "
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 
 int main () {
   float* s;

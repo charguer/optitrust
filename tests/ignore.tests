@@ -4,7 +4,7 @@ cparser
 debug
 perf
 interact
-tester
+tester.ml
 
 
 # TO FIX:

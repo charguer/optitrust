@@ -1,4 +1,4 @@
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 
 
 typedef struct {
@@ -52,7 +52,7 @@ void allocate (){
 
 
 int main() {
-  
+
 // Allocate bagsNext and bagsCur with empty bags in every cell
 
   bag* bagCur = (bag*) MALLOC1(nbCells, sizeof(bag));

@@ -6,7 +6,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 )
 
 "
-#include \"../../include/optitrust.h\"
+#include \"../../../include/optitrust.h\"
 
 int main() {
   int* t = (int*) MALLOC1(2, sizeof(int));
