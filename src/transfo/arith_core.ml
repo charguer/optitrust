@@ -153,7 +153,7 @@ let is_integer_typ (typ : typ option) : bool =
     | _ -> failwith (Printf.sprintf "unsupported type: %s" (AstC_to_c.typ_to_string t))
     end
   | _ ->
-    printf "WARNING: trm_to_naive_expr: missing type information, assuming floating point\n";
+    Tools.warn "trm_to_naive_expr: missing type information, assuming floating point";
     (* if true then failwith "DEBUGME"; *)
     false (* LATER: fix this assumption *)
 
@@ -898,7 +898,7 @@ let update_typ (mem_t : typ option ref) (new_t : typ option) : unit =
       | None -> mem_t := Some nt
       | Some mt ->
         if (mt <> nt) then
-          printf "WARNING: arith types differ: %s and %s\n" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt)
+          Tools.warn (sprintf "arith types differ: %s and %s" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt))
       end
 
 let compute_wexpr_sum ~(typ : typ option) ?(loc) (wes:wexprs) : wexpr =

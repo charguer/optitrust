@@ -685,7 +685,7 @@ let _main : unit =
         then action := arg
       else
         ref_list_add args arg)
-    "Usage: TODO";
+    "Usage: ./tester [action] [options] [arg1] .. [argN]\naction = run | create | addexp | fixexp | ignore | code | diff | meld\noptions:\n";
 
   (* Check caller_folder has been provided *)
   if !caller_folder = ""

@@ -134,6 +134,24 @@ let extract ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (st
 let remove (start : int) (nb : int) (ml : 'a t) : 'a t =
   fst (extract start nb ml)
 
+(** Similar to List.filteri but maintains marks as required. *)
+let filteri (f : int -> 'a -> bool) (ml : 'a t) : 'a t =
+  let rec aux i items_acc marks_acc falling_marks_acc items_rest marks_rest =
+    match (items_rest, marks_rest) with
+    | ([], [m]) ->
+      (List.rev items_acc, List.rev ((falling_marks_acc @ m) :: marks_acc))
+    | ([], _) | (_, []) -> assert(false)
+    | (it :: it_r, m :: m_r) ->
+      if f i it
+        then aux (i + 1)
+          (it :: items_acc) ((falling_marks_acc @ m) :: marks_acc)
+          [] it_r m_r
+        else aux (i + 1)
+          items_acc marks_acc (falling_marks_acc @ m) it_r m_r
+  in
+  let (new_items, new_marks) = aux 0 [] [] [] ml.items ml.marks in
+  { items = new_items; marks = new_marks }
+
 (* [insert_sublist_at index sl ml]: inserts mlist [sl] at [index] in [ml]. *)
 let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
    let sz = length ml in

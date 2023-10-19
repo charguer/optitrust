@@ -10,7 +10,7 @@ let warn_array_subscript_not_supported (t : typ option) : unit =
   let str = Tools.option_to_string AstC_to_c.typ_to_string t in
   if not (String_set.mem str !Flags.warned_array_subscript_not_supported) then begin
     Flags.warned_array_subscript_not_supported := String_set.add str !Flags.warned_array_subscript_not_supported;
-    printf "WARNING: does not support array subscript base type '%s'\n" str;
+    Tools.warn (sprintf "does not support array subscript base type '%s'" str);
   end
 
 (* [loc_of_node n]: gets the location of node [n] *)
@@ -821,7 +821,7 @@ and tr_expr (e : expr) : trm =
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ?loc ~ctx Lit_uninitialized
   | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) ->
-      Printf.printf "WARNING: Unknown expressions are parse as null pointers\n";
+      Tools.warn "Unknown expressions are parsed as null pointers";
       trm_add_mark "unknown_expr" (trm_null ?loc ~ctx () )
   | ImplicitValueInit _ -> trm_lit ?loc ~ctx Lit_uninitialized
 

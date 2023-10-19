@@ -119,7 +119,7 @@ let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false
 let assert_same_dims (a : trms) (b : trms) : unit =
   (* TODO: need something better for term equality *)
   if not (List.for_all2 Internal.same_trm a b) then begin
-    Printf.printf "WARNING: Matrix_basic: dimensions mismatch\n";
+    Tools.warn "Matrix_basic: dimensions mismatch";
     Transfo_debug.trms "a" a;
     Transfo_debug.trms "a" b;
   end

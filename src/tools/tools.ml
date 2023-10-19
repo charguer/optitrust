@@ -291,6 +291,9 @@ module Terminal = struct
     Printf.sprintf "%s%s%s" c msg no_color
 end
 
+let warn (msg : string) : unit =
+  Printf.printf "%s: %s\n" Terminal.(with_color orange "WARNING") msg
+
 (******************************************************************************)
 (*                          Functor Applications                         *)
 (******************************************************************************)

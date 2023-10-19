@@ -1759,7 +1759,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
 
 let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
   if !Flags.trm_combinators_warn_unsupported_case then begin
-    Printf.printf "WARNING: don't know how to '%s' on '%s'\n" f_name (trm_desc_to_string t.desc);
+    Tools.warn (sprintf "don't know how to '%s' on '%s'" f_name (trm_desc_to_string t.desc));
     Printf.printf "<suppressing similar warnings henceforth>\n";
     Flags.trm_combinators_warn_unsupported_case := false;
   end;

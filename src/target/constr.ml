@@ -861,7 +861,7 @@ let get_stringrepr (t : trm) : string =
               (* This term must correspond to a node that was removed during
                  [cfeatures_intro], hence not printed *)
               if !Flags.debug_stringreprs then begin
-                Printf.printf "WARNING: missing stringrepr for id %i\n" id;
+                Tools.warn (sprintf "missing stringrepr for id %i" id);
                 AstC_to_c.trm_print_debug t;
               end;
               ""
@@ -869,7 +869,7 @@ let get_stringrepr (t : trm) : string =
           end
         | None ->
           if !Flags.debug_stringreprs then begin
-            Printf.printf "WARNING: missing stringrepr id\n";
+            Tools.warn "missing stringrepr id";
             AstC_to_c.trm_print_debug t;
           end;
           ""

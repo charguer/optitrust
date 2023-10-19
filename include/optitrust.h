@@ -337,6 +337,7 @@ __GHOST(group_focus) {
 
 __GHOST(group_unfocus) {
   __reverts(group_focus);
+
   __ghost(close_wand, "");
 }
 
@@ -350,6 +351,7 @@ __GHOST(group_ro_focus) {
 
 __GHOST(group_ro_unfocus) {
   __reverts(group_ro_focus);
+
   __ghost(close_wand, "");
 }
 
@@ -368,11 +370,12 @@ __GHOST(group_unfocus_subrange) {
 
 /* ---- Matrix Ghosts ---- */
 
-// FIXME: matrix2_*focus ghosts are not checking bounds
+// FIXME: matrixN_*focus ghosts are not checking bounds
 __GHOST(matrix2_focus)  {
   __requires("M: ptr, i: int, j: int, m: int, n: int");
   __consumes("M ~> Matrix2(m, n)");
   __produces("&M[MINDEX2(m, n, i, j)] ~> Cell, Wand(&M[MINDEX2(m, n, i, j)] ~> Cell, M ~> Matrix2(m, n))");
+
   __ghost(group_focus, "i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   __ghost(group_focus, "i := j, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   __ghost(wand_simplify, "");
@@ -380,6 +383,21 @@ __GHOST(matrix2_focus)  {
 
 __GHOST(matrix2_unfocus) {
   __reverts(matrix2_focus);
+
+  __ghost(close_wand, "");
+}
+
+__GHOST(matrix1_ro_focus) {
+  __requires("M: ptr, i: int, n: int, f: _Fraction");
+  __consumes("_RO(f, M ~> Matrix1(n))");
+  __produces("_RO(f, &M[MINDEX1(n, i)] ~> Cell), Wand(_RO(f, &M[MINDEX1(n, i)] ~> Cell), _RO(f, M ~> Matrix1(n)))");
+
+  __ghost(group_ro_focus, "f := f, i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+}
+
+__GHOST(matrix1_ro_unfocus) {
+  __reverts(matrix1_ro_focus);
+
   __ghost(close_wand, "");
 }
 
@@ -387,6 +405,7 @@ __GHOST(matrix2_ro_focus) {
   __requires("M: ptr, i: int, j: int, m: int, n: int, f: _Fraction");
   __consumes("_RO(f, M ~> Matrix2(m, n))");
   __produces("_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), Wand(_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, M ~> Matrix2(m,n)))");
+
   __ghost(group_ro_focus, "f := f, i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   __ghost(group_ro_focus, "f := f, i := j, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   __ghost(wand_simplify, "");
@@ -394,6 +413,7 @@ __GHOST(matrix2_ro_focus) {
 
 __GHOST(matrix2_ro_unfocus) {
   __reverts(matrix2_ro_focus);
+
   __ghost(close_wand, "");
 }
 
