@@ -1,7 +1,2 @@
-tests/basic
-tests/combi
-tests/target
-tests/ast
-tests/resources
-# case_studies
-case_studies/matmul
+tests
+case_studies.tests

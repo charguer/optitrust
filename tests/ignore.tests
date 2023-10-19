@@ -1,47 +1,53 @@
+omp
+batch
+cparser
+debug
+perf
+interact
+tester
+
+
 # TO FIX:
 function/uninline
-#/uninline_basic.ml
-record/method_to_const.ml
-function_rename_args.ml
-align_def.ml
-matrix_insert_access_dim_index.ml
-record_reorder_fields.ml
+record/method_to_const
+function/rename_args
+align/def
+matrix/insert_access_dim_index
+record/reorder_fields
 
 # NO FIX:
-aos_to_soa_typedef.ml
-aos_to_soa_sized_array.ml
-variable_change_type.ml
+aos_to_soa
+aos_to_soa/typedef
+aos_to_soa/sized_array
+variable/change_type
 
 # ???
-record_update_fields_type.ml
-record_modif.ml
-record_to_variables.ml
-variable_ref_to_var.ml
-variable_exchange.ml
+record/update_fields_type
+record/modif
+record/to_variables
+variable/ref_to_var
+variable/exchange
 
-pattern_replace.ml
-function_inline.ml
+function/inline
 
 # #var-id
-apac_insert_tasks_naive.ml
-apac_sync_with_taskwait.ml
-variable_intro_pattern_array.ml
+apac/insert_tasks_naive
+apac/sync_with_taskwait
+variable/intro_pattern_array
 
 # TO FIX:
-array_elim_constant.ml
-record_align_field.ml
-loop_unroll.ml
-loop_unfold_bound.ml
-matrix_reorder_dims.ml
-matrix_delocalize.ml
-record_align_field.ml
-apac_heapify_nested_seq.ml
-
-# NO FIX:
-aos_to_soa.ml
+array/elim_constant
+record/align_field
+loop/unroll
+loop/unfold_bound
+matrix/reorder_dims
+matrix/delocalize
+record/align_field
+apac/heapify_nested_seq
 
 # ???
-swap_coords_fixed.ml
-swap_coords_vari.ml
-specialize_function_arg.ml
+swap/coords_fixed
+swap/coords_vari
+specialize/function_arg
+
 
