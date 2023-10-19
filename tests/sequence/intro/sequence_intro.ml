@@ -8,19 +8,6 @@ open Target
 
 let _ = Flags.check_validity := true
 
-let _ = Run.doc_script_cpp (fun _ ->
-  !! Sequence.intro ~on:[cVarDef "a"] ();
-     Sequence.intro ~start:[cVarDef "c1"] ~nb:2 ();
-  )
-"
-int main() {
-  int a = 0;
-  int b = 0;
-  int c1 = 0;
-  int c2 = 0;
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
   !! Sequence.intro ~on:[cVarDef "a"] ();
   !! Sequence.intro ~start:[tBefore; cVarDef "b"] ~stop:[tAfter; cVarDef "c"] ();

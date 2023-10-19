@@ -1,28 +1,6 @@
 open Optitrust
 open Prelude
 
-let _ = Run.doc_script_cpp (fun _ ->
-  let f1 = find_var_in_current_ast "f1" in
-  !! Specialize_basic.funcalls f1 [false] [cTopFunDef "main"; cFun "f"];
-
-)
-"
-int f (int x){
-  return x + 1;
-}
-
-int f1 () {
-  f(1);
-}
-int main(){
-
-  int a;
-  a = f(1);
-
-  return 0;
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
   let call_tg = [occIndex 0; cTopFunDef "main"; cFun "f"]  in
 

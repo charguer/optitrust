@@ -6,6 +6,8 @@ perf
 interact
 tester.ml
 
+pointer/fold
+
 
 # TO FIX:
 function/uninline

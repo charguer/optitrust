@@ -2,18 +2,6 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun _ ->
-  
-  !! Typedef_basic.unfold ~at:[cVarDef "c"] [cTypDef "uchar"];
-  
-)
-
-"
-typedef unsigned char uchar;
-
-uchar c;
-"
-
 let _ = Run.script_cpp( fun _ ->
   
   !! Typedef_basic.unfold ~at:[cTypDef "vect"] [cTypDef "uint"];

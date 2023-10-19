@@ -2,29 +2,6 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun _ ->
-  
-  !! Record_basic.set_implicit ~keep_label:false [cLabel "fuse"];
-  
-)
-
-"
-typedef struct {
-  int x;
-  int y;
-} vect;
-
-int main() {
-  vect a;
-  vect b;
-  fuse:{
-    a.x = b.x;
-    a.y = b.y;
-  }
-}
-"
-(* LATER: rename ~keep_label:true to ~rem_label:false, which would be the default (as it is now) *)
-
 let _ = Run.script_cpp (fun _ ->
 
   !! Record_basic.set_implicit ~keep_label:true [cLabel "group1"];

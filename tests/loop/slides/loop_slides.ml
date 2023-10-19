@@ -2,18 +2,6 @@ open Optitrust
 open Target
 open Prelude
 
-let _ = Run.doc_script_cpp (fun _ ->
-  () (* TODO *)
-)
-
-"
-int main() {
-  for (int i = 0; i < 9; i++) {
-    int j = i;
-  }
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
   !! Loop.slides ~size_steps:[
     Some (trm_int 2, trm_int 1);

@@ -3,27 +3,6 @@ open Target
 
 let _ = Flags.check_validity := true
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Record_basic.set_explicit [sInstr "a = b"];
-
-)
-
-"
-typedef struct {
-  int x;
-  int y;
-} vect;
-
-int main() {
-  vect a;
-  vect b;
-  a = b;
-}
-"
-let _ = Flags.dump_ast_details := true
-
-
 let _ = Run.script_cpp ( fun _ ->
 
   !! Record_basic.set_explicit [sInstr "b = p"];

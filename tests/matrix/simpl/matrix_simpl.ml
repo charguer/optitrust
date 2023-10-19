@@ -1,18 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
-  !! Matrix_basic.simpl_index_add [cVarInit "r"];
-)
-
-"
-#include \"../../../include/optitrust.h\"
-
-int main() {
-  int r = MINDEX3(10, 20, 30, 5, 0, 0) + MINDEX1(30, 20);
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
   !! Matrix_basic.simpl_access_of_access [cVarInit "q"];
   !! Matrix_basic.simpl_index_add [cVarInit "r0"];

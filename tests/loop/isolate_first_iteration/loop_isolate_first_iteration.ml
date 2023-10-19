@@ -1,21 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun () ->
-
-  !! Loop.isolate_first_iteration [cFor "i"];
-
-)
-
-"
-int main(){
-  int x = 0;
-  for (int i = 0; i < 10; i++) {
-    x += i;
-  }
-}
-"
-
 let _ = Run.script_cpp (fun () ->
 
   !! Loop.isolate_first_iteration [cFor "i"];

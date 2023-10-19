@@ -1,21 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Loop.unroll [cFor "a"];
-
-)
-
-"
-int main() {
-  int r = 10;
-  for (int a = 0; a < 5; a++) {
-    r += a;
-  }
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
 
   (* With partitioning *)

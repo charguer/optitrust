@@ -2,22 +2,6 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Sequence_basic.partition ~braces:true [2;3] [cFunDef "main"; dBody];
-
-)
-
-"
-int main() {
-  int a = 0;
-  int b = 1;
-  int c = 2;
-  int d = 3;
-  int e = 4;
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
 
   (* LATER: ARTHUR why is this giving 2 results? show [ cFunDef "main"; cSeq(); cSeq()]; *)

@@ -3,20 +3,6 @@ open Optitrust
 open Target
 
 (* Fix this unit test *)
-let _ = Run.doc_script_cpp (fun () ->
-
-  !! Function.inline [cFun "f"];
-
-)
-
-"
-int f(int x){ return x + 1;}
-
-int main(){
-  int x = 3;
-  int y = f(x);
-}
-"
 let _ = Run.script_cpp (fun _ ->
 
   (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)

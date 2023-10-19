@@ -2,24 +2,6 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Record_basic.reveal_field "pos" [cTypDef "obj"];
-
-)
-
-"
-typedef struct {
-  int x;
-  int y;
-} vect;
-
-typedef struct {
-  vect pos;
-  int mass;
-} obj;
-"
-
 let _ = Run.script_cpp (fun _ ->
 
   !! Record_basic.reveal_field "pos" [cTypDef "particle"];

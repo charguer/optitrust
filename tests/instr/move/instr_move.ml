@@ -1,20 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
-  !! Instr.move ~dest:[tBefore; cIf()] [cVarDef "c"];
-  )
-"
-int main() {
-  if (1) {
-    return 0;
-  } else {
-    int c = 1;
-    return c;
-  }
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
 
   (* !! Instr.move_out ~dest:[tBefore; cFor "j"] [cVarDef "x"]; *)

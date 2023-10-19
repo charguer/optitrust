@@ -2,23 +2,6 @@ open Optitrust
 open Prelude
 
 
-let _ = Run.doc_script_cpp (fun _ ->
-  let g = find_var_in_current_ast "g" in
-  !! Expr_basic.replace_fun g [cFun "f"];
-
-)
-
-"
-int f(int x) { return (x % 2); }
-
-int g(int x) { return (x & 1); }
-
-int main() {
-  int a = 5;
-  f(a);
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
   let fv = find_var_in_current_ast in
   (* replace the function call to "f" with a function call to "f1" *)

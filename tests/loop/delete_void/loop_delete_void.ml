@@ -1,19 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
-  !! Loop.delete_void ~nest_of:2 [cFor "i"];
-)
-
-"
-int main (){
-  for (int i = 0; i < 10; i++) {
-    for (int j = 0; j < 10; j++) {
-    }
-  }
-}
-"
-
 let _ = Run.script_cpp(fun _ ->
   !! Loop.delete_void [cFor "i"];
   !! Loop.delete_void ~nest_of:2 [cFor "i2"];

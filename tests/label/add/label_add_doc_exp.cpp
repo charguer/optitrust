@@ -1,0 +1,7 @@
+int main() {
+  int a = 0;
+  int b;
+mylabel:
+  b = 1;
+  int c = 2;
+}

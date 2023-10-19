@@ -2,19 +2,6 @@ open Optitrust
 open Prelude
 
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! If_basic.insert ~cond:(expr "x > 0") [sInstr "x++"];
-
-)
-
-"
-int main() {
-  int x = 0;
-  x++;
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
 
   (* Demo with a single instruction *)

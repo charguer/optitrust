@@ -8,23 +8,6 @@ open Target
 
 (* TODO: later add a doc
 
-let _ = Run.doc_script_cpp (fun _ ->
-    !! Arrays_basic.aos_to_soa "vects" "B";
-  )
-"
-typedef struct {
-  int x;
-  int y;
-} vect;
-
-vects vs[10];
-
-int main() {
-  int a = vs[3].x;
-}
-"
-*)
-
 let _ = Run.script_cpp (fun () ->
   !! Arrays_basic.aos_to_soa "vects" "B";
 )

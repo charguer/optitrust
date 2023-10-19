@@ -4,22 +4,6 @@ open Target
 open Prelude
 
 
-let _ = Run.doc_script_cpp (fun _ ->
-    !! Record_basic.reorder_fields (Reorder_all ["m"; "x"; "y"]) [cTypDef "obj"];
-  )
-"
-typedef struct {
-  int x;
-  int y;
-  int m;
-} obj;
-
-int main() {
-  obj o = { 0, 0, 1 };
-  return o.x;
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
 
   !! Record_basic.reorder_fields (Move_before ("x", ["m";"z"])) [cTypDef "obj"];

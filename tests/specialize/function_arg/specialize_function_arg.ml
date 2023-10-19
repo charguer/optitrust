@@ -2,25 +2,6 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun _ -> 
-
-  !! Specialize.function_arg "f1" [false] [cFun "f"];
-
-)
-"
-int f(int x){ 
-  return x + 1
-}
-
-int main(){
-  int a;
-  a = f(1);
-  return 0;
-}
-"
-
-
-
 let _ = Run.script_cpp (fun _ -> 
 
 

@@ -2,22 +2,6 @@ open Optitrust
 open Target
 open Prelude
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Arith_basic.scale (lit "4") [cReadVar "x"];
-
-)
-
-"
-int main(){
-
-  int x = 10;
-  int y = x;
-
-  return 0;
-}
-"
-
 let _ = Run.script_cpp (fun () ->
 
   !! Arith_basic.scale ~inv:true (var "i")  [cCellWrite ~base:[cVar "t"] ~index:[cVar "i"] ()];

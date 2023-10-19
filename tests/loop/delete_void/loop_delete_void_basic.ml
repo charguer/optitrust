@@ -1,17 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
-  !! Loop_basic.delete_void [cFor "i"];
-)
-
-"
-int main (){
-  for (int i = 0; i < 10; i++) {
-  }
-}
-"
-
 let _ = Run.script_cpp(fun _ ->
   !! Loop_basic.delete_void [cFor "i"];
   !! Loop_basic.delete_void [cFor "i3"];

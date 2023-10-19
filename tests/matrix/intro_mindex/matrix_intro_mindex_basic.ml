@@ -2,24 +2,6 @@ open Optitrust
 open Target
 open Prelude
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Matrix_basic.intro_mindex (var "N") [nbMulti; cCellAccess ~base:[cVar "p"] ()];
-
-)
-
-"
-int main () {
-
-  const int N = 5;
-  int p[5] = {0,1,2,3,4};
-  p[0] = 10;
-  int a = p[1];
-
-  return 0;
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
 
   !! Matrix_basic.intro_mindex (var "N") [nbMulti; cCellAccess ~base:[cVar "p"] ()];

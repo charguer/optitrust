@@ -2,19 +2,6 @@ open Optitrust
 open Target
 open Prelude
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Accesses.shift ~factor:(trm_double 5.0) [cReadVar "x"]
-
-)
-
-"
-int main() {
-  int x = 2;
-  int y = x;
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
 
   !! Accesses.shift ~factor:(trm_double 5.0) [nbMulti; cTopFunDef "test_var"; cVar "x"];

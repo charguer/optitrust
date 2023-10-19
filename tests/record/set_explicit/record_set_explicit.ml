@@ -2,23 +2,6 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun _ ->
-  !! Record.set_explicit [sInstr "v = w"];
-  )
-"
-typedef struct {
-    int x;
-    int y; }
-  vect;
-
-int main() {
-  vect v;
-  vect w;
-  v = w;
-}
-"
-
-
 let _ = Run.script_cpp (fun _ ->
     (* Example with detach of initialization *)
     !! Record.set_explicit [cVarDef "p"];

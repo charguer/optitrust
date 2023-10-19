@@ -1,32 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Arith_basic.(simpl gather) [cVarInit "a"];
-  !! Arith_basic.(simpl gather) [cVarInit "b"];
-  !! Arith_basic.(simpl gather) [cVarInit "c"];
-  !! Arith_basic.(simpl expand) [cVarInit "d"];
-
-)
-
-"
-int main() {
-  int a = 2 + 3;
-  int b = 3 * a + 4 * a;
-  int c = (a * 3 * a) / a;
-  int d = (a + b) * c;
-}
-"
-
-(* LATER: add a "compute" transformation to simplify
-    - products of int
-    - sums and products of doubles
-
-   LATER: simplification recursively in atoms, see example of [w];
-   to implement using trm_map. *)
-
-
 let _ = Run.script_cpp (fun _ ->
   (* TODO: split this files into one file for each type of simplification *)
   (* TODO: figure out when

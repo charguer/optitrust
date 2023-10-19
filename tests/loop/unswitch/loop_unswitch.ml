@@ -3,29 +3,6 @@ open Target
 
 let _ = Flags.check_validity := true
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Loop_basic.unswitch [cIf ~cond:[sExpr "b"] ()];
-
-)
-
-"
-#include <stdbool.h>
-bool b;
-
-int main() {
-  int s;
-  int t;
-  for (int i = 0; (i < 3); i++) {
-    if (b) {
-      s += i;
-    } else {
-      t += i;
-    }
-  }
-}
-"
-
 let _ = Run.script_cpp (fun _ ->
   !! Loop_basic.unswitch [cIf ~cond:[cBool true] ()];
   !! Loop_basic.unswitch [cIf ~cond:[cBool false] ()];

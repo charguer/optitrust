@@ -2,19 +2,6 @@ open Optitrust
 open Target
 open Prelude
 
-let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Sequence_basic.insert (stmt "a++;") [tBefore; cVarDef "c"];
-
-)
-
-"
-int main() {
-  int a = 1;
-  int c = 2;
-}
-"
-
 let _ = Run.script_cpp  (fun _ ->
 
   !! Sequence_basic.insert (stmt "int a = 5; const float b = 5.0;") [tBefore; cVarDef "x"];
