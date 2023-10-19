@@ -295,11 +295,13 @@ let rec tests_from_file ?(relative = false) (file : string) : string list =
   let lines = List.filter (fun s -> s <> "" && s.[0] <> '#') (Xfile.get_lines_or_empty file) in
   ~~ List.concat_map lines (fun test ->
     let test = if not relative || folder = "." then test else folder ^ "/" ^ test in
+    (* TODO: this code should share common patterns with resolve_arg;
+       there should almost no differences between an arg on the command line,
+       and an arg in a .tests file *)
     if Filename.extension test = ".tests" then begin
       tests_from_file ~relative test
     end else if is_folder test then begin
       (* TODO: function for find all tests somewhere *)
-      (* TODO: call resolve_arg on all 'test'? *)
       let sname = "-name '*.ml' -and -not -name '*_with_lines.ml'" in
       do_or_die (sprintf "find %s %s > %s" test sname tmp_file);
       Xfile.get_lines_or_empty tmp_file

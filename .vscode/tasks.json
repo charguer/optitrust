@@ -208,6 +208,7 @@
         "command": "./tester",
         "args": [
           "run",
+          "-with-ignored",
           "${relativeFile}"
         ],
         "options": {
@@ -220,8 +221,9 @@
         "command": "./tester",
         "args": [
           "run",
-          "${relativeFile}",
+          "-with-ignored",
           "-dump-trace"
+          "${relativeFile}",
         ],
         "options": {
           "cwd": "${workspaceFolder}"
