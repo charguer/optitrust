@@ -331,7 +331,7 @@ __GHOST(group_focus) {
   __requires("i: int, start: int, stop: int, step: int, items: int -> formula");
   __requires("bound_check_start: start <= i, bound_check_stop: i < stop, bound_check_step: (start + i) % step = 0");
   __consumes("Group(range(start, stop, step), items)");
-  __produces("items(i), Wand(items(i), Group(range(start, stop, step), items))");
+  __produces("Wand(items(i), Group(range(start, stop, step), items)), items(i)");
   __admitted();
 }
 
@@ -345,7 +345,7 @@ __GHOST(group_ro_focus) {
   __requires("i: int, start: int, stop: int, step: int, items: int -> formula, f: _Fraction");
   __requires("bound_check_start: start <= i, bound_check_stop: i < stop, bound_check_step: (start + i) % step = 0");
   __consumes("_RO(f, Group(range(start, stop, step), items))");
-  __produces("_RO(f, items(i)), Wand(_RO(f, items(i)), _RO(f, Group(range(start, stop, step), items)))");
+  __produces("Wand(_RO(f, items(i)), _RO(f, Group(range(start, stop, step), items))), _RO(f, items(i))");
   __admitted();
 }
 
@@ -359,7 +359,7 @@ __GHOST(group_focus_subrange) {
   __requires("start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
   __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
   __consumes("Group(range(old_start, old_stop, step), items)");
-  __produces("Group(range(start, stop, step), items), Wand(Group(range(start, stop, step), items), Group(range(old_start, old_stop, step), items))");
+  __produces("Wand(Group(range(start, stop, step), items), Group(range(old_start, old_stop, step), items)), Group(range(start, stop, step), items)");
   __admitted();
 }
 
@@ -374,7 +374,7 @@ __GHOST(group_unfocus_subrange) {
 __GHOST(matrix2_focus)  {
   __requires("M: ptr, i: int, j: int, m: int, n: int");
   __consumes("M ~> Matrix2(m, n)");
-  __produces("&M[MINDEX2(m, n, i, j)] ~> Cell, Wand(&M[MINDEX2(m, n, i, j)] ~> Cell, M ~> Matrix2(m, n))");
+  __produces("Wand(&M[MINDEX2(m, n, i, j)] ~> Cell, M ~> Matrix2(m, n)), &M[MINDEX2(m, n, i, j)] ~> Cell");
 
   __ghost(group_focus, "i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   __ghost(group_focus, "i := j, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
@@ -390,7 +390,7 @@ __GHOST(matrix2_unfocus) {
 __GHOST(matrix1_ro_focus) {
   __requires("M: ptr, i: int, n: int, f: _Fraction");
   __consumes("_RO(f, M ~> Matrix1(n))");
-  __produces("_RO(f, &M[MINDEX1(n, i)] ~> Cell), Wand(_RO(f, &M[MINDEX1(n, i)] ~> Cell), _RO(f, M ~> Matrix1(n)))");
+  __produces("Wand(_RO(f, &M[MINDEX1(n, i)] ~> Cell), _RO(f, M ~> Matrix1(n))), _RO(f, &M[MINDEX1(n, i)] ~> Cell)");
 
   __ghost(group_ro_focus, "f := f, i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
 }
@@ -404,7 +404,7 @@ __GHOST(matrix1_ro_unfocus) {
 __GHOST(matrix2_ro_focus) {
   __requires("M: ptr, i: int, j: int, m: int, n: int, f: _Fraction");
   __consumes("_RO(f, M ~> Matrix2(m, n))");
-  __produces("_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), Wand(_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, M ~> Matrix2(m,n)))");
+  __produces("Wand(_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, M ~> Matrix2(m,n))), _RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell)");
 
   __ghost(group_ro_focus, "f := f, i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   __ghost(group_ro_focus, "f := f, i := j, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
