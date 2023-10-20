@@ -397,3 +397,30 @@ grep -r '[tag]' .
   - #this-id
   - #type-id
 - #odoc
+
+
+# Debugging functions
+
+```ocaml
+  (* tg:target, could denote one or several targets *)
+  (* all functions below include an optional argument [~subterms:true]
+     that can be used to include printing for every subterm of the targeted term *)
+
+  Show.trm tg;      (* prints a targeted term, in C syntax *)
+  Show.trm_enc tg;  (* prints a targeted term, in the internal (encoded) OptiTrust syntax *)
+  Show.trm_ast tg;  (* prints a targeted term, in raw AST syntax *)
+  Show.typ tg;      (* prints the type of a targeted term, in C syntax *)
+  Show.typ_ast tg;  (* prints the type of a targeted term, in raw AST syntax *)
+  Show.typ_ctx tg;  (* prints the type context *)
+  Show.res tg;      (* prints the resource usage of a targeted term *)
+  Show.res_ast tg;  (* prints the resource usage of a targeted term, in raw syntax *)   (* need res_enc? *)
+  Show.res_ctx tg;  (* prints the full ctx available for typing a targeted term *)
+  Show.path tg;     (* prints the path reaching a targeted term *)
+  Show.path ~relative:tg2 tg;  (* prints the path reaching a targeted term, removing the prefix reaching tg2 *)
+  Show.arith tg;    (* prints the AST obtained by reification in the Arith module for arithemtic expressions *)
+  Show.marks tg;    (* prints the list of marks carried by the term (for sequences, prints in-between marks too) *)
+  Show.annot tg;    (* prints the list of annotations associated with a term *)
+  Show.desc tg;     (* prints the trm_desc of the term, i.e. like raw AST syntax but without subterms *)
+  Show.stmt tg;     (* prints the is_statement information of the term *)
+  Show.info tg;     (* combination of show_desc; show_annot; show_stmt; show_typ; show_res; show_marks *)
+```
