@@ -28,17 +28,15 @@ int main() {
   __GHOST_END(focusBi);
   x += 2;
   // FIXME: __GHOST_END(focusBi);
-  /* FIXME: RO joins are resource usage
-  __GHOST_BEGIN(focusBi, group_ro_focus, "i := 1, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
-  x += 2;
-  __GHOST_BEGIN(focusBj, group_ro_focus, "i := 2, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+
+  __GHOST_BEGIN(focusRoBi, group_ro_focus, "i := 1, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+  __GHOST_BEGIN(focusRoBj, group_ro_focus, "i := 2, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   x += 1;
   x += B[MINDEX2(8, 6, 1, 2)];
   x += 1;
-  __GHOST_END(focusBj);
-  x += 2;
-  __GHOST_END(focusBi);
-  */
+  __GHOST_END(focusRoBj);
+  __GHOST_END(focusRoBi);
+
   MFREE2(8, 6, B);
 
 }

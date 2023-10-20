@@ -275,7 +275,7 @@ let produced_resources_to_resource_set (res_produced: produced_resource_set): re
  * Ex: res_after.linear = RO('a, t)  and  frame = RO('b - 'a, t)
  * gives res.linear = RO('b, t)
  *)
-let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set =
+let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set * resource_usage_map =
   let res_after = produced_resources_to_resource_set res_after in
   let ro_formulas = Hashtbl.create (List.length res_after.linear) in
   (* Accumulate into ro_formulas the pairs ('a, t) when res_after.linear contains RO('a, t) *)
@@ -283,50 +283,55 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
       match formula_read_only_inv formula with
       | Some { frac; formula = ro_formula } ->
         begin match trm_var_inv frac with
-        | Some frac_var -> Hashtbl.add ro_formulas frac_var ro_formula
+        | Some frac_var -> Hashtbl.add ro_formulas frac_var.id ro_formula
         | None -> ()
         end
       | None -> ()
     ) res_after.linear;
 
-    let rec try_pop_ro_formula frac ro_formula =
-    match Hashtbl.find_opt ro_formulas frac with
+  let rec try_pop_ro_formula frac ro_formula =
+    match Hashtbl.find_opt ro_formulas frac.id with
     | Some candidate_formula ->
-      Hashtbl.remove ro_formulas frac;
+      Hashtbl.remove ro_formulas frac.id;
       if are_same_trm ro_formula candidate_formula then
         true
       else
         let res = try_pop_ro_formula frac ro_formula in
-        Hashtbl.add ro_formulas frac candidate_formula;
+        Hashtbl.add ro_formulas frac.id candidate_formula;
         res
     | None -> false
   in
   let rec reunite_fracs frac ro_formula =
     match trm_binop_inv Binop_sub frac with
     | Some (sub_frac, frac_atom) ->
-      let sub_frac = reunite_fracs sub_frac ro_formula in
+      let sub_frac' = reunite_fracs sub_frac ro_formula in
       begin match trm_var_inv frac_atom with
-      | Some atom when try_pop_ro_formula atom ro_formula -> sub_frac
+      | Some atom when try_pop_ro_formula atom ro_formula -> sub_frac'
       (* DEBUG:
       | Some atom ->
         Printf.eprintf "Failed to find %s\n" (var_to_string atom);
         Printf.eprintf "%s\n" (AstC_to_c.ast_to_string ro_formula);
         Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b -- %s\n" (a = ro_formula) (AstC_to_c.ast_to_string a)) ro_formulas;
         trm_sub sub_frac frac_atom *)
-      | _ -> trm_sub sub_frac frac_atom
+      | _ -> if sub_frac == sub_frac' then frac else trm_sub sub_frac' frac_atom
       end
     | None -> frac
   in
-  let frame = List.map (fun (x, formula) ->
+  let used_set, frame = List.fold_left_map (fun used_set (x, formula) ->
       match formula_read_only_inv formula with
-      | Some { frac; formula = ro_formula } ->
-        let frac = reunite_fracs frac ro_formula in
-        begin match frac.desc with
-        | Trm_val Val_lit Lit_int 1 -> (x, ro_formula)
-        | _ -> (x, formula_read_only ~frac ro_formula)
-        end
-      | None -> (x, formula)
-    ) frame in
+      | Some { frac = old_frac; formula = ro_formula } ->
+        let frac = reunite_fracs old_frac ro_formula in
+        if frac == old_frac then
+          (used_set, (x, formula))
+        else
+          let used_set = Hyp_map.add x UsedReadOnly used_set in
+          let res = match frac.desc with
+            | Trm_val Val_lit Lit_int 1 -> (x, ro_formula)
+            | _ -> (x, formula_read_only ~frac ro_formula)
+          in
+          used_set, res
+      | None -> (used_set, (x, formula))
+    ) Hyp_map.empty frame in
 
   let linear = List.fold_left (fun acc (h, formula) ->
       match formula_read_only_inv formula with
@@ -341,7 +346,7 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
         end
       | None -> (h, formula) :: acc) frame res_after.linear in
   assert (Hashtbl.length ro_formulas = 0);
-  { res_after with linear }
+  { res_after with linear }, used_set
 
 (* [bind_new_resources]: Add new pure resources to the old ones and replace linear resources. *)
 let bind_new_resources ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
@@ -646,7 +651,9 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
             contract_inst = res_used;
             contract_produced = res_produced };
 
-        usage_map, Some (bind_new_resources ~old_res:res ~new_res:(resource_merge_after_frame res_produced res_frame))
+        let new_res, used_wands = resource_merge_after_frame res_produced res_frame in
+        let usage_map = Option.map (fun usage_map -> update_usage_map ~current_usage:usage_map ~extra_usage:used_wands) usage_map in
+        usage_map, Some (bind_new_resources ~old_res:res ~new_res)
 
       | None when var_eq fn __cast ->
         (* TK: we treat cast as identity function. *)
@@ -717,7 +724,9 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
       let usage_map = add_used_set_to_usage_map res_used usage_map in
 
-      Some usage_map, Some (bind_new_resources ~old_res:res ~new_res:(resource_merge_after_frame after_loop_res res_frame))
+      let new_res, used_wands = resource_merge_after_frame after_loop_res res_frame in
+      let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:used_wands in
+      Some usage_map, Some (bind_new_resources ~old_res:res ~new_res)
 
     | Trm_typedef _ ->
       Some usage_map, Some res
