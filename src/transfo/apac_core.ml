@@ -101,11 +101,14 @@ type const_fun = {
     is_ret_ref : bool;
     (* Tells whether the function is a class member method. *)
     mutable is_class_method : bool;
+    (* Augmented AST of the function's body storing data dependencies of its
+       instructions. See [atrm] below. *)
+    mutable aast : atrm option;
   }
 
 (* [const_funs]: type for a hash table of [const_fun]. The keys are functions
    represented by terms of type [var]. *)
-type const_funs = const_fun Var_Hashtbl.t
+and const_funs = const_fun Var_Hashtbl.t
 
 (* [const_aliases]: type for hash table of argument aliases.
 
@@ -118,7 +121,7 @@ type const_funs = const_fun Var_Hashtbl.t
    argument being aliased. The [int] element gives the pointer degree of the
    alias, if the latter is a pointer, e.g. the pointer degree of [int ** tab] is
    2. *)
-type const_aliases = (lvar * int) LVar_Hashtbl.t
+and const_aliases = (lvar * int) LVar_Hashtbl.t
 
 (* [const_unconst]: type of stack of function arguments, except for objects,
    that must not be constified.
@@ -143,7 +146,7 @@ type const_aliases = (lvar * int) LVar_Hashtbl.t
    both of the elements of the pair are equal [lvars], it means that the
    function itself should be unconstified. See
    [unconstify_mutables.unconstify_to_unconst_objects]. *)
-type const_unconst = (var * var) Stack.t
+and const_unconst = (var * var) Stack.t
 
 (* [const_unconst_objects]: type of stack of function arguments, represented by
    objects, that must not be constified. 
@@ -161,7 +164,7 @@ type const_unconst = (var * var) Stack.t
    (see [unconstify_mutables]), if the method represented by the third [var]
    gets unconstified, the argument (second [var]) of the function targeted by
    the first [var] will be unconstified too. *)
-type const_unconst_objects = (var * var * var) Stack.t
+and const_unconst_objects = (var * var * var) Stack.t
 
 (* [const_mult]: type of hash table for multiple variable declarations that must
    be transformed into sequences of simple variable declarations while
@@ -214,7 +217,7 @@ type const_unconst_objects = (var * var * var) Stack.t
    terms, a boolean value is associated to each variable declaration. If the
    value is [true], it means that the corresponding variable declaration should
    be constified. *)
-type const_mult = (mark, bool list) Hashtbl.t
+and const_mult = (mark, bool list) Hashtbl.t
 
 (*********************)
 (* I.2 Taskification *)
@@ -228,7 +231,7 @@ type const_mult = (mark, bool list) Hashtbl.t
    target function and build an augmented local AST holding the dependency
    information. This augmented local AST is built out of [atrm] elements. Each
    [atrm] can represent a task by itself. An [atrm] element is composed of: *)
-type atrm = {
+and atrm = {
     (* - the original AST term, *)
     current : trm;
     (* - a list of input dependencies (read-only within the instruction), *)
@@ -841,6 +844,7 @@ let build_constification_records_on (t : trm) : unit =
       is_ret_ptr = is_typ_ptr ret_ty;
       is_ret_ref = is_typ_array ret_ty || is_typ_ref ret_ty;
       is_class_method = false;
+      aast = None
     } in
   (* and add it to [const_records] (global variable, see Part II.1) if it is not
      present in the hash table already, e.g. in the case of a
