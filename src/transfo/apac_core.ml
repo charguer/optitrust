@@ -785,6 +785,89 @@ let unconstify_mutables () : unit =
 (* III.3 Taskification *)
 (***********************)
 
+(* [trm_look_for_dependencies t]: searches the term [t] for one or multiple
+   variable occurences representing memory accesses. It returns the list of the
+   accessed variables paired with a boolean value stating whether the access is
+   read-only ([false]) or read-write ([true]). Read-write accesses occur in
+   unary increment and decrement operations. *)
+let trm_look_for_dependencies (t : trm) : (var * bool) list =
+  (* Auxiliary function for building a hash table of variables involved in
+     memory accesses in [t] (see the [dependencies] argument). If [mut] is
+     [true], it means that the currently processed access is read-write. *)
+  let rec aux (dependencies : bool Var_Hashtbl.t) (mut : bool)
+            (t : trm) : unit =
+    match t.desc with
+    (* When [t] is a variable occurence, i.e. a memory access, we add the
+       corresponding variable [v] paired with the access type flag [mut] into
+       [dependencies]. *)
+    | Trm_var (_, v) -> Var_Hashtbl.add dependencies v mut
+    (* When [t] is a unary increment or a unary decrement operation, we change
+       the value of [mut] to [true] an recurse on the child term corresponding
+       to the incremented or decremented variable. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [tr]) when
+           (is_prefix_unary op || is_postfix_unary op) ->
+       aux dependencies true tr
+    (* When [t] is a function call, we do not explore the associated [Trm_var]
+       because in this case it is a function name, not a variable name. However,
+       we do explore the variables passed as arguments to the function call. *)
+    | Trm_apps ({ desc = Trm_var (_ , _); _ }, args) ->
+       List.iter (fun arg -> trm_iter (aux dependencies true) arg) args
+    (* On any other term, we just continue to explore the child terms. *)
+    | _ -> trm_iter (aux dependencies mut) t
+  in
+  (* In the main part of the function, we begin by creating an empty hash table
+     to contain the discovered variables involved in memory accesses. *)
+  let dependencies : bool Var_Hashtbl.t = Var_Hashtbl.create 10 in
+  (* Then, we launch the discovery process using the auxiliary function. *)
+  let _ = aux dependencies false t in
+  (* Finally, we gather the results from the hash table and return them in a
+     list of pairs ([var] - [bool]). *)
+  Var_Hashtbl.fold (fun k v acc -> (k, v) :: acc) dependencies []
+
+(* [trm_let_get_dependencies tvs inits]: computes the in and the inout
+   dependencies in a sequence of variable declarations represented by the list
+   of typed variables [tvs] and the list of the associated initialization terms
+   [inits]. The output is a pair of lists of the in and the inout dependencies,
+   respectively. *)
+let trm_let_get_dependencies (tvs : typed_vars) (inits : trms) : (deps * deps) =
+  (* Launch the dependency discovery on the initialization terms using
+     [trm_look_for_dependencies] and keep the result in the single flattened
+     list [dinits]. *)
+  let dinits = List.fold_left (
+                   fun acc init ->
+                   List.append (trm_look_for_dependencies init) acc
+                 ) [] inits in
+  (* Partition the list of dependencies following the access type. A dependency
+     is read-write when [mut] is [true] and read-only otherwise. *)
+  let (ins, inouts) =
+    List.partition (fun (_, mut) -> not mut) dinits in
+  (* We do not need to keep the dependency type in a separate boolean flag
+     anymore. We thus transform [ins] and [inouts] from list of pairs ([var] -
+     [bool]) into simple list of [var]. *)
+  let (ins, _) = List.split ins in
+  let (inouts, _) = List.split inouts in
+  (* In the case of a multiple variable declaration the Nth declaration may
+     depend on the declaration N-1. However, the multiple variable declaration
+     instruction is still considered as a single instruction. Therefore, these
+     dependencies should not appear in the list of input dependencies of the
+     declaration instruction. We have to filter them out. *)
+  let ins = List.filter (
+                fun v -> not (List.exists (
+                                  fun (locv, _) -> v.id == locv.id
+                                ) tvs)
+              ) ins in
+  (* Now, we can transform the variables into dependencies (see the [Ast.dep]
+     data type). *)
+  let ins = List.map (fun dep -> Dep_var (dep)) ins in
+  let inouts = List.map (fun dep -> Dep_var (dep)) inouts in
+  (* We should not forget about the inout dependencies on the variables being
+     declared! *)
+  let inouts' = List.map (fun (v, _) -> Dep_var (v)) tvs in
+  (* We add these to the final list of inout dependencies before *)
+  let inouts = List.append inouts inouts' in
+  (* returning both lists in a pair. *)
+  (ins, inouts)
+  
 let rec dep_to_string (d : dep) : string =
   match d with
   | Dep_ptr d' ->
@@ -1229,17 +1312,21 @@ let taskify_on (p : path) (t : trm) : unit =
         children = [(augment body)];
         params = [range]
       } *)
-    | Trm_let (vk, tv, init, _) -> {
+    | Trm_let (vk, tv, init, _) ->
+       let (ins, inouts) = trm_let_get_dependencies [tv] [init] in
+       {
+         current = t;
+         ins = ins;
+         inouts = inouts;
+         children = [];
+         params = []
+       }
+    | Trm_let_mult (vk, tvs, inits) ->
+       let (ins, inouts) = trm_let_get_dependencies tvs inits in
+       {
         current = t;
-        ins = [];
-        inouts = [];
-        children = [];
-        params = []
-      }
-    | Trm_let_mult (vk, tvs, inits) -> {
-        current = t;
-        ins = [];
-        inouts = [];
+        ins = ins;
+        inouts = inouts;
         children = [];
         params = []
       }

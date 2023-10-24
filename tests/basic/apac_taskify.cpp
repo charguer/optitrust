@@ -6,7 +6,9 @@ void g(int * tab) { }
 
 void h(int * tab) { }
 
-void p(int v) { }
+void p(int v) { int a = 15; int b = a + 2; int c = a + b + v++; }
+
+void r(int v, int z) { int a = 15 + z, b = a + 2, c = a + b + v++; }
 
 void c(int * tab, int size) {
   f(tab);
