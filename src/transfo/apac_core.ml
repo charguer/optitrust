@@ -650,7 +650,7 @@ let trm_let_update_aliases ?(reference = false)
       | Some (_, aliased) ->
          begin
            LVar_Hashtbl.add aliases lv (aliased, typ_get_degree ty);
-           (* Return 1 because declared variable is a pointer. *)
+           (* Return 2 because declared variable is a pointer. *)
            2
          end
       (* There is nothing to do, return 0. *)
@@ -994,7 +994,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                 List.iter (fun (aliased, _) ->
                     (* Again, we do not consider parent class members because
                        the constification process does not analyze entire
-                       classes yet. See an aforementioned TODO. *)
+                       classes. *)
                     if aliased.v.name <> "this" then
                       Stack.push (fun_var, aliased.v) to_unconst
                   ) all_aliases;
