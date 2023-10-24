@@ -1,3 +1,10 @@
+#include <stdlib.h>
+
+// 'a' should be unconstified because we do not know the prototype of 'free'.
+void e(int * a) {
+    free(a);
+}
+
 int f(int a) {
     int b = a;
     b = 1;

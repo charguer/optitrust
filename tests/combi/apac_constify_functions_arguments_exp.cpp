@@ -1,3 +1,7 @@
+#include <stdlib.h>
+
+void e(int* a) { free(a); }
+
 int f(const int a) {
   int b = a;
   b = 1;

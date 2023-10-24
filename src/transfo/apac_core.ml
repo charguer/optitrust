@@ -874,59 +874,93 @@ let identify_mutables_on (p : path) (t : trm) : unit =
       | Trm_while _ ->
        trm_iter (aux aliases fun_var) fun_body
     (* Function call: update dependencies. *)
-    | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) when
-           Var_Hashtbl.mem const_records name ->
-       (* Find the corresponding function constification record containing the
-          constification records of all of the arguments. *)
-       let fun_call_const = Var_Hashtbl.find const_records name in
-       let fun_args_const = fun_call_const.const_args in
-       (* In the case of a call to a class member method, the first argument is
-          the variable referring to the parent class instance, e.g. in
-          [this->p(i, j)] the first argument is [this]] and in [a.f(i, j)] the
-          first argument is [a]]. This is why the number of arguments in the
-          function and the number of argument constification records associated
-          with the function may not be the same. If [shift], the difference of
-          these two values, has a positive value, we know that the current
-          function call as a call to a class member method. *)
-       let shift = (List.length args) - (List.length fun_args_const) in
-       (* For each argument of the function call, we *)
-       List.iteri (fun index arg ->
-           (* go through the access and reference operations to obtain the
-              argument in the form of a labelled variable, if any, and *)
-           match (trm_strip_accesses_and_references_and_get_lvar arg) with
-           | Some arg_lvar ->
-              (* if the variable is an alias, we have to *)
-              if LVar_Hashtbl.mem aliases arg_lvar then
-                begin
-                  (* determine the index of the argument it is aliasing. *)
-                  let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
-                  (* If a class member method has been called and if the parent
-                     is not [this], we may have to unconstify the argument. See
-                     [unconstify_mutables] for more details. The constification
-                     transformation does not take into account class member
-                     variables for now. *)
-                  (* TODO: Consider parent class member variables in constif. *)
-                  if (index - shift) < 0 && arg_lvar.v.name <> "this" then
-                    Stack.push (fun_var, arg_lvar.v, name) to_unconst_objects
-                  (* In the opposite case, *)
-                  else
+    | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) ->
+       (* If we known the function's definition, i.e. the function was defined
+          within the scope of the analysis, *)
+       if Var_Hashtbl.mem const_records name then
+         begin
+           (* find the corresponding function constification record containing
+              the constification records of all of the arguments. *)
+           let fun_call_const = Var_Hashtbl.find const_records name in
+           let fun_args_const = fun_call_const.const_args in
+           (* In the case of a call to a class member method, the first argument
+              is the variable referring to the parent class instance, e.g. in
+              [this->p(i, j)] the first argument is [this] and in [a.f(i, j)]
+              the first argument is [a]]. This is why the number of arguments in
+              the function and the number of argument constification records
+              associated with the function may not be the same. If [shift], the
+              difference of these two values, has a positive value, we know that
+              the current function call as a call to a class member method. *)
+           let shift = (List.length args) - (List.length fun_args_const) in
+           (* For each argument of the function call, we *)
+           List.iteri (fun index arg ->
+               (* go through the access and reference operations to obtain the
+                  argument in the form of a labelled variable, if any, and *)
+               match (trm_strip_accesses_and_references_and_get_lvar arg) with
+               | Some arg_lvar ->
+                  (* if the variable is an alias, we have to *)
+                  if LVar_Hashtbl.mem aliases arg_lvar then
                     begin
-                      (* there is the corresponding argument constification
-                         record to be gathered *)
-                      let (_, arg_const) =
-                        List.nth fun_args_const (index - shift) in
-                      (* and if the latter is a pointer or a reference, *)
-                      if arg_const.is_ptr_or_ref then
+                      (* determine the index of the argument it is aliasing. *)
+                      let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
+                      (* If a class member method has been called and if the
+                         parent is not [this], we may have to unconstify the
+                         argument. See [unconstify_mutables] for more details.
+                         The constification transformation does not take into
+                         account class member variables. *)
+                      if (index - shift) < 0 && arg_lvar.v.name <> "this" then
+                        Stack.push
+                          (fun_var, arg_lvar.v, name) to_unconst_objects
+                          (* In the opposite case, *)
+                      else
                         begin
-                          (* we will have to unconstify it by propagation. *)
-                          arg_const.to_unconst_by_propagation <-
-                            (fun_var, aliased.v) ::
-                              arg_const.to_unconst_by_propagation
+                          (* there is the corresponding argument constification
+                             record to be gathered *)
+                          let (_, arg_const) =
+                            List.nth fun_args_const (index - shift) in
+                          (* and if the latter is a pointer or a reference, *)
+                          if arg_const.is_ptr_or_ref then
+                            begin
+                              (* we will have to unconstify it by
+                                 propagation. *)
+                              arg_const.to_unconst_by_propagation <-
+                                (fun_var, aliased.v) ::
+                                  arg_const.to_unconst_by_propagation
+                            end
                         end
                     end
-                end
-           | None -> ()
-         ) args;
+               | None -> ()
+             ) args;
+         end
+           (* Otherwise, we do not have other choice but consider that the
+              function call may modify its arguments by side-effect. Therefore,
+              if the function call involves one or more arguments or alises to
+              arguments of the currently processed function definition
+              [fun_var], we have to unconstify them. *)
+       else
+         begin
+           (* Let us warn the user about that. *)
+           Printf.printf
+             "WARNING: missing definition of '%s', considering all arguments \
+              of the call as in-out dependencies\n" (var_to_string name);
+           (* Then, for each argument of the function call, we *)
+           List.iteri (fun index arg ->
+               (* go through the access and reference operations to obtain the
+                  argument in the form of a labelled variable, if any. *)
+               match (trm_strip_accesses_and_references_and_get_lvar arg) with
+               | Some arg_lvar ->
+                  (* If the variable is an alias, we have to *)
+                  if LVar_Hashtbl.mem aliases arg_lvar then
+                    begin
+                      (* determine the index of the argument it is aliasing
+                         and *)
+                      let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
+                      (* unconstify it. *)
+                      Stack.push (fun_var, aliased.v) to_unconst
+                    end
+               | None -> ()
+             ) args;
+         end;
        trm_iter (aux aliases fun_var) fun_body
     (* Variable declaration: update list of aliases. *)
     | Trm_let (_, lval, { desc = Trm_apps (_, [rval]); _ }, _) ->
