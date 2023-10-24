@@ -344,16 +344,13 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
              fun tv ti ->
              let res = trm_let_update_aliases tv ti aliases in res > 0
            ) tvs tis in
-       let _ = Printf.printf "which_aliases is %d long\n" (List.length which_aliases) in 
        (* If all the elements of [which_aliases] are [false], *)
        if (List.for_all (fun a -> a = false) which_aliases) then
-         let _ = Printf.printf "all false\n" in
          (* there are no aliases to constant variables and there is nothing
             todo. Return [t] unchanged. *)
          t
            (* If all the elements of [which_aliases] are [true], *)
        else if (List.for_all (fun a -> a = true) which_aliases) then
-         let _ = Printf.printf "all true\n" in
          (* we can safely constify all the variable declarations in the multiple
             variable declaration without splitting it into a sequence of simple
             variable declarations beforehand. *)
@@ -368,7 +365,6 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
            if is_typ_const (get_inner_type fty) then
              (* we can complete the constification of selected variables within
                 the multiple variable declaration without splitting it. *)
-             let _ = Printf.printf "Partial constification possible\n" in
              let tvs' = List.map2 (
                             fun (v, ty) const ->
                             if const then (v, typ_constify ty) else (v, ty)
