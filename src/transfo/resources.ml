@@ -135,6 +135,8 @@ let collect_interferences (before : trm) (after : trm) : (resource_usage option 
     | (_, Some NotUsed)
     | (Some NotUsed, _) -> None
     | (None, _)
+      (* something was produced between 'a' and 'b'
+         FIXME: only wrong if produced by 'a'? *)
     | (Some UsedFull, _)
     | (_, Some UsedFull) -> Some (a_res_usage, b_res_usage)
     | _ -> None
@@ -152,7 +154,7 @@ let assert_commute (before : trm) (after : trm) : unit =
     fail after.loc (string_of_interference interference)
 
 (** <private> *)
-let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
+let move_in_seq_on (i : int) (direction : int) (seq : trm) : trm =
   let error = "Resources.move_in_seq: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let instr = Mlist.nth instrs i in
@@ -167,6 +169,7 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
     let next_i = !current_i + direction in
     let commutes = match Mlist.nth_opt instrs next_i with
     | Some next ->
+      Transfo_debug.trm "next" next;
       let interference = interference_with_instr next in
       let commutes = Hyp_map.is_empty interference in
       if not commutes then
@@ -186,19 +189,24 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
   else
     seq
 
+let move_in_seq_at (i : int) (direction : int) (pseq : path) : unit =
+  recompute_all_resources (); (* FIXME: expensive if not incremental *)
+  Target.apply_at_target_paths (move_in_seq_on i direction) (target_of_path pseq)
+
 (** Moves instruction at index [i] in sequence [seq] as far down as possible, as long as effects commute.
     TODO: what about var ids and pure facts scopes?
    *)
-let move_down_in_seq (i : int) (seq : trm) : trm = move_in_seq i 1 seq
+let move_down_in_seq_at (i : int) (pseq : path) : unit = move_in_seq_at i 1 pseq
 
 (** Moves instruction at index [i] in sequence [seq] as far up as possible, as long as effects commute.
     TODO: what about var ids and pure facts scopes?
    *)
-let move_up_in_seq (i : int) (seq : trm) : trm = move_in_seq i (-1) seq
+let move_up_in_seq_at (i : int) (pseq : path) : unit = move_in_seq_at i (-1) pseq
 
 (** <private>
-    Moves all begins downwards, starting from downmost ones. *)
-let move_all_begins_downwards (seq : trm) : trm =
+    Moves all begins downwards, starting from downmost ones, in the sequence at path [pseq]. *)
+let move_all_begins_downwards_at (pseq : path) : unit =
+  let seq = resolve_path_current_ast pseq in
   let error = "Resources.move_all_begins_downwards: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let begins = ref [] in
@@ -210,13 +218,14 @@ let move_all_begins_downwards (seq : trm) : trm =
   Mlist.iteri find_begins instrs;
   let upwards_begins = !begins in
   Printf.printf "upwards_begins: %s\n" (Tools.list_to_string (List.map string_of_int upwards_begins));
-  List.fold_left (fun seq beg_i ->
-    move_down_in_seq beg_i seq
-  ) seq upwards_begins
+  List.iter (fun beg_i ->
+    move_down_in_seq_at beg_i pseq
+  ) upwards_begins
 
 (** <private>
-    Moves all ends upwards, starting from upwardmost ones. *)
-let move_all_ends_upwards (seq : trm) : trm =
+    Moves all ends upwards, starting from upwardmost ones, in the sequence at path [pseq]. *)
+let move_all_ends_upwards_at (pseq : path) : unit =
+  let seq = resolve_path_current_ast pseq in
   let error = "Resources.move_all_ends_upwards: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let ends = ref [] in
@@ -228,13 +237,13 @@ let move_all_ends_upwards (seq : trm) : trm =
   Mlist.iteri find_ends instrs;
   let downwards_ends = List.rev !ends in
   Printf.printf "downwards_ends: %s\n" (Tools.list_to_string (List.map string_of_int downwards_ends));
-  List.fold_left (fun seq end_i ->
-    move_up_in_seq end_i seq
-  ) seq downwards_ends
+  List.iter (fun end_i ->
+    move_up_in_seq_at end_i pseq
+  ) downwards_ends
 
 (** <private>
     Cancels all ghost pairs that have an empty scope, starting from innermost ones. *)
-let cancel_all_ghost_pairs (seq : trm) : trm =
+let cancel_all_ghost_pairs_on (seq : trm) : trm =
   let error = "Resources.cancel_all_ghost_pairs: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let begins_stack = ref [] in (* stack of open begins vars and indices *)
@@ -271,22 +280,21 @@ let cancel_all_ghost_pairs (seq : trm) : trm =
   ) instrs in
   trm_seq ~annot:seq.annot ?loc:seq.loc instrs'
 
-(** Minimizes the scope of ghost pairs in the given sequence. *)
-let minimize_ghost_scopes_on (seq : trm) : trm =
-  (* Transfo_debug.trm "before move begins" seq; *)
-  let seq = move_all_begins_downwards seq in
-  (* Transfo_debug.trm "after move begins" seq; *)
-  let seq = move_all_ends_upwards seq in
-  (* Transfo_debug.trm "after move ends" seq; *)
-  let seq = cancel_all_ghost_pairs seq in
-  (* Transfo_debug.trm "after cancel" seq; *)
-  seq
+(** <private>
+    Same as [cancel_all_ghost_pairs], but on the sequence at path [pseq].
+    *)
+let cancel_all_ghost_pairs_at (pseq : path) : unit =
+  Target.apply_at_target_paths cancel_all_ghost_pairs_on (target_of_path pseq)
 
 (** Minimizes the scope of ghost pairs in the targeted sequence. *)
 let%transfo minimize_ghost_scopes (tg : target) : unit =
-  recompute_all_resources ();
-  Target.apply_at_target_paths minimize_ghost_scopes_on tg;
-  Trace.apply Scope.infer_var_ids (* FIXME: move up/down should avoid breaking scopes *)
+  Target.iter (fun _ p ->
+    move_all_begins_downwards_at p;
+    move_all_ends_upwards_at p;
+    cancel_all_ghost_pairs_at p;
+  ) tg;
+  (* FIXME: move up/down should avoid breaking scopes *)
+  Trace.apply Scope.infer_var_ids
 
 (* [show] enables to view the result of resource computations. *)
 let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =

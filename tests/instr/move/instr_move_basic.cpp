@@ -9,6 +9,8 @@ int main() {
   int t = 2;
   t = x;
   z = x;
+  y += 1;
+  y += 2;
 
   const int v = 0;
   y = v;

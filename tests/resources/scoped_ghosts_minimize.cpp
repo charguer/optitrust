@@ -17,17 +17,15 @@ int main() {
   MFREE1(10, A);
 
   float* const B = (float* const) MALLOC2(8, 6, sizeof(float));
-  // FIXME: __GHOST_BEGIN(focusBi, group_focus, "i := 1, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
-  x += 2;
   __GHOST_BEGIN(focusBi, group_focus, "i := 1, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+  x += 2;
   __GHOST_BEGIN(focusBj, group_focus, "i := 2, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   x += 1;
   x += B[MINDEX2(8, 6, 1, 2)];
   x += 1;
   __GHOST_END(focusBj);
-  __GHOST_END(focusBi);
   x += 2;
-  // FIXME: __GHOST_END(focusBi);
+  __GHOST_END(focusBi);
 
   __GHOST_BEGIN(focusRoBi, group_ro_focus, "i := 1, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
   __GHOST_BEGIN(focusRoBj, group_ro_focus, "i := 2, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
