@@ -1,2 +1,26 @@
+
+<html>
+  <head>
+
+   <!--Make sure to load the CSS file in that order-->
+   <link rel="stylesheet" type="text/css" href="../../tools/web_view/lib/highlight.js_github.min.css" />
+   <link rel="stylesheet" type="text/css" href="../../tools/web_view/lib/diff2html.min.css" />
+   <link rel="stylesheet" type="text/css" href="odoc_extra.css" />
+
+   <!--custom highlightjs with only ocaml and C/C++ supported-->
+   <script type="text/javascript" src="../../tools/web_view/lib/highlight_custom/highlight.pack.js"></script>
+   <script type="text/javascript" src="../../tools/web_view/lib/jquery.min.js"></script>
+   <script type="text/javascript" src="../../tools/web_view/lib/jquery-ui.min.js"></script>
+   <script type="text/javascript" src="../../tools/web_view/lib/diff2html-ui.min.js"></script>
+   <script type="text/javascript" src="odoc_extra.js"></script>
+
+
+  </head>
+<body>
 <div class="odoc-spec"><div class="spec value anchored" id="val-swap_on"><a href="#val-swap_on" class="anchor"></a><code><span><span class="keyword">val</span> swap_on : <span><a href="../Syntax/index.html#type-trm">Syntax.trm</a> <span class="arrow">-&gt;</span></span> <a href="../Syntax/index.html#type-trm">Syntax.trm</a></span></code></div><div class="spec-doc"><p>&lt;private&gt; <code>swap_on t</code>: swaps the order of two nested loops, the targeted loop with the immediate inner loop, <code>t</code> - ast of the targeted loop.</p></div></div>
 <div class="odoc-spec"><div class="spec value anchored" id="val-swap"><a href="#val-swap" class="anchor"></a><code><span><span class="keyword">val</span> swap : <span><a href="../Target/index.html#type-target">Target.target</a> <span class="arrow">-&gt;</span></span> unit</span></code></div><div class="spec-doc"><p><code>swap tg</code>: expects the target <code>tg</code> to point at a loop that contains an immediately-nested loop. The transformation swaps the two loops.</p></div></div>
+<div class="odoc-spec"><div class="spec value anchored" id="val-inline"><a href="#val-inline" class="anchor"></a><code><span><span class="keyword">val</span> inline : <span><a href="../Target/index.html#type-target">Target.target</a> <span class="arrow">-&gt;</span></span> unit</span></code></div><div class="spec-doc"><p><code>inline</code>: a definition at its use sites.</p></div></div>
+
+</body>
+</html>
+

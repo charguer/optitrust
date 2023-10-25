@@ -271,6 +271,22 @@
         }
       },
       {
+        "label": "Open unit test ML and CPP files and documentation",
+        "type": "shell",
+        "command": "${workspaceFolder}/.vscode/open_test.sh",
+        "args": [
+          "${fileBasename}",
+          "withdoc"
+        ],
+        "options": {
+          "cwd": "${fileDirname}"
+        },
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "never"
+        }
+      },
+      {
         "label": "Diff wrong tests output",
         "type": "shell",
         "command": ".vscode/diff_wrong_tests_output.sh",
@@ -281,6 +297,32 @@
         "presentation": {
           "reveal": "never"
         }
+      },
+      // Run script
+      {
+        "label": "Execute doc/add_tests_into_doc/run.sh",
+        "type": "shell",
+        "command": "./run.sh",
+        "args": [],
+        "options": {
+          "cwd": "${workspaceFolder}/doc/add_tests_into_doc",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
+      {
+        "label": "Run bash script",
+        "type": "shell",
+        "command": "bash",
+        "args": [
+          "-c",
+          "${file}",
+        ],
+        "options": {
+          "cwd": "${fileDirname}",
+        },
       }
+
     ]
 }

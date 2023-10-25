@@ -1330,7 +1330,7 @@ let check_recover_original () : unit =
   if !Flags.documentation_save_file_at_first_check <> "" then begin
     let trace = the_trace in
     let ctx = trace.context in
-    output_prog ctx !Flags.documentation_save_file_at_first_check (trace.cur_ast)
+    output_prog ctx !Flags. (trace.cur_ast)
  *)
 
 (* [!!]: is a prefix notation for the operation [open_smallstep].
