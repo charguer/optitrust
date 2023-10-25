@@ -185,6 +185,8 @@ let eliminate_dominated_evars (res: resource_set): resource_set * var list =
   ({ res with pure }, !dominated_evars)
 
 exception Spec_not_found of var
+exception Anonymous_function_without_spec
+exception Invalid_application
 exception NotConsumedResources of linear_resource_set
 exception ImpureFunctionArgument of exn
 
@@ -409,6 +411,22 @@ let trm_fun_var_inv (t:trm): var option =
       Printf.sprintf "%s: %s\n" msg (Ast_to_text.ast_to_string t) in
     fail t.loc (trm_internal "unimplemented trm_fun_var_inv construction" t)
 
+let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resource =
+  (* LATER: replace with a query on _Res inside fun_specs, but this requires a management of value aliases *)
+  match trm_fun_var_inv t with
+  | Some fn ->
+    begin match Var_map.find_opt fn fun_specs with
+    | Some contract -> contract
+    | None -> raise (Spec_not_found fn)
+    end
+  | None ->
+    begin match trm_fun_inv t with
+    | Some (args, _, _, FunSpecContract contract) ->
+      { args = List.map fst args; contract; inverse = None }
+    | Some _ -> raise Anonymous_function_without_spec
+    | None -> raise Invalid_application
+    end
+
 let resource_list_to_string res_list : string =
   Ast_fromto_AstC.ctx_resource_list_to_string ~sep:"\n" res_list
 
@@ -526,13 +544,17 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
     | Trm_val _ | Trm_var _ -> (Some usage_map, Some res) (* TODO: Manage return values for pointers *)
 
     | Trm_let_fun (name, ret_type, args, body, contract) ->
+      (* TODO: Remove trm_let_fun *)
+      compute_resources (Some res) (trm_let Var_immutable (name, typ_auto ()) (trm_fun args (Some ret_type) body ~contract))
+
+    | Trm_fun (args, ret_type, body, contract) ->
       begin match contract with
       | FunSpecContract contract ->
         let body_res = bind_new_resources ~old_res:res ~new_res:contract.pre in
         (* LATER: Merge used pure facts *)
         ignore (compute_resources ~expected_res:contract.post (Some body_res) body);
         let args = List.map (fun (x, _) -> x) args in
-        (Some usage_map, Some { res with fun_specs = Var_map.add name {args; contract; inverse = None} res.fun_specs })
+        (Some usage_map, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
       | FunSpecReverts reverted_fn ->
         (* LATER: allow non empty arg list for reversible functions, this requires subtitution in the reversed contract *)
         assert (args = []);
@@ -557,8 +579,8 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         let args = List.map (fun (x, _) -> x) args in
         let fun_specs =
           res.fun_specs |>
-          Var_map.add reverted_fn { reverted_spec with inverse = Some name } |>
-          Var_map.add name { args; contract = reverse_contract; inverse = Some reverted_fn }
+          Var_map.add reverted_fn { reverted_spec with inverse = Some var_result } |>
+          Var_map.add var_result { args; contract = reverse_contract; inverse = Some reverted_fn }
         in
         (Some usage_map, Some { res with fun_specs })
       | FunSpecUnknown -> (Some usage_map, Some res)
@@ -595,43 +617,51 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       usage_map, Option.map (fun res_after -> rename_var_in_resources var_result var res_after) res_after
 
     | Trm_apps (fn, effective_args, ghost_args) ->
-      let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
-      begin match Var_map.find_opt fn res.fun_specs with
-      | Some spec ->
+      begin match find_fun_spec fn res.fun_specs with
+      | spec ->
         (* The arguments of the function call cannot have write effects, and cannot be referred to in the function contract unless they are formula-convertible (cf. formula_of_term). *)
         (* TODO: Cast into readonly: better error message when a resource exists in RO only but asking for RW *)
         let read_only_res = cast_into_read_only res in
+        let compute_and_check_resources_in_arg usage_map arg =
+          (* Give resources as read only and check that they are still there after the argument evaluation *)
+          (* LATER: Collect pure facts of arguments:
+              f(3+i), f(g(a)) where g returns a + a, f(g(a)) where g ensures res mod a = 0 *)
+          let usage_map, post_arg_res = compute_resources_and_merge_usage (Some read_only_res) usage_map arg in
+          begin match post_arg_res with
+          | Some post_arg_res ->
+            begin try ignore (assert_resource_impl post_arg_res (resource_set ~linear:read_only_res.linear ()))
+            with e -> raise (ImpureFunctionArgument e)
+            end
+          | None -> ()
+          end;
+          usage_map
+        in
+        (* Check the function itself as if it is an argument of the call (useful for closures) *)
+        let usage_map = compute_and_check_resources_in_arg (Some usage_map) fn in
+
         let contract_fv = fun_contract_free_vars spec.contract in
         let subst_ctx, usage_map = try
           List.fold_left2 (fun (subst_map, usage_map) contract_arg effective_arg ->
-            (* Give resources as read only and check that they are still there after the argument evaluation *)
-            (* LATER: Collect pure facts of arguments:
-               f(3+i), f(g(a)) where g returns a + a, f(g(a)) where g ensures res mod a = 0 *)
-            let usage_map, post_arg_res = compute_resources_and_merge_usage (Some read_only_res) usage_map effective_arg in
-            begin match post_arg_res with
-            | Some post_arg_res ->
-              begin try ignore (assert_resource_impl post_arg_res (resource_set ~linear:read_only_res.linear ()))
-              with e -> raise (ImpureFunctionArgument e)
-              end
-            | None -> ()
-            end;
+            let usage_map = compute_and_check_resources_in_arg usage_map effective_arg in
 
+            (* For all effective arguments that will appear in the instantiated contract,
+               check that they have a formula interpretation *)
             if Var_set.mem contract_arg contract_fv then begin
               let arg_formula = match formula_of_trm effective_arg with
                 | Some formula -> formula
-                | None -> fail effective_arg.loc (Printf.sprintf "Could not make a formula out of term '%s', required because of instantiation of %s contract" (AstC_to_c.ast_to_string effective_arg) (var_to_string fn))
+                | None -> fail effective_arg.loc (Printf.sprintf "Could not make a formula out of term '%s', required because of instantiation of %s contract" (AstC_to_c.ast_to_string effective_arg) (AstC_to_c.ast_to_string fn))
               in
               Var_map.add contract_arg arg_formula subst_map, usage_map
             end else
               subst_map, usage_map
-          ) (Var_map.empty, Some usage_map) spec.args effective_args;
+          ) (Var_map.empty, usage_map) spec.args effective_args;
         with Invalid_argument _ ->
-          failwith (Printf.sprintf "Mismatching number of arguments for %s" (var_to_string fn))
+          failwith (Printf.sprintf "Mismatching number of arguments for %s" (AstC_to_c.ast_to_string fn))
         in
 
         let ghost_args_vars = ref Var_set.empty in
         let subst_ctx = List.fold_left (fun subst_ctx (ghost_var, ghost_inst) ->
-          if Var_set.mem ghost_var !ghost_args_vars then (failwith (sprintf "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (var_to_string fn)));
+          if Var_set.mem ghost_var !ghost_args_vars then (failwith (sprintf "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (AstC_to_c.ast_to_string fn)));
           ghost_args_vars := Var_set.add ghost_var !ghost_args_vars;
           Var_map.add ghost_var ghost_inst subst_ctx) subst_ctx ghost_args
         in
@@ -655,14 +685,14 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         let usage_map = Option.map (fun usage_map -> update_usage_map ~current_usage:usage_map ~extra_usage:used_wands) usage_map in
         usage_map, Some (bind_new_resources ~old_res:res ~new_res)
 
-      | None when var_eq fn __cast ->
+      | exception Spec_not_found fn when var_eq fn __cast ->
         (* TK: we treat cast as identity function. *)
         (* FIXME: this breaks invariant that function arguments are pure/reproducible. *)
         begin match effective_args with
         | [arg] -> compute_resources (Some res) arg
         | _ -> failwith "expected 1 argument for cast"
         end
-      | None when var_eq fn ghost_begin ->
+      | exception Spec_not_found fn when var_eq fn ghost_begin ->
         Pattern.pattern_match effective_args [
           Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn ->
             let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv ghost_fn in
@@ -687,14 +717,13 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           );
           Pattern.(!__) (fun _ -> failwith "expected a ghost call inside __ghost_begin")
         ]
-      | None when var_eq fn ghost_end ->
+      | exception Spec_not_found fn when var_eq fn ghost_end ->
         begin match effective_args with
         | [fn] -> compute_resources (Some res) (trm_apps fn [])
         | _ -> failwith "__ghost_end with invalid number of arguments"
         end
-      | None when var_eq fn __admitted ->
+      | exception Spec_not_found fn when var_eq fn __admitted ->
         None, None
-      | None -> raise (Spec_not_found fn)
       end
 
     | Trm_for (range, body, None) ->

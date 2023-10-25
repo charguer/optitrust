@@ -717,7 +717,7 @@ and resource_set = {
   fun_specs: fun_spec_resource varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup. *)
 }
 
-(* Represents  *)
+(* Represents the knowledge of the specification of a function *)
 and fun_spec_resource = {
   args: var list; (** List of program arguments to the function *)
   contract: fun_contract;

@@ -137,7 +137,14 @@ let rename_var_in_resources (x: var) (new_x: var) (res: resource_set) : resource
   let res = subst_var_in_resources x (trm_var new_x) res in
   match Var_map.find_opt x res.fun_specs with
   | None -> res
-  | Some spec -> { res with fun_specs = Var_map.add new_x spec (Var_map.remove x res.fun_specs) }
+  | Some spec ->
+    { res with fun_specs = res.fun_specs |>
+        Var_map.remove x |>
+        Var_map.add new_x spec |>
+        Var_map.map (fun spec_res -> {spec_res with inverse =
+          Option.map (fun inv -> if var_eq inv x then new_x else inv) spec_res.inverse
+        })
+    }
 
 let subst_invariant_start (index, tstart, _, _, _, _) = subst_var_in_resources index tstart
 let subst_invariant_step (index, _, _, _, step, _) = subst_var_in_resources index (trm_add (trm_var index) (loop_step_to_trm step))

@@ -677,6 +677,16 @@ let contract_elim (t: trm): trm =
     | None -> trm_map aux t
     end
 
+  | Trm_fun (args, ty, body, spec) ->
+    assert (spec = FunSpecUnknown);
+    begin match trm_seq_inv body with
+    | Some body_seq ->
+      let spec, new_body = extract_fun_spec body_seq in
+      let new_body = Mlist.map aux new_body in
+      trm_alter ~desc:(Trm_fun (args, ty, trm_seq new_body, spec)) t
+    | None -> trm_map aux t
+    end
+
   | Trm_for (range, body, contract) ->
     assert (contract = None);
     begin match trm_seq_inv body with
