@@ -5,3 +5,51 @@ debug
 perf
 interact
 tester.ml
+
+pointer/fold
+
+
+# TO FIX:
+function/uninline
+record/method_to_const
+function/rename_args
+align/def
+matrix/insert_access_dim_index
+record/reorder_fields
+
+# NO FIX:
+aos_to_soa
+aos_to_soa/typedef
+aos_to_soa/sized_array
+variable/change_type
+
+# ???
+record/update_fields_type
+record/modif
+record/to_variables
+variable/ref_to_var
+variable/exchange
+
+function/inline
+
+# #var-id
+apac/insert_tasks_naive
+apac/sync_with_taskwait
+variable/intro_pattern_array
+
+# TO FIX:
+array/elim_constant
+record/align_field
+loop/unroll
+loop/unfold_bound
+matrix/reorder_dims
+matrix/delocalize
+record/align_field
+apac/heapify_nested_seq
+
+# ???
+swap/coords_fixed
+swap/coords_vari
+specialize/function_arg
+
+

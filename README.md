@@ -186,9 +186,15 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
-    "key": "alt+f10",
+    "key": "alt+shift+f10",
     "command": "workbench.action.tasks.runTask",
     "args": "Open unit test ML and CPP files",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "alt+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open unit test ML and CPP files and documentation",
     "when": "config.optitrust.enableKeybindings"
   },
   // For working with long transformation scripts

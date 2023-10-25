@@ -42,5 +42,8 @@ tools/_last_view_result.sh
 *_trace*.html
 *_inter.ml
 
+# generated doc
+doc/add_tests_into_doc/odoc_spec_after.html
+
 # other ignored files
 .idea
