@@ -397,7 +397,7 @@ grep -r '[tag]' .
   - #this-id
   - #type-id
 - #odoc
-
+  - check: should be fixed in version 2.3.0+ (https://github.com/ocaml/odoc/issues/1001)
 
 # Debugging functions
 
