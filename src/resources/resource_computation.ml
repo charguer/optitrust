@@ -335,18 +335,22 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
       | None -> (used_set, (x, formula))
     ) Hyp_map.empty frame in
 
-  let linear = List.fold_left (fun acc (h, formula) ->
+  let linear, used_set = List.fold_left (fun (acc, used_set) (h, formula) ->
+      let add_produced () = ((h, formula) :: acc, Var_map.add h Produced used_set) in
+      let skip () = (acc, used_set) in
       match formula_read_only_inv formula with
       | Some { frac; formula = ro_formula } ->
         (* DEBUG
         Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b -- %s\n" (a = ro_formula_erased) (AstC_to_c.ast_to_string a)) ro_formulas;
         Printf.eprintf "formula: %s\n" (AstC_to_c.ast_to_string ro_formula_erased); *)
         begin match trm_var_inv frac with
-        | Some frac when try_pop_ro_formula frac ro_formula -> (h, formula) :: acc
-        | Some frac -> acc (* Consumed ro_formula *)
-        | None -> (h, formula) :: acc
+        | Some frac when try_pop_ro_formula frac ro_formula -> add_produced ()
+        | Some frac -> skip () (* Consumed ro_formula *)
+        | None -> add_produced ()
         end
-      | None -> (h, formula) :: acc) frame res_after.linear in
+      | None -> add_produced ())
+    (frame, used_set) res_after.linear
+  in
   assert (Hashtbl.length ro_formulas = 0);
   { res_after with linear }, used_set
 
@@ -485,19 +489,16 @@ let rec formula_of_trm (t: trm): formula option =
     end
   | _ -> None
 
-let empty_usage_map (res: resource_set): resource_usage_map =
- List.fold_left (fun acc (h, _) -> Hyp_map.add h NotUsed acc) Hyp_map.empty res.linear
-
 let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resource_usage_map): resource_usage_map =
-  Hyp_map.merge (fun _ cur_use ch_use ->
-      match cur_use, ch_use with
-      | None, _ -> None
-      | Some u, None -> Some u
-      | Some NotUsed, Some u -> Some u
-      | Some u, Some NotUsed -> Some u
+  Hyp_map.merge (fun hyp cur_use new_use ->
+      match cur_use, new_use with
+      | None, u -> u
+      | u, None -> u
+      | Some Produced, Some UsedFull -> None
+      | Some Produced, Some UsedReadOnly -> Some Produced
+      | _, Some Produced -> failwith (sprintf "Produced resource share id %d with another one" hyp.id)
+      | Some UsedFull, _ -> failwith (sprintf "Consumed resource share id %d with another one" hyp.id)
       | Some UsedReadOnly, Some u -> Some u
-      | Some u, Some UsedReadOnly -> Some u
-      | Some UsedFull, Some UsedFull -> Some UsedFull
     ) current_usage extra_usage
 
 let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usage: resource_usage_map option): resource_usage_map option =
@@ -539,9 +540,8 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
   in
   let usage_map, res =
     let** res in
-    let usage_map = empty_usage_map res in
     try begin match t.desc with
-    | Trm_val _ | Trm_var _ -> (Some usage_map, Some res) (* TODO: Manage return values for pointers *)
+    | Trm_val _ | Trm_var _ -> (Some Var_map.empty, Some res) (* TODO: Manage return values for pointers *)
 
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       (* TODO: Remove trm_let_fun *)
@@ -557,7 +557,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       | FunSpecContract contract ->
         compute_resources_in_body contract;
         let args = List.map (fun (x, _) -> x) args in
-        (Some usage_map, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
+        (Some Var_map.empty, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
       | FunSpecReverts reverted_fn ->
         (* LATER: allow non empty arg list for reversible functions, this requires subtitution in the reversed contract *)
         assert (args = []);
@@ -572,15 +572,15 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           Var_map.add reverted_fn { reverted_spec with inverse = Some var_result } |>
           Var_map.add var_result { args; contract = reverse_contract; inverse = Some reverted_fn }
         in
-        (Some usage_map, Some { res with fun_specs })
-      | FunSpecUnknown -> (Some usage_map, Some res)
+        (Some Var_map.empty, Some { res with fun_specs })
+      | FunSpecUnknown -> (Some Var_map.empty, Some res)
       end
 
     | Trm_seq instrs ->
       let instrs = Mlist.to_list instrs in
       let usage_map, res = List.fold_left (fun (usage_map, res) inst ->
           compute_resources_and_merge_usage res usage_map inst)
-          (Some usage_map, Some res) instrs
+          (Some Var_map.empty, Some res) instrs
       in
 
       let res = Option.map (fun res ->
@@ -627,7 +627,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           usage_map
         in
         (* Check the function itself as if it is an argument of the call (useful for closures) *)
-        let usage_map = compute_and_check_resources_in_arg (Some usage_map) fn in
+        let usage_map = compute_and_check_resources_in_arg (Some Var_map.empty) fn in
 
         let contract_fv = fun_contract_free_vars spec.contract in
         let subst_ctx, usage_map = try
@@ -758,14 +758,14 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
       t.ctx.ctx_resources_contract_invoc <- Some { contract_frame = res_frame; contract_inst = res_used; contract_produced = after_loop_res };
 
-      let usage_map = add_used_set_to_usage_map res_used usage_map in
+      let usage_map = add_used_set_to_usage_map res_used Var_map.empty in
 
       let new_res, used_wands = resource_merge_after_frame after_loop_res res_frame in
       let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:used_wands in
       Some usage_map, Some (bind_new_resources ~old_res:res ~new_res)
 
     | Trm_typedef _ ->
-      Some usage_map, Some res
+      Some Var_map.empty, Some res
 
     | Trm_template (params, t) ->
       compute_resources (Some res) t

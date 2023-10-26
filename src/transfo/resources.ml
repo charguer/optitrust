@@ -87,9 +87,9 @@ let loop_minimize_on (t: trm): trm =
 
   let new_fracs = ref [] in
   let keep_used_filter (hyp, formula) =
-    match Hyp_map.find hyp body_res_usage with
-    | NotUsed -> None
-    | UsedReadOnly ->
+    match Hyp_map.find_opt hyp body_res_usage with
+    | None -> None
+    | Some UsedReadOnly ->
       begin match formula_read_only_inv formula with
       | Some _ -> Some (hyp, formula)
       | None ->
@@ -98,7 +98,8 @@ let loop_minimize_on (t: trm): trm =
         let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
         Some (hyp, ro_formula)
       end
-    | UsedFull -> Some (hyp, formula)
+    | Some UsedFull -> Some (hyp, formula)
+    | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
   in
 
   let new_linear_invariant = List.filter_map keep_used_filter contract.invariant.linear in
@@ -132,9 +133,9 @@ let collect_interferences (before : trm) (after : trm) : (resource_usage option 
   let res_merge _ a_res_usage b_res_usage =
     match (a_res_usage, b_res_usage) with
     | (_, None)
-    | (_, Some NotUsed)
-    | (Some NotUsed, _) -> None
-    | (None, _)
+    | (None, _) -> None
+    | (Some Produced, _)
+    | (_, Some Produced)
     | (Some UsedFull, _)
     | (_, Some UsedFull) -> Some (a_res_usage, b_res_usage)
     | _ -> None

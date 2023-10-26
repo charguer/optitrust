@@ -767,12 +767,10 @@ and produced_resource_set = {
 }
 
 and resource_usage =
-  | NotUsed
   | UsedReadOnly
   | UsedFull
+  | Produced
 
-(* may be useful: resource_consumed_map + resource_produced_map? *)
-(* All hyps in contexts have Some entry, None entry means hyp is not in context. *)
 and resource_usage_map = resource_usage Hyp_map.t
 
 and contract_invoc = {
@@ -1049,9 +1047,9 @@ let trm_desc_to_string : trm_desc -> string =
 
 let resource_usage_opt_to_string = function
 | None -> "None"
-| Some NotUsed -> "NotUsed"
 | Some UsedReadOnly -> "UsedReadOnly"
 | Some UsedFull -> "UsedFull"
+| Some Produced -> "Produced"
 
 (* **************************** Rewrite rules ****************************** *)
 (* [pat]: patterns *)
