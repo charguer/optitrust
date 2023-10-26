@@ -149,3 +149,19 @@ let rename_var_in_resources (x: var) (new_x: var) (res: resource_set) : resource
 let subst_invariant_start (index, tstart, _, _, _, _) = subst_var_in_resources index tstart
 let subst_invariant_step (index, _, _, _, step, _) = subst_var_in_resources index (trm_add (trm_var index) (loop_step_to_trm step))
 let subst_invariant_end (index, _, _, tend, _, _) = subst_var_in_resources index tend
+
+let revert_fun_contract contract =
+  assert (contract.post.pure = []);
+  assert (contract.post.fun_specs = Var_map.empty);
+  {
+    pre = {
+      pure = contract.pre.pure;
+      linear = contract.post.linear;
+      fun_specs = contract.pre.fun_specs
+    };
+    post = {
+      pure = [];
+      linear = contract.pre.linear;
+      fun_specs = Var_map.empty
+    }
+  }

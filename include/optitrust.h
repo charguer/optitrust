@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <string.h>
+#include <functional>
 
 /* ---- Resource Annotations ---- */
 
@@ -25,7 +26,7 @@ inline void __admitted() {}
 typedef void __ghost_ret;
 
 // Type of ghost function pointers
-typedef __ghost_ret (*__ghost_fn)();
+typedef std::function<__ghost_ret()> __ghost_fn;
 
 // Argument type for ghost functions
 typedef const char* __ghost_args;
@@ -52,6 +53,7 @@ inline void __ghost_end(__ghost_fn) {}
 #define __GHOST_BEGIN(rev_ghost, ghost, ghost_args) const __ghost_fn rev_ghost = __ghost_begin(ghost, ghost_args)
 #define __GHOST_END(rev_ghost) __ghost_end(rev_ghost)
 
+inline __ghost_fn __with_reverse(__ghost_fn g, __ghost_fn g_rev) { return g; }
 inline void __reverts(__ghost_fn) {}
 
 /* ---- Contract for primitive functions ---- */

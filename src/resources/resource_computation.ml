@@ -548,11 +548,14 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       compute_resources (Some res) (trm_let Var_immutable (name, typ_auto ()) (trm_fun args (Some ret_type) body ~contract))
 
     | Trm_fun (args, ret_type, body, contract) ->
-      begin match contract with
-      | FunSpecContract contract ->
+      let compute_resources_in_body contract =
         let body_res = bind_new_resources ~old_res:res ~new_res:contract.pre in
         (* LATER: Merge used pure facts *)
         ignore (compute_resources ~expected_res:contract.post (Some body_res) body);
+      in
+      begin match contract with
+      | FunSpecContract contract ->
+        compute_resources_in_body contract;
         let args = List.map (fun (x, _) -> x) args in
         (Some usage_map, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
       | FunSpecReverts reverted_fn ->
@@ -560,22 +563,9 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         assert (args = []);
         (* TODO: Also register reverse in the fun_contracts entry *)
         let reverted_spec = Var_map.find reverted_fn res.fun_specs in
-        let reverted_contract = reverted_spec.contract in
         assert (reverted_spec.args = []);
-        assert (reverted_contract.post.pure = []);
-        assert (reverted_contract.post.fun_specs = Var_map.empty);
-        let reverse_contract = {
-          pre = {
-            pure = reverted_contract.pre.pure;
-            linear = reverted_contract.post.linear;
-            fun_specs = reverted_contract.pre.fun_specs
-          };
-          post = {
-            pure = [];
-            linear = reverted_contract.pre.linear;
-            fun_specs = Var_map.empty
-          }
-        } in
+        let reverse_contract = revert_fun_contract reverted_spec.contract in
+        compute_resources_in_body reverse_contract;
         let args = List.map (fun (x, _) -> x) args in
         let fun_specs =
           res.fun_specs |>
@@ -692,36 +682,53 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         | [arg] -> compute_resources (Some res) arg
         | _ -> failwith "expected 1 argument for cast"
         end
+
       | exception Spec_not_found fn when var_eq fn ghost_begin ->
-        Pattern.pattern_match effective_args [
+        let ghost_call = Pattern.pattern_match effective_args [
+          Pattern.(trm_apps (trm_apps2 (trm_var (var_eq with_reverse)) !__ !__) nil !__ ^:: nil) (fun ghost_fn ghost_fn_rev ghost_args ->
+            let spec = find_fun_spec ghost_fn res.fun_specs in
+            let reverse_contract = revert_fun_contract spec.contract in
+            begin match trm_fun_inv ghost_fn_rev with
+            | Some ([], ret_typ, body, _) ->
+              ignore (compute_resources (Some res) (trm_fun [] ret_typ body ~contract:(FunSpecContract reverse_contract)))
+            | Some _ -> failwith "A ghost reverse function should have no arguments"
+            | None ->
+              ignore (compute_resources (Some reverse_contract.pre) ~expected_res:reverse_contract.post (trm_apps ghost_fn_rev [] ~ghost_args))
+            end;
+            (trm_apps ghost_fn [] ~ghost_args)
+          );
           Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn ->
-            let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv ghost_fn in
-            match Var_map.find_opt fn res.fun_specs with
-            | Some { inverse = Some _ } ->
-              let usage_map, res = compute_resources (Some res) ghost_call in
-              begin match res, ghost_call.ctx.ctx_resources_contract_invoc with
-              | Some res, Some invoc ->
-                assert (invoc.contract_produced.produced_pure = []);
-                let inverse_pre = List.map (fun { produced_hyp; produced_formula } -> (produced_hyp, produced_formula)) invoc.contract_produced.produced_linear in
-                let inverse_post = List.map (fun { hyp_to_inst; used_formula } -> (hyp_to_inst, used_formula))
-                  invoc.contract_inst.used_linear
-                in
-                let inverse_spec = { args = [];
-                  contract = { pre = resource_set ~linear:inverse_pre (); post = resource_set ~linear:inverse_post () };
-                  inverse = None }
-                in
-                usage_map, Some { res with fun_specs = Var_map.add var_result inverse_spec res.fun_specs }
-              | _ -> failwith "Ghost call inside __ghost_begin should have generated a contract_invoc"
-              end
-            | _ -> failwith (sprintf "%s is not reversible but is used inside __ghost_begin" (var_to_string fn))
+            let spec = find_fun_spec ghost_fn res.fun_specs in
+            begin match spec.inverse with
+            | Some _ -> ()
+            | None -> failwith (sprintf "%s is not reversible but is used inside __ghost_begin" (var_to_string fn))
+            end;
+            ghost_call
           );
           Pattern.(!__) (fun _ -> failwith "expected a ghost call inside __ghost_begin")
-        ]
+        ] in
+        let usage_map, res = compute_resources (Some res) ghost_call in
+        begin match res, ghost_call.ctx.ctx_resources_contract_invoc with
+        | Some res, Some invoc ->
+          assert (invoc.contract_produced.produced_pure = []);
+          let inverse_pre = List.map (fun { produced_hyp; produced_formula } -> (produced_hyp, produced_formula)) invoc.contract_produced.produced_linear in
+          let inverse_post = List.map (fun { hyp_to_inst; used_formula } -> (hyp_to_inst, used_formula))
+            invoc.contract_inst.used_linear
+          in
+          let inverse_spec = { args = [];
+            contract = { pre = resource_set ~linear:inverse_pre (); post = resource_set ~linear:inverse_post () };
+            inverse = None }
+          in
+          usage_map, Some { res with fun_specs = Var_map.add var_result inverse_spec res.fun_specs }
+        | _ -> failwith "Ghost call inside __ghost_begin should have generated a contract_invoc"
+        end
+
       | exception Spec_not_found fn when var_eq fn ghost_end ->
         begin match effective_args with
         | [fn] -> compute_resources (Some res) (trm_apps fn [])
         | _ -> failwith "__ghost_end with invalid number of arguments"
         end
+
       | exception Spec_not_found fn when var_eq fn __admitted ->
         None, None
       end

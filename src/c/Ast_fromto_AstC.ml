@@ -494,10 +494,12 @@ let rec ghost_args_elim (t: trm): trm =
         trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t
       );
     Pattern.(trm_apps2 (trm_var_with_name "__ghost") !__ (trm_string !__)) (fun ghost_fn ghost_args_str ->
+        let ghost_fn = ghost_args_elim ghost_fn in
         let ghost_args = parse_ghost_args ghost_args_str in
         trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
       );
     Pattern.(trm_apps2 (trm_var_with_name "__ghost_begin") !__ (trm_string !__)) (fun ghost_fn ghost_args_str ->
+        let ghost_fn = ghost_args_elim ghost_fn in
         let ghost_args = parse_ghost_args ghost_args_str in
         trm_apps (trm_var ghost_begin) [
           trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
@@ -556,6 +558,7 @@ let rec ghost_args_intro (t: trm) : trm =
     let seq = Mlist.map (fun t -> Pattern.pattern_match t [
       Pattern.(trm_apps !__ nil !__) (fun fn ghost_args ->
         if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
+        let fn = ghost_args_intro fn in
         trm_apps var__ghost [fn; ghost_args_to_trm_string ghost_args]
       );
       Pattern.(trm_apps __ __ !(__ ^:: __)) (fun ghost_args ->
@@ -567,6 +570,7 @@ let rec ghost_args_intro (t: trm) : trm =
         Nobrace.trm_seq [trm_let mut (var, typ) call; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
       );
       Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq ghost_begin)) (trm_apps !__ nil !__))) (fun ghost_pair typ ghost_fn ghost_args ->
+        let ghost_fn = ghost_args_intro ghost_fn in
         trm_let Var_immutable (ghost_pair, typ) (trm_apps (trm_var ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args])
       );
       Pattern.(!__) (fun t -> trm_map ghost_args_intro t)
@@ -834,29 +838,38 @@ let rec contract_intro (t: trm): trm =
     (pre_pure, pre_linear, !post_linear, t)
   in
 
+  (* TODO: Inline into Trm_fun branch when Trm_let_fun disappears *)
+  let add_contract_to_fun_body body contract =
+    let body = contract_intro body in
+    match contract with
+    | FunSpecContract contract when contract = empty_fun_contract ->
+      seq_push (trm_apps (trm_var __pure) []) body
+    | FunSpecContract contract ->
+      let pre_pure, pre_linear, post_linear, body =
+        push_reads_and_modifies __reads __modifies contract.pre.pure contract.pre.linear contract.post.linear body
+      in
+      let body = push_named_formulas __produces post_linear body in
+      let body = push_named_formulas __ensures contract.post.pure body in
+      let body = push_named_formulas __consumes pre_linear body in
+      let body = push_named_formulas __requires pre_pure body in
+      body
+    | FunSpecReverts reverted_fn ->
+      seq_push (trm_apps (trm_var __reverts) [trm_var reverted_fn]) body
+    | FunSpecUnknown -> body
+  in
+
   match t.desc with
   | Trm_let_fun (qv, ty, args, body0, contract) ->
-    let body = contract_intro body0 in
-    let body =
-      match contract with
-      | FunSpecContract contract when contract = empty_fun_contract ->
-        seq_push (trm_apps (trm_var __pure) []) body
-      | FunSpecContract contract ->
-        let pre_pure, pre_linear, post_linear, body =
-          push_reads_and_modifies __reads __modifies contract.pre.pure contract.pre.linear contract.post.linear body
-        in
-        let body = push_named_formulas __produces post_linear body in
-        let body = push_named_formulas __ensures contract.post.pure body in
-        let body = push_named_formulas __consumes pre_linear body in
-        let body = push_named_formulas __requires pre_pure body in
-        body
-      | FunSpecReverts reverted_fn ->
-        seq_push (trm_apps (trm_var __reverts) [trm_var reverted_fn]) body
-      | FunSpecUnknown -> body
-    in
+    let body = add_contract_to_fun_body body0 contract in
     if body == body0
       then t
       else trm_like ~old:t (trm_let_fun qv ty args body)
+
+  | Trm_fun (args, ty, body0, contract) ->
+    let body = add_contract_to_fun_body body0 contract in
+    if body == body0
+      then t
+      else trm_like ~old:t (trm_fun args ty body)
 
   | Trm_for (range, body0, contract) ->
     let body = contract_intro body0 in

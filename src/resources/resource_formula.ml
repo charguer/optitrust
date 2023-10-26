@@ -165,6 +165,7 @@ let formula_checked = trm_var var_checked
 let ghost_begin = toplevel_var "__ghost_begin"
 let ghost_end = toplevel_var "__ghost_end"
 let typ_ghost_fn: typ = typ_const (typ_constr ([], "__ghost_fn") ~tid:(-1))
+let with_reverse = toplevel_var "__with_reverse"
 
 let ghost_pair_last_id = ref 0
 let generate_ghost_pair_var () =
