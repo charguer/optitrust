@@ -170,8 +170,9 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
     | Some next ->
       let interference = interference_with_instr next in
       let commutes = Hyp_map.is_empty interference in
+      (* DEBUG:
       if not commutes then
-        print_string (string_of_interference interference);
+        print_string (string_of_interference interference); *)
       commutes
     | None ->
       false
@@ -180,7 +181,6 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
     commutes
   in
   while commutes_with_next () do () done;
-  printf "move_in_seq: %i -> %i\n" i !current_i;
   if i != !current_i then
     let dest_i = !current_i + dest_offset in
     Instr_core.copy_aux dest_i i true seq
@@ -210,7 +210,7 @@ let move_all_begins_downwards (seq : trm) : trm =
   in
   Mlist.iteri find_begins instrs;
   let upwards_begins = !begins in
-  Printf.printf "upwards_begins: %s\n" (Tools.list_to_string (List.map string_of_int upwards_begins));
+  (* Printf.printf "upwards_begins: %s\n" (Tools.list_to_string (List.map string_of_int upwards_begins)); *)
   List.fold_left (fun seq beg_i ->
     move_down_in_seq beg_i seq
   ) seq upwards_begins
@@ -228,7 +228,7 @@ let move_all_ends_upwards (seq : trm) : trm =
   in
   Mlist.iteri find_ends instrs;
   let downwards_ends = List.rev !ends in
-  Printf.printf "downwards_ends: %s\n" (Tools.list_to_string (List.map string_of_int downwards_ends));
+  (* Printf.printf "downwards_ends: %s\n" (Tools.list_to_string (List.map string_of_int downwards_ends)); *)
   List.fold_left (fun seq end_i ->
     move_up_in_seq end_i seq
   ) seq downwards_ends
