@@ -1,4 +1,4 @@
-#include "../../include/optitrust.h"
+#include "../../../include/optitrust.h"
 
 int* const t;
 
@@ -33,9 +33,6 @@ int main() {
     __pure();
     int* const m1 = (int* const)MALLOC1(5, sizeof(int));
     MFREE1(5, m1);
-  }
-  for (int i = 0; i < 3; i++) {
-    __pure();
     int* const m2 = (int* const)MALLOC1(5, sizeof(int));
     MFREE1(5, m2);
   }

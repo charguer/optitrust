@@ -100,8 +100,7 @@ let next_tmp_name: unit -> string =
 
 (* [list_to_string ?sep ?bounds l]: returns a string representation of a list of strings.
    By default, it produces [  [s1; s2; s3] ]. *)
-let list_to_string ?(sep:string=";") ?(add_space:bool=true) ?(bounds:string list = ["[";"]"]) (l : string list) : string =
-  let sep = if add_space then sep ^ " " else sep in
+let list_to_string ?(sep:string="; ") ?(bounds:string list = ["[";"]"]) (l : string list) : string =
   let (bl,br) = match bounds with
     | [bl; br] -> (bl,br)
     | _ -> failwith "list_to_string: bounds argument must be a list of length 2"

@@ -1,3 +1,5 @@
+#include "../../../include/optitrust.h"
+
 int* t;
 
 int main() {
@@ -15,8 +17,6 @@ int main() {
     }
   }
 }
-
-#include "../../include/optitrust.h"
 
 void f(int* t, int* u, int* v, int n, int m) {
   __modifies("t ~> Matrix1(n)");

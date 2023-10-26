@@ -342,7 +342,7 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
         | Some id -> Printf.sprintf "[%d]" id
         end in
 
-      let m = list_to_string ~sep:"," ~bounds:["";""] t_marks in
+      let m = list_to_string ~sep:", " ~bounds:["";""] t_marks in
       let sleft = string ("/*@" ^ sid ^ m ^ "*/") in
       let sright =  string ("/*" ^ sid ^ m ^ "@*/") in
       sleft ^^ dt ^^ sright
@@ -444,7 +444,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           let dl = Xlist.fold_lefti (fun i acc m ->
             if m <> [] then begin
               incr counter;
-              let m = list_to_string ~sep:"," m in
+              let m = list_to_string ~sep:", " m in
               let s = string ("/*@" ^ m ^ "@*/") in
               Xlist.insert_at (i + !counter) s acc end
             else acc
