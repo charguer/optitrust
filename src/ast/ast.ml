@@ -772,6 +772,7 @@ and proc_bind =
 
 (* [dep]:  *)
 and dep =
+  | Dep_trm of trm
   | Dep_var of var
   | Dep_ptr of dep
 
