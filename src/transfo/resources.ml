@@ -274,22 +274,22 @@ let cancel_all_ghost_pairs (seq : trm) : trm =
   trm_seq ~annot:seq.annot ?loc:seq.loc instrs'
 
 (** Minimizes the scope of ghost pairs in the given sequence. *)
-let ghost_scopes_minimize_on (seq : trm) : trm =
+let scoped_ghosts_minimize_on (seq : trm) : trm =
   let seq = move_all_begins_downwards seq in
   let seq = move_all_ends_upwards seq in
   let seq = cancel_all_ghost_pairs seq in
   seq
 
 (** Minimizes the scope of ghost pairs in the targeted sequence. *)
-let%transfo ghost_scopes_minimize (tg : target) : unit =
+let%transfo scoped_ghosts_minimize (tg : target) : unit =
   recompute_all_resources ();
-  Target.apply_at_target_paths ghost_scopes_minimize_on tg;
+  Target.apply_at_target_paths scoped_ghosts_minimize_on tg;
   Trace.apply Scope.infer_var_ids (* FIXME: move up/down should avoid breaking scopes *)
 
 (** <private>
-    cf. [ghost_scopes_distribute]. *)
-let ghost_scopes_distribute_on (split_i : int) (seq : trm) : trm =
-  let error = "Resources.ghost_scopes_distribute_on: expected sequence" in
+    cf. [scoped_ghosts_distribute]. *)
+let scoped_ghosts_distribute_on (split_i : int) (seq : trm) : trm =
+  let error = "Resources.scoped_ghosts_distribute_on: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let tl1, tl2 = Mlist.split split_i instrs in
 
@@ -334,10 +334,10 @@ let ghost_scopes_distribute_on (split_i : int) (seq : trm) : trm =
   trm_seq ~annot:seq.annot ?loc:seq.loc instrs'
 
 (** Distributes the scope of ghost pairs at the targeted sequence interstice. *)
-let%transfo ghost_scopes_distribute (tg : target) : unit =
+let%transfo scoped_ghosts_distribute (tg : target) : unit =
   Target.apply (fun t p_before ->
     let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
-    apply_on_path (ghost_scopes_distribute_on split_i) t p_seq
+    apply_on_path (scoped_ghosts_distribute_on split_i) t p_seq
   ) tg;
   justif_correct "ghosts where successfully distributed"
 
