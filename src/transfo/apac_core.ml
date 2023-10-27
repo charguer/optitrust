@@ -375,6 +375,31 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
   in
   aux "" t
 
+(* [trm_can_resolve_pointer t]: tries to resolve operation [t] to unique
+   variable and returns [true] on success and [false] otherwise. *)
+let rec trm_can_resolve_pointer (t : trm) : bool =
+    match t.desc with
+    (* [t] is unary operation: strip and recurse. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+       begin match op with
+       | Unop_get
+         | Unop_address
+         | Unop_cast _ -> trm_can_resolve_pointer t
+       | _ -> false
+       end
+    (* [t] is a binary operation corresponding to an array access: strip and
+       recurse. *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t; _]) -> trm_can_resolve_pointer t
+    (* [t] is a binary operation of another type: strip and recurse on both left
+       and right-hand sides. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+       (trm_can_resolve_pointer lhs) || (trm_can_resolve_pointer rhs)
+    (* [t] actually leads to a variable: success. Return [true]. *)
+    | Trm_var _ -> true
+    | _ -> false
+
 (************************)
 (* III.2 Constification *)
 (************************)
@@ -572,31 +597,6 @@ let trm_resolve_pointer_and_aliased_variable
     | _ -> None
   in
   aux 0 "" t
-
-(* [trm_can_resolve_pointer t]: tries to resolve operation [t] to unique
-   variable and returns [true] on success and [false] otherwise. *)
-let rec trm_can_resolve_pointer (t : trm) : bool =
-    match t.desc with
-    (* [t] is unary operation: strip, update degree and recurse. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
-       begin match op with
-       | Unop_get
-         | Unop_address
-         | Unop_cast _ -> trm_can_resolve_pointer t
-       | _ -> false
-       end
-    (* [t] is a binary operation corresponding to an array access: strip, update
-       degree and recurse. *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> trm_can_resolve_pointer t
-    (* [t] is a binary operation of another type: strip, update degree and
-       recurse on both left and right-hand sides. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-       (trm_can_resolve_pointer lhs) || (trm_can_resolve_pointer rhs)
-    (* [t] actually leads to a variable: success. Return [true]. *)
-    | Trm_var _ -> true
-    | _ -> false
 
 (* [trm_let_update_aliases ?reference tv ti aliases]: checks in [aliases]
    whether the variable declaration specified by the typed variable [tv] and the
