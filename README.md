@@ -22,6 +22,8 @@ Installation of system packages:
 
 ```sh
    sudo apt-get install opam clang-format libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
+   # for C++ headers support:
+   sudo apt-get install libc++-dev
    # optional, only if you prefer using `meld` over `code -d`:
    sudo apt-get install meld
 ```
