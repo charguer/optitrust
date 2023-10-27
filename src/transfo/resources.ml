@@ -125,6 +125,7 @@ let justif_parallelizable_loop_contract ~error (contract: loop_contract): unit =
     else Trace.justif "The for loop is parallelizable"
 
 (** Collects effects intererences as a map from hyps to pairs of interfering resource usages. *)
+(* TODO: is the [before] / [after] relationship still required? *)
 let collect_interferences (before : trm) (after : trm) : (resource_usage option * resource_usage option) Hyp_map.t =
   (* TODO: let error' = error in *)
   let error = "expected resources usage to be available" in
@@ -273,21 +274,72 @@ let cancel_all_ghost_pairs (seq : trm) : trm =
   trm_seq ~annot:seq.annot ?loc:seq.loc instrs'
 
 (** Minimizes the scope of ghost pairs in the given sequence. *)
-let minimize_ghost_scopes_on (seq : trm) : trm =
-  (* Transfo_debug.trm "before move begins" seq; *)
+let ghost_scopes_minimize_on (seq : trm) : trm =
   let seq = move_all_begins_downwards seq in
-  (* Transfo_debug.trm "after move begins" seq; *)
   let seq = move_all_ends_upwards seq in
-  (* Transfo_debug.trm "after move ends" seq; *)
   let seq = cancel_all_ghost_pairs seq in
-  (* Transfo_debug.trm "after cancel" seq; *)
   seq
 
 (** Minimizes the scope of ghost pairs in the targeted sequence. *)
-let%transfo minimize_ghost_scopes (tg : target) : unit =
+let%transfo ghost_scopes_minimize (tg : target) : unit =
   recompute_all_resources ();
-  Target.apply_at_target_paths minimize_ghost_scopes_on tg;
+  Target.apply_at_target_paths ghost_scopes_minimize_on tg;
   Trace.apply Scope.infer_var_ids (* FIXME: move up/down should avoid breaking scopes *)
+
+(** <private>
+    cf. [ghost_scopes_distribute]. *)
+let ghost_scopes_distribute_on (split_i : int) (seq : trm) : trm =
+  let error = "Resources.ghost_scopes_distribute_on: expected sequence" in
+  let instrs = trm_inv ~error trm_seq_inv seq in
+  let tl1, tl2 = Mlist.split split_i instrs in
+
+  (* 1. Find all scope begins before split point. *)
+  let begins_stack = ref [] in
+  let find_begins instr =
+    match trm_ghost_begin_inv instr with
+    | Some gbi -> begins_stack := gbi :: !begins_stack;
+    | None ->
+      begin match trm_ghost_end_inv instr with
+      | Some gv ->
+        begin match !begins_stack with
+        | (gv_beg, _, _) :: bs_rest when gv = gv_beg ->
+          begins_stack := bs_rest
+        | _ ->
+          (* unbalanced ghost pairs, or no matching ghost begin *)
+          (* TODO: what should happen in this case? *)
+          ()
+        end
+      | None -> ()
+      end
+  in
+  Mlist.iter find_begins tl1;
+
+  (* 2. End all opened scopes before split point. *)
+  let end_begin (gv, _, _) = trm_ghost_end gv in
+  let ends = Mlist.of_list (List.map end_begin !begins_stack) in
+
+  (* 3. Re-open scopes after split point. *)
+  let subst_after_split = ref Var_map.empty in
+  let re_begin (gv, v, args) =
+    let gv' = generate_ghost_pair_var () in
+    let g_beg = trm_ghost_begin gv' v args in
+    subst_after_split := Var_map.add gv (trm_var gv') !subst_after_split;
+    g_beg
+  in
+  let begins = Mlist.of_list (List.rev_map re_begin !begins_stack) in
+  let tl2' = Mlist.map (trm_subst !subst_after_split) tl2 in
+
+  (* 4. Construct resulting sequence. *)
+  let instrs' = Mlist.merge_list [tl1; ends; begins; tl2'] in
+  trm_seq ~annot:seq.annot ?loc:seq.loc instrs'
+
+(** Distributes the scope of ghost pairs at the targeted sequence interstice. *)
+let%transfo ghost_scopes_distribute (tg : target) : unit =
+  Target.apply (fun t p_before ->
+    let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
+    apply_on_path (ghost_scopes_distribute_on split_i) t p_seq
+  ) tg;
+  justif_correct "ghosts where successfully distributed"
 
 (* [show] enables to view the result of resource computations. *)
 let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =

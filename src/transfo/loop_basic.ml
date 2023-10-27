@@ -173,7 +173,7 @@ let fission_on (index : int) (t : trm) : trm =
         Var_set.add g acc
       ) Var_set.empty contract.loop_ghosts
     in
-    let bound_in_ghosts_or_tl1 = Mlist.fold_left (fun acc ti ->
+    let bound_in_tl1 = Mlist.fold_left (fun acc ti ->
         match trm_let_inv ti with
         | Some (vk, v, typ, init) -> Var_set.add v acc
         | None -> acc
@@ -182,7 +182,7 @@ let fission_on (index : int) (t : trm) : trm =
     let filter_resource_items its =
       List.filter (fun (h, formula) ->
         not (Var_set.mem h bound_in_ghosts) &&
-        Var_set.disjoint (trm_free_vars formula) bound_in_ghosts_or_tl1
+        Var_set.disjoint (trm_free_vars formula) bound_in_tl1
       ) its
     in
     let filter_resource_set res =

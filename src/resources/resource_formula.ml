@@ -173,14 +173,21 @@ let generate_ghost_pair_var () =
   ghost_pair_last_id := ghost_pair_id + 1;
   new_var (sprintf "__ghost_pair_%d" ghost_pair_id)
 
-let trm_ghost_pair (ghost_fn: var) (ghost_args: (string * trm) list): trm * trm =
-  let ghost_pair_var = generate_ghost_pair_var () in
-  ( trm_add_cstyle GhostCall (trm_let Var_immutable (ghost_pair_var, typ_ghost_fn)
-      (trm_apps (trm_var ghost_begin) [trm_ghost ghost_fn ghost_args])),
-    trm_add_cstyle GhostCall (trm_apps (trm_var ghost_end) [trm_var ghost_pair_var]) )
+let trm_ghost_begin (ghost_pair_var: var) (ghost_fn: trm) (ghost_args: (var * trm) list): trm =
+  trm_add_cstyle GhostCall (trm_let Var_immutable (ghost_pair_var, typ_ghost_fn)
+  (trm_apps (trm_var ghost_begin) [trm_ghost_varargs ghost_fn ghost_args]))
 
-let trm_ghost_scope (ghost_fn: var) (ghost_args: (string * trm) list) (seq: trm list): trm =
-  let ghost_begin, ghost_end = trm_ghost_pair ghost_fn ghost_args in
+let trm_ghost_end (ghost_pair_var: var): trm =
+  trm_add_cstyle GhostCall (trm_apps (trm_var ghost_end) [trm_var ghost_pair_var])
+
+let trm_ghost_pair (ghost_fn: trm) (ghost_args: (var * trm) list): var * trm * trm =
+  let ghost_pair_var = generate_ghost_pair_var () in
+  (ghost_pair_var,
+   trm_ghost_begin ghost_pair_var ghost_fn ghost_args,
+   trm_ghost_end ghost_pair_var)
+
+let trm_ghost_scope (ghost_fn: trm) (ghost_args: (var * trm) list) (seq: trm list): trm =
+  let _, ghost_begin, ghost_end = trm_ghost_pair ghost_fn ghost_args in
   Nobrace.trm_seq (ghost_begin :: seq @ [ghost_end])
 
 let trm_ghost_begin_inv (t: trm): (var * trm * (hyp * formula) list) option =
