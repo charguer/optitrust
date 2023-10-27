@@ -458,7 +458,7 @@ let typ_constify (ty : typ) : typ =
   | _ -> aux ty
 
 (* [trm_resolve_binop_lval_and_get_with_deref] tries to resolve the variable
-   behind an lvalue and check whether it has been dereferences, i.e. following
+   behind an lvalue and check whether it has been dereferenced, i.e. following
    an array access or the use of [*]. Upon success, it returns the corresponding
    labelled variable. See [LVar] for more details on labelled variables. *)
 let trm_resolve_binop_lval_and_get_with_deref (t : trm) : (lvar * bool) option =
