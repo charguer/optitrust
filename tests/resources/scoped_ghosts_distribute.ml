@@ -4,5 +4,5 @@ open Target
 let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun () ->
-  !! Resources.scoped_ghosts_distribute [tBefore; nbMulti; sInstr "+= 1"];
+  !! Ghost_pair.fission [tBefore; nbMulti; sInstr "+= 1"];
 )
