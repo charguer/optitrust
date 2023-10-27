@@ -724,10 +724,14 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         end
 
       | exception Spec_not_found fn when var_eq fn ghost_end ->
-        begin match effective_args with
-        | [fn] -> compute_resources (Some res) (trm_apps fn [])
-        | _ -> failwith "__ghost_end with invalid number of arguments"
-        end
+        Pattern.pattern_match effective_args [
+          Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var ->
+            (* LATER: Maybe check that the variable is indeed introduced by __ghost_begin *)
+            let usage_map, res = compute_resources (Some res) (trm_apps fn []) in
+            usage_map, Option.map (fun res -> { res with fun_specs = Var_map.remove fn_var res.fun_specs }) res
+          );
+          Pattern.(!__) (fun _ -> failwith "__ghost_end expects a single variable as argument")
+        ]
 
       | exception Spec_not_found fn when var_eq fn __admitted ->
         None, None
