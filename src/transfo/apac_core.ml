@@ -249,6 +249,15 @@ and atrm = {
 (* [atrms]: list of augmented terms (see [atrm]). *)
 and atrms = atrm list
 
+(* [access_attr]: enumeration of data access attributes used within inter-task
+   data dependency discovery (see [trm_look_for_dependencies]). *)
+and access_attr =
+  | Vanilla (* default value, no attribute *)
+  | SelfWrite (* unary increment or a unary decrement data access *)
+  | FunArg (* argument in a function call *)
+  | Nested (* a nested data access, e.g. for `ptr[0]' in `*ptr[0]' and for
+              `i[0]' in `ptr[i[0]]` *)
+
 (******************************************************************)
 (* PART II: DECLARATION AND/OR INITIALIZATION OF GLOBAL VARIABLES *)
 (* II.1 Constification                                            *)
@@ -399,6 +408,43 @@ let rec trm_can_resolve_pointer (t : trm) : bool =
     (* [t] actually leads to a variable: success. Return [true]. *)
     | Trm_var _ -> true
     | _ -> false
+
+(* [trm_can_resolve_pointer t]: tries to resolve operation [t] to unique
+   variable. It then returns the latter on success and [None] otherwise. *)
+let rec trm_resolve_pointer (t : trm) : var option =
+    match t.desc with
+    (* [t] is unary operation: strip and recurse. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) ->
+       begin match op with
+       | Unop_get
+         | Unop_address
+         | Unop_cast _
+         | Unop_struct_access _
+         | Unop_struct_get _ -> trm_resolve_pointer t'
+       | _ -> None
+       end
+    (* [t] is a binary operation corresponding to an array access: strip and
+       recurse. *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t'; _]) -> trm_resolve_pointer t'
+    (* [t] is a binary operation of another type: strip and recurse on both left
+       and right-hand sides. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+       (* We continue to recurse on both the left and the right internal
+          terms. *)
+       begin match (trm_resolve_pointer lhs, trm_resolve_pointer rhs) with
+       | Some (res), None -> Some (res)
+       | None, Some (res) -> Some (res)
+       | None, None
+         (* In practice, binary operations between two pointers supported in
+            C/C++ can not lead to a valid alias of one of them. *)
+         | Some (_), Some (_) -> None
+       end
+    (* [t] actually leads to a variable. Return it. *)
+    | Trm_var (vk, v) -> Some (v)
+    (* In all the other cases, return [None]. *)
+    | _ -> None
 
 (************************)
 (* III.2 Constification *)
@@ -785,44 +831,96 @@ let unconstify_mutables () : unit =
 (* III.3 Taskification *)
 (***********************)
 
-(* [trm_look_for_dependencies t]: searches the term [t] for one or multiple
-   variable occurences representing memory accesses. It returns the list of the
-   accessed variables paired with a boolean value stating whether the access is
-   read-only ([false]) or read-write ([true]). Read-write accesses occur in
-   unary increment and decrement operations. *)
-let trm_look_for_dependencies (t : trm) : (var * bool) list =
-  (* Auxiliary function for building a hash table of variables involved in
-     memory accesses in [t] (see the [dependencies] argument). If [mut] is
-     [true], it means that the currently processed access is read-write. *)
-  let rec aux (dependencies : bool Var_Hashtbl.t) (mut : bool)
-            (t : trm) : unit =
+(* [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
+   returns two lists. The first list holds the access terms where each term is
+   paired with an access attribute. The second list contains all the variables
+   involved in the data accesses. *)
+let trm_look_for_dependencies (t : trm) : (var * trm * access_attr) list  =
+  (* [trm_look_for_dependencies.aux depends nested attr t] builds [depends], a
+     stack of data accesses in [t] and variables involved in the latter. Note
+     that we build the stack by side-effect instead of returning a list. This is
+     due to the usage of [trm_iter] for visiting [t]. [trm_iter] allows us to
+     call [aux] on each term it visits but the latter has to have a [unit]
+     return type. When [nested] is [true], the function does not push a new item
+     to the stack, it simply continues to explore the AST. This happens, for
+     example, in the case of a nested get operation such as [***ptr]. Finally,
+     [attr] allows for passing access attributes between recursive calls to
+     [aux], e.g. in the case of nested data accesses (see the [access_attr] type
+     for more details). *)
+  let rec aux (depends : (var * trm * access_attr) Stack.t) (nested : bool)
+            (attr : access_attr) (t : trm) : unit =
+    (* We iteratively explore [t] and look for: *)
     match t.desc with
-    (* When [t] is a variable occurence, i.e. a memory access, we add the
-       corresponding variable [v] paired with the access type flag [mut] into
-       [dependencies]. *)
-    | Trm_var (_, v) -> Var_Hashtbl.add dependencies v mut
-    (* When [t] is a unary increment or a unary decrement operation, we change
-       the value of [mut] to [true] an recurse on the child term corresponding
-       to the incremented or decremented variable. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [tr]) when
+    | Trm_var (_, v) when not nested -> Stack.push (v, t, Vanilla) depends
+    (* - get operations ([*t'], [**t'], ...), *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
+       let _ = Printf.printf "get\n" in
+       if not nested then
+         begin match (trm_resolve_pointer t') with
+         | Some v -> 
+            Stack.push (v, t, attr) depends
+         | None ->
+            fail t.loc "trm_look_for_dependencies: Illegal get expression"
+         end;
+       trm_iter (aux depends true Vanilla) t'
+    (* - address operations ([&t'], ...), *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
+       let _ = Printf.printf "address\n" in
+       if not nested then
+         begin match (trm_resolve_pointer t') with
+         | Some v -> 
+            Stack.push (v, t, attr) depends
+         | None ->
+            fail t.loc "trm_look_for_dependencies: Illegal address expression"
+         end;
+       trm_iter (aux depends true Vanilla) t'
+    (* - array accesses ([t'[i]], [t' -> [i]]), *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _}, _)
+      |  Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _}, _) ->
+       let _ = Printf.printf "array\n" in
+       let (base, accesses) = get_nested_accesses t in
+       begin match (trm_resolve_pointer base) with
+         | Some v when not nested -> 
+            Stack.push (v, t, attr) depends
+         | Some _ -> ()
+         | None ->
+            fail t.loc "trm_look_for_dependencies: Illegal array expression"
+         end;
+       List.iter (
+           fun a -> match a with
+                    | Array_access_get t''
+                      | Array_access_addr t'' -> aux depends false Nested t''
+                    | _ -> ()
+         ) accesses
+    (* - unary increment and decrement operations ([t'++], [--t'], ...) and *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
-       aux dependencies true tr
-    (* When [t] is a function call, we do not explore the associated [Trm_var]
-       because in this case it is a function name, not a variable name. However,
-       we do explore the variables passed as arguments to the function call. *)
+       let _ = Printf.printf "unop\n" in
+       begin match (trm_resolve_pointer t') with
+         | Some v -> 
+            Stack.push (v, t', SelfWrite) depends
+         | None ->
+            fail t.loc "trm_look_for_dependencies: Illegal unary expression"
+         end;
+    (* - function calls ([f(args)], ...). *)
     | Trm_apps ({ desc = Trm_var (_ , _); _ }, args) ->
-       List.iter (fun arg -> trm_iter (aux dependencies true) arg) args
-    (* On any other term, we just continue to explore the child terms. *)
-    | _ -> trm_iter (aux dependencies mut) t
+       let _ = Printf.printf "call\n" in
+       List.iter (fun arg -> trm_iter (aux depends false FunArg) arg) args
+    (* In the case of any other term, we just continue to explore the child
+       terms. *)
+    | _ -> 
+       (*let _ = Debug_transfo.trm ~style:Internal "init term is" t*)
+       let _ = Debug_transfo.trm "address" t in
+       trm_iter (aux depends false attr) t
   in
-  (* In the main part of the function, we begin by creating an empty hash table
-     to contain the discovered variables involved in memory accesses. *)
-  let dependencies : bool Var_Hashtbl.t = Var_Hashtbl.create 10 in
+  (* In the main part of the function, we begin by creating an empty stack to
+     contain the discovered memory accesses. *)
+  let depends : (var * trm * access_attr) Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
-  let _ = aux dependencies false t in
-  (* Finally, we gather the results from the hash table and return them in a
-     list of pairs ([var] - [bool]). *)
-  Var_Hashtbl.fold (fun k v acc -> (k, v) :: acc) dependencies []
+  let _ = aux depends false Vanilla t in
+  (* Finally, we gather the results from the stack and return them in a list of
+     pairs ([trm] - [access_attr]). *)
+  Stack.fold (fun acc v -> v :: acc) [] depends
 
 (* [trm_let_get_dependencies tvs inits]: computes the in and the inout
    dependencies in a sequence of variable declarations represented by the list
@@ -838,28 +936,24 @@ let trm_let_get_dependencies (tvs : typed_vars) (inits : trms) : (deps * deps) =
                    List.append (trm_look_for_dependencies init) acc
                  ) [] inits in
   (* Partition the list of dependencies following the access type. A dependency
-     is read-write when [mut] is [true] and read-only otherwise. *)
+     is read-write when the access attribute [attr] is [SelfWrite] and read-only
+     otherwise. *)
   let (ins, inouts) =
-    List.partition (fun (_, mut) -> not mut) dinits in
-  (* We do not need to keep the dependency type in a separate boolean flag
-     anymore. We thus transform [ins] and [inouts] from list of pairs ([var] -
-     [bool]) into simple list of [var]. *)
-  let (ins, _) = List.split ins in
-  let (inouts, _) = List.split inouts in
+    List.partition (fun (_, _, attr) -> attr <> SelfWrite) dinits in
   (* In the case of a multiple variable declaration the Nth declaration may
      depend on the declaration N-1. However, the multiple variable declaration
      instruction is still considered as a single instruction. Therefore, these
      dependencies should not appear in the list of input dependencies of the
      declaration instruction. We have to filter them out. *)
   let ins = List.filter (
-                fun v -> not (List.exists (
-                                  fun (locv, _) -> v.id == locv.id
-                                ) tvs)
+                fun (v, _, _) -> not (List.exists (
+                                          fun (locv, _) -> v.id == locv.id
+                                        ) tvs)
               ) ins in
   (* Now, we can transform the variables into dependencies (see the [Ast.dep]
      data type). *)
-  let ins = List.map (fun dep -> Dep_var (dep)) ins in
-  let inouts = List.map (fun dep -> Dep_var (dep)) inouts in
+  let ins = List.map (fun (_, t, _) -> Dep_trm (t)) ins in
+  let inouts = List.map (fun (_, t, _) -> Dep_trm (t)) inouts in
   (* We should not forget about the inout dependencies on the variables being
      declared! *)
   let inouts' = List.map (fun (v, _) -> Dep_var (v)) tvs in
@@ -868,12 +962,38 @@ let trm_let_get_dependencies (tvs : typed_vars) (inits : trms) : (deps * deps) =
   (* returning both lists in a pair. *)
   (ins, inouts)
   
+(* [typed_var_to_dep tv]: converts the typed variable [tv] into a data
+   dependency (see the [Ast.dep] data type). *)
+let typed_var_to_dep (tv : typed_var) : dep =
+  (* Auxiliary function to build the data dependency according to the pointer
+     degree of the input variable. *)
+  let rec aux (v : var) (degree : int) : dep =
+    (* For each level of the pointer degree *)
+    let degree' = degree - 1 in
+    if degree > 0 then
+      (* nest a [Dep_ptr]. *)
+      Dep_ptr (aux v degree')
+    else
+      (* At the end, when the zero level is reached, nest the final [Dep_var]
+         built from [v]. *)
+      Dep_var (v)
+  in
+  (* In the main function body, deconstruct the typed variable [tv] into a pair
+     of a type [ty] and a variable [v]. *)
+  let (v, ty) = tv in
+  (* Compute the pointer degree of [v] based on its type [ty]. *)
+  let degree = typ_get_degree ty in
+  (* Call the auxiliary function and build the corresponding data dependency. *)
+  aux v degree
+
 let rec dep_to_string (d : dep) : string =
   match d with
   | Dep_ptr d' ->
      "*" ^ (dep_to_string d')
   | Dep_var v ->
      var_to_string v
+  | Dep_trm t ->
+     AstC_to_c.ast_to_string t
 
 let atrm_to_string (a : atrm) : string =
   let rec aux (a : atrm) (indent : string) : string =
@@ -1337,6 +1457,18 @@ let taskify_on (p : path) (t : trm) : unit =
         children = [(augment yes); (augment no)];
         params = [cond]
       }
+    | Trm_apps (lval, rval) when is_set_operation t ->
+      (* match trm_resolve_binop_lval_and_get_with_deref lval with
+       | Some (lval_lvar, lval_deref) ->
+       *)
+       {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [];
+        params = []
+      }
+    (* - a function call, *)
     | Trm_apps (f, args) -> {
         current = t;
         ins = [];
