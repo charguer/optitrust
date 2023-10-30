@@ -162,6 +162,15 @@ let formula_geq = formula_cmp formula_assert_geq
 let var_checked = toplevel_var "checked"
 let formula_checked = trm_var var_checked
 
+let trm_ghost_inv t =
+  Pattern.pattern_match t [
+    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args ->
+      if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
+      Some (ghost_fn, ghost_args)
+    );
+    Pattern.(__) None
+  ]
+
 let ghost_begin = toplevel_var "__ghost_begin"
 let ghost_end = toplevel_var "__ghost_end"
 let typ_ghost_fn: typ = typ_const (typ_constr ([], "__ghost_fn") ~tid:(-1))

@@ -137,10 +137,11 @@ let%transfo minimize_all_in_seq (tg : target) : unit =
   Target.apply_at_target_paths minimize_all_on_seq tg;
   Trace.apply Scope.infer_var_ids (* FIXME: move up/down should avoid breaking scopes *)
 
+
 (** <private>
     cf. [fission]. *)
-let fission_on (split_i : int) (seq : trm) : trm =
-  let error = "Ghost_pair.fission_on: expected sequence" in
+let fission_at (split_i : int) (seq : trm) : trm =
+  let error = "Ghost_pair.fission_at: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let tl1, tl2 = Mlist.split split_i instrs in
 
@@ -188,6 +189,109 @@ let fission_on (split_i : int) (seq : trm) : trm =
 let%transfo fission (tg : target) : unit =
   Target.apply (fun t p_before ->
     let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
-    apply_on_path (fission_on split_i) t p_seq
+    apply_on_path (fission_at split_i) t p_seq
   ) tg;
   justif_correct "ghosts where successfully distributed"
+
+
+let find_inverse (ghost_fn: trm) (res: resource_spec) =
+  let open Tools.OptionMonad in
+  let* ghost_fn = trm_var_inv ghost_fn in
+  let* res in
+  let* ghost_spec = Var_map.find_opt ghost_fn res.fun_specs in
+  ghost_spec.inverse
+
+let debug_intro = false
+
+let intro_at i t_seq : trm =
+  let seq = trm_inv ~error:"Ghost_pair.intro_on: Expect a sequence" trm_seq_inv t_seq in
+  let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
+  let ghost_fn, ghost_args = trm_inv ~error:"Ghost_pair.intro_on: Should target a ghost call" trm_ghost_inv ghost_begin in
+
+  let invoc_linear_pre_and_post t =
+    match t.ctx.ctx_resources_contract_invoc with
+    | Some invoc when invoc.contract_produced.produced_pure <> [] -> None
+    | Some invoc ->
+      let pre = List.map (fun used -> (used.hyp_to_inst, used.used_formula)) invoc.contract_inst.used_linear in
+      let post = List.map (fun prod -> (prod.produced_hyp, prod.produced_formula)) invoc.contract_produced.produced_linear in
+      Some (pre, post)
+    | None -> failwith "No contract invocation on ghost call (resources might not have been computed)"
+  in
+  let begin_invoc_res = match invoc_linear_pre_and_post ghost_begin with
+    | Some res -> res
+    | None -> failwith "Cannot transform into ghost pair a ghost producing pure facts (not reversible)"
+  in
+
+  let are_inverse_invoc_res (pre1, post1) (pre2, post2) =
+    let open Resource_computation in
+    try
+      let _ = subtract_linear_resource ~split_frac:false pre1 post2 Var_map.empty in
+      let _ = subtract_linear_resource ~split_frac:false pre2 post1 Var_map.empty in
+      true
+    with Resource_not_found _ as exn ->
+      if debug_intro then Printf.eprintf "%s\n\n" (Printexc.to_string exn);
+      false
+  in
+
+  let exception FoundInverse of int * trm * (var * trm) list in
+  try
+    Mlist.iteri (fun i t ->
+      match trm_ghost_inv t with
+      | Some (ghost_fn, ghost_args) ->
+        begin match invoc_linear_pre_and_post t with
+        | Some end_invoc_res when are_inverse_invoc_res begin_invoc_res end_invoc_res ->
+          raise (FoundInverse (i, ghost_fn, ghost_args))
+        | _ -> ()
+        end
+      | None -> ()
+    ) seq_after;
+    failwith "No ghost candidate for forming the end of a pair"
+
+  with FoundInverse (i, end_ghost_fn, end_ghost_args) ->
+    let is_reversible = Option.is_some (find_inverse ghost_fn ghost_begin.ctx.ctx_resources_before) in
+    let _, ghost_begin, ghost_end = if is_reversible
+      then trm_ghost_pair ghost_fn ghost_args
+      else failwith "Non reversible pairs are not handled yet"
+    in
+    let seq_after = Mlist.replace_at i ghost_end seq_after in
+    let seq = Mlist.merge_list [seq_before; Mlist.of_list [ghost_begin]; seq_after] in
+    trm_replace (Trm_seq seq) t_seq
+
+(** Introduce a ghost pair starting on the targeted ghost, and ending at the first closing candidate. *)
+let%transfo intro (tg: target) =
+  Target.apply (fun t p ->
+    let i, p = Path.index_in_seq p in
+    apply_on_path (intro_at i) t p
+  ) tg
+
+
+let elim_at (i: int) (t_seq: trm): trm =
+  let seq = trm_inv ~error:"Ghost_pair.elim_on: Expect a sequence" trm_seq_inv t_seq in
+  let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
+  let pair_var, ghost_fn, ghost_args = trm_inv ~error:"Ghost_pair.elim_on: Should target a ghost_begin" trm_ghost_begin_inv ghost_begin in
+
+  let exception FoundEnd of int in
+  try
+    Mlist.iteri (fun i t ->
+      match trm_ghost_end_inv t with
+      | Some var when var_eq var pair_var -> raise (FoundEnd i)
+      | _ -> ()
+    ) seq_after;
+    failwith "Could not find a matching ghost_end"
+
+  with FoundEnd i ->
+    let inverse_ghost_fn = match find_inverse ghost_fn ghost_begin.ctx.ctx_resources_before with
+      | Some inv -> inv
+      | None -> failwith "Found a non reversible ghost pair"
+    in
+
+    let seq_after = Mlist.replace_at i (trm_ghost_varargs (trm_var inverse_ghost_fn) ghost_args) seq_after in
+    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_ghost_varargs ghost_fn ghost_args]; seq_after] in
+    trm_replace (Trm_seq seq) t_seq
+
+(** Split a ghost pair into two independant ghost calls *)
+let%transfo elim (tg: target) =
+  Target.apply (fun t p ->
+    let i, p = Path.index_in_seq p in
+    apply_on_path (elim_at i) t p
+  ) tg
