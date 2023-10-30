@@ -104,11 +104,34 @@ type const_fun = {
     (* Augmented AST of the function's body storing data dependencies of its
        instructions. See [atrm] below. *)
     mutable aast : atrm option;
+    (* Hash table ([var] -> [int]) of locally-defined variables and arguments
+       storing their pointer degree. See [fun_symbols] below. *)
+    variables : fun_symbols;
   }
 
 (* [const_funs]: type for a hash table of [const_fun]. The keys are functions
    represented by terms of type [var]. *)
 and const_funs = const_fun Var_Hashtbl.t
+
+(* [fun_symbols]: type for a hash table of variables local to a given function
+   definition (including the arguments). The table associates the varibles to
+   their pointer degree.
+
+   For example, in the case of the following function definition,
+
+     void f(int a, int * tab) {
+       float f;
+       void ** data;
+       ...
+     } 
+
+   [variables] would contain:
+
+     a, 0
+     tab, 1
+     f, 0
+     data, 2 *)
+and fun_symbols = int Var_Hashtbl.t
 
 (* [const_aliases]: type for hash table of argument aliases.
 
@@ -835,7 +858,8 @@ let unconstify_mutables () : unit =
    returns two lists. The first list holds the access terms where each term is
    paired with an access attribute. The second list contains all the variables
    involved in the data accesses. *)
-let trm_look_for_dependencies (t : trm) : (var * trm * access_attr) list  =
+let trm_discover_dependencies (locals : fun_symbols)
+      (t : trm) : (deps * deps)  =
   (* [trm_look_for_dependencies.aux depends nested attr t] builds [depends], a
      stack of data accesses in [t] and variables involved in the latter. Note
      that we build the stack by side-effect instead of returning a list. This is
@@ -847,120 +871,113 @@ let trm_look_for_dependencies (t : trm) : (var * trm * access_attr) list  =
      [attr] allows for passing access attributes between recursive calls to
      [aux], e.g. in the case of nested data accesses (see the [access_attr] type
      for more details). *)
-  let rec aux (depends : (var * trm * access_attr) Stack.t) (nested : bool)
-            (attr : access_attr) (t : trm) : unit =
+  let rec aux (ins : dep Stack.t) (inouts : dep Stack.t) (filter : Var_set.t)
+            (nested : bool) (t : trm) : unit =
+    let error = Printf.sprintf "Apac_core.trm_look_for_dependencies.aux: '%s' \
+                                is not a valid OpenMP depends expression"
+                  (AstC_to_c.ast_to_string t) in
     (* We iteratively explore [t] and look for: *)
     match t.desc with
-    | Trm_var (_, v) when not nested -> Stack.push (v, t, Vanilla) depends
+    | Trm_var (_, v) when not nested && not (Var_set.mem v filter) ->
+       let d = Dep_var (v) in
+       Stack.push d ins
     (* - get operations ([*t'], [**t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
        let _ = Printf.printf "get\n" in
        if not nested then
-         begin match (trm_resolve_pointer t') with
-         | Some v -> 
-            Stack.push (v, t, attr) depends
-         | None ->
-            fail t.loc "trm_look_for_dependencies: Illegal get expression"
+         begin
+           match (trm_resolve_pointer t') with
+           | Some v when not (Var_set.mem v filter) ->
+              let d = Dep_trm (t) in Stack.push d ins
+           | Some _ -> ()
+           | None -> fail t.loc error
          end;
-       trm_iter (aux depends true Vanilla) t'
+       trm_iter (aux ins inouts filter true) t'
     (* - address operations ([&t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
        let _ = Printf.printf "address\n" in
        if not nested then
-         begin match (trm_resolve_pointer t') with
-         | Some v -> 
-            Stack.push (v, t, attr) depends
-         | None ->
-            fail t.loc "trm_look_for_dependencies: Illegal address expression"
+         begin
+           match (trm_resolve_pointer t') with
+           | Some v when not (Var_set.mem v filter) ->
+              let d = Dep_trm (t) in Stack.push d ins
+           | Some _ -> ()
+           | None -> fail t.loc error
          end;
-       trm_iter (aux depends true Vanilla) t'
+       trm_iter (aux ins inouts filter true) t'
     (* - array accesses ([t'[i]], [t' -> [i]]), *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _}, _)
-      |  Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _}, _) ->
+    | Trm_apps ({desc = Trm_val
+                          (Val_prim (Prim_binop Binop_array_access)); _}, _)
+      | Trm_apps ({desc = Trm_val
+                            (Val_prim (Prim_binop Binop_array_get)); _}, _) ->
        let _ = Printf.printf "array\n" in
        let (base, accesses) = get_nested_accesses t in
-       begin match (trm_resolve_pointer base) with
-         | Some v when not nested -> 
-            Stack.push (v, t, attr) depends
+       begin
+         match (trm_resolve_pointer base) with
+         | Some v when not nested && not (Var_set.mem v filter) ->
+            let d = Dep_trm (t) in Stack.push d ins
          | Some _ -> ()
-         | None ->
-            fail t.loc "trm_look_for_dependencies: Illegal array expression"
-         end;
+         | None -> fail t.loc error
+       end;
        List.iter (
            fun a -> match a with
                     | Array_access_get t''
-                      | Array_access_addr t'' -> aux depends false Nested t''
+                      | Array_access_addr t'' ->
+                       aux ins inouts filter false t''
                     | _ -> ()
          ) accesses
-    (* - unary increment and decrement operations ([t'++], [--t'], ...) and *)
+    (* - unary increment and decrement operations ([t'++], [--t'], ...), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
        let _ = Printf.printf "unop\n" in
-       begin match (trm_resolve_pointer t') with
-         | Some v -> 
-            Stack.push (v, t', SelfWrite) depends
-         | None ->
-            fail t.loc "trm_look_for_dependencies: Illegal unary expression"
-         end;
+       begin
+         match (trm_resolve_pointer t') with
+         | Some v when not (Var_set.mem v filter) ->
+            let d = Dep_trm (t') in Stack.push d inouts
+         | Some _ -> ()
+         | None -> fail t.loc error
+       end;
     (* - function calls ([f(args)], ...). *)
     | Trm_apps ({ desc = Trm_var (_ , _); _ }, args) ->
        let _ = Printf.printf "call\n" in
-       List.iter (fun arg -> trm_iter (aux depends false FunArg) arg) args
+       List.iter (fun arg -> trm_iter (aux ins inouts filter false) arg) args
+    (* - set operation ([a = 1], [b = ptr], [*c = 42], ...), *)
+    | Trm_apps _ when is_set_operation t ->
+       let error' = "Apac_core.trm_look_for_dependencies.aux: expected set \
+                     operation." in
+       let (lval, rval) = trm_inv ~error:error' set_inv t in
+       let d = Dep_trm (lval) in
+       Stack.push d inouts;
+       trm_iter (aux ins inouts filter false) rval
+    | Trm_let (vk, (v, ty), init, _) ->
+       let d = Dep_var (v) in
+       Stack.push d inouts;
+       Var_Hashtbl.add locals v (typ_get_degree ty);
+       trm_iter (aux ins inouts filter false) init
+    | Trm_let_mult (vk, tvs, inits) ->
+       let (vs, _) = List.split tvs in
+       let filter = Var_set.of_list vs in
+       List.iter2 (fun (v, ty) init ->
+           let d = Dep_var (v) in
+           Stack.push d inouts;
+           Var_Hashtbl.add locals v (typ_get_degree ty);
+           trm_iter (aux ins inouts filter false) init
+         ) tvs inits
     (* In the case of any other term, we just continue to explore the child
        terms. *)
-    | _ -> 
-       (*let _ = Debug_transfo.trm ~style:Internal "init term is" t*)
-       let _ = Debug_transfo.trm "address" t in
-       trm_iter (aux depends false attr) t
+    | _ -> let _ = Debug_transfo.trm "other" t in
+       trm_iter (aux ins inouts filter false) t
   in
-  (* In the main part of the function, we begin by creating an empty stack to
-     contain the discovered memory accesses. *)
-  let depends : (var * trm * access_attr) Stack.t = Stack.create () in
+  (* In the main part of the function, we begin by creating empty stacks to
+     contain the discovered in and in-out dependencies. *)
+  let ins : dep Stack.t = Stack.create () in
+  let inouts : dep Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
-  let _ = aux depends false Vanilla t in
-  (* Finally, we gather the results from the stack and return them in a list of
-     pairs ([trm] - [access_attr]). *)
-  Stack.fold (fun acc v -> v :: acc) [] depends
-
-(* [trm_let_get_dependencies tvs inits]: computes the in and the inout
-   dependencies in a sequence of variable declarations represented by the list
-   of typed variables [tvs] and the list of the associated initialization terms
-   [inits]. The output is a pair of lists of the in and the inout dependencies,
-   respectively. *)
-let trm_let_get_dependencies (tvs : typed_vars) (inits : trms) : (deps * deps) =
-  (* Launch the dependency discovery on the initialization terms using
-     [trm_look_for_dependencies] and keep the result in the single flattened
-     list [dinits]. *)
-  let dinits = List.fold_left (
-                   fun acc init ->
-                   List.append (trm_look_for_dependencies init) acc
-                 ) [] inits in
-  (* Partition the list of dependencies following the access type. A dependency
-     is read-write when the access attribute [attr] is [SelfWrite] and read-only
-     otherwise. *)
-  let (ins, inouts) =
-    List.partition (fun (_, _, attr) -> attr <> SelfWrite) dinits in
-  (* In the case of a multiple variable declaration the Nth declaration may
-     depend on the declaration N-1. However, the multiple variable declaration
-     instruction is still considered as a single instruction. Therefore, these
-     dependencies should not appear in the list of input dependencies of the
-     declaration instruction. We have to filter them out. *)
-  let ins = List.filter (
-                fun (v, _, _) -> not (List.exists (
-                                          fun (locv, _) -> v.id == locv.id
-                                        ) tvs)
-              ) ins in
-  (* Now, we can transform the variables into dependencies (see the [Ast.dep]
-     data type). *)
-  let ins = List.map (fun (_, t, _) -> Dep_trm (t)) ins in
-  let inouts = List.map (fun (_, t, _) -> Dep_trm (t)) inouts in
-  (* We should not forget about the inout dependencies on the variables being
-     declared! *)
-  let inouts' = List.map (fun (v, _) -> Dep_var (v)) tvs in
-  (* We add these to the final list of inout dependencies before *)
-  let inouts = List.append inouts inouts' in
-  (* returning both lists in a pair. *)
-  (ins, inouts)
+  let _ = aux ins inouts (Var_set.empty) false t in
+  (* Finally, we gather the results from the stacks and return them in lists. *)
+  let ins' = Stack.fold (fun acc v -> v :: acc) [] ins in
+  let inouts' = Stack.fold (fun acc v -> v :: acc) [] inouts in
+  (ins', inouts')
   
 (* [typed_var_to_dep tv]: converts the typed variable [tv] into a data
    dependency (see the [Ast.dep] data type). *)
@@ -1031,14 +1048,20 @@ let build_constification_records_on (t : trm) : unit =
       let (first, _) = List.hd args in
       if first.name = "this" then List.tl args else args
     else args in
-  (* Create an argument constification record for the function's arguments. *)
+  (* Create a hash table for locally defined variables. *)
+  let locals : fun_symbols = Var_Hashtbl.create 10 in
+  (* Create an argument constification record for the function's arguments and
+     fill [locals] with function's arguments and their pointer degrees. *)
   let const_args = List.map (
-                       fun (arg, ty) -> (arg, {
-                           is_ptr_or_ref =
-                             is_typ_ptr ty || is_typ_ref ty ||
-                               is_typ_array ty;
-                           is_const = true;
-                           to_unconst_by_propagation = [];
+                       fun (arg, ty) ->
+                       let deg = typ_get_degree ty in
+                       let _ = Var_Hashtbl.add locals arg deg in
+                       (arg, {
+                          is_ptr_or_ref =
+                            is_typ_ptr ty || is_typ_ref ty ||
+                              is_typ_array ty;
+                          is_const = true;
+                          to_unconst_by_propagation = [];
                      })) args in
   (* Create the constification record for the function itself *)
   let const : const_fun = {
@@ -1047,7 +1070,8 @@ let build_constification_records_on (t : trm) : unit =
       is_ret_ptr = is_typ_ptr ret_ty;
       is_ret_ref = is_typ_array ret_ty || is_typ_ref ret_ty;
       is_class_method = false;
-      aast = None
+      aast = None;
+      variables = locals;
     } in
   (* and add it to [const_records] (global variable, see Part II.1) if it is not
      present in the hash table already, e.g. in the case of a
@@ -1057,7 +1081,6 @@ let build_constification_records_on (t : trm) : unit =
       Var_Hashtbl.add const_records var const
     end
       
-
 (* [build_constification_records]: expects the target [tg] to point at a
    function definition. It adds a new entry into [const_records] (global
    variable, see Part II.1) based on the information about the function. *)
@@ -1407,7 +1430,7 @@ let identify_mutables (tg : target) : unit =
 let taskify_on (p : path) (t : trm) : unit =
   (* Auxiliary function to transform a portion of the existing AST into a local
      augmented AST (see [atrm]). *)
-  let rec augment (t : trm) : atrm =
+  let rec augment (locals : fun_symbols) (t : trm) : atrm =
     match t.desc with
     | Trm_seq tl ->
        let tl' = Mlist.to_list tl in
@@ -1415,14 +1438,14 @@ let taskify_on (p : path) (t : trm) : unit =
          current = t;
          ins = [];
          inouts = [];
-         children = List.map (fun child -> augment child) tl';
+         children = List.map (fun child -> augment locals child) tl';
          params = []
        }
     | Trm_for_c (init, cond, inc, instr, _) -> {
         current = t;
         ins = [];
         inouts = [];
-        children = [(augment instr)];
+        children = [(augment locals instr)];
         params = [init; cond; inc]
       }
  (* | Trm_for (range, body, _) -> {
@@ -1432,17 +1455,9 @@ let taskify_on (p : path) (t : trm) : unit =
         children = [(augment body)];
         params = [range]
       } *)
-    | Trm_let (vk, tv, init, _) ->
-       let (ins, inouts) = trm_let_get_dependencies [tv] [init] in
-       {
-         current = t;
-         ins = ins;
-         inouts = inouts;
-         children = [];
-         params = []
-       }
-    | Trm_let_mult (vk, tvs, inits) ->
-       let (ins, inouts) = trm_let_get_dependencies tvs inits in
+    | Trm_let _
+      | Trm_let_mult _ ->
+       let (ins, inouts) = trm_discover_dependencies locals t in
        {
         current = t;
         ins = ins;
@@ -1454,47 +1469,37 @@ let taskify_on (p : path) (t : trm) : unit =
         current = t;
         ins = [];
         inouts = [];
-        children = [(augment yes); (augment no)];
+        children = [(augment locals yes); (augment locals no)];
         params = [cond]
       }
-    | Trm_apps (lval, rval) when is_set_operation t ->
-      (* match trm_resolve_binop_lval_and_get_with_deref lval with
-       | Some (lval_lvar, lval_deref) ->
-       *)
-       {
+    | Trm_apps _ ->
+      let (ins, inouts) = trm_discover_dependencies locals t in
+      {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = ins;
+        inouts = inouts;
         children = [];
         params = []
-      }
-    (* - a function call, *)
-    | Trm_apps (f, args) -> {
-        current = t;
-        ins = [];
-        inouts = [];
-        children = [];
-        params = args
       }
     | Trm_while (cond, body) -> {
         current = t;
         ins = [];
         inouts = [];
-        children = [(augment body)];
+        children = [(augment locals body)];
         params = [cond]
       }
     | Trm_do_while (body, cond) -> {
         current = t;
         ins = [];
         inouts = [];
-        children = [(augment body)];
+        children = [(augment locals body)];
         params = [cond]
       }
     | Trm_switch (cond, cases) -> {
         current = t;
         ins = [];
         inouts = [];
-        children = List.map (fun (labels, block) -> augment block) cases;
+        children = List.map (fun (labels, block) -> augment locals block) cases;
         params = [cond]
       }
     | Trm_delete (_, target) -> {
@@ -1534,8 +1539,10 @@ let taskify_on (p : path) (t : trm) : unit =
   let error = "Apac_core.taskify_on: expected target to a function \
                definition." in
   let (v, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+  (* Find the corresponding constification record in [const_records]. *)
+  let const_record = Var_Hashtbl.find const_records v in
   (* Build the augmented AST correspoding to the function's body. *)
-  let aast = augment body in
+  let aast = augment const_record.variables body in
   Printf.printf "Augmented AST for <%s> follows:\n%s\n"
     (var_to_string v) (atrm_to_string aast)
     
