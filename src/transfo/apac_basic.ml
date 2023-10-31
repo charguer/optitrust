@@ -1,7 +1,8 @@
 open Syntax
 open Target
 open Path
-include Apac_core
+open Apac_modules
+open Apac_core
 
 (* [mark_taskification_candidates_on]: see [mark_taskification_candidates]. *)
 let mark_taskification_candidates_on (t : trm) : trm =
