@@ -203,7 +203,7 @@ let find_inverse (ghost_fn: trm) (res: resource_spec) =
 
 let debug_intro = false
 
-let intro_at i t_seq : trm =
+let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: trm) : trm =
   let seq = trm_inv ~error:"Ghost_pair.intro_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
   let ghost_fn, ghost_args = trm_inv ~error:"Ghost_pair.intro_on: Should target a ghost call" trm_ghost_inv ghost_begin in
@@ -238,11 +238,16 @@ let intro_at i t_seq : trm =
     Mlist.iteri (fun i t ->
       match trm_ghost_inv t with
       | Some (ghost_fn, ghost_args) ->
-        begin match invoc_linear_pre_and_post t with
-        | Some end_invoc_res when are_inverse_invoc_res begin_invoc_res end_invoc_res ->
-          raise (FoundInverse (i, ghost_fn, ghost_args))
-        | _ -> ()
-        end
+        let correct_mark = match end_mark with
+        | Some mark -> trm_has_mark mark t
+        | None -> true
+        in
+        if correct_mark then
+          begin match invoc_linear_pre_and_post t with
+          | Some end_invoc_res when are_inverse_invoc_res begin_invoc_res end_invoc_res ->
+            raise (FoundInverse (i, ghost_fn, ghost_args))
+          | _ -> ()
+          end
       | None -> ()
     ) seq_after;
     failwith "No ghost candidate for forming the end of a pair"
@@ -250,7 +255,7 @@ let intro_at i t_seq : trm =
   with FoundInverse (i, end_ghost_fn, end_ghost_args) ->
     let is_reversible = Option.is_some (find_inverse ghost_fn ghost_begin.ctx.ctx_resources_before) in
     let _, ghost_begin, ghost_end = if is_reversible
-      then trm_ghost_pair ghost_fn ghost_args
+      then trm_ghost_pair ?name ghost_fn ghost_args
       else failwith "Non reversible pairs are not handled yet"
     in
     let seq_after = Mlist.replace_at i ghost_end seq_after in
@@ -258,14 +263,15 @@ let intro_at i t_seq : trm =
     trm_replace (Trm_seq seq) t_seq
 
 (** Introduce a ghost pair starting on the targeted ghost, and ending at the first closing candidate. *)
-let%transfo intro (tg: target) =
+let%transfo intro ?(name: string option) ?(end_mark: mark option) (tg: target) =
+  recompute_all_resources ();
   Target.apply (fun t p ->
     let i, p = Path.index_in_seq p in
-    apply_on_path (intro_at i) t p
+    apply_on_path (intro_at ?name ?end_mark i) t p
   ) tg
 
 
-let elim_at (i: int) (t_seq: trm): trm =
+let elim_at ?(mark_begin: mark option) ?(mark_end: mark option) (i: int) (t_seq: trm): trm =
   let seq = trm_inv ~error:"Ghost_pair.elim_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
   let pair_var, ghost_fn, ghost_args = trm_inv ~error:"Ghost_pair.elim_on: Should target a ghost_begin" trm_ghost_begin_inv ghost_begin in
@@ -285,13 +291,14 @@ let elim_at (i: int) (t_seq: trm): trm =
       | None -> failwith "Found a non reversible ghost pair"
     in
 
-    let seq_after = Mlist.replace_at i (trm_ghost_varargs (trm_var inverse_ghost_fn) ghost_args) seq_after in
-    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_ghost_varargs ghost_fn ghost_args]; seq_after] in
+    let seq_after = Mlist.replace_at i (trm_may_add_mark mark_end (trm_ghost_varargs (trm_var inverse_ghost_fn) ghost_args)) seq_after in
+    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_may_add_mark mark_begin (trm_ghost_varargs ghost_fn ghost_args)]; seq_after] in
     trm_replace (Trm_seq seq) t_seq
 
 (** Split a ghost pair into two independant ghost calls *)
-let%transfo elim (tg: target) =
+let%transfo elim ?(mark_begin: mark option) ?(mark_end: mark option) (tg: target) =
+  recompute_all_resources ();
   Target.apply (fun t p ->
     let i, p = Path.index_in_seq p in
-    apply_on_path (elim_at i) t p
+    apply_on_path (elim_at ?mark_begin ?mark_end i) t p
   ) tg

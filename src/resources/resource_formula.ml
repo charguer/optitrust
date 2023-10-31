@@ -177,10 +177,13 @@ let typ_ghost_fn: typ = typ_const (typ_constr ([], "__ghost_fn") ~tid:(-1))
 let with_reverse = toplevel_var "__with_reverse"
 
 let ghost_pair_last_id = ref 0
-let generate_ghost_pair_var () =
-  let ghost_pair_id = !ghost_pair_last_id in
-  ghost_pair_last_id := ghost_pair_id + 1;
-  new_var (sprintf "__ghost_pair_%d" ghost_pair_id)
+let generate_ghost_pair_var ?name () =
+  match name with
+  | Some name -> new_var name
+  | None ->
+    let ghost_pair_id = !ghost_pair_last_id in
+    ghost_pair_last_id := ghost_pair_id + 1;
+    new_var (sprintf "__ghost_pair_%d" ghost_pair_id)
 
 let trm_ghost_begin (ghost_pair_var: var) (ghost_fn: trm) (ghost_args: (var * trm) list): trm =
   trm_add_cstyle GhostCall (trm_let Var_immutable (ghost_pair_var, typ_ghost_fn)
@@ -189,8 +192,8 @@ let trm_ghost_begin (ghost_pair_var: var) (ghost_fn: trm) (ghost_args: (var * tr
 let trm_ghost_end (ghost_pair_var: var): trm =
   trm_add_cstyle GhostCall (trm_apps (trm_var ghost_end) [trm_var ghost_pair_var])
 
-let trm_ghost_pair (ghost_fn: trm) (ghost_args: (var * trm) list): var * trm * trm =
-  let ghost_pair_var = generate_ghost_pair_var () in
+let trm_ghost_pair ?(name: string option) (ghost_fn: trm) (ghost_args: (var * trm) list): var * trm * trm =
+  let ghost_pair_var = generate_ghost_pair_var ?name () in
   (ghost_pair_var,
    trm_ghost_begin ghost_pair_var ghost_fn ghost_args,
    trm_ghost_end ghost_pair_var)
