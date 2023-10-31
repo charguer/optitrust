@@ -216,10 +216,10 @@ and const_mult = (mark, bool list) Hashtbl.t
 and atrm = {
     (* - the original AST term, *)
     current : trm;
-    (* - a list of input dependencies (read-only within the instruction), *)
-    mutable ins : deps;
-    (* - a list of in/out dependencies (read-write within the instruction), *)
-    mutable inouts : deps;
+    (* - a set of input dependencies (read-only within the instruction), *)
+    mutable ins : Dep_set.t;
+    (* - a set of in/out dependencies (read-write within the instruction), *)
+    mutable inouts : Dep_set.t;
     (* - a list of child augmented terms, *)
     children : atrms;
     (* - a list of child terms that are essential for the dependency computation
@@ -818,7 +818,7 @@ let unconstify_mutables () : unit =
    paired with an access attribute. The second list contains all the variables
    involved in the data accesses. *)
 let trm_discover_dependencies (locals : fun_symbols)
-      (t : trm) : (deps * deps)  =
+      (t : trm) : (Dep_set.t * Dep_set.t)  =
   (* [trm_look_for_dependencies.aux depends nested attr t] builds [depends], a
      stack of data accesses in [t] and variables involved in the latter. Note
      that we build the stack by side-effect instead of returning a list. This is
@@ -847,19 +847,20 @@ let trm_discover_dependencies (locals : fun_symbols)
          begin
            match (trm_resolve_pointer t') with
            | Some v when not (Var_set.mem v filter) ->
-              let d = Dep_trm (t) in Stack.push d ins
+              let _ = Debug_transfo.trm "get " t in
+              let d = Dep_trm (t, v) in Stack.push d ins
            | Some _ -> ()
            | None -> fail t.loc error
          end;
        trm_iter (aux ins inouts filter true) t'
     (* - address operations ([&t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
-       let _ = Printf.printf "address\n" in
+       (* let _ = Printf.printf "address\n" in *)
        if not nested then
          begin
            match (trm_resolve_pointer t') with
            | Some v when not (Var_set.mem v filter) ->
-              let d = Dep_trm (t) in Stack.push d ins
+              let d = Dep_trm (t, v) in Stack.push d ins
            | Some _ -> ()
            | None -> fail t.loc error
          end;
@@ -869,12 +870,12 @@ let trm_discover_dependencies (locals : fun_symbols)
                           (Val_prim (Prim_binop Binop_array_access)); _}, _)
       | Trm_apps ({desc = Trm_val
                             (Val_prim (Prim_binop Binop_array_get)); _}, _) ->
-       let _ = Printf.printf "array\n" in
+       (* let _ = Printf.printf "array\n" in *)
        let (base, accesses) = get_nested_accesses t in
        begin
          match (trm_resolve_pointer base) with
          | Some v when not nested && not (Var_set.mem v filter) ->
-            let d = Dep_trm (t) in Stack.push d ins
+            let d = Dep_trm (t, v) in Stack.push d ins
          | Some _ -> ()
          | None -> fail t.loc error
        end;
@@ -888,26 +889,32 @@ let trm_discover_dependencies (locals : fun_symbols)
     (* - unary increment and decrement operations ([t'++], [--t'], ...), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
-       let _ = Printf.printf "unop\n" in
+       (* let _ = Printf.printf "unop\n" in *)
        begin
          match (trm_resolve_pointer t') with
          | Some v when not (Var_set.mem v filter) ->
-            let d = Dep_trm (t') in Stack.push d inouts
+            let d = Dep_trm (t', v) in Stack.push d inouts
          | Some _ -> ()
          | None -> fail t.loc error
        end;
     (* - function calls ([f(args)], ...). *)
     | Trm_apps ({ desc = Trm_var (_ , _); _ }, args) ->
-       let _ = Printf.printf "call\n" in
+       (* let _ = Printf.printf "call\n" in *)
        List.iter (fun arg -> trm_iter (aux ins inouts filter false) arg) args
     (* - set operation ([a = 1], [b = ptr], [*c = 42], ...), *)
     | Trm_apps _ when is_set_operation t ->
        let error' = "Apac_core.trm_look_for_dependencies.aux: expected set \
                      operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
-       let d = Dep_trm (lval) in
-       Stack.push d inouts;
-       trm_iter (aux ins inouts filter false) rval
+       begin
+         match (trm_resolve_binop_lval_and_get_with_deref lval) with
+         | Some (lv, _) ->
+            let _ = Debug_transfo.trm "lval after" lval in
+            let d = Dep_trm (lval, lv.v) in
+            Stack.push d inouts;
+            trm_iter (aux ins inouts filter false) rval
+         | None -> fail t.loc error
+       end
     | Trm_let (vk, (v, ty), init, _) ->
        let d = Dep_var (v) in
        Stack.push d inouts;
@@ -924,7 +931,7 @@ let trm_discover_dependencies (locals : fun_symbols)
          ) tvs inits
     (* In the case of any other term, we just continue to explore the child
        terms. *)
-    | _ -> let _ = Debug_transfo.trm "other" t in
+    | _ -> (* let _ = Debug_transfo.trm "other" t in *)
        trm_iter (aux ins inouts filter false) t
   in
   (* In the main part of the function, we begin by creating empty stacks to
@@ -934,8 +941,8 @@ let trm_discover_dependencies (locals : fun_symbols)
   (* Then, we launch the discovery process using the auxiliary function. *)
   let _ = aux ins inouts (Var_set.empty) false t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
-  let ins' = Stack.fold (fun acc v -> v :: acc) [] ins in
-  let inouts' = Stack.fold (fun acc v -> v :: acc) [] inouts in
+  let ins' = dep_set_from_stack ins in
+  let inouts' = dep_set_from_stack inouts in
   (ins', inouts')
   
 (* [typed_var_to_dep tv]: converts the typed variable [tv] into a data
@@ -962,22 +969,13 @@ let typed_var_to_dep (tv : typed_var) : dep =
   (* Call the auxiliary function and build the corresponding data dependency. *)
   aux v degree
 
-let rec dep_to_string (d : dep) : string =
-  match d with
-  | Dep_ptr d' ->
-     "*" ^ (dep_to_string d')
-  | Dep_var v ->
-     var_to_string v
-  | Dep_trm t ->
-     AstC_to_c.ast_to_string t
-
 let atrm_to_string (a : atrm) : string =
   let rec aux (a : atrm) (indent : string) : string =
     let what = trm_desc_to_string a.current.desc in
-    let ins = List.fold_left
-                (fun acc a -> acc ^ " " ^ (dep_to_string a)) "" a.ins in
-    let inouts = List.fold_left
-                   (fun acc a -> acc ^ " " ^ (dep_to_string a)) "" a.inouts in
+    let ins = Dep_set.fold
+                (fun a acc -> acc ^ " " ^ (dep_to_string a)) a.ins "" in
+    let inouts = Dep_set.fold
+                   (fun a acc -> acc ^ " " ^ (dep_to_string a)) a.inouts "" in
     let result =
       indent ^ what ^ " (in: [" ^ ins ^ " ], inouts: [" ^ inouts ^ " ])\n" in
     match a.children with
@@ -1391,22 +1389,51 @@ let taskify_on (p : path) (t : trm) : unit =
      augmented AST (see [atrm]). *)
   let rec augment (locals : fun_symbols) (t : trm) : atrm =
     match t.desc with
-    | Trm_seq tl ->
-       let tl' = Mlist.to_list tl in
+    | Trm_seq instrs ->
+       let instrs' = Mlist.to_list instrs in
+       let instrs' = List.map (fun instr -> augment locals instr) instrs' in
+       let ins = List.fold_left (
+                     fun acc instr -> Dep_set.union acc instr.ins
+                   ) Dep_set.empty instrs' in
+       let inouts = List.fold_left (
+                     fun acc instr -> Dep_set.union acc instr.inouts
+                   ) Dep_set.empty instrs' in
        {
          current = t;
-         ins = [];
-         inouts = [];
-         children = List.map (fun child -> augment locals child) tl';
+         ins = ins;
+         inouts = inouts;
+         children = instrs';
          params = []
        }
-    | Trm_for_c (init, cond, inc, instr, _) -> {
-        current = t;
-        ins = [];
-        inouts = [];
-        children = [(augment locals instr)];
-        params = [init; cond; inc]
-      }
+    | Trm_for_c (init, cond, inc, instr, _) ->
+       let scope = var_set_from_var_hashtbl locals in
+       let (ins, inouts) = trm_discover_dependencies locals init in
+       let (ins', inouts') = trm_discover_dependencies locals cond in
+       let (ins, inouts) =
+         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
+       let (ins', inouts') = trm_discover_dependencies locals inc in
+       let (ins, inouts) =
+         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
+       let instr' = augment locals instr in
+       let ins' = Dep_set.filter (
+                      fun d -> match (dep_get_atomic d) with
+                               | Dep_var v -> Var_set.mem v scope
+                               | Dep_trm (_, v) -> Var_set.mem v scope
+                               | _ -> false
+                    ) instr'.ins in
+       let inouts' = Dep_set.filter (
+                         fun d -> match (dep_get_atomic d) with
+                                  | Dep_var v -> Var_set.mem v scope
+                                  | Dep_trm (_, v) -> Var_set.mem v scope
+                                  | _ -> false
+                       ) instr'.inouts in
+       {
+         current = t;
+         ins = (Dep_set.union ins ins');
+         inouts = (Dep_set.union inouts inouts');
+         children = [instr'];
+         params = [init; cond; inc]
+       }
  (* | Trm_for (range, body, _) -> {
         current = t;
         ins = [];
@@ -1426,8 +1453,8 @@ let taskify_on (p : path) (t : trm) : unit =
       }
     | Trm_if (cond, yes, no) -> {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = Dep_set.empty;
+        inouts = Dep_set.empty;
         children = [(augment locals yes); (augment locals no)];
         params = [cond]
       }
@@ -1442,44 +1469,44 @@ let taskify_on (p : path) (t : trm) : unit =
       }
     | Trm_while (cond, body) -> {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = Dep_set.empty;
+        inouts = Dep_set.empty;
         children = [(augment locals body)];
         params = [cond]
       }
     | Trm_do_while (body, cond) -> {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = Dep_set.empty;
+        inouts = Dep_set.empty;
         children = [(augment locals body)];
         params = [cond]
       }
     | Trm_switch (cond, cases) -> {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = Dep_set.empty;
+        inouts = Dep_set.empty;
         children = List.map (fun (labels, block) -> augment locals block) cases;
         params = [cond]
       }
     | Trm_delete (_, target) -> {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = Dep_set.empty;
+        inouts = Dep_set.empty;
         children = [];
         params = [target]
       }
     | Trm_abort _
       | Trm_goto _ -> {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = Dep_set.empty;
+        inouts = Dep_set.empty;
         children = [];
         params = []
       }
     | Trm_omp_routine r -> {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = Dep_set.empty;
+        inouts = Dep_set.empty;
         children = [];
         params = []
       }
@@ -1487,8 +1514,8 @@ let taskify_on (p : path) (t : trm) : unit =
        let _ = Printf.printf "I don't know '%s'\n" (trm_desc_to_string t.desc) in
        {
         current = t;
-        ins = [];
-        inouts = [];
+        ins = Dep_set.empty;
+        inouts = Dep_set.empty;
         children = [];
         params = []
       }
