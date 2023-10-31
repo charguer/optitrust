@@ -1070,7 +1070,7 @@ and proc_bind_to_doc (pb : proc_bind) : document =
 
 and dep_to_doc (d : dep) : document =
   match d with
-  | Dep_trm s -> trm_to_doc s
+  | Dep_trm (s, _) -> trm_to_doc s
   | Dep_var v -> var_to_doc v
   | Dep_ptr d -> star ^^ dep_to_doc d
 
