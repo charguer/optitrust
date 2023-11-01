@@ -78,18 +78,18 @@ and const_funs = const_fun Var_Hashtbl.t
 
    For example, in the case of the following function definition,
 
-     void f(int a, int * tab) {
-       float f;
-       void ** data;
-       ...
-     } 
+   void f(int a, int * tab) {
+   float f;
+   void ** data;
+   ...
+   } 
 
    [variables] would contain:
 
-     a, 0
-     tab, 1
-     f, 0
-     data, 2 *)
+   a, 0
+   tab, 1
+   f, 0
+   data, 2 *)
 and fun_symbols = int Var_Hashtbl.t
 
 (* [const_aliases]: type for hash table of argument aliases.
@@ -160,15 +160,15 @@ and const_unconst_objects = (var * var * var) Stack.t
    situations to consider: 
 
    1) the inner type of the multiple variable declaration is already constant:
-    
-      // [i] is a constant integer, [j] is a mutable pointer to a constant
-      // integer
-      int const i, * j;
+   
+   // [i] is a constant integer, [j] is a mutable pointer to a constant
+   // integer
+   int const i, * j;
 
    2) the inner type of the multiple variable declaration is not constant:
 
-      // [i] is a mutable integer, [j] is a mutable pointer to a mutable integer
-      int i, * j;
+   // [i] is a mutable integer, [j] is a mutable pointer to a mutable integer
+   int i, * j;
 
    If we want to constify [j] in 1), it is possible without breaking the parent
    multiple variable declaration:
@@ -231,14 +231,12 @@ and atrm = {
 (* [atrms]: list of augmented terms (see [atrm]). *)
 and atrms = atrm list
 
-(* [access_attr]: enumeration of data access attributes used within inter-task
-   data dependency discovery (see [trm_look_for_dependencies]). *)
-and access_attr =
-  | Vanilla (* default value, no attribute *)
-  | SelfWrite (* unary increment or a unary decrement data access *)
-  | FunArg (* argument in a function call *)
-  | Nested (* a nested data access, e.g. for `ptr[0]' in `*ptr[0]' and for
-              `i[0]' in `ptr[i[0]]` *)
+(* [dep_attr]: enumeration of data dependency attributes (see
+   [trm_discover_dependencies]). *)
+and dep_attr =
+  | Regular (* default value, no attribute *)
+  | FunArgIn (* function call argument, read-only dependency *)
+  | FunArgInOut (* function call argument, read-write dependency *)
 
 (******************************************************************)
 (* PART II: DECLARATION AND/OR INITIALIZATION OF GLOBAL VARIABLES *)
@@ -393,40 +391,44 @@ let rec trm_can_resolve_pointer (t : trm) : bool =
 
 (* [trm_can_resolve_pointer t]: tries to resolve operation [t] to unique
    variable. It then returns the latter on success and [None] otherwise. *)
-let rec trm_resolve_pointer (t : trm) : var option =
+let trm_resolve_pointer_and_degree (t : trm) : (var * int) option =
+  let rec aux (degree : int) (t : trm) : (var * int) option =
     match t.desc with
     (* [t] is unary operation: strip and recurse. *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) ->
        begin match op with
-       | Unop_get
-         | Unop_address
-         | Unop_cast _
-         | Unop_struct_access _
-         | Unop_struct_get _ -> trm_resolve_pointer t'
+       | Unop_get -> aux (degree - 1) t'
+       | Unop_address -> aux (degree + 1) t'
+       | Unop_cast ty -> aux (degree + typ_get_degree ty) t'
+       | Unop_struct_access _
+         | Unop_struct_get _ -> aux degree t'
        | _ -> None
        end
     (* [t] is a binary operation corresponding to an array access: strip and
        recurse. *)
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t'; _]) -> trm_resolve_pointer t'
+            _ }, [t'; _]) -> aux (degree - 1) t'
     (* [t] is a binary operation of another type: strip and recurse on both left
        and right-hand sides. *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
        (* We continue to recurse on both the left and the right internal
           terms. *)
-       begin match (trm_resolve_pointer lhs, trm_resolve_pointer rhs) with
-       | Some (res), None -> Some (res)
-       | None, Some (res) -> Some (res)
-       | None, None
-         (* In practice, binary operations between two pointers supported in
-            C/C++ can not lead to a valid alias of one of them. *)
-         | Some (_), Some (_) -> None
+       begin
+         match (aux degree lhs, aux degree rhs) with
+         | Some (res), None -> Some (res)
+         | None, Some (res) -> Some (res)
+         | None, None
+           (* In practice, binary operations between two pointers supported in
+              C/C++ can not lead to a valid alias of one of them. *)
+           | Some (_), Some (_) -> None
        end
     (* [t] actually leads to a variable. Return it. *)
-    | Trm_var (vk, v) -> Some (v)
+    | Trm_var (vk, v) -> Some (v, degree)
     (* In all the other cases, return [None]. *)
     | _ -> None
+  in
+  aux 0 t
 
 (************************)
 (* III.2 Constification *)
@@ -831,40 +833,67 @@ let trm_discover_dependencies (locals : fun_symbols)
      [aux], e.g. in the case of nested data accesses (see the [access_attr] type
      for more details). *)
   let rec aux (ins : dep Stack.t) (inouts : dep Stack.t) (filter : Var_set.t)
-            (nested : bool) (t : trm) : unit =
+            (nested : bool) (attr : dep_attr) (t : trm) : unit =
     let error = Printf.sprintf "Apac_core.trm_look_for_dependencies.aux: '%s' \
                                 is not a valid OpenMP depends expression"
                   (AstC_to_c.ast_to_string t) in
     (* We iteratively explore [t] and look for: *)
     match t.desc with
     | Trm_var (_, v) when not nested && not (Var_set.mem v filter) ->
-       let d = Dep_var (v) in
-       Stack.push d ins
+       if String.starts_with ~prefix:"sizeof(" v.name then
+         let d = Dep_var (v) in Stack.push d ins
+       else
+         begin
+           match attr with
+           | Regular -> let d = Dep_var (v) in Stack.push d ins
+           | FunArgIn ->
+              let degree = Var_Hashtbl.find locals v in
+              let d = var_to_dep v degree in
+              Stack.push d ins
+           | FunArgInOut ->
+              let degree = Var_Hashtbl.find locals v in
+              let d = var_to_dep v degree in
+              Stack.push d inouts
+         end
     (* - get operations ([*t'], [**t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
-       let _ = Printf.printf "get\n" in
        if not nested then
          begin
-           match (trm_resolve_pointer t') with
-           | Some v when not (Var_set.mem v filter) ->
-              let _ = Debug_transfo.trm "get " t in
-              let d = Dep_trm (t, v) in Stack.push d ins
+           match (trm_resolve_pointer_and_degree t') with
+           | Some (v, degree) when not (Var_set.mem v filter) ->
+              begin
+                match attr with
+                | Regular -> let d = Dep_trm (t', v) in Stack.push d ins
+                | FunArgIn -> 
+                   let degree' = Var_Hashtbl.find locals v in
+                   let d = trm_to_dep t' v (degree' - degree) in
+                   Stack.push d ins
+                | FunArgInOut ->
+                   let degree' = Var_Hashtbl.find locals v in
+                   let d = trm_to_dep t' v (degree' - degree) in
+                   Stack.push d inouts
+              end
            | Some _ -> ()
            | None -> fail t.loc error
          end;
-       trm_iter (aux ins inouts filter true) t'
+       trm_iter (aux ins inouts filter true Regular) t'
     (* - address operations ([&t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
        (* let _ = Printf.printf "address\n" in *)
        if not nested then
          begin
-           match (trm_resolve_pointer t') with
-           | Some v when not (Var_set.mem v filter) ->
-              let d = Dep_trm (t, v) in Stack.push d ins
+           match (trm_resolve_pointer_and_degree t') with
+           | Some (v, _) when not (Var_set.mem v filter) ->
+              begin
+                match attr with
+                | Regular
+                  | FunArgIn -> let d = Dep_trm (t, v) in Stack.push d ins
+                | FunArgInOut -> let d = Dep_trm (t, v) in Stack.push d inouts
+              end
            | Some _ -> ()
            | None -> fail t.loc error
          end;
-       trm_iter (aux ins inouts filter true) t'
+       trm_iter (aux ins inouts filter true Regular) t'
     (* - array accesses ([t'[i]], [t' -> [i]]), *)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _)
@@ -873,9 +902,22 @@ let trm_discover_dependencies (locals : fun_symbols)
        (* let _ = Printf.printf "array\n" in *)
        let (base, accesses) = get_nested_accesses t in
        begin
-         match (trm_resolve_pointer base) with
-         | Some v when not nested && not (Var_set.mem v filter) ->
-            let d = Dep_trm (t, v) in Stack.push d ins
+         match (trm_resolve_pointer_and_degree base) with
+         | Some (v, _) when not nested && not (Var_set.mem v filter) ->
+            begin
+              match attr with
+              | Regular -> let d = Dep_trm (t, v) in Stack.push d ins
+              | FunArgIn ->
+                 let degree = List.length accesses in
+                 let degree' = Var_Hashtbl.find locals v in
+                 let d = trm_to_dep t v (degree' - degree) in
+                 Stack.push d ins
+              | FunArgInOut ->
+                 let degree = List.length accesses in
+                 let degree' = Var_Hashtbl.find locals v in
+                 let d = trm_to_dep t v (degree' - degree) in
+                 Stack.push d inouts
+            end
          | Some _ -> ()
          | None -> fail t.loc error
        end;
@@ -883,7 +925,7 @@ let trm_discover_dependencies (locals : fun_symbols)
            fun a -> match a with
                     | Array_access_get t''
                       | Array_access_addr t'' ->
-                       aux ins inouts filter false t''
+                       aux ins inouts filter false Regular t''
                     | _ -> ()
          ) accesses
     (* - unary increment and decrement operations ([t'++], [--t'], ...), *)
@@ -891,16 +933,38 @@ let trm_discover_dependencies (locals : fun_symbols)
            (is_prefix_unary op || is_postfix_unary op) ->
        (* let _ = Printf.printf "unop\n" in *)
        begin
-         match (trm_resolve_pointer t') with
-         | Some v when not (Var_set.mem v filter) ->
-            let d = Dep_trm (t', v) in Stack.push d inouts
+         match (trm_resolve_pointer_and_degree t') with
+         | Some (v, degree) when not (Var_set.mem v filter) ->
+            begin
+              match attr with
+              | Regular -> let d = Dep_var (v) in Stack.push d inouts
+              | FunArgIn
+                | FunArgInOut ->
+                 let degree' = Var_Hashtbl.find locals v in
+                 let d = var_to_dep v (degree' - degree) in
+                 Stack.push d inouts
+            end
          | Some _ -> ()
          | None -> fail t.loc error
        end;
     (* - function calls ([f(args)], ...). *)
-    | Trm_apps ({ desc = Trm_var (_ , _); _ }, args) ->
+    | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        (* let _ = Printf.printf "call\n" in *)
-       List.iter (fun arg -> trm_iter (aux ins inouts filter false) arg) args
+       if Var_Hashtbl.mem const_records v then
+         let const_record : const_fun = Var_Hashtbl.find const_records v in
+         let consts : (var * const_arg) list = const_record.const_args in
+         let (_, consts') = List.split consts in
+         List.iter2 (
+             fun arg (const : const_arg)  ->
+             if const.is_const then
+               trm_iter (aux ins inouts filter false FunArgIn) arg
+             else
+               trm_iter (aux ins inouts filter false FunArgInOut) arg
+           ) args consts'
+       else
+         List.iter (
+             fun arg -> trm_iter (aux ins inouts filter false FunArgInOut) arg
+           ) args
     (* - set operation ([a = 1], [b = ptr], [*c = 42], ...), *)
     | Trm_apps _ when is_set_operation t ->
        let error' = "Apac_core.trm_look_for_dependencies.aux: expected set \
@@ -909,65 +973,42 @@ let trm_discover_dependencies (locals : fun_symbols)
        begin
          match (trm_resolve_binop_lval_and_get_with_deref lval) with
          | Some (lv, _) ->
-            let _ = Debug_transfo.trm "lval after" lval in
             let d = Dep_trm (lval, lv.v) in
             Stack.push d inouts;
-            trm_iter (aux ins inouts filter false) rval
+            trm_iter (aux ins inouts filter false Regular) rval
          | None -> fail t.loc error
        end
     | Trm_let (vk, (v, ty), init, _) ->
        let d = Dep_var (v) in
+       let degree = (typ_get_degree ty) - 1 in
        Stack.push d inouts;
-       Var_Hashtbl.add locals v (typ_get_degree ty);
-       trm_iter (aux ins inouts filter false) init
+       Var_Hashtbl.add locals v degree;
+       trm_iter (aux ins inouts filter false Regular) init
     | Trm_let_mult (vk, tvs, inits) ->
        let (vs, _) = List.split tvs in
        let filter = Var_set.of_list vs in
        List.iter2 (fun (v, ty) init ->
            let d = Dep_var (v) in
+           let degree = (typ_get_degree ty) - 1 in
            Stack.push d inouts;
-           Var_Hashtbl.add locals v (typ_get_degree ty);
-           trm_iter (aux ins inouts filter false) init
+           Var_Hashtbl.add locals v degree;
+           trm_iter (aux ins inouts filter false Regular) init
          ) tvs inits
     (* In the case of any other term, we just continue to explore the child
        terms. *)
     | _ -> (* let _ = Debug_transfo.trm "other" t in *)
-       trm_iter (aux ins inouts filter false) t
+       trm_iter (aux ins inouts filter false attr) t
   in
   (* In the main part of the function, we begin by creating empty stacks to
      contain the discovered in and in-out dependencies. *)
   let ins : dep Stack.t = Stack.create () in
   let inouts : dep Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
-  let _ = aux ins inouts (Var_set.empty) false t in
+  let _ = aux ins inouts (Var_set.empty) false Regular t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
   let ins' = dep_set_from_stack ins in
   let inouts' = dep_set_from_stack inouts in
   (ins', inouts')
-  
-(* [typed_var_to_dep tv]: converts the typed variable [tv] into a data
-   dependency (see the [Ast.dep] data type). *)
-let typed_var_to_dep (tv : typed_var) : dep =
-  (* Auxiliary function to build the data dependency according to the pointer
-     degree of the input variable. *)
-  let rec aux (v : var) (degree : int) : dep =
-    (* For each level of the pointer degree *)
-    let degree' = degree - 1 in
-    if degree > 0 then
-      (* nest a [Dep_ptr]. *)
-      Dep_ptr (aux v degree')
-    else
-      (* At the end, when the zero level is reached, nest the final [Dep_var]
-         built from [v]. *)
-      Dep_var (v)
-  in
-  (* In the main function body, deconstruct the typed variable [tv] into a pair
-     of a type [ty] and a variable [v]. *)
-  let (v, ty) = tv in
-  (* Compute the pointer degree of [v] based on its type [ty]. *)
-  let degree = typ_get_degree ty in
-  (* Call the auxiliary function and build the corresponding data dependency. *)
-  aux v degree
 
 let atrm_to_string (a : atrm) : string =
   let rec aux (a : atrm) (indent : string) : string =
@@ -1390,6 +1431,7 @@ let taskify_on (p : path) (t : trm) : unit =
   let rec augment (locals : fun_symbols) (t : trm) : atrm =
     match t.desc with
     | Trm_seq instrs ->
+       let scope = var_set_from_var_hashtbl locals in
        let instrs' = Mlist.to_list instrs in
        let instrs' = List.map (fun instr -> augment locals instr) instrs' in
        let ins = List.fold_left (
@@ -1398,10 +1440,22 @@ let taskify_on (p : path) (t : trm) : unit =
        let inouts = List.fold_left (
                      fun acc instr -> Dep_set.union acc instr.inouts
                    ) Dep_set.empty instrs' in
+       let ins' = Dep_set.filter (
+                      fun d -> match (dep_get_atomic d) with
+                               | Dep_var v -> Var_set.mem v scope
+                               | Dep_trm (_, v) -> Var_set.mem v scope
+                               | _ -> false
+                    ) ins in
+       let inouts' = Dep_set.filter (
+                         fun d -> match (dep_get_atomic d) with
+                                  | Dep_var v -> Var_set.mem v scope
+                                  | Dep_trm (_, v) -> Var_set.mem v scope
+                                  | _ -> false
+                       ) inouts in
        {
          current = t;
-         ins = ins;
-         inouts = inouts;
+         ins = ins';
+         inouts = inouts';
          children = instrs';
          params = []
        }
