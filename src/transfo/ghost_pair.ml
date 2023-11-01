@@ -302,3 +302,31 @@ let%transfo elim ?(mark_begin: mark option) ?(mark_end: mark option) (tg: target
     let i, p = Path.index_in_seq p in
     apply_on_path (elim_at ?mark_begin ?mark_end i) t p
   ) tg
+
+
+(** Removes temporarily all the pairs before calling the transformation f *)
+let apply_without_pairs (f: trm -> target -> unit) (tg: target) =
+  Target.iter (fun _ p ->
+    recompute_all_resources ();
+    Marks.with_marks (fun gen_mark ->
+      let begin_target = [nbMulti; Constr_paths [p]; cStrict; cVarDef ~body:[cCall "__ghost_begin"] ""] in
+      let marks = ref [] in
+      Target.apply (fun t p ->
+        let mark_begin = gen_mark () in
+        let mark_end = gen_mark () in
+        let t_let = Path.resolve_path p t in
+        let _, pair_token, _, _ = trm_inv trm_let_inv t_let in
+        marks := (pair_token, mark_begin, mark_end) :: !marks;
+        let i, p = Path.index_in_seq p in
+        apply_on_path (elim_at ~mark_begin ~mark_end i) t p
+      ) begin_target;
+      Trace.call (fun t -> f t tg);
+      recompute_all_resources ();
+      List.iter (fun (pair_token, begin_mark, end_mark) ->
+        Target.apply (fun t p ->
+          let i, p = Path.index_in_seq p in
+          apply_on_path (intro_at ~name:pair_token.name ~end_mark i) t p
+        ) [Constr_paths [p]; cMark begin_mark]
+      ) !marks
+    )
+  ) tg

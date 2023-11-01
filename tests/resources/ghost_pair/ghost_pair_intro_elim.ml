@@ -19,5 +19,8 @@ let _ = Run.script_cpp (fun () ->
   !! Ghost_pair.intro ~name:"focusBj" [cMark "Bj"];
   !! Trace.check_recover_original();
 
+  !! Ghost_pair.apply_without_pairs (fun _ _ -> ()) [cFunDef "main"];
+  !! Trace.check_recover_original();
+
   !! Ghost_pair.elim [nbMulti; cVarDef ~body:[cCall "__ghost_begin"] ""];
 )
