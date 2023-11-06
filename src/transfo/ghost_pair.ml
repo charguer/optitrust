@@ -320,29 +320,29 @@ let%transfo elim ?(mark_begin: mark option) ?(mark_end: mark option) (tg: target
   ) tg
 
 
-(** Removes temporarily all the pairs before calling the transformation f *)
-let apply_without_pairs (f: target -> unit) (tg: target) =
+(* Remove all the pairs inside the sequence pointed by the given path *)
+let elim_all_pairs_at (gen_mark: unit -> mark) (p: path): (var * mark * mark) list =
+  recompute_all_resources ();
+  let begin_target = [nbMulti; Constr_paths [p]; cStrict; cVarDef ~body:[cCall "__ghost_begin"] ""] in
+  let marks = ref [] in
   Target.iter (fun _ p ->
-    recompute_all_resources ();
-    Marks.with_marks (fun gen_mark ->
-      let begin_target = [nbMulti; Constr_paths [p]; cStrict; cVarDef ~body:[cCall "__ghost_begin"] ""] in
-      let marks = ref [] in
-      Target.iter (fun _ p ->
-        let mark_begin = gen_mark () in
-        let mark_end = gen_mark () in
-        let t_let = resolve_path p in
-        let _, pair_token, _, _ = trm_inv trm_let_inv t_let in
-        marks := (pair_token, mark_begin, mark_end) :: !marks;
-        let i, p = Path.index_in_seq p in
-        apply_at_path (elim_at ~mark_begin ~mark_end i) p
-      ) begin_target;
-      f tg;
-      recompute_all_resources ();
-      List.iter (fun (pair_token, begin_mark, end_mark) ->
-        Target.iter (fun _ p ->
-          let i, p = Path.index_in_seq p in
-          apply_at_path (intro_at ~name:pair_token.name ~end_mark i) p
-        ) [Constr_paths [p]; cMark begin_mark]
-      ) !marks
-    )
-  ) tg
+    let mark_begin = gen_mark () in
+    let mark_end = gen_mark () in
+    let t_let = resolve_path p in
+    let _, pair_token, _, _ = trm_inv trm_let_inv t_let in
+    marks := (pair_token, mark_begin, mark_end) :: !marks;
+    let i, p = Path.index_in_seq p in
+    apply_at_path (elim_at ~mark_begin ~mark_end i) p
+  ) begin_target;
+  !marks
+
+(* Reintroduce pairs that correspond to the marks given *)
+let reintro_pairs_at (pairs: (var * mark * mark) list) (p: path): unit =
+  recompute_all_resources ();
+  (* FIXME: Quadratic search of marks *)
+  List.iter (fun (pair_token, begin_mark, end_mark) ->
+    Target.iter (fun _ p ->
+      let i, p = Path.index_in_seq p in
+      apply_at_path (intro_at ~name:pair_token.name ~end_mark i) p
+    ) [Constr_paths [p]; cMark begin_mark]
+  ) pairs
