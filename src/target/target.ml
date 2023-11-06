@@ -1565,6 +1565,14 @@ let iter ?(rev : bool = false) (tr : trm -> path -> unit) : target -> unit =
 let iter_at_target_paths ?(rev : bool = false) (transfo : trm -> unit) (tg : target) : unit =
   iter ~rev (fun t p -> transfo (Path.get_trm_at_path p t)) tg
 
+(** [apply_at_path transfo p]: follow a path from the AST root to apply a function on the corresponding subterm *)
+let apply_at_path (transfo : trm -> trm) (p : path) : unit =
+  Trace.apply (fun t -> Path.apply_on_path transfo t p)
+
+(** [resolve_path p]: follow a path from the AST root and return the subterm found *)
+let resolve_path (p: path): trm =
+  Path.resolve_path p (Trace.ast ())
+
 (* [applyi tr tg]: apply transformation [tr] on the current ast
    to each of the paths targeted by [tg].
      [tg] - target
@@ -1579,17 +1587,17 @@ let apply ?(rev : bool = false) (tr : trm -> path -> trm) (tg : target) : unit =
   applyi ~rev (fun _occ t p -> tr t p) tg
 
 let apply_at_target_paths ?(rev : bool = false) (transfo : trm -> trm) (tg : target) : unit =
-  apply ~rev (fun t p -> Path.apply_on_path transfo t p) tg
+  iter ~rev (fun _ p -> apply_at_path transfo p) tg
 
 let applyi_at_target_paths ?(rev : bool = false) (transfo : int -> trm -> trm) (tg : target) : unit =
-  applyi ~rev (fun i t p -> Path.apply_on_path (transfo i) t p) tg
+  iteri ~rev (fun i _ p -> apply_at_path (transfo i) p) tg
 
 (* ... [transfo t i] where [t] denotes the sequence and [i] denotes the index
    of the item in the sequence before which the target is aiming at. *)
 let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : unit =
-  apply (fun t pb ->
+  iter (fun _ pb ->
     let (p,i) = Path.last_dir_before_inv_success pb in
-    Path.apply_on_path (fun tseq -> transfo tseq i) t p) tg
+    apply_at_path (fun tseq -> transfo tseq i) p) tg
 
 
 (******************************************************************************)
