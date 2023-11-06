@@ -196,10 +196,25 @@ let%transfo fission (tg : target) : unit =
 
 let find_inverse (ghost_fn: trm) (res: resource_spec) =
   let open Tools.OptionMonad in
-  let* ghost_fn = trm_var_inv ghost_fn in
-  let* res in
-  let* ghost_spec = Var_map.find_opt ghost_fn res.fun_specs in
-  ghost_spec.inverse
+  Pattern.pattern_match ghost_fn [
+    Pattern.(trm_var !__) (fun ghost_fn ->
+      let* res in
+      let* ghost_spec = Var_map.find_opt ghost_fn res.fun_specs in
+      let* inv = ghost_spec.inverse in
+      Some (trm_var inv)
+    );
+    Pattern.(trm_apps2 (trm_var (var_eq with_reverse)) (trm_fun_with_contract __ __ !__) (trm_fun !__ !__)) (fun fwd_contract bwd_args bwd_body ->
+        Some (trm_fun bwd_args None bwd_body ~contract:(FunSpecContract (revert_fun_contract fwd_contract)))
+    );
+    Pattern.(trm_apps2 (trm_var (var_eq with_reverse)) __ !__) (fun inv -> Some inv);
+    Pattern.__ None
+  ]
+
+let without_inverse (ghost_fn: trm) =
+  Pattern.pattern_match ghost_fn [
+    Pattern.(trm_apps2 (trm_var (var_eq with_reverse)) !__ __) (fun fwd -> fwd);
+    Pattern.__ ghost_fn
+  ]
 
 let debug_intro = false
 
@@ -233,7 +248,7 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
       false
   in
 
-  let exception FoundInverse of int * trm * (var * trm) list in
+  let exception FoundInverse of int * trm * trm in
   try
     Mlist.iteri (fun i t ->
       match trm_ghost_inv t with
@@ -245,18 +260,19 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
         if correct_mark then
           begin match invoc_linear_pre_and_post t with
           | Some end_invoc_res when are_inverse_invoc_res begin_invoc_res end_invoc_res ->
-            raise (FoundInverse (i, ghost_fn, ghost_args))
+            raise (FoundInverse (i, ghost_fn, t))
           | _ -> ()
           end
       | None -> ()
     ) seq_after;
     failwith "No ghost candidate for forming the end of a pair"
 
-  with FoundInverse (i, end_ghost_fn, end_ghost_args) ->
+  with FoundInverse (i, end_ghost_fn, end_ghost_call) ->
     let is_reversible = Option.is_some (find_inverse ghost_fn ghost_begin.ctx.ctx_resources_before) in
-    let _, ghost_begin, ghost_end = if is_reversible
-      then trm_ghost_pair ?name ghost_fn ghost_args
-      else failwith "Non reversible pairs are not handled yet"
+    let _, ghost_begin, ghost_end = if is_reversible then
+        trm_ghost_pair ?name ghost_fn ghost_args
+      else
+        trm_ghost_custom_pair ?name (trm_specialized_ghost_closure ghost_begin) (trm_specialized_ghost_closure ~remove_contract:true end_ghost_call)
     in
     let seq_after = Mlist.replace_at i ghost_end seq_after in
     let seq = Mlist.merge_list [seq_before; Mlist.of_list [ghost_begin]; seq_after] in
@@ -291,8 +307,8 @@ let elim_at ?(mark_begin: mark option) ?(mark_end: mark option) (i: int) (t_seq:
       | None -> failwith "Found a non reversible ghost pair"
     in
 
-    let seq_after = Mlist.replace_at i (trm_may_add_mark mark_end (trm_ghost_varargs (trm_var inverse_ghost_fn) ghost_args)) seq_after in
-    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_may_add_mark mark_begin (trm_ghost_varargs ghost_fn ghost_args)]; seq_after] in
+    let seq_after = Mlist.replace_at i (trm_may_add_mark mark_end (trm_ghost_varargs inverse_ghost_fn ghost_args)) seq_after in
+    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_may_add_mark mark_begin (trm_ghost_varargs (without_inverse ghost_fn) ghost_args)]; seq_after] in
     trm_replace (Trm_seq seq) t_seq
 
 (** Split a ghost pair into two independant ghost calls *)

@@ -56,6 +56,8 @@ inline void __ghost_end(__ghost_fn) {}
 inline __ghost_fn __with_reverse(__ghost_fn g, __ghost_fn g_rev) { return g; }
 inline void __reverts(__ghost_fn) {}
 
+#define __GHOST_BEGIN_CUSTOM(rev_ghost, forward_ghost, backward_ghost) __GHOST_BEGIN(rev_ghost, __with_reverse(forward_ghost, backward_ghost), "")
+
 /* ---- Contract for primitive functions ---- */
 
 template<typename T> T* __new(T init) {

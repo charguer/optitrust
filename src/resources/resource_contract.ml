@@ -165,3 +165,23 @@ let revert_fun_contract contract =
       fun_specs = Var_map.empty
     }
   }
+
+let specialize_contract contract subst =
+  { pre = subst_in_resources subst { contract.pre with pure = List.filter (fun (ghost_var, _) -> Var_map.mem ghost_var subst) contract.pre.pure };
+    post = subst_in_resources subst contract.post }
+
+let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =
+  Pattern.pattern_match ghost_call [
+    Pattern.(trm_apps (trm_fun_with_contract nil !__ !__) nil !__) (fun ghost_body contract ghost_args ->
+      let subst = List.fold_left (fun subst (g, t) -> Var_map.add g t subst) Var_map.empty ghost_args in
+      let body = trm_subst subst ghost_body in
+      let contract = if remove_contract then FunSpecUnknown else FunSpecContract (specialize_contract contract subst) in
+      trm_fun [] None body ~contract
+    );
+    Pattern.(trm_apps !__ nil nil) (fun ghost_fn -> ghost_fn);
+    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args ->
+      (* TODO: Handle this case by recovering the contract of the called function *)
+      failwith "trm_specialized_ghost_closure: Unhandled complex ghost call that is not a closure"
+    );
+    Pattern.(!__) (fun _ -> failwith "trm_specialized_ghost_closure must be called with a ghost call as argument")
+  ]

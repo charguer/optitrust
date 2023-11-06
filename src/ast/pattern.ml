@@ -91,6 +91,15 @@ let trm_fun args body k t =
     k
   | _ -> raise Next
 
+let trm_fun_with_contract args body contract k t =
+  match t.desc with
+  | Trm_fun (targs, tret_type, tbody, FunSpecContract tcontract) ->
+    let k = args k targs in
+    let k = body k tbody in
+    let k = contract k tcontract in
+    k
+  | _ -> raise Next
+
 let trm_for range body spec k t =
   match t.desc with
   | Trm_for (trange, tbody, tspec) ->

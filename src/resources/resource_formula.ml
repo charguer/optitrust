@@ -198,6 +198,13 @@ let trm_ghost_pair ?(name: string option) (ghost_fn: trm) (ghost_args: (var * tr
    trm_ghost_begin ghost_pair_var ghost_fn ghost_args,
    trm_ghost_end ghost_pair_var)
 
+let trm_ghost_custom_pair ?(name: string option) (forward_fn: trm) (backward_fn: trm): var * trm * trm =
+  let ghost_pair_var = generate_ghost_pair_var ?name () in
+  let ghost_with_reverse = trm_apps (trm_var with_reverse) [forward_fn; backward_fn] in
+  (ghost_pair_var,
+   trm_ghost_begin ghost_pair_var ghost_with_reverse [],
+   trm_ghost_end ghost_pair_var)
+
 let trm_ghost_scope (ghost_fn: trm) (ghost_args: (var * trm) list) (seq: trm list): trm =
   let _, ghost_begin, ghost_end = trm_ghost_pair ghost_fn ghost_args in
   Nobrace.trm_seq (ghost_begin :: seq @ [ghost_end])

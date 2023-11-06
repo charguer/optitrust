@@ -660,6 +660,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           ghost_args_vars := Var_set.remove ghost_var !ghost_args_vars;
           not manually_given) spec.contract.pre.pure } }
         in
+        assert (Var_set.is_empty !ghost_args_vars);
 
         let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
 
