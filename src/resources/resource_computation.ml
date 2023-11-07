@@ -744,22 +744,14 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       let usage_map, _ = compute_resources ~expected_res (Some res) body in
       usage_map, Some res
 
-    | Trm_for ((index, tstart, _, tend, step, _) as range, body, Some contract) ->
-      (* Compute resources outside the loop *)
-      let invariant_before = subst_invariant_start range contract.invariant in
-      let before_loop_res = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
-      let before_loop_res = { before_loop_res with pure = contract.loop_ghosts @ before_loop_res.pure } in
-      let ghost_subst_ctx, res_used, res_frame = extract_resources ~split_frac:true res before_loop_res in
+    | Trm_for (range, body, Some contract) ->
+      let outer_contract = loop_outer_contract range contract in
+      let ghost_subst_ctx, res_used, res_frame = extract_resources ~split_frac:true res outer_contract.pre in
 
-      (* Compute resources inside the loop body *)
-      let loop_body_pre = res_union contract.invariant contract.iter_contract.pre in
-      let loop_body_pre = { loop_body_pre with pure = contract.loop_ghosts @ loop_body_pre.pure; fun_specs = res.fun_specs } in
-      let invariant_after_one_iter = subst_invariant_step range contract.invariant in
-      let loop_body_post = res_union invariant_after_one_iter contract.iter_contract.post in
-      ignore (compute_resources ~expected_res:loop_body_post (Some loop_body_pre) body);
+      let inner_contract = loop_inner_contract range contract in
+      ignore (compute_resources ~expected_res:inner_contract.post (Some (bind_new_resources ~old_res:res ~new_res:inner_contract.pre)) body);
 
-      let after_loop_res = res_union contract.invariant (res_group_range range contract.iter_contract.post) in
-      let after_loop_res = compute_produced_resources (Var_map.add index tend ghost_subst_ctx) after_loop_res in
+      let after_loop_res = compute_produced_resources ghost_subst_ctx outer_contract.post in
 
       t.ctx.ctx_resources_contract_invoc <- Some { contract_frame = res_frame; contract_inst = res_used; contract_produced = after_loop_res };
 

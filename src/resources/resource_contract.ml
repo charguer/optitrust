@@ -150,6 +150,21 @@ let subst_invariant_start (index, tstart, _, _, _, _) = subst_var_in_resources i
 let subst_invariant_step (index, _, _, _, step, _) = subst_var_in_resources index (trm_add (trm_var index) (loop_step_to_trm step))
 let subst_invariant_end (index, _, _, tend, _, _) = subst_var_in_resources index tend
 
+let loop_outer_contract range contract =
+  let invariant_before = subst_invariant_start range contract.invariant in
+  let pre = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
+  let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
+  let invariant_after = subst_invariant_end range contract.invariant in
+  let post = res_union invariant_after (res_group_range range contract.iter_contract.post) in
+  { pre; post }
+
+let loop_inner_contract range contract =
+  let pre = res_union contract.invariant contract.iter_contract.pre in
+  let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
+  let invariant_after_one_iter = subst_invariant_step range contract.invariant in
+  let post = res_union invariant_after_one_iter contract.iter_contract.post in
+  { pre; post }
+
 let revert_fun_contract contract =
   assert (contract.post.pure = []);
   assert (contract.post.fun_specs = Var_map.empty);
