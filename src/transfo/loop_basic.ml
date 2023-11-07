@@ -291,6 +291,8 @@ let%transfo fission_multi (tg : target) : unit =
   paths = resolve target
   all paths must be target-between inside for-loop sequences
   partition the paths according to the sequence they are in (remove duplicates)
+    -> see pattern in fusion_targets ; use a group_by to generalize to multiple set of targets
+    -> beware of nesting, should probably start with innermost paths
   for each for loop, apply fission on that loop, at the selected indices *)
 
 (* TODO: valid in C but not C++? *)

@@ -371,6 +371,14 @@
   - Remove the trm argument that correspond to the full AST in continuations given to `Target.iter`
   - Remove `Target.apply`, since functions that mutate the AST will be executed in the continuation (However keep `apply_at_target_paths` that remain useful)
 
+- A combinator `Target.group_by prefix ?drop_prefix=false tg` that resolves a target `tg` to paths `ps`,
+  then partition the paths according to the result of `prefix p` of each path `p`.
+  Returns a list of the form (prefix, paths_with_that_prefix|suffixes)
+  from the decomposition of the path,
+  of type `path * path list`. The list should be ordered with smallest prefixes first.
+- Another combinator `Target.apply_with_group_by prefix tg (fun prefix ps -> transfo)`
+  that iterates the transfo on the list.
+
 # Case study
 
 - (AC) Fix pic_demo and remove `Loop.hoist_old`
