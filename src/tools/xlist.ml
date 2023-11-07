@@ -197,8 +197,25 @@ let extract_element (l : 'a list) (index : int) : ('a * 'a list) =
 
 (* [drop n l]: drops the first [n] elements from [l]. *)
 let rec drop (n : int) (l: 'a list) : 'a list =
-  if n <= 0 then l
-  else drop (n - 1) (List.tl l)
+  if n < 0 then failwith "drop: invalid negative argument"; (* could be outside of recursion *)
+  if n = 0 then l else
+    match l with
+    | [] -> failwith "drop: not enough many elements to drop"
+    | _::l' -> drop (n - 1) l'
+
+(* [take n l]: take the first [n] elements from [l]. *)
+let rec take (n : int) (l: 'a list) : 'a list =
+  if n < 0 then failwith "take: invalid negative argument"; (* could be outside of recursion *)
+  if n = 0 then [] else
+    match l with
+    | [] -> failwith "take: not enough many elements to take"
+    | x::l' -> x :: (take (n - 1) l')
+
+(* [drop_last n l]: drops the last [n] elements from [l]. *)
+let drop_last (n : int) (l: 'a list) : 'a list =
+  let nb_take = List.length l - n in
+  if nb_take < 0 then failwith "drop_last: list not long enough";
+  take nb_take l
 
 (* [take_last n l]: takes the last [n] elements from [l]. *)
 let take_last (n : int) (l : 'a list) : 'a list =

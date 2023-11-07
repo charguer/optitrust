@@ -41,6 +41,9 @@
 
 - (AC) Implement an incremental typechecker, able to retypecheck only the parts that are changed.
 
+- Resource checker should complain if a function without a contract contains ghost or contracts;
+  in any case, should not make resources available in any subterm of a function without a contract.
+  to see..
 
 
 # Shortcuts

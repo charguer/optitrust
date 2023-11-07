@@ -1,6 +1,6 @@
 #include "../../../include/optitrust.h"
 
-int test (int* t, int* u, int n) {
+int test(int* t, int* u, int n) {
   __modifies(
     "Group(range(1, n, 1), fun i -> &t[i] ~> Cell),"
     "Group(range(1, n, 1), fun i -> &u[i] ~> Cell)");
@@ -13,6 +13,8 @@ int test (int* t, int* u, int n) {
     t[i] += a;
     int b = i;
     u[i] += b;
+    int c = i;
+    u[i] += c;
   }
 
   for (int i = 0; (i < 5); i++) {
@@ -27,6 +29,48 @@ int test (int* t, int* u, int n) {
     MFREE1(5, m1);
     int* const m2 = (int* const) MALLOC1(5, sizeof(int));
     MFREE1(5, m2);
+  }
+
+}
+
+int testAllInstr(int* t, int* u, int n) {
+  __pure();
+  for (int i = 0; (i < 5); i++) {
+    __pure();
+    int a1 = i;
+    int a2 = i;
+    int a3 = i;
+    int a4 = i;
+    int a5 = i;
+  }
+}
+
+int testAllInstr2(int* t, int* u, int n) {
+  __pure();
+  for (int i = 0; (i < 5); i++) {
+    __pure();
+    int a1 = i;
+    int a2 = i;
+    int a3 = i;
+    int a4 = i;
+    int a5 = i;
+  }
+}
+
+int testAllInstrContracts(int* t, int* u, int n) {
+    __modifies(
+    "Group(range(1, n, 1), fun i -> &t[i] ~> Cell),"
+    "Group(range(1, n, 1), fun i -> &u[i] ~> Cell)");
+  for (int i = 1; i < n; i++) {
+    __modifies(
+      "&t[i] ~> Cell,"
+      "&u[i] ~> Cell");
+    int a = i;
+    t[i] += a;
+    int b = i;
+    u[i] += b;
+    int c = i;
+    u[i] += c; // TODO replace c with b and what is the error message
   }
 
 }

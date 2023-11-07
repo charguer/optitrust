@@ -315,7 +315,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
          | Resource_set_fun_contracts -> failwith "apply_on_resource_set: not handled Resource_set_fun_contract"
        in
        let newt = begin match d, t.desc with
-       | Dir_before _, _ -> fail t.loc "apply_on_path: Dir_before should not remain at this stage"
+       | Dir_before _, _ ->
+          fail t.loc "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expected a target-between (tBefore, tAfter, ..)"
        | Dir_array_nth n, Trm_array tl ->
           { t with desc = Trm_array (Mlist.update_nth n aux tl)}
        | Dir_seq_nth n, Trm_seq tl ->

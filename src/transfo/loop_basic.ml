@@ -145,12 +145,12 @@ let%transfo hoist ?(name : string = "${var}_step")
       Path.apply_on_path (hoist_on name mark arith_f i) t p
       ) tg)
 
-(* [fission_on]: split loop [t] into two loops
+(* [fission_on_as_pair]: split loop [t] into two loops
 
     [index]: index of the splitting point
     [t]: ast of the loop
     *)
-let fission_on (index : int) (t : trm) : trm =
+let fission_on_as_pair (index : int) (t : trm) : trm * trm =
   let (l_range, tl, contract) = trm_inv
     ~error:"Loop_basic.fission_on: only simple loops are supported"
     trm_for_inv_instrs t
@@ -167,18 +167,22 @@ let fission_on (index : int) (t : trm) : trm =
 
     let error = "Loop_basic.fission_on is invalid" in
     Resources.justif_parallelizable_loop_contract ~error contract;
-
+    (* TODO: never use nth 0 ; must handle case where body is empty *)
+    (* TODO: use a specific inversion function to acquire resources that are assumed to be computed,
+         to fail gracefully if forgot to recompute resources *)
     let tl2_ctx_res = Tools.unsome ((Mlist.nth tl2 0).ctx.ctx_resources_before) in
-    let bound_in_ghosts = List.fold_left (fun acc (g, _) ->
+    let bound_in_ghosts = List.fold_left (fun acc (g, _) -> (* TODO: gather_vars_in_contract *)
         Var_set.add g acc
       ) Var_set.empty contract.loop_ghosts
     in
-    let bound_in_tl1 = Mlist.fold_left (fun acc ti ->
+    let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
         match trm_let_inv ti with
         | Some (vk, v, typ, init) -> Var_set.add v acc
         | None -> acc
       ) Var_set.empty tl1
     in
+    (* At the fission point, we remove resources mentioning variables that were bound
+       before the fission point, or that were bound by the contract ghost bindings *)
     let filter_resource_items its =
       List.filter (fun (h, formula) ->
         not (Var_set.mem h bound_in_ghosts) &&
@@ -208,45 +212,41 @@ let fission_on (index : int) (t : trm) : trm =
       }
     };
   end;
-  trm_seq_no_brace [
-    trm_for_instrs ?contract:!fst_contract l_range tl1;
-    trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2);]
+  let ta = trm_for_instrs ?contract:!fst_contract l_range tl1 in
+  let tb = trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2) in
+  (ta, tb)
     (* Note: the trm_copy is needed because the loop index in the
        two loops must have a different id. We copy the second loop
        because fission_all_instr process them from the end. *)
+
+(* [fission_on]: split loop [t] into two loops
+
+    [index]: index of the splitting point
+    [t]: ast of the loop
+    *)
+let fission_on (index : int) (t : trm) : trm =
+  let (ta,tb) = fission_on_as_pair index t in
+  trm_seq_no_brace [ ta; tb ]
 
 
 (* [fission_all_instrs_on]: split loop [t] into N loops,
    one per instruction in the loop body
 
+   [indices]: list of indices of positions where to split
    [t]: ast of the loop
-
-   TODO:
-   let fission_all_instrs_on (t : trm) (indices : int list) : trm =
-      let rec aux indices t =
-        match indices with
-        | nil -> t
-        | i::indices' -> aux indices' (fission_on t i)
-        in
-      aux (List.rev indices) t
-
-    let%transfo fission_all_instrs ?(such_that: int->trm -> bool = fun _ => true) (tg : target) : unit =
-      resolves target pour trouver la boucle
-      let indices = List.mapi (such_that ) t.elements
 *)
-let fission_all_instrs_on (t : trm) : trm =
-  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
-  match t.desc with
-  | Trm_for (l_range, body, contract) ->
-    begin match body.desc with
-    | Trm_seq tl ->
-        let build_for_loop (ti:trm) : trm =
-          (* TODO: fix contract --> replace this function by calls to fission_on *)
-          trm_copy (trm_for ?contract l_range (trm_seq_nomarks [ti])) in
-        trm_seq_no_brace (List.map build_for_loop (Mlist.to_list tl))
-    | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: expected the sequence inside the loop body"
-    end
-  | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: only simple loops are supported"
+
+let fission_all_instrs_on (indices : int list) (t : trm) : trm =
+  let rec aux (indices : int list) (t : trm) : trm list =
+    match indices with
+    | [] -> [t]
+    | i::indices' ->
+        let (ta,tb) = fission_on_as_pair i t in
+        let tl = aux indices' ta in
+        tb :: tl
+    in
+  let tl = aux (List.rev indices) t in
+  trm_seq_no_brace (List.rev tl)
 
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
@@ -265,15 +265,33 @@ let%transfo fission (tg : target) : unit =
     tg);
   Resources.justif_correct "loop resources where successfully split"
 
-(* LATER: only keep fission or fission_all_instrs,
-   implementing one with the other *)
 (* [fission_all_instrs]: similar to [fission],
    but splits the targeted loop into N loops,
    one per instruction in the loop body.
+   or at specific indices.
    *)
-let%transfo fission_all_instrs (tg : target) : unit =
+let%transfo fission_all_instrs ?(indices : int list option) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    Target.apply_at_target_paths fission_all_instrs_on tg)
+    let aux t =
+      let _, tl, _ = trm_inv ~error:"fission_all_instrs: must target a for loop" trm_for_inv_instrs t in
+      let tl = Mlist.to_list tl in
+      let indices =
+        match indices with
+        | Some indices -> indices
+        | None ->
+            if tl = [] then [] (* do nothing *)
+            else Xlist.drop 1 (List.mapi (fun i _ -> i) tl) (* take all indices of intervals *)
+          in
+      fission_all_instrs_on indices t
+      in
+    Target.apply_at_target_paths aux tg)
+
+(* TODO: combi
+let%transfo fission_multi (tg : target) : unit =
+  paths = resolve target
+  all paths must be target-between inside for-loop sequences
+  partition the paths according to the sequence they are in (remove duplicates)
+  for each for loop, apply fission on that loop, at the selected indices *)
 
 (* TODO: valid in C but not C++? *)
 let normalize_loop_step (s : loop_step) : loop_step =
