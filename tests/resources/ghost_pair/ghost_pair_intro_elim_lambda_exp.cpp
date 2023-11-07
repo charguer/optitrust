@@ -25,6 +25,7 @@ void f(float* M, int n) {
         }
       },
       "");
+  int x = 3;
   __ghost(
       [&]() {
         __consumes("Group(range(0, n, 1), fun i -> &M[i] ~> FrozenCell)");

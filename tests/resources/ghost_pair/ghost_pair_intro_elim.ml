@@ -19,12 +19,11 @@ let _ = Run.script_cpp (fun () ->
   !! Ghost_pair.intro ~name:"focusBj" [cMark "Bj"];
   !! Trace.check_recover_original();
 
-  !! Target.iter (fun _ p ->
-        Marks.with_marks (fun gen_mark ->
-          let pairs = Ghost_pair.elim_all_pairs_at gen_mark p in
-          Ghost_pair.reintro_pairs_at pairs p
-        )
-      ) [cFunDef "main"];
+  (* Testing internal operations *)
+  let p = resolve_target_exactly_one [cFunDef "main"] (Trace.ast ()) in
+  let pairs = ref None in
+  !! pairs := Some (Ghost_pair.elim_all_pairs_at Mark.next p);
+  !! Ghost_pair.reintro_pairs_at (Option.get !pairs) p;
   !! Trace.check_recover_original();
 
   !! Ghost_pair.elim [nbMulti; cVarDef ~body:[cCall "__ghost_begin"] ""];

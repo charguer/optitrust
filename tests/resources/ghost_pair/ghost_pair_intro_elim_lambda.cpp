@@ -32,6 +32,7 @@ void f(float* M, int n) {
         __ghost(unfreeze_cell, "p := &M[i]");
       }
     });
+  int x = 3;
   __GHOST_END(pair);
 }
 
