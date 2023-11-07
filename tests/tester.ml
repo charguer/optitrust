@@ -739,7 +739,8 @@ let _main : unit =
     in
 
   (* Handle confirmation *)
-  let needs_confirmation = (!action <> "run") && not !skip_confirmation in
+  let without_confirmation = ["run"; "meld"; "diff"] in
+  let needs_confirmation = (not (List.mem !action without_confirmation)) && not !skip_confirmation in
   if not needs_confirmation then begin
     execute()
   end else begin

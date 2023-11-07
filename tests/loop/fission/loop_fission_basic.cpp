@@ -1,11 +1,6 @@
 #include "../../../include/optitrust.h"
 
-int main() {
-
-  int* const t;
-  int* const u;
-  const int n;
-
+int test (int* t, int* u, int n) {
   __modifies(
     "Group(range(1, n, 1), fun i -> &t[i] ~> Cell),"
     "Group(range(1, n, 1), fun i -> &u[i] ~> Cell)");
@@ -34,5 +29,4 @@ int main() {
     MFREE1(5, m2);
   }
 
-  // TODO: return 0;
 }
