@@ -195,6 +195,12 @@ let trm_seq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (tl : trm mlist) : trm =
   trm_make ~annot ?loc ~typ:(typ_unit()) ?ctx (Trm_seq tl)
 
+(* [trm_seq_nomarks ~annot ?loc ?ctx tl]: like [trm_seq] but takes
+   a list as arguments --LATER: use it everywhere it should instead of
+  [trm_seq (Mlist_of_list tl)] *)
+let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (tl : trms) : trm =
+  trm_seq ~annot ?loc ?ctx (Mlist.of_list tl)
+
 (* [trm_apps ~annot ?loc ?typ ?ctx f args]: function call *)
 let trm_apps ?(annot = trm_annot_default) ?(loc) ?(typ) ?(attributes = [])
   ?(ctx : ctx option) ?(ghost_args = []) (f : trm) (args : trms) : trm =
@@ -351,10 +357,6 @@ let trm_set ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
 let trm_neq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ?loc ?ctx ~typ:(typ_unit ()) (trm_binop Binop_neq) [t1; t2]
-
-(* [trm_seq_nomarks ~annot ?loc ?ctx tl]: hidden block statement *)
-let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (tl : trms) : trm =
-  trm_seq ~annot ?loc ?ctx (Mlist.of_list tl)
 
 (** Construct a ghost call using variable arg names. *)
 let trm_ghost_varargs (ghost_fn: trm) (ghost_args: (var * formula) list) =

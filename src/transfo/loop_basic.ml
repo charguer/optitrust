@@ -211,6 +211,43 @@ let fission_on (index : int) (t : trm) : trm =
   trm_seq_no_brace [
     trm_for_instrs ?contract:!fst_contract l_range tl1;
     trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2);]
+    (* Note: the trm_copy is needed because the loop index in the
+       two loops must have a different id. We copy the second loop
+       because fission_all_instr process them from the end. *)
+
+
+(* [fission_all_instrs_on]: split loop [t] into N loops,
+   one per instruction in the loop body
+
+   [t]: ast of the loop
+
+   TODO:
+   let fission_all_instrs_on (t : trm) (indices : int list) : trm =
+      let rec aux indices t =
+        match indices with
+        | nil -> t
+        | i::indices' -> aux indices' (fission_on t i)
+        in
+      aux (List.rev indices) t
+
+    let%transfo fission_all_instrs ?(such_that: int->trm -> bool = fun _ => true) (tg : target) : unit =
+      resolves target pour trouver la boucle
+      let indices = List.mapi (such_that ) t.elements
+*)
+let fission_all_instrs_on (t : trm) : trm =
+  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
+  match t.desc with
+  | Trm_for (l_range, body, contract) ->
+    begin match body.desc with
+    | Trm_seq tl ->
+        let build_for_loop (ti:trm) : trm =
+          (* TODO: fix contract --> replace this function by calls to fission_on *)
+          trm_copy (trm_for ?contract l_range (trm_seq_nomarks [ti])) in
+        trm_seq_no_brace (List.map build_for_loop (Mlist.to_list tl))
+    | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: expected the sequence inside the loop body"
+    end
+  | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: only simple loops are supported"
+
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -227,23 +264,6 @@ let%transfo fission (tg : target) : unit =
       apply_on_path (fission_on split_i) t p_loop)
     tg);
   Resources.justif_correct "loop resources where successfully split"
-
-(* [fission_all_instrs_on]: split loop [t] into N loops,
-   one per instruction in the loop body
-
-   [t]: ast of the loop
-    *)
-let fission_all_instrs_on (t : trm) : trm =
-  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
-  match t.desc with
-  | Trm_for (l_range, body, contract) ->
-    begin match body.desc with
-    | Trm_seq tl ->
-      let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1]) (Mlist.to_list tl) in
-      trm_seq_no_brace (List.map (fun t1 -> trm_copy (trm_for ?contract l_range t1)) body_lists)
-    | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: expected the sequence inside the loop body"
-    end
-  | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: only simple loops are supported"
 
 (* LATER: only keep fission or fission_all_instrs,
    implementing one with the other *)

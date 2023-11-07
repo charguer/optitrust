@@ -1,10 +1,11 @@
 #include "../../../include/optitrust.h"
 
-int* const t;
-int* const u;
-const int n;
-
 int main() {
+
+  int* const t;
+  int* const u;
+  const int n;
+
   __modifies(
     "Group(range(1, n, 1), fun i -> &t[i] ~> Cell),"
     "Group(range(1, n, 1), fun i -> &u[i] ~> Cell)");
