@@ -36,7 +36,18 @@ void var_wrong3(int* t) {
 
   int x = 0;
   for (int i = 0; i < 3; i++) {
-    x += 3; // can't move out, reads previous 'x' values
+    x += 3; // can't move out, reads previous 'x'
+    t[MINDEX1(3, i)] = x;
+  }
+}
+
+void var_wrong3(int* t) {
+  __modifies("t ~> Matrix1(3)");
+
+  int x = 0;
+  for (int i = 0; i < 3; i++) {
+    x = 3; // can't move out, previous iterations modify 'x'
+    x++;
     t[MINDEX1(3, i)] = x;
   }
 }

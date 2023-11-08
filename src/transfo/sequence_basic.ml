@@ -47,7 +47,7 @@ let%transfo delete ?(nb : int = 1) (tg : target) : unit =
       if nb <> 1 then
         (* TODO: #fail-path *)
         fail None "Sequence_basic.delete";
-      Resources.assert_instr_effects_shadowed i (Path.resolve_path p t);
+      Resources.assert_instr_effects_shadowed i p t;
       Trace.justif "nothing modified by the instruction is observed later"
     end;
     Sequence_core.delete i nb t p

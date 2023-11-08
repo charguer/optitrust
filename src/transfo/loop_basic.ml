@@ -467,14 +467,14 @@ let%transfo move_out ?(mark : mark option) (tg : target) : unit =
       assert (i == 0);
       let loop = Path.resolve_path p t in
       let error = "Loop_basic.move_out: expected for loop" in
-      let ((index, _, _, _, _, _), instrs, _) = trm_inv ~error trm_for_inv_instrs loop in
+      let ((index, _, _, _, _, _), body, _) = trm_inv ~error trm_for_inv loop in
+      let instrs = trm_inv ~error trm_seq_inv body in
       let (instr, rest) = Xlist.uncons (Mlist.to_list instrs) in
       if Var_set.mem index (trm_free_vars instr) then
         (* NOTE: would be checked by var ids anyway *)
         fail instr.loc "Loop_basic.move_out: instruction uses loop index";
-      let uninit_ghosts = Resources.uninit_ghosts_from_resource_usage_of instr in
-      let _ = Resources.recompute_all_resources_on (trm_seq_nobrace (Mlist.insert_sublist_at i uninit_ghosts instrs)) in
-      Trace.justif "the instruction does not observe what previous iterations modify"
+      Resources.assert_instr_redundant 0 (Mlist.length instrs - 1) body;
+      Trace.justif "instructions from following iterations are redundant with first iteration"
     end;
     apply_on_path (move_out_on mark i) t p
   ) tg)
