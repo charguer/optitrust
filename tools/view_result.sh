@@ -10,6 +10,7 @@
 # - save_inter: save the AST at the specified line
 # - view_diff_from_inter: execute the script from the line specified in
 #     the last call to this script performed in mode save_inter
+# - view_trace_from_inter
 # - view_result: DEPRECATED, but could be revived in the future
 
 # Additional arguments are passed to the execution of the script
@@ -82,7 +83,7 @@ if [ -f "${OPTITRUST_FOLDER}/optitrust_flags.sh" ]; then
   source ${OPTITRUST_FOLDER}/optitrust_flags.sh
 fi
 
-if [ "${MODE}" = "view_trace" ]; then
+if [ "${MODE}" = "view_trace" ] || [ "${MODE}" = "view_trace_from_inter" ]; then
   OPTIONS="${OPTIONS} -dump-trace ${TRACEFLAGS}"
 else
   OPTIONS="${OPTIONS} -exit-line ${LINE}"
@@ -116,7 +117,7 @@ if [ "${MODE}" = "save_inter" ]; then
 
   echo "Produced ${SRCBASE}.ml"
 
-elif [ "${MODE}" = "view_diff_from_inter" ]; then
+elif [ "${MODE}" = "view_diff_from_inter" ] || [ "${MODE}" = "view_trace_from_inter" ]; then
 
   # In mode "view_diff_from_inter", we generate a file called "${FILEBASE}_fast.ml"
   # by taking "${FILEBASE}_inter.ml" and adding to it the lines from "${FILEBASE}.ml"
@@ -198,7 +199,7 @@ elif [ "${MODE}" = "view_result" ]; then
 
   ${TOOLS_FOLDER}/open_result.sh ${SRCBASE}
 
-elif [ "${MODE}" = "view_trace" ]; then
+elif [ "${MODE}" = "view_trace" ] || [ "${MODE}" = "view_trace_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_trace.sh ${SRCBASE}
 

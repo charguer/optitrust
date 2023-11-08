@@ -207,6 +207,12 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
+    "key": "shift+f7",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View trace from intermediate state",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
     "key": "alt+f7",
     "command": "workbench.action.tasks.runTask",
     "args": "View big step diff from intermediate state",

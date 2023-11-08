@@ -64,6 +64,26 @@
         ]
       },
       {
+        "label": "View trace from intermediate state",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_trace_from_inter"
+        ]
+      },
+      {
         "label": "View trace with -trace-details-only-for-line",
         "type": "shell",
         "command": "tools/view_result.sh",
