@@ -61,6 +61,11 @@ void redundant(int* x) {
   *x = 3;
   int r = *x;
   *x = 3;
+
+  int v = 1;
+  *x = v;
+  v++;
+  *x = v;
 }
 
 void wrong_target() {

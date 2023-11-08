@@ -41,7 +41,7 @@ void var_wrong3(int* t) {
   }
 }
 
-void var_wrong3(int* t) {
+void var_wrong4(int* t) {
   __modifies("t ~> Matrix1(3)");
 
   int x = 0;
