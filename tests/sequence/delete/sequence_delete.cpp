@@ -20,20 +20,34 @@ void dead_code() {
   */
 
   int z = 0;
-  int y = z++;
-  // Pas d'utilisation de y
+  z++;
+  int y = z;
+  z++;
+
+  int x = 3;
+  for (int i = 0; i < 2; i++) {
+    // TODO: add z RW in contract
+    for (int j = 0; j < 3; j++) {
+      // TODO: add z uninit in contract
+
+      z = i + j;
+    }
+
+    z = i;
+    x = z;
+  }
 }
 
 void shadowed(int* y) {
-  __modifies("y ~> Matrix1(2)");
+  __modifies("y ~> Cell");
 
   int x;
   x = 3;
   x = 4;
 
-  y[0] = x;
+  *y = x;
   x++;
-  y[0] = x;
+  *y = x;
 }
 
 void wrong_target() {
