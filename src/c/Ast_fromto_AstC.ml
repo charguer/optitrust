@@ -144,7 +144,7 @@ let stackvar_elim (t : trm) : trm =
         onscope env t (fun t -> trm_map aux t)
     | _ -> trm_map aux t
    end in
-   aux t
+   debug_before_after_trm "stackvar_elim" aux t
 
 
 (* [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following decodings:
@@ -239,7 +239,8 @@ let caddress_elim (t : trm) : trm =
         trm_get { t with desc = Trm_apps ({ t with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2], []) }
     | _ -> trm_map aux t
     end)
-  in aux t
+  in
+  debug_before_after_trm "caddress_elim" aux t
 
 (* [is_access t]: checks if trm [t] is a struct access or an array access *)
 let is_access (t : trm) : bool =
@@ -319,13 +320,14 @@ let infix_elim (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr], _) ->
       trm_alter ~typ:(typ_unit ()) ~desc:(Trm_apps(op, [trm_address_of tl; tr], [])) t
     (* Convert [ x++ ] into [ (++)(&x) ], where [(++)] is like the [incr] function in OCaml *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base], _) when is_postfix_unary unop ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base], _) when is_unary_compound_assign unop ->
       trm_replace (Trm_apps(op, [trm_address_of base], [])) t
     (* Convert [ x = y ] into [ (=)(&x, y) ] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr], _) ->
       trm_replace (Trm_apps (op, [trm_address_of tl;tr], [])) t
     | _ -> trm_map aux t
-  in aux t
+  in
+  debug_before_after_trm "infix_elim" aux t
 
 (* [infix_intro t]: decodes unary and binary oeprators back to C++ unary and binary operators
     [++(&x)] becomes [++x]
@@ -337,7 +339,7 @@ let infix_intro (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr], _) ->
       trm_replace (Trm_apps(op, [trm_get tl; tr], [])) t
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base], _) when is_postfix_unary unop ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base], _) when is_unary_compound_assign unop ->
       trm_replace (Trm_apps(op, [trm_get base], [])) t
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr], _) ->
       trm_replace (Trm_apps (op, [trm_get tl;tr], [])) t

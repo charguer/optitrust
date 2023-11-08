@@ -1154,22 +1154,23 @@ match t.desc with
 (* [is_prefix_unary unop]: checks if [unop] is a prefix unary operator *)
 let is_prefix_unary (unop : unary_op) : bool =
   match unop with
-  | Unop_post_inc | Unop_post_dec -> true
+  | Unop_pre_inc | Unop_pre_dec -> true
   | _ -> false
 
 (* [is_postfix_unary unop]: checks if [unop] is a postfix unary operator *)
 let is_postfix_unary (unop : unary_op) : bool =
   match unop with
-  | Unop_pre_inc | Unop_pre_dec -> true
+  | Unop_post_inc | Unop_post_dec -> true
   | _ -> false
 
-  (* [trm_is_unop_inc_or_dec t] checks whether [t] represents a unary increment or
-     decrement operation. *)
-  let trm_is_unop_inc_or_dec (t : trm) : bool =
-    match t.desc with
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, _, _) when
-           (is_prefix_unary op) || (is_postfix_unary op) -> true
-    | _ -> false
+let is_unary_compound_assign (unop : unary_op) : bool =
+  (is_prefix_unary unop) || (is_postfix_unary unop)
+
+(* [trm_is_unary_compound_assign t] checks whether [t] represents a unary  compound assignment: e.g., increment or decrement operation. *)
+let trm_is_unary_compound_assign (t : trm) : bool =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, _, _) when is_unary_compound_assign op -> true
+  | _ -> false
 
 (* [trm_for_inv t]: gets the loop range from loop [t] *)
 let trm_for_inv (t : trm) : (loop_range * trm * loop_spec)  option =

@@ -2,6 +2,8 @@ open Prelude
 open Target
 include Instr_basic
 
+let insert = Sequence.insert
+let delete = Sequence.delete
 
 (* [read_last_write ~write tg]: similar to [Instr_basic.read_last_write] except that this transformation
      tries to find the last write instead of asking explicitly for a target to that write,

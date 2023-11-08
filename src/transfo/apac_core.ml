@@ -170,10 +170,10 @@ type const_unconst_objects = (var * var * var) Stack.t
    [Apac_basic.constify_arguments] function. This process is straightforward in
    the case of simple variable declarations. However, if an argument alias is
    declared within a multiple variable declaration, we have two different
-   situations to consider: 
+   situations to consider:
 
    1) the inner type of the multiple variable declaration is already constant:
-    
+
       // [i] is a constant integer, [j] is a mutable pointer to a constant
       // integer
       int const i, * j;
@@ -961,7 +961,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
        trm_iter (aux aliases fun_var) fun_body
     (* Increment or decrement unary operation: update the unconstification
        stack. *)
-    | Trm_apps _ when trm_is_unop_inc_or_dec fun_body ->
+    | Trm_apps _ when trm_is_unary_compound_assign fun_body ->
        let error = "Apac_basic.identify_mutables_on: unable to retrieve
                     variable name" in
        let var_lvar = trm_inv ~error

@@ -44,12 +44,6 @@ let%transfo delete ?(nb : int = 1) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Sequence_core.delete i nb t p) tg
 
-
-(* [iter_delete tgl]: just iterates over the list of targeted trms to be deleted. *)
-let iter_delete (tgl : target list) : unit =
- List.fold_left (fun () x ->
-    delete x ) () tgl
-
 (* [intro i nb tg]: expects the target [tg] to point at an instruction inside a sequence.
     [mark] -  denotes a mark which add into the generated sub-sequence, in case the user decides to have one.
     [visible] - denotes the visibility of a sequence. This means the that the the sequence is
