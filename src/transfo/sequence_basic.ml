@@ -44,8 +44,10 @@ let%transfo delete ?(nb : int = 1) (tg : target) : unit =
   Resources.required_for_check ();
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq) (fun t (p, i) ->
     if !Flags.check_validity then begin
-      assert (nb = 1);
-      Resources.assert_shadowed i t p;
+      if nb <> 1 then
+        (* TODO: #fail-path *)
+        fail None "Sequence_basic.delete";
+      Resources.assert_instr_effects_shadowed i (Path.resolve_path p t);
       Trace.justif "nothing modified by the instruction is observed later"
     end;
     Sequence_core.delete i nb t p

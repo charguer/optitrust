@@ -89,7 +89,7 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
 
     let new_def = trm_let_fun spec_var ret_ty new_args new_body in
 
-    trm_seq_no_brace [t; new_def]
+    trm_seq_nobrace_nomarks [t; new_def]
   | _ -> fail t.loc "Specialize_core.fun_defs_aux: expected a target to a function definition."
 
 

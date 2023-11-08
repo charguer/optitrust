@@ -565,11 +565,11 @@ let rec ghost_args_intro (t: trm) : trm =
       );
       Pattern.(trm_apps __ __ !(__ ^:: __)) (fun ghost_args ->
         let t = trm_map ghost_args_intro t in
-        Nobrace.trm_seq [t; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
+        Nobrace.trm_seq_nomarks [t; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
       );
       Pattern.(trm_let !__ !__ !__ !(trm_apps __ __ !(__ ^:: __))) (fun mut var typ call ghost_args ->
         let call = trm_map ghost_args_intro call in
-        Nobrace.trm_seq [trm_let mut (var, typ) call; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
+        Nobrace.trm_seq_nomarks [trm_let mut (var, typ) call; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
       );
       Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq ghost_begin)) (trm_apps !__ nil !__))) (fun ghost_pair typ ghost_fn ghost_args ->
         let ghost_fn = ghost_args_intro ghost_fn in

@@ -322,7 +322,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
       let new_t = trm_subst_var var (trm_var local_var) t in
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let last_instr = free dims (trm_var_get local_var) in
-      let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
+      let final_trm = trm_seq_nobrace_nomarks [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
       begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
     | Local_obj (init, swap, free_fn) ->
       let write_on_local_var =
@@ -336,7 +336,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
       let last_instr = free dims (trm_var_get local_var) in
-      let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
+      let final_trm = trm_seq_nobrace_nomarks [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
       begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
     end
 
@@ -367,7 +367,7 @@ let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var 
       let load_for = trm_copy (trm_fors nested_loop_range write_on_local_var) in
       let unload_for = trm_copy (trm_fors nested_loop_range write_on_var) in
       let free_instr = free tile_dims (trm_var local_var) in
-      trm_seq_no_brace [alloc_instr; load_for; new_t; unload_for; free_instr]
+      trm_seq_nobrace_nomarks [alloc_instr; load_for; new_t; unload_for; free_instr]
     | Local_obj (init, swap, free_fn) ->
       failwith "unimplemented" (*
       let write_on_local_var =
@@ -380,7 +380,7 @@ let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var 
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
       let last_instr = free tile_dims (trm_var_get local_var) in
-      trm_seq_no_brace [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr]
+      trm_seq_nobrace_nomarks [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr]
       *)
   end in
   trm_may_add_mark mark final_trm
@@ -469,7 +469,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       let label_to_add = List.nth labels 0 in
                         if label_to_add = ""
                         then new_decl
-                        else trm_add_label label_to_add (trm_seq_no_brace [
+                        else trm_add_label label_to_add (trm_seq_nobrace_nomarks [
                           trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ());
                           (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
                       end
@@ -505,7 +505,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       let label_to_add = List.nth labels 0 in
                         if label_to_add = ""
                         then new_decl
-                        else (trm_seq_no_brace [
+                        else (trm_seq_nobrace_nomarks [
                           trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ());
                           (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
                       end
@@ -558,9 +558,9 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       if List.length labels = 0 then [new_fst_instr; trm_copy new_snd_instr; new_thrd_instr; trm_copy new_frth_instr; trm_copy new_fifth_instr; sixth_instr]
                        else List.mapi ( fun i lb ->
                         let new_subsgroup = if i = 0
-                          then trm_seq_no_brace [new_fst_instr; new_snd_instr]
-                          else if i = 1 then trm_seq_no_brace [new_thrd_instr; new_frth_instr]
-                          else trm_seq_no_brace [new_fifth_instr; sixth_instr]
+                          then trm_seq_nobrace_nomarks [new_fst_instr; new_snd_instr]
+                          else if i = 1 then trm_seq_nobrace_nomarks [new_thrd_instr; new_frth_instr]
+                          else trm_seq_nobrace_nomarks [new_fifth_instr; sixth_instr]
                           in
                         if lb = "" then new_subsgroup else trm_add_label lb new_subsgroup
 

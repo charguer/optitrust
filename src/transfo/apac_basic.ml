@@ -200,7 +200,7 @@ let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
   let simple = List.map2 (fun tv ti -> trm_let vk tv ti) tvs' tis in
   (* Return a new sequence (without braces) containing the newly generated
      simple variable declarations. *)
-    trm_seq_no_brace simple
+    trm_seq_nobrace_nomarks simple
 
 (* [unfold_let_mult ~constify tg]: expects target [tg] to point
    at a multiple variable declaration. Then, it replaces it by a sequence of

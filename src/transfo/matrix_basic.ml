@@ -316,7 +316,7 @@ let stack_copy_on (name : var) (stack_name : string) (d : int) (t : trm) : trm =
   ) typ new_dims in
   let copy_offset = trm_array_access (trm_var name) (mindex dims (common_indices @ (List.init d (fun _ -> trm_int 0)))) in
   let copy_size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string array_typ) ^ ")") in
-  trm_seq_no_brace [
+  trm_seq_nobrace_nomarks [
     trm_let_mut (stack_var, array_typ) (trm_uninitialized ());
     trm_apps (trm_toplevel_var "memcpy") [trm_var_get stack_var; copy_offset; copy_size];
     new_t;
@@ -415,7 +415,7 @@ let delete_on (var : var) (t : trm) : trm =
     | Some (_kind, v, vtyp, init) when v = var ->
       (* TODO: deal with CALLOC *)
       assert (Option.is_some (Matrix_core.alloc_inv_with_ty init));
-      trm_seq_no_brace []
+      trm_seq_nobrace_nomarks []
     | _ ->
       begin match trm_var_inv t with
       | Some n when n = var ->
@@ -429,7 +429,7 @@ let delete_on (var : var) (t : trm) : trm =
           end
         | None -> false
         end in
-        if is_free_var then trm_seq_no_brace []
+        if is_free_var then trm_seq_nobrace_nomarks []
         else trm_map update_accesses_and_alloc t
       end
   in

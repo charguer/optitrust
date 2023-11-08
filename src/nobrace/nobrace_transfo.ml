@@ -22,7 +22,7 @@ let clean_all_seq ?(check_scoping : bool = true) (id : int) (t : trm) : trm =
     | _ -> Trm.trm_map aux t
   in aux t
 
-(* [remove_and_exit ?remove ()]: apply function clean_no_brace over the curren ast.
+(* [remove_and_exit ?remove ()]: apply function clean_nobrace over the curren ast.
   By default, scope is checked: inlining nobrace sequences should not change variable usage. *)
 let remove_and_exit ?(check_scoping = true) ?(remove:bool=true) () =
   assert (check_scoping = true);
@@ -42,5 +42,5 @@ let remove_after ?(check_scoping = true) ?(remove : bool = true) (f : unit -> un
 (* [clean_nobraces tg]: remove all the hidden sequence starting from target [ŧg] *)
 (* let clean_nobraces (new_target_apply : bool): Transfo.t =
   (if new_target_apply then Target.apply else apply_on_targets) (
-    apply_on_path (fun t -> clean_no_brace_seq ~all:true (-1) t))
+    apply_on_path (fun t -> clean_nobrace_seq ~all:true (-1) t))
     *)

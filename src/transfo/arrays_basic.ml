@@ -103,7 +103,7 @@ let elim_on (decl_index : int) (t : trm) : trm =
     (* Printf.printf "QSJIDO:\n%s\n" (Ast_to_text.ast_to_string t); *)
     let (_elem_ty, _size) = typ_inv ~error t.loc typ_const_array_inv typ in
     let _array_mlist = trm_inv ~error array_inv init in
-    trm_seq_no_brace []
+    trm_seq_nobrace_nomarks []
   in
   (* TODO: check that its not used anywhere *)
 

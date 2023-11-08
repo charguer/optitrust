@@ -194,7 +194,7 @@ let heapify_nested_seq : Transfo.t =
           - 'break', 'continue': only the current loop, not deeper. *)
       | Trm_abort _ when is_return t || is_first_depth ->
         begin match get_delete_task ptrs with
-        | Some (tr) -> trm_seq_no_brace [tr; trm_map (aux ptrs is_first_depth) t]
+        | Some (tr) -> trm_seq_nobrace_nomarks [tr; trm_map (aux ptrs is_first_depth) t]
         | _ -> t
         end
       | _ -> trm_map (aux ptrs is_first_depth) t

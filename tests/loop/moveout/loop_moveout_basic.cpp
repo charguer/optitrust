@@ -6,7 +6,6 @@ void var(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     x = 3;
-    x++;
     t[MINDEX1(3, i)] = x;
   }
 }
@@ -16,7 +15,7 @@ void var_wrong1(int* t) {
 
   int x = 0;
   for (int i = 0; i < 3; i++) {
-    x = i;
+    x = i; // can't move out, depends on 'i'
     t[MINDEX1(3, i)] = x;
   }
 }
@@ -27,7 +26,7 @@ void var_wrong2(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     t[MINDEX1(3, i)] = x;
-    x = 3;
+    x = 3; // can't move out, not first in sequence
     t[MINDEX1(3, i)] += x;
   }
 }
@@ -37,7 +36,7 @@ void var_wrong3(int* t) {
 
   int x = 0;
   for (int i = 0; i < 3; i++) {
-    x += 3;
+    x += 3; // can't move out, reads previous 'x' values
     t[MINDEX1(3, i)] = x;
   }
 }
@@ -60,7 +59,7 @@ void arr_wrong1(int* t, int* x) {
 
   int v = 3;
   for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 5; j++) {
+    for (int j = 0; j < 5; j++) { // can't move out, 'v' is not loop invariant
       x[MINDEX1(5, j)] = v;
     }
     for (int j = 0; j < 5; j++) {

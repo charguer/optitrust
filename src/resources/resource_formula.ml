@@ -207,7 +207,7 @@ let trm_ghost_custom_pair ?(name: string option) (forward_fn: trm) (backward_fn:
 
 let trm_ghost_scope (ghost_fn: trm) (ghost_args: (var * trm) list) (seq: trm list): trm =
   let _, ghost_begin, ghost_end = trm_ghost_pair ghost_fn ghost_args in
-  Nobrace.trm_seq (ghost_begin :: seq @ [ghost_end])
+  Nobrace.trm_seq_nomarks (ghost_begin :: seq @ [ghost_end])
 
 let trm_ghost_begin_inv (t: trm): (var * trm * (hyp * formula) list) option =
   Pattern.pattern_match t [

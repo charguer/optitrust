@@ -30,7 +30,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : string) (const
         then trm_let_immut (fresh_var, function_type) function_call
         else trm_let_mut (fresh_var, function_type) function_call
       in
-      trm_seq_no_brace [decl_to_insert; decl_to_change]
+      trm_seq_nobrace_nomarks [decl_to_insert; decl_to_change]
     in
 
   let new_tl = Mlist.update_nth index f_update tl in
@@ -85,14 +85,14 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Nobrace.set_if_sequence processed_body
         | _ -> Nobrace.set_if_sequence processed_body
         in
-        let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
+        let exit_label = if nb_gotos = 0 then trm_seq_nobrace_nomarks [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
           if is_type_unit(ty)
             then [marked_body; exit_label]
             else
               [trm_pass_marks fun_call (trm_let_mut (name, ty) (trm_uninitialized ()));marked_body; exit_label]
           in
-        trm_seq_no_brace inlined_body
+        trm_seq_nobrace_nomarks inlined_body
 
       | _ -> fail fun_decl.loc "Function_core.inline_aux: failed to find the top level declaration of the function"
       end
@@ -203,7 +203,7 @@ let dsp_def_aux (index : int) (arg : string) (func : string) (t : trm) : trm =
     let new_fun = if func = "dsp" then f.name ^ "_dsp" else func in
     let new_fun_var = new_var new_fun in
     let new_fun_def = trm_let_fun ~annot:t.annot new_fun_var (typ_unit ()) new_args new_body in
-    trm_seq_no_brace [t; new_fun_def]
+    trm_seq_nobrace_nomarks [t; new_fun_def]
    in
   let new_tl = Mlist.update_nth index f_update tl in
   trm_seq ~annot:t.annot new_tl

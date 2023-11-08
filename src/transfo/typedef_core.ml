@@ -68,7 +68,7 @@ let insert_copy_aux (name : string) (t : trm) : trm =
   let error = "Typedef_core.insert_copy_aux: expected a typedef declaration." in
   let td = trm_inv ~error trm_typedef_inv t in
   let td_copy = trm_typedef {td with typdef_tconstr = name} in
-  trm_seq_no_brace [t; td_copy]
+  trm_seq_nobrace_nomarks [t; td_copy]
 
 (* [insert_copy name t p]: applies [insert_copy_aux] at trm [t] with path [p] *)
 let insert_copy (name : string) : Target.Transfo.local =

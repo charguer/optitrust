@@ -144,7 +144,7 @@ let init_detach_aux  (t : trm) : trm =
     let var_decl = trm_pass_marks t (trm_let_mut ~annot:t.annot (x, var_type) (trm_uninitialized ())) in
     (* Check if variable was declared as a reference *)
     let var_assgn = trm_set (trm_var ~typ:var_type x) {init with typ = (Some var_type)} in
-    trm_seq_no_brace [var_decl; var_assgn]
+    trm_seq_nobrace_nomarks [var_decl; var_assgn]
   end
 
 (* [init_detach t p]: applies [init_detach_aux] at trm [t] with path [p]. *)
@@ -219,7 +219,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : string) (t : trm)
   let fst_instr = trm_let_mut (local_var, var_type) (trm_var_possibly_mut ~typ:var_type curr_var) in
   let lst_instr = trm_set (trm_var ~typ:var_type curr_var) (trm_var_possibly_mut ~typ:var_type local_var) in
   let new_t = trm_subst_var curr_var (trm_var local_var) t in
-  let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
+  let final_trm = trm_seq_nobrace_nomarks [fst_instr;new_t;lst_instr] in
   trm_add_mark mark final_trm
 
 (* [local_name mark curr_var local_var t p]: applies [local_name_aux] at trm [t] with path [p]. *)
@@ -258,14 +258,14 @@ let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : tr
               [trm_get curr_var_trm ;
               trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
       end in
-      let new_first_trm = trm_seq_no_brace[
+      let new_first_trm = trm_seq_nobrace_nomarks[
           trm_let_array vk (local_var, var_type) (Trm array_size) (trm_uninitialized ());
           trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]) (trm_get curr_var_trm);
           trm_copy (trm_for (index, (trm_int 1), DirUp, array_size, Post_inc, false)
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm]))]
           in
       let new_snd_instr = trm_subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var (name_to_var "ANY")) [array_size] ]) snd_instr  in
-      let new_thrd_trm = trm_seq_no_brace [
+      let new_thrd_trm = trm_seq_nobrace_nomarks [
                       trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]));
                       trm_for (index, (trm_int 1), DirUp, array_size, Post_inc, false) (trm_seq_nomarks [op])
                      ] in
@@ -384,7 +384,7 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
           else trm_let_mut (fresh_var, node_type) targeted_node
       end in
       let decl_to_insert = trm_may_add_mark mark_let decl_to_insert in
-      trm_seq_no_brace [decl_to_insert; node_to_change]
+      trm_seq_nobrace_nomarks [decl_to_insert; node_to_change]
     in
     let new_tl = Mlist.update_nth index f_update tl in
     let r = trm_seq ~annot:t.annot new_tl in

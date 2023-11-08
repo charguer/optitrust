@@ -151,7 +151,7 @@ let string_of_interference (interference : (resource_usage option * resource_usa
   sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2)) (Hyp_map.bindings interference)))
 
 (** Checks that effects commute, infer var ids to check pure facts scope. *)
-let assert_commute (before : trm) (after : trm) : unit =
+let assert_seq_instrs_commute (before : trm) (after : trm) : unit =
   let interference = collect_interferences before after in
   if not (Hyp_map.is_empty interference) then
     fail after.loc (string_of_interference interference)
@@ -159,7 +159,7 @@ let assert_commute (before : trm) (after : trm) : unit =
 (** <private>
     Creates uninit ghosts from the RW resource usage of term [t].
     *)
-let uninit_ghosts_from_resource_usage_of (t : trm) : formula list =
+let uninit_ghosts_from_resource_usage_of (t : trm) : trm list =
   let error = "Resources.assert_shadowed: expected resources usage to be available" in
   let res = Tools.unsome ~error t.ctx.ctx_resources_usage in
   let only_rw hyp res_usage =
@@ -170,17 +170,13 @@ let uninit_ghosts_from_resource_usage_of (t : trm) : formula list =
   let rw_hyps = Hyp_map.filter only_rw res in
   List.map (fun (h, _) -> trm_ghost_uninit (trm_var h)) (Hyp_map.bindings rw_hyps)
 
-(** Checks that the effects from the instruction at [index] in the sequence at [path] are shadowed by following effects in term [t].
+(** Checks that the effects from the instruction at [index] in the sequence [seq] are shadowed by following effects.
     *)
-let assert_shadowed (index : int) (t : trm) (path : path) : unit =
-  let seq = Path.resolve_path path t in
+let assert_instr_effects_shadowed (index : int) (seq : trm) : unit =
   let instrs = trm_inv ~error:"Resources.assert_shadowed: expected sequence" trm_seq_inv seq in
-  let instr = match Mlist.nth_opt instrs index with
-  | None -> fail seq.loc "Resources.assert_shadowed: invalid index in sequence"
-  | Some instr -> instr
-  in
+  let instr = unsome_or_fail seq.loc "Resources.assert_shadowed: invalid index in sequence" (Mlist.nth_opt instrs index) in
   let uninit_ghosts = uninit_ghosts_from_resource_usage_of instr in
-  let _ = recompute_all_resources_on (trm_seq_no_brace (Mlist.to_list (Mlist.insert_sublist_at (index + 1) uninit_ghosts instrs))) in
+  let _ = recompute_all_resources_on (trm_seq_nobrace (Mlist.insert_sublist_at (index + 1) uninit_ghosts instrs)) in
   ()
 
 (* [show] enables to view the result of resource computations. *)

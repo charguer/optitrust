@@ -4,7 +4,8 @@ include Typ
 include Mark
 include Target
 
-let trm_seq_no_brace = Nobrace.trm_seq
+let trm_seq_nobrace = Nobrace.trm_seq
+let trm_seq_nobrace_nomarks = Nobrace.trm_seq_nomarks
 
 let skip_includes (t : trm) : trm =
   match trm_seq_inv t with

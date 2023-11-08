@@ -477,7 +477,7 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
             then t_assign
             else begin
                  incr nb_gotos;
-                 if exit_label = "" then t_assign else trm_seq_no_brace [t_assign; trm_goto exit_label]
+                 if exit_label = "" then t_assign else trm_seq_nobrace_nomarks [t_assign; trm_goto exit_label]
                  end
         | _ ->
             incr nb_gotos;

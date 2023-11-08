@@ -38,19 +38,19 @@ let set_explicit_aux (t : trm) : trm =
          let exp_assgn = List.mapi (fun i (sf, ty) ->
           trm_set (trm_struct_access ~typ:ty lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
          ) field_list in
-         trm_seq_no_brace exp_assgn
+         trm_seq_nobrace_nomarks exp_assgn
       | Trm_record st ->
         let st = Xlist.split_pairs_snd (Mlist.to_list st) in
         let exp_assgn = List.mapi (fun i (sf, ty) ->
           trm_set (trm_struct_access ~typ:ty lt sf) (List.nth st i)
         ) field_list
          in
-        trm_seq_no_brace exp_assgn
+        trm_seq_nobrace_nomarks exp_assgn
       | _ ->  (* other cases are included here *)
         let exp_assgn = List.mapi (fun i (sf, ty) ->
          trm_set (trm_struct_access ~typ:ty lt sf) (trm_struct_get ~typ:ty rt sf)
          ) field_list in
-         trm_seq_no_brace exp_assgn
+         trm_seq_nobrace_nomarks exp_assgn
       end
   | _ -> fail t.loc "Record_core.set_explicit_aux: expected a set operation"
 
@@ -433,7 +433,7 @@ let to_variables_aux (index : int) (t : trm) : trm =
         | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
 
         ) !field_list in
-        trm_seq_no_brace var_decls
+        trm_seq_nobrace_nomarks var_decls
      in
   let f_update_further (t : trm) : trm =
     List.fold_left (fun t2 f1 ->

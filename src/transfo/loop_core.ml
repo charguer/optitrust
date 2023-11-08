@@ -127,7 +127,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
         let ghosts_before = add_tiling_ghost ghost_tile_divides contract.iter_contract.pre.linear in
         let ghosts_after = add_tiling_ghost ghost_untile_divides contract.iter_contract.post.linear in
 
-        trm_seq_no_brace (ghosts_before @ [
+        trm_seq_nobrace_nomarks (ghosts_before @ [
           trm_for ~contract:contract_outer outer_range (trm_seq_nomarks [
             trm_for ~contract:contract_inner inner_range (trm_subst_var index new_index body)
           ])
@@ -197,7 +197,7 @@ let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : 
         in
       let new_tl = Mlist.update_nth decl_index f_update tl in
       let new_body = trm_seq new_tl in
-        trm_seq_no_brace [
+        trm_seq_nobrace_nomarks [
           trm_let_array Var_mutable (!new_name, !ty) (Trm stop_bd) (trm_uninitialized ());
           trm_for ?contract l_range new_body ]
     | _ -> fail t.loc "Loop_core.hoist_aux: body of the loop should be a sequence"
@@ -303,7 +303,7 @@ let unroll_aux (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : 
                   else Nobrace.set_if_sequence body_i in
     body_i :: acc ) [] (List.rev unrolled_loop_range) in
   begin match outer_seq_with_mark with
-  | "" -> trm_seq_no_brace unrolled_body
+  | "" -> trm_seq_nobrace_nomarks unrolled_body
   | _ -> trm_add_mark outer_seq_with_mark (trm_seq_nomarks unrolled_body)
   end
 
@@ -414,7 +414,7 @@ let split_range_aux (nb : int)(cut : trm)(t : trm) : trm =
   | _, {desc = Trm_val (Val_lit (Lit_unit ));_} -> trm_add (trm_var index) (trm_lit (Lit_int nb))
   | n, c -> fail t.loc "Loop_core.split_range_aux: can't provide both the nb and cut args"
   end in
-  trm_seq_no_brace [
+  trm_seq_nobrace_nomarks [
     trm_for (index, start, direction, split_index, step, is_parallel) body;
     trm_copy (trm_for (index, split_index, direction, stop, step, is_parallel) body)]
 

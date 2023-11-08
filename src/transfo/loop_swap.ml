@@ -98,7 +98,7 @@ let swap_on (t: trm): trm =
       let new_outer_post = res_group_range outer_range inner_post in
       let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; iter_contract = { pre = new_outer_pre; post = new_outer_post } } in
 
-      trm_seq_no_brace (swaps_pre @
+      trm_seq_nobrace_nomarks (swaps_pre @
         [trm_for inner_range ~contract:new_outer_contract (trm_seq_nomarks [trm_copy (trm_for outer_range ~contract:new_inner_contract body)])] @
         swaps_post)
     );

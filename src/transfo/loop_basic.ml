@@ -126,7 +126,7 @@ let hoist_on (name : string)
     new_body_instrs, None
   in
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
-  trm_seq_no_brace [
+  trm_seq_nobrace_nomarks [
     trm_may_add_mark mark
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
     trm_for ?contract:new_contract ~annot:t.annot range new_body;
@@ -226,7 +226,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
     *)
 let fission_on (index : int) (t : trm) : trm =
   let (ta,tb) = fission_on_as_pair index t in
-  trm_seq_no_brace [ ta; tb ]
+  trm_seq_nobrace_nomarks [ ta; tb ]
 
 
 (* [fission_all_instrs_on]: split loop [t] into N loops,
@@ -246,7 +246,7 @@ let fission_all_instrs_on (indices : int list) (t : trm) : trm =
         tb :: tl
     in
   let tl = aux (List.rev indices) t in
-  trm_seq_no_brace (List.rev tl)
+  trm_seq_nobrace_nomarks (List.rev tl)
 
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
@@ -449,7 +449,7 @@ let move_out_on (mark : mark option) (trm_index : int) (t : trm) : trm =
   | Trm_for_c (init, cond, step, _, invariant) ->
     trm_for_c ?invariant init cond step (trm_seq new_tl)
   | _ -> fail t.loc "Loop_basic.move_out_on: expected a loop" in
-  trm_seq_no_brace [trm_may_add_mark mark trm_inv; loop]
+  trm_seq_nobrace_nomarks [trm_may_add_mark mark trm_inv; loop]
 
 (* [move_out tg]: expects the target [tg] to point at an instruction inside the loop
     that is not dependent on the index of the loop or any local variable.
@@ -470,12 +470,13 @@ let%transfo move_out ?(mark : mark option) (tg : target) : unit =
       let ((index, _, _, _, _, _), instrs, _) = trm_inv ~error trm_for_inv_instrs loop in
       let (instr, rest) = Xlist.uncons (Mlist.to_list instrs) in
       if Var_set.mem index (trm_free_vars instr) then
+        (* NOTE: would be checked by var ids anyway *)
         fail instr.loc "Loop_basic.move_out: instruction uses loop index";
       let uninit_ghosts = Resources.uninit_ghosts_from_resource_usage_of instr in
-      let _ = Resources.recompute_all_resources_on (trm_seq_no_brace (Mlist.to_list (Mlist.insert_sublist_at i uninit_ghosts instrs))) in
+      let _ = Resources.recompute_all_resources_on (trm_seq_nobrace (Mlist.insert_sublist_at i uninit_ghosts instrs)) in
       Trace.justif "the instruction does not observe what previous iterations modify"
     end;
-    apply_on_path (Loop_core.move_out_on mark i) t p
+    apply_on_path (move_out_on mark i) t p
   ) tg)
 
 (* [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition

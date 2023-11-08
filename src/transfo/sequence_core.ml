@@ -69,7 +69,7 @@ let intro (mark : string) (label : label) (index : int) (nb : int) : Transfo.loc
 let elim_aux (t : trm) : trm =
   let error = "Sequence_core.elim_aux: expected the sequence to be deleteds." in
   let tl = trm_inv ~error trm_seq_inv t in
-  trm_pass_labels t (trm_seq_no_brace (Mlist.to_list tl))
+  trm_pass_labels t (trm_seq_nobrace tl)
 
 (* [elim t p]: applies [elim_aux] at trm [t] with path [p]. *)
 let elim : Transfo.local =
@@ -80,7 +80,7 @@ let elim : Transfo.local =
     [visible] - a flag on the visibility of the introduced sequence,
     [t] - any trm. *)
 let intro_on_instr_aux (mark : mark) (label : label) (visible : bool) (t : trm) : trm =
-  let wrapped_seq = if visible then trm_seq_nomarks [t] else trm_seq_no_brace [t] in
+  let wrapped_seq = if visible then trm_seq_nomarks [t] else trm_seq_nobrace_nomarks [t] in
   let marked_seq = if mark <> "" then trm_add_mark mark wrapped_seq  else wrapped_seq in
   if label <> "" then trm_add_label label marked_seq else marked_seq
 
@@ -109,7 +109,7 @@ let split_aux (index : int) (is_fun_body : bool) (t : trm) : trm =
   let tl = trm_inv ~error trm_seq_inv t in
   let first_part,last_part = Mlist.split index tl in
   let res =
-  trm_seq_no_brace [trm_seq first_part; trm_seq last_part] in
+  trm_seq_nobrace_nomarks [trm_seq first_part; trm_seq last_part] in
   if is_fun_body then trm_seq ~annot:t.annot (Mlist.of_list [res]) else res
 
 (* [split index is_fun_body t p]: applies [split_aux] at trm [t] with path [p]. *)
@@ -140,9 +140,9 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
       let new_tl =
         if braces
           then Mlist.of_list (List.map trm_seq (List.rev partition))
-          else Mlist.of_list (List.map (fun x -> trm_seq_no_brace (Mlist.to_list x)) (List.rev partition))
+          else Mlist.of_list (List.map trm_seq_nobrace (List.rev partition))
         in
-      let seq = if braces then trm_seq new_tl else trm_seq_no_brace (Mlist.to_list tl) in
+      let seq = if braces then trm_seq new_tl else trm_seq_nobrace tl in
       trm_pass_marks t seq
 
 (* [partition blocks braces t p]: applies [partition_aux] at trm [t] with path [p]. *)
@@ -179,7 +179,7 @@ let shuffle_aux (braces : bool) (t : trm) : trm =
 
           ) [] tl in
         let local_acc = List.rev local_acc in
-        global_acc := (if braces then trm_seq (Mlist.of_list local_acc) else trm_seq_no_brace local_acc) :: !global_acc
+        global_acc := (if braces then trm_seq (Mlist.of_list local_acc) else trm_seq_nobrace_nomarks local_acc) :: !global_acc
       done;
        trm_seq ~annot:t.annot (Mlist.of_list (List.rev !global_acc))
   | _ -> fail first_row.loc "Sequence_core.shuffle_aux: shuffle can be applied only on sequences"

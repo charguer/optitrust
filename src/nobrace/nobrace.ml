@@ -30,9 +30,15 @@ let exit () =
 let trm_add_style (t : trm) : trm =
   trm_add_cstyle (No_braces (current())) t
 
-(* [trm_seq tl]: generates a no_brace sequence with the current id *)
-let trm_seq (tl : trms) : trm =
-  trm_add_style (Trm.trm_seq (Mlist.of_list tl))
+(* [trm_seq tl]: generates a nobrace sequence with the current id *)
+let trm_seq (tl : trm mlist) : trm =
+  trm_add_style (Trm.trm_seq tl)
+
+(* [trm_seq_nomarks tl]: generates a nobrace sequence with the current id *)
+let trm_seq_nomarks (tl : trms) : trm =
+  trm_seq (Mlist.of_list tl)
+
+
 
 (* [get_id t]: gets the id of the sequence annotated as No_braces *)
 let get_id (t : trm) : int option =
@@ -48,7 +54,7 @@ let get_id (t : trm) : int option =
 (* [set_if_sequence t]: convert a normal sequence into a hidden sequence *)
 let set_if_sequence (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl1 -> trm_seq (Mlist.to_list tl1)
+  | Trm_seq tl1 -> trm_seq tl1
   | _-> t
 
 (* [is_nobrace t]: check if the current sequence is a hidden sequence or not *)

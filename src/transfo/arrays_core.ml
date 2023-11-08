@@ -48,15 +48,15 @@ let to_variables_aux (new_vars : string list) (index : int) (t : trm) : trm =
           | Typ_array (t_var,_) ->
             begin match t_var.typ_desc with
             | Typ_constr (y, tid, _) ->
-              trm_seq_no_brace (
+              trm_seq_nobrace_nomarks (
                 List.map(fun x ->
                 trm_let_mut ~annot:t.annot (x, typ_constr y ~tid) (trm_uninitialized ?loc:init.loc ()) ) new_vars)
             | Typ_var (y, tid) ->
-              trm_seq_no_brace (
+              trm_seq_nobrace_nomarks (
                  List.map(fun x ->
                  trm_let_mut ~annot:t.annot (x, typ_constr ([], y) ~tid) (trm_uninitialized ?loc:init.loc ()) ) new_vars)
             | _ ->
-              trm_seq_no_brace (
+              trm_seq_nobrace_nomarks (
               List.map(fun x ->
               trm_let_mut ~annot:t.annot (x, t_var) (trm_uninitialized ?loc:init.loc ())) new_vars)
             end
@@ -169,7 +169,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
          begin match ty.typ_desc with
         | Typ_ptr {inner_typ = ty;_} ->
            (* ty* becomes (ty[])* *)
-           trm_seq_no_brace
+           trm_seq_nobrace_nomarks
               [
                 trm_typedef {
                   td with typdef_tconstr = block_name;
@@ -186,7 +186,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
                 trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); trm_var block_size]
               in
               let tid = next_typconstrid () in
-              trm_seq_no_brace
+              trm_seq_nobrace_nomarks
                 [
                   trm_typedef {
                     td with typdef_tconstr = block_name;
@@ -197,7 +197,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
            | Trm t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var block_size] in
               let tid = next_typconstrid () in
-              trm_seq_no_brace
+              trm_seq_nobrace_nomarks
                 [
                   trm_typedef {
                     td with typdef_tconstr = block_name;
@@ -476,7 +476,7 @@ let set_explicit_aux (t : trm) : trm =
         trm_set (trm_apps (trm_binop (Binop_array_access)) [trm_var_get x;trm_int i]) t1
       ) (Mlist.to_list tl) in
       let new_decl = trm_let_mut ~annot:t.annot (x, (get_inner_ptr_type tx)) (trm_uninitialized ?loc:init.loc ()) in
-      trm_seq_no_brace ([new_decl] @ array_set_list)
+      trm_seq_nobrace_nomarks ([new_decl] @ array_set_list)
     | _ -> fail init.loc "set_explicit_aux: expected an array initialization"
     end
   | _ -> fail t.loc "set_explicit_aux: expected an array declaration"

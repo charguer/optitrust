@@ -16,8 +16,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.failure_expected (fun () ->
     Sequence_basic.delete [cFunBody "dead_code"; sInstr "z = i"]);
   !! Trace.failure_expected (fun () ->
-    Sequence_basic.delete [cFunBody "dead_code"; sInstr "z = i"]);
-  !! Trace.failure_expected (fun () ->
     Sequence_basic.delete [cFunBody "dead_code"; sInstr "x = z"]);
 
   (* 2. effects are shadowed *)
