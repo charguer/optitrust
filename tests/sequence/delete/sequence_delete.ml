@@ -13,10 +13,20 @@ let _ = Run.script_cpp (fun _ ->
   (* FIXME:  !! Sequence_basic.delete [nbMulti; cFunBody "dead_code"; sInstr "u."]; *)
   !! Sequence_basic.delete [cFunBody "dead_code"; cVarDef "y"];
   !! Sequence_basic.delete [cFunBody "dead_code"; sInstr "z = i + j"];
+  !! Trace.failure_expected (fun () ->
+    Sequence_basic.delete [cFunBody "dead_code"; sInstr "z = i"]);
+  !! Trace.failure_expected (fun () ->
+    Sequence_basic.delete [cFunBody "dead_code"; sInstr "z = i"]);
+  !! Trace.failure_expected (fun () ->
+    Sequence_basic.delete [cFunBody "dead_code"; sInstr "x = z"]);
 
   (* 2. effects are shadowed *)
   !! Sequence_basic.delete [cFunBody "shadowed"; sInstr "x = 3"];
   !! Sequence_basic.delete [occFirst; cFunBody "shadowed"; sInstr "*y = x"];
+  !! Trace.failure_expected (fun () ->
+    Sequence_basic.delete [cFunBody "shadowed"; sInstr "x = 5"]);
+  !! Trace.failure_expected (fun () ->
+    Sequence_basic.delete [occFirst; cFunBody "shadowed"; sInstr "*y = x"]);
 
   (* can't delete expression, must be an instruction. *)
   !! Trace.failure_expected (fun () ->

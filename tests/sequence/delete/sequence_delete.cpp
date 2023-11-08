@@ -36,6 +36,7 @@ void dead_code() {
     z = i;
     x = z;
   }
+  z = x;
 }
 
 void shadowed(int* y) {
@@ -44,6 +45,7 @@ void shadowed(int* y) {
   int x;
   x = 3;
   x = 4;
+  x = 5;
 
   *y = x;
   x++;
