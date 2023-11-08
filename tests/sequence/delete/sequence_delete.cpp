@@ -52,6 +52,17 @@ void shadowed(int* y) {
   *y = x;
 }
 
+void redundant(int* x) {
+  __modifies("x ~> Cell");
+
+  *x = 2;
+  *x = 2;
+
+  *x = 3;
+  int r = *x;
+  *x = 3;
+}
+
 void wrong_target() {
   __pure();
 
