@@ -42,12 +42,15 @@ let%transfo set_loop_contract (contract: unparsed_contract) (tg: Target.target):
 (*let recompute_resources (tg : Target.target) : unit =
   Target.apply_at_target_paths (Resources_core.trm_recompute_resources) tg*)
 
+let recompute_all_resources_on (t : trm) : trm =
+  let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
+  (* TODO: Configurable base environment *)
+  Resource_computation.(trm_recompute_resources empty_resource_set t)
+
 let recompute_all_resources () : unit =
   Trace.typing_step ~name:"Resource recomputation" (fun () ->
     let t = Trace.ast () in
-    let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
-    (* TODO: Configurable base environment *)
-    let t = Resource_computation.(trm_recompute_resources empty_resource_set t) in
+    let t = recompute_all_resources_on t in
     Trace.set_ast t
   )
 
@@ -153,6 +156,27 @@ let assert_commute (before : trm) (after : trm) : unit =
   if not (Hyp_map.is_empty interference) then
     fail after.loc (string_of_interference interference)
 
+(** Checks that the effects from the instruction at [index] in the sequence at [path] are shadowed by following effects in term [t].
+    *)
+let assert_shadowed (index : int) (t : trm) (path : path) : unit =
+  let t = recompute_all_resources_on t in
+  let seq = Path.resolve_path path t in
+  let instrs = trm_inv ~error:"Resources.assert_shadowed: expected sequence" trm_seq_inv seq in
+  let instr = match Mlist.nth_opt instrs index with
+  | None -> fail seq.loc "Resources.assert_shadowed: invalid index in sequence"
+  | Some instr -> instr
+  in
+  let error = "Resources.assert_shadowed: expected resources usage to be available" in
+  let instr_res = Tools.unsome ~error instr.ctx.ctx_resources_usage in
+  let only_rw hyp res_usage =
+    match res_usage with
+    | UsedFull | Produced -> true
+    | UsedReadOnly -> false
+  in
+  let rw_hyps = Hyp_map.filter only_rw instr_res in
+  let uninit_ghosts = List.map (fun (h, _) -> trm_ghost_uninit (trm_var h)) (Hyp_map.bindings rw_hyps) in
+  let _ = recompute_all_resources_on (trm_seq_no_brace (Mlist.to_list (Mlist.insert_sublist_at (index + 1) uninit_ghosts instrs))) in
+  ()
 
 (* [show] enables to view the result of resource computations. *)
 let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =

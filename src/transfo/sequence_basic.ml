@@ -41,8 +41,13 @@ let%transfo insert ?(reparse : bool = false) (code : trm) (tg : target) : unit =
    If the next instructions need an invariant H' and { H } del_instr { H'' }
    we need both H ==> H' and H'' ==> H'. *)
 let%transfo delete ?(nb : int = 1) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Sequence_core.delete i nb t p) tg
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq) (fun t (p, i) ->
+    if !Flags.check_validity then begin
+      assert (nb = 1);
+      Resources.assert_shadowed i t p
+    end;
+    Sequence_core.delete i nb t p
+  ) tg
 
 (* [intro i nb tg]: expects the target [tg] to point at an instruction inside a sequence.
     [mark] -  denotes a mark which add into the generated sub-sequence, in case the user decides to have one.

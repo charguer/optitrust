@@ -227,3 +227,8 @@ let ghost_rewrite = toplevel_var "rewrite"
 
 let trm_ghost_rewrite (before: formula) (after: formula) (by: formula): formula =
   trm_ghost ghost_rewrite ["H1", before; "H2", after; "by", by]
+
+let ghost_uninit = name_to_var "uninit"
+
+let trm_ghost_uninit (f: formula): formula =
+  trm_ghost ghost_uninit ["H", f]
