@@ -435,6 +435,22 @@ let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  
   Nobrace_transfo.remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll inner_braces outer_seq_with_mark subst_mark) tg)
 
+(* [move_out_on trm_index t]: moves an invariant instruction just before loop [t],
+    [trm_index] - index of that instruction on its surrouding sequence,
+    [t] - ast of the for loop. *)
+let move_out_on (mark : mark option) (trm_index : int) (t : trm) : trm =
+  let tl = try for_loop_body_trms t with | TransfoError _ -> fail t.loc "Loop_basic.move_out_on: expected a for loop" in
+  let lfront, trm_inv, lback = Mlist.get_item_and_its_relatives trm_index tl in
+  let new_tl = Mlist.merge lfront lback in
+  let loop =
+  match t.desc with
+  | Trm_for (l_range, _, contract) ->
+    trm_for ?contract l_range (trm_seq new_tl)
+  | Trm_for_c (init, cond, step, _, invariant) ->
+    trm_for_c ?invariant init cond step (trm_seq new_tl)
+  | _ -> fail t.loc "Loop_basic.move_out_on: expected a loop" in
+  trm_seq_no_brace [trm_may_add_mark mark trm_inv; loop]
+
 (* [move_out tg]: expects the target [tg] to point at an instruction inside the loop
     that is not dependent on the index of the loop or any local variable.
     Then it will move it outside the loop.
@@ -444,9 +460,23 @@ let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  
     LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index. *)
 let%transfo move_out ?(mark : mark option) (tg : target) : unit =
+  Resources.required_for_check ();
   Nobrace_transfo.remove_after ( fun _ ->
-  apply_on_transformed_targets (Path.index_in_surrounding_loop)
-    (fun t (i, p) -> Loop_core.move_out mark i t p ) tg)
+  apply_on_transformed_targets (Path.index_in_surrounding_loop) (fun t (i, p) ->
+    if !Flags.check_validity then begin
+      assert (i == 0);
+      let loop = Path.resolve_path p t in
+      let error = "Loop_basic.move_out: expected for loop" in
+      let ((index, _, _, _, _, _), instrs, _) = trm_inv ~error trm_for_inv_instrs loop in
+      let (instr, rest) = Xlist.uncons (Mlist.to_list instrs) in
+      if Var_set.mem index (trm_free_vars instr) then
+        fail instr.loc "Loop_basic.move_out: instruction uses loop index";
+      let uninit_ghosts = Resources.uninit_ghosts_from_resource_usage_of instr in
+      let _ = Resources.recompute_all_resources_on (trm_seq_no_brace (Mlist.to_list (Mlist.insert_sublist_at i uninit_ghosts instrs))) in
+      Trace.justif "the instruction does not observe what previous iterations modify"
+    end;
+    apply_on_path (Loop_core.move_out_on mark i) t p
+  ) tg)
 
 (* [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition
      (not dependent on loop index or local variables) inside a loop.  Then it will take that

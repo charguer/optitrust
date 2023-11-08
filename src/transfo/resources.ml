@@ -156,25 +156,30 @@ let assert_commute (before : trm) (after : trm) : unit =
   if not (Hyp_map.is_empty interference) then
     fail after.loc (string_of_interference interference)
 
+(** <private>
+    Creates uninit ghosts from the RW resource usage of term [t].
+    *)
+let uninit_ghosts_from_resource_usage_of (t : trm) : formula list =
+  let error = "Resources.assert_shadowed: expected resources usage to be available" in
+  let res = Tools.unsome ~error t.ctx.ctx_resources_usage in
+  let only_rw hyp res_usage =
+    match res_usage with
+    | UsedFull | Produced -> true
+    | UsedReadOnly -> false
+  in
+  let rw_hyps = Hyp_map.filter only_rw res in
+  List.map (fun (h, _) -> trm_ghost_uninit (trm_var h)) (Hyp_map.bindings rw_hyps)
+
 (** Checks that the effects from the instruction at [index] in the sequence at [path] are shadowed by following effects in term [t].
     *)
 let assert_shadowed (index : int) (t : trm) (path : path) : unit =
-  let t = recompute_all_resources_on t in
   let seq = Path.resolve_path path t in
   let instrs = trm_inv ~error:"Resources.assert_shadowed: expected sequence" trm_seq_inv seq in
   let instr = match Mlist.nth_opt instrs index with
   | None -> fail seq.loc "Resources.assert_shadowed: invalid index in sequence"
   | Some instr -> instr
   in
-  let error = "Resources.assert_shadowed: expected resources usage to be available" in
-  let instr_res = Tools.unsome ~error instr.ctx.ctx_resources_usage in
-  let only_rw hyp res_usage =
-    match res_usage with
-    | UsedFull | Produced -> true
-    | UsedReadOnly -> false
-  in
-  let rw_hyps = Hyp_map.filter only_rw instr_res in
-  let uninit_ghosts = List.map (fun (h, _) -> trm_ghost_uninit (trm_var h)) (Hyp_map.bindings rw_hyps) in
+  let uninit_ghosts = uninit_ghosts_from_resource_usage_of instr in
   let _ = recompute_all_resources_on (trm_seq_no_brace (Mlist.to_list (Mlist.insert_sublist_at (index + 1) uninit_ghosts instrs))) in
   ()
 
