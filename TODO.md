@@ -454,3 +454,38 @@ grep -r '[tag]' .
   Show.stmt tg;     (* prints the is_statement information of the term *)
   Show.info tg;     (* combination of show_desc; show_annot; show_stmt; show_typ; show_res; show_marks *)
 ```
+
+# Generalized uninit
+
+```c
+
+void f(int* p, bool b) {
+  __consumes("Uninit(p ~> Cell)"); // Init(i, p ~> Cell)
+  __produces("Uninit(p ~> Cell)"); // Init(i, p ~> Cell)
+  if (b) {
+    *p = 3;
+  }
+}
+
+void g(int* p, bool b) {
+  __consumes("Uninit(p ~> Cell)");
+  __produces("p ~> Cell");
+  *p = 6;
+  f(p, b);
+}
+
+void f2(int* p, bool b) {
+  __consumes("Uninit(p ~> Cell)");
+  __produces("p ~> Cell");
+  int z = 3;
+  if (b) {
+    *p = z;
+  }
+  // requires annotation: if b then p ~> Cell else Uninit(p ~> Cell)
+  z++;
+  if (!b) {
+    *p = z;
+  }
+}
+
+```

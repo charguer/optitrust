@@ -1,6 +1,29 @@
-int *t;
+#include "../../../include/optitrust.h"
 
-int main() {
+void var(int* t) {
+  __modifies("t ~> Matrix1(3)");
+  int x = 0;
+  x = 3;
+  for (int i = 0; i < 3; i++) {
+    t[MINDEX1(3, i)] = x;
+  }
+}
+
+void arr(int* t, int* x) {
+  __modifies("t ~> Matrix2(3, 5)");
+  __modifies("x ~> Matrix1(5)");
+  for (int j = 0; j < 5; j++) {
+    x[MINDEX1(5, j)] = 3;
+  }
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 5; j++) {
+      t[MINDEX2(3, 5, i, j)] = x[MINDEX1(5, j)];
+    }
+  }
+}
+
+void test(int* t) {
+  __modifies("t ~> Matrix1(10)");
   int a = 5;
   int b = 6;
   int x = a + b;
@@ -8,8 +31,7 @@ int main() {
     int r = i;
     int s = i;
     for (int j = 0; j < 10; j++) {
-      t[i] = i;
+      t[MINDEX1(10, i)] = i;
     }
   }
-  return 0;
 }
