@@ -1078,14 +1078,14 @@ type fields_order =
 
 (* ************************* Resource constructors ************************* *)
 
-let unknown_ctx: ctx = {
+let unknown_ctx (): ctx = {
   ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
   ctx_resources_usage = None; ctx_resources_contract_invoc = None;
   ctx_resources_post_inst = None;
 }
 
 let typing_ctx (ctx_types: typ_ctx): ctx =
-  { unknown_ctx with ctx_types = Some ctx_types }
+  { (unknown_ctx ()) with ctx_types = Some ctx_types }
 
 (*****************************************************************************)
 

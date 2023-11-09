@@ -473,7 +473,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 
        end in
        newt
-       (*{ newt with ctx = unknown_ctx }*)
+       (*{ newt with ctx = unknown_ctx () }*)
        (* TODO: restore node invalidation with option to decide if it need to be done or not *)
        (* NOTE: we don't reset the types, we need to keep them, for is_statement *)
         (* TODO: go through trm_build in order to keep track of the fact that this is a fresh AST node

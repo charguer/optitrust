@@ -537,6 +537,15 @@ let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource
 
 let debug_print_computation_stack = false
 
+let handle_resource_errors (loc: location) (exn: exn) =
+  match exn with
+  | e when !Flags.resource_errors_as_warnings ->
+    Printf.eprintf "%s: Resource computation warning: %s\n" (loc_to_string loc) (Printexc.to_string e);
+    None, None
+  | ResourceError (None, place, err) -> Printexc.(raise_with_backtrace (ResourceError (loc, place, err)) (get_raw_backtrace ()))
+  | ResourceError (Some _, _, _) as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
+  | e -> Printexc.(raise_with_backtrace (ResourceError (loc, ResourceComputation, e)) (get_raw_backtrace ()))
+
 (* TODO?
 Resources.Computation.compute_resource
 Resources.compute = Resources.Computation.compute_resource
@@ -610,7 +619,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         in
         let to_free = List.concat_map extract_let_mut instrs in
         (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-        let res_to_free = resource_set ~linear:(List.map (fun x -> (new_anon_hyp (), formula_cell x)) to_free) () in
+        let res_to_free = resource_set ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
         let _, _, linear = extract_resources ~split_frac:false res res_to_free in
         { res with linear }) res
       in
@@ -782,12 +791,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       compute_resources (Some res) t
 
     | _ -> fail t.loc ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
-    end with e when !Flags.resource_errors_as_warnings ->
-      Printf.eprintf "%s: Resource computation warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
-      None, None
-    | ResourceError (None, place, err) -> Printexc.(raise_with_backtrace (ResourceError (t.loc, place, err)) (get_raw_backtrace ()))
-    | ResourceError (Some _, _, _) as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
-    | e -> Printexc.(raise_with_backtrace (ResourceError (t.loc, ResourceComputation, e)) (get_raw_backtrace ()))
+    end with e -> handle_resource_errors t.loc e
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
@@ -812,14 +816,15 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
 and compute_resources_and_merge_usage ?(expected_res: resource_spec) (res: resource_spec) (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_spec =
   let extra_usage, res = (compute_resources : ?expected_res:resource_set -> resource_spec -> trm -> (resource_usage_map option * resource_spec)) ?expected_res res t in
-  let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
-  (usage_map, res)
+  try
+    let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
+    (usage_map, res)
+  with e -> handle_resource_errors t.loc e
 
-let ctx_copy (ctx: ctx): ctx = { ctx with ctx_types = ctx.ctx_types }
 
 let rec trm_deep_copy (t: trm) : trm =
   let t = trm_map_with_terminal ~share_if_no_change:false false (fun _ ti -> trm_deep_copy ti) t in
-  t.ctx <- ctx_copy unknown_ctx; (* LATER *)
+  t.ctx <- unknown_ctx (); (* LATER *)
   t
 
 (* hypothesis: needs var_ids to be calculated *)

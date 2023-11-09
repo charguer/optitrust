@@ -29,7 +29,7 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
 
 (* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
 let trm_build ~(annot : trm_annot) ?(loc : location) ~(is_statement : bool) ?(typ : typ option)
-  ?(ctx : ctx = unknown_ctx) ~(desc : trm_desc) () : trm =
+  ?(ctx : ctx = unknown_ctx ()) ~(desc : trm_desc) () : trm =
   let t = {annot; loc; is_statement; typ; desc; ctx} in
   Stats.incr_trm_alloc ();
   t
@@ -1780,7 +1780,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   let annot = t.annot in
   let loc = t.loc in
   let typ = t.typ in
-  let ctx = if keep_ctx then t.ctx else unknown_ctx in
+  let ctx = if keep_ctx then t.ctx else unknown_ctx () in
 
   let fun_spec_map f tf old_spec =
     match old_spec with
@@ -2079,7 +2079,7 @@ let trm_map_vars
     let annot = t.annot in
     let loc = t.loc in
     let typ = t.typ in
-    let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
+    let t_ctx = if keep_ctx then t.ctx else unknown_ctx () in
 
     let ctx, trm = match t.desc with
     | Trm_var (kind, x) ->
