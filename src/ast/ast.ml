@@ -768,6 +768,7 @@ and produced_resource_set = {
 
 and resource_usage =
   | UsedReadOnly
+  | UsedUninit
   | UsedFull
   | Produced
 
@@ -1048,6 +1049,7 @@ let trm_desc_to_string : trm_desc -> string =
 let resource_usage_opt_to_string = function
 | None -> "None"
 | Some UsedReadOnly -> "UsedReadOnly"
+| Some UsedUninit -> "UsedUninit"
 | Some UsedFull -> "UsedFull"
 | Some Produced -> "Produced"
 

@@ -101,7 +101,7 @@ let loop_minimize_on (t: trm): trm =
         let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
         Some (hyp, ro_formula)
       end
-    | Some UsedFull -> Some (hyp, formula)
+    | Some (UsedUninit | UsedFull) -> Some (hyp, formula)
     | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
   in
 
@@ -138,10 +138,8 @@ let collect_interferences (before : trm) (after : trm) : (resource_usage option 
     match (a_res_usage, b_res_usage) with
     | (_, None)
     | (None, _) -> None
-    | (Some Produced, _)
-    | (_, Some Produced)
-    | (Some UsedFull, _)
-    | (_, Some UsedFull) -> Some (a_res_usage, b_res_usage)
+    | (Some (Produced | UsedFull | UsedUninit), _)
+    | (_, Some (Produced | UsedFull | UsedUninit)) -> Some (a_res_usage, b_res_usage)
     | _ -> None
   in
   Hyp_map.merge res_merge a_res b_res
@@ -164,7 +162,7 @@ let non_ro_usage_of (t : trm) : hyp list =
   let res = Tools.unsome ~error t.ctx.ctx_resources_usage in
   let not_ro hyp res_usage =
     match res_usage with
-    | UsedFull | Produced -> true
+    | UsedFull | UsedUninit | Produced -> true
     | UsedReadOnly -> false
   in
   let not_ro_res = Hyp_map.filter not_ro res in

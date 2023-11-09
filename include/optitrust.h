@@ -73,7 +73,8 @@ template<typename T> T __get(T* p) {
 }
 
 template<typename T> void __set(T* p, T x) {
-  __modifies("p ~> Cell");
+  __consumes("_Uninit(p ~> Cell)");
+  __produces("p ~> Cell");
   __admitted();
   *p = x;
 }
@@ -201,61 +202,61 @@ inline void* CALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item) {
 }
 
 inline void* MALLOC0(size_t bytes_per_item) {
-  __produces("_Res ~> Matrix0()");
+  __produces("_Uninit(_Res ~> Matrix0())");
   __admitted();
   return malloc(bytes_per_item);
 }
 
 inline void* MALLOC1(int N1, size_t bytes_per_item) {
-  __produces("_Res ~> Matrix1(N1)");
+  __produces("_Uninit(_Res ~> Matrix1(N1))");
   __admitted();
   return malloc(N1 * bytes_per_item);
 }
 
 inline void* MALLOC2(int N1, int N2, size_t bytes_per_item) {
-  __produces("_Res ~> Matrix2(N1, N2)");
+  __produces("_Uninit(_Res ~> Matrix2(N1, N2))");
   __admitted();
   return malloc(N1 * N2 * bytes_per_item);
 }
 
 inline void* MALLOC3(int N1, int N2, int N3, size_t bytes_per_item) {
-  __produces("_Res ~> Matrix3(N1, N2, N3)");
+  __produces("_Uninit(_Res ~> Matrix3(N1, N2, N3))");
   __admitted();
   return malloc(N1 * N2 * N3 * bytes_per_item);
 }
 
 inline void* MALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item) {
-  __produces("_Res ~> Matrix4(N1, N2, N3, N4)");
+  __produces("_Uninit(_Res ~> Matrix4(N1, N2, N3, N4))");
   __admitted();
   return malloc(N1 * N2 * N3 * N4 * bytes_per_item);
 }
 
 inline void MFREE0(void* p) {
-  __consumes("p ~> Matrix0()");
+  __consumes("_Uninit(p ~> Matrix0())");
   __admitted();
   free(p);
 }
 
 inline void MFREE1(int N1, void* p) {
-  __consumes("p ~> Matrix1(N1)");
+  __consumes("_Uninit(p ~> Matrix1(N1))");
   __admitted();
   free(p);
 }
 
 inline void MFREE2(int N1, int N2, void* p) {
-  __consumes("p ~> Matrix2(N1, N2)");
+  __consumes("_Uninit(p ~> Matrix2(N1, N2))");
   __admitted();
   free(p);
 }
 
 inline void MFREE3(int N1, int N2, int N3, void* p) {
-  __consumes("p ~> Matrix3(N1, N2, N3)");
+  __consumes("_Uninit(p ~> Matrix3(N1, N2, N3))");
   __admitted();
   free(p);
 }
 
 inline void MFREE4(int N1, int N2, int N3, int N4, void* p) {
-  __consumes("p ~> Matrix4(N1, N2, N3, N4)");
+  __consumes("_Uninit(p ~> Matrix4(N1, N2, N3, N4))");
   __admitted();
   free(p);
 }

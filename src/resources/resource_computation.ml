@@ -28,13 +28,8 @@ let __pre_dec = toplevel_var "__pre_dec"
   *)
 type formula_inst = formula
 
-let inst_hyp (h: hyp): formula_inst =
-  trm_make (Trm_var (Var_immutable, h))
-
-let inst_hyp_inv (f: formula_inst) =
-  match f.desc with
-  | Trm_var (Var_immutable, h) -> Some h
-  | _ -> None
+let inst_hyp (h: hyp): formula_inst = trm_var h
+let inst_hyp_inv = trm_var_inv
 
 let var_SplitRO = toplevel_var "SplitRO"
 
@@ -42,18 +37,19 @@ let inst_split_read_only ~(new_frac: var) (h: hyp) : formula_inst =
   trm_apps (trm_var var_SplitRO) [trm_var new_frac; inst_hyp h]
 
 let inst_split_read_only_inv (f: formula_inst): (var * hyp) option =
-  let open Tools.OptionMonad in
-  match trm_apps_inv f with
-  | Some (fn, [frac; hyp]) ->
-    begin match trm_var_inv fn with
-    | Some v when var_eq v var_SplitRO ->
-      let* frac = trm_var_inv frac in
-      let* hyp = inst_hyp_inv hyp in
-      Some (frac, hyp)
-    | _ -> None
-    end
-  | _ -> None
+  Pattern.pattern_match_opt f [
+    Pattern.(trm_apps2 (trm_var (var_eq var_SplitRO)) (trm_var !__) (trm_var !__)) (fun frac hyp -> (frac, hyp))
+  ]
 
+let var_ForgetInit = toplevel_var "ForgetInit"
+
+let inst_forget_init (h: hyp) : formula_inst =
+  trm_apps (trm_var var_ForgetInit) [inst_hyp h]
+
+let inst_forget_init_inv (f: formula_inst): hyp option =
+  Pattern.pattern_match_opt f [
+    Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h -> h)
+  ]
 
 let fun_contract_free_vars (contract: fun_contract): Var_set.t =
   let fold_res_list bound_vars fv res =
@@ -91,7 +87,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx:
   | Some evar_ctx -> evar_ctx
   | None -> raise_resource_not_found (x, formula) evar_ctx res
 
-let rec unify_and_remove_linear ((x, formula): resource_item) (res: linear_resource_set)
+let rec unify_and_remove_linear ((x, formula): resource_item) ?(uninit = false) (res: linear_resource_set)
   (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
   (* LATER: Improve the structure of the linear_resource_set to make this
      function faster on most frequent cases *)
@@ -99,8 +95,17 @@ let rec unify_and_remove_linear ((x, formula): resource_item) (res: linear_resou
   match res with
   | [] -> raise Not_found (* caught later to create a Resource_not_found. *)
   | (candidate_name, formula_candidate) as hyp_candidate :: res ->
+    let used_formula, formula_candidate =
+      if uninit then
+        match formula_uninit_inv formula_candidate with
+        | Some formula_candidate -> inst_hyp candidate_name, formula_candidate
+        | None -> inst_forget_init candidate_name, formula_candidate
+      else inst_hyp candidate_name, formula_candidate
+    in
     match unify_trm formula_candidate formula evar_ctx with
-    | Some evar_ctx -> ({ hyp_to_inst = x; inst_by = inst_hyp candidate_name; used_formula = formula_candidate }, res, evar_ctx)
+    | Some evar_ctx ->
+      let used_formula = if uninit then formula_uninit formula_candidate else formula_candidate in
+      ({ hyp_to_inst = x; inst_by = inst_hyp candidate_name; used_formula }, res, evar_ctx)
     | None ->
       let used, res, evar_ctx = aux res in
       (used, hyp_candidate :: res, evar_ctx)
@@ -147,7 +152,11 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         | _ -> unify_and_remove_linear (x, formula) res evar_ctx
         end
       end
-    | _ -> unify_and_remove_linear (x, formula) res evar_ctx
+    | _ ->
+      begin match formula_uninit_inv formula with
+      | Some formula -> unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx
+      | None -> unify_and_remove_linear (x, formula) res evar_ctx
+      end
   with Not_found ->
     raise_resource_not_found (x, formula) evar_ctx res
 
@@ -494,11 +503,12 @@ let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resourc
       match cur_use, new_use with
       | None, u -> u
       | u, None -> u
-      | Some Produced, Some UsedFull -> None
+      | Some Produced, Some (UsedFull | UsedUninit) -> None
       | Some Produced, Some UsedReadOnly -> Some Produced
       | _, Some Produced -> failwith (sprintf "Produced resource share id %d with another one" hyp.id)
-      | Some UsedFull, _ -> failwith (sprintf "Consumed resource share id %d with another one" hyp.id)
-      | Some UsedReadOnly, Some u -> Some u
+      | Some (UsedFull | UsedUninit), _ -> failwith (sprintf "Consumed resource share id %d with another one" hyp.id)
+      | Some UsedReadOnly, Some (UsedFull | UsedUninit) -> Some UsedFull
+      | Some UsedReadOnly, Some UsedReadOnly -> Some UsedReadOnly
     ) current_usage extra_usage
 
 let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usage: resource_usage_map option): resource_usage_map option =
@@ -510,13 +520,17 @@ let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usa
 let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource_usage_map) : resource_usage_map =
   (* TODO: Maybe manage pure as well *)
   let locally_used =
-    List.fold_left (fun usage_map { inst_by } ->
+    List.fold_left (fun usage_map { inst_by; used_formula } ->
       match inst_split_read_only_inv inst_by with
       | Some (_, orig_hyp) -> Hyp_map.add orig_hyp UsedReadOnly usage_map
       | None ->
+        let hyp_usage = if formula_uninit_inv used_formula = None then UsedFull else UsedUninit in
         match inst_hyp_inv inst_by with
-        | Some hyp -> Hyp_map.add hyp UsedFull usage_map
-        | None -> failwith "Weird resource used"
+        | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
+        | None ->
+          match inst_forget_init_inv inst_by with
+          | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
+          | None -> failwith "Weird resource used"
     ) Hyp_map.empty res_used.used_linear
   in
   update_usage_map ~current_usage:usage_map ~extra_usage:locally_used

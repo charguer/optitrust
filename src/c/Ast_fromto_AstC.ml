@@ -757,6 +757,7 @@ let display_ctx_resources (t: trm): trm list =
   let tl_used = Option.to_list (Option.map (fun res_used ->
       let s_used = String.concat ", " (List.map (function
           | hyp, UsedReadOnly -> sprintf "RO %s" hyp.name
+          | hyp, UsedUninit -> sprintf "Uninit %s" hyp.name
           | hyp, UsedFull -> sprintf "Full %s" hyp.name
           | hyp, Produced -> sprintf "Produced %s" hyp.name)
           (Hyp_map.bindings res_used))
