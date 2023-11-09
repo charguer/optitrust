@@ -1,6 +1,6 @@
 #include "../../../include/optitrust.h"
 
-int test(int* t, int* u, int n) {
+void parallel(int* t, int* u, int n) {
   __modifies(
     "Group(range(1, n, 1), fun i -> &t[i] ~> Cell),"
     "Group(range(1, n, 1), fun i -> &u[i] ~> Cell)");
@@ -30,7 +30,31 @@ int test(int* t, int* u, int n) {
     int* const m2 = (int* const) MALLOC1(5, sizeof(int));
     MFREE1(5, m2);
   }
+}
 
+void commute() {
+  __pure();
+
+  int x;
+  int y;
+  for (int i = 0; i < 5; i++) {
+    __sequentially_modifies(
+      "&x ~> Cell,"
+      "&y ~> Cell");
+    x++;
+    y++;
+  }
+}
+
+void wrong() {
+  __pure();
+
+  int x;
+  for (int i = 0; i < 4; i++) {
+    __sequentially_modifies("&x ~> Cell");
+    x++;
+    x++;
+  }
 }
 
 int testAllInstr(int* t, int* u, int n) {

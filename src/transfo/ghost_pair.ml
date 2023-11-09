@@ -12,8 +12,8 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
   let current_i = ref i in
   let dest_offset, interference_with_instr =
     match direction with
-    | -1 -> 0, fun next -> collect_interferences next instr
-    | 1 -> 1, fun next -> collect_interferences instr next
+    | -1 -> 0, fun next -> collect_trm_interferences next instr
+    | 1 -> 1, fun next -> collect_trm_interferences instr next
     | _ -> failwith "Ghost_pair.move_in_seq: expected -1 or 1 direction"
   in
   let commutes_with_next () : bool =

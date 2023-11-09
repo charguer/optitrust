@@ -69,6 +69,16 @@ let trm_for_contract t =
   | Some (_, _, Some c) -> Some c
   | _ -> None
 
+(** Returns the resource usage of the given term, fails if unavailable. *)
+let usage_of_trm (t : trm) =
+  unsome_or_fail t.loc "expected resource usage to be available" t.ctx.ctx_resources_usage
+
+(** Computes the resource usage of a consecutive sequence of instructions. *)
+let compute_usage_of_instrs (instrs : trm list) : resource_usage_map =
+  List.fold_left (fun usage_map t ->
+    Resource_computation.update_usage_map ~current_usage:usage_map ~extra_usage:(usage_of_trm t)
+  ) Resource_computation.empty_usage_map instrs
+
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
   let res_before =
@@ -82,11 +92,7 @@ let loop_minimize_on (t: trm): trm =
     | Some contract -> contract
   in
 
-  let body_res_usage =
-    match body.ctx.ctx_resources_usage with
-    | None -> fail t.loc "loop_minimize_on: the body of the loop needs a resource usage annotation"
-    | Some res_before -> res_before
-  in
+  let body_res_usage = usage_of_trm t in
 
   let new_fracs = ref [] in
   let keep_used_filter (hyp, formula) =
@@ -129,11 +135,7 @@ let justif_parallelizable_loop_contract ~error (contract: loop_contract): unit =
 
 (** Collects effects intererences as a map from hyps to pairs of interfering resource usages. *)
 (* TODO: is the [before] / [after] relationship still required? *)
-let collect_interferences (before : trm) (after : trm) : (resource_usage option * resource_usage option) Hyp_map.t =
-  (* TODO: let error' = error in *)
-  let error = "expected resources usage to be available" in
-  let a_res = Tools.unsome ~error before.ctx.ctx_resources_usage in
-  let b_res = Tools.unsome ~error after.ctx.ctx_resources_usage in
+let collect_interferences (before : resource_usage_map) (after : resource_usage_map) : (resource_usage option * resource_usage option) Hyp_map.t =
   let res_merge _ a_res_usage b_res_usage =
     match (a_res_usage, b_res_usage) with
     | (_, None)
@@ -142,15 +144,26 @@ let collect_interferences (before : trm) (after : trm) : (resource_usage option 
     | (_, Some (Produced | UsedFull | UsedUninit)) -> Some (a_res_usage, b_res_usage)
     | _ -> None
   in
-  Hyp_map.merge res_merge a_res b_res
+  Hyp_map.merge res_merge before after
+
+(** Collects effects intererences as a map from hyps to pairs of interfering resource usages. *)
+(* TODO: is the [before] / [after] relationship still required? *)
+let collect_trm_interferences (before : trm) (after : trm) : (resource_usage option * resource_usage option) Hyp_map.t =
+  collect_interferences (usage_of_trm before) (usage_of_trm after)
 
 (** <private> *)
 let string_of_interference (interference : (resource_usage option * resource_usage option) Hyp_map.t) : string =
   sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2)) (Hyp_map.bindings interference)))
 
+(** Checks that resource usages commute, infer var ids to check pure facts scope. *)
+let assert_usages_commute (loc : location) (before : resource_usage_map) (after : resource_usage_map) : unit =
+  let interference = collect_interferences before after in
+  if not (Hyp_map.is_empty interference) then
+    fail loc (string_of_interference interference)
+
 (** Checks that effects commute, infer var ids to check pure facts scope. *)
 let assert_seq_instrs_commute (before : trm) (after : trm) : unit =
-  let interference = collect_interferences before after in
+  let interference = collect_trm_interferences before after in
   if not (Hyp_map.is_empty interference) then
     fail after.loc (string_of_interference interference)
 
@@ -158,8 +171,7 @@ let assert_seq_instrs_commute (before : trm) (after : trm) : unit =
     Collects the resources that are consumed Full or Uninit (i.e. possibly written to) by term [t].
     *)
 let write_usage_of (t : trm) : hyp list =
-  let error = "Resources.non_ro_usage_of: expected resources usage to be available" in
-  let res = Tools.unsome ~error t.ctx.ctx_resources_usage in
+  let res = usage_of_trm t in
   let keep hyp res_usage =
     match res_usage with
     | UsedFull | UsedUninit-> true
@@ -211,9 +223,7 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
     not interferes
   in
   let instr_does_dot_interfere t =
-    let error = "Resources.assert_instr_redundant: expected resources usage to be available" in
-    let res = Tools.unsome ~error t.ctx.ctx_resources_usage in
-    Hyp_map.for_all usage_does_not_interfere res
+    Hyp_map.for_all usage_does_not_interfere (usage_of_trm t)
   in
   let is_redundant = List.for_all instr_does_dot_interfere other_instrs in
   if not is_redundant then

@@ -546,6 +546,8 @@ let handle_resource_errors (loc: location) (exn: exn) =
   | ResourceError (Some _, _, _) as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
   | e -> Printexc.(raise_with_backtrace (ResourceError (loc, ResourceComputation, e)) (get_raw_backtrace ()))
 
+let empty_usage_map = Hyp_map.empty
+
 (* TODO?
 Resources.Computation.compute_resource
 Resources.compute = Resources.Computation.compute_resource

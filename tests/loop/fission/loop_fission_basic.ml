@@ -4,15 +4,25 @@ open Target
 let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp ( fun _ ->
+  (* 1. Parallel loops can be fissioned, unless binders are broken. *)
+  !! Trace.failure_expected (fun () ->
+    Loop_basic.fission [tBefore; cFunDef "parallel"; sInstr "t[i] +="]);
+  !! Loop_basic.fission [tAfter; cFunDef "parallel"; sInstr "t[i] +="];
+  !! Loop_basic.fission [tBefore; cFunDef "parallel"; cVarDef "z"];
+  !! Trace.failure_expected (fun () ->
+    Loop_basic.fission [tBefore; cFunDef "parallel"; sInstr "MFREE1(5, m1)"]);
+  !! Loop_basic.fission [tAfter; cFunDef "parallel"; sInstr "MFREE1(5, m1)"];
 
-  !! Loop_basic.fission [tAfter; cFunDef "test"; sInstr "t[i] +="];
+  (* 2. Loops where instrs before/after split commute through all iterations can be fissioned. *)
+  !! Loop_basic.fission [cFunDef "commute"; cFor ""; dBody; dAfter 0];
 
-  !! Loop_basic.fission [tBefore; cFunDef "test"; cVarDef "z"];
+  (* 3. Wrong fissions are rejected. *)
+  !! Trace.failure_expected (fun () ->
+    Loop_basic.fission [cFunDef "wrong"; cFor ""; dBody; dAfter 0]);
 
+  (* Testing fission_all_instrs *)
   !! Loop_basic.fission_all_instrs [cFunDef "testAllInstr"; cFor "i"];
   !! Loop_basic.fission_all_instrs ~indices:[2;3] [cFunDef "testAllInstr2"; cFor "i"];
 
   !! Loop_basic.fission_all_instrs ~indices:[2;4] [cFunDef "testAllInstrContracts"; cFor "i"];
-
-
 )

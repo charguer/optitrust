@@ -849,7 +849,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (p : path
   in
   (* with_fresh_mark_on_p *)
   Marks.with_fresh_mark_on p (fun m ->
-    let (_, loop_path) = Path.index_in_surrounding_loop p in
+    let (index_in_loop, loop_path) = Path.index_in_surrounding_loop p in
     let loop_trm = Path.resolve_path loop_path (Trace.ast ()) in
     let ((i, _start, _dir, _stop, _step, _par), body, _contract) = trm_inv
       ~error:"Loop.reorder_at: expected simple loop."
@@ -864,7 +864,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (p : path
       (* hoist all allocs and fission all instrs to isolate the
           loops to be swaped *)
       hoist_all_allocs (target_of_path (path_of_loop_surrounding_mark_current_ast m));
-      fission_all_instrs (target_of_path (path_of_loop_surrounding_mark_current_ast m));
+      fission_all_instrs ~indices:[index_in_loop; index_in_loop+1] (target_of_path (path_of_loop_surrounding_mark_current_ast m));
       Loop_swap.f (target_of_path (path_of_loop_surrounding_mark_current_ast m));
       (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
     end

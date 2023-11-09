@@ -165,52 +165,74 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
   | Some contract ->
     let open Resource_formula in
 
-    let error = "Loop_basic.fission_on is invalid" in
-    Resources.justif_parallelizable_loop_contract ~error contract;
-    (* TODO: never use nth 0 ; must handle case where body is empty *)
-    (* TODO: use a specific inversion function to acquire resources that are assumed to be computed,
-         to fail gracefully if forgot to recompute resources *)
-    let tl2_ctx_res = Tools.unsome ((Mlist.nth tl2 0).ctx.ctx_resources_before) in
-    let bound_in_ghosts = List.fold_left (fun acc (g, _) -> (* TODO: gather_vars_in_contract *)
-        Var_set.add g acc
-      ) Var_set.empty contract.loop_ghosts
-    in
-    let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
-        match trm_let_inv ti with
-        | Some (vk, v, typ, init) -> Var_set.add v acc
-        | None -> acc
-      ) Var_set.empty tl1
-    in
-    (* At the fission point, we remove resources mentioning variables that were bound
-       before the fission point, or that were bound by the contract ghost bindings *)
-    let filter_resource_items its =
-      List.filter (fun (h, formula) ->
-        not (Var_set.mem h bound_in_ghosts) &&
-        Var_set.disjoint (trm_free_vars formula) bound_in_tl1
-      ) its
-    in
-    let filter_resource_set res =
-      { pure = filter_resource_items res.pure;
-        linear = filter_resource_items res.linear;
-        fun_specs = Var_map.empty }
-    in
-    let resources_after_tl1 = filter_resource_set tl2_ctx_res in
-    fst_contract := Some {
-      loop_ghosts = contract.loop_ghosts;
-      invariant = contract.invariant;
-      iter_contract = {
-        pre = contract.iter_contract.pre;
-        post = resources_after_tl1;
-      }
-    };
-    snd_contract := Some {
-      loop_ghosts = contract.loop_ghosts;
-      invariant = contract.invariant;
-      iter_contract = {
-        pre = resources_after_tl1;
-        post = contract.iter_contract.post;
-      }
-    };
+    (* TODO: set empty loop contracts as pure? *)
+    if (Mlist.is_empty tl1) then
+      snd_contract := Some contract
+    else if (Mlist.is_empty tl2) then
+      fst_contract := Some contract
+    else begin
+      let first_tl2_instr = Mlist.nth tl2 0 in
+
+      let linear_invariant = contract.invariant.linear in
+      let linear_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
+      let linear_invariant_usage res_usage =
+        Hyp_map.filter (fun h _ -> Var_set.mem h linear_hyps) res_usage
+      in
+      let tl1_inv_res = linear_invariant_usage (Resources.compute_usage_of_instrs (Mlist.to_list tl1)) in
+      let tl2_inv_res = linear_invariant_usage (Resources.compute_usage_of_instrs (Mlist.to_list tl2)) in
+      begin if linear_invariant = [] then
+        Trace.justif "The for loop is parallelizable"
+      else
+        Resources.assert_usages_commute t.loc tl1_inv_res tl2_inv_res;
+        Trace.justif "The instructions around split point commute with respect to the loop invariant resources"
+      end;
+
+      let error = "Loop_basic.fission_on: expected resources to be computed" in
+      let tl2_ctx_res = unsome_or_fail first_tl2_instr.loc error (first_tl2_instr.ctx.ctx_resources_before) in
+      let bound_in_ghosts = List.fold_left (fun acc (g, _) -> (* TODO: gather_vars_in_contract *)
+          Var_set.add g acc
+        ) Var_set.empty contract.loop_ghosts
+      in
+      let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
+          match trm_let_inv ti with
+          | Some (vk, v, typ, init) -> Var_set.add v acc
+          | None -> acc
+        ) Var_set.empty tl1
+      in
+      (* At the fission point, we remove resources mentioning variables that were bound
+        before the fission point, or that were bound by the contract ghost bindings *)
+      let filter_resource_items its =
+        List.filter (fun (h, formula) ->
+          printf "h: %s\n" (var_to_string h);
+          not (Var_set.mem h linear_hyps) &&
+          not (Var_set.mem h bound_in_ghosts) &&
+          Var_set.disjoint (trm_free_vars formula) bound_in_tl1
+        ) its
+      in
+      printf "linear hyps: %s\n" (vars_to_string (Var_set.elements linear_hyps));
+      let filter_resource_set res =
+        { pure = filter_resource_items res.pure;
+          linear = filter_resource_items res.linear;
+          fun_specs = Var_map.empty }
+      in
+      let resources_after_tl1 = filter_resource_set tl2_ctx_res in
+      fst_contract := Some {
+        loop_ghosts = contract.loop_ghosts;
+        invariant = contract.invariant;
+        iter_contract = {
+          pre = contract.iter_contract.pre;
+          post = resources_after_tl1;
+        }
+      };
+      snd_contract := Some {
+        loop_ghosts = contract.loop_ghosts;
+        invariant = contract.invariant;
+        iter_contract = {
+          pre = resources_after_tl1;
+          post = contract.iter_contract.post;
+        }
+      };
+    end;
   end;
   let ta = trm_for_instrs ?contract:!fst_contract l_range tl1 in
   let tb = trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2) in
@@ -263,6 +285,7 @@ let%transfo fission (tg : target) : unit =
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       apply_on_path (fission_on split_i) t p_loop)
     tg);
+  Transfo_debug.current_ast ~style:ContractDisplay "SJD";
   Resources.justif_correct "loop resources where successfully split"
 
 (* [fission_all_instrs]: similar to [fission],
@@ -271,6 +294,7 @@ let%transfo fission (tg : target) : unit =
    or at specific indices.
    *)
 let%transfo fission_all_instrs ?(indices : int list option) (tg : target) : unit =
+  Resources.required_for_check ();
   Nobrace_transfo.remove_after (fun _ ->
     let aux t =
       let _, tl, _ = trm_inv ~error:"fission_all_instrs: must target a for loop" trm_for_inv_instrs t in

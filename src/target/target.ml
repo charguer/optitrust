@@ -125,6 +125,14 @@ let target_of_paths (ps : paths) : target =
 let dRoot : constr =
     Constr_root
 
+(* [dBefore]: matches the interstice before the instruction at index [n] in a sequence. *)
+let dBefore (i : int) : constr =
+  Constr_dir (Dir_before i)
+
+(* [dAfter]: matches the interstice after the instruction at index [n] in a sequence. *)
+let dAfter (i : int) : constr =
+  Constr_dir (Dir_before (i + 1))
+
 (* [dArrayNth]: matches the trm with index [n] on an array initialization list. *)
 let dArrayNth (n : int) : constr =
     Constr_dir (Dir_array_nth n)
