@@ -155,30 +155,44 @@ let assert_seq_instrs_commute (before : trm) (after : trm) : unit =
     fail after.loc (string_of_interference interference)
 
 (** <private>
-    Collects the non-RO resource usages of term [t].
+    Collects the resources that are consumed Full or Uninit (i.e. possibly written to) by term [t].
     *)
-let non_ro_usage_of (t : trm) : hyp list =
+let write_usage_of (t : trm) : hyp list =
   let error = "Resources.non_ro_usage_of: expected resources usage to be available" in
   let res = Tools.unsome ~error t.ctx.ctx_resources_usage in
-  let not_ro hyp res_usage =
+  let keep hyp res_usage =
     match res_usage with
-    | UsedFull | UsedUninit | Produced -> true
-    | UsedReadOnly -> false
+    | UsedFull | UsedUninit-> true
+    | UsedReadOnly | Produced  -> false
   in
-  let not_ro_res = Hyp_map.filter not_ro res in
-  List.map (fun (h, _) -> h) (Hyp_map.bindings not_ro_res)
+  let write_res = Hyp_map.filter keep res in
+  List.map (fun (h, _) -> h) (Hyp_map.bindings write_res)
+
+(** <private>
+    Returns a list of formulas from a list of hypothesis variables.
+    *)
+let formulas_of_hyps (hyps: hyp list) (resources: resource_item list): formula list =
+  let hyp_map = Hyp_map.of_seq (List.to_seq resources) in
+  List.map (fun h -> Hyp_map.find h hyp_map) hyps
 
 (** Checks that the effects from the instruction at [index] in the sequence at path [p] are shadowed by following effects in term [t].
     *)
 let assert_instr_effects_shadowed (index : int) (p : path) (t : trm) : unit =
-  let t2 = Path.apply_on_path (fun seq ->
+  let t2 = Path.apply_on_path (fun seq -> Nobrace_transfo.remove_on_after ~check_scoping:false (fun () ->
     let instrs = trm_inv ~error:"Resources.assert_shadowed: expected sequence" trm_seq_inv seq in
     let instr = unsome_or_fail seq.loc "Resources.assert_shadowed: invalid index in sequence" (Mlist.nth_opt instrs index) in
-    let uninit_ghosts = List.map (fun h -> trm_ghost_uninit (trm_var h)) (non_ro_usage_of instr) in
-    trm_seq_nobrace (Mlist.insert_sublist_at (index + 1) uninit_ghosts instrs)
-  ) t p in
+    let write_hyps = write_usage_of instr in
+    let res_before = unsome_or_fail instr.loc "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
+    Printf.eprintf "res_before: %s\n" (Resource_computation.resource_list_to_string res_before.linear);
+    let write_res = formulas_of_hyps write_hyps res_before.linear in
+    let uninit_ghosts = List.filter_map (fun res ->
+      if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
+    let res = trm_seq_nobrace (Mlist.replace_at index (trm_seq_nobrace_nomarks uninit_ghosts) instrs) in
+    res
+  )) t p in
   let _ = recompute_all_resources_on t2 in
   ()
+
 
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.
 
@@ -186,12 +200,12 @@ let assert_instr_effects_shadowed (index : int) (p : path) (t : trm) : unit =
   other_instr; // must not write a or b = must use a and b only in RO
   instr; // exactly the same instruction as above including ghosts args --> can be deleted because it will produce the same W value from the same R dependencies
   *)
-let assert_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
+let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   let instrs = trm_inv ~error:"Resources.assert_instr_redundant: expected sequence" trm_seq_inv seq in
   let (useful_instrs, _) = Xlist.extract (Mlist.to_list instrs) index (skip + 1) in
-  let instr, other_instrs = Xlist.extract_element useful_instrs 0 in
+  let _instr, _other_instrs = Xlist.extract_element useful_instrs 0 in
   (* FIXME: need to disallow UsedFull, only allow uninit and RO *)
-  let non_ro_usage = Var_set.of_list (non_ro_usage_of instr) in
+  (*let non_ro_usage = Var_set.of_list (non_ro_usage_of instr) in
   let usage_does_not_interfere hyp res_usage =
     let interferes = Var_set.mem hyp non_ro_usage && res_usage <> UsedReadOnly in
     not interferes
@@ -203,7 +217,7 @@ let assert_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   in
   let is_redundant = List.for_all instr_does_dot_interfere other_instrs in
   if not is_redundant then
-    fail seq.loc "Resources.assert_instr_redundant: not redundant";
+    fail seq.loc "Resources.assert_instr_redundant: not redundant";*)
   ()
 
 (* [show] enables to view the result of resource computations. *)

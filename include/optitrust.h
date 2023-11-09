@@ -285,6 +285,14 @@ __GHOST(wand_simplify) {
   __admitted();
 }
 
+// NOTE: calling forget_init on _RO or _Uninit is possible but useless
+__GHOST(forget_init) {
+  __requires("H: formula");
+  __consumes("H");
+  __produces("_Uninit(H)");
+  __admitted();
+}
+
 /* ---- Group Ghosts ---- */
 
 __GHOST(ro_fork_group) {

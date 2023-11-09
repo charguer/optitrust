@@ -5,12 +5,15 @@ typedef struct {
   int y;
 } vect;
 
-void dead_code() {
+void dead_code1() {
   __pure();
 
   int a = 5;
   a++; // __post_inc(a);
+}
 
+void dead_code2() {
+  __pure();
   /* TODO:
   vect v = {0,0};
   vect u;
@@ -26,10 +29,8 @@ void dead_code() {
 
   int x = 3;
   for (int i = 0; i < 2; i++) {
-    // TODO: add z RW in contract
     for (int j = 0; j < 3; j++) {
-      // TODO: add z uninit in contract
-
+      __sequentially_modifies("_Uninit(&z ~> Cell)");
       z = i + j;
     }
 

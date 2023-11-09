@@ -241,10 +241,10 @@ let trm_ghost_end_inv (t: trm): var option =
 
 let ghost_rewrite = toplevel_var "rewrite"
 
-let trm_ghost_rewrite (before: formula) (after: formula) (by: formula): formula =
+let trm_ghost_rewrite (before: formula) (after: formula) (by: formula): trm =
   trm_ghost ghost_rewrite ["H1", before; "H2", after; "by", by]
 
-let ghost_uninit = name_to_var "uninit"
+let ghost_forget_init = name_to_var "forget_init"
 
-let trm_ghost_uninit (f: formula): formula =
-  trm_ghost ghost_uninit ["H", f]
+let trm_ghost_forget_init (f: formula): trm =
+  trm_ghost ghost_forget_init ["H", f]

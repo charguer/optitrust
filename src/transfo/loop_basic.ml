@@ -451,20 +451,38 @@ let move_out_on (mark : mark option) (trm_index : int) (t : trm) : trm =
   | _ -> fail t.loc "Loop_basic.move_out_on: expected a loop" in
   trm_seq_nobrace_nomarks [trm_may_add_mark mark trm_inv; loop]
 
-(* [move_out tg]: expects the target [tg] to point at an instruction inside the loop
+(** [move_out tg]: expects the target [tg] to point at an instruction inside the loop
     that is not dependent on the index of the loop or any local variable.
     Then it will move it outside the loop.
 
-    NOTE:: currently, there is no check that the transformation is legitimate.
+    // i uninit
+    for (j) {
+      i = 3;
+      f(i)
+    }
+    // i uninit
+    =>
+    i = 3;
+    for (j) f(i);
+    // ok even if loop is never executed
 
-    LATER: Implement a combi transformation that will check if the targeted instruction
-    is dependent on any local variable or the loop index. *)
+    On this one we will crash:
+    i = 5;
+    for (j) {
+      i = 3;
+      f(i);
+    }
+    =>
+    i = 5
+    if (range non empty) i = 3; // this would be needed for correctness but is not generated
+    for (j) f(i);
+*)
 let%transfo move_out ?(mark : mark option) (tg : target) : unit =
   Resources.required_for_check ();
   Nobrace_transfo.remove_after ( fun _ ->
   apply_on_transformed_targets (Path.index_in_surrounding_loop) (fun t (i, p) ->
     if !Flags.check_validity then begin
-      assert (i == 0);
+      assert (i = 0);
       let loop = Path.resolve_path p t in
       let error = "Loop_basic.move_out: expected for loop" in
       let ((index, _, _, _, _, _), body, _) = trm_inv ~error trm_for_inv loop in
@@ -475,6 +493,7 @@ let%transfo move_out ?(mark : mark option) (tg : target) : unit =
         fail instr.loc "Loop_basic.move_out: instruction uses loop index";
       Resources.assert_instr_redundant 0 (Mlist.length instrs - 1) body;
       Trace.justif "instructions from following iterations are redundant with first iteration"
+      (* TODO: Check that we can add forget_init on i after the loop *)
     end;
     apply_on_path (move_out_on mark i) t p
   ) tg)
