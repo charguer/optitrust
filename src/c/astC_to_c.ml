@@ -144,8 +144,11 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
     string "decltype" ^^ parens (decorate_trm t)
 
 and var_to_doc (v : var) : document =
-  (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
-  (string v.name)
+  if !Flags.debug_varid then
+    Ast_to_text.print_var v
+  else
+    (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
+    (string v.name)
 
 and typconstr_to_doc ((qualifier, name) : typconstr) : document =
   (concat_map (fun q -> string q ^^ string "::") qualifier) ^^

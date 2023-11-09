@@ -70,6 +70,9 @@ let debug_reparse : bool ref = ref false
 (* [debug_stringreprs]: flag to print stringreprs debugging info *)
 let debug_stringreprs : bool ref = ref false
 
+(* [debug_varid]: display ids on variables when outputing C code *)
+let debug_varid : bool ref = ref false
+
 (* [reparse_at_big_steps]: flag to force reparsing of the entire file at each entry of a big step. *)
 let reparse_at_big_steps : bool ref = ref false
 
