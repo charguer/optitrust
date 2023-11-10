@@ -206,6 +206,21 @@ let assert_instr_effects_shadowed (index : int) (p : path) (t : trm) : unit =
   ()
 
 
+
+(** <private>
+    Checks that the trm resource usage does not contain any resources used Full or Produced.
+    This corresponds to self interference of the trm:
+    A trm is not self interfere if `t; t` is the same as `t`
+*)
+let assert_not_self_interfering (t : trm) : unit =
+  let res = usage_of_trm t in
+  let check hyp res_usage =
+    match res_usage with
+    | UsedFull | Produced -> fail t.loc "trm has self interfering resource usage"
+    | UsedReadOnly | UsedUninit -> ()
+  in
+  Hyp_map.iter check res
+
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.
 
   instr; // reads b, consumes uninit a, produces RW a, possibly with multiple a's and b's
@@ -214,12 +229,12 @@ let assert_instr_effects_shadowed (index : int) (p : path) (t : trm) : unit =
   *)
 let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   let instrs = trm_inv ~error:"Resources.assert_instr_redundant: expected sequence" trm_seq_inv seq in
-  let (useful_instrs, _) = Xlist.extract (Mlist.to_list instrs) index (skip + 1) in
-  let _instr, _other_instrs = Xlist.extract_element useful_instrs 0 in
-  (* FIXME: need to disallow UsedFull, only allow uninit and RO *)
-  (*let non_ro_usage = Var_set.of_list (non_ro_usage_of instr) in
+  let useful_instrs = Xlist.take (skip + 1) (Xlist.drop index (Mlist.to_list instrs)) in
+  let instr, other_instrs = Xlist.extract_element useful_instrs 0 in
+  assert_not_self_interfering instr;
+  let res = usage_of_trm instr in
   let usage_does_not_interfere hyp res_usage =
-    let interferes = Var_set.mem hyp non_ro_usage && res_usage <> UsedReadOnly in
+    let interferes = Hyp_map.mem hyp res && res_usage <> UsedReadOnly in
     not interferes
   in
   let instr_does_dot_interfere t =
@@ -227,7 +242,7 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   in
   let is_redundant = List.for_all instr_does_dot_interfere other_instrs in
   if not is_redundant then
-    fail seq.loc "Resources.assert_instr_redundant: not redundant";*)
+    fail seq.loc "Resources.assert_instr_redundant: not redundant";
   ()
 
 (* [show] enables to view the result of resource computations. *)

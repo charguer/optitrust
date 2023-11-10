@@ -515,7 +515,7 @@ let%transfo move_out ?(mark : mark option) (tg : target) : unit =
       if Var_set.mem index (trm_free_vars instr) then
         (* NOTE: would be checked by var ids anyway *)
         fail instr.loc "Loop_basic.move_out: instruction uses loop index";
-      Resources.assert_instr_redundant 0 (Mlist.length instrs - 1) body;
+      Resources.assert_dup_instr_redundant 0 (Mlist.length instrs - 1) body;
       Trace.justif "instructions from following iterations are redundant with first iteration"
       (* TODO: Check that we can add forget_init on i after the loop *)
     end;
