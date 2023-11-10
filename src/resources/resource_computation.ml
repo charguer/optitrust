@@ -505,8 +505,8 @@ let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resourc
       | u, None -> u
       | Some Produced, Some (UsedFull | UsedUninit) -> None
       | Some Produced, Some UsedReadOnly -> Some Produced
-      | _, Some Produced -> failwith (sprintf "Produced resource share id %d with another one" hyp.id)
-      | Some (UsedFull | UsedUninit), _ -> failwith (sprintf "Consumed resource share id %d with another one" hyp.id)
+      | _, Some Produced -> failwith (sprintf "Produced resource %s share id with another one" (var_to_string hyp))
+      | Some (UsedFull | UsedUninit), _ -> failwith (sprintf "Consumed resource %s share id with another one" (var_to_string hyp))
       | Some UsedReadOnly, Some (UsedFull | UsedUninit) -> Some UsedFull
       | Some UsedReadOnly, Some UsedReadOnly -> Some UsedReadOnly
     ) current_usage extra_usage
@@ -765,9 +765,9 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_for (range, body, None) ->
       (* If no spec is given, put all the resources in the invariant (best effort) *)
-      let expected_res = resource_set ~linear:res.linear () in
+      let expected_res = resource_set ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
       let usage_map, _ = compute_resources ~expected_res (Some res) body in
-      usage_map, Some res
+      usage_map, Some (bind_new_resources ~old_res:res ~new_res:expected_res)
 
     | Trm_for (range, body, Some contract) ->
       let outer_contract = loop_outer_contract range contract in

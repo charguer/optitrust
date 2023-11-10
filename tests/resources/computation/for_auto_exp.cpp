@@ -23,3 +23,18 @@ void matmul(float* C, float* A, float* B, int m, int n, int p) {
     }
   }
 }
+
+void f() {
+  __pure();
+  int z = 0;
+  int y = z;
+  int x = 3;
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 3; j++) {
+      z = i + j;
+    }
+    z = i;
+    x = z;
+  }
+  z = x;
+}

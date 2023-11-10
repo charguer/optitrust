@@ -13,13 +13,15 @@ let new_anon_hyp (): hyp =
   let hid = next_hyp_id () in
   new_hyp (sprintf "#%d" hid)
 
-let new_hyp_like (h: hyp option): hyp =
-  match h with
-  | Some h -> new_hyp ~qualifier:h.qualifier h.name
-  | None -> new_anon_hyp ()
+let new_hyp_like (h: hyp): hyp =
+  new_hyp ~qualifier:h.qualifier h.name
 
 let new_res_item ((name, formula): contract_resource): resource_item =
-  (new_hyp_like name, formula)
+  let name = match name with
+    | Some h -> new_hyp_like h
+    | None -> new_anon_hyp ()
+  in
+  (name, formula)
 
 let var_has_model = toplevel_var "_HasModel"
 let trm_has_model = trm_var var_has_model
