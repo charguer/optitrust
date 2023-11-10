@@ -10,15 +10,16 @@ let _ = Run.script_cpp (fun _ ->
 
   (* 1. effects/bindings are unused *)
   (* TODO: ~shadowed:true / ~unused:true ? *)
-  !! Sequence_basic.delete [cFunBody "dead_code1"; sInstr "a++"];
-  !! Sequence_basic.delete [nbMulti; cFunBody "dead_code1"; cOr [[cVarDef "a"](* FIXME: ; [cVarDef "v"]*)]];
+  !! Sequence_basic.delete [cFunBody "dead_code"; sInstr "a++"];
+  !! Sequence_basic.delete [nbMulti; cFunBody "dead_code"; cOr [[cVarDef "a"](* FIXME: ; [cVarDef "v"]*)]];
   (* FIXME:  !! Sequence_basic.delete [nbMulti; cFunBody "dead_code"; sInstr "u."]; *)
-  !! Sequence_basic.delete [cFunBody "dead_code2"; cVarDef "y"];
-  !! Sequence_basic.delete [cFunBody "dead_code2"; sInstr "z = i + j"];
+  !! Sequence_basic.delete [cFunBody "dead_code"; cVarDef "y"];
+  !! Sequence_basic.delete [cFunBody "dead_code"; sInstr "z = i + j"];
+  !! Sequence_basic.delete [cFunBody "dead_code"; cFor "j"];
   !! Trace.failure_expected (fun () ->
-    Sequence_basic.delete [cFunBody "dead_code2"; sInstr "z = i"]);
+    Sequence_basic.delete [cFunBody "dead_code"; sInstr "z = i"]);
   !! Trace.failure_expected (fun () ->
-    Sequence_basic.delete [cFunBody "dead_code2"; sInstr "x = z"]);
+    Sequence_basic.delete [cFunBody "dead_code"; sInstr "x = z"]);
 
   (* 2. effects are shadowed *)
   (* TODO: ~shadowed:true ? *)

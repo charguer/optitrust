@@ -91,7 +91,7 @@ let rec unify_and_remove_linear ((x, formula): resource_item) ?(uninit = false) 
   (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
   (* LATER: Improve the structure of the linear_resource_set to make this
      function faster on most frequent cases *)
-  let aux res = unify_and_remove_linear (x, formula) res evar_ctx in
+  let aux res = unify_and_remove_linear (x, formula) ~uninit res evar_ctx in
   match res with
   | [] -> raise Not_found (* caught later to create a Resource_not_found. *)
   | (candidate_name, formula_candidate) as hyp_candidate :: res ->
@@ -130,33 +130,27 @@ let rec unify_and_split_read_only (hyp_to_inst: hyp) ~(new_frac: var) (formula: 
       let used, res, evar_ctx = aux res in
       (used, hyp_candidate :: res, evar_ctx)
 
-(* FIXME: explain relationship to unify_and_remove_linear. explain [split_frac] somewhere. *)
+(* [subtract_linear_resource_item]: subtract a resource from the resource set.
+   Depending on the formula of the resource, decide if we need a read-only fraction,
+   a potentially uninitialized resource or a full ownership. *)
 let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item) (res: linear_resource_set)
   (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
-  try match formula_read_only_inv formula with
-    | Some { frac; formula = ro_formula } when split_frac ->
-      begin match trm_apps_inv frac with
-      | Some (maybe_full, [frac]) when Option.equal var_eq (trm_var_inv maybe_full) (Some _Full) ->
+  try
+    Pattern.pattern_match formula [
+      Pattern.(formula_read_only (trm_apps1 (trm_var (var_eq _Full)) !__) !__) (fun frac ro_formula ->
         unify_and_remove_linear (x, formula_read_only ~frac ro_formula) res evar_ctx
-      | _ ->
-        begin match trm_var_inv frac with
-        | Some frac_var ->
-          begin match Var_map.find_opt frac_var evar_ctx with
-          | Some None ->
-            let new_frac, _ = new_frac () in (* LATER: store new generated frac ghosts *)
-            let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
-            unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
-          | _ ->
-            unify_and_remove_linear (x, formula) res evar_ctx
-          end
-        | _ -> unify_and_remove_linear (x, formula) res evar_ctx
-        end
-      end
-    | _ ->
-      begin match formula_uninit_inv formula with
-      | Some formula -> unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx
-      | None -> unify_and_remove_linear (x, formula) res evar_ctx
-      end
+      );
+      Pattern.(formula_read_only (trm_var !__) !__) (fun frac_var ro_formula ->
+        if not split_frac || Var_map.find_opt frac_var evar_ctx <> Some None then raise Pattern.Next;
+        let new_frac, _ = new_frac () in
+        let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
+        unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
+      );
+      Pattern.(formula_uninit !__) (fun formula ->
+        unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx);
+      Pattern.(!__) (fun _ ->
+        unify_and_remove_linear (x, formula) res evar_ctx)
+    ]
   with Not_found ->
     raise_resource_not_found (x, formula) evar_ctx res
 

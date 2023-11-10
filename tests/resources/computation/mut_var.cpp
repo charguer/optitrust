@@ -1,17 +1,5 @@
 #include "../../../include/optitrust.h"
 
-void incr(int* a) {
-    __modifies("a ~> Cell");
-    __admitted();
-    *a = *a + 1;
-}
-
-void incr_twice(int* k) {
-    __modifies("k ~> Cell");
-    incr(k);
-    incr(k);
-}
-
 void mut_var(int x) {
   __pure();
 
@@ -21,4 +9,12 @@ void mut_var(int x) {
   z = x;
   z += x;
   // implicit free
+}
+
+void uninit() {
+  __pure();
+
+  int x = 0;
+  __ghost(forget_init, "&x ~> Cell");
+  int a = 0;
 }

@@ -12,19 +12,30 @@ void dead_code() {
   z++;
   int x = 3;
   for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 3; j++) {
-    }
     z = i;
     x = z;
   }
+  z = x;
 }
 
 void shadowed(int* y) {
   __modifies("y ~> Cell");
   int x;
   x = 4;
+  x = 5;
   x++;
   *y = x;
+}
+
+void redundant(int* x) {
+  __modifies("x ~> Cell");
+  *x = 2;
+  *x = 3;
+  int r = *x;
+  int v = 1;
+  *x = v;
+  v++;
+  *x = v;
 }
 
 void wrong_target() {

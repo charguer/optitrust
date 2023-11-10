@@ -5,15 +5,12 @@ typedef struct {
   int y;
 } vect;
 
-void dead_code1() {
+void dead_code() {
   __pure();
 
   int a = 5;
   a++; // __post_inc(a);
-}
 
-void dead_code2() {
-  __pure();
   /* TODO:
   vect v = {0,0};
   vect u;

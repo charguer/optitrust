@@ -190,18 +190,18 @@ let formulas_of_hyps (hyps: hyp list) (resources: resource_item list): formula l
 (** Checks that the effects from the instruction at [index] in the sequence at path [p] are shadowed by following effects in term [t].
     *)
 let assert_instr_effects_shadowed (index : int) (p : path) (t : trm) : unit =
-  let t2 = Path.apply_on_path (fun seq -> Nobrace_transfo.remove_on_after ~check_scoping:false (fun () ->
-    let instrs = trm_inv ~error:"Resources.assert_shadowed: expected sequence" trm_seq_inv seq in
-    let instr = unsome_or_fail seq.loc "Resources.assert_shadowed: invalid index in sequence" (Mlist.nth_opt instrs index) in
-    let write_hyps = write_usage_of instr in
-    let res_before = unsome_or_fail instr.loc "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
-    Printf.eprintf "res_before: %s\n" (Resource_computation.resource_list_to_string res_before.linear);
-    let write_res = formulas_of_hyps write_hyps res_before.linear in
-    let uninit_ghosts = List.filter_map (fun res ->
-      if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
-    let res = trm_seq_nobrace (Mlist.replace_at index (trm_seq_nobrace_nomarks uninit_ghosts) instrs) in
-    res
-  )) t p in
+  let t2 = Path.apply_on_path (fun seq ->
+    Nobrace_transfo.remove_on_after ~check_scoping:false (fun () ->
+      let instrs = trm_inv ~error:"Resources.assert_shadowed: expected sequence" trm_seq_inv seq in
+      let instr = unsome_or_fail seq.loc "Resources.assert_shadowed: invalid index in sequence" (Mlist.nth_opt instrs index) in
+      let write_hyps = write_usage_of instr in
+      let res_before = unsome_or_fail instr.loc "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
+      let write_res = formulas_of_hyps write_hyps res_before.linear in
+      let uninit_ghosts = List.filter_map (fun res ->
+        if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
+      trm_seq (Mlist.replace_at index (trm_seq_nobrace_nomarks uninit_ghosts) instrs)
+    )
+  ) t p in
   let _ = recompute_all_resources_on t2 in
   ()
 

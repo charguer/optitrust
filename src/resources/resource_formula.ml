@@ -57,35 +57,8 @@ let new_frac (): var * resource_item =
   let frac_hyp = new_anon_hyp () in
   (frac_hyp, (frac_hyp, trm_frac))
 
-type read_only_formula = { frac: formula; formula: formula }
-let formula_read_only_inv (formula : formula): read_only_formula option =
-  Pattern.pattern_match formula [
-    Pattern.(trm_apps2 (trm_var (var_eq var_read_only)) !__  !__) (fun frac formula -> Some { frac; formula });
-    Pattern.__ None
-  ]
-
-let formula_read_only_map (f_map: formula -> formula) (formula: formula) =
-  match formula_read_only_inv formula with
-  | Some { frac; formula } ->
-    formula_read_only ~frac (f_map formula)
-  | None -> f_map formula
-
 let formula_uninit (inner_formula: formula): formula =
   trm_apps ~annot:formula_annot trm_uninit [inner_formula]
-
-let formula_uninit_inv (formula: formula): formula option =
-  Pattern.pattern_match formula [
-    Pattern.(trm_apps1 (trm_var (var_eq var_uninit)) !__) (fun formula -> Some formula);
-    Pattern.__ None
-  ]
-
-let formula_uninit_map (f_map: formula -> formula) (formula: formula) =
-  match formula_uninit_inv formula with
-  | Some formula -> formula_uninit (f_map formula)
-  | None -> f_map formula
-
-let formula_mode_map (f_map: formula -> formula): formula -> formula =
-  formula_read_only_map (formula_uninit_map f_map)
 
 let var_cell = toplevel_var "Cell"
 let trm_cell = trm_var var_cell
@@ -105,19 +78,17 @@ let formula_matrix (m: trm) (dims: trm list) : formula =
     trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [trm_int 0; dim; trm_int 1]; formula_fun [idx, typ_int ()] None formula])
     indices dims inner_trm
 
-let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) =
-  formula_mode_map (fun fi ->
-    if dir <> DirUp then failwith "formula_group_range only supports DirUp";
-    let range_var = new_var ~qualifier:idx.qualifier idx.name in
-    let fi = trm_subst_var idx (trm_var range_var) fi in
-    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [tfrom; tto; loop_step_to_trm step]; formula_fun [range_var, typ_int ()] None fi]
-  )
-
 module Pattern = struct
   include Pattern
 
   let formula_model f_var f_model =
     trm_apps_specific_var var_has_model (f_var ^:: f_model ^:: nil)
+
+  let formula_read_only f_frac f_formula =
+    trm_apps2 (trm_var (var_eq var_read_only)) f_frac f_formula
+
+  let formula_uninit f_formula =
+    trm_apps1 (trm_var (var_eq var_uninit)) f_formula
 
   let formula_group f_range f_group_body =
     trm_apps_specific_var var_group (f_range ^:: f_group_body ^:: nil)
@@ -125,6 +96,39 @@ module Pattern = struct
   let formula_range (f_begin: 'a -> trm -> 'b) (f_end: 'b -> trm -> 'c) (f_step: 'c -> trm -> 'd) =
     trm_apps_specific_var var_range (f_begin ^:: f_end ^:: f_step ^:: nil)
 end
+
+type read_only_formula = { frac: formula; formula: formula }
+let formula_read_only_inv (formula : formula): read_only_formula option =
+  Pattern.pattern_match_opt formula [
+    Pattern.(formula_read_only !__ !__) (fun frac formula -> { frac; formula })
+  ]
+
+let formula_read_only_map (f_map: formula -> formula) (formula: formula) =
+  match formula_read_only_inv formula with
+  | Some { frac; formula } ->
+    formula_read_only ~frac (f_map formula)
+  | None -> f_map formula
+
+let formula_uninit_inv (formula: formula): formula option =
+  Pattern.pattern_match_opt formula [
+    Pattern.(formula_uninit !__) (fun f -> f);
+  ]
+
+let formula_uninit_map (f_map: formula -> formula) (formula: formula) =
+  match formula_uninit_inv formula with
+  | Some formula -> formula_uninit (f_map formula)
+  | None -> f_map formula
+
+let formula_mode_map (f_map: formula -> formula): formula -> formula =
+  formula_read_only_map (formula_uninit_map f_map)
+
+let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) =
+  formula_mode_map (fun fi ->
+    if dir <> DirUp then failwith "formula_group_range only supports DirUp";
+    let range_var = new_var ~qualifier:idx.qualifier idx.name in
+    let fi = trm_subst_var idx (trm_var range_var) fi in
+    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [tfrom; tto; loop_step_to_trm step]; formula_fun [range_var, typ_int ()] None fi]
+  )
 
 let formula_matrix_inv (f: formula): (trm * trm list) option =
   let open Tools.OptionMonad in
