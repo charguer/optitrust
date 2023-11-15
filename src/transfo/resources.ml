@@ -19,6 +19,7 @@ let __requires (r: string) = Requires, r
 let __ensures (r: string) = Ensures, r
 let __invariant (r: string) = Invariant, r
 let __reads (r: string) = Reads, r
+let __writes (r: string) = Writes, r
 let __modifies (r: string) = Modifies, r
 let __consumes (r: string) = Consumes, r
 let __produces (r: string) = Produces, r
@@ -78,6 +79,27 @@ let compute_usage_of_instrs (instrs : trm list) : resource_usage_map =
   List.fold_left (fun usage_map t ->
     Resource_computation.update_usage_map ~current_usage:usage_map ~extra_usage:(usage_of_trm t)
   ) Resource_computation.empty_usage_map instrs
+
+type usage_filter =
+ { unused: bool; read_only: bool; uninit: bool; full: bool; produced: bool; }
+
+let keep_all = { unused = true; read_only = true; uninit = true; full = true; produced = true; }
+let keep_none = { unused = false; read_only = false; uninit = false; full = false; produced = false; }
+let keep_touched = { keep_all with unused = false; }
+let keep_used = { keep_touched with produced = false; }
+let keep_produced = { keep_none with produced = true; }
+let keep_unused = { keep_none with unused = true; }
+let keep_written = { keep_used with read_only = false; }
+
+(** A filter compatible with [List.filter] or [List.partition] that selects resources by their usage in the usage map given. *)
+let usage_filter usage filter (h, _) =
+  match Var_map.find_opt h usage with
+  | None -> filter.unused
+  | Some UsedReadOnly -> filter.read_only
+  | Some UsedUninit -> filter.uninit
+  | Some UsedFull -> filter.full
+  | Some Produced -> filter.produced
+
 
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
@@ -187,23 +209,20 @@ let formulas_of_hyps (hyps: hyp list) (resources: resource_item list): formula l
   let hyp_map = Hyp_map.of_seq (List.to_seq resources) in
   List.map (fun h -> Hyp_map.find h hyp_map) hyps
 
-(** Checks that the effects from the instruction at [index] in the sequence at path [p] are shadowed by following effects in term [t].
+(** Checks that the effects from the instruction at path [p] are shadowed by following effects in term [t].
     *)
-let assert_instr_effects_shadowed (index : int) (p : path) (t : trm) : unit =
-  let t2 = Path.apply_on_path (fun seq ->
+let assert_instr_effects_shadowed (p : path) (t : trm) : unit =
+  let t2 = Path.apply_on_path (fun instr ->
     Nobrace_transfo.remove_on_after ~check_scoping:false (fun () ->
-      let instrs = trm_inv ~error:"Resources.assert_shadowed: expected sequence" trm_seq_inv seq in
-      let instr = unsome_or_fail seq.loc "Resources.assert_shadowed: invalid index in sequence" (Mlist.nth_opt instrs index) in
       let write_hyps = write_usage_of instr in
       let res_before = unsome_or_fail instr.loc "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
       let write_res = formulas_of_hyps write_hyps res_before.linear in
       let uninit_ghosts = List.filter_map (fun res ->
         if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
-      trm_seq (Mlist.replace_at index (trm_seq_nobrace_nomarks uninit_ghosts) instrs)
+      trm_seq_nobrace_nomarks uninit_ghosts
     )
   ) t p in
-  let _ = recompute_all_resources_on t2 in
-  ()
+  ignore (recompute_all_resources_on t2)
 
 
 
@@ -213,13 +232,23 @@ let assert_instr_effects_shadowed (index : int) (p : path) (t : trm) : unit =
     A trm is not self interfere if `t; t` is the same as `t`
 *)
 let assert_not_self_interfering (t : trm) : unit =
-  let res = usage_of_trm t in
-  let check hyp res_usage =
-    match res_usage with
-    | UsedFull | Produced -> fail t.loc "trm has self interfering resource usage"
-    | UsedReadOnly | UsedUninit -> ()
-  in
-  Hyp_map.iter check res
+  let res_before = Tools.unsome ~error:"expected computed resources" t.ctx.ctx_resources_before in
+  let res_after = Tools.unsome ~error:"expected computed resources" t.ctx.ctx_resources_after in
+  let res_usage = usage_of_trm t in
+  let res_used_uninit = List.filter (fun (h, f) ->
+    match Hyp_map.find_opt h res_usage with
+    | Some UsedFull -> fail t.loc "trm has self interfering resource usage"
+    | Some UsedUninit -> true
+    | Some UsedReadOnly | None -> false
+    | Some Produced -> fail t.loc "trm has invalid resource usage"
+  ) res_before.linear in
+  let res_produced = List.filter (fun (h, f) ->
+    match Hyp_map.find_opt h res_usage with
+    | Some Produced -> true
+    | Some UsedReadOnly | None -> false
+    | Some (UsedFull|UsedUninit) -> fail t.loc "trm has invalid resource usage"
+  ) res_after.linear in
+  ignore (Resource_computation.subtract_linear_resource res_produced res_used_uninit)
 
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.
 
