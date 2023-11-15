@@ -220,6 +220,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource linear_invariant tl1_inv in (* = I'' *)
 
       let first_tl2_instr = Mlist.nth tl2 0 in
+      Transfo_debug.trm ~style:Internal "first_tl2_instr" first_tl2_instr;
       let split_res = unsome_or_fail first_tl2_instr.loc error (first_tl2_instr.ctx.ctx_resources_before) in (* = R *)
       let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
 
@@ -337,8 +338,9 @@ let%transfo fission_all_instrs ?(indices : int list option) (tg : target) : unit
           in
       fission_all_instrs_on indices t
       in
-    Target.apply_at_target_paths aux tg);
-    Resources.justif_correct "loop resources where successfully split"
+    Target.apply_at_target_paths aux tg
+  );
+  Resources.justif_correct "loop resources where successfully split"
 
 (* TODO: combi
 let%transfo fission_multi (tg : target) : unit =

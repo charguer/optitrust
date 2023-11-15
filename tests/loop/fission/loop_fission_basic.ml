@@ -16,6 +16,8 @@ let _ = Run.script_cpp ( fun _ ->
   (* 2. Loops where instrs before/after split commute through all iterations can be fissioned. *)
   !! Loop_basic.fission [cFunDef "commute"; cFor "i"; dBody; dAfter 0];
   !! Loop_basic.fission [cFunDef "commute"; cFor "j"; dBody; dAfter 0];
+  !! Loop_basic.fission [cFunDef "commute"; cFor "k1"; tAfter; sInstr "x += 1"]; (* FIXME: what is happening here? *)
+  !! Loop_basic.fission [cFunDef "commute"; cFor "k1"; tBefore; sInstr "z += 1"];
 
   (* 3. Uninit tests. *)
   !! Loop_basic.fission [tAfter; cFunDef "uninit"; sInstr "t[i] = i"];

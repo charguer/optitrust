@@ -69,6 +69,20 @@ void commute() {
     x += z;
     y += z;
   }
+
+  for (int k1 = 0; k1 < 5; k1++) {
+    __sequentially_modifies(
+      "&x ~> Cell,"
+      "&y ~> Cell,"
+      "&z ~> Cell");
+
+    x += 1;
+    for (int k2 = 0; k2 < 5; k2++) {
+      __sequentially_modifies("&y ~> Cell");
+      y += 1;
+    }
+    z += 1;
+  }
 }
 
 void wrong_rw_rw() {
