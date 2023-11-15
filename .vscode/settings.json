@@ -12,5 +12,23 @@
   ],
   "files.associations": {
     "*.Makefile": "makefile",
-  }
+  },
+  "swapf.patterns": [
+    {
+      "pattern": "^(?<path>.*?)_(out|exp)\\.cpp$",
+      "alternatives": [
+        "**/<path>_out.cpp",
+        "**/<path>_exp.cpp",
+        "**/<path>.cpp",
+        "**/<path>.ml",
+      ]
+    },
+    {
+      "pattern": "^(?<path>.*?)(\\.ml|\\.cpp)$",
+      "alternatives": [
+        "**/<path>.ml",
+        "**/<path>.cpp",
+      ]
+    },
+  ],
 }
