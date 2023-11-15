@@ -285,7 +285,7 @@ let%transfo fission (tg : target) : unit =
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       apply_on_path (fission_on split_i) t p_loop)
     tg);
-  Transfo_debug.current_ast ~style:ContractDisplay "SJD";
+  Show.current_ast ~style:ContractDisplay "SJD";
   Resources.justif_correct "loop resources where successfully split"
 
 (* [fission_all_instrs]: similar to [fission],

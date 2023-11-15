@@ -257,6 +257,7 @@ let%transfo hoist_decl_loop_list
 let find_surrounding_instr (p : path) (t : trm) : path =
   let rec aux p =
     let p_t = Path.resolve_path p t in
+    (* TODO: use resolve_path_and_ctx instead of is_statement *)
     if p_t.is_statement then p else aux (Path.parent p)
   in
   assert (not (Path.resolve_path p t).is_statement);
@@ -1094,7 +1095,7 @@ let%transfo slides ?(index : string = "b${id}")
       match size_step with
       | Some (size, step) ->
         let target_p = Path.to_inner_loop_n i p in
-        (* Transfo_debug.current_ast_at_path "sliding" target_p; *)
+        (* Show.current_ast_at_path "sliding" target_p; *)
         slide ~index ~bound ~iter ~size ~step ~simpl (target_of_path target_p);
         let tile_loop_p = Path.to_inner_loop target_p in
         begin match !prev_outer_elt_loop with

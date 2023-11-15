@@ -1217,6 +1217,7 @@ let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm
 let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
 
+(* TODO: should be this name for the 'current_ast' version. *)
 (* [path_of_target_mark_one m t]: a wrapper for calling [resolve_target] with a mark for which we
     expect a single occurence. *)
 let path_of_target_mark_one (m : mark) (t : trm) : path =
@@ -1823,6 +1824,8 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
 (******************************************************************************)
 (*                               Target aliases                               *)
 (******************************************************************************)
+
+(* TODO: should be default *)
 
 let resolve_target_current_ast (tg : target) : paths =
   resolve_target tg (Trace.ast ())
