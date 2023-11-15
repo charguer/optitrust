@@ -592,6 +592,7 @@ let __requires = name_to_var "__requires"
 let __ensures = name_to_var "__ensures"
 let __invariant = name_to_var "__invariant"
 let __reads = name_to_var "__reads"
+let __writes = name_to_var "__writes"
 let __modifies = name_to_var "__modifies"
 let __consumes = name_to_var "__consumes"
 let __produces = name_to_var "__produces"
@@ -618,6 +619,7 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
     | "__ensures" -> Some Ensures
     | "__invariant" -> Some Invariant
     | "__reads" -> Some Reads
+    | "__writes" -> Some Writes
     | "__modifies" -> Some Modifies
     | "__consumes" -> Some Consumes
     | "__produces" -> Some Produces

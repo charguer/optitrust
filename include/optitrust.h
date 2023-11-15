@@ -12,6 +12,7 @@ inline void __requires(const char*) {}
 inline void __ensures(const char*) {}
 inline void __invariant(const char*) {}
 inline void __reads(const char*) {}
+inline void __writes(const char*) {}
 inline void __modifies(const char*) {}
 inline void __consumes(const char*) {}
 inline void __produces(const char*) {}
@@ -73,8 +74,7 @@ template<typename T> T __get(T* p) {
 }
 
 template<typename T> void __set(T* p, T x) {
-  __consumes("_Uninit(p ~> Cell)");
-  __produces("p ~> Cell");
+  __writes("p ~> Cell");
   __admitted();
   *p = x;
 }
