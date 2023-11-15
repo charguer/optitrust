@@ -13,7 +13,7 @@ void parallel(int* t, int* u, int n) {
     __modifies("&t[i] ~> Cell");
     __modifies("&u[i] ~> Cell");
     int b = i;
-    u[i] += b;
+    u[i] += b + t[i];
     int c = i;
     u[i] += c;
   }
@@ -34,6 +34,22 @@ void parallel(int* t, int* u, int n) {
     __pure();
     int* const m2 = (int* const)MALLOC1(5, sizeof(int));
     MFREE1(5, m2);
+  }
+}
+
+void uninit(int* t, int* u, int n) {
+  __consumes("_Uninit(Group(range(1, n, 1), fun i -> &t[i] ~> Cell))");
+  __produces("Group(range(1, n, 1), fun i -> &t[i] ~> Cell)");
+  int x = 0;
+  for (int i = 1; i < n; i++) {
+    __consumes("_Uninit(&t[i] ~> Cell)");
+    __produces("&t[i] ~> Cell");
+    t[i] = i;
+  }
+  for (int i = 1; i < n; i++) {
+    __sequentially_modifies("&x ~> Cell");
+    __modifies("&t[i] ~> Cell");
+    x += t[i];
   }
 }
 
@@ -62,12 +78,36 @@ void commute() {
   }
 }
 
-void wrong() {
+void wrong_rw_rw() {
   __pure();
-  int x;
+  int x = 0;
   for (int i = 0; i < 4; i++) {
     __sequentially_modifies("&x ~> Cell");
     x++;
+    x++;
+  }
+}
+
+void wrong_rw_ro() {
+  __pure();
+  int x = 0;
+  int y = 0;
+  for (int i = 0; i < 4; i++) {
+    __sequentially_modifies("&x ~> Cell");
+    __sequentially_modifies("&y ~> Cell");
+    x++;
+    y += x;
+  }
+}
+
+void wrong_ro_rw() {
+  __pure();
+  int x = 0;
+  int y = 0;
+  for (int i = 0; i < 4; i++) {
+    __sequentially_modifies("&x ~> Cell");
+    __sequentially_modifies("&y ~> Cell");
+    y += x;
     x++;
   }
 }

@@ -17,9 +17,16 @@ let _ = Run.script_cpp ( fun _ ->
   !! Loop_basic.fission [cFunDef "commute"; cFor "i"; dBody; dAfter 0];
   !! Loop_basic.fission [cFunDef "commute"; cFor "j"; dBody; dAfter 0];
 
+  (* 3. Uninit tests. *)
+  !! Loop_basic.fission [tAfter; cFunDef "uninit"; sInstr "t[i] = i"];
+
   (* 3. Wrong fissions are rejected. *)
   !! Trace.failure_expected (fun () ->
-    Loop_basic.fission [cFunDef "wrong"; cFor ""; dBody; dAfter 0]);
+    Loop_basic.fission [cFunDef "wrong_rw_rw"; cFor ""; dBody; dAfter 0]);
+  !! Trace.failure_expected (fun () ->
+    Loop_basic.fission [cFunDef "wrong_rw_ro"; cFor ""; dBody; dAfter 0]);
+  !! Trace.failure_expected (fun () ->
+    Loop_basic.fission [cFunDef "wrong_ro_rw"; cFor ""; dBody; dAfter 0]);
 
   (* Testing fission_all_instrs *)
   !! Loop_basic.fission_all_instrs [cFunDef "testAllInstr"; cFor "i"];
