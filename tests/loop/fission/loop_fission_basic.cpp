@@ -44,6 +44,16 @@ void commute() {
     x++;
     y++;
   }
+
+  int z = 2;
+  for (int j = 0; j < 5; j++) {
+    __sequentially_reads("&z ~> Cell");
+    __sequentially_modifies(
+      "&x ~> Cell,"
+      "&y ~> Cell");
+    x += z;
+    y += z;
+  }
 }
 
 void wrong() {

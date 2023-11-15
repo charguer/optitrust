@@ -14,7 +14,8 @@ let _ = Run.script_cpp ( fun _ ->
   !! Loop_basic.fission [tAfter; cFunDef "parallel"; sInstr "MFREE1(5, m1)"];
 
   (* 2. Loops where instrs before/after split commute through all iterations can be fissioned. *)
-  !! Loop_basic.fission [cFunDef "commute"; cFor ""; dBody; dAfter 0];
+  !! Loop_basic.fission [cFunDef "commute"; cFor "i"; dBody; dAfter 0];
+  !! Loop_basic.fission [cFunDef "commute"; cFor "j"; dBody; dAfter 0];
 
   (* 3. Wrong fissions are rejected. *)
   !! Trace.failure_expected (fun () ->

@@ -172,68 +172,95 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       fst_contract := Some contract;
       snd_contract := Some Resource_contract.empty_loop_contract;
     end else begin
-      let first_tl2_instr = Mlist.nth tl2 0 in
+      (*
+        for C(onsume) P(roduce) I(nvariant)
+          tl1
+          --- R = R' * I (= tl1.res_after = tl2.res_before)
+          tl2
 
-      let linear_invariant = contract.invariant.linear in
+        no interfence <=> I = I' * I'' * Iro
+        I' = I inter usageWrite(tl1)
+          -> inter by hyp names
+        Iro = I inter usageRO(tl1)
+          -> inter by hyp names
+        I'' = I \ (I' * Iro)
+          -> using formulas
+
+        R' = R \ I
+          -> if using formulas
+
+        for C R' (I' * RO(Iro))
+          tl1
+
+        for R' P (I'' * RO(Iro))
+          tl2
+        *)
+
+      let linear_invariant = contract.invariant.linear in (* = I *)
       let linear_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
-      let linear_invariant_usage res_usage =
-        Hyp_map.filter (fun h _ -> Var_set.mem h linear_hyps) res_usage
-      in
-      let tl1_inv_res = linear_invariant_usage (Resources.compute_usage_of_instrs (Mlist.to_list tl1)) in
-      let tl2_inv_res = linear_invariant_usage (Resources.compute_usage_of_instrs (Mlist.to_list tl2)) in
-      begin if linear_invariant = [] then
-        Trace.justif "The for loop is parallelizable"
-      else
-        (* TODO: Also assert that the loop index is not used in invariants *)
-        Resources.assert_usages_commute t.loc tl1_inv_res tl2_inv_res;
-        Trace.justif "The instructions around split point commute with respect to the loop invariant resources"
-      end;
 
       let error = "Loop_basic.fission_on: expected resources to be computed" in
-      let tl2_ctx_res = unsome_or_fail first_tl2_instr.loc error (first_tl2_instr.ctx.ctx_resources_before) in
-      let bound_in_ghosts = List.fold_left (fun acc (g, _) -> (* TODO: gather_vars_in_contract *)
-          Var_set.add g acc
-        ) Var_set.empty contract.loop_ghosts
+      let first_tl1_instr = Mlist.nth tl1 0 in
+      let ctx_res = unsome_or_fail first_tl1_instr.loc error (first_tl1_instr.ctx.ctx_resources_before) in
+      let inter_linear_hyps res_usage =
+        Hyp_map.filter (fun h _ -> Var_set.mem h linear_hyps) res_usage
       in
+      let tl1_inv_usage = inter_linear_hyps (Resources.compute_usage_of_instrs (Mlist.to_list tl1)) in (* = I' * Iro *)
+      let tl1_inv_reads, (* = Iro *) tl1_inv_writes (* = I' *) = Hyp_map.partition (fun _ res_usage ->
+        match res_usage with
+        | UsedReadOnly -> true
+        | _ -> false
+      ) tl1_inv_usage in
+      let resource_set_of_hyp_map (hyps: 'a Hyp_map.t) (resources: resource_item list): resource_item list =
+        List.filter (fun (h, _) -> Hyp_map.mem h hyps) resources
+      in
+      let tl1_inv_reads = resource_set_of_hyp_map tl1_inv_reads ctx_res.linear in
+      (* let tl1_inv_writes = resource_set_of_hyp_map tl1_inv_writes ctx_res.linear in *)
+      let tl1_inv = resource_set_of_hyp_map tl1_inv_usage ctx_res.linear in
+      let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource linear_invariant tl1_inv in (* = I'' *)
+
+      let first_tl2_instr = Mlist.nth tl2 0 in
+      let split_res = unsome_or_fail first_tl2_instr.loc error (first_tl2_instr.ctx.ctx_resources_before) in (* = R *)
+      let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
+
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
           | Some (vk, v, typ, init) -> Var_set.add v acc
           | None -> acc
         ) Var_set.empty tl1
       in
-      (* At the fission point, we remove resources mentioning variables that were bound
-        before the fission point, or that were bound by the contract ghost bindings *)
-      let filter_resource_items its =
+      let remove_bound_in_tl1 its =
         List.filter (fun (h, formula) ->
-          printf "h: %s\n" (var_to_string h);
-          not (Var_set.mem h linear_hyps) &&
-          not (Var_set.mem h bound_in_ghosts) &&
           Var_set.disjoint (trm_free_vars formula) bound_in_tl1
         ) its
       in
-      printf "linear hyps: %s\n" (vars_to_string (Var_set.elements linear_hyps));
-      let filter_resource_set res =
-        { pure = filter_resource_items res.pure;
-          linear = filter_resource_items res.linear;
-          fun_specs = Var_map.empty }
-      in
-      let resources_after_tl1 = filter_resource_set tl2_ctx_res in
+      let split_res_comm = { pure = []; linear = remove_bound_in_tl1 split_res_comm; fun_specs = Var_map.empty } in
+      let fst_invariant = { contract.invariant with linear = tl1_inv } in
       fst_contract := Some {
         loop_ghosts = contract.loop_ghosts;
-        invariant = contract.invariant;
+        invariant = fst_invariant;
         iter_contract = {
           pre = contract.iter_contract.pre;
-          post = resources_after_tl1;
+          post = split_res_comm;
         }
       };
-      snd_contract := Some {
+      let partial_snd_contract = {
         loop_ghosts = contract.loop_ghosts;
-        invariant = contract.invariant;
+        invariant = { contract.invariant with linear = tl2_inv_writes };
         iter_contract = {
-          pre = resources_after_tl1;
+          pre = split_res_comm;
           post = contract.iter_contract.post;
         }
-      };
+      } in
+      snd_contract := Some (
+        List.fold_left (fun acc (h, f) ->
+          let clause = match formula_read_only_inv f with
+          | Some _ -> Resource_contract.SequentiallyModifies
+          | None -> Resource_contract.SequentiallyReads
+          in
+          Resource_contract.push_loop_contract_clause clause (None, f) acc
+        ) partial_snd_contract tl1_inv_reads
+      );
     end;
   end;
   let ta = trm_for_instrs ?contract:!fst_contract l_range tl1 in
@@ -285,9 +312,9 @@ let%transfo fission (tg : target) : unit =
     Target.apply (fun t p_before ->
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
-      apply_on_path (fission_on split_i) t p_loop)
-    tg);
-  Transfo_debug.current_ast ~style:ContractDisplay "SJD";
+      apply_on_path (fission_on split_i) t p_loop
+    ) tg
+  );
   Resources.justif_correct "loop resources where successfully split"
 
 (* [fission_all_instrs]: similar to [fission],
@@ -310,7 +337,8 @@ let%transfo fission_all_instrs ?(indices : int list option) (tg : target) : unit
           in
       fission_all_instrs_on indices t
       in
-    Target.apply_at_target_paths aux tg)
+    Target.apply_at_target_paths aux tg);
+    Resources.justif_correct "loop resources where successfully split"
 
 (* TODO: combi
 let%transfo fission_multi (tg : target) : unit =

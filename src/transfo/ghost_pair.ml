@@ -240,8 +240,8 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
   let are_inverse_invoc_res (pre1, post1) (pre2, post2) =
     let open Resource_computation in
     try
-      let _ = subtract_linear_resource ~split_frac:false pre1 post2 Var_map.empty in
-      let _ = subtract_linear_resource ~split_frac:false pre2 post1 Var_map.empty in
+      let _ = subtract_linear_resource pre1 post2 in
+      let _ = subtract_linear_resource pre2 post1 in
       true
     with Resource_not_found _ as exn ->
       if debug_intro then Printf.eprintf "%s\n\n" (Printexc.to_string exn);

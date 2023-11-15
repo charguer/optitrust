@@ -161,8 +161,8 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
    If [split_frac] is true, always try to give a smaller fraction than what is
    inside [res_from] for evar fractions.
 *)
-let subtract_linear_resource ~(split_frac: bool) (res_from: linear_resource_set) (res_removed: linear_resource_set)
-  (evar_ctx: unification_ctx) : used_resource_item list * linear_resource_set * unification_ctx =
+let subtract_linear_resource ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty)  (res_from: linear_resource_set) (res_removed: linear_resource_set)
+  : used_resource_item list * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, res_from, evar_ctx) res_item ->
       let used, res_from, evar_ctx = subtract_linear_resource_item ~split_frac res_item res_from evar_ctx in
       (used :: used_list, res_from, evar_ctx)
@@ -213,7 +213,7 @@ let rec extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_c
       (Var_map.map (fun x -> Some x) subst_ctx) dominated_evars
   in
 
-  let used_linear, leftover_linear, evar_ctx = subtract_linear_resource ~split_frac res_from.linear res_to.linear evar_ctx in
+  let used_linear, leftover_linear, evar_ctx = subtract_linear_resource ~split_frac ~evar_ctx res_from.linear res_to.linear in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
       unify_pure res_item res_from.pure evar_ctx) evar_ctx remaining_res_to.pure
   in

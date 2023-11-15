@@ -1,6 +1,6 @@
 #include "../../../include/optitrust.h"
 
-int test(int* t, int* u, int n) {
+void parallel(int* t, int* u, int n) {
   __modifies("Group(range(1, n, 1), fun i -> &t[i] ~> Cell)");
   __modifies("Group(range(1, n, 1), fun i -> &u[i] ~> Cell)");
   for (int i = 1; i < n; i++) {
@@ -29,8 +29,46 @@ int test(int* t, int* u, int n) {
     __pure();
     int* const m1 = (int* const)MALLOC1(5, sizeof(int));
     MFREE1(5, m1);
+  }
+  for (int i = 0; i < 3; i++) {
+    __pure();
     int* const m2 = (int* const)MALLOC1(5, sizeof(int));
     MFREE1(5, m2);
+  }
+}
+
+void commute() {
+  __pure();
+  int x;
+  int y;
+  for (int i = 0; i < 5; i++) {
+    __sequentially_modifies("&x ~> Cell");
+    x++;
+  }
+  for (int i = 0; i < 5; i++) {
+    __sequentially_modifies("&y ~> Cell");
+    y++;
+  }
+  int z = 2;
+  for (int j = 0; j < 5; j++) {
+    __sequentially_modifies("&x ~> Cell");
+    __sequentially_reads("&z ~> Cell");
+    x += z;
+  }
+  for (int j = 0; j < 5; j++) {
+    __sequentially_modifies("&y ~> Cell");
+    __sequentially_reads("&z ~> Cell");
+    y += z;
+  }
+}
+
+void wrong() {
+  __pure();
+  int x;
+  for (int i = 0; i < 4; i++) {
+    __sequentially_modifies("&x ~> Cell");
+    x++;
+    x++;
   }
 }
 
