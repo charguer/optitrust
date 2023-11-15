@@ -21,7 +21,7 @@ let __post_dec = toplevel_var "__post_dec"
 let __pre_inc = toplevel_var "__pre_inc"
 let __pre_dec = toplevel_var "__pre_dec"
 
-(* A formula that may instantiate contract variables with
+(** A formula that may instantiate contract variables with
    hypotheses from the calling context.
    When instantating a contract with X := Y substitutions,
    Y is a formula_inst.
@@ -63,7 +63,7 @@ let fun_contract_free_vars (contract: fun_contract): Var_set.t =
   let _, free_vars = fold_res_list bound_vars free_vars contract.post.linear in
   free_vars
 
-(* [Resource_not_found (item, res_list)]: exception raised when the resource
+(** [Resource_not_found (item, res_list)]: exception raised when the resource
    [item] is not found inside the resource list [res_list] *)
 exception Resource_not_found of resource_item * resource_item list
 
@@ -74,7 +74,7 @@ let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unifica
   let formula = trm_subst subst_ctx formula in
   raise (Resource_not_found ((name, formula), inside))
 
-(* Unify the given resource_item with one of the resources in the pure resource set.
+(** Unify the given resource_item with one of the resources in the pure resource set.
    Also add a binding from x to the found resource in evar_ctx.
    If it fails raise a Resource_not_found exception. *)
 let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx: unification_ctx): unification_ctx =

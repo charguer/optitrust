@@ -511,6 +511,7 @@ let move_out_on (mark : mark option) (trm_index : int) (t : trm) : trm =
     that is not dependent on the index of the loop or any local variable.
     Then it will move it outside the loop.
 
+    {[
     // i uninit
     for (j) {
       i = 3;
@@ -532,6 +533,7 @@ let move_out_on (mark : mark option) (trm_index : int) (t : trm) : trm =
     i = 5
     if (range non empty) i = 3; // this would be needed for correctness but is not generated
     for (j) f(i);
+    ]}
 *)
 let%transfo move_out ?(mark : mark option) (tg : target) : unit =
   Resources.required_for_check ();
