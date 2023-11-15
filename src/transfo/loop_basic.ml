@@ -165,12 +165,13 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
   | Some contract ->
     let open Resource_formula in
 
-    (* TODO: set empty loop contracts as pure? *)
-    if (Mlist.is_empty tl1) then
+    if (Mlist.is_empty tl1) then begin
+      fst_contract := Some Resource_contract.empty_loop_contract;
       snd_contract := Some contract
-    else if (Mlist.is_empty tl2) then
-      fst_contract := Some contract
-    else begin
+    end else if (Mlist.is_empty tl2) then begin
+      fst_contract := Some contract;
+      snd_contract := Some Resource_contract.empty_loop_contract;
+    end else begin
       let first_tl2_instr = Mlist.nth tl2 0 in
 
       let linear_invariant = contract.invariant.linear in
@@ -183,6 +184,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       begin if linear_invariant = [] then
         Trace.justif "The for loop is parallelizable"
       else
+        (* TODO: Also assert that the loop index is not used in invariants *)
         Resources.assert_usages_commute t.loc tl1_inv_res tl2_inv_res;
         Trace.justif "The instructions around split point commute with respect to the loop invariant resources"
       end;
