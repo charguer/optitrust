@@ -3,6 +3,10 @@ pre {
   margin: 0;
 }
 
+body {
+  max-width: 200ex;
+}
+
 /* Style for unit test divs */
 
 .code-unit-test {

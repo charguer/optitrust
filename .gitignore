@@ -1,5 +1,6 @@
 # Artifacts
 _build
+_doc
 *.ast
 *_out.cpp
 *_out.c

@@ -1,20 +1,16 @@
-(**
-  Currently, should be called from current folder.
-    *)
+(** Should be called from projet root. *)
 
 open Soup
 open Printf
 open Optitrust
 
-let dump_trace = true
-let debug = true
-let run_tester = false
-let verbose = true
-let path_to_webview_folder = "../../tools/web_view"
+let debug = false
+let verbose = false
 
-
-let current_module = "Loop"
-let prefix = (String.lowercase_ascii current_module) ^ "_"
+(* let input_doc_folder = "_build/default/_doc/_html/optitrust/Optitrust/" *)
+let path_to_doc_folder = "_doc/optitrust/Optitrust/"
+let path_to_doc_root = "../../../"
+let path_from_doc_to_project_root = "../../../../"
 
 let tmp_file = Filename.temp_file "ocaml_excerpt" ".txt"
 
@@ -28,8 +24,8 @@ let do_or_die (cmd : string) : unit =
 type test_map = (string * string) list
 
 let compute_test_map () : test_map =
-  (* LATER: batch find for multiple modules. *) (* NOTE: excluding with_lines.ml seems no longer needed *)
-  do_or_die(sprintf "find ../../tests/ -name '%s*_doc.ml' -and -not -name '*_with_lines.ml' > %s" prefix tmp_file);
+  (* NOTE: module prefix and excluding with_lines.ml seems no longer needed: -name '%s*_doc.ml' -and -not -name '*_with_lines.ml' *)
+  do_or_die (sprintf "find tests/ -name '*_doc.ml' > %s" tmp_file);
   if debug && false then begin
     printf "List of *_doc.ml find found:\n";
     do_or_die (sprintf "cat %s" tmp_file);
@@ -38,47 +34,51 @@ let compute_test_map () : test_map =
     let n = String.length name in
     if n < 4 then failwith "no _doc suffix";
     String.sub name 0 (n - 4) in
-  Xfile.get_lines tmp_file |> List.map (fun p ->
+  let tests = Xfile.get_lines tmp_file |> List.map (fun p ->
     let test_name = p |> Filename.basename |> Filename.chop_extension |> remove_doc_suffix in
-    if verbose then Printf.printf "Collected unit test for: '%s'\n" test_name;
     (test_name, p)
-  )
+  ) in
+  if verbose then Printf.printf "Collected unit tests for: '%s'\n" (Tools.list_to_string (List.map (fun (t, _) -> t) tests));
+  tests
 
-let insert_contents_for_test (test_name: string) (test_path:string) (target_div : 'a node) : unit =
+let insert_contents_for_test (test_name: string) (test_path: string) (target_div : 'a node) : unit =
   let test_base = Filename.remove_extension test_path in
   let add : 'a node -> unit = append_child target_div in
   (* Generate a div for the ml excerpt *)
-  do_or_die (sprintf "../extract_demo.sh %s %s" test_path tmp_file);
+  do_or_die (sprintf "doc/extract_demo.sh %s %s" test_path tmp_file);
   let ml_excerpt = Xfile.get_contents_or_empty tmp_file in
   add (create_element ~classes:["code-unit-test"] "pre" ~inner_text:ml_excerpt);
   (* Generate a div for the diff
      with class "diff-unit-test" and id e.g. "variable_inline" *)
     (* LATER:could add a prefix to the id *)
   let input_cpp_file = test_base ^ ".cpp" in
-  let output_cpp_file = test_base ^ "_out.cpp" in
+  let expected_cpp_file = test_base ^ "_exp.cpp" in
   if not (Sys.file_exists input_cpp_file) then begin
     eprintf "Could not find file %s\n" input_cpp_file
-  end else if not (Sys.file_exists output_cpp_file) then begin
-    eprintf "Could not find file %s\n" output_cpp_file
+  end else if not (Sys.file_exists expected_cpp_file) then begin
+    eprintf "Could not find file %s\n" expected_cpp_file
   end else begin
-    do_or_die (sprintf "git diff --ignore-blank-lines --ignore-all-space --no-index -U100 %s %s | base64 -w 0 > %s" input_cpp_file output_cpp_file tmp_file);
+    do_or_die (sprintf "git diff --ignore-blank-lines --ignore-all-space --no-index -U100 %s %s | base64 -w 0 > %s" input_cpp_file expected_cpp_file tmp_file);
     let diff_string = Xfile.get_contents_or_empty tmp_file in
     add (create_element ~id:test_name ~classes:["diff-unit-test"] "div" ~inner_text:diff_string)
   end;
   (* Generate a div with a link *)
-  if dump_trace then begin
-    do_or_die (sprintf "../../tools/build_trace.sh %s" test_base);
-    let dest = test_base ^ "_trace.html" in
+  let trace_file = test_base ^ "_trace.html" in
+  if (Sys.file_exists trace_file) then begin
+    (* DEPRECATED: done outside of this executable:
+         do_or_die (sprintf "tools/build_trace.sh %s" test_base); *)
+    (* ALTERNATIVE: don't assume trace is there, have click generate it on the fly. *)
+    let dest = path_from_doc_to_project_root ^ trace_file in
     add (create_element ~classes:["doc-unit-test"] "a" ~attributes:[("href", dest)] ~inner_text:"view trace")
   end
 
 
-let process_spec (test_map : test_map) (spec : 'a node) : unit =
+let process_spec (prefix : string) (deprecated_suffix : string) (test_map : test_map) (spec : 'a node) : unit =
   let id = spec $ ".anchored" |> id |> Option.get in
   let name = String.sub id 4 (String.length id - 4) in (* Remove the 'val-' prefix *)
   let test_name = prefix ^ name in (* e.g. variable_inline *)
   if verbose then Printf.printf "Reached documentation for %s --> " test_name;
-  match List.assoc_opt test_name test_map with
+  match List.assoc_opt (test_name ^ deprecated_suffix) test_map with
   | None -> if verbose then Printf.printf "Not found\n"; ()
   | Some path ->
       if verbose then Printf.printf "Found\n";
@@ -87,44 +87,59 @@ let process_spec (test_map : test_map) (spec : 'a node) : unit =
       append_child spec div;
       insert_contents_for_test test_name path div
 
-let build_headers () : string = (* TODO: disable escaping *)
-  let base = "
-   <link rel='stylesheet' type='text/css' href='{WEBVIEW_FOLDER}/lib/highlight.js_github.min.css' />\
-   <link rel='stylesheet' type='text/css' href='{WEBVIEW_FOLDER}/lib/diff2html.min.css' />\
-   <script type='text/javascript' src='{WEBVIEW_FOLDER}/lib/diff2html-ui.min.js'></script>" in
-   Str.global_replace (Str.regexp_string "{WEBVIEW_FOLDER}") path_to_webview_folder base
+let process_specs (current_module_lowercase) (test_map : test_map) (soup : 'a node) : unit =
+  (* String.lowercase_ascii *)
+  let (prefix, deprecated_suffix) =
+    if String.ends_with ~suffix:"_basic" current_module_lowercase
+    then (String.sub current_module_lowercase 0 (String.length current_module_lowercase - (String.length "basic")), "_basic") (* DEPRECATED _basic case *)
+    else (current_module_lowercase ^ "_", "")
+  in
+  soup $$ ".odoc-spec" |> iter (process_spec prefix deprecated_suffix test_map)
 
-
-let process_documentation (test_map : test_map) : unit =
-  (* Parse input *)
-  let c = open_in "odoc_spec.html" in
+let parse_html (html_path : string) : soup node =
+  let c = open_in html_path in
   let soup = read_channel c |> parse in
   close_in c;
-  (* Insert headers *)
-  ignore build_headers;
-  (* TODO: FIX HEADER ESCAPING
-  soup $ "head" |> (fun head ->
-    let defs = create_text (build_headers()) in
-    append_child head defs);
-  *)
-  (* Patch specs *)
-  soup $$ ".odoc-spec" |> iter (process_spec test_map);
-  (* Write output *) (* TODO: pretty_print option *)
-  let out = open_out "odoc_spec_after.html" in
-  write_channel out (to_string soup);
-  close_out out
+  soup
 
+(* TODO: pretty_print option *)
+let write_html (soup : 'a node) (html_path : string) : unit =
+  let c = open_out html_path in
+  write_channel c (to_string soup);
+  close_out c
+
+let insert_headers (soup : 'a node) : unit =
+  let base = "
+   <link rel='stylesheet' type='text/css' href='{ROOT}/tools/web_view/lib/highlight.js_github.min.css' />\
+   <link rel='stylesheet' type='text/css' href='{ROOT}/tools/web_view/lib/diff2html.min.css' />\
+   <link rel='stylesheet' type='text/css' href='{ROOT}/doc/odoc_extra.css' />\
+   \
+   <script type='text/javascript' src='{ROOT}/tools/web_view/lib/highlight_custom/highlight.pack.js'></script>\
+   <script type='text/javascript' src='{ROOT}/tools/web_view/lib/jquery.min.js'></script>\
+   <script type='text/javascript' src='{ROOT}/tools/web_view/lib/jquery-ui.min.js'></script>\
+   <script type='text/javascript' src='{ROOT}/tools/web_view/lib/diff2html-ui.min.js'></script>\
+   <script type='text/javascript' src='{ROOT}/doc/odoc_extra.js'></script>" in
+  let headers = Str.global_replace (Str.regexp_string "{ROOT}") path_from_doc_to_project_root base in
+  (* Printf.printf "headers:\n%s\n" headers; *)
+  soup $ "head" |> (fun head ->
+    let defs = parse headers in
+    append_child head defs)
+
+let process_documentation (current_module_lowercase : string) (test_map : test_map) : unit =
+  let html_path = sprintf "%s/%s/index.html" path_to_doc_folder (String.capitalize_ascii current_module_lowercase) in
+  let soup = parse_html html_path in (* FOR TESTS: "odoc_spec.html" *)
+  insert_headers soup;
+  process_specs current_module_lowercase test_map soup;
+  (* TODO: backup option *)
+  write_html soup html_path (* FOR TESTS: "odoc_spec_after.html" *)
 
 let _ =
-  (* Run all documentation unit tests *)
-  (* TODO : add an arg -skip-run to set run_tester to false *)
-  (* TODO: add an option for dump-trace *)
-  if run_tester then do_or_die "../../tester run _doc.ml";
-  (* Build a map from test names to test paths *)
   let test_map = compute_test_map () in
-  (* Patch the html documentation to insert test material *)
-  process_documentation test_map
-  (* TODO : apply process_documentation to all .html files
-     that could contain transformations;
-     take "prefix" as argument of functions above *)
+
+  do_or_die (sprintf "find src/transfo -name '*.ml' > %s" tmp_file);
+  Xfile.get_lines tmp_file |> List.iter (fun module_src ->
+    let current_module_lowercase = Filename.remove_extension (Filename.basename module_src) in
+    if verbose then Printf.printf "-- Processing '%s'\n" current_module_lowercase;
+    process_documentation current_module_lowercase test_map
+  )
 
