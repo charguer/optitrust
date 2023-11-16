@@ -46,7 +46,7 @@ fi
 
 if [ "${NEEDS_REBUILD}" = "1" ]; then
   # Generate the script instrumented with line numbers
-  ${TOOLS_FOLDER}/add_lines.sh ${SRCBASE}.ml ${TMP_FOLDER}/with_lines.ml
+  ${TOOLS_FOLDER}/add_lines.sh ${SRCBASE}.ml > ${TMP_FOLDER}/with_lines.ml
 
   echo "Building cmxs file"
 

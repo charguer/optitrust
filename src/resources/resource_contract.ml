@@ -9,6 +9,7 @@ type contract_clause_type =
   | Ensures
   | Invariant
   | Reads
+  | Writes
   | Modifies
   | Consumes
   | Produces
@@ -66,6 +67,9 @@ let push_read_only_fun_contract_res ((name, formula): contract_resource) (contra
   let post = push_linear_res (name, ro_formula) contract.post in
   { pre; post }
 
+let contract_resource_uninit ((name, formula): contract_resource): contract_resource =
+  (name, formula_uninit formula)
+
 (* LATER: Preserve user syntax using annotations *)
 let push_fun_contract_clause (clause: contract_clause_type)
     (res: contract_resource) (contract: fun_contract) =
@@ -75,6 +79,7 @@ let push_fun_contract_clause (clause: contract_clause_type)
   | Ensures -> { contract with post = push_pure_res res contract.post }
   | Produces -> { contract with post = push_linear_res res contract.post }
   | Reads -> push_read_only_fun_contract_res res contract
+  | Writes -> { pre = push_linear_res (contract_resource_uninit res) contract.pre ; post = push_linear_res res contract.post }
   | Modifies -> { pre = push_linear_res res contract.pre ; post = push_linear_res res contract.post }
   | Invariant -> { pre = push_pure_res res contract.pre ; post = push_pure_res res contract.post }
   | SequentiallyReads -> failwith "SequentiallyReads only makes sense for loop contracts"

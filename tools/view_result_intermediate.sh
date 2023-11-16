@@ -109,7 +109,7 @@ fi
 #----------------------------------------------------
 # Instrument line numbers in the transformation program
 
-${TOOLS}/add_lines.sh ${SOURCEBASE}.ml ${SOURCEBASE}_with_lines.ml
+${TOOLS}/add_lines.sh ${SOURCEBASE}.ml > ${SOURCEBASE}_with_lines.ml
 
 #----------------------------------------------------
 # Compile the transformation program
