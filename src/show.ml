@@ -2,6 +2,180 @@ open Printf
 open Prelude
 open Target
 
+(* Usage:
+     Show.trm ~msg:"foo:" t
+     Show.trm ~msg:"foo:" tg
+     Show.trm ~msg:"foo:" (Target.resolve_path p)
+     ShowAt.trm ~msg:"foo:" (Target.of_path p)
+*)
+
+(*----------------------------------------------------------------------------------*)
+(* Printing options *)
+
+type style = {
+  decode : bool;
+  print : print_style }
+
+and print_style =
+  | AST of Ast_to_text.style
+  | OptiTrust of AstC_to_c.style
+  | C of AstC_to_c.style
+  (* Redundand constructors, to avoid need for parentheses,
+     e.g. ~style:XC  instead of ~style:(c()) *)
+  | XDefault
+  | XC
+  | XInternal
+  | XInternalAst
+  | XInternalAstOnlyDesc
+
+(** Common printing options *)
+
+let c () : style  =
+  { decode = true;
+    print = C ( AstC_to_c.{ default_style ()) ) }
+
+let internal () : style =
+  { decode = false;
+    print = OptiTrust ( AstC_to_c.{ default_style () with optitrust_syntax = true } ) }
+
+let internal_ast () : style  =
+  { decode = true;
+    print = AST ( Ast_to_text.{ default_style ()) ) }
+
+let internal_ast_only_desc () : style  =
+  { decode = false;
+    print = AST ( Ast_to_text.{ default_style () with only_desc = true ) }
+
+let default_style () = c
+
+(* [resolve_style style] eliminates the redundant constructors *)
+let resolve_style (style : style) : style =
+  match style with
+  | XDefault -> default_style()
+  | XC -> c()
+  | XInternal -> internal()
+  | XInternalAst -> internal_ast()
+  | XInternalAstOnlyDesc -> internal_ast_only_desc()
+  | AST _
+  | Optitrust _
+  | C _ -> style
+
+(*----------------------------------------------------------------------------------*)
+(** Printing combinators *)
+
+let prt = printf
+
+(* TODO: should the \n be included by default? *)
+
+(** [prt_msg msg] prints a message [msg] followed with a colon *)
+let prt_msg (msg : string) : unit =
+  if msg = "" then () else prt "%s: " msg
+
+let prt_list ?(msg : string = "") ?(sep : string = "") (pr : 'a -> unit) (xs : 'a list) : unit =
+  prt_msg msg;
+  List.iter (fun x -> pr x; if sep <> "" then prt "%s" sep) xs
+
+let prt_opt ?(msg : string = "") (empty : string) (pr : 'a -> unit) (xopt : 'a option) : unit =
+  prt_msg msg;
+  match xopt with
+  | None -> prt "%s\n" empty
+  | Some x -> pr x
+
+(*----------------------------------------------------------------------------------*)
+(** Printing operations *)
+
+(** Print paths *)
+
+let path ?(msg : string = "") (p : path) : unit =
+  prt_msg msg;
+  prt "%s\n" (Path.path_to_string p)
+
+let paths ?(msg : string = "") (ps : paths) : unit =
+  prt_list ~msg path ps
+
+(* Print terms *)
+
+let trm ?(style = XDefault) ?(msg : string = "") (t : trm) : unit =
+  let t_str = match style with
+  | Display -> AstC_to_c.ast_to_string t
+  | ContractDisplay -> AstC_to_c.ast_to_string (Ast_fromto_AstC.contract_intro (Ast_fromto_AstC.ghost_args_intro t))
+  | Internal -> Ast_to_text.ast_to_string t
+  | InternalDisplay -> AstC_to_c.ast_to_string ~optitrust_syntax:true t
+  in
+  prt_msg msg;
+  prt "%s\n" t_str
+
+let trms ?(style = XDefault) ?(msg : string = "") (ts : trms) : unit =
+  prt_list ~msg trm ts
+
+let ast ?(style = XDefault) ?(msg : string = "") : unit =
+  trm ?style ?msg (Trace.ast ())
+
+(* types *)
+
+let typ ?(msg : string = "") (t : typ) : unit =
+  let t_str = AstC_to_c.typ_to_string t in
+  prt_msg msg;
+  prt "%s\n" t_str
+
+let typ_opt ?(msg : string = "") (topt : typ option) : unit =
+  prt_opt ~msg "<no_typ>" typ topt
+
+let typs ?(msg : string = "") (ts : typ list) : unit =
+  prt_list ~msg typ ts
+
+
+(*----------------------------------------------------------------------------------*)
+(** Functions that show things at a given target in the current AST. *)
+
+module At = struct
+
+  let at ?(msg : string = "") (f: trm -> unit) (tg : Target.target) : unit =
+    let ps = Target.resolve_target_current_ast tg in
+    prt_msg msg;
+    let nbps = List.length ps in
+    prt "target resolves to %d paths\n" nbps;
+    List.iteri (fun i p ->
+      if nbps > 1 then prt "[occ #%d] " (i + 1);
+      f (Target.resolve_path_current_ast p)
+    ) ps
+
+  let trm ?(style = XDefault) ?(msg : string = "") (tg : Target.target) : unit =
+    at ~msg (trm ~style) tg
+
+  let typ ?(msg : string = "") (tg : Target.target) : unit =
+    at ~msg (fun t -> typ t.typ) tg
+
+  (* TODO: res *)
+  (* TODO: path *)
+  (* TODO: arith *)
+  (* TODO: marks *)
+  (* TODO: annot *)
+  (* TODO: desc *)
+  (* TODO: stmt *)
+  (* TODO: info *)
+
+end
+
+
+(*----------------------------------------------------------------------------------*)
+
+(* LATER
+
+var_to_string ?style ...
+typconstr_to_string
+lit_to_string
+upop_string
+binop_to_string
+prim_to_doc style
+val_to_string
+typedef_to_string
+
+*)
+
+
+
+(* DEPRECATED
 type debug_trm_style =
   | Display (* C with no decoding *)
   | ContractDisplay (* C with no decoding + contracts *)
@@ -11,9 +185,9 @@ type debug_trm_style =
 type c_style = { foo: unit } (* TODO *)
 type ocaml_style = { foo: unit } (* TODO *)
 type ast_style = { foo: unit } (* TODO *)
-type language_style = OptiTrust of c_style | C of c_style | OCaml of ocaml_style | AST of ast_style
-(* TODO: move to Ast_to_c and Ast_to_text *)
 
+(* TODO: move to Ast_to_c and Ast_to_text *)
+type language_style = OptiTrust of c_style | C of c_style | OCaml of ocaml_style | AST of ast_style
 (* The record [print_resource_style] contains a list of flags to determine *)
 type print_resource_style =
 type print_style = {
@@ -40,107 +214,8 @@ type style = {
   common: common_style;
   lang: language_style;
 }
-
-
-
-let c_enc = { contract = true; decode = false; lang = C { foo = () } }
-let c = { contract = true; decode = true; lang = C { foo = () } }
-
-let prt = printf
-let prtmsg msg = if msg = "" then () else prt "%s: " msg
-
-let path ?(msg : string = "") (p : path) : unit =
-  prtmsg msg;
-  prt "%s\n" (Path.path_to_string p)
-
-let paths ?(msg : string = "") (ps : paths) : unit =
-  prtmsg msg;
-  prt "%s\n" (Tools.list_to_string (List.map Path.path_to_string ps))
-
-
-let trm ?(style = ContractDisplay) ?(msg : string = "") (t : trm) : unit =
-  let t_str = match style with
-  | Display -> AstC_to_c.ast_to_string t
-  | ContractDisplay -> AstC_to_c.ast_to_string (Ast_fromto_AstC.contract_intro (Ast_fromto_AstC.ghost_args_intro t))
-  | Internal -> Ast_to_text.ast_to_string t
-  | InternalDisplay -> AstC_to_c.ast_to_string ~optitrust_syntax:true t
-  in
-  prtmsg msg;
-  prt "%s\n" t_str
-
-let trms ?(msg : string = "") (ts : trms) : unit =
-  prtmsg msg;
-  prt "%s\n" (Tools.list_to_string (List.map AstC_to_c.ast_to_string ts))
-
-let typ ?(msg : string = "") (t : typ) : unit =
-  let t_str = AstC_to_c.typ_to_string t in
-  prtmsg msg;
-  prt "%s\n" t_str
-
-let typ_opt ?(msg : string = "") (t : typ option) : unit =
-  printmsg msg;
-  match t with
-  | None -> prt "typ = None"
-  | Some t -> typ t
-
-let typs ?(msg : string = "") (ts : typ list) : unit =
-  prtmsg msg;
-  prt "%s\n" (Tools.list_to_string (List.map AstC_to_c.typ_to_string ts))
-
-let current_ast ?(style = Display) ?(msg : string = "") : unit =
-  trm ~style msg (Trace.ast ())
+*)
 
 (* = Show.trm ~style msg (Target.resolve_path p) *)
 (* = ShowAt.trm ~style msg (Target.of_path p) *)
 (* let current_ast_at_path ?(style = Display) ?(msg : string = "") (p : Path.path) : *)
-
-(** Functions that show things at a given target in the current AST. *)
-module At = struct
-  let at ?(msg : string = "") (f: trm -> unit) (tg : Target.target) : unit =
-    let ps = Target.resolve_target_current_ast tg in
-    prtmsg msg;
-    let nbps = List.length ps in
-    prt "target resolves to %d paths\n" nbps;
-    List.iteri (fun i p ->
-      if nbps > 1 then prt "[occ #%d] " (i + 1);
-      f (Target.resolve_path_current_ast p)
-    ) ps
-
-  (* TODO: option for decoding *)
-  let trm ?(style = Display) ?(msg : string = "") (tg : Target.target) : unit =
-    at ~msg (trm ~style) tg
-
-  (* styles: ast_to_c ast_to_text ast_to_*)
-  let typ (* ? ?(style = Display) *) ?(msg : string = "") (tg : Target.target) : unit =
-    at ~msg (fun t -> typ_opt t.typ) tg
-
-  (* TODO: res *)
-  (* TODO: path *)
-  (* TODO: arith *)
-  (* TODO: marks *)
-  (* TODO: annot *)
-  (* TODO: desc *)
-  (* TODO: stmt *)
-  (* TODO: info *)
-end
-
-(* TODO: take functions from Target.ml, and split into Show and ShowAt = Show.At modules. *)
-
-
-TODO: set style with varid= true
-!Flags.debug_var_id
-!Flags.always_name_resource_hyp =>  generated_ids
-
-
-rebind in show
-  Show.var
-  Show.typconstr
-
-  var_to_string ?style ...
-  typconstr_to_string
-  lit_to_string
-  upop_string
-  binop_to_string
-prim_to_doc style
-val_to_string
-typedef_to_string

@@ -1406,7 +1406,7 @@ type style = {
 
 (* Default style *)
 
-let style () = {
+let default_style () = {
   contract = true;
   var_id = !Flags.debug_var_id;
   generated_ids = !Flags.always_name_resource_hyp;

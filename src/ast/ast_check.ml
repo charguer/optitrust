@@ -10,10 +10,10 @@ let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
     then "succcess"
     else Printf.sprintf "failure (see %s_ast_{1,2}.{ast,cpp})" test_name);
   if not success then begin
-      AstC_to_c.(ast_to_file (style())) (test_name ^ "_ast_1.cpp") t1;
-      AstC_to_c.(ast_to_file (style())) (test_name ^ "_ast_2.cpp") t2;
-      Ast_to_text.(ast_to_file (style())) (test_name ^ "_ast_1.ast") t1;
-      Ast_to_text.(ast_to_file (style())) (test_name ^ "_ast_2.ast") t2;
+      AstC_to_c.(ast_to_file (default_style())) (test_name ^ "_ast_1.cpp") t1;
+      AstC_to_c.(ast_to_file (default_style())) (test_name ^ "_ast_2.cpp") t2;
+      Ast_to_text.(ast_to_file (default_style())) (test_name ^ "_ast_1.ast") t1;
+      Ast_to_text.(ast_to_file (default_style())) (test_name ^ "_ast_2.ast") t2;
   end
 
 (* [check_transfo_is_identity ~test f t]: checks if ft = t *)

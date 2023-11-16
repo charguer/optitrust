@@ -20,8 +20,8 @@ type style = {
 
 (* Default style *)
 
-let style () = {
-  ast = Ast.style();
+let default_style () = {
+  ast = Ast.default_style();
   optitrust_syntax = false;
   pretty_matrix_notation = !Flags.pretty_matrix_notation;
   commented_pragma = false; }
@@ -1386,7 +1386,9 @@ let ast_to_file style (filename : string) (t : trm) : unit =
   close_out out
 
 (* [ast_to_string ~optitrust_syntax t]: converts ast [t] to string *)
-let ast_to_string style (t : trm) : string =
+let ast_to_string ?(style : style option) ?(optitrust_syntax : bool option) (t : trm) : string =
+  let style = match style with None -> default_style() | Some s -> s in
+  let style = match optitrust_syntax with None -> style | Some b -> { style with optitrust_syntax = b } in
   document_to_string (ast_to_doc style t)
 
 (* [typ_to_string ty]: converts type [ty] to string *)
