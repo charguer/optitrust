@@ -1388,3 +1388,29 @@ let get_member_type (rf : record_field) : typ =
     end
 
 (*****************************************************************************)
+(* Printing options *)
+
+(* The record [print_style] contains a list of options specifying what should
+   be printed by the [to_doc] and [to_string] functions that apply to the
+   various AST datatypes. *)
+
+type style = {
+  contract: bool; (* print loop contract *)
+  var_id: bool; (* print internal variable identifiers *)
+  generated_ids: bool; (* print auto-generated names *)
+  string_repr: bool; (* print string representation for expressions *)
+  mark: bool; (* print marks *)
+  annot: bool; (* print annotations *)
+  (* LATER: node_id: bool; print internal AST node identifier *)
+}
+
+(* Default style *)
+
+let style () = {
+  contract = true;
+  var_id = !Flags.debug_var_id;
+  generated_ids = !Flags.always_name_resource_hyp;
+  string_repr = !Flags.debug_stringreprs;
+  mark = true;
+  annot = false; (* LATER: add support for this *)
+}

@@ -538,7 +538,7 @@ and ghost_args_elim_in_seq (ts: trm list): trm list =
     t :: ghost_args_elim_in_seq ts
 
 let formula_to_string (f: formula) : string =
-  AstC_to_c.ast_to_string ~beautify_mindex:!Flags.pretty_matrix_notation f
+  AstC_to_c.ast_to_string ~pretty_matrix_notation:!Flags.pretty_matrix_notation f
 
 let var__with = trm_var (name_to_var "__with")
 let var__call_with = trm_var (name_to_var "__call_with")

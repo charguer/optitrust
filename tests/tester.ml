@@ -837,7 +837,7 @@ NOT YET IMPLEMENTED
   (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
   this is what is provided in trace.ml to  the function
-   AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog t_after_cfeatures_intro;
+   AstC_to_c.ast_to_outchannel ~pretty_matrix_notation ~comment_pragma:use_clang_format out_prog t_after_cfeatures_intro;
 
     LATER: deal with script_cpp ~filename by searching 'batch.ml'
 

@@ -11,9 +11,21 @@ type debug_trm_style =
 type c_style = { foo: unit } (* TODO *)
 type ocaml_style = { foo: unit } (* TODO *)
 type ast_style = { foo: unit } (* TODO *)
-type language = OptiTrust of c_style | C of c_style | OCaml of ocaml_style | AST of ast_style
+type language_style = OptiTrust of c_style | C of c_style | OCaml of ocaml_style | AST of ast_style
 (* TODO: move to Ast_to_c and Ast_to_text *)
-type res_style = {
+
+(* The record [print_resource_style] contains a list of flags to determine *)
+type print_resource_style =
+type print_style = {
+  decode: bool; (* perform decoding *)
+  contract: bool; (* print loop contract *)
+  pretty_matrix_notation: bool; (* print t[MINDEX(n,m,a,b)] as t[a][b] *)
+  var_id: bool; (* print internal variable identifiers *)
+  string_repr: bool; (* print string representation for expressions *)
+  mark: bool; (* print marks *)
+  annot: bool; (* print annotations *)
+  (* LATER: node_id: bool; print internal AST node identifier *)
+} {
   before: bool;
   after: bool;
   contract_invoc: bool;
@@ -21,20 +33,16 @@ type res_style = {
   usage: bool;
   post_inst: bool;
 }
-type style = {
-  contract: bool;
-  decode: bool;
-  lang: language;
   res: res_style;
-  beautify_mindex: bool;
-  var_id: bool;
-  string_repr: bool;
-  mark: bool;
-  annot: bool;
-  loc: bool; (* LATER *)
-  is_statement: bool; (* LATER: deprecate *)
-  node_id: bool; (* LATER *)
+  decode: bool; (* perform decoding *)
+
+type style = {
+  common: common_style;
+  lang: language_style;
 }
+
+
+
 let c_enc = { contract = true; decode = false; lang = C { foo = () } }
 let c = { contract = true; decode = true; lang = C { foo = () } }
 
@@ -117,3 +125,22 @@ module At = struct
 end
 
 (* TODO: take functions from Target.ml, and split into Show and ShowAt = Show.At modules. *)
+
+
+TODO: set style with varid= true
+!Flags.debug_var_id
+!Flags.always_name_resource_hyp =>  generated_ids
+
+
+rebind in show
+  Show.var
+  Show.typconstr
+
+  var_to_string ?style ...
+  typconstr_to_string
+  lit_to_string
+  upop_string
+  binop_to_string
+prim_to_doc style
+val_to_string
+typedef_to_string
