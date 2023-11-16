@@ -114,6 +114,8 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
         reverse := false
       | TargetAfter ->
         reverse := true
+      | TargetBetweenAll ->
+        fail None "Instr.gather_targets: need to support TargetBetweenAll"
       | TargetFirst ->
         reverse := true
       | TargetLast ->

@@ -31,7 +31,7 @@ let _ = Run.script_cpp (fun () ->
   bigstep "split top to left and right";
   !! Loop.split_range ~cut:(expr "k") [occIndex 1; cFor "j"];
   !! Loop.split_range ~cut:(expr "k+1") [occIndex 2; cFor "j"];
-  !! Loop.fission_all_instrs ~nest_of:1 [cFor ~stop:[sExpr "k"] "i"];
+  !! Loop.fission ~nest_of:1 [cForBody ~stop:[sExpr "k"] "i"; tBetweenAll];
   !!! (
     Loop.shift StartAtZero [cFor ~stop:[sExpr "k + 1"] "j"];
     Loop.unroll [cFor ~stop:[sExpr "1"] "j"]
@@ -40,7 +40,7 @@ let _ = Run.script_cpp (fun () ->
   bigstep "split bottom to left and right";
   !! Loop.split_range ~cut:(expr "k") [occIndex 4; cFor "j"];
   !! Loop.split_range ~cut:(expr "k+1") [occIndex 5; cFor "j"];
-  !! Loop.fission_all_instrs ~nest_of:1 [occIndex 4; cFor "i"];
+  !! Loop.fission ~nest_of:1 [occIndex 4; cForBody "i"; tBetweenAll];
   !!! (
     Loop.shift StartAtZero [cFor ~stop:[sExpr "k + 1"] "j"];
     Loop.unroll [cFor ~stop:[sExpr "1"] "j"]

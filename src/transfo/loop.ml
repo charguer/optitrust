@@ -841,7 +841,7 @@ let%transfo reorder ?(order : string list = []) (tg : target) : unit =
 (* [bring_down_loop]: given a path [p] to an instruction, find a surrounding
    loop over [index] and bring it down to immediately surround the instruction. In order to swap imperfect loop nests,
    local variables will be hoisted ([Loop.hoist]),
-   and surrounding instructions will be fissioned ([Loop.fission_all_instrs]).
+   and surrounding instructions will be fissioned ([Loop.fission]).
    *)
 let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (p : path): unit =
   let hoist_all_allocs (tg : target) : unit =
@@ -864,7 +864,9 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (p : path
       (* hoist all allocs and fission all instrs to isolate the
           loops to be swaped *)
       hoist_all_allocs (target_of_path (path_of_loop_surrounding_mark_current_ast m));
-      fission_all_instrs ~indices:[index_in_loop; index_in_loop+1] (target_of_path (path_of_loop_surrounding_mark_current_ast m));
+      (* ~indices:[index_in_loop; index_in_loop+1] *)
+      fission (target_of_path ((path_of_loop_surrounding_mark_current_ast m) @ Path.[Dir_body; Dir_before (index_in_loop+1)]));
+      fission (target_of_path ((path_of_loop_surrounding_mark_current_ast m) @ Path.[Dir_body; Dir_before index_in_loop]));
       Loop_swap.f (target_of_path (path_of_loop_surrounding_mark_current_ast m));
       (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
     end
@@ -874,7 +876,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (p : path
    by [length order] loops, and attempts to reorder these loops according to [order].
    The loops do not have to be perfectly nested. In order to swap imperfect loop nests,
    local variables will be hoisted ([Loop.hoist]),
-   and surrounding instructions will be fissioned ([Loop.fission_all_instrs]).
+   and surrounding instructions will be fissioned ([Loop.fission]).
    *)
 let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
@@ -898,30 +900,22 @@ let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
   ) tg
 
 (* internal *)
-let fission_all_instrs_with_path_to_inner (nest_of : int) (p : path) : unit =
+let fission_through_path_to_inner (nest_of : int) (p : path) : unit =
   let rec aux (nest_of : int) (p : path) : unit =
     if nest_of > 0 then begin
       (* Apply fission to the next outer loop *)
       let p' = Path.to_outer_loop p in
-      Loop_basic.fission_all_instrs (target_of_path p');
+      Loop_basic.fission (target_of_path (p' @ [Dir_body; Dir_before 1]));
       (* And go through the remaining outer loops *)
       aux (nest_of - 1) p';
     end
   in
   if nest_of > 0 then begin
     (* Apply fission to the innermost loop *)
-    Loop_basic.fission_all_instrs (target_of_path p);
+    Loop_basic.fission (target_of_path (p @ [Dir_body; Dir_before 1]));
     (* And go through the outer loops *)
     aux (nest_of - 1) p
   end
-
-let%transfo fission_all_instrs ?(nest_of : int  = 1) (tg : target) : unit =
-  Target.iter (fun t p ->
-    (* Printf.printf "fission_all_instrs: %s\n" (Path.path_to_string p); *)
-    (* apply fission helper on inner loop *)
-    fission_all_instrs_with_path_to_inner nest_of
-      (Path.to_inner_loop_n (nest_of - 1) p)
-  ) tg
 
 let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
   Target.iter (fun t p_before ->
@@ -931,7 +925,7 @@ let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
         let (p_seq, _) = Path.last_dir_before_inv_success p_before in
         let p_loop = Path.parent_with_dir p_seq Dir_body in
         let p_outer_loop = Path.to_outer_loop p_loop in
-        fission_all_instrs_with_path_to_inner (nest_of - 1) p_outer_loop
+        fission_through_path_to_inner (nest_of - 1) p_outer_loop
       end
     end
   ) tg

@@ -30,9 +30,17 @@ let _ = Run.script_cpp ( fun _ ->
   !! Trace.failure_expected (fun () ->
     Loop_basic.fission [cFunDef "wrong_ro_rw"; cFor ""; dBody; dAfter 0]);
 
-  (* Testing fission_all_instrs *)
-  !! Loop_basic.fission_all_instrs [cFunDef "testAllInstr"; cFor "i"];
-  !! Loop_basic.fission_all_instrs ~indices:[2;3] [cFunDef "testAllInstr2"; cFor "i"];
+  (* Testing fission with multiple targets *)
+  !! Loop_basic.fission [cFunDef "testAllInstr"; cForBody "i"; tBetweenAll];
+  (* ~indices:[2;3] *)
+  !! Loop_basic.fission [cFunDef "testAllInstr2"; cForBody "i"; tBefore; cOr [
+    [dSeqNth 2];
+    [dSeqNth 3]
+  ]];
 
-  !! Loop_basic.fission_all_instrs ~indices:[2;4] [cFunDef "testAllInstrContracts"; cFor "i"];
+  (* ~indices: *)
+  !! Loop_basic.fission [cFunDef "testAllInstrContracts"; cForBody "i"; tBefore; cOr [
+    [dSeqNth 2];
+    [dSeqNth 4]
+  ]];
 )

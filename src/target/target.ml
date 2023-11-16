@@ -73,6 +73,10 @@ let tFirst : constr =
 let tLast : constr =
   Constr_relative TargetLast
 
+(* [tBetweenAll]: matches all instructions in a sequence. *)
+  let tBetweenAll : constr =
+    Constr_relative TargetBetweenAll
+
 (******************************************************************************)
 (*                            Number of targets                               *)
 (******************************************************************************)
@@ -401,6 +405,10 @@ let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target =
   ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
   Constr_for (ro, start, direction, stop, step, body)
+
+let cForBody ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = [])
+  ?(body : target = []) (index : string) : constr =
+  cTarget [cFor ~start ?direction ~stop ~step ~body index; dBody]
 
 
 (* [cForNestedAtDepth i]: matches the loop at depth [i] on a nested loops trm. *)
@@ -1655,21 +1663,17 @@ let show ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
         then Printf.sprintf "%d_%d" marks_base i
         else Printf.sprintf "%d" i
       in
-    if Constr.is_target_between tg then begin
-      applyi_on_targets_between (fun i t (p,k) ->
+      applyi (fun i t p ->
         let m = mark_of_occurence i in
-        target_between_show_transfo m k t p) tg
-    end else begin
-      applyi_on_targets (fun i t p ->
-        let m = mark_of_occurence i in
-        target_show_transfo ~types m t p) tg
-    end
+        match Path.last_dir_before_inv p with
+        | Some (p, k) ->
+          target_between_show_transfo m k t p
+        | None -> target_show_transfo ~types m t p
+      ) tg
     in
   let action_otherwise () =
     (* If in regular batch mode, then we only check that the targets are valid *)
-    if Constr.is_target_between tg
-      then applyi_on_targets_between (fun _i t (_p,_k) -> t) tg
-      else applyi_on_targets (fun _i t _p -> t) tg
+    applyi (fun _i t _p -> t) tg
     in
   Trace.show_step ~line ~interactive_action ~action_otherwise ()
 

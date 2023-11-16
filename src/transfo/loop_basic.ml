@@ -225,6 +225,13 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       let split_res = unsome_or_fail last_tl1_instr.loc error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
       let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
 
+      (* DEBUG
+      printf "---\n";
+      printf "split_res.linear: %s\n" (Resource_computation.resource_list_to_string split_res.linear);
+      printf "linear_invariant: %s\n" (Resource_computation.resource_list_to_string linear_invariant);
+      printf "split_res_comm: %s\n" (Resource_computation.resource_list_to_string split_res_comm);
+       *)
+
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
           | Some (vk, v, typ, init) -> Var_set.add v acc
@@ -281,27 +288,6 @@ let fission_on (index : int) (t : trm) : trm =
   let (ta,tb) = fission_on_as_pair index t in
   trm_seq_nobrace_nomarks [ ta; tb ]
 
-
-(* [fission_all_instrs_on]: split loop [t] into N loops,
-   one per instruction in the loop body
-
-   [indices]: list of indices of positions where to split
-   [t]: ast of the loop
-*)
-
-let fission_all_instrs_on (indices : int list) (t : trm) : trm =
-  let rec aux (indices : int list) (t : trm) : trm list =
-    match indices with
-    | [] -> [t]
-    | i::indices' ->
-        let (ta,tb) = fission_on_as_pair i t in
-        let tl = aux indices' ta in
-        tb :: tl
-    in
-  let tl = aux (List.rev indices) t in
-  trm_seq_nobrace_nomarks (List.rev tl)
-
-
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 
@@ -309,37 +295,13 @@ let fission_all_instrs_on (indices : int list) (t : trm) : trm =
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
 let%transfo fission (tg : target) : unit =
-  Resources.required_for_check ();
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p_before ->
+      Resources.required_for_check ();
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       apply_at_path (fission_on split_i) p_loop
     ) tg
-  );
-  Resources.justif_correct "loop resources where successfully split"
-
-(* [fission_all_instrs]: similar to [fission],
-   but splits the targeted loop into N loops,
-   one per instruction in the loop body.
-   or at specific indices.
-   *)
-let%transfo fission_all_instrs ?(indices : int list option) (tg : target) : unit =
-  Resources.required_for_check ();
-  Nobrace_transfo.remove_after (fun _ ->
-    let aux t =
-      let _, tl, _ = trm_inv ~error:"fission_all_instrs: must target a for loop" trm_for_inv_instrs t in
-      let tl = Mlist.to_list tl in
-      let indices =
-        match indices with
-        | Some indices -> indices
-        | None ->
-            if tl = [] then [] (* do nothing *)
-            else Xlist.drop 1 (List.mapi (fun i _ -> i) tl) (* take all indices of intervals *)
-          in
-      fission_all_instrs_on indices t
-      in
-    Target.apply_at_target_paths aux tg
   );
   Resources.justif_correct "loop resources where successfully split"
 

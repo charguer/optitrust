@@ -40,6 +40,7 @@ type target_relative =
     | TargetAt
     | TargetFirst
     | TargetLast
+    | TargetBetweenAll
     | TargetBefore
     | TargetAfter
 
@@ -511,6 +512,7 @@ and target_relative_to_string (rel : target_relative) =
   | TargetAt -> "TargetAt"
   | TargetFirst -> "TargetFirst"
   | TargetLast -> "TargetLast"
+  | TargetBetweenAll -> "TargetBetweenAll"
   | TargetBefore -> "TargetBefore"
   | TargetAfter -> "TargetAfter"
 
@@ -1408,14 +1410,18 @@ and old_resolve_target (tg : target) (t : trm) : paths =
      and convert the last [Dir_seq_nth n] in the path into a [Dir_before n] or [Dir_before (n+1)]
    - if rel is [Target_First] or [TargetLast], takes a path to a sequence with [n] items,
      and extend the path with [Dir_before 0] or [Dir_before n]. *)
-and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
+and fix_target_between (rel : target_relative) (t : trm) (p : path) : paths =
   match rel with
-  | TargetAt -> fail None "Constr.compute_relative_index: Didn't expect a TargetAt"
+  | TargetAt -> fail None "Constr.fix_target_between: Didn't expect a TargetAt"
   | TargetFirst ->
-      p @ [Dir_before 0]
+      [p @ [Dir_before 0]]
   | TargetLast ->
       let n = get_arity_of_seq_at p t in
-      p @ [Dir_before n]
+      [p @ [Dir_before n]]
+  | TargetBetweenAll ->
+      let n = get_arity_of_seq_at p t in
+      (* printf "%d / %s\n" n (Tools.list_to_string (List.map (sprintf "%d") (List.init (n - 1) (fun i -> i + 1)))); *)
+      List.init (n - 1) (fun i -> p @ [Dir_before (i + 1)])
   | TargetBefore | TargetAfter ->
       let shift =
          match rel with
@@ -1425,11 +1431,11 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
          in
       let (d,p') =
         try extract_last_path_item p
-        with Not_found -> fail None "Constr.compute_relative_index: expected a nonempty path"
+        with Not_found -> fail None "Constr.fix_target_between: expected a nonempty path"
         in
       match d with
-      | Dir_seq_nth i -> p' @ [Dir_before (i + shift)]
-      | _ -> fail None "Constr.compute_relative_index: expected a Dir_seq_nth as last direction"
+      | Dir_seq_nth i -> [p' @ [Dir_before (i + shift)]]
+      | _ -> fail None "Constr.fix_target_between: expected a Dir_seq_nth as last direction"
 
 (* [resolve_target tg t]: resolves the target [tg];
    Marks are set in the ast_after inside the trace only if -dump-trace is provided *)
@@ -1460,7 +1466,7 @@ and resolve_target_internal (*?(place_marks : mark list ref option)*) (tg : targ
   (* Patch the path if it is a target_between *)
   let ps =
     if tgs.target_relative <> TargetAt then begin
-      let res2 = List.map (fix_target_between tgs.target_relative t) res in
+      let res2 = List.concat_map (fix_target_between tgs.target_relative t) res in
       (* printf "res2=\n%s\n" (Path.paths_to_string res2); *)
       res2
     end else res
@@ -1836,6 +1842,7 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
   | TargetAt -> fail None "Constr.compute_relative_index: Didn't expect a TargetAt"
   | TargetFirst -> (p, 0)
   | TargetLast -> (p, get_arity_of_seq_at p t)
+  | TargetBetweenAll -> fail None "DEPRECATED + NOT IMPLEMENTED"
   | TargetBefore | TargetAfter ->
       let shift =
          match rel with

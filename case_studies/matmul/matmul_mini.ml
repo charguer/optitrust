@@ -15,5 +15,5 @@ let _ = Run.script_cpp (fun () ->
    !! Loop.reorder ~order:["j"; "bi"; "i"] [cFor "i"];
 
    !! Loop.hoist [cVarDef "sum"];
-   !! Loop.fission_all_instrs [cFor "i"];
+   !! Loop.fission [cForBody "i"; tBetweenAll];
   )
