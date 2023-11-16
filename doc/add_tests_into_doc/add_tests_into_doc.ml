@@ -13,7 +13,7 @@ let verbose = true
 let path_to_webview_folder = "../../tools/web_view"
 
 
-let current_module = "Variable"
+let current_module = "Loop"
 let prefix = (String.lowercase_ascii current_module) ^ "_"
 
 let tmp_file = Filename.temp_file "ocaml_excerpt" ".txt"
