@@ -220,8 +220,9 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource linear_invariant tl1_inv in (* = I'' *)
 
       let first_tl2_instr = Mlist.nth tl2 0 in
-      Transfo_debug.trm ~style:Internal "first_tl2_instr" first_tl2_instr;
       let split_res = unsome_or_fail first_tl2_instr.loc error (first_tl2_instr.ctx.ctx_resources_before) in (* = R *)
+      (* let last_tl1_instr = Mlist.nth tl1 ((Mlist.length tl1) - 1) in
+      let split_res = unsome_or_fail last_tl1_instr.loc error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
       let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
 
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
@@ -310,10 +311,10 @@ let fission_all_instrs_on (indices : int list) (t : trm) : trm =
 let%transfo fission (tg : target) : unit =
   Resources.required_for_check ();
   Nobrace_transfo.remove_after (fun _ ->
-    Target.apply (fun t p_before ->
+    Target.iter (fun _ p_before ->
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
-      apply_on_path (fission_on split_i) t p_loop
+      apply_at_path (fission_on split_i) p_loop
     ) tg
   );
   Resources.justif_correct "loop resources where successfully split"

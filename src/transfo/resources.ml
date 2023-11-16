@@ -247,7 +247,6 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
 
 (* [show] enables to view the result of resource computations. *)
 let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
-  let t = Trace.ast() in
-  let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
-  let tres = Resource_computation.(trm_recompute_resources empty_resource_set t) in
+  let t = Trace.ast () in
+  let tres = recompute_all_resources_on t in
   show_computed_res ~line ~ast:tres ()
