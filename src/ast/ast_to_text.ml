@@ -166,7 +166,7 @@ and print_prim style (p : prim) : document =
     let dop = print_binop op in
     print_node "Prim_compound_assgn_op" ^^ dop
   | Prim_overloaded_op p ->
-    let dp = print_prim p in
+    let dp = print_prim style p in
     print_node "Prim_overloaded_op" ^^ dp
   | Prim_new t ->
      let dt = print_typ style t in
@@ -250,7 +250,7 @@ and print_trm_desc style (t : trm_desc) : document =
     | Var_mutable -> string "Var_mutable"
     | Var_immutable -> string "Var_immutable"
       in
-    let dtx = List.map (fun (x, ty) -> parens (print_var x ^^ comma ^^ print_typ style:true ty)) tvl in
+    let dtx = List.map (fun (x, ty) -> parens (print_var x ^^ comma ^^ print_typ { style with only_desc = true } (* TODO: why is it so? *) ty)) tvl in
     let dts = List.map (fun t -> print_trm style t) tl in
     let dtl = List.map2 (fun v t ->  parens (v ^^ comma ^^ t)) dtx dts in
     let dtx = Tools.list_to_doc ~sep:comma dtx in
@@ -434,10 +434,10 @@ and print_typedef style (td : typedef) : document =
      in
      print_node "Typedef_enum" ^^ print_pair (string tconstr) denum_const_l
 
-and print_trm_annot (t : trm) : document =
+and print_trm_annot style (t : trm) : document =
 
   let t_attributes = trm_get_attr t in
-  let dattr = print_list (List.map (print_attribute ) t_attributes) in
+  let dattr = print_list (List.map (print_attribute style) t_attributes) in
 
   let t_marks = trm_get_marks t in
   let dmarks = print_list (List.map string t_marks) in
@@ -448,7 +448,7 @@ and print_trm_annot (t : trm) : document =
   let dpragmas = print_list t_pragmas_str in
 
   let cstyle_annot = trm_get_cstyles t in
-  let cstyle_annot_str = List.map print_cstyle_annot cstyle_annot in
+  let cstyle_annot_str = List.map (print_cstyle_annot style) cstyle_annot in
   let dcstyle = print_list cstyle_annot_str in
 
   let files_annot = trm_get_files_annot t in
@@ -468,7 +468,7 @@ and print_trm style (t : trm) : document =
   let ddesc = print_trm_desc style t.desc in
   if style.only_desc then ddesc
     else
-      let dannot = print_trm_annot t in
+      let dannot = print_trm_annot style t in
 
       let dloc =
         begin match t.loc with
@@ -527,8 +527,8 @@ and print_destructor_kind (dk : destructor_kind) : document =
   | Destructor_delete -> string "Destructor_delete"
   | Destructor_simpl -> string "Destructor_simpld"
 
-(* [print_cstyle_annot ann]: prints as string cstyle annotation [ann]. *)
-and print_cstyle_annot (ann : cstyle_annot) : document =
+(* [print_cstyle_annot style ann]: prints as string cstyle annotation [ann]. *)
+and print_cstyle_annot style (ann : cstyle_annot) : document =
  match ann with
  | Display_no_arrow -> string "Display_no_arrow"
  | Empty_cond -> string "Empty_cond"
@@ -544,7 +544,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Static_fun -> string "Static"
  | Method_call -> string "Method_call"
  | Implicit_this -> string "Implicit_this"
- | Typ_arguments tyl -> string "Typ_arguments " ^^ list_to_doc ~bounds:[langle; rangle] (List.map print_typ tyl)
+ | Typ_arguments tyl -> string "Typ_arguments " ^^ list_to_doc ~bounds:[langle; rangle] (List.map (print_typ style) tyl)
  | Implicit_constructor -> string "Implicit_constructor"
  | Explicit_constructor -> string "Explicit_constructor"
  | Default_constructor -> string "Default_constructor"
@@ -702,7 +702,6 @@ let typ_to_string ?(style : style option) (t : typ) : string =
 
 (* [typ_option_to_string style t]: converts an optional type [t] to a string  *)
 let typ_option_to_string ?(style : style option) (t : typ option) : string =
-  let style = match style with None -> default_style() | Some s -> s in
   match t with
   | None -> "<notype>"
-  | Some ty -> typ_to_string style ty
+  | Some ty -> typ_to_string ?style ty

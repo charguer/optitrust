@@ -1395,22 +1395,22 @@ let get_member_type (rf : record_field) : typ =
    various AST datatypes. *)
 
 type style = {
-  contract: bool; (* print loop contract *)
-  var_id: bool; (* print internal variable identifiers *)
-  generated_ids: bool; (* print auto-generated names *)
-  string_repr: bool; (* print string representation for expressions *)
-  mark: bool; (* print marks *)
-  annot: bool; (* print annotations *)
+  print_contract: bool; (* print loop contract *)
+  print_var_id: bool; (* print internal variable identifiers *)
+  print_generated_ids: bool; (* print auto-generated names *)
+  print_string_repr: bool; (* print string representation for expressions *)
+  print_mark: bool; (* print marks *)
+  print_annot: bool; (* print annotations *)
   (* LATER: node_id: bool; print internal AST node identifier *)
 }
 
 (* Default style *)
 
 let default_style () = {
-  contract = true;
-  var_id = !Flags.debug_var_id;
-  generated_ids = !Flags.always_name_resource_hyp;
-  string_repr = !Flags.debug_stringreprs;
-  mark = true;
-  annot = false; (* LATER: add support for this *)
+  print_contract = true;
+  print_var_id = !Flags.debug_var_id;
+  print_generated_ids = !Flags.always_name_resource_hyp;
+  print_string_repr = !Flags.debug_stringreprs;
+  print_mark = true;
+  print_annot = false; (* LATER: add support for this *)
 }

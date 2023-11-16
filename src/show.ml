@@ -12,53 +12,62 @@ open Target
 (*----------------------------------------------------------------------------------*)
 (* Printing options *)
 
-type style = {
-  decode : bool;
-  print : print_style }
-
-and print_style =
-  | AST of Ast_to_text.style
-  | OptiTrust of AstC_to_c.style
-  | C of AstC_to_c.style
-  (* Redundand constructors, to avoid need for parentheses,
-     e.g. ~style:XC  instead of ~style:(c()) *)
+type style =
+  | XCustom of custom_style
   | XDefault
   | XC
   | XInternal
   | XInternalAst
   | XInternalAstOnlyDesc
 
+and custom_style = {
+  decode : bool; (* TODO: decode on non full ASTs? *)
+  print : print_language }
+
+and print_language =
+  | AST of Ast_to_text.style
+  | C of AstC_to_c.style
+  (* Redundand constructors, to avoid need for parentheses,
+     e.g. ~style:XC  instead of ~style:(c()) *)
+
+
 (** Common printing options *)
 
 let c () : style  =
-  { decode = true;
-    print = C ( AstC_to_c.{ default_style ()) ) }
+  XCustom {
+    decode = true;
+    print = C ( AstC_to_c.( default_style ()) ) }
 
 let internal () : style =
-  { decode = false;
-    print = OptiTrust ( AstC_to_c.{ default_style () with optitrust_syntax = true } ) }
+  let s = AstC_to_c.default_style () in
+  XCustom {
+    decode = false;
+    print = C { s with optitrust_syntax = true } }
 
 let internal_ast () : style  =
-  { decode = true;
-    print = AST ( Ast_to_text.{ default_style ()) ) }
+  let s = Ast_to_text.default_style () in
+  XCustom {
+    decode = true;
+    print = AST s }
 
 let internal_ast_only_desc () : style  =
-  { decode = false;
-    print = AST ( Ast_to_text.{ default_style () with only_desc = true ) }
+  let s = Ast_to_text.default_style () in
+  XCustom {
+    decode = false;
+    print = AST { s with only_desc = true } }
 
 let default_style () = c
 
 (* [resolve_style style] eliminates the redundant constructors *)
-let resolve_style (style : style) : style =
+let resolve_style (style : style) : custom_style =
   match style with
+  | XCustom c -> c
   | XDefault -> default_style()
   | XC -> c()
   | XInternal -> internal()
   | XInternalAst -> internal_ast()
   | XInternalAstOnlyDesc -> internal_ast_only_desc()
-  | AST _
-  | Optitrust _
-  | C _ -> style
+
 
 (*----------------------------------------------------------------------------------*)
 (** Printing combinators *)
@@ -96,14 +105,24 @@ let paths ?(msg : string = "") (ps : paths) : unit =
 (* Print terms *)
 
 let trm ?(style = XDefault) ?(msg : string = "") (t : trm) : unit =
-  let t_str = match style with
-  | Display -> AstC_to_c.ast_to_string t
-  | ContractDisplay -> AstC_to_c.ast_to_string (Ast_fromto_AstC.contract_intro (Ast_fromto_AstC.ghost_args_intro t))
-  | Internal -> Ast_to_text.ast_to_string t
-  | InternalDisplay -> AstC_to_c.ast_to_string ~optitrust_syntax:true t
-  in
   prt_msg msg;
-  prt "%s\n" t_str
+  let custom_style = resolve_style style in
+  let t =
+    if custom_style.decode then begin
+      if not trm_is_mainfile t then begin
+        prt "%s\n" "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term";
+        t
+      end else begin
+        Ast_fromto_AstC.cfeatures_intro t
+      end
+    end else t
+    in
+  let st =
+    match t.print with
+    | AST style -> AstC_to_text.ast_to_string ~style t
+    | C style -> AstC_to_c.ast_to_string ~style t
+    in
+  prt "%s\n" st
 
 let trms ?(style = XDefault) ?(msg : string = "") (ts : trms) : unit =
   prt_list ~msg trm ts
@@ -190,7 +209,7 @@ type ast_style = { foo: unit } (* TODO *)
 type language_style = OptiTrust of c_style | C of c_style | OCaml of ocaml_style | AST of ast_style
 (* The record [print_resource_style] contains a list of flags to determine *)
 type print_resource_style =
-type print_style = {
+type print_language = {
   decode: bool; (* perform decoding *)
   contract: bool; (* print loop contract *)
   pretty_matrix_notation: bool; (* print t[MINDEX(n,m,a,b)] as t[a][b] *)

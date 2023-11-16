@@ -2075,7 +2075,7 @@ let trm_map_vars
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, bind))
   (map_var: 'ctx -> var_metadata -> var -> trm)
   (ctx: 'ctx) (t: trm): trm =
-  let rec f_map ctx t: 'ctx * trm =
+  let rec f_map (ctx:'ctx) (t:trm): 'ctx * trm =
     let annot = t.annot in
     let loc = t.loc in
     let typ = t.typ in

@@ -851,13 +851,10 @@ let print_stringreprs () : unit =
 (* [get_stringrepr t]: returns the string representation saved in table [stringreprs],
    or an empty string otherwise *)
 let get_stringrepr (t : trm) : string =
-
-(* [trm_print_debug t]: only for debugging purposes *)
-let trm_print_debug (t : trm) : unit =
-    let trm_print_debug t =
-      let s = AstC_to_C.style  in
+    let print (t : trm) : unit =
+      let s = AstC_to_C.default_style () in
       let style = { s with ast = { s.ast with string_repr = true } } in
-      Printf.printf "==\n%s\n===\n" (AstC_to_C.ast_to_string style t)
+      Printf.printf "==\n%s\n===\n" (AstC_to_C.ast_to_string ~style t)
       in
     match !stringreprs with
     | None -> fail t.loc (Printf.sprintf "Constr.get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
@@ -870,7 +867,7 @@ let trm_print_debug (t : trm) : unit =
                  [cfeatures_intro], hence not printed *)
               if !Flags.debug_stringreprs then begin
                 Tools.warn (sprintf "missing stringrepr for id %i" id);
-                trm_print_debug t;
+                print t;
               end;
               ""
           | Some s -> s
@@ -878,7 +875,7 @@ let trm_print_debug (t : trm) : unit =
         | None ->
           if !Flags.debug_stringreprs then begin
             Tools.warn "missing stringrepr id";
-            trm_print_debug t;
+            print t;
           end;
           ""
 
