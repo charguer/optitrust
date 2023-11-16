@@ -60,7 +60,10 @@ let insert_contents_for_test (test_name: string) (test_path: string) (target_div
   end else begin
     do_or_die (sprintf "git diff --ignore-blank-lines --ignore-all-space --no-index -U100 %s %s | base64 -w 0 > %s" input_cpp_file expected_cpp_file tmp_file);
     let diff_string = Xfile.get_contents_or_empty tmp_file in
-    add (create_element ~id:test_name ~classes:["diff-unit-test"] "div" ~inner_text:diff_string)
+    if diff_string = ""
+    (* TODO: use Tools.warn *)
+    then Printf.printf "WARNING: empty diff for '%s'\n" test_base
+    else add (create_element ~id:test_name ~classes:["diff-unit-test"] "div" ~inner_text:diff_string)
   end;
   (* Generate a div with a link *)
   let trace_file = test_base ^ "_trace.html" in
