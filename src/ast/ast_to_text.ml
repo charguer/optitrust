@@ -448,8 +448,7 @@ and print_trm_annot style (t : trm) : document =
   let dpragmas = print_list t_pragmas_str in
 
   let cstyle_annot = trm_get_cstyles t in
-  let cstyle_annot_str = List.map (print_cstyle_annot style) cstyle_annot in
-  let dcstyle = print_list cstyle_annot_str in
+  let dcstyle = print_cstyles_annot style cstyle_annot in
 
   let files_annot = trm_get_files_annot t in
   let dfiles_str = List.map print_files_annot files_annot in
@@ -527,7 +526,11 @@ and print_destructor_kind (dk : destructor_kind) : document =
   | Destructor_delete -> string "Destructor_delete"
   | Destructor_simpl -> string "Destructor_simpld"
 
-(* [print_cstyle_annot style ann]: prints as string cstyle annotation [ann]. *)
+(* [print_cstyles_annot style anns]: prints a list of cstyle annotation [anns]. *)
+and print_cstyles_annot style (anns : cstyle_annot list) : document =
+  print_list (List.map (print_cstyle_annot style) anns)
+
+(* [print_cstyle_annot style ann]: prints a cstyle annotation [ann]. *)
 and print_cstyle_annot style (ann : cstyle_annot) : document =
  match ann with
  | Display_no_arrow -> string "Display_no_arrow"

@@ -167,6 +167,11 @@ let annot ?(msg : string = "") (t : trm) : unit =
   let d = Ast_to_text.(print_trm_annot (default_style())) t in
   prt "%s\n" (Tools.document_to_string d)
 
+let cstyle ?(msg : string = "") (t : trm) : unit =
+  prt_msg msg;
+  let d = Ast_to_text.(print_cstyles_annot (default_style())) (Trm.trm_get_cstyles t) in
+  prt "%s\n" (Tools.document_to_string d)
+
 (* desc *)
 
 let desc ?(msg : string = "") (t : trm) : unit =
@@ -206,9 +211,11 @@ module At = struct
 
   let trm ?(style = Default) ?(msg : string = "") (tg : Target.target) : unit =
     at_trm ~msg (trm ~style) tg
+
   let typ = at_trm (fun t -> typ_opt t.typ)
   let marks = at_trm marks
   let annot = at_trm annot
+  let cstyle = at_trm cstyle
   let desc = at_trm desc
 
   (* DEPRECATED
