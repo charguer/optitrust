@@ -8,6 +8,7 @@ open Tools
 (*  Note: This module is used mainly for debugging purposes. *)
 
 (* TODO naming convention: print_foo should become foo_to_doc *)
+(* TODO : handle print_contract *)
 
 (*----------------------------------------------------------------------------------*)
 (* Options for printing *)

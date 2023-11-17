@@ -77,24 +77,47 @@ let resolve_style (style : style) : custom_style =
 (*----------------------------------------------------------------------------------*)
 (** Printing combinators *)
 
-let prt = printf
+let prt_channel = ref stdout
+
+(*** [with_captured_show dest f] executes [f], and during this execution all the
+    strings issued by show commands are captured and added to the reference [dest]. *)
+let with_captured_show ?(activated:bool=true) (dest : string ref) (f : unit -> 'a) : 'a =
+  if not activated then f() else begin
+    (* TODO: how to create an output channel from a string buffer instead of using a file? *)
+    let tmp_file = Filename.temp_file "capture" ".txt" in
+    let c = open_out tmp_file in
+    let saved = !prt_channel in
+    prt_channel := c;
+    let finalize () =
+      close_out c;
+      dest := Xfile.get_contents tmp_file;
+      prt_channel := saved
+      in
+    try f(); finalize()
+    with e -> finalize(); raise e
+
+  end
+
+
+let prt ?(prefix : string = "") ?(suffix : string = "") (msg : string) : unit =
+  fprintf !prt_channel "%s%s%s" prefix msg suffix
 
 (* TODO: should the \n be included by default? *)
 
 (** [prt_msg msg] prints a message [msg] followed with a colon, unless it ends with a linebreak *)
 let prt_msg (msg : string) : unit =
   if msg = "" then () else
-  if msg.[String.length msg - 1] = '\n' then prt "%s" msg
-  else prt "%s: " msg
+  if msg.[String.length msg - 1] = '\n' then prt msg
+  else prt ~suffix:": " msg
 
 let prt_list ?(msg : string = "") ?(sep : string = "") (pr : 'a -> unit) (xs : 'a list) : unit =
   prt_msg msg;
-  List.iter (fun x -> pr x; if sep <> "" then prt "%s" sep) xs
+  List.iter (fun x -> pr x; if sep <> "" then prt sep) xs
 
 let prt_opt ?(msg : string = "") (empty : string) (pr : 'a -> unit) (xopt : 'a option) : unit =
   prt_msg msg;
   match xopt with
-  | None -> prt "%s\n" empty
+  | None -> prt ~suffix:"\n" empty
   | Some x -> pr x
 
 let add_linebreak (msg : string) : string =
@@ -108,7 +131,7 @@ let add_linebreak (msg : string) : string =
 
 let path ?(msg : string = "") (p : path) : unit =
   prt_msg msg;
-  prt "%s\n" (Path.path_to_string p)
+  prt ~suffix:"n" (Path.path_to_string p)
 
 let paths ?(msg : string = "") (ps : paths) : unit =
   prt_list ~msg path ps
@@ -121,7 +144,7 @@ let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
   let t =
     if custom_style.decode then begin
       if not (Trm.trm_is_mainfile t) then begin
-        prt "%s\n" "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term";
+        prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
         t
       end else begin
         Ast_fromto_AstC.cfeatures_intro t
@@ -133,7 +156,7 @@ let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
     | Lang_AST style -> Ast_to_text.ast_to_string ~style t
     | Lang_C style -> AstC_to_c.ast_to_string ~style t
     in
-  prt "%s\n" st
+  prt ~suffix:"\n" st
 
 let trms ?(style = Default) ?(msg : string = "") (ts : trms) : unit =
   prt_list ~msg trm ts
@@ -146,7 +169,7 @@ let ast ?(style = Default) ?(msg : string = "") () : unit =
 let typ ?(msg : string = "") (t : typ) : unit =
   let t_str = AstC_to_c.typ_to_string t in
   prt_msg msg;
-  prt "%s\n" t_str
+  prt ~suffix:"\n" t_str
 
 let typ_opt ?(msg : string = "") (topt : typ option) : unit =
   prt_opt ~msg "<no_typ>" typ topt
@@ -158,25 +181,25 @@ let typs ?(msg : string = "") (ts : typ list) : unit =
 
 let marks ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
-  prt "%s\n" (Tools.list_to_string ~sep:"; " ~bounds:["[";"]"] (Mark.trm_get_marks t))
+  prt ~suffix:"\n" (Tools.list_to_string ~sep:"; " ~bounds:["[";"]"] (Mark.trm_get_marks t))
 
 (* annot *)
 
 let annot ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
   let d = Ast_to_text.(print_trm_annot (default_style())) t in
-  prt "%s\n" (Tools.document_to_string d)
+  prt ~suffix:"\n" (Tools.document_to_string d)
 
 let cstyle ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
   let d = Ast_to_text.(print_cstyles_annot (default_style())) (Trm.trm_get_cstyles t) in
-  prt "%s\n" (Tools.document_to_string d)
+  prt ~suffix:"\n" (Tools.document_to_string d)
 
 (* desc *)
 
 let desc ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
-  prt "%s\n" (trm_desc_to_string t.desc)
+  prt ~suffix:"\n" (trm_desc_to_string t.desc)
 
 
 (*----------------------------------------------------------------------------------*)
@@ -191,9 +214,9 @@ module At = struct
     prt_msg msg;
     let nbps = List.length ps in
     if nbps > 1
-      then prt "target resolves to %d paths\n" nbps;
+      then prt (sprintf "target resolves to %d paths\n" nbps);
     List.iteri (fun i p ->
-      if nbps > 1 then prt "[occ #%d] " (i + 1);
+      if nbps > 1 then prt (sprintf "[occ #%d] " (i + 1));
       f p (Target.resolve_path_current_ast p)
     ) ps
 

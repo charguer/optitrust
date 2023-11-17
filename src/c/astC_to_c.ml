@@ -34,11 +34,12 @@ type style = {
 
 (* Default style *)
 
-let default_style () = {
-  ast = Ast.default_style();
-  optitrust_syntax = false;
-  pretty_matrix_notation = !Flags.pretty_matrix_notation;
-  commented_pragma = false; }
+let default_style () =
+  let s = Ast.default_style() in
+  { ast = { s with print_contract = false };
+    optitrust_syntax = false;
+    pretty_matrix_notation = !Flags.pretty_matrix_notation;
+    commented_pragma = false; }
 
 (*----------------------------------------------------------------------------------*)
 (* An optional memoization table that maps a [stringreprid] of a term

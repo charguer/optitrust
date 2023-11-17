@@ -1367,13 +1367,24 @@ let bigstep (s : string) : unit =
 
    If you use [dump] in your script, make sure to call [!! Trace.dump] with the
    prefix [!!] in order for the diff visualization to work well for the last
-   command before the call to dump. *)
-let dump ?(prefix : string = "") () : unit =
+   command before the call to dump.
+
+   [append_comments] will be added as comments near the end of the output file *)
+let dump ?(prefix : string = "") ?(append_comments : string = "") () : unit =
   dumping_step (fun () ->
     let ctx = the_trace.context in
     let prefix =
       if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
-    output_prog ctx (prefix ^ "_out") (the_trace.cur_ast)
+    output_prog ctx (prefix ^ "_out") (the_trace.cur_ast);
+    if append_comments <> "" then begin
+      let filename = prefix ^ "_out.cpp" in
+      (* open in append mode *)
+      let c = open_out_gen [Open_append; Open_creat] 0o666 filename in
+      output_string c "/*\n";
+      output_string c append_comments;
+      output_string c "\n*/\n";
+      close_out c
+    end
   )
 
 (* DEPRECATED? [only_interactive_step line f]: invokes [f] only if the argument [line]

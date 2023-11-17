@@ -4,7 +4,7 @@ open Prelude
 let has_stackvar (t : trm) : bool =
   Trm.trm_get_cstyles t = [Stackvar]
 
-let _ = Run.script_cpp (*~capture_stdout:true*) (fun () ->
+let _ = Run.script_cpp ~capture_show:true (fun () ->
 
   !! Show.ast ~msg:"AST1" ();
   !! ShowAt.ast ~msg:"AST2" [];

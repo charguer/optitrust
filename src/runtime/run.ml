@@ -138,7 +138,7 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
       This flag only has an effect if a [-exit_line] option was passed on the command line.
    - [~prefix:string] allows providing the basename for the output files produced
    *)
-let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ~(parser : Trace.parser) (f : unit -> unit) : unit =
+let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ~(parser : Trace.parser) ?(capture_show = false) (f : unit -> unit) : unit =
   Flags.process_cmdline_args ();
   Target.show_next_id_reset ();
 
@@ -164,13 +164,14 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
 
   let stats_before = Stats.get_cur_stats () in
-
+  let contents_captured_show = ref "" in
   (* Set the input file, execute the function [f], dump the results. *)
   (try
     Trace.init ~prefix ~parser filename;
     begin
       try
-        may_report_time "script-exec" f
+        Show.with_captured_show ~activated:capture_show contents_captured_show (fun () ->
+          may_report_time "script-exec" f)
       with
       | Stop -> ()
       | e when !Flags.dump_trace ->
@@ -189,7 +190,12 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     (* Stores the current ast to the end of the history *)
     Trace.close_smallstep_if_needed();
     Trace.close_bigstep_if_needed();
-    Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
+    let append_comments =
+      if !contents_captured_show = ""
+        then ""
+        else "CAPTURED STDOUT:\n" ^ !contents_captured_show
+      in
+    Trace.dump ~append_comments ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     (* Collapse the step stack onto the root step *)
     Trace.finalize();
     (* TODO:
@@ -234,7 +240,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp".
      See the specification of [generate_source_with_inlined_header_cpp] for additional features.
    The rest of the options are the same as [script f] *)
-let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
+let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(capture_show = false) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
   may_report_time "script-cpp" (fun () ->
     (* Handles preprocessor *)
     Compcert_parser.Clflags.prepro_options := prepro;
@@ -264,7 +270,7 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
       | None -> CParsers.get_default ()
     in
 
-    script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f)
+    script ~parser ?filename ~capture_show ~extension:".cpp" ~check_exit_at_end ?prefix f)
 
 (* [doc_script_cpp ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
     as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
