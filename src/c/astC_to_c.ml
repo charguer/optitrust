@@ -507,12 +507,12 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       dattr ^^ string "for" ^^ blank 1 ^^
         parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
           blank 1 ^^ dbody
-    | Trm_for (l_range, body, loop_contract) ->
+    | Trm_for (l_range, body, loop_spec) ->
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
       if not style.ast.print_contract
         then dt
-        else string "Contract:" ^^ break 1 ^^ loop_contract_to_doc style loop_contract ^^ hardline ^^ dt
+        else string "Contract: " ^^ loop_spec_to_doc style loop_spec ^^ hardline ^^ dt
     | Trm_switch (cond, cases) ->
       let dcond = decorate_trm style cond in
       let dcases =
@@ -638,9 +638,9 @@ and loop_spec_to_doc style (loop_spec : loop_spec) : doc =
 
 and loop_contract_to_doc style (loop_contract : loop_contract) : doc =
   key_value_to_doc [
-    "sloop_ghosts", resource_item_list_to_doc style loop_contract.loop_ghosts;
+    "loop_ghosts", resource_item_list_to_doc style loop_contract.loop_ghosts;
     "invariant", resource_set_to_doc style loop_contract.invariant;
-    "fun_contract", fun_contract_to_doc style loop_contract.fun_contract; ]
+    "iter_contract", fun_contract_to_doc style loop_contract.iter_contract; ]
 
 and fun_contract_to_doc style (fun_contract : fun_contract) : doc =
   key_value_to_doc [
@@ -933,7 +933,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
   | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ], _) ->
       aux_arguments (var_to_doc style x)
   (* Case of MALLOC *)
-  | Trm_var (_, x) when (!style.pretty_matrix_notation && Tools.pattern_matches "MALLOC" x.name) ->
+  | Trm_var (_, x) when (style.pretty_matrix_notation && Tools.pattern_matches "MALLOC" x.name) ->
     let dims, size = Xlist.unlast tl in
     let error = "expected MALLOC(.., sizeof(..))" in
     let size_var = trm_inv ~error trm_var_inv size in
@@ -950,7 +950,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
     (separate empty (List.map bracketed_trm dims)) ^^
     (string "))")
   (* Case of MFREE *)
-  | Trm_var (_, x) when (!style.pretty_matrix_notation && Tools.pattern_matches "MFREE" x.name) ->
+  | Trm_var (_, x) when (style.pretty_matrix_notation && Tools.pattern_matches "MFREE" x.name) ->
     let dims, ptr = Xlist.unlast tl in
     (string "free") ^^ lparen ^^ (decorate_trm style ptr) ^^ rparen
   (* Case of function by name *)
@@ -959,7 +959,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
     aux_arguments var_doc
   (* Case of inlined function *)
   | Trm_let_fun _ ->
-        parens (decorate_trm style f) ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map decorate_trm style tl)
+        parens (decorate_trm style f) ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map (decorate_trm style) tl)
   (* Case of primitive operations *)
   | Trm_val v ->
      begin match v with
@@ -1021,7 +1021,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
                 string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              | Binop_array_access | Binop_array_get ->
                 let bracketed_trm t = brackets (decorate_trm style ~prec:0 t) in
-                d1 ^^ if not !style.pretty_matrix_notation then
+                d1 ^^ if not style.pretty_matrix_notation then
                   bracketed_trm (t2)
                 else begin match mindex_inv t2 with
                 | None -> bracketed_trm (t2)
@@ -1147,11 +1147,11 @@ and proc_bind_to_doc (pb : proc_bind) : document =
 
 and dep_to_doc (d : dep) : document =
   match d with
-  | Dep_var s -> var_to_doc style s
+  | Dep_var s -> var_to_doc (default_style ()) s  (* TODO #propagate-defaut: propagate style*)
   | Dep_ptr d -> star ^^ dep_to_doc d
 
 (* [dependence_type_to_doc dp]: OpenMP variable dependence type to pprint document *)
-and dependece_type_to_doc (dp : dependence_type) : document =
+and dependence_type_to_doc (dp : dependence_type) : document =
   match dp with
   | In vl -> let vl = List.map dep_to_doc vl in
     string "depend (in" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
@@ -1167,7 +1167,8 @@ and dependece_type_to_doc (dp : dependence_type) : document =
 
 (* [clause_to_doc cl]: OpenMP clause to pprint document *)
 and clause_to_doc (cl : clause) : document =
-  let vl_to_doc vs = separate_map (string ",") var_to_doc style vs in
+  let style = (default_style ()) in (* TODO #propagate-defaut: propagate style*)
+  let vl_to_doc vs = separate_map (string ",") (var_to_doc style) vs in
   match cl with
   | Default m -> string "default" ^^ parens (mode_to_doc m)
   | Shared vl -> string "shared" ^^ parens (vl_to_doc vl)
@@ -1201,7 +1202,7 @@ and clause_to_doc (cl : clause) : document =
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
   | Priority i -> string "priority" ^^ parens (var_to_doc style i)
   | Depend dp ->
-    let dpl = Tools.list_to_doc ~sep:(blank 1) ~empty (List.map dependece_type_to_doc dp) in
+    let dpl = Tools.list_to_doc ~sep:(blank 1) ~empty (List.map dependence_type_to_doc dp) in
     dpl
   | Grainsize i -> string "grainsize" ^^ parens (string (string_of_int i))
   | Mergeable -> string "mergeable"
@@ -1229,7 +1230,8 @@ and atomic_operation_to_doc (ao : atomic_operation option) : document =
 
 (* [directive_to_doc d]: OpenMP directive to pprint document *)
 and directive_to_doc (d : directive) : document =
-  let vl_to_doc vs = separate_map (string ",") var_to_doc style vs in
+  let style = (default_style ()) in (* TODO #propagate-defaut: propagate style*)
+  let vl_to_doc vs = separate_map (string ",") (var_to_doc style) vs in
   let tvl_to_doc tvs = separate_map (string ",") string tvs in
   match d with
   | Atomic ao -> string "atomic" ^^ blank 1 ^^ (atomic_operation_to_doc ao)
@@ -1286,6 +1288,7 @@ and directive_to_doc (d : directive) : document =
 
 (* [routine_to_doc r]: OpenMP routine to pprint document *)
 and routine_to_doc (r : omp_routine) : document =
+  let style = (default_style ()) in (* TODO #propagate-defaut: propagate style*)
   match r with
   | Set_num_threads i -> string "omp_set_num_threads" ^^ parens (string (string_of_int i)) ^^ semi
   | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen
@@ -1376,7 +1379,6 @@ and formula_to_doc style (f: formula): document =
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)
 let ast_to_doc style (t : trm) : document =
-  let style = patch_style style ?comment_pragma ?pretty_matrix_notation ?optitrust_syntax in
   decorate_trm style t
 
 (* [ast_to_outchannel ~comment_pragma ~optitrust_syntax out t]: print ast [t] to an out_channel [out] *)

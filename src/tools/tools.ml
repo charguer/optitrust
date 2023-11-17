@@ -335,3 +335,15 @@ let warn (msg : string) : unit =
 
 module String_map = Map.Make(String)
 module String_set = Set.Make(String)
+
+
+(******************************************************************************)
+(*                          String functions                         *)
+(******************************************************************************)
+
+let remove_suffix ~(suffix : string) (s : string) : string =
+  let nsuffix = String.length suffix in
+  let ns = String.length s in
+  if nsuffix > ns
+    then failwith "remove_suffix: invalid argument";
+  String.sub s 0 (ns - nsuffix)

@@ -1,6 +1,6 @@
 open Printf
-open Prelude
 open Target
+open Ast
 
 (* Usage:
      Show.trm ~msg:"foo:" t
@@ -13,20 +13,21 @@ open Target
 (* Printing options *)
 
 type style =
-  | XCustom of custom_style
-  | XDefault
-  | XC
-  | XInternal
-  | XInternalAst
-  | XInternalAstOnlyDesc
+  | Custom of custom_style
+  | Default
+  | C
+  | Internal
+  | InternalAst
+  | InternalAstOnlyDesc
+  (* TODO XUSage *)
 
 and custom_style = {
   decode : bool; (* TODO: decode on non full ASTs? *)
   print : print_language }
 
 and print_language =
-  | AST of Ast_to_text.style
-  | C of AstC_to_c.style
+  | Lang_AST of Ast_to_text.style
+  | Lang_C of AstC_to_c.style
   (* Redundand constructors, to avoid need for parentheses,
      e.g. ~style:XC  instead of ~style:(c()) *)
 
@@ -34,39 +35,43 @@ and print_language =
 (** Common printing options *)
 
 let c () : style  =
-  XCustom {
+  Custom {
     decode = true;
-    print = C ( AstC_to_c.( default_style ()) ) }
+    print = Lang_C ( AstC_to_c.( default_style ()) ) }
 
 let internal () : style =
   let s = AstC_to_c.default_style () in
-  XCustom {
+  Custom {
     decode = false;
-    print = C { s with optitrust_syntax = true } }
+    print = Lang_C { s with optitrust_syntax = true } }
 
 let internal_ast () : style  =
   let s = Ast_to_text.default_style () in
-  XCustom {
+  Custom {
     decode = true;
-    print = AST s }
+    print = Lang_AST s }
 
 let internal_ast_only_desc () : style  =
   let s = Ast_to_text.default_style () in
-  XCustom {
+  Custom {
     decode = false;
-    print = AST { s with only_desc = true } }
+    print = Lang_AST { s with only_desc = true } }
 
-let default_style () = c
+let default_style () = c ()
 
 (* [resolve_style style] eliminates the redundant constructors *)
 let resolve_style (style : style) : custom_style =
-  match style with
-  | XCustom c -> c
-  | XDefault -> default_style()
-  | XC -> c()
-  | XInternal -> internal()
-  | XInternalAst -> internal_ast()
-  | XInternalAstOnlyDesc -> internal_ast_only_desc()
+  let style_as_custom = match style with
+    | Default -> default_style()
+    | Custom _ -> style
+    | C -> c()
+    | Internal -> internal()
+    | InternalAst -> internal_ast()
+    | InternalAstOnlyDesc -> internal_ast_only_desc()
+    in
+    match style_as_custom with
+    | Custom custom_style -> custom_style
+    | _ -> fail None "Show.resolve_style: not custom"
 
 
 (*----------------------------------------------------------------------------------*)
@@ -76,9 +81,11 @@ let prt = printf
 
 (* TODO: should the \n be included by default? *)
 
-(** [prt_msg msg] prints a message [msg] followed with a colon *)
+(** [prt_msg msg] prints a message [msg] followed with a colon, unless it ends with a linebreak *)
 let prt_msg (msg : string) : unit =
-  if msg = "" then () else prt "%s: " msg
+  if msg = "" then () else
+  if msg.[String.length msg - 1] = '\n' then prt "%s" msg
+  else prt "%s: " msg
 
 let prt_list ?(msg : string = "") ?(sep : string = "") (pr : 'a -> unit) (xs : 'a list) : unit =
   prt_msg msg;
@@ -90,8 +97,12 @@ let prt_opt ?(msg : string = "") (empty : string) (pr : 'a -> unit) (xopt : 'a o
   | None -> prt "%s\n" empty
   | Some x -> pr x
 
+let add_linebreak (msg : string) : string =
+  if msg <> "" then msg ^ "\n" else msg
+
 (*----------------------------------------------------------------------------------*)
 (** Printing operations *)
+
 
 (** Print paths *)
 
@@ -104,12 +115,12 @@ let paths ?(msg : string = "") (ps : paths) : unit =
 
 (* Print terms *)
 
-let trm ?(style = XDefault) ?(msg : string = "") (t : trm) : unit =
+let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
   let custom_style = resolve_style style in
   let t =
     if custom_style.decode then begin
-      if not trm_is_mainfile t then begin
+      if not (Trm.trm_is_mainfile t) then begin
         prt "%s\n" "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term";
         t
       end else begin
@@ -118,17 +129,17 @@ let trm ?(style = XDefault) ?(msg : string = "") (t : trm) : unit =
     end else t
     in
   let st =
-    match t.print with
-    | AST style -> AstC_to_text.ast_to_string ~style t
-    | C style -> AstC_to_c.ast_to_string ~style t
+    match custom_style.print with
+    | Lang_AST style -> Ast_to_text.ast_to_string ~style t
+    | Lang_C style -> AstC_to_c.ast_to_string ~style t
     in
   prt "%s\n" st
 
-let trms ?(style = XDefault) ?(msg : string = "") (ts : trms) : unit =
+let trms ?(style = Default) ?(msg : string = "") (ts : trms) : unit =
   prt_list ~msg trm ts
 
-let ast ?(style = XDefault) ?(msg : string = "") : unit =
-  trm ?style ?msg (Trace.ast ())
+let ast ?(style = Default) ?(msg : string = "") () : unit =
+  trm ~style ~msg (**:(add_linebreak msg)*) (Trace.ast ())
 
 (* types *)
 
@@ -143,37 +154,84 @@ let typ_opt ?(msg : string = "") (topt : typ option) : unit =
 let typs ?(msg : string = "") (ts : typ list) : unit =
   prt_list ~msg typ ts
 
+(* marks *)
+
+let marks ?(msg : string = "") (t : trm) : unit =
+  prt_msg msg;
+  prt "%s\n" (Tools.list_to_string ~sep:"; " ~bounds:["[";"]"] (Mark.trm_get_marks t))
+
+(* annot *)
+
+let annot ?(msg : string = "") (t : trm) : unit =
+  prt_msg msg;
+  let d = Ast_to_text.(print_trm_annot (default_style())) t in
+  prt "%s\n" (Tools.document_to_string d)
+
+(* desc *)
+
+let desc ?(msg : string = "") (t : trm) : unit =
+  prt_msg msg;
+  prt "%s\n" (trm_desc_to_string t.desc)
+
 
 (*----------------------------------------------------------------------------------*)
 (** Functions that show things at a given target in the current AST. *)
 
 module At = struct
 
-  let at ?(msg : string = "") (f: trm -> unit) (tg : Target.target) : unit =
+  (* Combinators *)
+
+  let at (f: path -> trm -> unit) ?(msg : string = "") (tg : Target.target) : unit =
     let ps = Target.resolve_target_current_ast tg in
     prt_msg msg;
     let nbps = List.length ps in
-    prt "target resolves to %d paths\n" nbps;
+    if nbps > 1
+      then prt "target resolves to %d paths\n" nbps;
     List.iteri (fun i p ->
       if nbps > 1 then prt "[occ #%d] " (i + 1);
-      f (Target.resolve_path_current_ast p)
+      f p (Target.resolve_path_current_ast p)
     ) ps
 
-  let trm ?(style = XDefault) ?(msg : string = "") (tg : Target.target) : unit =
-    at ~msg (trm ~style) tg
+  let at_trm (f: trm -> unit) ?(msg : string = "") (tg : Target.target) : unit =
+    at ~msg (fun _p t -> f t) tg
+
+  (* Operations *)
+
+  let ast ?(msg : string = "") (tg : Target.target) : unit =
+    if tg <> [] then fail None "ShowAt.ast: can only be called on the root, with argument []";
+    ast ~msg ()
+
+  let path ?(msg : string = "") (tg : Target.target) : unit =
+    at ~msg (fun p _t -> path p) tg
+
+  let trm ?(style = Default) ?(msg : string = "") (tg : Target.target) : unit =
+    at_trm ~msg (trm ~style) tg
+  let typ = at_trm (fun t -> typ_opt t.typ)
+  let marks = at_trm marks
+  let annot = at_trm annot
+  let desc = at_trm desc
+
+  (* DEPRECATED
+
+  let trm ?(style = Default) = at_trm (trm ~style)
 
   let typ ?(msg : string = "") (tg : Target.target) : unit =
-    at ~msg (fun t -> typ t.typ) tg
+    at_trm ~msg (fun t -> typ_opt t.typ) tg
 
-  (* TODO: res *)
-  (* TODO: path *)
-  (* TODO: arith *)
-  (* TODO: marks *)
-  (* TODO: annot *)
-  (* TODO: desc *)
-  (* TODO: stmt *)
-  (* TODO: info *)
+  let marks ?(msg : string = "") (tg : Target.target) : unit =
+    at_trm ~msg marks tg
 
+  let annot ?(msg : string = "") (tg : Target.target) : unit =
+    at_trm ~msg annot tg
+
+  let desc ?(msg : string = "") (tg : Target.target) : unit =
+    at_trm ~msg desc tg
+  *)
+
+  (* TODO: printer for resources and ctx and usage informations *)
+
+  (* LATER: is_statement *)
+  (* LATER: arith *)
 end
 
 

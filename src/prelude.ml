@@ -4,6 +4,8 @@ include Typ
 include Mark
 include Target
 
+module ShowAt = Show.At
+
 let trm_seq_nobrace = Nobrace.trm_seq
 let trm_seq_nobrace_nomarks = Nobrace.trm_seq_nomarks
 

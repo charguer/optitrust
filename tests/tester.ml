@@ -353,6 +353,29 @@ let resolve_arg_as_folder (arg : string) : string list =
     Xfile.get_lines_or_empty tmp_file
   end
 
+(** [ensure_ml_extension path] applies to an absolute file path [path];
+    if the filename suffix is [.cpp] or [_exp.cpp] or [_out.cpp], then it
+    automatically changes the extension to the corresonding [.ml] file,
+    and check that this files exist. *)
+let ensure_ml_extension (path : string) : string =
+  let error : 'a. unit -> 'a = fun () ->
+    failwith (sprintf "Tester: '%s' does not have the right extension." path) in
+  let process (suffix : string) : string =
+    let arg = (Tools.remove_suffix ~suffix path) ^ ".ml" in
+    if not (Sys.file_exists arg)
+      then error();
+    arg in
+  if String.ends_with ~suffix:".ml" path then
+    path
+  else if String.ends_with ~suffix:".cpp" path then
+    process ".cpp"
+  else if String.ends_with ~suffix:"_out.cpp" path then
+    process "_out.cpp"
+  else if String.ends_with ~suffix:"_exp.cpp" path then
+    process "_exp.cpp"
+  else
+    error()
+
 (** Resolve one [argi] to a list of tests (without filtering ignored tests) *)
 let resolve_arg (arg : string) : string list =
   let is_file (fname : string) : bool =
@@ -374,11 +397,11 @@ let resolve_arg (arg : string) : string list =
   end else if is_file relarg then begin
     (* Case is a relative file path *)
     if !verbose then printf "Resolved %s as relative filepath: %s\n" arg relarg;
-    [relarg]
+    [ensure_ml_extension relarg]
   end else if is_file arg then begin
     (* Case an absolute file path *)
     if !verbose then printf "Resolved %s as absolute filepath\n" arg;
-    [arg]
+    [ensure_ml_extension arg]
   end else begin
     let (folders_to_search_from, pattern_on_the_name) : (string list * string option) =
       begin match resolve_arg_as_folder arg with
@@ -404,14 +427,20 @@ let resolve_arg (arg : string) : string list =
     tests
   end
 
-(** Takes the [argi] arguments, and resolve them to tests, then filter out
-   ignored tests based on the contents of all the `ignore.tests` files,
+(** [check_test_extension test] checks that [test] has [.ml] has extension. *)
+let check_test_extension (test : string) : unit =
+  if Filename.extension test <> ".ml"
+    then failwith (sprintf "Error: the test '%s' does not have .ml as extension" test)
+
+(** [get_tests_and_ignored] Takes the [argi] arguments, and resolve them to tests,
+   then filter out ignored tests based on the contents of all the `ignore.tests` files,
    each of which refers to tests with path relative to the location of the
    `ignore.tests` file that contains them.
    Influenced by the flags [-only-ignored] and [-with-ignored].
    Returns [tests_to_process, ignored_tests]. *)
 let get_tests_and_ignored (args : string list) : (string list * string list) =
   let tests = File_set.of_list (List.concat_map resolve_arg args) in
+  File_set.iter check_test_extension tests;
   let ignored = find_all_tests_to_ignore () in
   let tests_not_ignored = File_set.diff tests ignored in
   let tests_and_ignored = File_set.inter tests ignored in

@@ -25,11 +25,11 @@ let nodeid_invalid = (-1)
 
 (* [typ_to_json typ]: converts an OptiTrust type to a Json object  *)
 let typ_to_json(typ : typ) : t =
-  Str (Tools.document_to_string (bquotes (AstC_to_c.typ_to_doc style typ)) )
+  Str (Tools.document_to_string (bquotes (AstC_to_c.typ_to_doc typ)) )
 
 (* [typdef_to_json td]: converts an OptiTrust typedef to a json object *)
 let typdef_to_json(td : typedef) : t =
-  Str (Tools.document_to_string (bquotes (AstC_to_c.typedef_to_doc style td)))
+  Str (Tools.document_to_string (bquotes (AstC_to_c.(typedef_to_doc (default_style())) td)))
 
 (* [json_to_js]: creates a javascript variable of type json object from ast [j] *)
 let json_to_js (index : int) (j : t) : document =
@@ -192,7 +192,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "val";
-          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(AstC_to_c.val_to_doc style (trm_get_cstyles t) t.typ v))));
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (AstC_to_c.(val_to_doc (default_style())) (trm_get_cstyles t) t.typ v))));
           children_to_field [] ]
     | Trm_var (_, x) ->
         [ kind_to_field "var";

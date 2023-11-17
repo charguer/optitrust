@@ -828,9 +828,10 @@ let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_e
       in
       (* TODO: !Flags.display_var_ids *)
 
+    let style = AstC_to_c.default_style () in
     if !Flags.bypass_cfeatures || bypass_cfeatures
-      then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
-      else AstC_to_c.ast_to_outchannel ~pretty_matrix_notation ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);
+      then AstC_to_c.ast_to_outchannel ({ style with optitrust_syntax = true }) out_prog ast
+      else AstC_to_c.ast_to_outchannel ({ style with pretty_matrix_notation = pretty_matrix_notation; commented_pragma = use_clang_format }) out_prog (Ast_fromto_AstC.cfeatures_intro ast);
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
@@ -849,13 +850,15 @@ let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_e
     begin try
       (* print the raw ast *)
       begin
-        Ast_to_text.print_ast out_ast ast;
+        let style = Ast_to_text.default_style() in
+        Ast_to_text.print_ast style out_ast ast;
         output_string out_ast "\n";
         close_out out_ast;
       end;
       (* print the non-decoded ast *)
       output_string out_enc ctx.header;
-      AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_enc ast;
+      let style = AstC_to_c.default_style() in
+      AstC_to_c.ast_to_outchannel { style with optitrust_syntax = true } out_enc ast;
       output_string out_enc "\n";
       close_out out_enc;
       if use_clang_format

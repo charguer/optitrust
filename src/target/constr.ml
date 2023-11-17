@@ -852,9 +852,9 @@ let print_stringreprs () : unit =
    or an empty string otherwise *)
 let get_stringrepr (t : trm) : string =
     let print (t : trm) : unit =
-      let s = AstC_to_C.default_style () in
-      let style = { s with ast = { s.ast with string_repr = true } } in
-      Printf.printf "==\n%s\n===\n" (AstC_to_C.ast_to_string ~style t)
+      let s = AstC_to_c.default_style () in
+      let style = { s with ast = { s.ast with print_string_repr = true } } in
+      Printf.printf "==\n%s\n===\n" (AstC_to_c.ast_to_string ~style t)
       in
     match !stringreprs with
     | None -> fail t.loc (Printf.sprintf "Constr.get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
