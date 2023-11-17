@@ -40,8 +40,6 @@ typ: target resolves to 2 paths
 [occ #1] int
 [occ #2] int
 marks: [mymark2; mymark1]
-cstyle-trm: WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term
-  int* x = new int( 3 )
 cstyle-item: [ Stackvar ]
 annot: {trm_annot_attributes = [  ]; trm_annot_marks = [  ];
   trm_annot_stringrepr = None; trm_annot_pragma = [  ]; trm_annot_cstyle = [
