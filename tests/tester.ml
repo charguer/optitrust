@@ -527,21 +527,29 @@ let action_run (tests : string list) : unit =
   end;
   (* DEPRECATED printf "\n"; *)
 
-  (* If -hide-stdout option is used, start redirecting stdout into
-     "_tests_stdout.txt" during the execution of the unit tests *)
+  (* Start redirecting stdout into a temporary file during the execution
+    of the unit tests. If -hide-stdout option is used, the contents of
+    this file is ignored. Otherwise, the contents is printed at the end,
+    or just before the error if an error is raised.  *)
   let oldstdout = Unix.dup Unix.stdout in
-  let newstdout = ref None in
-  if !Flags.hide_stdout then begin
-    let c = open_out "_tests_stdout.txt" in
-    Unix.dup2 (Unix.descr_of_out_channel c) Unix.stdout;
-    newstdout := Some c;
+  let catpured_stdout_channel_ref = ref None in
+  let catpured_stdout_file = Filename.temp_file "optitrust_batch_stdout" ".txt" in
+  let capture = true in (* !Flags.hide_stdout *)
+  if capture then begin
+    let catpured_stdout_channel = open_out catpured_stdout_file in
+    Unix.dup2 (Unix.descr_of_out_channel catpured_stdout_channel) Unix.stdout;
+    catpured_stdout_channel_ref := Some catpured_stdout_channel;
   end;
   let close_redirected_stdout () : unit =
-    if !Flags.hide_stdout then begin
-      flush stdout;
-      let c = Option.get !newstdout in
-      close_out c;
+    flush stdout;
+    if capture then begin
+      let catpured_stdout_channel = Option.get !catpured_stdout_channel_ref in
+      close_out catpured_stdout_channel;
       Unix.dup2 oldstdout Unix.stdout;
+      if not !Flags.hide_stdout then begin
+        let catpured_stdout = Xfile.get_contents catpured_stdout_file in
+        print_string catpured_stdout;
+      end
     end in
 
   (* Execute the `batch.ml` program *)
@@ -549,12 +557,11 @@ let action_run (tests : string list) : unit =
     Flags.program_name := "tester.ml";
     Dynlink.loadfile "tests/batch/batch.cmxs"
   with
-    Dynlink.Error err -> begin
+  | Dynlink.Error err ->
       close_redirected_stdout();
       let sbt = Printexc.get_backtrace() in
       Printf.eprintf "%s\n%s" (Dynlink.error_message err) sbt;
       exit 1
-    end
   end;
   close_redirected_stdout();
 

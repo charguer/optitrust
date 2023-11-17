@@ -379,6 +379,8 @@
 - Another combinator `Target.apply_with_group_by prefix tg (fun prefix ps -> transfo)`
   that iterates the transfo on the list.
 
+- resolve_path does not yet include Dir_contract
+
 # Case study
 
 - (AC) Fix pic_demo and remove `Loop.hoist_old`

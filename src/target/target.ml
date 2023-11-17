@@ -50,6 +50,10 @@ let cStrict : constr =
 let cInDepth : constr =
   Constr_depth DepthAny
 
+(* [cInContracts]: matches also in contracts. *)
+let cInContracts : constr =
+  Constr_incontracts
+
 (* [cTarget cstrs]: a constraint build on top of a list of constraints. *)
 let cTarget (cstrs : constr list) : constr =
   Constr_target cstrs
