@@ -48,7 +48,7 @@ let internal () : style =
 let internal_ast () : style  =
   let s = Ast_to_text.default_style () in
   Custom {
-    decode = true;
+    decode = false;
     print = Lang_AST s }
 
 let internal_ast_only_desc () : style  =

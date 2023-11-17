@@ -33,8 +33,18 @@ AST2:
     x++;
   }
 }
-for trm: WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term
-for ( int i = 0; i < 3; i++ ) { x++; }
+var-trm-internal:   int* x = new int( 3 )
+for-trm-internal: for ( int i = 0; i < 3; i++ ) { x++; }
+for-trm-internal-desc: Trm_for ( i#351,
+  Trm_val ( Val_lit ( Lit_int 0 ) ),
+  Up,
+  Trm_val ( Val_lit ( Lit_int 3 ) ),
+  Post_inc,
+  false,
+  Trm_seq [
+    Trm_apps ( Trm_val ( Val_prim ( Prim_unop Unop_post_inc ) ),
+      [ Trm_var( Var_mutable,x#350) ] )
+  ] )
 desc: Trm_for
 typ: target resolves to 2 paths
 [occ #1] int
