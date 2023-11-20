@@ -2,13 +2,7 @@
  (channel
   (name 'guix)
   (url "https://git.savannah.gnu.org/git/guix.git")
-  (branch "master")
-  (commit "fe17b667d98e7a0a17231947ec505be0f41f9300")
-  (introduction
-   (make-channel-introduction
-    "9edb3f66fd807b096b48283debdcddccfea34bad"
-    (openpgp-fingerprint
-     "BBB0 2DDF 2CEA F6A8 0D1D  E643 A2A0 6DF2 A33A 54FA"))))
+  (commit "10f3dd0e9e06d71d1bc1615c6a60cc3aa1ad1ff4"))
  (channel
   (name 'guix-extra)
   (url "https://gitlab.inria.fr/mfelsoci/guix-extra.git")
