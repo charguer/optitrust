@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 int f(int a, int b) {
   return a + b;
 }
@@ -9,10 +11,11 @@ int g(int * a) {
 
 int h() {
   int a;
-  int b;
-  a = 1;
+  int b = 0;
+  int * c = (int *) malloc(sizeof(int));
+  a = 1 + b++;
   b++;
-  g(&b);
+  g(c);
   a = 2;
   f(a, b);
   a = 3;
