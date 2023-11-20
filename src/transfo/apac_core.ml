@@ -1006,8 +1006,8 @@ let trm_discover_dependencies (locals : fun_symbols)
   (* Then, we launch the discovery process using the auxiliary function. *)
   let _ = aux ins inouts (Var_set.empty) false Regular t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
-  let ins' = dep_set_from_stack ins in
-  let inouts' = dep_set_from_stack inouts in
+  let ins' = dep_set_of_stack ins in
+  let inouts' = dep_set_of_stack inouts in
   (ins', inouts')
 
 let atrm_to_string (a : atrm) : string =
@@ -1431,7 +1431,7 @@ let taskify_on (p : path) (t : trm) : unit =
   let rec augment (locals : fun_symbols) (t : trm) : atrm =
     match t.desc with
     | Trm_seq instrs ->
-       let scope = var_set_from_var_hashtbl locals in
+       let scope = var_set_of_var_hashtbl locals in
        let instrs' = Mlist.to_list instrs in
        let instrs' = List.map (fun instr -> augment locals instr) instrs' in
        let ins = List.fold_left (
@@ -1460,7 +1460,7 @@ let taskify_on (p : path) (t : trm) : unit =
          params = []
        }
     | Trm_for_c (init, cond, inc, instr, _) ->
-       let scope = var_set_from_var_hashtbl locals in
+       let scope = var_set_of_var_hashtbl locals in
        let (ins, inouts) = trm_discover_dependencies locals init in
        let (ins', inouts') = trm_discover_dependencies locals cond in
        let (ins, inouts) =
