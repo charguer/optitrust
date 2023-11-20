@@ -87,6 +87,11 @@ var optionsDescr = [ // extended by initAllTags
     kind: "UI",
     default: true,
   },
+  { key: "args",
+    name: "arguments",
+    kind: "UI",
+    default: true,
+  },
   { key: "justif",
     name: "justification",
     kind: "UI",
@@ -582,6 +587,19 @@ function stepToHTML(step, isOutermostLevel) {
   }
   sName = sName.replace(/_loop_list/,'');
 
+  var sArgs = "";
+  if (options.args && step.args) {
+    for (var i = 0; i < step.args.length; i++) {
+      var arg = step.args[i];
+      if (arg.name == "") {
+        sArgs += " " + arg.value;
+      } else {
+        sArgs += " " + arg.name + ":" + arg.value;
+      }
+    }
+    sArgs = "<span class='args'>" + escapeHTML(sArgs) + "</span>";
+  }
+
   var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.id + ")'";
   if (isOutermostLevel && step.id != 0) {
     var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.parent_id + ")'";
@@ -589,7 +607,7 @@ function stepToHTML(step, isOutermostLevel) {
 
   // Line contents
   if (! isRoot) {
-    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + " " + sScript + sTags + "</span></div>";
+    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + sArgs + " " + sScript + sTags + "</span></div>";
   }
 
   if (options.justif) {
@@ -681,6 +699,7 @@ function viewDetailsFull() {
     options[key] = false;
   }
   options["details"] = true;
+  options["args"] = true;
   options["justif"] = true;
   options["exectime"] = true;
   options["noop_steps"] = true; // TODO: should be a tag

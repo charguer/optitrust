@@ -56,8 +56,8 @@ let deal_with_binding (loc : Location.t) (binding : value_binding): value_bindin
     | Pexp_fun (lbl, exp0, pat, expr) ->
       let label = match lbl with
       | Nolabel -> ""
-      | Labelled l -> (* "~" ^ *) l
-      | Optional l -> (* "?" ^ *) l
+      | Labelled l -> "~" ^ l
+      | Optional l -> "?" ^ l
       in
       let+ (name, typ) =
         match pat.ppat_desc with
