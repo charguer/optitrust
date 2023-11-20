@@ -14,6 +14,7 @@
 (add-hook 'prog-mode-hook (lambda () (set-indent 2)))
 (add-hook 'text-mode-hook (lambda () (set-indent 2)))
 
+(setq-default fill-column 80)
 (setq display-fill-column-indicator-column 80)
 (add-hook 'prog-mode-hook 'display-fill-column-indicator-mode)
 (add-hook 'text-mode-hook 'display-fill-column-indicator-mode)
