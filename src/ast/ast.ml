@@ -95,6 +95,8 @@ let var_map_of_list l = Var_map.of_seq (List.to_seq l)
 
 let var_set_of_stack s = Var_set.of_seq (Stack.to_seq s)
 
+let var_set_to_list s = List.of_seq (Var_set.to_seq s)
+
 (* let vars_to_string vs = Tools.list_to_string vs *)
 let vars_to_string vs = Trace_printers.(list_arg_printer var_to_string vs)
 

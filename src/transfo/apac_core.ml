@@ -823,6 +823,47 @@ let unconstify_mutables () : unit =
 (* III.3 Taskification *)
 (***********************)
 
+(* [find_parent_function p]: goes back up the path [p] and looks for the first
+   term corresponding to a function definition. If a function definition is
+   found, it returns the name of the function as a variable. We use
+   [find_parent_function] to determine the parent function of a task group
+   sequence in order to access its constification record in [const_funs]. *)
+let find_parent_function (p : path) : var option =
+  (* We shall go back on our steps in the path, i.e. in the direction of the
+     root of the AST, so we need to reverse [p]. *)
+  let reversed = List.tl (List.rev p) in
+  (* We use an auxiliary function in order to hide to the outside world the need
+     for the path reversal. *)
+  let rec aux (p : path) : var option =
+    (* The function simply goes recursively through the reversed [p] *)
+    match p with
+    | e :: f -> 
+       begin
+         (* and if it detects a function definition, it returns it. *)
+         (* FIXME : Optimize by passing non-reversed list as argument ? *)
+         let tg = target_of_path (List.rev p) in
+         let t = get_trm_at_exn tg in
+         match t.desc with
+         | Trm_let_fun (v, _, _, _, _) -> Some (v)
+         | _ -> aux f
+       end
+    | [] -> None
+  in
+  aux reversed
+
+let trm_task
+      (ins : Dep_set.t) (inouts : Dep_set.t) (shared : Var_set.t) : cpragma =
+  let ins' = dep_set_to_list ins in
+  let ins' = if (List.length ins') < 1 then [] else [In ins'] in
+  let inouts' = dep_set_to_list inouts in
+  let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
+  let shared' = var_set_to_list shared in
+  let shared' = if (List.length shared') < 1 then [] else [Shared shared'] in
+  let depend = List.append ins' inouts' in
+  let depend = if (List.length depend) < 1 then [] else [Depend depend] in
+  let clauses = List.append depend shared' in
+  Task clauses
+
 (* [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
    returns two lists. The first list holds the access terms where each term is
    paired with an access attribute. The second list contains all the variables
@@ -1634,18 +1675,93 @@ let taskify_on (p : path) (t : trm) : unit =
         params = []
       }
        (*fail t.loc "Apac_core.taskify_on: unsupported instruction kind."*)
-  in            
-  (* Deconstruct the target function definition term. *)
-  let error = "Apac_core.taskify_on: expected target to a function \
-               definition." in
-  let (v, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+  in
+  (* Find the parent function. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_core.taskify_on: unable to find parent \
+                          function. Task group outside of a function?" in
   (* Find the corresponding constification record in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records v in
+  let const_record = Var_Hashtbl.find const_records f in
   (* Build the augmented AST correspoding to the function's body. *)
-  let aast = augment const_record.variables 0 body in
+  let aast = augment const_record.variables 0 t in
   const_record.aast <- Some (aast);
   Printf.printf "Augmented AST for <%s> follows:\n%s\n"
-    (var_to_string v) (atrm_to_string aast)
+    (var_to_string f) (atrm_to_string aast)
     
 let taskify (tg : target) : unit =
   Target.iter (fun t p -> taskify_on p (get_trm_at_path p t)) tg
+
+(* [insert_tasks_on p t]: see [insert_tasks_on]. *)
+let insert_tasks_on (p : path) (t : trm) : trm =
+  (* Auxiliary function to transform a portion of the existing AST into a local
+     augmented AST (see [atrm]). *)
+  let rec aux (t : atrm) : trm =
+    match t.current.desc with
+    | Trm_seq _ ->
+       let instrs = List.map (fun instr ->
+                        if instr.task_id > -1 then
+                          let pragma =
+                            trm_task instr.ins instr.inouts instr.shared in
+                          let instr' = trm_seq_nomarks [instr.current] in
+                          trm_add_pragma pragma instr'
+                        else
+                          aux instr
+                      ) t.children in
+       let res = trm_seq_nomarks instrs in
+       let _ = Debug_transfo.trm "out seq" res in
+       res
+    | Trm_for_c (init, cond, inc, _, _) ->
+       let instrs = List.hd t.children in
+       let instrs = aux instrs in
+       trm_for_c init cond inc instrs
+ (* | Trm_for (range, body, _) -> {
+        current = t;
+        ins = [];
+        inouts = [];
+        children = [(augment body)];
+        params = [range]
+      } *)
+    | Trm_if (cond, _, _) ->
+       let yes = List.nth t.children 0 in
+       let yes = aux yes in
+       let no = List.nth t.children 1 in
+       let no = aux no in
+       trm_if cond yes no
+    | Trm_while (cond, _) ->
+       let body = List.hd t.children in
+       let body = aux body in
+       trm_while cond body
+    | Trm_do_while (_, cond) ->
+       let body = List.hd t.children in
+       let body = aux body in
+       trm_do_while body cond
+    | Trm_switch (cond, cases) ->
+        let cases' = t.children in
+        let cases' = List.map2 (fun (labels, _) case ->
+                         let case' = aux case in
+                         (labels, case')
+                       ) cases cases' in
+        trm_switch cond cases'
+    | _ ->
+       let _ = Printf.printf "I don't know '%s', returning as-is\n" (trm_desc_to_string t.current.desc) in
+       t.current
+  in
+  (* Find the parent function. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_core.insert_tasks_on: unable to find parent \
+                          function. Task group outside of a function?" in
+  (* Find the corresponding constification record in [const_records]. *)
+  let const_record = Var_Hashtbl.find const_records f in
+  (* Build the augmented AST correspoding to the function's body. *)
+  let aast = match const_record.aast with
+    | Some (tree) -> tree
+    | None -> fail t.loc "Apac_core.insert_tasks_on: no corresponding \
+                          augmented AST. Did you forget to run \
+                          Apac_core.taskify?"
+  in
+  aux aast
+    
+let insert_tasks (tg : target) : unit =
+  Target.apply (fun t p -> insert_tasks_on p (get_trm_at_path p t)) tg

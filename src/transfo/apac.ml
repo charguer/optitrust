@@ -102,36 +102,46 @@ let unfold_function_calls (tg : target) : unit =
     end
   ) tg
 
-(* [parallel_task_group tg]: expects target [tg] to point at a function
-    definition.
+(* [parallel_task_group ?mark_group tg]: expects target [tg] to point at a
+   function definition.
 
     The first step of the transformation consists in replacing return statements
     by gotos. At the beginning of the process, the function's body is wrapped
-    into a sequence to which a mark is assigned.
-    See [Apac_basic.use_goto_for_return] for more details.
+    into a sequence to which a mark is assigned.  See
+    [Apac_basic.use_goto_for_return] for more details.
 
     In the second step, we put the marked sequence into an OpenMP task group.
-    See [Apac_basic.task_group] for more details. *)
-let parallel_task_group : Transfo.t =
+    See [Apac_basic.task_group] for more details.
+
+    If [mark_group] is [true], [Apac_basic.task_group] will add the
+    [Apac_core.task_group_mark] to the task group sequence. This way, we can
+    target the task group sequences later when inserting tasks into the
+    code. Note that the aforementioned mark is not the same thing. That mark is
+    unique and serves to identify the target function's body. It only lives
+    within this transformation function. We have to use this extra unique mark
+    here, otherwise the fourth step could target more than one AST term, which
+    is not desirable. *)
+let parallel_task_group ?(mark_group = false) : Transfo.t =
   Target.iter (fun t p ->
-    (* Create a mark. *)
+    (* 1) Create a mark. *)
     let mark = Mark.next() in
-    (* Wrap the target function's body into a marked sequence and replace return
-       statements by gotos. *)
+    (* 2) Wrap the target function's body into a marked sequence and replace
+       return statements by gotos. *)
     Apac_basic.use_goto_for_return ~mark (target_of_path p);
-    (* Get the name of the target function through the deconstruction of the
+    (* 3) Get the name of the target function through the deconstruction of the
        corresponding AST term. *)
     let error =
     "Apac.parallel_task_group: expected a target to a function definition" in
     let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv (
       Path.get_trm_at_path p t
     ) in
-    (* Transform the marked instruction sequence corresponding to the target
+    (* 4) Transform the marked instruction sequence corresponding to the target
        function's body into an OpenMP task group.
 
        Note that if the target function is the 'main' function, we want the
        task group to be executed only by one thread, the master thread. *)
-    Apac_basic.task_group ~master:(var_has_name qvar "main") [cMark mark];
+    Apac_basic.task_group
+      ~mark_group ~master:(var_has_name qvar "main") [cMark mark];
     (* 5) Remove the mark. *)
     Marks.remove mark [cMark mark];
   )

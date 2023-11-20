@@ -38,18 +38,21 @@ let mark_taskification_candidates_on (t : trm) : trm =
 let mark_taskification_candidates (tg : target) : unit =
   Target.apply_at_target_paths (mark_taskification_candidates_on) tg
 
-(* [task_group_on ~master t]: see [task_group] *)
-let task_group_on ~(master : bool) (t : trm) : trm =
+(* [task_group_on ?mark_group ~master t]: see [task_group] *)
+let task_group_on ?(mark_group = false) ~(master : bool) (t : trm) : trm =
+  (* Apply [Apac_core.task_group_mark] to the target sequence, if requested. *)
+  let t' = if mark_group then trm_add_mark Apac_core.task_group_mark t else t in
   (* Draw the list of pragmas to apply. *)
   let pragmas = if master then
                 [Parallel []; Master ; Taskgroup] else
                 [Taskgroup] in
   (* Apply the pragmas on the target instruction sequence. *)
-  trm_add_pragmas pragmas t
+  trm_add_pragmas pragmas t'
 
-(* [task_group ~master t]: puts the instruction sequence of a function's body
-    into an OpenMP task group, i.e. a block of instructions delimited by curly
-    brackets and prepended with the OpenMP pragma '#pragma omp taskgroup'.
+(* [task_group ?mark_group ~master t]: puts the instruction sequence of a
+   function's body into an OpenMP task group, i.e. a block of instructions
+   delimited by curly brackets and prepended with the OpenMP pragma '#pragma omp
+   taskgroup'.
 
     Example:
 
@@ -98,12 +101,14 @@ let task_group_on ~(master : bool) (t : trm) : trm =
         return 0;
       }
 
+    [mark_group] - decides whether the [Apac_core.task_group_mark] shall be
+                   added to the resulting task group sequence;
     [master] - decides whether extra pragmas should be added for limiting the
                execution of the task group to only thread, the master thread;
     [t] - AST of a function body.
 *)
-let task_group ~(master : bool) (tg : target) : unit =
-  Target.apply_at_target_paths (task_group_on ~master:master) tg
+let task_group ?(mark_group = false) ~(master : bool) (tg : target) : unit =
+  Target.apply_at_target_paths (task_group_on ~mark_group ~master:master) tg
 
 (* [use_goto_for_return_on mark t]: see [use_goto_for_return]. *)
 let use_goto_for_return_on (mark : mark) (t : trm) : trm =

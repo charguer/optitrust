@@ -71,6 +71,8 @@ module Dep_set = Set.Make(Dep)
 
 let dep_set_of_stack s = Dep_set.of_seq (Stack.to_seq s)
 
+let dep_set_to_list s = List.of_seq (Dep_set.to_seq s)
+
 let var_set_of_var_hashtbl h = Var_set.of_seq (Var_Hashtbl.to_seq_keys h)
 
 (* [typed_var_to_dep tv]: converts the typed variable [tv] into a data
