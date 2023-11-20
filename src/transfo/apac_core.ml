@@ -1764,4 +1764,4 @@ let insert_tasks_on (p : path) (t : trm) : trm =
   aux aast
     
 let insert_tasks (tg : target) : unit =
-  Target.apply (fun t p -> insert_tasks_on p (get_trm_at_path p t)) tg
+  Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
