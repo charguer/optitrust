@@ -1064,7 +1064,7 @@ let build_constification_records_on (t : trm) : unit =
      variable referring to the parent class. In this case, we do not need to
      include it in the resulting constification record. *)
   let args =
-    if var.name <> "main" then
+    if var.name <> "main" && (List.length args) > 0 then
       (* Extract the first argument of the function. *)
       let (first, _) = List.hd args in
       if first.name = "this" then List.tl args else args
