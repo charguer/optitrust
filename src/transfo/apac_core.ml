@@ -897,7 +897,6 @@ let trm_discover_dependencies (locals : fun_symbols)
        else
          begin
            let degree = Var_Hashtbl.find locals v in
-           if degree < 1 then Stack.push v shared;
            match attr with
            | Regular -> let d = Dep_var (v) in Stack.push d ins
            | FunArgIn ->
@@ -988,9 +987,10 @@ let trm_discover_dependencies (locals : fun_symbols)
        begin
          match (trm_resolve_pointer_and_degree t') with
          | Some (v, degree) when not (Var_set.mem v filter) ->
+            let degree = degree + 1 in
             let _ = Printf.printf "unop with deg %d\n" degree in
             begin
-              if degree < 1 then Stack.push v shared;
+              if degree = 0 then Stack.push v shared;
               match attr with
               | Regular -> let d = Dep_var (v) in Stack.push d inouts
               | FunArgIn
