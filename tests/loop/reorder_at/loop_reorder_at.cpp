@@ -25,6 +25,27 @@ void f1(int* y) {
   }
 }
 
+void f2(float* A, float* B, int m, int n, int p) {
+  __reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+
+  for (int i = 0; i < m; i++) {
+    __sequentially_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+
+    for (int j = 0; j < m; j++) {
+      __sequentially_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+
+      float sum = 0.0f;
+      for (int k = 0; k < p; k++) {
+        __ghost(matrix2_ro_focus, "A, i, k");
+        __ghost(matrix2_ro_focus, "B, k, j");
+        sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
+        __ghost(matrix2_ro_unfocus, "A");
+        __ghost(matrix2_ro_unfocus, "B");
+      }
+    }
+  }
+}
+
 void f1_wrong() {
   __pure();
 
