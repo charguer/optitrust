@@ -1443,12 +1443,7 @@ and resolve_target (tg : target) (t : trm) : paths =
   match tg with
   (* shortcut: paths are already resolved *)
   | [Constr_paths ps] -> ps
-  | _ -> begin
-    Trace.open_target_resolve_step (); (* LATER: could use Trace.add_arg to provide the target as string *)
-    let ps = resolve_target_internal (*~place_marks:None*) tg t in
-    Trace.close_target_resolve_step ps t;
-    ps
-  end
+  | _ -> Trace.target_resolve_step (resolve_target_internal tg) t (* LATER: could use Trace.add_arg to provide the target as string *)
 
 (* LATER optimization: close_target_resolve_step could return the result of its
     call to add_marks_at_paths, possibly via a reference, in case it is computed.

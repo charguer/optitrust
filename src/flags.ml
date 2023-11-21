@@ -114,6 +114,12 @@ let execute_show_even_in_batch_mode : bool ref = ref false
 (* [check_validity]: perform validation of transformations *)
 let check_validity = ref false
 
+(* [reparse_between_step]: always reparse between two steps *)
+let reparse_between_steps = ref false
+
+(* [recompute_resources_between_steps]: always recompute resources between two steps *)
+let recompute_resources_between_steps = ref false
+
 (* [serialized_mode]: type to deal with serialized AST ,
   | Serialized_None: do not read or write any serialized ast, just parse the input file.
   | Serialized_Build: parse the input file, save its serialized ast, exit
@@ -250,6 +256,8 @@ let reset_flags_to_default () : unit =
   always_name_resource_hyp := false;
   display_resources := false;
   check_validity := false;
+  reparse_between_steps := false;
+  recompute_resources_between_steps := false;
   trm_combinators_warn_unsupported_case := true;
   warned_array_subscript_not_supported := Tools.String_set.empty
 

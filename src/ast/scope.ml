@@ -2,6 +2,9 @@ open Ast
 open Trm
 module String_map = Tools.String_map
 
+let infer_var_ids () = Trace.apply Scope_computation.infer_var_ids
+let check_var_ids () = Scope_computation.check_var_ids (Trace.ast ())
+
 let ends_with_num_suffix_rexp = Str.regexp ".*_[0-9]+"
 let ends_with_num_suffix name =
   Str.string_match ends_with_num_suffix_rexp name 0
@@ -57,45 +60,6 @@ let unique_alpha_rename (t : trm) : trm =
   ) !toplevel_vars;
   trm_rename_vars map_var () t
 
-(* LATER: #var-id, flag to disable check for performance *)
-(* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
-(* TODO: raise error or ignore the dummy ids (-1) *)
-let check_unique_var_ids (t : trm) : unit =
-  (* LATER: refactor with function mapping over bindings? *)
-  let vars = ref Var_set.empty in
-  let add_var v =
-    if Var_set.mem v !vars then
-      failwith (sprintf "variable '%s' is not declared with a unique id" (var_to_string v));
-    vars := Var_set.add v !vars
-  in
-  let rec aux t =
-    begin match t.desc with
-    | Trm_let (_, (x, _), _) ->
-      add_var x
-    | Trm_let_mult (_, tvs, _) ->
-      List.iter (fun (x, _) -> add_var x) tvs
-    | Trm_let_fun (x, _, _, _, _)
-      (* FIXME: kind of C-specific? *)
-      when not (Trm.is_fun_with_empty_body t) ->
-      add_var x
-    | Trm_for ((x, _, _, _, _, _), _, _) ->
-      add_var x
-    (* | Trm_typedef td -> *)
-    | _ -> ()
-    end;
-    trm_iter aux t
-  in
-  aux t
-
-(* TODO: deal with OCaml and other languages *)
-let infer_var_ids t =
- let t2 = C_scope.infer_var_ids t in
- check_unique_var_ids t2;
- t2
-
-let check_var_ids t =
-  C_scope.check_var_ids t;
-  check_unique_var_ids t
 
 let trm_let_or_let_fun_inv t =
   match trm_let_inv t with

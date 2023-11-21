@@ -1765,6 +1765,7 @@ let get_relative_type (tg : target) : target_relative option =
     For example type definitions are modified.
     See example in [Record.reveal_field]. The argument [~reparse:false] can be
     specified to deactivate the reparsing.
+    Should only be called by transformations that do not change type definitions.
     There is an optimization for reparsing only top-level functions that are
     involved in the path targeted by the target [tg]; LATER: should deactivate
     this for transformations that make global changes beyond the targetd functions *)

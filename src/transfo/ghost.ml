@@ -18,5 +18,5 @@ let embed_loop_on (t: trm): trm =
   trm_ghost_varargs (trm_fun [] None ~contract:(FunSpecContract outer_contract) (trm_seq (Mlist.of_list [trm_copy t]))) []
 
 let%transfo embed_loop (tg: target): unit =
-  recompute_all_resources ();
+  Resources.ensure_computed ();
   Target.apply_at_target_paths embed_loop_on tg

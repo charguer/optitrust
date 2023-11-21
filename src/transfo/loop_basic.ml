@@ -1,5 +1,6 @@
 open Prelude
 open Target
+open Matrix_trm
 
 (* [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,
    let's say [for (int i = start; i < stop; i += step) { body } ].
@@ -103,7 +104,7 @@ let hoist_on (name : string)
   let new_body_instrs = begin
     let free_index_opt = ref None in
     Mlist.iteri (fun i instr ->
-      match Matrix_core.free_inv instr with
+      match Matrix_trm.free_inv instr with
       | Some freed ->
         begin match trm_var_inv freed with
         | Some freed_var when var_eq freed_var !old_var ->
@@ -130,7 +131,7 @@ let hoist_on (name : string)
     trm_may_add_mark mark
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
     trm_for ?contract:new_contract ~annot:t.annot range new_body;
-    Matrix_core.free !new_dims (trm_var !new_var);
+    Matrix_trm.free !new_dims (trm_var !new_var);
   ]
 
 (* TODO: document *)

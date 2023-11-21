@@ -1,7 +1,6 @@
 open Ast
 
 
-
 (* internal *)
 (* [clean_all_seq id t]: remove recursively all the sequences from ast with annotation [No_braces id]
 
@@ -22,29 +21,18 @@ let clean_all_seq ?(check_scoping : bool = true) (id : int) (t : trm) : trm =
     | _ -> Trm.trm_map aux t
   in aux t
 
-(* [remove_and_exit_on ?remove ?check_scoping t]: apply function clean_nobrace over the trm t.
+
+(* [remove_after ~remove f]: wrapper for creating and deleting a nobrace sequence.
+  Internally it applies the function clean_nobrace over the trm t.
   By default, scope is checked: inlining nobrace sequences should not change variable usage. *)
-let remove_and_exit_on ?(check_scoping = true) ?(remove:bool=true) (t : trm) : trm =
-  let id = Nobrace.exit () in
-  if remove
-    then begin
-      let t = clean_all_seq ~check_scoping:false id t in
-      if check_scoping then Scope.infer_var_ids t else t
-    end else
-      t
-
-(* [remove_on_after ?remove ?check_scoping t]: wrapper for creating and deleting a nobrace sequence over trm t.
-   Options are the same as [remove_and_exit_on] *)
-let remove_on_after ?(check_scoping = true) ?(remove : bool = true) (f : unit -> trm) : trm =
-  Nobrace.enter ();
-  let t = f () in
-  remove_and_exit_on ~check_scoping ~remove t
-
-(* [remove_after ~remove f]: wrapper for creating and deleting a nobrace sequence *)
 let remove_after ?(check_scoping = true) ?(remove : bool = true) (f : unit -> unit) : unit =
   Nobrace.enter ();
   f ();
-  Trace.apply (remove_and_exit_on ~check_scoping ~remove)
+  let id = Nobrace.exit () in
+  if remove then begin
+    Trace.apply (clean_all_seq ~check_scoping:false id);
+    if check_scoping then Scope.infer_var_ids ()
+  end
 
 (* FIXME: unused? *)
 (* [clean_nobraces tg]: remove all the hidden sequence starting from target [ŧg] *)

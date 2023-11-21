@@ -51,7 +51,7 @@ let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : uni
     end;
     Instr_core.copy dest_index i true t p_seq
   ) tg;
-  Trace.apply Scope.infer_var_ids
+  Scope.infer_var_ids ()
 
 (* [read_last_write ~write tg]: expects the target [tg] to point at a read operation,
     then it replaces the read operation with left hand side of the write operation targeted

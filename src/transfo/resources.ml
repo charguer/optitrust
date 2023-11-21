@@ -40,28 +40,17 @@ let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
 let%transfo set_loop_contract (contract: unparsed_contract) (tg: Target.target): unit =
   Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract contract)) tg
 
-(*let recompute_resources (tg : Target.target) : unit =
-  Target.apply_at_target_paths (Resources_core.trm_recompute_resources) tg*)
 
-let recompute_all_resources_on (t : trm) : trm =
-  let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
-  (* TODO: Configurable base environment *)
-  Resource_computation.(trm_recompute_resources empty_resource_set t)
-
-let recompute_all_resources () : unit =
-  Trace.typing_step ~name:"Resource recomputation" (fun () ->
-    let t = Trace.ast () in
-    let t = recompute_all_resources_on t in
-    Trace.set_ast t
-  )
+let ensure_computed () =
+  if not !Flags.recompute_resources_between_steps then Trace.recompute_resources ()
 
 (* TODO: avoid recomputing all resources for validity checks. *)
 let required_for_check () : unit =
-  if !Flags.check_validity then recompute_all_resources ()
+  if !Flags.check_validity then ensure_computed ()
 
 let justif_correct (why : string) : unit =
   if !Flags.check_validity then begin
-    recompute_all_resources ();
+    ensure_computed ();
     Trace.justif (sprintf "resources are correct: %s" why)
   end
 
@@ -142,7 +131,7 @@ let loop_minimize_on (t: trm): trm =
 
 (* [loop_minimize]: minimize linear invariants of a loop contract *)
 let%transfo loop_minimize (tg: target) : unit =
-  recompute_all_resources (); (* TODO: Incrementalize this computation *)
+  ensure_computed ();
   Target.apply_at_target_paths loop_minimize_on tg
 
 let assert_hyp_read_only ~(error : string) ((x, t) : (hyp * formula)) : unit =
@@ -209,21 +198,22 @@ let formulas_of_hyps (hyps: hyp list) (resources: resource_item list): formula l
   let hyp_map = Hyp_map.of_seq (List.to_seq resources) in
   List.map (fun h -> Hyp_map.find h hyp_map) hyps
 
-(** Checks that the effects from the instruction at path [p] are shadowed by following effects in term [t].
+(** Checks that the effects from the instruction at path [p] are shadowed by following effects in the program.
     *)
-let assert_instr_effects_shadowed (p : path) (t : trm) : unit =
-  let t2 = Path.apply_on_path (fun instr ->
-    Nobrace_transfo.remove_on_after ~check_scoping:false (fun () ->
-      let write_hyps = write_usage_of instr in
-      let res_before = unsome_or_fail instr.loc "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
-      let write_res = formulas_of_hyps write_hyps res_before.linear in
-      let uninit_ghosts = List.filter_map (fun res ->
-        if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
-      trm_seq_nobrace_nomarks uninit_ghosts
-    )
-  ) t p in
-  ignore (recompute_all_resources_on t2)
-
+let assert_instr_effects_shadowed (p : path) : unit =
+  step_to_cancel ~discard_after:true (fun () ->
+    Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
+      Target.apply_at_path (fun instr ->
+        let write_hyps = write_usage_of instr in
+        let res_before = unsome_or_fail instr.loc "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
+        let write_res = formulas_of_hyps write_hyps res_before.linear in
+        let uninit_ghosts = List.filter_map (fun res ->
+          if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
+        trm_seq_nobrace_nomarks uninit_ghosts
+      ) p
+    );
+    recompute_resources ()
+  )
 
 
 (** <private>
@@ -276,6 +266,7 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
 
 (* [show] enables to view the result of resource computations. *)
 let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
-  let t = Trace.ast () in
-  let tres = recompute_all_resources_on t in
-  show_computed_res ~line ~ast:tres ()
+  step_to_cancel ~discard_after:true (fun () ->
+    recompute_resources ();
+    show_computed_res ~line ()
+  )

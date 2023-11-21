@@ -1,5 +1,6 @@
 open Prelude
 open Target
+open Matrix_trm
 
 (* [intro_calloc tg]: expects the target [tg] to point at  a call to funciton alloc then it will
     replace this call with a call to CALLOC. *)
@@ -59,7 +60,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) 
       end in
       let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
         | Some at ->
-          begin match Matrix_core.alloc_inv at with
+          begin match Matrix_trm.alloc_inv at with
           | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
           | _ -> fail t.loc "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
           end
@@ -113,7 +114,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option)
   )
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize. *)
-let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : local_ops) (tg : target) : unit =
+let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~(dim: trm) ~(index: string) ~ops:(dl_o : local_ops) (tg : target) : unit =
     Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark labels index dl_o) tg
 
 let assert_same_dims (a : trms) (b : trms) : unit =
@@ -167,7 +168,7 @@ let%transfo simpl_index_add (tg : target) : unit =
   Resources.justif_correct "arguments are reproducible";
   Trace.tag_simpl_access ();
   Target.apply_at_target_paths simpl_index_add_on tg;
-  Trace.apply Scope.infer_var_ids (* Needed because we generate MINDEX variables by name *)
+  Scope.infer_var_ids () (* Needed because we generate MINDEX variables by name *)
 
 let simpl_access_of_access_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in
@@ -232,7 +233,7 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
         instr2
       end
     ) instrs2 in
-    let instrs4 = Mlist.insert_at (!last_use + 1) (Matrix_core.free [] (trm_var x)) instrs3 in
+    let instrs4 = Mlist.insert_at (!last_use + 1) (Matrix_trm.free [] (trm_var x)) instrs3 in
     trm_seq ~annot:t.annot instrs4
   | None -> fail t.loc "Matrix_basic.intro_malloc0_on: expected unintialized stack allocation"
 end
@@ -282,7 +283,7 @@ let stack_copy_on (name : var) (stack_name : string) (d : int) (t : trm) : trm =
   let common_indices_opt : trms option ref = ref None in
   let stack_var = new_var stack_name in
   let rec update_accesses (t : trm) : trm =
-    match Matrix_core.access_inv t with
+    match Matrix_trm.access_inv t with
     | Some (f, dims, indices) ->
       begin match trm_var_inv f with
       | Some n when n = name -> begin
@@ -355,13 +356,13 @@ let%transfo elim_mindex (tg : target) : unit =
 let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
   let new_dims = ref [] in
   let rec update_accesses_and_alloc (t : trm) : trm =
-    match Matrix_core.access_inv t with
+    match Matrix_trm.access_inv t with
     | Some (f, dims, indices) ->
       begin match trm_var_inv f with
       | Some v when v = var -> begin
         new_dims := Xlist.update_nth dim (fun _ -> n) dims;
         let new_indices = Xlist.update_nth dim (fun i -> trm_mod i n) indices in
-        Matrix_core.access ~annot:t.annot f !new_dims new_indices
+        Matrix_trm.access ~annot:t.annot f !new_dims new_indices
         end
       | _ -> trm_map update_accesses_and_alloc t
       end
@@ -375,11 +376,11 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
         | Some n when n = var ->
           fail t.loc "Matrix_basic.storage_folding_on: variable access is not covered"
         | _ ->
-          begin match Matrix_core.free_inv t with
+          begin match Matrix_trm.free_inv t with
           | Some freed ->
             begin match trm_var_inv freed with
             | Some n when n = var ->
-              Matrix_core.free !new_dims freed
+              Matrix_trm.free !new_dims freed
             | _ -> trm_map update_accesses_and_alloc t
             end
           | None -> trm_map update_accesses_and_alloc t
@@ -421,7 +422,7 @@ let delete_on (var : var) (t : trm) : trm =
       | Some n when n = var ->
         fail t.loc "Matrix_basic.delete_on: matrix should not be used anymore"
       | _ ->
-        let is_free_var = begin match Matrix_core.free_inv t with
+        let is_free_var = begin match Matrix_trm.free_inv t with
         | Some freed ->
           begin match trm_var_inv freed with
           | Some n -> n = var
@@ -447,19 +448,19 @@ let%transfo delete ~(var : var) (tg : target) : unit =
   For correctness, if [V] was written at index [i], reading [V[j/i]] should be equivalent to reading at index [j].
    *)
 let%transfo read_last_write ~(write : target) (tg : target) : unit =
-  Trace.apply Scope.infer_var_ids;
+  Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
   let write_trm = match Target.get_trm_at write with
   | Some wt -> wt
   | None -> fail None "Matrix_basic.read_least_write: write target not found"
   in
   let (wr_base, wr_dims, wr_indices, wr_value) = trm_inv
     ~error:"Matrix_basic.read_last_write: targeted matrix write operation is not supported"
-    Matrix_core.set_inv write_trm
+    Matrix_trm.set_inv write_trm
   in
   Target.apply_at_target_paths (fun t ->
     let (rd_base, rd_dims, rd_indices) = trm_inv
       ~error:"Matrix_basic.read_last_write: targeted matrix read operation is not supported"
-      Matrix_core.get_inv t
+      Matrix_trm.get_inv t
     in
     assert_same_dims wr_dims rd_dims;
     if not (Internal.same_trm wr_base rd_base) then

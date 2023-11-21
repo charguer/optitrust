@@ -22,11 +22,10 @@ Calls to Trm.toplevel_var must be done before the scope resolution, otherwise th
 {2 Transition states}
 
 After parsing, identifiers are set to the dummy value [-1].
-The function {!Scope.infer_var_ids} produces an ast with correct identifiers according to the scoping rules.
+The function {!Scope_computation.infer_var_ids} produces an ast with correct identifiers according to the scoping rules.
 This function is called during the encoding/decoding phases.
 
-TODO: implement
-If a transformation introduces dummy identifiers, it should call [Trace.needs_infer_var_ids] to ensure that the stable AST invariant is restored.
+If a transformation introduces dummy identifiers, it should call [Scope.infer_var_ids] to compute missing ids at the end of the transformation to restore the invariants.
 
 {2 Checking invariants}
 
@@ -120,7 +119,7 @@ let var_to_string (v : var) : string =
   q_str ^ v.name ^ "#" ^ id_str
 
 let assert_var_id_set ~error_loc v =
-  if not (v.id >= 0) then failwith (sprintf "%s: Variable %s has an id that is not set (maybe forgot to call Trace.apply Scope.infer_var_ids)" error_loc (var_to_string v))
+  if not (v.id >= 0) then failwith (sprintf "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v))
 
 let var_eq (v1 : var) (v2 : var) : bool =
   assert_var_id_set ~error_loc:"var_eq" v1;

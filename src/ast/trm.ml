@@ -1727,40 +1727,6 @@ let fun_with_empty_body (t : trm) : trm =
     trm_alter ~desc:(Trm_let_fun (v, vt, args, trm_uninitialized (), contract)) t
   | _ -> failwith "Trm.fun_with_empty_body expected let fun"
 
-(* ========== matrix helpers =========== *)
-
-let mindex_vars = Array.init 5 (fun n -> toplevel_var (sprintf "MINDEX%d" n))
-
-let mindex_var (n: int) = try mindex_vars.(n) with Invalid_argument _ -> failwith (sprintf "MINDEX%d is not defined (too many dimensions)" n)
-
-(* [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
-    [dims] - dimensions of the matrix access,
-    [indices ] - indices of the matrix access.
-
-     Example:
-     MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3
-     Here, dims = [N1, N2, N3] and indices = [i1, i2, i3]. *)
-let mindex (dims : trms) (indices : trms) : trm =
-  if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
-      dimension should correspond to the number of indices";
-  let n = List.length dims in
-  trm_apps (trm_var (mindex_var n)) (dims @ indices)
-
-(* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t] *)
-let mindex_inv (t : trm) : (trms * trms) option =
-  match t.desc with
-  | Trm_apps (f, dims_and_indices, _) ->
-    let n = List.length dims_and_indices in
-    if (n mod 2 = 0 && n/2 <= Array.length mindex_vars) then
-      begin match f.desc with
-      | Trm_var (_, fv) when var_eq mindex_vars.(n/2) fv ->
-          Some (Xlist.split_at (n/2) dims_and_indices)
-      | _ -> None
-      end
-    else None
-  | _ -> None
-
-
 (* ********************************************************************************************** *)
 
 let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =

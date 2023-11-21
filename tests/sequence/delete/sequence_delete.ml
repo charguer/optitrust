@@ -5,8 +5,7 @@ let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
   (* TODO: add function calls. *)
-  !! ();
-  Resources.show ();
+  !! Resources.show ();
 
   (* 1. effects/bindings are unused *)
   (* TODO: ~shadowed:true / ~unused:true ? *)

@@ -145,9 +145,9 @@ let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_i
   ?(last : bool = false)  ?(use : trm option) (var : var) ~(into : string) ~(dim : trm)  ~(index : string)
   ?(indices : string list = []) ~(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option) (tg : target) : unit =
 
-    let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
     let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
-    let acc = match acc with | Some s -> s | _ -> "" in  Matrix_basic.local_name ~my_mark:middle_mark ?alloc_instr ~into ~indices ~local_ops:ops var tg;
+    let acc = match acc with | Some s -> s | _ -> "" in
+    Matrix_basic.local_name ~my_mark:middle_mark ?alloc_instr ~into ~indices ~local_ops:ops var tg;
 
     let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
@@ -178,7 +178,8 @@ let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_i
 
       end
     end;
-    begin match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> () end
+    begin match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> () end;
+    Scope.infer_var_ids ()
 
 
 (* [reorder_dims ~rotate_n ~order tg] expects the target [tg] to point at at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions

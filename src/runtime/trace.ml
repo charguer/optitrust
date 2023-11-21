@@ -123,6 +123,7 @@ let parse ~(parser: parser) (filename : string) : string * trm =
   print_info None "Parsing Done.\n";
   parsed_file
 
+
 (******************************************************************************)
 (*                             Trace management                               *)
 (******************************************************************************)
@@ -159,7 +160,7 @@ type stepdescr = {
 
 
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_scoped | Step_aborted | Step_interactive | Step_typing | Step_error
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_backtrack | Step_aborted | Step_interactive | Step_typing | Step_error
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -170,7 +171,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_transfo -> "Transfo"
   | Step_target_resolve -> "Target"
   | Step_io -> "IO"
-  | Step_scoped -> "Scoped"
+  | Step_backtrack -> "Backtrack"
   | Step_aborted -> "Aborted"
   | Step_interactive -> "Interactive"
   | Step_typing -> "Typing"
@@ -250,530 +251,6 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
   (prefix, ctx, tree)
 
 let dummy_exectime : float = 0.
-
-(* [get_cur_step ()] returns the current step --there should always be one. *)
-let get_cur_step ?(error : string = "get_cur_step: empty stack") () : step_tree =
-  match the_trace.step_stack with
-  | [] -> failwith error
-  | step::_ -> step
-
-(* [open_root_step] is called only by [Trace.init], for initializing
-   the bottom element of the [step_stack].
-   Assumes fields of [the_trace] have already been initialized. *)
-let open_root_step ?(source : string = "<unnamed-file>") () : unit =
-  assert(the_trace.step_stack = []);
-  let step_root_infos = {
-    step_script = "Contents of " ^ source;
-    step_script_line = None;
-    step_time_start = now();
-    step_exectime = dummy_exectime;
-    step_name = "Full script";
-    step_args = [("extension", the_trace.context.extension) ];
-    step_justif = [];
-    step_valid = false;
-    step_tags = [];
-  } in
-  let step_root = {
-    step_kind = Step_root;
-    step_ast_before = the_trace.cur_ast;
-    step_ast_after = trm_dummy;
-    step_sub = [];
-    step_infos = step_root_infos; }
-    in
-  the_trace.step_stack <- [step_root]
-
-(* [try_validate_step_by_compostion s] sets a computation to be valid if all its substeps are valid
-   and form a contiguous chain *)
-let try_validate_step_by_compostion (s : step_tree) : unit =
-  let infos = s.step_infos in
-  if not infos.step_valid then begin
-    let kinds_excluded = [Step_target_resolve; Step_io; Step_aborted] in
-    let subs = List.filter (fun si -> not (List.mem si.step_kind kinds_excluded)) s.step_sub in
-    if List.for_all (fun sub -> sub.step_infos.step_valid) subs then begin
-      let asts1: trm list = [s.step_ast_before] @
-        (List.map (fun sub -> sub.step_ast_after) subs);
-      in
-      let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) subs) @
-        [s.step_ast_after]
-      in
-      if List.for_all2 (==) asts1 asts2 then begin
-        infos.step_tags <- "valid_by_composition" :: infos.step_tags;
-        infos.step_valid <- true
-      end (* else begin
-        printf "%s\n" (infos.step_name);
-        printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
-        printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);
-      end *)
-    end
-  end
-
-(* [finalize_step] is called by [close_root_step] and [close_step] *)
-let finalize_step (step : step_tree) : unit =
-  let infos = step.step_infos in
-  infos.step_exectime <- now() -. infos.step_time_start;
-  infos.step_args <- List.rev infos.step_args;
-  step.step_ast_after <- the_trace.cur_ast;
-  step.step_sub <- List.rev step.step_sub;
-  if !Flags.check_validity then
-    try_validate_step_by_compostion step
-  else
-    step.step_infos.step_valid <- false
-
-let without_substep_validity_checks (f: unit -> 'a): 'a =
-  Flags.with_flag Flags.check_validity false f
-
-(* [get_root_step()] returns the root step, after close_root_step has been called *)
-let get_root_step () : step_tree =
-  match the_trace.step_stack with
-  | [step] ->
-      if step.step_ast_after == trm_dummy
-        then failwith "get_root_step: close_root_step has not been called";
-      step
-  | _ -> failwith "close_root_step: broken invariant, stack must have size one"
-
-(* [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the ""
-    in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
-let get_excerpt (line : int) : string =
-  if line = - 1 then sprintf "<get_excerpt for line -1>" else (*failwith "get_excerpt: requires a valid line number";*)
-  if !ml_file_excerpts = Int_map.empty then "<get_excerpt: empty map>" else begin (* should "" be failure? *)
-  match Int_map.find_opt line !ml_file_excerpts with
-    | Some txt -> if txt <> "" then txt else sprintf "<get_excerpt: empty string mapped to line %d>" line
-    | None -> (*LATER: failwith? *) sprintf "<get_excerpt: no binding for line %d>" line
-  end
-
-(* [open_step] is called at the start of every big-step, or small-step,
-   or combi, or basic transformation. *)
-let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) () : step_tree =
-  let infos = {
-    step_script;
-    step_script_line = line;
-    step_time_start = now();
-    step_exectime = dummy_exectime;
-    step_name = name;
-    step_args = [];
-    step_justif = [];
-    step_valid = valid;
-    step_tags = tags;
-  } in
-  let step = {
-    step_kind = kind;
-    step_ast_before = the_trace.cur_ast;
-    step_ast_after = trm_dummy;
-    step_sub = [];
-    step_infos = infos; }
-    in
-  the_trace.step_stack <- step :: the_trace.step_stack;
-  step
-
-(* [step_justif txt] is called by a transformation after open_step in order
-   to store explaination of why it is correct *)
-let justif (justif:string) : unit =
-  let step = get_cur_step () in
-  let infos = step.step_infos in
-  infos.step_valid <- true;
-  infos.step_justif <- justif::infos.step_justif
-
-(* [justif_always_correct()] is a specialized version of [step_justif]
-   for transformation that are always correct. *)
-let justif_always_correct () : unit =
-  justif "always correct"
-
-(* [step_arg] is called by a transformation after open_step in order
-   to store the string representations of one argument. *)
-let step_arg ~(name:string) ~(value:string) : unit =
-  let step = get_cur_step () in
-  let infos = step.step_infos in
-  infos.step_args <- (name,value)::infos.step_args
-
-(* [tag] is called by a transformation after open_step in order to associate a tag with itself. *)
-let tag (s : string) : unit =
-  let step = get_cur_step () in
-  let infos = step.step_infos in
-  infos.step_tags <- s :: infos.step_tags
-
-(* [tag_trivial] is called by a transformation after open_step to indicate that it is trivial, or trivially explained by its substeps. *)
-let tag_trivial () : unit =
-  tag "trivial"
-
-(* [tag_atomic] is called by a transformation after open_step to indicate that it is atomic, e.g. looking at its substeps does not explain why it is correct. *)
-let tag_atomic () : unit =
-  tag "atomic"
-
-(* [tag_valid_by_composition] is called by a transformation after open_step to indicate that it should be valid by composition. This can be used for filtering trace display or checking that it is indeed valid by composition. *)
-let tag_valid_by_composition () : unit =
-  tag "should_be_valid_by_composition"
-
-(* [tag_simpl_arith] is called by a transformation after open_step to indicate that it performs arithmetic simplifications. This can be used for filtering trace display. *)
-let tag_simpl_arith () : unit =
-  tag "simpl";
-  tag "simpl_arith"
-
-(* [tag_simpl_access] is called by a transformation after open_step to indicate that it performs array/matrix access simplificatoins.
-  *)
-let tag_simpl_access () : unit =
-  tag "simpl.access"
-
-(* [close_step] is called at the end of every big-step, or small-step,
-   or combi, or basic transformation. The step to close can be passed
-   as an optional argument, to check that the exected step is being closed.
-   If all substeps are valid and their sequence explains how to go from ast_before to ast_after, the step is valid by the explaination "combination of valid steps" *)
-let close_step ?(check:step_tree option) () : unit =
-  match the_trace.step_stack with
-  | [] -> failwith "close_step: the_trace should not be empty"
-  | [root_step] -> failwith "close_step: on the root, should call close_root_step"
-  | step :: ((parent_step :: _) as stack_tail)  ->
-      (* Checking that swe close the expected step *)
-      begin match check with
-      | None -> ()
-      | Some opened_step ->
-          if step != opened_step
-            then failwith "close_step: not closing the expected step"
-      end;
-      (* Finalize the step, by reversing the list of substeps and computing validity *)
-      finalize_step step;
-      (* Folding step into parent substeps *)
-      parent_step.step_sub <- step :: parent_step.step_sub;
-      the_trace.step_stack <- stack_tail
-
-(* [close_step_kind_if_needed k] is used by
-   [close_smallstep_if_needed] and [close_bigstep_if_needed] *)
-let close_step_kind_if_needed (k:step_kind) : unit =
-  let step = get_cur_step() in
-  if step.step_kind = k then close_step()
-
-(* [close_smallstep_if_needed()] closes a current big-step.
-   Because big-steps are not syntactically scoped in the user script,
-   we need such an implicit close operation to be called on either
-   the opening of a new big-step, or on closing of the root step. *)
-let close_smallstep_if_needed () : unit =
-  close_step_kind_if_needed Step_small
-
-(* [close_bigstep_if_needed()] closes a current big-step.
-   Because big-steps are not syntactically scoped in the user script,
-   we need such an implicit close operation to be called on either
-   the opening of a new big-step, or on closing of the root step. *)
-let close_bigstep_if_needed () : unit =
-  close_smallstep_if_needed();
-  close_step_kind_if_needed Step_big
-
-(* [close_root_step] is called only by [Run. TODO???] at the end of the script,
-   or at the end of the small-step targeted by the user.
-   It leaves the root step at the bottom of the stack *)
-let close_root_step () : unit =
-  close_bigstep_if_needed();
-  let step = match the_trace.step_stack with
-    | [step] -> step
-    | _ -> failwith "close_root_step: broken invariant, stack must have size one" in
-  finalize_step step
-
-
-(* [step] is a function wrapping the body of a transformation *)
-let step ?(valid:bool=false) ?(line : int = -1) ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
-  let s = open_step ~valid ~line ~tags ~kind ~name () in
-  let r = body () in
-  assert (get_cur_step () == s);
-  close_step ~check:s ();
-  r
-
-(* [scoped_step] opens a scope to perform transformations in.
-  At the end:
-  - closes all scope-local steps automatically if not already done
-  - restores the current AST to what it was before the scope *)
-let scoped_step ~(kind : step_kind) (f : unit -> unit) : unit =
-  let ast_bak = the_trace.cur_ast in
-  let s = open_step ~kind ~name:"" () in
-  f ();
-  let error = "Trace.scoped_step: did not find 's'" in
-  while (get_cur_step ~error () != s) do
-    close_step ()
-  done;
-  the_trace.cur_ast <- ast_bak;
-  close_step ~check:s ()
-
-type backtrack_result =
-| Success
-| Failure of exn
-
-let backtrack_on_failure (f : unit -> unit) : backtrack_result =
-  let ast_bak = the_trace.cur_ast in
-  let s = open_step ~kind:Step_scoped ~name:"" () in
-  let res =
-    try
-      f (); Success
-    with e -> begin
-      let error = "Trace.backtrack_on_failure: did not find 's'" in
-      while (get_cur_step ~error () != s) do
-        close_step ()
-      done;
-      s.step_kind <- Step_aborted;
-      the_trace.cur_ast <- ast_bak;
-      Failure e
-    end in
-  assert (get_cur_step () == s);
-  close_step ~check:s ();
-  res
-
-(* [parsing_step f] adds a step accounting for a parsing operation *)
-let parsing_step (f : unit -> unit) : unit =
-  step ~valid:true ~kind:Step_io ~name:"Parsing" ~tags:["IO"] f
-
-(* [dumping_step f] adds a step accounting for a parsing operation *)
-let dumping_step (f : unit -> unit) : unit =
-  step ~valid:true ~kind:Step_io ~name:"Dumping" ~tags:["IO"] f
-
-(* [error_step f] adds a step accounting for a fatal error *)
-let error_step (error : string) : unit =
-  step ~valid:false ~kind:Step_error ~name:error (fun () -> ())
-
-(* [typing_step f] adds a step accounting for a typing recomputation *)
-let typing_step ~name (f : unit -> unit) : unit =
-  step ~valid:true ~kind:Step_typing ~name ~tags:["typing"] f
-
-(* [open_target_resolve_step] *)
-let open_target_resolve_step () : unit =
-  ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"" ())
-
-(* [close_target_resolve_step] has a special handling because it saves a diff
-   between an AST and an AST decorated with marks for targeted paths,
-   even though the [cur_ast] is not updated with the marsk *)
-let close_target_resolve_step (ps:Path.path list) (t:trm) : unit =
-  if !Flags.dump_trace then begin
-    let marked_ast, _marks = Path.add_marks_at_paths ps t in
-    let cur_ast = the_trace.cur_ast in
-    the_trace.cur_ast <- marked_ast;
-    close_step();
-    the_trace.cur_ast <- cur_ast
-  end else
-    close_step()
-
-(* [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
-   like at the start of the program.  *)
-let invalidate () : unit =
-  close_logs();
-  the_trace.context <- trace_dummy.context;
-  the_trace.cur_ast <- trace_dummy.cur_ast;
-  the_trace.step_stack <- trace_dummy.step_stack
-
-(* [get_initial_ast ~parser ser_mode ser_file filename]: gets the initial ast before applying any trasformations
-     [parser] - choose which parser to use for parsing the source code
-     [ser_mode] - serialization mode
-     [ser_file] - if serialization is used for the initial ast, the filename of the serialized version
-                  of the source code is needed
-     [filename] - filename of the source code  *)
-let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (ser_file : string)
-  (filename : string) : (string * trm) =
-  (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
-  let ser_file_exists = Sys.file_exists ser_file in
-  let ser_file_more_recent = if (not ser_file_exists) then false else Xfile.is_newer_than ser_file filename in
-  let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
-  if (ser_mode = Serialized_Use (* || ser_mode = Serialized_Make *) || auto_use_ser) then (
-    if not ser_file_exists
-      then fail None "Trace.get_initial_ast: please generate a serialized file first";
-    if not ser_file_more_recent
-      then fail None (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename);
-    let ast = Xfile.unserialize_from ser_file in
-    if auto_use_ser
-      then Printf.printf "Loaded ast from %s.\n" ser_file;
-    ast
-  )
-  else
-    parse ~parser filename
-
-(* [init f]: initializes the trace with the contents of the file [f].
-   This operation should be the first in a transformation script.
-   The history is initialized with the initial AST.
-   [~prefix:"foo"] allows to use a custom prefix for all output files,
-   instead of the basename of [f]. *)
-(* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
-  invalidate ();
-  let basename = Filename.basename filename in
-  let extension = Filename.extension basename in
-  let default_prefix = Filename.remove_extension filename in
-  let ml_file_name =
-    if Tools.pattern_matches "_inlined" default_prefix
-      then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
-      else default_prefix in
-  if !Flags.analyse_stats || !Flags.dump_trace then begin
-    let src_file = (ml_file_name ^ ".ml") in
-    if Sys.file_exists src_file then begin
-      let lines = Xfile.get_lines src_file in
-      (* printf "%s\n" (Tools.list_to_string ~sep:"\n" lines); *)
-      ml_file_excerpts := compute_ml_file_excerpts lines;
-    end;
-  end;
-  let mode = !Flags.serialization_mode in
-  start_stats := get_cur_stats ();
-  last_stats := !start_stats;
-
-  let prefix = if prefix = "" then default_prefix else prefix in
-  let clog = init_logs prefix in
-  let ser_file = basename ^ ".ser" in
-
-  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
-
-  let context = { parser; extension; prefix; header; clog } in
-  the_trace.context <- context;
-  the_trace.cur_ast <- cur_ast;
-  the_trace.step_stack <- [];
-  open_root_step ~source:ml_file_name ();
-
-  if mode = Serialized_Build || mode = Serialized_Auto
-    then Xfile.serialize_to ser_file (header, cur_ast);
-  if mode = Serialized_Build
-    then exit 0;
-  print_info None "Starting script execution...\n"
-
-(* [finalize()]: should be called at the end of the script to close the root step *)
-let finalize () : unit =
-  close_root_step()
-
-(* [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
-let finalize_on_error ~(error:string) : unit =
-  error_step error;
-  let rec close_all_steps () : unit =
-    match the_trace.step_stack with
-    | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
-    | [_root_step] -> finalize()
-    | _step :: _ -> close_step(); close_all_steps()
-    in
-  close_all_steps()
-
-(* [get_last_substep] returns the last substep, which corresponds to the
-    step to be visualized by a diff *)
-let get_last_substep () : step_tree =
-  match (get_cur_step ()).step_sub with
-  | [] -> failwith "Trace.get_last_substep: expected a previous substep in the current step"
-  | last_step :: _ -> last_step
-
-(* [get_original_ast] returns the ast obtained at [Trace.init] *)
-let get_original_ast () : trm =
-  assert (the_trace.step_stack <> []);
-  let (_, root_step) = Xlist.unlast the_trace.step_stack in
-  root_step.step_ast_before
-
-(* [alternative f]: executes the script [f] in the original state that
-  was available just after the call to [init].
-  After the call, all the actions performed are discarded.
-
-  Current usage:
-     !! Trace.alternative (fun () ->
-        !! Loop.fusion_on_block [cLabel "tofusion"];
-     );
-  TODO: deprecate this and use trace.reset instead
-*)
-let alternative (f : unit->unit) : unit =
-  let ast = get_original_ast () in
-  scoped_step ~kind:Step_aborted (fun () ->
-    the_trace.cur_ast <- ast;
-    f();
-  )
-
-(* [switch cases]: allows to introduce a branching point in a script.
-   The [cases] argument gives a list of possible continuations (branches).
-   Each of the branches can terminate with a [dump] operation to produce
-   its output in a specific file. Alternatively, there could be further
-   tranformations after the [switch] construct---a diamond construct.
-   In such case, the instructions that follow the [switch] are applied
-   in parallel on each of the traces, where one trace corresponds to one
-   possible path in the script (via the branches).
-   The optional argument [only_branch] can be use to temporary disable
-   all branches but one. This is currently needed for the interactive mode
-   to work. Branches are numbered from 1 (not from zero). *)
-(* LATER for mli: switch : ?only_branch:int -> (unit -> unit) list -> unit *)
-(* DEPRECATED
-let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
-  (* Close logs: new logs will be opened in every branch. *)
-  close_logs ();
-  let list_of_traces =
-    Xlist.fold_lefti
-      (fun i tr f ->
-        let branch_id = i + 1 in
-        if only_branch = 0 || branch_id = only_branch then
-          begin
-            let old_traces = !traces in
-            let new_traces =
-              List.fold_right
-                (fun trace acc_traces ->
-                  let context = trace.context in
-                  (* create an extended prefix for this branch, unless there is a single branch *)
-                  let prefix =
-                    if List.length cases <= 1 || only_branch <> 0
-                      then context.prefix
-                      else context.prefix ^ "_" ^ (string_of_int branch_id)
-                    in
-                  (* create and register new log channel *)
-                  let clog = open_out (context.directory ^ prefix ^ ".log") in
-                  logs := clog :: !logs;
-                  (* execute each branch in a single context *)
-                  let branch_trace = { trace with context = { context with prefix; clog } } in
-                  traces := [branch_trace];
-                  f ();
-                  (* store the traces produced by this branch *)
-                  (!traces) :: acc_traces;
-                )
-                old_traces
-                []
-            in
-            traces := old_traces;
-            (List.flatten new_traces) :: tr
-          end
-        else tr
-      )
-      []
-      cases
-  in
-  traces := List.flatten (List.rev list_of_traces)
- *)
-
-(* FIXME: where should [failure_expected] and [alternative] be defined? *)
-exception Failure_expected_did_not_fail
-
-(* [failure_expected f]: executes the unit function [f], and checks that
-   it raises the exception [Failure_expected_did_not_fail]. If it does
-   not, then an error is triggered. *)
-let failure_expected (f : unit -> unit) : unit =
-  scoped_step ~kind:Step_aborted (fun () ->
-    try
-      f();
-      raise Failure_expected_did_not_fail
-    with
-      | Failure_expected_did_not_fail -> failwith "failure_expected: the operation was supposed to fail but it didn't"
-      |_ -> ()
-  )
-
-(* [apply f]: applies the transformation [f] to the current AST,
-   and updates the current ast with the result of that transformation.
-   If there are several active trace (e.g., after a [switch]),
-   then [f] is applied to each of the traces. During the execution of [f]
-   on a given trace, the set of traces is replaced with a singleton set
-   made of only that trace; this allows for safe re-entrant calls
-   (i.e., the function [f] itself may call [Trace.apply]. *)
-let apply (f : trm -> trm) : unit =
-  if is_trace_dummy()
-    then fail None "Trace.init must be called prior to any transformation.";
-  the_trace.cur_ast <- f the_trace.cur_ast
-
-(* [reset] performs a step that sets the current ast to the original ast *)
-let reset () : unit =
-  let t = get_original_ast () in
-  apply (fun _cur_ast -> t)
-
-(* [call f]: is similar to [apply] except that it applies to a function [f]
-   with unit return type: [f] is meant to update the [cur_ast] by itself
-   through calls to [apply].
-   If there are several active trace (e.g., after a [switch]),
-   then [f] is applied to each of the traces. During the execution of [f]
-   on a given trace, the set of traces is replaced with a singleton set
-   made of only that trace; this allows for safe re-entrant calls
-   (i.e., the function [f] itself may call [Trace.apply]. *)
-   (* TODO: see whether it's not simpler to use Trace.get_ast() ; DEPRECATED? *)
-let call (f : trm -> unit) : unit =
-  if is_trace_dummy()
-    then fail None "Trace.init must be called prior to any transformation.";
-  f the_trace.cur_ast
-
-
 
 
 (******************************************************************************)
@@ -891,23 +368,597 @@ let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
 
+let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code during the step starting at") ?(parser: parser option) () =
+  let tnew = reparse_trm ~info ?parser the_trace.context the_trace.cur_ast in
+  if update_cur_ast
+    then the_trace.cur_ast <- tnew
+
+
+let recompute_resources_on_ast () : unit =
+  let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
+  let t = Resource_computation.trm_recompute_resources Resource_contract.empty_resource_set t in
+  the_trace.cur_ast <- t
+
+(******************************************************************************)
+(*                               Step management                              *)
+(******************************************************************************)
+
+(* [get_cur_step ()] returns the current step --there should always be one. *)
+let get_cur_step ?(error : string = "get_cur_step: empty stack") () : step_tree =
+  match the_trace.step_stack with
+  | [] -> failwith error
+  | step::_ -> step
+
+(* [open_root_step] is called only by [Trace.init], for initializing
+   the bottom element of the [step_stack].
+   Assumes fields of [the_trace] have already been initialized. *)
+let open_root_step ?(source : string = "<unnamed-file>") () : unit =
+  assert(the_trace.step_stack = []);
+  let step_root_infos = {
+    step_script = "Contents of " ^ source;
+    step_script_line = None;
+    step_time_start = now();
+    step_exectime = dummy_exectime;
+    step_name = "Full script";
+    step_args = [("extension", the_trace.context.extension) ];
+    step_justif = [];
+    step_valid = false;
+    step_tags = [];
+  } in
+  let step_root = {
+    step_kind = Step_root;
+    step_ast_before = the_trace.cur_ast;
+    step_ast_after = trm_dummy;
+    step_sub = [];
+    step_infos = step_root_infos; }
+    in
+  the_trace.step_stack <- [step_root]
+
+(* [get_root_step()] returns the root step, after close_root_step has been called *)
+let get_root_step () : step_tree =
+  match the_trace.step_stack with
+  | [step] ->
+      if step.step_ast_after == trm_dummy
+        then failwith "get_root_step: close_root_step has not been called";
+      step
+  | _ -> failwith "close_root_step: broken invariant, stack must have size one"
+
+(* [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the ""
+    in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
+let get_excerpt (line : int) : string =
+  if line = - 1 then sprintf "<get_excerpt for line -1>" else (*failwith "get_excerpt: requires a valid line number";*)
+  if !ml_file_excerpts = Int_map.empty then "<get_excerpt: empty map>" else begin (* should "" be failure? *)
+  match Int_map.find_opt line !ml_file_excerpts with
+    | Some txt -> if txt <> "" then txt else sprintf "<get_excerpt: empty string mapped to line %d>" line
+    | None -> (*LATER: failwith? *) sprintf "<get_excerpt: no binding for line %d>" line
+  end
+
+(* [open_step] is called at the start of every big-step, or small-step,
+   or combi, or basic transformation. *)
+let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) () : step_tree =
+  let infos = {
+    step_script;
+    step_script_line = line;
+    step_time_start = now();
+    step_exectime = dummy_exectime;
+    step_name = name;
+    step_args = [];
+    step_justif = [];
+    step_valid = valid;
+    step_tags = tags;
+  } in
+  let step = {
+    step_kind = kind;
+    step_ast_before = the_trace.cur_ast;
+    step_ast_after = trm_dummy;
+    step_sub = [];
+    step_infos = infos; }
+    in
+  the_trace.step_stack <- step :: the_trace.step_stack;
+  step
+
+(* [step_justif txt] is called by a transformation after open_step in order
+   to store explaination of why it is correct *)
+let justif (justif:string) : unit =
+  let step = get_cur_step () in
+  let infos = step.step_infos in
+  infos.step_valid <- true;
+  infos.step_justif <- justif::infos.step_justif
+
+(* [justif_always_correct()] is a specialized version of [step_justif]
+   for transformation that are always correct. *)
+let justif_always_correct () : unit =
+  justif "always correct"
+
+(* [step_arg] is called by a transformation after open_step in order
+   to store the string representations of one argument. *)
+let step_arg ~(name:string) ~(value:string) : unit =
+  let step = get_cur_step () in
+  let infos = step.step_infos in
+  infos.step_args <- (name,value)::infos.step_args
+
+(* [tag] is called by a transformation after open_step in order to associate a tag with itself. *)
+let tag (s : string) : unit =
+  let step = get_cur_step () in
+  let infos = step.step_infos in
+  infos.step_tags <- s :: infos.step_tags
+
+(* [tag_trivial] is called by a transformation after open_step to indicate that it is trivial, or trivially explained by its substeps. *)
+let tag_trivial () : unit =
+  tag "trivial"
+
+(* [tag_atomic] is called by a transformation after open_step to indicate that it is atomic, e.g. looking at its substeps does not explain why it is correct. *)
+let tag_atomic () : unit =
+  tag "atomic"
+
+(* [tag_valid_by_composition] is called by a transformation after open_step to indicate that it should be valid by composition. This can be used for filtering trace display or checking that it is indeed valid by composition. *)
+let tag_valid_by_composition () : unit =
+  tag "should_be_valid_by_composition"
+
+(* [tag_simpl_arith] is called by a transformation after open_step to indicate that it performs arithmetic simplifications. This can be used for filtering trace display. *)
+let tag_simpl_arith () : unit =
+  tag "simpl";
+  tag "simpl_arith"
+
+(* [tag_simpl_access] is called by a transformation after open_step to indicate that it performs array/matrix access simplificatoins.
+  *)
+let tag_simpl_access () : unit =
+  tag "simpl.access"
+
+let without_substep_validity_checks (f: unit -> 'a): 'a =
+  Flags.with_flag Flags.check_validity false f
+
+(* [try_validate_step_by_compostion s] sets a computation to be valid if all its substeps are valid
+   and form a contiguous chain *)
+let try_validate_step_by_compostion (s : step_tree) : unit =
+  let infos = s.step_infos in
+  if not infos.step_valid then begin
+    let kinds_excluded = [Step_target_resolve; Step_io; Step_aborted] in
+    let subs = List.filter (fun si -> not (List.mem si.step_kind kinds_excluded)) s.step_sub in
+    if List.for_all (fun sub -> sub.step_infos.step_valid) subs then begin
+      let asts1: trm list = [s.step_ast_before] @
+        (List.map (fun sub -> sub.step_ast_after) subs);
+      in
+      let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) subs) @
+        [s.step_ast_after]
+      in
+      if List.for_all2 (==) asts1 asts2 then begin
+        infos.step_tags <- "valid_by_composition" :: infos.step_tags;
+        infos.step_valid <- true
+      end (* else begin
+        printf "%s\n" (infos.step_name);
+        printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
+        printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);
+      end *)
+    end
+  end
+
+let is_saved_step step =
+  match step.step_kind with
+  | Step_root | Step_big | Step_small | Step_transfo | Step_backtrack | Step_typing | Step_io -> true
+  | Step_target_resolve | Step_aborted | Step_error | Step_interactive -> false
+
+let last_recorded_ast step: trm =
+  let rec browse_steps steps =
+    match steps with
+    | [] -> step.step_ast_before
+    | last_step :: _ when is_saved_step last_step -> last_step.step_ast_after
+    | _ :: previous_steps -> browse_steps previous_steps
+  in
+  browse_steps step.step_sub
+
+(* [finalize_step] is called by [close_root_step] and [close_step] *)
+let rec finalize_step (step : step_tree) : unit =
+  let infos = step.step_infos in
+  let same_as_last_step =
+    match step.step_sub with
+    | [] -> step.step_ast_before == the_trace.cur_ast
+    | last_step :: _ -> last_step.step_ast_after == the_trace.cur_ast
+  in
+  if not same_as_last_step then begin match step.step_kind with
+    | Step_typing | Step_io | Step_target_resolve | Step_aborted | Step_error | Step_interactive -> ()
+    | Step_root | Step_big | Step_small | Step_transfo | Step_backtrack ->
+        (* TODO: Wrap error message without losing trace *)
+        if !Flags.reparse_between_steps then reparse ();
+        if !Flags.recompute_resources_between_steps then recompute_resources ()
+  end;
+  infos.step_exectime <- now() -. infos.step_time_start;
+  infos.step_args <- List.rev infos.step_args;
+  step.step_ast_after <- the_trace.cur_ast;
+  step.step_sub <- List.rev step.step_sub;
+  if !Flags.check_validity then
+    try_validate_step_by_compostion step
+  else
+    step.step_infos.step_valid <- false
+
+and without_reparsing_between_steps (f: unit -> unit): unit =
+  Flags.with_flag Flags.reparse_between_steps false f;
+  if !Flags.reparse_between_steps then reparse ()
+
+and without_resource_computation_between_steps (f: unit -> 'a): 'a =
+  Flags.with_flag Flags.recompute_resources_between_steps false f;
+  if !Flags.recompute_resources_between_steps then recompute_resources ()
+
+(* [close_step] is called at the end of every big-step, or small-step,
+   or combi, or basic transformation. The step to close can be passed
+   as an optional argument, to check that the exected step is being closed.
+   If all substeps are valid and their sequence explains how to go from ast_before to ast_after, the step is valid by the explaination "combination of valid steps" *)
+and close_step ?(discard = false) ?(check:step_tree option) () : unit =
+  match the_trace.step_stack with
+  | [] -> failwith "close_step: the_trace should not be empty"
+  | [root_step] -> failwith "close_step: on the root, should call close_root_step"
+  | step :: ((parent_step :: _) as stack_tail)  ->
+      (* Checking that swe close the expected step *)
+      begin match check with
+      | None -> ()
+      | Some opened_step ->
+          if step != opened_step
+            then failwith "close_step: not closing the expected step"
+      end;
+      if not discard then begin
+        (* Finalize the step, by reversing the list of substeps and computing validity *)
+        finalize_step step;
+        (* Folding step into parent substeps *)
+        parent_step.step_sub <- step :: parent_step.step_sub;
+      end;
+      the_trace.step_stack <- stack_tail
+
+(* [step] is a function wrapping the body of a transformation *)
+and step ?(valid:bool=false) ?(line : int = -1) ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
+  let s = open_step ~valid ~line ~tags ~kind ~name () in
+  let r = body () in
+  assert (get_cur_step () == s);
+  close_step ~check:s ();
+  r
+
+(* [parsing_step f] adds a step accounting for a parsing operation *)
+and parsing_step (f : unit -> unit) : unit =
+  step ~valid:true ~kind:Step_io ~name:"Parsing" ~tags:["IO"] f
+
+(* [dumping_step f] adds a step accounting for a parsing operation *)
+and dumping_step (f : unit -> unit) : unit =
+  step ~valid:true ~kind:Step_io ~name:"Dumping" ~tags:["IO"] f
+
+(* [error_step f] adds a step accounting for a fatal error *)
+and error_step (error : string) : unit =
+  step ~valid:false ~kind:Step_error ~name:error (fun () -> ())
+
+(* [typing_step f] adds a step accounting for a typing recomputation *)
+and typing_step ~name (f : unit -> unit) : unit =
+  step ~valid:true ~kind:Step_typing ~name ~tags:["typing"] f
+
 (* [reparse ()]: function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
-   information is properly set up. WARNING: reparsing discards all the marks in the AST. *)
-let reparse ?(update_cur_ast : bool = true) ?(info : string = "") ?(parser: parser option) () : unit =
-  parsing_step (fun () ->
-    let info = if info <> "" then info else "the code during the step starting at" in
-    let tnew = reparse_trm ~info ?parser the_trace.context the_trace.cur_ast in
-    if update_cur_ast
-      then the_trace.cur_ast <- tnew
-  )
+   information is properly set up.
+   WARNING: reparsing discards all the marks in the AST. *)
+and reparse ?(update_cur_ast = true) ?(info : string option) ?(parser: parser option) () : unit =
+  parsing_step (reparse_ast ~update_cur_ast ?info ?parser)
 
-(* Work-around for a name clash *)
-let reparse_alias = reparse
+and recompute_resources (): unit =
+  typing_step ~name:"Resource recomputation" recompute_resources_on_ast
 
 (* [retypecheck] is currently implemented as [reparse], but in the future it
    would use a dedicated typechecker. *)
-let retypecheck = reparse
+let retypecheck ?(info : string option) ?(parser: parser option) () =
+  typing_step ~name:"Retypecheck" (reparse_ast ?info ?parser)
+
+(* [close_step_kind_if_needed k] is used by
+   [close_smallstep_if_needed] and [close_bigstep_if_needed] *)
+let close_step_kind_if_needed (k:step_kind) : unit =
+  let step = get_cur_step() in
+  if step.step_kind = k then close_step()
+
+(* [close_smallstep_if_needed()] closes a current small-step.
+   Because small-steps are not syntactically scoped in the user script,
+   we need such an implicit close operation to be called on either
+   the opening of a new big-step, or on closing of the root step. *)
+let close_smallstep_if_needed () : unit =
+  close_step_kind_if_needed Step_small
+
+(* [close_bigstep_if_needed()] closes a current big-step.
+   Because big-steps are not syntactically scoped in the user script,
+   we need such an implicit close operation to be called on either
+   the opening of a new big-step, or on closing of the root step. *)
+let close_bigstep_if_needed () : unit =
+  close_smallstep_if_needed();
+  close_step_kind_if_needed Step_big
+
+(* [close_root_step] is called only by [Run. TODO???] at the end of the script,
+   or at the end of the small-step targeted by the user.
+   It leaves the root step at the bottom of the stack *)
+let close_root_step () : unit =
+  close_bigstep_if_needed();
+  let step = match the_trace.step_stack with
+    | [step] -> step
+    | _ -> failwith "close_root_step: broken invariant, stack must have size one" in
+  finalize_step step
+
+(* [step_to_cancel] opens a scope to perform transformations in.
+  At the end:
+  - closes all scope-local steps automatically if not already done
+  - restores the current AST to what it was before the scope *)
+let step_to_cancel ?(discard_after = false) (f : unit -> unit) : unit =
+  let ast_bak = the_trace.cur_ast in
+  let s = open_step ~kind:Step_aborted ~name:"" () in
+  f ();
+  let error = "Trace.step_to_cancel: did not find 's'" in
+  while (get_cur_step ~error () != s) do
+    close_step ()
+  done;
+  the_trace.cur_ast <- ast_bak;
+  close_step ~discard:discard_after ~check:s ()
+
+type backtrack_result =
+| Success
+| Failure of exn
+
+let backtrack_on_failure ?(discard_failure = false) (f : unit -> unit) : backtrack_result =
+  let ast_bak = the_trace.cur_ast in
+  let s = open_step ~kind:Step_backtrack ~name:"" () in
+  let res =
+    try
+      f (); Success
+    with e -> begin
+      let error = "Trace.backtrack_on_failure: did not find 's'" in
+      while (get_cur_step ~error () != s) do
+        close_step ()
+      done;
+      s.step_kind <- Step_aborted;
+      the_trace.cur_ast <- ast_bak;
+      Failure e
+    end in
+  assert (get_cur_step () == s);
+  close_step ~discard:discard_failure ~check:s ();
+  res
+
+(* [target_resolve_step] has a special handling because it saves a diff
+   between an AST and an AST decorated with marks for targeted paths,
+   even though the [cur_ast] is not updated with the marsk *)
+let target_resolve_step (f: trm-> Path.path list) (t:trm) : Path.path list =
+  ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"" ());
+  let ps = f t in
+  if !Flags.dump_trace then begin
+    let marked_ast, _marks = Path.add_marks_at_paths ps t in
+    let cur_ast = the_trace.cur_ast in
+    the_trace.cur_ast <- marked_ast;
+    close_step();
+    the_trace.cur_ast <- cur_ast
+  end else begin
+    close_step();
+  end;
+  ps
+
+(* [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
+   like at the start of the program.  *)
+let invalidate () : unit =
+  close_logs();
+  the_trace.context <- trace_dummy.context;
+  the_trace.cur_ast <- trace_dummy.cur_ast;
+  the_trace.step_stack <- trace_dummy.step_stack
+
+(* [get_initial_ast ~parser ser_mode ser_file filename]: gets the initial ast before applying any trasformations
+     [parser] - choose which parser to use for parsing the source code
+     [ser_mode] - serialization mode
+     [ser_file] - if serialization is used for the initial ast, the filename of the serialized version
+                  of the source code is needed
+     [filename] - filename of the source code  *)
+let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (ser_file : string)
+  (filename : string) : (string * trm) =
+  (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
+  let ser_file_exists = Sys.file_exists ser_file in
+  let ser_file_more_recent = if (not ser_file_exists) then false else Xfile.is_newer_than ser_file filename in
+  let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
+  if (ser_mode = Serialized_Use (* || ser_mode = Serialized_Make *) || auto_use_ser) then (
+    if not ser_file_exists
+      then fail None "Trace.get_initial_ast: please generate a serialized file first";
+    if not ser_file_more_recent
+      then fail None (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename);
+    let ast = Xfile.unserialize_from ser_file in
+    if auto_use_ser
+      then Printf.printf "Loaded ast from %s.\n" ser_file;
+    ast
+  )
+  else
+    parse ~parser filename
+
+(* [init f]: initializes the trace with the contents of the file [f].
+   This operation should be the first in a transformation script.
+   The history is initialized with the initial AST.
+   [~prefix:"foo"] allows to use a custom prefix for all output files,
+   instead of the basename of [f]. *)
+(* LATER for mli: val set_init_source : string -> unit *)
+let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
+  invalidate ();
+  let basename = Filename.basename filename in
+  let extension = Filename.extension basename in
+  let default_prefix = Filename.remove_extension filename in
+  let ml_file_name =
+    if Tools.pattern_matches "_inlined" default_prefix
+      then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
+      else default_prefix in
+  if !Flags.analyse_stats || !Flags.dump_trace then begin
+    let src_file = (ml_file_name ^ ".ml") in
+    if Sys.file_exists src_file then begin
+      let lines = Xfile.get_lines src_file in
+      (* printf "%s\n" (Tools.list_to_string ~sep:"\n" lines); *)
+      ml_file_excerpts := compute_ml_file_excerpts lines;
+    end;
+  end;
+  let mode = !Flags.serialization_mode in
+  start_stats := get_cur_stats ();
+  last_stats := !start_stats;
+
+  let prefix = if prefix = "" then default_prefix else prefix in
+  let clog = init_logs prefix in
+  let ser_file = basename ^ ".ser" in
+
+  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
+
+  let context = { parser; extension; prefix; header; clog } in
+  the_trace.context <- context;
+  the_trace.cur_ast <- cur_ast;
+  the_trace.step_stack <- [];
+  open_root_step ~source:ml_file_name ();
+
+  if mode = Serialized_Build || mode = Serialized_Auto
+    then Xfile.serialize_to ser_file (header, cur_ast);
+  if mode = Serialized_Build
+    then exit 0;
+
+  (* If recompute resources between steps is enabled, we need resources to be computed after the initial parsing as well *)
+  if !Flags.recompute_resources_between_steps then recompute_resources ();
+
+  print_info None "Starting script execution...\n"
+
+(* [finalize()]: should be called at the end of the script to close the root step *)
+let finalize () : unit =
+  close_root_step()
+
+(* [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
+let finalize_on_error ~(error:string) : unit =
+  error_step error;
+  let rec close_all_steps () : unit =
+    match the_trace.step_stack with
+    | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
+    | [_root_step] -> finalize()
+    | _step :: _ -> close_step(); close_all_steps()
+    in
+  close_all_steps()
+
+(* [get_last_substep] returns the last substep, which corresponds to the
+    step to be visualized by a diff *)
+let get_last_substep () : step_tree =
+  match (get_cur_step ()).step_sub with
+  | [] -> failwith "Trace.get_last_substep: expected a previous substep in the current step"
+  | last_step :: _ -> last_step
+
+(* [get_original_ast] returns the ast obtained at [Trace.init] *)
+let get_original_ast () : trm =
+  assert (the_trace.step_stack <> []);
+  let (_, root_step) = Xlist.unlast the_trace.step_stack in
+  root_step.step_ast_before
+
+(* [alternative f]: executes the script [f] in the original state that
+  was available just after the call to [init].
+  After the call, all the actions performed are discarded.
+
+  Current usage:
+     !! Trace.alternative (fun () ->
+        !! Loop.fusion_on_block [cLabel "tofusion"];
+     );
+  TODO: deprecate this and use trace.reset instead
+*)
+let alternative (f : unit->unit) : unit =
+  let ast = get_original_ast () in
+  step_to_cancel (fun () ->
+    the_trace.cur_ast <- ast;
+    f();
+  )
+
+(* [switch cases]: allows to introduce a branching point in a script.
+   The [cases] argument gives a list of possible continuations (branches).
+   Each of the branches can terminate with a [dump] operation to produce
+   its output in a specific file. Alternatively, there could be further
+   tranformations after the [switch] construct---a diamond construct.
+   In such case, the instructions that follow the [switch] are applied
+   in parallel on each of the traces, where one trace corresponds to one
+   possible path in the script (via the branches).
+   The optional argument [only_branch] can be use to temporary disable
+   all branches but one. This is currently needed for the interactive mode
+   to work. Branches are numbered from 1 (not from zero). *)
+(* LATER for mli: switch : ?only_branch:int -> (unit -> unit) list -> unit *)
+(* DEPRECATED
+let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
+  (* Close logs: new logs will be opened in every branch. *)
+  close_logs ();
+  let list_of_traces =
+    Xlist.fold_lefti
+      (fun i tr f ->
+        let branch_id = i + 1 in
+        if only_branch = 0 || branch_id = only_branch then
+          begin
+            let old_traces = !traces in
+            let new_traces =
+              List.fold_right
+                (fun trace acc_traces ->
+                  let context = trace.context in
+                  (* create an extended prefix for this branch, unless there is a single branch *)
+                  let prefix =
+                    if List.length cases <= 1 || only_branch <> 0
+                      then context.prefix
+                      else context.prefix ^ "_" ^ (string_of_int branch_id)
+                    in
+                  (* create and register new log channel *)
+                  let clog = open_out (context.directory ^ prefix ^ ".log") in
+                  logs := clog :: !logs;
+                  (* execute each branch in a single context *)
+                  let branch_trace = { trace with context = { context with prefix; clog } } in
+                  traces := [branch_trace];
+                  f ();
+                  (* store the traces produced by this branch *)
+                  (!traces) :: acc_traces;
+                )
+                old_traces
+                []
+            in
+            traces := old_traces;
+            (List.flatten new_traces) :: tr
+          end
+        else tr
+      )
+      []
+      cases
+  in
+  traces := List.flatten (List.rev list_of_traces)
+ *)
+
+(* FIXME: where should [failure_expected] and [alternative] be defined? *)
+exception Failure_expected_did_not_fail
+
+(* [failure_expected f]: executes the unit function [f], and checks that
+   it raises the exception [Failure_expected_did_not_fail]. If it does
+   not, then an error is triggered. *)
+let failure_expected (f : unit -> unit) : unit =
+  step_to_cancel (fun () ->
+    try
+      f();
+      raise Failure_expected_did_not_fail
+    with
+      | Failure_expected_did_not_fail -> failwith "failure_expected: the operation was supposed to fail but it didn't"
+      |_ -> ()
+  )
+
+(* [apply f]: applies the transformation [f] to the current AST,
+   and updates the current ast with the result of that transformation.
+   If there are several active trace (e.g., after a [switch]),
+   then [f] is applied to each of the traces. During the execution of [f]
+   on a given trace, the set of traces is replaced with a singleton set
+   made of only that trace; this allows for safe re-entrant calls
+   (i.e., the function [f] itself may call [Trace.apply]. *)
+let apply (f : trm -> trm) : unit =
+  if is_trace_dummy()
+    then fail None "Trace.init must be called prior to any transformation.";
+  the_trace.cur_ast <- f the_trace.cur_ast
+
+(* [reset] performs a step that sets the current ast to the original ast *)
+let reset () : unit =
+  let t = get_original_ast () in
+  apply (fun _cur_ast -> t)
+
+(* [call f]: is similar to [apply] except that it applies to a function [f]
+   with unit return type: [f] is meant to update the [cur_ast] by itself
+   through calls to [apply].
+   If there are several active trace (e.g., after a [switch]),
+   then [f] is applied to each of the traces. During the execution of [f]
+   on a given trace, the set of traces is replaced with a singleton set
+   made of only that trace; this allows for safe re-entrant calls
+   (i.e., the function [f] itself may call [Trace.apply]. *)
+   (* TODO: see whether it's not simpler to use Trace.get_ast() ; DEPRECATED? *)
+let call (f : trm -> unit) : unit =
+  if is_trace_dummy()
+    then fail None "Trace.init must be called prior to any transformation.";
+  f the_trace.cur_ast
+
 
 
 (******************************************************************************)
@@ -1162,12 +1213,9 @@ let dump_diff_and_exit () : unit =
     output_prog_check_empty ~bypass_cfeatures ~ast_and_enc ctx filename_prefix ast;
     print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
     in
-  (* Extrat the two ASTs that should be used for the diff *)
+  (* Extract the two ASTs that should be used for the diff *)
   let step = get_cur_step() in
-  let kind = step.step_kind in
-  if kind <> Step_root && kind <> Step_big && kind <> Step_scoped
-    then failwith (sprintf "dump_diff_and_exit: expects the current step to be Root, Big or Scoped, found %s" (step_kind_to_string kind));
-  if (get_cur_step ()).step_sub = []
+  if step.step_sub = []
     then failwith "dump_diff_and_exit: make sure you cursor is on a line starting with '!!' or 'bigstep'";
   let last_step = get_last_substep () in
   if !Flags.only_big_steps && last_step.step_kind <> Step_big
@@ -1238,7 +1286,7 @@ let open_bigstep ~(line : int) (title:string) : unit =
     then check_exit ~line;
   (* Reparse if needed *)
   if !Flags.reparse_at_big_steps
-    then reparse_alias ();
+    then reparse ();
   ignore (open_step ~kind:Step_big ~name:"" ~step_script:title ~line ());
   (* Handle progress report *)
   if !Flags.report_big_steps then begin
@@ -1251,12 +1299,12 @@ let open_bigstep ~(line : int) (title:string) : unit =
    and registers a string description for that step, based on the excerpt
    frmo the file. The [close_smallstep] is implicitly handled. *)
 (* LATER: add the line argument in the generation of the _with_lines file *)
-let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
+let open_smallstep ~(line : int) ?reparse:(need_reparse:bool=false) () : unit =
   close_smallstep_if_needed();
   if not !Flags.only_big_steps
     then check_exit ~line;
-  if reparse
-    then reparse_alias();
+  if need_reparse
+    then reparse ();
   let step_script =
     if !Flags.dump_trace
       then get_excerpt line
@@ -1266,8 +1314,7 @@ let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
 
 (* [interactive_step] is used to implement functions such as [show_ast] to show a target,
    or [show_encoding] or [show_ast], etc. It takes as argument a function describing
-   the action to perform when the user cursor is on the line of the operation.
-   It also accept an optional argument for an action to perform in other cases. *)
+   the action to perform when the user cursor is on the line of the operation. *)
 let interactive_step ~(line:int) ~(ast_before:unit->trm) ~(ast_after:unit->trm) : unit =
   let should_exit = (Flags.get_exit_line() = Some line) in
   if should_exit then begin
@@ -1275,8 +1322,8 @@ let interactive_step ~(line:int) ~(ast_before:unit->trm) ~(ast_after:unit->trm) 
     let s = open_step ~line ~kind:Step_interactive ~name:"show" () in
     close_step ~check:s ();
     (* Overwrite the ast_before and ast_after *)
-    s.step_ast_before <- ast_before();
-    s.step_ast_after <- ast_after();
+    s.step_ast_before <- ast_before ();
+    s.step_ast_after <- ast_after ();
     dump_diff_and_exit ()
   end
 

@@ -442,7 +442,7 @@ let class_member_elim (t : trm) : trm =
     trm_alter ~annot:old_t.annot ~loc:old_t.loc new_t
   in
   debug_before_after_trm "cmember" (fun t ->
-    aux None t |> C_scope.infer_var_ids |> trm_subst ~on_subst !to_subst
+    aux None t |> Scope_computation.infer_var_ids ~check_uniqueness:false |> trm_subst ~on_subst !to_subst
   ) t
 
 
@@ -938,19 +938,19 @@ let cfeatures_elim: trm -> trm =
   method_call_elim |>
   infix_elim |>
   (* TODO: remove some infer var ids? *)
-  C_scope.infer_var_ids |>
+  Scope_computation.infer_var_ids ~check_uniqueness:false |>
   stackvar_elim |>
-  C_scope.infer_var_ids |>
+  Scope_computation.infer_var_ids ~check_uniqueness:false |>
   caddress_elim |>
-  C_scope.infer_var_ids |>
+  Scope_computation.infer_var_ids ~check_uniqueness:false |>
   cseq_items_void_type |>
   formula_sugar_elim |>
-  C_scope.infer_var_ids)
+  Scope_computation.infer_var_ids)
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro : trm -> trm =
   debug_before_after_trm "cfeatures_intro" (fun t ->
-  C_scope.infer_var_ids t |>
+  Scope_computation.infer_var_ids t |>
   formula_sugar_intro |>
   caddress_intro |>
   stackvar_intro |>

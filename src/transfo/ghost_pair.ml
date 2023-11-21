@@ -133,9 +133,9 @@ let minimize_all_on_seq (seq : trm) : trm =
 
 (** Minimizes the scope of ghost pairs in the targeted sequence. *)
 let%transfo minimize_all_in_seq (tg : target) : unit =
-  recompute_all_resources ();
+  Resources.ensure_computed ();
   Target.apply_at_target_paths minimize_all_on_seq tg;
-  Trace.apply Scope.infer_var_ids (* FIXME: move up/down should avoid breaking scopes *)
+  Scope.infer_var_ids () (* FIXME: move up/down should avoid breaking scopes *)
 
 
 (** <private>
@@ -280,7 +280,7 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
 
 (** Introduce a ghost pair starting on the targeted ghost, and ending at the first closing candidate. *)
 let%transfo intro ?(name: string option) ?(end_mark: mark option) (tg: target) =
-  recompute_all_resources ();
+  Resources.ensure_computed ();
   Target.apply (fun t p ->
     let i, p = Path.index_in_seq p in
     apply_on_path (intro_at ?name ?end_mark i) t p
@@ -313,7 +313,7 @@ let elim_at ?(mark_begin: mark option) ?(mark_end: mark option) (i: int) (t_seq:
 
 (** Split a ghost pair into two independant ghost calls *)
 let%transfo elim ?(mark_begin: mark option) ?(mark_end: mark option) (tg: target) =
-  recompute_all_resources ();
+  Resources.ensure_computed ();
   Target.apply (fun t p ->
     let i, p = Path.index_in_seq p in
     apply_on_path (elim_at ?mark_begin ?mark_end i) t p
@@ -322,7 +322,7 @@ let%transfo elim ?(mark_begin: mark option) ?(mark_end: mark option) (tg: target
 
 (* Remove all the pairs inside the sequence pointed by the given path *)
 let elim_all_pairs_at (gen_mark: unit -> mark) (p: path): (var * mark * mark) list =
-  recompute_all_resources ();
+  Resources.ensure_computed ();
   let begin_target = [nbMulti; Constr_paths [p]; cStrict; cVarDef ~body:[cCall "__ghost_begin"] ""] in
   let marks = ref [] in
   Target.iter (fun _ p ->
@@ -340,7 +340,7 @@ let elim_all_pairs_at (gen_mark: unit -> mark) (p: path): (var * mark * mark) li
 
 (* Reintroduce pairs that correspond to the marks given *)
 let reintro_pairs_at (pairs: (var * mark * mark) list) (p: path): unit =
-  recompute_all_resources ();
+  Resources.ensure_computed ();
   (* FIXME: Quadratic search of marks *)
   List.iter (fun (pair_token, begin_mark, end_mark) ->
     Target.iter (fun _ p ->

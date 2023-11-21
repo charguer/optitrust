@@ -7,7 +7,7 @@ include Align_basic
 let alloc (vec_align : trm) : Target.Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
-    begin match Matrix_core.alloc_inv tg_trm with
+    begin match Matrix_trm.alloc_inv tg_trm with
     | Some (dims, sz, zero_init) ->
       if zero_init
         then fail tg_trm.loc "Align.alloc: can't align calloc macros";

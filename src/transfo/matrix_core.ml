@@ -1,5 +1,6 @@
 open Prelude
 open Target
+open Matrix_trm
 
 (* list of (offset, size) *)
 type nd_tile = (trm * trm) list
@@ -12,69 +13,11 @@ let tile_all: trm * trm = trm_int 1, trm_int 0
 let tile_none: trm * trm = trm_int 0, trm_int 0
 *)
 
-(* [access t dims indices]: builds the a matrix access with the index defined by macro [MINDEX], see [mindex] function.
-    Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
-let access ?(annot : trm_annot = trm_annot_default) (t : trm) (dims : trms) (indices : trms) : trm =
-  let mindex_trm = mindex dims indices in
-  trm_apps ~annot (trm_binop Binop_array_access) [t; mindex_trm]
-
-(* [access_inv t]: returns the array access base, the list of dimensions and indices used as args at matrix access [t]. *)
-let access_inv (t : trm) : (trm * trms * trms) option=
-  match t.desc with
-  | Trm_apps (f, [base;index], _) ->
-    begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_array_access) ->
-      begin match mindex_inv index with
-      | Some (dm, ind) -> Some (base, dm, ind)
-      | _ -> None
-      end
-    | _ -> None
-    end
-  | _ -> None
-
-(* [get base dims indices]: takes the trm built from access function and puts it into a get operation. *)
-let get (base : trm) (dims : trms) (indices : trms) : trm =
-  let access_trm = access base dims indices in
-  trm_apps (trm_unop Unop_get) [access_trm]
-
-(* [get_inv t]: gets the trm inside a get oepration on an access. *)
-let get_inv (t : trm) : (trm * trms * trms) option =
-  match t.desc with
-  | Trm_apps (_f,[base], _) when is_get_operation t -> access_inv base
-  | _ -> None
-
-(* [set base dims indices arg]: creates a set operation on which the address where the write is done
-    is an access trm built with function accesses and [arg] is the value which is written to that
-    that address. *)
-let set (base : trm) (dims : trms) (indices : trms) (arg : trm) : trm =
-  let write_trm = access base dims indices in
-  trm_apps (trm_binop (Binop_set)) [write_trm; arg]
-
-(* [set_inv t]: returns the arguments used in the function [set]. *)
-let set_inv (t : trm) : (trm * trms * trms * trm)  option =
-  match t.desc with
-  | Trm_apps (_f, [addr;v], _) when is_set_operation t ->
-    begin match access_inv addr with
-    | Some (base, dims, indices) -> Some (base, dims, indices, v)
-    | None -> None
-    end
-  | _ -> None
-
-(* |alloc ~init dims size]: creates a call to function the MALLOC$(N) and CALLOC$(N) where [N] is the
-     number of dimensions and [size] is the size in bytes occupied by a single matrix element in
-     the memeory. *)
-let alloc ?(init : trm option) (dims : trms) (size : trm) : trm =
-  let n = List.length dims in
-  match init with
-  | Some _ -> trm_apps (trm_var (name_to_var ("CALLOC" ^  (string_of_int n)))) (dims @ [size])
-  | None -> trm_apps (trm_var (name_to_var ("MALLOC" ^  (string_of_int n)))) (dims @ [size])
-
-
 let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
   let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
   trm_cast ~annot (typ_const_ptr ty) (
-    trm_apps (trm_var (name_to_var ("MALLOC" ^  (string_of_int n)))) (dims @ [size]))
+    trm_apps (trm_var (malloc_var n)) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
   (* Option.bind (trm_new_inv t) (fun (_, t2) -> *)
@@ -106,23 +49,6 @@ let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
   trm_apps (trm_toplevel_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
 
 
-(* [zero_initialized]: a boolean type used as flag to tell if the array cells should be initialized to zero or not. *)
-type zero_initialized = bool
-
-
-(* [alloc_inv t]:  returns all the args used in function alloc [t]. *)
-let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
-  match t.desc with
-  | Trm_apps (f, args,_) ->
-    begin match f.desc with
-    | Trm_var (_, f_var) ->
-      let dims , size = Xlist.unlast args in
-      if (Tools.pattern_matches "CALLOC" f_var.name) then Some (dims, size, true)
-        else if (Tools.pattern_matches "MALLOC" f_var.name) then Some (dims, size, false)
-        else None
-    | _ -> None
-    end
-  | _ -> None
 
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) option =
@@ -139,19 +65,6 @@ let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) opt
 
   | _ -> None
 
-let free (dims : trms) (t : trm) : trm =
-  let n = List.length dims in
-  trm_apps (trm_var (name_to_var ("MFREE" ^  (string_of_int n)))) (dims @ [t])
-
-let free_inv (t : trm) : trm option =
-  Option.bind (trm_apps_inv t) (fun (f, args) ->
-  Option.bind (trm_var_inv f) (fun f_var ->
-    if Tools.pattern_matches "MFREE" f_var.name
-    then begin
-      let _dims, t = Xlist.unlast args in
-      Some t
-    end else None
-  ))
 
 (* [replace_all_accesses]: replace all accesses to [prev_v] in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].*)
 let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices : (trm -> trm) list) (mark : mark option) (t : trm) : trm =

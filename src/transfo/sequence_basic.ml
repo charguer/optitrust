@@ -47,7 +47,7 @@ let%transfo delete ?(nb : int = 1) (tg : target) : unit =
       if nb <> 1 then
         (* TODO: #fail-path *)
         fail None "Sequence_basic.delete";
-      Resources.assert_instr_effects_shadowed p (Trace.ast ());
+      Resources.assert_instr_effects_shadowed p;
       Trace.justif "nothing modified by the instruction is observed later"
     end;
     let p, i = Internal.isolate_last_dir_in_seq p in
@@ -71,7 +71,7 @@ let%transfo delete ?(nb : int = 1) (tg : target) : unit =
       }                } *)
 let%transfo intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-  (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
+    (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
 
 
 (* [intro_after ~mark ~label tg]: same as [intro] but this transformation will include in the sequence all the

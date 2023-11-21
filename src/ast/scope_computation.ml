@@ -51,6 +51,36 @@ let toplevel_scope_ctx (): scope_ctx = {
   fun_prototypes = Var_map.empty;
 }
 
+(* LATER: #var-id, flag to disable check for performance *)
+(* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
+(* TODO: raise error or ignore the dummy ids (-1) *)
+let check_unique_var_ids (t : trm) : unit =
+  (* LATER: refactor with function mapping over bindings? *)
+  let vars = ref Var_set.empty in
+  let add_var v =
+    if Var_set.mem v !vars then
+      failwith (sprintf "variable '%s' is not declared with a unique id" (var_to_string v));
+    vars := Var_set.add v !vars
+  in
+  let rec aux t =
+    begin match t.desc with
+    | Trm_let (_, (x, _), _) ->
+      add_var x
+    | Trm_let_mult (_, tvs, _) ->
+      List.iter (fun (x, _) -> add_var x) tvs
+    | Trm_let_fun (x, _, _, _, _)
+      (* FIXME: kind of C-specific? *)
+      when not (Trm.is_fun_with_empty_body t) ->
+      add_var x
+    | Trm_for ((x, _, _, _, _, _), _, _) ->
+      add_var x
+    (* | Trm_typedef td -> *)
+    | _ -> ()
+    end;
+    trm_iter aux t
+  in
+  aux t
+
 (** internal *)
 let check_var (scope_ctx : scope_ctx) var =
   let qualified = (var.qualifier, var.name) in
@@ -128,7 +158,7 @@ let enter_scope check_binder scope_ctx t =
         (* TODO: also predefine members *)
         | Record_field_member _ -> scope_ctx
         | Record_field_method rfm ->
-          let error = "C_scope.enter_scope: expected field method" in
+          let error = "Scope_computation.enter_scope: expected field method" in
           let (v, _, _, _) = trm_inv ~error trm_let_fun_inv rfm in
           assert (v.qualifier = []);
           check_binder scope_ctx v true
@@ -191,8 +221,10 @@ let post_process_ctx ctx t =
   | _ -> ctx
 
 (** Given term [t], check that all variable ids agree with their qualified name for C/C++ scoping rules. *)
-let check_var_ids (t : trm) : unit =
-  trm_iter_vars ~enter_scope:(enter_scope check_binder) ~exit_scope:scope_ctx_exit ~post_process:post_process_ctx ~iter_binder:check_binder ~iter_ghost_arg_name:check_ghost_arg_name check_var (toplevel_scope_ctx ()) t
+let check_var_ids ?(check_uniqueness = true) (t : trm) : unit =
+  trm_iter_vars ~enter_scope:(enter_scope check_binder) ~exit_scope:scope_ctx_exit ~post_process:post_process_ctx ~iter_binder:check_binder ~iter_ghost_arg_name:check_ghost_arg_name check_var (toplevel_scope_ctx ()) t;
+  if check_uniqueness then check_unique_var_ids t
+
 
 (** internal *)
 let infer_map_binder (scope_ctx : scope_ctx) var t =
@@ -243,7 +275,7 @@ let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> hyp =
 
 (** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
   Only variable ids equal to [inferred_var_id] are inferred, other ids are checked. *)
-let infer_var_ids (t : trm) : trm =
+let infer_var_ids ?(check_uniqueness = true) (t : trm) : trm =
   if debug then Xfile.put_contents "/tmp/ids_before.txt" (Ast_to_text.ast_to_string t);
   let t2 = trm_rename_vars ~keep_ctx:true
     ~enter_scope:(enter_scope (fun ctx binder predecl -> fst (infer_map_binder ctx binder predecl)))
@@ -254,4 +286,5 @@ let infer_var_ids (t : trm) : trm =
     infer_map_var
     (toplevel_scope_ctx ()) t in
   if debug then Xfile.put_contents "/tmp/ids_after.txt" (Ast_to_text.ast_to_string t2);
+  if check_uniqueness then check_unique_var_ids t2;
   t2

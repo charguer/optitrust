@@ -16,8 +16,7 @@ let skip_includes (t : trm) : trm =
 
 (* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
 let find_var_in_current_ast ?(target : target = []) (name : string) : var =
-  (* LATER: make var id inference incremental? *)
-  let t = Scope.infer_var_ids (Trace.ast ()) in
+  let t = Trace.ast () in
   let vars =
     if target = [] then trm_def_or_used_vars (skip_includes t)
     else List.fold_left (fun acc p ->

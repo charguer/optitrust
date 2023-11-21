@@ -957,7 +957,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                 let bracketed_trm t = brackets (decorate_trm ~prec:0 t) in
                 d1 ^^ if not !print_beautify_mindex then
                   bracketed_trm (t2)
-                else begin match mindex_inv t2 with
+                else begin match Matrix_trm.mindex_inv t2 with
                 | None -> bracketed_trm (t2)
                 | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
                 end

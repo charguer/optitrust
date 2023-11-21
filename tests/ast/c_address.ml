@@ -18,7 +18,7 @@ let filename =
   | _ -> "c_big.cpp"
 
 let _ = Run.script_cpp ~filename (fun () ->
-  Trace.apply C_scope.infer_var_ids;
+  Scope.infer_var_ids ();
 
   !! Trace.apply infix_elim;
      Trace.apply stackvar_elim;

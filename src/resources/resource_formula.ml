@@ -72,8 +72,7 @@ let formula_cell (x: var): formula =
 
 let formula_matrix (m: trm) (dims: trm list) : formula =
   let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
-  let mindex_n = trm_var (mindex_var (List.length dims)) in
-  let inner_trm = formula_model (trm_array_access m (trm_apps mindex_n (dims @ List.map trm_var indices))) trm_cell in
+  let inner_trm = formula_model (Matrix_trm.access m dims (List.map trm_var indices)) trm_cell in
   List.fold_right2 (fun idx dim formula ->
     trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [trm_int 0; dim; trm_int 1]; formula_fun [idx, typ_int ()] None formula])
     indices dims inner_trm
@@ -147,8 +146,7 @@ let formula_matrix_inv (f: formula): (trm * trm list) option =
   let* location, cell = formula_model_inv inner_formula in
   let* cell_candidate = trm_var_inv cell in
   let* () = if var_eq cell_candidate var_cell then Some () else None in
-  let* matrix, mindex = array_access_inv location in
-  let* mindex_dims, mindex_indices = mindex_inv mindex in
+  let* matrix, mindex_dims, mindex_indices = Matrix_trm.access_inv location in
   let* () = if List.length mindex_dims = List.length dims then Some () else None in
   let* () = if List.for_all2 are_same_trm mindex_dims dims then Some () else None in
   if List.for_all2 (fun mindex_idx idx ->

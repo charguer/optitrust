@@ -112,7 +112,7 @@ let%transfo swap (tg : target) : unit =
     apply_at_target_paths swap_on tg
   );
   if !Flags.check_validity then begin
-    C_scope.check_var_ids (Trace.ast ());
+    Scope.check_var_ids ();
   end
 
 let f = swap

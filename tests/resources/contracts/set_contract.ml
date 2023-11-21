@@ -16,8 +16,7 @@ let _ = Run.script_cpp (fun () ->
        we need to write `acc` and not `&acc` *)
     !! Resources.(set_loop_contract [__sequentially_modifies("acc ~> Cell")]) [cFor "j"];
 
-    (*!! Trace.apply Scope.infer_var_ids;
-    !! Trace.apply Scope.unique_alpha_rename;*)
+    (*!! Trace.apply Scope.unique_alpha_rename;*)
 
     Resources.show ();
 )

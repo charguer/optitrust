@@ -1,4 +1,6 @@
-open Prelude
+open Ast
+open Trm
+open Typ
 open Resource_formula
 open Resource_contract
 
@@ -485,7 +487,7 @@ let rec formula_of_trm (t: trm): formula option =
       | Some _ -> None
       | None ->
         begin match trm_var_inv fn with
-          | Some fv when Array.exists (fun mindex -> var_eq mindex fv) mindex_vars
+          | Some fv when Matrix_trm.mindex_var_inv fv <> None
               -> Some (trm_apps fn f_args)
           | _ -> None
         end
