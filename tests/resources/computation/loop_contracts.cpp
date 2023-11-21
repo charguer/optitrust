@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 __GHOST(array_focus) {
     __requires("M: ptr, i: int, dim: int");

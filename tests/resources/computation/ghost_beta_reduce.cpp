@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 __GHOST(test) {
   __requires("f: int -> formula, k: int, valid: f(k)");

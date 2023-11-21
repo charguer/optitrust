@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 float* matrix_alloc(int N1, int N2) {
   __produces("_Res ~> Matrix2(N1, N2)");

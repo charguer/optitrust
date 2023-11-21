@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 #include "omp.h"
 
 __ghost_ret array_focus() {

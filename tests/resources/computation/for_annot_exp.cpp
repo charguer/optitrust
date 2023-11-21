@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 void matmul(float* C, float* A, float* B, int m, int n, int p) {
   __modifies("C ~> Matrix2(m, n)");

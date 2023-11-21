@@ -21,9 +21,16 @@ let get_c_includes (filename : string) : string =
 let clang_raw_parser (filename: string): trm =
   let command_line_include =
     List.map Clang.Command_line.include_directory
-      (Clang.default_include_directories ()) in
+      (Filename.concat !Flags.optitrust_root "include" :: Clang.default_include_directories ()) in
   let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
-  let command_line_args = command_line_warnings @ command_line_include in
+  let precompiled_stdlib_filename = Filename.concat !Flags.optitrust_root "include/precompiled_stdlib.pch" in
+  let command_line_pch = if Sys.file_exists precompiled_stdlib_filename then
+    ["-include-pch"; precompiled_stdlib_filename]
+  else begin
+    Tools.warn "Could not find the precompiled stdlib: parsing may be very slow";
+    []
+  end in
+  let command_line_args = command_line_warnings @ command_line_include @ command_line_pch in
   Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename)
 
 let menhir_raw_parser (filename: string): trm =

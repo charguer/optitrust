@@ -1,6 +1,6 @@
-#include "harris.h"
+#include <optitrust.h>
 #include <stdlib.h>
-#include "../../include/optitrust.h"
+#include "harris.h"
 
 inline int min(int a, int b) { return a < b ? a : b; }
 

@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 float* array_alloc(int len) {
     __produces("_Res ~> Array(len)");

@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 int div_exact(int a, int b) {
   __requires("q:int");

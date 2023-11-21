@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 void incr(int* a) {
     __modifies("a ~> Cell");

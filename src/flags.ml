@@ -173,6 +173,9 @@ let only_big_steps : bool ref = ref false
 (* [c_parser_name]: name of the C parser to use *)
 let c_parser_name : string ref = ref "default"
 
+(* Name of the root installation folder. It can also be the name of the source folder for not installed builds. *)
+let optitrust_root : string ref = ref "."
+
 (* Name of the currently executed transformation script.
    By default it is Sys.argv.(0) but it can be different in case of dynamic loading. *)
 let program_name : string ref = ref ""

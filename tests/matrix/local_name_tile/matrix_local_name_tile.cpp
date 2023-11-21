@@ -1,5 +1,5 @@
+#include <optitrust.h>
 
-#include "../../../include/optitrust.h"
 typedef int T;
 // FIXME: not supported yet
 // T* b;

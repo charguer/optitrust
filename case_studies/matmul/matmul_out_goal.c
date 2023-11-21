@@ -1,4 +1,4 @@
-#include "../../include/optitrust.h"
+#include <optitrust.h>
 #include "matmul.h"
 
 // NOTE: using pretty matrix notation
@@ -41,7 +41,7 @@ void mm1024(float* C, float* A, float* B) {
           /* for (int j = 0; j < 32; j++) {
             tmp[j] = sum[(i * 32) + j];
           } */
-          
+
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
             tmp[j] += A[1024 * (32 * bi + i) + 4 * bk + 0] *

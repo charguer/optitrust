@@ -1,3 +1,6 @@
+#ifndef OPTITRUST_H
+#define OPTITRUST_H
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -445,3 +448,5 @@ inline void MFREE(void* p) {
 }
 
 inline int ANY(int maxValue) { return 0; }
+
+#endif

@@ -1,6 +1,5 @@
+#include <optitrust.h>
 #include <stdio.h>
-
-#include "../../../include/optitrust.h"
 
 int min(int a, int b) { return (a < b ? a : b); }
 

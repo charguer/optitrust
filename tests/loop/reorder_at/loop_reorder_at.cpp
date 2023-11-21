@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 void f1(int* y) {
   __modifies("y ~> Matrix2(4, 4)");

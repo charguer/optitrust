@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 void matmul(float* C, float* A, float* B, int m, int n, int p) {
   __reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");

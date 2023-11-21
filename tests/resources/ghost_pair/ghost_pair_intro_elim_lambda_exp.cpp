@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 __ghost_ret freeze_cell() {
   __requires("p: loc");

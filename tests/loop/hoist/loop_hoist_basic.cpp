@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 void f(int *t, int *u) {
   __reads("Group(range(0, 10, 1), fun i -> &t[i] ~> Cell)");

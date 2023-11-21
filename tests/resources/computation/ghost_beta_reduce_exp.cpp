@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 __ghost_ret test() {
   __requires("f: _Fun(int, formula)");

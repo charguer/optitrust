@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 void parallel(int* t, int* u, int n) {
   __modifies(

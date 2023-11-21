@@ -1,6 +1,5 @@
+#include <optitrust.h>
 #include <stdlib.h>
-
-#include "../../include/optitrust.h"
 #include "harris.h"
 
 // NOTE: using pretty matrix notation

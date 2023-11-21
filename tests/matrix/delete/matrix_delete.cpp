@@ -1,5 +1,5 @@
+#include <optitrust.h>
 #include <stdio.h>
-#include "../../../include/optitrust.h"
 
 extern int N;
 typedef float T;

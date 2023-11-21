@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 void var(int* t) {
   __modifies("t ~> Matrix1(3)");

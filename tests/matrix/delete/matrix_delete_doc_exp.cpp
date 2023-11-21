@@ -1,3 +1,3 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 int main() { return 0; }

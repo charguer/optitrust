@@ -51,8 +51,8 @@ ${TRACEFLAGS:=""}
 
 # Path to the tools and optitrust folder
 TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0";)")
-OPTITRUST_FOLDER="${TOOLS_FOLDER}/.."
-SRC_FOLDER=$(readlink -f ${TOOLS_FOLDER}/../src)
+export OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")
+SRC_FOLDER=$(readlink -f ${OPTITRUST_FOLDER}/src)
 
 # Disallow execution in the src folder
 if [[ ${DIRNAME}/ == ${SRC_FOLDER}/* ]]

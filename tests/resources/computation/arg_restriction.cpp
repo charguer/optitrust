@@ -1,4 +1,4 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 int f(int x) {
     __ensures("_Res = x * x");
