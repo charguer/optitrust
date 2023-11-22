@@ -46,7 +46,7 @@ let trm_seq (fn: 'a -> trm mlist -> 'b) (k: 'a) (t: trm): 'b =
   | Some seq -> fn k seq
   | None -> raise Next
 
-let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> (hyp * formula) list -> 'd) (k: 'a) (t: trm): 'd =
+let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> resource_item list -> 'd) (k: 'a) (t: trm): 'd =
   match t.desc with
   | Trm_apps (f, a, ga) ->
     let k = fn k f in

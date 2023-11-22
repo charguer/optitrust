@@ -668,7 +668,7 @@ and trm_desc =
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
-  | Trm_apps of trm * trm list * (hyp * formula) list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
+  | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
   | Trm_while of trm * trm     (* while (t1) { t2 } *)
   | Trm_for of loop_range  * trm * loop_spec
   | Trm_for_c of trm * trm * trm * trm * resource_spec

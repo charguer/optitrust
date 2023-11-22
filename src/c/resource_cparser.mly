@@ -12,8 +12,8 @@
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
 
-%start <contract_resource list> resource_list
-%start <(hyp * formula) list> ghost_arg_list
+%start <contract_resource_item list> resource_list
+%start <resource_item list> ghost_arg_list
 
 %%
 

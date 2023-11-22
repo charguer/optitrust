@@ -134,7 +134,7 @@ let%transfo loop_minimize (tg: target) : unit =
   ensure_computed ();
   Target.apply_at_target_paths loop_minimize_on tg
 
-let assert_hyp_read_only ~(error : string) ((x, t) : (hyp * formula)) : unit =
+let assert_hyp_read_only ~(error : string) ((x, t) : resource_item) : unit =
   match formula_read_only_inv t with
   | Some _ -> ()
   | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.named_formula_to_string (x, t)))

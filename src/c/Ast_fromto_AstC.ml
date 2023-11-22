@@ -645,7 +645,7 @@ let rec extract_encoded_contract_clauses (seq: trm mlist):
     contract::cont, seq
   | None -> [], seq
 
-let extract_contract (empty_contract: 'c) (push_contract_clause: contract_clause_type -> contract_resource -> 'c -> 'c) (seq: trm mlist) : 'c option * trm mlist =
+let extract_contract (empty_contract: 'c) (push_contract_clause: contract_clause_type -> resource_item -> 'c -> 'c) (seq: trm mlist) : 'c option * trm mlist =
   let enc_contract, seq = extract_encoded_contract_clauses seq in
   match enc_contract with
   | [] -> None, seq

@@ -16,7 +16,7 @@ type contract_clause_type =
   | SequentiallyReads
   | SequentiallyModifies
 
-type contract_clause = contract_clause_type * contract_resource
+type contract_clause = contract_clause_type * contract_resource_item
 
 let resource_set ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) () =
   { pure; linear; fun_specs }
@@ -54,39 +54,39 @@ let rec encode_formula (formula: formula): formula =
   | Some (m, dims) -> formula_model m (trm_apps (trm_var (toplevel_var (sprintf "Matrix%d" (List.length dims)))) dims)
   | None -> trm_map encode_formula formula
 
-let push_pure_res (res: contract_resource) (res_set: resource_set) =
-  { res_set with pure = new_res_item res :: res_set.pure }
+let push_pure_res (res: resource_item) (res_set: resource_set) =
+  { res_set with pure = res :: res_set.pure }
 
-let push_linear_res (res: contract_resource) (res_set: resource_set) =
-  { res_set with linear = new_res_item res :: res_set.linear }
+let push_linear_res (res: resource_item) (res_set: resource_set) =
+  { res_set with linear = res :: res_set.linear }
 
-let push_read_only_fun_contract_res ((name, formula): contract_resource) (contract: fun_contract): fun_contract =
+let push_read_only_fun_contract_res ((name, formula): resource_item) (contract: fun_contract): fun_contract =
   let frac_var, frac_ghost = new_frac () in
   let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
   let pre = push_linear_res (name, ro_formula) { contract.pre with pure = frac_ghost :: contract.pre.pure } in
   let post = push_linear_res (name, ro_formula) contract.post in
   { pre; post }
 
-let contract_resource_uninit ((name, formula): contract_resource): contract_resource =
+let resource_item_uninit ((name, formula): resource_item): resource_item =
   (name, formula_uninit formula)
 
 (* LATER: Preserve user syntax using annotations *)
 let push_fun_contract_clause (clause: contract_clause_type)
-    (res: contract_resource) (contract: fun_contract) =
+    (res: resource_item) (contract: fun_contract) =
   match clause with
   | Requires -> { contract with pre = push_pure_res res contract.pre }
   | Consumes -> { contract with pre = push_linear_res res contract.pre }
   | Ensures -> { contract with post = push_pure_res res contract.post }
   | Produces -> { contract with post = push_linear_res res contract.post }
   | Reads -> push_read_only_fun_contract_res res contract
-  | Writes -> { pre = push_linear_res (contract_resource_uninit res) contract.pre ; post = push_linear_res res contract.post }
+  | Writes -> { pre = push_linear_res (resource_item_uninit res) contract.pre ; post = push_linear_res res contract.post }
   | Modifies -> { pre = push_linear_res res contract.pre ; post = push_linear_res res contract.post }
   | Invariant -> { pre = push_pure_res res contract.pre ; post = push_pure_res res contract.post }
   | SequentiallyReads -> failwith "SequentiallyReads only makes sense for loop contracts"
   | SequentiallyModifies -> failwith "SequentiallyModifies only makes sense for loop contracts"
 
 let push_loop_contract_clause (clause: contract_clause_type)
-    (res: contract_resource) (contract: loop_contract) =
+    (res: resource_item) (contract: loop_contract) =
   match clause with
   | Invariant -> { contract with invariant = push_pure_res res contract.invariant }
   | Reads ->
@@ -103,11 +103,18 @@ let push_loop_contract_clause (clause: contract_clause_type)
     { contract with invariant = push_linear_res res contract.invariant }
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
-let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: contract_clause_type -> contract_resource -> 'c -> 'c) (clauses: (contract_clause_type * string) list) : 'c =
+let parse_contract_res_item ((name, formula): contract_resource_item): resource_item =
+  let name = match name with
+    | Some h -> (* new_hyp_like *) h
+    | None -> new_anon_hyp ()
+  in
+  (name, formula)
+
+let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: contract_clause_type -> resource_item -> 'c -> 'c) (clauses: (contract_clause_type * string) list) : 'c =
   List.fold_right (fun (clause, desc) contract  ->
       try
         let res_list = Resource_cparser.resource_list (Resource_clexer.lex_resources) (Lexing.from_string desc) in
-        List.fold_right (fun res contract -> push_contract_clause clause res contract) res_list contract
+        List.fold_right (fun res contract -> push_contract_clause clause (parse_contract_res_item res) contract) res_list contract
       with Resource_cparser.Error ->
         failwith ("Failed to parse resource: " ^ desc)
     ) clauses empty_contract

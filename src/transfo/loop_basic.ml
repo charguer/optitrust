@@ -126,7 +126,7 @@ let hoist_on (name : string)
       Resource_formula.formula_group_range (i, trm_int 0, DirUp, d, Post_inc, false) acc
     ) Resource_formula.(formula_model access trm_cell) (List.combine other_indices dims) in
     let new_resource = Resource_formula.(formula_uninit grouped_access) in
-    new_body_instrs, Some (Resource_contract.push_loop_contract_clause Modifies (None, new_resource) contract)
+    new_body_instrs, Some (Resource_contract.push_loop_contract_clause Modifies (Resource_formula.new_anon_hyp (), new_resource) contract)
   | None ->
     (* TODO: Generate ghost focus *)
     new_body_instrs, None
@@ -273,7 +273,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
           | Some _ -> Resource_contract.SequentiallyModifies
           | None -> Resource_contract.SequentiallyReads
           in
-          Resource_contract.push_loop_contract_clause clause (None, f) acc
+          Resource_contract.push_loop_contract_clause clause (Resource_formula.new_anon_hyp (), f) acc
         ) partial_snd_contract tl1_inv_reads
       );
     end;

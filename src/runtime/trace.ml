@@ -264,7 +264,7 @@ let dummy_exectime : float = 0.
 let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
   stats ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
     ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));
-    if (* temporary *) false && uncomment_pragma
+    if (* false && *) uncomment_pragma
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
   )
 

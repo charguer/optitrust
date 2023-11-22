@@ -3,7 +3,7 @@ open Trm
 open Typ
 open Mark
 
-type contract_resource = var option * formula
+type contract_resource_item = var option * formula
 
 let new_hyp = new_var
 
@@ -15,13 +15,6 @@ let new_anon_hyp (): hyp =
 
 let new_hyp_like (h: hyp): hyp =
   new_hyp ~qualifier:h.qualifier h.name
-
-let new_res_item ((name, formula): contract_resource): resource_item =
-  let name = match name with
-    | Some h -> new_hyp_like h
-    | None -> new_anon_hyp ()
-  in
-  (name, formula)
 
 let var_has_model = toplevel_var "_HasModel"
 let trm_has_model = trm_var var_has_model
@@ -229,7 +222,7 @@ let trm_ghost_scope (ghost_fn: trm) (ghost_args: (var * trm) list) (seq: trm lis
   let _, ghost_begin, ghost_end = trm_ghost_pair ghost_fn ghost_args in
   Nobrace.trm_seq_nomarks (ghost_begin :: seq @ [ghost_end])
 
-let trm_ghost_begin_inv (t: trm): (var * trm * (hyp * formula) list) option =
+let trm_ghost_begin_inv (t: trm): (var * trm * resource_item list) option =
   Pattern.pattern_match t [
     Pattern.(trm_let __ !__ __ (trm_apps1 (trm_var (var_eq ghost_begin)) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args ->
       Some (pair_var, ghost_fn, ghost_args)
