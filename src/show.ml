@@ -161,8 +161,10 @@ let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
 let trms ?(style = Default) ?(msg : string = "") (ts : trms) : unit =
   prt_list ~msg trm ts
 
+(* DEPRECATED: use ShowAt.trm []
 let ast ?(style = Default) ?(msg : string = "") () : unit =
   trm ~style ~msg (**:(add_linebreak msg)*) (Trace.ast ())
+*)
 
 (* types *)
 
@@ -225,9 +227,11 @@ module At = struct
 
   (* Operations *)
 
+(* DEPRECATED: use ShowAt.trm []
   let ast ?(msg : string = "") (tg : Target.target) : unit =
     if tg <> [] then fail None "ShowAt.ast: can only be called on the root, with argument []";
     ast ~msg ()
+    *)
 
   let path ?(msg : string = "") (tg : Target.target) : unit =
     at ~msg (fun p _t -> path p) tg

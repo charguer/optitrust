@@ -725,7 +725,7 @@ let target_to_target_struct (tr : target) : target_struct =
   let tr = target_flatten tr in
   let relative = ref None in
   let occurences = ref None in
-  let incontracts = ref false in
+  let incontracts = ref true in (* TODO: think about it *)
   let process_constr (c : constr) : unit =
     match c with
     | Constr_relative re ->

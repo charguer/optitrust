@@ -497,148 +497,173 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
     match dl with
     | [] -> (t, List.rev ctx)
     | d :: dl ->
-       let aux t ctx = aux_on_path_rec dl t ctx in
-       let loc = t.loc in
-       begin match d, t.desc with
-       | Dir_before _, _ -> fail t.loc "aux_on_path_rec: Dir_before should not remain at this stage"
-       | Dir_seq_nth n, Trm_seq tl ->
-          let tl = Mlist.to_list tl in
-          let decl_before (n : int) (tl : trm list) =
-            Xlist.fold_lefti
-              (fun i acc (t : trm) ->
-                if i >= n
-                  then acc
-                  else
-                    match t.desc with
-                    | Trm_let _ -> t :: acc
-                    | Trm_let_fun _ -> t :: acc
-                    | Trm_typedef _ -> t :: acc
-                    | _ -> acc) [] tl
-            in
-          app_to_nth loc tl n
-            (fun nth_t -> aux nth_t ((decl_before n tl)@ctx))
-       | Dir_array_nth n, Trm_array tl ->
-          app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
-       | Dir_struct_nth n, Trm_record tl ->
-          app_to_nth loc (Xlist.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t ctx)
-       | Dir_cond, Trm_if (cond, _, _)
-         | Dir_cond, Trm_while (cond, _)
-         | Dir_cond, Trm_do_while (_, cond)
-         | Dir_cond, Trm_switch (cond, _) ->
-          aux cond ctx
-       | Dir_cond, Trm_for_c (init, cond, _, _, _) ->
-          begin match init.desc with
-          | Trm_let _  -> aux cond (init :: ctx)
-          | _ -> aux cond ctx
-          end
-       | Dir_then, Trm_if (_, then_t, _) ->
-          aux then_t ctx
-       | Dir_else, Trm_if (_, _, else_t) ->
-          aux else_t ctx
-       | Dir_body, Trm_let_fun (_, _, args, body, _) ->
-          (* do as if fun args were heap allocated *)
-          let args_decl =
-            List.rev_map
-              (fun (x, tx) ->
-                trm_let_mut (x, tx) (trm_lit Lit_uninitialized)
-              )
-              args
+      let aux t ctx = aux_on_path_rec dl t ctx in
+      let aux_resource_item (h, formula) = aux formula ctx in
+      let aux_resource_set resource_set_dir i res : trm * (trm list) =
+        match resource_set_dir with
+        | Resource_set_pure -> aux_resource_item (List.nth res.pure i)
+        | Resource_set_linear -> aux_resource_item (List.nth res.linear i)
+        | Resource_set_fun_contracts -> failwith "resolve_path_and_ctx: not handled Resource_set_fun_contract"
+      in
+      let loc = t.loc in
+      begin match d, t.desc with
+      | Dir_before _, _ -> fail t.loc "aux_on_path_rec: Dir_before should not remain at this stage"
+      | Dir_seq_nth n, Trm_seq tl ->
+        let tl = Mlist.to_list tl in
+        let decl_before (n : int) (tl : trm list) =
+          Xlist.fold_lefti
+            (fun i acc (t : trm) ->
+              if i >= n
+                then acc
+                else
+                  match t.desc with
+                  | Trm_let _ -> t :: acc
+                  | Trm_let_fun _ -> t :: acc
+                  | Trm_typedef _ -> t :: acc
+                  | _ -> acc) [] tl
           in
-          aux body (args_decl@ctx)
-       | Dir_body, Trm_for_c (init, _, _, body, _) ->
-          begin match init.desc with
-          | Trm_let _ ->
-             aux body (init :: ctx)
-          | _ -> aux body ctx
-          end
-       | Dir_body, Trm_for (_, body, _) ->
-          aux body ctx
-       | Dir_var_body, Trm_let (_, _, body) ->
-          let new_op_arg = new_operation_arg body in
-          if is_new_operation body then aux new_op_arg (body :: ctx) else aux body ctx
-       | Dir_body, Trm_let (_, _, body)
-         | Dir_body, Trm_while (_, body)
-         | Dir_body, Trm_do_while (body, _)
-         | Dir_body, Trm_abort (Ret (Some body)) ->
-          aux body ctx
-       | Dir_for_start, Trm_for (l_range, _, _) ->
-          let (_, start, _, _, _, _) = l_range in
-          aux start ctx
-       | Dir_for_stop, Trm_for (l_range, _, _) ->
-          let (_,  _, _, stop, _, _) = l_range in
-          aux stop ctx
-
-       | Dir_for_step, Trm_for (l_range, _, _) ->
-          let (_, _, _, _, step, _) = l_range in
-          let step_trm = loop_step_to_trm step in
-          aux step_trm ctx
-       | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
-          aux init ctx
-       | Dir_for_c_step, Trm_for_c (init, _, step, _, _) ->
-          begin match init.desc with
-          | Trm_let _ ->
-             aux step (init :: ctx)
-          | _ -> aux step ctx
-          end
-       | Dir_app_fun, Trm_apps (f, _, _) -> aux f ctx
-       | Dir_arg_nth n, Trm_apps (_, tl, _) ->
-          app_to_nth loc tl n (fun nth_t -> aux nth_t ctx)
-       | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
-          app_to_nth loc arg n
-            (fun (x, _) -> aux (trm_var ?loc x) ctx)
-       | Dir_name, Trm_let_fun (x, _, _, _, _) ->
-          aux (trm_var ?loc x) ctx
-       | Dir_name , Trm_let (_,(x,_),_) ->
-          aux (trm_var ?loc x) ctx
-       | Dir_name, Trm_goto x ->
-         (* CHECK: #var-id-dir-name , is this correct? *)
-         aux (trm_var ?loc { qualifier = []; name = x; id = dummy_var_id}) ctx
-       | Dir_name, Trm_typedef td ->
-        (* CHECK: #var-id-dir-name , is this correct? *)
-        let var = { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id } in
-        aux (trm_var ?loc var) ctx
-       | Dir_case (n, cd), Trm_switch (_, cases) ->
-          app_to_nth loc cases n
-            (fun (tl, body) ->
-              match cd with
-              | Case_body -> aux body ctx
-              | Case_name i ->
-                 app_to_nth loc tl i (fun ith_t -> aux ith_t ctx)
+        app_to_nth loc tl n
+          (fun nth_t -> aux nth_t ((decl_before n tl)@ctx))
+      | Dir_array_nth n, Trm_array tl ->
+        app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
+      | Dir_struct_nth n, Trm_record tl ->
+        app_to_nth loc (Xlist.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t ctx)
+      | Dir_cond, Trm_if (cond, _, _)
+        | Dir_cond, Trm_while (cond, _)
+        | Dir_cond, Trm_do_while (_, cond)
+        | Dir_cond, Trm_switch (cond, _) ->
+        aux cond ctx
+      | Dir_cond, Trm_for_c (init, cond, _, _, _) ->
+        begin match init.desc with
+        | Trm_let _  -> aux cond (init :: ctx)
+        | _ -> aux cond ctx
+        end
+      | Dir_then, Trm_if (_, then_t, _) ->
+        aux then_t ctx
+      | Dir_else, Trm_if (_, _, else_t) ->
+        aux else_t ctx
+      | Dir_body, Trm_let_fun (_, _, args, body, _) ->
+        (* do as if fun args were heap allocated *)
+        let args_decl =
+          List.rev_map
+            (fun (x, tx) ->
+              trm_let_mut (x, tx) (trm_lit Lit_uninitialized)
             )
-       | Dir_enum_const (n, ecd), Trm_typedef td ->
-          begin match td.typdef_body with
-          | Typdef_enum xto_l ->
-            app_to_nth loc xto_l n
-             (fun (x, t_o) ->
-               match ecd with
-               | Enum_const_name -> aux (trm_var ?loc x) ctx
-               | Enum_const_val ->
-                  begin match t_o with
-                  | None ->
-                     fail loc
-                       "Path.resolve_path_and_ctx: no value for enum constant"
-                  | Some t ->
-                     aux t ctx
-                  end
-             )
-          | _ -> fail loc "Path.resolving_path: direction"
-          end
-       | Dir_record_field n, Trm_typedef td ->
-         begin match td.typdef_body with
-          | Typdef_record rfl ->
-            app_to_nth loc rfl n
-              (fun (rf, rf_annt) -> match rf with
-                | Record_field_method t1 -> aux t1 ctx
-                | _ -> fail t.loc "Path.apply_on_path: expected a method.")
-          | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
-          end
-       | Dir_namespace, Trm_namespace (name, body, inline) ->
-         aux body ctx
-       | _, _ ->
-          let s = dir_to_string d in
-          let s_t = AstC_to_c.ast_to_string t in
-          fail loc (Printf.sprintf "Path.resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
-       end
+            args
+        in
+        aux body (args_decl@ctx)
+      | Dir_body, Trm_for_c (init, _, _, body, _) ->
+        begin match init.desc with
+        | Trm_let _ ->
+            aux body (init :: ctx)
+        | _ -> aux body ctx
+        end
+      | Dir_body, Trm_for (_, body, _) ->
+        aux body ctx
+      | Dir_var_body, Trm_let (_, _, body) ->
+        let new_op_arg = new_operation_arg body in
+        if is_new_operation body then aux new_op_arg (body :: ctx) else aux body ctx
+      | Dir_body, Trm_let (_, _, body)
+        | Dir_body, Trm_while (_, body)
+        | Dir_body, Trm_do_while (body, _)
+        | Dir_body, Trm_abort (Ret (Some body)) ->
+        aux body ctx
+      | Dir_for_start, Trm_for (l_range, _, _) ->
+        let (_, start, _, _, _, _) = l_range in
+        aux start ctx
+      | Dir_for_stop, Trm_for (l_range, _, _) ->
+        let (_,  _, _, stop, _, _) = l_range in
+        aux stop ctx
+
+      | Dir_for_step, Trm_for (l_range, _, _) ->
+        let (_, _, _, _, step, _) = l_range in
+        let step_trm = loop_step_to_trm step in
+        aux step_trm ctx
+      | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
+        aux init ctx
+      | Dir_for_c_step, Trm_for_c (init, _, step, _, _) ->
+        begin match init.desc with
+        | Trm_let _ ->
+            aux step (init :: ctx)
+        | _ -> aux step ctx
+        end
+      | Dir_app_fun, Trm_apps (f, _, _) -> aux f ctx
+      | Dir_arg_nth n, Trm_apps (_, tl, _) ->
+        app_to_nth loc tl n (fun nth_t -> aux nth_t ctx)
+      | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
+        app_to_nth loc arg n
+          (fun (x, _) -> aux (trm_var ?loc x) ctx)
+      | Dir_name, Trm_let_fun (x, _, _, _, _) ->
+        aux (trm_var ?loc x) ctx
+      | Dir_name , Trm_let (_,(x,_),_) ->
+        aux (trm_var ?loc x) ctx
+      | Dir_name, Trm_goto x ->
+        (* CHECK: #var-id-dir-name , is this correct? *)
+        aux (trm_var ?loc { qualifier = []; name = x; id = dummy_var_id}) ctx
+      | Dir_name, Trm_typedef td ->
+      (* CHECK: #var-id-dir-name , is this correct? *)
+      let var = { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id } in
+      aux (trm_var ?loc var) ctx
+      | Dir_case (n, cd), Trm_switch (_, cases) ->
+        app_to_nth loc cases n
+          (fun (tl, body) ->
+            match cd with
+            | Case_body -> aux body ctx
+            | Case_name i ->
+                app_to_nth loc tl i (fun ith_t -> aux ith_t ctx)
+          )
+      | Dir_enum_const (n, ecd), Trm_typedef td ->
+        begin match td.typdef_body with
+        | Typdef_enum xto_l ->
+          app_to_nth loc xto_l n
+            (fun (x, t_o) ->
+              match ecd with
+              | Enum_const_name -> aux (trm_var ?loc x) ctx
+              | Enum_const_val ->
+                begin match t_o with
+                | None ->
+                    fail loc
+                      "Path.resolve_path_and_ctx: no value for enum constant"
+                | Some t ->
+                    aux t ctx
+                end
+            )
+        | _ -> fail loc "Path.resolving_path: direction"
+        end
+      | Dir_record_field n, Trm_typedef td ->
+        begin match td.typdef_body with
+        | Typdef_record rfl ->
+          app_to_nth loc rfl n
+            (fun (rf, rf_annt) -> match rf with
+              | Record_field_method t1 -> aux t1 ctx
+              | _ -> fail t.loc "Path.apply_on_path: expected a method.")
+        | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
+        end
+      | Dir_namespace, Trm_namespace (name, body, inline) ->
+        aux body ctx
+
+      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_let_fun (v, vty, args, body, FunSpecContract contract) ->
+        aux_resource_set resource_set_dir i contract.pre
+      | Dir_contract (Contract_post, resource_set_dir, i), Trm_let_fun (v, vty, args, body, FunSpecContract contract) ->
+        aux_resource_set resource_set_dir i contract.post
+      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
+        aux_resource_set resource_set_dir i contract.pre
+      | Dir_contract (Contract_post, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
+        aux_resource_set resource_set_dir i contract.post
+      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_for (range, body, Some contract) ->
+        aux_resource_set resource_set_dir i contract.iter_contract.pre
+      | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, body, Some contract) ->
+        aux_resource_set resource_set_dir i contract.iter_contract.post
+      | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, body, Some contract) ->
+        aux_resource_set resource_set_dir i contract.invariant
+      | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for_c (start, cond, incr, body, Some invariant) ->
+        aux_resource_set resource_set_dir i invariant
+
+      | _, _ ->
+        let s = dir_to_string d in
+        let s_t = AstC_to_c.ast_to_string t in
+        fail loc (Printf.sprintf "Path.resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
+      end
   in
   aux_on_path_rec dl t []
 

@@ -170,7 +170,7 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
 
 and var_to_doc style (v : var) : document =
   if style.ast.print_var_id then
-    Ast_to_text.print_var v
+    Ast_to_text.print_ast_var style.ast v
   else
     (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
     (string v.name)

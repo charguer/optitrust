@@ -11,18 +11,7 @@ int main() {
 }
 /*
 CAPTURED STDOUT:
-AST1: 
-
-  int main (  )  {
-  int a, b;
-  int x = 3;
-  x--;
-  for ( int i = 0; i < 3; i++ ) {
-    __sequentially_modifies("x ~> Cell");
-    x++;
-  }
-}
-AST2: 
+AST: 
 
   int main (  )  {
   int a, b;
@@ -35,7 +24,7 @@ AST2:
 }
 var-trm-internal:   int* x = new int( 3 )
 for-trm-internal: for ( int i = 0; i < 3; i++ ) { x++; }
-for-trm-internal-desc: Trm_for ( i#351,
+for-trm-internal-desc: Trm_for ( i,
   Trm_val ( Val_lit ( Lit_int 0 ) ),
   Up,
   Trm_val ( Val_lit ( Lit_int 3 ) ),
@@ -43,12 +32,13 @@ for-trm-internal-desc: Trm_for ( i#351,
   false,
   Trm_seq [
     Trm_apps ( Trm_val ( Val_prim ( Prim_unop Unop_post_inc ) ),
-      [ Trm_var( Var_mutable,x#350) ] )
+      [ Trm_var( Var_mutable,x) ] )
   ] )
 desc: Trm_for
-typ: target resolves to 2 paths
+typ: target resolves to 3 paths
 [occ #1] int
 [occ #2] int
+[occ #3] <no_typ>
 marks: [mymark2; mymark1]
 cstyle-item: [ Stackvar ]
 annot: {trm_annot_attributes = [  ]; trm_annot_marks = [  ];

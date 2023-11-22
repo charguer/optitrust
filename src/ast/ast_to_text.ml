@@ -208,9 +208,13 @@ and print_attribute style (a : attribute) : document =
   | Others -> empty
 
 (* [print_var]: converts [v] into a docuemnt. *)
-and print_var (v : var) : document =
+and print_ast_var style (v : var) : document =
   (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
-  string v.name ^^ string "#" ^^ string (string_of_int v.id)
+  string v.name ^^ (if style.print_var_id then string ("#" ^ string_of_int v.id) else empty)
+
+(* [print_var]: converts [v] into a docuemnt. *)
+and print_var style (v : var) : document =
+  print_ast_var style.ast v
 
 and print_typconstr ((qualifier, name) : typconstr) : document =
   (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
@@ -224,7 +228,7 @@ and print_trm_desc style (t : trm_desc) : document =
      print_node "Trm_val" ^^ parens dv
   | Trm_var (vk, v) ->
     let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
-    let v_d = print_var v in
+    let v_d = print_var style v in
     string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ v_d ^^ rparen
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
@@ -245,13 +249,13 @@ and print_trm_desc style (t : trm_desc) : document =
     let dtx = print_typ style tx in
     let dt = print_trm style t in
     print_node "Trm_let" ^^
-      parens (separate (comma ^^ break 1) [dvk; print_var x; dtx; dt])
+      parens (separate (comma ^^ break 1) [dvk; print_var style x; dtx; dt])
   | Trm_let_mult (vk, tvl, tl) ->
     let dvk = match vk with
     | Var_mutable -> string "Var_mutable"
     | Var_immutable -> string "Var_immutable"
       in
-    let dtx = List.map (fun (x, ty) -> parens (print_var x ^^ comma ^^ print_typ { style with only_desc = true } (* TODO: why is it so? *) ty)) tvl in
+    let dtx = List.map (fun (x, ty) -> parens (print_var style x ^^ comma ^^ print_typ { style with only_desc = true } (* TODO: why is it so? *) ty)) tvl in
     let dts = List.map (fun t -> print_trm style t) tl in
     let dtl = List.map2 (fun v t ->  parens (v ^^ comma ^^ t)) dtx dts in
     let dtx = Tools.list_to_doc ~sep:comma dtx in
@@ -262,9 +266,9 @@ and print_trm_desc style (t : trm_desc) : document =
     let dout = print_typ style r in
     let dtvl = List.map(function (x,tx) ->
           let dtx = print_typ style tx in
-          print_pair (print_var x) dtx) tvl in
+          print_pair (print_var style x) dtx) tvl in
     let dt = print_trm style b in
-    let fd = print_var f in
+    let fd = print_var style f in
     print_node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
         [fd; dout; print_list dtvl; dt])
@@ -317,7 +321,7 @@ and print_trm_desc style (t : trm_desc) : document =
     let dparallel = string (string_of_bool is_parallel) in
     let dbody = print_trm style body in
     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
-      [print_var index; dstart; ddir; dstop; dstep; dparallel; dbody])
+      [print_var style index; dstart; ddir; dstop; dstep; dparallel; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm style cond in
      let dcases =
@@ -372,7 +376,7 @@ and print_trm_desc style (t : trm_desc) : document =
     let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ style ty | None -> string "None" end in
     let dtvl = List.map(function (x,tx) ->
           let dtx = print_typ style tx in
-          print_pair (print_var x) dtx) tvl in
+          print_pair (print_var style x) dtx) tvl in
     let dt = print_trm style b in
     print_node "Trm_fun" ^^
       parens (separate (comma ^^ break 1)
@@ -427,8 +431,8 @@ and print_typedef style (td : typedef) : document =
          (List.map
             (fun (y, t_o) ->
               match t_o with
-              | None -> print_pair (print_var y) underscore
-              | Some t -> print_pair (print_var y) (print_trm style t)
+              | None -> print_pair (print_var style y) underscore
+              | Some t -> print_pair (print_var style y) (print_trm style t)
             )
             enum_const_l
          )

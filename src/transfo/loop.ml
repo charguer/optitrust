@@ -109,9 +109,11 @@ let%transfo hoist_alloc_loop_list
     let simpl_index_after_inline (tg : target) : unit =
       Target.iter (fun _t p_nested ->
         let p = p_nested |> Path.parent in
+        Show.path ~msg:"p_nested" p_nested;
+        Show.path ~msg:"p" p;
         Matrix_basic.simpl_access_of_access (target_of_path p);
-        Matrix_basic.simpl_index_add ((target_of_path p) @ [dArg 1]);
-        Arith.(simpl_rec gather_rec ((target_of_path p) @ [dArg 1]));
+        Matrix_basic.simpl_index_add (target_of_path (p @ [Dir_arg_nth 1]));
+        Arith.(simpl_rec gather_rec (target_of_path (p @ [Dir_arg_nth 1])));
       ) tg
     in
     let make_pretty_and_unmark (alloc_name: string) : unit =
