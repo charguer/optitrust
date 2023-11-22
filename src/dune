@@ -2,7 +2,7 @@
   (name optitrust)
   (public_name optitrust)
   (preprocess (pps ppx_transfo))
-  (libraries compcert_parser clangml refl pprint str base64)
+  (libraries compcert_parser clangml refl pprint str base64 ocamlgraph)
   (modes byte native))
 
 (include_subdirs unqualified)
