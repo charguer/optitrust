@@ -120,7 +120,7 @@ let hoist_on (name : string)
   end in
   let new_body_instrs, new_contract = match contract with
   | Some contract ->
-    let new_resource = Resource_formula.(formula_model !new_access trm_cell) in
+    let new_resource = Resource_formula.(formula_uninit (formula_model !new_access trm_cell)) in
     new_body_instrs, Some (Resource_contract.push_loop_contract_clause Modifies (None, new_resource) contract)
   | None ->
     (* TODO: Generate ghost focus *)
