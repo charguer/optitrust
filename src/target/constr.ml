@@ -1602,8 +1602,10 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
         add_dir Dir_body (aux_body body) @
         begin match contract with
         | FunSpecContract contract ->
-          (aux_contract_dir Contract_pre contract.pre) @
-          (aux_contract_dir Contract_post contract.post)
+          if incontracts then
+            (aux_contract_dir Contract_pre contract.pre) @
+            (aux_contract_dir Contract_post contract.post)
+          else []
         | _ -> []
         end
      | Trm_typedef td  ->

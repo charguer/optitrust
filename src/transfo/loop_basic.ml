@@ -83,22 +83,18 @@ let hoist_on (name : string)
   let old_var = ref dummy_var in
   let new_var = ref dummy_var in
   let new_dims = ref [] in
-  let new_access = ref trm_dummy in
-  let with_mindex (dims : trms) : trm =
-    new_dims := (arith_f array_size) :: dims;
-    let partial_indices = (arith_f new_index) ::
-      (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
-    mindex !new_dims partial_indices
-  in
   let update_decl (decl : trm) : trm =
     let error = "Loop_basic.hoist_on: expected variable declaration with MALLOCN initialization" in
     let (x, dims, etyp, elem_size) = trm_inv ~error Matrix_core.let_alloc_inv_with_ty decl in
     old_var := x;
     new_var := Trm.new_var (Tools.string_subst "${var}" x.name name);
     elem_ty := etyp;
-    let mindex = with_mindex dims in
-    new_access := trm_array_access (trm_var !new_var) mindex;
-    trm_let Var_immutable (x, typ_const_ptr etyp) !new_access
+    new_dims := (arith_f array_size) :: dims;
+    let partial_indices = (arith_f new_index) ::
+      (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
+    let mindex = mindex !new_dims partial_indices in
+    let new_access = trm_array_access (trm_var !new_var) mindex in
+    trm_let Var_immutable (x, typ_const_ptr etyp) new_access
   in
   let body_instrs_new_decl = Mlist.update_nth decl_index update_decl body_instrs in
   let new_body_instrs = begin
@@ -120,7 +116,16 @@ let hoist_on (name : string)
   end in
   let new_body_instrs, new_contract = match contract with
   | Some contract ->
-    let new_resource = Resource_formula.(formula_uninit (formula_model !new_access trm_cell)) in
+    let dims = List.tl (!new_dims) in
+    let other_indices = List.init (List.length dims) (fun _ -> Trm.new_var (fresh_var_name ())) in
+    let indices = (arith_f new_index) :: (List.map trm_var other_indices) in
+    let mindex = mindex !new_dims indices in
+    let access = trm_array_access (trm_var !new_var) mindex in
+    let grouped_access = List.fold_left (fun acc (i, d) ->
+      (* FIXME: need to match inner loop ranges. *)
+      Resource_formula.formula_group_range (i, trm_int 0, DirUp, d, Post_inc, false) acc
+    ) Resource_formula.(formula_model access trm_cell) (List.combine other_indices dims) in
+    let new_resource = Resource_formula.(formula_uninit grouped_access) in
     new_body_instrs, Some (Resource_contract.push_loop_contract_clause Modifies (None, new_resource) contract)
   | None ->
     (* TODO: Generate ghost focus *)

@@ -5,8 +5,7 @@ open Target
 let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun () ->
-  !! ();
-  Resources.show ();
+  !! Resources.show ();
   let x = find_var_in_current_ast "x" in
   let z = find_var_in_current_ast "z" in
   let y = find_var_in_current_ast "y" in
@@ -29,5 +28,6 @@ let _ = Run.script_cpp (fun () ->
   !! Loop_basic.hoist [cFunBody "f2"; cVarDef "sum"];
 
   (* TODO: Loop_basic.hoist cannot recheck resources because we don't handle aliases *)
+  (* !! Resources.show (); *)
   !!! ();
 )

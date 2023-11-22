@@ -109,9 +109,9 @@ let%transfo hoist_alloc_loop_list
     let simpl_index_after_inline (tg : target) : unit =
       Target.iter (fun _t p_nested ->
         let p = p_nested |> Path.parent in
-        Show.path ~msg:"p_nested" p_nested;
-        Show.path ~msg:"p" p;
         Matrix_basic.simpl_access_of_access (target_of_path p);
+        (* ShowAt.trm ~msg:"t@p" (target_of_path p);
+        ShowAt.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
         Matrix_basic.simpl_index_add (target_of_path (p @ [Dir_arg_nth 1]));
         Arith.(simpl_rec gather_rec (target_of_path (p @ [Dir_arg_nth 1])));
       ) tg
@@ -127,7 +127,7 @@ let%transfo hoist_alloc_loop_list
             let is_partial_mindex = not (trm_has_cstyle Reference instr) in
             if is_partial_mindex then begin
             *)
-              Variable_basic.to_const instr_target;
+              (* DEPRECATED since *const malloc-ed ptrs Variable_basic.to_const instr_target; *)
               Marks.with_fresh_mark (fun mark ->
                 Variable_basic.inline ~mark instr_target;
                 simpl_index_after_inline [nbAny; cMark mark]
