@@ -297,7 +297,7 @@ let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_e
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
     output_string out_prog ctx.header;
-    let beautify_mindex = beautify && !Flags.pretty_matrix_notation in
+    let pretty_matrix_notation = beautify && !Flags.pretty_matrix_notation in
     let ast =
       if !Flags.display_resources
         then Ast_fromto_AstC.computed_resources_intro ast
@@ -305,9 +305,10 @@ let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_e
       in
       (* TODO: !Flags.display_var_ids *)
 
+    let style = AstC_to_c.default_style () in
     if !Flags.bypass_cfeatures || bypass_cfeatures
-      then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
-      else AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);
+      then AstC_to_c.ast_to_outchannel ({ style with optitrust_syntax = true }) out_prog ast
+      else AstC_to_c.ast_to_outchannel ({ style with pretty_matrix_notation = pretty_matrix_notation; commented_pragma = use_clang_format }) out_prog (Ast_fromto_AstC.cfeatures_intro ast);
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
@@ -326,13 +327,15 @@ let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_e
     begin try
       (* print the raw ast *)
       begin
-        Ast_to_text.print_ast out_ast ast;
+        let style = Ast_to_text.default_style() in
+        Ast_to_text.print_ast style out_ast ast;
         output_string out_ast "\n";
         close_out out_ast;
       end;
       (* print the non-decoded ast *)
       output_string out_enc ctx.header;
-      AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_enc ast;
+      let style = AstC_to_c.default_style() in
+      AstC_to_c.ast_to_outchannel { style with optitrust_syntax = true } out_enc ast;
       output_string out_enc "\n";
       close_out out_enc;
       if use_clang_format
@@ -1411,13 +1414,24 @@ let bigstep (s : string) : unit =
 
    If you use [dump] in your script, make sure to call [!! Trace.dump] with the
    prefix [!!] in order for the diff visualization to work well for the last
-   command before the call to dump. *)
-let dump ?(prefix : string = "") () : unit =
+   command before the call to dump.
+
+   [append_comments] will be added as comments near the end of the output file *)
+let dump ?(prefix : string = "") ?(append_comments : string = "") () : unit =
   dumping_step (fun () ->
     let ctx = the_trace.context in
     let prefix =
       if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
-    output_prog ctx (prefix ^ "_out") (the_trace.cur_ast)
+    output_prog ctx (prefix ^ "_out") (the_trace.cur_ast);
+    if append_comments <> "" then begin
+      let filename = prefix ^ "_out.cpp" in
+      (* open in append mode *)
+      let c = open_out_gen [Open_append; Open_creat] 0o666 filename in
+      output_string c "/*\n";
+      output_string c append_comments;
+      output_string c "\n*/\n";
+      close_out c
+    end
   )
 
 (* DEPRECATED? [only_interactive_step line f]: invokes [f] only if the argument [line]

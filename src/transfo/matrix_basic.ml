@@ -121,8 +121,8 @@ let assert_same_dims (a : trms) (b : trms) : unit =
   (* TODO: need something better for term equality *)
   if not (List.for_all2 Internal.same_trm a b) then begin
     Tools.warn "Matrix_basic: dimensions mismatch";
-    Transfo_debug.trms "a" a;
-    Transfo_debug.trms "a" b;
+    Show.trms ~msg:"a" a;
+    Show.trms ~msg:"b" b;
   end
 
 (* TODO: check that size and index expressions are pure, otherwise fail *)

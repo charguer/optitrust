@@ -95,6 +95,7 @@ and depth =
 *)
 
 and constr =
+  | Constr_incontracts
   | Constr_depth of depth
   | Constr_dir of dir
   (* already resolved paths: *)
@@ -258,7 +259,8 @@ type target_simple = target
 type target_struct = {
    target_path : target_simple; (* this path contains no nbMulti/nbEx/tBefore/etc.., only cStrict can be there *)
    target_relative : target_relative;
-   target_occurrences : target_occurrences; }
+   target_occurrences : target_occurrences;
+   target_incontracts : bool }
 
 
 (* [make_target_list_pred ith_target validate to_string]: creates a simple target_pred object with with its components
@@ -305,6 +307,7 @@ let depth_to_string (depth : depth) : string =
 let rec constr_to_string (c : constr) : string =
   match c with
   | Constr_depth depth -> "Depth " ^ (depth_to_string depth)
+  | Constr_incontracts -> "Incontracts"
   | Constr_dir d -> dir_to_string d
   | Constr_paths ps -> paths_to_string ps
   | Constr_include s -> "Include " ^ s
@@ -489,7 +492,9 @@ and target_struct_to_string (tgs : target_struct) : string =
   "TargetStruct(" ^
     target_relative_to_string tgs.target_relative ^ ", " ^
     target_occurrences_to_string tgs.target_occurrences ^ ", " ^
-    target_to_string tgs.target_path ^ ")"
+    target_to_string tgs.target_path ^ ", " ^
+    if tgs.target_incontracts then "incontracts" else "notincontracts" ^ ")"
+
 
 (* [target_occurrences_to_string occ]: pretty prints target_occurrences [occ] *)
 and target_occurrences_to_string (occ : target_occurrences) =
@@ -537,6 +542,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   let auxs (tgs:targets) : targets =
     List.map aux tgs in
   match c with
+  | Constr_incontracts -> c
   | Constr_depth _depth -> c
   | Constr_dir _d -> c
   | Constr_paths _ps -> c
@@ -719,6 +725,7 @@ let target_to_target_struct (tr : target) : target_struct =
   let tr = target_flatten tr in
   let relative = ref None in
   let occurences = ref None in
+  let incontracts = ref false in
   let process_constr (c : constr) : unit =
     match c with
     | Constr_relative re ->
@@ -732,13 +739,17 @@ let target_to_target_struct (tr : target) : target_struct =
       | Some poc when poc = oc -> ();
       | _ -> fail None "Constr.Constr_occurrences provided twice in path"
       end
+    | Constr_incontracts ->
+        incontracts := true
     | _ -> ()
     in
   List.iter process_constr tr;
   let tgs = {
     target_path = List.filter (function | Constr_relative _ | Constr_occurrences _ -> false | _ -> true) tr;
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
-    target_occurrences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
+    target_occurrences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end;
+    target_incontracts = !incontracts;
+    } in
   tgs
 
 (* [is_target_between tr]: checks if [tr] contains a relative constraint different from TargetAt *)
@@ -853,6 +864,11 @@ let print_stringreprs () : unit =
 (* [get_stringrepr t]: returns the string representation saved in table [stringreprs],
    or an empty string otherwise *)
 let get_stringrepr (t : trm) : string =
+    let print (t : trm) : unit =
+      let s = AstC_to_c.default_style () in
+      let style = { s with ast = { s.ast with print_string_repr = true } } in
+      Printf.printf "==\n%s\n===\n" (AstC_to_c.ast_to_string ~style t)
+      in
     match !stringreprs with
     | None -> fail t.loc (Printf.sprintf "Constr.get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
     | Some m ->
@@ -864,7 +880,7 @@ let get_stringrepr (t : trm) : string =
                  [cfeatures_intro], hence not printed *)
               if !Flags.debug_stringreprs then begin
                 Tools.warn (sprintf "missing stringrepr for id %i" id);
-                AstC_to_c.trm_print_debug t;
+                print t;
               end;
               ""
           | Some s -> s
@@ -872,7 +888,7 @@ let get_stringrepr (t : trm) : string =
         | None ->
           if !Flags.debug_stringreprs then begin
             Tools.warn "missing stringrepr id";
-            AstC_to_c.trm_print_debug t;
+            print t;
           end;
           ""
 
@@ -984,15 +1000,16 @@ let explore_list_ind (tl : 'a list) (d : int -> dir) (dom : int list)
     []
     tl
 
-(* [check_constraint c]: checks if constraint c is satisfied by trm t *)
-let rec check_constraint (c : constr) (t : trm) : bool =
+(* [check_constraint ~incontracts c]: checks if constraint c is satisfied by trm t *)
+let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
+   let check_target = check_target ~incontracts in
    if trm_has_cstyle Multi_decl t then
      (*
        check the constraint on each element of the seq and return true if one
        is true
       *)
      begin match t.desc with
-     | Trm_seq tl -> List.mem true (List.map (check_constraint c) (Mlist.to_list tl))
+     | Trm_seq tl -> List.mem true (List.map (check_constraint ~incontracts c) (Mlist.to_list tl))
      | _ -> fail t.loc "Constr.check_constraint: bad multi_decl annotation"
      end
   else
@@ -1071,12 +1088,12 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         is_new_typ && check_name name x
      | Constr_decl_enum (name, cec), Trm_typedef td ->
         begin match td.typdef_body with
-        | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const cec xto_l
+        | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const ~incontracts cec xto_l
         | _ -> false
         end
      | Constr_seq cl, Trm_seq tl when
         not ((List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle) || List.mem Main_file t.annot.trm_annot_files)->
-        check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
+        check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
         in constra_app *)
      | Constr_var name, Trm_var (_, x) ->
         check_name name x.name
@@ -1088,11 +1105,11 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           | Trm_val (Val_prim (Prim_new _))
           | Trm_val (Val_prim (Prim_unop Unop_get)) -> false
           |  _ -> check_target p_fun f &&
-                  check_list ~depth:(DepthAny) cl_args args
+                  check_list ~incontracts ~depth:(DepthAny) cl_args args
           end
         else
           check_target p_fun f &&
-          check_list ~depth:(DepthAny) cl_args args
+          check_list ~incontracts ~depth:(DepthAny) cl_args args
      | Constr_label (so, p_body), _ ->
         let t_labels = trm_get_labels t in
         List.fold_left (fun acc (l : label) -> check_name so l || acc) false t_labels &&
@@ -1108,10 +1125,10 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_access (p_base, ca,ia), _ ->
         let (base, al) = get_nested_accesses t in
         check_target p_base base &&
-        check_accesses ~inner_accesses:ia ca al
+        check_accesses ~incontracts ~inner_accesses:ia ca al
      | Constr_switch (p_cond, cc), Trm_switch (cond, cases) ->
         check_target p_cond cond &&
-        check_cases cc cases
+        check_cases ~incontracts cc cases
      | Constr_bool b, _ -> b
      | Constr_root, _ -> trm_is_mainfile t
 
@@ -1142,11 +1159,11 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | _ -> false
      end
 
-(* [check_list ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)
-and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
+(* [check_list ~incontracts ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)
+and check_list ~(incontracts:bool) ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
-  validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
+  validate (List.mapi (fun i t -> check_target ~incontracts ~depth (ith_target i) t) tl)
 
 (* [check_args lpred tx]: checks if [txl] satisfy the predicate [lpred] *)
 and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
@@ -1170,7 +1187,7 @@ and check_arg (tg:arg_constraint) ((var, var_typ) : typed_var) : bool =
 
 
 (* [check_accesses ~inner_accesses ca al]: checks if [al] is matched by [ca] *)
-and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
+and check_accesses ~(incontracts:bool) ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
     | [], a -> if not inner_accesses
@@ -1180,10 +1197,10 @@ and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : 
                        end
                   else true
     | Array_access p_index :: cal, Array_access_get index :: al ->
-       check_target p_index index &&
+       check_target ~incontracts p_index index &&
        aux cal al
     | Array_access p_index :: cal, Array_access_addr index :: al ->
-       check_target p_index index &&
+       check_target ~incontracts p_index index &&
        aux cal al
     | Struct_access so :: cal, Struct_access_get f :: al ->
        check_name so f &&
@@ -1198,15 +1215,15 @@ and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : 
   | None -> true
   | Some cal -> aux cal al
 
-(* [check_cases cc cases]: checks if [cases] are matched by [cc] *)
-and check_cases (cc : constr_cases) (cases : (trms * trm) list) : bool =
+(* [check_cases ~incontract cc cases]: checks if [cases] are matched by [cc] *)
+and check_cases ~(incontracts:bool) (cc : constr_cases) (cases : (trms * trm) list) : bool =
   let rec aux (cl : (case_kind * target) list)
     (cases : (trms * trm) list) : bool =
     match cl, cases with
     | [], [] -> true
     | (k, p_body) :: cl, (tl, body) :: cases ->
-       check_kind k tl &&
-       check_target p_body body &&
+       check_kind ~incontracts k tl &&
+       check_target ~incontracts p_body body &&
        aux cl cases
     | _ -> false
   in
@@ -1214,18 +1231,18 @@ and check_cases (cc : constr_cases) (cases : (trms * trm) list) : bool =
   | None -> true
   | Some cl -> aux cl cases
 
-(* [check_kind k tl]: checks if [tl] are of kind [k] *)
-and check_kind (k : case_kind) (tl : trms) : bool =
+(* [check_kind ~incontracts k tl]: checks if [tl] are of kind [k] *)
+and check_kind ~(incontracts:bool) (k : case_kind) (tl : trms) : bool =
   match k, tl with
   | Case_any, _ -> true
   | Case_default, [] -> true
   | Case_val p_val, _ ->
      (* check that one of the cases corresponds to the given target *)
-     List.mem true (List.map (check_target p_val) tl)
+     List.mem true (List.map (check_target ~incontracts p_val) tl)
   | _ -> false
 
-(* [check_enum_const cec xto_l]: checks if [xto_l] are matched by constraint [cec] *)
-and check_enum_const (cec : constr_enum_const)
+(* [check_enum_const ~incontracts cec xto_l]: checks if [xto_l] are matched by constraint [cec] *)
+and check_enum_const ~(incontracts:bool) (cec : constr_enum_const)
   (xto_l : (var * (trm option)) list) : bool =
   match cec with
   | None -> true
@@ -1236,14 +1253,14 @@ and check_enum_const (cec : constr_enum_const)
          match p, t_o with
          | [], None -> true
          | _, None -> false
-         | _, Some t -> check_target p t
+         | _, Some t -> check_target ~incontracts p t
        )
        cnp_l
        xto_l
 
-(* [check_target ~depth tr t]: checks if target tr leads to at least one subterm of t *)
-and check_target ?(depth : depth = DepthAny) (tr : target) (t : trm) : bool =
-  match resolve_target_simple ~depth tr t with
+(* [check_target ~incontracts ~depth tr t]: checks if target tr leads to at least one subterm of t *)
+and check_target ~(incontracts:bool) ?(depth : depth = DepthAny) (tr : target) (t : trm) : bool =
+  match resolve_target_simple ~incontracts ~depth tr t with
   | [] -> false
   | _ -> true
 
@@ -1256,23 +1273,23 @@ and check_target ?(depth : depth = DepthAny) (tr : target) (t : trm) : bool =
 (* [debug_resolution]: only for debugging *)
 and debug_resolution = false
 
-(* [resolve_target_simple ~depth trs t]: the main function that resolves a target
+(* [resolve_target_simple ~incontracts ~depth trs t]: the main function that resolves a target
      It returns a list of paths that resolve to the given target
      [depth] is the depth level where the targetd should be resolved
      [trs]: a clean target t
      [t]: ast  *)
-and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
+and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
   Stats.incr_target_resolution_steps ();
   let epl =
     match trs with
     | [] -> [[]]
     | Constr_target tl :: trest -> (* LATER: see if we can flatten recursively in targets before we start *)
-       resolve_target_simple ~depth (tl @ trest) t
+       resolve_target_simple ~incontracts ~depth (tl @ trest) t
 
     | Constr_or tl :: trest -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at least one solution *)
         let all_targets_must_resolve = false in
         let res = List.fold_left (fun acc tr ->
-          let potential_targets = resolve_target_simple ~depth (tr @ trest) t in
+          let potential_targets = resolve_target_simple ~incontracts ~depth (tr @ trest) t in
           begin match potential_targets with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "Constr.resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
@@ -1289,7 +1306,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
       let all_targets_must_resolve = false in
       let targets_to_keep =
       List.fold_left (fun acc tr ->
-          let potential_targets = resolve_target_simple ~depth tr t in
+          let potential_targets = resolve_target_simple ~incontracts ~depth tr t in
           begin match potential_targets with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "Constr.resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
@@ -1297,7 +1314,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           end ) [] tl1 in
       let targets_to_remove =
       List.fold_left (fun acc tr ->
-          let potential_targets = resolve_target_simple tr t in
+          let potential_targets = resolve_target_simple ~incontracts tr t in
           begin match potential_targets with
           | ([] | [[]]) -> acc
           | _ ->
@@ -1310,7 +1327,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           through the paths that are candidates; using e.g. path_satisfies_target *)
         let all_targets_must_resolve = false in
         Xlist.fold_lefti (fun i acc tr ->
-          let targetsi = resolve_target_simple (tr @ trest) t in
+          let targetsi = resolve_target_simple ~incontracts (tr @ trest) t in
           begin match targetsi with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "Constr.resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
@@ -1326,14 +1343,14 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
 
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
-        resolve_target_simple ~depth:new_depth tr t
+        resolve_target_simple ~incontracts ~depth:new_depth tr t
     (* TODO: refactor follow_dir to avoid special case? *)
     | Constr_dir (Dir_before i) :: [] ->
         [[Dir_before i]]
     | Constr_dir d :: tr ->
-        follow_dir d tr t
+        follow_dir (resolve_target_simple ~incontracts tr) d t
     | Constr_paths ps :: tr ->
-      resolve_target_simple ~depth (
+      resolve_target_simple ~incontracts ~depth (
         Constr_or (
           List.map (List.map (fun d -> Constr_dir d)) ps
         ) :: tr) t
@@ -1346,11 +1363,11 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
       let res_deep =
         if strict
            then [] (* in strict mode, must match c here *)
-           else (explore_in_depth ~depth (c :: p) t) in
+           else (explore_in_depth ~incontracts ~depth (c :: p) t) in
       let res_here =
          if skip_here || (is_constr_regexp c && res_deep <> [])
            then [] (* if a regexp matches in depth, don't test it here *)
-           else (resolve_constraint c p t) in
+           else (resolve_constraint ~incontracts c p t) in
 
       (* DEBUG *)
       if debug_resolution then begin
@@ -1372,7 +1389,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     This function gets the result from [resolve_target_simple] and checks if it matches
     the given requirements. If one of the requirements is not fulfilled the target resolution will fail. *)
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
-  let res = resolve_target_simple tgs.target_path t in
+  let res = resolve_target_simple ~incontracts:tgs.target_incontracts tgs.target_path t in
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurrences, if not then something went wrong *)
   let error s =
@@ -1504,10 +1521,10 @@ and resolve_target_exactly_one (tg : target) (t : trm) : path =
   | [p] -> p
   | _ -> fail t.loc "Constr.resolve_target_exactly_one: obtained several targets."
 
-(* [resolve_constraint c p t]: checks [c] against [t] and in case of success continue with [p].
+(* [resolve_constraint ~incontracts c p t]: checks [c] against [t] and in case of success continue with [p].
    With a special case for handling a [Constr_mark] constrained that reaches a
   mark found in aa MList. *)
-and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
+and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t : trm) : paths =
   let loc = t.loc in
   match c with
   | Constr_target _ -> fail t.loc "Constr.resolve_constraint should not reach a Constr_target"
@@ -1517,21 +1534,21 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   | Constr_include h when trm_is_include t ->
      (* remove the include annotation for target resolution to proceed in the
        included file *)
-     resolve_target_simple p (trm_alter ~annot:trm_annot_default t)
+     resolve_target_simple ~incontracts p (trm_alter ~annot:trm_annot_default t)
   | _ when trm_is_include t ->
      print_info loc "Constr.resolve_constraint: not an include constraint\n";
      []
   (* target constraints first *)
   (* following directions *)
-  | Constr_dir d -> follow_dir d p t
+  | Constr_dir d -> follow_dir (resolve_target_simple ~incontracts p) d t
   (*
     if the constraint is a target constraint that does not match the node or
     if it is another kind of constraint, then we check if it holds
    *)
   | _ ->
       let paths_on_this_node =
-        if check_constraint c t
-          then resolve_target_simple p t
+        if check_constraint ~incontracts c t
+          then resolve_target_simple ~incontracts p t
           else [] in
       let paths_on_the_mlist =
         if !old_resolution then [] else
@@ -1546,13 +1563,13 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
         print_info loc "Constr.resolve_constraint: constraint %s does not hold\n" (constr_to_string c);
       res
 
-(* [explore_in_depth ~depth p t]: calls resolve_target_simple on subterms of t if possible *)
-and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) : paths =
+(* [explore_in_depth ~incontracts ~depth p t]: calls resolve_target_simple on subterms of t if possible *)
+and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target_simple) (t : trm) : paths =
   (* By default, traversing a node decreases the depth *)
-  let aux = resolve_target_simple ~depth:(depth_pred depth) p in
+  let aux = resolve_target_simple ~incontracts ~depth:(depth_pred depth) p in
   (* For bodies of functions/loops/conditials, however, we do decrease the depth
      because traversing the [Trm_seq] just below will already decrease the depth *)
-  let aux_body = resolve_target_simple ~depth p in
+  let aux_body = resolve_target_simple ~incontracts ~depth p in
 
   let aux_resource_set_dir contract_dir resource_set_dir res_list =
     explore_list res_list (fun n -> Dir_contract (contract_dir, resource_set_dir, n)) (fun (h, f) -> aux f)
@@ -1573,7 +1590,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      (* explore each declaration in the seq *)
      begin match t.desc with
      | Trm_seq tl ->
-        explore_list (Mlist.to_list tl) (fun i -> Dir_seq_nth i) (explore_in_depth p)
+        explore_list (Mlist.to_list tl) (fun i -> Dir_seq_nth i) (explore_in_depth ~incontracts p)
      | _ -> fail loc "Constr.explore_in_depth: bad multi_decl annotation"
      end
   else
@@ -1630,11 +1647,13 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (add_dir Dir_for_stop (aux stop)) @
         (add_dir Dir_for_step (aux step_t)) @
         (add_dir Dir_body (aux_body body)) @
-        option_flat_map (fun contract ->
-          (aux_contract_dir Contract_pre contract.iter_contract.pre) @
-          (aux_contract_dir Contract_post contract.iter_contract.post) @
-          (aux_contract_dir Contract_invariant contract.invariant)
-        ) contract
+        if incontracts then
+          option_flat_map (fun contract ->
+            (aux_contract_dir Contract_pre contract.iter_contract.pre) @
+            (aux_contract_dir Contract_post contract.iter_contract.post) @
+            (aux_contract_dir Contract_invariant contract.invariant)
+          ) contract
+        else []
 
      | Trm_for_c (init, cond, step, body, invariant) ->
         (* init *)
@@ -1645,7 +1664,9 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (add_dir Dir_for_c_step (aux step)) @
         (* body *)
         (add_dir Dir_body (aux_body body)) @
-        option_flat_map (fun invariant -> aux_contract_dir Contract_invariant invariant) invariant
+        if incontracts then
+          option_flat_map (fun invariant -> aux_contract_dir Contract_invariant invariant) invariant
+        else []
      | Trm_while (cond, body) ->
         (* cond *)
         (add_dir Dir_cond (aux cond)) @
@@ -1678,7 +1699,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         explore_list (Xlist.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
-        (Xlist.fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
+        (Xlist.fold_lefti (fun i epl case -> epl@explore_case ~incontracts depth i case p) [] cases)
      | Trm_namespace (name, body, inline) ->
         add_dir Dir_namespace (aux body)
      | _ ->
@@ -1690,10 +1711,10 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
   call resolve_target_simple on given case name and body
   i is the index of the case in its switch
  *)
-(* [explore_case depth i case p]: calls resolve_target_simple on given case name and body,
+(* [explore_case ~incontracts depth i case p]: calls resolve_target_simple on given case name and body,
     [i] is the index of the case in its switch satement *)
-and explore_case (depth : depth) (i : int) (case : trms * trm) (p : target_simple) : paths =
-  let aux = resolve_target_simple ~depth p in
+and explore_case ~(incontracts:bool) (depth : depth) (i : int) (case : trms * trm) (p : target_simple) : paths =
+  let aux = resolve_target_simple ~incontracts ~depth p in
   let (tl, body) = case in
   match tl with
   (* default case *)
@@ -1710,9 +1731,8 @@ and explore_case (depth : depth) (i : int) (case : trms * trm) (p : target_simpl
      ) @
      add_dir (Dir_case (i, Case_body)) (aux body)
 
-(* [follow_dir d p t]: follows the direction [d] in [t] and call resolve_target_simple on [p] *)
-and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
-  let aux = resolve_target_simple p in
+(* [follow_dir aux d t]: follows the direction [d] in [t] and call [aux] *)
+and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   let loc = t.loc in
   match d, t.desc with
   | Dir_before _, _ ->

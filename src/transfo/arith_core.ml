@@ -366,13 +366,14 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
           in
         string sop ^^ string "(" ^^ aux e1 ^^ string "," ^^ aux e2 ^^ string ")"
     | Expr_atom id ->
+        let style = AstC_to_c.default_style() in
         begin match Atom_map.find_opt id atoms with
         | Some t1 ->
             begin match t1.desc with
-            | Trm_var (_, x) -> AstC_to_c.var_to_doc x
+            | Trm_var (_, x) -> AstC_to_c.var_to_doc style x
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _},
-               [{desc = Trm_var (_, x); _}], _) -> AstC_to_c.var_to_doc x
-            | _ -> braces (AstC_to_c.trm_to_doc t1)
+               [{desc = Trm_var (_, x); _}], _) -> AstC_to_c.var_to_doc style x
+            | _ -> braces (AstC_to_c.trm_to_doc style t1)
             end
         | _  ->
           (* To identify atoms, we use letters 'a', 'b', ... then
@@ -437,7 +438,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
         parens (aux e1) ^^ string sop ^^ parens (aux e2)
      | Expr_atom id ->
       begin match Atom_map.find_opt id atoms with
-      | Some t1 -> (AstC_to_c.trm_to_doc t1)
+      | Some t1 -> AstC_to_c.(trm_to_doc (default_style())) t1
       | _  -> fail None "Arith_core.expr_to_math_string: couldn't convert
                         an atom expr to a trm"
       end

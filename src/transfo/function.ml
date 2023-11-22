@@ -293,7 +293,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ ->
-          if debug then Transfo_debug.path "Full_path to the call" path_to_call;
+          if debug then Show.path ~msg:"Full_path to the call" path_to_call;
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call) ;
         mark_added := true;
         post_processing ~deep_cleanup:true ();

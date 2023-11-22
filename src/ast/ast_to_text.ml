@@ -5,23 +5,38 @@ open Typ
 open Mark
 open Tools
 
+(*  Note: This module is used mainly for debugging purposes. *)
 
-(*  Note: This module is used mainly for debugging purposes.
-    The ast is printed in such a way so that it mimics its actual OCaml structure.
-    All the ast components are first converted to pprint document.
-    [only_desc] to print only the description field an avoid the other ones *)
+(* TODO naming convention: print_foo should become foo_to_doc *)
+(* TODO : handle print_contract *)
+
+(*----------------------------------------------------------------------------------*)
+(* Options for printing *)
+
+type style = {
+  ast: Ast.style;
+  only_desc: bool; (* prints only the description field *)
+}
+
+(* Default style *)
+
+let default_style () = {
+  ast = Ast.default_style();
+  only_desc = false; }
+
+(*----------------------------------------------------------------------------------*)
 
 (* [print_typ_desc only_desc t]: converts type descriptions to pprint document *)
-let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
+let rec print_typ_desc style (t : typ_desc) : document =
   match t with
   | Typ_const t ->
-    let dt = print_typ ~only_desc t in
+    let dt = print_typ style t in
     print_node "Typ_const" ^^ dt
   | Typ_var (name, tid) ->
     print_node "Typ_var" ^^ parens (separate (comma ^^ break 1) [string name; string (string_of_int tid)])
   | Typ_constr (tc, tid, tl) ->
     let tv_d = print_typconstr tc in
-    let tl = List.map (print_typ ~only_desc) tl in
+    let tl = List.map (print_typ style) tl in
     print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1)
       [tv_d; string (string_of_int tid); print_list tl])
   | Typ_auto -> string "Typ_auto"
@@ -38,30 +53,30 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
                | Ptr_kind_ref -> string "reference"
                end
       in
-     let dt = print_typ ~only_desc ty in
+     let dt = print_typ style ty in
      print_node "Typ_ptr" ^^ parens (dpk) ^^dt
   | Typ_array (t, s) ->
-     let dt = print_typ ~only_desc t in
+     let dt = print_typ style t in
      let ds =
        begin match s with
        | Undefined -> underscore
        | Const n -> string (string_of_int n)
-       | Trm t' -> print_trm ~only_desc t'
+       | Trm t' -> print_trm style t'
        end
      in
      print_node "Typ_array" ^^ print_pair dt ds
   | Typ_fun (tl, t) ->
-     let dtl = List.map (print_typ ~only_desc) tl in
-     let dt = print_typ ~only_desc t in
+     let dtl = List.map (print_typ style) tl in
+     let dt = print_typ style t in
      print_node "Typ_fun" ^^ parens (print_list dtl ^^ comma ^/^ dt)
   | Typ_record (rt, name) ->
-    let dt = print_typ ~only_desc name in
+    let dt = print_typ style name in
     let drt = print_record_type rt in
     print_node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
   | Typ_template_param name ->
     print_node "Typ_template_param" ^^ parens (string name)
   | Typ_arbitrary s -> print_node "Typ_arbitrary " ^^ parens (string (code_to_str s))
-  | Typ_decl e -> print_node "Typ_decl " ^^ parens (print_trm ~only_desc e)
+  | Typ_decl e -> print_node "Typ_decl " ^^ parens (print_trm style e)
 
 (* [print_typ_annot a]: converts type annotations to pprint document *)
 and print_typ_annot (a : typ_annot) : document =
@@ -70,24 +85,24 @@ and print_typ_annot (a : typ_annot) : document =
   | Long -> string "Long"
   | Short -> string "Short"
 
-(* [print_typ ~only_desc t]: converts type records to pprint document *)
-and print_typ ?(only_desc : bool = false) (t : typ) : document =
-  let ddesc = print_typ_desc ~only_desc t.typ_desc in
-  if only_desc then ddesc
+(* [print_typ style t]: converts type records to pprint document *)
+and print_typ style (t : typ) : document =
+  let ddesc = print_typ_desc style t.typ_desc in
+  if style.only_desc then ddesc
   else
     let dannot =
       List.fold_left (fun d a -> print_typ_annot a ^^ blank 1 ^^ d) underscore
         t.typ_annot
     in
     let dattr =
-      print_list (List.map (print_attribute ~only_desc) t.typ_attributes)
+      print_list (List.map (print_attribute style) t.typ_attributes)
     in
     braces (separate (blank 1) [string "annot"; equals;
                                 dannot ^^ semi ^//^ string "desc"; equals;
                                 ddesc ^^ semi ^//^ string "attributes"; equals;
                                 dattr])
-(* [print_unop ~only_desc op]: converts unary operators to pprint document *)
-and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
+(* [print_unop style op]: converts unary operators to pprint document *)
+and print_unop style (op : unary_op) : document =
   match op with
   | Unop_get -> string "Unop_get"
   | Unop_address -> string "Unop_address"
@@ -102,7 +117,7 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   | Unop_struct_access f -> print_node "Unop_struct_access" ^^ string f
   | Unop_struct_get f -> print_node "Unop_struct_get" ^^ string f
   | Unop_cast t ->
-     let dt = print_typ ~only_desc t in
+     let dt = print_typ style t in
      print_node "Unop_cast" ^^ dt
 
 (* [print_binop]: converts binary operators to pprint document *)
@@ -139,11 +154,11 @@ and print_consistency (cm : consistency_mode) : document =
   | Release -> string "Release"
   | Acquire -> string "Acquire"
 
-(* [print_primt ~only_desc p]: converts primitive operatios to pprint document *)
-and print_prim ?(only_desc : bool = false) (p : prim) : document =
+(* [print_primt style p]: converts primitive operatios to pprint document *)
+and print_prim style (p : prim) : document =
   match p with
   | Prim_unop op ->
-     let dop = print_unop ~only_desc op in
+     let dop = print_unop style op in
      print_node "Prim_unop" ^^ dop
   | Prim_binop op ->
      let dop = print_binop op in
@@ -152,10 +167,10 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
     let dop = print_binop op in
     print_node "Prim_compound_assgn_op" ^^ dop
   | Prim_overloaded_op p ->
-    let dp = print_prim p in
+    let dp = print_prim style p in
     print_node "Prim_overloaded_op" ^^ dp
   | Prim_new t ->
-     let dt = print_typ ~only_desc t in
+     let dt = print_typ style t in
      print_node "Prim_new" ^^ dt
   | Prim_conditional_op -> print_node "Prim_conditional_op"
 
@@ -171,22 +186,22 @@ and print_lit (l : lit) : document =
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
   | Lit_nullptr -> print_node "Lit_nullptr"
 
-(* [print_val ~only_desc v]: converts values to pprint document *)
-and print_val ?(only_desc : bool = false) (v : value) : document =
+(* [print_val style v]: converts values to pprint document *)
+and print_val style (v : value) : document =
   match v with
   | Val_lit l ->
      let dl = print_lit l in
      print_node "Val_lit" ^^ parens dl
   | Val_prim p ->
-     let dp = print_prim ~only_desc p in
+     let dp = print_prim style p in
      print_node "Val_prim" ^^ parens dp
 
 
-(* [print_attribute ~only_desc a]: converts attribute [a] to pprint document *)
-and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
+(* [print_attribute style a]: converts attribute [a] to pprint document *)
+and print_attribute style (a : attribute) : document =
   match a with
   | Alignas t ->
-     string "Alignas" ^^ blank 1 ^^ print_trm ~only_desc t
+     string "Alignas" ^^ blank 1 ^^ print_trm style t
   | GeneratedTyp ->
     string "GeneratedTyp" ^^ blank 1
   | Injected -> string "Injected class type"  ^^ blank 1
@@ -201,11 +216,11 @@ and print_typconstr ((qualifier, name) : typconstr) : document =
   (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
   string name
 
-(* [print_trm_desc ~only_desc t]: converts the description of trm [t] to pprint document *)
-and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
+(* [print_trm_desc style t]: converts the description of trm [t] to pprint document *)
+and print_trm_desc style (t : trm_desc) : document =
   match t with
   | Trm_val v ->
-     let dv = print_val ~only_desc v in
+     let dv = print_val style v in
      print_node "Trm_val" ^^ parens dv
   | Trm_var (vk, v) ->
     let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
@@ -213,12 +228,12 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ v_d ^^ rparen
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
-     let dtl = List.map (print_trm ~only_desc) tl in
+     let dtl = List.map (print_trm style) tl in
      print_node "Trm_array" ^^ print_list dtl
   | Trm_record tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (fun (lb, t) ->
-      let td = print_trm ~only_desc t in
+      let td = print_trm style t in
       match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
      print_node "Trm_record" ^^ print_list dtl
   | Trm_let (vk,(x,tx),t) ->
@@ -227,8 +242,8 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     | Var_mutable ->  string "Var_mutable"
 
     in
-    let dtx = print_typ ~only_desc tx in
-    let dt = print_trm ~only_desc t in
+    let dtx = print_typ style tx in
+    let dt = print_trm style t in
     print_node "Trm_let" ^^
       parens (separate (comma ^^ break 1) [dvk; print_var x; dtx; dt])
   | Trm_let_mult (vk, tvl, tl) ->
@@ -236,56 +251,56 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     | Var_mutable -> string "Var_mutable"
     | Var_immutable -> string "Var_immutable"
       in
-    let dtx = List.map (fun (x, ty) -> parens (print_var x ^^ comma ^^ print_typ ~only_desc:true ty)) tvl in
-    let dts = List.map (fun t -> print_trm ~only_desc t) tl in
+    let dtx = List.map (fun (x, ty) -> parens (print_var x ^^ comma ^^ print_typ { style with only_desc = true } (* TODO: why is it so? *) ty)) tvl in
+    let dts = List.map (fun t -> print_trm style t) tl in
     let dtl = List.map2 (fun v t ->  parens (v ^^ comma ^^ t)) dtx dts in
     let dtx = Tools.list_to_doc ~sep:comma dtx in
     print_node "Trm_let_mult" ^^
       parens (separate (comma ^^ break 1)
         [dvk; dtx; print_list dtl;])
   | Trm_let_fun (f, r, tvl, b, _) ->
-    let dout = print_typ ~only_desc r in
+    let dout = print_typ style r in
     let dtvl = List.map(function (x,tx) ->
-          let dtx = print_typ ~only_desc tx in
+          let dtx = print_typ style tx in
           print_pair (print_var x) dtx) tvl in
-    let dt = print_trm ~only_desc b in
+    let dt = print_trm style b in
     let fd = print_var f in
     print_node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
         [fd; dout; print_list dtvl; dt])
-  | Trm_typedef td -> print_typedef ~only_desc td
+  | Trm_typedef td -> print_typedef style td
   | Trm_if (c, t, e) ->
-     let dc = print_trm ~only_desc c in
-     let dt = print_trm ~only_desc t in
-     let de = print_trm ~only_desc e in
+     let dc = print_trm style c in
+     let dt = print_trm style t in
+     let de = print_trm style e in
      print_node "Trm_if" ^^ parens (separate (comma ^^ break 1) [dc; dt; de])
   | Trm_seq tl ->
-     let dtl = List.map (print_trm ~only_desc) (Mlist.to_list tl) in
+     let dtl = List.map (print_trm style) (Mlist.to_list tl) in
      print_node "Trm_seq" ^^ print_list dtl
   | Trm_apps (f, tl, _) ->
-     let df = print_trm ~only_desc f in
-     let dtl = List.map (print_trm ~only_desc) tl in
+     let df = print_trm style f in
+     let dtl = List.map (print_trm style) tl in
      print_node "Trm_apps" ^^ parens (df ^^ comma ^/^ print_list dtl)
   | Trm_while (c, b) ->
-     let dc = print_trm ~only_desc c in
-     let db = print_trm ~only_desc b in
+     let dc = print_trm style c in
+     let db = print_trm style b in
      print_node "Trm_while" ^^ parens (dc ^^ comma ^/^ db)
   | Trm_do_while (b, c) ->
-     let db = print_trm ~only_desc b in
-     let dc = print_trm ~only_desc c in
+     let db = print_trm style b in
+     let dc = print_trm style c in
      print_node "Trm_do_while" ^^ parens (db ^^ comma ^/^ dc)
 
   | Trm_for_c (init, cond, step, body, _) ->
-     let dinit = print_trm ~only_desc init in
-     let dcond = print_trm ~only_desc cond in
-     let dstep = print_trm ~only_desc step in
-     let dbody = print_trm ~only_desc body in
+     let dinit = print_trm style init in
+     let dcond = print_trm style cond in
+     let dstep = print_trm style step in
+     let dbody = print_trm style body in
      print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
   | Trm_for (l_range, body, _) ->
     let (index, start, direction, stop, step, is_parallel) = l_range in
-    let dstart = print_trm ~only_desc start in
-    let dstop = print_trm ~only_desc stop in
+    let dstart = print_trm style start in
+    let dstop = print_trm style stop in
     let ddir  = match direction with
     | DirUp -> string "Up"
     | DirDown -> string "Down"
@@ -297,19 +312,19 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     | Post_dec -> string "Post_dec"
     | Pre_inc -> string "Pre_inc"
     | Pre_dec -> string "Pre_dec"
-    | Step st -> string "Step " ^^ parens (print_trm ~only_desc st)
+    | Step st -> string "Step " ^^ parens (print_trm style st)
     in
     let dparallel = string (string_of_bool is_parallel) in
-    let dbody = print_trm ~only_desc body in
+    let dbody = print_trm style body in
     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
       [print_var index; dstart; ddir; dstop; dstep; dparallel; dbody])
   | Trm_switch (cond, cases) ->
-     let dcond = print_trm ~only_desc cond in
+     let dcond = print_trm style cond in
      let dcases =
        List.map
          (fun (tl, body) ->
-           let dtl = List.map (print_trm ~only_desc) tl in
-           let dbody = print_trm ~only_desc body in
+           let dtl = List.map (print_trm style) tl in
+           let dbody = print_trm style body in
            print_pair (print_list dtl) dbody
          )
          cases
@@ -322,7 +337,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
           begin match t_o with
           | None -> print_node "Ret" ^^ underscore
           | Some t ->
-             let dt = print_trm ~only_desc t in
+             let dt = print_trm style t in
              print_node "Ret" ^^ dt
           end
        | Break lb_opt ->
@@ -345,26 +360,26 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_omp_routine routine->
     print_node "Trm_omp_routine" ^^ parens (print_routine routine)
   | Trm_extern (lang, decls) ->
-    let dtl = List.map (print_trm ~only_desc) decls in
+    let dtl = List.map (print_trm style) decls in
     print_node "Trm_extern" ^^ parens (string lang ^^ comma ^^ print_list dtl)
   | Trm_namespace (name, dcls, inline) ->
-    let dt = print_trm ~only_desc dcls in
+    let dt = print_trm style dcls in
     print_node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
       [string name; string (string_of_bool inline); dt])
   | Trm_template _ ->  print_node "Trm_template _"
   | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
   | Trm_fun (tvl , ty_opt, b, _) ->
-    let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ ~only_desc ty | None -> string "None" end in
+    let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ style ty | None -> string "None" end in
     let dtvl = List.map(function (x,tx) ->
-          let dtx = print_typ ~only_desc tx in
+          let dtx = print_typ style tx in
           print_pair (print_var x) dtx) tvl in
-    let dt = print_trm ~only_desc b in
+    let dt = print_trm style b in
     print_node "Trm_fun" ^^
       parens (separate (comma ^^ break 1)
         [print_list dtvl; dtout; dt])
   | Trm_delete (b, t1) ->
     let bd = string (string_of_bool b) in
-    let td = print_trm ~only_desc t1  in
+    let td = print_trm style t1  in
     print_node "Trm_delete"  ^^
       parens (separate (comma ^^ break 1)
         [bd; td])
@@ -376,14 +391,14 @@ and print_record_type (rt : record_type) : document =
   | Union -> string "union"
   | Class -> string "class"
 
-(* [print_typedef ~only_desc td]: converts typedef to pprint document *)
-and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
+(* [print_typedef style td]: converts typedef to pprint document *)
+and print_typedef style (td : typedef) : document =
   let tconstr = td.typdef_tconstr in
   let tbody = td.typdef_body in
 
   match tbody with
   | Typdef_alias t ->
-    let dt = print_typ ~only_desc t in
+    let dt = print_typ style t in
     print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
      [string tconstr; dt ])
   | Typdef_record rfl ->
@@ -393,10 +408,10 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
       | (rf, _) :: tl ->
         begin match rf with
         | Record_field_member (lb, ty) ->
-          let dt = print_typ ~only_desc ty in
+          let dt = print_typ style ty in
           aux (print_pair (string lb) dt :: acc) tl
         | Record_field_method t1 ->
-          let dt = print_trm ~only_desc t1 in
+          let dt = print_trm style t1 in
           aux (dt :: acc) tl
         end
          in aux [] rfl
@@ -413,17 +428,17 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
             (fun (y, t_o) ->
               match t_o with
               | None -> print_pair (print_var y) underscore
-              | Some t -> print_pair (print_var y) (print_trm ~only_desc t)
+              | Some t -> print_pair (print_var y) (print_trm style t)
             )
             enum_const_l
          )
      in
      print_node "Typedef_enum" ^^ print_pair (string tconstr) denum_const_l
 
-and print_trm_annot (t : trm) : document =
+and print_trm_annot style (t : trm) : document =
 
   let t_attributes = trm_get_attr t in
-  let dattr = print_list (List.map (print_attribute ) t_attributes) in
+  let dattr = print_list (List.map (print_attribute style) t_attributes) in
 
   let t_marks = trm_get_marks t in
   let dmarks = print_list (List.map string t_marks) in
@@ -434,8 +449,7 @@ and print_trm_annot (t : trm) : document =
   let dpragmas = print_list t_pragmas_str in
 
   let cstyle_annot = trm_get_cstyles t in
-  let cstyle_annot_str = List.map print_cstyle_annot cstyle_annot in
-  let dcstyle = print_list cstyle_annot_str in
+  let dcstyle = print_cstyles_annot style cstyle_annot in
 
   let files_annot = trm_get_files_annot t in
   let dfiles_str = List.map print_files_annot files_annot in
@@ -449,12 +463,12 @@ and print_trm_annot (t : trm) : document =
     dfiles])
 
 
-(* [print_trm ~only_desc t]: converts trm [t] to pprint document *)
-and print_trm ?(only_desc : bool = false) (t : trm) : document =
-  let ddesc = print_trm_desc ~only_desc t.desc in
-  if only_desc then ddesc
+(* [print_trm style t]: converts trm [t] to pprint document *)
+and print_trm style (t : trm) : document =
+  let ddesc = print_trm_desc style t.desc in
+  if style.only_desc then ddesc
     else
-      let dannot = print_trm_annot t in
+      let dannot = print_trm_annot style t in
 
       let dloc =
         begin match t.loc with
@@ -468,7 +482,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       let dtyp =
         match t.typ with
         | None -> underscore
-        | Some ty -> print_typ ~only_desc ty
+        | Some ty -> print_typ style ty
       in
 
       let opt_str c o = if o = None then "-" else c in
@@ -513,8 +527,12 @@ and print_destructor_kind (dk : destructor_kind) : document =
   | Destructor_delete -> string "Destructor_delete"
   | Destructor_simpl -> string "Destructor_simpld"
 
-(* [print_cstyle_annot ann]: prints as string cstyle annotation [ann]. *)
-and print_cstyle_annot (ann : cstyle_annot) : document =
+(* [print_cstyles_annot style anns]: prints a list of cstyle annotation [anns]. *)
+and print_cstyles_annot style (anns : cstyle_annot list) : document =
+  print_list (List.map (print_cstyle_annot style) anns)
+
+(* [print_cstyle_annot style ann]: prints a cstyle annotation [ann]. *)
+and print_cstyle_annot style (ann : cstyle_annot) : document =
  match ann with
  | Display_no_arrow -> string "Display_no_arrow"
  | Empty_cond -> string "Empty_cond"
@@ -530,7 +548,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Static_fun -> string "Static"
  | Method_call -> string "Method_call"
  | Implicit_this -> string "Implicit_this"
- | Typ_arguments tyl -> string "Typ_arguments " ^^ list_to_doc ~bounds:[langle; rangle] (List.map print_typ tyl)
+ | Typ_arguments tyl -> string "Typ_arguments " ^^ list_to_doc ~bounds:[langle; rangle] (List.map (print_typ style) tyl)
  | Implicit_constructor -> string "Implicit_constructor"
  | Explicit_constructor -> string "Explicit_constructor"
  | Default_constructor -> string "Default_constructor"
@@ -657,35 +675,37 @@ and print_routine (routine : omp_routine) : document =
   | Get_wtick -> string "Get_wtick"
 
 
-(* [print_ast ~only_desc out t]: prints the ast [t] with the full information or not depending on [only_desc] flag,
-      on an outer channel [out] *)
-let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
-  let d = print_trm ~only_desc t in
+(* [print_ast style out t]: prints the ast [t] on an outer channel [out] *)
+let print_ast style (out : out_channel) (t : trm) : unit =
+  let d = print_trm style t in
   ToChannel.pretty 0.9 80 out d
 
-(* [ast_to_file filename t]: prints ast [t] into file [filename] *)
-let ast_to_file (filename : string) (t : trm) : unit =
+(* [ast_to_file style filename t]: prints ast [t] into file [filename] *)
+let ast_to_file style (filename : string) (t : trm) : unit =
   let out = open_out filename in
-  print_ast out t;
+  print_ast style out t;
   close_out out
 
-(* [ast_to_string ~only_desc t]: converts ast [t] to a string *)
-let ast_to_string ?(only_desc : bool = false) (t : trm) : string =
-  let d = print_trm ~only_desc t in
+(* [ast_to_string style t]: converts ast [t] to a string *)
+let ast_to_string ?(style : style option) (t : trm) : string =
+  let style = match style with None -> default_style() | Some s -> s in
+  let d = print_trm style t in
   document_to_string d
 
-(* [typedef_to_string ~only_desc td]: converts typdef [td] to a string *)
-let typedef_to_string ?(only_desc : bool = false) (td : typedef) : string =
-  let d = print_typedef ~only_desc td in
+(* [typedef_to_string style td]: converts typdef [td] to a string *)
+let typedef_to_string ?(style : style option) (td : typedef) : string =
+  let style = match style with None -> default_style() | Some s -> s in
+  let d = print_typedef style td in
   document_to_string d
 
-(* [typ_to_string ~only_desc t]: converts type [t] to a string  *)
-let typ_to_string ?(only_desc : bool = false) (t : typ) : string =
-  let d = print_typ ~only_desc t in
+(* [typ_to_string style t]: converts type [t] to a string  *)
+let typ_to_string ?(style : style option) (t : typ) : string =
+  let style = match style with None -> default_style() | Some s -> s in
+  let d = print_typ style t in
   document_to_string d
 
-(* [typ_option_to_string ~only_desc t]: converts an optional type [t] to a string  *)
-let typ_option_to_string ?(only_desc : bool = false) (t : typ option) : string =
+(* [typ_option_to_string style t]: converts an optional type [t] to a string  *)
+let typ_option_to_string ?(style : style option) (t : typ option) : string =
   match t with
   | None -> "<notype>"
-  | Some ty -> typ_to_string ~only_desc ty
+  | Some ty -> typ_to_string ?style ty

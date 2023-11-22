@@ -35,6 +35,40 @@ end
 (*                          Extensions to Pprint                              *)
 (******************************************************************************)
 
+(* TODO:
+
+
+TODO: essayer utf8format
+
+XString.of_str_opt_list
+XString.of_opt_list
+
+XString.of_opt ('a -> string) -> 'a option -> string
+XString.of_str_opt (string option) -> string
+XString.of_list ('a -> string) ('a list)
+XString.of_str_list (string list)
+
+Tools :
+  XOpt.to_string
+  Xlist.to_string
+  Xlist.to_string (XOpt.to_string  )..
+  // plutot que list_opt_to_string
+
+List
+Array.of_list
+Array.to_list
+
+
+//Xstring.of_doc
+//Doc.of_string
+
+Xstring.to_doc
+Doc.to_string
+
+Doc.of_doc_list (doc list) sep bounds
+Doc.of_list ('a -> doc) ('a list) sep bounds
+*)
+
 (* [print_node s]: converts string the [s] to pprint document and add a trailing space *)
 let print_node (s : string) : document =
   string s ^^ blank 1
@@ -60,9 +94,11 @@ let list_to_doc ?(empty : document = empty) ?(sep:document = semi) ?(bounds = [e
    lb ^^ aux l ^^ rb
 
 (* [print_object dl]: prints a list of documents in the form [{x, y, z}]. *)
+(* TODO rename Doc.braces_coma_of_list *)
 let print_object (dl : document list) : document =
   surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
 
+(* TODO rename Doc.parens_coma_of_list *)
 (* [print_pair dl]: prints documents [d1] and [d2] in the form [(d1,d2)]. *)
 let print_pair (d1 : document) (d2 : document) : document =
   parens (d1 ^^ comma ^/^ d2)
@@ -299,3 +335,15 @@ let warn (msg : string) : unit =
 
 module String_map = Map.Make(String)
 module String_set = Set.Make(String)
+
+
+(******************************************************************************)
+(*                          String functions                         *)
+(******************************************************************************)
+
+let remove_suffix ~(suffix : string) (s : string) : string =
+  let nsuffix = String.length suffix in
+  let ns = String.length s in
+  if nsuffix > ns
+    then failwith "remove_suffix: invalid argument";
+  String.sub s 0 (ns - nsuffix)

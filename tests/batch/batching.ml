@@ -29,7 +29,7 @@ let save_batch_result ~(basename : string) ~(exec_success : bool) ~(diff_success
 let compare_expected_serialized : bool ref = ref false
 let stop_on_error : bool ref = ref false
 
-(* Function to report progress, can be overwritten by tester.ml *)
+(* Function to report progress *)
 (* TODO: not sure if eprintf should be used by default ;
          should be using a flag to control verbosity *)
 let report_progress script_name =

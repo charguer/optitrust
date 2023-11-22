@@ -50,6 +50,10 @@ let cStrict : constr =
 let cInDepth : constr =
   Constr_depth DepthAny
 
+(* [cInContracts]: matches also in contracts. *)
+let cInContracts : constr =
+  Constr_incontracts
+
 (* [cTarget cstrs]: a constraint build on top of a list of constraints. *)
 let cTarget (cstrs : constr list) : constr =
   Constr_target cstrs
@@ -1155,7 +1159,8 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
     in
   AstC_to_c.init_stringreprs();
   let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro (trm_erase_var_ids t3) in
-  let _doc = AstC_to_c.ast_to_doc ~optitrust_syntax t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
+  let style = AstC_to_c.default_style() in
+  let _doc = AstC_to_c.(ast_to_doc { style with optitrust_syntax }) t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
   let m = AstC_to_c.get_and_clear_stringreprs() in
   t2, m (* we return t2, not t3, because t3 has hidden bodies *)
 
@@ -1200,7 +1205,6 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
   let topfuns = Constr.get_target_regexp_topfuns_opt tgs in
   let t2, m = compute_stringreprs ?topfuns:topfuns (Constr.match_regexp_trm_kinds kinds) t in
   if !Flags.debug_stringreprs then
-    (* AstC_to_c.trm_print_debug t2; *)
     AstC_to_c.print_stringreprs m;
   let stringreprs = convert_stringreprs_from_documentation_to_string m in
   Constr.stringreprs := Some stringreprs;
@@ -1225,6 +1229,7 @@ let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm
 let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
 
+(* TODO: should be this name for the 'current_ast' version. *)
 (* [path_of_target_mark_one m t]: a wrapper for calling [resolve_target] with a mark for which we
     expect a single occurence. *)
 let path_of_target_mark_one (m : mark) (t : trm) : path =
@@ -1828,6 +1833,8 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
 (******************************************************************************)
 (*                               Target aliases                               *)
 (******************************************************************************)
+
+(* TODO: should be default *)
 
 let resolve_target_current_ast (tg : target) : paths =
   resolve_target tg (Trace.ast ())

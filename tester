@@ -15,12 +15,17 @@ OPTITRUST_ABSOLUTE_PATH=$(realpath ${OPTITRUST_PATH})
 
 cd ${OPTITRUST_PATH}
 
-CMD="export OCAMLRUNPARAM=b && dune exec tests/tester.exe -- ${FOLDER_RELATIVE_PATH} $@"
+ARGS="$@"
+FIRSTARG=$(echo ${ARGS} | awk '{print $1;}')
 
-# Save the command
-echo "#!/bin/bash" > ./tester_last.sh
-echo "cd ${OPTITRUST_ABSOLUTE_PATH}; ${CMD}" >> ./tester_last.sh
-chmod +x ./tester_last.sh
+CMD="export OCAMLRUNPARAM=b && dune exec tests/tester.exe -- ${FOLDER_RELATIVE_PATH} ${ARGS}"
+
+# Save the command for run commands
+if [ "${FIRSTARG}" = "run" ]; then
+  echo "#!/bin/bash" > ./tester_last.sh
+  echo "cd ${OPTITRUST_ABSOLUTE_PATH}; ${CMD}" >> ./tester_last.sh
+  chmod +x ./tester_last.sh
+fi
 
 # Run the command
 # echo "Running: ${CMD}"

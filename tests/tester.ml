@@ -353,6 +353,29 @@ let resolve_arg_as_folder (arg : string) : string list =
     Xfile.get_lines_or_empty tmp_file
   end
 
+(** [ensure_ml_extension path] applies to an absolute file path [path];
+    if the filename suffix is [.cpp] or [_exp.cpp] or [_out.cpp], then it
+    automatically changes the extension to the corresonding [.ml] file,
+    and check that this files exist. *)
+let ensure_ml_extension (path : string) : string =
+  let error : 'a. unit -> 'a = fun () ->
+    failwith (sprintf "Tester: '%s' does not have the right extension." path) in
+  let process (suffix : string) : string =
+    let arg = (Tools.remove_suffix ~suffix path) ^ ".ml" in
+    if not (Sys.file_exists arg)
+      then error();
+    arg in
+  if String.ends_with ~suffix:".ml" path then
+    path
+  else if String.ends_with ~suffix:".cpp" path then
+    process ".cpp"
+  else if String.ends_with ~suffix:"_out.cpp" path then
+    process "_out.cpp"
+  else if String.ends_with ~suffix:"_exp.cpp" path then
+    process "_exp.cpp"
+  else
+    error()
+
 (** Resolve one [argi] to a list of tests (without filtering ignored tests) *)
 let resolve_arg (arg : string) : string list =
   let is_file (fname : string) : bool =
@@ -374,11 +397,11 @@ let resolve_arg (arg : string) : string list =
   end else if is_file relarg then begin
     (* Case is a relative file path *)
     if !verbose then printf "Resolved %s as relative filepath: %s\n" arg relarg;
-    [relarg]
+    [ensure_ml_extension relarg]
   end else if is_file arg then begin
     (* Case an absolute file path *)
     if !verbose then printf "Resolved %s as absolute filepath\n" arg;
-    [arg]
+    [ensure_ml_extension arg]
   end else begin
     let (folders_to_search_from, pattern_on_the_name) : (string list * string option) =
       begin match resolve_arg_as_folder arg with
@@ -404,14 +427,20 @@ let resolve_arg (arg : string) : string list =
     tests
   end
 
-(** Takes the [argi] arguments, and resolve them to tests, then filter out
-   ignored tests based on the contents of all the `ignore.tests` files,
+(** [check_test_extension test] checks that [test] has [.ml] has extension. *)
+let check_test_extension (test : string) : unit =
+  if Filename.extension test <> ".ml"
+    then failwith (sprintf "Error: the test '%s' does not have .ml as extension" test)
+
+(** [get_tests_and_ignored] Takes the [argi] arguments, and resolve them to tests,
+   then filter out ignored tests based on the contents of all the `ignore.tests` files,
    each of which refers to tests with path relative to the location of the
    `ignore.tests` file that contains them.
    Influenced by the flags [-only-ignored] and [-with-ignored].
    Returns [tests_to_process, ignored_tests]. *)
 let get_tests_and_ignored (args : string list) : (string list * string list) =
   let tests = File_set.of_list (List.concat_map resolve_arg args) in
+  File_set.iter check_test_extension tests;
   let ignored = find_all_tests_to_ignore () in
   let tests_not_ignored = File_set.diff tests ignored in
   let tests_and_ignored = File_set.inter tests ignored in
@@ -498,21 +527,29 @@ let action_run (tests : string list) : unit =
   end;
   (* DEPRECATED printf "\n"; *)
 
-  (* If -hide-stdout option is used, start redirecting stdout into
-     "_tests_stdout.txt" during the execution of the unit tests *)
+  (* Start redirecting stdout into a temporary file during the execution
+    of the unit tests. If -hide-stdout option is used, the contents of
+    this file is ignored. Otherwise, the contents is printed at the end,
+    or just before the error if an error is raised.  *)
   let oldstdout = Unix.dup Unix.stdout in
-  let newstdout = ref None in
-  if !Flags.hide_stdout then begin
-    let c = open_out "_tests_stdout.txt" in
-    Unix.dup2 (Unix.descr_of_out_channel c) Unix.stdout;
-    newstdout := Some c;
+  let catpured_stdout_channel_ref = ref None in
+  let catpured_stdout_file = Filename.temp_file "optitrust_batch_stdout" ".txt" in
+  let capture = true in (* !Flags.hide_stdout *)
+  if capture then begin
+    let catpured_stdout_channel = open_out catpured_stdout_file in
+    Unix.dup2 (Unix.descr_of_out_channel catpured_stdout_channel) Unix.stdout;
+    catpured_stdout_channel_ref := Some catpured_stdout_channel;
   end;
   let close_redirected_stdout () : unit =
-    if !Flags.hide_stdout then begin
-      flush stdout;
-      let c = Option.get !newstdout in
-      close_out c;
+    flush stdout;
+    if capture then begin
+      let catpured_stdout_channel = Option.get !catpured_stdout_channel_ref in
+      close_out catpured_stdout_channel;
       Unix.dup2 oldstdout Unix.stdout;
+      if not !Flags.hide_stdout then begin
+        let catpured_stdout = Xfile.get_contents catpured_stdout_file in
+        print_string catpured_stdout;
+      end
     end in
 
   (* Execute the `batch.ml` program *)
@@ -520,12 +557,11 @@ let action_run (tests : string list) : unit =
     Flags.program_name := "tester.ml";
     Dynlink.loadfile "tests/batch/batch.cmxs"
   with
-    Dynlink.Error err -> begin
+  | Dynlink.Error err ->
       close_redirected_stdout();
       let sbt = Printexc.get_backtrace() in
       Printf.eprintf "%s\n%s" (Dynlink.error_message err) sbt;
       exit 1
-    end
   end;
   close_redirected_stdout();
 
@@ -837,7 +873,7 @@ NOT YET IMPLEMENTED
   (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
   this is what is provided in trace.ml to  the function
-   AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog t_after_cfeatures_intro;
+   AstC_to_c.ast_to_outchannel ~pretty_matrix_notation ~comment_pragma:use_clang_format out_prog t_after_cfeatures_intro;
 
     LATER: deal with script_cpp ~filename by searching 'batch.ml'
 
