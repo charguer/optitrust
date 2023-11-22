@@ -72,7 +72,7 @@ let swap_on (t: trm): trm =
     Pattern.(trm_for !__ (trm_seq (mlist (trm_for !__ !__ (some !__) ^:: nil)) ^| trm_for !__ !__ (some !__)) (some !__))
     (fun outer_range inner_range body inner_contract outer_contract ->
       let open Resource_contract in
-      if outer_contract.invariant <> empty_resource_set then
+      if outer_contract.invariant <> Resource_set.empty then
         if not !Flags.check_validity then raise Pattern.Next else
         failwith "Loop.swap: the outer loop has sequential invariants";
 
@@ -89,13 +89,13 @@ let swap_on (t: trm): trm =
       assert (inner_pre.pure == []);
       assert (inner_post.pure == []);
 
-      let new_inner_pre = res_union inner_inv inner_pre in
-      let new_inner_post = res_union (subst_invariant_step inner_range inner_inv) inner_post in
-      let new_inner_contract = { loop_ghosts; invariant = empty_resource_set; iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
+      let new_inner_pre = Resource_set.union inner_inv inner_pre in
+      let new_inner_post = Resource_set.union (subst_invariant_step inner_range inner_inv) inner_post in
+      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
 
-      let new_outer_inv = res_group_range outer_range inner_inv in
-      let new_outer_pre = res_group_range outer_range inner_pre in
-      let new_outer_post = res_group_range outer_range inner_post in
+      let new_outer_inv = Resource_set.group_range outer_range inner_inv in
+      let new_outer_pre = Resource_set.group_range outer_range inner_pre in
+      let new_outer_post = Resource_set.group_range outer_range inner_post in
       let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; iter_contract = { pre = new_outer_pre; post = new_outer_post } } in
 
       trm_seq_nobrace_nomarks (swaps_pre @

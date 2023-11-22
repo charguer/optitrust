@@ -99,7 +99,7 @@ let loop_minimize_on (t: trm): trm =
   in
 
   let contract = match contract with
-    | None -> { loop_ghosts = res_before.pure; invariant = resource_set ~linear:res_before.linear (); iter_contract = empty_fun_contract }
+    | None -> { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
     | Some contract -> contract
   in
 

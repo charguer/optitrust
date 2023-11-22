@@ -379,7 +379,7 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
 
 let recompute_resources_on_ast () : unit =
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
-  let t = Resource_computation.trm_recompute_resources Resource_contract.empty_resource_set t in
+  let t = Resource_computation.trm_recompute_resources Resource_set.empty t in
   the_trace.cur_ast <- t
 
 (******************************************************************************)

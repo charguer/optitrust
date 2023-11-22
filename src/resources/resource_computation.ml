@@ -33,6 +33,7 @@ type formula_inst = formula
 let inst_hyp (h: hyp): formula_inst = trm_var h
 let inst_hyp_inv = trm_var_inv
 
+let var_result = Resource_set.var_result
 let var_SplitRO = toplevel_var "SplitRO"
 
 let inst_split_read_only ~(new_frac: var) (h: hyp) : formula_inst =
@@ -372,15 +373,6 @@ let resource_names (res: resource_set) : Var_set.t =
   in
   Var_set.union (res_list_names res.pure) (res_list_names res.linear)
 
-let cast_into_read_only (res: resource_set): resource_set =
-  let frac_var, _ = new_frac () in
-  let frac = trm_var frac_var in
-  let linear = List.map (fun (x, formula) ->
-      match formula_read_only_inv formula with
-      | Some _ -> (x, formula)
-      | None -> (x, formula_read_only ~frac formula)) res.linear in
-  { res with linear }
-
 exception Unimplemented
 
 let unop_to_var_name (u: unary_op): string =
@@ -617,7 +609,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         in
         let to_free = List.concat_map extract_let_mut instrs in
         (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-        let res_to_free = resource_set ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
+        let res_to_free = Resource_set.make ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
         let _, _, linear = extract_resources ~split_frac:false res res_to_free in
         { res with linear }) res
       in
@@ -625,14 +617,14 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_let (_, (var, typ), body) ->
       let usage_map, res_after = compute_resources (Some res) body in
-      usage_map, Option.map (fun res_after -> rename_var_in_resources var_result var res_after) res_after
+      usage_map, Option.map (fun res_after -> Resource_set.rename_var var_result var res_after) res_after
 
     | Trm_apps (fn, effective_args, ghost_args) ->
       begin match find_fun_spec fn res.fun_specs with
       | spec ->
         (* The arguments of the function call cannot have write effects, and cannot be referred to in the function contract unless they are formula-convertible (cf. formula_of_term). *)
         (* TODO: Cast into readonly: better error message when a resource exists in RO only but asking for RW *)
-        let read_only_res = cast_into_read_only res in
+        let read_only_res = Resource_set.read_only res in
         let compute_and_check_resources_in_arg usage_map arg =
           (* Give resources as read only and check that they are still there after the argument evaluation *)
           (* LATER: Collect pure facts of arguments:
@@ -640,7 +632,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           let usage_map, post_arg_res = compute_resources_and_merge_usage (Some read_only_res) usage_map arg in
           begin match post_arg_res with
           | Some post_arg_res ->
-            begin try ignore (assert_resource_impl post_arg_res (resource_set ~linear:read_only_res.linear ()))
+            begin try ignore (assert_resource_impl post_arg_res (Resource_set.make ~linear:read_only_res.linear ()))
             with e -> raise (ImpureFunctionArgument e)
             end
           | None -> ()
@@ -738,7 +730,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
             invoc.contract_inst.used_linear
           in
           let inverse_spec = { args = [];
-            contract = { pre = resource_set ~linear:inverse_pre (); post = resource_set ~linear:inverse_post () };
+            contract = { pre = Resource_set.make ~linear:inverse_pre (); post = Resource_set.make ~linear:inverse_post () };
             inverse = None }
           in
           usage_map, Some { res with fun_specs = Var_map.add var_result inverse_spec res.fun_specs }
@@ -761,7 +753,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_for (range, body, None) ->
       (* If no spec is given, put all the resources in the invariant (best effort) *)
-      let expected_res = resource_set ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
+      let expected_res = Resource_set.make ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
       let usage_map, _ = compute_resources ~expected_res (Some res) body in
       usage_map, Some (bind_new_resources ~old_res:res ~new_res:expected_res)
 
