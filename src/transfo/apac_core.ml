@@ -4,6 +4,7 @@ open Trm
 open Target
 open Path
 open Apac_modules
+open Apac_tasks
 
 (*****************************)
 (* PART I: TYPE DECLARATIONS *)
@@ -62,7 +63,7 @@ type const_fun = {
     mutable is_class_method : bool;
     (* Augmented AST of the function's body storing data dependencies of its
        instructions. See [atrm] below. *)
-    mutable aast : atrm option;
+    mutable task_graph : TaskGraph.t option;
     (* Hash table ([var] -> [int]) of locally-defined variables and arguments
        storing their pointer degree. See [fun_symbols] below. *)
     variables : fun_symbols;
@@ -200,51 +201,6 @@ and const_unconst_objects = (var * var * var) Stack.t
    value is [true], it means that the corresponding variable declaration should
    be constified. *)
 and const_mult = (mark, bool list) Hashtbl.t
-
-(*********************)
-(* I.2 Taskification *)
-(*********************)
-
-(* [atrm]: augmented term type. The initial task DAG of a function considers
-   each instruction and each block of instructions (loops, scopes, switches,
-   ...) as a separate task. Prior to building the initial task DAG of a
-   function, we have to compute the potential data dependencies between the
-   future tasks. During this process, we iterate over the local AST of the
-   target function and build an augmented local AST holding the dependency
-   information. This augmented local AST is built out of [atrm] elements. Each
-   [atrm] can represent a task by itself. An [atrm] element is composed of: *)
-and atrm = {
-    (* - the original AST term, *)
-    current : trm;
-    (* - a set of input dependencies (read-only within the instruction), *)
-    mutable ins : Dep_set.t;
-    (* - a set of in/out dependencies (read-write within the instruction), *)
-    mutable inouts : Dep_set.t;
-    (* - a set of shared variables (changes to these variables should
-       be preserved after the end of the task, see the 'shared' OpenMP
-       clause), *)
-    mutable shared : Var_set.t;
-    (* - a task number ([atrm] elements with the same task number
-       belong to the same task, -1 means that the [atrm] cannot be
-       taskified), *)
-    mutable task_id : int;
-    (* - a list of child augmented terms, *)
-    children : atrms;
-    (* - a list of child terms that are essential for the dependency computation
-       but cannot represent tasks by themselves, e.g. the initialization term in
-       a for-loop or the condition term in an if-conditional. *)
-    params : trms;
-  }
-
-(* [atrms]: list of augmented terms (see [atrm]). *)
-and atrms = atrm list
-
-(* [dep_attr]: enumeration of data dependency attributes (see
-   [trm_discover_dependencies]). *)
-and dep_attr =
-  | Regular (* default value, no attribute *)
-  | FunArgIn (* function call argument, read-only dependency *)
-  | FunArgInOut (* function call argument, read-write dependency *)
 
 (******************************************************************)
 (* PART II: DECLARATION AND/OR INITIALIZATION OF GLOBAL VARIABLES *)
@@ -851,17 +807,15 @@ let find_parent_function (p : path) : var option =
   in
   aux reversed
 
-let trm_task
-      (ins : Dep_set.t) (inouts : Dep_set.t) (shared : Var_set.t) : cpragma =
+let trm_task (ins : Dep_set.t) (inouts : Dep_set.t) : cpragma =
+  let shared = [Default Shared_m] in
   let ins' = dep_set_to_list ins in
   let ins' = if (List.length ins') < 1 then [] else [In ins'] in
   let inouts' = dep_set_to_list inouts in
   let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
-  let shared' = var_set_to_list shared in
-  let shared' = if (List.length shared') < 1 then [] else [Shared shared'] in
   let depend = List.append ins' inouts' in
   let depend = if (List.length depend) < 1 then [] else [Depend depend] in
-  let clauses = List.append depend shared' in
+  let clauses = List.append shared depend in
   Task clauses
 
 (* [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
@@ -869,7 +823,7 @@ let trm_task
    paired with an access attribute. The second list contains all the variables
    involved in the data accesses. *)
 let trm_discover_dependencies (locals : fun_symbols)
-      (t : trm) : (Dep_set.t * Dep_set.t * Var_set.t)  =
+      (t : trm) : (Dep_set.t * Dep_set.t)  =
   (* [trm_look_for_dependencies.aux depends nested attr t] builds [depends], a
      stack of data accesses in [t] and variables involved in the latter. Note
      that we build the stack by side-effect instead of returning a list. This is
@@ -881,28 +835,29 @@ let trm_discover_dependencies (locals : fun_symbols)
      [attr] allows for passing access attributes between recursive calls to
      [aux], e.g. in the case of nested data accesses (see the [access_attr] type
      for more details). *)
-  let rec aux (ins : dep Stack.t) (inouts : dep Stack.t) (shared : var Stack.t)
+  let rec aux (ins : dep Stack.t) (inouts : dep Stack.t)
             (filter : Var_set.t) (nested : bool) (attr : dep_attr)
             (t : trm) : unit =
     let error = Printf.sprintf "Apac_core.trm_look_for_dependencies.aux: '%s' \
                                 is not a valid OpenMP depends expression"
                   (AstC_to_c.ast_to_string t) in
     (* We iteratively explore [t] and look for: *)
-    let _ = Printf.printf "What term? %s\n" (trm_desc_to_string t.desc) in
+    (*let _ = Printf.printf "What term? %s\n" (trm_desc_to_string t.desc) in*)
     match t.desc with
     | Trm_var (_, v) when not nested && not (Var_set.mem v filter) ->
-       let _ = Printf.printf "Trm_var %s\n" (var_to_string v) in
+       (*let _ = Printf.printf "Trm_var %s\n" (var_to_string v) in*)
        if String.starts_with ~prefix:"sizeof(" v.name then
          let d = Dep_var (v) in Stack.push d ins
        else
          begin
-           let degree = Var_Hashtbl.find locals v in
            match attr with
            | Regular -> let d = Dep_var (v) in Stack.push d ins
            | FunArgIn ->
+              let degree = Var_Hashtbl.find locals v in
               let d = var_to_dep v degree in
               Stack.push d ins
            | FunArgInOut ->
+              let degree = Var_Hashtbl.find locals v in
               let d = var_to_dep v degree in
               Stack.push d inouts
          end
@@ -927,15 +882,15 @@ let trm_discover_dependencies (locals : fun_symbols)
            | Some _ -> ()
            | None -> fail t.loc error
          end;
-       trm_iter (aux ins inouts shared filter true Regular) t'
+       trm_iter (aux ins inouts filter true Regular) t'
     (* - address operations ([&t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
-       let _ = Printf.printf "address\n" in
+       (*let _ = Printf.printf "address\n" in*)
        if not nested then
          begin
            match (trm_resolve_pointer_and_degree t') with
            | Some (v, _) when not (Var_set.mem v filter) ->
-              let _ = Printf.printf "address of %s\n" (var_to_string v) in
+              (*let _ = Printf.printf "address of %s\n" (var_to_string v) in*)
               begin
                 match attr with
                 | Regular
@@ -945,7 +900,7 @@ let trm_discover_dependencies (locals : fun_symbols)
            | Some _ -> ()
            | None -> fail t.loc error
          end;
-       trm_iter (aux ins inouts shared filter true Regular) t'
+       trm_iter (aux ins inouts filter true Regular) t'
     (* - array accesses ([t'[i]], [t' -> [i]]), *)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _)
@@ -977,7 +932,7 @@ let trm_discover_dependencies (locals : fun_symbols)
            fun a -> match a with
                     | Array_access_get t''
                       | Array_access_addr t'' ->
-                       aux ins inouts shared filter false Regular t''
+                       aux ins inouts filter false Regular t''
                     | _ -> ()
          ) accesses
     (* - unary increment and decrement operations ([t'++], [--t'], ...), *)
@@ -987,14 +942,12 @@ let trm_discover_dependencies (locals : fun_symbols)
        begin
          match (trm_resolve_pointer_and_degree t') with
          | Some (v, degree) when not (Var_set.mem v filter) ->
-            let degree = degree + 1 in
-            let _ = Printf.printf "unop with deg %d\n" degree in
             begin
-              if degree = 0 then Stack.push v shared;
               match attr with
               | Regular -> let d = Dep_var (v) in Stack.push d inouts
               | FunArgIn
                 | FunArgInOut ->
+                 let degree = degree + 1 in
                  let degree' = Var_Hashtbl.find locals v in
                  let d = var_to_dep v (degree' - degree) in
                  Stack.push d inouts
@@ -1004,7 +957,7 @@ let trm_discover_dependencies (locals : fun_symbols)
        end;
     (* - function calls ([f(args)], ...). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
-       let _ = Printf.printf "call to %s\n" (var_to_string v) in
+       (*let _ = Printf.printf "call to %s\n" (var_to_string v) in*)
        if Var_Hashtbl.mem const_records v then
          let const_record : const_fun = Var_Hashtbl.find const_records v in
          let consts : (var * const_arg) list = const_record.const_args in
@@ -1012,14 +965,14 @@ let trm_discover_dependencies (locals : fun_symbols)
          List.iter2 (
              fun arg (const : const_arg)  ->
              if const.is_const then
-               aux ins inouts shared filter false FunArgIn arg
+               aux ins inouts filter false FunArgIn arg
              else
-               aux ins inouts shared filter false FunArgInOut arg
+               aux ins inouts filter false FunArgInOut arg
            ) args consts'
        else
          List.iter (
              fun arg ->
-             trm_iter (aux ins inouts shared filter false FunArgInOut) arg
+             trm_iter (aux ins inouts filter false FunArgInOut) arg
            ) args
     (* - set operation ([a = 1], [b = ptr], [*c = 42], ...), *)
     | Trm_apps _ when is_set_operation t ->
@@ -1028,11 +981,10 @@ let trm_discover_dependencies (locals : fun_symbols)
        let (lval, rval) = trm_inv ~error:error' set_inv t in
        begin
          match (trm_resolve_binop_lval_and_get_with_deref lval) with
-         | Some (lv, deref) ->
+         | Some (lv, _) ->
             let d = Dep_trm (lval, lv.v) in
             Stack.push d inouts;
-            if not deref then Stack.push lv.v shared;
-            trm_iter (aux ins inouts shared filter false Regular) rval
+            trm_iter (aux ins inouts filter false Regular) rval
          | None -> fail t.loc error
        end
     | Trm_let (vk, (v, ty), init, _) ->
@@ -1040,7 +992,7 @@ let trm_discover_dependencies (locals : fun_symbols)
        let degree = (typ_get_degree ty) - 1 in
        Stack.push d inouts;
        Var_Hashtbl.add locals v degree;
-       trm_iter (aux ins inouts shared filter false Regular) init
+       trm_iter (aux ins inouts filter false Regular) init
     | Trm_let_mult (vk, tvs, inits) ->
        let (vs, _) = List.split tvs in
        let filter = Var_set.of_list vs in
@@ -1049,46 +1001,23 @@ let trm_discover_dependencies (locals : fun_symbols)
            let degree = (typ_get_degree ty) - 1 in
            Stack.push d inouts;
            Var_Hashtbl.add locals v degree;
-           trm_iter (aux ins inouts shared filter false Regular) init
+           trm_iter (aux ins inouts filter false Regular) init
          ) tvs inits
     (* In the case of any other term, we just continue to explore the child
        terms. *)
     | _ -> (*let _ = Debug_transfo.trm ~style:Internal "other" t in*)
-       trm_iter (aux ins inouts shared filter false attr) t
+       trm_iter (aux ins inouts filter false attr) t
   in
   (* In the main part of the function, we begin by creating empty stacks to
      contain the discovered in and in-out dependencies. *)
   let ins : dep Stack.t = Stack.create () in
   let inouts : dep Stack.t = Stack.create () in
-  let shared : var Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
-  let _ = aux ins inouts shared (Var_set.empty) false Regular t in
+  let _ = aux ins inouts (Var_set.empty) false Regular t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
   let ins' = dep_set_of_stack ins in
   let inouts' = dep_set_of_stack inouts in
-  let shared' = var_set_of_stack shared in
-  (ins', inouts', shared')
-
-let atrm_to_string (a : atrm) : string =
-  let rec aux (a : atrm) (indent : string) : string =
-    let what = trm_desc_to_string a.current.desc in
-    let tid = string_of_int a.task_id in
-    let ins = Dep_set.fold
-                (fun a acc -> acc ^ " " ^ (dep_to_string a)) a.ins "" in
-    let inouts = Dep_set.fold
-                   (fun a acc -> acc ^ " " ^ (dep_to_string a)) a.inouts "" in
-    let shared = Var_set.fold
-                   (fun a acc -> acc ^ " " ^ (var_to_string a)) a.shared "" in
-    let result =
-      indent ^ what ^
-        " (tid: " ^ tid ^ ", in: [" ^ ins ^ " ], inouts: [" ^ inouts ^
-          " ], shared: [" ^ shared ^ " ])\n" in
-    match a.children with
-    | h::_ as l ->
-       List.fold_left (fun acc a -> acc ^ (aux a (indent ^ "  "))) result l
-    | [] -> result
-  in
-  aux a ""
+  (ins', inouts')
 
 (******************************************)
 (* PART IV: CORE TRANSFORMATION FUNCTIONS *)
@@ -1132,7 +1061,7 @@ let build_constification_records_on (t : trm) : unit =
       is_ret_ptr = is_typ_ptr ret_ty;
       is_ret_ref = is_typ_array ret_ty || is_typ_ref ret_ty;
       is_class_method = false;
-      aast = None;
+      task_graph = None;
       variables = locals;
     } in
   (* and add it to [const_records] (global variable, see Part II.1) if it is not
@@ -1492,13 +1421,13 @@ let identify_mutables (tg : target) : unit =
 let taskify_on (p : path) (t : trm) : unit =
   (* Auxiliary function to transform a portion of the existing AST into a local
      augmented AST (see [atrm]). *)
-  let rec augment (locals : fun_symbols) (tid : int) (t : trm) : atrm =
+(*  let rec augment (locals : fun_symbols) (t : trm) (g : TaskGraph.t) : unit =
     match t.desc with
     | Trm_seq instrs ->
        let scope = var_set_of_var_hashtbl locals in
        let instrs' = Mlist.to_list instrs in
-       let instrs' = List.mapi (
-                         fun i instr -> augment locals i instr
+       let instrs' = List.iter (
+                         fun instr -> augment locals instr g
                        ) instrs' in
        let ins = List.fold_left (
                      fun acc instr -> Dep_set.union acc instr.ins
@@ -1506,9 +1435,6 @@ let taskify_on (p : path) (t : trm) : unit =
        let inouts = List.fold_left (
                         fun acc instr -> Dep_set.union acc instr.inouts
                       ) Dep_set.empty instrs' in
-       let shared' = List.fold_left (
-                         fun acc instr -> Var_set.union acc instr.shared
-                       ) Var_set.empty instrs' in
        let ins' = Dep_set.filter (
                       fun d -> match (dep_get_atomic d) with
                                | Dep_var v -> Var_set.mem v scope
@@ -1675,7 +1601,7 @@ let taskify_on (p : path) (t : trm) : unit =
         params = []
       }
        (*fail t.loc "Apac_core.taskify_on: unsupported instruction kind."*)
-  in
+  in*)
   (* Find the parent function. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
@@ -1684,16 +1610,23 @@ let taskify_on (p : path) (t : trm) : unit =
   (* Find the corresponding constification record in [const_records]. *)
   let const_record = Var_Hashtbl.find const_records f in
   (* Build the augmented AST correspoding to the function's body. *)
-  let aast = augment const_record.variables 0 t in
-  const_record.aast <- Some (aast);
+  let task_graph = TaskGraph.create () in
+  let new_node : Task.t  = { current = t; ins = Dep_set.empty; inouts = Dep_set.empty; children = TaskGraph.create (); } in
+  let new_node = TaskGraph.V.create new_node in
+  TaskGraph.add_vertex task_graph new_node;
+  const_record.task_graph <- Some (task_graph);
+  TaskGraph.iter_vertex (fun vertex ->
+      let lab : Task.t = TaskGraph.V.label vertex in
+      Printf.printf "vertex: %s\n" (trm_desc_to_string lab.current.desc)) task_graph
+  (*augment const_record.variables t task_graph;
   Printf.printf "Augmented AST for <%s> follows:\n%s\n"
-    (var_to_string f) (atrm_to_string aast)
+    (var_to_string f) (atrm_to_string aast)*)
     
 let taskify (tg : target) : unit =
   Target.iter (fun t p -> taskify_on p (get_trm_at_path p t)) tg
 
 (* [insert_tasks_on p t]: see [insert_tasks_on]. *)
-let insert_tasks_on (p : path) (t : trm) : trm =
+(*let insert_tasks_on (p : path) (t : trm) : trm =
   (* Auxiliary function to transform a portion of the existing AST into a local
      augmented AST (see [atrm]). *)
   let rec aux (t : atrm) : trm =
@@ -1765,3 +1698,4 @@ let insert_tasks_on (p : path) (t : trm) : trm =
     
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
+ *)

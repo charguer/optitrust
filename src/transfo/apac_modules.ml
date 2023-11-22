@@ -42,61 +42,6 @@ end
 
 module LVar_Hashtbl = Hashtbl.Make(LVar)
 
-let rec dep_to_string (d : dep) : string =
-  match d with
-  | Dep_ptr d' ->
-     "*" ^ (dep_to_string d')
-  | Dep_var v -> v.name
-  | Dep_trm (t, _) ->
-     AstC_to_c.ast_to_string t
-
-let rec dep_get_atomic (d : dep) : dep =
-  match d with
-  | Dep_ptr d' -> dep_get_atomic d'
-  | _ -> d
-
-module Dep = struct
-  type t = dep
-  let compare d1 d2 =
-    let d1' = dep_to_string d1 in
-    let d2' = dep_to_string d2 in
-    String.compare d1' d2'
-  let equal d1 d2 =
-    let d1' = dep_to_string d1 in
-    let d2' = dep_to_string d2 in
-    d1' = d2'
-end
-
-module Dep_set = Set.Make(Dep)
-
-let dep_set_of_stack s = Dep_set.of_seq (Stack.to_seq s)
-
-let dep_set_to_list s = List.of_seq (Dep_set.to_seq s)
-
 let var_set_of_var_hashtbl h = Var_set.of_seq (Var_Hashtbl.to_seq_keys h)
 
-(* [typed_var_to_dep tv]: converts the typed variable [tv] into a data
-   dependency (see the [Ast.dep] data type). *)
-let rec var_to_dep (v : var) (degree : int) : dep =
-  (* For each level of the pointer degree *)
-  let degree' = degree - 1 in
-  if degree > 0 then
-    (* nest a [Dep_ptr]. *)
-    Dep_ptr (var_to_dep v degree')
-  else
-    (* At the end, when the zero level is reached, nest the final [Dep_var]
-       built from [v]. *)
-    Dep_var (v)
 
-(* [typed_var_to_dep tv]: converts the typed variable [tv] into a data
-   dependency (see the [Ast.dep] data type). *)
-let rec trm_to_dep (t : trm) (v : var) (degree : int) : dep =
-  (* For each level of the pointer degree *)
-  let degree' = degree - 1 in
-  if degree > 0 then
-    (* nest a [Dep_ptr]. *)
-    Dep_ptr (trm_to_dep t v degree')
-  else
-    (* At the end, when the zero level is reached, nest the final [Dep_var]
-       built from [v]. *)
-    Dep_trm (t, v)
