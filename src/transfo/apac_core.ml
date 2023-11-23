@@ -64,18 +64,18 @@ type const_fun = {
     (* Augmented AST of the function's body storing data dependencies of its
        instructions. See [atrm] below. *)
     mutable task_graph : TaskGraph.t option;
-    (* Hash table ([var] -> [int]) of locally-defined variables and arguments
-       storing their pointer degree. See [fun_symbols] below. *)
-    variables : fun_symbols;
+    (* Hash table ([var] -> [int]) of locally-defined symbols, including
+       arguments, storing their pointer degree. See [symbols] below. *)
+    variables : symbols;
   }
 
 (* [const_funs]: type for a hash table of [const_fun]. The keys are functions
    represented by terms of type [var]. *)
 and const_funs = const_fun Var_Hashtbl.t
 
-(* [fun_symbols]: type for a hash table of variables local to a given function
-   definition (including the arguments). The table associates the varibles to
-   their pointer degree.
+(* [symbols]: type for a hash table of symbols local to a given function
+   definition (including the arguments, but excluding the name of the function
+   itself). The table associates the varibles to their pointer degree.
 
    For example, in the case of the following function definition,
 
@@ -91,7 +91,7 @@ and const_funs = const_fun Var_Hashtbl.t
    tab, 1
    b, 0
    data, 2 *)
-and fun_symbols = int Var_Hashtbl.t
+and symbols = int Var_Hashtbl.t
 
 (* [const_aliases]: type for hash table of argument aliases.
 
@@ -822,7 +822,7 @@ let trm_task (ins : Dep_set.t) (inouts : Dep_set.t) : cpragma =
    returns two lists. The first list holds the access terms where each term is
    paired with an access attribute. The second list contains all the variables
    involved in the data accesses. *)
-let trm_discover_dependencies (locals : fun_symbols)
+let trm_discover_dependencies (locals : symbols)
       (t : trm) : (Dep_set.t * Dep_set.t)  =
   (* [trm_look_for_dependencies.aux depends nested attr t] builds [depends], a
      stack of data accesses in [t] and variables involved in the latter. Note
@@ -1040,7 +1040,7 @@ let build_constification_records_on (t : trm) : unit =
       if first.name = "this" then List.tl args else args
     else args in
   (* Create a hash table for locally defined variables. *)
-  let locals : fun_symbols = Var_Hashtbl.create 10 in
+  let locals : symbols = Var_Hashtbl.create 10 in
   (* Create an argument constification record for the function's arguments and
      fill [locals] with function's arguments and their pointer degrees. *)
   let const_args = List.map (
@@ -1421,7 +1421,7 @@ let identify_mutables (tg : target) : unit =
 let taskify_on (p : path) (t : trm) : unit =
   (* Auxiliary function to transform a portion of the existing AST into a local
      augmented AST (see [atrm]). *)
-(*  let rec augment (locals : fun_symbols) (t : trm) (g : TaskGraph.t) : unit =
+  let rec augment (locals : symbols) (t : trm) (g : TaskGraph.t) : unit =
     match t.desc with
     | Trm_seq instrs ->
        let scope = var_set_of_var_hashtbl locals in
@@ -1601,7 +1601,7 @@ let taskify_on (p : path) (t : trm) : unit =
         params = []
       }
        (*fail t.loc "Apac_core.taskify_on: unsupported instruction kind."*)
-  in*)
+  in
   (* Find the parent function. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
