@@ -7,6 +7,19 @@ let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) () =
 
 let empty = make ()
 
+(** Add new pure resources to the old ones and replace linear resources. *)
+let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
+  { pure = new_res.pure @ old_res.pure;
+    linear = new_res.linear;
+    fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs }
+
+let resource_names (res: resource_set) : Var_set.t =
+  let res_list_names (res: resource_item list) =
+    List.fold_left (fun avoid_names (h, _) ->
+            Var_set.add h avoid_names) Var_set.empty res
+  in
+  Var_set.union (res_list_names res.pure) (res_list_names res.linear)
+
 let push_pure (res: resource_item) (res_set: resource_set) =
   { res_set with pure = res :: res_set.pure }
 

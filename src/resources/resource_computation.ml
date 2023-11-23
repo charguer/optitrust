@@ -7,21 +7,53 @@ open Resource_contract
 type pure_resource_set = resource_item list
 type linear_resource_set = resource_item list
 
-let __cast = toplevel_var "__cast"
-let __new = toplevel_var "__new"
-let __get = toplevel_var "__get"
-let __set = toplevel_var "__set"
-let __add = toplevel_var "__add"
-let __sub = toplevel_var "__sub"
-let __mul = toplevel_var "__mul"
-let __array_access = toplevel_var "__array_access"
-let __add_inplace = toplevel_var "__add_inplace"
-let __sub_inplace = toplevel_var "__sub_inplace"
-let __mul_inplace = toplevel_var "__mul_inplace"
-let __post_inc = toplevel_var "__post_inc"
-let __post_dec = toplevel_var "__post_dec"
-let __pre_inc = toplevel_var "__pre_inc"
-let __pre_dec = toplevel_var "__pre_dec"
+module Resource_primitives = struct
+  let __cast = toplevel_var "__cast"
+  let __new = toplevel_var "__new"
+  let __get = toplevel_var "__get"
+  let __set = toplevel_var "__set"
+  let __add = toplevel_var "__add"
+  let __sub = toplevel_var "__sub"
+  let __mul = toplevel_var "__mul"
+  let __array_access = toplevel_var "__array_access"
+  let __add_inplace = toplevel_var "__add_inplace"
+  let __sub_inplace = toplevel_var "__sub_inplace"
+  let __mul_inplace = toplevel_var "__mul_inplace"
+  let __post_inc = toplevel_var "__post_inc"
+  let __post_dec = toplevel_var "__post_dec"
+  let __pre_inc = toplevel_var "__pre_inc"
+  let __pre_dec = toplevel_var "__pre_dec"
+
+  exception Unknown
+
+  let unop_to_var_name (u: unary_op): string =
+    match u with
+    | Unop_get -> "__get"
+    | Unop_pre_inc -> "__pre_inc"
+    | Unop_pre_dec -> "__pre_dec"
+    | Unop_post_inc -> "__post_inc"
+    | Unop_post_dec -> "__post_dec"
+    | Unop_cast t -> "__cast"
+    | _ -> raise Unknown
+
+  let binop_to_var_name (u: binary_op): string =
+    match u with
+    | Binop_add -> "__add"
+    | Binop_sub -> "__sub"
+    | Binop_mul -> "__mul"
+    | Binop_array_access -> "__array_access"
+    | Binop_set -> "__set"
+    | _ -> raise Unknown
+
+  let to_var (p: prim): var =
+    toplevel_var (match p with
+    | Prim_unop u -> unop_to_var_name u
+    | Prim_binop b -> binop_to_var_name b
+    | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
+    | Prim_new _ -> "__new"
+    | _ -> raise Unknown)
+
+end
 
 (** A formula that may instantiate contract variables with
    hypotheses from the calling context.
@@ -53,18 +85,6 @@ let inst_forget_init_inv (f: formula_inst): hyp option =
   Pattern.pattern_match_opt f [
     Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h -> h)
   ]
-
-let fun_contract_free_vars (contract: fun_contract): Var_set.t =
-  let fold_res_list bound_vars fv res =
-    List.fold_left (fun (bound_vars, fv) (h, formula) ->
-      let bound_vars = Var_set.add h bound_vars in
-      (bound_vars, Var_set.union (trm_free_vars ~bound_vars formula) fv)) (bound_vars, fv) res
-  in
-  let bound_vars, free_vars = fold_res_list Var_set.empty Var_set.empty contract.pre.pure in
-  let _, free_vars = fold_res_list bound_vars free_vars contract.pre.linear in
-  let bound_vars, free_vars = fold_res_list bound_vars free_vars contract.post.pure in
-  let _, free_vars = fold_res_list bound_vars free_vars contract.post.linear in
-  free_vars
 
 (** [Resource_not_found (item, res_list)]: exception raised when the resource
    [item] is not found inside the resource list [res_list] *)
@@ -360,54 +380,12 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
   assert (Hashtbl.length ro_formulas = 0);
   { res_after with linear }, used_set
 
-(* [bind_new_resources]: Add new pure resources to the old ones and replace linear resources. *)
-let bind_new_resources ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
-  { pure = new_res.pure @ old_res.pure;
-    linear = new_res.linear;
-    fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs }
-
-let resource_names (res: resource_set) : Var_set.t =
-  let res_list_names (res: resource_item list) =
-    List.fold_left (fun avoid_names (h, _) ->
-            Var_set.add h avoid_names) Var_set.empty res
-  in
-  Var_set.union (res_list_names res.pure) (res_list_names res.linear)
-
-exception Unimplemented
-
-let unop_to_var_name (u: unary_op): string =
-  match u with
-  | Unop_get -> "__get"
-  | Unop_pre_inc -> "__pre_inc"
-  | Unop_pre_dec -> "__pre_dec"
-  | Unop_post_inc -> "__post_inc"
-  | Unop_post_dec -> "__post_dec"
-  | Unop_cast t -> "__cast"
-  | _ -> raise Unimplemented
-
-let binop_to_var_name (u: binary_op): string =
-  match u with
-  | Binop_add -> "__add"
-  | Binop_sub -> "__sub"
-  | Binop_mul -> "__mul"
-  | Binop_array_access -> "__array_access"
-  | Binop_set -> "__set"
-  | _ -> raise Unimplemented
-
-let prim_to_var (p: prim): var =
-  toplevel_var (match p with
-  | Prim_unop u -> unop_to_var_name u
-  | Prim_binop b -> binop_to_var_name b
-  | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
-  | Prim_new _ -> "__new"
-  | _ -> raise Unimplemented)
-
 let trm_fun_var_inv (t:trm): var option =
   try
     match trm_prim_inv t with
-    | Some p -> Some (prim_to_var p)
+    | Some p -> Some (Resource_primitives.to_var p)
     | None -> trm_var_inv t
-  with Unimplemented ->
+  with Resource_primitives.Unknown ->
     let trm_internal (msg : string) (t : trm) : string =
       Printf.sprintf "%s: %s\n" msg (Ast_to_text.ast_to_string t) in
     fail t.loc (trm_internal "unimplemented trm_fun_var_inv construction" t)
@@ -562,7 +540,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_fun (args, ret_type, body, contract) ->
       let compute_resources_in_body contract =
-        let body_res = bind_new_resources ~old_res:res ~new_res:contract.pre in
+        let body_res = Resource_set.bind ~old_res:res ~new_res:contract.pre in
         (* LATER: Merge used pure facts *)
         ignore (compute_resources ~expected_res:contract.post (Some body_res) body);
       in
@@ -687,9 +665,9 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
         let new_res, used_wands = resource_merge_after_frame res_produced res_frame in
         let usage_map = Option.map (fun usage_map -> update_usage_map ~current_usage:usage_map ~extra_usage:used_wands) usage_map in
-        usage_map, Some (bind_new_resources ~old_res:res ~new_res)
+        usage_map, Some (Resource_set.bind ~old_res:res ~new_res)
 
-      | exception Spec_not_found fn when var_eq fn __cast ->
+      | exception Spec_not_found fn when var_eq fn Resource_primitives.__cast ->
         (* TK: we treat cast as identity function. *)
         (* FIXME: this breaks invariant that function arguments are pure/reproducible. *)
         begin match effective_args with
@@ -755,14 +733,14 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       (* If no spec is given, put all the resources in the invariant (best effort) *)
       let expected_res = Resource_set.make ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
       let usage_map, _ = compute_resources ~expected_res (Some res) body in
-      usage_map, Some (bind_new_resources ~old_res:res ~new_res:expected_res)
+      usage_map, Some (Resource_set.bind ~old_res:res ~new_res:expected_res)
 
     | Trm_for (range, body, Some contract) ->
       let outer_contract = loop_outer_contract range contract in
       let ghost_subst_ctx, res_used, res_frame = extract_resources ~split_frac:true res outer_contract.pre in
 
       let inner_contract = loop_inner_contract range contract in
-      ignore (compute_resources ~expected_res:inner_contract.post (Some (bind_new_resources ~old_res:res ~new_res:inner_contract.pre)) body);
+      ignore (compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~old_res:res ~new_res:inner_contract.pre)) body);
 
       let after_loop_res = compute_produced_resources ghost_subst_ctx outer_contract.post in
 
@@ -772,7 +750,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
       let new_res, used_wands = resource_merge_after_frame after_loop_res res_frame in
       let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:used_wands in
-      Some usage_map, Some (bind_new_resources ~old_res:res ~new_res)
+      Some usage_map, Some (Resource_set.bind ~old_res:res ~new_res)
 
     | Trm_typedef _ ->
       Some Var_map.empty, Some res

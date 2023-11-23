@@ -159,3 +159,15 @@ let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =
     );
     Pattern.(!__) (fun _ -> failwith "trm_specialized_ghost_closure must be called with a ghost call as argument")
   ]
+
+let fun_contract_free_vars (contract: fun_contract): Var_set.t =
+  let fold_res_list bound_vars fv res =
+    List.fold_left (fun (bound_vars, fv) (h, formula) ->
+      let bound_vars = Var_set.add h bound_vars in
+      (bound_vars, Var_set.union (trm_free_vars ~bound_vars formula) fv)) (bound_vars, fv) res
+  in
+  let bound_vars, free_vars = fold_res_list Var_set.empty Var_set.empty contract.pre.pure in
+  let _, free_vars = fold_res_list bound_vars free_vars contract.pre.linear in
+  let bound_vars, free_vars = fold_res_list bound_vars free_vars contract.post.pure in
+  let _, free_vars = fold_res_list bound_vars free_vars contract.post.linear in
+  free_vars
