@@ -7,6 +7,9 @@ INSTALL_TARGET := $(OPTITRUST_PREFIX)/lib/$(THIS)
 all:
 	dune build
 
+keep_building:
+	dune build --watch --terminal-persistence=clear-on-rebuild
+
 # requires root access -- can use another absolute path if needed
 COMPCERT_STDLIB_DIR_DST=/usr/local/lib/compcert
 COMPCERT_STDLIB_DIR_SRC=./src/c/compcert_parser/include
@@ -59,7 +62,6 @@ clean:
 
 watch:
 	nohup .vscode/watch.sh >/dev/null 2>&1
-
 
 PDFS := $(patsubst %.md, %.pdf, $(wildcard *.md))
 
