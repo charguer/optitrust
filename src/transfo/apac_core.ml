@@ -287,7 +287,8 @@ let typ_get_degree (ty : typ) : int =
     | Typ_constr _ when typ_is_alias ty ->
       begin match typ_get_alias ty with
       | Some (ty) -> aux degree ty
-      | None -> fail None "Apac_core.typ_get_degree: unable to determine the \
+      (* TODO: thread-through term for trm_fail. *)
+      | None -> failwith "Apac_core.typ_get_degree: unable to determine the \
                            basic type of a typedef alias."
       end
     | _ -> degree

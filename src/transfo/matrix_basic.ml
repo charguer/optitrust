@@ -53,18 +53,18 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) 
       | Trm_apps (_, [lhs; _rhs], _) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty
-        | None -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" (var_to_string v))
+        | None -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" (var_to_string v))
         end
-      | _ -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
+      | _ -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
           target doesn't point to a write operation or a variable declaration \n'" (var_to_string v))
       end in
       let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
         | Some at ->
           begin match Matrix_trm.alloc_inv at with
           | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
-          | _ -> fail t.loc "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
+          | _ -> trm_fail t "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
           end
-        | None -> fail None "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
+        | None -> failwith "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
         end in (var_type, alloc_trms)
     in
   Nobrace_transfo.remove_after ~remove (fun _ ->
@@ -79,7 +79,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) 
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
           if not remove then Nobrace.enter();
           Matrix_core.local_name my_mark v into alloc_trms var_type indices local_ops t p
-        | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
+        | None -> failwith "Matrix_basical_name: alloc_instr target does not match to any ast node"
         end
       | None ->
         begin match get_trm_at (seq_tg @ [var_target]) with
@@ -89,7 +89,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) 
           if not remove then Nobrace.enter();
           Matrix_core.local_name my_mark v into alloc_trms var_type indices local_ops t p
 
-        | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
+        | None -> failwith "Matrix_basical_name: alloc_instr target does not match to any ast node"
         end
       end
     ) tg)
@@ -108,7 +108,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option)
         ret_var := v;
         if not remove then Nobrace.enter();
         Matrix_core.local_name_tile mark mark_accesses v tile into dims elem_ty size indices local_ops t p
-      | None -> fail None "Matrix_basic.local_name_tile: alloc_instr target does not match to any ast node"
+      | None -> failwith "Matrix_basical_name_tile: alloc_instr target does not match to any ast node"
       end
     ) tg)
   )
@@ -235,7 +235,7 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
     ) instrs2 in
     let instrs4 = Mlist.insert_at (!last_use + 1) (Matrix_trm.free [] (trm_var x)) instrs3 in
     trm_seq ~annot:t.annot instrs4
-  | None -> fail t.loc "Matrix_basic.intro_malloc0_on: expected unintialized stack allocation"
+  | None -> trm_fail t "Matrix_basic.intro_malloc0_on: expected unintialized stack allocation"
 end
 
 (* [intro_malloc0]: given a target to a sequence with a declaration allocating
@@ -304,7 +304,7 @@ let stack_copy_on (name : var) (stack_name : string) (d : int) (t : trm) : trm =
     | None ->
       begin match trm_var_inv t with
       | Some n when n = name ->
-        fail t.loc "Matrix_basic.stack_copy_on: variable access is not covered"
+        trm_fail t "Matrix_basic.stack_copy_on: variable access is not covered"
       | _ -> trm_map update_accesses t
       end
   in
@@ -374,7 +374,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
       | _ ->
         begin match trm_var_inv t with
         | Some n when n = var ->
-          fail t.loc "Matrix_basic.storage_folding_on: variable access is not covered"
+          trm_fail t "Matrix_basic.storage_folding_on: variable access is not covered"
         | _ ->
           begin match Matrix_trm.free_inv t with
           | Some freed ->
@@ -420,7 +420,7 @@ let delete_on (var : var) (t : trm) : trm =
     | _ ->
       begin match trm_var_inv t with
       | Some n when n = var ->
-        fail t.loc "Matrix_basic.delete_on: matrix should not be used anymore"
+        trm_fail t "Matrix_basic.delete_on: matrix should not be used anymore"
       | _ ->
         let is_free_var = begin match Matrix_trm.free_inv t with
         | Some freed ->
@@ -451,7 +451,7 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
   Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
   let write_trm = match Target.get_trm_at write with
   | Some wt -> wt
-  | None -> fail None "Matrix_basic.read_least_write: write target not found"
+  | None -> failwith "Matrix_basic.read_least_write: write target not found"
   in
   let (wr_base, wr_dims, wr_indices, wr_value) = trm_inv
     ~error:"Matrix_basic.read_last_write: targeted matrix write operation is not supported"
@@ -464,7 +464,7 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
     in
     assert_same_dims wr_dims rd_dims;
     if not (Internal.same_trm wr_base rd_base) then
-      fail t.loc "Matrix_basic.read_last_write: array base mistmach";
+      trm_fail t "Matrix_basic.read_last_write: array base mistmach";
     let rd_value = List.fold_left (fun value (wr_i, rd_i) ->
       begin match trm_var_inv wr_i with
       | Some wr_i_var ->
@@ -472,7 +472,7 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
       | None ->
         let error = "Matrix_basic.read_last_write: expected write index to be a variable, or to be the same as the read index" in
         if (Internal.same_trm wr_i rd_i) then value
-        else fail wr_i.loc error
+        else trm_fail wr_i error
       end
     ) wr_value (List.combine wr_indices rd_indices)
     in

@@ -23,7 +23,7 @@ let%transfo bind_args (fresh_names : string list) (tg : target) : unit =
     if nb_fresh_names = 0
       then ()
       else if List.length tl <> nb_fresh_names then
-        fail call_trm.loc "Function.bind_args: each argument should be binded to a variable or the empty string. "
+        trm_fail call_trm "Function.bind_args: each argument should be binded to a variable or the empty string. "
       else begin
         Marks.add call_mark (target_of_path p);
         List.iteri (fun ind fresh_name ->
@@ -232,7 +232,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       let call_trm = Path.get_trm_at_path path_to_call t in
       begin match call_trm.desc with
         | Trm_apps ({desc = Trm_var (_, f)}, _, _) -> function_names := Var_set.add f !function_names;
-        | _ ->  fail t.loc "Function.get_function_name_from_call: couldn't get the name of the called function"
+        | _ ->  trm_fail t "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
@@ -297,7 +297,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call) ;
         mark_added := true;
         post_processing ~deep_cleanup:true ();
-      | _ -> fail tg_out_trm.loc "Function.inline: please be sure that you're tageting a proper function call"
+      | _ -> trm_fail tg_out_trm "Function.inline: please be sure that you're tageting a proper function call"
       end;
     ) tg;
     if delete then Function_basic.delete [cOr
@@ -350,7 +350,7 @@ let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target
       | Trm_apps _ -> Function_basic.beta ~body_mark (target_of_path parent_path)
       | _ -> ()
       end
-    | _ -> fail t.loc "Function.beta: this transformation expects a target to a function call"
+    | _ -> trm_fail t "Function.beta: this transformation expects a target to a function call"
   ) tg
 
 (* [use_infix_ops ~tg_ops]: expects the target [tg] to be pointing at an instruction that can be converted to
@@ -372,7 +372,7 @@ let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = tr
 let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg : target) : unit =
   let tg_fun_def = match get_trm_at fct with
   | Some td -> td
-  | None -> fail None "Function.uninline: fct target does point to any node" in
+  | None -> failwith "Function.uninline: fct target does point to any node" in
   iter_on_targets (fun _ p ->
     let mark = Mark.next () in
     match tg_fun_def.desc with
@@ -383,9 +383,9 @@ let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg
         Sequence_basic.intro nb ~mark (target_of_path p);
         if contains_for_loop then Sequence_basic.intro_on_instr [cMark mark; cFor_c "";dBody];
         Function_basic.uninline ~fct [cMark mark]
-      | _ -> fail tg_fun_def.loc "Function.uninline: weird function declaration "
+      | _ -> trm_fail tg_fun_def "Function.uninline: weird function declaration "
       end
-    | _ -> fail tg_fun_def.loc "Function.uinline: fct arg should point to a a function declaration"
+    | _ -> trm_fail tg_fun_def "Function.uinline: fct arg should point to a a function declaration"
   ) tg
 
 (* [insert ~reparse decl tg]: expects the relative target [t] to point before or after an instruction,

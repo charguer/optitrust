@@ -83,7 +83,7 @@ let inline_seq_at ?(check_scoping = fun _ _ -> ()) (index : int) (ml : trm mlist
   | Trm_seq tl ->
     check_scoping tl lback;
     Mlist.merge (Mlist.merge lfront tl) lback
-  | _ -> fail st.loc "Internal.inline_seq_at: expected an ast node which taks a mlist as parameter"
+  | _ -> trm_fail st "Internal.inline_seq_at: expected an ast node which taks a mlist as parameter"
 
 (* [flatten_seq]: flatten inside [tl] the sequences with annotation [No_braces id] *)
 let flatten_seq ?(check_scoping = fun _ _ -> ()) (id: int) (tl: trm Mlist.t): trm Mlist.t =

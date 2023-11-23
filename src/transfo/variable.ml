@@ -56,11 +56,11 @@ let%transfo fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : 
             | _ -> if nonconst = true
                 then Variable_basic.fold ~at (target_of_path p)
                 else
-                  fail tg_trm.loc "Variable.fold: if you want to use fold for mutable variables you should set
+                  trm_fail tg_trm "Variable.fold: if you want to use fold for mutable variables you should set
                             ~nonconst to true when calling this transformation"
             end
       end
-    | _ -> fail tg_trm.loc "Variable.fold: expected a variable declaration"
+    | _ -> trm_fail tg_trm "Variable.fold: expected a variable declaration"
 ) tg
 
 (* [insert_and_fold]: expects the target [tg] to point at a relative location, then it inserts a new variable
@@ -167,14 +167,14 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
   List.iteri (fun _i p ->
     let path_to_seq, _ , index  = Internal.get_instruction_in_surrounding_sequence p in
     if !path_to_surrounding_seq = [] then path_to_surrounding_seq := path_to_seq
-      else if !path_to_surrounding_seq <> path_to_seq then fail None "Variable.intro_patter_array: all the targeted instuctions should belong to the same englobing sequence";
+      else if !path_to_surrounding_seq <> path_to_seq then Path.path_fail path_to_seq "Variable.intro_patter_array: all the targeted instuctions should belong to the same englobing sequence";
     if index < !minimal_index then minimal_index := index;
   ) paths;
   let nb_paths = List.length paths in
   let nb_vars = List.length pattern_vars in
   let all_values = Array.make_matrix nb_vars nb_paths (trm_unit ()) in
   iteri_on_targets (fun id_path _ p ->
-    let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Tools.unsome (get_trm_at (target_of_path p))) in
+    let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Xoption.unsome (get_trm_at (target_of_path p))) in
     let values = Trm_matching.tmap_to_list pattern_vars (Trm_matching.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
     let inst = List.map (fun (x, _) -> get_array_access (trm_var_possibly_mut ~const x) (trm_int id_path)) pattern_vars in
@@ -206,7 +206,7 @@ let%transfo detach_if_needed (tg : target) : unit =
         | _ -> ()
         end
       end
-    | _ -> fail t.loc "Variable.init_detach_aux: variable could not be matched, make sure your path is correct"
+    | _ -> trm_fail t "Variable.init_detach_aux: variable could not be matched, make sure your path is correct"
   ) tg
 
 (* [reuse ~reparse space tg] expects the target [tg] to be poiting to a variable declaration, then it will
@@ -223,7 +223,7 @@ let%transfo reuse ?(reparse : bool = false) (space : trm) (tg : target) : unit =
         detach_if_needed [cMark "reuse_mark"];
         Instr_basic.delete [cMark "reuse_mark"];
         Variable_basic.subst ~subst:x ~put:space (target_of_path _path_to_seq)
-      | None -> fail decl_t.loc "Variable.reuse: could not match the declaration"
+      | None -> trm_fail decl_t "Variable.reuse: could not match the declaration"
       end
       )) tg
 (* [renames rename tg: expects [tg] to point at a sequence.
@@ -252,7 +252,7 @@ let%transfo renames (rename : rename) (tg : target) : unit =
 
       end in
       List.iter2 (fun d into -> Variable_basic.rename ~into ((target_of_path p) @  [cVarDef d.name])) decl_vars new_decl_vars
-    | _ -> fail tg_trm.loc "Variable.renames: the target should be pointing at a sequence" ) tg
+    | _ -> trm_fail tg_trm "Variable.renames: the target should be pointing at a sequence" ) tg
 
 let default_unfold_simpl (tg : target) : unit =
   Record_basic.simpl_proj [nbAny; cFieldAccess ~base:tg ()]
@@ -340,7 +340,7 @@ let%transfo unfold ?(accept_functions : bool = false) ?(simpl : Transfo.t = defa
 
       let mark = begin match get_init_val init with
       | Some init -> Mark.next ()
-      | _ -> fail tg_trm.loc "Variable.unfold: you should never try to inline uninitialized variables"
+      | _ -> trm_fail tg_trm "Variable.unfold: you should never try to inline uninitialized variables"
       end in
       begin match vk with
       | Var_immutable ->
@@ -357,7 +357,7 @@ let%transfo unfold ?(accept_functions : bool = false) ?(simpl : Transfo.t = defa
       end;
       simpl [cMark mark];
       Marks.remove mark [nbAny; cMark mark]
-    | _ -> fail t.loc "Variable.unfold: expected a target to a variable declaration"
+    | _ -> trm_fail t "Variable.unfold: expected a target to a variable declaration"
   ) tg
 
 let default_inline_simpl (tg : target) : unit =
@@ -411,11 +411,11 @@ let%transfo inline_and_rename ?(simpl: Transfo.t = default_inline_simpl) (tg : t
           | _ ->
             (* DEBUG: *)
             (* Printf.printf "For variable %s\n got value %s\n" y (Ast_to_text.ast_to_string v); *)
-            fail tg_trm.loc "Variable.inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
+            trm_fail tg_trm "Variable.inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
           end
-        | _ -> fail init.loc "Variable.inline_and_rename: please try targeting initialized variable declarations"
+        | _ -> trm_fail init "Variable.inline_and_rename: please try targeting initialized variable declarations"
         end
-    | _ -> fail t.loc "Variable.inline_and_rename: expected the declaration of the variable which is going to be inlined"
+    | _ -> trm_fail t "Variable.inline_and_rename: expected the declaration of the variable which is going to be inlined"
   ) tg
 
 (* [elim_redundant ~source tg]: expects the target [tg] to be point at a variable declaration with an initial value being
@@ -442,22 +442,22 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
                 | _ -> ()
                 end
             ) tl
-          | _ -> fail t.loc "Variable.elim_redundant: couldn't find the englobing sequence, try providing the source argument to solve this problem"
+          | _ -> trm_fail t "Variable.elim_redundant: couldn't find the englobing sequence, try providing the source argument to solve this problem"
           end
        else
         begin
           let source_paths = resolve_target source t in
           let source_decl_trm = match List.nth_opt source_paths i with
             | Some p -> Path.resolve_path p t
-            | None -> fail t.loc "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
+            | None -> trm_fail t "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
           match source_decl_trm.desc with
           | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
             source_var := y
-          | _ -> fail source_decl_trm.loc "Variable.elim_redundant: the soource target should point to a variable declaration"
+          | _ -> trm_fail source_decl_trm "Variable.elim_redundant: the soource target should point to a variable declaration"
         end;
         Variable_basic.fold ~at:([cVarDef x.name]) ((target_of_path path_to_seq) @ [cVarDef !source_var.name]);
         inline ((target_of_path path_to_seq) @ [cVarDef x.name])
-    | _ -> fail tg_trm.loc "Variable.elim_redundant: the main target should point to the declaration of the variable you want to eliminate"
+    | _ -> trm_fail tg_trm "Variable.elim_redundant: the main target should point to the declaration of the variable you want to eliminate"
 
   ) tg
 
@@ -498,7 +498,7 @@ let%transfo insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_va
    LATER: add arguments for marks that could remain at the end
 *)
 let%transfo bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ option) ?(dest : target = []) (fresh_name : string) (tg : target) : unit =
-  if dest = [] then fail None "bind_multi: optional dest not yet supported";
+  if dest = [] then failwith "bind_multi: optional dest not yet supported";
   (* mark all occurrences to be replaced *)
   let mark_tg = Mark.next() in
   Marks.add mark_tg (nbMulti :: tg);
@@ -517,7 +517,7 @@ let%transfo bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : 
   let var_occ =
     match Target.get_trm_at [cMark mark_occ] with
     | Some t -> t
-    | None -> fail None "bind_multi: failed get_trm_at to obtain the variable occurrence"
+    | None -> failwith "bind_multi: failed get_trm_at to obtain the variable occurrence"
     in
   Expr_basic.replace var_occ [nbMulti; cMark mark_tg];
   (* clear temporary marks *) (* TODO: Marks.remove_all, would be much more efficient *)
@@ -530,7 +530,7 @@ let%transfo bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : 
    *)
 let%transfo bind_syntactic ?(dest : target = []) ?(fresh_name : string = "x${occ}") (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  if dest = [] then fail None "bind_multi: optional dest not yet supported";
+  if dest = [] then failwith "bind_multi: optional dest not yet supported";
   Marks.with_marks (fun next_mark ->
   (* introduce a binding for every syntactically different occurrence *)
   (* TODO: use hashmap *)
@@ -549,7 +549,7 @@ let%transfo bind_syntactic ?(dest : target = []) ?(fresh_name : string = "x${occ
       let var_occ =
         match Target.get_trm_at [cMark mark_occ] with
         | Some t -> t
-        | None -> fail None "bind_multi: failed get_trm_at to obtain the variable occurrence"
+        | None -> failwith "bind_multi: failed get_trm_at to obtain the variable occurrence"
         in
       bound := (t, var_occ) :: !bound;
     end

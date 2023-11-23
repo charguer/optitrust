@@ -10,7 +10,7 @@ let any_aux (e : trm) (t : trm) : trm =
   let any = trm_inv ~error trm_var_inv f in
   if Tools.pattern_matches "ANY?." any.name
     then  e
-    else fail f.loc "Specialize_core.any_aux: expected the special function ANY"
+    else trm_fail f "Specialize_core.any_aux: expected the special function ANY"
 
 (* [any e t p]: applies [any_aux] at trm [t] with path [p]. *)
 let any (e : trm) : Target.Transfo.local =
@@ -25,24 +25,24 @@ let choose_aux (select_arg : var list -> int) (t : trm) : trm =
   | Trm_apps (_f, argnb :: args, _)  ->
     begin match argnb.desc with
     | Trm_val (Val_lit (Lit_int nb)) ->
-       if nb <> List.length args then fail t.loc "Specialize_core.choose_aux: number of args is not correct";
+       if nb <> List.length args then trm_fail t "Specialize_core.choose_aux: number of args is not correct";
         let choices = List.map (fun arg ->
           match arg.desc with
           | Trm_var (_, s) -> s
           | Trm_apps (_, [v], _)  ->
             begin match v.desc with
             | Trm_var (_, v) -> v
-            | _ -> fail arg.loc "Specialize_core.choose_aux: could not match non constant variable"
+            | _ -> trm_fail arg "Specialize_core.choose_aux: could not match non constant variable"
             end
           | _ ->
-          fail arg.loc "Specialize_core.choose_aux: all the arguments of a
+          trm_fail arg "Specialize_core.choose_aux: all the arguments of a
           function call should be variable occurrences\n and %s is not one \n") args  in
         let id = select_arg choices in
-        if id < 0 || id > List.length choices -1 then fail t.loc "Specialize_core.choose_aux: select_arg function does not give a correct index";
+        if id < 0 || id > List.length choices -1 then trm_fail t "Specialize_core.choose_aux: select_arg function does not give a correct index";
         trm_var_get (List.nth choices id )
-    | _ -> fail argnb.loc "Specialize_core.choose_aux: expected a literel trm"
+    | _ -> trm_fail argnb "Specialize_core.choose_aux: expected a literel trm"
     end
-  | _ -> fail t.loc "Specialize_core.choose_aux: expected a call to funtion choose"
+  | _ -> trm_fail t "Specialize_core.choose_aux: expected a call to funtion choose"
 
 
 (* [choose select_arg t p]: applies [choose_aux] at trm [t] with path [p]. *)
@@ -60,7 +60,7 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
   match t.desc with
   | Trm_let_fun (qf, ret_ty, args, body, _) ->
     (* Check if spec_args is of the correct shape. *)
-    if List.length spec_args <> List.length args then fail t.loc "Specialize_core.fun_defs_aux: the list of arguments to specialize
+    if List.length spec_args <> List.length args then trm_fail t "Specialize_core.fun_defs_aux: the list of arguments to specialize
         should match the list of the arguments of the targeted function.";
 
     let args_map = List.combine args spec_args in
@@ -90,7 +90,7 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
     let new_def = trm_let_fun spec_var ret_ty new_args new_body in
 
     trm_seq_nobrace_nomarks [t; new_def]
-  | _ -> fail t.loc "Specialize_core.fun_defs_aux: expected a target to a function definition."
+  | _ -> trm_fail t "Specialize_core.fun_defs_aux: expected a target to a function definition."
 
 
 (* [fun_defs spec_name spec_args t p]: applies [fun_defs_aux] at trm [ŧ] with path [p]. *)
@@ -110,7 +110,7 @@ let fun_calls_aux (spec_name : var) (args_to_choose : bool list) (t : trm) : trm
         then t1 :: acc
         else acc) [] args_to_choose args in
     trm_apps (trm_var spec_name) (List.rev new_args)
-  | _ -> fail t.loc "Specialize_core.fun_calls_aux: expected a target to a function call"
+  | _ -> trm_fail t "Specialize_core.fun_calls_aux: expected a target to a function call"
 
 (* [fun_calls spec_name args_to_choose t p]: applies [fun_calls_aux] to the trm [t] with path [p]. *)
 let fun_calls (spec_name : var) (args_to_choose : bool list) : Transfo.local =

@@ -60,7 +60,7 @@ let rec pry_loop_nest (nest_of: int) (simpl : Transfo.t) (p : path) : unit =
         (* TODO: sequence with other things inside?
         begin match trm_seq_inv t with
         | Some
-        | None -> *) fail t.loc "Stencil.pry_loop_nest: expected nested for loops, potentially hidden by function calls."
+        | None -> *) trm_fail t "Stencil.pry_loop_nest: expected nested for loops, potentially hidden by function calls."
       end
   end
 
@@ -183,7 +183,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
     Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:(target_of_path (snd (Xlist.unlast to_fuse_paths))) (target_of_paths to_fuse_paths);
     (* Show.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
     (* 3. reduce temporary storage *)
-    let surrounding_seq = Tools.unsome !surrounding_sequence in
+    let surrounding_seq = Xoption.unsome !surrounding_sequence in
     let local_memory = Var_map.filter (fun v _ -> not (Var_set.mem v !outputs')) !all_writes in
     let fused_p = path_of_target_mark_one_current_ast to_fuse in
     let outer_loop_indices = Loop.get_indices outer_loop_count fused_p in

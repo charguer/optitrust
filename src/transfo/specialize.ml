@@ -32,6 +32,6 @@ let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) :
       let spec_var = find_var_in_current_ast spec_name in
       Specialize_basic.funcalls spec_var args_to_keep (target_of_path p);
 
-    | _ -> fail tg_trm.loc "Specialize.function_arg: expected a target to a function call."
+    | _ -> trm_fail tg_trm "Specialize.function_arg: expected a target to a function call."
 
   ) tg

@@ -63,10 +63,10 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
       | Trm_var (_, f) ->
         begin match Internal.toplevel_decl ~require_body:true f with
         | Some decl -> decl
-        | _ -> fail tfun.loc (sprintf "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
+        | _ -> trm_fail tfun (sprintf "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
         end
       | Trm_let_fun _ -> tfun
-      | _ -> fail tfun.loc "Function_core.inline_aux: expected either a function call or a beta function call"
+      | _ -> trm_fail tfun "Function_core.inline_aux: expected either a function call or a beta function call"
       end in
       begin match fun_decl.desc with
       | Trm_let_fun (_f, ty, args, body, _) ->
@@ -94,9 +94,9 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
           in
         trm_seq_nobrace_nomarks inlined_body
 
-      | _ -> fail fun_decl.loc "Function_core.inline_aux: failed to find the top level declaration of the function"
+      | _ -> trm_fail fun_decl "Function_core.inline_aux: failed to find the top level declaration of the function"
       end
-    | _ -> fail fun_call.loc "Function_core.inline_aux: expected a target to a function call"
+    | _ -> trm_fail fun_call "Function_core.inline_aux: expected a target to a function call"
     end
     in
     let new_tl = Mlist.update_nth index f_update tl in
@@ -121,17 +121,17 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
         if aux ls <> aux (get_operation_arg get_ls) && aux ls <> aux (get_operation_arg arg)
           then t
           else
-            let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> fail f.loc "Function_core.use_infix_ops_aux: this should never happen" in
+            let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> trm_fail f "Function_core.use_infix_ops_aux: this should never happen" in
             if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~annot:t.annot binop ls get_ls else  trm_prim_compound ~annot:t.annot binop ls arg
       | _ ->
         if allow_identity then t else
-        fail f1.loc "Function_core.use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
+        trm_fail f1 "Function_core.use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
 
       end
     | _ -> if allow_identity then t else
-           fail rs.loc "Function_core.use_infix_ops_aux: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
+           trm_fail rs "Function_core.use_infix_ops_aux: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
     end
-  | _-> if allow_identity then t else fail t.loc "Function_core.use_infix_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
+  | _-> if allow_identity then t else trm_fail t "Function_core.use_infix_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
 
 (* [use_infix_ops allow_identity t p]: applies [use_infix_ops_aux] at the trm [t] with path [p]. *)
 let use_infix_ops (allow_identity: bool) : Transfo.local =
@@ -143,7 +143,7 @@ let use_infix_ops (allow_identity: bool) : Transfo.local =
    and returns the term [gtwice(3)], which is equivalent to [t] up to inlining. *)
 let uninline_aux (fct_decl : trm) (t : trm) : trm =
   let error = "Function_core.uninline: fct argument should target a function definition" in
-  let (f, _, targs, body) = trm_inv ~error ?loc:fct_decl.loc trm_let_fun_inv fct_decl in
+  let (f, _, targs, body) = trm_inv ~error trm_let_fun_inv fct_decl in
   let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
   let args = Trm.tmap_to_list (List.map fst targs) inst in
   trm_pass_labels t (trm_apps (trm_var f) args)
@@ -223,9 +223,9 @@ let dsp_call_aux (dsp : string) (t : trm) : trm =
         let dsp_name = if dsp = "" then f.name ^ "_dsp" else dsp in
         (* TODO: avoid using name_to_var, take var as arg. *)
         trm_apps (trm_var (name_to_var dsp_name)) (args @ [lhs])
-    | _ -> fail rhs.loc "Function_core.dsp_call_aux: expected a target to a function call."
+    | _ -> trm_fail rhs "Function_core.dsp_call_aux: expected a target to a function call."
     end
-  | _ -> fail t.loc "Function_core.dsp_call_aux: expected a target to a function call, whose parent is a write operation."
+  | _ -> trm_fail t "Function_core.dsp_call_aux: expected a target to a function call, whose parent is a write operation."
 
 (* [dsp_call dsp t p]: applies [dsp_call_aux] at trm [t] with path [p]. *)
 let dsp_call (dsp : string) : Transfo.local =

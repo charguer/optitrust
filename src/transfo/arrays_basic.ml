@@ -78,11 +78,11 @@ let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses 
   let (base, index) = trm_inv ~error array_access_inv ptr_t in
   let var = trm_inv ~error trm_var_inv base in
   if var <> array_var then
-    fail base.loc error;
+    trm_fail base error;
   (* TODO: check that moving trm evaluation here is ok *)
   begin match trm_inv ~error trm_lit_inv index with
   | Lit_int i -> trm_may_add_mark mark_accesses (List.nth array_vals i)
-  | _ -> fail index.loc error
+  | _ -> trm_fail index error
   end
 
 (* [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
@@ -92,7 +92,7 @@ let%transfo inline_constant ?(mark_accesses : mark option) ~(decl : target) (tg 
   let decl_t = Path.resolve_path decl_p (Trace.ast ()) in
   let error = "Arrays_basic.inline_constant: expected constant array literal declaration" in
   let (_, var, typ, init) = trm_inv ~error trm_let_inv decl_t in
-  let (_elem_ty, _size) = typ_inv ~error decl_t.loc typ_const_array_inv typ in
+  let (_elem_ty, _size) = typ_inv ~error decl_t typ_const_array_inv typ in
   let array_mlist = trm_inv ~error array_inv init in
   Target.apply_at_target_paths (inline_constant_on var (Mlist.to_list array_mlist) mark_accesses) tg
 
@@ -101,7 +101,7 @@ let elim_on (decl_index : int) (t : trm) : trm =
     let error = "Arrays.elim_constant_on: expected constant array literal declaration" in
     let (_, name, typ, init) = trm_inv ~error trm_let_inv t in
     (* Printf.printf "QSJIDO:\n%s\n" (Ast_to_text.ast_to_string t); *)
-    let (_elem_ty, _size) = typ_inv ~error t.loc typ_const_array_inv typ in
+    let (_elem_ty, _size) = typ_inv ~error t typ_const_array_inv typ in
     let _array_mlist = trm_inv ~error array_inv init in
     trm_seq_nobrace_nomarks []
   in

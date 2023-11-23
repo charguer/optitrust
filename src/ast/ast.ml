@@ -1088,35 +1088,26 @@ let typing_ctx (ctx_types: typ_ctx): ctx =
 
 (*****************************************************************************)
 
+(** [Trm_error]: exception raised in case a term computation has failed. *)
+exception Trm_error of trm * exn
 
-(* [TransfoError]: exception raised in case a transformation fails *)
-exception TransfoError of location * string
+(* LATER: move to trm.ml *)
+(* [trm_fail t err]: fails with error [error] raised on term [t] *)
+let trm_fail (t : trm) (error : string) : 'a =
+  raise (Trm_error (t, Failure error))
 
-(* [Resolve_target_failure]: exception raised when a target couldn't be resolved *)
-exception Resolve_target_failure of location option * string
-
-
-let _ = Printexc.register_printer (function
-  | TransfoError (loc, errmsg) -> Some (Printf.sprintf "%s: %s" (loc_to_string loc) errmsg)
-  | _ -> None)
-
-(* [fail loc err]: fails with error [err] raised at location [loc] *)
-let fail (loc : location) (err : string) : 'a =
-  raise (TransfoError (loc, err))
-
-let unsome_or_fail (loc: location) (error: string) (x_opt : 'a option) : 'a =
+let unsome_or_trm_fail (t: trm) (error: string) (x_opt : 'a option) : 'a =
     match x_opt with
     | Some x -> x
-    | None -> fail loc error
-
-let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
-  try f () with
-  | TransfoError (_, msg2) -> assert (msg = msg2)
-
-
-
+    | None -> trm_fail t error
 
 (* ********************************************************************************************** *)
+
+(** [Loc_error]: exception raised in case parsing has failed. *)
+exception Loc_error of location * exn
+
+let loc_fail (loc : location) (error : string) : 'a =
+  raise (Loc_error (loc, Failure error))
 
 (* [print_info loc]: computes a function that prints information related to some location in file only if the verbose
    flag is activated *)
@@ -1289,7 +1280,7 @@ let top_level_fun_bindings (t : trm) : tmap =
           | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
           | _ -> ()
         ) tl
-      | _ -> fail t.loc "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
+      | _ -> failwith "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
    in
   aux t;
   !tmap
@@ -1340,9 +1331,9 @@ let typedef_get_members ?(access : access_control option) (t : trm) : (label * t
           end
         | Record_field_method _ -> acc
       ) [] (List.rev rf)
-    | _ -> fail t.loc "Ast.typdef_get_members: this function should be called only for typedef structs and classes"
+    | _ -> trm_fail t "Ast.typdef_get_members: this function should be called only for typedef structs and classes"
     end
-  | _ -> fail t.loc "Ast.typedef_get_members: can't get members of a trm that's not a type definition."
+  | _ -> trm_fail t "Ast.typedef_get_members: can't get members of a trm that's not a type definition."
 
 
 (* [typedef_get_methods ~access t]: returns all the methods of typedef [t]. If [access] is provided as an argument
@@ -1361,9 +1352,9 @@ let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
           | None -> trm :: acc
           end
       ) [] (List.rev rf)
-    | _ -> fail t.loc "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
+    | _ -> trm_fail t "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
     end
-  | _ -> fail t.loc "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
+  | _ -> trm_fail t "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
 
 (* [typedef_get_all_fields t]: returns all the fields of [t]. *)
 let typedef_get_all_fields (t : trm) : record_fields =
@@ -1371,19 +1362,19 @@ let typedef_get_all_fields (t : trm) : record_fields =
   | Trm_typedef td ->
     begin match td.typdef_body with
     | Typdef_record rf -> rf
-    | _ -> fail t.loc "Ast.typdef_get_all_fields: this function should be called only for structs and classes."
+    | _ -> trm_fail t "Ast.typdef_get_all_fields: this function should be called only for structs and classes."
     end
-  | _ -> fail t.loc "Ast.get_all_fields: only structs and classes have fields"
+  | _ -> trm_fail t "Ast.get_all_fields: only structs and classes have fields"
 
 
-(* [get_member_type rf]: returns the type of the member [rf]. *)
-let get_member_type (rf : record_field) : typ =
+(* [get_member_type t rf]: returns the type of the member [rf]. *)
+let get_member_type (t : trm) (rf : record_field) : typ =
   match rf with
   | Record_field_member (_, ty) -> ty
   | Record_field_method t1 ->
     begin match t1.desc with
     | Trm_let_fun (_, ty, _, _, _) -> ty
-    | _ -> fail None "Ast.get_member_type: can't get the type of the member [rf]."
+    | _ -> trm_fail t "Ast.get_member_type: can't get the type of the member [rf]."
     end
 
 (*****************************************************************************)

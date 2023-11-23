@@ -46,7 +46,7 @@ let all_c_raw_parsers (filename: string): trm =
     (* LATER: we could add a prefix based on the filename, but this is only for debug *)
     Xfile.put_contents "ast_clang.cpp" strAstClang;
     Xfile.put_contents "ast_menhir.cpp" strAstMenhir;
-  fail None "Trace.parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
+  failwith "Trace.parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
   end else
   (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
   rawAstClang

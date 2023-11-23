@@ -692,7 +692,7 @@ let heapify_on (t : trm) : trm =
      let (vtys2, inits2) = List.split updated in
      (* Return an update multiple variable declaration term. *)
      trm_let_mult kind vtys2 inits2
-  | _ -> fail t.loc "Apac_basic.heapify: expected a target to a variable \
+  | _ -> trm_fail t "Apac_basic.heapify: expected a target to a variable \
                      declaration or a multiple variable declaration."
 
 (* [heapify tg]: expects the target [tg] to point at a simple or a multiple
@@ -743,7 +743,7 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
       | Some(res), None -> Some(res)
       | None, Some(res) -> Some(res)
       | None, None -> None
-      | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers"
+      | Some(_), Some(_) -> trm_fail t "Should not happen : Binary operator between pointers"
       end
     (* variable : resolve variable *)
     | Trm_var (_ ,qv) ->

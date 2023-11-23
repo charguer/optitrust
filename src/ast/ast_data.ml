@@ -75,7 +75,7 @@ let get_function_def (t : trm) : trm =
   | Some (usr) ->
     begin match Hashtbl.find_opt fun_defs usr with
     | Some fun_def -> fun_def
-    | None -> fail t.loc "Ast_data.get_function_def: couldn't find the definition of the called function"
+    | None -> trm_fail t "Ast_data.get_function_def: couldn't find the definition of the called function"
     end
-  | None -> fail t.loc "Ast_data.get_function_def: expected a trm annotated with Clang cxcursor."
+  | None -> trm_fail t "Ast_data.get_function_def: expected a trm annotated with Clang cxcursor."
 

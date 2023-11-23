@@ -94,7 +94,7 @@ let unwrap_aux (t : trm) : trm =
   let error = "Sequence_core.unwrap_aux: expected to operate on a sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
   if Mlist.length tl = 1 then Mlist.nth tl 0
-    else fail t.loc "Sequence_core.unwrap_aux: can only unwrap a sequence with exactly one item"
+    else trm_fail t "Sequence_core.unwrap_aux: can only unwrap a sequence with exactly one item"
 
 (* [unwrap t p]: applies [unwrap_aux] at trm [t] with path [p]. *)
 let unwrap : Transfo.local =
@@ -127,7 +127,7 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
   let blocks = if blocks = [] then [nb] else blocks in
   let sum_blocks = List.fold_left (+) 0 blocks in
   if sum_blocks <> nb
-    then fail t.loc (Printf.sprintf "Sequence_core.partition: the partition entered is not correct,
+    then trm_fail t (Printf.sprintf "Sequence_core.partition: the partition entered is not correct,
               the list length is %d, while the sum of the block size is %d" (Mlist.length tl) sum_blocks)
     else
       let current_list = ref tl in
@@ -155,18 +155,18 @@ let partition (blocks : int list) (braces : bool): Transfo.local =
 let shuffle_aux (braces : bool) (t : trm) : trm =
   let error = "Sequence_core.shuffle_aux: expected the sequence with blocks to reorder." in
   let tl = trm_inv ~error trm_seq_inv t in
-  if Mlist.length tl < 1 then fail t.loc "Sequence_core.shuffle_aux:can't shuffle an empty mlist";
+  if Mlist.length tl < 1 then trm_fail t "Sequence_core.shuffle_aux:can't shuffle an empty mlist";
   let first_row = Mlist.nth tl 0 in
   begin match first_row.desc with
   | Trm_seq tl1 ->
     let loop_bound = Mlist.length tl1 in
-    if loop_bound < 2 then fail t.loc "Sequence_core.shuffle_aux: expected a row of length at least 2";
+    if loop_bound < 2 then trm_fail t "Sequence_core.shuffle_aux: expected a row of length at least 2";
     let global_acc = ref [] in
     for i = 0 to loop_bound-1 do
       let local_acc = Mlist.fold_left (fun acc t1 ->
           begin match t1.desc with
           | Trm_seq tl2 ->
-            if Mlist.length tl2 <> loop_bound then fail t1.loc "Sequence_core.shuffle_aux: all the subgroups
+            if Mlist.length tl2 <> loop_bound then trm_fail t1 "Sequence_core.shuffle_aux: all the subgroups
                                                                 should be of the same size";
             let temp_el = Mlist.nth tl2 i in
             let temp_el =
@@ -174,7 +174,7 @@ let shuffle_aux (braces : bool) (t : trm) : trm =
               then Nobrace.remove_if_sequence temp_el
               else Nobrace.set_if_sequence temp_el in
           temp_el :: acc
-          | _ -> fail t1.loc "Sequence_core.shuffle_aux: all the elements of the blocks should be sequences"
+          | _ -> trm_fail t1 "Sequence_core.shuffle_aux: all the elements of the blocks should be sequences"
           end
 
           ) [] tl in
@@ -182,7 +182,7 @@ let shuffle_aux (braces : bool) (t : trm) : trm =
         global_acc := (if braces then trm_seq (Mlist.of_list local_acc) else trm_seq_nobrace_nomarks local_acc) :: !global_acc
       done;
        trm_seq ~annot:t.annot (Mlist.of_list (List.rev !global_acc))
-  | _ -> fail first_row.loc "Sequence_core.shuffle_aux: shuffle can be applied only on sequences"
+  | _ -> trm_fail first_row "Sequence_core.shuffle_aux: shuffle can be applied only on sequences"
   end
 
 (* [shuffle braces t p]: applies [shuffle_aux] at trm [t] with path [p]. *)

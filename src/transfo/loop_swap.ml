@@ -12,14 +12,14 @@ let swap_on_any_loop (t : trm) : trm =
       let loop2 = Mlist.nth tl 0 in
       begin match Internal.extract_loop loop2 with
       | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-      | None -> fail body1.loc "Loop_core..swap_aux: should target a loop with nested loop^inside"
+      | None -> trm_fail body1 "Loop_core..swap_aux: should target a loop with nested loop^inside"
       end
     | _ -> begin match Internal.extract_loop body1 with
            | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-           | None -> fail body1.loc "Loop_core..swap_aux: should target a loop with nested inner loops"
+           | None -> trm_fail body1 "Loop_core..swap_aux: should target a loop with nested inner loops"
            end
     end
-  | None -> fail t.loc "Loop_core.swap_aux: should target a loop"
+  | None -> trm_fail t "Loop_core.swap_aux: should target a loop"
 
 let swap_groups = toplevel_var "swap_groups"
 

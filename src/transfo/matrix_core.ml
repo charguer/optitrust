@@ -80,7 +80,7 @@ let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices
     | None ->
       begin match trm_var_inv t with
       | Some n when n = prev_v ->
-        fail t.loc "Matrix_core.replace_all_accesses: variable access is not covered"
+        trm_fail t "Matrix_core.replace_all_accesses: variable access is not covered"
       | _ -> trm_map aux t
       end
   in
@@ -96,7 +96,7 @@ let intro_calloc_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_var (_, f);_},[dim; size], _) when var_has_name f "calloc" ->
     alloc ~init:(trm_int 0) [dim] size
-  | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
+  | _ -> trm_fail t "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
 let intro_calloc : Target.Transfo.local =
   Target.apply_on_path (intro_calloc_aux)
@@ -108,7 +108,7 @@ let intro_malloc_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size],_);_}],_) when (var_has_name f "malloc") ->
     alloc [dim] size
-  | _ -> fail t.loc "Matrix_core.intro_malloc: expected a function call to malloc"
+  | _ -> trm_fail t "Matrix_core.intro_malloc: expected a function call to malloc"
 
 
 (* [intro_malloc t p]: applies [intro_malloc_aux] at trm [t] with path [p]. *)
@@ -125,9 +125,9 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
     begin match trm_prim_inv f with
     | Some (Prim_binop Binop_array_access) ->
       trm_apps ~annot:t.annot f [base; mindex [dim] [index]]
-    | _ -> fail t.loc "Matrix_core.intro_mindex_aux: expected a primitive array access operation"
+    | _ -> trm_fail t "Matrix_core.intro_mindex_aux: expected a primitive array access operation"
     end
-  | _ -> fail t.loc "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
+  | _ -> trm_fail t "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
 
 (* [intro_mindex dim t p]: applies [intro_mindex_aux] at trm [t] with path [p]. *)
 let intro_mindex (dim : trm) : Target.Transfo.local =
@@ -145,10 +145,10 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
            Xlist.rotate rotate_n id_perm
       else
         begin match order with
-      | [] -> fail t.loc "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
+      | [] -> trm_fail t "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
       | _ -> order
       end in
-    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> fail t.loc "Matrix_core.order is not a permutation of indices" end;
+    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices" end;
     let reordered_dims = Xlist.reorder order dims in
     let reordered_indices = Xlist.reorder order indices in
     mindex (reordered_dims) (reordered_indices)
@@ -159,14 +159,14 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
            Xlist.rotate rotate_n id_perm
       else
         begin match order with
-      | [] -> fail t.loc "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
+      | [] -> trm_fail t "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
       | _ -> order
       end in
-    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> fail t.loc "Matrix_core.order is not a permutation of indices" end;
+    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices" end;
     let reordered_dims = Xlist.reorder order dims in
     let init = if zero_init then Some (trm_int 0 ) else None in
     alloc ?init reordered_dims size
-  | _ -> fail t.loc "Matrix_core.reorder_dims_aux: expected  a function call to CALLOC or MINDEX"
+  | _ -> trm_fail t "Matrix_core.reorder_dims_aux: expected  a function call to CALLOC or MINDEX"
 
 (* [reorder_dims rotate_n order t p]: applies [reorder_dims_aux] at trm [t] with path [p]. *)
 let reorder_dims (rotate_n : int ) (order : int list) : Target.Transfo.local =
@@ -182,7 +182,7 @@ let insert_alloc_dim_aux ?(last : bool = false) (new_dim : trm) (t : trm) : trm 
     let new_dims = if last then dims @ [new_dim] else new_dim :: dims in
     let init = if zero_init then Some (trm_int 0) else None in
     alloc ?init new_dims size
-  | None -> fail t.loc "Matrix_core.insert_alloc_dim_aux: expected a function call to CALLOC"
+  | None -> trm_fail t "Matrix_core.insert_alloc_dim_aux: expected a function call to CALLOC"
 
 let insert_alloc_dim (new_dim : trm) : Target.Transfo.local =
   Target.apply_on_path (insert_alloc_dim_aux new_dim)
@@ -199,7 +199,7 @@ let insert_access_dim_index_aux ?(last : bool = false) (new_dim : trm) (new_inde
     let new_dims = if last then dims @ [new_dim] else new_dim :: dims in
     let new_indices = if last then indices @ [new_index] else new_index :: indices in
     access base new_dims new_indices
-  | None -> fail t.loc "Matrix_core.insert_access_dim_index_aux: expected an array access "
+  | None -> trm_fail t "Matrix_core.insert_access_dim_index_aux: expected an array access "
 
 (* [insert_access_dim_inidex new_timd new_index t p]: applies [insert_access_dim_index_aux] at trm [t] with path [p]. *)
 let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.local =
@@ -311,7 +311,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
   let index = new_var index in
   match t.desc with
   | Trm_seq tl ->
-    if Mlist.length tl < 5 then fail t.loc "Matrix_core.delocalize_aux: the targeted  sequence does not have the correct shape";
+    if Mlist.length tl < 5 then trm_fail t "Matrix_core.delocalize_aux: the targeted  sequence does not have the correct shape";
     let add_labels = List.length labels = 3 in
     let decl = Mlist.nth tl 0 in
     begin match decl.desc with
@@ -363,14 +363,14 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     if acc_in_place
                       then
                       if acc_provided
-                        then fail t.loc "Matrix_core.delocalize_aux: if acc_in_place is set to true there is not need to provide an accumulator"
+                        then trm_fail t "Matrix_core.delocalize_aux: if acc_in_place is set to true there is not need to provide an accumulator"
                         else begin
                           trm_seq_nomarks [
                            trm_set (get_operation_arg old_var_access) (trm_get (access (base) new_dims ((trm_int 0) :: indices)));
                            trm_for (index, (trm_int 1), DirUp, dim, (Post_inc), false) ( op_fun (get_operation_arg old_var_access) (trm_get new_access))]
                         end
                       else
-                        if not acc_provided then fail t.loc "Matrix_core.delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
+                        if not acc_provided then trm_fail t "Matrix_core.delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
                           let acc_var = new_var acc in
                           (trm_seq_nomarks [
                             trm_let_mut (acc_var, typ_double ()) init_val;
@@ -409,7 +409,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       else fifth_instr in
 
                     trm_seq ~annot:t.annot (Mlist.of_list [new_fst_instr; trm_copy new_snd_instr; new_thrd_instr; trm_copy new_frth_instr; new_fifth_instr])
-                  | _ -> fail set_instr.loc "Matrix_core.delocalize_aux"
+                  | _ -> trm_fail set_instr "Matrix_core.delocalize_aux"
                   end
                 | Local_obj (_init_f, _merge_f, free_f) ->
 
@@ -450,7 +450,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
                       ) body ps2  in
                       trm_fors new_loop_range new_body
-                    | _ -> fail t.loc "Matrix_core.delocalize_aux: expected the accumulation loop"
+                    | _ -> trm_fail t "Matrix_core.delocalize_aux: expected the accumulation loop"
                     end in
 
                   let fifth_instr = Mlist.nth tl 4 in
@@ -463,7 +463,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
                       ) body ps2  in
                       trm_fors new_loop_range new_body
-                    | _ -> fail t.loc "Matrix_core.delocalize_aux: expected the accumulation loop"
+                    | _ -> trm_fail t "Matrix_core.delocalize_aux: expected the accumulation loop"
                     end in
 
                   let sixth_instr = Mlist.nth tl 5 in
@@ -482,18 +482,18 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   trm_seq ~annot:t.annot (Mlist.of_list final_groups)
                 end
 
-              | _ -> fail snd_instr.loc "Matrix_core.delocalize_aux: expected the nested loops where the local matrix initialization is done"
+              | _ -> trm_fail snd_instr "Matrix_core.delocalize_aux: expected the nested loops where the local matrix initialization is done"
               end
-          | _ -> fail init.loc "Matrix_core.delocalize_aux: the local variable should be declared together with its mermory allocation"
+          | _ -> trm_fail init "Matrix_core.delocalize_aux: the local variable should be declared together with its mermory allocation"
           end
-         | _ -> fail init1.loc "Matrix_core.delocalize_aux: couldn't find the cast operation "
+         | _ -> trm_fail init1 "Matrix_core.delocalize_aux: couldn't find the cast operation "
         end
 
-      | _ -> fail init.loc "Matrix_core.couldn't get the alloc trms for the target local variable declaration"
+      | _ -> trm_fail init "Matrix_core.couldn't get the alloc trms for the target local variable declaration"
       end
-    | _ -> fail t.loc "Matrix_core.delocalize_aux: expected the declaration of the local variable"
+    | _ -> trm_fail t "Matrix_core.delocalize_aux: expected the declaration of the local variable"
     end
-  |  _ -> fail t.loc "Matrix_core.delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
+  |  _ -> trm_fail t "Matrix_core.delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
 
 
 (* [delocalize dim init_zero acc_in_place acc any_mark labels index ops t p]: applies [delocalize_aux] at trm [t] with path [p]. *)

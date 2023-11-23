@@ -116,7 +116,7 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     | C.IULong -> wrap_const att (typ_int ~annot:[Unsigned; Long] ())
     | C.ILongLong -> wrap_const att (typ_int ~annot:[Long; Long] ())
     | C.IULongLong -> wrap_const att (typ_int ~annot:[Unsigned; Long; Long] ())
-    | _ -> fail None "CMenhir_to_astRawC.tr_type: ikind not supported for integers"
+    | _ -> failwith "CMenhir_to_astRawC.tr_type: ikind not supported for integers"
     end
   | C.TFloat (fk, att) ->
     begin match fk with
@@ -139,7 +139,7 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
       let typ_to_add = typ_record Struct (typ_constr (name_to_typconstr n) ~tid:(next_typconstrid())) in
       wrap_const att (typ_to_add)
   | C.TUnion ({name = n;_}, att) ->
-      fail None "CMenhir_to_astRawC.OptiTrust does not support inline use of struct or union; you must use a typedef"
+      failwith "CMenhir_to_astRawC.OptiTrust does not support inline use of struct or union; you must use a typedef"
   | C.TEnum ({name = n; _}, att) ->
     typ_constr (name_to_typconstr n) ~tid:(get_typid_from_trm n)
   | C.TVoid _ -> typ_unit ()
@@ -192,7 +192,7 @@ and tr_stmt (s : C.stmt) : trm =
     | Slabel lb ->
       let t = tr_stmt body in
       trm_add_label lb t
-    | _ -> fail loc "CMenhir_to_astRawC.tr_stmt: switch clauses are not yet supported in OptiTrust"
+    | _ -> loc_fail loc "CMenhir_to_astRawC.tr_stmt: switch clauses are not yet supported in OptiTrust"
     end
   | Sgoto lb ->
     trm_goto ?loc ~ctx lb
@@ -230,7 +230,7 @@ and tr_stmt (s : C.stmt) : trm =
     let tp = tr_pragma p in
     let ts1 = tr_stmt s1 in
     trm_add_pragma tp ts1
-  | _ -> fail loc "CMenhir_to_astRawC.tr_stmt: statment not supported"
+  | _ -> loc_fail loc "CMenhir_to_astRawC.tr_stmt: statment not supported"
    (* LATER: should not use catch all pattern, here and elsewhere *)
 
 (* [tr_pragma ?loc p]: translates C.pragma into OptiTrust pragmas *)
@@ -244,7 +244,7 @@ and tr_pragma ?(loc : location) (p : string) : cpragma =
   | _ ->
     try Scanf.sscanf p "omp parallel for collapse(%d)" (fun n -> (Parallel_for [Collapse n]))
      with Scanf.Scan_failure _ ->
-      fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p)
+      loc_fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p)
 
 (* and tr_pragma1 ?(loc : location) (p : string) : trm =
   match p with
@@ -257,7 +257,7 @@ and tr_pragma ?(loc : location) (p : string) : cpragma =
      try Scanf.sscanf p "omp parallel for collapse(%d)" (fun n ->
        trm_omp_directive (Parallel_for [Collapse n]))
      with Scanf.Scan_failure _ ->
-      fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p) *)
+      loc_fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p) *)
 
 (* [tr_init i]: translates C.inti into OptiTrust trm *)
 and tr_init ?(loc : trm_loc option) (i : C.init) : trm =
@@ -267,7 +267,7 @@ and tr_init ?(loc : trm_loc option) (i : C.init) : trm =
   | Init_struct ((id, ty), il) ->
     let ty = tr_type ty in
     trm_record ?loc ~typ:ty (Mlist.of_list (List.map (fun (_, init) -> (None, tr_init init)) il))
-  | Init_union _ -> fail loc "CMenhir_to_astRawC.tr_init: union not supported yet"
+  | Init_union _ -> loc_fail loc "CMenhir_to_astRawC.tr_init: union not supported yet"
 
 (* [tr_constant c]: translates C.constant into OptiTrust trm *)
 and tr_constant ?(loc : trm_loc option) ?(typ : typ option) ?(is_boolean : bool = false) (c : C.constant) : trm =
@@ -287,7 +287,7 @@ and tr_constant ?(loc : trm_loc option) ?(typ : typ option) ?(is_boolean : bool 
           let b =
           begin match s with
           | "0" -> false | "1" -> true
-          | _ -> fail None "CMenhir_to_astRawC.tr_constant: expected a constant boolean expression"
+          | _ -> failwith "CMenhir_to_astRawC.tr_constant: expected a constant boolean expression"
           end in
           trm_lit ~typ ?loc (Lit_bool b)
         else
@@ -297,7 +297,7 @@ and tr_constant ?(loc : trm_loc option) ?(typ : typ option) ?(is_boolean : bool 
     trm_lit ~typ ?loc (Lit_double (float_of_string (inp ^ "." ^ fp)))
   | CStr s ->
     trm_lit ~typ ?loc (Lit_string s)
-  | _  -> fail loc "CMenhir_to_astRawC.tr_const: constant expression is not supported"
+  | _  -> loc_fail loc "CMenhir_to_astRawC.tr_const: constant expression is not supported"
 
 (* [tr_expr ~is_stement e]: translates C.exp into OptiTrust trm *)
 and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
@@ -392,7 +392,7 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
     | Oxor_assign -> trm_prim_c Binop_xor tl tr
     | Oshl_assign -> trm_prim_c Binop_shiftl tl tr
     | Oshr_assign -> trm_prim_c Binop_shiftr tl tr
-    | Ocomma -> fail loc "CMenhir_to_astRawC.tr_expr: OptiTrust does not support the comma operator"
+    | Ocomma -> loc_fail loc "CMenhir_to_astRawC.tr_expr: OptiTrust does not support the comma operator"
     | Oand -> trm_bit_and ?loc ~ctx ~typ tl tr
     | Oor -> trm_bit_or ?loc ~ctx ~typ tl tr
     end
@@ -415,7 +415,7 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.name 0 ->
       begin match el with
       | [tl; tr] -> trm_set ?loc ~ctx (tr_expr tl) (tr_expr tr)
-      | _ -> fail loc "CMenhir_to_astRawC.tr_expr: overloaded= expects two arguments"
+      | _ -> loc_fail loc "CMenhir_to_astRawC.tr_expr: overloaded= expects two arguments"
       end
     | _ -> trm_apps ?loc ~ctx ~typ tf (List.map tr_expr el)
     end
@@ -448,7 +448,7 @@ and tr_globdef (d : C.globdecl) : trm =
           let args = List.map get_args pl in
           trm_let_fun ?loc ~ctx (name_to_var n) tt args (trm_lit (Lit_uninitialized))
         end
-      | _ -> fail None "CMenhir_to_astRawC.tr_globdef: this function prototype is not supported"
+      | _ -> failwith "CMenhir_to_astRawC.tr_globdef: this function prototype is not supported"
       end
       else
         let mut = if is_typ_const tt then Var_immutable else Var_mutable in
@@ -505,7 +505,7 @@ and tr_globdef (d : C.globdecl) : trm =
     in
     ctx_typedef_add tc tid td;
     trm_typedef ?loc ~ctx td;
-  | _ -> fail loc "CMenhir_to_astRawC.tr_globdef: declaration not supported"
+  | _ -> loc_fail loc "CMenhir_to_astRawC.tr_globdef: declaration not supported"
 
 (* [tr_typedef] translates a typedef (struct only for the moment) *)
 let tr_typedef struct_is_named loc (sn : string) fl ty =
@@ -534,9 +534,9 @@ let tr_globdefs (gs : C.globdecl list) : trms =
       :: {C.gdesc = C.Gtypedef ({C.name = sn2},ty)} :: gs' ->
         let loc = loc_of_cloc loc in
         if su1 <> Struct
-          then fail loc "CMenhir_to_astRawC.tr_globdefs: only struct records are supported";
+          then loc_fail loc "CMenhir_to_astRawC.tr_globdefs: only struct records are supported";
         if sn1 <> sn2
-          then fail loc (Printf.sprintf "CMenhir_to_astRawC.tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn1 sn2);
+          then loc_fail loc (Printf.sprintf "CMenhir_to_astRawC.tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn1 sn2);
         let td = tr_typedef false loc sn1 fl ty in
         aux (td::acc) gs'
     |    {C.gdesc = C.Gcompositedecl (su, {C.name = sn;_}, _)}
@@ -544,16 +544,16 @@ let tr_globdefs (gs : C.globdecl list) : trms =
       :: {C.gdesc = C.Gtypedef ({C.name = sn2},ty)} :: gs' ->
         let loc = loc_of_cloc loc in
         if su <> Struct
-          then fail loc "CMenhir_to_astRawC.tr_globdefs: only struct records are supported";
+          then loc_fail loc "CMenhir_to_astRawC.tr_globdefs: only struct records are supported";
         if su <> su1
-          then fail loc (Printf.sprintf "CMenhir_to_astRawC.tr_globdefs: the declaration (%s) and the definition (%s) must be consistent.\n" sn sn2);
+          then loc_fail loc (Printf.sprintf "CMenhir_to_astRawC.tr_globdefs: the declaration (%s) and the definition (%s) must be consistent.\n" sn sn2);
         if sn <> sn1 || sn <> sn2
-          then fail loc (Printf.sprintf "CMenhir_to_astRawC.tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn sn2);
+          then loc_fail loc (Printf.sprintf "CMenhir_to_astRawC.tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn sn2);
         let td = tr_typedef true loc sn1 fl ty in
         aux (td::acc) gs'
 
     | ({C.gdesc = C.Gcompositedecl _; _} | {C.gdesc = C.Gcompositedef _; _}) :: _ ->
-        fail None "CMenhir_to_astRawC.tr_globdefs: struct and unions are not supported"
+        failwith "CMenhir_to_astRawC.tr_globdefs: struct and unions are not supported"
     | g :: gs' -> aux (tr_globdef g :: acc) gs'
   in
     List.rev (aux [] gs)

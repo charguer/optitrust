@@ -175,13 +175,11 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
           may_report_time "script-exec" f)
       with
       | Stop -> ()
-      | e when !Flags.dump_trace ->
-          (* If dump-trace, try best effort to produce a partial trace *)
-          let exc = Printexc.to_string e in
-          Trace.finalize_on_error ~error:exc;
-          produce_trace();
+      | e ->
+          Trace.finalize_on_error ~exn:e;
+          if !Flags.dump_trace then produce_trace();
           let backtrace = Printexc.get_backtrace () in
-          Printf.eprintf "========> ERROR:\n%s\n%s\n" exc backtrace;
+          Printf.eprintf "========> BACKTRACE:\n%s\n" backtrace;
           exit 0
     end;
     flush stdout;

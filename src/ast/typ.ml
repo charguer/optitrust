@@ -174,9 +174,9 @@ let typ_has_attribute (att : attribute) (ty : typ) : bool =
 (*****************************************************************************)
 
 
-let typ_inv ?(error : string = "") (loc : location) (k : typ -> 'a option) (t : typ) : 'a =
+let typ_inv ?(error : string = "") (trm : trm) (k : typ -> 'a option) (t : typ) : 'a =
   match k t with
-  | None -> if error = "" then assert false else fail loc error
+  | None -> if error = "" then assert false else trm_fail trm error
   | Some r -> r
 
 (* [is_generated_typ ty]: checks ia a typ is a type used only for optitrust encoding *)

@@ -30,7 +30,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
           end
         in
       Internal.change_trm ~change_at:[fold_at] def_x t_x t1
-    | _ -> fail t_dl.loc "Variable_core.fold_decl: expected a variable declaration"
+    | _ -> trm_fail t_dl "Variable_core.fold_decl: expected a variable declaration"
      in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
     trm_seq ~annot:t.annot new_tl
@@ -71,7 +71,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
             | [] -> trm_subst_var x init t
             | _ -> Internal.change_trm ~change_at:[unfold_at] (trm_var x) init t
             end
-          else fail dl.loc "Variable_core.unfold_aux: only const variables are safe to unfold"
+          else trm_fail dl "Variable_core.unfold_aux: only const variables are safe to unfold"
       end
     (* qvar_inv_var (qx : qvar) : var option =
          if qx.qvar_path = [] then Some qx.qvar_var
@@ -88,9 +88,9 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
     | Trm_let_fun (f, _, _, _, _) ->
       if accept_functions
         then trm_subst_var f dl t
-        else fail dl.loc "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
+        else trm_fail dl "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
 
-    | _ -> fail t.loc "Variable_core.unfodl_aux: expected a target to a variable or function definition"
+    | _ -> trm_fail t "Variable_core.unfodl_aux: expected a target to a variable or function definition"
   in
   let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
@@ -133,12 +133,12 @@ let init_detach_aux  (t : trm) : trm =
   let error = "Variable_core.init_detach_aux: variable could not be matched, make sure your path is correct." in
   let (vk,x, tx, init) = trm_inv ~error trm_let_inv t in
   begin match vk with
-  | Var_immutable -> fail t.loc "init_detach_aux: const declarations cannot be detached"
+  | Var_immutable -> trm_fail t "init_detach_aux: const declarations cannot be detached"
   | _ ->
     let init =
       begin match init.desc with
       | Trm_apps(_,[init],_) -> init
-      | _ -> fail t.loc "init_detach_aux: can't detach an uninitialized declaration"
+      | _ -> trm_fail t "init_detach_aux: can't detach an uninitialized declaration"
       end in
     let var_type = get_inner_ptr_type tx in
     let var_decl = trm_pass_marks t (trm_let_mut ~annot:t.annot (x, var_type) (trm_uninitialized ())) in
@@ -210,11 +210,11 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : string) (t : trm)
   let local_var = Trm.new_var local_var in
   let vardef_trm = begin match get_trm_at [cVarDef curr_var.name] with
     | Some vt -> vt
-    | None -> fail None "local_name_aux: couldn't find the variable provided as argument"
+    | None -> failwith "local_name_aux: couldn't find the variable provided as argument"
     end in
   let var_type = match trm_var_def_inv vardef_trm with
     | Some (_, _, ty, _) -> ty
-    | _ -> fail vardef_trm.loc "Variable_core.local_name: make sure the name of the current var is entered correctly"
+    | _ -> trm_fail vardef_trm "Variable_coreal_name: make sure the name of the current var is entered correctly"
     in
   let fst_instr = trm_let_mut (local_var, var_type) (trm_var_possibly_mut ~typ:var_type curr_var) in
   let lst_instr = trm_set (trm_var ~typ:var_type curr_var) (trm_var_possibly_mut ~typ:var_type local_var) in
@@ -236,7 +236,7 @@ let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : tr
   let index = Trm.new_var index in
   let error = "Variable_core.delocalize_aux: expected the nobrace sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
-    if Mlist.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
+    if Mlist.length tl <> 3 then trm_fail t "delocalize_aux: the targeted sequence does not have the correct shape";
     let def = Mlist.nth tl 0 in
     let snd_instr = Mlist.nth tl 1 in
     begin match def.desc with
@@ -244,7 +244,7 @@ let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : tr
       let local_var = x in
       let curr_var_trm = match get_init_val init with
         | Some init1 -> init1
-        | _ -> fail def.loc "delocalize_aux: couldn't get the value of the current variable " in
+        | _ -> trm_fail def "delocalize_aux: couldn't get the value of the current variable " in
       let curr_var_trm = get_operation_arg curr_var_trm in
       let var_type = (get_inner_ptr_type tx) in
       let init_trm, op = begin match ops with
@@ -273,7 +273,7 @@ let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : tr
       { t with desc = Trm_seq new_tl}
       (* trm_seq ~annot:t.annot (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) *)
 
-    | _ -> fail t.loc "Variable_core.delocalize_aux: first instruction in the sequence should be the declaration of local variable"
+    | _ -> trm_fail t "Variable_core.delocalize_aux: first instruction in the sequence should be the declaration of local variable"
     end
 
 
@@ -322,7 +322,7 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
     trm_seq ~annot:t.annot new_tl
-  | _ -> fail t.loc "Variable_core.change_type_aux: expected the surrounding sequence"
+  | _ -> trm_fail t "Variable_core.change_type_aux: expected the surrounding sequence"
 
 (* [change_type new_type index t p]: applies [change_type_aux] at trm [t] with path [p]. *)
 let change_type (new_type : typvar) (index : int) : Transfo.local =
@@ -391,7 +391,7 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
     r
 
 
-  | _ -> fail t.loc "Variable_core.bind_aux: expected the surrounding sequence"
+  | _ -> trm_fail t "Variable_core.bind_aux: expected the surrounding sequence"
 
 (* [bind mark_let mark_occ mark_body index fresh_name const is_ptr typ p_local t p]: applies [bind_aux] at trm [t] with path [p]. *)
 let bind (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) : Transfo.local =
@@ -456,7 +456,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
           else  begin
             let init_val = match get_init_val init with
             | Some init1 -> init1
-            | _ -> fail dl.loc "Variable_core.to_const_aux: const variables should always be initialized"
+            | _ -> trm_fail dl "Variable_core.to_const_aux: const variables should always be initialized"
               in
             let init_type = get_inner_const_type tx in
             let new_dl = trm_pass_marks dl (trm_let_mut (x, init_type) init_val) in
@@ -465,7 +465,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
           end
 
        | Var_mutable ->
-        if trm_has_cstyle Reference dl then fail dl.loc "Variable_core.from_to_const_aux: const references are not supported"
+        if trm_has_cstyle Reference dl then trm_fail dl "Variable_core.from_to_const_aux: const references are not supported"
           else if not to_const then t
           else begin
             (* Search if there are any write operations on variable x *)
@@ -473,10 +473,10 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               begin match t1.desc with
               | Trm_apps (_, [ls; _rs], _) when is_set_operation t1 ->
                 begin match ls.desc with
-                | Trm_var (_, y) when y = x -> fail ls.loc "Variable_core.to_const_aux: variables with one or more write operations can't be converted to immutable ones"
+                | Trm_var (_, y) when y = x -> trm_fail ls "Variable_core.to_const_aux: variables with one or more write operations can't be converted to immutable ones"
                 | _ ->
                   (* if contains_occurrence x ls
-                            then fail ls.loc "Variable_core.to_const_aux: struct instances with
+                            then trm_fail ls "Variable_core.to_const_aux: struct instances with
                                     one or more write operations can't be conveted to immutable ones."
                             else () *)
                   ()
@@ -487,7 +487,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
           (* replace all get(x) with x *)
             let init_val = match get_init_val init with
             | Some init1 -> init1
-            | _ -> fail dl.loc "Variable_core.to_const_aux: can't convert to const a non intialized variable"
+            | _ -> trm_fail dl "Variable_core.to_const_aux: can't convert to const a non intialized variable"
               in
             let init_type = get_inner_ptr_type tx in
             let new_dl = trm_pass_marks dl (trm_let_immut (x, init_type) init_val) in
@@ -496,9 +496,9 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
             update_seq new_dl new_lback lfront
             end
        end
-    | _ -> fail dl.loc "Variable_core.from_to_const_aux: the main target should point to a variable declaration"
+    | _ -> trm_fail dl "Variable_core.from_to_const_aux: the main target should point to a variable declaration"
     end
-  | _ -> fail t.loc "Variable_core.from_to_const_aux: expected the sequence that contains the targeted declaration"
+  | _ -> trm_fail t "Variable_core.from_to_const_aux: expected the sequence that contains the targeted declaration"
 
 (* [from_to_const to_const index t p]: applies [from_to_const_aux] at trm [t] with path [p]. *)
 let from_to_const (to_const : bool) (index : int) : Transfo.local =
@@ -529,7 +529,7 @@ let ref_to_pointer_aux (index : int) (t : trm) : trm =
       var_name := x;
       let tx = get_inner_ptr_type tx in
       trm_let_mut (x, typ_ptr_generated tx) init
-    | _ -> fail t.loc "Variable_core.ref_to_pointer_aux: expected a target to a variable declaration"
+    | _ -> trm_fail t "Variable_core.ref_to_pointer_aux: expected a target to a variable declaration"
     in
   let f_update_further (t : trm) : trm =
     trm_subst_var !var_name (trm_var_get !var_name) t in
@@ -549,7 +549,7 @@ let ref_to_var_aux (t : trm) : trm =
     let t_annot = trm_rem_cstyle Reference t in
     let t_annot = trm_add_cstyle Stackvar t_annot in
     (trm_let ~annot:t_annot.annot vk (x, tx) (trm_new (get_inner_ptr_type tx) (trm_get init)))
-  | _ -> fail t.loc "Variable_core.ref_to_var_aux: expected a target to a reference declaration"
+  | _ -> trm_fail t "Variable_core.ref_to_var_aux: expected a target to a reference declaration"
 
 
 (* [ref_to_var]: applies [ref_to_var_aux] at trm [t] with path [p]. *)

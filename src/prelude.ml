@@ -31,6 +31,11 @@ let find_var_in_current_ast ?(target : target = []) (name : string) : var =
   | 1 -> Var_set.choose candidates
   | n -> failwith (sprintf "%d variables with name '%s' found in current AST: %s" n name (vars_to_string (Var_set.elements candidates)))
 
+(* TODO: DEPRECATE *)
+let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
+  try f () with
+  | Trm_error (_, Failure msg2) -> assert (msg = msg2)
+
 (* [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct
   let var v = trm_var (name_to_var v)

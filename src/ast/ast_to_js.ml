@@ -282,7 +282,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
                 match case with
                 | ([],body) -> [(body_label, aux body)]
                 | ([tpat],body) -> [(pat_label, aux tpat); (body_label, aux body)]
-                | (_,body) -> fail t.loc "Ast_to_js.multipattern switch not yet supported in json output"
+                | (_,body) -> trm_fail t "Ast_to_js.multipattern switch not yet supported in json output"
            *)
     | Trm_abort res ->
         begin match res with

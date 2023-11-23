@@ -424,7 +424,7 @@ and print_typedef style (td : typedef) : document =
      print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
       [string tconstr; print_list dtl ])
   | Typdef_sum _ ->
-    fail None "Ast_to_text.print_typedef: sum types are not supported in C/C++"
+    failwith "Ast_to_text.print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
      let denum_const_l =
        print_list
@@ -713,3 +713,9 @@ let typ_option_to_string ?(style : style option) (t : typ option) : string =
   match t with
   | None -> "<notype>"
   | Some ty -> typ_to_string ?style ty
+
+let _ = Printexc.register_printer (function
+  | Trm_error (trm, exn) ->
+    let ds = default_style () in
+    Some (Printf.sprintf "%s: %s" (ast_to_string ~style:{ds with only_desc = true } trm) (Printexc.to_string exn))
+  | _ -> None)

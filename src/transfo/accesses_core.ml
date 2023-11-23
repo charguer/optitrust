@@ -14,9 +14,9 @@ let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
      then begin match args with
       | [addr; targ] ->
         trm_replace (Trm_apps (f, [addr; f_set targ], [])) t
-      | _ -> fail t.loc "Accesses_core.transform_aux: expected either a get or a set operation"
+      | _ -> trm_fail t "Accesses_core.transform_aux: expected either a get or a set operation"
       end
-    else fail t.loc "Accesses_core.transform_aux: expected a get operation"
+    else trm_fail t "Accesses_core.transform_aux: expected a get operation"
 
 
 (* [transform f_get f_set t p]: applies [transform_aux] at the trm with path [p] *)

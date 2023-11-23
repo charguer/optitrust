@@ -219,62 +219,6 @@ let bool_of_var (s : string) : bool option =
   try Some (bool_of_string s )
   with | Invalid_argument _ -> None
 
-
-(******************************************************************************)
-(*                          Extensions to Option                              *)
-(******************************************************************************)
-
-(* [option_to_string]: returns "None" or "Some [f v]" *)
-let option_to_string (f : 'a -> string) (o : 'a option) : string =
-  Option.value ~default:"None" (
-    Option.map (fun v -> "Some " ^ f v) o)
-
-(* [option_map]: applies [f] on optional objects *)
-let option_map (f : 'a -> 'b) (o : 'a option) : 'b option =
-  match o with
-  | None -> None
-  | Some v -> Some (f v)
-
-(* [option_and a b]:
-  returns None if [a] is None, otherwise [b].
-   *)
-let option_and (a : 'a option) (b : 'a option) : 'a option =
-  match a with
-  | None -> None
-  | Some _ -> b
-
-(* [option_or a b]:
-  returns [a] if [a] is Some, otherwise [b].
-  *)
-let option_or (a : 'a option) (b : 'a option) : 'a option =
-  match a with
-  | Some _ -> a
-  | None -> b
-
-(* [option_ors]: n-ary [option_or]. *)
-let option_ors (opts : 'a option list) : 'a option =
-  List.fold_left option_or None opts
-
-(* [unsome x_opt]: extracts the underlying object of [x_opt] is there is one such object. *)
-let unsome ?(error:string="Tools.unsome found None") (x_opt : 'a option) : 'a =
-  match x_opt with
-  | Some x -> x
-  | None -> failwith error
-
-let option_flat_map (f: 'a -> 'b list) (opt: 'a option): 'b list =
-  Option.value ~default:[] (Option.map f opt)
-
-(* [OptionMonad]: when opened add the operators [let*] and [and*] for the
-   option monad. *)
-module OptionMonad = struct
-  let (let*) = Option.bind
-
-  let (and*) a b =
-    let* a in
-    let* b in
-    Some (a, b)
-end
-
 (******************************************************************************)
 (*                          Extensions for Hashtbl                            *)
 (******************************************************************************)

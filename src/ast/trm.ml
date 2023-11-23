@@ -314,7 +314,7 @@ let typ_of_lit (l : lit) : typ option =
 
 (* [trm_lit ~annot ?loc ?ctx l]: literal *)
 let trm_lit ?(typ : typ option = None) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : trm =
-  let typ = Tools.option_or typ (typ_of_lit l) in
+  let typ = Xoption.or_ typ (typ_of_lit l) in
   trm_val ~annot:annot ?loc ?ctx ?typ (Val_lit l)
 
 let trm_unit ?(loc) () : trm =
@@ -546,10 +546,9 @@ let trm_int_inv (t : trm) : int option =
 
 (* [trm_inv ~error k t]: returns the results of applying [k] on t, if the result is [None]
      then function fails with error [error]. *)
-let trm_inv ?(error : string = "") ?(loc : location) (k : trm -> 'a option) (t : trm) : 'a =
-  let loc = if loc = None then t.loc else loc in
+let trm_inv ?(error : string = "") (k : trm -> 'a option) (t : trm) : 'a =
   match k t with
-  | None -> fail loc (if error = "" then "failed inversion" else error)
+  | None -> trm_fail t (if error = "" then "failed inversion" else error)
   | Some r -> r
 
 
@@ -748,10 +747,10 @@ let for_loop_index (t : trm) : var =
                  [{desc = Trm_var (_, x); _}; _], _) -> x
      | _ -> begin match trm_var_inv init with
             | Some x -> x
-            | None -> fail init.loc "Ast.for_loop_index: could't get the loop index"
+            | None -> trm_fail init "Ast.for_loop_index: could't get the loop index"
             end
      end
-  | _ -> fail t.loc "Ast.for_loop_index: expected for loop"
+  | _ -> trm_fail t "Ast.for_loop_index: expected for loop"
 
 (* [for_loop_init t]: returns the initial value of the loop index *)
 let for_loop_init (t : trm) : trm =
@@ -766,11 +765,11 @@ let for_loop_init (t : trm) : trm =
      | Trm_let (_,(_, _), init) ->
         begin match get_init_val init with
         | Some v  -> v
-        | None -> fail init.loc "Ast.for_loop_init: bad for loop initialization"
+        | None -> trm_fail init "Ast.for_loop_init: bad for loop initialization"
         end
-     | _ -> fail init.loc "Ast.for_loop_init: bad for loop initialisation"
+     | _ -> trm_fail init "Ast.for_loop_init: bad for loop initialisation"
      end
-  | _ -> fail t.loc "Ast.for_loop_init: expected for loop"
+  | _ -> trm_fail t "Ast.for_loop_init: expected for loop"
 
 (* [for_loop_bound t]: returns the bound of the for loop *)
 let for_loop_bound (t : trm) : trm =
@@ -790,9 +789,9 @@ let for_loop_bound (t : trm) : trm =
                  [_; n], _) -> n
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
                  [_; n], _) -> n
-     | _ -> fail cond.loc "Ast.for_loop_bound: bad for loop condition"
+     | _ -> trm_fail cond "Ast.for_loop_bound: bad for loop condition"
      end
-  | _ -> fail t.loc "Ast.for_loop_bound: expected for loop"
+  | _ -> trm_fail t "Ast.for_loop_bound: expected for loop"
 
 (* [for_loop_step t]: returns the step increment of the for loop *)
 let for_loop_step (t : trm) : trm =
@@ -823,11 +822,11 @@ let for_loop_step (t : trm) : trm =
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_sub)); _},
                     [_; n], _) ->
            trm_apps (trm_unop Unop_minus) [n]
-        | _ -> fail step.loc "Ast.for_loop_step: bad for loop step"
+        | _ -> trm_fail step "Ast.for_loop_step: bad for loop step"
         end
-     | _ -> fail step.loc "Ast.for_loop_step: bad for loop step"
+     | _ -> trm_fail step "Ast.for_loop_step: bad for loop step"
      end
-  | _ -> fail t.loc "Ast.for_loop_step: expected for loop"
+  | _ -> trm_fail t "Ast.for_loop_step: expected for loop"
 
 (* [for_loop_nb_iter t]: gets the number of iterations of a for loop *)
 let for_loop_nb_iter (t : trm) : trm =
@@ -872,14 +871,14 @@ let for_loop_body_trms (t : trm) : trm mlist =
   | Trm_for (_, body, _) ->
     begin match body.desc with
     | Trm_seq tl -> tl
-    | _ -> fail body.loc "Ast.for_loop_body_trms: body of a simple loop should be a sequence"
+    | _ -> trm_fail body "Ast.for_loop_body_trms: body of a simple loop should be a sequence"
     end
   | Trm_for_c (_, _, _, body, _) ->
     begin match body.desc with
     | Trm_seq tl -> tl
-    | _ -> fail body.loc "Ast.for_loop_body_trms: body of a generic loop should be a sequence"
+    | _ -> trm_fail body "Ast.for_loop_body_trms: body of a generic loop should be a sequence"
     end
-  | _ -> fail t.loc "Ast.for_loop_body_trms: expected a loop"
+  | _ -> trm_fail t "Ast.for_loop_body_trms: expected a loop"
 
 (*****************************************************************************)
 
@@ -887,7 +886,7 @@ let for_loop_body_trms (t : trm) : trm mlist =
 let trm_main_inv_toplevel_defs (ast : trm) : trm list =
 match ast.desc with
 | Trm_seq tl when trm_is_mainfile ast -> Mlist.to_list tl
-| _ -> fail ast.loc "Ast.trm_main_inv_toplevel_defs: expected the ast of the main file"
+| _ -> trm_fail ast "Ast.trm_main_inv_toplevel_defs: expected the ast of the main file"
 
 (* [trm_seq_add_last t_insert t]: appends [t_insert] at the end of the sequence [t] *)
 let trm_seq_add_last (t_insert : trm) (t : trm) : trm =
@@ -895,13 +894,13 @@ match t.desc with
 | Trm_seq tl ->
  let new_tl = Mlist.insert_at (Mlist.length tl) t_insert tl in
  trm_seq ~annot:t.annot new_tl
-| _ -> fail t.loc "Ast.trm_seq_add_last: expected a sequence"
+| _ -> trm_fail t "Ast.trm_seq_add_last: expected a sequence"
 
 (* [get_lit_from_trm_lit t]: gets the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit =
   match t.desc with
   | Trm_val (Val_lit l) -> l
-  | _ -> fail t.loc "Ast.get_lit_from_trm: this type of literal is not supported"
+  | _ -> trm_fail t "Ast.get_lit_from_trm: this type of literal is not supported"
 
 
 (* [is_get_operation t]: checks if [t] is a get operation(read operation) *)
@@ -1069,7 +1068,7 @@ let get_lit_from_trm_lit (t : trm) : lit =
         trm_for (index, start, direction, stop, step, is_parallel ) body
       | _ -> t
       end
-    | _ -> fail t.loc "Ast.trm_for_of_trm_for_c: expected a for loop"
+    | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
 
 
 
@@ -1083,7 +1082,7 @@ let f_name = List.fold_left (fun acc x ->
 ) None t.annot.trm_annot_files in
 match f_name with
 | Some s -> s
-| _ -> fail t.loc "Ast.get_include_filename: couldn't get the requested filename"
+| _ -> trm_fail t "Ast.get_include_filename: couldn't get the requested filename"
 
 (* [compute_app_unop_value p v1]: simplifies unary operations on literals. *)
 let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
@@ -1093,7 +1092,7 @@ match p, v1 with
 | Unop_pre_inc, Lit_int n -> trm_int (n + 1)
 | Unop_post_dec, Lit_int n -> trm_int (n - 1)
 | Unop_pre_dec, Lit_int n -> trm_int (n - 1)
-| _ -> fail None "Ast.compute_app_unop_value: only negation can be applied here"
+| _ -> failwith "Ast.compute_app_unop_value: only negation can be applied here"
 
 (* [compute_app_binop_value]: simplifies binary operations on literals. *)
 let compute_app_binop_value (p : binary_op) (typ1 : typ option) (typ2 : typ option) (v1 : lit) (v2 : lit) : trm =
@@ -1104,20 +1103,20 @@ match p,v1, v2 with
 | Binop_neq, Lit_double d1, Lit_double d2 -> trm_bool (d1 <> d2)
 | Binop_sub, Lit_int n1, Lit_int n2 -> trm_int (n1 - n2)
 | Binop_sub, Lit_double d1, Lit_double d2 ->
-  let typ = Tools.option_or typ1 typ2 in
+  let typ = Xoption.or_ typ1 typ2 in
   trm_float ?typ (d1 -. d2)
 | Binop_add, Lit_int n1, Lit_int n2 -> trm_int (n1 + n2)
 | Binop_add, Lit_double d1, Lit_double d2 ->
-  let typ = Tools.option_or typ1 typ2 in
+  let typ = Xoption.or_ typ1 typ2 in
   trm_float ?typ (d1 +. d2)
 | Binop_mul, Lit_int n1, Lit_int n2 -> trm_int (n1 * n2)
 | Binop_mul, Lit_double n1, Lit_double n2 ->
-  let typ = Tools.option_or typ1 typ2 in
+  let typ = Xoption.or_ typ1 typ2 in
   trm_float ?typ (n1 *. n2)
 | Binop_mod, Lit_int n1, Lit_int n2 -> trm_int (n1 mod n2)
 | Binop_div, Lit_int n1, Lit_int n2 -> trm_int (n1 / n2)
 | Binop_div, Lit_double d1, Lit_double d2 ->
-  let typ = Tools.option_or typ1 typ2 in
+  let typ = Xoption.or_ typ1 typ2 in
   trm_float ?typ (d1 /. d2)
 | Binop_le, Lit_int n1, Lit_int n2 -> trm_bool (n1 <= n2)
 | Binop_le, Lit_double d1, Lit_double d2 -> trm_bool (d1 <= d2)
@@ -1127,7 +1126,7 @@ match p,v1, v2 with
 | Binop_ge, Lit_double d1, Lit_double d2 -> trm_bool (d1 >= d2)
 | Binop_gt, Lit_int n1, Lit_int n2 -> trm_bool (n1 > n2)
 | Binop_gt, Lit_double d1, Lit_double d2 -> trm_bool (d1 > d2)
-| _ -> fail None "Ast.compute_app_binop_value: operator not supporeted"
+| _ -> failwith "Ast.compute_app_binop_value: operator not supporeted"
 
 (* [decl_list_to_typed_vars tl]: converts a list of variable declarations to a list of paris where each pair
   consists of a variable and its type *)
@@ -1135,7 +1134,7 @@ let decl_list_to_typed_vars (tl : trms) : typed_vars =
 List.map (fun t ->
   match t.desc with
   | Trm_let (_, (x, tx),_) -> (x, get_inner_ptr_type tx)
-  | _ -> fail t.loc "Ast.decl_list_to_typed_vars: expected a list of declarations"
+  | _ -> trm_fail t "Ast.decl_list_to_typed_vars: expected a list of declarations"
 ) tl
 
 (* [trm_is_var t]: checks if [t] is a variable occurrence. *)
@@ -1350,7 +1349,7 @@ match trm_new_inv t with
 
   (* [trm_get ~annot ?typ t]: embeds [t] into a get operation *)
   let trm_get ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : trm =
-    let typ = Tools.option_or typ (Option.bind t.typ typ_of_get) in
+    let typ = Xoption.or_ typ (Option.bind t.typ typ_of_get) in
     trm_apps ~annot ?typ (trm_unop Unop_get) [t]
 
   (* [trm_address_of ~anot ?typ t]: creates an address operation in [t] *)
@@ -1381,32 +1380,32 @@ let var_any_bool = new_var "ANY_BOOL"
 
   (* [trm_minus ?loc ?ctx ?typ t]: generates -t *)
   let trm_minus ?(loc) ?(ctx : ctx option) ?(typ) (t : trm) : trm =
-    let typ = Tools.option_or typ t.typ in
+    let typ = Xoption.or_ typ t.typ in
     trm_apps ?loc ?ctx ?typ (trm_unop ?loc ?ctx Unop_minus) [t]
 
   (* [trm_eq ?loc ?ctx ?typ t1 t2]: generates t1 = t2 *)
   let trm_eq ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_or typ (Some (typ_bool ())) in
+    let typ = Xoption.or_ typ (Some (typ_bool ())) in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx  Binop_eq) [t1; t2]
 
   (* [trm_neq t1 t2]: generates t1 != t2 *)
   let trm_neq ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_or typ (Some (typ_bool ())) in
+    let typ = Xoption.or_ typ (Some (typ_bool ())) in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_neq) [t1; t2]
 
   (* [trm_sub t1 t2]: generates t1 - t2 *)
   let trm_sub ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_sub) [t1; t2]
 
   (* [trm_add t1 t2]: generates t1 + t2 *)
   let trm_add ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_add) [t1; t2]
 
   (* [trm_mod t1 t2]: generates t1 % t2 *)
   let trm_mod ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_mod) [t1; t2]
 
   (* [trm_add_inv t1 t2]: deconstructs t = t1 + t2 *)
@@ -1415,37 +1414,37 @@ let var_any_bool = new_var "ANY_BOOL"
 
   (* [trm_mul t1 t2]: generates t1 * t2 *)
   let trm_mul ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_mul) [t1; t2]
 
   (* [trm_div t1 t2]: generates t1 / t2 *)
   let trm_div ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_div) [t1; t2]
 
   (* [trm_exact_div t1 t2]: generates exact_div(t1, t2) *)
   let trm_exact_div ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_exact_div) [t1; t2]
 
   (* [trm_le t1 t2]: generates t1 <= t2 *)
   let trm_le ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_or typ (Some (typ_bool ())) in
+    let typ = Xoption.or_ typ (Some (typ_bool ())) in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_le) [t1; t2]
 
   (* [trm_lt t1 t2]: generates t1 < t2 *)
   let trm_lt ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_or typ (Some (typ_bool ())) in
+    let typ = Xoption.or_ typ (Some (typ_bool ())) in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_lt) [t1; t2]
 
   (* [trm_ge t1 t2]: generates t1 >= t2 *)
   let trm_ge ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_or typ (Some (typ_bool ())) in
+    let typ = Xoption.or_ typ (Some (typ_bool ())) in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_ge) [t1; t2]
 
   (* [trm_gt t1 t2]: generates t1 > t2 *)
   let trm_gt ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_or typ (Some (typ_bool ())) in
+    let typ = Xoption.or_ typ (Some (typ_bool ())) in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_gt) [t1; t2]
 
   (* [trm_ineq ineq_sgn t1 t2]: generates an inequality t1 # t2 where # is one of the following operators <, <=, >, >=.
@@ -1460,22 +1459,22 @@ let var_any_bool = new_var "ANY_BOOL"
 
   (* [trm_and t1 t2]: generates t1 && t2 *)
   let trm_and ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_or typ (Some (typ_bool ())) in
+    let typ = Xoption.or_ typ (Some (typ_bool ())) in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_and) [t1;t2]
 
   (* [trm_bit_and t1 t2]: generates t1 & t2 *)
   let trm_bit_and ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_bitwise_and) [t1;t2]
 
   (* [trm_or t1 t2]: generates t1 || t2 *)
   let trm_or ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_or typ (Some (typ_bool ())) in
+    let typ = Xoption.or_ typ (Some (typ_bool ())) in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_or) [t1;t2]
 
   (* [trm_bit_or t1 t2]: generates t1 | t2 *)
   let trm_bit_or ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_bitwise_or) [t1;t2]
 
   (* [trm_shiftl t1 t2]: generates t1 << t2*)
@@ -1484,7 +1483,7 @@ let var_any_bool = new_var "ANY_BOOL"
 
   (* [trm_shiftr t1 t2]: generates t1 >> t2*)
   let trm_shiftr ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
-    let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+    let typ = Xoption.ors [typ; t1.typ; t2.typ] in
     trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx Binop_shiftr) [t1; t2]
   (* LATER [trm_fmod t1 t2]: generates fmod(t1, t2)
   let trm_fmod ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
@@ -2387,7 +2386,7 @@ type eval = trm option
 type unification_ctx = eval varmap
 
 let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_ctx option =
-  let open Tools.OptionMonad in
+  let open Xoption.OptionMonad in
   match Var_map.find_opt xe evar_ctx with
   | None ->
     (* [xe] cannot be substituted, it must be equal to [t]. *)
@@ -2405,7 +2404,7 @@ and are_same_trm (t1: trm) (t2: trm): bool =
   Option.is_some (unify_trm t1 t2 Var_map.empty)
 
 and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx option =
-  let open Tools.OptionMonad in
+  let open Xoption.OptionMonad in
   (* Pattern match on one component to get a warning if there is a missing one *)
   let check cond = if cond then Some evar_ctx else None in
   match te.desc with
@@ -2519,7 +2518,7 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
         end
       |_ ->  def
     ) tl in trm_seq ~annot:chopped_ast.annot new_tl
-  | _ -> fail chopped_ast.loc "Ast.update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
+  | _ -> trm_fail chopped_ast "Ast.update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
 
 
 

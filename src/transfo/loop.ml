@@ -28,7 +28,7 @@ let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : 
           | Trm_val(Val_prim (Prim_new _))-> false
           | _ -> true
           end
-        | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
+        | _ -> trm_fail tg_trm "Loop.hoist: expected a variable declaration"
         in
         match detach_first with
         | true ->
@@ -98,7 +98,7 @@ let%transfo hoist_alloc_loop_list
         Loop_basic.hoist ~name:next_name ?mark:maybe_mark (target_of_path p);
         next_name
         end
-      | _ -> fail None "expected list of 0 and 1s"
+      | _ -> failwith "expected list of 0 and 1s"
       in
       dim_count := !dim_count + varies_in_current_loop;
       let (_, loop_path) = Path.index_in_surrounding_loop p in
@@ -158,7 +158,7 @@ let%transfo hoist_alloc_loop_list
           mark_and_hoist x.name name_template 1 p;
           make_pretty_and_unmark alloc_name;
         end
-      | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
+      | _ -> trm_fail tg_trm "Loop.hoist: expected a variable declaration"
     ) tg
   )
 
@@ -228,7 +228,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
         Instr_basic.move ~dest:(loop_target @ [tFirst; dBody]) (target_of_path p);
       Loop_basic.fission (loop_target @ [tAfter; dBody; dSeqNth 0]);
       aux rl loop_path;
-    | _ -> fail None "expected list of 0 and 1s"
+    | _ -> failwith "expected list of 0 and 1s"
   in
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -295,7 +295,7 @@ begin
     *)
     let hoist_before_index = match hoist_relpath with
     | Dir_before bi :: [] -> bi
-    | _ -> fail None "Loop.targets_iter_with_loop_lists expects [before] to point a sequence surrounding its target"
+    | _ -> Path.path_fail hoist_relpath "Loop.targets_iter_with_loop_lists expects [before] to point a sequence surrounding its target"
     in
     (* TODO: otherwise, need to move instrs after hoist. *)
     assert ((List.hd target_relpath) = (Dir_seq_nth hoist_before_index));
@@ -358,7 +358,7 @@ let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift
   Trace.tag_valid_by_composition ();
   let index' = if index = "" then begin
     if not inline then
-      fail None "Loop.shift: expected name for index variable when inline = false";
+      failwith "Loop.shift: expected name for index variable when inline = false";
     Tools.next_tmp_name ();
   end else
     index
@@ -479,7 +479,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
     | None -> seq_path := Some p_seq
     | Some p_seq' ->
       if p_seq <> p_seq' then
-        fail t.loc "Loop.fusion_targets: targeted loops are not in the same sequence"
+        trm_fail t "Loop.fusion_targets: targeted loops are not in the same sequence"
     end;
     indices_in_seq := i :: !indices_in_seq;
   ) (nbMulti :: tg);
@@ -590,7 +590,7 @@ let%transfo move ?(before : target = []) ?(after : target = []) (loop_to_move : 
    let loop_to_move_nested_indices = Internal.get_loop_nest_indices loop_to_move_trm in
    let loop_to_move_index  = List.nth loop_to_move_nested_indices 0 in
    begin match before, after with
-   | [], [] -> fail None  "Loop.move: the before target or after target are mandatory please enter only one of them"
+   | [], [] -> failwith  "Loop.move: the before target or after target are mandatory please enter only one of them"
    | [], _ ->
     let targeted_loop_path = resolve_target_exactly_one_with_stringreprs_available after t in
     let targeted_loop = Path.resolve_path targeted_loop_path t in
@@ -608,7 +608,7 @@ let%transfo move ?(before : target = []) ?(after : target = []) (loop_to_move : 
         let tg = target_of_path targeted_loop_path in
         List.iter (fun x -> Loop_swap.f (tg @ [cFor x.name])) choped_indices
         end
-      else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
+      else trm_fail loop_to_move_trm "Loop.move: the given targets are not correct"
 
    | _ , [] ->
     let targeted_loop_path = resolve_target_exactly_one_with_stringreprs_available before t in
@@ -629,9 +629,9 @@ let%transfo move ?(before : target = []) ?(after : target = []) (loop_to_move : 
           Loop_swap.f (tg @ [cFor x.name]))
          (List.rev choped_indices)
         end
-      else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
+      else trm_fail loop_to_move_trm "Loop.move: the given targets are not correct"
 
-   | _  -> fail None "Loop.move: only one of target before or after should be given"
+   | _  -> trm_fail loop_to_move_trm "Loop.move: only one of target before or after should be given"
    end
   )
 
@@ -744,14 +744,14 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       Variable_basic.unfold ~at:[cMark my_mark] [cVarDef x.name];
           let var_decl = match Internal.toplevel_decl x with
             | Some d -> d
-            | None -> fail t.loc "Loop.unroll: could not find the declaration of the loop bound variable"
+            | None -> trm_fail t "Loop.unroll: could not find the declaration of the loop bound variable"
             in
           let lit_n = match get_init_val var_decl with
           | Some init1 -> init1
-          | None -> fail t.loc "unroll: could not get the value of the loop component" in
+          | None -> trm_fail t "unroll: could not get the value of the loop component" in
           match (get_lit_from_trm_lit lit_n) with
           | Lit_int n -> n
-          | _ -> fail t.loc "Loop.unroll: could not get the number of steps to unroll"
+          | _ -> trm_fail t "Loop.unroll: could not get the number of steps to unroll"
       in
     match tg_loop_trm.desc with
     | Trm_for (l_range, _, _) ->
@@ -761,17 +761,17 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
         | Trm_var (_, x) -> aux x t
-        | _ -> fail stop.loc "Loop.unroll: expected eitehr a constant variable of a literal"
+        | _ -> trm_fail stop "Loop.unroll: expected eitehr a constant variable of a literal"
         end
       | Trm_var (_, x) ->
           let start_nb = begin match start.desc with
           | Trm_var (_, y) -> aux y t
           | Trm_val (Val_lit (Lit_int n)) -> n
-          | _ -> fail start.loc "Loop.unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
+          | _ -> trm_fail start "Loop.unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in
           (aux x t) - start_nb
       | Trm_val (Val_lit (Lit_int n)) -> n
-      | _ -> fail stop.loc "Loop.unroll: expected an addition of two constants or a constant variable"
+      | _ -> trm_fail stop "Loop.unroll: expected an addition of two constants or a constant variable"
       end
         in
       Marks.with_fresh_mark (fun subst_mark ->
@@ -788,7 +788,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
       Sequence_basic.elim [cMark my_mark];
       (* Marks.remove my_mark [nbAny;cMark my_mark] *)
-    | _ -> fail tg_loop_trm.loc "Loop.unroll: expected a loop to unroll"
+    | _ -> trm_fail tg_loop_trm "Loop.unroll: expected a loop to unroll"
   ) tg
 
 (* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
@@ -830,11 +830,11 @@ let%transfo reorder ?(order : string list = []) (tg : target) : unit =
     let indices = Internal.get_loop_nest_indices tg_loop in
     let nb_order = List.length order in
     if nb_order > List.length indices
-      then fail tg_loop.loc "[Loop.reorder]: the number of indices provided in argument [order] exceeds the number of nested loops that appears in the code."
+      then trm_fail tg_loop "[Loop.reorder]: the number of indices provided in argument [order] exceeds the number of nested loops that appears in the code."
     else if nb_order = 0
       then ()
     else if nb_order = 1 && not (var_has_name (List.nth indices 0) (List.nth order 0))
-      then fail tg_loop.loc "[Loop.reorder]: the single index in the argument [order] should match the name of the targeted loop."
+      then trm_fail tg_loop "[Loop.reorder]: the single index in the argument [order] should match the name of the targeted loop."
     else
     let _, targeted_loop_index = Xlist.unlast order in
     (*  LATER: use more precise targets, to avoid targeting deeply-nested loops that resue the same index *)
@@ -953,10 +953,10 @@ let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (
   let tg = enable_multi_targets tg in
   iter_on_targets (fun t p ->
       let _, i = Internal.isolate_last_dir_in_seq p in
-      if i <> !prev_index + 1 && !prev_index <> -1 then fail t.loc "Loop.fold_instrs: all the targeted instructions should be consecutive ones";
+      if i <> !prev_index + 1 && !prev_index <> -1 then trm_fail t "Loop.fold_instrs: all the targeted instructions should be consecutive ones";
       incr nb_targets;
     ) tg;
-  if !nb_targets < 1 then fail None "Loop.fold_instrs: expected at least 1 instruction";
+  if !nb_targets < 1 then failwith "Loop.fold_instrs: expected at least 1 instruction";
   fold ~index ~start ~step !nb_targets first_target;
   Variable.fold ~nonconst:true [nbAny;cVarDef "" ~body:[cInt !nb_targets]]
 
@@ -982,9 +982,9 @@ let%transfo unfold_bound (tg : target) : unit =
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
       | Trm_apps (_, [{desc = Trm_var (_, x);_}], _) when is_get_operation stop ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
-      | _ -> fail tg_trm.loc "Loop.unfold_bound: can't unfold loop bounds that are not variables"
+      | _ -> trm_fail tg_trm "Loop.unfold_bound: can't unfold loop bounds that are not variables"
       end
-    | _ -> fail tg_trm.loc "Loop.unfold_bound: expected a target to a simple for loop"
+    | _ -> trm_fail tg_trm "Loop.unfold_bound: expected a target to a simple for loop"
   ) tg
 
 (* [grid_enumerate  ~indices tg]: similar to [Loop_basic.grid_enumerate](see loop_basic.ml) but this one computes
@@ -997,21 +997,21 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
     | Trm_for (l_range, _, _) ->
       let (index, _, _, stop, _, _) = l_range in
       begin match trm_prod_inv stop with
-      | [] -> fail tg_trm.loc "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension"
+      | [] -> trm_fail tg_trm "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension"
       | bounds ->
         let indices_and_bounds =
         if indices = [] then
           let indices = List.mapi (fun i _ -> index.name ^ (string_of_int i)) bounds in
           List.combine indices bounds
         else begin
-          if List.length indices <> List.length bounds then fail tg_trm.loc "Loop.grid_enumerate: the provided list of indices does
+          if List.length indices <> List.length bounds then trm_fail tg_trm "Loop.grid_enumerate: the provided list of indices does
             not correspond to the shape of the targeted loop bound";
           List.combine indices bounds
           end
           in
         Loop_basic.grid_enumerate indices_and_bounds (target_of_path p)
       end
-    | _ -> fail tg_trm.loc "Loop.grid_enumerate: expected a target to a simple loop"
+    | _ -> trm_fail tg_trm "Loop.grid_enumerate: expected a target to a simple loop"
   )
 
 (* [change_iter iterator_function main_loop_function tg]:  TODO ARTHUR spec *)

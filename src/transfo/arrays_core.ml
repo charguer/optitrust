@@ -16,12 +16,12 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
         begin match index.desc with
         | Trm_val (Val_lit (Lit_int i)) ->
           if i >= List.length new_vars
-            then fail index.loc "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
+            then trm_fail index "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
             else (trm_var (List.nth new_vars i))
         | Trm_apps ({desc = Trm_var (_, x); _}, _, _) when var_has_name x "ANY" ->
           let nb_vars = List.length new_vars in
           trm_address_of (trm_apps (trm_var (name_to_var "CHOOSE")) ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars)))
-        | _ -> fail index.loc "Arrays_core.inline_array_access: only integer indices are supported"
+        | _ -> trm_fail index "Arrays_core.inline_array_access: only integer indices are supported"
         end
       | _ ->  trm_map aux t
       end
@@ -60,9 +60,9 @@ let to_variables_aux (new_vars : string list) (index : int) (t : trm) : trm =
               List.map(fun x ->
               trm_let_mut ~annot:t.annot (x, t_var) (trm_uninitialized ?loc:init.loc ())) new_vars)
             end
-          | _ -> fail t.loc "Arrays_core.to_variables_aux: expected an array type"
+          | _ -> trm_fail t "Arrays_core.to_variables_aux: expected an array type"
           end
-        | _ -> fail t.loc "Arrays_core.to_variables_aux: expected a variable declaration"
+        | _ -> trm_fail t "Arrays_core.to_variables_aux: expected a variable declaration"
         end
       in
 
@@ -73,7 +73,7 @@ let to_variables_aux (new_vars : string list) (index : int) (t : trm) : trm =
 
     trm_seq ~annot:t.annot ?loc:t.loc new_tl
 
-  | _ -> fail t.loc "Arrays_core.to_variables_aux: expected the outer sequence of the targeted trm"
+  | _ -> trm_fail t "Arrays_core.to_variables_aux: expected the outer sequence of the targeted trm"
 
 
 (* [to_variables new_vars index t p]: applies [to_variables_aux] at trm [t] with path [p]. *)
@@ -130,11 +130,11 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         begin match typ.typ_desc with
         | Typ_ptr {inner_typ = ty;_} -> td.typdef_tconstr, ty
         | Typ_array(ty, _) -> td.typdef_tconstr, ty
-        | _ -> fail d.loc "Arrays_core.tile_aux: expected array or pointer type"
+        | _ -> trm_fail d "Arrays_core.tile_aux: expected array or pointer type"
         end
-      | _ -> fail d.loc "Arrays_core.tile_aux: expected a typedef abbrevation"
+      | _ -> trm_fail d "Arrays_core.tile_aux: expected a typedef abbrevation"
       end
-    | _ -> fail d.loc "Arrays_core.tile_aux: expected a trm_typedef"
+    | _ -> trm_fail d "Arrays_core.tile_aux: expected a trm_typedef"
     end
     in
     let block_name = if block_name = "" then base_type_name ^ "_BLOCK" else block_name in
@@ -160,7 +160,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
          let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; trm_var block_size] in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
-      | _ -> fail t.loc "Arrays_core.tile_aux: expected array allocation"
+      | _ -> trm_fail t "Arrays_core.tile_aux: expected array allocation"
     in
     let array_decl = begin match d.desc with
     | Trm_typedef td ->
@@ -180,7 +180,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
            begin match s with
-           | Undefined -> fail t.loc "Arrays_core.tile_aux: array size must be provided"
+           | Undefined -> trm_fail t "Arrays_core.tile_aux: array size must be provided"
            | Const n ->
               let n_div_b =
                 trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); trm_var block_size]
@@ -207,16 +207,16 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
                     td with typdef_tconstr = td.typdef_tconstr;
                     typdef_body = Typdef_alias (typ_array (typ_constr ([], block_name) ~tid) (Trm t''))}]
            end
-        | _ -> fail t.loc "Arrays_core.tile_aux: expected array or pointer type declaration"
+        | _ -> trm_fail t "Arrays_core.tile_aux: expected array or pointer type declaration"
         end
-      | _ -> fail t.loc "Arrays_core.tile_aux: no enums expected"
+      | _ -> trm_fail t "Arrays_core.tile_aux: no enums expected"
       end
 
     | Trm_let (Var_mutable, (y,ty), init) when var_has_name y base_type_name ->
         begin match ty.typ_desc with
         | Typ_ptr {inner_typ = {typ_desc = Typ_constr (yc, _, _); _};_} when typconstr_has_name yc base_type_name ->
           trm_let Var_mutable ~annot:d.annot (y, ty) init
-        | _ -> fail t.loc "Arrays_core.tile_aux: expected a pointer because of heap allocation"
+        | _ -> trm_fail t "Arrays_core.tile_aux: expected a pointer because of heap allocation"
         end
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
               [lhs; rhs], _) ->
@@ -227,7 +227,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
              ?typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
         | _ -> trm_map (apply_tiling base_type block_name (trm_var block_size) base_type_name) t
         end
-    | _-> fail t.loc "Arrays_core.tile_aux: expected a declaration"
+    | _-> trm_fail t "Arrays_core.tile_aux: expected a declaration"
       end
     in
     let lback = Mlist.map (apply_tiling base_type block_name (trm_var block_size) base_type_name) lback in
@@ -235,7 +235,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
     let new_tl = Mlist.insert_at index array_decl new_tl in
     trm_seq ~annot:t.annot new_tl
 
-  | _ -> fail t.loc "Arrays_core.tile_aux: expected the surrounding sequence of the targeted trm"
+  | _ -> trm_fail t "Arrays_core.tile_aux: expected the surrounding sequence of the targeted trm"
 
 let tile (block_name : typvar) (block_size : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (tile_aux block_name block_size index)
@@ -299,7 +299,7 @@ let swap_aux (index : int) (t : trm) : trm =
                                   typ_attributes = ty.typ_attributes}, s');
             typ_annot; typ_attributes}
         end
-      | _ -> fail None "Arrays_core.swap_type: the main target should point an an array declaration"
+      | _ -> trm_fail t "Arrays_core.swap_type: the main target should point an an array declaration"
       in
 
     let f_update (t : trm) : trm =
@@ -308,9 +308,9 @@ let swap_aux (index : int) (t : trm) : trm =
         begin match td.typdef_body with
         | Typdef_alias ty ->
           trm_typedef ~annot:t.annot ?loc:t.loc {td with typdef_body = Typdef_alias (swap_type ty)}
-        | _ -> fail t.loc "Arrays_core.swap_aux: expected a type alias definition."
+        | _ -> trm_fail t "Arrays_core.swap_aux: expected a type alias definition."
         end
-      | _ -> fail t.loc "Arrays_core.swap_aux: expected the typedef instruction."
+      | _ -> trm_fail t "Arrays_core.swap_aux: expected the typedef instruction."
 
       in
 
@@ -318,12 +318,12 @@ let swap_aux (index : int) (t : trm) : trm =
       let td = Mlist.nth tl index in
       match td.desc with
       | Trm_typedef td -> apply_swapping td.typdef_tconstr t
-      | _ -> fail t.loc "Arrays_core.swap_aux: expected a target to a type definition"
+      | _ -> trm_fail t "Arrays_core.swap_aux: expected a target to a type definition"
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
     trm_seq ~annot:t.annot new_tl
 
-  | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
+  | _ -> trm_fail t "swap_aux: expected the surrounding sequence of the targeted trm"
 
 (* [swap index t p]: applies [swap_aux] at trm [t] with path [p]. *)
 let swap (index : int) : Target.Transfo.local =
@@ -421,7 +421,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
 
           | _ -> trm_map aux t
           end
-      | _ -> fail t.loc "aos_to_soa_aux: expected a typedef struct"
+      | _ -> trm_fail t "aos_to_soa_aux: expected a typedef struct"
       end
     | Trm_typedef td ->
         begin match td.typdef_body with
@@ -468,7 +468,7 @@ let set_explicit_aux (t : trm) : trm =
   | Trm_let (vk, (x, tx), init) ->
     let init = match get_init_val init with
     | Some init -> init
-    | None -> fail t.loc "set_explicit_aux: could not get the initialization trms for the targeted array declaration" in
+    | None -> trm_fail t "set_explicit_aux: could not get the initialization trms for the targeted array declaration" in
     begin match init.desc with
     | Trm_array tl ->
       let array_set_list =
@@ -477,9 +477,9 @@ let set_explicit_aux (t : trm) : trm =
       ) (Mlist.to_list tl) in
       let new_decl = trm_let_mut ~annot:t.annot (x, (get_inner_ptr_type tx)) (trm_uninitialized ?loc:init.loc ()) in
       trm_seq_nobrace_nomarks ([new_decl] @ array_set_list)
-    | _ -> fail init.loc "set_explicit_aux: expected an array initialization"
+    | _ -> trm_fail init "set_explicit_aux: expected an array initialization"
     end
-  | _ -> fail t.loc "set_explicit_aux: expected an array declaration"
+  | _ -> trm_fail t "set_explicit_aux: expected an array declaration"
 
 
 (* [set_explicit t p]: applies [set_explicit_aux] at trm [t] with path [p]. *)

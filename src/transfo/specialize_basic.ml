@@ -21,7 +21,7 @@ let choose_id (id : int) : Target.Transfo.t =
 let choose (choice : var) (tg : target) : unit =
   choose_fct (fun xs ->
     match Xlist.index_of choice xs with
-    | None -> fail None "choose: the argument is not part of the choices"
+    | None -> failwith "choose: the argument is not part of the choices"
     | Some id -> id) tg
 
 (* [fundefs spec_name spec_args tg] *)

@@ -45,8 +45,7 @@ let%transfo delete ?(nb : int = 1) (tg : target) : unit =
   Target.iter (fun _ p ->
     if !Flags.check_validity then begin
       if nb <> 1 then
-        (* TODO: #fail-path *)
-        fail None "Sequence_basic.delete";
+        Path.path_fail p "Sequence_basic.delete";
       Resources.assert_instr_effects_shadowed p;
       Trace.justif "nothing modified by the instruction is observed later"
     end;
@@ -84,7 +83,7 @@ let%transfo intro_after ?(mark : mark = "") ?(label : label = "") (tg : target) 
     | Trm_seq tl ->
       let seq_len = Mlist.length tl in
       Sequence_core.intro mark label index (seq_len - index) t path_to_seq
-    | _ -> fail seq_trm.loc "Sequence_basic.intro_after: the targeted instruction should belong to a sequence"
+    | _ -> trm_fail seq_trm "Sequence_basic.intro_after: the targeted instruction should belong to a sequence"
   ) tg
 
 (* [intro_before ~mark ~label tg]: similar to [intro] but this transformation will include in the sequence all the
@@ -96,7 +95,7 @@ let%transfo intro_before ?(mark : mark = "") ? (label : label = "") (tg : target
     match seq_trm.desc with
     | Trm_seq _tl ->
       Sequence_core.intro mark label index (-index-1) t path_to_seq
-    | _ -> fail seq_trm.loc "Sequence_basic.intro_after: the targeted instruction should belong to a sequence"
+    | _ -> trm_fail seq_trm "Sequence_basic.intro_after: the targeted instruction should belong to a sequence"
   ) tg
 
 (* [intro_between ~mark ~label tg_beg tg_end]: this transformation is an advanced version of [intro].
@@ -108,12 +107,12 @@ let%transfo intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : 
     let ps_beg : (path * int) list = resolve_target_between tg_beg t in
     let ps_end : (path * int) list = resolve_target_between tg_end t in
     if List.length ps_beg <> List.length ps_end
-      then fail t.loc "intro_between: not the same number of targets";
+      then trm_fail t "intro_between: not the same number of targets";
     let pis : (path * int * int) list = List.map2 (fun (p1,i1) (p2,i2) ->
       if p1 <> p2
-        then fail t.loc "Sequence_basic.intro_between: targets for begin and end don't match the same sequences";
+        then trm_fail t "Sequence_basic.intro_between: targets for begin and end don't match the same sequences";
       if i2 <= i1
-        then fail t.loc "Sequence_basic.intro_between: target for end should be past the target for start";
+        then trm_fail t "Sequence_basic.intro_between: target for end should be past the target for start";
       (p1, i1, i2 - i1)) ps_beg ps_end in
     List.fold_left (fun t (p,i,nb) -> Sequence_core.intro mark label i nb t p) t pis))
 

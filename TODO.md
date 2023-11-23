@@ -428,8 +428,6 @@ grep -r '[tag]' .
   - #var-id-dir-name
   - #this-id
   - #type-id
-- #fail-path
-  - for all 'fail None' in transfos, use a new 'Trace.fail ~loc ~trm ~path' instead
 - #odoc
 
 

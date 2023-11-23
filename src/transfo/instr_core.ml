@@ -25,7 +25,7 @@ let accumulate_aux (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let nb_instr = Mlist.length tl in
-    if nb_instr < 2 then fail t.loc "Instr_core.accumulate_aux: expected at least two instructions";
+    if nb_instr < 2 then trm_fail t "Instr_core.accumulate_aux: expected at least two instructions";
     let is_infix_op = ref false in
     Mlist.fold_lefti (fun i acc t1 ->
       begin match t1.desc with
@@ -53,16 +53,16 @@ let accumulate_aux (t : trm) : trm =
                 trm_pass_labels t (trm_prim_compound binop ls acc_trm)
              else
               trm_apps (trm_binop binop) [acc; rs]
-           | _ -> fail t.loc "Instr_core.accumulate_aux: this should never happen"
+           | _ -> trm_fail t "Instr_core.accumulate_aux: this should never happen"
            end
-        | _-> fail t.loc "Instr_core.accumulate_aux: expected an instruction of the form x += A or x = x + A"
+        | _-> trm_fail t "Instr_core.accumulate_aux: expected an instruction of the form x += A or x = x + A"
         end
-      | _ -> fail t.loc "Instr_core.accumulate_aux: all the instructions should be write operations"
+      | _ -> trm_fail t "Instr_core.accumulate_aux: all the instructions should be write operations"
       end
 
     ) (trm_int 0) tl
 
-  | _ -> fail t.loc "Instr_core.accumulate_aux: expected a block of instructions"
+  | _ -> trm_fail t "Instr_core.accumulate_aux: expected a block of instructions"
 
 (* [accumulate t p]: applies [accumulate_aux] at the trm [t] with path [p]. *)
 let accumulate : Target.Transfo.local =

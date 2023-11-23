@@ -71,7 +71,7 @@ let resolve_style (style : style) : custom_style =
     in
     match style_as_custom with
     | Custom custom_style -> custom_style
-    | _ -> fail None "Show.resolve_style: not custom"
+    | _ -> failwith "Show.resolve_style: not custom"
 
 
 (*----------------------------------------------------------------------------------*)

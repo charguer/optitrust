@@ -318,7 +318,7 @@ let typ_constraint_default : typ_constraint =
 (* [make_typ_constraint ~typ ~typ_pred ()]: make a type constraint based on [typ] or [typ_pred]. *)
 let make_typ_constraint ?(typ:string="") ?(typ_pred : typ_constraint = typ_constraint_default) () : typ_constraint =
   if typ <> "" && typ_pred != typ_constraint_default
-    then fail None "Target.make_typ_constraint: cannot provide both ~typ and ~typ_pred.";
+    then failwith "Target.make_typ_constraint: cannot provide both ~typ and ~typ_pred.";
   if typ = ""
     then typ_pred
     else (fun (ty : typ) -> typ = (AstC_to_c.typ_to_string ty))
@@ -347,7 +347,7 @@ let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_
 
         then [cAnd [tg; [cHasTypePred typ_pred]]]
       else
-        fail None "Target.with_type: type targets should be used with the type or a predicated on the type but not
+        failwith "Target.with_type: type targets should be used with the type or a predicated on the type but not
                    both at the same time"
     end
 
@@ -508,7 +508,7 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
   | [] -> args_pred
   | _ ->
       if args_pred != target_list_pred_default
-        then fail None "cFunDef: can't provide both args and args_pred";
+        then failwith "cFunDef: can't provide both args and args_pred";
       target_list_simpl args
 
 (* [cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions
@@ -1235,20 +1235,20 @@ let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
 let path_of_target_mark_one (m : mark) (t : trm) : path =
   match resolve_target [nbExact 1; cMark m] t with
   | [p] -> p
-  | _ -> fail t.loc "Target.resolve_target_mark_one: unreachable because nbExact 1 should return one path"
+  | _ -> trm_fail t "Target.resolve_target_mark_one: unreachable because nbExact 1 should return one path"
 
 (* [resolve_target_mark_one_else_any m t]: a wrapper for calling [resolve_target] with a mark for which we
     expect a single occurence. *)
 let resolve_target_mark_one_else_any (m : mark) (t : trm) : paths =
     try resolve_target [nbExact 1; cMark m] t
-    with Ast.Resolve_target_failure _ ->
+    with Constr.Resolve_target_failure _ ->
       resolve_target [nbAny; cMark m] t
 
 (* [resolve_target_between_mark_one_else_any]: a wrapper for calling [resolve_target] with a mark for
     which we expect a single occurence. *)
 let resolve_target_between_mark_one_else_any (m : mark) (t : trm) : (path * int) list =
     try resolve_target_between [nbExact 1; cMark m] t
-    with Ast.Resolve_target_failure _ ->
+    with Constr.Resolve_target_failure _ ->
         resolve_target_between [nbAny; cMark m] t
 
 (* [applyi_on_transformed_targets transformer tr tg]: apply a transformation [tr] on target [tg],
@@ -1295,7 +1295,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
                     in
                   if debug_disappearing_mark
                     then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-                    else fail None msg
+                    else failwith msg
             )
           ) t marks
         with Interrupted_applyi_on_transformed_targets t -> t
@@ -1384,7 +1384,7 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
                 in
               if debug_disappearing_mark
                 then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-                else fail None msg
+                else failwith msg
         ) marks
       with Interrupted_applyi_on_transformed_targets t -> Trace.set_ast t (* view the ast when the bug appears. *)
       ))))
@@ -1441,7 +1441,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
             let t_seq, _ = resolve_path_and_ctx p_to_seq t in
             let i = begin match get_mark_index m t_seq with
              | Some i -> i |
-              None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
+              None -> trm_fail t_seq "applyi_on_transformed_targets_between: could not get the between index" end in
             let t = apply_on_path (trm_rem_mark_between m) t p_to_seq in
             tr imark t (transformer (p_to_seq,i))
           | ps ->
@@ -1451,7 +1451,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
                 else (Printf.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
             if debug_disappearing_mark
               then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-              else fail None msg
+              else failwith msg
         )) t marks
       with Interrupted_applyi_on_transformed_targets t -> t
     ))
@@ -1571,7 +1571,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
                 in
               if debug_disappearing_mark
                 then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-                else fail None msg
+                else failwith msg
         ) marks
       with Interrupted_applyi_on_transformed_targets t ->
          (* Record the ast carried by the exception to allow visualizing the ast *)
@@ -1714,7 +1714,7 @@ let get_trm_at (tg : target) : trm option =
 
 (* [get_ast ()]: return the full ast. *)
 let get_ast () : trm =
-  Tools.unsome (get_trm_at [])
+  Xoption.unsome (get_trm_at [])
 
 
 (******************************************************************************)
@@ -1728,7 +1728,7 @@ let get_ast () : trm =
 let get_function_var_at (dl : path) : var option =
   let fun_decl = match get_trm_at (target_of_path dl) with
     | Some fd -> fd
-    | None -> fail None "get_function_name_at: couldn't retrive the function name at the targeted path"
+    | None -> Path.path_fail dl "get_function_name_at: couldn't retrive the function name at the targeted path"
    in
   match fun_decl.desc with
   | Trm_let_fun (f, _, _, _, _) -> Some f

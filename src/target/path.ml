@@ -146,6 +146,13 @@ let path_to_string (dl : path) : string =
 let paths_to_string ?(sep:string="; ") (dls : paths) : string =
   list_to_string ~sep (List.map path_to_string dls)
 
+(** [Path_error]: exception raised in case a path computation has failed. *)
+exception Path_error of path * exn
+
+(* LATER: use Path.fail *)
+(* [path_fail p err]: fails with error [error] raised on path [p] *)
+let path_fail (p : path) (error : string) : 'a =
+  raise (Path_error (p, Failure error))
 
 (******************************************************************************)
 (*                                  Compare path                              *)
@@ -277,46 +284,54 @@ let diff (p1 : paths) (p2 : paths) : paths =
 (*                               Auxiliary functions                               *)
 (***********************************************************************************)
 
-(* [app_to_nth loc l n cont]: apply a continuation to the nth element of [l] if it exists *)
-let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
-  try
-    match List.nth_opt l n with
-    | None ->
-       fail loc ("Path.app_to_nth: not enough elements (>= " ^ (string_of_int (n + 1)) ^ " expected)")
-        (* LATER: report a better error message when using dArg 1 on a function with only 1 argument, for example *)
-    | Some a -> cont a
+(* [app_to_nth_opt l n cont]: apply a continuation to the nth element of [l] if it exists, returning [None] otherwise. *)
+let app_to_nth_opt (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b option =
+  try Option.map cont (List.nth_opt l n)
   with
-  | Invalid_argument _ ->
-     fail loc "Path.app_to_nth: index must be non-negative"
+  | Invalid_argument _ -> failwith "Path.app_to_nth_opt: index must be non-negative"
 
-(* [app_to_nth_dflt]: similar to [app_to_nth] except that this function returns an empty list in case there
-   is an exception raised*)
-let app_to_nth_dflt (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b list) : 'b list =
-  try app_to_nth loc l n cont with | Failure s -> print_info loc "%s\n" s; []
+(* [app_to_nth cur_p l n cont]: apply a continuation to the nth element of [l] if it exists, failing at path [cur_p] otherwise. *)
+let app_to_nth (cur_p : path) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
+  match app_to_nth_opt l n cont with
+  | None ->
+    path_fail cur_p ("Path.app_to_nth: not enough elements (>= " ^ (string_of_int (n + 1)) ^ " expected)")
+    (* LATER: report a better error message when using dArg 1 on a function with only 1 argument, for example *)
+  | Some v -> v
 
-
+let app_to_nth_dflt (l : 'a list) (n : int) (cont : 'a -> 'b list) : 'b list =
+  Option.value ~default:[] (app_to_nth_opt l n cont)
 
 (***********************************************************************************)
 (*                                 Apply on path                                   *)
 (***********************************************************************************)
+
+let handle_path_error (p : path) (f : unit -> 'a) : 'a =
+  try f ()
+  with
+  | Path_error (rest_p, e) ->
+    let prefix_p = Xlist.drop_last (List.length rest_p) p in
+    raise (Path_error (prefix_p, e))
+  | e ->
+    raise (Path_error (p, e))
 
 (* [apply_on_path transfo t dl]: follow an explicit path to apply a function on the corresponding subterm *)
 let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
   let rec aux_on_path_rec (dl : path) (t : trm) : trm =
     match dl with
     | [] -> transfo t
-    | d :: dl ->
-       let aux t = aux_on_path_rec dl t in
+    | d :: rest_dl ->
+       let aux t = aux_on_path_rec rest_dl t in
        let aux_resource_item (h, formula) = (h, aux formula) in
        let apply_on_resource_set resource_set_dir i res =
          match resource_set_dir with
          | Resource_set_pure -> { res with pure = Xlist.update_nth i aux_resource_item res.pure }
          | Resource_set_linear -> { res with linear = Xlist.update_nth i aux_resource_item res.linear }
-         | Resource_set_fun_contracts -> failwith "apply_on_resource_set: not handled Resource_set_fun_contract"
+         | Resource_set_fun_contracts -> path_fail dl "apply_on_resource_set: not handled Resource_set_fun_contract"
        in
        let newt = begin match d, t.desc with
        | Dir_before _, _ ->
-          fail t.loc "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expected a target-between (tBefore, tAfter, ..)"
+          (* trm_fail t *)
+          path_fail dl "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expected a target-between (tBefore, tAfter, ..)"
        | Dir_array_nth n, Trm_array tl ->
           { t with desc = Trm_array (Mlist.update_nth n aux tl)}
        | Dir_seq_nth n, Trm_seq tl ->
@@ -394,7 +409,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                 match t'.desc with
                 | Trm_var (_,  x') -> (x', tx)
                 | _ ->
-                   fail t.loc ("Path.apply_on_path: transformation must preserve fun arguments")
+                  (* trm_fail t *)
+                   path_fail dl ("Path.apply_on_path: transformation must preserve fun arguments")
               )
               txl
           in
@@ -403,14 +419,15 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x', tx), body)}
-          | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
+          | _ -> (* trm_fail t *)
+            path_fail dl "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body, contract) ->
           let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body, contract)}
           | _ ->
-             fail t.loc "Path.apply_on_path: transformation must preserve names(function)"
+            path_fail dl "Path.apply_on_path: transformation must preserve names(function)"
           end
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
           let updated_cases =
@@ -430,11 +447,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               (Xlist.update_nth n (fun (rf, rf_ann) ->
                 match rf with
                 | Record_field_method t1 -> (Record_field_method (aux t1), rf_ann )
-                | _ -> fail t.loc "Path.apply_on_path: expected a method."
+                | _ -> path_fail dl "Path.apply_on_path: expected a method."
               ) rfl )
               in
             trm_replace (Trm_typedef {td with typdef_body = Typdef_record updated_rfl}) t
-          | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
+          | _ -> path_fail dl "Path.apply_on_path: transformation applied on the wrong typedef."
           end
         | Dir_namespace, Trm_namespace (name, body, inline) ->
           { t with desc = Trm_namespace (name, aux body, inline) }
@@ -469,7 +486,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 
         | _, _ ->
            let s = dir_to_string d in
-           fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
+           path_fail dl (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
 
        end in
        newt
@@ -484,7 +501,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 
 
   in
-  aux_on_path_rec dl t
+  handle_path_error dl (fun () -> aux_on_path_rec dl t)
+
 
 (***********************************************************************************)
 (*                           Explicit path resolution                              *)
@@ -496,8 +514,8 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   let rec aux_on_path_rec (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
     | [] -> (t, List.rev ctx)
-    | d :: dl ->
-      let aux t ctx = aux_on_path_rec dl t ctx in
+    | d :: dl_rest ->
+      let aux t ctx = aux_on_path_rec dl_rest t ctx in
       let aux_resource_item (h, formula) = aux formula ctx in
       let aux_resource_set resource_set_dir i res : trm * (trm list) =
         match resource_set_dir with
@@ -507,7 +525,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       in
       let loc = t.loc in
       begin match d, t.desc with
-      | Dir_before _, _ -> fail t.loc "aux_on_path_rec: Dir_before should not remain at this stage"
+      | Dir_before _, _ -> trm_fail t "aux_on_path_rec: Dir_before should not remain at this stage"
       | Dir_seq_nth n, Trm_seq tl ->
         let tl = Mlist.to_list tl in
         let decl_before (n : int) (tl : trm list) =
@@ -522,12 +540,12 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
                   | Trm_typedef _ -> t :: acc
                   | _ -> acc) [] tl
           in
-        app_to_nth loc tl n
+        app_to_nth dl tl n
           (fun nth_t -> aux nth_t ((decl_before n tl)@ctx))
       | Dir_array_nth n, Trm_array tl ->
-        app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
+        app_to_nth dl (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
       | Dir_struct_nth n, Trm_record tl ->
-        app_to_nth loc (Xlist.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t ctx)
+        app_to_nth dl (Xlist.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t ctx)
       | Dir_cond, Trm_if (cond, _, _)
         | Dir_cond, Trm_while (cond, _)
         | Dir_cond, Trm_do_while (_, cond)
@@ -589,9 +607,9 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         end
       | Dir_app_fun, Trm_apps (f, _, _) -> aux f ctx
       | Dir_arg_nth n, Trm_apps (_, tl, _) ->
-        app_to_nth loc tl n (fun nth_t -> aux nth_t ctx)
+        app_to_nth dl tl n (fun nth_t -> aux nth_t ctx)
       | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
-        app_to_nth loc arg n
+        app_to_nth dl arg n
           (fun (x, _) -> aux (trm_var ?loc x) ctx)
       | Dir_name, Trm_let_fun (x, _, _, _, _) ->
         aux (trm_var ?loc x) ctx
@@ -605,39 +623,39 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       let var = { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id } in
       aux (trm_var ?loc var) ctx
       | Dir_case (n, cd), Trm_switch (_, cases) ->
-        app_to_nth loc cases n
+        app_to_nth dl cases n
           (fun (tl, body) ->
             match cd with
             | Case_body -> aux body ctx
             | Case_name i ->
-                app_to_nth loc tl i (fun ith_t -> aux ith_t ctx)
+                app_to_nth dl tl i (fun ith_t -> aux ith_t ctx)
           )
       | Dir_enum_const (n, ecd), Trm_typedef td ->
         begin match td.typdef_body with
         | Typdef_enum xto_l ->
-          app_to_nth loc xto_l n
+          app_to_nth dl xto_l n
             (fun (x, t_o) ->
               match ecd with
               | Enum_const_name -> aux (trm_var ?loc x) ctx
               | Enum_const_val ->
                 begin match t_o with
                 | None ->
-                    fail loc
+                    loc_fail loc
                       "Path.resolve_path_and_ctx: no value for enum constant"
                 | Some t ->
                     aux t ctx
                 end
             )
-        | _ -> fail loc "Path.resolving_path: direction"
+        | _ -> loc_fail loc "Path.resolving_path: direction"
         end
       | Dir_record_field n, Trm_typedef td ->
         begin match td.typdef_body with
         | Typdef_record rfl ->
-          app_to_nth loc rfl n
+          app_to_nth dl rfl n
             (fun (rf, rf_annt) -> match rf with
               | Record_field_method t1 -> aux t1 ctx
-              | _ -> fail t.loc "Path.apply_on_path: expected a method.")
-        | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
+              | _ -> trm_fail t "Path.apply_on_path: expected a method.")
+        | _ -> trm_fail t "Path.apply_on_path: transformation applied on the wrong typedef."
         end
       | Dir_namespace, Trm_namespace (name, body, inline) ->
         aux body ctx
@@ -662,10 +680,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       | _, _ ->
         let s = dir_to_string d in
         let s_t = AstC_to_c.ast_to_string t in
-        fail loc (Printf.sprintf "Path.resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
+        loc_fail loc (Printf.sprintf "Path.resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
       end
   in
-  aux_on_path_rec dl t []
+  handle_path_error dl (fun () -> aux_on_path_rec dl t [])
 
 (* [resolve_path dl t]: resolve get the trm that corresponds to path [dl] *)
 let resolve_path (dl : path) (t : trm) : trm  =
@@ -694,7 +712,7 @@ let parent (p : path) : path =
 let parent_with_dir (p : path) (d : dir) : path =
    match List.rev p with
    | d' :: p' when d == d' -> List.rev p'
-   | _ -> fail None "Path.parent_with_dir: unexpected path"
+   | _ -> path_fail p "Path.parent_with_dir: unexpected path"
 
 (* [to_inner_loop] takes the path to a loop that contains 1 nested loop,
    and returns the path the inner loop *)
@@ -709,7 +727,7 @@ let rec to_inner_loop_n (n : int) (p : path) : path =
 let index_in_seq (p : path) : int * path =
    match List.rev p with
    | Dir_seq_nth i :: p' -> (i, List.rev p')
-   | _ -> fail None "Path.index_in_seq: unexpected path"
+   | _ -> path_fail p "Path.index_in_seq: unexpected path"
 
 (* [index_in_surrounding_loop]: takes the path to a term inside a loop,
    and returns the index of that term in the sequence of the loop body,
@@ -717,14 +735,14 @@ let index_in_seq (p : path) : int * path =
 let index_in_surrounding_loop (dl : path) : int * path =
    match List.rev dl with
    | Dir_seq_nth i :: Dir_body :: dl' -> (i, List.rev dl')
-   | _ -> fail None "Path.index_in_surrounding_loop: unexpected path"
+   | _ -> path_fail dl "Path.index_in_surrounding_loop: unexpected path"
 
 (* [to_outer_loop]: takes the path to a loop surrounded by another loop,
    and returns the path to the outer loop *)
 let to_outer_loop (p : path) : path =
    match index_in_surrounding_loop p with
    | (0, p') -> p'
-   | _ -> fail None "Path.to_outer_loop: unexpected path"
+   | _ -> path_fail p "Path.to_outer_loop: unexpected path"
 
 (* [last_dir_before_inv p] for a path of the form [p1 @ Dir_before n]
    returns the pair [Some (p1,n)], else returns [None]. *)
@@ -738,11 +756,11 @@ let last_dir_before_inv (p : path) : (path * int) option =
 (* [last_dir_before_inv_success p] takes a path of the form [p1 @ Dir_before n]
    and returns the pair [(p1,n)] *)
 let last_dir_before_inv_success (p : path) : path * int =
-  if p = [] then fail None "Path.last_dir_before_inv does not apply to an empty path";
+  if p = [] then path_fail p "Path.last_dir_before_inv does not apply to an empty path";
   match last_dir_before_inv p with
   | None ->
       if debug_path then Printf.printf "Path: %s\n" (path_to_string p);
-      fail None "Path.last_dir_before_inv expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
+      path_fail p "Path.last_dir_before_inv expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
   | Some res -> res
 
 (* [split_common_prefix]: given paths [a] and [b], returns [(p, ra, rb)]

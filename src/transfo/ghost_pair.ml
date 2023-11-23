@@ -195,7 +195,7 @@ let%transfo fission (tg : target) : unit =
 
 
 let find_inverse (ghost_fn: trm) (res: resource_spec) =
-  let open Tools.OptionMonad in
+  let open Xoption.OptionMonad in
   Pattern.pattern_match ghost_fn [
     Pattern.(trm_var !__) (fun ghost_fn ->
       let* res in

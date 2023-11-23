@@ -34,7 +34,7 @@ let formula_annot = {trm_annot_default with trm_annot_cstyle = [ResourceFormula]
    I.e. are the trm and formula languages intersecting or separate?
    *)
 let rec formula_of_trm (t: trm): formula option =
-  let open Tools.OptionMonad in
+  let open Xoption.OptionMonad in
   match t.desc with
   | Trm_val _ | Trm_var _ -> Some t
   | Trm_apps (fn, args, _) ->
@@ -152,7 +152,7 @@ let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) =
   )
 
 let formula_matrix_inv (f: formula): (trm * trm list) option =
-  let open Tools.OptionMonad in
+  let open Xoption.OptionMonad in
   let rec nested_group_inv (f: formula): (formula * var list * trm list) =
     Pattern.pattern_match f [
       Pattern.(formula_group (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) (trm_fun (pair !__ __ ^:: nil) !__))

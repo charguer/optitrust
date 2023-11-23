@@ -388,7 +388,7 @@ let trm_fun_var_inv (t:trm): var option =
   with Resource_primitives.Unknown ->
     let trm_internal (msg : string) (t : trm) : string =
       Printf.sprintf "%s: %s\n" msg (Ast_to_text.ast_to_string t) in
-    fail t.loc (trm_internal "unimplemented trm_fun_var_inv construction" t)
+    trm_fail t (trm_internal "unimplemented trm_fun_var_inv construction" t)
 
 let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resource =
   (* LATER: replace with a query on _Res inside fun_specs, but this requires a management of value aliases *)
@@ -449,7 +449,7 @@ let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resourc
     ) current_usage extra_usage
 
 let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usage: resource_usage_map option): resource_usage_map option =
-  let open Tools.OptionMonad in
+  let open Xoption.OptionMonad in
   let* current_usage in
   let* extra_usage in
   Some (update_usage_map ~current_usage ~extra_usage)
@@ -601,7 +601,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
             if Var_set.mem contract_arg contract_fv then begin
               let arg_formula = match formula_of_trm effective_arg with
                 | Some formula -> formula
-                | None -> fail effective_arg.loc (Printf.sprintf "Could not make a formula out of term '%s', required because of instantiation of %s contract" (AstC_to_c.ast_to_string effective_arg) (AstC_to_c.ast_to_string fn))
+                | None -> trm_fail effective_arg (Printf.sprintf "Could not make a formula out of term '%s', required because of instantiation of %s contract" (AstC_to_c.ast_to_string effective_arg) (AstC_to_c.ast_to_string fn))
               in
               Var_map.add contract_arg arg_formula subst_map, usage_map
             end else
@@ -729,7 +729,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
     | Trm_template (params, t) ->
       compute_resources (Some res) t
 
-    | _ -> fail t.loc ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
+    | _ -> trm_fail t ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
     end with e -> handle_resource_errors t.loc e
   in
 

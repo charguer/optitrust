@@ -46,7 +46,7 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
 
      | Some ty, None -> trm_replace (Trm_apps (f, [lhs;
                     trm_apps_binop (trm_cast ty rhs) u], [])) t
-     | _ -> fail t.loc "Arith_core.transform_aux: can't apply both pre-casting
+     | _ -> trm_fail t "Arith_core.transform_aux: can't apply both pre-casting
                         and post-casting"
     end
   | Trm_apps (_, [arg], _) when is_get_operation t ->
@@ -54,10 +54,10 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
      | None , None -> trm_apps_binop t u
      | None, Some ty -> trm_cast ty (trm_apps_binop t u)
      | Some ty, None -> trm_apps_binop (trm_cast ty t)  u
-     | _ -> fail t.loc "Arith_core.transfom_aux: can't apply both pre-casting
+     | _ -> trm_fail t "Arith_core.transfom_aux: can't apply both pre-casting
                         and post-casting"
     end
-  | _ -> fail t.loc "Arith_core.transform_aux: expected a get or a set operation"
+  | _ -> trm_fail t "Arith_core.transform_aux: expected a get or a set operation"
 
 (* [transform aop inv pre_cast post_cast u t p: applies [transform_aux] at the trm with path [p]. *)
 let transform (aop : arith_op)(inv : bool) (u : trm) (pre_cast : typ option)
@@ -159,7 +159,7 @@ let is_integer_typ (typ : typ option) : bool =
 
 let unsupported_binop (op : binary_op) =
   let s = Tools.document_to_string (Ast_to_text.print_binop op) in
-  fail None ("Arith_core: unsupported binop: " ^ s)
+  failwith ("Arith_core: unsupported binop: " ^ s)
 
 let expr_make ?(loc : loc) ~(typ : typ option) (desc : expr_desc) : expr =
   { expr_desc = desc;
@@ -191,7 +191,7 @@ let expr_one (typ : typ option) : expr =
     | Typ_double -> expr_double 1.0
     | _ -> failwith (Printf.sprintf "unsupported type: %s" (AstC_to_c.typ_to_string t))
     end
-  | None -> fail None "expr_one: requires a known type"
+  | None -> failwith "expr_one: requires a known type"
 
 (* [expr_atom id] produces a variable [id], denoting an arbitrary subterm form ast.ml *)
 let expr_atom ?(loc : loc) ~(typ : typ option) (id : id) : expr =
@@ -439,7 +439,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
      | Expr_atom id ->
       begin match Atom_map.find_opt id atoms with
       | Some t1 -> AstC_to_c.(trm_to_doc (default_style())) t1
-      | _  -> fail None "Arith_core.expr_to_math_string: couldn't convert
+      | _  -> failwith "Arith_core.expr_to_math_string: couldn't convert
                         an atom expr to a trm"
       end
   in
@@ -558,7 +558,7 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           | true, true -> true
           | false, false -> false
           | _ ->
-            printf "WARNING: arith types differ: %s and %s\n" (Tools.option_to_string AstC_to_c.typ_to_string t1.typ) (Tools.option_to_string AstC_to_c.typ_to_string t2.typ);
+            printf "WARNING: arith types differ: %s and %s\n" (Xoption.to_string AstC_to_c.typ_to_string t1.typ) (Xoption.to_string AstC_to_c.typ_to_string t2.typ);
             false
             (* LATER: failwith "should not happen" *)
          in
@@ -570,7 +570,7 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           | Binop_mul -> expr_mul ?loc ~typ (aux t1) (aux t2)
           | Binop_exact_div ->
               if not (is_integer_op())
-                then fail t.loc "trm_to_naive_expr: Binop_exact_div expected to be an integer operation";
+                then trm_fail t "trm_to_naive_expr: Binop_exact_div expected to be an integer operation";
               expr_div ?loc ~typ (aux t1) (aux t2)
           | Binop_div ->
               if is_integer_op()
@@ -679,7 +679,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 -> t1
-        | _ -> fail None "Arith_core.expr_to_trm: couldn't convert an atom expr to a trm"
+        | _ -> failwith "Arith_core.expr_to_trm: couldn't convert an atom expr to a trm"
         end
     in
   aux e
@@ -878,7 +878,7 @@ let rec compute_power_int (n:int) (w:int) : int =
 let rec compute_power_double (f:float) (w:int) : float =
   if w < 0 then begin
     let inv = compute_power_double f (-w) in
-    if inv = 0. then fail None "compute_power_double: division by zero";
+    if inv = 0. then failwith "compute_power_double: division by zero";
     1.0 /. inv
   end else begin
     if w = 0 then 1.0 else f *. compute_power_double f (w-1)
@@ -940,8 +940,8 @@ let compute_wexpr_prod ~(typ : typ option) ?(loc) (wes:wexprs) : wexpr =
       ) 1 wes_select in
     let num = wes_prod wes_pos in
     let denum = wes_prod wes_neg in
-    if denum = 0 then fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division by zero: %d / %d" num denum);
-    if num mod denum <> 0 then fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division is not exact: %d / %d" num denum);
+    if denum = 0 then loc_fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division by zero: %d / %d" num denum);
+    if num mod denum <> 0 then loc_fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division is not exact: %d / %d" num denum);
     let n = num / denum in
     (1, expr_int n)
   end else begin
@@ -981,14 +981,14 @@ let compute_one (e : expr) : expr =
   | Expr_binop (op, { expr_desc = Expr_int n1; _}, { expr_desc = Expr_int n2; _}) ->
      begin match op with
      | Binop_exact_div ->
-        if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: exact_div(%d, %d)" n1 n2);
-        if (n1 mod n2) <> 0 then fail loc (Printf.sprintf "compute_one: division is not exact: exact_div(%d, %d)" n1 n2);
+        if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: integer division by zero: exact_div(%d, %d)" n1 n2);
+        if (n1 mod n2) <> 0 then loc_fail loc (Printf.sprintf "compute_one: division is not exact: exact_div(%d, %d)" n1 n2);
         expr_int (n1 / n2) (* integer division with rounding *)
      | Binop_div ->
-        if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
+        if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
         expr_int (n1 / n2) (* integer division with rounding *)
      | Binop_mod ->
-        if n2 = 0 then fail loc (Printf.sprintf "compute_one: modulo by zero: %d / %d" n1 n2);
+        if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: modulo by zero: %d / %d" n1 n2);
         expr_int (n1 mod n2)
      | Binop_shiftl ->
         expr_int (n1 lsl n2)

@@ -64,7 +64,7 @@ let clear_stringreprs () =
 let get_stringreprs () : stringreprs =
   match !stringreprs with
   | Some m -> m
-  | None -> fail None "AstC_to_c.get_stringreprs: must call init_stringreprs or set_stringreprs first"
+  | None -> failwith "AstC_to_c.get_stringreprs: must call init_stringreprs or set_stringreprs first"
 
 (* [get_and_clear_stringreprs ()]: gets the current string representations and delete them. *)
 let get_and_clear_stringreprs () : stringreprs =
@@ -163,7 +163,7 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
   | Typ_arbitrary a_kind ->
         begin match a_kind with
         | Atyp ty -> string ty
-        | _ -> fail None "AstC_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Atyp"
+        | _ -> failwith "AstC_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Atyp"
         end
   | Typ_decl t ->
     string "decltype" ^^ parens (decorate_trm (default_style()) t)
@@ -554,7 +554,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       | Expr e -> string e
       | Stmt s -> string s
       | Instr s -> string s ^^ semi
-      | _ -> fail t.loc "AstC_to_c.trm_to_doc style: arbitrary code should be entered by using Lit, Expr and Stmt only"
+      | _ -> trm_fail t "AstC_to_c.trm_to_doc style: arbitrary code should be entered by using Lit, Expr and Stmt only"
       end  in
       dattr ^^ code_str
     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
@@ -586,7 +586,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
           | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ decorate_trm style t1
           | None -> typ_to_doc ty ^^ blank 1 ^^ string n
           end
-        | Template _ -> fail None "AstC_to_c.template_param_kind_to_doc: nested templates are not supported"
+        | Template _ -> trm_fail t1 "AstC_to_c.template_param_kind_to_doc: nested templates are not supported"
         ) tpl in
       string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
     | Trm_fun (tvl, ty_opt, body, _) when trm_has_cstyle ResourceFormula t -> dattr ^^ formula_fun_to_doc style ~semicolon ty_opt tvl body
@@ -701,7 +701,7 @@ and trm_let_mult_to_doc style ?(semicolon : bool = true) (tvl : typed_vars) (tl 
     let ty = get_inner_ptrs_and_consts ty in
     if i = 0 then ty
     else if ty <> acc then
-      fail None "AstC_to_c.trm_let_mult_to_doc style: all variables in trm_let_mult must have the same type."
+      failwith "AstC_to_c.trm_let_mult_to_doc style: all variables in trm_let_mult must have the same type."
     else acc
     ) (typ_unit ()) tvl
   in
@@ -724,7 +724,7 @@ and aux_class_constructor_to_doc style ?(_semicolon : bool = false)  (spec_annot
   let argd = if List.length args = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style (var_to_doc style) tv) args) in
   let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_constructor ck -> ck :: acc | _ -> acc) [] spec_annot in
 
-  let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in
+  let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else trm_fail body "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in
   let explicit = ref empty in
   let bd, init_list = filter_out_from_seq (fun t -> trm_has_cstyle Member_initializer t ) body in
   let tr_inits =
@@ -739,7 +739,7 @@ and aux_class_constructor_to_doc style ?(_semicolon : bool = false)  (spec_annot
             string f ^^ init_arg
           | None -> string "bad member initializer"
               (* TODO: Debug  *)
-            (* fail t1.loc "AstC_to_c.aux_class_constructor_to_doc style: bad member initializer." *)
+            (* trm_fail t1 "AstC_to_c.aux_class_constructor_to_doc style: bad member initializer." *)
 
         ) init_list in
   let init_d = Tools.list_to_doc ~sep:comma tr_inits in
@@ -757,7 +757,7 @@ and aux_class_constructor_to_doc style ?(_semicolon : bool = false)  (spec_annot
 and aux_class_destructor_to_doc style ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (body : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_destructor dk -> dk :: acc | _ -> acc) [] spec_annot in
-  let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in
+  let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else failwith "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in
   let dt = match spec_annot with
     | Destructor_default -> equals ^^ blank 1 ^^ string "default"
     | Destructor_delete -> equals ^^ blank 1 ^^ string "delete"
@@ -863,7 +863,7 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
         else
           string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ record_type ^^ blank 1 ^^ semi
   | Typdef_sum _ ->
-      fail None "AstC_to_c.typedef_to_doc style: sum types are not supported in C/C++"
+      failwith "AstC_to_c.typedef_to_doc style: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
       let const_doc_l =
         List.map
@@ -894,15 +894,15 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
       end
     end
   | Trm_typedef _ -> string ""
-  | _ -> fail loc "AstC_to_c.multi_decl_to_doc style: only variables declarations allowed"
+  | _ -> loc_fail loc "AstC_to_c.multi_decl_to_doc style: only variables declarations allowed"
   end
  in
  let dnames = separate (comma ^^ blank 1) (List.map get_info tl) in
   begin match tl with
-  | [] -> fail loc "AstC_to_c.multi_deco_to_doc: empty multiple declaration"
+  | [] -> loc_fail loc "AstC_to_c.multi_deco_to_doc: empty multiple declaration"
   | [d] -> begin match d.desc with
            | Trm_typedef td -> typedef_to_doc style td
-           | _ -> fail loc "AstC_to_c.multi_decl_to_doc style: expected a typedef"
+           | _ -> loc_fail loc "AstC_to_c.multi_decl_to_doc style: expected a typedef"
            end
   | hd :: _ ->
     match hd.desc with
@@ -914,7 +914,7 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
             | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
             end
        end
-  | _ -> fail loc "AstC_to_c.multi_decl_to_doc style: expected a trm_let"
+  | _ -> loc_fail loc "AstC_to_c.multi_decl_to_doc style: expected a trm_let"
   end
 
 (* [apps_to_doc style ~prec f tl]: converts a function call to pprint document *)
@@ -1000,7 +1000,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
                  parens dty ^^ blank 1 ^^ d
               end
            | _ ->
-              fail f.loc "AstC_to_c.apps_to_doc style: unary operators must have one argument"
+              trm_fail f "AstC_to_c.apps_to_doc style: unary operators must have one argument"
            end
         | Prim_binop op ->
           let (prec1, prec2) =
@@ -1030,7 +1030,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
                 end
              | _ -> separate (blank 1) [d1; op_d; d2]
              end
-          | _ -> fail f.loc "AstC_to_c.apps_to_doc style: binary_operators must have two arguments"
+          | _ -> trm_fail f "AstC_to_c.apps_to_doc style: binary_operators must have two arguments"
           end
         | Prim_compound_assgn_op _  ->
            begin match tl with
@@ -1041,7 +1041,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
               if style.optitrust_syntax
                 then op_d ^^ parens (d1 ^^ comma ^^ d2)
                 else separate (blank 1) [d1; op_d; d2]
-          | _ -> fail f.loc "AstC_to_c.apps_to_doc style: expected at most two argumetns."
+          | _ -> trm_fail f "AstC_to_c.apps_to_doc style: expected at most two argumetns."
           end
         | Prim_overloaded_op p_b ->
            begin match tl with
@@ -1071,11 +1071,11 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
                 if style.optitrust_syntax
                 then parens (d1) ^^ op_d
                 else separate (blank 1) [d1; op_d]
-              | _ -> fail f.loc "AstC_to_c.apps_to_doc style: binary_operators must have two arguments"
+              | _ -> trm_fail f "AstC_to_c.apps_to_doc style: binary_operators must have two arguments"
               end
           | _ ->
             Printf.printf "Nb_args: %d" (List.length tl);
-            fail f.loc "AstC_to_c.apps_to_doc style: expected at most two argumetns."
+            trm_fail f "AstC_to_c.apps_to_doc style: expected at most two argumetns."
           end
 
         | Prim_conditional_op ->
@@ -1086,7 +1086,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
               let d3 = decorate_trm style ~prec:4 t3 in
               parens (separate (blank 1) [d1; qmark; d2; colon; d3])
            | _ ->
-              fail f.loc
+              trm_fail f
                 "apps_to_doc style: conditional operator must have three arguments"
            end
         | Prim_new t ->
@@ -1096,7 +1096,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
           let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
           string "new" ^^ blank 1 ^^ typ_to_doc t ^^ init_val
         end
-     | _ -> fail f.loc (Printf.sprintf "AstC_to_c.apps_to_doc style: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
+     | _ -> trm_fail f (Printf.sprintf "AstC_to_c.apps_to_doc style: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end
    | _ ->
       let f_doc = decorate_trm style f in
@@ -1355,7 +1355,7 @@ and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
         trm_apps (trm_unop Unop_post_inc) [trm_var index]
       | Step st ->
         trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var index; st]
-      | _ -> fail body.loc "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
+      | _ -> trm_fail body "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
     | DirDown | DirDownEq ->
       begin match step with
@@ -1365,7 +1365,7 @@ and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
         trm_apps (trm_unop Unop_post_dec) [trm_var index]
       | Step st ->
         trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var index; st]
-      | _ -> fail body.loc "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
+      | _ -> trm_fail body "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
 
     end in

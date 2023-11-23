@@ -36,7 +36,7 @@ let%transfo read_last_write ?(write_mark : mark option) ?(write : target = []) (
                        | _ -> ()
                        end
               ) tl
-            | _ -> fail seq_trm.loc (Printf.sprintf "Instr.read_last_write: expected the sequence which contains the targeted get operation got %s" (AstC_to_c.ast_to_string seq_trm))
+            | _ -> trm_fail seq_trm (Printf.sprintf "Instr.read_last_write: expected the sequence which contains the targeted get operation got %s" (AstC_to_c.ast_to_string seq_trm))
             end;
             begin match !write_index with
             | Some index ->
@@ -44,7 +44,7 @@ let%transfo read_last_write ?(write_mark : mark option) ?(write : target = []) (
               Instr_basic.read_last_write ~write  (target_of_path p);
               begin match write_mark with | Some m -> Marks.add m write | _ -> () end
 
-            | None -> fail tg_trm.loc "Instr.read_last_write: couuldn't find a write operation for your targeted read operation"
+            | None -> trm_fail tg_trm "Instr.read_last_write: couuldn't find a write operation for your targeted read operation"
             end
           | _ ->
               Instr_basic.read_last_write  ~write (target_of_path p)
@@ -71,10 +71,10 @@ let%transfo accumulate ?(nb : int option) (tg : target) : unit =
       | Some n ->
         Sequence_basic.intro ~mark:"temp_MARK" n (target_of_path p);
         Instr_basic.accumulate [cMark "temp_MARK"]
-      | _ -> fail t.loc "Instr.accumulate: if the given target is a write operation please
+      | _ -> trm_fail t "Instr.accumulate: if the given target is a write operation please
            provide me the number [nb] of instructions to consider in the accumulation"
       end
-    | _ -> fail t.loc "Instr.accumulate: expected a target to a sequence or a target to an instruction and the number of instructions to consider too"
+    | _ -> trm_fail t "Instr.accumulate: expected a target to a sequence or a target to an instruction and the number of instructions to consider too"
     end
   ) tg
 
@@ -115,14 +115,14 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
       | TargetAfter ->
         reverse := true
       | TargetBetweenAll ->
-        fail None "Instr.gather_targets: need to support TargetBetweenAll"
+        failwith "Instr.gather_targets: need to support TargetBetweenAll"
       | TargetFirst ->
         reverse := true
       | TargetLast ->
         reverse := false
-      | TargetAt -> fail None "Instr.gather_targets: if you used GatherAt you should provide a valid relative target"
+      | TargetAt -> failwith "Instr.gather_targets: if you used GatherAt you should provide a valid relative target"
       end
-    | None -> fail None "Instr.gather_targets: if you used GatherAt you should provide a valid relative target"
+    | None -> failwith "Instr.gather_targets: if you used GatherAt you should provide a valid relative target"
   end;
   let tg = enable_multi_targets tg in
   Instr_basic.move ~rev:!reverse ~dest:!tg_dest tg
@@ -141,8 +141,8 @@ let%transfo move ~dest:(dest : target) (tg : target) : unit =
 (* [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
 let%transfo move_out (tg : target) : unit =
   iter_on_targets (fun t p ->
-    let (seq, _) = try Internal.isolate_last_dir_in_seq p with | TransfoError _ ->
-      fail None "Instr.move_out: only instructions can be targeted" in
+    let (seq, _) = try Internal.isolate_last_dir_in_seq p with | Path.Path_error _ ->
+      Path.path_fail p "Instr.move_out: only instructions can be targeted" in
     let tg_seq = target_of_path seq in
     let tg_instr = target_of_path p in
     move ~dest:tg_seq tg_instr
@@ -161,7 +161,7 @@ let%transfo move_out_of_fun (tg : target) : unit =
       move ~dest:[cMark mark] tg_instr;
       Marks.remove mark [cMark mark]
       end
-    | None -> fail None "Instr.move_out_of_fun: can't move toplevel instructions"
+    | None -> Path.path_fail p "Instr.move_out_of_fun: can't move toplevel instructions"
 
   ) tg
 

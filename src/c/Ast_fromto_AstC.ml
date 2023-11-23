@@ -109,7 +109,7 @@ let stackvar_elim (t : trm) : trm =
       begin match typ_ref_inv ty with
       | Some ty1 ->
         begin match xm with
-        | Var_immutable -> fail t.loc "Ast_fromto_AstC.tackvar_elim: unsupported references on const variables"
+        | Var_immutable -> trm_fail t "Ast_fromto_AstC.tackvar_elim: unsupported references on const variables"
         | _ ->
           (* generate a pointer type, with suitable annotations *)
           trm_add_cstyle Reference (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))) t)
@@ -368,7 +368,7 @@ let method_call_elim (t : trm) : trm =
       let qualifier = class_qualifier @ [class_name] in
       let t_var = begin match Ast_data.get_cursor_of_trm tr with
       | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var ~qualifier f))
-      | None -> fail t.loc "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
+      | None -> trm_fail t "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
       end in
       trm_add_cstyle Method_call (trm_apps ~ghost_args (t_var) ([trm_address_of base] @ args))
     | _ -> trm_map aux t
@@ -381,7 +381,7 @@ let method_call_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, args, ghost_args) when trm_has_cstyle Method_call t ->
-      if List.length args < 1 then fail t.loc "Ast_fromto_AstC.method_call_intro: bad encodings.";
+      if List.length args < 1 then trm_fail t "Ast_fromto_AstC.method_call_intro: bad encodings.";
       let base, args = Xlist.uncons args in
       let struct_access =
         begin match f.desc with
@@ -432,7 +432,7 @@ let class_member_elim (t : trm) : trm =
         let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
         trm_alter ~desc:(Trm_let_fun (v, this_typ, vl, new_body, contract)) t
       | Trm_val (Val_lit Lit_uninitialized) ->  t
-      | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
+      | _ ->  trm_fail t "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
     | _ -> trm_map (aux current_class) t
     end
@@ -610,7 +610,7 @@ let __contract_inst = name_to_var "__contract_inst"
 let __post_inst = name_to_var "__post_inst"
 
 let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
-  let open Tools.OptionMonad in
+  let open Xoption.OptionMonad in
   let* fn, args = trm_apps_inv t in
   let* fn_var = trm_var_inv fn in
   let* clause =

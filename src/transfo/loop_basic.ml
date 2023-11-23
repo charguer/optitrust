@@ -76,7 +76,7 @@ let hoist_on (name : string)
     in
      (trm_ceil_div (trm_sub stop start) s,
       trm_div (trm_sub (trm_var index) start) s)
-  | _ -> fail t.loc "Loop_basic.hoist_on: unsupported loop step"
+  | _ -> trm_fail t "Loop_basic.hoist_on: unsupported loop step"
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
   let elem_ty = ref (typ_auto()) in
@@ -112,7 +112,7 @@ let hoist_on (name : string)
     ) body_instrs_new_decl;
     match !free_index_opt with
     | Some free_index -> Mlist.remove free_index 1 body_instrs_new_decl
-    | None -> fail body.loc "Loop_basic.hoist: expected free instruction"
+    | None -> trm_fail body "Loop_basic.hoist: expected free instruction"
   end in
   let new_body_instrs, new_contract = match contract with
   | Some contract ->
@@ -167,7 +167,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
   let snd_contract = ref None in
   begin match contract with
   | _ when not !Flags.check_validity -> ()
-  | None -> fail t.loc "Loop_basic.fission_on: requires an annotated for loop to check validity"
+  | None -> trm_fail t "Loop_basic.fission_on: requires an annotated for loop to check validity"
   | Some contract ->
     let open Resource_formula in
 
@@ -207,7 +207,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
 
       let error = "Loop_basic.fission_on: expected resources to be computed" in
       let first_tl1_instr = Mlist.nth tl1 0 in
-      let ctx_res = unsome_or_fail first_tl1_instr.loc error (first_tl1_instr.ctx.ctx_resources_before) in
+      let ctx_res = unsome_or_trm_fail first_tl1_instr error (first_tl1_instr.ctx.ctx_resources_before) in
       let inter_linear_hyps res_usage =
         Hyp_map.filter (fun h _ -> Var_set.mem h linear_hyps) res_usage
       in
@@ -226,9 +226,9 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource linear_invariant tl1_inv in (* = I'' *)
 
       let first_tl2_instr = Mlist.nth tl2 0 in
-      let split_res = unsome_or_fail first_tl2_instr.loc error (first_tl2_instr.ctx.ctx_resources_before) in (* = R *)
+      let split_res = unsome_or_trm_fail first_tl2_instr error (first_tl2_instr.ctx.ctx_resources_before) in (* = R *)
       (* let last_tl1_instr = Mlist.nth tl1 ((Mlist.length tl1) - 1) in
-      let split_res = unsome_or_fail last_tl1_instr.loc error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
+      let split_res = unsome_or_trm_fail last_tl1_instr error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
       let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
 
       (* DEBUG
@@ -388,9 +388,9 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
   | [(loop_range1, loop_instrs1, _contract1); (loop_range2, loop_instrs2, _contract2)] ->
     (* DEPRECATED: need to rename index anyway since #var-id
     if not (same_loop_index loop_range1 loop_range2) then
-      fail t.loc "Loop_basic.fusion_on: expected matching loop indices"; *)
+      trm_fail t "Loop_basic.fusion_on: expected matching loop indices"; *)
     if not (same_loop_range loop_range1 loop_range2) then
-      fail t.loc "Loop_basic.fusion_on: expected matching loop ranges";
+      trm_fail t "Loop_basic.fusion_on: expected matching loop ranges";
     let new_loop_range, _, _ = List.nth loops_ri target_loop_i in
     let (idx1, _, _, _, _, _) = loop_range1 in
     let (idx2, _, _, _, _, _) = loop_range2 in
@@ -481,19 +481,19 @@ let move_out_on ?(mark : mark option) (empty_range: empty_range_mode) (trm_index
   if !Flags.check_validity then begin
     if Var_set.mem index (trm_free_vars instr) then
       (* NOTE: would be checked by var ids anyway *)
-      fail instr.loc "Loop_basic.move_out: instruction uses loop index";
+      trm_fail instr "Loop_basic.move_out: instruction uses loop index";
     Resources.assert_dup_instr_redundant 0 (Mlist.length instrs - 1) body;
 
     begin match empty_range with
     | Generate_if -> ()
     | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
     | Produced_resources_uninit_after ->
-      let contract = Tools.unsome ~error:"Need the for loop contract to be set" contract in
-      let instr_usage = Tools.unsome ~error:"Need the resources to be computed" instr.ctx.ctx_resources_usage in
+      let contract = Xoption.unsome ~error:"Need the for loop contract to be set" contract in
+      let instr_usage = Xoption.unsome ~error:"Need the resources to be computed" instr.ctx.ctx_resources_usage in
       let invariant_written_by_instr = List.filter (Resources.(usage_filter instr_usage keep_written)) contract.invariant.linear in
       List.iter (fun (_, f) -> match Resource_formula.formula_uninit_inv f with
         | Some _ -> ()
-        | None -> fail instr.loc "The instruction cannot be moved out because it consumes resources that are not uninitialized after the loop (and the loop range could be empty)"
+        | None -> trm_fail instr "The instruction cannot be moved out because it consumes resources that are not uninitialized after the loop (and the loop range could be empty)"
       ) invariant_written_by_instr
     end;
 
@@ -503,7 +503,7 @@ let move_out_on ?(mark : mark option) (empty_range: empty_range_mode) (trm_index
   let generate_if = (empty_range = Generate_if) in
   let contract = match contract with
     | Some contract when not generate_if ->
-      let resources_after = Tools.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
+      let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
       let _, new_invariant, _ = Resource_computation.subtract_linear_resource resources_after.linear contract.iter_contract.pre.linear in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }
     | _ -> contract
@@ -760,6 +760,6 @@ let%transfo delete_void (tg : target) : unit =
       | Some t2 -> t2
       | None ->
         let loop_t = Path.get_trm_at_path p t in
-        fail loop_t.loc "Loop_basic.delete_void: expected a simple loop with empty body, surrounded by a sequence"
+        trm_fail loop_t "Loop_basic.delete_void: expected a simple loop with empty body, surrounded by a sequence"
     ) t p_seq
   ) tg

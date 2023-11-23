@@ -1,6 +1,8 @@
 open Prelude
 open Target
 
+let path_fail = Path.path_fail
+
 (* [same_kind t1 t2]: check if two ast nodes are of the same kind or not *)
 let same_kind (t1 : trm) (t2 : trm) : bool =
   match t1.desc, t2 .desc with
@@ -125,7 +127,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
        | Trm_var (_, x) ->
           let ty = begin match t.typ with
                    | Some ty -> ty
-                   | None -> fail t.loc "Internal.apply_change: all variable occurrences should have a type"
+                   | None -> trm_fail t "Internal.apply_change: all variable occurrences should have a type"
                    end in
         trm_var ~annot:t.annot ?loc:t.loc ~typ:(change_typ ty) x
       | _ -> trm_map aux t
@@ -158,7 +160,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
     | Dir_record_field _ :: Dir_seq_nth i :: dl'  -> (List.rev dl', i)
       (* Printf.printf "Path: %s\n" (Path.path_to_string dl); *)
     | _ ->
-      fail None "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
+      path_fail dl "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
 (* [get_instruction_in_surrounding_sequence dl]: for a trm with path [dl] return the path to the surrouding sequence
@@ -167,7 +169,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
 let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
   let rec aux (acc : path) (dl : path) =
     match dl with
-    | [] -> fail None "Internal.get_instruction_in_surrounding_sequence: empty path"
+    | [] -> path_fail dl "Internal.get_instruction_in_surrounding_sequence: empty path"
     | Dir_seq_nth i :: dl'-> (List.rev dl', acc, i)
     | dir :: dl' -> aux (dir :: acc) dl'
   in aux [] (List.rev dl)
@@ -209,16 +211,16 @@ let is_decl_body (dl : path) : bool =
   | Dir_body :: _ -> true
   | _ -> false
 
-(* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
-let get_field_list (td : typedef) : (field * typ) list =
+(* [get_field_list t td]: in the case of typedef struct give back the list of struct fields *)
+let get_field_list (t : trm) (td : typedef) : (field * typ) list =
   match td.typdef_body with
   | Typdef_record rfl ->
     List.map (fun (rf, _) ->
       match rf with
       | Record_field_member (lb, ty) -> (lb, ty)
-      | _ -> fail None "Internal.get_field_list: expected a struct without methods"
+      | _ -> trm_fail t "Internal.get_field_list: expected a struct without methods"
     ) rfl
-  | _ -> fail None "Internal.get_field_list: expected a Typedef_prod"
+  | _ -> trm_fail t "Internal.get_field_list: expected a Typedef_prod"
 
 
 (* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
@@ -310,7 +312,7 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
       | Some _ -> acc
       | _ -> aux t1
   ) None tl
-  | _ -> fail full_ast.loc "Internal.top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
+  | _ -> trm_fail full_ast "Internal.top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
 
 
 (* [local_decl x t]: check if [t] is a declaration with name [x], if that's the case the return that declaration *)
@@ -366,13 +368,13 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   | Trm_for (l_range, body, _) ->
     Some ((fun b -> trm_for l_range b), body)
   | _ ->
-    fail t.loc "Internal.extract_loop: expected a loop"
+    trm_fail t "Internal.extract_loop: expected a loop"
 
 (* [get_field_index field fields]: for a struct field with name [field] and [fields] being the list of fields of the
     same struct, return back the index of field [field] in the list of fields [fields]. *)
-let get_field_index (field : field) (fields : record_fields) : int =
+let get_field_index (t : trm) (field : field) (fields : record_fields) : int =
   let rec aux field fields c = match fields with
-    | [] -> failwith "Internal.get_field_index: empty list"
+    | [] -> trm_fail t "Internal.get_field_index: empty list"
     | (rf, _) :: tl ->
       begin match rf with
       | Record_field_member (f, _) ->
@@ -400,7 +402,7 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
         let new_fn = { qualifier = fn.qualifier; name = (rename_fun fn.name); id = fn.id } in
         let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body, contract)) t in
         Record_field_method new_t
-      | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
+      | _ -> trm_fail t "Internal.rename_record_fields: record member not supported."
       end
       in
     apply_on_record_fields app_fun rfs
@@ -412,7 +414,7 @@ let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ )
     | Record_field_member (f, ty) ->
       let ty = if Tools.pattern_matches pattern f then typ_update ty else ty in
       Record_field_member (f, ty)
-    | Record_field_method t -> fail None "Internal.update_record_fields_type: can't update the type of a method."
+    | Record_field_method t -> trm_fail t "Internal.update_record_fields_type: can't update the type of a method."
       in
     apply_on_record_fields app_fun rfs
 
@@ -423,7 +425,7 @@ let change_loop_body (loop : trm) (body : trm) : trm =
     trm_for ?contract l_range body
   | Trm_for_c (init, cond, step, _, invariant) ->
     trm_for_c ?invariant init cond step body
-  | _-> fail loop.loc "Internal.change_loop_body: expected for loop"
+  | _-> trm_fail loop "Internal.change_loop_body: expected for loop"
 
 (* [is_trm_loop t] check if [t] is a loop or not *)
 let is_trm_loop (t : trm) : bool =

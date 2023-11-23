@@ -61,7 +61,7 @@ let trm_for_contract t =
 
 (** Returns the resource usage of the given term, fails if unavailable. *)
 let usage_of_trm (t : trm) =
-  unsome_or_fail t.loc "expected resource usage to be available" t.ctx.ctx_resources_usage
+  unsome_or_trm_fail t "expected resource usage to be available" t.ctx.ctx_resources_usage
 
 (** Computes the resource usage of a consecutive sequence of instructions. *)
 let compute_usage_of_instrs (instrs : trm list) : resource_usage_map =
@@ -94,7 +94,7 @@ let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
   let res_before =
     match t.ctx.ctx_resources_before with
-    | None -> fail t.loc "loop_minimize_on: resources need to be computed before this transformation"
+    | None -> trm_fail t "loop_minimize_on: resources need to be computed before this transformation"
     | Some res_before -> res_before
   in
 
@@ -170,13 +170,13 @@ let string_of_interference (interference : (resource_usage option * resource_usa
 let assert_usages_commute (loc : location) (before : resource_usage_map) (after : resource_usage_map) : unit =
   let interference = collect_interferences before after in
   if not (Hyp_map.is_empty interference) then
-    fail loc (string_of_interference interference)
+    loc_fail loc (string_of_interference interference)
 
 (** Checks that effects commute, infer var ids to check pure facts scope. *)
 let assert_seq_instrs_commute (before : trm) (after : trm) : unit =
   let interference = collect_trm_interferences before after in
   if not (Hyp_map.is_empty interference) then
-    fail after.loc (string_of_interference interference)
+    trm_fail after (string_of_interference interference)
 
 (** <private>
     Collects the resources that are consumed Full or Uninit (i.e. possibly written to) by term [t].
@@ -205,7 +205,7 @@ let assert_instr_effects_shadowed (p : path) : unit =
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
       Target.apply_at_path (fun instr ->
         let write_hyps = write_usage_of instr in
-        let res_before = unsome_or_fail instr.loc "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
+        let res_before = unsome_or_trm_fail instr "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
         let write_res = formulas_of_hyps write_hyps res_before.linear in
         let uninit_ghosts = List.filter_map (fun res ->
           if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
@@ -222,21 +222,21 @@ let assert_instr_effects_shadowed (p : path) : unit =
     A trm is not self interfere if `t; t` is the same as `t`
 *)
 let assert_not_self_interfering (t : trm) : unit =
-  let res_before = Tools.unsome ~error:"expected computed resources" t.ctx.ctx_resources_before in
-  let res_after = Tools.unsome ~error:"expected computed resources" t.ctx.ctx_resources_after in
+  let res_before = Xoption.unsome ~error:"expected computed resources" t.ctx.ctx_resources_before in
+  let res_after = Xoption.unsome ~error:"expected computed resources" t.ctx.ctx_resources_after in
   let res_usage = usage_of_trm t in
   let res_used_uninit = List.filter (fun (h, f) ->
     match Hyp_map.find_opt h res_usage with
-    | Some UsedFull -> fail t.loc "trm has self interfering resource usage"
+    | Some UsedFull -> trm_fail t "trm has self interfering resource usage"
     | Some UsedUninit -> true
     | Some UsedReadOnly | None -> false
-    | Some Produced -> fail t.loc "trm has invalid resource usage"
+    | Some Produced -> trm_fail t "trm has invalid resource usage"
   ) res_before.linear in
   let res_produced = List.filter (fun (h, f) ->
     match Hyp_map.find_opt h res_usage with
     | Some Produced -> true
     | Some UsedReadOnly | None -> false
-    | Some (UsedFull|UsedUninit) -> fail t.loc "trm has invalid resource usage"
+    | Some (UsedFull|UsedUninit) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
   ignore (Resource_computation.subtract_linear_resource res_produced res_used_uninit)
 
@@ -261,7 +261,7 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   in
   let is_redundant = List.for_all instr_does_dot_interfere other_instrs in
   if not is_redundant then
-    fail seq.loc "Resources.assert_instr_redundant: not redundant";
+    trm_fail seq "Resources.assert_instr_redundant: not redundant";
   ()
 
 (* [show] enables to view the result of resource computations. *)

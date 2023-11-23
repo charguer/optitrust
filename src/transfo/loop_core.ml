@@ -62,7 +62,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
        in
      if !Flags.check_validity then begin
        if ratio = None
-         then fail t.loc "Could not syntactically check that loop bound is divisible by tile size";
+         then trm_fail t "Could not syntactically check that loop bound is divisible by tile size";
        Trace.justif "loop range is syntactically dividable by tile size";
      end;
      let tile_count =
@@ -193,16 +193,16 @@ let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : 
           new_name := new_var (Tools.string_subst "${var}" x.name name);
           ty := get_inner_ptr_type tx;
           trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var index] )
-        | _ -> fail t.loc "Loop_core.hoist_aux: expected a variable declaration"
+        | _ -> trm_fail t "Loop_core.hoist_aux: expected a variable declaration"
         in
       let new_tl = Mlist.update_nth decl_index f_update tl in
       let new_body = trm_seq new_tl in
         trm_seq_nobrace_nomarks [
           trm_let_array Var_mutable (!new_name, !ty) (Trm stop_bd) (trm_uninitialized ());
           trm_for ?contract l_range new_body ]
-    | _ -> fail t.loc "Loop_core.hoist_aux: body of the loop should be a sequence"
+    | _ -> trm_fail t "Loop_core.hoist_aux: body of the loop should be a sequence"
     end
-  | _ -> fail t.loc "Loop_core.hoist_aux: only simple loops are supported"
+  | _ -> trm_fail t "Loop_core.hoist_aux: only simple loops are supported"
 
 (* [hoist name index array_size t p]: applies [hoist_aux] at trm [t] with path [p]. *)
 (* LATER/ deprecated *)
@@ -215,22 +215,22 @@ let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let n = Mlist.length tl in
-    if n < 2 then fail t.loc "fission_aux: there must be >= 2 loops to apply fussion";
+    if n < 2 then trm_fail t "fission_aux: there must be >= 2 loops to apply fussion";
     let first_loop = Mlist.nth tl 0 in
      begin match  first_loop.desc with
     | Trm_for (l_range, _, contract) ->
       let fusioned_body = Mlist.fold_lefti (
         fun i acc loop ->
-          if not (Internal.is_trm_loop loop) then fail loop.loc (Printf.sprintf "Loop_core.fusion_on_block_aux: cannot
+          if not (Internal.is_trm_loop loop) then trm_fail loop (Printf.sprintf "Loop_core.fusion_on_block_aux: cannot
                                                                fuse %d loops as requested only %d where found" n (i+1))
            else
           acc @ (Mlist.to_list (for_loop_body_trms loop))
       ) [] tl in
       let res = trm_for ?contract l_range (trm_seq_nomarks fusioned_body) in
       if keep_label then trm_pass_labels t res else res
-    | _ -> fail t.loc "Loop_core.fusion_on_block_aux: all loops should be simple loops"
+    | _ -> trm_fail t "Loop_core.fusion_on_block_aux: all loops should be simple loops"
     end
-  | _ -> fail t.loc "Loop_core.fission_aux: expected a sequence of for loops"
+  | _ -> trm_fail t "Loop_core.fission_aux: expected a sequence of for loops"
 
 (* [fusion_on_block keep_label t p]: applies [fusion_on_block_aux t p] at trm [t] with path [p]. *)
 let fusion_on_block (keep_label : bool): Transfo.local =
@@ -255,7 +255,7 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
         let old_loop_index_decl = trm_let_immut (index, typ_int ()) old_loop_index_val in
         let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
         trm_seq new_tl
-    | _ -> fail body.loc "Loop_core.grid_enumerate_aux: the body of the loop should be a sequence"
+    | _ -> trm_fail body "Loop_core.grid_enumerate_aux: the body of the loop should be a sequence"
     end in
 
     Xlist.fold_lefti (fun i acc (ind, bnd) ->
@@ -281,15 +281,15 @@ let unroll_aux (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : 
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int bnd)) ->
           Xlist.range 0 (bnd - 1)
-        | _ -> fail bnd.loc "Loop_core.unroll_aux: expected a literal trm"
+        | _ -> trm_fail bnd "Loop_core.unroll_aux: expected a literal trm"
         end
       | Trm_val (Val_lit (Lit_int bnd)) ->
           begin match start.desc with
           | Trm_val (Val_lit (Lit_int strt)) ->
             Xlist.range 0 (bnd - 1 - strt)
-          | _ -> fail start.loc "Loop_core.unroll_aux: expected a "
+          | _ -> trm_fail start "Loop_core.unroll_aux: expected a "
           end
-    | _ -> fail t.loc "Loop_core.unroll_aux: the loop that is going to be unrolled should have a bound which is a sum of a variable and a literal"
+    | _ -> trm_fail t "Loop_core.unroll_aux: the loop that is going to be unrolled should have a bound which is a sum of a variable and a literal"
     end in
   let unrolled_body = List.fold_left ( fun acc i1 ->
     let new_index =
@@ -386,13 +386,13 @@ let fold_aux (index : string) (start : int) (step : int) (t : trm) : trm =
   let tl = trm_inv ~error trm_seq_inv t in
   let nb = Mlist.length tl in
   if nb = 0
-    then fail t.loc "Loop_core.fold_aux: expected a non-empty list of instructions";
+    then trm_fail t "Loop_core.fold_aux: expected a non-empty list of instructions";
   let first_instr, other_instr  = Xlist.uncons (Mlist.to_list tl) in
   let loop_body = Internal.change_trm (trm_int start) (trm_var index) first_instr in
   List.iteri( fun i t1 ->
     let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in
     if not (Internal.same_trm loop_body local_body)
-      then fail t1.loc "Loop_core.fold_aux: all the instructions should have the same shape but differ by the index";
+      then trm_fail t1 "Loop_core.fold_aux: all the instructions should have the same shape but differ by the index";
   ) other_instr;
   trm_pass_labels t (trm_for (index, (trm_int start), DirUp, (trm_int nb), (if step = 1 then Post_inc else Step (trm_int step)), false) (trm_seq_nomarks [loop_body]))
 
@@ -409,10 +409,10 @@ let split_range_aux (nb : int)(cut : trm)(t : trm) : trm =
   let ((index, start, direction, stop, step, is_parallel), body, _contract) = trm_inv ~error trm_for_inv t in
   let split_index =
   begin match nb, cut with
-  | 0, {desc = Trm_val (Val_lit (Lit_unit )); _} -> fail t.loc "Loop_core.split_range_aux: one of the args nb or cut should be set "
+  | 0, {desc = Trm_val (Val_lit (Lit_unit )); _} -> trm_fail t "Loop_core.split_range_aux: one of the args nb or cut should be set "
   | 0, _ -> cut
   | _, {desc = Trm_val (Val_lit (Lit_unit ));_} -> trm_add (trm_var index) (trm_lit (Lit_int nb))
-  | n, c -> fail t.loc "Loop_core.split_range_aux: can't provide both the nb and cut args"
+  | n, c -> trm_fail t "Loop_core.split_range_aux: can't provide both the nb and cut args"
   end in
   trm_seq_nobrace_nomarks [
     trm_for (index, start, direction, split_index, step, is_parallel) body;

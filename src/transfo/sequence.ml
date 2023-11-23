@@ -23,12 +23,12 @@ let%transfo intro ?(start : target = []) ?(stop : target = []) ?(nb : int = 0)
                   else begin match start, stop with
                        | _, [] -> Sequence_basic.intro_after ~mark start
                        | [], _ -> Sequence_basic.intro_before ~mark stop
-                       | _,_ -> fail None "Sequence.intro: can't provide both the start and stop and the number of instruction to include inside the sequence"
+                       | _,_ -> failwith "Sequence.intro: can't provide both the start and stop and the number of instruction to include inside the sequence"
                        end
           | _ -> begin match start, stop with
                 | _, [] -> Sequence_basic.intro ~mark nb start
                 | [], _ -> Sequence_basic.intro ~mark (-nb) stop
-                | _,_ -> fail None "Sequence.intro: can't provide both the start and stop and the number of instruction to include inside the sequence"
+                | _,_ -> failwith "Sequence.intro: can't provide both the start and stop and the number of instruction to include inside the sequence"
                 end
          end
 
@@ -45,11 +45,11 @@ let%transfo intro_targets ?(mark : string = "")(tg : target) : unit =
     fun i t p ->
       let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
       if i = 0 then surrounding_seq := path_to_seq
-        else if !surrounding_seq <> path_to_seq then fail t.loc "Sequence.intro_targets: all the targeted instructions should belong to the same scope and be consecutive";
-      if index <> !prev_index + 1 && !prev_index <> -1 then fail t.loc "Sequence.intro_targets: all the targeted instructions should be consecutive";
+        else if !surrounding_seq <> path_to_seq then trm_fail t "Sequence.intro_targets: all the targeted instructions should belong to the same scope and be consecutive";
+      if index <> !prev_index + 1 && !prev_index <> -1 then trm_fail t "Sequence.intro_targets: all the targeted instructions should be consecutive";
       incr nb_targets;
   ) tg;
-  if !nb_targets < 1 then fail None "Sequence.intro_targets: expected at least 1 instruction";
+  if !nb_targets < 1 then failwith "Sequence.intro_targets: expected at least 1 instruction";
   Sequence_basic.intro ~mark !nb_targets first_target
 
 (* [apply ~start ~stop ~nb f]: invokes [f mark] where the [mark] is attached to a temporary sequence created

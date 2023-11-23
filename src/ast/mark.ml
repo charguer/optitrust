@@ -41,7 +41,7 @@ let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
   | Trm_seq tl ->
     let new_tl = Mlist.insert_mark_at index m tl in
     trm_seq ~annot:t.annot new_tl
-  | _ -> fail t.loc "Ast.trm_add_mark_between: expected a sequence"
+  | _ -> trm_fail t "Ast.trm_add_mark_between: expected a sequence"
 
 (* [trm_remove_marks t]: removes all the marks from trm [t] *)
 let trm_remove_marks (t : trm) : trm =
@@ -58,7 +58,7 @@ let trm_rem_mark_between (m : mark) (t : trm) : trm =
   | Trm_seq tl ->
     let new_tl = Mlist.remove_mark m tl in
     trm_seq ~annot:t.annot new_tl
-  | _ -> fail t.loc "Ast.trm_rem_mark_between: expected a sequence"
+  | _ -> trm_fail t "Ast.trm_rem_mark_between: expected a sequence"
 
 (* [trm_has_mark m t]: checks if trm [t] has mark [m]. *)
 let trm_has_mark (m : mark) (t : trm) : bool =
@@ -87,7 +87,7 @@ let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
         | None ->
           if List.mem m ml then Some i else None
       ) None tl.marks
-    | _ -> fail t.loc "Ast.get_mark_index: expected a sequence trm"
+    | _ -> trm_fail t "Ast.get_mark_index: expected a sequence trm"
 
 
 (* [loop_step_to_trm l_step]: returns the loop step as trm *)

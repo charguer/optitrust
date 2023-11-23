@@ -623,8 +623,9 @@ and dumping_step (f : unit -> unit) : unit =
   step ~valid:true ~kind:Step_io ~name:"Dumping" ~tags:["IO"] f
 
 (* [error_step f] adds a step accounting for a fatal error *)
-and error_step (error : string) : unit =
-  step ~valid:false ~kind:Step_error ~name:error (fun () -> ())
+and error_step (error : string) (f : unit -> unit): unit =
+  Printf.eprintf "%s\n" error;
+  step ~valid:false ~kind:Step_error ~name:error f
 
 (* [typing_step f] adds a step accounting for a typing recomputation *)
 and typing_step ~name (f : unit -> unit) : unit =
@@ -753,9 +754,9 @@ let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (se
   let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
   if (ser_mode = Serialized_Use (* || ser_mode = Serialized_Make *) || auto_use_ser) then (
     if not ser_file_exists
-      then fail None "Trace.get_initial_ast: please generate a serialized file first";
+      then failwith "Trace.get_initial_ast: please generate a serialized file first";
     if not ser_file_more_recent
-      then fail None (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename);
+      then failwith (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename);
     let ast = Xfile.unserialize_from ser_file in
     if auto_use_ser
       then Printf.printf "Loaded ast from %s.\n" ser_file;
@@ -818,8 +819,26 @@ let finalize () : unit =
   close_root_step()
 
 (* [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
-let finalize_on_error ~(error:string) : unit =
-  error_step error;
+let finalize_on_error ~(exn: exn) : unit =
+  begin match exn with
+  | Trm_error (trm, exn) ->
+    let error = Printexc.to_string exn in
+    error_step error (fun () ->
+      let mark = Mark.next () in
+      let ast = the_trace.cur_ast in
+      let rec apply_mark t =
+        if t == trm then
+          trm_add_mark mark t
+        else
+          trm_map apply_mark t
+      in
+      the_trace.cur_ast <- apply_mark ast;
+    )
+  | Path.Path_error (p, exn) ->
+    error_step (Printexc.to_string exn) (fun () -> ())
+  | exn ->
+    error_step (Printexc.to_string exn) (fun () -> ())
+  end;
   let rec close_all_steps () : unit =
     match the_trace.step_stack with
     | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
@@ -940,7 +959,7 @@ let failure_expected (f : unit -> unit) : unit =
    (i.e., the function [f] itself may call [Trace.apply]. *)
 let apply (f : trm -> trm) : unit =
   if is_trace_dummy()
-    then fail None "Trace.init must be called prior to any transformation.";
+    then failwith "Trace.init must be called prior to any transformation.";
   the_trace.cur_ast <- f the_trace.cur_ast
 
 (* [reset] performs a step that sets the current ast to the original ast *)
@@ -959,7 +978,7 @@ let reset () : unit =
    (* TODO: see whether it's not simpler to use Trace.get_ast() ; DEPRECATED? *)
 let call (f : trm -> unit) : unit =
   if is_trace_dummy()
-    then fail None "Trace.init must be called prior to any transformation.";
+    then failwith "Trace.init must be called prior to any transformation.";
   f the_trace.cur_ast
 
 
@@ -1364,7 +1383,7 @@ let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> 
 let check_recover_original () : unit =
   let check_same ast1 ast2 =
     if AstC_to_c.ast_to_string ast1 <> AstC_to_c.ast_to_string ast2
-      then fail None "Trace.check_recover_original: the current AST is not identical to the original one."
+      then failwith "Trace.check_recover_original: the current AST is not identical to the original one."
       else () (* FOR DEBUG: Printf.printf "check_recover_original: successful" *)
     in
   let orig_ast = get_original_ast () in

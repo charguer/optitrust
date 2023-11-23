@@ -18,22 +18,26 @@ let%transfo intro_calloc (tg : target) : unit =
           begin match calloc_trm.desc with
           | Trm_apps ({desc = Trm_var (_, f);_}, _, _) when (var_has_name f "calloc") ->
             Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
-          | _ -> fail t1.loc "intro_calloc: couldn't find the call to calloc function"
+          | _ -> trm_fail t1 "intro_calloc: couldn't find the call to calloc function"
           end
         | Trm_apps ({desc = Trm_var (_, f);_},_,_) when (var_has_name f "calloc") ->
           Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
         | _ -> try Matrix_basic.intro_calloc [cWriteVar x.name; cFun "calloc"]
-          with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
+          with | _ ->
+            (* TODO: wrap caught exception *)
+            trm_fail tg_trm "intro_calloc: couldn't find the calloc
             opertion on the targeted variable"
         end
 
       | _ ->
          try Matrix_basic.intro_calloc [cWriteVar x.name; cFun "calloc"]
-          with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
+          with | _ ->
+            (* TODO: wrap caught exception *)
+            trm_fail tg_trm "intro_calloc: couldn't find the calloc
             opertion on the targeted variable"
       end
 
-    | _ -> fail None "intro_calloc: the target should be a variable declarartion allocated with alloc"
+    | _ -> trm_fail tg_trm "intro_calloc: the target should be a variable declarartion allocated with alloc"
   ) tg
 
 
@@ -62,22 +66,26 @@ let%transfo intro_malloc (tg : target) : unit =
           begin match malloc_trm.desc with
           | Trm_apps ({desc = Trm_var (_, f);_}, _, _) when (var_has_name f "malloc") ->
             Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
-          | _ -> fail t1.loc "intro_malloc: couldn't find the call to malloc function"
+          | _ -> trm_fail t1 "intro_malloc: couldn't find the call to malloc function"
           end
         | Trm_apps ({desc = Trm_var (_, f);_},_,_) when  (var_has_name f "malloc") ->
           Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
         | _ ->
          try Matrix_basic.intro_malloc [cWriteVar x.name; cFun "malloc"]
-          with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc
+          with _ ->
+            (* TODO: wrap caught exception *)
+            trm_fail tg_trm "intro_malloc: couldn't find the malloc
             operation on the targeted variable"
         end
 
       | _ ->
          try Matrix_basic.intro_malloc [cWriteVar x.name; cFun "malloc"]
-          with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc
+          with _ ->
+            (* TODO: wrap caught exception *)
+            trm_fail tg_trm "intro_malloc: couldn't find the malloc
             opertion on the targeted variable"
       end
-    | _ -> fail None "intro_malloc: the target should be a variable declarartion allocated with alloc"
+    | _ -> failwith "intro_malloc: the target should be a variable declarartion allocated with alloc"
   ) tg
 
 
@@ -92,7 +100,7 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
       Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
     | Trm_apps (_, [{desc = Trm_var (_, p)}; _], _)  when is_set_operation tg_trm ->
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
-    | _ -> fail tg_trm.loc "biject: expected a variable declaration"
+    | _ -> trm_fail tg_trm "biject: expected a variable declaration"
   ) tg
 
 (* [intro_mops dims]: expects the target [tg] to point at an array declaration allocated with
@@ -113,7 +121,7 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
         intro_calloc (target_of_path p)
       ) with
       | Success -> ()
-      | Failure _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc"
+      | Failure _ -> trm_fail tg_trm "intro_mops: the targeted matrix was not allocated with malloc or calloc"
     end
   ) tg
 
