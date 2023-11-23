@@ -255,6 +255,10 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           | Failure Variable_core.Init_attach_no_occurrences
           | Failure Variable_core.Init_attach_occurrence_below_control ->
             false
+          (* FIXME: cleanup this code *)
+          | Failure (Path_error (_, Variable_core.Init_attach_no_occurrences))
+          | Failure (Path_error (_, Variable_core.Init_attach_occurrence_below_control)) ->
+              false
           | Failure e -> raise e
           in
           if success_attach then begin
