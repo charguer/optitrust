@@ -534,7 +534,7 @@ let action_run (tests : string list) : unit =
   let oldstdout = Unix.dup Unix.stdout in
   let catpured_stdout_channel_ref = ref None in
   let catpured_stdout_file = Filename.temp_file "optitrust_batch_stdout" ".txt" in
-  let capture = true in (* !Flags.hide_stdout *)
+  let capture = !Flags.hide_stdout in
   if capture then begin
     let catpured_stdout_channel = open_out catpured_stdout_file in
     Unix.dup2 (Unix.descr_of_out_channel catpured_stdout_channel) Unix.stdout;
