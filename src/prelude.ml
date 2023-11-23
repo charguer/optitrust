@@ -34,7 +34,7 @@ let find_var_in_current_ast ?(target : target = []) (name : string) : var =
 (* TODO: DEPRECATE *)
 let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
   try f () with
-  | Trm_error (_, Failure msg2) -> assert (msg = msg2)
+  | Contextualized_error (_, Failure msg2) -> assert (msg = msg2)
 
 (* [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct

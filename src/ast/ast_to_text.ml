@@ -715,7 +715,16 @@ let typ_option_to_string ?(style : style option) (t : typ option) : string =
   | Some ty -> typ_to_string ?style ty
 
 let _ = Printexc.register_printer (function
-  | Trm_error (trm, exn) ->
+  | Contextualized_error (contexts, exn) ->
     let ds = default_style () in
-    Some (Printf.sprintf "Trm_error @ %s:\n%s" (ast_to_string ~style:{ds with only_desc = true } trm) (Printexc.to_string exn))
+    let ctx_lines = List.concat_map (fun c ->
+      List.filter_map (fun x -> x) [
+        Option.map (fun p -> "@ path " ^ Dir.path_to_string p) c.path;
+        Option.map (fun t -> "@ term " ^ (ast_to_string ~style:{ds with only_desc = true }) t) c.trm;
+        (* TODO: print loc
+        Option.map (fun t -> "@ loc " ^ (print_info loc) c.loc; *)
+        (if c.msg = "" then None else Some c.msg)
+      ]
+    ) contexts in
+    Some (String.concat ":\n" (ctx_lines @ [(Printexc.to_string exn)]))
   | _ -> None)

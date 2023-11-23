@@ -629,38 +629,48 @@ and error_step (exn : exn): unit =
     let infos = step.step_infos in
     infos.step_name <- prefix ^ infos.step_name
   in
+  let process_context (contexts : error_context list) : unit =
+    List.iter (fun c ->
+      Option.iter (fun p ->
+        let mark = Mark.next () in
+        let prefix = ref p in
+        let prefix_invalid = ref true in
+        (* TODO: factorize this code in Path. module *)
+        while !prefix_invalid do
+          try
+            the_trace.cur_ast <- Path.apply_on_path (trm_add_mark mark) the_trace.cur_ast !prefix;
+            prefix_invalid := false;
+          with
+          | _ -> (* TODO: more precise catch ? *)
+            prefix := Path.parent !prefix
+        done;
+        let prefix_len = List.length !prefix in
+        if prefix_len == List.length p
+          then preprend_to_step_name (" @ path " ^ mark)
+          else preprend_to_step_name (" @ path " ^ mark ^ "+" ^ (Path.path_to_string (Xlist.drop prefix_len p)));
+      ) c.path;
+      Option.iter (fun trm ->
+        let mark = Mark.next () in
+        let marked = ref false in
+        let rec apply_mark t =
+          if t == trm then begin
+            marked := true;
+            trm_add_mark mark t
+          end else
+            trm_map apply_mark t
+        in
+        the_trace.cur_ast <- apply_mark the_trace.cur_ast;
+        preprend_to_step_name (" @ term " ^ mark);
+      ) c.trm;
+      (* TODO: c.loc *)
+      if c.msg <> "" then
+        preprend_to_step_name (" " ^ c.msg);
+    ) (List.rev contexts)
+  in
   let rec process (exn : exn) : unit =
     match exn with
-    | Trm_error (trm, exn) ->
-      let mark = Mark.next () in
-      let marked = ref false in
-      let rec apply_mark t =
-        if t == trm then begin
-          marked := true;
-          trm_add_mark mark t
-        end else
-          trm_map apply_mark t
-      in
-      the_trace.cur_ast <- apply_mark the_trace.cur_ast;
-      preprend_to_step_name (" @ term " ^ mark);
-      process exn;
-    | Path.Path_error (p, exn) ->
-      let mark = Mark.next () in
-      let prefix = ref p in
-      let prefix_invalid = ref true in
-      (* TODO: factorize this code in Path. module *)
-      while !prefix_invalid do
-        try
-          the_trace.cur_ast <- Path.apply_on_path (trm_add_mark mark) the_trace.cur_ast !prefix;
-          prefix_invalid := false;
-        with
-        | Path.Path_error _ ->
-          prefix := Path.parent !prefix
-      done;
-      let prefix_len = List.length !prefix in
-      if prefix_len == List.length p
-        then preprend_to_step_name (" @ path " ^ mark)
-        else preprend_to_step_name (" @ path " ^ mark ^ "+ " ^ (Path.path_to_string (Xlist.drop prefix_len p)));
+    | Contextualized_error (contexts, exn) ->
+      process_context contexts;
       process exn;
     | Failure msg ->
       preprend_to_step_name msg

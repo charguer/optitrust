@@ -13,7 +13,7 @@ let%transfo copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = 
   Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) ->
       let tg_dest_path_seq, dest_index = if dest = [] then p, i+1 else Target.resolve_target_between_exactly_one dest t in
-      if tg_dest_path_seq <> p then Path.path_fail p "Instr_basic.copy: the destination target should be unique and belong to the same block as the main targets";
+      if tg_dest_path_seq <> p then path_fail p "Instr_basic.copy: the destination target should be unique and belong to the same block as the main targets";
       Instr_core.copy dest_index i delete t p) tg
 
 
@@ -35,7 +35,7 @@ let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : uni
   Target.apply ~rev (fun t instr_p ->
     let (p_seq, i) = Internal.isolate_last_dir_in_seq instr_p in
     let dest_p_seq, dest_index = if dest = [] then p_seq, i+1 else Target.resolve_target_between_exactly_one dest t in
-    if dest_p_seq <> p_seq then Path.path_fail p_seq "Instr_basic.move: the destination target should be unique and belong to the same block as the main targets";
+    if dest_p_seq <> p_seq then path_fail p_seq "Instr_basic.move: the destination target should be unique and belong to the same block as the main targets";
     if !Flags.check_validity then begin
       let instr_t = Path.resolve_path instr_p t in
       let (first_swapped_i, last_swapped_i, assert_seq_instrs_commute) =

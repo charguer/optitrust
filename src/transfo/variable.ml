@@ -167,7 +167,7 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
   List.iteri (fun _i p ->
     let path_to_seq, _ , index  = Internal.get_instruction_in_surrounding_sequence p in
     if !path_to_surrounding_seq = [] then path_to_surrounding_seq := path_to_seq
-      else if !path_to_surrounding_seq <> path_to_seq then Path.path_fail path_to_seq "Variable.intro_patter_array: all the targeted instuctions should belong to the same englobing sequence";
+      else if !path_to_surrounding_seq <> path_to_seq then path_fail path_to_seq "Variable.intro_patter_array: all the targeted instuctions should belong to the same englobing sequence";
     if index < !minimal_index then minimal_index := index;
   ) paths;
   let nb_paths = List.length paths in

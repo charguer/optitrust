@@ -45,7 +45,7 @@ let%transfo delete ?(nb : int = 1) (tg : target) : unit =
   Target.iter (fun _ p ->
     if !Flags.check_validity then begin
       if nb <> 1 then
-        Path.path_fail p "Sequence_basic.delete";
+        path_fail p "Sequence_basic.delete";
       Resources.assert_instr_effects_shadowed p;
       Trace.justif "nothing modified by the instruction is observed later"
     end;

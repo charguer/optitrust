@@ -252,12 +252,8 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
             Variable_basic.init_attach [new_target]
           ) with
           | Success -> true
-          | Failure Variable_core.Init_attach_no_occurrences
-          | Failure Variable_core.Init_attach_occurrence_below_control ->
-            false
-          (* FIXME: cleanup this code *)
-          | Failure (Path_error (_, Variable_core.Init_attach_no_occurrences))
-          | Failure (Path_error (_, Variable_core.Init_attach_occurrence_below_control)) ->
+          | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences))
+          | Failure (Contextualized_error (_, Variable_core.Init_attach_occurrence_below_control)) ->
               false
           | Failure e -> raise e
           in

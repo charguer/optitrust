@@ -21,7 +21,7 @@ let replace_fun (name : var) : Target.Transfo.local =
 (* [view_subterms_aux stringreprs ro]: prints the string representations of all the subterms of [t]  *)
 let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp option) (t : trm) : trm =
   let sprintf = Printf.sprintf in
-  let rec aux t =
+  let rec aux (t : trm) : trm =
     let sloc =
       match t.loc with
       | None -> "<noloc>"

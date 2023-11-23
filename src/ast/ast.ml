@@ -1088,13 +1088,50 @@ let typing_ctx (ctx_types: typ_ctx): ctx =
 
 (*****************************************************************************)
 
-(** [Trm_error]: exception raised in case a term computation has failed. *)
-exception Trm_error of trm * exn
+type error_context = {
+  path: Dir.path option;
+  trm: trm option;
+  loc: location;
+  msg: string;
+  (* TODO: fatal: bool; *)
+}
 
-(* LATER: move to trm.ml *)
+(** [Contextualized_error]: exception raised within a given context. *)
+exception Contextualized_error of error_context list * exn
+
+let contextualized_error (ctx : error_context) (error : string) : 'a =
+  raise (Contextualized_error ([ctx], Failure error))
+
+let contextualized_exn (ctx : error_context) (exn : exn) : 'a =
+  raise (Contextualized_error ([ctx], exn))
+
+(* LATER: use Path.fail or fail ~path *)
+(* [path_fail p err]: fails with error [error] raised on path [p] *)
+let path_fail (p : Dir.path) (error : string) : 'a =
+  contextualized_error {
+    path = Some p;
+    trm = None;
+    loc = None;
+    msg = ""
+  } error
+
+let path_exn (p : Dir.path) ?(error : string = "") (exn : exn) : 'a =
+  contextualized_exn {
+    path = Some p;
+    trm = None;
+    loc = None;
+    msg = error
+  } exn
+
+(* LATER: move to trm.ml or have fail ~trm *)
 (* [trm_fail t err]: fails with error [error] raised on term [t] *)
 let trm_fail (t : trm) (error : string) : 'a =
-  raise (Trm_error (t, Failure error))
+  contextualized_error {
+    path = None;
+    trm = Some t;
+    loc = t.loc;
+    msg = ""
+  } error
 
 let unsome_or_trm_fail (t: trm) (error: string) (x_opt : 'a option) : 'a =
     match x_opt with
@@ -1103,11 +1140,13 @@ let unsome_or_trm_fail (t: trm) (error: string) (x_opt : 'a option) : 'a =
 
 (* ********************************************************************************************** *)
 
-(** [Loc_error]: exception raised in case parsing has failed. *)
-exception Loc_error of location * exn
-
 let loc_fail (loc : location) (error : string) : 'a =
-  raise (Loc_error (loc, Failure error))
+  contextualized_error {
+    path = None;
+    trm = None;
+    loc = loc;
+    msg = ""
+  } error
 
 (* [print_info loc]: computes a function that prints information related to some location in file only if the verbose
    flag is activated *)

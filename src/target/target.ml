@@ -1728,7 +1728,7 @@ let get_ast () : trm =
 let get_function_var_at (dl : path) : var option =
   let fun_decl = match get_trm_at (target_of_path dl) with
     | Some fd -> fd
-    | None -> Path.path_fail dl "get_function_name_at: couldn't retrive the function name at the targeted path"
+    | None -> path_fail dl "get_function_name_at: couldn't retrive the function name at the targeted path"
    in
   match fun_decl.desc with
   | Trm_let_fun (f, _, _, _, _) -> Some f

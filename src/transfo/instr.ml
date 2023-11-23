@@ -141,8 +141,8 @@ let%transfo move ~dest:(dest : target) (tg : target) : unit =
 (* [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
 let%transfo move_out (tg : target) : unit =
   iter_on_targets (fun t p ->
-    let (seq, _) = try Internal.isolate_last_dir_in_seq p with | Path.Path_error _ ->
-      Path.path_fail p "Instr.move_out: only instructions can be targeted" in
+    let (seq, _) = try Internal.isolate_last_dir_in_seq p with | Contextualized_error _ ->
+      path_fail p "Instr.move_out: only instructions can be targeted" in
     let tg_seq = target_of_path seq in
     let tg_instr = target_of_path p in
     move ~dest:tg_seq tg_instr
@@ -161,7 +161,7 @@ let%transfo move_out_of_fun (tg : target) : unit =
       move ~dest:[cMark mark] tg_instr;
       Marks.remove mark [cMark mark]
       end
-    | None -> Path.path_fail p "Instr.move_out_of_fun: can't move toplevel instructions"
+    | None -> path_fail p "Instr.move_out_of_fun: can't move toplevel instructions"
 
   ) tg
 

@@ -1,8 +1,6 @@
 open Prelude
 open Target
 
-let path_fail = Path.path_fail
-
 (* [same_kind t1 t2]: check if two ast nodes are of the same kind or not *)
 let same_kind (t1 : trm) (t2 : trm) : bool =
   match t1.desc, t2 .desc with
