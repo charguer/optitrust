@@ -717,5 +717,5 @@ let typ_option_to_string ?(style : style option) (t : typ option) : string =
 let _ = Printexc.register_printer (function
   | Trm_error (trm, exn) ->
     let ds = default_style () in
-    Some (Printf.sprintf "%s: %s" (ast_to_string ~style:{ds with only_desc = true } trm) (Printexc.to_string exn))
+    Some (Printf.sprintf "Trm_error @ %s:\n%s" (ast_to_string ~style:{ds with only_desc = true } trm) (Printexc.to_string exn))
   | _ -> None)

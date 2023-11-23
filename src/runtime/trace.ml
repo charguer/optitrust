@@ -623,9 +623,51 @@ and dumping_step (f : unit -> unit) : unit =
   step ~valid:true ~kind:Step_io ~name:"Dumping" ~tags:["IO"] f
 
 (* [error_step f] adds a step accounting for a fatal error *)
-and error_step (error : string) (f : unit -> unit): unit =
-  Printf.eprintf "%s\n" error;
-  step ~valid:false ~kind:Step_error ~name:error f
+and error_step (exn : exn): unit =
+  let preprend_to_step_name (prefix: string) : unit =
+    let step = get_cur_step () in
+    let infos = step.step_infos in
+    infos.step_name <- prefix ^ infos.step_name
+  in
+  let rec process (exn : exn) : unit =
+    match exn with
+    | Trm_error (trm, exn) ->
+      let mark = Mark.next () in
+      let marked = ref false in
+      let rec apply_mark t =
+        if t == trm then begin
+          marked := true;
+          trm_add_mark mark t
+        end else
+          trm_map apply_mark t
+      in
+      the_trace.cur_ast <- apply_mark the_trace.cur_ast;
+      preprend_to_step_name (" @ term " ^ mark);
+      process exn;
+    | Path.Path_error (p, exn) ->
+      let mark = Mark.next () in
+      let prefix = ref p in
+      let prefix_invalid = ref true in
+      (* TODO: factorize this code in Path. module *)
+      while !prefix_invalid do
+        try
+          the_trace.cur_ast <- Path.apply_on_path (trm_add_mark mark) the_trace.cur_ast !prefix;
+          prefix_invalid := false;
+        with
+        | Path.Path_error _ ->
+          prefix := Path.parent !prefix
+      done;
+      let prefix_len = List.length !prefix in
+      if prefix_len == List.length p
+        then preprend_to_step_name (" @ path " ^ mark)
+        else preprend_to_step_name (" @ path " ^ mark ^ "+ " ^ (Path.path_to_string (Xlist.drop prefix_len p)));
+      process exn;
+    | Failure msg ->
+      preprend_to_step_name msg
+    | _ ->
+      preprend_to_step_name (Printexc.to_string exn)
+  in
+  step ~valid:false ~kind:Step_error ~name:"" (fun () -> process exn)
 
 (* [typing_step f] adds a step accounting for a typing recomputation *)
 and typing_step ~name (f : unit -> unit) : unit =
@@ -820,25 +862,8 @@ let finalize () : unit =
 
 (* [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
 let finalize_on_error ~(exn: exn) : unit =
-  begin match exn with
-  | Trm_error (trm, exn) ->
-    let error = Printexc.to_string exn in
-    error_step error (fun () ->
-      let mark = Mark.next () in
-      let ast = the_trace.cur_ast in
-      let rec apply_mark t =
-        if t == trm then
-          trm_add_mark mark t
-        else
-          trm_map apply_mark t
-      in
-      the_trace.cur_ast <- apply_mark ast;
-    )
-  | Path.Path_error (p, exn) ->
-    error_step (Printexc.to_string exn) (fun () -> ())
-  | exn ->
-    error_step (Printexc.to_string exn) (fun () -> ())
-  end;
+  Printf.eprintf "%s\n" (Printexc.to_string exn); (* FIXME: not here? *)
+  error_step exn;
   let rec close_all_steps () : unit =
     match the_trace.step_stack with
     | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"

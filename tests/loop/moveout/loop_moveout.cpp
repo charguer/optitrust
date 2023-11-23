@@ -1,3 +1,5 @@
+#include <optitrust.h>
+
 int * t;
 int main(){
   int a = 5;

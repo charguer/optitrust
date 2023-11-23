@@ -16,6 +16,10 @@ let _ = Run.script_cpp (fun () ->
   show [cVarDef "b"];
   show [tFirst; cFunDef "main"; cStrict; dBody];
 
+  (* uncomment to test wrong path:
+  let ps = Target.resolve_target_current_ast [cVarDef "a"] in
+  !! Label.add "wrong" (target_of_path ((List.hd ps) @ Path.[Dir_else])); *)
+
   (* Show the current ast *)
   show_ast();
   (* Show the resources *)

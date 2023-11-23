@@ -149,6 +149,11 @@ let paths_to_string ?(sep:string="; ") (dls : paths) : string =
 (** [Path_error]: exception raised in case a path computation has failed. *)
 exception Path_error of path * exn
 
+let _ = Printexc.register_printer (function
+  | Path_error (path, exn) ->
+    Some (Printf.sprintf "Path_error @ %s:\n%s" (path_to_string path) (Printexc.to_string exn))
+  | _ -> None)
+
 (* LATER: use Path.fail *)
 (* [path_fail p err]: fails with error [error] raised on path [p] *)
 let path_fail (p : path) (error : string) : 'a =
