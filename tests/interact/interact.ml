@@ -19,6 +19,9 @@ let _ = Run.script_cpp (fun () ->
   (* uncomment to test wrong path:
   let ps = Target.resolve_target_current_ast [cVarDef "a"] in
   !! Label.add "wrong" (target_of_path ((List.hd ps) @ Path.[Dir_else])); *)
+  (* uncomment to test wrong term:
+    FIXME: marks on == doesn't seem to work
+  !! Variable.init_detach [cVarInit "a"]; *)
 
   (* Show the current ast *)
   show_ast();
