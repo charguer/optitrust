@@ -435,35 +435,6 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "%s: Resource check error: %s" (loc_to_string loc) (Printexc.to_string err))
   | _ -> None)
 
-(* LATER: Extensible list of applications that can be translated into formula.
-   OR A term can be embedded in a formula if it is pure (no linear resources).
-   Does [t] change or is this just checking whether trm_is_formula?
-   I.e. are the trm and formula languages intersecting or separate?
-   *)
-let rec formula_of_trm (t: trm): formula option =
-  let open Tools.OptionMonad in
-  match t.desc with
-  | Trm_val _ | Trm_var _ -> Some t
-  | Trm_apps (fn, args, _) ->
-    let* f_args = try Some (List.map (fun arg -> Option.get (formula_of_trm arg)) args) with Invalid_argument _ -> None in
-    begin match trm_prim_inv fn with
-      | Some Prim_binop Binop_add
-      | Some Prim_binop Binop_sub
-      | Some Prim_binop Binop_mul
-      | Some Prim_binop Binop_div
-      | Some Prim_binop Binop_mod
-      | Some Prim_binop Binop_array_access
-          -> Some (trm_apps fn f_args)
-      | Some _ -> None
-      | None ->
-        begin match trm_var_inv fn with
-          | Some fv when Matrix_trm.mindex_var_inv fv <> None
-              -> Some (trm_apps fn f_args)
-          | _ -> None
-        end
-    end
-  | _ -> None
-
 let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resource_usage_map): resource_usage_map =
   Hyp_map.merge (fun hyp cur_use new_use ->
       match cur_use, new_use with
