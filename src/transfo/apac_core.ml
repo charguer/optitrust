@@ -80,7 +80,7 @@ and const_funs = const_fun Var_Hashtbl.t
    For example, in the case of the following function definition,
 
    void f(int a, int * tab) {
-   float f;
+   float b;
    void ** data;
    ...
    } 
@@ -89,7 +89,7 @@ and const_funs = const_fun Var_Hashtbl.t
 
    a, 0
    tab, 1
-   f, 0
+   b, 0
    data, 2 *)
 and fun_symbols = int Var_Hashtbl.t
 
