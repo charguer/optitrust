@@ -27,6 +27,9 @@ let push_pure (res: resource_item) (res_set: resource_set) =
 let push_linear (res: resource_item) (res_set: resource_set) =
   { res_set with linear = res :: res_set.linear }
 
+let add_linear (res: resource_item list) (res_set: resource_set) =
+  { res_set with linear = res @ res_set.linear }
+
 let group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
     linear = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.linear;

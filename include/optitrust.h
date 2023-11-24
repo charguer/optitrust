@@ -299,10 +299,10 @@ __GHOST(forget_init) {
 /* ---- Group Ghosts ---- */
 
 __GHOST(ro_fork_group) {
-  __requires("f: _Fraction, R: formula, r: range");
-  __consumes("_RO(f, R)");
-  // TODO: can we write: Group(r, fun _ -> _RO(f / range_count(r), R)) ?
-  __produces("_RO(f / range_count(r), Group(r, fun _ -> R))");
+  __requires("f: _Fraction, H: formula, r: range");
+  __consumes("_RO(f, H)");
+  // TODO: can we write: Group(r, fun _ -> _RO(f / range_count(r), H)) ?
+  __produces("_RO(f / range_count(r), Group(r, fun _ -> H))");
   __admitted();
 }
 
@@ -340,6 +340,32 @@ __GHOST(tile_divides) {
 
 __GHOST(untile_divides) {
   __reverts(tile_divides);
+  __admitted();
+}
+
+__GHOST(ro_tile_divides) {
+  __requires(
+    "tile_count: int, tile_size: int,"
+    "n: int, to_item: int -> resource,"
+    "bound_check: n = tile_size * tile_count,"
+    "f: _Fraction"
+  );
+  __consumes("_RO(f, Group(range(0, n, 1), to_item))");
+  __produces("_RO(f, Group(range(0, tile_count, 1), fun bi ->"
+               "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i))))");
+  __admitted();
+}
+
+__GHOST(ro_untile_divides) {
+  __requires(
+    "tile_count: int, tile_size: int,"
+    "n: int, to_item: int -> resource,"
+    "bound_check: n = tile_size * tile_count,"
+    "f: _Fraction"
+  );
+  __consumes("_RO(_Full(f), Group(range(0, tile_count, 1), fun bi ->"
+               "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i))))");
+  __produces("_RO(f, Group(range(0, n, 1), to_item))");
   __admitted();
 }
 

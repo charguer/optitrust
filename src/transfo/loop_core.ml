@@ -32,6 +32,9 @@ let color (nb_colors : trm) (i_color : string option ) : Transfo.local =
 let ghost_tile_divides = name_to_var "tile_divides"
 let ghost_untile_divides = name_to_var "untile_divides"
 
+let ghost_ro_tile_divides = name_to_var "ro_tile_divides"
+let ghost_ro_untile_divides = name_to_var "ro_untile_divides"
+
 (*  [tile_aux divides b tile_index t]: tiles loop [t],
       [tile_index] - string representing the index used for the new outer loop,
       [bound] - a tile_bound type variable representing the type of the bound used in
@@ -104,15 +107,20 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
 
         (* TODO: Also tile groups in pure resources *)
         (* TODO: Give the used resource instead of specifying ghost parameters? *)
-        let add_tiling_ghost ghost =
+        let add_tiling_ghost ghost ro_ghost =
           List.map (fun (_, formula) ->
+              let ghost, formula =
+                match formula_read_only_inv formula with
+                | Some { formula } -> ro_ghost, formula
+                | None -> ghost, formula
+              in
               let i = new_var index.name in
               let to_item = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
-              trm_ghost ghost [("tile_count", tile_count); ("tile_size", tile_size); ("n", count); ("to_item", to_item); ("bound_check", formula_checked)]
+              trm_ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("n", count); ("to_item", to_item); ("bound_check", formula_checked)])
             )
         in
-        let ghosts_before = add_tiling_ghost ghost_tile_divides contract.iter_contract.pre.linear in
-        let ghosts_after = add_tiling_ghost ghost_untile_divides contract.iter_contract.post.linear in
+        let ghosts_before = add_tiling_ghost ghost_tile_divides ghost_ro_tile_divides contract.iter_contract.pre.linear in
+        let ghosts_after = add_tiling_ghost ghost_untile_divides ghost_ro_untile_divides contract.iter_contract.post.linear in
 
         trm_seq_nobrace_nomarks (ghosts_before @ [
           trm_for ~contract:contract_outer outer_range (trm_seq_nomarks [

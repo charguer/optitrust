@@ -15,7 +15,7 @@ let embed_loop_on (t: trm): trm =
   if not (contains_only_ghost_code t) then failwith "Ghost.embed_loop_on: the loop contains non ghost code";
   let range, body, contract = trm_inv ~error:"Ghost.embed_loop_on: can only be applied on a for loop" trm_for_inv t in
   let outer_contract = loop_outer_contract range (Option.get contract) in
-  trm_ghost_varargs (trm_fun [] None ~contract:(FunSpecContract outer_contract) (trm_seq (Mlist.of_list [trm_copy t]))) []
+  trm_ghost (ghost_closure_call outer_contract (trm_seq (Mlist.of_list [trm_copy t])))
 
 let%transfo embed_loop (tg: target): unit =
   Resources.ensure_computed ();

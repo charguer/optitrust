@@ -1,9 +1,11 @@
 open Optitrust
-open Target
 open Prelude
 
 let _ = Flags.check_validity := true
 let _ = Flags.pretty_matrix_notation := true
+let _ = Flags.recompute_resources_between_steps := true
+
+let _ = Flags.resource_errors_as_warnings := true
 
 (* Reproducing a TVM schedule from:
    https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html
@@ -21,17 +23,15 @@ let _ = Run.script_cpp (fun () ->
   Resources.show ();
 
   !! Function.inline_def [cFunDef "mm"];
-  Resources.recompute_all_resources ();
 
   let tile (loop_id, tile_size) = Loop.tile (int tile_size) ~index:("b" ^ loop_id) ~bound:TileDivides [cFor loop_id] in
   !! List.iter tile [("i", 32); ("j", 32); ("k", 4)];
-  !! Resources.recompute_all_resources ();
 
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEq [cVar "sum"]];
 
   (* TODO *)
-  Resources.recompute_all_resources ();
   Flags.check_validity := false;
+  Flags.recompute_resources_between_steps := false;
   !!! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "pB" ~indep:["bi"; "i"] [cArrayRead "B"];
   !!! Matrix.stack_copy ~var:"sum" ~copy_var:"s" ~copy_dims:1 [cFor ~body:[cPlusEq [cVar "sum"]] "k"];
   !! Matrix.elim_mops [];

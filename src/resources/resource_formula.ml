@@ -143,12 +143,15 @@ let formula_uninit_map (f_map: formula -> formula) (formula: formula) =
 let formula_mode_map (f_map: formula -> formula): formula -> formula =
   formula_read_only_map (formula_uninit_map f_map)
 
-let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) =
+let formula_loop_range ((_, tfrom, dir, tto, step, _): loop_range): formula =
+  if dir <> DirUp then failwith "formula_loop_range only supports DirUp";
+  trm_apps trm_range [tfrom; tto; loop_step_to_trm step]
+
+let formula_group_range ((idx, _, _, _, _, _) as range: loop_range) =
   formula_mode_map (fun fi ->
-    if dir <> DirUp then failwith "formula_group_range only supports DirUp";
     let range_var = new_var ~qualifier:idx.qualifier idx.name in
     let fi = trm_subst_var idx (trm_var range_var) fi in
-    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [tfrom; tto; loop_step_to_trm step]; formula_fun [range_var, typ_int ()] None fi]
+    trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int ()] None fi]
   )
 
 let formula_matrix_inv (f: formula): (trm * trm list) option =
@@ -208,7 +211,7 @@ let trm_ghost_inv t =
   Pattern.pattern_match t [
     Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args ->
       if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
-      Some (ghost_fn, ghost_args)
+      Some { ghost_fn; ghost_args }
     );
     Pattern.(__) None
   ]
@@ -227,34 +230,34 @@ let generate_ghost_pair_var ?name () =
     ghost_pair_last_id := ghost_pair_id + 1;
     new_var (sprintf "__ghost_pair_%d" ghost_pair_id)
 
-let trm_ghost_begin (ghost_pair_var: var) (ghost_fn: trm) (ghost_args: (var * trm) list): trm =
+let trm_ghost_begin (ghost_pair_var: var) (ghost_call: ghost_call) : trm =
   trm_add_cstyle GhostCall (trm_let Var_immutable (ghost_pair_var, typ_ghost_fn)
-  (trm_apps (trm_var ghost_begin) [trm_ghost_varargs ghost_fn ghost_args]))
+  (trm_apps (trm_var ghost_begin) [trm_ghost ghost_call]))
 
 let trm_ghost_end (ghost_pair_var: var): trm =
   trm_add_cstyle GhostCall (trm_apps (trm_var ghost_end) [trm_var ghost_pair_var])
 
-let trm_ghost_pair ?(name: string option) (ghost_fn: trm) (ghost_args: (var * trm) list): var * trm * trm =
+let trm_ghost_pair ?(name: string option) (ghost_call: ghost_call) : var * trm * trm =
   let ghost_pair_var = generate_ghost_pair_var ?name () in
   (ghost_pair_var,
-   trm_ghost_begin ghost_pair_var ghost_fn ghost_args,
+   trm_ghost_begin ghost_pair_var ghost_call,
    trm_ghost_end ghost_pair_var)
 
 let trm_ghost_custom_pair ?(name: string option) (forward_fn: trm) (backward_fn: trm): var * trm * trm =
   let ghost_pair_var = generate_ghost_pair_var ?name () in
   let ghost_with_reverse = trm_apps (trm_var with_reverse) [forward_fn; backward_fn] in
   (ghost_pair_var,
-   trm_ghost_begin ghost_pair_var ghost_with_reverse [],
+   trm_ghost_begin ghost_pair_var { ghost_fn = ghost_with_reverse; ghost_args = [] },
    trm_ghost_end ghost_pair_var)
 
-let trm_ghost_scope (ghost_fn: trm) (ghost_args: (var * trm) list) (seq: trm list): trm =
-  let _, ghost_begin, ghost_end = trm_ghost_pair ghost_fn ghost_args in
-  Nobrace.trm_seq_nomarks (ghost_begin :: seq @ [ghost_end])
+let trm_ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): trm =
+  let _, ghost_begin, ghost_end = trm_ghost_pair ?name:pair_name ghost_call in
+  Nobrace.trm_seq_nomarks [ghost_begin; t; ghost_end]
 
-let trm_ghost_begin_inv (t: trm): (var * trm * resource_item list) option =
+let trm_ghost_begin_inv (t: trm): (var * ghost_call) option =
   Pattern.pattern_match t [
     Pattern.(trm_let __ !__ __ (trm_apps1 (trm_var (var_eq ghost_begin)) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args ->
-      Some (pair_var, ghost_fn, ghost_args)
+      Some (pair_var, { ghost_fn; ghost_args })
     );
     Pattern.__ None
   ]
@@ -268,9 +271,9 @@ let trm_ghost_end_inv (t: trm): var option =
 let ghost_rewrite = toplevel_var "rewrite"
 
 let trm_ghost_rewrite (before: formula) (after: formula) (by: formula): trm =
-  trm_ghost ghost_rewrite ["H1", before; "H2", after; "by", by]
+  trm_ghost (ghost_call ghost_rewrite ["H1", before; "H2", after; "by", by])
 
 let ghost_forget_init = name_to_var "forget_init"
 
 let trm_ghost_forget_init (f: formula): trm =
-  trm_ghost ghost_forget_init ["H", f]
+  trm_ghost (ghost_call ghost_forget_init ["H", f])

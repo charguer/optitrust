@@ -95,7 +95,7 @@ let cancel_all_ghost_pairs (seq : trm) : trm =
   let populate_to_delete i instr =
     let i_with_delete = i - List.length !to_delete in
     match trm_ghost_begin_inv instr with
-    | Some (gv, _, _) ->
+    | Some (gv, _) ->
       begins_stack := (gv, i, i_with_delete) :: !begins_stack;
     | None ->
       begin match trm_ghost_end_inv instr with
@@ -154,7 +154,7 @@ let fission_at (split_i : int) (seq : trm) : trm =
       begin match trm_ghost_end_inv instr with
       | Some gv ->
         begin match !begins_stack with
-        | (gv_beg, _, _) :: bs_rest when gv = gv_beg ->
+        | (gv_beg, _) :: bs_rest when gv = gv_beg ->
           begins_stack := bs_rest
         | _ ->
           (* unbalanced ghost pairs, or no matching ghost begin *)
@@ -167,14 +167,14 @@ let fission_at (split_i : int) (seq : trm) : trm =
   Mlist.iter find_begins tl1;
 
   (* 2. End all opened scopes before split point. *)
-  let end_begin (gv, _, _) = trm_ghost_end gv in
+  let end_begin (gv, _) = trm_ghost_end gv in
   let ends = Mlist.of_list (List.map end_begin !begins_stack) in
 
   (* 3. Re-open scopes after split point. *)
   let subst_after_split = ref Var_map.empty in
-  let re_begin (gv, v, args) =
+  let re_begin (gv, g_call) =
     let gv' = generate_ghost_pair_var () in
-    let g_beg = trm_ghost_begin gv' v args in
+    let g_beg = trm_ghost_begin gv' g_call in
     subst_after_split := Var_map.add gv (trm_var gv') !subst_after_split;
     g_beg
   in
@@ -221,7 +221,7 @@ let debug_intro = false
 let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: trm) : trm =
   let seq = trm_inv ~error:"Ghost_pair.intro_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
-  let ghost_fn, ghost_args = trm_inv ~error:"Ghost_pair.intro_on: Should target a ghost call" trm_ghost_inv ghost_begin in
+  let ghost_call = trm_inv ~error:"Ghost_pair.intro_on: Should target a ghost call" trm_ghost_inv ghost_begin in
 
   let invoc_linear_pre_and_post t =
     match t.ctx.ctx_resources_contract_invoc with
@@ -248,11 +248,11 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
       false
   in
 
-  let exception FoundInverse of int * trm * trm in
+  let exception FoundInverse of int * trm in
   try
     Mlist.iteri (fun i t ->
       match trm_ghost_inv t with
-      | Some (ghost_fn, ghost_args) ->
+      | Some end_ghost_call ->
         let correct_mark = match end_mark with
         | Some mark -> trm_has_mark mark t
         | None -> true
@@ -260,19 +260,19 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
         if correct_mark then
           begin match invoc_linear_pre_and_post t with
           | Some end_invoc_res when are_inverse_invoc_res begin_invoc_res end_invoc_res ->
-            raise (FoundInverse (i, ghost_fn, t))
+            raise (FoundInverse (i, t))
           | _ -> ()
           end
       | None -> ()
     ) seq_after;
     failwith "No ghost candidate for forming the end of a pair"
 
-  with FoundInverse (i, end_ghost_fn, end_ghost_call) ->
-    let is_reversible = Option.is_some (find_inverse ghost_fn ghost_begin.ctx.ctx_resources_before) in
+  with FoundInverse (i, end_ghost) ->
+    let is_reversible = Option.is_some (find_inverse ghost_call.ghost_fn ghost_begin.ctx.ctx_resources_before) in
     let _, ghost_begin, ghost_end = if is_reversible then
-        trm_ghost_pair ?name ghost_fn ghost_args
+        trm_ghost_pair ?name ghost_call
       else
-        trm_ghost_custom_pair ?name (trm_specialized_ghost_closure ghost_begin) (trm_specialized_ghost_closure ~remove_contract:true end_ghost_call)
+        trm_ghost_custom_pair ?name (trm_specialized_ghost_closure ghost_begin) (trm_specialized_ghost_closure ~remove_contract:true end_ghost)
     in
     let seq_after = Mlist.replace_at i ghost_end seq_after in
     let seq = Mlist.merge_list [seq_before; Mlist.of_list [ghost_begin]; seq_after] in
@@ -290,7 +290,7 @@ let%transfo intro ?(name: string option) ?(end_mark: mark option) (tg: target) =
 let elim_at ?(mark_begin: mark option) ?(mark_end: mark option) (i: int) (t_seq: trm): trm =
   let seq = trm_inv ~error:"Ghost_pair.elim_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
-  let pair_var, ghost_fn, ghost_args = trm_inv ~error:"Ghost_pair.elim_on: Should target a ghost_begin" trm_ghost_begin_inv ghost_begin in
+  let pair_var, { ghost_fn; ghost_args } = trm_inv ~error:"Ghost_pair.elim_on: Should target a ghost_begin" trm_ghost_begin_inv ghost_begin in
 
   let exception FoundEnd of int in
   try
@@ -307,8 +307,8 @@ let elim_at ?(mark_begin: mark option) ?(mark_end: mark option) (i: int) (t_seq:
       | None -> failwith "Found a non reversible ghost pair"
     in
 
-    let seq_after = Mlist.replace_at i (trm_may_add_mark mark_end (trm_ghost_varargs inverse_ghost_fn ghost_args)) seq_after in
-    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_may_add_mark mark_begin (trm_ghost_varargs (without_inverse ghost_fn) ghost_args)]; seq_after] in
+    let seq_after = Mlist.replace_at i (trm_may_add_mark mark_end (trm_ghost { ghost_fn = inverse_ghost_fn; ghost_args })) seq_after in
+    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_may_add_mark mark_begin (trm_ghost { ghost_fn = without_inverse ghost_fn; ghost_args })]; seq_after] in
     trm_replace (Trm_seq seq) t_seq
 
 (** Split a ghost pair into two independant ghost calls *)

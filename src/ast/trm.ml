@@ -358,13 +358,19 @@ let trm_neq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ?loc ?ctx ~typ:(typ_unit ()) (trm_binop Binop_neq) [t1; t2]
 
-(** Construct a ghost call using variable arg names. *)
-let trm_ghost_varargs (ghost_fn: trm) (ghost_args: (var * formula) list) =
+type ghost_call = {
+  ghost_fn: trm;
+  ghost_args: (var * formula) list;
+}
+
+let trm_ghost ({ ghost_fn; ghost_args } : ghost_call): trm =
   trm_add_cstyle GhostCall (trm_apps ghost_fn [] ~ghost_args)
 
-(** Construct a ghost call using string arg names. *)
-let trm_ghost (ghost_var: var) (ghost_args: (string * formula) list) =
-  trm_ghost_varargs (trm_var ghost_var) (List.map (fun (g, t) -> (name_to_var g, t)) ghost_args)
+let ghost_call (ghost_var: var) (ghost_args: (string * formula) list): ghost_call =
+  { ghost_fn = trm_var ghost_var; ghost_args = List.map (fun (g, t) -> (name_to_var g, t)) ghost_args }
+
+let ghost_closure_call contract body =
+  { ghost_fn = trm_fun [] None ~contract:(FunSpecContract contract) body; ghost_args = [] }
 
 (*****************************************************************************)
 

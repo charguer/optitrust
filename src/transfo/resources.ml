@@ -134,6 +134,36 @@ let%transfo loop_minimize (tg: target) : unit =
   ensure_computed ();
   Target.apply_at_target_paths loop_minimize_on tg
 
+let ro_fork_group = toplevel_var "ro_fork_group"
+let ro_join_group = toplevel_var "ro_join_group"
+
+let loop_parallelize_reads_on (t: trm): trm =
+  let range, body, contract = trm_inv ~error:"loop_minimize: not a for loop" trm_for_inv t in
+  let contract = Xoption.unsome ~error:"loop_minimize: the for loop has no contract" contract in
+  let loop_ghost_vars = Var_set.of_list (List.map (fun (g, _) -> g) contract.loop_ghosts) in
+  let seq_reads_res, seq_modifies_res =
+    List.partition (fun (h, formula) ->
+      match formula_read_only_inv formula with
+      | Some { frac; formula = ro_formula } ->
+        begin match trm_var_inv frac with
+        | Some frac_atom when Var_set.mem frac_atom loop_ghost_vars -> true
+        | _ -> false
+        end
+      | None -> false) contract.invariant.linear
+  in
+  let new_contract = { contract with invariant = { contract.invariant with linear = seq_modifies_res }; iter_contract = { pre = Resource_set.add_linear seq_reads_res contract.iter_contract.pre ; post = Resource_set.add_linear seq_reads_res contract.iter_contract.post } } in
+  List.fold_left (fun t (_, formula) ->
+    let { formula } = trm_inv formula_read_only_inv formula in
+    trm_ghost_scope (ghost_call ro_fork_group ["H", formula; "r", formula_loop_range range]) t
+    ) (trm_replace (Trm_for (range, body, Some new_contract)) t) seq_reads_res
+  (* LATER: We should also remove pure invariants that do not mention the loop index and move them into requires *)
+
+let%transfo loop_parallelize_reads (tg: target): unit =
+  ensure_computed ();
+  Nobrace_transfo.remove_after (fun () ->
+    Target.apply_at_target_paths loop_parallelize_reads_on tg
+  )
+
 let assert_hyp_read_only ~(error : string) ((x, t) : resource_item) : unit =
   match formula_read_only_inv t with
   | Some _ -> ()
