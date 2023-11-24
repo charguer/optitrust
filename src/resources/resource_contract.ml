@@ -127,16 +127,19 @@ let loop_inner_contract range contract =
 let revert_fun_contract contract =
   assert (contract.post.pure = []);
   assert (contract.post.fun_specs = Var_map.empty);
+  assert (contract.post.aliases = Var_map.empty);
   {
     pre = {
       pure = contract.pre.pure;
       linear = contract.post.linear;
-      fun_specs = contract.pre.fun_specs
+      fun_specs = contract.pre.fun_specs;
+      aliases = contract.pre.aliases;
     };
     post = {
       pure = [];
       linear = contract.pre.linear;
-      fun_specs = Var_map.empty
+      fun_specs = Var_map.empty;
+      aliases = Var_map.empty;
     }
   }
 

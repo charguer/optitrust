@@ -232,9 +232,10 @@ exception ImpureFunctionArgument of exn
 *)
 let rec extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
   let remaining_res_to, dominated_evars = eliminate_dominated_evars res_to in
-  let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx)
-      (Var_map.map (fun x -> Some x) subst_ctx) dominated_evars
-  in
+  let evar_ctx = Var_map.map (fun x -> Some (trm_subst res_from.aliases x)) subst_ctx in
+  let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) evar_ctx dominated_evars in
+
+  let res_from = Resource_set.subst_all_aliases res_from in
 
   let used_linear, leftover_linear, evar_ctx = subtract_linear_resource ~split_frac ~evar_ctx res_from.linear res_to.linear in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
@@ -251,7 +252,7 @@ let rec extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_c
       { hyp_to_inst = hyp; inst_by = Var_map.find hyp subst_ctx; used_formula = trm_subst subst_ctx formula }
     ) res_to.pure in
 
-  (* TODO: what is this? *)
+  (* Check higher order function contracts in the post-condition *)
   ignore (Var_map.merge
             (fun fn_name spec_from spec_to ->
               match spec_from, spec_to with
@@ -261,6 +262,8 @@ let rec extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_c
                 failwith (sprintf "higher order functions are not yet implemented (found a spec for %s in pre-condition)" (var_to_string fn_name))
             )
             res_from.fun_specs res_to.fun_specs);
+
+  assert (Var_map.is_empty res_to.aliases);
 
   (subst_ctx, { used_pure; used_linear }, leftover_linear)
 
@@ -292,7 +295,7 @@ let produced_resources_to_resource_set (res_produced: produced_resource_set): re
   in
   let pure = forget_origin res_produced.produced_pure in
   let linear = forget_origin res_produced.produced_linear in
-  { pure; linear; fun_specs = Var_map.empty }
+  Resource_set.make ~pure ~linear ()
 
 
 (* [resource_merge_after_frame]:
@@ -566,6 +569,13 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_let (_, (var, typ), body) ->
       let usage_map, res_after = compute_resources (Some res) body in
+      let res_after = Option.map (fun res_after -> match formula_of_trm body with
+        | Some f_body ->
+          let f_body = trm_subst res_after.aliases f_body in
+          { res_after with aliases = Var_map.add var f_body res_after.aliases }
+        | _ -> res_after)
+        res_after
+      in
       usage_map, Option.map (fun res_after -> Resource_set.rename_var var_result var res_after) res_after
 
     | Trm_apps (fn, effective_args, ghost_args) ->

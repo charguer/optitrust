@@ -2,8 +2,8 @@ open Ast
 open Trm
 open Resource_formula
 
-let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) () =
-  { pure; linear; fun_specs }
+let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Var_map.empty) () =
+  { pure; linear; fun_specs; aliases }
 
 let empty = make ()
 
@@ -11,7 +11,8 @@ let empty = make ()
 let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
   { pure = new_res.pure @ old_res.pure;
     linear = new_res.linear;
-    fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs }
+    fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs;
+    aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases }
 
 let resource_names (res: resource_set) : Var_set.t =
   let res_list_names (res: resource_item list) =
@@ -29,7 +30,8 @@ let push_linear (res: resource_item) (res_set: resource_set) =
 let group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
     linear = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.linear;
-    fun_specs = res.fun_specs; }
+    fun_specs = res.fun_specs;
+    aliases = res.aliases; }
 
 let read_only (res: resource_set): resource_set =
   let frac_var, _ = new_frac () in
@@ -42,7 +44,8 @@ let read_only (res: resource_set): resource_set =
 
 let union (res1: resource_set) (res2: resource_set): resource_set =
   { pure = res1.pure @ res2.pure; linear = res1.linear @ res2.linear;
-    fun_specs = Var_map.union (fun _ _ c -> Some c) res1.fun_specs res2.fun_specs }
+    fun_specs = Var_map.union (fun _ _ c -> Some c) res1.fun_specs res2.fun_specs;
+    aliases = Var_map.union (fun _ _ d -> Some d) res1.aliases res2.aliases; }
 
 (* The built-in variable representing a function's return value. *)
 (* FIXME: #var-id, id should change *)
@@ -61,7 +64,8 @@ let rec subst (subst_map: tmap) (res: resource_set): resource_set =
       { spec with contract = { pre = subst nores_subst_map spec.contract.pre; post = subst nores_subst_map spec.contract.post } })
       res.fun_specs
   in
-  { pure; linear; fun_specs }
+  let aliases = Var_map.map (fun def -> trm_subst subst_map def) res.aliases in
+  { pure; linear; fun_specs; aliases }
 
 let subst_var (x: var) (t: trm) (res: resource_set) : resource_set =
   subst (Var_map.singleton x t) res
@@ -78,3 +82,6 @@ let rename_var (x: var) (new_x: var) (res: resource_set) : resource_set =
           Option.map (fun inv -> if var_eq inv x then new_x else inv) spec_res.inverse
         })
     }
+
+let subst_all_aliases (res: resource_set): resource_set =
+  subst res.aliases { res with aliases = Var_map.empty }

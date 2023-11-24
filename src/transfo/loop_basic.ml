@@ -249,7 +249,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
           Var_set.disjoint (trm_free_vars formula) bound_in_tl1
         ) its
       in
-      let split_res_comm = { pure = []; linear = remove_bound_in_tl1 split_res_comm; fun_specs = Var_map.empty } in
+      let split_res_comm = Resource_set.make ~linear:(remove_bound_in_tl1 split_res_comm) () in
       let fst_invariant = { contract.invariant with linear = tl1_inv } in
       fst_contract := Some {
         loop_ghosts = contract.loop_ghosts;

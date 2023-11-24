@@ -86,34 +86,21 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
      | Some contract ->
         let open Resource_formula in
 
-        let update_index new_index =
-          List.map (fun (h, formula) -> (h, trm_subst_var index new_index formula))
-        in
-        let update_index_resource_set new_index res =
-          { pure = update_index new_index res.pure; linear = update_index new_index res.linear; fun_specs = Var_map.empty }
-        in
         let contract_inner = {
           loop_ghosts = contract.loop_ghosts;
-          invariant = update_index_resource_set new_index contract.invariant;
+          invariant = Resource_set.subst_var index new_index contract.invariant;
           iter_contract = {
-            pre = update_index_resource_set new_index contract.iter_contract.pre;
-            post = update_index_resource_set new_index contract.iter_contract.post }} in
+            pre = Resource_set.subst_var index new_index contract.iter_contract.pre;
+            post = Resource_set.subst_var index new_index contract.iter_contract.post }} in
 
         let outer_index = iteration_to_index (trm_mul (trm_var ?typ:start.typ tile_index) tile_size) in
 
-        let add_inner_range_group =
-          List.map (fun (h, formula) -> (h, formula_group_range inner_range formula))
-        in
-        let add_inner_range_group_resource_set res =
-          { pure = add_inner_range_group res.pure; linear = add_inner_range_group res.linear; fun_specs = Var_map.empty }
-        in
-
         let contract_outer = {
           loop_ghosts = contract.loop_ghosts;
-          invariant = update_index_resource_set outer_index contract.invariant;
+          invariant = Resource_set.subst_var index outer_index contract.invariant;
           iter_contract = {
-            pre = add_inner_range_group_resource_set contract_inner.iter_contract.pre;
-            post = add_inner_range_group_resource_set contract_inner.iter_contract.post }} in
+            pre = Resource_set.group_range inner_range contract_inner.iter_contract.pre;
+            post = Resource_set.group_range inner_range contract_inner.iter_contract.post }} in
 
         (* TODO: Also tile groups in pure resources *)
         (* TODO: Give the used resource instead of specifying ghost parameters? *)
