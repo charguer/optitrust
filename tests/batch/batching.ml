@@ -52,6 +52,7 @@ let run_test ~(script_name:string) (test: unit -> (module TEST)) =
   let program_name = !Flags.program_name in
   let program_path = Filename.dirname program_name in
   Flags.program_name := program_path ^ "/" ^ script_name;
+  Tools.reset_all_generators ();
   report_progress script_name;
   begin try
     let _ = test () in

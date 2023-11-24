@@ -221,14 +221,11 @@ let ghost_end = toplevel_var "__ghost_end"
 let typ_ghost_fn: typ = typ_const (typ_constr ([], "__ghost_fn") ~tid:(-1))
 let with_reverse = toplevel_var "__with_reverse"
 
-let ghost_pair_last_id = ref 0
+let ghost_pair_fresh_id = Tools.fresh_generator ()
 let generate_ghost_pair_var ?name () =
   match name with
   | Some name -> new_var name
-  | None ->
-    let ghost_pair_id = !ghost_pair_last_id in
-    ghost_pair_last_id := ghost_pair_id + 1;
-    new_var (sprintf "__ghost_pair_%d" ghost_pair_id)
+  | None -> new_var (sprintf "__ghost_pair_%d" (ghost_pair_fresh_id ()))
 
 let trm_ghost_begin (ghost_pair_var: var) (ghost_call: ghost_call) : trm =
   trm_add_cstyle GhostCall (trm_let Var_immutable (ghost_pair_var, typ_ghost_fn)

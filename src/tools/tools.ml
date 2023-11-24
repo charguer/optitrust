@@ -113,18 +113,25 @@ let document_to_string ?(width:PPrint.requirement=80) (d : document) : string =
 (*                 Extensions for fresh name generation                       *)
 (******************************************************************************)
 
-(* [fresh_generator()]: generates a function that can be used to return
-   the next integer at each invokation. *)
-let fresh_generator () : (unit -> int) =
-  let n = ref 0 in
-  fun () ->
-    incr n;
-    !n
+let generator_reset_closures = ref []
+
+(* [reset_all_generators]: reset all the generators created by this module *)
+let reset_all_generators () =
+  List.iter (fun reset -> reset ()) !generator_reset_closures
 
 (* [resetable_fresh_generator()]: returns a pair of a generator and its reset function *)
-let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
+let resetable_fresh_generator ?(never_reset = false) () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
-  (fun () -> incr n; !n), (fun () -> n := 0)
+  let next () = incr n; !n in
+  let reset () = n := 0 in
+  if not never_reset then
+    generator_reset_closures := reset :: !generator_reset_closures;
+  next, reset
+
+(* [fresh_generator()]: generates a function that can be used to return
+   the next integer at each invokation. *)
+let fresh_generator ?(never_reset = false) () : (unit -> int) =
+  fst (resetable_fresh_generator ~never_reset ())
 
 let next_tmp_name: unit -> string =
   let gen = fresh_generator () in

@@ -157,8 +157,7 @@ let var_map_of_list l = Var_map.of_seq (List.to_seq l)
 let vars_to_string vs = Trace_printers.(list_arg_printer var_to_string vs)
 
 (* [next_var_int]: generates an integer for variable names *)
-let next_var_int : unit -> int =
-  Tools.fresh_generator()
+let next_var_int : unit -> int = Tools.fresh_generator ~never_reset:true ()
 
 (* [next_fresh_var_int]: generates an integer for variable names that is safe to
    reset with [reset_fresh_var_int]. *)

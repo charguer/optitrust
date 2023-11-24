@@ -4,17 +4,17 @@ void matmul(float* C, float* A, float* B, int m, int n, int p) {
   __modifies("C ~> Matrix2(m, n)");
   __reads("A ~> Matrix2(m, p)");
   __reads("B ~> Matrix2(p, n)");
-  const __ghost_fn __ghost_pair_1 = __ghost_begin(
+  const __ghost_fn __ghost_pair_2 = __ghost_begin(
       ro_fork_group, "H := B ~> Matrix2(p, n), r := range(0, m, 1)");
-  const __ghost_fn __ghost_pair_0 = __ghost_begin(
+  const __ghost_fn __ghost_pair_1 = __ghost_begin(
       ro_fork_group, "H := A ~> Matrix2(m, p), r := range(0, m, 1)");
   for (int i = 0; i < m; i++) {
     __sequentially_modifies("C ~> Matrix2(m, n)");
     __reads("A ~> Matrix2(m, p)");
     __reads("B ~> Matrix2(p, n)");
-    const __ghost_fn __ghost_pair_3 = __ghost_begin(
+    const __ghost_fn __ghost_pair_4 = __ghost_begin(
         ro_fork_group, "H := B ~> Matrix2(p, n), r := range(0, n, 1)");
-    const __ghost_fn __ghost_pair_2 = __ghost_begin(
+    const __ghost_fn __ghost_pair_3 = __ghost_begin(
         ro_fork_group, "H := A ~> Matrix2(m, p), r := range(0, n, 1)");
     for (int j = 0; j < n; j++) {
       __sequentially_modifies("C ~> Matrix2(m, n)");
@@ -38,9 +38,9 @@ void matmul(float* C, float* A, float* B, int m, int n, int p) {
       C[MINDEX2(m, n, i, j)] = sum;
       __ghost_end(focusC);
     }
-    __ghost_end(__ghost_pair_2);
     __ghost_end(__ghost_pair_3);
+    __ghost_end(__ghost_pair_4);
   }
-  __ghost_end(__ghost_pair_0);
   __ghost_end(__ghost_pair_1);
+  __ghost_end(__ghost_pair_2);
 }
