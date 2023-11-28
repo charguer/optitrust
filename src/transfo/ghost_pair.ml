@@ -348,3 +348,60 @@ let reintro_pairs_at (pairs: (var * mark * mark) list) (p: path): unit =
       apply_at_path (intro_at ~name:pair_token.name ~end_mark i) p
     ) [Constr_paths [p]; cMark begin_mark]
   ) pairs
+
+let hoist_on (t_loop : trm) : trm =
+  let error = "Ghost_pair.hoist_on: expected simple loop" in
+  let (range, body, contract) = trm_inv ~error trm_for_inv t_loop in
+  let instrs = trm_inv ~error trm_seq_inv body in
+
+  let ghost_beg_stack = ref [] in
+  let rec find_ghost_begs remaining_instrs =
+    match remaining_instrs with
+    | [] -> ()
+    | t :: remaining_instrs ->
+      match trm_ghost_begin_inv t with
+      | Some (gv, g_call) ->
+        ghost_beg_stack := (t, gv, g_call) :: !ghost_beg_stack;
+        find_ghost_begs remaining_instrs
+      | None -> ()
+  in
+  find_ghost_begs (Mlist.to_list instrs);
+  if !ghost_beg_stack = [] then t_loop else begin
+  let ghost_beg_instrs, other_instrs = Mlist.split (List.length !ghost_beg_stack) instrs in
+
+  let ghost_to_inverse = ref Var_map.empty in
+  let ghost_forward = List.rev_map (fun (ghost_begin, gv, { ghost_fn; ghost_args }) ->
+    let s = Ast_to_text.default_style () in
+    let error = Printf.sprintf "Ghost_pair.host_on: could not find inverse of %s" (Ast_to_text.ast_to_string ~style:{s with only_desc = true} ghost_fn) in
+    let inverse = unsome_or_trm_fail ghost_begin error (find_inverse ghost_fn ghost_begin.ctx.ctx_resources_before) in
+    ghost_to_inverse := Var_map.add gv inverse !ghost_to_inverse;
+    trm_ghost { ghost_fn = without_inverse ghost_fn; ghost_args }
+  ) !ghost_beg_stack in
+
+  let ghost_backward_stack = ref [] in
+  let instrs' = Mlist.filteri (fun _ instr ->
+    match trm_ghost_end_inv instr with
+    | Some gv when Var_map.mem gv !ghost_to_inverse ->
+      let inverse = Var_map.find gv !ghost_to_inverse in
+      ghost_backward_stack := inverse :: !ghost_backward_stack;
+      true
+    | _ -> true
+  ) other_instrs in
+
+  let _, ghost_group_beg, ghost_group_end = trm_ghost_custom_pair
+    (trm_fun [] (Some (typ_unit ())) (trm_seq_nomarks (ghost_forward)))
+    (trm_fun [] (Some (typ_unit ())) (trm_seq_nomarks (List.rev !ghost_backward_stack)))
+  in
+  trm_seq_nobrace_nomarks [
+    ghost_group_beg;
+    trm_for ~annot:t_loop.annot ?loc:t_loop.loc ?contract range (trm_seq instrs');
+    ghost_group_end
+  ]
+  end
+
+(* Given a target to a for loop, hoists all ghost pairs that appear as the first loop instructions. *)
+let%transfo hoist (tg : target) : unit =
+  Resources.ensure_computed ();
+  Nobrace_transfo.remove_after (fun () ->
+    Target.apply_at_target_paths hoist_on tg
+  )

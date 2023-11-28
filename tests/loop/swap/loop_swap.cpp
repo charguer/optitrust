@@ -44,3 +44,28 @@ void f(int* t, int* u, int* v, int n, int m) {
     }
   }
 }
+
+void seq_reads() {
+  int x = 0;
+  for (int i = 0; i < 5; i++) {
+    __sequentially_reads("x ~> Cell");
+    for (int j = 0; j < 5; j++) {
+      __sequentially_reads("x ~> Cell");
+      x + 1;
+    }
+  }
+}
+
+void ghost_pairs() {
+  int x = 0;
+  for (int i = 0; i < 5; i++) {
+    __sequentially_reads("x ~> Cell");
+    for (int j = 0; j < 5; j++) {
+      __sequentially_reads("x ~> Cell");
+      for (int k = 0; j < 5; k++) {
+        __sequentially_reads("x ~> Cell");
+        x + 1;
+      }
+    }
+  }
+}

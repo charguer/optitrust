@@ -111,9 +111,9 @@ let swap_on (t: trm): trm =
       swap_on_any_loop t)
   ]
 
-(** [swap tg]: expects the target [tg] to point at a loop that contains an
+(** [swap_basic tg]: expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
-let%transfo swap (tg : target) : unit =
+let%transfo swap_basic (tg : target) : unit =
   Resources.required_for_check ();
   Nobrace_transfo.remove_after (fun () ->
     apply_at_target_paths swap_on tg
@@ -121,5 +121,17 @@ let%transfo swap (tg : target) : unit =
   if !Flags.check_validity then begin
     Scope.check_var_ids ();
   end
+
+(** [swap tg]: expects the target [tg] to point at a loop that contains an
+   immediately-nested loop. The transformation swaps the two loops.
+   Also handles ghosts that may be around the nested loop, and __sequentially_reads parallelization. *)
+let%transfo swap (tg : target) : unit =
+  Target.iter (fun _ p ->
+    Marks.with_fresh_mark_on p (fun m ->
+      Resources.loop_parallelize_reads (target_of_path p);
+      Ghost_pair.hoist [cMark m];
+      swap_basic [cMark m];
+    )
+  ) tg
 
 let f = swap

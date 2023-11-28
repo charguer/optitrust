@@ -109,6 +109,8 @@ let%transfo hoist_alloc_loop_list
     let simpl_index_after_inline (tg : target) : unit =
       Target.iter (fun _t p_nested ->
         let p = p_nested |> Path.parent in
+        (* Transfo_debug.path "p_nested" p_nested;
+        Transfo_debug.path "p" p; *)
         Matrix_basic.simpl_access_of_access (target_of_path p);
         (* ShowAt.trm ~msg:"t@p" (target_of_path p);
         ShowAt.trm ~msg:"t@p" (target_of_path (p @ [Dir_arg_nth 1])); *)
