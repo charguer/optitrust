@@ -200,10 +200,10 @@ let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : 
   | _ -> trm_fail t "Loop_core.hoist_aux: only simple loops are supported"
 
 (* [hoist name index array_size t p]: applies [hoist_aux] at trm [t] with path [p]. *)
-(* LATER/ deprecated *)
+(* LATER/ deprecated
 let hoist_old (name : string) (index : int) (array_size : trm option): Transfo.local =
    apply_on_path (hoist_aux name index array_size)
-
+*)
 (* [fusion_on_block_aux t]: merges two or more loops with the same components except the body,
       [t] - ast of the sequence containing the loops. *)
 let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =

@@ -16,7 +16,7 @@ let path_of_loop_surrounding_mark_current_ast (m : mark) : path =
   let (_, loop_path) = Path.index_in_surrounding_loop mark_path in
   loop_path
 
-(* LATER/ deprecated *)
+(* LATER/ deprecated
 let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -36,7 +36,7 @@ let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : 
           Loop_basic.hoist_old ~name ?array_size (target_of_path p);
         | false -> Loop_basic.hoist_old ~name ?array_size (target_of_path p)
   ) tg
-
+*)
 (* TODO: redundant with 'hoist' *)
 (* [hoist_alloc_loop_list]: this transformation is similar to [Loop_basic.hoist], but also supports undetached
    variable declarations, hoisting through multiple loops, and inlining array indexing code.
@@ -148,7 +148,7 @@ let%transfo hoist_alloc_loop_list
     iter_on_targets (fun t p ->
       let tg_trm = Path.resolve_path p t in
       match tg_trm.desc with
-      | Trm_let (_, (x, _), init) ->
+      | Trm_let (Var_mutable, (x, _), init) ->
         if 1 <= (List.length loops) then begin
           let name_template = Tools.string_subst "${var}" x.name tmp_names in
           let alloc_name =
@@ -160,7 +160,9 @@ let%transfo hoist_alloc_loop_list
           mark_and_hoist x.name name_template 1 p;
           make_pretty_and_unmark alloc_name;
         end
-      | _ -> trm_fail tg_trm "Loop.hoist: expected a variable declaration"
+      | Trm_let (Var_immutable, _, _) ->
+        Tools.warn "Loop.hoist_alloc: not hoisting const declaration"
+      | _ -> trm_fail tg_trm "Loop.hoist_alloc: expected a variable declaration"
     ) tg
   )
 

@@ -51,12 +51,12 @@ let%transfo tile ?(index : string = "b${id}")
 
     [x_step] - denotes the array name that is going to hoist all the values of the targeted variable
     for each index of the for loop. *)
-(* LATER/ deprecated *)
+(* LATER/ deprecated
 let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
      (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
-
+*)
 (* TODO: clean up code *)
 let hoist_on (name : string)
              (mark : mark option)

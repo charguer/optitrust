@@ -131,6 +131,7 @@ let%transfo swap (tg : target) : unit =
       Resources.loop_parallelize_reads (target_of_path p);
       Ghost_pair.hoist [cMark m];
       swap_basic [cMark m];
+      Resources.justif_correct "resources correct after transformation"
     )
   ) tg
 
