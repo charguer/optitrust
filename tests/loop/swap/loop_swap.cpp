@@ -1,18 +1,24 @@
 #include <optitrust.h>
 
-int* t;
+void g(int* t) {
+  __modifies("t ~> Matrix3(7, 10, 20)");
 
-int main() {
   for (int a = 0 ; a < 7; a++) {
+    __modifies("Group(range(0, 10, 1), fun b ->"
+               "Group(range(0, 20, 1), fun c -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell))");
     for(int b = 0; b < 10; b++) {
+      __modifies("Group(range(0, 20, 1), fun c -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell)");
       for(int c = 0; c < 20; c++){
-        t[a] = b;
+        __modifies("&t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
+        t[MINDEX3(7, 10, 20, a, b, c)] = 0;
       }
     }
   }
 
   for (int i = 0; i < 10; i++) {
+    __pure();
     for (int j = i; j < i + 1; j++) {
+      __pure();
 
     }
   }

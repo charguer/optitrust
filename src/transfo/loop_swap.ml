@@ -68,8 +68,12 @@ let ghost_swap outer_range inner_range (_, formula) =
     // stars_j R'(j)
 *)
 let swap_on (t: trm): trm =
+  (* TODO: refactor *)
   Pattern.pattern_match t [
-    Pattern.(trm_for !__ (trm_seq (mlist (trm_for !__ !__ (some !__) ^:: nil)) ^| trm_for !__ !__ (some !__)) (some !__))
+    Pattern.(trm_for !__ (
+      trm_seq (mlist (trm_for !__ !__ (some !__) ^:: nil)) ^|
+      trm_for !__ !__ (some !__)
+      ) (some !__))
     (fun outer_range inner_range body inner_contract outer_contract ->
       let open Resource_contract in
       if outer_contract.invariant <> Resource_set.empty then
@@ -102,12 +106,15 @@ let swap_on (t: trm): trm =
         [trm_for inner_range ~contract:new_outer_contract (trm_seq_nomarks [trm_copy (trm_for outer_range ~contract:new_inner_contract body)])] @
         swaps_post)
     );
-    Pattern.(!__) swap_on_any_loop
+    Pattern.(!__) (fun t ->
+      assert (not !Flags.check_validity);
+      swap_on_any_loop t)
   ]
 
 (** [swap tg]: expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
 let%transfo swap (tg : target) : unit =
+  Resources.required_for_check ();
   Nobrace_transfo.remove_after (fun () ->
     apply_at_target_paths swap_on tg
   );
