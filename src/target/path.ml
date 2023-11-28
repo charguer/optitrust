@@ -291,7 +291,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         aux then_t ctx
       | Dir_else, Trm_if (_, _, else_t) ->
         aux else_t ctx
-      | Dir_body, Trm_let_fun (_, _, args, body, _) ->
+      | Dir_body, (Trm_let_fun (_, _, args, body, _) | Trm_fun (args, _, body, _)) ->
         (* do as if fun args were heap allocated *)
         let args_decl =
           List.rev_map
@@ -519,3 +519,14 @@ let add_marks_at_paths (ps:path list) (t:trm) : trm * mark list =
     t ps marks
     in
   res, marks
+
+
+let find_surrounding_expr (p : path) (t : trm) : path =
+  let rec aux p =
+    let pp = parent p in
+    let pp_t = resolve_path pp t in
+    if not pp_t.is_statement then aux pp else p
+  in
+  (* can be useful for user to directly target statement
+  assert (not (Path.resolve_path p t).is_statement); *)
+  aux p
