@@ -1183,8 +1183,8 @@ let compute_stringreprs_and_update_ast ?(optitrust_syntax:bool=false) (f : trm->
 (* [debug_dissapearing_mark]: only for debugging purposes. *)
 let debug_disappearing_mark = true
 
-(* [Interrupted_applyi_on_transformed_targets]: exception raise when targets are not resolved successfully. *)
-exception Interrupted_applyi_on_transformed_targets of trm
+(* [Interrupted_applyi]: exception raise when targets are not resolved successfully. *)
+exception Interrupted_applyi of trm
 
 (* [fix_target tg]: fix target [tg]. *)
 let fix_target (tg : target) : target =
@@ -1294,11 +1294,11 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
                       else (*failwith*) (Printf.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
                     in
                   if debug_disappearing_mark
-                    then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                    then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
                     else failwith msg
             )
           ) t marks
-        with Interrupted_applyi_on_transformed_targets t -> t
+        with Interrupted_applyi t -> t
         end)
     )))
 
@@ -1383,10 +1383,10 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
                   else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
                 in
               if debug_disappearing_mark
-                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
                 else failwith msg
         ) marks
-      with Interrupted_applyi_on_transformed_targets t -> Trace.set_ast t (* view the ast when the bug appears. *)
+      with Interrupted_applyi t -> Trace.set_ast t (* view the ast when the bug appears. *)
       ))))
 
 (* [iter_on_transformed_targets ~rev transformer tr tg]: similar to [apply_on_transformed_targets] except,
@@ -1450,10 +1450,10 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
                 then "applyi_on_transformed_targets_between: a mark was duplicated"
                 else (Printf.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
             if debug_disappearing_mark
-              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
               else failwith msg
         )) t marks
-      with Interrupted_applyi_on_transformed_targets t -> t
+      with Interrupted_applyi t -> t
     ))
 
 (* [apply_on_transformed_targets_between transformer tr tg]: similar to [applyi_to_transformed_targets_between] except that
@@ -1566,14 +1566,14 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
               (* There were not exactly one occurrence of the mark: either zero or multiple *)
               let msg =
                 if ps <> []
-                  then "iteri_on_transformed_targets: a mark was duplicated"
-                  else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
+                  then "iteri: a mark was duplicated"
+                  else (Printf.sprintf "iteri: mark %s disappeared" m)
                 in
               if debug_disappearing_mark
-                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
                 else failwith msg
         ) marks
-      with Interrupted_applyi_on_transformed_targets t ->
+      with Interrupted_applyi t ->
          (* Record the ast carried by the exception to allow visualizing the ast *)
          Trace.set_ast t
       );

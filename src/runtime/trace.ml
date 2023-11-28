@@ -729,15 +729,15 @@ let close_root_step () : unit =
     | _ -> failwith "close_root_step: broken invariant, stack must have size one" in
   finalize_step step
 
-(* [step_to_cancel] opens a scope to perform transformations in.
+(* [step_and_backtrack] opens a scope to perform transformations in.
   At the end:
   - closes all scope-local steps automatically if not already done
   - restores the current AST to what it was before the scope *)
-let step_to_cancel ?(discard_after = false) (f : unit -> unit) : unit =
+let step_and_backtrack ?(discard_after = false) (f : unit -> unit) : unit =
   let ast_bak = the_trace.cur_ast in
   let s = open_step ~kind:Step_aborted ~name:"" () in
   f ();
-  let error = "Trace.step_to_cancel: did not find 's'" in
+  let error = "Trace.step_and_backtrack: did not find 's'" in
   while (get_cur_step ~error () != s) do
     close_step ()
   done;
@@ -907,7 +907,7 @@ let get_original_ast () : trm =
 *)
 let alternative (f : unit->unit) : unit =
   let ast = get_original_ast () in
-  step_to_cancel (fun () ->
+  step_and_backtrack (fun () ->
     the_trace.cur_ast <- ast;
     f();
   )
@@ -976,7 +976,7 @@ exception Failure_expected_did_not_fail
    it raises the exception [Failure_expected_did_not_fail]. If it does
    not, then an error is triggered. *)
 let failure_expected (f : unit -> unit) : unit =
-  step_to_cancel (fun () ->
+  step_and_backtrack (fun () ->
     try
       f();
       raise Failure_expected_did_not_fail
