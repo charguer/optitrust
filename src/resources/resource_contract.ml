@@ -4,31 +4,75 @@ open Typ
 open Mark
 open Resource_formula
 
+(** A resource contract defines the effect of a loop or function on resources.
+    User-facing contracts use convenient clauses (see {!contract_clause}) that are desugared into an internal contract representation ({!Ast.loop_contract}, {!Ast.fun_contract}).
+    *)
+
+(* TODO: module Resource_user / Resource_interface / Resource_syntax. *)
+
+(** User-facing contract clause types.
+
+  Giving a linear function contract clause to a for loop results in each iteration having separate resources.
+  If consuming [R1] and producing [R2], the loop itself consumes [Group(range, R1)] and produces [Group(range, R2)].
+  *)
 type contract_clause_type =
   | Requires
-  | Ensures
-  | Invariant
-  | Reads
-  | Writes
-  | Modifies
-  | Consumes
-  | Produces
-  | SequentiallyReads
-  | SequentiallyModifies
+  (** Pure resource items required in precondition.
 
+      TODO: semantics for loops. *)
+
+  | Ensures
+  (** Pure resource items ensured in postcondition.
+
+      TODO: semantics for loops. *)
+
+  | Invariant
+  (** Pure resource items that are invariant in all iterations of a for loop.
+      If iterating on [i] index, requires [R(i)] and ensures [R(i + step)]. *)
+
+  | Reads
+  (** Syntactic sugar for consuming [_RO(f, R)] and producing [_RO(f, R)].
+      [f] is a new fraction added to the required pure resource items.
+      This is a function contract clause. *)
+
+  | Writes
+  (** Syntactic sugar for consuming [_Uninit(R)] and producing [R].
+      This is a function contract clause. *)
+
+  | Modifies
+  (** Syntactic sugar for consuming [R] and producing [R].
+      This is a function contract clause. *)
+
+  | Consumes
+  (** Linear resource items consumed in precondition.
+      This is a function contract clause. *)
+
+  | Produces
+  (** Linear resource items produced in postcondition.
+      This is a function contract clause. *)
+
+  | SequentiallyReads
+  (** Linear resource items that are invariantly read only in all loop iterations.
+      Syntactic sugar for sequentially modifying [_RO(f, R)].
+      [f] is a new fraction bound by the loop. *)
+
+  | SequentiallyModifies
+  (** Linear resource items that are invariantly modified in all loop iterations. *)
+
+(** User-facing contract clause, combining clause type and resouce item. *)
 type contract_clause = contract_clause_type * contract_resource_item
 
-
+(** The empty function contract, implies purity. *)
 let empty_fun_contract =
   { pre = Resource_set.empty; post = Resource_set.empty }
 
+(** The empty loop contract, implies purity. *)
 let empty_loop_contract =
   { loop_ghosts = []; invariant = Resource_set.empty; iter_contract = empty_fun_contract }
 
 
+(* TODO: remove or replace with better mechanism. hint to maximize instantiated fraction. *)
 let _Full = toplevel_var "_Full"
-let __admitted = toplevel_var "__admitted"
-
 
 let rec desugar_formula (formula: formula): formula =
   (* Warning: this function can be called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
@@ -147,6 +191,7 @@ let specialize_contract contract subst =
   { pre = Resource_set.subst subst { contract.pre with pure = List.filter (fun (ghost_var, _) -> Var_map.mem ghost_var subst) contract.pre.pure };
     post = Resource_set.subst subst contract.post }
 
+(* TODO: rename and move elsewhere. *)
 let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =
   Pattern.pattern_match ghost_call [
     Pattern.(trm_apps (trm_fun_with_contract nil !__ !__) nil !__) (fun ghost_body contract ghost_args ->

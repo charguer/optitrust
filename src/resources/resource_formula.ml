@@ -246,6 +246,13 @@ let formula_geq = formula_cmp formula_assert_geq
 let var_checked = toplevel_var "checked"
 let formula_checked = trm_var var_checked
 
+(* ---- RESOURCE-RELATED TRM CONSTRUCTORS and INVERTERS ---- *)
+(* TODO: Resource_trm ? *)
+
+(** Primitive function that turns off resource computation and checking from that point onwards.
+    Resource computation resumes upon meeting an outer postcondition which will be admitted. *)
+let __admitted = toplevel_var "__admitted"
+
 let trm_ghost_inv t =
   Pattern.pattern_match t [
     Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args ->
