@@ -128,10 +128,14 @@ let%transfo swap_basic (tg : target) : unit =
 let%transfo swap (tg : target) : unit =
   Target.iter (fun _ p ->
     Marks.with_fresh_mark_on p (fun m ->
-      Resources.loop_parallelize_reads (target_of_path p);
-      Ghost_pair.hoist [cMark m];
+      if !Flags.check_validity then begin
+        Resources.loop_parallelize_reads (target_of_path p);
+        Ghost_pair.hoist [cMark m];
+      end;
       swap_basic [cMark m];
-      Resources.justif_correct "resources correct after transformation"
+      if !Flags.check_validity then begin
+        Resources.justif_correct "resources correct after transformation"
+      end
     )
   ) tg
 

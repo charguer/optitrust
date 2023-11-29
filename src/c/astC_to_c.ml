@@ -667,7 +667,9 @@ and resource_item_to_doc style (resource_item : resource_item) : doc =
   sid ^^ formula_to_doc style formula
 
 and fun_spec_resource_varmap_to_doc style (fun_specs : fun_spec_resource varmap) : doc =
-  string "<fun_specs>"
+  string "<fun_spec for: " ^^
+  (list_to_doc ~bounds:[lbracket; rbracket] ~sep:semi (List.map (fun (f, s) -> var_to_doc style f) (Var_map.bindings fun_specs))) ^^
+  string ">"
 
 
 

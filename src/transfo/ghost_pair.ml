@@ -373,8 +373,9 @@ let hoist_on (t_loop : trm) : trm =
   let ghost_forward = List.rev_map (fun (ghost_begin, gv, { ghost_fn; ghost_args }) ->
     let s = Ast_to_text.default_style () in
     let error = Printf.sprintf "Ghost_pair.host_on: could not find inverse of %s" (Ast_to_text.ast_to_string ~style:{s with only_desc = true} ghost_fn) in
+    (* printf "ghost_begin res: %s\n" (Xoption.to_string (fun r -> (Tools.document_to_string (AstC_to_c.resource_set_to_doc (AstC_to_c.default_style ()) r))) ghost_begin.ctx.ctx_resources_before); *)
     let inverse = unsome_or_trm_fail ghost_begin error (find_inverse ghost_fn ghost_begin.ctx.ctx_resources_before) in
-    ghost_to_inverse := Var_map.add gv inverse !ghost_to_inverse;
+    ghost_to_inverse := Var_map.add gv (trm_ghost { ghost_fn = inverse; ghost_args }) !ghost_to_inverse;
     trm_ghost { ghost_fn = without_inverse ghost_fn; ghost_args }
   ) !ghost_beg_stack in
 
@@ -384,19 +385,24 @@ let hoist_on (t_loop : trm) : trm =
     | Some gv when Var_map.mem gv !ghost_to_inverse ->
       let inverse = Var_map.find gv !ghost_to_inverse in
       ghost_backward_stack := inverse :: !ghost_backward_stack;
-      true
+      false
     | _ -> true
   ) other_instrs in
 
-  let _, ghost_group_beg, ghost_group_end = trm_ghost_custom_pair
-    (trm_fun [] (Some (typ_unit ())) (trm_seq_nomarks (ghost_forward)))
-    (trm_fun [] (Some (typ_unit ())) (trm_seq_nomarks (List.rev !ghost_backward_stack)))
+  let wrap_in_for ghosts =
+    trm_copy (trm_for_instrs range (Mlist.of_list ghosts))
   in
-  trm_seq_nobrace_nomarks [
+  let _, ghost_group_beg, ghost_group_end = trm_ghost_custom_pair
+    (trm_fun [] (Some (typ_unit ())) (wrap_in_for ghost_forward))
+    (trm_fun [] (Some (typ_unit ())) (wrap_in_for (List.rev !ghost_backward_stack)))
+  in
+  let res = trm_seq_nobrace_nomarks [
     ghost_group_beg;
     trm_for ~annot:t_loop.annot ?loc:t_loop.loc ?contract range (trm_seq instrs');
     ghost_group_end
-  ]
+  ] in
+  Show.trm ~msg:"res" res;
+  res
   end
 
 (* Given a target to a for loop, hoists all ghost pairs that appear as the first loop instructions. *)

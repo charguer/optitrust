@@ -20,6 +20,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Loop.swap [cFunBody "seq_reads"; cFor "i"];
 
   !! Loop.swap [cFunBody "ghost_pairs"; cFor "j"];
-  !! Resources.show ();
   !! Loop.swap [cFunBody "ghost_pairs"; cFor "i"];
 )
