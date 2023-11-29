@@ -2,59 +2,96 @@ open Ast
 open Trm
 open Resource_formula
 
+(** A resource set contains pure and linear resource items, as well as aliases.
+
+    Pure resource items are ordered (name, type) pairs, the name binds a pure variable in the rest of the resource set.
+    e.g. [p: ptr, eq: 2 + 2 = 4, f: int -> formula]
+
+    Pure resource items include function specifications. Function specifications are nameless and unordered between themselves but ordered after other pure resource items. They are stored in a map from function name to function specification for efficient lookup.
+
+    Aliases map pure variables to their definition. Pure variables also include program variables (constant due to our AST encoding). Variables are subtituted by their definition whenever needed.
+
+    Linear resource items are unordered (name, formula) pairs, the name binds a linear variable in the usage context. Two linear resources with the same name correspond to the same version, i.e. have the same value / model.
+    e.g. [H1: p ~> Cell, H2: foreach i in 0..n -> &t[i] ~> Cell]
+
+    TODO: should
+    type hyp
+    -->
+    type pure_var
+    type linear_var
+    ?
+     *)
+
+(** Makes a resource set given its components. *)
 let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Var_map.empty) () =
   { pure; linear; fun_specs; aliases }
 
+(** The empty resource set. *)
 let empty = make ()
 
-(** Add new pure resources to the old ones and replace linear resources. *)
+(** If after consuming [old_res], [new_res] was produced, then [bind] generates the resulting resource set.
+
+    Pure resources are accumulated, and linear resources are replaced.
+    *)
 let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
   { pure = new_res.pure @ old_res.pure;
     linear = new_res.linear;
     fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs;
     aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases }
 
+(** Returns the set of resource names bound by a resource set.*)
+(* DEPRECATED
 let resource_names (res: resource_set) : Var_set.t =
   let res_list_names (res: resource_item list) =
     List.fold_left (fun avoid_names (h, _) ->
             Var_set.add h avoid_names) Var_set.empty res
   in
   Var_set.union (res_list_names res.pure) (res_list_names res.linear)
+*)
 
-let push_pure (res: resource_item) (res_set: resource_set) =
+(** Pushes a pure resource item in front of a set. *)
+let push_front_pure (res: resource_item) (res_set: resource_set) =
   { res_set with pure = res :: res_set.pure }
 
-let push_linear (res: resource_item) (res_set: resource_set) =
+(** Adds a linear resource item to a set. *)
+let add_linear (res: resource_item) (res_set: resource_set) =
   { res_set with linear = res :: res_set.linear }
 
-let add_linear (res: resource_item list) (res_set: resource_set) =
+(** Adds multiple linear resource items to a set. *)
+let add_linear_list (res: resource_item list) (res_set: resource_set) =
   { res_set with linear = res @ res_set.linear }
 
+(** Given a resource set [res] that may depend on the [i] index of [range], produces the resource set resulting from grouping resource items forall [i]. *)
 let group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
     linear = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.linear;
     fun_specs = res.fun_specs;
-    aliases = res.aliases; }
+    aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *) }
 
+(** Given a resource set, produces a resource set with read-only access to its resources that can be duplicated: RW_in => RO_out; RO_out => RO_out * (trm_copy RO_out); *)
 let read_only (res: resource_set): resource_set =
-  let frac_var, _ = new_frac () in
+  let frac_var, frac_item = new_frac () in
   let frac = trm_var frac_var in
   let linear = List.map (fun (x, formula) ->
       match formula_read_only_inv formula with
-      | Some _ -> (x, formula)
+      (* makes the previous RO duplicable by not duplicating fractions. *)
+      | Some { formula } -> (x, formula_read_only ~frac formula)
       | None -> (x, formula_read_only ~frac formula)) res.linear in
-  { res with linear }
+  { res with pure = frac_item :: res.pure ; linear }
 
+(** Returns the union of two resource sets, accumulating pure items and separating linear items with a star. *)
 let union (res1: resource_set) (res2: resource_set): resource_set =
   { pure = res1.pure @ res2.pure; linear = res1.linear @ res2.linear;
     fun_specs = Var_map.union (fun _ _ c -> Some c) res1.fun_specs res2.fun_specs;
     aliases = Var_map.union (fun _ _ d -> Some d) res1.aliases res2.aliases; }
 
-(* The built-in variable representing a function's return value. *)
-(* FIXME: #var-id, id should change *)
+(** The built-in variable representing a function's return value. *)
+(* FIXME: #var-id, id should be different for every let/letfun? like 'this' ids? *)
 let var_result = toplevel_var "_Res"
 let trm_result: formula = trm_var var_result
 
+
+(** Substitutes variables in a given resource set. *)
 let rec subst (subst_map: tmap) (res: resource_set): resource_set =
   let subst_var_in_resource_list =
     List.map (fun (h, t) -> (h, trm_subst subst_map t))

@@ -151,7 +151,7 @@ let loop_parallelize_reads_on (t: trm): trm =
         end
       | None -> false) contract.invariant.linear
   in
-  let new_contract = { contract with invariant = { contract.invariant with linear = seq_modifies_res }; iter_contract = { pre = Resource_set.add_linear seq_reads_res contract.iter_contract.pre ; post = Resource_set.add_linear seq_reads_res contract.iter_contract.post } } in
+  let new_contract = { contract with invariant = { contract.invariant with linear = seq_modifies_res }; iter_contract = { pre = Resource_set.add_linear_list seq_reads_res contract.iter_contract.pre ; post = Resource_set.add_linear_list seq_reads_res contract.iter_contract.post } } in
   List.fold_left (fun t (_, formula) ->
     let { formula } = trm_inv formula_read_only_inv formula in
     trm_ghost_scope (ghost_call ro_fork_group ["H", formula; "r", formula_loop_range range]) t

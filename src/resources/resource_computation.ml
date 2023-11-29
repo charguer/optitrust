@@ -778,6 +778,9 @@ let rec trm_deep_copy (t: trm) : trm =
 
 (* hypothesis: needs var_ids to be calculated *)
 let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
+  (* TODO: should we avoid deep copy by maintaining invariant that there is no sharing?
+     makes sense with unique var ids and trm_copy mechanisms.
+     Otherwise avoid mutable asts. Could also have unique node ids and maps from ids to metadata. *)
   let t = trm_deep_copy t in
   ignore (compute_resources (Some init_ctx) t);
   t

@@ -37,7 +37,7 @@ type lvar = { v : var; l : label; }
    [lv]. *)
 let lvar_to_string (lv : lvar) : string =
   let q_str = String.concat "" (List.map (fun q -> q ^ "::") lv.v.qualifier) in
-  let id_str = if lv.v.id = -1 then "?" else (string_of_int lv.v.id) in
+  let id_str = if lv.v.id = inferred_var_id then "?" else (string_of_int lv.v.id) in
   let member = if lv.l <> "" then lv.l ^ "#" else lv.l in
   q_str ^ lv.v.name ^ "#" ^ member ^ id_str
 

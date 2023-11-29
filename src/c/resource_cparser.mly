@@ -27,7 +27,7 @@ flex_list(delimiter, X):
 
 atomic_formula:
   | x=IDENT
-    { trm_var { qualifier = []; name = x; id = -1 } }
+    { trm_var { qualifier = []; name = x; id = inferred_var_id } }
   | x=INT_LIT
     { trm_int x }
   | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
@@ -41,7 +41,7 @@ address_formula:
   | tab=address_formula; LBRACKET; index=atomic_formula; RBRACKET;
     { trm_array_get tab index }
   | x=IDENT
-    { trm_var { qualifier = []; name = x; id = -1 } }
+    { trm_var { qualifier = []; name = x; id = inferred_var_id } }
 
 arith_factor:
   | a=arith_factor; STAR; b=atomic_formula;
@@ -89,7 +89,7 @@ formula:
   | t=atomic_formula; SQUIG_ARROW; f=atomic_formula;
     { formula_model t f }
   | FUN; args=separated_nonempty_list(COMMA, IDENT); ARROW; body=formula;
-    { trm_fun ~annot:formula_annot (List.map (fun x -> { qualifier = []; name = x; id = -1 }, typ_make Typ_auto) args) None body }
+    { trm_fun ~annot:formula_annot (List.map (fun x -> { qualifier = []; name = x; id = inferred_var_id }, typ_make Typ_auto) args) None body }
 
 resource:
   | f=formula

@@ -49,8 +49,8 @@ let rec encode_formula (formula: formula): formula =
 let push_read_only_fun_contract_res ((name, formula): resource_item) (contract: fun_contract): fun_contract =
   let frac_var, frac_ghost = new_frac () in
   let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
-  let pre = Resource_set.push_linear (name, ro_formula) { contract.pre with pure = frac_ghost :: contract.pre.pure } in
-  let post = Resource_set.push_linear (name, ro_formula) contract.post in
+  let pre = Resource_set.add_linear (name, ro_formula) { contract.pre with pure = frac_ghost :: contract.pre.pure } in
+  let post = Resource_set.add_linear (name, ro_formula) contract.post in
   { pre; post }
 
 let resource_item_uninit ((name, formula): resource_item): resource_item =
@@ -60,21 +60,21 @@ let resource_item_uninit ((name, formula): resource_item): resource_item =
 let push_fun_contract_clause (clause: contract_clause_type)
     (res: resource_item) (contract: fun_contract) =
   match clause with
-  | Requires -> { contract with pre = Resource_set.push_pure res contract.pre }
-  | Consumes -> { contract with pre = Resource_set.push_linear res contract.pre }
-  | Ensures -> { contract with post = Resource_set.push_pure res contract.post }
-  | Produces -> { contract with post = Resource_set.push_linear res contract.post }
+  | Requires -> { contract with pre = Resource_set.push_front_pure res contract.pre }
+  | Consumes -> { contract with pre = Resource_set.add_linear res contract.pre }
+  | Ensures -> { contract with post = Resource_set.push_front_pure res contract.post }
+  | Produces -> { contract with post = Resource_set.add_linear res contract.post }
   | Reads -> push_read_only_fun_contract_res res contract
-  | Writes -> { pre = Resource_set.push_linear (resource_item_uninit res) contract.pre ; post = Resource_set.push_linear res contract.post }
-  | Modifies -> { pre = Resource_set.push_linear res contract.pre ; post = Resource_set.push_linear res contract.post }
-  | Invariant -> { pre = Resource_set.push_pure res contract.pre ; post = Resource_set.push_pure res contract.post }
+  | Writes -> { pre = Resource_set.add_linear (resource_item_uninit res) contract.pre ; post = Resource_set.add_linear res contract.post }
+  | Modifies -> { pre = Resource_set.add_linear res contract.pre ; post = Resource_set.add_linear res contract.post }
+  | Invariant -> { pre = Resource_set.push_front_pure res contract.pre ; post = Resource_set.push_front_pure res contract.post }
   | SequentiallyReads -> failwith "SequentiallyReads only makes sense for loop contracts"
   | SequentiallyModifies -> failwith "SequentiallyModifies only makes sense for loop contracts"
 
 let push_loop_contract_clause (clause: contract_clause_type)
     (res: resource_item) (contract: loop_contract) =
   match clause with
-  | Invariant -> { contract with invariant = Resource_set.push_pure res contract.invariant }
+  | Invariant -> { contract with invariant = Resource_set.push_front_pure res contract.invariant }
   | Reads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
@@ -84,9 +84,9 @@ let push_loop_contract_clause (clause: contract_clause_type)
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
     let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
-    { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; invariant = Resource_set.push_linear (name, ro_formula) contract.invariant }
+    { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; invariant = Resource_set.add_linear (name, ro_formula) contract.invariant }
   | SequentiallyModifies ->
-    { contract with invariant = Resource_set.push_linear res contract.invariant }
+    { contract with invariant = Resource_set.add_linear res contract.invariant }
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
 let parse_contract_res_item ((name, formula): contract_resource_item): resource_item =
