@@ -3,37 +3,67 @@ open Trm
 open Typ
 open Mark
 
+(**
+  A [formula] is a [trm] that corresponds to a logical formula. Evaluating inside a formula cannot have side effects and always terminates.
+  Formulas may refer to pure variables, bound by a [resource_set] or by the program (program variables are constant due to our AST encoding).
+*)
+
+(** An optionally named resource item produced by parser.
+    TODO: remove. *)
 type contract_resource_item = var option * formula
 
 let new_hyp = new_var
 
+(** Number used to generate variable names for resources. *)
 let next_hyp_id = Tools.fresh_generator ()
 
+(** Returns a variable with a generated name.
+
+  TODO: separate pure ($) and linear (#). *)
 let new_anon_hyp (): hyp =
   let hid = next_hyp_id () in
   new_hyp (sprintf "#%d" hid)
 
+(* TODO: should be new_var_like and maybe useful elsewhere? *)
 let new_hyp_like (h: hyp): hyp =
   new_hyp ~qualifier:h.qualifier h.name
 
+(** _HasModel(p, Cell) <=> p ~> Cell *)
 let var_has_model = toplevel_var "_HasModel"
 let trm_has_model = trm_var var_has_model
+
+(** Primitive function that constructs a read only resource. *)
 let var_read_only = toplevel_var "_RO"
 let trm_read_only = trm_var var_read_only
+
+(** Primitive function that constructs an uninit resource. *)
 let var_uninit = toplevel_var "_Uninit"
 let trm_uninit = trm_var var_uninit
+
+(** Primitive type of fractions. *)
 let var_frac = toplevel_var "_Fraction"
 let trm_frac = trm_var var_frac
+
+(** Creates a new fraction variable.
+    It ranges on fraction values from \]0; 1\]. *)
+let new_frac (): var * resource_item =
+  let frac_hyp = new_anon_hyp () in
+  (frac_hyp, (frac_hyp, trm_frac))
+
+(** The fraction representing having it all. *)
 let full_frac = trm_int 1
 
+(** All formulas should have this annotation. *)
 let formula_annot = {trm_annot_default with trm_annot_cstyle = [ResourceFormula]}
 
-(* LATER: Extensible list of applications that can be translated into formula.
-   OR A term can be embedded in a formula if it is pure (no linear resources).
-   Does [t] change or is this just checking whether trm_is_formula?
-   I.e. are the trm and formula languages intersecting or separate?
-   *)
+(** Tries to embed a program term within formulas.
+    Pure and total terms can be successfully embedded, according to built-in whitelist. *)
 let rec formula_of_trm (t: trm): formula option =
+  (* LATER: Extensible list of applications that can be translated into formula.
+     OR A term can be embedded in a formula if it is pure (no linear resources).
+     Does [t] change or is this just checking whether trm_is_formula?
+     I.e. are the trm and formula languages intersecting or separate?
+     *)
   let open Xoption.OptionMonad in
   match t.desc with
   | Trm_val _ | Trm_var _ -> Some t
@@ -43,7 +73,7 @@ let rec formula_of_trm (t: trm): formula option =
       | Some Prim_binop Binop_add
       | Some Prim_binop Binop_sub
       | Some Prim_binop Binop_mul
-      | Some Prim_binop Binop_div
+      | Some Prim_binop Binop_div (* TODO: think hard about 'div' totality *)
       | Some Prim_binop Binop_mod
       | Some Prim_binop Binop_array_access
           -> Some (trm_apps fn f_args)
@@ -56,6 +86,8 @@ let rec formula_of_trm (t: trm): formula option =
         end
     end
   | _ -> None
+
+(* -------- SMART FORMULA CONSTRUCTORS, INVERTERS and COMBINATORS -------- *)
 
 let formula_fun =
   trm_fun ~annot:formula_annot
@@ -75,22 +107,19 @@ let formula_model_inv (t: formula): (trm * formula) option =
 let formula_read_only ~(frac: formula) (res: formula) =
   trm_apps ~annot:formula_annot trm_read_only [frac; res]
 
-let new_frac (): var * resource_item =
-  let frac_hyp = new_anon_hyp () in
-  (frac_hyp, (frac_hyp, trm_frac))
-
 let formula_uninit (inner_formula: formula): formula =
   trm_apps ~annot:formula_annot trm_uninit [inner_formula]
 
 let var_cell = toplevel_var "Cell"
 let trm_cell = trm_var var_cell
+
+let formula_cell (x: var): formula =
+  formula_model (trm_var x) trm_cell
+
 let var_group = toplevel_var "Group"
 let trm_group = trm_var var_group
 let var_range = toplevel_var "range"
 let trm_range = trm_var var_range
-
-let formula_cell (x: var): formula =
-  formula_model (trm_var x) trm_cell
 
 let formula_matrix (m: trm) (dims: trm list) : formula =
   let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
@@ -124,7 +153,9 @@ let formula_read_only_inv (formula : formula): read_only_formula option =
     Pattern.(formula_read_only !__ !__) (fun frac formula -> { frac; formula })
   ]
 
-let formula_read_only_map (f_map: formula -> formula) (formula: formula) =
+(** Applies a function below a read only wrapper if there is one,
+    otherwise simply applies the function. *)
+let formula_map_under_read_only (f_map: formula -> formula) (formula: formula) =
   match formula_read_only_inv formula with
   | Some { frac; formula } ->
     formula_read_only ~frac (f_map formula)
@@ -135,20 +166,28 @@ let formula_uninit_inv (formula: formula): formula option =
     Pattern.(formula_uninit !__) (fun f -> f);
   ]
 
-let formula_uninit_map (f_map: formula -> formula) (formula: formula) =
+
+(** Applies a function below an uninit wrapper if there is one,
+    otherwise simply applies the function. *)
+let formula_map_under_uninit (f_map: formula -> formula) (formula: formula) =
   match formula_uninit_inv formula with
   | Some formula -> formula_uninit (f_map formula)
   | None -> f_map formula
 
-let formula_mode_map (f_map: formula -> formula): formula -> formula =
-  formula_read_only_map (formula_uninit_map f_map)
+(** Applies a function below a resource mode wrapper if there is one,
+    otherwise simply applies the function.
+
+  Current resource mode wrappers include read only and uninit, they float to the top of formulas.
+ *)
+let formula_map_under_mode (f_map: formula -> formula): formula -> formula =
+  formula_map_under_read_only (formula_map_under_uninit f_map)
 
 let formula_loop_range ((_, tfrom, dir, tto, step, _): loop_range): formula =
   if dir <> DirUp then failwith "formula_loop_range only supports DirUp";
   trm_apps trm_range [tfrom; tto; loop_step_to_trm step]
 
 let formula_group_range ((idx, _, _, _, _, _) as range: loop_range) =
-  formula_mode_map (fun fi ->
+  formula_map_under_mode (fun fi ->
     let range_var = new_var ~qualifier:idx.qualifier idx.name in
     let fi = trm_subst_var idx (trm_var range_var) fi in
     trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int ()] None fi]
