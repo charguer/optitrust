@@ -43,4 +43,6 @@ let _ = Run.script_cpp ( fun _ ->
     [dSeqNth 2];
     [dSeqNth 4]
   ]];
+
+  !! Loop.fission [cFunBody "ghosts"; cFor "k"; tBefore];
 )

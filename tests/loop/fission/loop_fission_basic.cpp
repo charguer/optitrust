@@ -163,3 +163,24 @@ int testAllInstrContracts(int* t, int* u, int n) {
   }
 
 }
+
+void ghosts() {
+  __pure();
+
+  int x = 0;
+  const __ghost_fn __ghost_pair_1 =
+      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+  for (int i = 0; i < 5; i++) {
+    __reads("&x ~> Cell");
+    __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+    for (int k = 0; k < 5; k++) {
+      __sequentially_reads("Group(range(0, 5, 1), fun j -> &x ~> Cell)");
+      for (int j = 0; j < 5; j++) {
+        __reads("&x ~> Cell");
+        x + 1;
+      }
+    }
+    __ghost(ro_join_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+  }
+  __ghost_end(__ghost_pair_1);
+}

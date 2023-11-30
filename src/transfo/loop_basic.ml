@@ -231,12 +231,15 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       let split_res = unsome_or_trm_fail last_tl1_instr error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
       let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
 
-      (* DEBUG
+      let s = AstC_to_c.default_style() in
+      let s = { s with ast = { s.ast with print_contract = true; print_var_id = true } } in
+      printf "loop_ghosts: %s\n" (Tools.document_to_string (AstC_to_c.resource_item_list_to_doc s contract.loop_ghosts));
       printf "---\n";
-      printf "split_res.linear: %s\n" (Resource_computation.resource_list_to_string split_res.linear);
+      Flags.(with_flag always_name_resource_hyp) true (fun () ->
+      printf "split_res:\n%s\n" (Resource_computation.resources_to_string (Some split_res));
       printf "linear_invariant: %s\n" (Resource_computation.resource_list_to_string linear_invariant);
       printf "split_res_comm: %s\n" (Resource_computation.resource_list_to_string split_res_comm);
-       *)
+      );
 
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
@@ -251,6 +254,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       in
       let split_res_comm = Resource_set.make ~linear:(remove_bound_in_tl1 split_res_comm) () in
       let fst_invariant = { contract.invariant with linear = tl1_inv } in
+
       fst_contract := Some {
         loop_ghosts = contract.loop_ghosts;
         invariant = fst_invariant;
@@ -276,6 +280,10 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
           Resource_contract.push_loop_contract_clause clause (Resource_formula.new_anon_hyp (), f) acc
         ) partial_snd_contract tl1_inv_reads
       );
+
+      printf "contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (contract)));
+      printf "fst_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !fst_contract)));
+      printf "snd_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !snd_contract)));
     end;
   end;
   let ta = trm_for_instrs ?contract:!fst_contract l_range tl1 in
@@ -306,7 +314,22 @@ let%transfo fission (tg : target) : unit =
       Resources.required_for_check ();
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
-      apply_at_path (fission_on split_i) p_loop
+      let debug_p = Path.parent p_loop in
+      Show.trm ~msg:"res1" (
+        Flags.(with_flag display_resources false (fun () ->
+          with_flag always_name_resource_hyp true (fun () ->
+            Ast_fromto_AstC.computed_resources_intro (get_trm_at_exn (target_of_path debug_p))
+          )))
+      );
+      Resources.required_for_check ();
+      apply_at_path (fission_on split_i) p_loop;
+      Resources.required_for_check ();
+      Show.trm ~msg:"res2" (
+        Flags.(with_flag display_resources false (fun () ->
+          with_flag always_name_resource_hyp true (fun () ->
+            Ast_fromto_AstC.computed_resources_intro (get_trm_at_exn (target_of_path debug_p))
+          )))
+      );
     ) tg
   );
   Resources.justif_correct "loop resources where successfully split"

@@ -43,7 +43,9 @@ let internal () : style =
   let s = AstC_to_c.default_style () in
   Custom {
     decode = false;
-    print = Lang_C { s with optitrust_syntax = true } }
+    print = Lang_C { s with
+      optitrust_syntax = true;
+      ast = { s.ast with print_var_id = true } } }
 
 let internal_ast () : style  =
   let s = Ast_to_text.default_style () in

@@ -323,7 +323,7 @@ let%transfo elim ?(mark_begin: mark option) ?(mark_end: mark option) (tg: target
 (* Remove all the pairs inside the sequence pointed by the given path *)
 let elim_all_pairs_at (gen_mark: unit -> mark) (p: path): (var * mark * mark) list =
   Resources.ensure_computed ();
-  let begin_target = [nbMulti; Constr_paths [p]; cStrict; cVarDef ~body:[cCall "__ghost_begin"] ""] in
+  let begin_target = [nbAny; Constr_paths [p]; cStrict; cVarDef ~body:[cCall "__ghost_begin"] ""] in
   let marks = ref [] in
   Target.iter (fun _ p ->
     let mark_begin = gen_mark () in
@@ -348,6 +348,12 @@ let reintro_pairs_at (pairs: (var * mark * mark) list) (p: path): unit =
       apply_at_path (intro_at ~name:pair_token.name ~end_mark i) p
     ) [Constr_paths [p]; cMark begin_mark]
   ) pairs
+
+(* DEPRECATED:
+      1) Ghost_pair.elim_all_pairs
+      2) Loop.fission
+      3) Ghost.embed_loop
+      4) Ghost_pair.intro
 
 let hoist_on (t_loop : trm) : trm =
   let error = "Ghost_pair.hoist_on: expected simple loop" in
@@ -404,10 +410,4 @@ let hoist_on (t_loop : trm) : trm =
   Show.trm ~msg:"res" res;
   res
   end
-
-(* Given a target to a for loop, hoists all ghost pairs that appear as the first loop instructions. *)
-let%transfo hoist (tg : target) : unit =
-  Resources.ensure_computed ();
-  Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths hoist_on tg
-  )
+*)

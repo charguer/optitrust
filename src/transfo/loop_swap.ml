@@ -118,25 +118,136 @@ let%transfo swap_basic (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
     apply_at_target_paths swap_on tg
   );
-  if !Flags.check_validity then begin
+  Resources.justif_correct "resources correct after swap"
+  (* if !Flags.check_validity then begin
     Scope.check_var_ids ();
-  end
+  end *)
 
 (** [swap tg]: expects the target [tg] to point at a loop that contains an
-   immediately-nested loop. The transformation swaps the two loops.
-   Also handles ghosts that may be around the nested loop, and __sequentially_reads parallelization. *)
+  immediately-nested loop. The transformation swaps the two loops.
+  Also handles ghosts that may be around the nested loop, and __sequentially_reads parallelization.
+
+  {v
+  for i: <<< tg @outer_loop_m
+    __sequentially_reads(H);
+    GHOST_BEGIN(gp, g);
+    for j: <<< @inner_loop_m
+      body;
+    GHOST_END(gp);
+
+  -- Resources.loop_parallelize_reads -->
+
+  GHOST_BEGIN(hp, ro_fork_group(..));
+  pfor i: << @outer_loop_m
+    GHOST_BEGIN(gp, g);
+    for j: <<< @inner_loop_m
+      body;
+    GHOST_END(gp);
+  GHOST_END(hp);
+
+  -- Ghost_pair.elim_all_pairs_at -->
+
+  GHOST_BEGIN(hp, ro_fork_group(..));
+  pfor i: << @outer_loop_m
+    g();
+    for j: <<< @inner_loop_m
+      body;
+    g_rev();
+  GHOST_END(hp);
+
+  -- Loop_basic.fission -->
+
+  GHOST_BEGIN(hp, ro_fork_group(..));
+  pfor i:
+    g();
+  pfor i:
+    for j: <<< @inner_loop_m
+      body;
+  pfor i:
+    g_rev();
+  GHOST_END(hp);
+
+  -- Ghost.embed_loop -->
+
+  GHOST_BEGIN(hp, ro_fork_group(..));
+  ghost ([&] {
+    pfor i:
+      g();
+  });
+  pfor i:
+    for j: <<< @inner_loop_m
+      body;
+  ghost ([&] {
+    pfor i:
+      g_rev();
+  });
+  GHOST_END(hp);
+
+  -- Ghost_pair.reintro_pairs_at -->
+
+  GHOST_BEGIN(hp, ro_fork_group(..));
+  GHOST_BEGIN(gp, [&] {
+    pfor i:
+      g();
+  }, [&] {
+    pfor i:
+      g_rev();
+  });
+  pfor i:
+    for j: <<< @inner_loop_m
+      body;
+  GHOST_END(gp);
+  GHOST_END(hp);
+
+  -- Loop.swap_basic -->
+
+  GHOST_BEGIN(hp, ro_fork_group(..));
+  GHOST_BEGIN(gp, [&] {
+    pfor i:
+      g();
+  }, [&] {
+    pfor i:
+      g_rev();
+  });
+  for j: <<< @inner_loop_m
+   pfor i:
+      body;
+  GHOST_END(gp);
+  GHOST_END(hp);
+  v}
+
+   *)
 let%transfo swap (tg : target) : unit =
-  Target.iter (fun _ p ->
-    Marks.with_fresh_mark_on p (fun m ->
-      if !Flags.check_validity then begin
-        Resources.loop_parallelize_reads (target_of_path p);
-        Ghost_pair.hoist [cMark m];
-      end;
-      swap_basic [cMark m];
-      if !Flags.check_validity then begin
-        Resources.justif_correct "resources correct after transformation"
-      end
-    )
+  Target.iter (fun _ outer_loop_p ->
+  Marks.with_marks (fun next_m ->
+    if not !Flags.check_validity then begin
+      swap_basic (target_of_path outer_loop_p);
+    end else begin
+      let _, seq_p = Path.index_in_seq outer_loop_p in
+      let outer_loop_m = Marks.add_next_mark_on next_m outer_loop_p in
+      let inner_loop_m = Marks.add_next_mark next_m [nbExact 1; Constr_paths [seq_p]; cMark outer_loop_m; cStrict; cFor ""] in
+
+      Resources.loop_parallelize_reads (target_of_path outer_loop_p);
+
+      let inner_seq_tg = [Constr_paths [seq_p]; cMark outer_loop_m; dBody] in
+      let inner_seq_p = resolve_target_exactly_one inner_seq_tg (Trace.ast ()) in
+
+      let pairs = Ghost_pair.elim_all_pairs_at next_m inner_seq_p in
+
+      List.iter (fun (pair_token, begin_m, end_m) ->
+        Loop_basic.fission [Constr_paths [seq_p]; cMark begin_m; tAfter];
+        Loop_basic.fission [Constr_paths [seq_p]; cMark end_m; tBefore];
+        Ghost.embed_loop [Constr_paths [seq_p]; cMark begin_m];
+        Ghost.embed_loop [Constr_paths [seq_p]; cMark end_m];
+      ) pairs;
+
+      Ghost_pair.reintro_pairs_at pairs seq_p;
+
+      let inner_loop_p = resolve_target_exactly_one [cMark inner_loop_m] (Trace.ast ()) in
+      let _, outer_loop_p = Path.index_in_surrounding_loop inner_loop_p in
+      swap_basic (target_of_path outer_loop_p);
+    end
+  )
   ) tg
 
 let f = swap

@@ -295,8 +295,8 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   ()
 
 (* [show] enables to view the result of resource computations. *)
-let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
-  step_and_backtrack ~discard_after:true (fun () ->
+let show (*LATER?(details:bool=true)*) ?(discard_after = true) ?(line:int = -1) () : unit =
+  step_and_backtrack ~discard_after (fun () ->
     recompute_resources ();
     show_computed_res ~line ()
   )
