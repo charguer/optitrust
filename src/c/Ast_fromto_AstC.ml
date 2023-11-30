@@ -751,6 +751,14 @@ let ctx_produced_res_to_trm (produced_res: produced_resource_set) : trm =
   let slin = String.concat ", " (List.map ctx_produced_res_item_to_string produced_res.produced_linear) in
   trm_apps (trm_var __produced_res) [trm_string spure; trm_string slin]
 
+let ctx_usage_map_to_string res_used =
+  String.concat ", " (List.map (function
+    | hyp, UsedReadOnly -> sprintf "RO %s" hyp.name
+    | hyp, UsedUninit -> sprintf "Uninit %s" hyp.name
+    | hyp, UsedFull -> sprintf "Full %s" hyp.name
+    | hyp, Produced -> sprintf "Produced %s" hyp.name)
+    (Hyp_map.bindings res_used))
+
 let display_ctx_resources (t: trm): trm list =
   let t =
     match t.desc with
@@ -758,13 +766,7 @@ let display_ctx_resources (t: trm): trm list =
     | _ -> t
   in
   let tl_used = Option.to_list (Option.map (fun res_used ->
-      let s_used = String.concat ", " (List.map (function
-          | hyp, UsedReadOnly -> sprintf "RO %s" hyp.name
-          | hyp, UsedUninit -> sprintf "Uninit %s" hyp.name
-          | hyp, UsedFull -> sprintf "Full %s" hyp.name
-          | hyp, Produced -> sprintf "Produced %s" hyp.name)
-          (Hyp_map.bindings res_used))
-      in
+      let s_used = ctx_usage_map_to_string res_used in
       trm_apps (trm_var __used_res) [trm_string s_used]) t.ctx.ctx_resources_usage) in
   let tl = match t.ctx.ctx_resources_contract_invoc with
     | None -> [t]

@@ -1105,7 +1105,7 @@ let contextualized_error (ctx : error_context) (error : string) : 'a =
   raise (Contextualized_error ([ctx], Failure error))
 
 let contextualized_exn (ctx : error_context) (exn : exn) : 'a =
-  raise (Contextualized_error ([ctx], exn))
+  Printexc.(raise_with_backtrace (Contextualized_error ([ctx], exn)) (get_raw_backtrace ()))
 
 (* LATER: use Path.fail or fail ~path *)
 (* [path_fail p err]: fails with error [error] raised on path [p] *)
