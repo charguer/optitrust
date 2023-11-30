@@ -90,24 +90,61 @@ let usage_filter usage filter (h, _) =
   | Some Produced -> filter.produced
 
 
-let loop_minimize_on (t: trm): trm =
-  let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
-  let res_before =
-    match t.ctx.ctx_resources_before with
-    | None -> trm_fail t "loop_minimize_on: resources need to be computed before this transformation"
-    | Some res_before -> res_before
+(** If new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
+let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref option)) (contract: fun_contract) (usage: resource_usage_map): fun_contract =
+  let new_fracs = match new_fracs_opt with Some new_fracs -> new_fracs | None -> ref [] in
+  let new_ro = ref [] in
+  let keep_used_filter (hyp, formula) =
+    let open Either in
+    match Hyp_map.find_opt hyp usage with
+    | None -> Right (hyp, formula)
+    | Some UsedReadOnly ->
+      begin match formula_read_only_inv formula with
+      | Some _ -> Left (hyp, formula)
+      | None ->
+        let frac_var, frac_ghost = new_frac () in
+        new_fracs := frac_ghost :: !new_fracs;
+        let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+        new_ro := ro_formula :: !new_ro;
+        Left (hyp, ro_formula)
+      end
+    | Some (UsedUninit | UsedFull) -> Left (hyp, formula)
+    | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
   in
 
-  let contract = match contract with
-    | None -> { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
-    | Some contract -> contract
+  let new_linear_pre, unused_res = List.partition_map keep_used_filter contract.pre.linear in
+
+  (* If this fails, it means that there is an unused resource that disappears, which is supposedly impossible. *)
+  let _, filtered_post, _ = Resource_computation.subtract_linear_resource contract.post.linear unused_res in
+  let rec downgrade_and_pop_if_found t new_ro =
+    match new_ro with
+    | [] -> [], t
+    | ro_formula :: new_ro ->
+      let { formula } = trm_inv formula_read_only_inv ro_formula in
+      if are_same_trm formula t then
+        new_ro, ro_formula
+      else
+        let new_ro, t = downgrade_and_pop_if_found t new_ro in
+        (ro_formula :: new_ro, t)
+  in
+  let new_linear_post = List.map (fun (hyp, formula) ->
+    let updated_new_ro, formula = downgrade_and_pop_if_found formula !new_ro in
+    new_ro := updated_new_ro;
+    (hyp, formula)
+  ) filtered_post in
+
+  let added_fracs = match new_fracs_opt with
+    | Some _ -> []
+    | None -> !new_fracs
   in
 
-  let body_res_usage = usage_of_trm t in
+  { pre = { contract.pre with pure = added_fracs @ contract.pre.pure ; linear = new_linear_pre };
+    post = { contract.post with linear = new_linear_post }}
 
+let minimize_loop_contract contract usage =
   let new_fracs = ref [] in
   let keep_used_filter (hyp, formula) =
-    match Hyp_map.find_opt hyp body_res_usage with
+    match Hyp_map.find_opt hyp usage with
     | None -> None
     | Some UsedReadOnly ->
       begin match formula_read_only_inv formula with
@@ -125,9 +162,29 @@ let loop_minimize_on (t: trm): trm =
   let new_linear_invariant = List.filter_map keep_used_filter contract.invariant.linear in
   let new_invariant = { contract.invariant with linear = new_linear_invariant } in
 
-  let new_contract = { contract with loop_ghosts = !new_fracs @ contract.loop_ghosts; invariant = new_invariant } in
-  let t = trm_like ~old:t (trm_for range ~contract:new_contract body) in
-  Resource_computation.(trm_recompute_resources res_before t)
+  let new_iter_contract = minimize_fun_contract ~new_fracs contract.iter_contract usage in
+
+  { loop_ghosts = !new_fracs @ contract.loop_ghosts;
+    invariant = new_invariant;
+    iter_contract = new_iter_contract; }
+
+
+let loop_minimize_on (t: trm): trm =
+  let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
+  let res_before =
+    match t.ctx.ctx_resources_before with
+    | None -> trm_fail t "loop_minimize_on: resources need to be computed before this transformation"
+    | Some res_before -> res_before
+  in
+
+  let contract = match contract with
+    | None -> { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
+    | Some contract -> contract
+  in
+
+  let body_res_usage = usage_of_trm body in
+  let new_contract = minimize_loop_contract contract body_res_usage in
+  trm_like ~old:t (trm_for range ~contract:new_contract body)
 
 (* [loop_minimize]: minimize linear invariants of a loop contract *)
 let%transfo loop_minimize (tg: target) : unit =
