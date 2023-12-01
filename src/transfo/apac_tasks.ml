@@ -140,15 +140,44 @@ module rec Task : sig
              current : trm;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
-             children : TaskGraph.t;
+             children : TaskGraph.t list;
            }
-         val foo : unit -> unit
+         val create :
+           trm -> Var_set.t -> Dep_set.t -> Dep_set.t -> TaskGraph.t list -> t
+         val empty : trm -> t
        end = struct
   type t = {
              current : trm;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
-             children : TaskGraph.t;
+             children : TaskGraph.t list;
     }
-  let foo () = ()
+  let create (current : trm) (scope : Var_set.t)
+        (ins : Dep_set.t) (inouts : Dep_set.t)
+        (children : TaskGraph.t list) : t =
+    let ins' = Dep_set.filter (
+                   fun d -> match (dep_get_atomic d) with
+                            | Dep_var v -> Var_set.mem v scope
+                            | Dep_trm (_, v) -> Var_set.mem v scope
+                            | _ -> false
+                 ) ins in
+    let inouts' = Dep_set.filter (
+                      fun d -> match (dep_get_atomic d) with
+                               | Dep_var v -> Var_set.mem v scope
+                               | Dep_trm (_, v) -> Var_set.mem v scope
+                               | _ -> false
+                    ) inouts in
+    let ins' = Dep_set.diff ins' inouts' in
+    {
+      current = current;
+      ins = ins';
+      inouts = inouts';
+      children = children;
+    }
+  let empty (current : trm) = {
+      current = current;
+      ins = Dep_set.empty;
+      inouts = Dep_set.empty;
+      children = [];
+    }
   end and TaskGraph : Sig.IM with type V.label = Task.t and type E.label = TaskWeight.t = Imperative.Digraph.AbstractLabeled(Task)(TaskWeight)
