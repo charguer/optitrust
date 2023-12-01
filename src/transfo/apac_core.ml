@@ -1421,125 +1421,92 @@ let identify_mutables (tg : target) : unit =
 (* [taskify_on p t]: see [taskify]. *)
 let taskify_on (p : path) (t : trm) : unit =
   (* Auxiliary function to transform a portion of the existing AST into a local
-     augmented AST (see [atrm]). *)
-  let rec augment (locals : symbols) (t : trm) (g : TaskGraph.t) : unit =
+     fill_task_graphed AST (see [atrm]). *)
+  let rec fill (s : symbols) (t : trm) (g : TaskGraph.t) : Task.t =
     match t.desc with
-    | Trm_seq instrs ->
-       let scope = var_set_of_var_hashtbl locals in
-       let instrs' = Mlist.to_list instrs in
-       let instrs' = List.iter (
-                         fun instr -> augment locals instr g
-                       ) instrs' in
+    | Trm_seq sequence ->
+       let scope = var_set_of_var_hashtbl s in
+       let instrs = Mlist.to_list sequence in
+       let tasks = List.map (fun instr -> fill s instr g) instrs in
        let ins = List.fold_left (
-                     fun acc instr -> Dep_set.union acc instr.ins
-                   ) Dep_set.empty instrs' in
+                     fun acc (task : Task.t) -> Dep_set.union acc task.ins
+                   ) Dep_set.empty tasks in
        let inouts = List.fold_left (
-                        fun acc instr -> Dep_set.union acc instr.inouts
-                      ) Dep_set.empty instrs' in
-       let ins' = Dep_set.filter (
-                      fun d -> match (dep_get_atomic d) with
-                               | Dep_var v -> Var_set.mem v scope
-                               | Dep_trm (_, v) -> Var_set.mem v scope
-                               | _ -> false
-                    ) ins in
-       let inouts' = Dep_set.filter (
-                         fun d -> match (dep_get_atomic d) with
-                                  | Dep_var v -> Var_set.mem v scope
-                                  | Dep_trm (_, v) -> Var_set.mem v scope
-                                  | _ -> false
-                       ) inouts in
-       {
-         current = t;
-         ins = ins';
-         inouts = inouts';
-         shared = shared';
-         task_id = tid;
-         children = instrs';
-         params = []
-       }
+                        fun acc (task : Task.t) -> Dep_set.union acc task.inouts
+                      ) Dep_set.empty tasks in
+       let this = Task.create t scope ins inouts [] in
+       let this' = TaskGraph.V.create this in
+       let _ = TaskGraph.add_vertex g this' in
+       let tasks = List.map (
+                       fun task ->
+                       let v = TaskGraph.V.create task in
+                       TaskGraph.add_vertex g v; v
+                     ) tasks in
+       let _ = TaskGraph.add_edge g this' (List.hd tasks) in
+       let nb_tasks = List.length tasks in
+       for i = 0 to (nb_tasks - 1) do
+         let vertex_i = List.nth tasks i in
+         let task_i = TaskGraph.V.label vertex_i in
+         for j = 0 to (nb_tasks - 1) do
+           if j <> i then
+             begin
+               let vertex_j = List.nth tasks j in
+               let task_j = TaskGraph.V.label vertex_j in
+               let op1 = Dep_set.inter task_i.inouts task_j.ins in
+               let op2 = Dep_set.inter task_i.inouts task_j.inouts in
+               let j_depends_on_i =
+                 not ((Dep_set.is_empty op1) && (Dep_set.is_empty op2)) in
+               if j_depends_on_i then
+                 begin
+                   TaskGraph.add_edge g vertex_i vertex_j
+                 end
+             end
+         done
+       done;
+       this      
     | Trm_for_c (init, cond, inc, instr, _) ->
-       let scope = var_set_of_var_hashtbl locals in
-       let (ins, inouts, shared) = trm_discover_dependencies locals init in
-       let (ins', inouts', shared') = trm_discover_dependencies locals cond in
-       let (ins, inouts, shared) =
-         (Dep_set.union ins ins',
-          Dep_set.union inouts inouts',
-          Var_set.union shared shared') in
-       let (ins', inouts', shared') = trm_discover_dependencies locals inc in
-       let (ins, inouts, shared) =
-         (Dep_set.union ins ins',
-          Dep_set.union inouts inouts',
-          Var_set.union shared shared') in
-       let instr' = augment locals 0 instr in
-       let ins' = Dep_set.filter (
-                      fun d -> match (dep_get_atomic d) with
-                               | Dep_var v -> Var_set.mem v scope
-                               | Dep_trm (_, v) -> Var_set.mem v scope
-                               | _ -> false
-                    ) instr'.ins in
-       let inouts' = Dep_set.filter (
-                         fun d -> match (dep_get_atomic d) with
-                                  | Dep_var v -> Var_set.mem v scope
-                                  | Dep_trm (_, v) -> Var_set.mem v scope
-                                  | _ -> false
-                       ) instr'.inouts in
-       {
-         current = t;
-         ins = (Dep_set.union ins ins');
-         inouts = (Dep_set.union inouts inouts');
-         shared = shared;
-         task_id = -1;
-         children = [instr'];
-         params = [init; cond; inc]
-       }
+       let scope = var_set_of_var_hashtbl s in
+       let (ins, inouts) = trm_discover_dependencies s init in
+       let (ins', inouts') = trm_discover_dependencies s cond in
+       let (ins, inouts) =
+         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
+       let (ins', inouts') = trm_discover_dependencies s inc in
+       let (ins, inouts) =
+         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
+       let c = TaskGraph.create() in
+       let ct = fill s instr c in
+       let (ins, inouts) =
+         (Dep_set.union ins ct.ins, Dep_set.union inouts ct.inouts) in
+       Task.create t scope ins inouts [c]
  (* | Trm_for (range, body, _) -> {
         current = t;
         ins = [];
         inouts = [];
-        children = [(augment body)];
+        children = [(fill body)];
         params = [range]
       } *)
     | Trm_let _
-      | Trm_let_mult _ ->
-       let (ins, inouts, shared) = trm_discover_dependencies locals t in
-       {
-        current = t;
-        ins = ins;
-        inouts = inouts;
-        shared = shared;
-        task_id = -1;
-        children = [];
-        params = []
-      }
-    | Trm_if (cond, yes, no) -> {
+      | Trm_let_mult _
+      | Trm_apps _ ->
+       let (ins, inouts) = trm_discover_dependencies s t in
+       let scope = var_set_of_var_hashtbl s in
+       Task.create t scope ins inouts []
+   (* | Trm_if (cond, yes, no) -> {
         current = t;
         ins = Dep_set.empty;
         inouts = Dep_set.empty;
         shared = Var_set.empty;
         task_id = -1;
-        children = [(augment locals 0 yes); (augment locals 0 no)];
+        children = [(fill locals 0 yes); (fill locals 0 no)];
         params = [cond]
       }
-    | Trm_apps _ ->
-       let _ = Printf.printf "BEGIN CALL\n" in
-       let (ins, inouts, shared) = trm_discover_dependencies locals t in
-       let _ = Printf.printf "END CALL\n" in
-       {
-         current = t;
-         ins = ins;
-         inouts = inouts;
-         shared = shared;
-         task_id = tid;
-         children = [];
-         params = []
-       }
     | Trm_while (cond, body) -> {
         current = t;
         ins = Dep_set.empty;
         inouts = Dep_set.empty;
         shared = Var_set.empty;
         task_id = -1;
-        children = [(augment locals 0 body)];
+        children = [(fill locals 0 body)];
         params = [cond]
       }
     | Trm_do_while (body, cond) -> {
@@ -1548,7 +1515,7 @@ let taskify_on (p : path) (t : trm) : unit =
         inouts = Dep_set.empty;
         shared = Var_set.empty;
         task_id = -1;
-        children = [(augment locals 0 body)];
+        children = [(fill locals 0 body)];
         params = [cond]
       }
     | Trm_switch (cond, cases) -> {
@@ -1558,7 +1525,7 @@ let taskify_on (p : path) (t : trm) : unit =
         shared = Var_set.empty;
         task_id = -1;
         children = List.map (
-                       fun (labels, block) -> augment locals 0 block
+                       fun (labels, block) -> fill locals 0 block
                      ) cases;
         params = [cond]
       }
@@ -1589,19 +1556,10 @@ let taskify_on (p : path) (t : trm) : unit =
         task_id = -1;
         children = [];
         params = []
-      }
+      } *)
     | _ ->
        let _ = Printf.printf "I don't know '%s'\n" (trm_desc_to_string t.desc) in
-       {
-        current = t;
-        ins = Dep_set.empty;
-        inouts = Dep_set.empty;
-        shared = Var_set.empty;
-        task_id = -1;
-        children = [];
-        params = []
-      }
-       (*fail t.loc "Apac_core.taskify_on: unsupported instruction kind."*)
+       Task.empty t
   in
   (* Find the parent function. *)
   let f = match (find_parent_function p) with
@@ -1611,15 +1569,13 @@ let taskify_on (p : path) (t : trm) : unit =
   (* Find the corresponding constification record in [const_records]. *)
   let const_record = Var_Hashtbl.find const_records f in
   (* Build the augmented AST correspoding to the function's body. *)
-  let task_graph = TaskGraph.create () in
-  let new_node : Task.t  = { current = t; ins = Dep_set.empty; inouts = Dep_set.empty; children = TaskGraph.create (); } in
-  let new_node = TaskGraph.V.create new_node in
-  TaskGraph.add_vertex task_graph new_node;
-  const_record.task_graph <- Some (task_graph);
+  let g = TaskGraph.create () in
+  let _ = fill const_record.variables t g in
+  const_record.task_graph <- Some (g);
   TaskGraph.iter_vertex (fun vertex ->
       let lab : Task.t = TaskGraph.V.label vertex in
-      Printf.printf "vertex: %s\n" (trm_desc_to_string lab.current.desc)) task_graph
-  (*augment const_record.variables t task_graph;
+      Printf.printf "vertex: %s\n" (trm_desc_to_string lab.current.desc)) g
+  (*fill const_record.variables t task_graph;
   Printf.printf "Augmented AST for <%s> follows:\n%s\n"
     (var_to_string f) (atrm_to_string aast)*)
     
