@@ -181,3 +181,8 @@ module rec Task : sig
       children = [];
     }
   end and TaskGraph : Sig.IM with type V.label = Task.t and type E.label = TaskWeight.t = Imperative.Digraph.AbstractLabeled(Task)(TaskWeight)
+
+
+module TaskGraphBuilder = Builder.I(TaskGraph)
+
+module TaskGraphOper = Oper.Make(TaskGraphBuilder)

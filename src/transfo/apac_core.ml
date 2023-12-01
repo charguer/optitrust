@@ -1580,7 +1580,8 @@ let taskify_on (p : path) (t : trm) : unit =
   (* Build the augmented AST correspoding to the function's body. *)
   let g = TaskGraph.create () in
   let _ = fill const_record.variables t g in
-  const_record.task_graph <- Some (g);
+  let g' = TaskGraphOper.transitive_reduction g in
+  const_record.task_graph <- Some (g');
   TaskGraph.iter_vertex (fun vertex ->
       let lab : Task.t = TaskGraph.V.label vertex in
       Printf.printf "vertex: %s\n" (trm_desc_to_string lab.current.desc)) g
