@@ -991,6 +991,10 @@ let trm_discover_dependencies (locals : symbols)
        let d = Dep_var (v) in
        let degree = (typ_get_degree ty) - 1 in
        Stack.push d inouts;
+       for i = 1 to degree do
+         let d' = var_to_dep v i in
+         Stack.push d' inouts
+       done;
        Var_Hashtbl.add locals v degree;
        trm_iter (aux ins inouts filter false Regular) init
     | Trm_let_mult (vk, tvs, inits) ->
@@ -1000,6 +1004,10 @@ let trm_discover_dependencies (locals : symbols)
            let d = Dep_var (v) in
            let degree = (typ_get_degree ty) - 1 in
            Stack.push d inouts;
+           for i = 1 to degree do
+             let d' = var_to_dep v i in
+             Stack.push d' inouts
+           done;
            Var_Hashtbl.add locals v degree;
            trm_iter (aux ins inouts filter false Regular) init
          ) tvs inits
