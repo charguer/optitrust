@@ -145,6 +145,8 @@ module rec Task : sig
          val create :
            trm -> Var_set.t -> Dep_set.t -> Dep_set.t -> TaskGraph.t list -> t
          val empty : trm -> t
+         val to_string : t -> string
+         val to_label : t -> string
        end = struct
   type t = {
              current : trm;
@@ -180,8 +182,51 @@ module rec Task : sig
       inouts = Dep_set.empty;
       children = [];
     }
+  let to_string (task : t) : string =
+    let what = trm_desc_to_string task.current.desc in
+    let ins = Dep_set.fold
+                (fun a acc -> acc ^ " " ^ (dep_to_string a)) task.ins "" in
+    let inouts = Dep_set.fold (
+                     fun a acc -> acc ^ " " ^ (dep_to_string a)
+                   ) task.inouts "" in
+    what ^ " (in: [" ^ ins ^ " ], inouts: [" ^ inouts ^ " ])\n"
+  let to_label (task : t) : string =
+    let what = trm_desc_to_string task.current.desc in
+    let instr = AstC_to_c.ast_to_string task.current in
+    let limit = String.length instr in
+    let limit = if limit > 20 then 20 else limit in
+    let excerpt = String.sub instr 0 limit in
+    what ^ "\n" ^ excerpt
   end and TaskGraph : Sig.IM with type V.label = Task.t and type E.label = TaskWeight.t = Imperative.Digraph.AbstractLabeled(Task)(TaskWeight)
 
+let fresh_vertex_id = Tools.fresh_generator ()
+
+module TaskGraphPrinter = struct
+  include TaskGraph
+  let vertex_name (vertex : V.t) : string =
+    let task = TaskGraph.V.label vertex in
+    let id = TaskGraph.V.hash vertex in
+    (trm_desc_to_string task.current.desc) ^ "_" ^ (string_of_int id)
+  let get_subgraph (vertex : V.t) = None
+  let graph_attributes
+        (graph : TaskGraph.t) : Graphviz.DotAttributes.graph list = []
+  let default_vertex_attributes
+        (graph : TaskGraph.t) : Graphviz.DotAttributes.vertex list = []
+  let vertex_attributes
+        (vertex : V.t) : Graphviz.DotAttributes.vertex list =
+    [ `Label (Task.to_label (TaskGraph.V.label vertex) ) ]
+  let default_edge_attributes
+        (graph : TaskGraph.t) : Graphviz.DotAttributes.edge list = []
+  let edge_attributes
+        (edge : E.t) : Graphviz.DotAttributes.edge list = []
+end
+
+module DotExport = Graph.Graphviz.Dot(TaskGraphPrinter)
+
+let export_task_graph g f : unit =
+  let file = open_out f in
+  DotExport.output_graph file g;
+  close_out file
 
 module TaskGraphBuilder = Builder.I(TaskGraph)
 
