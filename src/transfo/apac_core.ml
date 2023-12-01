@@ -1455,19 +1455,20 @@ let taskify_on (p : path) (t : trm) : unit =
        for i = 0 to (nb_tasks - 1) do
          let vertex_i = List.nth tasks i in
          let task_i = TaskGraph.V.label vertex_i in
-         for j = 0 to (nb_tasks - 1) do
-           if j <> i then
+         for j = (i + 1) to (nb_tasks - 1) do
+           let vertex_j = List.nth tasks j in
+           let task_j = TaskGraph.V.label vertex_j in
+           let op1 = Dep_set.inter task_i.inouts task_j.ins in
+           let op2 = Dep_set.inter task_i.inouts task_j.inouts in
+           let j_depends_on_i =
+             not ((Dep_set.is_empty op1) && (Dep_set.is_empty op2)) in
+           if j_depends_on_i then
              begin
-               let vertex_j = List.nth tasks j in
-               let task_j = TaskGraph.V.label vertex_j in
-               let op1 = Dep_set.inter task_i.inouts task_j.ins in
-               let op2 = Dep_set.inter task_i.inouts task_j.inouts in
-               let j_depends_on_i =
-                 not ((Dep_set.is_empty op1) && (Dep_set.is_empty op2)) in
-               if j_depends_on_i then
-                 begin
-                   TaskGraph.add_edge g vertex_i vertex_j
-                 end
+               TaskGraph.add_edge g vertex_i vertex_j
+             end
+           else
+             begin
+               TaskGraph.add_edge g this' vertex_j
              end
          done
        done;
