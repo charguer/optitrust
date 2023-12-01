@@ -1098,6 +1098,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
     | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) ->
        (* If we known the function's definition, i.e. the function was defined
           within the scope of the analysis, *)
+       let _ = Printf.printf "%s calls %s\n" (var_to_string fun_var) (var_to_string name) in
        if Var_Hashtbl.mem const_records name then
          begin
            (* find the corresponding function constification record containing
