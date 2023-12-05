@@ -768,9 +768,10 @@ and produced_resource_set = {
 }
 
 and resource_usage =
-  | UsedReadOnly
+  | SplittedReadOnly
   | UsedUninit
   | UsedFull
+  | JoinedReadOnly
   | Produced
 
 and resource_usage_map = resource_usage Hyp_map.t
@@ -1049,9 +1050,10 @@ let trm_desc_to_string : trm_desc -> string =
 
 let resource_usage_opt_to_string = function
 | None -> "None"
-| Some UsedReadOnly -> "UsedReadOnly"
+| Some SplittedReadOnly -> "SplittedReadOnly"
 | Some UsedUninit -> "UsedUninit"
 | Some UsedFull -> "UsedFull"
+| Some JoinedReadOnly -> "JoinedReadOnly"
 | Some Produced -> "Produced"
 
 (* **************************** Rewrite rules ****************************** *)

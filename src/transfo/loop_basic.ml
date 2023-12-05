@@ -214,7 +214,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       let tl1_inv_usage = inter_linear_hyps (Resources.compute_usage_of_instrs (Mlist.to_list tl1)) in (* = I' * Iro *)
       let tl1_inv_reads, (* = Iro *) tl1_inv_writes (* = I' *) = Hyp_map.partition (fun _ res_usage ->
         match res_usage with
-        | UsedReadOnly -> true
+        | SplittedReadOnly | JoinedReadOnly -> true
         | _ -> false
       ) tl1_inv_usage in
       let resource_set_of_hyp_map (hyps: 'a Hyp_map.t) (resources: resource_item list): resource_item list =

@@ -753,9 +753,10 @@ let ctx_produced_res_to_trm (produced_res: produced_resource_set) : trm =
 
 let ctx_usage_map_to_string res_used =
   String.concat ", " (List.map (function
-    | hyp, UsedReadOnly -> sprintf "RO %s" hyp.name
+    | hyp, SplittedReadOnly -> sprintf "RO %s" hyp.name
     | hyp, UsedUninit -> sprintf "Uninit %s" hyp.name
     | hyp, UsedFull -> sprintf "Full %s" hyp.name
+    | hyp, JoinedReadOnly -> sprintf "JoinRO %s" hyp.name
     | hyp, Produced -> sprintf "Produced %s" hyp.name)
     (Hyp_map.bindings res_used))
 

@@ -355,14 +355,15 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
         if frac == old_frac then
           (used_set, (x, formula))
         else
-          let used_set = Hyp_map.add x UsedReadOnly used_set in
+          let used_set = Hyp_map.add x JoinedReadOnly used_set in
           let res = match frac.desc with
             | Trm_val Val_lit Lit_int 1 -> (x, ro_formula)
             | _ -> (x, formula_read_only ~frac ro_formula)
           in
           used_set, res
       | None -> (used_set, (x, formula))
-    ) Hyp_map.empty frame in
+    ) Hyp_map.empty frame
+  in
 
   let linear, used_set = List.fold_left (fun (acc, used_set) (h, formula) ->
       let add_produced () = ((h, formula) :: acc, Var_map.add h Produced used_set) in
@@ -444,11 +445,12 @@ let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resourc
       | None, u -> u
       | u, None -> u
       | Some Produced, Some (UsedFull | UsedUninit) -> None
-      | Some Produced, Some UsedReadOnly -> Some Produced
+      | Some Produced, Some (SplittedReadOnly | JoinedReadOnly) -> Some Produced
       | _, Some Produced -> failwith (sprintf "Produced resource %s share id with another one" (var_to_string hyp))
       | Some (UsedFull | UsedUninit), _ -> failwith (sprintf "Consumed resource %s share id with another one" (var_to_string hyp))
-      | Some UsedReadOnly, Some (UsedFull | UsedUninit) -> Some UsedFull
-      | Some UsedReadOnly, Some UsedReadOnly -> Some UsedReadOnly
+      | Some (SplittedReadOnly | JoinedReadOnly), Some (UsedFull | UsedUninit) -> Some UsedFull
+      | Some JoinedReadOnly, Some JoinedReadOnly -> Some JoinedReadOnly
+      | Some (SplittedReadOnly | JoinedReadOnly), Some (SplittedReadOnly | JoinedReadOnly) -> Some SplittedReadOnly
     ) current_usage extra_usage
 
 let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usage: resource_usage_map option): resource_usage_map option =
@@ -462,7 +464,7 @@ let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource
   let locally_used =
     List.fold_left (fun usage_map { inst_by; used_formula } ->
       match inst_split_read_only_inv inst_by with
-      | Some (_, orig_hyp) -> Hyp_map.add orig_hyp UsedReadOnly usage_map
+      | Some (_, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
       | None ->
         let hyp_usage = if formula_uninit_inv used_formula = None then UsedFull else UsedUninit in
         match inst_hyp_inv inst_by with
@@ -474,6 +476,22 @@ let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource
     ) Hyp_map.empty res_used.used_linear
   in
   update_usage_map ~current_usage:usage_map ~extra_usage:locally_used
+
+let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set =
+    let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
+
+    let res_produced = compute_produced_resources subst_ctx contract.post in
+
+    t.ctx.ctx_resources_contract_invoc <- Some {
+      contract_frame = res_frame;
+      contract_inst = res_used;
+      contract_produced = res_produced };
+
+    let usage_map = add_used_set_to_usage_map res_used Var_map.empty in
+
+    let new_res, used_wands = resource_merge_after_frame res_produced res_frame in
+    let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:used_wands in
+    usage_map, Resource_set.bind ~old_res:res ~new_res
 
 let debug_print_computation_stack = false
 
@@ -634,19 +652,10 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         in
         assert (Var_set.is_empty !ghost_args_vars);
 
-        let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
+        let call_usage_map, res_after = compute_contract_invoc contract ~subst_ctx res t in
+        let usage_map = Option.map (fun usage_map -> update_usage_map ~current_usage:usage_map ~extra_usage:call_usage_map) usage_map in
 
-        let usage_map = Option.map (fun usage_map -> add_used_set_to_usage_map res_used usage_map) usage_map in
-
-        let res_produced = compute_produced_resources subst_ctx contract.post in
-        t.ctx.ctx_resources_contract_invoc <- Some {
-            contract_frame = res_frame;
-            contract_inst = res_used;
-            contract_produced = res_produced };
-
-        let new_res, used_wands = resource_merge_after_frame res_produced res_frame in
-        let usage_map = Option.map (fun usage_map -> update_usage_map ~current_usage:usage_map ~extra_usage:used_wands) usage_map in
-        usage_map, Some (Resource_set.bind ~old_res:res ~new_res)
+        usage_map, Some res_after
 
       | exception Spec_not_found fn when var_eq fn Resource_primitives.__cast ->
         (* TK: we treat cast as identity function. *)
@@ -718,20 +727,12 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
     | Trm_for (range, body, Some contract) ->
       let outer_contract = loop_outer_contract range contract in
-      let ghost_subst_ctx, res_used, res_frame = extract_resources ~split_frac:true res outer_contract.pre in
+      let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
       let inner_contract = loop_inner_contract range contract in
       ignore (compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~old_res:res ~new_res:inner_contract.pre)) body);
 
-      let after_loop_res = compute_produced_resources ghost_subst_ctx outer_contract.post in
-
-      t.ctx.ctx_resources_contract_invoc <- Some { contract_frame = res_frame; contract_inst = res_used; contract_produced = after_loop_res };
-
-      let usage_map = add_used_set_to_usage_map res_used Var_map.empty in
-
-      let new_res, used_wands = resource_merge_after_frame after_loop_res res_frame in
-      let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:used_wands in
-      Some usage_map, Some (Resource_set.bind ~old_res:res ~new_res)
+      Some usage_map, Some res_after
 
     | Trm_typedef _ ->
       Some Var_map.empty, Some res

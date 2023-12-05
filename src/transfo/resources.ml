@@ -70,21 +70,22 @@ let compute_usage_of_instrs (instrs : trm list) : resource_usage_map =
   ) Resource_computation.empty_usage_map instrs
 
 type usage_filter =
- { unused: bool; read_only: bool; uninit: bool; full: bool; produced: bool; }
+ { unused: bool; read_only: bool; joined_read_only: bool; uninit: bool; full: bool; produced: bool; }
 
-let keep_all = { unused = true; read_only = true; uninit = true; full = true; produced = true; }
-let keep_none = { unused = false; read_only = false; uninit = false; full = false; produced = false; }
+let keep_all = { unused = true; read_only = true; joined_read_only = true; uninit = true; full = true; produced = true; }
+let keep_none = { unused = false; read_only = false; joined_read_only = false; uninit = false; full = false; produced = false; }
 let keep_touched = { keep_all with unused = false; }
 let keep_used = { keep_touched with produced = false; }
 let keep_produced = { keep_none with produced = true; }
 let keep_unused = { keep_none with unused = true; }
-let keep_written = { keep_used with read_only = false; }
+let keep_written = { keep_used with read_only = false; joined_read_only = false; }
 
 (** A filter compatible with [List.filter] or [List.partition] that selects resources by their usage in the usage map given. *)
 let usage_filter usage filter (h, _) =
   match Var_map.find_opt h usage with
   | None -> filter.unused
-  | Some UsedReadOnly -> filter.read_only
+  | Some SplittedReadOnly -> filter.read_only
+  | Some JoinedReadOnly -> filter.joined_read_only
   | Some UsedUninit -> filter.uninit
   | Some UsedFull -> filter.full
   | Some Produced -> filter.produced
@@ -98,7 +99,7 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
     let open Either in
     match Hyp_map.find_opt hyp usage with
     | None -> Right (hyp, formula)
-    | Some UsedReadOnly ->
+    | Some (SplittedReadOnly | JoinedReadOnly) -> (* TODO: Handle JoinedReadOnly differently *)
       begin match formula_read_only_inv formula with
       | Some _ -> Left (hyp, formula)
       | None ->
@@ -138,6 +139,7 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
     | None -> !new_fracs
   in
 
+  (* TODO: remove unused pure varaibles *)
   { pre = { contract.pre with pure = added_fracs @ contract.pre.pure ; linear = new_linear_pre };
     post = { contract.post with linear = new_linear_post }}
 
@@ -146,7 +148,7 @@ let minimize_loop_contract contract usage =
   let keep_used_filter (hyp, formula) =
     match Hyp_map.find_opt hyp usage with
     | None -> None
-    | Some UsedReadOnly ->
+    | Some (SplittedReadOnly | JoinedReadOnly) -> (* TODO: handle JoinedRO differently *)
       begin match formula_read_only_inv formula with
       | Some _ -> Some (hyp, formula)
       | None ->
@@ -164,6 +166,7 @@ let minimize_loop_contract contract usage =
 
   let new_iter_contract = minimize_fun_contract ~new_fracs contract.iter_contract usage in
 
+  (* TODO: remove unused pure variables *)
   { loop_ghosts = !new_fracs @ contract.loop_ghosts;
     invariant = new_invariant;
     iter_contract = new_iter_contract; }
@@ -273,7 +276,7 @@ let write_usage_of (t : trm) : hyp list =
   let keep hyp res_usage =
     match res_usage with
     | UsedFull | UsedUninit-> true
-    | UsedReadOnly | Produced  -> false
+    | SplittedReadOnly | JoinedReadOnly | Produced -> false
   in
   let write_res = Hyp_map.filter keep res in
   List.map (fun (h, _) -> h) (Hyp_map.bindings write_res)
@@ -316,13 +319,13 @@ let assert_not_self_interfering (t : trm) : unit =
     match Hyp_map.find_opt h res_usage with
     | Some UsedFull -> trm_fail t "trm has self interfering resource usage"
     | Some UsedUninit -> true
-    | Some UsedReadOnly | None -> false
+    | Some (SplittedReadOnly|JoinedReadOnly) | None -> false
     | Some Produced -> trm_fail t "trm has invalid resource usage"
   ) res_before.linear in
   let res_produced = List.filter (fun (h, f) ->
     match Hyp_map.find_opt h res_usage with
     | Some Produced -> true
-    | Some UsedReadOnly | None -> false
+    | Some (SplittedReadOnly|JoinedReadOnly) | None -> false
     | Some (UsedFull|UsedUninit) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
   ignore (Resource_computation.subtract_linear_resource res_produced res_used_uninit)
@@ -340,7 +343,7 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   assert_not_self_interfering instr;
   let res = usage_of_trm instr in
   let usage_does_not_interfere hyp res_usage =
-    let interferes = Hyp_map.mem hyp res && res_usage <> UsedReadOnly in
+    let interferes = Hyp_map.mem hyp res && res_usage <> SplittedReadOnly && res_usage <> JoinedReadOnly in
     not interferes
   in
   let instr_does_dot_interfere t =
