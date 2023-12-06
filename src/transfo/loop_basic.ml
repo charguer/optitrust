@@ -156,7 +156,7 @@ let%transfo hoist ?(name : string = "${var}_step")
     [index]: index of the splitting point
     [t]: ast of the loop
     *)
-let fission_on_as_pair (index : int) (t : trm) : trm * trm =
+let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm * trm =
   let (l_range, tl, contract) = trm_inv
     ~error:"Loop_basic.fission_on: only simple loops are supported"
     trm_for_inv_instrs t
@@ -230,7 +230,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       (* let last_tl1_instr = Mlist.nth tl1 ((Mlist.length tl1) - 1) in
       let split_res = unsome_or_trm_fail last_tl1_instr error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
       let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
-
+(* DEBUG:
       let s = AstC_to_c.default_style() in
       let s = { s with ast = { s.ast with print_contract = true; print_var_id = true } } in
       printf "loop_ghosts: %s\n" (Tools.document_to_string (AstC_to_c.resource_item_list_to_doc s contract.loop_ghosts));
@@ -240,7 +240,7 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
       printf "linear_invariant: %s\n" (Resource_computation.resource_list_to_string linear_invariant);
       printf "split_res_comm: %s\n" (Resource_computation.resource_list_to_string split_res_comm);
       );
-
+*)
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
           | Some (vk, v, typ, init) -> Var_set.add v acc
@@ -281,13 +281,14 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
         ) partial_snd_contract tl1_inv_reads
       );
 
-      printf "contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (contract)));
+      (* DEBUG:
+       printf "contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (contract)));
       printf "fst_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !fst_contract)));
-      printf "snd_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !snd_contract)));
+      printf "snd_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !snd_contract))); *)
     end;
   end;
-  let ta = trm_for_instrs ?contract:!fst_contract l_range tl1 in
-  let tb = trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2) in
+  let ta = trm_may_add_mark mark_loops (trm_for_instrs ?contract:!fst_contract l_range tl1) in
+  let tb = trm_may_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2)) in
   (ta, tb)
     (* Note: the trm_copy is needed because the loop index in the
        two loops must have a different id. We copy the second loop
@@ -298,9 +299,14 @@ let fission_on_as_pair (index : int) (t : trm) : trm * trm =
     [index]: index of the splitting point
     [t]: ast of the loop
     *)
-let fission_on (index : int) (t : trm) : trm =
-  let (ta,tb) = fission_on_as_pair index t in
-  trm_seq_nobrace_nomarks [ ta; tb ]
+let fission_on (mark_loops : mark option) (mark_between_loops : mark option) (index : int) (t : trm) : trm =
+  let (ta,tb) = fission_on_as_pair mark_loops index t in
+  let instrs = Mlist.of_list [ ta; tb ] in
+  let instrs = match mark_between_loops with
+  | Some m -> Mlist.insert_mark_at 1 m instrs
+  | None -> instrs
+  in
+  trm_seq_nobrace instrs
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -308,40 +314,31 @@ let fission_on (index : int) (t : trm) : trm =
    @correctness: Reads in new second loop need to never depend on writes on
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
-let%transfo fission (tg : target) : unit =
+let%transfo fission_basic ?(mark_loops : mark option) ?(mark_between_loops : mark option) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p_before ->
       Resources.required_for_check ();
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
-      let debug_p = Path.parent p_loop in
+      (* DEBUG: let debug_p = Path.parent p_loop in
       Show.trm ~msg:"res1" (
         Flags.(with_flag display_resources false (fun () ->
           with_flag always_name_resource_hyp true (fun () ->
             Ast_fromto_AstC.computed_resources_intro (get_trm_at_exn (target_of_path debug_p))
           )))
-      );
+      ); *)
       Resources.required_for_check ();
-      apply_at_path (fission_on split_i) p_loop;
+      apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
       Resources.required_for_check ();
-      Show.trm ~msg:"res2" (
+      (* DEBUG: Show.trm ~msg:"res2" (
         Flags.(with_flag display_resources false (fun () ->
           with_flag always_name_resource_hyp true (fun () ->
             Ast_fromto_AstC.computed_resources_intro (get_trm_at_exn (target_of_path debug_p))
           )))
-      );
+      ); *)
     ) tg
   );
   Resources.justif_correct "loop resources where successfully split"
-
-(* TODO: combi
-let%transfo fission_multi (tg : target) : unit =
-  paths = resolve target
-  all paths must be target-between inside for-loop sequences
-  partition the paths according to the sequence they are in (remove duplicates)
-    -> see pattern in fusion_targets ; use a group_by to generalize to multiple set of targets
-    -> beware of nesting, should probably start with innermost paths
-  for each for loop, apply fission on that loop, at the selected indices *)
 
 (* TODO: valid in C but not C++? *)
 let normalize_loop_step (s : loop_step) : loop_step =
@@ -526,6 +523,7 @@ let move_out_on ?(mark : mark option) (empty_range: empty_range_mode) (trm_index
   let generate_if = (empty_range = Generate_if) in
   let contract = match contract with
     | Some contract when not generate_if ->
+      (* FIXME: should this not just erase contract when not checking validity? *)
       let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
       let _, new_invariant, _ = Resource_computation.subtract_linear_resource resources_after.linear contract.iter_contract.pre.linear in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }
@@ -567,9 +565,9 @@ let move_out_on ?(mark : mark option) (empty_range: empty_range_mode) (trm_index
       - All resources in B are uninit in the loop contract
 *)
 let%transfo move_out ?(mark : mark option) ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
-  Resources.required_for_check ();
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p ->
+      Resources.required_for_check ();
       let i, p = Path.index_in_surrounding_loop p in
       apply_at_path (move_out_on ?mark empty_range i) p
   ) tg)

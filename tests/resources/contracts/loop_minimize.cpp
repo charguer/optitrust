@@ -24,3 +24,14 @@ void f(float* M1, float* M2, int n) {
   }
 }
 
+void g(int* t2) {
+  __consumes("t2 ~> Matrix1(10)");
+  __produces("_Uninit(t2 ~> Matrix1(10))");
+
+  for (int i = 0; i < 10; i++) {
+    __consumes("&t2[MINDEX1(10, i)] ~> Cell");
+    __produces("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
+
+    int x = t2[MINDEX1(10, i)];
+  }
+}

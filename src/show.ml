@@ -133,7 +133,7 @@ let add_linebreak (msg : string) : string =
 
 let path ?(msg : string = "") (p : path) : unit =
   prt_msg msg;
-  prt ~suffix:"n" (Path.path_to_string p)
+  prt ~suffix:"\n" (Path.path_to_string p)
 
 let paths ?(msg : string = "") (ps : paths) : unit =
   prt_list ~msg path ps

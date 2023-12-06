@@ -22,8 +22,8 @@ AST:
     x++;
   }
 }
-var-trm-internal:   int* x = new int( 3 )
-for-trm-internal: for ( int i = 0; i < 3; i++ ) { x++; }
+var-trm-internal:   int* x#366 = new int( 3 )
+for-trm-internal: for ( int i#367 = 0; i#367 < 3; i#367++ ) { x#366++; }
 for-trm-internal-desc: Trm_for ( i,
   Trm_val ( Val_lit ( Lit_int 0 ) ),
   Up,

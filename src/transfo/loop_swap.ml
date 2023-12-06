@@ -70,11 +70,11 @@ let ghost_swap outer_range inner_range (_, formula) =
 let swap_on (t: trm): trm =
   (* TODO: refactor *)
   Pattern.pattern_match t [
-    Pattern.(trm_for !__ (
-      trm_seq (mlist (trm_for !__ !__ (some !__) ^:: nil)) ^|
-      trm_for !__ !__ (some !__)
-      ) (some !__))
-    (fun outer_range inner_range body inner_contract outer_contract ->
+    Pattern.(!(trm_for !__ (
+      trm_seq (mlist (!(trm_for !__ !__ (some !__)) ^:: nil)) (* ^|
+      (!(trm_for !__ !__ (some !__))) *)
+      ) (some !__)))
+    (fun outer_loop outer_range inner_loop inner_range body inner_contract outer_contract ->
       let open Resource_contract in
       if outer_contract.invariant <> Resource_set.empty then
         if not !Flags.check_validity then raise Pattern.Next else
@@ -103,7 +103,8 @@ let swap_on (t: trm): trm =
       let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; iter_contract = { pre = new_outer_pre; post = new_outer_post } } in
 
       trm_seq_nobrace_nomarks (swaps_pre @
-        [trm_for inner_range ~contract:new_outer_contract (trm_seq_nomarks [trm_copy (trm_for outer_range ~contract:new_inner_contract body)])] @
+        [trm_for inner_range ~annot:inner_loop.annot ~contract:new_outer_contract (trm_seq_nomarks [
+          trm_copy (trm_for outer_range ~annot:outer_loop.annot ~contract:new_inner_contract body)])] @
         swaps_post)
     );
     Pattern.(!__) (fun t ->
@@ -155,7 +156,7 @@ let%transfo swap_basic (tg : target) : unit =
     g_rev();
   GHOST_END(hp);
 
-  -- Loop_basic.fission -->
+  -- Loop_basic.fission_basic -->
 
   GHOST_BEGIN(hp, ro_fork_group(..));
   pfor i:
@@ -217,7 +218,7 @@ let%transfo swap_basic (tg : target) : unit =
   v}
 
    *)
-let%transfo swap (tg : target) : unit =
+let%transfo swap ?(mark_outer_loop : mark option) ?(mark_inner_loop : mark option) (tg : target) : unit =
   Target.iter (fun _ outer_loop_p ->
   Marks.with_marks (fun next_m ->
     if not !Flags.check_validity then begin
@@ -226,6 +227,8 @@ let%transfo swap (tg : target) : unit =
       let _, seq_p = Path.index_in_seq outer_loop_p in
       let outer_loop_m = Marks.add_next_mark_on next_m outer_loop_p in
       let inner_loop_m = Marks.add_next_mark next_m [nbExact 1; Constr_paths [seq_p]; cMark outer_loop_m; cStrict; cFor ""] in
+      Option.iter (fun m -> Marks.add m [Constr_paths [seq_p]; cMark outer_loop_m]) mark_outer_loop;
+      Option.iter (fun m -> Marks.add m [Constr_paths [seq_p]; cMark inner_loop_m]) mark_inner_loop;
 
       Resources.loop_parallelize_reads (target_of_path outer_loop_p);
 
@@ -235,8 +238,8 @@ let%transfo swap (tg : target) : unit =
       let pairs = Ghost_pair.elim_all_pairs_at next_m inner_seq_p in
 
       List.iter (fun (pair_token, begin_m, end_m) ->
-        Loop_basic.fission [Constr_paths [seq_p]; cMark begin_m; tAfter];
-        Loop_basic.fission [Constr_paths [seq_p]; cMark end_m; tBefore];
+        Loop_basic.fission_basic [Constr_paths [seq_p]; cMark begin_m; tAfter];
+        Loop_basic.fission_basic [Constr_paths [seq_p]; cMark end_m; tBefore];
         Ghost.embed_loop [Constr_paths [seq_p]; cMark begin_m];
         Ghost.embed_loop [Constr_paths [seq_p]; cMark end_m];
       ) pairs;

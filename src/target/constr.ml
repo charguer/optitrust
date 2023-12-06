@@ -10,7 +10,7 @@ open Path
 exception Resolve_target_failure of string
 
 (* TODO deprecate this after Target.iter is used everywhere *)
-let old_resolution = ref true
+let old_resolution = ref false
 
 (******************************************************************************)
 (*                        Data structure for targets                          *)
@@ -1391,7 +1391,10 @@ and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs :
     This function gets the result from [resolve_target_simple] and checks if it matches
     the given requirements. If one of the requirements is not fulfilled the target resolution will fail. *)
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
+  (* DEBUG: printf "tgs: %s\n" (target_struct_to_string tgs); *)
   let res = resolve_target_simple ~incontracts:tgs.target_incontracts tgs.target_path t in
+  (* DEBUG: if res <> [] then
+    printf "resolve_target_struct res: %s\n" (paths_to_string res); *)
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurrences, if not then something went wrong *)
   let error s =
@@ -1539,22 +1542,25 @@ and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t :
     if it is another kind of constraint, then we check if it holds
    *)
   | _ ->
-      let paths_on_this_node =
-        if check_constraint ~incontracts c t
-          then resolve_target_simple ~incontracts p t
-          else [] in
-      let paths_on_the_mlist =
-        if !old_resolution then [] else
-        (* find paths towards mark-between in a MList, in which case we generate a Dir_before *)
-        match c, trm_mlist_inv t with
-        | (Constr_mark (pred,_)), (Some marks) ->
-            List.concat (List.mapi (fun i ms -> if List.exists pred ms then [[Dir_before i]] else []) marks)
-        | _ -> []
-        in
-      let res = paths_on_this_node @ paths_on_the_mlist in
-      if res = [] then
-        print_info loc "Constr.resolve_constraint: constraint %s does not hold\n" (constr_to_string c);
-      res
+    let paths_on_this_node =
+      if check_constraint ~incontracts c t
+        then resolve_target_simple ~incontracts p t
+        else [] in
+    let paths_on_the_mlist =
+      if !old_resolution then [] else
+      (* find paths towards mark-between in a MList, in which case we generate a Dir_before *)
+      match c, trm_mlist_inv t with
+      | (Constr_mark (pred,_)), (Some marks) ->
+          List.concat (List.mapi (fun i ms -> if List.exists pred ms then [[Dir_before i]] else []) marks)
+      | _ -> []
+      in
+    let res = paths_on_this_node @ paths_on_the_mlist in
+    (* DEBUG:
+    if paths_on_the_mlist <> [] then
+      printf "paths_on_the_mlist: %s\n" (paths_to_string paths_on_the_mlist); *)
+    if res = [] then
+      print_info loc "Constr.resolve_constraint: constraint %s does not hold\n" (constr_to_string c);
+    res
 
 (* [explore_in_depth ~incontracts ~depth p t]: calls resolve_target_simple on subterms of t if possible *)
 and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target_simple) (t : trm) : paths =
