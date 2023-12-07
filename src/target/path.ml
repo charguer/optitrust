@@ -471,9 +471,12 @@ let index_in_surrounding_loop (dl : path) : int * path =
 (* [to_outer_loop]: takes the path to a loop surrounded by another loop,
    and returns the path to the outer loop *)
 let to_outer_loop (p : path) : path =
-   match index_in_surrounding_loop p with
-   | (0, p') -> p'
-   | _ -> path_fail p "Path.to_outer_loop: unexpected path"
+  snd (index_in_surrounding_loop p)
+  (* DEPRECATED:
+  match index_in_surrounding_loop p with
+  | (0, p') -> p'
+  | _ -> path_fail p "Path.to_outer_loop: unexpected path"
+  *)
 
 (* [last_dir_before_inv p] for a path of the form [p1 @ Dir_before n]
    returns the pair [Some (p1,n)], else returns [None]. *)

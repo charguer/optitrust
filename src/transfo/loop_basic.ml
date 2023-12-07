@@ -485,7 +485,7 @@ type empty_range_mode =
     [trm_index] - index of that instruction on its surrouding sequence (just checks that it is 0),
     [t] - ast of the for loop.
   *)
-let move_out_on ?(mark : mark option) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
+let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
   if (trm_index <> 0) then failwith "Loop_basic.move_out: not targeting the first instruction in a loop";
   let error = "Loop_basic.move_out: expected for loop" in
   let ((index, t_start, dir, t_end, step, par), body, contract) = trm_inv ~error trm_for_inv t in
@@ -528,7 +528,9 @@ let move_out_on ?(mark : mark option) (empty_range: empty_range_mode) (trm_index
   let loop = trm_for ?contract (index, t_start, dir, t_end, step, par) (trm_seq rest) in
   let non_empty_cond = trm_ineq dir t_start t_end in
   let instr_outside = if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr in
-  trm_seq_nobrace_nomarks [trm_may_add_mark mark instr_outside; loop]
+  trm_seq_nobrace_nomarks [
+    trm_may_add_mark instr_mark instr_outside;
+    trm_may_add_mark loop_mark loop]
 
 (** [move_out tg]: expects the target [tg] to point at the first instruction inside the loop
     that is not dependent on the index of the loop or any local variable.
@@ -559,12 +561,12 @@ let move_out_on ?(mark : mark option) (empty_range: empty_range_mode) (trm_index
       - Prove that the loop range is never empty
       - All resources in B are uninit in the loop contract
 *)
-let%transfo move_out ?(mark : mark option) ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
+let%transfo move_out ?(instr_mark : mark option) ?(loop_mark : mark option) ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p ->
       Resources.required_for_check ();
       let i, p = Path.index_in_surrounding_loop p in
-      apply_at_path (move_out_on ?mark empty_range i) p
+      apply_at_path (move_out_on instr_mark loop_mark empty_range i) p
   ) tg)
 
 (* [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition

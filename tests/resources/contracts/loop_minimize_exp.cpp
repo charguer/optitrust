@@ -47,16 +47,11 @@ void nested_loops(float* M1, float* M2, int n) {
   int c = 0;
   for (int i = 0; i < n; i++) {
     __sequentially_modifies("&c ~> Cell");
-    __modifies(
-        "Group(range(0, n, 1), fun j -> &M1[MINDEX2(n, n, i, j)] ~> Cell)");
-__modifies(
-        "Group(range(0, n, 1), fun j -> &M2[MINDEX2(n, n, i, j)] ~> Cell)");
+    __reads("Group(range(0, n, 1), fun j -> &M1[MINDEX2(n, n, i, j)] ~> Cell)");
     int acc = 0;
     for (int j = 0; j < n; j++) {
-__sequentially_modifies("&c ~> Cell");
       __sequentially_modifies("&acc ~> Cell");
-      __modifies("&M1[MINDEX2(n, n, i, j)] ~> Cell");
-__modifies("&M2[MINDEX2(n, n, i, j)] ~> Cell");
+      __reads("&M1[MINDEX2(n, n, i, j)] ~> Cell");
       acc += M1[MINDEX2(n, n, i, j)];
     }
     c += acc;

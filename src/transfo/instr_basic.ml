@@ -9,12 +9,12 @@ let%transfo delete (tg : target) : unit =
 (* [copy ~target tg]: expects the target [tg] to point at an instruction that is
     going to be copied to the relative target [where]. If [delete] is true then
     the targetd instruction will be delete. *)
-let%transfo copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = []) (tg : target) : unit =
+let%transfo copy ?(mark_copy : mark option) ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) ->
       let tg_dest_path_seq, dest_index = if dest = [] then p, i+1 else Target.resolve_target_between_exactly_one dest t in
       if tg_dest_path_seq <> p then path_fail p "Instr_basic.copy: the destination target should be unique and belong to the same block as the main targets";
-      Instr_core.copy dest_index i delete t p) tg
+      Instr_core.copy mark_copy dest_index i delete t p) tg
 
 
 (* [move ~rev ~dest tg]: expects the target [tg] to point at the instruction that is
@@ -30,7 +30,7 @@ let%transfo copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = 
 
    This is sufficient but not necessary, a manual commutation proof can be used
    as well. *)
-let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : unit =
+let%transfo move ?(mark : mark option) ?(rev : bool = false) ~dest:(dest : target) (tg : target) : unit =
   Resources.required_for_check ();
   Target.apply ~rev (fun t instr_p ->
     let (p_seq, i) = Internal.isolate_last_dir_in_seq instr_p in
@@ -49,7 +49,7 @@ let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : uni
       done;
       Trace.justif "resources commute"
     end;
-    Instr_core.copy dest_index i true t p_seq
+    Instr_core.copy mark dest_index i true t p_seq
   ) tg;
   Scope.infer_var_ids ()
 

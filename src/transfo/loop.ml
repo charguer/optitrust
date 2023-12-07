@@ -126,7 +126,7 @@ let%transfo hoist_alloc_loop_list
       let next_name = match varies_in_current_loop with
       | 0 -> begin
         (* following may also swap instrs *)
-        Loop_basic.move_out ?mark:maybe_mark (target_of_path p);
+        Loop_basic.move_out ?instr_mark:maybe_mark (target_of_path p);
         let (outer_i, outer_path) = Path.index_in_seq (snd (Path.index_in_surrounding_loop p)) in
         let new_loop_path = outer_path @ [Dir_seq_nth (outer_i + 1)] in
         Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:((List.init !dim_count (fun _ -> [])) @ [[cVar prev_name]]) (sprintf "MFREE%d" !dim_count)];
@@ -270,7 +270,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
     | [] -> ()
     | 0 :: rl ->
       Marks.with_fresh_mark (fun m ->
-        Loop_basic.move_out ~mark:m (target_of_path p);
+        Loop_basic.move_out ~instr_mark:m (target_of_path p);
         iter_on_targets (fun t p -> aux rl p) [cMark m];
       )
     | 1 :: rl ->
@@ -303,8 +303,8 @@ let%transfo hoist_decl_loop_list
     let error = "Loop.hoist_decl_loop_list: expected let" in
     let _ = trm_inv ~error trm_let_inv tg_trm in
     Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
-        hoist_alloc_loop_list ~tmp_names ~name ~inline loops tg;
-        hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
+      hoist_alloc_loop_list ~tmp_names ~name ~inline loops tg;
+      hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
     )) tg
 
 (* private *)
@@ -601,32 +601,34 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
     In case of nested loops the user can specify the index of the upmost loop before which
     the instructions is going to be moved to.*)
 let%transfo move_out ?(upto : string = "") (tg : target) : unit =
-  iter_on_targets (fun t exp ->
-    let (_, p) = Path.index_in_surrounding_loop exp in
+  let move_out_one (next_mark : unit -> mark) (instr_m : mark) (loop_p : path) (instr_p : path option) : unit =
+    let instr_tg = [Constr_paths [loop_p]; cMark instr_m] in
+    let instr_p = match instr_p with Some p -> p | None -> resolve_target_exactly_one instr_tg (Trace.ast ()) in
+    Instr_basic.move ~dest:[Constr_paths [loop_p]; tFirst; dBody] (target_of_path instr_p);
+    let loop_m = next_mark () in
+    Loop_basic.move_out ~loop_mark:loop_m instr_tg;
+    if !Flags.check_validity then
+      Resources.loop_minimize [cMark loop_m];
+  in
+  Target.iter (fun t instr_p -> Marks.with_marks (fun next_mark ->
+    let instr_m = Marks.add_next_mark_on next_mark instr_p in
+    let loop_p = Path.to_outer_loop instr_p in
     match upto with
-    | "" -> Loop_basic.move_out tg
+    | "" -> move_out_one next_mark instr_m loop_p (Some instr_p)
     | _ ->
-          let quit_loop = ref false in
-          let tmp_p = ref [] in
-          tmp_p := List.rev(List.tl (List.rev p));
-          while not !quit_loop do
-            let tg_trm = Path.resolve_path !tmp_p t in
-            match  tg_trm.desc with
-            | Trm_for _ ->
-              let index = for_loop_index tg_trm in
-              if var_has_name index upto then
-                  begin
-                  Loop_basic.move_out tg;
-                  quit_loop := true;
-                  end
-                else
-                  Loop_basic.move_out tg;
-                  tmp_p := List.rev(List.tl (List.rev !tmp_p))
-            | _ ->
-              Loop_basic.move_out tg;
-              tmp_p := List.rev(List.tl (List.rev !tmp_p))
-            done
-  ) tg
+      let quit_loop = ref false in
+      let current_loop_p = ref loop_p in
+      while not !quit_loop do
+        let loop_t = Path.resolve_path !current_loop_p t in
+        move_out_one next_mark instr_m !current_loop_p None;
+        begin match trm_for_inv loop_t with
+        | Some ((index, _, _, _, _, _), _, _) when var_has_name index upto ->
+          quit_loop := true;
+        | _ ->
+          current_loop_p := Path.to_outer_loop !current_loop_p
+        end;
+      done
+  )) tg
 
 (* [move before after loop_to_move]: move one loop before or after another loop in
      a "sequence"(not in the context of Optitrust) of nested loops.

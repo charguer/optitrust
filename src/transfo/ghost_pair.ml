@@ -35,7 +35,7 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
   while commutes_with_next () do () done;
   if i != !current_i then
     let dest_i = !current_i + dest_offset in
-    Instr_core.copy_aux dest_i i true seq
+    Instr_core.copy_aux None dest_i i true seq
   else
     seq
 

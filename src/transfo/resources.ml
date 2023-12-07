@@ -487,16 +487,21 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   let instr, other_instrs = Xlist.extract_element useful_instrs 0 in
   assert_not_self_interfering instr;
   let res = usage_of_trm instr in
-  let usage_does_not_interfere hyp res_usage =
-    let interferes = Hyp_map.mem hyp res && res_usage <> SplittedReadOnly && res_usage <> JoinedReadOnly in
-    not interferes
+  let usage_interferes hyp res_usage =
+    Hyp_map.mem hyp res && res_usage <> SplittedReadOnly && res_usage <> JoinedReadOnly
   in
-  let instr_does_dot_interfere t =
-    Hyp_map.for_all usage_does_not_interfere (usage_of_trm t)
+  let instr_interference i t =
+    let interferences = Hyp_map.filter usage_interferes (usage_of_trm t) in
+    if Hyp_map.is_empty interferences then None else Some (i, interferences)
   in
-  let is_redundant = List.for_all instr_does_dot_interfere other_instrs in
-  if not is_redundant then
-    trm_fail seq "Resources.assert_instr_redundant: not redundant";
+  let interferences = List.filter_map (fun x -> x) (List.mapi instr_interference other_instrs) in
+  if interferences <> [] then
+    (* TODO: better error message: formulas? *)
+    trm_fail seq (sprintf "Resources.assert_instr_redundant: not redundant due to resources %s\n" (Tools.list_to_string (List.concat_map (fun (i, usage) ->
+      List.map (fun (x, u) ->
+        sprintf "conflict with instr %d on %s (%s)" (i + 1) x.name (resource_usage_opt_to_string (Some u))
+      ) (Hyp_map.bindings usage)
+    ) interferences)));
   ()
 
 (* [show] enables to view the result of resource computations. *)
