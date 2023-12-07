@@ -888,69 +888,147 @@ let%transfo reorder ?(order : string list = []) (tg : target) : unit =
     List.iter (fun x -> move (target_of_path p @ [cFor x]) ~before:(target_of_path p @ [cFor targeted_loop_index])) order
   ) tg
 
-(* [bring_down_loop]: given an instruction marked with [m_instr], find a surrounding
+(* [bring_down_loop]: given an instruction at path [p_instr], find a surrounding
    loop over [index] and bring it down to immediately surround the instruction.
    In order to swap imperfect loop nests, local variables will be hoisted ([Loop.hoist]),
    and surrounding instructions will be fissioned ([Loop.fission]).
 
-   Returns a mark on the new outer loop.
+   Returns a mark on the instruction at path [p_instr].
    *)
-let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mark : unit -> mark) (m_instr : mark): mark =
+let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mark : unit -> mark) (p_instr : path): mark =
   let hoist_all_allocs (tg : target) : unit =
     hoist_alloc_loop_list [1] (tg @ [nbAny; cStrict; cVarDef ""])
   in
-  let p_instr = path_of_target_mark_one_current_ast m_instr in
-  let (index_in_loop, loop_path) = Path.index_in_surrounding_loop p_instr in
+  let m_instr = Marks.add_next_mark_on next_mark p_instr in
+  let (_index_in_loop, loop_path) = Path.index_in_surrounding_loop p_instr in
   let loop_trm = Path.resolve_path loop_path (Trace.ast ()) in
   let ((i, _start, _dir, _stop, _step, _par), body, _contract) = trm_inv
     ~error:"Loop.reorder_at: expected simple loop."
     trm_for_inv loop_trm in
   (* Printf.printf "before i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
+
   (* recursively bring the loop down if necessary *)
-  let m_instr' = if i.name <> index then begin
-    bring_down_loop index ~is_at_bottom:false next_mark (Marks.add_next_mark_on next_mark loop_path);
-  end else m_instr in
+  if i.name <> index then begin
+    ignore (bring_down_loop index ~is_at_bottom:false next_mark loop_path);
+  end;
+
   (* bring the loop down by one if necessary *)
   if not is_at_bottom then begin
     (* hoist all allocs, distribute ghost pairs, and fission all instrs to isolate the loops to be swaped *)
-    hoist_all_allocs (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr'));
+    hoist_all_allocs (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr));
     (* ~indices:[index_in_loop; index_in_loop+1] *)
     (* FIXME:  index_in_loop may be wrong because 'bring_down_loop' changes indexing *)
-    fission (target_of_path ((path_of_loop_surrounding_mark_current_ast m_instr') @ Path.[Dir_body; Dir_before (index_in_loop+1)]));
-    fission (target_of_path ((path_of_loop_surrounding_mark_current_ast m_instr') @ Path.[Dir_body; Dir_before index_in_loop]));
+    fission [cMark m_instr; tBefore];
+    fission [cMark m_instr; tAfter];
     let m_instr'' = next_mark () in
-    Loop_swap.f ~mark_inner_loop:m_instr'' (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr'));
+    Loop_swap.f ~mark_inner_loop:m_instr'' (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr));
     (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
-    m_instr''
-  end else m_instr
+  end;
+
+  m_instr
 
 (* [reorder_at ~order tg]: expects the target [tg] to point at an instruction that is surrounded
    by [length order] loops, and attempts to reorder these loops according to [order].
    The loops do not have to be perfectly nested. In order to swap imperfect loop nests,
    local variables will be hoisted ([Loop.hoist]),
    and surrounding instructions will be fissioned ([Loop.fission]).
+
+   Example: order = [k; i; j]
+
+  for i:
+    ia;
+    ib;
+    for j:
+      ja;
+      for k:
+        ka;
+        kb; <--- tg @m
+      jb;
+    ic;
+
+  --- bring_down_loop j @m --->
+
+  for i:
+    ia;
+    ib;
+    ...
+    for j: <--- (loop_path 2)
+      ja;
+    ...
+    for k: <--- @m_instr2
+      for j:
+        ka;
+        kb; <--- @m / @m_instr
+    ...
+    for j:
+      jb;
+    ...
+    ic;
+
+  --- bring_down_loop i @m2 --->
+
+  for i: <--- (loop_path 2)
+    ia;
+    ib;
+    ...
+    for j:
+      ja;
+  ...
+  for k: <--- @m_instr2
+    for i:
+      for j: <--- @m2 / @m_instr
+        ka;
+        kb; <--- @m
+  ...
+  for i:
+    for j:
+      jb;
+    ...
+    ic;
+
+  --- bring_down_loop k @m3 --->
+
+  for i: <--- (loop_path 2)
+    ia;
+    ib;
+    ...
+    for j:
+      ja;
+  ...
+  for k: <--- (loop_path)
+    for i: <--- @m3 / @m_instr
+      for j: <--- @m2
+        ka;
+        kb; <--- @m
+  ...
+  for i:
+    for j:
+      jb;
+    ...
+    ic;
+
+  --- done ---
+
    *)
 let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   (* [remaining_loops]: sublist of [List.rev order]
      [p]: path to either the target instruction at [tg],
           or a surrounding for loop. *)
-  let rec aux (remaining_loops : string list) (next_mark : unit -> mark) (m : mark) : unit =
+  let rec aux (remaining_loops : string list) (next_mark : unit -> mark) (p : path) : unit =
     match remaining_loops with
     | [] -> ()
     | loop_index :: rl -> begin
       (* Printf.printf "index = '%s'\n" index; *)
-      let m' = bring_down_loop loop_index next_mark m in
-      aux rl next_mark m'
-      end
+      let m = bring_down_loop loop_index next_mark p in
+      aux rl next_mark (path_of_loop_surrounding_mark_current_ast m)
+    end
   in
   let remaining_loops = List.rev order in
   Target.iter (fun t p ->
     Marks.with_marks (fun next_mark ->
-      let m = Marks.add_next_mark_on next_mark p in
-      aux remaining_loops next_mark m
-    )
-  ) tg
+      aux remaining_loops next_mark p
+    )) tg
 
 (* [fold ~index ~start ~sstep ~nb_instr tg]: similar to [Loop_basic.fold] (see loop_basic.ml) except that
     this one doesn't ask the user to prepare the sequence of instructions. But asks for the first instructions and
