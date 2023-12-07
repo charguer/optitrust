@@ -9,6 +9,35 @@ module ShowAt = Show.At
 let trm_seq_nobrace = Nobrace.trm_seq
 let trm_seq_nobrace_nomarks = Nobrace.trm_seq_nomarks
 
+type seq_component =
+  | Trm of trm
+  | TrmList of trm list
+  | TrmMlist of trm mlist
+  | Mark of mark
+  | MarkOption of mark option
+
+let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(braces = true) (components: seq_component list) : trm =
+  let mlist = List.fold_right (fun comp acc ->
+    let res = match comp with
+    | Trm t -> Mlist.push_front t acc
+    | TrmList tl -> Mlist.merge (Mlist.of_list tl) acc
+    | TrmMlist tml -> Mlist.merge tml acc
+    | Mark m
+    | MarkOption Some m -> Mlist.insert_mark_at 0 m acc
+    | MarkOption None -> acc
+    in
+    (* DEBUG:
+      Show.trm ~msg:"res" (trm_seq res); *)
+    res
+  ) components Mlist.empty in
+  if braces then
+    trm_seq ?annot ?loc mlist
+  else begin
+    assert (annot = None);
+    assert (loc = None);
+    trm_seq_nobrace mlist
+  end
+
 let skip_includes (t : trm) : trm =
   match trm_seq_inv t with
   | Some instrs ->

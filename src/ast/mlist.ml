@@ -167,11 +167,15 @@ let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
 
 (* [push_front x ml]: inserts the element [x] at the beginning of the mlist [ml]. *)
 let push_front (x : 'a) (ml : 'a t) : 'a t =
-  insert_at 0 x ml
+  (* DEPRECATED: weird marks behaviour
+    insert_at 0 x ml *)
+  merge (of_list [x]) ml
 
 (* [push_back x ml]: inserts the element [x] at the end of the mlist [ml]. *)
 let push_back (x : 'a) (ml : 'a t) : 'a t =
-  insert_at (length ml) x ml
+  (* DEPRECATED: weird marks behaviour
+    insert_at (length ml) x ml *)
+  merge ml (of_list [x])
 
 (* [pop_front ml]: removes the first element from the mlist [ml]. *)
 let pop_front (ml : 'a t) : 'a t =

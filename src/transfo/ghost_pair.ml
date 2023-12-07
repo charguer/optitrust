@@ -140,7 +140,7 @@ let%transfo minimize_all_in_seq (tg : target) : unit =
 
 (** <private>
     cf. [fission]. *)
-let fission_at (split_i : int) (seq : trm) : trm =
+let fission_at (mark_between : mark option) (split_i : int) (seq : trm) : trm =
   let error = "Ghost_pair.fission_at: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let tl1, tl2 = Mlist.split split_i instrs in
@@ -168,7 +168,7 @@ let fission_at (split_i : int) (seq : trm) : trm =
 
   (* 2. End all opened scopes before split point. *)
   let end_begin (gv, _) = trm_ghost_end gv in
-  let ends = Mlist.of_list (List.map end_begin !begins_stack) in
+  let ends = List.map end_begin !begins_stack in
 
   (* 3. Re-open scopes after split point. *)
   let subst_after_split = ref Var_map.empty in
@@ -178,18 +178,17 @@ let fission_at (split_i : int) (seq : trm) : trm =
     subst_after_split := Var_map.add gv (trm_var gv') !subst_after_split;
     g_beg
   in
-  let begins = Mlist.of_list (List.rev_map re_begin !begins_stack) in
+  let begins = List.rev_map re_begin !begins_stack in
   let tl2' = Mlist.map (trm_subst !subst_after_split) tl2 in
 
   (* 4. Construct resulting sequence. *)
-  let instrs' = Mlist.merge_list [tl1; ends; begins; tl2'] in
-  trm_seq ~annot:seq.annot ?loc:seq.loc instrs'
+  trm_seq_helper ~annot:seq.annot ?loc:seq.loc [TrmMlist tl1; TrmList ends; MarkOption mark_between; TrmList begins; TrmMlist tl2']
 
 (** Distributes the scope of ghost pairs at the targeted sequence interstice. *)
-let%transfo fission (tg : target) : unit =
+let%transfo fission ?(mark_between : mark option) (tg : target) : unit =
   Target.apply (fun t p_before ->
     let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
-    apply_on_path (fission_at split_i) t p_seq
+    apply_on_path (fission_at mark_between split_i) t p_seq
   ) tg;
   justif_correct "ghosts where successfully distributed"
 

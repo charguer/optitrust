@@ -301,12 +301,7 @@ let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm 
     *)
 let fission_on (mark_loops : mark option) (mark_between_loops : mark option) (index : int) (t : trm) : trm =
   let (ta,tb) = fission_on_as_pair mark_loops index t in
-  let instrs = Mlist.of_list [ ta; tb ] in
-  let instrs = match mark_between_loops with
-  | Some m -> Mlist.insert_mark_at 1 m instrs
-  | None -> instrs
-  in
-  trm_seq_nobrace instrs
+  trm_seq_helper ~braces:false [ Trm ta; MarkOption mark_between_loops; Trm tb ]
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.

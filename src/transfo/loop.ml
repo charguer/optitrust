@@ -24,8 +24,13 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     let (p_loop_body, _) = Path.last_dir_before_inv_success p_interstice in
     let p_loop = Path.parent_with_dir p_loop_body Dir_body in
     let (_, p_seq) = Path.index_in_seq p_loop in
-    if !Flags.check_validity then (* FIXME: hide condition between better API? *)
-      Ghost_pair.fission (target_of_path p_interstice);
+    let m_interstice = if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
+      let m = next_mark () in
+      Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
+      m
+    end else
+      m_interstice
+    in
     let m_loops = next_mark () in
     let m_between = next_mark () in
     fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [nbExact 1; Constr_paths [p_seq]; cMark m_interstice];
