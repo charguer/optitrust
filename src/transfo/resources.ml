@@ -145,55 +145,63 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
 
 
 
-(** Specification of minimization.
+(** Specification of loop minimization.
 
-    The programmer does not need to provide contracts for all loops.
-    However, at the very first step, loops without contracts are assigned
-    a default contract, made of an invariant that contains all the available
-    resources. Then, the contracts are minimized using the loop-contract
-    minimization procedure described below. This procedure is also used
-    after numerous code transformations, to clean up unused resources.
+    When using OptiTrust resource system, all loops are considered to
+    have a contract. It can be either specified by annotations or
+    it can be implicitly equal to the default contract.
+    The default contract is made of an invariant that contains all the
+    available resources before the loop.
+    Both default and annotated contracts can be minimized using the
+    loop-contract minimization procedure described below. This procedures
+    adds or modifies the contract annotations of the loop it operates on.
+    Therefore, it is useful to clean up unused resources.
 
-    The minimization operation therefore assumes a well-typed code,
-    with every loop accompanied with a contract. It focuses on a loop,
+    The minimization operation assumes a well-typed code. It focuses on a loop,
     and attempts to replace the loop contract with another simpler contract,
     in the sense that it has a smaller (or similar) footprint.
     The output code is guaranteed to typecheck with the new contracts.
     (LATER: If the contract is not modified, the term is not modified.)
 
     The minimization operation works as follows;
-    - we typecheck the loop body using the existing contract;
-    - we look at the usage of each of the resources;
+    - we look at the usage of each of the resources, which was computed
+      during the typechecking;
     - if a resource is not used at all, or used in a weaker mode
       than what is available, the contracts are refined.
 
     The possible cases are as follows:
 
     (1) If the resource comes from the invariant:
-      - if if is used in RW mode, there is nothing to simplify
+      - if it is used in Full mode, there is nothing to simplify
       - if it is never used, it is removed (from the invariant)
-      - if it is available in RW but only used in RO (usage SplittedReadOnly),
+      - if it is available in Full but only used in SplitRO / JoinRO,
         then it is replaced with RO
         (internally, a fresh fraction is introduced for that RO)
       - if it is available in RW but only used in Uninit,
-        we do not change it automatically (see counter-example below);
+        we change it to Uninit but only in the consumes clause
+        (see counter-example below for the produces case);
         the user can always change the contract manually.
 
     (2) If the resource comes from the consumes clause:
-      - if if is used in RW mode, there is nothing to simplify
-      - if it is never used (including for cancellation),
+      - if if is used in Full mode, there is nothing to simplify
+      - if it is never used (including for JoinRO),
         it must be the case that this resource appears in the produces clause;
         it this case, the resource is removed from both consumes and produces
       - if the resource appears in RW in consumes AND in produces clauses,
         and it is used only in RO (usage SplittedReadOnly), then it may
         be replaced by a RO resource both in consumes and produces clauses
-      - if the resource is consumes in RW and used in Uninit, then the RW
+        (LATER: actually we could also change the fraction of RO resources always
+        used in SplitRO mode, to remove same fraction constraints)
+      - if the resource is consumed in RW and used in Uninit, then the RW
         may be replaced by an Uninit resource in the consumes clause.
 
+    (TODO: Document function contract minimization separately, and use it to
+    describe iter_contract minimization)
+
     Note: it may be tempting to say that a RW resource used in Uninit can
-    be weakened, however it depends on the context whether it is feasible:
-    it is feasible only if the operations after the loop require Uninit
-    and not RW. Example:
+    be weakened in the post-condition, however it depends on the context
+    whether it is feasible: it is feasible only if the operations after
+    the loop require Uninit and not RW. Example:
       t = 1
       for i // RW(t) cannot be replaced by Uninit(t)
         t = 2
@@ -260,6 +268,7 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
       then entailement from (stars_i Bi) * stars_i (Bi \-* Ci) to (stars_i Ci)
 
     However, in this example it is less clear what we would want to produce:
+    (FIXME: The example is broken, see next FIXME mark)
 
       for i
         consumes Ai * Di
@@ -272,7 +281,7 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
       for i
         consumes Ai
         f(i) // consumes Ai produces (Bi \-* Ci)
-        g(i) // consumes Di produces Bi
+        g(i) // consumes Di produces Bi (FIXME: Di is not in context here...)
         produces (Bi \-* Ci) * Bi
       then entailement from (stars_i Bi) * stars_i (Bi \-* Ci) to (stars_i Ci)
 
