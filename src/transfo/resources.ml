@@ -143,6 +143,153 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
   { pre = { contract.pre with pure = added_fracs @ contract.pre.pure ; linear = new_linear_pre };
     post = { contract.post with linear = new_linear_post }}
 
+
+
+(** Specification of loop minimization.
+
+    When using OptiTrust resource system, all loops are considered to
+    have a contract. It can be either specified by annotations or
+    it can be implicitly equal to the default contract.
+    The default contract is made of an invariant that contains all the
+    available resources before the loop.
+    Both default and annotated contracts can be minimized using the
+    loop-contract minimization procedure described below. This procedures
+    adds or modifies the contract annotations of the loop it operates on.
+    Therefore, it is useful to clean up unused resources.
+
+    The minimization operation assumes a well-typed code. It focuses on a loop,
+    and attempts to replace the loop contract with another simpler contract,
+    in the sense that it has a smaller (or similar) footprint.
+    The output code is guaranteed to typecheck with the new contracts.
+    (LATER: If the contract is not modified, the term is not modified.)
+
+    The minimization operation works as follows;
+    - we look at the usage of each of the resources, which was computed
+      during the typechecking;
+    - if a resource is not used at all, or used in a weaker mode
+      than what is available, the contracts are refined.
+
+    The possible cases are as follows:
+
+    (1) If the resource comes from the invariant:
+      - if it is used in Full mode, there is nothing to simplify
+      - if it is never used, it is removed (from the invariant)
+      - if it is available in Full but only used in SplitRO / JoinRO,
+        then it is replaced with RO
+        (internally, a fresh fraction is introduced for that RO)
+      - if it is available in RW but only used in Uninit,
+        we change it to Uninit but only in the consumes clause
+        (see counter-example below for the produces case);
+        the user can always change the contract manually.
+
+    (2) If the resource comes from the consumes clause:
+      - if if is used in Full mode, there is nothing to simplify
+      - if it is never used (including for JoinRO),
+        it must be the case that this resource appears in the produces clause;
+        it this case, the resource is removed from both consumes and produces
+      - if the resource appears in RW in consumes AND in produces clauses,
+        and it is used only in RO (usage SplittedReadOnly), then it may
+        be replaced by a RO resource both in consumes and produces clauses
+        (LATER: actually we could also change the fraction of RO resources always
+        used in SplitRO mode, to remove same fraction constraints)
+      - if the resource is consumed in RW and used in Uninit, then the RW
+        may be replaced by an Uninit resource in the consumes clause.
+
+    (TODO: Document function contract minimization separately, and use it to
+    describe iter_contract minimization)
+
+    Note: it may be tempting to say that a RW resource used in Uninit can
+    be weakened in the post-condition, however it depends on the context
+    whether it is feasible: it is feasible only if the operations after
+    the loop require Uninit and not RW. Example:
+      t = 1
+      for i // RW(t) cannot be replaced by Uninit(t)
+        t = 2
+        x += t
+      x += t // this read can be done with RW(t) but not with Uninit(t)
+    Note, however, that if the last line was a write in t instead of a
+    read in t, then it would have been possible for the loop to produce
+    Uninit(t).
+
+
+    Assertions to implement:
+    - a RW resource cannot be used in JoinedReadOnly mode.
+    - a resource coming from the invariant or consumes clause cannot
+      be used in Produced mode.
+
+    Strategy to implement to help minimization:
+    if the invariant takes as input RO(f,X) * RO(g,X),
+    then only one of the two should be used by the body;
+    this requires a consistent prioritization of the choice
+    of the read-only permission in case there are multiple possibilities.
+
+    ===========
+    More advanced minimization, applied only with specific flags on,
+    specifically for the treatment of fractions. This minimization attempts
+    to change the produces clause of a contract in order to perform a
+    "cancellation of fraction" outside of the loop instead of inside the loop.
+
+    Consider the following example, which typically arises from a fission.
+
+      for i
+        consumes RO(f,Ai)
+        f(i) // consumes RO(f,Ai) and produces RO(g,Bi) * RO(f-g,Ai)
+        produces RO(g,Bi) * RO(f-g,Ai)
+      for i
+        consumes RO(g,Bi) * RO(f-g,Ai)
+        g(i) // consumes RO(g,Bi) and produces RO(g,Ai)
+        // cancel RO(g,Ai) * RO(f-g,Ai) into RO(f,Ai)
+        produces RO(f,Ai)
+
+    We would like to minimize the second loop:
+
+      for i
+        consumes RO(g,Bi)
+        g(i) // consumes RO(g,Bi) and produces RO(g,Ai)
+        produces RO(g,Ai)
+      // outside the loop cancel: RO(g, stars_i Ai) * RO(f-g, stars_i Ai)
+      // into: RO(f, stars_i Ai)
+
+
+    Note: it may be tempting to generalize this idea to other examples.
+    Consider for example:
+
+      for i
+        consumes Ai * (Bi \-* Ci)
+        f(i) // consumes Ai produces Bi
+        produces Ci
+
+    It makes sense to minimize it to:
+
+      for i
+        consumes Ai
+        f(i) // consumes Ai produces Bi
+        produces Bi
+      then entailement from (stars_i Bi) * stars_i (Bi \-* Ci) to (stars_i Ci)
+
+    However, in this example it is less clear what we would want to produce:
+    (FIXME: The example is broken, see next FIXME mark)
+
+      for i
+        consumes Ai * Di
+        f(i) // consumes Ai produces (Bi \-* Ci)
+        g(i) // consumes Di produces Bi
+        produces Ci
+
+    because this reformuation looks rather uninteresting:
+
+      for i
+        consumes Ai
+        f(i) // consumes Ai produces (Bi \-* Ci)
+        g(i) // consumes Di produces Bi (FIXME: Di is not in context here...)
+        produces (Bi \-* Ci) * Bi
+      then entailement from (stars_i Bi) * stars_i (Bi \-* Ci) to (stars_i Ci)
+
+    Note that in this last example, a fission between f(i) and g(i)
+    leads to the code in the previous example.
+*)
+
+
 let minimize_loop_contract contract usage =
   let new_fracs = ref [] in
   let keep_used_filter (hyp, formula) =
