@@ -337,8 +337,9 @@ let loop_minimize_on (t: trm): trm =
   trm_like ~old:t (trm_for range ~contract:new_contract body)
 
 (* [loop_minimize]: minimize linear invariants of a loop contract *)
-let%transfo loop_minimize (tg: target) : unit =
+let%transfo loop_minimize ?(shallow : bool = false) (tg: target) : unit =
   ensure_computed ();
+  (* TODO: Perform minimization recursively when shallow is not true. *)
   Target.apply_at_target_paths loop_minimize_on tg
 
 let ro_fork_group = toplevel_var "ro_fork_group"
