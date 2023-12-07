@@ -22,3 +22,21 @@ void f(float* M1, float* M2, int n) {
     c += M1[MINDEX1(n, i)];
   }
 }
+
+void g(int* t2) {
+  __consumes("t2 ~> Matrix1(10)");
+  __produces("_Uninit(t2 ~> Matrix1(10))");
+  for (int i = 0; i < 10; i++) {
+    __reads("&t2[MINDEX1(10, i)] ~> Cell");
+    int x = t2[MINDEX1(10, i)];
+  }
+  for (int i = 0; i < 10; i++) {
+    __consumes("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
+    __produces("&t2[MINDEX1(10, i)] ~> Cell");
+    t2[MINDEX1(10, i)] = 2;
+  }
+  for (int i = 0; i < 10; i++) {
+    __modifies("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
+    t2[MINDEX1(10, i)] = 2;
+  }
+}

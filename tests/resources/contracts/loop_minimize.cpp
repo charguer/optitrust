@@ -8,6 +8,9 @@ void h() {
   int z = 0;
 
   for (int i = 0; i < 3; ++i) {
+    __sequentially_modifies("&y ~> Cell");
+    __sequentially_modifies("&z ~> Cell");
+
     z = y;
   }
 }
@@ -33,5 +36,19 @@ void g(int* t2) {
     __produces("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
 
     int x = t2[MINDEX1(10, i)];
+  }
+
+  for (int i = 0; i < 10; i++) {
+    __consumes("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
+    __produces("&t2[MINDEX1(10, i)] ~> Cell");
+
+    t2[MINDEX1(10, i)] = 2;
+  }
+
+  for (int i = 0; i < 10; i++) {
+    __consumes("&t2[MINDEX1(10, i)] ~> Cell");
+    __produces("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
+
+    t2[MINDEX1(10, i)] = 2;
   }
 }

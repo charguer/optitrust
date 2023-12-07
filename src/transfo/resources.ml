@@ -92,58 +92,57 @@ let usage_filter usage filter (h, _) =
 
 
 (** If new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
-let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref option)) (contract: fun_contract) (usage: resource_usage_map): fun_contract =
-  let new_fracs = match new_fracs_opt with Some new_fracs -> new_fracs | None -> ref [] in
-  let new_ro = ref [] in
-  let keep_used_filter (hyp, formula) =
-    let open Either in
+let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (contract: fun_contract) (usage: resource_usage_map): fun_contract =
+  let new_fracs = ref [] in
+
+  let new_linear_post = ref contract.post.linear in
+  let filter_pre (hyp, formula) =
     match Hyp_map.find_opt hyp usage with
-    | None -> Right (hyp, formula)
-    | Some (SplittedReadOnly | JoinedReadOnly) -> (* TODO: Handle JoinedReadOnly differently *)
+    | None ->
+      let _, np, _ = Resource_computation.subtract_linear_resource !new_linear_post [(hyp, formula)] in
+      new_linear_post := np;
+      None
+    | Some UsedFull -> Some (hyp, formula)
+    | Some SplittedReadOnly ->
       begin match formula_read_only_inv formula with
-      | Some _ -> Left (hyp, formula)
+      | Some _ -> Some (hyp, formula)
       | None ->
-        let frac_var, frac_ghost = new_frac () in
-        new_fracs := frac_ghost :: !new_fracs;
-        let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
-        new_ro := ro_formula :: !new_ro;
-        Left (hyp, ro_formula)
+        let try_to_remove formula base_formula =
+          try begin
+            let _, np, _ = Resource_computation.subtract_linear_resource !new_linear_post [(hyp, formula)] in
+            let frac_var, frac_ghost = new_frac () in
+            new_fracs := frac_ghost :: !new_fracs;
+            let ro_formula = formula_read_only ~frac:(trm_var frac_var) base_formula in
+            new_linear_post := (hyp, ro_formula) :: np;
+            Some (hyp, ro_formula)
+          end with Resource_computation.Resource_not_found _ -> None
+        in
+        begin match try_to_remove formula formula with
+        | Some x -> Some x
+        | None -> Xoption.or_ (try_to_remove (formula_uninit formula) formula) (Some (hyp, formula))
+        end
       end
-    | Some (UsedUninit | UsedFull) -> Left (hyp, formula)
+    | Some JoinedReadOnly -> failwith (sprintf "loop_minimize_on: JoinedReadOnly resource %s has the same id as a contract resource" (var_to_string hyp))
+    | Some UsedUninit ->
+      begin match formula_uninit_inv formula with
+      | Some _ -> Some (hyp, formula)
+      | None -> Some (hyp, formula_uninit formula)
+      end
     | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
   in
 
-  let new_linear_pre, unused_res = List.partition_map keep_used_filter contract.pre.linear in
+  let new_linear_pre = List.filter_map filter_pre contract.pre.linear in
 
-  (* If this fails, it means that there is an unused resource that disappears, which is supposedly impossible. *)
-  let _, filtered_post, _ = Resource_computation.subtract_linear_resource contract.post.linear unused_res in
-  let rec downgrade_and_pop_if_found t new_ro =
-    match new_ro with
-    | [] -> [], t
-    | ro_formula :: new_ro ->
-      let { formula } = trm_inv formula_read_only_inv ro_formula in
-      if are_same_trm formula t then
-        new_ro, ro_formula
-      else
-        let new_ro, t = downgrade_and_pop_if_found t new_ro in
-        (ro_formula :: new_ro, t)
-  in
-  let new_linear_post = List.map (fun (hyp, formula) ->
-    let updated_new_ro, formula = downgrade_and_pop_if_found formula !new_ro in
-    new_ro := updated_new_ro;
-    (hyp, formula)
-  ) filtered_post in
-
-  let added_fracs = match new_fracs_opt with
-    | Some _ -> []
-    | None -> !new_fracs
+  let added_fracs = match output_new_fracs with
+  | Some out ->
+    out := !new_fracs @ !out;
+    []
+  | None -> !new_fracs
   in
 
   (* TODO: remove unused pure varaibles *)
   { pre = { contract.pre with pure = added_fracs @ contract.pre.pure ; linear = new_linear_pre };
-    post = { contract.post with linear = new_linear_post }}
-
-
+    post = { contract.post with linear = !new_linear_post }}
 
 (** Specification of loop minimization.
 
@@ -172,8 +171,8 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
     The possible cases are as follows:
 
     (1) If the resource comes from the invariant:
-      - if it is used in Full mode, there is nothing to simplify
       - if it is never used, it is removed (from the invariant)
+      - if it is used in Full mode, there is nothing to simplify
       - if it is available in Full but only used in SplitRO / JoinRO,
         then it is replaced with RO
         (internally, a fresh fraction is introduced for that RO)
@@ -183,11 +182,11 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
         the user can always change the contract manually.
 
     (2) If the resource comes from the consumes clause:
-      - if if is used in Full mode, there is nothing to simplify
       - if it is never used (including for JoinRO),
         it must be the case that this resource appears in the produces clause;
         it this case, the resource is removed from both consumes and produces
-      - if the resource appears in RW in consumes AND in produces clauses,
+      - if if is used in Full mode, there is nothing to simplify
+      - if the resource appears in RW in consumes AND in produces clauses (potentially as Uninit),
         and it is used only in RO (usage SplittedReadOnly), then it may
         be replaced by a RO resource both in consumes and produces clauses
         (LATER: actually we could also change the fraction of RO resources always
@@ -292,10 +291,10 @@ let minimize_fun_contract ?new_fracs:(new_fracs_opt:(resource_item list ref opti
 
 let minimize_loop_contract contract usage =
   let new_fracs = ref [] in
-  let keep_used_filter (hyp, formula) =
+  let filter_invariant (hyp, formula) =
     match Hyp_map.find_opt hyp usage with
     | None -> None
-    | Some (SplittedReadOnly | JoinedReadOnly) -> (* TODO: handle JoinedRO differently *)
+    | Some (SplittedReadOnly | JoinedReadOnly) -> (* TODO: handle JoinedRO differently? *)
       begin match formula_read_only_inv formula with
       | Some _ -> Some (hyp, formula)
       | None ->
@@ -308,10 +307,10 @@ let minimize_loop_contract contract usage =
     | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
   in
 
-  let new_linear_invariant = List.filter_map keep_used_filter contract.invariant.linear in
+  let new_linear_invariant = List.filter_map filter_invariant contract.invariant.linear in
   let new_invariant = { contract.invariant with linear = new_linear_invariant } in
 
-  let new_iter_contract = minimize_fun_contract ~new_fracs contract.iter_contract usage in
+  let new_iter_contract = minimize_fun_contract ~output_new_fracs:new_fracs contract.iter_contract usage in
 
   (* TODO: remove unused pure variables *)
   { loop_ghosts = !new_fracs @ contract.loop_ghosts;
@@ -321,14 +320,12 @@ let minimize_loop_contract contract usage =
 
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
-  let res_before =
-    match t.ctx.ctx_resources_before with
-    | None -> trm_fail t "loop_minimize_on: resources need to be computed before this transformation"
-    | Some res_before -> res_before
-  in
+  (* let res_before = unsome_or_trm_fail t "loop_minimize_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in *)
 
   let contract = match contract with
-    | None -> { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
+    | None -> trm_fail t "loop_minimize_on: expected contract"
+      (* DEPRECATED?:
+      { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract } *)
     | Some contract -> contract
   in
 
