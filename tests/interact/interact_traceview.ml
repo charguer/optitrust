@@ -26,7 +26,9 @@ let _ = Run.script_cpp (fun _ ->
     (* Activate the line below to see a trace with failure in the middle *)
     (* !! failwith "the error message"; *)
     !! Label.add "lab3" [cVarDef "a"];
-    !! Label.add "lab4" [cVarDef "a"];
+    !! Trace.msg "debug message before\nlab4 \n";
+       Label.add "lab4" [cVarDef "a"];
+       Trace.msg "debug message after\nlab4 \n";
     !! Label.add "lab5" [cVarDef "a"];
     bigstep "third part";
     !! Label.add "lab6" [cVarDef "a"];

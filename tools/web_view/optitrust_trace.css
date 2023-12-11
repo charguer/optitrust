@@ -184,6 +184,17 @@ h2 {
   padding-bottom: 1px;
 }
 
+.has-debug-msg {
+  padding-left: 5px;
+  padding-right: 5px;
+  background: #ff9d60;
+}
+
+#debugMsgDiv {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
 /* ---- vertical split view */
 
 .split-pane {

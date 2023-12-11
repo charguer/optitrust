@@ -6,7 +6,7 @@ open PPrint
 (* [t]: representation of a json object *)
 type t =
   | Raw of string  (* string without quotes *)
-  | Str of string  (* string with quotes *)
+  | Str of string  (* string with quotes, with or without <br> for line returns *)
   | Bool of bool
   | Int of int
   | Float of float
@@ -18,9 +18,17 @@ type t =
 (* [quote x]: adds quotes around string x, and escape the quotes *)
 let quote (x:string) : string =
   let x = Str.global_replace (Str.regexp "\"") "\\\"" x in
-  let x = Str.global_replace (Str.regexp "\n") "<br/>" x in
   "\"" ^ x ^ "\""
 
+(* [to_html_newlines] converts line returns [\n] into [<br/>] tags *)
+
+let to_html_newlines (x:string) : string =
+  Str.global_replace (Str.regexp "\n") "<br/>" x
+
+(* [to_backslashn] converts line returns [\n] characters into '\' followed with 'n' *)
+
+let to_backslashn (x:string) : string =
+  Str.global_replace (Str.regexp "\n") "\\n" x
 
 (* Smart constructors *)
 
@@ -33,8 +41,11 @@ let raw (x:string) : t =
 let base64 (xencoded:string) : t =
   Raw (Printf.sprintf "window.atob(\"%s\")" xencoded)
 
-(* [str x]: creates a Json string, to be displayed in quotes *)
-let str (x:string) : t =
+(* [str x]: creates a Json string, to be displayed in quotes,
+   and optionally converts line returns in one way or another (should not do both) *)
+let str ?(html_newlines : bool = false) ?(escape_newlines : bool = true) (x:string) : t =
+  let x = if escape_newlines then to_backslashn x else x in
+  let x = if html_newlines then to_html_newlines x else x in
   Str x
 
 (* [int n]: creates a Json int *)

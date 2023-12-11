@@ -188,6 +188,7 @@ type step_infos = {
   mutable step_valid : bool;
   mutable step_justif : string list;
   mutable step_tags : string list;
+  mutable step_debug_msgs : string list;
 }
 
 (* [step_tree]: history type used for storing all the trace information about all steps, recursively *)
@@ -407,6 +408,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_justif = [];
     step_valid = false;
     step_tags = [];
+    step_debug_msgs = [];
   } in
   let step_root = {
     step_kind = Step_root;
@@ -449,6 +451,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_justif = [];
     step_valid = valid;
     step_tags = tags;
+    step_debug_msgs = [];
   } in
   let step = {
     step_kind = kind;
@@ -485,6 +488,12 @@ let tag (s : string) : unit =
   let step = get_cur_step () in
   let infos = step.step_infos in
   infos.step_tags <- s :: infos.step_tags
+
+(* [msg] is a function to add a debug message to the current step. *)
+let msg (s : string) : unit =
+  let step = get_cur_step () in
+  let infos = step.step_infos in
+  infos.step_debug_msgs <- s :: infos.step_debug_msgs
 
 (* [tag_trivial] is called by a transformation after open_step to indicate that it is trivial, or trivially explained by its substeps. *)
 let tag_trivial () : unit =
@@ -912,63 +921,6 @@ let alternative (f : unit->unit) : unit =
     f();
   )
 
-(* [switch cases]: allows to introduce a branching point in a script.
-   The [cases] argument gives a list of possible continuations (branches).
-   Each of the branches can terminate with a [dump] operation to produce
-   its output in a specific file. Alternatively, there could be further
-   tranformations after the [switch] construct---a diamond construct.
-   In such case, the instructions that follow the [switch] are applied
-   in parallel on each of the traces, where one trace corresponds to one
-   possible path in the script (via the branches).
-   The optional argument [only_branch] can be use to temporary disable
-   all branches but one. This is currently needed for the interactive mode
-   to work. Branches are numbered from 1 (not from zero). *)
-(* LATER for mli: switch : ?only_branch:int -> (unit -> unit) list -> unit *)
-(* DEPRECATED
-let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
-  (* Close logs: new logs will be opened in every branch. *)
-  close_logs ();
-  let list_of_traces =
-    Xlist.fold_lefti
-      (fun i tr f ->
-        let branch_id = i + 1 in
-        if only_branch = 0 || branch_id = only_branch then
-          begin
-            let old_traces = !traces in
-            let new_traces =
-              List.fold_right
-                (fun trace acc_traces ->
-                  let context = trace.context in
-                  (* create an extended prefix for this branch, unless there is a single branch *)
-                  let prefix =
-                    if List.length cases <= 1 || only_branch <> 0
-                      then context.prefix
-                      else context.prefix ^ "_" ^ (string_of_int branch_id)
-                    in
-                  (* create and register new log channel *)
-                  let clog = open_out (context.directory ^ prefix ^ ".log") in
-                  logs := clog :: !logs;
-                  (* execute each branch in a single context *)
-                  let branch_trace = { trace with context = { context with prefix; clog } } in
-                  traces := [branch_trace];
-                  f ();
-                  (* store the traces produced by this branch *)
-                  (!traces) :: acc_traces;
-                )
-                old_traces
-                []
-            in
-            traces := old_traces;
-            (List.flatten new_traces) :: tr
-          end
-        else tr
-      )
-      []
-      cases
-  in
-  traces := List.flatten (List.rev list_of_traces)
- *)
-
 (* FIXME: where should [failure_expected] and [alternative] be defined? *)
 exception Failure_expected_did_not_fail
 
@@ -1124,7 +1076,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
     end else begin
       "", "", ""
     end in
-  let json =
+  let json = (* TODO: check if ~html_newlines:true is needed for certain calls to [Json.str] *)
     Json.obj_quoted_keys [
       "id", Json.int id;
       "kind", Json.str (step_kind_to_string s.step_kind);
@@ -1138,6 +1090,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
         (* TODO: at the moment, we assume that a justification item means is-valid *)
       "justif", Json.(listof str) i.step_justif;
       "tags", Json.(listof str) i.step_tags;
+      "debug_msgs", Json.(listof str) i.step_debug_msgs;
       "sub", Json.(listof int) sub_ids;
       "ast_before", Json.base64 sBefore;
       "ast_after", Json.base64 sAfter;

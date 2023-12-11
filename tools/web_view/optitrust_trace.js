@@ -12,6 +12,8 @@ steps[0] = {
    exectime: 0.0453;   // in seconds
    name: "..",
    args: [ { name: "..", value: ".."}, { name: "..", value: ".." } ],
+   tags: ["..", ".."],
+   debug_msgs: ["..", ".."],
    justif: ["..", ".." ],
    isvalid: true,
    script: window.atob("..."),
@@ -106,6 +108,11 @@ var optionsDescr = [ // extended by initAllTags
     name: "tags",
     kind: "UI",
     default: false,
+  },
+  { key: "debug_msgs",
+    name: "debug-msgs",
+    kind: "UI",
+    default: true,
   },
   /* DEPRECATED
    { key: "io_steps",
@@ -264,6 +271,15 @@ var idSourceLeft = -1;
 var idSourceRight = -1;
 var selectedStep = undefined; // stores a step object
 
+function loadDebugMsgs(messages) {
+  var s = '';
+  if (messages) {
+    for (var i = 0; i < messages.length; i++) {
+      s += escapeHTML(messages[i]);
+    }
+  }
+  $('#debugMsgDiv').html(s);
+}
 
 function loadDiffFromString(diffString) {
   // this function should be called only after DOM contents is loaded
@@ -466,6 +482,7 @@ function loadStepDetails(idStep) {
   if (options.ast_before || options.ast_after) {
     var ast = (options.ast_before) ? step.ast_before : step.ast_after;
     loadSource(ast, true);
+    $("#debugMsgDiv").html("")
     $("#diffDiv").hide();
     $("#statsDiv").hide();
     $("#sourceDiv").show();
@@ -476,6 +493,7 @@ function loadStepDetails(idStep) {
     $("#statsDiv").show();
     $("#sourceDiv").hide();
   } else {
+    loadDebugMsgs(step.debug_msgs);
     loadDiffFromString(step.diff);
     $("#diffDiv").show();
     $("#statsDiv").hide();
@@ -555,8 +573,13 @@ function stepToHTML(step, isOutermostLevel) {
       sTimeClass = "exectime-mid";
     }
     sTime = "<span class='" + sTimeClass + "'>" + sTime + "</span>";
-
   }
+
+  var sHasMsg = "";
+  if (step.debug_msgs && step.debug_msgs.length > 0) {
+    sHasMsg = "<span class='has-debug-msg'>MSG</span>";
+  }
+
   var sKind = "";
   if (step.script_line !== undefined) {
     sKind = " [<b>" + step.script_line + "</b>] ";
@@ -607,7 +630,7 @@ function stepToHTML(step, isOutermostLevel) {
 
   // Line contents
   if (! isRoot) {
-    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + sArgs + " " + sScript + sTags + "</span></div>";
+    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + " " + sScript + sTags + "</span></div>";
   }
 
   if (options.justif) {
