@@ -7,6 +7,7 @@ open Resource_contract
 type pure_resource_set = resource_item list
 type linear_resource_set = resource_item list
 
+(** Maps OptiTrust primitives to variables that can be given a contract in [optitrust.h] *)
 module Resource_primitives = struct
   let __cast = toplevel_var "__cast"
   let __new = toplevel_var "__new"
@@ -55,36 +56,39 @@ module Resource_primitives = struct
 
 end
 
-(** A formula that may instantiate contract variables with
-   hypotheses from the calling context.
-   When instantating a contract with X := Y substitutions,
-   Y is a formula_inst.
-  *)
-type formula_inst = formula
-
-let inst_hyp (h: hyp): formula_inst = trm_var h
-let inst_hyp_inv = trm_var_inv
-
 let var_result = Resource_set.var_result
-let var_SplitRO = toplevel_var "SplitRO"
 
-let inst_split_read_only ~(new_frac: var) (h: hyp) : formula_inst =
-  trm_apps (trm_var var_SplitRO) [trm_var new_frac; inst_hyp h]
+(**
+   When instantating linear resources in a contract with X := Y substitutions, Y is a [Formula_inst.t].
 
-let inst_split_read_only_inv (f: formula_inst): (var * hyp) option =
-  Pattern.pattern_match_opt f [
-    Pattern.(trm_apps2 (trm_var (var_eq var_SplitRO)) (trm_var !__) (trm_var !__)) (fun frac hyp -> (frac, hyp))
-  ]
+   These formulas do not necessarily have stable var-ids.
+  *)
+module Formula_inst = struct
+  type t = formula
 
-let var_ForgetInit = toplevel_var "ForgetInit"
+  let inst_hyp (h: hyp): t = trm_var h
+  let inst_hyp_inv = trm_var_inv
 
-let inst_forget_init (h: hyp) : formula_inst =
-  trm_apps (trm_var var_ForgetInit) [inst_hyp h]
+  let var_SplitRO = toplevel_var "SplitRO"
 
-let inst_forget_init_inv (f: formula_inst): hyp option =
-  Pattern.pattern_match_opt f [
-    Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h -> h)
-  ]
+  let inst_split_read_only ~(new_frac: var) (h: hyp) : t =
+    trm_apps (trm_var var_SplitRO) [trm_var new_frac; inst_hyp h]
+
+  let inst_split_read_only_inv (f: t): (var * hyp) option =
+    Pattern.pattern_match_opt f [
+      Pattern.(trm_apps2 (trm_var (var_eq var_SplitRO)) (trm_var !__) (trm_var !__)) (fun frac hyp -> (frac, hyp))
+    ]
+
+  let var_ForgetInit = toplevel_var "ForgetInit"
+
+  let inst_forget_init (h: hyp) : t =
+    trm_apps (trm_var var_ForgetInit) [inst_hyp h]
+
+  let inst_forget_init_inv (f: t): hyp option =
+    Pattern.pattern_match_opt f [
+      Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h -> h)
+    ]
+end
 
 (** [Resource_not_found (item, res_list)]: exception raised when the resource
    [item] is not found inside the resource list [res_list] *)
@@ -97,9 +101,10 @@ let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unifica
   let formula = trm_subst subst_ctx formula in
   raise (Resource_not_found ((name, formula), inside))
 
-(** Unify the given resource_item with one of the resources in the pure resource set.
-   Also add a binding from x to the found resource in evar_ctx.
-   If it fails raise a Resource_not_found exception. *)
+(** [unify_pure (x, formula) res evar_ctx] unifies the given [formula] with one of the resources in [res].
+
+   Also add a binding from [x] to the found resource in [evar_ctx].
+   If it fails raise a {!Resource_not_found} exception. *)
 let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx: unification_ctx): unification_ctx =
   (* Add flag to disallow pure instantiation *)
   let find_formula formula (hyp_candidate, formula_candidate) =
@@ -110,54 +115,67 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx:
   | Some evar_ctx -> evar_ctx
   | None -> raise_resource_not_found (x, formula) evar_ctx res
 
-let rec unify_and_remove_linear ((x, formula): resource_item) ?(uninit = false) (res: linear_resource_set)
-  (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
-  (* LATER: Improve the structure of the linear_resource_set to make this
-     function faster on most frequent cases *)
-  let aux res = unify_and_remove_linear (x, formula) ~uninit res evar_ctx in
-  match res with
-  | [] -> raise Not_found (* caught later to create a Resource_not_found. *)
-  | (candidate_name, formula_candidate) as hyp_candidate :: res ->
-    let used_formula, formula_candidate =
-      if uninit then
-        match formula_uninit_inv formula_candidate with
-        | Some formula_candidate -> inst_hyp candidate_name, formula_candidate
-        | None -> inst_forget_init candidate_name, formula_candidate
-      else inst_hyp candidate_name, formula_candidate
-    in
-    match unify_trm formula_candidate formula evar_ctx with
-    | Some evar_ctx ->
-      let used_formula = if uninit then formula_uninit formula_candidate else formula_candidate in
-      ({ hyp_to_inst = x; inst_by = inst_hyp candidate_name; used_formula }, res, evar_ctx)
-    | None ->
-      let used, res, evar_ctx = aux res in
-      (used, hyp_candidate :: res, evar_ctx)
 
-let rec unify_and_split_read_only (hyp_to_inst: hyp) ~(new_frac: var) (formula: formula) (res: linear_resource_set)
-  (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
-  (* LATER: Improve the structure of the linear_resource_set to make this
-     function faster on most frequent cases *)
-  let aux res = unify_and_split_read_only hyp_to_inst ~new_frac formula res evar_ctx in
-  match res with
-  | [] -> raise Not_found (* caught later to create a Resource_not_found. *)
-  | (h, formula_candidate) as hyp_candidate :: res ->
-    let cur_frac, formula_candidate = match formula_read_only_inv formula_candidate with
-      | Some { frac; formula } -> frac, formula
-      | None -> full_frac, formula_candidate
-    in
-    match unify_trm formula_candidate formula evar_ctx with
-    | Some evar_ctx ->
-      ({ hyp_to_inst ; inst_by = inst_split_read_only ~new_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
-       (h, formula_read_only ~frac:(trm_sub cur_frac (trm_var new_frac)) formula_candidate) :: res, evar_ctx)
-    | None ->
-      let used, res, evar_ctx = aux res in
-      (used, hyp_candidate :: res, evar_ctx)
+(** [subtract_linear_resource_item ~split_frac (x, formula) res evar_ctx] subtracts [formula] from [res].
+  Returns [(used, res', evar_ctx')] where:
+  - [used] is the consumed resource item
+  - [res'] is what remains from [res]
+  - [evar_ctx'] is the evar context updated with new unification choices
 
-(* [subtract_linear_resource_item]: subtract a resource from the resource set.
-   Depending on the formula of the resource, decide if we need a read-only fraction,
-   a potentially uninitialized resource or a full ownership. *)
+  Depending on the formula of the resource, decide if we need a read-only fraction,
+  a potentially uninitialized resource or a full ownership.
+
+  Raises {!Resource_not_found} if the [formula] cannot be consumed.
+   *)
 let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item) (res: linear_resource_set)
   (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
+  let rec unify_and_remove_linear ((x, formula): resource_item) ?(uninit = false) (res: linear_resource_set)
+    (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
+    (* Used by {!subtract_linear_resource_item} in the case where [formula] is not a read-only resource. *)
+    (* LATER: Improve the structure of the linear_resource_set to make this
+      function faster on most frequent cases *)
+    let aux res = unify_and_remove_linear (x, formula) ~uninit res evar_ctx in
+    match res with
+    | [] -> raise Not_found (* caught later to create a Resource_not_found. *)
+    | (candidate_name, formula_candidate) as hyp_candidate :: res ->
+      let used_formula, formula_candidate =
+        if uninit then
+          match formula_uninit_inv formula_candidate with
+          | Some formula_candidate -> Formula_inst.inst_hyp candidate_name, formula_candidate
+          | None -> Formula_inst.inst_forget_init candidate_name, formula_candidate
+        else Formula_inst.inst_hyp candidate_name, formula_candidate
+      in
+      match unify_trm formula_candidate formula evar_ctx with
+      | Some evar_ctx ->
+        let used_formula = if uninit then formula_uninit formula_candidate else formula_candidate in
+        ({ hyp_to_inst = x; inst_by = Formula_inst.inst_hyp candidate_name; used_formula }, res, evar_ctx)
+      | None ->
+        let used, res, evar_ctx = aux res in
+        (used, hyp_candidate :: res, evar_ctx)
+  in
+
+  let rec unify_and_split_read_only (hyp_to_inst: hyp) ~(new_frac: var) (formula: formula) (res: linear_resource_set)
+    (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
+    (* Used by {!subtract_linear_resource_item} in the case where [formula] is a read-only resource. *)
+    (* LATER: Improve the structure of the linear_resource_set to make this
+      function faster on most frequent cases *)
+    let aux res = unify_and_split_read_only hyp_to_inst ~new_frac formula res evar_ctx in
+    match res with
+    | [] -> raise Not_found (* caught later to create a Resource_not_found. *)
+    | (h, formula_candidate) as hyp_candidate :: res ->
+      let cur_frac, formula_candidate = match formula_read_only_inv formula_candidate with
+        | Some { frac; formula } -> frac, formula
+        | None -> full_frac, formula_candidate
+      in
+      match unify_trm formula_candidate formula evar_ctx with
+      | Some evar_ctx ->
+        ({ hyp_to_inst ; inst_by = Formula_inst.inst_split_read_only ~new_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
+        (h, formula_read_only ~frac:(trm_sub cur_frac (trm_var new_frac)) formula_candidate) :: res, evar_ctx)
+      | None ->
+        let used, res, evar_ctx = aux res in
+        (used, hyp_candidate :: res, evar_ctx)
+  in
+
   try
     Pattern.pattern_match formula [
       Pattern.(formula_read_only (trm_apps1 (trm_var (var_eq _Full)) !__) !__) (fun frac ro_formula ->
@@ -177,12 +195,13 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   with Not_found ->
     raise_resource_not_found (x, formula) evar_ctx res
 
-(* [subtract_linear_resource]: subtract [res_removed] from [res_from].
-   Raise [Resource_not_found] if one resource is missing.
-   Use the unification environment [evar_ctx] for all resources in [res_removed]
-   potentially instantiating evars inside.
-   If [split_frac] is true, always try to give a smaller fraction than what is
-   inside [res_from] for evar fractions.
+(** [subtract_linear_resource ?split_frac ?evar_ctx res_from res_removed] subtracts [res_removed] from [res_from].
+
+  Raise [Resource_not_found] if one resource is missing.
+  Use the unification environment [evar_ctx] for all resources in [res_removed]
+  potentially instantiating evars inside.
+  If [split_frac] is true, always try to give a smaller fraction than what is
+  inside [res_from] for evar fractions.
 *)
 let subtract_linear_resource ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty)  (res_from: linear_resource_set) (res_removed: linear_resource_set)
   : used_resource_item list * linear_resource_set * unification_ctx =
@@ -191,8 +210,9 @@ let subtract_linear_resource ?(split_frac: bool = false) ?(evar_ctx: unification
       (used :: used_list, res_from, evar_ctx)
     ) ([], res_from, evar_ctx) res_removed
 
-(* Eliminates dominated evars from [res], returning the dominated evars and the remaining resources.
-   An evar is dominated if its value will be implied by the instantation of other resources (i.e. it appears in the formula of another resource). *)
+(** Eliminates dominated evars from [res], returning the dominated evars and the remaining resources.
+
+  An evar is dominated if its value will be implied by the instantation of other resources (i.e. it appears in the formula of another resource). *)
 let eliminate_dominated_evars (res: resource_set): resource_set * var list =
   (* TODO: maybe check free vars inside function contracts? *)
   (* This function completely forgets about ghost variable shadowing *)
@@ -463,14 +483,14 @@ let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource
   (* TODO: Maybe manage pure as well *)
   let locally_used =
     List.fold_left (fun usage_map { inst_by; used_formula } ->
-      match inst_split_read_only_inv inst_by with
+      match Formula_inst.inst_split_read_only_inv inst_by with
       | Some (_, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
       | None ->
         let hyp_usage = if formula_uninit_inv used_formula = None then UsedFull else UsedUninit in
-        match inst_hyp_inv inst_by with
+        match Formula_inst.inst_hyp_inv inst_by with
         | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
         | None ->
-          match inst_forget_init_inv inst_by with
+          match Formula_inst.inst_forget_init_inv inst_by with
           | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
           | None -> failwith "Weird resource used"
     ) Hyp_map.empty res_used.used_linear
@@ -726,10 +746,10 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       usage_map, Some (Resource_set.bind ~old_res:res ~new_res:expected_res)
 
     | Trm_for (range, body, Some contract) ->
-      let outer_contract = loop_outer_contract range contract in
+      let outer_contract = contract_outside_loop range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
-      let inner_contract = loop_inner_contract range contract in
+      let inner_contract = contract_inside_loop range contract in
       ignore (compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~old_res:res ~new_res:inner_contract.pre)) body);
 
       Some usage_map, Some res_after

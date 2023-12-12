@@ -180,7 +180,9 @@ end
 module Qualified_set = Set.Make(Qualified_name)
 module Qualified_map = Map.Make(Qualified_name)
 
-(* The id is a unique name for the hypothesis that cannot be shadowed
+(** An hypothesis is a variable bound by logic formulas.
+
+  The id is a unique name for the hypothesis that cannot be shadowed
 
   TODO: #hyp remove this alias, what is an hypothesis anyway? *)
 type hyp = var

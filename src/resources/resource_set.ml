@@ -111,6 +111,7 @@ let subst_var (x: var) (t: trm) (res: resource_set) : resource_set =
   subst (Var_map.singleton x t) res
 
 let rename_var (x: var) (new_x: var) (res: resource_set) : resource_set =
+  (* FIXME: Decide what to do with subst when a variable is substituted by a non-variable in a variable-only context. *)
   let res = subst_var x (trm_var new_x) res in
   match Var_map.find_opt x res.fun_specs with
   | None -> res
@@ -125,3 +126,12 @@ let rename_var (x: var) (new_x: var) (res: resource_set) : resource_set =
 
 let subst_all_aliases (res: resource_set): resource_set =
   subst res.aliases { res with aliases = Var_map.empty }
+
+(** Substitutes a loop index with its starting value. *)
+let subst_loop_range_start (index, tstart, _, _, _, _) = subst_var index tstart
+
+(** Substitutes a loop index with its value after one iteration *)
+let subst_loop_range_step (index, _, _, _, step, _) = subst_var index (trm_add (trm_var index) (Mark.loop_step_to_trm step))
+
+(** Substitutes a loop index with its end value. *)
+let subst_loop_range_end (index, _, _, tend, _, _) = subst_var index tend
