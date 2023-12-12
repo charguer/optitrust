@@ -750,7 +750,7 @@ and loop_contract = {
 and loop_spec = loop_contract option
 
 and used_resource_item = {
-  hyp_to_inst: hyp;
+  pre_hyp: hyp;
   inst_by: formula;
   used_formula: formula;
 }
@@ -760,8 +760,8 @@ and used_resource_set = {
 }
 
 and produced_resource_item = {
+  post_hyp: hyp;
   produced_hyp: hyp;
-  produced_from: hyp;
   produced_formula: formula;
 }
 and produced_resource_set = {

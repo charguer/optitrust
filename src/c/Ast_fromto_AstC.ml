@@ -735,7 +735,7 @@ let ctx_resources_to_trm (res: resource_set) : trm =
 let ctx_used_res_item_to_string (res: used_resource_item) : string =
   let sinst = formula_to_string res.inst_by in
   let sformula = formula_to_string res.used_formula in
-  Printf.sprintf "%s := %s : %s" res.hyp_to_inst.name sinst sformula
+  Printf.sprintf "%s := %s : %s" res.pre_hyp.name sinst sformula
 
 let ctx_used_res_to_trm ~(clause: var) (used_res: used_resource_set) : trm =
   let spure = String.concat ", " (List.map ctx_used_res_item_to_string used_res.used_pure) in
@@ -744,7 +744,7 @@ let ctx_used_res_to_trm ~(clause: var) (used_res: used_resource_set) : trm =
 
 let ctx_produced_res_item_to_string (res: produced_resource_item) : string =
   let sformula = formula_to_string res.produced_formula in
-  Printf.sprintf "%s := %s : %s" res.produced_hyp.name res.produced_from.name sformula
+  Printf.sprintf "%s := %s : %s" res.produced_hyp.name res.post_hyp.name sformula
 
 let ctx_produced_res_to_trm (produced_res: produced_resource_set) : trm =
   let spure = String.concat ", " (List.map ctx_produced_res_item_to_string produced_res.produced_pure) in

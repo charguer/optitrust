@@ -223,13 +223,13 @@ let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm 
       let tl1_inv_reads = resource_set_of_hyp_map tl1_inv_reads ctx_res.linear in
       (* let tl1_inv_writes = resource_set_of_hyp_map tl1_inv_writes ctx_res.linear in *)
       let tl1_inv = resource_set_of_hyp_map tl1_inv_usage ctx_res.linear in
-      let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource linear_invariant tl1_inv in (* = I'' *)
+      let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set linear_invariant tl1_inv in (* = I'' *)
 
       let first_tl2_instr = Mlist.nth tl2 0 in
       let split_res = unsome_or_trm_fail first_tl2_instr error (first_tl2_instr.ctx.ctx_resources_before) in (* = R *)
       (* let last_tl1_instr = Mlist.nth tl1 ((Mlist.length tl1) - 1) in
       let split_res = unsome_or_trm_fail last_tl1_instr error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
-      let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
+      let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource_set split_res.linear linear_invariant in (* R' *)
 (* DEBUG:
       let s = AstC_to_c.default_style() in
       let s = { s with ast = { s.ast with print_contract = true; print_var_id = true } } in
@@ -520,7 +520,7 @@ let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_rang
     | Some contract when not generate_if ->
       (* FIXME: should this not just erase contract when not checking validity? *)
       let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
-      let _, new_invariant, _ = Resource_computation.subtract_linear_resource resources_after.linear contract.iter_contract.pre.linear in
+      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear contract.iter_contract.pre.linear in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }
     | _ -> contract
   in

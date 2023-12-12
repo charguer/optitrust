@@ -99,7 +99,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
   let filter_pre (hyp, formula) =
     match Hyp_map.find_opt hyp usage with
     | None ->
-      let _, np, _ = Resource_computation.subtract_linear_resource !new_linear_post [(hyp, formula)] in
+      let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula)] in
       new_linear_post := np;
       None
     | Some UsedFull -> Some (hyp, formula)
@@ -109,7 +109,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
       | None ->
         let try_to_remove formula base_formula =
           try begin
-            let _, np, _ = Resource_computation.subtract_linear_resource !new_linear_post [(hyp, formula)] in
+            let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula)] in
             let frac_var, frac_ghost = new_frac () in
             new_fracs := frac_ghost :: !new_fracs;
             let ro_formula = formula_read_only ~frac:(trm_var frac_var) base_formula in
@@ -117,10 +117,12 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
             Some (hyp, ro_formula)
           end with Resource_computation.Resource_not_found _ -> None
         in
+        (* ALREADY HANDLED BY subtract_linear_resource:
         begin match try_to_remove formula formula with
         | Some x -> Some x
-        | None -> Xoption.or_ (try_to_remove (formula_uninit formula) formula) (Some (hyp, formula))
-        end
+        | None -> *)
+        Xoption.or_ (try_to_remove (formula_uninit formula) formula) (Some (hyp, formula))
+        (* end *)
       end
     | Some JoinedReadOnly -> failwith (sprintf "loop_minimize_on: JoinedReadOnly resource %s has the same id as a contract resource" (var_to_string hyp))
     | Some UsedUninit ->
@@ -489,7 +491,7 @@ let assert_not_self_interfering (t : trm) : unit =
     | Some (SplittedReadOnly|JoinedReadOnly) | None -> false
     | Some (UsedFull|UsedUninit) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
-  ignore (Resource_computation.subtract_linear_resource res_produced res_used_uninit)
+  ignore (Resource_computation.subtract_linear_resource_set res_produced res_used_uninit)
 
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.
 

@@ -226,7 +226,7 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
     match t.ctx.ctx_resources_contract_invoc with
     | Some invoc when invoc.contract_produced.produced_pure <> [] -> None
     | Some invoc ->
-      let pre = List.map (fun used -> (used.hyp_to_inst, used.used_formula)) invoc.contract_inst.used_linear in
+      let pre = List.map (fun used -> (used.pre_hyp, used.used_formula)) invoc.contract_inst.used_linear in
       let post = List.map (fun prod -> (prod.produced_hyp, prod.produced_formula)) invoc.contract_produced.produced_linear in
       Some (pre, post)
     | None -> failwith "No contract invocation on ghost call (resources might not have been computed)"
@@ -239,8 +239,8 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
   let are_inverse_invoc_res (pre1, post1) (pre2, post2) =
     let open Resource_computation in
     try
-      let _ = subtract_linear_resource pre1 post2 in
-      let _ = subtract_linear_resource pre2 post1 in
+      let _ = subtract_linear_resource_set pre1 post2 in
+      let _ = subtract_linear_resource_set pre2 post1 in
       true
     with Resource_not_found _ as exn ->
       if debug_intro then Printf.eprintf "%s\n\n" (Printexc.to_string exn);
