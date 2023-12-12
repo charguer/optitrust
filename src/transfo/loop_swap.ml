@@ -94,7 +94,7 @@ let swap_on (t: trm): trm =
       assert (inner_post.pure == []);
 
       let new_inner_pre = Resource_set.union inner_inv inner_pre in
-      let new_inner_post = Resource_set.union (subst_invariant_step inner_range inner_inv) inner_post in
+      let new_inner_post = Resource_set.union (Resource_set.subst_loop_range_step inner_range inner_inv) inner_post in
       let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
 
       let new_outer_inv = Resource_set.group_range outer_range inner_inv in

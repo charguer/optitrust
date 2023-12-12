@@ -172,17 +172,14 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
 
     (1) If the resource comes from the invariant:
       - if it is never used, it is removed (from the invariant)
-      - if it is used in Full mode, there is nothing to simplify
-      - if it is available in Full but only used in SplitRO / JoinRO,
+      - if it is available in RW but only used in SplitRO,
         then it is replaced with RO
         (internally, a fresh fraction is introduced for that RO)
-      - if it is available in RW but only used in Uninit,
-        we change it to Uninit but only in the consumes clause
-        (see counter-example below for the produces case);
+      - if it is available in RW but only used as Uninit (see counter-example below);
         the user can always change the contract manually.
 
     (2) If the resource comes from the consumes clause:
-      - if it is never used (including for JoinRO),
+      - if it is never used (not in the usage map),
         it must be the case that this resource appears in the produces clause;
         it this case, the resource is removed from both consumes and produces
       - if if is used in Full mode, there is nothing to simplify
@@ -193,6 +190,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
         used in SplitRO mode, to remove same fraction constraints)
       - if the resource is consumed in RW and used in Uninit, then the RW
         may be replaced by an Uninit resource in the consumes clause.
+
 
     (TODO: Document function contract minimization separately, and use it to
     describe iter_contract minimization)
@@ -210,11 +208,12 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
     read in t, then it would have been possible for the loop to produce
     Uninit(t).
 
-
-    Assertions to implement:
+    TOMOVE global invariants of well-typed tree. Assertions to implement:
     - a RW resource cannot be used in JoinedReadOnly mode.
     - a resource coming from the invariant or consumes clause cannot
       be used in Produced mode.
+    - a resource in consumes clause and usage None, must appear in
+      produces clauses.
 
     Strategy to implement to help minimization:
     if the invariant takes as input RO(f,X) * RO(g,X),
@@ -249,6 +248,24 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
       // outside the loop cancel: RO(g, stars_i Ai) * RO(f-g, stars_i Ai)
       // into: RO(f, stars_i Ai)
 
+    ===========
+    Dually, we way want to pull implicit RW->RO operation before the loop.
+
+    Example:
+      for i
+        __consumes("&t[i] ~> Struct");
+        __produces("RO(1 - f, &t[i] ~> Struct), RO(f, &t[i].k ~> Cell)");
+        __ghost(focus_ro_k);
+
+    we could do instead:
+
+      for i
+        __consumes("RO(f, &t[i] ~> Struct)");
+        __produces("RO(f, &t[i].k ~> Cell)");
+        __ghost(focus_ro_k);
+
+    ===========
+
 
     Note: it may be tempting to generalize this idea to other examples.
     Consider for example:
@@ -266,8 +283,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
         produces Bi
       then entailement from (stars_i Bi) * stars_i (Bi \-* Ci) to (stars_i Ci)
 
-    However, in this example it is less clear what we would want to produce:
-    (FIXME: The example is broken, see next FIXME mark)
+    However, in this example we don't want to push the wand-cancel outside the loop
 
       for i
         consumes Ai * Di
@@ -275,19 +291,19 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
         g(i) // consumes Di produces Bi
         produces Ci
 
-    because this reformuation looks rather uninteresting:
+    because this reformuation looks rather uninteresting
+    and does not lead to a simpler "consumes" clause
 
       for i
-        consumes Ai
+        consumes Ai * Di
         f(i) // consumes Ai produces (Bi \-* Ci)
-        g(i) // consumes Di produces Bi (FIXME: Di is not in context here...)
+        g(i) // consumes Di produces Bi
         produces (Bi \-* Ci) * Bi
       then entailement from (stars_i Bi) * stars_i (Bi \-* Ci) to (stars_i Ci)
 
     Note that in this last example, a fission between f(i) and g(i)
     leads to the code in the previous example.
 *)
-
 
 let minimize_loop_contract contract usage =
   let new_fracs = ref [] in
