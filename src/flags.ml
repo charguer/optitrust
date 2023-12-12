@@ -40,12 +40,6 @@ let dump_clang_ast = ref None
 let set_dump_clang_ast () : unit =
   dump_clang_ast := Some "clang_ast.ml.txt"
 
-(* [dump_trace]: call [Trace.dump_trace_to_js] in addition to [Trace.dump] at the end of the script. *)
-let dump_trace : bool ref = ref false
-
-(* [trace_details_only_for_target_line]: whether to skip diff and ASTs for steps others than bigsteps and smallsteps, and for the substeps of the step targeted. *)
-let trace_details_only_for_line : int ref = ref (-1)
-
 (* [dump_big_steps]: call [Trace.dump_big_steps] in addition to [Trace.dump] at the end of the script.
    Files are generated in the subfolder [!dump_big_steps].  *)
 let dump_big_steps : string option ref = ref None
@@ -154,18 +148,49 @@ let process_serialized_input (mode : string) : unit =
   | "make" -> failwith "'make' serialization is not implemented"
   | _ -> failwith "Serialization mode should be 'none', 'build', 'use', 'auto' or 'make'"
 
-(* [exit_line]: option for exiting the program when reaching a '!!' (step) after a specific line number. *)
-let exit_line : int ref = ref max_int (* LATER: encode this as an option directly *)
+(* [execution_mode]: one of "exec" *)
 
-(* [get_exit_line ()]: gets the exit line if it exists. *)
-let get_exit_line () : int option =
-  if !exit_line = max_int
-    then None
-    else Some !exit_line
+type execution_mode =
+  | Execution_mode_step_diff
+  | Execution_mode_step_trace
+  | Execution_mode_full_trace
+  | Execution_mode_exec (* no trace *)
 
-(* [is_batch_mode ()] returns whether an exit line has been provided *)
-let is_batch_mode () : bool =
-  get_exit_line() = None
+let execution_mode : execution_mode ref = ref Execution_mode_exec
+
+let process_mode (mode : string) : unit =
+  execution_mode := match mode with
+  | "step-diff" -> Execution_mode_step_diff
+  | "step-trace" -> Execution_mode_step_trace
+  | "full-trace" -> Execution_mode_full_trace
+  | "exec" -> Execution_mode_exec
+  | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
+
+(* [target_line]: indicate which line to target in execution mode
+   [Execution_mode_step_trace] or [Execution_mode_step_trace]. *)
+let target_line : int ref = ref (-1)
+
+(* [get_target_line ()]: gets the targeted line *)
+let get_target_line () : int =
+  if !target_line = (-1)
+    then failwith "Flags.get_target_line: trying to read an invalid line number";
+  !target_line
+
+(* [is_execution_mode_step ()] returns the execution mode is targeting a specific step/line *)
+let is_execution_mode_step () : bool =
+  match !execution_mode with
+  | Execution_mode_step_diff
+  | Execution_mode_step_trace -> true
+  | Execution_mode_exec
+  | Execution_mode_full_trace -> false
+
+(* [is_execution_mode_trace ()] returns the execution mode is producing a trace *)
+let is_execution_mode_trace () : bool =
+  match !execution_mode with
+  | Execution_mode_step_trace
+  | Execution_mode_full_trace -> true
+  | Execution_mode_step_diff
+  | Execution_mode_exec -> false
 
 (* [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
    consider big steps. TODO: used? *)
@@ -190,13 +215,12 @@ type cmdline_args = (string * Arg.spec * string) list
 (* [spec]: possible command line arguments. *)
 let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
-     ("-exit-line", Arg.Set_int exit_line, " specify the line after which a '!!' or '!!!' symbol should trigger an exit");
+     ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
+     ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)
      ("-debug-reparse", Arg.Set debug_reparse, " print on stdout the line number at which each reparse is performed");
      ("-reparse-at-big-steps", Arg.Set reparse_at_big_steps, " force reparsing at every big step (implies -debug-reparse)");
-     ("-dump-trace", Arg.Set dump_trace, " produce a JS file with all the steps performed by the transformation script");
-     ("-trace-details-only-for-line", Arg.Set_int trace_details_only_for_line, " speedup up the construction of the trace by only dumping diff and ASTs for one targeted smallstep");
      ("-dump-small-steps", Arg.String set_dump_small_steps, " produce a distinct file for each small step");
      ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct file for each big step");
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");

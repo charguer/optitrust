@@ -273,7 +273,7 @@ var selectedStep = undefined; // stores a step object
 
 function loadDebugMsgs(messages) {
   var s = '';
-  if (messages) {
+  if (options.debug_msgs && messages) {
     for (var i = 0; i < messages.length; i++) {
       s += escapeHTML(messages[i]);
     }
@@ -745,7 +745,7 @@ initOptions();
 function initControls() {
   var s = "";
   function addRow(sTitle, sRow) {
-    s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br/>";
+    s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br class='row-br'/>";
   };
 
   // Code buttons
@@ -830,6 +830,7 @@ function initSteps() {
   // reads global variable [steps]
   // writes global variables [smallsteps] and [bigsteps] and [hasBigsteps]
   var rootStep = steps[0];
+
   var rootSub = rootStep.sub;
   if (rootSub.length == 0) {
     console.log("Error: no steps in tree")
@@ -922,20 +923,29 @@ function initAllTags() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+  var isRootedTrace = (steps[0].kind == "Root");
   initEditor();
-  initSteps();
+  if (isRootedTrace) {
+    initSteps();
+  }
   initTree(0, 0, false); // the root is its own parent, has no valid parent
   initAllTags();
   initOptions();
   initControls();
   initSplitView();
   // editor.setValue("click on a button");
-  if (hasBigsteps) {
-    loadBdiff(0); }
-  else {
-    loadSdiff(0);
+  if (isRootedTrace) {
+    if (hasBigsteps) {
+      loadBdiff(0); }
+    else {
+      loadSdiff(0);
+    }
+    $('#button_bdiff_next').focus();
+  } else {
+    $('#button_sdiff_next').hide();
+    $('.row-title').hide();
+    $('.row-br').hide();
   }
-  $('#button_bdiff_next').focus();
 
   // start by showing the tree of steps on the root, or the requested step
   var stepInit = 0; // root

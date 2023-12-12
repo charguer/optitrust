@@ -108,7 +108,7 @@ let stop () : unit =
 
 (* [may_report_time msg f]: returns the result of [f()] and, if not in batch mode, reports the time taken by that call on stdout. *)
 let may_report_time (msg : string) (f : unit -> 'a) : 'a =
-  if Flags.is_batch_mode () then
+  if not (Flags.is_execution_mode_step ()) then
     f ()
   else begin
     let (r, t) = Tools.measure_time f in
@@ -157,7 +157,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   let produce_trace () : unit =
     may_report_time "dump-trace" (fun () ->
-      Trace.dump_trace_to_js ~prefix ();
+      Trace.dump_full_trace_to_js ~prefix ();
       Trace.dump_trace_to_textfile ~prefix ())
     in
 
@@ -165,7 +165,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   let stats_before = Stats.get_cur_stats () in
   let contents_captured_show = ref "" in
-  let activate_capture_show = capture_show_in_batch && Flags.is_batch_mode() in
+  let activate_capture_show = capture_show_in_batch && not (Flags.is_execution_mode_step()) in
 
   (* Set the input file, execute the function [f], dump the results. *)
   (try
@@ -176,9 +176,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
           may_report_time "script-exec" f)
       with
       | Stop -> ()
-      | e when !Flags.dump_trace -> (* FIXME: remove when cond *)
+      | e when !Flags.execution_mode = Execution_mode_full_trace -> (* FIXME: remove when cond *)
           Trace.finalize_on_error ~exn:e;
-          if !Flags.dump_trace then produce_trace();
+          if !Flags.execution_mode = Execution_mode_full_trace then produce_trace();
           let backtrace = Printexc.get_backtrace () in
           Printf.eprintf "========> BACKTRACE:\n%s\n" backtrace;
           exit 0 (* FIXME: don't exit in batch? *)
@@ -209,7 +209,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
             In this case, we skip trace.dump and other dumps. *)
 
     (* Dump full trace if option [-dump-trace] as provided *)
-    if !Flags.dump_trace
+    if !Flags.execution_mode = Execution_mode_full_trace
       then produce_trace();
 
     (* Dump one file for each big step if option [-dump-big-steps] was provided *)

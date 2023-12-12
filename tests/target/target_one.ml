@@ -74,8 +74,8 @@ let _ = Run.script_cpp (fun () ->
   (* Function calls are
     - instructions if return type is unit
     - expressions otherwise *)
-  (* TODO: fix me, this target fails in batch mode only *)
-  if not (Flags.is_batch_mode()) then
+  (* TODO: fix me, this target fails in noninteractive mode only *)
+  if Flags.is_execution_mode_step())then
     show [sInstr "g("];
 
   show [sExpr "f("];

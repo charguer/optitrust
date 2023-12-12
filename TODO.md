@@ -75,15 +75,6 @@
 - Bind a shortcut for executing F6 under the assumption
   that /src folder has not changed (skipping dependency tests)
 
-- Bind a shortcut that dumps a trace only for the current line.
-  This command would dump all the intermediate ASTs.
-```
-  {
-    "key":"alt+f5",
-    "command": "workbench.action.tasks.runTask",
-    "args": "View trace with -trace-details-only-for-line",
-  },
-```
 
 - Modify the behavior of dump-full-trace shortcut (shift+F5),
   so that, by default, it stores only diffs in the JS file and not all ASTs

@@ -40,7 +40,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff"
+          "view_step_diff"
         ]
       },
       {
@@ -60,7 +60,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff",
+          "view_step_diff",
           "-print-optitrust-syntax"
         ]
       },
@@ -81,7 +81,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_trace"
+          "view_full_trace"
         ]
       },
       {
@@ -101,11 +101,11 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_trace_from_inter"
+          "viewfull_trace_from_inter"
         ]
       },
       {
-        "label": "View trace with -trace-details-only-for-line",
+        "label": "View trace for one step",
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -121,8 +121,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_trace",
-          "-trace-details-only-for-line ${lineNumber}"
+          "view_step_trace"
         ]
       },
       {
@@ -142,7 +141,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff",
+          "view_step_diff",
           "-only-big-steps"
         ]
       },
@@ -163,7 +162,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff_from_inter"
+          "view_step_diff_from_inter"
         ]
       },
       {
@@ -183,7 +182,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff_from_inter",
+          "view_step_diff_from_inter",
           "-only-big-steps"
         ]
       },
