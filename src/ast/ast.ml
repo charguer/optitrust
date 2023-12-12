@@ -1439,7 +1439,7 @@ type style = {
 
 (* Default style *)
 
-let default_style () = {
+let default_style () : style = {
   print_contract = true;
   print_var_id = !Flags.debug_var_id;
   print_generated_ids = !Flags.always_name_resource_hyp;
@@ -1447,3 +1447,12 @@ let default_style () = {
   print_mark = true;
   print_annot = false; (* LATER: add support for this *)
 }
+
+(** Style for reparsing *)
+let style_for_reparse () : style =
+  { print_contract = true;
+    print_var_id = false;
+    print_generated_ids = false;
+    print_string_repr = false;
+    print_mark = false;
+    print_annot = false; }

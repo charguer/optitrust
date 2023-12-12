@@ -90,12 +90,13 @@ let verbose_mode : bool ref = ref false
    (* TODO: could it be true by default? *)
 let use_light_diff : bool ref = ref false
 
-(* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them. *)
+(* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them.
+   It affects the behavior of the parsing function [c_parser],
+   and the style controlling the behavior of the printing operation *)
 let bypass_cfeatures : bool ref = ref false
 
-(* [bypass_cfeatures_decoding]: Same as bypass_cfeatures but only for the decoding pass, to show what is
-   actually seen internally after the encoding is done. *)
-let bypass_cfeatures_decoding = ref false
+(* [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
+let print_optitrust_syntax = ref false
 
 (* [resource_errors_as_warnings]: Do not error on resource computation failure but only print a warning instead.
    Useful for debugging resource typing. *)
@@ -202,11 +203,11 @@ let spec : cmdline_args =
      ("-dump-clang-ast", Arg.Unit set_dump_clang_ast, " produce clang_ast.ml with the AST obtained by ClangML");
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
+     ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
      ("-serialized-input", Arg.String process_serialized_input, " choose an input serialization mode between 'build', 'use', 'make' or 'auto'");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
-     ("-bypass-cfeatures-decoding", Arg.Set bypass_cfeatures_decoding, " print output using syntax for internal AST");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
@@ -251,7 +252,6 @@ let reset_flags_to_default () : unit =
   execute_show_even_in_batch_mode := false;
   dump_ast_details := false;
   bypass_cfeatures := false;
-  bypass_cfeatures_decoding := false;
   use_light_diff := false;
   pretty_matrix_notation := false;
   display_includes := false;

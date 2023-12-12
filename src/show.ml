@@ -2,78 +2,14 @@ open Printf
 open Target
 open Ast
 
+include Style
+
 (* Usage:
      Show.trm ~msg:"foo:" t
      Show.trm ~msg:"foo:" tg
      Show.trm ~msg:"foo:" (Target.resolve_path p)
      ShowAt.trm ~msg:"foo:" (Target.of_path p)
 *)
-
-(*----------------------------------------------------------------------------------*)
-(* Printing options *)
-
-type style =
-  | Custom of custom_style
-  | Default
-  | C
-  | Internal
-  | InternalAst
-  | InternalAstOnlyDesc
-  (* TODO XUSage *)
-
-and custom_style = {
-  decode : bool; (* TODO: decode on non full ASTs? *)
-  print : print_language }
-
-and print_language =
-  | Lang_AST of Ast_to_text.style
-  | Lang_C of AstC_to_c.style
-  (* Redundand constructors, to avoid need for parentheses,
-     e.g. ~style:XC  instead of ~style:(c()) *)
-
-
-(** Common printing options *)
-
-let c () : style  =
-  Custom {
-    decode = true;
-    print = Lang_C ( AstC_to_c.( default_style ()) ) }
-
-let internal () : style =
-  let s = AstC_to_c.default_style () in
-  Custom {
-    decode = false;
-    print = Lang_C { s with
-      optitrust_syntax = true;
-      ast = { s.ast with print_var_id = true } } }
-
-let internal_ast () : style  =
-  let s = Ast_to_text.default_style () in
-  Custom {
-    decode = false;
-    print = Lang_AST s }
-
-let internal_ast_only_desc () : style  =
-  let s = Ast_to_text.default_style () in
-  Custom {
-    decode = false;
-    print = Lang_AST { s with only_desc = true } }
-
-let default_style () = c ()
-
-(* [resolve_style style] eliminates the redundant constructors *)
-let resolve_style (style : style) : custom_style =
-  let style_as_custom = match style with
-    | Default -> default_style()
-    | Custom _ -> style
-    | C -> c()
-    | Internal -> internal()
-    | InternalAst -> internal_ast()
-    | InternalAstOnlyDesc -> internal_ast_only_desc()
-    in
-    match style_as_custom with
-    | Custom custom_style -> custom_style
-    | _ -> failwith "Show.resolve_style: not custom"
 
 
 (*----------------------------------------------------------------------------------*)

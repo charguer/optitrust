@@ -25,6 +25,7 @@ let option_to_doc (string_none : string) (f : 'a -> doc) (opt : 'a option) : doc
 (*----------------------------------------------------------------------------------*)
 (* Options for printing *)
 
+(** Style object controlling printing options *)
 type style = {
   ast: Ast.style;
   optitrust_syntax: bool; (* print "set(p,v)" instead of "p=v", and print "array_access(t,i)" etc *)
@@ -32,13 +33,19 @@ type style = {
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
 }
 
-(* Default style *)
-
-let default_style () =
+(** Default style, depends on the global flags *)
+let default_style () : style =
   let s = Ast.default_style() in
   { ast = { s with print_contract = false };
-    optitrust_syntax = false;
+    optitrust_syntax = !Flags.print_optitrust_syntax || !Flags.bypass_cfeatures;
     pretty_matrix_notation = !Flags.pretty_matrix_notation;
+    commented_pragma = !Flags.use_clang_format; }
+
+(** Style for reparsing *)
+let style_for_reparse () : style =
+  { ast = Ast.style_for_reparse();
+    optitrust_syntax = false;
+    pretty_matrix_notation = false;
     commented_pragma = false; }
 
 (*----------------------------------------------------------------------------------*)

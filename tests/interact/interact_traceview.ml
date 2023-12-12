@@ -1,30 +1,15 @@
 open Optitrust
 open Target
 
-(* Usage:
-       ./tester tests/interact/interact_traceview.ml
-      cat tests/interact/interact_traceview_trace.txt
-      chromium-browser interact_trace_trace.html
-*)
-
-(* This test can be used to test the generation of the javsacript trace [%_trace.js],
-   used to display [%_trace.html].  *)
-
-(* Dump a javascript file with the full trace at the end,
-   when executing 'make interact_traceview.out'  *)
-let  _ =
-  Flags.dump_trace := true;
-  Flags.use_clang_format := true
-
-
 let _ = Run.script_cpp (fun _ ->
 
     bigstep "first part";
     !! Label.add "lab1" [cVarDef "a"];
     !! Label.add "lab2" [cVarDef "a"];
     bigstep "second part";
-    (* Activate the line below to see a trace with failure in the middle *)
-    (* !! failwith "the error message"; *)
+    (* Uncomment the line below to see a partial trace
+     !! if true then failwith "the error message";
+    *)
     !! Label.add "lab3" [cVarDef "a"];
     !! Trace.msg "debug message before\nlab4 \n";
        Label.add "lab4" [cVarDef "a"];

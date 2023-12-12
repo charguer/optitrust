@@ -6,8 +6,12 @@ open Stats
 open Tools
 open PPrint
 
+(** [output_style] describes the mode in which an AST should be pretty-printed *)
+type output_style = Style.custom_style
+
 
 let debug = false
+
 
 (******************************************************************************)
 (*                             File excerpts                                  *)
@@ -191,11 +195,13 @@ type step_infos = {
   mutable step_debug_msgs : string list;
 }
 
-(* [step_tree]: history type used for storing all the trace information about all steps, recursively *)
+(* [step_tree]: history type used for storing all the trace information about all steps, recursively. *)
 type step_tree = {
   mutable step_kind : step_kind;
-  mutable step_ast_before : trm;
+  mutable step_ast_before : trm; (* possibly [empty_ast], for "show" steps *)
   mutable step_ast_after : trm;
+  mutable step_style_before : output_style;
+  mutable step_style_after : output_style;
   mutable step_sub : step_tree list;
   (* substeps in reverse order during construction (between open and close) *)
   mutable step_infos : step_infos; }
@@ -215,6 +221,7 @@ type step_stack = step_tree list
 type trace = {
   mutable context : context;
   mutable cur_ast : trm;
+  mutable cur_style : output_style;
   mutable step_stack : step_stack; } (* stack of open steps *)
 
 (* [trm_dummy]: dummy trm. *)
@@ -226,6 +233,7 @@ let trm_dummy : trm =
 let trace_dummy : trace =
   { context = context_dummy;
     cur_ast = trm_dummy; (* dummy *)
+    cur_style = Style.default_custom_style();
     step_stack = []; (* dummy *)
     }
 
@@ -282,58 +290,53 @@ let ensure_header (h : string) : unit =
   if not found then
     the_trace.context <- { ctx with header = ctx.header ^ h ^ "\n" }
 
-(* [output_prog ctx prefix ast]: writes the program described by the term [ast]
-   in several files:
+(* [output_prog style ctx prefix ast]: writes the program described by the term [ast] into file.
+   - one describing the CPP code ("prefix.cpp")
+   If the flag [-dump-ast-details] is set, also produce:
    - one describing the raw AST ("prefix.ast")
    - one describing the internal AST ("prefix_enc.cpp")
-   - one describing the CPP code ("prefix.cpp").
-   The CPP code is automatically formatted using clang-format. *)
-let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
+   The CPP code is formatted using clang-format, unless [-disable-clang-format] is passed. *)
+let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let use_clang_format = beautify && !Flags.use_clang_format in
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
   begin try
-    (* print C++ code with decoding *)
-    (*   DEPRECATED
-    Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
-    (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
+    (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
     output_string out_prog ctx.header;
-    let pretty_matrix_notation = beautify && !Flags.pretty_matrix_notation in
-    let ast =
-      if !Flags.display_resources
-        then Ast_fromto_AstC.computed_resources_intro ast
-        else ast
+    (* Optionally add typing information such as resources *)
+    let ast = if style.typing.typing_resources then Ast_fromto_AstC.computed_resources_intro ast else ast in
+    (* Optionally convert from OptiTrust to C syntax *)
+    let ast = if style.decode then Ast_fromto_AstC.cfeatures_intro ast else ast in
+    (* Print the code into file, using the specified style *)
+    let cstyle = match style.print with
+      | Lang_AST _-> failwith "output_prog requires a Lang_C printing mode, not a Lang_AST"
+      | Lang_C cstyle -> cstyle
       in
-      (* TODO: !Flags.display_var_ids *)
-
-    let style = AstC_to_c.default_style () in
-    if !Flags.bypass_cfeatures || bypass_cfeatures
-      then AstC_to_c.ast_to_outchannel ({ style with optitrust_syntax = true }) out_prog ast
-      else AstC_to_c.ast_to_outchannel ({ style with pretty_matrix_notation = pretty_matrix_notation; commented_pragma = use_clang_format }) out_prog (Ast_fromto_AstC.cfeatures_intro ast);
+    AstC_to_c.ast_to_outchannel cstyle out_prog ast;
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
     close_out out_prog;
     failwith s
   end;
-  (* beautify the C++ code --comment out for debug *)
+  (* Beautify the generated C++ code using clang-format *)
   if use_clang_format
     then cleanup_cpp_file_using_clang_format ~uncomment_pragma:use_clang_format file_prog;
-  (* ast and enc *)
-  if ast_and_enc && !Flags.dump_ast_details then begin
+  (* Optionally, generated output also in OptiTrust syntax and Raw syntax *)
+  if !Flags.dump_ast_details then begin
     let file_ast = prefix ^ ".ast" in
     let file_enc = prefix ^ "_enc" ^ ctx.extension in
     let out_ast = open_out file_ast in
     let out_enc = open_out file_enc in
     begin try
-      (* print the raw ast *)
+      (* Print the raw ast *)
       begin
         let style = Ast_to_text.default_style() in
         Ast_to_text.print_ast style out_ast ast;
         output_string out_ast "\n";
         close_out out_ast;
       end;
-      (* print the non-decoded ast *)
+      (* Print the non-decoded ast *)
       output_string out_enc ctx.header;
       let style = AstC_to_c.default_style() in
       AstC_to_c.ast_to_outchannel { style with optitrust_syntax = true } out_enc ast;
@@ -360,7 +363,7 @@ let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (
     flush stdout
   end;
   let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
-  output_prog ~beautify:false ctx in_prefix ast;
+  output_prog (Style.custom_style_for_reparse()) ~beautify:false ctx in_prefix ast;
 
   let parser =
     match parser with
@@ -413,7 +416,9 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
   let step_root = {
     step_kind = Step_root;
     step_ast_before = the_trace.cur_ast;
+    step_style_before = the_trace.cur_style;
     step_ast_after = trm_dummy;
+    step_style_after = the_trace.cur_style;
     step_sub = [];
     step_infos = step_root_infos; }
     in
@@ -454,11 +459,16 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_debug_msgs = [];
   } in
   let step = {
+    (* fields set at the start of the step *)
     step_kind = kind;
     step_ast_before = the_trace.cur_ast;
-    step_ast_after = trm_dummy;
+    step_style_before = the_trace.cur_style;
+    (* mutated during the lifetime of the step: *)
     step_sub = [];
-    step_infos = infos; }
+    step_infos = infos;
+    (* mutated at the finalization of the step: *)
+    step_ast_after = trm_dummy;
+    step_style_after = the_trace.cur_style; }
     in
   the_trace.step_stack <- step :: the_trace.step_stack;
   step
@@ -475,6 +485,9 @@ let justif (justif:string) : unit =
    for transformation that are always correct. *)
 let justif_always_correct () : unit =
   justif "always correct"
+  (* TODO: subcases:
+     - correct because the ast is not modified
+     - correct because the code has not changed (only contracts and decorations have) *)
 
 (* [step_arg] is called by a transformation after open_step in order
    to store the string representations of one argument. *)
@@ -577,6 +590,7 @@ let rec finalize_step (step : step_tree) : unit =
   infos.step_exectime <- now() -. infos.step_time_start;
   infos.step_args <- List.rev infos.step_args;
   step.step_ast_after <- the_trace.cur_ast;
+  step.step_style_after <- the_trace.cur_style;
   step.step_sub <- List.rev step.step_sub;
   if !Flags.check_validity then
     try_validate_step_by_compostion step
@@ -830,9 +844,11 @@ let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (se
    This operation should be the first in a transformation script.
    The history is initialized with the initial AST.
    [~prefix:"foo"] allows to use a custom prefix for all output files,
-   instead of the basename of [f]. *)
+   instead of the basename of [f].
+   [~style] allows to specify a printing style for ASTs; the default
+   style is computed based on the global flags.   *)
 (* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
+let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) (filename : string) : unit =
   invalidate ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
@@ -862,6 +878,7 @@ let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
   let context = { parser; extension; prefix; header; clog } in
   the_trace.context <- context;
   the_trace.cur_ast <- cur_ast;
+  the_trace.cur_style <- begin match style with Some s -> s | None -> Style.default_custom_style() end;
   the_trace.step_stack <- [];
   open_root_step ~source:ml_file_name ();
 
@@ -974,9 +991,9 @@ let call (f : trm -> unit) : unit =
 (*                                   More dump                                *)
 (******************************************************************************)
 
-
-(* [dump_steps]: writes into files called [`prefix`_$i_out.cpp] the contents of each of the big steps,
-    where [$i] denotes the index of a big step. *)
+(* [dump_steps]: writes into files called [`prefix`_$i_out.cpp] the contents of each of the
+    small_steps or big steps, where [$i] denotes the index of a step.
+    TODO: revive and adjust interface to allow a custom filter on which steps to select. *)
 let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : string) : unit =
   ()
   (* TODO FIXME
@@ -1007,7 +1024,7 @@ let cmd s =
   ignore (Sys.command s)
 
 (* [trace_custom_postprocessing] is a function applied to all ast-after that are dumped in the trace;
-   for debugging purposes only *)
+   For debugging purposes only *)
 let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
 
 (* EXAMPLE POSTPROCESSING: display the type of every statement;
@@ -1032,7 +1049,7 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
 
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (* [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
-let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bool = false) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
+let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
   let i = s.step_infos in
   (* Report diff and AST for details *)
   let is_smallstep_of_targeted_line =
@@ -1041,13 +1058,13 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
   let is_substep_of_targeted_line =
       is_substep_of_targeted_line || is_smallstep_of_targeted_line in
   let details =
-        (!Flags.trace_details_only_for_line = -1) (* details for all steps *)
+        (!Flags.trace_details_only_for_line = -1) (* [-1] means requesting details for all steps *)
      || s.step_kind = Step_big
      || s.step_kind = Step_small
      || is_substep_of_targeted_line
      in
   (* Recursive calls *)
-  let aux = dump_step_tree_to_js ~is_substep_of_targeted_line ~beautify get_next_id out in
+  let aux = dump_step_tree_to_js ~is_substep_of_targeted_line get_next_id out in
   (* LATER: move these functions elsewhere? *)
   let compute_command_base64 (s : string) : string =
     cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
@@ -1059,11 +1076,12 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
   let ctx = the_trace.context in
   let sBefore, sAfter, sDiff =
     if details then begin
-      let ast_before = !trace_custom_postprocessing s.step_ast_before in
-      let ast_after = !trace_custom_postprocessing s.step_ast_after in
+      (* custom processing for debugging *)
+      let disp_ast_before = !trace_custom_postprocessing s.step_ast_before in
+      let disp_ast_after = !trace_custom_postprocessing s.step_ast_after in
       begin try
-        output_prog ~beautify ctx "tmp_before" ast_before;
-        output_prog ~beautify ctx "tmp_after" ast_after
+        output_prog s.step_style_before ctx "tmp_before" disp_ast_before;
+        output_prog s.step_style_after ctx "tmp_after" disp_ast_after;
       with e ->
         (* Prevent any exception during printing to corrupt the entire trace *)
         let exn = Printexc.to_string e in
@@ -1125,7 +1143,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
       sub: [ j1, j2, ... jK ]  // ids of the sub-steps
       }
    *)
-let dump_trace_to_js ?(beautify : bool = false) ?(prefix : string = "") () : unit =
+let dump_trace_to_js ?(prefix : string = "") () : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
@@ -1139,7 +1157,7 @@ let dump_trace_to_js ?(beautify : bool = false) ?(prefix : string = "") () : uni
     !next_id in
   out "var steps = [];\n";
   let idroot = get_next_id() in
-  dump_step_tree_to_js ~is_substep_of_targeted_line:false ~beautify get_next_id out idroot step_tree;
+  dump_step_tree_to_js ~is_substep_of_targeted_line:false get_next_id out idroot step_tree;
   (* Clean up the files generated by the functions located in dump_step_tree_to_js_and_return_id
      LATER: move this elsewhere *)
   cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp";
@@ -1183,17 +1201,17 @@ let dump_trace_to_textfile ?(prefix : string = "") () : unit =
   if debug then printf "Dumping trace to '%s'\n" filename;
   step_tree_to_file filename (get_root_step())
 
-
-(* [output_prog_check_empty ~ast_and_enc ctx prefix ast_opt]: similar to [output_prog], but it
-   generates an empty file in case the [ast] is an empty ast. *)
-let output_prog_check_empty ?(bypass_cfeatures:bool=false) ?(ast_and_enc : bool = true) (ctx : context) (prefix : string) (ast_opt : trm) : unit =
-  match ast_opt.desc with
-  | Trm_seq tl when Mlist.length tl <> 0 -> output_prog ~bypass_cfeatures ~ast_and_enc ctx prefix ast_opt
+(* [output_prog_check_empty style ctx prefix ast_opt]: similar to [output_prog], but it
+   generates an empty file in case the [ast] is an empty ast.
+   LATER: this function could be inlined at its unique call site. *)
+let output_prog_check_empty (style : output_style) (ctx : context) (prefix : string) (ast_opt : trm) : unit =
+  match ast_opt.desc with (* TODO: add and use a function [trm_empty_inv] *)
+  | Trm_seq tl when Mlist.length tl <> 0 ->
+      output_prog style ctx prefix ast_opt
   | _ ->
       let file_prog = prefix ^ ctx.extension in
-      let out_prog = open_out file_prog in
+      let out_prog = open_out file_prog in (* TODO: use a function [file_put_contents] *)
       close_out out_prog
-
 
 (* [light_diff astBefore astAfter]: find all the functions that have not change after
     applying a transformation and hides their body for a more robust view diff. *)
@@ -1218,11 +1236,7 @@ let dump_diff_and_exit () : unit =
   let trace = the_trace in
   let ctx = trace.context in
   let prefix = (* ctx.directory ^ *) ctx.prefix in
-  (* Common printinf function *)
-  let output_ast ?(bypass_cfeatures:bool=false) ?(ast_and_enc:bool=true) filename_prefix ast =
-    output_prog_check_empty ~bypass_cfeatures ~ast_and_enc ctx filename_prefix ast;
-    print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
-    in
+
   (* Extract the two ASTs that should be used for the diff *)
   let step = get_cur_step() in
   if step.step_sub = []
@@ -1230,21 +1244,24 @@ let dump_diff_and_exit () : unit =
   let last_step = get_last_substep () in
   if !Flags.only_big_steps && last_step.step_kind <> Step_big
     then failwith "dump_diff_and_exit: cannot show a diff for a big-step, no call to bigstep was made";
-  let astBefore, astAfter =
-    last_step.step_ast_before, last_step.step_ast_after
-    in
+  let ast_before, ast_after = last_step.step_ast_before, last_step.step_ast_after in
+  let style_before, style_after = last_step.step_style_before, last_step.step_style_after in
 
   (* Option to compute light-diff:
       hide the bodies of functions that are identical in astBefore and astAfter. *)
-  let astBefore, astAfter =
+  let ast_before, ast_after =
     if !Flags.use_light_diff
-      then light_diff astBefore astAfter
-      else astBefore, astAfter in
+      then light_diff ast_before ast_after
+      else ast_before, ast_after in
 
-  (* Generate files. If in mode "Resources.show", astAfter is shown without decoding. *)
-  let bypass_cfeatures = !Flags.bypass_cfeatures_decoding in
-  output_ast ~bypass_cfeatures (prefix ^ "_before") astBefore;
-  output_ast ~bypass_cfeatures (prefix ^ "_after") astAfter;
+  (* Common printing function *)
+  let output_ast style filename_prefix ast =
+    output_prog_check_empty style ctx filename_prefix ast;
+    print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
+    in
+  (* Generate files. *)
+  output_ast style_before (prefix ^ "_before") ast_before;
+  output_ast style_after (prefix ^ "_after") ast_after;
   print_info None "Writing ast and code into %s.js " prefix;
   (* Exit *)
   close_logs ();
@@ -1414,22 +1431,18 @@ let (!!!) (x : 'a) : 'a =
 let bigstep (s : string) : unit =
   open_bigstep ~line:(-1) s
 
-(* [dump ~prefix]: invokes [output_prog] to write the contents of the current AST.
-   If there are several traces (e.g., due to a [switch]), it writes one file for each.
-   If the prefix is not provided, the input file basename is used as prefix,
-   and in any case "_out" is appended to the prefix.
-
-   If you use [dump] in your script, make sure to call [!! Trace.dump] with the
-   prefix [!!] in order for the diff visualization to work well for the last
-   command before the call to dump.
-
-   [append_comments] will be added as comments near the end of the output file *)
-let dump ?(prefix : string = "") ?(append_comments : string = "") () : unit =
+(* [dump style ()]: invokes [output_prog] to write the contents of the current AST.
+   - If [~prefix] is provided, it is used as basename for the output file;
+     otherwise the default prefix is [basename_out].
+    the input file is used as prefix,
+   - If [~append_comments] is provided, the corresponding string will be added
+     as comments near the end of the output file *)
+let dump (style : output_style) ?(prefix : string = "") ?(append_comments : string = "") () : unit =
   dumping_step (fun () ->
     let ctx = the_trace.context in
     let prefix =
       if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
-    output_prog ctx (prefix ^ "_out") (the_trace.cur_ast);
+    output_prog style ctx (prefix ^ "_out") (the_trace.cur_ast);
     if append_comments <> "" then begin
       let filename = prefix ^ "_out.cpp" in
       (* open in append mode *)
@@ -1481,6 +1494,19 @@ let set_ast (t:trm) : unit =
    within the scope of [Trace.apply] or [Trace.call]. *)
 let get_context () : context =
   the_trace.context
+
+(* [get_style ()]: read the current style using for printing ASTs in the trace. *)
+let get_style () : output_style =
+  the_trace.cur_style
+
+(* [set_style ()]: change the current style using for printing ASTs in the trace. *)
+let set_style (style:output_style) : unit =
+  the_trace.cur_style <- style
+
+(* [update_style ()]: updates the current style using for printing ASTs in the trace
+   by reading the flags. Call this function after modifying global flags. *)
+let update_style () : unit =
+  the_trace.cur_style <- Style.default_custom_style()
 
 
 (* LATER:  need to reparse to hide spurious parentheses *)
