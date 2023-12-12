@@ -175,6 +175,7 @@ let%transfo hoist_alloc_loop_list
             if is_partial_mindex then begin
             *)
               (* DEPRECATED since *const malloc-ed ptrs Variable_basic.to_const instr_target; *)
+              (* TODO: inline ~simpl *)
               Marks.with_fresh_mark (fun mark ->
                 Variable_basic.inline ~mark instr_target;
                 simpl_index_after_inline [nbAny; cMark mark]
@@ -258,7 +259,7 @@ let%transfo hoist ?(tmp_names : string = "${var}_step${i}")
   hoist_alloc_loop_list ~tmp_names ~name ~inline (List.init nest_of (fun _ -> 1)) tg
 
 (* [hoist_instr_loop_list]: this transformation hoists an instructions outside of multiple loops using a combination of
-  [Loop_basic.move_out], [Instr_basic.move], and [Loop_basic.fission].
+  [Loop_basic.move_out], [Instr_basic.move], and [Loop.fission].
   [loops] - loops to hoist through (expecting a perfect nest of simple loops),
             where [0] represents a loop for which no dimension should be created,
             and [1] represents a loop for which a dimension should be created.

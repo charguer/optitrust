@@ -11,6 +11,7 @@ module Rename = struct
   | AddSuffix of string
   | ByList of (string * string) list
   | Renamefn of (string -> string)
+  (* TODO: path -> [trm ->] for context / + option to check that Target.iter checks that marks don't move *)
 
   let add_suffix (s : string) =  Renamefn (fun x -> x ^ s)
 
