@@ -211,6 +211,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     (* Dump full trace if option [-dump-trace] as provided *)
     if !Flags.dump_trace
       then produce_trace();
+
     (* Dump one file for each big step if option [-dump-big-steps] was provided *)
     begin match !Flags.dump_big_steps with
     | None -> ()

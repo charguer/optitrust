@@ -165,7 +165,7 @@ and merge that contents just before the final closing brace of the existing file
   {
     "key":"ctrl+shift+f6",
     "command": "workbench.action.tasks.runTask",
-    "args": "View diff for ast encoding",
+    "args": "View diff using internal syntax",
     "when": "config.optitrust.enableKeybindings"
   },
   // For working with unit tests

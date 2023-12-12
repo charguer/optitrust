@@ -1238,14 +1238,14 @@ let dump_diff_and_exit () : unit =
   let prefix = (* ctx.directory ^ *) ctx.prefix in
 
   (* Extract the two ASTs that should be used for the diff *)
-  let step = get_cur_step() in
-  if step.step_sub = []
+  let container_step = get_cur_step() in
+  if container_step.step_sub = []
     then failwith "dump_diff_and_exit: make sure you cursor is on a line starting with '!!' or 'bigstep'";
-  let last_step = get_last_substep () in
-  if !Flags.only_big_steps && last_step.step_kind <> Step_big
+  let step = get_last_substep () in
+  if !Flags.only_big_steps && step.step_kind <> Step_big
     then failwith "dump_diff_and_exit: cannot show a diff for a big-step, no call to bigstep was made";
-  let ast_before, ast_after = last_step.step_ast_before, last_step.step_ast_after in
-  let style_before, style_after = last_step.step_style_before, last_step.step_style_after in
+  let ast_before, ast_after = step.step_ast_before, step.step_ast_after in
+  let style_before, style_after = step.step_style_before, step.step_style_after in
 
   (* Option to compute light-diff:
       hide the bodies of functions that are identical in astBefore and astAfter. *)
@@ -1263,6 +1263,10 @@ let dump_diff_and_exit () : unit =
   output_ast style_before (prefix ^ "_before") ast_before;
   output_ast style_after (prefix ^ "_after") ast_after;
   print_info None "Writing ast and code into %s.js " prefix;
+
+  (* Print debug messages of the current step *)
+  List.iter (fun s -> printf "%s\n" s) step.step_infos.step_debug_msgs;
+
   (* Exit *)
   close_logs ();
   exit 0

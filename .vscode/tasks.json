@@ -44,6 +44,27 @@
         ]
       },
       {
+        "label": "View diff using internal syntax",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_diff",
+          "-print-optitrust-syntax"
+        ]
+      },
+      {
         "label": "View trace",
         "type": "shell",
         "command": "tools/view_result.sh",
@@ -123,26 +144,6 @@
           "${lineNumber}",
           "view_diff",
           "-only-big-steps"
-        ]
-      },
-      {
-        "label": "View diff for ast encoding",
-        "type": "shell",
-        "command": "tools/view_result.sh",
-        "options": {
-          "cwd": "${workspaceFolder}",
-          "shell": {
-            "args": ["-i"]
-          }
-        },
-        "presentation": {
-          "clear": true
-        },
-        "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "view_diff_enc"
         ]
       },
       {

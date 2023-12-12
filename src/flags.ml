@@ -252,6 +252,7 @@ let reset_flags_to_default () : unit =
   execute_show_even_in_batch_mode := false;
   dump_ast_details := false;
   bypass_cfeatures := false;
+  print_optitrust_syntax := false;
   use_light_diff := false;
   pretty_matrix_notation := false;
   display_includes := false;
