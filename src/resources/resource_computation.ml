@@ -342,6 +342,7 @@ let compute_produced_resources (subst_ctx: tmap) (contract_post: resource_set)
   let _, produced_linear = compute_produced_resources_list subst_ctx contract_post.linear in
   { produced_pure; produced_linear }
 
+(** Forgets information from [produced_resource_set]. *)
 let produced_resources_to_resource_set (res_produced: produced_resource_set): resource_set =
   let forget_origin =
     List.map (fun { produced_hyp; produced_formula } -> (produced_hyp, produced_formula))
@@ -351,7 +352,7 @@ let produced_resources_to_resource_set (res_produced: produced_resource_set): re
   Resource_set.make ~pure ~linear ()
 
 
-(* [resource_merge_after_frame]:
+(* [resource_merge_after_frame res_after frame]:
  * Returns [res_after] * [frame] with simplifications.
  * Cancels magic wands in [frame] with linear resources in [res_after] and
  * returns the produced resource_set.
@@ -437,6 +438,7 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
   assert (Hashtbl.length ro_formulas = 0);
   { res_after with linear }, used_set
 
+(** <private> cf. {!find_fun_spec} *)
 let trm_fun_var_inv (t:trm): var option =
   try
     match trm_prim_inv t with
@@ -447,14 +449,13 @@ let trm_fun_var_inv (t:trm): var option =
       Printf.sprintf "%s: %s\n" msg (Ast_to_text.ast_to_string t) in
     trm_fail t (trm_internal "unimplemented trm_fun_var_inv construction" t)
 
+(** <private> cf. {!compute_resources} *)
 let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resource =
+  (** spec is either in env, or attached to term *)
   (* LATER: replace with a query on _Res inside fun_specs, but this requires a management of value aliases *)
   match trm_fun_var_inv t with
   | Some fn ->
-    begin match Var_map.find_opt fn fun_specs with
-    | Some contract -> contract
-    | None -> raise (Spec_not_found fn)
-    end
+    Xoption.unsome_or_else (Var_map.find_opt fn fun_specs) (fun () -> raise (Spec_not_found fn))
   | None ->
     begin match trm_inv ~error:"expected anonymous or named function" trm_fun_inv t with
     | (args, _, _, FunSpecContract contract) ->
@@ -462,16 +463,17 @@ let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resou
     | _ -> raise Anonymous_function_without_spec
     end
 
+(* FIXME: move printing out of this file. *)
 let resource_list_to_string res_list : string =
   Ast_fromto_AstC.ctx_resource_list_to_string ~sep:"\n" res_list
 
-let resources_to_string res : string =
-  match res with
-  | Some res ->
+let resource_set_to_string res : string =
   let spure = resource_list_to_string res.pure in
   let slin = resource_list_to_string res.linear in
   Printf.sprintf "pure:\n%s\n\nlinear:\n%s\n" spure slin
-  | None -> "UnspecifiedRes"
+
+let resource_set_opt_to_string res : string =
+  Xoption.map_or resource_set_to_string "UnspecifiedRes" res
 
 type resource_error_phase = ResourceComputation | ResourceCheck
 exception ResourceError of location * resource_error_phase * exn
@@ -491,7 +493,11 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "%s: Resource check error: %s" (loc_to_string loc) (Printexc.to_string err))
   | _ -> None)
 
-let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resource_usage_map): resource_usage_map =
+(** [update_usage_map ~current_usage ~extra_usage] returns the usage resulting from using
+    [current_usage] before using [extra_usage]. *)
+let update_usage_map
+  ~(current_usage: resource_usage_map)
+  ~(extra_usage: resource_usage_map): resource_usage_map =
   Hyp_map.merge (fun hyp cur_use new_use ->
       match cur_use, new_use with
       | None, u -> u
@@ -505,13 +511,9 @@ let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resourc
       | Some (SplittedReadOnly | JoinedReadOnly), Some (SplittedReadOnly | JoinedReadOnly) -> Some SplittedReadOnly
     ) current_usage extra_usage
 
-let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usage: resource_usage_map option): resource_usage_map option =
-  let open Xoption.OptionMonad in
-  let* current_usage in
-  let* extra_usage in
-  Some (update_usage_map ~current_usage ~extra_usage)
-
-let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource_usage_map) : resource_usage_map =
+(** [add_used_set_to_usage_map res_used usage_map]: TODO COMMENT *)
+let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource_usage_map)
+  : resource_usage_map =
   (* TODO: Maybe manage pure as well *)
   let locally_used =
     List.fold_left (fun usage_map { inst_by; used_formula } ->
@@ -529,24 +531,39 @@ let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource
   in
   update_usage_map ~current_usage:usage_map ~extra_usage:locally_used
 
-let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set =
-    let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
+(** Knowing that term [t] has contract [contract], and that [res] is available before [t],
+  [compute_contract_invoc contract subst_ctx res t] returns the resources used by [t],
+  and the resources available after [t].
 
-    let res_produced = compute_produced_resources subst_ctx contract.post in
+  If provided, [subst_ctx] is a substitution applied to [contract].
+  Sets [t.ctx.ctx_resources_contract_invoc].
+    *)
+let compute_contract_invoc
+  (contract: fun_contract)
+  ?(subst_ctx: tmap = Var_map.empty)
+  (res: resource_set)
+  (t: trm)
+  : resource_usage_map * resource_set =
+  let subst_ctx, res_used, res_frame =
+    extract_resources ~split_frac:true ~subst_ctx res contract.pre in
 
-    t.ctx.ctx_resources_contract_invoc <- Some {
-      contract_frame = res_frame;
-      contract_inst = res_used;
-      contract_produced = res_produced };
+  let res_produced = compute_produced_resources subst_ctx contract.post in
 
-    let usage_map = add_used_set_to_usage_map res_used Var_map.empty in
+  t.ctx.ctx_resources_contract_invoc <- Some {
+    contract_frame = res_frame;
+    contract_inst = res_used;
+    contract_produced = res_produced };
 
-    let new_res, used_wands = resource_merge_after_frame res_produced res_frame in
-    let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:used_wands in
-    usage_map, Resource_set.bind ~old_res:res ~new_res
+  let usage = add_used_set_to_usage_map res_used Var_map.empty in
 
+  let new_res, usage_after = resource_merge_after_frame res_produced res_frame in
+  let total_usage = update_usage_map ~current_usage:usage ~extra_usage:usage_after in
+  total_usage, Resource_set.bind ~old_res:res ~new_res
+
+(** <private> *)
 let debug_print_computation_stack = false
 
+(** [handle_resource_errors loc exn] attempts to add [loc] information to [exn]. *)
 let handle_resource_errors (loc: location) (exn: exn) =
   match exn with
   | e when !Flags.resource_errors_as_warnings ->
@@ -565,8 +582,22 @@ when dune supports this.
 *)
 (* compute_resource = compute_resources_and_merge_usage ~current_usage:(empty_usage_map res) *)
 (* FIXME: #odoc why is annotation required on callees? *)
-let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: trm): resource_usage_map option * resource_spec =
-  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nComputing %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);
+(** [compute_resources ?expected_res res t] computes resources within [t], knowing that [res]
+    resources are available before [t].
+    Returns [(usage, res')].
+    If successful, [usage] contains the resources used by [t] and [res'] the resources available
+    after [t].
+    If unsuccessful [usage = None] and [res' = expected_res].
+
+    If provided, checks that [res' ==> expected_res].
+
+    Sets [t.ctx.ctx_resources_*] fields in depth.
+    *)
+let rec compute_resources
+  ?(expected_res: resource_set option)
+  (res: resource_set option)
+  (t: trm) : resource_usage_map option * resource_set option =
+  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nComputing %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_before <- res;
   let (let**) (x: 'a option) (f: 'a -> 'b option * 'c option) =
     match x with
@@ -576,12 +607,16 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
   let usage_map, res =
     let** res in
     try begin match t.desc with
+    (* Values and variables are pure. *)
     | Trm_val _ | Trm_var _ -> (Some Var_map.empty, Some res) (* TODO: Manage return values for pointers *)
 
+    (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       (* TODO: Remove trm_let_fun *)
       compute_resources (Some res) (trm_let Var_immutable (name, typ_auto ()) (trm_fun args (Some ret_type) body ~contract))
 
+    (* Defining a function is pure by itself, we check that the body satisfies the contract.
+       If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
     | Trm_fun (args, ret_type, body, contract) ->
       let compute_resources_in_body contract =
         let body_res = Resource_set.bind ~old_res:res ~new_res:contract.pre in
@@ -611,6 +646,8 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       | FunSpecUnknown -> (Some Var_map.empty, Some res)
       end
 
+    (* Transitively compute resources through all sequence instructions.
+       At the end of the sequence, take into account that all stack allocations are freed. *)
     | Trm_seq instrs ->
       let instrs = Mlist.to_list instrs in
       let usage_map, res = List.fold_left (fun (usage_map, res) inst ->
@@ -630,28 +667,39 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
           | None -> []
         in
         let to_free = List.concat_map extract_let_mut instrs in
-        (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
+        (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resource_set_opt_to_string (Some res));*)
         let res_to_free = Resource_set.make ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
         let _, _, linear = extract_resources ~split_frac:false res res_to_free in
         { res with linear }) res
       in
       usage_map, res
 
+    (* First compute the resources of [body].
+       If the body is convertible to a formula, remember it as alias.
+       Finally replace all mentions of [var_result] with [var]. *)
     | Trm_let (_, (var, typ), body) ->
       let usage_map, res_after = compute_resources (Some res) body in
-      let res_after = Option.map (fun res_after -> match formula_of_trm body with
+      let res_after = Option.map (fun res_after ->
+        match formula_of_trm body with
         | Some f_body ->
           let f_body = trm_subst res_after.aliases f_body in
           { res_after with aliases = Var_map.add var f_body res_after.aliases }
-        | _ -> res_after)
-        res_after
+        | _ -> res_after
+        ) res_after
       in
       usage_map, Option.map (fun res_after -> Resource_set.rename_var var_result var res_after) res_after
 
+    (* TODO: try to factorize *)
     | Trm_apps (fn, effective_args, ghost_args) ->
-      begin match find_fun_spec fn res.fun_specs with
+      begin match find_fun_spec fn res.fun_specs with (* try to find spec *)
       | spec ->
-        (* The arguments of the function call cannot have write effects, and cannot be referred to in the function contract unless they are formula-convertible (cf. formula_of_term). *)
+        (* If the function has a specification.
+        Check that the [effective_args] use separate resources (order of evaluation does not matter): for now, only deal with read only.
+        Check that all [effective_args] do not appear in the function contract unless they are formula-convertible (cf. formula_of_term).
+        Build the instantation context with the known [effective_args] and [ghost_args].
+        Then [compute_contract_invoc] to deduct used and remaining resources.
+          *)
+
         (* TODO: Cast into readonly: better error message when a resource exists in RO only but asking for RW *)
         let read_only_res = Resource_set.read_only res in
         let compute_and_check_resources_in_arg usage_map arg =
@@ -711,7 +759,8 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
       | exception Spec_not_found fn when var_eq fn Resource_primitives.__cast ->
         (* TK: we treat cast as identity function. *)
-        (* FIXME: this breaks invariant that function arguments are pure/reproducible. *)
+        (* FIXME: this breaks invariant that function arguments are reproducible.
+           NOTE: that works if the weaker invariant decribed in apps case above is used. *)
         begin match effective_args with
         | [arg] -> compute_resources (Some res) arg
         | _ -> failwith "expected 1 argument for cast"
@@ -797,12 +846,13 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
-  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);
+  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nSaving %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_after <- res;
   let res =
     match res, expected_res with
     | Some res, Some expected_res ->
       begin try
+        (* TODO: check names *)
         let used_res = assert_resource_impl res expected_res in
         t.ctx.ctx_resources_post_inst <- Some used_res
       with e when !Flags.resource_errors_as_warnings ->
@@ -816,20 +866,29 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
   in
   usage_map, res
 
-and compute_resources_and_merge_usage ?(expected_res: resource_spec) (res: resource_spec) (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_spec =
-  let extra_usage, res = (compute_resources : ?expected_res:resource_set -> resource_spec -> trm -> (resource_usage_map option * resource_spec)) ?expected_res res t in
+(** <private> [compute_resources] that propagates usages. *)
+and compute_resources_and_merge_usage
+  ?(expected_res: resource_set option) (res: resource_set option)
+  (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_set option =
+  let extra_usage, res = (compute_resources : ?expected_res:resource_set -> resource_set option -> trm -> (resource_usage_map option * resource_set option)) ?expected_res res t in
   try
-    let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
+    let open Xoption.OptionMonad in
+    let usage_map = (
+      let* current_usage in
+      let* extra_usage in
+      Some (update_usage_map ~current_usage ~extra_usage)
+    ) in
     (usage_map, res)
   with e -> handle_resource_errors t.loc e
-
 
 let rec trm_deep_copy (t: trm) : trm =
   let t = trm_map_with_terminal ~share_if_no_change:false false (fun _ ti -> trm_deep_copy ti) t in
   t.ctx <- unknown_ctx (); (* LATER *)
   t
 
-(* hypothesis: needs var_ids to be calculated *)
+(** [trm_recompute_resources init_ctx t] recomputes resources of [t] using [compute_resources],
+  after a [trm_deep_copy] to prevent sharing.
+  Hypothesis: needs var_ids to be calculated. *)
 let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
   (* TODO: should we avoid deep copy by maintaining invariant that there is no sharing?
      makes sense with unique var ids and trm_copy mechanisms.

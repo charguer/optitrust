@@ -674,7 +674,7 @@ and trm_desc =
   | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
   | Trm_while of trm * trm     (* while (t1) { t2 } *)
   | Trm_for of loop_range  * trm * loop_spec
-  | Trm_for_c of trm * trm * trm * trm * resource_spec
+  | Trm_for_c of trm * trm * trm * trm * resource_set option
   | Trm_do_while of trm * trm (* TODO: Can this be efficiently desugared? *)
   (* Remark: in the AST, arguments of cases that are enum labels
      appear as variables, hence the use of terms as opposed to
@@ -727,8 +727,6 @@ and fun_spec_resource = {
   inverse: var option;
 }
 
-and resource_spec = resource_set option
-
 and fun_contract = {
   pre: resource_set;
   post: resource_set;
@@ -738,6 +736,7 @@ and fun_spec =
   | FunSpecUnknown
   | FunSpecContract of fun_contract
   | FunSpecReverts of var
+  (** [FunSpecReverts f] is the reverse of the spec of [f]. *)
 
 (* forall ghosts, { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } loop { invariant(n) * Group(iter_contract.post(i)) } *)
 (* forall ghosts, { invariant(i) * iter_contract.pre(i) } loop body { invariant(i) * iter_contract.post(i) } *)

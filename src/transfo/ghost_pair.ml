@@ -193,7 +193,7 @@ let%transfo fission ?(mark_between : mark option) (tg : target) : unit =
   justif_correct "ghosts where successfully distributed"
 
 
-let find_inverse (ghost_fn: trm) (res: resource_spec) =
+let find_inverse (ghost_fn: trm) (res: resource_set option) =
   let open Xoption.OptionMonad in
   Pattern.pattern_match ghost_fn [
     Pattern.(trm_var !__) (fun ghost_fn ->

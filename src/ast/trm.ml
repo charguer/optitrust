@@ -215,7 +215,7 @@ let trm_do_while ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)  (body 
   trm_make ~annot ?loc ~typ:(typ_unit()) ?ctx (Trm_do_while (body, cond))
 
 (* [trm_for_c ?annot ?loc ?ctx init cond step body]: for loop *)
-let trm_for_c ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(invariant: resource_spec) (init : trm) (cond : trm)
+let trm_for_c ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(invariant: resource_set option) (init : trm) (cond : trm)
   (step : trm) (body : trm) : trm =
   trm_make ~annot ?loc ~typ:(typ_unit()) ?ctx (Trm_for_c (init, cond, step, body, invariant))
 
