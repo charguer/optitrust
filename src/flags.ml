@@ -100,7 +100,7 @@ let resource_errors_as_warnings = ref false
  * Automatically set to true during Resources.show. *)
 let always_name_resource_hyp = ref false
 
-(* [keep_marks_added_by_target_show]: flag used for unit tests on targets that use the show function. *)
+(* [keep_marks_added_by_target_show]: flag used for unit tests on targets that use the show function. ONLY for unit tests in tests/target WILL SOON BE DEPRECATED *)
 let keep_marks_added_by_target_show : bool ref = ref false
 
 (* [check_validity]: perform validation of transformations *)
@@ -145,13 +145,13 @@ let process_serialized_input (mode : string) : unit =
   | "make" -> failwith "'make' serialization is not implemented"
   | _ -> failwith "Serialization mode should be 'none', 'build', 'use', 'auto' or 'make'"
 
-(* [execution_mode]: one of "exec" *)
+(* [execution_mode] of the script *)
 
 type execution_mode =
-  | Execution_mode_step_diff
-  | Execution_mode_step_trace
-  | Execution_mode_full_trace
-  | Execution_mode_exec (* no trace *)
+  | Execution_mode_step_diff (* produce a diff for a small-step, assumes [target_line] is provided *)
+  | Execution_mode_step_trace (* produce a trace for a small-step, assumes [target_line] is provided *)
+  | Execution_mode_full_trace (* produce a trace, and an output file, for the full script *)
+  | Execution_mode_exec (* produce only the final output file obtained at the end of the script *)
 
 let execution_mode : execution_mode ref = ref Execution_mode_exec
 

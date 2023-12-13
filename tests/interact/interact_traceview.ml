@@ -21,10 +21,12 @@ let _ = Run.script_cpp (fun _ ->
       Label.add "lab4" [cVarDef "a"];
       Trace.msg "debug message after\nlab4 \n";
   !! Label.add "lab5" [cVarDef "a"];
-  (* Examples of show functions *)
-  !! Show.ast ();
+  (* Examples of show functions with output on stdout *)
   !! ShowAt.trm [];
-  !! Resources.ensure_computed (); Show.res ();
+  (* Examples of show functions with output in browser *)
+  !! Show.ast ();
+  !! Resources.ensure_computed ();
+  !! Show.res ();
   !! Show.target [cVarDef ""];
   bigstep "third part";
   (* Try task "View diff using internal syntax" *)
