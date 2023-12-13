@@ -2,6 +2,8 @@ open Ast
 open Trm
 open Typ
 
+type typing_style = Style.typing_style
+
 let debug = false
 
 let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
@@ -760,37 +762,60 @@ let ctx_usage_map_to_string res_used =
     | hyp, Produced -> sprintf "Produced %s" hyp.name)
     (Hyp_map.bindings res_used))
 
-let display_ctx_resources (t: trm): trm list =
+let display_ctx_resources (style: typing_style) (t: trm): trm list =
   let t =
     match t.desc with
     | Trm_let (_, _, body) -> { t with ctx = { body.ctx with ctx_resources_before = t.ctx.ctx_resources_before; ctx_resources_after = t.ctx.ctx_resources_after } }
     | _ -> t
   in
-  let tl_used = Option.to_list (Option.map (fun res_used ->
-      let s_used = ctx_usage_map_to_string res_used in
-      trm_apps (trm_var __used_res) [trm_string s_used]) t.ctx.ctx_resources_usage) in
+  let tl_used =
+    if style.typing_used_res
+      then Option.to_list (Option.map (fun res_used ->
+        let s_used = ctx_usage_map_to_string res_used in
+        trm_apps (trm_var __used_res) [trm_string s_used]) t.ctx.ctx_resources_usage)
+      else []
+    in
   let tl = match t.ctx.ctx_resources_contract_invoc with
     | None -> [t]
     | Some contract_invoc ->
-      let t_frame = trm_apps (trm_var __framed_res) [trm_string (ctx_resource_list_to_string contract_invoc.contract_frame)] in
-      let t_inst = ctx_used_res_to_trm ~clause:__contract_inst contract_invoc.contract_inst in
-      let t_produced = ctx_produced_res_to_trm contract_invoc.contract_produced in
-      [t_frame; t_inst; t; t_produced]
+      let tl_frame =
+        if style.typing_framed_res
+          then [ trm_apps (trm_var __framed_res) [trm_string (ctx_resource_list_to_string contract_invoc.contract_frame)] ]
+          else []
+        in
+      let tl_inst =
+        if style.typing_contract_inst
+          then [ctx_used_res_to_trm ~clause:__contract_inst contract_invoc.contract_inst]
+          else [] in
+      let tl_produced =
+        if style.typing_produced_res
+          then [ctx_produced_res_to_trm contract_invoc.contract_produced ]
+          else [] in
+      tl_frame @ tl_inst @ [ t ] @ tl_produced
   in
   let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
   (tl_used @ tl @ tl_after)
 
-let computed_resources_intro (t: trm): trm =
+let computed_resources_intro (style: typing_style) (t: trm): trm =
   let rec aux t =
     match t.desc with
     | Trm_seq instrs when not (List.mem Main_file (trm_get_files_annot t)) ->
-      let tl_before = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before) in
-      let tl_post_inst = Option.to_list (Option.map (ctx_used_res_to_trm ~clause:__post_inst) t.ctx.ctx_resources_post_inst) in
-      trm_like ~old:t (trm_seq (Mlist.of_list (tl_before @ List.concat_map (fun instr -> display_ctx_resources (aux instr)) (Mlist.to_list instrs) @ tl_post_inst)))
+      let tl_before =
+        if style.typing_ctx_res
+          then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before)
+          else []
+        in
+      let tl_post_inst =
+        if style.typing_used_res
+          then Option.to_list (Option.map (ctx_used_res_to_trm ~clause:__post_inst) t.ctx.ctx_resources_post_inst)
+          else []
+        in
+      let process_instr instr = display_ctx_resources style (aux instr) in
+      let tl_instrs = List.concat_map process_instr (Mlist.to_list instrs) in
+      trm_like ~old:t (trm_seq (Mlist.of_list (tl_before @ tl_instrs @ tl_post_inst)))
     | _ -> trm_map ~keep_ctx:true aux t
   in
   aux t
-
 
 let rec contract_intro (t: trm): trm =
   (* debug_current_stage "contract_intro"; *)

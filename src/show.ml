@@ -258,9 +258,12 @@ let tg = target
    with computed resources on the right-hand side.
    The option [~ast] allows to provide a specific ast, otherwise resources are
    reported for the full current ast.  *)
-let res ?(msg : string = "show-resources") ?(ast: trm = Trace.ast ()) () : unit =
+let res ?(msg : string = "show-resources")
+ ?(ast : trm = Trace.ast ())
+ ?(typing_style:typing_style = Style.typing_all)
+ () : unit =
   let ast_left = Trace.ast() in
-  let ast_right = (*Ast_fromto_AstC.computed_resources_intro *) ast_left in
+  let ast_right = ast_left in
   let style_left = Style.default_custom_style () in
   let aststyle_default = Ast.default_style () in
   let aststyle = { aststyle_default with print_generated_ids = true } in
@@ -271,11 +274,13 @@ let res ?(msg : string = "show-resources") ?(ast: trm = Trace.ast ()) () : unit 
   (*let customstyle_default = Style.default_custom_style() in*)
   let style_right = { (*customstyle_default with*)
       decode = false;
-      typing = { typing_resources = true };
+      typing = typing_style;
       print = Lang_C cstyle } in
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
 
-
+(* [ctx] is like [res] but shows only [ctx_res] fields. *)
+let ctx ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit =
+  res ~msg ~ast ~typing_style:Style.typing_ctx ()
 
 (* LATER: Fix me
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)

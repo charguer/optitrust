@@ -304,7 +304,10 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
     output_string out_prog ctx.header;
     (* Optionally add typing information such as resources *)
-    let ast = if style.typing.typing_resources then Ast_fromto_AstC.computed_resources_intro ast else ast in
+    let ast =
+      if Style.is_typing_none style.typing
+        then ast
+        else Ast_fromto_AstC.computed_resources_intro style.typing ast in
     (* Optionally convert from OptiTrust to C syntax *)
     let ast = if style.decode then Ast_fromto_AstC.cfeatures_intro ast else ast in
     (* Print the code into file, using the specified style *)
