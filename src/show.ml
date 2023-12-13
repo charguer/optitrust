@@ -260,7 +260,7 @@ let tg = target
    reported for the full current ast.  *)
 let res ?(msg : string = "show-resources") ?(ast: trm = Trace.ast ()) () : unit =
   let ast_left = Trace.ast() in
-  let ast_right = Ast_fromto_AstC.computed_resources_intro ast_left in
+  let ast_right = (*Ast_fromto_AstC.computed_resources_intro *) ast_left in
   let style_left = Style.default_custom_style () in
   let aststyle_default = Ast.default_style () in
   let aststyle = { aststyle_default with print_generated_ids = true } in
