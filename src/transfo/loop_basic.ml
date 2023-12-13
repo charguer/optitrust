@@ -309,9 +309,9 @@ let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t 
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
 let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : mark = no_mark) (tg : target) : unit =
+  (* TODO: figure out best nobrace/iter/resource interleaving *)
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p_before ->
-      Resources.required_for_check ();
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       (* DEBUG: let debug_p = Path.parent p_loop in
@@ -323,7 +323,6 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
       ); *)
       Resources.required_for_check ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
-      Resources.required_for_check ();
       (* DEBUG: Show.trm ~msg:"res2" (
         Flags.(with_flag display_resources false (fun () ->
           with_flag always_name_resource_hyp true (fun () ->
