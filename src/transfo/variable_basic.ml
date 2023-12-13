@@ -73,34 +73,44 @@ let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
 
 (** [local_name_on mark curr_var var_typ local_var t] declares a local
   variable [local_var] and replaces [curr_var] with [local_var] in [t].
-    - [mark]: a mark for the produced nobrace sequence
     - [curr_var]: the replaced variable
     - [var_typ]: the type of the variable
     - [local_var]: the name of the local variable to be declared
     - [t]: the modified term that contains [curr_var].
   *)
-let local_name_on (mark : mark) (curr_var : var) (var_typ : typ)
+let local_name_on (curr_var : var) (var_typ : typ)
   (local_var : string) (t : trm) : trm =
   let local_var = Trm.new_var local_var in
   let let_instr = trm_let_mut (local_var, var_typ) (trm_var_possibly_mut ~typ:var_typ curr_var) in
   let set_instr = trm_set (trm_var ~typ:var_typ curr_var) (trm_var_possibly_mut ~typ:var_typ local_var) in
   let new_t = trm_subst_var curr_var (trm_var local_var) t in
-  trm_add_mark mark (trm_seq_nobrace_nomarks [let_instr; new_t; set_instr])
+  trm_seq_nobrace_nomarks [let_instr; new_t; set_instr]
 
-(** [local_name ?mark ~var var_typ ~local_var tg] declares a local
+(** [local_name ~var var_typ ~local_var tg] declares a local
   variable [local_var] and replaces [var] with [local_var] in
   the term at target [tg]. *)
-let%transfo local_name ?(mark : mark = no_mark) ~(var : var) (var_typ : typ)
+let%transfo local_name ~(var : var) (var_typ : typ)
   ~(local_var : string) (tg : target) : unit =
-  Target.iter (fun _ p ->
+  Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
     Nobrace_transfo.remove_after (fun () ->
-      Target.apply_at_path (local_name_on mark var var_typ local_var) p
+      Target.apply_at_path (local_name_on var var_typ local_var) p
     );
     if !Flags.check_validity then begin
       Resources.ensure_computed ();
-      (* TODO: let p_new_t = p @ [Dir_] *)
+      let t = get_trm_at_exn [cMark m] in
+      let t_res_usage = Resources.usage_of_trm t in
+      let t_res_before = Resources.before_trm t in
+      let t_res_after = Resources.after_trm t in
+      let used_formulas = Resources.(formulas_of_hyps (hyps_of_usage t_res_usage) (t_res_before.linear @ t_res_after.linear)) in
+      let used_vars = List.fold_left (fun vs t ->
+        Var_set.union vs (trm_free_vars t)
+      ) Var_set.empty used_formulas in
+      if Var_set.mem var used_vars then
+        trm_fail t "resources still mention replaced variable after transformation"
+      else
+        Trace.justif "resources do not mention replaced variable after transformation"
     end
-  ) tg
+  )) tg
 
 (* [delocalize array_size neutral_element fold_operation tg]: expects the target [tg] to point to
     a block of code of the following form

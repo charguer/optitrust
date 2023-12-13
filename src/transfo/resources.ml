@@ -63,6 +63,16 @@ let trm_for_contract t =
 let usage_of_trm (t : trm) =
   unsome_or_trm_fail t "expected resource usage to be available" t.ctx.ctx_resources_usage
 
+(** Returns the resources available before the given term,
+    fails if unavailable. *)
+let before_trm (t : trm) =
+  unsome_or_trm_fail t "expected resources before to be available" t.ctx.ctx_resources_before
+
+(** Returns the resources available before the given term,
+    fails if unavailable. *)
+let after_trm (t : trm) =
+  unsome_or_trm_fail t "expected resources after to be available" t.ctx.ctx_resources_after
+
 (** Computes the resource usage of a consecutive sequence of instructions. *)
 let compute_usage_of_instrs (instrs : trm list) : resource_usage_map =
   List.fold_left (fun usage_map t ->
@@ -431,6 +441,9 @@ let assert_seq_instrs_commute (before : trm) (after : trm) : unit =
   if not (Hyp_map.is_empty interference) then
     trm_fail after (string_of_interference interference)
 
+let hyps_of_usage (res : resource_usage_map) : hyp list =
+  List.map (fun (h, _) -> h) (Hyp_map.bindings res)
+
 (** <private>
     Collects the resources that are consumed Full or Uninit (i.e. possibly written to) by term [t].
     *)
@@ -442,7 +455,7 @@ let write_usage_of (t : trm) : hyp list =
     | SplittedReadOnly | JoinedReadOnly | Produced -> false
   in
   let write_res = Hyp_map.filter keep res in
-  List.map (fun (h, _) -> h) (Hyp_map.bindings write_res)
+  hyps_of_usage write_res
 
 (** <private>
     Returns a list of formulas from a list of hypothesis variables.
@@ -458,7 +471,7 @@ let assert_instr_effects_shadowed (p : path) : unit =
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
       Target.apply_at_path (fun instr ->
         let write_hyps = write_usage_of instr in
-        let res_before = unsome_or_trm_fail instr "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
+        let res_before = before_trm instr in
         let write_res = formulas_of_hyps write_hyps res_before.linear in
         let uninit_ghosts = List.filter_map (fun res ->
           if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
@@ -475,8 +488,8 @@ let assert_instr_effects_shadowed (p : path) : unit =
     A trm is not self interfere if `t; t` is the same as `t`
 *)
 let assert_not_self_interfering (t : trm) : unit =
-  let res_before = Xoption.unsome ~error:"expected computed resources" t.ctx.ctx_resources_before in
-  let res_after = Xoption.unsome ~error:"expected computed resources" t.ctx.ctx_resources_after in
+  let res_before = before_trm t in
+  let res_after = after_trm t in
   let res_usage = usage_of_trm t in
   let res_used_uninit = List.filter (fun (h, f) ->
     match Hyp_map.find_opt h res_usage with

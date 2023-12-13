@@ -205,9 +205,8 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let linear_invariant = contract.invariant.linear in (* = I *)
       let linear_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
 
-      let error = "Loop_basic.fission_on: expected resources to be computed" in
       let first_tl1_instr = Mlist.nth tl1 0 in
-      let ctx_res = unsome_or_trm_fail first_tl1_instr error (first_tl1_instr.ctx.ctx_resources_before) in
+      let ctx_res = Resources.before_trm first_tl1_instr in
       let inter_linear_hyps res_usage =
         Hyp_map.filter (fun h _ -> Var_set.mem h linear_hyps) res_usage
       in
@@ -226,7 +225,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set linear_invariant tl1_inv in (* = I'' *)
 
       let first_tl2_instr = Mlist.nth tl2 0 in
-      let split_res = unsome_or_trm_fail first_tl2_instr error (first_tl2_instr.ctx.ctx_resources_before) in (* = R *)
+      let split_res = Resources.before_trm first_tl2_instr in (* = R *)
       (* let last_tl1_instr = Mlist.nth tl1 ((Mlist.length tl1) - 1) in
       let split_res = unsome_or_trm_fail last_tl1_instr error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
       let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource_set split_res.linear linear_invariant in (* R' *)
@@ -504,7 +503,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
     | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
     | Produced_resources_uninit_after ->
       let contract = Xoption.unsome ~error:"Need the for loop contract to be set" contract in
-      let instr_usage = Xoption.unsome ~error:"Need the resources to be computed" instr.ctx.ctx_resources_usage in
+      let instr_usage = Resources.usage_of_trm instr in
       let invariant_written_by_instr = List.filter (Resources.(usage_filter instr_usage keep_written)) contract.invariant.linear in
       List.iter (fun (_, f) -> match Resource_formula.formula_uninit_inv f with
         | Some _ -> ()

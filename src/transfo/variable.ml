@@ -71,11 +71,11 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
   Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
   Variable_basic.fold [cVarDef name]
 
-(** [local_name ?mark ~var ~local_var tg] replaces occurences of [var] with a new variable [local_var] around the term targeted by [tg]. *)
-let%transfo local_name ?(mark : mark = no_mark) ~(var : string) ~(local_var : string) (tg : target) : unit =
+(** [local_name ~var ~local_var tg] replaces occurences of [var] with a new variable [local_var] around the term targeted by [tg]. *)
+let%transfo local_name ~(var : string) ~(local_var : string) (tg : target) : unit =
   let var = find_var_in_current_ast ~target:tg var in
   (* FIXME: find type in context. *)
-  Variable_basic.local_name ~mark ~var (typ_auto ()) ~local_var tg
+  Variable_basic.local_name ~var (typ_auto ()) ~local_var tg
 
 (* [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]:
     expects the target [tg] to point at a for loop. Then it will surround this loop with a @nobrace
@@ -135,6 +135,7 @@ let%transfo local_name ?(mark : mark = no_mark) ~(var : string) ~(local_var : st
         return 0;
     } *)
 
+(* FIXME:
 let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark = no_mark) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : string) ~(into : string)
   ~(array_size : trm) (tg : target) : unit =
@@ -157,7 +158,7 @@ let%transfo delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "secti
   Loop_basic.unroll ~inner_braces:false [nbMulti ;cFor index];
   Arrays_basic.to_variables  lv [cVarDef into];
   Marks.remove "section_of_interest" [cMark "section_of_interest"]
-
+*)
 
 (* [intro_pattern_array ~pattern_aux_vars ~const ~pattern_vars ~pattern tg]: expects the target [tg] to be
      pointing to expressions of the form [pattern], then it will create an array of coefficients for each
