@@ -99,6 +99,12 @@ var optionsDescr = [ // extended by initAllTags
     kind: "UI",
     default: false,
   },
+  /* always-true
+  { key: "simpl-show",
+    name: "simpl-show-steps",
+    kind: "UI",
+    default: true,
+  },*/
   { key: "exectime",
     name: "exectime",
     kind: "UI",
@@ -281,6 +287,19 @@ function loadDebugMsgs(messages) {
   $('#debugMsgDiv').html(s);
 }
 
+function loadDiffForStep(step) {
+  // Special case for the diff of steps whose action is a "show" operation,
+  // and which have a unique substep of kind "Backtrack_yes",
+  // itself with a unique substep of kind "show"
+  if ( step.sub.length == 1
+    && steps[step.sub[0]].kind == "Backtrack_yes"
+    && steps[step.sub[0]].sub.length == 1
+    && steps[steps[step.sub[0]].sub[0]].kind == "Show") {
+    step = steps[steps[step.sub[0]].sub[0]];
+  }
+  loadDiffFromString(step.diff);
+}
+
 function loadDiffFromString(diffString) {
   // this function should be called only after DOM contents is loaded
  var targetElement = document.getElementById("diffDiv");
@@ -401,7 +420,7 @@ function loadSdiff(id) {
   var step = smallsteps[id];
   selectedStep = step;
   reloadTraceView(); //loadStepDetails(step.id);
-  loadDiffFromString(step.diff);
+  loadDiffForStep(step);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
   if (options.exectime) {
     var sTime = htmlSpan(Math.round(1000 * step.exectime) + "ms", "timing-info") + "<div style='clear: both'></div>";
@@ -424,7 +443,7 @@ function loadBdiff(id) {
   var step = bigsteps[id];
   selectedStep = step;
   reloadTraceView(); // loadStepDetails(step.id);
-  loadDiffFromString(step.diff);
+  loadDiffForStep(step);
   $("#button_bdiff_" + id).addClass("ctrl-button-selected");
   var sStep = htmlSpan(escapeHTML(step.script), "step-info");
   displayInfo(sStep);
@@ -494,7 +513,7 @@ function loadStepDetails(idStep) {
     $("#sourceDiv").hide();
   } else {
     loadDebugMsgs(step.debug_msgs);
-    loadDiffFromString(step.diff);
+    loadDiffForStep(step);
     $("#diffDiv").show();
     $("#statsDiv").hide();
     $("#sourceDiv").hide();

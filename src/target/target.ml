@@ -1644,61 +1644,6 @@ let target_between_show_aux (m : mark) (k : int) (t : trm) : trm =
 let target_between_show_transfo (m : mark) : Transfo.local_between =
   fun (k:int) -> apply_on_path (target_between_show_aux m k)
 
-
-(* [show_next_id] used for batch mode execution of unit tests, to generate names of for marks.
-    Only used when [Flags.execute_show_even_in_batch_mode] is set.  *)
-let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
-  Tools.resetable_fresh_generator()
-
-(* [show ~line:int tg]: transformation for visualizing targets.
-   The operation add marks if the command line argument [-exit-line]
-   matches the [line] argument provided to the function. Otherwise, the
-   [show] function only checks that the path resolve properly.
-   There is no need for a prefix such as [!!] in front of the [show]
-   function, because it is recognized as a special function by the preprocessor
-   that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
-  (* DEPRECATED ?(reparse : bool = false)  if reparse then reparse_alias(); *)
-  (* Calling [enable_multi_targets] to automatically add [nbMulti] if there is no occurence constraint. *)
-  let tg = enable_multi_targets tg in
-  let interactive_action () =
-    let marks_base = show_next_id() in
-    let mark_of_occurence (i:int) : string =
-      if (*DEPRECATED batch_mode &&*) !Flags.execute_show_even_in_batch_mode
-        then Printf.sprintf "%d_%d" marks_base i
-        else Printf.sprintf "%d" i
-      in
-      applyi (fun i t p ->
-        let m = mark_of_occurence i in
-        match Path.last_dir_before_inv p with
-        | Some (p, k) ->
-          target_between_show_transfo m k t p
-        | None -> target_show_transfo ~types m t p
-      ) tg
-    in
-  let action_otherwise () =
-    (* If in regular batch mode, then we only check that the targets are valid *)
-    applyi (fun _i t _p -> t) tg
-    in
-  Trace.show_step ~line ~interactive_action ~action_otherwise ()
-
-(* [show_ast] enables to view the current ast. *)
-let show_ast ?(line:int = -1) () : unit =
-  let t = Trace.ast() in
-  Trace.interactive_step ~line ~ast_before:(fun () -> empty_ast) ~ast_after:(fun () -> t)
-
-let show_computed_res ?(line:int = -1) ?(ast: trm = Trace.ast ()) () : unit =
-  Flags.(with_flag display_resources false (fun () ->
-    with_flag always_name_resource_hyp true (fun () ->
-      Trace.interactive_step ~line ~ast_before:(fun () -> ast)
-        ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro ast))))
-
-(* LATER: Fix me *)
-(* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
-let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =
-  show ~line (* DEPRECATED ~reparse*) ~types:true tg
-
-
   (** LATER rename to get_trm_at_option et gt_trm_at_exn *)
 (* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [tg]. *)
 let get_trm_at_exn (tg : target) : trm =
@@ -1846,3 +1791,12 @@ let path_of_target_mark_one_current_ast (m : mark) : path =
   path_of_target_mark_one m (Trace.ast ())
 
 let (~~) f a b = f b a
+
+(******************************************************************************)
+(*                               Tooling for Show.target                      *)
+(******************************************************************************)
+
+(* [show_next_id] used for batch mode execution of unit tests, to generate names of for marks.
+    Only used when [Flags.keep_marks_added_by_target_show] is set.  *)
+let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
+  Tools.resetable_fresh_generator()

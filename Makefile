@@ -7,6 +7,9 @@ INSTALL_TARGET := $(OPTITRUST_PREFIX)/lib/$(THIS)
 all:
 	dune build
 
+precompile:
+	$(MAKE) -C include precompiled_stdlib.pch
+
 keep_building:
 	dune build --watch --terminal-persistence=clear-on-rebuild
 

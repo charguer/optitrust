@@ -43,6 +43,14 @@ Installation of OCaml ecosystem:
    eval $(opam env)
 ```
 
+# Precompiling headers
+
+For faster compilation, we precompile header files.
+
+```sh
+  make precompile
+```
+
 # Install libraries for parsing
 
 Then, you need to either export the environment variable OPTITRUST by

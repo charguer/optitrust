@@ -316,21 +316,11 @@ let%transfo fission_basic ?(mark_loops : mark option) ?(mark_between_loops : mar
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       (* DEBUG: let debug_p = Path.parent p_loop in
-      Show.trm ~msg:"res1" (
-        Flags.(with_flag display_resources false (fun () ->
-          with_flag always_name_resource_hyp true (fun () ->
-            Ast_fromto_AstC.computed_resources_intro (get_trm_at_exn (target_of_path debug_p))
-          )))
+      Show.res ~msg:"res1" ~ast:(get_trm_at_exn (target_of_path debug_p))
       ); *)
       Resources.required_for_check ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
       Resources.required_for_check ();
-      (* DEBUG: Show.trm ~msg:"res2" (
-        Flags.(with_flag display_resources false (fun () ->
-          with_flag always_name_resource_hyp true (fun () ->
-            Ast_fromto_AstC.computed_resources_intro (get_trm_at_exn (target_of_path debug_p))
-          )))
-      ); *)
     ) tg
   );
   Resources.justif_correct "loop resources where successfully split"

@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Flags.execute_show_even_in_batch_mode := true
+let _ = Flags.keep_marks_added_by_target_show := true
 
 (* LATER: add unit test for each constraint function *)
 (*

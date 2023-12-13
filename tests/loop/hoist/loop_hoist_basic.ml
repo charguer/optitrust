@@ -28,7 +28,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop_basic.hoist [cFunBody "f2"; cVarDef "sum"];
 
   (* TODO: Factorize simplifications of array accesses *)
-  !! step_and_backtrack (fun () ->
+  !! step_backtrack (fun () ->
     let mark = Mark.next () in
     !! Variable_basic.inline ~mark [nbMulti; cVarDefs ["x"; "z"; "yn"; "ym"; "y"; "sum"]];
     let paths = Target.resolve_target_current_ast [nbMulti; cMark mark] in

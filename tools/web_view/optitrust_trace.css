@@ -147,6 +147,9 @@ h2 {
 
 .step-valid, .step-justif {
   background: #99ffc9;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-radius: 10px;
 }
 .step-justif-text {
   margin-left: 3em;
@@ -188,6 +191,7 @@ h2 {
   padding-left: 5px;
   padding-right: 5px;
   background: #ff9d60;
+  border-radius: 10px;
 }
 
 #debugMsgDiv {

@@ -81,7 +81,7 @@ let internal_ast_only_desc () : style =
 
 let default_custom_style () : custom_style =
   { decode = not !Flags.print_optitrust_syntax;
-    typing = { typing_resources = !Flags.display_resources };
+    typing = { typing_resources = false };
     print = Lang_C (AstC_to_c.(default_style())) }
 
 let custom_style_for_reparse () : custom_style =
@@ -89,8 +89,8 @@ let custom_style_for_reparse () : custom_style =
     typing = { typing_resources = false };
     print = Lang_C (AstC_to_c.style_for_reparse()) }
 
-(* [resolve_style style] eliminates the redundant constructors *)
-let resolve_style (style : style) : custom_style =
+(* [to_custom_style style] eliminates the redundant constructors *)
+let to_custom_style (style : style) : custom_style =
   let style_as_custom = match style with
     | Default -> Custom (default_custom_style())
     | Custom _ -> style
@@ -101,4 +101,4 @@ let resolve_style (style : style) : custom_style =
     in
     match style_as_custom with
     | Custom custom_style -> custom_style
-    | _ -> failwith "Show.resolve_style: not custom"
+    | _ -> failwith "Show.to_custom_style: not custom"

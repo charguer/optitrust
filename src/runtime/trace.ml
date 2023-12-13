@@ -12,6 +12,8 @@ type output_style = Style.custom_style
 
 let debug = false
 
+(* add a [check] function that verifies all the invariants on the trace,
+   e.g. a step backtract should have ast_before==ast_after. *)
 
 (******************************************************************************)
 (*                             File excerpts                                  *)
@@ -161,10 +163,8 @@ type stepdescr = {
   mutable script : string; (* excerpt from the transformation script, or "" *)
   mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
 
-
-
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_backtrack | Step_aborted | Step_interactive | Step_typing | Step_error
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_backtrack_no | Step_backtrack_yes | Step_show | Step_typing | Step_error
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -175,9 +175,9 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_transfo -> "Transfo"
   | Step_target_resolve -> "Target"
   | Step_io -> "IO"
-  | Step_backtrack -> "Backtrack"
-  | Step_aborted -> "Aborted"
-  | Step_interactive -> "Interactive"
+  | Step_backtrack_no -> "Backtrack_no"
+  | Step_backtrack_yes -> "Backtrack_yes"
+  | Step_show -> "Show"
   | Step_typing -> "Typing"
   | Step_error -> "Error"
 
@@ -473,7 +473,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
   the_trace.step_stack <- step :: the_trace.step_stack;
   step
 
-(* [step_justif txt] is called by a transformation after open_step in order
+(* [justif txt] is called by a transformation after open_step in order
    to store explaination of why it is correct *)
 let justif (justif:string) : unit =
   let step = get_cur_step () in
@@ -538,7 +538,7 @@ let without_substep_validity_checks (f: unit -> 'a): 'a =
 let try_validate_step_by_compostion (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
-    let kinds_excluded = [Step_target_resolve; Step_io; Step_aborted] in
+    let kinds_excluded = [Step_target_resolve; Step_io; Step_backtrack_yes] in
     let subs = List.filter (fun si -> not (List.mem si.step_kind kinds_excluded)) s.step_sub in
     if List.for_all (fun sub -> sub.step_infos.step_valid) subs then begin
       let asts1: trm list = [s.step_ast_before] @
@@ -560,8 +560,8 @@ let try_validate_step_by_compostion (s : step_tree) : unit =
 
 let is_saved_step step =
   match step.step_kind with
-  | Step_root | Step_big | Step_small | Step_transfo | Step_backtrack | Step_typing | Step_io -> true
-  | Step_target_resolve | Step_aborted | Step_error | Step_interactive -> false
+  | Step_root | Step_big | Step_small | Step_transfo | Step_backtrack_no | Step_typing | Step_io -> true
+  | Step_target_resolve | Step_backtrack_yes | Step_error | Step_show -> false
 
 let last_recorded_ast step: trm =
   let rec browse_steps steps =
@@ -581,8 +581,8 @@ let rec finalize_step (step : step_tree) : unit =
     | last_step :: _ -> last_step.step_ast_after == the_trace.cur_ast
   in
   if not same_as_last_step then begin match step.step_kind with
-    | Step_typing | Step_io | Step_target_resolve | Step_aborted | Step_error | Step_interactive -> ()
-    | Step_root | Step_big | Step_small | Step_transfo | Step_backtrack ->
+    | Step_typing | Step_io | Step_target_resolve | Step_backtrack_yes | Step_error | Step_show -> ()
+    | Step_root | Step_big | Step_small | Step_transfo | Step_backtrack_no ->
         (* TODO: Wrap error message without losing trace *)
         if !Flags.reparse_between_steps then reparse ();
         if !Flags.recompute_resources_between_steps then recompute_resources ()
@@ -752,42 +752,56 @@ let close_root_step () : unit =
     | _ -> failwith "close_root_step: broken invariant, stack must have size one" in
   finalize_step step
 
-(* [step_and_backtrack] opens a scope to perform transformations in.
-  At the end:
-  - closes all scope-local steps automatically if not already done
-  - restores the current AST to what it was before the scope *)
-let step_and_backtrack ?(discard_after = false) (f : unit -> unit) : unit =
+(* [step_backtrack f] executes [f] wrapped in a step of kind [Step_backtrack_yes].
+   At the end of [f], the ast is restored to its original value.
+   The value returned is the result produced by [f].
+   Note: all the substeps that f might have opened but not closed are
+   automatically closed.
+   If the option [~discard_after:true] is provided, then the steps
+   performed by [f] are completely erased from the trace. *)
+let step_backtrack ?(discard_after = false) (f : unit -> 'a) : 'a =
   let ast_bak = the_trace.cur_ast in
-  let s = open_step ~kind:Step_aborted ~name:"" () in
-  f ();
-  let error = "Trace.step_and_backtrack: did not find 's'" in
+  let s = open_step ~kind:Step_backtrack_yes ~name:"step-backtrack" () in
+  let res = f () in
+  let error = "Trace.step_backtrack: did not find 's'" in
   while (get_cur_step ~error () != s) do
     close_step ()
   done;
   the_trace.cur_ast <- ast_bak;
-  close_step ~discard:discard_after ~check:s ()
+  justif "step-backtrack restores the ast";
+  close_step ~discard:discard_after ~check:s ();
+  res
 
 type backtrack_result =
 | Success
 | Failure of exn
 
-let backtrack_on_failure ?(discard_failure = false) (f : unit -> unit) : backtrack_result =
+(* [step_backtrack_on_failure f] executes [f] wrapped in a step of kind [Step_backtrack_no].
+   If [f] fails, the operation returns [Failure e], and the kind of the step
+   is changed to [Step_backtrack_yes], and the ast is restored to its original value.
+   If [f] succeeds, the step terminates, and [Success] is returned.
+   (LATER: generalize Success to carry a result value?)
+   If the option [~discard_on_failure:true] is provided, and if [f] raises an
+   exception, then the steps performed by [f] are completely erased from the trace.
+   *)
+let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> unit) : backtrack_result =
   let ast_bak = the_trace.cur_ast in
-  let s = open_step ~kind:Step_backtrack ~name:"" () in
+  let s = open_step ~kind:Step_backtrack_no ~name:"step-backtrack-on-failure" () in
   let res =
     try
       f (); Success
     with e -> begin
-      let error = "Trace.backtrack_on_failure: did not find 's'" in
+      let error = "Trace.step_backtrack_on_failure: did not find 's'" in
       while (get_cur_step ~error () != s) do
         close_step ()
       done;
-      s.step_kind <- Step_aborted;
+      s.step_kind <- Step_backtrack_yes;
       the_trace.cur_ast <- ast_bak;
       Failure e
     end in
   assert (get_cur_step () == s);
-  close_step ~discard:discard_failure ~check:s ();
+  let discard = discard_on_failure && res <> Success in
+  close_step ~discard ~check:s ();
   res
 
 (* [target_resolve_step] has a special handling because it saves a diff
@@ -933,7 +947,7 @@ let get_original_ast () : trm =
 *)
 let alternative (f : unit->unit) : unit =
   let ast = get_original_ast () in
-  step_and_backtrack (fun () ->
+  step_backtrack (fun () ->
     the_trace.cur_ast <- ast;
     f();
   )
@@ -945,7 +959,7 @@ exception Failure_expected_did_not_fail
    it raises the exception [Failure_expected_did_not_fail]. If it does
    not, then an error is triggered. *)
 let failure_expected (f : unit -> unit) : unit =
-  step_and_backtrack (fun () ->
+  step_backtrack (fun () ->
     try
       f();
       raise Failure_expected_did_not_fail
@@ -1230,9 +1244,8 @@ let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
     let new_astAfter = filter_common astAfter in
     (new_astBefore, new_astAfter)
 
-
-(* [produce_diff_output step] is an auxiliary function for [produce_output_and_exit] *)
-let produce_diff_output (step:step_tree) : unit =
+(* [produce_diff_output_internal step] is an auxiliary function for [produce_diff_output]. *)
+let produce_diff_output_internal (step:step_tree) : unit =
   let trace = the_trace in
   let ctx = trace.context in
   let prefix = (* ctx.directory ^ *) ctx.prefix in
@@ -1261,6 +1274,28 @@ let produce_trace_output (step:step_tree) : unit =
   let ctx = trace.context in
   let prefix = (* ctx.directory ^ *) ctx.prefix in
   dump_trace_to_js ~prefix step
+
+(* [produce_diff_output step] is an auxiliary function for [produce_output_and_exit].
+   If the step targeted is a step with [ast_after == ast_before], then the diff
+   would be empty. In the particular case this empty diff comes from a [step_show]
+   operation, we report the diff for the subset of kind [Step_show] (which is wrapped
+   inside another step of kind [Step_backtract].
+   -- LATER: generalize: take the ast_before of the first
+   substep, and the ast_after of the last substep. *)
+let produce_diff_output (step:step_tree) : unit =
+  let def () = produce_diff_output_internal step in
+  if step.step_ast_before == step.step_ast_after then begin
+    match step.step_sub with
+    | [ substep ] when substep.step_kind = Step_backtrack_yes ->
+      begin match substep.step_sub with
+      | [ subsubstep ] when subsubstep.step_kind = Step_show ->
+        produce_diff_output_internal subsubstep
+      | _ -> def()
+      end
+    | _ -> def()
+  end else begin
+    def()
+  end
 
 (* [produce_output_and_exit()]: invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.
@@ -1357,38 +1392,29 @@ let open_smallstep ~(line : int) ?reparse:(need_reparse:bool=false) () : unit =
     in
   ignore (open_step ~kind:Step_small ~name:"" ~line ~step_script ())
 
-(* [interactive_step] is used to implement functions such as [show_ast] to show a target,
-   or [show_encoding] or [show_ast], etc. It takes as argument a function describing
-   the action to perform when the user cursor is on the line of the operation. *)
-let interactive_step ~(line:int) ~(ast_before:unit->trm) ~(ast_after:unit->trm) : unit =
-  let should_exit = Flags.is_execution_mode_step() && Flags.get_target_line() = line in
-  if should_exit then begin
-    close_smallstep_if_needed ();
-    let s = open_step ~line ~kind:Step_interactive ~name:"show" () in
+(* [show_step ~ast_left ~style_left ~ast_right ~style_right]
+   is used to implement the visualization operations.
+   A optional [~name] argument can be used to customize the step
+   label, e.g. [~name:"show-target"]. See module [Show.ml] for examples.
+   A vizualization step is always wrapped in a [Step_backtrack_yes], whose
+   [ast_after] is equal to its [ast_before]. Inside of this step
+   is contained a [Step_show], whose [ast_before] and [ast_after]
+   correspond to the material displayed on the left and right panels
+   of the diff. These two [ast] may be arbitrary, and use custom styles
+   for their display. When visualizing a step in interactive mode,
+   if the step is a Step_backtrack_yes, then instead of showing an empty diff,
+   the diff displayed corresponds to the ast of the (unique) step inside. *)
+let show_step ?(name:string="show") ~(ast_left:trm) ~(style_left:output_style) ~(ast_right:trm) ~(style_right:output_style) () =
+  step_backtrack (fun () ->
+    (* Create the show step *)
+    let s = open_step ~kind:Step_show ~name () in
     close_step ~check:s ();
-    (* Overwrite the ast_before and ast_after *)
-    s.step_ast_before <- ast_before ();
-    s.step_ast_after <- ast_after ();
-    produce_output_and_exit ()
-  end
-
-(* [show_step] is used to implement [Target.show].
-   It takes as argument a function describing
-   the action to perform when the user cursor is on the line of the operation.
-   It also accept an optional argument for an action to perform in other cases. *)
-let show_step ~(line:int) ~(interactive_action: unit->unit) ?(action_otherwise:unit->unit=(fun()->())) () : unit =
-  let should_exit = Flags.is_execution_mode_step() && Flags.get_target_line() = line in
-  let batch_mode = not (Flags.is_execution_mode_step()) in
-  if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
-    close_smallstep_if_needed ();
-    let s = open_step ~name:"show" ~kind:Step_interactive ~line () in
-    interactive_action ();
-    close_step ~check:s ();
-    if should_exit
-      then produce_output_and_exit ()
-  end else begin
-    action_otherwise();
-  end
+    (* Customize the ast before and after, and their styles *)
+    s.step_ast_before <- ast_left;
+    s.step_ast_after <- ast_right;
+    s.step_style_before <- style_left;
+    s.step_style_after <- style_right;
+  )
 
 (* [transfo_step] is the function that is produced by a [let%transfo]. It performs a step,
    and set the name and the arguments of the step. *)

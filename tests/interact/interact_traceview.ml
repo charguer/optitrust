@@ -4,6 +4,7 @@ open Target
 (* Uncomment the line below to see encoded syntax in trace
 let _ = Flags.print_optitrust_syntax := true
 *)
+let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
 
@@ -21,6 +22,10 @@ let _ = Run.script_cpp (fun _ ->
        Label.add "lab4" [cVarDef "a"];
        Trace.msg "debug message after\nlab4 \n";
     !! Label.add "lab5" [cVarDef "a"];
+    (* Examples of show functions *)
+    !! Show.ast ();
+    !! Show.res ();
+    !! Show.target [cVarDef ""];
     bigstep "third part";
     (* Try task "View diff using internal syntax" *)
     !! Label.add "lab6" [cVarDef "a"];

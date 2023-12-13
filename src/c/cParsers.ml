@@ -27,7 +27,7 @@ let clang_raw_parser (filename: string): trm =
   let command_line_pch = if Sys.file_exists precompiled_stdlib_filename then
     ["-include-pch"; precompiled_stdlib_filename]
   else begin
-    Tools.warn "Could not find the precompiled stdlib: parsing may be very slow";
+    Tools.warn "Could not find the precompiled stdlib: parsing may be very slow; did you do 'make precompile'";
     []
   end in
   let command_line_args = command_line_warnings @ command_line_include @ command_line_pch in

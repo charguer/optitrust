@@ -248,7 +248,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         Stats.comp_stats "elim_body" (fun () ->
           elim_body ~vars [cMark body_mark];);
         if deep_cleanup then begin
-          let success_attach = match Trace.backtrack_on_failure (fun () ->
+          let success_attach = match Trace.step_backtrack_on_failure (fun () ->
             Variable_basic.init_attach [new_target]
           ) with
           | Success -> true
@@ -261,14 +261,14 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
             Variable.inline ~simpl [new_target];
             Variable.inline_and_rename ~simpl [nbAny; cVarDef !resname];
             if not keep_res then begin
-              ignore (Trace.backtrack_on_failure (fun () ->
+              ignore (Trace.step_backtrack_on_failure (fun () ->
                 Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]
               ));
               (* TODO: only with | TransfoError ? *)
               Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ]
             end;
           end else if not keep_res then
-            ignore (Trace.backtrack_on_failure (fun () ->
+            ignore (Trace.step_backtrack_on_failure (fun () ->
               Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]
               (* TODO: only with | TransfoError ? *)
             ));

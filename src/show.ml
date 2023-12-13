@@ -78,7 +78,7 @@ let paths ?(msg : string = "") (ps : paths) : unit =
 
 let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
-  let custom_style = resolve_style style in
+  let custom_style = to_custom_style style in
   let t =
     if custom_style.decode then begin
       if not (Trm.trm_is_mainfile t) then begin
@@ -208,6 +208,83 @@ end
 
 
 (*----------------------------------------------------------------------------------*)
+(** Show functions whose output can be viewed as a diff or as steps in trace. *)
+
+(* [ast ()] prints on the left-hand side the C code, and on the right-hand side the
+    internal AST code *)
+let ast ?(msg : string = "show-ast") () : unit =
+  let ast_left = Trace.ast() in
+  let ast_right = ast_left in
+  let style_left = Style.default_custom_style () in
+  let cstyle_default = AstC_to_c.(default_style()) in
+  let style_right = { style_left with
+    decode = false;
+    print = Lang_C { cstyle_default with optitrust_syntax = true } } in
+  Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
+
+(* [target tg] shows the C code on the left-hand side of the diff, and the code decorated
+   with marks as comments on the terms that the target [tg] resolves to. *)
+let target ?(msg : string = "show-target") ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
+  let add_marks_and_get_ast () : trm =
+    (* Calling [enable_multi_targets] to automatically add [nbMulti] if there is no occurence constraint. *)
+    let tg = enable_multi_targets tg in
+    let marks_base = show_next_id() in
+    let mark_of_occurence (i:int) : string =
+      if !Flags.keep_marks_added_by_target_show
+        then Printf.sprintf "%d_%d" marks_base i
+        else Printf.sprintf "%d" i
+      in
+    applyi (fun i t p ->
+      let m = mark_of_occurence i in
+      match Path.last_dir_before_inv p with
+      | Some (p, k) ->
+        target_between_show_transfo m k t p
+      | None -> target_show_transfo ~types m t p
+    ) tg;
+    Trace.ast() in
+  let ast_left = Trace.ast() in
+  let ast_right =
+    if !Flags.keep_marks_added_by_target_show
+      then add_marks_and_get_ast()
+      else step_backtrack ~discard_after:true add_marks_and_get_ast in
+  let style_left = Style.default_custom_style () in
+  let style_right = style_left in
+  Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
+
+(* [tg] is an alias for [target] *)
+let tg = target
+
+(* [res] shows the C code on the left-hand side of the diff, and the code decorated
+   with computed resources on the right-hand side.
+   The option [~ast] allows to provide a specific ast, otherwise resources are
+   reported for the full current ast.  *)
+let res ?(msg : string = "show-resources") ?(ast: trm = Trace.ast ()) () : unit =
+  let ast_left = Trace.ast() in
+  let ast_right = Ast_fromto_AstC.computed_resources_intro ast_left in
+  let style_left = Style.default_custom_style () in
+  let aststyle_default = Ast.default_style () in
+  let aststyle = { aststyle_default with print_generated_ids = true } in
+  let cstyle_default = AstC_to_c.(default_style()) in
+  let cstyle = { cstyle_default with
+    ast = aststyle;
+    optitrust_syntax = true; } in
+  (*let customstyle_default = Style.default_custom_style() in*)
+  let style_right = { (*customstyle_default with*)
+      decode = false;
+      typing = { typing_resources = true };
+      print = Lang_C cstyle } in
+  Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
+
+
+
+(* LATER: Fix me
+(* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
+let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =
+  show ~line (* DEPRECATED ~reparse*) ~types:true tg
+*)
+
+(*----------------------------------------------------------------------------------*)
+
 
 (* LATER
 

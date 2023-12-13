@@ -100,11 +100,8 @@ let resource_errors_as_warnings = ref false
  * Automatically set to true during Resources.show. *)
 let always_name_resource_hyp = ref false
 
-(* [display_resources]: When showing diffs display resources on both sides *)
-let display_resources = ref false
-
-(* [execute_show_even_in_batch_mode]: flag used for unit tests on targets that use the show function. *)
-let execute_show_even_in_batch_mode : bool ref = ref false
+(* [keep_marks_added_by_target_show]: flag used for unit tests on targets that use the show function. *)
+let keep_marks_added_by_target_show : bool ref = ref false
 
 (* [check_validity]: perform validation of transformations *)
 let check_validity = ref false
@@ -273,7 +270,7 @@ let warned_array_subscript_not_supported = ref Tools.String_set.empty
   TODO: alternative: save flags and restore them at the end of a batching run. *)
 
 let reset_flags_to_default () : unit =
-  execute_show_even_in_batch_mode := false;
+  keep_marks_added_by_target_show := false;
   dump_ast_details := false;
   bypass_cfeatures := false;
   print_optitrust_syntax := false;
@@ -282,7 +279,6 @@ let reset_flags_to_default () : unit =
   display_includes := false;
   resource_errors_as_warnings := false;
   always_name_resource_hyp := false;
-  display_resources := false;
   check_validity := false;
   reparse_between_steps := false;
   recompute_resources_between_steps := false;

@@ -8,7 +8,7 @@ let ty_bool : typ_constraint =
   function { typ_desc = Typ_bool; _ } -> true | _ -> false
 
 
-let _ = Flags.execute_show_even_in_batch_mode := true
+let _ = Flags.keep_marks_added_by_target_show := true
 
 let _ = Run.script_cpp (fun () ->
 
