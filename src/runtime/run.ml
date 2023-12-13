@@ -248,8 +248,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
    The rest of the options are the same as [script f] *)
 let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(capture_show_in_batch = false) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
   may_report_time "script-cpp" (fun () ->
-    (* Handles preprocessor *)
+    (* Handles preprocessor -- FUTURE USE MENHIR PARSER
     Compcert_parser.Clflags.prepro_options := prepro;
+    *)
 
     (* Handles on-the-fly inlining *)
     let filename =

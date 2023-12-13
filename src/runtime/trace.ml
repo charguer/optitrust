@@ -1272,7 +1272,7 @@ let produce_diff_output_internal (step:step_tree) : unit =
 let produce_trace_output (step:step_tree) : unit =
   let trace = the_trace in (* LATER: cleanup and factorize next 3 lines *)
   let ctx = trace.context in
-  let prefix = (* ctx.directory ^ *) ctx.prefix in
+  let prefix = (* ctx.directory ^*) ctx.prefix in
   dump_trace_to_js ~prefix step
 
 (* [produce_diff_output step] is an auxiliary function for [produce_output_and_exit].
