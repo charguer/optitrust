@@ -45,8 +45,8 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
-let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
-  let remove = (my_mark = None) in
+let%transfo local_name ?(my_mark : mark = no_mark) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+  let remove = (my_mark = no_mark) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
       | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
@@ -97,8 +97,8 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) 
 
 (* [local_name_tile ~mark var into tg]: expects the target to point at an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will correspond to a tile of [var]. Then we copy the contents of the matrix [var] into [into] according to the given tile offsets and finally we free up the memory. *)
-let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option) ?(indices : (var list) = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var) ~(into : string) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
-  let remove = (mark = None) in
+let%transfo local_name_tile ?(mark : mark = no_mark) ?(mark_accesses : mark = no_mark) ?(indices : (var list) = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var) ~(into : string) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+  let remove = (mark = no_mark) in
   Nobrace_transfo.remove_after ~remove (fun _ ->
     Target.(apply_on_targets (fun t p ->
       begin match get_trm_at alloc_instr with
@@ -114,7 +114,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option)
   )
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize. *)
-let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~(dim: trm) ~(index: string) ~ops:(dl_o : local_ops) (tg : target) : unit =
+let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = no_mark) ?(labels : label list = []) ~(dim: trm) ~(index: string) ~ops:(dl_o : local_ops) (tg : target) : unit =
     Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark labels index dl_o) tg
 
 let assert_same_dims (a : trms) (b : trms) : unit =

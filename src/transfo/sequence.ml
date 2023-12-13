@@ -14,7 +14,7 @@ include Sequence_basic
     [on] - denotes a single target to be isolated inside the sub-sequence. When [on] is used all the other
       except mark and visible shoold be left empty. *)
 let%transfo intro ?(start : target = []) ?(stop : target = []) ?(nb : int = 0)
-  ?(on : target = []) ?(mark : string = "") ?(visible : bool = true) (_u : unit) : unit =
+  ?(on : target = []) ?(mark : string = no_mark) ?(visible : bool = true) (_u : unit) : unit =
   match on with
   | [_] ->  if (start = [] && stop = [] && nb = 0) then Sequence_basic.intro_on_instr ~mark ~visible on else ()
   | _ ->  begin match nb with
@@ -35,7 +35,7 @@ let%transfo intro ?(start : target = []) ?(stop : target = []) ?(nb : int = 0)
 
 (* [intro_targets tg]: expects the target [tg] to point at one or more consecutive instuctions
       then it will introduce a sequence that contains those instructions. *)
-let%transfo intro_targets ?(mark : string = "")(tg : target) : unit =
+let%transfo intro_targets ?(mark : string = no_mark)(tg : target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
   let first_target = [Target.occFirst] @ (Target.filter_constr_occurrence tg) in

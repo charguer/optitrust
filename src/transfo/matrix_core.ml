@@ -67,14 +67,14 @@ let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) opt
 
 
 (* [replace_all_accesses]: replace all accesses to [prev_v] in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].*)
-let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices : (trm -> trm) list) (mark : mark option) (t : trm) : trm =
+let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices : (trm -> trm) list) (mark : mark) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match access_inv t with
     | Some (f, prev_dims, prev_indices) ->
       begin match trm_var_inv f with
       | Some n when n = prev_v ->
         let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
-        trm_may_add_mark mark (access (trm_var v) dims indices)
+        trm_add_mark mark (access (trm_var v) dims indices)
       | _ -> trm_map aux t
       end
     | None ->
@@ -214,7 +214,7 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.l
       [t] - ast of thee instuction which contains accesses to [var]. *)
 
 (* TODO: superseded by tile version *)
-let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
+let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
   let local_var = Trm.new_var local_var in
   let local_var_type = var_type in
@@ -236,7 +236,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_nobrace_nomarks [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
-      begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
+      trm_add_mark mark final_trm
     | Local_obj (init, swap, free_fn) ->
       let write_on_local_var =
         trm_apps (trm_var init)  [access (trm_var_get local_var) dims indices] in
@@ -250,17 +250,17 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
       let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
       let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_nobrace_nomarks [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
-      begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
+      trm_add_mark mark final_trm
     end
 
 
 (* TODO: superseded by tile version, except when accesses are not visible (new_t = subst_var does not work) *)
 (* [local_name mark var local_var malloc_trms var_type indices local_ops t p]: applies [local_name_aux] at trm [t] with path [p]. *)
-let local_name (mark : mark option) (var : var) (local_var : string) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : string list ) (local_ops : local_ops) : Target.Transfo.local =
+let local_name (mark : mark) (var : var) (local_var : string) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : string list ) (local_ops : local_ops) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices local_ops)
 
 (* TODO: Factorize *)
-let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm) (indices : (var list)) (local_ops : local_ops) (t : trm) : trm =
+let local_name_tile_aux (mark : mark) (mark_accesses : mark) (var : var) (tile : nd_tile) (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm) (indices : (var list)) (local_ops : local_ops) (t : trm) : trm =
   let local_var = Trm.new_var local_var in
   let indices_list = begin match indices with
   | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims | _ as l -> l  end in
@@ -296,11 +296,11 @@ let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var 
       trm_seq_nobrace_nomarks [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr]
       *)
   end in
-  trm_may_add_mark mark final_trm
+  trm_add_mark mark final_trm
 
 
 (* [local_name_tile]: applies [local_name_tile_aux] at trm [t] with path [p]. *)
-let local_name_tile (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : string) (dims : trms) (elem_ty : typ) (size : trm) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
+let local_name_tile (mark : mark) (mark_accesses : mark) (var : var) (tile : nd_tile) (local_var : string) (dims : trms) (elem_ty : typ) (size : trm) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
   Target.apply_on_path (local_name_tile_aux mark mark_accesses var tile local_var dims elem_ty size indices local_ops)
 
 
@@ -405,7 +405,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let fifth_instr = Mlist.nth tl 4 in
                   let new_fifth_instr = if add_labels then
                      let label_to_add = List.nth labels 2 in
-                     if label_to_add = "" then fifth_instr else trm_add_label label_to_add fifth_instr
+                     trm_add_label label_to_add fifth_instr
                       else fifth_instr in
 
                     trm_seq ~annot:t.annot (Mlist.of_list [new_fst_instr; trm_copy new_snd_instr; new_thrd_instr; trm_copy new_frth_instr; new_fifth_instr])
@@ -475,7 +475,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                           else if i = 1 then trm_seq_nobrace_nomarks [new_thrd_instr; new_frth_instr]
                           else trm_seq_nobrace_nomarks [new_fifth_instr; sixth_instr]
                           in
-                        if lb = "" then new_subsgroup else trm_add_label lb new_subsgroup
+                        trm_add_label lb new_subsgroup
 
                        ) labels
                     in

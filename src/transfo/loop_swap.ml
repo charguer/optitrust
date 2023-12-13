@@ -218,7 +218,7 @@ let%transfo swap_basic (tg : target) : unit =
   v}
 
    *)
-let%transfo swap ?(mark_outer_loop : mark option) ?(mark_inner_loop : mark option) (tg : target) : unit =
+let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = no_mark) (tg : target) : unit =
   Target.iter (fun _ outer_loop_p ->
   Marks.with_marks (fun next_m ->
     if not !Flags.check_validity then begin
@@ -227,8 +227,8 @@ let%transfo swap ?(mark_outer_loop : mark option) ?(mark_inner_loop : mark optio
       let _, seq_p = Path.index_in_seq outer_loop_p in
       let outer_loop_m = Marks.add_next_mark_on next_m outer_loop_p in
       let inner_loop_m = Marks.add_next_mark next_m [nbExact 1; Constr_paths [seq_p]; cMark outer_loop_m; cStrict; cFor ""] in
-      Option.iter (fun m -> Marks.add m [Constr_paths [seq_p]; cMark outer_loop_m]) mark_outer_loop;
-      Option.iter (fun m -> Marks.add m [Constr_paths [seq_p]; cMark inner_loop_m]) mark_inner_loop;
+      Marks.add mark_outer_loop [Constr_paths [seq_p]; cMark outer_loop_m];
+      Marks.add mark_inner_loop [Constr_paths [seq_p]; cMark inner_loop_m];
 
       Resources.loop_parallelize_reads (target_of_path outer_loop_p);
 

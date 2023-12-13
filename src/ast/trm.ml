@@ -406,9 +406,10 @@ let trm_get_labels (t : trm) =
    let t_annot = {t.annot with trm_annot_labels = t_annot_labels} in
    trm_alter ~annot:t_annot t
 
- (* [trm_add_label l]: adds label [l] to trm [t]. *)
- let trm_add_label (l : label) (t : trm) : trm =
-   apply_on_labels (fun labels -> l :: labels) t
+ (* [trm_add_label l] adds label [l] to trm [t].
+    Returns [t] unchanged if [l = ""]. *)
+let trm_add_label (l : label) (t : trm) : trm =
+  if l = "" then t else apply_on_labels (fun labels -> l :: labels) t
 
  (* [trm_filter_label pred t]: filters all labels that satisfy predicate [pred]. *)
  let trm_filter_label (pred : label -> bool) (t : trm) : trm =

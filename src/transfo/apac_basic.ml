@@ -159,7 +159,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
 
     [mark] - mark to put on the sequence the function's body is wrapped into,
     [tg] - target function definition AST term. *)
-let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
+let use_goto_for_return ?(mark : mark = no_mark) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.apply_at_target_paths (use_goto_for_return_on mark) tg
   )

@@ -200,32 +200,6 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
 let init_attach (const : bool) (index : int) : Transfo.local =
   apply_on_path(init_attach_aux const index )
 
-(* [local_name_aux var_type curr_var local_var t]: adds a local variable declaration and
-      replace all the occurrences of [curr_var] with [local_var] in [t],
-      [mark] - a mark to mark the producesd nobrace sequence,
-      [curr_var] - the previous name of the variable, this is used to find all its occurrences,
-      [local_var] - the name of the variable to be declared and replace all the occurrences of [curr_var],
-      [t] - ast of the trm that contains [curr_var]. *)
-let local_name_aux (mark : mark) (curr_var : var) (local_var : string) (t : trm) : trm =
-  let local_var = Trm.new_var local_var in
-  let vardef_trm = begin match get_trm_at [cVarDef curr_var.name] with
-    | Some vt -> vt
-    | None -> failwith "local_name_aux: couldn't find the variable provided as argument"
-    end in
-  let var_type = match trm_var_def_inv vardef_trm with
-    | Some (_, _, ty, _) -> ty
-    | _ -> trm_fail vardef_trm "Variable_coreal_name: make sure the name of the current var is entered correctly"
-    in
-  let fst_instr = trm_let_mut (local_var, var_type) (trm_var_possibly_mut ~typ:var_type curr_var) in
-  let lst_instr = trm_set (trm_var ~typ:var_type curr_var) (trm_var_possibly_mut ~typ:var_type local_var) in
-  let new_t = trm_subst_var curr_var (trm_var local_var) t in
-  let final_trm = trm_seq_nobrace_nomarks [fst_instr;new_t;lst_instr] in
-  trm_add_mark mark final_trm
-
-(* [local_name mark curr_var local_var t p]: applies [local_name_aux] at trm [t] with path [p]. *)
-let local_name (mark : mark) (curr_var : var) (local_var : string) : Transfo.local =
-  apply_on_path(local_name_aux mark curr_var local_var)
-
 (* [delocalize_aux array_size ops index t]: see [Variable_basic.delocalize],
       [array_size] - size of the arrays to be declared inside the targeted sequence,
       [ops] - delocalize operation representing the unitary lement used for initialization
@@ -340,9 +314,7 @@ let change_type (new_type : typvar) (index : int) : Transfo.local =
       [t] - ast of the sequence containing the targeted node. *)
       (* LATER: cleanup this code, and pull out into auxiliary functions the tooling needed
          to handle arrays *)
-      (* LATER: figure out whether mark option should use "" as none, and whether
-         trm_add_mark should just be a noop when the mark is "" *)
-let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
+let bind_aux (mark_let:mark) (mark_occ:mark) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let f_update (t : trm) : trm =
@@ -354,7 +326,7 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
       | _ -> typ_auto()
        in
       let fresh_var = new_var fresh_name in
-      let replacement_node = trm_may_add_mark mark_occ (
+      let replacement_node = trm_add_mark mark_occ (
         trm_var_possibly_mut ~const ~typ:node_type fresh_var) in
       let node_to_change =
         Path.apply_on_path (fun _tsub -> replacement_node) t p_local in
@@ -383,7 +355,7 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
           then trm_let_immut (fresh_var, node_type) targeted_node
           else trm_let_mut (fresh_var, node_type) targeted_node
       end in
-      let decl_to_insert = trm_may_add_mark mark_let decl_to_insert in
+      let decl_to_insert = trm_add_mark mark_let decl_to_insert in
       trm_seq_nobrace_nomarks [decl_to_insert; node_to_change]
     in
     let new_tl = Mlist.update_nth index f_update tl in
@@ -394,7 +366,7 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
   | _ -> trm_fail t "Variable_core.bind_aux: expected the surrounding sequence"
 
 (* [bind mark_let mark_occ mark_body index fresh_name const is_ptr typ p_local t p]: applies [bind_aux] at trm [t] with path [p]. *)
-let bind (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) : Transfo.local =
+let bind (mark_let:mark) (mark_occ:mark) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) : Transfo.local =
   apply_on_path (bind_aux mark_let mark_occ mark_body index fresh_name const is_ptr typ p_local)
 
 (* [remove_get_operations_on_var x t]: removes one layer of get operations on variable [x].

@@ -149,11 +149,11 @@ let%transfo elim_mops (tg : target): unit =
 (* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
-let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
+let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
   ?(last : bool = false)  ?(use : trm option) (var : var) ~(into : string) ~(dim : trm)  ~(index : string)
   ?(indices : string list = []) ~(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option) (tg : target) : unit =
-
-    let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
+    Marks.with_marks (fun next_mark ->
+    let middle_mark = Mark.reuse_or_next next_mark mark in
     let acc = match acc with | Some s -> s | _ -> "" in
     Matrix_basic.local_name ~my_mark:middle_mark ?alloc_instr ~into ~indices ~local_ops:ops var tg;
 
@@ -185,8 +185,8 @@ let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_i
       | None -> () (* No need to move allocation trms because the allocation trm blongs to the same sequence as [tg] *)
 
       end
-    end;
-    begin match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> () end;
+    end
+    );
     Scope.infer_var_ids ()
 
 

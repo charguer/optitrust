@@ -97,6 +97,8 @@ type mark = string
 (* [marks]: a list of marks *)
 and marks = mark list
 
+let no_mark = ""
+
 (* [mlists]: generalized lists, see module mlist.ml *)
 type 'a mlist = 'a Mlist.t
 
@@ -231,6 +233,8 @@ type 'a labelmap = 'a Tools.String_map.t
 
 (* [labels]: a list of labels. *)
 type labels = label list
+
+let no_label = ""
 
 (* [string_trm]: description of a term as a string (convenient for the user) *)
 type string_trm = string

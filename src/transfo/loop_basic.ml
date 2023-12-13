@@ -59,7 +59,7 @@ let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : 
 *)
 (* TODO: clean up code *)
 let hoist_on (name : string)
-             (mark : mark option)
+             (mark : mark)
              (arith_f : trm -> trm)
              (decl_index : int) (t : trm) : trm =
   let error = "Loop_basic.hoist_on: only simple loops are supported" in
@@ -133,7 +133,7 @@ let hoist_on (name : string)
   in
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_nobrace_nomarks [
-    trm_may_add_mark mark
+    trm_add_mark mark
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
     trm_for ?contract:new_contract ~annot:t.annot range new_body;
     Matrix_trm.free !new_dims (trm_var !new_var);
@@ -141,7 +141,7 @@ let hoist_on (name : string)
 
 (* TODO: document *)
 let%transfo hoist ?(name : string = "${var}_step")
-          ?(mark : mark option)
+          ?(mark : mark = no_mark)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
   Trace.justif_always_correct ();
@@ -156,7 +156,7 @@ let%transfo hoist ?(name : string = "${var}_step")
     [index]: index of the splitting point
     [t]: ast of the loop
     *)
-let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm * trm =
+let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
   let (l_range, tl, contract) = trm_inv
     ~error:"Loop_basic.fission_on: only simple loops are supported"
     trm_for_inv_instrs t
@@ -287,8 +287,8 @@ let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm 
       printf "snd_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !snd_contract))); *)
     end;
   end;
-  let ta = trm_may_add_mark mark_loops (trm_for_instrs ?contract:!fst_contract l_range tl1) in
-  let tb = trm_may_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2)) in
+  let ta = trm_add_mark mark_loops (trm_for_instrs ?contract:!fst_contract l_range tl1) in
+  let tb = trm_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2)) in
   (ta, tb)
     (* Note: the trm_copy is needed because the loop index in the
        two loops must have a different id. We copy the second loop
@@ -299,9 +299,9 @@ let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm 
     [index]: index of the splitting point
     [t]: ast of the loop
     *)
-let fission_on (mark_loops : mark option) (mark_between_loops : mark option) (index : int) (t : trm) : trm =
+let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t : trm) : trm =
   let (ta,tb) = fission_on_as_pair mark_loops index t in
-  trm_seq_helper ~braces:false [ Trm ta; MarkOption mark_between_loops; Trm tb ]
+  trm_seq_helper ~braces:false [ Trm ta; Mark mark_between_loops; Trm tb ]
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -309,7 +309,7 @@ let fission_on (mark_loops : mark option) (mark_between_loops : mark option) (in
    @correctness: Reads in new second loop need to never depend on writes on
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
-let%transfo fission_basic ?(mark_loops : mark option) ?(mark_between_loops : mark option) (tg : target) : unit =
+let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : mark = no_mark) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p_before ->
       Resources.required_for_check ();
@@ -470,7 +470,7 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
       j is an integer in range from 0 to C.
 
     Assumption: Both a and C should be declared as constant variables. *)
-let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = "") ?(subst_mark : mark option)  (tg : target): unit =
+let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = "") ?(subst_mark : mark = no_mark)  (tg : target): unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll inner_braces outer_seq_with_mark subst_mark) tg)
@@ -485,7 +485,7 @@ type empty_range_mode =
     [trm_index] - index of that instruction on its surrouding sequence (just checks that it is 0),
     [t] - ast of the for loop.
   *)
-let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
+let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
   if (trm_index <> 0) then failwith "Loop_basic.move_out: not targeting the first instruction in a loop";
   let error = "Loop_basic.move_out: expected for loop" in
   let ((index, t_start, dir, t_end, step, par), body, contract) = trm_inv ~error trm_for_inv t in
@@ -529,8 +529,8 @@ let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_rang
   let non_empty_cond = trm_ineq dir t_start t_end in
   let instr_outside = if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr in
   trm_seq_nobrace_nomarks [
-    trm_may_add_mark instr_mark instr_outside;
-    trm_may_add_mark loop_mark loop]
+    trm_add_mark instr_mark instr_outside;
+    trm_add_mark loop_mark loop]
 
 (** [move_out tg]: expects the target [tg] to point at the first instruction inside the loop
     that is not dependent on the index of the loop or any local variable.
@@ -561,7 +561,7 @@ let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_rang
       - Prove that the loop range is never empty
       - All resources in B are uninit in the loop contract
 *)
-let%transfo move_out ?(instr_mark : mark option) ?(loop_mark : mark option) ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
+let%transfo move_out ?(instr_mark : mark = no_mark) ?(loop_mark : mark = no_mark) ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p ->
       Resources.required_for_check ();
