@@ -348,12 +348,11 @@ let minimize_loop_contract contract usage =
 
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
-  (* let res_before = unsome_or_trm_fail t "loop_minimize_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in *)
 
   let contract = match contract with
-    | None -> trm_fail t "loop_minimize_on: expected contract"
-      (* DEPRECATED?:
-      { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract } *)
+    | None ->
+      let res_before = unsome_or_trm_fail t "loop_minimize_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in
+      { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
     | Some contract -> contract
   in
 
