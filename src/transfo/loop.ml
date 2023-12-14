@@ -34,8 +34,10 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     let m_loops = next_mark () in
     let m_between = next_mark () in
     fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [nbExact 1; Constr_paths [p_seq]; cMark m_interstice];
-    if !Flags.check_validity then (* FIXME: hide condition between better API? *)
+    if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
       Resources.loop_minimize [nbExact 2; Constr_paths [p_seq]; cMark m_loops];
+      Ghost_pair.minimize_all_in_seq [nbExact 2; Constr_paths [p_seq]; cMark m_loops; dBody];
+    end;
 
     (* And go through the outer loops *)
     fission_rec next_mark (nest_of - 1) m_between
@@ -44,7 +46,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
 (** Expects the target [tg] to point somewhere inside the body of a simple loop nest.
    Splits the outer [nest_of] loops in two at the targeted interstice.
    Parallelizes loop reads using {! Resources.loop_parallelize_reads} if needed.
-   Distributes ghost pairs with {! Ghost_pair.fission} if any.
+   Distributes any ghost pairs with {! Ghost_pair.fission} and {! Ghost_pair.minimize_all_in_seq}.
    Minimizes output loop contracts using {! Resources.loop_minimize}.
 
     TODO: support for multiple split points in different loops

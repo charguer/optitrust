@@ -222,24 +222,24 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let tl1_inv_reads = resource_set_of_hyp_map tl1_inv_reads ctx_res.linear in
       (* let tl1_inv_writes = resource_set_of_hyp_map tl1_inv_writes ctx_res.linear in *)
       let tl1_inv = resource_set_of_hyp_map tl1_inv_usage ctx_res.linear in
-      let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set linear_invariant tl1_inv in (* = I'' *)
+      let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false linear_invariant tl1_inv in (* = I'' *)
 
       let first_tl2_instr = Mlist.nth tl2 0 in
       let split_res = Resources.before_trm first_tl2_instr in (* = R *)
       (* let last_tl1_instr = Mlist.nth tl1 ((Mlist.length tl1) - 1) in
       let split_res = unsome_or_trm_fail last_tl1_instr error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
-      let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource_set split_res.linear linear_invariant in (* R' *)
-(* DEBUG:
+      let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear linear_invariant in (* R' *)
+(* DEBUG: *)
       let s = AstC_to_c.default_style() in
       let s = { s with ast = { s.ast with print_contract = true; print_var_id = true } } in
-      printf "loop_ghosts: %s\n" (Tools.document_to_string (AstC_to_c.resource_item_list_to_doc s contract.loop_ghosts));
+      printf "--- loop_ghosts: %s\n" (Tools.document_to_string (AstC_to_c.resource_item_list_to_doc s contract.loop_ghosts));
       printf "---\n";
       Flags.(with_flag always_name_resource_hyp) true (fun () ->
-      printf "split_res:\n%s\n" (Resource_computation.resources_to_string (Some split_res));
-      printf "linear_invariant: %s\n" (Resource_computation.resource_list_to_string linear_invariant);
-      printf "split_res_comm: %s\n" (Resource_computation.resource_list_to_string split_res_comm);
+      printf "--- split_res:\n%s\n" (Resource_computation.resource_set_to_string split_res);
+      printf "--- linear_invariant:\n%s\n" (Resource_computation.resource_list_to_string linear_invariant);
+      printf "--- split_res_comm:\n%s\n" (Resource_computation.resource_list_to_string split_res_comm);
       );
-*)
+(* *)
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
           | Some (vk, v, typ, init) -> Var_set.add v acc
