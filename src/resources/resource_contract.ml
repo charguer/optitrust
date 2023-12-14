@@ -66,10 +66,20 @@ type contract_clause = contract_clause_type * contract_resource_item
 let empty_fun_contract =
   { pre = Resource_set.empty; post = Resource_set.empty }
 
+(** {!trm_copy} for fun contracts. *)
+let fun_contract_copy (contract : fun_contract) : fun_contract =
+  let (_, _, _, spec) =
+    trm_fun ~contract:(FunSpecContract contract) [] None (trm_seq_nomarks [])
+    |> trm_copy
+    |> trm_fun_inv |> Xoption.unsome
+  in
+  match spec with
+  | FunSpecContract c' -> c'
+  | _ -> failwith "should not happen"
+
 (** The empty loop contract, implies purity. *)
 let empty_loop_contract =
   { loop_ghosts = []; invariant = Resource_set.empty; iter_contract = empty_fun_contract }
-
 
 (* TODO: remove or replace with better mechanism. hint to maximize instantiated fraction. *)
 let _Full = toplevel_var "_Full"

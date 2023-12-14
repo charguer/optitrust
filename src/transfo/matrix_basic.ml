@@ -123,8 +123,16 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd
     (access (trm_var var) dims indices)
     (trm_get (access (trm_var local_var) tile_dims tile_indices))
   in
-  let load_for = trm_copy (trm_fors nested_loop_range write_on_local_var) in
-  let unload_for = trm_copy (trm_fors nested_loop_range write_on_var) in
+  let load_contract = Resource_contract.(Resource_formula.(empty_loop_contract
+    |> push_loop_contract_clause Reads (new_anon_hyp (), formula_cell var)
+    |> push_loop_contract_clause Writes (new_anon_hyp (), formula_cell local_var))) in
+  let unload_contract = Resource_contract.(Resource_formula.(empty_loop_contract
+    |> push_loop_contract_clause Writes (new_anon_hyp (), formula_cell var)
+    |> push_loop_contract_clause Reads (new_anon_hyp (), formula_cell local_var))) in
+  let load_for = trm_copy (Resources.trm_fors
+    ~inner_contract:load_contract nested_loop_range write_on_local_var) in
+  let unload_for = trm_copy (Resources.trm_fors
+    ~inner_contract:unload_contract nested_loop_range write_on_var) in
   let free_instr = free tile_dims (trm_var local_var) in
   trm_seq_nobrace_nomarks [alloc_instr; load_for; new_t; unload_for; free_instr]
 
@@ -145,7 +153,7 @@ let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
   ?(indices : string list = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var)
   ~(local_var : string) (tile : Matrix_core.nd_tile) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    Target.iter (fun _ p ->
+    Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
       let t1 = Xoption.unsome_or_else (get_trm_at alloc_instr) (fun () ->
         failwith "alloc_instr target does not match to any ast node"
       ) in
@@ -154,8 +162,24 @@ let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
       ret_var := v;
       Target.apply_at_path (local_name_tile_on
         mark_accesses v tile local_var dims elem_ty size indices
-      ) p
-    ) tg
+      ) p;
+      if !Flags.check_validity then begin
+        (* TODO: is this exactly the same check as for variables? *)
+        Resources.ensure_computed ();
+        let t = get_trm_at_exn [cMark m] in
+        let t_res_usage = Resources.usage_of_trm t in
+        let t_res_before = Resources.before_trm t in
+        let t_res_after = Resources.after_trm t in
+        let used_formulas = Resources.(formulas_of_hyps (hyps_of_usage t_res_usage) (t_res_before.linear @ t_res_after.linear)) in
+        let used_vars = List.fold_left (fun vs t ->
+          Var_set.union vs (trm_free_vars t)
+        ) Var_set.empty used_formulas in
+        if Var_set.mem !ret_var used_vars then
+          trm_fail t "resources still mention replaced variable after transformation"
+        else
+          Trace.justif "resources do not mention replaced variable after transformation"
+      end
+    )) tg
   )
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize. *)

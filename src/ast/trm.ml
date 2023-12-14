@@ -1194,14 +1194,6 @@ let is_trm_seq (t : trm) : bool =
 match t.desc with
 | Trm_seq _ -> true  | _ -> false
 
-(* [trm_fors rgs tbody]: creates nested loops with the main body [tbody] each nested loop
- takes its components from [rgs] *)
-let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
-List.fold_right (fun l_range acc ->
-  trm_for l_range (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
-) rgs tbody
-
-
 (* [trm_var_def_inv t] gets the name type and the initialization value *)
 let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option =
 match t.desc with
@@ -2352,9 +2344,13 @@ let trm_erase_var_ids (t : trm) : trm =
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let trm_copy (t : trm) : trm =
   let map_binder var_map v _ =
-    assert (not (Var_map.mem v var_map));
-    let new_v = new_var ~qualifier:v.qualifier v.name in
-    (Var_map.add v new_v var_map, new_v)
+    (* ???
+    if v.id = inferred_var_id then (var_map, v)
+    else *) begin
+      assert (not (Var_map.mem v var_map));
+      let new_v = new_var ~qualifier:v.qualifier v.name in
+      (Var_map.add v new_v var_map, new_v)
+    end
   in
   let map_var var_map v =
     if v.id = inferred_var_id then v

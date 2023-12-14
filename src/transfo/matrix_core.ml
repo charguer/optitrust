@@ -231,9 +231,9 @@ let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms :
         trm_set (access (trm_var_get local_var) dims indices) (trm_get (access (trm_var_get var) dims indices)) in
       let write_on_var =
         trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) dims indices)) in
-      let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
+      let snd_instr = trm_copy (Resources.trm_fors nested_loop_range write_on_local_var) in
       let new_t = trm_subst_var var (trm_var local_var) t in
-      let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
+      let thrd_instr = trm_copy (Resources.trm_fors nested_loop_range write_on_var) in
       let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_nobrace_nomarks [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
       trm_add_mark mark final_trm
@@ -244,10 +244,10 @@ let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms :
         trm_apps (trm_var swap) [access (trm_var_get var) dims indices; access (trm_var_get local_var) dims indices] in
       let free_local_var =
         trm_apps (trm_var free_fn)  [access (trm_var_get local_var) dims indices] in
-      let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
+      let snd_instr = trm_copy (Resources.trm_fors nested_loop_range write_on_local_var) in
       let new_t = trm_subst_var var (trm_var local_var) t in
-      let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
-      let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
+      let thrd_instr = trm_copy (Resources.trm_fors nested_loop_range write_on_var) in
+      let frth_instr = trm_copy (Resources.trm_fors nested_loop_range free_local_var) in
       let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_nobrace_nomarks [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
       trm_add_mark mark final_trm
@@ -343,8 +343,8 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     else new_decl in
 
                   let new_snd_instr = if init_zero
-                    then trm_fors new_loop_range init_trm
-                    else trm_fors loop_range init_trm in
+                    then Resources.trm_fors new_loop_range init_trm
+                    else Resources.trm_fors loop_range init_trm in
 
                   let thrd_instr = Mlist.nth tl 2 in
                   let ps2 = resolve_target tg thrd_instr in
@@ -354,7 +354,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     ) thrd_instr ps2 in
 
                   let new_frth_instr =
-                    trm_fors loop_range acc_trm in
+                    Resources.trm_fors loop_range acc_trm in
 
                   let fifth_instr = Mlist.nth tl 4 in
                   let new_fifth_instr = if add_labels then
@@ -385,7 +385,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
                     ) body ps1 in
                     (* TODO: Implement the case when init_zero = false *)
-                    trm_fors new_loop_range updated_mindex in
+                    Resources.trm_fors new_loop_range updated_mindex in
 
                   let thrd_instr = Mlist.nth tl 2 in
                   let ps2 = resolve_target tg thrd_instr in
@@ -403,7 +403,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                           List.fold_left (fun acc p ->
                         apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
                       ) body ps2  in
-                      trm_fors new_loop_range new_body
+                      Resources.trm_fors new_loop_range new_body
                     | _ -> trm_fail t "Matrix_core.delocalize_aux: expected the accumulation loop"
                     end in
 
@@ -416,7 +416,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                           List.fold_left (fun acc p ->
                         apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
                       ) body ps2  in
-                      trm_fors new_loop_range new_body
+                      Resources.trm_fors new_loop_range new_body
                     | _ -> trm_fail t "Matrix_core.delocalize_aux: expected the accumulation loop"
                     end in
 
