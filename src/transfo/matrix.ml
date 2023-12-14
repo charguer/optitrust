@@ -115,12 +115,12 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
     match Trace.step_backtrack_on_failure (fun () ->
       intro_malloc (target_of_path p)
     ) with
-    | Success -> ()
+    | Success () -> ()
     | Failure _ -> begin
       match Trace.step_backtrack_on_failure (fun () ->
         intro_calloc (target_of_path p)
       ) with
-      | Success -> ()
+      | Success () -> ()
       | Failure _ -> trm_fail tg_trm "intro_mops: the targeted matrix was not allocated with malloc or calloc"
     end
   ) tg

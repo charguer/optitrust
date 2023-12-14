@@ -27,10 +27,27 @@ let _ = Run.script_cpp (fun _ ->
   !! Show.res ();
   !! Show.ctx ();
   !! Show.target [cVarDef ""];
+  (* Example with two show in a same small-step *)
+  !! Show.ast (); Show.ast ();
   (* Examples of show functions with output on stdout *)
   (* !! ShowAt.trm []; *)
   bigstep "third part";
   (* Try task "View diff using internal syntax" *)
   !! Label.add "lab6" [cVarDef "a"];
   !! Label.add "lab7" [cVarDef "a"];
+  (* Example of backtracking *)
+  !! ignore (Trace.step_backtrack (fun () ->
+       Label.add "labE0" [cVarDef "a"];));
+  !! ignore (Trace.step_backtrack_on_failure (fun () ->
+       Label.add "labE1" [cVarDef "a"];));
+  !! ignore (Trace.step_backtrack_on_failure (fun () ->
+       Label.add "labE2" [cVarDef "a"];
+       failwith "trigger backtrack"));
+  !! Trace.failure_expected (fun () ->
+       Label.add "labE3" [cVarDef "a"];
+       failwith "trigger expected failure");
+  (* Uncomment to see a partial trace
+  !! Trace.failure_expected (fun () ->
+       Label.add "labE4" [cVarDef "a"]);*)
+
 )

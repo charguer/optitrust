@@ -12,8 +12,8 @@ type output_style = Style.custom_style
 
 let debug = false
 
-(** add a [check] function that verifies all the invariants on the trace,
-   e.g. a step backtract should have ast_before==ast_after. *)
+let check_trace_at_every_step = true
+
 
 (******************************************************************************)
 (*                             File excerpts                                  *)
@@ -164,7 +164,7 @@ type stepdescr = {
   mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
 
 (** [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_backtrack_no | Step_backtrack_yes | Step_show | Step_typing | Step_error
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_group | Step_backtrack | Step_show | Step_typing | Step_error
 
 (** [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -175,8 +175,8 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_transfo -> "Transfo"
   | Step_target_resolve -> "Target"
   | Step_io -> "IO"
-  | Step_backtrack_no -> "Backtrack_no"
-  | Step_backtrack_yes -> "Backtrack_yes"
+  | Step_group -> "Group"
+  | Step_backtrack -> "Backtrack"
   | Step_show -> "Show"
   | Step_typing -> "Typing"
   | Step_error -> "Error"
@@ -260,6 +260,75 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
   (prefix, ctx, tree)
 
 let dummy_exectime : float = 0.
+
+
+(******************************************************************************)
+(*                                   Checker                                  *)
+(******************************************************************************)
+
+exception Invalid_trace of string
+
+(** [check ~final] verify that [the_trace] is well-formed.
+    If the argument [final] is true, all the steps must be properly closed.
+    Raises [Invalid_trace] if an invariant is broken. *)
+let check_the_trace ~(final:bool) : unit =
+  (* Auxiliary function to report a broken invariant *)
+  let err (msg:string) : unit =
+    raise (Invalid_trace msg) in
+  (* Auxiliary function to compute the expected kind of a substep *)
+  let kind_for_sub (kind:step_kind) : step_kind =
+    match kind with
+    | Step_root -> Step_big
+    | Step_big -> Step_small
+    | Step_small -> Step_transfo
+    | _ -> Step_transfo
+    in
+  (* Recursive checker for a [step_tree].
+     [expected_kind] is one of [Step_root], [Step_big], [Step_small], or [Step_transfo]
+     it is used to ensure e.g. that small-steps are not nested in other small-steps,
+     or big-steps nested inside small-steps, etc.
+     Note that big-steps are optional in the hierarchy:
+    small steps may be children of the root. *)
+  let rec check_tree ~(expected_kind:step_kind) (step:step_tree) : unit =
+    let kind = step.step_kind in
+    let sub = List.rev step.step_sub in
+    (* Check kind, compared with [expected_kind] *)
+    begin match kind, expected_kind with
+      | Step_root, Step_root -> ()
+      | Step_root, _ -> err "A root step should only appear at the top of the step_stack"
+      | _, Step_root -> err "A root step was expected to appear at the top of the step_stack"
+      | Step_big, Step_big -> ()
+      | Step_big, _ -> err "A big step should only appear at depth one in the step_stack"
+      | Step_small, (Step_small | Step_big) -> ()
+      | Step_small, _ -> err "A small step should only appear at depth one or two in the step_stack"
+      | _, (Step_transfo | Step_small | Step_big) -> ()
+      | _ -> failwith "Invalid argument for [expected_kind] in [check_tree]"
+    end;
+    (* A backtrack step always contains a single substep, which must be of kind group.
+       Moreover, if the trace is final, the ast_after matches the ast_before *)
+    if kind = Step_backtrack then begin
+      match sub with
+      | [] when not final -> () (* backtrack step should be currently opened;
+                    LATER: implement a check that there are more elements in the stack *)
+      | [substep] ->
+          if substep.step_kind <> Step_group
+            then err "A backtrack step should have a group step as child"
+      | _ -> err "A backtrack step should have exactly one substep"
+    end;
+    (* Check substeps, with a lower [expected_kind] *)
+    let expected_kind_sub = kind_for_sub kind in
+    List.iter (check_tree ~expected_kind:expected_kind_sub) sub;
+    in
+  ignore (List.fold_right (fun step expected_kind ->
+            check_tree ~expected_kind step;
+            kind_for_sub step.step_kind)
+          the_trace.step_stack Step_root);
+  (* If [final], then [trace] must be reduced to a single root step. *)
+  if final then begin
+    match the_trace.step_stack with
+    | [step] -> ()
+    | _ -> err "A finalized trace should consist of a single step"
+  end
 
 
 (******************************************************************************)
@@ -541,7 +610,7 @@ let without_substep_validity_checks (f: unit -> 'a): 'a =
 let try_validate_step_by_compostion (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
-    let kinds_excluded = [Step_target_resolve; Step_io; Step_backtrack_yes] in
+    let kinds_excluded = [Step_target_resolve; Step_io; Step_backtrack] in
     let subs = List.filter (fun si -> not (List.mem si.step_kind kinds_excluded)) s.step_sub in
     if List.for_all (fun sub -> sub.step_infos.step_valid) subs then begin
       let asts1: trm list = [s.step_ast_before] @
@@ -563,8 +632,8 @@ let try_validate_step_by_compostion (s : step_tree) : unit =
 
 let is_saved_step step =
   match step.step_kind with
-  | Step_root | Step_big | Step_small | Step_transfo | Step_backtrack_no | Step_typing | Step_io -> true
-  | Step_target_resolve | Step_backtrack_yes | Step_error | Step_show -> false
+  | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_typing | Step_io -> true
+  | Step_target_resolve | Step_backtrack | Step_error | Step_show -> false
 
 let last_recorded_ast step: trm =
   let rec browse_steps steps =
@@ -587,8 +656,8 @@ let rec finalize_step (step : step_tree) : unit =
   in
   if not same_as_last_step then begin match step.step_kind with
     | Step_typing | Step_io | Step_target_resolve
-    | Step_backtrack_yes | Step_error | Step_show -> ()
-    | Step_root | Step_big | Step_small | Step_transfo | Step_backtrack_no ->
+    | Step_backtrack | Step_error | Step_show -> ()
+    | Step_root | Step_big | Step_small | Step_transfo | Step_group ->
         (* TODO: Wrap error message without losing trace *)
         if !Flags.reparse_between_steps
           then reparse ();
@@ -639,7 +708,10 @@ and close_step ?(discard = false) ?(check:step_tree option) () : unit =
         (* Folding step into parent substeps *)
         parent_step.step_sub <- step :: parent_step.step_sub;
       end;
-      the_trace.step_stack <- stack_tail
+      the_trace.step_stack <- stack_tail;
+      (* In debug mode, check the trace invariant *)
+      if check_trace_at_every_step
+        then check_the_trace ~final:false
 
 (** [step] is a function wrapping the body of a transformation *)
 and step ?(valid:bool=false) ?(line : int = -1) ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
@@ -754,9 +826,9 @@ let close_bigstep_if_needed () : unit =
   close_smallstep_if_needed();
   close_step_kind_if_needed Step_big
 
-(** [close_root_step] is called only by [Run. TODO???] at the end of the script,
-   or at the end of the small-step targeted by the user.
-   It leaves the root step at the bottom of the stack *)
+(** [close_root_step] is called only by [finalize] at the end of the
+   [Run.script] function. It finalizes the root step, and leaves the
+   root step at the bottom of the stack. *)
 let close_root_step () : unit =
   close_bigstep_if_needed();
   let step = match the_trace.step_stack with
@@ -764,56 +836,85 @@ let close_root_step () : unit =
     | _ -> failwith "close_root_step: broken invariant, stack must have size one" in
   finalize_step step
 
-(** [step_backtrack f] executes [f] wrapped in a step of kind [Step_backtrack_yes].
-   At the end of [f], the ast is restored to its original value.
-   The value returned is the result produced by [f].
+(** [step_backtrack f] executes [f] wrapped in a step of kind [Step_backtrack],
+   and a nested step of kind [Step_group]. At the end of [f], the current ast is
+   restored to its original value. The value returned is the result produced by [f].
+   The backtrack-step will have the current ast as [ast_before] and [ast_after].
+   The group-step will have the current ast as [ast_before], and saves into
+   [ast_after] the state of the ast just before it is rolled back to its original state.
    Note: all the substeps that f might have opened but not closed are
    automatically closed.
    If the option [~discard_after:true] is provided, then the steps
    performed by [f] are completely erased from the trace. *)
 let step_backtrack ?(discard_after = false) (f : unit -> 'a) : 'a =
-  let ast_bak = the_trace.cur_ast in
-  let s = open_step ~kind:Step_backtrack_yes ~name:"step-backtrack" () in
+  let ast_snapshot = the_trace.cur_ast in
+  (* Open backtrack step and group step, then execute [f] *)
+  let step_backtrack = open_step ~kind:Step_backtrack ~name:"step-backtrack" () in
+  let step_group = open_step ~kind:Step_group ~name:"step-backtrack-group" () in
   let res = f () in
-  let error = "Trace.step_backtrack: did not find 's'" in
-  while (get_cur_step ~error () != s) do
+  (* Close the group step -- LATER: document why a while-loop may be useful here *)
+  let error = "Trace.step_backtrack: unable to close the group" in
+  while (get_cur_step ~error () != step_group) do
     close_step ()
   done;
-  the_trace.cur_ast <- ast_bak;
+  close_step ~check:step_group ();
+  (* Restore the ast, then close the backtrack step;
+    This step is always correct because it corresponds to a noop. *)
+  the_trace.cur_ast <- ast_snapshot;
   justif "step-backtrack restores the ast";
-  close_step ~discard:discard_after ~check:s ();
+  close_step ~discard:discard_after ~check:step_backtrack ();
   res
 
-type backtrack_result =
-| Success
+type 'a backtrack_result =
+| Success of 'a
 | Failure of exn
 
-(** [step_backtrack_on_failure f] executes [f] wrapped in a step of kind [Step_backtrack_no].
-   If [f] fails, the operation returns [Failure e], and the kind of the step
-   is changed to [Step_backtrack_yes], and the ast is restored to its original value.
+(** [step_backtrack_on_failure f] executes [f].
    If [f] succeeds, the step terminates, and [Success] is returned.
-   (LATER: generalize Success to carry a result value?)
+   The operations performed by [f] are wrapped in an outer step of kind
+   [Step_backtrack] and an inner step of kind [Step_group].
+   -- LATER: we could attempt to eliminate the [Step_backtrack] but it's tricky.
+   If [f] fails, the operation returns [Failure e]. In that case, the ast
+   is restored to its original value. The operations performed by [f]
+   are wrapped as if [step_backtrack] had been called, that is, with
+   an outer [Step_backtrack] step, and an inner [Step_group] step.
    If the option [~discard_on_failure:true] is provided, and if [f] raises an
    exception, then the steps performed by [f] are completely erased from the trace.
-   *)
-let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> unit) : backtrack_result =
-  let ast_bak = the_trace.cur_ast in
-  let s = open_step ~kind:Step_backtrack_no ~name:"step-backtrack-on-failure" () in
+   Implementation note: initially, the backtrack step is created; if [f]
+   succeeds, this step is discarded, and only the group step is kept. *)
+let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : 'a backtrack_result =
+  let ast_snapshot = the_trace.cur_ast in
+  let step_backtrack = open_step ~kind:Step_backtrack ~name:"step-backtrack-on-failure" () in
+  let step_group = open_step ~kind:Step_group ~name:"step-backtrack-on-failure-group" () in
   let res =
     try
-      f (); Success
+      let x = f() in
+      (* Close the group step *)
+      close_step ~check:step_group ();
+      Success x
     with e -> begin
-      let error = "Trace.step_backtrack_on_failure: did not find 's'" in
-      while (get_cur_step ~error () != s) do
+      (* Close all the steps that have been interrupted by the exception *)
+      let error = "Trace.step_backtrack_on_failure: unable to close the group" in
+      while (get_cur_step ~error () != step_group) do
         close_step ()
       done;
-      s.step_kind <- Step_backtrack_yes;
-      the_trace.cur_ast <- ast_bak;
+      (* Close the group step *)
+      close_step ~check:step_group ();
       Failure e
     end in
-  assert (get_cur_step () == s);
-  let discard = discard_on_failure && res <> Success in
-  close_step ~discard ~check:s ();
+  (* Close the backtrack step *)
+  let is_success = match res with Success _ -> true | Failure _ -> false in
+  if is_success then begin
+    (* If success, we close the backtrack step. LATER: collapse it?
+       The changes performed on the ast remain. *)
+    close_step ~discard:false ~check:step_backtrack ();
+  end else begin
+    (* If failure, restore the ast, and close the backtrack step;
+       discard the whole step if [~discard_on_failure:true] is provided. *)
+    the_trace.cur_ast <- ast_snapshot;
+    close_step ~discard:discard_on_failure ~check:step_backtrack ();
+  end;
+  (* Return a description of the result of [f] *)
   res
 
 (** [target_resolve_step] has a special handling because it saves a diff
@@ -920,7 +1021,10 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
 
 (** [finalize()]: should be called at the end of the script to close the root step *)
 let finalize () : unit =
-  close_root_step()
+  close_root_step();
+  (* Check the trace invariant (optional) *)
+  try check_the_trace ~final:true
+  with Invalid_trace msg -> Printf.eprintf "NON-FATAL ERROR: Trace.check_the_trace reports: %s\n" msg
 
 (** [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
 let finalize_on_error ~(exn: exn) : unit =
@@ -1299,7 +1403,7 @@ let produce_diff_output (step:step_tree) : unit =
   let def () = produce_diff_output_internal step in
   if step.step_ast_before == step.step_ast_after then begin
     match step.step_sub with
-    | [ substep ] when substep.step_kind = Step_backtrack_yes ->
+    | [ substep ] when substep.step_kind = Step_backtrack ->
       begin match substep.step_sub with
       | [ subsubstep ] when subsubstep.step_kind = Step_show ->
         produce_diff_output_internal subsubstep
@@ -1409,13 +1513,13 @@ let open_smallstep ~(line : int) ?reparse:(need_reparse:bool=false) () : unit =
    is used to implement the visualization operations.
    A optional [~name] argument can be used to customize the step
    label, e.g. [~name:"show-target"]. See module [Show.ml] for examples.
-   A vizualization step is always wrapped in a [Step_backtrack_yes], whose
+   A vizualization step is always wrapped in a [Step_backtrack], whose
    [ast_after] is equal to its [ast_before]. Inside of this step
    is contained a [Step_show], whose [ast_before] and [ast_after]
    correspond to the material displayed on the left and right panels
    of the diff. These two [ast] may be arbitrary, and use custom styles
    for their display. When visualizing a step in interactive mode,
-   if the step is a Step_backtrack_yes, then instead of showing an empty diff,
+   if the step is a Step_backtrack, then instead of showing an empty diff,
    the diff displayed corresponds to the ast of the (unique) step inside. *)
 let show_step ?(name:string="show") ~(ast_left:trm) ~(style_left:output_style) ~(ast_right:trm) ~(style_right:output_style) () =
   step_backtrack (fun () ->

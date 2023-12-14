@@ -165,6 +165,8 @@
 - When tests are fixed, revive the PIC demo (requires a typechecker, otherwise
   it is too slow).
 
+- "failure_expected: the operation was supposed to fail but it didn't"
+  does not report a useful backtrace
 
 # VSCode
 

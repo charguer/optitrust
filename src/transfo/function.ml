@@ -251,7 +251,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           let success_attach = match Trace.step_backtrack_on_failure (fun () ->
             Variable_basic.init_attach [new_target]
           ) with
-          | Success -> true
+          | Success () -> true
           | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences))
           | Failure (Contextualized_error (_, Variable_core.Init_attach_occurrence_below_control)) ->
               false
