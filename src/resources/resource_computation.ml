@@ -865,6 +865,11 @@ let rec compute_resources
         end
 
       | exception Spec_not_found fn when var_eq fn ghost_begin ->
+        (* Checks that the called ghost is reversible, either because the argument is a __with_reverse pair,
+           or because its reverse ghost is already in context.
+           Then compute ressources as if it is a normal ghost call, and remember the instantiated contract.
+           Store the reverse of the instantiated contract as the contract for _Res.
+        *)
         let ghost_call = Pattern.pattern_match effective_args [
           Pattern.(trm_apps (trm_apps2 (trm_var (var_eq with_reverse)) !__ !__) nil !__ ^:: nil) (fun ghost_fn ghost_fn_rev ghost_args ->
             let spec = find_fun_spec ghost_fn res.fun_specs in
@@ -905,6 +910,7 @@ let rec compute_resources
         end
 
       | exception Spec_not_found fn when var_eq fn ghost_end ->
+        (* Calls the closure made by GHOST_BEGIN and removes it from the pure context to ensure good scoping. *)
         Pattern.pattern_match effective_args [
           Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var ->
             (* LATER: Maybe check that the variable is indeed introduced by __ghost_begin *)
@@ -915,15 +921,20 @@ let rec compute_resources
         ]
 
       | exception Spec_not_found fn when var_eq fn __admitted ->
+        (* Stop the resource computation in the instructions following the call to __admitted()
+           by forgetting the context without raising any error. *)
         None, None
       end
 
+    (* A for loop with unspecified contract is using the default contract:
+       All resources available are considered part of the invariant.
+       Because of that we do not need to do any typechecking outside of the loop. *)
     | Trm_for (range, body, None) ->
-      (* If no spec is given, put all the resources in the invariant (best effort) *)
       let expected_res = Resource_set.make ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
       let usage_map, _ = compute_resources ~expected_res (Some res) body in
       usage_map, Some (Resource_set.bind ~old_res:res ~new_res:expected_res)
 
+    (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, body, Some contract) ->
       let outer_contract = contract_outside_loop range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
@@ -933,6 +944,7 @@ let rec compute_resources
 
       Some usage_map, Some res_after
 
+    (* Pass through constructions that do not interfere with resource checking *)
     | Trm_typedef _ ->
       Some Var_map.empty, Some res
 
@@ -949,6 +961,7 @@ let rec compute_resources
   let res =
     match res, expected_res with
     | Some res, Some expected_res ->
+      (* Check that the expected resources after the expression are actually the resources available after the expression *)
       begin try
         (* TODO: check names *)
         let used_res = assert_resource_impl res expected_res in
