@@ -228,12 +228,8 @@ let target ?(msg : string = "show-target") ?(line : int = -1) ?(types : bool = f
   let add_marks_and_get_ast () : trm =
     (* Calling [enable_multi_targets] to automatically add [nbMulti] if there is no occurence constraint. *)
     let tg = enable_multi_targets tg in
-    let marks_base = show_next_id() in
     let mark_of_occurence (i:int) : string =
-      if !Flags.keep_marks_added_by_target_show
-        then Printf.sprintf "%d_%d" marks_base i
-        else Printf.sprintf "%d" i
-      in
+      Printf.sprintf "%d" i in
     applyi (fun i t p ->
       let m = mark_of_occurence i in
       match Path.last_dir_before_inv p with
@@ -243,13 +239,11 @@ let target ?(msg : string = "show-target") ?(line : int = -1) ?(types : bool = f
     ) tg;
     Trace.ast() in
   let ast_left = Trace.ast() in
-  let ast_right =
-    if !Flags.keep_marks_added_by_target_show
-      then add_marks_and_get_ast()
-      else step_backtrack ~discard_after:true add_marks_and_get_ast in
+  let ast_right = step_backtrack ~discard_after:true add_marks_and_get_ast in
   let style_left = Style.default_custom_style () in
   let style_right = style_left in
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
+  (* LATER: we could pass a closure to show_step instead of an ast_right argument *)
 
 (* [tg] is an alias for [target] *)
 let tg = target
@@ -287,6 +281,31 @@ let ctx ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit
 let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =
   show ~line (* DEPRECATED ~reparse*) ~types:true tg
 *)
+
+
+(*----------------------------------------------------------------------------------*)
+(** Special function for unit test targets. *)
+
+(** If interactive mode, remove all existing marks in the ast.
+    Then, in any case, add marks at the positions of the targets.
+    The marks are named based on the occurence number.
+    If non-interactive mode, a prefix on the names is added with
+    the number of calls previously performed to this function.
+    Feature: [nbAny] is added to the target [tg] automatically,
+    unless a specific number is specified in the target. *)
+let add_marks_for_target_unit_tests (tg : target) : unit =
+  let tg = enable_multi_targets tg in
+  if Flags.is_execution_mode_step ()
+    then Marks_basic.remove_st ~indepth:true (fun _m -> true) [];
+  let prefix =
+    if Flags.is_execution_mode_step ()
+      then ""
+      else sprintf "%d_" (show_next_id())
+    in
+  Target.iteri (fun i t p ->
+    let mark = Printf.sprintf "%s%d" prefix i in
+    Marks_basic.add mark (target_of_path p)) tg
+
 
 (*----------------------------------------------------------------------------------*)
 

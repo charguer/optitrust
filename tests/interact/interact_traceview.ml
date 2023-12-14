@@ -43,11 +43,11 @@ let _ = Run.script_cpp (fun _ ->
   !! ignore (Trace.step_backtrack_on_failure (fun () ->
        Label.add "labE2" [cVarDef "a"];
        failwith "trigger backtrack"));
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
        Label.add "labE3" [cVarDef "a"];
        failwith "trigger expected failure");
   (* Uncomment to see a partial trace
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
        Label.add "labE4" [cVarDef "a"]);*)
 
 )

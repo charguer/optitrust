@@ -13,15 +13,15 @@ let _ = Run.script_cpp (fun _ ->
       !! ();
   );
 
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
        Sequence_basic.intro_between [tAfter; cVarDef "z"] [tBefore; cVarDef "z"]);
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
        Sequence_basic.intro_between [tAfter; cVarDef "z"] [tAfter; cVarDef "z"]);
 
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Sequence_basic.intro 1 [cFor "k"; cVarDef "a"]);
   !! Sequence_basic.intro 2 [cFor "k"; cVarDef "b"];
 
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Sequence_basic.intro 1 [cFor "l"; cVarDef "a"]);
 )

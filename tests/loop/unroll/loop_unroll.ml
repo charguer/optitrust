@@ -15,8 +15,7 @@ let _ = Run.script_cpp (fun _ ->
     !! (););
 
   (* Hiding braces *)
-  !! Trace.alternative (fun () ->
-    !! Loop.unroll ~braces:false [cFor "i"];
-    !!())
+  !! Trace.restore_original();
+  !! Loop.unroll ~braces:false [cFor "i"];
 
 )

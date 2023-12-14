@@ -1019,25 +1019,6 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
 
   print_info None "Starting script execution...\n"
 
-(** [finalize()]: should be called at the end of the script to close the root step *)
-let finalize () : unit =
-  close_root_step();
-  (* Check the trace invariant (optional) *)
-  try check_the_trace ~final:true
-  with Invalid_trace msg -> Printf.eprintf "NON-FATAL ERROR: Trace.check_the_trace reports: %s\n" msg
-
-(** [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
-let finalize_on_error ~(exn: exn) : unit =
-  Printf.eprintf "%s\n" (Printexc.to_string exn); (* FIXME: not here? *)
-  error_step exn;
-  let rec close_all_steps () : unit =
-    match the_trace.step_stack with
-    | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
-    | [_root_step] -> finalize()
-    | _step :: _ -> close_step(); close_all_steps()
-    in
-  close_all_steps()
-
 (** [get_last_substep] returns the last substep, which corresponds to the
     step to be visualized when interactively targeting a given line *)
 let get_last_substep () : step_tree =
@@ -1051,37 +1032,25 @@ let get_original_ast () : trm =
   let (_, root_step) = Xlist.unlast the_trace.step_stack in
   root_step.step_ast_before
 
-(** [alternative f]: executes the script [f] in the original state that
-  was available just after the call to [init].
-  After the call, all the actions performed are discarded.
-
-  Current usage:
-     !! Trace.alternative (fun () ->
-        !! Loop.fusion_on_block [cLabel "tofusion"];
-     );
-  TODO: deprecate this and use trace.reset instead
-*)
-let alternative (f : unit->unit) : unit =
-  let ast = get_original_ast () in
-  step_backtrack (fun () ->
-    the_trace.cur_ast <- ast;
-    f();
-  )
-
-(* FIXME: where should [failure_expected] and [alternative] be defined? *)
+(** [Failure_expected_did_not_fail] is an exception produced by [failure_expected] *)
 exception Failure_expected_did_not_fail
 
-(** [failure_expected f]: executes the unit function [f], and checks that
-   it raises the exception [Failure_expected_did_not_fail]. If it does
-   not, then an error is triggered. *)
-let failure_expected (f : unit -> unit) : unit =
+(** [failure_expected h f]: executes the unit function [f], and checks that
+   it raises an exception satisfying the boolean function [h].
+   If [f] raises an exception [e] and the call [h e] evaluates to [true],
+   then the function terminates normally.
+   Otherwise, if [f] raises an exception that does not satisfy [h],
+   this exception is propagated.
+   Otherwise, if [f] does not raise an exception, then the exception
+   [Failure_expected_did_not_fail] is raised. *)
+let failure_expected (h : exn -> bool) (f : unit -> unit) : unit =
   step_backtrack (fun () ->
     try
       f();
       raise Failure_expected_did_not_fail
     with
-      | Failure_expected_did_not_fail -> failwith "failure_expected: the operation was supposed to fail but it didn't"
-      |_ -> ()
+      | Failure_expected_did_not_fail as e -> raise e
+      | e -> if h e then () else raise e
   )
 
 (** [apply f]: applies the transformation [f] to the current AST,
@@ -1556,9 +1525,51 @@ let check_recover_original () : unit =
   call (fun cur_ast -> check_same cur_ast orig_ast)
 
 
+(******************************************************************************)
+(*                                   FINALIZE                                 *)
+(******************************************************************************)
+
+(* TEMPORARY HACK *)
+let ast_just_before_first_call_to_restore_original : trm option ref = ref None
+(** [restore_original ()] sets as current ast the original ast obtained
+    after parsing, i.e. the [ast_before] of the root step. *)
+let restore_original () : unit =
+  if !ast_just_before_first_call_to_restore_original = None
+    then ast_just_before_first_call_to_restore_original := Some the_trace.cur_ast;
+  transfo_step ~name:"restore-original" ~args:[] (fun () ->
+    the_trace.cur_ast <- get_original_ast();
+  )
+
+(** [finalize()]: should be called at the end of the script to close the root step *)
+let finalize () : unit =
+  (* TEMPORARY HACK for handling effects after a call to restore_original *)
+  begin match !ast_just_before_first_call_to_restore_original with
+  | None -> ()
+  | Some ast ->
+      transfo_step ~name:"restore-ast-before-first-restore-original" ~args:[] (fun () ->
+        the_trace.cur_ast <- ast)
+  end;
+  (* END *)
+  close_root_step();
+  (* Check the trace invariant (optional) *)
+  try check_the_trace ~final:true
+  with Invalid_trace msg -> Printf.eprintf "NON-FATAL ERROR: Trace.check_the_trace reports: %s\n" msg
+
+(** [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
+let finalize_on_error ~(exn: exn) : unit =
+  Printf.eprintf "%s\n" (Printexc.to_string exn); (* FIXME: not here? *)
+  error_step exn;
+  let rec close_all_steps () : unit =
+    match the_trace.step_stack with
+    | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
+    | [_root_step] -> finalize()
+    | _step :: _ -> close_step(); close_all_steps()
+    in
+  close_all_steps()
+
 
 (******************************************************************************)
-(*                                   User-level fucntions                     *)
+(*                                   User-level functions                     *)
 (******************************************************************************)
 
   (* TODO: INTEGRATE Special hack for minimizing diff in documentation

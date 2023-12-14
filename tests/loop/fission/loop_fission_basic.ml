@@ -5,11 +5,11 @@ let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp ( fun _ ->
   (* 1. Parallel loops can be fissioned, unless binders are broken. *)
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fission_basic [tBefore; cFunDef "parallel"; sInstr "t[i] +="]);
   !! Loop_basic.fission_basic [tAfter; cFunDef "parallel"; sInstr "t[i] +="];
   !! Loop_basic.fission_basic [tBefore; cFunDef "parallel"; cVarDef "z"];
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fission_basic [tBefore; cFunDef "parallel"; sInstr "MFREE1(5, m1)"]);
   !! Loop_basic.fission_basic [tAfter; cFunDef "parallel"; sInstr "MFREE1(5, m1)"];
 
@@ -23,11 +23,11 @@ let _ = Run.script_cpp ( fun _ ->
   !! Loop_basic.fission_basic [tAfter; cFunDef "uninit"; sInstr "t[i] = i"];
 
   (* 3. Wrong fissions are rejected. *)
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fission_basic [cFunDef "wrong_rw_rw"; cFor ""; dBody; dAfter 0]);
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fission_basic [cFunDef "wrong_rw_ro"; cFor ""; dBody; dAfter 0]);
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fission_basic [cFunDef "wrong_ro_rw"; cFor ""; dBody; dAfter 0]);
 
   (* Testing fission with multiple targets *)

@@ -1797,6 +1797,6 @@ let (~~) f a b = f b a
 (******************************************************************************)
 
 (* [show_next_id] used for batch mode execution of unit tests, to generate names of for marks.
-    Only used when [Flags.keep_marks_added_by_target_show] is set.  *)
+    Only used for tests/target/*.ml tests. *)
 let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
   Tools.resetable_fresh_generator()

@@ -13,9 +13,8 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.failure_expected (fun _ ->
     Sequence_basic.partition ~braces:true [2;3] tg;);
 
-  !! Trace.alternative (fun () ->
-     Sequence_basic.partition ~braces:true [1;2;1;3] tg;
-     !!());
+  !! Trace.restore_original();
+  !! Sequence_basic.partition ~braces:true [1;2;1;3] tg;
 
 )
 

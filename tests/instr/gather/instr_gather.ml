@@ -4,7 +4,7 @@ open Target
 let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Instr.(gather_targets ~dest:(GatherAtLast)) [cVarDef ""]);
 
   !! Instr.(gather_targets ~dest:(GatherAtFirst)) [cVarDef ""];

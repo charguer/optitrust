@@ -1,13 +1,12 @@
 open Optitrust
-open Target
 open Prelude
+let show = Show.add_marks_for_target_unit_tests
 
-let _ = Flags.keep_marks_added_by_target_show := true
 
 let _ = Run.script_cpp (fun _ ->
 
-  show [cPrimFun (Prim_binop Binop_add)];
-  show [cPrimFun (Prim_binop Binop_mul)];
-  show [cPrimFun (Prim_binop Binop_div)];
-  show [cPrimFun (Prim_binop Binop_mod)];
+  !! show [cPrimFun (Prim_binop Binop_add)];
+  !! show [cPrimFun (Prim_binop Binop_mul)];
+  !! show [cPrimFun (Prim_binop Binop_div)];
+  !! show [cPrimFun (Prim_binop Binop_mod)];
 )

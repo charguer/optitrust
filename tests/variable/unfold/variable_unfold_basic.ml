@@ -13,7 +13,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Variable_basic.unfold [cFunDef "f"];
 
   (* failure for non const variables *)
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
             Variable_basic.unfold [cVarDef "c"];)
 
 )

@@ -100,9 +100,6 @@ let resource_errors_as_warnings = ref false
  * Automatically set to true during Resources.show. *)
 let always_name_resource_hyp = ref false
 
-(* [keep_marks_added_by_target_show]: flag used for unit tests on targets that use the show function. ONLY for unit tests in tests/target WILL SOON BE DEPRECATED *)
-let keep_marks_added_by_target_show : bool ref = ref false
-
 (* [check_validity]: perform validation of transformations *)
 let check_validity = ref false
 
@@ -270,7 +267,6 @@ let warned_array_subscript_not_supported = ref Tools.String_set.empty
   TODO: alternative: save flags and restore them at the end of a batching run. *)
 
 let reset_flags_to_default () : unit =
-  keep_marks_added_by_target_show := false;
   dump_ast_details := false;
   bypass_cfeatures := false;
   print_optitrust_syntax := false;
