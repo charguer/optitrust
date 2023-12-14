@@ -785,6 +785,7 @@ and contract_invoc = {
   contract_frame: resource_item list;
   contract_inst: used_resource_set;
   contract_produced: produced_resource_set;
+  contract_joined_resources: (hyp * hyp) list;
 }
 
 (* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)

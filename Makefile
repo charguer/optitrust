@@ -3,6 +3,7 @@ THIS := optitrust
 
 OPTITRUST_PREFIX := `opam config var prefix`
 INSTALL_TARGET := $(OPTITRUST_PREFIX)/lib/$(THIS)
+BROWSER ?= xdg-open
 
 all:
 	dune build

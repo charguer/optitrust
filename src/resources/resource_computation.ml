@@ -261,6 +261,55 @@ let eliminate_dominated_evars (res: resource_set): pure_resource_set * var list 
   in
   (pure, !dominated_evars)
 
+(** [update_usage hyp current_usage extra_usage] returns the usage resulting from using
+    [current_usage] before using [extra_usage]. *)
+let update_usage (hyp: hyp) (current_usage: resource_usage option) (extra_usage: resource_usage option): resource_usage option =
+  match current_usage, extra_usage with
+  | None, u -> u
+  | u, None -> u
+  | Some Produced, Some (UsedFull | UsedUninit) -> None
+  | Some Produced, Some (SplittedReadOnly | JoinedReadOnly) -> Some Produced
+  | _, Some Produced -> failwith (sprintf "Produced resource %s share id with another one" (var_to_string hyp))
+  | Some (UsedFull | UsedUninit), _ -> failwith (sprintf "Consumed resource %s share id with another one" (var_to_string hyp))
+  | Some (SplittedReadOnly | JoinedReadOnly), Some (UsedFull | UsedUninit) -> Some UsedFull
+  | Some JoinedReadOnly, Some JoinedReadOnly -> Some JoinedReadOnly
+  | Some (SplittedReadOnly | JoinedReadOnly), Some (SplittedReadOnly | JoinedReadOnly) -> Some SplittedReadOnly
+
+(** [update_usage_map ~current_usage ~extra_usage] returns the usage map resulting from using
+    [current_usage] before using [extra_usage]. *)
+let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resource_usage_map): resource_usage_map =
+  Hyp_map.merge update_usage current_usage extra_usage
+
+let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usage: resource_usage_map option): resource_usage_map option =
+  let open Xoption.OptionMonad in
+  let* current_usage in
+  let* extra_usage in
+  Some (update_usage_map ~current_usage ~extra_usage)
+
+(** [add_usage hyp extra_usage usage_map] adds the [extra_usage] of hypothesis [hyp] to the [usage_map]. *)
+let add_usage (hyp: hyp) (extra_usage: resource_usage) (usage_map: resource_usage_map): resource_usage_map =
+  let current_usage = Hyp_map.find_opt hyp usage_map in
+  match update_usage hyp current_usage (Some extra_usage) with
+  | None -> Hyp_map.remove hyp usage_map
+  | Some new_usage -> Hyp_map.add hyp new_usage usage_map
+
+(** [used_set_to_usage_map res_used] converts the used resource set [res_used] into the corresponding usage map. *)
+let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
+  (* TODO: Maybe manage pure as well *)
+  List.fold_left (fun usage_map { inst_by; used_formula } ->
+    match Formula_inst.inst_split_read_only_inv inst_by with
+    | Some (_, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
+    | None ->
+      let hyp_usage = if formula_uninit_inv used_formula = None then UsedFull else UsedUninit in
+      match Formula_inst.inst_hyp_inv inst_by with
+      | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
+      | None ->
+        match Formula_inst.inst_forget_init_inv inst_by with
+        | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
+        | None -> failwith "Weird resource used"
+  ) Hyp_map.empty res_used.used_linear
+
+
 exception Spec_not_found of var
 exception Anonymous_function_without_spec
 exception NotConsumedResources of linear_resource_set
@@ -351,92 +400,183 @@ let produced_resources_to_resource_set (res_produced: produced_resource_set): re
   let linear = forget_origin res_produced.produced_linear in
   Resource_set.make ~pure ~linear ()
 
+(** Internal type to represent RO formula frac wands. *)
+type frac_wand = formula * formula list
+type frac_wand_list = (hyp * frac_wand) list
+type frac_simplification_steps = (hyp * hyp) list
 
-(* [resource_merge_after_frame res_after frame]:
- * Returns [res_after] * [frame] with simplifications.
- * Cancels magic wands in [frame] with linear resources in [res_after] and
- * returns the produced resource_set.
- *
- * Ex: res_after.linear = RO('a, t)  and  frame = RO('b - 'a, t)
- * gives res.linear = RO('b, t)
- *)
-let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set * resource_usage_map =
-  let res_after = produced_resources_to_resource_set res_after in
-  let ro_formulas = Hashtbl.create (List.length res_after.linear) in
-  (* Accumulate into ro_formulas the pairs ('a, t) when res_after.linear contains RO('a, t) *)
-  List.iter (fun (_, formula) ->
-      match formula_read_only_inv formula with
-      | Some { frac; formula = ro_formula } ->
-        begin match trm_var_inv frac with
-        | Some frac_var -> Hashtbl.add ro_formulas frac_var.id ro_formula
-        | None -> ()
-        end
-      | None -> ()
-    ) res_after.linear;
+let rec formula_to_frac_wand (frac: formula) : frac_wand =
+  match trm_binop_inv Binop_sub frac with
+  | Some (sub_frac, carved_frac) ->
+    let (base_frac, carved_fracs) = formula_to_frac_wand sub_frac in
+    (base_frac, carved_frac :: carved_fracs)
+  | None -> (frac, [])
 
-  let rec try_pop_ro_formula frac ro_formula =
-    match Hashtbl.find_opt ro_formulas frac.id with
-    | Some candidate_formula ->
-      Hashtbl.remove ro_formulas frac.id;
-      if are_same_trm ro_formula candidate_formula then
-        true
-      else
-        let res = try_pop_ro_formula frac ro_formula in
-        Hashtbl.add ro_formulas frac.id candidate_formula;
-        res
-    | None -> false
+let frac_wand_to_formula ((base_frac, carved_fracs): frac_wand): formula =
+  List.fold_right (fun carved_frac frac -> trm_sub frac carved_frac) carved_fracs base_frac
+
+(** [simplify_frac_wands frac_wands] try to simplify [frac_wands] on the same resource between themselves.
+
+    For each frac_wand (g - h1 - .. - hn),
+    - for each [hi] we try to join the current fraction with another one that has [hi] in the head position
+    - then, once we are stuck, we look if [g] occurs in one of the minuses (carved frac) of the other wands
+*)
+let rec simplify_frac_wands (frac_wands: (hyp * frac_wand) list): frac_simplification_steps * frac_wand_list =
+  let rec try_pop_base_frac (base_frac: formula) (frac_wands: frac_wand_list) =
+    let open Xoption.OptionMonad in
+    match frac_wands with
+    | [] -> None
+    | (hyp, (wand_base_frac, carved_fracs)) :: frac_wands when are_same_trm base_frac wand_base_frac ->
+      Some (frac_wands, hyp, carved_fracs)
+    | non_matching_wand :: frac_wands ->
+      let* frac_wands, hyp, carved_fracs = try_pop_base_frac base_frac frac_wands in
+      Some (non_matching_wand :: frac_wands, hyp, carved_fracs)
   in
-  let rec reunite_fracs frac ro_formula =
-    match trm_binop_inv Binop_sub frac with
-    | Some (sub_frac, frac_atom) ->
-      let sub_frac' = reunite_fracs sub_frac ro_formula in
-      begin match trm_var_inv frac_atom with
-      | Some atom when try_pop_ro_formula atom ro_formula -> sub_frac'
-      (* DEBUG:
-      | Some atom ->
-        Printf.eprintf "Failed to find %s\n" (var_to_string atom);
-        Printf.eprintf "%s\n" (AstC_to_c.ast_to_string ro_formula);
-        Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b -- %s\n" (a = ro_formula) (AstC_to_c.ast_to_string a)) ro_formulas;
-        trm_sub sub_frac frac_atom *)
-      | _ -> if sub_frac == sub_frac' then frac else trm_sub sub_frac' frac_atom
-      end
-    | None -> frac
+
+  let rec try_simplify_carved_fracs (carved_fracs: formula list) (frac_wands: frac_wand_list) =
+    match carved_fracs with
+    | [] -> [], frac_wands, []
+    | carved_frac :: carved_fracs ->
+      match try_pop_base_frac carved_frac frac_wands with
+      | None ->
+        let remaining_carved_fracs, frac_wands, consumed_hyps = try_simplify_carved_fracs carved_fracs frac_wands in
+        carved_frac :: remaining_carved_fracs, frac_wands, consumed_hyps
+      | Some (frac_wands, hyp, new_carved_fracs) ->
+        let remaining_carved_fracs, frac_wands, consumed_hyps = try_simplify_carved_fracs (new_carved_fracs @ carved_fracs) frac_wands in
+        remaining_carved_fracs, frac_wands, hyp :: consumed_hyps
   in
-  let used_set, frame = List.fold_left_map (fun used_set (x, formula) ->
-      match formula_read_only_inv formula with
-      | Some { frac = old_frac; formula = ro_formula } ->
-        let frac = reunite_fracs old_frac ro_formula in
-        if frac == old_frac then
-          (used_set, (x, formula))
+
+  let rec try_push_into_carved_frac base_frac new_carved_fracs frac_wands =
+    let open Xoption.OptionMonad in
+    match frac_wands with
+    | [] -> None
+    | (hyp, (wand_base_frac, wand_carved_fracs)) as cur_wand :: frac_wands ->
+      let rec try_push_into carved_fracs =
+        match carved_fracs with
+        | [] -> None
+        | carved_frac :: other_carved_fracs when are_same_trm base_frac carved_frac ->
+          Some (new_carved_fracs @ other_carved_fracs)
+        | non_matching_carved_frac :: carved_fracs ->
+          let* carved_fracs = try_push_into carved_fracs in
+          Some (non_matching_carved_frac :: carved_fracs)
+      in
+      match try_push_into wand_carved_fracs with
+      | Some carved_fracs -> Some (hyp, (hyp, (wand_base_frac, carved_fracs)) :: frac_wands)
+      | None ->
+        let* hyp, frac_wands = try_push_into_carved_frac base_frac new_carved_fracs frac_wands in
+        Some (hyp, cur_wand :: frac_wands)
+  in
+
+  match frac_wands with
+  | [] -> [], []
+  | (hyp, (base_frac, carved_fracs)) :: frac_wands ->
+    let remaining_carved_fracs, frac_wands, consumed_hyps = try_simplify_carved_fracs carved_fracs frac_wands in
+    let simpl_steps = List.map (fun ch -> hyp, ch) consumed_hyps in
+    match try_push_into_carved_frac base_frac remaining_carved_fracs frac_wands with
+    | None ->
+      let next_simpl_steps, frac_wands = simplify_frac_wands frac_wands in
+      (simpl_steps @ next_simpl_steps, (hyp, (base_frac, remaining_carved_fracs)) :: frac_wands)
+    | Some (target_hyp, frac_wands) ->
+      let next_simpl_steps, frac_wands = simplify_frac_wands frac_wands in
+      (simpl_steps @ (target_hyp, hyp) :: next_simpl_steps, frac_wands)
+
+  (* LATER: ideas for a more efficient algorithm:
+    we can use a table to cache the items to avoid repeated comparisons and traversals
+
+    input items: (g1, [h11; ..; h1n]), (g2, [h21; ..; h2n])
+    working map: [gi->[hi1; ..; hin]]
+    auxiliary map: [hij->gi]
+    result set: []
+    while working map not empty
+      we pop one item from working map, e.g. (g1, [h11; ..; h1n])
+      remaining = []
+      put the h1k in a queue
+      while queue not empty,
+        h1k next one in the queue
+        remove auxiliary map form auxiliary map
+        if working.mem h1k
+          let [hj1...hjn] = working.pop h1k
+          push the [hj1...hjn] into the queue
         else
-          let used_set = Hyp_map.add x JoinedReadOnly used_set in
-          let res = match frac.desc with
-            | Trm_val Val_lit Lit_int 1 -> (x, ro_formula)
-            | _ -> (x, formula_read_only ~frac ro_formula)
-          in
-          used_set, res
-      | None -> (used_set, (x, formula))
-    ) Hyp_map.empty frame
-  in
+          remaining.push h1k
 
-  let linear, used_set = List.fold_left (fun (acc, used_set) (h, formula) ->
-      let add_produced () = ((h, formula) :: acc, Var_map.add h Produced used_set) in
-      let skip () = (acc, used_set) in
-      match formula_read_only_inv formula with
-      | Some { frac; formula = ro_formula } ->
-        (* DEBUG
-        Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b -- %s\n" (a = ro_formula_erased) (AstC_to_c.ast_to_string a)) ro_formulas;
-        Printf.eprintf "formula: %s\n" (AstC_to_c.ast_to_string ro_formula_erased); *)
-        begin match trm_var_inv frac with
-        | Some frac when try_pop_ro_formula frac ro_formula -> add_produced ()
-        | Some frac -> skip () (* Consumed ro_formula *)
-        | None -> add_produced ()
-        end
-      | None -> add_produced ())
-    (frame, used_set) res_after.linear
+      // look for g1 in others
+      let gi = auxiliary.find_opt(his)
+      | None -> result.push(g1k, remaining)
+      | Some (his) ->
+            working.push(gi, (List.remove g1 his) ++ remaining)
+            List.iter his (fun ha -> auxiliary.push[ha -> gi]
+  *)
+
+
+(** [simplify_read_only_resources res] tries to simplify all read only resources from [res]
+    joining all the fractions such that there is no pair of resources of the form
+    [RO(h_i - f_1 - ... - f_n, H), RO(g - h_0 - ... - h_i - ... - h_n, H)]
+ *)
+let simplify_read_only_resources (res: linear_resource_set): (linear_resource_set * frac_simplification_steps) =
+  let rec find_bucket_and_add formula hyp frac buckets =
+    match buckets with
+    | [] -> [formula, [hyp, formula_to_frac_wand frac]]
+    | (other_formula, fracs) :: other_buckets when are_same_trm formula other_formula ->
+      (other_formula, (hyp, formula_to_frac_wand frac) :: fracs) :: other_buckets
+    | non_matching_bucket :: other_buckets ->
+      non_matching_bucket :: (find_bucket_and_add formula hyp frac other_buckets)
   in
-  assert (Hashtbl.length ro_formulas = 0);
-  { res_after with linear }, used_set
+  let ro_buckets = ref [] in
+  let non_ro_res = List.filter (fun (hyp, formula) ->
+    match formula_read_only_inv formula with
+    | None -> true
+    | Some { formula; frac } ->
+      ro_buckets := find_bucket_and_add formula hyp frac !ro_buckets;
+      false
+    ) res in
+  let simpl_steps = ref [] in
+  let ro_buckets = List.map (fun (formula, fracs) ->
+      let new_simpl_steps, frac_wands = simplify_frac_wands fracs in
+      simpl_steps := new_simpl_steps @ !simpl_steps;
+      (formula, frac_wands)
+    ) !ro_buckets
+  in
+  (* Here use a fold_right to maintain the initial ordering between RO resources.
+     This is required for ghost_pair_chaining to pass, and maintaining the initial order
+     is not a bad idea anyway.
+     Note however that this function pulls RO ressources in the initial context in front. *)
+  let res = List.fold_right (fun (formula, fracs) res ->
+    List.fold_left (fun res (hyp, frac_wand) ->
+      let frac = frac_wand_to_formula frac_wand in
+      match frac.desc with
+      | Trm_val Val_lit Lit_int 1 -> (hyp, formula) :: res
+      | _ -> (hyp, formula_read_only ~frac formula) :: res
+      ) res fracs
+  ) ro_buckets non_ro_res in
+  (res, !simpl_steps)
+
+(**
+  [resource_merge_after_frame res_after frame] returns [res_after] * [frame] with simplifications.
+  Cancels magic wands in [frame] with linear resources in [res_after] and
+  returns the produced resource_set.
+
+  Also returns a usage map that corresponds to the new usages from the production of resources in [res_after]
+  and the resources merges.
+
+  More precisely, the returned resource set must statifies the following invariants:
+  [res_after] * [frame] ==> res
+  there is no pair in res of the form RO(h_i - f_1 - ... - f_n, H), RO(g - h_0 - ... - h_i - ... - h_n, H)
+
+  Ex: res_after.linear = RO('a, t)  and  frame = RO('b - 'a, t)
+  gives res.linear = RO('b, t)
+ *)
+let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set * resource_usage_map * (hyp * hyp) list =
+  let res_after = produced_resources_to_resource_set res_after in
+  let used_set = List.fold_left (fun used_set (h, _)-> Hyp_map.add h Produced used_set) Hyp_map.empty res_after.linear in
+
+  let linear, ro_simpl_steps = simplify_read_only_resources (res_after.linear @ frame) in
+  let used_set = List.fold_left (fun used_set (joined_into, taken_from) ->
+    let used_set = add_usage joined_into JoinedReadOnly used_set in
+    let used_set = add_usage taken_from UsedFull used_set in
+    used_set) used_set ro_simpl_steps in
+
+  { res_after with linear }, used_set, ro_simpl_steps
 
 (** <private> cf. {!find_fun_spec} *)
 let trm_fun_var_inv (t:trm): var option =
@@ -465,7 +605,7 @@ let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resou
 
 (* FIXME: move printing out of this file. *)
 let resource_list_to_string res_list : string =
-  Ast_fromto_AstC.ctx_resource_list_to_string ~sep:"\n" res_list
+  String.concat "\n" (List.map Ast_fromto_AstC.named_formula_to_string res_list)
 
 let resource_set_to_string res : string =
   let spure = resource_list_to_string res.pure in
@@ -493,70 +633,28 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "%s: Resource check error: %s" (loc_to_string loc) (Printexc.to_string err))
   | _ -> None)
 
-(** [update_usage_map ~current_usage ~extra_usage] returns the usage resulting from using
-    [current_usage] before using [extra_usage]. *)
-let update_usage_map
-  ~(current_usage: resource_usage_map)
-  ~(extra_usage: resource_usage_map): resource_usage_map =
-  Hyp_map.merge (fun hyp cur_use new_use ->
-      match cur_use, new_use with
-      | None, u -> u
-      | u, None -> u
-      | Some Produced, Some (UsedFull | UsedUninit) -> None
-      | Some Produced, Some (SplittedReadOnly | JoinedReadOnly) -> Some Produced
-      | _, Some Produced -> failwith (sprintf "Produced resource %s share id with another one" (var_to_string hyp))
-      | Some (UsedFull | UsedUninit), _ -> failwith (sprintf "Consumed resource %s share id with another one" (var_to_string hyp))
-      | Some (SplittedReadOnly | JoinedReadOnly), Some (UsedFull | UsedUninit) -> Some UsedFull
-      | Some JoinedReadOnly, Some JoinedReadOnly -> Some JoinedReadOnly
-      | Some (SplittedReadOnly | JoinedReadOnly), Some (SplittedReadOnly | JoinedReadOnly) -> Some SplittedReadOnly
-    ) current_usage extra_usage
-
-(** [add_used_set_to_usage_map res_used usage_map]: TODO COMMENT *)
-let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource_usage_map)
-  : resource_usage_map =
-  (* TODO: Maybe manage pure as well *)
-  let locally_used =
-    List.fold_left (fun usage_map { inst_by; used_formula } ->
-      match Formula_inst.inst_split_read_only_inv inst_by with
-      | Some (_, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
-      | None ->
-        let hyp_usage = if formula_uninit_inv used_formula = None then UsedFull else UsedUninit in
-        match Formula_inst.inst_hyp_inv inst_by with
-        | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
-        | None ->
-          match Formula_inst.inst_forget_init_inv inst_by with
-          | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
-          | None -> failwith "Weird resource used"
-    ) Hyp_map.empty res_used.used_linear
-  in
-  update_usage_map ~current_usage:usage_map ~extra_usage:locally_used
 
 (** Knowing that term [t] has contract [contract], and that [res] is available before [t],
-  [compute_contract_invoc contract subst_ctx res t] returns the resources used by [t],
+  [compute_contract_invoc contract ?subst_ctx res t] returns the resources used by [t],
   and the resources available after [t].
 
   If provided, [subst_ctx] is a substitution applied to [contract].
   Sets [t.ctx.ctx_resources_contract_invoc].
     *)
-let compute_contract_invoc
-  (contract: fun_contract)
-  ?(subst_ctx: tmap = Var_map.empty)
-  (res: resource_set)
-  (t: trm)
-  : resource_usage_map * resource_set =
-  let subst_ctx, res_used, res_frame =
-    extract_resources ~split_frac:true ~subst_ctx res contract.pre in
+let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set =
+  let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
 
   let res_produced = compute_produced_resources subst_ctx contract.post in
+  let usage = used_set_to_usage_map res_used in
+
+  let new_res, usage_after, ro_simpl_steps = resource_merge_after_frame res_produced res_frame in
 
   t.ctx.ctx_resources_contract_invoc <- Some {
     contract_frame = res_frame;
     contract_inst = res_used;
-    contract_produced = res_produced };
+    contract_produced = res_produced;
+    contract_joined_resources = ro_simpl_steps };
 
-  let usage = add_used_set_to_usage_map res_used Var_map.empty in
-
-  let new_res, usage_after = resource_merge_after_frame res_produced res_frame in
   let total_usage = update_usage_map ~current_usage:usage ~extra_usage:usage_after in
   total_usage, Resource_set.bind ~old_res:res ~new_res
 
@@ -655,24 +753,24 @@ let rec compute_resources
           (Some Var_map.empty, Some res) instrs
       in
 
-      let res = Option.map (fun res ->
-        (* Free the cells allocated with stack new *)
-        let extract_let_mut ti =
-          match trm_let_inv ti with
-          | Some (_, x, _, t) ->
-            begin match new_operation_inv t with
-            | Some _ -> [x]
-            | None -> []
-            end
+      (* Free the cells allocated with stack new *)
+      let** res in
+      let extract_let_mut ti =
+        match trm_let_inv ti with
+        | Some (_, x, _, t) ->
+          begin match new_operation_inv t with
+          | Some _ -> [x]
           | None -> []
-        in
-        let to_free = List.concat_map extract_let_mut instrs in
-        (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resource_set_opt_to_string (Some res));*)
-        let res_to_free = Resource_set.make ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
-        let _, _, linear = extract_resources ~split_frac:false res res_to_free in
-        { res with linear }) res
+          end
+        | None -> []
       in
-      usage_map, res
+      let to_free = List.concat_map extract_let_mut instrs in
+      (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
+      let res_to_free = Resource_set.make ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
+      let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
+      let usage_map = update_usage_map_opt ~current_usage:usage_map ~extra_usage:(Some (used_set_to_usage_map removed_res)) in
+
+      usage_map, Some { res with linear }
 
     (* First compute the resources of [body].
        If the body is convertible to a formula, remember it as alias.
@@ -698,7 +796,7 @@ let rec compute_resources
         Check that all [effective_args] do not appear in the function contract unless they are formula-convertible (cf. formula_of_term).
         Build the instantation context with the known [effective_args] and [ghost_args].
         Then [compute_contract_invoc] to deduct used and remaining resources.
-          *)
+        *)
 
         (* TODO: Cast into readonly: better error message when a resource exists in RO only but asking for RW *)
         let read_only_res = Resource_set.read_only res in
@@ -873,11 +971,7 @@ and compute_resources_and_merge_usage
   let extra_usage, res = (compute_resources : ?expected_res:resource_set -> resource_set option -> trm -> (resource_usage_map option * resource_set option)) ?expected_res res t in
   try
     let open Xoption.OptionMonad in
-    let usage_map = (
-      let* current_usage in
-      let* extra_usage in
-      Some (update_usage_map ~current_usage ~extra_usage)
-    ) in
+    let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
     (usage_map, res)
   with e -> handle_resource_errors t.loc e
 
