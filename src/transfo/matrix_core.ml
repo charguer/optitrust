@@ -259,53 +259,7 @@ let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms :
 let local_name (mark : mark) (var : var) (local_var : string) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : string list ) (local_ops : local_ops) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices local_ops)
 
-(* TODO: Factorize *)
-let local_name_tile_aux (mark : mark) (mark_accesses : mark) (var : var) (tile : nd_tile) (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm) (indices : (var list)) (local_ops : local_ops) (t : trm) : trm =
-  let local_var = Trm.new_var local_var in
-  let indices_list = begin match indices with
-  | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims | _ as l -> l  end in
-  let indices = List.map (fun ind -> trm_var ind) indices_list in
-  let nested_loop_range = List.map2 (fun (offset, size) ind -> (ind, offset, DirUp, trm_add offset size, Post_inc, false)) tile indices_list in
-  let tile_dims = List.map (fun (_, size) -> size) tile in
-  let tile_indices = List.map2 (fun (offset, _) ind -> trm_sub ind offset) tile indices in
-  let alloc_instr = let_alloc_with_ty local_var tile_dims elem_ty in
-  let map_indices = List.map (fun (offset, size) -> fun i -> trm_sub i offset) tile in
-  let new_t = replace_all_accesses var local_var tile_dims map_indices mark_accesses t in
-  let final_trm = begin match local_ops with
-    | Local_arith _ ->
-      let write_on_local_var =
-        trm_set (access (trm_var local_var) tile_dims tile_indices) (trm_get (access (trm_var var) dims indices)) in
-      let write_on_var =
-        trm_set (access (trm_var var) dims indices) (trm_get (access (trm_var local_var) tile_dims tile_indices)) in
-      let load_for = trm_copy (trm_fors nested_loop_range write_on_local_var) in
-      let unload_for = trm_copy (trm_fors nested_loop_range write_on_var) in
-      let free_instr = free tile_dims (trm_var local_var) in
-      trm_seq_nobrace_nomarks [alloc_instr; load_for; new_t; unload_for; free_instr]
-    | Local_obj (init, swap, free_fn) ->
-      failwith "unimplemented" (*
-      let write_on_local_var =
-        trm_apps (trm_var init)  [access (trm_var_get local_var) tile_dims tile_indices] in
-      let write_on_var =
-        trm_apps (trm_var swap) [access (trm_var_get var) dims indices; access (trm_var_get local_var) tile_dims tile_indices] in
-      let free_local_var =
-        trm_apps (trm_var free_fn)  [access (trm_var_get local_var) tile_dims tile_indices] in
-      let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
-      let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
-      let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
-      let last_instr = free tile_dims (trm_var_get local_var) in
-      trm_seq_nobrace_nomarks [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr]
-      *)
-  end in
-  trm_add_mark mark final_trm
-
-
-(* [local_name_tile]: applies [local_name_tile_aux] at trm [t] with path [p]. *)
-let local_name_tile (mark : mark) (mark_accesses : mark) (var : var) (tile : nd_tile) (local_var : string) (dims : trms) (elem_ty : typ) (size : trm) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
-  Target.apply_on_path (local_name_tile_aux mark mark_accesses var tile local_var dims elem_ty size indices local_ops)
-
-
 (* TODO: Factorize me *)
-
 (* [delocalize_aux dim init_zero acc_in_place acc any_mark labels index]: TODO  *)
 let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (labels : label list) (index : string) (ops : local_ops) (t : trm) : trm =
   let index = new_var index in

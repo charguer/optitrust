@@ -71,7 +71,12 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
   Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
   Variable_basic.fold [cVarDef name]
 
-(** [local_name ~var ~local_var tg] replaces occurences of [var] with a new variable [local_var] around the term targeted by [tg]. *)
+(** [local_name ~var ~local_var tg] replaces occurences of [var] with a new variable [local_var] around the term targeted by [tg].
+
+  TODO:
+  - [~use_heap = false] flag ?
+  - deal with _Uninit cases in pre/post where reading/writing value around term is not needed.
+  *)
 let%transfo local_name ~(var : string) ~(local_var : string) (tg : target) : unit =
   let var = find_var_in_current_ast ~target:tg var in
   (* FIXME: find type in context. *)
