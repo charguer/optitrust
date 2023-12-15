@@ -13,13 +13,14 @@ let _ = Run.script_cpp (fun _ ->
   !! Sequence.intro ~start:[tBefore; cVarDef "b"] ~stop:[tAfter; cVarDef "c"] ();
   !! Sequence.intro ~start:[cVarDef "d"] ~nb:2 ();
   !! Sequence.intro ~stop:[cVarDef "g"] ~nb:2 ();
-     Trace.alternative (fun _ ->
-      !! Sequence.intro ~start:[cVarDef "f"] ();
-      !! Sequence.intro ~stop:[cVarDef "e"] ();
-      !! (););
 
   !! Trace.failure_expected (fun _e -> true) (fun () ->
        Sequence.intro ~start:[tAfter; cVarDef "z"] ~stop:[tBefore; cVarDef "z"] ());
   !! Trace.failure_expected (fun _e -> true) (fun () ->
        Sequence.intro ~start:[tAfter; cVarDef "z"] ~stop:[tAfter; cVarDef "z"] ());
+
+  !! Trace.restore_original();
+  !! Sequence.intro ~start:[cVarDef "f"] ();
+  !! Sequence.intro ~stop:[cVarDef "e"] ();
+
 )

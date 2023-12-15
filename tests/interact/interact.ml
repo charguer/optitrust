@@ -24,7 +24,7 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.init_detach [cVarInit "a"]; *)
 
   (* Show the current ast *)
-  show_ast();
+  Resources.show_ast();
   (* Show the resources *)
   Resources.show();
 

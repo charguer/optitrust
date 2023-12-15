@@ -10,9 +10,8 @@ let _ = Run.script_cpp (fun _ ->
   (* FIXME: scopes are broken here *)
 
   (* Without partitioning *)
-  !! Trace.alternative (fun _ ->
-    !! Loop.unroll  [cFor "i"];
-    !! (););
+  !! Trace.restore_original();
+  !! Loop.unroll  [cFor "i"];
 
   (* Hiding braces *)
   !! Trace.restore_original();

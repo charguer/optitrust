@@ -272,6 +272,7 @@ let res ?(msg : string = "show-resources")
       print = Lang_C cstyle } in
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
 
+
 (* [ctx] is like [res] but shows only [ctx_res] fields. *)
 let ctx ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit =
   res ~msg ~ast ~typing_style:Style.typing_ctx ()

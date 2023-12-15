@@ -504,3 +504,6 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
     ) interferences)));
   ()
 
+(* TEMPORARY for backward compatibility *)
+let show () = Show.res ()
+let show_ast () = Show.ast ()
