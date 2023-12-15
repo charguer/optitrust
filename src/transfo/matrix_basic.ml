@@ -115,24 +115,16 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd
   let map_indices = List.map (fun (offset, size) -> fun i -> trm_sub i offset) tile in
   let new_t = Matrix_core.replace_all_accesses var local_var tile_dims
     map_indices mark_accesses t in
-  let write_on_local_var = trm_set
-    (access (trm_var local_var) tile_dims tile_indices)
-    (trm_get (access (trm_var var) dims indices))
-  in
-  let write_on_var = trm_set
-    (access (trm_var var) dims indices)
-    (trm_get (access (trm_var local_var) tile_dims tile_indices))
-  in
-  let load_contract = Resource_contract.(Resource_formula.(empty_loop_contract
-    |> push_loop_contract_clause Reads (new_anon_hyp (), formula_cell var)
-    |> push_loop_contract_clause Writes (new_anon_hyp (), formula_cell local_var))) in
-  let unload_contract = Resource_contract.(Resource_formula.(empty_loop_contract
-    |> push_loop_contract_clause Writes (new_anon_hyp (), formula_cell var)
-    |> push_loop_contract_clause Reads (new_anon_hyp (), formula_cell local_var))) in
-  let load_for = trm_copy (Resources.trm_fors
-    ~inner_contract:load_contract nested_loop_range write_on_local_var) in
-  let unload_for = trm_copy (Resources.trm_fors
-    ~inner_contract:unload_contract nested_loop_range write_on_var) in
+  let access_var = access (trm_var var) dims indices in
+  let access_local_var = access (trm_var local_var) tile_dims tile_indices in
+  let write_on_local_var = trm_set access_local_var (trm_get access_var) in
+  let write_on_var = trm_set access_var (trm_get access_local_var) in
+  let var_cell = Resource_formula.(formula_model access_var trm_cell) in
+  let local_var_cell = Resource_formula.(formula_model access_local_var trm_cell) in
+  let load_for = trm_copy (Matrix_core.pointwise_fors
+    ~reads:[var_cell] ~writes:[local_var_cell] nested_loop_range write_on_local_var) in
+  let unload_for = trm_copy (Matrix_core.pointwise_fors
+    ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var) in
   let free_instr = free tile_dims (trm_var local_var) in
   trm_seq_nobrace_nomarks [alloc_instr; load_for; new_t; unload_for; free_instr]
 

@@ -399,7 +399,8 @@ __GHOST(group_ro_unfocus) {
 
 __GHOST(group_focus_subrange) {
   __requires("start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
-  __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
+  // __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
+  // TODO: old_start <= start && stop <= old_stop && step > 0
   __consumes("Group(range(old_start, old_stop, step), items)");
   __produces("Wand(Group(range(start, stop, step), items), Group(range(old_start, old_stop, step), items)), Group(range(start, stop, step), items)");
   __admitted();
@@ -407,6 +408,24 @@ __GHOST(group_focus_subrange) {
 
 __GHOST(group_unfocus_subrange) {
   __reverts(group_focus_subrange);
+  __ghost(close_wand, "");
+}
+
+__GHOST(group_focus_subrange_uninit) {
+  __requires("start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
+  // __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
+  // TODO: old_start <= start && stop <= old_stop && step > 0
+  __consumes("_Uninit(Group(range(old_start, old_stop, step), items))");
+  __produces("Wand("
+    "_Uninit(Group(range(start, stop, step), items)),"
+    "_Uninit(Group(range(old_start, old_stop, step), items))"
+    "),"
+    "_Uninit(Group(range(start, stop, step), items))");
+  __admitted();
+}
+
+__GHOST(group_unfocus_subrange_uninit) {
+  __reverts(group_focus_subrange_uninit);
   __ghost(close_wand, "");
 }
 

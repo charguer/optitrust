@@ -1203,6 +1203,13 @@ match t.desc with
   | _ -> None in Some (vk, x, get_inner_ptr_type tx, init1)
 | _ -> None
 
+(* [trm_fors rgs tbody] creates nested loops with the main body [tbody] each
+  nested loop takes its components from [rgs]. *)
+let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
+  List.fold_right (fun l_range acc ->
+    trm_for l_range (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
+  ) rgs tbody
+
 (* [trm_fors_inv nb t]: gets a list of loop ranges up to the loop at depth [nb] from nested loops [t] *)
 let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
 let nb_loops = ref 0 in

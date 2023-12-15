@@ -540,18 +540,3 @@ let show (*LATER?(details:bool=true)*) ?(discard_after = true) ?(line:int = -1) 
     recompute_resources ();
     show_computed_res ~line ()
   )
-
-(* FIXME: should not be here, but can't be in trm.ml *)
-(* [trm_fors ?inner_contract rgs tbody] creates nested loops with the main body [tbody] each
-  nested loop takes its components from [rgs].
-  If provided, [inner_contract] is used to infer outer loop contracts. *)
-let trm_fors ?(inner_contract : loop_contract option) (rgs : loop_range list) (tbody : trm) : trm =
-  let contract = ref inner_contract in
-  List.fold_right (fun l_range acc ->
-    let acc = trm_for ?contract:!contract l_range (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc]) in
-    contract := Option.map (fun c ->
-      let iter_contract = Resource_contract.(fun_contract_copy (contract_outside_loop l_range c)) in
-      { empty_loop_contract with iter_contract }
-    ) !contract;
-    acc
-  ) rgs tbody
