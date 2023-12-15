@@ -82,6 +82,9 @@ let report_big_steps : bool ref = ref false
 (* [use_clang_format]: flag to use clang-format or not in output CPP files. *)
 let use_clang_format : bool ref = ref true
 
+(* [clang_format_nb_columns]: flag to control the limit on the column for clang-format. *)
+let clang_format_nb_columns : int ref = ref 80
+
 (* [verbose_mode]: flag to report more about file manipulations performed by the tool. *)
 let verbose_mode : bool ref = ref false
 
@@ -205,6 +208,7 @@ let spec : cmdline_args =
      ("-serialized-input", Arg.String process_serialized_input, " choose an input serialization mode between 'build', 'use', 'make' or 'auto'");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
+     ("-clang-format-nb-columns", Arg.Set_int clang_format_nb_columns, " specify the number of columns for clang-format");
      ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
      ("-bypass-cfeatures-decoding", Arg.Set bypass_cfeatures_decoding, " print output using syntax for internal AST");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
