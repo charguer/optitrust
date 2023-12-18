@@ -196,6 +196,12 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
+    "key": "ctrl+shift+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open diff for the current test",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
     "key": "shift+f10",
     "command": "workbench.action.tasks.runTask",
     "args": "Run all the tests",

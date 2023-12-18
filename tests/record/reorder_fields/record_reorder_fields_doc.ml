@@ -1,6 +1,5 @@
 
 open Optitrust
-open Target
 open Prelude
 
 

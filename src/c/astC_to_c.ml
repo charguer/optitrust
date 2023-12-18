@@ -37,7 +37,7 @@ type style = {
 let default_style () : style =
   let s = Ast.default_style() in
   { ast = { s with print_contract = false };
-    optitrust_syntax = !Flags.print_optitrust_syntax || !Flags.bypass_cfeatures;
+    optitrust_syntax = !Flags.print_optitrust_syntax;
     pretty_matrix_notation = !Flags.pretty_matrix_notation;
     commented_pragma = !Flags.use_clang_format; }
 

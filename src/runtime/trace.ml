@@ -12,7 +12,10 @@ type output_style = Style.custom_style
 
 let debug = false
 
-let check_trace_at_every_step = true
+(* [check_trace_at_every_step] can be activated to call the function
+   [check_trace] after every step, to check the invariants of the
+   trace data structure, which stores the stack of open steps. *)
+let check_trace_at_every_step = false
 
 
 (******************************************************************************)
@@ -676,7 +679,21 @@ let rec finalize_step (step : step_tree) : unit =
   (* Set the validity flag *)
   if !Flags.check_validity
     then try_validate_step_by_compostion step
-    else step.step_infos.step_valid <- false
+    else step.step_infos.step_valid <- false;
+  (* If the step is a small-step and contains a unique substep tagged
+     "show", then the current small-step is also tagged "show".
+     If the small-step contains multiple show step, we print a warning. *)
+  if step.step_kind = Step_small then begin
+    let has_show_tag (substep:step_tree) : bool =
+      List.mem "show" substep.step_infos.step_tags in
+    match step.step_sub with
+    | [ substep ] when has_show_tag substep ->
+      infos.step_tags <- "show"::infos.step_tags;
+    | steps ->
+        if List.length (List.filter has_show_tag steps) > 1
+          then Tools.warn "Should have only one show function after '!!'."
+  end;
+
 
 and without_reparsing_between_steps (f: unit -> unit): unit =
   Flags.with_flag Flags.reparse_between_steps false f;
@@ -695,7 +712,7 @@ and close_step ?(discard = false) ?(check:step_tree option) () : unit =
   | [] -> failwith "close_step: the_trace should not be empty"
   | [root_step] -> failwith "close_step: on the root, should call close_root_step"
   | step :: ((parent_step :: _) as stack_tail)  ->
-      (* Checking that swe close the expected step *)
+      (* Checking that we close the expected step *)
       begin match check with
       | None -> ()
       | Some opened_step ->
@@ -846,10 +863,10 @@ let close_root_step () : unit =
    automatically closed.
    If the option [~discard_after:true] is provided, then the steps
    performed by [f] are completely erased from the trace. *)
-let step_backtrack ?(discard_after = false) (f : unit -> 'a) : 'a =
+let step_backtrack ?(tags:string list=[]) ?(discard_after = false) (f : unit -> 'a) : 'a =
   let ast_snapshot = the_trace.cur_ast in
   (* Open backtrack step and group step, then execute [f] *)
-  let step_backtrack = open_step ~kind:Step_backtrack ~name:"step-backtrack" () in
+  let step_backtrack = open_step ~kind:Step_backtrack ~name:"step-backtrack" ~tags () in
   let step_group = open_step ~kind:Step_group ~name:"step-backtrack-group" () in
   let res = f () in
   (* Close the group step -- LATER: document why a while-loop may be useful here *)
@@ -1361,26 +1378,28 @@ let produce_trace_output (step:step_tree) : unit =
   let prefix = (* ctx.directory ^*) ctx.prefix in
   dump_trace_to_js ~prefix step
 
+(** [extract_show_step] extracts a [Step_show] nested as unique substep in depth
+    of a step. *)
+let rec extract_show_step (step:step_tree) : step_tree =
+  if step.step_kind = Step_show then step else begin
+    match step.step_sub with
+    | [ substep ] -> extract_show_step substep
+    | _ -> failwith "Trace.extract_show_step: did not find a Step_show in depth"
+  end
+
 (** [produce_diff_output step] is an auxiliary function for [produce_output_and_exit].
    If the step targeted is a step with [ast_after == ast_before], then the diff
-   would be empty. In the particular case this empty diff comes from a [step_show]
-   operation, we report the diff for the subset of kind [Step_show] (which is wrapped
-   inside another step of kind [Step_backtract].
+   would be empty. In the particular case this empty diff comes from a step
+   tagged "show", we report the diff for the subset of kind [Step_show]
+   (which is wrapped inside steps of kind [Step_backtract] and [Step_group]).
    -- LATER: generalize: take the ast_before of the first
    substep, and the ast_after of the last substep. *)
 let produce_diff_output (step:step_tree) : unit =
-  let def () = produce_diff_output_internal step in
-  if step.step_ast_before == step.step_ast_after then begin
-    match step.step_sub with
-    | [ substep ] when substep.step_kind = Step_backtrack ->
-      begin match substep.step_sub with
-      | [ subsubstep ] when subsubstep.step_kind = Step_show ->
-        produce_diff_output_internal subsubstep
-      | _ -> def()
-      end
-    | _ -> def()
+  if step.step_ast_before == step.step_ast_after
+    && List.mem "show" step.step_infos.step_tags then begin
+    produce_diff_output_internal (extract_show_step step);
   end else begin
-    def()
+    produce_diff_output_internal step
   end
 
 (** [produce_output_and_exit()]: invokes [output_prog] on the current AST an also on the
@@ -1484,14 +1503,17 @@ let open_smallstep ~(line : int) ?reparse:(need_reparse:bool=false) () : unit =
    label, e.g. [~name:"show-target"]. See module [Show.ml] for examples.
    A vizualization step is always wrapped in a [Step_backtrack], whose
    [ast_after] is equal to its [ast_before]. Inside of this step
-   is contained a [Step_show], whose [ast_before] and [ast_after]
+   is contained a [Step_group], which itselft contains a [Step_show].
+   This inner [Step_show] carries an [ast_before] and an [ast_after] that
    correspond to the material displayed on the left and right panels
    of the diff. These two [ast] may be arbitrary, and use custom styles
    for their display. When visualizing a step in interactive mode,
    if the step is a Step_backtrack, then instead of showing an empty diff,
-   the diff displayed corresponds to the ast of the (unique) step inside. *)
+   the diff displayed corresponds to the ast of the (unique) step inside.
+   The backtract step containing the show step is tagged with the tag "show",
+   to easily identify it as such. *)
 let show_step ?(name:string="show") ~(ast_left:trm) ~(style_left:output_style) ~(ast_right:trm) ~(style_right:output_style) () =
-  step_backtrack (fun () ->
+  step_backtrack ~tags:["show"] (fun () ->
     (* Create the show step *)
     let s = open_step ~kind:Step_show ~name () in
     close_step ~check:s ();

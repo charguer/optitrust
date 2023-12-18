@@ -210,16 +210,19 @@ end
 (*----------------------------------------------------------------------------------*)
 (** Show functions whose output can be viewed as a diff or as steps in trace. *)
 
-(* [ast ()] prints on the left-hand side the C code, and on the right-hand side the
-    internal AST code *)
-let ast ?(msg : string = "show-ast") () : unit =
+(* [ast ()] prints on the left-hand side the C code, and on the right-hand side the internal AST code. Use [~internal:false] to disable the printing of internal. *)
+let ast ?(internal : bool = true) ?(msg : string = "show-ast") () : unit =
   let ast_left = Trace.ast() in
-  let ast_right = ast_left in
-  let style_left = Style.default_custom_style () in
-  let cstyle_default = AstC_to_c.(default_style()) in
-  let style_right = { style_left with
-    decode = false;
-    print = Lang_C { cstyle_default with optitrust_syntax = true } } in
+  let style_default = Style.default_custom_style () in
+  let style_left = style_default in
+  let style_right =
+    if not internal then style_default else begin
+      let cstyle_default = AstC_to_c.(default_style()) in
+      { style_default with
+        decode = false;
+        print = Lang_C { cstyle_default with optitrust_syntax = true } }
+    end in
+  let ast_right = if not internal then Trm.empty_ast else ast_left in
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
 
 (* [target tg] shows the C code on the left-hand side of the diff, and the code decorated

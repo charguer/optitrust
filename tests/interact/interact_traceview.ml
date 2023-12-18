@@ -27,8 +27,10 @@ let _ = Run.script_cpp (fun _ ->
   !! Show.res ();
   !! Show.ctx ();
   !! Show.target [cVarDef ""];
-  (* Example with two show in a same small-step *)
+  (* Example with two show operations within the same small-step;
+    the diff would show empty, but we get a warning.
   !! Show.ast (); Show.ast ();
+  *)
   (* Examples of show functions with output on stdout *)
   (* !! ShowAt.trm []; *)
   bigstep "third part";

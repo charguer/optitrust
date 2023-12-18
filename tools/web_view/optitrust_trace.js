@@ -287,16 +287,27 @@ function loadDebugMsgs(messages) {
   $('#debugMsgDiv').html(s);
 }
 
+function extractShowStep(step) {
+  if (step.kind == "Show") {
+    return step;
+  } else if (step.sub.length == 1) {
+    return extractShowStep(steps[step.sub[0]]);
+  } else {
+    throw new Error("ERROR: extractShowStep: did not find a step-show in depth");
+  }
+}
+
 function loadDiffForStep(step) {
   // Special case for the diff of steps whose action is a "show" operation,
-  // and which have a unique substep of kind "Backtrack_yes",
-  // itself with a unique substep of kind "show"
-  if ( step.sub.length == 1
-    && steps[step.sub[0]].kind == "Backtrack_yes"
-    && steps[step.sub[0]].sub.length == 1
-    && steps[steps[step.sub[0]].sub[0]].kind == "Show") {
-    step = steps[steps[step.sub[0]].sub[0]];
+  // for which we show the diff of the substep
+  if (step.tags.includes("show")) {
+    try {
+      step = extractShowStep(step);
+    } catch (error) {
+      console.log("ERROR: extractShowStep: did not find a step-show in depth");
+    }
   }
+  // Print diff for step
   loadDiffFromString(step.diff);
 }
 

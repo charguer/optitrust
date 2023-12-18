@@ -236,14 +236,30 @@
         }
       },
       {
+        "label": "Open diff for the current test",
+        "type": "shell",
+        "command": "./tester",
+        "args": [
+          "diff",
+          "-with-ignored",
+          "${relativeFile}"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        }
+      },
+      {
         "label": "Run the current test with -dump-trace",
         "type": "shell",
         "command": "./tester",
         "args": [
           "run",
           "-with-ignored",
-          "-dump-trace"
-          "${relativeFile}",
+          "-dump-trace",
+          "${relativeFile}"
         ],
         "options": {
           "cwd": "${workspaceFolder}"

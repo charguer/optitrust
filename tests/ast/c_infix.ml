@@ -5,9 +5,9 @@ open Target
 (* Note: [address_elim] is not meant work in the presence of stack variables;
    thus [stackvar_elim] must be called first. *)
 
-let _ =
-  Flags.dump_ast_details := true;
-  Flags.bypass_cfeatures := true
+(* let _ = Flags.dump_ast_details := true; *)
+let _ = Flags.bypass_cfeatures := true
+let _ = Flags.print_optitrust_syntax := true
 
 
 (* Option to choose the size of the test *)

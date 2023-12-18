@@ -1,5 +1,4 @@
 open Optitrust
-open Target
 open Prelude
 
 (* TODO: FIx trm_let_mult *)

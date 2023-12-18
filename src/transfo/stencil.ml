@@ -1,4 +1,3 @@
-open Target
 open Prelude
 
 (* TODO: unit tests + document *)

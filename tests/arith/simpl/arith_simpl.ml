@@ -34,6 +34,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStart];
 
   (* needs all types to be valid *)
+  !! Trace.reparse(); (* TODO: fix problem with reparse *)
   !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
   !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "p"; dRHS];
   !!! Arith_basic.(simpl compute) [nbMulti; cBinop Binop_exact_div];

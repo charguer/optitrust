@@ -1,5 +1,4 @@
 open Optitrust
-open Target
 open Prelude
 
 (* Example struct_modif transformation #1: scaling field "x" by a factor 2 *)

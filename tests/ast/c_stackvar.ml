@@ -2,9 +2,9 @@ open Optitrust
 open Ast_fromto_AstC
 open Target
 
-let _ =
-  Flags.dump_ast_details := true;
-  Flags.bypass_cfeatures := true
+(* let _ = Flags.dump_ast_details := true; *)
+let _ = Flags.bypass_cfeatures := true
+let _ = Flags.print_optitrust_syntax := true
 
 (* Option to choose the size of the test *)
 let filename =

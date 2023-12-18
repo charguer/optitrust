@@ -6,7 +6,7 @@ open Target
 let _ = Run.script_cpp (fun _ ->
 
   !! Loop.reorder ~order:["d";"c";"b"] [cFor "b"];
-
+!! Show.ast();
   !! Trace.restore_original();
   !! Loop.reorder ~order:["b";"d";"e";"a";"c" ] [cFor "a"];
 

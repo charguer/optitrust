@@ -20,7 +20,7 @@ int main() {
   for (int l = N + shift; l > shift; l--) {
     x += l - shift;
   }
-  for (int m = 8; m < N + 4; m++) {
+  for (int m = 8; m < 4 + N; m++) {
     x += m - 6;
   }
   float* input;

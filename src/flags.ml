@@ -85,8 +85,10 @@ let verbose_mode : bool ref = ref false
 let use_light_diff : bool ref = ref false
 
 (* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them.
-   It affects the behavior of the parsing function [c_parser],
-   and the style controlling the behavior of the printing operation *)
+   It affects the behavior of the parsing function [c_parser] to bypass [cfeatures_elim].
+   It affects the behavior of the printing function [output_prog] to bypass [cfeatures_intro].
+   Note: this option is orthogonal to [print_optitrust_syntax]; beware, however, that it makes
+   no sense to print encoded terms without [print_optitrust_syntax] activated. *)
 let bypass_cfeatures : bool ref = ref false
 
 (* [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
@@ -264,7 +266,8 @@ let warned_array_subscript_not_supported = ref Tools.String_set.empty
 (* [reset_flags_to_default] is used by [batching.ml] to avoid propagation of effects
   TODO: complete implementation by going over all relevant flags,
   and using a record of values.
-  TODO: alternative: save flags and restore them at the end of a batching run. *)
+  TODO: alternative: save flags and restore them at the end of a batching run.
+  TODO: document the fact that it also reset certain counters, eg for printing identifiers *)
 
 let reset_flags_to_default () : unit =
   dump_ast_details := false;

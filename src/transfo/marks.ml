@@ -1,6 +1,5 @@
 include Marks_basic
 
-open Target
 open Prelude
 
 let with_fresh_mark (f : mark -> unit) : unit =

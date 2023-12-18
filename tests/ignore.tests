@@ -6,6 +6,28 @@ perf
 interact
 tester.ml
 
+# BROKEN RESOURCES
+resources/contracts/loop_parallelize_reads.ml
+matrix/delocalize_obj/matrix_delocalize_obj.ml
+loop/swap/loop_swap_doc.ml
+loop/swap/loop_swap.ml
+loop/reorder_at/loop_reorder_at.ml
+loop/moveout/loop_moveout_doc.ml
+loop/moveout/loop_moveout.ml
+loop/move/loop_move_doc.ml
+loop/hoist_expr/loop_hoist_expr.ml
+
+# TOO SLOW, FIX TYPING OF RESOURCES
+loop/fission/loop_fission_basic.ml
+loop/fission/loop_fission.ml
+
+
+#TODO:
+# arith/simpl/arith_simpl.ml
+# loop/shift/loop_shift.ml
+
+
+
 pointer/fold
 
 

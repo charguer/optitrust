@@ -1,5 +1,4 @@
 open Optitrust
-open Target
 open Prelude
 
 (* ARTHUR: add an efficient mechanism for targeting all potential infix ops in depth *)

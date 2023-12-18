@@ -105,7 +105,7 @@ let internal_ast_only_desc () : style =
     print = Lang_AST { s with only_desc = true } }
 
 let default_custom_style () : custom_style =
-  { decode = not !Flags.print_optitrust_syntax;
+  { decode = not !Flags.bypass_cfeatures && not !Flags.print_optitrust_syntax;
     typing = typing_none;
     print = Lang_C (AstC_to_c.(default_style())) }
 
