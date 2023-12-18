@@ -37,6 +37,11 @@ let _ = Run.script_cpp (fun _ ->
   (* Try task "View diff using internal syntax" *)
   !! Label.add "lab6" [cVarDef "a"];
   !! Label.add "lab7" [cVarDef "a"];
+  (* Example of trustme section *)
+  !! Trace.trustme "I know what I'm doing" (fun () ->
+     Label.add "labX1" [cVarDef "a"];
+     Label.add "labX2" [cVarDef "a"];
+  );
   (* Example of backtracking *)
   !! ignore (Trace.step_backtrack (fun () ->
        Label.add "labE0" [cVarDef "a"];));

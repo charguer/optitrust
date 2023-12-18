@@ -17,6 +17,9 @@ let debug = false
    trace data structure, which stores the stack of open steps. *)
 let check_trace_at_every_step = false
 
+(** Exceptions raised by this module when the user does not respect
+    the interaction rules, or when internal invariants are broken *)
+exception TraceFailure of string
 
 (******************************************************************************)
 (*                             File excerpts                                  *)
@@ -167,7 +170,7 @@ type stepdescr = {
   mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
 
 (** [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_group | Step_backtrack | Step_show | Step_typing | Step_error
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_group | Step_backtrack | Step_show | Step_typing | Step_error | Step_trustme
 
 (** [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -183,6 +186,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_show -> "Show"
   | Step_typing -> "Typing"
   | Step_error -> "Error"
+  | Step_trustme -> "Trustme"
 
 (** [step_infos] *)
 type step_infos = {
@@ -192,6 +196,7 @@ type step_infos = {
   mutable step_exectime : float; (* seconds *)
   mutable step_name : string;
   mutable step_args : (string * string) list;
+  mutable step_flag_check_validity : bool; (* state of flag check_validity at start; must be the same at end *)
   mutable step_valid : bool;
   mutable step_justif : string list; (* accumulated in reverse order during the step *)
   mutable step_tags : string list; (* accumulated in reverse order during the step *)
@@ -256,9 +261,9 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
     if prefix = "" then ctx.prefix else prefix in
   let tree =
     match the_trace.step_stack with
-    | [] -> failwith "step stack must never be empty"
+    | [] -> raise (TraceFailure "step stack must never be empty")
     | [tree] -> tree
-    | _ -> failwith "step stack contains more than one step; this should not be the case when a transformation script has completed"
+    | _ -> raise (TraceFailure "step stack contains more than one step; this should not be the case when a transformation script has completed")
     in
   (prefix, ctx, tree)
 
@@ -305,7 +310,7 @@ let check_the_trace ~(final:bool) : unit =
       | Step_small, (Step_small | Step_big) -> ()
       | Step_small, _ -> err "A small step should only appear at depth one or two in the step_stack"
       | _, (Step_transfo | Step_small | Step_big) -> ()
-      | _ -> failwith "Invalid argument for [expected_kind] in [check_tree]"
+      | _ -> raise (TraceFailure "Invalid argument for [expected_kind] in [check_tree]")
     end;
     (* A backtrack step always contains a single substep, which must be of kind group.
        Moreover, if the trace is final, the ast_after matches the ast_before *)
@@ -384,7 +389,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     let ast = if style.decode then Ast_fromto_AstC.cfeatures_intro ast else ast in
     (* Print the code into file, using the specified style *)
     let cstyle = match style.print with
-      | Lang_AST _-> failwith "output_prog requires a Lang_C printing mode, not a Lang_AST"
+      | Lang_AST _-> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_AST")
       | Lang_C cstyle -> cstyle
       in
     AstC_to_c.ast_to_outchannel cstyle out_prog ast;
@@ -484,6 +489,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_name = "Full script";
     step_args = [("extension", the_trace.context.extension) ];
     step_justif = [];
+    step_flag_check_validity = !Flags.check_validity;
     step_valid = false;
     step_tags = [];
     step_debug_msgs = [];
@@ -504,9 +510,9 @@ let get_root_step () : step_tree =
   match the_trace.step_stack with
   | [step] ->
       if step.step_ast_after == trm_dummy
-        then failwith "get_root_step: close_root_step has not been called";
+        then raise (TraceFailure "get_root_step: close_root_step has not been called");
       step
-  | _ -> failwith "close_root_step: broken invariant, stack must have size one"
+  | _ -> raise (TraceFailure "close_root_step: broken invariant, stack must have size one")
 
 (** [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the ""
     in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
@@ -529,6 +535,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_name = name;
     step_args = [];
     step_justif = [];
+    step_flag_check_validity = !Flags.check_validity;
     step_valid = valid;
     step_tags = tags;
     step_debug_msgs = [];
@@ -605,6 +612,9 @@ let tag_simpl_arith () : unit =
 let tag_simpl_access () : unit =
   tag "simpl.access"
 
+(** [without_substep_validity_checks f] executes [f] with
+    the flag [check_validity] temporarily set to false.
+    Only for internal use; user scripts should use the [trustme] function. *)
 let without_substep_validity_checks (f: unit -> 'a): 'a =
   Flags.with_flag Flags.check_validity false f
 
@@ -613,7 +623,7 @@ let without_substep_validity_checks (f: unit -> 'a): 'a =
 let try_validate_step_by_compostion (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
-    let kinds_excluded = [Step_target_resolve; Step_io; Step_backtrack] in
+    let kinds_excluded = [Step_target_resolve; Step_io] in
     let subs = List.filter (fun si -> not (List.mem si.step_kind kinds_excluded)) s.step_sub in
     if List.for_all (fun sub -> sub.step_infos.step_valid) subs then begin
       let asts1: trm list = [s.step_ast_before] @
@@ -635,7 +645,7 @@ let try_validate_step_by_compostion (s : step_tree) : unit =
 
 let is_saved_step step =
   match step.step_kind with
-  | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_typing | Step_io -> true
+  | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_typing | Step_io | Step_trustme -> true
   | Step_target_resolve | Step_backtrack | Step_error | Step_show -> false
 
 let last_recorded_ast step: trm =
@@ -660,7 +670,7 @@ let rec finalize_step (step : step_tree) : unit =
   if not same_as_last_step then begin match step.step_kind with
     | Step_typing | Step_io | Step_target_resolve
     | Step_backtrack | Step_error | Step_show -> ()
-    | Step_root | Step_big | Step_small | Step_transfo | Step_group ->
+    | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_trustme ->
         (* TODO: Wrap error message without losing trace *)
         if !Flags.reparse_between_steps
           then reparse ();
@@ -676,6 +686,9 @@ let rec finalize_step (step : step_tree) : unit =
   step.step_ast_after <- the_trace.cur_ast;
   step.step_style_after <- the_trace.cur_style;
   infos.step_exectime <- now() -. infos.step_time_start;
+  (* Check that [Flags.check_validity] is like at the start of the step *)
+  if !Flags.check_validity <> infos.step_flag_check_validity
+    then raise (TraceFailure "At finalize_step, Flags.check_validity is not same as when step was opened.");
   (* Set the validity flag *)
   if !Flags.check_validity
     then try_validate_step_by_compostion step
@@ -709,15 +722,15 @@ and without_resource_computation_between_steps (f: unit -> 'a): 'a =
    If all substeps are valid and their sequence explains how to go from ast_before to ast_after, the step is valid by the explaination "combination of valid steps" *)
 and close_step ?(discard = false) ?(check:step_tree option) () : unit =
   match the_trace.step_stack with
-  | [] -> failwith "close_step: the_trace should not be empty"
-  | [root_step] -> failwith "close_step: on the root, should call close_root_step"
+  | [] -> raise (TraceFailure "close_step: the_trace should not be empty")
+  | [root_step] -> raise (TraceFailure "close_step: on the root, should call close_root_step")
   | step :: ((parent_step :: _) as stack_tail)  ->
       (* Checking that we close the expected step *)
       begin match check with
       | None -> ()
       | Some opened_step ->
           if step != opened_step
-            then failwith "close_step: not closing the expected step"
+            then raise (TraceFailure "close_step: not closing the expected step")
       end;
       if not discard then begin
         (* Finalize the step, by reversing the list of substeps and computing validity *)
@@ -850,7 +863,7 @@ let close_root_step () : unit =
   close_bigstep_if_needed();
   let step = match the_trace.step_stack with
     | [step] -> step
-    | _ -> failwith "close_root_step: broken invariant, stack must have size one" in
+    | _ -> raise (TraceFailure  "close_root_step: broken invariant, stack must have size one") in
   finalize_step step
 
 (** [step_backtrack f] executes [f] wrapped in a step of kind [Step_backtrack],
@@ -878,7 +891,7 @@ let step_backtrack ?(tags:string list=[]) ?(discard_after = false) (f : unit -> 
   (* Restore the ast, then close the backtrack step;
     This step is always correct because it corresponds to a noop. *)
   the_trace.cur_ast <- ast_snapshot;
-  justif "step-backtrack restores the ast";
+  justif "step-backtrack restored the ast";
   close_step ~discard:discard_after ~check:step_backtrack ();
   res
 
@@ -929,6 +942,7 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
     (* If failure, restore the ast, and close the backtrack step;
        discard the whole step if [~discard_on_failure:true] is provided. *)
     the_trace.cur_ast <- ast_snapshot;
+    justif "step-backtrack-on-failure has backtracked and restored the ast";
     close_step ~discard:discard_on_failure ~check:step_backtrack ();
   end;
   (* Return a description of the result of [f] *)
@@ -973,9 +987,9 @@ let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (se
   let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
   if (ser_mode = Serialized_Use (* || ser_mode = Serialized_Make *) || auto_use_ser) then (
     if not ser_file_exists
-      then failwith "Trace.get_initial_ast: please generate a serialized file first";
+      then raise (TraceFailure "Trace.get_initial_ast: please generate a serialized file first");
     if not ser_file_more_recent
-      then failwith (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename);
+      then raise (TraceFailure (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename));
     let ast = Xfile.unserialize_from ser_file in
     if auto_use_ser
       then Printf.printf "Loaded ast from %s.\n" ser_file;
@@ -1040,7 +1054,7 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
     step to be visualized when interactively targeting a given line *)
 let get_last_substep () : step_tree =
   match (get_cur_step ()).step_sub with
-  | [] -> failwith "Trace.get_last_substep: expected a previous substep in the current step"
+  | [] -> raise (TraceFailure ("Trace.get_last_substep: expected a previous substep in the current step"))
   | last_step :: _ -> last_step
 
 (** [get_original_ast] returns the ast obtained at [Trace.init] *)
@@ -1079,7 +1093,7 @@ let failure_expected (h : exn -> bool) (f : unit -> unit) : unit =
    (i.e., the function [f] itself may call [Trace.apply]. *)
 let apply (f : trm -> trm) : unit =
   if is_trace_dummy()
-    then failwith "Trace.init must be called prior to any transformation.";
+    then raise (TraceFailure "Trace.init must be called prior to any transformation.");
   the_trace.cur_ast <- f the_trace.cur_ast
 
 (** [reset] performs a step that sets the current ast to the original ast *)
@@ -1224,6 +1238,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       "script_line", Json.(optionof int) (if i.step_script_line = Some (-1) then None else i.step_script_line);
         (* TODO: avoid use of -1 for undef line *)
       "args", Json.(listof (fun (k,v) -> Json.obj_quoted_keys ["name", str k; "value",str v])) i.step_args;
+      "check_validity", Json.bool i.step_flag_check_validity;
       "isvalid", Json.bool i.step_valid;
         (* TODO: at the moment, we assume that a justification item means is-valid *)
       "justif", Json.(listof str) i.step_justif;
@@ -1384,7 +1399,7 @@ let rec extract_show_step (step:step_tree) : step_tree =
   if step.step_kind = Step_show then step else begin
     match step.step_sub with
     | [ substep ] -> extract_show_step substep
-    | _ -> failwith "Trace.extract_show_step: did not find a Step_show in depth"
+    | _ -> raise (TraceFailure "Trace.extract_show_step: did not find a Step_show in depth")
   end
 
 (** [produce_diff_output step] is an auxiliary function for [produce_output_and_exit].
@@ -1413,16 +1428,16 @@ let produce_output_and_exit () : unit =
   (* Extract the step that should be used for the diff *)
   let container_step = get_cur_step() in
   if container_step.step_sub = []
-    then failwith "produce_output_and_exit: make sure you cursor is on a line starting with '!!' or 'bigstep'";
+    then raise (TraceFailure "produce_output_and_exit: make sure you cursor is on a line starting with '!!' or 'bigstep'");
   let step = get_last_substep () in
   if !Flags.only_big_steps && step.step_kind <> Step_big
-    then failwith "produce_output_and_exit: cannot show a diff for a big-step, no call to bigstep was made";
+    then raise (TraceFailure "produce_output_and_exit: cannot show a diff for a big-step, no call to bigstep was made");
   (* Output the step description *)
   begin match !Flags.execution_mode with
   | Execution_mode_step_diff -> produce_diff_output step
   | Execution_mode_step_trace -> produce_trace_output step
   | Execution_mode_exec
-  | Execution_mode_full_trace -> failwith "produce_output_and_exit should be in a 'step' execution mode"
+  | Execution_mode_full_trace -> raise (TraceFailure "produce_output_and_exit should be in a 'step' execution mode")
   end;
   (* Print debug messages of the current step *)
   List.iter (fun s -> printf "%s\n" s) step.step_infos.step_debug_msgs;
@@ -1540,11 +1555,22 @@ let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> 
 let check_recover_original () : unit =
   let check_same ast1 ast2 =
     if AstC_to_c.ast_to_string ast1 <> AstC_to_c.ast_to_string ast2
-      then failwith "Trace.check_recover_original: the current AST is not identical to the original one."
+      then raise (TraceFailure "Trace.check_recover_original: the current AST is not identical to the original one.")
       else () (* FOR DEBUG: Printf.printf "check_recover_original: successful" *)
     in
   let orig_ast = get_original_ast () in
   call (fun cur_ast -> check_same cur_ast orig_ast)
+
+(** [trustme msg f] executes [f] with the flag [check_validity]
+    temporarily set to false. The string [msg] is stored in the
+    [name] field of the step. It is intended to be a human-readable
+    summary of what the transformation [f] intends to perform,
+    and why it is preserves the semantics of the program. *)
+let trustme (name : string) (f: unit -> 'a): 'a =
+  (* TODO: figure out whether the call to [step] should be inside or outside
+     of the call to [without_substep_validity_checks] *)
+  step ~valid:false ~kind:Step_trustme ~name:("TRUSTME: " ^ name) (fun () ->
+    without_substep_validity_checks f)
 
 
 (******************************************************************************)
@@ -1583,7 +1609,7 @@ let finalize_on_error ~(exn: exn) : unit =
   error_step exn;
   let rec close_all_steps () : unit =
     match the_trace.step_stack with
-    | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
+    | [] -> raise (TraceFailure "close_close_all_stepsstep: the_trace should not be empty")
     | [_root_step] -> finalize()
     | _step :: _ -> close_step(); close_all_steps()
     in

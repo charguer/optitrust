@@ -15,6 +15,7 @@ steps[0] = {
    tags: ["..", ".."],
    debug_msgs: ["..", ".."],
    justif: ["..", ".." ],
+   check_validity: true,
    isvalid: true,
    script: window.atob("..."),
    script_line: 23, // possibly undefined
@@ -572,17 +573,13 @@ function stepToHTML(step, isOutermostLevel) {
     return sSubs;
   }
 
-  var validityClass = "";
+  // TODO: display check_validity
+
+  var lineClass = "";
   if (step.kind == "IO" || step.kind == "Target") {
-    validityClass = "step-io-target";
+    lineClass = "step-io-target";
   } else if (step.kind == "Error") {
-    validityClass = "step-error";
-  } else if (step.isvalid) {
-    validityClass= "step-valid";
-  } else if (step.has_valid_parent) {
-    validityClass = "step-has-valid_parent";
-  } else {
-    validityClass = "step-invalid";
+    lineClass = "step-error";
   }
   var sTime = "";
   if (options.exectime) {
@@ -658,9 +655,34 @@ function stepToHTML(step, isOutermostLevel) {
     var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.parent_id + ")'";
   }
 
+  var sStepSymbol;
+  if (step.isvalid) {
+    sStepSymbol = "&#10004;" // check
+  } else if (step.has_valid_parent) {
+    sStepSymbol = "&diams;"; // diamond, validity is covered by a parent
+  } else if (! step.check_validity) {
+    sStepSymbol = "&#9679;" // circle, was not trying to check validity
+    // lineClass = "step-has-valid_parent";
+  } else { // step.check_validity && ! step.isvalid
+    sStepSymbol= "&#10060"; // cross, for a trustme step
+    lineClass = "step-invalid";
+  }
+
+  var fullLineClass = "";
+  if (step.kind == "Big") {
+    fullLineClass = "step-big";
+  } else if (step.kind == "Small") {
+    if (step.tags.includes("show")) {
+      lineClass = "step-show";
+    } else if (step.isvalid) {
+      lineClass = "step-valid";
+    }
+
+  }
+
   // Line contents
   if (! isRoot) {
-    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + " " + sScript + sTags + "</span></div>";
+    s += "<div class='" + fullLineClass + "'><span class='step-bullet' " + sOnClickFocusOnStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + " " + sScript + sTags + "</span></div>";
   }
 
   if (options.justif) {
