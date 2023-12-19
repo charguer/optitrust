@@ -8,6 +8,10 @@ void f(T* b) {
   // FIXME: CALLOC
   T* const a = (T* const) MALLOC3 (10, 10, 4, sizeof(T));
 
+  __GHOST_BEGIN(focus, group2_focus_subrange_uninit,
+    "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell), "
+    "start := 2, stop := 10, step := 1");
+/*
   __GHOST_BEGIN(focus, __with_reverse(
     [&]() {
       __consumes("_Uninit(Group(range(0, 10, 1), fun i -> "
@@ -79,7 +83,7 @@ void f(T* b) {
       }
     }
   ), "");
-
+*/
   for (int i = 0; i < 10; i++) {
     __consumes("_Uninit(Group(range(2, 10, 1), fun j -> Group(range(0, 4, 1), fun k ->"
                "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))");

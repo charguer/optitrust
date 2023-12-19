@@ -95,11 +95,27 @@ let%transfo local_name ?(my_mark : mark = no_mark) ?(indices : (string list) = [
     ) tg)
   )
 
+let shift_groups = toplevel_var "shift_groups"
+
+let ghost_shift
+  ((range, formula): loop_range list * formula)
+  ((shifted_range, shifted_formula): loop_range list * formula)
+  (uninit_pre : bool) (uninit_post : bool): trm =
+  (* FIXME:
+     (1) this can be explained as a combination of for loops + calls to group_shift ghost;
+     (2) _Uninit modularity? *)
+  let open Resource_formula in
+  let before = List.fold_right (fun r f -> formula_group_range r f) range formula in
+  let after = List.fold_right (fun r f -> formula_group_range r f) shifted_range shifted_formula in
+  let before = if uninit_pre then formula_uninit before else before in
+  let after = if uninit_post then formula_uninit after else after in
+  trm_ghost_rewrite before after (trm_var shift_groups)
 
 (** <private> *)
 let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd_tile)
   (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm)
-  (indices : string list) (t : trm) : trm =
+  (indices : string list) (uninit_pre : bool) (uninit_post : bool)
+  (t : trm) : trm =
   let local_var = Trm.new_var local_var in
   let indices_list = begin match indices with
   | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims
@@ -121,12 +137,25 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd
   let write_on_var = trm_set access_var (trm_get access_local_var) in
   let var_cell = Resource_formula.(formula_model access_var trm_cell) in
   let local_var_cell = Resource_formula.(formula_model access_local_var trm_cell) in
-  let load_for = trm_copy (Matrix_core.pointwise_fors
-    ~reads:[var_cell] ~writes:[local_var_cell] nested_loop_range write_on_local_var) in
-  let unload_for = trm_copy (Matrix_core.pointwise_fors
-    ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var) in
+  let load_for = if uninit_pre
+    then trm_seq_nobrace_nomarks []
+    else trm_copy (Matrix_core.pointwise_fors
+      ~reads:[var_cell] ~writes:[local_var_cell] nested_loop_range write_on_local_var) in
+  let unload_for = if uninit_post
+    then trm_seq_nobrace_nomarks []
+    else trm_copy (Matrix_core.pointwise_fors
+      ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var) in
   let free_instr = free tile_dims (trm_var local_var) in
-  trm_seq_nobrace_nomarks [alloc_instr; load_for; new_t; unload_for; free_instr]
+  let alloc_range = List.map2 (fun size ind ->
+    (ind, trm_int 0, DirUp, size, Post_inc, false)
+  ) tile_dims indices_list in
+  let alloc_access = access (trm_var local_var) tile_dims indices in
+  let alloc_cell = Resource_formula.(formula_model alloc_access trm_cell) in
+  let alloc_range_cell = (alloc_range, alloc_cell) in
+  let local_var_range_cell = (nested_loop_range, local_var_cell) in
+  let shift_res = ghost_shift alloc_range_cell local_var_range_cell true uninit_pre in
+  let unshift_res = ghost_shift local_var_range_cell alloc_range_cell uninit_post true in
+  trm_seq_nobrace_nomarks [alloc_instr; shift_res; load_for; new_t; unload_for; unshift_res; free_instr]
 
 (** [local_name_tile ?mark_accesses ?indices ~alloc_instr ?ret_var ~local_var tile tg]
   expects [alloc_instr] to point to an allocation of [var] and [tg] to point to a term [t]
@@ -140,9 +169,13 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd
   - [mark_accesses] allows marking the produced [local_var] accesses.
   - [indices] allows providing explicit index variable names for the created for loop.
   - [ret_var] will receive the value [var].
+  - [uninit_pre]/[uninit_post] specify whether [var] is uninit before/after [t], eliminating copies.
   *)
 let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
   ?(indices : string list = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var)
+  (* TODO: check [uninit_pre] and [uninit_post] in resources,
+     could also be inferred instead of provided *)
+  ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
   ~(local_var : string) (tile : Matrix_core.nd_tile) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
@@ -153,7 +186,7 @@ let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
       let v, dims, elem_ty, size = trm_inv ~error Matrix_core.let_alloc_inv_with_ty t1 in
       ret_var := v;
       Target.apply_at_path (local_name_tile_on
-        mark_accesses v tile local_var dims elem_ty size indices
+        mark_accesses v tile local_var dims elem_ty size indices uninit_pre uninit_post
       ) p;
       if !Flags.check_validity then begin
         (* TODO: is this exactly the same check as for variables? *)

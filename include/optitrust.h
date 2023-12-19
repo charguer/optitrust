@@ -429,6 +429,46 @@ __GHOST(group_unfocus_subrange_uninit) {
   __ghost(close_wand, "");
 }
 
+__GHOST(group2_focus_subrange_uninit) {
+  __requires("start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> int -> formula,"
+    " ra1: int, rb1: int, rs1: int");
+  // __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
+  // TODO: old_start <= start && stop <= old_stop && step > 0
+  __consumes("_Uninit(Group(range(ra1, rb1, rs1), fun i -> Group(range(old_start, old_stop, step), items(i))))");
+  __produces("Wand("
+    "_Uninit(Group(range(ra1, rb1, rs1), fun i -> Group(range(start, stop, step), items(i)))),"
+    "_Uninit(Group(range(ra1, rb1, rs1), fun i -> Group(range(old_start, old_stop, step), items(i))))"
+    "),"
+    "_Uninit(Group(range(ra1, rb1, rs1), fun i -> Group(range(start, stop, step), items(i))))");
+
+  __admitted();
+  /* for (int i = ra1; i < rb1; i += rs1) {
+    __ghost(group_focus_subrange_uninit, ...);
+  } */
+}
+
+__GHOST(group2_unfocus_subrange_uninit) {
+  __reverts(group2_focus_subrange_uninit);
+  __admitted();
+  /* for (int i = ra1; i < rb1; i += rs1) {
+    __ghost(group_unfocus_subrange_uninit, ...);
+  } */
+}
+
+__GHOST(group_shift) {
+  __requires("start: int, stop: int, step: int, items: int -> formula");
+  // __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
+  // TODO: old_start <= start && stop <= old_stop && step > 0
+  __consumes("Group(range(start, stop, step), fun i -> items)");
+  __produces("Group(range(start + shift, stop + shift, step), fun i -> items(i - shift))");
+  __admitted();
+}
+
+__GHOST(group_unshift) {
+  __reverts(group_shift);
+  __admitted();
+}
+
 /* ---- Matrix Ghosts ---- */
 
 // FIXME: matrixN_*focus ghosts are not checking bounds
