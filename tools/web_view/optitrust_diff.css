@@ -1,0 +1,23 @@
+/* Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+   display: none;
+}
+.d2h-code-side-line {
+  padding: 0em;
+}
+.d2h-code-side-linenumber {
+  display: none;
+}
+
+/* disable the highlighting of words diff on a line */
+.d2h-code-line ins, .d2h-code-side-line ins, .d2h-code-line del, .d2h-code-side-line del {
+    background-color: initial;
+    vertical-align: initial;
+}
+
+.d2h-code-line-prefix {
+  color: transparent;
+  width: 0;
+  display: inline-block;
+  margin-left: -0.5em;
+}

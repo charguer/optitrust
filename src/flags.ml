@@ -5,10 +5,7 @@
    - options for interactivity
    - options for behavior *)
 
-(* [code_print_width]: flag to choose the width of the printed code. *)
-let code_print_width = ref 80
-
-(* [verbose]: flag to activate the printing of debug information *)
+   (* [verbose]: flag to activate the printing of debug information *)
 let verbose : bool ref = ref false
 
 (* Flag to hide stdout produced by tests when executed from ./tester *)
@@ -82,6 +79,9 @@ let use_clang_format : bool ref = ref true
 
 (* [clang_format_nb_columns]: flag to control the limit on the column for clang-format. *)
 let clang_format_nb_columns : int ref = ref 80
+
+(* [code_print_width]: flag to choose the width of the printed code on stdout. *)
+let code_print_width = ref 80
 
 (* [verbose_mode]: flag to report more about file manipulations performed by the tool. *)
 let verbose_mode : bool ref = ref false
