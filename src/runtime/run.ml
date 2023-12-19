@@ -196,9 +196,6 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
         then ""
         else "CAPTURED STDOUT:\n" ^ !contents_captured_show
       in
-    (* Dump the final AST produced by the script, using the [cur_style] of the trace *)
-    Trace.dump (Trace.get_style()) ~append_comments ~prefix ();
-        (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     (* Collapse the step stack onto the root step *)
     Trace.finalize();
         (* LATER:
@@ -207,6 +204,10 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
             and batch.ml calls at the very end Run.batch_postlude
             which dumps the list contents on stdout and into a file.
             In this case, we skip trace.dump and other dumps. *)
+
+    (* Dump the final AST produced by the script, using the [cur_style] of the trace *)
+    Trace.dump (Trace.get_style()) ~append_comments ~prefix ();
+        (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
 
     (* Dump full trace if option [-dump-trace] as provided *)
     if !Flags.execution_mode = Execution_mode_full_trace

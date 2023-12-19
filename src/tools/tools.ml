@@ -280,6 +280,9 @@ end
 let warn (msg : string) : unit =
   Printf.printf "%s: %s\n" Terminal.(with_color orange "WARNING") msg
 
+let info (msg : string) : unit =
+  Printf.printf "%s: %s\n" Terminal.(with_color blue "INFO") msg
+
 (******************************************************************************)
 (*                          Functor Applications                         *)
 (******************************************************************************)

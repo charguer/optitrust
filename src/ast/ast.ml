@@ -1450,7 +1450,7 @@ let default_style () : style = {
 
 (** Style for reparsing *)
 let style_for_reparse () : style =
-  { print_contract = true;
+  { print_contract = false;
     print_var_id = false;
     print_generated_ids = false;
     print_string_repr = false;

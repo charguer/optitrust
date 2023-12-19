@@ -21,6 +21,10 @@ let check_trace_at_every_step = false
     the interaction rules, or when internal invariants are broken *)
 exception TraceFailure of string
 
+(* TEMPORARY HACK *)
+let ast_just_before_first_call_to_restore_original : trm option ref = ref None
+
+
 (******************************************************************************)
 (*                             File excerpts                                  *)
 (******************************************************************************)
@@ -1007,6 +1011,7 @@ let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (se
    style is computed based on the global flags.   *)
 (* LATER for mli: val set_init_source : string -> unit *)
 let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) (filename : string) : unit =
+  ast_just_before_first_call_to_restore_original := None; (* TEMPORARY HACK *)
   invalidate ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
@@ -1578,7 +1583,6 @@ let trustme (name : string) (f: unit -> 'a): 'a =
 (******************************************************************************)
 
 (* TEMPORARY HACK *)
-let ast_just_before_first_call_to_restore_original : trm option ref = ref None
 (** [restore_original ()] sets as current ast the original ast obtained
     after parsing, i.e. the [ast_before] of the root step. *)
 let restore_original () : unit =
