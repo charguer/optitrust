@@ -101,9 +101,7 @@ let ghost_shift
   ((range, formula): loop_range list * formula)
   ((shifted_range, shifted_formula): loop_range list * formula)
   (uninit_pre : bool) (uninit_post : bool): trm =
-  (* FIXME:
-     (1) this can be explained as a combination of for loops + calls to group_shift ghost;
-     (2) _Uninit modularity? *)
+  (* FIXME: this can be explained as a sequence of calls to group_shift* ghosts *)
   let open Resource_formula in
   let before = List.fold_right (fun r f -> formula_group_range r f) range formula in
   let after = List.fold_right (fun r f -> formula_group_range r f) shifted_range shifted_formula in
@@ -112,7 +110,7 @@ let ghost_shift
   trm_ghost_rewrite before after (trm_var shift_groups)
 
 (** <private> *)
-let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd_tile)
+let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_core.nd_range)
   (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm)
   (indices : string list) (uninit_pre : bool) (uninit_post : bool)
   (t : trm) : trm =
@@ -122,13 +120,13 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd
   | _ -> List.map new_var indices end
   in
   let indices = List.map trm_var indices_list in
-  let nested_loop_range = List.map2 (fun (offset, size) ind ->
-    (ind, offset, DirUp, trm_add offset size, Post_inc, false)
-  ) tile indices_list in
-  let tile_dims = List.map (fun (_, size) -> size) tile in
-  let tile_indices = List.map2 (fun (offset, _) ind -> trm_sub ind offset) tile indices in
+  let nested_loop_range = List.map2 (fun (a, b) ind ->
+    (ind, a, DirUp, b, Post_inc, false)
+  ) nd_range indices_list in
+  let tile_dims = List.map (fun (a, b) -> trm_sub b a) nd_range in
+  let tile_indices = List.map2 (fun (offset, _) ind -> trm_sub ind offset) nd_range indices in
   let alloc_instr = Matrix_core.let_alloc_with_ty local_var tile_dims elem_ty in
-  let map_indices = List.map (fun (offset, size) -> fun i -> trm_sub i offset) tile in
+  let map_indices = List.map (fun (offset, _) -> fun i -> trm_sub i offset) nd_range in
   let new_t = Matrix_core.replace_all_accesses var local_var tile_dims
     map_indices mark_accesses t in
   let access_var = access (trm_var var) dims indices in
@@ -170,13 +168,23 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd
   - [indices] allows providing explicit index variable names for the created for loop.
   - [ret_var] will receive the value [var].
   - [uninit_pre]/[uninit_post] specify whether [var] is uninit before/after [t], eliminating copies.
+    For [uninit_pre = false], resource checks will fail if [var] is uninit before [t].
+    For [uninit_pre = true], resource checks will fail if [var] is not uninit in [t],
+    because [local_var] will be uninit.
+    For [uninit_post = false], resource checks will always succeed.
+    For [uninit_post = true], we check that [trm_ghost_forget_init ..var..] can be added after [t].
+
+  TODO?
+  - stack_alloc / heap alloc
+  - check consistent API with Variable.local_name
+  - factorize and update Matrix_basic.local_name with no tile
   *)
 let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
   ?(indices : string list = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var)
   (* TODO: check [uninit_pre] and [uninit_post] in resources,
      could also be inferred instead of provided *)
   ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
-  ~(local_var : string) (tile : Matrix_core.nd_tile) (tg : target) : unit =
+  ~(local_var : string) (tile : Matrix_core.nd_range) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
       let t1 = Xoption.unsome_or_else (get_trm_at alloc_instr) (fun () ->
@@ -189,9 +197,17 @@ let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
         mark_accesses v tile local_var dims elem_ty size indices uninit_pre uninit_post
       ) p;
       if !Flags.check_validity then begin
-        (* TODO: is this exactly the same check as for variables? *)
         Resources.ensure_computed ();
-        let t = get_trm_at_exn [cMark m] in
+        let p = resolve_target_exactly_one [cMark m] (Trace.ast ()) in
+        if uninit_post then begin
+          let pred formula =
+            Var_set.mem !ret_var (trm_free_vars formula)
+          in
+          Resources.assert_instr_effects_shadowed ~pred p;
+          Trace.justif "local effects on replaced variable are shadowed"
+        end;
+        (* TODO: is this exactly the same check as for variables? *)
+        let t = resolve_path p in
         let t_res_usage = Resources.usage_of_trm t in
         let t_res_before = Resources.before_trm t in
         let t_res_after = Resources.after_trm t in

@@ -2,8 +2,11 @@ open Prelude
 open Target
 open Matrix_trm
 
-(* list of (offset, size) *)
+(** list of (offset, size) *)
 type nd_tile = (trm * trm) list
+
+(** list of (start, end) *)
+type nd_range = (trm * trm) list
 
 (* TODO?
 (* [tile_none]: special tile value where the dimension should be kept fully *)

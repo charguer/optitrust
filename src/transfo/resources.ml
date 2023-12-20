@@ -463,15 +463,19 @@ let formulas_of_hyps (hyps: hyp list) (resources: resource_item list): formula l
   let hyp_map = Hyp_map.of_seq (List.to_seq resources) in
   List.map (fun h -> Hyp_map.find h hyp_map) hyps
 
-(** Checks that the effects from the instruction at path [p] are shadowed by following effects in the program.
+(** Checks that the effects from the instruction at path [p] are shadowed by following effects
+   in the program.
+
+   - if provided [pred], allows specifying which formulas to include in the shadowing check.
     *)
-let assert_instr_effects_shadowed (p : path) : unit =
+let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) (p : path) : unit =
   step_and_backtrack ~discard_after:true (fun () ->
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
       Target.apply_at_path (fun instr ->
         let write_hyps = write_usage_of instr in
         let res_before = before_trm instr in
         let write_res = formulas_of_hyps write_hyps res_before.linear in
+        let write_res = List.filter pred write_res in
         let uninit_ghosts = List.filter_map (fun res ->
           if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
         trm_seq_nobrace_nomarks uninit_ghosts

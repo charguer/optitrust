@@ -455,17 +455,157 @@ __GHOST(group2_unfocus_subrange_uninit) {
   } */
 }
 
+/* --- group_shift and nested variants: */
+
 __GHOST(group_shift) {
-  __requires("start: int, stop: int, step: int, items: int -> formula");
-  // __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
-  // TODO: old_start <= start && stop <= old_stop && step > 0
-  __consumes("Group(range(start, stop, step), fun i -> items)");
-  __produces("Group(range(start + shift, stop + shift, step), fun i -> items(i - shift))");
+  __requires("a: int, b: int, step: int, items: int -> formula");
+  __requires("a2: int, b2: int");
+  // __requires("bound_check: (b2 - b) == (a2 - b) || (b - a) == (b2 - a2)");
+  __consumes("Group(range(a, b, step), fun i -> items(i))");
+  __produces("Group(range(a2, b2, step), fun i -> items(i - a2 + a))");
   __admitted();
 }
 
 __GHOST(group_unshift) {
   __reverts(group_shift);
+  __admitted();
+}
+
+__GHOST(group2_shift) {
+  __requires("a: int, b: int, step: int, items: int -> int -> formula");
+  __requires("a2: int, b2: int");
+  __requires("range1: formula");
+  // __requires bound_check ...
+  __consumes("Group(range1, fun i1 -> Group(range(a, b, step), fun i -> items(i1)(i)))");
+  __produces("Group(range1, fun i1 -> Group(range(a2, b2, step),"
+               " fun i -> items(i1)(i - a2 + a)))");
+  __admitted();
+}
+
+__GHOST(group2_unshift) {
+  __reverts(group2_shift);
+  __admitted();
+}
+
+__GHOST(group3_shift) {
+  __requires("a: int, b: int, step: int, items: int -> int -> int -> formula");
+  __requires("a2: int, b2: int");
+  __requires("range1: formula, range2: formula");
+  // __requires bound_check ...
+  __consumes("Group(range1, fun i1 -> Group(range2, fun i2 -> "
+               "Group(range(a, b, step), fun i -> items(i1)(i2)(i))))");
+  __produces("Group(range1, fun i1 -> Group(range2, fun i2 -> "
+               "Group(range(a2, b2, step), fun i -> items(i1)(i2)(i - a2 + a))))");
+  __admitted();
+}
+
+__GHOST(group3_unshift) {
+  __reverts(group3_shift);
+  __admitted();
+}
+
+/* --- group_shift_uninit and nested variants: */
+
+__GHOST(group_shift_uninit) {
+  __requires("a: int, b: int, step: int, items: int -> formula");
+  __requires("a2: int, b2: int");
+  // __requires bound_check ...
+  __consumes("_Uninit(Group(range(a, b, step), fun i -> items(i)))");
+  __produces("_Uninit(Group(range(a2, b2, step), fun i -> items(i - a2 + a)))");
+  __admitted();
+}
+
+__GHOST(group_unshift_uninit) {
+  __reverts(group_shift_uninit);
+  __admitted();
+}
+
+__GHOST(group2_shift_uninit) {
+  __requires("a: int, b: int, step: int, items: int -> int -> formula");
+  __requires("a2: int, b2: int");
+  __requires("range1: formula");
+  // __requires bound_check ...
+  __consumes("_Uninit(Group(range1, fun i1 -> "
+               "Group(range(a, b, step), fun i -> items(i1)(i))))");
+  __produces("_Uninit(Group(range1, fun i1 -> "
+               "Group(range(a2, b2, step), "
+                 "fun i -> items(i1)(i - a2 + a))))");
+  __admitted();
+}
+
+__GHOST(group2_unshift_uninit) {
+  __reverts(group2_shift_uninit);
+  __admitted();
+}
+
+__GHOST(group3_shift_uninit) {
+  __requires("a: int, b: int, step: int, items: int -> int -> int -> formula");
+  __requires("a2: int, b2: int");
+  __requires("range1: formula, range2: formula");
+  // __requires bound_check ...
+  __consumes("_Uninit(Group(range1, fun i1 -> Group(range2, fun i2 -> "
+               "Group(range(a, b, step), fun i -> items(i1)(i2)(i)))))");
+  __produces("_Uninit(Group(range1, fun i1 -> Group(range2, fun i2 -> "
+               "Group(range(a2, b2, step), fun i -> items(i1)(i2)(i - a2 + a)))))");
+  __admitted();
+}
+
+__GHOST(group3_unshift_uninit) {
+  __reverts(group3_shift_uninit);
+  __admitted();
+}
+
+/* --- group_shift_ro and nested variants: */
+
+__GHOST(group_shift_ro) {
+  __requires("a: int, b: int, step: int, items: int -> formula");
+  __requires("a2: int, b2: int");
+  __requires("f: _Fraction");
+  // __requires bound_check ...
+  __consumes("_RO(f, Group(range(a, b, step), fun i -> items(i)))");
+  __produces("_RO(f, Group(range(a2, b2, step), fun i -> items(i - a2 + a)))");
+  __admitted();
+}
+
+__GHOST(group_unshift_ro) {
+  __reverts(group_shift_ro);
+  __admitted();
+}
+
+__GHOST(group2_shift_ro) {
+  __requires("a: int, b: int, step: int, items: int -> int -> formula");
+  __requires("a2: int, b2: int");
+  __requires("range1: formula");
+  __requires("f: _Fraction");
+  // __requires bound_check ...
+  __consumes("_RO(f, Group(range1, fun i1 -> "
+               "Group(range(a, b, step), fun i -> items(i1)(i))))");
+  __produces("_RO(f, Group(range1, fun i1 -> "
+               "Group(range(a2, b2, step), "
+                 "fun i -> items(i1)(i - a2 + a))))");
+  __admitted();
+}
+
+__GHOST(group2_unshift_ro) {
+  __reverts(group2_shift_ro);
+  __admitted();
+}
+
+__GHOST(group3_shift_ro) {
+  __requires("a: int, b: int, step: int, items: int -> int -> int -> formula");
+  __requires("a2: int, b2: int");
+  __requires("range1: formula, range2: formula");
+  __requires("f: _Fraction");
+  // __requires bound_check ...
+  __consumes("_RO(f, Group(range1, fun i1 -> Group(range2, fun i2 -> "
+               "Group(range(a, b, step), fun i -> items(i1)(i2)(i)))))");
+  __produces("_RO(f, Group(range1, fun i1 -> Group(range2, fun i2 -> "
+               "Group(range(a2, b2, step), fun i -> items(i1)(i2)(i - a2 + a)))))");
+  __admitted();
+}
+
+__GHOST(group3_unshift_ro) {
+  __reverts(group3_shift_ro);
   __admitted();
 }
 
