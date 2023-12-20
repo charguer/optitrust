@@ -25,6 +25,7 @@ let option_to_doc (string_none : string) (f : 'a -> doc) (opt : 'a option) : doc
 (*----------------------------------------------------------------------------------*)
 (* Options for printing *)
 
+(** Style object controlling printing options *)
 type style = {
   ast: Ast.style;
   optitrust_syntax: bool; (* print "set(p,v)" instead of "p=v", and print "array_access(t,i)" etc *)
@@ -32,13 +33,19 @@ type style = {
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
 }
 
-(* Default style *)
-
-let default_style () =
+(** Default style, depends on the global flags *)
+let default_style () : style =
   let s = Ast.default_style() in
-  { ast = { s with print_contract = false };
-    optitrust_syntax = false;
+  { ast = s;
+    optitrust_syntax = !Flags.print_optitrust_syntax;
     pretty_matrix_notation = !Flags.pretty_matrix_notation;
+    commented_pragma = !Flags.use_clang_format; }
+
+(** Style for reparsing *)
+let style_for_reparse () : style =
+  { ast = Ast.style_for_reparse();
+    optitrust_syntax = false;
+    pretty_matrix_notation = false;
     commented_pragma = false; }
 
 (*----------------------------------------------------------------------------------*)
@@ -511,9 +518,9 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
     | Trm_for (l_range, body, loop_spec) ->
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
-      if not style.ast.print_contract
-        then dt
-        else string "Contract: " ^^ loop_spec_to_doc style loop_spec ^^ hardline ^^ dt
+      if style.ast.print_contract_internal_repr
+        then string "/*" ^^ string "Contract: " ^^ loop_spec_to_doc style loop_spec ^^ string "*/" ^^ hardline ^^ dt
+        else dt
     | Trm_switch (cond, cases) ->
       let dcond = decorate_trm style cond in
       let dcases =

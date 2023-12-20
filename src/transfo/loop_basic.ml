@@ -231,7 +231,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear linear_invariant in (* R' *)
 (* DEBUG: *)
       let s = AstC_to_c.default_style() in
-      let s = { s with ast = { s.ast with print_contract = true; print_var_id = true } } in
+      let s = { s with ast = { s.ast with print_var_id = true } } in
       printf "--- loop_ghosts: %s\n" (Tools.document_to_string (AstC_to_c.resource_item_list_to_doc s contract.loop_ghosts));
       printf "---\n";
       Flags.(with_flag always_name_resource_hyp) true (fun () ->
@@ -315,20 +315,11 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       (* DEBUG: let debug_p = Path.parent p_loop in
-      Show.trm ~msg:"res1" (
-        Flags.(with_flag display_resources false (fun () ->
-          with_flag always_name_resource_hyp true (fun () ->
-            Ast_fromto_AstC.computed_resources_intro (get_trm_at_exn (target_of_path debug_p))
-          )))
+      Show.res ~msg:"res1" ~ast:(get_trm_at_exn (target_of_path debug_p))
       ); *)
       Resources.required_for_check ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
-      (* DEBUG: Show.trm ~msg:"res2" (
-        Flags.(with_flag display_resources false (fun () ->
-          with_flag always_name_resource_hyp true (fun () ->
-            Ast_fromto_AstC.computed_resources_intro (get_trm_at_exn (target_of_path debug_p))
-          )))
-      ); *)
+      Resources.required_for_check (); (* TODO: is it useful again here? *)
     ) tg
   );
   Resources.justif_correct "loop resources where successfully split"

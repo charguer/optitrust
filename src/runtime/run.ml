@@ -108,7 +108,7 @@ let stop () : unit =
 
 (* [may_report_time msg f]: returns the result of [f()] and, if not in batch mode, reports the time taken by that call on stdout. *)
 let may_report_time (msg : string) (f : unit -> 'a) : 'a =
-  if Flags.is_batch_mode () then
+  if not (Flags.is_execution_mode_step ()) then
     f ()
   else begin
     let (r, t) = Tools.measure_time f in
@@ -157,7 +157,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   let produce_trace () : unit =
     may_report_time "dump-trace" (fun () ->
-      Trace.dump_trace_to_js ~beautify:true ~prefix ();
+      Trace.dump_full_trace_to_js ~prefix ();
       Trace.dump_trace_to_textfile ~prefix ())
     in
 
@@ -165,7 +165,8 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   let stats_before = Stats.get_cur_stats () in
   let contents_captured_show = ref "" in
-  let activate_capture_show = capture_show_in_batch && Flags.is_batch_mode() in
+  let activate_capture_show = capture_show_in_batch && not (Flags.is_execution_mode_step()) in
+
   (* Set the input file, execute the function [f], dump the results. *)
   (try
     Trace.init ~prefix ~parser filename;
@@ -175,9 +176,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
           may_report_time "script-exec" f)
       with
       | Stop -> ()
-      | e when !Flags.dump_trace -> (* FIXME: remove when cond *)
+      | e when !Flags.execution_mode = Execution_mode_full_trace -> (* FIXME: remove when cond *)
           Trace.finalize_on_error ~exn:e;
-          if !Flags.dump_trace then produce_trace();
+          if !Flags.execution_mode = Execution_mode_full_trace then produce_trace();
           let backtrace = Printexc.get_backtrace () in
           Printf.eprintf "========> BACKTRACE:\n%s\n" backtrace;
           exit 0 (* FIXME: don't exit in batch? *)
@@ -189,29 +190,36 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     (* Stores the current ast to the end of the history *)
     Trace.close_smallstep_if_needed();
     Trace.close_bigstep_if_needed();
+    (* Optionally, print in comment at the end of the [_out.cpp] file the stdout output produced by the script *)
     let append_comments =
       if !contents_captured_show = ""
         then ""
         else "CAPTURED STDOUT:\n" ^ !contents_captured_show
       in
-    Trace.dump ~append_comments ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     (* Collapse the step stack onto the root step *)
     Trace.finalize();
-    (* TODO:
+        (* LATER:
           IF ~expected_ast<>"" then load and unserialized expected ast and
             call trm_cmp and store result in a list ref,
             and batch.ml calls at the very end Run.batch_postlude
             which dumps the list contents on stdout and into a file.
             In this case, we skip trace.dump and other dumps. *)
 
-    (* Dump full trace if [-dump-trace] option was provided *)
-    if !Flags.dump_trace
+    (* Dump the final AST produced by the script, using the [cur_style] of the trace *)
+    Trace.dump (Trace.get_style()) ~append_comments ~prefix ();
+        (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
+
+    (* Dump full trace if option [-dump-trace] as provided *)
+    if !Flags.execution_mode = Execution_mode_full_trace
       then produce_trace();
-    begin match !Flags.dump_big_steps with (* DEPRECATED? *)
+
+    (* Dump one file for each big step if option [-dump-big-steps] was provided *)
+    begin match !Flags.dump_big_steps with
     | None -> ()
     | Some foldername -> Trace.dump_steps ~onlybig:true ~prefix foldername
     end;
-    begin match !Flags.dump_small_steps with (* DEPRECATED? *)
+    (* Dump one file for each small step if option [-dump-small-steps] was provided *)
+    begin match !Flags.dump_small_steps with
     | None -> ()
     | Some foldername -> Trace.dump_steps ~prefix foldername
     end;
@@ -220,7 +228,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     Trace.close_logs();
     raise e
   );
-
+  (* Dump statistics if they were requested *)
   let stats_after = Stats.get_cur_stats () in
   if !Flags.analyse_stats
     then
@@ -241,8 +249,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
    The rest of the options are the same as [script f] *)
 let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(capture_show_in_batch = false) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
   may_report_time "script-cpp" (fun () ->
-    (* Handles preprocessor *)
+    (* Handles preprocessor -- FUTURE USE MENHIR PARSER
     Compcert_parser.Clflags.prepro_options := prepro;
+    *)
 
     (* Handles on-the-fly inlining *)
     let filename =

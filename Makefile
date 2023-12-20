@@ -5,8 +5,13 @@ OPTITRUST_PREFIX := `opam config var prefix`
 INSTALL_TARGET := $(OPTITRUST_PREFIX)/lib/$(THIS)
 BROWSER ?= xdg-open
 
+OPTITRUST_BROWSER ?= chromium
+
 all:
 	dune build
+
+precompile:
+	$(MAKE) -C include precompiled_stdlib.pch
 
 keep_building:
 	dune build --watch --terminal-persistence=clear-on-rebuild
@@ -33,20 +38,28 @@ reinstall: uninstall
 show_install:
 	@ echo "#require \"$(THIS)\";;\nopen Optitrust;;\n#show Run;;" | ocaml
 
-DOCDIR = _build/default/_doc/_html
-DOC    = $(DOCDIR)/index.html
-CSS    = $(DOCDIR)/odoc.css
+BUILDOCDIR = _build/default/_doc/_html
+FINALDOCDIR = _doc
+DOC = $(FINALDOCDIR)/optitrust/Optitrust/index.html
 
+.PHONY: cleandoc
+cleandoc:
+	@ rm -rf $(BUILDOCDIR)
+
+# FIXME: should probably run './tester run tests/*/*_doc -dump-trace', but its expensive, let user do it?
 .PHONY: doc
 doc:
 	@ dune build -p $(THIS) @doc
-	# @ sed -i.bak 's/font-weight: 500;/font-weight: bold;/' $(CSS) && rm -f $(CSS).bak
+	@ rm -rf $(FINALDOCDIR)
+	@ cp -r $(BUILDOCDIR) $(FINALDOCDIR)
+	@ ./doc/add_tests_into_doc.sh
 	@ echo "You can view the documentation by typing 'make viewdoc'".
 
+# TODO: avoid rebuilding entire doc every time?
 .PHONY: viewdoc
 viewdoc: doc
 	@ echo Attempting to open $(DOC)...
-	$(BROWSER) $(DOC)
+	@ nohup $(OPTITRUST_BROWSER) $(DOC) >/dev/null 2>&1 &
 
 # Also for testing:
 #   in terminal, execute utop-full

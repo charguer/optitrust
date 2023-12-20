@@ -40,7 +40,28 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff"
+          "view_step_diff"
+        ]
+      },
+      {
+        "label": "View diff using internal syntax",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_step_diff",
+          "-print-optitrust-syntax"
         ]
       },
       {
@@ -60,7 +81,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_trace"
+          "view_full_trace"
         ]
       },
       {
@@ -80,11 +101,11 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_trace_from_inter"
+          "viewfull_trace_from_inter"
         ]
       },
       {
-        "label": "View trace with -trace-details-only-for-line",
+        "label": "View trace for one step",
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -100,8 +121,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_trace",
-          "-trace-details-only-for-line ${lineNumber}"
+          "view_step_trace"
         ]
       },
       {
@@ -121,28 +141,8 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff",
+          "view_step_diff",
           "-only-big-steps"
-        ]
-      },
-      {
-        "label": "View diff for ast encoding",
-        "type": "shell",
-        "command": "tools/view_result.sh",
-        "options": {
-          "cwd": "${workspaceFolder}",
-          "shell": {
-            "args": ["-i"]
-          }
-        },
-        "presentation": {
-          "clear": true
-        },
-        "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "view_diff_enc"
         ]
       },
       {
@@ -162,7 +162,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff_from_inter"
+          "view_step_diff_from_inter"
         ]
       },
       {
@@ -182,7 +182,7 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff_from_inter",
+          "view_step_diff_from_inter",
           "-only-big-steps"
         ]
       },
@@ -236,14 +236,30 @@
         }
       },
       {
+        "label": "Open diff for the current test",
+        "type": "shell",
+        "command": "./tester",
+        "args": [
+          "diff",
+          "-with-ignored",
+          "${relativeFile}"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        }
+      },
+      {
         "label": "Run the current test with -dump-trace",
         "type": "shell",
         "command": "./tester",
         "args": [
           "run",
           "-with-ignored",
-          "-dump-trace"
-          "${relativeFile}",
+          "-dump-trace",
+          "${relativeFile}"
         ],
         "options": {
           "cwd": "${workspaceFolder}"
@@ -317,6 +333,19 @@
         "presentation": {
           "reveal": "never"
         }
+      },
+      // View documentation
+      {
+        "label": "Open doc for current source file in browser",
+        "type": "shell",
+        "command": "doc/open_doc_for.sh",
+        "args": [ "${file}" ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
       },
       // Run script
       {

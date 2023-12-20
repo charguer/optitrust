@@ -22,8 +22,6 @@ AST:
     x++;
   }
 }
-var-trm-internal:   int* x#366 = new int( 3 )
-for-trm-internal: for ( int i#367 = 0; i#367 < 3; i#367++ ) { x#366++; }
 for-trm-internal-desc: Trm_for ( i,
   Trm_val ( Val_lit ( Lit_int 0 ) ),
   Up,
@@ -41,9 +39,9 @@ typ: target resolves to 3 paths
 [occ #3] <no_typ>
 marks: [mymark2; mymark1]
 cstyle-item: [ Stackvar ]
-annot: {trm_annot_attributes = [  ]; trm_annot_marks = [  ];
-  trm_annot_stringrepr = None; trm_annot_pragma = [  ]; trm_annot_cstyle = [
+annot: {trm_annot_attributes = [  ]; trm_annot_marks = [  ]; trm_annot_labels = [
 
-]; trm_annot_files = [ Main_file ]}
+]; trm_annot_stringrepr = None; trm_annot_pragma = [  ];
+  trm_annot_cstyle = [  ]; trm_annot_files = [ Main_file ]}
 
 */

@@ -1735,7 +1735,7 @@ let fun_with_empty_body (t : trm) : trm =
 (* ********************************************************************************************** *)
 
 let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
-  if !Flags.trm_combinators_warn_unsupported_case then begin
+  if !Flags.report_all_warnings && !Flags.trm_combinators_warn_unsupported_case then begin
     Tools.warn (sprintf "don't know how to '%s' on '%s'" f_name (trm_desc_to_string t.desc));
     Printf.printf "<suppressing similar warnings henceforth>\n";
     Flags.trm_combinators_warn_unsupported_case := false;

@@ -2,78 +2,14 @@ open Printf
 open Target
 open Ast
 
+include Style
+
 (* Usage:
      Show.trm ~msg:"foo:" t
      Show.trm ~msg:"foo:" tg
      Show.trm ~msg:"foo:" (Target.resolve_path p)
      ShowAt.trm ~msg:"foo:" (Target.of_path p)
 *)
-
-(*----------------------------------------------------------------------------------*)
-(* Printing options *)
-
-type style =
-  | Custom of custom_style
-  | Default
-  | C
-  | Internal
-  | InternalAst
-  | InternalAstOnlyDesc
-  (* TODO XUSage *)
-
-and custom_style = {
-  decode : bool; (* TODO: decode on non full ASTs? *)
-  print : print_language }
-
-and print_language =
-  | Lang_AST of Ast_to_text.style
-  | Lang_C of AstC_to_c.style
-  (* Redundand constructors, to avoid need for parentheses,
-     e.g. ~style:XC  instead of ~style:(c()) *)
-
-
-(** Common printing options *)
-
-let c () : style  =
-  Custom {
-    decode = true;
-    print = Lang_C ( AstC_to_c.( default_style ()) ) }
-
-let internal () : style =
-  let s = AstC_to_c.default_style () in
-  Custom {
-    decode = false;
-    print = Lang_C { s with
-      optitrust_syntax = true;
-      ast = { s.ast with print_var_id = true } } }
-
-let internal_ast () : style  =
-  let s = Ast_to_text.default_style () in
-  Custom {
-    decode = false;
-    print = Lang_AST s }
-
-let internal_ast_only_desc () : style  =
-  let s = Ast_to_text.default_style () in
-  Custom {
-    decode = false;
-    print = Lang_AST { s with only_desc = true } }
-
-let default_style () = c ()
-
-(* [resolve_style style] eliminates the redundant constructors *)
-let resolve_style (style : style) : custom_style =
-  let style_as_custom = match style with
-    | Default -> default_style()
-    | Custom _ -> style
-    | C -> c()
-    | Internal -> internal()
-    | InternalAst -> internal_ast()
-    | InternalAstOnlyDesc -> internal_ast_only_desc()
-    in
-    match style_as_custom with
-    | Custom custom_style -> custom_style
-    | _ -> failwith "Show.resolve_style: not custom"
 
 
 (*----------------------------------------------------------------------------------*)
@@ -142,7 +78,7 @@ let paths ?(msg : string = "") (ps : paths) : unit =
 
 let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
-  let custom_style = resolve_style style in
+  let custom_style = to_custom_style style in
   let t =
     if custom_style.decode then begin
       if not (Trm.trm_is_mainfile t) then begin
@@ -272,6 +208,127 @@ end
 
 
 (*----------------------------------------------------------------------------------*)
+(** Show functions whose output can be viewed as a diff or as steps in trace. *)
+
+(* [ast ()] prints on the left-hand side the C code, and on the right-hand side the internal AST code. Use [~internal:false] to disable the printing of internal.
+    TODO: contract_internal_repr is not yet implemented
+    EXAMPLE !! Show.ast ~contract_internal_repr:true ();
+     *)
+let ast ?(internal : bool = true) ?(contract_internal_repr : bool option) ?(msg : string = "show-ast") () : unit =
+  let ast_left = Trace.ast() in
+  let style_default = Style.default_custom_style () in
+  let style_left = style_default in
+  let style_right =
+    if not internal then style_default else begin
+      let cstyle_default = AstC_to_c.(default_style()) in
+      let ast_style = cstyle_default.ast in
+      let ast_style = match contract_internal_repr with
+        | None -> ast_style
+        | Some b -> { ast_style with print_contract_internal_repr = b }
+        in
+      { style_default with
+        decode = false;
+        print = Lang_C { cstyle_default with optitrust_syntax = true; ast = ast_style } }
+    end in
+  let ast_right = if not internal then Trm.empty_ast else ast_left in
+  Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
+
+(* [target tg] shows the C code on the left-hand side of the diff, and the code decorated
+   with marks as comments on the terms that the target [tg] resolves to. *)
+let target ?(msg : string = "show-target") ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
+  let add_marks_and_get_ast () : trm =
+    (* Calling [enable_multi_targets] to automatically add [nbMulti] if there is no occurence constraint. *)
+    let tg = enable_multi_targets tg in
+    let mark_of_occurence (i:int) : string =
+      Printf.sprintf "%d" i in
+    applyi (fun i t p ->
+      let m = mark_of_occurence i in
+      match Path.last_dir_before_inv p with
+      | Some (p, k) ->
+        target_between_show_transfo m k t p
+      | None -> target_show_transfo ~types m t p
+    ) tg;
+    Trace.ast() in
+  let ast_left = Trace.ast() in
+  let ast_right = step_backtrack ~discard_after:true add_marks_and_get_ast in
+  let style_left = Style.default_custom_style () in
+  let style_right = style_left in
+  Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
+  (* LATER: we could pass a closure to show_step instead of an ast_right argument *)
+
+(* [tg] is an alias for [target] *)
+let tg = target
+
+(* [res] shows the C code on the left-hand side of the diff, and the code decorated
+   with computed resources on the right-hand side.
+   The option [~ast] allows to provide a specific ast, otherwise resources are
+   reported for the full current ast.  *)
+let res ?(msg : string = "show-resources")
+ ?(ast : trm = Trace.ast ())
+ ?(typing_style:typing_style = Style.typing_all)
+ () : unit =
+  let ast_left = Trace.ast() in
+  let ast_right = ast_left in
+  let style_left = Style.default_custom_style () in
+  let aststyle_default = Ast.default_style () in
+  let aststyle = { aststyle_default with print_generated_ids = true } in
+  let cstyle_default = AstC_to_c.(default_style()) in
+  let cstyle = { cstyle_default with
+    ast = aststyle;
+    optitrust_syntax = true; } in
+  (*let customstyle_default = Style.default_custom_style() in*)
+  let style_right = { (*customstyle_default with*)
+      decode = false;
+      typing = typing_style;
+      print = Lang_C cstyle } in
+  Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
+
+
+(* [ctx] is like [res] but shows only [ctx_res] fields. *)
+let ctx ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit =
+  res ~msg ~ast ~typing_style:Style.typing_ctx ()
+
+(* [delta] is like [res] but shows all but [frame] information.
+   TODO: ideally we would hide the [ctx_res] fields, but this requires
+   replace the resource ids occurring in other fields with their
+   corresonding formula. In [inst] and [produced], the ids should be hidden *)
+let delta ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit =
+  res ~msg ~ast ~typing_style:Style.typing_delta ()
+
+
+(* LATER: Fix me
+(* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
+let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =
+  show ~line (* DEPRECATED ~reparse*) ~types:true tg
+*)
+
+
+(*----------------------------------------------------------------------------------*)
+(** Special function for unit test targets. *)
+
+(** If interactive mode, remove all existing marks in the ast.
+    Then, in any case, add marks at the positions of the targets.
+    The marks are named based on the occurence number.
+    If non-interactive mode, a prefix on the names is added with
+    the number of calls previously performed to this function.
+    Feature: [nbAny] is added to the target [tg] automatically,
+    unless a specific number is specified in the target. *)
+let add_marks_for_target_unit_tests (tg : target) : unit =
+  let tg = enable_multi_targets tg in
+  if Flags.is_execution_mode_step ()
+    then Marks_basic.remove_st ~indepth:true (fun _m -> true) [];
+  let prefix =
+    if Flags.is_execution_mode_step ()
+      then ""
+      else sprintf "%d_" (show_next_id())
+    in
+  Target.iteri (fun i t p ->
+    let mark = Printf.sprintf "%s%d" prefix i in
+    Marks_basic.add mark (target_of_path p)) tg
+
+
+(*----------------------------------------------------------------------------------*)
+
 
 (* LATER
 

@@ -10,12 +10,11 @@ let _ = Run.script_cpp (fun _ ->
 
 
   (* Error message if the sum of blocks does not correspond to the number trms in the sequence*)
-  !! Trace.failure_expected (fun _ ->
+  !! Trace.failure_expected (fun _e -> true) (fun _ ->
     Sequence_basic.partition ~braces:true [2;3] tg;);
 
-  !! Trace.alternative (fun () ->
-     Sequence_basic.partition ~braces:true [1;2;1;3] tg;
-     !!());
+  !! Trace.restore_original();
+  !! Sequence_basic.partition ~braces:true [1;2;1;3] tg;
 
 )
 

@@ -1,22 +1,22 @@
 open Optitrust
-open Target
 open Prelude
+let show = Show.add_marks_for_target_unit_tests
 
 let _ = Run.script_cpp (fun () ->
 
    (* All right hand sides of the equalities*)
-   show [dRHS];
+   !! show [dRHS];
    (* All left hand sides of the equalities*)
-   show [dLHS];
+   !! show [dLHS];
    (* All equalities*)
-   show [cWrite ()];
+   !! show [cWrite ()];
    (* Equalities with specific right hand side*)
-   show [cWrite ~lhs:[cVar "i"] ()];
-   show [cWrite ~lhs:[cVar "t"] ()];
+   !! show [cWrite ~lhs:[cVar "i"] ()];
+   !! show [cWrite ~lhs:[cVar "t"] ()];
    (* All get operations *)
-   show [cRead ~addr:[sExpr "a"] ()];
-   show [cRead ~addr:[cVar "b"] ()];
-   show [cRead ~addr:[cVar "i"] ()];
+   !! show [cRead ~addr:[sExpr "a"] ()];
+   !! show [cRead ~addr:[cVar "b"] ()];
+   !! show [cRead ~addr:[cVar "i"] ()];
 
 
 

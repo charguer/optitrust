@@ -1,35 +1,62 @@
 open Optitrust
-open Target
+open Prelude
 
-(* Usage:
-       ./tester tests/interact/interact_traceview.ml
-      cat tests/interact/interact_traceview_trace.txt
-      chromium-browser interact_trace_trace.html
+(* Uncomment the line below to see encoded syntax in trace
+let _ = Flags.print_optitrust_syntax := true
 *)
-
-(* This test can be used to test the generation of the javsacript trace [%_trace.js],
-   used to display [%_trace.html].  *)
-
-(* Dump a javascript file with the full trace at the end,
-   when executing 'make interact_traceview.out'  *)
-let  _ =
-  Flags.dump_trace := true;
-  Flags.use_clang_format := true
-
+let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
-
-    bigstep "first part";
-    !! Label.add "lab1" [cVarDef "a"];
-    !! Label.add "lab2" [cVarDef "a"];
-    bigstep "second part";
-    (* Activate the line below to see a trace with failure in the middle *)
-    (* !! failwith "the error message"; *)
-    !! Label.add "lab3" [cVarDef "a"];
-    !! Label.add "lab4" [cVarDef "a"];
-    !! Label.add "lab5" [cVarDef "a"];
-    bigstep "third part";
-    !! Label.add "lab6" [cVarDef "a"];
-    !! Label.add "lab7" [cVarDef "a"];
+  (* Try task "view trace" on this program; debug messages below should appead in the trace *)
+  bigstep "first part";
+  !! Label.add "lab1" [cVarDef "a"];
+  !! Label.add "lab2" [cVarDef "a"];
+  bigstep "second part";
+  (* Uncomment the line below to see a partial trace
+    !! if true then failwith "the error message";
+  *)
+  !! Label.add "lab3" [cVarDef "a"];
+  (* Try task "View diff" on the line below; debug messages below should appear on stdout *)
+  !! Trace.msg "debug message before\nlab4 \n";
+      Label.add "lab4" [cVarDef "a"];
+      Trace.msg "debug message after\nlab4 \n";
+  !! Label.add "lab5" [cVarDef "a"];
+  (* Examples of show functions with output in browser *)
+  !! Show.ast ();
+  !! Show.ast ~internal:false ();
+  !! Resources.ensure_computed ();
+  !! Show.res ();
+  !! Show.ctx ();
+  !! Show.delta ();
+  !! Show.target [cVarDef ""];
+  (* Example with two show operations within the same small-step;
+    the diff would show empty, but we get a warning.
+  !! Show.ast (); Show.ast ();
+  *)
+  (* Examples of show functions with output on stdout *)
+  (* !! ShowAt.trm []; *)
+  bigstep "third part";
+  (* Try task "View diff using internal syntax" *)
+  !! Label.add "lab6" [cVarDef "a"];
+  !! Label.add "lab7" [cVarDef "a"];
+  (* Example of trustme section *)
+  !! Trace.trustme "I know what I'm doing" (fun () ->
+     Label.add "labX1" [cVarDef "a"];
+     Label.add "labX2" [cVarDef "a"];
+  );
+  (* Example of backtracking *)
+  !! ignore (Trace.step_backtrack (fun () ->
+       Label.add "labE0" [cVarDef "a"];));
+  !! ignore (Trace.step_backtrack_on_failure (fun () ->
+       Label.add "labE1" [cVarDef "a"];));
+  !! ignore (Trace.step_backtrack_on_failure (fun () ->
+       Label.add "labE2" [cVarDef "a"];
+       failwith "trigger backtrack"));
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
+       Label.add "labE3" [cVarDef "a"];
+       failwith "trigger expected failure");
+  (* Uncomment to see a partial trace
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
+       Label.add "labE4" [cVarDef "a"]);*)
 
 )

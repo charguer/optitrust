@@ -254,6 +254,8 @@ let hashtbl_to_list (h : ('a, 'b) Hashtbl.t) : ('a * 'b) list =
 (******************************************************************************)
 
 module Terminal = struct
+  type color = string
+
   let no_color = "\027[0m"
 
   let black = "\027[0;30m"
@@ -273,12 +275,22 @@ module Terminal = struct
   let light_cyan = "\027[1;36m"
   let white = "\027[1;37m"
 
-  let with_color c msg =
+  let with_color (c:color) (msg:string) : string =
     Printf.sprintf "%s%s%s" c msg no_color
+
+  let report (color:color) (header:string) (msg:string) : unit =
+    Printf.printf "%s: %s\n" (with_color color header) msg
 end
 
+let error (msg : string) : unit =
+  Terminal.(report red "ERROR" msg)
+
 let warn (msg : string) : unit =
-  Printf.printf "%s: %s\n" Terminal.(with_color orange "WARNING") msg
+  Terminal.(report orange "WARNING" msg)
+
+let info (msg : string) : unit =
+  Terminal.(report blue "INFO" msg)
+
 
 (******************************************************************************)
 (*                          Functor Applications                         *)

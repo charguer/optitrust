@@ -12,9 +12,8 @@ let _ = Run.script_cpp (fun _ ->
   !! If_basic.insert ~cond:(expr "x > 0") [cMark "foo"];
 
   (* Another demo with a block  -LATER: tofix *)
-  !! Trace.alternative (fun () ->
-      !! Sequence_basic.intro ~mark:"new_block" 2 [sInstr "x = 5"];
-      !! If_basic.insert ~cond:(expr "x > 0") [cMark "new_block"];
-      !!();)
+  !! Trace.restore_original();
+  !! Sequence_basic.intro ~mark:"new_block" 2 [sInstr "x = 5"];
+  !! If_basic.insert ~cond:(expr "x > 0") [cMark "new_block"];
 
 )

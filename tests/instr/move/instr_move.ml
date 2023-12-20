@@ -8,8 +8,6 @@ let _ = Run.script_cpp (fun _ ->
   (* NOTE: Use this transformation with care, it deos not check if the
       targeted invariant is an invariant or not.
   *)
-  Trace.alternative (fun _ ->
+  !! Trace.restore_original();
   !! Instr.move ~dest:[tBefore; cFunDef "main"] [cVarDef "x"];
-  !! ()
-  );
 )

@@ -12,7 +12,7 @@ let _ = Run.script_cpp (fun _ ->
   *)
 
   (* TODO:
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop.swap [cFunBody "g"; cFor "i"]);
 *)
   !! Loop.swap_basic [cFunBody "f"; cFor "x"];

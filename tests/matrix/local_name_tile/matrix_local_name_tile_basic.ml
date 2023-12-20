@@ -9,7 +9,7 @@ let _ = Run.script_cpp (fun _ ->
   let range a b = (trm_int a, trm_int b) in
 
   (* uninit_pre *)
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     !! Matrix_basic.local_name_tile
       ~alloc_instr:[cFunBody "malloc_uninit_pre"; cVarDef "a"] ~local_var:"x"
       ~uninit_pre:false ~uninit_post:false
@@ -23,7 +23,7 @@ let _ = Run.script_cpp (fun _ ->
     [cFunBody "malloc_uninit_pre"; cFor ~body:[cArrayWrite "a"] "i"];
 
   (* uninit_post *)
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Matrix_basic.local_name_tile
       ~alloc_instr:[cFunBody "malloc_uninit_post"; cVarDef "a"] ~local_var:"x"
       ~uninit_pre:true ~uninit_post:false

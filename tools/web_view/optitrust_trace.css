@@ -145,8 +145,19 @@ h2 {
 .diffBefore {}
 .diffAfter {}
 
+.step-big {
+  display: inline-block;
+  background: white;
+  padding: 2px;
+  border-top: 2px solid black;
+  width: 100%;
+}
+
 .step-valid, .step-justif {
   background: #99ffc9;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-radius: 10px;
 }
 .step-justif-text {
   margin-left: 3em;
@@ -161,6 +172,10 @@ h2 {
   background: #ff3939;
   font-weight: bold;
 }
+.step-show {
+  background: #e7ff49;
+}
+
 .step-io-target {
   background: #fdf7bf;
 }
@@ -182,6 +197,18 @@ h2 {
   padding-right: 2px;
   padding-left: 2px;
   padding-bottom: 1px;
+}
+
+.has-debug-msg {
+  padding-left: 5px;
+  padding-right: 5px;
+  background: #ff9d60;
+  border-radius: 10px;
+}
+
+#debugMsgDiv {
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
 /* ---- vertical split view */

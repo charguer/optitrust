@@ -1,5 +1,4 @@
 open Optitrust
-open Target
 open Prelude
 
 (* Arthur: we should be more consistent with ~addr: and ~base:  => perhpas addr is better?

@@ -1,6 +1,5 @@
 include Marks_basic
 
-open Target
 open Prelude
 
 let with_fresh_mark (f : mark -> unit) : unit =
@@ -22,7 +21,7 @@ let with_marks (k : (unit -> mark) -> unit) : unit =
     m
   in
   k(next);
-  (* TODO: Marks.remove_all, would be much more efficient *)
+  (* TODO: Marks.remove_all, would be much more efficient --see clean_all? *)
   List.iter (fun m -> remove m [nbAny; cMark m]) !marks_to_remove
 
 let add_next_mark (next_m : unit -> mark) (tg : target) : mark =
@@ -32,3 +31,5 @@ let add_next_mark (next_m : unit -> mark) (tg : target) : mark =
 
 let add_next_mark_on (next_m : unit -> mark) (p : path) : mark =
   add_next_mark next_m (target_of_path p)
+
+

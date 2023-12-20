@@ -9,14 +9,12 @@ let _ = Run.script_cpp (fun _ ->
      here, the label "group1" should disappear *)
 
   (* apply operations to multiple groups *)
-  !! Trace.alternative (fun () ->
-    Record_basic.set_implicit [nbMulti; cLabel ~regexp:true "group."];
-    !!(););
+  !! Trace.restore_original();
+  !! Record_basic.set_implicit [nbMulti; cLabel ~regexp:true "group."];
 
   (* apply operation using a more complex target *)
-  !! Trace.alternative (fun () ->
-    let tg = [cSeq ~args_pred:(Target.target_list_one_st [cFieldWrite ~base:[cVar "b"] ()]) ()] in
-    !! Record_basic.set_implicit tg;
-    !!(););
+  !! Trace.restore_original();
+  let tg = [cSeq ~args_pred:(Target.target_list_one_st [cFieldWrite ~base:[cVar "b"] ()]) ()] in
+  !! Record_basic.set_implicit tg;
 
 )

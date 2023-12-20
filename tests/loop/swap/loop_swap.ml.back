@@ -26,7 +26,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Loop.swap [cFor "c"];
   !! Loop.swap [cFor "b"];
 
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop.swap [cFor "i"]);
 
   !! Loop.swap [cFor "x"];

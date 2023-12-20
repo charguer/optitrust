@@ -1,5 +1,4 @@
 open Optitrust
-open Target
 open Prelude
 
 let _ = Run.script_cpp(fun _ ->
@@ -8,7 +7,7 @@ let _ = Run.script_cpp(fun _ ->
   !! Loop.shift ~index:"j2" StartAtZero [cFor "j"];
   !! Loop.shift ~index:"k2" ~inline:false (ShiftBy (expr "shift")) [cFor "k"];
   !! Loop.shift (ShiftBy (expr "shift")) [cFor "l"];
-  !!! Loop.shift (StopAt (expr "N")) [cFor "m"];
-  !!! Loop.shift (StartAt (trm_int 8)) [cFor "m"];
+  !! Loop.shift (StopAt (expr "N")) [cFor "m"];
+  !! Loop.shift (StartAt (trm_int 8)) [cFor "m"];
   !! Loop.shift StartAtZero [cFor "i"];
 )

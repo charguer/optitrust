@@ -1,6 +1,5 @@
 include Arrays_basic
 
-open Target
 open Prelude
 
 (* returns the [i] and [indices - i] if [t] is a loop over index [i]. *)

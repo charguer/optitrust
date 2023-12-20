@@ -12,7 +12,10 @@ steps[0] = {
    exectime: 0.0453;   // in seconds
    name: "..",
    args: [ { name: "..", value: ".."}, { name: "..", value: ".." } ],
+   tags: ["..", ".."],
+   debug_msgs: ["..", ".."],
    justif: ["..", ".." ],
+   check_validity: true,
    isvalid: true,
    script: window.atob("..."),
    script_line: 23, // possibly undefined
@@ -97,6 +100,12 @@ var optionsDescr = [ // extended by initAllTags
     kind: "UI",
     default: false,
   },
+  /* always-true
+  { key: "simpl-show",
+    name: "simpl-show-steps",
+    kind: "UI",
+    default: true,
+  },*/
   { key: "exectime",
     name: "exectime",
     kind: "UI",
@@ -106,6 +115,11 @@ var optionsDescr = [ // extended by initAllTags
     name: "tags",
     kind: "UI",
     default: false,
+  },
+  { key: "debug_msgs",
+    name: "debug-msgs",
+    kind: "UI",
+    default: true,
   },
   /* DEPRECATED
    { key: "io_steps",
@@ -264,6 +278,39 @@ var idSourceLeft = -1;
 var idSourceRight = -1;
 var selectedStep = undefined; // stores a step object
 
+function loadDebugMsgs(messages) {
+  var s = '';
+  if (options.debug_msgs && messages) {
+    for (var i = 0; i < messages.length; i++) {
+      s += escapeHTML(messages[i]);
+    }
+  }
+  $('#debugMsgDiv').html(s);
+}
+
+function extractShowStep(step) {
+  if (step.kind == "Show") {
+    return step;
+  } else if (step.sub.length == 1) {
+    return extractShowStep(steps[step.sub[0]]);
+  } else {
+    throw new Error("ERROR: extractShowStep: did not find a step-show in depth");
+  }
+}
+
+function loadDiffForStep(step) {
+  // Special case for the diff of steps whose action is a "show" operation,
+  // for which we show the diff of the substep
+  if (step.tags.includes("show")) {
+    try {
+      step = extractShowStep(step);
+    } catch (error) {
+      console.log("ERROR: extractShowStep: did not find a step-show in depth");
+    }
+  }
+  // Print diff for step
+  loadDiffFromString(step.diff);
+}
 
 function loadDiffFromString(diffString) {
   // this function should be called only after DOM contents is loaded
@@ -385,7 +432,7 @@ function loadSdiff(id) {
   var step = smallsteps[id];
   selectedStep = step;
   reloadTraceView(); //loadStepDetails(step.id);
-  loadDiffFromString(step.diff);
+  loadDiffForStep(step);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
   if (options.exectime) {
     var sTime = htmlSpan(Math.round(1000 * step.exectime) + "ms", "timing-info") + "<div style='clear: both'></div>";
@@ -408,7 +455,7 @@ function loadBdiff(id) {
   var step = bigsteps[id];
   selectedStep = step;
   reloadTraceView(); // loadStepDetails(step.id);
-  loadDiffFromString(step.diff);
+  loadDiffForStep(step);
   $("#button_bdiff_" + id).addClass("ctrl-button-selected");
   var sStep = htmlSpan(escapeHTML(step.script), "step-info");
   displayInfo(sStep);
@@ -466,6 +513,7 @@ function loadStepDetails(idStep) {
   if (options.ast_before || options.ast_after) {
     var ast = (options.ast_before) ? step.ast_before : step.ast_after;
     loadSource(ast, true);
+    $("#debugMsgDiv").html("")
     $("#diffDiv").hide();
     $("#statsDiv").hide();
     $("#sourceDiv").show();
@@ -476,7 +524,8 @@ function loadStepDetails(idStep) {
     $("#statsDiv").show();
     $("#sourceDiv").hide();
   } else {
-    loadDiffFromString(step.diff);
+    loadDebugMsgs(step.debug_msgs);
+    loadDiffForStep(step);
     $("#diffDiv").show();
     $("#statsDiv").hide();
     $("#sourceDiv").hide();
@@ -524,17 +573,13 @@ function stepToHTML(step, isOutermostLevel) {
     return sSubs;
   }
 
-  var validityClass = "";
+  // TODO: display check_validity
+
+  var lineClass = "";
   if (step.kind == "IO" || step.kind == "Target") {
-    validityClass = "step-io-target";
+    lineClass = "step-io-target";
   } else if (step.kind == "Error") {
-    validityClass = "step-error";
-  } else if (step.isvalid) {
-    validityClass= "step-valid";
-  } else if (step.has_valid_parent) {
-    validityClass = "step-has-valid_parent";
-  } else {
-    validityClass = "step-invalid";
+    lineClass = "step-error";
   }
   var sTime = "";
   if (options.exectime) {
@@ -555,8 +600,13 @@ function stepToHTML(step, isOutermostLevel) {
       sTimeClass = "exectime-mid";
     }
     sTime = "<span class='" + sTimeClass + "'>" + sTime + "</span>";
-
   }
+
+  var sHasMsg = "";
+  if (step.debug_msgs && step.debug_msgs.length > 0) {
+    sHasMsg = "<span class='has-debug-msg'>MSG</span>";
+  }
+
   var sKind = "";
   if (step.script_line !== undefined) {
     sKind = " [<b>" + step.script_line + "</b>] ";
@@ -605,9 +655,34 @@ function stepToHTML(step, isOutermostLevel) {
     var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.parent_id + ")'";
   }
 
+  var sStepSymbol;
+  if (step.isvalid) {
+    sStepSymbol = "&#10004;" // check
+  } else if (step.has_valid_parent) {
+    sStepSymbol = "&diams;"; // diamond, validity is covered by a parent
+  } else if (! step.check_validity) {
+    sStepSymbol = "&#9679;" // circle, was not trying to check validity
+    // lineClass = "step-has-valid_parent";
+  } else { // step.check_validity && ! step.isvalid
+    sStepSymbol= "&#10060"; // cross, for a trustme step
+    lineClass = "step-invalid";
+  }
+
+  var fullLineClass = "";
+  if (step.kind == "Big") {
+    fullLineClass = "step-big";
+  } else if (step.kind == "Small") {
+    if (step.tags.includes("show")) {
+      lineClass = "step-show";
+    } else if (step.isvalid) {
+      lineClass = "step-valid";
+    }
+
+  }
+
   // Line contents
   if (! isRoot) {
-    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + sArgs + " " + sScript + sTags + "</span></div>";
+    s += "<div class='" + fullLineClass + "'><span class='step-bullet' " + sOnClickFocusOnStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + " " + sScript + sTags + "</span></div>";
   }
 
   if (options.justif) {
@@ -722,7 +797,7 @@ initOptions();
 function initControls() {
   var s = "";
   function addRow(sTitle, sRow) {
-    s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br/>";
+    s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br class='row-br'/>";
   };
 
   // Code buttons
@@ -807,6 +882,7 @@ function initSteps() {
   // reads global variable [steps]
   // writes global variables [smallsteps] and [bigsteps] and [hasBigsteps]
   var rootStep = steps[0];
+
   var rootSub = rootStep.sub;
   if (rootSub.length == 0) {
     console.log("Error: no steps in tree")
@@ -899,20 +975,29 @@ function initAllTags() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+  var isRootedTrace = (steps[0].kind == "Root");
   initEditor();
-  initSteps();
+  if (isRootedTrace) {
+    initSteps();
+  }
   initTree(0, 0, false); // the root is its own parent, has no valid parent
   initAllTags();
   initOptions();
   initControls();
   initSplitView();
   // editor.setValue("click on a button");
-  if (hasBigsteps) {
-    loadBdiff(0); }
-  else {
-    loadSdiff(0);
+  if (isRootedTrace) {
+    if (hasBigsteps) {
+      loadBdiff(0); }
+    else {
+      loadSdiff(0);
+    }
+    $('#button_bdiff_next').focus();
+  } else {
+    $('#button_sdiff_next').hide();
+    $('.row-title').hide();
+    $('.row-br').hide();
   }
-  $('#button_bdiff_next').focus();
 
   // start by showing the tree of steps on the root, or the requested step
   var stepInit = 0; // root

@@ -26,7 +26,13 @@ let apply_on_marks (f : marks -> marks) (t : trm) : trm =
 let trm_add_mark (m : mark) (t : trm) : trm =
   if m = "" then t else apply_on_marks (fun marks -> m :: marks) t
 
-(* [trm_filter_mark m t]: filters all marks that satisfy the predicate [pred]. *)
+let trm_may_add_mark (mo : mark option) (t : trm) : trm =
+  match mo with
+  | Some m -> trm_add_mark m t
+  | None -> t
+
+(* [trm_filter_mark m t]: keeps only marks that satisfy the predicate [pred].
+   Only operates on marks on the term, does not handle mark-between in sequences. *)
 let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
   apply_on_marks (fun marks -> List.filter (fun m -> pred m) marks) t
 
@@ -45,14 +51,15 @@ let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
     trm_seq ~annot:t.annot new_tl
   | _ -> trm_fail t "Ast.trm_add_mark_between: expected a sequence"
 
-(* [trm_remove_marks t]: removes all the marks from trm [t] *)
-let trm_remove_marks (t : trm) : trm =
+(* [trm_remove_marks pred t]: removes all the marks from trm [t]
+   that satisfy the predicate [pred]. Including mark-between in sequences. *)
+let trm_remove_marks (pred: mark->bool) (t : trm) : trm =
   let res =
   match t.desc with
   (* In the case of sequences, special treatment is needed for in between marks*)
   | Trm_seq tl -> trm_replace (Trm_seq {items = tl.items; marks = []}) t
   | _ -> t in
-  trm_filter_mark (fun _ -> false) res
+  trm_filter_mark (fun m -> not (pred m)) res
 
 (* [trm_rem_mark_between m t]: removes the between mark [m] from trm [t] *)
 let trm_rem_mark_between (m : mark) (t : trm) : trm =

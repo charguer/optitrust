@@ -1,12 +1,21 @@
-open Prelude
+(* Don't load prelude to avoid circular dependencies
+   because prelude loads show, and show uses marks *)
+(* open Prelude *)
+open Ast
+open Trm
+open Typ
 open Target
+open Mark
+
+let justif () =
+  Trace.justif_always_correct ();
+  Trace.tag_trivial ();
+  Trace.tag "marks"
 
 (* [add m tg]: adds mark [m] to the term or interstice that correpsonds to target [tg].
    NOTE: if m = "" then does nothing. *)
 let%transfo add (m : mark) (tg : target) : unit =
-  Trace.justif_always_correct ();
-  Trace.tag_trivial ();
-  Trace.tag "marks";
+  justif();
   if m = "" then () else Target.iter (fun _ p ->
     match Path.last_dir_before_inv p with
     | Some (p_seq, i) -> Target.apply_at_path (trm_add_mark_between i m) p_seq
@@ -27,11 +36,9 @@ let%transfo add_between (m : mark) (tg : target) : unit =
          Target.apply_on_path (fun t -> trm_add_mark_between i m t) t p) tg
  *)
 
-(* [remove m tg]: removes mark m from the term or interstice that corresponds to target [tg]. *)
+(*** [remove m tg]: removes mark m from the term or interstice that corresponds to target [tg]. *)
 let%transfo remove (m : mark) (tg : target) : unit =
-  Trace.justif_always_correct ();
-  Trace.tag_trivial ();
-  Trace.tag "marks";
+  justif();
   Target.iter (fun _ p ->
     match Path.last_dir_before_inv p with
     | Some (p_seq, i) -> Target.apply_at_path (trm_rem_mark_between m) p_seq
@@ -48,9 +55,16 @@ let%transfo remove_between (m : mark) (tg : target) : unit =
     Path.apply_on_path (trm_rem_mark_between m) t p_seq) tg
 *)
 
-(* [clean tg]: cleans all the marks from the trm that corresponds to target [tg]. *)
-let%transfo clean (tg : target) : unit =
-  Trace.justif_always_correct ();
-  Trace.tag_trivial ();
-  Trace.tag "marks";
-  Target.apply_at_target_paths trm_remove_marks tg
+(** [remove_st pred tg]: cleans all the marks satisfying [pred] from the trm
+   that corresponds to target [tg]. Use [~indepth:true] to recurse in subterms. *)
+let%transfo remove_st ?(indepth:bool=false) (pred: mark->bool) (tg : target) : unit =
+  justif();
+  let rec aux (t:trm) : trm =
+    trm_remove_marks pred (trm_map aux t) in
+  if indepth
+    then Target.apply_at_target_paths aux tg
+    else Target.apply_at_target_paths (trm_remove_marks pred) tg
+
+(* DEPRECATED? *)
+let clean (tg : target) : unit =
+  remove_st (fun _m -> true) tg

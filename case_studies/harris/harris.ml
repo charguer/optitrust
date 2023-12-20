@@ -1,5 +1,4 @@
 open Optitrust
-open Target
 open Prelude
 
 let _ = Flags.pretty_matrix_notation := true

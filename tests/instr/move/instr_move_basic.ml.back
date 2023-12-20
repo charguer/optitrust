@@ -30,13 +30,13 @@ let _ = Run.script_cpp (fun _ ->
 
   let cVarWrite x = cWrite ~lhs:[cVar x] () in
   !! Instr_basic.move ~dest:[tBefore; cVarDef "t"] [cVarWrite "z"];
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Instr_basic.move ~dest:[tBefore; cVarDef "t"] [cVarWrite "t"]);
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Instr_basic.move ~dest:[tBefore; cVarWrite "x"] [cVarWrite "z"]);
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Instr_basic.move ~dest:[tBefore; cVarWrite "x"] [cVarWrite "z"]);
 
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Instr_basic.move ~dest:[tBefore; cVarDef "v"] [cVarWrite "y"]);
 )

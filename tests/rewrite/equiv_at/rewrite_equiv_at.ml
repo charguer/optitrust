@@ -9,6 +9,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Rewrite_basic.equiv_at ~indepth:true "int k; ==> k + 0 == k" [];
   !! Rewrite_basic.equiv_at ~indepth:true " ==> 8 + 1 == 9" [];
   !! Rewrite_basic.equiv_at ~indepth:true ~ctx:true " ==> min(0, 1) == 0" [];
-  !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
     Rewrite_basic.equiv_at ~indepth:true " ==> 7 + 1 == 8" []);
 )

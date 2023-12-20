@@ -13,18 +13,18 @@ open Target
 (* Dump a javascript file with the full trace at the end,
    when executing 'make interact_traceview.out'  *)
 let  _ =
-  Flags.dump_trace := true;
+
   Flags.use_clang_format := true
 
 
 let _ = Run.script_cpp ~filename:"interact_traceview_inter_before.cpp" ~prefix:"interact_traceview_fast" (fun _ ->
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
     !! Label.add "lab3" [cVarDef "a"];
     !! Label.add "lab4" [cVarDef "a"];
     !! Label.add "lab5" [cVarDef "a"];

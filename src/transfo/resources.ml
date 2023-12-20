@@ -469,7 +469,7 @@ let formulas_of_hyps (hyps: hyp list) (resources: resource_item list): formula l
    - if provided [pred], allows specifying which formulas to include in the shadowing check.
     *)
 let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) (p : path) : unit =
-  step_and_backtrack ~discard_after:true (fun () ->
+  step_backtrack ~discard_after:true (fun () ->
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
       Target.apply_at_path (fun instr ->
         let write_hyps = write_usage_of instr in
@@ -538,9 +538,6 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
     ) interferences)));
   ()
 
-(* [show] enables to view the result of resource computations. *)
-let show (*LATER?(details:bool=true)*) ?(discard_after = true) ?(line:int = -1) () : unit =
-  step_and_backtrack ~discard_after (fun () ->
-    recompute_resources ();
-    show_computed_res ~line ()
-  )
+(* TEMPORARY for backward compatibility -- TODO: substitute them in tests *)
+let show () = Show.res ()
+let show_ast () = Show.ast ()

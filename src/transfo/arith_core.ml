@@ -153,7 +153,8 @@ let is_integer_typ (typ : typ option) : bool =
     | _ -> failwith (Printf.sprintf "unsupported type: %s" (AstC_to_c.typ_to_string t))
     end
   | _ ->
-    Tools.warn "trm_to_naive_expr: missing type information, assuming floating point";
+    if !Flags.report_all_warnings
+      then Tools.warn "trm_to_naive_expr: missing type information, assuming floating point";
     (* if true then failwith "DEBUGME"; *)
     false (* LATER: fix this assumption *)
 
@@ -557,7 +558,10 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           | true, true -> true
           | false, false -> false
           | _ ->
-            printf "WARNING: arith types differ: %s and %s\n" (Xoption.to_string AstC_to_c.typ_to_string t1.typ) (Xoption.to_string AstC_to_c.typ_to_string t2.typ);
+            if !Flags.report_all_warnings
+              then Tools.warn (sprintf "arith types differ: %s and %s\n"
+                    (Xoption.to_string AstC_to_c.typ_to_string t1.typ)
+                    (Xoption.to_string AstC_to_c.typ_to_string t2.typ));
             false
             (* LATER: failwith "should not happen" *)
          in
@@ -897,7 +901,7 @@ let update_typ (mem_t : typ option ref) (new_t : typ option) : unit =
       begin match !mem_t with
       | None -> mem_t := Some nt
       | Some mt ->
-        if (mt <> nt) then
+        if (mt <> nt) && !Flags.report_all_warnings then
           Tools.warn (sprintf "arith types differ: %s and %s" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt))
       end
 
