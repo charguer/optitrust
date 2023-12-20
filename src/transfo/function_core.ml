@@ -50,7 +50,7 @@ let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : string) (co
 
 (* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
    but for now we implement a function that covers both beta and inline at once, as it is simpler *)
-let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option) (p_local : path) (t : trm) : trm =
+let inline_aux (index : int) (body_mark : mark) (subst_mark : mark) (p_local : path) (t : trm) : trm =
   let error = "Function_core.inline_aux: the targeted function call should be contained into an instruction that
      belongs toa local or global scope" in
   let tl = trm_inv ~error trm_seq_inv t in
@@ -72,8 +72,8 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
       | Trm_let_fun (_f, ty, args, body, _) ->
         let fun_decl_arg_vars = fst (List.split args) in
         let subst_map = Var_map.of_seq (Seq.append
-          (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_may_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
-          (Seq.map (fun (g, f) -> (g, trm_may_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
+          (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
+          (Seq.map (fun (g, f) -> (g, trm_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
         in
         let fun_decl_body = trm_subst subst_map (trm_copy body) in
         let name = match t.desc with
@@ -81,10 +81,7 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
           | _ -> dummy_var
         in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
-        let marked_body = match body_mark with
-        | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Nobrace.set_if_sequence processed_body
-        | _ -> Nobrace.set_if_sequence processed_body
-        in
+        let marked_body = if body_mark <> "" then trm_add_mark body_mark processed_body else Nobrace.set_if_sequence processed_body in
         let exit_label = if nb_gotos = 0 then trm_seq_nobrace_nomarks [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
           if is_type_unit(ty)
@@ -103,7 +100,7 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
     trm_seq ~annot:t.annot new_tl
 
 (* [inline index body_mark p_local t p]: applies [inline_aux] at the trm [t] with path [p]. *)
-let inline (index: int) (body_mark : string option) ~(subst_mark : mark option) (p_local : path) : Transfo.local =
+let inline (index: int) (body_mark : mark) ~(subst_mark : mark) (p_local : path) : Transfo.local =
   Stats.comp_stats "Function_core.inline" (fun () -> apply_on_path (
     Stats.comp_stats "Function_core.inline_aux" (fun () -> inline_aux index body_mark subst_mark p_local)))
 

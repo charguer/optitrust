@@ -34,13 +34,13 @@ let%transfo fold ?(at : target = []) (tg : target) : unit =
      }
 
      NOTE: the targeted variable must be a const variable. *)
-let%transfo unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : target = []) (tg : target) : unit =
+let%transfo unfold ?(mark : mark = no_mark) ?(accept_functions : bool = true) ?(at : target = []) (tg : target) : unit =
   Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun t (p, p_local, i) -> Variable_core.unfold false accept_functions mark at i p_local t p) tg
 
 (* [inline]: similar to [unfold] but this one deletes the targeted declaration. *)
-let%transfo inline ?(mark : mark = "") ?(accept_functions : bool = false) (tg : target) : unit =
+let%transfo inline ?(mark : mark = no_mark) ?(accept_functions : bool = false) (tg : target) : unit =
   Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun t (p, p_local, i) -> Variable_core.unfold true accept_functions mark [] i p_local t p) tg
@@ -70,25 +70,46 @@ let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
     (fun t (p,i) -> Variable_core.init_attach const i t p ) tg
 
 
-(* [local_name var_type ~mark var ~into tg]: expects the target [tg] to point at a marked
-      sequence. Then it will declare a new variable with name [new_name] and replace all
-      the occurences of [var] with [into].
-      If the arg [mark] is provided then after the transformation the local scope will be marked
-      with that mark.
+(** [local_name_on mark curr_var var_typ local_var t] declares a local
+  variable [local_var] and replaces [curr_var] with [local_var] in [t].
+    - [curr_var]: the replaced variable
+    - [var_typ]: the type of the variable
+    - [local_var]: the name of the local variable to be declared
+    - [t]: the modified term that contains [curr_var].
+  *)
+let local_name_on (curr_var : var) (var_typ : typ)
+  (local_var : string) (t : trm) : trm =
+  let local_var = Trm.new_var local_var in
+  let let_instr = trm_let_mut (local_var, var_typ) (trm_var_possibly_mut ~typ:var_typ curr_var) in
+  let set_instr = trm_set (trm_var ~typ:var_typ curr_var) (trm_var_possibly_mut ~typ:var_typ local_var) in
+  let new_t = trm_subst_var curr_var (trm_var local_var) t in
+  trm_seq_nobrace_nomarks [let_instr; new_t; set_instr]
 
-      Example:
-        T a                     ->->->       T a
-       mark:{                                marlk:{
-          for (int i = 0; i < 10; i++){       T x = a
-             a++;                             for(int i = 0; i < 10; i++){
-          }                                       x++;
-       }@nobrace                                }
-                                                a = x;
-                                              }@nobrace *)
-let%transfo local_name ?(mark : mark = "") (var : var) ~(into : string) (tg : target) : unit =
-  Nobrace.enter();
-  Target.apply_on_targets (Variable_core.local_name mark var into) tg
-
+(** [local_name ~var var_typ ~local_var tg] declares a local
+  variable [local_var] and replaces [var] with [local_var] in
+  the term at target [tg]. *)
+let%transfo local_name ~(var : var) (var_typ : typ)
+  ~(local_var : string) (tg : target) : unit =
+  Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
+    Nobrace_transfo.remove_after (fun () ->
+      Target.apply_at_path (local_name_on var var_typ local_var) p
+    );
+    if !Flags.check_validity then begin
+      Resources.ensure_computed ();
+      let t = get_trm_at_exn [cMark m] in
+      let t_res_usage = Resources.usage_of_trm t in
+      let t_res_before = Resources.before_trm t in
+      let t_res_after = Resources.after_trm t in
+      let used_formulas = Resources.(formulas_of_hyps (hyps_of_usage t_res_usage) (t_res_before.linear @ t_res_after.linear)) in
+      let used_vars = List.fold_left (fun vs t ->
+        Var_set.union vs (trm_free_vars t)
+      ) Var_set.empty used_formulas in
+      if Var_set.mem var used_vars then
+        trm_fail t "resources still mention replaced variable after transformation"
+      else
+        Trace.justif "resources do not mention replaced variable after transformation"
+    end
+  )) tg
 
 (* [delocalize array_size neutral_element fold_operation tg]: expects the target [tg] to point to
     a block of code of the following form
@@ -168,7 +189,7 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
       (* LATER: document the behavior of ${occ} in the case [tg] aims at multiple targets *)
       (* LATER: document the [îs_ptr] and explain why it is needed *)
       (* LATER: it seems that a mark is introduced and not eliminated *)
-let%transfo bind ?(const : bool = false) ?(mark_let : mark option) ?(mark_occ : mark option) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : string) (tg : target) : unit =
+let%transfo bind ?(const : bool = false) ?(mark_let : mark = no_mark) ?(mark_occ : mark = no_mark) ?(mark_body : mark = no_mark) ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : string) (tg : target) : unit =
   Resources.justif_correct "arguments are pure/reproducible";
   Nobrace_transfo.remove_after ~remove:remove_nobrace ( fun _ ->
     Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)

@@ -11,6 +11,7 @@ module Rename = struct
   | AddSuffix of string
   | ByList of (string * string) list
   | Renamefn of (string -> string)
+  (* TODO: path -> [trm ->] for context / + option to check that Target.iter checks that marks don't move *)
 
   let add_suffix (s : string) =  Renamefn (fun x -> x ^ s)
 
@@ -70,6 +71,17 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
   Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
   Variable_basic.fold [cVarDef name]
 
+(** [local_name ~var ~local_var tg] replaces occurences of [var] with a new variable [local_var] around the term targeted by [tg].
+
+  TODO:
+  - [~use_heap = false] flag ?
+  - deal with _Uninit cases in pre/post where reading/writing value around term is not needed.
+  *)
+let%transfo local_name ~(var : string) ~(local_var : string) (tg : target) : unit =
+  let var = find_var_in_current_ast ~target:tg var in
+  (* FIXME: find type in context. *)
+  Variable_basic.local_name ~var (typ_auto ()) ~local_var tg
+
 (* [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]:
     expects the target [tg] to point at a for loop. Then it will surround this loop with a @nobrace
     sequence. After that it will apply another transformation called local other name. Which as the name
@@ -128,30 +140,30 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
         return 0;
     } *)
 
-let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
-   (ov : var) ~(into : string)
+(* FIXME:
+let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark = no_mark) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
+   (ov : string) ~(into : string)
   ~(array_size : trm) (tg : target) : unit =
-  let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
-  Variable_basic.local_name ~mark:middle_mark ov ~into tg;
+  Marks.with_marks (fun next_mark ->
+  let middle_mark = Mark.reuse_or_next next_mark mark in
+  local_name ~mark:middle_mark ~var:ov ~local_var:into tg;
   Variable_basic.delocalize ~index ~array_size ~ops [cMark middle_mark];
-  begin
-   match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> ()
-  end
+  )
 
 (* [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]: it's a continuation to the [delocalize] transformation
     that will unroll all the introduced loops from the basic delocalize transformation and convert the newly declared array
     to a list of variables namely for each index on variable, this variables should be given by the user through the labelled
     argument [vars]. *)
 let%transfo delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
-   (ov : var) ~(into : string)  ~(array_size : var)
+   (ov : string) ~(into : string)  ~(array_size : var)
   ~local_vars:(lv : string list) (tg : target) : unit =
-  Variable_basic.local_name ~mark ov ~into tg;
+  local_name ~mark ~var:ov ~local_var:into tg;
   Variable_basic.delocalize ~index ~array_size:(trm_var array_size) ~ops [cMark mark];
   Variable_basic.unfold ~at:[cFor index] [nbAny;cVarDef array_size.name];
   Loop_basic.unroll ~inner_braces:false [nbMulti ;cFor index];
   Arrays_basic.to_variables  lv [cVarDef into];
   Marks.remove "section_of_interest" [cMark "section_of_interest"]
-
+*)
 
 (* [intro_pattern_array ~pattern_aux_vars ~const ~pattern_vars ~pattern tg]: expects the target [tg] to be
      pointing to expressions of the form [pattern], then it will create an array of coefficients for each

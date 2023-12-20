@@ -59,7 +59,7 @@ let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : 
 *)
 (* TODO: clean up code *)
 let hoist_on (name : string)
-             (mark : mark option)
+             (mark : mark)
              (arith_f : trm -> trm)
              (decl_index : int) (t : trm) : trm =
   let error = "Loop_basic.hoist_on: only simple loops are supported" in
@@ -133,7 +133,7 @@ let hoist_on (name : string)
   in
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_nobrace_nomarks [
-    trm_may_add_mark mark
+    trm_add_mark mark
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
     trm_for ?contract:new_contract ~annot:t.annot range new_body;
     Matrix_trm.free !new_dims (trm_var !new_var);
@@ -141,7 +141,7 @@ let hoist_on (name : string)
 
 (* TODO: document *)
 let%transfo hoist ?(name : string = "${var}_step")
-          ?(mark : mark option)
+          ?(mark : mark = no_mark)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
   Trace.justif_always_correct ();
@@ -156,7 +156,7 @@ let%transfo hoist ?(name : string = "${var}_step")
     [index]: index of the splitting point
     [t]: ast of the loop
     *)
-let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm * trm =
+let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
   let (l_range, tl, contract) = trm_inv
     ~error:"Loop_basic.fission_on: only simple loops are supported"
     trm_for_inv_instrs t
@@ -205,9 +205,8 @@ let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm 
       let linear_invariant = contract.invariant.linear in (* = I *)
       let linear_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
 
-      let error = "Loop_basic.fission_on: expected resources to be computed" in
       let first_tl1_instr = Mlist.nth tl1 0 in
-      let ctx_res = unsome_or_trm_fail first_tl1_instr error (first_tl1_instr.ctx.ctx_resources_before) in
+      let ctx_res = Resources.before_trm first_tl1_instr in
       let inter_linear_hyps res_usage =
         Hyp_map.filter (fun h _ -> Var_set.mem h linear_hyps) res_usage
       in
@@ -223,24 +222,24 @@ let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm 
       let tl1_inv_reads = resource_set_of_hyp_map tl1_inv_reads ctx_res.linear in
       (* let tl1_inv_writes = resource_set_of_hyp_map tl1_inv_writes ctx_res.linear in *)
       let tl1_inv = resource_set_of_hyp_map tl1_inv_usage ctx_res.linear in
-      let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource linear_invariant tl1_inv in (* = I'' *)
+      let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false linear_invariant tl1_inv in (* = I'' *)
 
       let first_tl2_instr = Mlist.nth tl2 0 in
-      let split_res = unsome_or_trm_fail first_tl2_instr error (first_tl2_instr.ctx.ctx_resources_before) in (* = R *)
+      let split_res = Resources.before_trm first_tl2_instr in (* = R *)
       (* let last_tl1_instr = Mlist.nth tl1 ((Mlist.length tl1) - 1) in
       let split_res = unsome_or_trm_fail last_tl1_instr error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
-      let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource split_res.linear linear_invariant in (* R' *)
-(* DEBUG:
+      let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear linear_invariant in (* R' *)
+(* DEBUG: *)
       let s = AstC_to_c.default_style() in
       let s = { s with ast = { s.ast with print_contract = true; print_var_id = true } } in
-      printf "loop_ghosts: %s\n" (Tools.document_to_string (AstC_to_c.resource_item_list_to_doc s contract.loop_ghosts));
+      printf "--- loop_ghosts: %s\n" (Tools.document_to_string (AstC_to_c.resource_item_list_to_doc s contract.loop_ghosts));
       printf "---\n";
       Flags.(with_flag always_name_resource_hyp) true (fun () ->
-      printf "split_res:\n%s\n" (Resource_computation.resources_to_string (Some split_res));
-      printf "linear_invariant: %s\n" (Resource_computation.resource_list_to_string linear_invariant);
-      printf "split_res_comm: %s\n" (Resource_computation.resource_list_to_string split_res_comm);
+      printf "--- split_res:\n%s\n" (Resource_computation.resource_set_to_string split_res);
+      printf "--- linear_invariant:\n%s\n" (Resource_computation.resource_list_to_string linear_invariant);
+      printf "--- split_res_comm:\n%s\n" (Resource_computation.resource_list_to_string split_res_comm);
       );
-*)
+(* *)
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
           | Some (vk, v, typ, init) -> Var_set.add v acc
@@ -287,8 +286,8 @@ let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm 
       printf "snd_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !snd_contract))); *)
     end;
   end;
-  let ta = trm_may_add_mark mark_loops (trm_for_instrs ?contract:!fst_contract l_range tl1) in
-  let tb = trm_may_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2)) in
+  let ta = trm_add_mark mark_loops (trm_for_instrs ?contract:!fst_contract l_range tl1) in
+  let tb = trm_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2)) in
   (ta, tb)
     (* Note: the trm_copy is needed because the loop index in the
        two loops must have a different id. We copy the second loop
@@ -299,9 +298,9 @@ let fission_on_as_pair (mark_loops : mark option) (index : int) (t : trm) : trm 
     [index]: index of the splitting point
     [t]: ast of the loop
     *)
-let fission_on (mark_loops : mark option) (mark_between_loops : mark option) (index : int) (t : trm) : trm =
+let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t : trm) : trm =
   let (ta,tb) = fission_on_as_pair mark_loops index t in
-  trm_seq_helper ~braces:false [ Trm ta; MarkOption mark_between_loops; Trm tb ]
+  trm_seq_helper ~braces:false [ Trm ta; Mark mark_between_loops; Trm tb ]
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -309,10 +308,10 @@ let fission_on (mark_loops : mark option) (mark_between_loops : mark option) (in
    @correctness: Reads in new second loop need to never depend on writes on
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
-let%transfo fission_basic ?(mark_loops : mark option) ?(mark_between_loops : mark option) (tg : target) : unit =
+let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : mark = no_mark) (tg : target) : unit =
+  (* TODO: figure out best nobrace/iter/resource interleaving *)
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p_before ->
-      Resources.required_for_check ();
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       (* DEBUG: let debug_p = Path.parent p_loop in
@@ -320,7 +319,7 @@ let%transfo fission_basic ?(mark_loops : mark option) ?(mark_between_loops : mar
       ); *)
       Resources.required_for_check ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
-      Resources.required_for_check ();
+      Resources.required_for_check (); (* TODO: is it useful again here? *)
     ) tg
   );
   Resources.justif_correct "loop resources where successfully split"
@@ -460,7 +459,7 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
       j is an integer in range from 0 to C.
 
     Assumption: Both a and C should be declared as constant variables. *)
-let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = "") ?(subst_mark : mark option)  (tg : target): unit =
+let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = "") ?(subst_mark : mark = no_mark)  (tg : target): unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll inner_braces outer_seq_with_mark subst_mark) tg)
@@ -475,7 +474,7 @@ type empty_range_mode =
     [trm_index] - index of that instruction on its surrouding sequence (just checks that it is 0),
     [t] - ast of the for loop.
   *)
-let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
+let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
   if (trm_index <> 0) then failwith "Loop_basic.move_out: not targeting the first instruction in a loop";
   let error = "Loop_basic.move_out: expected for loop" in
   let ((index, t_start, dir, t_end, step, par), body, contract) = trm_inv ~error trm_for_inv t in
@@ -494,7 +493,7 @@ let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_rang
     | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
     | Produced_resources_uninit_after ->
       let contract = Xoption.unsome ~error:"Need the for loop contract to be set" contract in
-      let instr_usage = Xoption.unsome ~error:"Need the resources to be computed" instr.ctx.ctx_resources_usage in
+      let instr_usage = Resources.usage_of_trm instr in
       let invariant_written_by_instr = List.filter (Resources.(usage_filter instr_usage keep_written)) contract.invariant.linear in
       List.iter (fun (_, f) -> match Resource_formula.formula_uninit_inv f with
         | Some _ -> ()
@@ -510,7 +509,7 @@ let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_rang
     | Some contract when not generate_if ->
       (* FIXME: should this not just erase contract when not checking validity? *)
       let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
-      let _, new_invariant, _ = Resource_computation.subtract_linear_resource resources_after.linear contract.iter_contract.pre.linear in
+      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear contract.iter_contract.pre.linear in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }
     | _ -> contract
   in
@@ -519,8 +518,8 @@ let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_rang
   let non_empty_cond = trm_ineq dir t_start t_end in
   let instr_outside = if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr in
   trm_seq_nobrace_nomarks [
-    trm_may_add_mark instr_mark instr_outside;
-    trm_may_add_mark loop_mark loop]
+    trm_add_mark instr_mark instr_outside;
+    trm_add_mark loop_mark loop]
 
 (** [move_out tg]: expects the target [tg] to point at the first instruction inside the loop
     that is not dependent on the index of the loop or any local variable.
@@ -551,7 +550,7 @@ let move_out_on (instr_mark : mark option) (loop_mark : mark option) (empty_rang
       - Prove that the loop range is never empty
       - All resources in B are uninit in the loop contract
 *)
-let%transfo move_out ?(instr_mark : mark option) ?(loop_mark : mark option) ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
+let%transfo move_out ?(instr_mark : mark = no_mark) ?(loop_mark : mark = no_mark) ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun _ p ->
       Resources.required_for_check ();

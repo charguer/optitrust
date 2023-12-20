@@ -97,6 +97,8 @@ type mark = string
 (* [marks]: a list of marks *)
 and marks = mark list
 
+let no_mark = ""
+
 (* [mlists]: generalized lists, see module mlist.ml *)
 type 'a mlist = 'a Mlist.t
 
@@ -180,7 +182,9 @@ end
 module Qualified_set = Set.Make(Qualified_name)
 module Qualified_map = Map.Make(Qualified_name)
 
-(* The id is a unique name for the hypothesis that cannot be shadowed
+(** An hypothesis is a variable bound by logic formulas.
+
+  The id is a unique name for the hypothesis that cannot be shadowed
 
   TODO: #hyp remove this alias, what is an hypothesis anyway? *)
 type hyp = var
@@ -229,6 +233,8 @@ type 'a labelmap = 'a Tools.String_map.t
 
 (* [labels]: a list of labels. *)
 type labels = label list
+
+let no_label = ""
 
 (* [string_trm]: description of a term as a string (convenient for the user) *)
 type string_trm = string
@@ -672,7 +678,7 @@ and trm_desc =
   | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
   | Trm_while of trm * trm     (* while (t1) { t2 } *)
   | Trm_for of loop_range  * trm * loop_spec
-  | Trm_for_c of trm * trm * trm * trm * resource_spec
+  | Trm_for_c of trm * trm * trm * trm * resource_set option
   | Trm_do_while of trm * trm (* TODO: Can this be efficiently desugared? *)
   (* Remark: in the AST, arguments of cases that are enum labels
      appear as variables, hence the use of terms as opposed to
@@ -725,8 +731,6 @@ and fun_spec_resource = {
   inverse: var option;
 }
 
-and resource_spec = resource_set option
-
 and fun_contract = {
   pre: resource_set;
   post: resource_set;
@@ -736,6 +740,7 @@ and fun_spec =
   | FunSpecUnknown
   | FunSpecContract of fun_contract
   | FunSpecReverts of var
+  (** [FunSpecReverts f] is the reverse of the spec of [f]. *)
 
 (* forall ghosts, { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } loop { invariant(n) * Group(iter_contract.post(i)) } *)
 (* forall ghosts, { invariant(i) * iter_contract.pre(i) } loop body { invariant(i) * iter_contract.post(i) } *)
@@ -748,7 +753,7 @@ and loop_contract = {
 and loop_spec = loop_contract option
 
 and used_resource_item = {
-  hyp_to_inst: hyp;
+  pre_hyp: hyp;
   inst_by: formula;
   used_formula: formula;
 }
@@ -758,8 +763,8 @@ and used_resource_set = {
 }
 
 and produced_resource_item = {
+  post_hyp: hyp;
   produced_hyp: hyp;
-  produced_from: hyp;
   produced_formula: formula;
 }
 and produced_resource_set = {
@@ -780,6 +785,7 @@ and contract_invoc = {
   contract_frame: resource_item list;
   contract_inst: used_resource_set;
   contract_produced: produced_resource_set;
+  contract_joined_resources: (hyp * hyp) list;
 }
 
 (* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)

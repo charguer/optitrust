@@ -45,8 +45,8 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
-let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
-  let remove = (my_mark = None) in
+let%transfo local_name ?(my_mark : mark = no_mark) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+  let remove = (my_mark = no_mark) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
       | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
@@ -95,26 +95,120 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) 
     ) tg)
   )
 
-(* [local_name_tile ~mark var into tg]: expects the target to point at an instruction that contains
-      an occurrence of [var] then it will define a matrix [into] whose dimensions will correspond to a tile of [var]. Then we copy the contents of the matrix [var] into [into] according to the given tile offsets and finally we free up the memory. *)
-let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option) ?(indices : (var list) = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var) ~(into : string) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
-  let remove = (mark = None) in
-  Nobrace_transfo.remove_after ~remove (fun _ ->
-    Target.(apply_on_targets (fun t p ->
-      begin match get_trm_at alloc_instr with
-      | Some t1 ->
-        let error = "Matrix_basic.local_name_tile: alloc_instr should target a matrix allocation" in
-        let v, dims, elem_ty, size = trm_inv ~error Matrix_core.let_alloc_inv_with_ty t1 in
-        ret_var := v;
-        if not remove then Nobrace.enter();
-        Matrix_core.local_name_tile mark mark_accesses v tile into dims elem_ty size indices local_ops t p
-      | None -> failwith "Matrix_basical_name_tile: alloc_instr target does not match to any ast node"
+let shift_groups = toplevel_var "shift_groups"
+
+let ghost_shift
+  ((range, formula): loop_range list * formula)
+  ((shifted_range, shifted_formula): loop_range list * formula)
+  (uninit_pre : bool) (uninit_post : bool): trm =
+  (* FIXME:
+     (1) this can be explained as a combination of for loops + calls to group_shift ghost;
+     (2) _Uninit modularity? *)
+  let open Resource_formula in
+  let before = List.fold_right (fun r f -> formula_group_range r f) range formula in
+  let after = List.fold_right (fun r f -> formula_group_range r f) shifted_range shifted_formula in
+  let before = if uninit_pre then formula_uninit before else before in
+  let after = if uninit_post then formula_uninit after else after in
+  trm_ghost_rewrite before after (trm_var shift_groups)
+
+(** <private> *)
+let local_name_tile_on (mark_accesses : mark) (var : var) (tile : Matrix_core.nd_tile)
+  (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm)
+  (indices : string list) (uninit_pre : bool) (uninit_post : bool)
+  (t : trm) : trm =
+  let local_var = Trm.new_var local_var in
+  let indices_list = begin match indices with
+  | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims
+  | _ -> List.map new_var indices end
+  in
+  let indices = List.map trm_var indices_list in
+  let nested_loop_range = List.map2 (fun (offset, size) ind ->
+    (ind, offset, DirUp, trm_add offset size, Post_inc, false)
+  ) tile indices_list in
+  let tile_dims = List.map (fun (_, size) -> size) tile in
+  let tile_indices = List.map2 (fun (offset, _) ind -> trm_sub ind offset) tile indices in
+  let alloc_instr = Matrix_core.let_alloc_with_ty local_var tile_dims elem_ty in
+  let map_indices = List.map (fun (offset, size) -> fun i -> trm_sub i offset) tile in
+  let new_t = Matrix_core.replace_all_accesses var local_var tile_dims
+    map_indices mark_accesses t in
+  let access_var = access (trm_var var) dims indices in
+  let access_local_var = access (trm_var local_var) tile_dims tile_indices in
+  let write_on_local_var = trm_set access_local_var (trm_get access_var) in
+  let write_on_var = trm_set access_var (trm_get access_local_var) in
+  let var_cell = Resource_formula.(formula_model access_var trm_cell) in
+  let local_var_cell = Resource_formula.(formula_model access_local_var trm_cell) in
+  let load_for = if uninit_pre
+    then trm_seq_nobrace_nomarks []
+    else trm_copy (Matrix_core.pointwise_fors
+      ~reads:[var_cell] ~writes:[local_var_cell] nested_loop_range write_on_local_var) in
+  let unload_for = if uninit_post
+    then trm_seq_nobrace_nomarks []
+    else trm_copy (Matrix_core.pointwise_fors
+      ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var) in
+  let free_instr = free tile_dims (trm_var local_var) in
+  let alloc_range = List.map2 (fun size ind ->
+    (ind, trm_int 0, DirUp, size, Post_inc, false)
+  ) tile_dims indices_list in
+  let alloc_access = access (trm_var local_var) tile_dims indices in
+  let alloc_cell = Resource_formula.(formula_model alloc_access trm_cell) in
+  let alloc_range_cell = (alloc_range, alloc_cell) in
+  let local_var_range_cell = (nested_loop_range, local_var_cell) in
+  let shift_res = ghost_shift alloc_range_cell local_var_range_cell true uninit_pre in
+  let unshift_res = ghost_shift local_var_range_cell alloc_range_cell uninit_post true in
+  trm_seq_nobrace_nomarks [alloc_instr; shift_res; load_for; new_t; unload_for; unshift_res; free_instr]
+
+(** [local_name_tile ?mark_accesses ?indices ~alloc_instr ?ret_var ~local_var tile tg]
+  expects [alloc_instr] to point to an allocation of [var] and [tg] to point to a term [t]
+  that contains occurrences of [var], and instead of [t]:
+  + defines a matrix [local_var] that will correspond to a [tile] of matrix [var];
+  + copies the contents from [var] to [local_var];
+  + performs [t] where all accesses to [var] are replaced with accesses to [local_var];
+  + copies the contents from [local_var] to [var];
+  + frees up the memory of [local_var].
+
+  - [mark_accesses] allows marking the produced [local_var] accesses.
+  - [indices] allows providing explicit index variable names for the created for loop.
+  - [ret_var] will receive the value [var].
+  - [uninit_pre]/[uninit_post] specify whether [var] is uninit before/after [t], eliminating copies.
+  *)
+let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
+  ?(indices : string list = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var)
+  (* TODO: check [uninit_pre] and [uninit_post] in resources,
+     could also be inferred instead of provided *)
+  ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
+  ~(local_var : string) (tile : Matrix_core.nd_tile) (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun _ ->
+    Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
+      let t1 = Xoption.unsome_or_else (get_trm_at alloc_instr) (fun () ->
+        failwith "alloc_instr target does not match to any ast node"
+      ) in
+      let error = "alloc_instr should target a matrix allocation" in
+      let v, dims, elem_ty, size = trm_inv ~error Matrix_core.let_alloc_inv_with_ty t1 in
+      ret_var := v;
+      Target.apply_at_path (local_name_tile_on
+        mark_accesses v tile local_var dims elem_ty size indices uninit_pre uninit_post
+      ) p;
+      if !Flags.check_validity then begin
+        (* TODO: is this exactly the same check as for variables? *)
+        Resources.ensure_computed ();
+        let t = get_trm_at_exn [cMark m] in
+        let t_res_usage = Resources.usage_of_trm t in
+        let t_res_before = Resources.before_trm t in
+        let t_res_after = Resources.after_trm t in
+        let used_formulas = Resources.(formulas_of_hyps (hyps_of_usage t_res_usage) (t_res_before.linear @ t_res_after.linear)) in
+        let used_vars = List.fold_left (fun vs t ->
+          Var_set.union vs (trm_free_vars t)
+        ) Var_set.empty used_formulas in
+        if Var_set.mem !ret_var used_vars then
+          trm_fail t "resources still mention replaced variable after transformation"
+        else
+          Trace.justif "resources do not mention replaced variable after transformation"
       end
-    ) tg)
+    )) tg
   )
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize. *)
-let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~(dim: trm) ~(index: string) ~ops:(dl_o : local_ops) (tg : target) : unit =
+let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = no_mark) ?(labels : label list = []) ~(dim: trm) ~(index: string) ~ops:(dl_o : local_ops) (tg : target) : unit =
     Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark labels index dl_o) tg
 
 let assert_same_dims (a : trms) (b : trms) : unit =

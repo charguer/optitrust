@@ -149,11 +149,11 @@ let%transfo elim_mops (tg : target): unit =
 (* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
-let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
+let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
   ?(last : bool = false)  ?(use : trm option) (var : var) ~(into : string) ~(dim : trm)  ~(index : string)
   ?(indices : string list = []) ~(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option) (tg : target) : unit =
-
-    let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
+    Marks.with_marks (fun next_mark ->
+    let middle_mark = Mark.reuse_or_next next_mark mark in
     let acc = match acc with | Some s -> s | _ -> "" in
     Matrix_basic.local_name ~my_mark:middle_mark ?alloc_instr ~into ~indices ~local_ops:ops var tg;
 
@@ -185,8 +185,8 @@ let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_i
       | None -> () (* No need to move allocation trms because the allocation trm blongs to the same sequence as [tg] *)
 
       end
-    end;
-    begin match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> () end;
+    end
+    );
     Scope.infer_var_ids ()
 
 
@@ -281,18 +281,22 @@ let%transfo delete (tg : target) : unit =
 
 let delete_alias = delete
 
-(* [local_name_tile]: like the basic transfo, but deletes the
-   original matrix if [delete] is true or if [into] is empty.
+(** [local_name_tile ?delete ?indices ?alloc_instr ?local_var tile ?simpl tg] is a convenient
+  version of {!Matrix_basic.local_name_tile}. It deletes the original matrix if [delete = true]
+  or if [local_var = ""].
    *)
-let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ~(alloc_instr : target) ?(into : string = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo local_name_tile ?(delete: bool = false) ?(indices : string list = [])
+  ~(alloc_instr : target) ?(local_var : string = "") (tile : Matrix_core.nd_tile)
+  ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  let (delete, rename, into) = if into = ""
+  let (delete, rename, into) = if local_var = ""
     then (true, true, fresh_var_name ())
-    else (delete, false, into)
+    else (delete, false, local_var)
   in
   Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun t p ->
     let v = ref dummy_var in
-    Matrix_basic.local_name_tile ~mark_accesses ~indices ~alloc_instr ~ret_var:v ~into tile ~local_ops (target_of_path p);
+    Matrix_basic.local_name_tile ~mark_accesses ~indices
+      ~alloc_instr ~ret_var:v ~local_var tile (target_of_path p);
     simpl [cMark mark_accesses];
     if delete then begin
       let (_, surrounding_seq) = Path.index_in_seq p in
@@ -301,7 +305,8 @@ let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = [])
         - Matrix.delete_dead_writes [cArrayWrite v]
         - Matrix.delete_dead_writes [cArrayRead v] / [cMark mark; dSeqNth 0]
           *)
-      Instr.delete (surrounding_tg @ [nbMulti; cFor "" ~body:[cOr [[cArrayRead !v.name]; [cArrayWrite !v.name]]]]);
+      let v_access_tg = [cOr [[cArrayRead !v.name]; [cArrayWrite !v.name]]] in
+      Instr.delete (surrounding_tg @ [nbMulti; cFor "" ~body:v_access_tg]);
       Loop.delete_all_void surrounding_tg;
       Marks.with_fresh_mark_on p (fun m ->
         (* (Option.value ~default:(surrounding_tg @ [cVarDef !v]) alloc_instr *)
@@ -312,12 +317,15 @@ let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = [])
     end
   ) tg)
 
-(* same as [local_name_tile] but with target [tg] pointing at an instruction within a sequence, introduces the local name for the rest of the sequence. *)
-let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : (var list) = []) ~(alloc_instr : target) ?(into : string = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+(** same as {!local_name_tile} but with target [tg] pointing at an instruction within a sequence,
+   introduces the local name for the rest of the sequence. *)
+let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : string list = [])
+  ~(alloc_instr : target) ?(local_var : string = "") (tile : Matrix_core.nd_tile)
+  ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Marks.with_fresh_mark (fun mark -> Target.iter (fun t p ->
     Sequence.intro_after ~mark (target_of_path p);
-    local_name_tile ~delete ~indices ~alloc_instr ~into tile ~local_ops ~simpl (target_of_path p);
+    local_name_tile ~delete ~indices ~alloc_instr ~local_var tile ~simpl (target_of_path p);
     Sequence.elim [cMark mark];
   ) tg)
 

@@ -6,7 +6,13 @@ perf
 interact
 tester.ml
 
+# NEW
+matrix/local_name_tile/matrix_local_name_tile_doc.ml
+matrix/local_name_tile/matrix_local_name_tile_basic_doc.ml
+matrix/local_name_tile/matrix_local_name_tile.ml
+  
 # BROKEN RESOURCES
+stencil/fusion_targets/stencil_fusion_targets.ml
 resources/contracts/loop_parallelize_reads.ml
 matrix/delocalize_obj/matrix_delocalize_obj.ml
 loop/swap/loop_swap_doc.ml
@@ -39,6 +45,16 @@ function/rename_args
 align/def
 matrix/insert_access_dim_index
 record/reorder_fields
+array/elim_constant
+record/align_field
+loop/unroll
+loop/unfold_bound
+matrix/reorder_dims
+matrix/delocalize
+record/align_field
+apac/heapify_nested_seq
+variable/delocalize
+variable/delocalize_in_vars
 
 # NO FIX:
 aos_to_soa
@@ -52,6 +68,9 @@ record/modif
 record/to_variables
 variable/ref_to_var
 variable/exchange
+swap/coords_fixed
+swap/coords_vari
+specialize/function_arg
 
 function/inline
 
@@ -59,20 +78,3 @@ function/inline
 apac/insert_tasks_naive
 apac/sync_with_taskwait
 variable/intro_pattern_array
-
-# TO FIX:
-array/elim_constant
-record/align_field
-loop/unroll
-loop/unfold_bound
-matrix/reorder_dims
-matrix/delocalize
-record/align_field
-apac/heapify_nested_seq
-
-# ???
-swap/coords_fixed
-swap/coords_vari
-specialize/function_arg
-
-

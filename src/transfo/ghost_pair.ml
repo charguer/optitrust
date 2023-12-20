@@ -35,7 +35,7 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
   while commutes_with_next () do () done;
   if i != !current_i then
     let dest_i = !current_i + dest_offset in
-    Instr_core.copy_aux None dest_i i true seq
+    Instr_core.copy_aux no_mark dest_i i true seq
   else
     seq
 
@@ -140,7 +140,7 @@ let%transfo minimize_all_in_seq (tg : target) : unit =
 
 (** <private>
     cf. [fission]. *)
-let fission_at (mark_between : mark option) (split_i : int) (seq : trm) : trm =
+let fission_at (mark_between : mark) (split_i : int) (seq : trm) : trm =
   let error = "Ghost_pair.fission_at: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let tl1, tl2 = Mlist.split split_i instrs in
@@ -182,10 +182,10 @@ let fission_at (mark_between : mark option) (split_i : int) (seq : trm) : trm =
   let tl2' = Mlist.map (trm_subst !subst_after_split) tl2 in
 
   (* 4. Construct resulting sequence. *)
-  trm_seq_helper ~annot:seq.annot ?loc:seq.loc [TrmMlist tl1; TrmList ends; MarkOption mark_between; TrmList begins; TrmMlist tl2']
+  trm_seq_helper ~annot:seq.annot ?loc:seq.loc [TrmMlist tl1; TrmList ends; Mark mark_between; TrmList begins; TrmMlist tl2']
 
 (** Distributes the scope of ghost pairs at the targeted sequence interstice. *)
-let%transfo fission ?(mark_between : mark option) (tg : target) : unit =
+let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
   Target.apply (fun t p_before ->
     let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
     apply_on_path (fission_at mark_between split_i) t p_seq
@@ -193,7 +193,7 @@ let%transfo fission ?(mark_between : mark option) (tg : target) : unit =
   justif_correct "ghosts where successfully distributed"
 
 
-let find_inverse (ghost_fn: trm) (res: resource_spec) =
+let find_inverse (ghost_fn: trm) (res: resource_set option) =
   let open Xoption.OptionMonad in
   Pattern.pattern_match ghost_fn [
     Pattern.(trm_var !__) (fun ghost_fn ->
@@ -217,7 +217,7 @@ let without_inverse (ghost_fn: trm) =
 
 let debug_intro = false
 
-let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: trm) : trm =
+let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq: trm) : trm =
   let seq = trm_inv ~error:"Ghost_pair.intro_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
   let ghost_call = trm_inv ~error:"Ghost_pair.intro_on: Should target a ghost call" trm_ghost_inv ghost_begin in
@@ -226,7 +226,7 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
     match t.ctx.ctx_resources_contract_invoc with
     | Some invoc when invoc.contract_produced.produced_pure <> [] -> None
     | Some invoc ->
-      let pre = List.map (fun used -> (used.hyp_to_inst, used.used_formula)) invoc.contract_inst.used_linear in
+      let pre = List.map (fun used -> (used.pre_hyp, used.used_formula)) invoc.contract_inst.used_linear in
       let post = List.map (fun prod -> (prod.produced_hyp, prod.produced_formula)) invoc.contract_produced.produced_linear in
       Some (pre, post)
     | None -> failwith "No contract invocation on ghost call (resources might not have been computed)"
@@ -239,8 +239,8 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
   let are_inverse_invoc_res (pre1, post1) (pre2, post2) =
     let open Resource_computation in
     try
-      let _ = subtract_linear_resource pre1 post2 in
-      let _ = subtract_linear_resource pre2 post1 in
+      let _ = subtract_linear_resource_set pre1 post2 in
+      let _ = subtract_linear_resource_set pre2 post1 in
       true
     with Resource_not_found _ as exn ->
       if debug_intro then Printf.eprintf "%s\n\n" (Printexc.to_string exn);
@@ -252,10 +252,7 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
     Mlist.iteri (fun i t ->
       match trm_ghost_inv t with
       | Some end_ghost_call ->
-        let correct_mark = match end_mark with
-        | Some mark -> trm_has_mark mark t
-        | None -> true
-        in
+        let correct_mark = trm_add_mark_is_noop end_mark t in
         if correct_mark then
           begin match invoc_linear_pre_and_post t with
           | Some end_invoc_res when are_inverse_invoc_res begin_invoc_res end_invoc_res ->
@@ -278,15 +275,15 @@ let intro_at ?(name: string option) ?(end_mark: mark option) (i: int) (t_seq: tr
     trm_replace (Trm_seq seq) t_seq
 
 (** Introduce a ghost pair starting on the targeted ghost, and ending at the first closing candidate. *)
-let%transfo intro ?(name: string option) ?(end_mark: mark option) (tg: target) =
+let%transfo intro ?(name: string option) ?(end_mark: mark = no_mark) (tg: target) =
   Resources.ensure_computed ();
   Target.apply (fun t p ->
     let i, p = Path.index_in_seq p in
-    apply_on_path (intro_at ?name ?end_mark i) t p
+    apply_on_path (intro_at ?name ~end_mark i) t p
   ) tg
 
 
-let elim_at ?(mark_begin: mark option) ?(mark_end: mark option) (i: int) (t_seq: trm): trm =
+let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (t_seq: trm): trm =
   let seq = trm_inv ~error:"Ghost_pair.elim_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
   let pair_var, { ghost_fn; ghost_args } = trm_inv ~error:"Ghost_pair.elim_on: Should target a ghost_begin" trm_ghost_begin_inv ghost_begin in
@@ -306,16 +303,16 @@ let elim_at ?(mark_begin: mark option) ?(mark_end: mark option) (i: int) (t_seq:
       | None -> failwith "Found a non reversible ghost pair"
     in
 
-    let seq_after = Mlist.replace_at i (trm_may_add_mark mark_end (trm_ghost { ghost_fn = inverse_ghost_fn; ghost_args })) seq_after in
-    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_may_add_mark mark_begin (trm_ghost { ghost_fn = without_inverse ghost_fn; ghost_args })]; seq_after] in
+    let seq_after = Mlist.replace_at i (trm_add_mark mark_end (trm_ghost { ghost_fn = inverse_ghost_fn; ghost_args })) seq_after in
+    let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_add_mark mark_begin (trm_ghost { ghost_fn = without_inverse ghost_fn; ghost_args })]; seq_after] in
     trm_replace (Trm_seq seq) t_seq
 
 (** Split a ghost pair into two independant ghost calls *)
-let%transfo elim ?(mark_begin: mark option) ?(mark_end: mark option) (tg: target) =
+let%transfo elim ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (tg: target) =
   Resources.ensure_computed ();
   Target.apply (fun t p ->
     let i, p = Path.index_in_seq p in
-    apply_on_path (elim_at ?mark_begin ?mark_end i) t p
+    apply_on_path (elim_at ~mark_begin ~mark_end i) t p
   ) tg
 
 

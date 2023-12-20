@@ -66,10 +66,20 @@ type contract_clause = contract_clause_type * contract_resource_item
 let empty_fun_contract =
   { pre = Resource_set.empty; post = Resource_set.empty }
 
+(** {!trm_copy} for fun contracts. *)
+let fun_contract_copy (contract : fun_contract) : fun_contract =
+  let (_, _, _, spec) =
+    trm_fun ~contract:(FunSpecContract contract) [] None (trm_seq_nomarks [])
+    |> trm_copy
+    |> trm_fun_inv |> Xoption.unsome
+  in
+  match spec with
+  | FunSpecContract c' -> c'
+  | _ -> failwith "should not happen"
+
 (** The empty loop contract, implies purity. *)
 let empty_loop_contract =
   { loop_ghosts = []; invariant = Resource_set.empty; iter_contract = empty_fun_contract }
-
 
 (* TODO: remove or replace with better mechanism. hint to maximize instantiated fraction. *)
 let _Full = toplevel_var "_Full"
@@ -149,25 +159,26 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: contract_
         failwith ("Failed to parse resource: " ^ desc)
     ) clauses empty_contract
 
-let subst_invariant_start (index, tstart, _, _, _, _) = Resource_set.subst_var index tstart
-let subst_invariant_step (index, _, _, _, step, _) = Resource_set.subst_var index (trm_add (trm_var index) (loop_step_to_trm step))
-let subst_invariant_end (index, _, _, tend, _, _) = Resource_set.subst_var index tend
-
-let loop_outer_contract range contract =
-  let invariant_before = subst_invariant_start range contract.invariant in
+(** [contract_outside_loop range contract] takes the [contract] of a for-loop over [range] and returns
+  the contract of the for instruction. *)
+let contract_outside_loop range contract =
+  let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
   let pre = Resource_set.union invariant_before (Resource_set.group_range range contract.iter_contract.pre) in
   let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
-  let invariant_after = subst_invariant_end range contract.invariant in
+  let invariant_after = Resource_set.subst_loop_range_end range contract.invariant in
   let post = Resource_set.union invariant_after (Resource_set.group_range range contract.iter_contract.post) in
   { pre; post }
 
-let loop_inner_contract range contract =
+(** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
+  the contract of its body. *)
+let contract_inside_loop range contract =
   let pre = Resource_set.union contract.invariant contract.iter_contract.pre in
   let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
-  let invariant_after_one_iter = subst_invariant_step range contract.invariant in
+  let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in
   let post = Resource_set.union invariant_after_one_iter contract.iter_contract.post in
   { pre; post }
 
+(** [revert_fun_contract contract] returns a contract that swaps the resources produced and consumed. *)
 let revert_fun_contract contract =
   assert (contract.post.pure = []);
   assert (contract.post.fun_specs = Var_map.empty);
@@ -187,9 +198,10 @@ let revert_fun_contract contract =
     }
   }
 
-let specialize_contract contract subst =
-  { pre = Resource_set.subst subst { contract.pre with pure = List.filter (fun (ghost_var, _) -> Var_map.mem ghost_var subst) contract.pre.pure };
-    post = Resource_set.subst subst contract.post }
+(** [specialize_contract contract args] specializes the [contract] with the given [args], a subset of pure resources of the precondition *)
+let specialize_contract contract args =
+  { pre = Resource_set.subst args { contract.pre with pure = List.filter (fun (ghost_var, _) -> Var_map.mem ghost_var args) contract.pre.pure };
+    post = Resource_set.subst args contract.post }
 
 (* TODO: rename and move elsewhere. *)
 let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =

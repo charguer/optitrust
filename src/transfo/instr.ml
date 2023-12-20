@@ -11,7 +11,7 @@ let delete = Sequence.delete
                    be deleted
      [write]: optional explicit target to the last write instruction
      Note: This transformation will fail in case it doesn't find a write to to the address that it reads from. *)
-let%transfo read_last_write ?(write_mark : mark option) ?(write : target = []) (tg : target) : unit =
+let%transfo read_last_write ?(write_mark : mark = no_mark) ?(write : target = []) (tg : target) : unit =
   if write <>  []
     then Instr_basic.read_last_write ~write tg
     else begin
@@ -42,7 +42,7 @@ let%transfo read_last_write ?(write_mark : mark option) ?(write : target = []) (
             | Some index ->
               let write =  (target_of_path path_to_seq) @ [dSeqNth index] in
               Instr_basic.read_last_write ~write  (target_of_path p);
-              begin match write_mark with | Some m -> Marks.add m write | _ -> () end
+              Marks.add write_mark write
 
             | None -> trm_fail tg_trm "Instr.read_last_write: couuldn't find a write operation for your targeted read operation"
             end

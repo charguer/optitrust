@@ -22,6 +22,8 @@ let pattern_match_opt (v: 'a) (ks: ('a -> 'b) list): 'b option =
     Some (pattern_match v ks)
   with Failed -> None
 
+let when_ (cond : bool) : unit = if not cond then raise Next
+
 let (!) (inside: 'a -> 't -> 'b) (k:'t -> 'a) (v: 't): 'b = inside (k v) v
 let __ (k: 'a) (v: 't): 'a = k
 let (^|) (p1: 'a -> 't -> 'b) (p2: 'a -> 't -> 'b) (k: 'a) (v: 't) =

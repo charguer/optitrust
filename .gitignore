@@ -47,6 +47,7 @@ tools/_last_view_result.sh
 
 # generated doc
 doc/add_tests_into_doc/odoc_spec_after.html
+_doc
 
 # other ignored files
 .idea

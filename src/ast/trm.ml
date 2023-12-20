@@ -215,7 +215,7 @@ let trm_do_while ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)  (body 
   trm_make ~annot ?loc ~typ:(typ_unit()) ?ctx (Trm_do_while (body, cond))
 
 (* [trm_for_c ?annot ?loc ?ctx init cond step body]: for loop *)
-let trm_for_c ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(invariant: resource_spec) (init : trm) (cond : trm)
+let trm_for_c ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(invariant: resource_set option) (init : trm) (cond : trm)
   (step : trm) (body : trm) : trm =
   trm_make ~annot ?loc ~typ:(typ_unit()) ?ctx (Trm_for_c (init, cond, step, body, invariant))
 
@@ -406,9 +406,10 @@ let trm_get_labels (t : trm) =
    let t_annot = {t.annot with trm_annot_labels = t_annot_labels} in
    trm_alter ~annot:t_annot t
 
- (* [trm_add_label l]: adds label [l] to trm [t]. *)
- let trm_add_label (l : label) (t : trm) : trm =
-   apply_on_labels (fun labels -> l :: labels) t
+ (* [trm_add_label l] adds label [l] to trm [t].
+    Returns [t] unchanged if [l = ""]. *)
+let trm_add_label (l : label) (t : trm) : trm =
+  if l = "" then t else apply_on_labels (fun labels -> l :: labels) t
 
  (* [trm_filter_label pred t]: filters all labels that satisfy predicate [pred]. *)
  let trm_filter_label (pred : label -> bool) (t : trm) : trm =
@@ -1193,14 +1194,6 @@ let is_trm_seq (t : trm) : bool =
 match t.desc with
 | Trm_seq _ -> true  | _ -> false
 
-(* [trm_fors rgs tbody]: creates nested loops with the main body [tbody] each nested loop
- takes its components from [rgs] *)
-let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
-List.fold_right (fun l_range acc ->
-  trm_for l_range (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
-) rgs tbody
-
-
 (* [trm_var_def_inv t] gets the name type and the initialization value *)
 let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option =
 match t.desc with
@@ -1209,6 +1202,13 @@ match t.desc with
   | Some init1 -> Some init1
   | _ -> None in Some (vk, x, get_inner_ptr_type tx, init1)
 | _ -> None
+
+(* [trm_fors rgs tbody] creates nested loops with the main body [tbody] each
+  nested loop takes its components from [rgs]. *)
+let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
+  List.fold_right (fun l_range acc ->
+    trm_for l_range (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
+  ) rgs tbody
 
 (* [trm_fors_inv nb t]: gets a list of loop ranges up to the loop at depth [nb] from nested loops [t] *)
 let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
@@ -1735,7 +1735,7 @@ let fun_with_empty_body (t : trm) : trm =
 (* ********************************************************************************************** *)
 
 let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
-  if !Flags.trm_combinators_warn_unsupported_case then begin
+  if !Flags.report_all_warnings && !Flags.trm_combinators_warn_unsupported_case then begin
     Tools.warn (sprintf "don't know how to '%s' on '%s'" f_name (trm_desc_to_string t.desc));
     Printf.printf "<suppressing similar warnings henceforth>\n";
     Flags.trm_combinators_warn_unsupported_case := false;
@@ -2351,9 +2351,13 @@ let trm_erase_var_ids (t : trm) : trm =
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let trm_copy (t : trm) : trm =
   let map_binder var_map v _ =
-    assert (not (Var_map.mem v var_map));
-    let new_v = new_var ~qualifier:v.qualifier v.name in
-    (Var_map.add v new_v var_map, new_v)
+    (* ???
+    if v.id = inferred_var_id then (var_map, v)
+    else *) begin
+      assert (not (Var_map.mem v var_map));
+      let new_v = new_var ~qualifier:v.qualifier v.name in
+      (Var_map.add v new_v var_map, new_v)
+    end
   in
   let map_var var_map v =
     if v.id = inferred_var_id then v

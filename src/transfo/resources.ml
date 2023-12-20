@@ -63,6 +63,16 @@ let trm_for_contract t =
 let usage_of_trm (t : trm) =
   unsome_or_trm_fail t "expected resource usage to be available" t.ctx.ctx_resources_usage
 
+(** Returns the resources available before the given term,
+    fails if unavailable. *)
+let before_trm (t : trm) =
+  unsome_or_trm_fail t "expected resources before to be available" t.ctx.ctx_resources_before
+
+(** Returns the resources available before the given term,
+    fails if unavailable. *)
+let after_trm (t : trm) =
+  unsome_or_trm_fail t "expected resources after to be available" t.ctx.ctx_resources_after
+
 (** Computes the resource usage of a consecutive sequence of instructions. *)
 let compute_usage_of_instrs (instrs : trm list) : resource_usage_map =
   List.fold_left (fun usage_map t ->
@@ -99,7 +109,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
   let filter_pre (hyp, formula) =
     match Hyp_map.find_opt hyp usage with
     | None ->
-      let _, np, _ = Resource_computation.subtract_linear_resource !new_linear_post [(hyp, formula)] in
+      let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula)] in
       new_linear_post := np;
       None
     | Some UsedFull -> Some (hyp, formula)
@@ -109,7 +119,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
       | None ->
         let try_to_remove formula base_formula =
           try begin
-            let _, np, _ = Resource_computation.subtract_linear_resource !new_linear_post [(hyp, formula)] in
+            let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula)] in
             let frac_var, frac_ghost = new_frac () in
             new_fracs := frac_ghost :: !new_fracs;
             let ro_formula = formula_read_only ~frac:(trm_var frac_var) base_formula in
@@ -117,10 +127,12 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
             Some (hyp, ro_formula)
           end with Resource_computation.Resource_not_found _ -> None
         in
+        (* ALREADY HANDLED BY subtract_linear_resource:
         begin match try_to_remove formula formula with
         | Some x -> Some x
-        | None -> Xoption.or_ (try_to_remove (formula_uninit formula) formula) (Some (hyp, formula))
-        end
+        | None -> *)
+        Xoption.or_ (try_to_remove (formula_uninit formula) formula) (Some (hyp, formula))
+        (* end *)
       end
     | Some JoinedReadOnly -> failwith (sprintf "loop_minimize_on: JoinedReadOnly resource %s has the same id as a contract resource" (var_to_string hyp))
     | Some UsedUninit ->
@@ -172,17 +184,14 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
 
     (1) If the resource comes from the invariant:
       - if it is never used, it is removed (from the invariant)
-      - if it is used in Full mode, there is nothing to simplify
-      - if it is available in Full but only used in SplitRO / JoinRO,
+      - if it is available in RW but only used in SplitRO,
         then it is replaced with RO
         (internally, a fresh fraction is introduced for that RO)
-      - if it is available in RW but only used in Uninit,
-        we change it to Uninit but only in the consumes clause
-        (see counter-example below for the produces case);
+      - if it is available in RW but only used as Uninit (see counter-example below);
         the user can always change the contract manually.
 
     (2) If the resource comes from the consumes clause:
-      - if it is never used (including for JoinRO),
+      - if it is never used (not in the usage map),
         it must be the case that this resource appears in the produces clause;
         it this case, the resource is removed from both consumes and produces
       - if if is used in Full mode, there is nothing to simplify
@@ -193,6 +202,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
         used in SplitRO mode, to remove same fraction constraints)
       - if the resource is consumed in RW and used in Uninit, then the RW
         may be replaced by an Uninit resource in the consumes clause.
+
 
     (TODO: Document function contract minimization separately, and use it to
     describe iter_contract minimization)
@@ -210,11 +220,12 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
     read in t, then it would have been possible for the loop to produce
     Uninit(t).
 
-
-    Assertions to implement:
+    TOMOVE global invariants of well-typed tree. Assertions to implement:
     - a RW resource cannot be used in JoinedReadOnly mode.
     - a resource coming from the invariant or consumes clause cannot
       be used in Produced mode.
+    - a resource in consumes clause and usage None, must appear in
+      produces clauses.
 
     Strategy to implement to help minimization:
     if the invariant takes as input RO(f,X) * RO(g,X),
@@ -249,6 +260,24 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
       // outside the loop cancel: RO(g, stars_i Ai) * RO(f-g, stars_i Ai)
       // into: RO(f, stars_i Ai)
 
+    ===========
+    Dually, we way want to pull implicit RW->RO operation before the loop.
+
+    Example:
+      for i
+        __consumes("&t[i] ~> Struct");
+        __produces("RO(1 - f, &t[i] ~> Struct), RO(f, &t[i].k ~> Cell)");
+        __ghost(focus_ro_k);
+
+    we could do instead:
+
+      for i
+        __consumes("RO(f, &t[i] ~> Struct)");
+        __produces("RO(f, &t[i].k ~> Cell)");
+        __ghost(focus_ro_k);
+
+    ===========
+
 
     Note: it may be tempting to generalize this idea to other examples.
     Consider for example:
@@ -266,8 +295,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
         produces Bi
       then entailement from (stars_i Bi) * stars_i (Bi \-* Ci) to (stars_i Ci)
 
-    However, in this example it is less clear what we would want to produce:
-    (FIXME: The example is broken, see next FIXME mark)
+    However, in this example we don't want to push the wand-cancel outside the loop
 
       for i
         consumes Ai * Di
@@ -275,19 +303,19 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
         g(i) // consumes Di produces Bi
         produces Ci
 
-    because this reformuation looks rather uninteresting:
+    because this reformuation looks rather uninteresting
+    and does not lead to a simpler "consumes" clause
 
       for i
-        consumes Ai
+        consumes Ai * Di
         f(i) // consumes Ai produces (Bi \-* Ci)
-        g(i) // consumes Di produces Bi (FIXME: Di is not in context here...)
+        g(i) // consumes Di produces Bi
         produces (Bi \-* Ci) * Bi
       then entailement from (stars_i Bi) * stars_i (Bi \-* Ci) to (stars_i Ci)
 
     Note that in this last example, a fission between f(i) and g(i)
     leads to the code in the previous example.
 *)
-
 
 let minimize_loop_contract contract usage =
   let new_fracs = ref [] in
@@ -320,12 +348,11 @@ let minimize_loop_contract contract usage =
 
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
-  (* let res_before = unsome_or_trm_fail t "loop_minimize_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in *)
 
   let contract = match contract with
-    | None -> trm_fail t "loop_minimize_on: expected contract"
-      (* DEPRECATED?:
-      { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract } *)
+    | None ->
+      let res_before = unsome_or_trm_fail t "loop_minimize_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in
+      { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
     | Some contract -> contract
   in
 
@@ -413,6 +440,9 @@ let assert_seq_instrs_commute (before : trm) (after : trm) : unit =
   if not (Hyp_map.is_empty interference) then
     trm_fail after (string_of_interference interference)
 
+let hyps_of_usage (res : resource_usage_map) : hyp list =
+  List.map (fun (h, _) -> h) (Hyp_map.bindings res)
+
 (** <private>
     Collects the resources that are consumed Full or Uninit (i.e. possibly written to) by term [t].
     *)
@@ -424,7 +454,7 @@ let write_usage_of (t : trm) : hyp list =
     | SplittedReadOnly | JoinedReadOnly | Produced -> false
   in
   let write_res = Hyp_map.filter keep res in
-  List.map (fun (h, _) -> h) (Hyp_map.bindings write_res)
+  hyps_of_usage write_res
 
 (** <private>
     Returns a list of formulas from a list of hypothesis variables.
@@ -440,7 +470,7 @@ let assert_instr_effects_shadowed (p : path) : unit =
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
       Target.apply_at_path (fun instr ->
         let write_hyps = write_usage_of instr in
-        let res_before = unsome_or_trm_fail instr "Resources.assert_instr_effects_shadowed: expected resources to be computed" instr.ctx.ctx_resources_before in
+        let res_before = before_trm instr in
         let write_res = formulas_of_hyps write_hyps res_before.linear in
         let uninit_ghosts = List.filter_map (fun res ->
           if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
@@ -457,8 +487,8 @@ let assert_instr_effects_shadowed (p : path) : unit =
     A trm is not self interfere if `t; t` is the same as `t`
 *)
 let assert_not_self_interfering (t : trm) : unit =
-  let res_before = Xoption.unsome ~error:"expected computed resources" t.ctx.ctx_resources_before in
-  let res_after = Xoption.unsome ~error:"expected computed resources" t.ctx.ctx_resources_after in
+  let res_before = before_trm t in
+  let res_after = after_trm t in
   let res_usage = usage_of_trm t in
   let res_used_uninit = List.filter (fun (h, f) ->
     match Hyp_map.find_opt h res_usage with
@@ -473,7 +503,7 @@ let assert_not_self_interfering (t : trm) : unit =
     | Some (SplittedReadOnly|JoinedReadOnly) | None -> false
     | Some (UsedFull|UsedUninit) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
-  ignore (Resource_computation.subtract_linear_resource res_produced res_used_uninit)
+  ignore (Resource_computation.subtract_linear_resource_set res_produced res_used_uninit)
 
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.
 
@@ -504,6 +534,6 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
     ) interferences)));
   ()
 
-(* TEMPORARY for backward compatibility *)
+(* TEMPORARY for backward compatibility -- TODO: substitute them in tests *)
 let show () = Show.res ()
 let show_ast () = Show.ast ()

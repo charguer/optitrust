@@ -8,7 +8,7 @@ open Prelude
     [no_else_branch] - if true then the inserted if statement will not contain an else branch.
     Note:
       If [cond] is given as arbitrary string the flag [reparse] should be set to true. *)
-let%transfo insert ?(cond : trm = trm_any_bool) ?(reparse : bool = false) ?(mark : mark = "") ?(no_else_branch : bool = false) (tg : target) : unit =
+let%transfo insert ?(cond : trm = trm_any_bool) ?(reparse : bool = false) ?(mark : mark = no_mark) ?(no_else_branch : bool = false) (tg : target) : unit =
   Target.reparse_after ~reparse (Target.apply_on_targets (If_core.insert cond mark no_else_branch)) tg
 
 let elim_true_on (t : trm) : trm =

@@ -168,6 +168,9 @@
 - "failure_expected: the operation was supposed to fail but it didn't"
   does not report a useful backtrace
 
+- "failure_expected (fun _e -> true)" should be replaced with a catch of the
+  relevant exception, e.g. RessourceError, etc.
+
 # VSCode
 
 - Investigate whether there is a better way to avoid the sandboxing of VSCode

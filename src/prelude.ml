@@ -14,7 +14,6 @@ type seq_component =
   | TrmList of trm list
   | TrmMlist of trm mlist
   | Mark of mark
-  | MarkOption of mark option
 
 let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(braces = true) (components: seq_component list) : trm =
   let mlist = List.fold_right (fun comp acc ->
@@ -22,9 +21,8 @@ let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(braces = true
     | Trm t -> Mlist.push_front t acc
     | TrmList tl -> Mlist.merge (Mlist.of_list tl) acc
     | TrmMlist tml -> Mlist.merge tml acc
-    | Mark m
-    | MarkOption Some m -> Mlist.insert_mark_at 0 m acc
-    | MarkOption None -> acc
+    | Mark "" -> acc
+    | Mark m -> Mlist.insert_mark_at 0 m acc
     in
     (* DEBUG:
       Show.trm ~msg:"res" (trm_seq res); *)

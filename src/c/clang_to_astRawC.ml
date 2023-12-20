@@ -8,7 +8,8 @@ open Tools
 
 let warn_array_subscript_not_supported (t : typ option) : unit =
   let str = Xoption.to_string AstC_to_c.typ_to_string t in
-  if not (String_set.mem str !Flags.warned_array_subscript_not_supported) then begin
+  if !Flags.report_all_warnings
+    && not (String_set.mem str !Flags.warned_array_subscript_not_supported) then begin
     Flags.warned_array_subscript_not_supported := String_set.add str !Flags.warned_array_subscript_not_supported;
     Tools.warn (sprintf "does not support array subscript base type '%s'" str);
   end
