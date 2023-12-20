@@ -226,6 +226,10 @@ let bool_of_var (s : string) : bool option =
   try Some (bool_of_string s )
   with | Invalid_argument _ -> None
 
+(* [ref_list_add r x] adds [x] to the head of the list of reference [r] *)
+let ref_list_add (r: 'a list ref) (x: 'a) : unit =
+  r := x :: !r
+
 (******************************************************************************)
 (*                          Extensions for Hashtbl                            *)
 (******************************************************************************)

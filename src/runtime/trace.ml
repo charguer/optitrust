@@ -24,6 +24,7 @@ exception TraceFailure of string
 (* TEMPORARY HACK *)
 let ast_just_before_first_call_to_restore_original : trm option ref = ref None
 
+(* TODO: lack of uniformity: show_step  vs step_backtrack *)
 
 (******************************************************************************)
 (*                             File excerpts                                  *)
@@ -173,8 +174,22 @@ type stepdescr = {
   mutable script : string; (* excerpt from the transformation script, or "" *)
   mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
 
-(** [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_group | Step_backtrack | Step_show | Step_typing | Step_error | Step_trustme
+(** [step_kind] : classifies the kind of steps.*)
+type step_kind =
+  | Step_root (* root step created by [init] *)
+  | Step_big (* produced by a [bigstep] call, via [open_big_step] *)
+  | Step_small (* produced by a small-step [!!], via [open_small_step] *)
+  | Step_transfo (* produced by [transfo_step] *)
+  | Step_target_resolve (* produced by [target_resolve_step] *)
+  | Step_io (* produced by [io_step] *)
+  | Step_group (* produced in particular by [backtrack] steps *)
+  | Step_backtrack (* [backtrack] or [backtrack_on_failure] *)
+  | Step_show (* produced by [show_step] *)
+  | Step_typing (* produced by [typing_step] *)
+  | Step_trustme (* produced by [trustme] *)
+  | Step_change (* change step introduced by [finalize_step] -- TODO: add this feature *)
+  | Step_error (* fatal error caught *)
+
 
 (** [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -189,8 +204,9 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_backtrack -> "Backtrack"
   | Step_show -> "Show"
   | Step_typing -> "Typing"
-  | Step_error -> "Error"
   | Step_trustme -> "Trustme"
+  | Step_change -> "Change"
+  | Step_error -> "Error"
 
 (** [step_infos] *)
 type step_infos = {
@@ -559,6 +575,29 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
   the_trace.step_stack <- step :: the_trace.step_stack;
   step
 
+(** [change_step] helps creating a [Step_change] during [finalize]. *)
+let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_start : float) ~(step_exectime : float) ~(flag_check_validity:bool) : step_tree =
+  let infos = {
+    step_script = "";
+    step_script_line = None;
+    step_time_start = time_start;
+    step_exectime = step_exectime;
+    step_name = "direct ast change";
+    step_args = [];
+    step_justif = [];
+    step_flag_check_validity = flag_check_validity;
+    step_valid = false;
+    step_tags = [];
+    step_debug_msgs = [];
+  } in
+  { step_kind = Step_change;
+    step_ast_before = ast_before;
+    step_style_before = style;
+    step_sub = [];
+    step_infos = infos;
+    step_ast_after = ast_after;
+    step_style_after = style; }
+
 (** [justif txt] is called by a transformation after open_step in order
    to store explaination of why it is correct *)
 let justif (justif:string) : unit =
@@ -622,8 +661,7 @@ let tag_simpl_access () : unit =
 let without_substep_validity_checks (f: unit -> 'a): 'a =
   Flags.with_flag Flags.check_validity false f
 
-(** [try_validate_step_by_compostion s] sets a computation to be valid if all its substeps are valid
-   and form a contiguous chain *)
+(** [try_validate_step_by_compostion s] sets a computation to be valid if all its substeps are valid. *)
 let try_validate_step_by_compostion (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
@@ -647,11 +685,53 @@ let try_validate_step_by_compostion (s : step_tree) : unit =
     end
   end
 
+(** [make_substeps_chained step] Finalize the list of substeps of [step],
+    by inserting [Step_change] steps where the ast was modified directly
+    in-between steps, to ensure that from [ast_before] we reach [ast_after]
+    by applying the series of substep, each substep starting from the same
+    physical ast as the one produced by the previous step. *)
+let make_substeps_chained (step:step_tree) : unit =
+  let flag_check_validity = step.step_infos.step_flag_check_validity in
+  let style = step.step_style_before in
+  let before (s:step_tree) : trm =
+    s.step_ast_before in
+  let after (s:step_tree) : trm =
+    s.step_ast_after in
+  let time_start (s:step_tree) : float =
+    s.step_infos.step_time_start in
+  let time_stop (s:step_tree) : float =
+    s.step_infos.step_time_start +. s.step_infos.step_exectime in
+  let newsubrev = ref [] in
+  let cur_ast = ref step.step_ast_before in
+  let cur_time = ref (time_start step) in
+  let process (substep:step_tree) : unit =
+    if before substep != !cur_ast then begin
+      let changestep = change_step ~ast_before:(!cur_ast) ~ast_after:(before substep)
+        ~time_start:(!cur_time) ~step_exectime:(time_start substep -. !cur_time)
+        ~flag_check_validity ~style in
+        (* or style:(Style.default_custom_style()) *)
+      Tools.ref_list_add newsubrev changestep;
+    end;
+    Tools.ref_list_add newsubrev substep;
+    cur_ast := after substep;
+    cur_time := time_stop substep;
+    in
+  List.iter process step.step_sub; (* [step_sub] assumed already in final order *)
+  if !cur_ast != step.step_ast_after then begin
+    let changestep = change_step ~ast_before:(!cur_ast) ~ast_after:step.step_ast_after
+        ~time_start:(!cur_time) ~step_exectime:(time_stop step -. !cur_time)
+        ~flag_check_validity ~style in
+    Tools.ref_list_add newsubrev changestep;
+  end;
+  step.step_sub <- List.rev !newsubrev
+
+(* DEPRECATED? *)
 let is_saved_step step =
   match step.step_kind with
-  | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_typing | Step_io | Step_trustme -> true
+  | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_typing | Step_io | Step_trustme | Step_change -> true
   | Step_target_resolve | Step_backtrack | Step_error | Step_show -> false
 
+(* DEPRECATED? *)
 let last_recorded_ast step: trm =
   let rec browse_steps steps =
     match steps with
@@ -661,42 +741,65 @@ let last_recorded_ast step: trm =
   in
   browse_steps step.step_sub
 
+(** [is_kind_preserving_code kind] returns a boolean indicating whether
+    the steps of this [kind] may modify the underlying source code.
+    Beware that a [Step_backtrack] is preserving. *)
+let is_kind_preserving_code (kind:step_kind) : bool =
+  match kind with
+  | Step_typing | Step_io | Step_target_resolve
+  | Step_backtrack | Step_error | Step_show ->
+      false
+  | Step_root | Step_big | Step_small | Step_transfo
+  | Step_group | Step_trustme | Step_change ->
+      true
+
 (** [finalize_step] is called by [close_root_step] and [close_step] *)
 let rec finalize_step (step : step_tree) : unit =
   let infos = step.step_infos in
   (* Handle retyping and reparse operations at the end of every step,
      except for steps that do not modify the current ast *)
-  let same_as_last_step =
+  let same_ast_as_last_step =
     match step.step_sub with
     | [] -> step.step_ast_before == the_trace.cur_ast
     | last_step :: _ -> last_step.step_ast_after == the_trace.cur_ast
   in
-  if not same_as_last_step then begin match step.step_kind with
-    | Step_typing | Step_io | Step_target_resolve
-    | Step_backtrack | Step_error | Step_show -> ()
-    | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_trustme ->
+  if not same_ast_as_last_step
+    && not (is_kind_preserving_code step.step_kind) then begin
         (* TODO: Wrap error message without losing trace *)
         if !Flags.reparse_between_steps
           then reparse ();
         if !Flags.recompute_resources_between_steps
           then recompute_resources ()
   end;
+  (* Save the ast_after and its style *)
+  step.step_ast_after <- the_trace.cur_ast;
+  step.step_style_after <- the_trace.cur_style;
   (* Flip lists that have been accumulated in reverse order during the step *)
   infos.step_args <- List.rev infos.step_args;
   infos.step_tags <- List.rev infos.step_tags;
   infos.step_debug_msgs <- List.rev infos.step_debug_msgs;
+  (* Finalize the list of substeps, by inserting [Step_change] steps
+     to ensure a well-chained list of asts; unless it is a [Step_backtrack],
+     or another kind of step that does not change the underlying code,
+     in which case we do nothing. *)
   step.step_sub <- List.rev step.step_sub;
-  (* Save the ast_after and its style, and the time *)
-  step.step_ast_after <- the_trace.cur_ast;
-  step.step_style_after <- the_trace.cur_style;
-  infos.step_exectime <- now() -. infos.step_time_start;
+  if not (is_kind_preserving_code step.step_kind)
+    then make_substeps_chained step;
   (* Check that [Flags.check_validity] is like at the start of the step *)
   if !Flags.check_validity <> infos.step_flag_check_validity
     then raise (TraceFailure "At finalize_step, Flags.check_validity is not same as when step was opened.");
-  (* Set the validity flag *)
-  if !Flags.check_validity
-    then try_validate_step_by_compostion step
-    else step.step_infos.step_valid <- false;
+  (* Set the validity flag if it is not already set, in particular
+     if the step is an identity step, or if all substeps are valid.
+     (they have previously been ensured to form a chain).
+     A [Step_trustme] is always considered invalid. *)
+  if !Flags.check_validity then begin
+    if step.step_kind = Step_trustme
+      then step.step_infos.step_valid <- false
+    else if not infos.step_valid
+    && (   step.step_ast_before == step.step_ast_after
+        || List.for_all (fun substep -> substep.step_infos.step_valid) step.step_sub)
+    then step.step_infos.step_valid <- true;
+  end;
   (* If the step is a small-step and contains a unique substep tagged
      "show", then the current small-step is also tagged "show".
      If the small-step contains multiple show step, we print a warning. *)
@@ -710,6 +813,8 @@ let rec finalize_step (step : step_tree) : unit =
         if List.length (List.filter has_show_tag steps) > 1
           then Tools.warn "Should have only one show function after '!!'."
   end;
+  (* Save the time *)
+  infos.step_exectime <- now() -. infos.step_time_start
 
 
 and without_reparsing_between_steps (f: unit -> unit): unit =

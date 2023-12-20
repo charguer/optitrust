@@ -20,6 +20,8 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.msg "debug message before\nlab4 \n";
       Label.add "lab4" [cVarDef "a"];
       Trace.msg "debug message after\nlab4 \n";
+  (* Example of a reparse step *)
+  !! Trace.reparse();
   !! Label.add "lab5" [cVarDef "a"];
   (* Examples of show functions with output in browser *)
   !! Show.ast ();
@@ -36,10 +38,17 @@ let _ = Run.script_cpp (fun _ ->
   bigstep "third part";
   (* Try task "View diff using internal syntax" *)
   !! Label.add "lab6" [cVarDef "a"];
+  (* Demo of substeps modifying the ast directly
+     (only transformations should do this) *)
+  let ast6 = Trace.ast() in
   !! Label.add "lab7" [cVarDef "a"];
+  !! Trace.set_ast ast6;
+     Label.add "lab8" [cVarDef "a"];
+     Trace.set_ast ast6;
   (* Example of trustme section *)
   !! Trace.trustme "I know what I'm doing" (fun () ->
      Label.add "labX1" [cVarDef "a"];
+     Trace.set_ast ast6;
      Label.add "labX2" [cVarDef "a"];
   );
   (* Example of backtracking *)

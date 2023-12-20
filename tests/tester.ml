@@ -143,9 +143,6 @@ module StringSet = Set.Make(String)
 (*****************************************************************************)
 (** Tools (LATER: move to tools/*.ml) *)
 
-let ref_list_add (r: 'a list ref) (x: 'a) : unit =
-  r := x :: !r
-
 let (~~) iter l f =
   iter f l
 
@@ -593,8 +590,8 @@ let action_run (tests : string list) : unit =
   (* Analyse test results *)
   let tests_all = ref [] in
   let test_report (status : string) (acc : string list ref) (test : string) : unit =
-    ref_list_add tests_all (sprintf "- %s\t%s" status test);
-    ref_list_add acc test
+    Tools.ref_list_add tests_all (sprintf "- %s\t%s" status test);
+    Tools.ref_list_add acc test
     in
   let tests_failed = ref [] in
   let tests_noexp = ref [] in
@@ -747,7 +744,7 @@ let action_meld (tests : string list) : unit =
     let prefix = Filename.remove_extension test in
     let outfile = prefix ^ "_out.cpp" in
     let expfile = prefix ^ "_exp.cpp" in
-    ref_list_add meldargs (sprintf "--diff %s %s " outfile expfile);
+    Tools.ref_list_add meldargs (sprintf "--diff %s %s " outfile expfile);
   );
   run_action (sprintf "meld %s" (String.concat "" !meldargs))
 
@@ -765,7 +762,7 @@ let _main : unit =
       else if !action = ""
         then action := arg
       else
-        ref_list_add args arg)
+        Tools.ref_list_add args arg)
     "Usage: ./tester [action] [options] [arg1] .. [argN]\naction = run | create | addexp | fixexp | ignore | code | diff | meld\noptions:\n";
 
   (* Handle the dump_trace flag *)

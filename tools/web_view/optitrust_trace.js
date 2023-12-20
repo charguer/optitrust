@@ -90,6 +90,11 @@ var optionsDescr = [ // extended by initAllTags
     kind: "UI",
     default: true,
   },
+  { key: "step_change",
+    name: "step-change",
+    kind: "UI",
+    default: false,
+  },
   { key: "args",
     name: "arguments",
     kind: "UI",
@@ -548,6 +553,10 @@ function stepToHTML(step, isOutermostLevel) {
     // TODO: precompute '==' somewhere
     return "";
   }
+  if (! options.step_change && step.kind == "Change") {
+    return "";
+  }
+
 
   // console.log("steptohtml " + step.id);
   var s = "";
