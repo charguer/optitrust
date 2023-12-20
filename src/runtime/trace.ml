@@ -385,10 +385,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
     output_string out_prog ctx.header;
     (* Convert contracts into code *)
-    let ast =
-      if (Style.ast_style_of_custom_style style).print_contract_internal_repr
-        then ast
-        else Ast_fromto_AstC.computed_resources_intro style.typing ast in
+    let ast = Ast_fromto_AstC.computed_resources_intro style.typing ast in
     (* Optionally convert from OptiTrust to C syntax *)
     let ast =
       if style.decode

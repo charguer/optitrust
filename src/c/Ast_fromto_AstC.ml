@@ -801,7 +801,11 @@ let display_ctx_resources (style: typing_style) (t: trm): trm list =
           else [] in
       tl_frame @ tl_inst @ [ t ] @ tl_produced @ tl_joined
   in
-  let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
+  let tl_after =
+    if style.typing_used_res
+      then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after)
+      else []
+    in
   (tl_used @ tl @ tl_after)
 
 let computed_resources_intro (style: typing_style) (t: trm): trm =
