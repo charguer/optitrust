@@ -16,6 +16,7 @@ loop/moveout/loop_moveout_doc.ml
 loop/moveout/loop_moveout.ml
 loop/move/loop_move_doc.ml
 loop/hoist_expr/loop_hoist_expr.ml
+loop/hoist/loop_hoist_basic.ml
 
 # TOO SLOW, FIX TYPING OF RESOURCES
 loop/fission/loop_fission_basic.ml
