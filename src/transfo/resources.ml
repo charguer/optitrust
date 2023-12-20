@@ -539,5 +539,8 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   ()
 
 (* TEMPORARY for backward compatibility -- TODO: substitute them in tests *)
-let show () = Show.res ()
+let show () =
+  ensure_computed ();
+  Show.res ()
+
 let show_ast () = Show.ast ()
