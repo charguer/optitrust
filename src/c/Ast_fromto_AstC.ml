@@ -995,7 +995,19 @@ let cfeatures_intro : trm -> trm =
   method_call_intro |>
   class_member_intro |>
   ghost_args_intro |>
-  contract_intro)
+  contract_intro
+  )
+
+(** [meta_intro t] adds into [t] all the "for-typing" operations
+    and the contracts as C calls using the "__" prefix *)
+let meta_intro : trm -> trm =
+  fun t ->
+  Scope_computation.infer_var_ids t |>
+  formula_sugar_intro |>
+  ghost_args_intro |>
+  contract_intro
+
+
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful

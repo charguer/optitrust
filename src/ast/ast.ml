@@ -1434,7 +1434,7 @@ let get_member_type (t : trm) (rf : record_field) : typ =
    various AST datatypes. *)
 
 type style = {
-  print_contract: bool; (* print loop contract *)
+  print_contract_internal_repr: bool; (* print internal loop contract *)
   print_var_id: bool; (* print internal variable identifiers *)
   print_generated_ids: bool; (* print auto-generated names *)
   print_string_repr: bool; (* print string representation for expressions *)
@@ -1446,7 +1446,7 @@ type style = {
 (* Default style *)
 
 let default_style () : style = {
-  print_contract = true;
+  print_contract_internal_repr = false;
   print_var_id = !Flags.debug_var_id;
   print_generated_ids = !Flags.always_name_resource_hyp;
   print_string_repr = !Flags.debug_stringreprs;
@@ -1456,7 +1456,7 @@ let default_style () : style = {
 
 (** Style for reparsing *)
 let style_for_reparse () : style =
-  { print_contract = false;
+  { print_contract_internal_repr = false;
     print_var_id = false;
     print_generated_ids = false;
     print_string_repr = false;

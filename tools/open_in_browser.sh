@@ -19,7 +19,7 @@ fi
 
 # Open the browser
 
-if [ -z ${WINDOWTITLE} ]; then
+if [ -z "${WINDOWTITLE}" ]; then
 
     ## Launch fresh browser
     # echo "${OPTITRUST_BROWSER} ${FILEPATH}"

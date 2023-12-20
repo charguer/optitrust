@@ -384,13 +384,16 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
   begin try
     (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
     output_string out_prog ctx.header;
-    (* Optionally add typing information such as resources *)
+    (* Convert contracts into code *)
     let ast =
-      if Style.is_typing_none style.typing
+      if (Style.ast_style_of_custom_style style).print_contract_internal_repr
         then ast
         else Ast_fromto_AstC.computed_resources_intro style.typing ast in
     (* Optionally convert from OptiTrust to C syntax *)
-    let ast = if style.decode then Ast_fromto_AstC.cfeatures_intro ast else ast in
+    let ast =
+      if style.decode
+        then Ast_fromto_AstC.cfeatures_intro ast
+        else Ast_fromto_AstC.meta_intro ast in
     (* Print the code into file, using the specified style *)
     let cstyle = match style.print with
       | Lang_AST _-> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_AST")
