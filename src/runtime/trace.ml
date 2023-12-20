@@ -1265,7 +1265,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
 (** [dump_trace_to_js step]: writes into a file called [`prefix`_trace.js] the
    contents of the step tree [step]. The JS file is structured as follows
    (up to the order of the definitions):
-
+{@js[
    var startupOpenStep = 45; // optional binding
    var steps = [];
    steps[i] = {
@@ -1282,6 +1282,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       diff: window.atob("..."), // could be slow if requested for all!
       sub: [ j1, j2, ... jK ]  // ids of the sub-steps
       }
+]}
    *)
 let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
   let prefix =

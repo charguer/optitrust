@@ -19,20 +19,31 @@ fi
 
 # Open the browser
 
-WID=`xdotool search --screen 0 --name "${WINDOWTITLE}" | head -1`
+if [ -z ${WINDOWTITLE} ]; then
 
-if [ -n "${WID}" ]; then
-  #echo "found window to reuse"
-  # Immediately brings the window to the front
-  # echo ${WID}
-  # xdotool windowactivate $WID
-  xdotool windowactivate --sync $WID
-  #echo "now refreshing"
-  # Refresh the page
-  xdotool key ctrl+r
+    ## Launch fresh browser
+    # echo "${OPTITRUST_BROWSER} ${FILEPATH}"
+    nohup ${OPTITRUST_BROWSER} ${FILEPATH} >/dev/null 2>&1 &
+    # TODO factorize
 
 else
-  ## Launch fresh browser
-  nohup ${OPTITRUST_BROWSER} ${FILEPATH} >/dev/null 2>&1 &
+
+  WID=`xdotool search --screen 0 --name "${WINDOWTITLE}" | head -1`
+
+  if [ -n "${WID}" ]; then
+    #echo "found window to reuse"
+    # Immediately brings the window to the front
+    # echo ${WID}
+    # xdotool windowactivate $WID
+    xdotool windowactivate --sync $WID
+    #echo "now refreshing"
+    # Refresh the page
+    xdotool key ctrl+r
+
+  else
+    ## Launch fresh browser
+    nohup ${OPTITRUST_BROWSER} ${FILEPATH} >/dev/null 2>&1 &
+
+  fi
 
 fi

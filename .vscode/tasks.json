@@ -334,6 +334,19 @@
           "reveal": "never"
         }
       },
+      // View documentation
+      {
+        "label": "Open doc for current source file in browser",
+        "type": "shell",
+        "command": "doc/open_doc_for.sh",
+        "args": [ "${file}" ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+      },
       // Run script
       {
         "label": "Execute doc/add_tests_into_doc/run.sh",

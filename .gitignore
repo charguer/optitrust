@@ -1,6 +1,7 @@
 # Artifacts
 _build
 tmp
+_doc
 *.ast
 *_out.cpp
 *_out.c
@@ -11,7 +12,7 @@ tmp
 *_before_enc.cpp
 *_after_enc.cpp
 *_after_enc.c
-*_before_enc.c
+*_before_enc.cpp
 *_out_enc.cpp
 *_out_enc.c
 *_diff.html

@@ -10,7 +10,6 @@ In the meanwhile, if you are interested in a demo, please get in touch with @cha
 
 # OptiTrust Installation
 
-
 --------------------------------------------------------------------------------
 ## Installation
 
@@ -244,6 +243,13 @@ and merge that contents just before the final closing brace of the existing file
     "args": "Save intermediate state",
     "when": "config.optitrust.enableKeybindings"
   },
+  // To open documentation
+  {
+    "key": "f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open doc for current source file in browser",
+    "when": "config.optitrust.enableKeybindings && resourceExtname == .ml"
+  },
   // For killing a task, type 'ctrl+k' twice, then 'enter'
   {
      "key": "ctrl+k ctrl+k",
@@ -316,6 +322,22 @@ If you don't see a diff, possible issues include:
    - the compilation failed due to incorrect setup; you should see error
      messages in the terminal.
 
+
+--------------------------------------------------------------------------------
+## Documentation
+
+The documentation for OptiTrust is generated using the OCaml 'odoc' tool.
+
+https://ocaml.github.io/odoc/odoc_for_authors.html
+
+The top-level command `make doc` calls 'dune build @doc', which invokes 'odoc'.
+Then, the generated documentation is copied into the folder '_doc'.
+There, the documentation is patched in order to add the diffs associated
+with the documentation unit tests (files tests/.../*_doc.ml).
+
+The patch operation is implemented in "doc/add_tests_into_doc.ml".
+
+The top-level command `make viewdoc` compiles the doc and opens it.
 
 
 --------------------------------------------------------------------------------
