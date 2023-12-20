@@ -2395,74 +2395,96 @@ type eval = trm option
    If a variable is in the map, then it is an evar, and should be substituted/unified (i.e. its eval should eventually become Some). *)
 type unification_ctx = eval varmap
 
-let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_ctx option =
-  let open Xoption.OptionMonad in
-  match Var_map.find_opt xe evar_ctx with
-  | None ->
-    (* [xe] cannot be substituted, it must be equal to [t]. *)
-    let* x = trm_var_inv t in
-    if x = xe then Some evar_ctx else None
-  | Some None ->
-    (* [xe] can be substituted, do it. *)
-    Some (Var_map.add xe (Some t) evar_ctx)
-  | Some (Some t_evar) ->
-    (* [xe] was already substituted, its substitution must be equal to [t]. *)
-    if are_same_trm t t_evar then Some evar_ctx else None
+(** <internal> see {!unified_trm} *)
+let rec unfold_if_resolved_evar (t: trm) (evar_ctx: unification_ctx): trm * unification_ctx =
+  match t.desc with
+  | Trm_var (_, x) ->
+    begin match Var_map.find_opt x evar_ctx with
+    | Some (Some t) ->
+      let t, evar_ctx = unfold_if_resolved_evar t evar_ctx in
+      (* Path compression in case of cascading evars *)
+      t, Var_map.add x (Some t) evar_ctx
+    | _ -> t, evar_ctx
+    end
+  (* Immediate beta redex replacement *)
+  | Trm_apps (apps_fn, args, ghost_args) ->
+    let fn, evar_ctx = unfold_if_resolved_evar apps_fn evar_ctx in
+    if fn == apps_fn then t, evar_ctx else
+    begin match trm_fun_inv fn with
+    | Some (params, ret, body, spec) ->
+      let t = trm_subst (List.fold_left2 (fun subst_ctx arge (param, _) -> Var_map.add param arge subst_ctx) Var_map.empty args params) body in
+      t, evar_ctx
+    | None -> t, evar_ctx
+    end
+  | _ -> t, evar_ctx
 
-and are_same_trm (t1: trm) (t2: trm): bool =
-  (* they are the same if they can be unified without allowing substitutions. *)
-  Option.is_some (unify_trm t1 t2 Var_map.empty)
-
-and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx option =
+(** [unify_trm t1 t2 evar_ctx] tries to unify [t1] with [t2], possibly instantiating and substituting evars
+    that occur in [evar_ctx].
+    If the unification succeeds, returns an updated unification context, with the newly resolved evars.
+    If it fails, returns None. *)
+let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : unification_ctx option =
   let open Xoption.OptionMonad in
   (* Pattern match on one component to get a warning if there is a missing one *)
   let check cond = if cond then Some evar_ctx else None in
-  match te.desc with
-  | Trm_var (_, xe) ->
-    unify_var xe t evar_ctx
-  | Trm_val ve ->
-    let* v = trm_val_inv t in
-    check (ve = v)
-  | Trm_apps (fe, argse, ghost_args) ->
-    let handle_trm_apps () =
-      let* f, args = trm_apps_inv t in
+  (* Unfold first to avoid problems on f(?x, ?y) = f(?y, ?y) *)
+  let t_left, evar_ctx = unfold_if_resolved_evar t_left evar_ctx in
+  let t_right, evar_ctx = unfold_if_resolved_evar t_right evar_ctx in
+  match trm_var_inv t_left, trm_var_inv t_right with
+  | Some x_left, Some x_right when var_eq x_left x_right ->
+    Some evar_ctx
+  | Some x_left, _ when Var_map.mem x_left evar_ctx ->
+    assert (Var_map.find x_left evar_ctx = None);
+    Some (Var_map.add x_left (Some t_right) evar_ctx)
+  | _, Some x_right when Var_map.mem x_right evar_ctx ->
+    assert (Var_map.find x_right evar_ctx = None);
+    Some (Var_map.add x_right (Some t_left) evar_ctx)
+  | _ ->
+    match t_right.desc with
+    | Trm_var _ ->
+      (* t_right is a variable but it is not the same as t_left, and none is an unresolved evar *)
+      None
+
+    | Trm_val ve ->
+      let* v = trm_val_inv t_left in
+      check (ve = v)
+
+    | Trm_apps (fe, argse, ghost_args) ->
+      let* f, args = trm_apps_inv t_left in
       let* evar_ctx = unify_trm f fe evar_ctx in
       begin try
         List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
       with Invalid_argument _ -> None end
-    in
 
-    (* Immediate beta redex replacement *)
-    begin match trm_var_inv fe with
-    | Some xe ->
-      begin match Var_map.find_opt xe evar_ctx with
-      | Some (Some { desc = Trm_fun (params, ret, body, spec) }) ->
-        unify_trm t (trm_subst (List.fold_left2 (fun subst_ctx arge (param, _) -> Var_map.add param arge subst_ctx) Var_map.empty argse params) body) evar_ctx
-      | _ -> handle_trm_apps ()
-      end
-    | _ -> handle_trm_apps ()
-    end
+    | Trm_fun (argse, _, bodye, _) ->
+      let* args, _, body, _ = trm_fun_inv t_left in
+      (* Remember the masked context in case of shadowing, this is needed in case of recursive
+         or higher order functions with evars. *)
+      let* evar_ctx, masked_ctx =
+        try
+          Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
+              if var_eq arge arg then
+                (* This case is required to handle comparison of a trm with itself *)
+                (evar_ctx, masked)
+              else
+                let masked_entry = Var_map.find_opt arge evar_ctx in
+                let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
+                (evar_ctx, (arge, masked_entry) :: masked)
+            ) (evar_ctx, []) argse args)
+        with Invalid_argument _ -> None
+      in
+      let* evar_ctx = unify_trm body bodye evar_ctx in
+      Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
+          match masked_entry with
+          | Some entry -> Var_map.add arge entry evar_ctx
+          | None -> Var_map.remove arge evar_ctx
+        ) evar_ctx masked_ctx)
 
-  | Trm_fun (argse, _, bodye, _) ->
-    let* args, _, body, _ = trm_fun_inv t in
-    let* evar_ctx, masked_ctx =
-      try
-        Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
-            let masked_entry = Var_map.find_opt arge evar_ctx in
-            let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
-            (evar_ctx, (arge, masked_entry) :: masked)
-          ) (evar_ctx, []) argse args)
-      with Invalid_argument _ -> None
-    in
-    let* evar_ctx = unify_trm body bodye evar_ctx in
-    Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
-        match masked_entry with
-        | Some entry -> Var_map.add arge entry evar_ctx
-        | None -> Var_map.remove arge evar_ctx
-      ) evar_ctx masked_ctx)
+    | _ -> failwith (sprintf "unify_trm: unhandled constructor") (* TODO: Implement the rest of constructors *)
 
-  | _ -> failwith (sprintf "unify_trm: unhandled constructor") (* TODO: Implement the rest of constructors *)
-
+(** [are_same_trm t1 t2] checks that [t1] and [t2] are alpha-equivalent (same modulo name of the binders). *)
+let are_same_trm (t1: trm) (t2: trm): bool =
+  (* they are the same if they can be unified without allowing substitutions. *)
+  Option.is_some (unify_trm t1 t2 Var_map.empty)
 
 (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
