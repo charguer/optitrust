@@ -334,7 +334,7 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
 
 (* [beta ~indepth tg]: applies beta-reduction on candidate function calls that appear
     either "exactly at" or "anywhere in depth" in the target [tg], depending on the value of ~indepth. *)
-let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target) : unit =
+let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = no_mark) (tg : target) : unit =
   let tg = if indepth
     then tg @ [cFun ~fun_:[cFunDef ""] ""]
     else tg in

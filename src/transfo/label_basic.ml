@@ -14,10 +14,12 @@ open Target
 
 (* [add label tg]: adds a C-label named [label] to the front of the terms
    matching the target [tg].
+   Does nothing if [label = no_label].
 
    @correctness: always correct. *)
 let%transfo add (label : string) (tg:target) : unit =
   Trace.justif_always_correct();
+  if label = no_label then () else
   Target.apply_at_target_paths (trm_add_label label) tg
 
 (* [remove label tg]: removes a C-label named [label] matched by th target [tg]. *)

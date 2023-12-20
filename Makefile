@@ -3,6 +3,7 @@ THIS := optitrust
 
 OPTITRUST_PREFIX := `opam config var prefix`
 INSTALL_TARGET := $(OPTITRUST_PREFIX)/lib/$(THIS)
+BROWSER ?= xdg-open
 
 all:
 	dune build
@@ -59,6 +60,9 @@ viewdoc: doc
 
 tests:
 	./tester
+
+style:
+	find tests/ src/ -path tests/batch -prune -o -path src/c/compcert_parser -prune -o -name "*.ml" -print0 | xargs -0 grep --color -nE '.{101}'
 
 clean:
 	dune clean

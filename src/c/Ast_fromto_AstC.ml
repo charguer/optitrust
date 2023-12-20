@@ -608,6 +608,7 @@ let __ctx_res = name_to_var "__ctx_res"
 let __produced_res = name_to_var "__produced_res"
 let __used_res = name_to_var "__used_res"
 let __framed_res = name_to_var "__framed_res"
+let __joined_res = name_to_var "__joined_res"
 let __contract_inst = name_to_var "__contract_inst"
 let __post_inst = name_to_var "__post_inst"
 
@@ -726,41 +727,41 @@ let seq_push (code : trm) (t : trm) : trm =
   let new_tl = Mlist.push_front code tl in
   trm_replace (Trm_seq new_tl) t
 
-let ctx_resource_list_to_string ?(sep = ", ") (res: resource_item list) : string =
-  String.concat sep (List.map named_formula_to_string res)
+let trm_array_of_string list =
+  trm_array (Mlist.of_list (List.map trm_string list))
 
 let ctx_resources_to_trm (res: resource_set) : trm =
-  let spure = ctx_resource_list_to_string res.pure in
-  let slin = ctx_resource_list_to_string res.linear in
-  trm_apps (trm_var __ctx_res) [trm_string spure; trm_string slin]
+  let spure = trm_array_of_string (List.map named_formula_to_string res.pure) in
+  let slin = trm_array_of_string (List.map named_formula_to_string res.linear) in
+  trm_apps (trm_var __ctx_res) [spure; slin]
 
 let ctx_used_res_item_to_string (res: used_resource_item) : string =
   let sinst = formula_to_string res.inst_by in
   let sformula = formula_to_string res.used_formula in
-  Printf.sprintf "%s := %s : %s" res.hyp_to_inst.name sinst sformula
+  Printf.sprintf "%s := %s : %s" res.pre_hyp.name sinst sformula
 
 let ctx_used_res_to_trm ~(clause: var) (used_res: used_resource_set) : trm =
-  let spure = String.concat ", " (List.map ctx_used_res_item_to_string used_res.used_pure) in
-  let slin = String.concat ", " (List.map ctx_used_res_item_to_string used_res.used_linear) in
-  trm_apps (trm_var clause) [trm_string spure; trm_string slin]
+  let spure = trm_array_of_string (List.map ctx_used_res_item_to_string used_res.used_pure) in
+  let slin = trm_array_of_string (List.map ctx_used_res_item_to_string used_res.used_linear) in
+  trm_apps (trm_var clause) [spure; slin]
 
 let ctx_produced_res_item_to_string (res: produced_resource_item) : string =
   let sformula = formula_to_string res.produced_formula in
-  Printf.sprintf "%s := %s : %s" res.produced_hyp.name res.produced_from.name sformula
+  Printf.sprintf "%s := %s : %s" res.produced_hyp.name res.post_hyp.name sformula
 
 let ctx_produced_res_to_trm (produced_res: produced_resource_set) : trm =
-  let spure = String.concat ", " (List.map ctx_produced_res_item_to_string produced_res.produced_pure) in
-  let slin = String.concat ", " (List.map ctx_produced_res_item_to_string produced_res.produced_linear) in
-  trm_apps (trm_var __produced_res) [trm_string spure; trm_string slin]
+  let spure = trm_array_of_string (List.map ctx_produced_res_item_to_string produced_res.produced_pure) in
+  let slin = trm_array_of_string (List.map ctx_produced_res_item_to_string produced_res.produced_linear) in
+  trm_apps (trm_var __produced_res) [spure; slin]
 
-let ctx_usage_map_to_string res_used =
-  String.concat ", " (List.map (function
+let ctx_usage_map_to_strings res_used =
+  List.map (function
     | hyp, SplittedReadOnly -> sprintf "RO %s" hyp.name
     | hyp, UsedUninit -> sprintf "Uninit %s" hyp.name
     | hyp, UsedFull -> sprintf "Full %s" hyp.name
     | hyp, JoinedReadOnly -> sprintf "JoinRO %s" hyp.name
     | hyp, Produced -> sprintf "Produced %s" hyp.name)
-    (Hyp_map.bindings res_used))
+    (Hyp_map.bindings res_used)
 
 let display_ctx_resources (style: typing_style) (t: trm): trm list =
   let t =
@@ -771,16 +772,17 @@ let display_ctx_resources (style: typing_style) (t: trm): trm list =
   let tl_used =
     if style.typing_used_res
       then Option.to_list (Option.map (fun res_used ->
-        let s_used = ctx_usage_map_to_string res_used in
-        trm_apps (trm_var __used_res) [trm_string s_used]) t.ctx.ctx_resources_usage)
+        let s_used = ctx_usage_map_to_strings res_used in
+        trm_apps (trm_var __used_res) (List.map trm_string s_used)) t.ctx.ctx_resources_usage)
       else []
     in
   let tl = match t.ctx.ctx_resources_contract_invoc with
     | None -> [t]
     | Some contract_invoc ->
+      (* TODO: use a combinator to factorize the pattern "if then else []" *)
       let tl_frame =
         if style.typing_framed_res
-          then [ trm_apps (trm_var __framed_res) [trm_string (ctx_resource_list_to_string contract_invoc.contract_frame)] ]
+          then [ trm_apps (trm_var __framed_res) (List.map trm_string (List.map named_formula_to_string contract_invoc.contract_frame)) ]
           else []
         in
       let tl_inst =
@@ -791,7 +793,13 @@ let display_ctx_resources (style: typing_style) (t: trm): trm list =
         if style.typing_produced_res
           then [ctx_produced_res_to_trm contract_invoc.contract_produced ]
           else [] in
-      tl_frame @ tl_inst @ [ t ] @ tl_produced
+      let tl_joined =
+        if style.typing_joined_res
+          then [trm_apps (trm_var __joined_res) (List.map trm_string
+                  (List.map (fun (x, y) -> sprintf "%s <-- %s" x.name y.name)
+                   contract_invoc.contract_joined_resources)) ]
+          else [] in
+      tl_frame @ tl_inst @ [ t ] @ tl_produced @ tl_joined
   in
   let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
   (tl_used @ tl @ tl_after)

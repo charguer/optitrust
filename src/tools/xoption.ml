@@ -14,6 +14,9 @@ let map (f : 'a -> 'b) (o : 'a option) : 'b option =
   | None -> None
   | Some v -> Some (f v)
 
+(** [map_or f v] applies [f] on the value if Some, otherwise returns [v]. *)
+let map_or f v = Option.fold ~none:v ~some:f
+
 (** [and_ a b]: returns None if [a] is None, otherwise [b]. *)
 let and_ (a : 'a option) (b : 'a option) : 'a option =
   match a with
@@ -35,6 +38,11 @@ let unsome ?(error:string="Xoption.unsome found None") (x_opt : 'a option) : 'a 
   match x_opt with
   | Some x -> x
   | None -> failwith error
+
+let unsome_or_else (x_opt : 'a option) (f : unit -> 'a) : 'a =
+  match x_opt with
+  | Some x -> x
+  | None -> f ()
 
 let flat_map (f: 'a -> 'b list) (opt: 'a option): 'b list =
   Option.value ~default:[] (Option.map f opt)

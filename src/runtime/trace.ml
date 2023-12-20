@@ -369,11 +369,11 @@ let check_the_trace ~(final:bool) : unit =
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
   stats ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
-    ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));
+    (*DEPRECATED ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));*)
+    ignore (Sys.command (sprintf "clang-format -style=\"{BasedOnStyle: Google, ColumnLimit: %d}\" -i %s" !Flags.clang_format_nb_columns filename));
     if (* false && *) uncomment_pragma
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
   )
-
 
 (** [get_header ()]: get the header of the current file (e.g. include directives) *)
 let get_header () : string =

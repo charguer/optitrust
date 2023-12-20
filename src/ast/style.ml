@@ -28,6 +28,7 @@ and typing_style = {
   typing_ctx_res : bool;
   typing_produced_res : bool;
   typing_used_res : bool;
+  typing_joined_res : bool;
   typing_framed_res : bool;
   typing_contract_inst : bool; }
 
@@ -47,6 +48,7 @@ and print_language =
 let typing_all : typing_style = {
   typing_ctx_res = true;
   typing_produced_res = true;
+  typing_joined_res = true;
   typing_used_res = true;
   typing_framed_res = true;
   typing_contract_inst = true; }
@@ -54,6 +56,7 @@ let typing_all : typing_style = {
 let typing_none : typing_style = {
   typing_ctx_res = false;
   typing_produced_res = false;
+  typing_joined_res = false;
   typing_used_res = false;
   typing_framed_res = false;
   typing_contract_inst = false; }

@@ -51,8 +51,8 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
   end;
   let tl_around = Mlist.merge tl_before tl_after in
   let intro_seq = trm_seq tl_seq in
-  let intro_seq = if mark <> "" then trm_add_mark mark intro_seq else intro_seq in
-  let intro_seq = if label <> "" then trm_add_label label intro_seq else intro_seq in
+  let intro_seq = trm_add_mark mark intro_seq in
+  let intro_seq = trm_add_label label intro_seq in
   trm_seq ~annot:t.annot (Mlist.insert_at index intro_seq tl_around)
 
 (* [intro mark label index nb t p]: applies [intro_aux] at trm [t] with path [p]. *)
@@ -81,8 +81,8 @@ let elim : Transfo.local =
     [t] - any trm. *)
 let intro_on_instr_aux (mark : mark) (label : label) (visible : bool) (t : trm) : trm =
   let wrapped_seq = if visible then trm_seq_nomarks [t] else trm_seq_nobrace_nomarks [t] in
-  let marked_seq = if mark <> "" then trm_add_mark mark wrapped_seq  else wrapped_seq in
-  if label <> "" then trm_add_label label marked_seq else marked_seq
+  let marked_seq = trm_add_mark mark wrapped_seq in
+  trm_add_label label marked_seq
 
 (* [intro_on_instr visible mark t p]: applies [intro_on_instr_aux] at trm [t] with path [p]. *)
 let intro_on_instr (visible : bool) (mark : mark) (label : label) : Transfo.local=

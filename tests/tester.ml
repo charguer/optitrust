@@ -143,6 +143,12 @@ module StringSet = Set.Make(String)
 (*****************************************************************************)
 (** Tools (LATER: move to tools/*.ml) *)
 
+exception TesterFailure of string
+
+(* [fail msg] is for a fatal error produced by the tester *)
+let fail (msg:string) : 'a =
+  raise (TesterFailure msg)
+
 let (~~) iter l f =
   iter f l
 
@@ -160,7 +166,7 @@ let do_or_die (cmd : string) : unit =
   if debug then printf "%s\n" cmd;
   let exit_code = Sys.command cmd in
   if exit_code != 0 then
-    failwith (sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
+    fail (sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
 
   (* LATER: rediriiger des erreurs dans un fichier  2>&
     Sys.command en version booléenne
@@ -231,7 +237,7 @@ let string_to_outfile_gen = function
   | "always" -> Outfile_gen_always
   | "never" -> Outfile_gen_never
   | "onfailure" -> Outfile_gen_only_on_failure
-  | _ -> failwith "Invalid argument for -out"
+  | _ -> fail "Invalid argument for -out"
 
 let set_outfile_gen str =
   outfile_gen := string_to_outfile_gen str
@@ -277,6 +283,7 @@ let spec : cmdline_args =
      ("-yes", Arg.Set skip_confirmation, " answer 'yes' to confirmation prompts.");
      ("-no-lineshift", Arg.Set disable_lineshift, " disable shifting of lines in batch.ml.");
      ("-full-report", Arg.Set full_report, " report a list with the status of each test in order.");
+     ("-all-warnings", Arg.Set Flags.report_all_warnings, " report all warnings.");
 
      (* NOT YET IMPLEMENTED *)
      ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
@@ -316,7 +323,8 @@ let tmp_file = Filename.temp_file "command_output" ".txt"
 let is_folder (file: string): bool =
   Sys.file_exists file && Sys.is_directory file
 
-(** Return the list of tests mentioned in file [f], ignoring empty lines *)
+(** Return the list of tests mentioned in file [f], ignoring empty lines
+    and lines commented out with a '#' as first character *)
 let rec tests_from_file ?(relative = false) (file : string) : string list =
   if debug then printf "tests_from_file %s\n" file;
   let folder = Filename.dirname file in
@@ -381,7 +389,7 @@ let resolve_arg_as_folder (arg : string) : string list =
     and check that this files exist. *)
 let ensure_ml_extension (path : string) : string =
   let error : 'a. unit -> 'a = fun () ->
-    failwith (sprintf "Tester: '%s' does not have the right extension." path) in
+    fail (sprintf "argument '%s' does not have the right extension." path) in
   let process (suffix : string) : string =
     let arg = (Tools.remove_suffix ~suffix path) ^ ".ml" in
     if not (Sys.file_exists arg)
@@ -414,7 +422,7 @@ let resolve_arg (arg : string) : string list =
       if !verbose then printf "Resolved %s as absolute .tests file\n" arg;
       tests_from_file ~relative:true arg
     end else begin
-      failwith (sprintf "tester could not find file %s not %s" arg relarg)
+      fail (sprintf "tester could not find file %s not %s" arg relarg)
     end
   end else if is_file relarg then begin
     (* Case is a relative file path *)
@@ -452,7 +460,7 @@ let resolve_arg (arg : string) : string list =
 (** [check_test_extension test] checks that [test] has [.ml] has extension. *)
 let check_test_extension (test : string) : unit =
   if Filename.extension test <> ".ml"
-    then failwith (sprintf "Error: the test '%s' does not have .ml as extension" test)
+    then fail (sprintf "the test '%s' does not have .ml as extension" test)
 
 (** [get_tests_and_ignored] Takes the [argi] arguments, and resolve them to tests,
    then filter out ignored tests based on the contents of all the `ignore.tests` files,
@@ -518,6 +526,10 @@ let action_run (tests : string list) : unit =
         (String.concat "\n  " tests_ignored);
   if !dry_run then exit 0;
   if nb_tests_to_process = 0 then printf "Empty set of tests considered.\n";
+
+  (* Always enable [-all-warnings] if there is only one test *)
+  if nb_tests_to_process = 1
+    then Flags.report_all_warnings := true;
 
   (* Enable backtrace display only when running an individual test *)
   if nb_tests_to_process > 1
@@ -753,6 +765,10 @@ let action_meld (tests : string list) : unit =
 (** Main *)
 
 let _main : unit =
+  (* [report_all_warnings] is false by default when using the tester on multiple tests;
+     Can be changed with the [-all-warnings] option. *)
+  Flags.report_all_warnings := false;
+
   (* Parsing of command line *)
   Arg.parse
     (Arg.align (spec @ Flags.spec))
@@ -771,11 +787,11 @@ let _main : unit =
 
   (* Check caller_folder has been provided *)
   if !caller_folder = ""
-    then failwith "Invalid usage: a folder must be provided as first argument.";
+    then fail "a folder must be provided as first argument.";
 
   (* Check action has been provided *)
   if !action = ""
-    then failwith "Invalid usage: an action must be provided as second argument.";
+    then fail "an action must be provided as second argument.";
 
   (* Handle the case of an empty list of [argi], depending on [action] *)
   if !args = [] then begin
@@ -806,35 +822,38 @@ let _main : unit =
     | "code" -> action_code args
     | "diff" -> action_diff args
     | "meld" -> action_meld args
-    | x -> failwith (sprintf "Invalid usage: unknown action %s" x)
+    | x -> fail (sprintf "unknown action %s" x)
     in
 
   (* Handle confirmation *)
-  let without_confirmation = ["run"; "meld"; "diff"] in
-  let needs_confirmation = (not (List.mem !action without_confirmation)) && not !skip_confirmation in
-  if not needs_confirmation then begin
-    execute()
-  end else begin
-    let old_dry_run = !dry_run in
-    dry_run := true;
-    execute();
-    dry_run := old_dry_run;
-    if !dry_run then begin
-      printf "Dry run completed.\n";
-      exit 0;
-    end;
-    flush stderr;
-    printf "Confirm? Press ENTER to continue...\n";
-    flush stdout;
-    let answer = input_char stdin in
-    if answer <> '\n' then begin
-      printf "Aborted.\n";
-      exit 0;
-    end;
-    execute();
-    printf "Done.\n"
+  begin try
+    let without_confirmation = ["run"; "meld"; "diff"] in
+    let needs_confirmation = (not (List.mem !action without_confirmation)) && not !skip_confirmation in
+    if not needs_confirmation then begin
+      execute()
+    end else begin
+      let old_dry_run = !dry_run in
+      dry_run := true;
+      execute();
+      dry_run := old_dry_run;
+      if !dry_run then begin
+        Tools.info "Dry run completed.";
+        exit 0;
+      end;
+      flush stderr;
+      printf "Confirm? Press ENTER to continue...\n";
+      flush stdout;
+      let answer = input_char stdin in
+      if answer <> '\n' then begin
+        Tools.info "Aborted.";
+        exit 0;
+      end;
+      execute();
+      Tools.info "Done."
+    end
+  with TesterFailure msg ->
+    Tools.Terminal.(report red "TESTER ERROR" msg)
   end
-
 
 (*****************************************************************************)
 (* DEPREACTED/FUTURE *)

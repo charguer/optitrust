@@ -68,14 +68,14 @@ let%transfo delete ?(nb : int = 1) (tg : target) : unit =
         iny y = 6;      int y = 6;
         return 0;       return 0;
       }                } *)
-let%transfo intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : target) : unit =
+let%transfo intro ?(mark : string = no_mark) ?(label : label = no_label) (nb : int) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
 
 
 (* [intro_after ~mark ~label tg]: same as [intro] but this transformation will include in the sequence all the
     instructions that come after the targeted instruction and belong to the same scope. *)
-let%transfo intro_after ?(mark : mark = "") ?(label : label = "") (tg : target) : unit =
+let%transfo intro_after ?(mark : mark = no_mark) ?(label : label = no_label) (tg : target) : unit =
   Target.apply_on_targets (fun t p ->
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
@@ -88,7 +88,7 @@ let%transfo intro_after ?(mark : mark = "") ?(label : label = "") (tg : target) 
 
 (* [intro_before ~mark ~label tg]: similar to [intro] but this transformation will include in the sequence all the
     instructions that come before the targeted instruction and belong to the same scope. *)
-let%transfo intro_before ?(mark : mark = "") ? (label : label = "") (tg : target) : unit =
+let%transfo intro_before ?(mark : mark = no_mark) ? (label : label = no_label) (tg : target) : unit =
   Target.apply_on_targets (fun t p ->
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
@@ -101,7 +101,7 @@ let%transfo intro_before ?(mark : mark = "") ? (label : label = "") (tg : target
 (* [intro_between ~mark ~label tg_beg tg_end]: this transformation is an advanced version of [intro].
      Here, the user can specify explicitly the targets to the first and the last instructions that
      are going to be isolated into a sequence. *)
-let%transfo intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) (tg_end : target) : unit =
+let%transfo intro_between ?(mark : string = no_mark) ?(label : label = no_label) (tg_beg : target) (tg_end : target) : unit =
   Nobrace_transfo.remove_after ( fun  _ ->
   Trace.apply (fun t ->
     let ps_beg : (path * int) list = resolve_target_between tg_beg t in
@@ -131,8 +131,8 @@ let%transfo elim (tg : target) : unit =
         used only for internal purposes.
     [mark] - denotes the mark of the sub-sequence. Targeting sequences can be challanging hence having
           them marked before can make the apllication of the transformations easier. *)
-let%transfo intro_on_instr ?(mark : mark = "")
-                   ?(label : label = "")
+let%transfo intro_on_instr ?(mark : mark = no_mark)
+                   ?(label : label = no_label)
                    ?(visible : bool = true) (tg : target) : unit =
    if not visible then Nobrace.enter();
    Target.apply_on_targets (Sequence_core.intro_on_instr visible mark label) tg
