@@ -78,8 +78,7 @@ clean: clean_ser
 	dune clean
 
 clean_ser:
-	find . -type f -name '*.ser'
-# -exec rm {} +
+	find . -type f -name '*.ser' -exec rm {} +
 
 watch:
 	nohup .vscode/watch.sh >/dev/null 2>&1
