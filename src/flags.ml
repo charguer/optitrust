@@ -118,38 +118,11 @@ let reparse_between_steps = ref false
 (* [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
 
-(* [serialized_mode]: type to deal with serialized AST ,
-  | Serialized_None: do not read or write any serialized ast, just parse the input file.
-  | Serialized_Build: parse the input file, save its serialized ast, exit
-  | Serialized_Use: do not parse the input file, simply read the corresponding serialized ast
-  | Serialized_Auto: if the serialized ast is up to date wrt the input file, read the serialized ast,
-                     else parse the input file and save its serialized ast; then continue the execution.
-  | Serialized_Make: NOT YET IMPLEMENTED: first call 'make inputfile.ser', assuming the Makefile
-                     features a rule for this (invoking the program with the Serialized_Build option,
-                     with the appropriate dependencies); then load the serialized file just like
-                     Serialized_Use would do, and continue the execution.
-                     [NOTE: GB: This feature seems really weird, is it worth implementing?] *)
+(* [dont_serialize] disables the generation of serialized AST obtained from parsing *)
+let dont_serialize = ref false
 
-type serialization_mode =
-  | Serialized_None
-  | Serialized_Build
-  | Serialized_Use
-  | Serialized_Auto
-(*  | Serialized_Make*)
-
-(* [serialization_mode]: mode of serialization, by default AST is not serialized. *)
-let serialization_mode : serialization_mode ref = ref Serialized_None
-
-(* [process_serialized_input mode]: based on the mode the serialized input is going to be processed
-    in different ways. *)
-let process_serialized_input (mode : string) : unit =
-  serialization_mode := match mode with
-  | "none" -> Serialized_None
-  | "build" -> Serialized_Build
-  | "use" -> Serialized_Use
-  | "auto" -> Serialized_Auto
-  | "make" -> failwith "'make' serialization is not implemented"
-  | _ -> failwith "Serialization mode should be 'none', 'build', 'use', 'auto' or 'make'"
+(* [ignore_serialized] disables the read of serialized AST saved after parsing *)
+let ignore_serialized = ref false
 
 (* [execution_mode] of the script *)
 
@@ -231,7 +204,8 @@ let spec : cmdline_args =
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
-     ("-serialized-input", Arg.String process_serialized_input, " choose an input serialization mode between 'build', 'use', 'make' or 'auto'");
+     ("-dont-serialize", Arg.Set dont_serialize, " do not serialize the parsed AST");
+     ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-clang-format-nb-columns", Arg.Set_int clang_format_nb_columns, " specify the number of columns for clang-format");

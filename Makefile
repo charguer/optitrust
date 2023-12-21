@@ -74,8 +74,12 @@ tests:
 style:
 	find tests/ src/ -path tests/batch -prune -o -path src/c/compcert_parser -prune -o -name "*.ml" -print0 | xargs -0 grep --color -nE '.{101}'
 
-clean:
+clean: clean_ser
 	dune clean
+
+clean_ser:
+	find . -type f -name '*.ser'
+# -exec rm {} +
 
 watch:
 	nohup .vscode/watch.sh >/dev/null 2>&1

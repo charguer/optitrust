@@ -245,12 +245,6 @@ let string_to_outfile_gen = function
 let set_outfile_gen str =
   outfile_gen := string_to_outfile_gen str
 
-(* Flag to ignore all cached data *)
-let ignore_cache : bool ref = ref false
-
-(* Flag to discard all cached data *)
-let discard_cache : bool ref = ref false
-
 (* Flag to control at which level the comparison is performed (AST or text).
    If Comparison_method_text, then implies Outfile_gen_always. *)
 type comparison_method =
@@ -290,8 +284,7 @@ let spec : cmdline_args =
 
      (* NOT YET IMPLEMENTED *)
      ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
-     ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
-     ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for tests that are executed.");
+
   ]
 
 

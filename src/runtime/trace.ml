@@ -977,30 +977,55 @@ let invalidate () : unit =
   the_trace.cur_ast <- trace_dummy.cur_ast;
   the_trace.step_stack <- trace_dummy.step_stack
 
-(** [get_initial_ast ~parser ser_mode ser_file filename]: gets the initial ast before applying any trasformations
+
+let debug_serialization = true
+
+(** [get_initial_ast ~parser filename]: gets the initial ast before applying any trasformations
      [parser] - choose which parser to use for parsing the source code
-     [ser_mode] - serialization mode
-     [ser_file] - if serialization is used for the initial ast, the filename of the serialized version
-                  of the source code is needed
-     [filename] - filename of the source code  *)
-let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (ser_file : string)
-  (filename : string) : (string * trm) =
-  (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
-  let ser_file_exists = Sys.file_exists ser_file in
-  let ser_file_more_recent = if (not ser_file_exists) then false else Xfile.is_newer_than ser_file filename in
-  let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
-  if (ser_mode = Serialized_Use (* || ser_mode = Serialized_Make *) || auto_use_ser) then (
-    if not ser_file_exists
-      then raise (TraceFailure "Trace.get_initial_ast: please generate a serialized file first");
-    if not ser_file_more_recent
-      then raise (TraceFailure (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename));
-    let ast = Xfile.unserialize_from ser_file in
-    if auto_use_ser
-      then Printf.printf "Loaded ast from %s.\n" ser_file;
-    ast
-  )
-  else
-    parse ~parser filename
+     [filename] - filename of the source code
+     returns header and ast.
+     TODO: currently a 'make clean_ser' is needed when the ast.ml file changes;
+     it would be better to compare against the timestamp of ast.ml, however
+     this requires obtaining the path to this files, somehow. *)
+let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
+  (* "ser" means serialized *)
+  let basename = Filename.basename filename in
+  let ser_filename = basename ^ ".ser" in
+  (* Load existing serialized file, if any *)
+  let existing_ser_contents_opt =
+    if !Flags.ignore_serialized
+       || not (Sys.file_exists ser_filename)
+       || not (Xfile.is_newer_than ser_filename filename) then
+       None
+    else begin
+      if debug_serialization then Tools.info (sprintf "loading ast from %s." ser_filename);
+      try Some (Xfile.unserialize_from ser_filename)
+      with _ ->
+        Tools.info (sprintf "failure reading ast from %s, reparsing." ser_filename);
+        None
+    end
+    in
+  (* Parse, if not using serialized contents *)
+  let header_and_ast =
+    match existing_ser_contents_opt with
+    | Some header_and_ast -> header_and_ast
+    | None ->
+        if debug_serialization then Tools.info (sprintf "parsing ast from %s." filename);
+        parse ~parser filename
+    in
+  (* Save to serialization file, if applicable *)
+  if not !Flags.dont_serialize
+     && existing_ser_contents_opt = None then begin
+    try
+      let header, ast = header_and_ast in
+      let clean_ast = Trm.prepare_for_serialize ast in
+      Xfile.serialize_to ser_filename (header, clean_ast);
+      if debug_serialization then Tools.info (sprintf "saved ast to %s." filename);
+    with e ->
+      Tools.info (sprintf "failure saving ast to %s, skipping. Error: %s\n" ser_filename (Printexc.to_string e));
+  end;
+  (* Return the header and the ast *)
+  header_and_ast
 
 (** [init f]: initializes the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -1028,15 +1053,13 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
       ml_file_excerpts := compute_ml_file_excerpts lines;
     end;
   end;
-  let mode = !Flags.serialization_mode in
   start_stats := get_cur_stats ();
   last_stats := !start_stats;
 
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs prefix in
-  let ser_file = basename ^ ".ser" in
 
-  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
+  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser filename) in
 
   let context = { parser; extension; prefix; header; clog } in
   the_trace.context <- context;
@@ -1044,11 +1067,6 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
   the_trace.cur_style <- begin match style with Some s -> s | None -> Style.default_custom_style() end;
   the_trace.step_stack <- [];
   open_root_step ~source:ml_file_name ();
-
-  if mode = Serialized_Build || mode = Serialized_Auto
-    then Xfile.serialize_to ser_file (header, cur_ast);
-  if mode = Serialized_Build
-    then exit 0;
 
   (* If recompute resources between steps is enabled, we need resources to be computed after the initial parsing as well *)
   if !Flags.recompute_resources_between_steps then recompute_resources ();

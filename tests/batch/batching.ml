@@ -26,6 +26,7 @@ let save_batch_result ~(basename : string) ~(exec_success : bool) ~(diff_success
   } in
   batch_results := result :: !batch_results
 
+(* NOT YET IMPLEMENTED *)
 let compare_expected_serialized : bool ref = ref false
 let stop_on_error : bool ref = ref false
 

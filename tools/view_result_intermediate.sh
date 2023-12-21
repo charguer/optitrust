@@ -93,12 +93,6 @@ elif [ "${VIEW}" = "save_intermediate_state" ]; then
 
   echo "Produced ${SOURCEBASE}.ml"
 
-  #TODO: FLAGS=-serialized-output only
-  # in Flags.ml: -serialized-output  "choose between 'yes' or 'no' or 'only'"
-  #   - yes means that the output file is serialized
-  #   - no means that the output file is not serialized
-  #   - only means that only the serialized output is created
-  #TODO: we should trim the script at the LINE_STOP and run it without an exit line number to produce the intermediate file
 else
 
   echo "invalid VIEW argument"  >> /dev/stderr
