@@ -198,6 +198,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     ) res evar_ctx
   in
 
+  let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
   try
     Pattern.pattern_match formula [
       (* special case where _Full disables split_frac. *)
