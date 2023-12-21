@@ -523,13 +523,13 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
         then fail "match_expected assumes keep_file_before_clang_format to be true";
       (* now ready to compare formatted files *)
       let same = same_contents filename_out filename_exp in
-      Tools.info (sprintf "correctness is %s" (if same then "true" else "false"));
+      (* if debug_orig then Tools.info (sprintf "correctness is %s" (if same then "true" else "false"));*)
       if debug_orig then Tools.info "checked correctness using clang-format";
       if same then begin
         (* for next time, save the orig_out as orig_exp, because the result
           of formatting both files using clang-format is identical *)
         ignore (Sys.command (sprintf "cp %s %s" orig_out orig_exp));
-        if debug_orig then Tools.info (sprintf "saved %s as a copy of %s." orig_exp orig_out);
+        if debug_orig then Tools.info (sprintf "saved %s." orig_exp);
       end;
       same
     end
@@ -584,7 +584,7 @@ let action_run (tests : string list) : unit =
   (* Delete existing output files to avoid considering them in case an error occurs *)
   let delete_output test =
     let rm (f:string) : unit =
-      if debug_orig then Tools.info (sprintf "rm %s" f);
+      (*if debug_orig then Tools.info (sprintf "rm %s" f);*)
       ignore (do_is_ko (sprintf "rm -f %s > /dev/null" f)) in
     let prefix = Filename.remove_extension test in
     let filename_out = sprintf "%s_out.cpp" prefix in

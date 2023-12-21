@@ -52,12 +52,62 @@ let all_c_raw_parsers (filename: string): trm =
   rawAstClang
 *)
 
-let c_parser (raw_parser: string -> trm) (filename: string) =
-  let includes = get_c_includes filename in
-  let rawAst = raw_parser filename in
-  if !Flags.bypass_cfeatures
-    then (includes, rawAst)
-    else (includes, Ast_fromto_AstC.cfeatures_elim rawAst)
+
+
+  (*  TODO: currently a 'make clean_ser' is needed when the ast.ml file changes;
+     it would be better to compare against the timestamp of ast.ml, however
+     this requires obtaining the path to this files, somehow. *)
+let c_parser (raw_parser: string -> trm) (filename: string) : string * trm=
+  (* "ser" means serialized *)
+  let ser_filename = filename ^ ".ser" in
+  (* Load existing serialized file, if any *)
+  let existing_ser_contents_opt =
+    if !Flags.ignore_serialized
+       || not (Sys.file_exists ser_filename)
+       || not (Xfile.is_newer_than ser_filename filename) then
+       None
+    else begin
+      if debug_serialization then Tools.info (sprintf "loading ast from %s." ser_filename);
+      try
+        let header, ast = Xfile.unserialize_from ser_filename in
+        begin try
+          let ast = Scope_computation.infer_var_ids ast in
+          Some (header,ast)
+        with _ ->
+          Tools.info (sprintf "failure in infer_var_ids on unserialized ast for %s, reparsing." ser_filename);
+          None
+        end
+      with _ ->
+        Tools.info (sprintf "failure reading ast from %s, reparsing." ser_filename);
+        None
+    end
+    in
+  (* Parse, if not using serialized contents *)
+  let header, ast =
+    match existing_ser_contents_opt with
+    | Some header_and_ast -> header_and_ast
+    | None ->
+        if debug_serialization then Tools.info (sprintf "parsing ast from %s." filename);
+        (* Parsing per ser *)
+        let header = get_c_includes filename in (* header contains include *)
+        let ast = raw_parser filename in
+        header, ast
+    in
+  (* Save to serialization file, if applicable *)
+  if not !Flags.dont_serialize
+     && existing_ser_contents_opt = None then begin
+    try
+      let clean_ast = Trm.prepare_for_serialize ast in
+      Xfile.serialize_to ser_filename (header, clean_ast);
+      if debug_serialization then Tools.info (sprintf "saved ast to %s." filename);
+    with e ->
+      Tools.info (sprintf "failure saving ast to %s, skipping. Error: %s\n" ser_filename (Printexc.to_string e));
+  end;
+  (* Possibly ably the decoding *)
+  let ast = if !Flags.bypass_cfeatures then ast else Ast_fromto_AstC.cfeatures_elim ast in
+  (* Return the header and the ast *)
+  (header, ast)
+
 
 let clang = c_parser clang_raw_parser
 (*  FOR FUTURE USE
