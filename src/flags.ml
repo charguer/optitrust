@@ -77,6 +77,10 @@ let report_big_steps : bool ref = ref false
 (* [use_clang_format]: flag to use clang-format or not in output CPP files. *)
 let use_clang_format : bool ref = ref true
 
+(* [keep_file_before_clang_format]: flag to save the file before cleaning up with clang format
+   "foo_out.cpp" is saved as "foo_out_orig.cpp". Used by the tester for faster correctness checks. *)
+let keep_file_before_clang_format : bool ref = ref false
+
 (* [clang_format_nb_columns]: flag to control the limit on the column for clang-format. *)
 let clang_format_nb_columns : int ref = ref 80
 

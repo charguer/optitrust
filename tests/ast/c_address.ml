@@ -18,6 +18,9 @@ let filename =
   | _ -> "c_big.cpp"
 
 let _ = Run.script_cpp ~filename (fun () ->
+    (*!! Show.(trm ~style:InternalAst)  (Trm.prepare_for_serialize (Trace.ast()));*)
+    (*!! Xfile.serialize_to "foo.txt" (Trm.prepare_for_serialize(Trace.ast()));*)
+
   Scope.infer_var_ids ();
 
   !! Trace.apply infix_elim;

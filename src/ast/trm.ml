@@ -2356,7 +2356,7 @@ let trm_erase_var_ids (t : trm) : trm =
 (* [prepare_for_serialize t] should be called before serializing an ast. *)
 let prepare_for_serialize (t:trm) : trm =
   let rec aux t =
-    trm_map aux (drop_clang_cursor t)
+    trm_map aux (drop_clang_cursor { t with ctx = unknown_ctx() } )
     in
   aux t
 

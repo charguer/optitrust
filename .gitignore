@@ -15,6 +15,7 @@ _doc
 *_before_enc.cpp
 *_out_enc.cpp
 *_out_enc.c
+*_orig.cpp
 *_diff.html
 *_with_lines.ml
 *_inlined.cpp

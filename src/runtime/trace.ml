@@ -6,13 +6,14 @@ open Stats
 open Tools
 open PPrint
 
+let debug = false
+
+let debug_serialization = true
+
 (** [output_style] describes the mode in which an AST should be pretty-printed *)
 type output_style = Style.custom_style
 
-
-let debug = false
-
-(* [check_trace_at_every_step] can be activated to call the function
+(*** [check_trace_at_every_step] can be activated to call the function
    [check_trace] after every step, to check the invariants of the
    trace data structure, which stores the stack of open steps. *)
 let check_trace_at_every_step = false
@@ -347,12 +348,26 @@ let check_the_trace ~(final:bool) : unit =
 (*                                   Output                                   *)
 (******************************************************************************)
 
+(** [filename_before_clang_format filename] takes as input a string
+    such as "foo.cpp" and returns "foo_orig.cpp". This filename
+    is meant to store the file before it is reformated using clang-format. *)
+let filename_before_clang_format (filename:string) : string =
+  let base =
+    try Filename.chop_suffix filename ".cpp"
+    with _ -> failwith (sprintf "filename_before_clang_format: expects a .cpp file, provided: %s." filename) in
+  base ^ "_orig.cpp"
+
 (** [cleanup_cpp_file_using_clang_format filename]: makes a system call to
    reformat a CPP file using the clang format tool.
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
   stats ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
+    (* If requested, save a copy of the file "foo.cpp" into "foo_orig.cpp" before reformating "foo.cpp" *)
+    if !Flags.keep_file_before_clang_format then begin
+      let orig_filename = filename_before_clang_format filename in
+      ignore (Sys.command (sprintf "cp %s %s" filename orig_filename));
+    end;
     (*DEPRECATED ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));*)
     ignore (Sys.command (sprintf "clang-format -style=\"{BasedOnStyle: Google, ColumnLimit: %d}\" -i %s" !Flags.clang_format_nb_columns filename));
     if (* false && *) uncomment_pragma
@@ -977,9 +992,6 @@ let invalidate () : unit =
   the_trace.cur_ast <- trace_dummy.cur_ast;
   the_trace.step_stack <- trace_dummy.step_stack
 
-
-let debug_serialization = true
-
 (** [get_initial_ast ~parser filename]: gets the initial ast before applying any trasformations
      [parser] - choose which parser to use for parsing the source code
      [filename] - filename of the source code
@@ -989,8 +1001,7 @@ let debug_serialization = true
      this requires obtaining the path to this files, somehow. *)
 let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
   (* "ser" means serialized *)
-  let basename = Filename.basename filename in
-  let ser_filename = basename ^ ".ser" in
+  let ser_filename = filename ^ ".ser" in
   (* Load existing serialized file, if any *)
   let existing_ser_contents_opt =
     if !Flags.ignore_serialized
@@ -999,7 +1010,15 @@ let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
        None
     else begin
       if debug_serialization then Tools.info (sprintf "loading ast from %s." ser_filename);
-      try Some (Xfile.unserialize_from ser_filename)
+      try
+        let header, ast = Xfile.unserialize_from ser_filename in
+        begin try
+          let ast = Scope_computation.infer_var_ids ast in
+          Some (header,ast)
+        with _ ->
+          Tools.info (sprintf "failure in infer_var_ids on unserialized ast for %s, reparsing." ser_filename);
+          None
+        end
       with _ ->
         Tools.info (sprintf "failure reading ast from %s, reparsing." ser_filename);
         None

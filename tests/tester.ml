@@ -143,6 +143,9 @@ module StringSet = Set.Make(String)
 (*****************************************************************************)
 (** Tools (LATER: move to tools/*.ml) *)
 
+let debug = false
+let debug_orig = true
+
 exception TesterFailure of string
 
 (* [fail msg] is for a fatal error produced by the tester *)
@@ -155,7 +158,6 @@ let ref_list_add (r: 'a list ref) (x: 'a) : unit =
 let (~~) iter l f =
   iter f l
 
-let debug = false
 
 let do_is_ko (cmd : string) : bool =
   if debug then printf "%s\n" cmd;
@@ -281,6 +283,7 @@ let spec : cmdline_args =
      ("-no-lineshift", Arg.Set disable_lineshift, " disable shifting of lines in batch.ml.");
      ("-full-report", Arg.Set full_report, " report a list with the status of each test in order.");
      ("-all-warnings", Arg.Set Flags.report_all_warnings, " report all warnings.");
+     ("-use-clang-format", Arg.Set Flags.use_clang_format, " forces the use of clang-format even in tester mode; automatically activated by -dump-trace.");
 
      (* NOT YET IMPLEMENTED *)
      ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
@@ -492,6 +495,46 @@ let get_tests_and_ignored (args : string list) : (string list * string list) =
 (*****************************************************************************)
 (** Action 'run' *)
 
+(** Auxiliary function to compare the output with the expected output.
+    Features an optimization to save the need for invoking clang-format,
+    whenever possible. *)
+let match_expected (filename_out:string) (filename_exp:string) : bool =
+  if not (Sys.file_exists filename_out)
+    then fail "match_expected expects filename_out to exit";
+  if not (Sys.file_exists filename_exp)
+    then fail "match_expected expects filename_exp to exit";
+  let same_contents (f1 : string) (f2 : string) : bool =
+    do_is_ok (sprintf "./tests/diff.sh %s %s > /dev/null" f1 f2) in
+  if !Flags.use_clang_format then begin
+    if debug_orig then Tools.info "test correctness without using clang-format, because [use_clang_format] is on";
+    same_contents filename_out filename_exp
+  end else begin
+    (* At this point, [filename_out] is not formatted, whereas [filename_exp] is formatted;
+       Both [orig_out] and [orig_exp], if they exist, are unformatted. *)
+    let orig_out = Trace.filename_before_clang_format filename_out in
+    let orig_exp = Trace.filename_before_clang_format filename_exp in
+    if Sys.file_exists orig_exp then begin
+      if debug_orig then Tools.info "was able to test correctness without using clang-format";
+      same_contents filename_out orig_exp
+    end else begin
+      (* format [filename_out], generating the file [orig_out] on the way *)
+      Trace.cleanup_cpp_file_using_clang_format ~uncomment_pragma:true filename_out;
+      if not (Sys.file_exists orig_out)
+        then fail "match_expected assumes keep_file_before_clang_format to be true";
+      (* now ready to compare formatted files *)
+      let same = same_contents filename_out filename_exp in
+      Tools.info (sprintf "correctness is %s" (if same then "true" else "false"));
+      if debug_orig then Tools.info "checked correctness using clang-format";
+      if same then begin
+        (* for next time, save the orig_out as orig_exp, because the result
+          of formatting both files using clang-format is identical *)
+        ignore (Sys.command (sprintf "cp %s %s" orig_out orig_exp));
+        if debug_orig then Tools.info (sprintf "saved %s as a copy of %s." orig_exp orig_out);
+      end;
+      same
+    end
+  end
+
 (** Auxiliary function for updating the contents of 'tofix.tests',
     by removing contents from `success.tests`, or copying contents from
     'errors.tests' if 'tofix.tests' does not exist *)
@@ -540,9 +583,14 @@ let action_run (tests : string list) : unit =
 
   (* Delete existing output files to avoid considering them in case an error occurs *)
   let delete_output test =
+    let rm (f:string) : unit =
+      if debug_orig then Tools.info (sprintf "rm %s" f);
+      ignore (do_is_ko (sprintf "rm -f %s > /dev/null" f)) in
     let prefix = Filename.remove_extension test in
     let filename_out = sprintf "%s_out.cpp" prefix in
-    ignore (do_is_ko (sprintf "rm -f %s > /dev/null" filename_out))
+    rm filename_out;
+    let filename_orig_out = sprintf "%s_out_orig.cpp" prefix in
+    rm filename_orig_out
     (* LATER: remove without displaying error messages or missing files *)
   in
   List.iter delete_output tests_to_process;
@@ -612,10 +660,9 @@ let action_run (tests : string list) : unit =
     if Sys.file_exists filename_out then begin
       if Sys.file_exists filename_exp then begin
         (* TODO: use -q in the diff? *)
-        let mismatches_expected = do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) in
-        if mismatches_expected
-          then test_report "wrong" tests_wrong test
-          else test_report "success" tests_success test
+        if match_expected filename_out filename_exp
+          then test_report "success" tests_success test
+          else test_report "wrong" tests_wrong test
       end else begin
           test_report "noexp" tests_noexp test;
       end
@@ -761,9 +808,15 @@ let action_meld (tests : string list) : unit =
 (** Main *)
 
 let _main : unit =
+  (* Configure flags for tester *)
   (* [report_all_warnings] is false by default when using the tester on multiple tests;
      Can be changed with the [-all-warnings] option. *)
   Flags.report_all_warnings := false;
+  (* [keep_file_before_clang_format] is set to true in order to allow for faster
+     file comparisons. *)
+  Flags.keep_file_before_clang_format := true;
+  (* [use_clang_format] is false by default; activated when producing traces *)
+  Flags.use_clang_format := false;
 
   (* Parsing of command line *)
   Arg.parse
@@ -778,8 +831,10 @@ let _main : unit =
     "Usage: ./tester [action] [options] [arg1] .. [argN]\naction = run | create | addexp | fixexp | ignore | code | diff | meld\noptions:\n";
 
   (* Handle the dump_trace flag *)
-  if !dump_trace
-    then Flags.execution_mode := Execution_mode_full_trace;
+  if !dump_trace then begin
+    Flags.execution_mode := Execution_mode_full_trace;
+    Flags.use_clang_format := false;
+  end;
 
   (* Check caller_folder has been provided *)
   if !caller_folder = ""
