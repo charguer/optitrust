@@ -2395,7 +2395,15 @@ type eval = trm option
    If a variable is in the map, then it is an evar, and should be substituted/unified (i.e. its eval should eventually become Some). *)
 type unification_ctx = eval varmap
 
-(** <internal> see {!unified_trm} *)
+(** [unfold_if_resolved_evar t evar_ctx] tries to unfold resolved evars inside [evar_ctx] occuring
+    at the top of [t] (but not in depth).
+    Since we can do it almost for free, it also performs simplifications in the [evar_ctx]
+    when resolved evars are pointing to other resolved evars.
+
+    It returns the possibly unfolded [trm], along with a possibly simplified [evar_ctx].
+
+    On application nodes, this function tries to unfold the function and performs immediate
+    beta reduction if possible. *)
 let rec unfold_if_resolved_evar (t: trm) (evar_ctx: unification_ctx): trm * unification_ctx =
   match t.desc with
   | Trm_var (_, x) ->
