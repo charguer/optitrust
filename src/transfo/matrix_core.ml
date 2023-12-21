@@ -51,8 +51,6 @@ let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
   let n = List.length dims in
   trm_apps (trm_toplevel_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
 
-
-
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) option =
   match t.desc with
@@ -68,26 +66,52 @@ let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) opt
 
   | _ -> None
 
+let memcpy_with_ty (dest : trm) (src : trm) (dims : trms) (ty : typ) : trm =
+  let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
+  Matrix_trm.memcpy dest src dims size
 
-(* [replace_all_accesses]: replace all accesses to [prev_v] in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].*)
-let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices : (trm -> trm) list) (mark : mark) (t : trm) : trm =
+(** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
+    using the [map_access] function.
+
+    Fails if [v] occurs in a sub-term that is not an access to [v], as this could mean some
+    accesses are hidden (e.g. behind a function call).
+
+    - the dimensions and type of the matrix [v] are stored in [ret_dims_and_typ] if provided.
+    *)
+let map_all_accesses (v : var) ?(ret_dims_and_typ : (trms * typ) option ref option)
+  (map_access : trms -> trms -> trm) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match access_inv t with
-    | Some (f, prev_dims, prev_indices) ->
+    | Some (f, dims, indices) ->
       begin match trm_var_inv f with
-      | Some n when n = prev_v ->
-        let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
-        trm_add_mark mark (access (trm_var v) dims indices)
+      | Some x when var_eq x v ->
+        Option.iter (fun rdt ->
+          if Option.is_none !rdt then begin
+            let typ = Option.get (typ_const_ptr_inv (Option.get f.typ)) in
+            rdt := Some (dims, typ);
+          end;
+        ) ret_dims_and_typ;
+        map_access dims indices
       | _ -> trm_map aux t
       end
     | None ->
       begin match trm_var_inv t with
-      | Some n when n = prev_v ->
-        trm_fail t "Matrix_core.replace_all_accesses: variable access is not covered"
+      | Some x when x = v ->
+        trm_fail t "map_all_accesses: variable access is not covered"
       | _ -> trm_map aux t
       end
   in
   aux t
+
+(** [replace_all_accesses prev_v v dims map_indices mark t] replaces all accesses to [prev_v]
+    in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].
+    *)
+let replace_all_accesses (prev_v : var) (v : var) (dims : trm list)
+  (map_indices : (trm -> trm) list) (mark : mark) (t : trm) : trm =
+  map_all_accesses prev_v (fun prev_dims prev_indices ->
+    let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
+    trm_add_mark mark (access (trm_var v) dims indices)
+  ) t
 
 (** [pointwise_fors ?reads ?writes ?modifies ranges body] creates nested loops
   with [ranges] over the main body [body].

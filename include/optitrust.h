@@ -264,6 +264,15 @@ inline void MFREE4(int N1, int N2, int N3, int N4, void* p) {
   free(p);
 }
 
+inline void MMEMCPY1(void*__restrict__ dest, const void*__restrict__ src,
+                     int N1, size_t bytes_per_item) {
+  __writes("dest ~> Matrix1(N1)");
+  __reads("src ~> Matrix1(N1)");
+  __admitted();
+
+  memcpy(dest, src, N1 * bytes_per_item);
+}
+
 /* ---- Ghosts ---- */
 
 __GHOST(rewrite) {

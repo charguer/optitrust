@@ -153,7 +153,10 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_cor
   let local_var_range_cell = (nested_loop_range, local_var_cell) in
   let shift_res = ghost_shift alloc_range_cell local_var_range_cell true uninit_pre in
   let unshift_res = ghost_shift local_var_range_cell alloc_range_cell uninit_post true in
-  trm_seq_nobrace_nomarks [alloc_instr; shift_res; load_for; new_t; unload_for; unshift_res; free_instr]
+  trm_seq_nobrace_nomarks [
+    alloc_instr; shift_res; load_for;
+    new_t;
+    unload_for; unshift_res; free_instr]
 
 (** [local_name_tile ?mark_accesses ?indices ~alloc_instr ?ret_var ~local_var tile tg]
   expects [alloc_instr] to point to an allocation of [var] and [tg] to point to a term [t]
@@ -175,9 +178,12 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_cor
     For [uninit_post = true], we check that [trm_ghost_forget_init ..var..] can be added after [t].
 
   TODO?
+  - what if [alloc_instr] is not available? make it optional, retrieve var, dims, elem_ty, ...
+    from MINDEX calls, as done by {! Matrix_stack_copy}
   - stack_alloc / heap alloc
-  - check consistent API with Variable.local_name
-  - factorize and update Matrix_basic.local_name with no tile
+  - check consistent API with {! Variable.local_name}
+  - factorize and update {! Matrix_basic.local_name} with no tile
+  - factorize with {! Matrix_stack_copy}
   *)
 let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
   ?(indices : string list = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var)
@@ -373,7 +379,8 @@ let%transfo intro_malloc0 (x : var) (tg : target) : unit =
   Trace.justif_always_correct ();
   Target.apply_at_target_paths (intro_malloc0_on x) tg
 
-(*
+(** <private>
+
   f(name)
 
   --->
@@ -386,57 +393,68 @@ let%transfo intro_malloc0 (x : var) (tg : target) : unit =
   ];
   memcpy(&name[MINDEX(...)], stack_name, sizeof(T[...]));
 *)
-(* TODO: rename name to var and stack_name to copy_name, rename d to copy_dims *)
-(* TODO: Matrix.local_name_tile + Matrix.to_array *)
-let stack_copy_on (name : var) (stack_name : string) (d : int) (t : trm) : trm =
-  let dims_and_typ_opt : (trms * typ) option ref = ref None in
+let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) : trm =
+  let ret_dims_and_typ : (trms * typ) option ref = ref None in
   let common_indices_opt : trms option ref = ref None in
-  let stack_var = new_var stack_name in
-  let rec update_accesses (t : trm) : trm =
-    match Matrix_trm.access_inv t with
-    | Some (f, dims, indices) ->
-      begin match trm_var_inv f with
-      | Some n when n = name -> begin
-        if Option.is_none !dims_and_typ_opt then begin
-          let typ = Option.get (typ_const_ptr_inv (Option.get f.typ)) in
-          dims_and_typ_opt := Some (dims, typ);
-        end;
-        let (common_indices, new_indices) = Xlist.split_at d indices in
-        begin match !common_indices_opt with
-        | Some ci -> assert (List.for_all2 Internal.same_trm ci common_indices);
-        | None -> common_indices_opt := Some common_indices
-        end;
-        List.fold_left (fun acc i ->
-          trm_array_access acc i) (trm_var_get stack_var) new_indices
-        end
-      | _ -> trm_map update_accesses t
-      end
-    | None ->
-      begin match trm_var_inv t with
-      | Some n when n = name ->
-        trm_fail t "Matrix_basic.stack_copy_on: variable access is not covered"
-      | _ -> trm_map update_accesses t
-      end
-  in
-  let new_t = update_accesses t in
-  let (dims, typ) = Option.get !dims_and_typ_opt in
+  let stack_var = new_var copy_name in
+  let new_t = Matrix_core.map_all_accesses var ~ret_dims_and_typ (fun dims indices ->
+    let (common_indices, new_indices) = Xlist.split_at copy_dims indices in
+    begin match !common_indices_opt with
+    | Some ci -> assert (List.for_all2 Internal.same_trm ci common_indices);
+    | None -> common_indices_opt := Some common_indices
+    end;
+    List.fold_left (fun acc i -> trm_array_access acc i)
+      (trm_var stack_var) new_indices
+  ) t in
+  let (dims, typ) = Option.get !ret_dims_and_typ in
   let common_indices = Option.get !common_indices_opt in
-  let new_dims = Xlist.take_last d dims in
-  let array_typ = List.fold_left (fun acc i ->
-    typ_array acc (Trm i)
-  ) typ new_dims in
-  let copy_offset = trm_array_access (trm_var name) (mindex dims (common_indices @ (List.init d (fun _ -> trm_int 0)))) in
-  let copy_size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string array_typ) ^ ")") in
+  let new_dims = Xlist.take_last copy_dims dims in
+  let array_typ = List.fold_left (fun acc i -> typ_array acc (Trm i)) typ new_dims in
+  let copy_offset = trm_array_access (trm_var var)
+    (mindex dims (common_indices @ (List.init copy_dims (fun _ -> trm_int 0)))) in
   trm_seq_nobrace_nomarks [
-    trm_let_mut (stack_var, array_typ) (trm_uninitialized ());
-    trm_apps (trm_toplevel_var "memcpy") [trm_var_get stack_var; copy_offset; copy_size];
+    trm_let_immut (stack_var, array_typ) (trm_uninitialized ());
+    Matrix_core.memcpy_with_ty (trm_var stack_var) copy_offset new_dims typ;
     new_t;
-    trm_apps (trm_toplevel_var "memcpy") [copy_offset; trm_var_get stack_var; copy_size];
+    Matrix_core.memcpy_with_ty copy_offset (trm_var stack_var) new_dims typ;
   ]
 
+(** [stack_copy ~var ~copy_var ~copy_dims tg] expects [tg] to points at a term [t]
+    that contains occurences of matrix [var], and instead of [t]:
+    + defines a matrix [copy_var] that will correspond to the right-most [copy_dims]
+      of [var], which are contiguous in memory;
+    + copies the contents from [var] to [copy_var] using a memcpy;
+    + performs [t] where all accesses to [var] are replaced with accesses to [copy_var];
+    + copies the contents from [copy_var] to [var] using a memcpy;
+
+  TODO:
+  - [uninit_pre]/[uninit_post] as in {! Matrix.local_name_tile}
+
+  This should be equivalent to using {! Matrix.local_name_tile}, converting its heap
+  allocation to a stack allocation with something like {! Matrix.to_array},
+  and converting copy loops to batch memory copies.
+  *)
 let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths (stack_copy_on var copy_var copy_dims) tg)
+    Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
+      Target.apply_at_path (stack_copy_on var copy_var copy_dims) p;
+      if !Flags.check_validity then begin
+        Resources.ensure_computed ();
+        (* TODO: is this exactly the same check as for Variable.local_name and Matrix.local_name? *)
+        let t = get_trm_at_exn [cMark m] in
+        let t_res_usage = Resources.usage_of_trm t in
+        let t_res_before = Resources.before_trm t in
+        let t_res_after = Resources.after_trm t in
+        let used_formulas = Resources.(formulas_of_hyps (hyps_of_usage t_res_usage) (t_res_before.linear @ t_res_after.linear)) in
+        let used_vars = List.fold_left (fun vs t ->
+          Var_set.union vs (trm_free_vars t)
+        ) Var_set.empty used_formulas in
+        if Var_set.mem var used_vars then
+          trm_fail t "resources still mention replaced variable after transformation"
+        else
+          Trace.justif "resources do not mention replaced variable after transformation"
+      end
+    )) tg)
 
 let elim_mindex_on (t : trm) : trm =
   let (dims, idxs) = trm_inv
