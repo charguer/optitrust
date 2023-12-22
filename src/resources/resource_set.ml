@@ -34,11 +34,11 @@ let empty = make ()
     Pure resources are accumulated, and linear resources are replaced.
     *)
 let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
-  { pure = new_res.pure @ old_res.pure;
+  { pure = old_res.pure @ new_res.pure;
     linear = new_res.linear;
     fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs;
     aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases;
-    efracs = new_res.efracs @ old_res.efracs; }
+    efracs = old_res.efracs @ new_res.efracs; }
 
 (** Returns the set of resource names bound by a resource set.*)
 (* DEPRECATED
@@ -139,3 +139,24 @@ let subst_loop_range_step (index, _, _, _, step, _) = subst_var index (trm_add (
 
 (** Substitutes a loop index with its end value. *)
 let subst_loop_range_end (index, _, _, tend, _, _) = subst_var index tend
+
+(** [used_vars res] returns the set of variables that are used inside [res].
+
+    A variable is considered to be used if it is a free variable inside one formula in the resource set.
+    Note that this list includes variables bound at the level of the resource set itself.
+    This is useful for filtering unused variables in resource sets. *)
+let used_vars (res: resource_set): Var_set.t =
+  (* TODO: maybe check free vars inside function contracts? *)
+  let combine_used_vars used_vars (_, formula) =
+    Var_set.union used_vars (trm_free_vars formula)
+  in
+  let pure_used_vars = List.fold_left combine_used_vars Var_set.empty res.pure in
+  List.fold_left combine_used_vars pure_used_vars res.linear
+
+(** [remove_unused_efracs res] removes all existantial fractions that are not used inside [res].
+
+    This is always sound since it corresponds to instantiating a fraction with any value satisfying the constraint
+    (there always exist a fraction smaller than any other). *)
+let remove_unused_efracs (res: resource_set): resource_set =
+  let used = used_vars res in
+  { res with efracs = List.filter (fun (efrac, _) -> Var_set.mem efrac used) res.efracs }
