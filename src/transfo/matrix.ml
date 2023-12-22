@@ -285,29 +285,30 @@ let delete_alias = delete
   version of {!Matrix_basic.local_name_tile}. It deletes the original matrix if [delete = true]
   or if [local_var = ""].
    *)
-let%transfo local_name_tile ?(delete: bool = false) ?(indices : string list = [])
+let%transfo local_name_tile
+  ?(delete: bool = false) ?(indices : string list = [])
   ~(alloc_instr : target) ?(local_var : string = "") (tile : Matrix_core.nd_tile)
+  ?(uninit_pre : bool = false) ?(uninit_post : bool = false) (* TODO: bool option with inference. *)
   ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let (delete, rename, into) = if local_var = ""
     then (true, true, fresh_var_name ())
     else (delete, false, local_var)
   in
+  let (uninit_pre, uninit_post) = if delete then (true, true) else (uninit_pre, uninit_post) in
   Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun t p ->
     let v = ref dummy_var in
     Matrix_basic.local_name_tile ~mark_accesses ~indices
+      ~uninit_pre ~uninit_post
       ~alloc_instr ~ret_var:v ~local_var tile (target_of_path p);
     simpl [cMark mark_accesses];
     if delete then begin
+      (* DEPRECATED:
       let (_, surrounding_seq) = Path.index_in_seq p in
       let surrounding_tg = target_of_path surrounding_seq in
-      (* FIXME: dangerous transformation, replace with:
-        - Matrix.delete_dead_writes [cArrayWrite v]
-        - Matrix.delete_dead_writes [cArrayRead v] / [cMark mark; dSeqNth 0]
-          *)
       let v_access_tg = [cOr [[cArrayRead !v.name]; [cArrayWrite !v.name]]] in
       Instr.delete (surrounding_tg @ [nbMulti; cFor "" ~body:v_access_tg]);
-      Loop.delete_all_void surrounding_tg;
+      Loop.delete_all_void surrounding_tg; *)
       Marks.with_fresh_mark_on p (fun m ->
         (* (Option.value ~default:(surrounding_tg @ [cVarDef !v]) alloc_instr *)
         delete_alias alloc_instr;

@@ -66,9 +66,69 @@ let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) opt
 
   | _ -> None
 
-let memcpy_with_ty (dest : trm) (src : trm) (dims : trms) (ty : typ) : trm =
+let mmemcpy_var = toplevel_var "MMEMCPY"
+
+(** [memcpy dest d_offset d_dims src s_offset s_dims copy_dims elem_size] uses a series
+    of [matrixN_contiguous] and [mindexN_contiguous] ghosts to issue a [MMEMCPY] from
+    matrix [dest] at [d_offset] to matrix [src] at [s_offset].
+
+    Preconditions:
+    - [dest] has dims [d_dims] and [(len d_offset) <= (len d_dims)]
+    - [src] has dims [s_dims] and [(len s_offset) <= (len s_dims)]
+    - [(len d_dims) - (len d_offset) = (len s_dims) - (len s_offset) = (len copy_dims)]
+    - [take_last (len copy_dims) d_dims = take_last (len copy_dims) s_dims]
+  *)
+let memcpy
+  (dest : trm) (d_offset : trm list) (d_dims : trm list)
+   (src : trm) (s_offset : trm list) (s_dims : trm list)
+  (copy_dims : trm list) (elem_size : trm) : trm =
+  let dol = List.length d_offset in
+  let ddl = List.length d_dims in
+  let sol = List.length s_offset in
+  let sdl = List.length s_dims in
+  let cdl = List.length copy_dims in
+  assert (dol <= ddl && sol <= sdl);
+  assert (ddl - dol == cdl && sdl - sol == cdl);
+  if copy_dims = [] then Nobrace.trm_seq_nomarks [] else
+
+  let compute_flat_offset offset offset_length dims =
+    (* N1 ... NO ... NM
+       o1 ... oO
+       o1*N2*...*NM + ... + oO*N{O-1}*...*NM
+      *)
+    if offset = [] then trm_int 0 else
+    let (sum_terms, _) = List.fold_left (fun (sum_terms, multipliers) dim_offset ->
+      let multipliers = Xlist.drop_one_or_else (fun () -> []) multipliers in
+      let sum_term = List.fold_left trm_mul dim_offset multipliers in
+      let sum_terms = sum_terms @ [sum_term] in
+      (sum_terms, multipliers)
+    ) ([], dims) offset in
+    Xlist.reduce_left trm_add sum_terms
+  in
+  let d_flat_offset = compute_flat_offset d_offset dol d_dims in
+  let s_flat_offset = compute_flat_offset s_offset sol s_dims in
+  let flat_elems = Xlist.reduce_left trm_mul copy_dims in
+  let t = trm_apps (trm_var mmemcpy_var)
+    [dest; d_flat_offset; src; s_flat_offset; flat_elems; elem_size] in
+
+  let scoped_mindex_contiguous dims offset suffix t =
+    if dims < 2 then t else
+    Resource_formula.(trm_ghost_scope (ghost_call
+      (name_to_var (sprintf "mindex%d_contiguous%s" dims suffix)) []
+    )) t
+  in
+  let t = scoped_mindex_contiguous ddl d_offset "_uninit" t in
+  let t = scoped_mindex_contiguous sdl s_offset "_ro" t in
+  (* TODO: call matrixN_contiguous on copy_dims *)
+  t
+
+(** same as {!memcpy}, but constructs [elem_size] parameter from element type [ty]. *)
+let memcpy_with_ty
+  (dest : trm) (d_offset : trm list) (d_dims : trm list)
+  (src : trm) (s_offset : trm list) (s_dims : trm list)
+  (copy_dims : trm list) (ty : typ) : trm =
   let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
-  Matrix_trm.memcpy dest src dims size
+  memcpy dest d_offset d_dims src s_offset s_dims copy_dims size
 
 (** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
     using the [map_access] function.

@@ -143,9 +143,3 @@ let free_inv (t : trm) : trm option =
       Some t
     end else None
   ))
-
-let mmemcpy_var = toplevel_var_with_dim "MMEMCPY%d"
-
-let memcpy (dest : trm) (src : trm) (dims : trms) (size : trm) : trm =
-  let n = List.length dims in
-  trm_apps (trm_var (mmemcpy_var n)) ([dest; src] @ dims @ [size])

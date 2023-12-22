@@ -410,13 +410,17 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   let common_indices = Option.get !common_indices_opt in
   let new_dims = Xlist.take_last copy_dims dims in
   let array_typ = List.fold_left (fun acc i -> typ_array acc (Trm i)) typ new_dims in
-  let copy_offset = trm_array_access (trm_var var)
-    (mindex dims (common_indices @ (List.init copy_dims (fun _ -> trm_int 0)))) in
   trm_seq_nobrace_nomarks [
     trm_let_immut (stack_var, array_typ) (trm_uninitialized ());
-    Matrix_core.memcpy_with_ty (trm_var stack_var) copy_offset new_dims typ;
+    Matrix_core.memcpy_with_ty
+      (trm_var stack_var) [] new_dims
+      (trm_var var) common_indices dims
+      new_dims typ;
     new_t;
-    Matrix_core.memcpy_with_ty copy_offset (trm_var stack_var) new_dims typ;
+    Matrix_core.memcpy_with_ty
+      (trm_var var) common_indices dims
+      (trm_var stack_var) [] new_dims
+      new_dims typ;
   ]
 
 (** [stack_copy ~var ~copy_var ~copy_dims tg] expects [tg] to points at a term [t]

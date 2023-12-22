@@ -30,7 +30,6 @@ let _ = Run.script_cpp (fun _ ->
       [range 2 10]
       [cFunBody "malloc_uninit_post"; cFor ~body:[cArrayWrite "a"] "i"];
   );
-  (* FIXME:
   !! Matrix_basic.local_name_tile
     ~alloc_instr:[cFunBody "malloc_uninit_post"; cVarDef "a"] ~local_var:"x"
     ~uninit_pre:false ~uninit_post:true
@@ -43,7 +42,6 @@ let _ = Run.script_cpp (fun _ ->
     ~uninit_pre:true ~uninit_post:true
     [range 0 10; range 2 10; range 0 4]
     [cFunBody "malloc_uninit_prepost"; cFor ~body:[cArrayWrite "a"] "i"];
-    *)
 
   (* !! Arith.default_simpl []; *)
 
