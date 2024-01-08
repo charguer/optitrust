@@ -574,7 +574,7 @@ and prim =
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_compound_assgn_op of binary_op (* e.g. "a += b" *)
   | Prim_overloaded_op of prim (* used for overloaded operators *)
-  | Prim_new of typ (* "new T" *)
+  | Prim_new of typ * trm list (* "new T", with optional array dimensions *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
 (* [lit]: literals *)

@@ -93,6 +93,7 @@ let create_env () = ref env_empty
     TODO: specify and improve support for arrays
 
    Note: "reference" annotation is added to allow decoding *)
+ (* TODO: properly deal with const/mut array allocations on stack using Prim_new *)
 let stackvar_elim (t : trm) : trm =
   debug_current_stage "stackvar_elim";
   let env = create_env () in
@@ -219,6 +220,7 @@ let stackvar_intro (t : trm) : trm =
      - [t[i]] becomes [t + i] -- nothing to do in the code of the translation
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[t])] *)
+ (* TODO: properly deal with const/mut array allocations on stack using Prim_new *)
 let caddress_elim (t : trm) : trm =
   debug_current_stage "caddress_elim";
   let rec aux t =

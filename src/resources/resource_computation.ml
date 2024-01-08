@@ -51,7 +51,8 @@ module Resource_primitives = struct
     | Prim_unop u -> unop_to_var_name u
     | Prim_binop b -> binop_to_var_name b
     | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
-    | Prim_new _ -> "__new"
+    | Prim_new (_, []) -> "__new"
+    (* | Prim_new (_, dims) -> "__new_array"  SAME AS MALLOCN but with implicit trm_apps *)
     | _ -> raise Unknown)
 
 end
@@ -772,6 +773,10 @@ let rec compute_resources
   let usage_map, res =
     let** res in
     try begin match t.desc with
+    (* new array is typed as MALLOCN with correct dims *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_new (ty, dims))) }, _, []) when dims <> [] ->
+      compute_resources (Some res) (Matrix_core.alloc_with_ty dims ty)
+
     (* Values and variables are pure. *)
     | Trm_val _ | Trm_var _ -> (Some Var_map.empty, Some res) (* TODO: Manage return values for pointers *)
 
@@ -825,15 +830,16 @@ let rec compute_resources
       let extract_let_mut ti =
         match trm_let_inv ti with
         | Some (_, x, _, t) ->
-          begin match new_operation_inv t with
-          | Some _ -> [x]
+          begin match trm_new_inv t with
+          | Some (_, [], _) -> [formula_cell x]
+          | Some (_, dims, _) -> [formula_matrix (trm_var x) dims]
           | None -> []
           end
         | None -> []
       in
       let to_free = List.concat_map extract_let_mut instrs in
       (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-      let res_to_free = Resource_set.make ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
+      let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), formula_uninit f)) to_free) () in
       let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
       let usage_map = update_usage_map_opt ~current_usage:usage_map ~extra_usage:(Some (used_set_to_usage_map removed_res)) in
 

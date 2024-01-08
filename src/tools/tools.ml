@@ -91,7 +91,9 @@ let list_to_doc ?(empty : document = empty) ?(sep:document = semi) ?(bounds = [e
     | [s] -> s
     | s1 :: s2 :: sl -> s1 ^^ sep ^^ string " " ^^ aux (s2 :: sl)
   in
-   lb ^^ aux l ^^ rb
+  match l with
+  | [] -> empty
+  | _ -> lb ^^ aux l ^^ rb
 
 (* [print_object dl]: prints a list of documents in the form [{x, y, z}]. *)
 (* TODO rename Doc.braces_coma_of_list *)

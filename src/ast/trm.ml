@@ -974,21 +974,13 @@ let get_lit_from_trm_lit (t : trm) : lit =
     | Trm_apps (_, [arg], _) when is_new_operation t -> arg
     | _ -> t
 
-
-  (* [new_operation_inv t]: returns the type and the argument of the new operation [t]. *)
-  let new_operation_inv (t : trm) : (typ * trm) option =
-    match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_new ty))}, [arg], _) -> Some (ty, arg)
-    | _ -> None
-
-
   (* [trm_let_mut ~annot ?ctx typed_var init]: an extension of trm_let for
       creating mutable variable declarations *)
   let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
     (typed_var : typed_var) (init : trm): trm =
     let var_name, var_type = typed_var in
     let var_type_ptr = typ_ptr_generated var_type in
-    let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init]) in
+    let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new (var_type, []))) [init]) in
     trm_add_cstyle Stackvar t_let
 
   (* [trm_let_ref ~annot ?ctx typed_var init]: an extension of trm_let for creating references *)
@@ -1012,7 +1004,7 @@ let get_lit_from_trm_lit (t : trm) : lit =
     (typed_var : typed_var) (sz : size)(init : trm): trm =
     let var_name, var_type = typed_var in
     let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
-    let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
+    let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new (var_type, []))) [init]  in
     let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
     if kind = Var_mutable then trm_add_cstyle Stackvar res else res
 
@@ -1235,11 +1227,11 @@ let rec aux (t : trm) : loop_range list =
 let loop_range_list = aux t in
 if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
 
-let trm_new_inv (t : trm) : (typ * trm) option =
+let trm_new_inv (t : trm) : (typ * trm list * trm) option =
 match trm_apps_inv t with
 | Some (f, [v]) ->
   begin match trm_prim_inv f with
-  | Some (Prim_new ty) -> Some (ty, v)
+  | Some (Prim_new (ty, dims_opt)) -> Some (ty, dims_opt, v)
   | _ -> None
   end
 | _ -> None
@@ -1252,7 +1244,7 @@ match t.desc with
 
 let is_trm_new_uninitialized (t : trm) : bool =
 match trm_new_inv t with
-| Some (_, v) -> is_trm_uninitialized v
+| Some (_, _, v) -> is_trm_uninitialized v
 | None -> false
 
 
@@ -1375,8 +1367,8 @@ match trm_new_inv t with
     if const then trm_var ?typ ~kind:Var_immutable x else trm_var_get ?typ x
 
   (* [trm_new ty t]: generates "new ty" *)
-  let trm_new (ty : typ) (t : trm) : trm =
-    trm_apps (trm_prim (Prim_new ty)) [t]
+  let trm_new (ty : typ) ?(dims : trm list = []) (t : trm) : trm =
+    trm_apps (trm_prim (Prim_new (ty, dims))) [t]
 
 let var_any_bool = new_var "ANY_BOOL"
 

@@ -169,9 +169,10 @@ and print_prim style (p : prim) : document =
   | Prim_overloaded_op p ->
     let dp = print_prim style p in
     print_node "Prim_overloaded_op" ^^ dp
-  | Prim_new t ->
+  | Prim_new (t, dims) ->
      let dt = print_typ style t in
-     print_node "Prim_new" ^^ dt
+     let dims_doc = list_to_doc ~empty ~bounds:[lparen; rparen] (List.map (print_trm style) dims) in
+     print_node "Prim_new" ^^ dt ^^ dims_doc
   | Prim_conditional_op -> print_node "Prim_conditional_op"
 
 (* [print_lit l]: converts literals to pprint document *)
