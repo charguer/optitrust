@@ -693,7 +693,7 @@ __GHOST(matrix3_contiguous) {
 }
 
 __GHOST(mindex2_contiguous) {
-  __requires("n2: int, i2: int, n1: int, a: int, b: int");
+  __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int");
   __requires("Group(range(a, b, 1), fun i1 -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell)");
   __produces("Group(range(i2*n1 + a, i2*n1 + b, 1), fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell)");
   __admitted();
@@ -705,7 +705,7 @@ __GHOST(mindex2_contiguous_rev) {
 }
 
 __GHOST(mindex3_contiguous) {
-  __requires("n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
+  __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
   __requires("Group(range(a, b, 1), fun i1 -> &M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell)");
   __produces("Group(range(i3*n2*n1 + i2*n1 + a, i3*n2*n1 + i2*n1 + b, 1), "
                "fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell)");
@@ -718,7 +718,7 @@ __GHOST(mindex3_contiguous_rev) {
 }
 
 __GHOST(mindex2_contiguous_uninit) {
-  __requires("n2: int, i2: int, n1: int, a: int, b: int");
+  __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int");
   __requires("_Uninit(Group(range(a, b, 1), fun i1 -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell))");
   __produces("_Uninit(Group(range(i2*n1 + a, i2*n1 + b, 1), "
                "fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell))");
@@ -731,7 +731,7 @@ __GHOST(mindex2_contiguous_uninit_rev) {
 }
 
 __GHOST(mindex3_contiguous_uninit) {
-  __requires("n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
+  __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
   __requires("_Uninit(Group(range(a, b, 1), fun i1 -> "
                 "&M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell))");
   __produces("_Uninit(Group(range(i3*n2*n1 + i2*n1 + a, i3*n2*n1 + i2*n1 + b, 1), "
@@ -745,7 +745,7 @@ __GHOST(mindex3_contiguous_uninit_rev) {
 }
 
 __GHOST(mindex2_contiguous_ro) {
-  __requires("n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
+  __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
   __requires("_RO(f, Group(range(a, b, 1), fun i1 -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell))");
   __produces("_RO(f, Group(range(i2*n1 + a, i2*n1 + b, 1), "
                "fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell))");
@@ -758,7 +758,7 @@ __GHOST(mindex2_contiguous_ro_rev) {
 }
 
 __GHOST(mindex3_contiguous_ro) {
-  __requires("n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
+  __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
   __requires("_RO(f, Group(range(a, b, 1), fun i1 -> "
                 "&M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell))");
   __produces("_RO(f, Group(range(i3*n2*n1 + i2*n1 + a, i3*n2*n1 + i2*n1 + b, 1), "
