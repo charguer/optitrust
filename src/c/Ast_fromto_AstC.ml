@@ -714,11 +714,15 @@ let contract_elim (t: trm): trm =
   | _ -> trm_map aux t
   in aux t
 
-let named_formula_to_string (hyp, formula): string =
+let named_formula_to_string ?(used_vars = Var_set.empty) (hyp, formula): string =
   let sformula = formula_to_string formula in
-  if not !Flags.always_name_resource_hyp && hyp.name.[0] = '#'
+  if not (!Flags.always_name_resource_hyp || Var_set.mem hyp used_vars) && hyp.name.[0] = '#'
     then Printf.sprintf "%s" sformula
     else Printf.sprintf "%s: %s" hyp.name sformula
+
+let efrac_to_string (efrac, bigger_frac): string =
+  let sbigger = formula_to_string bigger_frac in
+  Printf.sprintf "?%s <= %s" efrac.name sbigger
 
 (* [seq_push code t]: inserts trm [code] at the begining of sequence [t],
     [code] - instruction to be added,
@@ -733,7 +737,8 @@ let trm_array_of_string list =
   trm_array (Mlist.of_list (List.map trm_string list))
 
 let ctx_resources_to_trm (res: resource_set) : trm =
-  let spure = trm_array_of_string (List.map named_formula_to_string res.pure) in
+  let used_vars = Resource_set.used_vars res in
+  let spure = trm_array_of_string (List.map (named_formula_to_string ~used_vars) res.pure @ List.map efrac_to_string res.efracs) in
   let slin = trm_array_of_string (List.map named_formula_to_string res.linear) in
   trm_apps (trm_var __ctx_res) [spure; slin]
 
