@@ -5,7 +5,7 @@ let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
 
-  (*!! Label.add "lab1" [cVarDef "a"];*)
+  !! Label.add "lab1" [cVarDef "a"]; (**)
 
   (* The next block of code debugs printing of errors *)
   !! let t = Trace.ast() in
@@ -27,6 +27,8 @@ let _ = Run.script_cpp (fun _ ->
  *)
   (* Otherwise if [resource_errors_as_warnings] is [false],
      the error is raised. *)
-  !! Resources.ensure_computed ();
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
+    Resources.ensure_computed ()
+  )
 
 )

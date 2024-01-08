@@ -369,7 +369,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
   if style.ast.print_annot then failwith "NOT YET IMPLEMENTED: ASTC_TO_C printing of annotations";
 
   let dt =
-    if t_marks = [] || not style.ast.print_string_repr then
+    if t_marks = [] && not style.ast.print_string_repr then
       dt
     else begin
       let sid =

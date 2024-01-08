@@ -842,7 +842,10 @@ and error_step (exn : exn): unit =
 
 (** [typing_step f] adds a step accounting for a typing recomputation *)
 and typing_step ~name (f : unit -> unit) : unit =
-  step ~valid:true ~kind:Step_typing ~name ~tags:["typing"] f
+  let (), s =
+    step_and_get_handle ~valid:true ~kind:Step_typing ~name ~tags:["typing"] f in
+  s.step_style_before <- style_normal_code();
+  s.step_style_after <- style_resources()
 
 (** [reparse ()]: function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
@@ -859,7 +862,9 @@ and recompute_resources_on_ast () : unit =
   (* Compute a typed AST *)
   try
     let t, success = Resource_computation.trm_recompute_resources Resource_set.empty t in
-    if not success then begin
+    if success then begin
+      the_trace.cur_ast <- t
+    end else begin
       let (), s = step_and_get_handle ~valid:true ~kind:Step_error ~name:"Typing error" (fun () -> the_trace.cur_ast <- t) in
       s.step_style_before <- style_normal_code();
       s.step_style_after <- style_resources();

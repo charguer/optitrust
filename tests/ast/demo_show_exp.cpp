@@ -39,9 +39,9 @@ typ: target resolves to 3 paths
 [occ #3] <no_typ>
 marks: [mymark2; mymark1]
 cstyle-item: [ Stackvar ]
-annot: {trm_annot_attributes = [  ]; trm_annot_marks = [  ]; trm_annot_labels = [
+annot: {trm_errors = [  ]; trm_annot_attributes = [  ]; trm_annot_marks = [  ];
+  trm_annot_labels = [  ]; trm_annot_stringrepr = None; trm_annot_pragma = [
 
-]; trm_annot_stringrepr = None; trm_annot_pragma = [  ];
-  trm_annot_cstyle = [  ]; trm_annot_files = [ Main_file ]}
+]; trm_annot_cstyle = [  ]; trm_annot_files = [ Main_file ]}
 
 */
