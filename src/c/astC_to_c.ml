@@ -316,7 +316,9 @@ and prim_to_doc style (p : prim) : document =
   | Prim_binop op -> binop_to_doc style op
   | Prim_compound_assgn_op op -> (binop_to_doc style op) ^^ equals
   | Prim_overloaded_op p -> prim_to_doc style p
-  | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
+  | Prim_new (t, dims) ->
+    let dims_doc = list_to_doc ~empty ~bounds:[lparen; rparen] (List.map (trm_to_doc style) dims) in
+    string "new" ^^ blank 1 ^^ typ_to_doc t ^^ dims_doc
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
 (* [val_to_doc style v]: converts values to pprint documents. *)
@@ -1111,12 +1113,13 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
               trm_fail f
                 "apps_to_doc style: conditional operator must have three arguments"
            end
-        | Prim_new t ->
+        | Prim_new (t, dims) ->
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
           let tr_init = decorate_trm style value in
+          let tr_prim = prim_to_doc style (Prim_new (t, dims)) in
           let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
-          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ init_val
+          tr_prim ^^ init_val
         end
      | _ -> trm_fail f (Printf.sprintf "AstC_to_c.apps_to_doc style: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end

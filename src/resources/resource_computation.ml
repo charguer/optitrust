@@ -51,7 +51,8 @@ module Resource_primitives = struct
     | Prim_unop u -> unop_to_var_name u
     | Prim_binop b -> binop_to_var_name b
     | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
-    | Prim_new _ -> "__new"
+    | Prim_new (_, []) -> "__new"
+    (* | Prim_new (_, dims) -> "__new_array"  SAME AS MALLOCN but with implicit trm_apps *)
     | _ -> raise Unknown)
 
 end
@@ -241,15 +242,6 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
     (used :: used_list, res_from, evar_ctx)
   ) ([], res_from, evar_ctx) res_removed
 
-(** <internal> see {!eliminate_dominated_evars} and {!filter_used_efracs} *)
-let resource_set_used_vars (res: resource_set): Var_set.t =
-  (* TODO: maybe check free vars inside function contracts? *)
-  let combine_used_vars used_vars (_, formula) =
-    Var_set.union used_vars (trm_free_vars formula)
-  in
-  let pure_used_vars = List.fold_left combine_used_vars Var_set.empty res.pure in
-  List.fold_left combine_used_vars pure_used_vars res.linear
-
 (** [eliminate_dominated_evars res] eliminates dominated evars from [res].
   Returns the the remaining pure resources and the dominated evars.
 
@@ -257,14 +249,10 @@ let resource_set_used_vars (res: resource_set): Var_set.t =
   (i.e. it appears in the formula of another resource). *)
 let eliminate_dominated_evars (res: resource_set): pure_resource_set * var list =
   (* LATER: Un tri topologique serait un peu plus robuste *)
-  let used_vars = resource_set_used_vars res in
+  let used_vars = Resource_set.used_vars res in
   List.partition_map (function
     | h, _ when Var_set.mem h used_vars -> Either.Right h
     | res -> Either.Left res) res.pure
-
-let filter_used_efracs (res: resource_set): (var * formula) list =
-  let used_vars = resource_set_used_vars res in
-  List.filter (fun (efrac, _) -> Var_set.mem efrac used_vars) res.efracs
 
 (** [update_usage hyp current_usage extra_usage] returns the usage resulting from using
     [current_usage] before using [extra_usage]. *)
@@ -388,7 +376,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
   assert (Var_map.is_empty res_to.aliases);
   assert (res_to.efracs = []);
 
-  let efracs = if specialize_efracs then filter_used_efracs res_from else [] in
+  let efracs = if specialize_efracs then res_from.efracs else [] in
   let evar_ctx = List.fold_left (fun evar_ctx (efrac, _) -> Var_map.add efrac None evar_ctx) evar_ctx efracs in
 
   let used_linear, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx res_from.linear res_to.linear in
@@ -742,7 +730,7 @@ let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.
     contract_joined_resources = ro_simpl_steps };
 
   let total_usage = update_usage_map ~current_usage:usage ~extra_usage:usage_after in
-  total_usage, Resource_set.bind ~old_res:res ~new_res
+  total_usage, Resource_set.(remove_unused_efracs (bind ~old_res:res ~new_res))
 
 (** <private> *)
 let debug_print_computation_stack = false
@@ -797,6 +785,10 @@ let rec compute_resources
   let usage_map, res =
     let** res in
     try begin match t.desc with
+    (* new array is typed as MALLOCN with correct dims *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_new (ty, dims))) }, _, []) when dims <> [] ->
+      compute_resources (Some res) (Matrix_core.alloc_with_ty dims ty)
+
     (* Values and variables are pure. *)
     | Trm_val _ | Trm_var _ -> (Some Var_map.empty, Some res) (* TODO: Manage return values for pointers *)
 
@@ -816,6 +808,7 @@ let rec compute_resources
       begin match contract with
       | FunSpecContract contract ->
         compute_resources_in_body contract;
+        let contract = Resource_contract.subst res.aliases contract in
         let args = List.map (fun (x, _) -> x) args in
         (Some Var_map.empty, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
       | FunSpecReverts reverted_fn ->
@@ -850,15 +843,16 @@ let rec compute_resources
       let extract_let_mut ti =
         match trm_let_inv ti with
         | Some (_, x, _, t) ->
-          begin match new_operation_inv t with
-          | Some _ -> [x]
+          begin match trm_new_inv t with
+          | Some (_, [], _) -> [formula_cell x]
+          | Some (_, dims, _) -> [formula_matrix (trm_var x) dims]
           | None -> []
           end
         | None -> []
       in
       let to_free = List.concat_map extract_let_mut instrs in
       (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-      let res_to_free = Resource_set.make ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
+      let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), formula_uninit f)) to_free) () in
       let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
       let usage_map = update_usage_map_opt ~current_usage:usage_map ~extra_usage:(Some (used_set_to_usage_map removed_res)) in
 
@@ -994,7 +988,7 @@ let rec compute_resources
             invoc.contract_inst.used_linear
           in
           let inverse_spec = { args = [];
-            contract = { pre = Resource_set.make ~linear:inverse_pre (); post = Resource_set.make ~linear:inverse_post () };
+            contract = Resource_contract.subst res.aliases { pre = Resource_set.make ~linear:inverse_pre (); post = Resource_set.make ~linear:inverse_post () };
             inverse = None }
           in
           usage_map, Some { res with fun_specs = Var_map.add var_result inverse_spec res.fun_specs }

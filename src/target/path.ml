@@ -91,8 +91,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_if (cond, then_t, aux else_t) }
        | Dir_var_body, Trm_let (vk,tx,body) ->
           let body =
-          begin match new_operation_inv body with
-          | Some (ty, arg) -> trm_new ty (aux arg)
+          begin match trm_new_inv body with
+          | Some (ty, dims, arg) -> trm_new ty ~dims (aux arg)
           | None -> aux body
           end in
           { t with desc = Trm_let (vk, tx, body)}
