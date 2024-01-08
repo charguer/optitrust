@@ -23,8 +23,8 @@ open Resource_formula
      *)
 
 (** Makes a resource set given its components. *)
-let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Var_map.empty) () =
-  { pure; linear; fun_specs; aliases }
+let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Var_map.empty) ?(efracs = []) () =
+  { pure; linear; fun_specs; aliases; efracs }
 
 (** The empty resource set. *)
 let empty = make ()
@@ -37,7 +37,8 @@ let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
   { pure = new_res.pure @ old_res.pure;
     linear = new_res.linear;
     fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs;
-    aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases }
+    aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases;
+    efracs = new_res.efracs @ old_res.efracs; }
 
 (** Returns the set of resource names bound by a resource set.*)
 (* DEPRECATED
@@ -66,7 +67,8 @@ let group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
     linear = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.linear;
     fun_specs = res.fun_specs;
-    aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *) }
+    aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *)
+    efracs = res.efracs; (* Maybe we loose in generality here *) }
 
 (** Given a resource set, produces a resource set with read-only access to its resources that can be duplicated: RW_in => RO_out; RO_out => RO_out * (trm_copy RO_out); *)
 let read_only (res: resource_set): resource_set =
@@ -77,13 +79,14 @@ let read_only (res: resource_set): resource_set =
       (* makes the previous RO duplicable by not duplicating fractions. *)
       | Some { formula } -> (x, formula_read_only ~frac formula)
       | None -> (x, formula_read_only ~frac formula)) res.linear in
-  { res with pure = frac_item :: res.pure ; linear }
+  { res with pure = frac_item :: res.pure ; linear; efracs = [] }
 
 (** Returns the union of two resource sets, accumulating pure items and separating linear items with a star. *)
 let union (res1: resource_set) (res2: resource_set): resource_set =
   { pure = res1.pure @ res2.pure; linear = res1.linear @ res2.linear;
     fun_specs = Var_map.union (fun _ _ c -> Some c) res1.fun_specs res2.fun_specs;
-    aliases = Var_map.union (fun _ _ d -> Some d) res1.aliases res2.aliases; }
+    aliases = Var_map.union (fun _ _ d -> Some d) res1.aliases res2.aliases;
+    efracs = res1.efracs @ res2.efracs }
 
 (** The built-in variable representing a function's return value. *)
 (* FIXME: #var-id, id should be different for every let/letfun? like 'this' ids? *)
@@ -105,7 +108,8 @@ let rec subst (subst_map: tmap) (res: resource_set): resource_set =
       res.fun_specs
   in
   let aliases = Var_map.map (fun def -> trm_subst subst_map def) res.aliases in
-  { pure; linear; fun_specs; aliases }
+  let efracs = List.map (fun (f, lt_frac) -> (f, trm_subst subst_map lt_frac)) res.efracs in
+  { pure; linear; fun_specs; aliases; efracs }
 
 let subst_var (x: var) (t: trm) (res: resource_set) : resource_set =
   subst (Var_map.singleton x t) res

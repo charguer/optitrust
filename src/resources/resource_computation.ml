@@ -71,12 +71,12 @@ module Formula_inst = struct
 
   let var_SplitRO = toplevel_var "SplitRO"
 
-  let inst_split_read_only ~(new_frac: var) (h: hyp) : t =
-    trm_apps (trm_var var_SplitRO) [trm_var new_frac; inst_hyp h]
+  let inst_split_read_only ~(new_frac: var) ~(old_frac: formula) (h: hyp) : t =
+    trm_apps (trm_var var_SplitRO) [trm_var new_frac; old_frac; inst_hyp h]
 
-  let inst_split_read_only_inv (f: t): (var * hyp) option =
+  let inst_split_read_only_inv (f: t): (var * formula * hyp) option =
     Pattern.pattern_match_opt f [
-      Pattern.(trm_apps2 (trm_var (var_eq var_SplitRO)) (trm_var !__) (trm_var !__)) (fun frac hyp -> (frac, hyp))
+      Pattern.(trm_apps3 (trm_var (var_eq var_SplitRO)) (trm_var !__) !__ (trm_var !__)) (fun frac old_frac hyp -> (frac, old_frac, hyp))
     ]
 
   let var_ForgetInit = toplevel_var "ForgetInit"
@@ -99,6 +99,7 @@ let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unifica
     match subst with Some t -> t | None -> trm_var { var with name = ("?" ^ var.name) }
   ) evar_ctx in
   let formula = trm_subst subst_ctx formula in
+  let inside = List.map (fun (x, formula) -> (x, trm_subst subst_ctx formula)) inside in
   raise (Resource_not_found ((name, formula), inside))
 
 (** [unify_pure (x, formula) res evar_ctx] unifies the given [formula] with one of the resources in [res].
@@ -193,7 +194,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       in
       let* evar_ctx = unify_trm formula_candidate formula evar_ctx in
       Some (
-        { pre_hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
+        { pre_hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         Some (h, formula_read_only ~frac:(trm_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
     ) res evar_ctx
   in
@@ -233,12 +234,21 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   If [split_frac] is true, always try to give a smaller fraction than what is
   inside [res_from] for evar fractions.
 *)
-let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty)  (res_from: linear_resource_set) (res_removed: linear_resource_set)
+let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty) (res_from: linear_resource_set) (res_removed: linear_resource_set)
   : used_resource_item list * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, res_from, evar_ctx) res_item ->
     let used, res_from, evar_ctx = subtract_linear_resource_item ~split_frac res_item res_from evar_ctx in
     (used :: used_list, res_from, evar_ctx)
   ) ([], res_from, evar_ctx) res_removed
+
+(** <internal> see {!eliminate_dominated_evars} and {!filter_used_efracs} *)
+let resource_set_used_vars (res: resource_set): Var_set.t =
+  (* TODO: maybe check free vars inside function contracts? *)
+  let combine_used_vars used_vars (_, formula) =
+    Var_set.union used_vars (trm_free_vars formula)
+  in
+  let pure_used_vars = List.fold_left combine_used_vars Var_set.empty res.pure in
+  List.fold_left combine_used_vars pure_used_vars res.linear
 
 (** [eliminate_dominated_evars res] eliminates dominated evars from [res].
   Returns the the remaining pure resources and the dominated evars.
@@ -246,21 +256,15 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
   An evar is dominated if its value will be implied by the instantation of other resources
   (i.e. it appears in the formula of another resource). *)
 let eliminate_dominated_evars (res: resource_set): pure_resource_set * var list =
-  (* TODO: maybe check free vars inside function contracts? *)
-  (* This function completely forgets about ghost variable shadowing *)
   (* LATER: Un tri topologique serait un peu plus robuste *)
-  let combine_used_vars used_vars (_, formula) =
-    Var_set.union used_vars (trm_free_vars formula)
-  in
-  let used_vars = List.fold_left combine_used_vars Var_set.empty res.pure in
-  let used_vars = List.fold_left combine_used_vars used_vars res.linear in
-  let dominated_evars = ref [] in
-  let pure = List.filter (fun (h, _) ->
-      if Var_set.mem h used_vars then
-        (dominated_evars := h :: !dominated_evars; false)
-      else true) res.pure
-  in
-  (pure, !dominated_evars)
+  let used_vars = resource_set_used_vars res in
+  List.partition_map (function
+    | h, _ when Var_set.mem h used_vars -> Either.Right h
+    | res -> Either.Left res) res.pure
+
+let filter_used_efracs (res: resource_set): (var * formula) list =
+  let used_vars = resource_set_used_vars res in
+  List.filter (fun (efrac, _) -> Var_set.mem efrac used_vars) res.efracs
 
 (** [update_usage hyp current_usage extra_usage] returns the usage resulting from using
     [current_usage] before using [extra_usage]. *)
@@ -299,7 +303,7 @@ let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
   (* TODO: Maybe manage pure as well *)
   List.fold_left (fun usage_map { inst_by; used_formula } ->
     match Formula_inst.inst_split_read_only_inv inst_by with
-    | Some (_, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
+    | Some (_, _, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
     | None ->
       let hyp_usage = if formula_uninit_inv used_formula = None then UsedFull else UsedUninit in
       match Formula_inst.inst_hyp_inv inst_by with
@@ -310,11 +314,55 @@ let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
         | None -> failwith "Weird resource used"
   ) Hyp_map.empty res_used.used_linear
 
+let new_efracs_from_used_set (res_used: used_resource_set): (hyp * formula) list =
+  List.filter_map (fun { inst_by } ->
+    match Formula_inst.inst_split_read_only_inv inst_by with
+    | Some (efrac, bigger_frac, _) -> Some (efrac, bigger_frac)
+    | None -> None
+  ) res_used.used_linear
 
 exception Spec_not_found of var
 exception Anonymous_function_without_spec
 exception NotConsumedResources of linear_resource_set
 exception ImpureFunctionArgument of exn
+exception FractionConstraintUnsatisfied of formula * formula
+
+type frac_quotient = { base: formula; num: int; den: int }
+
+let rec frac_to_quotient (frac: formula) =
+  Pattern.pattern_match frac [
+    Pattern.(trm_sub !__ !__) (fun base_frac removed_frac ->
+      let base_quot = frac_to_quotient base_frac in
+      let removed_quot = frac_to_quotient removed_frac in
+      if not (are_same_trm base_quot.base removed_quot.base) then raise Pattern.Next;
+      let num =
+        if base_quot.den = 1 && base_quot.num = 1 then
+          removed_quot.den - removed_quot.num
+        else if base_quot.den = removed_quot.den then
+          base_quot.num - removed_quot.num
+        else raise Pattern.Next
+      in
+      { removed_quot with num }
+    );
+    Pattern.(trm_div !__ (trm_int !__)) (fun base_frac den ->
+      { base = base_frac; num = 1; den = den }
+    );
+    Pattern.(!__) (fun _ ->
+      { base = frac; num = 1; den = 1 }
+    )
+  ]
+
+let check_frac_le subst_ctx (efrac, bigger_frac) =
+  let efrac = Var_map.find efrac subst_ctx in
+  let bigger_frac = trm_subst subst_ctx bigger_frac in
+  let efrac_quot = frac_to_quotient efrac in
+  let bigger_quot = frac_to_quotient bigger_frac in
+  if not (are_same_trm efrac_quot.base bigger_quot.base) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
+  if not (bigger_quot.den = 1 && bigger_quot.num = 1 && efrac_quot.num <= efrac_quot.den) then begin
+    if not (efrac_quot.den = bigger_quot.den) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
+    if not (efrac_quot.num <= bigger_quot.num) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
+  end
+
 
 (** [extract_resources ~split_frac res_from subst_ctx res_to] checks that
   [res_from ==> res_to * H]
@@ -331,13 +379,17 @@ exception ImpureFunctionArgument of exn
 
   TODO: Add unit tests for this specific function
 *)
-let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
+let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) ?(specialize_efracs: bool = false) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
   let not_dominated_pure_res_to, dominated_evars = eliminate_dominated_evars res_to in
   let evar_ctx = Var_map.map (fun x -> Some (trm_subst res_from.aliases x)) subst_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) evar_ctx dominated_evars in
 
   let res_from = Resource_set.subst_all_aliases res_from in
   assert (Var_map.is_empty res_to.aliases);
+  assert (res_to.efracs = []);
+
+  let efracs = if specialize_efracs then filter_used_efracs res_from else [] in
+  let evar_ctx = List.fold_left (fun evar_ctx (efrac, _) -> Var_map.add efrac None evar_ctx) evar_ctx efracs in
 
   let used_linear, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx res_from.linear res_to.linear in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
@@ -350,6 +402,10 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
       | Some t -> t
       | None -> failwith "failed to instantiate evars") evar_ctx
   in
+
+  (* Check that efrac constaints are satisfied *)
+  (* FIXME: It is probably unsound to always check f <= g goals, some inequalities should be strict. *)
+  List.iter (check_frac_le subst_ctx) efracs;
 
   let used_pure = List.map (fun (hyp, formula) ->
       { pre_hyp = hyp; inst_by = Var_map.find hyp subst_ctx; used_formula = trm_subst subst_ctx formula }
@@ -366,12 +422,21 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
             )
             res_from.fun_specs res_to.fun_specs);
 
+  (* Filter out all leftovers with a null fraction *)
+  let leftover_linear = List.filter (fun (h, formula) ->
+    match formula_read_only_inv formula with
+    | Some { frac } ->
+      let frac_quotient = frac_to_quotient (trm_subst subst_ctx frac) in
+      frac_quotient.num <> 0
+    | None -> true
+  ) leftover_linear in
+
   (subst_ctx, { used_pure; used_linear }, leftover_linear)
 
 (* FIXME: resource set intuition breaks down, should we talk about resource predicates? *)
 (** [assert_resource_impl res_from res_to] checks that [res_from] ==> [res_to]. *)
 let assert_resource_impl (res_from: resource_set) (res_to: resource_set) : used_resource_set =
-  let _, used_res, leftovers = extract_resources ~split_frac:false res_from res_to in
+  let _, used_res, leftovers = extract_resources ~split_frac:false ~specialize_efracs:true res_from res_to in
   if leftovers <> [] then raise (NotConsumedResources leftovers);
   used_res
 
@@ -649,6 +714,7 @@ let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.
   let usage = used_set_to_usage_map res_used in
 
   let new_res, usage_after, ro_simpl_steps = resource_merge_after_frame res_produced res_frame in
+  let new_res = { new_res with efracs = new_efracs_from_used_set res_used } in
 
   t.ctx.ctx_resources_contract_invoc <- Some {
     contract_frame = res_frame;

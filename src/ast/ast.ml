@@ -722,6 +722,7 @@ and resource_set = {
   linear: resource_item list;
   fun_specs: fun_spec_resource varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup. *)
   aliases: trm varmap; (** Map of variables to their definition, variables may come from the program or pure facts *)
+  efracs: (hyp * formula) list; (** List of existential fracs that can be chosen afterwards as long as they are smaller than the frac expression. *)
 }
 
 (* Represents the knowledge of the specification of a function *)
