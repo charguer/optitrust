@@ -682,7 +682,26 @@ let resource_set_opt_to_string res : string =
   Xoption.map_or resource_set_to_string "UnspecifiedRes" res
 
 type resource_error_phase = ResourceComputation | ResourceCheck
-exception ResourceError of location * resource_error_phase * exn
+
+let resource_error_phase_to_string (phase: resource_error_phase) : string =
+  match phase with
+  | ResourceComputation -> "Resource computation"
+  | ResourceCheck -> "Resource check"
+
+(** Exception used by [handle_resource_errors] to interrupt typing
+    after a first error is discovered. *)
+exception StoppedOnFirstError
+
+(** List of errors accumulated during the current call to
+    [trm_recompute_resources]. <private> *)
+let global_errors : (resource_error_phase * exn) list ref = ref []
+
+(** [ResourceError (t, e)] describes the fact that errors occurred
+    during of typing, and [t] describes the partially typed
+    term, and [e] describe the first error occurring at phase [p].
+    Certain nodes [ti] in [t] may have their field [ti.errors]
+    storing the error messages. *)
+exception ResourceError of trm * resource_error_phase * exn
 
 let _ = Printexc.register_printer (function
   | Resource_not_found (item, context) ->
@@ -693,10 +712,10 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "Resources not consumed after the end of the block:\n%s" (resource_list_to_string res))
   | ImpureFunctionArgument err ->
     Some (Printf.sprintf "Function argument subexpression resource preservation check failed: %s" (Printexc.to_string err))
-  | ResourceError (loc, ResourceComputation, err) ->
-    Some (Printf.sprintf "%s: Resource computation error: %s" (loc_to_string loc) (Printexc.to_string err));
-  | ResourceError (loc, ResourceCheck, err) ->
-    Some (Printf.sprintf "%s: Resource check error: %s" (loc_to_string loc) (Printexc.to_string err))
+  | ResourceError (_t, ResourceComputation, err) ->
+    Some (Printf.sprintf "Resource computation error: %s" (Printexc.to_string err));
+  | ResourceError (_t, ResourceCheck, err) ->
+    Some (Printf.sprintf "Resource check error: %s" (Printexc.to_string err))
   | _ -> None)
 
 
@@ -728,15 +747,21 @@ let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.
 (** <private> *)
 let debug_print_computation_stack = false
 
-(** [handle_resource_errors loc exn] attempts to add [loc] information to [exn]. *)
-let handle_resource_errors (loc: location) (exn: exn) =
-  match exn with
-  | e when !Flags.resource_errors_as_warnings ->
-    Printf.eprintf "%s: Resource computation warning: %s\n" (loc_to_string loc) (Printexc.to_string e);
-    None, None
-  | ResourceError (None, place, err) -> Printexc.(raise_with_backtrace (ResourceError (loc, place, err)) (get_raw_backtrace ()))
-  | ResourceError (Some _, _, _) as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
-  | e -> Printexc.(raise_with_backtrace (ResourceError (loc, ResourceComputation, e)) (get_raw_backtrace ()))
+(** [handle_resource_errors t phase exn] hooks [exn] as error on the term [t],
+    and save the fact that an exception [exn] was triggered. *)
+let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
+  let flag_stop_on_first_error = true in (* LATER: bind in Flags *)
+  (* Save the error in the term where it occurred *)
+  let error_str = sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string exn) in
+  t.errors <- error_str :: t.errors;
+  (*Printf.eprintf "ADDERROR %s\n  %s\n" error_str (AstC_to_c.ast_to_string t);*)
+  (* Accumulate the error *)
+  global_errors := (phase, exn) :: !global_errors;
+  (* Interrupt if stop on first error *)
+  if flag_stop_on_first_error then raise StoppedOnFirstError;
+  (* Return empty resources maps as best effort to continue *)
+  None, None
+
 
 let empty_usage_map = Hyp_map.empty
 
@@ -1019,7 +1044,9 @@ let rec compute_resources
       compute_resources (Some res) t
 
     | _ -> trm_fail t ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
-    end with e -> handle_resource_errors t.loc e
+    end with
+    | StoppedOnFirstError as e -> raise e
+    | e -> handle_resource_errors t ResourceComputation e
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
@@ -1033,10 +1060,9 @@ let rec compute_resources
         (* TODO: check names *)
         let used_res = assert_resource_impl res expected_res in
         t.ctx.ctx_resources_post_inst <- Some used_res
-      with e when !Flags.resource_errors_as_warnings ->
-        Printf.eprintf "%s: Resource check warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
-      | ResourceError _ as e -> raise e
-      | e -> raise (ResourceError (t.loc, ResourceCheck, e))
+      with
+      | StoppedOnFirstError as e -> raise e
+      | e -> ignore (handle_resource_errors t ResourceCheck e)
       end;
       Some expected_res
     | _, None -> res
@@ -1049,11 +1075,10 @@ and compute_resources_and_merge_usage
   ?(expected_res: resource_set option) (res: resource_set option)
   (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_set option =
   let extra_usage, res = (compute_resources : ?expected_res:resource_set -> resource_set option -> trm -> (resource_usage_map option * resource_set option)) ?expected_res res t in
-  try
-    let open Xoption.OptionMonad in
-    let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
-    (usage_map, res)
-  with e -> handle_resource_errors t.loc e
+  let open Xoption.OptionMonad in
+  let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
+  (usage_map, res)
+
 
 let rec trm_deep_copy (t: trm) : trm =
   let t = trm_map_with_terminal ~share_if_no_change:false false (fun _ ti -> trm_deep_copy ti) t in
@@ -1062,11 +1087,38 @@ let rec trm_deep_copy (t: trm) : trm =
 
 (** [trm_recompute_resources init_ctx t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.
+  If [!Flags.resource_errors_as_warnings] is set, then returns a fresh term,
+  and a boolean indicating whether typing was successful.
+  Otherwise, returns a fresh term and the boolean value true in case of success,
+  or raises an exception in case of failure.
+
   Hypothesis: needs var_ids to be calculated. *)
-let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
+let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm * bool =
   (* TODO: should we avoid deep copy by maintaining invariant that there is no sharing?
      makes sense with unique var ids and trm_copy mechanisms.
      Otherwise avoid mutable asts. Could also have unique node ids and maps from ids to metadata. *)
+  (* Make a copy of [t] *)
   let t = trm_deep_copy t in
-  ignore (compute_resources (Some init_ctx) t);
-  t
+  (* Typecheck the copy of [t] and update it in place.
+     Type errors are saved in a global list, and errors
+     are also saved as annotations in the "errors" fields
+     in the nodes inside the copy of [t]. *)
+  global_errors := [];
+  begin try
+    ignore (compute_resources (Some init_ctx) t);
+  with StoppedOnFirstError -> () end;
+  (* Test for errors, before returning the updated copy of [t] *)
+  match !global_errors with
+  | [] -> t, true
+  | ((phase, exn) :: other_errors) as errors ->
+      if !Flags.resource_errors_as_warnings then begin
+        (* Print all errors *)
+        List.iter (fun (phasei,errori) ->
+          Printf.eprintf "Typing error as warning (%s): %s\n" (resource_error_phase_to_string phasei) (Printexc.to_string errori)) errors;
+        t, false
+      end else begin
+        (* Else raise *)
+        raise (ResourceError (t, phase, exn))
+      end
+
+

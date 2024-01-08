@@ -27,28 +27,28 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
     end
   | _ -> false
 
-(* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
+(* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ?errors ~desc ()]: builds trm [t] with its fields given as arguments. *)
 let trm_build ~(annot : trm_annot) ?(loc : location) ~(is_statement : bool) ?(typ : typ option)
-  ?(ctx : ctx = unknown_ctx ()) ~(desc : trm_desc) () : trm =
-  let t = {annot; loc; is_statement; typ; desc; ctx} in
+  ?(ctx : ctx = unknown_ctx ()) ?(errors : string list = []) ~(desc : trm_desc) () : trm =
+  let t = {annot; loc; is_statement; typ; desc; ctx; errors} in
   Stats.incr_trm_alloc ();
   t
 
-(* [trm_make ~annot ?loc ~is_statement ?typ ?ctx desc]: builds trm [t] with description [desc] and other fields given
+(* [trm_make ~annot ?loc ~is_statement ?typ ?ctx ?errors desc]: builds trm [t] with description [desc] and other fields given
     as default ones. *)
 let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location) ?(is_statement : bool option)
-    ?(typ : typ option) ?(ctx : ctx option) (desc : trm_desc) : trm =
+    ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) (desc : trm_desc) : trm =
    let is_statement =
      match is_statement with
      | Some b -> b
      | None -> is_statement_of_desc typ desc
      in
-   trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ()
+   trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ?errors ()
 
 
 (* [trm_alter ~annot ?loc ?is_statement ?typ ?ctx ?desc t]: alters any of the fields of [t] that was provided as argument. *)
 let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statement : bool option)
- ?(typ : typ option) ?(ctx : ctx option) ?(desc : trm_desc option) (t : trm) : trm =
+ ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) ?(desc : trm_desc option) (t : trm) : trm =
     let annot = match annot with Some x -> x | None -> t.annot in
     let loc = match loc with Some x -> x | None -> t.loc in
     let typ = match typ with | None -> t.typ | _ -> typ in
@@ -59,8 +59,9 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statemen
                 | None -> t.is_statement
       in
     let ctx = Option.value ~default:t.ctx ctx in
+    let errors = Option.value ~default:t.errors errors in
     let desc = match desc with | Some x -> x | None -> t.desc in
-    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ()
+    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ~errors ()
 
 (* [trm_replace desc t]: an alias of [trm_alter] to alter only the descriptiong of [t]. *)
 let trm_replace (desc : trm_desc) (t : trm) : trm =
@@ -68,7 +69,7 @@ let trm_replace (desc : trm_desc) (t : trm) : trm =
 
 (* [trm_like]: copies the annotations, location and type of the old trm into a new trm *)
 let trm_like ~(old:trm) (t:trm): trm =
-  trm_alter ~annot:old.annot ~loc:old.loc ?typ:old.typ t
+  trm_alter ~annot:old.annot ~loc:old.loc ~errors:old.errors ?typ:old.typ t
 
 (* **************************** CStyle *************************** *)
 
@@ -1752,6 +1753,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   let loc = t.loc in
   let typ = t.typ in
   let ctx = if keep_ctx then t.ctx else unknown_ctx () in
+  let errors = t.errors in
 
   let fun_spec_map f tf old_spec =
     match old_spec with
@@ -1807,7 +1809,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       else { loop_ghosts; invariant; iter_contract }
   in
 
-  match t.desc with
+  let t' = match t.desc with
   | Trm_val _ | Trm_var _ -> t
   | Trm_array tl ->
     let tl' = mlist_map (f false) (==) tl in
@@ -1953,7 +1955,9 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       else trm_template ~annot ?loc ~ctx typ_params templated'
   | _ ->
     trm_combinators_unsupported_case "trm_map_with_terminal"  t
-
+  in
+  t'.errors <- errors;(* LATER: errors is not treated like other arguments *)
+  t'
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =

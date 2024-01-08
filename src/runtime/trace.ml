@@ -347,6 +347,21 @@ let check_the_trace ~(final:bool) : unit =
 (*                                   Output                                   *)
 (******************************************************************************)
 
+(* LATER: document and factorize *)
+
+let style_normal_code () =
+  Style.default_custom_style ()
+
+let style_resources () = (*TODO factorize with Show.res *)
+  let cstyle_default = AstC_to_c.(default_style()) in
+  let aststyle_default = Ast.default_style () in
+  let aststyle = { aststyle_default with print_generated_ids = true } in
+  Style.({ decode = false;
+    typing = Style.typing_all;
+    print = Lang_C { cstyle_default with
+      ast = aststyle;
+      optitrust_syntax = true; } })
+
 (** [cleanup_cpp_file_using_clang_format filename]: makes a system call to
    reformat a CPP file using the clang format tool.
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
@@ -465,10 +480,6 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
     then the_trace.cur_ast <- tnew
 
 
-let recompute_resources_on_ast () : unit =
-  let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
-  let t = Resource_computation.trm_recompute_resources Resource_set.empty t in
-  the_trace.cur_ast <- t
 
 (******************************************************************************)
 (*                               Step management                              *)
@@ -747,12 +758,18 @@ and close_step ?(discard = false) ?(check:step_tree option) () : unit =
       if check_trace_at_every_step
         then check_the_trace ~final:false
 
-(** [step] is a function wrapping the body of a transformation *)
-and step ?(valid:bool=false) ?(line : int = -1) ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
+(** [step_and_get_handle] is a function wrapping the body of a transformation,
+    like [step] but also returns the object describing the step *)
+and step_and_get_handle ?(valid:bool=false) ?(line : int = -1) ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a * step_tree =
   let s = open_step ~valid ~line ~tags ~kind ~name () in
   let r = body () in
   assert (get_cur_step () == s);
   close_step ~check:s ();
+  r, s
+
+(** [step] is a function wrapping the body of a transformation *)
+and step ?(valid:bool option) ?(line : int option) ?(tags:string list option) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
+  let r, _s = step_and_get_handle ?valid ?line ?tags ~kind ~name body in
   r
 
 (** [parsing_step f] adds a step accounting for a parsing operation *)
@@ -818,7 +835,10 @@ and error_step (exn : exn): unit =
     | _ ->
       preprend_to_step_name (Printexc.to_string exn)
   in
-  step ~valid:false ~kind:Step_error ~name:"" (fun () -> process exn)
+  let (), s =
+    step_and_get_handle ~valid:false ~kind:Step_error ~name:"" (fun () -> process exn) in
+  s.step_style_before <- style_normal_code();
+  s.step_style_after <- style_resources()
 
 (** [typing_step f] adds a step accounting for a typing recomputation *)
 and typing_step ~name (f : unit -> unit) : unit =
@@ -833,6 +853,20 @@ and reparse ?(update_cur_ast = true) ?(info : string option) ?(parser: parser op
 
 and recompute_resources (): unit =
   typing_step ~name:"Resource recomputation" recompute_resources_on_ast
+
+and recompute_resources_on_ast () : unit =
+  let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
+  (* Compute a typed AST *)
+  try
+    let t, success = Resource_computation.trm_recompute_resources Resource_set.empty t in
+    if not success then begin
+      let (), s = step_and_get_handle ~valid:true ~kind:Step_error ~name:"Typing error" (fun () -> the_trace.cur_ast <- t) in
+      s.step_style_before <- style_normal_code();
+      s.step_style_after <- style_resources();
+    end;
+  with (Resource_computation.ResourceError (t_with_error, _phase, _exn)) as e ->
+    the_trace.cur_ast <- t_with_error;
+    raise e
 
 (** [retypecheck] is currently implemented as [reparse], but in the future it
    would use a dedicated typechecker. *)
@@ -1535,7 +1569,7 @@ let open_smallstep ~(line : int) ?reparse:(need_reparse:bool=false) () : unit =
    to easily identify it as such. *)
 let show_step ?(name:string="show") ~(ast_left:trm) ~(style_left:output_style) ~(ast_right:trm) ~(style_right:output_style) () =
   step_backtrack ~tags:["show"] (fun () ->
-    (* Create the show step *)
+    (* Create the show step *) (* LATER: use a "step_and_get_handle" function *)
     let s = open_step ~kind:Step_show ~name () in
     close_step ~check:s ();
     (* Customize the ast before and after, and their styles *)

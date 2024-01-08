@@ -620,6 +620,8 @@ and trm =
    is_statement : bool;
    typ : typ option;
    mutable ctx : ctx;
+   mutable errors : string list;
+   (* LATER: mutable typing_aux should be the only mutable flag *)
 }
 
 (* [trms]: a list of trms *)
@@ -1441,6 +1443,7 @@ type style = {
   print_string_repr: bool; (* print string representation for expressions *)
   print_mark: bool; (* print marks *)
   print_annot: bool; (* print annotations *)
+  print_errors: bool; (* print errors *)
   (* LATER: node_id: bool; print internal AST node identifier *)
 }
 
@@ -1453,6 +1456,7 @@ let default_style () : style = {
   print_string_repr = !Flags.debug_stringreprs;
   print_mark = true;
   print_annot = false; (* LATER: add support for this *)
+  print_errors = true;
 }
 
 (** Style for reparsing *)
@@ -1462,4 +1466,5 @@ let style_for_reparse () : style =
     print_generated_ids = false;
     print_string_repr = false;
     print_mark = false;
-    print_annot = false; }
+    print_annot = false;
+    print_errors = false; }

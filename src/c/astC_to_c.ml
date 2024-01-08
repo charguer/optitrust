@@ -368,23 +368,36 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
 
   if style.ast.print_annot then failwith "NOT YET IMPLEMENTED: ASTC_TO_C printing of annotations";
 
-  if t_marks = [] && not style.ast.print_string_repr then
+  let dt =
+    if t_marks = [] || not style.ast.print_string_repr then
+      dt
+    else begin
+      let sid =
+        if not style.ast.print_string_repr then "" else begin
+        match Trm.trm_get_stringreprid t with
+        | None -> "[-]"
+        | Some id -> Printf.sprintf "[%d]" id
+        end in
+      let smarks =
+        if style.ast.print_mark
+          then list_to_string ~sep:", " ~bounds:["";""] t_marks
+          else "" in
+
+      let sleft = string ("/*@" ^ sid ^ smarks ^ "*/") in
+      let sright =  string ("/*" ^ sid ^ smarks ^ "@*/") in
+      sleft ^^ dt ^^ sright
+    end
+    in
+  printf "ERRORS L=%d\n" (List.length t.errors);
+  if t.errors = [] || not style.ast.print_errors then
     dt
-  else begin
-    let sid =
-      if not style.ast.print_string_repr then "" else begin
-      match Trm.trm_get_stringreprid t with
-      | None -> "[-]"
-      | Some id -> Printf.sprintf "[%d]" id
-      end in
-    let smarks =
-      if style.ast.print_mark
-        then list_to_string ~sep:", " ~bounds:["";""] t_marks
-        else "" in
-    let sleft = string ("/*@" ^ sid ^ smarks ^ "*/") in
-    let sright =  string ("/*" ^ sid ^ smarks ^ "@*/") in
-    sleft ^^ dt ^^ sright
-  end
+  else
+    list_to_doc ~sep:hardline
+      ~bounds:[(string "/*" ^^ hardline);
+                (hardline ^^ string "*/" ^^ hardline )]
+      (List.map (fun error -> string (sprintf "ERROR: %s" error)) t.errors)
+    ^^ dt
+
 
 (* [trm_var_to_doc style v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
 and trm_var_to_doc style (x : var) (t : trm) : document =

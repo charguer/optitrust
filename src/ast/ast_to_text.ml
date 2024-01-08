@@ -24,6 +24,8 @@ let default_style () = {
   ast = Ast.default_style();
   only_desc = false; }
 
+(* Note: print_errors is ignored, they are always printed *)
+
 (*----------------------------------------------------------------------------------*)
 
 (* [print_typ_desc only_desc t]: converts type descriptions to pprint document *)
@@ -447,6 +449,8 @@ and print_trm_annot style (t : trm) : document =
   let t_marks = trm_get_marks t in
   let dmarks = print_list (List.map string t_marks) in
 
+  let derrors = print_list (List.map string t.errors) in
+
   let t_labels = trm_get_labels t in
   let dlabels = print_list (List.map string t_labels) in
 
@@ -462,6 +466,7 @@ and print_trm_annot style (t : trm) : document =
   let dfiles_str = List.map print_files_annot files_annot in
   let dfiles = print_list dfiles_str in
   braces (separate (blank 1) [
+    string "trm_errors"; equals; derrors ^^ semi ^//^
     string "trm_annot_attributes"; equals; dattr ^^ semi ^//^
     string "trm_annot_marks"; equals; dmarks ^^ semi ^//^
     string "trm_annot_labels"; equals; dlabels ^^ semi ^//^
@@ -503,6 +508,7 @@ and print_trm style (t : trm) : document =
               opt_str "a" t.ctx.ctx_resources_after;
               opt_str "p" t.ctx.ctx_resources_post_inst] in
 
+      let derrors = print_list (List.map string t.errors) in
       braces (separate (blank 1)
         [string "annot"; equals; dannot ^^ semi ^//^
          string "loc"; equals; dloc ^^ semi ^//^
@@ -510,6 +516,7 @@ and print_trm style (t : trm) : document =
          (*LATER: string "add"; equals;*)
          string "typ"; equals; dtyp ^//^
          string "ctx"; equals; string dctx ^^ semi ^//^
+         string "errors"; equals; derrors ^^ semi ^//^
          string "desc"; equals; ddesc ])
 
 (* [print_files_annot ann]: prints as string files annotation [ann] *)
