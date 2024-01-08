@@ -43,6 +43,11 @@ and print_language =
   (* Redundand constructors, to avoid need for parentheses,
      e.g. ~style:XC  instead of ~style:(c()) *)
 
+let ast_style_of_custom_style (style : custom_style) : Ast.style =
+  match style.print with
+  | Lang_AST s -> s.ast
+  | Lang_C s -> s.ast
+
 (** Typing styles *)
 
 let typing_all : typing_style = {
@@ -63,6 +68,9 @@ let typing_none : typing_style = {
 
 let typing_ctx : typing_style =
   { typing_none with typing_ctx_res = true; }
+
+let typing_delta : typing_style =
+  { typing_all with typing_framed_res = false; }
 
 (** [is_typing_none typing_style] returns a boolean value indicating
     whether the [typing_style] provided as argument is the same as

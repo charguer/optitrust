@@ -353,6 +353,7 @@ let ast_to_json (trm_root : trm) : json =
                           | None -> strquote "<no type information>"
                           | Some typ -> typ_to_json typ )));
       (strquote "is_statement", Json.Bool t.is_statement);
+      (strquote "errors", Json.List (List.map Json.str t.errors));
       (* (strquote "annot", strquote (annot_list_to_string t) ); *) (* Fix me! *)
       (strquote "loc", loc_to_json t);
       ]) in

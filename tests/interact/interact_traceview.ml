@@ -25,9 +25,11 @@ let _ = Run.script_cpp (fun _ ->
   !! Label.add "lab5" [cVarDef "a"];
   (* Examples of show functions with output in browser *)
   !! Show.ast ();
+  !! Show.ast ~internal:false ();
   !! Resources.ensure_computed ();
   !! Show.res ();
   !! Show.ctx ();
+  !! Show.delta ();
   !! Show.target [cVarDef ""];
   (* Example with two show operations within the same small-step;
     the diff would show empty, but we get a warning.

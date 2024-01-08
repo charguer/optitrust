@@ -121,6 +121,19 @@ let trm_string f k t =
   | Some (Lit_string str) -> f k str
   | _ -> raise Next
 
+let trm_binop binop ft1 ft2 k t =
+  match trm_binop_inv binop t with
+  | Some (t1, t2) ->
+    let k = ft1 k t1 in
+    let k = ft2 k t2 in
+    k
+  | None -> raise Next
+
+let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
+let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2
+let trm_mul ft1 ft2 = trm_binop Binop_mul ft1 ft2
+let trm_div ft1 ft2 = trm_binop Binop_div ft1 ft2
+
 let mlist f k t = f k (Mlist.to_list t)
 
 let pair f1 f2 k (x1, x2) =

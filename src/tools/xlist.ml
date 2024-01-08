@@ -195,13 +195,22 @@ let extract_element (l : 'a list) (index : int) : ('a * 'a list) =
   let l, l1 = extract l index 1 in
   (List.nth l 0), l1
 
-(* [drop n l]: drops the first [n] elements from [l]. *)
+(** [drop_one_or_else f l] drops the first element from [l].
+    If [l] is empty, returns [f ()] instead.
+    *)
+let drop_one_or_else (f : unit -> 'a list) (l : 'a list) : 'a list =
+  match l with
+  | [] -> f ()
+  | _::l' -> l'
+
+(** [drop n l]: drops the first [n] elements from [l].
+
+  Fails if there are not enough elements to drop.
+    *)
 let rec drop (n : int) (l: 'a list) : 'a list =
   if n < 0 then failwith "drop: invalid negative argument"; (* could be outside of recursion *)
   if n = 0 then l else
-    match l with
-    | [] -> failwith "drop: not enough many elements to drop"
-    | _::l' -> drop (n - 1) l'
+    drop (n - 1) (drop_one_or_else (fun () -> failwith "drop: not enough elements to drop") l)
 
 (* [take n l]: take the first [n] elements from [l]. *)
 let rec take (n : int) (l: 'a list) : 'a list =
@@ -224,3 +233,20 @@ let take_last (n : int) (l : 'a list) : 'a list =
 (* [diff l1 l2]: takes the difference between lists [l1] and [l2].
    *)
 let diff l1 l2 = List.filter (fun x -> not (List.mem x l2)) l1
+
+(** [reduce_left f l] is equivalent to [List.fold_left f (hd l) (tl l)]
+
+  Fails if [l] is empty.
+  *)
+let reduce_left f l =
+  match l with
+  | [] -> failwith "reduce_left: empty list"
+  | hd :: tl -> List.fold_left f hd tl
+
+(** [reduce_right f l] is equivalent to [List.fold_right f (unlast l) (last l)]
+
+  Fails if [l] is empty.
+  *)
+let reduce_right f l =
+  let firsts, last = unlast l in
+  List.fold_right f firsts last

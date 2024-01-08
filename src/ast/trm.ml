@@ -27,28 +27,28 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
     end
   | _ -> false
 
-(* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
+(* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ?errors ~desc ()]: builds trm [t] with its fields given as arguments. *)
 let trm_build ~(annot : trm_annot) ?(loc : location) ~(is_statement : bool) ?(typ : typ option)
-  ?(ctx : ctx = unknown_ctx ()) ~(desc : trm_desc) () : trm =
-  let t = {annot; loc; is_statement; typ; desc; ctx} in
+  ?(ctx : ctx = unknown_ctx ()) ?(errors : string list = []) ~(desc : trm_desc) () : trm =
+  let t = {annot; loc; is_statement; typ; desc; ctx; errors} in
   Stats.incr_trm_alloc ();
   t
 
-(* [trm_make ~annot ?loc ~is_statement ?typ ?ctx desc]: builds trm [t] with description [desc] and other fields given
+(* [trm_make ~annot ?loc ~is_statement ?typ ?ctx ?errors desc]: builds trm [t] with description [desc] and other fields given
     as default ones. *)
 let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location) ?(is_statement : bool option)
-    ?(typ : typ option) ?(ctx : ctx option) (desc : trm_desc) : trm =
+    ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) (desc : trm_desc) : trm =
    let is_statement =
      match is_statement with
      | Some b -> b
      | None -> is_statement_of_desc typ desc
      in
-   trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ()
+   trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ?errors ()
 
 
 (* [trm_alter ~annot ?loc ?is_statement ?typ ?ctx ?desc t]: alters any of the fields of [t] that was provided as argument. *)
 let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statement : bool option)
- ?(typ : typ option) ?(ctx : ctx option) ?(desc : trm_desc option) (t : trm) : trm =
+ ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) ?(desc : trm_desc option) (t : trm) : trm =
     let annot = match annot with Some x -> x | None -> t.annot in
     let loc = match loc with Some x -> x | None -> t.loc in
     let typ = match typ with | None -> t.typ | _ -> typ in
@@ -59,8 +59,9 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statemen
                 | None -> t.is_statement
       in
     let ctx = Option.value ~default:t.ctx ctx in
+    let errors = Option.value ~default:t.errors errors in
     let desc = match desc with | Some x -> x | None -> t.desc in
-    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ()
+    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ~errors ()
 
 (* [trm_replace desc t]: an alias of [trm_alter] to alter only the descriptiong of [t]. *)
 let trm_replace (desc : trm_desc) (t : trm) : trm =
@@ -68,7 +69,7 @@ let trm_replace (desc : trm_desc) (t : trm) : trm =
 
 (* [trm_like]: copies the annotations, location and type of the old trm into a new trm *)
 let trm_like ~(old:trm) (t:trm): trm =
-  trm_alter ~annot:old.annot ~loc:old.loc ?typ:old.typ t
+  trm_alter ~annot:old.annot ~loc:old.loc ~errors:old.errors ?typ:old.typ t
 
 (* **************************** CStyle *************************** *)
 
@@ -974,21 +975,13 @@ let get_lit_from_trm_lit (t : trm) : lit =
     | Trm_apps (_, [arg], _) when is_new_operation t -> arg
     | _ -> t
 
-
-  (* [new_operation_inv t]: returns the type and the argument of the new operation [t]. *)
-  let new_operation_inv (t : trm) : (typ * trm) option =
-    match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_new ty))}, [arg], _) -> Some (ty, arg)
-    | _ -> None
-
-
   (* [trm_let_mut ~annot ?ctx typed_var init]: an extension of trm_let for
       creating mutable variable declarations *)
   let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
     (typed_var : typed_var) (init : trm): trm =
     let var_name, var_type = typed_var in
     let var_type_ptr = typ_ptr_generated var_type in
-    let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init]) in
+    let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new (var_type, []))) [init]) in
     trm_add_cstyle Stackvar t_let
 
   (* [trm_let_ref ~annot ?ctx typed_var init]: an extension of trm_let for creating references *)
@@ -1012,7 +1005,7 @@ let get_lit_from_trm_lit (t : trm) : lit =
     (typed_var : typed_var) (sz : size)(init : trm): trm =
     let var_name, var_type = typed_var in
     let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
-    let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
+    let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new (var_type, []))) [init]  in
     let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
     if kind = Var_mutable then trm_add_cstyle Stackvar res else res
 
@@ -1235,11 +1228,11 @@ let rec aux (t : trm) : loop_range list =
 let loop_range_list = aux t in
 if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
 
-let trm_new_inv (t : trm) : (typ * trm) option =
+let trm_new_inv (t : trm) : (typ * trm list * trm) option =
 match trm_apps_inv t with
 | Some (f, [v]) ->
   begin match trm_prim_inv f with
-  | Some (Prim_new ty) -> Some (ty, v)
+  | Some (Prim_new (ty, dims_opt)) -> Some (ty, dims_opt, v)
   | _ -> None
   end
 | _ -> None
@@ -1252,7 +1245,7 @@ match t.desc with
 
 let is_trm_new_uninitialized (t : trm) : bool =
 match trm_new_inv t with
-| Some (_, v) -> is_trm_uninitialized v
+| Some (_, _, v) -> is_trm_uninitialized v
 | None -> false
 
 
@@ -1375,8 +1368,8 @@ match trm_new_inv t with
     if const then trm_var ?typ ~kind:Var_immutable x else trm_var_get ?typ x
 
   (* [trm_new ty t]: generates "new ty" *)
-  let trm_new (ty : typ) (t : trm) : trm =
-    trm_apps (trm_prim (Prim_new ty)) [t]
+  let trm_new (ty : typ) ?(dims : trm list = []) (t : trm) : trm =
+    trm_apps (trm_prim (Prim_new (ty, dims))) [t]
 
 let var_any_bool = new_var "ANY_BOOL"
 
@@ -1752,6 +1745,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   let loc = t.loc in
   let typ = t.typ in
   let ctx = if keep_ctx then t.ctx else unknown_ctx () in
+  let errors = t.errors in
 
   let fun_spec_map f tf old_spec =
     match old_spec with
@@ -1807,7 +1801,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       else { loop_ghosts; invariant; iter_contract }
   in
 
-  match t.desc with
+  let t' = match t.desc with
   | Trm_val _ | Trm_var _ -> t
   | Trm_array tl ->
     let tl' = mlist_map (f false) (==) tl in
@@ -1953,7 +1947,9 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       else trm_template ~annot ?loc ~ctx typ_params templated'
   | _ ->
     trm_combinators_unsupported_case "trm_map_with_terminal"  t
-
+  in
+  t'.errors <- errors;(* LATER: errors is not treated like other arguments *)
+  t'
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =
@@ -2048,6 +2044,7 @@ let trm_map_vars
   (ctx: 'ctx) (t: trm): trm =
   let rec f_map (ctx:'ctx) (t:trm): 'ctx * trm =
     let annot = t.annot in
+    let errors = t.errors in
     let loc = t.loc in
     let typ = t.typ in
     let t_ctx = if keep_ctx then t.ctx else unknown_ctx () in
@@ -2250,6 +2247,7 @@ let trm_map_vars
       (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
 
     in
+    trm.errors <- errors;
     post_process ctx trm
 
   and resource_items_map ctx resources: 'ctx * resource_item list =
@@ -2395,74 +2393,104 @@ type eval = trm option
    If a variable is in the map, then it is an evar, and should be substituted/unified (i.e. its eval should eventually become Some). *)
 type unification_ctx = eval varmap
 
-let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_ctx option =
-  let open Xoption.OptionMonad in
-  match Var_map.find_opt xe evar_ctx with
-  | None ->
-    (* [xe] cannot be substituted, it must be equal to [t]. *)
-    let* x = trm_var_inv t in
-    if x = xe then Some evar_ctx else None
-  | Some None ->
-    (* [xe] can be substituted, do it. *)
-    Some (Var_map.add xe (Some t) evar_ctx)
-  | Some (Some t_evar) ->
-    (* [xe] was already substituted, its substitution must be equal to [t]. *)
-    if are_same_trm t t_evar then Some evar_ctx else None
+(** [unfold_if_resolved_evar t evar_ctx] tries to unfold resolved evars inside [evar_ctx] occuring
+    at the top of [t] (but not in depth).
+    Since we can do it almost for free, it also performs simplifications in the [evar_ctx]
+    when resolved evars are pointing to other resolved evars.
 
-and are_same_trm (t1: trm) (t2: trm): bool =
-  (* they are the same if they can be unified without allowing substitutions. *)
-  Option.is_some (unify_trm t1 t2 Var_map.empty)
+    It returns the possibly unfolded [trm], along with a possibly simplified [evar_ctx].
 
-and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx option =
+    On application nodes, this function tries to unfold the function and performs immediate
+    beta reduction if possible. *)
+let rec unfold_if_resolved_evar (t: trm) (evar_ctx: unification_ctx): trm * unification_ctx =
+  match t.desc with
+  | Trm_var (_, x) ->
+    begin match Var_map.find_opt x evar_ctx with
+    | Some (Some t) ->
+      let t, evar_ctx = unfold_if_resolved_evar t evar_ctx in
+      (* Path compression in case of cascading evars *)
+      t, Var_map.add x (Some t) evar_ctx
+    | _ -> t, evar_ctx
+    end
+  (* Immediate beta redex replacement *)
+  | Trm_apps (apps_fn, args, ghost_args) ->
+    let fn, evar_ctx = unfold_if_resolved_evar apps_fn evar_ctx in
+    if fn == apps_fn then t, evar_ctx else
+    begin match trm_fun_inv fn with
+    | Some (params, ret, body, spec) ->
+      let t = trm_subst (List.fold_left2 (fun subst_ctx arge (param, _) -> Var_map.add param arge subst_ctx) Var_map.empty args params) body in
+      t, evar_ctx
+    | None -> t, evar_ctx
+    end
+  | _ -> t, evar_ctx
+
+(** [unify_trm t1 t2 evar_ctx] tries to unify [t1] with [t2], possibly instantiating and substituting evars
+    that occur in [evar_ctx].
+    If the unification succeeds, returns an updated unification context, with the newly resolved evars.
+    If it fails, returns None. *)
+let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : unification_ctx option =
   let open Xoption.OptionMonad in
   (* Pattern match on one component to get a warning if there is a missing one *)
   let check cond = if cond then Some evar_ctx else None in
-  match te.desc with
-  | Trm_var (_, xe) ->
-    unify_var xe t evar_ctx
-  | Trm_val ve ->
-    let* v = trm_val_inv t in
-    check (ve = v)
-  | Trm_apps (fe, argse, ghost_args) ->
-    let handle_trm_apps () =
-      let* f, args = trm_apps_inv t in
+  (* Unfold first to avoid problems on f(?x, ?y) = f(?y, ?y) *)
+  let t_left, evar_ctx = unfold_if_resolved_evar t_left evar_ctx in
+  let t_right, evar_ctx = unfold_if_resolved_evar t_right evar_ctx in
+  match trm_var_inv t_left, trm_var_inv t_right with
+  | Some x_left, Some x_right when var_eq x_left x_right ->
+    Some evar_ctx
+  | Some x_left, _ when Var_map.mem x_left evar_ctx ->
+    assert (Var_map.find x_left evar_ctx = None);
+    Some (Var_map.add x_left (Some t_right) evar_ctx)
+  | _, Some x_right when Var_map.mem x_right evar_ctx ->
+    assert (Var_map.find x_right evar_ctx = None);
+    Some (Var_map.add x_right (Some t_left) evar_ctx)
+  | _ ->
+    match t_right.desc with
+    | Trm_var _ ->
+      (* t_right is a variable but it is not the same as t_left, and none is an unresolved evar *)
+      None
+
+    | Trm_val ve ->
+      let* v = trm_val_inv t_left in
+      check (ve = v)
+
+    | Trm_apps (fe, argse, ghost_args) ->
+      let* f, args = trm_apps_inv t_left in
       let* evar_ctx = unify_trm f fe evar_ctx in
       begin try
         List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
       with Invalid_argument _ -> None end
-    in
 
-    (* Immediate beta redex replacement *)
-    begin match trm_var_inv fe with
-    | Some xe ->
-      begin match Var_map.find_opt xe evar_ctx with
-      | Some (Some { desc = Trm_fun (params, ret, body, spec) }) ->
-        unify_trm t (trm_subst (List.fold_left2 (fun subst_ctx arge (param, _) -> Var_map.add param arge subst_ctx) Var_map.empty argse params) body) evar_ctx
-      | _ -> handle_trm_apps ()
-      end
-    | _ -> handle_trm_apps ()
-    end
+    | Trm_fun (argse, _, bodye, _) ->
+      let* args, _, body, _ = trm_fun_inv t_left in
+      (* Remember the masked context in case of shadowing, this is needed in case of recursive
+         or higher order functions with evars. *)
+      let* evar_ctx, masked_ctx =
+        try
+          Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
+              if var_eq arge arg then
+                (* This case is required to handle comparison of a trm with itself *)
+                (evar_ctx, masked)
+              else
+                let masked_entry = Var_map.find_opt arge evar_ctx in
+                let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
+                (evar_ctx, (arge, masked_entry) :: masked)
+            ) (evar_ctx, []) argse args)
+        with Invalid_argument _ -> None
+      in
+      let* evar_ctx = unify_trm body bodye evar_ctx in
+      Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
+          match masked_entry with
+          | Some entry -> Var_map.add arge entry evar_ctx
+          | None -> Var_map.remove arge evar_ctx
+        ) evar_ctx masked_ctx)
 
-  | Trm_fun (argse, _, bodye, _) ->
-    let* args, _, body, _ = trm_fun_inv t in
-    let* evar_ctx, masked_ctx =
-      try
-        Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
-            let masked_entry = Var_map.find_opt arge evar_ctx in
-            let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
-            (evar_ctx, (arge, masked_entry) :: masked)
-          ) (evar_ctx, []) argse args)
-      with Invalid_argument _ -> None
-    in
-    let* evar_ctx = unify_trm body bodye evar_ctx in
-    Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
-        match masked_entry with
-        | Some entry -> Var_map.add arge entry evar_ctx
-        | None -> Var_map.remove arge evar_ctx
-      ) evar_ctx masked_ctx)
+    | _ -> failwith (sprintf "unify_trm: unhandled constructor") (* TODO: Implement the rest of constructors *)
 
-  | _ -> failwith (sprintf "unify_trm: unhandled constructor") (* TODO: Implement the rest of constructors *)
-
+(** [are_same_trm t1 t2] checks that [t1] and [t2] are alpha-equivalent (same modulo name of the binders). *)
+let are_same_trm (t1: trm) (t2: trm): bool =
+  (* they are the same if they can be unified without allowing substitutions. *)
+  Option.is_some (unify_trm t1 t2 Var_map.empty)
 
 (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =

@@ -3,49 +3,13 @@ pre {
   margin: 0;
 }
 
-/* Hide the filename since we're concerned with only one file name */
-.d2h-file-header {
-   display: none;
+body {
+  max-width: 200ex;
 }
 
-/* Hide the diff line number because we're showing full file comparisons */
-.d2h-info {
-   display: none;
-}
+/* Style for unit test divs */
 
-.title {
-   font-size: 300%;
-   font-weight: bold;
-   text-align: center;
-}
-
-h1 {
-   padding: 4px;
-   /*color: #0000CC;*/
-   background: #ADAFAF;
-}
-
-h2 {
-   padding: 4px;
-   /*color: #006600;*/
-   background: #00FFFF;
-   padding-left: 1em;
-}
-
-
-.name {
-   border: 1px solid black;
-   padding: 5px 5px 5px 10px;
-   background: #FFCFA0;
-   font-weight: bold;
-   font-size: 22px;
-}
-
-.spec {
-  margin-top: 0.5em;
-}
-
-.src {
+.code-unit-test {
    /* border: 1px solid black; */
    padding-bottom: 5px;
    padding-top: 5px;
@@ -55,17 +19,18 @@ h2 {
    font-weight: bold;
 }
 
-.src {
+.code-unit-test {
    /*border: 1px solid black;*/
    padding: 3px 5px 3px 5px;
    background: #FFFFA0;
    font-weight: bold;
 }
 
-.diff {
+.diff-unit-test {
    margin: 2px 0px 2px 0px;
 }
 
+/*
 .error {
    padding: 2em;
    background: red;
@@ -79,6 +44,20 @@ h2 {
    font-weight: bold;
    font-size: 1em;
 }
+*/
+
+
+/* Style for diff: Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+  display: none;
+}
+
+/* Style for diff: Hide the diff line number because we're showing full file comparisons */
+.d2h-info {
+  display: none;
+}
+
+/* Style for diff: customize diff display */
 
 .d2h-code-side-linenumber {
   display: none;

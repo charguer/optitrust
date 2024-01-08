@@ -6,12 +6,11 @@ perf
 interact
 tester.ml
 
-# NEW
-matrix/local_name_tile/matrix_local_name_tile_doc.ml
-matrix/local_name_tile/matrix_local_name_tile_basic_doc.ml
-matrix/local_name_tile/matrix_local_name_tile.ml
-  
+# ARTHUR
+target/target_between.ml
+
 # BROKEN RESOURCES
+matrix/local_name_tile/matrix_local_name_tile.ml
 stencil/fusion_targets/stencil_fusion_targets.ml
 resources/contracts/loop_parallelize_reads.ml
 matrix/delocalize_obj/matrix_delocalize_obj.ml
@@ -23,8 +22,7 @@ loop/moveout/loop_moveout.ml
 loop/move/loop_move_doc.ml
 loop/hoist_expr/loop_hoist_expr.ml
 loop/hoist/loop_hoist_basic.ml
-
-# TOO SLOW, FIX TYPING OF RESOURCES
+tests/matrix/stack_copy/matrix_stack_copy.ml
 loop/fission/loop_fission_basic.ml
 loop/fission/loop_fission.ml
 

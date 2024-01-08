@@ -36,7 +36,7 @@ type style = {
 (** Default style, depends on the global flags *)
 let default_style () : style =
   let s = Ast.default_style() in
-  { ast = { s with print_contract = false };
+  { ast = s;
     optitrust_syntax = !Flags.print_optitrust_syntax;
     pretty_matrix_notation = !Flags.pretty_matrix_notation;
     commented_pragma = !Flags.use_clang_format; }
@@ -316,7 +316,9 @@ and prim_to_doc style (p : prim) : document =
   | Prim_binop op -> binop_to_doc style op
   | Prim_compound_assgn_op op -> (binop_to_doc style op) ^^ equals
   | Prim_overloaded_op p -> prim_to_doc style p
-  | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
+  | Prim_new (t, dims) ->
+    let dims_doc = list_to_doc ~empty ~bounds:[lparen; rparen] (List.map (trm_to_doc style) dims) in
+    string "new" ^^ blank 1 ^^ typ_to_doc t ^^ dims_doc
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
 (* [val_to_doc style v]: converts values to pprint documents. *)
@@ -368,23 +370,36 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
 
   if style.ast.print_annot then failwith "NOT YET IMPLEMENTED: ASTC_TO_C printing of annotations";
 
-  if t_marks = [] && not style.ast.print_string_repr then
+  let dt =
+    if t_marks = [] && not style.ast.print_string_repr then
+      dt
+    else begin
+      let sid =
+        if not style.ast.print_string_repr then "" else begin
+        match Trm.trm_get_stringreprid t with
+        | None -> "[-]"
+        | Some id -> Printf.sprintf "[%d]" id
+        end in
+      let smarks =
+        if style.ast.print_mark
+          then list_to_string ~sep:", " ~bounds:["";""] t_marks
+          else "" in
+
+      let sleft = string ("/*@" ^ sid ^ smarks ^ "*/") in
+      let sright =  string ("/*" ^ sid ^ smarks ^ "@*/") in
+      sleft ^^ dt ^^ sright
+    end
+    in
+  (*printf "ERRORS L=%d\n" (List.length t.errors);*)
+  if t.errors = [] || not style.ast.print_errors then
     dt
-  else begin
-    let sid =
-      if not style.ast.print_string_repr then "" else begin
-      match Trm.trm_get_stringreprid t with
-      | None -> "[-]"
-      | Some id -> Printf.sprintf "[%d]" id
-      end in
-    let smarks =
-      if style.ast.print_mark
-        then list_to_string ~sep:", " ~bounds:["";""] t_marks
-        else "" in
-    let sleft = string ("/*@" ^ sid ^ smarks ^ "*/") in
-    let sright =  string ("/*" ^ sid ^ smarks ^ "@*/") in
-    sleft ^^ dt ^^ sright
-  end
+  else
+    list_to_doc ~sep:hardline
+      ~bounds:[(string "/*" ^^ hardline);
+                (hardline ^^ string "*/" ^^ hardline )]
+      (List.map (fun error -> string (sprintf "ERROR: %s" error)) t.errors)
+    ^^ dt
+
 
 (* [trm_var_to_doc style v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
 and trm_var_to_doc style (x : var) (t : trm) : document =
@@ -518,9 +533,9 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
     | Trm_for (l_range, body, loop_spec) ->
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
-      if not style.ast.print_contract
-        then dt
-        else string "Contract: " ^^ loop_spec_to_doc style loop_spec ^^ hardline ^^ dt
+      if style.ast.print_contract_internal_repr
+        then string "/*" ^^ string "Contract: " ^^ loop_spec_to_doc style loop_spec ^^ string "*/" ^^ hardline ^^ dt
+        else dt
     | Trm_switch (cond, cases) ->
       let dcond = decorate_trm style cond in
       let dcases =
@@ -930,7 +945,7 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
 and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
-      f_as_doc ^^ list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style) tl)
+      f_as_doc ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style) tl)
       in
   let is_get_implicit_this t =
     match t.desc with
@@ -1098,12 +1113,13 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
               trm_fail f
                 "apps_to_doc style: conditional operator must have three arguments"
            end
-        | Prim_new t ->
+        | Prim_new (t, dims) ->
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
           let tr_init = decorate_trm style value in
+          let tr_prim = prim_to_doc style (Prim_new (t, dims)) in
           let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
-          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ init_val
+          tr_prim ^^ init_val
         end
      | _ -> trm_fail f (Printf.sprintf "AstC_to_c.apps_to_doc style: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end
@@ -1168,7 +1184,7 @@ and dependence_type_to_doc (dp : dependence_type) : document =
   | Out vl -> let vl = List.map dep_to_doc vl in
     string "depend (out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Inout vl -> let vl = List.map dep_to_doc vl in
-    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~empty ~sep:comma vl) ^^ rparen
+    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Outin vl -> let vl = List.map dep_to_doc vl in
     string "depend (outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Sink vl -> let vl = List.map dep_to_doc vl in

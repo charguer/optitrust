@@ -183,25 +183,32 @@ let revert_fun_contract contract =
   assert (contract.post.pure = []);
   assert (contract.post.fun_specs = Var_map.empty);
   assert (contract.post.aliases = Var_map.empty);
+  assert (contract.post.efracs = []);
   {
     pre = {
       pure = contract.pre.pure;
       linear = contract.post.linear;
       fun_specs = contract.pre.fun_specs;
       aliases = contract.pre.aliases;
+      efracs = contract.pre.efracs;
     };
     post = {
       pure = [];
       linear = contract.pre.linear;
       fun_specs = Var_map.empty;
       aliases = Var_map.empty;
+      efracs = [];
     }
   }
 
+(** [subst ctx contract] substitutes variables from [ctx] inside [contract] *)
+let subst ctx contract =
+  { pre = Resource_set.subst ctx contract.pre;
+    post = Resource_set.subst ctx contract.post }
+
 (** [specialize_contract contract args] specializes the [contract] with the given [args], a subset of pure resources of the precondition *)
 let specialize_contract contract args =
-  { pre = Resource_set.subst args { contract.pre with pure = List.filter (fun (ghost_var, _) -> Var_map.mem ghost_var args) contract.pre.pure };
-    post = Resource_set.subst args contract.post }
+  subst args { contract with pre = { contract.pre with pure = List.filter (fun (ghost_var, _) -> Var_map.mem ghost_var args) contract.pre.pure } }
 
 (* TODO: rename and move elsewhere. *)
 let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =

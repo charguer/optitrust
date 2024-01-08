@@ -93,6 +93,7 @@ let create_env () = ref env_empty
     TODO: specify and improve support for arrays
 
    Note: "reference" annotation is added to allow decoding *)
+ (* TODO: properly deal with const/mut array allocations on stack using Prim_new *)
 let stackvar_elim (t : trm) : trm =
   debug_current_stage "stackvar_elim";
   let env = create_env () in
@@ -219,6 +220,7 @@ let stackvar_intro (t : trm) : trm =
      - [t[i]] becomes [t + i] -- nothing to do in the code of the translation
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[t])] *)
+ (* TODO: properly deal with const/mut array allocations on stack using Prim_new *)
 let caddress_elim (t : trm) : trm =
   debug_current_stage "caddress_elim";
   let rec aux t =
@@ -712,11 +714,15 @@ let contract_elim (t: trm): trm =
   | _ -> trm_map aux t
   in aux t
 
-let named_formula_to_string (hyp, formula): string =
+let named_formula_to_string ?(used_vars = Var_set.empty) (hyp, formula): string =
   let sformula = formula_to_string formula in
-  if not !Flags.always_name_resource_hyp && hyp.name.[0] = '#'
+  if not (!Flags.always_name_resource_hyp || Var_set.mem hyp used_vars) && hyp.name.[0] = '#'
     then Printf.sprintf "%s" sformula
     else Printf.sprintf "%s: %s" hyp.name sformula
+
+let efrac_to_string (efrac, bigger_frac): string =
+  let sbigger = formula_to_string bigger_frac in
+  Printf.sprintf "?%s <= %s" efrac.name sbigger
 
 (* [seq_push code t]: inserts trm [code] at the begining of sequence [t],
     [code] - instruction to be added,
@@ -731,7 +737,8 @@ let trm_array_of_string list =
   trm_array (Mlist.of_list (List.map trm_string list))
 
 let ctx_resources_to_trm (res: resource_set) : trm =
-  let spure = trm_array_of_string (List.map named_formula_to_string res.pure) in
+  let used_vars = Resource_set.used_vars res in
+  let spure = trm_array_of_string (List.map (named_formula_to_string ~used_vars) res.pure @ List.map efrac_to_string res.efracs) in
   let slin = trm_array_of_string (List.map named_formula_to_string res.linear) in
   trm_apps (trm_var __ctx_res) [spure; slin]
 
@@ -801,7 +808,11 @@ let display_ctx_resources (style: typing_style) (t: trm): trm list =
           else [] in
       tl_frame @ tl_inst @ [ t ] @ tl_produced @ tl_joined
   in
-  let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
+  let tl_after =
+    if style.typing_used_res
+      then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after)
+      else []
+    in
   (tl_used @ tl @ tl_after)
 
 let computed_resources_intro (style: typing_style) (t: trm): trm =
@@ -995,7 +1006,19 @@ let cfeatures_intro : trm -> trm =
   method_call_intro |>
   class_member_intro |>
   ghost_args_intro |>
-  contract_intro)
+  contract_intro
+  )
+
+(** [meta_intro t] adds into [t] all the "for-typing" operations
+    and the contracts as C calls using the "__" prefix *)
+let meta_intro : trm -> trm =
+  fun t ->
+  Scope_computation.infer_var_ids t |>
+  formula_sugar_intro |>
+  ghost_args_intro |>
+  contract_intro
+
+
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful

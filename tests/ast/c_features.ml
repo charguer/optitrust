@@ -12,7 +12,7 @@ let filename =
   match 2 with
   | 0 -> "c_debug.cpp"
   | 1 -> "c_mid.cpp"
-  | _ -> "c_big.cpp"
+  | _ -> "c_big.cpp" (* DEPRECATED *)
 
 let _ = Run.script_cpp ~filename (fun () ->
 

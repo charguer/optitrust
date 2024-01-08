@@ -210,17 +210,25 @@ end
 (*----------------------------------------------------------------------------------*)
 (** Show functions whose output can be viewed as a diff or as steps in trace. *)
 
-(* [ast ()] prints on the left-hand side the C code, and on the right-hand side the internal AST code. Use [~internal:false] to disable the printing of internal. *)
-let ast ?(internal : bool = true) ?(msg : string = "show-ast") () : unit =
+(* [ast ()] prints on the left-hand side the C code, and on the right-hand side the internal AST code. Use [~internal:false] to disable the printing of internal.
+    TODO: contract_internal_repr is not yet implemented
+    EXAMPLE !! Show.ast ~contract_internal_repr:true ();
+     *)
+let ast ?(internal : bool = true) ?(contract_internal_repr : bool option) ?(msg : string = "show-ast") () : unit =
   let ast_left = Trace.ast() in
   let style_default = Style.default_custom_style () in
   let style_left = style_default in
   let style_right =
     if not internal then style_default else begin
       let cstyle_default = AstC_to_c.(default_style()) in
+      let ast_style = cstyle_default.ast in
+      let ast_style = match contract_internal_repr with
+        | None -> ast_style
+        | Some b -> { ast_style with print_contract_internal_repr = b }
+        in
       { style_default with
         decode = false;
-        print = Lang_C { cstyle_default with optitrust_syntax = true } }
+        print = Lang_C { cstyle_default with optitrust_syntax = true; ast = ast_style } }
     end in
   let ast_right = if not internal then Trm.empty_ast else ast_left in
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
@@ -279,6 +287,14 @@ let res ?(msg : string = "show-resources")
 (* [ctx] is like [res] but shows only [ctx_res] fields. *)
 let ctx ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit =
   res ~msg ~ast ~typing_style:Style.typing_ctx ()
+
+(* [delta] is like [res] but shows all but [frame] information.
+   TODO: ideally we would hide the [ctx_res] fields, but this requires
+   replace the resource ids occurring in other fields with their
+   corresonding formula. In [inst] and [produced], the ids should be hidden *)
+let delta ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit =
+  res ~msg ~ast ~typing_style:Style.typing_delta ()
+
 
 (* LATER: Fix me
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
