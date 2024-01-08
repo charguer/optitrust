@@ -103,9 +103,12 @@ let rec subst (subst_map: tmap) (res: resource_set): resource_set =
   let linear = subst_var_in_resource_list res.linear in
   let nores_subst_map = Var_map.remove var_result subst_map in
   let fun_specs =
-    Var_map.map (fun spec ->
-      { spec with contract = { pre = subst nores_subst_map spec.contract.pre; post = subst nores_subst_map spec.contract.post } })
+    if Var_map.is_empty nores_subst_map then
       res.fun_specs
+    else
+      Var_map.map (fun spec ->
+        { spec with contract = { pre = subst nores_subst_map spec.contract.pre; post = subst nores_subst_map spec.contract.post } })
+        res.fun_specs
   in
   let aliases = Var_map.map (fun def -> trm_subst subst_map def) res.aliases in
   let efracs = List.map (fun (f, lt_frac) -> (f, trm_subst subst_map lt_frac)) res.efracs in
@@ -129,7 +132,10 @@ let rename_var (x: var) (new_x: var) (res: resource_set) : resource_set =
     }
 
 let subst_all_aliases (res: resource_set): resource_set =
-  subst res.aliases { res with aliases = Var_map.empty }
+  (* Invariant: [res.fun_specs] cannot refer variables in [res.aliases].
+     This invariant is needed for performance reasons *)
+  { (subst res.aliases { res with fun_specs = Var_map.empty; aliases = Var_map.empty })
+    with fun_specs = res.fun_specs }
 
 (** Substitutes a loop index with its starting value. *)
 let subst_loop_range_start (index, tstart, _, _, _, _) = subst_var index tstart
