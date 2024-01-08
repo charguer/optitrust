@@ -82,17 +82,18 @@ let print_list ?(sep : string = ";") (dl : document list) : document =
   surround 2 1 lbracket (separate (string sep ^^ break 1) dl) rbracket
 
 (* [list_to_doc]: advanced version of [print_list] that supports special treatment for empty lists.
+   If [empty] is given and the list is empty, returns [empty].
     LATER: merge with [print_list], making [empty] an optional argument? *)
-let list_to_doc ?(empty : document = empty) ?(sep:document = semi) ?(bounds = [empty; empty]) (l : document list) : document =
+let list_to_doc ?(sep:document = semi) ?(bounds = [empty; empty]) ?(empty : document option) (l : document list) : document =
   let lb = List.nth bounds 0 in
   let rb = List.nth bounds 1 in
   let rec aux = function
-    | [] -> empty
+    | [] -> PPrint.empty
     | [s] -> s
     | s1 :: s2 :: sl -> s1 ^^ sep ^^ string " " ^^ aux (s2 :: sl)
   in
-  match l with
-  | [] -> empty
+  match (l, empty) with
+  | [], Some e -> e
   | _ -> lb ^^ aux l ^^ rb
 
 (* [print_object dl]: prints a list of documents in the form [{x, y, z}]. *)

@@ -945,7 +945,7 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
 and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
-      f_as_doc ^^ list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style) tl)
+      f_as_doc ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style) tl)
       in
   let is_get_implicit_this t =
     match t.desc with
@@ -1184,7 +1184,7 @@ and dependence_type_to_doc (dp : dependence_type) : document =
   | Out vl -> let vl = List.map dep_to_doc vl in
     string "depend (out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Inout vl -> let vl = List.map dep_to_doc vl in
-    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~empty ~sep:comma vl) ^^ rparen
+    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Outin vl -> let vl = List.map dep_to_doc vl in
     string "depend (outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Sink vl -> let vl = List.map dep_to_doc vl in
