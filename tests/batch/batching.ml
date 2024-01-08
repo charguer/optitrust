@@ -33,9 +33,10 @@ let stop_on_error : bool ref = ref false
 (* TODO: not sure if eprintf should be used by default ;
          should be using a flag to control verbosity *)
 let report_progress script_name =
+  let msg = Printf.sprintf "Batch test executing: %s" script_name in
   if !Flags.hide_stdout
-    then (Printf.eprintf "Batch test executing: %s\n" script_name; flush stderr)
-    else (Printf.printf "Batch test executing: %s\n" script_name; flush stdout)
+    then (Printf.eprintf "%s\n" msg; flush stderr)
+    else (Printf.printf "%s\n" msg; flush stdout)
 
 
 (******************************************************************************)
