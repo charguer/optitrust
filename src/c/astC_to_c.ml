@@ -388,7 +388,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
       sleft ^^ dt ^^ sright
     end
     in
-  printf "ERRORS L=%d\n" (List.length t.errors);
+  (*printf "ERRORS L=%d\n" (List.length t.errors);*)
   if t.errors = [] || not style.ast.print_errors then
     dt
   else

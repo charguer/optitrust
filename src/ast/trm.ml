@@ -2052,6 +2052,7 @@ let trm_map_vars
   (ctx: 'ctx) (t: trm): trm =
   let rec f_map (ctx:'ctx) (t:trm): 'ctx * trm =
     let annot = t.annot in
+    let errors = t.errors in
     let loc = t.loc in
     let typ = t.typ in
     let t_ctx = if keep_ctx then t.ctx else unknown_ctx () in
@@ -2254,6 +2255,7 @@ let trm_map_vars
       (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
 
     in
+    trm.errors <- errors;
     post_process ctx trm
 
   and resource_items_map ctx resources: 'ctx * resource_item list =
