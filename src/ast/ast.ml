@@ -512,6 +512,7 @@ and trm_annot = {
     trm_annot_pragma : cpragma list;
     trm_annot_cstyle : cstyle_annot list;
     trm_annot_files : files_annot list;
+    trm_annot_referent : trm option; (* used for typing errors *)
   }
   (* LATER: use a smartconstruct for trm_annot with optional arguments *)
 

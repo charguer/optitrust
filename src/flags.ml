@@ -59,6 +59,9 @@ let set_dump_small_steps (foldername : string) : unit =
 let print_backtrace_on_error : bool ref = ref true
  (*LATER: make available from command line*)
 
+(* [debug_reparse]: flag to print operations saving and reading error messages saved in the ast. *)
+let debug_errors_msg_embedded_in_ast : bool ref = ref false
+
 (* [debug_reparse]: flag to print the line numbers at which reparsing is triggered. *)
 let debug_reparse : bool ref = ref false
 

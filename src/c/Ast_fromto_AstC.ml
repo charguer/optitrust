@@ -576,9 +576,9 @@ let rec ghost_args_intro (t: trm) : trm =
         let call = trm_map ghost_args_intro call in
         Nobrace.trm_seq_nomarks [trm_like ~old:t (trm_let mut (var, typ) call); trm_apps var__with [ghost_args_to_trm_string ghost_args]]
       );
-      Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq ghost_begin)) (trm_apps !__ nil !__))) (fun ghost_pair typ ghost_fn ghost_args ->
+      Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ->
         let ghost_fn = ghost_args_intro ghost_fn in
-        trm_like ~old:t (trm_let Var_immutable (ghost_pair, typ) (trm_apps (trm_var ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
+        trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let Var_immutable (ghost_pair, typ) (trm_apps (trm_var ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
       );
       Pattern.(!__) (fun t -> trm_map ghost_args_intro t)
     ]) seq in
@@ -603,6 +603,7 @@ let __consumes = name_to_var "__consumes"
 let __produces = name_to_var "__produces"
 let __sequentially_reads = name_to_var "__sequentially_reads"
 let __sequentially_modifies = name_to_var "__sequentially_modifies"
+let __loop_ghosts = name_to_var "__loop_ghosts"
 
 let __reverts = name_to_var "__reverts"
 
@@ -631,6 +632,7 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
     | "__produces" -> Some Produces
     | "__sequentially_reads" -> Some SequentiallyReads
     | "__sequentially_modifies" -> Some SequentiallyModifies
+    | "__loop_ghosts" -> Some LoopGhosts
     | _ -> None
   in
   let arg = Option.value ~default:(trm_string "") (List.nth_opt args 0) in
@@ -770,6 +772,8 @@ let ctx_usage_map_to_strings res_used =
     | hyp, Produced -> sprintf "Produced %s" hyp.name)
     (Hyp_map.bindings res_used)
 
+let debug_ctx_before = false
+
 let display_ctx_resources (style: typing_style) (t: trm): trm list =
   let t =
     match t.desc with
@@ -808,12 +812,17 @@ let display_ctx_resources (style: typing_style) (t: trm): trm list =
           else [] in
       tl_frame @ tl_inst @ [ t ] @ tl_produced @ tl_joined
   in
+  let tl_before =
+    if debug_ctx_before (* TODO : assert == *)
+      then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before)
+      else []
+    in
   let tl_after =
     if style.typing_used_res
       then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after)
       else []
     in
-  (tl_used @ tl @ tl_after)
+  (tl_before @ tl_used @ tl @ tl_after)
 
 let computed_resources_intro (style: typing_style) (t: trm): trm =
   let rec aux t =
@@ -838,9 +847,9 @@ let computed_resources_intro (style: typing_style) (t: trm): trm =
 
 let rec contract_intro (t: trm): trm =
   (* debug_current_stage "contract_intro"; *)
-  let push_named_formulas (contract_prim: var) (named_formulas: resource_item list) (t: trm): trm =
+  let push_named_formulas (contract_prim: var) ?(used_vars: Var_set.t option) (named_formulas: resource_item list) (t: trm): trm =
     List.fold_right (fun named_formula t ->
-      let sres = named_formula_to_string named_formula in
+      let sres = named_formula_to_string ?used_vars named_formula in
       let tres = trm_apps (trm_var contract_prim) [trm_string sres] in
       seq_push tres t) named_formulas t
   in
@@ -898,13 +907,14 @@ let rec contract_intro (t: trm): trm =
     | FunSpecContract contract when contract = empty_fun_contract ->
       seq_push (trm_apps (trm_var __pure) []) body
     | FunSpecContract contract ->
+      let used_vars = fun_contract_used_vars contract in
       let pre_pure, pre_linear, post_linear, body =
         push_reads_and_modifies __reads __modifies contract.pre.pure contract.pre.linear contract.post.linear body
       in
       let body = push_named_formulas __produces post_linear body in
-      let body = push_named_formulas __ensures contract.post.pure body in
+      let body = push_named_formulas __ensures ~used_vars contract.post.pure body in
       let body = push_named_formulas __consumes pre_linear body in
-      let body = push_named_formulas __requires pre_pure body in
+      let body = push_named_formulas __requires ~used_vars pre_pure body in
       body
     | FunSpecReverts reverted_fn ->
       seq_push (trm_apps (trm_var __reverts) [trm_var reverted_fn]) body
@@ -931,23 +941,22 @@ let rec contract_intro (t: trm): trm =
       | Some contract when contract = empty_loop_contract ->
         seq_push (trm_apps (trm_var __pure) []) body
       | Some contract ->
+        let used_vars = loop_contract_used_vars contract in
         let loop_ghosts, pre_linear, post_linear, body =
           push_reads_and_modifies __reads __modifies
             contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
         in
         let body = push_named_formulas __produces post_linear body in
-        let body = push_named_formulas __ensures contract.iter_contract.post.pure body in
+        let body = push_named_formulas __ensures ~used_vars contract.iter_contract.post.pure body in
         let body = push_named_formulas __consumes pre_linear body in
-        let body = push_named_formulas __requires contract.iter_contract.pre.pure body in
+        let body = push_named_formulas __requires ~used_vars contract.iter_contract.pre.pure body in
         let loop_ghosts, invariant_linear, _, body =
           push_reads_and_modifies __sequentially_reads __sequentially_modifies
             loop_ghosts contract.invariant.linear contract.invariant.linear body
         in
-        (* Currently loop ghosts can only occur for reads varaibles, so they should always completely disappear. *)
-        (* TODO: WARN instead
-           assert (loop_ghosts = []); *)
+        let body = push_named_formulas __loop_ghosts ~used_vars loop_ghosts body in
         assert (invariant_linear = []);
-        push_named_formulas __invariant contract.invariant.pure body
+        push_named_formulas __invariant ~used_vars contract.invariant.pure body
       | None -> body
     in
     if body == body0
