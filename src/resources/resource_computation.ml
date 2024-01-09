@@ -739,11 +739,15 @@ let debug_print_computation_stack = false
     and save the fact that an exception [exn] was triggered. *)
 let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
   let flag_stop_on_first_error = true in (* LATER: bind in Flags *)
-  (* Save the error in the term where it occurred *)
+  (* Save the error in the term where it occurred, or the referent (transitively) if any *)
   let error_str = sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string exn) in
-  t.errors <- error_str :: t.errors;
-  if !Flags.debug_errors_msg_embedded_in_ast
-    then Printf.eprintf "SAVING ERROR IN TERM:----\n%s\n-----\n" (AstC_to_c.ast_to_string t);
+  let tref = trm_find_referent t in
+  if !Flags.debug_errors_msg_embedded_in_ast then begin
+    if tref != t
+      then Printf.eprintf "GRABBING REFERENT FOR TERM:----\n%s\n-----\n" (AstC_to_c.ast_to_string t);
+    Printf.eprintf "SAVING ERROR IN TERM:----\n%s\n-----\n%s-----\n" (AstC_to_c.ast_to_string tref) (Ast_to_text.ast_to_string tref);
+  end;
+  tref.errors <- error_str :: tref.errors;
   (*Printf.eprintf "ADDERROR %s\n  %s\n" error_str (AstC_to_c.ast_to_string t);*)
   (* Accumulate the error *)
   global_errors := (phase, exn) :: !global_errors;
@@ -778,6 +782,10 @@ let rec compute_resources
   (res: resource_set option)
   (t: trm) : resource_usage_map option * resource_set option =
   if debug_print_computation_stack then Printf.eprintf "With resources: %s\nComputing %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
+  (* Define the referent for hooking type errors on existing terms
+     when errors are triggered on terms that are generated on-the-fly. *)
+  let referent : trm_annot =
+    Trm.(trm_annot_set_referent trm_annot_default t) in
   t.ctx.ctx_resources_before <- res;
   let (let**) (x: 'a option) (f: 'a -> 'b option * 'c option) =
     match x with
@@ -789,7 +797,7 @@ let rec compute_resources
     try begin match t.desc with
     (* new array is typed as MALLOCN with correct dims *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_new (ty, dims))) }, _, []) when dims <> [] ->
-      compute_resources_on_generated_term ~parent:t (Some res) (Matrix_core.alloc_with_ty dims ty)
+      compute_resources (Some res) (Matrix_core.alloc_with_ty ~annot:referent ~annot_call:referent dims ty)
 
     (* Values and variables are pure. *)
     | Trm_val _ | Trm_var _ -> (Some Var_map.empty, Some res) (* TODO: Manage return values for pointers *)
@@ -797,7 +805,7 @@ let rec compute_resources
     (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       (* TODO: Remove trm_let_fun *)
-      compute_resources_on_generated_term ~parent:t (Some res) (trm_let Var_immutable (name, typ_auto ()) (trm_fun args (Some ret_type) body ~contract))
+      compute_resources (Some res) (trm_let ~annot:referent Var_immutable (name, typ_auto ()) (trm_fun ~annot:referent args (Some ret_type) body ~contract))
 
     (* Defining a function is pure by itself, we check that the body satisfies the contract.
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
@@ -964,12 +972,12 @@ let rec compute_resources
             let reverse_contract = revert_fun_contract spec.contract in
             begin match trm_fun_inv ghost_fn_rev with
             | Some ([], ret_typ, body, _) ->
-              ignore (compute_resources_on_generated_term ~parent:t (Some res) (trm_fun [] ret_typ body ~contract:(FunSpecContract reverse_contract)))
+              ignore (compute_resources (Some res) (trm_fun ~annot:referent [] ret_typ body ~contract:(FunSpecContract reverse_contract)))
             | Some _ -> failwith "A ghost reverse function should have no arguments"
             | None ->
-              ignore (compute_resources_on_generated_term ~parent:t (Some reverse_contract.pre) ~expected_res:reverse_contract.post (trm_apps ghost_fn_rev [] ~ghost_args))
+              ignore (compute_resources (Some reverse_contract.pre) ~expected_res:reverse_contract.post (trm_apps ~annot:referent ghost_fn_rev [] ~ghost_args))
             end;
-            (trm_apps ghost_fn [] ~ghost_args)
+            (trm_apps ~annot:referent ghost_fn [] ~ghost_args)
           );
           Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn ->
             let spec = find_fun_spec ghost_fn res.fun_specs in
@@ -981,7 +989,7 @@ let rec compute_resources
           );
           Pattern.(!__) (fun _ -> failwith "expected a ghost call inside __ghost_begin")
         ] in
-        let usage_map, res = compute_resources_on_generated_term ~parent:t (Some res) ghost_call in
+        let usage_map, res = compute_resources (Some res) ghost_call in
         begin match res, ghost_call.ctx.ctx_resources_contract_invoc with
         | Some res, Some invoc ->
           assert (invoc.contract_produced.produced_pure = []);
@@ -1002,7 +1010,7 @@ let rec compute_resources
         Pattern.pattern_match effective_args [
           Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var ->
             (* LATER: Maybe check that the variable is indeed introduced by __ghost_begin *)
-            let usage_map, res = compute_resources_on_generated_term ~parent:t (Some res) (trm_apps fn []) in
+            let usage_map, res = compute_resources (Some res) (trm_apps ~annot:referent fn []) in
             usage_map, Option.map (fun res -> { res with fun_specs = Var_map.remove fn_var res.fun_specs }) res
           );
           Pattern.(!__) (fun _ -> failwith "__ghost_end expects a single variable as argument")
@@ -1065,25 +1073,6 @@ let rec compute_resources
     | None, _ -> expected_res
   in
   usage_map, res
-
-(** [compute_resources_on_generated_term] is like [compute_resources] but
-    if the argument is annotated with an error message, then it lifts the
-    error message to the parent term *)
-    (* TODO: this strategy is not robust; we should instead use term ids
-       or annotations to recognize the term nodes that have been generated
-       on the fly. Also, certain terms might be erased during translation.
-       We can also bind errors to term ids in a hashtable, and bind every
-       invisible term to a visible term, using a map built during decoding. *)
-and compute_resources_on_generated_term ~(parent:trm) ?(expected_res: resource_set option)
-  (res: resource_set option)
-  (t: trm) : resource_usage_map option * resource_set option =
-  let r = compute_resources ?expected_res res t in
-  if t.errors <> [] then begin
-    if !Flags.debug_errors_msg_embedded_in_ast
-      then Printf.eprintf "UPGRADING ERROR TO PARENT IN AST---:\n%s---\n" "";
-    parent.errors <- parent.errors @ t.errors;
-  end;
-  r
 
 (** <private> [compute_resources] that propagates usages. *)
 and compute_resources_and_merge_usage

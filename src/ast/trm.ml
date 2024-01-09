@@ -13,6 +13,7 @@ let trm_annot_default = {
   trm_annot_pragma = [];
   trm_annot_cstyle = [];
   trm_annot_files = [];
+  trm_annot_referent = None;
 }
 
 (* [is_statement_of_desc t_desc]: checks if t_tesc corresponds to a statement or not  *)
@@ -71,6 +72,27 @@ let trm_replace (desc : trm_desc) (t : trm) : trm =
 let trm_like ~(old:trm) (t:trm): trm =
   trm_alter ~annot:old.annot ~loc:old.loc ~errors:old.errors ?typ:old.typ t
 
+(* **************************** Referent *************************** *)
+
+(* [trm_find_referent t]: returns the referent of trm [t], transitively.
+   (referents should not be cyclic!) *)
+let rec trm_find_referent (t : trm) : trm =
+  match t.annot.trm_annot_referent with
+  | None -> t
+  | Some tref -> trm_find_referent tref
+
+(* [trm_annot_set_referent annot t] updates an annotation to specify
+   a referent. *)
+let trm_annot_set_referent (annot : trm_annot) (target_trm : trm) : trm_annot =
+  { annot with trm_annot_referent = Some target_trm }
+
+(* **************************** Errors *************************** *)
+
+(* [trm_error_merge ~from t] returns a copy of [t] with [t.errors] updated
+   by appending the errors of [from]. *)
+let trm_error_merge ~(from:trm) (t:trm) : trm =
+  { t with errors = t.errors @ from.errors }
+
 (* **************************** CStyle *************************** *)
 
 (* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
@@ -80,7 +102,7 @@ let trm_get_cstyles (t : trm) : cstyle_annot list =
 (* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
 let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
   let t_annot_cstyle = f (trm_get_cstyles t) in
-  let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in
+  let t_annot = { t.annot with trm_annot_cstyle = t_annot_cstyle } in
   trm_alter ~annot:t_annot t
 
 (* [trm_add_cstyle cs t]: adds [cs] cstyle annotation to trm [t]. *)

@@ -18,11 +18,13 @@ let tile_all: trm * trm = trm_int 1, trm_int 0
 let tile_none: trm * trm = trm_int 0, trm_int 0
 *)
 
-let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
+(* TODO: doc. [annot] is for annoting the outer cast operation, [annot_call]
+  is for annotating the inner call to malloc *)
+let alloc_with_ty ?(annot : trm_annot = trm_annot_default) ?(annot_call : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
   let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
   trm_cast ~annot (typ_const_ptr ty) (
-    trm_apps (trm_var (malloc_var n)) (dims @ [size]))
+    trm_apps ~annot:annot_call (trm_var (malloc_var n)) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
   (* Option.bind (trm_new_inv t) (fun (_, t2) -> *)

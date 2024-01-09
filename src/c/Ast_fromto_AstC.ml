@@ -576,9 +576,9 @@ let rec ghost_args_intro (t: trm) : trm =
         let call = trm_map ghost_args_intro call in
         Nobrace.trm_seq_nomarks [trm_like ~old:t (trm_let mut (var, typ) call); trm_apps var__with [ghost_args_to_trm_string ghost_args]]
       );
-      Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq ghost_begin)) (trm_apps !__ nil !__))) (fun ghost_pair typ ghost_fn ghost_args ->
+      Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ->
         let ghost_fn = ghost_args_intro ghost_fn in
-        trm_like ~old:t (trm_let Var_immutable (ghost_pair, typ) (trm_apps (trm_var ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
+        trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let Var_immutable (ghost_pair, typ) (trm_apps (trm_var ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
       );
       Pattern.(!__) (fun t -> trm_map ghost_args_intro t)
     ]) seq in
