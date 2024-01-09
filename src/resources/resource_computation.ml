@@ -808,7 +808,7 @@ let rec compute_resources
       begin match contract with
       | FunSpecContract contract ->
         compute_resources_in_body contract;
-        let contract = Resource_contract.subst res.aliases contract in
+        let contract = fun_contract_subst res.aliases contract in
         let args = List.map (fun (x, _) -> x) args in
         (Some Var_map.empty, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
       | FunSpecReverts reverted_fn ->
@@ -988,7 +988,7 @@ let rec compute_resources
             invoc.contract_inst.used_linear
           in
           let inverse_spec = { args = [];
-            contract = Resource_contract.subst res.aliases { pre = Resource_set.make ~linear:inverse_pre (); post = Resource_set.make ~linear:inverse_post () };
+            contract = fun_contract_subst res.aliases { pre = Resource_set.make ~linear:inverse_pre (); post = Resource_set.make ~linear:inverse_post () };
             inverse = None }
           in
           usage_map, Some { res with fun_specs = Var_map.add var_result inverse_spec res.fun_specs }

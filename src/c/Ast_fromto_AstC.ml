@@ -603,6 +603,7 @@ let __consumes = name_to_var "__consumes"
 let __produces = name_to_var "__produces"
 let __sequentially_reads = name_to_var "__sequentially_reads"
 let __sequentially_modifies = name_to_var "__sequentially_modifies"
+let __loop_ghosts = name_to_var "__loop_ghosts"
 
 let __reverts = name_to_var "__reverts"
 
@@ -631,6 +632,7 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
     | "__produces" -> Some Produces
     | "__sequentially_reads" -> Some SequentiallyReads
     | "__sequentially_modifies" -> Some SequentiallyModifies
+    | "__loop_ghosts" -> Some LoopGhosts
     | _ -> None
   in
   let arg = Option.value ~default:(trm_string "") (List.nth_opt args 0) in
@@ -845,9 +847,9 @@ let computed_resources_intro (style: typing_style) (t: trm): trm =
 
 let rec contract_intro (t: trm): trm =
   (* debug_current_stage "contract_intro"; *)
-  let push_named_formulas (contract_prim: var) (named_formulas: resource_item list) (t: trm): trm =
+  let push_named_formulas (contract_prim: var) ?(used_vars: Var_set.t option) (named_formulas: resource_item list) (t: trm): trm =
     List.fold_right (fun named_formula t ->
-      let sres = named_formula_to_string named_formula in
+      let sres = named_formula_to_string ?used_vars named_formula in
       let tres = trm_apps (trm_var contract_prim) [trm_string sres] in
       seq_push tres t) named_formulas t
   in
@@ -905,13 +907,14 @@ let rec contract_intro (t: trm): trm =
     | FunSpecContract contract when contract = empty_fun_contract ->
       seq_push (trm_apps (trm_var __pure) []) body
     | FunSpecContract contract ->
+      let used_vars = fun_contract_used_vars contract in
       let pre_pure, pre_linear, post_linear, body =
         push_reads_and_modifies __reads __modifies contract.pre.pure contract.pre.linear contract.post.linear body
       in
       let body = push_named_formulas __produces post_linear body in
-      let body = push_named_formulas __ensures contract.post.pure body in
+      let body = push_named_formulas __ensures ~used_vars contract.post.pure body in
       let body = push_named_formulas __consumes pre_linear body in
-      let body = push_named_formulas __requires pre_pure body in
+      let body = push_named_formulas __requires ~used_vars pre_pure body in
       body
     | FunSpecReverts reverted_fn ->
       seq_push (trm_apps (trm_var __reverts) [trm_var reverted_fn]) body
@@ -938,23 +941,22 @@ let rec contract_intro (t: trm): trm =
       | Some contract when contract = empty_loop_contract ->
         seq_push (trm_apps (trm_var __pure) []) body
       | Some contract ->
+        let used_vars = loop_contract_used_vars contract in
         let loop_ghosts, pre_linear, post_linear, body =
           push_reads_and_modifies __reads __modifies
             contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
         in
         let body = push_named_formulas __produces post_linear body in
-        let body = push_named_formulas __ensures contract.iter_contract.post.pure body in
+        let body = push_named_formulas __ensures ~used_vars contract.iter_contract.post.pure body in
         let body = push_named_formulas __consumes pre_linear body in
-        let body = push_named_formulas __requires contract.iter_contract.pre.pure body in
+        let body = push_named_formulas __requires ~used_vars contract.iter_contract.pre.pure body in
         let loop_ghosts, invariant_linear, _, body =
           push_reads_and_modifies __sequentially_reads __sequentially_modifies
             loop_ghosts contract.invariant.linear contract.invariant.linear body
         in
-        (* Currently loop ghosts can only occur for reads varaibles, so they should always completely disappear. *)
-        (* TODO: WARN instead
-           assert (loop_ghosts = []); *)
+        let body = push_named_formulas __loop_ghosts ~used_vars loop_ghosts body in
         assert (invariant_linear = []);
-        push_named_formulas __invariant contract.invariant.pure body
+        push_named_formulas __invariant ~used_vars contract.invariant.pure body
       | None -> body
     in
     if body == body0
