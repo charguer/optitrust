@@ -770,6 +770,8 @@ let ctx_usage_map_to_strings res_used =
     | hyp, Produced -> sprintf "Produced %s" hyp.name)
     (Hyp_map.bindings res_used)
 
+let debug_ctx_before = false
+
 let display_ctx_resources (style: typing_style) (t: trm): trm list =
   let t =
     match t.desc with
@@ -808,12 +810,17 @@ let display_ctx_resources (style: typing_style) (t: trm): trm list =
           else [] in
       tl_frame @ tl_inst @ [ t ] @ tl_produced @ tl_joined
   in
+  let tl_before =
+    if debug_ctx_before (* TODO : assert == *)
+      then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before)
+      else []
+    in
   let tl_after =
     if style.typing_used_res
       then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after)
       else []
     in
-  (tl_used @ tl @ tl_after)
+  (tl_before @ tl_used @ tl @ tl_after)
 
 let computed_resources_intro (style: typing_style) (t: trm): trm =
   let rec aux t =
