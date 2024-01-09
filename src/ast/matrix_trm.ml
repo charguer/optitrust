@@ -143,3 +143,17 @@ let free_inv (t : trm) : trm option =
       Some t
     end else None
   ))
+
+let mindex_contiguous_vars = Tools.String_map.of_seq ([""; "_uninit"; "_ro"] |> List.to_seq |> Seq.map (fun suffix ->
+  suffix, Array.init 5 (fun n -> toplevel_var (sprintf "mindex%d_contiguous%s" n suffix))
+))
+
+let mindex_contiguous_rev_vars = Tools.String_map.of_seq ([""; "_uninit"; "_ro"] |> List.to_seq |> Seq.map (fun suffix ->
+  suffix, Array.init 5 (fun n -> toplevel_var (sprintf "mindex%d_contiguous%s_rev" n suffix))
+))
+
+let mindex_contiguous_ghost_call n suffix args =
+  ghost_call (Array.get (Tools.String_map.find suffix mindex_contiguous_vars) n) args
+
+let mindex_contiguous_rev_ghost_call n suffix args =
+  ghost_call (Array.get (Tools.String_map.find suffix mindex_contiguous_rev_vars) n) args

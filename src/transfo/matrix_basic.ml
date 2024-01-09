@@ -593,7 +593,8 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
     | Some ci -> assert (List.for_all2 Internal.same_trm ci common_indices);
     | None -> common_indices_opt := Some common_indices
     end;
-    List.fold_left (fun acc i -> trm_array_access acc i)
+    let new_dims = Xlist.take_last copy_dims dims in
+    List.fold_left (fun acc i -> Matrix_trm.access acc new_dims [i])
       (trm_var stack_var) new_indices
   ) t in
   let (dims, typ) = Option.get !ret_dims_and_typ in

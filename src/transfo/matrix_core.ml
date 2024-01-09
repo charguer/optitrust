@@ -100,14 +100,14 @@ let memcpy
        o1 ... oO
        o1*N2*...*NM + ... + oO*N{O-1}*...*NM
       *)
-    if offset = [] then trm_int 0 else
+    (* if offset = [] then trm_int 0 else *)
     let (sum_terms, _) = List.fold_left (fun (sum_terms, multipliers) dim_offset ->
       let multipliers = Xlist.drop_one_or_else (fun () -> []) multipliers in
       let sum_term = List.fold_left trm_mul dim_offset multipliers in
       let sum_terms = sum_terms @ [sum_term] in
       (sum_terms, multipliers)
     ) ([], dims) offset in
-    Xlist.reduce_left trm_add sum_terms
+    List.fold_right trm_add sum_terms (trm_int 0)
   in
   let d_flat_offset = compute_flat_offset d_offset dol d_dims in
   let s_flat_offset = compute_flat_offset s_offset sol s_dims in
@@ -115,14 +115,20 @@ let memcpy
   let t = trm_apps (trm_var mmemcpy_var)
     [dest; d_flat_offset; src; s_flat_offset; flat_elems; elem_size] in
 
-  let scoped_mindex_contiguous dims offset suffix t =
+  let scoped_mindex_contiguous_write mat_trm dims offset t =
     if dims < 2 then t else
-    Resource_formula.(trm_ghost_scope (ghost_call
-      (name_to_var (sprintf "mindex%d_contiguous%s" dims suffix)) []
+    let a = Matrix_trm.mindex_contiguous_ghost_call dims "_uninit" ["M", mat_trm] in
+    let b = Matrix_trm.mindex_contiguous_rev_ghost_call dims "" ["M", mat_trm] in
+    Nobrace.trm_seq_nomarks [trm_ghost a; t; trm_ghost b]
+  in
+  let scoped_mindex_contiguous_read mat_trm dims offset t =
+    if dims < 2 then t else
+    Resource_formula.(trm_ghost_scope (Matrix_trm.mindex_contiguous_ghost_call
+     dims "_ro" ["M", mat_trm]
     )) t
   in
-  let t = scoped_mindex_contiguous ddl d_offset "_uninit" t in
-  let t = scoped_mindex_contiguous sdl s_offset "_ro" t in
+  let t = scoped_mindex_contiguous_write dest ddl d_offset t in
+  let t = scoped_mindex_contiguous_read src sdl s_offset t in
   (* TODO: call matrixN_contiguous on copy_dims *)
   t
 
