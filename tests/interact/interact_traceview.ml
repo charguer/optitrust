@@ -17,7 +17,16 @@ let _ = Run.script_cpp (fun _ ->
   bigstep "first part";
   !! Label.add "lab1" [cVarDef "a"];
   !! Label.add "lab2" [cVarDef "a"];
+
+  (* Details of multi-target processing *)
   bigstep "second part";
+  !! Target.iteri (fun i _t p ->
+       Label.add ("occ" ^ string_of_int i) [cPath p])
+     [nbMulti; cVarDef ""];
+
+(*
+
+  bigstep "third part";
   (* Uncomment the line below to see a partial trace
     !! if true then failwith "the error message";
   *)
@@ -43,7 +52,7 @@ let _ = Run.script_cpp (fun _ ->
   *)
   (* Examples of show functions with output on stdout *)
   (* !! ShowAt.trm []; *)
-  bigstep "third part";
+  bigstep "fourth part";
   (* Try task "View diff using internal syntax" *)
   !! Label.add "lab6" [cVarDef "a"];
   (* Demo of substeps modifying the ast directly
@@ -73,5 +82,5 @@ let _ = Run.script_cpp (fun _ ->
   (* Uncomment to see a partial trace
   !! Trace.failure_expected (fun _e -> true) (fun () ->
        Label.add "labE4" [cVarDef "a"]);*)
-
+*)
 )

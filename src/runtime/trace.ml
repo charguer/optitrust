@@ -192,9 +192,10 @@ type step_kind =
   | Step_big (* produced by a [bigstep] call, via [open_big_step] *)
   | Step_small (* produced by a small-step [!!], via [open_small_step] *)
   | Step_transfo (* produced by [transfo_step] *)
-  | Step_target_resolve (* produced by [target_resolve_step] *)
+  | Step_target_resolve (* produced by [target_resolve_step], for target_iter *)
+  | Step_mark_manip (* produced during target_iter *)
   | Step_io (* produced by [io_step] *)
-  | Step_group (* produced in particular by [backtrack] steps *)
+  | Step_group (* produced in particular by [backtrack] steps, or [target_iter] steps *)
   | Step_backtrack (* [backtrack] or [backtrack_on_failure] *)
   | Step_show (* produced by [show_step] *)
   | Step_typing (* produced by [typing_step] *)
@@ -211,6 +212,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_small -> "Small"
   | Step_transfo -> "Transfo"
   | Step_target_resolve -> "Target"
+  | Step_mark_manip -> "Mark-manip"
   | Step_io -> "IO"
   | Step_group -> "Group"
   | Step_backtrack -> "Backtrack"
@@ -700,7 +702,7 @@ let without_substep_validity_checks (f: unit -> 'a): 'a =
 let try_validate_step_by_compostion (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
-    let kinds_excluded = [Step_target_resolve; Step_io] in
+    let kinds_excluded = [Step_target_resolve; Step_io] in (* TODO: target_resolve might not be needed anymore *)
     let subs = List.filter (fun si -> not (List.mem si.step_kind kinds_excluded)) s.step_sub in
     if List.for_all (fun sub -> sub.step_infos.step_valid) subs then begin
       let asts1: trm list = [s.step_ast_before] @
@@ -748,11 +750,14 @@ let make_substeps_chained (step:step_tree) : unit =
       Tools.ref_list_add newsubrev changestep;
     end;
     Tools.ref_list_add newsubrev substep;
-    cur_ast := after substep;
+    (* Recall that target_resolve step have their "ast_after" hacked for display *)
+    if substep.step_kind <> Step_target_resolve
+      then cur_ast := after substep;
     cur_time := time_stop substep;
     in
   List.iter process step.step_sub; (* [step_sub] assumed already in final order *)
-  if !cur_ast != step.step_ast_after then begin
+  (* If there are no substeps at all, it would be redundant to create a direct AST change *)
+  if step.step_sub <> [] && !cur_ast != step.step_ast_after then begin
     let changestep = change_step ~ast_before:(!cur_ast) ~ast_after:step.step_ast_after
         ~time_start:(!cur_time) ~step_exectime:(time_stop step -. !cur_time)
         ~flag_check_validity ~style in
@@ -764,7 +769,7 @@ let make_substeps_chained (step:step_tree) : unit =
 let is_saved_step step =
   match step.step_kind with
   | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_typing | Step_io | Step_trustme | Step_change -> true
-  | Step_target_resolve | Step_backtrack | Step_error | Step_show -> false
+  | Step_target_resolve | Step_mark_manip | Step_backtrack | Step_error | Step_show -> false
 
 (* DEPRECATED? *)
 let last_recorded_ast step: trm =
@@ -781,7 +786,7 @@ let last_recorded_ast step: trm =
     Beware that a [Step_backtrack] is preserving. *)
 let is_kind_preserving_code (kind:step_kind) : bool =
   match kind with
-  | Step_typing | Step_io | Step_target_resolve
+  | Step_typing | Step_io | Step_target_resolve | Step_mark_manip
   | Step_backtrack | Step_error | Step_show ->
       true
   | Step_root | Step_big | Step_small | Step_transfo
@@ -1124,7 +1129,7 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
 
 (** [target_resolve_step] has a special handling because it saves a diff
    between an AST and an AST decorated with marks for targeted paths,
-   even though the [cur_ast] is not updated with the marsk *)
+   even though the [cur_ast] is not updated with the marks. *)
 let target_resolve_step (f: trm-> Path.path list) (t:trm) : Path.path list =
   ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"" ());
   let ps = f t in
@@ -1138,6 +1143,11 @@ let target_resolve_step (f: trm-> Path.path list) (t:trm) : Path.path list =
     close_step();
   end;
   ps
+
+(** [target_iter_step] is for wrapping the processing of one among several
+    targets. *)
+let target_iter_step (istep : int) (f: unit->unit) : unit =
+  step ~kind:Step_group ~name:(sprintf "target-iter[%d]" istep) f
 
 (** [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
    like at the start of the program.  *)
@@ -1884,6 +1894,11 @@ let ast () : trm =
    NOTE: INTERNAL FUNCTION. *)
 let set_ast (t:trm) : unit =
   the_trace.cur_ast <- t
+
+(** [set_ast_for_target_iter t] is used by [Target.iteri] when updating the marks
+    using low-level mechanisms. *)
+let set_ast_for_target_iter (t:trm) : unit =
+  step ~valid:true ~kind:Step_mark_manip ~name:"Target-iter-mark-manipulation" (fun () -> the_trace.cur_ast <- t)
 
 (** [get_context ()]: returns the current context. Like [ast()], it should only be called
    within the scope of [Trace.apply] or [Trace.call]. *)

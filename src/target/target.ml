@@ -58,6 +58,10 @@ let cInContracts : constr =
 let cTarget (cstrs : constr list) : constr =
   Constr_target cstrs
 
+(* [cPath] converts a path into a target *)
+let cPath (p : path) : constr =
+  Constr_paths [p]
+
 (******************************************************************************)
 (*                             Relative targets                               *)
 (******************************************************************************)
@@ -1359,7 +1363,7 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
       let t =
         Stats.comp_stats "iteri_on_transformed_targets add marks" (fun () ->
           List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
-      Trace.set_ast t; (* Never use the function [set_ast] in another file!. *)
+      Trace.set_ast_for_target_iter t;
       (* iterate over these marks *)
       try
         List.iteri (fun imark m ->
@@ -1372,9 +1376,9 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
               let t =
                 Stats.comp_stats "iteri_on_transformed_targets remove mark" (fun () ->
                   apply_on_path (trm_rem_mark m) t p) in
-              Trace.set_ast t; (* Never use the function [set_ast] in another file!. *)
+              Trace.set_ast_for_target_iter t;
               Stats.comp_stats (Printf.sprintf "iteri_on_transformed_targets perform transfo %d" imark) (fun () ->
-                  tr imark t (transformer p)
+                  Trace.target_iter_step imark (fun () -> tr imark t (transformer p))
               )
           | ps ->
               let msg =
@@ -1543,7 +1547,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
       (* LATER: optimization to avoid mark for first occurrence *)
       let marks = List.map (fun _ -> Mark.next()) ps in
       let t = trm_add_marks_at_paths marks ps t in
-      Trace.set_ast t;
+      Trace.set_ast_for_target_iter t;
       (* Iterate over these marks *)
       try
         List.iteri (fun occ m ->
@@ -1552,16 +1556,19 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
           let ps = resolve_target_mark_one_else_any m t in
           match ps with
           | [p] ->
-              (* Start by removing the mark *)
-              (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
+              (* Here we don't call [Marks.remove] to avoid a circular dependency issue.
+                 The term [t] corresponds to the ast with the current mark removed. *)
               let t =
                 match last_dir_before_inv p with
                 | None -> apply_on_path (trm_rem_mark m) t p
                 | Some (p_to_seq,i) -> apply_on_path (trm_rem_mark_between m) t p_to_seq
                 in
-              Trace.set_ast t;
-              (* Call the transformation at that path *)
-              tr_wrapped occ t p
+              Trace.target_iter_step occ (fun () ->
+                (* Start by removing the mark *)
+                Trace.set_ast_for_target_iter t;
+                (* Call the transformation at that path, wrapping the operations
+                 inside a group step *)
+                tr_wrapped occ t p)
           | ps ->
               (* There were not exactly one occurrence of the mark: either zero or multiple *)
               let msg =
@@ -1687,7 +1694,7 @@ let get_toplevel_function_var_containing (dl : path) : var option =
   | _ -> None
 
 
-(* [reparse_only fun_nmaes]: reparse only those functions whose identifier is contained in [fun_names]. *)
+(* [reparse_only fun_names]: reparse only those functions whose identifier is contained in [fun_names]. *)
 let reparse_only ?(update_cur_ast : bool = true) (fun_names : var list) : unit =
   Trace.parsing_step (fun () -> Trace.call (fun t ->
     let chopped_ast, chopped_ast_map  =  hide_function_bodies (function f -> not (List.mem f fun_names)) t in

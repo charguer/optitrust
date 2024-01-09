@@ -786,6 +786,7 @@ function viewDetailsFull() {
   options["args"] = true;
   options["justif"] = true;
   options["exectime"] = true;
+  options["step_change"] = true;
   options["noop_steps"] = true; // TODO: should be a tag
 
   // update checkbox display // TODO: use this also in other place
