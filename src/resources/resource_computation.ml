@@ -91,17 +91,27 @@ module Formula_inst = struct
     ]
 end
 
-(** [Resource_not_found (item, res_list)]: exception raised when the resource
-   [item] is not found inside the resource list [res_list] *)
-exception Resource_not_found of resource_item * resource_item list
+(** A type to distinguish between pure and linear resources *)
+type resource_kind =
+  | Pure
+  | Linear
 
-let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unification_ctx) (inside: resource_item list) =
+let resource_kind_to_string kind =
+  match kind with
+  | Pure -> "Pure"
+  | Linear -> "Linear"
+
+(** [Resource_not_found (kind, item, res_list)]: exception raised when the resource
+   [item] is not found inside the resource list [res_list] *)
+exception Resource_not_found of resource_kind * resource_item * resource_item list
+
+let raise_resource_not_found (kind: resource_kind) ((name, formula): resource_item) (evar_ctx: unification_ctx) (inside: resource_item list) =
   let subst_ctx = Var_map.mapi (fun var subst ->
     match subst with Some t -> t | None -> trm_var { var with name = ("?" ^ var.name) }
   ) evar_ctx in
   let formula = trm_subst subst_ctx formula in
   let inside = List.map (fun (x, formula) -> (x, trm_subst subst_ctx formula)) inside in
-  raise (Resource_not_found ((name, formula), inside))
+  raise (Resource_not_found (kind, (name, formula), inside))
 
 (** [unify_pure (x, formula) res evar_ctx] unifies the given [formula] with one of the resources in [res].
 
@@ -115,7 +125,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx:
   in
   match List.find_map (find_formula formula) res with
   | Some evar_ctx -> evar_ctx
-  | None -> raise_resource_not_found (x, formula) evar_ctx res
+  | None -> raise_resource_not_found Pure (x, formula) evar_ctx res
 
 
 (** [subtract_linear_resource_item ~split_frac (x, formula) res evar_ctx] subtracts [formula]
@@ -221,7 +231,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx)
     ]
   with Not_found ->
-    raise_resource_not_found (x, formula) evar_ctx res
+    raise_resource_not_found Linear (x, formula) evar_ctx res
 
 (** [subtract_linear_resource_set ?split_frac ?evar_ctx res_from res_removed] subtracts [res_removed] from [res_from].
   Returns [(used, res', evar_ctx')] where:
@@ -692,8 +702,8 @@ let global_errors : (resource_error_phase * exn) list ref = ref []
 exception ResourceError of trm * resource_error_phase * exn
 
 let _ = Printexc.register_printer (function
-  | Resource_not_found (item, context) ->
-    Some (Printf.sprintf "Resource not found:\n%s\nIn context:\n%s" (Ast_fromto_AstC.named_formula_to_string item) (resource_list_to_string context))
+  | Resource_not_found (kind, item, context) ->
+    Some (Printf.sprintf "%s resource not found:\n%s\nIn context:\n%s" (resource_kind_to_string kind) (Ast_fromto_AstC.named_formula_to_string item) (resource_list_to_string context))
   | Spec_not_found fn ->
     Some (Printf.sprintf "No specification for function %s" (var_to_string fn))
   | NotConsumedResources res ->
@@ -738,7 +748,6 @@ let debug_print_computation_stack = false
 (** [handle_resource_errors t phase exn] hooks [exn] as error on the term [t],
     and save the fact that an exception [exn] was triggered. *)
 let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
-  let flag_stop_on_first_error = true in (* LATER: bind in Flags *)
   (* Save the error in the term where it occurred, or the referent (transitively) if any *)
   let error_str = sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string exn) in
   let tref = trm_find_referent t in
@@ -752,7 +761,7 @@ let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
   (* Accumulate the error *)
   global_errors := (phase, exn) :: !global_errors;
   (* Interrupt if stop on first error *)
-  if flag_stop_on_first_error then raise StoppedOnFirstError;
+  if !Flags.stop_on_first_resource_error then raise StoppedOnFirstError;
   (* Return empty resources maps as best effort to continue *)
   None, None
 
@@ -1091,13 +1100,13 @@ let rec trm_deep_copy (t: trm) : trm =
 
 (** [trm_recompute_resources init_ctx t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.
-  If [!Flags.resource_errors_as_warnings] is set, then returns a fresh term,
-  and a boolean indicating whether typing was successful.
-  Otherwise, returns a fresh term and the boolean value true in case of success,
-  or raises an exception in case of failure.
+  Otherwise, returns a fresh term in case of success, or raises [ResourceError] in case of failure.
+
+  If [!Flags.stop_on_first_resource_error] is set, then the function immediately stops after the
+  first error is encountered, else it tries to report as many as possible.
 
   Hypothesis: needs var_ids to be calculated. *)
-let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm * bool =
+let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
   (* TODO: should we avoid deep copy by maintaining invariant that there is no sharing?
      makes sense with unique var ids and trm_copy mechanisms.
      Otherwise avoid mutable asts. Could also have unique node ids and maps from ids to metadata. *)
@@ -1108,21 +1117,17 @@ let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm * bool =
      are also saved as annotations in the "errors" fields
      in the nodes inside the copy of [t]. *)
   global_errors := [];
-  begin try
-    ignore (compute_resources (Some init_ctx) t);
-  with StoppedOnFirstError -> () end;
+  let backtrace =
+    try
+      ignore (compute_resources (Some init_ctx) t);
+      None
+    with StoppedOnFirstError -> Some (Printexc.get_raw_backtrace ())
+  in
   (* Test for errors, before returning the updated copy of [t] *)
   match !global_errors with
-  | [] -> t, true
-  | ((phase, exn) :: other_errors) as errors ->
-      if !Flags.resource_errors_as_warnings then begin
-        (* Print all errors *)
-        List.iter (fun (phasei,errori) ->
-          Printf.eprintf "Typing error as warning (%s): %s\n" (resource_error_phase_to_string phasei) (Printexc.to_string errori)) errors;
-        t, false
-      end else begin
-        (* Else raise *)
-        raise (ResourceError (t, phase, exn))
-      end
-
-
+  | [] -> t
+  | ((phase, exn) :: _) ->
+      let err = ResourceError (t, phase, exn) in
+      match backtrace with
+      | Some bt -> Printexc.raise_with_backtrace err bt
+      | None -> raise err

@@ -2371,9 +2371,10 @@ let trm_erase_var_ids (t : trm) : trm =
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let trm_copy (t : trm) : trm =
   let map_binder var_map v _ =
-    (* ???
-    if v.id = inferred_var_id then (var_map, v)
-    else *) begin
+    if v.id = inferred_var_id then begin
+      Tools.warn "A binder should always be introduced with a fresh id, not with an inferred id.";
+      (var_map, v)
+    end else begin
       assert (not (Var_map.mem v var_map));
       let new_v = new_var ~qualifier:v.qualifier v.name in
       (Var_map.add v new_v var_map, new_v)

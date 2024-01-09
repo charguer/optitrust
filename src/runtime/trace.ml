@@ -794,7 +794,7 @@ let is_kind_preserving_code (kind:step_kind) : bool =
       false
 
 (** [finalize_step] is called by [close_root_step] and [close_step] *)
-let rec finalize_step (step : step_tree) : unit =
+let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
   let infos = step.step_infos in
   (* Handle retyping and reparse operations at the end of every step,
      except for steps that do not modify the current ast *)
@@ -826,7 +826,7 @@ let rec finalize_step (step : step_tree) : unit =
   if not (is_kind_preserving_code step.step_kind)
     then make_substeps_chained step;
   (* Check that [Flags.check_validity] is like at the start of the step *)
-  if !Flags.check_validity <> infos.step_flag_check_validity
+  if not on_error && !Flags.check_validity <> infos.step_flag_check_validity
     then raise (TraceFailure "At finalize_step, Flags.check_validity is not same as when step was opened.");
   (* Set the validity flag if it is not already set, in particular
      if the step is an identity step, or if all substeps are valid.
@@ -869,7 +869,7 @@ and without_resource_computation_between_steps (f: unit -> 'a): 'a =
    or combi, or basic transformation. The step to close can be passed
    as an optional argument, to check that the exected step is being closed.
    If all substeps are valid and their sequence explains how to go from ast_before to ast_after, the step is valid by the explaination "combination of valid steps" *)
-and close_step ?(discard = false) ?(check:step_tree option) () : unit =
+and close_step ?(discard = false) ?(on_error = false) ?(check:step_tree option) () : unit =
   match the_trace.step_stack with
   | [] -> raise (TraceFailure "close_step: the_trace should not be empty")
   | [root_step] -> raise (TraceFailure "close_step: on the root, should call close_root_step")
@@ -885,7 +885,7 @@ and close_step ?(discard = false) ?(check:step_tree option) () : unit =
         then eprintf "%sTrace.close_step[%d]: %s\n" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string step.step_kind);
       if not discard then begin
         (* Finalize the step, by reversing the list of substeps and computing validity *)
-        finalize_step step;
+        finalize_step ~on_error step;
         (* Folding step into parent substeps *)
         parent_step.step_sub <- step :: parent_step.step_sub;
       end;
@@ -997,17 +997,15 @@ and recompute_resources_on_ast () : unit =
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
   try
-    let t, success = Resource_computation.trm_recompute_resources Resource_set.empty t in
-    if success then begin
-      the_trace.cur_ast <- t
-    end else begin
-      let (), s = step_and_get_handle ~valid:true ~kind:Step_error ~name:"Typing error" (fun () -> the_trace.cur_ast <- t) in
-      s.step_style_before <- style_normal_code();
-      s.step_style_after <- style_resources();
-    end;
+    the_trace.cur_ast <- Resource_computation.trm_recompute_resources Resource_set.empty t
   with (Resource_computation.ResourceError (t_with_error, _phase, _exn)) as e ->
+    (* TODO: Resources computation warning when failing in non critical contexts:
+    let (), s = step_and_get_handle ~valid:true ~kind:Step_error ~name:"Typing error" (fun () -> the_trace.cur_ast <- t) in
+    s.step_style_before <- style_normal_code();
+    s.step_style_after <- style_resources();
+    *)
     the_trace.cur_ast <- t_with_error;
-    raise e
+    Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
 
 (** [retypecheck] is currently implemented as [reparse], but in the future it
    would use a dedicated typechecker. *)
@@ -1038,12 +1036,12 @@ let close_bigstep_if_needed () : unit =
 (** [close_root_step] is called only by [finalize] at the end of the
    [Run.script] function. It finalizes the root step, and leaves the
    root step at the bottom of the stack. *)
-let close_root_step () : unit =
+let close_root_step ~(on_error: bool) () : unit =
   close_bigstep_if_needed();
   let step = match the_trace.step_stack with
     | [step] -> step
     | _ -> raise (TraceFailure  "close_root_step: broken invariant, stack must have size one") in
-  finalize_step step
+  finalize_step ~on_error step
 
 (** [step_backtrack f] executes [f] wrapped in a step of kind [Step_backtrack],
    and a nested step of kind [Step_group]. At the end of [f], the current ast is
@@ -1774,7 +1772,7 @@ let restore_original () : unit =
   )
 
 (** [finalize()]: should be called at the end of the script to close the root step *)
-let finalize () : unit =
+let finalize ?(on_error = false) () : unit =
   (* TEMPORARY HACK for handling effects after a call to restore_original *)
   begin match !ast_just_before_first_call_to_restore_original with
   | None -> ()
@@ -1783,7 +1781,7 @@ let finalize () : unit =
         the_trace.cur_ast <- ast)
   end;
   (* END *)
-  close_root_step();
+  close_root_step ~on_error ();
   (* Check the trace invariant (optional) *)
   try check_the_trace ~final:true
   with Invalid_trace msg -> Printf.eprintf "NON-FATAL ERROR: Trace.check_the_trace reports: %s\n" msg
@@ -1795,8 +1793,8 @@ let finalize_on_error ~(exn: exn) : unit =
   let rec close_all_steps () : unit =
     match the_trace.step_stack with
     | [] -> raise (TraceFailure "close_close_all_stepsstep: the_trace should not be empty")
-    | [_root_step] -> finalize()
-    | _step :: _ -> close_step(); close_all_steps()
+    | [_root_step] -> finalize ~on_error:true ()
+    | _step :: _ -> close_step ~on_error:true (); close_all_steps()
     in
   close_all_steps()
 

@@ -104,9 +104,9 @@ let bypass_cfeatures : bool ref = ref false
 (* [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
 let print_optitrust_syntax = ref false
 
-(* [resource_errors_as_warnings]: Do not error on resource computation failure but only print a warning instead.
-   Useful for debugging resource typing. *)
-let resource_errors_as_warnings = ref false
+(* [stop_on_first_resource_error]: Stops on the first resource error found.
+   This allows for the propagation of the backtrace. *)
+let stop_on_first_resource_error = ref true
 
 (* [always_name_resource_hyp]: Always print named for resource hypothesis even if they were unnamed.
  * Automatically set to true during Resources.show. *)
@@ -287,7 +287,7 @@ let reset_flags_to_default () : unit =
   use_light_diff := false;
   pretty_matrix_notation := false;
   display_includes := false;
-  resource_errors_as_warnings := false;
+  stop_on_first_resource_error := true;
   always_name_resource_hyp := false;
   check_validity := false;
   reparse_between_steps := false;
@@ -298,9 +298,13 @@ let reset_flags_to_default () : unit =
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =
   let init_value = !flag in
   flag := value;
-  let x = func () in
-  flag := init_value;
-  x
+  try
+    let x = func () in
+    flag := init_value;
+    x
+  with e ->
+    flag := init_value;
+    Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
 
 (* *************************************************************************************************************
   Note: to see a diff at the level of the OptiTrust AST, use:

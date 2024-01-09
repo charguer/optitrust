@@ -32,7 +32,7 @@ let with_captured_show ?(activated:bool=true) (dest : string ref) (f : unit -> '
       prt_channel := saved
       in
     try f(); finalize()
-    with e -> finalize(); raise e
+    with e -> finalize(); Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
 
   end
 

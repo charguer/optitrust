@@ -177,9 +177,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
       with
       | Stop -> ()
       | e when !Flags.execution_mode = Execution_mode_full_trace -> (* FIXME: remove when cond *)
+          let backtrace = Printexc.get_backtrace () in
           Trace.finalize_on_error ~exn:e;
           if !Flags.execution_mode = Execution_mode_full_trace then produce_trace();
-          let backtrace = Printexc.get_backtrace () in
           Printf.eprintf "========> BACKTRACE:\n%s\n" backtrace;
           exit 0 (* FIXME: don't exit in batch? *)
     end;
@@ -197,7 +197,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
         else "CAPTURED STDOUT:\n" ^ !contents_captured_show
       in
     (* Collapse the step stack onto the root step *)
-    Trace.finalize();
+    Trace.finalize ();
         (* LATER:
           IF ~expected_ast<>"" then load and unserialized expected ast and
             call trm_cmp and store result in a list ref,
@@ -226,7 +226,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     Trace.close_logs();
   with e ->
     Trace.close_logs();
-    raise e
+    Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
   );
   (* Dump statistics if they were requested *)
   let stats_after = Stats.get_cur_stats () in
