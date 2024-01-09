@@ -1,12 +1,18 @@
 open Optitrust
 open Prelude
 
+let _ = Flags.check_validity := true
+
 (* Uncomment the line below to see encoded syntax in trace
 let _ = Flags.print_optitrust_syntax := true
 *)
-let _ = Flags.check_validity := true
+
+(* Uncomment the line below to see on stdout the opening and closing of steps:
+let _ = Trace.debug_open_close_step := true
+*)
 
 let _ = Run.script_cpp (fun _ ->
+
   (* Try task "view trace" on this program; debug messages below should appead in the trace *)
   bigstep "first part";
   !! Label.add "lab1" [cVarDef "a"];

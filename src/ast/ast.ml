@@ -52,6 +52,7 @@ target resolution.
 
 (* for debugging and message printing *)
 let printf = Printf.printf
+let eprintf = Printf.eprintf
 let sprintf = Printf.sprintf
 
 (*****************************************************************************)

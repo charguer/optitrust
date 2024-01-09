@@ -10,13 +10,6 @@ open PPrint
 type output_style = Style.custom_style
 
 
-let debug = false
-
-(* [check_trace_at_every_step] can be activated to call the function
-   [check_trace] after every step, to check the invariants of the
-   trace data structure, which stores the stack of open steps. *)
-let check_trace_at_every_step = false
-
 (** Exceptions raised by this module when the user does not respect
     the interaction rules, or when internal invariants are broken *)
 exception TraceFailure of string
@@ -27,6 +20,24 @@ let ast_just_before_first_call_to_restore_original : trm option ref = ref None
 (* TODO: lack of uniformity: show_step  vs step_backtrack *)
 
 (******************************************************************************)
+(*                             Debug flags                                    *)
+(******************************************************************************)
+
+(* [check_trace_at_every_step] can be activated to call the function
+   [check_trace] after every step, to check the invariants of the
+   trace data structure, which stores the stack of open steps. *)
+let check_trace_at_every_step = ref false
+
+
+let next_step_id = fresh_generator ()
+let debug_open_close_step = ref false
+
+let debug_notify_dump_trace = false
+
+let debug_compute_ml_file_excerpts = false
+
+
+(******************************************************************************)
 (*                             File excerpts                                  *)
 (******************************************************************************)
 
@@ -34,7 +45,6 @@ let ast_just_before_first_call_to_restore_original : trm option ref = ref None
    the source file. Line numbers are counted from 1 in that map. *)
 module Int_map = Map.Make(Int)
 let ml_file_excerpts = ref Int_map.empty
-let debug_compute_ml_file_excerpts = false
 
 (** [compute_ml_file_excerpts lines]: is a function for grouping lines according to the [!!] symbols. *)
 let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
@@ -210,6 +220,7 @@ let step_kind_to_string (k:step_kind) : string =
 
 (** [step_infos] *)
 type step_infos = {
+  mutable step_id : int; (* for debugging purpose *)
   mutable step_script : string;
   mutable step_script_line : int option;
   mutable step_time_start : float; (* seconds since start *)
@@ -319,6 +330,9 @@ let check_the_trace ~(final:bool) : unit =
     small steps may be children of the root. *)
   let rec check_tree ~(expected_kind:step_kind) (step:step_tree) : unit =
     let kind = step.step_kind in
+    (* beware that the sublist might be in normal order or reverse order
+       depending on whether the step has already been closed or not
+       -- LATER: we should have the information on whether it is closed... *)
     let sub = List.rev step.step_sub in
     (* Check kind, compared with [expected_kind] *)
     begin match kind, expected_kind with
@@ -341,7 +355,10 @@ let check_the_trace ~(final:bool) : unit =
       | [substep] ->
           if substep.step_kind <> Step_group
             then err "A backtrack step should have a group step as child"
-      | _ -> err "A backtrack step should have exactly one substep"
+      | [changestep; substep] when changestep.step_kind = Step_change -> ()
+      | [substep; changestep] when changestep.step_kind = Step_change -> ()
+          (* the end of the backtrack step restores the previous ast *)
+      | _ -> err (sprintf "A backtrack step should have exactly one substep, %d found for %d" (List.length sub) (step.step_infos.step_id))
     end;
     (* Check substeps, with a lower [expected_kind] *)
     let expected_kind_sub = kind_for_sub kind in
@@ -513,6 +530,7 @@ let get_cur_step ?(error : string = "get_cur_step: empty stack") () : step_tree 
 let open_root_step ?(source : string = "<unnamed-file>") () : unit =
   assert(the_trace.step_stack = []);
   let step_root_infos = {
+    step_id = next_step_id();
     step_script = "Contents of " ^ source;
     step_script_line = None;
     step_time_start = now();
@@ -559,7 +577,8 @@ let get_excerpt (line : int) : string =
    or combi, or basic transformation. *)
 let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) () : step_tree =
   let infos = {
-    step_script;
+    step_id = next_step_id();
+    step_script = step_script;
     step_script_line = line;
     step_time_start = now();
     step_exectime = dummy_exectime;
@@ -584,11 +603,14 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_style_after = the_trace.cur_style; }
     in
   the_trace.step_stack <- step :: the_trace.step_stack;
+  if !debug_open_close_step
+    then eprintf "%sTrace.open_step [%d]: %s (%s)\n" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string kind) name;
   step
 
 (** [change_step] helps creating a [Step_change] during [finalize]. *)
 let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_start : float) ~(step_exectime : float) ~(flag_check_validity:bool) : step_tree =
   let infos = {
+    step_id = next_step_id();
     step_script = "";
     step_script_line = None;
     step_time_start = time_start;
@@ -852,6 +874,8 @@ and close_step ?(discard = false) ?(check:step_tree option) () : unit =
           if step != opened_step
             then raise (TraceFailure "close_step: not closing the expected step")
       end;
+      if !debug_open_close_step
+        then eprintf "%sTrace.close_step[%d]: %s\n" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string step.step_kind);
       if not discard then begin
         (* Finalize the step, by reversing the list of substeps and computing validity *)
         finalize_step step;
@@ -860,7 +884,7 @@ and close_step ?(discard = false) ?(check:step_tree option) () : unit =
       end;
       the_trace.step_stack <- stack_tail;
       (* In debug mode, check the trace invariant *)
-      if check_trace_at_every_step
+      if !check_trace_at_every_step
         then check_the_trace ~final:false
 
 (** [step_and_get_handle] is a function wrapping the body of a transformation,
@@ -1432,7 +1456,7 @@ let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
-  if debug then printf "Dumping trace to '%s'\n" filename;
+  if debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
   let out_js = open_out filename in
   let out = output_string out_js in
   let next_id = ref (-1) in
@@ -1486,7 +1510,7 @@ let dump_trace_to_textfile ?(prefix : string = "") () : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in
-  if debug then printf "Dumping trace to '%s'\n" filename;
+  if debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
   step_tree_to_file filename (get_root_step())
 
 (** [output_prog_check_empty style ctx prefix ast_opt]: similar to [output_prog], but it
@@ -1675,7 +1699,7 @@ let open_smallstep ~(line : int) ?reparse:(need_reparse:bool=false) () : unit =
    for their display. When visualizing a step in interactive mode,
    if the step is a Step_backtrack, then instead of showing an empty diff,
    the diff displayed corresponds to the ast of the (unique) step inside.
-   The backtract step containing the show step is tagged with the tag "show",
+   The backtrack step containing the show step is tagged with the tag "show",
    to easily identify it as such. *)
 let show_step ?(name:string="show") ~(ast_left:trm) ~(style_left:output_style) ~(ast_right:trm) ~(style_right:output_style) () =
   step_backtrack ~tags:["show"] (fun () ->
