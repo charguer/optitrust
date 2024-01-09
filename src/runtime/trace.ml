@@ -28,7 +28,9 @@ let ast_just_before_first_call_to_restore_original : trm option ref = ref None
    trace data structure, which stores the stack of open steps. *)
 let check_trace_at_every_step = ref false
 
-
+(* For debugging, insert this line in your code:
+   let _ = Trace.debug_open_close_step := true
+*)
 let next_step_id = fresh_generator ()
 let debug_open_close_step = ref false
 
@@ -781,10 +783,10 @@ let is_kind_preserving_code (kind:step_kind) : bool =
   match kind with
   | Step_typing | Step_io | Step_target_resolve
   | Step_backtrack | Step_error | Step_show ->
-      false
+      true
   | Step_root | Step_big | Step_small | Step_transfo
   | Step_group | Step_trustme | Step_change ->
-      true
+      false
 
 (** [finalize_step] is called by [close_root_step] and [close_step] *)
 let rec finalize_step (step : step_tree) : unit =

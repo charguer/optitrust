@@ -26,11 +26,6 @@ tests/matrix/stack_copy/matrix_stack_copy.ml
 loop/fission/loop_fission_basic.ml
 loop/fission/loop_fission.ml
 
-# LOOP?
-resources/contracts/loop_minimize.ml
-resources/ghost/ghost_embed_loop.ml
-resources/ghost_pair/ghost_pair_minimize.ml
-
 #TODO:
 # arith/simpl/arith_simpl.ml
 # loop/shift/loop_shift.ml
