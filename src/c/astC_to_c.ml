@@ -393,13 +393,15 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
   (*printf "ERRORS L=%d\n" (List.length t.errors);*)
   if t.errors = [] || not style.ast.print_errors then
     dt
-  else
-    list_to_doc ~sep:hardline
+  else begin
+    let derror = list_to_doc ~sep:hardline
       ~bounds:[(string "/*" ^^ hardline);
                 (hardline ^^ string "*/" ^^ hardline )]
-      (List.map (fun error -> string (sprintf "ERROR: %s" error)) t.errors)
-    ^^ dt
-
+      (List.map (fun error -> string (sprintf "ERROR: %s" error)) t.errors) in
+    if !Flags.debug_errors_msg_embedded_in_ast && (List.length t.errors) > 0
+      then Printf.eprintf "PRINTING ERROR IN COMMENT IN AST---:\n%s---\n" (Tools.document_to_string derror);
+    derror ^^ dt
+  end
 
 (* [trm_var_to_doc style v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
 and trm_var_to_doc style (x : var) (t : trm) : document =
