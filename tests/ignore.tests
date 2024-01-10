@@ -20,11 +20,7 @@ loop/move/loop_move_doc.ml
 # BROKEN RESOURCES, FIX FOR MM
 resources/contracts/loop_parallelize_reads.ml
 loop/reorder_at/loop_reorder_at.ml
-loop/moveout/loop_moveout.ml
 loop/hoist_expr/loop_hoist_expr.ml
-loop/hoist/loop_hoist_basic.ml
-loop/fission/loop_fission_basic.ml
-loop/fission/loop_fission.ml
 
 #TODO:
 # arith/simpl/arith_simpl.ml

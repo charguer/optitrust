@@ -17,7 +17,7 @@ void f(int *t, int *u) {
   }
 
   for (int l = 0; l < 5; l++) {
-    __GHOST_BEGIN(focus2_6, group_focus_subrange, "start := 2, stop := 6, bound_check_start := checked, bound_check_stop := checked");
+    __GHOST_BEGIN(focus2_6, group_focus_subrange, "start := 2, stop := 6");
     for (int m = 2; m < 6; m++) {
       __modifies("&u[m] ~> Cell");
 

@@ -531,7 +531,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
   let generate_if = (empty_range = Generate_if) in
   let contract = match contract with
     | Some contract when not generate_if ->
-      (* FIXME: should this not just erase contract when not checking validity? *)
+      (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
       let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear contract.iter_contract.pre.linear in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }

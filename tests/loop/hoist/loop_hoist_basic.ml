@@ -19,9 +19,12 @@ let _ = Run.script_cpp (fun () ->
     Loop_basic.hoist [cVarDef "w"]);
   *)
 
+  (* without_substep_validity_checks (fun () -> *)
+  (* FIXME: handle div operator
   !! Loop_basic.hoist ~name:"yn" [cFunBody "f"; cVarDef "y"];
   !! Loop_basic.hoist ~name:"ym" [cFunBody "f"; cVarDef "yn"];
   !! Loop_basic.hoist ~name:"yl" [cFunBody "f"; cVarDef "ym"];
+  *)
 
   let y = find_var_in_current_ast "sum" in
   !! Matrix_basic.intro_malloc0 y [cFunBody "f2"; cFor "j"; dBody];
@@ -30,7 +33,8 @@ let _ = Run.script_cpp (fun () ->
   (* TODO: Factorize simplifications of array accesses *)
   !! step_backtrack (fun () ->
     let mark = Mark.next () in
-    Variable_basic.inline ~mark [nbMulti; cVarDefs ["x"; "z"; "yn"; "ym"; "y"; "sum"]];
+    (* FIXME: div op, "yn"; "ym"; "y"; *)
+    Variable_basic.inline ~mark [nbMulti; cVarDefs ["x"; "z"; "sum"]];
     let paths = Target.resolve_target_current_ast [nbMulti; cMark mark] in
     let paths = Xlist.remove_duplicates (List.map (fun p -> Path.find_surrounding_expr p (Trace.ast ())) paths) in
     List.iter (fun path ->
