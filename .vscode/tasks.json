@@ -371,6 +371,10 @@
         "options": {
           "cwd": "${fileDirname}",
         },
+        "presentation": {
+          "clear": true,
+          "reveal": "always"
+        },
       }
 
     ]
