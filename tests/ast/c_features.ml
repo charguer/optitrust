@@ -19,7 +19,7 @@ let _ = Run.script_cpp ~filename (fun () ->
   (* If this test fails, see c_access.ml or c_stackvar.ml for debugging *)
   bigstep "round-trip";
   !! Trace.apply cfeatures_elim;
-  !! Trace.apply cfeatures_intro;
+  !! Trace.apply (cfeatures_intro (default_style ()));
   bigstep "check";
   !! Trace.check_recover_original();
 )
