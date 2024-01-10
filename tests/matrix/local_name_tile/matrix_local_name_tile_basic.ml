@@ -10,7 +10,7 @@ let _ = Run.script_cpp (fun _ ->
 
   (* uninit_pre *)
   !! Trace.failure_expected (fun _e -> true) (fun () ->
-    !! Matrix_basic.local_name_tile
+     Matrix_basic.local_name_tile
       ~alloc_instr:[cFunBody "malloc_uninit_pre"; cVarDef "a"] ~local_var:"x"
       ~uninit_pre:false ~uninit_post:false
       [range 0 10; range 2 10; range 0 4]

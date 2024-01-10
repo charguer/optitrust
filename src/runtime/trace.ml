@@ -1844,7 +1844,8 @@ let finalize ?(on_error = false) () : unit =
   close_root_step ~on_error ();
   (* Check the trace invariant (optional) *)
   try check_the_trace ~final:true
-  with Invalid_trace msg -> Printf.eprintf "NON-FATAL ERROR: Trace.check_the_trace reports: %s\n" msg
+  with Invalid_trace msg ->
+    Tools.warn (sprintf "NON-FATAL ERROR: Trace.check_the_trace reports: %s\n" msg)
 
 (** [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
 let finalize_on_error ~(exn: exn) : unit =
