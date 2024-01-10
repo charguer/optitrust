@@ -496,9 +496,9 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     AstC_to_c.ast_to_outchannel cstyle out_prog ast;
     output_string out_prog "\n";
     close_out out_prog;
-  with | Failure s ->
+  with | Failure _ as exn ->
     close_out out_prog;
-    failwith s
+    Printexc.(raise_with_backtrace exn (get_raw_backtrace ()))
   end;
   (* Beautify the generated C++ code using clang-format *)
   if use_clang_format

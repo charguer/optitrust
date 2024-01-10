@@ -731,11 +731,14 @@ let contract_elim (t: trm): trm =
 
 let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, formula): string =
   let sformula = formula_to_string style formula in
-  if not (!Flags.always_name_resource_hyp || Var_set.mem hyp used_vars) && hyp.name.[0] = '#'
+  if not (style.cstyle.ast.print_generated_ids || Var_set.mem hyp used_vars) && hyp.name.[0] = '#'
     then Printf.sprintf "%s" sformula
     (* TODO: use style print_generated_ids and print_var_id *)
     (* else Printf.sprintf "%s: %s" hyp.name sformula *)
-    else Printf.sprintf "%s#%d: %s" hyp.name hyp.id sformula
+    else begin
+      let hyp_s = if style.cstyle.ast.print_var_id then var_to_string hyp else hyp.name in
+      Printf.sprintf "%s: %s" hyp_s sformula
+    end
 
 let efrac_to_string (style: style) (efrac, bigger_frac): string =
   (* TODO: pass style through *)
@@ -1038,8 +1041,7 @@ let cfeatures_intro (style : style) : trm -> trm =
     and the contracts as C calls using the "__" prefix *)
 let meta_intro (style: style) : trm -> trm =
   fun t ->
-  (* Scope_computation.infer_var_ids t |>  TODO: allow failures, this allows prettier printing *)
-  t |>
+  Scope_computation.infer_var_ids ~check:false t |>
   formula_sugar_intro |>
   ghost_args_intro style |>
   contract_intro style
