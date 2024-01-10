@@ -237,14 +237,17 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
 
       let pairs = Ghost_pair.elim_all_pairs_at next_m inner_seq_p in
 
-      List.iter (fun (pair_token, begin_m, end_m) ->
+      let loop_pairs = List.map (fun (pair_token, begin_m, end_m) ->
         Loop_basic.fission_basic [Constr_paths [seq_p]; cMark begin_m; tAfter];
         Loop_basic.fission_basic [Constr_paths [seq_p]; cMark end_m; tBefore];
-        Ghost.embed_loop [Constr_paths [seq_p]; cMark begin_m];
-        Ghost.embed_loop [Constr_paths [seq_p]; cMark end_m];
-      ) pairs;
+        let loop_begin_m = next_m () in
+        let loop_end_m = next_m () in
+        Ghost.embed_loop ~mark:loop_begin_m [Constr_paths [seq_p]; cFor ~body:[cMark begin_m] ""];
+        Ghost.embed_loop ~mark:loop_end_m [Constr_paths [seq_p]; cFor ~body:[cMark end_m] ""];
+        (pair_token, loop_begin_m, loop_end_m)
+      ) pairs in
 
-      Ghost_pair.reintro_pairs_at pairs seq_p;
+      Ghost_pair.reintro_pairs_at loop_pairs seq_p;
 
       let inner_loop_p = resolve_target_exactly_one [cMark inner_loop_m] (Trace.ast ()) in
       let _, outer_loop_p = Path.index_in_surrounding_loop inner_loop_p in
