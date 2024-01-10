@@ -213,7 +213,7 @@ let fun_contract_subst ctx contract =
 
 (** [specialize_contract contract args] specializes the [contract] with the given [args], a subset of pure resources of the precondition *)
 let specialize_contract contract args =
-  fun_contract_subst args { contract with pre = { contract.pre with pure = List.filter (fun (ghost_var, _) -> Var_map.mem ghost_var args) contract.pre.pure } }
+  fun_contract_subst args { contract with pre = { contract.pre with pure = List.filter (fun (ghost_var, _) -> not (Var_map.mem ghost_var args)) contract.pre.pure } }
 
 (* TODO: rename and move elsewhere. *)
 let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =

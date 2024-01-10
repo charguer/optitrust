@@ -7,14 +7,14 @@ let _ = Run.script_cpp (fun _ ->
   !! Loop.swap_basic [cFunBody "g"; cFor "a"];
   !! Loop.swap_basic [cFunBody "g"; cFor "a"];
   !! Loop.swap_basic [cFunBody "g"; cFor "c"];
-  (* TODO:
-    !! Loop.swap [cFunBody "g"; cFor "b"];
-  *)
+  (* TODO?
+    This is a reorder_at?
+    !! Loop.swap [cFunBody "g"; cFor "b"]; *)
 
-  (* TODO:
-  !! Trace.failure_expected (fun _e -> true) (fun () ->
+  !! Trace.failure_expected
+    (function | Scope_computation.InvalidVarId _ -> true | _ -> false) (fun () ->
     Loop.swap [cFunBody "g"; cFor "i"]);
-*)
+
   !! Loop.swap_basic [cFunBody "f"; cFor "x"];
 
   !! Loop.swap [cFunBody "seq_reads"; cFor "i"];
