@@ -102,13 +102,13 @@ void ghost_pairs() {
   const __ghost_fn __ghost_pair_2 = __ghost_begin(
       __with_reverse(
           [&]() {
-            __requires("#126#222: _Fraction");
+            __requires("#126: _Fraction");
             __consumes("_RO(#126, Group(range(0, 5, 1), fun i -> &x ~> Cell))");
             __produces(
                 "_RO(#126 / range_count(range(0, 5, 1)), Group(range(0, 5, 1), "
                 "fun i -> Group(range(0, 5, 1), fun _ -> &x ~> Cell)))");
             for (int i = 0; i < 5; i++) {
-              __loop_ghosts("#126#6261: _Fraction");
+              __loop_ghosts("#126: _Fraction");
               __consumes("_RO(#126, &x ~> Cell)");
               __produces(
                   "_RO(#126 / range_count(range(0, 5, 1)), Group(range(0, 5, "
@@ -118,7 +118,7 @@ void ghost_pairs() {
           },
           [&]() {
             for (int i = 0; i < 5; i++) {
-              __loop_ghosts("#126#6467: _Fraction");
+              __loop_ghosts("#126: _Fraction");
               __consumes(
                   "_RO(#126 / range_count(range(0, 5, 1)), Group(range(0, 5, "
                   "1), fun j -> &x ~> Cell))");
