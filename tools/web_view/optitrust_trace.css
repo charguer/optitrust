@@ -94,6 +94,10 @@ h2 {
   text-align: center;
 }
 
+#button_normal {
+  margin-left: 1em;
+}
+
 .details-button {
   min-width: 5em;
   margin-top: 8px;
@@ -176,11 +180,21 @@ h2 {
   background: #e7ff49;
 }
 
+.step-nodiff {
+  color: #555555;
+}
+
 .step-io-target {
   background: #fdf7bf;
 }
 .step-title:hover {
    cursor:pointer;
+}
+.step-bullet:hover {
+  cursor:pointer;
+}
+.checkbox-label {
+  cursor:pointer;
 }
 
 .exectime-heavy {

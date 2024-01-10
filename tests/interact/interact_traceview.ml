@@ -1,17 +1,48 @@
 open Optitrust
 open Prelude
 
+(** This unit test is for testing the trace generation *)
+
+let _ = Flags.check_validity := true
+
+(* Uncomment the line below to see all details in the full trace,
+   and not only when requesting a per-step trace
+let _ = Flags.detailed_trace := true
+*)
+
+(* Uncomment the line below to shrink ASTs during diffs. *)
+let _ = Flags.use_light_diff := true
+
+(* Uncomment the line below to control use of clang-format
+let _ = Flags.use_clang_format := true
+ *)
+
 (* Uncomment the line below to see encoded syntax in trace
 let _ = Flags.print_optitrust_syntax := true
 *)
-let _ = Flags.check_validity := true
+
+(* Uncomment the line below to see on stdout the opening and closing of steps:
+let _ = Trace.debug_open_close_step := true
+*)
+
+(* LATER: test a shortcut triggering only_big_steps to view the trace
+    associated with a big-step. Or perhaps attempt to automatically
+    trigger this flag if the user is on a line calling "bigstep" *)
 
 let _ = Run.script_cpp (fun _ ->
+
   (* Try task "view trace" on this program; debug messages below should appead in the trace *)
   bigstep "first part";
   !! Label.add "lab1" [cVarDef "a"];
   !! Label.add "lab2" [cVarDef "a"];
+
+  (* Details of multi-target processing *)
   bigstep "second part";
+  !! Target.iteri (fun i _t p ->
+       Label.add ("occ" ^ string_of_int i) [cPath p])
+     [nbMulti; cVarDef ""];
+
+  bigstep "third part";
   (* Uncomment the line below to see a partial trace
     !! if true then failwith "the error message";
   *)
@@ -20,6 +51,8 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.msg "debug message before\nlab4 \n";
       Label.add "lab4" [cVarDef "a"];
       Trace.msg "debug message after\nlab4 \n";
+  (* Example of a reparse step *)
+  !! Trace.reparse();
   !! Label.add "lab5" [cVarDef "a"];
   (* Examples of show functions with output in browser *)
   !! Show.ast ();
@@ -35,13 +68,20 @@ let _ = Run.script_cpp (fun _ ->
   *)
   (* Examples of show functions with output on stdout *)
   (* !! ShowAt.trm []; *)
-  bigstep "third part";
+  bigstep "fourth part";
   (* Try task "View diff using internal syntax" *)
   !! Label.add "lab6" [cVarDef "a"];
+  (* Demo of substeps modifying the ast directly
+     (only transformations should do this) *)
+  let ast6 = Trace.ast() in
   !! Label.add "lab7" [cVarDef "a"];
+  !! Trace.set_ast ast6;
+     Label.add "lab8" [cVarDef "a"];
+     Trace.set_ast ast6;
   (* Example of trustme section *)
   !! Trace.trustme "I know what I'm doing" (fun () ->
      Label.add "labX1" [cVarDef "a"];
+     Trace.set_ast ast6;
      Label.add "labX2" [cVarDef "a"];
   );
   (* Example of backtracking *)

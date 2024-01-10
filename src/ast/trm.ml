@@ -13,6 +13,7 @@ let trm_annot_default = {
   trm_annot_pragma = [];
   trm_annot_cstyle = [];
   trm_annot_files = [];
+  trm_annot_referent = None;
 }
 
 (* [is_statement_of_desc t_desc]: checks if t_tesc corresponds to a statement or not  *)
@@ -27,28 +28,28 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
     end
   | _ -> false
 
-(* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
+(* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ?errors ~desc ()]: builds trm [t] with its fields given as arguments. *)
 let trm_build ~(annot : trm_annot) ?(loc : location) ~(is_statement : bool) ?(typ : typ option)
-  ?(ctx : ctx = unknown_ctx ()) ~(desc : trm_desc) () : trm =
-  let t = {annot; loc; is_statement; typ; desc; ctx} in
+  ?(ctx : ctx = unknown_ctx ()) ?(errors : string list = []) ~(desc : trm_desc) () : trm =
+  let t = {annot; loc; is_statement; typ; desc; ctx; errors} in
   Stats.incr_trm_alloc ();
   t
 
-(* [trm_make ~annot ?loc ~is_statement ?typ ?ctx desc]: builds trm [t] with description [desc] and other fields given
+(* [trm_make ~annot ?loc ~is_statement ?typ ?ctx ?errors desc]: builds trm [t] with description [desc] and other fields given
     as default ones. *)
 let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location) ?(is_statement : bool option)
-    ?(typ : typ option) ?(ctx : ctx option) (desc : trm_desc) : trm =
+    ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) (desc : trm_desc) : trm =
    let is_statement =
      match is_statement with
      | Some b -> b
      | None -> is_statement_of_desc typ desc
      in
-   trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ()
+   trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ?errors ()
 
 
 (* [trm_alter ~annot ?loc ?is_statement ?typ ?ctx ?desc t]: alters any of the fields of [t] that was provided as argument. *)
 let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statement : bool option)
- ?(typ : typ option) ?(ctx : ctx option) ?(desc : trm_desc option) (t : trm) : trm =
+ ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) ?(desc : trm_desc option) (t : trm) : trm =
     let annot = match annot with Some x -> x | None -> t.annot in
     let loc = match loc with Some x -> x | None -> t.loc in
     let typ = match typ with | None -> t.typ | _ -> typ in
@@ -59,8 +60,9 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statemen
                 | None -> t.is_statement
       in
     let ctx = Option.value ~default:t.ctx ctx in
+    let errors = Option.value ~default:t.errors errors in
     let desc = match desc with | Some x -> x | None -> t.desc in
-    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ()
+    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ~errors ()
 
 (* [trm_replace desc t]: an alias of [trm_alter] to alter only the descriptiong of [t]. *)
 let trm_replace (desc : trm_desc) (t : trm) : trm =
@@ -68,7 +70,28 @@ let trm_replace (desc : trm_desc) (t : trm) : trm =
 
 (* [trm_like]: copies the annotations, location and type of the old trm into a new trm *)
 let trm_like ~(old:trm) (t:trm): trm =
-  trm_alter ~annot:old.annot ~loc:old.loc ?typ:old.typ t
+  trm_alter ~annot:old.annot ~loc:old.loc ~errors:old.errors ?typ:old.typ t
+
+(* **************************** Referent *************************** *)
+
+(* [trm_find_referent t]: returns the referent of trm [t], transitively.
+   (referents should not be cyclic!) *)
+let rec trm_find_referent (t : trm) : trm =
+  match t.annot.trm_annot_referent with
+  | None -> t
+  | Some tref -> trm_find_referent tref
+
+(* [trm_annot_set_referent annot t] updates an annotation to specify
+   a referent. *)
+let trm_annot_set_referent (annot : trm_annot) (target_trm : trm) : trm_annot =
+  { annot with trm_annot_referent = Some target_trm }
+
+(* **************************** Errors *************************** *)
+
+(* [trm_error_merge ~from t] returns a copy of [t] with [t.errors] updated
+   by appending the errors of [from]. *)
+let trm_error_merge ~(from:trm) (t:trm) : trm =
+  { t with errors = t.errors @ from.errors }
 
 (* **************************** CStyle *************************** *)
 
@@ -79,7 +102,7 @@ let trm_get_cstyles (t : trm) : cstyle_annot list =
 (* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
 let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
   let t_annot_cstyle = f (trm_get_cstyles t) in
-  let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in
+  let t_annot = { t.annot with trm_annot_cstyle = t_annot_cstyle } in
   trm_alter ~annot:t_annot t
 
 (* [trm_add_cstyle cs t]: adds [cs] cstyle annotation to trm [t]. *)
@@ -979,21 +1002,13 @@ let get_lit_from_trm_lit (t : trm) : lit =
     | Trm_apps (_, [arg], _) when is_new_operation t -> arg
     | _ -> t
 
-
-  (* [new_operation_inv t]: returns the type and the argument of the new operation [t]. *)
-  let new_operation_inv (t : trm) : (typ * trm) option =
-    match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_new ty))}, [arg], _) -> Some (ty, arg)
-    | _ -> None
-
-
   (* [trm_let_mut ~annot ?ctx typed_var init]: an extension of trm_let for
       creating mutable variable declarations *)
   let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
     (typed_var : typed_var) (init : trm): trm =
     let var_name, var_type = typed_var in
     let var_type_ptr = typ_ptr_generated var_type in
-    let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init]) in
+    let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new (var_type, []))) [init]) in
     trm_add_cstyle Stackvar t_let
 
   (* [trm_let_ref ~annot ?ctx typed_var init]: an extension of trm_let for creating references *)
@@ -1017,7 +1032,7 @@ let get_lit_from_trm_lit (t : trm) : lit =
     (typed_var : typed_var) (sz : size)(init : trm): trm =
     let var_name, var_type = typed_var in
     let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
-    let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
+    let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new (var_type, []))) [init]  in
     let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
     if kind = Var_mutable then trm_add_cstyle Stackvar res else res
 
@@ -1240,11 +1255,11 @@ let rec aux (t : trm) : loop_range list =
 let loop_range_list = aux t in
 if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
 
-let trm_new_inv (t : trm) : (typ * trm) option =
+let trm_new_inv (t : trm) : (typ * trm list * trm) option =
 match trm_apps_inv t with
 | Some (f, [v]) ->
   begin match trm_prim_inv f with
-  | Some (Prim_new ty) -> Some (ty, v)
+  | Some (Prim_new (ty, dims_opt)) -> Some (ty, dims_opt, v)
   | _ -> None
   end
 | _ -> None
@@ -1257,7 +1272,7 @@ match t.desc with
 
 let is_trm_new_uninitialized (t : trm) : bool =
 match trm_new_inv t with
-| Some (_, v) -> is_trm_uninitialized v
+| Some (_, _, v) -> is_trm_uninitialized v
 | None -> false
 
 
@@ -1380,8 +1395,8 @@ match trm_new_inv t with
     if const then trm_var ?typ ~kind:Var_immutable x else trm_var_get ?typ x
 
   (* [trm_new ty t]: generates "new ty" *)
-  let trm_new (ty : typ) (t : trm) : trm =
-    trm_apps (trm_prim (Prim_new ty)) [t]
+  let trm_new (ty : typ) ?(dims : trm list = []) (t : trm) : trm =
+    trm_apps (trm_prim (Prim_new (ty, dims))) [t]
 
 let var_any_bool = new_var "ANY_BOOL"
 
@@ -1757,6 +1772,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   let loc = t.loc in
   let typ = t.typ in
   let ctx = if keep_ctx then t.ctx else unknown_ctx () in
+  let errors = t.errors in
 
   let fun_spec_map f tf old_spec =
     match old_spec with
@@ -1812,7 +1828,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       else { loop_ghosts; invariant; iter_contract }
   in
 
-  match t.desc with
+  let t' = match t.desc with
   | Trm_val _ | Trm_var _ -> t
   | Trm_array tl ->
     let tl' = mlist_map (f false) (==) tl in
@@ -1956,9 +1972,12 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     if (share_if_no_change && templated == templated')
       then t
       else trm_template ~annot ?loc ~ctx typ_params templated'
+  | Trm_arbitrary (Comment _) -> t
   | _ ->
     trm_combinators_unsupported_case "trm_map_with_terminal"  t
-
+  in
+  t'.errors <- errors;(* LATER: errors is not treated like other arguments *)
+  t'
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =
@@ -2025,6 +2044,7 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     | _ -> ()
     end
   | Trm_fun (_, _, body, _) -> f body
+  | Trm_arbitrary (Comment _) -> ()
   | Trm_arbitrary _ ->
     ignore (trm_combinators_unsupported_case "trm_iter" t)
   | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
@@ -2053,6 +2073,7 @@ let trm_map_vars
   (ctx: 'ctx) (t: trm): trm =
   let rec f_map (ctx:'ctx) (t:trm): 'ctx * trm =
     let annot = t.annot in
+    let errors = t.errors in
     let loc = t.loc in
     let typ = t.typ in
     let t_ctx = if keep_ctx then t.ctx else unknown_ctx () in
@@ -2255,6 +2276,7 @@ let trm_map_vars
       (ctx, trm_map ~keep_ctx (fun ti -> snd (f_map ctx ti)) t)
 
     in
+    trm.errors <- errors;
     post_process ctx trm
 
   and resource_items_map ctx resources: 'ctx * resource_item list =
@@ -2363,9 +2385,10 @@ let prepare_for_serialize (t:trm) : trm =
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let trm_copy (t : trm) : trm =
   let map_binder var_map v _ =
-    (* ???
-    if v.id = inferred_var_id then (var_map, v)
-    else *) begin
+    if v.id = inferred_var_id then begin
+      Tools.warn "A binder should always be introduced with a fresh id, not with an inferred id.";
+      (var_map, v)
+    end else begin
       assert (not (Var_map.mem v var_map));
       let new_v = new_var ~qualifier:v.qualifier v.name in
       (Var_map.add v new_v var_map, new_v)
@@ -2407,7 +2430,15 @@ type eval = trm option
    If a variable is in the map, then it is an evar, and should be substituted/unified (i.e. its eval should eventually become Some). *)
 type unification_ctx = eval varmap
 
-(** <internal> see {!unified_trm} *)
+(** [unfold_if_resolved_evar t evar_ctx] tries to unfold resolved evars inside [evar_ctx] occuring
+    at the top of [t] (but not in depth).
+    Since we can do it almost for free, it also performs simplifications in the [evar_ctx]
+    when resolved evars are pointing to other resolved evars.
+
+    It returns the possibly unfolded [trm], along with a possibly simplified [evar_ctx].
+
+    On application nodes, this function tries to unfold the function and performs immediate
+    beta reduction if possible. *)
 let rec unfold_if_resolved_evar (t: trm) (evar_ctx: unification_ctx): trm * unification_ctx =
   match t.desc with
   | Trm_var (_, x) ->
@@ -2533,8 +2564,11 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
       | Trm_let_fun (f, ty, tv, _, _) ->
         if f_pred f then begin
           t_map := Var_map.add f t !t_map;
-         trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_lit Lit_uninitialized) end
-        else t
+          (* replace the body with an empty body with an annotation *)
+          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_uninitialized()) in 
+          trm_add_cstyle BodyHiddenForLightDiff t2
+        end else
+          t
       | _ -> trm_map aux t
       in
   let res = aux t in

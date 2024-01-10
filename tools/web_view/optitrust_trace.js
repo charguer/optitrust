@@ -60,15 +60,21 @@ var optionsDefaultValueForTags = { // true = checked = hidden
     "target": true,
     "marks": true,
     "simpl": true,
+    "typing": true,
    };
 
 var allTags = {}; // filled by initAllTags
 
 var optionsDescr = [ // extended by initAllTags
-  { key: "details",
-    name: "details",
+  { key: "tree",
+    name: "tree",
     kind: "UI",
     default: true,
+  },
+  { key: "hide_substeps",
+    name: "hide-substeps",
+    kind: "UI",
+    default: false,
   },
   { key: "ast_before",
     name: "ast-before",
@@ -89,6 +95,11 @@ var optionsDescr = [ // extended by initAllTags
     name: "compact",
     kind: "UI",
     default: true,
+  },
+  { key: "step_change",
+    name: "step-change",
+    kind: "UI",
+    default: false,
   },
   { key: "args",
     name: "arguments",
@@ -132,11 +143,6 @@ var optionsDescr = [ // extended by initAllTags
     kind: "UI",
     default: false,
   },*/
-  { key: "noop_steps",
-    name: "noop-steps",
-    kind: "UI",
-    default: true,
-  },
   { key: "atomic_substeps",
     name: "atomic-substeps",
     kind: "UI",
@@ -148,8 +154,8 @@ var optionsDescr = [ // extended by initAllTags
     default: true,
   }
 ];
-var options = {}; // filled by initOptions
-
+var options = {}; // filled by initOptions, maps key to value
+var optionsDefault = {}; // filled by initOptions, maps key to default value
 
 
 //---------------------------------------------------
@@ -261,7 +267,7 @@ function htmlButton(id, label, css, onclick) {
 }
 
 function htmlCheckbox(id, label, css, onclick) {
-  return "<label><input id='" + id + "' class='" + css + "' type='checkbox' onclick='" + onclick + "'>" + label + "</label>";
+  return "<label class='checkbox-label'><input id='" + id + "' class='" + css + "' type='checkbox' onclick='" + onclick + "'>" + label + "</label>";
 }
 
 
@@ -309,7 +315,17 @@ function loadDiffForStep(step) {
     }
   }
   // Print diff for step
-  loadDiffFromString(step.diff);
+  var diffString = "";
+  if (step.diff == undefined) {
+    // console.log("Diff was not computed for this step");
+    $("#debugMsgDiv").html("Diff was not saved for this step; to see it, request the trace of a specific step or set the flag detailed_trace");
+  } else if (step.diff == "") {
+    $("#debugMsgDiv").html("Diff is empty");
+  } else {
+    $("#debugMsgDiv").html("");
+    diffString = step.diff;
+  }
+  loadDiffFromString(diffString);
 }
 
 function loadDiffFromString(diffString) {
@@ -419,6 +435,12 @@ function loadSource(sourceCode, dontResetView) {
     resetView();
   }
   $("#sourceDiv").show();
+  if (sourceCode == undefined) {
+    sourceCode = "";
+    // console.log("AST was not saved for this step");
+    // $("#debugMsgDiv").html("AST was not saved for this step");
+    sourceCode = "// AST was not saved for this step; to see it, request the trace of a specific step or set the flag detailed_trace";
+  }
   editor.setValue(sourceCode);
   // DEPRECTED $("#button_code_" + id).addClass("ctrl-button-selected");
   // showBdiffCovered(id);
@@ -435,7 +457,8 @@ function loadSdiff(id) {
   loadDiffForStep(step);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
   if (options.exectime) {
-    var sTime = htmlSpan(Math.round(1000 * step.exectime) + "ms", "timing-info") + "<div style='clear: both'></div>";
+    var nbMilliseconds = Math.round(1000 * step.exectime);
+    var sTime = htmlSpan(nbMilliseconds + "ms", "timing-info") + "<div style='clear: both'></div>";
     sStep += sTime;
   }
   displayInfo(sStep);
@@ -490,21 +513,26 @@ function nextBdiff() {
     curBdiff = 0;
   }*/
   var id = (curBdiff + 1) % bigsteps.length;
-  console.log(id);
   loadBdiff(id);
 }
 
 // handles a click on a step bullet item, to focus on that step
 function focusOnStep(idStep) {
+  //console.log("focusOnStep " + idStep + " with parent " + steps[idStep].parent_id);
+  options["hide_substeps"] = false;
+  optionsCheckboxUpdate();
   resetView();
   var step = steps[idStep];
   selectedStep = step;
+  reloadTraceView();
   if (step.hasOwnProperty("smallstep_id")) {
+    //console.log("reload small step " + steps[step.smallstep_id].id)
     loadSdiff(step.smallstep_id);
   } else if (step.hasOwnProperty("bigstep_id")) {
-    loadSdiff(step.bigstep_id);
+    //console.log("reload big step " + steps[step.bigstep_id].id)
+    loadBdiff(step.bigstep_id);
   }
-  reloadTraceView();
+
 }
 
 // handles a click on a step, to view details
@@ -544,15 +572,24 @@ function loadStepDetails(idStep) {
 }
 
 function stepToHTML(step, isOutermostLevel) {
-  if (!options.noop_steps && (step.ast_before == step.ast_after)) {
-    // TODO: precompute '==' somewhere
+  if (options["hide-same-code"] && step.tags.includes("same-code")) {
+    return "";
+  }
+  if (! options.step_change && step.kind == "Change") {
+    return "";
+  }
+  if (options["hide_substeps"]
+    && step.kind != "Root"
+    && step.kind != "Big"
+    && step.kind != "Small") {
     return "";
   }
 
   // console.log("steptohtml " + step.id);
   var s = "";
-  var sSubs = "";
 
+  // Recursive steps
+  var sSubs = "";
   const showSubsteps =
     (options.atomic_substeps || !step.tags.includes("atomic"));
   if (showSubsteps) {
@@ -566,7 +603,9 @@ function stepToHTML(step, isOutermostLevel) {
   // DEPRECATED
     // (!options.target_steps && step.kind == "Target") ||
     // (!options.io_steps && step.kind == "IO") ||
-  var isRoot = (step.id == 0);
+  var isRoot = (step.kind == "Root");
+   // (step.id == 0);
+
   /*if (isRoot) {
     return "<ul class='step-sub'> " + sSubs + "</ul>\n";
   } else */ if (hideStep) {
@@ -592,7 +631,11 @@ function stepToHTML(step, isOutermostLevel) {
     } else {
       nb = Math.round(100 * t) / 100;
     }
-    sTime = "" + nb + "ms";
+    if (t < 0.1) { // don't display < 0.1ms
+      sTime = "";
+    } else {
+      sTime = "" + nb + "ms";
+    }
     var sTimeClass = "exectime-small";
     if (t > 50) {
       sTimeClass = "exectime-heavy";
@@ -650,11 +693,11 @@ function stepToHTML(step, isOutermostLevel) {
     sArgs = "<span class='args'>" + escapeHTML(sArgs) + "</span>";
   }
 
-  var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.id + ")'";
-  if (isOutermostLevel && step.id != 0) {
-    var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.parent_id + ")'";
-  }
+  // Link to focus on step and to exit current focus // root is its own parent
+  var idOnClickFocusOnStep = (isOutermostLevel) ? step.parent_id : step.id;
+  var sOnClickFocusOnStep = "onclick='focusOnStep(" + idOnClickFocusOnStep + ")'";
 
+  // Line symbol
   var sStepSymbol;
   if (step.isvalid) {
     sStepSymbol = "&#10004;" // check
@@ -668,6 +711,7 @@ function stepToHTML(step, isOutermostLevel) {
     lineClass = "step-invalid";
   }
 
+  // Line color
   var fullLineClass = "";
   if (step.kind == "Big") {
     fullLineClass = "step-big";
@@ -677,7 +721,9 @@ function stepToHTML(step, isOutermostLevel) {
     } else if (step.isvalid) {
       lineClass = "step-valid";
     }
-
+  }
+  if (step.diff == undefined) {
+    lineClass += " step-nodiff";
   }
 
   // Line contents
@@ -740,9 +786,10 @@ function visitSteps(step, visitedSteps) {
 }
 
 function reloadTraceView() {
+  //console.log("reloadTraceView " + selectedStep.id);
   // var shouldShowDetails = ($("#detailsDiv").html() == "");
   resetView();
-  if (options.details) {
+  if (options.tree) {
     $("#detailsDiv").show();
   } else {
     $("#detailsDiv").hide();
@@ -768,27 +815,41 @@ function viewDetailsAll() {
   // $("#detailsDiv").html(stepToHTML(selectedStep));
 }
 
+// handles update after click on "normal" or "full" button
+function optionsCheckboxUpdate() {
+  // update checkbox display // TODO: use this also in other place
+  for (var key in options) {
+    $('#option_' + key).prop('checked', options[key]);
+  }
+}
+
+// handles click on the "normal" button
+function viewDetailsNormal() {
+  for (var key in options) {
+    options[key] = optionsDefault[key];
+  }
+  optionsCheckboxUpdate();
+  reloadTraceView();
+}
+
 // handles click on the "full" button
 function viewDetailsFull() {
   for (var key in options) {
     options[key] = false;
   }
-  options["details"] = true;
+  options["tree"] = true;
   options["args"] = true;
   options["justif"] = true;
   options["exectime"] = true;
-  options["noop_steps"] = true; // TODO: should be a tag
-
-  // update checkbox display // TODO: use this also in other place
-  for (var key in options) {
-    $('#option_' + key).prop('checked', options[key]);
-  }
+  options["step_change"] = true;
+  optionsCheckboxUpdate();
   reloadTraceView();
 }
 
 function initOptions() {
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
+    optionsDefault[descr.key] = descr.default;
     options[descr.key] = descr.default;
   }
 }
@@ -839,7 +900,8 @@ function initControls() {
     s += htmlCheckbox(id, descr.name, "details-checkbox", "updateOptions()");
   }
 
-  // Full button
+  // Full/normal button
+  s += htmlButton("button_normal", "normal", "details-button", "viewDetailsNormal()");
   s += htmlButton("button_full", "full", "details-button", "viewDetailsFull()");
 
   $("#contents").html(s);
@@ -889,7 +951,13 @@ function initSteps() {
     return;
   }
   // set global variable [hasBigsteps]
-  hasBigsteps = (steps[rootSub[0]].kind == "Big");
+  hasBigsteps = false;
+  for (var i = 0; i < rootSub.length; i++) {
+    if (steps[rootSub[i]].kind == "Big") {
+      hasBigsteps = true;
+      break;
+    }
+  }
 
   // counter used to fill [smallsteps] array
   var curSmallStep = 0;
@@ -980,18 +1048,20 @@ document.addEventListener('DOMContentLoaded', function () {
   if (isRootedTrace) {
     initSteps();
   }
-  initTree(0, 0, false); // the root is its own parent, has no valid parent
   initAllTags();
   initOptions();
   initControls();
   initSplitView();
+  initTree(0, 0, false); // the root is its own parent, has no valid parent
   // editor.setValue("click on a button");
   if (isRootedTrace) {
-    if (hasBigsteps) {
-      loadBdiff(0); }
-    else {
+    /*if (hasBigsteps) {
+      loadBdiff(0);
+    } else {
       loadSdiff(0);
     }
+    DEPRECATED
+    */
     $('#button_bdiff_next').focus();
   } else {
     $('#button_sdiff_next').hide();

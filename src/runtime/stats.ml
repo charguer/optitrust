@@ -3,6 +3,7 @@
 (******************************************************************************)
 (*                                 Stats                                      *)
 (******************************************************************************)
+
 (* [write_stats_log msg]: writes a message in the timing log file. *)
 let write_stats_log (msg : string) : unit =
   let stats_log = open_out ("stats.log") in
@@ -17,7 +18,7 @@ let stats_nesting : int ref = ref 0
 type stats = {
   mutable stats_time : float;
   mutable stats_trm_alloc : int;
-  mutable stats_target_resolution_steps : int}
+  mutable stats_target_resolution_steps : int }
 
 (* [cur_stats]: initialization of stats record. *)
 let cur_stats = {
@@ -80,6 +81,7 @@ let report_full_stats () : unit =
 
 (* [measure_stats f]: computes the difference of stats before and after applying function [f].
     Then it returns the result of [f] and the computed stats. *)
+    (* TODO: need to handle exceptions properly, in particular for backtracking steps *)
 let measure_stats (f : unit -> 'a) : 'a * stats =
   let stats_start = get_cur_stats () in
   let res = f () in

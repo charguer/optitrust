@@ -59,6 +59,9 @@ type contract_clause_type =
   | SequentiallyModifies
   (** Linear resource items that are invariantly modified in all loop iterations. *)
 
+  | LoopGhosts
+  (** Pure resources that are the same across all iterations. *)
+
 (** User-facing contract clause, combining clause type and resouce item. *)
 type contract_clause = contract_clause_type * contract_resource_item
 
@@ -124,6 +127,7 @@ let push_fun_contract_clause (clause: contract_clause_type)
   | Invariant -> { pre = Resource_set.push_front_pure res contract.pre ; post = Resource_set.push_front_pure res contract.post }
   | SequentiallyReads -> failwith "SequentiallyReads only makes sense for loop contracts"
   | SequentiallyModifies -> failwith "SequentiallyModifies only makes sense for loop contracts"
+  | LoopGhosts -> failwith "LoopGhosts only makes sense for loop contracts"
 
 let push_loop_contract_clause (clause: contract_clause_type)
     (res: resource_item) (contract: loop_contract) =
@@ -141,6 +145,7 @@ let push_loop_contract_clause (clause: contract_clause_type)
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; invariant = Resource_set.add_linear (name, ro_formula) contract.invariant }
   | SequentiallyModifies ->
     { contract with invariant = Resource_set.add_linear res contract.invariant }
+  | LoopGhosts -> { contract with loop_ghosts = res :: contract.loop_ghosts }
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
 let parse_contract_res_item ((name, formula): contract_resource_item): resource_item =
@@ -183,25 +188,32 @@ let revert_fun_contract contract =
   assert (contract.post.pure = []);
   assert (contract.post.fun_specs = Var_map.empty);
   assert (contract.post.aliases = Var_map.empty);
+  assert (contract.post.efracs = []);
   {
     pre = {
       pure = contract.pre.pure;
       linear = contract.post.linear;
       fun_specs = contract.pre.fun_specs;
       aliases = contract.pre.aliases;
+      efracs = contract.pre.efracs;
     };
     post = {
       pure = [];
       linear = contract.pre.linear;
       fun_specs = Var_map.empty;
       aliases = Var_map.empty;
+      efracs = [];
     }
   }
 
+(** [fun_contract_subst ctx contract] substitutes variables from [ctx] inside [contract] *)
+let fun_contract_subst ctx contract =
+  { pre = Resource_set.subst ctx contract.pre;
+    post = Resource_set.subst ctx contract.post }
+
 (** [specialize_contract contract args] specializes the [contract] with the given [args], a subset of pure resources of the precondition *)
 let specialize_contract contract args =
-  { pre = Resource_set.subst args { contract.pre with pure = List.filter (fun (ghost_var, _) -> Var_map.mem ghost_var args) contract.pre.pure };
-    post = Resource_set.subst args contract.post }
+  fun_contract_subst args { contract with pre = { contract.pre with pure = List.filter (fun (ghost_var, _) -> not (Var_map.mem ghost_var args)) contract.pre.pure } }
 
 (* TODO: rename and move elsewhere. *)
 let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =
@@ -231,3 +243,17 @@ let fun_contract_free_vars (contract: fun_contract): Var_set.t =
   let bound_vars, free_vars = fold_res_list bound_vars free_vars contract.post.pure in
   let _, free_vars = fold_res_list bound_vars free_vars contract.post.linear in
   free_vars
+
+(** [fun_contract_used_vars res] returns the set of variables that are used inside [contract].
+
+    A variable is considered to be used if it is a free variable inside one formula in the contract.
+    Note that this list includes variables bound at the level of the contract itself.
+    This is useful for filtering unused variables. *)
+let fun_contract_used_vars contract =
+  Var_set.union (Resource_set.used_vars contract.pre) (Resource_set.used_vars contract.post)
+
+(** Same as [fun_contract_used_vars] for loop contracts *)
+let loop_contract_used_vars contract =
+  List.fold_left (fun used_vars (_, formula) -> Var_set.union used_vars (trm_free_vars formula))
+    (Var_set.union (Resource_set.used_vars contract.invariant) (fun_contract_used_vars contract.iter_contract))
+    contract.loop_ghosts

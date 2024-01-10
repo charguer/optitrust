@@ -195,7 +195,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         R' = R \ I
           -> if using formulas
 
-        for C R' (I' * RO(Iro))
+        for C R' (I' * Iro)
           tl1
 
         for R' P (I'' * RO(Iro))
@@ -203,14 +203,13 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         *)
 
       let linear_invariant = contract.invariant.linear in (* = I *)
-      let linear_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
+      let linear_invariant_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
 
-      let first_tl1_instr = Mlist.nth tl1 0 in
-      let ctx_res = Resources.before_trm first_tl1_instr in
-      let inter_linear_hyps res_usage =
-        Hyp_map.filter (fun h _ -> Var_set.mem h linear_hyps) res_usage
+      let loop_start_res = Resources.before_trm (Mlist.nth tl 0) in
+      let tl1_usage = Resources.compute_usage_of_instrs (Mlist.to_list tl1) in
+      let tl1_inv_usage = (* = I' * Iro *)
+        Hyp_map.filter (fun h _ -> Var_set.mem h linear_invariant_hyps) tl1_usage
       in
-      let tl1_inv_usage = inter_linear_hyps (Resources.compute_usage_of_instrs (Mlist.to_list tl1)) in (* = I' * Iro *)
       let tl1_inv_reads, (* = Iro *) tl1_inv_writes (* = I' *) = Hyp_map.partition (fun _ res_usage ->
         match res_usage with
         | SplittedReadOnly | JoinedReadOnly -> true
@@ -219,54 +218,84 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let resource_set_of_hyp_map (hyps: 'a Hyp_map.t) (resources: resource_item list): resource_item list =
         List.filter (fun (h, _) -> Hyp_map.mem h hyps) resources
       in
-      let tl1_inv_reads = resource_set_of_hyp_map tl1_inv_reads ctx_res.linear in
+      let tl1_inv_reads = resource_set_of_hyp_map tl1_inv_reads loop_start_res.linear in
       (* let tl1_inv_writes = resource_set_of_hyp_map tl1_inv_writes ctx_res.linear in *)
-      let tl1_inv = resource_set_of_hyp_map tl1_inv_usage ctx_res.linear in
+      let tl1_inv = resource_set_of_hyp_map tl1_inv_usage loop_start_res.linear in
       let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false linear_invariant tl1_inv in (* = I'' *)
 
-      let first_tl2_instr = Mlist.nth tl2 0 in
-      let split_res = Resources.before_trm first_tl2_instr in (* = R *)
-      (* let last_tl1_instr = Mlist.nth tl1 ((Mlist.length tl1) - 1) in
-      let split_res = unsome_or_trm_fail last_tl1_instr error (last_tl1_instr.ctx.ctx_resources_after) in (* = R *) *)
-      let (_, split_res_comm, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear linear_invariant in (* R' *)
-(* DEBUG: *)
-      let s = AstC_to_c.default_style() in
-      let s = { s with ast = { s.ast with print_var_id = true } } in
-      printf "--- loop_ghosts: %s\n" (Tools.document_to_string (AstC_to_c.resource_item_list_to_doc s contract.loop_ghosts));
-      printf "---\n";
-      Flags.(with_flag always_name_resource_hyp) true (fun () ->
-      printf "--- split_res:\n%s\n" (Resource_computation.resource_set_to_string split_res);
-      printf "--- linear_invariant:\n%s\n" (Resource_computation.resource_list_to_string linear_invariant);
-      printf "--- split_res_comm:\n%s\n" (Resource_computation.resource_list_to_string split_res_comm);
-      );
-(* *)
+      let split_res = Resources.before_trm (Mlist.nth tl2 0) in (* = R *)
+      let (_, split_res_comm, _) = (* R' *)
+        Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear linear_invariant
+      in
+
+      (* Remove resources that refer to local variables in tl1 *)
+      (* LATER: Run scope destructors and generalize the rest with pure variables *)
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
           | Some (vk, v, typ, init) -> Var_set.add v acc
           | None -> acc
         ) Var_set.empty tl1
       in
-      let remove_bound_in_tl1 its =
-        List.filter (fun (h, formula) ->
+      let split_res_comm = List.filter (fun (h, formula) ->
           Var_set.disjoint (trm_free_vars formula) bound_in_tl1
-        ) its
+        ) split_res_comm
       in
-      let split_res_comm = Resource_set.make ~linear:(remove_bound_in_tl1 split_res_comm) () in
-      let fst_invariant = { contract.invariant with linear = tl1_inv } in
+
+      (* Remove resources that are only leftover parts of a frame by instantiating efracs. *)
+      (* Currently use a simple algorithm that considers that each efrac is used at most in one framed context. *)
+      let efrac_map =
+        ref (List.fold_left (fun efrac_map (efrac, _) -> Var_map.add efrac None efrac_map) Var_map.empty split_res.efracs)
+      in
+      let try_nullify_frac (frac: formula): bool =
+        let open Xoption.OptionMonad in
+        let rec aux frac nb_efracs =
+          Pattern.pattern_match frac [
+            Pattern.(trm_sub !__ (trm_var !__)) (fun base_frac removed_var ->
+              Pattern.when_ (Var_map.find_opt removed_var !efrac_map = Some None);
+              let* efrac_val = aux base_frac (nb_efracs + 1) in
+              efrac_map := Var_map.add removed_var (Some efrac_val) !efrac_map;
+              Some efrac_val
+            );
+            Pattern.(!__) (fun _ ->
+              if nb_efracs = 0 then None
+              else if nb_efracs = 1 then Some frac
+              else Some (trm_div frac (trm_int nb_efracs))
+            )
+          ]
+        in
+        Option.is_some (aux frac 0)
+      in
+      let split_res_comm = List.filter (fun (h, formula) ->
+        match Var_map.find_opt h tl1_usage with
+        | Some SplittedReadOnly ->
+          begin match formula_read_only_inv formula with
+          | Some { frac } when try_nullify_frac frac -> false
+          | _ -> true
+          end
+        | _ -> true
+      ) split_res_comm in
+      (* LATER: Allow efracs that are not eliminated *)
+      let efrac_map = Var_map.mapi (fun efrac efrac_val ->
+        match efrac_val with
+        | Some efrac_val -> efrac_val
+        | None -> failwith (sprintf "At the splitting point, existential fraction %s was not eliminated" efrac.name))
+        !efrac_map
+      in
+      let split_res_without_efracs = List.map (fun (h, formula) -> (h, trm_subst efrac_map formula)) split_res_comm in
 
       fst_contract := Some {
         loop_ghosts = contract.loop_ghosts;
-        invariant = fst_invariant;
+        invariant = { contract.invariant with linear = tl1_inv };
         iter_contract = {
           pre = contract.iter_contract.pre;
-          post = split_res_comm;
+          post = Resource_set.make ~linear:split_res_without_efracs ();
         }
       };
       let partial_snd_contract = {
-        loop_ghosts = contract.loop_ghosts;
+        loop_ghosts = (*List.map (fun (efrac, _) -> (efrac, trm_frac)) split_res.efracs @*) contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl2_inv_writes };
         iter_contract = {
-          pre = split_res_comm;
+          pre = Resource_set.make ~linear:split_res_without_efracs(*split_res_comm*) ();
           post = contract.iter_contract.post;
         }
       } in
@@ -279,11 +308,6 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
           Resource_contract.push_loop_contract_clause clause (Resource_formula.new_anon_hyp (), f) acc
         ) partial_snd_contract tl1_inv_reads
       );
-
-      (* DEBUG:
-       printf "contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (contract)));
-      printf "fst_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !fst_contract)));
-      printf "snd_contract:\n%s\n" (Tools.document_to_string (AstC_to_c.loop_contract_to_doc s (Option.get !snd_contract))); *)
     end;
   end;
   let ta = trm_add_mark mark_loops (trm_for_instrs ?contract:!fst_contract l_range tl1) in
@@ -507,7 +531,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
   let generate_if = (empty_range = Generate_if) in
   let contract = match contract with
     | Some contract when not generate_if ->
-      (* FIXME: should this not just erase contract when not checking validity? *)
+      (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
       let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear contract.iter_contract.pre.linear in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }

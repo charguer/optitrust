@@ -1,5 +1,4 @@
 open Optitrust
-open Target
 
 (*let _ = Flags.resource_errors_as_warnings := true*)
 (* let _ = Flags.display_includes := true *)

@@ -20,7 +20,8 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.failure_expected (fun _e -> true) (fun () ->
     Sequence_basic.delete [cFunBody "dead_code"; sInstr "x = z"]);
 
-  (* 2. effects are shadowed *)
+  (* 2. effects are shadowed  s.step_style_before <- style_normal_code();
+  s.step_style_after <- style_resources() *)
   (* TODO: ~shadowed:true ? *)
   !! Sequence_basic.delete [cFunBody "shadowed"; sInstr "x = 3"];
   !! Sequence_basic.delete [occFirst; cFunBody "shadowed"; sInstr "*y = x"];

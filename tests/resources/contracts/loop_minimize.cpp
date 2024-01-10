@@ -8,20 +8,29 @@ void default_contract() {
   int z = 0;
 
   for (int i = 0; i < 3; ++i) {
-    __sequentially_modifies("&y ~> Cell");
-    __sequentially_modifies("&z ~> Cell");
-
     z = y;
   }
 }
 
-void iter_contract(float* M1, float* M2, int n) {
+void unused_modifies(float* M1, float* M2, int n) {
   __modifies("M1 ~> Matrix1(n), M2 ~> Matrix1(n)");
 
   int c = 0;
   for (int i = 0; i < n; i++) {
     __sequentially_modifies("&c ~> Cell");
     __modifies("&M1[MINDEX1(n, i)] ~> Cell, &M2[MINDEX1(n, i)] ~> Cell");
+
+    c += M1[MINDEX1(n, i)];
+  }
+}
+
+void unused_reads(float* M1, float* M2, int n) {
+  __reads("M1 ~> Matrix1(n), M2 ~> Matrix1(n)");
+
+  int c = 0;
+  for (int i = 0; i < n; i++) {
+    __sequentially_modifies("&c ~> Cell");
+    __reads("&M1[MINDEX1(n, i)] ~> Cell, &M2[MINDEX1(n, i)] ~> Cell");
 
     c += M1[MINDEX1(n, i)];
   }

@@ -24,6 +24,8 @@ let default_style () = {
   ast = Ast.default_style();
   only_desc = false; }
 
+(* Note: print_errors is ignored, they are always printed *)
+
 (*----------------------------------------------------------------------------------*)
 
 (* [print_typ_desc only_desc t]: converts type descriptions to pprint document *)
@@ -169,9 +171,10 @@ and print_prim style (p : prim) : document =
   | Prim_overloaded_op p ->
     let dp = print_prim style p in
     print_node "Prim_overloaded_op" ^^ dp
-  | Prim_new t ->
+  | Prim_new (t, dims) ->
      let dt = print_typ style t in
-     print_node "Prim_new" ^^ dt
+     let dims_doc = list_to_doc ~empty ~bounds:[lparen; rparen] (List.map (print_trm style) dims) in
+     print_node "Prim_new" ^^ dt ^^ dims_doc
   | Prim_conditional_op -> print_node "Prim_conditional_op"
 
 (* [print_lit l]: converts literals to pprint document *)
@@ -447,6 +450,8 @@ and print_trm_annot style (t : trm) : document =
   let t_marks = trm_get_marks t in
   let dmarks = print_list (List.map string t_marks) in
 
+  (*let derrors = print_list (List.map string t.errors) in*)
+
   let t_labels = trm_get_labels t in
   let dlabels = print_list (List.map string t_labels) in
 
@@ -461,14 +466,21 @@ and print_trm_annot style (t : trm) : document =
   let files_annot = trm_get_files_annot t in
   let dfiles_str = List.map print_files_annot files_annot in
   let dfiles = print_list dfiles_str in
+
+  let dreferent = match t.annot.trm_annot_referent with None -> string "None" | Some _ -> string "Some" in
+    (* not printing referent term recursively; LATER: print the id of that term *)
+
   braces (separate (blank 1) [
+    (*string "trm_errors"; equals; derrors ^^ semi ^//^ REDUNDANT *)
     string "trm_annot_attributes"; equals; dattr ^^ semi ^//^
     string "trm_annot_marks"; equals; dmarks ^^ semi ^//^
     string "trm_annot_labels"; equals; dlabels ^^ semi ^//^
     string "trm_annot_stringrepr"; equals; dstringrepr ^^ semi ^//^
     string "trm_annot_pragma"; equals; dpragmas ^^ semi ^//^
     string "trm_annot_cstyle"; equals; dcstyle ^^ semi ^//^
-    string "trm_annot_files"; equals; dfiles])
+    string "trm_annot_files"; equals; dfiles ^^ semi ^//^
+    string "trm_annot_referent"; equals; dreferent
+    ])
 
 
 (* [print_trm style t]: converts trm [t] to pprint document *)
@@ -503,6 +515,7 @@ and print_trm style (t : trm) : document =
               opt_str "a" t.ctx.ctx_resources_after;
               opt_str "p" t.ctx.ctx_resources_post_inst] in
 
+      let derrors = print_list (List.map string t.errors) in
       braces (separate (blank 1)
         [string "annot"; equals; dannot ^^ semi ^//^
          string "loc"; equals; dloc ^^ semi ^//^
@@ -510,6 +523,7 @@ and print_trm style (t : trm) : document =
          (*LATER: string "add"; equals;*)
          string "typ"; equals; dtyp ^//^
          string "ctx"; equals; string dctx ^^ semi ^//^
+         string "errors"; equals; derrors ^^ semi ^//^
          string "desc"; equals; ddesc ])
 
 (* [print_files_annot ann]: prints as string files annotation [ann] *)
@@ -572,6 +586,7 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Display_null_uppercase -> string "Display_null_uppercase"
  | GhostCall -> string "GhostCall"
  | ResourceFormula -> string "ResourceFormula"
+ | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =

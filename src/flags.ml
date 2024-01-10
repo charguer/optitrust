@@ -59,6 +59,12 @@ let set_dump_small_steps (foldername : string) : unit =
 let print_backtrace_on_error : bool ref = ref true
  (*LATER: make available from command line*)
 
+(* [debug_parsing_serialization]: flag to trace operations involving serialization/deserialization of parse trees. *)
+let debug_parsing_serialization = ref true
+
+(* [debug_reparse]: flag to print operations saving and reading error messages saved in the ast. *)
+let debug_errors_msg_embedded_in_ast : bool ref = ref false
+
 (* [debug_reparse]: flag to print the line numbers at which reparsing is triggered. *)
 let debug_reparse : bool ref = ref false
 
@@ -75,7 +81,7 @@ let reparse_at_big_steps : bool ref = ref false
 let report_big_steps : bool ref = ref false
 
 (* [use_clang_format]: flag to use clang-format or not in output CPP files. *)
-let use_clang_format : bool ref = ref true
+let use_clang_format : bool ref = ref false
 
 (* [keep_file_before_clang_format]: flag to save the file before cleaning up with clang format
    "foo_out.cpp" is saved as "foo_out_orig.cpp". Used by the tester for faster correctness checks. *)
@@ -105,9 +111,9 @@ let bypass_cfeatures : bool ref = ref false
 (* [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
 let print_optitrust_syntax = ref false
 
-(* [resource_errors_as_warnings]: Do not error on resource computation failure but only print a warning instead.
-   Useful for debugging resource typing. *)
-let resource_errors_as_warnings = ref false
+(* [stop_on_first_resource_error]: Stops on the first resource error found.
+   This allows for the propagation of the backtrace. *)
+let stop_on_first_resource_error = ref true
 
 (* [always_name_resource_hyp]: Always print named for resource hypothesis even if they were unnamed.
  * Automatically set to true during Resources.show. *)
@@ -146,11 +152,15 @@ let process_mode (mode : string) : unit =
   | "exec" -> Execution_mode_exec
   | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
 
+(* Options to control how much details are exported in the trace *)
+let detailed_trace : bool ref = ref false
+(* LATER: also add a light-mode, tracing only small and big steps *)
+
 (* [target_line]: indicate which line to target in execution mode
    [Execution_mode_step_trace] or [Execution_mode_step_trace]. *)
 let target_line : int ref = ref (-1)
 
-(* [get_target_line ()]: gets the targeted line *)
+(* [get_target_line ()]: gets the targeted line, cannot be [-1]. *)
 let get_target_line () : int =
   if !target_line = (-1)
     then failwith "Flags.get_target_line: trying to read an invalid line number";
@@ -173,7 +183,9 @@ let is_execution_mode_trace () : bool =
   | Execution_mode_exec -> false
 
 (* [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
-   consider big steps. TODO: used? *)
+   consider big steps. Triggered by the shortcut for viewing diffs for big-steps.
+   Besides, this flag is automatically set is requesting the diff or trace for a specific
+   step with the cursor on a line starting with the words "bigstep". *)
 let only_big_steps : bool ref = ref false
 
 (* [c_parser_name]: name of the C parser to use *)
@@ -186,6 +198,7 @@ let optitrust_root : string ref = ref "."
    By default it is Sys.argv.(0) but it can be different in case of dynamic loading. *)
 let program_name : string ref = ref ""
 
+
 (* List of options *)
 
 (* [cmdline_args]: a list of possible command line arguments. *)
@@ -196,6 +209,7 @@ type cmdline_args = (string * Arg.spec * string) list
 let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
+     ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)
@@ -210,7 +224,9 @@ let spec : cmdline_args =
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
      ("-dont-serialize", Arg.Set dont_serialize, " do not serialize the parsed AST");
      ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
+     ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
+     ("-use-clang-format", Arg.Set use_clang_format, " enable beautification using clang-format");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-clang-format-nb-columns", Arg.Set_int clang_format_nb_columns, " specify the number of columns for clang-format");
      ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
@@ -262,7 +278,7 @@ let reset_flags_to_default () : unit =
   use_light_diff := false;
   pretty_matrix_notation := false;
   display_includes := false;
-  resource_errors_as_warnings := false;
+  stop_on_first_resource_error := true;
   always_name_resource_hyp := false;
   check_validity := false;
   reparse_between_steps := false;
@@ -273,9 +289,13 @@ let reset_flags_to_default () : unit =
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =
   let init_value = !flag in
   flag := value;
-  let x = func () in
-  flag := init_value;
-  x
+  try
+    let x = func () in
+    flag := init_value;
+    x
+  with e ->
+    flag := init_value;
+    Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
 
 (* *************************************************************************************************************
   Note: to see a diff at the level of the OptiTrust AST, use:

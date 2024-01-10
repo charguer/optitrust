@@ -77,6 +77,8 @@ style:
 clean: clean_ser
 	dune clean
 
+cleanser: clean_ser
+
 clean_ser:
 	find . -type f -name '*.ser' -exec rm {} +
 	find . -type f -name '*_orig.cpp' -exec rm {} +

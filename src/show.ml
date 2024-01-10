@@ -32,7 +32,7 @@ let with_captured_show ?(activated:bool=true) (dest : string ref) (f : unit -> '
       prt_channel := saved
       in
     try f(); finalize()
-    with e -> finalize(); raise e
+    with e -> finalize(); Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
 
   end
 
@@ -85,7 +85,7 @@ let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
         prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
         t
       end else begin
-        Ast_fromto_AstC.cfeatures_intro t
+        Ast_fromto_AstC.(cfeatures_intro (style_of_custom_style custom_style)) t
       end
     end else t
     in
@@ -214,8 +214,9 @@ end
     TODO: contract_internal_repr is not yet implemented
     EXAMPLE !! Show.ast ~contract_internal_repr:true ();
      *)
-let ast ?(internal : bool = true) ?(contract_internal_repr : bool option) ?(msg : string = "show-ast") () : unit =
-  let ast_left = Trace.ast() in
+let ast ?(internal : bool = true) ?(contract_internal_repr : bool option) ?(var_id : bool option)
+  ?(msg : string = "show-ast") ?(ast : trm = Trace.ast ()) () : unit =
+  let ast_left = ast in
   let style_default = Style.default_custom_style () in
   let style_left = style_default in
   let style_right =
@@ -225,6 +226,10 @@ let ast ?(internal : bool = true) ?(contract_internal_repr : bool option) ?(msg 
       let ast_style = match contract_internal_repr with
         | None -> ast_style
         | Some b -> { ast_style with print_contract_internal_repr = b }
+        in
+      let ast_style = match var_id with
+        | None -> ast_style
+        | Some b -> { ast_style with print_var_id = b }
         in
       { style_default with
         decode = false;
@@ -263,7 +268,7 @@ let tg = target
    with computed resources on the right-hand side.
    The option [~ast] allows to provide a specific ast, otherwise resources are
    reported for the full current ast.  *)
-let res ?(msg : string = "show-resources")
+let res ?(msg : string = "show-resources") ?(var_id : bool option)
  ?(ast : trm = Trace.ast ())
  ?(typing_style:typing_style = Style.typing_all)
  () : unit =
@@ -271,10 +276,14 @@ let res ?(msg : string = "show-resources")
   let ast_right = ast_left in
   let style_left = Style.default_custom_style () in
   let aststyle_default = Ast.default_style () in
-  let aststyle = { aststyle_default with print_generated_ids = true } in
+  let ast_style = { aststyle_default with print_generated_ids = true } in
+  let ast_style = match var_id with
+  | None -> ast_style
+  | Some b -> { ast_style with print_var_id = b }
+  in
   let cstyle_default = AstC_to_c.(default_style()) in
   let cstyle = { cstyle_default with
-    ast = aststyle;
+    ast = ast_style;
     optitrust_syntax = true; } in
   (*let customstyle_default = Style.default_custom_style() in*)
   let style_right = { (*customstyle_default with*)

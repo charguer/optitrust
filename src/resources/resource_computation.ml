@@ -51,7 +51,8 @@ module Resource_primitives = struct
     | Prim_unop u -> unop_to_var_name u
     | Prim_binop b -> binop_to_var_name b
     | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
-    | Prim_new _ -> "__new"
+    | Prim_new (_, []) -> "__new"
+    (* | Prim_new (_, dims) -> "__new_array"  SAME AS MALLOCN but with implicit trm_apps *)
     | _ -> raise Unknown)
 
 end
@@ -71,12 +72,12 @@ module Formula_inst = struct
 
   let var_SplitRO = toplevel_var "SplitRO"
 
-  let inst_split_read_only ~(new_frac: var) (h: hyp) : t =
-    trm_apps (trm_var var_SplitRO) [trm_var new_frac; inst_hyp h]
+  let inst_split_read_only ~(new_frac: var) ~(old_frac: formula) (h: hyp) : t =
+    trm_apps (trm_var var_SplitRO) [trm_var new_frac; old_frac; inst_hyp h]
 
-  let inst_split_read_only_inv (f: t): (var * hyp) option =
+  let inst_split_read_only_inv (f: t): (var * formula * hyp) option =
     Pattern.pattern_match_opt f [
-      Pattern.(trm_apps2 (trm_var (var_eq var_SplitRO)) (trm_var !__) (trm_var !__)) (fun frac hyp -> (frac, hyp))
+      Pattern.(trm_apps3 (trm_var (var_eq var_SplitRO)) (trm_var !__) !__ (trm_var !__)) (fun frac old_frac hyp -> (frac, old_frac, hyp))
     ]
 
   let var_ForgetInit = toplevel_var "ForgetInit"
@@ -90,16 +91,27 @@ module Formula_inst = struct
     ]
 end
 
-(** [Resource_not_found (item, res_list)]: exception raised when the resource
-   [item] is not found inside the resource list [res_list] *)
-exception Resource_not_found of resource_item * resource_item list
+(** A type to distinguish between pure and linear resources *)
+type resource_kind =
+  | Pure
+  | Linear
 
-let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unification_ctx) (inside: resource_item list) =
+let resource_kind_to_string kind =
+  match kind with
+  | Pure -> "Pure"
+  | Linear -> "Linear"
+
+(** [Resource_not_found (kind, item, res_list)]: exception raised when the resource
+   [item] is not found inside the resource list [res_list] *)
+exception Resource_not_found of resource_kind * resource_item * resource_item list
+
+let raise_resource_not_found (kind: resource_kind) ((name, formula): resource_item) (evar_ctx: unification_ctx) (inside: resource_item list) =
   let subst_ctx = Var_map.mapi (fun var subst ->
     match subst with Some t -> t | None -> trm_var { var with name = ("?" ^ var.name) }
   ) evar_ctx in
   let formula = trm_subst subst_ctx formula in
-  raise (Resource_not_found ((name, formula), inside))
+  let inside = List.map (fun (x, formula) -> (x, trm_subst subst_ctx formula)) inside in
+  raise (Resource_not_found (kind, (name, formula), inside))
 
 (** [unify_pure (x, formula) res evar_ctx] unifies the given [formula] with one of the resources in [res].
 
@@ -113,7 +125,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx:
   in
   match List.find_map (find_formula formula) res with
   | Some evar_ctx -> evar_ctx
-  | None -> raise_resource_not_found (x, formula) evar_ctx res
+  | None -> raise_resource_not_found Pure (x, formula) evar_ctx res
 
 
 (** [subtract_linear_resource_item ~split_frac (x, formula) res evar_ctx] subtracts [formula]
@@ -193,11 +205,12 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       in
       let* evar_ctx = unify_trm formula_candidate formula evar_ctx in
       Some (
-        { pre_hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
+        { pre_hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         Some (h, formula_read_only ~frac:(trm_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
     ) res evar_ctx
   in
 
+  let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
   try
     Pattern.pattern_match formula [
       (* special case where _Full disables split_frac. *)
@@ -218,7 +231,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx)
     ]
   with Not_found ->
-    raise_resource_not_found (x, formula) evar_ctx res
+    raise_resource_not_found Linear (x, formula) evar_ctx res
 
 (** [subtract_linear_resource_set ?split_frac ?evar_ctx res_from res_removed] subtracts [res_removed] from [res_from].
   Returns [(used, res', evar_ctx')] where:
@@ -232,7 +245,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   If [split_frac] is true, always try to give a smaller fraction than what is
   inside [res_from] for evar fractions.
 *)
-let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty)  (res_from: linear_resource_set) (res_removed: linear_resource_set)
+let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty) (res_from: linear_resource_set) (res_removed: linear_resource_set)
   : used_resource_item list * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, res_from, evar_ctx) res_item ->
     let used, res_from, evar_ctx = subtract_linear_resource_item ~split_frac res_item res_from evar_ctx in
@@ -245,21 +258,11 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
   An evar is dominated if its value will be implied by the instantation of other resources
   (i.e. it appears in the formula of another resource). *)
 let eliminate_dominated_evars (res: resource_set): pure_resource_set * var list =
-  (* TODO: maybe check free vars inside function contracts? *)
-  (* This function completely forgets about ghost variable shadowing *)
   (* LATER: Un tri topologique serait un peu plus robuste *)
-  let combine_used_vars used_vars (_, formula) =
-    Var_set.union used_vars (trm_free_vars formula)
-  in
-  let used_vars = List.fold_left combine_used_vars Var_set.empty res.pure in
-  let used_vars = List.fold_left combine_used_vars used_vars res.linear in
-  let dominated_evars = ref [] in
-  let pure = List.filter (fun (h, _) ->
-      if Var_set.mem h used_vars then
-        (dominated_evars := h :: !dominated_evars; false)
-      else true) res.pure
-  in
-  (pure, !dominated_evars)
+  let used_vars = Resource_set.used_vars res in
+  List.partition_map (function
+    | h, _ when Var_set.mem h used_vars -> Either.Right h
+    | res -> Either.Left res) res.pure
 
 (** [update_usage hyp current_usage extra_usage] returns the usage resulting from using
     [current_usage] before using [extra_usage]. *)
@@ -298,7 +301,7 @@ let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
   (* TODO: Maybe manage pure as well *)
   List.fold_left (fun usage_map { inst_by; used_formula } ->
     match Formula_inst.inst_split_read_only_inv inst_by with
-    | Some (_, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
+    | Some (_, _, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
     | None ->
       let hyp_usage = if formula_uninit_inv used_formula = None then UsedFull else UsedUninit in
       match Formula_inst.inst_hyp_inv inst_by with
@@ -309,11 +312,55 @@ let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
         | None -> failwith "Weird resource used"
   ) Hyp_map.empty res_used.used_linear
 
+let new_efracs_from_used_set (res_used: used_resource_set): (hyp * formula) list =
+  List.filter_map (fun { inst_by } ->
+    match Formula_inst.inst_split_read_only_inv inst_by with
+    | Some (efrac, bigger_frac, _) -> Some (efrac, bigger_frac)
+    | None -> None
+  ) res_used.used_linear
 
 exception Spec_not_found of var
 exception Anonymous_function_without_spec
 exception NotConsumedResources of linear_resource_set
 exception ImpureFunctionArgument of exn
+exception FractionConstraintUnsatisfied of formula * formula
+
+type frac_quotient = { base: formula; num: int; den: int }
+
+let rec frac_to_quotient (frac: formula) =
+  Pattern.pattern_match frac [
+    Pattern.(trm_sub !__ !__) (fun base_frac removed_frac ->
+      let base_quot = frac_to_quotient base_frac in
+      let removed_quot = frac_to_quotient removed_frac in
+      if not (are_same_trm base_quot.base removed_quot.base) then raise Pattern.Next;
+      let num =
+        if base_quot.den = 1 && base_quot.num = 1 then
+          removed_quot.den - removed_quot.num
+        else if base_quot.den = removed_quot.den then
+          base_quot.num - removed_quot.num
+        else raise Pattern.Next
+      in
+      { removed_quot with num }
+    );
+    Pattern.(trm_div !__ (trm_int !__)) (fun base_frac den ->
+      { base = base_frac; num = 1; den = den }
+    );
+    Pattern.(!__) (fun _ ->
+      { base = frac; num = 1; den = 1 }
+    )
+  ]
+
+let check_frac_le subst_ctx (efrac, bigger_frac) =
+  let efrac = Var_map.find efrac subst_ctx in
+  let bigger_frac = trm_subst subst_ctx bigger_frac in
+  let efrac_quot = frac_to_quotient efrac in
+  let bigger_quot = frac_to_quotient bigger_frac in
+  if not (are_same_trm efrac_quot.base bigger_quot.base) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
+  if not (bigger_quot.den = 1 && bigger_quot.num = 1 && efrac_quot.num <= efrac_quot.den) then begin
+    if not (efrac_quot.den = bigger_quot.den) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
+    if not (efrac_quot.num <= bigger_quot.num) then raise (FractionConstraintUnsatisfied (efrac, bigger_frac));
+  end
+
 
 (** [extract_resources ~split_frac res_from subst_ctx res_to] checks that
   [res_from ==> res_to * H]
@@ -330,13 +377,17 @@ exception ImpureFunctionArgument of exn
 
   TODO: Add unit tests for this specific function
 *)
-let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
+let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) ?(specialize_efracs: bool = false) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
   let not_dominated_pure_res_to, dominated_evars = eliminate_dominated_evars res_to in
   let evar_ctx = Var_map.map (fun x -> Some (trm_subst res_from.aliases x)) subst_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) evar_ctx dominated_evars in
 
   let res_from = Resource_set.subst_all_aliases res_from in
   assert (Var_map.is_empty res_to.aliases);
+  assert (res_to.efracs = []);
+
+  let efracs = if specialize_efracs then res_from.efracs else [] in
+  let evar_ctx = List.fold_left (fun evar_ctx (efrac, _) -> Var_map.add efrac None evar_ctx) evar_ctx efracs in
 
   let used_linear, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx res_from.linear res_to.linear in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
@@ -349,6 +400,10 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
       | Some t -> t
       | None -> failwith "failed to instantiate evars") evar_ctx
   in
+
+  (* Check that efrac constaints are satisfied *)
+  (* FIXME: It is probably unsound to always check f <= g goals, some inequalities should be strict. *)
+  List.iter (check_frac_le subst_ctx) efracs;
 
   let used_pure = List.map (fun (hyp, formula) ->
       { pre_hyp = hyp; inst_by = Var_map.find hyp subst_ctx; used_formula = trm_subst subst_ctx formula }
@@ -365,12 +420,21 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
             )
             res_from.fun_specs res_to.fun_specs);
 
+  (* Filter out all leftovers with a null fraction *)
+  let leftover_linear = List.filter (fun (h, formula) ->
+    match formula_read_only_inv formula with
+    | Some { frac } ->
+      let frac_quotient = frac_to_quotient (trm_subst subst_ctx frac) in
+      frac_quotient.num <> 0
+    | None -> true
+  ) leftover_linear in
+
   (subst_ctx, { used_pure; used_linear }, leftover_linear)
 
 (* FIXME: resource set intuition breaks down, should we talk about resource predicates? *)
 (** [assert_resource_impl res_from res_to] checks that [res_from] ==> [res_to]. *)
 let assert_resource_impl (res_from: resource_set) (res_to: resource_set) : used_resource_set =
-  let _, used_res, leftovers = extract_resources ~split_frac:false res_from res_to in
+  let _, used_res, leftovers = extract_resources ~split_frac:false ~specialize_efracs:true res_from res_to in
   if leftovers <> [] then raise (NotConsumedResources leftovers);
   used_res
 
@@ -603,9 +667,13 @@ let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resou
     | _ -> raise Anonymous_function_without_spec
     end
 
+let named_formula_to_string nf : string =
+  let style = Ast_fromto_AstC.style_of_custom_style (Style.default_custom_style ()) in
+  Ast_fromto_AstC.named_formula_to_string style nf
+
 (* FIXME: move printing out of this file. *)
 let resource_list_to_string res_list : string =
-  String.concat "\n" (List.map Ast_fromto_AstC.named_formula_to_string res_list)
+  String.concat "\n" (List.map named_formula_to_string res_list)
 
 let resource_set_to_string res : string =
   let spure = resource_list_to_string res.pure in
@@ -616,21 +684,40 @@ let resource_set_opt_to_string res : string =
   Xoption.map_or resource_set_to_string "UnspecifiedRes" res
 
 type resource_error_phase = ResourceComputation | ResourceCheck
-exception ResourceError of location * resource_error_phase * exn
+
+let resource_error_phase_to_string (phase: resource_error_phase) : string =
+  match phase with
+  | ResourceComputation -> "Resource computation"
+  | ResourceCheck -> "Resource check"
+
+(** Exception used by [handle_resource_errors] to interrupt typing
+    after a first error is discovered. *)
+exception StoppedOnFirstError
+
+(** List of errors accumulated during the current call to
+    [trm_recompute_resources]. <private> *)
+let global_errors : (resource_error_phase * exn) list ref = ref []
+
+(** [ResourceError (t, e)] describes the fact that errors occurred
+    during of typing, and [t] describes the partially typed
+    term, and [e] describe the first error occurring at phase [p].
+    Certain nodes [ti] in [t] may have their field [ti.errors]
+    storing the error messages. *)
+exception ResourceError of trm * resource_error_phase * exn
 
 let _ = Printexc.register_printer (function
-  | Resource_not_found (item, context) ->
-    Some (Printf.sprintf "Resource not found:\n%s\nIn context:\n%s" (Ast_fromto_AstC.named_formula_to_string item) (resource_list_to_string context))
+  | Resource_not_found (kind, item, context) ->
+    Some (Printf.sprintf "%s resource not found:\n%s\nIn context:\n%s" (resource_kind_to_string kind) (named_formula_to_string item) (resource_list_to_string context))
   | Spec_not_found fn ->
     Some (Printf.sprintf "No specification for function %s" (var_to_string fn))
   | NotConsumedResources res ->
     Some (Printf.sprintf "Resources not consumed after the end of the block:\n%s" (resource_list_to_string res))
   | ImpureFunctionArgument err ->
     Some (Printf.sprintf "Function argument subexpression resource preservation check failed: %s" (Printexc.to_string err))
-  | ResourceError (loc, ResourceComputation, err) ->
-    Some (Printf.sprintf "%s: Resource computation error: %s" (loc_to_string loc) (Printexc.to_string err));
-  | ResourceError (loc, ResourceCheck, err) ->
-    Some (Printf.sprintf "%s: Resource check error: %s" (loc_to_string loc) (Printexc.to_string err))
+  | ResourceError (_t, ResourceComputation, err) ->
+    Some (Printf.sprintf "Resource computation error: %s" (Printexc.to_string err));
+  | ResourceError (_t, ResourceCheck, err) ->
+    Some (Printf.sprintf "Resource check error: %s" (Printexc.to_string err))
   | _ -> None)
 
 
@@ -648,6 +735,7 @@ let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.
   let usage = used_set_to_usage_map res_used in
 
   let new_res, usage_after, ro_simpl_steps = resource_merge_after_frame res_produced res_frame in
+  let new_res = { new_res with efracs = new_efracs_from_used_set res_used } in
 
   t.ctx.ctx_resources_contract_invoc <- Some {
     contract_frame = res_frame;
@@ -656,20 +744,31 @@ let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.
     contract_joined_resources = ro_simpl_steps };
 
   let total_usage = update_usage_map ~current_usage:usage ~extra_usage:usage_after in
-  total_usage, Resource_set.bind ~old_res:res ~new_res
+  total_usage, Resource_set.(remove_unused_efracs (bind ~old_res:res ~new_res))
 
 (** <private> *)
 let debug_print_computation_stack = false
 
-(** [handle_resource_errors loc exn] attempts to add [loc] information to [exn]. *)
-let handle_resource_errors (loc: location) (exn: exn) =
-  match exn with
-  | e when !Flags.resource_errors_as_warnings ->
-    Printf.eprintf "%s: Resource computation warning: %s\n" (loc_to_string loc) (Printexc.to_string e);
-    None, None
-  | ResourceError (None, place, err) -> Printexc.(raise_with_backtrace (ResourceError (loc, place, err)) (get_raw_backtrace ()))
-  | ResourceError (Some _, _, _) as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
-  | e -> Printexc.(raise_with_backtrace (ResourceError (loc, ResourceComputation, e)) (get_raw_backtrace ()))
+(** [handle_resource_errors t phase exn] hooks [exn] as error on the term [t],
+    and save the fact that an exception [exn] was triggered. *)
+let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
+  (* Save the error in the term where it occurred, or the referent (transitively) if any *)
+  let error_str = sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string exn) in
+  let tref = trm_find_referent t in
+  if !Flags.debug_errors_msg_embedded_in_ast then begin
+    if tref != t
+      then Printf.eprintf "GRABBING REFERENT FOR TERM:----\n%s\n-----\n" (AstC_to_c.ast_to_string t);
+    Printf.eprintf "SAVING ERROR IN TERM:----\n%s\n-----\n%s-----\n" (AstC_to_c.ast_to_string tref) (Ast_to_text.ast_to_string tref);
+  end;
+  tref.errors <- error_str :: tref.errors;
+  (*Printf.eprintf "ADDERROR %s\n  %s\n" error_str (AstC_to_c.ast_to_string t);*)
+  (* Accumulate the error *)
+  global_errors := (phase, exn) :: !global_errors;
+  (* Interrupt if stop on first error *)
+  if !Flags.stop_on_first_resource_error then raise StoppedOnFirstError;
+  (* Return empty resources maps as best effort to continue *)
+  None, None
+
 
 let empty_usage_map = Hyp_map.empty
 
@@ -696,6 +795,10 @@ let rec compute_resources
   (res: resource_set option)
   (t: trm) : resource_usage_map option * resource_set option =
   if debug_print_computation_stack then Printf.eprintf "With resources: %s\nComputing %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
+  (* Define the referent for hooking type errors on existing terms
+     when errors are triggered on terms that are generated on-the-fly. *)
+  let referent : trm_annot =
+    Trm.(trm_annot_set_referent trm_annot_default t) in
   t.ctx.ctx_resources_before <- res;
   let (let**) (x: 'a option) (f: 'a -> 'b option * 'c option) =
     match x with
@@ -705,13 +808,17 @@ let rec compute_resources
   let usage_map, res =
     let** res in
     try begin match t.desc with
+    (* new array is typed as MALLOCN with correct dims *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_new (ty, dims))) }, _, []) when dims <> [] ->
+      compute_resources (Some res) (Matrix_core.alloc_with_ty ~annot:referent ~annot_call:referent dims ty)
+
     (* Values and variables are pure. *)
     | Trm_val _ | Trm_var _ -> (Some Var_map.empty, Some res) (* TODO: Manage return values for pointers *)
 
     (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       (* TODO: Remove trm_let_fun *)
-      compute_resources (Some res) (trm_let Var_immutable (name, typ_auto ()) (trm_fun args (Some ret_type) body ~contract))
+      compute_resources (Some res) (trm_let ~annot:referent Var_immutable (name, typ_auto ()) (trm_fun ~annot:referent args (Some ret_type) body ~contract))
 
     (* Defining a function is pure by itself, we check that the body satisfies the contract.
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
@@ -724,6 +831,7 @@ let rec compute_resources
       begin match contract with
       | FunSpecContract contract ->
         compute_resources_in_body contract;
+        let contract = fun_contract_subst res.aliases contract in
         let args = List.map (fun (x, _) -> x) args in
         (Some Var_map.empty, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
       | FunSpecReverts reverted_fn ->
@@ -758,15 +866,16 @@ let rec compute_resources
       let extract_let_mut ti =
         match trm_let_inv ti with
         | Some (_, x, _, t) ->
-          begin match new_operation_inv t with
-          | Some _ -> [x]
+          begin match trm_new_inv t with
+          | Some (_, [], _) -> [formula_cell x]
+          | Some (_, dims, _) -> [formula_matrix (trm_var x) dims]
           | None -> []
           end
         | None -> []
       in
       let to_free = List.concat_map extract_let_mut instrs in
       (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-      let res_to_free = Resource_set.make ~linear:(List.map (fun x -> (new_anon_hyp (), formula_uninit (formula_cell x))) to_free) () in
+      let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), formula_uninit f)) to_free) () in
       let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
       let usage_map = update_usage_map_opt ~current_usage:usage_map ~extra_usage:(Some (used_set_to_usage_map removed_res)) in
 
@@ -876,12 +985,12 @@ let rec compute_resources
             let reverse_contract = revert_fun_contract spec.contract in
             begin match trm_fun_inv ghost_fn_rev with
             | Some ([], ret_typ, body, _) ->
-              ignore (compute_resources (Some res) (trm_fun [] ret_typ body ~contract:(FunSpecContract reverse_contract)))
+              ignore (compute_resources (Some res) (trm_fun ~annot:referent [] ret_typ body ~contract:(FunSpecContract reverse_contract)))
             | Some _ -> failwith "A ghost reverse function should have no arguments"
             | None ->
-              ignore (compute_resources (Some reverse_contract.pre) ~expected_res:reverse_contract.post (trm_apps ghost_fn_rev [] ~ghost_args))
+              ignore (compute_resources (Some reverse_contract.pre) ~expected_res:reverse_contract.post (trm_apps ~annot:referent ghost_fn_rev [] ~ghost_args))
             end;
-            (trm_apps ghost_fn [] ~ghost_args)
+            (trm_apps ~annot:referent ghost_fn [] ~ghost_args)
           );
           Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn ->
             let spec = find_fun_spec ghost_fn res.fun_specs in
@@ -902,7 +1011,7 @@ let rec compute_resources
             invoc.contract_inst.used_linear
           in
           let inverse_spec = { args = [];
-            contract = { pre = Resource_set.make ~linear:inverse_pre (); post = Resource_set.make ~linear:inverse_post () };
+            contract = fun_contract_subst res.aliases { pre = Resource_set.make ~linear:inverse_pre (); post = Resource_set.make ~linear:inverse_post () };
             inverse = None }
           in
           usage_map, Some { res with fun_specs = Var_map.add var_result inverse_spec res.fun_specs }
@@ -914,7 +1023,7 @@ let rec compute_resources
         Pattern.pattern_match effective_args [
           Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var ->
             (* LATER: Maybe check that the variable is indeed introduced by __ghost_begin *)
-            let usage_map, res = compute_resources (Some res) (trm_apps fn []) in
+            let usage_map, res = compute_resources (Some res) (trm_apps ~annot:referent fn []) in
             usage_map, Option.map (fun res -> { res with fun_specs = Var_map.remove fn_var res.fun_specs }) res
           );
           Pattern.(!__) (fun _ -> failwith "__ghost_end expects a single variable as argument")
@@ -952,7 +1061,9 @@ let rec compute_resources
       compute_resources (Some res) t
 
     | _ -> trm_fail t ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
-    end with e -> handle_resource_errors t.loc e
+    end with
+    | StoppedOnFirstError as e -> raise e
+    | e -> handle_resource_errors t ResourceComputation e
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
@@ -966,10 +1077,9 @@ let rec compute_resources
         (* TODO: check names *)
         let used_res = assert_resource_impl res expected_res in
         t.ctx.ctx_resources_post_inst <- Some used_res
-      with e when !Flags.resource_errors_as_warnings ->
-        Printf.eprintf "%s: Resource check warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
-      | ResourceError _ as e -> raise e
-      | e -> raise (ResourceError (t.loc, ResourceCheck, e))
+      with
+      | StoppedOnFirstError as e -> raise e
+      | e -> ignore (handle_resource_errors t ResourceCheck e)
       end;
       Some expected_res
     | _, None -> res
@@ -982,11 +1092,10 @@ and compute_resources_and_merge_usage
   ?(expected_res: resource_set option) (res: resource_set option)
   (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_set option =
   let extra_usage, res = (compute_resources : ?expected_res:resource_set -> resource_set option -> trm -> (resource_usage_map option * resource_set option)) ?expected_res res t in
-  try
-    let open Xoption.OptionMonad in
-    let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
-    (usage_map, res)
-  with e -> handle_resource_errors t.loc e
+  let open Xoption.OptionMonad in
+  let usage_map = update_usage_map_opt ~current_usage ~extra_usage in
+  (usage_map, res)
+
 
 let rec trm_deep_copy (t: trm) : trm =
   let t = trm_map_with_terminal ~share_if_no_change:false false (fun _ ti -> trm_deep_copy ti) t in
@@ -995,11 +1104,34 @@ let rec trm_deep_copy (t: trm) : trm =
 
 (** [trm_recompute_resources init_ctx t] recomputes resources of [t] using [compute_resources],
   after a [trm_deep_copy] to prevent sharing.
+  Otherwise, returns a fresh term in case of success, or raises [ResourceError] in case of failure.
+
+  If [!Flags.stop_on_first_resource_error] is set, then the function immediately stops after the
+  first error is encountered, else it tries to report as many as possible.
+
   Hypothesis: needs var_ids to be calculated. *)
 let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
   (* TODO: should we avoid deep copy by maintaining invariant that there is no sharing?
      makes sense with unique var ids and trm_copy mechanisms.
      Otherwise avoid mutable asts. Could also have unique node ids and maps from ids to metadata. *)
+  (* Make a copy of [t] *)
   let t = trm_deep_copy t in
-  ignore (compute_resources (Some init_ctx) t);
-  t
+  (* Typecheck the copy of [t] and update it in place.
+     Type errors are saved in a global list, and errors
+     are also saved as annotations in the "errors" fields
+     in the nodes inside the copy of [t]. *)
+  global_errors := [];
+  let backtrace =
+    try
+      ignore (compute_resources (Some init_ctx) t);
+      None
+    with StoppedOnFirstError -> Some (Printexc.get_raw_backtrace ())
+  in
+  (* Test for errors, before returning the updated copy of [t] *)
+  match !global_errors with
+  | [] -> t
+  | ((phase, exn) :: _) ->
+      let err = ResourceError (t, phase, exn) in
+      match backtrace with
+      | Some bt -> Printexc.raise_with_backtrace err bt
+      | None -> raise err

@@ -176,11 +176,11 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
     string "decltype" ^^ parens (decorate_trm (default_style()) t)
 
 and var_to_doc style (v : var) : document =
+  let qualified = (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^ string v.name in
   if style.ast.print_var_id then
-    Ast_to_text.print_ast_var style.ast v
+    qualified ^^ string ("/*#" ^ string_of_int v.id ^ "*/")
   else
-    (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
-    (string v.name)
+    qualified
 
 and typconstr_to_doc ((qualifier, name) : typconstr) : document =
   (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
@@ -316,7 +316,9 @@ and prim_to_doc style (p : prim) : document =
   | Prim_binop op -> binop_to_doc style op
   | Prim_compound_assgn_op op -> (binop_to_doc style op) ^^ equals
   | Prim_overloaded_op p -> prim_to_doc style p
-  | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
+  | Prim_new (t, dims) ->
+    let dims_doc = list_to_doc ~empty ~bounds:[lparen; rparen] (List.map (trm_to_doc style) dims) in
+    string "new" ^^ blank 1 ^^ typ_to_doc t ^^ dims_doc
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
 (* [val_to_doc style v]: converts values to pprint documents. *)
@@ -359,7 +361,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
     then empty
     else
       let t_labels_str = List.map string t_labels in
-      list_to_doc ~sep:(colon ^^ blank 1) ~bounds:[empty; colon] t_labels_str
+      list_to_doc ~sep:(colon ^^ blank 1) ~bounds:[empty; colon ^^ blank 1] t_labels_str
     in
 
   let dt = if parentheses then parens (dt) else dpragmas ^^ dlabels ^^ dt in
@@ -368,22 +370,37 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
 
   if style.ast.print_annot then failwith "NOT YET IMPLEMENTED: ASTC_TO_C printing of annotations";
 
-  if t_marks = [] && not style.ast.print_string_repr then
+  let dt =
+    if t_marks = [] && not style.ast.print_string_repr then
+      dt
+    else begin
+      let sid =
+        if not style.ast.print_string_repr then "" else begin
+        match Trm.trm_get_stringreprid t with
+        | None -> "[-]"
+        | Some id -> Printf.sprintf "[%d]" id
+        end in
+      let smarks =
+        if style.ast.print_mark
+          then list_to_string ~sep:", " ~bounds:["";""] t_marks
+          else "" in
+
+      let sleft = string ("/*@" ^ sid ^ smarks ^ "*/") in
+      let sright =  string ("/*" ^ sid ^ smarks ^ "@*/") in
+      sleft ^^ dt ^^ sright
+    end
+    in
+  (*printf "ERRORS L=%d\n" (List.length t.errors);*)
+  if t.errors = [] || not style.ast.print_errors then
     dt
   else begin
-    let sid =
-      if not style.ast.print_string_repr then "" else begin
-      match Trm.trm_get_stringreprid t with
-      | None -> "[-]"
-      | Some id -> Printf.sprintf "[%d]" id
-      end in
-    let smarks =
-      if style.ast.print_mark
-        then list_to_string ~sep:", " ~bounds:["";""] t_marks
-        else "" in
-    let sleft = string ("/*@" ^ sid ^ smarks ^ "*/") in
-    let sright =  string ("/*" ^ sid ^ smarks ^ "@*/") in
-    sleft ^^ dt ^^ sright
+    let derror = list_to_doc ~sep:hardline
+      ~bounds:[(string "/*" ^^ hardline);
+                (hardline ^^ string "*/" ^^ hardline )]
+      (List.map (fun error -> string (sprintf "ERROR: %s" error)) t.errors) in
+    if !Flags.debug_errors_msg_embedded_in_ast && (List.length t.errors) > 0
+      then Printf.eprintf "PRINTING ERROR IN COMMENT IN AST---:\n%s---\n" (Tools.document_to_string derror);
+    derror ^^ dt
   end
 
 (* [trm_var_to_doc style v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
@@ -446,7 +463,8 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
     | Trm_let_fun (f, r, tvl, b, _) ->
       let fun_annot = trm_get_cstyles t in
       let static = if trm_has_cstyle Static_fun t then string "static" else empty in
-      dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc style ~semicolon fun_annot f r tvl b
+      let hidden = if trm_has_cstyle BodyHiddenForLightDiff t then string " /* unchanged, collapsed for light diff */" else empty in
+      dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc style ~semicolon fun_annot f r tvl b ^^ hidden
     | Trm_typedef td ->
       let t_annot = trm_get_cstyles t in
       dattr ^^ typedef_to_doc style ~semicolon ~t_annot td
@@ -561,6 +579,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       | Expr e -> string e
       | Stmt s -> string s
       | Instr s -> string s ^^ semi
+      | Comment s -> string s
       | _ -> trm_fail t "AstC_to_c.trm_to_doc style: arbitrary code should be entered by using Lit, Expr and Stmt only"
       end  in
       dattr ^^ code_str
@@ -670,7 +689,7 @@ and resource_item_to_doc style (resource_item : resource_item) : doc =
   let sid =
     if hyp.name.[0] = '#' && not style.ast.print_generated_ids
       then empty
-      else string (hyp.name ^ ": ") in
+      else (var_to_doc style hyp) ^^ (string ": ") in
   sid ^^ formula_to_doc style formula
 
 and fun_spec_resource_varmap_to_doc style (fun_specs : fun_spec_resource varmap) : doc =
@@ -930,7 +949,7 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
 and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
-      f_as_doc ^^ list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style) tl)
+      f_as_doc ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm style) tl)
       in
   let is_get_implicit_this t =
     match t.desc with
@@ -1098,12 +1117,13 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
               trm_fail f
                 "apps_to_doc style: conditional operator must have three arguments"
            end
-        | Prim_new t ->
+        | Prim_new (t, dims) ->
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
           let tr_init = decorate_trm style value in
+          let tr_prim = prim_to_doc style (Prim_new (t, dims)) in
           let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
-          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ init_val
+          tr_prim ^^ init_val
         end
      | _ -> trm_fail f (Printf.sprintf "AstC_to_c.apps_to_doc style: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end
@@ -1168,7 +1188,7 @@ and dependence_type_to_doc (dp : dependence_type) : document =
   | Out vl -> let vl = List.map dep_to_doc vl in
     string "depend (out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Inout vl -> let vl = List.map dep_to_doc vl in
-    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~empty ~sep:comma vl) ^^ rparen
+    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Outin vl -> let vl = List.map dep_to_doc vl in
     string "depend (outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Sink vl -> let vl = List.map dep_to_doc vl in

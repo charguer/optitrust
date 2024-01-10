@@ -52,6 +52,7 @@ target resolution.
 
 (* for debugging and message printing *)
 let printf = Printf.printf
+let eprintf = Printf.eprintf
 let sprintf = Printf.sprintf
 
 (*****************************************************************************)
@@ -271,6 +272,7 @@ and code_kind =
   | Expr of string  (* expression of the form a * (b + 1) *)
   | Stmt of string  (* functions, for loops, while loops etc *)
   | Instr of string (* a = b, a += b *)
+  | Comment of string (* "// txt", or "/*txt*/" *)
 
 
 (*****************************************************************************)
@@ -482,6 +484,9 @@ and cstyle_annot =
      LATER: Use different printers for different languages *)
   | ResourceFormula
 
+  (* tag used by light diff *)
+  | BodyHiddenForLightDiff
+
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind =
   | Constructor_implicit
@@ -511,6 +516,7 @@ and trm_annot = {
     trm_annot_pragma : cpragma list;
     trm_annot_cstyle : cstyle_annot list;
     trm_annot_files : files_annot list;
+    trm_annot_referent : trm option; (* used for typing errors *)
   }
   (* LATER: use a smartconstruct for trm_annot with optional arguments *)
 
@@ -574,7 +580,7 @@ and prim =
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_compound_assgn_op of binary_op (* e.g. "a += b" *)
   | Prim_overloaded_op of prim (* used for overloaded operators *)
-  | Prim_new of typ (* "new T" *)
+  | Prim_new of typ * trm list (* "new T", with optional array dimensions *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
 (* [lit]: literals *)
@@ -620,6 +626,8 @@ and trm =
    is_statement : bool;
    typ : typ option;
    mutable ctx : ctx;
+   mutable errors : string list;
+   (* LATER: mutable typing_aux should be the only mutable flag *)
 }
 
 (* [trms]: a list of trms *)
@@ -722,6 +730,7 @@ and resource_set = {
   linear: resource_item list;
   fun_specs: fun_spec_resource varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup. *)
   aliases: trm varmap; (** Map of variables to their definition, variables may come from the program or pure facts *)
+  efracs: (hyp * formula) list; (** List of existential fracs that can be chosen afterwards as long as they are smaller than the frac expression. *)
 }
 
 (* Represents the knowledge of the specification of a function *)
@@ -1310,6 +1319,7 @@ let code_to_str (code : code_kind) : string =
   | Expr e -> e
   | Stmt s -> s
   | Instr s -> s
+  | Comment s -> s
 
 
 (* [var_mutability_unkown]: dummy value used for variable mutability *)
@@ -1440,6 +1450,7 @@ type style = {
   print_string_repr: bool; (* print string representation for expressions *)
   print_mark: bool; (* print marks *)
   print_annot: bool; (* print annotations *)
+  print_errors: bool; (* print errors *)
   (* LATER: node_id: bool; print internal AST node identifier *)
 }
 
@@ -1452,6 +1463,7 @@ let default_style () : style = {
   print_string_repr = !Flags.debug_stringreprs;
   print_mark = true;
   print_annot = false; (* LATER: add support for this *)
+  print_errors = true;
 }
 
 (** Style for reparsing *)
@@ -1461,4 +1473,5 @@ let style_for_reparse () : style =
     print_generated_ids = false;
     print_string_repr = false;
     print_mark = false;
-    print_annot = false; }
+    print_annot = false;
+    print_errors = false; }
