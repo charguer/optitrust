@@ -176,12 +176,12 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
           may_report_time "script-exec" f)
       with
       | Stop -> ()
-      | e when !Flags.execution_mode = Execution_mode_full_trace -> (* FIXME: remove when cond *)
+      | e when Flags.is_execution_mode_trace () -> (* FIXME: remove when cond *)
           let backtrace = Printexc.get_backtrace () in
           Trace.finalize_on_error ~exn:e;
-          if !Flags.execution_mode = Execution_mode_full_trace then produce_trace();
+          produce_trace();
           Printf.eprintf "========> BACKTRACE:\n%s\n" backtrace;
-          exit 0 (* FIXME: don't exit in batch? *)
+          exit 1 (* FIXME: don't exit in batch? *)
     end;
     flush stdout;
     (* If we requested a diff for the last line of the script, print it *)

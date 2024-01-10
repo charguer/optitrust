@@ -538,6 +538,10 @@ function focusOnStep(idStep) {
 // handles a click on a step, to view details
 function loadStepDetails(idStep) {
   var step = steps[idStep];
+
+  $(".tree-step").removeClass("step-selected");
+  $("#tree-step-" + idStep).addClass("step-selected");
+
   if (options.ast_before || options.ast_after) {
     var ast = (options.ast_before) ? step.ast_before : step.ast_after;
     loadSource(ast, true);
@@ -728,7 +732,7 @@ function stepToHTML(step, isOutermostLevel) {
 
   // Line contents
   if (! isRoot) {
-    s += "<div class='" + fullLineClass + "'><span class='step-bullet' " + sOnClickFocusOnStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + " " + sScript + sTags + "</span></div>";
+    s += "<div id='tree-step-" + step.id + "' class='tree-step " + fullLineClass + "'><span class='step-bullet' " + sOnClickFocusOnStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + " " + sScript + sTags + "</span></div>";
   }
 
   if (options.justif) {
