@@ -340,10 +340,16 @@ let minimize_loop_contract contract usage =
 
   let new_iter_contract = minimize_fun_contract ~output_new_fracs:new_fracs contract.iter_contract usage in
 
-  (* TODO: remove unused pure variables *)
-  { loop_ghosts = !new_fracs @ contract.loop_ghosts;
+  let new_contract = { loop_ghosts = !new_fracs @ contract.loop_ghosts;
     invariant = new_invariant;
     iter_contract = new_iter_contract; }
+  in
+  let new_contract_used_vars = loop_contract_used_vars new_contract in
+  (* TODO: remove unused pure variables even if they are not fractions (be careful with pure facts implicitly used by resource typing) *)
+  { new_contract with loop_ghosts =
+      List.filter
+        (fun (x, formula) -> not (are_same_trm formula trm_frac) || Var_set.mem x new_contract_used_vars)
+        new_contract.loop_ghosts }
 
 
 let loop_minimize_on (t: trm): trm =
@@ -352,7 +358,7 @@ let loop_minimize_on (t: trm): trm =
   let contract = match contract with
     | None ->
       let res_before = unsome_or_trm_fail t "loop_minimize_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in
-      { loop_ghosts = res_before.pure; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
+      { loop_ghosts = []; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
     | Some contract -> contract
   in
 

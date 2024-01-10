@@ -12,17 +12,17 @@ target/target_between.ml
 # BROKEN RESOURCES
 matrix/local_name_tile/matrix_local_name_tile.ml
 stencil/fusion_targets/stencil_fusion_targets.ml
-resources/contracts/loop_parallelize_reads.ml
 matrix/delocalize_obj/matrix_delocalize_obj.ml
 loop/swap/loop_swap_doc.ml
-loop/swap/loop_swap.ml
-loop/reorder_at/loop_reorder_at.ml
 loop/moveout/loop_moveout_doc.ml
-loop/moveout/loop_moveout.ml
 loop/move/loop_move_doc.ml
+
+# BROKEN RESOURCES, FIX FOR MM
+resources/contracts/loop_parallelize_reads.ml
+loop/reorder_at/loop_reorder_at.ml
+loop/moveout/loop_moveout.ml
 loop/hoist_expr/loop_hoist_expr.ml
 loop/hoist/loop_hoist_basic.ml
-tests/matrix/stack_copy/matrix_stack_copy.ml
 loop/fission/loop_fission_basic.ml
 loop/fission/loop_fission.ml
 
