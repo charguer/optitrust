@@ -176,7 +176,7 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
-    "key":"ctrl+shift+f6",
+    "key": "ctrl+shift+f6",
     "command": "workbench.action.tasks.runTask",
     "args": "View diff using internal syntax",
     "when": "config.optitrust.enableKeybindings"
@@ -310,6 +310,13 @@ You should see a diff opening up in a browser.
 Another shortcut to try is `shift+F5`, on any line of the `matmul.ml` file
 After a dozen seconds, you should see the full transformation trace for the
 matrix-multiply case study.
+
+### Viewing keyboard shortcuts
+
+It may not be easy at first to recall all the shortcuts. Besides using a sticker
+at the bottom of your screen, you can use the command `./shortcuts.sh` to display
+the shortcuts, and in VSCode use menu File / Preferences / Keyboard Shortcuts,
+then type "optitrust" in the query bar.
 
 ### Troubleshooting
 
