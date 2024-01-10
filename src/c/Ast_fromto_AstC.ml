@@ -2,7 +2,18 @@ open Ast
 open Trm
 open Typ
 
-type typing_style = Style.typing_style
+type style = {
+  typing : Style.typing_style;
+  cstyle : AstC_to_c.style;
+}
+
+let style_of_custom_style (style : Style.custom_style) : style =
+  match style.print with
+  | Lang_C s -> { typing = style.typing; cstyle = s }
+  | _ -> failwith "style_of_custom_style: expected Lang_C"
+
+let default_style () : style =
+  style_of_custom_style (Style.default_custom_style ())
 
 let debug = false
 
@@ -541,51 +552,53 @@ and ghost_args_elim_in_seq (ts: trm list): trm list =
     in
     t :: ghost_args_elim_in_seq ts
 
-let formula_to_string ?(style : AstC_to_c.style option) (f: formula) : string =
-  let style = match style with None -> AstC_to_c.default_style() | Some s -> s in
-  AstC_to_c.ast_to_string ~style f
+let formula_to_string (style : style) (f: formula) : string =
+  AstC_to_c.ast_to_string ~style:style.cstyle f
 
 let var__with = trm_var (name_to_var "__with")
 let var__call_with = trm_var (name_to_var "__call_with")
 let var__ghost = trm_var (name_to_var "__ghost")
 
-let rec ghost_args_intro (t: trm) : trm =
-  let ghost_args_to_trm_string ghost_args =
-    trm_string (String.concat ", " (List.map (fun (ghost_var, ghost_formula) -> sprintf "%s := %s" (ghost_var.name) (formula_to_string ghost_formula)) ghost_args))
-  in
+let ghost_args_intro (style: style) (t: trm) : trm =
+  let rec aux t =
+    let ghost_args_to_trm_string ghost_args =
+      trm_string (String.concat ", " (List.map (fun (ghost_var, ghost_formula) -> sprintf "%s := %s" (ghost_var.name) (formula_to_string style ghost_formula)) ghost_args))
+    in
 
-  match t.desc with
-  | Trm_apps (fn, args, (_ :: _ as ghost_args)) ->
-    (* Outside sequence add __call_with *)
-    let t = trm_map ghost_args_intro t in
-    trm_apps var__call_with [t; ghost_args_to_trm_string ghost_args]
-  | Trm_seq seq ->
-    (* Inside sequence add __with *)
-    Nobrace.enter ();
-    let seq = Mlist.map (fun t -> Pattern.pattern_match t [
-      Pattern.(trm_apps !__ nil !__) (fun fn ghost_args ->
-        if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
-        let fn = ghost_args_intro fn in
-        trm_like ~old:t (trm_apps var__ghost [fn; ghost_args_to_trm_string ghost_args])
-      );
-      Pattern.(trm_apps __ __ !(__ ^:: __)) (fun ghost_args ->
-        let t = trm_map ghost_args_intro t in
-        Nobrace.trm_seq_nomarks [t; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
-      );
-      Pattern.(trm_let !__ !__ !__ !(trm_apps __ __ !(__ ^:: __))) (fun mut var typ call ghost_args ->
-        let call = trm_map ghost_args_intro call in
-        Nobrace.trm_seq_nomarks [trm_like ~old:t (trm_let mut (var, typ) call); trm_apps var__with [ghost_args_to_trm_string ghost_args]]
-      );
-      Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ->
-        let ghost_fn = ghost_args_intro ghost_fn in
-        trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let Var_immutable (ghost_pair, typ) (trm_apps (trm_var ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
-      );
-      Pattern.(!__) (fun t -> trm_map ghost_args_intro t)
-    ]) seq in
-    let nobrace_id = Nobrace.exit () in
-    let seq = Nobrace.flatten_seq nobrace_id seq in
-    trm_alter ~desc:(Trm_seq seq) t
-  | _ -> trm_map ghost_args_intro t
+    match t.desc with
+    | Trm_apps (fn, args, (_ :: _ as ghost_args)) ->
+      (* Outside sequence add __call_with *)
+      let t = trm_map aux t in
+      trm_apps var__call_with [t; ghost_args_to_trm_string ghost_args]
+    | Trm_seq seq ->
+      (* Inside sequence add __with *)
+      Nobrace.enter ();
+      let seq = Mlist.map (fun t -> Pattern.pattern_match t [
+        Pattern.(trm_apps !__ nil !__) (fun fn ghost_args ->
+          if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
+          let fn = aux fn in
+          trm_like ~old:t (trm_apps var__ghost [fn; ghost_args_to_trm_string ghost_args])
+        );
+        Pattern.(trm_apps __ __ !(__ ^:: __)) (fun ghost_args ->
+          let t = trm_map aux t in
+          Nobrace.trm_seq_nomarks [t; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
+        );
+        Pattern.(trm_let !__ !__ !__ !(trm_apps __ __ !(__ ^:: __))) (fun mut var typ call ghost_args ->
+          let call = trm_map aux call in
+          Nobrace.trm_seq_nomarks [trm_like ~old:t (trm_let mut (var, typ) call); trm_apps var__with [ghost_args_to_trm_string ghost_args]]
+        );
+        Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ->
+          let ghost_fn = aux ghost_fn in
+          trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let Var_immutable (ghost_pair, typ) (trm_apps (trm_var ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
+        );
+        Pattern.(!__) (fun t -> trm_map aux t)
+      ]) seq in
+      let nobrace_id = Nobrace.exit () in
+      let seq = Nobrace.flatten_seq nobrace_id seq in
+      trm_alter ~desc:(Trm_seq seq) t
+    | _ -> trm_map aux t
+  in
+  aux t
 
 (********************** Decode contract annotations ***************************)
 
@@ -716,14 +729,17 @@ let contract_elim (t: trm): trm =
   | _ -> trm_map aux t
   in aux t
 
-let named_formula_to_string ?(used_vars = Var_set.empty) (hyp, formula): string =
-  let sformula = formula_to_string formula in
+let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, formula): string =
+  let sformula = formula_to_string style formula in
   if not (!Flags.always_name_resource_hyp || Var_set.mem hyp used_vars) && hyp.name.[0] = '#'
     then Printf.sprintf "%s" sformula
-    else Printf.sprintf "%s: %s" hyp.name sformula
+    (* TODO: use style print_generated_ids and print_var_id *)
+    (* else Printf.sprintf "%s: %s" hyp.name sformula *)
+    else Printf.sprintf "%s#%d: %s" hyp.name hyp.id sformula
 
-let efrac_to_string (efrac, bigger_frac): string =
-  let sbigger = formula_to_string bigger_frac in
+let efrac_to_string (style: style) (efrac, bigger_frac): string =
+  (* TODO: pass style through *)
+  let sbigger = formula_to_string style bigger_frac in
   Printf.sprintf "?%s <= %s" efrac.name sbigger
 
 (* [seq_push code t]: inserts trm [code] at the begining of sequence [t],
@@ -738,29 +754,29 @@ let seq_push (code : trm) (t : trm) : trm =
 let trm_array_of_string list =
   trm_array (Mlist.of_list (List.map trm_string list))
 
-let ctx_resources_to_trm (res: resource_set) : trm =
+let ctx_resources_to_trm (style: style) (res: resource_set) : trm =
   let used_vars = Resource_set.used_vars res in
-  let spure = trm_array_of_string (List.map (named_formula_to_string ~used_vars) res.pure @ List.map efrac_to_string res.efracs) in
-  let slin = trm_array_of_string (List.map named_formula_to_string res.linear) in
+  let spure = trm_array_of_string (List.map (named_formula_to_string style ~used_vars) res.pure @ List.map (efrac_to_string style) res.efracs) in
+  let slin = trm_array_of_string (List.map (named_formula_to_string style) res.linear) in
   trm_apps (trm_var __ctx_res) [spure; slin]
 
-let ctx_used_res_item_to_string (res: used_resource_item) : string =
-  let sinst = formula_to_string res.inst_by in
-  let sformula = formula_to_string res.used_formula in
+let ctx_used_res_item_to_string (style: style) (res: used_resource_item) : string =
+  let sinst = formula_to_string style res.inst_by in
+  let sformula = formula_to_string style res.used_formula in
   Printf.sprintf "%s := %s : %s" res.pre_hyp.name sinst sformula
 
-let ctx_used_res_to_trm ~(clause: var) (used_res: used_resource_set) : trm =
-  let spure = trm_array_of_string (List.map ctx_used_res_item_to_string used_res.used_pure) in
-  let slin = trm_array_of_string (List.map ctx_used_res_item_to_string used_res.used_linear) in
+let ctx_used_res_to_trm (style: style) ~(clause: var) (used_res: used_resource_set) : trm =
+  let spure = trm_array_of_string (List.map (ctx_used_res_item_to_string style) used_res.used_pure) in
+  let slin = trm_array_of_string (List.map (ctx_used_res_item_to_string style) used_res.used_linear) in
   trm_apps (trm_var clause) [spure; slin]
 
-let ctx_produced_res_item_to_string (res: produced_resource_item) : string =
-  let sformula = formula_to_string res.produced_formula in
+let ctx_produced_res_item_to_string (style: style) (res: produced_resource_item) : string =
+  let sformula = formula_to_string style res.produced_formula in
   Printf.sprintf "%s := %s : %s" res.produced_hyp.name res.post_hyp.name sformula
 
-let ctx_produced_res_to_trm (produced_res: produced_resource_set) : trm =
-  let spure = trm_array_of_string (List.map ctx_produced_res_item_to_string produced_res.produced_pure) in
-  let slin = trm_array_of_string (List.map ctx_produced_res_item_to_string produced_res.produced_linear) in
+let ctx_produced_res_to_trm (style: style) (produced_res: produced_resource_set) : trm =
+  let spure = trm_array_of_string (List.map (ctx_produced_res_item_to_string style) produced_res.produced_pure) in
+  let slin = trm_array_of_string (List.map (ctx_produced_res_item_to_string style) produced_res.produced_linear) in
   trm_apps (trm_var __produced_res) [spure; slin]
 
 let ctx_usage_map_to_strings res_used =
@@ -774,14 +790,14 @@ let ctx_usage_map_to_strings res_used =
 
 let debug_ctx_before = false
 
-let display_ctx_resources (style: typing_style) (t: trm): trm list =
+let display_ctx_resources (style: style) (t: trm): trm list =
   let t =
     match t.desc with
     | Trm_let (_, _, body) -> { t with ctx = { body.ctx with ctx_resources_before = t.ctx.ctx_resources_before; ctx_resources_after = t.ctx.ctx_resources_after } }
     | _ -> t
   in
   let tl_used =
-    if style.typing_used_res
+    if style.typing.typing_used_res
       then Option.to_list (Option.map (fun res_used ->
         let s_used = ctx_usage_map_to_strings res_used in
         trm_apps (trm_var __used_res) (List.map trm_string s_used)) t.ctx.ctx_resources_usage)
@@ -792,20 +808,20 @@ let display_ctx_resources (style: typing_style) (t: trm): trm list =
     | Some contract_invoc ->
       (* TODO: use a combinator to factorize the pattern "if then else []" *)
       let tl_frame =
-        if style.typing_framed_res
-          then [ trm_apps (trm_var __framed_res) (List.map trm_string (List.map named_formula_to_string contract_invoc.contract_frame)) ]
+        if style.typing.typing_framed_res
+          then [ trm_apps (trm_var __framed_res) (List.map trm_string (List.map (named_formula_to_string style) contract_invoc.contract_frame)) ]
           else []
         in
       let tl_inst =
-        if style.typing_contract_inst
-          then [ctx_used_res_to_trm ~clause:__contract_inst contract_invoc.contract_inst]
+        if style.typing.typing_contract_inst
+          then [ctx_used_res_to_trm style ~clause:__contract_inst contract_invoc.contract_inst]
           else [] in
       let tl_produced =
-        if style.typing_produced_res
-          then [ctx_produced_res_to_trm contract_invoc.contract_produced ]
+        if style.typing.typing_produced_res
+          then [ctx_produced_res_to_trm style contract_invoc.contract_produced ]
           else [] in
       let tl_joined =
-        if style.typing_joined_res
+        if style.typing.typing_joined_res
           then [trm_apps (trm_var __joined_res) (List.map trm_string
                   (List.map (fun (x, y) -> sprintf "%s <-- %s" x.name y.name)
                    contract_invoc.contract_joined_resources)) ]
@@ -814,28 +830,28 @@ let display_ctx_resources (style: typing_style) (t: trm): trm list =
   in
   let tl_before =
     if debug_ctx_before (* TODO : assert == *)
-      then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before)
+      then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before)
       else []
     in
   let tl_after =
-    if style.typing_used_res
-      then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after)
+    if style.typing.typing_used_res
+      then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_after)
       else []
     in
   (tl_before @ tl_used @ tl @ tl_after)
 
-let computed_resources_intro (style: typing_style) (t: trm): trm =
+let computed_resources_intro (style: style) (t: trm): trm =
   let rec aux t =
     match t.desc with
     | Trm_seq instrs when not (List.mem Main_file (trm_get_files_annot t)) ->
       let tl_before =
-        if style.typing_ctx_res
-          then Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before)
+        if style.typing.typing_ctx_res
+          then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before)
           else []
         in
       let tl_post_inst =
-        if style.typing_used_res
-          then Option.to_list (Option.map (ctx_used_res_to_trm ~clause:__post_inst) t.ctx.ctx_resources_post_inst)
+        if style.typing.typing_used_res
+          then Option.to_list (Option.map (ctx_used_res_to_trm style ~clause:__post_inst) t.ctx.ctx_resources_post_inst)
           else []
         in
       let process_instr instr = display_ctx_resources style (aux instr) in
@@ -845,11 +861,11 @@ let computed_resources_intro (style: typing_style) (t: trm): trm =
   in
   aux t
 
-let rec contract_intro (t: trm): trm =
+let rec contract_intro (style: style) (t: trm): trm =
   (* debug_current_stage "contract_intro"; *)
   let push_named_formulas (contract_prim: var) ?(used_vars: Var_set.t option) (named_formulas: resource_item list) (t: trm): trm =
     List.fold_right (fun named_formula t ->
-      let sres = named_formula_to_string ?used_vars named_formula in
+      let sres = named_formula_to_string style ?used_vars named_formula in
       let tres = trm_apps (trm_var contract_prim) [trm_string sres] in
       seq_push tres t) named_formulas t
   in
@@ -902,7 +918,7 @@ let rec contract_intro (t: trm): trm =
 
   (* TODO: Inline into Trm_fun branch when Trm_let_fun disappears *)
   let add_contract_to_fun_body body contract =
-    let body = contract_intro body in
+    let body = contract_intro style body in
     match contract with
     | FunSpecContract contract when contract = empty_fun_contract ->
       seq_push (trm_apps (trm_var __pure) []) body
@@ -935,7 +951,7 @@ let rec contract_intro (t: trm): trm =
       else trm_like ~old:t (trm_fun args ty body)
 
   | Trm_for (range, body0, contract) ->
-    let body = contract_intro body0 in
+    let body = contract_intro style body0 in
     let body =
       match contract with
       | Some contract when contract = empty_loop_contract ->
@@ -964,9 +980,9 @@ let rec contract_intro (t: trm): trm =
       else trm_like ~old:t (trm_for range body)
 
   | Trm_seq instrs ->
-    trm_like ~old:t (trm_seq (Mlist.map contract_intro instrs))
+    trm_like ~old:t (trm_seq (Mlist.map (contract_intro style) instrs))
 
-  | _ -> trm_map contract_intro t
+  | _ -> trm_map (contract_intro style) t
 
 
 (*************************************** Formula syntactic sugar *********************************************)
@@ -1005,7 +1021,7 @@ let cfeatures_elim: trm -> trm =
   Scope_computation.infer_var_ids)
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
-let cfeatures_intro : trm -> trm =
+let cfeatures_intro (style : style) : trm -> trm =
   debug_before_after_trm "cfeatures_intro" (fun t ->
   Scope_computation.infer_var_ids t |>
   formula_sugar_intro |>
@@ -1014,18 +1030,19 @@ let cfeatures_intro : trm -> trm =
   infix_intro |>
   method_call_intro |>
   class_member_intro |>
-  ghost_args_intro |>
-  contract_intro
+  ghost_args_intro style |>
+  contract_intro style
   )
 
 (** [meta_intro t] adds into [t] all the "for-typing" operations
     and the contracts as C calls using the "__" prefix *)
-let meta_intro : trm -> trm =
+let meta_intro (style: style) : trm -> trm =
   fun t ->
-  Scope_computation.infer_var_ids t |>
+  (* Scope_computation.infer_var_ids t |>  TODO: allow failures, this allows prettier printing *)
+  t |>
   formula_sugar_intro |>
-  ghost_args_intro |>
-  contract_intro
+  ghost_args_intro style |>
+  contract_intro style
 
 
 

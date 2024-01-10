@@ -399,7 +399,7 @@ let%transfo loop_parallelize_reads (tg: target): unit =
 let assert_hyp_read_only ~(error : string) ((x, t) : resource_item) : unit =
   match formula_read_only_inv t with
   | Some _ -> ()
-  | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.named_formula_to_string (x, t)))
+  | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.(named_formula_to_string (default_style ())) (x, t)))
 
 let justif_parallelizable_loop_contract ~error (contract: loop_contract): unit =
   if contract.invariant.linear <> []

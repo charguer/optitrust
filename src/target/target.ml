@@ -1162,9 +1162,10 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
         t3
     in
   AstC_to_c.init_stringreprs();
-  let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro (trm_erase_var_ids t3) in
-  let style = AstC_to_c.default_style() in
-  let _doc = AstC_to_c.(ast_to_doc { style with optitrust_syntax }) t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
+  let cstyle = AstC_to_c.default_style() in
+  let fromto_style = Ast_fromto_AstC.{ cstyle; typing = Style.typing_none } in
+  let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro fromto_style (trm_erase_var_ids t3) in
+  let _doc = AstC_to_c.(ast_to_doc { cstyle with optitrust_syntax }) t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
   let m = AstC_to_c.get_and_clear_stringreprs() in
   t2, m (* we return t2, not t3, because t3 has hidden bodies *)
 

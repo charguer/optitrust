@@ -176,11 +176,11 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
     string "decltype" ^^ parens (decorate_trm (default_style()) t)
 
 and var_to_doc style (v : var) : document =
+  let qualified = (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^ string v.name in
   if style.ast.print_var_id then
-    Ast_to_text.print_ast_var style.ast v
+    qualified ^^ string ("/*#" ^ string_of_int v.id ^ "*/")
   else
-    (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
-    (string v.name)
+    qualified
 
 and typconstr_to_doc ((qualifier, name) : typconstr) : document =
   (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
@@ -687,7 +687,7 @@ and resource_item_to_doc style (resource_item : resource_item) : doc =
   let sid =
     if hyp.name.[0] = '#' && not style.ast.print_generated_ids
       then empty
-      else string (hyp.name ^ ": ") in
+      else (var_to_doc style hyp) ^^ (string ": ") in
   sid ^^ formula_to_doc style formula
 
 and fun_spec_resource_varmap_to_doc style (fun_specs : fun_spec_resource varmap) : doc =

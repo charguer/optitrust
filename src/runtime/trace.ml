@@ -389,14 +389,18 @@ let check_the_trace ~(final:bool) : unit =
 let style_normal_code () =
   Style.default_custom_style ()
 
-let style_resources () = (*TODO factorize with Show.res *)
+let style_resources ?(print_var_id : bool option) () = (*TODO factorize with Show.res *)
   let cstyle_default = AstC_to_c.(default_style()) in
   let aststyle_default = Ast.default_style () in
-  let aststyle = { aststyle_default with print_generated_ids = true } in
+  let ast_style = { aststyle_default with print_generated_ids = true } in
+  let ast_style = match print_var_id with
+  | None -> ast_style
+  | Some b -> { ast_style with print_var_id = b }
+  in
   Style.({ decode = false;
     typing = Style.typing_all;
     print = Lang_C { cstyle_default with
-      ast = aststyle;
+      ast = ast_style;
       optitrust_syntax = true; } })
 
 (** [cleanup_cpp_file_using_clang_format filename]: makes a system call to
@@ -437,12 +441,21 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
     output_string out_prog ctx.header;
     (* Convert contracts into code *)
-    let ast = Ast_fromto_AstC.computed_resources_intro style.typing ast in
+    let fromto_style = Ast_fromto_AstC.style_of_custom_style style in
+    let ast = Ast_fromto_AstC.computed_resources_intro fromto_style ast in
     (* Optionally convert from OptiTrust to C syntax *)
     let ast =
-      if style.decode
-        then Ast_fromto_AstC.cfeatures_intro ast
-        else Ast_fromto_AstC.meta_intro ast in
+      if style.decode then begin
+        try
+          Ast_fromto_AstC.cfeatures_intro fromto_style ast
+        with
+        | Scope_computation.InvalidVarId msg ->
+          Tools.warn (sprintf "output_prog could not decode due do invalid var ids: %s" msg);
+          (* TODO: add comment in code or in trace by returning info to callers *)
+          Ast_fromto_AstC.meta_intro fromto_style ast
+      end else
+        Ast_fromto_AstC.meta_intro fromto_style ast
+      in
     (* Print the code into file, using the specified style *)
     let cstyle = match style.print with
       | Lang_AST _-> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_AST")
@@ -961,7 +974,13 @@ and error_step (exn : exn): unit =
         preprend_to_step_name (" " ^ c.msg);
     ) (List.rev contexts)
   in
+  let print_var_id = ref false in
   let rec process (exn : exn) : unit =
+    begin match exn with
+    | Scope_computation.InvalidVarId _ ->
+      print_var_id := true
+    | _ -> ()
+    end;
     match exn with
     | Contextualized_error (contexts, exn) ->
       process_context contexts;
@@ -974,7 +993,7 @@ and error_step (exn : exn): unit =
   let (), s =
     step_and_get_handle ~valid:false ~kind:Step_error ~name:"" (fun () -> process exn) in
   s.step_style_before <- style_normal_code();
-  s.step_style_after <- style_resources()
+  s.step_style_after <- style_resources ~print_var_id:!print_var_id ()
 
 (** [typing_step f] adds a step accounting for a typing recomputation *)
 and typing_step ~name (f : unit -> unit) : unit =

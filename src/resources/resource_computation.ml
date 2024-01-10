@@ -667,9 +667,13 @@ let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resou
     | _ -> raise Anonymous_function_without_spec
     end
 
+let named_formula_to_string nf : string =
+  let style = Ast_fromto_AstC.style_of_custom_style (Style.default_custom_style ()) in
+  Ast_fromto_AstC.named_formula_to_string style nf
+
 (* FIXME: move printing out of this file. *)
 let resource_list_to_string res_list : string =
-  String.concat "\n" (List.map Ast_fromto_AstC.named_formula_to_string res_list)
+  String.concat "\n" (List.map named_formula_to_string res_list)
 
 let resource_set_to_string res : string =
   let spure = resource_list_to_string res.pure in
@@ -703,7 +707,7 @@ exception ResourceError of trm * resource_error_phase * exn
 
 let _ = Printexc.register_printer (function
   | Resource_not_found (kind, item, context) ->
-    Some (Printf.sprintf "%s resource not found:\n%s\nIn context:\n%s" (resource_kind_to_string kind) (Ast_fromto_AstC.named_formula_to_string item) (resource_list_to_string context))
+    Some (Printf.sprintf "%s resource not found:\n%s\nIn context:\n%s" (resource_kind_to_string kind) (named_formula_to_string item) (resource_list_to_string context))
   | Spec_not_found fn ->
     Some (Printf.sprintf "No specification for function %s" (var_to_string fn))
   | NotConsumedResources res ->
