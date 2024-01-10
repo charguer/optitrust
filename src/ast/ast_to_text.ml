@@ -586,6 +586,7 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Display_null_uppercase -> string "Display_null_uppercase"
  | GhostCall -> string "GhostCall"
  | ResourceFormula -> string "ResourceFormula"
+ | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =

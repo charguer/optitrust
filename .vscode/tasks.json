@@ -121,7 +121,8 @@
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_step_trace"
+          "view_step_trace",
+          "-detailed-trace"
         ]
       },
       {

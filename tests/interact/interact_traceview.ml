@@ -1,7 +1,22 @@
 open Optitrust
 open Prelude
 
+(** This unit test is for testing the trace generation *)
+
 let _ = Flags.check_validity := true
+
+(* Uncomment the line below to see all details in the full trace,
+   and not only when requesting a per-step trace
+let _ = Flags.detailed_trace := true
+*)
+
+(* Uncomment the line below to shrink ASTs; beware that AST-before/after
+   may become incomplete, they would only cover the functions involved in changes. *)
+let _ = Flags.use_light_diff := true
+
+(* Uncomment the line below to control use of clang-format
+let _ = Flags.use_clang_format := true
+ *)
 
 (* Uncomment the line below to see encoded syntax in trace
 let _ = Flags.print_optitrust_syntax := true
@@ -10,6 +25,10 @@ let _ = Flags.print_optitrust_syntax := true
 (* Uncomment the line below to see on stdout the opening and closing of steps:
 let _ = Trace.debug_open_close_step := true
 *)
+
+(* LATER: test a shortcut triggering only_big_steps to view the trace
+    associated with a big-step. Or perhaps attempt to automatically
+    trigger this flag if the user is on a line calling "bigstep" *)
 
 let _ = Run.script_cpp (fun _ ->
 
@@ -23,8 +42,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Target.iteri (fun i _t p ->
        Label.add ("occ" ^ string_of_int i) [cPath p])
      [nbMulti; cVarDef ""];
-
-(*
 
   bigstep "third part";
   (* Uncomment the line below to see a partial trace
@@ -82,5 +99,5 @@ let _ = Run.script_cpp (fun _ ->
   (* Uncomment to see a partial trace
   !! Trace.failure_expected (fun _e -> true) (fun () ->
        Label.add "labE4" [cVarDef "a"]);*)
-*)
+
 )

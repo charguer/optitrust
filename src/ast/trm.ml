@@ -1967,6 +1967,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     if (share_if_no_change && templated == templated')
       then t
       else trm_template ~annot ?loc ~ctx typ_params templated'
+  | Trm_arbitrary (Comment _) -> t
   | _ ->
     trm_combinators_unsupported_case "trm_map_with_terminal"  t
   in
@@ -2038,6 +2039,7 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     | _ -> ()
     end
   | Trm_fun (_, _, body, _) -> f body
+  | Trm_arbitrary (Comment _) -> ()
   | Trm_arbitrary _ ->
     ignore (trm_combinators_unsupported_case "trm_iter" t)
   | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
@@ -2550,8 +2552,11 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
       | Trm_let_fun (f, ty, tv, _, _) ->
         if f_pred f then begin
           t_map := Var_map.add f t !t_map;
-         trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_lit Lit_uninitialized) end
-        else t
+          (* replace the body with an empty body with an annotation *)
+          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_uninitialized()) in 
+          trm_add_cstyle BodyHiddenForLightDiff t2
+        end else
+          t
       | _ -> trm_map aux t
       in
   let res = aux t in

@@ -158,7 +158,7 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
-    "key": "alt+shift+f5",
+    "key": "shift+f6",
     "command": "workbench.action.tasks.runTask",
     "args": "View trace for one step",
     "when": "config.optitrust.enableKeybindings"
@@ -167,12 +167,6 @@ and merge that contents just before the final closing brace of the existing file
     "key": "f6",
     "command": "workbench.action.tasks.runTask",
     "args": "View diff",
-    "when": "config.optitrust.enableKeybindings"
-  },
-  {
-    "key": "alt+f6",
-    "command": "workbench.action.tasks.runTask",
-    "args": "View big step diff",
     "when": "config.optitrust.enableKeybindings"
   },
   {
@@ -232,12 +226,6 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
-    "key": "alt+f7",
-    "command": "workbench.action.tasks.runTask",
-    "args": "View big step diff from intermediate state",
-    "when": "config.optitrust.enableKeybindings"
-  },
-  {
     "key": "ctrl+f7",
     "command": "workbench.action.tasks.runTask",
     "args": "Save intermediate state",
@@ -256,7 +244,7 @@ and merge that contents just before the final closing brace of the existing file
      "command": "workbench.action.tasks.terminate",
      "when": "config.optitrust.enableKeybindings"
   },
-
+  // Unused "alt+f6", "alt+f7", ..
 ```
 
 Note: the shortcuts refer to tasks that are defined in `.vscode/tasks.json`,
@@ -273,11 +261,12 @@ The result should be the same as with typing `F6`, except that it runs
 faster because the execution proceeds not from the beginning of the script
 but instead from the line of the snapshot taken using `ctrl+F7`.
 
-### Deactivate conficting Ubuntu binding
+### Deactivate possibly conficting bindings
 
-IMPORTANT: on Ubuntu, `Alt+F6`, `Alt+F7` etc. are bound to window manipulation operations,
-e.g. resize. You can either modify the shortcut, or (easier) deactivate the Ubuntu binding.
-To that end you may use the following commands:
+On desktop managers such as Ubuntu's, certain shortcuts such as
+`Alt+F6`, `Alt+F7` etc. are bound to window manipulation operations,
+e.g. window resize. If you want to use these shortcuts, you may wish
+to deactivate the Ubuntu bindings. To that end, use the following commands:
 
 ```sh
   sudo apt-get install dconf-editor

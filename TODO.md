@@ -332,7 +332,9 @@
 
 # Stats
 
-- Cleanup the `stats.ml` file. Remove the timing-related mechanism.
+- Cleanup the `stats.ml` file. The timing-related mechanism might be no
+  longer needed if we can fit everything into steps, however it is not
+  trivial to view initial-parse and final-dump-trace as steps of the trace.
   Implement a record of counters, for keeping track of the number of:
   term allocated, number of recursive calls in target resolution,
   total cost of string allocated for trm representation for target resolution.

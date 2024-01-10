@@ -1,5 +1,10 @@
 #include <optitrust.h>
 
+int dummy() {
+  int x = 5;
+  int y = 2;
+}
+
 void f() {
   __pure();
 
