@@ -769,6 +769,11 @@ let _main : unit =
      Can be changed with the [-all-warnings] option. *)
   Flags.report_all_warnings := false;
 
+  (* [use_clang_format] is set for tests, to keep nice-looking expected files.
+     However an optimization (not yet merged TODO) avoids computing clang-format
+     if it has already been computed in the past. *)
+  Flags.use_clang_format := true;
+
   (* Parsing of command line *)
   Arg.parse
     (Arg.align (spec @ Flags.spec))

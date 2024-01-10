@@ -190,6 +190,12 @@ h2 {
 .step-title:hover {
    cursor:pointer;
 }
+.step-bullet:hover {
+  cursor:pointer;
+}
+.checkbox-label {
+  cursor:pointer;
+}
 
 .exectime-heavy {
   background: #FF6666;

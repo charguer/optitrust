@@ -244,7 +244,7 @@ and merge that contents just before the final closing brace of the existing file
      "command": "workbench.action.tasks.terminate",
      "when": "config.optitrust.enableKeybindings"
   },
-  // Unused "alt+f6", "alt+f7", ..
+  // Unused "alt+f6", "alt+f7", "ctrl+shift+f6",..
 ```
 
 Note: the shortcuts refer to tasks that are defined in `.vscode/tasks.json`,

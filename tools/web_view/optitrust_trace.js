@@ -60,15 +60,21 @@ var optionsDefaultValueForTags = { // true = checked = hidden
     "target": true,
     "marks": true,
     "simpl": true,
+    "typing": true,
    };
 
 var allTags = {}; // filled by initAllTags
 
 var optionsDescr = [ // extended by initAllTags
-  { key: "details",
-    name: "details",
+  { key: "tree",
+    name: "tree",
     kind: "UI",
     default: true,
+  },
+  { key: "hide_substeps",
+    name: "hide-substeps",
+    kind: "UI",
+    default: false,
   },
   { key: "ast_before",
     name: "ast-before",
@@ -261,7 +267,7 @@ function htmlButton(id, label, css, onclick) {
 }
 
 function htmlCheckbox(id, label, css, onclick) {
-  return "<label><input id='" + id + "' class='" + css + "' type='checkbox' onclick='" + onclick + "'>" + label + "</label>";
+  return "<label class='checkbox-label'><input id='" + id + "' class='" + css + "' type='checkbox' onclick='" + onclick + "'>" + label + "</label>";
 }
 
 
@@ -507,21 +513,26 @@ function nextBdiff() {
     curBdiff = 0;
   }*/
   var id = (curBdiff + 1) % bigsteps.length;
-  console.log(id);
   loadBdiff(id);
 }
 
 // handles a click on a step bullet item, to focus on that step
 function focusOnStep(idStep) {
+  //console.log("focusOnStep " + idStep + " with parent " + steps[idStep].parent_id);
+  options["hide_substeps"] = false;
+  optionsCheckboxUpdate();
   resetView();
   var step = steps[idStep];
   selectedStep = step;
+  reloadTraceView();
   if (step.hasOwnProperty("smallstep_id")) {
+    //console.log("reload small step " + steps[step.smallstep_id].id)
     loadSdiff(step.smallstep_id);
   } else if (step.hasOwnProperty("bigstep_id")) {
-    loadSdiff(step.bigstep_id);
+    //console.log("reload big step " + steps[step.bigstep_id].id)
+    loadBdiff(step.bigstep_id);
   }
-  reloadTraceView();
+
 }
 
 // handles a click on a step, to view details
@@ -567,12 +578,18 @@ function stepToHTML(step, isOutermostLevel) {
   if (! options.step_change && step.kind == "Change") {
     return "";
   }
-
+  if (options["hide_substeps"]
+    && step.kind != "Root"
+    && step.kind != "Big"
+    && step.kind != "Small") {
+    return "";
+  }
 
   // console.log("steptohtml " + step.id);
   var s = "";
-  var sSubs = "";
 
+  // Recursive steps
+  var sSubs = "";
   const showSubsteps =
     (options.atomic_substeps || !step.tags.includes("atomic"));
   if (showSubsteps) {
@@ -676,10 +693,9 @@ function stepToHTML(step, isOutermostLevel) {
     sArgs = "<span class='args'>" + escapeHTML(sArgs) + "</span>";
   }
 
-  var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.id + ")'";
-  if (isOutermostLevel && step.id != 0) {
-    var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.parent_id + ")'";
-  }
+  // Link to focus on step and to exit current focus // root is its own parent
+  var idOnClickFocusOnStep = (isOutermostLevel) ? step.parent_id : step.id;
+  var sOnClickFocusOnStep = "onclick='focusOnStep(" + idOnClickFocusOnStep + ")'";
 
   // Line symbol
   var sStepSymbol;
@@ -770,9 +786,10 @@ function visitSteps(step, visitedSteps) {
 }
 
 function reloadTraceView() {
+  //console.log("reloadTraceView " + selectedStep.id);
   // var shouldShowDetails = ($("#detailsDiv").html() == "");
   resetView();
-  if (options.details) {
+  if (options.tree) {
     $("#detailsDiv").show();
   } else {
     $("#detailsDiv").hide();
@@ -799,12 +816,11 @@ function viewDetailsAll() {
 }
 
 // handles update after click on "normal" or "full" button
-function viewDetailsUpdate() {
+function optionsCheckboxUpdate() {
   // update checkbox display // TODO: use this also in other place
   for (var key in options) {
     $('#option_' + key).prop('checked', options[key]);
   }
-  reloadTraceView();
 }
 
 // handles click on the "normal" button
@@ -812,7 +828,8 @@ function viewDetailsNormal() {
   for (var key in options) {
     options[key] = optionsDefault[key];
   }
-  viewDetailsUpdate();
+  optionsCheckboxUpdate();
+  reloadTraceView();
 }
 
 // handles click on the "full" button
@@ -820,12 +837,13 @@ function viewDetailsFull() {
   for (var key in options) {
     options[key] = false;
   }
-  options["details"] = true;
+  options["tree"] = true;
   options["args"] = true;
   options["justif"] = true;
   options["exectime"] = true;
   options["step_change"] = true;
-  viewDetailsUpdate();
+  optionsCheckboxUpdate();
+  reloadTraceView();
 }
 
 function initOptions() {
@@ -1030,11 +1048,11 @@ document.addEventListener('DOMContentLoaded', function () {
   if (isRootedTrace) {
     initSteps();
   }
-  initTree(0, 0, false); // the root is its own parent, has no valid parent
   initAllTags();
   initOptions();
   initControls();
   initSplitView();
+  initTree(0, 0, false); // the root is its own parent, has no valid parent
   // editor.setValue("click on a button");
   if (isRootedTrace) {
     /*if (hasBigsteps) {

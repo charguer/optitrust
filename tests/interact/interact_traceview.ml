@@ -10,8 +10,7 @@ let _ = Flags.check_validity := true
 let _ = Flags.detailed_trace := true
 *)
 
-(* Uncomment the line below to shrink ASTs; beware that AST-before/after
-   may become incomplete, they would only cover the functions involved in changes. *)
+(* Uncomment the line below to shrink ASTs during diffs. *)
 let _ = Flags.use_light_diff := true
 
 (* Uncomment the line below to control use of clang-format
