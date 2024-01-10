@@ -78,7 +78,7 @@ let reparse_at_big_steps : bool ref = ref false
 let report_big_steps : bool ref = ref false
 
 (* [use_clang_format]: flag to use clang-format or not in output CPP files. *)
-let use_clang_format : bool ref = ref true
+let use_clang_format : bool ref = ref false
 
 (* [clang_format_nb_columns]: flag to control the limit on the column for clang-format. *)
 let clang_format_nb_columns : int ref = ref 80
@@ -172,11 +172,15 @@ let process_mode (mode : string) : unit =
   | "exec" -> Execution_mode_exec
   | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
 
+(* Options to control how much details are exported in the trace *)
+let detailed_trace : bool ref = ref false
+(* LATER: also add a light-mode, tracing only small and big steps *)
+
 (* [target_line]: indicate which line to target in execution mode
    [Execution_mode_step_trace] or [Execution_mode_step_trace]. *)
 let target_line : int ref = ref (-1)
 
-(* [get_target_line ()]: gets the targeted line *)
+(* [get_target_line ()]: gets the targeted line, cannot be [-1]. *)
 let get_target_line () : int =
   if !target_line = (-1)
     then failwith "Flags.get_target_line: trying to read an invalid line number";
@@ -199,7 +203,9 @@ let is_execution_mode_trace () : bool =
   | Execution_mode_exec -> false
 
 (* [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
-   consider big steps. TODO: used? *)
+   consider big steps. Triggered by the shortcut for viewing diffs for big-steps.
+   Besides, this flag is automatically set is requesting the diff or trace for a specific
+   step with the cursor on a line starting with the words "bigstep". *)
 let only_big_steps : bool ref = ref false
 
 (* [c_parser_name]: name of the C parser to use *)
@@ -212,6 +218,7 @@ let optitrust_root : string ref = ref "."
    By default it is Sys.argv.(0) but it can be different in case of dynamic loading. *)
 let program_name : string ref = ref ""
 
+
 (* List of options *)
 
 (* [cmdline_args]: a list of possible command line arguments. *)
@@ -222,6 +229,7 @@ type cmdline_args = (string * Arg.spec * string) list
 let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
+     ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)
@@ -235,7 +243,9 @@ let spec : cmdline_args =
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
      ("-serialized-input", Arg.String process_serialized_input, " choose an input serialization mode between 'build', 'use', 'make' or 'auto'");
+     ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
+     ("-use-clang-format", Arg.Set use_clang_format, " enable beautification using clang-format");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-clang-format-nb-columns", Arg.Set_int clang_format_nb_columns, " specify the number of columns for clang-format");
      ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");

@@ -154,6 +154,38 @@ let parse ~(parser: parser) (filename : string) : string * trm =
 
 
 (******************************************************************************)
+(*                             Light diffs                                    *)
+(******************************************************************************)
+
+let debug_light_diff = ref false
+
+(** [light_diff astBefore astAfter]: find all the functions that have not change after
+    applying a transformation and hides their body for a more robust view diff. *)
+let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
+    let topfun_before = top_level_fun_bindings astBefore in
+    let topfun_after = top_level_fun_bindings astAfter in
+    let topfun_common = get_common_top_fun topfun_before topfun_after in
+    if !debug_light_diff then begin
+       eprintf "light_diff removes common functions: ";
+       List.iter (fun f -> eprintf "%s " f.name) topfun_common;
+       eprintf "\n";
+    end;
+    let filter_common ast = fst (hide_function_bodies (fun f -> List.mem f topfun_common) ast) in
+    let new_astBefore = filter_common astBefore in
+    let new_astAfter = filter_common astAfter in
+    (new_astBefore, new_astAfter)
+
+(** [process_ast_before_after_for_diff astBefore astAfter] massages the arguments,
+    in case the flag [use_light_diff] is set, to remove the bodies of functions that
+    are identical in astBefore and astAfter. Bodies are not removed if the output
+    styles are not the same for both ASTs. *)
+let process_ast_before_after_for_diff (style_before : output_style) (style_after : output_style) (ast_before : trm) (ast_after : trm) : trm * trm  =
+  if !Flags.use_light_diff && (style_before = style_after)
+      then light_diff ast_before ast_after
+      else ast_before, ast_after
+
+
+(******************************************************************************)
 (*                             Trace management                               *)
 (******************************************************************************)
 
@@ -853,6 +885,9 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
         || List.for_all (fun substep -> substep.step_infos.step_valid) step.step_sub)
     then step.step_infos.step_valid <- true;
   end;
+  (* Set the tag "same-code" if the kind of the step is one that preserves the underlying code *)
+  if is_kind_preserving_code step.step_kind
+    then infos.step_tags <- "same-code"::infos.step_tags;
   (* If the step is a small-step and contains a unique substep tagged
      "show", then the current small-step is also tagged "show".
      If the small-step contains multiple show step, we print a warning. *)
@@ -1148,7 +1183,7 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
    between an AST and an AST decorated with marks for targeted paths,
    even though the [cur_ast] is not updated with the marks. *)
 let target_resolve_step (f: trm-> Path.path list) (t:trm) : Path.path list =
-  ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"" ());
+  ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"Target-resolve" ());
   let ps = f t in
   if Flags.is_execution_mode_trace() then begin
     let marked_ast, _marks = Path.add_marks_at_paths ps t in
@@ -1164,7 +1199,7 @@ let target_resolve_step (f: trm-> Path.path list) (t:trm) : Path.path list =
 (** [target_iter_step] is for wrapping the processing of one among several
     targets. *)
 let target_iter_step (istep : int) (f: unit->unit) : unit =
-  step ~kind:Step_group ~name:(sprintf "target-iter[%d]" istep) f
+  step ~kind:Step_group ~name:(sprintf "Target-iter-#%d" istep) ~tags:["target"] f
 
 (** [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
    like at the start of the program.  *)
@@ -1217,12 +1252,26 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
     if Tools.pattern_matches "_inlined" default_prefix
       then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
       else default_prefix in
-  if !Flags.analyse_stats || Flags.is_execution_mode_trace() then begin
+  (* TODO: could optimize the setting of the flag only_big_step by
+     testing the target line only for "bigstep", without computing
+     all of compute_ml_file_excerpts *)
+  if true (*!Flags.analyse_stats || Flags.is_execution_mode_trace()*) then begin
     let src_file = (ml_file_name ^ ".ml") in
     if Sys.file_exists src_file then begin
       let lines = Xfile.get_lines src_file in
       (* printf "%s\n" (Tools.list_to_string ~sep:"\n" lines); *)
       ml_file_excerpts := compute_ml_file_excerpts lines;
+      (* Automatically set the flag [only_big_steps] if targeted line  *)
+      if Flags.is_execution_mode_step() then begin
+        let line_num = Flags.get_target_line() in
+        let line_str = get_excerpt line_num in
+        let regexp_bigstep = Str.regexp "^[ ]*\\(bigstep\\)" in
+        let starts_with_bigstep = Str.string_match regexp_bigstep line_str 0 in
+        if starts_with_bigstep then begin
+          printf "Reporting diff for big-step\n";
+          Flags.only_big_steps := true;
+        end
+      end;
     end;
   end;
   let mode = !Flags.serialization_mode in
@@ -1379,26 +1428,28 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
     )
 *)
 
-
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
 let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
-  (* LATER: flags_trace_details_only_for_line could be revived in the future if we need more details for a specific step *)
-  let flags_trace_details_only_for_line = -1 in (* [-1] means requesting details for all steps *)
-
   let i = s.step_infos in
-  (* Report diff and AST for details *)
+  (* Determine whether diff needs to be computed for this step *)
+  let is_mode_step_trace = Flags.is_execution_mode_step () in
   let is_smallstep_of_targeted_line =
-    (i.step_script_line <> Some (-1)) && (* LATER: use options *)
-    (i.step_script_line = Some flags_trace_details_only_for_line) in
+       is_mode_step_trace
+    && i.step_script_line = Some (Flags.get_target_line())
+    in
   let is_substep_of_targeted_line =
       is_substep_of_targeted_line || is_smallstep_of_targeted_line in
-  let details =
-        (flags_trace_details_only_for_line = -1)
-     || s.step_kind = Step_big
-     || s.step_kind = Step_small
-     || is_substep_of_targeted_line
-     in
+    (* FOR FUTURE USE WITH LIGHT MODE
+    || s.step_kind = Step_big
+    || s.step_kind = Step_small *)
+  let should_compute_diff =
+       ((not is_mode_step_trace) || is_substep_of_targeted_line)
+    && (!Flags.detailed_trace ||
+        match s.step_kind with (* select steps that deserve a diff in non-detailed mode, based on their kind *)
+        | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
+        | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false)
+    in
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line get_next_id out in
   (* LATER: move these functions elsewhere? *)
@@ -1410,11 +1461,14 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
   let sub_ids = List.map (fun _ -> get_next_id()) s.step_sub in
   (* Dump Json for this node *)
   let ctx = the_trace.context in
-  let sBefore, sAfter, sDiff =
-    if details then begin
+  let sDiff =
+    if should_compute_diff then begin
+      (* handling light diff *)
+      let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
       (* custom processing for debugging *)
-      let disp_ast_before = !trace_custom_postprocessing s.step_ast_before in
-      let disp_ast_after = !trace_custom_postprocessing s.step_ast_after in
+      let disp_ast_before = !trace_custom_postprocessing ast_before in
+      let disp_ast_after = !trace_custom_postprocessing ast_after in
+      (* computing diff *)
       begin try
         output_prog s.step_style_before ctx "tmp_before" disp_ast_before;
         output_prog s.step_style_after ctx "tmp_after" disp_ast_after;
@@ -1423,13 +1477,15 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
         let exn = Printexc.to_string e in
         Printf.eprintf "Error while saving trace:\n%s\n" exn
       end;
-      let sBefore = compute_command_base64 "cat tmp_before.cpp" in
-      let sAfter = compute_command_base64 "cat tmp_after.cpp" in
-      let sDiff = compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
-      sBefore, sAfter, sDiff
-    end else begin
-      "", "", ""
-    end in
+      Some (compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp")
+    end else None in
+  let sBefore, sAfter =
+    if should_compute_diff && !Flags.detailed_trace then begin
+      let sBefore = Some (compute_command_base64 "cat tmp_before.cpp") in
+      let sAfter = Some (compute_command_base64 "cat tmp_after.cpp") in
+      sBefore, sAfter
+    end else None, None
+    in
   let json = (* TODO: check if ~html_newlines:true is needed for certain calls to [Json.str] *)
     Json.obj_quoted_keys [
       "id", Json.int id;
@@ -1447,9 +1503,9 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       "tags", Json.(listof str) i.step_tags;
       "debug_msgs", Json.(listof str) i.step_debug_msgs;
       "sub", Json.(listof int) sub_ids;
-      "ast_before", Json.base64 sBefore;
-      "ast_after", Json.base64 sAfter;
-      "diff", Json.base64 sDiff;
+      "ast_before", Json.(optionof base64) sBefore;
+      "ast_after", Json.(optionof base64) sAfter;
+      "diff", Json.(optionof base64) sDiff;
     ] in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
   (* If this step is the targeted step, mention it as such *)
@@ -1554,31 +1610,16 @@ let output_prog_check_empty (style : output_style) (ctx : context) (prefix : str
       let out_prog = open_out file_prog in (* TODO: use a function [file_put_contents] *)
       close_out out_prog
 
-(** [light_diff astBefore astAfter]: find all the functions that have not change after
-    applying a transformation and hides their body for a more robust view diff. *)
-let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
-    let topfun_before = top_level_fun_bindings astBefore in
-    let topfun_after = top_level_fun_bindings astAfter in
-    let topfun_common = get_common_top_fun topfun_before topfun_after in
-    let filter_common ast = fst (hide_function_bodies (fun f -> List.mem f topfun_common) ast) in
-    let new_astBefore = filter_common astBefore in
-    let new_astAfter = filter_common astAfter in
-    (new_astBefore, new_astAfter)
-
 (** [produce_diff_output_internal step] is an auxiliary function for [produce_diff_output]. *)
 let produce_diff_output_internal (step:step_tree) : unit =
   let trace = the_trace in
   let ctx = trace.context in
   let prefix = (* ctx.directory ^ *) ctx.prefix in
-  (* Extract the two ASTs that should be used for the diff *)
+  (* Extract the two ASTs and the styles that should be used for the diff *)
   let ast_before, ast_after = step.step_ast_before, step.step_ast_after in
   let style_before, style_after = step.step_style_before, step.step_style_after in
-  (* Option to compute light-diff:
-      hide the bodies of functions that are identical in astBefore and astAfter. *)
-  let ast_before, ast_after =
-    if !Flags.use_light_diff
-      then light_diff ast_before ast_after
-      else ast_before, ast_after in
+  (* Handle light diffs *)
+  let ast_before, ast_after = process_ast_before_after_for_diff style_before style_after ast_before ast_after in
   (* Common printing function *)
   let output_ast style filename_prefix ast =
     output_prog_check_empty style ctx filename_prefix ast;
@@ -1859,8 +1900,8 @@ let bigstep (s : string) : unit =
     the input file is used as prefix,
    - If [~append_comments] is provided, the corresponding string will be added
      as comments near the end of the output file *)
-let dump (style : output_style) ?(prefix : string = "") ?(append_comments : string = "") () : unit =
-  dumping_step (fun () ->
+let dump (style : output_style) ?(store_in_trace = true) ?(prefix : string = "") ?(append_comments : string = "") () : unit =
+  let action () =
     let ctx = the_trace.context in
     let prefix =
       if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
@@ -1874,7 +1915,10 @@ let dump (style : output_style) ?(prefix : string = "") ?(append_comments : stri
       output_string c "\n*/\n";
       close_out c
     end
-  )
+    in
+  if store_in_trace
+    then dumping_step action
+    else action()
 
 (* DEPRECATED? [only_interactive_step line f]: invokes [f] only if the argument [line]
    matches the command line argument [-exit-line]. If so, it calls the
@@ -1915,7 +1959,8 @@ let set_ast (t:trm) : unit =
 (** [set_ast_for_target_iter t] is used by [Target.iteri] when updating the marks
     using low-level mechanisms. *)
 let set_ast_for_target_iter (t:trm) : unit =
-  step ~valid:true ~kind:Step_mark_manip ~name:"Target-iter-mark-manipulation" (fun () -> the_trace.cur_ast <- t)
+  step ~valid:true ~kind:Step_mark_manip ~name:"Target-iter-mark-manipulation" ~tags:["target"]
+    (fun () -> the_trace.cur_ast <- t)
 
 (** [get_context ()]: returns the current context. Like [ast()], it should only be called
    within the scope of [Trace.apply] or [Trace.call]. *)

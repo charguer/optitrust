@@ -94,6 +94,10 @@ h2 {
   text-align: center;
 }
 
+#button_normal {
+  margin-left: 1em;
+}
+
 .details-button {
   min-width: 5em;
   margin-top: 8px;
@@ -174,6 +178,10 @@ h2 {
 }
 .step-show {
   background: #e7ff49;
+}
+
+.step-nodiff {
+  color: #555555;
 }
 
 .step-io-target {

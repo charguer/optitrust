@@ -272,6 +272,7 @@ and code_kind =
   | Expr of string  (* expression of the form a * (b + 1) *)
   | Stmt of string  (* functions, for loops, while loops etc *)
   | Instr of string (* a = b, a += b *)
+  | Comment of string (* "// txt", or "/*txt*/" *)
 
 
 (*****************************************************************************)
@@ -482,6 +483,9 @@ and cstyle_annot =
   (* tag for printing using resource syntax
      LATER: Use different printers for different languages *)
   | ResourceFormula
+
+  (* tag used by light diff *)
+  | BodyHiddenForLightDiff
 
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind =
@@ -1315,6 +1319,7 @@ let code_to_str (code : code_kind) : string =
   | Expr e -> e
   | Stmt s -> s
   | Instr s -> s
+  | Comment s -> s
 
 
 (* [var_mutability_unkown]: dummy value used for variable mutability *)

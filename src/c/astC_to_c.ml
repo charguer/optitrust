@@ -361,7 +361,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
     then empty
     else
       let t_labels_str = List.map string t_labels in
-      list_to_doc ~sep:(colon ^^ blank 1) ~bounds:[empty; colon] t_labels_str
+      list_to_doc ~sep:(colon ^^ blank 1) ~bounds:[empty; colon ^^ blank 1] t_labels_str
     in
 
   let dt = if parentheses then parens (dt) else dpragmas ^^ dlabels ^^ dt in
@@ -463,7 +463,8 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
     | Trm_let_fun (f, r, tvl, b, _) ->
       let fun_annot = trm_get_cstyles t in
       let static = if trm_has_cstyle Static_fun t then string "static" else empty in
-      dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc style ~semicolon fun_annot f r tvl b
+      let hidden = if trm_has_cstyle BodyHiddenForLightDiff t then string " /* unchanged, collapsed for light diff */" else empty in
+      dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc style ~semicolon fun_annot f r tvl b ^^ hidden
     | Trm_typedef td ->
       let t_annot = trm_get_cstyles t in
       dattr ^^ typedef_to_doc style ~semicolon ~t_annot td
@@ -578,6 +579,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       | Expr e -> string e
       | Stmt s -> string s
       | Instr s -> string s ^^ semi
+      | Comment s -> string s
       | _ -> trm_fail t "AstC_to_c.trm_to_doc style: arbitrary code should be entered by using Lit, Expr and Stmt only"
       end  in
       dattr ^^ code_str
