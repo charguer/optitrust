@@ -149,12 +149,19 @@ h2 {
 .diffBefore {}
 .diffAfter {}
 
-.step-big {
+.tree-step {
   display: inline-block;
-  background: white;
+  width: 100%;
+}
+
+.step-big {
+  background: #bbbbff;
   padding: 2px;
   border-top: 2px solid black;
-  width: 100%;
+}
+
+.step-selected {
+  background: white;
 }
 
 .step-valid, .step-justif {

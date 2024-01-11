@@ -316,7 +316,12 @@ let%transfo elim ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (tg: 
   ) tg
 
 
-(* Remove all the pairs inside the sequence pointed by the given path *)
+(** [elim_all_pairs_at gen_mark p]: remove all the pairs inside the sequence pointed by the given path, generating marks to merge them back later.
+  Returns the list of eliminated pair in their sequence order.
+  In the returned list each ghost pair is represented by a triplet containing:
+  - the variable name of the pair,
+  - the generated mark on the ghost replacing the ghost_begin,
+  - the generated mark on the ghost replace the ghost_end. *)
 let elim_all_pairs_at (gen_mark: unit -> mark) (p: path): (var * mark * mark) list =
   Resources.ensure_computed ();
   let begin_target = [nbAny; Constr_paths [p]; cStrict; cVarDef ~body:[cCall "__ghost_begin"] ""] in
@@ -330,7 +335,7 @@ let elim_all_pairs_at (gen_mark: unit -> mark) (p: path): (var * mark * mark) li
     let i, p = Path.index_in_seq p in
     apply_at_path (elim_at ~mark_begin ~mark_end i) p
   ) begin_target;
-  !marks
+  List.rev !marks
 
 (* LATER: Also add intro_all_pairs_at *)
 

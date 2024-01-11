@@ -211,7 +211,8 @@ TIMER6=`date +%s%3N`
 echo "Execution options: ${OPTIONS}"
 
 # TODO: --no-build
-OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}
+# LATER: choose if we stop here on errors depending on $MODE
+OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || true
 
 #==========================================================================
 # Open the output
