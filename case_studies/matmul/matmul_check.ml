@@ -3,9 +3,7 @@ open Prelude
 
 let _ = Flags.check_validity := true
 let _ = Flags.pretty_matrix_notation := true
-let _ = Flags.recompute_resources_between_steps := true
-
-let _ = Flags.resource_errors_as_warnings := true
+(* let _ = Flags.recompute_resources_between_steps := true *)
 
 (* Reproducing a TVM schedule from:
    https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html
@@ -29,9 +27,6 @@ let _ = Run.script_cpp (fun () ->
 
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEq [cVar "sum"]];
 
-  (* TODO *)
-  Flags.check_validity := false;
-  Flags.recompute_resources_between_steps := false;
   !!! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "pB" ~indep:["bi"; "i"] [cArrayRead "B"];
   !!! Matrix.stack_copy ~var:"sum" ~copy_var:"s" ~copy_dims:1 [cFor ~body:[cPlusEq [cVar "sum"]] "k"];
   !! Matrix.elim_mops [];

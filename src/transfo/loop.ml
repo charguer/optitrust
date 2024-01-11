@@ -247,8 +247,11 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
     | 0 :: rl ->
       let loop_mark = next_m () in
       let instr_mark = next_m () in
-      Loop_basic.move_out ~loop_mark ~instr_mark (target_of_path p);
-      Resources.loop_minimize [cMark loop_mark];
+      let (_, p_seq) = Path.index_in_seq p in
+      Instr_basic.move ~mark:instr_mark ~dest:((target_of_path p_seq) @ [tFirst])
+        (target_of_path p);
+      Loop_basic.move_out ~loop_mark [cMark instr_mark];
+      if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
       iter_on_targets (fun t p -> aux rl p) [cMark instr_mark];
     | 1 :: rl ->
       let (idx, loop_path) = Path.index_in_surrounding_loop p in
