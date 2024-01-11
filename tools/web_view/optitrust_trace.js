@@ -971,7 +971,7 @@ function initSteps() {
     for (var i = 0; i < stepIds.length; i++) {
       var smallstep_id = stepIds[i];
       var smallstep = steps[smallstep_id];
-      if (smallstep.kind == "IO") {
+      if (smallstep.kind == "IO" || smallstep.kind == "Typing") {
         continue;
       }
       if (smallstep.kind != "Small") {

@@ -398,7 +398,10 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
      There is a bug if it's not the case. *)
   let subst_ctx = Var_map.map (function
       | Some t -> t
-      | None -> failwith "failed to instantiate evars") evar_ctx
+      | None ->
+        let inst_failed_evars = Var_map.filter (fun _ -> Option.is_none) evar_ctx in
+        let inst_failed_evars_str = String.concat ", " (List.map (fun (evar, _) -> evar.name) (Var_map.bindings inst_failed_evars)) in
+        failwith ("failed to instantiate evars " ^ inst_failed_evars_str)) evar_ctx
   in
 
   (* Check that efrac constaints are satisfied *)
@@ -676,19 +679,23 @@ let resource_list_to_string res_list : string =
   String.concat "\n" (List.map named_formula_to_string res_list)
 
 let resource_set_to_string res : string =
+  let style = Ast_fromto_AstC.style_of_custom_style (Style.default_custom_style ()) in
   let spure = resource_list_to_string res.pure in
+  let sefracs = if res.efracs = [] then ""
+    else String.concat "\n" ("" :: List.map (fun efrac -> Ast_fromto_AstC.efrac_to_string style efrac) res.efracs)
+  in
   let slin = resource_list_to_string res.linear in
-  Printf.sprintf "pure:\n%s\n\nlinear:\n%s\n" spure slin
+  Printf.sprintf "pure:\n%s%s\n\nlinear:\n%s\n" spure sefracs slin
 
 let resource_set_opt_to_string res : string =
   Xoption.map_or resource_set_to_string "UnspecifiedRes" res
 
-type resource_error_phase = ResourceComputation | ResourceCheck
+type resource_error_phase = ResourceComputation | PostconditionCheck
 
 let resource_error_phase_to_string (phase: resource_error_phase) : string =
   match phase with
   | ResourceComputation -> "Resource computation"
-  | ResourceCheck -> "Resource check"
+  | PostconditionCheck -> "Postcondition check"
 
 (** Exception used by [handle_resource_errors] to interrupt typing
     after a first error is discovered. *)
@@ -714,10 +721,8 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "Resources not consumed after the end of the block:\n%s" (resource_list_to_string res))
   | ImpureFunctionArgument err ->
     Some (Printf.sprintf "Function argument subexpression resource preservation check failed: %s" (Printexc.to_string err))
-  | ResourceError (_t, ResourceComputation, err) ->
-    Some (Printf.sprintf "Resource computation error: %s" (Printexc.to_string err));
-  | ResourceError (_t, ResourceCheck, err) ->
-    Some (Printf.sprintf "Resource check error: %s" (Printexc.to_string err))
+  | ResourceError (_t, phase, err) ->
+    Some (Printf.sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string err));
   | _ -> None)
 
 
@@ -794,7 +799,7 @@ let rec compute_resources
   ?(expected_res: resource_set option)
   (res: resource_set option)
   (t: trm) : resource_usage_map option * resource_set option =
-  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nComputing %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
+  if debug_print_computation_stack then Printf.eprintf "=====\nWith resources: %s\nComputing %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
   (* Define the referent for hooking type errors on existing terms
      when errors are triggered on terms that are generated on-the-fly. *)
   let referent : trm_annot =
@@ -1062,12 +1067,12 @@ let rec compute_resources
 
     | _ -> trm_fail t ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
     end with
-    | StoppedOnFirstError as e -> raise e
+    | StoppedOnFirstError as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
     | e -> handle_resource_errors t ResourceComputation e
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
-  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nSaving %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
+  if debug_print_computation_stack then Printf.eprintf "=====\nWith resources: %s\nSaving %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_after <- res;
   let res =
     match res, expected_res with
@@ -1079,7 +1084,7 @@ let rec compute_resources
         t.ctx.ctx_resources_post_inst <- Some used_res
       with
       | StoppedOnFirstError as e -> raise e
-      | e -> ignore (handle_resource_errors t ResourceCheck e)
+      | e -> ignore (handle_resource_errors t PostconditionCheck e)
       end;
       Some expected_res
     | _, None -> res
