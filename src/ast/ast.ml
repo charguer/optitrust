@@ -337,7 +337,7 @@ and typed_vars = typed_var list
 (*****************************************************************************)
 (* [typedef]: is a record containing the id of the type, the name of the new defined
     type, for sum types there can be also more then one variable. And finally the
-     body of the type *)
+     body of the type *) (* TODO: rename typdef_ to typedef_ *)
 and typedef = {
   typdef_loc : location;      (* the location of the typedef *)
   typdef_tconstr : constrname; (* the defined type [t] *)

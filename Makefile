@@ -74,12 +74,10 @@ tests:
 style:
 	find tests/ src/ -path tests/batch -prune -o -path src/c/compcert_parser -prune -o -name "*.ml" -print0 | xargs -0 grep --color -nE '.{101}'
 
-clean: clean_ser
+clean: clean_cache
 	dune clean
 
-cleanser: clean_ser
-
-clean_ser:
+clean_cache:
 	find . -type f -name '*.ser' -exec rm {} +
 	find . -type f -name '*_orig.cpp' -exec rm {} +
 

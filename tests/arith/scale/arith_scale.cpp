@@ -1,11 +1,10 @@
 #include <stdio.h>
 
-
-
-
 int main() {
    const int N = 5;
+
    double t[N];
+
    for (int i = 0; i < N; i++) {
       t[i] = i + 3.14; // internally: set(access(t,i), i + 3.14)
    }
@@ -15,6 +14,7 @@ int main() {
    }
    printf("%d\n", s);
 }
+
 
 float* u;
 

@@ -20,9 +20,10 @@ type style = {
 
 (* Default style *)
 
-let default_style () = {
-  ast = Ast.default_style();
-  only_desc = false; }
+let default_style () =
+  let ast = Ast.default_style() in
+  { ast = ast; (* { ast with print_var_id = true }; TODO: pass this as a flag *)
+    only_desc = false; }
 
 (* Note: print_errors is ignored, they are always printed *)
 
@@ -400,14 +401,22 @@ and print_record_type (rt : record_type) : document =
 
 (* [print_typedef style td]: converts typedef to pprint document *)
 and print_typedef style (td : typedef) : document =
-  let tconstr = td.typdef_tconstr in
-  let tbody = td.typdef_body in
+  let dloc = print_loc style td.typdef_loc in
+  let dbody = print_typedef_body style td.typdef_body in
+  braces (separate (blank 1) [
+    string "loc"; equals; dloc ^^ semi ^//^
+    string "tconstr"; equals; string td.typdef_tconstr ^^ semi ^//^
+    string "typid"; equals; string (string_of_int td.typdef_typid) ^^ semi ^//^
+    string "vars"; equals; separate comma (List.map string td.typdef_vars) ^^ semi ^//^
+    string "body"; equals; dbody ^^ semi
+    ])
 
-  match tbody with
+(* [print_typedef_body style tdbody]: converts typedef to pprint document *)
+and print_typedef_body style (tdbody : typdef_body) : document =
+  match tdbody with
   | Typdef_alias t ->
     let dt = print_typ style t in
-    print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
-     [string tconstr; dt ])
+    print_node "Typedef_alias" ^^ parens dt
   | Typdef_record rfl ->
     let get_document_list (rfl : record_fields) : document list =
       let rec aux acc = function
@@ -424,8 +433,7 @@ and print_typedef style (td : typedef) : document =
          in aux [] rfl
       in
       let dtl = get_document_list rfl in
-     print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
-      [string tconstr; print_list dtl ])
+     print_node "Typedef_record" ^^ parens (print_list dtl)
   | Typdef_sum _ ->
     failwith "Ast_to_text.print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
@@ -440,7 +448,7 @@ and print_typedef style (td : typedef) : document =
             enum_const_l
          )
      in
-     print_node "Typedef_enum" ^^ print_pair (string tconstr) denum_const_l
+     print_node "Typedef_enum" ^^ parens denum_const_l
 
 and print_trm_annot style (t : trm) : document =
 
@@ -482,6 +490,12 @@ and print_trm_annot style (t : trm) : document =
     string "trm_annot_referent"; equals; dreferent
     ])
 
+(* [print_loc style loc]: converts location [loc] to pprint document *)
+and print_loc style (loc : location) : document =
+  match loc with
+  | None -> underscore
+  | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
+      print_pair (string filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
 
 (* [print_trm style t]: converts trm [t] to pprint document *)
 and print_trm style (t : trm) : document =
@@ -489,16 +503,8 @@ and print_trm style (t : trm) : document =
   if style.only_desc then ddesc
     else
       let dannot = print_trm_annot style t in
-
-      let dloc =
-        begin match t.loc with
-        | None -> underscore
-        | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
-           print_pair (string filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
-        end
-      in
+      let dloc = print_loc style t.loc in
       let dinstr = string (string_of_bool t.is_statement) in
-
       let dtyp =
         match t.typ with
         | None -> underscore

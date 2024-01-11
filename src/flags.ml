@@ -128,7 +128,8 @@ let reparse_between_steps = ref false
 (* [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
 
-(* [dont_serialize] disables the generation of serialized AST obtained from parsing *)
+(* [dont_serialize] disables the generation of serialized AST obtained from parsing;
+   ( LATER:only one flag merged with ignore_serialized?)  *)
 let dont_serialize = ref false
 
 (* [ignore_serialized] disables the read of serialized AST saved after parsing *)
@@ -226,7 +227,7 @@ let spec : cmdline_args =
      ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
      ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
-     ("-use-clang-format", Arg.Set use_clang_format, " enable beautification using clang-format");
+     ("-use-clang-format", Arg.Set use_clang_format, " enable beautification using clang-format (currently ignored by ./tester)");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-clang-format-nb-columns", Arg.Set_int clang_format_nb_columns, " specify the number of columns for clang-format");
      ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
@@ -265,6 +266,10 @@ let trm_combinators_warn_unsupported_case = ref true
 (* cf. Clang_to_astRawC.warn_array_subscript_not_supported *)
 let warned_array_subscript_not_supported = ref Tools.String_set.empty
 
+(* [ignore_serialized_default] is used by [reset_flags_to_default()],
+   which is used by batching for ther tester *)
+let ignore_serialized_default = ref !ignore_serialized
+
 (* [reset_flags_to_default] is used by [batching.ml] to avoid propagation of effects
   TODO: complete implementation by going over all relevant flags,
   and using a record of values.
@@ -272,6 +277,7 @@ let warned_array_subscript_not_supported = ref Tools.String_set.empty
   TODO: document the fact that it also reset certain counters, eg for printing identifiers *)
 
 let reset_flags_to_default () : unit =
+  ignore_serialized := !ignore_serialized_default;
   dump_ast_details := false;
   bypass_cfeatures := false;
   print_optitrust_syntax := false;

@@ -504,33 +504,39 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
   let same_contents (f1 : string) (f2 : string) : bool =
     do_is_ok (sprintf "./tests/diff.sh %s %s > /dev/null" f1 f2) in
   if !Flags.use_clang_format then begin
-    if debug_match_expected then Tools.info "test correctness without using clang-format, because [use_clang_format] is on";
+    if debug_match_expected then Tools.info "[use_clang_format] is on, cannot optimize [match_expected]";
     same_contents filename_out filename_exp
   end else begin
     (* At this point, [filename_out] is not formatted, whereas [filename_exp] is formatted;
        Both [orig_out] and [orig_exp], if they exist, are unformatted. *)
     let orig_out = Trace.filename_before_clang_format filename_out in
     let orig_exp = Trace.filename_before_clang_format filename_exp in
+    let same = ref false in
+    (* First, attempt to compare original files *)
     if Sys.file_exists orig_exp then begin
-      if debug_match_expected then Tools.info (sprintf "tested correctness without using clang-format for %s" filename_out);
-      same_contents filename_out orig_exp
-    end else begin
+      if debug_match_expected then Tools.info (sprintf "tested correctness without clang-format: %s" filename_out);
+      let same_orig = same_contents filename_out orig_exp in
+      if same_orig then same := true;
+    end;
+    (* If no original file, or if original files mismatch, compute clang-format and compare *)
+    if not !same then begin
       (* format [filename_out], generating the file [orig_out] on the way *)
       Trace.cleanup_cpp_file_using_clang_format ~uncomment_pragma:true filename_out;
       if not (Sys.file_exists orig_out)
         then fail "match_expected assumes keep_file_before_clang_format to be true";
       (* now ready to compare formatted files *)
-      let same = same_contents filename_out filename_exp in
+      let same_formatted = same_contents filename_out filename_exp in
       (* if debug_match_expected then Tools.info (sprintf "correctness is %s" (if same then "true" else "false"));*)
-      if debug_match_expected then Tools.info "checked correctness using clang-format";
-      if same then begin
+      if debug_match_expected then Tools.info (sprintf "checked correctness using clang-format: %s" filename_out);
+      if same_formatted then begin
         (* for next time, save the orig_out as orig_exp, because the result
           of formatting both files using clang-format is identical *)
         ignore (Sys.command (sprintf "cp %s %s" orig_out orig_exp));
-        if debug_match_expected then Tools.info (sprintf "saved %s." orig_exp);
+        if debug_match_expected then Tools.info (sprintf "saved unformatted output for future comparisons: %s." orig_exp);
       end;
-      same
-    end
+      if same_formatted then same := true;
+    end;
+    !same
   end
 
 (** Auxiliary function for updating the contents of 'tofix.tests',
@@ -816,6 +822,9 @@ let _main : unit =
   (* [use_clang_format] is false by default; unless producing traces *)
   let original_use_clang_format = !Flags.use_clang_format in
   Flags.use_clang_format := false;
+  (* Trick to make sure that [ignore_serialized] is reset after each test to
+     its original value. *)
+  Flags.ignore_serialized_default := !Flags.ignore_serialized;
 
   (* Parsing of command line *)
   Arg.parse

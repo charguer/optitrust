@@ -68,7 +68,7 @@ let c_parser (raw_parser: string -> trm) (filename: string) : string * trm=
        None
     else begin
       if !Flags.debug_parsing_serialization
-        then Tools.info (sprintf "loading ast from %s." ser_filename);
+        then Tools.info (sprintf "unserializing ast: %s." ser_filename);
       try
         let header, ast = Xfile.unserialize_from ser_filename in
         begin try
@@ -79,7 +79,7 @@ let c_parser (raw_parser: string -> trm) (filename: string) : string * trm=
           None
         end
       with _ ->
-        Tools.info (sprintf "failure reading ast from %s, reparsing." ser_filename);
+        Tools.info (sprintf "failure unserializing ast from %s, will reparse." ser_filename);
         None
     end
     in
@@ -89,7 +89,7 @@ let c_parser (raw_parser: string -> trm) (filename: string) : string * trm=
     | Some header_and_ast -> header_and_ast
     | None ->
         if !Flags.debug_parsing_serialization
-          then Tools.info (sprintf "parsing ast from %s." filename);
+          then Tools.info (sprintf "parsing ast: %s." filename);
         (* Parsing per ser *)
         let header = get_c_includes filename in (* header contains include *)
         let ast = raw_parser filename in
@@ -102,9 +102,9 @@ let c_parser (raw_parser: string -> trm) (filename: string) : string * trm=
       let clean_ast = Trm.prepare_for_serialize ast in
       Xfile.serialize_to ser_filename (header, clean_ast);
       if !Flags.debug_parsing_serialization
-        then Tools.info (sprintf "saved ast to %s." filename);
+        then Tools.info (sprintf "serialized ast: %s." ser_filename);
     with e ->
-      Tools.warn (sprintf "failure saving ast to %s, skipping. Error: %s\n" ser_filename (Printexc.to_string e));
+      Tools.warn (sprintf "failure serializing ast to %s, skipping serialization. Error: %s\n" ser_filename (Printexc.to_string e));
   end;
   (* Possibly ably the decoding *)
   let ast = if !Flags.bypass_cfeatures then ast else Ast_fromto_AstC.cfeatures_elim ast in
