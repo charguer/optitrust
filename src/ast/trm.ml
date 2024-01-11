@@ -391,7 +391,7 @@ type ghost_call = {
   ghost_args: (var * formula) list;
 }
 
-let trm_ghost ({ ghost_fn; ghost_args } : ghost_call): trm =
+let trm_ghost_force ({ ghost_fn; ghost_args } : ghost_call): trm =
   trm_add_cstyle GhostCall (trm_apps ghost_fn [] ~ghost_args)
 
 let ghost_call (ghost_var: var) (ghost_args: (string * formula) list): ghost_call =
@@ -2565,7 +2565,7 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
         if f_pred f then begin
           t_map := Var_map.add f t !t_map;
           (* replace the body with an empty body with an annotation *)
-          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_uninitialized()) in 
+          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_uninitialized()) in
           trm_add_cstyle BodyHiddenForLightDiff t2
         end else
           t

@@ -119,8 +119,16 @@ let stop_on_first_resource_error = ref true
  * Automatically set to true during Resources.show. *)
 let always_name_resource_hyp = ref false
 
+(** [resource_typing_enabled]: if false, never attempt typing resources and never introduce ghosts. *)
+let resource_typing_enabled = ref true
+
 (* [check_validity]: perform validation of transformations *)
 let check_validity = ref false
+
+(** [disable_resource_typing ()] should be called when using OptiTrust without resources. *)
+let disable_resource_typing () =
+  resource_typing_enabled := false;
+  check_validity := false
 
 (* [reparse_between_step]: always reparse between two steps *)
 let reparse_between_steps = ref false
@@ -289,6 +297,7 @@ let reset_flags_to_default () : unit =
   display_includes := false;
   stop_on_first_resource_error := true;
   always_name_resource_hyp := false;
+  resource_typing_enabled := true;
   check_validity := false;
   reparse_between_steps := false;
   recompute_resources_between_steps := false;

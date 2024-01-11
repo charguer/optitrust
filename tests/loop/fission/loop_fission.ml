@@ -11,4 +11,14 @@ let _ = Run.script_cpp ( fun _ ->
   !! Loop.fission ~nest_of:3 [cFunBody "seq_ro_par_rw"; tAfter; sInstr " = x"];
 
   !! Loop.fission ~nest_of:2 [cFunBody "ghost_scope"; tAfter; sInstr "y = x"];
+
+  (* no op on edges *)
+  !! Loop.fission [cFunBody "edges"; cForBody "i"; tFirst];
+  !! Loop.fission [cFunBody "edges"; cForBody "i"; tLast];
+  (* error out of edges *)
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
+    Loop.fission [cFunBody "edges"; cForBody "i"; dBefore (-1)]);
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
+    Loop.fission [cFunBody "edges"; cForBody "i"; dAfter 2]);
+
 )

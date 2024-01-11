@@ -49,6 +49,9 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
    Distributes any ghost pairs with {! Ghost_pair.fission} and {! Ghost_pair.minimize_all_in_seq}.
    Minimizes output loop contracts using {! Resources.loop_minimize}.
 
+   For now, fissioning at the begining or the end of a loop does nothing.
+   LATER: add flag to control this?
+
     TODO: support for multiple split points in different loops
     paths = resolve target
     all paths must be target-between inside for-loop sequences
@@ -59,8 +62,17 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     *)
 let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
   Target.iter (fun _ p_interstice -> Marks.with_marks (fun next_mark ->
-    let m_interstice = Marks.add_next_mark_on next_mark p_interstice in
-    fission_rec next_mark nest_of m_interstice
+    let (p_seq, i) = Path.last_dir_before_inv_success p_interstice in
+    (* TODO: factorize *)
+    let seq = Target.resolve_path_current_ast p_seq in
+    let instrs = trm_inv ~error:"expected seq" trm_seq_inv seq in
+    let seq_length = Mlist.length instrs in
+    if (i < 0) || (i > seq_length) then path_fail p_seq (sprintf "invalid index for fission: %d" i);
+    let is_on_edge = (i = 0) || (i = seq_length) in
+    if not is_on_edge then begin
+      let m_interstice = Marks.add_next_mark_on next_mark p_interstice in
+      fission_rec next_mark nest_of m_interstice
+    end
   )) tg
 
 (* LATER/ deprecated

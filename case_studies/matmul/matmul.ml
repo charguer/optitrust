@@ -1,8 +1,8 @@
 open Optitrust
 open Prelude
 
-(* let _ = Flags.check_validity := true *)
 let _ = Flags.pretty_matrix_notation := true
+let _ = Flags.disable_resource_typing ()
 
 (* Reproducing a TVM schedule from:
    https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html

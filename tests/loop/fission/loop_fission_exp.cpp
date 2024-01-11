@@ -178,3 +178,10 @@ __pure();
     __ghost_end(__ghost_pair_1);
   }
 }
+
+void edges() {
+  for (int i = 0; i < 5; i++) {
+    int x = i;
+    x++;
+  }
+}

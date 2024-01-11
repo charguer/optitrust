@@ -128,3 +128,10 @@ void ghost_scope(int m, int n) {
     __GHOST_END(xfg);
   }
 }
+
+void edges() {
+  for (int i = 0; i < 5; i++) {
+    int x = i;
+    x++;
+  }
+}

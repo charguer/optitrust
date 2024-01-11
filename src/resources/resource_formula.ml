@@ -273,12 +273,22 @@ let generate_ghost_pair_var ?name () =
   | Some name -> new_var name
   | None -> new_var (sprintf "__ghost_pair_%d" (ghost_pair_fresh_id ()))
 
+let void_when_resource_typing_disabled (f : unit -> trm) : trm =
+  if !Flags.resource_typing_enabled
+    then f ()
+    else Nobrace.trm_seq_nomarks []
+
+let trm_ghost (g : ghost_call): trm =
+  void_when_resource_typing_disabled (fun () -> Trm.trm_ghost_force g)
+
 let trm_ghost_begin (ghost_pair_var: var) (ghost_call: ghost_call) : trm =
-  trm_add_cstyle GhostCall (trm_let Var_immutable (ghost_pair_var, typ_ghost_fn)
-  (trm_apps (trm_var ghost_begin) [trm_ghost ghost_call]))
+  void_when_resource_typing_disabled (fun () ->
+    trm_add_cstyle GhostCall (trm_let Var_immutable (ghost_pair_var, typ_ghost_fn)
+      (trm_apps (trm_var ghost_begin) [trm_ghost ghost_call])))
 
 let trm_ghost_end (ghost_pair_var: var): trm =
-  trm_add_cstyle GhostCall (trm_apps (trm_var ghost_end) [trm_var ghost_pair_var])
+  void_when_resource_typing_disabled (fun () ->
+    trm_add_cstyle GhostCall (trm_apps (trm_var ghost_end) [trm_var ghost_pair_var]))
 
 let trm_ghost_pair ?(name: string option) (ghost_call: ghost_call) : var * trm * trm =
   let ghost_pair_var = generate_ghost_pair_var ?name () in

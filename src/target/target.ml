@@ -1652,6 +1652,23 @@ let target_between_show_aux (m : mark) (k : int) (t : trm) : trm =
 let target_between_show_transfo (m : mark) : Transfo.local_between =
   fun (k:int) -> apply_on_path (target_between_show_aux m k)
 
+(******************************************************************************)
+(*                               Target aliases                               *)
+(******************************************************************************)
+
+(* TODO: should be default *)
+
+let resolve_target_current_ast (tg : target) : paths =
+  resolve_target tg (Trace.ast ())
+
+let resolve_path_current_ast (p : path) : trm  =
+  Path.resolve_path p (Trace.ast ())
+
+let path_of_target_mark_one_current_ast (m : mark) : path =
+  path_of_target_mark_one m (Trace.ast ())
+
+let (~~) f a b = f b a
+
   (** LATER rename to get_trm_at_option et gt_trm_at_exn *)
 (* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [tg]. *)
 let get_trm_at_exn (tg : target) : trm =
@@ -1782,23 +1799,6 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
 
 *)
 
-
-(******************************************************************************)
-(*                               Target aliases                               *)
-(******************************************************************************)
-
-(* TODO: should be default *)
-
-let resolve_target_current_ast (tg : target) : paths =
-  resolve_target tg (Trace.ast ())
-
-let resolve_path_current_ast (p : path) : trm  =
-  Path.resolve_path p (Trace.ast ())
-
-let path_of_target_mark_one_current_ast (m : mark) : path =
-  path_of_target_mark_one m (Trace.ast ())
-
-let (~~) f a b = f b a
 
 (******************************************************************************)
 (*                               Tooling for Show.target                      *)
