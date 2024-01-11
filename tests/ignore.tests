@@ -17,9 +17,6 @@ loop/swap/loop_swap_doc.ml
 loop/moveout/loop_moveout_doc.ml
 loop/move/loop_move_doc.ml
 
-# BROKEN RESOURCES, FIX FOR MM
-resources/contracts/loop_parallelize_reads.ml
-
 #TODO:
 # arith/simpl/arith_simpl.ml
 # loop/shift/loop_shift.ml

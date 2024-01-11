@@ -6,7 +6,7 @@ open Resources
 let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun () ->
-    Resources.show ();
+    !! fix_loop_default_contracts [];
     !! loop_parallelize_reads [cFor "i"];
     !! loop_minimize [cFor "j"];
     !! loop_parallelize_reads [cFor "j"];

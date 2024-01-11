@@ -354,13 +354,7 @@ let minimize_loop_contract contract usage =
 
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
-
-  let contract = match contract with
-    | None ->
-      let res_before = unsome_or_trm_fail t "loop_minimize_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in
-      { loop_ghosts = []; invariant = Resource_set.make ~linear:res_before.linear (); iter_contract = empty_fun_contract }
-    | Some contract -> contract
-  in
+  let contract = unsome_or_trm_fail t "loop_minimize_on: expected a contract on the for loop" contract in
 
   let body_res_usage = usage_of_trm body in
   let new_contract = minimize_loop_contract contract body_res_usage in
@@ -371,6 +365,36 @@ let%transfo loop_minimize ?(indepth : bool = false) (tg: target) : unit =
   ensure_computed ();
   (* TODO: Perform minimization recursively when indepth is true. *)
   Target.apply_at_target_paths loop_minimize_on tg
+
+
+let fix_loop_default_contract_on ?(mark: mark = "") (t: trm): trm =
+  let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
+  if contract <> None then trm_fail t "fix_loop_default_contract_on: the loop already has a contract set";
+
+  let res_before = unsome_or_trm_fail t "fix_loop_default_contract_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in
+
+  let fracs = ref [] in
+  let invariant = Resource_set.make ~linear:(List.map (fun (_, f) ->
+    match formula_read_only_inv f with
+    | Some { formula } ->
+      let frac, frac_item = new_frac () in
+      fracs := frac_item :: !fracs;
+      (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) formula)
+    | None -> (new_anon_hyp (), f)) res_before.linear) () in
+  let contract = { loop_ghosts = !fracs; invariant; iter_contract = empty_fun_contract } in
+  trm_alter ~desc:(Trm_for (range, body, Some contract)) t
+
+let rec fix_loop_default_contract_rec ?(mark: mark = "") (t: trm): trm =
+  let t = trm_map (fix_loop_default_contract_rec ~mark) t in
+  match t.desc with
+  | Trm_for (_, _, None) -> fix_loop_default_contract_on ~mark t
+  | _ -> t
+
+(** [fix_loop_default_contracts] uses computed resources to fix the default loop contracts on all the children of the targeted node *)
+let%transfo fix_loop_default_contracts (tg: target): unit =
+  ensure_computed ();
+  Target.apply_at_target_paths fix_loop_default_contract_rec tg
+
 
 let ro_fork_group = toplevel_var "ro_fork_group"
 let ro_join_group = toplevel_var "ro_join_group"
