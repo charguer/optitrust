@@ -104,9 +104,9 @@ let%transfo hoist_alloc_loop_list
   Trace.justif "always correct: per-iteration storage is allocated outside the loop";
   (*Trace.tag_valid_by_composition ();*)
   Marks.with_marks (fun next_m ->
-  let mark_alloc = Mark.next () in
-  let mark_free = Mark.next () in
-  let mark_tmp_var = Mark.next () in
+  let mark_alloc = next_m () in
+  let mark_free = next_m () in
+  let mark_tmp_var = next_m () in
   let may_detach_init (x : var) (init : trm) (p : path) =
     let dim_count = ref 0 in
     let is_trm_malloc = match Matrix_core.alloc_inv_with_ty init with
