@@ -59,7 +59,7 @@ let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : 
 *)
 (* TODO: clean up code *)
 let hoist_on (name : string)
-             (mark : mark)
+             (mark_alloc : mark) (mark_free : mark) (mark_tmp_var : mark)
              (arith_f : trm -> trm)
              (decl_index : int) (t : trm) : trm =
   let error = "Loop_basic.hoist_on: only simple loops are supported" in
@@ -94,7 +94,8 @@ let hoist_on (name : string)
       (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
     let mindex = mindex !new_dims partial_indices in
     let new_access = trm_array_access (trm_var !new_var) mindex in
-    trm_let Var_immutable (x, typ_const_ptr etyp) new_access
+    let tmp_var = trm_let Var_immutable (x, typ_const_ptr etyp) new_access in
+    trm_add_mark mark_tmp_var tmp_var
   in
   let body_instrs_new_decl = Mlist.update_nth decl_index update_decl body_instrs in
   let new_body_instrs = begin
@@ -133,22 +134,25 @@ let hoist_on (name : string)
   in
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_nobrace_nomarks [
-    trm_add_mark mark
+    trm_add_mark mark_alloc
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
     trm_for ?contract:new_contract ~annot:t.annot range new_body;
-    Matrix_trm.free !new_dims (trm_var !new_var);
+    trm_add_mark mark_free
+      (Matrix_trm.free !new_dims (trm_var !new_var));
   ]
 
 (* TODO: document *)
 let%transfo hoist ?(name : string = "${var}_step")
-          ?(mark : mark = no_mark)
+          ?(mark_alloc : mark = no_mark)
+          ?(mark_free : mark = no_mark)
+          ?(mark_tmp_var : mark = no_mark)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
     Target.apply (fun t p_instr ->
       let (i, p) = Path.index_in_surrounding_loop p_instr in
-      Path.apply_on_path (hoist_on name mark arith_f i) t p
+      Path.apply_on_path (hoist_on name mark_alloc mark_free mark_tmp_var arith_f i) t p
       ) tg)
 
 (* [fission_on_as_pair]: split loop [t] into two loops
@@ -580,6 +584,84 @@ let%transfo move_out ?(instr_mark : mark = no_mark) ?(loop_mark : mark = no_mark
       Resources.required_for_check ();
       let i, p = Path.index_in_surrounding_loop p in
       apply_at_path (move_out_on instr_mark loop_mark empty_range i) p
+  ) tg)
+
+let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
+  if (trm_index <> 0) then failwith "not targeting the first instruction in a loop";
+  let error = "expected for loop" in
+  let ((index, t_start, dir, t_end, step, par), body, contract) = trm_inv ~error trm_for_inv t in
+  let instrs = trm_inv ~error trm_seq_inv body in
+  let instr_count = Mlist.length instrs in
+  if (instr_count < 2) then failwith "expected at least two instructions";
+  let alloc_instr = Mlist.nth instrs 0 in
+  let free_instr = Mlist.nth instrs (instr_count - 1) in
+  let (_, rest) = Mlist.extract 1 (instr_count - 2) instrs in
+
+  if !Flags.check_validity then begin
+    (* NOTE: would be checked by var ids anyway *)
+    if Var_set.mem index (trm_free_vars alloc_instr) then
+      trm_fail alloc_instr "allocation instruction uses loop index";
+    if Var_set.mem index (trm_free_vars free_instr) then
+      trm_fail free_instr "free instruction uses loop index";
+    (* Resources.assert_dup_instr_redundant 0 (Mlist.length instrs - 1) body;
+      --> We know that `free x; alloc x = ()`
+      *)
+
+    let error = "expected MALLOCN instr" in
+    let (_, _, _, alloc_init) = trm_inv ~error trm_let_inv alloc_instr in
+    let _ = trm_inv ~error Matrix_core.alloc_inv_with_ty alloc_init in
+    let error = "expected MFREEN instr" in
+    let _ = trm_inv ~error Matrix_trm.free_inv free_instr in
+
+    begin match empty_range with
+    | Generate_if -> ()
+    | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
+    | Produced_resources_uninit_after ->
+      let contract = Xoption.unsome ~error:"Need the for loop contract to be set" contract in
+      let assert_instr_uses_no_invariant instr =
+        let instr_usage = Resources.usage_of_trm instr in
+        let invariant_usage = List.filter (Resources.(usage_filter instr_usage keep_touched)) contract.invariant.linear in
+        if invariant_usage <> [] then
+          trm_fail instr "does not support moving out instructions that touch invariant resources"
+      in
+      assert_instr_uses_no_invariant alloc_instr;
+      assert_instr_uses_no_invariant free_instr
+    end;
+
+    Trace.justif "instructions from following iterations are redundant with first iteration"
+  end;
+
+  let generate_if = (empty_range = Generate_if) in
+  let contract = match contract with
+    | Some contract when not generate_if ->
+      (* FIXME: this still requires resources to update contract even when not checking validity! *)
+      let resources_after = Xoption.unsome ~error:"requires computed resources" alloc_instr.ctx.ctx_resources_after in
+      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear contract.iter_contract.pre.linear in
+      Some { contract with invariant = { contract.invariant with linear = new_invariant } }
+    | _ -> contract
+  in
+
+  let loop = trm_for ~annot:t.annot ?contract (index, t_start, dir, t_end, step, par) (trm_seq rest) in
+  let wrap_instr instr =
+    let non_empty_cond = trm_ineq dir t_start t_end in
+    if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr
+  in
+  trm_seq_nobrace_nomarks [
+    wrap_instr alloc_instr;
+    loop;
+    wrap_instr free_instr]
+
+(** [move_out_alloc ~empty_range tg]: same as [move_out], but supports moving out an allocation
+    instruction together with its corresponding deallocation (that must be at the end of the loop).
+
+    TODO: generalize [move_out] and [move_out_alloc] to moving out the any first/last group of instrs (I1 and I2) at once, if (I2; I1) is a no-op.
+  *)
+let%transfo move_out_alloc ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun _ ->
+    Target.iter (fun _ p ->
+      Resources.required_for_check ();
+      let i, p = Path.index_in_surrounding_loop p in
+      apply_at_path (move_out_alloc_on empty_range i) p
   ) tg)
 
 (* [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition

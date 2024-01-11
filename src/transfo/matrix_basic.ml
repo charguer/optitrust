@@ -508,7 +508,7 @@ let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =
   let res_t = loop t in
   (!found, res_t)
 
-let intro_malloc0_on (x : var) (t : trm) : trm = begin
+let intro_malloc0_on (mark_alloc : mark) (mark_free : mark) (x : var) (t : trm) : trm = begin
   let instrs = trm_inv
     ~error:"Matrix_basic.intro_malloc0_on: expected sequence"
     trm_seq_inv t
@@ -527,7 +527,8 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
   ) instrs;
   match !decl_info_opt with
   | Some (decl_index, decl_ty) ->
-    let new_decl = Matrix_core.let_alloc_with_ty x [] (get_inner_ptr_type decl_ty) in
+    let new_decl = trm_add_mark mark_alloc (
+      Matrix_core.let_alloc_with_ty x [] (get_inner_ptr_type decl_ty)) in
     let instrs2 = Mlist.replace_at decl_index new_decl instrs in
     let last_use = ref decl_index in
     let instrs3 = Mlist.mapi (fun i instr ->
@@ -539,7 +540,8 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
         instr2
       end
     ) instrs2 in
-    let instrs4 = Mlist.insert_at (!last_use + 1) (Matrix_trm.free [] (trm_var x)) instrs3 in
+    let free_instr = trm_add_mark mark_free (Matrix_trm.free [] (trm_var x)) in
+    let instrs4 = Mlist.insert_at (!last_use + 1) free_instr instrs3 in
     trm_seq ~annot:t.annot instrs4
   | None -> trm_fail t "Matrix_basic.intro_malloc0_on: expected unintialized stack allocation"
 end
@@ -565,9 +567,11 @@ end
    LATER: deal with control flow
 
    *)
-let%transfo intro_malloc0 (x : var) (tg : target) : unit =
+let%transfo intro_malloc0
+  ?(mark_alloc : mark = no_mark) ?(mark_free : mark = no_mark)
+  (x : var) (tg : target) : unit =
   Trace.justif_always_correct ();
-  Target.apply_at_target_paths (intro_malloc0_on x) tg
+  Target.apply_at_target_paths (intro_malloc0_on mark_alloc mark_free x) tg
 
 (** <private>
 
