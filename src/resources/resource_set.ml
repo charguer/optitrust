@@ -29,11 +29,19 @@ let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Va
 (** The empty resource set. *)
 let empty = make ()
 
+(** [demote_efracs res] transforms all the efracs inside [res] into regular fractions. *)
+let demote_efracs (res: resource_set): resource_set =
+  { res with
+      pure = res.pure @ List.map (fun (efrac, _) -> (efrac, trm_frac)) res.efracs;
+      efracs = [] }
+
 (** If after consuming [old_res], [new_res] was produced, then [bind] generates the resulting resource set.
 
     Pure resources are accumulated, and linear resources are replaced.
+    Unless [keep_efracs] is set to true, existential fractions inside [old_res] are turned into regular fractions.
     *)
-let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
+let bind ~(keep_efracs: bool) ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
+  let old_res = if keep_efracs then old_res else demote_efracs old_res in
   { pure = old_res.pure @ new_res.pure;
     linear = new_res.linear;
     fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs;

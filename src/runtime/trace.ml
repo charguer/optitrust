@@ -441,8 +441,9 @@ let style_resources ?(print_var_id : bool option) () = (*TODO factorize with Sho
   | None -> ast_style
   | Some b -> { ast_style with print_var_id = b }
   in
+  let typing_style = if !Flags.detailed_resources_in_trace then Style.typing_all else Style.typing_ctx in
   Style.({ decode = false;
-    typing = Style.typing_all;
+    typing = typing_style;
     print = Lang_C { cstyle_default with
       ast = ast_style;
       optitrust_syntax = true; } })

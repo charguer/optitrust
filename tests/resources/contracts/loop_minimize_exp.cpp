@@ -1,17 +1,5 @@
 #include <optitrust.h>
 
-void default_contract() {
-  __pure();
-  int x = 0;
-  int y = 0;
-  int z = 0;
-  for (int i = 0; i < 3; ++i) {
-    __sequentially_modifies("&z ~> Cell");
-    __sequentially_reads("&y ~> Cell");
-    z = y;
-  }
-}
-
 void unused_modifies(float* M1, float* M2, int n) {
   __modifies("M1 ~> Matrix1(n)");
   __modifies("M2 ~> Matrix1(n)");

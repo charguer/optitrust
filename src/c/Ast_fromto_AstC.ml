@@ -560,7 +560,7 @@ and ghost_args_elim_in_seq (ts: trm list): trm list =
     t :: ghost_args_elim_in_seq ts
 
 let formula_to_string (style : style) (f: formula) : string =
-  AstC_to_c.ast_to_string ~style:style.cstyle f
+  AstC_to_c.ast_to_string ~width:PPrint.infinity ~style:style.cstyle f
 
 let var__with = trm_var (name_to_var "__with")
 let var__call_with = trm_var (name_to_var "__call_with")
@@ -844,7 +844,7 @@ let display_ctx_resources (style: style) (t: trm): trm list =
       else []
     in
   let tl_after =
-    if style.typing.typing_used_res
+    if style.typing.typing_ctx_res
       then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_after)
       else []
     in

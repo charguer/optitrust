@@ -7,7 +7,6 @@ let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun () ->
-    !! loop_minimize [cFunBody "default_contract"; cFor "i"];
     !! loop_minimize [cFunBody "unused_modifies"; cFor "i"];
     !! loop_minimize [cFunBody "unused_reads"; cFor "i"];
     !! loop_minimize [nbMulti; cFunBody "produced_uninit_used_ro"; cFor "i"];

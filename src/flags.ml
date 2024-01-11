@@ -81,7 +81,7 @@ let reparse_at_big_steps : bool ref = ref false
 let report_big_steps : bool ref = ref false
 
 (* [use_clang_format]: flag to use clang-format or not in output CPP files. *)
-let use_clang_format : bool ref = ref false
+let use_clang_format : bool ref = ref true
 
 (* [keep_file_before_clang_format]: flag to save the file before cleaning up with clang format
    "foo_out.cpp" is saved as "foo_out_orig.cpp". Used by the tester for faster correctness checks. *)
@@ -156,6 +156,9 @@ let process_mode (mode : string) : unit =
 (* Options to control how much details are exported in the trace *)
 let detailed_trace : bool ref = ref false
 (* LATER: also add a light-mode, tracing only small and big steps *)
+
+(* Option to display full resource information in the trace *)
+let detailed_resources_in_trace : bool ref = ref false
 
 (* [target_line]: indicate which line to target in execution mode
    [Execution_mode_step_trace] or [Execution_mode_step_trace]. *)
