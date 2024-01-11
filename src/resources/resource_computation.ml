@@ -749,7 +749,7 @@ let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.
     contract_joined_resources = ro_simpl_steps };
 
   let total_usage = update_usage_map ~current_usage:usage ~extra_usage:usage_after in
-  total_usage, Resource_set.(remove_unused_efracs (bind ~old_res:res ~new_res))
+  total_usage, Resource_set.(remove_unused_efracs (bind ~keep_efracs:true ~old_res:res ~new_res))
 
 (** <private> *)
 let debug_print_computation_stack = false
@@ -829,7 +829,7 @@ let rec compute_resources
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
     | Trm_fun (args, ret_type, body, contract) ->
       let compute_resources_in_body contract =
-        let body_res = Resource_set.bind ~old_res:res ~new_res:contract.pre in
+        let body_res = Resource_set.bind ~keep_efracs:false ~old_res:res ~new_res:contract.pre in
         (* LATER: Merge used pure facts *)
         ignore (compute_resources ~expected_res:contract.post (Some body_res) body);
       in
@@ -1045,8 +1045,8 @@ let rec compute_resources
        Because of that we do not need to do any typechecking outside of the loop. *)
     | Trm_for (range, body, None) ->
       let expected_res = Resource_set.make ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
-      let usage_map, _ = compute_resources ~expected_res (Some res) body in
-      usage_map, Some (Resource_set.bind ~old_res:res ~new_res:expected_res)
+      let usage_map, _ = compute_resources ~expected_res (Some (Resource_set.demote_efracs res)) body in
+      usage_map, Some (Resource_set.bind ~keep_efracs:true ~old_res:res ~new_res:expected_res)
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, body, Some contract) ->
@@ -1054,7 +1054,7 @@ let rec compute_resources
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
       let inner_contract = contract_inside_loop range contract in
-      ignore (compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~old_res:res ~new_res:inner_contract.pre)) body);
+      ignore (compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~keep_efracs:false ~old_res:res ~new_res:inner_contract.pre)) body);
 
       Some usage_map, Some res_after
 
