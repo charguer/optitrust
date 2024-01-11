@@ -127,6 +127,11 @@ let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
   let cstyles = t_ann.trm_annot_cstyle in
   List.mem cs cstyles
 
+(* [drop_clang_cursor t] removes all annotations of the form [Clang_cursor].
+   Necessary before serializing an ast. *)
+let drop_clang_cursor (t:trm) : trm =
+  trm_filter_cstyle (function Clang_cursor _ -> false | _ -> true) t
+
 
 (* **************************** Smart constructors *************************** *)
 
@@ -2368,6 +2373,13 @@ let trm_erase_var_ids (t : trm) : trm =
     | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~qualifier:x.qualifier x.name)
     | _ -> trm_map aux t
   in
+  aux t
+
+(* [prepare_for_serialize t] should be called before serializing an ast. *)
+let prepare_for_serialize (t:trm) : trm =
+  let rec aux t =
+    trm_map aux (drop_clang_cursor { t with ctx = unknown_ctx() } )
+    in
   aux t
 
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)

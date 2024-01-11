@@ -413,17 +413,24 @@ let class_member_elim (t : trm) : trm =
   debug_current_stage "class_member_elim";
   (* workaround to substitute untyped 'this' variables with typed 'this' variables required by 'method_call_elim' *)
   let to_subst = ref Var_map.empty in
-  let get_class_typ (current_class : typvar option) (method_var : var) : typ =
-    let c = match current_class with
-    | Some c -> c
-    | None -> snd (Xlist.unlast method_var.qualifier)
-    in
-    typ_ptr_generated (typ_constr ([], c) ~tid:(Clang_to_astRawC.get_typid_for_type [] c))
+
+  let get_class_typ (current_class : (typvar*typconstrid) option) (method_var : var) : typ =
+    let c,tid = match current_class with
+    | Some (c,tid) -> (c,tid)
+    | None ->
+      if not !Flags.ignore_serialized
+        then failwith "unsupported member definition outside of class structure when serializing";
+      let c = snd (Xlist.unlast method_var.qualifier) in
+      let tid = Clang_to_astRawC.get_typid_for_type [] c in (* HACK *)
+      (c,tid)
+      in
+    typ_ptr_generated (typ_constr ([], c) ~tid)
   in
-  let rec aux (current_class : typvar option) (t : trm) : trm =
+  let rec aux (current_class : (typvar*typconstrid) option) (t : trm) : trm =
     begin match t.desc with
     | Trm_typedef td ->
-      trm_map (aux (Some td.typdef_tconstr)) t
+      let current_class = Some (td.typdef_tconstr, td.typdef_typid) in
+      trm_map (aux current_class) t
     | Trm_let_fun (v, ty, vl, body, contract) when trm_has_cstyle Method t ->
       let var_this = new_var "this" in
       let this_typ = get_class_typ current_class v in

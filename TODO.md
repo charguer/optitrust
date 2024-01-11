@@ -213,6 +213,12 @@
 
 # Parser
 
+- When invalid C code is provided, we should use clangml in a mode that raises
+  an error, not a mode that silently deletes the boggus lines.
+
+- Serialization does not work yet with CPP member functions; eg cpp_varids.ml
+  and see comment in class_member_elim
+
 - Keep marks on reparse: tests same ASt and reuse marks at paths
 
 - Eliminate `Trm_arbitrary` on the fly

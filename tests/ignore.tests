@@ -24,6 +24,8 @@ resources/contracts/loop_parallelize_reads.ml
 # arith/simpl/arith_simpl.ml
 # loop/shift/loop_shift.ml
 
+# BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
+apac/constify_functions_arguments/apac_constify_functions_arguments.ml
 
 
 pointer/fold

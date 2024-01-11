@@ -9,7 +9,6 @@ open PPrint
 (** [output_style] describes the mode in which an AST should be pretty-printed *)
 type output_style = Style.custom_style
 
-
 (** Exceptions raised by this module when the user does not respect
     the interaction rules, or when internal invariants are broken *)
 exception TraceFailure of string
@@ -23,7 +22,7 @@ let ast_just_before_first_call_to_restore_original : trm option ref = ref None
 (*                             Debug flags                                    *)
 (******************************************************************************)
 
-(* [check_trace_at_every_step] can be activated to call the function
+(** [check_trace_at_every_step] can be activated to call the function
    [check_trace] after every step, to check the invariants of the
    trace data structure, which stores the stack of open steps. *)
 let check_trace_at_every_step = ref false
@@ -32,11 +31,14 @@ let check_trace_at_every_step = ref false
    let _ = Trace.debug_open_close_step := true
 *)
 let next_step_id = fresh_generator ()
+
+(* Other debug flags *)
+
 let debug_open_close_step = ref false
 
-let debug_notify_dump_trace = false
+let debug_notify_dump_trace = ref false
 
-let debug_compute_ml_file_excerpts = false
+let debug_compute_ml_file_excerpts = ref false
 
 
 (******************************************************************************)
@@ -56,7 +58,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   let push () =
     let s = Buffer.contents acc in
     let i = !start+1 in
-    if debug_compute_ml_file_excerpts
+    if !debug_compute_ml_file_excerpts
       then printf "Excerpt[%d] = <<<%s>>>\n\n" i s;
     r := Int_map.add i s !r;
     Buffer.clear acc; in
@@ -416,6 +418,16 @@ let check_the_trace ~(final:bool) : unit =
 (*                                   Output                                   *)
 (******************************************************************************)
 
+
+(** [filename_before_clang_format filename] takes as input a string
+    such as "foo.cpp" and returns "foo_orig.cpp". This filename
+    is meant to store the file before it is reformated using clang-format. *)
+let filename_before_clang_format (filename:string) : string =
+  let base =
+    try Filename.chop_suffix filename ".cpp"
+    with _ -> failwith (sprintf "filename_before_clang_format: expects a .cpp file, provided: %s." filename) in
+  base ^ "_orig.cpp"
+
 (* LATER: document and factorize *)
 
 let style_normal_code () =
@@ -435,12 +447,18 @@ let style_resources ?(print_var_id : bool option) () = (*TODO factorize with Sho
       ast = ast_style;
       optitrust_syntax = true; } })
 
+
 (** [cleanup_cpp_file_using_clang_format filename]: makes a system call to
    reformat a CPP file using the clang format tool.
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
   stats ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
+    (* If requested, save a copy of the file "foo.cpp" into "foo_orig.cpp" before reformating "foo.cpp" *)
+    if !Flags.keep_file_before_clang_format then begin
+      let orig_filename = filename_before_clang_format filename in
+      ignore (Sys.command (sprintf "cp %s %s" filename orig_filename));
+    end;
     (*DEPRECATED ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));*)
     ignore (Sys.command (sprintf "clang-format -style=\"{BasedOnStyle: Google, ColumnLimit: %d}\" -i %s" !Flags.clang_format_nb_columns filename));
     if (* false && *) uncomment_pragma
@@ -538,23 +556,27 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
 
 (** [reparse_trm ctx ast]: prints [ast] in a temporary file and reparses it using Clang. *)
 let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (ast : trm) : trm =
-  if !Flags.debug_reparse then begin
-    let info = if info <> "" then info else "of a term during the step starting at" in
-    Printf.printf "Reparse: %s.\n" info;
-    flush stdout
-  end;
-  let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
-  output_prog (Style.custom_style_for_reparse()) ~beautify:false ctx in_prefix ast;
+  (* Disable caching for reparsing *)
+  Flags.with_flag Flags.debug_parsing_serialization false (fun () ->
 
-  let parser =
-    match parser with
-    | Some p -> p
-    | None -> ctx.parser
-  in
+    if !Flags.debug_reparse then begin
+      let info = if info <> "" then info else "of a term during the step starting at" in
+      Printf.printf "Reparse: %s.\n" info;
+      flush stdout
+    end;
+    let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
+    output_prog (Style.custom_style_for_reparse()) ~beautify:false ctx in_prefix ast;
 
-  let (_, t) = parse ~parser (in_prefix ^ ctx.extension) in
-  (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
-  t
+    let parser =
+      match parser with
+      | Some p -> p
+      | None -> ctx.parser
+    in
+
+    let (_, t) = parse ~parser (in_prefix ^ ctx.extension) in
+    (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
+    t
+  )
 
 let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code during the step starting at") ?(parser: parser option) () =
   let tnew = reparse_trm ~info ?parser the_trace.context the_trace.cur_ast in
@@ -1209,30 +1231,12 @@ let invalidate () : unit =
   the_trace.cur_ast <- trace_dummy.cur_ast;
   the_trace.step_stack <- trace_dummy.step_stack
 
-(** [get_initial_ast ~parser ser_mode ser_file filename]: gets the initial ast before applying any trasformations
+(** [get_initial_ast ~parser filename]: gets the initial ast before applying any trasformations
      [parser] - choose which parser to use for parsing the source code
-     [ser_mode] - serialization mode
-     [ser_file] - if serialization is used for the initial ast, the filename of the serialized version
-                  of the source code is needed
-     [filename] - filename of the source code  *)
-let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (ser_file : string)
-  (filename : string) : (string * trm) =
-  (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
-  let ser_file_exists = Sys.file_exists ser_file in
-  let ser_file_more_recent = if (not ser_file_exists) then false else Xfile.is_newer_than ser_file filename in
-  let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
-  if (ser_mode = Serialized_Use (* || ser_mode = Serialized_Make *) || auto_use_ser) then (
-    if not ser_file_exists
-      then raise (TraceFailure "Trace.get_initial_ast: please generate a serialized file first");
-    if not ser_file_more_recent
-      then raise (TraceFailure (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename));
-    let ast = Xfile.unserialize_from ser_file in
-    if auto_use_ser
-      then Printf.printf "Loaded ast from %s.\n" ser_file;
-    ast
-  )
-  else
-    parse ~parser filename
+     [filename] - filename of the source code
+     returns header and ast. *)
+let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
+  parse ~parser filename
 
 (** [init f]: initializes the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -1274,15 +1278,13 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
       end;
     end;
   end;
-  let mode = !Flags.serialization_mode in
   start_stats := get_cur_stats ();
   last_stats := !start_stats;
 
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs prefix in
-  let ser_file = basename ^ ".ser" in
 
-  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
+  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser filename) in
 
   let context = { parser; extension; prefix; header; clog } in
   the_trace.context <- context;
@@ -1290,11 +1292,6 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
   the_trace.cur_style <- begin match style with Some s -> s | None -> Style.default_custom_style() end;
   the_trace.step_stack <- [];
   open_root_step ~source:ml_file_name ();
-
-  if mode = Serialized_Build || mode = Serialized_Auto
-    then Xfile.serialize_to ser_file (header, cur_ast);
-  if mode = Serialized_Build
-    then exit 0;
 
   (* If recompute resources between steps is enabled, we need resources to be computed after the initial parsing as well *)
   if !Flags.recompute_resources_between_steps then recompute_resources ();
@@ -1541,7 +1538,7 @@ let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
-  if debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
+  if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
   let out_js = open_out filename in
   let out = output_string out_js in
   let next_id = ref (-1) in
@@ -1595,7 +1592,7 @@ let dump_trace_to_textfile ?(prefix : string = "") () : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in
-  if debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
+  if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
   step_tree_to_file filename (get_root_step())
 
 (** [output_prog_check_empty style ctx prefix ast_opt]: similar to [output_prog], but it

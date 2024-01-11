@@ -143,6 +143,10 @@ module StringSet = Set.Make(String)
 (*****************************************************************************)
 (** Tools (LATER: move to tools/*.ml) *)
 
+let debug = false
+
+let debug_match_expected = ref false
+
 exception TesterFailure of string
 
 (* [fail msg] is for a fatal error produced by the tester *)
@@ -152,7 +156,6 @@ let fail (msg:string) : 'a =
 let (~~) iter l f =
   iter f l
 
-let debug = false
 
 let do_is_ko (cmd : string) : bool =
   if debug then printf "%s\n" cmd;
@@ -242,12 +245,6 @@ let string_to_outfile_gen = function
 let set_outfile_gen str =
   outfile_gen := string_to_outfile_gen str
 
-(* Flag to ignore all cached data *)
-let ignore_cache : bool ref = ref false
-
-(* Flag to discard all cached data *)
-let discard_cache : bool ref = ref false
-
 (* Flag to control at which level the comparison is performed (AST or text).
    If Comparison_method_text, then implies Outfile_gen_always. *)
 type comparison_method =
@@ -284,11 +281,11 @@ let spec : cmdline_args =
      ("-no-lineshift", Arg.Set disable_lineshift, " disable shifting of lines in batch.ml.");
      ("-full-report", Arg.Set full_report, " report a list with the status of each test in order.");
      ("-all-warnings", Arg.Set Flags.report_all_warnings, " report all warnings.");
+     ("-use-clang-format", Arg.Set Flags.use_clang_format, " forces the use of clang-format even in tester mode; automatically activated by -dump-trace.");
 
      (* NOT YET IMPLEMENTED *)
      ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
-     ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
-     ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for tests that are executed.");
+
   ]
 
 
@@ -496,6 +493,52 @@ let get_tests_and_ignored (args : string list) : (string list * string list) =
 (*****************************************************************************)
 (** Action 'run' *)
 
+(** Auxiliary function to compare the output with the expected output.
+    Features an optimization to save the need for invoking clang-format,
+    whenever possible. *)
+let match_expected (filename_out:string) (filename_exp:string) : bool =
+  if not (Sys.file_exists filename_out)
+    then fail "match_expected expects filename_out to exit";
+  if not (Sys.file_exists filename_exp)
+    then fail "match_expected expects filename_exp to exit";
+  let same_contents (f1 : string) (f2 : string) : bool =
+    do_is_ok (sprintf "./tests/diff.sh %s %s > /dev/null" f1 f2) in
+  if !Flags.use_clang_format then begin
+    if !debug_match_expected then Tools.info "[use_clang_format] is on, cannot optimize [match_expected]";
+    same_contents filename_out filename_exp
+  end else begin
+    (* At this point, [filename_out] is not formatted, whereas [filename_exp] is formatted;
+       Both [orig_out] and [orig_exp], if they exist, are unformatted. *)
+    let orig_out = Trace.filename_before_clang_format filename_out in
+    let orig_exp = Trace.filename_before_clang_format filename_exp in
+    let same = ref false in
+    (* First, attempt to compare original files *)
+    if Sys.file_exists orig_exp then begin
+      if !debug_match_expected then Tools.info (sprintf "tested correctness without clang-format: %s" filename_out);
+      let same_orig = same_contents filename_out orig_exp in
+      if same_orig then same := true;
+    end;
+    (* If no original file, or if original files mismatch, compute clang-format and compare *)
+    if not !same then begin
+      (* format [filename_out], generating the file [orig_out] on the way *)
+      Trace.cleanup_cpp_file_using_clang_format ~uncomment_pragma:true filename_out;
+      if not (Sys.file_exists orig_out)
+        then fail "match_expected assumes keep_file_before_clang_format to be true";
+      (* now ready to compare formatted files *)
+      let same_formatted = same_contents filename_out filename_exp in
+      (* if debug_match_expected then Tools.info (sprintf "correctness is %s" (if same then "true" else "false"));*)
+      if !debug_match_expected then Tools.info (sprintf "checked correctness using clang-format: %s" filename_out);
+      if same_formatted then begin
+        (* for next time, save the orig_out as orig_exp, because the result
+          of formatting both files using clang-format is identical *)
+        ignore (Sys.command (sprintf "cp %s %s" orig_out orig_exp));
+        if !debug_match_expected then Tools.info (sprintf "saved unformatted output for future comparisons: %s." orig_exp);
+      end;
+      if same_formatted then same := true;
+    end;
+    !same
+  end
+
 (** Auxiliary function for updating the contents of 'tofix.tests',
     by removing contents from `success.tests`, or copying contents from
     'errors.tests' if 'tofix.tests' does not exist *)
@@ -544,9 +587,14 @@ let action_run (tests : string list) : unit =
 
   (* Delete existing output files to avoid considering them in case an error occurs *)
   let delete_output test =
+    let rm (f:string) : unit =
+      (*if !debug_match_expected then Tools.info (sprintf "rm %s" f);*)
+      ignore (do_is_ko (sprintf "rm -f %s > /dev/null" f)) in
     let prefix = Filename.remove_extension test in
     let filename_out = sprintf "%s_out.cpp" prefix in
-    ignore (do_is_ko (sprintf "rm -f %s > /dev/null" filename_out))
+    rm filename_out;
+    let filename_orig_out = sprintf "%s_out_orig.cpp" prefix in
+    rm filename_orig_out
     (* LATER: remove without displaying error messages or missing files *)
   in
   List.iter delete_output tests_to_process;
@@ -616,10 +664,9 @@ let action_run (tests : string list) : unit =
     if Sys.file_exists filename_out then begin
       if Sys.file_exists filename_exp then begin
         (* TODO: use -q in the diff? *)
-        let mismatches_expected = do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) in
-        if mismatches_expected
-          then test_report "wrong" tests_wrong test
-          else test_report "success" tests_success test
+        if match_expected filename_out filename_exp
+          then test_report "success" tests_success test
+          else test_report "wrong" tests_wrong test
       end else begin
           test_report "noexp" tests_noexp test;
       end
@@ -765,14 +812,19 @@ let action_meld (tests : string list) : unit =
 (** Main *)
 
 let _main : unit =
+  (* Configure flags for tester *)
   (* [report_all_warnings] is false by default when using the tester on multiple tests;
      Can be changed with the [-all-warnings] option. *)
   Flags.report_all_warnings := false;
-
-  (* [use_clang_format] is set for tests, to keep nice-looking expected files.
-     However an optimization (not yet merged TODO) avoids computing clang-format
-     if it has already been computed in the past. *)
-  Flags.use_clang_format := true;
+  (* [keep_file_before_clang_format] is set to true in order to allow for faster
+     file comparisons. *)
+  Flags.keep_file_before_clang_format := true;
+  (* [use_clang_format] is false by default; unless producing traces *)
+  let original_use_clang_format = !Flags.use_clang_format in
+  Flags.use_clang_format := false;
+  (* Trick to make sure that [ignore_serialized] is reset after each test to
+     its original value. *)
+  Flags.ignore_serialized_default := !Flags.ignore_serialized;
 
   (* Parsing of command line *)
   Arg.parse
@@ -787,8 +839,10 @@ let _main : unit =
     "Usage: ./tester [action] [options] [arg1] .. [argN]\naction = run | create | addexp | fixexp | ignore | code | diff | meld\noptions:\n";
 
   (* Handle the dump_trace flag *)
-  if !dump_trace
-    then Flags.execution_mode := Execution_mode_full_trace;
+  if !dump_trace then begin
+    Flags.execution_mode := Execution_mode_full_trace;
+    Flags.use_clang_format := original_use_clang_format;
+  end;
 
   (* Check caller_folder has been provided *)
   if !caller_folder = ""
@@ -859,183 +913,3 @@ let _main : unit =
   with TesterFailure msg ->
     Tools.Terminal.(report red "TESTER ERROR" msg)
   end
-
-(*****************************************************************************)
-(* DEPREACTED/FUTURE *)
-  (*
-     Produire une liste de (testname, result)
-
-     type result =
-       | Result_failure of string * string    --> short and full descr
-       | Result_match
-       | Result_mismatch
-
-     if only one failure, print full descr for this one;
-     in more, generate a file with all full_descr
-
-     print all succeeded first
-       print all mismatch (short failure descr => one per line)
-       print all failed execs
-     at last, print a summary: ALL SUCCEED, NB OF EXEC/DIFF FAILED, NB OF SKIPPED
-
-     generate a file "failed.txt" with the list of tests that have Result_mismatch,
-     for use with bash script for accepting changes
-
-     LATER: generate a file "report.txt" or both with the list of tests that have succeeded
-
-     *)
-
-     (* NOTE:
-
-Xfile.
-let serialize_to_file (filename : string) (obj : 'a) : unit =
-let unserialize_from_file (filename : string) : 'a =
-let is_newer_than (filename1 : string) (filename2 : string) : bool =
-
-need to compare dependency on
-- optitrust/ast.cmxa installed needs to be more recent than serialized files
-*)
-
-(* Level 2 :
-   if optitrust lib
-     AND test.cpp
-     AND test_out.cpp
-     AND test.ml
-     have not changed since production of report.ser
-   then skip this test.
-*)
-
-(* --- accept.sh
-
-  for each test in failed.txt
-    meld test_out.cpp test_exp.cpp
-    if diff test_out.cpp test_exp.cpp remains nonempty
-    echo "accept change ? Y / N / A"
-    x = input
-    si Y, faire un cp
-    si N, continue
-    si A, exit
-
-*)
-
-(* -
-NOT YET IMPLEMENTED
-- caching of AST representation for input and expected output files
-- management of dependencies on the source code of optitrust
-- selection of a subset of tests to process (${args} is by default "all")
-  (either via filenames, or via a 'key' name refering to a groupe of files)
-- comparison either at the AST level or at the cpp source level via diff
-----------
-*)
-
-
-  (* TODO: We cache the "raw ast".
-  from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
-  this is what is provided in trace.ml to  the function
-   AstC_to_c.ast_to_outchannel ~pretty_matrix_notation ~comment_pragma:use_clang_format out_prog t_after_cfeatures_intro;
-
-    LATER: deal with script_cpp ~filename by searching 'batch.ml'
-
-  for each test:
-    test.cpp must exit
-    if test.ser exist and .ser up to date: OK
-    else update .ser by parsing it from .cpp and serialize
-
-  for each test:
-    if test_exp.cpp exist:
-      if test_exp.ser exist and  .ser up to date: OK
-      else update .ser by parsing it from _exp.cpp and serialize
-    else:
-      create test_exp.ser with empty ast
-  *)
-  (* Need to save the cached_inputs and cached_expoutputs :
-     -> we want save the ones that were serialized before,
-        and update the ones that have just been reparsed *)
-
-(* c'est le code de batch.ml
-     qui fait la gestion des cached_inputs/cached_outputs
-
-     et qui pourrait faire la comparaison au niveau AST
-
-     ./batch_controller.ml prendrait en argument presque tous les arguments de tester.ml
-
-     tester.ml would do only the computation of the list of tests
-     and the generation of batch.ml and the launching of batcher.exe
-
-  *)
-
-
-(*****************************************************************************)
-(** Processing of tests list DEPRECATED *)
-(*
-
-let filename_concat folder filename =
-  if folder = "." then filename else Filename.concat folder filename
-
-let get_alias_targets (alias_filename: string) : string list =
-  let folder = Filename.dirname alias_filename in
-  let lines = Xfile.get_lines_or_empty alias_filename in
-  List.filter_map (fun l ->
-      if String.starts_with ~prefix:"#" l || String.length l = 0
-        then None
-        else Some (filename_concat folder l)) lines
-
-let get_tests_in_dir (folder: string) : string list * File_set.t =
-  let ignored_files = get_alias_targets (filename_concat folder "ignored.tests") in
-  let ignored_files = List.fold_left (fun acc f -> File_set.add f acc) File_set.empty ignored_files in
-  let folder_files = Sys.readdir folder in
-  let test_files = List.filter_map (fun f ->
-      if String.ends_with ~suffix:".ml" f && not (String.ends_with ~suffix:"_with_lines.ml" f)
-      then
-        let filename = filename_concat folder f in
-        if File_set.mem filename ignored_files
-          then None
-          else Some filename
-      else None) (Array.to_list folder_files) in
-  List.sort String.compare test_files, ignored_files
-
-let rec resolve_test_targets (target_list: string list) : string list * File_set.t =
-  let test_files, ignored_file_set =
-    List.fold_right (fun target (test_files, ignored_files) ->
-    if String.ends_with ~suffix:".ml" target then
-      (target :: test_files, ignored_files)
-    else
-      let alias_filename = target ^ ".tests" in
-      let (new_test_files, new_ignored_files) =
-        if Sys.file_exists alias_filename then
-          let sub_targets = get_alias_targets alias_filename in
-          resolve_test_targets sub_targets
-        else
-          get_tests_in_dir target
-      in
-      (new_test_files @ test_files, File_set.union ignored_files new_ignored_files)
-  ) target_list ([], File_set.empty)
-  in
-  (test_files, ignored_file_set)
-
-
-(* Takes the list of target arguments on the command line;
-   and expand the 'targets', remove duplicates and ignored tests.
-   Returns (tests_to_process, ignored_tests)
-*)
-let get_tests_and_ignored (targets: string list): (string list * string list) =
-  let test_files, ignored_file_set = resolve_test_targets targets in
-  let test_files = Xlist.remove_duplicates test_files in
-  (* Tests that were otherwise selected are not ignored *)
-  let ignored_file_set =
-    List.fold_left (fun acc t -> File_set.remove t acc) ignored_file_set test_files
-  in
-  let _check_all_files_exist =
-    List.iter (fun test_file ->
-      if not (Sys.file_exists test_file)
-        then failwith (sprintf "File not found:"))
-      test_files;
-    in
-  (test_files, File_set.elements ignored_file_set)
-*)
-
-
-(*
-
-      RES=$(find tests -name "*${arg}*.ml" -and -not -name "*_with_lines.ml")
-*)

@@ -72,6 +72,13 @@ let ctx_typedef : typedef typmap ref = ref Typ_map.empty
 let ctx_label : typconstrid labelmap ref = ref String_map.empty
 let ctx_constr : typconstrid constrnamemap ref = ref String_map.empty
 
+let ctx_reset () : unit =
+  ctx_var := Qualified_map.empty;
+  ctx_tconstr := Qualified_map.empty;
+  ctx_typedef := Typ_map.empty;
+  ctx_label := String_map.empty;
+  ctx_constr := String_map.empty
+
 (* [debug_typedefs]: flag for debugging typedefs *)
 let debug_typedefs = false
 
@@ -939,7 +946,7 @@ and tr_member_initialized_list ?(loc : location) (init_list :  constructor_initi
     | Member {indirect = b; field = {desc = f}} ->
       let ti = tr_expr ie in
       trm_add_cstyle Member_initializer (trm_set (trm_apps ~ctx (trm_unop (Unop_struct_get f)) [trm_this()]) (ti))
-    | _ -> loc_fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple mmeber initializers are supported."
+    | _ -> loc_fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple member initializers are supported."
   ) init_list
 
 (* [tr_decl d]: translates declaration [d] from clang to OptiTrust ast. *)
@@ -1312,6 +1319,7 @@ let filter_out_include (filename : string)
 
 (* [tr_ast t]: transalate [t] into OptiTrust AST *)
 let tr_ast (t : translation_unit) : trm =
+  ctx_reset ();
   (* Initialize id_counter *)
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   print_info None "tr_ast: translating %s's AST...\n" filename;

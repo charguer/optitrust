@@ -99,6 +99,15 @@ let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
 let trms ?(style = Default) ?(msg : string = "") (ts : trms) : unit =
   prt_list ~msg trm ts
 
+let trm_internal ?(msg : string option) (t : trm) : unit =
+  trm ~style:Internal ?msg t
+
+let trm_text ?(msg : string option) ?(only_desc : bool = false) (t : trm) : unit =
+  let style = if only_desc then InternalAstOnlyDesc else InternalAst in
+  trm ~style ?msg t
+
+
+
 (* DEPRECATED: use ShowAt.trm []
 let ast ?(style = Default) ?(msg : string = "") () : unit =
   trm ~style ~msg (**:(add_linebreak msg)*) (Trace.ast ())
@@ -213,6 +222,7 @@ end
 (* [ast ()] prints on the left-hand side the C code, and on the right-hand side the internal AST code. Use [~internal:false] to disable the printing of internal.
     TODO: contract_internal_repr is not yet implemented
     EXAMPLE !! Show.ast ~contract_internal_repr:true ();
+    TODO: add ~ast_text:true
      *)
 let ast ?(internal : bool = true) ?(contract_internal_repr : bool option) ?(var_id : bool option)
   ?(msg : string = "show-ast") ?(ast : trm = Trace.ast ()) () : unit =

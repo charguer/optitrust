@@ -275,7 +275,7 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
     let parser =
       match parser with
       | Some p -> p
-      | None -> CParsers.get_default ()
+      | None -> CParsers.get_default ~serialize:true ()
     in
 
     script ~parser ?filename ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
