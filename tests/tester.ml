@@ -145,7 +145,7 @@ module StringSet = Set.Make(String)
 
 let debug = false
 
-let debug_match_expected = true
+let debug_match_expected = ref false
 
 exception TesterFailure of string
 
@@ -504,7 +504,7 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
   let same_contents (f1 : string) (f2 : string) : bool =
     do_is_ok (sprintf "./tests/diff.sh %s %s > /dev/null" f1 f2) in
   if !Flags.use_clang_format then begin
-    if debug_match_expected then Tools.info "[use_clang_format] is on, cannot optimize [match_expected]";
+    if !debug_match_expected then Tools.info "[use_clang_format] is on, cannot optimize [match_expected]";
     same_contents filename_out filename_exp
   end else begin
     (* At this point, [filename_out] is not formatted, whereas [filename_exp] is formatted;
@@ -514,7 +514,7 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
     let same = ref false in
     (* First, attempt to compare original files *)
     if Sys.file_exists orig_exp then begin
-      if debug_match_expected then Tools.info (sprintf "tested correctness without clang-format: %s" filename_out);
+      if !debug_match_expected then Tools.info (sprintf "tested correctness without clang-format: %s" filename_out);
       let same_orig = same_contents filename_out orig_exp in
       if same_orig then same := true;
     end;
@@ -527,12 +527,12 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
       (* now ready to compare formatted files *)
       let same_formatted = same_contents filename_out filename_exp in
       (* if debug_match_expected then Tools.info (sprintf "correctness is %s" (if same then "true" else "false"));*)
-      if debug_match_expected then Tools.info (sprintf "checked correctness using clang-format: %s" filename_out);
+      if !debug_match_expected then Tools.info (sprintf "checked correctness using clang-format: %s" filename_out);
       if same_formatted then begin
         (* for next time, save the orig_out as orig_exp, because the result
           of formatting both files using clang-format is identical *)
         ignore (Sys.command (sprintf "cp %s %s" orig_out orig_exp));
-        if debug_match_expected then Tools.info (sprintf "saved unformatted output for future comparisons: %s." orig_exp);
+        if !debug_match_expected then Tools.info (sprintf "saved unformatted output for future comparisons: %s." orig_exp);
       end;
       if same_formatted then same := true;
     end;
@@ -588,7 +588,7 @@ let action_run (tests : string list) : unit =
   (* Delete existing output files to avoid considering them in case an error occurs *)
   let delete_output test =
     let rm (f:string) : unit =
-      (*if debug_match_expected then Tools.info (sprintf "rm %s" f);*)
+      (*if !debug_match_expected then Tools.info (sprintf "rm %s" f);*)
       ignore (do_is_ko (sprintf "rm -f %s > /dev/null" f)) in
     let prefix = Filename.remove_extension test in
     let filename_out = sprintf "%s_out.cpp" prefix in

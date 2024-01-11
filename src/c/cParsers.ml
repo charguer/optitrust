@@ -57,12 +57,13 @@ let all_c_raw_parsers (filename: string): trm =
   (*  TODO: currently a 'make clean_ser' is needed when the ast.ml file changes;
      it would be better to compare against the timestamp of ast.ml, however
      this requires obtaining the path to this files, somehow. *)
-let c_parser (raw_parser: string -> trm) (filename: string) : string * trm=
+let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : string * trm=
   (* "ser" means serialized *)
   let ser_filename = filename ^ ".ser" in
   (* Load existing serialized file, if any *)
   let existing_ser_contents_opt =
-    if !Flags.ignore_serialized
+    if not serialize
+       || !Flags.ignore_serialized
        || not (Sys.file_exists ser_filename)
        || not (Xfile.is_newer_than ser_filename filename) then
        None
@@ -96,7 +97,7 @@ let c_parser (raw_parser: string -> trm) (filename: string) : string * trm=
         header, ast
     in
   (* Save to serialization file, if applicable *)
-  if not !Flags.dont_serialize
+  if (not serialize || not !Flags.dont_serialize)
      && existing_ser_contents_opt = None then begin
     try
       let clean_ast = Trm.prepare_for_serialize ast in
@@ -112,14 +113,15 @@ let c_parser (raw_parser: string -> trm) (filename: string) : string * trm=
   (header, ast)
 
 
-let clang = c_parser clang_raw_parser
+let clang ~(serialize:bool) =
+  c_parser ~serialize clang_raw_parser
 (*  FOR FUTURE USE
 let menhir = c_parser menhir_raw_parser
 let all = c_parser all_c_raw_parsers *)
 
-let get_default () =
+let get_default ~(serialize:bool) () =
   match !Flags.c_parser_name with
-  | "default" | "clang" -> clang
+  | "default" | "clang" -> clang ~serialize
   | _ -> failwith "the available cparser options are 'default', 'clang'"
   (* FOR FUTURE USE
   | "menhir" -> menhir

@@ -59,7 +59,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     end
   in
 
-  let _, ast_of_file = Trace.parse ~parser:(CParsers.get_default ()) output_file in
+  let _, ast_of_file = Trace.parse ~parser:(CParsers.get_default ~serialize:false ()) output_file in
   Sys.remove output_file;
 
   let defs = trm_main_inv_toplevel_defs ast_of_file in

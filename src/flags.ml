@@ -60,7 +60,7 @@ let print_backtrace_on_error : bool ref = ref true
  (*LATER: make available from command line*)
 
 (* [debug_parsing_serialization]: flag to trace operations involving serialization/deserialization of parse trees. *)
-let debug_parsing_serialization = ref true
+let debug_parsing_serialization = ref false
 
 (* [debug_reparse]: flag to print operations saving and reading error messages saved in the ast. *)
 let debug_errors_msg_embedded_in_ast : bool ref = ref false
