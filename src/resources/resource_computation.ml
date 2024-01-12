@@ -984,8 +984,8 @@ let rec compute_resources
            Then compute ressources as if it is a normal ghost call, and remember the instantiated contract.
            Store the reverse of the instantiated contract as the contract for _Res.
         *)
-        let ghost_call = Pattern.pattern_match effective_args [
-          Pattern.(trm_apps (trm_apps2 (trm_var (var_eq with_reverse)) !__ !__) nil !__ ^:: nil) (fun ghost_fn ghost_fn_rev ghost_args ->
+        let usage_map, res, contract_invoc = Pattern.pattern_match effective_args [
+          Pattern.(trm_apps !(trm_apps2 (trm_var (var_eq with_reverse)) !__ !__) nil !__ ^:: nil) (fun with_rev_app ghost_fn ghost_fn_rev ghost_args ->
             let spec = find_fun_spec ghost_fn res.fun_specs in
             let reverse_contract = revert_fun_contract spec.contract in
             begin match trm_fun_inv ghost_fn_rev with
@@ -995,7 +995,10 @@ let rec compute_resources
             | None ->
               ignore (compute_resources (Some reverse_contract.pre) ~expected_res:reverse_contract.post (trm_apps ~annot:referent ghost_fn_rev [] ~ghost_args))
             end;
-            (trm_apps ~annot:referent ghost_fn [] ~ghost_args)
+            let ghost_call = (trm_apps ~annot:referent ghost_fn [] ~ghost_args) in
+            let usage_map, res = compute_resources (Some res) ghost_call in
+            with_rev_app.ctx <- ghost_call.ctx; (* Recover context information because it can be useful *)
+            usage_map, res, ghost_call.ctx.ctx_resources_contract_invoc
           );
           Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn ->
             let spec = find_fun_spec ghost_fn res.fun_specs in
@@ -1003,12 +1006,12 @@ let rec compute_resources
             | Some _ -> ()
             | None -> failwith (sprintf "%s is not reversible but is used inside __ghost_begin" (var_to_string fn))
             end;
-            ghost_call
+            let usage_map, res = compute_resources (Some res) ghost_call in
+            usage_map, res, ghost_call.ctx.ctx_resources_contract_invoc
           );
           Pattern.(!__) (fun _ -> failwith "expected a ghost call inside __ghost_begin")
         ] in
-        let usage_map, res = compute_resources (Some res) ghost_call in
-        begin match res, ghost_call.ctx.ctx_resources_contract_invoc with
+        begin match res, contract_invoc with
         | Some res, Some invoc ->
           assert (invoc.contract_produced.produced_pure = []);
           let inverse_pre = List.map (fun { produced_hyp; produced_formula } -> (produced_hyp, produced_formula)) invoc.contract_produced.produced_linear in
