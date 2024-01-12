@@ -1472,9 +1472,17 @@ let taskify_on (p : path) (t : trm) : unit =
              end
            else
              begin
-               TaskGraph.add_edge g this' vertex_j
+               () (*TaskGraph.add_edge g this' vertex_j*)
              end
          done
+       done;
+       for i = 0 to (nb_tasks - 1) do
+         let vertex = List.nth tasks i in
+         let degree = TaskGraph.in_degree g vertex in
+         if degree < 1 then
+           begin
+             TaskGraph.add_edge g this' vertex
+           end
        done;
        this      
     | Trm_for_c (init, cond, inc, instr, _) ->
