@@ -536,9 +536,11 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
     | Trm_for (l_range, body, loop_spec) ->
       let full_loop = (unpack_trm_for : ?loc:trm_loc -> loop_range -> trm -> trm) ?loc:t.loc l_range body in
       let dt = decorate_trm style full_loop in
+      dt
+      (* print_contract_internal_repr is handled in Ast_fromto_astC, printing it here might be useful if encoding is heavily broken
       if style.ast.print_contract_internal_repr
         then string "/*" ^^ string "Contract: " ^^ loop_spec_to_doc style loop_spec ^^ string "*/" ^^ hardline ^^ dt
-        else dt
+        else dt*)
     | Trm_switch (cond, cases) ->
       let dcond = decorate_trm style cond in
       let dcases =

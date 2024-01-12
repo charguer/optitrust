@@ -740,8 +740,6 @@ let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, fo
   let sformula = formula_to_string style formula in
   if not (style.cstyle.ast.print_generated_ids || Var_set.mem hyp used_vars) && hyp.name.[0] = '#'
     then Printf.sprintf "%s" sformula
-    (* TODO: use style print_generated_ids and print_var_id *)
-    (* else Printf.sprintf "%s: %s" hyp.name sformula *)
     else begin
       let hyp_s = if style.cstyle.ast.print_var_id then var_to_string hyp else hyp.name in
       Printf.sprintf "%s: %s" hyp_s sformula
@@ -925,6 +923,10 @@ let rec contract_intro (style: style) (t: trm): trm =
     let t = push_named_formulas modifies_prim modifies_res t in
     (pre_pure, pre_linear, !post_linear, t)
   in
+  let push_reads_and_modifies = if style.cstyle.ast.print_contract_internal_repr then
+    fun _ _ pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)
+    else push_reads_and_modifies
+  in
 
   (* TODO: Inline into Trm_fun branch when Trm_let_fun disappears *)
   let add_contract_to_fun_body body contract =
@@ -980,8 +982,8 @@ let rec contract_intro (style: style) (t: trm): trm =
           push_reads_and_modifies __sequentially_reads __sequentially_modifies
             loop_ghosts contract.invariant.linear contract.invariant.linear body
         in
+        let body = push_named_formulas __sequentially_modifies ~used_vars invariant_linear body in
         let body = push_named_formulas __loop_ghosts ~used_vars loop_ghosts body in
-        assert (invariant_linear = []);
         push_named_formulas __invariant ~used_vars contract.invariant.pure body
       | None -> body
     in
@@ -1046,9 +1048,9 @@ let cfeatures_intro (style : style) : trm -> trm =
 
 (** [meta_intro t] adds into [t] all the "for-typing" operations
     and the contracts as C calls using the "__" prefix *)
-let meta_intro (style: style) : trm -> trm =
+let meta_intro ?(skip_var_ids = false) (style: style) : trm -> trm =
   fun t ->
-  Scope_computation.infer_var_ids ~check:false t |>
+  (if skip_var_ids then t else Scope_computation.infer_var_ids ~check:false t) |>
   formula_sugar_intro |>
   ghost_args_intro style |>
   contract_intro style

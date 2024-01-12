@@ -79,20 +79,21 @@ let paths ?(msg : string = "") (ps : paths) : unit =
 let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
   let custom_style = to_custom_style style in
-  let t =
-    if custom_style.decode then begin
-      if not (Trm.trm_is_mainfile t) then begin
-        prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
-        t
-      end else begin
-        Ast_fromto_AstC.(cfeatures_intro (style_of_custom_style custom_style)) t
-      end
-    end else t
-    in
   let st =
     match custom_style.print with
     | Lang_AST style -> Ast_to_text.ast_to_string ~style t
-    | Lang_C style -> AstC_to_c.ast_to_string ~style t
+    | Lang_C style ->
+      let t =
+        if custom_style.decode then begin
+          if not (Trm.trm_is_mainfile t) then begin
+            prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
+            t
+          end else begin
+            Ast_fromto_AstC.(cfeatures_intro (style_of_custom_style custom_style)) t
+          end
+        end else Ast_fromto_AstC.(meta_intro ~skip_var_ids:true (style_of_custom_style custom_style)) t
+        in
+      AstC_to_c.ast_to_string ~style t
     in
   prt ~suffix:"\n" st
 

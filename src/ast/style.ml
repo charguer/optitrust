@@ -40,7 +40,7 @@ and custom_style = {
 and print_language =
   | Lang_AST of Ast_to_text.style
   | Lang_C of AstC_to_c.style
-  (* Redundand constructors, to avoid need for parentheses,
+  (* Redundant constructors, to avoid need for parentheses,
      e.g. ~style:XC  instead of ~style:(c()) *)
 
 let ast_style_of_custom_style (style : custom_style) : Ast.style =
@@ -99,7 +99,7 @@ let internal () : style =
     typing = typing_none;
     print = Lang_C { s with
       optitrust_syntax = true;
-      ast = { s.ast with print_var_id = true } } }
+      ast = { s.ast with print_var_id = true; print_generated_ids = true } } }
 
 let internal_ast () : style  =
   let s = Ast_to_text.default_style () in

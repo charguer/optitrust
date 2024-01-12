@@ -287,7 +287,7 @@ let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> var =
 
 (** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
   Only variable ids equal to [inferred_var_id] are inferred, other ids are checked. *)
-let infer_var_ids ?(check = true) ?(check_uniqueness = true) (t : trm) : trm =
+let infer_var_ids ?(check = true) ?(check_uniqueness = check) (t : trm) : trm =
   let allow_redefinition = not check in
   let t2 = trm_rename_vars ~keep_ctx:true
     ~enter_scope:(enter_scope (fun ctx binder predecl -> fst (infer_map_binder ~allow_redefinition ctx binder predecl)))

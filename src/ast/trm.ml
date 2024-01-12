@@ -2389,7 +2389,7 @@ let trm_copy (t : trm) : trm =
       Tools.warn "A binder should always be introduced with a fresh id, not with an inferred id.";
       (var_map, v)
     end else begin
-      assert (not (Var_map.mem v var_map));
+      if (Var_map.mem v var_map) then failwith (sprintf "trm_copy found a second binder for %s" (var_to_string v));
       let new_v = new_var ~qualifier:v.qualifier v.name in
       (Var_map.add v new_v var_map, new_v)
     end
