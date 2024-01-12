@@ -124,7 +124,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
 
         trm_seq_nobrace_nomarks (ghosts_before @ [
           trm_for ~contract:contract_outer outer_range (trm_seq_nomarks [
-            trm_for ~contract:contract_inner inner_range (trm_subst_var index new_index body)
+            trm_copy (trm_for ~contract:contract_inner inner_range (trm_subst_var index new_index body))
           ])
         ] @ ghosts_after)
 

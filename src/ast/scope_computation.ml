@@ -55,6 +55,7 @@ let toplevel_scope_ctx (): scope_ctx = {
 (* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
 (* TODO: raise error or ignore the dummy ids (-1) *)
 let check_unique_var_ids (t : trm) : unit =
+  (* FIXME: This does not catch all the duplicated variable ids. Especially in contracts. *)
   (* LATER: refactor with function mapping over bindings? *)
   let vars = ref Var_set.empty in
   let add_var v =
