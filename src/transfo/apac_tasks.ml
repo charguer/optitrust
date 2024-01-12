@@ -144,6 +144,7 @@ module rec Task : sig
            }
          val create :
            trm -> Var_set.t -> Dep_set.t -> Dep_set.t -> TaskGraph.t list -> t
+         val merge : t -> t -> t
          val empty : trm -> t
          val to_string : t -> string
          val to_label : t -> string
@@ -175,6 +176,21 @@ module rec Task : sig
       ins = ins';
       inouts = inouts';
       children = children;
+    }
+  let merge (t1 : t) (t2 : t) : t =
+    let current' = t2.current::[] in
+    let current' = t1.current::current' in
+    (*let current' = Trm.trm_seq (Mlist.of_list current') in*)
+    let current' = Syntax.trm_seq_no_brace current' in
+    let _ = Debug_transfo.trm "new seq" current' in
+    let ins' = Dep_set.union t1.ins t2.ins in
+    let inouts' = Dep_set.union t1.inouts t2.inouts in
+    let children' = List.append t1.children t2.children in
+    {
+      current = current';
+      ins = ins';
+      inouts = inouts';
+      children = children';
     }
   let empty (current : trm) = {
       current = current;

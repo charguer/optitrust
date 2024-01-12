@@ -11,11 +11,15 @@ int g(int * a) {
 
 int h() {
   int a;
-  int b = 0;
-  int * c = (int *) malloc(sizeof(int));
+  int b;
+  b = 0;
+  b = b + 1;
+  b--;
+  int ** c;
+  c = (int **) malloc(sizeof(int));
   a = 1 + b++;
   b++;
-  g(c);
+  g(*c);
   a = 2;
   f(a, b);
   a = 3;

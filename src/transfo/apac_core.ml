@@ -1605,6 +1605,78 @@ let taskify_on (p : path) (t : trm) : unit =
 let taskify (tg : target) : unit =
   Target.iter (fun t p -> taskify_on p (get_trm_at_path p t)) tg
 
+(* [merge_on p t]: see [merge]. *)
+let merge_on (p : path) (t : trm) : unit =
+  let rec find_sequence (g : TaskGraph.t) (start : TaskGraph.V.t) :
+            TaskGraph.V.t list =
+    if (TaskGraph.out_degree g start) > 1 then
+      begin
+        [start]
+      end
+    else
+      begin
+        let child = TaskGraph.succ g start in
+        if (List.length child) < 1 then
+          begin
+            [start]
+          end
+        else
+          begin
+            let child = List.hd child in
+            if (TaskGraph.in_degree g child) < 2 then
+              start::(find_sequence g child)
+            else [start]
+          end
+      end
+  in
+  (* Find the parent function. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_core.merge_on: unable to find parent \
+                          function. Task group outside of a function?" in
+  (* Find the corresponding constification record in [const_records]. *)
+  let const_record = Var_Hashtbl.find const_records f in
+  (* Build the augmented AST correspoding to the function's body. *)
+  let g = match const_record.task_graph with
+    | Some (g') -> g'
+    | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
+                          taskify?" in
+  let vertices = TaskGraph.fold_vertex (fun v acc -> v::acc) g [] in
+  let nb_vertices = TaskGraph.nb_vertex g in
+  for i = 0 to (nb_vertices - 1) do
+    begin
+      let vertex = List.nth vertices i in
+      let sequence : TaskGraph.V.t list = find_sequence g vertex in
+      let steps = List.length sequence in
+      if steps > 1 then
+        begin
+          (*merge*)
+          let start = List.hd sequence in
+          let tail = List.tl sequence in
+          let first = TaskGraph.V.label start in
+          let task : Task.t = List.fold_left (fun t v ->
+                                  let curr : Task.t = TaskGraph.V.label v in
+                                  Task.merge t curr) first tail in
+          let stop = List.nth sequence (steps - 1) in
+          let pred = TaskGraph.pred g start in
+          let succ = TaskGraph.succ g stop in
+          let vertex' = TaskGraph.V.create task in
+          TaskGraph.add_vertex g vertex';
+          List.iter (fun v -> TaskGraph.add_edge g v vertex') pred;
+          List.iter (fun v -> TaskGraph.add_edge g vertex' v) succ;
+          List.iter (fun v -> TaskGraph.remove_vertex g v) sequence
+        end
+    end
+  done;
+  export_task_graph g "apac_task_graph_merged.dot"
+  (*fill const_record.variables t task_graph;
+  Printf.printf "Augmented AST for <%s> follows:\n%s\n"
+    (var_to_string f) (atrm_to_string aast)*)
+
+let merge (tg : target) : unit =
+  Nobrace.enter ();
+  Target.iter (fun t p -> merge_on p (get_trm_at_path p t)) tg
+
 (* [insert_tasks_on p t]: see [insert_tasks_on]. *)
 (*let insert_tasks_on (p : path) (t : trm) : trm =
   (* Auxiliary function to transform a portion of the existing AST into a local
