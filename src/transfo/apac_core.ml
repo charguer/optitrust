@@ -872,12 +872,16 @@ let trm_discover_dependencies (locals : symbols)
                 | Regular -> let d = Dep_trm (t', v) in Stack.push d ins
                 | FunArgIn -> 
                    let degree' = Var_Hashtbl.find locals v in
+                   let _ = Printf.printf "%s : degree' is %d, degree is %d\n" (var_to_string v) degree' degree in
                    let d = trm_to_dep t' v (degree' - degree) in
                    Stack.push d ins
                 | FunArgInOut ->
                    let degree' = Var_Hashtbl.find locals v in
-                   let d = trm_to_dep t' v (degree' - degree) in
-                   Stack.push d inouts
+                   let _ = Printf.printf "%s : degree' is %d, degree is %d\n" (var_to_string v) degree' degree in
+                   for i = 0 to (degree' + degree) do
+                     let d = var_to_dep v i in
+                     Stack.push d inouts
+                   done
               end
            | Some _ -> ()
            | None -> fail t.loc error
