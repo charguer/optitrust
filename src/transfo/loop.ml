@@ -169,9 +169,9 @@ let%transfo hoist_alloc_loop_list
     end
     | 1 -> begin
       let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
-      Loop_basic.hoist ~name:next_name ~mark_alloc ~mark_free ~mark_tmp_var [cMark mark_alloc];
-      if inline then Trace.without_substep_validity_checks (fun () ->
-        simpl_hoist_tmp_var ();
+      Trace.without_resource_computation_between_steps (fun () ->
+        Loop_basic.hoist ~name:next_name ~mark_alloc ~mark_free ~mark_tmp_var [cMark mark_alloc];
+        if inline then Trace.without_substep_validity_checks simpl_hoist_tmp_var;
       );
     end
     | _ -> failwith "expected list of 0 and 1s"
