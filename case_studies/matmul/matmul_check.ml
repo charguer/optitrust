@@ -18,10 +18,10 @@ let int = trm_int
 
 (* FIXME: avoid inlining *)
 let _ = Run.script_cpp (fun () ->
-  Resources.show ();
-
-  !! Resources.fix_loop_default_contracts [cFunBody "mm"];
-  !! Resources.loop_minimize [cFor "k"];
+  !! (
+    Resources.fix_loop_default_contracts [cFunBody "mm"];
+    Resources.loop_minimize [cFor "k"]
+  );
 
   !! Function.inline_def [cFunDef "mm"];
 

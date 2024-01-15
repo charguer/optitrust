@@ -32,8 +32,6 @@ If a transformation introduces dummy identifiers, it should call [Scope.infer_va
 {!Scope.check_unique_var_ids} checks the Uniqueness Invariant. It fails if the invariant is broken.
 It has an option to also check the Identification Invariant.
 
-{!Scope.check_var_ids} checks all three invariants.
-
 {2 Display mechanism}
 
 In order to pretty print ASTs with identifiers in a deterministic and human-readable fashion, we provide a renaming function {!Scope.unique_alpha_rename}.

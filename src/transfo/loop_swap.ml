@@ -121,7 +121,7 @@ let%transfo swap_basic (tg : target) : unit =
   );
   Resources.justif_correct "resources correct after swap"
   (* if !Flags.check_validity then begin
-    Scope.check_var_ids ();
+    Scope.infer_var_ids ();
   end *)
 
 (** [swap tg]: expects the target [tg] to point at a loop that contains an

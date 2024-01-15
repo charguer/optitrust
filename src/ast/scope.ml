@@ -3,7 +3,6 @@ open Trm
 module String_map = Tools.String_map
 
 let infer_var_ids () = Trace.apply Scope_computation.infer_var_ids
-let check_var_ids () = Scope_computation.check_var_ids (Trace.ast ())
 
 let ends_with_num_suffix_rexp = Str.regexp ".*_[0-9]+"
 let ends_with_num_suffix name =

@@ -18,6 +18,7 @@ type scope_ctx = {
   conflicts: Qualified_set.t; (** Set of variables defined in the current surrounding sequence and cannot be shadowed *)
   predefined: Qualified_set.t; (** Set of variables pre-defined in the current scope that can be redefined reusing the same id *)
   var_ids: var_id Qualified_map.t; (** Map from variables to their unique ids *)
+  renames: Qualified_name.t Var_map.t; (** When identfiers are correct, but name need to be changed, renaming may happen *)
   (* constr_name / field_names *)
   fun_prototypes: fun_prototype Var_map.t; (** Map from variable storing functions to their prototype *)
 }
@@ -40,6 +41,7 @@ let print_scope_ctx scope_ctx =
     List.of_seq (
     Seq.map (fun ((q, n), id) -> { qualifier = q; name = n; id = id }) (
     Qualified_map.to_seq scope_ctx.var_ids))));
+  (* TODO: print renames *)
   printf "}\n"
 
 (** internal *)
@@ -48,6 +50,7 @@ let toplevel_scope_ctx (): scope_ctx = {
   conflicts = Qualified_set.empty;
   predefined = Qualified_map.fold (fun qname _ set -> Qualified_set.add qname set) !toplevel_vars Qualified_set.empty;
   var_ids = !toplevel_vars;
+  renames = Var_map.empty;
   fun_prototypes = Var_map.empty;
 }
 
@@ -82,43 +85,100 @@ let check_unique_var_ids (t : trm) : unit =
   in
   aux t
 
-(** internal *)
-let check_var (scope_ctx : scope_ctx) var =
-  let qualified = (var.qualifier, var.name) in
-  match Qualified_map.find_opt qualified scope_ctx.var_ids with
-  | None ->
-    raise (InvalidVarId (sprintf "variable %s is used but not in scope." (var_to_string var)))
-  | Some id when id <> var.id ->
-    raise (InvalidVarId (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) id))
-  | _ -> ()
+(** raise an [InvalidVarId] error, or recover if failing is not permitted. *)
+let invalid_or_recover ~(failure_allowed : bool)
+  (error : string) (recovery : 'a) : 'a =
+  if failure_allowed
+    then raise (InvalidVarId error)
+    else recovery
 
 (** internal *)
-let check_binder ?(allow_redefinition = false) (scope_ctx : scope_ctx) var is_predecl =
+let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
   let qualified = (var.qualifier, var.name) in
+  let infer_var_id () =
+    (* Case 1: infer var id according to name. *)
+    match Qualified_map.find_opt qualified scope_ctx.var_ids with
+    | Some id when id = inferred_var_id ->
+      invalid_or_recover ~failure_allowed (sprintf "variable %s is ambiguous, id cannot be inferred" (var_to_string var)) var
+    | Some id -> { qualifier = var.qualifier; name = var.name; id }
+    (* LATER: this can be confusing if triggered when not expected *)
+    | None -> toplevel_var ~qualifier:var.qualifier var.name
+  in
+  let check_var_id () =
+    (* Case 3: check var id consisent with name. *)
+    begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
+    | None ->
+      invalid_or_recover ~failure_allowed (sprintf "variable %s is used but not in scope." (var_to_string var)) var
+    | Some id when id <> var.id ->
+      invalid_or_recover ~failure_allowed (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) id) var
+    | _ -> var
+    end
+  in
+  if var.id = inferred_var_id then
+    infer_var_id ()
+  else begin
+    match Var_map.find_opt var scope_ctx.renames with
+    | Some (qualifier, name) ->
+      (* Case 2: repare broken name, i.e. infer name according to var id *)
+      { qualifier; name; id = var.id }
+    | None -> check_var_id ()
+  end
+
+(** internal *)
+let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
+  var is_predecl : scope_ctx * var =
+  let qualified = (var.qualifier, var.name) in
+  let infer_var_id () =
+    if Qualified_set.mem qualified scope_ctx.predefined
+    then { qualifier = var.qualifier; name = var.name; id = Qualified_map.find qualified scope_ctx.var_ids }
+    else new_var ~qualifier:var.qualifier var.name
+  in
   (* currently we add all possible qualifiers to the data structures,
-     the alternative is to add only one qualifier (absolute?) and to
-     perform more complex .mem checks taking qualifiers into account. *)
-  let add_for_each_qualifier obj_add obj =
+  the alternative is to add only one qualifier (absolute?) and to
+  perform more complex .mem checks taking qualifiers into account. *)
+  let add_for_each_qualifier var obj_add obj =
     let qualifier = ref var.qualifier in
     List.fold_left (fun obj q ->
       qualifier := q :: !qualifier;
       obj_add (!qualifier, var.name) obj
     ) (obj_add qualified obj) scope_ctx.prefix_qualifier_rev
   in
-  (if var.name = "" then
-    (* C/C++ allows giving no variable names *)
-    scope_ctx
+  (* 1. infer var id if necessary *)
+  let var = if var.id = inferred_var_id then infer_var_id () else var in
+  if var.name = "" then
+    (* 2. C/C++ allows giving no variable names *)
+    (scope_ctx, var)
   else if is_predecl then
-    (* predeclarations don't conflict *)
-    { scope_ctx with predefined = add_for_each_qualifier Qualified_set.add scope_ctx.predefined;
-     var_ids = add_for_each_qualifier (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids }
-  else if (not allow_redefinition) && Qualified_set.mem qualified scope_ctx.conflicts then
-    raise (InvalidVarId (sprintf "redefinition of variable '%s' is illegal in C/C++" (var_to_string var)))
-  else
-    { scope_ctx with conflicts = add_for_each_qualifier Qualified_set.add scope_ctx.conflicts;
-      predefined = add_for_each_qualifier Qualified_set.add scope_ctx.predefined;
-      var_ids = add_for_each_qualifier (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids }
-  )
+    (* 3. predeclarations don't conflict *)
+    ({ scope_ctx with predefined = add_for_each_qualifier var Qualified_set.add scope_ctx.predefined;
+     var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids },
+     var)
+    (* fixed by renaming:
+  else if ...:
+      raise (InvalidVarId (sprintf "redefinition of variable '%s' is illegal in C/C++" (var_to_string var))) *)
+  else begin
+    let needs_rename =
+      (Qualified_set.mem qualified scope_ctx.conflicts) ||
+      (* TODO: only rename effective shadowings, i.e. if shadowed var is used in free vars. *)
+      ((Qualified_map.find_opt qualified scope_ctx.var_ids) |>
+          Option.fold ~none:false ~some:(fun id -> id <> var.id))
+    in
+    if needs_rename then begin
+      (* 4. fix redefinitions or shadowing conflicts by renaming binder. *)
+      let var' = new_var ~qualifier:var.qualifier (fresh_var_name ~prefix:var.name ()) in
+      ({ scope_ctx with conflicts = add_for_each_qualifier var' Qualified_set.add scope_ctx.conflicts;
+      (* FIXME: handle renaming + predefinitions
+        predefined = add_for_each_qualifier var Qualified_set.add scope_ctx.predefined; *)
+      (* NOTE: registers 'inferred_var_id' in 'var_ids' to encode name ambiguity. *)
+      var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q inferred_var_id) scope_ctx.var_ids },
+      var')
+    end else
+      (* 5. normal case *)
+      ({ scope_ctx with conflicts = add_for_each_qualifier var Qualified_set.add scope_ctx.conflicts;
+      predefined = add_for_each_qualifier var Qualified_set.add scope_ctx.predefined;
+      var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids },
+      var)
+  end
 
 let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
   match t.desc with
@@ -180,6 +240,7 @@ let enter_scope check_binder scope_ctx t =
 
 (** internal *)
 let scope_ctx_exit outer_ctx inner_ctx t =
+  (* TODO: handle ~failure_allowed *)
   match t.desc with
   | Trm_namespace (name, _, _)
   | Trm_typedef { typdef_tconstr = name } ->
@@ -212,52 +273,25 @@ let scope_ctx_exit outer_ctx inner_ctx t =
       conflicts = Qualified_set.union outer_ctx.conflicts (Qualified_set.filter is_qualified (inner_ctx.conflicts));
       predefined = Qualified_set.union outer_ctx.predefined (Qualified_set.filter is_qualified (inner_ctx.predefined));
       var_ids = Qualified_map.union union_var_ids outer_ctx.var_ids (Qualified_map.filter (fun k v -> is_qualified k) inner_ctx.var_ids);
+      renames = Var_map.union (fun x _ _ ->
+        raise (InvalidVarId (sprintf "variable '%s' is renamed both inside and outside the namespace" (var_to_string x))))
+      outer_ctx.renames (Var_map.filter (fun x _ -> is_qualified (x.qualifier, x.name)) inner_ctx.renames);
       fun_prototypes = Var_map.union (fun x _ _ ->
         raise (InvalidVarId (sprintf "variable '%s' has a function specification both inside and outside the namespace" (var_to_string x))))
         outer_ctx.fun_prototypes (Var_map.filter (fun x _ -> is_qualified (x.qualifier, x.name)) inner_ctx.fun_prototypes) }
   | _ -> outer_ctx
 
-let post_process_ctx ctx t =
+let post_process_ctx ~(failure_allowed : bool) ctx t =
   match t.desc with
   | Trm_let_fun (f_var, _, _, _, FunSpecContract spec) ->
     { ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map fst spec.pre.pure } ctx.fun_prototypes }
   | Trm_let_fun (f_var, _, _, _, FunSpecReverts f_reverted) ->
-    check_var ctx f_reverted;
+    let f_reverted = infer_map_var ~failure_allowed ctx f_reverted in
     begin match Var_map.find_opt f_reverted ctx.fun_prototypes with
     | Some proto -> { ctx with fun_prototypes = Var_map.add f_var proto ctx.fun_prototypes }
     | None -> failwith (sprintf "Function %s cannot revert %s because its contract is undefined" (var_to_string f_var) (var_to_string f_reverted))
     end
   | _ -> ctx
-
-(** Given term [t], check that all variable ids agree with their qualified name for C/C++ scoping rules. *)
-let check_var_ids ?(check_uniqueness = true) (t : trm) : unit =
-  trm_iter_vars ~enter_scope:(enter_scope check_binder) ~exit_scope:scope_ctx_exit ~post_process:post_process_ctx ~iter_binder:check_binder ~iter_ghost_arg_name:check_ghost_arg_name check_var (toplevel_scope_ctx ()) t;
-  if check_uniqueness then check_unique_var_ids t
-
-(** internal *)
-let infer_map_binder ?(allow_redefinition = false) (scope_ctx : scope_ctx) var t =
-  let var' = if var.id = inferred_var_id
-    then begin
-      let qualified = (var.qualifier, var.name) in
-      if Qualified_set.mem qualified scope_ctx.predefined
-      then { qualifier = var.qualifier; name = var.name; id = Qualified_map.find qualified scope_ctx.var_ids }
-      else new_var ~qualifier:var.qualifier var.name
-    end else var
-  in
-  (check_binder ~allow_redefinition scope_ctx var' t, var')
-
-(** internal *)
-let infer_map_var ?(check = true) (scope_ctx : scope_ctx) var =
-  let qualified = (var.qualifier, var.name) in
-  if var.id = inferred_var_id then
-    match Qualified_map.find_opt qualified scope_ctx.var_ids with
-    | Some id -> { qualifier = var.qualifier; name = var.name; id }
-    (* LATER: this can be confusing if triggered when not expected *)
-    | None -> toplevel_var ~qualifier:var.qualifier var.name
-  else begin
-    if check then check_var scope_ctx var;
-    var
-  end
 
 let only_infer_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t)
   (ghost_args_proto : var list ref)
@@ -288,15 +322,14 @@ let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> var =
 
 (** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
   Only variable ids equal to [inferred_var_id] are inferred, other ids are checked. *)
-let infer_var_ids ?(check = true) ?(check_uniqueness = check) (t : trm) : trm =
-  let allow_redefinition = not check in
+let infer_var_ids ?(failure_allowed = false) ?(check_uniqueness = not failure_allowed) (t : trm) : trm =
   let t2 = trm_rename_vars ~keep_ctx:true
-    ~enter_scope:(enter_scope (fun ctx binder predecl -> fst (infer_map_binder ~allow_redefinition ctx binder predecl)))
+    ~enter_scope:(enter_scope (fun ctx binder predecl -> fst (infer_map_binder ~failure_allowed ctx binder predecl)))
     ~exit_scope:scope_ctx_exit
-    ~post_process:(fun ctx t -> (post_process_ctx ctx t, t))
-    ~map_binder:(infer_map_binder ~allow_redefinition)
-    ~map_ghost_arg_name:(if check then infer_ghost_arg_name else only_infer_ghost_arg_name)
-    (infer_map_var ~check)
+    ~post_process:(fun ctx t -> (post_process_ctx ~failure_allowed ctx t, t))
+    ~map_binder:(infer_map_binder ~failure_allowed)
+    ~map_ghost_arg_name:(if failure_allowed then only_infer_ghost_arg_name else infer_ghost_arg_name)
+    (infer_map_var ~failure_allowed)
     (toplevel_scope_ctx ()) t in
   if check_uniqueness then check_unique_var_ids t2;
   t2

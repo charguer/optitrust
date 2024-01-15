@@ -5,7 +5,7 @@ let _ = Flags.pretty_matrix_notation := true
 
 (* TODO: generalize *)
 let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
-  Scope.check_var_ids (Trace.ast ());
+  Trace.apply Scope.infer_var_ids;
   Trace.tag_atomic ();
   let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule tg in
   List.iter rewrite [

@@ -1050,7 +1050,7 @@ let cfeatures_intro (style : style) : trm -> trm =
     and the contracts as C calls using the "__" prefix *)
 let meta_intro ?(skip_var_ids = false) (style: style) : trm -> trm =
   fun t ->
-  (if skip_var_ids then t else Scope_computation.infer_var_ids ~check:false t) |>
+  (if skip_var_ids then t else Scope_computation.infer_var_ids ~failure_allowed:true t) |>
   formula_sugar_intro |>
   ghost_args_intro style |>
   contract_intro style
