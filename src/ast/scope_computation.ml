@@ -18,7 +18,7 @@ type scope_ctx = {
   conflicts: Qualified_set.t; (** Set of variables defined in the current surrounding sequence and cannot be shadowed *)
   predefined: Qualified_set.t; (** Set of variables pre-defined in the current scope that can be redefined reusing the same id *)
   var_ids: var_id Qualified_map.t; (** Map from variables to their unique ids *)
-  renames: Qualified_name.t Var_map.t; (** When identfiers are correct, but name need to be changed, renaming may happen *)
+  renames: string Var_map.t; (** When identfiers are correct, but name need to be changed, renaming may happen *)
   (* constr_name / field_names *)
   fun_prototypes: fun_prototype Var_map.t; (** Map from variable storing functions to their prototype *)
 }
@@ -118,9 +118,9 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
     infer_var_id ()
   else begin
     match Var_map.find_opt var scope_ctx.renames with
-    | Some (qualifier, name) ->
+    | Some name ->
       (* Case 2: repare broken name, i.e. infer name according to var id *)
-      { qualifier; name; id = var.id }
+      { qualifier = var.qualifier; name; id = var.id }
     | None -> check_var_id ()
   end
 
@@ -150,6 +150,7 @@ let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
     (scope_ctx, var)
   else if is_predecl then
     (* 3. predeclarations don't conflict *)
+    (* TODO: handle combination with renaming *)
     ({ scope_ctx with predefined = add_for_each_qualifier var Qualified_set.add scope_ctx.predefined;
      var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids },
      var)
@@ -165,11 +166,15 @@ let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
     in
     if needs_rename then begin
       (* 4. fix redefinitions or shadowing conflicts by renaming binder. *)
-      let var' = new_var ~qualifier:var.qualifier (fresh_var_name ~prefix:var.name ()) in
-      ({ scope_ctx with conflicts = add_for_each_qualifier var' Qualified_set.add scope_ctx.conflicts;
+      (* FIXME: fresh_var_name should be deterministic based on visible scope. *)
+      let var' = { qualifier = var.qualifier; name = fresh_var_name ~prefix:var.name (); id = var.id } in
+      ({
+       (* NOTE: should never conlict because name should be fresh. *)
+       scope_ctx with conflicts = add_for_each_qualifier var' Qualified_set.add scope_ctx.conflicts;
       (* FIXME: handle renaming + predefinitions
         predefined = add_for_each_qualifier var Qualified_set.add scope_ctx.predefined; *)
       (* NOTE: registers 'inferred_var_id' in 'var_ids' to encode name ambiguity. *)
+      renames = Var_map.add var' var'.name scope_ctx.renames;
       var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q inferred_var_id) scope_ctx.var_ids },
       var')
     end else
