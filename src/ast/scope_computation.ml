@@ -36,12 +36,17 @@ let print_scope_ctx scope_ctx =
     List.of_seq (
     Seq.map (fun (q, n) -> name_to_var ~qualifier:q n) (
     Qualified_set.to_seq scope_ctx.predefined))));
-  printf "var_ids = %s;\n" (
+  printf "  var_ids = %s;\n" (
     vars_to_string (
     List.of_seq (
     Seq.map (fun ((q, n), id) -> { qualifier = q; name = n; id = id }) (
     Qualified_map.to_seq scope_ctx.var_ids))));
-  (* TODO: print renames *)
+  printf "  renames = %s;\n" (
+    Tools.list_to_string (
+    List.of_seq (
+    Seq.map (fun (v, n) -> sprintf "%s -> %s" (var_to_string v) n) (
+    Var_map.to_seq scope_ctx.renames)))
+  );
   printf "}\n"
 
 (** internal *)
@@ -98,8 +103,9 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
   let infer_var_id () =
     (* Case 1: infer var id according to name. *)
     match Qualified_map.find_opt qualified scope_ctx.var_ids with
+    (* FIXME: need more precise renaming to check this.
     | Some id when id = inferred_var_id ->
-      invalid_or_recover ~failure_allowed (sprintf "variable %s is ambiguous, id cannot be inferred" (var_to_string var)) var
+      invalid_or_recover ~failure_allowed (sprintf "variable %s is ambiguous, id cannot be inferred" (var_to_string var)) var *)
     | Some id -> { qualifier = var.qualifier; name = var.name; id }
     (* LATER: this can be confusing if triggered when not expected *)
     | None -> toplevel_var ~qualifier:var.qualifier var.name
@@ -108,20 +114,28 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
     (* Case 3: check var id consisent with name. *)
     begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | None ->
-      invalid_or_recover ~failure_allowed (sprintf "variable %s is used but not in scope." (var_to_string var)) var
+      invalid_or_recover ~failure_allowed
+        (sprintf "variable %s is used but not in scope." (var_to_string var)) var
     | Some id when id <> var.id ->
-      invalid_or_recover ~failure_allowed (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) id) var
+      invalid_or_recover ~failure_allowed
+        (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) id) var
     | _ -> var
     end
   in
-  if var.id = inferred_var_id then
-    infer_var_id ()
-  else begin
+  let rename_or_else var f =
     match Var_map.find_opt var scope_ctx.renames with
     | Some name ->
+      printf "renaming %s to %s\n" (var_to_string var) name;
       (* Case 2: repare broken name, i.e. infer name according to var id *)
       { qualifier = var.qualifier; name; id = var.id }
-    | None -> check_var_id ()
+    | None -> f ()
+  in
+  if var.id = inferred_var_id then
+    let var' = infer_var_id () in
+    (* FIXME: should not be required with more precise renaming. *)
+    rename_or_else var' (fun () -> var')
+  else begin
+    rename_or_else var check_var_id
   end
 
 (** internal *)
@@ -130,7 +144,8 @@ let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
   let qualified = (var.qualifier, var.name) in
   let infer_var_id () =
     if Qualified_set.mem qualified scope_ctx.predefined
-    then { qualifier = var.qualifier; name = var.name; id = Qualified_map.find qualified scope_ctx.var_ids }
+    then { qualifier = var.qualifier; name = var.name;
+           id = Qualified_map.find qualified scope_ctx.var_ids }
     else new_var ~qualifier:var.qualifier var.name
   in
   (* currently we add all possible qualifiers to the data structures,
@@ -171,11 +186,11 @@ let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
       ({
        (* NOTE: should never conlict because name should be fresh. *)
        scope_ctx with conflicts = add_for_each_qualifier var' Qualified_set.add scope_ctx.conflicts;
-      (* FIXME: handle renaming + predefinitions
-        predefined = add_for_each_qualifier var Qualified_set.add scope_ctx.predefined; *)
-      (* NOTE: registers 'inferred_var_id' in 'var_ids' to encode name ambiguity. *)
-      renames = Var_map.add var' var'.name scope_ctx.renames;
-      var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q inferred_var_id) scope_ctx.var_ids },
+       (* FIXME: handle renaming + predefinitions *)
+       predefined = add_for_each_qualifier var' Qualified_set.add scope_ctx.predefined;
+       renames = Var_map.add var var'.name scope_ctx.renames;
+       (* FIXME: should register 'inferred_var_id' in 'var_ids' to encode name ambiguity. *)
+       var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids },
       var')
     end else
       (* 5. normal case *)
@@ -327,7 +342,7 @@ let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> var =
 
 (** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
   Only variable ids equal to [inferred_var_id] are inferred, other ids are checked. *)
-let infer_var_ids ?(failure_allowed = false) ?(check_uniqueness = not failure_allowed) (t : trm) : trm =
+let infer_var_ids ?(failure_allowed = true) ?(check_uniqueness = not failure_allowed) (t : trm) : trm =
   let t2 = trm_rename_vars ~keep_ctx:true
     ~enter_scope:(enter_scope (fun ctx binder predecl -> fst (infer_map_binder ~failure_allowed ctx binder predecl)))
     ~exit_scope:scope_ctx_exit

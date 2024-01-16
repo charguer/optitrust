@@ -46,6 +46,7 @@ let same_val (v1 : value) (v2 : value) : bool =
 (* FIXME: use targets instead of same_trm. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
+  Tools.warn "Internal.change_trm is DEPRECATED!";
   let rec apply_change (t' : trm) : trm=
     if same_trm t' t_before then
       trm_copy t_after
