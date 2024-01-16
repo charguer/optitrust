@@ -807,16 +807,18 @@ let find_parent_function (p : path) : var option =
   in
   aux reversed
 
-let trm_task (ins : Dep_set.t) (inouts : Dep_set.t) : cpragma =
+let trm_from_task (t : Task.t) : trm =
   let shared = [Default Shared_m] in
-  let ins' = dep_set_to_list ins in
+  let ins' = dep_set_to_list t.ins in
   let ins' = if (List.length ins') < 1 then [] else [In ins'] in
-  let inouts' = dep_set_to_list inouts in
+  let inouts' = dep_set_to_list t.inouts in
   let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
   let depend = List.append ins' inouts' in
   let depend = if (List.length depend) < 1 then [] else [Depend depend] in
   let clauses = List.append shared depend in
-  Task clauses
+  let pragma = Task clauses in
+  let instr = trm_seq_nomarks [t.current] in
+  trm_add_pragma pragma instr
 
 (* [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
    returns two lists. The first list holds the access terms where each term is
@@ -1678,60 +1680,7 @@ let merge (tg : target) : unit =
   Target.iter (fun t p -> merge_on p (get_trm_at_path p t)) tg
 
 (* [insert_tasks_on p t]: see [insert_tasks_on]. *)
-(*let insert_tasks_on (p : path) (t : trm) : trm =
-  (* Auxiliary function to transform a portion of the existing AST into a local
-     augmented AST (see [atrm]). *)
-  let rec aux (t : atrm) : trm =
-    match t.current.desc with
-    | Trm_seq _ ->
-       let instrs = List.map (fun instr ->
-                        if instr.task_id > -1 then
-                          let pragma =
-                            trm_task instr.ins instr.inouts instr.shared in
-                          let instr' = trm_seq_nomarks [instr.current] in
-                          trm_add_pragma pragma instr'
-                        else
-                          aux instr
-                      ) t.children in
-       let res = trm_seq_nomarks instrs in
-       let _ = Debug_transfo.trm "out seq" res in
-       res
-    | Trm_for_c (init, cond, inc, _, _) ->
-       let instrs = List.hd t.children in
-       let instrs = aux instrs in
-       trm_for_c init cond inc instrs
- (* | Trm_for (range, body, _) -> {
-        current = t;
-        ins = [];
-        inouts = [];
-        children = [(augment body)];
-        params = [range]
-      } *)
-    | Trm_if (cond, _, _) ->
-       let yes = List.nth t.children 0 in
-       let yes = aux yes in
-       let no = List.nth t.children 1 in
-       let no = aux no in
-       trm_if cond yes no
-    | Trm_while (cond, _) ->
-       let body = List.hd t.children in
-       let body = aux body in
-       trm_while cond body
-    | Trm_do_while (_, cond) ->
-       let body = List.hd t.children in
-       let body = aux body in
-       trm_do_while body cond
-    | Trm_switch (cond, cases) ->
-        let cases' = t.children in
-        let cases' = List.map2 (fun (labels, _) case ->
-                         let case' = aux case in
-                         (labels, case')
-                       ) cases cases' in
-        trm_switch cond cases'
-    | _ ->
-       let _ = Printf.printf "I don't know '%s', returning as-is\n" (trm_desc_to_string t.current.desc) in
-       t.current
-  in
+let insert_tasks_on (p : path) (t : trm) : trm =
   (* Find the parent function. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
@@ -1740,14 +1689,38 @@ let merge (tg : target) : unit =
   (* Find the corresponding constification record in [const_records]. *)
   let const_record = Var_Hashtbl.find const_records f in
   (* Build the augmented AST correspoding to the function's body. *)
-  let aast = match const_record.aast with
-    | Some (tree) -> tree
-    | None -> fail t.loc "Apac_core.insert_tasks_on: no corresponding \
-                          augmented AST. Did you forget to run \
-                          Apac_core.taskify?"
-  in
-  aux aast
+  let g = match const_record.task_graph with
+    | Some (g') -> g'
+    | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
+                          taskify?" in
+  let vertices = TaskGraph.fold_vertex (
+                     fun v acc -> if TaskGraph.in_degree g v < 1 then v::acc else acc
+                   ) g [] in
+  let root = List.hd vertices in
+  let instrs : trm Stack.t = Stack.create () in
+  TaskGraphTraverse.iter_component (fun v ->
+      let parents = TaskGraph.in_degree g v in
+      let task = TaskGraph.V.label v in
+      let _ = Debug_transfo.trm "visiting" task.current in
+      if parents > 0 then (* not the root node (at least one parent node) *)
+        begin
+          match task.current.desc with
+          | Trm_let _
+            | Trm_let_mult _
+            | Trm_val _ -> Stack.push task.current instrs
+          | _ ->
+             let term = trm_from_task task in
+             Stack.push term instrs
+        end
+    ) g root;
+  let instrs' = List.of_seq (Stack.to_seq instrs) in
+  let instrs' = List.rev instrs' in
+  let instrs' = Mlist.of_list instrs' in
+  let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs' in
+  (*let _ = Debug_transfo.trm "output" result in*)
+  result
+  
     
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
- *)
+

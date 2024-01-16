@@ -247,3 +247,5 @@ let export_task_graph g f : unit =
 module TaskGraphBuilder = Builder.I(TaskGraph)
 
 module TaskGraphOper = Oper.Make(TaskGraphBuilder)
+
+module TaskGraphTraverse = Traverse.Bfs(TaskGraph)
