@@ -137,7 +137,7 @@ end
 
 module rec Task : sig
          type t = {
-             current : trm;
+             current : trms;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
              children : TaskGraph.t list;
@@ -150,7 +150,7 @@ module rec Task : sig
          val to_label : t -> string
        end = struct
   type t = {
-             current : trm;
+             current : trms;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
              children : TaskGraph.t list;
@@ -172,17 +172,13 @@ module rec Task : sig
                     ) inouts in
     let ins' = Dep_set.diff ins' inouts' in
     {
-      current = current;
+      current = [current];
       ins = ins';
       inouts = inouts';
       children = children;
     }
   let merge (t1 : t) (t2 : t) : t =
-    let current' = t2.current::[] in
-    let current' = t1.current::current' in
-    (*let current' = Trm.trm_seq (Mlist.of_list current') in*)
-    let current' = Syntax.trm_seq_no_brace current' in
-    let _ = Debug_transfo.trm "new seq" current' in
+    let current' = t1.current @ t2.current in
     let ins' = Dep_set.union t1.ins t2.ins in
     let inouts' = Dep_set.union t1.inouts t2.inouts in
     let children' = List.append t1.children t2.children in
@@ -193,13 +189,16 @@ module rec Task : sig
       children = children';
     }
   let empty (current : trm) = {
-      current = current;
+      current = [current];
       ins = Dep_set.empty;
       inouts = Dep_set.empty;
       children = [];
     }
   let to_string (task : t) : string =
-    let what = trm_desc_to_string task.current.desc in
+    let what = List.fold_left (fun acc term ->
+                   let desc = trm_desc_to_string term.desc in
+                   acc ^ " > " ^ desc
+                 ) "" task.current in
     let ins = Dep_set.fold
                 (fun a acc -> acc ^ " " ^ (dep_to_string a)) task.ins "" in
     let inouts = Dep_set.fold (
@@ -207,8 +206,11 @@ module rec Task : sig
                    ) task.inouts "" in
     what ^ " (in: [" ^ ins ^ " ], inouts: [" ^ inouts ^ " ])\n"
   let to_label (task : t) : string =
-    let what = trm_desc_to_string task.current.desc in
-    let instr = AstC_to_c.ast_to_string task.current in
+    let what = List.fold_left (fun acc term ->
+                   let desc = trm_desc_to_string term.desc in
+                   acc ^ " > " ^ desc
+                 ) "" task.current in
+    let instr = AstC_to_c.ast_to_string (List.hd task.current) in
     let limit = String.length instr in
     let limit = if limit > 20 then 20 else limit in
     let excerpt = String.sub instr 0 limit in
@@ -222,7 +224,11 @@ module TaskGraphPrinter = struct
   let vertex_name (vertex : V.t) : string =
     let task = TaskGraph.V.label vertex in
     let id = TaskGraph.V.hash vertex in
-    (trm_desc_to_string task.current.desc) ^ "_" ^ (string_of_int id)
+    let what = List.fold_left (fun acc term ->
+                   let desc = trm_desc_to_string term.desc in
+                   acc ^ "_" ^ desc
+                 ) "" task.current in
+    what ^ "_" ^ (string_of_int id)
   let get_subgraph (vertex : V.t) = None
   let graph_attributes
         (graph : TaskGraph.t) : Graphviz.DotAttributes.graph list = []

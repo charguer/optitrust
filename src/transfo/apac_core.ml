@@ -817,7 +817,7 @@ let trm_from_task (t : Task.t) : trm =
   let depend = if (List.length depend) < 1 then [] else [Depend depend] in
   let clauses = List.append shared depend in
   let pragma = Task clauses in
-  let instr = trm_seq_nomarks [t.current] in
+  let instr = trm_seq_nomarks t.current in
   trm_add_pragma pragma instr
 
 (* [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
@@ -1701,23 +1701,31 @@ let insert_tasks_on (p : path) (t : trm) : trm =
   TaskGraphTraverse.iter_component (fun v ->
       let parents = TaskGraph.in_degree g v in
       let task = TaskGraph.V.label v in
-      let _ = Debug_transfo.trm "visiting" task.current in
+      (*let _ = Debug_transfo.trm "visiting" task.current in*)
       if parents > 0 then (* not the root node (at least one parent node) *)
         begin
-          match task.current.desc with
-          | Trm_let _
-            | Trm_let_mult _
-            | Trm_val _ -> Stack.push task.current instrs
-          | _ ->
-             let term = trm_from_task task in
-             Stack.push term instrs
+          let has_decl_or_label = List.exists (fun term ->
+                                      match term.desc with
+                                      | Trm_let _
+                                        | Trm_let_mult _
+                                        | Trm_val _ -> true
+                                      | _ -> false) task.current in
+          if has_decl_or_label then
+            begin
+              List.iter (fun term -> Stack.push term instrs) task.current
+            end
+          else
+            begin
+              let term = trm_from_task task in
+              Stack.push term instrs
+            end
         end
     ) g root;
   let instrs' = List.of_seq (Stack.to_seq instrs) in
   let instrs' = List.rev instrs' in
   let instrs' = Mlist.of_list instrs' in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs' in
-  (*let _ = Debug_transfo.trm "output" result in*)
+  let _ = Debug_transfo.trm "output" result in
   result
   
     
