@@ -230,6 +230,9 @@ module TaskGraphPrinter = struct
                  ) "" task.current in
     what ^ "_" ^ (string_of_int id)
   let get_subgraph (vertex : V.t) = None
+  let get_nested_graphs (vertex : V.t) =
+    let task = TaskGraph.V.label vertex in
+    task.children
   let graph_attributes
         (graph : TaskGraph.t) : Graphviz.DotAttributes.graph list = []
   let default_vertex_attributes
@@ -247,7 +250,7 @@ module DotExport = Graph.Graphviz.Dot(TaskGraphPrinter)
 
 let export_task_graph g f : unit =
   let file = open_out f in
-  DotExport.output_graph file g;
+  DotExport.output_nested_graph file g;
   close_out file
 
 module TaskGraphBuilder = Builder.I(TaskGraph)

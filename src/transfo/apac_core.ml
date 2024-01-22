@@ -874,14 +874,15 @@ let trm_discover_dependencies (locals : symbols)
                 | Regular -> let d = Dep_trm (t', v) in Stack.push d ins
                 | FunArgIn -> 
                    let degree' = Var_Hashtbl.find locals v in
-                   let _ = Printf.printf "%s : degree' is %d, degree is %d\n" (var_to_string v) degree' degree in
+                   let _ = Printf.printf "old %s : degree' is %d, degree is %d\n" (var_to_string v) degree' degree in
                    let d = trm_to_dep t' v (degree' - degree) in
                    Stack.push d ins
                 | FunArgInOut ->
                    let degree' = Var_Hashtbl.find locals v in
-                   let _ = Printf.printf "%s : degree' is %d, degree is %d\n" (var_to_string v) degree' degree in
+                   let _ = Printf.printf "%s : degree' is %d, degree is %d, sum is %d\n" (var_to_string v) degree' degree (degree' + degree) in
                    for i = 0 to (degree' + degree) do
-                     let d = var_to_dep v i in
+                     (* TODO: Pas sûr ! Avant, il y avait var_to_dep. *)
+                     let d = trm_to_dep t' v i in
                      Stack.push d inouts
                    done
               end
@@ -912,7 +913,7 @@ let trm_discover_dependencies (locals : symbols)
                           (Val_prim (Prim_binop Binop_array_access)); _}, _)
       | Trm_apps ({desc = Trm_val
                             (Val_prim (Prim_binop Binop_array_get)); _}, _) ->
-       (* let _ = Printf.printf "array\n" in *)
+        let _ = Printf.printf "array\n" in
        let (base, accesses) = get_nested_accesses t in
        begin
          match (trm_resolve_pointer_and_degree base) with
@@ -1498,9 +1499,14 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins ins', Dep_set.union inouts inouts') in
        let c = TaskGraph.create() in
        let ct = fill s instr c in
+       let c' = (*TaskGraphOper.transitive_reduction*) c in
        let (ins, inouts) =
          (Dep_set.union ins ct.ins, Dep_set.union inouts ct.inouts) in
-       Task.create t scope ins inouts [c]
+       let _ = 
+         TaskGraph.iter_vertex (fun vertex ->
+             let lab : Task.t = TaskGraph.V.label vertex in
+             Printf.printf "subgraph vertex: %s\n" (Task.to_string lab)) c' in
+       Task.create t scope ins inouts [c']
  (* | Trm_for (range, body, _) -> {
         current = t;
         ins = [];
@@ -1680,6 +1686,9 @@ let merge (tg : target) : unit =
   Target.iter (fun t p -> merge_on p (get_trm_at_path p t)) tg
 
 (* [insert_tasks_on p t]: see [insert_tasks_on]. *)
+(* TODO : Un parcours plus intelligent du graphe lors de la génération de code de sortie, pas seulement du BFS. *)
+(* - consolider l'implémentation actuelle (ajouter les sous-graphes, tester sur des vrais codes)
+   - mettre sur papier des idées de stratégies de transformation de graphes. *)
 let insert_tasks_on (p : path) (t : trm) : trm =
   (* Find the parent function. *)
   let f = match (find_parent_function p) with

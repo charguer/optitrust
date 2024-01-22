@@ -12,9 +12,7 @@ void r(int v, int z) { int a = 15 + z, b = a + 2, c = a + b + v++; }
 
 void c(int * tab, int size) {
   f(tab);
-  int *** a, *** b;
-  int i = ***a;
-  ***b = i;
+  int i;
   for(i = 0; i < size; i++) {
     tab[i] += 2;
     p(tab[i]);
