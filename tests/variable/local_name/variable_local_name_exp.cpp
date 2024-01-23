@@ -55,5 +55,7 @@ void ko_scope() {
   __pure();
   T x;
   T a;
-l : { a++; }
+auto x1 = a;
+l : { x1++; }
+a = x1;
 }
