@@ -17,29 +17,6 @@ loop/swap/loop_swap_doc.ml
 loop/moveout/loop_moveout_doc.ml
 loop/move/loop_move_doc.ml
 
-# DEPRECATED Internal.change_trm
-reference/fold/reference_fold.ml
-reference/unfold/reference_unfold.ml
-variable/elim_redundant/variable_elim_redundant.ml
-variable/elim_redundant/variable_elim_redundant_doc.ml
-variable/fold/variable_fold.ml
-variable/fold/variable_fold_basic.ml
-variable/fold/variable_fold_basic_doc.ml
-variable/unfold/variable_unfold_basic.ml
-variable/unfold/variable_unfold_basic_doc.ml
-
-# FIXME: too much renaming
-loop/hoist/loop_hoist.ml
-arith/simpl/arith_simpl.ml
-accesses/shift/accesses_shift_basic.ml
-accesses/shift/accesses_shift.ml
-accesses/scale/accesses_scale_basic.ml
-accesses/scale/accesses_scale.ml
-resources/computation/ghost_args.ml
-ast/c_stackvar.ml
-ast/c_features.ml
-ast/c_address.ml
-
 #TODO:
 # arith/simpl/arith_simpl.ml
 # loop/shift/loop_shift.ml

@@ -138,6 +138,8 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
     else check_var_id ()
   in
   let rec rename_shadows v scope_ctx =
+    (* We need to rename not only the directly shadowed variable but also recursively the variables that are shadowing it:
+       Ex: On (fun x#1 x#2 x#3. x#1), x#1 triggers a renaming on x#2 which itself is shadowed by x#3 so both x#2 and x#3 need to be renamed. *)
     match Var_map.find_opt v scope_ctx.shadowed with
     | None -> scope_ctx
     | Some v_shadow ->

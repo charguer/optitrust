@@ -48,10 +48,12 @@ int main() {
 }
 
 void name_conflict() {
-  int nc1[2];
-  int nc2[2];
-  nc1[0] = 1;
-  nc1[1] = 2;
-  nc2[0] = 3;
-  nc2[1] = 4;
+  int nca;
+  int ncb;
+  int nca1;
+  int ncb2;
+  nca = 1;
+  ncb = 2;
+  nca1 = 3;
+  ncb2 = 4;
 }
