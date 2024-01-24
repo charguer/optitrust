@@ -122,10 +122,10 @@ let hoist_on (name : string)
     let indices = (arith_f new_index) :: (List.map trm_var other_indices) in
     let mindex = mindex !new_dims indices in
     let access = trm_array_access (trm_var !new_var) mindex in
-    let grouped_access = List.fold_left (fun acc (i, d) ->
+    let grouped_access = List.fold_right (fun (i, d) acc ->
       (* FIXME: need to match inner loop ranges. *)
       Resource_formula.formula_group_range (i, trm_int 0, DirUp, d, Post_inc, false) acc
-    ) Resource_formula.(formula_model access trm_cell) (List.combine other_indices dims) in
+    ) (List.combine other_indices dims) Resource_formula.(formula_model access trm_cell) in
     let new_resource = Resource_formula.(formula_uninit grouped_access) in
     new_body_instrs, Some (Resource_contract.push_loop_contract_clause Modifies (Resource_formula.new_anon_hyp (), new_resource) contract)
   | None ->

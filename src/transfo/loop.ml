@@ -257,6 +257,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
     match remaining_loops with
     | [] -> ()
     | 0 :: rl ->
+      (* do not create dimension. *)
       let loop_mark = next_m () in
       let instr_mark = next_m () in
       let (_, p_seq) = Path.index_in_seq p in
@@ -266,6 +267,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
       iter_on_targets (fun t p -> aux rl p) [cMark instr_mark];
     | 1 :: rl ->
+      (* create dimension. *)
       let (idx, loop_path) = Path.index_in_surrounding_loop p in
       let loop_target = target_of_path loop_path in
       if idx > 0 then

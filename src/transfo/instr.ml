@@ -132,11 +132,17 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
    LATER: Check if [tg] is dependent on other instructions of the same scope *)
 let%transfo move ~dest:(dest : target) (tg : target) : unit =
   Trace.tag_atomic ();
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
-    Marks.add "instr_move_out" (target_of_path p);
-    Sequence_basic.insert tg_trm dest;
-    Instr_basic.delete [cMark "instr_move_out"]) tg
+  if !Flags.check_validity then
+    (* TODO: handle move out of loop, conditions, etc. *)
+    (* TODO: handle moving together with ghost scopes. *)
+    Instr_basic.move ~dest tg
+  else begin
+    iter_on_targets (fun t p ->
+      let tg_trm = Path.resolve_path p t in
+      Marks.add "instr_move_out" (target_of_path p);
+      Sequence_basic.insert tg_trm dest;
+      Instr_basic.delete [cMark "instr_move_out"]) tg
+  end
 
 (* [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
 let%transfo move_out (tg : target) : unit =
