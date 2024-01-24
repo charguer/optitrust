@@ -22,7 +22,7 @@ type scope_ctx = {
   fun_prototypes: fun_prototype Var_map.t; (** Map from variable storing functions to their prototype *)
 
   shadowed: var Var_map.t; (** Shadowed variables, using them triggers a rename. *)
-  renames: string Var_map.t; (** When identfiers are correct, but the name needs to be changed. This field is a global accumulator. *)
+  renames: string Var_map.t ref; (** When identfiers are correct, but the name needs to be changed. This field is a global accumulator. *)
 }
 
 let print_scope_ctx scope_ctx =
@@ -53,7 +53,7 @@ let print_scope_ctx scope_ctx =
     Tools.list_to_string (
     List.of_seq (
     Seq.map (fun (v, n) -> sprintf "%s -> %s" (var_to_string v) n) (
-    Var_map.to_seq scope_ctx.renames)))
+    Var_map.to_seq !(scope_ctx.renames))))
   );
   printf "}\n"
 
@@ -65,7 +65,7 @@ let toplevel_scope_ctx (): scope_ctx = {
   var_ids = !toplevel_vars;
   fun_prototypes = Var_map.empty;
   shadowed = Var_map.empty;
-  renames = Var_map.empty;
+  renames = ref Var_map.empty;
 }
 
 (* LATER: #var-id, flag to disable check for performance *)
@@ -108,8 +108,9 @@ let invalid_or_recover ~(failure_allowed : bool)
 
 (** internal *)
 let scope_ctx_record_rename var scope_ctx =
+  (* DEBUG: printf "renaming %s\n" (var_to_string var); *)
   (* FIXME: fresh_var_name should be deterministic based on visible scope / free vars. *)
-  { scope_ctx with renames = Var_map.add var (fresh_var_name ~prefix:var.name ()) scope_ctx.renames }
+  scope_ctx.renames := Var_map.add var (fresh_var_name ~prefix:var.name ()) !(scope_ctx.renames)
 
 (** internal *)
 let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
@@ -141,15 +142,14 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
     (* We need to rename not only the directly shadowed variable but also recursively the variables that are shadowing it:
        Ex: On (fun x#1 x#2 x#3. x#1), x#1 triggers a renaming on x#2 which itself is shadowed by x#3 so both x#2 and x#3 need to be renamed. *)
     match Var_map.find_opt v scope_ctx.shadowed with
-    | None -> scope_ctx
+    | None -> ()
     | Some v_shadow ->
-      let scope_ctx = if Var_map.mem v_shadow scope_ctx.renames
-        then scope_ctx
-        else scope_ctx_record_rename v_shadow scope_ctx
-      in
+      if not (Var_map.mem v_shadow !(scope_ctx.renames))
+        then scope_ctx_record_rename v_shadow scope_ctx;
       rename_shadows v_shadow scope_ctx
   in
-  (rename_shadows var' scope_ctx, var')
+  rename_shadows var' scope_ctx;
+  var'
 
 (** internal *)
 let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
@@ -184,11 +184,8 @@ let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
      var)
   else begin
     (* 4. fix redefinitions or shadowing conflicts by renaming later on. *)
-    let scope_ctx =
-      if Qualified_set.mem qualified scope_ctx.conflicts
-      then scope_ctx_record_rename var scope_ctx
-      else scope_ctx
-    in
+    if Qualified_set.mem qualified scope_ctx.conflicts
+      then scope_ctx_record_rename var scope_ctx;
     let scope_ctx = match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id when id <> var.id ->
       { scope_ctx with shadowed = Var_map.add { qualifier = []; name = ""; id } var scope_ctx.shadowed }
@@ -306,7 +303,7 @@ let post_process_ctx ~(failure_allowed : bool) ctx t =
   | Trm_let_fun (f_var, _, _, _, FunSpecContract spec) ->
     { ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map fst spec.pre.pure } ctx.fun_prototypes }
   | Trm_let_fun (f_var, _, _, _, FunSpecReverts f_reverted) ->
-    let _, f_reverted = infer_map_var ~failure_allowed ctx f_reverted in
+    let f_reverted = infer_map_var ~failure_allowed ctx f_reverted in
     begin match Var_map.find_opt f_reverted ctx.fun_prototypes with
     | Some proto -> { ctx with fun_prototypes = Var_map.add f_var proto ctx.fun_prototypes }
     | None -> failwith (sprintf "Function %s cannot revert %s because its contract is undefined" (var_to_string f_var) (var_to_string f_reverted))
@@ -363,4 +360,4 @@ let infer_var_ids ?(failure_allowed = true) ?(check_uniqueness = not failure_all
     (infer_map_var ~failure_allowed)
     (toplevel_scope_ctx ()) t in
   if check_uniqueness then check_unique_var_ids t2;
-  rename_vars_if_needed t2 ctx.renames
+  rename_vars_if_needed t2 !(ctx.renames)
