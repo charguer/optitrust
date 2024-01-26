@@ -135,7 +135,8 @@ let minimize_all_on_seq (seq : trm) : trm =
 let%transfo minimize_all_in_seq (tg : target) : unit =
   Resources.ensure_computed ();
   Target.apply_at_target_paths minimize_all_on_seq tg;
-  Scope.infer_var_ids () (* FIXME: move up/down should avoid breaking scopes *)
+  Scope.infer_var_ids (); (* FIXME: move up/down should avoid breaking scopes *)
+  Resources.justif_correct "only changed ghost code"
 
 
 (** <private>
@@ -280,7 +281,8 @@ let%transfo intro ?(name: string option) ?(end_mark: mark = no_mark) (tg: target
   Target.apply (fun t p ->
     let i, p = Path.index_in_seq p in
     apply_on_path (intro_at ?name ~end_mark i) t p
-  ) tg
+  ) tg;
+  Resources.justif_correct "only changed ghost code"
 
 
 let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (t_seq: trm): trm =
@@ -313,7 +315,8 @@ let%transfo elim ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (tg: 
   Target.apply (fun t p ->
     let i, p = Path.index_in_seq p in
     apply_on_path (elim_at ~mark_begin ~mark_end i) t p
-  ) tg
+  ) tg;
+  Resources.justif_correct "only changed ghost code"
 
 
 (** [elim_all_pairs_at gen_mark p]: remove all the pairs inside the sequence pointed by the given path, generating marks to merge them back later.
@@ -348,7 +351,8 @@ let reintro_pairs_at (pairs: (var * mark * mark) list) (p: path): unit =
       let i, p = Path.index_in_seq p in
       apply_at_path (intro_at ~name:pair_token.name ~end_mark i) p
     ) [Constr_paths [p]; cMark begin_mark]
-  ) pairs
+  ) pairs;
+  Resources.justif_correct "only changed ghost code"
 
 (* DEPRECATED:
       1) Ghost_pair.elim_all_pairs

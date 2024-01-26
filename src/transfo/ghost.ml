@@ -19,4 +19,5 @@ let embed_loop_on (mark : mark) (t: trm): trm =
 
 let%transfo embed_loop ?(mark : mark = "") (tg: target): unit =
   Resources.ensure_computed ();
-  Target.apply_at_target_paths (embed_loop_on mark) tg
+  Target.apply_at_target_paths (embed_loop_on mark) tg;
+  Resources.justif_correct "only changed ghost code"

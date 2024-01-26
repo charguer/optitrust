@@ -364,7 +364,8 @@ let loop_minimize_on (t: trm): trm =
 let%transfo loop_minimize ?(indepth : bool = false) (tg: target) : unit =
   ensure_computed ();
   (* TODO: Perform minimization recursively when indepth is true. *)
-  Target.apply_at_target_paths loop_minimize_on tg
+  Target.apply_at_target_paths loop_minimize_on tg;
+  justif_correct "only changed loop contracts"
 
 
 let fix_loop_default_contract_on ?(mark: mark = "") (t: trm): trm =
@@ -393,7 +394,8 @@ let rec fix_loop_default_contract_rec ?(mark: mark = "") (t: trm): trm =
 (** [fix_loop_default_contracts] uses computed resources to fix the default loop contracts on all the children of the targeted node *)
 let%transfo fix_loop_default_contracts (tg: target): unit =
   ensure_computed ();
-  Target.apply_at_target_paths fix_loop_default_contract_rec tg
+  Target.apply_at_target_paths fix_loop_default_contract_rec tg;
+  justif_correct "only changed loop contracts"
 
 
 let ro_fork_group = toplevel_var "ro_fork_group"
@@ -424,7 +426,8 @@ let%transfo loop_parallelize_reads (tg: target): unit =
   ensure_computed ();
   Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths loop_parallelize_reads_on tg
-  )
+  );
+  justif_correct "only changed ghosts and contracts"
 
 let assert_hyp_read_only ~(error : string) ((x, t) : resource_item) : unit =
   match formula_read_only_inv t with
