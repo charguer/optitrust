@@ -346,12 +346,12 @@ __GHOST(ro_factorize_group) {
 __GHOST(tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
-    "n: int, to_item: int -> resource,"
+    "n: int, items: int -> resource,"
     "bound_check: n = tile_size * tile_count"
   );
-  __consumes("Group(range(0, n, 1), to_item)");
+  __consumes("Group(range(0, n, 1), items)");
   __produces("Group(range(0, tile_count, 1), fun bi ->"
-               "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i)))");
+               "Group(range(0, tile_size, 1), fun i -> items(bi * tile_size + i)))");
   __admitted();
 }
 
@@ -363,26 +363,18 @@ __GHOST(untile_divides) {
 __GHOST(ro_tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
-    "n: int, to_item: int -> resource,"
+    "n: int, items: int -> resource,"
     "bound_check: n = tile_size * tile_count,"
     "f: _Fraction"
   );
-  __consumes("_RO(f, Group(range(0, n, 1), to_item))");
+  __consumes("_RO(f, Group(range(0, n, 1), items))");
   __produces("_RO(f, Group(range(0, tile_count, 1), fun bi ->"
-               "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i))))");
+               "Group(range(0, tile_size, 1), fun i -> items(bi * tile_size + i))))");
   __admitted();
 }
 
 __GHOST(ro_untile_divides) {
-  __requires(
-    "tile_count: int, tile_size: int,"
-    "n: int, to_item: int -> resource,"
-    "bound_check: n = tile_size * tile_count,"
-    "f: _Fraction"
-  );
-  __consumes("_RO(_Full(f), Group(range(0, tile_count, 1), fun bi ->"
-               "Group(range(0, tile_size, 1), fun i -> to_item(bi * tile_size + i))))");
-  __produces("_RO(f, Group(range(0, n, 1), to_item))");
+  __reverts(ro_tile_divides);
   __admitted();
 }
 

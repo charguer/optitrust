@@ -115,8 +115,8 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
                 | None -> ghost, formula
               in
               let i = new_var index.name in
-              let to_item = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
-              trm_ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("n", count); ("to_item", to_item); ("bound_check", formula_checked)])
+              let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
+              trm_ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("n", count); ("items", items); ("bound_check", formula_checked)])
             )
         in
         let ghosts_before = add_tiling_ghost ghost_tile_divides ghost_ro_tile_divides contract.iter_contract.pre.linear in

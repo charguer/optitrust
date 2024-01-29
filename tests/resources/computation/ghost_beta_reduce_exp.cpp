@@ -27,7 +27,7 @@ void g(float* M) {
   __ghost(tile_divides,
           "tile_size := 256, tile_count := 4, bound_check := checked");
   __ghost(untile_divides,
-          "n := 1024, to_item := fun i -> &M[MINDEX1(1024, i)] ~> Cell, "
+          "n := 1024, items := fun i -> &M[MINDEX1(1024, i)] ~> Cell, "
           "bound_check := checked");
 }
 
