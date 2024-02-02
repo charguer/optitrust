@@ -15,10 +15,9 @@ void f1(int* y) {
       x++;
       x++;
     }
-    __ghost(rewrite,
-            "H1 := y ~> Matrix2(4, 4), H2 := Group(range(0, 4, 1), fun c -> "
-            "Group(range(0, 4, 1), fun b -> &y[MINDEX2(4, 4, b, c)] ~> Cell)), "
-            "by := swap_groups");
+    __ghost(swap_groups,
+            "outer_range := range(0, 4, 1), inner_range := range(0, 4, 1), "
+            "items := fun b, c -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
     for (int c = 0; c < 4; c++) {
       __modifies(
           "Group(range(0, 4, 1), fun b -> &y[MINDEX2(4, 4, b, c)] ~> Cell)");
@@ -27,10 +26,9 @@ void f1(int* y) {
         y[MINDEX2(4, 4, b, c)]++;
       }
     }
-    __ghost(rewrite,
-            "H1 := Group(range(0, 4, 1), fun c -> Group(range(0, 4, 1), fun b "
-            "-> &y[MINDEX2(4, 4, b, c)] ~> Cell)), H2 := y ~> Matrix2(4, 4), "
-            "by := swap_groups");
+    __ghost(swap_groups,
+            "outer_range := range(0, 4, 1), inner_range := range(0, 4, 1), "
+            "items := fun c, b -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
     for (int b = 0; b < 4; b++) {
       __sequentially_modifies("&z ~> Cell");
       z++;
@@ -64,19 +62,19 @@ void f2(float* A, float* B, int m, int n, int p) {
   const __ghost_fn __ghost_pair_4 = __ghost_begin(
       __with_reverse(
           [&]() {
-            __requires("#118: _Fraction");
+            __requires("#122: _Fraction");
             __consumes(
-                "_RO(#118, Group(range(0, m, 1), fun i -> B ~> Matrix2(p, "
+                "_RO(#122, Group(range(0, m, 1), fun i -> B ~> Matrix2(p, "
                 "n)))");
             __produces(
-                "_RO(#118 / range_count(range(0, m, 1)), Group(range(0, m, 1), "
+                "_RO(#122 / range_count(range(0, m, 1)), Group(range(0, m, 1), "
                 "fun i -> Group(range(0, m, 1), fun _ -> B ~> Matrix2(p, "
                 "n))))");
             for (int i = 0; i < m; i++) {
-              __loop_ghosts("#118: _Fraction");
-              __consumes("_RO(#118, B ~> Matrix2(p, n))");
+              __loop_ghosts("#122: _Fraction");
+              __consumes("_RO(#122, B ~> Matrix2(p, n))");
               __produces(
-                  "_RO(#118 / range_count(range(0, m, 1)), Group(range(0, m, "
+                  "_RO(#122 / range_count(range(0, m, 1)), Group(range(0, m, "
                   "1), fun _ -> B ~> Matrix2(p, n)))");
               __ghost(ro_fork_group,
                       "H := B ~> Matrix2(p, n), r := range(0, m, 1)");
@@ -84,11 +82,11 @@ void f2(float* A, float* B, int m, int n, int p) {
           },
           [&]() {
             for (int i = 0; i < m; i++) {
-              __loop_ghosts("#118: _Fraction");
+              __loop_ghosts("#122: _Fraction");
               __consumes(
-                  "_RO(#118 / range_count(range(0, m, 1)), Group(range(0, m, "
+                  "_RO(#122 / range_count(range(0, m, 1)), Group(range(0, m, "
                   "1), fun j -> B ~> Matrix2(p, n)))");
-              __produces("_RO(#118, B ~> Matrix2(p, n))");
+              __produces("_RO(#122, B ~> Matrix2(p, n))");
               __ghost(ro_join_group,
                       "H := B ~> Matrix2(p, n), r := range(0, m, 1)");
             }
@@ -97,19 +95,19 @@ void f2(float* A, float* B, int m, int n, int p) {
   const __ghost_fn __ghost_pair_3 = __ghost_begin(
       __with_reverse(
           [&]() {
-            __requires("#120: _Fraction");
+            __requires("#124: _Fraction");
             __consumes(
-                "_RO(#120, Group(range(0, m, 1), fun i -> A ~> Matrix2(m, "
+                "_RO(#124, Group(range(0, m, 1), fun i -> A ~> Matrix2(m, "
                 "p)))");
             __produces(
-                "_RO(#120 / range_count(range(0, m, 1)), Group(range(0, m, 1), "
+                "_RO(#124 / range_count(range(0, m, 1)), Group(range(0, m, 1), "
                 "fun i -> Group(range(0, m, 1), fun _ -> A ~> Matrix2(m, "
                 "p))))");
             for (int i = 0; i < m; i++) {
-              __loop_ghosts("#120: _Fraction");
-              __consumes("_RO(#120, A ~> Matrix2(m, p))");
+              __loop_ghosts("#124: _Fraction");
+              __consumes("_RO(#124, A ~> Matrix2(m, p))");
               __produces(
-                  "_RO(#120 / range_count(range(0, m, 1)), Group(range(0, m, "
+                  "_RO(#124 / range_count(range(0, m, 1)), Group(range(0, m, "
                   "1), fun _ -> A ~> Matrix2(m, p)))");
               __ghost(ro_fork_group,
                       "H := A ~> Matrix2(m, p), r := range(0, m, 1)");
@@ -117,11 +115,11 @@ void f2(float* A, float* B, int m, int n, int p) {
           },
           [&]() {
             for (int i = 0; i < m; i++) {
-              __loop_ghosts("#120: _Fraction");
+              __loop_ghosts("#124: _Fraction");
               __consumes(
-                  "_RO(#120 / range_count(range(0, m, 1)), Group(range(0, m, "
+                  "_RO(#124 / range_count(range(0, m, 1)), Group(range(0, m, "
                   "1), fun j -> A ~> Matrix2(m, p)))");
-              __produces("_RO(#120, A ~> Matrix2(m, p))");
+              __produces("_RO(#124, A ~> Matrix2(m, p))");
               __ghost(ro_join_group,
                       "H := A ~> Matrix2(m, p), r := range(0, m, 1)");
             }

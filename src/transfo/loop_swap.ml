@@ -21,13 +21,26 @@ let swap_on_any_loop (t : trm) : trm =
     end
   | None -> trm_fail t "Loop_core.swap_aux: should target a loop"
 
-let swap_groups = toplevel_var "swap_groups"
+let var_swap_groups = toplevel_var "swap_groups"
+let var_ro_swap_groups = toplevel_var "ro_swap_groups"
+let var_uninit_swap_groups = toplevel_var "uninit_swap_groups"
 
-let ghost_swap outer_range inner_range (_, formula) =
+let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
   let open Resource_formula in
-  let before = formula_group_range outer_range (formula_group_range inner_range formula) in
-  let after = formula_group_range inner_range (formula_group_range outer_range formula) in
-  trm_ghost_rewrite before after (trm_var swap_groups)
+  let ghost_var, formula = match formula_read_only_inv formula with
+  | Some { formula } -> var_ro_swap_groups, formula
+  | None ->
+    match formula_uninit_inv formula with
+    | Some formula -> var_uninit_swap_groups, formula
+    | None -> var_swap_groups, formula
+  in
+  let (outer_index, _, _, _, _, _) = outer_range in
+  let (inner_index, _, _, _, _, _) = inner_range in
+  let outer_var = new_var outer_index.name in
+  let inner_var = new_var inner_index.name in
+  let formula = trm_subst (Var_map.add outer_index (trm_var outer_var) (Var_map.singleton inner_index (trm_var inner_var))) formula in
+  let items = formula_fun [outer_var, typ_int (); inner_var, typ_int ()] None formula in
+  trm_ghost (ghost_call ghost_var ["outer_range", formula_loop_range outer_range; "inner_range", formula_loop_range inner_range; "items", items])
 
 
 (** This transformation turns:

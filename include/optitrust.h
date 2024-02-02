@@ -343,6 +343,44 @@ __GHOST(ro_factorize_group) {
 }
 */
 
+__GHOST(swap_groups) {
+  __requires("items: int * int -> formula, inner_range: range, outer_range: range");
+  __consumes("Group(outer_range, fun i -> Group(inner_range, fun j -> items(i,j)))");
+  __produces("Group(inner_range, fun j -> Group(outer_range, fun i -> items(i,j)))");
+  __admitted();
+}
+
+__GHOST(swap_groups_rev) {
+  __reverts(swap_groups);
+  __admitted();
+  // Buggy because reusing var ids...
+  //__ghost(swap_groups, "items := fun i,j -> items(j,i)");
+}
+
+__GHOST(ro_swap_groups) {
+  __requires("items: int * int -> formula, inner_range: range, outer_range: range, f: _Fraction");
+  __consumes("_RO(f, Group(outer_range, fun i -> Group(inner_range, fun j -> items(i,j))))");
+  __produces("_RO(f,Group(inner_range, fun j -> Group(outer_range, fun i -> items(i,j))))");
+  __admitted();
+}
+
+__GHOST(ro_swap_groups_rev) {
+  __reverts(ro_swap_groups);
+  __admitted();
+}
+
+__GHOST(uninit_swap_groups) {
+  __requires("items: int * int -> formula, inner_range: range, outer_range: range");
+  __consumes("_Uninit(Group(outer_range, fun i -> Group(inner_range, fun j -> items(i,j))))");
+  __produces("_Uninit(Group(inner_range, fun j -> Group(outer_range, fun i -> items(i,j))))");
+  __admitted();
+}
+
+__GHOST(uninit_swap_groups_rev) {
+  __reverts(uninit_swap_groups);
+  __admitted();
+}
+
 __GHOST(tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
