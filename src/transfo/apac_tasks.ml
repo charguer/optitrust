@@ -104,6 +104,12 @@ let rec trm_to_dep (t : trm) (v : var) (degree : int) : dep =
 (* GRAPH OF TASKS *)
 (******************)
 
+(* [task_backend]: enumeration of supported task runtimes. *)
+type task_backend =
+  | OpenMP (* Emit OpenMP tasks. *)
+  | ApacProfiler (* Do not create tasks. Insert calls to profiling functions
+                    instead. *)
+
 (* Automatic taskification involves the creation of a task graph correspoding to
    the input source code. We create one task graph per program scope. This way,
    to a function body containing, for example, a for-loop, we will associate one

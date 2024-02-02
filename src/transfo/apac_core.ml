@@ -807,7 +807,7 @@ let find_parent_function (p : path) : var option =
   in
   aux reversed
 
-let trm_from_task (t : Task.t) : trm =
+let emit_omp_task (t : Task.t) : trm =
   let shared = [Default Shared_m] in
   let ins' = dep_set_to_list t.ins in
   let ins' = if (List.length ins') < 1 then [] else [In ins'] in
@@ -819,6 +819,53 @@ let trm_from_task (t : Task.t) : trm =
   let pragma = Task clauses in
   let instr = trm_seq_nomarks t.current in
   trm_add_pragma pragma instr
+
+let emit_profiler_task (t : Task.t) : trm =
+  let get_begin (loc : location) : string =
+    match loc with
+    | None -> "_"
+    | Some { loc_start = {pos_line = line; _}; _} -> string_of_int line
+  in
+  let get_end (loc : location) : string =
+    match loc with
+    | None -> "_"
+    | Some { loc_end = {pos_line = line; _}; _} -> string_of_int line
+  in     
+  let reads = Dep_set.cardinal t.ins in
+  let writes = Dep_set.cardinal t.inouts in
+  let first = List.hd t.current in
+  let first = get_begin first.loc in
+  let last = (List.length t.current) - 1 in
+  let last = List.nth t.current last in
+  let last = get_end last.loc in
+  let section = "ApacProfilerSection profsection(\"" ^
+                  first ^ "-" ^ last ^ "\", " ^
+                    (string_of_int reads) ^ ", " ^
+                      (string_of_int writes) ^ ")" in
+  let section = code (Instr section) in
+  let ins' = dep_set_to_list t.ins in
+  let ins' = List.map (fun e ->
+                 let d = dep_to_string e in
+                 let s = "profsection.addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
+                 code (Instr s)
+               ) ins' in
+  let inouts' = dep_set_to_list t.inouts in
+  let inouts' = List.map (fun e ->
+                    let d = dep_to_string e in
+                    let s = "profsection.addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
+                    code (Instr s)
+                  ) inouts' in
+  let before = code (Instr "profsection.beforeCall()") in
+  let after = code (Instr "profsection.afterCall()") in
+  let preamble = (section :: ins') @ inouts' @ [before] in
+  let postamble = [after] in
+  let seq = preamble @ t.current @ postamble in
+  trm_seq_nomarks seq
+
+let trm_from_task ?(backend : task_backend = OpenMP) (t : Task.t) : trm =
+  match backend with
+  | OpenMP -> emit_omp_task t
+  | ApacProfiler -> emit_profiler_task t
 
 (* [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
    returns two lists. The first list holds the access terms where each term is
@@ -1725,7 +1772,7 @@ let insert_tasks_on (p : path) (t : trm) : trm =
             end
           else
             begin
-              let term = trm_from_task task in
+              let term = trm_from_task ~backend:OpenMP task in
               Stack.push term instrs
             end
         end
@@ -1740,4 +1787,77 @@ let insert_tasks_on (p : path) (t : trm) : trm =
     
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
+
+(* [profile_tasks_on p t]: see [profile_tasks_on]. *)
+let profile_tasks_on (p : path) (t : trm) : trm =
+  (* Find the parent function. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_core.profile_tasks_on: unable to find parent \
+                          function. Task group outside of a function?" in
+  (* Find the corresponding constification record in [const_records]. *)
+  let const_record = Var_Hashtbl.find const_records f in
+  (* Build the augmented AST correspoding to the function's body. *)
+  let g = match const_record.task_graph with
+    | Some (g') -> g'
+    | None -> fail t.loc "Apac_core.profile_tasks_on: Missing task graph. Did \
+                          you taskify?" in
+  let vertices = TaskGraph.fold_vertex (
+                     fun v acc ->
+                     if TaskGraph.in_degree g v < 1 then v::acc else acc
+                   ) g [] in
+  let root = List.hd vertices in
+  let instrs : trm Stack.t = Stack.create () in
+  TaskGraphTraverse.iter_component (fun v ->
+      let parents = TaskGraph.in_degree g v in
+      let task = TaskGraph.V.label v in
+      (*let _ = Debug_transfo.trm "visiting" task.current in*)
+      if parents > 0 then (* not the root node (at least one parent node) *)
+        begin
+          let has_decl_or_label = List.exists (fun term ->
+                                      match term.desc with
+                                      | Trm_let _
+                                        | Trm_let_mult _
+                                        | Trm_val _ -> true
+                                      | _ -> false) task.current in
+          if has_decl_or_label then
+            begin
+              List.iter (fun term -> Stack.push term instrs) task.current
+            end
+          else
+            begin
+              let term = trm_from_task ~backend:ApacProfiler task in
+              Stack.push term instrs
+            end
+        end
+    ) g root;
+  let instrs' = List.of_seq (Stack.to_seq instrs) in
+  let instrs' = List.rev instrs' in
+  let instrs' = Mlist.of_list instrs' in
+  let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs' in
+  (* let _ = Debug_transfo.trm "output" result in *)
+  result
+  
+    
+let profile_tasks (tg : target) : unit =
+  Target.apply (fun t p -> Path.apply_on_path (profile_tasks_on p) t p) tg
+
+let include_apac_profiler_on (p : path) (t : trm) : trm =
+  if p <> [] then
+    fail t.loc "Apac_core.include_apac_profiler_on: expects to be applied on \
+                the root of the AST"
+  else
+    begin
+      match t.desc with
+      | Trm_seq tl ->
+         let directive = code (Expr "#include \"apac_profiler.hpp\"") in
+         let tl' = Mlist.insert_at 0 directive tl in
+         trm_seq ~annot:t.annot tl'
+      | _ -> fail t.loc "Apac_core.include_apac_profiler_on: expects to be \
+                         applied on a sequence"
+    end
+
+let include_apac_profiler (tg : target) : unit =
+  Target.apply (fun t p ->
+      Path.apply_on_path (include_apac_profiler_on p) t p) tg
 
