@@ -223,46 +223,85 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   (* Printf.printf "END  %s\n" basename; *)
   ()
 
-(* [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix ~parser f]:
-   is a specialized version of [script f] that parses C/C++ files.
+(* [script_cpp ~filename ~prepro ~inline ~includes ~check_exit_at_end ~prefix
+   ~parser f]: is a specialized version of [script f] that parses C/C++ files.
 
    Its specific options are:
-   - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
-     with the contents of the corresponding files; the substitutions are performed one after
-     the other, meaning that "bar.h" will be inlined if included from "foo.cpp".
-     See the specification of [generate_source_with_inlined_header_cpp] for additional features.
-   The rest of the options are the same as [script f] *)
-let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
+   - [~inline:["foo.cpp"; "bar.h"]] allows to perform substitution of "#include"
+     directives with the contents of the corresponding files; the substitutions
+     are performed one after the other, meaning that "bar.h" will be inlined if
+     included from "foo.cpp". See the specification of
+     [generate_source_with_inlined_header_cpp] for additional features.
+   - [~includes:["foo.h"; "bar.hpp"]] allows for inserting extra "#include"
+     directives useful only during the transformation process, but which the
+     user does not want to keep in the source file permanently, e.g. profiling
+     tool headers. This is achieved by creating a copy of the initial input
+     source file where the extra directives are inserted. To create the copy,
+     the function uses the basename of the initial input source file with
+     "_with_includes.cpp" appended to it. When this option is used together with
+     [~inline], the extra "#include" directives do not get inlined.
+
+   The rest of the options are the same as [script f]. *)
+let script_cpp ?(filename : string option) ?(prepro : string list = [])
+      ?(inline : string list = []) ?(includes : string list = [])
+      ?(check_exit_at_end : bool = true) ?(prefix : string option)
+      ?(parser : Trace.parser option) (f : unit -> unit) : unit =
   may_report_time "script-cpp" (fun () ->
-    (* Handles preprocessor *)
-    Compcert_parser.Clflags.prepro_options := prepro;
-
-    (* Handles on-the-fly inlining *)
-    let filename =
-      match inline with
-      | [] -> filename
-      | _ ->
-        let program_basename = get_program_basename () in
-        let basepath = Filename.dirname program_basename in
-        let filename =
-          match filename with
-          | Some filename -> filename
-          | None -> (Filename.basename program_basename) ^ ".cpp"
-        in
-        let basename = Filename.chop_extension filename in
-        let inlinefilename = basename ^ "_inlined.cpp" in
-        generate_source_with_inlined_header_cpp basepath filename inline inlinefilename;
-        if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
-        Some inlinefilename
-    in
-
-    let parser =
-      match parser with
-      | Some p -> p
-      | None -> CParsers.get_default ()
-    in
-
-    script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f)
+      (* Handles preprocessor *)
+      Compcert_parser.Clflags.prepro_options := prepro;
+      
+      (* Handles on-the-fly inlining *)
+      let filename =
+        match inline with
+        | [] -> filename
+        | _ ->
+           let program_basename = get_program_basename () in
+           let basepath = Filename.dirname program_basename in
+           let filename =
+             match filename with
+             | Some filename -> filename
+             | None -> (Filename.basename program_basename) ^ ".cpp"
+           in
+           let basename = Filename.chop_extension filename in
+           let inlinefilename = basename ^ "_inlined.cpp" in
+           generate_source_with_inlined_header_cpp
+             basepath filename inline inlinefilename;
+           if debug_inline_cpp then
+             Printf.printf "Generated %s\n" inlinefilename;
+           Some inlinefilename
+      in
+      
+      (* Handles inserting of extra "#include" directives *)
+      let filename =
+        match includes with
+        | [] -> filename
+        | _ ->
+           let program_basename = get_program_basename () in
+           let basepath = Filename.dirname program_basename in
+           let filename =
+             match filename with
+             | Some filename -> filename
+             | None -> (Filename.basename program_basename) ^ ".cpp"
+           in
+           let basename = Filename.chop_extension filename in
+           let extraincludesfilename = basename ^ "_with_includes.cpp" in
+           let extraincludes = List.fold_left (
+                                   fun acc e -> acc ^ "#include <" ^ e ^ ">\n"
+                                 ) "" includes in
+           let contents = Xfile.get_contents
+                            (basepath ^ "/" ^ basename ^ ".cpp") in
+           Xfile.put_contents (basepath ^ "/" ^ extraincludesfilename)
+             (extraincludes ^ contents);
+           Some extraincludesfilename
+      in
+      
+      let parser =
+        match parser with
+        | Some p -> p
+        | None -> CParsers.get_default ()
+      in
+      
+      script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f)
 
 (* [doc_script_cpp ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
     as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
