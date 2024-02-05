@@ -158,6 +158,7 @@ let%transfo hoist_alloc_loop_list
     let varies_in_current_loop = List.nth loops ((List.length loops) - i) in
     begin match varies_in_current_loop with
     | 0 -> begin
+      Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       (* 1. move allocation at the top of the sequence. *)
       let alloc_p = Target.resolve_target_exactly_one [cMark mark_alloc] (Trace.ast ()) in
       let (alloc_i, seq_p) = Path.index_in_seq alloc_p in
@@ -165,13 +166,16 @@ let%transfo hoist_alloc_loop_list
       (* 2. move free at the bottom of the sequence. *)
       Instr_basic.move ~dest:((target_of_path seq_p) @ [tLast]) ((target_of_path seq_p) @ [cMark mark_free]);
       (* 3. move both out of the surrounding loop at once. *)
-      Loop_basic.move_out_alloc ((target_of_path seq_p) @ [cMark mark_alloc]);
+      Loop_basic.move_out_alloc ((target_of_path seq_p) @ [cMark mark_alloc])
+      );
     end
     | 1 -> begin
+      Trace.step ~kind:Step_group ~name:(sprintf "%d. hoist" i) (fun () ->
       let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
       Trace.without_resource_computation_between_steps (fun () ->
         Loop_basic.hoist ~name:next_name ~mark_alloc ~mark_free ~mark_tmp_var [cMark mark_alloc];
         if inline then Trace.without_substep_validity_checks simpl_hoist_tmp_var;
+      )
       );
     end
     | _ -> failwith "expected list of 0 and 1s"
@@ -253,7 +257,7 @@ let%transfo hoist ?(tmp_names : string = "${var}_step${i}")
 let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Marks.with_marks (fun next_m ->
-  let rec aux (remaining_loops : int list) (p : path) : unit =
+  let rec aux (i : int) (remaining_loops : int list) (p : path) : unit =
     match remaining_loops with
     | [] -> ()
     | 0 :: rl ->
@@ -261,25 +265,29 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       let loop_mark = next_m () in
       let instr_mark = next_m () in
       let (_, p_seq) = Path.index_in_seq p in
+      Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       Instr_basic.move ~mark:instr_mark ~dest:((target_of_path p_seq) @ [tFirst])
         (target_of_path p);
       Loop_basic.move_out ~loop_mark [cMark instr_mark];
       if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
-      iter_on_targets (fun t p -> aux rl p) [cMark instr_mark];
+      );
+      iter_on_targets (fun t p -> aux (i + 1) rl p) [cMark instr_mark];
     | 1 :: rl ->
       (* create dimension. *)
       let (idx, loop_path) = Path.index_in_surrounding_loop p in
       let loop_target = target_of_path loop_path in
+      Trace.step ~kind:Step_group ~name:(sprintf "%d. hoist" i) (fun () ->
       if idx > 0 then
         Instr_basic.move ~dest:(loop_target @ [tFirst; dBody]) (target_of_path p);
       fission (loop_target @ [tAfter; dBody; dSeqNth 0]);
-      aux rl loop_path;
+      );
+      aux (i + 1) rl loop_path;
     | _ -> failwith "expected list of 0 and 1s"
   in
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     assert (Option.is_none (trm_let_inv tg_trm));
-    aux (List.rev loops) p;
+    aux 1 (List.rev loops) p;
   ) tg)
 
 (* [hoist_decl_loop_list]: this transformation hoists a variable declaration outside of multiple loops
