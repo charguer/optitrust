@@ -1,5 +1,32 @@
 #include <optitrust.h>
 
+void demo_both_par(int* t, int n, int m) {
+  __modifies("Group(range(0, n, 1), fun i -> "
+             "Group(range(0, m, 1), fun j -> "
+             " &t[(i * m + j)] ~> Cell))");
+  for (int i = 0; i < n; i++) {
+    __modifies("Group(range(0, m, 1), fun j -> "
+               " &t[(i * m + j)] ~> Cell)");
+    for (int j = 0; j < m; j++) {
+      __modifies("&t[(i * m + j)] ~> Cell");
+      t[i * m + j] = j;
+    }
+  }
+}
+
+void demo_outer_par(int* t, int n) {
+  __modifies("Group(range(0, n, 1), fun i -> &t[i] ~> Cell)");
+
+  for (int i = 0; i < n; i++) {
+    __modifies("&t[i] ~> Cell");
+
+    for (int j = 0; j < 4; j++) {
+      __sequentially_modifies("&t[i] ~> Cell");
+      t[i] = j;
+    }
+  }
+}
+
 void g(int* t) {
   __modifies("t ~> Matrix3(7, 10, 20)");
 
