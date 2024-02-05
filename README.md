@@ -158,6 +158,12 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
+    "key": "ctrl+shift+f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View trace detailed",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
     "key": "shift+f6",
     "command": "workbench.action.tasks.runTask",
     "args": "View trace for one step",

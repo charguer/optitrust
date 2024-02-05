@@ -758,7 +758,8 @@ let tag_simpl_arith () : unit =
 (** [tag_simpl_access] is called by a transformation after open_step to indicate that it performs array/matrix access simplificatoins.
   *)
 let tag_simpl_access () : unit =
-  tag "simpl.access"
+  tag "simpl";
+  tag "simpl_access"
 
 (** [without_substep_validity_checks f] executes [f] with
     the flag [check_validity] temporarily set to false.

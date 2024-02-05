@@ -47,7 +47,7 @@ Representation of a big step:
 var smallsteps = [];
 var bigsteps = [];
 var hasBigsteps = undefined; // false iff bigsteps is empty
-
+var root_checking_validity = undefined; // set during initSteps
 
 // checkbox status; may change default values here
 
@@ -75,6 +75,11 @@ var optionsDescr = [ // extended by initAllTags
     name: "hide-substeps",
     kind: "UI",
     default: false,
+  },
+  { key: "hide_empty_diff",
+    name: "hide-empty-diff",
+    kind: "UI",
+    default: true,
   },
   { key: "ast_before",
     name: "ast-before",
@@ -104,7 +109,7 @@ var optionsDescr = [ // extended by initAllTags
   { key: "args",
     name: "arguments",
     kind: "UI",
-    default: true,
+    default: false,
   },
   { key: "justif",
     name: "justification",
@@ -603,7 +608,12 @@ function stepToHTML(step, isOutermostLevel) {
     }
   }
 
-  const hideStep = (step.tags.some((tag) => options["hide-" + tag]));
+  // Compute if this step is hidden
+  var hideStep = (step.tags.some((tag) => options["hide-" + tag]));
+  if (options["hide_empty_diff"] &&  step.diff == "") {
+    hideStep = true;
+  }
+
   // DEPRECATED
     // (!options.target_steps && step.kind == "Target") ||
     // (!options.io_steps && step.kind == "IO") ||
@@ -612,8 +622,9 @@ function stepToHTML(step, isOutermostLevel) {
 
   /*if (isRoot) {
     return "<ul class='step-sub'> " + sSubs + "</ul>\n";
-  } else */ if (hideStep) {
-    return sSubs;
+  } else */
+  if (hideStep) {
+    return ""; //sSubs;
   }
 
   // TODO: display check_validity
@@ -703,16 +714,20 @@ function stepToHTML(step, isOutermostLevel) {
 
   // Line symbol
   var sStepSymbol;
-  if (step.isvalid) {
-    sStepSymbol = "&#10004;" // check
-  } else if (step.has_valid_parent) {
-    sStepSymbol = "&diams;"; // diamond, validity is covered by a parent
-  } else if (! step.check_validity) {
+  if (root_checking_validity) {
+    if (step.isvalid) {
+      sStepSymbol = "&#10004;" // check
+    } else if (step.has_valid_parent) {
+      sStepSymbol = "&diams;"; // diamond, validity is covered by a parent
+    } else if (! step.check_validity) {
+      sStepSymbol = "&#9679;" // circle, was not trying to check validity
+      // lineClass = "step-has-valid_parent";
+    } else { // step.check_validity && ! step.isvalid
+      sStepSymbol= "&#10060"; // cross, for a trustme step
+      lineClass = "step-invalid";
+    }
+  } else {
     sStepSymbol = "&#9679;" // circle, was not trying to check validity
-    // lineClass = "step-has-valid_parent";
-  } else { // step.check_validity && ! step.isvalid
-    sStepSymbol= "&#10060"; // cross, for a trustme step
-    lineClass = "step-invalid";
   }
 
   // Line color
@@ -948,7 +963,7 @@ function initSteps() {
   // reads global variable [steps]
   // writes global variables [smallsteps] and [bigsteps] and [hasBigsteps]
   var rootStep = steps[0];
-
+  root_checking_validity = steps[0].check_validity;
   var rootSub = rootStep.sub;
   if (rootSub.length == 0) {
     console.log("Error: no steps in tree")

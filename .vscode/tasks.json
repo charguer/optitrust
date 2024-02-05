@@ -85,6 +85,27 @@
         ]
       },
       {
+        "label": "View trace detailed",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_full_trace",
+          "-detailed-trace"
+        ]
+      },
+      {
         "label": "View trace from intermediate state",
         "type": "shell",
         "command": "tools/view_result.sh",
