@@ -1,1 +1,2 @@
--xcpp -Iinclude
+-xc++
+-Iinclude
