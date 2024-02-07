@@ -1,5 +1,35 @@
 #include <optitrust.h>
 
+void demo_both_par(int* t, int n, int m) {
+  __modifies(
+      "Group(range(0, n, 1), fun i -> Group(range(0, m, 1), fun j -> &t[i * m "
+      "+ j] ~> Cell))");
+  __ghost(swap_groups,
+          "outer_range := range(0, n, 1), inner_range := range(0, m, 1), items "
+          ":= fun i, j -> &t[i * m + j] ~> Cell");
+  for (int j = 0; j < m; j++) {
+    __modifies("Group(range(0, n, 1), fun i -> &t[i * m + j] ~> Cell)");
+    for (int i = 0; i < n; i++) {
+      __modifies("&t[i * m + j] ~> Cell");
+      t[i * m + j] = j;
+    }
+  }
+  __ghost(swap_groups,
+          "outer_range := range(0, m, 1), inner_range := range(0, n, 1), items "
+          ":= fun j, i -> &t[i * m + j] ~> Cell");
+}
+
+void demo_outer_par(int* t, int n) {
+  __modifies("Group(range(0, n, 1), fun i -> &t[i] ~> Cell)");
+  for (int j = 0; j < 4; j++) {
+    __sequentially_modifies("Group(range(0, n, 1), fun i -> &t[i] ~> Cell)");
+    for (int i = 0; i < n; i++) {
+      __modifies("&t[i] ~> Cell");
+      t[i] = j;
+    }
+  }
+}
+
 void g(int* t) {
   __modifies("t ~> Matrix3(7, 10, 20)");
   __ghost(swap_groups,
@@ -92,27 +122,27 @@ void ghost_pairs() {
   const __ghost_fn __ghost_pair_2 = __ghost_begin(
       __with_reverse(
           [&]() {
-            __requires("#130: _Fraction");
-            __consumes("_RO(#130, Group(range(0, 5, 1), fun i -> &x ~> Cell))");
+            __requires("#136: _Fraction");
+            __consumes("_RO(#136, Group(range(0, 5, 1), fun i -> &x ~> Cell))");
             __produces(
-                "_RO(#130 / range_count(range(0, 5, 1)), Group(range(0, 5, 1), "
+                "_RO(#136 / range_count(range(0, 5, 1)), Group(range(0, 5, 1), "
                 "fun i -> Group(range(0, 5, 1), fun _ -> &x ~> Cell)))");
             for (int i = 0; i < 5; i++) {
-              __loop_ghosts("#130: _Fraction");
-              __consumes("_RO(#130, &x ~> Cell)");
+              __loop_ghosts("#136: _Fraction");
+              __consumes("_RO(#136, &x ~> Cell)");
               __produces(
-                  "_RO(#130 / range_count(range(0, 5, 1)), Group(range(0, 5, "
+                  "_RO(#136 / range_count(range(0, 5, 1)), Group(range(0, 5, "
                   "1), fun _ -> &x ~> Cell))");
               __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
             }
           },
           [&]() {
             for (int i = 0; i < 5; i++) {
-              __loop_ghosts("#130: _Fraction");
+              __loop_ghosts("#136: _Fraction");
               __consumes(
-                  "_RO(#130 / range_count(range(0, 5, 1)), Group(range(0, 5, "
+                  "_RO(#136 / range_count(range(0, 5, 1)), Group(range(0, 5, "
                   "1), fun j -> &x ~> Cell))");
-              __produces("_RO(#130, &x ~> Cell)");
+              __produces("_RO(#136, &x ~> Cell)");
               __ghost(ro_join_group, "H := &x ~> Cell, r := range(0, 5, 1)");
             }
           }),
