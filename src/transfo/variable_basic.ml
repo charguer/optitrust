@@ -90,7 +90,7 @@ let local_name_on (curr_var : var) (var_typ : typ)
   the term at target [tg]. *)
 let%transfo local_name ~(var : var) (var_typ : typ)
   ~(local_var : string) (tg : target) : unit =
-  Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
+  Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
     Nobrace_transfo.remove_after (fun () ->
       Target.apply_at_path (local_name_on var var_typ local_var) p
     );

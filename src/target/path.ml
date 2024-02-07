@@ -420,10 +420,6 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
 let resolve_path (dl : path) (t : trm) : trm  =
   fst (resolve_path_and_ctx dl t )
 
-(* [get_trm_at_path dl]: alias for resolve_path *)
-let get_trm_at_path (dl : path) (t : trm) : trm =
-  resolve_path dl t
-
 
 (***********************************************************************************)
 (*                           Smart constructors for paths                          *)

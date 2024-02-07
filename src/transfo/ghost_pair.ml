@@ -187,9 +187,9 @@ let fission_at (mark_between : mark) (split_i : int) (seq : trm) : trm =
 
 (** Distributes the scope of ghost pairs at the targeted sequence interstice. *)
 let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
-  Target.apply (fun t p_before ->
+  Target.iter (fun p_before ->
     let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
-    apply_on_path (fission_at mark_between split_i) t p_seq
+    apply_at_path (fission_at mark_between split_i) p_seq
   ) tg;
   justif_correct "ghosts where successfully distributed"
 
@@ -278,9 +278,9 @@ let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq:
 (** Introduce a ghost pair starting on the targeted ghost, and ending at the first closing candidate. *)
 let%transfo intro ?(name: string option) ?(end_mark: mark = no_mark) (tg: target) =
   Resources.ensure_computed ();
-  Target.apply (fun t p ->
+  Target.iter (fun p ->
     let i, p = Path.index_in_seq p in
-    apply_on_path (intro_at ?name ~end_mark i) t p
+    apply_at_path (intro_at ?name ~end_mark i) p
   ) tg;
   Resources.justif_correct "only changed ghost code"
 
@@ -312,9 +312,9 @@ let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (
 (** Split a ghost pair into two independant ghost calls *)
 let%transfo elim ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (tg: target) =
   Resources.ensure_computed ();
-  Target.apply (fun t p ->
+  Target.iter (fun p ->
     let i, p = Path.index_in_seq p in
-    apply_on_path (elim_at ~mark_begin ~mark_end i) t p
+    apply_at_path (elim_at ~mark_begin ~mark_end i) p
   ) tg;
   Resources.justif_correct "only changed ghost code"
 
@@ -329,7 +329,7 @@ let elim_all_pairs_at (gen_mark: unit -> mark) (p: path): (var * mark * mark) li
   Resources.ensure_computed ();
   let begin_target = [nbAny; Constr_paths [p]; cStrict; cVarDef ~body:[cCall "__ghost_begin"] ""] in
   let marks = ref [] in
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     let mark_begin = gen_mark () in
     let mark_end = gen_mark () in
     let t_let = resolve_path p in
@@ -347,7 +347,7 @@ let reintro_pairs_at (pairs: (var * mark * mark) list) (p: path): unit =
   Resources.ensure_computed ();
   (* FIXME: Quadratic search of marks *)
   List.iter (fun (pair_token, begin_mark, end_mark) ->
-    Target.iter (fun _ p ->
+    Target.iter (fun p ->
       let i, p = Path.index_in_seq p in
       apply_at_path (intro_at ~name:pair_token.name ~end_mark i) p
     ) [Constr_paths [p]; cMark begin_mark]

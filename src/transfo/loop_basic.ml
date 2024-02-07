@@ -150,9 +150,9 @@ let%transfo hoist ?(name : string = "${var}_step")
          (tg : target) : unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
-    Target.apply (fun t p_instr ->
+    Target.iter (fun p_instr ->
       let (i, p) = Path.index_in_surrounding_loop p_instr in
-      Path.apply_on_path (hoist_on name mark_alloc mark_free mark_tmp_var arith_f i) t p
+      apply_at_path (hoist_on name mark_alloc mark_free mark_tmp_var arith_f i) p
       ) tg)
 
 (* [fission_on_as_pair]: split loop [t] into two loops
@@ -339,7 +339,7 @@ let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t 
 let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : mark = no_mark) (tg : target) : unit =
   (* TODO: figure out best nobrace/iter/resource interleaving *)
   Nobrace_transfo.remove_after (fun _ ->
-    Target.iter (fun _ p_before ->
+    Target.iter (fun p_before ->
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       (* DEBUG: let debug_p = Path.parent p_loop in
@@ -456,9 +456,9 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
   }
  *)
 let%transfo fusion ?(upwards : bool = true) (tg : target) : unit =
-  Target.apply (fun t p ->
+  Target.iter (fun p ->
     let (index, p_seq) = Path.index_in_seq p in
-    Target.apply_on_path (fusion_on index upwards) t p_seq
+    Target.apply_at_path (fusion_on index upwards) p_seq
     ) tg
 
 (* [grid_enumerate index_and_bounds tg]: expects the target [tg] to point at a loop iterating over
@@ -580,7 +580,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
 *)
 let%transfo move_out ?(instr_mark : mark = no_mark) ?(loop_mark : mark = no_mark) ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    Target.iter (fun _ p ->
+    Target.iter (fun p ->
       Resources.required_for_check ();
       let i, p = Path.index_in_surrounding_loop p in
       apply_at_path (move_out_on instr_mark loop_mark empty_range i) p
@@ -658,7 +658,7 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
   *)
 let%transfo move_out_alloc ?(empty_range: empty_range_mode = Produced_resources_uninit_after) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    Target.iter (fun _ p ->
+    Target.iter (fun p ->
       Resources.required_for_check ();
       let i, p = Path.index_in_surrounding_loop p in
       apply_at_path (move_out_alloc_on empty_range i) p
@@ -866,13 +866,13 @@ let delete_void_on (i : int) (t_seq : trm) : trm option =
 (* [delete_void]: deletes a loop with empty body. *)
 let%transfo delete_void (tg : target) : unit =
   Trace.justif_always_correct ();
-  Target.apply (fun t p ->
+  Target.iter (fun p ->
     let (i, p_seq) = Path.index_in_seq p in
-    Path.apply_on_path (fun t_seq ->
+    apply_at_path (fun t_seq ->
       match delete_void_on i t_seq with
       | Some t2 -> t2
       | None ->
-        let loop_t = Path.get_trm_at_path p t in
+        let loop_t = Target.resolve_path p in
         trm_fail loop_t "Loop_basic.delete_void: expected a simple loop with empty body, surrounded by a sequence"
-    ) t p_seq
+    ) p_seq
   ) tg

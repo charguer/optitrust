@@ -16,7 +16,7 @@ let justif () =
    NOTE: if m = "" then does nothing. *)
 let%transfo add (m : mark) (tg : target) : unit =
   justif();
-  if m = "" then () else Target.iter (fun _ p ->
+  if m = "" then () else Target.iter (fun p ->
     match Path.last_dir_before_inv p with
     | Some (p_seq, i) -> Target.apply_at_path (trm_add_mark_between i m) p_seq
     | None -> Target.apply_at_path (trm_add_mark m) p
@@ -39,7 +39,7 @@ let%transfo add_between (m : mark) (tg : target) : unit =
 (*** [remove m tg]: removes mark m from the term or interstice that corresponds to target [tg]. *)
 let%transfo remove (m : mark) (tg : target) : unit =
   justif();
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     match Path.last_dir_before_inv p with
     | Some (p_seq, i) -> Target.apply_at_path (trm_rem_mark_between m) p_seq
     | None -> Target.apply_at_path (trm_rem_mark m) p

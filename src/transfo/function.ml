@@ -15,7 +15,7 @@ type rename = Variable.Rename.t
       [fresh_names] different from "". *)
 let%transfo bind_args (fresh_names : string list) (tg : target) : unit =
   iter_on_targets (fun t p ->
-    let call_trm = get_trm_at_path p t in
+    let call_trm = resolve_path p t in
     let call_mark = "bind_args_mark" in
     let nb_fresh_names = List.length fresh_names in
     let error = "Function.bind_args: expected a target to a function call." in
@@ -229,7 +229,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
-      let call_trm = Path.get_trm_at_path path_to_call t in
+      let call_trm = Path.resolve_path path_to_call t in
       begin match call_trm.desc with
         | Trm_apps ({desc = Trm_var (_, f)}, _, _) -> function_names := Var_set.add f !function_names;
         | _ ->  trm_fail t "Function.get_function_name_from_call: couldn't get the name of the called function"
@@ -312,8 +312,8 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
   ?(delete : bool = true) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p ->
-    let def_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let def_trm = Target.resolve_path p in
     let error = "Function.inline_def: expected function definition" in
     let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
     (* FIXME: deal with qvar *)

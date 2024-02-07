@@ -569,7 +569,7 @@ let%transfo bind_syntactic ?(dest : target = []) ?(fresh_name : string = "x${occ
       Expr_basic.replace var_occ (target_of_path p);
     end
   in
-  Target.iter (fun t p -> bind_or_reuse (Path.resolve_path p t) p) (nbMulti :: tg)
+  Target.iter (fun p -> bind_or_reuse (Target.resolve_path p) p) (nbMulti :: tg)
   )
 
 (* TODO:

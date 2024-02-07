@@ -6,8 +6,8 @@ type nd_tile = Matrix_core.nd_tile
 
 let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p ->
-    let loop_t = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let loop_t = Target.resolve_path p in
     let error = "Stencil.loop_align_stop_extend_start: expected simple loop" in
     let ((_index, start', _dir, stop', _step, _par), _body, _contract) = trm_inv ~error trm_for_inv loop_t in
     if (Internal.same_trm start start') && (Internal.same_trm stop stop') then
@@ -102,13 +102,13 @@ let var_of_def (def_t : trm) : var =
 let collect_writes (p : path) : Var_set.t =
   let writes = ref Var_set.empty in
   (* 1. collect all array writes *)
-  Target.iter (fun t p ->
-    let waccess_t = Path.get_trm_at_path p t in
+  Target.iter (fun p ->
+    let waccess_t = Target.resolve_path p in
     writes := Var_set.add (var_of_access waccess_t) !writes;
   ) ((target_of_path p) @ [nbAny; cArrayWriteAccess ""]);
   (* 2. filter out all writes to locally defined arrays *)
-  Target.iter (fun t p ->
-    let vdef_t = Path.get_trm_at_path p t in
+  Target.iter (fun p ->
+    let vdef_t = Target.resolve_path p in
     writes := Var_set.remove (var_of_def vdef_t) !writes;
   ) ((target_of_path p) @ [nbAny; cVarDef ""]);
   !writes
@@ -137,7 +137,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
   Marks.with_fresh_mark (fun to_fuse ->
     let all_writes = ref Var_map.empty in
     (* 1. prepare loop nests for fusion *)
-    Target.iteri (fun loop_i _ p ->
+    Target.iteri (fun loop_i p ->
       must_be_in_surrounding_sequence p;
       (* 1.1 pry out each target to reveal loop nests *)
       pry_loop_nest outer_loop_count simpl p;

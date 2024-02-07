@@ -45,7 +45,7 @@ let%transfo intro_calloc (tg : target) : unit =
      all its occurrence accesses into Optitrust MINDEX accesses. *)
 let%transfo intro_mindex (dim : trm) (tg : target) : unit =
   iter_on_targets (fun t p ->
-    let tg_trm = Path.get_trm_at_path p t in
+    let tg_trm = Path.resolve_path p t in
     let error = "Matrix.intro_mindex: the target should point at matrix declaration." in
     let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
     Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x.name] ()]
@@ -108,7 +108,7 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
       the current allocation used. Then it will search for all accesses and apply intro_mindex. *)
 let%transfo intro_mops (dim : trm) (tg : target) : unit =
   iter_on_targets (fun t p ->
-    let tg_trm = Path.get_trm_at_path p t in
+    let tg_trm = Path.resolve_path p t in
     let error = "Matrix.intro_mops: the target should be pointing at a matrix declaration" in
     let _ = trm_inv ~error trm_let_inv tg_trm in
     intro_mindex dim (target_of_path p);
@@ -136,7 +136,7 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
 let%transfo elim_mops (tg : target): unit =
   Trace.tag_valid_by_composition ();
   let targets = ref [] in
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     targets := (target_of_path p) :: !targets;
   ) tg;
   !targets |> List.iter (fun tg ->
@@ -212,8 +212,8 @@ let simpl_void_loops = Loop.delete_all_void
   *)
 let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p_def ->
-    let t_def = Path.resolve_path p_def t in
+  Target.iter (fun p_def ->
+    let t_def = Target.resolve_path p_def in
     let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
     let (_, p_seq) = Path.index_in_seq p_def in
     let tg_seq = target_of_path p_seq in
@@ -234,7 +234,7 @@ let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
    *)
 let%transfo inline_constant ?(simpl : Transfo.t = Arith.default_simpl) ~(decl : target) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p -> Marks.with_fresh_mark (fun mark_accesses ->
+  Target.iter (fun p -> Marks.with_fresh_mark (fun mark_accesses ->
     (* TODO: use simpl there as well? *)
     elim_mops (target_of_path p);
     Arrays.inline_constant ~mark_accesses ~decl (target_of_path p);
@@ -247,8 +247,8 @@ let%transfo inline_constant ?(simpl : Transfo.t = Arith.default_simpl) ~(decl : 
    *)
 let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p_def -> Marks.with_fresh_mark (fun mark_accesses ->
-    let t_def = Path.resolve_path p_def t in
+  Target.iter (fun p_def -> Marks.with_fresh_mark (fun mark_accesses ->
+    let t_def = Target.resolve_path p_def in
     let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
     let (_, p_seq) = Path.index_in_seq p_def in
     (* TODO: use simpl there as well? *)
@@ -261,8 +261,8 @@ let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : targe
   on variable definitions while requiring the path to the surrounding sequence.
    *)
 let iter_on_var_defs (f : (varkind * var * typ * trm) -> (int * path) -> unit) (tg : target) : unit =
-  Target.iter (fun t p ->
-    let t_local = Path.get_trm_at_path p t in
+  Target.iter (fun p ->
+    let t_local = Target.resolve_path p in
     let error = "Matrix.iter_on_var_defs: expected target on variable definition" in
     let let_bits = trm_inv ~error trm_let_inv t_local in
     let seq_bits = Path.index_in_seq p in
@@ -296,7 +296,7 @@ let%transfo local_name_tile
     else (delete, false, local_var)
   in
   let (uninit_pre, uninit_post) = if delete then (true, true) else (uninit_pre, uninit_post) in
-  Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun t p ->
+  Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun p ->
     let v = ref dummy_var in
     Matrix_basic.local_name_tile ~mark_accesses ~indices
       ~uninit_pre ~uninit_post
@@ -324,7 +324,7 @@ let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : string lis
   ~(alloc_instr : target) ?(local_var : string = "") (tile : Matrix_core.nd_tile)
   ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Marks.with_fresh_mark (fun mark -> Target.iter (fun t p ->
+  Marks.with_fresh_mark (fun mark -> Target.iter (fun p ->
     Sequence.intro_after ~mark (target_of_path p);
     local_name_tile ~delete ~indices ~alloc_instr ~local_var tile ~simpl (target_of_path p);
     Sequence.elim [cMark mark];

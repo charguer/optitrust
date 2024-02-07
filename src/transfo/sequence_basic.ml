@@ -42,7 +42,7 @@ let%transfo insert ?(reparse : bool = false) (code : trm) (tg : target) : unit =
    we need both H ==> H' and H'' ==> H'. *)
 let%transfo delete ?(nb : int = 1) (tg : target) : unit =
   Resources.required_for_check ();
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     if !Flags.check_validity then begin
       if nb <> 1 then
         path_fail p "Sequence_basic.delete";

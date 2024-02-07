@@ -9,7 +9,8 @@ include Arith_basic
 let%transfo simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr)) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let paths_to_simpl = ref Path_set.empty in
-  Target.iter (fun t p ->
+  let t = Trace.ast () in
+  Target.iter (fun p ->
     paths_to_simpl := Path_set.add (Path.find_surrounding_expr p t) !paths_to_simpl;
   ) tg;
   Path_set.iter (fun p ->

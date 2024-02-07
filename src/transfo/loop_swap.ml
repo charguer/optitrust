@@ -232,7 +232,7 @@ let%transfo swap_basic (tg : target) : unit =
 
    *)
 let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = no_mark) (tg : target) : unit =
-  Target.iter (fun _ outer_loop_p ->
+  Target.iter (fun outer_loop_p ->
   Marks.with_marks (fun next_m ->
     if not !Flags.check_validity then begin
       swap_basic (target_of_path outer_loop_p);

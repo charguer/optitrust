@@ -61,7 +61,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     for each for loop, apply fission on that loop, at the selected indices
     *)
 let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
-  Target.iter (fun _ p_interstice -> Marks.with_marks (fun next_mark ->
+  Target.iter (fun p_interstice -> Marks.with_marks (fun next_mark ->
     let (p_seq, i) = Path.last_dir_before_inv_success p_interstice in
     (* TODO: factorize *)
     let seq = Target.resolve_path_current_ast p_seq in
@@ -142,7 +142,7 @@ let%transfo hoist_alloc_loop_list
   let simpl_hoist_tmp_var () : unit =
     let mark = next_m () in
     Variable_basic.inline ~mark [cMark mark_tmp_var];
-    Target.iter (fun _t p_nested ->
+    Target.iter (fun p_nested ->
       let p = p_nested |> Path.parent in
       (* Transfo_debug.path "p_nested" p_nested;
       Transfo_debug.path "p" p; *)
@@ -182,8 +182,8 @@ let%transfo hoist_alloc_loop_list
     end;
     if more_hoists then hoist_aux name_template (i + 1);
   in
-  Target.iter (fun t p ->
-    let tg_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     match Resource_formula.trm_ghost_begin_inv tg_trm with
     | Some _ -> Tools.warn "Loop.hoist_alloc: not hoisting ghost begin"
     | _ -> begin
@@ -300,8 +300,8 @@ let%transfo hoist_decl_loop_list
   (tg : target) : unit
   =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p ->
-    let tg_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     let error = "Loop.hoist_decl_loop_list: expected let" in
     let _ = trm_inv ~error trm_let_inv tg_trm in
     Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
@@ -325,8 +325,8 @@ let%transfo hoist_expr_loop_list (name : string)
                          (loops : int list)
                          (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p ->
-    let instr_path = find_surrounding_instr p t in
+  Target.iter (fun p ->
+    let instr_path = find_surrounding_instr p (Trace.ast ()) in
     Variable.bind name (target_of_path p);
     hoist_decl_loop_list loops (target_of_path instr_path);
   ) tg
@@ -339,8 +339,8 @@ let targets_iter_with_loop_lists
   (tg : target) : unit =
 begin
   assert (dest <> []);
-  Target.iter (fun t target_path ->
-    let hoist_path = Target.resolve_target_exactly_one dest t in
+  Target.iter (fun target_path ->
+    let hoist_path = Constr.resolve_target_exactly_one dest (Trace.ast ()) in
     let (common_path, hoist_relpath, target_relpath) = Path.split_common_prefix hoist_path target_path in
     (*
     Printf.printf "common path: %s\n" (Path.path_to_string common_path);
@@ -399,7 +399,7 @@ let%transfo hoist_expr (name : string)
 
 let%transfo simpl_range ~(simpl : Target.Transfo.t) (tg : target) : unit =
   Trace.tag_simpl_arith ();
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     simpl (target_of_path (p @ [Dir_for_start]));
     simpl (target_of_path (p @ [Dir_for_stop]));
     simpl (nbAny :: (target_of_path (p @ [Dir_for_step])));
@@ -417,8 +417,8 @@ let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift
   end else
     index
   in
-  Target.iter (fun t p ->
-  let tg_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+  let tg_trm = Target.resolve_path p in
   let error = "Loop.shift: expected target to be a simple loop" in
   let ((prev_index, _, _, _, _, _), _, _) = trm_inv ~error trm_for_inv tg_trm in begin
   Loop_basic.shift index' kind (target_of_path p);
@@ -437,7 +437,7 @@ let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift
    *)
 let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : extension_kind = ExtendNothing) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p ->
+  Target.iter (fun p ->
     Loop_basic.extend_range ~start ~stop (target_of_path p);
     (* TODO: simpl_range? *)
     simpl (target_of_path (p @ [Dir_for_start]));
@@ -487,7 +487,7 @@ let adapt_indices ~(upwards : bool) (p : path) : unit =
   *)
 let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true) ?(adapt_fused_indices : bool = true) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     Marks.with_fresh_mark_on p (fun m ->
       for _ = 2 to nb do
         for nest_id = 0 to (nest_of - 1) do
@@ -527,13 +527,13 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
      and remembering the indices of the targeted loops in this sequence. *)
   let seq_path = ref None in
   let indices_in_seq = ref [] in
-  Target.iter (fun t p ->
+  Target.iter (fun p ->
     let (i, p_seq) = Path.index_in_seq p in
     begin match !seq_path with
     | None -> seq_path := Some p_seq
     | Some p_seq' ->
       if p_seq <> p_seq' then
-        trm_fail t "Loop.fusion_targets: targeted loops are not in the same sequence"
+        trm_fail (Target.resolve_path p_seq) "Loop.fusion_targets: targeted loops are not in the same sequence"
     end;
     indices_in_seq := i :: !indices_in_seq;
   ) (nbMulti :: tg);
@@ -612,7 +612,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
     if !Flags.check_validity then
       Resources.loop_minimize [cMark loop_m];
   in
-  Target.iter (fun t instr_p -> Marks.with_marks (fun next_mark ->
+  Target.iter (fun instr_p -> Marks.with_marks (fun next_mark ->
     let instr_m = Marks.add_next_mark_on next_mark instr_p in
     let loop_p = Path.to_outer_loop instr_p in
     match upto with
@@ -621,7 +621,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
       let quit_loop = ref false in
       let current_loop_p = ref loop_p in
       while not !quit_loop do
-        let loop_t = Path.resolve_path !current_loop_p t in
+        let loop_t = Target.resolve_path !current_loop_p in
         move_out_one next_mark instr_m !current_loop_p None;
         begin match trm_for_inv loop_t with
         | Some ((index, _, _, _, _, _), _, _) when var_has_name index upto ->
@@ -791,12 +791,13 @@ DETAILS for [unroll]
 
 let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) ?(simpl: Transfo.t = default_simpl) ?(shuffle : bool = false) (tg : target) : unit =
   (* in [unroll]: reparse_after ~reparse:(not braces) *)
-  Target.iteri (fun i t p ->
+  Target.iteri (fun i p ->
+    let t = Trace.ast () in
     let my_mark = "__unroll_" ^ string_of_int i in
-    let tg_loop_trm  = Path.resolve_path p t in
+    let tg_loop_trm  = Target.resolve_path p in
     Marks.add my_mark (target_of_path p);
     (* Function used in the case when the loop bound is a constant variable *)
-    let aux (x : var) (t : trm) : int  =
+    let aux (x : var) : int  =
       Variable_basic.unfold ~at:[cMark my_mark] [cVarDef x.name];
           let var_decl = match Internal.toplevel_decl x with
             | Some d -> d
@@ -816,16 +817,16 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       | Trm_apps (_, [_;bnd], _) ->
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
-        | Trm_var (_, x) -> aux x t
+        | Trm_var (_, x) -> aux x
         | _ -> trm_fail stop "Loop.unroll: expected eitehr a constant variable of a literal"
         end
       | Trm_var (_, x) ->
           let start_nb = begin match start.desc with
-          | Trm_var (_, y) -> aux y t
+          | Trm_var (_, y) -> aux y
           | Trm_val (Val_lit (Lit_int n)) -> n
           | _ -> trm_fail start "Loop.unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in
-          (aux x t) - start_nb
+          (aux x) - start_nb
       | Trm_val (Val_lit (Lit_int n)) -> n
       | _ -> trm_fail stop "Loop.unroll: expected an addition of two constants or a constant variable"
       end
@@ -869,7 +870,7 @@ let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle 
     unroll_nest_of_1 (target_of_path p);
   in
   (* reparse_after ~reparse:(not braces) ( *)
-    Target.iter (fun t p -> aux p nest_of)
+    Target.iter (fun p -> aux p nest_of)
   (* ) *) tg
 
 (* [reorder ~order tg]:  expects the target [tg] to point at the first loop included in the [order]
@@ -1034,7 +1035,7 @@ let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
     end
   in
   let remaining_loops = List.rev order in
-  Target.iter (fun t p ->
+  Target.iter (fun p ->
     Marks.with_marks (fun next_mark ->
       aux remaining_loops next_mark p
     )) tg
@@ -1069,7 +1070,7 @@ let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (
 (* [isolate_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, then it will
    split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop. *)
 let%transfo isolate_first_iteration ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
-  Target.iter (fun t p ->
+  Target.iter (fun p ->
     Loop_basic.split_range ~nb:1 (target_of_path p);
     unroll ~simpl (target_of_path p)
   ) tg
@@ -1150,7 +1151,7 @@ let%transfo tile ?(index : string = "b${id}")
         (tile_size : trm)
         (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p ->
+  Target.iter (fun p ->
     match (iter, bound) with
     | (TileIterGlobal, _) | (_, TileDivides) ->
       Loop_basic.tile ~index ~bound tile_size (target_of_path p)
@@ -1170,7 +1171,7 @@ let%transfo slide ?(index : string = "b${id}")
   ?(simpl : Transfo.t = default_simpl)
   (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     let bound = if is_trm_int 1 step then TileDivides else bound in
     Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
     simpl_range ~simpl (target_of_path p);
@@ -1190,7 +1191,7 @@ let%transfo slides ?(index : string = "b${id}")
   ?(simpl : Transfo.t = default_simpl)
   (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     let size_steps_bottom_up = List.rev (List.mapi (fun i x -> (i, x)) size_steps) in
     let prev_outer_elt_loop = ref None in
     let slide_at_inner_loop (i, size_step) =
@@ -1224,14 +1225,14 @@ let%transfo delete_void ?(nest_of : int = 1) (tg : target) : unit =
       Loop_basic.delete_void (target_of_path p);
     end
   in
-  Target.iter (fun _ p -> aux nest_of p) tg
+  Target.iter (fun p -> aux nest_of p) tg
 
 (* TODO: should this be in basic? *)
 (* [delete_void]: deletes all loop nests with empty body. *)
 let%transfo delete_all_void (tg : target) : unit =
   Trace.justif_always_correct ();
-  Target.apply (fun t p ->
-    Path.apply_on_path (trm_bottom_up (fun t ->
+  Target.iter (fun p ->
+    Target.apply_at_path (trm_bottom_up (fun t ->
       match trm_seq_inv t with
       | Some instrs ->
         let res_t = ref t in
@@ -1242,7 +1243,7 @@ let%transfo delete_all_void (tg : target) : unit =
         done;
         !res_t
       | None -> t
-    )) t p
+    )) p
   ) tg
 
 let rec get_indices (nest_of : int) (outer_p : path) : var list =

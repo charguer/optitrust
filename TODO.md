@@ -370,11 +370,6 @@
 - Replace calls to the deprecated function target_iter by Target.iter.
   Likewise for apply and its variants.
 
-- Detangle functionnal and imperative styles in the `Target` API:
-  - Replace calls to `Path.apply_on_path` with calls to `Target.apply_at_path`, and calls to `Path.resolve_path` to `Target.resolve_path`
-  - Remove the trm argument that correspond to the full AST in continuations given to `Target.iter`
-  - Remove `Target.apply`, since functions that mutate the AST will be executed in the continuation (However keep `apply_at_target_paths` that remain useful)
-
 - A combinator `Target.group_by prefix ?drop_prefix=false tg` that resolves a target `tg` to paths `ps`,
   then partition the paths according to the result of `prefix p` of each path `p`.
   Returns a list of the form (prefix, paths_with_that_prefix|suffixes)

@@ -787,7 +787,7 @@ let build_constification_records_on (t : trm) : unit =
 let build_constification_records (tg : target) : unit =
   Target.iter_at_target_paths (build_constification_records_on) tg
 
-(* [identify_mutables_on p t]: see [identify_mutables]. *)
+(* [identify_mutables_on t]: see [identify_mutables]. *)
 let identify_mutables_on (p : path) (t : trm) : unit =
   (* Auxiliary function which recursively visits all the terms of the body
      [fun_body] of the function [fun_var] in order to resolve dependencies
@@ -1086,4 +1086,4 @@ let identify_mutables_on (p : path) (t : trm) : unit =
    arguments should not be constified and adds them to the [to_unconst] stack
    (global variable, see Part II.1). *)
 let identify_mutables (tg : target) : unit =
-  Target.iter (fun t p -> identify_mutables_on p (get_trm_at_path p t)) tg
+  Target.iter (fun p -> identify_mutables_on p (Target.resolve_path p)) tg

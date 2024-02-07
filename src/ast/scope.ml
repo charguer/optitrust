@@ -97,10 +97,10 @@ let justif_unused_in (x : var) (instrs : trm mlist) : unit =
 
 (** Given a path to a variable definition, assert that it is unused using [justif_unused_in]. *)
 let justif_unused (p : Path.path) : unit =
-  let t = Path.get_trm_at_path p (Trace.ast ()) in
+  let t = Path.resolve_path p (Trace.ast ()) in
   let error = "expected a variable or function definition within a sequence" in
   let x = trm_inv ~error trm_let_or_let_fun_inv t in
   let (index, pseq) = Path.index_in_seq p in
-  let instrs = trm_inv ~error trm_seq_inv (Path.get_trm_at_path pseq (Trace.ast ())) in
+  let instrs = trm_inv ~error trm_seq_inv (Path.resolve_path pseq (Trace.ast ())) in
   let _, instrs_after = Mlist.split (index + 1) instrs in
   justif_unused_in x instrs_after

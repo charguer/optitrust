@@ -257,12 +257,12 @@ let target ?(msg : string = "show-target") ?(line : int = -1) ?(types : bool = f
     let tg = enable_multi_targets tg in
     let mark_of_occurence (i:int) : string =
       Printf.sprintf "%d" i in
-    applyi (fun i t p ->
+    iteri (fun i p ->
       let m = mark_of_occurence i in
       match Path.last_dir_before_inv p with
       | Some (p, k) ->
-        target_between_show_transfo m k t p
-      | None -> target_show_transfo ~types m t p
+        apply_at_path (target_between_show_aux m k) p
+      | None -> apply_at_path (target_show_aux ~types m) p
     ) tg;
     Trace.ast() in
   let ast_left = Trace.ast() in
@@ -342,7 +342,7 @@ let add_marks_for_target_unit_tests (tg : target) : unit =
       then ""
       else sprintf "%d_" (show_next_id())
     in
-  Target.iteri (fun i t p ->
+  Target.iteri (fun i p ->
     let mark = Printf.sprintf "%s%d" prefix i in
     Marks_basic.add mark (target_of_path p)) tg
 

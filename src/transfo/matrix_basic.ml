@@ -192,7 +192,7 @@ let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
   ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
   ~(local_var : string) (tile : Matrix_core.nd_range) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
+    Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
       let t1 = Xoption.unsome_or_else (get_trm_at alloc_instr) (fun () ->
         failwith "alloc_instr target does not match to any ast node"
       ) in
@@ -636,7 +636,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   *)
 let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-    Target.iter (fun _ p -> Marks.with_fresh_mark_on p (fun m ->
+    Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
       Target.apply_at_path (stack_copy_on var copy_var copy_dims) p;
       if !Flags.check_validity then begin
         Resources.ensure_computed ();

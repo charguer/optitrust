@@ -27,8 +27,8 @@ let unroll_surrounding_loops (indices : Var_set.t) (p : path) : unit =
   Loop.unroll (target_of_paths loop_ps)
 
 let unroll_index_vars_from_array_reads (tg : target) : unit =
-  Target.iter (fun t p ->
-    let read_t = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let read_t = Target.resolve_path p in
     let error = "Arrays.inline_index_vars_from_array_reads: expected array access" in
     let ptr_t = trm_inv ~error trm_get_inv read_t in
     let (_, index) = trm_inv ~error array_access_inv ptr_t in
@@ -61,8 +61,8 @@ let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) ?
 (* [elim_constant] expects the target [tg] to point at a constant array literal declaration, and resolves all its accesses, that must be at constant indices. Then, eliminates the array declaration.
   *)
 let%transfo elim_constant ?(mark_accesses : mark = no_mark) (tg : target) : unit =
-  Target.iter (fun t p ->
-    let decl_t = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let decl_t = Target.resolve_path p in
     let error = "Arrays.elim_constant: expected constant array literal declaration" in
     let (_, var, _, _) = trm_inv ~error trm_let_inv decl_t in
     let (_, p_seq) = Path.index_in_seq p in

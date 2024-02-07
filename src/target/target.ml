@@ -1510,7 +1510,7 @@ let trm_add_marks_at_paths (marks:mark list) (ps:paths) (t:trm) : trm =
    among the list of paths [ps] *)
 let trm_add_mark_at_paths (markof:path->trm->mark) (ps:paths) (t:trm) : trm =
   let marks = List.map (fun pi ->
-    let ti = Path.get_trm_at_path pi t in
+    let ti = Path.resolve_path pi t in
     markof pi ti) ps in
   trm_add_marks_at_paths marks ps t
 
@@ -1521,17 +1521,16 @@ let trm_add_mark_at_paths (markof:path->trm->mark) (ps:paths) (t:trm) : trm =
      [rev] - process the resolved paths in reverse order,
      [tg] - target
      [tr] - processing to be applied at the nodes corresponding at target [tg];
-            [tr i t p] where
+            [tr i p] where
             [i] is the index of the occurrence,
-            [t] is the current full ast
             [p] is the path towards the target occurrence. *)
-let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
+let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit =
   (* TODO TEMPORARY *)
   let c_o_r_bak = !Constr.old_resolution in
   Constr.old_resolution := false;
-  let tr_wrapped i t p =
+  let tr_wrapped i p =
     Constr.old_resolution := c_o_r_bak;
-    tr i t p;
+    tr i p;
     Constr.old_resolution := false
     in
 
@@ -1543,7 +1542,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
     match ps with
     | [] -> ()
     | [p] -> (* Call the transformation at that path *)
-             tr_wrapped 0 t p
+             tr_wrapped 0 p
     | _ ->
       (* LATER: optimization to avoid mark for first occurrence *)
       let marks = List.map (fun _ -> Mark.next()) ps in
@@ -1569,7 +1568,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
                 Trace.set_ast_for_target_iter t;
                 (* Call the transformation at that path, wrapping the operations
                  inside a group step *)
-                tr_wrapped occ t p)
+                tr_wrapped occ p)
           | ps ->
               (* There were not exactly one occurrence of the mark: either zero or multiple *)
               let msg =
@@ -1588,43 +1587,30 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
     Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
 
 (* [iter] same as [iteri] but without occurence index *)
-let iter ?(rev : bool = false) (tr : trm -> path -> unit) : target -> unit =
-  iteri ~rev (fun occ t p -> tr t p)
-
-let iter_at_target_paths ?(rev : bool = false) (transfo : trm -> unit) (tg : target) : unit =
-  iter ~rev (fun t p -> transfo (Path.get_trm_at_path p t)) tg
-
-(** [apply_at_path transfo p]: follow a path from the AST root to apply a function on the corresponding subterm *)
-let apply_at_path (transfo : trm -> trm) (p : path) : unit =
-  Trace.apply (fun t -> Path.apply_on_path transfo t p)
+let iter ?(rev : bool = false) (tr : path -> unit) : target -> unit =
+  iteri ~rev (fun occ p -> tr p)
 
 (** [resolve_path p]: follow a path from the AST root and return the subterm found *)
 let resolve_path (p: path): trm =
   Path.resolve_path p (Trace.ast ())
 
-(* [applyi tr tg]: apply transformation [tr] on the current ast
-   to each of the paths targeted by [tg].
-     [tg] - target
-     [tr] - a call to [tr i t p] should compute the updated term where
-            [i] is the index of the occurrence,
-            [t] is the current full ast
-            [p] is the path towards the target occurrence. *)
-let applyi ?(rev : bool = false) (tr : int -> trm -> path -> trm) (tg : target): unit =
-  iteri ~rev (fun occ t p -> Trace.set_ast (tr occ t p)) tg
+let iter_at_target_paths ?(rev : bool = false) (transfo : trm -> unit) (tg : target) : unit =
+  iter ~rev (fun p -> transfo (resolve_path p)) tg
 
-let apply ?(rev : bool = false) (tr : trm -> path -> trm) (tg : target) : unit =
-  applyi ~rev (fun _occ t p -> tr t p) tg
+(** [apply_at_path transfo p]: follow a path from the AST root to apply a function on the corresponding subterm *)
+let apply_at_path (transfo : trm -> trm) (p : path) : unit =
+  Trace.apply (fun t -> Path.apply_on_path transfo t p)
 
 let apply_at_target_paths ?(rev : bool = false) (transfo : trm -> trm) (tg : target) : unit =
-  iter ~rev (fun _ p -> apply_at_path transfo p) tg
+  iter ~rev (fun p -> apply_at_path transfo p) tg
 
 let applyi_at_target_paths ?(rev : bool = false) (transfo : int -> trm -> trm) (tg : target) : unit =
-  iteri ~rev (fun i _ p -> apply_at_path (transfo i) p) tg
+  iteri ~rev (fun i p -> apply_at_path (transfo i) p) tg
 
 (* ... [transfo t i] where [t] denotes the sequence and [i] denotes the index
    of the item in the sequence before which the target is aiming at. *)
 let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : unit =
-  iter (fun _ pb ->
+  iter (fun pb ->
     let (p,i) = Path.last_dir_before_inv_success pb in
     apply_at_path (fun tseq -> transfo tseq i) p) tg
 
@@ -1635,22 +1621,17 @@ let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : u
 
 (* [target_show_aux m t]: add mark [m] around the term [t]. *)
 let target_show_aux ?(types : bool = false) (m : mark) (t : trm) : trm =
-   let ty_as_string = begin match t.typ with | Some ty -> AstC_to_c.typ_to_string ty | _ ->  "" end in
-   let m = if types then Printf.sprintf "m %s" ty_as_string else m in
-   trm_add_mark m t
-
-(* [target_show_transfo m t p]: apply [target_show_aux] at the trm [t] with path [p]. *)
-let target_show_transfo ?(types : bool = false)(m : mark) : Transfo.local =
-  apply_on_path (target_show_aux ~types m)
+  let ty_as_string = match t.typ with
+    | Some ty -> AstC_to_c.typ_to_string ty
+    | _ ->  ""
+  in
+  let m = if types then Printf.sprintf "m %s" ty_as_string else m in
+  trm_add_mark m t
 
 (* [target_between_show_aux m k t]: add a a mark [m] at the trm [t] at index [k] at position
     [k] in the marks list of the sequence described by the term [t]. *)
 let target_between_show_aux (m : mark) (k : int) (t : trm) : trm =
-    trm_add_mark_between k m t
-
-(* [target_between_show_transfo id k t p]: apply [target_between_show_transfo_aux] at trm [t] with path [p]. *)
-let target_between_show_transfo (m : mark) : Transfo.local_between =
-  fun (k:int) -> apply_on_path (target_between_show_aux m k)
+  trm_add_mark_between k m t
 
 (******************************************************************************)
 (*                               Target aliases                               *)

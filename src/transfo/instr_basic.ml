@@ -32,24 +32,24 @@ let%transfo copy ?(mark_copy : mark = no_mark) ?(rev : bool = false) ?(delete : 
    as well. *)
 let%transfo move ?(mark : mark = no_mark) ?(rev : bool = false) ~dest:(dest : target) (tg : target) : unit =
   Resources.required_for_check ();
-  Target.apply ~rev (fun t instr_p ->
+  Target.iter ~rev (fun instr_p ->
     let (p_seq, i) = Internal.isolate_last_dir_in_seq instr_p in
-    let dest_p_seq, dest_index = if dest = [] then p_seq, i+1 else Target.resolve_target_between_exactly_one dest t in
+    let dest_p_seq, dest_index = if dest = [] then p_seq, i+1 else Target.resolve_target_between_exactly_one dest (Target.ast ()) in
     if dest_p_seq <> p_seq then path_fail p_seq "Instr_basic.move: the destination target should be unique and belong to the same block as the main targets";
     if !Flags.check_validity then begin
-      let instr_t = Path.resolve_path instr_p t in
+      let instr_t = Target.resolve_path instr_p in
       let (first_swapped_i, last_swapped_i, assert_seq_instrs_commute) =
         if i < dest_index
         then (i+1, dest_index-1, Resources.assert_seq_instrs_commute instr_t)
         else (dest_index, i-1, fun x -> Resources.assert_seq_instrs_commute x instr_t)
       in
       for swapped_instr_i = first_swapped_i to last_swapped_i do
-        let swapped_instr_t = Path.resolve_path (p_seq @ [Dir_seq_nth swapped_instr_i]) t in
+        let swapped_instr_t = Target.resolve_path (p_seq @ [Dir_seq_nth swapped_instr_i]) in
         assert_seq_instrs_commute swapped_instr_t
       done;
       Trace.justif "resources commute"
     end;
-    Instr_core.copy mark dest_index i true t p_seq
+    apply_at_path (Instr_core.copy_aux mark dest_index i true) p_seq
   ) tg;
   Scope.infer_var_ids ()
 
