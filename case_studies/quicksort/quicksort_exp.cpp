@@ -2,78 +2,107 @@
 #include <stdlib.h>
 #include <time.h>
 
-void swap(int* a, int* b) {
-  int temp = *a;
-  *a = *b;
-  *b = temp;
-}
-
-void init(int* arr) {
-  for (int idx = 0; idx < 100000000; idx++) {
-    arr[idx] = rand();
-  }
-}
-
-/*@taskify*/ void Partition(int* outPivot, int* arr, const int rightLimit) {
-  int pivot = arr[rightLimit - 1];
-  int idxLeft = -1;
-  int idxIter;
-  for (idxIter = 0; idxIter < rightLimit - 1; idxIter++) {
-    if (arr[idxIter] < pivot) {
-      idxLeft++;
-      swap(&arr[idxLeft], &arr[idxIter]);
-    }
-  }
-  swap(&arr[idxLeft + 1], &arr[rightLimit - 1]);
-  *outPivot = idxLeft + 1;
-} /*taskify@*/
-
-void InsertionSort(int* arr, const int rightLimit) {
-  for (int idx = 0; idx < rightLimit - 1; ++idx) {
-    int idxMin = idx;
-    int idxIter;
-    for (idxIter = idxMin + 1; idxIter < rightLimit; ++idxIter) {
-      if (arr[idxMin] > arr[idxIter]) {
-        idxMin = idxIter;
+void partition(int* out_pivot, int* arr, const int right_limit) {
+#pragma omp taskgroup
+  {
+    int pivot = arr[right_limit - 1];
+    int idx_left = -1;
+    int idx_iter, tmp;
+    for (idx_iter = 0; idx_iter < right_limit - 1; idx_iter++) {
+      if (arr[idx_iter] < pivot) {
+        idx_left++;
+        tmp = arr[idx_left];
+        arr[idx_left] = arr[idx_iter];
+        arr[idx_iter] = tmp;
       }
     }
-    swap(&arr[idx], &arr[idxMin]);
+    tmp = arr[idx_left + 1];
+    arr[idx_left + 1] = arr[right_limit - 1];
+    arr[right_limit - 1] = tmp;
+    *out_pivot = idx_left + 1;
+  __exit:;
   }
 }
 
-/*@taskify*/ void SortCore(int* inOutData, const int rightLimit) {
-  if (0 >= rightLimit) {
-    return;
-  }
-  if (rightLimit <= 256) {
-    InsertionSort(inOutData, rightLimit);
-  } else {
-    int pivot;
-    Partition(&pivot, inOutData, rightLimit);
-    SortCore(&inOutData[0], pivot);
-    SortCore(&inOutData[pivot + 1], rightLimit - (pivot + 1));
-  }
-} /*taskify@*/
-
-void Sort(int* inOutData, const int inSize) { SortCore(inOutData, inSize); }
-
-/*@taskify*/ int main() {
-  int* data = (int*)malloc(100000000 * sizeof(int));
-  if (!data) {
-    printf("Error while allocating data array!\n");
-    return 1;
-  }
-  srand(time(NULL));
-  init(data);
-  Sort(data, 100000000);
-  int idx;
-  for (idx = 1; idx < 100000000; idx++) {
-    if (data[idx - 1] > data[idx]) {
-      printf("Array is not sorted!\n");
-      free(data);
-      return 1;
+void insertion_sort(int* arr, const int right_limit) {
+#pragma omp taskgroup
+  {
+    for (int idx = 0; idx < right_limit - 1; ++idx) {
+      int idx_min = idx;
+      int idx_iter;
+      for (idx_iter = idx_min + 1; idx_iter < right_limit; ++idx_iter) {
+        if (arr[idx_min] > arr[idx_iter]) {
+          idx_min = idx_iter;
+        }
+      }
+      int tmp = arr[idx];
+      arr[idx] = arr[idx_min];
+      arr[idx_min] = tmp;
     }
+  __exit:;
   }
-  free(data);
-  return 0;
-} /*taskify@*/
+}
+
+void sort_core(int* in_out_data, const int right_limit) {
+#pragma omp taskgroup
+  {
+    if (0 >= right_limit) {
+      goto __exit;
+    }
+    if (right_limit <= 256) {
+      insertion_sort(in_out_data, right_limit);
+    } else {
+      int pivot;
+      partition(&pivot, in_out_data, right_limit);
+      sort_core(&in_out_data[0], pivot);
+      sort_core(&in_out_data[pivot + 1], right_limit - (pivot + 1));
+    }
+  __exit:;
+  }
+}
+
+void sort(int* in_out_data, const int in_size) {
+#pragma omp taskgroup
+  {
+    sort_core(in_out_data, in_size);
+  __exit:;
+  }
+}
+
+int main(int argc, char** argv) {
+  int __res;
+#pragma omp parallel
+#pragma omp master
+#pragma omp taskgroup
+  {
+    int size = 1000000;
+    if (argc > 1) {
+      size = atoi(argv[1]);
+    }
+    int* data = (int*)malloc(size * sizeof(int));
+    if (!data) {
+      perror("Array allocation failure");
+      __res = 1;
+      goto __exit;
+    }
+    srand(time(NULL));
+    for (int idx = 0; idx < size; idx++) {
+      data[idx] = rand();
+    }
+    sort(data, size);
+    int idx;
+    for (idx = 1; idx < size; idx++) {
+      if (data[idx - 1] > data[idx]) {
+        fprintf(stderr, "Error: array is not sorted\n");
+        free(data);
+        __res = 1;
+        goto __exit;
+      }
+    }
+    free(data);
+    __res = 0;
+    goto __exit;
+  __exit:;
+  }
+  return __res;
+}
