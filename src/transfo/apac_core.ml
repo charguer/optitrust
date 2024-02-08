@@ -40,18 +40,18 @@ type const_arg = {
        also to [b] in [f]. To achieve this and keep track of the dependency, we
        will add:
        
-         (f, b)
+         (f, 1)
        
-       to the [to_unconst_by_propagation] associative (function variable [var]
-       -> argument variable [lvar]) list in the [const_arg] record in [g]. *)
-    mutable to_unconst_by_propagation : (var * var) list;
+       to the [to_unconst_by_propagation] map (function variable [var] ->
+       0-based argument position [int]) in the [const_arg] record in [g]. *)
+    mutable to_unconst_by_propagation : int Var_map.t;
   }
 
 (* [const_fun]: a function constification record. *)
 type const_fun = {
-    (* Associative (argument variable -> constification record) list of
-       constification records for all the argument of the function. *)
-    const_args : (var * const_arg) list;
+    (* Map (0-based argument position -> constification record) of
+       constification records for all the arguments of the function. *)
+    const_args : const_arg Int_map.t;
     (* Tells whether the function can be constified. Note that this information
        is relevant only if the function is a class member method. *)
     mutable is_const : bool;
@@ -100,11 +100,11 @@ and symbols = int Var_Hashtbl.t
    to the function's arguments. Therefore, when we constify an argument, we must
    constify its aliase(s) too. To keep trace of argument aliases, we use a hash
    table data type where the key is the [lvar] of the alias and the value is a
-   pair of a [lvar] and an [int]. The [lvar] element corresponds to the function
-   argument being aliased. The [int] element gives the pointer degree of the
-   alias, if the latter is a pointer, e.g. the pointer degree of [int ** tab] is
-   2. *)
-and const_aliases = (lvar * int) LVar_Hashtbl.t
+   pair of two [int] elements. The first [int] element corresponds to the
+   0-based position of the function argument being aliased. The second [int]
+   element gives the pointer degree of the alias, if the latter is a pointer,
+   e.g. the pointer degree of [int ** tab] is 2. *)
+and const_aliases = (int * int) LVar_Hashtbl.t
 
 (* [const_unconst]: type of stack of function arguments, except for objects,
    that must not be constified.
@@ -124,12 +124,11 @@ and const_aliases = (lvar * int) LVar_Hashtbl.t
    analysis. Instead, we use a stack keeping trace of functions arguments and
    functions that shall be unconstified once the analysis terminates, see
    [to_unconst] below. The elements of the stack are pairs of the [var]
-   identifying the target function and the [var] identifying its argument to
-   unconstify. If the latter represents the [lvar] of the function, i.e. when
-   both of the elements of the pair are equal [lvars], it means that the
+   identifying the target function and the [int] identifying the position of its
+   argument to unconstify. If the latter is set to -1, it means that the
    function itself should be unconstified. See
    [unconstify_mutables.unconstify_to_unconst_objects]. *)
-and const_unconst = (var * var) Stack.t
+and const_unconst = (var * int) Stack.t
 
 (* [const_unconst_objects]: type of stack of function arguments, represented by
    objects, that must not be constified. 
@@ -140,14 +139,15 @@ and const_unconst = (var * var) Stack.t
    elements in a [const_unconst] stack are processed (see
    [unconstify_mutables]). This is why a second phase is necessary to process
    the elements of a [const_unconst_objects] stack (see [unconstify_mutables]).
-   Here, an element is represented by a triplet of [var]s where the first [var]
-   identifies the target function, the second [var] identifies the argument of
-   that function to unconstify and the third [var] represents the class member
+   Here, an element is represented by a ([var], [int], [var]) triplet where the
+   first (a [var]) element identifies the target function, the second (an [int])
+   element gives the 0-based position of the that function's argument to
+   unconstify and the third (another [var]) element represents the class member
    method called on that argument. Then, during the unconstification process
-   (see [unconstify_mutables]), if the method represented by the third [var]
-   gets unconstified, the argument (second [var]) of the function targeted by
-   the first [var] will be unconstified too. *)
-and const_unconst_objects = (var * var * var) Stack.t
+   (see [unconstify_mutables]), if the method represented by the third element
+   ([var]) gets unconstified, the argument (the second element, the [int]) of
+   the function targeted by the first [var] will be unconstified too. *)
+and const_unconst_objects = (var * int * var) Stack.t
 
 (* [const_mult]: type of hash table for multiple variable declarations that must
    be transformed into sequences of simple variable declarations while
@@ -534,11 +534,11 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
    is an argument or an alias to an argument. If the pointer operation succeedes
    and if the resulting pointer is an argument or an alias to an argument, the
    function returns the labelled variable corresponding to the resulting pointer
-   as well as the aliased labelled variable. *)
+   as well as the 0-based position of the aliased argument. *)
 let trm_resolve_pointer_and_aliased_variable
-      (t : trm) (aliases : const_aliases) : (lvar * lvar) option =
+      (t : trm) (aliases : const_aliases) : (lvar * int) option =
   (* Simply recurse over different kinds of operations. *)
-  let rec aux (degree : int) (l : label) (t : trm) : (lvar * lvar) option =
+  let rec aux (degree : int) (l : label) (t : trm) : (lvar * int) option =
     match t.desc with
     (* [t] is a unary operation *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
@@ -582,7 +582,8 @@ let trm_resolve_pointer_and_aliased_variable
           variable. *)
        let lv : lvar = { v = v; l = l } in
        (* Check if its an argument or an alias to an argument, then return the
-          corresponding argument index and labelled variable. *)       
+          labelled variable as well as the corresponding 0-based position of the
+          aliased argument. *)       
        begin match LVar_Hashtbl.find_opt aliases lv with
        | Some (aliased, deg) when (degree + deg) > 0 -> Some (lv, aliased)
        (* Otherwise, there is nothing to return. *)
@@ -605,7 +606,7 @@ let trm_resolve_pointer_and_aliased_variable
    differences in representing simple [trm_let] and multiple [trm_let_mult]
    variable declarations in OptiTrust. In this case, the optional [reference]
    parameter can be used to ensure the test evaluates correctly. See a usage
-   example in [const_compte_one]. *)
+   example in [const_compute_one]. *)
 let trm_let_update_aliases ?(reference = false)
       (tv : typed_var) (ti : trm) (aliases : const_aliases) : int =
   (* Deconstruct the typed variable *)
@@ -626,6 +627,7 @@ let trm_let_update_aliases ?(reference = false)
              (* and if it is the case, create a new entry in [aliases] to keep
                 trace of it. *)
              let (aliased, _) = LVar_Hashtbl.find aliases ti_lvar in
+             (* Note that references are of pointer degree 0. *)
              LVar_Hashtbl.add aliases lv (aliased, 0);
              (* Return 1 because declared variable is a reference. *)
              1
@@ -706,8 +708,8 @@ let unconstify_mutables () : unit =
        (* Find the corresponding function constification record in
           [const_records]. *)
        let const_record = Var_Hashtbl.find const_records fn in
-       (* If the argument we should unconstify is in fact the function itself, *)
-       if var_eq fn ar then
+       (* If the argument position is set to -1, *)
+       if ar = -1 then
          (* it means that the function is a class member method and a class
             sibling is being modified within its body. Therefore, the function
             must not be consitifed. *)
@@ -716,21 +718,37 @@ let unconstify_mutables () : unit =
          end
        else
          begin
-           (* we gather the corresponding argument constification record. *)
-           let (_, arg) =
-             List.find (fun (x, _) -> x.id = ar.id) const_record.const_args in
-           (* Then, if needed, *)
-           if arg.is_const then
+           (* Otherwise, we try to gather the corresponding argument
+              constification record. *)
+           if (Int_map.mem ar const_record.const_args) then
              begin
-               (* we unconstify the argument *)
-               arg.is_const <- false;
-               (* and push to [to_unconst] all of the function arguments that
-                  should be unconstified by propagation. In other terms, we need
-                  to follow the dependencies too. *)
-               List.iter (
-                   fun element -> Stack.push element to_unconst
-                 ) arg.to_unconst_by_propagation;
-             end;
+               let arg = Int_map.find ar const_record.const_args in
+               (* Then, if needed, *)
+               if arg.is_const then
+                 begin
+                   (* we unconstify the argument *)
+                   arg.is_const <- false;
+                   (* and push to [to_unconst] all of the function arguments
+                      that should be unconstified by propagation. In other
+                      terms, we need to follow the dependencies too. *)
+                   Var_map.iter (
+                       fun k e -> Stack.push (k, e) to_unconst
+                     ) arg.to_unconst_by_propagation;
+                 end
+             end
+           else
+             (* If it is not possible, fail. This is not normal! *)
+             begin
+               let error =
+                 Printf.sprintf
+                   "Apac_core.unconstify_mutables.unconstify_to_unconst: \
+                    the constification record of '%s' has no argument \
+                    constification record for the argument on position '%d'."
+                   (var_to_string fn)
+                   ar
+               in
+               fail None error
+             end
          end;
        (* Recurse. *)
        unconstify_to_unconst ()
@@ -756,15 +774,30 @@ let unconstify_mutables () : unit =
            (* find the constification record of the function that has called
               [ff], i.e. [fn], and *)
            let const_record_fn = Var_Hashtbl.find const_records fn in
-           (* gather the corresponding argument constification record. *)
-           let (_, arg) =
-             List.find (fun (x, _) -> x.id = ar.id) const_record_fn.const_args
-           in
-           (* Then, if needed, *)
-           if arg.is_const then
+           (* try to gather the corresponding argument constification record. *)
+           if (Int_map.mem ar const_record_fn.const_args) then
              begin
-               (* we unconstify the argument *)
-               arg.is_const <- false;
+               let arg = Int_map.find ar const_record_fn.const_args in
+               (* Then, if needed, *)
+               if arg.is_const then
+                 begin
+                   (* we unconstify the argument *)
+                   arg.is_const <- false;
+                 end
+             end
+           else
+             (* If it is not possible, fail. This is not normal! *)
+             begin
+               let error =
+                 Printf.sprintf
+                   "Apac_core.unconstify_mutables.\
+                    unconstify_to_unconst_objects: the constification record \
+                    of '%s' has no argument constification record for the \
+                    argument on position '%d'."
+                   (var_to_string fn)
+                   ar
+               in
+               fail None error
              end
          end;
        (* Recurse. *)
@@ -1014,15 +1047,29 @@ let trm_discover_dependencies (locals : symbols)
        (*let _ = Printf.printf "call to %s\n" (var_to_string v) in*)
        if Var_Hashtbl.mem const_records v then
          let const_record : const_fun = Var_Hashtbl.find const_records v in
-         let consts : (var * const_arg) list = const_record.const_args in
-         let (_, consts') = List.split consts in
-         List.iter2 (
-             fun arg (const : const_arg)  ->
-             if const.is_const then
-               aux ins inouts filter false FunArgIn arg
+         List.iteri (
+             fun pos arg ->
+             if (Int_map.mem pos const_record.const_args) then
+               begin
+                 let const = Int_map.find pos const_record.const_args in
+                 if const.is_const then
+                   aux ins inouts filter false FunArgIn arg
+                 else
+                   aux ins inouts filter false FunArgInOut arg
+               end
              else
-               aux ins inouts filter false FunArgInOut arg
-           ) args consts'
+               begin
+                 let error =
+                   Printf.sprintf
+                     "Apac_core.trm_discover_dependencies: the constification \
+                      record of '%s' has no argument constification record for
+                      the argument on position '%d'."
+                     (var_to_string v)
+                     pos
+                 in
+                 fail None error
+               end
+           ) args
        else
          List.iter (
              fun arg ->
@@ -1105,17 +1152,22 @@ let build_constification_records_on (t : trm) : unit =
   let locals : symbols = Var_Hashtbl.create 10 in
   (* Create an argument constification record for the function's arguments and
      fill [locals] with function's arguments and their pointer degrees. *)
-  let const_args = List.map (
-                       fun (arg, ty) ->
+  let const_args = List.mapi (
+                       fun pos (arg, ty) ->
                        let deg = typ_get_degree ty in
                        let _ = Var_Hashtbl.add locals arg deg in
-                       (arg, {
-                          is_ptr_or_ref =
-                            is_typ_ptr ty || is_typ_ref ty ||
-                              is_typ_array ty;
-                          is_const = true;
-                          to_unconst_by_propagation = [];
-                     })) args in
+                       (
+                         pos,
+                         {
+                           is_ptr_or_ref =
+                             is_typ_ptr ty || is_typ_ref ty ||
+                               is_typ_array ty;
+                           is_const = true;
+                           to_unconst_by_propagation = Var_map.empty;
+                         }
+                       )
+                     ) args in
+  let const_args = Int_map.of_seq (List.to_seq const_args) in
   (* Create the constification record for the function itself *)
   let const : const_fun = {
       const_args = const_args;
@@ -1175,7 +1227,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
               associated with the function may not be the same. If [shift], the
               difference of these two values, has a positive value, we know that
               the current function call as a call to a class member method. *)
-           let shift = (List.length args) - (List.length fun_args_const) in
+           let shift = (List.length args) - (Int_map.cardinal fun_args_const) in
            (* For each argument of the function call, we *)
            List.iteri (fun index arg ->
                (* go through the access and reference operations to obtain the
@@ -1185,7 +1237,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                   (* if the variable is an alias, we have to *)
                   if LVar_Hashtbl.mem aliases arg_lvar then
                     begin
-                      (* determine the index of the argument it is aliasing. *)
+                      (* determine the position of the argument it is
+                         aliasing. *)
                       let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
                       (* If a class member method has been called and if the
                          parent is not [this], we may have to unconstify the
@@ -1194,22 +1247,41 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                          account class member variables. *)
                       if (index - shift) < 0 && arg_lvar.v.name <> "this" then
                         Stack.push
-                          (fun_var, arg_lvar.v, name) to_unconst_objects
-                          (* In the opposite case, *)
+                          (fun_var, aliased, name) to_unconst_objects
                       else
+                        (* In the opposite case, *)
                         begin
                           (* there is the corresponding argument constification
                              record to be gathered *)
-                          let (_, arg_const) =
-                            List.nth fun_args_const (index - shift) in
-                          (* and if the latter is a pointer or a reference, *)
-                          if arg_const.is_ptr_or_ref then
+                          let pos = index - shift in
+                          if (Int_map.mem pos fun_args_const) then
                             begin
-                              (* we will have to unconstify it by
-                                 propagation. *)
-                              arg_const.to_unconst_by_propagation <-
-                                (fun_var, aliased.v) ::
-                                  arg_const.to_unconst_by_propagation
+                              let arg_const = Int_map.find pos fun_args_const in
+                              (* and if the latter is a pointer or a
+                                 reference, *)
+                              if arg_const.is_ptr_or_ref then
+                                begin
+                                  (* we will have to unconstify it by
+                                     propagation. *)
+                                  arg_const.to_unconst_by_propagation <-
+                                    Var_map.add fun_var aliased
+                                      arg_const.to_unconst_by_propagation
+                                end
+                            end
+                          else
+                            (* If it is not possible, fail. This is not
+                               normal! *)
+                            begin
+                              let error =
+                                Printf.sprintf
+                                  "Apac_core.identify_mutables_on.aux: \
+                                   the constification record of '%s' has no \
+                                   argument constification record for the \
+                                   argument on position '%d'."
+                                  (var_to_string fun_var)
+                                  pos
+                              in
+                              fail None error
                             end
                         end
                     end
@@ -1236,11 +1308,11 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                   (* If the variable is an alias, we have to *)
                   if LVar_Hashtbl.mem aliases arg_lvar then
                     begin
-                      (* determine the index of the argument it is aliasing
+                      (* determine the position of the argument it is aliasing
                          and *)
                       let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
                       (* unconstify it. *)
-                      Stack.push (fun_var, aliased.v) to_unconst
+                      Stack.push (fun_var, aliased) to_unconst
                     end
                | None -> ()
              ) args;
@@ -1274,7 +1346,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                will have to unconstify the method itself. *)
             if lval_lvar.v.name = "this" then
               begin
-                Stack.push (fun_var, fun_var) to_unconst
+                Stack.push (fun_var, -1) to_unconst
               end;
             (* If it is an argument or an alias to an argument, we must not
                constify it. *)
@@ -1313,8 +1385,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                     (* Again, we do not consider parent class members because
                        the constification process does not analyze entire
                        classes. *)
-                    if aliased.v.name <> "this" then
-                      Stack.push (fun_var, aliased.v) to_unconst
+                    if aliased > -1 then
+                      Stack.push (fun_var, aliased) to_unconst
                   ) all_aliases;
                 (* When an alias changes a target, i.e. when the lvalue variable
                    was not dereferenced, *)
@@ -1363,8 +1435,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
            (* Again, we do not consider parent class members because the
               constification process does not analyze entire classes yet. See an
               aforementioned TODO. *)
-           if aliased.v.name <> "this" then
-             Stack.push (fun_var, aliased.v) to_unconst
+           if aliased > -1 then
+             Stack.push (fun_var, aliased) to_unconst
          ) all_aliases;
        trm_iter (aux aliases fun_var) fun_body
     (* Return statement: update the unconstification stack if the return value
@@ -1386,8 +1458,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                     (* Again, we do not consider parent class members because
                        the constification process does not analyze entire
                        classes yet. See an aforementioned TODO. *)
-                    if aliased.v.name <> "this" then
-                      Stack.push (fun_var, aliased.v) to_unconst
+                    if aliased > -1 then
+                      Stack.push (fun_var, aliased) to_unconst
                   ) all_aliases
               end
            (* 2) a function call with reference return type. In this case, there
@@ -1408,8 +1480,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
               (* Again, we do not consider parent class members because the
                  constification process does not analyze entire classes yet. See
                  an aforementioned TODO. *)
-              if aliased.v.name <> "this" then
-                Stack.push (fun_var, aliased.v) to_unconst
+              if aliased > -1 then
+                Stack.push (fun_var, aliased) to_unconst
            | None -> ()
          end;
        trm_iter (aux aliases fun_var) fun_body
@@ -1439,11 +1511,11 @@ let identify_mutables_on (p : path) (t : trm) : unit =
       (* Record that this is a class member method. *)
       const_record.is_class_method <- true;
       (* For each member variable of the parent class, *)
-      List.iteri (fun index (label, ty) ->
+      List.iteri (fun idx (label, ty) ->
           (* build the corresponding labelled variable and *)
           let lv : lvar = { v = this; l = label } in
           (* add it to the hash table of aliases. *)
-          LVar_Hashtbl.add aliases lv (lv, typ_get_degree ty)
+          LVar_Hashtbl.add aliases lv ((- idx), typ_get_degree ty)
         ) class_siblings
     end;
   (* If the function is not a class member method, it cannot be constified. It
@@ -1460,9 +1532,9 @@ let identify_mutables_on (p : path) (t : trm) : unit =
      Indeed, we have already added sibling class member values into the hash
      table of aliases above. *)
   let args = if const_record.is_class_method then List.tl args else args in
-  List.iteri (fun index (v, ty) ->
+  List.iteri (fun pos (v, ty) ->
       let lv : lvar = { v = v; l = String.empty } in
-      LVar_Hashtbl.add aliases lv (lv, typ_get_degree ty)
+      LVar_Hashtbl.add aliases lv (pos, typ_get_degree ty)
     ) args;
   (* Actually compute the dependencies of the function definition at [path]
      and fill [to_unconst]. *)

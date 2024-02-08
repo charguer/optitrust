@@ -231,7 +231,7 @@ let unfold_let_mult ?(constify : bool list = []) (tg : target) : unit =
 (* [constify_args_on ?force t]: see [constify_args]. *)
 let constify_args_on ?(force = false) (t : trm) : trm =
   (* Try to deconstruct the target function definition term. *)
-  let error = "Apac_basic.constify_args_on expected a target to a function \
+  let error = "Apac_basic.constify_args_on: expected a target to a function \
                definition." in
   let (var, ret_typ, args, body) = trm_inv ~error trm_let_fun_inv t in
   (* Optionally, force the constification of all of the function's arguments as
@@ -260,16 +260,38 @@ let constify_args_on ?(force = false) (t : trm) : trm =
        the list of argument constification records and constify the arguments
        that should be constified according to the corresponding constification
        record. *)
-    let (_, const_args_record) = List.split const_record.const_args in
-    let const_args = List.map2 (fun (v, ty) (cr : const_arg) ->
-                         if cr.is_const then (v, (typ_constify ty)) else (v, ty)
-                       ) args' const_args_record in
+    let const_args = List.mapi (fun pos (v, ty) ->
+                         if (Int_map.mem pos const_record.const_args) then
+                           begin
+                             let cr =
+                               Int_map.find pos const_record.const_args in
+                             if cr.is_const then
+                               (v, (typ_constify ty))
+                             else
+                               (v, ty)
+                           end
+                         else
+                           (* If the argument constification record does not
+                              exist, fail. This is not normal! *)
+                           begin
+                             let error =
+                               Printf.sprintf
+                                 "Apac_basic.constify_args_on: the \
+                                  constification record of '%s' has no \
+                                  argument constification record for the \
+                                  argument on position '%d'."
+                                 (var_to_string var)
+                                 pos
+                             in
+                             fail None error
+                           end
+                       ) args' in
     (* Rebuild the function definition term using the list of constified
        arguments. We have to bring back [this] to the list of arguments. If it
        is a class member method, [this] is a non-empty list. *)
     let const_args =
       if const_record.is_class_method then
-        (List.hd args)::const_args
+        (List.hd args) :: const_args
       else
         const_args in
     let let_fun_with_const_args =
@@ -413,9 +435,9 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
      the function arguments into the hash table of aliases. *)
   if force then
     begin
-      List.iter (fun (arg_var, arg_ty) ->
+      List.iteri (fun arg_pos (arg_var, arg_ty) ->
           let arg_lv : lvar = { v = arg_var; l = String.empty } in
-          LVar_Hashtbl.add aliases arg_lv (arg_lv, typ_get_degree arg_ty)
+          LVar_Hashtbl.add aliases arg_lv (arg_pos, typ_get_degree arg_ty)
         ) args'
     end
   (* Otherwise, have a look at the constification record of the function to find
@@ -429,14 +451,33 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
      variables to which we have to propagate the constification process. *)
   else
     begin
-      let (_, const_args_record) = List.split const_record.const_args in
-      List.iter2 (fun (arg_var, arg_ty) (arg_cr : const_arg) ->
-          if arg_cr.is_const then
+      List.iteri (
+          fun arg_pos (arg_var, arg_ty) ->
+          if (Int_map.mem arg_pos const_record.const_args) then
             begin
-              let arg_lv : lvar = { v = arg_var; l = String.empty } in
-              LVar_Hashtbl.add aliases arg_lv (arg_lv, typ_get_degree arg_ty)
+              let arg_cr = Int_map.find arg_pos const_record.const_args in
+              if arg_cr.is_const then
+                begin
+                  let arg_lv : lvar = { v = arg_var; l = String.empty } in
+                  LVar_Hashtbl.add
+                    aliases arg_lv (arg_pos, typ_get_degree arg_ty)
+                end
             end
-        ) args' const_args_record
+          else
+            (* If the argument constification record does not exist, fail. This
+               is not normal! *)
+            begin
+              let error =
+                Printf.sprintf
+                  "Apac_basic.constify_aliases_on: the constification record \
+                   of '%s' has no argument constification record for the \
+                   argument on position '%d'."
+                  (var_to_string var)
+                  arg_pos
+              in
+              fail None error
+            end
+        ) args'
     end;
   (* Call the auxiliary function to constify the aliases in the body of the
      function. *)
