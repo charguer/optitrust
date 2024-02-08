@@ -1,86 +1,86 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#define SIZE 100000000
 
-void swap(int * a, int * b) {
-  int temp = *a;
-  *a = *b;
-  *b = temp;
-}
+void partition(int * out_pivot, int * arr, int right_limit) {
+  int pivot = arr[right_limit - 1];
+  int idx_left = -1;
+  int idx_iter, tmp;
 
-void init(int * arr) {
-  for(int idx = 0; idx < SIZE; idx++) {
-    arr[idx] = rand();
-  }
-}
-
-void Partition(int * outPivot, int * arr, int rightLimit) {
-  int pivot = arr[rightLimit - 1];
-  int idxLeft = -1;
-  int idxIter;
-
-  for(idxIter = 0; idxIter < rightLimit - 1; idxIter++) {
-    if(arr[idxIter] < pivot) {
-      idxLeft++;
-      swap(&arr[idxLeft], &arr[idxIter]);
+  for(idx_iter = 0; idx_iter < right_limit - 1; idx_iter++) {
+    if(arr[idx_iter] < pivot) {
+      idx_left++;
+      tmp = arr[idx_left];
+      arr[idx_left] = arr[idx_iter];
+      arr[idx_iter] = tmp;
     }
   }
-  
-  swap(&arr[idxLeft + 1], &arr[rightLimit - 1]);
-  *outPivot = (idxLeft + 1);
+
+  tmp = arr[idx_left + 1];
+  arr[idx_left + 1] = arr[right_limit - 1];
+  arr[right_limit - 1] = tmp;
+  *out_pivot = (idx_left + 1);
 }
 
-void InsertionSort(int * arr, int rightLimit) {
-  for(int idx = 0; idx < rightLimit - 1; ++idx) {
-    int idxMin = idx;
-    int idxIter;
-    for(idxIter = idxMin + 1; idxIter < rightLimit; ++idxIter) {
-      if(arr[idxMin] > arr[idxIter]) {
-        idxMin = idxIter;
+void insertion_sort(int * arr, int right_limit) {
+  for(int idx = 0; idx < right_limit - 1; ++idx) {
+    int idx_min = idx;
+    int idx_iter;
+    for(idx_iter = idx_min + 1; idx_iter < right_limit; ++idx_iter) {
+      if(arr[idx_min] > arr[idx_iter]) {
+        idx_min = idx_iter;
       }
     }
-    swap(&arr[idx], &arr[idxMin]);
+    int tmp = arr[idx];
+    arr[idx] = arr[idx_min];
+    arr[idx_min] = tmp;
   }
 }
   
-void SortCore(int * inOutData, int rightLimit) {
-  if (0 >= rightLimit) {
+void sort_core(int * in_out_data, int right_limit) {
+  if (0 >= right_limit) {
     return;
   }
   
-  if(rightLimit <= 256) {
-    InsertionSort(inOutData, rightLimit);
+  if(right_limit <= 256) {
+    insertion_sort(in_out_data, right_limit);
   } else {
     int pivot;
-    Partition(&pivot, inOutData, rightLimit);
-    SortCore(&inOutData[0], pivot);
-    SortCore(&inOutData[pivot + 1], rightLimit - (pivot + 1));
+    partition(&pivot, in_out_data, right_limit);
+    sort_core(&in_out_data[0], pivot);
+    sort_core(&in_out_data[pivot + 1], right_limit - (pivot + 1));
   }
 }
   
-void Sort(int * inOutData, int inSize) {
-  SortCore(inOutData, inSize);
+void sort(int * in_out_data, int in_size) {
+  sort_core(in_out_data, in_size);
 }
 
-int main(){
-  int * data = (int *) malloc(SIZE * sizeof(int));
+int main(int argc, char ** argv){
+  int size = 1000000;
+  if(argc > 1) {
+    size = atoi(argv[1]);
+  }
+  
+  int * data = (int *) malloc(size * sizeof(int));
 
   if(!data) {
-    printf("Error while allocating data array!\n");
+    perror("Array allocation failure");
     return 1;
   }
   
   srand(time(NULL));
   
-  init(data);
+  for(int idx = 0; idx < size; idx++) {
+    data[idx] = rand();
+  }
 
-  Sort(data, SIZE);
+  sort(data, size);
   
   int idx;
-  for(idx = 1; idx < SIZE; idx++) {
+  for(idx = 1; idx < size; idx++) {
     if(data[idx - 1] > data[idx]){
-      printf("Array is not sorted!\n");
+      fprintf(stderr, "Error: array is not sorted\n");
       free(data);
       return 1;
     }
