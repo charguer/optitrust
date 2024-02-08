@@ -1141,10 +1141,11 @@ let trm_map_vars
       (!cont_ctx, t')
 
     | Trm_let_fun (fn, resources, args, body, contract) ->
+      let cont_ctx, fn' = map_binder ctx fn (Some t) in
       let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) ->
         let ctx, arg' = map_binder ctx arg None in
         (ctx, (arg', typ))
-      ) (enter_scope ctx t) args in
+      ) (enter_scope cont_ctx t) args in
       let body_ctx, contract = match contract with
         | None -> (body_ctx, None)
         | Some contract ->
@@ -1152,7 +1153,6 @@ let trm_map_vars
           (body_ctx, Some contract)
       in
       let _, body' = f_map body_ctx body in
-      let cont_ctx, fn' = map_binder ctx fn (Some t) in
       let t' = if (body' == body && args == args' && fn == fn')
         then t
         else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract fn' resources args' body')

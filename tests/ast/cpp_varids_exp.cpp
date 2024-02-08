@@ -41,9 +41,9 @@ class CC3 {
   void p_2(int* a_11, int* b_6) { *a_11 = *b_6 + 1; }
 };
 
-void cc3_2() {
-  CC3 cc3;
-  cc3.q_3(0);
+void cc3() {
+  CC3 cc3_2;
+  cc3_2.q_3(0);
 }
 
 void cc3_bis(CC3* cc3_3) { cc3_3->q_3(0); }
