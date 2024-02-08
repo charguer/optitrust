@@ -17,10 +17,10 @@ open Graph
 let rec dep_to_string (d : dep) : string =
   match d with
   | Dep_ptr d' ->
-     "*" ^ (dep_to_string d')
+     (*"*" ^*) dep_to_string d'
   | Dep_var v -> v.name
-  | Dep_trm (t, _) ->
-     AstC_to_c.ast_to_string t
+  | Dep_trm (t, v) -> v.name
+     (*AstC_to_c.ast_to_string t*)
 
 (* [dep_get_atomic d]: if [d] is a dependency represented by a pointer
    expression, e.g. [*c], the function returns the base dependency element, i.e.
