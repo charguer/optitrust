@@ -25,7 +25,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     let var_type = List.fold_left (^) "" var_type in
     let other_vars = List.map (fun x -> var_type ^ " " ^ x) other_vars in
     let var_decl_list = first_var :: other_vars in
-    (Tools.list_to_string ~sep:", " ~bounds:["";""] var_decl_list)
+    (Tools.list_to_string ~sep:", " ~bounds:("","") var_decl_list)
     in
   let var_decls = Str.split (Str.regexp_string ";") var_decls in
   List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls

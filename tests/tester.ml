@@ -678,7 +678,7 @@ let action_run (tests : string list) : unit =
   (* Produce summary of errors, or full report of all tests *)
   let print_errors msg tests =
     if tests <> [] then
-      printf "%s:\n%s\n" msg (Tools.list_to_string ~sep:"\n  " ~bounds:["  "; "\n"] tests)
+      printf "%s:\n%s\n" msg (Tools.list_to_string ~sep:"\n  " ~bounds:("  ", "\n") tests)
   in
   if !full_report then begin
     print_errors "All tests" !tests_all;

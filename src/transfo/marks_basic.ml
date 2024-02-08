@@ -65,6 +65,7 @@ let%transfo remove_st ?(indepth:bool=false) (pred: mark->bool) (tg : target) : u
     then Target.apply_at_target_paths aux tg
     else Target.apply_at_target_paths (trm_remove_marks pred) tg
 
-(* DEPRECATED? *)
-let clean (tg : target) : unit =
-  remove_st (fun _m -> true) tg
+(* [clean tg]: removes all the marks form the term that is matched by target [tg].
+   Use [~indepth:true] to recurse in subterms. *)
+let clean ?(indepth:bool=false) (tg : target) : unit =
+  remove_st ~indepth (fun _ -> true) tg

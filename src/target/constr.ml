@@ -1141,8 +1141,8 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
           let t_marks = trm_get_marks t in
           begin match t.desc with
           | Trm_seq tl | Trm_array tl ->
-            (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
-          | Trm_record tl -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
+            (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
+          | Trm_record tl -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
           | _ -> List.exists pred t_marks
           end
         end else begin
@@ -1549,7 +1549,7 @@ and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t :
     let paths_on_the_mlist =
       if !old_resolution then [] else
       (* find paths towards mark-between in a MList, in which case we generate a Dir_before *)
-      match c, trm_mlist_inv t with
+      match c, trm_mlist_inv_marks t with
       | (Constr_mark (pred,_)), (Some marks) ->
           List.concat (List.mapi (fun i ms -> if List.exists pred ms then [[Dir_before i]] else []) marks)
       | _ -> []

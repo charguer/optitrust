@@ -382,7 +382,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
         end in
       let smarks =
         if style.ast.print_mark
-          then list_to_string ~sep:", " ~bounds:["";""] t_marks
+          then list_to_string ~sep:", " ~bounds:("","") t_marks
           else "" in
 
       let sleft = string ("/*@" ^ sid ^ smarks ^ "*/") in
@@ -480,38 +480,31 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
           hardline ^^ string "else" ^^ blank 1 ^^ de
       end
     | Trm_seq tl ->
-      let tl_m = tl.marks in
-      let tl = Mlist.to_list tl in
-      let tl = List.filter (fun t -> not (trm_has_cstyle Redundant_decl t)) tl in
-      if trm_has_cstyle Multi_decl t
-        then dattr ^^ multi_decl_to_doc style loc tl
-        else if trm_is_nobrace_seq t
-          then
-          let dl = List.map (decorate_trm style ~semicolon:true) tl in
+      let tl = Mlist.filter (fun t -> not (trm_has_cstyle Redundant_decl t)) tl in
+      if trm_has_cstyle Multi_decl t then
+        dattr ^^ multi_decl_to_doc style loc (Mlist.to_list tl)
+      else if (not !Flags.display_includes) && (trm_is_include t) then
+        empty
+      else
+        let dl = Mlist.flatten_marks (decorate_trm style ~semicolon:true)
+          (fun m -> string ("/*@ " ^ list_to_string ~bounds:("", "") ~sep:", " m ^ " @*/")) tl
+        in
+        if trm_is_nobrace_seq t then
           (* CHECK: #var-id, made nobrace visible *)
           (* DEBUG: let nb = string (sprintf "/*no-brace %d*/" (Option.get (Nobrace.get_id t))) in *)
           let nb = string "/*no-brace*/" in
           nb ^^ surround 2 1 lbrace (dattr ^^ separate hardline dl) rbrace
-        else if (not !Flags.display_includes) && (trm_is_include t)
-        then empty
         else
-          let counter = ref (-1) in
-          let dl = List.map (decorate_trm style ~semicolon:true) tl in
-          let dl = Xlist.fold_lefti (fun i acc m ->
-            if m <> [] then begin
-              incr counter;
-              let m = list_to_string ~sep:", " m in
-              let s = string ("/*@" ^ m ^ "@*/") in
-              Xlist.insert_at (i + !counter) s acc end
-            else acc
-          ) dl tl_m in
-          counter := -1;
-          let res = if trm_is_mainfile t then
-            let header = if style.pretty_matrix_notation
-              then (string "// NOTE: using pretty matrix notation") ^^ hardline
-              else empty in
-            header ^^ (separate (twice hardline) dl)
-          else surround 2 1 lbrace (separate hardline dl) rbrace in
+          let res =
+            if trm_is_mainfile t then
+              let header =
+                if style.pretty_matrix_notation
+                  then (string "// NOTE: using pretty matrix notation") ^^ hardline
+                  else empty
+                in
+                header ^^ (separate (twice hardline) dl)
+            else surround 2 1 lbrace (separate hardline dl) rbrace
+          in
           dattr ^^ res
     | Trm_apps _ when trm_has_cstyle ResourceFormula t ->
       dattr ^^ formula_to_doc style t ^^ dsemi

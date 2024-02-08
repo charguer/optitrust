@@ -79,7 +79,7 @@ let may_slide (written : var list) (sizes : trm list) (steps : trm list) ~(simpl
       Some (size, step)
   ) sizes steps in
   let inner_loop_indices = List.filter_map (fun (base_index, szst) ->
-    Option.map (fun _ -> Tools.list_to_string ~sep:"_" ~bounds:["";""] (base_index :: written)) szst
+    Option.map (fun _ -> Tools.list_to_string ~sep:"_" ~bounds:("","") (base_index :: written)) szst
   ) (List.combine outer_loop_indices size_steps) in
   Loop.slides ~iter:TileIterLocal ~size_steps ~simpl (target_of_path p);
   Loop.set_indices (outer_loop_indices @ inner_loop_indices) p;
@@ -176,7 +176,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
     end;
     let rename loop_p =
       let writes = List.map (fun v -> v.name) (Var_set.elements (collect_writes loop_p)) in
-      Some (Variable.Rename.AddSuffix (Tools.list_to_string ~sep:"_" ~bounds:["_";""] writes))
+      Some (Variable.Rename.AddSuffix (Tools.list_to_string ~sep:"_" ~bounds:("_","") writes))
     in
     (* Show.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
     Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:(target_of_path (snd (Xlist.unlast to_fuse_paths))) (target_of_paths to_fuse_paths);

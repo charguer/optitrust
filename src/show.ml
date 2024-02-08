@@ -131,7 +131,7 @@ let typs ?(msg : string = "") (ts : typ list) : unit =
 
 let marks ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
-  prt ~suffix:"\n" (Tools.list_to_string ~sep:"; " ~bounds:["[";"]"] (Mark.trm_get_marks t))
+  prt ~suffix:"\n" (Tools.list_to_string ~sep:"; " ~bounds:("[","]") (Mark.trm_get_marks t))
 
 (* annot *)
 
@@ -336,7 +336,7 @@ let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : t
 let add_marks_for_target_unit_tests (tg : target) : unit =
   let tg = enable_multi_targets tg in
   if Flags.is_execution_mode_step ()
-    then Marks_basic.remove_st ~indepth:true (fun _m -> true) [];
+    then Marks_basic.clean ~indepth:true [];
   let prefix =
     if Flags.is_execution_mode_step ()
       then ""

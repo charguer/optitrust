@@ -719,11 +719,11 @@ let trm_prod_inv (t : trm) : trm list =
   in aux false [] t
 
 (* [trm_mlist_inv_marks t] gets the description of marks in a term that
-   contains a MList, for example [Trm_seq], [Trm_array], or [Trm_record]. *)
-let trm_mlist_inv (t : trm) : mark list list option =
+   contains a Mlist, for example [Trm_seq], [Trm_array], or [Trm_record]. *)
+let trm_mlist_inv_marks (t : trm) : mark list list option =
   match t.desc with
-  | Trm_seq tl | Trm_array tl -> Some tl.marks
-  | Trm_record tl -> Some tl.marks
+  | Trm_seq tl | Trm_array tl -> Some (Mlist.get_marks tl)
+  | Trm_record tl -> Some (Mlist.get_marks tl)
   | _ -> None
 
 
@@ -1684,17 +1684,18 @@ let insert_at_top_of_seq (tl : trm list) (t : trm) : trm =
 
 
 (* [filter_out_from_seq f t]: extracts all the trms that satisfy the predicate [f] from sequence [t].
-      The final result is a pair consisting of the final sequence and the filtered out trms.*)
-      let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
-      match t.desc with
-      | Trm_seq tl ->
-        let tl_to_remove, tl_to_keep = Mlist.partition f tl in
-        (trm_alter ~desc:(Trm_seq tl_to_keep) t , Mlist.to_list tl_to_remove)
-      | _  -> (t, [])
+    The final result is a pair consisting of the final sequence and the filtered out trms.*)
+let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
+  match t.desc with
+  | Trm_seq tl ->
+    (* FIXME: Preserve marks *)
+    let tl_to_remove, tl_to_keep = List.partition f (Mlist.to_list tl) in
+    (trm_alter ~desc:(Trm_seq (Mlist.of_list tl_to_keep)) t , tl_to_remove)
+  | _  -> (t, [])
 
-    (* [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
-    let is_class_constructor (t : trm) : bool =
-      List.exists (function  | Class_constructor _ -> true | _ -> false) (trm_get_cstyles t)
+(* [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
+let is_class_constructor (t : trm) : bool =
+  List.exists (function | Class_constructor _ -> true | _ -> false) (trm_get_cstyles t)
 
 (* [get_typ_arguments t]: returns the list of types used during a template specialization. *)
 let get_typ_arguments (t : trm) : typ list =

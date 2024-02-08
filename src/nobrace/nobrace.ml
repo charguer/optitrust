@@ -71,29 +71,12 @@ let remove_if_sequence (t : trm) : trm =
     if is_nobrace t then trm_filter_cstyle (function No_braces _ -> true | _ -> false) t else t
   | _ -> t
 
-(* [inline_seq_at index ml]: in the case of nested sequence,
-    this function can be used to inline the sublist at [index] into the main list.
-
-    If [check_scoping] is set, also checks for variable scope interference.
-    [check_scoping] is DEPRECATED, use var ids instead.
-  *)
-let inline_seq_at ?(check_scoping = fun _ _ -> ()) (index : int) (ml : trm mlist) : trm mlist =
-  let lfront, st, lback  = Mlist.get_item_and_its_relatives index ml in
-  match st.desc with
-  | Trm_seq tl ->
-    check_scoping tl lback;
-    Mlist.merge (Mlist.merge lfront tl) lback
-  | _ -> trm_fail st "Internal.inline_seq_at: expected an ast node which taks a mlist as parameter"
-
 (* [flatten_seq]: flatten inside [tl] the sequences with annotation [No_braces id] *)
-let flatten_seq ?(check_scoping = fun _ _ -> ()) (id: int) (tl: trm Mlist.t): trm Mlist.t =
-  let indices_list = List.flatten (List.mapi (fun i ti ->
-    begin match get_id ti with
-    | Some c_i when c_i = id -> [i]
-    | _ -> []
-    end
-  ) (Mlist.to_list tl)) in
-
-  if indices_list <> [] then
-    List.fold_left (fun acc x_i -> inline_seq_at ~check_scoping x_i acc) tl (List.rev indices_list)
-  else tl
+let flatten_seq (id: int) (tl: trm Mlist.t): trm Mlist.t =
+  Mlist.concat_map (fun ti ->
+    match get_id ti with
+    | Some c_i when c_i = id ->
+      let tl = trm_inv ~error:"expected an ast node which taks a mlist as parameter" trm_seq_inv ti in
+      tl
+    | _ -> Mlist.of_list [ti]
+  ) tl

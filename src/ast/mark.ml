@@ -34,7 +34,7 @@ let trm_may_add_mark (mo : mark option) (t : trm) : trm =
 (* [trm_filter_mark m t]: keeps only marks that satisfy the predicate [pred].
    Only operates on marks on the term, does not handle mark-between in sequences. *)
 let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
-  apply_on_marks (fun marks -> List.filter (fun m -> pred m) marks) t
+  apply_on_marks (fun marks -> List.filter pred marks) t
 
 (* [trm_rem_mark m t]: removes mark [m] from trm [t]. *)
 let trm_rem_mark (m : mark) (t : trm) : trm =
@@ -57,7 +57,7 @@ let trm_remove_marks (pred: mark->bool) (t : trm) : trm =
   let res =
   match t.desc with
   (* In the case of sequences, special treatment is needed for in between marks*)
-  | Trm_seq tl -> trm_replace (Trm_seq {items = tl.items; marks = []}) t
+  | Trm_seq tl -> trm_replace (Trm_seq (Mlist.filter_marks (fun m -> not (pred m)) tl)) t
   | _ -> t in
   trm_filter_mark (fun m -> not (pred m)) res
 
@@ -93,16 +93,16 @@ let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
 
 (* [get_mark_index m t]: for relative targets marks are stored on the parent sequence, this function give the index
    that mark m targets to *)
-   let get_mark_index (m : mark) (t : trm) : int option =
-    match t.desc with
-    | Trm_seq tl ->
-      Xlist.fold_lefti (fun i acc ml ->
-        match acc with
-        | Some _ -> acc
-        | None ->
-          if List.mem m ml then Some i else None
-      ) None tl.marks
-    | _ -> trm_fail t "Ast.get_mark_index: expected a sequence trm"
+let get_mark_index (m : mark) (t : trm) : int option =
+  match t.desc with
+  | Trm_seq tl ->
+    Xlist.fold_lefti (fun i acc ml ->
+      match acc with
+      | Some _ -> acc
+      | None ->
+        if List.mem m ml then Some i else None
+    ) None (Mlist.get_marks tl)
+  | _ -> trm_fail t "Ast.get_mark_index: expected a sequence trm"
 
 
 (* [loop_step_to_trm l_step]: returns the loop step as trm *)

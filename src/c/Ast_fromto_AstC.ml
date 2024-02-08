@@ -862,9 +862,9 @@ let computed_resources_intro (style: style) (t: trm): trm =
           then Option.to_list (Option.map (ctx_used_res_to_trm style ~clause:__post_inst) t.ctx.ctx_resources_post_inst)
           else []
         in
-      let process_instr instr = display_ctx_resources style (aux instr) in
-      let tl_instrs = List.concat_map process_instr (Mlist.to_list instrs) in
-      trm_like ~old:t (trm_seq (Mlist.of_list (tl_before @ tl_instrs @ tl_post_inst)))
+      let process_instr instr = Mlist.of_list (display_ctx_resources style (aux instr)) in
+      let tl_instrs = Mlist.concat_map process_instr instrs in
+      trm_like ~old:t (trm_seq (Mlist.merge_list [Mlist.of_list tl_before; tl_instrs; Mlist.of_list tl_post_inst]))
     | _ -> trm_map ~keep_ctx:true aux t
   in
   aux t

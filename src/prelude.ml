@@ -39,7 +39,7 @@ let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(braces = true
 let skip_includes (t : trm) : trm =
   match trm_seq_inv t with
   | Some instrs ->
-    let _, not_include = Mlist.partition trm_is_include instrs in
+    let not_include = Mlist.filter (fun t -> not (trm_is_include t)) instrs in
     trm_seq not_include
   | None -> t
 

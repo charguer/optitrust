@@ -86,7 +86,7 @@ let assert_no_interference ~(after_what : string) ~(on_interference : string) tl
   match find_interference tl_new_scope tl_after with
   | [] -> ()
   | [x] -> failwith (sprintf "local variable '%s' is used after %s, but will now be %s" (var_to_string x) after_what on_interference)
-  | xs -> failwith (sprintf "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:["'";"'"] (List.map var_to_string xs)) after_what on_interference)
+  | xs -> failwith (sprintf "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:("'","'") (List.map var_to_string xs)) after_what on_interference)
 
 (** If [x] is used in [instrs], traces a justification, otherwise fails. *)
 let justif_unused_in (x : var) (instrs : trm mlist) : unit =
