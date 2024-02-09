@@ -1,9 +1,11 @@
 
 OptiTrust is a tool for user-guided, source-to-source transformations.
 
-It is a research prototype, in active development. We hope to reach by the end
-of 2023 a stage of robustness and documentation that will make is feasible
-for external users to play with OptiTrust and contribute new transformations.
+The project webpage is:
+
+http://optitrust.inria.fr
+
+It is a research prototype, under active development.
 
 In the meanwhile, if you are interested in a demo, please get in touch with @charguer.
 
