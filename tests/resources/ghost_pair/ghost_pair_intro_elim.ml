@@ -21,7 +21,7 @@ let _ = Run.script_cpp (fun () ->
   !! Trace.check_recover_original();
 
   (* Testing internal operations *)
-  let p = resolve_target_exactly_one [cFunDef "main"] (Trace.ast ()) in
+  let p = resolve_target_exactly_one [cFunDef "main"] in
   let pairs = ref None in
   !! pairs := Some (Ghost_pair.elim_all_pairs_at Mark.next p);
   !! Ghost_pair.reintro_pairs_at (Option.get !pairs) p;

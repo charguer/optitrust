@@ -174,7 +174,7 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
     let new_tl = Mlist.merge lfront lback in
     let new_t = trm_seq ~annot:t.annot new_tl in
     let tg = [nbAny; cWriteVar x.name] in
-    let ps = resolve_target tg new_t in
+    let ps = Constr.resolve_target tg new_t in
     let nb_occs = List.length ps in
     let nb_seq_occs = List.length (List.filter (fun p -> List.length p = 1) ps) in
     (* Show.trm "new_t" new_t;

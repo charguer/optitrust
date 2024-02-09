@@ -160,14 +160,14 @@ module At = struct
   (* Combinators *)
 
   let at (f: path -> trm -> unit) ?(msg : string = "") (tg : Target.target) : unit =
-    let ps = Target.resolve_target_current_ast tg in
+    let ps = Target.resolve_target tg in
     prt_msg msg;
     let nbps = List.length ps in
     if nbps > 1
       then prt (sprintf "target resolves to %d paths\n" nbps);
     List.iteri (fun i p ->
       if nbps > 1 then prt (sprintf "[occ #%d] " (i + 1));
-      f p (Target.resolve_path_current_ast p)
+      f p (Target.resolve_path p)
     ) ps
 
   let at_trm (f: trm -> unit) ?(msg : string = "") (tg : Target.target) : unit =

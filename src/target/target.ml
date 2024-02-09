@@ -1104,11 +1104,6 @@ let cNamespace ?(substr : bool = false) ?(regexp : bool = false) (name : string)
 (*                          Target resolution                                 *)
 (******************************************************************************)
 
-(* NOW INCLUDED
-let resolve_target = Constr.resolve_target
-let resolve_target_between = Constr.resolve_target_between
-*)
-
 (* [check tg]: can be used as a debugging step. *)
 let check (tg : target) : unit =
   Trace.call (fun t -> ignore (resolve_target tg t))
@@ -1131,6 +1126,7 @@ let relative_target (tg : target) : target =
 
 (******************************************************************************)
 (*                          Apply on target operations                        *)
+(* DEPRECATED SECTION: only use functions from the next section in new code   *)
 (******************************************************************************)
 
 (* [Transfo]: type of transformations. *)
@@ -1244,27 +1240,12 @@ let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm
 let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
 
-(* TODO: should be this name for the 'current_ast' version. *)
-(* [path_of_target_mark_one m t]: a wrapper for calling [resolve_target] with a mark for which we
-    expect a single occurence. *)
-let path_of_target_mark_one (m : mark) (t : trm) : path =
-  match resolve_target [nbExact 1; cMark m] t with
-  | [p] -> p
-  | _ -> trm_fail t "Target.resolve_target_mark_one: unreachable because nbExact 1 should return one path"
-
 (* [resolve_target_mark_one_else_any m t]: a wrapper for calling [resolve_target] with a mark for which we
     expect a single occurence. *)
 let resolve_target_mark_one_else_any (m : mark) (t : trm) : paths =
     try resolve_target [nbExact 1; cMark m] t
     with Constr.Resolve_target_failure _ ->
       resolve_target [nbAny; cMark m] t
-
-(* [resolve_target_between_mark_one_else_any]: a wrapper for calling [resolve_target] with a mark for
-    which we expect a single occurence. *)
-let resolve_target_between_mark_one_else_any (m : mark) (t : trm) : (path * int) list =
-    try resolve_target_between [nbExact 1; cMark m] t
-    with Constr.Resolve_target_failure _ ->
-        resolve_target_between [nbAny; cMark m] t
 
 (* [applyi_on_transformed_targets transformer tr tg]: apply a transformation [tr] on target [tg],
      [transformer] - change the resolved path so that more information about the context of the node is given,
@@ -1499,7 +1480,8 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 
 
 (******************************************************************************)
-(*                                   New target system TODO: deprecate old one *)
+(*                                   New target system                        *)
+(* TODO: remove the old one                                                   *)
 (******************************************************************************)
 
 (* [trm_add_marks_at_paths marks ps t] adds at the paths [ps] the marks named
@@ -1651,18 +1633,29 @@ let target_between_show_aux (m : mark) (k : int) (t : trm) : trm =
 (*                               Target aliases                               *)
 (******************************************************************************)
 
-(* TODO: should be default *)
+let resolve_target (tg : target) : paths =
+  Constr.resolve_target tg (Trace.ast ())
 
-let resolve_target_current_ast (tg : target) : paths =
-  resolve_target tg (Trace.ast ())
+let resolve_target_exactly_one (tg: target) : path =
+  Constr.resolve_target_exactly_one tg (Trace.ast ())
 
-let resolve_path_current_ast (p : path) : trm  =
+let resolve_path (p : path) : trm =
   Path.resolve_path p (Trace.ast ())
 
-let path_of_target_mark_one_current_ast (m : mark) : path =
-  path_of_target_mark_one m (Trace.ast ())
+let resolve_mark_exactly_one (m : mark) : path =
+  resolve_target_exactly_one [nbExact 1; cMark m]
 
-let (~~) f a b = f b a
+let resolve_target_between (tg : target) : (path * int) list =
+  Constr.resolve_target_between tg (Trace.ast ())
+
+let resolve_target_between_exactly_one (tg : target) : path * int =
+  Constr.resolve_target_between_exactly_one tg (Trace.ast ())
+
+let resolve_target_span (tg: target) (t: trm) : (path * span) list =
+  Constr.resolve_target_span tg (Trace.ast ())
+
+let resolve_target_span_exactly_one (tg: target) : path * span =
+  Constr.resolve_target_span_exactly_one tg (Trace.ast ())
 
   (** LATER rename to get_trm_at_option et gt_trm_at_exn *)
 (* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [tg]. *)
@@ -1752,9 +1745,9 @@ let reparse_after ?(update_cur_ast : bool = true) ?(reparse : bool = true) (tr :
       (* FIXME: will not appear in trace *)
       let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
         if Constr.is_target_between tg
-        then let tg_ps = resolve_target_between tg ast in
+        then let tg_ps = Constr.resolve_target_between tg ast in
             fst (List.split tg_ps)
-        else resolve_target tg ast
+        else Constr.resolve_target tg ast
         ) in
       tr tg;
       if !Flags.use_light_diff then begin

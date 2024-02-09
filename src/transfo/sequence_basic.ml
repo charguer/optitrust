@@ -104,8 +104,8 @@ let%transfo intro_before ?(mark : mark = no_mark) ? (label : label = no_label) (
 let%transfo intro_between ?(mark : string = no_mark) ?(label : label = no_label) (tg_beg : target) (tg_end : target) : unit =
   Nobrace_transfo.remove_after ( fun  _ ->
   Trace.apply (fun t ->
-    let ps_beg : (path * int) list = resolve_target_between tg_beg t in
-    let ps_end : (path * int) list = resolve_target_between tg_end t in
+    let ps_beg : (path * int) list = resolve_target_between tg_beg in
+    let ps_end : (path * int) list = resolve_target_between tg_end in
     if List.length ps_beg <> List.length ps_end
       then trm_fail t "intro_between: not the same number of targets";
     let pis : (path * int * int) list = List.map2 (fun (p1,i1) (p2,i2) ->

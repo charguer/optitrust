@@ -1898,44 +1898,27 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
 
 
 (******************************************************************************)
-(*                          Target-between resolution      DEPRECATED SOON    *)
+(*                          Target-between resolution                         *)
 (******************************************************************************)
-
-
-(* [compute_relative_index rel t p]: computes the relative index for relative targets different from [TargetAt] *)
-let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
-  match rel with
-  | TargetAt -> failwith "Constr.compute_relative_index: Didn't expect a TargetAt"
-  | TargetFirst -> (p, 0)
-  | TargetLast -> (p, get_arity_of_seq_at p t)
-  | TargetBetweenAll -> failwith "DEPRECATED + NOT IMPLEMENTED"
-  | TargetBefore | TargetAfter ->
-      let shift =
-         match rel with
-         | TargetBefore -> 0
-         | TargetAfter -> 1
-         | _ -> assert false
-         in
-      let (d,p') =
-        try extract_last_path_item p
-        with Not_found -> failwith "Constr.compute_relative_index: expected a nonempty path"
-        in
-      match d with
-      | Dir_seq_nth i -> (p', i + shift)
-      | _ -> failwith "Constr.compute_relative_index: expected a Dir_seq_nth as last direction"
 
 (* [resolve_target_between tg t]: resolves a target that points before or after an instruction *)
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
-  let tgs = target_to_target_struct tg in
-  if tgs.target_relative = TargetAt
-    then failwith "Constr.resolve_target_between:this target should contain a tBefore, tAfter, tFirst, or tLast";
-  let res = resolve_target_struct tgs t in
-  List.map (compute_relative_index tgs.target_relative t) res
-
+  List.map extract_last_dir_before (resolve_target tg t)
 
 (* [resolve_target_between_exactly_one tg t]: similar to [resolve_target_between] but this one fails if the target matches
-    to multiple paths *)
-let resolve_target_between_exactly_one (tg : target) (t : trm) : (path * int) =
+    multiple paths *)
+let resolve_target_between_exactly_one (tg : target) (t : trm) : path * int =
   match resolve_target_between tg t with
   | [(p,i)] -> (p,i)
-  | _ -> trm_fail t "Constr.resolve_target_between_exactly_one: obtainer several targets"
+  | _ -> trm_fail t "Constr.resolve_target_between_exactly_one: target resolved to multiple paths"
+
+(* [resolve_target_span tg t]: resolves a target that points to a span of instruction *)
+let resolve_target_span (tg: target) (t: trm) : (path * span) list =
+  List.map extract_last_dir_span (resolve_target tg t)
+
+(* [resolve_target_span_exactly_one tg t]: similar to [resolve_target_span] but this one fails if the target matches
+    multiple paths *)
+let resolve_target_span_exactly_one (tg: target) (t: trm) : path * span =
+  match resolve_target_span tg t with
+  | [(p,s)] -> (p,s)
+  | _ -> trm_fail t "Constr.resolve_target_span_exactly_one: target resolved to multiple paths"

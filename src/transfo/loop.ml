@@ -12,7 +12,7 @@ let default_simpl = Arith.default_simpl
 type rename = Variable.Rename.t
 
 let path_of_loop_surrounding_mark_current_ast (m : mark) : path =
-  let mark_path = path_of_target_mark_one_current_ast m in
+  let mark_path = resolve_mark_exactly_one m in
   let (_, loop_path) = Path.index_in_surrounding_loop mark_path in
   loop_path
 
@@ -20,7 +20,7 @@ let path_of_loop_surrounding_mark_current_ast (m : mark) : path =
 let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : mark) : unit =
   if nest_of > 0 then begin
     (* Apply fission in innermost loop *)
-    let p_interstice = Target.path_of_target_mark_one_current_ast m_interstice in
+    let p_interstice = Target.resolve_mark_exactly_one m_interstice in
     let (p_loop_body, _) = Path.extract_last_dir_before p_interstice in
     let p_loop = Path.parent_with_dir p_loop_body Dir_body in
     let (_, p_seq) = Path.index_in_seq p_loop in
@@ -64,7 +64,7 @@ let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
   Target.iter (fun p_interstice -> Marks.with_marks (fun next_mark ->
     let (p_seq, i) = Path.extract_last_dir_before p_interstice in
     (* TODO: factorize *)
-    let seq = Target.resolve_path_current_ast p_seq in
+    let seq = Target.resolve_path p_seq in
     let instrs = trm_inv ~error:"expected seq" trm_seq_inv seq in
     let seq_length = Mlist.length instrs in
     if (i < 0) || (i > seq_length) then path_fail p_seq (sprintf "invalid index for fission: %d" i);
@@ -160,7 +160,7 @@ let%transfo hoist_alloc_loop_list
     | 0 -> begin
       Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       (* 1. move allocation at the top of the sequence. *)
-      let alloc_p = Target.resolve_target_exactly_one [cMark mark_alloc] (Trace.ast ()) in
+      let alloc_p = Target.resolve_target_exactly_one [cMark mark_alloc] in
       let (alloc_i, seq_p) = Path.index_in_seq alloc_p in
       Instr_basic.move ~dest:((target_of_path seq_p) @ [tFirst]) (target_of_path alloc_p);
       (* 2. move free at the bottom of the sequence. *)
@@ -354,7 +354,7 @@ begin
     (* TODO: otherwise, need to move instrs after hoist. *)
     assert ((List.hd target_relpath) = (Dir_seq_nth hoist_before_index));
     let (rev_loop_list, _) = List.fold_left (fun (rev_loop_list, p) elem ->
-      let new_rev_loop_list = match trm_for_inv (resolve_path_current_ast p) with
+      let new_rev_loop_list = match trm_for_inv (resolve_path p) with
       | Some ((i, _start, _dir, _stop, _step, _par), _, _) ->
         let loop_val = if List.mem i.name indep then 0 else 1 in
         loop_val :: rev_loop_list
@@ -442,7 +442,7 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
     (* TODO: simpl_range? *)
     simpl (target_of_path (p @ [Dir_for_start]));
     simpl (target_of_path (p @ [Dir_for_stop]));
-    let tg_loop = Target.resolve_path_current_ast p in
+    let tg_loop = Target.resolve_path p in
     let (_, loop_instrs, _) = trm_inv ~error:"Loop.extend_range: expected simple loop"
       trm_for_inv_instrs tg_loop in
     match Mlist.to_list loop_instrs with
@@ -491,7 +491,7 @@ let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true)
     Marks.with_fresh_mark_on p (fun m ->
       for _ = 2 to nb do
         for nest_id = 0 to (nest_of - 1) do
-          let cur_p = Target.path_of_target_mark_one_current_ast m in
+          let cur_p = Target.resolve_mark_exactly_one m in
           let nested_p = Path.to_inner_loop_n nest_id cur_p in
           let target_p = if upwards || nest_id = 0
           then nested_p
@@ -579,7 +579,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
   in
   match into with
   | Some tg ->
-    let p = Target.resolve_target_exactly_one tg (Trace.ast ()) in
+    let p = Target.resolve_target_exactly_one tg in
     may_rename_loop_body p;
     let (fuse_into, p_seq) = Path.index_in_seq p in
     (* TODO: Option.get error message *)
@@ -605,7 +605,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
 let%transfo move_out ?(upto : string = "") (tg : target) : unit =
   let move_out_one (next_mark : unit -> mark) (instr_m : mark) (loop_p : path) (instr_p : path option) : unit =
     let instr_tg = [Constr_paths [loop_p]; cMark instr_m] in
-    let instr_p = match instr_p with Some p -> p | None -> resolve_target_exactly_one instr_tg (Trace.ast ()) in
+    let instr_p = match instr_p with Some p -> p | None -> resolve_target_exactly_one instr_tg in
     Instr_basic.move ~dest:[Constr_paths [loop_p]; tFirst; dBody] (target_of_path instr_p);
     let loop_m = next_mark () in
     Loop_basic.move_out ~loop_mark:loop_m instr_tg;

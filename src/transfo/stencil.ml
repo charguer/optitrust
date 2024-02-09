@@ -23,8 +23,8 @@ let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : 
 
 let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1) ?(simpl : Transfo.t = Arith.default_simpl) (tg:target) : unit =
   Trace.tag_valid_by_composition ();
-  let orig_p = resolve_target_exactly_one orig (Trace.ast ()) in
-  let ps = resolve_target tg (Trace.ast ()) in
+  let orig_p = resolve_target_exactly_one orig in
+  let ps = resolve_target tg in
   let rec aux (nest_of : int) (orig_p : path) (ps : paths) (map_vars : tmap list) =
     if nest_of > 0 then begin
       (* is this a good idea? simplify original loop range before using it. *)
@@ -165,7 +165,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       Marks.add to_fuse (target_of_path p);
     ) tg;
     (* 2. fuse loop nests *)
-    let to_fuse_paths = Target.resolve_target [nbMulti; cMark to_fuse] (Trace.ast ()) in
+    let to_fuse_paths = Target.resolve_target [nbMulti; cMark to_fuse] in
     let nest_to_fuse = if fuse_inner_loops
       then outer_loop_count + (List.length tile) else outer_loop_count in
     if fuse_inner_loops then begin
@@ -184,10 +184,10 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
     (* 3. reduce temporary storage *)
     let surrounding_seq = Xoption.unsome !surrounding_sequence in
     let local_memory = Var_map.filter (fun v _ -> not (Var_set.mem v !outputs')) !all_writes in
-    let fused_p = path_of_target_mark_one_current_ast to_fuse in
+    let fused_p = resolve_mark_exactly_one to_fuse in
     let outer_loop_indices = Loop.get_indices outer_loop_count fused_p in
     let reduce_local_memory var (sizes, _) =
-      let fused_p = path_of_target_mark_one_current_ast to_fuse in
+      let fused_p = resolve_mark_exactly_one to_fuse in
       let inner_p = Path.to_inner_loop_n outer_loop_count fused_p in
       let alloc_instr = (target_of_path surrounding_seq) @ [cVarDef var.name] in
       let alloc_trm = get_trm_at_exn (alloc_instr @ [dInit]) in

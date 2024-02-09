@@ -458,7 +458,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
           end
        else
         begin
-          let source_paths = resolve_target source t in
+          let source_paths = Constr.resolve_target source t in
           let source_decl_trm = match List.nth_opt source_paths i with
             | Some p -> Path.resolve_path p t
             | None -> trm_fail t "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in

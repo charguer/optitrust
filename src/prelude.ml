@@ -45,12 +45,11 @@ let skip_includes (t : trm) : trm =
 
 (* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
 let find_var_in_current_ast ?(target : target = []) (name : string) : var =
-  let t = Trace.ast () in
   let vars =
-    if target = [] then trm_def_or_used_vars (skip_includes t)
+    if target = [] then trm_def_or_used_vars (skip_includes (Trace.ast ()))
     else List.fold_left (fun acc p ->
-      Var_set.union acc (trm_def_or_used_vars (Path.resolve_path p t))
-    ) Var_set.empty (resolve_target target t)
+      Var_set.union acc (trm_def_or_used_vars (Target.resolve_path p))
+    ) Var_set.empty (resolve_target target)
   in
   let candidates = Var_set.filter (fun v -> v.qualifier = [] && v.name = name) vars in
   match Var_set.cardinal candidates with

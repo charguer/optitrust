@@ -246,7 +246,7 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
       Resources.loop_parallelize_reads (target_of_path outer_loop_p);
 
       let inner_seq_tg = [Constr_paths [seq_p]; cMark outer_loop_m; dBody] in
-      let inner_seq_p = resolve_target_exactly_one inner_seq_tg (Trace.ast ()) in
+      let inner_seq_p = resolve_target_exactly_one inner_seq_tg in
 
       let pairs = Ghost_pair.elim_all_pairs_at next_m inner_seq_p in
 
@@ -262,7 +262,7 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
 
       Ghost_pair.reintro_pairs_at loop_pairs seq_p;
 
-      let inner_loop_p = resolve_target_exactly_one [cMark inner_loop_m] (Trace.ast ()) in
+      let inner_loop_p = resolve_target_exactly_one [cMark inner_loop_m] in
       let _, outer_loop_p = Path.index_in_surrounding_loop inner_loop_p in
       swap_basic (target_of_path outer_loop_p);
     end

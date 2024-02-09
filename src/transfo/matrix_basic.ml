@@ -204,7 +204,7 @@ let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
       ) p;
       if !Flags.check_validity then begin
         Resources.ensure_computed ();
-        let p = resolve_target_exactly_one [cMark m] (Trace.ast ()) in
+        let p = resolve_target_exactly_one [cMark m] in
         if uninit_post then begin
           let pred formula =
             Var_set.mem !ret_var (trm_free_vars formula)
@@ -317,7 +317,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     else trm_fors loop_range init_trm in
 
                   let thrd_instr = Mlist.nth tl 2 in
-                  let ps2 = resolve_target tg thrd_instr in
+                  let ps2 = Constr.resolve_target tg thrd_instr in
                   let new_thrd_instr =
                     List.fold_left (fun acc p ->
                       apply_on_path (Matrix_core.insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var (name_to_var "ANY")) [dim]))) acc p
@@ -348,7 +348,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       end
                     else new_decl in
 
-                  let ps1 = resolve_target tg body in
+                  let ps1 = Constr.resolve_target tg body in
                   let new_snd_instr =
                     let updated_mindex =
                     List.fold_left (fun acc p ->
@@ -358,7 +358,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     trm_fors new_loop_range updated_mindex in
 
                   let thrd_instr = Mlist.nth tl 2 in
-                  let ps2 = resolve_target tg thrd_instr in
+                  let ps2 = Constr.resolve_target tg thrd_instr in
                   let new_thrd_instr =
                     List.fold_left (fun acc p ->
                       apply_on_path (Matrix_core.insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var (name_to_var "ANY")) [dim]))) acc p
@@ -368,7 +368,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let new_frth_instr = begin match trm_fors_inv alloc_arity frth_instr with
                     | Some (loop_range, body) ->
                       let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
-                      let ps2 = resolve_target tg body in
+                      let ps2 = Constr.resolve_target tg body in
                       let new_body =
                           List.fold_left (fun acc p ->
                         apply_on_path (Matrix_core.insert_access_dim_index_aux dim (trm_var index)) acc p
@@ -381,7 +381,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let new_fifth_instr = begin match trm_fors_inv alloc_arity fifth_instr with
                     | Some (loop_range, body) ->
                       let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
-                      let ps2 = resolve_target tg body in
+                      let ps2 = Constr.resolve_target tg body in
                       let new_body =
                           List.fold_left (fun acc p ->
                         apply_on_path (Matrix_core.insert_access_dim_index_aux dim (trm_var index)) acc p

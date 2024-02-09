@@ -35,7 +35,7 @@ let _ = Run.script_cpp (fun () ->
     let mark = Mark.next () in
     (* FIXME: div op, "yn"; "ym"; "y"; *)
     Variable_basic.inline ~mark [nbMulti; cVarDefs ["x"; "z"; "sum"]];
-    let paths = Target.resolve_target_current_ast [nbMulti; cMark mark] in
+    let paths = Target.resolve_target [nbMulti; cMark mark] in
     let paths = Xlist.remove_duplicates (List.map (fun p -> Path.find_surrounding_expr p (Trace.ast ())) paths) in
     List.iter (fun path ->
       Target.apply_at_path (trm_bottom_up (fun t ->
