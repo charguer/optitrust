@@ -146,6 +146,8 @@ and constr =
   | Constr_switch of target * constr_cases
   (* Target relative to another trm *)
   | Constr_relative of target_relative
+  (* Target matching a range of contiguous instructions inside a sequence *)
+  | Constr_span of target * target
   (* Number of  occurrences expected  *)
   | Constr_occurrences of target_occurrences
   (* List of constraints *)
@@ -463,6 +465,7 @@ let rec constr_to_string (c : constr) : string =
      in
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
   | Constr_relative tr -> target_relative_to_string tr
+  | Constr_span (tbegin, tend) -> "Span (" ^ target_to_string tbegin ^ ", " ^ target_to_string tend ^ ")"
   | Constr_occurrences oc -> target_occurrences_to_string oc
   | Constr_target cl ->
     let string_cl = List.map constr_to_string cl in
@@ -610,6 +613,10 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
      let s_cc = Xoption.map (List.map (fun (k,tg) -> (k,aux tg))) cc in
      Constr_switch (s_cond, s_cc)
   | Constr_relative tr -> c
+  | Constr_span (p_begin, p_end) ->
+    let s_begin = aux p_begin in
+    let s_end = aux p_end in
+    Constr_span (s_begin, s_end)
   | Constr_occurrences oc -> c
   | Constr_target cl ->
       Constr_target (aux cl)
@@ -926,17 +933,7 @@ let extract_last_path_item (p : path) : dir * path =
   | [] -> raise Not_found
   | d :: p' -> (d, List.rev p')
 
-(* [extract_last_dir p]: extracts the last direction on a sequence *)
-let extract_last_dir (p : path) : path * int =
-  match List.rev p with
-  | [] -> raise Not_found
-  | d :: p' ->
-    begin match d with
-    | Dir_seq_nth i -> (List.rev p', i)
-    | _ -> path_fail p "Constr.extract_last_dir: expected a directory in a sequence"
-    end
-
-(* [get_sequence_length t]: gets the number of instructions on a sequence *)
+  (* [get_sequence_length t]: gets the number of instructions on a sequence *)
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
   | Trm_seq tl -> Mlist.length tl
@@ -946,19 +943,8 @@ let get_sequence_length (t : trm) : int =
 (* [get_arity_of_seq_at]: gets the arity of a sequence at path [p] *)
 (* TODO: move higher in file*)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
-  let (d,p') =
-    try extract_last_path_item p
-    with Not_found -> path_fail p "Constr.get_arity_of_seq_at: expected a nonempty path"
-    in
-  match d with
-  | Dir_seq_nth _ ->
-      let seq_trm = Path.resolve_path p' t in
-      get_sequence_length seq_trm
-  | Dir_then | Dir_else | Dir_body  ->
-      let seq_trm = Path.resolve_path p t in
-      get_sequence_length seq_trm
-  | _ -> path_fail p "Constr.get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
-
+  let seq_trm = Path.resolve_path p t in
+  get_sequence_length seq_trm
 
 
 (* [check_hastype pred t]: tests whether [t] carries a type
@@ -1300,7 +1286,7 @@ and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs :
        if debug_resolution then begin
           Printf.printf "resolve_target_simple[Constr_or]\n  ~target:%s\n  ~term:%s\n  ~res:%s\n"
             (target_to_string trs)
-            (AstC_to_c.ast_to_string  t)
+            (AstC_to_c.ast_to_string t)
             (paths_to_string ~sep:"\n   " res)
         end;
         res
@@ -1349,6 +1335,8 @@ and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs :
     (* TODO: refactor follow_dir to avoid special case? *)
     | Constr_dir (Dir_before i) :: [] ->
         [[Dir_before i]]
+    | Constr_dir (Dir_span { start; stop }) :: [] ->
+        [[Dir_span { start; stop }]]
     | Constr_dir d :: tr ->
         follow_dir (resolve_target_simple ~incontracts tr) d t
     | Constr_paths ps :: tr ->
@@ -1376,15 +1364,13 @@ and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs :
          Printf.printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
-          (AstC_to_c.ast_to_string  t)
+          (AstC_to_c.ast_to_string t)
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here);
       end;
-        (* Printf.printf " ~deep:%s\n  ~here:%s\n"
-          (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here); *)
 
-      res_deep@res_here  (* put deeper nodes first *) in
+      res_deep@res_here  (* put deeper nodes first *)
+  in
   List.sort_uniq compare_path epl
 
 (* [resolve_target_struct tgs t]: resolves the structured target [tgs] over trm [t]
@@ -1536,7 +1522,69 @@ and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t :
      []
   (* target constraints first *)
   (* following directions *)
-  | Constr_dir d -> follow_dir (resolve_target_simple ~incontracts p) d t
+  | Constr_dir _ -> trm_fail t "Constr.resolve_constraint should not reach a Constr_dir"
+
+  | Constr_span (tbegin, tend) ->
+    if p <> [] then begin
+      print_info loc "Constr.resolve_constraint: tSpan should be the last element of a target\n";
+      []
+    end else begin
+      match trm_seq_inv t with
+      | None -> []
+      | Some _ ->
+        let exception InvalidSpanBoundPath of path in
+        let resolve_span_bounds_target tg =
+          let tgs = target_to_target_struct tg in
+          let depth = match tgs.target_relative with
+            | TargetBefore | TargetAfter -> 1
+            | _ -> 0
+          in
+          let res = resolve_target_simple ~incontracts:tgs.target_incontracts ~depth:(DepthAt depth) tgs.target_path t in
+          let ps =
+            if tgs.target_relative <> TargetAt then
+              List.concat_map (fix_target_between tgs.target_relative t) res
+            else res
+          in
+          List.map (function [Dir_before i] -> i | path -> raise (InvalidSpanBoundPath path)) ps
+        in
+
+        let exception DifferentNumberOfStartAndStopPaths of int * int in
+        let exception NegativeSpan of int * int in
+        let exception OverlappingSpans of int * int in
+        try
+          let starts = resolve_span_bounds_target tbegin in
+          let stops = resolve_span_bounds_target tend in
+          (* TODO: Decide if we need to sort *)
+
+          let len_starts = List.length starts in
+          let len_stop = List.length stops in
+          if len_starts <> len_stop then raise (DifferentNumberOfStartAndStopPaths (len_starts, len_stop));
+
+          let last_stop = ref 0 in
+          let spans = List.map (fun (start, stop) ->
+              if start > stop then raise (NegativeSpan (start, stop));
+              if !last_stop > start then raise (OverlappingSpans (!last_stop, start));
+              last_stop := stop;
+              [Dir_span { start; stop }]
+            ) (List.combine starts stops) in
+            spans
+
+        with
+        | InvalidSpanBoundPath path ->
+          print_info loc "Constr.resolve_constraint: found path %s that cannot be a tSpan bound, did you forget to add tBefore or tAfter ?\n" (path_to_string path);
+          []
+        | DifferentNumberOfStartAndStopPaths (len_start, len_stop) ->
+          print_info loc "Constr.resolve_constraint: tSpan found different numbers of start (%d) and stop (%d) paths\n" len_start len_stop;
+          []
+        | NegativeSpan (b, e) ->
+          print_info loc "Constr.resolve_constraint: negative tSpan: found a stop path (at position %d) before the matching start path (at position %d)" e b;
+          []
+        | OverlappingSpans (e, b) ->
+          print_info loc "Constr.resolve_constraint: overlapping tSpan: found a start path (at position %d) before the next end path (at position %d)" b e;
+          []
+
+    end
+
   (*
     if the constraint is a target constraint that does not match the node or
     if it is another kind of constraint, then we check if it holds
@@ -1738,6 +1786,8 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   match d, t.desc with
   | Dir_before _, _ ->
       loc_fail loc "follow_dir: Dir_before should not remain at this stage"
+  | Dir_span _, _ ->
+      loc_fail loc "follow_dir: Dir_span should not remain at this stage"
   | Dir_array_nth n, Trm_array tl ->
     app_to_nth_dflt (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_array_nth n) (aux nth_t))

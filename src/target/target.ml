@@ -82,8 +82,12 @@ let tLast : constr =
   Constr_relative TargetLast
 
 (* [tBetweenAll]: matches all instructions in a sequence. *)
-  let tBetweenAll : constr =
-    Constr_relative TargetBetweenAll
+let tBetweenAll : constr =
+  Constr_relative TargetBetweenAll
+
+(* [tSpan]: matches a sub-sequence of contiguous instructions between the two targets *)
+let tSpan (tbegin: target) (tend: target): constr =
+  Constr_span (tbegin, tend)
 
 (******************************************************************************)
 (*                            Number of targets                               *)
@@ -836,6 +840,11 @@ let cMarkSt (pred : mark -> bool) : constr =
 let cMarkAny : constr =
   Constr_mark ((fun _ -> true), "any_mark")
 
+(* [cMarkSpan]: matches a span marked with mark [m]. *)
+let cMarkSpan (m: mark) : constr =
+  let m_begin, m_end = span_marks m in
+  tSpan [cMark m_begin] [cMark m_end]
+
 (* [cLabel ~substr ~body ~regexp label]:  match a  C labels
     [substr] - match label name partially
     [body] - match based on the trm the label is labelling
@@ -1069,8 +1078,9 @@ let cArrayRead ?(index = []) (x : string) : constr =
     [[cCellAccess ~base:[cVar x] ~index ()]]
     [[cArrayWriteAccess x]]] ()
 
-let cPlusEq (lhs_tg : target) : constr =
-  cPrimFun ~args:[lhs_tg; [cTrue]] (Prim_compound_assgn_op Binop_add)
+let cPlusEq ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
+  cPrimFun ~args:[lhs; rhs] (Prim_compound_assgn_op Binop_add)
+
 
 (* [cOmp_match_all]: matches an OpenMP directive. *)
 let cOmp_match_all : directive->bool =
@@ -1186,7 +1196,7 @@ let compute_stringreprs_and_update_ast ?(optitrust_syntax:bool=false) (f : trm->
 
 
 (* [debug_dissapearing_mark]: only for debugging purposes. *)
-let debug_disappearing_mark = true
+let debug_disappearing_mark = false
 
 (* [Interrupted_applyi]: exception raise when targets are not resolved successfully. *)
 exception Interrupted_applyi of trm
@@ -1500,9 +1510,10 @@ let trm_add_marks_at_paths (marks:mark list) (ps:paths) (t:trm) : trm =
   if List.length ps <> List.length marks
     then failwith "trm_add_marks_at_paths: expects as many marks as paths";
   List.fold_left2 (fun t p m ->
-      match last_dir_before_inv p with
-      | None -> apply_on_path (trm_add_mark m) t p
-      | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+      match Path.extract_last_dir p with
+      | p_to_seq, Before i -> apply_on_path (trm_add_mark_between i m) t p_to_seq
+      | p_to_seq, Span span -> apply_on_path (trm_add_mark_span span m) t p_to_seq
+      | _ -> apply_on_path (trm_add_mark m) t p)
     t ps marks
 
 (* [trm_add_mark_at_paths markof ps t] adds a mark computed as
@@ -1513,6 +1524,13 @@ let trm_add_mark_at_paths (markof:path->trm->mark) (ps:paths) (t:trm) : trm =
     let ti = Path.resolve_path pi t in
     markof pi ti) ps in
   trm_add_marks_at_paths marks ps t
+
+(* [trm_remove_mark_at_path] removes the mark [m] at path [p] inside term [t] *)
+let trm_remove_mark_at_path (m: mark) (p: path) (t: trm) : trm =
+  match Path.extract_last_dir p with
+    | p_to_seq, Before i -> apply_on_path (trm_rem_mark_between m) t p_to_seq
+    | p_to_seq, Span span -> apply_on_path (trm_rem_mark_span m) t p_to_seq
+    | _ -> apply_on_path (trm_rem_mark m) t p
 
 (* LATER: add an optimization flag for transformations who know that they don't
    break the paths in the case of multiple targets, this avoids placing marks
@@ -1532,12 +1550,12 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
     Constr.old_resolution := c_o_r_bak;
     tr i p;
     Constr.old_resolution := false
-    in
+  in
 
   let tg = fix_target tg in
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
-      let ps = resolve_target tg t in
+    let ps = resolve_target tg t in
     let ps = if rev then List.rev ps else ps in
     match ps with
     | [] -> ()
@@ -1545,44 +1563,40 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
              tr_wrapped 0 p
     | _ ->
       (* LATER: optimization to avoid mark for first occurrence *)
-      let marks = List.map (fun _ -> Mark.next()) ps in
-      let t = trm_add_marks_at_paths marks ps t in
+      let marks = List.map (fun p ->
+        let is_span = match extract_last_dir p with
+          | _, Span _ -> true
+          | _ -> false
+        in
+        (Mark.next(), is_span)) ps in
+      let t = trm_add_marks_at_paths (List.map fst marks) ps t in
       Trace.set_ast_for_target_iter t;
       (* Iterate over these marks *)
-      try
-        List.iteri (fun occ m ->
-          let t = Trace.ast() in
-          (* Recover the path to the i-th mark (the one number [occ]) *)
-          let ps = resolve_target_mark_one_else_any m t in
-          match ps with
-          | [p] ->
-              (* Here we don't call [Marks.remove] to avoid a circular dependency issue.
-                 The term [t] corresponds to the ast with the current mark removed. *)
-              let t =
-                match last_dir_before_inv p with
-                | None -> apply_on_path (trm_rem_mark m) t p
-                | Some (p_to_seq,i) -> apply_on_path (trm_rem_mark_between m) t p_to_seq
-                in
-              Trace.target_iter_step occ (fun () ->
-                (* Start by removing the mark *)
-                Trace.set_ast_for_target_iter t;
-                (* Call the transformation at that path, wrapping the operations
-                 inside a group step *)
-                tr_wrapped occ p)
-          | ps ->
-              (* There were not exactly one occurrence of the mark: either zero or multiple *)
-              let msg =
-                if ps <> []
-                  then "iteri: a mark was duplicated"
-                  else (Printf.sprintf "iteri: mark %s disappeared" m)
-                in
-              if debug_disappearing_mark
-                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
-                else failwith msg
+      List.iteri (fun occ (m, is_span) ->
+        let t = Trace.ast() in
+        (* Recover the path to the i-th mark (the one number [occ]) *)
+        let tg = [nbAny; if is_span then cMarkSpan m else cMark m] in
+        let ps = resolve_target tg t in
+        match ps with
+        | [p] ->
+            (* Here we don't call [Marks.remove] to avoid a circular dependency issue.
+                The term [t] corresponds to the ast with the current mark removed. *)
+            let t = trm_remove_mark_at_path m p t in
+            Trace.target_iter_step occ (fun () ->
+              (* Start by removing the mark *)
+              Trace.set_ast_for_target_iter t;
+              (* Call the transformation at that path, wrapping the operations
+                inside a group step *)
+              tr_wrapped occ p)
+        | ps ->
+            (* There were not exactly one occurrence of the mark: either zero or multiple *)
+            let msg =
+              if ps <> []
+                then "Target.iteri: a mark was duplicated"
+                else (Printf.sprintf "Target.iteri: mark %s disappeared" m)
+              in
+            failwith msg
         ) marks
-      with Interrupted_applyi t ->
-         (* Record the ast carried by the exception to allow visualizing the ast *)
-         Trace.set_ast t
       );
     Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
 
@@ -1611,7 +1625,7 @@ let applyi_at_target_paths ?(rev : bool = false) (transfo : int -> trm -> trm) (
    of the item in the sequence before which the target is aiming at. *)
 let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : unit =
   iter (fun pb ->
-    let (p,i) = Path.last_dir_before_inv_success pb in
+    let (p,i) = Path.extract_last_dir_before pb in
     apply_at_path (fun tseq -> transfo tseq i) p) tg
 
 

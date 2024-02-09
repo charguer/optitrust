@@ -9,10 +9,19 @@ type path = dir list
 
 (* [dir]: direction type *)
 and dir =
-  (* [Dir_before] is used by target_between, to aim for a position in a sequence   TODO:  Dir_around of int * diraround
-        type diraround = Diraround_before | Diraround_after
+  (* [Dir_before] is used by target_between, to aim for a position in a sequence
+  TODO:
+    Dir_around of int * diraround
+    type diraround = Diraround_before | Diraround_after
+        OR
+    Dir_between of int * between_anchor
+    type between_anchor = Anchor_prev | Anchor_next
           *)
   | Dir_before of int
+  (* [Dir_span] is used by target_span, to get a sequence of contiguous instruction in a sequence.
+     TODO: between_anchor for start and stop *)
+  | Dir_span of span
+  (* TODO: Introduce type nary_node for choosing between  Struct, Array, Seq. .. and generalize before, span, nth *)
   (* nth: direction to nth element in a struct initialization *)
   | Dir_struct_nth of int
   (* nth: direction to nth element in a array initialization *)
@@ -58,6 +67,10 @@ and dir =
   (* ghost argument in apps *)
   | Dir_ghost_arg_nth of int
 
+(* [span]: Represent a set of contiguous positions inside a sequence.
+   [start] is the postion before the first element, and [stop] is the postion after the last element. *)
+and span = { start: int; stop: int; }
+
 (* [case_dir]: direction to a switch case *)
 and case_dir =
   | Case_name of int
@@ -87,6 +100,7 @@ type paths = path list
 let dir_to_string (d : dir) : string =
   match d with
   | Dir_before n -> "Dir_before " ^ (string_of_int n)
+  | Dir_span { start; stop } -> "Dir_span " ^ (string_of_int start) ^ " " ^ (string_of_int stop)
   | Dir_array_nth n -> "Dir_array_nth " ^ (string_of_int n)
   | Dir_struct_nth n -> "Dir_struct_nth " ^ (string_of_int n)
   | Dir_seq_nth n-> "Dir_seq_nth " ^ (string_of_int n)
@@ -153,6 +167,9 @@ let paths_to_string ?(sep:string="; ") (dls : paths) : string =
 let compare_dir (d : dir) (d' : dir) : int =
   match d, d' with
   | Dir_before n, Dir_before m -> compare n m
+  | Dir_span { start; stop }, Dir_span { start = start'; stop = stop' } ->
+    let cmp_indices = compare start start' in
+    if cmp_indices = 0 then compare stop stop' else cmp_indices
   | Dir_array_nth n, Dir_array_nth m -> compare n m
   | Dir_seq_nth n, Dir_seq_nth m -> compare n m
   | Dir_struct_nth n, Dir_struct_nth m -> compare n m
@@ -179,6 +196,8 @@ let compare_dir (d : dir) (d' : dir) : int =
   | d, d' when d = d' -> 0
   | Dir_before _, _ -> -1
   | _, Dir_before _ -> 1
+  | Dir_span _, _ -> -1
+  | _, Dir_span _ -> 1
   | Dir_array_nth _, _ -> -1
   | _, Dir_array_nth _ -> 1
   | Dir_struct_nth _, _ -> -1

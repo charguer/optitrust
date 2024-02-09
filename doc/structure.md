@@ -74,7 +74,7 @@ The constraints are defined in the files `constr.ml` and `target.ml`. The resolu
 - `Target.iter (tr : trm -> path -> unit) (tg : target) : unit` applies an operation `tr` (performing side-effects) at all paths that correspond to the target `tg`. Compared with `Target.apply`, the transformation `tr` produces a result of type `unit` instead of producing a new `trm`.
 
 Some transformations such as `Instr.insert` need to aim not at one AST node but at a point in-between two instructions. The modifiers `tBefore` and `tAfter` may be placed in the target, e.g. `[tBefore; sInstr "i++"]`.
-The modifiers `tFirst` and `tLast` are also available. When such modifiers are used, the path produced by the target resolution mechanism is represented as `[dir1; dir2; .. ; dirN; Dir_before i]`, where the direction `dirN` reaches a sequence, and where `i` denotes the index inside this sequence at which, e.g., the insertion operation should be performed. The syntax `let (pseq,i) = Path.last_dir_before_inv_success p in` may be used to extract from such a path the path to the sequence `pseq = [dir1; dir2; .. ; dirN]` and, separately, the index `i`.
+The modifiers `tFirst` and `tLast` are also available. When such modifiers are used, the path produced by the target resolution mechanism is represented as `[dir1; dir2; .. ; dirN; Dir_before i]`, where the direction `dirN` reaches a sequence, and where `i` denotes the index inside this sequence at which, e.g., the insertion operation should be performed. The syntax `let (pseq,i) = Path.extract_last_dir_before p in` may be used to extract from such a path the path to the sequence `pseq = [dir1; dir2; .. ; dirN]` and, separately, the index `i`.
 
 # Trace
 

@@ -17,9 +17,10 @@ let justif () =
 let%transfo add (m : mark) (tg : target) : unit =
   justif();
   if m = "" then () else Target.iter (fun p ->
-    match Path.last_dir_before_inv p with
-    | Some (p_seq, i) -> Target.apply_at_path (trm_add_mark_between i m) p_seq
-    | None -> Target.apply_at_path (trm_add_mark m) p
+    match Path.extract_last_dir p with
+    | p_seq, Before i -> Target.apply_at_path (trm_add_mark_between i m) p_seq
+    | p_seq, Span span -> Target.apply_at_path (trm_add_mark_span span m) p_seq
+    | _ -> Target.apply_at_path (trm_add_mark m) p
   ) tg
 
   (* DEPRECATED
@@ -51,7 +52,7 @@ let%transfo remove_between (m : mark) (tg : target) : unit =
   Trace.tag_trivial ();
   Trace.tag "marks";
   Target.apply (fun t p ->
-    let (p_seq, _) = Path.last_dir_before_inv_success p in
+    let (p_seq, _) = Path.extract_last_dir_before p in
     Path.apply_on_path (trm_rem_mark_between m) t p_seq) tg
 *)
 

@@ -21,7 +21,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
   if nest_of > 0 then begin
     (* Apply fission in innermost loop *)
     let p_interstice = Target.path_of_target_mark_one_current_ast m_interstice in
-    let (p_loop_body, _) = Path.last_dir_before_inv_success p_interstice in
+    let (p_loop_body, _) = Path.extract_last_dir_before p_interstice in
     let p_loop = Path.parent_with_dir p_loop_body Dir_body in
     let (_, p_seq) = Path.index_in_seq p_loop in
     let m_interstice = if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
@@ -62,7 +62,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     *)
 let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
   Target.iter (fun p_interstice -> Marks.with_marks (fun next_mark ->
-    let (p_seq, i) = Path.last_dir_before_inv_success p_interstice in
+    let (p_seq, i) = Path.extract_last_dir_before p_interstice in
     (* TODO: factorize *)
     let seq = Target.resolve_path_current_ast p_seq in
     let instrs = trm_inv ~error:"expected seq" trm_seq_inv seq in

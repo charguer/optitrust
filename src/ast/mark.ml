@@ -13,6 +13,9 @@ let next : unit -> Ast.mark =
 let reuse_or_next (next : unit -> mark) (m : mark) : mark =
   if m = "" then next () else m
 
+let span_marks (m: mark) : mark * mark =
+  (m ^ "__begin", m ^ "__end")
+
 (**** Marks  ****)
 
 (* [apply_on_marks f t]: applies [f] on the marks of [t]. *)
@@ -31,15 +34,6 @@ let trm_may_add_mark (mo : mark option) (t : trm) : trm =
   | Some m -> trm_add_mark m t
   | None -> t
 
-(* [trm_filter_mark m t]: keeps only marks that satisfy the predicate [pred].
-   Only operates on marks on the term, does not handle mark-between in sequences. *)
-let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
-  apply_on_marks (fun marks -> List.filter pred marks) t
-
-(* [trm_rem_mark m t]: removes mark [m] from trm [t]. *)
-let trm_rem_mark (m : mark) (t : trm) : trm =
-  trm_filter_mark (fun m1 -> m <> m1) t
-
 (** [trm_add_mark_between index m t] adds mark [m] at [index] in the mlist of [t], where [t] should be a sequence.
    Returns [t] unchanged if [m = ""].
   *)
@@ -50,6 +44,21 @@ let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
     let new_tl = Mlist.insert_mark_at index m tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> trm_fail t "Ast.trm_add_mark_between: expected a sequence"
+
+let trm_add_mark_span ({ start; stop }: Dir.span) (m: mark) (t: trm): trm =
+  let (m_begin, m_end) = span_marks m in
+  let t = trm_add_mark_between start m_begin t in
+  let t = trm_add_mark_between stop m_end t in
+  t
+
+(* [trm_filter_mark m t]: keeps only marks that satisfy the predicate [pred].
+   Only operates on marks on the term, does not handle mark-between in sequences. *)
+let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
+  apply_on_marks (fun marks -> List.filter pred marks) t
+
+(* [trm_rem_mark m t]: removes mark [m] from trm [t]. *)
+let trm_rem_mark (m : mark) (t : trm) : trm =
+  trm_filter_mark (fun m1 -> m <> m1) t
 
 (* [trm_remove_marks pred t]: removes all the marks from trm [t]
    that satisfy the predicate [pred]. Including mark-between in sequences. *)
@@ -68,6 +77,13 @@ let trm_rem_mark_between (m : mark) (t : trm) : trm =
     let new_tl = Mlist.remove_mark m tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> trm_fail t "Ast.trm_rem_mark_between: expected a sequence"
+
+(* [trm_rem_mark_between m t]: removes the span mark [m] from trm [t] *)
+let trm_rem_mark_span (m: mark) (t: trm): trm =
+  let (m_begin, m_end) = span_marks m in
+  let t = trm_rem_mark_between m_begin t in
+  let t = trm_rem_mark_between m_end t in
+  t
 
 (* [trm_has_mark m t]: checks if trm [t] has mark [m].
    Returns [false] if [m = no_mark]. *)

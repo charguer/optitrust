@@ -188,7 +188,7 @@ let fission_at (mark_between : mark) (split_i : int) (seq : trm) : trm =
 (** Distributes the scope of ghost pairs at the targeted sequence interstice. *)
 let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
   Target.iter (fun p_before ->
-    let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
+    let (p_seq, split_i) = Path.extract_last_dir_before p_before in
     apply_at_path (fission_at mark_between split_i) p_seq
   ) tg;
   justif_correct "ghosts where successfully distributed"

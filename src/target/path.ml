@@ -62,7 +62,10 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        let newt = begin match d, t.desc with
        | Dir_before _, _ ->
           (* trm_fail t *)
-          path_fail dl "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expected a target-between (tBefore, tAfter, ..)"
+          path_fail dl "apply_on_path: Dir_before should not remain at this stage; probably the transformation was not expecting a target-between (tBefore, tAfter, ...)"
+       | Dir_span _, _ ->
+          (* trm_fail t *)
+          path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)"
        | Dir_array_nth n, Trm_array tl ->
           { t with desc = Trm_array (Mlist.update_nth n aux tl)}
        | Dir_seq_nth n, Trm_seq tl ->
@@ -257,6 +260,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       let loc = t.loc in
       begin match d, t.desc with
       | Dir_before _, _ -> trm_fail t "aux_on_path_rec: Dir_before should not remain at this stage"
+      | Dir_span _, _ -> trm_fail t "aux_on_path_rec: Dir_span should not remain at this stage"
       | Dir_seq_nth n, Trm_seq tl ->
         let tl = Mlist.to_list tl in
         let decl_before (n : int) (tl : trm list) =
@@ -474,24 +478,50 @@ let to_outer_loop (p : path) : path =
   | _ -> path_fail p "Path.to_outer_loop: unexpected path"
   *)
 
+(* TODO: I guess we should get Before and Span out of dir, and have a special last_dir field in every path,
+   this would feel more elegant since we are forced to split this last part before resolution anyway *)
+type last_dir =
+  | Here
+  | Nth of int
+  | Before of int
+  | Span of span
+
+let extract_last_dir (p: path): path * last_dir =
+  if p = [] then [], Here else
+  let parent_path, dir_last = Xlist.unlast p in
+  match dir_last with
+  | Dir_seq_nth i -> parent_path, Nth i
+  | Dir_before i -> parent_path, Before i
+  | Dir_span span -> parent_path, Span span
+  | _ -> p, Here
+
 (* [last_dir_before_inv p] for a path of the form [p1 @ Dir_before n]
    returns the pair [Some (p1,n)], else returns [None]. *)
 let last_dir_before_inv (p : path) : (path * int) option =
-  if p = [] then None else
-  let parent_path, dir_last = Xlist.unlast p in
-  match dir_last with
-  | Dir_before n -> Some (parent_path, n)
+  match extract_last_dir p with
+  | parent_path, Before i -> Some (parent_path, i)
   | _ -> None
 
-(* [last_dir_before_inv_success p] takes a path of the form [p1 @ Dir_before n]
+(* [extract_last_dir_before p] takes a path of the form [p1 @ Dir_before n]
    and returns the pair [(p1,n)] *)
-let last_dir_before_inv_success (p : path) : path * int =
-  if p = [] then path_fail p "Path.last_dir_before_inv does not apply to an empty path";
+let extract_last_dir_before (p : path) : path * int =
+  if p = [] then path_fail p "Path.extract_last_dir_before does not apply to an empty path";
   match last_dir_before_inv p with
   | None ->
       if debug_path then Printf.printf "Path: %s\n" (path_to_string p);
-      path_fail p "Path.last_dir_before_inv expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
+      path_fail p "Path.extract_last_dir_before expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
   | Some res -> res
+
+(* [extract_last_dir_span] takes a path that ends inside a sequence and return the corresponding span. *)
+let extract_last_dir_span (p: path) : path * span =
+  match extract_last_dir p with
+  | parent_path, Span span -> parent_path, span
+  | parent_path, Nth i -> parent_path, { start = i; stop = i+1 }
+  | parent_path, Before i -> parent_path, { start = i; stop = i }
+  | _ ->
+      if debug_path then Printf.printf "Path: %s\n" (path_to_string p);
+      path_fail p "Path.extract_last_dir_span expects the last direction to be inside a sequence."
+
 
 (* [split_common_prefix]: given paths [a] and [b], returns [(p, ra, rb)]
    such that [a = p @ ra] and [b = p @ rb] *)

@@ -340,7 +340,7 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
   (* TODO: figure out best nobrace/iter/resource interleaving *)
   Nobrace_transfo.remove_after (fun _ ->
     Target.iter (fun p_before ->
-      let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
+      let (p_seq, split_i) = Path.extract_last_dir_before p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
       (* DEBUG: let debug_p = Path.parent p_loop in
       Show.res ~msg:"res1" ~ast:(get_trm_at_exn (target_of_path debug_p))
