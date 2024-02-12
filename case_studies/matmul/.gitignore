@@ -1,3 +1,5 @@
 config/
 *.yaml
 matmul.c
+tvm_code
+tvm_ir
