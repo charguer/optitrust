@@ -210,7 +210,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let linear_invariant_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
 
       let loop_start_res = Resources.before_trm (Mlist.nth tl 0) in
-      let tl1_usage = Resources.compute_usage_of_instrs (Mlist.to_list tl1) in
+      let tl1_usage = Resources.compute_usage_of_instrs tl1 in
       let tl1_inv_usage = (* = I' * Iro *)
         Hyp_map.filter (fun h _ -> Var_set.mem h linear_invariant_hyps) tl1_usage
       in

@@ -74,10 +74,10 @@ let after_trm (t : trm) =
   unsome_or_trm_fail t "expected resources after to be available" t.ctx.ctx_resources_after
 
 (** Computes the resource usage of a consecutive sequence of instructions. *)
-let compute_usage_of_instrs (instrs : trm list) : resource_usage_map =
+let compute_usage_of_instrs (instrs : trm mlist) : resource_usage_map =
   List.fold_left (fun usage_map t ->
     Resource_computation.update_usage_map ~current_usage:usage_map ~extra_usage:(usage_of_trm t)
-  ) Resource_computation.empty_usage_map instrs
+  ) Resource_computation.empty_usage_map (Mlist.to_list instrs)
 
 type usage_filter =
  { unused: bool; read_only: bool; joined_read_only: bool; uninit: bool; full: bool; produced: bool; }
@@ -466,12 +466,6 @@ let assert_usages_commute (loc : location) (before : resource_usage_map) (after 
   let interference = collect_interferences before after in
   if not (Hyp_map.is_empty interference) then
     loc_fail loc (string_of_interference interference)
-
-(** Checks that effects commute, infer var ids to check pure facts scope. *)
-let assert_seq_instrs_commute (before : trm) (after : trm) : unit =
-  let interference = collect_trm_interferences before after in
-  if not (Hyp_map.is_empty interference) then
-    trm_fail after (string_of_interference interference)
 
 let hyps_of_usage (res : resource_usage_map) : hyp list =
   List.map (fun (h, _) -> h) (Hyp_map.bindings res)

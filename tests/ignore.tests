@@ -14,10 +14,6 @@ loop/swap/loop_swap_doc.ml
 loop/moveout/loop_moveout_doc.ml
 loop/move/loop_move_doc.ml
 
-#TODO:
-# arith/simpl/arith_simpl.ml
-# loop/shift/loop_shift.ml
-
 # BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
 apac/constify_functions_arguments/apac_constify_functions_arguments.ml
 
@@ -25,6 +21,7 @@ apac/constify_functions_arguments/apac_constify_functions_arguments.ml
 pointer/fold
 
 # TO FIX:
+instr/gather
 function/uninline
 record/method_to_const
 function/rename_args

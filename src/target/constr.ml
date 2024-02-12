@@ -1503,6 +1503,26 @@ and resolve_target_exactly_one (tg : target) (t : trm) : path =
   | [p] -> p
   | _ -> trm_fail t "Constr.resolve_target_exactly_one: obtained several targets."
 
+(* [resolve_target_between_children] resolves target [tg] restricted to spaces between children items of [t] *)
+and resolve_target_between_children (tg: target) (t: trm) : int list =
+  let tgs = target_to_target_struct tg in
+  let depth = match tgs.target_relative with
+    | TargetBefore | TargetAfter -> 1
+    | _ -> 0
+  in
+  let res = resolve_target_simple ~incontracts:tgs.target_incontracts ~depth:(DepthAt depth) tgs.target_path t in
+  let ps =
+    if tgs.target_relative <> TargetAt then
+      List.concat_map (fix_target_between tgs.target_relative t) res
+    else res
+  in
+  let exception InvalidBetweenChildrenPath of path in
+  try
+    List.map (function [Dir_before i] -> i | path -> raise (InvalidBetweenChildrenPath path)) ps
+  with InvalidBetweenChildrenPath path ->
+    print_info t.loc "Constr.resolve_target_between_children: found path %s that does not correspond to a space between children, did you forget to add tBefore or tAfter ?\n" (path_to_string path);
+    []
+
 (* [resolve_constraint ~incontracts c p t]: checks [c] against [t] and in case of success continue with [p].
    With a special case for handling a [Constr_mark] constrained that reaches a
   mark found in aa MList. *)
@@ -1532,29 +1552,13 @@ and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t :
       match trm_seq_inv t with
       | None -> []
       | Some _ ->
-        let exception InvalidSpanBoundPath of path in
-        let resolve_span_bounds_target tg =
-          let tgs = target_to_target_struct tg in
-          let depth = match tgs.target_relative with
-            | TargetBefore | TargetAfter -> 1
-            | _ -> 0
-          in
-          let res = resolve_target_simple ~incontracts:tgs.target_incontracts ~depth:(DepthAt depth) tgs.target_path t in
-          let ps =
-            if tgs.target_relative <> TargetAt then
-              List.concat_map (fix_target_between tgs.target_relative t) res
-            else res
-          in
-          List.map (function [Dir_before i] -> i | path -> raise (InvalidSpanBoundPath path)) ps
-        in
-
         let exception DifferentNumberOfStartAndStopPaths of int * int in
         let exception NegativeSpan of int * int in
         let exception OverlappingSpans of int * int in
         try
-          let starts = resolve_span_bounds_target tbegin in
-          let stops = resolve_span_bounds_target tend in
-          (* TODO: Decide if we need to sort *)
+          let starts = resolve_target_between_children tbegin t in
+          let stops = resolve_target_between_children tend t in
+          (* Target paths are sorted by default *)
 
           let len_starts = List.length starts in
           let len_stop = List.length stops in
@@ -1570,9 +1574,6 @@ and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t :
             spans
 
         with
-        | InvalidSpanBoundPath path ->
-          print_info loc "Constr.resolve_constraint: found path %s that cannot be a tSpan bound, did you forget to add tBefore or tAfter ?\n" (path_to_string path);
-          []
         | DifferentNumberOfStartAndStopPaths (len_start, len_stop) ->
           print_info loc "Constr.resolve_constraint: tSpan found different numbers of start (%d) and stop (%d) paths\n" len_start len_stop;
           []

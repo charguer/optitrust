@@ -117,10 +117,10 @@ let remove_all_marks (ml: 'a t): 'a t =
 
 (* [split ~left_bias index ml]: splits mlist [ml] at [index]
     [left_bias] - if true then the boundary marks will go with the first part of the mlist. *)
-let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t=
+let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t =
   let items1, items2 = Xlist.split_at index ml.items in
   let marks1a, marks2a = Xlist.split_at (index + if left_bias then 1 else 0) ml.marks in
-  let marks1 = if left_bias then marks1a else marks1a @ [] in
+  let marks1 = if left_bias then marks1a else marks1a @ [[]] in
   let marks2 = if left_bias then [] :: marks2a else marks2a in
   ({items = items1; marks = marks1}, {items = items2; marks = marks2})
 

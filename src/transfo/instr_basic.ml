@@ -17,9 +17,17 @@ let%transfo copy ?(mark_copy : mark = no_mark) ?(rev : bool = false) ?(delete : 
       Instr_core.copy mark_copy dest_index i delete t p) tg
 
 
-(* [move ~rev ~dest tg]: expects the target [tg] to point at the instruction that is
-    going to be moved at the relative target [where]. In case the target [tg] points to
-    more than one instructions, to keep the original order of the instructions [rev] should be set to true
+(* [move ~rev ~dest tg] move the instructions at target [tg] to the relative position [dest].
+    If you want to move contiguous instructions together, you can use a span target.
+
+    The relative position [dest] is computed independently for each target so it is
+    allowed to have matches inside the same sequence, inside different sequences,
+    or a mix between the two as long as you can write a common [dest] target.
+
+    If [rev] is true, perform the moves in the reverse order if the target resolves
+    to multiple paths.
+
+    TODO: decide and specify how marks between instructions are moved in the sequence
 
    @correctness: Correct if the swapped instructions are parallelizable:
    {H1 * H} instr1 {H1' * H} and {H2 * H} instr2 {H2' * H}
@@ -30,26 +38,39 @@ let%transfo copy ?(mark_copy : mark = no_mark) ?(rev : bool = false) ?(delete : 
 
    This is sufficient but not necessary, a manual commutation proof can be used
    as well. *)
-let%transfo move ?(mark : mark = no_mark) ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
+let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
   Resources.required_for_check ();
-  Target.iter ~rev (fun instr_p ->
-    let (p_seq, i) = Internal.isolate_last_dir_in_seq instr_p in
-    let dest_p_seq, dest_index = if dest = [] then p_seq, i+1 else Target.resolve_target_between_exactly_one dest in
-    if dest_p_seq <> p_seq then path_fail p_seq "Instr_basic.move: the destination target should be unique and belong to the same block as the main targets";
-    if !Flags.check_validity then begin
-      let instr_t = Target.resolve_path instr_p in
-      let (first_swapped_i, last_swapped_i, assert_seq_instrs_commute) =
-        if i < dest_index
-        then (i+1, dest_index-1, Resources.assert_seq_instrs_commute instr_t)
-        else (dest_index, i-1, fun x -> Resources.assert_seq_instrs_commute x instr_t)
+  Target.iter ~rev (fun p ->
+    let p_seq, span = Path.extract_last_dir_span p in
+    Target.apply_at_path (fun t_seq ->
+      let dest_index = match Constr.resolve_target_between_children dest t_seq with
+        | [i] -> i
+        | [] -> path_fail p_seq "Instr_basic.move: could not find the destination target";
+        | _ -> path_fail p_seq "Instr_basic.move: the destination target should be unique";
       in
-      for swapped_instr_i = first_swapped_i to last_swapped_i do
-        let swapped_instr_t = Target.resolve_path (p_seq @ [Dir_seq_nth swapped_instr_i]) in
-        assert_seq_instrs_commute swapped_instr_t
-      done;
-      Trace.justif "resources commute"
-    end;
-    apply_at_path (Instr_core.copy_aux mark dest_index i true) p_seq
+      let before_index, mid_index, after_index =
+        if span.start < dest_index then begin
+          if span.stop > dest_index then trm_fail t_seq "Instr.basic.move: the destination should be outside the moved span";
+          (span.start, span.stop, dest_index)
+        end else
+          (dest_index, span.start, span.stop)
+      in
+
+      let seq = trm_inv trm_seq_inv t_seq in
+      let seq, untouched_after = Mlist.split ~left_bias:false after_index seq in
+      let seq, swapped_after = Mlist.split mid_index seq in
+      let untouched_before, swapped_before = Mlist.split ~left_bias:true before_index seq in
+
+      if !Flags.check_validity then begin
+        let usage_before = Resources.compute_usage_of_instrs swapped_before in
+        let usage_after = Resources.compute_usage_of_instrs swapped_after in
+        Resources.assert_usages_commute t_seq.loc usage_before usage_after;
+        Trace.justif "resources commute"
+      end;
+
+      let seq = Mlist.merge_list [untouched_before; swapped_after; swapped_before; untouched_after] in
+      trm_alter ~desc:(Trm_seq seq) t_seq
+    ) p_seq
   ) tg;
   Scope.infer_var_ids ()
 

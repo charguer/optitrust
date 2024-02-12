@@ -162,9 +162,9 @@ let%transfo hoist_alloc_loop_list
       (* 1. move allocation at the top of the sequence. *)
       let alloc_p = Target.resolve_target_exactly_one [cMark mark_alloc] in
       let (alloc_i, seq_p) = Path.index_in_seq alloc_p in
-      Instr_basic.move ~dest:((target_of_path seq_p) @ [tFirst]) (target_of_path alloc_p);
+      Instr_basic.move ~dest:[tFirst] (target_of_path alloc_p);
       (* 2. move free at the bottom of the sequence. *)
-      Instr_basic.move ~dest:((target_of_path seq_p) @ [tLast]) ((target_of_path seq_p) @ [cMark mark_free]);
+      Instr_basic.move ~dest:[tLast] ((target_of_path seq_p) @ [cMark mark_free]);
       (* 3. move both out of the surrounding loop at once. *)
       Loop_basic.move_out_alloc ((target_of_path seq_p) @ [cMark mark_alloc])
       );
@@ -264,10 +264,9 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       (* do not create dimension. *)
       let loop_mark = next_m () in
       let instr_mark = next_m () in
-      let (_, p_seq) = Path.index_in_seq p in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
-      Instr_basic.move ~mark:instr_mark ~dest:((target_of_path p_seq) @ [tFirst])
-        (target_of_path p);
+      Marks.add instr_mark (target_of_path p);
+      Instr_basic.move ~dest:[tFirst] (target_of_path p);
       Loop_basic.move_out ~loop_mark [cMark instr_mark];
       if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
       );
@@ -278,7 +277,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       let loop_target = target_of_path loop_path in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. hoist" i) (fun () ->
       if idx > 0 then
-        Instr_basic.move ~dest:(loop_target @ [tFirst; dBody]) (target_of_path p);
+        Instr_basic.move ~dest:[tFirst] (target_of_path p);
       fission (loop_target @ [tAfter; dBody; dSeqNth 0]);
       );
       aux (i + 1) rl loop_path;
@@ -560,7 +559,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
         let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
         may_rename_loop_body p_current;
         if to_fuse' <> fuse_into - 1 then begin
-          Instr_basic.move ~dest:(tBefore :: fuse_into_tg) (target_of_path p_current);
+          Instr_basic.move ~dest:[dBefore fuse_into] (target_of_path p_current);
         end;
         fusion ~nest_of ~adapt_fused_indices ~upwards:false fuse_into_tg;
         fuse_loops (fuse_into - 1) (shift - 1) todo;
@@ -571,7 +570,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
         let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
         may_rename_loop_body p_current;
         if to_fuse' <> (fuse_into + 1) then begin
-          Instr_basic.move ~dest:(tAfter :: fuse_into_tg) (target_of_path p_current);
+          Instr_basic.move ~dest:[dAfter fuse_into] (target_of_path p_current);
         end;
         fusion ~nest_of ~adapt_fused_indices fuse_into_tg;
         fuse_loops fuse_into (shift - 1) todo;
@@ -606,7 +605,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
   let move_out_one (next_mark : unit -> mark) (instr_m : mark) (loop_p : path) (instr_p : path option) : unit =
     let instr_tg = [Constr_paths [loop_p]; cMark instr_m] in
     let instr_p = match instr_p with Some p -> p | None -> resolve_target_exactly_one instr_tg in
-    Instr_basic.move ~dest:[Constr_paths [loop_p]; tFirst; dBody] (target_of_path instr_p);
+    Instr_basic.move ~dest:[tFirst] (target_of_path instr_p);
     let loop_m = next_mark () in
     Loop_basic.move_out ~loop_mark:loop_m instr_tg;
     if !Flags.check_validity then

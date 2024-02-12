@@ -86,15 +86,22 @@ let%transfo accumulate_targets (tg : target) : unit =
   Sequence.intro_targets ~mark tg;
   Instr_basic.accumulate [cMark mark]
 
+(* DEPRECATED: Use immediate children targets instead *)
 type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
 
 
 (* [gather_targets ~dest tg]: expects the target [tg] to point to one or more instructions, than
     it will move this instructions just before the instruction targeted by [dest].
 
+    DEPRECATED with this interface:
+    It should be replaced by a more robust equivalent using relative immediate children targets.
+
     Note: This transformation assumes that [tg]  is going to be pointing at multiple instructions,
     hence no need to provide the occurrecen target [nbMulti] before the main target. *)
 let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
+  (* FIXME: This is heavily broken with the new Instr_basic.move.
+     Moreover, the approach taken here cannot be validated most of the time.
+     Use instead a mark that moves with instructions *)
   let tg = filter_constr_occurrence tg in
   let tg_dest = ref [] in
   let reverse = ref true in

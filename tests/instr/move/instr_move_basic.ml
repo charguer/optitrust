@@ -22,4 +22,10 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Trace.failure_expected (fun _e -> true) (fun () ->
     Instr_basic.move ~dest:[tBefore; cVarDef "v"] [cVarWrite "y"]);
+
+  !! Instr_basic.move ~dest:[tLast] [tSpan [tBefore; cVarDef "t"] [tAfter; cVarWrite "t"]];
+  !! Instr_basic.move ~dest:[tAfter; cVarWrite "x"] [tSpan [tBefore; cVarDef "v"] [tAfter; cVarWrite "y"]];
+
+  !! Trace.failure_expected (fun _ -> true) (fun () -> Instr_basic.move ~dest:[tAfter; cVarDef "y"] [tSpan [tFirst] [tAfter; cVarWrite "y"]]);
+  !! Trace.failure_expected (fun _ -> true) (fun () -> Instr_basic.move ~dest:[tAfter; cVarDef "y"] [tSpan [tBefore; cVarDef "v"] [tAfter; cVarWrite "y"]]);
 )
