@@ -266,7 +266,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       let instr_mark = next_m () in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       Marks.add instr_mark (target_of_path p);
-      Instr_basic.move ~dest:[tFirst] (target_of_path p);
+      Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
       Loop_basic.move_out ~loop_mark [cMark instr_mark];
       if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
       );
@@ -277,7 +277,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       let loop_target = target_of_path loop_path in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. hoist" i) (fun () ->
       if idx > 0 then
-        Instr_basic.move ~dest:[tFirst] (target_of_path p);
+        Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
       fission (loop_target @ [tAfter; dBody; dSeqNth 0]);
       );
       aux (i + 1) rl loop_path;

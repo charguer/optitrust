@@ -6,9 +6,9 @@ int main() {
   int y = 1;
   int z = 5;
   x = y;
+  const int v = 0;
+  y = v;
   z = x;
   int t = 2;
   t = x;
-  const int v = 0;
-  y = v;
 }

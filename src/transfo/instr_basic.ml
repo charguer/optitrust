@@ -45,8 +45,8 @@ let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
     Target.apply_at_path (fun t_seq ->
       let dest_index = match Constr.resolve_target_between_children dest t_seq with
         | [i] -> i
-        | [] -> path_fail p_seq "Instr_basic.move: could not find the destination target";
-        | _ -> path_fail p_seq "Instr_basic.move: the destination target should be unique";
+        | [] -> trm_fail t_seq "Instr_basic.move: could not find the destination target";
+        | _ -> trm_fail t_seq "Instr_basic.move: the destination target should be unique";
       in
       let before_index, mid_index, after_index =
         if span.start < dest_index then begin

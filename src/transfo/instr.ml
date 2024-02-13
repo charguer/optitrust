@@ -134,15 +134,44 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
   let tg = enable_multi_targets tg in
   Instr_basic.move ~rev:!reverse ~dest:!tg_dest tg
 
-(* [move dest tg]: move the invariant [tg] to destination [dest]
-   Note: The transformation does not check if [tg] points to some invariant code or not
-   LATER: Check if [tg] is dependent on other instructions of the same scope *)
-let%transfo move ~dest:(dest : target) (tg : target) : unit =
+(* [move_in_seq ~dest tg] perform the same actions as {!Instr_basic.move},
+   but move the instructions with the ghost pairs they need around them. *)
+let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
+  Target.iter (fun p ->
+    let seq_path, span = Path.extract_last_dir_span p in
+    let t_seq = Target.resolve_path seq_path in
+    let dest_index = match Constr.resolve_target_between_children dest t_seq with
+      | [i] -> i
+      | [] -> trm_fail t_seq "Instr.move_in_seq: could not find the destination target";
+      | _ -> trm_fail t_seq "Instr.move_in_seq: the destination target should be unique";
+    in
+
+    let mark = Mark.next () in
+    let (mark_begin, mark_end) = span_marks mark in
+    let dest_mark = Mark.next () in
+    Marks.add dest_mark (target_of_path (seq_path @ [Dir_before dest_index]));
+
+    Ghost_pair.fission ~mark_between:mark_end (target_of_path (seq_path @ [Dir_before span.stop]));
+    Ghost_pair.fission ~mark_between:mark_begin (target_of_path (seq_path @ [Dir_before span.start]));
+    Ghost_pair.minimize_all_in_seq (target_of_path seq_path);
+    Instr_basic.move ~dest:[cMark dest_mark] [cMarkSpan mark];
+    Marks.remove_st (fun m -> m = mark_begin || m = mark_end || m = dest_mark) (target_of_path seq_path);
+  ) tg
+
+(* [move dest tg]: move the instructions pointed by [tg] to destination [dest]
+   Note: If checking validity, dest must be in the same sequence as the moved instructions.
+*)
+let%transfo move ~(dest : target) (tg : target) : unit =
   Trace.tag_atomic ();
   if !Flags.check_validity then
     (* TODO: handle move out of loop, conditions, etc. *)
-    (* TODO: handle moving together with ghost scopes. *)
-    Instr_basic.move ~dest tg
+    Target.iter (fun p ->
+      let seq_path, span = Path.extract_last_dir_span p in
+      let dest_path, i = Target.resolve_target_between_exactly_one dest in
+      if seq_path <> dest_path then
+        path_fail dest_path "Instr.move: Unsupported move outside the sequence when checking validity";
+      move_in_seq ~dest:[dBefore i] (target_of_path p)
+    ) tg
   else begin
     iter_on_targets (fun t p ->
       let tg_trm = Path.resolve_path p t in
