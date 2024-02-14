@@ -68,6 +68,7 @@ function/inline
 
 # #var-id
 ast/cpp_varids.ml
+ast/cpp_basic.ml
 ast/cpp_ast.ml
 apac/insert_tasks_naive
 apac/sync_with_taskwait
