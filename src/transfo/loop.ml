@@ -267,7 +267,7 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       Trace.step ~kind:Step_group ~name:(sprintf "%d. move out" i) (fun () ->
       Marks.add instr_mark (target_of_path p);
       Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
-      Loop_basic.move_out ~loop_mark [cMark instr_mark];
+      Loop_basic.move_out ~loop_mark [cMark instr_mark]; (* TODO: use Loop.move_out that includes minimize? *)
       if !Flags.check_validity then Resources.loop_minimize [cMark loop_mark];
       );
       iter_on_targets (fun t p -> aux (i + 1) rl p) [cMark instr_mark];
@@ -275,10 +275,11 @@ let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
       (* create dimension. *)
       let (idx, loop_path) = Path.index_in_surrounding_loop p in
       let loop_target = target_of_path loop_path in
+      let instr_mark = next_m () in
       Trace.step ~kind:Step_group ~name:(sprintf "%d. hoist" i) (fun () ->
-      if idx > 0 then
-        Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
-      fission (loop_target @ [tAfter; dBody; dSeqNth 0]);
+      Marks.add instr_mark (target_of_path p);
+      Instr.move_in_seq ~dest:[tFirst] (target_of_path p);
+      fission (loop_target @ [tAfter; cMark instr_mark]);
       );
       aux (i + 1) rl loop_path;
     | _ -> failwith "expected list of 0 and 1s"
