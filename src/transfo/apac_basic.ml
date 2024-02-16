@@ -119,14 +119,15 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
   let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
   (* Within the function's body, replace return statements with assignments to a
      return variable '__res' (if the return type is other than 'void') and
-     gotos to an exiting label '__exit'. The result is a sequence.
+     gotos to an exiting label [Apac_core.goto_label]. The result is a sequence.
      Note that both the return variable and the exiting label are defined in the
      upcoming steps. *)
   let res_var = new_var "__res" in
   let body', _ = Internal.replace_return_with_assign ~check_terminal:false
-    ~exit_label:"__exit" res_var body in
+    ~exit_label:Apac_core.goto_label res_var body in
   (* Add the '__exit' label at the end of the sequence. *)
-  let body' = trm_seq_add_last (trm_add_label "__exit" (trm_unit())) body' in
+  let body' = trm_seq_add_last (trm_add_label Apac_core.goto_label (trm_unit()))
+                body' in
   (* Mark the sequence with [mark]. *)
   let body' = trm_add_mark mark body' in
   (* If the function's return type is not 'void', we need to declare the return
@@ -154,7 +155,8 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
     if the function is of type 'void', it:
         1) replaces each return statement inside the new sequence with
            'goto __exit',
-        2) appends an empty exiting label '__exit' to the sequence;
+        2) appends an empty exiting label [Apac_core.goto_label] to the
+           sequence;
     if the function returns a value, it:
         1) preprends the declaration of a return variable '__res' to the
            sequence,

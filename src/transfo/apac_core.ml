@@ -230,6 +230,14 @@ let to_const_mult : const_mult = Hashtbl.create 10
    [Apac_basic.use_goto_for_return]. *)
 let task_group_mark : mark = "__apac_task_group"
 
+(***********************)
+(* II.2 Pre-processing *)
+(***********************)
+
+(* [goto_label]: label used when replacing return statements by gotos within
+   the pre-processing stage. See [Apac_basic.use_goto_for_return]. *)
+let goto_label : label = "__apac_exit"
+
 (******************************)
 (* PART III: HELPER FUNCTIONS *)
 (* III.1 General-purpose      *)
