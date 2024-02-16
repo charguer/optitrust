@@ -144,26 +144,36 @@ end
 module rec Task : sig
          type t = {
              current : trms;
+             last : bool;
+             mutable wait : bool;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
-             children : TaskGraph.t list;
+             children : TaskGraph.t list list;
            }
          val create :
-           trm -> Var_set.t -> Dep_set.t -> Dep_set.t -> TaskGraph.t list -> t
+           trm -> Var_set.t -> Dep_set.t -> Dep_set.t ->
+           TaskGraph.t list list -> t
+         val wait :
+           trm -> Var_set.t -> Dep_set.t -> Dep_set.t ->
+           TaskGraph.t list list -> t
+         val last : trm  -> t
          val merge : t -> t -> t
+         val update : t -> trms -> t
          val empty : trm -> t
          val to_string : t -> string
          val to_label : t -> string
        end = struct
   type t = {
              current : trms;
+             last : bool;
+             mutable wait : bool;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
-             children : TaskGraph.t list;
+             children : TaskGraph.t list list;
     }
   let create (current : trm) (scope : Var_set.t)
         (ins : Dep_set.t) (inouts : Dep_set.t)
-        (children : TaskGraph.t list) : t =
+        (children : TaskGraph.t list list) : t =
     let ins' = Dep_set.filter (
                    fun d -> match (dep_get_atomic d) with
                             | Dep_var v -> Var_set.mem v scope
@@ -179,9 +189,25 @@ module rec Task : sig
     let ins' = Dep_set.diff ins' inouts' in
     {
       current = [current];
+      last = false;
+      wait = false;
       ins = ins';
       inouts = inouts';
       children = children;
+    }
+  let wait (current : trm) (scope : Var_set.t)
+        (ins : Dep_set.t) (inouts : Dep_set.t)
+        (children : TaskGraph.t list list) : t =
+    let task = create current scope ins inouts children in
+    task.wait <- true;
+    task
+  let last (current : trm) : t = {
+      current = [current];
+      last = true;
+      wait = true;
+      ins = Dep_set.empty;
+      inouts = Dep_set.empty;
+      children = [];
     }
   let merge (t1 : t) (t2 : t) : t =
     let current' = t1.current @ t2.current in
@@ -190,12 +216,24 @@ module rec Task : sig
     let children' = List.append t1.children t2.children in
     {
       current = current';
+      last = t1.last || t2.last;
+      wait = t1.wait || t2.wait;
       ins = ins';
       inouts = inouts';
       children = children';
     }
+  let update (task : t) (instrs : trms) : t = {
+      current = instrs;
+      last = task.last;
+      wait = task.wait;
+      ins = task.ins;
+      inouts = task.inouts;
+      children = task.children;
+    }
   let empty (current : trm) = {
       current = [current];
+      last = false;
+      wait = false;
       ins = Dep_set.empty;
       inouts = Dep_set.empty;
       children = [];
@@ -221,7 +259,7 @@ module rec Task : sig
     let limit = if limit > 20 then 20 else limit in
     let excerpt = String.sub instr 0 limit in
     what ^ "\n" ^ excerpt
-  end and TaskGraph : Sig.IM with type V.label = Task.t and type E.label = TaskWeight.t = Imperative.Digraph.AbstractLabeled(Task)(TaskWeight)
+end and TaskGraph : Sig.IM with type V.label = Task.t and type E.label = TaskWeight.t = Imperative.Digraph.AbstractLabeled(Task)(TaskWeight)
 
 let fresh_vertex_id = Tools.fresh_generator ()
 
@@ -238,7 +276,7 @@ module TaskGraphPrinter = struct
   let get_subgraph (vertex : V.t) = None
   let get_nested_graphs (vertex : V.t) =
     let task = TaskGraph.V.label vertex in
-    task.children
+    List.concat task.children
   let graph_attributes
         (graph : TaskGraph.t) : Graphviz.DotAttributes.graph list = []
   let default_vertex_attributes
@@ -263,4 +301,53 @@ module TaskGraphBuilder = Builder.I(TaskGraph)
 
 module TaskGraphOper = Oper.Make(TaskGraphBuilder)
 
-module TaskGraphTraverse = Traverse.Bfs(TaskGraph)
+module TaskGraphTraverse : sig
+  val codify : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
+end = struct
+  module H = Hashtbl.Make(TaskGraph.V)
+
+  let codify (c : (TaskGraph.V.t -> trms)) (g : TaskGraph.t) : trms =
+    let vs = TaskGraph.fold_vertex (fun v acc ->
+                 if TaskGraph.in_degree g v < 1 then v::acc else acc
+               ) g [] in
+    let r = List.hd vs in
+    let v = H.create 97 in
+    let q = Queue.create () in
+    let rec visit (root : bool) (ts : trms) : trms =
+      (* If the queue of elements to visit is empty, we are done. Return the
+         list of codified elements. *)
+      if (Queue.is_empty q) then ts else
+        begin
+          (* Get the first element from the queue of vertices to visit. This
+             will be the current element to process. *)
+          let hd = Queue.take q in
+          (* Then, retrieve its predecessors and *)
+          let p = TaskGraph.pred g hd in
+          (* its successors. *)
+          let s = TaskGraph.succ g hd in
+          (* If all of its predecessors has been visited, i.e. if all of them
+             are in the hash table of visited nodes, *)
+          let all = List.for_all (fun e -> H.mem v e) p in
+          if all && not (H.mem v hd) then
+            begin
+              (* visit the current element, *)
+              H.add v hd ();
+              (* push its successors to the queue of vertices to visit, *)
+              List.iter (fun e -> Queue.push e q) s;
+              (* codify the current element, *)
+              let ce = if root then [] else c hd in
+              (* append it to the list of already codified elements and
+                 recurse. *)
+              visit false (ts @ ce)
+            end
+          (* Otherwise, do nothing and recurse. *)
+          else visit false ts
+        end
+    in
+    (* Push the root element to the queue and *)
+    Queue.push r q;
+    (* Start the codification process with an empty list of codified
+       elements. *)
+    visit true []
+end
+    

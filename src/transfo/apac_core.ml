@@ -848,20 +848,34 @@ let find_parent_function (p : path) : var option =
   in
   aux reversed
 
-let emit_omp_task (t : Task.t) : trm =
-  let shared = [Default Shared_m] in
-  let ins' = dep_set_to_list t.ins in
-  let ins' = if (List.length ins') < 1 then [] else [In ins'] in
-  let inouts' = dep_set_to_list t.inouts in
-  let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
-  let depend = List.append ins' inouts' in
-  let depend = if (List.length depend) < 1 then [] else [Depend depend] in
-  let clauses = List.append shared depend in
-  let pragma = Task clauses in
-  let instr = trm_seq_nomarks t.current in
-  trm_add_pragma pragma instr
+let emit_omp_task (t : Task.t) : trms =
+  if t.wait then
+    begin
+      t.current
+    end
+  else if t.last then
+    begin
+      t.current
+    end
+  else
+    begin
+      let shared = [Default Shared_m] in
+      let ins' = dep_set_to_list t.ins in
+      let ins' = if (List.length ins') < 1 then [] else [In ins'] in
+      let inouts' = dep_set_to_list t.inouts in
+      let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
+      let depend = List.append ins' inouts' in
+      let depend = if (List.length depend) < 1 then [] else [Depend depend] in
+      let clauses = List.append shared depend in
+      let pragma = Task clauses in
+      let instr = if (List.length t.current) < 2 then
+                    List.hd t.current
+                  else
+                    trm_seq_nomarks t.current in
+      [trm_add_pragma pragma instr]
+    end
 
-let emit_profiler_task (t : Task.t) : trm =
+let emit_profiler_task (t : Task.t) : trms =
   let get_begin (loc : location) : string =
     match loc with
     | None -> "_"
@@ -900,13 +914,75 @@ let emit_profiler_task (t : Task.t) : trm =
   let after = code (Instr "profsection.afterCall()") in
   let preamble = (section :: ins') @ inouts' @ [before] in
   let postamble = [after] in
-  let seq = preamble @ t.current @ postamble in
-  trm_seq_nomarks seq
+  preamble @ t.current @ postamble
 
-let trm_from_task ?(backend : task_backend = OpenMP) (t : Task.t) : trm =
+let rec trm_from_task ?(backend : task_backend = OpenMP)
+          (t : TaskGraph.V.t) : trms =
+  let make (ts : trms) : trm =
+    let ts' = Mlist.of_list ts in trm_seq ts'
+  in
+  (* Get the [Task] element of the current vertex. *)
+  let task = TaskGraph.V.label t in
+  let current = List.mapi (fun i instr ->
+                    begin match instr.desc with
+                    | Trm_for_c (init, cond, step, _, _) ->
+                       let cg = List.nth task.children i in
+                       let cg = List.hd cg in
+                       let body = TaskGraphTraverse.codify
+                                    (trm_from_task ~backend) cg in
+                       let body = make body in
+                       trm_for_c ~annot:instr.annot ~ctx:instr.ctx
+                         init cond step body
+                    | Trm_for (range, _, _) ->
+                       let cg = List.nth task.children i in
+                       let cg = List.hd cg in
+                       let body = TaskGraphTraverse.codify
+                                     (trm_from_task ~backend) cg in
+                       let body = make body in
+                       trm_for ~annot:instr.annot ~ctx:instr.ctx
+                         range body
+                    | Trm_if (cond, _, _) ->
+                       let cg = List.nth task.children i in
+                       let yes = List.nth cg 0 in
+                       let no = List.nth cg 1 in
+                       let yes = TaskGraphTraverse.codify
+                                     (trm_from_task ~backend) yes in
+                       let yes = make yes in
+                       let no = TaskGraphTraverse.codify
+                                     (trm_from_task ~backend) no in
+                       let no = make no in
+                       trm_if ~annot:instr.annot ~ctx:instr.ctx cond yes no
+                    | Trm_while (cond, _) ->
+                       let cg = List.nth task.children i in
+                       let cg = List.hd cg in
+                       let body = TaskGraphTraverse.codify
+                                     (trm_from_task ~backend) cg in
+                       let body = make body in
+                       trm_while ~annot:instr.annot ~ctx:instr.ctx cond body
+                    | Trm_do_while (_, cond) ->
+                       let cg = List.nth task.children i in
+                       let cg = List.hd cg in
+                       let body = TaskGraphTraverse.codify
+                                     (trm_from_task ~backend) cg in
+                       let body = make body in
+                       trm_do_while ~annot:instr.annot ~ctx:instr.ctx body cond
+                    | Trm_switch (cond, cases) ->
+                       let cg = List.nth task.children i in
+                       let cgs = Queue.create () in
+                       let _ = List.iter2 (fun (labels, _) block ->
+                                   let block' = TaskGraphTraverse.codify
+                                                  (trm_from_task ~backend)
+                                                  block in
+                                   let block' = make block' in
+                                   Queue.push (labels, block') cgs) cases cg in
+                       let cases' = List.of_seq (Queue.to_seq cgs) in
+                       trm_switch ~annot:instr.annot ~ctx:instr.ctx cond cases'
+                    | _ -> instr
+                    end) task.current in
+  let task = Task.update task current in
   match backend with
-  | OpenMP -> emit_omp_task t
-  | ApacProfiler -> emit_profiler_task t
+  | OpenMP -> emit_omp_task task
+  | ApacProfiler -> emit_profiler_task task
 
 (* [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
    returns two lists. The first list holds the access terms where each term is
@@ -1596,6 +1672,7 @@ let taskify_on (p : path) (t : trm) : unit =
            let op2 = Dep_set.inter task_i.inouts task_j.inouts in
            let j_depends_on_i =
              not ((Dep_set.is_empty op1) && (Dep_set.is_empty op2)) in
+           let j_depends_on_i = j_depends_on_i || task_j.last in
            if j_depends_on_i then
              begin
                TaskGraph.add_edge g vertex_i vertex_j
@@ -1626,96 +1703,264 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins ins', Dep_set.union inouts inouts') in
        let c = TaskGraph.create() in
        let ct = fill s instr c in
-       let c' = (*TaskGraphOper.transitive_reduction*) c in
        let (ins, inouts) =
          (Dep_set.union ins ct.ins, Dep_set.union inouts ct.inouts) in
        let _ = 
          TaskGraph.iter_vertex (fun vertex ->
              let lab : Task.t = TaskGraph.V.label vertex in
-             Printf.printf "subgraph vertex: %s\n" (Task.to_string lab)) c' in
-       Task.create t scope ins inouts [c']
- (* | Trm_for (range, body, _) -> {
-        current = t;
-        ins = [];
-        inouts = [];
-        children = [(fill body)];
-        params = [range]
-      } *)
-    | Trm_let _
-      | Trm_let_mult _
-      | Trm_apps _ ->
-       let (ins, inouts) = trm_discover_dependencies s t in
+             Printf.printf "subgraph vertex: %s\n" (Task.to_string lab)) c in
+       Task.create t scope ins inouts [[c]]
+    | Trm_for (range, instr, _) ->
+       (* Keep a copy of the local scope of variables as a set. We need this
+          because we do not want any variables potentially defined in child
+          scopes (added to [s] within [trm_discover_dependencies]) to end up in
+          the parent scope, which is the current scope. *)
        let scope = var_set_of_var_hashtbl s in
+       (* Explode the [range] specifier to allow for dependency discovery. *)
+       let (index, init, _, cond, step, _) = range in
+       (* Launch dependency discovery in the initialization term as well as *)
+       let (ins, inouts) = trm_discover_dependencies s init in
+       (* in the conditional statement representing the upper loop bound. *)
+       let (ins', inouts') = trm_discover_dependencies s cond in
+       (* Gather the discovered dependencies. *)
+       let (ins, inouts) =
+         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
+       (* Check whether [step] is formed of a term. In other words, check
+          whether it is not simply a unary increment or decrement, but something
+          like [i += a * 2]. In this case, *)
+       let (ins', inouts') = match step with
+         (* we have to look for dependencies in this term. *)
+         | Step st -> trm_discover_dependencies s st
+         (* Otherwise, we do not have to do nothing, just keep the current in
+            and inout dependency sets as they are. *)
+         | _ -> (ins, inouts) in
+       (* Gather the discovered dependencies, if any. *)
+       let (ins, inouts) =
+         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
+       (* Create a sub-graph for the body sequenc, i.e. [instr], of the [for]
+          loop. *)
+       let c = TaskGraph.create() in
+       (* Taskify the body sequence while filling the correspoding sub-graph. *)
+       let ct = fill s instr c in
+       (* Include the dependencies from the body sequence into the sets of
+          dependencies of the current [for] graph node, i.e. [ins] and [inouts],
+          by the means of a union operation. *)
+       let (ins, inouts) =
+         (Dep_set.union ins ct.ins, Dep_set.union inouts ct.inouts) in
+       (* Create the task corresponding to the current [for] graph node using
+          all the elements computed above. *)
+       Task.create t scope ins inouts [[c]] 
+    | Trm_let _
+      | Trm_let_mult _ ->
+       (* Look for dependencies in the current variable declaration term and
+          initialize the in and in-out dependency sets. *)
+       let (ins, inouts) = trm_discover_dependencies s t in
+       (* Convert the local scope to a set. *)
+       let scope = var_set_of_var_hashtbl s in
+       (* Create a barrier corresponding to the current variable declaration
+          term. Variable declarations should never appear in tasks. *)
+       Task.wait t scope ins inouts []
+    | Trm_apps _ ->
+       (* Look for dependencies in the current term and initialize the in and
+          in-out dependency sets. *)
+       let (ins, inouts) = trm_discover_dependencies s t in
+       (* Convert the local scope to a set. *)
+       let scope = var_set_of_var_hashtbl s in
+       (* Create the task corresponding to the current graph node using all the
+          elements computed above. *)
        Task.create t scope ins inouts []
-   (* | Trm_if (cond, yes, no) -> {
-        current = t;
-        ins = Dep_set.empty;
-        inouts = Dep_set.empty;
-        shared = Var_set.empty;
-        task_id = -1;
-        children = [(fill locals 0 yes); (fill locals 0 no)];
-        params = [cond]
-      }
-    | Trm_while (cond, body) -> {
-        current = t;
-        ins = Dep_set.empty;
-        inouts = Dep_set.empty;
-        shared = Var_set.empty;
-        task_id = -1;
-        children = [(fill locals 0 body)];
-        params = [cond]
-      }
-    | Trm_do_while (body, cond) -> {
-        current = t;
-        ins = Dep_set.empty;
-        inouts = Dep_set.empty;
-        shared = Var_set.empty;
-        task_id = -1;
-        children = [(fill locals 0 body)];
-        params = [cond]
-      }
-    | Trm_switch (cond, cases) -> {
-        current = t;
-        ins = Dep_set.empty;
-        inouts = Dep_set.empty;
-        shared = Var_set.empty;
-        task_id = -1;
-        children = List.map (
-                       fun (labels, block) -> fill locals 0 block
-                     ) cases;
-        params = [cond]
-      }
-    | Trm_delete (_, target) -> {
-        current = t;
-        ins = Dep_set.empty;
-        inouts = Dep_set.empty;
-        shared = Var_set.empty;
-        task_id = tid;
-        children = [];
-        params = [target]
-      }
-    | Trm_abort _
-      | Trm_goto _ -> {
-        current = t;
-        ins = Dep_set.empty;
-        inouts = Dep_set.empty;
-        shared = Var_set.empty;
-        task_id = -1;
-        children = [];
-        params = []
-      }
-    | Trm_omp_routine r -> {
-        current = t;
-        ins = Dep_set.empty;
-        inouts = Dep_set.empty;
-        shared = Var_set.empty;
-        task_id = -1;
-        children = [];
-        params = []
-      } *)
+    | Trm_if (cond, yes, no) ->
+       (* Keep a copy of the local scope of variables as a set. We need this
+          because we do not want any variables potentially defined in child
+          scopes (added to [s] within [trm_discover_dependencies]) to end up in
+          the parent scope, which is the current scope. *)
+       let scope = var_set_of_var_hashtbl s in
+       (* Look for dependencies in the conditional expression of the [if] and
+          initialize the in and in-out dependency sets. *)
+       let (ins, inouts) = trm_discover_dependencies s cond in
+       (* Create sub-graphs for the [then] and the [else] branches. *)
+       let gy = TaskGraph.create () in
+       let gn = TaskGraph.create () in
+       (* Taskify the branches while filling the correspoding sub-graphs. *)
+       let ty = fill s yes gy in
+       let tn = fill s no gn in
+       (* Include the dependencies from the branches into the sets of
+          dependencies of the current [if] graph node, i.e. [ins] and [inouts],
+          by the means of union operations. *)
+       let (ins, inouts) =
+         (Dep_set.union ins ty.ins, Dep_set.union inouts ty.inouts) in
+       let (ins, inouts) =
+         (Dep_set.union ins tn.ins, Dep_set.union inouts tn.inouts) in
+       (* Create the task corresponding to the current [if] graph node using all
+          the elements computed above. *)
+       Task.create t scope ins inouts [[gy; gn]]
+    | Trm_while (cond, body) ->
+       (* Keep a copy of the local scope of variables as a set. We need this
+          because we do not want any variables potentially defined in child
+          scopes (added to [s] within [trm_discover_dependencies]) to end up in
+          the parent scope, which is the current scope. *)
+       let scope = var_set_of_var_hashtbl s in
+       (* Look for dependencies in the conditional expression of the [while] and
+          initialize the in and in-out dependency sets. *)
+       let (ins, inouts) = trm_discover_dependencies s cond in
+       (* Create a sub-graph for the body sequence of the [while]. *)
+       let gb = TaskGraph.create () in
+       (* Taskify the body sequence while filling the correspoding sub-graph. *)
+       let tb = fill s body gb in
+       (* Include the dependencies from the body sequence into the sets of
+          dependencies of the current [while] graph node, i.e. [ins] and
+          [inouts], by the means of a union operation. *)
+       let (ins, inouts) =
+         (Dep_set.union ins tb.ins, Dep_set.union inouts tb.inouts) in
+       (* Create the task corresponding to the current [while] graph node using
+          all the elements computed above. *)
+       Task.create t scope ins inouts [[gb]]
+    | Trm_do_while (body, cond) ->
+       (* Keep a copy of the local scope of variables as a set. We need this
+          because we do not want any variables potentially defined in child
+          scopes (added to [s] within [trm_discover_dependencies]) to end up in
+          the parent scope, which is the current scope. *)
+       let scope = var_set_of_var_hashtbl s in
+       (* Look for dependencies in the conditional expression of the [do-while]
+          and initialize the in and in-out dependency sets. *)
+       let (ins, inouts) = trm_discover_dependencies s cond in
+       (* Create a sub-graph for the body sequence of the [do-while]. *)
+       let gb = TaskGraph.create () in
+       (* Taskify the body sequence while filling the correspoding sub-graph. *)
+       let tb = fill s body gb in
+       (* Include the dependencies from the body sequence into the sets of
+          dependencies of the current [do-while] graph node, i.e. [ins] and
+          [inouts], by the means of a union operation. *)
+       let (ins, inouts) =
+         (Dep_set.union ins tb.ins, Dep_set.union inouts tb.inouts) in
+       (* Create the task corresponding to the current [do-while] graph node
+          using all the elements computed above. *)
+       Task.create t scope ins inouts [[gb]]
+    | Trm_switch (cond, cases) ->
+       (* Keep a copy of the local scope of variables as a set. We need this
+          because we do not want any variables potentially defined in child
+          scopes (added to [s] within [trm_discover_dependencies]) to end up in
+          the parent scope, which is the current scope. *)
+       let scope = var_set_of_var_hashtbl s in
+       (* Look for dependencies in the conditional expression of the [switch]
+          and initialize the in and in-out dependency sets. *)
+       let (ins, inouts) = trm_discover_dependencies s cond in
+       (* We are about to process the blocks associated with the cases of the
+          [switch]. To each case we will associate the corresponding [Task] and
+          [TaskGraph]. As we can not directly map the elements of [cases] to
+          another type of list elements, i.e. pairs of [Task] and [TaskGraph],
+          we well keep these pairs in the temporary queue [cases']. *)
+       let cases' = Queue.create () in
+       (* For each block associated with one of the cases of the [switch],
+          we: *)
+       List.iter (fun (labels, block) ->
+           (* - create a sub-graph for the block sequence, *)
+           let gb = TaskGraph.create () in
+           (* - taskify the block sequence while filling the
+              corresponding graph, *)
+           let tb = fill s block gb in
+           (* - push both the task and the graph associated
+              with the currently processed block sequence into
+              the temporary stack. *)
+           Queue.push (tb, gb) cases'
+         ) cases;
+       (* Get the [Task] and [TaskGraph] elements from the temporary stack as a
+          pair of lists. *)
+       let pairs = List.of_seq (Queue.to_seq cases') in
+       let (tbs, gbs) = List.split pairs in
+       (* Include the dependencies from the block sequences into the sets of
+          dependencies of the current [switch] graph node, i.e. [ins] and
+          [inouts], by the means of union operations. *)
+       let (ins, inouts) = List.fold_left (fun (ins', inouts') (tb : Task.t) ->
+                               (Dep_set.union ins' tb.ins,
+                                Dep_set.union inouts' tb.inouts))
+                             (ins, inouts) tbs in
+       (* Create the task corresponding to the current [switch] graph node
+          using all the elements computed above. *)
+       Task.create t scope ins inouts [gbs]
+    | Trm_delete (_, target) ->
+       (* Look for dependencies in the target term of the [delete]. [delete] is
+          a destructive operation, we need to consider all of the dependencies
+          as in-out dependencies, of course. *)
+       let (ins, inouts) = trm_discover_dependencies s target in
+       let inouts = Dep_set.union ins inouts in
+       (* Convert the local scope to a set *)
+       let scope = var_set_of_var_hashtbl s in
+       (* in order to be able to use it when creating the task corresponding to
+          the current [delete] graph node. *)
+       Task.create t scope Dep_set.empty inouts []
+    | Trm_goto target ->
+       (* If the target label of the [goto] is not the [Apac_core.goto_label] we
+          use within the return statement replacement transformation
+          [Apac_basic.use_goto_for_return], fail. Other goto statements than
+          those we add are not allowed within a taskification target. *)
+       if target <> goto_label then
+         fail t.loc "Apac_core.taskify_on.fill: illegal goto statement"
+       else
+         (* If [target] is [Apac_core.goto_label], we can create a [Task]
+            instance for it, even if it will actually nevery become a task.
+            However, we need to do it for the sake of consistency as only
+            instructions being part of the final task graph will be part of the
+            transformed source code. We use the [last] method so as to ensure
+            that the instruction will appear as the last one in the current
+            scope. *)
+         Task.last t
+    | Trm_val v ->
+       (* Retrieve the first label attribute of the current term, if any. *)
+       let l = trm_get_labels t in
+       let l = if (List.length l) > 0 then List.nth l 0 else "" in
+       (* We have to check whether this value term is a goto label arising from
+          [Apac_basic.use_goto_for_return]. *)
+       begin match v with
+         (* If it is the case, we can create a [Task] instance for it, even if
+            it will actually nevery become a task. We use the [last] method so
+            as to ensure that the instruction will appear as the last one in the
+            current scope. *)
+       | Val_lit (Lit_unit) when l = goto_label -> Task.last t
+       (* Otherwise, fail. Other types of values are not allowed as first-level
+          instructions within a task group. *)
+       | _ -> fail t.loc "Apac_core.taskify_on.fill: illegal value term"
+       end
+    | Trm_omp_routine r ->
+       (* Convert the local scope to a set. *)
+       let scope = var_set_of_var_hashtbl s in
+       (* When it comes to OpenMP routine calls, we consider two different
+          situations: *)
+       begin match r with
+       (* 1) On the one hand, there are routines taking a variable as an
+             argument. In this case, we have to perform dependency discovery. *)
+       | Set_default_device v
+       | Init_lock v 
+       | Init_nest_lock v 
+       | Destroy_lock v 
+       | Destroy_nest_lock v
+       | Set_lock v 
+       | Set_nest_lock v 
+       | Unset_lock v 
+       | Unset_nest_lock v 
+       | Test_lock v 
+       | Test_nest_lock v ->
+          (* Look for dependencies in the routine argument [v]. The above
+             routines modify the variable they take as an argument. Therefore,
+             we need to consider all of the dependencies as in-out
+             dependencies. *)
+       let (ins, inouts) = trm_discover_dependencies s (trm_var v) in
+       let inouts = Dep_set.union ins inouts in
+       (* Create the task corresponding to the current OpenMP routine call graph
+          node. *)
+       Task.create t scope Dep_set.empty inouts []
+       (* 2) On the other hand, all the other routines do not involve any
+             variables and thus do not require dependency discovery. *)
+       | _ ->
+          (* Create the task corresponding to the current OpenMP routine call
+             graph node. *)
+          Task.create t scope Dep_set.empty Dep_set.empty []
+       end
     | _ ->
-       let _ = Printf.printf "I don't know '%s'\n" (trm_desc_to_string t.desc) in
-       Task.empty t
+       let error = Printf.sprintf
+                     "Apac_core.taskify_on.fill: '%s' should not appear in a \
+                      task group" (trm_desc_to_string t.desc) in
+       fail t.loc error
   in
   (* Find the parent function. *)
   let f = match (find_parent_function p) with
@@ -1781,25 +2026,30 @@ let merge_on (p : path) (t : trm) : unit =
   for i = 0 to (nb_vertices - 1) do
     begin
       let vertex = List.nth vertices i in
-      let sequence : TaskGraph.V.t list = find_sequence g vertex in
-      let steps = List.length sequence in
-      if steps > 1 then
+      if (TaskGraph.mem_vertex g vertex) then
         begin
-          (*merge*)
-          let start = List.hd sequence in
-          let tail = List.tl sequence in
-          let first = TaskGraph.V.label start in
-          let task : Task.t = List.fold_left (fun t v ->
-                                  let curr : Task.t = TaskGraph.V.label v in
-                                  Task.merge t curr) first tail in
-          let stop = List.nth sequence (steps - 1) in
-          let pred = TaskGraph.pred g start in
-          let succ = TaskGraph.succ g stop in
-          let vertex' = TaskGraph.V.create task in
-          TaskGraph.add_vertex g vertex';
-          List.iter (fun v -> TaskGraph.add_edge g v vertex') pred;
-          List.iter (fun v -> TaskGraph.add_edge g vertex' v) succ;
-          List.iter (fun v -> TaskGraph.remove_vertex g v) sequence
+          let _ = Printf.printf "Vertex no. %d\n"  i in
+          let sequence : TaskGraph.V.t list = find_sequence g vertex in 
+          let _ = Printf.printf "Vertex no. %d AFTER\n"  i in
+          let steps = List.length sequence in
+          if steps > 1 then
+            begin
+              (*merge*)
+              let start = List.hd sequence in
+              let tail = List.tl sequence in
+              let first = TaskGraph.V.label start in
+              let task : Task.t = List.fold_left (fun t v ->
+                                      let curr : Task.t = TaskGraph.V.label v in
+                                      Task.merge t curr) first tail in
+              let stop = List.nth sequence (steps - 1) in
+              let pred = TaskGraph.pred g start in
+              let succ = TaskGraph.succ g stop in
+              let vertex' = TaskGraph.V.create task in
+              TaskGraph.add_vertex g vertex';
+              List.iter (fun v -> TaskGraph.add_edge g v vertex') pred;
+              List.iter (fun v -> TaskGraph.add_edge g vertex' v) succ;
+              List.iter (fun v -> TaskGraph.remove_vertex g v) sequence
+            end
         end
     end
   done;
@@ -1829,38 +2079,9 @@ let insert_tasks_on (p : path) (t : trm) : trm =
     | Some (g') -> g'
     | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
                           taskify?" in
-  let vertices = TaskGraph.fold_vertex (
-                     fun v acc -> if TaskGraph.in_degree g v < 1 then v::acc else acc
-                   ) g [] in
-  let root = List.hd vertices in
-  let instrs : trm Stack.t = Stack.create () in
-  TaskGraphTraverse.iter_component (fun v ->
-      let parents = TaskGraph.in_degree g v in
-      let task = TaskGraph.V.label v in
-      (*let _ = Debug_transfo.trm "visiting" task.current in*)
-      if parents > 0 then (* not the root node (at least one parent node) *)
-        begin
-          let has_decl_or_label = List.exists (fun term ->
-                                      match term.desc with
-                                      | Trm_let _
-                                        | Trm_let_mult _
-                                        | Trm_val _ -> true
-                                      | _ -> false) task.current in
-          if has_decl_or_label then
-            begin
-              List.iter (fun term -> Stack.push term instrs) task.current
-            end
-          else
-            begin
-              let term = trm_from_task ~backend:OpenMP task in
-              Stack.push term instrs
-            end
-        end
-    ) g root;
-  let instrs' = List.of_seq (Stack.to_seq instrs) in
-  let instrs' = List.rev instrs' in
-  let instrs' = Mlist.of_list instrs' in
-  let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs' in
+  let instrs = TaskGraphTraverse.codify (trm_from_task ~backend:OpenMP) g in
+  let instrs = Mlist.of_list instrs in
+  let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   let _ = Debug_transfo.trm "output" result in
   result
   
@@ -1882,39 +2103,10 @@ let profile_tasks_on (p : path) (t : trm) : trm =
     | Some (g') -> g'
     | None -> fail t.loc "Apac_core.profile_tasks_on: Missing task graph. Did \
                           you taskify?" in
-  let vertices = TaskGraph.fold_vertex (
-                     fun v acc ->
-                     if TaskGraph.in_degree g v < 1 then v::acc else acc
-                   ) g [] in
-  let root = List.hd vertices in
-  let instrs : trm Stack.t = Stack.create () in
-  TaskGraphTraverse.iter_component (fun v ->
-      let parents = TaskGraph.in_degree g v in
-      let task = TaskGraph.V.label v in
-      (*let _ = Debug_transfo.trm "visiting" task.current in*)
-      if parents > 0 then (* not the root node (at least one parent node) *)
-        begin
-          let has_decl_or_label = List.exists (fun term ->
-                                      match term.desc with
-                                      | Trm_let _
-                                        | Trm_let_mult _
-                                        | Trm_val _ -> true
-                                      | _ -> false) task.current in
-          if has_decl_or_label then
-            begin
-              List.iter (fun term -> Stack.push term instrs) task.current
-            end
-          else
-            begin
-              let term = trm_from_task ~backend:ApacProfiler task in
-              Stack.push term instrs
-            end
-        end
-    ) g root;
-  let instrs' = List.of_seq (Stack.to_seq instrs) in
-  let instrs' = List.rev instrs' in
-  let instrs' = Mlist.of_list instrs' in
-  let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs' in
+  let instrs = TaskGraphTraverse.codify
+                 (trm_from_task ~backend:ApacProfiler) g in
+  let instrs = Mlist.of_list instrs in
+  let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   (* let _ = Debug_transfo.trm "output" result in *)
   result
   
