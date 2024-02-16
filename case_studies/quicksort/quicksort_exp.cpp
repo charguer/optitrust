@@ -20,7 +20,7 @@ void partition(int* out_pivot, int* arr, const int right_limit) {
     arr[idx_left + 1] = arr[right_limit - 1];
     arr[right_limit - 1] = tmp;
     *out_pivot = idx_left + 1;
-  __exit:;
+  __apac_exit:;
   }
 }
 
@@ -39,7 +39,7 @@ void insertion_sort(int* arr, const int right_limit) {
       arr[idx] = arr[idx_min];
       arr[idx_min] = tmp;
     }
-  __exit:;
+  __apac_exit:;
   }
 }
 
@@ -47,7 +47,7 @@ void sort_core(int* in_out_data, const int right_limit) {
 #pragma omp taskgroup
   {
     if (0 >= right_limit) {
-      goto __exit;
+      goto __apac_exit;
     }
     if (right_limit <= 256) {
       insertion_sort(in_out_data, right_limit);
@@ -57,7 +57,7 @@ void sort_core(int* in_out_data, const int right_limit) {
       sort_core(&in_out_data[0], pivot);
       sort_core(&in_out_data[pivot + 1], right_limit - (pivot + 1));
     }
-  __exit:;
+  __apac_exit:;
   }
 }
 
@@ -65,7 +65,7 @@ void sort(int* in_out_data, const int in_size) {
 #pragma omp taskgroup
   {
     sort_core(in_out_data, in_size);
-  __exit:;
+  __apac_exit:;
   }
 }
 
@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
     if (!data) {
       perror("Array allocation failure");
       __res = 1;
-      goto __exit;
+      goto __apac_exit;
     }
     srand(time(NULL));
     for (int idx = 0; idx < size; idx++) {
@@ -96,13 +96,13 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Error: array is not sorted\n");
         free(data);
         __res = 1;
-        goto __exit;
+        goto __apac_exit;
       }
     }
     free(data);
     __res = 0;
-    goto __exit;
-  __exit:;
+    goto __apac_exit;
+  __apac_exit:;
   }
   return __res;
 }
