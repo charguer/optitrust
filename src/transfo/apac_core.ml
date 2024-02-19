@@ -849,30 +849,46 @@ let find_parent_function (p : path) : var option =
   aux reversed
 
 let emit_omp_task (t : Task.t) : trms =
-  if t.wait then
+  if (Task.has_attr t ExitPoint) ||
+       (Task.has_attr t HasJump) ||
+         (Task.has_attr t WaitForNone) then t.current
+  else if (Task.has_attr t WaitForAll) then
     begin
-      t.current
-    end
-  else if t.last then
-    begin
-      t.current
+      let pragma = Taskwait [] in
+      let first = List.hd t.current in
+      let first = trm_add_pragma pragma first in
+      first :: (List.tl t.current)
     end
   else
     begin
-      let shared = [Default Shared_m] in
       let ins' = dep_set_to_list t.ins in
       let ins' = if (List.length ins') < 1 then [] else [In ins'] in
       let inouts' = dep_set_to_list t.inouts in
       let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
       let depend = List.append ins' inouts' in
       let depend = if (List.length depend) < 1 then [] else [Depend depend] in
-      let clauses = List.append shared depend in
-      let pragma = Task clauses in
-      let instr = if (List.length t.current) < 2 then
-                    List.hd t.current
-                  else
-                    trm_seq_nomarks t.current in
-      [trm_add_pragma pragma instr]
+      if (Task.has_attr t WaitForSome) then
+        begin
+          if ins' <> [] || inouts' <> [] then
+            begin
+              let pragma = Taskwait depend in
+              let first = List.hd t.current in
+              let first = trm_add_pragma pragma first in
+              first :: (List.tl t.current)
+            end
+          else t.current
+        end
+      else
+        begin
+          let shared = [Default Shared_m] in
+          let clauses = List.append shared depend in
+          let pragma = Task clauses in
+          let instr = if (List.length t.current) < 2 then
+                        List.hd t.current
+                      else
+                        trm_seq_nomarks t.current in
+          [trm_add_pragma pragma instr]
+        end
     end
 
 let emit_profiler_task (t : Task.t) : trms =
@@ -1652,7 +1668,10 @@ let taskify_on (p : path) (t : trm) : unit =
        let inouts = List.fold_left (
                         fun acc (task : Task.t) -> Dep_set.union acc task.inouts
                       ) Dep_set.empty tasks in
-       let this = Task.create t scope ins inouts [] in
+       let has_jump = List.exists (fun e -> Task.has_attr e HasJump) tasks in
+       let attrs = if has_jump then TaskAttr_set.singleton HasJump
+                   else TaskAttr_set.empty in
+       let this = Task.create t attrs scope ins inouts [] in
        let this' = TaskGraph.V.create this in
        let _ = TaskGraph.add_vertex g this' in
        let tasks = List.map (
@@ -1672,7 +1691,8 @@ let taskify_on (p : path) (t : trm) : unit =
            let op2 = Dep_set.inter task_i.inouts task_j.inouts in
            let j_depends_on_i =
              not ((Dep_set.is_empty op1) && (Dep_set.is_empty op2)) in
-           let j_depends_on_i = j_depends_on_i || task_j.last in
+           let j_depends_on_i = j_depends_on_i ||
+                                  Task.has_attr task_j ExitPoint in
            if j_depends_on_i then
              begin
                TaskGraph.add_edge g vertex_i vertex_j
@@ -1709,7 +1729,10 @@ let taskify_on (p : path) (t : trm) : unit =
          TaskGraph.iter_vertex (fun vertex ->
              let lab : Task.t = TaskGraph.V.label vertex in
              Printf.printf "subgraph vertex: %s\n" (Task.to_string lab)) c in
-       Task.create t scope ins inouts [[c]]
+       let attrs = if (Task.has_attr ct HasJump) then
+                     TaskAttr_set.singleton HasJump
+                   else TaskAttr_set.empty in
+       Task.create t attrs scope ins inouts [[c]]
     | Trm_for (range, instr, _) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -1747,19 +1770,46 @@ let taskify_on (p : path) (t : trm) : unit =
           by the means of a union operation. *)
        let (ins, inouts) =
          (Dep_set.union ins ct.ins, Dep_set.union inouts ct.inouts) in
+       (* If the body sequence contains an unconditional jump, we need to
+          propagate this information upwards. *)
+       let attrs = if (Task.has_attr ct HasJump) then
+                     TaskAttr_set.singleton HasJump
+                   else TaskAttr_set.empty in
        (* Create the task corresponding to the current [for] graph node using
           all the elements computed above. *)
-       Task.create t scope ins inouts [[c]] 
+       Task.create t attrs scope ins inouts [[c]] 
     | Trm_let _
       | Trm_let_mult _ ->
+       (* Keep the state of the local scope from before variable declaration. *)
+       let scope = var_set_of_var_hashtbl s in
        (* Look for dependencies in the current variable declaration term and
           initialize the in and in-out dependency sets. *)
        let (ins, inouts) = trm_discover_dependencies s t in
-       (* Convert the local scope to a set. *)
-       let scope = var_set_of_var_hashtbl s in
+       (* Convert the updated local scope to a set. *)
+       let scope' = var_set_of_var_hashtbl s in
+       (* Compute the set of variables that have been declared. *)
+       let nv = Var_set.diff scope' scope in
+       (* Variable declarations should never become tasks, but rather
+          synchronization barriers, nor be merged with other task graph
+          nodes. *)
+       let attrs = TaskAttr_set.singleton Singleton in
+       (* However, the synchronization barrier is needed only when the variable
+          declaration depends on previously declared variables, i.e. when the in
+          dependency set of the declaration is empty and the in-out dependency
+          set contains other variables than those being declared. *)
+       let others = Dep_set.filter (
+                      fun d -> match (dep_get_atomic d) with
+                               | Dep_var v -> not (Var_set.mem v nv)
+                               | Dep_trm (_, v) -> not (Var_set.mem v nv)
+                               | _ -> true
+                    ) inouts in
+       let attrs = if (Dep_set.cardinal ins > 0) &&
+                        (Dep_set.cardinal others > 0) then
+                     TaskAttr_set.add WaitForSome attrs else
+                     TaskAttr_set.add WaitForNone attrs in
        (* Create a barrier corresponding to the current variable declaration
           term. Variable declarations should never appear in tasks. *)
-       Task.wait t scope ins inouts []
+       Task.create t attrs scope' ins inouts []
     | Trm_apps _ ->
        (* Look for dependencies in the current term and initialize the in and
           in-out dependency sets. *)
@@ -1767,8 +1817,8 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Convert the local scope to a set. *)
        let scope = var_set_of_var_hashtbl s in
        (* Create the task corresponding to the current graph node using all the
-          elements computed above. *)
-       Task.create t scope ins inouts []
+          elements computed above. No task attributes are needed here. *)
+       Task.create t TaskAttr_set.empty scope ins inouts []
     | Trm_if (cond, yes, no) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -1791,9 +1841,16 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins ty.ins, Dep_set.union inouts ty.inouts) in
        let (ins, inouts) =
          (Dep_set.union ins tn.ins, Dep_set.union inouts tn.inouts) in
+       (* If the [then] or the [else] branch contains an unconditional jump, we
+          need to propagate this information upwards. *)
+       let attrs = if (Task.has_attr ty HasJump) || (Task.has_attr tn HasJump)
+                   then
+                     TaskAttr_set.singleton HasJump
+                   else
+                     TaskAttr_set.empty in
        (* Create the task corresponding to the current [if] graph node using all
           the elements computed above. *)
-       Task.create t scope ins inouts [[gy; gn]]
+       Task.create t attrs scope ins inouts [[gy; gn]]
     | Trm_while (cond, body) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -1812,9 +1869,14 @@ let taskify_on (p : path) (t : trm) : unit =
           [inouts], by the means of a union operation. *)
        let (ins, inouts) =
          (Dep_set.union ins tb.ins, Dep_set.union inouts tb.inouts) in
+       (* If the body sequence contains an unconditional jump, we need to
+          propagate this information upwards. *)
+       let attrs = if (Task.has_attr tb HasJump) then
+                     TaskAttr_set.singleton HasJump
+                   else TaskAttr_set.empty in
        (* Create the task corresponding to the current [while] graph node using
           all the elements computed above. *)
-       Task.create t scope ins inouts [[gb]]
+       Task.create t attrs scope ins inouts [[gb]]
     | Trm_do_while (body, cond) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -1833,9 +1895,14 @@ let taskify_on (p : path) (t : trm) : unit =
           [inouts], by the means of a union operation. *)
        let (ins, inouts) =
          (Dep_set.union ins tb.ins, Dep_set.union inouts tb.inouts) in
+       (* If the body sequence contains an unconditional jump, we need to
+          propagate this information upwards. *)
+       let attrs = if (Task.has_attr tb HasJump) then
+                     TaskAttr_set.singleton HasJump
+                   else TaskAttr_set.empty in
        (* Create the task corresponding to the current [do-while] graph node
           using all the elements computed above. *)
-       Task.create t scope ins inouts [[gb]]
+       Task.create t attrs scope ins inouts [[gb]]
     | Trm_switch (cond, cases) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -1875,9 +1942,14 @@ let taskify_on (p : path) (t : trm) : unit =
                                (Dep_set.union ins' tb.ins,
                                 Dep_set.union inouts' tb.inouts))
                              (ins, inouts) tbs in
+       (* If at least one of the block sequences contains an unconditional jump
+          other than [break], we need to propagate this information upwards. *)
+       let has_jump = List.exists (fun e -> Task.has_attr e HasJump) tbs in
+       let attrs = if has_jump then TaskAttr_set.singleton HasJump
+                   else TaskAttr_set.empty in
        (* Create the task corresponding to the current [switch] graph node
           using all the elements computed above. *)
-       Task.create t scope ins inouts [gbs]
+       Task.create t attrs scope ins inouts [gbs]
     | Trm_delete (_, target) ->
        (* Look for dependencies in the target term of the [delete]. [delete] is
           a destructive operation, we need to consider all of the dependencies
@@ -1886,9 +1958,12 @@ let taskify_on (p : path) (t : trm) : unit =
        let inouts = Dep_set.union ins inouts in
        (* Convert the local scope to a set *)
        let scope = var_set_of_var_hashtbl s in
+       (* Transform this task into a synchronization barrier. See
+          [Apac_tasks.TaskAttr]. *)
+       let attrs = TaskAttr_set.singleton WaitForSome in
        (* in order to be able to use it when creating the task corresponding to
           the current [delete] graph node. *)
-       Task.create t scope Dep_set.empty inouts []
+       Task.create t attrs scope Dep_set.empty inouts []
     | Trm_goto target ->
        (* If the target label of the [goto] is not the [Apac_core.goto_label] we
           use within the return statement replacement transformation
@@ -1898,13 +1973,13 @@ let taskify_on (p : path) (t : trm) : unit =
          fail t.loc "Apac_core.taskify_on.fill: illegal goto statement"
        else
          (* If [target] is [Apac_core.goto_label], we can create a [Task]
-            instance for it, even if it will actually nevery become a task.
-            However, we need to do it for the sake of consistency as only
-            instructions being part of the final task graph will be part of the
-            transformed source code. We use the [last] method so as to ensure
-            that the instruction will appear as the last one in the current
-            scope. *)
-         Task.last t
+            instance for it, even if it will actually nevery become a task. The
+            [Singleton] and the [HasJump] attributes mean that the [Task] will
+            not be merged with any other task and that it contains an
+            unconditional jump. See [Apac_tasks.TaskAttr]. *)
+         let attrs = TaskAttr_set.singleton Singleton in
+         let attrs = TaskAttr_set.add HasJump attrs in
+         Task.create t attrs Var_set.empty Dep_set.empty Dep_set.empty []
     | Trm_val v ->
        (* Retrieve the first label attribute of the current term, if any. *)
        let l = trm_get_labels t in
@@ -1913,10 +1988,14 @@ let taskify_on (p : path) (t : trm) : unit =
           [Apac_basic.use_goto_for_return]. *)
        begin match v with
          (* If it is the case, we can create a [Task] instance for it, even if
-            it will actually nevery become a task. We use the [last] method so
-            as to ensure that the instruction will appear as the last one in the
-            current scope. *)
-       | Val_lit (Lit_unit) when l = goto_label -> Task.last t
+            it will actually nevery become a task. The [Singleton] and the
+            [ExitPoint] attributes mean that the [Task] will not be merged with
+            any other task and that it represents the exit point of the
+            execution sequence. See [Apac_tasks.TaskAttr]. *)
+       | Val_lit (Lit_unit) when l = goto_label ->
+          let attrs = TaskAttr_set.singleton Singleton in
+          let attrs = TaskAttr_set.add ExitPoint attrs in
+          Task.create t attrs Var_set.empty Dep_set.empty Dep_set.empty []
        (* Otherwise, fail. Other types of values are not allowed as first-level
           instructions within a task group. *)
        | _ -> fail t.loc "Apac_core.taskify_on.fill: illegal value term"
@@ -1924,6 +2003,9 @@ let taskify_on (p : path) (t : trm) : unit =
     | Trm_omp_routine r ->
        (* Convert the local scope to a set. *)
        let scope = var_set_of_var_hashtbl s in
+       (* Initialize an empty task attribute set. Calls to OpenMP routines does
+          not need any attribute. *)
+       let attrs = TaskAttr_set.empty in
        (* When it comes to OpenMP routine calls, we consider two different
           situations: *)
        begin match r with
@@ -1948,13 +2030,13 @@ let taskify_on (p : path) (t : trm) : unit =
        let inouts = Dep_set.union ins inouts in
        (* Create the task corresponding to the current OpenMP routine call graph
           node. *)
-       Task.create t scope Dep_set.empty inouts []
+       Task.create t attrs scope Dep_set.empty inouts []
        (* 2) On the other hand, all the other routines do not involve any
              variables and thus do not require dependency discovery. *)
        | _ ->
           (* Create the task corresponding to the current OpenMP routine call
              graph node. *)
-          Task.create t scope Dep_set.empty Dep_set.empty []
+          Task.create t attrs scope Dep_set.empty Dep_set.empty []
        end
     | _ ->
        let error = Printf.sprintf
@@ -2003,7 +2085,9 @@ let merge_on (p : path) (t : trm) : unit =
         else
           begin
             let child = List.hd child in
-            if (TaskGraph.in_degree g child) < 2 then
+            let chtask = TaskGraph.V.label child in
+            if not (Task.has_attr chtask Singleton) &&
+                 (TaskGraph.in_degree g child) < 2 then
               start::(find_sequence g child)
             else [start]
           end
@@ -2026,7 +2110,9 @@ let merge_on (p : path) (t : trm) : unit =
   for i = 0 to (nb_vertices - 1) do
     begin
       let vertex = List.nth vertices i in
-      if (TaskGraph.mem_vertex g vertex) then
+      let task_i = TaskGraph.V.label vertex in
+      if not (Task.has_attr task_i Singleton) &&
+           (TaskGraph.mem_vertex g vertex) then
         begin
           let _ = Printf.printf "Vertex no. %d\n"  i in
           let sequence : TaskGraph.V.t list = find_sequence g vertex in 

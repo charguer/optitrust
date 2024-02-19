@@ -110,6 +110,30 @@ type task_backend =
   | ApacProfiler (* Do not create tasks. Insert calls to profiling functions
                     instead. *)
 
+(* [TaskAttr]: a module to represent task attributes. *)
+module TaskAttr = struct
+  type t =
+    | Singleton (* Never merge the task with other tasks. *)
+    | WaitForNone (* Do not create a task. *)
+    | WaitForSome (* Do not create a task. In the resulting code, prepend the
+                     associated statements with a synchronisation barrier on
+                     selected dependencies. *)
+    | WaitForAll (* Do not create a task. In the resulting code, prepend the
+                    associated statements with a global synchronisation
+                    barrier. *)
+    | HasJump (* The task contains an unconditional jump, i.e. a [goto]. *)
+    | ExitPoint (* The task represents the last instruction before exiting the
+                   execution sequence, i.e. the [Apac_core.goto_label]. *)
+  let compare ta1 ta2 =
+    if ta1 = ta2 then 0
+    else if ta1 > ta2 then 1
+    else -1
+  let equal ta1 ta2 = compare ta1 ta2 = 0
+end
+
+(* [TaskAttr_set]: a module to represent sets of task attributes. *)
+module TaskAttr_set = Set.Make(TaskAttr)
+
 (* Automatic taskification involves the creation of a task graph correspoding to
    the input source code. We create one task graph per program scope. This way,
    to a function body containing, for example, a for-loop, we will associate one
@@ -144,19 +168,15 @@ end
 module rec Task : sig
          type t = {
              current : trms;
-             last : bool;
-             mutable wait : bool;
+             attrs : TaskAttr_set.t;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
              children : TaskGraph.t list list;
            }
          val create :
-           trm -> Var_set.t -> Dep_set.t -> Dep_set.t ->
+           trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
            TaskGraph.t list list -> t
-         val wait :
-           trm -> Var_set.t -> Dep_set.t -> Dep_set.t ->
-           TaskGraph.t list list -> t
-         val last : trm  -> t
+         val has_attr : t -> TaskAttr.t -> bool
          val merge : t -> t -> t
          val update : t -> trms -> t
          val empty : trm -> t
@@ -165,13 +185,13 @@ module rec Task : sig
        end = struct
   type t = {
              current : trms;
-             last : bool;
-             mutable wait : bool;
+             attrs : TaskAttr_set.t;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
              children : TaskGraph.t list list;
     }
-  let create (current : trm) (scope : Var_set.t)
+  
+  let create (current : trm) (attrs : TaskAttr_set.t) (scope : Var_set.t)
         (ins : Dep_set.t) (inouts : Dep_set.t)
         (children : TaskGraph.t list list) : t =
     let ins' = Dep_set.filter (
@@ -189,55 +209,45 @@ module rec Task : sig
     let ins' = Dep_set.diff ins' inouts' in
     {
       current = [current];
-      last = false;
-      wait = false;
+      attrs = attrs;
       ins = ins';
       inouts = inouts';
       children = children;
     }
-  let wait (current : trm) (scope : Var_set.t)
-        (ins : Dep_set.t) (inouts : Dep_set.t)
-        (children : TaskGraph.t list list) : t =
-    let task = create current scope ins inouts children in
-    task.wait <- true;
-    task
-  let last (current : trm) : t = {
-      current = [current];
-      last = true;
-      wait = true;
-      ins = Dep_set.empty;
-      inouts = Dep_set.empty;
-      children = [];
-    }
+  
+  let has_attr (task : t) (attr : TaskAttr.t) : bool =
+    TaskAttr_set.mem attr task.attrs
+  
   let merge (t1 : t) (t2 : t) : t =
     let current' = t1.current @ t2.current in
+    let attrs' = TaskAttr_set.union t1.attrs t2.attrs in
     let ins' = Dep_set.union t1.ins t2.ins in
     let inouts' = Dep_set.union t1.inouts t2.inouts in
     let children' = List.append t1.children t2.children in
     {
       current = current';
-      last = t1.last || t2.last;
-      wait = t1.wait || t2.wait;
+      attrs = attrs';
       ins = ins';
       inouts = inouts';
       children = children';
     }
+  
   let update (task : t) (instrs : trms) : t = {
       current = instrs;
-      last = task.last;
-      wait = task.wait;
+      attrs = task.attrs;
       ins = task.ins;
       inouts = task.inouts;
       children = task.children;
     }
+  
   let empty (current : trm) = {
       current = [current];
-      last = false;
-      wait = false;
+      attrs = TaskAttr_set.empty;
       ins = Dep_set.empty;
       inouts = Dep_set.empty;
       children = [];
     }
+  
   let to_string (task : t) : string =
     let what = List.fold_left (fun acc term ->
                    let desc = trm_desc_to_string term.desc in
@@ -249,6 +259,7 @@ module rec Task : sig
                      fun a acc -> acc ^ " " ^ (dep_to_string a)
                    ) task.inouts "" in
     what ^ " (in: [" ^ ins ^ " ], inouts: [" ^ inouts ^ " ])\n"
+  
   let to_label (task : t) : string =
     let what = List.fold_left (fun acc term ->
                    let desc = trm_desc_to_string term.desc in
