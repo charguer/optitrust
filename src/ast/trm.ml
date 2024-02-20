@@ -806,7 +806,7 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     if Mlist.for_all2 (==) tl tl' then tl else tl' in
 
   match t.desc with
-  | Trm_val _ | Trm_var _ -> t
+  | Trm_val _ | Trm_var _ | Trm_goto _ -> t
   | Trm_array tl ->
     let tl' = fmlist false tl in
     if (tl' == tl) then t else
