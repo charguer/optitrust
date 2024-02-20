@@ -1998,7 +1998,12 @@ let taskify_on (p : path) (t : trm) : unit =
           Task.create t attrs Var_set.empty Dep_set.empty Dep_set.empty []
        (* Otherwise, fail. Other types of values are not allowed as first-level
           instructions within a task group. *)
-       | _ -> fail t.loc "Apac_core.taskify_on.fill: illegal value term"
+       | _ ->
+          let it = AstC_to_c.ast_to_string t in
+          let error =
+            Printf.sprintf
+              "Apac_core.taskify_on.fill: illegal value term '%s'" it in
+          fail t.loc error
        end
     | Trm_omp_routine r ->
        (* Convert the local scope to a set. *)
