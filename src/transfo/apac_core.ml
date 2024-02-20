@@ -957,16 +957,20 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let body = make body in
                        trm_for ~annot:instr.annot ~ctx:instr.ctx
                          range body
-                    | Trm_if (cond, _, _) ->
+                    | Trm_if (cond, _, no) ->
                        let cg = List.nth task.children i in
                        let yes = List.nth cg 0 in
-                       let no = List.nth cg 1 in
                        let yes = TaskGraphTraverse.codify
                                      (trm_from_task ~backend) yes in
                        let yes = make yes in
-                       let no = TaskGraphTraverse.codify
-                                     (trm_from_task ~backend) no in
-                       let no = make no in
+                       let no = if (is_trm_unit no) then
+                                  trm_unit ()
+                                else
+                                  let no = List.nth cg 1 in
+                                  let no = TaskGraphTraverse.codify
+                                             (trm_from_task ~backend) no in
+                                  make no
+                       in
                        trm_if ~annot:instr.annot ~ctx:instr.ctx cond yes no
                     | Trm_while (cond, _) ->
                        let cg = List.nth task.children i in
@@ -1833,7 +1837,9 @@ let taskify_on (p : path) (t : trm) : unit =
        let gn = TaskGraph.create () in
        (* Taskify the branches while filling the correspoding sub-graphs. *)
        let ty = fill s yes gy in
-       let tn = fill s no gn in
+       (* If there is no [else] branch, create an empty task. *)
+       let missing_tn = is_trm_unit no in 
+       let tn = if missing_tn then Task.empty () else fill s no gn in
        (* Include the dependencies from the branches into the sets of
           dependencies of the current [if] graph node, i.e. [ins] and [inouts],
           by the means of union operations. *)
@@ -1848,9 +1854,15 @@ let taskify_on (p : path) (t : trm) : unit =
                      TaskAttr_set.singleton HasJump
                    else
                      TaskAttr_set.empty in
+       (* An [if] node should not become a task by itself. *)
+       let attrs = TaskAttr_set.add WaitForSome attrs in
+       (* Initialize the list of sub-graphs corresponding to the [then] branch
+          and, if present, for the [else] branch too. *)
+       let children = if missing_tn then [] else [gn] in
+       let children = gy :: children in
        (* Create the task corresponding to the current [if] graph node using all
           the elements computed above. *)
-       Task.create t attrs scope ins inouts [[gy; gn]]
+       Task.create t attrs scope ins inouts [children]
     | Trm_while (cond, body) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
