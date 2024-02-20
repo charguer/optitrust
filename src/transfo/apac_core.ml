@@ -2069,7 +2069,7 @@ let taskify (tg : target) : unit =
 
 (* [merge_on p t]: see [merge]. *)
 let merge_on (p : path) (t : trm) : unit =
-  let rec find_sequence (g : TaskGraph.t) (start : TaskGraph.V.t) :
+  let rec seq (g : TaskGraph.t) (start : TaskGraph.V.t) :
             TaskGraph.V.t list =
     if (TaskGraph.out_degree g start) > 1 then
       begin
@@ -2088,10 +2088,50 @@ let merge_on (p : path) (t : trm) : unit =
             let chtask = TaskGraph.V.label child in
             if not (Task.has_attr chtask Singleton) &&
                  (TaskGraph.in_degree g child) < 2 then
-              start::(find_sequence g child)
+              start :: (seq g child)
             else [start]
           end
       end
+  in
+  let rec iter (g : TaskGraph.t) : unit =
+    let vs = TaskGraph.fold_vertex (fun v acc -> v::acc) g [] in
+    let nb = TaskGraph.nb_vertex g in
+    let _ = Printf.printf "iter\n" in
+    for i = 0 to (nb - 1) do
+      begin
+        let vi = List.nth vs i in
+        let ti = TaskGraph.V.label vi in
+        if not (Task.has_attr ti Singleton) &&
+             (TaskGraph.mem_vertex g vi) && (TaskGraph.in_degree g vi > 0) then
+          begin
+            let sq : TaskGraph.V.t list = seq g vi in 
+            let st = List.length sq in
+            if st > 1 then
+              begin
+                let start = List.hd sq in
+                let tail = List.tl sq in
+                let first = TaskGraph.V.label start in
+                let task : Task.t = List.fold_left (fun t v ->
+                                        let curr : Task.t =
+                                          TaskGraph.V.label v in
+                                        Task.merge t curr) first tail in
+                let stop = List.nth sq (st - 1) in
+                let pred = TaskGraph.pred g start in
+                let succ = TaskGraph.succ g stop in
+                let vi' = TaskGraph.V.create task in
+                let _ = Printf.printf "seq len: %d\n" (List.length sq) in
+                TaskGraph.add_vertex g vi';
+                List.iter (fun v -> TaskGraph.add_edge g v vi') pred;
+                List.iter (fun v -> TaskGraph.add_edge g vi' v) succ;
+                List.iter (fun v -> let _ = Printf.printf "rem: %s\n" (TaskGraphPrinter.vertex_name v) in
+                                    TaskGraph.remove_vertex g v) sq
+              end
+          end
+      end
+    done;
+    TaskGraph.iter_vertex (fun v ->
+        let t : Task.t = TaskGraph.V.label v in
+        List.iter (fun l -> List.iter (fun g -> iter g) l) t.children) g
   in
   (* Find the parent function. *)
   let f = match (find_parent_function p) with
@@ -2105,53 +2145,16 @@ let merge_on (p : path) (t : trm) : unit =
     | Some (g') -> g'
     | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
                           taskify?" in
-  let vertices = TaskGraph.fold_vertex (fun v acc -> v::acc) g [] in
-  let nb_vertices = TaskGraph.nb_vertex g in
-  for i = 0 to (nb_vertices - 1) do
-    begin
-      let vertex = List.nth vertices i in
-      let task_i = TaskGraph.V.label vertex in
-      if not (Task.has_attr task_i Singleton) &&
-           (TaskGraph.mem_vertex g vertex) then
-        begin
-          let _ = Printf.printf "Vertex no. %d\n"  i in
-          let sequence : TaskGraph.V.t list = find_sequence g vertex in 
-          let _ = Printf.printf "Vertex no. %d AFTER\n"  i in
-          let steps = List.length sequence in
-          if steps > 1 then
-            begin
-              (*merge*)
-              let start = List.hd sequence in
-              let tail = List.tl sequence in
-              let first = TaskGraph.V.label start in
-              let task : Task.t = List.fold_left (fun t v ->
-                                      let curr : Task.t = TaskGraph.V.label v in
-                                      Task.merge t curr) first tail in
-              let stop = List.nth sequence (steps - 1) in
-              let pred = TaskGraph.pred g start in
-              let succ = TaskGraph.succ g stop in
-              let vertex' = TaskGraph.V.create task in
-              TaskGraph.add_vertex g vertex';
-              List.iter (fun v -> TaskGraph.add_edge g v vertex') pred;
-              List.iter (fun v -> TaskGraph.add_edge g vertex' v) succ;
-              List.iter (fun v -> TaskGraph.remove_vertex g v) sequence
-            end
-        end
-    end
-  done;
+  iter g;
   export_task_graph g "apac_task_graph_merged.dot"
-  (*fill const_record.variables t task_graph;
-  Printf.printf "Augmented AST for <%s> follows:\n%s\n"
-    (var_to_string f) (atrm_to_string aast)*)
 
 let merge (tg : target) : unit =
   Nobrace.enter ();
   Target.iter (fun t p -> merge_on p (get_trm_at_path p t)) tg
 
 (* [insert_tasks_on p t]: see [insert_tasks_on]. *)
-(* TODO : Un parcours plus intelligent du graphe lors de la génération de code de sortie, pas seulement du BFS. *)
-(* - consolider l'implémentation actuelle (ajouter les sous-graphes, tester sur des vrais codes)
-   - mettre sur papier des idées de stratégies de transformation de graphes. *)
+(* TODO: mettre sur papier des idées de stratégies de transformation de
+   graphes. *)
 let insert_tasks_on (p : path) (t : trm) : trm =
   (* Find the parent function. *)
   let f = match (find_parent_function p) with
@@ -2170,7 +2173,6 @@ let insert_tasks_on (p : path) (t : trm) : trm =
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   let _ = Debug_transfo.trm "output" result in
   result
-  
     
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg

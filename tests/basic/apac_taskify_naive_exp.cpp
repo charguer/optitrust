@@ -10,14 +10,20 @@ int g(int* a) {
 int h() {
   int __res;
   /*@__apac_task_group*/ #pragma omp taskgroup {
-    int b;
-    b = 0;
-    b = b + 1;
-    b--;
     int** c;
-    c = (int**)malloc(sizeof(int));
-    g(*c);
+    int b;
     int a;
+#pragma omp task default(shared) depend(inout : c)
+    {
+      c = (int**)malloc(sizeof(int));
+      g(*c);
+    }
+#pragma omp task default(shared) depend(inout : b)
+    {
+      b = 0;
+      b = b + 1;
+      b--;
+    }
 #pragma omp task default(shared) depend(inout : a, b)
     a = 1 + b++;
 #pragma omp task default(shared) depend(inout : b)

@@ -8,6 +8,7 @@ let _ = Run.script_cpp (fun () ->
             (*!! Apac.parallel_task_group ~mark_group:true [nbAny; cFunDef "main"];*)
             !! Apac_core.taskify [nbAny; cMark Apac_core.task_group_mark];
             (*!! Apac_core.insert_tasks [nbAny; cMark Apac_core.task_group_mark];*)
+            !! Apac_core.merge [nbAny; cMark Apac_core.task_group_mark];
             !! Apac_core.insert_tasks [nbAny; cMark Apac_core.task_group_mark];
             (* !! Apac_core.include_apac_profiler []; *)
           )
