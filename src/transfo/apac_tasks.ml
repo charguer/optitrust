@@ -179,7 +179,7 @@ module rec Task : sig
          val has_attr : t -> TaskAttr.t -> bool
          val merge : t -> t -> t
          val update : t -> trms -> t
-         val empty : trm -> t
+         val empty : unit -> t
          val to_string : t -> string
          val to_label : t -> string
        end = struct
@@ -240,8 +240,8 @@ module rec Task : sig
       children = task.children;
     }
   
-  let empty (current : trm) = {
-      current = [current];
+  let empty () = {
+      current = [];
       attrs = TaskAttr_set.empty;
       ins = Dep_set.empty;
       inouts = Dep_set.empty;
