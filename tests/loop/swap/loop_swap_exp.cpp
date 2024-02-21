@@ -122,27 +122,27 @@ void ghost_pairs() {
   const __ghost_fn __ghost_pair_2 = __ghost_begin(
       __with_reverse(
           [&]() {
-            __requires("#136: _Fraction");
-            __consumes("_RO(#136, Group(range(0, 5, 1), fun i -> &x ~> Cell))");
+            __requires("#_1: _Fraction");
+            __consumes("_RO(#_1, Group(range(0, 5, 1), fun i -> &x ~> Cell))");
             __produces(
-                "_RO(#136 / range_count(range(0, 5, 1)), Group(range(0, 5, 1), "
+                "_RO(#_1 / range_count(range(0, 5, 1)), Group(range(0, 5, 1), "
                 "fun i -> Group(range(0, 5, 1), fun _ -> &x ~> Cell)))");
             for (int i = 0; i < 5; i++) {
-              __loop_ghosts("#136: _Fraction");
-              __consumes("_RO(#136, &x ~> Cell)");
+              __loop_ghosts("#_2: _Fraction");
+              __consumes("_RO(#_2, &x ~> Cell)");
               __produces(
-                  "_RO(#136 / range_count(range(0, 5, 1)), Group(range(0, 5, "
+                  "_RO(#_2 / range_count(range(0, 5, 1)), Group(range(0, 5, "
                   "1), fun _ -> &x ~> Cell))");
               __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
             }
           },
           [&]() {
             for (int i = 0; i < 5; i++) {
-              __loop_ghosts("#136: _Fraction");
+              __loop_ghosts("#_1: _Fraction");
               __consumes(
-                  "_RO(#136 / range_count(range(0, 5, 1)), Group(range(0, 5, "
+                  "_RO(#_1 / range_count(range(0, 5, 1)), Group(range(0, 5, "
                   "1), fun j -> &x ~> Cell))");
-              __produces("_RO(#136, &x ~> Cell)");
+              __produces("_RO(#_1, &x ~> Cell)");
               __ghost(ro_join_group, "H := &x ~> Cell, r := range(0, 5, 1)");
             }
           }),

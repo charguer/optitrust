@@ -623,6 +623,7 @@ let __consumes = name_to_var "__consumes"
 let __produces = name_to_var "__produces"
 let __sequentially_reads = name_to_var "__sequentially_reads"
 let __sequentially_modifies = name_to_var "__sequentially_modifies"
+let __parallel_reads = name_to_var "__parallel_reads"
 let __loop_ghosts = name_to_var "__loop_ghosts"
 
 let __reverts = name_to_var "__reverts"
@@ -738,7 +739,7 @@ let contract_elim (t: trm): trm =
 
 let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, formula): string =
   let sformula = formula_to_string style formula in
-  if not (style.cstyle.ast.print_generated_ids || Var_set.mem hyp used_vars) && hyp.name.[0] = '#'
+  if not (style.cstyle.ast.print_generated_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" hyp.name
     then Printf.sprintf "%s" sformula
     else begin
       let hyp_s = if style.cstyle.ast.print_var_id then var_to_string hyp else hyp.name in
@@ -1011,6 +1012,40 @@ let rec formula_sugar_intro (t: trm): trm =
   else
     trm_map formula_sugar_intro t
 
+
+(****************************** Alpha renaming of autogen variables ***************************************)
+
+let autogen_alpha_rename style (t : trm) : trm =
+  let map_binder (highest_h, renaming) var predecl =
+    let return_next_name () =
+      let new_v = { var with name = ("#_" ^ string_of_int (highest_h + 1)) } in
+      (highest_h + 1, Var_map.add var new_v renaming), new_v
+    in
+
+    if String.starts_with ~prefix:"#" var.name then
+      if String.starts_with ~prefix:"#_" var.name then begin
+        let var_hnum = String.sub var.name 2 (String.length var.name - 2) in
+        match int_of_string_opt var_hnum with
+        | None -> (highest_h, renaming), var
+        | Some n when n > highest_h -> (n, renaming), var
+        | Some n -> return_next_name ()
+      end else
+        return_next_name ()
+    else
+      (highest_h, renaming), var
+  in
+
+  let map_var (highest_h, renamings) v =
+    match Var_map.find_opt v renamings with
+    | Some v' -> v'
+    | None -> v
+  in
+
+  if style.cstyle.ast.print_generated_ids
+    then t (* When we want to print generated ids we prefer to keep them in sync with internal names *)
+    else trm_rename_vars ~map_binder map_var (0, Var_map.empty) t
+
+
 (*************************************** Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
@@ -1042,6 +1077,7 @@ let cfeatures_intro (style : style) : trm -> trm =
   infix_intro |>
   method_call_intro |>
   class_member_intro |>
+  autogen_alpha_rename style |>
   ghost_args_intro style |>
   contract_intro style
   )
@@ -1052,6 +1088,7 @@ let meta_intro ?(skip_var_ids = false) (style: style) : trm -> trm =
   fun t ->
   (if skip_var_ids then t else Scope_computation.infer_var_ids ~failure_allowed:false t) |>
   formula_sugar_intro |>
+  autogen_alpha_rename style |>
   ghost_args_intro style |>
   contract_intro style
 

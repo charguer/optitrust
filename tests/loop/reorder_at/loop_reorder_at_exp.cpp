@@ -62,19 +62,18 @@ void f2(float* A, float* B, int m, int n, int p) {
   const __ghost_fn __ghost_pair_4 = __ghost_begin(
       __with_reverse(
           [&]() {
-            __requires("#122: _Fraction");
+            __requires("#_3: _Fraction");
             __consumes(
-                "_RO(#122, Group(range(0, m, 1), fun i -> B ~> Matrix2(p, "
-                "n)))");
+                "_RO(#_3, Group(range(0, m, 1), fun i -> B ~> Matrix2(p, n)))");
             __produces(
-                "_RO(#122 / range_count(range(0, m, 1)), Group(range(0, m, 1), "
+                "_RO(#_3 / range_count(range(0, m, 1)), Group(range(0, m, 1), "
                 "fun i -> Group(range(0, m, 1), fun _ -> B ~> Matrix2(p, "
                 "n))))");
             for (int i = 0; i < m; i++) {
-              __loop_ghosts("#122: _Fraction");
-              __consumes("_RO(#122, B ~> Matrix2(p, n))");
+              __loop_ghosts("#_4: _Fraction");
+              __consumes("_RO(#_4, B ~> Matrix2(p, n))");
               __produces(
-                  "_RO(#122 / range_count(range(0, m, 1)), Group(range(0, m, "
+                  "_RO(#_4 / range_count(range(0, m, 1)), Group(range(0, m, "
                   "1), fun _ -> B ~> Matrix2(p, n)))");
               __ghost(ro_fork_group,
                       "H := B ~> Matrix2(p, n), r := range(0, m, 1)");
@@ -82,11 +81,11 @@ void f2(float* A, float* B, int m, int n, int p) {
           },
           [&]() {
             for (int i = 0; i < m; i++) {
-              __loop_ghosts("#122: _Fraction");
+              __loop_ghosts("#_3: _Fraction");
               __consumes(
-                  "_RO(#122 / range_count(range(0, m, 1)), Group(range(0, m, "
+                  "_RO(#_3 / range_count(range(0, m, 1)), Group(range(0, m, "
                   "1), fun j -> B ~> Matrix2(p, n)))");
-              __produces("_RO(#122, B ~> Matrix2(p, n))");
+              __produces("_RO(#_3, B ~> Matrix2(p, n))");
               __ghost(ro_join_group,
                       "H := B ~> Matrix2(p, n), r := range(0, m, 1)");
             }
@@ -95,19 +94,18 @@ void f2(float* A, float* B, int m, int n, int p) {
   const __ghost_fn __ghost_pair_3 = __ghost_begin(
       __with_reverse(
           [&]() {
-            __requires("#124: _Fraction");
+            __requires("#_3: _Fraction");
             __consumes(
-                "_RO(#124, Group(range(0, m, 1), fun i -> A ~> Matrix2(m, "
-                "p)))");
+                "_RO(#_3, Group(range(0, m, 1), fun i -> A ~> Matrix2(m, p)))");
             __produces(
-                "_RO(#124 / range_count(range(0, m, 1)), Group(range(0, m, 1), "
+                "_RO(#_3 / range_count(range(0, m, 1)), Group(range(0, m, 1), "
                 "fun i -> Group(range(0, m, 1), fun _ -> A ~> Matrix2(m, "
                 "p))))");
             for (int i = 0; i < m; i++) {
-              __loop_ghosts("#124: _Fraction");
-              __consumes("_RO(#124, A ~> Matrix2(m, p))");
+              __loop_ghosts("#_4: _Fraction");
+              __consumes("_RO(#_4, A ~> Matrix2(m, p))");
               __produces(
-                  "_RO(#124 / range_count(range(0, m, 1)), Group(range(0, m, "
+                  "_RO(#_4 / range_count(range(0, m, 1)), Group(range(0, m, "
                   "1), fun _ -> A ~> Matrix2(m, p)))");
               __ghost(ro_fork_group,
                       "H := A ~> Matrix2(m, p), r := range(0, m, 1)");
@@ -115,11 +113,11 @@ void f2(float* A, float* B, int m, int n, int p) {
           },
           [&]() {
             for (int i = 0; i < m; i++) {
-              __loop_ghosts("#124: _Fraction");
+              __loop_ghosts("#_3: _Fraction");
               __consumes(
-                  "_RO(#124 / range_count(range(0, m, 1)), Group(range(0, m, "
+                  "_RO(#_3 / range_count(range(0, m, 1)), Group(range(0, m, "
                   "1), fun j -> A ~> Matrix2(m, p)))");
-              __produces("_RO(#124, A ~> Matrix2(m, p))");
+              __produces("_RO(#_3, A ~> Matrix2(m, p))");
               __ghost(ro_join_group,
                       "H := A ~> Matrix2(m, p), r := range(0, m, 1)");
             }
