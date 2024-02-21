@@ -149,6 +149,46 @@ let stackvar_elim (t : trm) : trm =
    end in
    aux t
 
+(* [stackvar_intro_pragmas f pl]: Some of the OpenMP pragma directives may
+   feature AST terms, i.e. the [Depend] clauses of the [Task] and the [Taskwait]
+   directives. In this case, we need to apply [stackvar_intro] on these terms
+   too. This function takes [pl], a list of pragmas, and applies
+   [stackvar_intro] on the pragmas that may contain AST terms through the [f]
+   parameter. See the usage of this function in [stackvar_intro]. *)
+let stackvar_intro_pragmas
+      (f : (trm -> trm)) (pl : cpragma list) : cpragma list =
+  let aux (dl : deps) : deps =
+    List.map(fun d ->
+        match d with
+        | Dep_trm (tt, v) -> let tt' = f tt in Dep_trm (tt', v)
+        | _ -> d) dl
+  in
+  List.map (fun p ->
+      let cl' = match p with
+        | Task cl
+          | Taskwait cl -> cl
+        | _ -> []
+      in
+      let cl' = if cl' <> [] then
+                  List.map (fun c ->
+                      match c with
+                      | Depend dl ->
+                         let dl' = List.map (fun dt ->
+                                       match dt with
+                                       | In dl -> In (aux dl)
+                                       | Out dl -> Out (aux dl)
+                                       | Inout dl -> Inout (aux dl)
+                                       | Outin dl -> Outin (aux dl)
+                                       | Sink dl -> Sink (aux dl)
+                                       | _ -> dt) dl in
+                         Depend dl'
+                      | _ -> c) cl'
+                else []
+      in
+      match p with
+      | Task _ -> Task cl'
+      | Taskwait _ -> Taskwait cl'
+      | _ -> p) pl
 
 (* [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following decodings:
      - [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
@@ -165,8 +205,8 @@ let stackvar_intro (t : trm) : trm =
   debug_current_stage "stackvar_intro";
   let env = create_env () in
   let rec aux (t : trm) : trm =
-    trm_simplify_addressof_and_get
-    begin match t.desc with
+    
+    let t' = begin match t.desc with
     | Trm_var (_, x) ->
       (* Note: if AST invariants are preserved (are they?) the first argument of Trm_var should be equal to [Env.get !env x] *)
       if is_var_mutable !env x
@@ -210,8 +250,11 @@ let stackvar_intro (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x  -> t1
     | _ -> trm_map aux t
     end in
-   aux t
-
+    let t' = apply_on_pragmas (fun pl ->
+                 stackvar_intro_pragmas (trm_map aux) pl) t' in
+    trm_simplify_addressof_and_get t'
+  in
+  aux t
 
 (* [caddress_elim t]: applies the following encodings
      - [get(t).f] becomes get(t + offset(f))
