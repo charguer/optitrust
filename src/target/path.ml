@@ -210,6 +210,12 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, body, Some contract) ->
           let post = apply_on_resource_set resource_set_dir i contract.iter_contract.post in
           trm_replace (Trm_for (range, body, Some { contract with iter_contract = { contract.iter_contract with post } })) t
+        | Dir_contract (Contract_loop_ghosts, Resource_set_pure, i), Trm_for (range, body, Some contract) ->
+          let loop_ghosts = Xlist.update_nth i aux_resource_item contract.loop_ghosts in
+          trm_replace (Trm_for (range, body, Some { contract with loop_ghosts })) t
+        | Dir_contract (Contract_parallel_reads, Resource_set_linear, i), Trm_for (range, body, Some contract) ->
+          let parallel_reads = Xlist.update_nth i aux_resource_item contract.parallel_reads in
+          trm_replace (Trm_for (range, body, Some { contract with parallel_reads })) t
         | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, body, Some contract) ->
           let invariant = apply_on_resource_set resource_set_dir i contract.invariant in
           trm_replace (Trm_for (range, body, Some { contract with invariant })) t
@@ -407,6 +413,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         aux_resource_set resource_set_dir i contract.iter_contract.pre
       | Dir_contract (Contract_post, resource_set_dir, i), Trm_for (range, body, Some contract) ->
         aux_resource_set resource_set_dir i contract.iter_contract.post
+      | Dir_contract (Contract_loop_ghosts, Resource_set_pure, i), Trm_for (range, body, Some contract) ->
+        aux_resource_item (List.nth contract.loop_ghosts i)
+      | Dir_contract (Contract_parallel_reads, Resource_set_linear, i), Trm_for (range, body, Some contract) ->
+        aux_resource_item (List.nth contract.parallel_reads i)
       | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for (range, body, Some contract) ->
         aux_resource_set resource_set_dir i contract.invariant
       | Dir_contract (Contract_invariant, resource_set_dir, i), Trm_for_c (start, cond, incr, body, Some invariant) ->

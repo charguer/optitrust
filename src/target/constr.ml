@@ -1701,6 +1701,8 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
           Xoption.flat_map (fun contract ->
             (aux_contract_dir Contract_pre contract.iter_contract.pre) @
             (aux_contract_dir Contract_post contract.iter_contract.post) @
+            (aux_resource_set_dir Contract_loop_ghosts Resource_set_pure contract.loop_ghosts) @
+            (aux_resource_set_dir Contract_parallel_reads Resource_set_linear contract.parallel_reads) @
             (aux_contract_dir Contract_invariant contract.invariant)
           ) contract
         else []

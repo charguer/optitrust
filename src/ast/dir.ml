@@ -84,6 +84,8 @@ and enum_const_dir =
 and contract_dir =
   | Contract_pre
   | Contract_post
+  | Contract_loop_ghosts
+  | Contract_parallel_reads
   | Contract_invariant
 
 and resource_set_dir =
@@ -138,6 +140,8 @@ let dir_to_string (d : dir) : string =
     (match cdir with
     | Contract_pre -> "Contract_pre"
     | Contract_post -> "Contract_post"
+    | Contract_loop_ghosts -> "Contract_loop_ghosts"
+    | Contract_parallel_reads -> "Contract_parallel_reads"
     | Contract_invariant -> "Contract_invariant")
     (match rdir with
     | Resource_set_pure -> "Resource_set_pure"
