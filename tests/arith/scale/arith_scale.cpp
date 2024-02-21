@@ -26,3 +26,39 @@ int other() {
       u[i] = b;
    }
 }
+
+/* TODO: acceleration
+
+void accel(int n, double* x, double* v, int m, double* e, double dt, int d, double q) {
+  // modifies x ~> Array(n)
+  // reads e ~> Array(m)
+  for (int t = 0; t < d; t++) {
+    for (int i = 0; i < n; i++) {
+      int c = (((int) x[i]) + m) % m;
+      double a = q / m * e[c];
+      v[i] += a * dt;
+      x[i] += v[i] * dt;
+    }
+  }
+}
+
+void accel(int n, double* x, double* v, int m, double* e, double dt, int d, double q) {
+  double* V = malloc(..);
+  for (int i = 0; i < n; i++) {
+    V[i] = v[i] * dt;
+  }
+  double k = q / m * dt * dt;
+  for (int t = 0; t < d; t++) {
+    for (int i = 0; i < n; i++) {
+      int c = (((int) x[i]) + m) % m;
+      double a = k * e[c];
+      V[i] += a;
+      x[i] += V[i];
+    }
+  }
+  for (int i = 0; i < n; i++) {
+    v[i] = V[i] / dt;
+  }
+}
+
+*/
