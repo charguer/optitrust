@@ -45,40 +45,45 @@ let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
 
 (** This transformation turns:
 
-    // stars_j R(j)
+    // stars_j R(j) * V
     pfor j
       consumes R(j)
       produces R'(j)
-      // R(j) |- S(j,0) * stars_k P(j,k) * F(j)
+      par_reads V
+      // R(j) ==> SR(j,0) * UR(j) * stars_k PR(j,k) * FR(j)
+      // V = SV(0) * UV * stars_k PV(k) * FV
       for k
-          invariant S(j,k)
-          consumes P(j, k)
-          produces P'(j, k)
+          invariant SV(k) * SR(j,k)
+          par_reads UV * UR(j)
+          consumes PV(k) * PR(j, k)
+          produces PV(k) * P'R(j, k)
           Instrs(j, k)
-      // S(j,n) * stars_k P'(j,k) * F(j) |- R'(j)
-    // stars_j R'(j)
+      // SR(j,n) * UR(j) * stars_k P'R(j,k) * FR(j) ==> R'(j)
+    // stars_j R'(j) * V
 
   into:
 
-    // stars_j R(j)
-    // stars_j S(j,0) * stars_j stars_k P(j,k) * stars_j F(j)
-    ghost rewrite stars_j stars_k P(j,k)
-                = stars_k stars_j P(j,k)
-    // stars_j S(j,0) * stars_k stars_j P(j,k) * stars_j F(j)
+    // stars_j R(j) * V
+    // stars_j SR(j,0) * stars_j UR(j) * stars_j stars_k PR(j,k) * stars_j FR(j) * SV(0) * UV * stars_k PV(k) * FV
+    ghost rewrite stars_j stars_k PR(j,k)
+                = stars_k stars_j PR(j,k)
+    // stars_j SR(j,0) * stars_j UR(j) * stars_k stars_j PR(j,k) * stars_j FR(j) * SV(0) * UV * stars_k PV(k) * FV
     for k
-      invariant stars_j S(j,k)
-      consumes stars_j P(j,k)
-      produces stars_j P'(j,k)
+      invariant SV * stars_j SR(j,k)
+      par_reads UV * stars_j UR(j)
+      consumes PV(k) * stars_j PR(j,k)
+      produces PV(k) * stars_j P'R(j,k)
+      // SV * stars_j SR(j,k) * UV * stars_j UR(j) * PV(k) * stars_j PR(j,k)
       pfor j
-        consumes S(j,k) * P(j,k)
-        produces S(j,k+1) * P'(j,k)
+        consumes UR(j) * SR(j,k) * PR(j,k)
+        produces UR(j) * SR(j,k+1) * P'R(j,k)
+        par_reads UV * SV * PV(k)
         Instrs(j, k)
-      // stars_j S(j,k+1) * stars_j P'(j,k)
-    // stars_j S(j,n) * stars_k stars_j P'(j,k) * stars_j F(j)
-    ghost rewrite stars_k stars_j P'(j,k)
-                = stars_j stars_k P'(j,k)
-    // stars_j S(j,n) * stars_j stars_k P'(j,k) * stars_j F(j)
-    // stars_j R'(j)
+      // SV * stars_j SR(j,k+1) * UV * stars_j UR(j) * PV(k) * stars_j P'R(j,k)
+    // SV * stars_j SR(j,n) * UV * stars_j UR(j) * PV(k) * stars_k stars_j P'R(j,k) * F
+    ghost rewrite stars_k stars_j P'R(j,k)
+                = stars_j stars_k P'R(j,k)
+    // SV * stars_j SR(j,n) * UV * stars_j UR(j) * PV(k) * stars_j stars_k P'R(j,k) * F
 *)
 let swap_on (t: trm): trm =
   (* TODO: refactor *)
@@ -97,23 +102,43 @@ let swap_on (t: trm): trm =
 
       let loop_ghosts = inner_contract.loop_ghosts in
       let inner_inv = inner_contract.invariant in
+      let inner_par_reads = inner_contract.parallel_reads in
       let inner_pre = inner_contract.iter_contract.pre in
       let inner_post = inner_contract.iter_contract.post in
-      let swaps_pre = List.map (ghost_swap outer_range inner_range) inner_pre.linear in
-      let swaps_post = List.map (ghost_swap inner_range outer_range) inner_post.linear in
+
+      let outer_par_reads_hyps = List.fold_left (fun acc (hyp, _) -> Var_set.add hyp acc) Var_set.empty outer_contract.parallel_reads in
+      let inner_invoc = Xoption.unsome inner_loop.ctx.ctx_resources_contract_invoc in
+      let from_outer_par_reads_set = List.fold_left (fun acc { pre_hyp; inst_by } ->
+          if Var_set.mem (Resource_computation.Formula_inst.origin_hyp inst_by) outer_par_reads_hyps then
+            Var_set.add pre_hyp acc
+          else
+            acc
+        ) Var_set.empty inner_invoc.contract_inst.used_linear in
+      let is_from_outer_par_reads (hyp, _) = Var_set.mem hyp from_outer_par_reads_set in
+
+      let par_lininv, group_lininv = List.partition is_from_outer_par_reads inner_inv.linear in
+      let par_reads_twice, group_par_reads = List.partition is_from_outer_par_reads inner_par_reads in
+      let par_iter, group_pre = List.partition is_from_outer_par_reads inner_pre.linear in
+      let (_, group_post, _) = Resource_computation.subtract_linear_resource_set inner_post.linear par_iter in
+
+      let swaps_pre = List.map (ghost_swap outer_range inner_range) group_pre in
+      let swaps_post = List.map (ghost_swap inner_range outer_range) group_post in
 
       (* TODO: Manage swaping in pure when pure Groups are handled *)
       assert (inner_pre.pure == []);
       assert (inner_post.pure == []);
+      assert (inner_inv.pure == []);
 
-      let new_inner_pre = Resource_set.union inner_inv inner_pre in
-      let new_inner_post = Resource_set.union (Resource_set.subst_loop_range_step inner_range inner_inv) inner_post in
-      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; parallel_reads = [] (* FIXME *); iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
+      let new_inner_pre = Resource_set.make ~linear:(group_pre @ group_par_reads @ group_lininv) () in
+      let new_inner_post = Resource_set.union (Resource_set.make ~linear:(group_post @ group_par_reads) ()) (Resource_set.subst_loop_range_step inner_range (Resource_set.make ~linear:group_lininv ())) in
+      let new_inner_par_reads = par_lininv @ par_reads_twice @ par_iter in
+      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; parallel_reads = new_inner_par_reads; iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
 
-      let new_outer_inv = Resource_set.group_range outer_range inner_inv in
-      let new_outer_pre = Resource_set.group_range outer_range inner_pre in
-      let new_outer_post = Resource_set.group_range outer_range inner_post in
-      let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; parallel_reads = [] (* FIXME *); iter_contract = { pre = new_outer_pre; post = new_outer_post } } in
+      let new_outer_inv = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_lininv ())) (Resource_set.make ~linear:par_lininv ()) in
+      let new_outer_par_reads = (Resource_set.group_range outer_range (Resource_set.make ~linear:group_par_reads ())).linear @ par_reads_twice in
+      let new_outer_pre = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_pre ())) (Resource_set.make ~linear:par_iter ()) in
+      let new_outer_post = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_post ())) (Resource_set.make ~linear:par_iter ()) in
+      let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; parallel_reads = new_outer_par_reads; iter_contract = { pre = new_outer_pre; post = new_outer_post } } in
 
       trm_seq_nobrace_nomarks (swaps_pre @
         [trm_for inner_range ~annot:inner_loop.annot ~contract:new_outer_contract (trm_seq_nomarks [

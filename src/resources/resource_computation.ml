@@ -89,6 +89,17 @@ module Formula_inst = struct
     Pattern.pattern_match_opt f [
       Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h -> h)
     ]
+
+  let origin_hyp (f: t): hyp =
+    match inst_hyp_inv f with
+    | Some h -> h
+    | None ->
+      match inst_split_read_only_inv f with
+      | Some (_, _, h) -> h
+      | None ->
+        match inst_forget_init_inv f with
+        | Some h -> h
+        | None -> failwith "Formula_inst.origin_hyp: unrecognized formula inst"
 end
 
 (** A type to distinguish between pure and linear resources *)

@@ -72,7 +72,7 @@ void f(int* t, int* u, int* v, int n, int m) {
   }
 }
 
-void seq_reads() {
+void par_reads() {
   __pure();
 
   int x = 0;
@@ -85,18 +85,16 @@ void seq_reads() {
   }
 }
 
-void ghost_pairs() {
-  __pure();
+void ghost_pairs(int* x) {
+  __reads("x ~> Matrix1(1)");
 
-  int x = 0;
   for (int i = 0; i < 5; i++) {
-    __parallel_reads("&x ~> Cell");
+    __parallel_reads("x ~> Matrix1(1)");
+    __GHOST_BEGIN(focus_x, matrix1_ro_focus, "i := 0");
     for (int j = 0; j < 5; j++) {
-      __parallel_reads("&x ~> Cell");
-      for (int k = 0; j < 5; k++) {
-        __parallel_reads("&x ~> Cell");
-        x + 1;
-      }
+      __parallel_reads("&x[MINDEX1(1,0)] ~> Cell");
+      x[MINDEX1(1,0)] + 1;
     }
+    __GHOST_END(focus_x);
   }
 }

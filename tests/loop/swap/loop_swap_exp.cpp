@@ -87,8 +87,8 @@ void f(int* t, int* u, int* v, int n, int m) {
     __modifies(
         "Group(range(0, n, 1), fun x -> &v[MINDEX2(n, m, x, y)] ~> Cell)");
     for (int x = 0; x < n; x++) {
-      __modifies("&t[MINDEX1(n, x)] ~> Cell");
       __modifies("&v[MINDEX2(n, m, x, y)] ~> Cell");
+      __modifies("&t[MINDEX1(n, x)] ~> Cell");
       __reads("&u[MINDEX1(n, x)] ~> Cell");
       t[MINDEX1(n, x)] = y * u[MINDEX1(n, x)];
       v[MINDEX2(n, m, x, y)] = t[MINDEX1(n, x)];
@@ -99,66 +99,27 @@ void f(int* t, int* u, int* v, int n, int m) {
           ":= fun y, x -> &v[MINDEX2(n, m, x, y)] ~> Cell");
 }
 
-void seq_reads() {
+void par_reads() {
   __pure();
   int x = 0;
-  const __ghost_fn __ghost_pair_1 =
-      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
   for (int j = 0; j < 5; j++) {
-    __parallel_reads("Group(range(0, 5, 1), fun i -> &x ~> Cell)");
+    __parallel_reads("&x ~> Cell");
     for (int i = 0; i < 5; i++) {
-      __reads("&x ~> Cell");
+      __parallel_reads("&x ~> Cell");
       x + 1;
     }
   }
-  __ghost_end(__ghost_pair_1);
 }
 
-void ghost_pairs() {
-  __pure();
-  int x = 0;
-  const __ghost_fn __ghost_pair_3 =
-      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
-  const __ghost_fn __ghost_pair_2 = __ghost_begin(
-      __with_reverse(
-          [&]() {
-            __requires("#_1: _Fraction");
-            __consumes("_RO(#_1, Group(range(0, 5, 1), fun i -> &x ~> Cell))");
-            __produces(
-                "_RO(#_1 / range_count(range(0, 5, 1)), Group(range(0, 5, 1), "
-                "fun i -> Group(range(0, 5, 1), fun _ -> &x ~> Cell)))");
-            for (int i = 0; i < 5; i++) {
-              __loop_ghosts("#_2: _Fraction");
-              __consumes("_RO(#_2, &x ~> Cell)");
-              __produces(
-                  "_RO(#_2 / range_count(range(0, 5, 1)), Group(range(0, 5, "
-                  "1), fun _ -> &x ~> Cell))");
-              __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
-            }
-          },
-          [&]() {
-            for (int i = 0; i < 5; i++) {
-              __loop_ghosts("#_1: _Fraction");
-              __consumes(
-                  "_RO(#_1 / range_count(range(0, 5, 1)), Group(range(0, 5, "
-                  "1), fun j -> &x ~> Cell))");
-              __produces("_RO(#_1, &x ~> Cell)");
-              __ghost(ro_join_group, "H := &x ~> Cell, r := range(0, 5, 1)");
-            }
-          }),
-      "");
-  for (int k = 0; k < 5; k++) {
-    __parallel_reads(
-        "Group(range(0, 5, 1), fun i -> Group(range(0, 5, 1), fun j -> &x ~> "
-        "Cell))");
-    for (int i = 0; i < 5; i++) {
-      __reads("Group(range(0, 5, 1), fun j -> &x ~> Cell)");
-      for (int j = 0; j < 5; j++) {
-        __reads("&x ~> Cell");
-        x + 1;
-      }
+void ghost_pairs(int* x) {
+  __reads("x ~> Matrix1(1)");
+  for (int i = 0; i < 5; i++) {
+    __parallel_reads("x ~> Matrix1(1)");
+    const __ghost_fn focus_x = __ghost_begin(matrix1_ro_focus, "i := 0");
+    for (int j = 0; j < 5; j++) {
+      __parallel_reads("&x[MINDEX1(1, 0)] ~> Cell");
+      x[MINDEX1(1, 0)] + 1;
     }
+    __ghost_end(focus_x);
   }
-  __ghost_end(__ghost_pair_2);
-  __ghost_end(__ghost_pair_3);
 }
