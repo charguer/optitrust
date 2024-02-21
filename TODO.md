@@ -304,6 +304,8 @@
        (fun t (p,i) -> swap_at_path i t p) tg
 ```
 
+- implement a transfo 'delay_write': `WR(X = Y); RD(X); --> RD(Y); WR(X = Y)`
+
 # Trace
 
 - Add infrastructure for executing a test with reparsing after every step,
