@@ -8,26 +8,34 @@ typedef uchar ST;
   ksize:
   width:
 */
-void rowSum(int ksize, const T* S, ST* D, int width, int cn) {
-  /* Body of the function is code taken unchanged from
-     https://github.com/opencv/opencv/blob/4.x/modules/imgproc/src/box_filter.simd.hpp */
-  int i = 0, k, ksz_cn = ksize*cn;
-  width = (width - 1)*cn;
-  for( k = 0; k < cn; k++, S++, D++)
-  {
-      ST s = 0;
-      for( i = 0; i < ksz_cn; i += cn )
-          s += (ST)S[i];
-      D[0] = s;
-      for( i = 0; i < width; i += cn )
-      {
-          s += (ST)S[i + ksz_cn] - (ST)S[i];
-          D[i+cn] = s;
-      }
+
+
+
+void rowSum(const int ksize, const T* S, ST* D, const int width, const int cn) {
+  for (int k = 0; k < cn; k++) { // foreach channel
+    // initialize the sliding window
+    ST s = 0;
+    for (int i = 0; i < ksize; i++) {
+      s += (ST) S[MINDEX2(width+ksize, cn, i, k)];
+    }
+    D[MINDEX2(width, cn, 0, k] = s;
+    // for each pixel, shift the sliding window
+    for (int i = 0; i < width-1; i++) {
+      s -= (ST) S[MINDEX2(width+ksize, cn, i, k)];
+      s += (ST) S[MINDEX2(?, cn, i + ksize, k)];
+      D[MINDEX2(width, cn, i + 1, k] = s;
+    }
+    /* ALTERNATIVE
+    for (int i = 1; i < width; i++) {
+      s -= (ST) S[MINDEX2(?, cn, i - 1, k)];
+      s += (ST) S[MINDEX2(?, cn, i + ksize-1, k)];
+      D[MINDEX2(?, cn, i, k] = s;
+    }
+    */
   }
 }
 
-/* Step 1: rewritten by hand */
+/* General code, with flattening */
 
 void rowSum_NORMALIZED(const int ksize, const T* S0, ST* D0, const int width, const int cn) {
   const int ksz_cn = ksize * cn;
@@ -48,80 +56,24 @@ void rowSum_NORMALIZED(const int ksize, const T* S0, ST* D0, const int width, co
     }
   }
 }
-
-/* Step 1: rewritten by hand using 2D? */
-
-void rowSum_NORMALIZED(const int ksize, const T* S0, ST* D0, const int width, const int cn) {
-  const int ksz_cn = ksize * cn;
-  const int i_bound = (width - 1)*cn;
-
-  D[i][k] =
-
-
-
-  for(int k = 0; k < cn; k++)
-  {
-    T* const S = S0 + k
-    ST* const D = DO + k;
-
-    ST s = 0;
-    for(int i = 0; i < ksz_cn; i += cn) {
-      s += (ST) S[MINDEX1(?, i)];
-    }
-    D[0] = s;
-    for(int i = 0; i < i_bound; i += cn) {
-      s += (ST) S[MINDEX1(?, i + ksz_cn)] - (ST) S[MINDEX(?, i)];
-      D[i + cn] = s;
-    }
-  }
-}
-
-
-
-
-  for(int k = 0; k < cn; k++)
-    for(int i = 0; i < i_bound; i += cn) {
-
-for(int i = 0; i < (width-1)*cn; i += cn) {
-  for(int k = 0; k < cn; k++)
-    M[i + ksize*cn]
-
-
-for(int i = 0; i < ksz_cn; i += cn) {
-  for(int k = 0; k < cn; k++)
-    M[i + ksize*cn]
-
 
 /* Specialization ksize==3 */
 
 
-for( i = 0; i < width + cn; i++ )
-{
-  D[i] = (ST)S[i] + (ST)S[i+cn] + (ST)S[i+cn*2];
+void rowSum_ksize3(const int ksize, const T* S, ST* D, const int width) {
+  for( i = 0; i < width + cn; i++ )
+  {
+    D[i] = (ST)S[i] + (ST)S[i+cn] + (ST)S[i+cn*2];
+  }
 }
 
+/* Specialization ksize==5 */
 
-
-
-/* Step 1: go to optitrust compatible code */
-
-void rowSum_NORMALIZED(const int ksize, const T* S, ST* D, const int width, const int cn) {
-  const int ksz_cn = ksize * cn;
-  const int i_bound = (width - 1)*cn;
-  for(int k = 0; k < cn; k++)
-  {
-    ST s = 0;
-    for(int i = 0; i < ksz_cn; i += cn) {
-      s += (ST) S[MINDEX1(? ,i)];
+void rowSum_ksize5(const int ksize, const T* S, ST* D, const int width) {
+    for( i = 0; i < width + cn; i++ )
+    {
+        D[i] = (ST)S[i] + (ST)S[i+cn] + (ST)S[i+cn*2] + (ST)S[i + cn*3] + (ST)S[i + cn*4];
     }
-    D[0] = s;
-    for(int i = 0; i < i_bound; i += cn) {
-      s += (ST) S[MINDEX1(?, i + ksz_cn)] - (ST) S[MINDEX(?, i)];
-      D[i + cn] = s;
-    }
-    S++;
-    D++;
-  }
 }
 
 /* Specialization cn==1 */
@@ -145,189 +97,28 @@ void rowSum_cn1(const int ksize, const T* S, ST* D, const int width) {
 void rowSum_cn3(const int ksize, const T* S, ST* D, const int width) {
   const int ksz_cn = ksize * cn;
   const int i_bound = (width - 1)*cn;
+  /*
+  .. unroll loop 3 times
+  .. reorder instr
+  .. fusion loops
+  */
+}
 
- ST s[3] = 0;
-
-    T* const S = S0 + k
-    ST* const D = DO + k;
-  for(int k = 0; k < cn; k++)
-  {
-    for(int i = 0; i < ksz_cn; i += cn) {
-      s += (ST) S[MINDEX1(? ,i)];
-    }
-    D[0] = s;
-    for(int i = 0; i < i_bound; i += cn) {
-      s += (ST) S[MINDEX1(?, i + ksz_cn)] - (ST) S[MINDEX(?, i)];
-      D[i + cn] = s;
-    }
+/* Main code */
+void rowSumOpt(const int ksize, const T* S, ST* D, const int width, const int cn) {
+  // introduce arbitrary conditions
+  if (ksize == 3) {
+    // in this section, can do the substitution, or insert the line "const int ksize = 3;".
+    // ...
+  } else if (ksize == 5) {
+    // ...
+  } else if (cn == 1) {
+    // ...
+  } else (cn == 3) {
+    // ...
+  } else {
+    // ...
   }
 }
 
-D[0]
-D++
-D[0]
-D++
-D[0]
-
-D[0]
-D[1]
-D[2]
-D += 3
-
-
-
-
-x = x0
-for (i=start i++)
-  x++
-  y = x
-
-for i
-  y = x0 + i - start
-
-
-
-
-  i += B
-
-  i = bi*B
-
-
-
-
-
-
-
-            ST s0 = 0, s1 = 0, s2 = 0;
-            for( i = 0; i < ksz_cn; i += 3 )
-            {
-                s0 += (ST)S[i];
-                s1 += (ST)S[i+1];
-                s2 += (ST)S[i+2];
-            }
-            D[0] = s0;
-            D[1] = s1;
-            D[2] = s2;
-            for( i = 0; i < width; i += 3 )
-            {
-                s0 += (ST)S[i + ksz_cn] - (ST)S[i];
-                s1 += (ST)S[i + ksz_cn + 1] - (ST)S[i + 1];
-                s2 += (ST)S[i + ksz_cn + 2] - (ST)S[i + 2];
-                D[i+3] = s0;
-                D[i+4] = s1;
-                D[i+5] = s2;
-            }
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  /* Manually optimized code
-
-        const T* S = (const T*)src;
-        ST* D = (ST*)dst;
-        int i = 0, k, ksz_cn = ksize*cn;
-
-        width = (width - 1)*cn;
-        if( ksize == 3 )
-        {
-            for( i = 0; i < width + cn; i++ )
-            {
-                D[i] = (ST)S[i] + (ST)S[i+cn] + (ST)S[i+cn*2];
-            }
-        }
-        else if( ksize == 5 )
-        {
-            for( i = 0; i < width + cn; i++ )
-            {
-                D[i] = (ST)S[i] + (ST)S[i+cn] + (ST)S[i+cn*2] + (ST)S[i + cn*3] + (ST)S[i + cn*4];
-            }
-        }
-        else if( cn == 1 )
-        {
-            ST s = 0;
-            for( i = 0; i < ksz_cn; i++ )
-                s += (ST)S[i];
-            D[0] = s;
-            for( i = 0; i < width; i++ )
-            {
-                s += (ST)S[i + ksz_cn] - (ST)S[i];
-                D[i+1] = s;
-            }
-        }
-        else if( cn == 3 )
-        {
-            ST s0 = 0, s1 = 0, s2 = 0;
-            for( i = 0; i < ksz_cn; i += 3 )
-            {
-                s0 += (ST)S[i];
-                s1 += (ST)S[i+1];
-                s2 += (ST)S[i+2];
-            }
-            D[0] = s0;
-            D[1] = s1;
-            D[2] = s2;
-            for( i = 0; i < width; i += 3 )
-            {
-                s0 += (ST)S[i + ksz_cn] - (ST)S[i];
-                s1 += (ST)S[i + ksz_cn + 1] - (ST)S[i + 1];
-                s2 += (ST)S[i + ksz_cn + 2] - (ST)S[i + 2];
-                D[i+3] = s0;
-                D[i+4] = s1;
-                D[i+5] = s2;
-            }
-        }
-        else if( cn == 4 )
-        {
-            ST s0 = 0, s1 = 0, s2 = 0, s3 = 0;
-            for( i = 0; i < ksz_cn; i += 4 )
-            {
-                s0 += (ST)S[i];
-                s1 += (ST)S[i+1];
-                s2 += (ST)S[i+2];
-                s3 += (ST)S[i+3];
-            }
-            D[0] = s0;
-            D[1] = s1;
-            D[2] = s2;
-            D[3] = s3;
-            for( i = 0; i < width; i += 4 )
-            {
-                s0 += (ST)S[i + ksz_cn] - (ST)S[i];
-                s1 += (ST)S[i + ksz_cn + 1] - (ST)S[i + 1];
-                s2 += (ST)S[i + ksz_cn + 2] - (ST)S[i + 2];
-                s3 += (ST)S[i + ksz_cn + 3] - (ST)S[i + 3];
-                D[i+4] = s0;
-                D[i+5] = s1;
-                D[i+6] = s2;
-                D[i+7] = s3;
-            }
-        }
-        else
-            for( k = 0; k < cn; k++, S++, D++ )
-            {
-                ST s = 0;
-                for( i = 0; i < ksz_cn; i += cn )
-                    s += (ST)S[i];
-                D[0] = s;
-                for( i = 0; i < width; i += cn )
-                {
-                    s += (ST)S[i + ksz_cn] - (ST)S[i];
-                    D[i+cn] = s;
-                }
-            }
-    }
-  */
+// specialized_path [["ksize", int 3]; ["ksize", int 5]; ["cn", int 1]; ["cn", int 3]] tg
