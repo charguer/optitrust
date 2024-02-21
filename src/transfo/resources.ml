@@ -319,29 +319,30 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
 
 let minimize_loop_contract contract usage =
   let new_fracs = ref [] in
-  let filter_invariant (hyp, formula) =
+  let new_linear_invariant, added_par_reads = List.fold_right (fun (hyp, formula) (lin_inv, par_reads) ->
     match Hyp_map.find_opt hyp usage with
-    | None -> None
-    | Some (SplittedReadOnly | JoinedReadOnly) -> (* TODO: handle JoinedRO differently? *)
-      begin match formula_read_only_inv formula with
-      | Some _ -> Some (hyp, formula)
-      | None ->
-        let frac_var, frac_ghost = new_frac () in
-        new_fracs := frac_ghost :: !new_fracs;
-        let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
-        Some (hyp, ro_formula)
-      end
-    | Some (UsedUninit | UsedFull) -> Some (hyp, formula)
+    | None -> (lin_inv, par_reads)
+    | Some (SplittedReadOnly | JoinedReadOnly) ->
+      let formula = match formula_read_only_inv formula with
+        | Some { formula } -> formula
+        | None -> formula
+      in
+      let frac_var, frac_ghost = new_frac () in
+      new_fracs := frac_ghost :: !new_fracs;
+      let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+      (lin_inv, (hyp, ro_formula) :: par_reads)
+    | Some (UsedUninit | UsedFull) -> ((hyp, formula) :: lin_inv, par_reads)
     | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
+    ) contract.invariant.linear ([], [])
   in
-
-  let new_linear_invariant = List.filter_map filter_invariant contract.invariant.linear in
   let new_invariant = { contract.invariant with linear = new_linear_invariant } in
+  let new_parallel_reads = added_par_reads @ List.filter (fun (hyp, _) -> Hyp_map.mem hyp usage) contract.parallel_reads in
 
   let new_iter_contract = minimize_fun_contract ~output_new_fracs:new_fracs contract.iter_contract usage in
 
   let new_contract = { loop_ghosts = !new_fracs @ contract.loop_ghosts;
     invariant = new_invariant;
+    parallel_reads = new_parallel_reads;
     iter_contract = new_iter_contract; }
   in
   let new_contract_used_vars = loop_contract_used_vars new_contract in
@@ -375,14 +376,20 @@ let fix_loop_default_contract_on ?(mark: mark = "") (t: trm): trm =
   let res_before = unsome_or_trm_fail t "fix_loop_default_contract_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in
 
   let fracs = ref [] in
-  let invariant = Resource_set.make ~linear:(List.map (fun (_, f) ->
+  let lin_invariant, parallel_reads = List.partition_map (fun (_, f) ->
     match formula_read_only_inv f with
     | Some { formula } ->
       let frac, frac_item = new_frac () in
       fracs := frac_item :: !fracs;
-      (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) formula)
-    | None -> (new_anon_hyp (), f)) res_before.linear) () in
-  let contract = { loop_ghosts = !fracs; invariant; iter_contract = empty_fun_contract } in
+      Either.right (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) formula)
+    | None -> Either.left (new_anon_hyp (), f))
+    res_before.linear in
+  let contract = {
+    loop_ghosts = !fracs;
+    invariant = Resource_set.make ~linear:lin_invariant ();
+    parallel_reads;
+    iter_contract = empty_fun_contract }
+  in
   trm_alter ~desc:(Trm_for (range, body, Some contract)) t
 
 let rec fix_loop_default_contract_rec ?(mark: mark = "") (t: trm): trm =
@@ -397,37 +404,6 @@ let%transfo fix_loop_default_contracts (tg: target): unit =
   Target.apply_at_target_paths fix_loop_default_contract_rec tg;
   justif_correct "only changed loop contracts"
 
-
-let ro_fork_group = toplevel_var "ro_fork_group"
-let ro_join_group = toplevel_var "ro_join_group"
-
-let loop_parallelize_reads_on (t: trm): trm =
-  let range, body, contract = trm_inv ~error:"loop_minimize: not a for loop" trm_for_inv t in
-  let contract = Xoption.unsome ~error:"loop_minimize: the for loop has no contract" contract in
-  let loop_ghost_vars = Var_set.of_list (List.map (fun (g, _) -> g) contract.loop_ghosts) in
-  let seq_reads_res, seq_modifies_res =
-    List.partition (fun (h, formula) ->
-      match formula_read_only_inv formula with
-      | Some { frac; formula = ro_formula } ->
-        begin match trm_var_inv frac with
-        | Some frac_atom when Var_set.mem frac_atom loop_ghost_vars -> true
-        | _ -> false
-        end
-      | None -> false) contract.invariant.linear
-  in
-  let new_contract = { contract with invariant = { contract.invariant with linear = seq_modifies_res }; iter_contract = { pre = Resource_set.add_linear_list seq_reads_res contract.iter_contract.pre ; post = Resource_set.add_linear_list seq_reads_res contract.iter_contract.post } } in
-  List.fold_left (fun t (_, formula) ->
-    let { formula } = trm_inv formula_read_only_inv formula in
-    trm_ghost_scope (ghost_call ro_fork_group ["H", formula; "r", formula_loop_range range]) t
-    ) (trm_replace (Trm_for (range, body, Some new_contract)) t) seq_reads_res
-  (* LATER: We should also remove pure invariants that do not mention the loop index and move them into requires *)
-
-let%transfo loop_parallelize_reads (tg: target): unit =
-  ensure_computed ();
-  Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths loop_parallelize_reads_on tg
-  );
-  justif_correct "only changed ghosts and contracts"
 
 let assert_hyp_read_only ~(error : string) ((x, t) : resource_item) : unit =
   match formula_read_only_inv t with

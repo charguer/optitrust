@@ -62,7 +62,7 @@ void commute() {
 
   int z = 2;
   for (int j = 0; j < 5; j++) {
-    __sequentially_reads("&z ~> Cell");
+    __parallel_reads("&z ~> Cell");
     __sequentially_modifies(
       "&x ~> Cell,"
       "&y ~> Cell");
@@ -174,7 +174,7 @@ void ghosts() {
     __reads("&x ~> Cell");
     __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
     for (int k = 0; k < 5; k++) {
-      __sequentially_reads("Group(range(0, 5, 1), fun j -> &x ~> Cell)");
+      __parallel_reads("Group(range(0, 5, 1), fun j -> &x ~> Cell)");
       for (int j = 0; j < 5; j++) {
         __reads("&x ~> Cell");
         x + 1;
@@ -196,7 +196,7 @@ void double_ghosts() {
     __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
     __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
     for (int k = 0; k < 5; k++) {
-      __sequentially_reads("Group(range(0, 5, 1), fun j -> &x ~> Cell)");
+      __parallel_reads("Group(range(0, 5, 1), fun j -> &x ~> Cell)");
       for (int j = 0; j < 5; j++) {
         __reads("&x ~> Cell");
         x + 1;

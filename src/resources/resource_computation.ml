@@ -141,7 +141,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx:
   Depending on the formula of the resource, decide if we need a read-only fraction,
   a potentially uninitialized resource or a full ownership.
 
-  Raises {!Resource_not_found} if the [formula] cannot be consumed.
+  Raises {!Not_found} if the [formula] cannot be consumed.
    *)
 let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item)
   (res: linear_resource_set) (evar_ctx: unification_ctx)
@@ -211,27 +211,24 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   in
 
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
-  try
-    Pattern.pattern_match formula [
-      (* special case where _Full disables split_frac. *)
-      Pattern.(formula_read_only (trm_apps1 (trm_var (var_eq _Full)) !__) !__) (fun frac ro_formula ->
-        unify_and_remove_linear (x, formula_read_only ~frac ro_formula) ~uninit:false res evar_ctx
-      );
-      (* we split a fraction from an RO if we don't care about the fraction we get (evar). *)
-      Pattern.(formula_read_only (trm_var !__) !__) (fun frac_var ro_formula ->
-        Pattern.when_ (split_frac && Var_map.find_opt frac_var evar_ctx = Some None);
-        (* TODO: ADT == Some NotKnown *)
-        let new_frac, _ = new_frac () in
-        let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
-        unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
-      );
-      Pattern.(formula_uninit !__) (fun formula ->
-        unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx);
-      Pattern.(!__) (fun _ ->
-        unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx)
-    ]
-  with Not_found ->
-    raise_resource_not_found Linear (x, formula) evar_ctx res
+  Pattern.pattern_match formula [
+    (* special case where _Full disables split_frac. *)
+    Pattern.(formula_read_only (trm_apps1 (trm_var (var_eq _Full)) !__) !__) (fun frac ro_formula ->
+      unify_and_remove_linear (x, formula_read_only ~frac ro_formula) ~uninit:false res evar_ctx
+    );
+    (* we split a fraction from an RO if we don't care about the fraction we get (evar). *)
+    Pattern.(formula_read_only (trm_var !__) !__) (fun frac_var ro_formula ->
+      Pattern.when_ (split_frac && Var_map.find_opt frac_var evar_ctx = Some None);
+      (* TODO: ADT == Some NotKnown *)
+      let new_frac, _ = new_frac () in
+      let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
+      unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
+    );
+    Pattern.(formula_uninit !__) (fun formula ->
+      unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx);
+    Pattern.(!__) (fun _ ->
+      unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx)
+  ]
 
 (** [subtract_linear_resource_set ?split_frac ?evar_ctx res_from res_removed] subtracts [res_removed] from [res_from].
   Returns [(used, res', evar_ctx')] where:
@@ -248,9 +245,26 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
 let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unification_ctx = Var_map.empty) (res_from: linear_resource_set) (res_removed: linear_resource_set)
   : used_resource_item list * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, res_from, evar_ctx) res_item ->
-    let used, res_from, evar_ctx = subtract_linear_resource_item ~split_frac res_item res_from evar_ctx in
-    (used :: used_list, res_from, evar_ctx)
+    try
+      let used, res_from, evar_ctx = subtract_linear_resource_item ~split_frac res_item res_from evar_ctx in
+      (used :: used_list, res_from, evar_ctx)
+    with Not_found ->
+      raise_resource_not_found Linear res_item evar_ctx res_from
   ) ([], res_from, evar_ctx) res_removed
+
+(** [intersect_linear_resource_set] computes the intersection between two linear resource sets
+    If [evar_ctx] is provided, this is done up to evar unification.
+*)
+let intersect_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.empty) (res_left: linear_resource_set) (res_right: linear_resource_set)
+  : used_resource_item list * linear_resource_set * linear_resource_set * unification_ctx =
+  List.fold_left (fun (used_list, res_left, unmatched_right, evar_ctx) res_item ->
+    try
+      let used, res_left, evar_ctx = subtract_linear_resource_item ~split_frac:false res_item res_left evar_ctx in
+      (used :: used_list, res_left, unmatched_right, evar_ctx)
+    with Not_found ->
+      (used_list, res_left, res_item :: unmatched_right, evar_ctx)
+  ) ([], res_left, [], evar_ctx) res_right
+
 
 (** [eliminate_dominated_evars res] eliminates dominated evars from [res].
   Returns the the remaining pure resources and the dominated evars.

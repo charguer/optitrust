@@ -93,15 +93,15 @@ void seq_ro_par_rw(int m, int n, int o, int* t) {
 
   int x = 0;
   for (int i = 0; i < m; i++) {
-    __sequentially_reads("&x ~> Cell");
+    __parallel_reads("&x ~> Cell");
     __modifies("Group(range(0, n, 1), fun j -> Group(range(0, o, 1), fun k -> &t[MINDEX3(m, n, o, i, j, k)] ~> Cell))");
 
     for (int j = 0; j < n; j++) {
-      __sequentially_reads("&x ~> Cell");
+      __parallel_reads("&x ~> Cell");
       __modifies("Group(range(0, o, 1), fun k -> &t[MINDEX3(m, n, o, i, j, k)] ~> Cell)");
 
       for (int k = 0; k < o; k++) {
-        __sequentially_reads("&x ~> Cell");
+        __parallel_reads("&x ~> Cell");
         __modifies("&t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
 
         t[MINDEX3(m, n, o, i, j, k)] = x;
@@ -116,7 +116,7 @@ void ghost_scope(int m, int n) {
 
   int x = 0;
   for (int i = 0; i < m; i++) {
-    __sequentially_reads("&x ~> Cell");
+    __parallel_reads("&x ~> Cell");
 
     __GHOST_BEGIN(xfg, ro_fork_group, "H := &x ~> Cell, r:= range(0, n, 1)");
     for (int j = 0; j < n; j++) {

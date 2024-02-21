@@ -15,10 +15,10 @@ void f(int* t, int* u) {
 
   __ghost(matrix1_ro_focus, "t, 0");
   for (int l = 0; l < 5; l++) {
-    __sequentially_reads("&t[MINDEX1(10, 0)] ~> Cell");
+    __parallel_reads("&t[MINDEX1(10, 0)] ~> Cell");
 
     for (int m = 0; m < 2; m++) {
-      __sequentially_reads("&t[MINDEX1(10, 0)] ~> Cell");
+      __parallel_reads("&t[MINDEX1(10, 0)] ~> Cell");
 
       int x = l + m + t[MINDEX1(10, 0)];
     }

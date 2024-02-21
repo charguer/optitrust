@@ -69,3 +69,14 @@ void nested_loops(float* M1, float* M2, int n) {
     c += acc;
   }
 }
+
+void seq_modifies_into_par_reads() {
+  __pure();
+
+  int x = 1;
+  int acc = 0;
+  for (int i = 0; i < 100; i++) {
+    __sequentially_modifies("&x ~> Cell, &acc ~> Cell");
+    acc += x;
+  }
+}

@@ -107,7 +107,7 @@ void arr_wrong1(int* t, int* x) {
     __modifies("Group(range(0, 5, 1), fun j -> &t[MINDEX2(3, 5, i, j)] ~> Cell)");
 
     for (int j = 0; j < 5; j++) { // can't move out, 'v' is not loop invariant
-      __sequentially_reads("&v ~> Cell");
+      __parallel_reads("&v ~> Cell");
       __writes("&x[MINDEX1(5, j)] ~> Cell");
       x[MINDEX1(5, j)] = v;
     }
@@ -126,12 +126,12 @@ void test(int* t){
   int a = 5;
   int b = 6;
   for (int i = 0; i < 10; i++) {
-    __sequentially_reads("&a ~> Cell, &b ~> Cell");
+    __parallel_reads("&a ~> Cell, &b ~> Cell");
     __modifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
 
     int r = i;
     for (int j = 0; j < 10; j++) {
-      __sequentially_reads("&a ~> Cell, &b ~> Cell");
+      __parallel_reads("&a ~> Cell, &b ~> Cell");
       __sequentially_modifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
 
       int s = i;

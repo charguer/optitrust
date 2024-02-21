@@ -12,11 +12,11 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
   for (int i = 0; i < m; i++) {
     __modifies("Group(range(0, n, 1), fun j ->"
       " &C[MINDEX2(m, n, i, j)] ~> Cell)");
-    __sequentially_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+    __parallel_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
     for (int j = 0; j < n; j++) {
       __modifies("&C[MINDEX2(m, n, i, j)] ~> Cell");
-      __sequentially_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+      __parallel_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
       float sum = 0.0f;
       for (int k = 0; k < p; k++) {

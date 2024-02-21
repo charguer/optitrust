@@ -17,4 +17,6 @@ let _ = Run.script_cpp (fun () ->
        equivalent to: *)
     !! loop_minimize [cFunBody "nested_loops"; cFor "j"];
     !! loop_minimize [cFunBody "nested_loops"; cFor "i"];
+
+    !! loop_minimize [cFunBody "seq_modifies_into_par_reads"; cFor "i"];
 )

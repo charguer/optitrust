@@ -20,7 +20,7 @@ void array_computation(float* M, int n) {
   }
 
   for (int i = 0; i < n; ++i) {
-    __sequentially_reads("&acc ~> Cell, &acc ~> Cell");
+    __parallel_reads("&acc ~> Cell, &acc ~> Cell");
     __modifies("&M[MINDEX1(n, i)] ~> Cell");
 
     M[MINDEX1(n, i)] = acc;

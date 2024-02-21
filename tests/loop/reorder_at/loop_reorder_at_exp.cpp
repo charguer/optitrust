@@ -42,8 +42,8 @@ void f2(float* A, float* B, int m, int n, int p) {
   __reads("B ~> Matrix2(p, n)");
   float* const sum = (float* const)MALLOC2(m, m, sizeof(float));
   for (int i = 0; i < m; i++) {
-    __sequentially_reads("A ~> Matrix2(m, p)");
-    __sequentially_reads("B ~> Matrix2(p, n)");
+    __parallel_reads("A ~> Matrix2(m, p)");
+    __parallel_reads("B ~> Matrix2(p, n)");
     __consumes(
         "_Uninit(Group(range(0, m, 1), fun _v1 -> &sum[MINDEX2(m, m, i, _v1)] "
         "~> Cell))");
@@ -125,10 +125,10 @@ void f2(float* A, float* B, int m, int n, int p) {
       "");
   for (int k = 0; k < p; k++) {
     __sequentially_modifies("sum ~> Matrix2(m, m)");
-    __sequentially_reads(
+    __parallel_reads(
         "Group(range(0, m, 1), fun i -> Group(range(0, m, 1), fun j -> A ~> "
         "Matrix2(m, p)))");
-    __sequentially_reads(
+    __parallel_reads(
         "Group(range(0, m, 1), fun i -> Group(range(0, m, 1), fun j -> B ~> "
         "Matrix2(p, n)))");
     for (int i = 0; i < m; i++) {
@@ -154,8 +154,8 @@ void f2(float* A, float* B, int m, int n, int p) {
   __ghost_end(__ghost_pair_7);
   __ghost_end(__ghost_pair_8);
   for (int i = 0; i < m; i++) {
-    __sequentially_reads("A ~> Matrix2(m, p)");
-    __sequentially_reads("B ~> Matrix2(p, n)");
+    __parallel_reads("A ~> Matrix2(m, p)");
+    __parallel_reads("B ~> Matrix2(p, n)");
     __consumes(
         "Group(range(0, m, 1), fun j -> &sum[MINDEX2(m, m, i, j)] ~> Cell)");
     __produces(

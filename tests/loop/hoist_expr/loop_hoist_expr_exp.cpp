@@ -24,9 +24,9 @@ __ghost(matrix1_ro_focus, "M := t, i := 0");
   int* const t02 = (int* const)MALLOC0(sizeof(int));
   t02[MINDEX0()] = t[MINDEX1(10, 0)];
   for (int l = 0; l < 5; l++) {
-__sequentially_reads("t02 ~> Matrix0()");
+__parallel_reads("t02 ~> Matrix0()");
     for (int m = 0; m < 2; m++) {
-__sequentially_reads("t02 ~> Matrix0()");
+__parallel_reads("t02 ~> Matrix0()");
       int x = l + m + t02[MINDEX0()];
     }
   }
@@ -42,9 +42,9 @@ __consumes("_Uninit(&a2[MINDEX1(8, a)] ~> Cell)");
 __reads("&a2[MINDEX1(8, a)] ~> Cell");
     int y = 0;
     for (int b = 0; b < 5; b++) {
-__sequentially_reads("&a2[MINDEX1(8, a)] ~> Cell");
+__parallel_reads("&a2[MINDEX1(8, a)] ~> Cell");
       for (int c = 0; c < 2; c++) {
-__sequentially_reads("&a2[MINDEX1(8, a)] ~> Cell");
+__parallel_reads("&a2[MINDEX1(8, a)] ~> Cell");
         int x = a2[MINDEX1(8, a)] + b + c;
       }
       int z = 0;

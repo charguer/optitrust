@@ -165,7 +165,6 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
     ~error:"Loop_basic.fission_on: only simple loops are supported"
     trm_for_inv_instrs t
   in
-  (* TODO: Repair contract *)
   let tl1, tl2 = Mlist.split index tl in
   let fst_contract = ref None in
   let snd_contract = ref None in
@@ -229,7 +228,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
 
       let split_res = Resources.before_trm (Mlist.nth tl2 0) in (* = R *)
       let (_, split_res_comm, _) = (* R' *)
-        Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear linear_invariant
+        Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear (linear_invariant @ contract.parallel_reads)
       in
 
       (* Remove resources that refer to local variables in tl1 *)
@@ -290,6 +289,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       fst_contract := Some {
         loop_ghosts = contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl1_inv };
+        parallel_reads = contract.parallel_reads;
         iter_contract = {
           pre = contract.iter_contract.pre;
           post = Resource_set.make ~linear:split_res_without_efracs ();
@@ -298,8 +298,9 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let partial_snd_contract = {
         loop_ghosts = (*List.map (fun (efrac, _) -> (efrac, trm_frac)) split_res.efracs @*) contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl2_inv_writes };
+        parallel_reads = contract.parallel_reads;
         iter_contract = {
-          pre = Resource_set.make ~linear:split_res_without_efracs(*split_res_comm*) ();
+          pre = Resource_set.make ~linear:split_res_without_efracs ();
           post = contract.iter_contract.post;
         }
       } in
@@ -314,6 +315,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       );
     end;
   end;
+
   let ta = trm_add_mark mark_loops (trm_for_instrs ?contract:!fst_contract l_range tl1) in
   let tb = trm_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2)) in
   (ta, tb)
@@ -537,7 +539,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
     | Some contract when not generate_if ->
       (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
-      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear contract.iter_contract.pre.linear in
+      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (contract.parallel_reads @ contract.iter_contract.pre.linear) in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }
     | _ -> contract
   in
@@ -636,7 +638,7 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
     | Some contract when not generate_if ->
       (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Xoption.unsome ~error:"requires computed resources" alloc_instr.ctx.ctx_resources_after in
-      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear contract.iter_contract.pre.linear in
+      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (contract.parallel_reads @ contract.iter_contract.pre.linear) in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }
     | _ -> contract
   in

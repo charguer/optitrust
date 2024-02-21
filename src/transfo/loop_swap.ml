@@ -108,12 +108,12 @@ let swap_on (t: trm): trm =
 
       let new_inner_pre = Resource_set.union inner_inv inner_pre in
       let new_inner_post = Resource_set.union (Resource_set.subst_loop_range_step inner_range inner_inv) inner_post in
-      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
+      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; parallel_reads = [] (* FIXME *); iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
 
       let new_outer_inv = Resource_set.group_range outer_range inner_inv in
       let new_outer_pre = Resource_set.group_range outer_range inner_pre in
       let new_outer_post = Resource_set.group_range outer_range inner_post in
-      let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; iter_contract = { pre = new_outer_pre; post = new_outer_post } } in
+      let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; parallel_reads = [] (* FIXME *); iter_contract = { pre = new_outer_pre; post = new_outer_post } } in
 
       trm_seq_nobrace_nomarks (swaps_pre @
         [trm_for inner_range ~annot:inner_loop.annot ~contract:new_outer_contract (trm_seq_nomarks [
@@ -243,7 +243,7 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
       Marks.add mark_outer_loop [Constr_paths [seq_p]; cMark outer_loop_m];
       Marks.add mark_inner_loop [Constr_paths [seq_p]; cMark inner_loop_m];
 
-      Resources.loop_parallelize_reads (target_of_path outer_loop_p);
+      Resources.loop_minimize (target_of_path outer_loop_p);
 
       let inner_seq_tg = [Constr_paths [seq_p]; cMark outer_loop_m; dBody] in
       let inner_seq_p = resolve_target_exactly_one inner_seq_tg in

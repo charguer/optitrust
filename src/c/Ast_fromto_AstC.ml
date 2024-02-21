@@ -653,6 +653,7 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
     | "__produces" -> Some Produces
     | "__sequentially_reads" -> Some SequentiallyReads
     | "__sequentially_modifies" -> Some SequentiallyModifies
+    | "__parallel_reads" -> Some ParallelReads
     | "__loop_ghosts" -> Some LoopGhosts
     | _ -> None
   in
@@ -903,7 +904,7 @@ let rec contract_intro (style: style) (t: trm): trm =
         match formula_read_only_inv formula with
         | Some { frac; formula = ro_formula } ->
           begin match trm_var_inv frac with
-            | Some frac_atom ->
+          | Some frac_atom ->
             Hashtbl.add frac_to_remove frac_atom ();
             Left (h, ro_formula)
           | None -> Right (h, formula)
@@ -918,13 +919,14 @@ let rec contract_intro (style: style) (t: trm): trm =
       ) else true
     in
     let pre_pure = List.filter hyp_not_mem_before_pop pure_with_fracs in
-    assert (Hashtbl.length frac_to_remove = 0);
+    if (Hashtbl.length frac_to_remove != 0) then
+      Tools.warn ("Some fractions should have been discarded but they were not found in context: " ^ String.concat ", " (Hashtbl.fold (fun frac () acc -> frac.name :: acc) frac_to_remove []));
 
     let t = push_named_formulas reads_prim reads_res t in
     let t = push_named_formulas modifies_prim modifies_res t in
     (pre_pure, pre_linear, !post_linear, t)
   in
-  let push_reads_and_modifies = if style.cstyle.ast.print_contract_internal_repr then
+  let push_reads_and_modifies ?(force=false) = if style.cstyle.ast.print_contract_internal_repr && not force then
     fun _ _ pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)
     else push_reads_and_modifies
   in
@@ -979,6 +981,11 @@ let rec contract_intro (style: style) (t: trm): trm =
         let body = push_named_formulas __ensures ~used_vars contract.iter_contract.post.pure body in
         let body = push_named_formulas __consumes pre_linear body in
         let body = push_named_formulas __requires ~used_vars contract.iter_contract.pre.pure body in
+        List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;
+        let loop_ghosts, _, _, body =
+          push_reads_and_modifies ~force:true __parallel_reads __parallel_reads
+            loop_ghosts contract.parallel_reads contract.parallel_reads body
+        in
         let loop_ghosts, invariant_linear, _, body =
           push_reads_and_modifies __sequentially_reads __sequentially_modifies
             loop_ghosts contract.invariant.linear contract.invariant.linear body
@@ -1079,6 +1086,7 @@ let cfeatures_intro (style : style) : trm -> trm =
   class_member_intro |>
   autogen_alpha_rename style |>
   ghost_args_intro style |>
+  autogen_alpha_rename style |>
   contract_intro style
   )
 
@@ -1090,6 +1098,7 @@ let meta_intro ?(skip_var_ids = false) (style: style) : trm -> trm =
   formula_sugar_intro |>
   autogen_alpha_rename style |>
   ghost_args_intro style |>
+  autogen_alpha_rename style |>
   contract_intro style
 
 

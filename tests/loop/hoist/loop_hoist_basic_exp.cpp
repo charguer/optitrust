@@ -40,12 +40,12 @@ void f2(float* A, float* B, int m, int n, int p) {
   __reads("A ~> Matrix2(m, p)");
   __reads("B ~> Matrix2(p, n)");
   for (int i = 0; i < m; i++) {
-    __sequentially_reads("A ~> Matrix2(m, p)");
-    __sequentially_reads("B ~> Matrix2(p, n)");
+    __parallel_reads("A ~> Matrix2(m, p)");
+    __parallel_reads("B ~> Matrix2(p, n)");
     float* const sum_step = (float* const)MALLOC1(m, sizeof(float));
     for (int j = 0; j < m; j++) {
-      __sequentially_reads("A ~> Matrix2(m, p)");
-      __sequentially_reads("B ~> Matrix2(p, n)");
+      __parallel_reads("A ~> Matrix2(m, p)");
+      __parallel_reads("B ~> Matrix2(p, n)");
       __modifies("_Uninit(&sum_step[MINDEX1(m, j)] ~> Cell)");
       float* const sum = &sum_step[MINDEX1(m, j)];
       sum[MINDEX0()] = 0.f;

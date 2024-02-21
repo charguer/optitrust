@@ -64,7 +64,7 @@ void f(int* t, int* u, int* v, int n, int m) {
     for (int y = 0; y < m; y++) {
       __modifies("&v[MINDEX2(n,m,x,y)] ~> Cell");
       __sequentially_modifies("&t[MINDEX1(n,x)] ~> Cell");
-      __sequentially_reads("&u[MINDEX1(n,x)] ~> Cell");
+      __parallel_reads("&u[MINDEX1(n,x)] ~> Cell");
 
       t[MINDEX1(n,x)] = y * u[MINDEX1(n,x)];
       v[MINDEX2(n,m,x,y)] = t[MINDEX1(n,x)];
@@ -77,9 +77,9 @@ void seq_reads() {
 
   int x = 0;
   for (int i = 0; i < 5; i++) {
-    __sequentially_reads("&x ~> Cell");
+    __parallel_reads("&x ~> Cell");
     for (int j = 0; j < 5; j++) {
-      __sequentially_reads("&x ~> Cell");
+      __parallel_reads("&x ~> Cell");
       x + 1;
     }
   }
@@ -90,11 +90,11 @@ void ghost_pairs() {
 
   int x = 0;
   for (int i = 0; i < 5; i++) {
-    __sequentially_reads("&x ~> Cell");
+    __parallel_reads("&x ~> Cell");
     for (int j = 0; j < 5; j++) {
-      __sequentially_reads("&x ~> Cell");
+      __parallel_reads("&x ~> Cell");
       for (int k = 0; j < 5; k++) {
-        __sequentially_reads("&x ~> Cell");
+        __parallel_reads("&x ~> Cell");
         x + 1;
       }
     }

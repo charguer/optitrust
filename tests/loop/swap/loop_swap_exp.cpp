@@ -83,7 +83,7 @@ void f(int* t, int* u, int* v, int n, int m) {
           ":= fun x, y -> &v[MINDEX2(n, m, x, y)] ~> Cell");
   for (int y = 0; y < m; y++) {
     __sequentially_modifies("t ~> Matrix1(n)");
-    __sequentially_reads("u ~> Matrix1(n)");
+    __parallel_reads("u ~> Matrix1(n)");
     __modifies(
         "Group(range(0, n, 1), fun x -> &v[MINDEX2(n, m, x, y)] ~> Cell)");
     for (int x = 0; x < n; x++) {
@@ -105,7 +105,7 @@ void seq_reads() {
   const __ghost_fn __ghost_pair_1 =
       __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
   for (int j = 0; j < 5; j++) {
-    __sequentially_reads("Group(range(0, 5, 1), fun i -> &x ~> Cell)");
+    __parallel_reads("Group(range(0, 5, 1), fun i -> &x ~> Cell)");
     for (int i = 0; i < 5; i++) {
       __reads("&x ~> Cell");
       x + 1;
@@ -148,7 +148,7 @@ void ghost_pairs() {
           }),
       "");
   for (int k = 0; k < 5; k++) {
-    __sequentially_reads(
+    __parallel_reads(
         "Group(range(0, 5, 1), fun i -> Group(range(0, 5, 1), fun j -> &x ~> "
         "Cell))");
     for (int i = 0; i < 5; i++) {

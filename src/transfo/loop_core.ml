@@ -92,6 +92,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
         let contract_inner = {
           loop_ghosts = contract.loop_ghosts;
           invariant = Resource_set.subst_var index new_index contract.invariant;
+          parallel_reads = contract.parallel_reads;
           iter_contract = {
             pre = Resource_set.subst_var index new_index contract.iter_contract.pre;
             post = Resource_set.subst_var index new_index contract.iter_contract.post }} in
@@ -101,6 +102,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
         let contract_outer = {
           loop_ghosts = contract.loop_ghosts;
           invariant = Resource_set.subst_var index outer_index contract.invariant;
+          parallel_reads = contract.parallel_reads;
           iter_contract = {
             pre = Resource_set.group_range inner_range contract_inner.iter_contract.pre;
             post = Resource_set.group_range inner_range contract_inner.iter_contract.post }} in

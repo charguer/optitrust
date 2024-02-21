@@ -749,11 +749,18 @@ and fun_spec =
   | FunSpecReverts of var
   (** [FunSpecReverts f] is the reverse of the spec of [f]. *)
 
-(* forall ghosts, { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } loop { invariant(n) * Group(iter_contract.post(i)) } *)
-(* forall ghosts, { invariant(i) * iter_contract.pre(i) } loop body { invariant(i) * iter_contract.post(i) } *)
+(* forall ghosts,
+    { invariant(0) * RO(parallel_reads) * Group(range(), fun i -> iter_contract.pre(i)) }
+      loop
+    { invariant(n) * RO(parallel_reads) * Group(iter_contract.post(i)) } *)
+(* forall ghosts,
+    { invariant(i) * RO(parallel_reads) * iter_contract.pre(i) }
+      loop body
+    { invariant(i) * RO(parallel_reads) * iter_contract.post(i) } *)
 and loop_contract = {
   loop_ghosts: resource_item list;
   invariant: resource_set;
+  parallel_reads: resource_item list; (* all the resources should be RO(f, _) with a distinct f bound in loop_ghosts *)
   iter_contract: fun_contract;
 }
 

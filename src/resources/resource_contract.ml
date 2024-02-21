@@ -52,12 +52,15 @@ type contract_clause_type =
       This is a function contract clause. *)
 
   | SequentiallyReads
-  (** Linear resource items that are invariantly read only in all loop iterations.
+  (** Linear resource items that are passed as read only from any loop iteration to the next.
       Syntactic sugar for sequentially modifying [_RO(f, R)].
       [f] is a new fraction bound by the loop. *)
 
   | SequentiallyModifies
   (** Linear resource items that are invariantly modified in all loop iterations. *)
+
+  | ParallelReads
+  (** Linear resource items that are read in parallel by all loop iterations. *)
 
   | LoopGhosts
   (** Pure resources that are the same across all iterations. *)
@@ -82,7 +85,7 @@ let fun_contract_copy (contract : fun_contract) : fun_contract =
 
 (** The empty loop contract, implies purity. *)
 let empty_loop_contract =
-  { loop_ghosts = []; invariant = Resource_set.empty; iter_contract = empty_fun_contract }
+  { loop_ghosts = []; invariant = Resource_set.empty; parallel_reads = []; iter_contract = empty_fun_contract }
 
 (* TODO: remove or replace with better mechanism. hint to maximize instantiated fraction. *)
 let _Full = toplevel_var "_Full"
@@ -127,6 +130,7 @@ let push_fun_contract_clause (clause: contract_clause_type)
   | Invariant -> { pre = Resource_set.push_front_pure res contract.pre ; post = Resource_set.push_front_pure res contract.post }
   | SequentiallyReads -> failwith "SequentiallyReads only makes sense for loop contracts"
   | SequentiallyModifies -> failwith "SequentiallyModifies only makes sense for loop contracts"
+  | ParallelReads -> failwith "ParallelReads only makes sense for loop contracts"
   | LoopGhosts -> failwith "LoopGhosts only makes sense for loop contracts"
 
 let push_loop_contract_clause (clause: contract_clause_type)
@@ -145,6 +149,11 @@ let push_loop_contract_clause (clause: contract_clause_type)
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; invariant = Resource_set.add_linear (name, ro_formula) contract.invariant }
   | SequentiallyModifies ->
     { contract with invariant = Resource_set.add_linear res contract.invariant }
+  | ParallelReads ->
+    let name, formula = res in
+    let frac_var, frac_ghost = new_frac () in
+    let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
+    { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; parallel_reads = (name, ro_formula) :: contract.parallel_reads }
   | LoopGhosts -> { contract with loop_ghosts = res :: contract.loop_ghosts }
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
@@ -168,19 +177,23 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: contract_
   the contract of the for instruction. *)
 let contract_outside_loop range contract =
   let invariant_before = Resource_set.subst_loop_range_start range contract.invariant in
-  let pre = Resource_set.union invariant_before (Resource_set.group_range range contract.iter_contract.pre) in
+  let pre = Resource_set.group_range range contract.iter_contract.pre in
+  let pre = Resource_set.union invariant_before (Resource_set.add_linear_list contract.parallel_reads pre) in
   let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
   let invariant_after = Resource_set.subst_loop_range_end range contract.invariant in
-  let post = Resource_set.union invariant_after (Resource_set.group_range range contract.iter_contract.post) in
+  let post = Resource_set.group_range range contract.iter_contract.post in
+  let post = Resource_set.add_linear_list contract.parallel_reads post in
+  let post = Resource_set.union invariant_after post in
   { pre; post }
 
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of its body. *)
 let contract_inside_loop range contract =
-  let pre = Resource_set.union contract.invariant contract.iter_contract.pre in
+  let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list contract.parallel_reads contract.iter_contract.pre) in
   let pre = { pre with pure = contract.loop_ghosts @ pre.pure } in
   let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in
-  let post = Resource_set.union invariant_after_one_iter contract.iter_contract.post in
+  let post = Resource_set.add_linear_list contract.parallel_reads contract.iter_contract.post in
+  let post = Resource_set.union invariant_after_one_iter post in
   { pre; post }
 
 (** [revert_fun_contract contract] returns a contract that swaps the resources produced and consumed. *)
@@ -254,6 +267,9 @@ let fun_contract_used_vars contract =
 
 (** Same as [fun_contract_used_vars] for loop contracts *)
 let loop_contract_used_vars contract =
-  List.fold_left (fun used_vars (_, formula) -> Var_set.union used_vars (trm_free_vars formula))
-    (Var_set.union (Resource_set.used_vars contract.invariant) (fun_contract_used_vars contract.iter_contract))
+  let combine_used_vars used_vars (_, formula) =
+    Var_set.union used_vars (trm_free_vars formula)
+  in
+  List.fold_left combine_used_vars
+    (List.fold_left combine_used_vars (Var_set.union (Resource_set.used_vars contract.invariant) (fun_contract_used_vars contract.iter_contract)) contract.parallel_reads)
     contract.loop_ghosts
