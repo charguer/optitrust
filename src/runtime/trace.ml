@@ -299,7 +299,9 @@ type trace = {
   mutable context : context;
   mutable cur_ast : trm;
   mutable cur_style : output_style;
-  mutable step_stack : step_stack; } (* stack of open steps *)
+  mutable cur_ast_typed : bool;
+  mutable step_stack : step_stack; (* stack of open steps *)
+}
 
 (** [trm_dummy]: dummy trm. *)
 let trm_dummy : trm =
@@ -311,6 +313,7 @@ let trace_dummy : trace =
   { context = context_dummy;
     cur_ast = trm_dummy; (* dummy *)
     cur_style = Style.default_custom_style();
+    cur_ast_typed = true;
     step_stack = []; (* dummy *)
     }
 
@@ -581,8 +584,10 @@ let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (
 
 let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code during the step starting at") ?(parser: parser option) () =
   let tnew = reparse_trm ~info ?parser the_trace.context the_trace.cur_ast in
-  if update_cur_ast
-    then the_trace.cur_ast <- tnew
+  if update_cur_ast then begin
+    the_trace.cur_ast <- tnew;
+    the_trace.cur_ast_typed <- false;
+  end
 
 
 
@@ -1069,13 +1074,15 @@ and reparse ?(update_cur_ast = true) ?(info : string option) ?(parser: parser op
   parsing_step (reparse_ast ~update_cur_ast ?info ?parser)
 
 and recompute_resources (): unit =
-  typing_step ~name:"Resource recomputation" recompute_resources_on_ast
+  if not the_trace.cur_ast_typed then
+    typing_step ~name:"Resource recomputation" recompute_resources_on_ast
 
 and recompute_resources_on_ast () : unit =
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
   try
-    the_trace.cur_ast <- Resource_computation.trm_recompute_resources Resource_set.empty t
+    the_trace.cur_ast <- Resource_computation.trm_recompute_resources Resource_set.empty t;
+    the_trace.cur_ast_typed <- true;
   with (Resource_computation.ResourceError (t_with_error, _phase, _exn)) as e ->
     (* TODO: Resources computation warning when failing in non critical contexts:
     let (), s = step_and_get_handle ~valid:true ~kind:Step_error ~name:"Typing error" (fun () -> the_trace.cur_ast <- t) in
@@ -1133,6 +1140,7 @@ let close_root_step ~(on_error: bool) () : unit =
    performed by [f] are completely erased from the trace. *)
 let step_backtrack ?(tags:string list=[]) ?(discard_after = false) (f : unit -> 'a) : 'a =
   let ast_snapshot = the_trace.cur_ast in
+  let ast_snapshot_typed = the_trace.cur_ast_typed in
   (* Open backtrack step and group step, then execute [f] *)
   let step_backtrack = open_step ~kind:Step_backtrack ~name:"step-backtrack" ~tags () in
   let step_group = open_step ~kind:Step_group ~name:"step-backtrack-group" () in
@@ -1146,6 +1154,7 @@ let step_backtrack ?(tags:string list=[]) ?(discard_after = false) (f : unit -> 
   (* Restore the ast, then close the backtrack step;
     This step is always correct because it corresponds to a noop. *)
   the_trace.cur_ast <- ast_snapshot;
+  the_trace.cur_ast_typed <- ast_snapshot_typed;
   justif "step-backtrack restored the ast";
   close_step ~discard:discard_after ~check:step_backtrack ();
   res
@@ -1169,6 +1178,7 @@ type 'a backtrack_result =
    succeeds, this step is discarded, and only the group step is kept. *)
 let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : 'a backtrack_result =
   let ast_snapshot = the_trace.cur_ast in
+  let ast_snapshot_typed = the_trace.cur_ast_typed in
   let step_backtrack = open_step ~kind:Step_backtrack ~name:"step-backtrack-on-failure" () in
   let step_group = open_step ~kind:Step_group ~name:"step-backtrack-on-failure-group" () in
   let res =
@@ -1197,6 +1207,7 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
     (* If failure, restore the ast, and close the backtrack step;
        discard the whole step if [~discard_on_failure:true] is provided. *)
     the_trace.cur_ast <- ast_snapshot;
+    the_trace.cur_ast_typed <- ast_snapshot_typed;
     justif "step-backtrack-on-failure has backtracked and restored the ast";
     close_step ~discard:discard_on_failure ~check:step_backtrack ();
   end;
@@ -1231,6 +1242,7 @@ let invalidate () : unit =
   close_logs();
   the_trace.context <- trace_dummy.context;
   the_trace.cur_ast <- trace_dummy.cur_ast;
+  the_trace.cur_ast_typed <- trace_dummy.cur_ast_typed;
   the_trace.step_stack <- trace_dummy.step_stack
 
 (** [get_initial_ast ~parser filename]: gets the initial ast before applying any trasformations
@@ -1291,6 +1303,7 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
   let context = { parser; extension; prefix; header; clog } in
   the_trace.context <- context;
   the_trace.cur_ast <- cur_ast;
+  the_trace.cur_ast_typed <- false;
   the_trace.cur_style <- begin match style with Some s -> s | None -> Style.default_custom_style() end;
   the_trace.step_stack <- [];
   open_root_step ~source:ml_file_name ();
@@ -1344,7 +1357,10 @@ let failure_expected (h : exn -> bool) (f : unit -> unit) : unit =
 let apply (f : trm -> trm) : unit =
   if is_trace_dummy()
     then raise (TraceFailure "Trace.init must be called prior to any transformation.");
-  the_trace.cur_ast <- f the_trace.cur_ast
+  let ast_snapshot = the_trace.cur_ast in
+  the_trace.cur_ast <- f the_trace.cur_ast;
+  if ast_snapshot != the_trace.cur_ast then
+    the_trace.cur_ast_typed <- false
 
 (** [reset] performs a step that sets the current ast to the original ast *)
 let reset () : unit =
@@ -1828,6 +1844,7 @@ let restore_original () : unit =
     then ast_just_before_first_call_to_restore_original := Some the_trace.cur_ast;
   transfo_step ~name:"restore-original" ~args:[] (fun () ->
     the_trace.cur_ast <- get_original_ast();
+    the_trace.cur_ast_typed <- false;
   )
 
 (** [finalize()]: should be called at the end of the script to close the root step *)
@@ -1954,13 +1971,15 @@ let ast () : trm =
 (** [set_ast]: is used for implementing [iteri_on_transformed_targets]. Don't use it elsewhere.
    NOTE: INTERNAL FUNCTION. *)
 let set_ast (t:trm) : unit =
+  if t != the_trace.cur_ast then
+    the_trace.cur_ast_typed <- false;
   the_trace.cur_ast <- t
 
 (** [set_ast_for_target_iter t] is used by [Target.iteri] when updating the marks
     using low-level mechanisms. *)
 let set_ast_for_target_iter (t:trm) : unit =
   step ~valid:true ~kind:Step_mark_manip ~name:"Target-iter-mark-manipulation" ~tags:["target"]
-    (fun () -> the_trace.cur_ast <- t)
+    (fun () -> set_ast t)
 
 (** [get_context ()]: returns the current context. Like [ast()], it should only be called
    within the scope of [Trace.apply] or [Trace.call]. *)

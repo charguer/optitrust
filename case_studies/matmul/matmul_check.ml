@@ -30,10 +30,10 @@ let _ = Run.script_cpp (fun () ->
 
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEq ~lhs:[cVar "sum"] ()];
 
-  !!! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "pB" ~indep:["bi"; "i"] [cArrayRead "B"];
+  !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "pB" ~indep:["bi"; "i"] [cArrayRead "B"];
   !!! Matrix.stack_copy ~var:"sum" ~copy_var:"s" ~copy_dims:1 [cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "k"];
-  !! Matrix.elim_mops [];
-  !! Loop.unroll [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Omp.parallel_for [nbMulti; cFunBody "mm1024"; cStrict; cFor ""];
+  !! Loop.unroll [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
+  !! Matrix.elim_mops [];
 )

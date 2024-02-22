@@ -135,15 +135,13 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
 *)
 let%transfo elim_mops (tg : target): unit =
   Trace.tag_valid_by_composition ();
-  let targets = ref [] in
-  Target.iter (fun p ->
-    targets := (target_of_path p) :: !targets;
-  ) tg;
-  !targets |> List.iter (fun tg ->
-    elim_mindex (tg @ [nbAny; cMindex ()]);
-    (* TODO: more precise target ? *)
-    Arith.(simpl_rec gather_rec) tg;
-    Arith.(simpl_rec compute) tg
+  Trace.without_resource_computation_between_steps (fun () ->
+    Target.iter (fun p ->
+      elim_mindex [nbAny; cPath p; cMindex ()];
+      (* TODO: more precise target ? *)
+      Arith.(simpl_rec gather_rec) (target_of_path p);
+      Arith.(simpl_rec compute) (target_of_path p)
+    ) tg
   )
 
 (* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi

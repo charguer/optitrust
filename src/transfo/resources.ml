@@ -41,8 +41,7 @@ let%transfo set_loop_contract (contract: unparsed_contract) (tg: Target.target):
   Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract contract)) tg
 
 
-let ensure_computed () =
-  if not !Flags.recompute_resources_between_steps then Trace.recompute_resources ()
+let ensure_computed = Trace.recompute_resources
 
 (* TODO: avoid recomputing all resources for validity checks. *)
 let required_for_check () : unit =
