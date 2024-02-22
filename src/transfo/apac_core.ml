@@ -202,6 +202,13 @@ and const_unconst_objects = (var * int * var) Stack.t
    be constified. *)
 and const_mult = (mark, bool list) Hashtbl.t
 
+(*********************)
+(* I.2 Heapification *)
+(*********************)
+
+(* [trmq]: a persistent FIFO queue of terms. *)
+type trmq = trm Queue.t
+
 (******************************************************************)
 (* PART II: DECLARATION AND/OR INITIALIZATION OF GLOBAL VARIABLES *)
 (* II.1 Constification                                            *)
@@ -231,7 +238,7 @@ let to_const_mult : const_mult = Hashtbl.create 10
 let task_group_mark : mark = "__apac_task_group"
 
 (***********************)
-(* II.2 Pre-processing *)
+(* II.3 Pre-processing *)
 (***********************)
 
 (* [goto_label]: label used when replacing return statements by gotos within
