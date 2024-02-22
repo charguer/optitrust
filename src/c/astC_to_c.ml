@@ -1359,7 +1359,7 @@ and routine_to_doc (r : omp_routine) : document =
 (* [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
-  let (index, start, direction, stop, step, _is_parallel ) = l_range in
+  let (index, start, direction, stop, step) = l_range in
   let init = trm_let Var_mutable (index, typ_int()) start  in
   let cond = begin match direction with
     | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var index;stop]

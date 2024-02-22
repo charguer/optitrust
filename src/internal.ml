@@ -342,7 +342,7 @@ let rec local_decl (x : var) (t : trm) : trm option =
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
   | Trm_for (l_range, body, _) ->
-    let (index, _, _, _, _, _) = l_range in
+    let (index, _, _, _, _) = l_range in
     begin match body.desc with
     | Trm_seq tl when Mlist.length tl = 1  ->
       let f_loop = Mlist.nth tl 0 in

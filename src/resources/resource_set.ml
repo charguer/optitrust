@@ -146,13 +146,13 @@ let subst_all_aliases (res: resource_set): resource_set =
     with fun_specs = res.fun_specs }
 
 (** Substitutes a loop index with its starting value. *)
-let subst_loop_range_start (index, tstart, _, _, _, _) = subst_var index tstart
+let subst_loop_range_start (index, tstart, _, _, _) = subst_var index tstart
 
 (** Substitutes a loop index with its value after one iteration *)
-let subst_loop_range_step (index, _, _, _, step, _) = subst_var index (trm_add (trm_var index) (Mark.loop_step_to_trm step))
+let subst_loop_range_step (index, _, _, _, step) = subst_var index (trm_add (trm_var index) (Mark.loop_step_to_trm step))
 
 (** Substitutes a loop index with its end value. *)
-let subst_loop_range_end (index, _, _, tend, _, _) = subst_var index tend
+let subst_loop_range_end (index, _, _, tend, _) = subst_var index tend
 
 (** [used_vars res] returns the set of variables that are used inside [res].
 

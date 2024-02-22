@@ -90,7 +90,7 @@ let check_unique_var_ids (t : trm) : unit =
       (* FIXME: kind of C-specific? *)
       when not (Trm.is_fun_with_empty_body t) ->
       add_var x
-    | Trm_for ((x, _, _, _, _, _), _, _) ->
+    | Trm_for ((x, _, _, _, _), _, _) ->
       add_var x
     (* | Trm_typedef td -> *)
     | _ -> ()

@@ -121,7 +121,7 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_cor
   in
   let indices = List.map trm_var indices_list in
   let nested_loop_range = List.map2 (fun (a, b) ind ->
-    (ind, a, DirUp, b, Post_inc, false)
+    (ind, a, DirUp, b, Post_inc)
   ) nd_range indices_list in
   let tile_dims = List.map (fun (a, b) -> trm_sub b a) nd_range in
   let tile_indices = List.map2 (fun (offset, _) ind -> trm_sub ind offset) nd_range indices in
@@ -145,7 +145,7 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_cor
       ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var) in
   let free_instr = free tile_dims (trm_var local_var) in
   let alloc_range = List.map2 (fun size ind ->
-    (ind, trm_int 0, DirUp, size, Post_inc, false)
+    (ind, trm_int 0, DirUp, size, Post_inc)
   ) tile_dims indices_list in
   let alloc_access = access (trm_var local_var) tile_dims indices in
   let alloc_cell = Resource_formula.(formula_model alloc_access trm_cell) in
@@ -253,9 +253,9 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
               begin match trm_fors_inv alloc_arity snd_instr with
               | Some (loop_range, body) ->
                 let new_dims = dim :: dims in
-                let indices = List.fold_left (fun acc (ind, _, _, _, _, _) -> (trm_var ind) :: acc) [] (List.rev loop_range) in
+                let indices = List.fold_left (fun acc (ind, _, _, _, _) -> (trm_var ind) :: acc) [] (List.rev loop_range) in
                 let new_indices = (trm_var index) :: indices in
-                let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
+                let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc)] in
                 let tg = [nbAny; cCellAccess ~base:[cVar local_var.name] ()] in
                 let set_instr =
                 begin match body.desc with
@@ -279,7 +279,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       then trm_seq_nomarks [set base new_dims new_indices init_val]
                       else trm_seq_nomarks [
                         set base new_dims((trm_int 0) :: indices) old_var_access;
-                        trm_for (index, (trm_int 1), DirUp, dim, (Post_inc), false) (set base new_dims new_indices init_val;)]
+                        trm_for (index, (trm_int 1), DirUp, dim, Post_inc) (set base new_dims new_indices init_val;)]
                       in
 
                     let op_fun (l_arg : trm) (r_arg : trm) = trm_prim_compound op l_arg r_arg in
@@ -291,14 +291,14 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         else begin
                           trm_seq_nomarks [
                            trm_set (get_operation_arg old_var_access) (trm_get (access (base) new_dims ((trm_int 0) :: indices)));
-                           trm_for (index, (trm_int 1), DirUp, dim, (Post_inc), false) ( op_fun (get_operation_arg old_var_access) (trm_get new_access))]
+                           trm_for (index, (trm_int 1), DirUp, dim, Post_inc) ( op_fun (get_operation_arg old_var_access) (trm_get new_access))]
                         end
                       else
                         if not acc_provided then trm_fail t "Matrix_core.delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
                           let acc_var = new_var acc in
                           (trm_seq_nomarks [
                             trm_let_mut (acc_var, typ_double ()) init_val;
-                            trm_for (index, (trm_int 0), DirUp, dim, (Post_inc), false) (trm_seq_nomarks [
+                            trm_for (index, (trm_int 0), DirUp, dim, Post_inc) (trm_seq_nomarks [
                                 op_fun (trm_var acc_var) (trm_get new_access)]);
                             trm_set (get_operation_arg old_var_access) (trm_var_get acc_var)]) in
                   let new_fst_instr =
@@ -367,7 +367,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let frth_instr = Mlist.nth tl 3 in
                   let new_frth_instr = begin match trm_fors_inv alloc_arity frth_instr with
                     | Some (loop_range, body) ->
-                      let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
+                      let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc)] in
                       let ps2 = Constr.resolve_target tg body in
                       let new_body =
                           List.fold_left (fun acc p ->
@@ -380,7 +380,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let fifth_instr = Mlist.nth tl 4 in
                   let new_fifth_instr = begin match trm_fors_inv alloc_arity fifth_instr with
                     | Some (loop_range, body) ->
-                      let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
+                      let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc)] in
                       let ps2 = Constr.resolve_target tg body in
                       let new_body =
                           List.fold_left (fun acc p ->

@@ -64,7 +64,7 @@ let hoist_on (name : string)
              (decl_index : int) (t : trm) : trm =
   let error = "Loop_basic.hoist_on: only simple loops are supported" in
   let (range, body, contract) = trm_inv ~error trm_for_inv t in
-  let (index, start, dir, stop, step, _par) = range in
+  let (index, start, dir, stop, step) = range in
   assert (dir = DirUp); (* TODO: other directions *)
   let (array_size, new_index) = match step with
   | Pre_inc | Post_inc ->
@@ -124,7 +124,7 @@ let hoist_on (name : string)
     let access = trm_array_access (trm_var !new_var) mindex in
     let grouped_access = List.fold_right (fun (i, d) acc ->
       (* FIXME: need to match inner loop ranges. *)
-      Resource_formula.formula_group_range (i, trm_int 0, DirUp, d, Post_inc, false) acc
+      Resource_formula.formula_group_range (i, trm_int 0, DirUp, d, Post_inc) acc
     ) (List.combine other_indices dims) Resource_formula.(formula_model access trm_cell) in
     let new_resource = Resource_formula.(formula_uninit grouped_access) in
     new_body_instrs, Some (Resource_contract.push_loop_contract_clause Modifies (Resource_formula.new_anon_hyp (), new_resource) contract)
@@ -374,15 +374,14 @@ let same_loop_step (a : loop_step) (b : loop_step) : bool =
   | _ -> false
 
 let same_loop_range
-  ((_index_a, start_a, dir_a, stop_a, step_a, is_par_a) : loop_range)
-  ((_index_b, start_b, dir_b, stop_b, step_b, is_par_b) : loop_range) : bool =
+  ((_index_a, start_a, dir_a, stop_a, step_a) : loop_range)
+  ((_index_b, start_b, dir_b, stop_b, step_b) : loop_range) : bool =
   Internal.same_trm start_a start_b &&
   (dir_a = dir_b) &&
   Internal.same_trm stop_a stop_b &&
-  same_loop_step step_a step_b &&
-  (is_par_a = is_par_b)
+  same_loop_step step_a step_b
 
-let loop_index ((idx, _, _, _, _, _) : loop_range) : var = idx
+let loop_index ((idx, _, _, _, _) : loop_range) : var = idx
 
 let same_loop_index (a : loop_range) (b : loop_range) : bool =
   let ia = loop_index a in
@@ -426,8 +425,8 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     if not (same_loop_range loop_range1 loop_range2) then
       trm_fail t "Loop_basic.fusion_on: expected matching loop ranges";
     let new_loop_range, _, _ = List.nth loops_ri target_loop_i in
-    let (idx1, _, _, _, _, _) = loop_range1 in
-    let (idx2, _, _, _, _, _) = loop_range2 in
+    let (idx1, _, _, _, _) = loop_range1 in
+    let (idx2, _, _, _, _) = loop_range2 in
     let loop_instrs1', loop_instrs2' =
       if upwards
       then loop_instrs1, Mlist.map (trm_subst_var idx2 (trm_var idx1)) loop_instrs2
@@ -507,7 +506,7 @@ type empty_range_mode =
 let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
   if (trm_index <> 0) then failwith "Loop_basic.move_out: not targeting the first instruction in a loop";
   let error = "Loop_basic.move_out: expected for loop" in
-  let ((index, t_start, dir, t_end, step, par), body, contract) = trm_inv ~error trm_for_inv t in
+  let ((index, t_start, dir, t_end, step), body, contract) = trm_inv ~error trm_for_inv t in
   let instrs = trm_inv ~error trm_seq_inv body in
   let instr = Mlist.nth instrs 0 in
   let rest = Mlist.pop_front instrs in
@@ -544,7 +543,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
     | _ -> contract
   in
 
-  let loop = trm_for ?contract (index, t_start, dir, t_end, step, par) (trm_seq rest) in
+  let loop = trm_for ?contract (index, t_start, dir, t_end, step) (trm_seq rest) in
   let non_empty_cond = trm_ineq dir t_start t_end in
   let instr_outside = if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr in
   trm_seq_nobrace_nomarks [
@@ -591,7 +590,7 @@ let%transfo move_out ?(instr_mark : mark = no_mark) ?(loop_mark : mark = no_mark
 let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm) : trm =
   if (trm_index <> 0) then failwith "not targeting the first instruction in a loop";
   let error = "expected for loop" in
-  let ((index, t_start, dir, t_end, step, par), body, contract) = trm_inv ~error trm_for_inv t in
+  let ((index, t_start, dir, t_end, step), body, contract) = trm_inv ~error trm_for_inv t in
   let instrs = trm_inv ~error trm_seq_inv body in
   let instr_count = Mlist.length instrs in
   if (instr_count < 2) then failwith "expected at least two instructions";
@@ -643,7 +642,7 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
     | _ -> contract
   in
 
-  let loop = trm_for ~annot:t.annot ?contract (index, t_start, dir, t_end, step, par) (trm_seq rest) in
+  let loop = trm_for ~annot:t.annot ?contract (index, t_start, dir, t_end, step) (trm_seq rest) in
   let wrap_instr instr =
     let non_empty_cond = trm_ineq dir t_start t_end in
     if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr
@@ -727,7 +726,7 @@ let shift_kind_to_string = function
 let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let index' = new_var index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
-  let ((index, start, direction, stop, step, is_parallel), body_terms, _contract) =
+  let ((index, start, direction, stop, step), body_terms, _contract) =
     trm_inv ~error trm_for_inv_instrs t in
   let (shift, start', stop') = match kind with
   (* spec:
@@ -743,7 +742,7 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let body_terms' = Mlist.push_front (
     trm_let_immut (index, (Option.value ~default:(typ_int ()) start.typ))
       (trm_sub (trm_var index') shift)) body_terms in
-  let t2 = trm_for_instrs ~annot:t.annot (index', start', direction, stop', step, is_parallel) body_terms' in
+  let t2 = trm_for_instrs ~annot:t.annot (index', start', direction, stop', step) body_terms' in
   t2
 
 (* [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
@@ -767,7 +766,7 @@ let extension_kind_to_string = function
 
 let extend_range_on (start_extension : extension_kind) (stop_extension : extension_kind) (t : trm) : trm =
   let error = "Loop_basic.extend_range_on: expected a target to a simple for loop" in
-  let ((index, start, direction, stop, step, is_parallel), body, _contract) = trm_inv ~error trm_for_inv t in
+  let ((index, start, direction, stop, step), body, _contract) = trm_inv ~error trm_for_inv t in
   assert (direction = DirUp);
   (* TODO: does it work in other cases?
      assert (is_step_one step); *)
@@ -795,7 +794,7 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
   | ExtendTo v -> (v, if_after_start body')
   | ExtendBy v -> (trm_sub start v, if_after_start body')
   end in
-  trm_for ~annot:t.annot (index, start', direction, stop', step, is_parallel) body''
+  trm_for ~annot:t.annot (index, start', direction, stop', step) body''
 
 (* [extend_range]: extends the range of a loop on [lower] and/or [upper] bounds.
    The body of the loop is guarded by ifs statements, doing nothing on the extension points.
@@ -812,7 +811,7 @@ let%transfo rename_index (new_index : string) (tg : target) : unit =
 (* FIXME: duplicated code from tiling. *)
 let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_step : trm) (t : trm) : trm =
   let error = "Loop_basic.slide_on: only simple loops are supported." in
-  let ((index, start, direction, stop, step, is_parallel), body, _contract) = trm_inv ~error trm_for_inv t in
+  let ((index, start, direction, stop, step), body, _contract) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   let tile_bound =
    if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step)) in
@@ -821,9 +820,9 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
   | TileBoundMin ->
     let tile_bound =
     trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
-    trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
+    trm_for (index, (trm_var tile_index), direction, (tile_bound), step) body
   | TileDivides ->
-    trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
+    trm_for (index, (trm_var tile_index), direction, (tile_bound), step) body
   | TileBoundAnd ->
     let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
     let cond = trm_and (trm_ineq direction (trm_var_get index)
@@ -842,7 +841,7 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
   let outer_loop_step = Step (may_scale tile_step) in
   let outer_stop = (trm_add stop (may_scale (trm_sub tile_step tile_size))) in
   let outer_loop =
-      trm_for (tile_index, start, direction, outer_stop, outer_loop_step, is_parallel) (trm_seq_nomarks [inner_loop])
+      trm_for (tile_index, start, direction, outer_stop, outer_loop_step) (trm_seq_nomarks [inner_loop])
   in
   trm_pass_labels t outer_loop
 

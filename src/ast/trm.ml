@@ -771,7 +771,7 @@ let rec get_init_val (t : trm) : trm option =
 let for_loop_index (t : trm) : var =
   match t.desc with
   | Trm_for (l_range,  _, _) ->
-     let (index, _, _, _, _, _) = l_range in
+     let (index, _, _, _, _) = l_range in
      index
   | Trm_for_c (init, _, _, _, _) ->
      (* covered cases:
@@ -1088,11 +1088,9 @@ let get_lit_from_trm_lit (t : trm) : lit =
       let init_ops = trm_for_c_inv_simple_init init in
       let bound_ops = trm_for_c_inv_simple_stop cond in
       let step_ops = trm_for_c_inv_simple_step step in
-      let t_pragmas = trm_get_pragmas t in
-      let is_parallel = List.exists (function | Parallel_for _ -> true | _ -> false) t_pragmas in
       begin match init_ops, bound_ops, step_ops with
       | Some (index, start), Some (direction, stop), Some step ->
-        trm_for (index, start, direction, stop, step, is_parallel ) body
+        trm_for (index, start, direction, stop, step) body
       | _ -> t
       end
     | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
@@ -1909,7 +1907,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
         then t
         else (trm_for_c ~annot ?loc ?invariant:invariant' ~ctx init' cond' step' body')
   | Trm_for (l_range, body, contract) ->
-    let (index, start, direction, stop, step, is_parallel) = l_range in
+    let (index, start, direction, stop, step) = l_range in
     let start' = f false start in
     let stop' = f false stop in
     let step' = match step with
@@ -1920,7 +1918,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     let contract' = opt_map loop_contract_map (==) contract in
     if (share_if_no_change && step' == step && start' == start && stop' == stop && body' == body && contract' == contract)
       then t
-      else (trm_for ~annot ?loc ?contract:contract' ~ctx (index, start', direction, stop', step', is_parallel) body')
+      else (trm_for ~annot ?loc ?contract:contract' ~ctx (index, start', direction, stop', step') body')
   | Trm_switch (cond, cases) ->
       let cond' = f false cond in
       let cases' = list_map
@@ -2071,7 +2069,7 @@ let trm_map_vars_ret_ctx
       let ctx = exit_scope cont_ctx body_ctx t' in
       (ctx, t')
 
-    | Trm_for ((index, start, dir, stop, step, is_par), body, contract) ->
+    | Trm_for ((index, start, dir, stop, step), body, contract) ->
       let loop_ctx, index' = map_binder (enter_scope ctx t) index false in
       let loop_ctx, contract' = match contract with
       | None -> (loop_ctx, None)
@@ -2089,7 +2087,7 @@ let trm_map_vars_ret_ctx
       let loop_ctx, body' = f_map loop_ctx body in
       let t' = if (index' == index && step' == step && start' == start && stop' == stop && body' == body && contract == contract')
         then t
-        else (trm_for ~annot ?loc ~ctx:t_ctx ?contract:contract' (index', start', dir, stop', step', is_par) body')
+        else (trm_for ~annot ?loc ~ctx:t_ctx ?contract:contract' (index', start', dir, stop', step') body')
       in
       let ctx = exit_scope ctx loop_ctx t' in
       (ctx, t')
@@ -2613,7 +2611,7 @@ let trm_def_or_used_vars (t : trm) : Var_set.t =
     | Some (x, _, _, _) -> vars := Var_set.add x !vars
     | _ ->
     begin match trm_for_inv t with
-    | Some ((x, _, _, _, _, _), _, _) -> vars := Var_set.add x !vars
+    | Some ((x, _, _, _, _), _, _) -> vars := Var_set.add x !vars
     | _ -> ()
     end end end;
     trm_iter aux t

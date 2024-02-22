@@ -238,7 +238,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "app";
           children_to_field children]
     | Trm_for (l_range, body, _) ->
-      let (index, start, _, stop, step, _) = l_range in
+      let (index, start, _, stop, step) = l_range in
       [ kind_to_field "simple_for";
           (strquote "index", strquote index.name); (* TODO: #var-id , also encode qualifier and id ? *)
           children_to_field [
