@@ -1,6 +1,6 @@
 int main() {
-  int i;
-  int x;
+  int i = 1;
+  int x = 2;
   int a = 1;
   int b = i;
   int const c = 1;
@@ -22,5 +22,12 @@ int main() {
   int const * const ah = &x;
   int * po[10], *pl[2] = {aa, ab};
   int * pg[2] = {aa, ab};
+  int * ai = new int(1);
+  // TODO: Add support for multi-dimensional arrays:
+  // int aj[2][2][2] = {{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}};
+  // which should become:
+  // int (*aj)[2][2] = new int[2][2][2] {{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}};
+  // However, the type of `aj' is incorrectly translated by OptiTrust to
+  // `int[2][2]*'!
   return 0;
 }
