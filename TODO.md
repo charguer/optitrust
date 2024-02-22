@@ -45,6 +45,10 @@
   in any case, should not make resources available in any subterm of a function without a contract.
   to see..
 
+- Support higher order contracts
+
+- Add Ghost_pair.fusion
+
 
 # Shortcuts
 
