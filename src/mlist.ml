@@ -51,6 +51,16 @@ let iter (f : 'a -> unit) (ml : 'a t) : unit =
 let find_map (f : 'a -> 'b option) (ml : 'a t) : 'b option =
   Xlist.find_map f ml.items (* LATER: now in the List stdlib module *)
 
+(* [findi f ml]: returns the first element, together with its index, of
+   [ml.items] that satisfies the predicate [f]. *)
+let findi (f : 'a -> bool) (ml : 'a t) : (int * 'a) option =
+  let rec aux (l : 'a list) (i : int) : (int * 'a) option =
+    match l with
+    | e :: r -> if f e then Some (i, e) else aux r (i + 1)
+    | [] -> None
+  in
+  aux ml.items 0
+
 (* [fold_left acc_f acc ml]: applies List.fold_left to ml.items. *)
 let fold_left (acc_f : 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   List.fold_left acc_f acc ml.items
