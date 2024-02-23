@@ -1,4 +1,89 @@
 
+/*Naive algorithm:
+
+  foreach i
+    foreach k
+      D[i][k] = reduce(mk_group(0, int_add, int_sub), range(i, i+ksize), (fun j -> S[j]))
+
+If it is simpler, we can use array_reduce, or even int_array_reduce, directly
+
+  foreach i
+    foreach k
+      D[i][k] = int_array_reduce(mk_group(0, int_add, int_sub), S, i, i+ksize)
+
+The reasoning rules for reduce on a ring are standard, we can axiomatize them:
+
+  when a < b
+
+    range(G, range(a,a), f)
+  = G.zero
+
+    reduce(G, range(a,b), f)
+  = G.add(f(a), reduce(G, range(a+1,b), f))
+
+    reduce(G, range(a,b), f)
+  = G.add(reduce(G, range(a,b-1), f), f(b-1))
+
+
+  and also true are rules for splitting range in middle, or subtracting ranges
+  for commutative groups.
+  For a sliding window, we need exactly the following rule, which we can axiomatize
+  (and prove in Coq):
+
+    reduce(G, range(a+1,b+1), f)
+  = G.add(f(b+1), G.sub(f(a), reduce(G, range(a,b), f)))
+
+
+The code generation rule is:
+
+  x = reduce(G, range(a,b), f)
+
+  compiles to
+
+  int s = 0
+  for i = a to <b
+    s += f(i)
+  x = s
+
+
+Let G = mk_group(0, int_add, int_sub).
+To refine our naive code, we go for:
+
+  foreach k
+    // i = 0
+    D[0][k] = reduce(G, range(0, ksize), (fun j -> S[j]))
+    foreach i > 0
+      D[i][k] = reduce(G, range(i, i+ksize), (fun j -> S[j]))
+
+  For the line
+
+    D[0][k] = reduce(G, range(0, ksize), (fun j -> S[j]))
+
+   we can generate the intended for loop.
+
+  For inside the loop "foreach i > 0", we rewrite the line
+    D[i][k] = reduce(G, range(i, i+ksize), (fun j -> S[j]))
+
+  into
+
+    D[i][k] = reduce(G, range(i-1, i-1+ksize), (fun j -> S[j]))
+            - S[i-1] + S[i+ksize-1]
+
+  The final step is to rewrite that line into:
+
+    D[i][k] = D[i-1][k] - S[i-1] + S[i+ksize-1]
+
+  This is the most tricky step, we need to argue that the loop has the invariant:
+
+    forall j < i,
+      D[j][k] = reduce(G, range(0, ksize), (fun j -> S[j])))
+
+  It seems kind of obvious, but we'd need to see how that fits into the current implementation.
+*/
+
+
+
+
 
 typedef int T;
 typedef uchar ST;
