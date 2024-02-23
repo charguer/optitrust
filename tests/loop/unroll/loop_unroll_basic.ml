@@ -5,12 +5,14 @@ let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Loop_basic.unroll ~inner_braces:true [cFor "i"];
-  !! Loop_basic.unroll ~inner_braces:true [cFor "j"];
+  !! Loop_basic.unroll [cFunBody "simple"; cFor "i"];
 
-  (* following is not OK because of C re-definition. *)
-  !! Trace.failure_expected (fun _e -> true) (fun () ->
-    Loop_basic.unroll ~inner_braces:false [cFor "k"]);
+  !! Loop_basic.unroll [cFunBody "name_conflict_no_brace"; cFor "i"];
+  !! Loop_basic.unroll ~inner_braces:true [cFunBody "name_conflict_with_braces"; cFor "i"];
+
+  !! Loop_basic.unroll [cFunBody "start_add"; cFor "i"];
+
+  !! Loop_basic.unroll [nbMulti; cFunBody "step"; cFor "i"];
 
   (* TODO: test unroll on SIMD loop *)
 )

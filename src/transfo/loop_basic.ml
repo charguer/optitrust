@@ -488,7 +488,7 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
       j is an integer in range from 0 to C.
 
     Assumption: Both a and C should be declared as constant variables. *)
-let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = "") ?(subst_mark : mark = no_mark)  (tg : target): unit =
+let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = no_mark) ?(subst_mark : mark = no_mark) (tg : target): unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll inner_braces outer_seq_with_mark subst_mark) tg)

@@ -2,16 +2,16 @@ int main() {
   int x = 0;
   const int st = 0;
   const int N = 10;
-  for (int i = 0; i < i + 5; i++) {
+  for (int i = 0; i < 5; i++) {
     x += i;
   }
-  for (int i = i + 5; i < 10; i++) {
+  for (int i = 5; i < 10; i++) {
     x += i;
   }
-  for (int j = st; j < j + 5; j++) {
+  for (int j = st; j < st + 5; j++) {
     x += j;
   }
-  for (int j = j + 5; j < N; j++) {
+  for (int j = st + 5; j < N; j++) {
     x += j;
   }
   int cut = 5;

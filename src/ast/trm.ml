@@ -919,23 +919,17 @@ let for_loop_body_trms (t : trm) : trm mlist =
 
 (* [trm_main_inv_toplevel_defs ast]: returns a list of all toplevel declarations *)
 let trm_main_inv_toplevel_defs (ast : trm) : trm list =
-match ast.desc with
-| Trm_seq tl when trm_is_mainfile ast -> Mlist.to_list tl
-| _ -> trm_fail ast "Ast.trm_main_inv_toplevel_defs: expected the ast of the main file"
+  match ast.desc with
+  | Trm_seq tl when trm_is_mainfile ast -> Mlist.to_list tl
+  | _ -> trm_fail ast "Ast.trm_main_inv_toplevel_defs: expected the ast of the main file"
 
 (* [trm_seq_add_last t_insert t]: appends [t_insert] at the end of the sequence [t] *)
 let trm_seq_add_last (t_insert : trm) (t : trm) : trm =
-match t.desc with
-| Trm_seq tl ->
- let new_tl = Mlist.insert_at (Mlist.length tl) t_insert tl in
- trm_seq ~annot:t.annot new_tl
-| _ -> trm_fail t "Ast.trm_seq_add_last: expected a sequence"
-
-(* [get_lit_from_trm_lit t]: gets the literal value from a trm_lit *)
-let get_lit_from_trm_lit (t : trm) : lit =
   match t.desc with
-  | Trm_val (Val_lit l) -> l
-  | _ -> trm_fail t "Ast.get_lit_from_trm: this type of literal is not supported"
+  | Trm_seq tl ->
+  let new_tl = Mlist.insert_at (Mlist.length tl) t_insert tl in
+  trm_seq ~annot:t.annot new_tl
+  | _ -> trm_fail t "Ast.trm_seq_add_last: expected a sequence"
 
 
 (* [is_get_operation t]: checks if [t] is a get operation(read operation) *)

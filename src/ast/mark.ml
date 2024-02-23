@@ -27,12 +27,7 @@ let apply_on_marks (f : marks -> marks) (t : trm) : trm =
 (* [trm_add_mark m] adds mark [m] to the trm [t].
    Returns [t] unchanged if [m = ""]. *)
 let trm_add_mark (m : mark) (t : trm) : trm =
-  if m = "" then t else apply_on_marks (fun marks -> m :: marks) t
-
-let trm_may_add_mark (mo : mark option) (t : trm) : trm =
-  match mo with
-  | Some m -> trm_add_mark m t
-  | None -> t
+  if m = no_mark then t else apply_on_marks (fun marks -> m :: marks) t
 
 (** [trm_add_mark_between index m t] adds mark [m] at [index] in the mlist of [t], where [t] should be a sequence.
    Returns [t] unchanged if [m = ""].

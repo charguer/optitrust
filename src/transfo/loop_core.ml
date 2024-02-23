@@ -264,49 +264,49 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
 let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
   apply_on_path (grid_enumerate_aux indices_and_bounds)
 
-(* [unroll_aux index t]: unrolls loop [t],
+(* [unroll_on index t]: unrolls loop [t],
       [inner_braces] - a flag on the visibility of generated inner sequences,
       [outer_seq_mark] - generates an outer sequence with a mark,
       [t] - ast of the loop. *)
-let unroll_aux (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark) (t : trm) : trm =
-  let error = "Loop_core.unroll_aux: only simple loops supported" in
+let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark) (t : trm) : trm =
+  let error = "Loop_core.unroll_on: only simple loops supported" in
   let (l_range, body, _) = trm_inv ~error trm_for_inv t in
-  let (index, start, _, stop, _) = l_range in
-  let unrolled_loop_range =
-    begin match stop.desc with
-    | Trm_apps(_,[_; bnd],_) ->
-        begin match bnd.desc with
-        | Trm_val (Val_lit (Lit_int bnd)) ->
-          Xlist.range 0 (bnd - 1)
-        | _ -> trm_fail bnd "Loop_core.unroll_aux: expected a literal trm"
-        end
-      | Trm_val (Val_lit (Lit_int bnd)) ->
-          begin match start.desc with
-          | Trm_val (Val_lit (Lit_int strt)) ->
-            Xlist.range 0 (bnd - 1 - strt)
-          | _ -> trm_fail start "Loop_core.unroll_aux: expected a "
-          end
-    | _ -> trm_fail t "Loop_core.unroll_aux: the loop that is going to be unrolled should have a bound which is a sum of a variable and a literal"
-    end in
-  let unrolled_body = List.fold_left ( fun acc i1 ->
-    let new_index =
-      begin match start.desc with
-      | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
-      | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
-      end in
+  let (index, start, dir, stop, step) = l_range in
+  if dir <> DirUp then trm_fail t "Loop_core.unroll_on: only loops going upwards are supported";
+  let step = trm_inv trm_int_inv (loop_step_to_trm step) in
+  let error = "Loop_core.unroll_on: either the loop start bound should be a integer literal or the loop end should be of the form 'start + k'" in
+  let nb_iter =
+    Pattern.pattern_match stop [
+      Pattern.(trm_add !__ (trm_int !__)) (fun start' max_incr ->
+        if are_same_trm start start' then (max_incr + step - 1) / step
+        else trm_fail t error
+      );
+      Pattern.(trm_int !__) (fun stop ->
+        let start = trm_inv ~error trm_int_inv start in
+        (stop - start + step - 1) / step
+      );
+      Pattern.(!__) (fun _ -> trm_fail t error)
+    ]
+  in
+  let unrolled_body = List.init nb_iter (fun i ->
+    let new_index = match trm_int_inv start with
+      | Some n -> trm_int (n + i * step)
+      | None -> trm_add start (trm_int (i * step))
+    in
     let body_i = trm_subst_var index (trm_add_mark subst_mark new_index) (trm_copy body) in
     let body_i = if inner_braces
                   then Nobrace.remove_if_sequence body_i
                   else Nobrace.set_if_sequence body_i in
-    body_i :: acc ) [] (List.rev unrolled_loop_range) in
-  begin match outer_seq_with_mark with
-  | "" -> trm_seq_nobrace_nomarks unrolled_body
-  | _ -> trm_add_mark outer_seq_with_mark (trm_seq_nomarks unrolled_body)
-  end
+    body_i) in
+  if outer_seq_with_mark <> no_mark then
+    trm_add_mark outer_seq_with_mark (trm_seq_nomarks unrolled_body)
+  else
+    trm_seq_nobrace_nomarks unrolled_body
+
 
 (* [unroll braces my_mark t p]: applies [unroll_aux] at trm [t] with path [p]. *)
 let unroll (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark) : Transfo.local =
-  apply_on_path (unroll_aux inner_braces outer_seq_with_mark subst_mark)
+  apply_on_path (unroll_on inner_braces outer_seq_with_mark subst_mark)
 
 (* [unswitch_aux trm_index t]: extracts an if statement inside the loop whose condition,
     is not dependent on the index of the loop or any other local variables,
@@ -400,17 +400,23 @@ let fold (index : string) (start : int) (step : int) : Transfo.local =
 (* [split_range_aux nb cut]: splits a loop into two loops based on the range,
      [nb] - by default this argument has value 0, if provided it means that it will split the loop at start + nb iteration,
      [cut] - by default this argument has value tmr_unit(), if provided then the loop will be splited at that iteration,
-     [t] - ast of the for loop. *)
-let split_range_aux (nb : int)(cut : trm)(t : trm) : trm =
+     [t] - ast of the for loop.
+
+     TODO: Optional arguments instead of weird "default" values
+     *)
+let split_range_aux (nb : int) (cut : trm) (t : trm) : trm =
   let error = "Loop_core.split_range: expected a target to a simple for loop" in
   let ((index, start, direction, stop, step), body, _contract) = trm_inv ~error trm_for_inv t in
-  let split_index =
-  begin match nb, cut with
-  | 0, {desc = Trm_val (Val_lit (Lit_unit )); _} -> trm_fail t "Loop_core.split_range_aux: one of the args nb or cut should be set "
-  | 0, _ -> cut
-  | _, {desc = Trm_val (Val_lit (Lit_unit ));_} -> trm_add (trm_var index) (trm_lit (Lit_int nb))
-  | n, c -> trm_fail t "Loop_core.split_range_aux: can't provide both the nb and cut args"
-  end in
+  let split_index = match nb, cut with
+    | 0, {desc = Trm_val (Val_lit (Lit_unit)); _} -> trm_fail t "Loop_core.split_range_aux: one of the args nb or cut should be set "
+    | 0, _ -> cut
+    | _, {desc = Trm_val (Val_lit (Lit_unit));_} ->
+      begin match trm_int_inv start with
+      | Some start -> trm_int (start + nb)
+      | None -> trm_add start (trm_int nb)
+      end
+    | n, c -> trm_fail t "Loop_core.split_range_aux: can't provide both the nb and cut args"
+  in
   trm_seq_nobrace_nomarks [
     trm_for (index, start, direction, split_index, step) body;
     trm_copy (trm_for (index, split_index, direction, stop, step) body)]

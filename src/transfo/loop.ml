@@ -792,60 +792,35 @@ DETAILS for [unroll]
 let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) ?(simpl: Transfo.t = default_simpl) ?(shuffle : bool = false) (tg : target) : unit =
   (* in [unroll]: reparse_after ~reparse:(not braces) *)
   Target.iteri (fun i p ->
-    let t = Trace.ast () in
-    let my_mark = "__unroll_" ^ string_of_int i in
     let tg_loop_trm  = Target.resolve_path p in
-    Marks.add my_mark (target_of_path p);
-    (* Function used in the case when the loop bound is a constant variable *)
-    let aux (x : var) : int  =
-      Variable_basic.unfold ~at:[cMark my_mark] [cVarDef x.name];
-          let var_decl = match Internal.toplevel_decl x with
-            | Some d -> d
-            | None -> trm_fail t "Loop.unroll: could not find the declaration of the loop bound variable"
-            in
-          let lit_n = match get_init_val var_decl with
-          | Some init1 -> init1
-          | None -> trm_fail t "unroll: could not get the value of the loop component" in
-          match (get_lit_from_trm_lit lit_n) with
-          | Lit_int n -> n
-          | _ -> trm_fail t "Loop.unroll: could not get the number of steps to unroll"
-      in
-    match tg_loop_trm.desc with
-    | Trm_for (l_range, _, _) ->
-      let (_, start, _, stop, _) = l_range in
-      let nb_instr = begin match stop.desc with
-      | Trm_apps (_, [_;bnd], _) ->
-        begin match bnd.desc with
-        | Trm_val (Val_lit (Lit_int n)) -> n
-        | Trm_var (_, x) -> aux x
-        | _ -> trm_fail stop "Loop.unroll: expected eitehr a constant variable of a literal"
-        end
-      | Trm_var (_, x) ->
-          let start_nb = begin match start.desc with
-          | Trm_var (_, y) -> aux y
-          | Trm_val (Val_lit (Lit_int n)) -> n
-          | _ -> trm_fail start "Loop.unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
-          end in
-          (aux x) - start_nb
-      | Trm_val (Val_lit (Lit_int n)) -> n
-      | _ -> trm_fail stop "Loop.unroll: expected an addition of two constants or a constant variable"
-      end
-        in
-      Marks.with_fresh_mark (fun subst_mark ->
-        Loop_basic.unroll ~inner_braces:true ~outer_seq_with_mark:my_mark ~subst_mark [cMark my_mark];
-        simpl [nbAny; cMark subst_mark];
-      );
-      let block_list = Xlist.range 0 (nb_instr-1) in
-      (* List.iter (fun x ->
-        Variable.renames (AddSuffix (string_of_int x)) ([occIndex ~nb:nb_instr x; cMark my_mark;cSeq ()])
-      ) block_list; *)
-       List.iter (fun x ->
-         Sequence_basic.partition ~braces blocks [cMark my_mark; dSeqNth x]
-      ) (List.rev block_list);
-      if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
-      Sequence_basic.elim [cMark my_mark];
-      (* Marks.remove my_mark [nbAny;cMark my_mark] *)
-    | _ -> trm_fail tg_loop_trm "Loop.unroll: expected a loop to unroll"
+    let (l_range, _, _) = trm_inv ~error:"Loop.unroll: expected a loop to unroll" trm_for_inv tg_loop_trm in
+    let (_, start, _, stop, _) = l_range in
+
+    let unfold_bound (x : var) =
+      Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name];
+    in
+    Pattern.pattern_match stop [
+      Pattern.(trm_add __ (trm_var !__)) unfold_bound;
+      Pattern.(trm_var !__) (fun var_stop ->
+        Pattern.pattern_match start [
+          Pattern.(trm_var !__) unfold_bound;
+          Pattern.__ ()
+        ];
+        unfold_bound var_stop);
+      Pattern.__ ()
+    ];
+
+    let my_mark = "__unroll_" ^ string_of_int i in
+    Marks.with_fresh_mark (fun subst_mark ->
+      Loop_basic.unroll ~inner_braces:true ~outer_seq_with_mark:my_mark ~subst_mark (target_of_path p);
+      simpl [nbAny; cMark subst_mark];
+    );
+    let unrolled_seq = trm_inv trm_seq_inv (Target.resolve_path p) in
+    for x = 0 to Mlist.length unrolled_seq - 1 do
+      Sequence_basic.partition ~braces blocks [cMark my_mark; dSeqNth x]
+    done;
+    if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
+    Sequence_basic.elim [cMark my_mark];
   ) tg
 
 (* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
@@ -867,7 +842,7 @@ let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle 
   let rec aux p nest_of =
     if nest_of > 1 then
       aux (Path.to_inner_loop p) (nest_of - 1);
-    unroll_nest_of_1 (target_of_path p);
+    unroll_nest_of_1 ~simpl (target_of_path p);
   in
   (* reparse_after ~reparse:(not braces) ( *)
     Target.iter (fun p -> aux p nest_of)
