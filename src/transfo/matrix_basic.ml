@@ -107,7 +107,7 @@ let ghost_shift
   let after = List.fold_right (fun r f -> formula_group_range r f) shifted_range shifted_formula in
   let before = if uninit_pre then formula_uninit before else before in
   let after = if uninit_post then formula_uninit after else after in
-  trm_ghost_rewrite before after (trm_var shift_groups)
+  Resource_trm.ghost_rewrite before after (trm_var shift_groups)
 
 (** <private> *)
 let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_core.nd_range)

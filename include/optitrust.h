@@ -284,13 +284,6 @@ inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
 
 /* ---- Ghosts ---- */
 
-__GHOST(rewrite) {
-  __requires("H1: formula, H2: formula, by: H1 = H2");
-  __consumes("H1");
-  __produces("H2");
-  __admitted();
-}
-
 __GHOST(close_wand) {
   /* LATER: Replace that id with a generated name on the respective open */
   __requires("H1: formula, H2: formula");

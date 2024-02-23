@@ -184,7 +184,7 @@ let%transfo hoist_alloc_loop_list
   in
   Target.iter (fun p ->
     let tg_trm = Target.resolve_path p in
-    match Resource_formula.trm_ghost_begin_inv tg_trm with
+    match Resource_trm.ghost_begin_inv tg_trm with
     | Some _ -> Tools.warn "Loop.hoist_alloc: not hoisting ghost begin"
     | _ -> begin
     match tg_trm.desc with

@@ -119,13 +119,13 @@ let memcpy
     if dims < 2 then t else
     let a = Matrix_trm.mindex_contiguous_ghost_call dims "_uninit" ["M", mat_trm] in
     let b = Matrix_trm.mindex_contiguous_rev_ghost_call dims "" ["M", mat_trm] in
-    Nobrace.trm_seq_nomarks Resource_formula.[trm_ghost a; t; trm_ghost b]
+    Nobrace.trm_seq_nomarks Resource_trm.[ghost a; t; ghost b]
   in
   let scoped_mindex_contiguous_read mat_trm dims offset t =
     if dims < 2 then t else
-    Resource_formula.(trm_ghost_scope (Matrix_trm.mindex_contiguous_ghost_call
+    Resource_trm.ghost_scope (Matrix_trm.mindex_contiguous_ghost_call
      dims "_ro" ["M", mat_trm]
-    )) t
+    ) t
   in
   let t = scoped_mindex_contiguous_write dest ddl d_offset t in
   let t = scoped_mindex_contiguous_read src sdl s_offset t in

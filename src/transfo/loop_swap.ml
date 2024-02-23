@@ -40,7 +40,7 @@ let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
   let inner_var = new_var inner_index.name in
   let formula = trm_subst (Var_map.add outer_index (trm_var outer_var) (Var_map.singleton inner_index (trm_var inner_var))) formula in
   let items = formula_fun [outer_var, typ_int (); inner_var, typ_int ()] None formula in
-  trm_ghost (ghost_call ghost_var ["outer_range", formula_loop_range outer_range; "inner_range", formula_loop_range inner_range; "items", items])
+  Resource_trm.ghost (ghost_call ghost_var ["outer_range", formula_loop_range outer_range; "inner_range", formula_loop_range inner_range; "items", items])
 
 
 (** This transformation turns:

@@ -479,7 +479,7 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) (p :
         let write_res = formulas_of_hyps write_hyps res_before.linear in
         let write_res = List.filter pred write_res in
         let uninit_ghosts = List.filter_map (fun res ->
-          if Option.is_none (formula_uninit_inv res) then Some (trm_ghost_forget_init res) else None) write_res in
+          if Option.is_none (formula_uninit_inv res) then Some (Resource_trm.ghost_forget_init res) else None) write_res in
         trm_seq_nobrace_nomarks uninit_ghosts
       ) p
     );

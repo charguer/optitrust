@@ -1003,14 +1003,14 @@ let rec compute_resources
         | _ -> failwith "expected 1 argument for cast"
         end
 
-      | exception Spec_not_found fn when var_eq fn ghost_begin ->
+      | exception Spec_not_found fn when var_eq fn Resource_trm.var_ghost_begin ->
         (* Checks that the called ghost is reversible, either because the argument is a __with_reverse pair,
            or because its reverse ghost is already in context.
            Then compute ressources as if it is a normal ghost call, and remember the instantiated contract.
            Store the reverse of the instantiated contract as the contract for _Res.
         *)
         let usage_map, res, contract_invoc = Pattern.pattern_match effective_args [
-          Pattern.(trm_apps !(trm_apps2 (trm_var (var_eq with_reverse)) !__ !__) nil !__ ^:: nil) (fun with_rev_app ghost_fn ghost_fn_rev ghost_args ->
+          Pattern.(trm_apps !(trm_apps2 (trm_var (var_eq Resource_trm.var_with_reverse)) !__ !__) nil !__ ^:: nil) (fun with_rev_app ghost_fn ghost_fn_rev ghost_args ->
             let spec = find_fun_spec ghost_fn res.fun_specs in
             let reverse_contract = revert_fun_contract spec.contract in
             begin match trm_fun_inv ghost_fn_rev with
@@ -1051,7 +1051,7 @@ let rec compute_resources
         | _ -> failwith "Ghost call inside __ghost_begin should have generated a contract_invoc"
         end
 
-      | exception Spec_not_found fn when var_eq fn ghost_end ->
+      | exception Spec_not_found fn when var_eq fn Resource_trm.var_ghost_end ->
         (* Calls the closure made by GHOST_BEGIN and removes it from the pure context to ensure good scoping. *)
         Pattern.pattern_match effective_args [
           Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var ->
@@ -1062,7 +1062,7 @@ let rec compute_resources
           Pattern.(!__) (fun _ -> failwith "__ghost_end expects a single variable as argument")
         ]
 
-      | exception Spec_not_found fn when var_eq fn __admitted ->
+      | exception Spec_not_found fn when var_eq fn Resource_trm.var_admitted ->
         (* Stop the resource computation in the instructions following the call to __admitted()
            by forgetting the context without raising any error. *)
         None, None
