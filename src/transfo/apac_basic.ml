@@ -498,7 +498,55 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
 let constify_aliases ?(force = false) (tg : target) : unit =
   Target.apply_at_target_paths (constify_aliases_on ~force) tg
 
-(* [heapify_on t]: see [heapify]. *)
+let subst_pragmas (name : var) (space : trm)
+      (pl : cpragma list) : cpragma list =
+  let aux (dl : deps) : deps =
+    List.map(fun d ->
+        match d with
+        | Dep_trm (t, v) ->
+           let space' = match t.desc with
+             (*  | Trm_var (_, v') when v' = name -> trm_get space*)
+             | _ -> space
+           in
+           let t' = trm_subst_var name space' t in
+           Dep_trm (t', v)
+        | Dep_var v when v = name -> (*Dep_ptr (d)*) d
+        | Dep_ptr _ ->
+           let d' = Apac_tasks.dep_get_atomic d in
+           begin match d' with
+           (*  | Dep_var v when v = name -> Dep_ptr (d)*)
+           | _ -> d
+           end
+        | _ -> d) dl
+  in
+  List.map (fun p ->
+      let cl' = match p with
+        | Task cl
+          | Taskwait cl -> cl
+        | _ -> []
+      in
+      let cl' = if cl' <> [] then
+                  List.map (fun c ->
+                      match c with
+                      | Depend dl ->
+                         let dl' = List.map (fun dt ->
+                                       match dt with
+                                       | In dl -> In (aux dl)
+                                       | Out dl -> Out (aux dl)
+                                       | Inout dl -> Inout (aux dl)
+                                       | Outin dl -> Outin (aux dl)
+                                       | Sink dl -> Sink (aux dl)
+                                       | _ -> dt) dl in
+                         Depend dl'
+                      | _ -> c) cl'
+                else []
+      in
+      match p with
+      | Task _ -> Task cl'
+      | Taskwait _ -> Taskwait cl'
+      | _ -> p) pl
+
+(* [heapify_on t]: see [Apac_basic.heapify]. *)
 let heapify_on (t : trm) : trm =
   (* [heapify_on.one ?reference ?mult deletes v ty init] promotes a single
      variable declaration, represented by the variable [v] of type [ty] and by
@@ -790,7 +838,7 @@ let heapify_on (t : trm) : trm =
                       trm_new ty init
                     else
                       begin
-                        delete := 0;
+                        delete := 1;
                         init
                       end
                   in
@@ -804,7 +852,14 @@ let heapify_on (t : trm) : trm =
        promoted variable and add them to the [deletes] queue. *)
     if !delete > 0 then
       begin
+        let _ = Printf.printf ">>>> Bude deelete\n" in
         let dt = trm_delete (!delete = 2) (trm_var ~kind:vk v) in
+        let inout = [Inout [Dep_var v]] in
+        let depend = [Depend inout] in
+        let clauses = [Default Shared_m] in
+        let clauses = clauses @ depend in
+        let pragma = Task clauses in
+        let dt = trm_add_pragma pragma dt in
         Queue.add dt deletes
       end;
     result
@@ -816,16 +871,17 @@ let heapify_on (t : trm) : trm =
      - before each [return] term in the scope of the current sequence term [t],
      - before [break] and [continue] statements in the current sequence term [t]
        if it is the body of a loop or a case of a [switch] statement (see the
-       [in_loop] argument). *)
-  let rec delete (in_loop : bool) (deletes : trms) (t : trm) : trm =
+       [breakable] flag). *)
+  let rec delete (deletes : trms) (t : trm) : trm =
     match t.desc with
     | Trm_seq _ ->
-       let t' = trm_map (delete false deletes) t in
+       let breakable = trm_has_mark heapify_breakable_mark t in
+       let t' = trm_map (delete deletes) t in
        let error = "[heapify_on.delete]: expected a sequence term." in
        let stmts = trm_inv ~error trm_seq_inv t' in
        let stmts' = match Mlist.findi (fun t -> is_trm_abort t) stmts with
-         | Some (idx, abort) when is_return abort || in_loop ->
-            let abort' = trm_seq_no_brace (deletes @ [abort]) in
+         | Some (idx, abort) when is_return abort || breakable ->
+            let abort' = Syntax.trm_seq_no_brace (deletes @ [abort]) in
             Mlist.replace_at idx abort' stmts
          | Some (idx, abort) -> stmts
          | _ ->
@@ -833,11 +889,6 @@ let heapify_on (t : trm) : trm =
             Mlist.insert_sublist_at len deletes stmts
        in
        trm_seq ~annot:t.annot stmts'
-    | Trm_for _
-      | Trm_for_c _
-      | Trm_if _
-      | Trm_switch _
-      | Trm_while _ -> trm_map (delete true deletes) t
     | _ -> t
   in
   (* Deconstruct the sequence term [t] into the [Mlist] of terms [ml]. *)
@@ -869,12 +920,32 @@ let heapify_on (t : trm) : trm =
                   let (vtys2, inits2) = List.split updated in
                   trm_let_mult kind vtys2 inits2
                | _ -> t) ml in
-  (* Build an updated the sequence term. *)
-  let t' = trm_seq ~annot:t.annot ml in
   (* Transform the [deletes] queue into a list. *)
   let deletes = List.of_seq (Queue.to_seq deletes) in
+  let ml = Mlist.map (fun t ->
+               List.fold_left (fun acc dt ->
+                   match dt.desc with
+                   | Trm_delete (arr, tv) when not arr ->
+                      begin match tv.desc with
+                      | Trm_var (_, v) -> apply_on_pragmas (fun pl ->
+                                              (subst_pragmas v (trm_get tv))
+                                                pl) acc
+                      | _ -> acc
+                      end
+                   | _ -> acc) t deletes) ml in
+  (* Build an updated the sequence term. *)
+  let t' = trm_seq ~annot:t.annot ml in
+  let t' = List.fold_left (fun acc dt ->
+               match dt.desc with
+               | Trm_delete (arr, tv) when not arr ->
+                  begin match tv.desc with
+                  | Trm_var (_, v) -> trm_subst_var v (trm_get tv) acc
+                  | _ -> acc
+                  end
+               | _ -> acc) t' deletes in
+  let _ = Printf.printf ">>>>>>>> Len of deletes is %d\n" (List.length deletes) in
   (* Add the [delete] terms from [deletes] to [t']. *)
-  delete false deletes t'
+  delete deletes t'
 
 (* [heapify tg]: expects the target [tg] to point at a sequence in which it
    promotes variables delacred on the stack to the heap. It applies on each

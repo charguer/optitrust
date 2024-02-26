@@ -3,6 +3,7 @@ open Typ
 open Trm
 open Target
 open Path
+open Mark
 open Apac_modules
 open Apac_tasks
 
@@ -244,6 +245,19 @@ let task_group_mark : mark = "__apac_task_group"
 (* [goto_label]: label used when replacing return statements by gotos within
    the pre-processing stage. See [Apac_basic.use_goto_for_return]. *)
 let goto_label : label = "__apac_exit"
+
+(************************)
+(* II.4 Post-processing *)
+(************************)
+
+(* [heapify_mark]: string used to mark sequences for heapification. See
+   [Apac_basic.heapify]. *)
+let heapify_mark : mark = "__apac_heapify"
+
+(* [heapify_breakable_mark]: string used to mark sequences for heapification.
+   This mark is reserved for sequences possibly containing [break] or [continue]
+   statements. See [Apac_basic.heapify]. *)
+let heapify_breakable_mark : mark = "__apac_heapify_breakable"
 
 (******************************)
 (* PART III: HELPER FUNCTIONS *)
@@ -954,6 +968,10 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let body = TaskGraphTraverse.codify
                                     (trm_from_task ~backend) cg in
                        let body = make body in
+                       let body = if backend = OpenMP then
+                                    trm_add_mark heapify_breakable_mark body
+                                  else
+                                    body in
                        trm_for_c ~annot:instr.annot ~ctx:instr.ctx
                          init cond step body
                     | Trm_for (range, _, _) ->
@@ -962,6 +980,10 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let body = TaskGraphTraverse.codify
                                      (trm_from_task ~backend) cg in
                        let body = make body in
+                       let body = if backend = OpenMP then
+                                    trm_add_mark heapify_breakable_mark body
+                                  else
+                                    body in
                        trm_for ~annot:instr.annot ~ctx:instr.ctx
                          range body
                     | Trm_if (cond, _, no) ->
@@ -970,13 +992,21 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let yes = TaskGraphTraverse.codify
                                      (trm_from_task ~backend) yes in
                        let yes = make yes in
+                       let yes = if backend = OpenMP then
+                                    trm_add_mark heapify_mark yes
+                                  else
+                                    yes in
                        let no = if (is_trm_unit no) then
                                   trm_unit ()
                                 else
                                   let no = List.nth cg 1 in
                                   let no = TaskGraphTraverse.codify
                                              (trm_from_task ~backend) no in
-                                  make no
+                                  let no = make no in 
+                                  if backend = OpenMP then
+                                    trm_add_mark heapify_mark no
+                                  else
+                                    no
                        in
                        trm_if ~annot:instr.annot ~ctx:instr.ctx cond yes no
                     | Trm_while (cond, _) ->
@@ -985,6 +1015,10 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let body = TaskGraphTraverse.codify
                                      (trm_from_task ~backend) cg in
                        let body = make body in
+                       let body = if backend = OpenMP then
+                                    trm_add_mark heapify_breakable_mark body
+                                  else
+                                    body in
                        trm_while ~annot:instr.annot ~ctx:instr.ctx cond body
                     | Trm_do_while (_, cond) ->
                        let cg = List.nth task.children i in
@@ -992,6 +1026,10 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let body = TaskGraphTraverse.codify
                                      (trm_from_task ~backend) cg in
                        let body = make body in
+                       let body = if backend = OpenMP then
+                                    trm_add_mark heapify_breakable_mark body
+                                  else
+                                    body in
                        trm_do_while ~annot:instr.annot ~ctx:instr.ctx body cond
                     | Trm_switch (cond, cases) ->
                        let cg = List.nth task.children i in
@@ -1001,9 +1039,17 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                                                   (trm_from_task ~backend)
                                                   block in
                                    let block' = make block' in
+                                   let block' = if backend = OpenMP then
+                                                  trm_add_mark
+                                                    heapify_breakable_mark
+                                                    block'
+                                                else
+                                                  block' in
                                    Queue.push (labels, block') cgs) cases cg in
                        let cases' = List.of_seq (Queue.to_seq cgs) in
                        trm_switch ~annot:instr.annot ~ctx:instr.ctx cond cases'
+                    | Trm_seq _ when backend = OpenMP ->
+                       trm_add_mark heapify_mark instr
                     | _ -> instr
                     end) task.current in
   let task = Task.update task current in
