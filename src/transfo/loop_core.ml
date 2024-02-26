@@ -264,13 +264,16 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
 let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
   apply_on_path (grid_enumerate_aux indices_and_bounds)
 
+let trm_unroll = trm_var (toplevel_var "unroll")
+let trm_roll = trm_var (toplevel_var "roll")
+
 (* [unroll_on index t]: unrolls loop [t],
       [inner_braces] - a flag on the visibility of generated inner sequences,
       [outer_seq_mark] - generates an outer sequence with a mark,
       [t] - ast of the loop. *)
 let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark) (t : trm) : trm =
   let error = "Loop_core.unroll_on: only simple loops supported" in
-  let (l_range, body, _) = trm_inv ~error trm_for_inv t in
+  let (l_range, body, contract) = trm_inv ~error trm_for_inv t in
   let (index, start, dir, stop, step) = l_range in
   if dir <> DirUp then trm_fail t "Loop_core.unroll_on: only loops going upwards are supported";
   let step = trm_inv trm_int_inv (loop_step_to_trm step) in
@@ -288,20 +291,54 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
       Pattern.(!__) (fun _ -> trm_fail t error)
     ]
   in
-  let unrolled_body = List.init nb_iter (fun i ->
-    let new_index = match trm_int_inv start with
-      | Some n -> trm_int (n + i * step)
-      | None -> trm_add start (trm_int (i * step))
-    in
-    let body_i = trm_subst_var index (trm_add_mark subst_mark new_index) (trm_copy body) in
+  let new_indices = match trm_int_inv start with
+    | Some n -> List.init nb_iter (fun i -> trm_int (n + i * step))
+    | None -> List.init nb_iter (fun i -> trm_add start (trm_int (i * step)))
+  in
+  let new_indices = List.map (trm_add_mark subst_mark) new_indices in
+  let unrolled_body = List.map (fun new_index ->
+    let body_i = trm_subst_var index new_index (trm_copy body) in
     let body_i = if inner_braces
                   then Nobrace.remove_if_sequence body_i
                   else Nobrace.set_if_sequence body_i in
-    body_i) in
-  if outer_seq_with_mark <> no_mark then
-    trm_add_mark outer_seq_with_mark (trm_seq_nomarks unrolled_body)
-  else
-    trm_seq_nobrace_nomarks unrolled_body
+    body_i) new_indices
+  in
+  let outer_seq = if outer_seq_with_mark <> no_mark then
+      trm_add_mark outer_seq_with_mark (trm_seq_nomarks unrolled_body)
+    else
+      trm_seq_nobrace_nomarks unrolled_body
+  in
+  match contract with
+  | None -> outer_seq
+  | Some contract ->
+    let open Resource_formula in
+    (* LATER: Handle formulas that depend on a model abstracted by the loop *)
+    let unroll_ghosts = List.map (fun (_, formula) ->
+        let output = List.map (fun new_index ->
+          (new_anon_hyp (), trm_subst_var index new_index (trm_copy formula)))
+          new_indices
+        in
+        let rewrite_contract = {
+          pre = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range l_range formula] () ;
+          post = Resource_set.make ~linear:output ()
+        } in
+        (* LATER: build proof term instead *)
+        Resource_trm.ghost_admitted rewrite_contract ~justif:trm_unroll
+      ) contract.iter_contract.pre.linear
+    in
+    let roll_ghosts = List.map (fun (_, formula) ->
+        let input = List.map (fun new_index ->
+          (new_anon_hyp (), trm_subst_var index new_index (trm_copy formula)))
+          new_indices
+        in
+        let rewrite_contract = {
+          pre = Resource_set.make ~linear:input ();
+          post = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range l_range formula] ()
+        } in
+        Resource_trm.ghost_admitted rewrite_contract ~justif:trm_roll
+      ) contract.iter_contract.post.linear
+    in
+    trm_seq_nobrace_nomarks (unroll_ghosts @ outer_seq :: roll_ghosts)
 
 
 (* [unroll braces my_mark t p]: applies [unroll_aux] at trm [t] with path [p]. *)

@@ -1,3 +1,5 @@
+#include <optitrust.h>
+
 void simple(int* t){
   int a = 2;
   for (int i = 0; i < 3; i++) {
@@ -30,5 +32,14 @@ void step() {
 
   for (int i = 0; i < 6; i += 3) {
     int c = i;
+  }
+}
+
+void iter_contract(int* M) {
+  __modifies("M ~> Matrix1(3)");
+
+  for (int i = 0; i < 3; i++) {
+    __modifies("&M[MINDEX1(3,i)] ~> Cell");
+    M[MINDEX1(3,i)] = 0;
   }
 }

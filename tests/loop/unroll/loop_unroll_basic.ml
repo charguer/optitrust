@@ -14,5 +14,5 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Loop_basic.unroll [nbMulti; cFunBody "step"; cFor "i"];
 
-  (* TODO: test unroll on SIMD loop *)
+  !! Loop_basic.unroll [nbMulti; cFunBody "iter_contract"; cFor "i"];
 )

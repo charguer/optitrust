@@ -1,3 +1,5 @@
+#include <optitrust.h>
+
 void simple(int* t) {
   int a = 2;
   t[0] = a;
@@ -26,4 +28,31 @@ void step() {
   int b4 = 4;
   int c = 0;
   int c5 = 3;
+}
+
+void iter_contract(int* M) {
+  __modifies("M ~> Matrix1(3)");
+  __ghost(
+      [&]() {
+        __consumes("M ~> Matrix1(3)");
+        __produces("&M[MINDEX1(3, 0)] ~> Cell");
+        __produces("&M[MINDEX1(3, 1)] ~> Cell");
+        __produces("&M[MINDEX1(3, 2)] ~> Cell");
+        __admitted();
+        __with("justif := unroll");
+      },
+      "");
+  M[MINDEX1(3, 0)] = 0;
+  M[MINDEX1(3, 1)] = 0;
+  M[MINDEX1(3, 2)] = 0;
+  __ghost(
+      [&]() {
+        __consumes("&M[MINDEX1(3, 0)] ~> Cell");
+        __consumes("&M[MINDEX1(3, 1)] ~> Cell");
+        __consumes("&M[MINDEX1(3, 2)] ~> Cell");
+        __produces("M ~> Matrix1(3)");
+        __admitted();
+        __with("justif := roll");
+      },
+      "");
 }
