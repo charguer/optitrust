@@ -498,18 +498,18 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
 let constify_aliases ?(force = false) (tg : target) : unit =
   Target.apply_at_target_paths (constify_aliases_on ~force) tg
 
-(* [heapify_intro_on ?deletes t]: see [heapify_intro]. *)
-let heapify_intro_on ?(deletes : trmq option = None) (t : trm) : trm =
-  (* [heapify_intro_on.single ?reference ?mult v ty init] is an auxiliary
-     function for processing a single variable declaration represented by the
-     variable [v] of type [ty] and by the initialization term [init]. It is thus
-     possible to set the [mult] parameter to [true] and call it multiple times
-     in a loop in the case of a multiple variable declaration. The [reference]
-     parameter is useful in the case of a simple variable declaration when the
-     reference status has to be determined before calling the function as the
-     information cannot be restored from within the function like in the case of
-     a multiple variable declaration. *)
-  let single ?(reference = false) ?(mult = false)
+(* [heapify_on t]: see [heapify]. *)
+let heapify_on (t : trm) : trm =
+  (* [heapify_on.one ?reference ?mult deletes v ty init] promotes a single
+     variable declaration, represented by the variable [v] of type [ty] and by
+     the initialization term [init], from the stack to the heap. When the [mult]
+     parameter is set to [true], one can call the function in a loop on a series
+     of declarations composing a multiple variable declaration and process them
+     all. The [reference] parameter is useful in the case of a simple variable
+     declaration when the reference status has to be determined before calling
+     the function as the information cannot be restored from within the function
+     like in the case of a multiple variable declaration. *)
+  let one ?(reference = false) ?(mult = false) (deletes : trmq)
         (vk : varkind) (v : var) (ty : typ) (init : trm) : typed_var * trm =
     (* Beyond promoting variables to the heap, this function allow for producing
        an adequate [delete] term allowing for future de-allocation of the
@@ -800,45 +800,86 @@ let heapify_intro_on ?(deletes : trmq option = None) (t : trm) : trm =
             end
         end
     in
-    (* If [deletes] is a term queue, we produce a [delete] term allowing for
-       deallocating the dynamically allocated variable. *)
-    begin match deletes with
-    | Some deletes when !delete > 0 ->
-       let delete' = trm_delete (!delete = 2) (trm_var ~kind:vk v) in
-       Queue.add delete' deletes
-    | _ -> ()
-    end;
+    (* If necessary, produce [delete] term allowing for deallocating the
+       promoted variable and add them to the [deletes] queue. *)
+    if !delete > 0 then
+      begin
+        let dt = trm_delete (!delete = 2) (trm_var ~kind:vk v) in
+        Queue.add dt deletes
+      end;
     result
   in
-  (* [t] must be either *)
-  match t.desc with
-  (* a simple variable declaration, or *)
-  | Trm_let (kind, (v, ty), init, _) ->
-     (* Call [heapify_intro_on.single] once. *)
-     let ((v2, ty2), init2) =
-       single ~reference:(trm_has_cstyle Reference t) kind v ty init in
-     (* Return an update single variable declaration term. *)
-     trm_let kind (v2, ty2) init2
-  (* a multiple variable declaration. *)
-  | Trm_let_mult (kind, vtys, inits) ->
-     (* Call [heapify_intro_on.single] multiple times in a loop over all the
-        declarations in the multiple variable declaration term. *)
-     let updated = List.map2 (
-                       fun (v, ty) init -> single ~mult:true kind v ty init
-                     ) vtys inits in
-     (* The upcoming instruction expects the updates typed variables and
-        initialization terms in separate lists. *)
-     let (vtys2, inits2) = List.split updated in
-     (* Return an update multiple variable declaration term. *)
-     trm_let_mult kind vtys2 inits2
-  | _ -> fail t.loc "Apac_basic.heapify: expected a target to a variable \
-                     declaration or a multiple variable declaration."
+  (* [Apac_basic.heapify_on.delete]: an auxiliary function to place the [delete]
+     terms from [deletes]
+     - before the [return] term of the current sequence term [t] or the end of
+       the current sequence if no [return] term is present,
+     - before each [return] term in the scope of the current sequence term [t],
+     - before [break] and [continue] statements in the current sequence term [t]
+       if it is the body of a loop or a case of a [switch] statement (see the
+       [in_loop] argument). *)
+  let rec delete (in_loop : bool) (deletes : trms) (t : trm) : trm =
+    match t.desc with
+    | Trm_seq _ ->
+       let t' = trm_map (delete false deletes) t in
+       let error = "[heapify_on.delete]: expected a sequence term." in
+       let stmts = trm_inv ~error trm_seq_inv t' in
+       let stmts' = match Mlist.findi (fun t -> is_trm_abort t) stmts with
+         | Some (idx, abort) when is_return abort || in_loop ->
+            let abort' = trm_seq_no_brace (deletes @ [abort]) in
+            Mlist.replace_at idx abort' stmts
+         | Some (idx, abort) -> stmts
+         | _ ->
+            let len = Mlist.length stmts in
+            Mlist.insert_sublist_at len deletes stmts
+       in
+       trm_seq ~annot:t.annot stmts'
+    | Trm_for _
+      | Trm_for_c _
+      | Trm_if _
+      | Trm_switch _
+      | Trm_while _ -> trm_map (delete true deletes) t
+    | _ -> t
+  in
+  (* Deconstruct the sequence term [t] into the [Mlist] of terms [ml]. *)
+  let error = "Apac_basic.heapify_on: expected a target to a sequence." in
+  let ml = trm_inv ~error trm_seq_inv t in
+  (* Initialize a queue for the [delete] terms allowing for deallocating the
+     promoted variables.*)
+  let deletes = Queue.create () in
+  (* Map over the terms in [ml] and perform the heapification of single and
+     multiple variable declarations using the
+     [Apac_basic.heapify_intro_on.single] function. *)
+  let ml = Mlist.map (fun t ->
+               match t.desc with
+               | Trm_let (kind, (v, ty), init, _) ->
+                  let ((v2, ty2), init2) =
+                    one ~reference:(trm_has_cstyle Reference t) deletes
+                      kind v ty init in
+                  trm_let kind (v2, ty2) init2
+               | Trm_let_mult (kind, vtys, inits) ->
+                  (* To heapify a multiple variable declaration, we loop over
+                     all the declarations in the corresponding term. *)
+                  let updated = List.map2 (
+                                    fun (v, ty) init ->
+                                    one ~mult:true deletes kind v ty init
+                                  ) vtys inits in
+                  (* The multiple variable declaration constructor
+                     [trm_let_mult] expects the typed variables and
+                     initialization terms in separate lists. *)
+                  let (vtys2, inits2) = List.split updated in
+                  trm_let_mult kind vtys2 inits2
+               | _ -> t) ml in
+  (* Build an updated the sequence term. *)
+  let t' = trm_seq ~annot:t.annot ml in
+  (* Transform the [deletes] queue into a list. *)
+  let deletes = List.of_seq (Queue.to_seq deletes) in
+  (* Add the [delete] terms from [deletes] to [t']. *)
+  delete false deletes t'
 
-(* [heapify_intro ?deletes tg]: expects the target [tg] to point at a simple or
-   a multiple variable declaration. Then, if it is necessary, i.e. if the
-   variable is not a reference or a pointer to a previously user-allocated
-   memory location, the function shall promote the variable from the stack to
-   the heap.
+(* [heapify tg]: expects the target [tg] to point at a sequence in which it
+   promotes variables delacred on the stack to the heap. It applies on each
+   simple and on each multiple variable declaration that is not a reference or a
+   pointer to a previously user-allocated memory location.
 
    Example:
 
@@ -856,45 +897,11 @@ let heapify_intro_on ?(deletes : trmq option = None) (t : trm) : trm =
    nor [a] nor [b] are transformed.
 
    As we will have to free the variables promoted to the heap at some point,
-   this transformation is also capable of producing adequate [delete] terms and
-   add them to the [deletes] term queue, if present and initialized. *)
-let heapify_intro ?(deletes : trmq option = None) (tg : target) : unit =
-  Target.apply_at_target_paths (heapify_intro_on ~deletes) tg
-
-(* [heapify_outro_on deletes t]: see [heapify_outro]. *)
-let heapify_outro_on (deletes : trmq option) (t : trm) : trm =
-  let rec aux (in_loop : bool) (deletes : trms) (t : trm) : trm =
-    match t.desc with
-    | Trm_seq _ ->
-       let t' = trm_map (aux false deletes) t in
-       let error = "[heapify_outro_on.aux]: expected a sequence term." in
-       let stmts = trm_inv ~error trm_seq_inv t' in
-       let stmts' = match Mlist.findi (fun t -> is_trm_abort t) stmts with
-         | Some (idx, abort) when is_return abort || in_loop ->
-            let abort' = trm_seq_no_brace (deletes @ [abort]) in
-            Mlist.replace_at idx abort' stmts
-         | Some (idx, abort) -> stmts
-         | _ ->
-            let len = Mlist.length stmts in
-            Mlist.insert_sublist_at len deletes stmts
-       in
-       trm_seq ~annot:t.annot stmts'
-    | Trm_for _
-      | Trm_for_c _
-      | Trm_if _
-      | Trm_switch _
-      | Trm_while _ -> trm_map (aux true deletes) t
-    | _ -> t
-  in
-  match deletes with
-  | Some deletes' ->
-     let deletes' = List.of_seq (Queue.to_seq deletes') in
-     aux false deletes' t
-  | None -> t
-
-let heapify_outro ?(deletes : trmq option = None) (tg : target) : unit =
+   this transformation also places adequate [delete] terms at the right
+   places. *)
+let heapify (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-      Target.apply_at_target_paths (heapify_outro_on deletes) tg)
+      Target.apply_at_target_paths heapify_on tg)
 
 (* [vars_tbl]: hashtable generic to keep track of variables and their pointer
     depth. This abstrastion is used for generic functions. *)

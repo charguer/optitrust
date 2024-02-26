@@ -1,6 +1,7 @@
+int i = 1;
+int x = 2;
+
 int main() {
-  int i = 1;
-  int x = 2;
   int a = 1;
   int b = i;
   int const c = 1;
