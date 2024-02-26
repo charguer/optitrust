@@ -160,7 +160,7 @@ let stackvar_intro_pragmas
   let aux (dl : deps) : deps =
     List.map(fun d ->
         match d with
-        | Dep_trm (tt, v) -> let tt' = f tt in Dep_trm (tt', v)
+        | Dep_trm (tt, v) -> let tt' = f tt in let tt' = trm_simplify_addressof_and_get tt' in Dep_trm (tt', v)
         | _ -> d) dl
   in
   List.map (fun p ->
