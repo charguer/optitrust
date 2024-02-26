@@ -27,22 +27,43 @@ int main() {
   int **po = new int *[10](), **pl = new int *[2] { aa, ab };
   int** pg = new int* [2] { aa, ab };
   int* ai = new int(1);
+#pragma omp task default(shared) depend(inout : a)
+  delete a;
+#pragma omp task default(shared) depend(inout : b)
+  delete b;
+#pragma omp task default(shared) depend(inout : c)
   delete c;
+#pragma omp task default(shared) depend(inout : d)
   delete d;
+#pragma omp task default(shared) depend(inout : f)
   delete f;
+#pragma omp task default(shared) depend(inout : h)
   delete[] h;
+#pragma omp task default(shared) depend(inout : k)
   delete k;
+#pragma omp task default(shared) depend(inout : l)
   delete l;
+#pragma omp task default(shared) depend(inout : m)
   delete m;
+#pragma omp task default(shared) depend(inout : n)
   delete n;
+#pragma omp task default(shared) depend(inout : r)
   delete r;
+#pragma omp task default(shared) depend(inout : t)
   delete[] t;
+#pragma omp task default(shared) depend(inout : u)
   delete[] u;
+#pragma omp task default(shared) depend(inout : v)
   delete[] v;
+#pragma omp task default(shared) depend(inout : w)
   delete[] w;
+#pragma omp task default(shared) depend(inout : y)
   delete[] y;
+#pragma omp task default(shared) depend(inout : z)
   delete[] z;
+#pragma omp task default(shared) depend(inout : po)
   delete[] po;
+#pragma omp task default(shared) depend(inout : pl)
   delete[] pl;
   return 0;
 }
