@@ -342,7 +342,7 @@ let default_unfold_simpl (tg : target) : unit =
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
           After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
-let%transfo unfold ?(accept_functions : bool = false) ?(simpl : Transfo.t = default_unfold_simpl) ?(delete : bool = true) ?(at : target = [])(tg : target) : unit =
+let%transfo unfold ?(simpl : Transfo.t = default_unfold_simpl) ?(delete : bool = true) ?(at : target = []) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -357,15 +357,15 @@ let%transfo unfold ?(accept_functions : bool = false) ?(simpl : Transfo.t = defa
       begin match vk with
       | Var_immutable ->
         if delete
-          then Variable_basic.inline ~mark ~accept_functions tg_decl
-          else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
+          then Variable_basic.inline ~mark tg_decl
+          else Variable_basic.unfold ~mark ~at tg_decl
       | Var_mutable ->
         if not (trm_has_cstyle Reference tg_trm) then Variable_basic.to_const tg_decl;
         if trm_has_cstyle Reference tg_trm
-          then Variable_basic.inline ~mark ~accept_functions tg_decl
+          then Variable_basic.inline ~mark tg_decl
           else if delete
-            then Variable_basic.inline ~mark ~accept_functions tg_decl
-          else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
+            then Variable_basic.inline ~mark tg_decl
+          else Variable_basic.unfold ~mark ~at tg_decl
       end;
       simpl [cMark mark];
       Marks.remove mark [nbAny; cMark mark]
@@ -378,9 +378,9 @@ let default_inline_simpl (tg : target) : unit =
 
 (* [inline ~accept_functions ~simpl_deref tg]: similar to [unfold] except that this transformation
      deletes the targeted declaration by default. *)
-let%transfo inline ?(accept_functions : bool = false) ?(simpl : Transfo.t = default_inline_simpl) (tg : target) : unit =
+let%transfo inline ?(simpl : Transfo.t = default_inline_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  unfold ~accept_functions ~simpl ~delete:true tg
+  unfold ~simpl ~delete:true tg
 
 (* [inline_and_rename]: expects the target [tg] to point at a variable declaration with an initial value
     being another variable. Then it will inline the targeted variable. And rename variable that was the

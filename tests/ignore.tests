@@ -25,6 +25,7 @@ instr/gather
 function/uninline
 record/method_to_const
 function/rename_args
+function/beta
 align/def
 matrix/insert_access_dim_index
 record/reorder_fields

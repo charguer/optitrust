@@ -9,41 +9,44 @@ let%transfo fold ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.fold at i t p) tg
 
-
-(* [unfold ~mark ~accept_functions ~at tg]: expects the target [tg] to be pointing at an initialized
-     variable declaration, then it will find all the occurrences of that variable and replace them with its
-     initial value.
-     [mark] - the initialization value,
-     [at] - denotes a target where the unfolding is done. If empty the operation
-             is performed on all the ast nodes in the same level as the
-             targeted declaration or deeper, by default [at] = [],
-     [accept_functions] - if true it will inline functions too,
-
-     beta way. Ex Suppose we have
-     void f(int x) { ... }
-     int main () {
-       f(3);
-       ....
-     }
-     Then it will transform it into;
-     void f(int x) {}
-     int main () {
-       (void f (int x) { ...}) (3);
-
-       ...
-     }
-
-     NOTE: the targeted variable must be a const variable. *)
-let%transfo unfold ?(mark : mark = no_mark) ?(accept_functions : bool = true) ?(at : target = []) (tg : target) : unit =
+(** [unfold ~mark ~at tg]: expects the target [tg] to be pointing at a variable declaration,
+    then it will replace all the occurence of this variable inside the terms pointed by the
+    target [~at] by the variable definition.
+      [mark] - a mark to be added everywhere the variable was unfolded,
+      [at] - denotes a target where the unfolding is done. If empty the operation
+            is performed on all the ast nodes in the same level as the
+            targeted declaration or deeper, by default [at] = [],
+*)
+let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit =
   Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
-  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-    (fun t (p, p_local, i) -> Variable_core.unfold false accept_functions mark at i p_local t p) tg
+  Target.iter (fun p ->
+    let t_decl = Target.resolve_path p in
+    let _, x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv t_decl in
+    let init = trm_add_mark mark init in
+    Target.apply_at_target_paths (trm_subst_var x init) at
+  ) tg
 
-(* [inline]: similar to [unfold] but this one deletes the targeted declaration. *)
-let%transfo inline ?(mark : mark = no_mark) ?(accept_functions : bool = false) (tg : target) : unit =
+(** [inline ~mark ~at tg]: expects the target [tg] to be pointing at a variable declaration,
+    then it will find all the occurrences of that variable and replace them with its initial value.
+      [mark] - a mark to be added everywhere the variable was inlined,
+      [delete_decl] - if true, then the declaration is removed during the inlining.
+*)
+let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : target) : unit =
   Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
-  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-    (fun t (p, p_local, i) -> Variable_core.unfold true accept_functions mark [] i p_local t p) tg
+  Target.iter (fun p ->
+    let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
+    let error = "Variable_core.unfold_aux: expected the surrounding sequence." in
+    Target.apply_at_path (fun t_seq ->
+      let t_seq = Target.resolve_path p_seq in
+      let tl = trm_inv ~error trm_seq_inv t_seq in
+      let dl = Mlist.nth tl index in
+      let dl = Path.resolve_path p_local dl in
+      let _, x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv dl in
+      let init = trm_add_mark mark init in
+      let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) (trm_subst_var x init) tl in
+      trm_seq ~annot:t_seq.annot new_tl
+    ) p_seq
+  ) tg
 
 (* [rename ~into tg]: expects the target [tg] to be pointing at a declaration, then it will
     rename its declaration and all its occurrences. *)

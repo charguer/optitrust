@@ -40,64 +40,6 @@ let fold (fold_at : target) (index) : Transfo.local =
   apply_on_path(fold_aux fold_at index)
 
 
-(* [unfold_aux delete_decl accept_functions mark unfold_at index t]: unfolds the targeted declaration,
-      [delete_decl] - if true deletes the targeted declaration,
-      [accept_functions] - if true unfolds functions too,
-      [mark] - add a mark at the intialization trm of the declaratin,
-      [unfold_at] - target where unfolding should be performed, if empty all the occurrences
-                   of the variable are replaced with its initialization value,
-      [index] - index of the targeted declaration inside its surrounding sequence,
-      [t] - ast of the sequence that contains the targeted declaration.*)
-let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (p_local : path) (t : trm) : trm =
-  let error = "Variable_core.unfodl_aux: expected the surrounding sequence." in
-  let tl = trm_inv ~error trm_seq_inv t in
-  let f_update (t : trm) : trm = t in
-  let f_update_further (t : trm) : trm =
-    let dl = Mlist.nth tl index in
-    let dl = Path.resolve_path p_local dl in
-    match dl.desc with
-    | Trm_let (vk, (x, _), init) ->
-      let init = trm_add_mark mark init in
-      begin match vk with
-      | Var_immutable ->
-        begin match unfold_at with
-        | [] -> trm_subst_var x init t
-        | _ -> Internal.change_trm ~change_at:[unfold_at] (trm_var x) init t
-        end
-      | Var_mutable ->
-        if trm_has_cstyle Reference dl
-          then
-            begin match unfold_at with
-            | [] -> trm_subst_var x init t
-            | _ -> Internal.change_trm ~change_at:[unfold_at] (trm_var x) init t
-            end
-          else trm_fail dl "Variable_core.unfold_aux: only const variables are safe to unfold"
-      end
-    (* qvar_inv_var (qx : qvar) : var option =
-         if qx.qvar_path = [] then Some qx.qvar_var
-           else None
-        M :: f(int x)
-
-        Target:
-          cFunDef "f" shouldn't match
-
-          cFunDef "M :: f"
-          cFunDef ~qpath:["M"] "f"
-          cFunDef ~qvar:(qvar ["M"] "f") ""
-     *)
-    | Trm_let_fun (f, _, _, _, _) ->
-      if accept_functions
-        then trm_subst_var f dl t
-        else trm_fail dl "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
-
-    | _ -> trm_fail t "Variable_core.unfodl_aux: expected a target to a variable or function definition"
-  in
-  let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index f_update f_update_further tl in
-  trm_seq ~annot:t.annot new_tl
-
-(* [unfold delete_decl accept_functions mark unfold_at index t p]: applies [unfold_aux] at trm [t] with path [p]. *)
-let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (p_local : path) : Transfo.local =
-  apply_on_path (unfold_aux delete_decl accept_functions mark unfold_at index p_local)
 
 
 (* [rename_aux index new_name t]: renames the variable declared on the targeted declaration all its occurrences,
