@@ -33,7 +33,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "pB" ~indep:["bi"; "i"] [cArrayRead "B"];
   !!! Matrix.stack_copy ~var:"sum" ~copy_var:"s" ~copy_dims:1 [cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "k"];
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
-  !! Omp.parallel_for [nbMulti; cFunBody "mm1024"; cStrict; cFor ""];
+  !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
   !! Loop.unroll [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
   !! Matrix.elim_mops [];
 )

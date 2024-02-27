@@ -349,6 +349,8 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       | Dir_app_fun, Trm_apps (f, _, _) -> aux f ctx
       | Dir_arg_nth n, Trm_apps (_, tl, _) ->
         app_to_nth dl tl n (fun nth_t -> aux nth_t ctx)
+      | Dir_ghost_arg_nth n, Trm_apps (_, _, gl) ->
+        app_to_nth dl gl n (fun (_, nth_t) -> aux nth_t ctx)
       | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
         app_to_nth dl arg n
           (fun (x, _) -> aux (trm_var ?loc x) ctx)
