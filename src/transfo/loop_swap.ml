@@ -269,6 +269,7 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
       Marks.add mark_inner_loop [Constr_paths [seq_p]; cMark inner_loop_m];
 
       Resources.loop_minimize (target_of_path outer_loop_p);
+      Resources.detach_loop_ro_focus [Constr_paths [seq_p]; cMark inner_loop_m];
 
       let inner_seq_tg = [Constr_paths [seq_p]; cMark outer_loop_m; dBody] in
       let inner_seq_p = resolve_target_exactly_one inner_seq_tg in

@@ -22,6 +22,8 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Loop.swap [cFunBody "par_reads"; cFor "i"];
 
+  !! Loop.swap [cFunBody "indep_reads"; cFor "i"];
+
   (* FIXME: *)
   (*!! Loop.swap [cFunBody "ghost_pairs"; cFor "i"];*)
 )

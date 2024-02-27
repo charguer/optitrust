@@ -85,6 +85,18 @@ void par_reads() {
   }
 }
 
+void indep_reads(int* M) {
+  __reads("M ~> Matrix2(5, 5)");
+
+  for (int i = 0; i < 5; i++) {
+    __reads("Group(range(0,5,1), fun j -> &M[MINDEX2(5,5,i,j)] ~> Cell)");
+    for (int j = 0; j < 5; j++) {
+      __reads("&M[MINDEX2(5,5,i,j)] ~> Cell");
+      M[MINDEX2(5,5,i,j)];
+    }
+  }
+}
+
 void ghost_pairs(int* x) {
   __reads("x ~> Matrix1(1)");
 

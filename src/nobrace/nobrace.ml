@@ -59,17 +59,11 @@ let set_if_sequence (t : trm) : trm =
 
 (* [is_nobrace t]: check if the current sequence is a hidden sequence or not *)
 let is_nobrace (t : trm) : bool =
-  match t.desc with
-  | Trm_seq _ ->
-    List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
-  | _ -> false
+  List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
 
 (* [remove_if_sequence t]: converts a hidden sequence to a normal one *)
 let remove_if_sequence (t : trm) : trm =
-  match t.desc with
-  | Trm_seq _ ->
-    if is_nobrace t then trm_filter_cstyle (function No_braces _ -> true | _ -> false) t else t
-  | _ -> t
+  trm_filter_cstyle (function No_braces _ -> false | _ -> true) t
 
 (* [flatten_seq]: flatten inside [tl] the sequences with annotation [No_braces id] *)
 let flatten_seq (id: int) (tl: trm Mlist.t): trm Mlist.t =

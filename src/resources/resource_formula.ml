@@ -246,3 +246,30 @@ let formula_geq = formula_cmp formula_assert_geq
 let var_checked = toplevel_var "checked"
 let formula_checked = trm_var var_checked
 
+(** [filter_common_resources res1 res2] finds all the resources that are common in [res1] and [res2], and returns [common, res1', res2'] where:
+  - [comm] are the common resources,
+  - [res1'] are the resources from [res1] that are not in [res2],
+  - [res2'] are the resources from [res2] that are not in [res1].
+
+  Resources are matched if they have the same formula, the resource names in [comm] are the names from [res1].
+
+  If [~filter] is provided, keep separated resources for which [filter] returns false.
+*)
+let filter_common_resources ?(filter = fun _ -> true) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
+  let res2 = ref res2 in
+  let rec try_remove_same_formula formula l =
+    match l with
+    | [] -> None
+    | (_,f)::l when are_same_trm f formula -> Some l
+    | res::l -> Option.map (fun l -> res::l) (try_remove_same_formula formula l)
+  in
+  let common, res1 = List.partition
+    (fun (_, formula) ->
+      if filter formula then
+        match try_remove_same_formula formula !res2 with
+        | None -> false
+        | Some new_res2 -> res2 := new_res2; true
+      else false)
+    res1
+  in
+  common, res1, !res2

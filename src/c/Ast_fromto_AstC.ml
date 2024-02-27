@@ -881,20 +881,7 @@ let rec contract_intro (style: style) (t: trm): trm =
   in
 
   let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
-    let post_linear = ref post_linear in
-    let rec try_remove_same_formula formula l =
-      match l with
-      | [] -> None
-      | (_,f)::l when are_same_trm f formula -> Some l
-      | res::l -> Option.map (fun l -> res::l) (try_remove_same_formula formula l)
-    in
-    let common_linear, pre_linear = List.partition
-      (fun (_, formula) ->
-        match try_remove_same_formula formula !post_linear with
-        | None -> false
-        | Some new_post_linear -> post_linear := new_post_linear; true)
-      pre_linear
-    in
+    let common_linear, pre_linear, post_linear = Resource_formula.filter_common_resources pre_linear post_linear in
 
     (* FIXME: This turns two reads formulas with a shared id into reads formulas with distinct id.
        Maybe this is not a problem in practice. *)
@@ -924,7 +911,7 @@ let rec contract_intro (style: style) (t: trm): trm =
 
     let t = push_named_formulas reads_prim reads_res t in
     let t = push_named_formulas modifies_prim modifies_res t in
-    (pre_pure, pre_linear, !post_linear, t)
+    (pre_pure, pre_linear, post_linear, t)
   in
   let push_reads_and_modifies ?(force=false) = if style.cstyle.ast.print_contract_internal_repr && not force then
     fun _ _ pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)

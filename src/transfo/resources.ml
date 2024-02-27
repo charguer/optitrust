@@ -361,7 +361,7 @@ let loop_minimize_on (t: trm): trm =
   trm_like ~old:t (trm_for range ~contract:new_contract body)
 
 (* [loop_minimize]: minimize linear invariants of a loop contract *)
-let%transfo loop_minimize ?(indepth : bool = false) (tg: target) : unit =
+let%transfo loop_minimize (*?(indepth : bool = false)*) (tg: target) : unit =
   ensure_computed ();
   (* TODO: Perform minimization recursively when indepth is true. *)
   Target.apply_at_target_paths loop_minimize_on tg;
@@ -401,6 +401,39 @@ let rec fix_loop_default_contract_rec ?(mark: mark = "") (t: trm): trm =
 let%transfo fix_loop_default_contracts (tg: target): unit =
   ensure_computed ();
   Target.apply_at_target_paths fix_loop_default_contract_rec tg;
+  justif_correct "only changed loop contracts"
+
+
+let ghost_group_ro_focus = toplevel_var "group_ro_focus"
+
+let detach_loop_ro_focus_on (t: trm): trm =
+  let range, body, contract = trm_inv ~error:"detach_loop_ro_focus_on: not a for loop" trm_for_inv t in
+  let contract = unsome_or_trm_fail t "detach_loop_ro_focus_on: expected a contract on the for loop" contract in
+  let iter_reads, iter_pre, iter_post = filter_common_resources ~filter:(fun formula -> Option.is_some (formula_read_only_inv formula)) contract.iter_contract.pre.linear contract.iter_contract.post.linear in
+  let new_par_reads = List.map (fun (x, formula) -> (x, formula_group_range range formula)) iter_reads in
+  let contract = { contract with
+    iter_contract = {
+      pre = { contract.iter_contract.pre with linear = iter_pre };
+      post = { contract.iter_contract.post with linear = iter_post }
+    };
+    parallel_reads = new_par_reads @ contract.parallel_reads
+  } in
+  let (index, _, _, _, _) = range in
+  let new_body = trm_seq_nobrace (trm_inv trm_seq_inv body) in
+  let new_body = List.fold_right (fun (_, formula) ->
+    let { formula } = Option.get (formula_read_only_inv formula) in
+    let i = new_var index.name in
+    let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
+    Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var index); "items", items; "bound_check_start", formula_checked; "bound_check_stop", formula_checked; "bound_check_step", formula_checked])) iter_reads new_body
+  in
+  let new_body = trm_like ~old:body new_body in
+  trm_like ~old:t (trm_for range ~contract new_body)
+
+(* [detach_loop_ro_focus tg] transforms all the ressources that are in a reads clause into a resource in a par_read clause with a focus around the loop body. *)
+let%transfo detach_loop_ro_focus (tg: target): unit =
+  Nobrace_transfo.remove_after (fun () ->
+    Target.apply_at_target_paths detach_loop_ro_focus_on tg
+  );
   justif_correct "only changed loop contracts"
 
 

@@ -792,7 +792,7 @@ DETAILS for [unroll]
 let%transfo unroll_nest_of_1 ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
   Target.iteri (fun i p ->
     let tg_loop_trm  = Target.resolve_path p in
-    let (l_range, _, _) = trm_inv ~error:"Loop.unroll: expected a loop to unroll" trm_for_inv tg_loop_trm in
+    let (l_range, _, contract) = trm_inv ~error:"Loop.unroll: expected a loop to unroll" trm_for_inv tg_loop_trm in
     let (_, start, _, stop, _) = l_range in
 
     let unfold_bound (x : var) =
@@ -808,6 +808,9 @@ let%transfo unroll_nest_of_1 ?(inner_braces : bool = false) ?(outer_seq_with_mar
         unfold_bound var_stop);
       Pattern.__ ()
     ];
+    (* LATER: Replace this by a proper handling of loop ghosts in Loop_basic.unroll *)
+    if contract <> None then
+      Resources.detach_loop_ro_focus (target_of_path p);
 
     Marks.with_fresh_mark (fun subst_mark ->
       Loop_basic.unroll ~inner_braces ~outer_seq_with_mark ~subst_mark (target_of_path p);

@@ -8,4 +8,6 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Loop.unroll ~nest_of:2 [cFor "k"];
 
+  !! Loop.unroll [nbMulti; cFunBody "iter_contract_ro"; cFor "x"];
+
 )
