@@ -789,8 +789,7 @@ DETAILS for [unroll]
 
     LATER: This transformation should be factorized, that may change the docs. *)
 
-let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) ?(simpl: Transfo.t = default_simpl) ?(shuffle : bool = false) (tg : target) : unit =
-  (* in [unroll]: reparse_after ~reparse:(not braces) *)
+let%transfo unroll_nest_of_1 ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
   Target.iteri (fun i p ->
     let tg_loop_trm  = Target.resolve_path p in
     let (l_range, _, _) = trm_inv ~error:"Loop.unroll: expected a loop to unroll" trm_for_inv tg_loop_trm in
@@ -810,43 +809,23 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       Pattern.__ ()
     ];
 
-    let my_mark = "__unroll_" ^ string_of_int i in
     Marks.with_fresh_mark (fun subst_mark ->
-      Loop_basic.unroll ~inner_braces:true ~outer_seq_with_mark:my_mark ~subst_mark (target_of_path p);
+      Loop_basic.unroll ~inner_braces ~outer_seq_with_mark ~subst_mark (target_of_path p);
       simpl [nbAny; cMark subst_mark];
-    );
-    let unrolled_seq = trm_inv trm_seq_inv (Target.resolve_path p) in
-    for x = 0 to Mlist.length unrolled_seq - 1 do
-      Sequence_basic.partition ~braces blocks [cMark my_mark; dSeqNth x]
-    done;
-    if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
-    Sequence_basic.elim [cMark my_mark];
+    )
   ) tg
 
-(* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
-    is of the form for(int i = a; i < a + C; i++){..} then it will move the
-    the instructions out of the loop and the loop will be removed. It works also
-    in the case when C = 0 and a is a constant variable. To get the number of steps
-    a is first inlined.
 
-    [braces]: a flag on the visiblity of blocks created during the unroll process
-
-    [blocks]: a list of integers describing the partition type of the targeted sequence
-
-    [shuffle]: shuffle blocks
-
-    [nest_of]: denotes the number of nested loops to consider. *)
-let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) ?(simpl: Transfo.t = default_simpl) ?(nest_of : int = 1) (tg : target) : unit =
+(** [unroll tg] unrolls a loop nest and perform arithmetic simplification on the resulting trm. *)
+let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: Transfo.t = default_simpl) ?(nest_of : int = 1) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   assert (nest_of > 0);
   let rec aux p nest_of =
     if nest_of > 1 then
       aux (Path.to_inner_loop p) (nest_of - 1);
-    unroll_nest_of_1 ~simpl (target_of_path p);
+    unroll_nest_of_1 ~inner_braces ~outer_seq_with_mark ~simpl (target_of_path p);
   in
-  (* reparse_after ~reparse:(not braces) ( *)
-    Target.iter (fun p -> aux p nest_of)
-  (* ) *) tg
+  Target.iter (fun p -> aux p nest_of) tg
 
 (* [reorder ~order tg]:  expects the target [tg] to point at the first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and

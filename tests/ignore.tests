@@ -31,7 +31,6 @@ matrix/insert_access_dim_index
 record/reorder_fields
 array/elim_constant
 record/align_field
-loop/unroll/loop_unroll.ml
 loop/unfold_bound
 matrix/reorder_dims
 matrix/delocalize
