@@ -15,7 +15,6 @@ let debug = false
 
 (* [ml_file_excerpts]: maps line numbers to the corresponding sections in-between [!!] marks in
    the source file. Line numbers are counted from 1 in that map. *)
-module Int_map = Map.Make(Int)
 let ml_file_excerpts = ref Int_map.empty
 let debug_compute_ml_file_excerpts = false
 
