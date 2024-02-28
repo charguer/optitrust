@@ -19,9 +19,9 @@ void c(int* tab, const int size) {
     int i;
 #pragma omp task default(shared) depend(inout : *tab)
     f(tab);
-#pragma omp task default(shared) depend(in : size) depend(inout : i, tab[*i])
+#pragma omp task default(shared) depend(in : size) depend(inout : i, tab[i])
     for (i = 0; i < size; i++) {
-#pragma omp task default(shared) depend(inout : tab[*i])
+#pragma omp task default(shared) depend(inout : tab[i])
       {
         tab[i] += 2;
         p(tab[i]);

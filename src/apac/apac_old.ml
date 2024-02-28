@@ -1,4 +1,42 @@
 (*
+  (* [vars_tbl]: hashtable generic to keep track of variables and their pointer
+    depth. This abstrastion is used for generic functions. *)
+type 'a vars_tbl = (var, (int * 'a)) Hashtbl.t
+(* [get_vars_data_from_cptr_arith va t] : resolve pointer operation to get the
+    pointer variable. Then, return the data of the corresponding variable stored
+    in vars_tbl. *)
+let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
+  let rec aux (depth : int) (t: trm) : 'a option =
+    match t.desc with
+    (* unop : progress deeper + update depth *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
+      begin match uo with
+      | Unop_get -> aux (depth-1) t
+      | Unop_address -> aux (depth+1) t
+      | Unop_cast ty -> aux (depth + typ_get_degree ty) t
+      | _ -> None
+      end
+    (* binop array access : progress deeper + update depth *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ },
+        [t; _]) -> aux (depth-1) t
+    (* binop : progress deeper + resolve left and right sides *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+      begin match (aux depth lhs, aux depth rhs) with
+      | Some(res), None -> Some(res)
+      | None, Some(res) -> Some(res)
+      | None, None -> None
+      | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers"
+      end
+    (* variable : resolve variable *)
+    | Trm_var (_ ,qv) ->
+      begin match Hashtbl.find_opt va qv with
+      | Some (d, arg_idx) when (d + depth) > 0 -> Some (arg_idx)
+      | _ -> None
+      end
+    | _ -> None
+  in
+  aux 0 t
+
 (* [decl_cptrs]: hashtable storing available varaibles and whether they are
     arrays. *)
 type decl_cptrs = (var, bool) Hashtbl.t
