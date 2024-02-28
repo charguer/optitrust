@@ -424,7 +424,7 @@ let detach_loop_ro_focus_on (t: trm): trm =
     let { formula } = Option.get (formula_read_only_inv formula) in
     let i = new_var index.name in
     let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
-    Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var index); "items", items; "bound_check_start", formula_checked; "bound_check_stop", formula_checked; "bound_check_step", formula_checked])) iter_reads new_body
+    Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var index); "items", items])) iter_reads new_body
   in
   let new_body = trm_like ~old:body new_body in
   trm_like ~old:t (trm_for range ~contract new_body)

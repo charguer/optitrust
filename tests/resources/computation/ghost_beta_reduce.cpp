@@ -21,12 +21,12 @@ void f() {
 
 void g(float* M) {
   __modifies("M ~> Matrix1(1024)");
-  __ghost(tile_divides, "tile_size := 256, tile_count := 4, bound_check := checked");
-  __ghost(untile_divides, "n := 1024, items := fun i -> &M[MINDEX1(1024, i)] ~> Cell, bound_check := checked");
+  __ghost(tile_divides, "tile_size := 256, tile_count := 4");
+  __ghost(untile_divides, "n := 1024, items := fun i -> &M[MINDEX1(1024, i)] ~> Cell");
 }
 
 void g2(float* M) {
   __modifies("M ~> Matrix1(1024)");
-  __GHOST_BEGIN(tileM, tile_divides, "tile_size := 256, tile_count := 4, bound_check := checked");
+  __GHOST_BEGIN(tileM, tile_divides, "tile_size := 256, tile_count := 4");
   __GHOST_END(tileM);
 }

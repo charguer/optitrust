@@ -19,8 +19,8 @@ let%transfo transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : tr
    operations will be swapped. *)
 let%transfo scale ?(inv:bool=false) ~factor:(factor:trm) (tg : target) : unit =
   let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
-  let f_get t = Arith_core.apply_aux op_get factor t in
-  let f_set t = Arith_core.apply_aux op_set factor t in
+  let f_get t = Arith_core.apply op_get factor t in
+  let f_set t = Arith_core.apply op_set factor t in
   transform f_get f_set tg
 
 (* [shift ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args
@@ -28,8 +28,8 @@ let%transfo scale ?(inv:bool=false) ~factor:(factor:trm) (tg : target) : unit =
    will be swapped. *)
 let%transfo shift ?(inv:bool=false) ~factor:(factor : trm) (tg : target) : unit =
   let op_get, op_set = if inv then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
-  let f_get t = Arith_core.apply_aux op_get factor t in
-  let f_set t = Arith_core.apply_aux op_set factor t in
+  let f_get t = Arith_core.apply op_get factor t in
+  let f_set t = Arith_core.apply op_set factor t in
   transform f_get f_set tg
 
 (* [intro tg]: expects the target [tg] to be pointing at any node that could contain struct accesses, preferably

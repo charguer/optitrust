@@ -146,7 +146,7 @@ let%transfo hoist ?(name : string = "${var}_step")
           ?(mark_alloc : mark = no_mark)
           ?(mark_free : mark = no_mark)
           ?(mark_tmp_var : mark = no_mark)
-          ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
+          ?(arith_f : trm -> trm = Arith_core.(simplify true gather_rec))
          (tg : target) : unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->

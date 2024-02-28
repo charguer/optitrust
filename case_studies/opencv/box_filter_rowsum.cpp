@@ -26,7 +26,7 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
       s += (ST) S[MINDEX2(n+kn, cn, i, c)];
       __GHOST_END(sf);
     }
-    __GHOST_BEGIN(df, group_focus, "items := fun i -> &D[MINDEX2(n, cn, i, c)] ~> Cell, i := 0, bound_check_start := checked, bound_check_stop := checked,  bound_check_step := checked");
+    __GHOST_BEGIN(df, group_focus, "items := fun i -> &D[MINDEX2(n, cn, i, c)] ~> Cell, i := 0");
     D[MINDEX2(n, cn, 0, c)] = s;
     __GHOST_END(df);
     // for each pixel, shift the sliding window
@@ -41,7 +41,7 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
       __GHOST_BEGIN(sf2, matrix2_ro_focus, "M := S, i := i + kn, j := c");
       s += (ST) S[MINDEX2(n+kn, cn, i + kn, c)];
       __GHOST_END(sf2);
-      __GHOST_BEGIN(df, group_focus, "items := fun i -> &D[MINDEX2(n, cn, i, c)] ~> Cell, i := i + 1, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+      __GHOST_BEGIN(df, group_focus, "items := fun i -> &D[MINDEX2(n, cn, i, c)] ~> Cell, i := i + 1");
       D[MINDEX2(n, cn, i + 1, c)] = s;
       __GHOST_END(df);
     }

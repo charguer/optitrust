@@ -118,11 +118,9 @@ void indep_reads(int* M) {
     for (int i = 0; i < 5; i++) {
       __reads(
           "Group(range(0, 5, 1), fun j -> &M[MINDEX2(5, 5, i, j)] ~> Cell)");
-      const __ghost_fn __ghost_pair_1 =
-          __ghost_begin(group_ro_focus,
-                        "i := j, items := fun j -> &M[MINDEX2(5, 5, i, j)] ~> "
-                        "Cell, bound_check_start := checked, bound_check_stop "
-                        ":= checked, bound_check_step := checked");
+      const __ghost_fn __ghost_pair_1 = __ghost_begin(
+          group_ro_focus,
+          "i := j, items := fun j -> &M[MINDEX2(5, 5, i, j)] ~> Cell");
       M[MINDEX2(5, 5, i, j)];
       __ghost_end(__ghost_pair_1);
     }
