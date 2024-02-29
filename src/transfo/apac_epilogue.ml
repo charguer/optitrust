@@ -9,26 +9,29 @@ open Apac_dep
 (* [trmq]: a persistent FIFO queue of terms. *)
 type trmq = trm Queue.t
 
-let subst_pragmas (name : var) (space : trm)
+let subst_pragmas (va : var) (tv : trm)
       (pl : cpragma list) : cpragma list =
   let aux (dl : deps) : deps =
+    let v0 = Val_lit (Lit_int 0) in
+    let v0 = trm_val v0 in
     List.map(fun d ->
-        match d with
+        let d' = Dep.to_atomic d in
+        let deg = Dep.degree d in
+        let d' = match d' with
         | Dep_trm (t, v) ->
-           let space' = match t.desc with
-             (*  | Trm_var (_, v') when v' = name -> trm_get space*)
-             | _ -> space
+           let tv' = match t.desc with
+             | Trm_var (_, v') when v' = va ->
+                trm_array_get (trm_get tv) v0
+             | _ -> trm_get tv
            in
-           let t' = trm_subst_var name space' t in
+           let t' = trm_subst_var va tv' t in
            Dep_trm (t', v)
-        | Dep_var v when v = name -> (*Dep_ptr (d)*) d
-        | Dep_ptr _ ->
-           let d' = Dep.to_atomic d in
-           begin match d' with
-           (*  | Dep_var v when v = name -> Dep_ptr (d)*)
-           | _ -> d
-           end
-        | _ -> d) dl
+        | Dep_var v when v = va ->
+           let t' = trm_array_get (trm_get tv) v0 in
+           Dep_trm (t', v)
+        | _ -> d'
+        in
+        Dep.of_atomic d' deg) dl
   in
   List.map (fun p ->
       let cl' = match p with
@@ -439,7 +442,7 @@ let heapify_on (t : trm) : trm =
                    | Trm_delete (arr, tv) when not arr ->
                       begin match tv.desc with
                       | Trm_var (_, v) -> apply_on_pragmas (fun pl ->
-                                              (subst_pragmas v (trm_get tv))
+                                              (subst_pragmas v tv)
                                                 pl) acc
                       | _ -> acc
                       end
