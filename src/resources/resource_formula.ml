@@ -116,17 +116,30 @@ let trm_cell = trm_var var_cell
 let formula_cell (x: var): formula =
   formula_model (trm_var x) trm_cell
 
-let var_group = toplevel_var "Group"
-let trm_group = trm_var var_group
 let var_range = toplevel_var "range"
 let trm_range = trm_var var_range
+let formula_range (start: trm) (stop: trm) (step: trm) =
+  trm_apps trm_range [start; stop; step]
+
+let var_group = toplevel_var "Group"
+let trm_group = trm_var var_group
 
 let formula_matrix (m: trm) (dims: trm list) : formula =
   let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
   let inner_trm = formula_model (Matrix_trm.access m dims (List.map trm_var indices)) trm_cell in
   List.fold_right2 (fun idx dim formula ->
-    trm_apps ~annot:formula_annot trm_group [trm_apps trm_range [trm_int 0; dim; trm_int 1]; formula_fun [idx, typ_int ()] None formula])
+    trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int ()] None formula])
     indices dims inner_trm
+
+let var_in_range = toplevel_var "in_range"
+let trm_in_range = trm_var var_in_range
+let formula_in_range (i: trm) (range: trm) =
+  trm_apps trm_in_range [i; range]
+
+let var_is_subrange = toplevel_var "is_subrange"
+let trm_is_subrange = trm_var var_is_subrange
+let formula_is_subrange (range1: trm) (range2: trm) =
+  trm_apps trm_is_subrange [range1; range2]
 
 module Pattern = struct
   include Pattern
@@ -184,7 +197,7 @@ let formula_map_under_mode (f_map: formula -> formula): formula -> formula =
 
 let formula_loop_range ((_, tfrom, dir, tto, step): loop_range): formula =
   if dir <> DirUp then failwith "formula_loop_range only supports DirUp";
-  trm_apps trm_range [tfrom; tto; loop_step_to_trm step]
+  formula_range tfrom tto (loop_step_to_trm step)
 
 let formula_group_range ((idx, _, _, _, _) as range: loop_range) =
   formula_map_under_mode (fun fi ->
@@ -243,8 +256,8 @@ let formula_gt = formula_cmp formula_assert_gt
 let formula_leq = formula_cmp formula_assert_leq
 let formula_geq = formula_cmp formula_assert_geq
 
-let var_checked = toplevel_var "checked"
-let formula_checked = trm_var var_checked
+let var_arith_checked = toplevel_var "arith_checked"
+let formula_arith_checked = trm_var var_arith_checked
 
 (** [filter_common_resources res1 res2] finds all the resources that are common in [res1] and [res2], and returns [common, res1', res2'] where:
   - [comm] are the common resources,

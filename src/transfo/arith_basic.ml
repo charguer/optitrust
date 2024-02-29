@@ -8,19 +8,19 @@ include Arith_core
 let%transfo shift ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option)
   ?(post_cast : typ option) (u : trm) (tg : target) : unit =
   reparse_after ~reparse (
-    apply_on_targets (Arith_core.transform Arith_shift inv u pre_cast post_cast) ) tg
+    Target.apply_at_target_paths (Arith_core.transform Arith_shift inv u pre_cast post_cast)) tg
 
 (* [scale ~inv ~pre_cast ~post_cast u] *)
 let%transfo scale ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option)
   ?(post_cast : typ option) (u : trm) (tg : target) : unit =
   reparse_after ~reparse (
-    apply_on_targets (Arith_core.transform Arith_scale inv u pre_cast post_cast) ) tg
+    Target.apply_at_target_paths (Arith_core.transform Arith_scale inv u pre_cast post_cast) ) tg
 
 (* [apply op arg] expects the target [tg] to be pointing at any node of the ast
       then it applies the binary operation [op] at that node with the second argument
       of that operation being [arg] *)
 let%transfo apply (op : binary_op) (arg : trm) (tg : target) : unit =
-  apply_on_targets (Arith_core.apply op arg) tg
+  Target.apply_at_target_paths (Arith_core.apply op arg) tg
 
 (* [simpl f] applies a arithmetic rewriting method from the module Arith_core:
    - gather  for grouping and cancelling out similar expressions in sums and produts
@@ -28,7 +28,7 @@ let%transfo apply (op : binary_op) (arg : trm) (tg : target) : unit =
 let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : unit =
   Trace.justif_always_correct ();
   Trace.tag_simpl_arith ();
-  apply_on_targets (Arith_core.simplify indepth f) tg
+  Target.apply_at_target_paths (Arith_core.simplify indepth f) tg
 
 (* [simpl_rec f tg] just an alias for simpl ~indepth:true tg *)
 let%transfo simpl_rec (f : (expr -> expr)) (tg : target) : unit =

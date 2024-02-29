@@ -124,11 +124,42 @@ let raise_resource_not_found (kind: resource_kind) ((name, formula): resource_it
   let inside = List.map (fun (x, formula) -> (x, trm_subst subst_ctx formula)) inside in
   raise (Resource_not_found (kind, (name, formula), inside))
 
+let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx): unification_ctx option =
+  let subst_ctx = Var_map.fold (fun var subst ctx ->
+    match subst with
+    | Some t -> Var_map.add var t ctx
+    | None -> ctx) evar_ctx Var_map.empty
+  in
+  let formula = trm_subst subst_ctx formula in
+  let arith_solved = Pattern.pattern_match formula [
+    Pattern.(trm_apps2 (trm_var (var_eq var_in_range)) !__ (formula_range !__ !__ !__)) (fun index start stop step ->
+      Arith_core.(check_geq index start && check_leq index stop && check_eq (trm_mod index step) (trm_int 0))
+    );
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step ->
+      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))
+    );
+    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_eq)) !__ !__) Arith_core.check_eq;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_neq)) !__ !__) Arith_core.check_neq;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_gt)) !__ !__) Arith_core.check_gt;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_geq)) !__ !__) Arith_core.check_geq;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_lt)) !__ !__) Arith_core.check_lt;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_leq)) !__ !__) Arith_core.check_leq;
+    Pattern.__ false
+  ] in
+  if arith_solved then
+    let evar_ctx = Var_map.add x (Some formula_arith_checked) evar_ctx in
+    Some evar_ctx
+  else
+    None
+
+
 (** [unify_pure (x, formula) res evar_ctx] unifies the given [formula] with one of the resources in [res].
+
+   If none of the resources match, the optional goal solver is tried on the formula to try to discharge it.
 
    Also add a binding from [x] to the found resource in [evar_ctx].
    If it fails raise a {!Resource_not_found} exception. *)
-let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx: unification_ctx): unification_ctx =
+let unify_pure ((x, formula): resource_item) (res: pure_resource_set) ?(goal_solver = arith_goal_solver) (evar_ctx: unification_ctx): unification_ctx =
   (* Add flag to disallow pure instantiation *)
   let find_formula formula (hyp_candidate, formula_candidate) =
     Option.map (fun evar_ctx -> Var_map.add x (Some (trm_var hyp_candidate)) evar_ctx)
@@ -136,7 +167,10 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx:
   in
   match List.find_map (find_formula formula) res with
   | Some evar_ctx -> evar_ctx
-  | None -> raise_resource_not_found Pure (x, formula) evar_ctx res
+  | None ->
+    match goal_solver (x, formula) evar_ctx with
+    | Some evar_ctx -> evar_ctx
+    | None -> raise_resource_not_found Pure (x, formula) evar_ctx res
 
 
 (** [subtract_linear_resource_item ~split_frac (x, formula) res evar_ctx] subtracts [formula]
@@ -1068,16 +1102,16 @@ let rec compute_resources
         None, None
       end
 
-    (* A for loop with unspecified contract is using the default contract:
-       All resources available are considered part of the invariant.
-       Because of that we do not need to do any typechecking outside of the loop. *)
-    | Trm_for (range, body, None) ->
-      let expected_res = Resource_set.make ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
-      let usage_map, _ = compute_resources ~expected_res (Some (Resource_set.demote_efracs res)) body in
-      usage_map, Some (Resource_set.bind ~keep_efracs:true ~old_res:res ~new_res:expected_res)
-
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
-    | Trm_for (range, body, Some contract) ->
+    | Trm_for (range, body, contract) ->
+      (* If there is no contract, put all the resources in a virtual invariant *)
+      let contract = match contract with
+        | Some contract -> contract
+        | None ->
+          let invariant_res = Resource_set.make ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
+          { Resource_contract.empty_loop_contract with invariant = invariant_res }
+      in
+
       let outer_contract = contract_outside_loop range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 

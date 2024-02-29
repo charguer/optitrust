@@ -270,9 +270,8 @@ inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
                     const void*__restrict__ src, size_t s_offset,
                     size_t elems, size_t bytes_per_item) {
   __requires("d_end: size_t, s_end: size_t, d_all: size_t, s_all: size_t");
-  // __requires("check_range: 0 <= d_offset <= d_end && 0 <= s_offset <= s_end");
-  // __requires("check_dim: d_end <= d_all && s_end <= s_all");
-  // __requires("check_elems: elems == d_end - d_offset == s_end - s_offset");
+  __requires("check_d_size: d_end = d_offset + elems");
+  __requires("check_s_size: s_end = s_offset + elems");
   __writes("Group(range(d_offset, d_end, 1), fun k -> &dest[MINDEX1(d_all, k)] ~> Cell)");
   __reads("Group(range(s_offset, s_end, 1), fun k -> &src[MINDEX1(s_all, k)] ~> Cell)");
   __admitted();
@@ -411,10 +410,10 @@ __GHOST(ro_untile_divides) {
 }
 
 __GHOST(group_focus) {
-  __requires("i: int, start: int, stop: int, step: int, items: int -> formula");
-  __requires("bound_check_start: start <= i, bound_check_stop: i < stop, bound_check_step: (start + i) % step = 0");
-  __consumes("Group(range(start, stop, step), items)");
-  __produces("Wand(items(i), Group(range(start, stop, step), items)), items(i)");
+  __requires("i: int, range: range, items: int -> formula");
+  __requires("bound_check: in_range(i, range)");
+  __consumes("Group(range, items)");
+  __produces("Wand(items(i), Group(range, items)), items(i)");
   __admitted();
 }
 
@@ -425,10 +424,10 @@ __GHOST(group_unfocus) {
 }
 
 __GHOST(group_ro_focus) {
-  __requires("i: int, start: int, stop: int, step: int, items: int -> formula, f: _Fraction");
-  __requires("bound_check_start: start <= i, bound_check_stop: i < stop, bound_check_step: (start + i) % step = 0");
-  __consumes("_RO(f, Group(range(start, stop, step), items))");
-  __produces("Wand(_RO(f, items(i)), _RO(f, Group(range(start, stop, step), items))), _RO(f, items(i))");
+  __requires("i: int, range: range, items: int -> formula, f: _Fraction");
+  __requires("bound_check: in_range(i, range)");
+  __consumes("_RO(f, Group(range, items))");
+  __produces("Wand(_RO(f, items(i)), _RO(f, Group(range, items))), _RO(f, items(i))");
   __admitted();
 }
 
@@ -439,11 +438,10 @@ __GHOST(group_ro_unfocus) {
 }
 
 __GHOST(group_focus_subrange) {
-  __requires("start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
-  // __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
-  // TODO: old_start <= start && stop <= old_stop && step > 0
-  __consumes("Group(range(old_start, old_stop, step), items)");
-  __produces("Wand(Group(range(start, stop, step), items), Group(range(old_start, old_stop, step), items)), Group(range(start, stop, step), items)");
+  __requires("sub_range: range, big_range: range, items: int -> formula");
+  __requires("bound_check: is_subrange(sub_range, big_range)");
+  __consumes("Group(big_range, items)");
+  __produces("Wand(Group(sub_range, items), Group(big_range, items)), Group(sub_range, items)");
   __admitted();
 }
 
@@ -453,15 +451,12 @@ __GHOST(group_unfocus_subrange) {
 }
 
 __GHOST(group_focus_subrange_uninit) {
-  __requires("start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> formula");
-  // __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
-  // TODO: old_start <= start && stop <= old_stop && step > 0
-  __consumes("_Uninit(Group(range(old_start, old_stop, step), items))");
-  __produces("Wand("
-    "_Uninit(Group(range(start, stop, step), items)),"
-    "_Uninit(Group(range(old_start, old_stop, step), items))"
-    "),"
-    "_Uninit(Group(range(start, stop, step), items))");
+  __requires("sub_range: range, big_range: range, items: int -> formula");
+  __requires("bound_check: is_subrange(sub_range, big_range)");
+  __consumes("_Uninit(Group(big_range, items))");
+  __produces(
+    "Wand(_Uninit(Group(sub_range, items)),_Uninit(Group(big_range, items))),"
+    "_Uninit(Group(sub_range, items))");
   __admitted();
 }
 
@@ -471,21 +466,93 @@ __GHOST(group_unfocus_subrange_uninit) {
 }
 
 __GHOST(group2_focus_subrange_uninit) {
-  __requires("start: int, stop: int, step: int, old_start: int, old_stop: int, items: int -> int -> formula,"
-    " ra1: int, rb1: int, rs1: int");
-  // __requires("bound_check_start: old_start <= start, bound_check_stop: stop <= old_stop");
-  // TODO: old_start <= start && stop <= old_stop && step > 0
-  __consumes("_Uninit(Group(range(ra1, rb1, rs1), fun i -> Group(range(old_start, old_stop, step), items(i))))");
+  __requires("outer_range: range, sub_range: range, big_range: range, items: int -> int -> formula");
+  __requires("bound_check: is_subrange(sub_range, big_range)");
+  __consumes("_Uninit(Group(outer_range, fun i -> Group(big_range, items(i))))");
   __produces("Wand("
-    "_Uninit(Group(range(ra1, rb1, rs1), fun i -> Group(range(start, stop, step), items(i)))),"
-    "_Uninit(Group(range(ra1, rb1, rs1), fun i -> Group(range(old_start, old_stop, step), items(i))))"
+    "_Uninit(Group(outer_range, fun i -> Group(sub_range, items(i)))),"
+    "_Uninit(Group(outer_range, fun i -> Group(big_range, items(i))))"
     "),"
-    "_Uninit(Group(range(ra1, rb1, rs1), fun i -> Group(range(start, stop, step), items(i))))");
+    "_Uninit(Group(outer_range, fun i -> Group(sub_range, items(i))))");
 
   __admitted();
   /* for (int i = ra1; i < rb1; i += rs1) {
     __ghost(group_focus_subrange_uninit, ...);
   } */
+
+  /* FIXME: This ghost should not be needed but to circumvent it we would have to write:
+  __with_reverse(
+    [&]() {
+      __consumes("_Uninit(Group(range(0, 10, 1), fun i -> "
+                 "Group(range(0, 10, 1), fun j -> "
+                 "Group(range(0, 4, 1), fun k -> "
+                 "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))))");
+      __produces("_Uninit(Group(range(0, 10, 1), fun i -> "
+                 "Group(range(2, 10, 1), fun j -> "
+                 "Group(range(0, 4, 1), fun k -> "
+                 "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))))"
+                 ", "
+                 "Group(range(0, 10, 1), fun i -> Wand("
+                 "  _Uninit("
+                 "  Group(range(2, 10, 1), fun j -> "
+                 "  Group(range(0, 4, 1), fun k -> "
+                 "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))), "
+                 "  _Uninit("
+                 "  Group(range(0, 10, 1), fun j -> "
+                 "  Group(range(0, 4, 1), fun k -> "
+                 "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                 "))");
+      for (int i = 0; i < 10; i++) {
+        __consumes("_Uninit("
+                  "Group(range(0, 10, 1), fun j -> "
+                  "Group(range(0, 4, 1), fun k -> "
+                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))");
+        __produces("_Uninit("
+                  "Group(range(2, 10, 1), fun j -> "
+                  "Group(range(0, 4, 1), fun k -> "
+                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                  ", "
+                  "Wand("
+                  "  _Uninit("
+                  "  Group(range(2, 10, 1), fun j -> "
+                  "  Group(range(0, 4, 1), fun k -> "
+                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))), "
+                  "  _Uninit("
+                  "  Group(range(0, 10, 1), fun j -> "
+                  "  Group(range(0, 4, 1), fun k -> "
+                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                  ")");
+        __ghost(group_focus_subrange_uninit,
+          "items := fun j -> Group(range(0, 4, 1), fun k -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell), "
+          "start := 2, stop := 10, step := 1");
+      }
+    },
+    [&]() {
+      for (int i = 0; i < 10; i++) {
+        __produces("_Uninit("
+                  "Group(range(0, 10, 1), fun j -> "
+                  "Group(range(0, 4, 1), fun k -> "
+                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))");
+        __consumes("_Uninit("
+                  "Group(range(2, 10, 1), fun j -> "
+                  "Group(range(0, 4, 1), fun k -> "
+                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                  ", "
+                  "Wand("
+                  "  _Uninit("
+                  "  Group(range(2, 10, 1), fun j -> "
+                  "  Group(range(0, 4, 1), fun k -> "
+                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))), "
+                  "  _Uninit("
+                  "  Group(range(0, 10, 1), fun j -> "
+                  "  Group(range(0, 4, 1), fun k -> "
+                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                  ")");
+        __ghost(group_unfocus_subrange_uninit, "items := fun j -> Group(range(0, 4, 1), fun k -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)");
+      }
+    }
+  )
+  */
 }
 
 __GHOST(group2_unfocus_subrange_uninit) {
@@ -499,11 +566,11 @@ __GHOST(group2_unfocus_subrange_uninit) {
 /* --- group_shift and nested variants: */
 
 __GHOST(group_shift) {
-  __requires("a: int, b: int, step: int, items: int -> formula");
-  __requires("a2: int, b2: int");
-  // __requires("bound_check: (b2 - b) == (a2 - b) || (b - a) == (b2 - a2)");
-  __consumes("Group(range(a, b, step), fun i -> items(i))");
-  __produces("Group(range(a2, b2, step), fun i -> items(i - a2 + a))");
+  __requires("start: int, stop: int, step: int, items: int -> formula");
+  __requires("shift: int, new_start: int, new_stop: int");
+  __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
+  __consumes("Group(range(start, stop, step), fun i -> items(i))");
+  __produces("Group(range(new_start, new_stop, step), fun i -> items(i - shift))");
   __admitted();
 }
 
@@ -512,47 +579,12 @@ __GHOST(group_unshift) {
   __admitted();
 }
 
-__GHOST(group2_shift) {
-  __requires("a: int, b: int, step: int, items: int -> int -> formula");
-  __requires("a2: int, b2: int");
-  __requires("range1: formula");
-  // __requires bound_check ...
-  __consumes("Group(range1, fun i1 -> Group(range(a, b, step), fun i -> items(i1)(i)))");
-  __produces("Group(range1, fun i1 -> Group(range(a2, b2, step),"
-               " fun i -> items(i1)(i - a2 + a)))");
-  __admitted();
-}
-
-__GHOST(group2_unshift) {
-  __reverts(group2_shift);
-  __admitted();
-}
-
-__GHOST(group3_shift) {
-  __requires("a: int, b: int, step: int, items: int -> int -> int -> formula");
-  __requires("a2: int, b2: int");
-  __requires("range1: formula, range2: formula");
-  // __requires bound_check ...
-  __consumes("Group(range1, fun i1 -> Group(range2, fun i2 -> "
-               "Group(range(a, b, step), fun i -> items(i1)(i2)(i))))");
-  __produces("Group(range1, fun i1 -> Group(range2, fun i2 -> "
-               "Group(range(a2, b2, step), fun i -> items(i1)(i2)(i - a2 + a))))");
-  __admitted();
-}
-
-__GHOST(group3_unshift) {
-  __reverts(group3_shift);
-  __admitted();
-}
-
-/* --- group_shift_uninit and nested variants: */
-
 __GHOST(group_shift_uninit) {
-  __requires("a: int, b: int, step: int, items: int -> formula");
-  __requires("a2: int, b2: int");
-  // __requires bound_check ...
-  __consumes("_Uninit(Group(range(a, b, step), fun i -> items(i)))");
-  __produces("_Uninit(Group(range(a2, b2, step), fun i -> items(i - a2 + a)))");
+  __requires("start: int, stop: int, step: int, items: int -> formula");
+  __requires("shift: int, new_start: int, new_stop: int");
+  __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
+  __consumes("_Uninit(Group(range(start, stop, step), fun i -> items(i)))");
+  __produces("_Uninit(Group(range(new_start, new_stop, step), fun i -> items(i - shift)))");
   __admitted();
 }
 
@@ -561,50 +593,13 @@ __GHOST(group_unshift_uninit) {
   __admitted();
 }
 
-__GHOST(group2_shift_uninit) {
-  __requires("a: int, b: int, step: int, items: int -> int -> formula");
-  __requires("a2: int, b2: int");
-  __requires("range1: formula");
-  // __requires bound_check ...
-  __consumes("_Uninit(Group(range1, fun i1 -> "
-               "Group(range(a, b, step), fun i -> items(i1)(i))))");
-  __produces("_Uninit(Group(range1, fun i1 -> "
-               "Group(range(a2, b2, step), "
-                 "fun i -> items(i1)(i - a2 + a))))");
-  __admitted();
-}
-
-__GHOST(group2_unshift_uninit) {
-  __reverts(group2_shift_uninit);
-  __admitted();
-}
-
-__GHOST(group3_shift_uninit) {
-  __requires("a: int, b: int, step: int, items: int -> int -> int -> formula");
-  __requires("a2: int, b2: int");
-  __requires("range1: formula, range2: formula");
-  // __requires bound_check ...
-  __consumes("_Uninit(Group(range1, fun i1 -> Group(range2, fun i2 -> "
-               "Group(range(a, b, step), fun i -> items(i1)(i2)(i)))))");
-  __produces("_Uninit(Group(range1, fun i1 -> Group(range2, fun i2 -> "
-               "Group(range(a2, b2, step), fun i -> items(i1)(i2)(i - a2 + a)))))");
-  __admitted();
-}
-
-__GHOST(group3_unshift_uninit) {
-  __reverts(group3_shift_uninit);
-  __admitted();
-}
-
-/* --- group_shift_ro and nested variants: */
-
 __GHOST(group_shift_ro) {
-  __requires("a: int, b: int, step: int, items: int -> formula");
-  __requires("a2: int, b2: int");
+  __requires("start: int, stop: int, step: int, items: int -> formula");
+  __requires("shift: int, new_start: int, new_stop: int");
+  __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
   __requires("f: _Fraction");
-  // __requires bound_check ...
-  __consumes("_RO(f, Group(range(a, b, step), fun i -> items(i)))");
-  __produces("_RO(f, Group(range(a2, b2, step), fun i -> items(i - a2 + a)))");
+  __consumes("_RO(f, Group(range(start, stop, step), fun i -> items(i)))");
+  __produces("_RO(f, Group(range(new_start, new_stop, step), fun i -> items(i - shift)))");
   __admitted();
 }
 
@@ -613,53 +608,17 @@ __GHOST(group_unshift_ro) {
   __admitted();
 }
 
-__GHOST(group2_shift_ro) {
-  __requires("a: int, b: int, step: int, items: int -> int -> formula");
-  __requires("a2: int, b2: int");
-  __requires("range1: formula");
-  __requires("f: _Fraction");
-  // __requires bound_check ...
-  __consumes("_RO(f, Group(range1, fun i1 -> "
-               "Group(range(a, b, step), fun i -> items(i1)(i))))");
-  __produces("_RO(f, Group(range1, fun i1 -> "
-               "Group(range(a2, b2, step), "
-                 "fun i -> items(i1)(i - a2 + a))))");
-  __admitted();
-}
-
-__GHOST(group2_unshift_ro) {
-  __reverts(group2_shift_ro);
-  __admitted();
-}
-
-__GHOST(group3_shift_ro) {
-  __requires("a: int, b: int, step: int, items: int -> int -> int -> formula");
-  __requires("a2: int, b2: int");
-  __requires("range1: formula, range2: formula");
-  __requires("f: _Fraction");
-  // __requires bound_check ...
-  __consumes("_RO(f, Group(range1, fun i1 -> Group(range2, fun i2 -> "
-               "Group(range(a, b, step), fun i -> items(i1)(i2)(i)))))");
-  __produces("_RO(f, Group(range1, fun i1 -> Group(range2, fun i2 -> "
-               "Group(range(a2, b2, step), fun i -> items(i1)(i2)(i - a2 + a)))))");
-  __admitted();
-}
-
-__GHOST(group3_unshift_ro) {
-  __reverts(group3_shift_ro);
-  __admitted();
-}
-
 /* ---- Matrix Ghosts ---- */
 
-// FIXME: matrixN_*focus ghosts are not checking bounds
 __GHOST(matrix2_focus)  {
   __requires("M: ptr, i: int, j: int, m: int, n: int");
+  __requires("bound_check_i: in_range(i, range(0, m, 1))");
+  __requires("bound_check_j: in_range(j, range(0, n, 1))");
   __consumes("M ~> Matrix2(m, n)");
   __produces("Wand(&M[MINDEX2(m, n, i, j)] ~> Cell, M ~> Matrix2(m, n)), &M[MINDEX2(m, n, i, j)] ~> Cell");
 
-  __ghost(group_focus, "i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
-  __ghost(group_focus, "i := j, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+  __ghost(group_focus, "i := i, bound_check := bound_check_i");
+  __ghost(group_focus, "i := j, bound_check := bound_check_j");
   __ghost(wand_simplify, "");
 }
 
@@ -671,10 +630,11 @@ __GHOST(matrix2_unfocus) {
 
 __GHOST(matrix1_ro_focus) {
   __requires("M: ptr, i: int, n: int, f: _Fraction");
+  __requires("bound_check: in_range(i, range(0, n, 1))");
   __consumes("_RO(f, M ~> Matrix1(n))");
   __produces("Wand(_RO(f, &M[MINDEX1(n, i)] ~> Cell), _RO(f, M ~> Matrix1(n))), _RO(f, &M[MINDEX1(n, i)] ~> Cell)");
 
-  __ghost(group_ro_focus, "f := f, i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+  __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check");
 }
 
 __GHOST(matrix1_ro_unfocus) {
@@ -685,11 +645,13 @@ __GHOST(matrix1_ro_unfocus) {
 
 __GHOST(matrix2_ro_focus) {
   __requires("M: ptr, i: int, j: int, m: int, n: int, f: _Fraction");
+  __requires("bound_check_i: in_range(i, range(0, m, 1))");
+  __requires("bound_check_j: in_range(j, range(0, n, 1))");
   __consumes("_RO(f, M ~> Matrix2(m, n))");
   __produces("Wand(_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, M ~> Matrix2(m,n))), _RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell)");
 
-  __ghost(group_ro_focus, "f := f, i := i, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
-  __ghost(group_ro_focus, "f := f, i := j, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+  __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check_i");
+  __ghost(group_ro_focus, "f := f, i := j, bound_check := bound_check_j");
   __ghost(wand_simplify, "");
 }
 
@@ -699,19 +661,19 @@ __GHOST(matrix2_ro_unfocus) {
   __ghost(close_wand, "");
 }
 
+// matrix*_contiguous
+
 __GHOST(matrix2_contiguous) {
-  __requires("M: ptr, a2: int, b2: int, n2: int, n1: int");
-  // __requires("check_range: 0 <= a2 <= b2 <= n2 && 0 <= n1");
-  __consumes("Group(range(a2, b2, 1), fun i -> Group(range(0, n1, 1), fun j -> "
+  __requires("M: ptr, a: int, b: int, n2: int, n1: int");
+  __consumes("Group(range(a, b, 1), fun i -> Group(range(0, n1, 1), fun j -> "
                "&M[MINDEX2(n2, n1, i, j)] ~> Cell))");
   __produces("Group(range(a2*n1, b2*n1, 1), fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell)");
   __admitted();
 }
 
 __GHOST(matrix3_contiguous) {
-  __requires("M: ptr, a3: int, b3: int, n3: int, n2: int, n1: int");
-  // __requires("check_range: 0 <= a3 <= b3 <= n3 && 0 <= n2 && 0 <= n1");
-  __consumes("Group(range(a3, b3, 1), fun i3 -> Group(range(0, n2, 1), fun i2 -> "
+  __requires("M: ptr, a: int, b: int, n3: int, n2: int, n1: int");
+  __consumes("Group(range(a, b, 1), fun i3 -> Group(range(0, n2, 1), fun i2 -> "
              "Group(range(0, n1, 1), fun i1 -> &M[MINDEX3(n3, n2, n1, i1, i2, i3)] ~> Cell)))");
   __produces("Group(range(a3*n2*n1, b3*n2*n1, 1), fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell)");
   __admitted();

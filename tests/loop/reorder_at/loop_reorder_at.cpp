@@ -31,7 +31,7 @@ void f2(float* A, float* B, int m, int n, int p) {
   for (int i = 0; i < m; i++) {
     __parallel_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
-    for (int j = 0; j < m; j++) {
+    for (int j = 0; j < n; j++) {
       __parallel_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
       float sum = 0.0f;

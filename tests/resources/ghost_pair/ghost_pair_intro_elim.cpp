@@ -13,8 +13,8 @@ int main() {
 
   float* const B = (float* const) CALLOC2(8, 6, sizeof(float));
   // LATER: Remove manually given items arguments, and fix them before ghost pair elimination using a transformation
-  __GHOST_BEGIN(focusBi, group_focus, "items := fun i -> Group(range(0, 6, 1), fun j -> &B[MINDEX2(8, 6, i, j)] ~> Cell), i := 1, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
-  __GHOST_BEGIN(focusBj, group_ro_focus, "items := fun j -> &B[MINDEX2(8, 6, 1, j)] ~> Cell, i := 2, bound_check_start := checked, bound_check_stop := checked, bound_check_step := checked");
+  __GHOST_BEGIN(focusBi, group_focus, "items := fun i -> Group(range(0, 6, 1), fun j -> &B[MINDEX2(8, 6, i, j)] ~> Cell), i := 1");
+  __GHOST_BEGIN(focusBj, group_ro_focus, "items := fun j -> &B[MINDEX2(8, 6, 1, j)] ~> Cell, i := 2");
   x += B[MINDEX2(8, 6, 1, 2)];
   __GHOST_END(focusBj);
   __GHOST_END(focusBi);

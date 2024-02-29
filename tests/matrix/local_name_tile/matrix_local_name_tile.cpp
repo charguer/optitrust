@@ -11,7 +11,7 @@ void f() {
   T* const a = (T* const) MALLOC3 (10, 10, 4, sizeof(T));
   __GHOST_BEGIN(focusa, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell), "
-    "start := 2, stop := 10, step := 1");
+    "sub_range := range(2, 10, 1)");
   for (int i = 0; i < 10; i++) {
     __writes("Group(range(2, 10, 1), fun j -> "
              "Group(range(0, 4, 1), fun k -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))");
@@ -40,7 +40,7 @@ void f() {
   T* const b = (T* const) MALLOC3 (10, 10, 4, sizeof(T));
   __GHOST_BEGIN(focusb, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> &b[MINDEX3(10,10,4,i,j,k)] ~> Cell), "
-    "start := 2, stop := 10, step := 1");
+    "sub_range := range(2, 10, 1)");
   for (int i = 0; i < 10; i++) {
     __writes("Group(range(2, 10, 1), fun j -> "
              "Group(range(0, 4, 1), fun k -> &b[MINDEX3(10,10,4,i,j,k)] ~> Cell))");
@@ -58,7 +58,7 @@ void f() {
   T* const c = (T* const) MALLOC3 (10, 10, 4, sizeof(T));
   __GHOST_BEGIN(focusc, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> &c[MINDEX3(10,10,4,i,j,k)] ~> Cell), "
-    "start := 2, stop := 10, step := 1");
+    "sub_range := range(2, 10, 1)");
   for (int i = 0; i < 10; i++) {
     __writes("Group(range(2, 10, 1), fun j -> "
              "Group(range(0, 4, 1), fun k -> &c[MINDEX3(10,10,4,i,j,k)] ~> Cell))");

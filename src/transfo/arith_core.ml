@@ -1,7 +1,7 @@
-
-open Prelude
 open PPrint
-open Target
+open Ast
+open Trm
+open Typ
 
 (* debug flags *)
 let debug = false
@@ -12,7 +12,7 @@ let mark_nosimpl = "__arith_core_nosimpl"
 
 (* [has_mark_nosimplf t]: check if [t] should be skipped by the simplifier or not.*)
 let has_mark_nosimpl (t : trm) : bool =
-  trm_has_mark mark_nosimpl t
+  Mark.trm_has_mark mark_nosimpl t
   (* LATER Ast.trm_has_mark *)
 
 (* arithmetic operation type *)
@@ -20,7 +20,7 @@ type arith_op =
   | Arith_shift
   | Arith_scale
 
-(* [transform_aux aop inv pre_cast post_cast u t]: shifts or scale the right hand
+(* [transform aop inv pre_cast post_cast u t]: shifts or scale the right hand
     side of a set operation with term [u]
     [aop] - a flag to decide if the arithmetic operation should be Arith_scale
        or Arith_shift
@@ -30,7 +30,7 @@ type arith_op =
       set operation before shifting
     [post_cast] - casting of type [post_cast] performed after shifting
     [t] - the ast of the set operation *)
-let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option)
+let transform (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option)
   (post_cast : typ option)(t : trm) : trm =
   let binop_op = match aop with
     | Arith_shift -> if inv then Binop_sub else Binop_add
@@ -59,22 +59,13 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
     end
   | _ -> trm_fail t "Arith_core.transform_aux: expected a get or a set operation"
 
-(* [transform aop inv pre_cast post_cast u t p: applies [transform_aux] at the trm with path [p]. *)
-let transform (aop : arith_op)(inv : bool) (u : trm) (pre_cast : typ option)
-  (post_cast : typ option) : Transfo.local =
-  apply_on_path (transform_aux aop inv u pre_cast post_cast)
-
-
-(* [apply_aux op arg t]: applies binary_operation [op] on [t] with the second  argument of the operation being [arg],
+(* [apply op arg t]: applies binary_operation [op] on [t] with the second  argument of the operation being [arg],
     [op] -the binary operation to apply.
     [arg] - the second operand of [op].
     [t] - the first argument in the performed operation. *)
-let apply_aux (op : binary_op) (arg : trm) (t : trm) : trm =
+let apply (op : binary_op) (arg : trm) (t : trm) : trm =
   trm_apps (trm_binop op) [t; arg]
 
-(* [apply op arg t p]: applies [transform_aux] at the trm [t] with path [p]. *)
-let apply (op : binary_op) (arg : trm) : Transfo.local =
-  apply_on_path (apply_aux op arg)
 
 (******************************************************************************)
 (*                          Types                                        *)
@@ -312,6 +303,8 @@ let normalize_one (e : expr) : expr =
     | Expr_binop (Binop_div, e1, { expr_desc = Expr_prod []; _}) -> e1
     (* [0 mod e2 = 0] *)
     | Expr_binop (Binop_mod, ({ expr_desc = Expr_int 0; _} as ezero), e2) -> ezero
+    (* [e1 % 1 = 0] *)
+    | Expr_binop (Binop_mod, e1, { expr_desc = Expr_int 1; _ }) -> expr_int 0
     (* [e1 << 0 = e1] and [e1 >> 0 = e1] *)
     | Expr_binop ((Binop_shiftr | Binop_shiftl), e1, { expr_desc = Expr_int 0; _}) -> e1
     | _ -> e
@@ -523,7 +516,7 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
 let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
   let occ = ref inferred_var_id in
   Atom_map.iter (fun id tid ->
-    if !occ = inferred_var_id && Internal.same_trm t tid then occ := id) !atoms;
+    if !occ = inferred_var_id && are_same_trm t tid then occ := id) !atoms;
     if !occ = inferred_var_id
       then begin
         let new_id = next_id() in
@@ -626,7 +619,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
         let abs_w = abs w in
         let abs_t =
           if abs_w = 1 then e_trm else trm_mul ?loc (trm_int abs_w) e_trm
-          in
+        in
         if i = 0 then begin
           if w >= 0 then abs_t else trm_minus ?loc abs_t
         end else begin
@@ -1048,27 +1041,48 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
   )
   with e -> Printf.printf "Arith.simplify_at_node: error on processing at loc %s\n" (loc_to_string t.loc); raise e
 
-(* [simplify_aux indepth f t]: converts node [t] to an expression, then applies the
+(* [simplify indepth f t]: converts node [t] to an expression, then applies the
      simplifier [f], then it converts it back to a trm
     params:
       [f]: simplifier function
       [t]: the node on which the simplifications should be performed
     return:
       update t with the simplified expressions
-  LATER: should [simplify_aux false f t] fail if [t] is not an application of prim_arith? *)
-let rec simplify_aux (indepth : bool) (f : expr -> expr) (t : trm) : trm =
+  LATER: should [simplify false f t] fail if [t] is not an application of prim_arith? *)
+let rec simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
   if not indepth
     then begin
-       let f_atom_identity = (fun ti -> ti) in
-       simplify_at_node f_atom_identity f t
-      end
+      let f_atom_identity = (fun ti -> ti) in
+      simplify_at_node f_atom_identity f t
+    end
     else begin
-     let f_atom_simplify = simplify_aux indepth f in
-     map_on_arith_nodes (simplify_at_node f_atom_simplify f) t end
-
-(* [simplify indepth f t p]: applies [simplify_aux] at the trm with path [p] *)
-let simplify (indepth : bool) (f : expr -> expr) : Transfo.local =
-  apply_on_path (simplify_aux indepth f)
+      let f_atom_simplify = simplify indepth f in
+      map_on_arith_nodes (simplify_at_node f_atom_simplify f) t
+    end
 
 
+(******************************************************************************)
+(*                          Static checks on terms                           *)
+(******************************************************************************)
 
+let trm_int_inv t =
+  let neg, abs_t = match trm_unop_inv t with
+    | Some (Unop_minus, abs_t) -> true, abs_t
+    | _ -> false, t
+  in
+  Option.map (fun n -> if neg then -n else n) (Trm.trm_int_inv abs_t)
+
+
+(* [check_int_compare cmp t1 t2] tries to statically check that [cmp t1 t2] always holds. *)
+let check_int_compare (cmp: int -> int -> bool) (t1: trm) (t2: trm) : bool =
+  let t = simplify true (fun e -> gather (compute e)) (trm_sub t1 t2) in
+  match trm_int_inv t with
+  | Some i when cmp i 0 -> true
+  | _ -> false
+
+let check_eq = check_int_compare (==)
+let check_neq = check_int_compare (!=)
+let check_gt = check_int_compare (>)
+let check_geq = check_int_compare (>=)
+let check_lt = check_int_compare (<)
+let check_leq = check_int_compare (<=)

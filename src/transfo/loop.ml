@@ -418,19 +418,18 @@ let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift
     index
   in
   Target.iter (fun p ->
-  let tg_trm = Target.resolve_path p in
-  let error = "Loop.shift: expected target to be a simple loop" in
-  let ((prev_index, _, _, _, _), _, _) = trm_inv ~error trm_for_inv tg_trm in begin
-  Loop_basic.shift index' kind (target_of_path p);
-  simpl_range ~simpl (target_of_path p);
-  if inline then begin
-    let mark = Mark.next() in
-    let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
-    simpl [nbAny; cMark mark]
-  end;
-  if index = "" then
-  Loop_basic.rename_index prev_index.name (target_of_path p)
-  end
+    let tg_trm = Target.resolve_path p in
+    let error = "Loop.shift: expected target to be a simple loop" in
+    let ((prev_index, _, _, _, _), _, _) = trm_inv ~error trm_for_inv tg_trm in
+    Loop_basic.shift ~reparse index' kind (target_of_path p);
+    simpl_range ~simpl (target_of_path p);
+    if inline then begin
+      let mark = Mark.next() in
+      let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
+      simpl [nbAny; cMark mark]
+    end;
+    if index = "" then
+      Loop_basic.rename_index prev_index.name (target_of_path p)
   ) tg
 
 (* [extend_range]: like [Loop_basic.extend_range], plus arithmetic and conditional simplifications.

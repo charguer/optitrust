@@ -2484,7 +2484,8 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
           | None -> Var_map.remove arge evar_ctx
         ) evar_ctx masked_ctx)
 
-    | _ -> failwith (sprintf "unify_trm: unhandled constructor") (* TODO: Implement the rest of constructors *)
+    | Trm_arbitrary _ -> failwith "unify_trm: found Trm_arbitrary during unification (a reparse is missing)"
+    | _ -> failwith "unify_trm: unhandled constructor" (* TODO: Implement the rest of constructors *)
 
 (** [are_same_trm t1 t2] checks that [t1] and [t2] are alpha-equivalent (same modulo name of the binders). *)
 let are_same_trm (t1: trm) (t2: trm): bool =

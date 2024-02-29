@@ -14,28 +14,16 @@ int main() {
   float* const B = (float* const)CALLOC2(8, 6, sizeof(float));
   x += 2;
   x += 1;
-  const __ghost_fn focusBi =
-      __ghost_begin(group_focus,
-                    "i := 1, bound_check_start := checked, bound_check_stop := "
-                    "checked, bound_check_step := checked");
-  const __ghost_fn focusBj =
-      __ghost_begin(group_focus,
-                    "i := 2, bound_check_start := checked, bound_check_stop := "
-                    "checked, bound_check_step := checked");
+  const __ghost_fn focusBi = __ghost_begin(group_focus, "i := 1");
+  const __ghost_fn focusBj = __ghost_begin(group_focus, "i := 2");
   x += B[MINDEX2(8, 6, 1, 2)];
   __ghost_end(focusBj);
   __ghost_end(focusBi);
   x += 1;
   x += 2;
   x += 1;
-  const __ghost_fn focusRoBi =
-      __ghost_begin(group_ro_focus,
-                    "i := 1, bound_check_start := checked, bound_check_stop := "
-                    "checked, bound_check_step := checked");
-  const __ghost_fn focusRoBj =
-      __ghost_begin(group_ro_focus,
-                    "i := 2, bound_check_start := checked, bound_check_stop := "
-                    "checked, bound_check_step := checked");
+  const __ghost_fn focusRoBi = __ghost_begin(group_ro_focus, "i := 1");
+  const __ghost_fn focusRoBj = __ghost_begin(group_ro_focus, "i := 2");
   x += B[MINDEX2(8, 6, 1, 2)];
   __ghost_end(focusRoBj);
   __ghost_end(focusRoBi);

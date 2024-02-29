@@ -5,11 +5,10 @@ typedef int T;
 void malloc_uninit_pre() {
   __pure();
   T* const a = (T* const)MALLOC3(10, 10, 4, sizeof(T));
-  const __ghost_fn focus =
-      __ghost_begin(group2_focus_subrange_uninit,
-                    "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> "
-                    "&a[MINDEX3(10, 10, 4, i, j, k)] ~> Cell), start := 2, "
-                    "stop := 10, step := 1");
+  const __ghost_fn focus = __ghost_begin(
+      group2_focus_subrange_uninit,
+      "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> "
+      "&a[MINDEX3(10, 10, 4, i, j, k)] ~> Cell), sub_range := range(2, 10, 1)");
   T* const x = (T* const)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
   __ghost(
       [&]() {
@@ -100,8 +99,8 @@ void malloc_uninit_post() {
   T* const a = (T* const)MALLOC1(10, sizeof(T));
   const __ghost_fn focus =
       __ghost_begin(group_focus_subrange_uninit,
-                    "items := fun i -> &a[MINDEX1(10, i)] ~> Cell, start := 2, "
-                    "stop := 10, step := 1");
+                    "items := fun i -> &a[MINDEX1(10, i)] ~> Cell, sub_range "
+                    ":= range(2, 10, 1)");
   for (int i1 = 2; i1 < 10; i1++) {
     __consumes("_Uninit(&a[MINDEX1(10, i1)] ~> Cell)");
     __produces("&a[MINDEX1(10, i1)] ~> Cell");
@@ -146,11 +145,10 @@ void malloc_uninit_post() {
 void malloc_uninit_prepost() {
   __pure();
   T* const a = (T* const)MALLOC3(10, 10, 4, sizeof(T));
-  const __ghost_fn focus =
-      __ghost_begin(group2_focus_subrange_uninit,
-                    "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> "
-                    "&a[MINDEX3(10, 10, 4, i, j, k)] ~> Cell), start := 2, "
-                    "stop := 10, step := 1");
+  const __ghost_fn focus = __ghost_begin(
+      group2_focus_subrange_uninit,
+      "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> "
+      "&a[MINDEX3(10, 10, 4, i, j, k)] ~> Cell), sub_range := range(2, 10, 1)");
   T* const x = (T* const)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
   __ghost(
       [&]() {
