@@ -98,7 +98,7 @@ let swap_on (t: trm): trm =
         if not !Flags.check_validity then raise Pattern.Next else
         failwith "Loop.swap: the outer loop has sequential invariants";
 
-      Trace.justif "Outer loop was parallelizable (swapping loops can only remove possible interleavings)";
+      Trace.justif "outer loop was parallelizable (swapping loops can only remove possible interleavings)";
 
       let loop_ghosts = inner_contract.loop_ghosts in
       let inner_inv = inner_contract.invariant in
