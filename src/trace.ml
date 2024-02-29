@@ -772,8 +772,9 @@ let call (f : trm -> unit) : unit =
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
+  let column_limit = string_of_int !Flags.code_print_width in
   stats ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
-    ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));
+    ignore (Sys.command ("clang-format -style=\"{BasedOnStyle: Google, ColumnLimit: " ^ column_limit ^ "}\" -i " ^ filename));
     if (* temporary *) false && uncomment_pragma
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
   )
