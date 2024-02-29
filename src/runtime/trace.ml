@@ -892,6 +892,7 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
   infos.step_args <- List.rev infos.step_args;
   infos.step_tags <- List.rev infos.step_tags;
   infos.step_debug_msgs <- List.rev infos.step_debug_msgs;
+  infos.step_justif <- List.rev infos.step_justif;
   (* Finalize the list of substeps, by inserting [Step_change] steps
      to ensure a well-chained list of asts; unless it is a [Step_backtrack],
      or another kind of step that does not change the underlying code,
@@ -941,6 +942,11 @@ and without_reparsing_between_steps (f: unit -> unit): unit =
 and without_resource_computation_between_steps (f: unit -> 'a): 'a =
   Flags.with_flag Flags.recompute_resources_between_steps false f;
   if !Flags.recompute_resources_between_steps then recompute_resources ()
+
+and preserves_resource_typing (f: unit -> 'a): 'a =
+  let cur_ast_typed_snapshot = the_trace.cur_ast_typed in
+  Flags.with_flag Flags.recompute_resources_between_steps false f;
+  the_trace.cur_ast_typed <- cur_ast_typed_snapshot
 
 (** [close_step] is called at the end of every big-step, or small-step,
    or combi, or basic transformation. The step to close can be passed

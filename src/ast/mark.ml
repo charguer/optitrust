@@ -37,7 +37,7 @@ let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_mark_at index m tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ?loc:t.loc ~ctx:t.ctx new_tl
   | _ -> trm_fail t "Ast.trm_add_mark_between: expected a sequence"
 
 let trm_add_mark_span ({ start; stop }: Dir.span) (m: mark) (t: trm): trm =
@@ -70,7 +70,7 @@ let trm_rem_mark_between (m : mark) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.remove_mark m tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~ctx:t.ctx ?loc:t.loc new_tl
   | _ -> trm_fail t "Ast.trm_rem_mark_between: expected a sequence"
 
 (* [trm_rem_mark_between m t]: removes the span mark [m] from trm [t] *)
