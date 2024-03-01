@@ -1,12 +1,13 @@
+#include <optitrust.h>
 #include <stdio.h>
 
 int min(int x, int y) { return (x < y ? x : y); }
 
-int main() {
+void f() {
   int s1 = 0;
   int s2 = 0;
   int s3 = 0;
-  for (int bx = 0; bx < exact_div(10, 2); bx++) {
+  for (int bx = 0; bx < 5; bx++) {
     for (int x = 0; x < 2; x++) {
       s1 += bx * 2 + x;
     }
@@ -41,5 +42,32 @@ int main() {
     }
   }
   printf("%d %d %d\n", t1, t2, t3);
-  return 0;
+}
+
+void matrix_copy(int* D, int* S) {
+  __modifies("D ~> Matrix1(1024)");
+  __reads("S ~> Matrix1(1024)");
+  __ghost(tile_divides,
+          "tile_count := 256, tile_size := 4, size := 1024, items := fun i -> "
+          "&D[MINDEX1(1024, i)] ~> Cell");
+  for (int bi = 0; bi < 256; bi++) {
+    __parallel_reads("S ~> Matrix1(1024)");
+    __modifies(
+        "Group(range(0, 4, 1), fun i -> &D[MINDEX1(1024, bi * 4 + i)] ~> "
+        "Cell)");
+    for (int i = 0; i < 4; i++) {
+      __parallel_reads("S ~> Matrix1(1024)");
+      __modifies("&D[MINDEX1(1024, bi * 4 + i)] ~> Cell");
+      __ghost(tiled_index_in_range,
+              "tile_index := bi, index := i, tile_count := 256, tile_size := "
+              "4, size := 1024");
+      const __ghost_fn focus =
+          __ghost_begin(matrix1_ro_focus, "M := S, i := bi * 4 + i");
+      D[MINDEX1(1024, bi * 4 + i)] = S[MINDEX1(1024, bi * 4 + i)];
+      __ghost_end(focus);
+    }
+  }
+  __ghost(untile_divides,
+          "tile_count := 256, tile_size := 4, size := 1024, items := fun i -> "
+          "&D[MINDEX1(1024, i)] ~> Cell");
 }

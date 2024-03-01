@@ -29,18 +29,20 @@ let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
 let color (nb_colors : trm) (i_color : string option ) : Transfo.local =
     apply_on_path (color_aux nb_colors  i_color)
 
-let ghost_tile_divides = name_to_var "tile_divides"
-let ghost_untile_divides = name_to_var "untile_divides"
+let ghost_tile_divides = toplevel_var "tile_divides"
+let ghost_untile_divides = toplevel_var "untile_divides"
 
-let ghost_ro_tile_divides = name_to_var "ro_tile_divides"
-let ghost_ro_untile_divides = name_to_var "ro_untile_divides"
+let ghost_ro_tile_divides = toplevel_var "ro_tile_divides"
+let ghost_ro_untile_divides = toplevel_var "ro_untile_divides"
+
+let ghost_tiled_index_in_range = toplevel_var "tiled_index_in_range"
 
 (*  [tile_aux divides b tile_index t]: tiles loop [t],
       [tile_index] - string representing the index used for the new outer loop,
       [bound] - a tile_bound type variable representing the type of the bound used in
                  this transformation,
       [t] - ast of targeted loop. *)
-let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
+let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
   let error = "Loop_core.tile_aux: only simple loops are supported." in
   let ((index, start, direction, stop, step), body, contract_opt) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
@@ -118,15 +120,19 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
               in
               let i = new_var index.name in
               let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
-              Resource_trm.ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("n", count); ("items", items)])
+              Resource_trm.ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("size", count); ("items", items)])
             )
         in
         let ghosts_before = add_tiling_ghost ghost_tile_divides ghost_ro_tile_divides contract.iter_contract.pre.linear in
         let ghosts_after = add_tiling_ghost ghost_untile_divides ghost_ro_untile_divides contract.iter_contract.post.linear in
 
+        let body_seq = trm_inv trm_seq_inv (trm_subst_var index new_index body) in
+        let ghost_tile_index = Resource_trm.ghost (ghost_call ghost_tiled_index_in_range [("tile_index", trm_var tile_index); ("index", trm_var index); ("tile_count", tile_count); ("tile_size", tile_size); ("size", count)]) in
+        let body = trm_like ~old:body (trm_seq (Mlist.push_front ghost_tile_index body_seq)) in
+
         trm_seq_nobrace_nomarks (ghosts_before @ [
           trm_for ~contract:contract_outer outer_range (trm_seq_nomarks [
-            trm_copy (trm_for ~contract:contract_inner inner_range (trm_subst_var index new_index body))
+            trm_copy (trm_for ~contract:contract_inner inner_range body)
           ])
         ] @ ghosts_after)
 
@@ -162,10 +168,6 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
    in
    trm_pass_labels t outer_loop
   end
-
-(* [tile tile_index bound tile_size t p]: applies [tile_aux] at trm [t] with path [p] *)
-let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) : Transfo.local =
-   apply_on_path (tile_aux tile_index bound tile_size )
 
 (* [hoist_aux name decl_index array_size t]: extracts a variable declared inside a loop as an array of size [loop_bound -1]
     then replace all the occurrences of that variable with an array access at the loop index,

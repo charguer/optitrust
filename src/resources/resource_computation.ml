@@ -133,7 +133,7 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
   let formula = trm_subst subst_ctx formula in
   let arith_solved = Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_var (var_eq var_in_range)) !__ (formula_range !__ !__ !__)) (fun index start stop step ->
-      Arith_core.(check_geq index start && check_leq index stop && check_eq (trm_mod index step) (trm_int 0))
+      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_mod index step) (trm_int 0))
     );
     Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step ->
       Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))

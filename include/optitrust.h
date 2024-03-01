@@ -374,13 +374,23 @@ __GHOST(uninit_swap_groups_rev) {
   __admitted();
 }
 
+__GHOST(tiled_index_in_range) {
+  __requires("tile_index: int, index: int");
+  __requires("tile_count: int, tile_size: int, size: int");
+  __requires("size = tile_size * tile_count");
+  __requires("in_range(tile_index, range(0, tile_count, 1))");
+  __requires("in_range(index, range(0, tile_size, 1))");
+  __ensures("in_range(tile_index * tile_size + index, range(0, size, 1))");
+  __admitted();
+}
+
 __GHOST(tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
-    "n: int, items: int -> resource,"
-    "bound_check: n = tile_size * tile_count"
+    "size: int, items: int -> resource,"
+    "bound_check: size = tile_size * tile_count"
   );
-  __consumes("Group(range(0, n, 1), items)");
+  __consumes("Group(range(0, size, 1), items)");
   __produces("Group(range(0, tile_count, 1), fun bi ->"
                "Group(range(0, tile_size, 1), fun i -> items(bi * tile_size + i)))");
   __admitted();
@@ -394,11 +404,11 @@ __GHOST(untile_divides) {
 __GHOST(ro_tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
-    "n: int, items: int -> resource,"
-    "bound_check: n = tile_size * tile_count,"
+    "size: int, items: int -> resource,"
+    "bound_check: size = tile_size * tile_count,"
     "f: _Fraction"
   );
-  __consumes("_RO(f, Group(range(0, n, 1), items))");
+  __consumes("_RO(f, Group(range(0, size, 1), items))");
   __produces("_RO(f, Group(range(0, tile_count, 1), fun bi ->"
                "Group(range(0, tile_size, 1), fun i -> items(bi * tile_size + i))))");
   __admitted();

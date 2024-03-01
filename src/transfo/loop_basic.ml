@@ -34,7 +34,7 @@ let%transfo tile ?(index : string = "b${id}")
          ?(bound : tile_bound = TileBoundMin)
          (tile_size : trm) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-    apply_on_targets (Loop_core.tile index bound tile_size) tg
+    Target.apply_at_target_paths (Loop_core.tile index bound tile_size) tg
   )
 
 (* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
