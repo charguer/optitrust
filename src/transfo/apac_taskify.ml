@@ -844,7 +844,6 @@ let merge_on (p : path) (t : trm) : unit =
   let rec iter (g : TaskGraph.t) : unit =
     let vs = TaskGraph.fold_vertex (fun v acc -> v::acc) g [] in
     let nb = TaskGraph.nb_vertex g in
-    let _ = Printf.printf "iter\n" in
     for i = 0 to (nb - 1) do
       begin
         let vi = List.nth vs i in
@@ -867,12 +866,10 @@ let merge_on (p : path) (t : trm) : unit =
                 let pred = TaskGraph.pred g start in
                 let succ = TaskGraph.succ g stop in
                 let vi' = TaskGraph.V.create task in
-                let _ = Printf.printf "seq len: %d\n" (List.length sq) in
                 TaskGraph.add_vertex g vi';
                 List.iter (fun v -> TaskGraph.add_edge g v vi') pred;
                 List.iter (fun v -> TaskGraph.add_edge g vi' v) succ;
-                List.iter (fun v -> let _ = Printf.printf "rem: %s\n" (TaskGraphPrinter.vertex_name v) in
-                                    TaskGraph.remove_vertex g v) sq
+                List.iter (fun v -> TaskGraph.remove_vertex g v) sq
               end
           end
       end
