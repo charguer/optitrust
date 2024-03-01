@@ -180,7 +180,7 @@ let trm_discover_dependencies (locals : symbols)
      [aux], e.g. in the case of nested data accesses (see the [access_attr] type
      for more details). *)
   let rec aux (ins : dep Stack.t) (inouts : dep Stack.t)
-            (filter : Var_set.t) (nested : bool) (attr : Dep.attr)
+            (filter : Var_set.t) (nested : bool) (attr : DepAttr.t)
             (t : trm) : unit =
     let error = Printf.sprintf "Apac_core.trm_look_for_dependencies.aux: '%s' \
                                 is not a valid OpenMP depends expression"
@@ -204,6 +204,7 @@ let trm_discover_dependencies (locals : symbols)
               let degree = Var_Hashtbl.find locals v in
               let d = Dep.of_var v degree in
               Stack.push d inouts
+           | _ -> ()
          end
     (* - get operations ([*t'], [**t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
@@ -225,11 +226,12 @@ let trm_discover_dependencies (locals : symbols)
                      let d = Dep.of_trm t' v i in
                      Stack.push d inouts
                    done
+                | _ -> ()
               end
            | Some _ -> ()
            | None -> fail t.loc error
          end;
-       trm_iter (aux ins inouts filter true Regular) t'
+       trm_iter (aux ins inouts filter (not (is_access t')) Regular) t'
     (* - address operations ([&t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
        (*let _ = Printf.printf "address\n" in*)
@@ -243,6 +245,7 @@ let trm_discover_dependencies (locals : symbols)
                 | Regular
                   | FunArgIn -> let d = Dep_trm (t, v) in Stack.push d ins
                 | FunArgInOut -> let d = Dep_trm (t, v) in Stack.push d inouts
+                | _ -> ()
               end
            | Some _ -> ()
            | None -> fail t.loc error
@@ -270,6 +273,7 @@ let trm_discover_dependencies (locals : symbols)
                  let degree' = Var_Hashtbl.find locals v in
                  let d = Dep.of_trm t v (degree' - degree) in
                  Stack.push d inouts
+              | _ -> ()
             end
          | Some _ -> ()
          | None -> fail t.loc error
@@ -297,6 +301,7 @@ let trm_discover_dependencies (locals : symbols)
                  let degree' = Var_Hashtbl.find locals v in
                  let d = Dep.of_var v (degree' - degree) in
                  Stack.push d inouts
+              | _ -> ()
             end
          | Some _ -> ()
          | None -> fail t.loc error
@@ -406,7 +411,7 @@ let taskify_on (p : path) (t : trm) : unit =
        let has_jump = List.exists (fun e -> Task.has_attr e HasJump) tasks in
        let attrs = if has_jump then TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
-       let this = Task.create t attrs scope ins inouts [] in
+       let this = Task.create t attrs scope ins inouts Dep_map.empty [] in
        let this' = TaskGraph.V.create this in
        let _ = TaskGraph.add_vertex g this' in
        let tasks = List.map (
@@ -448,55 +453,40 @@ let taskify_on (p : path) (t : trm) : unit =
        done;
        this      
     | Trm_for_c (init, cond, inc, instr, _) ->
-       let scope = var_set_of_var_hashtbl s in
-       let (ins, inouts) = trm_discover_dependencies s init in
-       let (ins', inouts') = trm_discover_dependencies s cond in
-       let (ins, inouts) =
-         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
-       let (ins', inouts') = trm_discover_dependencies s inc in
-       let (ins, inouts) =
-         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
-       let c = TaskGraph.create() in
-       let ct = fill s instr c in
-       let (ins, inouts) =
-         (Dep_set.union ins ct.ins, Dep_set.union inouts ct.inouts) in
-       let _ = 
-         TaskGraph.iter_vertex (fun vertex ->
-             let lab : Task.t = TaskGraph.V.label vertex in
-             Printf.printf "subgraph vertex: %s\n" (Task.to_string lab)) c in
-       let attrs = if (Task.has_attr ct HasJump) then
-                     TaskAttr_set.singleton HasJump
-                   else TaskAttr_set.empty in
-       Task.create t attrs scope ins inouts [[c]]
-    | Trm_for (range, instr, _) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
-          the parent scope, which is the current scope. *)
+          the dependency sets of the parent scope, which is the current
+          scope. *)
        let scope = var_set_of_var_hashtbl s in
-       (* Explode the [range] specifier to allow for dependency discovery. *)
-       let (index, init, _, cond, step, _) = range in
+       (* Initialize an empty map for dependency attributes. *)
+       let ioattrs = Dep_map.empty in
        (* Launch dependency discovery in the initialization term as well as *)
        let (ins, inouts) = trm_discover_dependencies s init in
        (* in the conditional statement representing the upper loop bound. *)
        let (ins', inouts') = trm_discover_dependencies s cond in
+       (* Add the [Condition] attribute to the input and input-output
+          dependencies discovered in the condition term of the for-loop. *)
+       let ioattrs = Dep_map.bind_set ins'
+                       (DepAttr_set.singleton Condition) ioattrs in
+       let ioattrs = Dep_map.bind_set inouts'
+                       (DepAttr_set.singleton Condition) ioattrs in
        (* Gather the discovered dependencies. *)
        let (ins, inouts) =
          (Dep_set.union ins ins', Dep_set.union inouts inouts') in
-       (* Check whether [step] is formed of a term. In other words, check
-          whether it is not simply a unary increment or decrement, but something
-          like [i += a * 2]. In this case, *)
-       let (ins', inouts') = match step with
-         (* we have to look for dependencies in this term. *)
-         | Step st -> trm_discover_dependencies s st
-         (* Otherwise, we do not have to do nothing, just keep the current in
-            and inout dependency sets as they are. *)
-         | _ -> (ins, inouts) in
-       (* Gather the discovered dependencies, if any. *)
+       (* Launch dependency discovery in the increment term. *)
+       let (ins', inouts') = trm_discover_dependencies s inc in
+       (* Add the [InductionVariable] attribute to the input and input-output
+          dependencies discovered in the increment term of the for-loop. *)
+       let ioattrs = Dep_map.bind_set ins'
+                       (DepAttr_set.singleton InductionVariable) ioattrs in
+       let ioattrs = Dep_map.bind_set inouts'
+                       (DepAttr_set.singleton InductionVariable) ioattrs in
+       (* Gather the discovered dependencies. *)
        let (ins, inouts) =
          (Dep_set.union ins ins', Dep_set.union inouts inouts') in
-       (* Create a sub-graph for the body sequenc, i.e. [instr], of the [for]
-          loop. *)
+       (* Create a sub-graph for the body sequence, i.e. [instr], of the
+          for-loop. *)
        let c = TaskGraph.create() in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
        let ct = fill s instr c in
@@ -510,9 +500,72 @@ let taskify_on (p : path) (t : trm) : unit =
        let attrs = if (Task.has_attr ct HasJump) then
                      TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
-       (* Create the task corresponding to the current [for] graph node using
-          all the elements computed above. *)
-       Task.create t attrs scope ins inouts [[c]] 
+       (* A for-loop node should not become a task by itself. *)
+       let attrs = TaskAttr_set.add WaitForSome attrs in
+       (* Create the task corresponding to the current for-node using all the
+          elements computed above. *)
+       Task.create t attrs scope ins inouts ioattrs [[c]]
+    | Trm_for (range, instr, _) ->
+       (* Keep a copy of the local scope of variables as a set. We need this
+          because we do not want any variables potentially defined in child
+          scopes (added to [s] within [trm_discover_dependencies]) to end up in
+          the dependency sets of the parent scope, which is the current
+          scope. *)
+       let scope = var_set_of_var_hashtbl s in
+       (* Initialize an empty map for dependency attributes. *)
+       let ioattrs = Dep_map.empty in
+       (* Explode the [range] specifier to allow for dependency discovery. *)
+       let (index, init, _, cond, step, _) = range in
+       (* Launch dependency discovery in the initialization term as well as *)
+       let (ins, inouts) = trm_discover_dependencies s init in
+       (* in the conditional statement representing the upper loop bound. *)
+       let (ins', inouts') = trm_discover_dependencies s cond in
+       (* Add the [Condition] attribute to the input and input-output
+          dependencies discovered in the condition term of the for-loop. *)
+       let ioattrs = Dep_map.bind_set ins'
+                       (DepAttr_set.singleton Condition) ioattrs in
+       let ioattrs = Dep_map.bind_set inouts'
+                       (DepAttr_set.singleton Condition) ioattrs in
+       (* Gather the discovered dependencies. *)
+       let (ins, inouts) =
+         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
+       (* Check whether [step] is formed of a term. In other words, check
+          whether it is not simply a unary increment or decrement, but something
+          like [i += a * 2]. In this case, *)
+       let (ins', inouts') = match step with
+         (* we have to look for dependencies in this term. *)
+         | Step st -> trm_discover_dependencies s st
+         (* Otherwise, we have to add an input-output dependency on the
+            induction variable [index]. *)
+         | _ -> let div = Dep_var index in (ins, Dep_set.add div inouts)
+       in
+       (* Add the [InductionVariable] attribute to the input and input-output
+          dependencies discovered in the increment term of the for-loop. *)
+       let ioattrs = Dep_map.bind_set ins'
+                       (DepAttr_set.singleton InductionVariable) ioattrs in
+       let ioattrs = Dep_map.bind_set inouts'
+                       (DepAttr_set.singleton InductionVariable) ioattrs in
+       (* Gather the discovered dependencies, if any. *)
+       let (ins, inouts) =
+         (Dep_set.union ins ins', Dep_set.union inouts inouts') in
+       (* Create a sub-graph for the body sequence, i.e. [instr], of the
+          for-loop. *)
+       let c = TaskGraph.create() in
+       (* Taskify the body sequence while filling the correspoding sub-graph. *)
+       let ct = fill s instr c in
+       (* Include the dependencies from the body sequence into the sets of
+          dependencies of the current [for] graph node, i.e. [ins] and [inouts],
+          by the means of a union operation. *)
+       let (ins, inouts) =
+         (Dep_set.union ins ct.ins, Dep_set.union inouts ct.inouts) in
+       (* If the body sequence contains an unconditional jump, we need to
+          propagate this information upwards. *)
+       let attrs = if (Task.has_attr ct HasJump) then
+                     TaskAttr_set.singleton HasJump
+                   else TaskAttr_set.empty in
+       (* Create the task corresponding to the current for-node using all the
+          elements computed above. *)
+       Task.create t attrs scope ins inouts ioattrs [[c]] 
     | Trm_let _
       | Trm_let_mult _ ->
        (* Keep the state of the local scope from before variable declaration. *)
@@ -544,7 +597,7 @@ let taskify_on (p : path) (t : trm) : unit =
                      TaskAttr_set.add WaitForNone attrs in
        (* Create a barrier corresponding to the current variable declaration
           term. Variable declarations should never appear in tasks. *)
-       Task.create t attrs scope' ins inouts []
+       Task.create t attrs scope' ins inouts Dep_map.empty []
     | Trm_apps _ ->
        (* Look for dependencies in the current term and initialize the in and
           in-out dependency sets. *)
@@ -553,16 +606,24 @@ let taskify_on (p : path) (t : trm) : unit =
        let scope = var_set_of_var_hashtbl s in
        (* Create the task corresponding to the current graph node using all the
           elements computed above. No task attributes are needed here. *)
-       Task.create t TaskAttr_set.empty scope ins inouts []
+       Task.create t TaskAttr_set.empty scope ins inouts Dep_map.empty []
     | Trm_if (cond, yes, no) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
        let scope = var_set_of_var_hashtbl s in
+       (* Initialize an empty map for dependency attributes. *)
+       let ioattrs = Dep_map.empty in
        (* Look for dependencies in the conditional expression of the [if] and
           initialize the in and in-out dependency sets. *)
        let (ins, inouts) = trm_discover_dependencies s cond in
+       (* Add the [Condition] attribute to the input and input-output
+          dependencies discovered in the condition term of the if-statement. *)
+       let ioattrs = Dep_map.bind_set ins
+                       (DepAttr_set.singleton Condition) ioattrs in
+       let ioattrs = Dep_map.bind_set inouts
+                       (DepAttr_set.singleton Condition) ioattrs in
        (* Create sub-graphs for the [then] and the [else] branches. *)
        let gy = TaskGraph.create () in
        let gn = TaskGraph.create () in
@@ -593,16 +654,24 @@ let taskify_on (p : path) (t : trm) : unit =
        let children = gy :: children in
        (* Create the task corresponding to the current [if] graph node using all
           the elements computed above. *)
-       Task.create t attrs scope ins inouts [children]
+       Task.create t attrs scope ins inouts ioattrs [children]
     | Trm_while (cond, body) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
        let scope = var_set_of_var_hashtbl s in
+       (* Initialize an empty map for dependency attributes. *)
+       let ioattrs = Dep_map.empty in
        (* Look for dependencies in the conditional expression of the [while] and
           initialize the in and in-out dependency sets. *)
        let (ins, inouts) = trm_discover_dependencies s cond in
+       (* Add the [Condition] attribute to the input and input-output
+          dependencies discovered in the condition term of the while-loop. *)
+       let ioattrs = Dep_map.bind_set ins
+                       (DepAttr_set.singleton Condition) ioattrs in
+       let ioattrs = Dep_map.bind_set inouts
+                       (DepAttr_set.singleton Condition) ioattrs in
        (* Create a sub-graph for the body sequence of the [while]. *)
        let gb = TaskGraph.create () in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
@@ -619,16 +688,24 @@ let taskify_on (p : path) (t : trm) : unit =
                    else TaskAttr_set.empty in
        (* Create the task corresponding to the current [while] graph node using
           all the elements computed above. *)
-       Task.create t attrs scope ins inouts [[gb]]
+       Task.create t attrs scope ins inouts ioattrs [[gb]]
     | Trm_do_while (body, cond) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
        let scope = var_set_of_var_hashtbl s in
-       (* Look for dependencies in the conditional expression of the [do-while]
+       (* Initialize an empty map for dependency attributes. *)
+       let ioattrs = Dep_map.empty in
+       (* Look for dependencies in the conditional expression of the do-while
           and initialize the in and in-out dependency sets. *)
        let (ins, inouts) = trm_discover_dependencies s cond in
+       (* Add the [Condition] attribute to the input and input-output
+          dependencies discovered in the condition term of the do-while-loop. *)
+       let ioattrs = Dep_map.bind_set ins
+                       (DepAttr_set.singleton Condition) ioattrs in
+       let ioattrs = Dep_map.bind_set inouts
+                       (DepAttr_set.singleton Condition) ioattrs in
        (* Create a sub-graph for the body sequence of the [do-while]. *)
        let gb = TaskGraph.create () in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
@@ -645,16 +722,25 @@ let taskify_on (p : path) (t : trm) : unit =
                    else TaskAttr_set.empty in
        (* Create the task corresponding to the current [do-while] graph node
           using all the elements computed above. *)
-       Task.create t attrs scope ins inouts [[gb]]
+       Task.create t attrs scope ins inouts ioattrs [[gb]]
     | Trm_switch (cond, cases) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
        let scope = var_set_of_var_hashtbl s in
+       (* Initialize an empty map for dependency attributes. *)
+       let ioattrs = Dep_map.empty in
        (* Look for dependencies in the conditional expression of the [switch]
           and initialize the in and in-out dependency sets. *)
        let (ins, inouts) = trm_discover_dependencies s cond in
+       (* Add the [Condition] attribute to the input and input-output
+          dependencies discovered in the condition term of the
+          switch-statement. *)
+       let ioattrs = Dep_map.bind_set ins
+                       (DepAttr_set.singleton Condition) ioattrs in
+       let ioattrs = Dep_map.bind_set inouts
+                       (DepAttr_set.singleton Condition) ioattrs in
        (* We are about to process the blocks associated with the cases of the
           [switch]. To each case we will associate the corresponding [Task] and
           [TaskGraph]. As we can not directly map the elements of [cases] to
@@ -692,7 +778,7 @@ let taskify_on (p : path) (t : trm) : unit =
                    else TaskAttr_set.empty in
        (* Create the task corresponding to the current [switch] graph node
           using all the elements computed above. *)
-       Task.create t attrs scope ins inouts [gbs]
+       Task.create t attrs scope ins inouts ioattrs [gbs]
     | Trm_delete (_, target) ->
        (* Look for dependencies in the target term of the [delete]. [delete] is
           a destructive operation, we need to consider all of the dependencies
@@ -706,7 +792,7 @@ let taskify_on (p : path) (t : trm) : unit =
        let attrs = TaskAttr_set.singleton WaitForSome in
        (* in order to be able to use it when creating the task corresponding to
           the current [delete] graph node. *)
-       Task.create t attrs scope Dep_set.empty inouts []
+       Task.create t attrs scope Dep_set.empty inouts Dep_map.empty []
     | Trm_goto target ->
        (* If the target label of the [goto] is not the [Apac_core.goto_label] we
           use within the return statement replacement transformation
@@ -722,7 +808,8 @@ let taskify_on (p : path) (t : trm) : unit =
             unconditional jump. See [Apac_tasks.TaskAttr]. *)
          let attrs = TaskAttr_set.singleton Singleton in
          let attrs = TaskAttr_set.add HasJump attrs in
-         Task.create t attrs Var_set.empty Dep_set.empty Dep_set.empty []
+         Task.create t attrs Var_set.empty
+           Dep_set.empty Dep_set.empty Dep_map.empty []
     | Trm_val v ->
        (* Retrieve the first label attribute of the current term, if any. *)
        let l = trm_get_labels t in
@@ -738,7 +825,8 @@ let taskify_on (p : path) (t : trm) : unit =
        | Val_lit (Lit_unit) when l = Apac_macros.goto_label ->
           let attrs = TaskAttr_set.singleton Singleton in
           let attrs = TaskAttr_set.add ExitPoint attrs in
-          Task.create t attrs Var_set.empty Dep_set.empty Dep_set.empty []
+          Task.create t attrs Var_set.empty
+            Dep_set.empty Dep_set.empty Dep_map.empty []
        (* Otherwise, fail. Other types of values are not allowed as first-level
           instructions within a task group. *)
        | _ ->
@@ -778,13 +866,13 @@ let taskify_on (p : path) (t : trm) : unit =
        let inouts = Dep_set.union ins inouts in
        (* Create the task corresponding to the current OpenMP routine call graph
           node. *)
-       Task.create t attrs scope Dep_set.empty inouts []
+       Task.create t attrs scope Dep_set.empty inouts Dep_map.empty []
        (* 2) On the other hand, all the other routines do not involve any
              variables and thus do not require dependency discovery. *)
        | _ ->
           (* Create the task corresponding to the current OpenMP routine call
              graph node. *)
-          Task.create t attrs scope Dep_set.empty Dep_set.empty []
+          Task.create t attrs scope Dep_set.empty Dep_set.empty Dep_map.empty []
        end
     | _ ->
        let error = Printf.sprintf

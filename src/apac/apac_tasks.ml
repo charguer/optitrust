@@ -81,11 +81,12 @@ module rec Task : sig
              attrs : TaskAttr_set.t;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
+             mutable ioattrs : ioattrs_map;
              children : TaskGraph.t list list;
            }
          val create :
            trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
-           TaskGraph.t list list -> t
+           ioattrs_map -> TaskGraph.t list list -> t
          val has_attr : t -> TaskAttr.t -> bool
          val merge : t -> t -> t
          val update : t -> trms -> t
@@ -107,6 +108,9 @@ module rec Task : sig
       mutable ins : Dep_set.t;
       (* - a set of input-output (read-write) data dependencies (see [Dep]), *)
       mutable inouts : Dep_set.t;
+      (* - a map of data dependencies to sets of dependency attributes (see
+         [ioattrs_map]), *)
+      mutable ioattrs : ioattrs_map;
       (* - a list of lists of nested task graphs (each term in [current] may
          have more than one child task graph associated to it, i.e. a then and
          an else branch in the case of an if-conditional statement). *)
@@ -118,7 +122,7 @@ module rec Task : sig
      the set of input-output dependencies [inouts] and the list of lists of
      nested task graphs. *)
   let create (current : trm) (attrs : TaskAttr_set.t) (scope : Var_set.t)
-        (ins : Dep_set.t) (inouts : Dep_set.t)
+        (ins : Dep_set.t) (inouts : Dep_set.t) (ioattrs : ioattrs_map)
         (children : TaskGraph.t list list) : t =
     (* Filter out the input dependencies on variables that are not defined in
        the current scope. *)
@@ -136,6 +140,14 @@ module rec Task : sig
                                | Dep_trm (_, v) -> Var_set.mem v scope
                                | _ -> false
                     ) inouts in
+    (* Filter out the attributes for dependencies on variables that are not
+       defined in the current scope. *)
+    let ioattrs' = Dep_map.filter (
+                      fun d _ -> match (Dep.to_atomic d) with
+                               | Dep_var v -> Var_set.mem v scope
+                               | Dep_trm (_, v) -> Var_set.mem v scope
+                               | _ -> false
+                    ) ioattrs in
     (* The dependency analysis may conclude that a dependency is both an input
        and an input-output dependency. To simplify further computations on
        dependencies, we remove this kind of dependencies from the set of input
@@ -148,6 +160,7 @@ module rec Task : sig
       attrs = attrs;
       ins = ins';
       inouts = inouts';
+      ioattrs = ioattrs';
       children = children;
     }
   (* [Task.has_attr t attr]: checks whether the task [t] has the attribute
@@ -164,6 +177,10 @@ module rec Task : sig
     let ins' = Dep_set.union t1.ins t2.ins in
     (* and the input-output dependency set, *)
     let inouts' = Dep_set.union t1.inouts t2.inouts in
+    (* compute the union of maps of dependency attributes, *)
+    let ioattrs' = Dep_map.union (fun _ v1 v2 ->
+                       let v = DepAttr_set.union v1 v2 in Some v
+                     ) t1.ioattrs t2.ioattrs in
     (* concatenate the list of lists of nested graphs of [t1] and [t2]. *)
     let children' = t1.children @ t2.children in
     {
@@ -171,6 +188,7 @@ module rec Task : sig
       attrs = attrs';
       ins = ins';
       inouts = inouts';
+      ioattrs = ioattrs';
       children = children';
     }
   (* [Task.update task instrs]: updates the list of AST terms associated with
@@ -181,6 +199,7 @@ module rec Task : sig
       attrs = task.attrs;
       ins = task.ins;
       inouts = task.inouts;
+      ioattrs = task.ioattrs;
       children = task.children;
     }
   (* [Task.empty]: produces an empty task having no AST term associated with it
@@ -190,6 +209,7 @@ module rec Task : sig
       attrs = TaskAttr_set.empty;
       ins = Dep_set.empty;
       inouts = Dep_set.empty;
+      ioattrs = Dep_map.empty;
       children = [];
     }
   (* [Task.to_string task]: returns a string representation of [task]. *)
@@ -199,9 +219,21 @@ module rec Task : sig
                    acc ^ " > " ^ desc
                  ) "" task.current in
     let ins = Dep_set.fold
-                (fun a acc -> acc ^ " " ^ (Dep.to_string a)) task.ins "" in
+                (fun a acc ->
+                  let ioa = Dep_map.find_opt a task.ioattrs in
+                  let ioa = match ioa with
+                    | Some das -> "(" ^ (DepAttr_set.to_string das) ^ ")"
+                    | None -> ""
+                  in
+                  acc ^ " " ^ (Dep.to_string a) ^ " " ^ ioa) task.ins "" in
     let inouts = Dep_set.fold (
-                     fun a acc -> acc ^ " " ^ (Dep.to_string a)
+                     fun a acc -> 
+                     let ioa = Dep_map.find_opt a task.ioattrs in
+                     let ioa = match ioa with
+                       | Some das -> "(" ^ (DepAttr_set.to_string das) ^ ")"
+                       | None -> ""
+                     in
+                     acc ^ " " ^ (Dep.to_string a) ^ " " ^ ioa
                    ) task.inouts "" in
     what ^ " (in: [" ^ ins ^ " ], inouts: [" ^ inouts ^ " ])\n"
   (* [Task.to_label task]: returns a string representation of [task] used when

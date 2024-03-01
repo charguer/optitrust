@@ -24,9 +24,19 @@ let emit_omp_task (t : Task.t) : trms =
     end
   else
     begin
-      let ins' = Dep_set.to_list t.ins in
+      let ins' = if (Task.has_attr t WaitForSome) then
+                   Dep_set.filter (fun d ->
+                       Dep_map.has_with_attribute d Condition t.ioattrs
+                     ) t.ins
+                 else t.ins in
+      let ins' = Dep_set.to_list ins' in
       let ins' = if (List.length ins') < 1 then [] else [In ins'] in
-      let inouts' = Dep_set.to_list t.inouts in
+      let inouts' = if (Task.has_attr t WaitForSome) then
+                      Dep_set.filter (fun d ->
+                          Dep_map.has_with_attribute d Condition t.ioattrs
+                        ) t.inouts
+                    else t.inouts in
+      let inouts' = Dep_set.to_list inouts' in
       let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
       let depend = List.append ins' inouts' in
       let depend = if (List.length depend) < 1 then [] else [Depend depend] in
