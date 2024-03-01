@@ -21,6 +21,10 @@ inline void __consumes(const char*) {}
 inline void __produces(const char*) {}
 inline void __sequentially_reads(const char*) {}
 inline void __sequentially_modifies(const char*) {}
+inline void __sreads(const char*) {}
+inline void __smodifies(const char*) {}
+inline void __xreads(const char*) {}
+inline void __xmodifies(const char*) {}
 inline void __parallel_reads(const char*) {}
 inline void __loop_ghosts(const char*) {}
 

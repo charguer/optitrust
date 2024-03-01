@@ -621,9 +621,11 @@ let __writes = name_to_var "__writes"
 let __modifies = name_to_var "__modifies"
 let __consumes = name_to_var "__consumes"
 let __produces = name_to_var "__produces"
+let __exclusive_reads = name_to_var "__xreads"
+let __exclusive_modifies = name_to_var "__xmodifies"
 let __sequentially_reads = name_to_var "__sequentially_reads"
-let __sequentially_modifies = name_to_var "__sequentially_modifies"
-let __parallel_reads = name_to_var "__parallel_reads"
+let __sequentially_modifies = name_to_var "__smodifies"
+let __parallel_reads = name_to_var "__sreads"
 let __loop_ghosts = name_to_var "__loop_ghosts"
 
 let __reverts = name_to_var "__reverts"
@@ -646,14 +648,14 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
     | "__requires" -> Some Requires
     | "__ensures" -> Some Ensures
     | "__invariant" -> Some Invariant
-    | "__reads" -> Some Reads
+    | "__reads" | "__xreads" -> Some Reads
     | "__writes" -> Some Writes
-    | "__modifies" -> Some Modifies
+    | "__modifies" | "__xmodifies" -> Some Modifies
     | "__consumes" -> Some Consumes
     | "__produces" -> Some Produces
     | "__sequentially_reads" -> Some SequentiallyReads
-    | "__sequentially_modifies" -> Some SequentiallyModifies
-    | "__parallel_reads" -> Some ParallelReads
+    | "__sequentially_modifies" | "__smodifies" -> Some SequentiallyModifies
+    | "__parallel_reads" | "__sreads" -> Some ParallelReads
     | "__loop_ghosts" -> Some LoopGhosts
     | _ -> None
   in
@@ -961,7 +963,7 @@ let rec contract_intro (style: style) (t: trm): trm =
       | Some contract ->
         let used_vars = loop_contract_used_vars contract in
         let loop_ghosts, pre_linear, post_linear, body =
-          push_reads_and_modifies __reads __modifies
+          push_reads_and_modifies __exclusive_reads __exclusive_modifies
             contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
         in
         let body = push_named_formulas __produces post_linear body in

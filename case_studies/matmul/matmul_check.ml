@@ -22,15 +22,16 @@ let%transfo preprocessing (_u: unit) : unit =
   Resources.fix_loop_default_contracts [cFunBody "mm"];
   Resources.loop_minimize [cFor "k"]
 
-(* FIXME: should be done by flag ~elimoptitrust:true *)
+(* FIXME: should be done by flag ~elimoptitrust:true
 let%transfo postprocessing (_u: unit) : unit =
   Trace.tag "pre-post-processing";
   Flags.recompute_resources_between_steps := false;
   Matrix.elim_mops []
+*)
 
 (* FIXME: avoid inlining *)
 let _ = Run.script_cpp (fun () ->
-  preprocessing ();
+  !! preprocessing ();
 
   !! Function.inline_def [cFunDef "mm"];
   let tile (loop_id, tile_size) = Loop.tile (int tile_size)
@@ -44,5 +45,5 @@ let _ = Run.script_cpp (fun () ->
   !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
   !! Loop.unroll [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
 
-  postprocessing ();
+  (* !! postprocessing (); *)
 )
