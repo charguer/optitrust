@@ -193,7 +193,7 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
       (* LATER: document the [îs_ptr] and explain why it is needed *)
       (* LATER: it seems that a mark is introduced and not eliminated *)
 let%transfo bind ?(const : bool = false) ?(mark_let : mark = no_mark) ?(mark_occ : mark = no_mark) ?(mark_body : mark = no_mark) ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : string) (tg : target) : unit =
-  Resources.justif_correct "arguments are pure/reproducible";
+  Resources.justif_correct "the extracted sub-expression is required by typing to use resources that do not interfere with the other sub-expressions";
   Nobrace_transfo.remove_after ~remove:remove_nobrace ( fun _ ->
     Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
