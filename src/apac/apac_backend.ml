@@ -24,11 +24,17 @@ let emit_omp_task (t : Task.t) : trms =
     end
   else
     begin
-      let ins' = if (Task.has_attr t WaitForSome) then
-                   Dep_set.filter (fun d ->
-                       Dep_map.has_with_attribute d Condition t.ioattrs
-                     ) t.ins
-                 else t.ins in
+      let (firstprivate, ins') =
+        if (Task.has_attr t WaitForSome) then
+          (Dep_set.empty,
+           Dep_set.filter (fun d ->
+               Dep_map.has_with_attribute d Condition t.ioattrs
+             ) t.ins)
+        else
+          Dep_set.partition (fun d ->
+              Dep_map.has_with_attribute d InductionVariable t.ioattrs
+            ) t.ins
+      in
       let ins' = Dep_set.to_list ins' in
       let ins' = if (List.length ins') < 1 then [] else [In ins'] in
       let inouts' = if (Task.has_attr t WaitForSome) then
@@ -54,7 +60,17 @@ let emit_omp_task (t : Task.t) : trms =
       else
         begin
           let shared = [Default Shared_m] in
-          let clauses = List.append shared depend in
+          let firstprivate = Dep_set.fold (fun d acc ->
+                                 let d' = Dep.to_atomic d in
+                                 match d' with
+                                 | Dep_var v -> v :: acc
+                                 | Dep_trm (t, v) -> v :: acc
+                                 | _ -> acc) firstprivate [] in
+          let firstprivate = if (List.length firstprivate) > 0 then
+                               [FirstPrivate firstprivate]
+                             else [] in
+          let clauses = shared @ depend in
+          let clauses = clauses @ firstprivate in
           let pragma = Task clauses in
           let instr = if (List.length t.current) < 2 then
                         List.hd t.current
