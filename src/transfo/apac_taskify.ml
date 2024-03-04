@@ -119,26 +119,32 @@ let task_group_on ?(mark_group = false) ~(master : bool) (t : trm) : trm =
 let task_group ?(mark_group = false) ~(master : bool) (tg : target) : unit =
   Target.apply_at_target_paths (task_group_on ~mark_group ~master:master) tg
 
-(* [parallel_task_group ?mark_group tg]: expects target [tg] to point at a
-   function definition.
+(** [parallel_task_group ?mark_group ?placeholder tg]: expects target [tg] to
+   point at a function definition.
 
     The first step of the transformation consists in replacing return statements
     by gotos. At the beginning of the process, the function's body is wrapped
     into a sequence to which a mark is assigned.  See
-    [Apac_basic.use_goto_for_return] for more details.
+    [Apac_prologue.use_goto_for_return] for more details.
 
     In the second step, we put the marked sequence into an OpenMP task group.
     See [Apac_basic.task_group] for more details.
 
-    If [mark_group] is [true], [Apac_basic.task_group] will add the
-    [Apac_core.task_group_mark] to the task group sequence. This way, we can
-    target the task group sequences later when inserting tasks into the
-    code. Note that the aforementioned mark is not the same thing. That mark is
-    unique and serves to identify the target function's body. It only lives
-    within this transformation function. We have to use this extra unique mark
-    here, otherwise the fourth step could target more than one AST term, which
-    is not desirable. *)
-let parallel_task_group ?(mark_group = false) : Transfo.t =
+    If [mark_group] is [true], [task_group] will add the
+    [Apac_macros.task_group_mark] to the task group sequence. This way, we can
+    target the task group sequences later when inserting tasks into the code.
+    Note that the aforementioned mark is not the same thing. That mark is unique
+    and serves to identify the target function's body. It only lives within this
+    transformation function. We have to use this extra unique mark here,
+    otherwise the fourth step could target more than one AST term, which is not
+    desirable.
+
+    If [placeholder] is [true], we will create no actual OpenMP task group.
+    Instead, the function's body will be simply wrapped into a sequence marked
+    with [Apac_macros.task_group_mark]. The intended usage of this option is in
+    the case of task profiler activation. *)
+let parallel_task_group
+      ?(mark_group = false) ?(placeholder = false) : Transfo.t =
   Target.iter (fun t p ->
     (* 1) Create a mark. *)
     let mark = Mark.next() in
@@ -153,11 +159,14 @@ let parallel_task_group ?(mark_group = false) : Transfo.t =
       Path.get_trm_at_path p t
     ) in
     (* 4) Transform the marked instruction sequence corresponding to the target
-       function's body into an OpenMP task group.
+       function's body into an OpenMP task group if [placeholder] is [false].
 
        Note that if the target function is the 'main' function, we want the
        task group to be executed only by one thread, the master thread. *)
-    task_group ~mark_group ~master:(var_has_name qvar "main") [cMark mark];
+    if not placeholder then
+      task_group ~mark_group ~master:(var_has_name qvar "main") [cMark mark]
+    else
+      Marks.add Apac_macros.task_group_mark [cMark mark];
     (* 5) Remove the mark. *)
     Marks.remove mark [cMark mark];
   )
