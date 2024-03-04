@@ -16,6 +16,7 @@ void c(int * tab, int size) {
   for(i = 0; i < size; i++) {
     tab[i] += 2;
     p(tab[i]);
+    p(tab[i]);
   }
   g(tab);
   h(tab);
