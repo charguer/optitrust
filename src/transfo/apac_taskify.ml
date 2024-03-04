@@ -349,6 +349,7 @@ let trm_discover_dependencies (locals : symbols)
          | Some (lv, _) ->
             let d = Dep_trm (lval, lv.v) in
             Stack.push d inouts;
+            trm_iter (aux ins inouts filter false Regular) lval;
             trm_iter (aux ins inouts filter false Regular) rval
          | None -> fail t.loc error
        end
