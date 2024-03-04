@@ -1045,9 +1045,8 @@ let profile_tasks_on (p : path) (t : trm) : trm =
                  (trm_from_task ~backend:ApacProfiler) g in
   let instrs = Mlist.of_list instrs in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
-  (* let _ = Debug_transfo.trm "output" result in *)
   result
-  
+
     
 let profile_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (profile_tasks_on p) t p) tg
