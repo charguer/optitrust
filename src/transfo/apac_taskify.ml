@@ -1056,25 +1056,7 @@ let profile_tasks_on (p : path) (t : trm) : trm =
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   result
 
-    
 let profile_tasks (tg : target) : unit =
+  Trace.ensure_header Apac_macros.profiler_header;
   Target.apply (fun t p -> Path.apply_on_path (profile_tasks_on p) t p) tg
 
-let include_apac_profiler_on (p : path) (t : trm) : trm =
-  if p <> [] then
-    fail t.loc "Apac_core.include_apac_profiler_on: expects to be applied on \
-                the root of the AST"
-  else
-    begin
-      match t.desc with
-      | Trm_seq tl ->
-         let directive = code (Expr "#include \"apac_profiler.hpp\"") in
-         let tl' = Mlist.insert_at 0 directive tl in
-         trm_seq ~annot:t.annot tl'
-      | _ -> fail t.loc "Apac_core.include_apac_profiler_on: expects to be \
-                         applied on a sequence"
-    end
-
-let include_apac_profiler (tg : target) : unit =
-  Target.apply (fun t p ->
-      Path.apply_on_path (include_apac_profiler_on p) t p) tg

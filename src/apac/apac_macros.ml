@@ -17,3 +17,6 @@ let heapify_mark : mark = "__apac_heapify"
     This mark is reserved for sequences possibly containing [break] or
     [continue] statements. See [Apac_basic.heapify]. *)
 let heapify_breakable_mark : mark = "__apac_heapify_breakable"
+
+(** [profiler_header]: include directive required by the profiler backend. *)
+let profiler_header : string = "#include \"apac_profiler.hpp\""

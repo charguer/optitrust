@@ -11,6 +11,15 @@ type task_backend =
   | ApacProfiler (* Do not create tasks. Insert calls to profiling functions
                     instead. *)
 
+(** [next_id]: generates unique integer identifiers starting from zero. *)
+let next_id = Tools.fresh_generator ()
+
+(** [next_profsection]: generates unique names for profiling sections used by
+    the profiler backend. See [emit_profiler_task]. *)
+let next_profsection () : string =
+  let id = next_id () in
+  "apac_profsection" ^ (string_of_int id)
+
 let emit_omp_task (t : Task.t) : trms =
   if (Task.has_attr t ExitPoint) ||
        (Task.has_attr t HasJump) ||
@@ -90,36 +99,45 @@ let emit_profiler_task (t : Task.t) : trms =
     match loc with
     | None -> "_"
     | Some { loc_end = {pos_line = line; _}; _} -> string_of_int line
-  in     
-  let reads = Dep_set.cardinal t.ins in
-  let writes = Dep_set.cardinal t.inouts in
-  let first = List.hd t.current in
-  let first = get_begin first.loc in
-  let last = (List.length t.current) - 1 in
-  let last = List.nth t.current last in
-  let last = get_end last.loc in
-  let section = "ApacProfilerSection profsection(\"" ^
-                  first ^ "-" ^ last ^ "\", " ^
-                    (string_of_int reads) ^ ", " ^
-                      (string_of_int writes) ^ ")" in
-  let section = code (Instr section) in
-  let ins' = Dep_set.to_list t.ins in
-  let ins' = List.map (fun e ->
-                 let d = Dep.to_string e in
-                 let s = "profsection.addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
-                 code (Instr s)
-               ) ins' in
-  let inouts' = Dep_set.to_list t.inouts in
-  let inouts' = List.map (fun e ->
-                    let d = Dep.to_string e in
-                    let s = "profsection.addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
-                    code (Instr s)
-                  ) inouts' in
-  let before = code (Instr "profsection.beforeCall()") in
-  let after = code (Instr "profsection.afterCall()") in
-  let preamble = (section :: ins') @ inouts' @ [before] in
-  let postamble = [after] in
-  preamble @ t.current @ postamble
+  in
+  if (Task.has_attr t ExitPoint) ||
+       (Task.has_attr t HasJump) ||
+         (Task.has_attr t WaitForNone) then t.current
+  else
+    let reads = Dep_set.cardinal t.ins in
+    let writes = Dep_set.cardinal t.inouts in
+    let first = List.hd t.current in
+    let first = get_begin first.loc in
+    let last = (List.length t.current) - 1 in
+    let last = List.nth t.current last in
+    let last = get_end last.loc in
+    let profsection = next_profsection () in
+    let range = if first <> "_" && last <> "_" then
+                  first ^ "-" ^ last
+                else profsection in
+    let section = "ApacProfilerSection " ^ profsection ^ "(\"" ^
+                   range ^ "\", " ^ (string_of_int reads) ^ ", " ^
+                        (string_of_int writes) ^ ")" in
+    let section = code (Instr section) in
+    let ins' = Dep_set.to_list t.ins in
+    let ins' = List.map (fun e ->
+                   let d = Dep.to_string e in
+                   let s =
+                     profsection ^ ".addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
+                   code (Instr s)
+                 ) ins' in
+    let inouts' = Dep_set.to_list t.inouts in
+    let inouts' = List.map (fun e ->
+                      let d = Dep.to_string e in
+                      let s =
+                        profsection ^ ".addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
+                      code (Instr s)
+                    ) inouts' in
+    let before = code (Instr (profsection ^ ".beforeCall()")) in
+    let after = code (Instr (profsection ^ ".afterCall()")) in
+    let preamble = (section :: ins') @ inouts' @ [before] in
+    let postamble = [after] in
+    preamble @ t.current @ postamble
 
 let rec trm_from_task ?(backend : task_backend = OpenMP)
           (t : TaskGraph.V.t) : trms =
