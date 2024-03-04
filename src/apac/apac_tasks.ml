@@ -300,6 +300,27 @@ module TaskGraphPrinter = struct
         (graph : TaskGraph.t) : Graphviz.DotAttributes.edge list = []
   let edge_attributes
         (edge : E.t) : Graphviz.DotAttributes.edge list = []
+  (* However, we implement custom printing methods that are not required by
+     [DotExport] but are useful for debugging purposes. *)
+  (** [TaskGraphPrinter.to_string g]: returns a string representation of a
+      possibly nested task graph [g]. *)
+  let to_string (g : TaskGraph.t) : string =
+    let rec aux (g : TaskGraph.t) (indent : string) : string =
+      TaskGraph.fold_vertex (fun v acc ->
+          let vl : Task.t = TaskGraph.V.label v in
+          let sg : string = List.fold_left (fun acc gl ->
+                                let og = List.fold_left (fun acc g' ->
+                                             let o = aux g' (indent ^ "    ") in
+                                             acc ^ o) "" gl
+                                in acc ^ og) "" vl.children in
+          acc ^ indent ^ (Task.to_string vl) ^ sg) g ""
+    in
+    aux g ""
+  (** [TaskGraphPrinter.print g]: prints a string representation of a possibly
+      nested task graph [g] onto the standard output. *)
+  let print (g : TaskGraph.t) : unit =
+    let gs = to_string g in
+    Printf.printf "%s\n" gs
 end
 
 (* [DotExport]: a module for exporting a [TaskGraph] into the Dot format through

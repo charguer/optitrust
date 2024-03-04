@@ -892,9 +892,7 @@ let taskify_on (p : path) (t : trm) : unit =
   let _ = fill const_record.variables t g in
   let g' = TaskGraphOper.transitive_reduction g in
   const_record.task_graph <- Some (g');
-  TaskGraph.iter_vertex (fun vertex ->
-      let lab : Task.t = TaskGraph.V.label vertex in
-      Printf.printf "vertex: %s\n" (Task.to_string lab)) g';
+  TaskGraphPrinter.print g';
   export_task_graph g' "apac_task_graph.dot"
   (*fill const_record.variables t task_graph;
   Printf.printf "Augmented AST for <%s> follows:\n%s\n"
