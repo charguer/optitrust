@@ -5,7 +5,7 @@ open Apac_macros
 open Apac_dep
 open Apac_tasks
 
-(* [task_backend]: enumeration of supported task runtimes. *)
+(** [task_backend]: enumeration of supported task runtimes. *)
 type task_backend =
   | OpenMP (* Emit OpenMP tasks. *)
   | ApacProfiler (* Do not create tasks. Insert calls to profiling functions
