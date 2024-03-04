@@ -225,7 +225,8 @@ module rec Task : sig
                     | Some das -> "(" ^ (DepAttr_set.to_string das) ^ ")"
                     | None -> ""
                   in
-                  acc ^ " " ^ (Dep.to_string a) ^ " " ^ ioa) task.ins "" in
+                  let ioa = if ioa <> "" then " " ^ ioa else ioa in
+                  acc ^ " " ^ (Dep.to_string a) ^ ioa) task.ins "" in
     let inouts = Dep_set.fold (
                      fun a acc -> 
                      let ioa = Dep_map.find_opt a task.ioattrs in
@@ -233,9 +234,10 @@ module rec Task : sig
                        | Some das -> "(" ^ (DepAttr_set.to_string das) ^ ")"
                        | None -> ""
                      in
-                     acc ^ " " ^ (Dep.to_string a) ^ " " ^ ioa
+                     let ioa = if ioa <> "" then " " ^ ioa else ioa in
+                     acc ^ " " ^ (Dep.to_string a) ^ ioa
                    ) task.inouts "" in
-    what ^ " (in: [" ^ ins ^ " ], inouts: [" ^ inouts ^ " ])\n"
+    what ^ " (in: [" ^ ins ^ " ], inout: [" ^ inouts ^ " ])\n"
   (* [Task.to_label task]: returns a string representation of [task] used when
      converting a task graph into the Dot text format. See
      [TaskGraphPrinter]. *)

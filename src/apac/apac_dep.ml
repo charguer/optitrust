@@ -49,7 +49,7 @@ module DepAttr_set = struct
   (** [DepAttr_set.to_string das]: returns a string representation of the set of
       dependency attributes [das]. *)
   let to_string (das : t) : string =
-    fold (fun da acc -> acc ^ (DepAttr.to_string da) ^ " | ") das " | "
+    fold (fun da acc -> acc ^ (DepAttr.to_string da) ^ " ") das " "
 end
 
 (** [Dep]: a module to represent inter-instruction data dependencies based on
