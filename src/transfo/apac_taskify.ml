@@ -890,7 +890,7 @@ let taskify_on (p : path) (t : trm) : unit =
   (* Build the augmented AST correspoding to the function's body. *)
   let g = TaskGraph.create () in
   let _ = fill const_record.variables t g in
-  let g' = TaskGraphOper.transitive_reduction g in
+  let g' = TaskGraphOper.recursive_transitive_reduction g in
   const_record.task_graph <- Some (g');
   TaskGraphPrinter.print g';
   export_task_graph g' "apac_task_graph.dot"
