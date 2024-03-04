@@ -1096,7 +1096,7 @@ and clause_to_doc (cl : clause) : document =
   | Default m -> string "default" ^^ parens (mode_to_doc m)
   | Shared vl -> string "shared" ^^ parens (vl_to_doc vl)
   | Private vl -> string "private" ^^ parens (vl_to_doc vl)
-  | FirstPrivate vl -> string "firstprivate" ^^ parens (vl_to_doc vl)
+  | FirstPrivate vl -> string "firstprivate(" ^^ (vl_to_doc vl) ^^ string ")"
   | LastPrivate vl -> string "lastprivate" ^^ parens (vl_to_doc vl)
   | Linear (vl, step) -> string "linear" ^^ parens (vl_to_doc vl ^^ if step = 0 then empty else blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int step))
   | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ colon ^^ vl_to_doc vl)
