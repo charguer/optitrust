@@ -491,6 +491,15 @@ let taskify_on (p : path) (t : trm) : unit =
        let c = TaskGraph.create() in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
        let ct = fill s instr c in
+       (* Propagate the [InductionVariable] attribute to the input and
+          input-output dependencies discovered in the body sequence of the
+          for-loop whenever they feature the dependencies from [ins'] and
+          [inouts'], i.e. the sets of dependencies previously discovered in the
+          increment term of the for-loop. *)
+       let c = TaskGraphOper.propagate_dependency_attribute
+                 (DepAttr_set.singleton InductionVariable) ins' c in
+       let c = TaskGraphOper.propagate_dependency_attribute
+                 (DepAttr_set.singleton InductionVariable) inouts' c in
        (* Include the dependencies from the body sequence into the sets of
           dependencies of the current [for] graph node, i.e. [ins] and [inouts],
           by the means of a union operation. *)
@@ -554,6 +563,15 @@ let taskify_on (p : path) (t : trm) : unit =
        let c = TaskGraph.create() in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
        let ct = fill s instr c in
+       (* Propagate the [InductionVariable] attribute to the input and
+          input-output dependencies discovered in the body sequence of the
+          for-loop whenever they feature the dependencies from [ins'] and
+          [inouts'], i.e. the sets of dependencies previously discovered in the
+          increment term of the for-loop. *)
+       let c = TaskGraphOper.propagate_dependency_attribute
+                 (DepAttr_set.singleton InductionVariable) ins' c in
+       let c = TaskGraphOper.propagate_dependency_attribute
+                 (DepAttr_set.singleton InductionVariable) inouts' c in
        (* Include the dependencies from the body sequence into the sets of
           dependencies of the current [for] graph node, i.e. [ins] and [inouts],
           by the means of a union operation. *)
