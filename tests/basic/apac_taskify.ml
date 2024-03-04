@@ -14,4 +14,8 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cMark Apac_macros.heapify_breakable_mark
               ];
+            !! Marks.remove Apac_macros.task_group_mark [
+                nbAny;
+                cMark Apac_macros.task_group_mark
+              ];
           )
