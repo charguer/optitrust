@@ -340,7 +340,49 @@ module TaskGraphBuilder = Builder.I(TaskGraph)
 
 (* [TaskGraphOper]: a module providing various graph operations for
    [TaskGraph]s. *)
-module TaskGraphOper = Oper.Make(TaskGraphBuilder)
+module TaskGraphOper = struct
+  include Oper.Make(TaskGraphBuilder)
+  let rec recursive_transitive_reduction (g : TaskGraph.t) : TaskGraph.t =
+    let g' = transitive_reduction g in
+    TaskGraph.map_vertex (fun v ->
+        let vl : Task.t = TaskGraph.V.label v in
+        let ch = List.map (fun gl ->
+                     List.map (fun go -> recursive_transitive_reduction go) gl
+                   ) vl.children in
+        let vl' : Task.t = {
+            current = vl.current;
+            attrs = vl.attrs;
+            ins = vl.ins;
+            inouts = vl.inouts;
+            ioattrs = vl.ioattrs;
+            children = ch;
+          } in
+        TaskGraph.V.create vl') g'
+  let rec propagate_dependency_attribute (a : DepAttr_set.t) (ds : Dep_set.t)
+            (g : TaskGraph.t) : TaskGraph.t =
+    TaskGraph.map_vertex (fun v ->
+        let v' : Task.t = TaskGraph.V.label v in
+        let ioattrs = Dep_set.fold (fun d acc ->
+                          if (Dep_set.mem d v'.ins) || (Dep_set.mem d v'.inouts)
+                          then
+                            Dep_map.add d a acc
+                          else
+                            acc) ds v'.ioattrs in
+        let children = List.map (fun gl ->
+                           List.map (fun go ->
+                               (propagate_dependency_attribute a ds) go
+                             ) gl
+                         ) v'.children in
+        let v' : Task.t = {
+            current = v'.current;
+            attrs = v'.attrs;
+            ins = v'.ins;
+            inouts = v'.inouts;
+            ioattrs = ioattrs;
+            children = children;
+          } in
+        TaskGraph.V.create v') g
+end
 
 (* [TaskGraphTraverse]: a module implementing a traversal function for task
    graphs. *)
