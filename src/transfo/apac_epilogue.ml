@@ -15,9 +15,7 @@ let subst_pragmas (va : var) (tv : trm)
     let v0 = Val_lit (Lit_int 0) in
     let v0 = trm_val v0 in
     List.map(fun d ->
-        let d' = Dep.to_atomic d in
-        let deg = Dep.degree d in
-        let d' = match d' with
+        match d with
         | Dep_trm (t, v) ->
            let tv' = match t.desc with
              | Trm_var (_, v') when v' = va ->
@@ -29,9 +27,7 @@ let subst_pragmas (va : var) (tv : trm)
         | Dep_var v when v = va ->
            let t' = trm_array_get (trm_get tv) v0 in
            Dep_trm (t', v)
-        | _ -> d'
-        in
-        Dep.of_atomic d' deg) dl
+        | _ -> d) dl
   in
   List.map (fun p ->
       let cl' = match p with

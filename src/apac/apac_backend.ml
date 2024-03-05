@@ -70,8 +70,7 @@ let emit_omp_task (t : Task.t) : trms =
         begin
           let shared = [Default Shared_m] in
           let firstprivate = Dep_set.fold (fun d acc ->
-                                 let d' = Dep.to_atomic d in
-                                 match d' with
+                                 match d with
                                  | Dep_var v -> v :: acc
                                  | Dep_trm (t, v) -> v :: acc
                                  | _ -> acc) firstprivate [] in

@@ -4,18 +4,16 @@ open Target
 
 (** [DepAttr]: a module to represent dependency attributes. See [Dep]. *)
 module DepAttr : sig
-  type t = Regular | FunArgIn | FunArgInOut | InductionVariable | Condition
+  type t = ArgIn | ArgInOut | InductionVariable | Condition
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val to_string : t -> string
 end = struct
   type t =
-    (* default value, no attribute *)
-    | Regular
-    (* function call argument, read-only dependency *)
-    | FunArgIn
-    (* function call argument, read-write dependency *)
-    | FunArgInOut
+    (* read-only argument *)
+    | ArgIn
+    (* read-write argument *)
+    | ArgInOut
     (* induction variable in a loop *)
     | InductionVariable
     (* part of a conditionnal statement, e.g. in an if-statement or in a
@@ -36,9 +34,8 @@ end = struct
       attribute [da]. *)
   let to_string (da : t) : string =
     match da with
-    | Regular -> "Regular"
-    | FunArgIn -> "FunArgIn"
-    | FunArgInOut -> "FunArgInOut"
+    | ArgIn -> "ArgIn"
+    | ArgInOut -> "ArgInOut"
     | InductionVariable -> "InductionVariable"
     | Condition -> "Condition"
 end
@@ -60,67 +57,49 @@ end
 module Dep : sig
   type t = dep
   val degree : t -> int
-  val to_atomic : t -> t
-  val of_atomic : t -> int -> t
-  val to_string : t -> string
-  val of_var : var -> int -> t
   val of_trm : trm -> var -> int -> t
+  val to_string : t -> string
   val compare : t -> t -> int
   val equal : t -> t -> bool
 end = struct
   type t = dep
-  (** [Dep.degree d]: returns the degree of the dependency [d], i.e. the number
-      of enclosing [Dep_ptr]s. *)
-  let rec degree (d : t) : int =
+  (** [Dep.degree d]: returns the degree of the dependency [d] if it is of type
+      [Dep_trm]. In this case, the degree denotes the pointer degree or the
+      number of array dimensions of the [var] being part of [d].
+
+      For example, if [d] is '(tab\[0\]\[1\], tab)', the function returns 2. *)
+  let degree (d : t) : int =
     match d with
-    | Dep_ptr d' -> (degree d') + 1
+    | Dep_trm (a, v) ->
+       (* Get nested accesses of [a], the term associated with the dependency,
+          and count them. This represents the degree of [d]. *)
+       let (_, al) = get_nested_accesses a in List.length al
+    (* If [d] is not of type [Dep_trm], the degree is null as it is not an array
+       access. *)
     | _ -> 0
-  (** [Dep.to_atomic d]: if [d] is a dependency represented by a pointer
-      expression, e.g. '*c', the function returns the base dependency element,
-      i.e. the underlying variable [Dep_var] or term [Dep_trm]. If the degree of
-      the pointer expression is greater than 1, it will recurse over the nested
-      pointer expression until it reaches the underlying [Dep_var] or
-      [Dep_trm]. *)
-  let rec to_atomic (d : t) : t =
-    match d with
-    | Dep_ptr d' -> to_atomic d'
-    | _ -> d
-  (** [Dep.of_atomic d degree]: converts the dependency [d] into a composed
-      dependency. If [degree] is greater than 0, the [d] will be wrapped into
-      [degree] pointer expressions [Dep_ptr]. *)
-  let rec of_atomic (d : t) (degree : int) : t =
-    (* For each level of the pointer degree *)
-    let degree' = degree - 1 in
-    if degree > 0 then
-      (* nest a [Dep_ptr]. *)
-      Dep_ptr (of_atomic d degree')
+  (** [Dep.of_trm vt v degree]: converts the variable term [vt] and the
+      underlying variable [v] into a dependency of type [Dep_trm]. This
+      dependency type is meant for pointers and array accesses. Therefore,
+      besides the variable [v] behind [vt], a [Dep_trm] features also an
+      adequate term for accessing the first element of [vt].
+
+      For example, if [vt], and consequently [v], are 'tab' and [degree] is 2,
+      the function produces a dependency term [Dep_trm] composed of
+      'tab\[0\]\[0\]' and 'tab'. *)
+  let rec of_trm (vt : trm) (v : var) (degree : int) : t =
+    if degree < 1 then
+      Dep_trm (vt, v)
     else
-      (* At the end, when the zero level is reached, return the initial [d]. *)
-      d
+      let v0 = Val_lit (Lit_int 0) in
+      let v0 = Trm.trm_val v0 in
+      of_trm (Trm.trm_array_get vt v0) v (degree - 1)
   (** [Dep.to_string d]: generates a string representation of the dependency
       [d]. See also [Ast.dep]. *)
   let rec to_string (d : t) : string =
     match d with
-    | Dep_ptr d' ->
-       (*"*" ^*) to_string d'
     | Dep_var v -> v.name
-    | Dep_trm (t, v) -> v.name (*AstC_to_c.ast_to_string t*)
-  (** [Dep.of_var v degree]: converts the variable [v] into a dependency. If
-      [degree] is greater than 0, the resulting [Dep_var] will be wrapped into
-      [degree] pointer expressions [Dep_ptr]. *)
-  let of_var (v : var) (degree : int) : t =
-    (* Build a [Dep_var] from [v] and wrap it into pointer expressions, if
-       necessary. *)
-    let d = Dep_var (v) in of_atomic d degree
-  (** [Dep.of_trm t v degree]: converts the term [t] into a dependency. Note
-      that a dependency term [Dep_trm] is composed of the term itself, e.g.
-      'tab\[0\]', but also of the variable involved in the data access, e.g.
-      'tab'. Moreover, if [degree] is greater than 0, the resulting [Dep_trm]
-      will be wrapped into [degree] pointer expressions [Dep_ptr]. *)
-  let of_trm (t : trm) (v : var) (degree : int) : t =
-    (* Build a [Dep_trm] from [t] and [v] and wrap it into pointer expressions,
-       if necessary. *)
-    let d = Dep_trm (t, v) in of_atomic d degree
+    | Dep_trm (t, _) -> AstC_to_c.ast_to_string t
+    | Dep_ptr d' -> to_string d'
   (** [Dep.compare d1 d2]: compares two dependencies [d1] and [d2]. Note that
       dependencies are not only simple variables. We consider also pointer
       expressions, e.g. '*c', as well as more complex terms such as array

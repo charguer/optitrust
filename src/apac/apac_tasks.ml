@@ -127,7 +127,7 @@ module rec Task : sig
     (* Filter out the input dependencies on variables that are not defined in
        the current scope. *)
     let ins' = Dep_set.filter (
-                   fun d -> match (Dep.to_atomic d) with
+                   fun d -> match d with
                             | Dep_var v -> Var_set.mem v scope
                             | Dep_trm (_, v) -> Var_set.mem v scope
                             | _ -> false
@@ -135,7 +135,7 @@ module rec Task : sig
     (* Filter out the input-output dependencies on variables that are not
        defined in the current scope. *)
     let inouts' = Dep_set.filter (
-                      fun d -> match (Dep.to_atomic d) with
+                      fun d -> match d with
                                | Dep_var v -> Var_set.mem v scope
                                | Dep_trm (_, v) -> Var_set.mem v scope
                                | _ -> false
@@ -143,7 +143,7 @@ module rec Task : sig
     (* Filter out the attributes for dependencies on variables that are not
        defined in the current scope. *)
     let ioattrs' = Dep_map.filter (
-                      fun d _ -> match (Dep.to_atomic d) with
+                      fun d _ -> match d with
                                | Dep_var v -> Var_set.mem v scope
                                | Dep_trm (_, v) -> Var_set.mem v scope
                                | _ -> false
