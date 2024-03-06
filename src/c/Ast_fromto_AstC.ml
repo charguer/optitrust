@@ -791,10 +791,12 @@ let ctx_produced_res_to_trm (style: style) (produced_res: produced_resource_set)
 
 let ctx_usage_map_to_strings res_used =
   List.map (function
-    | hyp, SplittedReadOnly -> sprintf "RO %s" hyp.name
-    | hyp, UsedUninit -> sprintf "Uninit %s" hyp.name
-    | hyp, UsedFull -> sprintf "Full %s" hyp.name
-    | hyp, JoinedReadOnly -> sprintf "JoinRO %s" hyp.name
+    | hyp, Required -> sprintf "%s" hyp.name
+    | hyp, Ensured -> sprintf "Ensured %s" hyp.name
+    | hyp, ConsumedFull -> sprintf "Full %s" hyp.name
+    | hyp, ConsumedUninit -> sprintf "Uninit %s" hyp.name
+    | hyp, SplittedFrac -> sprintf "Subfrac %s" hyp.name
+    | hyp, JoinedFrac -> sprintf "JoinFrac %s" hyp.name
     | hyp, Produced -> sprintf "Produced %s" hyp.name)
     (Hyp_map.bindings res_used)
 

@@ -215,7 +215,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       in
       let tl1_inv_reads, (* = Iro *) tl1_inv_writes (* = I' *) = Hyp_map.partition (fun _ res_usage ->
         match res_usage with
-        | SplittedReadOnly | JoinedReadOnly -> true
+        | SplittedFrac | JoinedFrac -> true
         | _ -> false
       ) tl1_inv_usage in
       let resource_set_of_hyp_map (hyps: 'a Hyp_map.t) (resources: resource_item list): resource_item list =
@@ -270,7 +270,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       in
       let split_res_comm = List.filter (fun (h, formula) ->
         match Var_map.find_opt h tl1_usage with
-        | Some SplittedReadOnly ->
+        | Some SplittedFrac ->
           begin match formula_read_only_inv formula with
           | Some { frac } when try_nullify_frac frac -> false
           | _ -> true

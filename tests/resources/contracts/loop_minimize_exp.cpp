@@ -67,3 +67,19 @@ void seq_modifies_into_par_reads() {
     acc += x;
   }
 }
+
+__ghost_ret assert_in_range() {
+  __requires("i: int");
+  __requires("n: int");
+  __requires("in_range(i, range(0, n, 1))");
+}
+
+void useless_pure_facts(int n, int i) {
+  __requires("in_range(i, range(0, n, 1))");
+  __requires("__assert_leq(0, i)");
+  for (int j = 0; j < 100; j++) {
+    __invariant("in_range(k, range(0, n, 1))");
+    __loop_ghosts("k: int");
+    __ghost(assert_in_range, "i := k, n := n");
+  }
+}

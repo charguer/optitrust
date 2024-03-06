@@ -80,3 +80,17 @@ void seq_modifies_into_par_reads() {
     acc += x;
   }
 }
+
+__GHOST(assert_in_range) {
+  __requires("i: int, n: int, in_range(i, range(0, n, 1))");
+}
+
+void useless_pure_facts(int n, int i) {
+  __requires("in_range(i, range(0,n,1)), 0 <= i");
+
+  for (int j = 0; j < 100; j++) {
+    __loop_ghosts("k: int");
+    __invariant("in_range(k, range(0,n,1)), 0 <= k, 1 = 1");
+    __ghost(assert_in_range, "k, n");
+  }
+}
