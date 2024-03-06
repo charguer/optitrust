@@ -142,9 +142,12 @@ let task_group ?(mark_group = false) ~(master : bool) (tg : target) : unit =
     If [placeholder] is [true], we will create no actual OpenMP task group.
     Instead, the function's body will be simply wrapped into a sequence marked
     with [Apac_macros.task_group_mark]. The intended usage of this option is in
-    the case of task profiler activation. *)
+    the case of task profiler activation.
+
+    For the explanation of [master], see [task_group]. *)
 let parallel_task_group
-      ?(mark_group = false) ?(placeholder = false) : Transfo.t =
+      ?(mark_group = false) ?(placeholder = false)
+      ?(master = false) : Transfo.t =
   Target.iter (fun t p ->
     (* 1) Create a mark. *)
     let mark = Mark.next() in
@@ -164,7 +167,8 @@ let parallel_task_group
        Note that if the target function is the 'main' function, we want the
        task group to be executed only by one thread, the master thread. *)
     if not placeholder then
-      task_group ~mark_group ~master:(var_has_name qvar "main") [cMark mark]
+      let master = master || (var_has_name qvar "main") in
+      task_group ~mark_group ~master [cMark mark]
     else
       Marks.add Apac_macros.task_group_mark [cMark mark];
     (* 5) Remove the mark. *)
