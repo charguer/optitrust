@@ -605,7 +605,7 @@ let action_run (tests : string list) : unit =
   do_or_die "rm tests/batch/dune";
   if not compile_success then begin
     eprintf "failed to compile tests/batch/batch.ml";
-    exit 1
+    exit 2
   end;
   (* DEPRECATED printf "\n"; *)
 
@@ -643,7 +643,7 @@ let action_run (tests : string list) : unit =
       close_redirected_stdout();
       let sbt = Printexc.get_backtrace() in
       Printf.eprintf "%s\n%s" (Dynlink.error_message err) sbt;
-      exit 1
+      exit 3
   end;
   close_redirected_stdout();
 
@@ -707,14 +707,15 @@ let action_run (tests : string list) : unit =
       isfirst := false
     end
   in
-  let full_success = (!tests_failed = [] && !tests_noexp = [] && !tests_wrong = []) in
-  if full_success then printf "TOTAL SUCCESS: ";
   print_count Terminal.red "failed" !tests_failed;
   print_count Terminal.orange "missing exp" !tests_noexp;
   print_count Terminal.red "wrong" !tests_wrong;
   print_count Terminal.light_gray "ignored" tests_ignored;
   print_count Terminal.green "success" !tests_success;
-  printf "\n"
+  printf "\n";
+  if !tests_failed <> [] || !tests_noexp <> [] || !tests_wrong <> [] then
+    exit 1
+
 
 
 (*****************************************************************************)

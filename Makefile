@@ -16,6 +16,11 @@ precompile:
 keep_building:
 	dune build --watch --terminal-persistence=clear-on-rebuild
 
+install_git_hooks: .git/hooks/pre-commit
+
+.git/hooks/pre-commit:
+	ln -s ../../tools/pre-commit.sh $@
+
 # requires root access -- can use another absolute path if needed
 COMPCERT_STDLIB_DIR_DST=/usr/local/lib/compcert
 COMPCERT_STDLIB_DIR_SRC=./src/c/compcert_parser/include
@@ -94,4 +99,4 @@ md: $(PDFS)
 artifact: sc_artifact.pdf
 
 
-.PHONY: all install install_compcert_stdlib uninstall show_install tests clean watch md artifact
+.PHONY: all install install_git_hooks install_compcert_stdlib uninstall show_install tests clean watch md artifact
