@@ -16,10 +16,10 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cFunDefAndDecl "sort_core"
               ];
-            (* Target the main function's definition. *)
-            !! Apac_taskify.parallel_task_group [
+            (* Target the definition of the 'sort' function. *)
+            !! Apac_taskify.parallel_task_group ~mark_group:true ~master:true [
                 nbAny;
-                cFunDefAndDecl "main"
+                cFunDefAndDecl "sort"
               ];
             !! Apac_taskify.taskify [nbAny; cMark Apac_macros.task_group_mark];
             !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
