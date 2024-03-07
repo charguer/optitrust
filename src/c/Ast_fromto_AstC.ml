@@ -855,7 +855,7 @@ let display_ctx_resources (style: style) (t: trm): trm list =
 let computed_resources_intro (style: style) (t: trm): trm =
   let rec aux t =
     match t.desc with
-    | Trm_seq instrs when not (List.mem Main_file (trm_get_files_annot t)) ->
+    | Trm_seq instrs when not (trm_is_mainfile t) ->
       let tl_before =
         if style.typing.typing_ctx_res
           then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before)

@@ -497,10 +497,11 @@ and destructor_kind =
   | Destructor_delete
   | Destructor_simpl
 
-(* [files_annot]: file annotation *)
-and files_annot =
-  | Include of string
+(* [file_annot]: file annotation *)
+and file_annot =
+  | Inside_file
   | Main_file
+  | Included_file of string
 
 (* [cpragma]: type alias for directives *)
 and cpragma = directive
@@ -513,7 +514,7 @@ and trm_annot = {
     trm_annot_stringrepr : stringreprid option;
     trm_annot_pragma : cpragma list;
     trm_annot_cstyle : cstyle_annot list;
-    trm_annot_files : files_annot list;
+    trm_annot_file : file_annot;
     trm_annot_referent : trm option; (* used for typing errors *)
   }
   (* LATER: use a smartconstruct for trm_annot with optional arguments *)

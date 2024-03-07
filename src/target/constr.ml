@@ -1079,10 +1079,9 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const ~incontracts cec xto_l
         | _ -> false
         end
-     | Constr_seq cl, Trm_seq tl when
-        not ((List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle) || List.mem Main_file t.annot.trm_annot_files)->
-        check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
-        in constra_app *)
+     | Constr_seq cl, Trm_seq tl when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
+        check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER: check why depth 0 here and not
+        in Constr_app *)
      | Constr_var name, Trm_var (_, x) ->
         check_name name x.name
      | Constr_lit pred_l, Trm_val (Val_lit l) ->

@@ -470,9 +470,8 @@ and print_trm_annot style (t : trm) : document =
   let cstyle_annot = trm_get_cstyles t in
   let dcstyle = print_cstyles_annot style cstyle_annot in
 
-  let files_annot = trm_get_files_annot t in
-  let dfiles_str = List.map print_files_annot files_annot in
-  let dfiles = print_list dfiles_str in
+  let file_annot = t.annot.trm_annot_file in
+  let dfile = print_file_annot file_annot in
 
   let dreferent = match t.annot.trm_annot_referent with None -> string "None" | Some _ -> string "Some" in
     (* not printing referent term recursively; LATER: print the id of that term *)
@@ -485,7 +484,7 @@ and print_trm_annot style (t : trm) : document =
     string "trm_annot_stringrepr"; equals; dstringrepr ^^ semi ^//^
     string "trm_annot_pragma"; equals; dpragmas ^^ semi ^//^
     string "trm_annot_cstyle"; equals; dcstyle ^^ semi ^//^
-    string "trm_annot_files"; equals; dfiles ^^ semi ^//^
+    string "trm_annot_file"; equals; dfile ^^ semi ^//^
     string "trm_annot_referent"; equals; dreferent
     ])
 
@@ -531,11 +530,12 @@ and print_trm style (t : trm) : document =
          string "errors"; equals; derrors ^^ semi ^//^
          string "desc"; equals; ddesc ])
 
-(* [print_files_annot ann]: prints as string files annotation [ann] *)
-and print_files_annot (ann : files_annot) : document =
+(* [print_file_annot ann]: prints as string files annotation [ann] *)
+and print_file_annot (ann : file_annot) : document =
   match ann with
-  | Include s -> string ("Include " ^ s)
+  | Inside_file -> string "Inside"
   | Main_file -> string "Main_file"
+  | Included_file s -> string ("Include " ^ s)
 
 
 (* [print_constructor_kind ck]: prints constructor kinds. *)

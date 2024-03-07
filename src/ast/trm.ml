@@ -12,7 +12,7 @@ let trm_annot_default = {
   trm_annot_stringrepr = None;
   trm_annot_pragma = [];
   trm_annot_cstyle = [];
-  trm_annot_files = [];
+  trm_annot_file = Inside_file;
   trm_annot_referent = None;
 }
 
@@ -516,33 +516,25 @@ let trm_add_label (l : label) (t : trm) : trm =
 
  (**** Files  ****)
 
- (* [trm_get_files_annot t]: returns all file annotations of trm [t]. *)
- let trm_get_files_annot (t : trm) : files_annot list =
-   t.annot.trm_annot_files
-
  (* [trm_set_mainfile]: adds [Main_file] annotation to trm [t]. *)
  let trm_set_mainfile (t : trm) : trm =
-    let t_files = trm_get_files_annot t in
-    let t_annot_files = Main_file :: t_files in
-    let annot = {t.annot with trm_annot_files=t_annot_files} in
+    let annot = {t.annot with trm_annot_file = Main_file} in
     trm_alter ~annot t
 
  (* [trm_set_include filename t]: add [Include filename] annotation to trm [t]. *)
  let trm_set_include (filename : string) (t : trm) : trm =
-   let t_files = trm_get_files_annot t in
-   let t_annot_files = Include filename :: t_files in
-   let annot = {t.annot with trm_annot_files = t_annot_files} in
+   let annot = {t.annot with trm_annot_file = Included_file filename} in
    trm_alter ~annot t
 
  (* [trm_is_mainfile t]: checks if [t] contains the [Main_file] annotation. *)
  let trm_is_mainfile (t : trm) : bool =
-   let t_files = trm_get_files_annot t in
-   List.mem Main_file t_files
+   t.annot.trm_annot_file = Main_file
 
  (* [trm_is_include]: checks if [t] contains the [Include f] annotation. *)
  let trm_is_include (t : trm) : bool =
-   let t_files = trm_get_files_annot t in
-   List.exists (function |Include _ -> true | _ -> false) t_files
+   match t.annot.trm_annot_file with
+   | Included_file _ -> true
+   | _ -> false
 
  (* [trm_is_nobrace_seq t]: checks if [t] is a visible sequence or not *)
  let trm_is_nobrace_seq (t : trm) : bool =
@@ -1089,19 +1081,6 @@ let trm_seq_add_last (t_insert : trm) (t : trm) : trm =
       end
     | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
 
-
-
-
-(* [get_include_filename t]: returns the included filename if [t] is an include directive. *)
-  let get_include_filename (t : trm) : string  =
-let f_name = List.fold_left (fun acc x ->
-  match x with
-  | Include s -> Some s
-  | _ -> acc
-) None t.annot.trm_annot_files in
-match f_name with
-| Some s -> s
-| _ -> trm_fail t "Ast.get_include_filename: couldn't get the requested filename"
 
 (* [compute_app_unop_value p v1]: simplifies unary operations on literals. *)
 let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
