@@ -21,10 +21,9 @@ let next_profsection () : string =
   "apac_profsection" ^ (string_of_int id)
 
 let emit_omp_task (t : Task.t) : trms =
-  if (Task.has_attr t ExitPoint) ||
-       (Task.has_attr t HasJump) ||
-         (Task.has_attr t WaitForNone) then t.current
-  else if (Task.has_attr t WaitForAll) then
+  if (Task.has_attr t ExitPoint) || (Task.has_attr t WaitForNone) then
+    t.current
+  else if (Task.has_attr t WaitForAll) || (Task.has_attr t IsJump) then
     begin
       let pragma = Taskwait [] in
       let first = List.hd t.current in
