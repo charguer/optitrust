@@ -1287,8 +1287,7 @@ module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t
 
 (* [filter_out_include filename dl]: filters out all the declarations that are in fact include directives *)
-let filter_out_include (filename : string)
-    (dl : decl list) : ((decl list) imap) * (decl list) =
+let filter_out_include (filename : string) (dl : decl list) : ((decl list) imap) * (decl list) =
   let rec aux (include_map : (decl list) imap) (dl : decl list) =
     match dl with
     | [] -> (include_map, [])
@@ -1302,7 +1301,7 @@ let filter_out_include (filename : string)
       if is_in_current_dir || is_optitrust_h then
         if file <> filename
         then
-          (Include_map.update (Filename.basename file)
+          (Include_map.update file
              (fun dlo ->
                 match dlo with
                 | None -> Some [d]
@@ -1346,4 +1345,4 @@ let tr_ast (t : translation_unit) : trm =
       (fun h dl ->
          trm_set_include h (trm_seq_nomarks (tr_decl_list dl)))
       include_map in
-    trm_set_mainfile (trm_seq_nomarks ?loc  ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls))
+  trm_set_mainfile (trm_seq_nomarks ?loc ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls))

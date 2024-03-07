@@ -536,6 +536,12 @@ let trm_add_label (l : label) (t : trm) : trm =
    | Included_file _ -> true
    | _ -> false
 
+(* [trm_include_inv]: return the included file corresponding to t *)
+ let trm_include_inv (t : trm) : string option=
+   match t.annot.trm_annot_file with
+   | Included_file f -> Some f
+   | _ -> None
+
  (* [trm_is_nobrace_seq t]: checks if [t] is a visible sequence or not *)
  let trm_is_nobrace_seq (t : trm) : bool =
    List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
@@ -925,215 +931,215 @@ let trm_seq_add_last (t_insert : trm) (t : trm) : trm =
 
 
 (* [is_get_operation t]: checks if [t] is a get operation(read operation) *)
-  let is_get_operation (t : trm) : bool =
-    match t.desc with
-    | Trm_apps ({desc = Trm_val(Val_prim (Prim_unop Unop_get))}, _, _) -> true
-    | _ -> false
+let is_get_operation (t : trm) : bool =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val(Val_prim (Prim_unop Unop_get))}, _, _) -> true
+  | _ -> false
 
-  (* [is_new_operation t] checks if [t] is new operation *)
-  let is_new_operation (t : trm) : bool =
-    match t.desc with
-    | Trm_apps (f, _, _) ->
-      begin match trm_prim_inv f with
-      | Some (Prim_new _) -> true
+(* [is_new_operation t] checks if [t] is new operation *)
+let is_new_operation (t : trm) : bool =
+  match t.desc with
+  | Trm_apps (f, _, _) ->
+    begin match trm_prim_inv f with
+    | Some (Prim_new _) -> true
+    | _ -> false
+    end
+  | _ -> false
+
+let trm_set_inv (t : trm) : (trm * trm) option =
+  trm_binop_inv Binop_set t
+
+(* [is_set_operation t]: checks if [t] is a set operation(write operation) *)
+let is_set_operation (t : trm) : bool =
+  match t.desc with
+  | Trm_apps (f, _, _) ->
+    begin match trm_prim_inv f with
+    | Some (Prim_binop Binop_set) | Some(Prim_compound_assgn_op _)
+    (* FIXME: not supported by [trm_set_inv] *)
+     | Some (Prim_overloaded_op (Prim_binop Binop_set)) -> true
+    | _ -> false
+    end
+  | _ -> false
+
+
+(* [is_compound_assignment]: checks if [t] is a compound assignment *)
+let is_compound_assignment (t : trm) : bool =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_compound_assgn_op _))}, _, _) -> true
+  | _ -> false
+
+(* [is_access t]: check if t is a struct or array access *)
+let is_access (t : trm) : bool = match t.desc with
+  | Trm_apps (f, _, _) ->
+    begin match trm_prim_inv f with
+    | Some p ->
+      begin match p with
+      | Prim_unop (Unop_struct_access _) | Prim_unop (Unop_struct_get _) | Prim_binop (Binop_array_access)
+        | Prim_binop (Binop_array_get) -> true
       | _ -> false
       end
-    | _ -> false
+    | None -> false
+    end
+  | _ -> false
 
-  let trm_set_inv (t : trm) : (trm * trm) option =
-    trm_binop_inv Binop_set t
+(* [get_operation_arg t]: gets the arg of a get operation. *)
+let get_operation_arg (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1], _) -> t1
+  | _ -> t
 
-  (* [is_set_operation t]: checks if [t] is a set operation(write operation) *)
-  let is_set_operation (t : trm) : bool =
-    match t.desc with
-    | Trm_apps (f, _, _) ->
-      begin match trm_prim_inv f with
-      | Some (Prim_binop Binop_set) | Some(Prim_compound_assgn_op _)
-      (* FIXME: not supported by [trm_set_inv] *)
-       | Some (Prim_overloaded_op (Prim_binop Binop_set)) -> true
-      | _ -> false
-      end
-    | _ -> false
+(* [new_operation_arg t]: get the argument of the encoded new operation. *)
+let new_operation_arg (t : trm) : trm =
+  match t.desc with
+  | Trm_apps (_, [arg], _) when is_new_operation t -> arg
+  | _ -> t
+
+(* [trm_let_mut ~annot ?ctx typed_var init]: an extension of trm_let for
+    creating mutable variable declarations *)
+let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
+  (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type_ptr = typ_ptr_generated var_type in
+  let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new (var_type, []))) [init]) in
+  trm_add_cstyle Stackvar t_let
+
+(* [trm_let_ref ~annot ?ctx typed_var init]: an extension of trm_let for creating references *)
+let trm_let_ref ?(annot = trm_annot_default) ?(loc)  ?(ctx : ctx option)
+  (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type_ptr = typ_ptr_generated var_type in
+  let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) init in
+  trm_add_cstyle Reference t_let
 
 
-  (* [is_compound_assignment]: checks if [t] is a compound assignment *)
-  let is_compound_assignment (t : trm) : bool =
-    match t.desc with
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_compound_assgn_op _))}, _, _) -> true
-    | _ -> false
+(* [trm_let_IMmut ~annot ?ctx typed_var init]: an extension of trm_let for creating immutable variable declarations. *)
+let trm_let_immut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
+  (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type = typ_const var_type in
+  trm_let ~annot ?loc ?ctx Var_immutable (var_name, var_type) (init)
 
-  (* [is_access t]: check if t is a struct or array access *)
-  let is_access (t : trm) : bool = match t.desc with
-    | Trm_apps (f, _, _) ->
-      begin match trm_prim_inv f with
-      | Some p ->
-        begin match p with
-        | Prim_unop (Unop_struct_access _) | Prim_unop (Unop_struct_get _) | Prim_binop (Binop_array_access)
-          | Prim_binop (Binop_array_get) -> true
-        | _ -> false
-        end
-      | None -> false
-      end
-    | _ -> false
+(* [trm_let_array ~annot ?ctx typed_var sz init]: an extension of trm_let for creating array variable declarations *)
+let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind : varkind )
+  (typed_var : typed_var) (sz : size)(init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
+  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new (var_type, []))) [init]  in
+  let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
+  if kind = Var_mutable then trm_add_cstyle Stackvar res else res
 
-  (* [get_operation_arg t]: gets the arg of a get operation. *)
-  let get_operation_arg (t : trm) : trm =
-    match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1], _) -> t1
+
+(* [trm_for_c_inv_simple_init init]: checks if the init loop component is simple. If that's the case then return
+   initial value of the loop index.
+  Ex.:
+    int x = a -> Some (x, a, true)
+    x = a -> Some (x, a, false) *)
+let trm_for_c_inv_simple_init (init : trm) : (var * trm) option =
+  match init.desc with
+  | Trm_let (_, (x, _), init_val) ->
+    begin match get_init_val init_val with
+    | Some init1 -> Some (x, init1)
+    | _ -> None
+    end
+  | _ -> None
+
+
+(* [trm_for_c_inv_simple_stop stop]: checks if the loop bound is simple.  If that's the case return that bound. *)
+let trm_for_c_inv_simple_stop (stop : trm) : (loop_dir * trm) option =
+  match stop.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _},
+                 [_; n], _) -> Some (DirUp, n)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _},
+              [_; n], _) -> Some (DirUpEq, n)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _},
+              [_; n], _) -> Some (DirDown, n)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
+              [_; n], _) -> Some (DirDownEq, n)
+  | _ -> None
+
+(* [trm_for_c_inv_simple_step step]: checks if the loop step is simple. If that's the case then return that step. *)
+let trm_for_c_inv_simple_step (step : trm) : loop_step option =
+  match step.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_inc)); _}, _, _) ->
+      Some Post_inc
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_inc)); _}, _, _) ->
+     Some Pre_inc
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_dec)); _}, _, _) ->
+     Some Post_dec
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_dec)); _}, _, _) ->
+     Some Pre_dec
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op _)); _},
+                 [_; n], _) -> Some (Step n)
+  | _ -> None
+
+
+(* [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)
+let trm_for_of_trm_for_c (t : trm) : trm =
+  match t.desc with
+  | Trm_for_c (init, cond , step, body, _) ->
+    let init_ops = trm_for_c_inv_simple_init init in
+    let bound_ops = trm_for_c_inv_simple_stop cond in
+    let step_ops = trm_for_c_inv_simple_step step in
+    begin match init_ops, bound_ops, step_ops with
+    | Some (index, start), Some (direction, stop), Some step ->
+      trm_for (index, start, direction, stop, step) body
     | _ -> t
-
-  (* [new_operation_arg t]: get the argument of the encoded new operation. *)
-  let new_operation_arg (t : trm) : trm =
-    match t.desc with
-    | Trm_apps (_, [arg], _) when is_new_operation t -> arg
-    | _ -> t
-
-  (* [trm_let_mut ~annot ?ctx typed_var init]: an extension of trm_let for
-      creating mutable variable declarations *)
-  let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
-    (typed_var : typed_var) (init : trm): trm =
-    let var_name, var_type = typed_var in
-    let var_type_ptr = typ_ptr_generated var_type in
-    let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new (var_type, []))) [init]) in
-    trm_add_cstyle Stackvar t_let
-
-  (* [trm_let_ref ~annot ?ctx typed_var init]: an extension of trm_let for creating references *)
-  let trm_let_ref ?(annot = trm_annot_default) ?(loc)  ?(ctx : ctx option)
-    (typed_var : typed_var) (init : trm): trm =
-    let var_name, var_type = typed_var in
-    let var_type_ptr = typ_ptr_generated var_type in
-    let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) init in
-    trm_add_cstyle Reference t_let
-
-
-  (* [trm_let_IMmut ~annot ?ctx typed_var init]: an extension of trm_let for creating immutable variable declarations. *)
-  let trm_let_immut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
-    (typed_var : typed_var) (init : trm): trm =
-    let var_name, var_type = typed_var in
-    let var_type = typ_const var_type in
-    trm_let ~annot ?loc ?ctx Var_immutable (var_name, var_type) (init)
-
-  (* [trm_let_array ~annot ?ctx typed_var sz init]: an extension of trm_let for creating array variable declarations *)
-  let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind : varkind )
-    (typed_var : typed_var) (sz : size)(init : trm): trm =
-    let var_name, var_type = typed_var in
-    let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
-    let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new (var_type, []))) [init]  in
-    let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
-    if kind = Var_mutable then trm_add_cstyle Stackvar res else res
-
-
-  (* [trm_for_c_inv_simple_init init]: checks if the init loop component is simple. If that's the case then return
-     initial value of the loop index.
-    Ex.:
-      int x = a -> Some (x, a, true)
-      x = a -> Some (x, a, false) *)
-  let trm_for_c_inv_simple_init (init : trm) : (var * trm) option =
-    match init.desc with
-    | Trm_let (_, (x, _), init_val) ->
-      begin match get_init_val init_val with
-      | Some init1 -> Some (x, init1)
-      | _ -> None
-      end
-    | _ -> None
-
-
-  (* [trm_for_c_inv_simple_stop stop]: checks if the loop bound is simple.  If that's the case return that bound. *)
-  let trm_for_c_inv_simple_stop (stop : trm) : (loop_dir * trm) option =
-    match stop.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _},
-                   [_; n], _) -> Some (DirUp, n)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _},
-                [_; n], _) -> Some (DirUpEq, n)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _},
-                [_; n], _) -> Some (DirDown, n)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
-                [_; n], _) -> Some (DirDownEq, n)
-    | _ -> None
-
-  (* [trm_for_c_inv_simple_step step]: checks if the loop step is simple. If that's the case then return that step. *)
-  let trm_for_c_inv_simple_step (step : trm) : loop_step option =
-    match step.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_inc)); _}, _, _) ->
-        Some Post_inc
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_inc)); _}, _, _) ->
-       Some Pre_inc
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_dec)); _}, _, _) ->
-       Some Post_dec
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_dec)); _}, _, _) ->
-       Some Pre_dec
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op _)); _},
-                   [_; n], _) -> Some (Step n)
-    | _ -> None
-
-
-  (* [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)
-  let trm_for_of_trm_for_c (t : trm) : trm =
-    match t.desc with
-    | Trm_for_c (init, cond , step, body, _) ->
-      let init_ops = trm_for_c_inv_simple_init init in
-      let bound_ops = trm_for_c_inv_simple_stop cond in
-      let step_ops = trm_for_c_inv_simple_step step in
-      begin match init_ops, bound_ops, step_ops with
-      | Some (index, start), Some (direction, stop), Some step ->
-        trm_for (index, start, direction, stop, step) body
-      | _ -> t
-      end
-    | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
+    end
+  | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
 
 
 (* [compute_app_unop_value p v1]: simplifies unary operations on literals. *)
 let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
-match p, v1 with
-| Unop_neg, Lit_bool b -> trm_bool (not b)
-| Unop_post_inc, Lit_int n -> trm_int (n + 1)
-| Unop_pre_inc, Lit_int n -> trm_int (n + 1)
-| Unop_post_dec, Lit_int n -> trm_int (n - 1)
-| Unop_pre_dec, Lit_int n -> trm_int (n - 1)
-| _ -> failwith "Ast.compute_app_unop_value: only negation can be applied here"
+  match p, v1 with
+  | Unop_neg, Lit_bool b -> trm_bool (not b)
+  | Unop_post_inc, Lit_int n -> trm_int (n + 1)
+  | Unop_pre_inc, Lit_int n -> trm_int (n + 1)
+  | Unop_post_dec, Lit_int n -> trm_int (n - 1)
+  | Unop_pre_dec, Lit_int n -> trm_int (n - 1)
+  | _ -> failwith "Ast.compute_app_unop_value: only negation can be applied here"
 
 (* [compute_app_binop_value]: simplifies binary operations on literals. *)
 let compute_app_binop_value (p : binary_op) (typ1 : typ option) (typ2 : typ option) (v1 : lit) (v2 : lit) : trm =
-match p,v1, v2 with
-| Binop_eq , Lit_int n1, Lit_int n2 -> trm_bool (n1 == n2)
-| Binop_eq, Lit_double d1, Lit_double d2 -> trm_bool (d1 == d2)
-| Binop_neq , Lit_int n1, Lit_int n2 -> trm_bool (n1 <> n2)
-| Binop_neq, Lit_double d1, Lit_double d2 -> trm_bool (d1 <> d2)
-| Binop_sub, Lit_int n1, Lit_int n2 -> trm_int (n1 - n2)
-| Binop_sub, Lit_double d1, Lit_double d2 ->
-  let typ = Xoption.or_ typ1 typ2 in
-  trm_float ?typ (d1 -. d2)
-| Binop_add, Lit_int n1, Lit_int n2 -> trm_int (n1 + n2)
-| Binop_add, Lit_double d1, Lit_double d2 ->
-  let typ = Xoption.or_ typ1 typ2 in
-  trm_float ?typ (d1 +. d2)
-| Binop_mul, Lit_int n1, Lit_int n2 -> trm_int (n1 * n2)
-| Binop_mul, Lit_double n1, Lit_double n2 ->
-  let typ = Xoption.or_ typ1 typ2 in
-  trm_float ?typ (n1 *. n2)
-| Binop_mod, Lit_int n1, Lit_int n2 -> trm_int (n1 mod n2)
-| Binop_div, Lit_int n1, Lit_int n2 -> trm_int (n1 / n2)
-| Binop_div, Lit_double d1, Lit_double d2 ->
-  let typ = Xoption.or_ typ1 typ2 in
-  trm_float ?typ (d1 /. d2)
-| Binop_le, Lit_int n1, Lit_int n2 -> trm_bool (n1 <= n2)
-| Binop_le, Lit_double d1, Lit_double d2 -> trm_bool (d1 <= d2)
-| Binop_lt, Lit_int n1, Lit_int n2 -> trm_bool (n1 < n2)
-| Binop_lt, Lit_double d1, Lit_double d2 -> trm_bool (d1 < d2)
-| Binop_ge, Lit_int n1, Lit_int n2 -> trm_bool (n1 >= n2)
-| Binop_ge, Lit_double d1, Lit_double d2 -> trm_bool (d1 >= d2)
-| Binop_gt, Lit_int n1, Lit_int n2 -> trm_bool (n1 > n2)
-| Binop_gt, Lit_double d1, Lit_double d2 -> trm_bool (d1 > d2)
-| _ -> failwith "Ast.compute_app_binop_value: operator not supporeted"
+  match p,v1, v2 with
+  | Binop_eq , Lit_int n1, Lit_int n2 -> trm_bool (n1 == n2)
+  | Binop_eq, Lit_double d1, Lit_double d2 -> trm_bool (d1 == d2)
+  | Binop_neq , Lit_int n1, Lit_int n2 -> trm_bool (n1 <> n2)
+  | Binop_neq, Lit_double d1, Lit_double d2 -> trm_bool (d1 <> d2)
+  | Binop_sub, Lit_int n1, Lit_int n2 -> trm_int (n1 - n2)
+  | Binop_sub, Lit_double d1, Lit_double d2 ->
+    let typ = Xoption.or_ typ1 typ2 in
+    trm_float ?typ (d1 -. d2)
+  | Binop_add, Lit_int n1, Lit_int n2 -> trm_int (n1 + n2)
+  | Binop_add, Lit_double d1, Lit_double d2 ->
+    let typ = Xoption.or_ typ1 typ2 in
+    trm_float ?typ (d1 +. d2)
+  | Binop_mul, Lit_int n1, Lit_int n2 -> trm_int (n1 * n2)
+  | Binop_mul, Lit_double n1, Lit_double n2 ->
+    let typ = Xoption.or_ typ1 typ2 in
+    trm_float ?typ (n1 *. n2)
+  | Binop_mod, Lit_int n1, Lit_int n2 -> trm_int (n1 mod n2)
+  | Binop_div, Lit_int n1, Lit_int n2 -> trm_int (n1 / n2)
+  | Binop_div, Lit_double d1, Lit_double d2 ->
+    let typ = Xoption.or_ typ1 typ2 in
+    trm_float ?typ (d1 /. d2)
+  | Binop_le, Lit_int n1, Lit_int n2 -> trm_bool (n1 <= n2)
+  | Binop_le, Lit_double d1, Lit_double d2 -> trm_bool (d1 <= d2)
+  | Binop_lt, Lit_int n1, Lit_int n2 -> trm_bool (n1 < n2)
+  | Binop_lt, Lit_double d1, Lit_double d2 -> trm_bool (d1 < d2)
+  | Binop_ge, Lit_int n1, Lit_int n2 -> trm_bool (n1 >= n2)
+  | Binop_ge, Lit_double d1, Lit_double d2 -> trm_bool (d1 >= d2)
+  | Binop_gt, Lit_int n1, Lit_int n2 -> trm_bool (n1 > n2)
+  | Binop_gt, Lit_double d1, Lit_double d2 -> trm_bool (d1 > d2)
+  | _ -> failwith "Ast.compute_app_binop_value: operator not supporeted"
 
 (* [decl_list_to_typed_vars tl]: converts a list of variable declarations to a list of paris where each pair
   consists of a variable and its type *)
 let decl_list_to_typed_vars (tl : trms) : typed_vars =
-List.map (fun t ->
-  match t.desc with
-  | Trm_let (_, (x, tx),_) -> (x, get_inner_ptr_type tx)
-  | _ -> trm_fail t "Ast.decl_list_to_typed_vars: expected a list of declarations"
-) tl
+  List.map (fun t ->
+    match t.desc with
+    | Trm_let (_, (x, tx),_) -> (x, get_inner_ptr_type tx)
+    | _ -> trm_fail t "Ast.decl_list_to_typed_vars: expected a list of declarations"
+  ) tl
 
 (* [trm_is_var t]: checks if [t] is a variable occurrence. *)
 let trm_is_var (t : trm) : bool =
