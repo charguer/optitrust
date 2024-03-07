@@ -11,7 +11,7 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cDiff [[cFunDefAndDecl ""]] [[cFunDefAndDecl "main"]]
               ];
-            (* Target all of the function definitions. *)
+            (* Target the definition of the 'sort_core' function. *)
             !! Apac_taskify.parallel_task_group ~mark_group:true [
                 nbAny;
                 cFunDefAndDecl "sort_core"
