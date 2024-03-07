@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Skip in case there is nothing staged
+if git diff --staged --quiet
+then
+  exit 0
+fi
+
 STASH_NAME="pre-commit-$(date +%s)"
 git stash push --quiet --keep-index --include-untracked -m $STASH_NAME
 
