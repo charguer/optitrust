@@ -513,7 +513,7 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
     let orig_exp = Trace.filename_before_clang_format filename_exp in
     let same = ref false in
     (* First, attempt to compare original files *)
-    if Sys.file_exists orig_exp then begin
+    if Sys.file_exists orig_exp && (Unix.stat orig_exp).st_mtime >= (Unix.stat filename_exp).st_mtime then begin
       if !debug_match_expected then Tools.info (sprintf "tested correctness without clang-format: %s" filename_out);
       let same_orig = same_contents filename_out orig_exp in
       if same_orig then same := true;
@@ -593,7 +593,7 @@ let action_run (tests : string list) : unit =
     let prefix = Filename.remove_extension test in
     let filename_out = sprintf "%s_out.cpp" prefix in
     rm filename_out;
-    let filename_orig_out = sprintf "%s_out_orig.cpp" prefix in
+    let filename_orig_out = sprintf "%s_out_notfmt.cpp" prefix in
     rm filename_orig_out
     (* LATER: remove without displaying error messages or missing files *)
   in

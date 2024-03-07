@@ -423,13 +423,13 @@ let check_the_trace ~(final:bool) : unit =
 
 
 (** [filename_before_clang_format filename] takes as input a string
-    such as "foo.cpp" and returns "foo_orig.cpp". This filename
+    such as "foo.cpp" and returns "foo_notfmt.cpp". This filename
     is meant to store the file before it is reformated using clang-format. *)
 let filename_before_clang_format (filename:string) : string =
   let base =
     try Filename.chop_suffix filename ".cpp"
     with _ -> failwith (sprintf "filename_before_clang_format: expects a .cpp file, provided: %s." filename) in
-  base ^ "_orig.cpp"
+  base ^ "_notfmt.cpp"
 
 (* LATER: document and factorize *)
 
@@ -458,14 +458,14 @@ let style_resources ?(print_var_id : bool option) () = (*TODO factorize with Sho
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
   stats ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
-    (* If requested, save a copy of the file "foo.cpp" into "foo_orig.cpp" before reformating "foo.cpp" *)
+    (* If requested, save a copy of the file "foo.cpp" into "foo_notfmt.cpp" before reformating "foo.cpp" *)
     if !Flags.keep_file_before_clang_format then begin
       let orig_filename = filename_before_clang_format filename in
       ignore (Sys.command (sprintf "cp %s %s" filename orig_filename));
     end;
     (*DEPRECATED ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));*)
     ignore (Sys.command (sprintf "clang-format -style=\"{BasedOnStyle: Google, ColumnLimit: %d}\" -i %s" !Flags.clang_format_nb_columns filename));
-    if (* false && *) uncomment_pragma
+    if uncomment_pragma
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
   )
 
