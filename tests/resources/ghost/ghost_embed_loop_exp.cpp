@@ -13,11 +13,11 @@ __ghost_ret unfreeze_cell() {
 }
 
 void f(float* M, int n) {
-  __modifies("Group(range(0, n, 1), fun i -> &M[i] ~> Cell)");
+  __modifies("for i in 0..n -> &M[i] ~> Cell");
   __ghost(
       [&]() {
-        __consumes("Group(range(0, n, 1), fun i -> &M[i] ~> Cell)");
-        __produces("Group(range(0, n, 1), fun i -> &M[i] ~> FrozenCell)");
+        __consumes("for i in 0..n -> &M[i] ~> Cell");
+        __produces("for i in 0..n -> &M[i] ~> FrozenCell");
         for (int i = 0; i < n; ++i) {
           __consumes("&M[i] ~> Cell");
           __produces("&M[i] ~> FrozenCell");
@@ -27,8 +27,8 @@ void f(float* M, int n) {
       "");
   __ghost(
       [&]() {
-        __consumes("Group(range(0, n, 1), fun i -> &M[i] ~> FrozenCell)");
-        __produces("Group(range(0, n, 1), fun i -> &M[i] ~> Cell)");
+        __consumes("for i in 0..n -> &M[i] ~> FrozenCell");
+        __produces("for i in 0..n -> &M[i] ~> Cell");
         for (int i = 0; i < n; ++i) {
           __consumes("&M[i] ~> FrozenCell");
           __produces("&M[i] ~> Cell");

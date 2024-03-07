@@ -1,8 +1,8 @@
 #include <optitrust.h>
 
 void f(int* t, int* u) {
-  __modifies("Group(range(0, 10, 1), fun i -> &u[i] ~> Cell)");
-  __reads("Group(range(0, 10, 1), fun i -> &t[i] ~> Cell)");
+  __modifies("for i in 0..10 -> &u[i] ~> Cell");
+  __reads("for i in 0..10 -> &t[i] ~> Cell");
   int* const x_step = (int* const)MALLOC1(10, sizeof(int));
   int* const z_step = (int* const)MALLOC1(10, sizeof(int));
   for (int i = 0; i < 10; i++) {
@@ -21,7 +21,7 @@ void f(int* t, int* u) {
   MFREE1(10, x_step);
   for (int l = 0; l < 5; l++) {
     const __ghost_fn focus2_6 =
-        __ghost_begin(group_focus_subrange, "sub_range := range(2, 6, 1)");
+        __ghost_begin(group_focus_subrange, "sub_range := 2..6");
     for (int m = 2; m < 6; m++) {
       __modifies("&u[m] ~> Cell");
       for (int n = 4; n < 11; n += 2) {

@@ -8,8 +8,7 @@ void f() {
       [&]() {
         __consumes("_Uninit(b ~> Matrix1(7 - 3))");
         __produces(
-            "_Uninit(Group(range(3, 7, 1), fun i1 -> &b[MINDEX1(7 - 3, i1 - "
-            "3)] ~> Cell))");
+            "_Uninit(for i1 in 3..7 -> &b[MINDEX1(7 - 3, i1 - 3)] ~> Cell)");
         __admitted();
         __with("justif := shift_groups");
       },
@@ -22,8 +21,7 @@ void f() {
   __ghost(
       [&]() {
         __consumes(
-            "_Uninit(Group(range(3, 7, 1), fun i1 -> &b[MINDEX1(7 - 3, i1 - "
-            "3)] ~> Cell))");
+            "_Uninit(for i1 in 3..7 -> &b[MINDEX1(7 - 3, i1 - 3)] ~> Cell)");
         __produces("_Uninit(b ~> Matrix1(7 - 3))");
         __admitted();
         __with("justif := shift_groups");

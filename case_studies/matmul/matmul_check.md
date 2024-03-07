@@ -6,8 +6,8 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
   __modifies("C ~> Matrix2(m, n)");
 
   for (int i = 0; i < m; i++) {
-    __modifies("Group(range(0, n, 1), fun j ->"
-      " &C[MINDEX2(m, n, i, j)] ~> Cell)");
+    __modifies("for j in 0..n ->"
+      " &C[MINDEX2(m, n, i, j)] ~> Cell");
     __sequentially_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
     for (int j = 0; j < n; j++) {
@@ -44,8 +44,8 @@ void mm1024(float* C, float* A, float* B) {
   __modifies("C ~> Matrix2(1024, 1024)");
 
   for (int i = 0; i < 1024; i++) {
-    __modifies("Group(range(0, 1024, 1), fun j ->"
-      " &C[MINDEX2(1024, 1024, i, j)] ~> Cell)");
+    __modifies("for j in 0..1024 ->"
+      " &C[MINDEX2(1024, 1024, i, j)] ~> Cell");
     __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
     for (int j = 0; j < 1024; j++) {
@@ -146,8 +146,8 @@ TODO: minimize contracts?
 [...]
         float* const sum = (float* const)malloc(sizeof(float[32]));
         { // not a seq
-          __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-          __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
+          __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
           for (int j = 0; j < 32; j++) {
             // __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
             __modifies("&sum[j] ~> Cell"); // write-only
@@ -241,13 +241,13 @@ TODO: minimize contracts?
 
 ```c
 [...]
-    __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-    __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+    __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
+    __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
     __scoped_ghost {
       for (int i = 0; i < 32; i++) {
-        __consumes("Group(range(0, 1024, 1), fun j -> &C[bi * 32 + i][j] ~> Cell)");
-        __produces("Group(range(0, 32, 1), fun bj -> Group(range(0, 32, 1), fun j ->"
-                  "  &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
+        __consumes("for j in 0..1024 ->  &C[bi * 32 + i][j] ~> Cell");
+        __produces("for bj in 0..32 -> for j in 0..32 ->"
+                  "  &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
         __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
           " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
@@ -267,8 +267,8 @@ TODO: minimize contracts?
 
         float* const sum = (float* const)malloc(sizeof(float[32]));
         { // not a seq
-          __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-          __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
+          __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
           for (int j = 0; j < 32; j++) {
             __modifies("&sum[j] ~> Cell");
 
@@ -317,8 +317,8 @@ TODO: minimize contracts?
         __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
         __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-        __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+        __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
+        __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
         for (int j = 0; j < 32; j++) {
           __modifies("&sum[i][j] ~> Cell");
 
@@ -375,8 +375,8 @@ TODO: minimize contracts?
         __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
         __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-        __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-        __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+        __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
+        __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
         for (int bk = 0; bk < 256; bk++) {
           [...]
 
@@ -419,8 +419,8 @@ TODO: minimize contracts?
         for (int i = 0; i < 32; i++) {
           [...]
 
-          __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-          __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
+          __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
         }
       }
 
@@ -464,13 +464,13 @@ TODO: minimize contracts?
     __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
     __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-    __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-    __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+    __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
+    __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
     __scoped_ghost {
       for (int i = 0; i < 32; i++) {
-        __consumes("Group(range(0, 1024, 1), fun j -> &C[bi * 32 + i][j] ~> Cell)");
-        __produces("Group(range(0, 32, 1), fun bj -> Group(range(0, 32, 1), fun j ->"
-                  "  &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
+        __consumes("for j in 0..1024 -> &C[bi * 32 + i][j] ~> Cell");
+        __produces("for bj in 0..32 -> for j in 0..32 ->"
+                  "  &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
         __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
           " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
@@ -499,8 +499,8 @@ TODO: minimize contracts?
         for (int i = 0; i < 32; i++) {
           [...]
 
-          __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
-          __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
+          __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
         }
       }
 
@@ -563,13 +563,13 @@ TODO: minimize contracts?
     __sequentially_reads("B ~> Matrix2(1024, 1024))");
 
     /* FIXME: what is happening here?
-    __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)"); // fait pour 'i'
+    __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32"); // fait pour 'i'
 
     __scoped_ghost {
       for (int i = 0; i < 32; i++) {
           [...]
 
-          __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
         }
       }
     */
@@ -596,12 +596,12 @@ TODO: minimize contracts?
     __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
     __sequentially_reads("A ~> Matrix2(1024, 1024), pB ~> Matrix4(32, 256, 4, 32)");
 
-    __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+    __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
     __scoped_ghost {
       for (int i = 0; i < 32; i++) {
-        __consumes("Group(range(0, 1024, 1), fun j -> &C[bi * 32 + i][j] ~> Cell)");
-        __produces("Group(range(0, 32, 1), fun bj -> Group(range(0, 32, 1), fun j ->"
-                  "  &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
+        __consumes("for j in 0..1024 -> &C[bi * 32 + i][j] ~> Cell");
+        __produces("for bj in 0..32 -> for j in 0..32 ->"
+                  "  &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
         __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
           " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
@@ -629,9 +629,9 @@ TODO: minimize contracts?
         for (int i = 0; i < 32; i++) {
           // [...]
 
-          __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          __ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
           // might be two for loops
-          // __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := range(0, 32, 1)");
+          // __ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
         }
       }
 

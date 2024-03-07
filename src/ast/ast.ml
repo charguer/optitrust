@@ -748,9 +748,9 @@ and fun_spec =
   (** [FunSpecReverts f] is the reverse of the spec of [f]. *)
 
 (* forall ghosts,
-    { invariant(0) * RO(parallel_reads) * Group(range(), fun i -> iter_contract.pre(i)) }
+    { invariant(0) * RO(parallel_reads) * for i -> iter_contract.pre(i) }
       loop
-    { invariant(n) * RO(parallel_reads) * Group(iter_contract.post(i)) } *)
+    { invariant(n) * RO(parallel_reads) * for i -> iter_contract.post(i) } *)
 (* forall ghosts,
     { invariant(i) * RO(parallel_reads) * iter_contract.pre(i) }
       loop body

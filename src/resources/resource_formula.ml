@@ -119,7 +119,7 @@ let formula_cell (x: var): formula =
 let var_range = toplevel_var "range"
 let trm_range = trm_var var_range
 let formula_range (start: trm) (stop: trm) (step: trm) =
-  trm_apps trm_range [start; stop; step]
+  trm_apps ~annot:formula_annot trm_range [start; stop; step]
 
 let var_group = toplevel_var "Group"
 let trm_group = trm_var var_group

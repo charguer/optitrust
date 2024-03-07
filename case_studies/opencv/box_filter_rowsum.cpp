@@ -15,7 +15,7 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
   __ghost(swap_groups, "items := fun i, c -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
   for (int c = 0; c < cn; c++) { // foreach channel
     __parallel_reads("S ~> Matrix2(n+kn, cn)");
-    __modifies("Group(range(0, n, 1), fun i -> &D[MINDEX2(n, cn, i, c)] ~> Cell)");
+    __modifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
     // initialize the sliding window
     ST s = 0;
@@ -33,7 +33,7 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
     for (int i = 0; i < n-1; i++) {
       __parallel_reads("S ~> Matrix2(n+kn, cn)");
       __sequentially_modifies("&s ~> Cell");
-      __sequentially_modifies("Group(range(0, n, 1), fun i -> &D[MINDEX2(n, cn, i, c)] ~> Cell)");
+      __sequentially_modifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
       __GHOST_BEGIN(sf1, matrix2_ro_focus, "M := S, i := i, j := c");
       s -= (ST) S[MINDEX2(n+kn, cn, i, c)];

@@ -7,11 +7,11 @@ void f1(int* y) {
   int z = 0;
   for (int a = 0; a < 4; a++) {
     __sequentially_modifies("&x ~> Cell, &z ~> Cell");
-    __sequentially_modifies("Group(range(0, 4, 1), fun b -> Group(range(0, 4, 1), fun c -> &y[MINDEX2(4, 4, b, c)] ~> Cell))");
+    __sequentially_modifies("for b in 0..4 -> for c in 0..4 -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
 
     for (int b = 0; b < 4; b++) {
       __sequentially_modifies("&x ~> Cell, &z ~> Cell");
-      __modifies("Group(range(0, 4, 1), fun c -> &y[MINDEX2(4, 4, b, c)] ~> Cell)");
+      __modifies("for c in 0..4 -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
 
       x++;
       x++;

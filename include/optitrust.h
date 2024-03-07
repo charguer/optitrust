@@ -272,8 +272,8 @@ inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
   __requires("d_end: size_t, s_end: size_t, d_all: size_t, s_all: size_t");
   __requires("check_d_size: d_end = d_offset + elems");
   __requires("check_s_size: s_end = s_offset + elems");
-  __writes("Group(range(d_offset, d_end, 1), fun k -> &dest[MINDEX1(d_all, k)] ~> Cell)");
-  __reads("Group(range(s_offset, s_end, 1), fun k -> &src[MINDEX1(s_all, k)] ~> Cell)");
+  __writes("for k in d_offset..d_end -> &dest[MINDEX1(d_all, k)] ~> Cell");
+  __reads("for k in s_offset..s_end -> &src[MINDEX1(s_all, k)] ~> Cell");
   __admitted();
 
   size_t dest2 = (size_t)(dest) + d_offset*bytes_per_item;
@@ -311,8 +311,8 @@ __GHOST(forget_init) {
 __GHOST(ro_fork_group) {
   __requires("f: _Fraction, H: formula, r: range");
   __consumes("_RO(f, H)");
-  // TODO: can we write: Group(r, fun _ -> _RO(f / range_count(r), H)) ?
-  __produces("_RO(f / range_count(r), Group(r, fun _ -> H))");
+  // TODO: can we write: for _ in r -> _RO(f / range_count(r), H) ?
+  __produces("_RO(f / range_count(r), for _ in r -> H)");
   __admitted();
 }
 
@@ -326,7 +326,7 @@ __GHOST(ro_join_group) {
 __GHOST(ro_distribute_group) {
   __requires("range: range, items: int -> formula, f: _Fraction");
   __consumes("_RO(f, Group(range, items))");
-  __produces("Group(range, fun i -> _RO(f, items(i)))");
+  __produces("for i in range -> _RO(f, items(i))");
   __admitted();
 }
 
@@ -338,8 +338,8 @@ __GHOST(ro_factorize_group) {
 
 __GHOST(swap_groups) {
   __requires("items: int * int -> formula, inner_range: range, outer_range: range");
-  __consumes("Group(outer_range, fun i -> Group(inner_range, fun j -> items(i,j)))");
-  __produces("Group(inner_range, fun j -> Group(outer_range, fun i -> items(i,j)))");
+  __consumes("for i in outer_range -> for j in inner_range -> items(i,j)");
+  __produces("for j in inner_range -> for i in outer_range -> items(i,j)");
   __admitted();
 }
 
@@ -352,8 +352,8 @@ __GHOST(swap_groups_rev) {
 
 __GHOST(ro_swap_groups) {
   __requires("items: int * int -> formula, inner_range: range, outer_range: range, f: _Fraction");
-  __consumes("_RO(f, Group(outer_range, fun i -> Group(inner_range, fun j -> items(i,j))))");
-  __produces("_RO(f,Group(inner_range, fun j -> Group(outer_range, fun i -> items(i,j))))");
+  __consumes("_RO(f, for i in outer_range -> for j in inner_range -> items(i,j))");
+  __produces("_RO(f,for j in inner_range -> for i in outer_range -> items(i,j))");
   __admitted();
 }
 
@@ -364,8 +364,8 @@ __GHOST(ro_swap_groups_rev) {
 
 __GHOST(uninit_swap_groups) {
   __requires("items: int * int -> formula, inner_range: range, outer_range: range");
-  __consumes("_Uninit(Group(outer_range, fun i -> Group(inner_range, fun j -> items(i,j))))");
-  __produces("_Uninit(Group(inner_range, fun j -> Group(outer_range, fun i -> items(i,j))))");
+  __consumes("_Uninit(for i in outer_range -> for j in inner_range -> items(i,j))");
+  __produces("_Uninit(for j in inner_range -> for i in outer_range -> items(i,j))");
   __admitted();
 }
 
@@ -378,9 +378,9 @@ __GHOST(tiled_index_in_range) {
   __requires("tile_index: int, index: int");
   __requires("tile_count: int, tile_size: int, size: int");
   __requires("size = tile_size * tile_count");
-  __requires("in_range(tile_index, range(0, tile_count, 1))");
-  __requires("in_range(index, range(0, tile_size, 1))");
-  __ensures("in_range(tile_index * tile_size + index, range(0, size, 1))");
+  __requires("in_range(tile_index, 0..tile_count)");
+  __requires("in_range(index, 0..tile_size)");
+  __ensures("in_range(tile_index * tile_size + index, 0..size)");
   __admitted();
 }
 
@@ -390,9 +390,9 @@ __GHOST(tile_divides) {
     "size: int, items: int -> resource,"
     "bound_check: size = tile_size * tile_count"
   );
-  __consumes("Group(range(0, size, 1), items)");
-  __produces("Group(range(0, tile_count, 1), fun bi ->"
-               "Group(range(0, tile_size, 1), fun i -> items(bi * tile_size + i)))");
+  __consumes("Group(0..size, items)");
+  __produces("for bi in 0..tile_count ->"
+               "for i in 0..tile_size -> items(bi * tile_size + i)");
   __admitted();
 }
 
@@ -408,9 +408,9 @@ __GHOST(ro_tile_divides) {
     "bound_check: size = tile_size * tile_count,"
     "f: _Fraction"
   );
-  __consumes("_RO(f, Group(range(0, size, 1), items))");
-  __produces("_RO(f, Group(range(0, tile_count, 1), fun bi ->"
-               "Group(range(0, tile_size, 1), fun i -> items(bi * tile_size + i))))");
+  __consumes("_RO(f, Group(0..size, items))");
+  __produces("_RO(f, for bi in 0..tile_count ->"
+               "for i in 0..tile_size -> items(bi * tile_size + i))");
   __admitted();
 }
 
@@ -478,12 +478,12 @@ __GHOST(group_unfocus_subrange_uninit) {
 __GHOST(group2_focus_subrange_uninit) {
   __requires("outer_range: range, sub_range: range, big_range: range, items: int -> int -> formula");
   __requires("bound_check: is_subrange(sub_range, big_range)");
-  __consumes("_Uninit(Group(outer_range, fun i -> Group(big_range, items(i))))");
+  __consumes("_Uninit(for i in outer_range -> Group(big_range, items(i)))");
   __produces("Wand("
-    "_Uninit(Group(outer_range, fun i -> Group(sub_range, items(i)))),"
-    "_Uninit(Group(outer_range, fun i -> Group(big_range, items(i))))"
+      "_Uninit(for i in outer_range -> Group(sub_range, items(i))),"
+      "_Uninit(for i in outer_range -> Group(big_range, items(i)))"
     "),"
-    "_Uninit(Group(outer_range, fun i -> Group(sub_range, items(i))))");
+    "_Uninit(for i in outer_range -> Group(sub_range, items(i)))");
 
   __admitted();
   /* for (int i = ra1; i < rb1; i += rs1) {
@@ -493,72 +493,72 @@ __GHOST(group2_focus_subrange_uninit) {
   /* FIXME: This ghost should not be needed but to circumvent it we would have to write:
   __with_reverse(
     [&]() {
-      __consumes("_Uninit(Group(range(0, 10, 1), fun i -> "
-                 "Group(range(0, 10, 1), fun j -> "
-                 "Group(range(0, 4, 1), fun k -> "
-                 "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))))");
-      __produces("_Uninit(Group(range(0, 10, 1), fun i -> "
-                 "Group(range(2, 10, 1), fun j -> "
-                 "Group(range(0, 4, 1), fun k -> "
-                 "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))))"
+      __consumes("_Uninit(Group(0..10, fun i -> "
+                 "Group(0..10, fun j -> "
+                 "for k in 0..4 ->"
+                 "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))");
+      __produces("_Uninit(Group(0..10, fun i -> "
+                 "Group(2..10, fun j -> "
+                 "for k in 0..4 ->"
+                 "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
                  ", "
-                 "Group(range(0, 10, 1), fun i -> Wand("
+                 "Group(0..10, fun i -> Wand("
                  "  _Uninit("
-                 "  Group(range(2, 10, 1), fun j -> "
-                 "  Group(range(0, 4, 1), fun k -> "
+                 "  Group(2..10, fun j -> "
+                 "  Group(0..4
                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))), "
                  "  _Uninit("
-                 "  Group(range(0, 10, 1), fun j -> "
-                 "  Group(range(0, 4, 1), fun k -> "
-                 "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                 "  Group(0..10, fun j -> "
+                 "  for k in 0..4 -> "
+                 "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))"
                  "))");
       for (int i = 0; i < 10; i++) {
         __consumes("_Uninit("
-                  "Group(range(0, 10, 1), fun j -> "
-                  "Group(range(0, 4, 1), fun k -> "
-                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))");
+                  "Group(0..10, fun j -> "
+                  "for k in 0..4 ->"
+                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))");
         __produces("_Uninit("
-                  "Group(range(2, 10, 1), fun j -> "
-                  "Group(range(0, 4, 1), fun k -> "
-                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                  "Group(2..10, fun j -> "
+                  "for k in 0..4 ->"
+                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))"
                   ", "
                   "Wand("
                   "  _Uninit("
-                  "  Group(range(2, 10, 1), fun j -> "
-                  "  Group(range(0, 4, 1), fun k -> "
+                  "  Group(2..10, fun j -> "
+                  "  Group(0..4, fun k -> "
                   "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))), "
                   "  _Uninit("
-                  "  Group(range(0, 10, 1), fun j -> "
-                  "  Group(range(0, 4, 1), fun k -> "
-                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                  "  Group(0..10, fun j -> "
+                  "  for k in 0..4 -> "
+                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))"
                   ")");
         __ghost(group_focus_subrange_uninit,
-          "items := fun j -> Group(range(0, 4, 1), fun k -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell), "
+          "items := fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
           "start := 2, stop := 10, step := 1");
       }
     },
     [&]() {
       for (int i = 0; i < 10; i++) {
         __produces("_Uninit("
-                  "Group(range(0, 10, 1), fun j -> "
-                  "Group(range(0, 4, 1), fun k -> "
-                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))");
+                  "Group(0..10, fun j -> "
+                  "for k in 0..4 ->"
+                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))");
         __consumes("_Uninit("
-                  "Group(range(2, 10, 1), fun j -> "
-                  "Group(range(0, 4, 1), fun k -> "
-                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                  "Group(2..10, fun j -> "
+                  "for k in 0..4 ->"
+                  "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))"
                   ", "
                   "Wand("
                   "  _Uninit("
-                  "  Group(range(2, 10, 1), fun j -> "
-                  "  Group(range(0, 4, 1), fun k -> "
+                  "  Group(2..10, fun j -> "
+                  "  Group(0..4, fun k -> "
                   "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))), "
                   "  _Uninit("
-                  "  Group(range(0, 10, 1), fun j -> "
-                  "  Group(range(0, 4, 1), fun k -> "
-                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)))"
+                  "  Group(0..10, fun j -> "
+                  "  for k in 0..4 -> "
+                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))"
                   ")");
-        __ghost(group_unfocus_subrange_uninit, "items := fun j -> Group(range(0, 4, 1), fun k -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell)");
+        __ghost(group_unfocus_subrange_uninit, "items := fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell");
       }
     }
   )
@@ -579,8 +579,8 @@ __GHOST(group_shift) {
   __requires("start: int, stop: int, step: int, items: int -> formula");
   __requires("shift: int, new_start: int, new_stop: int");
   __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
-  __consumes("Group(range(start, stop, step), fun i -> items(i))");
-  __produces("Group(range(new_start, new_stop, step), fun i -> items(i - shift))");
+  __consumes("for i in range(start, stop, step) -> items(i)");
+  __produces("for i in range(new_start, new_stop, step) -> items(i - shift)");
   __admitted();
 }
 
@@ -593,8 +593,8 @@ __GHOST(group_shift_uninit) {
   __requires("start: int, stop: int, step: int, items: int -> formula");
   __requires("shift: int, new_start: int, new_stop: int");
   __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
-  __consumes("_Uninit(Group(range(start, stop, step), fun i -> items(i)))");
-  __produces("_Uninit(Group(range(new_start, new_stop, step), fun i -> items(i - shift)))");
+  __consumes("_Uninit(for i in range(start, stop, step) -> items(i))");
+  __produces("_Uninit(for i in range(new_start, new_stop, step) -> items(i - shift))");
   __admitted();
 }
 
@@ -608,8 +608,8 @@ __GHOST(group_shift_ro) {
   __requires("shift: int, new_start: int, new_stop: int");
   __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
   __requires("f: _Fraction");
-  __consumes("_RO(f, Group(range(start, stop, step), fun i -> items(i)))");
-  __produces("_RO(f, Group(range(new_start, new_stop, step), fun i -> items(i - shift)))");
+  __consumes("_RO(f, for i in range(start, stop, step) -> items(i))");
+  __produces("_RO(f, for i in range(new_start, new_stop, step) -> items(i - shift))");
   __admitted();
 }
 
@@ -622,8 +622,8 @@ __GHOST(group_unshift_ro) {
 
 __GHOST(matrix2_focus)  {
   __requires("M: ptr, i: int, j: int, m: int, n: int");
-  __requires("bound_check_i: in_range(i, range(0, m, 1))");
-  __requires("bound_check_j: in_range(j, range(0, n, 1))");
+  __requires("bound_check_i: in_range(i, 0..m)");
+  __requires("bound_check_j: in_range(j, 0..n)");
   __consumes("M ~> Matrix2(m, n)");
   __produces("Wand(&M[MINDEX2(m, n, i, j)] ~> Cell, M ~> Matrix2(m, n)), &M[MINDEX2(m, n, i, j)] ~> Cell");
 
@@ -640,7 +640,7 @@ __GHOST(matrix2_unfocus) {
 
 __GHOST(matrix1_ro_focus) {
   __requires("M: ptr, i: int, n: int, f: _Fraction");
-  __requires("bound_check: in_range(i, range(0, n, 1))");
+  __requires("bound_check: in_range(i, 0..n)");
   __consumes("_RO(f, M ~> Matrix1(n))");
   __produces("Wand(_RO(f, &M[MINDEX1(n, i)] ~> Cell), _RO(f, M ~> Matrix1(n))), _RO(f, &M[MINDEX1(n, i)] ~> Cell)");
 
@@ -655,8 +655,8 @@ __GHOST(matrix1_ro_unfocus) {
 
 __GHOST(matrix2_ro_focus) {
   __requires("M: ptr, i: int, j: int, m: int, n: int, f: _Fraction");
-  __requires("bound_check_i: in_range(i, range(0, m, 1))");
-  __requires("bound_check_j: in_range(j, range(0, n, 1))");
+  __requires("bound_check_i: in_range(i, 0..m)");
+  __requires("bound_check_j: in_range(j, 0..n)");
   __consumes("_RO(f, M ~> Matrix2(m, n))");
   __produces("Wand(_RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell), _RO(f, M ~> Matrix2(m,n))), _RO(f, &M[MINDEX2(m, n, i, j)] ~> Cell)");
 
@@ -675,24 +675,24 @@ __GHOST(matrix2_ro_unfocus) {
 
 __GHOST(matrix2_contiguous) {
   __requires("M: ptr, a: int, b: int, n2: int, n1: int");
-  __consumes("Group(range(a, b, 1), fun i -> Group(range(0, n1, 1), fun j -> "
-               "&M[MINDEX2(n2, n1, i, j)] ~> Cell))");
-  __produces("Group(range(a2*n1, b2*n1, 1), fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell)");
+  __consumes("for i in a..b -> for j in 0..n1 -> "
+               "&M[MINDEX2(n2, n1, i, j)] ~> Cell");
+  __produces("for k in a2*n1..b2*n1 -> &M[MINDEX1(n2*n1, k)] ~> Cell");
   __admitted();
 }
 
 __GHOST(matrix3_contiguous) {
   __requires("M: ptr, a: int, b: int, n3: int, n2: int, n1: int");
-  __consumes("Group(range(a, b, 1), fun i3 -> Group(range(0, n2, 1), fun i2 -> "
-             "Group(range(0, n1, 1), fun i1 -> &M[MINDEX3(n3, n2, n1, i1, i2, i3)] ~> Cell)))");
-  __produces("Group(range(a3*n2*n1, b3*n2*n1, 1), fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell)");
+  __consumes("for i3 in a..b -> for i2 in 0..n2 -> "
+             "for i1 in 0..n1 -> &M[MINDEX3(n3, n2, n1, i1, i2, i3)] ~> Cell");
+  __produces("for k in a3*n2*n1..b3*n2*n1 -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell");
   __admitted();
 }
 
 __GHOST(mindex2_contiguous) {
   __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int");
-  __consumes("Group(range(a, b, 1), fun i1 -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell)");
-  __produces("Group(range(i2*n1 + a, i2*n1 + b, 1), fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell)");
+  __consumes("for i1 in a..b -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell");
+  __produces("for k in i2*n1 + a..i2*n1 + b -> &M[MINDEX1(n2*n1, k)] ~> Cell");
   __admitted();
 }
 
@@ -703,8 +703,8 @@ __GHOST(mindex2_contiguous_rev) {
 
 __GHOST(mindex3_contiguous) {
   __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
-  __consumes("Group(range(a, b, 1), fun i1 -> &M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell)");
-  __produces("Group(range(i3*n2*n1 + i2*n1 + a, i3*n2*n1 + i2*n1 + b, 1), "
+  __consumes("for i1 in a..b -> &M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell");
+  __produces("Group((i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b), "
                "fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell)");
   __admitted();
 }
@@ -716,8 +716,8 @@ __GHOST(mindex3_contiguous_rev) {
 
 __GHOST(mindex2_contiguous_uninit) {
   __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int");
-  __consumes("_Uninit(Group(range(a, b, 1), fun i1 -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell))");
-  __produces("_Uninit(Group(range(i2*n1 + a, i2*n1 + b, 1), "
+  __consumes("_Uninit(for i1 in a..b -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell)");
+  __produces("_Uninit(Group((i2*n1 + a)..(i2*n1 + b), "
                "fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell))");
   __admitted();
 }
@@ -729,9 +729,9 @@ __GHOST(mindex2_contiguous_uninit_rev) {
 
 __GHOST(mindex3_contiguous_uninit) {
   __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
-  __consumes("_Uninit(Group(range(a, b, 1), fun i1 -> "
-                "&M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell))");
-  __produces("_Uninit(Group(range(i3*n2*n1 + i2*n1 + a, i3*n2*n1 + i2*n1 + b, 1), "
+  __consumes("_Uninit(for i1 in a..b -> "
+                "&M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell)");
+  __produces("_Uninit(Group((i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b), "
                "fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell))");
   __admitted();
 }
@@ -743,8 +743,8 @@ __GHOST(mindex3_contiguous_uninit_rev) {
 
 __GHOST(mindex2_contiguous_ro) {
   __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
-  __consumes("_RO(f, Group(range(a, b, 1), fun i1 -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell))");
-  __produces("_RO(f, Group(range(i2*n1 + a, i2*n1 + b, 1), "
+  __consumes("_RO(f, for i1 in a..b -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell)");
+  __produces("_RO(f, Group((i2*n1 + a)..(i2*n1 + b), "
                "fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell))");
   __admitted();
 }
@@ -756,9 +756,9 @@ __GHOST(mindex2_contiguous_ro_rev) {
 
 __GHOST(mindex3_contiguous_ro) {
   __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
-  __consumes("_RO(f, Group(range(a, b, 1), fun i1 -> "
-                "&M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell))");
-  __produces("_RO(f, Group(range(i3*n2*n1 + i2*n1 + a, i3*n2*n1 + i2*n1 + b, 1), "
+  __consumes("_RO(f, for i1 in a..b -> "
+                "&M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell)");
+  __produces("_RO(f, Group((i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b), "
                "fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell))");
   __admitted();
 }

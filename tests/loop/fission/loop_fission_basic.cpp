@@ -2,8 +2,8 @@
 
 void parallel(int* t, int* u, int n) {
   __modifies(
-    "Group(range(1, n, 1), fun i -> &t[i] ~> Cell),"
-    "Group(range(1, n, 1), fun i -> &u[i] ~> Cell)");
+    "for i in 1..n -> &t[i] ~> Cell,"
+    "for i in 1..n -> &u[i] ~> Cell");
 
   for (int i = 1; i < n; i++) {
     __modifies(
@@ -33,8 +33,8 @@ void parallel(int* t, int* u, int n) {
 }
 
 void uninit(int* t, int* u, int n) {
-  __consumes("_Uninit(Group(range(1, n, 1), fun i -> &t[i] ~> Cell))");
-  __produces("Group(range(1, n, 1), fun i -> &t[i] ~> Cell)");
+  __consumes("_Uninit(for i in 1..n -> &t[i] ~> Cell)");
+  __produces("for i in 1..n -> &t[i] ~> Cell");
 
   int x = 0;
   for (int i = 1; i < n; i++) {
@@ -148,8 +148,8 @@ int testAllInstr2(int* t, int* u, int n) {
 
 int testAllInstrContracts(int* t, int* u, int n) {
     __modifies(
-    "Group(range(1, n, 1), fun i -> &t[i] ~> Cell),"
-    "Group(range(1, n, 1), fun i -> &u[i] ~> Cell)");
+    "for i in 1..n -> &t[i] ~> Cell,"
+    "for i in 1..n -> &u[i] ~> Cell");
   for (int i = 1; i < n; i++) {
     __modifies(
       "&t[i] ~> Cell,"
@@ -169,18 +169,18 @@ void ghosts() {
 
   int x = 0;
   const __ghost_fn __ghost_pair_1 =
-      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..5");
   for (int i = 0; i < 5; i++) {
     __reads("&x ~> Cell");
-    __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+    __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
     for (int k = 0; k < 5; k++) {
-      __parallel_reads("Group(range(0, 5, 1), fun j -> &x ~> Cell)");
+      __parallel_reads("for j in 0..5 -> &x ~> Cell");
       for (int j = 0; j < 5; j++) {
         __reads("&x ~> Cell");
         x + 1;
       }
     }
-    __ghost(ro_join_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+    __ghost(ro_join_group, "H := &x ~> Cell, r := 0..5");
   }
   __ghost_end(__ghost_pair_1);
 }
@@ -190,20 +190,20 @@ void double_ghosts() {
 
   int x = 0;
   const __ghost_fn __ghost_pair_1 =
-      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..5");
   for (int i = 0; i < 5; i++) {
     __reads("&x ~> Cell");
-    __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
-    __ghost(ro_fork_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+    __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
+    __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
     for (int k = 0; k < 5; k++) {
-      __parallel_reads("Group(range(0, 5, 1), fun j -> &x ~> Cell)");
+      __parallel_reads("for j in 0..5 -> &x ~> Cell");
       for (int j = 0; j < 5; j++) {
         __reads("&x ~> Cell");
         x + 1;
       }
     }
-    __ghost(ro_join_group, "H := &x ~> Cell, r := range(0, 5, 1)");
-    __ghost(ro_join_group, "H := &x ~> Cell, r := range(0, 5, 1)");
+    __ghost(ro_join_group, "H := &x ~> Cell, r := 0..5");
+    __ghost(ro_join_group, "H := &x ~> Cell, r := 0..5");
   }
   __ghost_end(__ghost_pair_1);
 }

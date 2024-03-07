@@ -52,9 +52,7 @@ void matrix_copy(int* D, int* S) {
           "&D[MINDEX1(1024, i)] ~> Cell");
   for (int bi = 0; bi < 256; bi++) {
     __parallel_reads("S ~> Matrix1(1024)");
-    __modifies(
-        "Group(range(0, 4, 1), fun i -> &D[MINDEX1(1024, bi * 4 + i)] ~> "
-        "Cell)");
+    __modifies("for i in 0..4 -> &D[MINDEX1(1024, bi * 4 + i)] ~> Cell");
     for (int i = 0; i < 4; i++) {
       __parallel_reads("S ~> Matrix1(1024)");
       __modifies("&D[MINDEX1(1024, bi * 4 + i)] ~> Cell");

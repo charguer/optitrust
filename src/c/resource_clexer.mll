@@ -17,6 +17,8 @@ rule lex_resources = parse
   | "->" { ARROW }
   | "~>" { SQUIG_ARROW }
   | "fun" { FUN }
+  | "for" { FOR }
+  | "in" { IN }
   | ":=" { COLON_EQUAL }
   | '(' { LPAR }
   | ')' { RPAR }
@@ -33,6 +35,7 @@ rule lex_resources = parse
   | "<=" { LEQ }
   | ">=" { GEQ }
   | "<>" { NEQ }
+  | ".." { DOTDOT }
   | blank { lex_resources lexbuf }
   | newline { new_line lexbuf; lex_resources lexbuf }
   | ident { IDENT (lexeme lexbuf) }

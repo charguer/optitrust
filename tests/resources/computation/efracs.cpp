@@ -3,10 +3,10 @@
 __GHOST(ro_fork_group_copy) {
   __requires("f: _Fraction, H: formula, r: range");
   __consumes("_RO(f, H)");
-  __produces("_RO(f / range_count(r), Group(r, fun _ -> H))");
+  __produces("_RO(f / range_count(r), for _ in r -> H)");
 
   __ghost(ro_fork_group, "");
-  // Here we have: forall g <= f, _RO(g / range_count(r), Group(r, fun _ -> H)), _RO(f - g, H)
+  // Here we have: forall g <= f, _RO(g / range_count(r), for _ in r -> H), _RO(f - g, H)
   // We need to find g = f
 }
 
@@ -15,7 +15,7 @@ __GHOST(ro_fork_group_copy) {
 __GHOST(double_ro_fork_group) {
   __requires("f: _Fraction, H: formula, r1: range, r2: range");
   __consumes("_RO(f, H)");
-  __produces("_RO(f / 2 / range_count(r1), Group(r1, fun _ -> H)), _RO(f / 2 / range_count(r2), Group(r2, fun _ -> H))");
+  __produces("_RO(f / 2 / range_count(r1), for _ in r1 -> H), _RO(f / 2 / range_count(r2), for _ in r2 -> H)");
 
   __ghost(ro_fork_group, "r := r1, H := H");
   __ghost(ro_fork_group, "r := r2, H := H");
@@ -27,11 +27,11 @@ __GHOST(double_ro_fork_group) {
 void weird(int* k, int n1, int n2) {
   __requires("f: _Fraction");
   __consumes("_RO(f, k ~> Cell)");
-  __produces("_RO(f / range_count(range(0, n1, 1)), Group(range(0, n1, 1), fun _ -> k ~> Cell))");
+  __produces("_RO(f / range_count(0..n1), for _ in 0..n1 -> k ~> Cell)");
 
-  __ghost(ro_fork_group, "r := range(0, n1, 1)");
-  // forall g <= f, _RO(g / range_count(r1), Group(r, fun _ -> H)), _RO(f - g, H)
-  __GHOST_BEGIN(second_fork, ro_fork_group, "r := range(0, n2, 1), H := k ~> Cell");
+  __ghost(ro_fork_group, "r := 0..n1");
+  // forall g <= f, _RO(g / range_count(r1), for _ in r -> H), _RO(f - g, H)
+  __GHOST_BEGIN(second_fork, ro_fork_group, "r := 0..n2, H := k ~> Cell");
   // forall (g < f) (h <= f - g), _RO(g / range_count(r1), _), _RO(h / range_count(r2), _), _RO(f - g - h, H)
   int acc = 0;
   for (int i = 0; i < n1; ++i) {

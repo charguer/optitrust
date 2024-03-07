@@ -1,4 +1,5 @@
 #include <optitrust.h>
+
 #include "omp.h"
 
 __ghost_ret array_focus() {
@@ -73,14 +74,14 @@ __ghost_ret array_unfold() {
   __requires("M: ptr");
   __requires("dim: int");
   __consumes("M ~> Array(dim)");
-  __produces("Group(range(0, dim, 1), fun i -> &M[i] ~> Cell)");
+  __produces("for i in 0..dim -> &M[i] ~> Cell");
   __admitted();
 }
 
 __ghost_ret array_fold() {
   __requires("M: ptr");
   __requires("dim: int");
-  __consumes("Group(range(0, dim, 1), fun i -> &M[i] ~> Cell)");
+  __consumes("for i in 0..dim -> &M[i] ~> Cell");
   __produces("M ~> Array(dim)");
   __admitted();
 }
@@ -90,7 +91,7 @@ __ghost_ret ro_array_unfold() {
   __requires("dim: int");
   __requires("f: _Fraction");
   __consumes("_RO(f, M ~> Array(dim))");
-  __produces("_RO(f, Group(range(0, dim, 1), fun i -> &M[i] ~> Cell))");
+  __produces("_RO(f, for i in 0..dim -> &M[i] ~> Cell)");
   __admitted();
 }
 
@@ -98,7 +99,7 @@ __ghost_ret ro_array_fold() {
   __requires("M: ptr");
   __requires("dim: int");
   __requires("f: _Fraction");
-  __consumes("_RO(_Full(f), Group(range(0, dim, 1), fun i -> &M[i] ~> Cell))");
+  __consumes("_RO(_Full(f), for i in 0..dim -> &M[i] ~> Cell)");
   __produces("_RO(f, M ~> Array(dim))");
   __admitted();
 }

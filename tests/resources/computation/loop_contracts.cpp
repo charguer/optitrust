@@ -65,13 +65,13 @@ void array_copy_explicit(float* A, float* B, int n) {
 __GHOST(array_unfold) {
     __requires("M: ptr, dim: int");
     __consumes("M ~> Array(dim)");
-    __produces("Group(range(0, dim, 1), fun i -> &M[i] ~> Cell)");
+    __produces("for i in 0..dim -> &M[i] ~> Cell");
     __admitted();
 }
 
 __GHOST(array_fold) {
     __requires("M: ptr, dim: int");
-    __consumes("Group(range(0, dim, 1), fun i -> &M[i] ~> Cell)");
+    __consumes("for i in 0..dim -> &M[i] ~> Cell");
     __produces("M ~> Array(dim)");
     __admitted();
 }
@@ -79,13 +79,13 @@ __GHOST(array_fold) {
 __GHOST(ro_array_unfold) {
     __requires("M: ptr, dim: int, f: _Fraction");
     __consumes("_RO(f, M ~> Array(dim))");
-    __produces("_RO(f, Group(range(0, dim, 1), fun i -> &M[i] ~> Cell))");
+    __produces("_RO(f, for i in 0..dim -> &M[i] ~> Cell)");
     __admitted();
 }
 
 __GHOST(ro_array_fold) {
     __requires("M: ptr, dim: int, f: _Fraction");
-    __consumes("_RO(_Full(f), Group(range(0, dim, 1), fun i -> &M[i] ~> Cell))");
+    __consumes("_RO(_Full(f), for i in 0..dim -> &M[i] ~> Cell)");
     __produces("_RO(f, M ~> Array(dim))");
     __admitted();
 }
