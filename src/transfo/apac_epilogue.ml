@@ -362,9 +362,10 @@ let heapify_on (t : trm) : trm =
        promoted variable and add them to the [deletes] queue. *)
     if !delete > 0 then
       begin
-        let _ = Printf.printf ">>>> Bude deelete\n" in
-        let dt = trm_delete (!delete = 2) (trm_var ~kind:vk v) in
-        let inout = [Inout [Dep_var v]] in
+        let vt = trm_var ~kind:vk v in
+        let dt = trm_delete (!delete = 2) vt in
+        let inout = Dep.of_trm (trm_get vt) v 1 in
+        let inout = [Inout [inout]] in
         let depend = [Depend inout] in
         let clauses = [Default Shared_m] in
         let clauses = clauses @ depend in
