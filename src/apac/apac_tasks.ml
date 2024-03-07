@@ -15,7 +15,13 @@ open Apac_dep
 (* [TaskAttr]: a module to represent task attributes. See [Task]. *)
 module TaskAttr : sig
   type t =
-    Singleton | WaitForNone | WaitForSome | WaitForAll | HasJump | ExitPoint
+    | Singleton
+    | WaitForNone
+    | WaitForSome
+    | WaitForAll
+    | HasJump
+    | IsJump
+    | ExitPoint
   val compare : t -> t -> int
   val equal : t -> t -> bool
 end = struct
@@ -32,6 +38,8 @@ end = struct
     | WaitForAll
     (* The task contains an unconditional jump, i.e. a [goto]. *)
     | HasJump
+    (* The task is an unconditional jump, i.e. a [goto]. *)
+    | IsJump
     (* The task represents the last instruction before exiting the execution
        sequence, i.e. the [Apac_core.goto_label]. *)
     | ExitPoint

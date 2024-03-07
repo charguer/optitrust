@@ -757,9 +757,12 @@ let taskify_on (p : path) (t : trm) : unit =
             instance for it, even if it will actually nevery become a task. The
             [Singleton] and the [HasJump] attributes mean that the [Task] will
             not be merged with any other task and that it contains an
-            unconditional jump. See [Apac_tasks.TaskAttr]. *)
+            unconditional jump. We assign the task with the [IsJump] attribute
+            too in order to indicate that the task itself is an unconditional
+            jump. See [Apac_tasks.TaskAttr]. *)
          let attrs = TaskAttr_set.singleton Singleton in
          let attrs = TaskAttr_set.add HasJump attrs in
+         let attrs = TaskAttr_set.add IsJump attrs in
          Task.create t attrs Var_set.empty
            Dep_set.empty Dep_set.empty Dep_map.empty []
     | Trm_val v ->
