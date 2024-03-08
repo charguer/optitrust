@@ -133,6 +133,12 @@ end
 (** [Dep_map]: a module to represent maps of dependencies. *)
 module Dep_map = struct
   include Map.Make(Dep)
+  (** [Dep_map.union2 dm1 dm2]: computes the union of the maps of dependencies
+      to sets of dependency attributes [dm1] and [dm2]. *)
+  let union2 (dm1 : DepAttr_set.t t) (dm2 : DepAttr_set.t t) : DepAttr_set.t t =
+    union (fun _ v1 v2 ->
+        let v = DepAttr_set.union v1 v2 in Some v
+      ) dm1 dm2
   (** [Dep_map.bind_set ds das dm]: updates the bindings of the dependencies
       from the dependency set [ds] in the map of dependencies to sets of
       dependency attributes [dm] with the set of dependency attributes [das]. *)

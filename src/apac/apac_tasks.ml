@@ -186,9 +186,7 @@ module rec Task : sig
     (* and the input-output dependency set, *)
     let inouts' = Dep_set.union t1.inouts t2.inouts in
     (* compute the union of maps of dependency attributes, *)
-    let ioattrs' = Dep_map.union (fun _ v1 v2 ->
-                       let v = DepAttr_set.union v1 v2 in Some v
-                     ) t1.ioattrs t2.ioattrs in
+    let ioattrs' = Dep_map.union2 t1.ioattrs t2.ioattrs in
     (* concatenate the list of lists of nested graphs of [t1] and [t2]. *)
     let children' = t1.children @ t2.children in
     {
