@@ -68,7 +68,7 @@ type const_fun = {
   }
 
 (* [const_funs]: type for a hash table of [const_fun]. The keys are functions
-   represented by terms of type [var]. *)
+   represented by variables, i.e. [var]. *)
 and const_funs = const_fun Var_Hashtbl.t
 
 (* [symbols]: type for a hash table of symbols local to a given function
