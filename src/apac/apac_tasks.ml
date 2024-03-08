@@ -1,18 +1,18 @@
-(* The automatic parallelization method of APAC involves the creation of a task
-   graph representing the input source code. We create one task graph per
-   program scope. This way, to a function body containing, for example, a
-   for-loop, we will associate one task graph representing the instructions of
-   the function's body. A second task graph will be associated to the node of
-   the first graph representing the for-loop instruction. This second task graph
-   will reflect the instructions of the for-loop body.
+(** The automatic parallelization method of APAC involves the creation of a task
+    graph representing the input source code. We create one task graph per
+    program scope. This way, to a function body containing, for example, a
+    for-loop, we will associate one task graph representing the instructions of
+    the function's body. A second task graph will be associated to the node of
+    the first graph representing the for-loop instruction. This second task
+    graph will reflect the instructions of the for-loop body.
 
-   Our task graph implementation relies on the Ocamlgraph library and consists
-   of multiple, sometimes mutually dependent, modules defined in this file. *) 
+    Our task graph implementation relies on the Ocamlgraph library and consists
+    of multiple, sometimes mutually dependent, modules defined in this file. *) 
 open Ast
 open Graph
 open Apac_dep
 
-(* [TaskAttr]: a module to represent task attributes. See [Task]. *)
+(** [TaskAttr]: a module to represent task attributes. See [Task]. *)
 module TaskAttr : sig
   type t =
     | Singleton
@@ -26,63 +26,64 @@ module TaskAttr : sig
   val equal : t -> t -> bool
 end = struct
   type t =
-    (* Never merge the task with other tasks. *)
+    (** Never merge the task with other tasks. *)
     | Singleton
-    (* Do not create a task. *)
+    (** Do not create a task. *)
     | WaitForNone
-    (* Do not create a task. In the resulting code, prepend the associated
+    (** Do not create a task. In the resulting code, prepend the associated
        statements with a synchronisation barrier on selected dependencies. *)
     | WaitForSome
-    (* Do not create a task. In the resulting code, prepend the associated
+    (** Do not create a task. In the resulting code, prepend the associated
        statements with a global synchronisation barrier. *)
     | WaitForAll
-    (* The task contains an unconditional jump, i.e. a [goto]. *)
+    (** The task contains an unconditional jump, i.e. a [goto]. *)
     | HasJump
-    (* The task is an unconditional jump, i.e. a [goto]. *)
+    (** The task is an unconditional jump, i.e. a [goto]. *)
     | IsJump
-    (* The task represents the last instruction before exiting the execution
-       sequence, i.e. the [Apac_core.goto_label]. *)
+    (** The task represents the last instruction before exiting the execution
+        sequence, i.e. the [Apac_core.goto_label]. *)
     | ExitPoint
-  (* [TaskAttr.compare ta1 ta2]: compares two task attributes [ta1] and [ta2].
-     As [TaskAttr.t] is an enumeration type, this is a simple comparison between
-     two integer values representing the associated enumeration labels being
-     compared. *)
+  (** [TaskAttr.compare ta1 ta2]: compares two task attributes [ta1] and [ta2].
+      As [TaskAttr.t] is an enumeration type, this is a simple comparison
+      between two integer values representing the associated enumeration labels
+      being compared. *)
   let compare (ta1 : t) (ta2 : t) : int =
     if ta1 = ta2 then 0
     else if ta1 > ta2 then 1
     else -1
-  (* [TaskAttr.equal ta1 ta2]: checks the equality of two task attributes [ta1]
-     and [ta2]. See [TaskAttr.compare]. *)
+  (** [TaskAttr.equal ta1 ta2]: checks the equality of two task attributes [ta1]
+      and [ta2]. See [TaskAttr.compare]. *)
   let equal (ta1 : t) (ta2 : t) : bool = compare ta1 ta2 = 0
 end
 
-(* [TaskAttr_set]: a module to represent sets of task attributes. *)
+(** [TaskAttr_set]: a module to represent sets of task attributes. *)
 module TaskAttr_set = Set.Make(TaskAttr)
 
-(* [TaskWeight]: a module to represent weights of edges in a task graph. See
+(** [TaskWeight]: a module to represent weights of edges in a task graph. See
    [TaskGraph]. *)
 module TaskWeight : sig
   type t = int
   val default : t
   val compare : t -> t -> int
 end = struct
-  (* A weight of an edge is a simple integer value. *)
+  (** [TaskWeight.t]: a weight of an edge is a simple integer value. *)
   type t = int
-  (* The default weight is one. *)
+  (** [TaskWeight.default]: the default weight is one. *)
   let default = 1
-  (* [TaskWeight.compare tw1 tw2]: compares two edge weights [tw1] and [tw2]. *)
+  (** [TaskWeight.compare tw1 tw2]: compares two edge weights [tw1] and
+      [tw2]. *)
   let compare tw1 tw2 = tw1 - tw2
 end
 
-(* [Task]: a module to represent a node of a task graph. The initial task graph
-   of a function considers each instruction and each block of instructions
-   (loops, scopes, switches, ...) as a separate task. While building the initial
-   task graph of a function, we have to compute the potential data dependencies
-   between the future tasks. During this process, we iterate over the local AST
-   of the target function, look for data dependencies, construct the output
-   graph nodes and add edges between the nodes based on the discovered
-   dependencies. Each [Task] node may represent a task by itself. Nodes can be
-   merged or removed. *)
+(** [Task]: a module to represent a node of a task graph. The initial task graph
+    of a function considers each instruction and each block of instructions
+    (loops, scopes, switches, ...) as a separate task. While building the
+    initial task graph of a function, we have to compute the potential data
+    dependencies between the future tasks. During this process, we iterate over
+    the local AST of the target function, look for data dependencies, construct
+    the output graph nodes and add edges between the nodes based on the
+    discovered dependencies. Each [Task] node may represent a task by itself.
+    Nodes can be merged or removed. *)
 module rec Task : sig
          type t = {
              current : trms;
@@ -96,39 +97,40 @@ module rec Task : sig
            trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
            ioattrs_map -> TaskGraph.t list list -> t
          val has_attr : t -> TaskAttr.t -> bool
+         val has_subs : t -> bool
          val merge : t -> t -> t
          val update : t -> trms -> t
          val empty : unit -> t
          val to_string : t -> string
          val to_label : t -> string
        end = struct
-  (* A task graph node is represented by: *)
+  (** A task graph node is represented by: *)
   type t = {
-      (* - a list of AST terms associated with it (initially, only one term is
-         in the list; multiple terms may appear after merging of two or more
-         nodes), *)
+      (** - a list of AST terms associated with it (initially, only one term is
+          in the list; multiple terms may appear after merging of two or more
+          nodes), *)
       current : trms;
-      (* - a set of attributes which help us to translate the task into
-         taskified source code (see [TaskAttr] as well as the `backend.ml'
-         file), *)
+      (** - a set of attributes which help us to translate the task into
+          taskified source code (see [TaskAttr] as well as the `backend.ml'
+          file), *)
       attrs : TaskAttr_set.t;
-      (* - a set of input (read only) data dependencies (see [Dep]), *)
+      (** - a set of input (read only) data dependencies (see [Dep]), *)
       mutable ins : Dep_set.t;
-      (* - a set of input-output (read-write) data dependencies (see [Dep]), *)
+      (** - a set of input-output (read-write) data dependencies (see [Dep]), *)
       mutable inouts : Dep_set.t;
-      (* - a map of data dependencies to sets of dependency attributes (see
-         [ioattrs_map]), *)
+      (** - a map of data dependencies to sets of dependency attributes (see
+          [ioattrs_map]), *)
       mutable ioattrs : ioattrs_map;
-      (* - a list of lists of nested task graphs (each term in [current] may
-         have more than one child task graph associated to it, i.e. a then and
-         an else branch in the case of an if-conditional statement). *)
+      (** - a list of lists of nested task graphs (each term in [current] may
+          have more than one child task graph associated to it, i.e. a then and
+          an else branch in the case of an if-conditional statement). *)
       children : TaskGraph.t list list;
     }
-  (* [Task.create current attrs scope ins inouts children]: creates a new task
-     graph node based on the [current] AST term, the set of task [attrs], the
-     set of the current scope's variables, the set of input dependencies [ins],
-     the set of input-output dependencies [inouts] and the list of lists of
-     nested task graphs. *)
+  (** [Task.create current attrs scope ins inouts children]: creates a new task
+      graph node based on the [current] AST term, the set of task [attrs], the
+      set of the current scope's variables, the set of input dependencies [ins],
+      the set of input-output dependencies [inouts] and the list of lists of
+      nested task graphs. *)
   let create (current : trm) (attrs : TaskAttr_set.t) (scope : Var_set.t)
         (ins : Dep_set.t) (inouts : Dep_set.t) (ioattrs : ioattrs_map)
         (children : TaskGraph.t list list) : t =
@@ -171,19 +173,23 @@ module rec Task : sig
       ioattrs = ioattrs';
       children = children;
     }
-  (* [Task.has_attr t attr]: checks whether the task [t] has the attribute
-     [attr]. *)
+  (** [Task.has_attr task attr]: checks whether the task [task] has the
+      attribute [attr]. *)
   let has_attr (task : t) (attr : TaskAttr.t) : bool =
     TaskAttr_set.mem attr task.attrs
-  (* [Task.merge t1 t2]: merges two tasks into a new single task. *)
+  (** [Task.has_subs task]: checks whether at least one of the dependencies of
+      the task [task] has the [Subscripted] attribute (see [TaskAttr.t]). *)
+  let has_subs (task : t) : bool =
+    Dep_map.exists (fun _ das -> DepAttr_set.mem Subscripted das) task.ioattrs
+  (** [Task.merge t1 t2]: merges two tasks into a new single task. *)
   let merge (t1 : t) (t2 : t) : t =
     (* For this, we concatenate the lists of associated AST terms, *)
     let current' = t1.current @ t2.current in
     (* compute the union of attributes, *)
     let attrs' = TaskAttr_set.union t1.attrs t2.attrs in
-    (* compute the union of both the input dependency set *)
+    (* compute the union of the input dependency sets, *)
     let ins' = Dep_set.union t1.ins t2.ins in
-    (* and the input-output dependency set, *)
+    (* compute the union of the input-output dependency sets, *)
     let inouts' = Dep_set.union t1.inouts t2.inouts in
     (* compute the union of maps of dependency attributes, *)
     let ioattrs' = Dep_map.union2 t1.ioattrs t2.ioattrs in
@@ -197,9 +203,9 @@ module rec Task : sig
       ioattrs = ioattrs';
       children = children';
     }
-  (* [Task.update task instrs]: updates the list of AST terms associated with
-     [task] and replaces it with the list of AST terms [instrs]. Other
-     components of [task] remain unaffected. *)
+  (** [Task.update task instrs]: updates the list of AST terms associated with
+      [task] and replaces it with the list of AST terms [instrs]. Other
+      components of [task] remain unaffected. *)
   let update (task : t) (instrs : trms) : t = {
       current = instrs;
       attrs = task.attrs;
@@ -208,8 +214,8 @@ module rec Task : sig
       ioattrs = task.ioattrs;
       children = task.children;
     }
-  (* [Task.empty]: produces an empty task having no AST term associated with it
-     as well as without any attributes, dependencies or nested graphs. *)
+  (** [Task.empty]: produces an empty task having no AST term associated with it
+      as well as without any attributes, dependencies or nested graphs. *)
   let empty () = {
       current = [];
       attrs = TaskAttr_set.empty;
@@ -218,7 +224,7 @@ module rec Task : sig
       ioattrs = Dep_map.empty;
       children = [];
     }
-  (* [Task.to_string task]: returns a string representation of [task]. *)
+  (** [Task.to_string task]: returns a string representation of [task]. *)
   let to_string (task : t) : string =
     let what = List.fold_left (fun acc term ->
                    let desc = trm_desc_to_string term.desc in
@@ -244,9 +250,9 @@ module rec Task : sig
                      acc ^ " " ^ (Dep.to_string a) ^ ioa
                    ) task.inouts "" in
     what ^ " (in: [" ^ ins ^ " ], inout: [" ^ inouts ^ " ])\n"
-  (* [Task.to_label task]: returns a string representation of [task] used when
-     converting a task graph into the Dot text format. See
-     [TaskGraphPrinter]. *)
+  (** [Task.to_label task]: returns a string representation of [task] used when
+      converting a task graph into the Dot text format. See
+      [TaskGraphPrinter]. *)
   let to_label (task : t) : string =
     let what = List.fold_left (fun acc term ->
                    let desc = trm_desc_to_string term.desc in
@@ -262,15 +268,15 @@ end and TaskGraph : Sig.IM
              type E.label = TaskWeight.t =
          Imperative.Digraph.AbstractLabeled(Task)(TaskWeight)
 
-(* [TaskGraphPrinter]: a module to convert a [TaskGraph] into a text
-   representation such as the Dot format. See [DotExport]. *)
+(** [TaskGraphPrinter]: a module to convert a [TaskGraph] into a text
+    representation such as the Dot format. See [DotExport]. *)
 module TaskGraphPrinter = struct
-  (* This module actually extends the original [TaskGraph] module. *)
+  (** This module actually extends the original [TaskGraph] module. *)
   include TaskGraph
-  (* For [TaskGraphPrinter] to work with the export modules, e.g. [DotExport],
-     it must implement the following methods. *)
-  (* [TaskGraphPrinter.vertex_name vertex]: returns a string representation of
-     [vertex] in a [TaskGraph]. *)
+  (** For [TaskGraphPrinter] to work with the export modules, e.g. [DotExport],
+      it must implement the following methods. *)
+  (** [TaskGraphPrinter.vertex_name vertex]: returns a string representation of
+      [vertex] in a [TaskGraph]. *)
   let vertex_name (vertex : V.t) : string =
     (* Get the [Task] corresponding to [vertex]. *)
     let task = TaskGraph.V.label vertex in
@@ -283,20 +289,20 @@ module TaskGraphPrinter = struct
                  ) "" task.current in
     (* append a unique identifier, i.e. the hash of [vertex], to it. *)
     what ^ "_" ^ (string_of_int id)
-  (* [TaskGraphPrinter.vertex_attributes vertex]: associates a list of
-     attributes to a given [vertex] of a [TaskGraph]. Here, we consider only the
-     [Label] attributed, which is produced using the [to_label] method of
-     [Task]. *)
+  (** [TaskGraphPrinter.vertex_attributes vertex]: associates a list of
+      attributes to a given [vertex] of a [TaskGraph]. Here, we consider only
+      the [Label] attributed, which is produced using the [to_label] method of
+      [Task]. *)
   let vertex_attributes
         (vertex : V.t) : Graphviz.DotAttributes.vertex list =
     [ `Label (Task.to_label (TaskGraph.V.label vertex) ) ]
-  (* [TaskGraphPrinter.get_nested_graphs vertex]: gather the nested graphs of
-     [vertex]. *)
+  (** [TaskGraphPrinter.get_nested_graphs vertex]: gather the nested graphs of
+      [vertex]. *)
   let get_nested_graphs (vertex : V.t) =
     let task = TaskGraph.V.label vertex in
     List.concat task.children
-  (* We leave the following methods without a useful implementation as we do not
-     need to use them. However, they still have to be 'implemented'. *)
+  (** We leave the following methods without a useful implementation as we do
+      not need to use them. However, they still have to be 'implemented'. *)
   let get_subgraph (vertex : V.t) = None
   let graph_attributes
         (graph : TaskGraph.t) : Graphviz.DotAttributes.graph list = []
@@ -306,8 +312,8 @@ module TaskGraphPrinter = struct
         (graph : TaskGraph.t) : Graphviz.DotAttributes.edge list = []
   let edge_attributes
         (edge : E.t) : Graphviz.DotAttributes.edge list = []
-  (* However, we implement custom printing methods that are not required by
-     [DotExport] but are useful for debugging purposes. *)
+  (** However, we implement custom printing methods that are not required by
+      [DotExport] but are useful for debugging purposes. *)
   (** [TaskGraphPrinter.to_string g]: returns a string representation of a
       possibly nested task graph [g]. *)
   let to_string (g : TaskGraph.t) : string =
@@ -329,23 +335,23 @@ module TaskGraphPrinter = struct
     Printf.printf "%s\n" gs
 end
 
-(* [DotExport]: a module for exporting a [TaskGraph] into the Dot format through
-   the [TaskGraphPrinter] module. *)
+(** [DotExport]: a module for exporting a [TaskGraph] into the Dot format
+    through the [TaskGraphPrinter] module. *)
 module DotExport = Graph.Graphviz.Dot(TaskGraphPrinter)
 
-(* [export_task_graph g f]: exports the task graph [g] into the Dot format and
-   saves it to the file [f]. *)
+(** [export_task_graph g f]: exports the task graph [g] into the Dot format and
+    saves it to the file [f]. *)
 let export_task_graph g f : unit =
   let file = open_out f in
   DotExport.output_nested_graph file g;
   close_out file
 
-(* [TaskGraphBuilder]: a module allowing us to make the [TaskGraphOper]
-   module. *)
+(** [TaskGraphBuilder]: a module allowing us to make the [TaskGraphOper]
+    module. *)
 module TaskGraphBuilder = Builder.I(TaskGraph)
 
-(* [TaskGraphOper]: a module providing various graph operations for
-   [TaskGraph]s. *)
+(** [TaskGraphOper]: a module providing various graph operations for
+    [TaskGraph]s. *)
 module TaskGraphOper = struct
   include Oper.Make(TaskGraphBuilder)
   let rec recursive_transitive_reduction (g : TaskGraph.t) : TaskGraph.t =
@@ -390,16 +396,16 @@ module TaskGraphOper = struct
         TaskGraph.V.create v') g
 end
 
-(* [TaskGraphTraverse]: a module implementing a traversal function for task
-   graphs. *)
+(** [TaskGraphTraverse]: a module implementing a traversal function for task
+    graphs. *)
 module TaskGraphTraverse : sig
   val codify : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
 end = struct
-  (* [TaskGraphTraverse.H]: a hash table module for task graph vertices. *)
+  (** [TaskGraphTraverse.H]: a hash table module for task graph vertices. *)
   module H = Hashtbl.Make(TaskGraph.V)
-  (* [TaskGraphTraverse.codify c g]: traverses the task graph [g] and codifies
-     each vertex into the corresponding output AST term thanks to the
-     user-provided codification function [c]. *)
+  (** [TaskGraphTraverse.codify c g]: traverses the task graph [g] and codifies
+      each vertex into the corresponding output AST term thanks to the
+      user-provided codification function [c]. *)
   let codify (c : (TaskGraph.V.t -> trms)) (g : TaskGraph.t) : trms =
     (* Find and extract the root node. *)
     let vs = TaskGraph.fold_vertex (fun v acc ->
