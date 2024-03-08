@@ -1,36 +1,13 @@
-#define X 10
-#define Y  5
+void g(int * tab) { tab[0] += 42; }
 
-void addtab1(int * tab, int i, int v) { tab[i] += v; }
-
-int gettab1(int * tab, int i) { return tab[i]; }
-
-void addtab2(int ** tab, int i, int j, int v) { tab[i][j] += v; }
-
-int gettab2(int ** tab, int i, int j) { return tab[i][j]; }
-
-void dyntab1_simple(int * tab, int size) {
-  int end = size - 1;
-  addtab1(tab, *tab, 42);
+void f(int * tab1, int * tab2, int size) {
+  int a = 2, b = 0;
   
-  tab[0] += 2;
-  tab[1] = tab[0] * 2;
-  
-  tab[2] = X;
-  addtab1(tab, 3, Y);
-  tab[end - 2] = tab[0]++ + 3;
-  
-  int tmp = gettab1(tab, 2);
-  addtab1(tab, 1, tmp);
-}
-
-void statab1_simple(int tab[X]) {
-  tab[0] += 2;
-  tab[1] = tab[0] * 2;
-  
-  tab[2] = X;
-  tab[4] = tab[0]++ + 3;
-  
-  int tmp = tab[2];
-  tab[1] = tmp;
+  g(tab1);
+  tab1[0] = tab2[0];
+  tab1[2] = 2 + b;
+  tab2[3] = 4 * tab1[3];
+  tab2[4] = 4 * a;
+  g(tab1);
+  g(tab2);
 }
