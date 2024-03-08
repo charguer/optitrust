@@ -4,7 +4,7 @@ open Target
 
 (** [DepAttr]: a module to represent dependency attributes. See [Dep]. *)
 module DepAttr : sig
-  type t = ArgIn | ArgInOut | InductionVariable | Condition
+  type t = ArgIn | ArgInOut | InductionVariable | Condition | Subscripted
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val to_string : t -> string
@@ -19,6 +19,8 @@ end = struct
     (* part of a conditionnal statement, e.g. in an if-statement or in a
        switch-statement *)
     | Condition
+    (* subscripted array access *)
+    | Subscripted
   (** [DepAttr.compare da1 da2]: compares two dependency attributes [da1] and
       [da2]. As [DepAttr.t] is an enumeration type, this is a simple comparison
       between two integer values representing the associated enumeration labels
@@ -38,6 +40,7 @@ end = struct
     | ArgInOut -> "ArgInOut"
     | InductionVariable -> "InductionVariable"
     | Condition -> "Condition"
+    | Subscripted -> "Subscripted"
 end
 
 (** [DepAttr_set]: a module to represent sets of dependency attributes. *)
@@ -59,8 +62,10 @@ module Dep : sig
   val degree : t -> int
   val of_trm : trm -> var -> int -> t
   val to_string : t -> string
+  val to_string2 : t -> string
   val compare : t -> t -> int
   val equal : t -> t -> bool
+  val equal2 : t -> t -> bool
 end = struct
   type t = dep
   (** [Dep.degree d]: returns the degree of the dependency [d] if it is of type
@@ -100,6 +105,15 @@ end = struct
     | Dep_var v -> v.name
     | Dep_trm (t, _) -> AstC_to_c.ast_to_string t
     | Dep_ptr d' -> to_string d'
+  (** [Dep.to_string2 d]: generates a string representation of the dependency
+      [d]. Unlike [Dep.to_string], this function considers only the variable
+      part of [Dep.t], i.e. in the case of [Dep_trm], it compares only the
+      second member of the ([trm], [var]) pair. *)
+  let rec to_string2 (d : t) : string =
+    match d with
+    | Dep_var v -> v.name
+    | Dep_trm (_, v) -> v.name
+    | Dep_ptr d' -> to_string2 d'
   (** [Dep.compare d1 d2]: compares two dependencies [d1] and [d2]. Note that
       dependencies are not only simple variables. We consider also pointer
       expressions, e.g. '*c', as well as more complex terms such as array
@@ -109,25 +123,40 @@ end = struct
     let d1' = to_string d1 in
     let d2' = to_string d2 in
     String.compare d1' d2'
-  (** [Dep.equal d1 d2]: checks the equality of two dependencies [d1] and [d2].
-      See also [Dep.compare]. *)
+  (** [Dep.equal d1 d2]: checks the equality of two dependencies [d1] and
+      [d2]. *)
   let equal (d1 : t) (d2 : t) : bool =
     let d1' = to_string d1 in
     let d2' = to_string d2 in
     d1' = d2'
+  (** [Dep.equal2 d1 d2]: checks the equality of two dependencies [d1] and [d2]
+      based on the string representation produced with [Dep.to_string2]. *)
+  let equal2 (d1 : t) (d2 : t) : bool =
+    let d1' = to_string2 d1 in
+    let d2' = to_string2 d2 in
+    d1' = d2'
 end
 
-(* [Dep_set]: a module to represent sets of dependencies. Typically, we will use
-   a set of input (read-only) dependencies as well as a set of input-output
-   (read-write) dependencies. *)
+(** [Dep_set]: a module to represent sets of dependencies. Typically, we will
+    use a set of input (read-only) dependencies as well as a set of input-output
+    (read-write) dependencies. *)
 module Dep_set = struct
   include Set.Make(Dep)
-  (* [Dep_set.of_stack s]: converts the stack of dependencies [s] into a set of
-     dependencies. *)
+  (** [Dep_set.inter2]: computes the intersection of [s1] and [s2] while using
+      the alternative [Dep.equal2] equality check. *)
+  let inter2 (s1 : t) (s2 : t) : t =
+    fold (fun d res ->
+        let check = exists (fun d' -> Dep.equal2 d' d) s2 in
+        if check then add d res else res) s1 empty
+  (** [Dep_set.of_stack s]: converts the stack of dependencies [s] into a set of
+      dependencies. *)
   let of_stack (s : Dep.t Stack.t) : t = of_seq (Stack.to_seq s)
-  (* [Dep_set.to_list s]: converts the set of dependencies [s] into a list of
-     dependencies. *)
+  (** [Dep_set.to_list s]: converts the set of dependencies [s] into a list of
+      dependencies. *)
   let to_list (s : t) = List.of_seq (to_seq s)
+  let to_string (s : t) : string =
+    if is_empty s then "[ empty ]"
+    else "[" ^ (fold (fun d res -> res ^ (Dep.to_string d) ^ " ") s " ") ^ "]"
 end
 
 (** [Dep_map]: a module to represent maps of dependencies. *)
@@ -163,6 +192,11 @@ module Dep_map = struct
   let has_with_attribute (d : Dep.t) (da : DepAttr.t)
         (dm : DepAttr_set.t t) : bool =
     exists (fun k a -> Dep.equal k d && DepAttr_set.mem da a) dm
+  (** [Dep_map.of_stack s]: converts the stack of dependency-dependency
+      attribute set pairs [s] to a map of dependencies to dependency attribute
+      sets. *)
+  let of_stack (s : (dep * DepAttr_set.t) Stack.t) : DepAttr_set.t t =
+    Stack.fold (fun res (d, das) -> add d das res) empty s
 end
 
 (** [ioattrs_map]: a type of maps of dependencies to sets of dependency
