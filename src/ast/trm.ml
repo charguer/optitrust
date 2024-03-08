@@ -2560,13 +2560,13 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
    that satisfy the boolean predicate [f] with a fresh string representation identifier.
    This operation should be performed to enable the term to doc function to memoize
    its results, and possibly export a table mapping subterms to their string representation. *)
-   let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : trm =
-    let t2 =
-      if not (f t) then t else begin
-        let id = next_stringreprid () in
-        trm_set_stringreprid id t
-      end in
-    trm_map (label_subterms_with_fresh_stringreprids f) t2
+let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : trm =
+  let t2 =
+    if not (f t) then t else begin
+      let id = next_stringreprid () in
+      trm_set_stringreprid id t
+    end in
+  trm_map ~keep_ctx:true (label_subterms_with_fresh_stringreprids f) t2
 
 
 

@@ -48,6 +48,8 @@ void array_copy(float* A, float* B, int n) {
   __modifies("B ~> Array(n)");
   __reads("A ~> Array(n)");
   for (int i = 0; i < n; ++i) {
+    __sequentially_modifies("B ~> Array(n)");
+    __parallel_reads("A ~> Array(n)");
     __ghost(array_ro_focus, "M := A, i := i");
     __ghost(array_focus, "M := B, i := i");
     B[i] = A[i];

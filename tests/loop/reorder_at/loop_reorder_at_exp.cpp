@@ -94,6 +94,7 @@ void f1_wrong() {
       __sequentially_modifies("&y ~> Cell");
       x = 0;
       for (int c = 0; c < 4; c++) {
+        __sequentially_modifies("&x ~> Cell");
         x += c;
       }
       y += x;

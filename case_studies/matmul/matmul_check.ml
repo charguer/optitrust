@@ -16,12 +16,6 @@ let _ = Flags.recompute_resources_between_steps := true
 
 let int = trm_int
 
-(* FIXME: should be done by default *)
-let%transfo preprocessing (_u: unit) : unit =
-  Trace.tag "pre-post-processing";
-  Resources.fix_loop_default_contracts [cFunBody "mm"];
-  Resources.loop_minimize [cFor "k"]
-
 (* FIXME: should be done by flag ~elimoptitrust:true *)
 let%transfo postprocessing (_u: unit) : unit =
   Trace.tag "pre-post-processing";
@@ -30,7 +24,6 @@ let%transfo postprocessing (_u: unit) : unit =
 
 (* FIXME: avoid inlining *)
 let _ = Run.script_cpp (fun () ->
-  preprocessing ();
 
   !! Function.inline_def [cFunDef "mm"];
   let tile (loop_id, tile_size) = Loop.tile (int tile_size)

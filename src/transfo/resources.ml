@@ -405,16 +405,19 @@ let fix_loop_default_contract_on ?(mark: mark = "") (t: trm): trm =
   in
   trm_alter ~desc:(Trm_for (range, body, Some contract)) t
 
-let rec fix_loop_default_contract_rec ?(mark: mark = "") (t: trm): trm =
-  let t = trm_map (fix_loop_default_contract_rec ~mark) t in
-  match t.desc with
-  | Trm_for (_, _, None) -> fix_loop_default_contract_on ~mark t
-  | _ -> t
+let rec fix_loop_default_contract_rec ?(mark: mark = no_mark) (t: trm): trm =
+  match t.ctx.ctx_resources_before with
+  | None -> t
+  | Some _ ->
+    let t = trm_map ~keep_ctx:true (fix_loop_default_contract_rec ~mark) t in
+    match t.desc with
+    | Trm_for (_, _, None) -> trm_add_mark mark (fix_loop_default_contract_on ~mark t)
+    | _ -> t
 
 (** [fix_loop_default_contracts] uses computed resources to fix the default loop contracts on all the children of the targeted node *)
-let%transfo fix_loop_default_contracts (tg: target): unit =
+let%transfo fix_loop_default_contracts ?(mark: mark = no_mark) (tg: target): unit =
   ensure_computed ();
-  Target.apply_at_target_paths fix_loop_default_contract_rec tg;
+  Target.apply_at_target_paths (fix_loop_default_contract_rec ~mark) tg;
   justif_correct "only changed loop contracts"
 
 

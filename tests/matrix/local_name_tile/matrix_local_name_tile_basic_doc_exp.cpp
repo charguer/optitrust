@@ -3,6 +3,8 @@
 void f() {
   __pure();
   int* const a = (int* const)MALLOC1(10, sizeof(int));
+  const __ghost_fn focus =
+      __ghost_begin(group_focus_subrange_uninit, "sub_range := 3..7");
   int* const b = (int* const)MALLOC1(7 - 3, sizeof(int));
   __ghost(
       [&]() {
@@ -28,5 +30,6 @@ void f() {
       },
       "");
   MFREE1(7 - 3, b);
+  __ghost_end(focus);
   MFREE1(10, a);
 }
