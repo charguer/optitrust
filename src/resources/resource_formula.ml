@@ -195,14 +195,14 @@ let formula_map_under_uninit (f_map: formula -> formula) (formula: formula) =
 let formula_map_under_mode (f_map: formula -> formula): formula -> formula =
   formula_map_under_read_only (formula_map_under_uninit f_map)
 
-let formula_loop_range ((_, tfrom, dir, tto, step): loop_range): formula =
-  if dir <> DirUp then failwith "formula_loop_range only supports DirUp";
-  formula_range tfrom tto (loop_step_to_trm step)
+let formula_loop_range (range: loop_range): formula =
+  if range.direction <> DirUp then failwith "formula_loop_range only supports DirUp";
+  formula_range range.start range.stop (loop_step_to_trm range.step)
 
-let formula_group_range ((idx, _, _, _, _) as range: loop_range) =
+let formula_group_range (range: loop_range) =
   formula_map_under_mode (fun fi ->
-    let range_var = new_var ~qualifier:idx.qualifier idx.name in
-    let fi = trm_subst_var idx (trm_var range_var) fi in
+    let range_var = new_var ~qualifier:range.index.qualifier range.index.name in
+    let fi = trm_subst_var range.index (trm_var range_var) fi in
     trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int ()] None fi]
   )
 

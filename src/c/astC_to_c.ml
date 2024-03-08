@@ -1358,37 +1358,36 @@ and routine_to_doc (r : omp_routine) : document =
 
 (* [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
 (* FIXME: #odoc why is annotation required on callees? *)
-and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
-  let (index, start, direction, stop, step) = l_range in
-  let init = trm_let Var_mutable (index, typ_int()) start  in
-  let cond = begin match direction with
-    | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var index;stop]
-    | DirUpEq -> trm_apps (trm_binop Binop_le) [trm_var index;stop]
+and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
+  let init = trm_let Var_mutable (range.index, typ_int()) range.start in
+  let cond = begin match range.direction with
+    | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var range.index; range.stop]
+    | DirUpEq -> trm_apps (trm_binop Binop_le) [trm_var range.index; range.stop]
     | DirDown ->
-      trm_apps (trm_binop Binop_gt) [trm_var index;stop]
+      trm_apps (trm_binop Binop_gt) [trm_var range.index; range.stop]
     | DirDownEq ->
-      trm_apps (trm_binop Binop_ge) [trm_var index;stop]
+      trm_apps (trm_binop Binop_ge) [trm_var range.index; range.stop]
    end in
   let step =
-    begin match direction with
+    begin match range.direction with
     | DirUp | DirUpEq ->
-      begin match step with
+      begin match range.step with
       | Pre_inc ->
-        trm_apps (trm_unop Unop_pre_inc) [trm_var index]
+        trm_apps (trm_unop Unop_pre_inc) [trm_var range.index]
       | Post_inc ->
-        trm_apps (trm_unop Unop_post_inc) [trm_var index]
+        trm_apps (trm_unop Unop_post_inc) [trm_var range.index]
       | Step st ->
-        trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var index; st]
+        trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var range.index; st]
       | _ -> trm_fail body "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
     | DirDown | DirDownEq ->
-      begin match step with
+      begin match range.step with
       | Pre_dec ->
-        trm_apps (trm_unop Unop_pre_dec) [trm_var index]
+        trm_apps (trm_unop Unop_pre_dec) [trm_var range.index]
       | Post_dec ->
-        trm_apps (trm_unop Unop_post_dec) [trm_var index]
+        trm_apps (trm_unop Unop_post_dec) [trm_var range.index]
       | Step st ->
-        trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var index; st]
+        trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var range.index; st]
       | _ -> trm_fail body "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
 

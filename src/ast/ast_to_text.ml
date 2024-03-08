@@ -305,17 +305,16 @@ and print_trm_desc style (t : trm_desc) : document =
      let dbody = print_trm style body in
      print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
-  | Trm_for (l_range, body, _) ->
-    let (index, start, direction, stop, step) = l_range in
-    let dstart = print_trm style start in
-    let dstop = print_trm style stop in
-    let ddir  = match direction with
+  | Trm_for (range, body, _) ->
+    let dstart = print_trm style range.start in
+    let dstop = print_trm style range.stop in
+    let ddir  = match range.direction with
     | DirUp -> string "Up"
     | DirDown -> string "Down"
     | DirUpEq -> string "UpEq"
     | DirDownEq -> string "DownEq"
     in
-    let dstep = match step with
+    let dstep = match range.step with
     | Post_inc -> string "Post_inc"
     | Post_dec -> string "Post_dec"
     | Pre_inc -> string "Pre_inc"
@@ -324,7 +323,7 @@ and print_trm_desc style (t : trm_desc) : document =
     in
     let dbody = print_trm style body in
     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
-      [print_var style index; dstart; ddir; dstop; dstep; dbody])
+      [print_var style range.index; dstart; ddir; dstop; dstep; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm style cond in
      let dcases =

@@ -355,8 +355,8 @@ begin
     assert ((List.hd target_relpath) = (Dir_seq_nth hoist_before_index));
     let (rev_loop_list, _) = List.fold_left (fun (rev_loop_list, p) elem ->
       let new_rev_loop_list = match trm_for_inv (resolve_path p) with
-      | Some ((i, _start, _dir, _stop, _step), _, _) ->
-        let loop_val = if List.mem i.name indep then 0 else 1 in
+      | Some ({ index }, _, _) ->
+        let loop_val = if List.mem index.name indep then 0 else 1 in
         loop_val :: rev_loop_list
       | None -> rev_loop_list
       in
@@ -420,7 +420,7 @@ let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift
   Target.iter (fun p ->
     let tg_trm = Target.resolve_path p in
     let error = "Loop.shift: expected target to be a simple loop" in
-    let ((prev_index, _, _, _, _), _, _) = trm_inv ~error trm_for_inv tg_trm in
+    let ({ index = prev_index }, _, _) = trm_inv ~error trm_for_inv tg_trm in
     Loop_basic.shift ~reparse index' kind (target_of_path p);
     simpl_range ~simpl (target_of_path p);
     if inline then begin
@@ -623,7 +623,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
         let loop_t = Target.resolve_path !current_loop_p in
         move_out_one next_mark instr_m !current_loop_p None;
         begin match trm_for_inv loop_t with
-        | Some ((index, _, _, _, _), _, _) when var_has_name index upto ->
+        | Some ({ index }, _, _) when var_has_name index upto ->
           quit_loop := true;
         | _ ->
           current_loop_p := Path.to_outer_loop !current_loop_p
@@ -791,16 +791,15 @@ DETAILS for [unroll]
 let%transfo unroll_nest_of_1 ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark = no_mark) ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
   Target.iteri (fun i p ->
     let tg_loop_trm  = Target.resolve_path p in
-    let (l_range, _, contract) = trm_inv ~error:"Loop.unroll: expected a loop to unroll" trm_for_inv tg_loop_trm in
-    let (_, start, _, stop, _) = l_range in
+    let (range, _, contract) = trm_inv ~error:"Loop.unroll: expected a loop to unroll" trm_for_inv tg_loop_trm in
 
     let unfold_bound (x : var) =
       Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name];
     in
-    Pattern.pattern_match stop [
+    Pattern.pattern_match range.stop [
       Pattern.(trm_add __ (trm_var !__)) unfold_bound;
       Pattern.(trm_var !__) (fun var_stop ->
-        Pattern.pattern_match start [
+        Pattern.pattern_match range.start [
           Pattern.(trm_var !__) unfold_bound;
           Pattern.__ ()
         ];
@@ -868,7 +867,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
   let m_instr = Marks.add_next_mark_on next_mark p_instr in
   let (_index_in_loop, loop_path) = Path.index_in_surrounding_loop p_instr in
   let loop_trm = Path.resolve_path loop_path (Trace.ast ()) in
-  let ((i, _start, _dir, _stop, _step), body, _contract) = trm_inv
+  let ({ index = i }, body, _contract) = trm_inv
     ~error:"Loop.reorder_at: expected simple loop."
     trm_for_inv loop_trm in
   (* Printf.printf "before i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
@@ -1038,12 +1037,11 @@ let%transfo unfold_bound (tg : target) : unit =
   iter_on_targets( fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_for (l_range, _, _) ->
-      let (_, _, _, stop, _) = l_range in
-      begin match stop.desc with
+    | Trm_for (range, _, _) ->
+      begin match range.stop.desc with
       | Trm_var (_, x) ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
-      | Trm_apps (_, [{desc = Trm_var (_, x);_}], _) when is_get_operation stop ->
+      | Trm_apps (_, [{desc = Trm_var (_, x);_}], _) when is_get_operation range.stop ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
       | _ -> trm_fail tg_trm "Loop.unfold_bound: can't unfold loop bounds that are not variables"
       end
@@ -1057,14 +1055,13 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_for (l_range, _, _) ->
-      let (index, _, _, stop, _) = l_range in
-      begin match trm_prod_inv stop with
+    | Trm_for (range, _, _) ->
+      begin match trm_prod_inv range.stop with
       | [] -> trm_fail tg_trm "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension"
       | bounds ->
         let indices_and_bounds =
         if indices = [] then
-          let indices = List.mapi (fun i _ -> index.name ^ (string_of_int i)) bounds in
+          let indices = List.mapi (fun i _ -> range.index.name ^ (string_of_int i)) bounds in
           List.combine indices bounds
         else begin
           if List.length indices <> List.length bounds then trm_fail tg_trm "Loop.grid_enumerate: the provided list of indices does
@@ -1205,7 +1202,7 @@ let%transfo delete_all_void (tg : target) : unit =
 let rec get_indices (nest_of : int) (outer_p : path) : var list =
   if nest_of > 0 then
     let error = "Loop.get_indices: expected simple loop" in
-    let ((index, _, _, _, _), _, _) = trm_inv ~error trm_for_inv (Path.resolve_path outer_p (Trace.ast ())) in
+    let ({ index }, _, _) = trm_inv ~error trm_for_inv (Path.resolve_path outer_p (Trace.ast ())) in
     let nested_indices = get_indices (nest_of - 1) (Path.to_inner_loop outer_p) in
     index :: nested_indices
   else []

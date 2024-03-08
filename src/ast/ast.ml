@@ -665,7 +665,13 @@ and typ_ctx = {
 
 
 (* [loop_range]: a type for representing for loops range *)
-and loop_range = var * trm * loop_dir * trm * loop_step
+and loop_range = {
+  index: var;
+  start: trm;
+  direction: loop_dir;
+  stop: trm;
+  step: loop_step;
+}
 
 (* [trm_desc]: description of an ast node *)
 and trm_desc =
@@ -1229,8 +1235,7 @@ let contains_decl (x : var) (t : trm) : bool =
     | Trm_let (_, (y, _), _) when y = x -> true
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
     | Trm_for (l_range, body, _) ->
-        let (y, _, _, _, _) = l_range in
-        y = x || aux body
+        l_range.index = x || aux body
     | Trm_let_fun (_, _, _, body, _) -> aux body
     | Trm_for_c (init, _, _, body, _) -> aux init || aux body
     | _ -> false

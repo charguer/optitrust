@@ -189,8 +189,7 @@ let contract_outside_loop range contract =
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of its body. *)
 let contract_inside_loop range contract =
-  let (index, _, _, _, _) = range in
-  let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var index) (formula_loop_range range)) in
+  let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var range.index) (formula_loop_range range)) in
   let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list contract.parallel_reads contract.iter_contract.pre) in
   let pre = { pre with pure = index_in_range_hyp :: contract.loop_ghosts @ pre.pure } in
   let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in

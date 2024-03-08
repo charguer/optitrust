@@ -221,15 +221,15 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 
-    | Trm_for ((index1, start1, _direction1, stop1, step1), body1, _),
-      Trm_for ((index2, start2, _direction2, stop2, step2), body2, _) ->
-        aux start1 start2;
-        aux stop1 stop2;
-        begin match step1, step2 with
+    | Trm_for (range1, body1, _),
+      Trm_for (range2, body2, _) ->
+        aux range1.start range2.start;
+        aux range2.stop range2.stop;
+        begin match range1.step, range2.step with
         | Step stept1, Step stept2 -> aux stept1 stept2
-        | _ -> if step1 <> step2 then mismatch()
+        | _ -> if range1.step <> range2.step then mismatch()
         end;
-        with_binding (typ_int()) index1 index2 (fun () -> aux body1 body2)
+        with_binding (typ_int()) range1.index range2.index (fun () -> aux body1 body2)
 
     | Trm_for_c (init1, cond1, step1, body1, _), Trm_for_c (init2, cond2, step2, body2, _) ->
         aux_with_bindings [init1; cond1; step1; body1] [init2; cond2; step2; body2]
