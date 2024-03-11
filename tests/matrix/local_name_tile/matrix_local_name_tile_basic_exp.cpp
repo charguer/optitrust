@@ -7,35 +7,34 @@ void malloc_uninit_pre() {
   T* const a = (T* const)MALLOC3(10, 10, 4, sizeof(T));
   const __ghost_fn focus = __ghost_begin(
       group2_focus_subrange_uninit,
-      "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> "
-      "&a[MINDEX3(10, 10, 4, i, j, k)] ~> Cell), sub_range := range(2, 10, 1)");
+      "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10, 10, 4, i, j, "
+      "k)] ~> Cell, sub_range := 2..10");
   T* const x = (T* const)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");
         __produces(
-            "_Uninit(Group(range(0, 10, 1), fun i1 -> Group(range(2, 10, 1), "
-            "fun i2 -> Group(range(0, 4, 1), fun i3 -> &x[MINDEX3(10 - 0, 10 - "
-            "2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> Cell))))");
+            "_Uninit(for i1 in 0..10 -> for i2 in 2..10 -> for i3 in 0..4 -> "
+            "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> "
+            "Cell)");
         __admitted();
         __with("justif := shift_groups");
       },
       "");
   for (int i = 0; i < 10; i++) {
     __consumes(
-        "_Uninit(Group(range(2, 10, 1), fun j -> Group(range(0, 4, 1), fun k "
-        "-> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] ~> "
-        "Cell)))");
+        "_Uninit(for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, "
+        "4 - 0, i - 0, j - 2, k - 0)] ~> Cell)");
     __produces(
-        "Group(range(2, 10, 1), fun j -> Group(range(0, 4, 1), fun k -> "
-        "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] ~> Cell))");
+        "for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, "
+        "i - 0, j - 2, k - 0)] ~> Cell");
     for (int j = 2; j < 10; j++) {
       __consumes(
-          "_Uninit(Group(range(0, 4, 1), fun k -> &x[MINDEX3(10 - 0, 10 - 2, 4 "
-          "- 0, i - 0, j - 2, k - 0)] ~> Cell))");
+          "_Uninit(for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j "
+          "- 2, k - 0)] ~> Cell)");
       __produces(
-          "Group(range(0, 4, 1), fun k -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i "
-          "- 0, j - 2, k - 0)] ~> Cell)");
+          "for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k "
+          "- 0)] ~> Cell");
       for (int k = 0; k < 4; k++) {
         __consumes(
             "_Uninit(&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] "
@@ -48,24 +47,23 @@ void malloc_uninit_pre() {
   }
   for (int i1 = 0; i1 < 10; i1++) {
     __consumes(
-        "_Uninit(Group(range(2, 10, 1), fun i2 -> Group(range(0, 4, 1), fun i3 "
-        "-> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell)))");
+        "_Uninit(for i2 in 2..10 -> for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, "
+        "i1, i2, i3)] ~> Cell)");
     __produces(
-        "Group(range(2, 10, 1), fun i2 -> Group(range(0, 4, 1), fun i3 -> "
-        "&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell))");
+        "for i2 in 2..10 -> for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, "
+        "i3)] ~> Cell");
     __reads(
-        "Group(range(2, 10, 1), fun i2 -> Group(range(0, 4, 1), fun i3 -> "
-        "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> Cell))");
+        "for i2 in 2..10 -> for i3 in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - "
+        "0, i1 - 0, i2 - 2, i3 - 0)] ~> Cell");
     for (int i2 = 2; i2 < 10; i2++) {
       __consumes(
-          "_Uninit(Group(range(0, 4, 1), fun i3 -> &a[MINDEX3(10, 10, 4, i1, "
-          "i2, i3)] ~> Cell))");
+          "_Uninit(for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> "
+          "Cell)");
       __produces(
-          "Group(range(0, 4, 1), fun i3 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] "
-          "~> Cell)");
+          "for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
       __reads(
-          "Group(range(0, 4, 1), fun i3 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, "
-          "i1 - 0, i2 - 2, i3 - 0)] ~> Cell)");
+          "for i3 in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, "
+          "i3 - 0)] ~> Cell");
       for (int i3 = 0; i3 < 4; i3++) {
         __consumes("_Uninit(&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell)");
         __produces("&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
@@ -80,9 +78,9 @@ void malloc_uninit_pre() {
   __ghost(
       [&]() {
         __consumes(
-            "Group(range(0, 10, 1), fun i1 -> Group(range(2, 10, 1), fun i2 -> "
-            "Group(range(0, 4, 1), fun i3 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, "
-            "i1 - 0, i2 - 2, i3 - 0)] ~> Cell)))");
+            "for i1 in 0..10 -> for i2 in 2..10 -> for i3 in 0..4 -> "
+            "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> "
+            "Cell");
         __produces("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");
         __admitted();
         __with("justif := shift_groups");
@@ -97,10 +95,9 @@ void malloc_uninit_pre() {
 void malloc_uninit_post() {
   __pure();
   T* const a = (T* const)MALLOC1(10, sizeof(T));
-  const __ghost_fn focus =
-      __ghost_begin(group_focus_subrange_uninit,
-                    "items := fun i -> &a[MINDEX1(10, i)] ~> Cell, sub_range "
-                    ":= range(2, 10, 1)");
+  const __ghost_fn focus = __ghost_begin(
+      group_focus_subrange_uninit,
+      "items := fun i -> &a[MINDEX1(10, i)] ~> Cell, sub_range := 2..10");
   for (int i1 = 2; i1 < 10; i1++) {
     __consumes("_Uninit(&a[MINDEX1(10, i1)] ~> Cell)");
     __produces("&a[MINDEX1(10, i1)] ~> Cell");
@@ -110,9 +107,7 @@ void malloc_uninit_post() {
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix1(10 - 2))");
-        __produces(
-            "Group(range(2, 10, 1), fun i1 -> &x[MINDEX1(10 - 2, i1 - 2)] ~> "
-            "Cell)");
+        __produces("for i1 in 2..10 -> &x[MINDEX1(10 - 2, i1 - 2)] ~> Cell");
         __admitted();
         __with("justif := shift_groups");
       },
@@ -130,8 +125,7 @@ void malloc_uninit_post() {
   __ghost(
       [&]() {
         __consumes(
-            "_Uninit(Group(range(2, 10, 1), fun i1 -> &x[MINDEX1(10 - 2, i1 - "
-            "2)] ~> Cell))");
+            "_Uninit(for i1 in 2..10 -> &x[MINDEX1(10 - 2, i1 - 2)] ~> Cell)");
         __produces("_Uninit(x ~> Matrix1(10 - 2))");
         __admitted();
         __with("justif := shift_groups");
@@ -147,35 +141,34 @@ void malloc_uninit_prepost() {
   T* const a = (T* const)MALLOC3(10, 10, 4, sizeof(T));
   const __ghost_fn focus = __ghost_begin(
       group2_focus_subrange_uninit,
-      "items := fun i -> fun j -> Group(range(0, 4, 1), fun k -> "
-      "&a[MINDEX3(10, 10, 4, i, j, k)] ~> Cell), sub_range := range(2, 10, 1)");
+      "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10, 10, 4, i, j, "
+      "k)] ~> Cell, sub_range := 2..10");
   T* const x = (T* const)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");
         __produces(
-            "_Uninit(Group(range(0, 10, 1), fun i1 -> Group(range(2, 10, 1), "
-            "fun i2 -> Group(range(0, 4, 1), fun i3 -> &x[MINDEX3(10 - 0, 10 - "
-            "2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> Cell))))");
+            "_Uninit(for i1 in 0..10 -> for i2 in 2..10 -> for i3 in 0..4 -> "
+            "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> "
+            "Cell)");
         __admitted();
         __with("justif := shift_groups");
       },
       "");
   for (int i = 0; i < 10; i++) {
     __consumes(
-        "_Uninit(Group(range(2, 10, 1), fun j -> Group(range(0, 4, 1), fun k "
-        "-> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] ~> "
-        "Cell)))");
+        "_Uninit(for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, "
+        "4 - 0, i - 0, j - 2, k - 0)] ~> Cell)");
     __produces(
-        "Group(range(2, 10, 1), fun j -> Group(range(0, 4, 1), fun k -> "
-        "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] ~> Cell))");
+        "for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, "
+        "i - 0, j - 2, k - 0)] ~> Cell");
     for (int j = 2; j < 10; j++) {
       __consumes(
-          "_Uninit(Group(range(0, 4, 1), fun k -> &x[MINDEX3(10 - 0, 10 - 2, 4 "
-          "- 0, i - 0, j - 2, k - 0)] ~> Cell))");
+          "_Uninit(for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j "
+          "- 2, k - 0)] ~> Cell)");
       __produces(
-          "Group(range(0, 4, 1), fun k -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i "
-          "- 0, j - 2, k - 0)] ~> Cell)");
+          "for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k "
+          "- 0)] ~> Cell");
       for (int k = 0; k < 4; k++) {
         __consumes(
             "_Uninit(&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] "
@@ -189,9 +182,9 @@ void malloc_uninit_prepost() {
   __ghost(
       [&]() {
         __consumes(
-            "_Uninit(Group(range(0, 10, 1), fun i1 -> Group(range(2, 10, 1), "
-            "fun i2 -> Group(range(0, 4, 1), fun i3 -> &x[MINDEX3(10 - 0, 10 - "
-            "2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> Cell))))");
+            "_Uninit(for i1 in 0..10 -> for i2 in 2..10 -> for i3 in 0..4 -> "
+            "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> "
+            "Cell)");
         __produces("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");
         __admitted();
         __with("justif := shift_groups");

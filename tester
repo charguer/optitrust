@@ -8,6 +8,7 @@
 # The script also generates a bash file `tester_last.sh` at the
 # OptiTrust root storing the command for replaying the exact same tests.
 
+set -euo pipefail
 
 OPTITRUST_PATH=$(dirname $0)
 FOLDER_RELATIVE_PATH=$(realpath --relative-to=${OPTITRUST_PATH} $(pwd))

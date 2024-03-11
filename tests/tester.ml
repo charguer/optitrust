@@ -513,7 +513,7 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
     let orig_exp = Trace.filename_before_clang_format filename_exp in
     let same = ref false in
     (* First, attempt to compare original files *)
-    if Sys.file_exists orig_exp then begin
+    if Sys.file_exists orig_exp && (Unix.stat orig_exp).st_mtime >= (Unix.stat filename_exp).st_mtime then begin
       if !debug_match_expected then Tools.info (sprintf "tested correctness without clang-format: %s" filename_out);
       let same_orig = same_contents filename_out orig_exp in
       if same_orig then same := true;
@@ -593,7 +593,7 @@ let action_run (tests : string list) : unit =
     let prefix = Filename.remove_extension test in
     let filename_out = sprintf "%s_out.cpp" prefix in
     rm filename_out;
-    let filename_orig_out = sprintf "%s_out_orig.cpp" prefix in
+    let filename_orig_out = sprintf "%s_out_notfmt.cpp" prefix in
     rm filename_orig_out
     (* LATER: remove without displaying error messages or missing files *)
   in
@@ -605,7 +605,7 @@ let action_run (tests : string list) : unit =
   do_or_die "rm tests/batch/dune";
   if not compile_success then begin
     eprintf "failed to compile tests/batch/batch.ml";
-    exit 1
+    exit 2
   end;
   (* DEPRECATED printf "\n"; *)
 
@@ -643,7 +643,7 @@ let action_run (tests : string list) : unit =
       close_redirected_stdout();
       let sbt = Printexc.get_backtrace() in
       Printf.eprintf "%s\n%s" (Dynlink.error_message err) sbt;
-      exit 1
+      exit 3
   end;
   close_redirected_stdout();
 
@@ -707,14 +707,15 @@ let action_run (tests : string list) : unit =
       isfirst := false
     end
   in
-  let full_success = (!tests_failed = [] && !tests_noexp = [] && !tests_wrong = []) in
-  if full_success then printf "TOTAL SUCCESS: ";
   print_count Terminal.red "failed" !tests_failed;
   print_count Terminal.orange "missing exp" !tests_noexp;
   print_count Terminal.red "wrong" !tests_wrong;
   print_count Terminal.light_gray "ignored" tests_ignored;
   print_count Terminal.green "success" !tests_success;
-  printf "\n"
+  printf "\n";
+  if !tests_failed <> [] || !tests_noexp <> [] || !tests_wrong <> [] then
+    exit 1
+
 
 
 (*****************************************************************************)

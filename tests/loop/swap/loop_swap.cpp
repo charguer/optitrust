@@ -1,12 +1,10 @@
 #include <optitrust.h>
 
 void demo_both_par(int* t, int n, int m) {
-  __modifies("Group(range(0, n, 1), fun i -> "
-             "Group(range(0, m, 1), fun j -> "
-             " &t[(i * m + j)] ~> Cell))");
+  __modifies("for i in 0..n -> for j in 0..m ->"
+             " &t[(i * m + j)] ~> Cell");
   for (int i = 0; i < n; i++) {
-    __modifies("Group(range(0, m, 1), fun j -> "
-               " &t[(i * m + j)] ~> Cell)");
+    __modifies("for j in 0..m -> &t[(i * m + j)] ~> Cell");
     for (int j = 0; j < m; j++) {
       __modifies("&t[(i * m + j)] ~> Cell");
       t[i * m + j] = j;
@@ -15,7 +13,7 @@ void demo_both_par(int* t, int n, int m) {
 }
 
 void demo_outer_par(int* t, int n) {
-  __modifies("Group(range(0, n, 1), fun i -> &t[i] ~> Cell)");
+  __modifies("for i in 0..n -> &t[i] ~> Cell");
 
   for (int i = 0; i < n; i++) {
     __modifies("&t[i] ~> Cell");
@@ -31,10 +29,10 @@ void g(int* t) {
   __modifies("t ~> Matrix3(7, 10, 20)");
 
   for (int a = 0 ; a < 7; a++) {
-    __modifies("Group(range(0, 10, 1), fun b ->"
-               "Group(range(0, 20, 1), fun c -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell))");
+    __modifies("for b in 0..10 ->"
+               "for c in 0..20 -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
     for(int b = 0; b < 10; b++) {
-      __modifies("Group(range(0, 20, 1), fun c -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell)");
+      __modifies("for c in 0..20 -> &t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
       for(int c = 0; c < 20; c++){
         __modifies("&t[MINDEX3(7, 10, 20, a, b, c)] ~> Cell");
         t[MINDEX3(7, 10, 20, a, b, c)] = 0;
@@ -58,7 +56,7 @@ void f(int* t, int* u, int* v, int n, int m) {
 
   for (int x = 0 ; x < n; x++) {
     __modifies("&t[MINDEX1(n,x)] ~> Cell");
-    __modifies("Group(range(0,m,1), fun y -> &v[MINDEX2(n,m,x,y)] ~> Cell)");
+    __modifies("for y in 0..m -> &v[MINDEX2(n,m,x,y)] ~> Cell");
     __reads("&u[MINDEX1(n,x)] ~> Cell");
 
     for (int y = 0; y < m; y++) {
@@ -89,7 +87,7 @@ void indep_reads(int* M) {
   __reads("M ~> Matrix2(5, 5)");
 
   for (int i = 0; i < 5; i++) {
-    __reads("Group(range(0,5,1), fun j -> &M[MINDEX2(5,5,i,j)] ~> Cell)");
+    __reads("for j in 0..5 -> &M[MINDEX2(5,5,i,j)] ~> Cell");
     for (int j = 0; j < 5; j++) {
       __reads("&M[MINDEX2(5,5,i,j)] ~> Cell");
       M[MINDEX2(5,5,i,j)];

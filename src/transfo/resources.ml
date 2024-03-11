@@ -93,48 +93,45 @@ let keep_written = { keep_used with read_only = false; joined_read_only = false;
 let usage_filter usage filter (h, _) =
   match Var_map.find_opt h usage with
   | None -> filter.unused
-  | Some SplittedReadOnly -> filter.read_only
-  | Some JoinedReadOnly -> filter.joined_read_only
-  | Some UsedUninit -> filter.uninit
-  | Some UsedFull -> filter.full
+  | Some SplittedFrac -> filter.read_only
+  | Some JoinedFrac -> filter.joined_read_only
+  | Some ConsumedUninit -> filter.uninit
+  | Some ConsumedFull -> filter.full
   | Some Produced -> filter.produced
+  | Some (Required | Ensured) -> failwith "usage_filter used on pure resource"
 
 
-(** If new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
+(** If output_new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
 let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (contract: fun_contract) (usage: resource_usage_map): fun_contract =
   let new_fracs = ref [] in
 
   let new_linear_post = ref contract.post.linear in
-  let filter_pre (hyp, formula) =
+  let filter_linear_pre (hyp, formula) =
     match Hyp_map.find_opt hyp usage with
     | None ->
       let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula)] in
       new_linear_post := np;
       None
-    | Some UsedFull -> Some (hyp, formula)
-    | Some SplittedReadOnly ->
-      begin match formula_read_only_inv formula with
-      | Some _ -> Some (hyp, formula)
-      | None ->
-        let try_to_remove formula base_formula =
-          try begin
-            let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula)] in
-            let frac_var, frac_ghost = new_frac () in
-            new_fracs := frac_ghost :: !new_fracs;
-            let ro_formula = formula_read_only ~frac:(trm_var frac_var) base_formula in
-            new_linear_post := (hyp, ro_formula) :: np;
-            Some (hyp, ro_formula)
-          end with Resource_computation.Resource_not_found _ -> None
-        in
-        (* ALREADY HANDLED BY subtract_linear_resource:
-        begin match try_to_remove formula formula with
-        | Some x -> Some x
-        | None -> *)
-        Xoption.or_ (try_to_remove (formula_uninit formula) formula) (Some (hyp, formula))
-        (* end *)
+    | Some (Required | Ensured) -> failwith (sprintf "minimize_fun_contract: the linear resource %s is used like a pure resource" (var_to_string hyp))
+    | Some ConsumedFull -> Some (hyp, formula)
+    | Some SplittedFrac ->
+      let base_formula = match formula_read_only_inv formula with
+      | Some { formula } -> formula
+      | None -> formula
+      in
+      begin try
+        let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula_uninit formula)] in
+        let frac_var, frac_ghost = new_frac () in
+        new_fracs := frac_ghost :: !new_fracs;
+        let ro_formula = formula_read_only ~frac:(trm_var frac_var) base_formula in
+        new_linear_post := (hyp, ro_formula) :: np;
+        Some (hyp, ro_formula)
+      with Resource_computation.Resource_not_found _ -> Some (hyp, formula)
       end
-    | Some JoinedReadOnly -> failwith (sprintf "loop_minimize_on: JoinedReadOnly resource %s has the same id as a contract resource" (var_to_string hyp))
-    | Some UsedUninit ->
+    | Some JoinedFrac ->
+      (* LATER: Return None here and patch post-condition *)
+      Some (hyp, formula)
+    | Some ConsumedUninit ->
       begin match formula_uninit_inv formula with
       | Some _ -> Some (hyp, formula)
       | None -> Some (hyp, formula_uninit formula)
@@ -142,7 +139,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
     | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
   in
 
-  let new_linear_pre = List.filter_map filter_pre contract.pre.linear in
+  let new_linear_pre = List.filter_map filter_linear_pre contract.pre.linear in
 
   let added_fracs = match output_new_fracs with
   | Some out ->
@@ -151,9 +148,21 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
   | None -> !new_fracs
   in
 
-  (* TODO: remove unused pure varaibles *)
-  { pre = { contract.pre with pure = added_fracs @ contract.pre.pure ; linear = new_linear_pre };
-    post = { contract.post with linear = !new_linear_post }}
+  let new_contract = {
+    pre = { contract.pre with pure = added_fracs @ contract.pre.pure ; linear = new_linear_pre };
+    post = { contract.post with linear = !new_linear_post }
+  } in
+  let new_contract_used_vars = fun_contract_used_vars new_contract in
+
+  let filter_pure_pre (x, formula) =
+    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula trm_frac) && Var_map.mem x usage)
+  in
+
+  { new_contract with
+    pre = { new_contract.pre with
+      pure = List.filter filter_pure_pre new_contract.pre.pure
+    }
+  }
 
 (** Specification of loop minimization.
 
@@ -195,7 +204,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
         it this case, the resource is removed from both consumes and produces
       - if if is used in Full mode, there is nothing to simplify
       - if the resource appears in RW in consumes AND in produces clauses (potentially as Uninit),
-        and it is used only in RO (usage SplittedReadOnly), then it may
+        and it is used only in RO (usage SplittedFrac), then it may
         be replaced by a RO resource both in consumes and produces clauses
         (LATER: actually we could also change the fraction of RO resources always
         used in SplitRO mode, to remove same fraction constraints)
@@ -220,7 +229,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
     Uninit(t).
 
     TOMOVE global invariants of well-typed tree. Assertions to implement:
-    - a RW resource cannot be used in JoinedReadOnly mode.
+    - a RW resource cannot be used in JoinedFrac mode.
     - a resource coming from the invariant or consumes clause cannot
       be used in Produced mode.
     - a resource in consumes clause and usage None, must appear in
@@ -321,7 +330,8 @@ let minimize_loop_contract contract usage =
   let new_linear_invariant, added_par_reads = List.fold_right (fun (hyp, formula) (lin_inv, par_reads) ->
     match Hyp_map.find_opt hyp usage with
     | None -> (lin_inv, par_reads)
-    | Some (SplittedReadOnly | JoinedReadOnly) ->
+    | Some (Required | Ensured) -> failwith (sprintf "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp))
+    | Some (SplittedFrac | JoinedFrac) ->
       let formula = match formula_read_only_inv formula with
         | Some { formula } -> formula
         | None -> formula
@@ -330,7 +340,7 @@ let minimize_loop_contract contract usage =
       new_fracs := frac_ghost :: !new_fracs;
       let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
       (lin_inv, (hyp, ro_formula) :: par_reads)
-    | Some (UsedUninit | UsedFull) -> ((hyp, formula) :: lin_inv, par_reads)
+    | Some (ConsumedUninit | ConsumedFull) -> ((hyp, formula) :: lin_inv, par_reads)
     | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
     ) contract.invariant.linear ([], [])
   in
@@ -345,11 +355,15 @@ let minimize_loop_contract contract usage =
     iter_contract = new_iter_contract; }
   in
   let new_contract_used_vars = loop_contract_used_vars new_contract in
-  (* TODO: remove unused pure variables even if they are not fractions (be careful with pure facts implicitly used by resource typing) *)
-  { new_contract with loop_ghosts =
-      List.filter
-        (fun (x, formula) -> not (are_same_trm formula trm_frac) || Var_set.mem x new_contract_used_vars)
-        new_contract.loop_ghosts }
+
+  let filter_pure_pre (x, formula) =
+    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula trm_frac) && Var_map.mem x usage)
+  in
+
+  { new_contract with
+    loop_ghosts = List.filter filter_pure_pre new_contract.loop_ghosts;
+    invariant = { new_contract.invariant with pure = List.filter filter_pure_pre new_contract.invariant.pure }
+  }
 
 
 let loop_minimize_on (t: trm): trm =
@@ -391,16 +405,19 @@ let fix_loop_default_contract_on ?(mark: mark = "") (t: trm): trm =
   in
   trm_alter ~desc:(Trm_for (range, body, Some contract)) t
 
-let rec fix_loop_default_contract_rec ?(mark: mark = "") (t: trm): trm =
-  let t = trm_map (fix_loop_default_contract_rec ~mark) t in
-  match t.desc with
-  | Trm_for (_, _, None) -> fix_loop_default_contract_on ~mark t
-  | _ -> t
+let rec fix_loop_default_contract_rec ?(mark: mark = no_mark) (t: trm): trm =
+  match t.ctx.ctx_resources_before with
+  | None -> t
+  | Some _ ->
+    let t = trm_map ~keep_ctx:true (fix_loop_default_contract_rec ~mark) t in
+    match t.desc with
+    | Trm_for (_, _, None) -> trm_add_mark mark (fix_loop_default_contract_on ~mark t)
+    | _ -> t
 
 (** [fix_loop_default_contracts] uses computed resources to fix the default loop contracts on all the children of the targeted node *)
-let%transfo fix_loop_default_contracts (tg: target): unit =
+let%transfo fix_loop_default_contracts ?(mark: mark = no_mark) (tg: target): unit =
   ensure_computed ();
-  Target.apply_at_target_paths fix_loop_default_contract_rec tg;
+  Target.apply_at_target_paths (fix_loop_default_contract_rec ~mark) tg;
   justif_correct "only changed loop contracts"
 
 
@@ -418,13 +435,12 @@ let detach_loop_ro_focus_on (t: trm): trm =
     };
     parallel_reads = new_par_reads @ contract.parallel_reads
   } in
-  let (index, _, _, _, _) = range in
   let new_body = trm_seq_nobrace (trm_inv trm_seq_inv body) in
   let new_body = List.fold_right (fun (_, formula) ->
     let { formula } = Option.get (formula_read_only_inv formula) in
-    let i = new_var index.name in
-    let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
-    Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var index); "items", items])) iter_reads new_body
+    let i = new_var range.index.name in
+    let items = formula_fun [i, typ_int ()] None (trm_subst_var range.index (trm_var i) formula) in
+    Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
   in
   let new_body = trm_like ~old:body new_body in
   trm_like ~old:t (trm_for range ~contract new_body)
@@ -452,10 +468,10 @@ let justif_parallelizable_loop_contract ~error (contract: loop_contract): unit =
 let collect_interferences (before : resource_usage_map) (after : resource_usage_map) : (resource_usage option * resource_usage option) Hyp_map.t =
   let res_merge _ a_res_usage b_res_usage =
     match (a_res_usage, b_res_usage) with
-    | (_, None)
-    | (None, _) -> None
-    | (Some (Produced | UsedFull | UsedUninit), _)
-    | (_, Some (Produced | UsedFull | UsedUninit)) -> Some (a_res_usage, b_res_usage)
+    | _, None
+    | None, _ -> None
+    | Some (Ensured | Produced | ConsumedFull | ConsumedUninit), _
+    | _, Some (Ensured | Produced | ConsumedFull | ConsumedUninit) -> Some (a_res_usage, b_res_usage)
     | _ -> None
   in
   Hyp_map.merge res_merge before after
@@ -485,8 +501,8 @@ let write_usage_of (t : trm) : hyp list =
   let res = usage_of_trm t in
   let keep hyp res_usage =
     match res_usage with
-    | UsedFull | UsedUninit-> true
-    | SplittedReadOnly | JoinedReadOnly | Produced -> false
+    | ConsumedFull | ConsumedUninit -> true
+    | SplittedFrac | JoinedFrac | Produced | Required | Ensured -> false
   in
   let write_res = Hyp_map.filter keep res in
   hyps_of_usage write_res
@@ -531,16 +547,16 @@ let assert_not_self_interfering (t : trm) : unit =
   let res_usage = usage_of_trm t in
   let res_used_uninit = List.filter (fun (h, f) ->
     match Hyp_map.find_opt h res_usage with
-    | Some UsedFull -> trm_fail t "trm has self interfering resource usage"
-    | Some UsedUninit -> true
-    | Some (SplittedReadOnly|JoinedReadOnly) | None -> false
-    | Some Produced -> trm_fail t "trm has invalid resource usage"
+    | Some ConsumedFull -> trm_fail t "trm has self interfering resource usage"
+    | Some ConsumedUninit -> true
+    | Some (SplittedFrac|JoinedFrac) | None -> false
+    | Some (Produced|Required|Ensured) -> trm_fail t "trm has invalid resource usage"
   ) res_before.linear in
   let res_produced = List.filter (fun (h, f) ->
     match Hyp_map.find_opt h res_usage with
     | Some Produced -> true
-    | Some (SplittedReadOnly|JoinedReadOnly) | None -> false
-    | Some (UsedFull|UsedUninit) -> trm_fail t "trm has invalid resource usage"
+    | Some (SplittedFrac|JoinedFrac) | None -> false
+    | Some (ConsumedFull|ConsumedUninit|Required|Ensured) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
   ignore (Resource_computation.subtract_linear_resource_set res_produced res_used_uninit)
 
@@ -557,7 +573,9 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   assert_not_self_interfering instr;
   let res = usage_of_trm instr in
   let usage_interferes hyp res_usage =
-    Hyp_map.mem hyp res && res_usage <> SplittedReadOnly && res_usage <> JoinedReadOnly
+    match res_usage with
+    | Required | Ensured | SplittedFrac | JoinedFrac -> false
+    | ConsumedFull | ConsumedUninit | Produced -> Hyp_map.mem hyp res
   in
   let instr_interference i t =
     let interferences = Hyp_map.filter usage_interferes (usage_of_trm t) in

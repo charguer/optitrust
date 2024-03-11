@@ -1019,16 +1019,15 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_step step &&
         check_target p_body body
-     | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body), Trm_for(l_range, body, _) ->
-        let (index, start, direction, stop, step) = l_range in
+     | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, body, _) ->
         let direction_match = match p_direction with
         | None -> true
-        | Some d -> d = direction in
-        check_name p_index index.name &&
+        | Some d -> d = range.direction in
+        check_name p_index range.index.name &&
         direction_match &&
-        check_target p_start start &&
-        check_target p_stop stop &&
-        check_target p_step (loop_step_to_trm step) &&
+        check_target p_start range.start &&
+        check_target p_stop range.stop &&
+        check_target p_step (loop_step_to_trm range.step) &&
         check_target p_body body
      | Constr_while (p_cond, p_body), Trm_while (cond, body) ->
         check_target p_cond cond &&
@@ -1079,10 +1078,9 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const ~incontracts cec xto_l
         | _ -> false
         end
-     | Constr_seq cl, Trm_seq tl when
-        not ((List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle) || List.mem Main_file t.annot.trm_annot_files)->
-        check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
-        in constra_app *)
+     | Constr_seq cl, Trm_seq tl when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
+        check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER: check why depth 0 here and not
+        in Constr_app *)
      | Constr_var name, Trm_var (_, x) ->
         check_name name x.name
      | Constr_lit pred_l, Trm_val (Val_lit l) ->
@@ -1690,11 +1688,10 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
-     | Trm_for (l_range, body, contract) ->
-        let ( _, start, _, stop, step) = l_range in
-        let step_t = loop_step_to_trm step in
-        (add_dir Dir_for_start (aux start)) @
-        (add_dir Dir_for_stop (aux stop)) @
+     | Trm_for (range, body, contract) ->
+        let step_t = loop_step_to_trm range.step in
+        (add_dir Dir_for_start (aux range.start)) @
+        (add_dir Dir_for_stop (aux range.stop)) @
         (add_dir Dir_for_step (aux step_t)) @
         (add_dir Dir_body (aux_body body)) @
         if incontracts then
@@ -1825,12 +1822,10 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
      add_dir Dir_for_c_init (aux init)
   | Dir_for_c_step, Trm_for_c (_, _, step, _, _) ->
      add_dir Dir_for_c_step (aux step)
-  | Dir_for_start, Trm_for (l_range, _, _) ->
-     let (_, start,  _, _, _) = l_range in
-     add_dir Dir_for_start (aux start)
-  | Dir_for_stop, Trm_for (l_range, _, _) ->
-     let (_, _, _, stop, _) = l_range in
-     add_dir Dir_for_stop (aux stop)
+  | Dir_for_start, Trm_for (range, _, _) ->
+     add_dir Dir_for_start (aux range.start)
+  | Dir_for_stop, Trm_for (range, _, _) ->
+     add_dir Dir_for_stop (aux range.stop)
   | Dir_app_fun, Trm_apps (f, _, _) -> add_dir Dir_app_fun (aux f)
   | Dir_arg_nth n, Trm_apps (_, tl, _) ->
      app_to_nth_dflt tl n (fun nth_t ->

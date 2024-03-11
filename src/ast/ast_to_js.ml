@@ -237,14 +237,13 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";
           children_to_field children]
-    | Trm_for (l_range, body, _) ->
-      let (index, start, _, stop, step) = l_range in
+    | Trm_for (range, body, _) ->
       [ kind_to_field "simple_for";
-          (strquote "index", strquote index.name); (* TODO: #var-id , also encode qualifier and id ? *)
+          (strquote "index", strquote range.index.name); (* TODO: #var-id , also encode qualifier and id ? *)
           children_to_field [
-            child_to_json "start" (aux start);
-            child_to_json "stop" (aux stop);
-            child_to_json "step" (aux (loop_step_to_trm step));
+            child_to_json "start" (aux range.start);
+            child_to_json "stop" (aux range.stop);
+            child_to_json "step" (aux (loop_step_to_trm range.step));
             child_to_json "body" (aux body) ] ]
     | Trm_for_c (init, cond, step, body, _) ->
         [ kind_to_field "for";

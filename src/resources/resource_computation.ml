@@ -133,7 +133,7 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
   let formula = trm_subst subst_ctx formula in
   let arith_solved = Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_var (var_eq var_in_range)) !__ (formula_range !__ !__ !__)) (fun index start stop step ->
-      Arith_core.(check_geq index start && check_leq index stop && check_eq (trm_mod index step) (trm_int 0))
+      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_mod index step) (trm_int 0))
     );
     Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step ->
       Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))
@@ -329,13 +329,18 @@ let update_usage (hyp: hyp) (current_usage: resource_usage option) (extra_usage:
   match current_usage, extra_usage with
   | None, u -> u
   | u, None -> u
-  | Some Produced, Some (UsedFull | UsedUninit) -> None
-  | Some Produced, Some (SplittedReadOnly | JoinedReadOnly) -> Some Produced
+  | Some Required, Some Required -> Some Required
+  | Some Ensured, Some Required -> Some Ensured
+  | Some Required, Some Ensured -> failwith (sprintf "Ensured resource %s share id with another one" (var_to_string hyp))
+  | Some (Required | Ensured), _ | _, Some (Required | Ensured) ->
+    failwith (sprintf "Resource %s is used both as a pure and as a linear resource" (var_to_string hyp))
+  | Some Produced, Some (ConsumedFull | ConsumedUninit) -> None
+  | Some Produced, Some (SplittedFrac | JoinedFrac) -> Some Produced
   | _, Some Produced -> failwith (sprintf "Produced resource %s share id with another one" (var_to_string hyp))
-  | Some (UsedFull | UsedUninit), _ -> failwith (sprintf "Consumed resource %s share id with another one" (var_to_string hyp))
-  | Some (SplittedReadOnly | JoinedReadOnly), Some (UsedFull | UsedUninit) -> Some UsedFull
-  | Some JoinedReadOnly, Some JoinedReadOnly -> Some JoinedReadOnly
-  | Some (SplittedReadOnly | JoinedReadOnly), Some (SplittedReadOnly | JoinedReadOnly) -> Some SplittedReadOnly
+  | Some (ConsumedFull | ConsumedUninit), _ -> failwith (sprintf "Consumed resource %s share id with another one" (var_to_string hyp))
+  | Some (SplittedFrac | JoinedFrac), Some (ConsumedFull | ConsumedUninit) -> Some ConsumedFull
+  | Some JoinedFrac, Some JoinedFrac -> Some JoinedFrac
+  | Some (SplittedFrac | JoinedFrac), Some (SplittedFrac | JoinedFrac) -> Some SplittedFrac
 
 (** [update_usage_map ~current_usage ~extra_usage] returns the usage map resulting from using
     [current_usage] before using [extra_usage]. *)
@@ -357,19 +362,23 @@ let add_usage (hyp: hyp) (extra_usage: resource_usage) (usage_map: resource_usag
 
 (** [used_set_to_usage_map res_used] converts the used resource set [res_used] into the corresponding usage map. *)
 let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
-  (* TODO: Maybe manage pure as well *)
+  let pure_usage = List.fold_left (fun usage_map { inst_by } ->
+      let used_fv = trm_free_vars inst_by in
+      Var_set.fold (fun x -> Hyp_map.add x Required) used_fv usage_map)
+    Hyp_map.empty res_used.used_pure
+  in
   List.fold_left (fun usage_map { inst_by; used_formula } ->
     match Formula_inst.inst_split_read_only_inv inst_by with
-    | Some (_, _, orig_hyp) -> Hyp_map.add orig_hyp SplittedReadOnly usage_map
+    | Some (_, _, orig_hyp) -> Hyp_map.add orig_hyp SplittedFrac usage_map
     | None ->
-      let hyp_usage = if formula_uninit_inv used_formula = None then UsedFull else UsedUninit in
+      let hyp_usage = if formula_uninit_inv used_formula = None then ConsumedFull else ConsumedUninit in
       match Formula_inst.inst_hyp_inv inst_by with
       | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
       | None ->
         match Formula_inst.inst_forget_init_inv inst_by with
         | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
         | None -> failwith "Weird resource used"
-  ) Hyp_map.empty res_used.used_linear
+  ) pure_usage res_used.used_linear
 
 let new_efracs_from_used_set (res_used: used_resource_set): (hyp * formula) list =
   List.filter_map (fun { inst_by } ->
@@ -694,12 +703,13 @@ let simplify_read_only_resources (res: linear_resource_set): (linear_resource_se
  *)
 let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set * resource_usage_map * (hyp * hyp) list =
   let res_after = produced_resources_to_resource_set res_after in
-  let used_set = List.fold_left (fun used_set (h, _)-> Hyp_map.add h Produced used_set) Hyp_map.empty res_after.linear in
+  let used_set = List.fold_left (fun used_set (h, _) -> Hyp_map.add h Ensured used_set) Hyp_map.empty res_after.pure in
+  let used_set = List.fold_left (fun used_set (h, _) -> Hyp_map.add h Produced used_set) used_set res_after.linear in
 
   let linear, ro_simpl_steps = simplify_read_only_resources (res_after.linear @ frame) in
   let used_set = List.fold_left (fun used_set (joined_into, taken_from) ->
-    let used_set = add_usage joined_into JoinedReadOnly used_set in
-    let used_set = add_usage taken_from UsedFull used_set in
+    let used_set = add_usage joined_into JoinedFrac used_set in
+    let used_set = add_usage taken_from ConsumedFull used_set in
     used_set) used_set ro_simpl_steps in
 
   { res_after with linear }, used_set, ro_simpl_steps
@@ -829,7 +839,7 @@ let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
   (* Accumulate the error *)
   global_errors := (phase, exn) :: !global_errors;
   (* Interrupt if stop on first error *)
-  if !Flags.stop_on_first_resource_error then raise StoppedOnFirstError;
+  if !Flags.stop_on_first_resource_error then Printexc.(raise_with_backtrace StoppedOnFirstError (get_raw_backtrace ()));
   (* Return empty resources maps as best effort to continue *)
   None, None
 
@@ -1024,7 +1034,13 @@ let rec compute_resources
         assert (Var_set.is_empty !ghost_args_vars);
 
         let call_usage_map, res_after = compute_contract_invoc contract ~subst_ctx res t in
-        let usage_map = Option.map (fun usage_map -> update_usage_map ~current_usage:usage_map ~extra_usage:call_usage_map) usage_map in
+        let usage_map = Option.map (fun usage_map ->
+          let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
+              let ghost_inst_fv = trm_free_vars ghost_inst in
+              Var_set.fold (fun x -> Hyp_map.add x Required) ghost_inst_fv usage_map
+            ) usage_map ghost_args in
+          update_usage_map ~current_usage:usage_map ~extra_usage:call_usage_map) usage_map
+        in
 
         usage_map, Some res_after
 

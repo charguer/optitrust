@@ -497,10 +497,11 @@ and destructor_kind =
   | Destructor_delete
   | Destructor_simpl
 
-(* [files_annot]: file annotation *)
-and files_annot =
-  | Include of string
+(* [file_annot]: file annotation *)
+and file_annot =
+  | Inside_file
   | Main_file
+  | Included_file of string
 
 (* [cpragma]: type alias for directives *)
 and cpragma = directive
@@ -513,7 +514,7 @@ and trm_annot = {
     trm_annot_stringrepr : stringreprid option;
     trm_annot_pragma : cpragma list;
     trm_annot_cstyle : cstyle_annot list;
-    trm_annot_files : files_annot list;
+    trm_annot_file : file_annot;
     trm_annot_referent : trm option; (* used for typing errors *)
   }
   (* LATER: use a smartconstruct for trm_annot with optional arguments *)
@@ -664,7 +665,13 @@ and typ_ctx = {
 
 
 (* [loop_range]: a type for representing for loops range *)
-and loop_range = var * trm * loop_dir * trm * loop_step
+and loop_range = {
+  index: var;
+  start: trm;
+  direction: loop_dir;
+  stop: trm;
+  step: loop_step;
+}
 
 (* [trm_desc]: description of an ast node *)
 and trm_desc =
@@ -747,9 +754,9 @@ and fun_spec =
   (** [FunSpecReverts f] is the reverse of the spec of [f]. *)
 
 (* forall ghosts,
-    { invariant(0) * RO(parallel_reads) * Group(range(), fun i -> iter_contract.pre(i)) }
+    { invariant(0) * RO(parallel_reads) * for i -> iter_contract.pre(i) }
       loop
-    { invariant(n) * RO(parallel_reads) * Group(iter_contract.post(i)) } *)
+    { invariant(n) * RO(parallel_reads) * for i -> iter_contract.post(i) } *)
 (* forall ghosts,
     { invariant(i) * RO(parallel_reads) * iter_contract.pre(i) }
       loop body
@@ -757,7 +764,7 @@ and fun_spec =
 and loop_contract = {
   loop_ghosts: resource_item list;
   invariant: resource_set;
-  parallel_reads: resource_item list; (* all the resources should be RO(f, _) with a distinct f bound in loop_ghosts *)
+  parallel_reads: resource_item list; (* all the resources should be of the form RO(_, _) *)
   iter_contract: fun_contract;
 }
 
@@ -784,10 +791,12 @@ and produced_resource_set = {
 }
 
 and resource_usage =
-  | SplittedReadOnly
-  | UsedUninit
-  | UsedFull
-  | JoinedReadOnly
+  | Required
+  | Ensured
+  | ConsumedFull
+  | ConsumedUninit
+  | SplittedFrac
+  | JoinedFrac
   | Produced
 
 and resource_usage_map = resource_usage Hyp_map.t
@@ -1067,10 +1076,12 @@ let trm_desc_to_string : trm_desc -> string =
 
 let resource_usage_opt_to_string = function
 | None -> "None"
-| Some SplittedReadOnly -> "SplittedReadOnly"
-| Some UsedUninit -> "UsedUninit"
-| Some UsedFull -> "UsedFull"
-| Some JoinedReadOnly -> "JoinedReadOnly"
+| Some Required -> "Required"
+| Some Ensured -> "Ensured"
+| Some SplittedFrac -> "SplittedFrac"
+| Some ConsumedUninit -> "ConsumedUninit"
+| Some ConsumedFull -> "ConsumedFull"
+| Some JoinedFrac -> "JoinedFrac"
 | Some Produced -> "Produced"
 
 (* **************************** Rewrite rules ****************************** *)
@@ -1224,8 +1235,7 @@ let contains_decl (x : var) (t : trm) : bool =
     | Trm_let (_, (y, _), _) when y = x -> true
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
     | Trm_for (l_range, body, _) ->
-        let (y, _, _, _, _) = l_range in
-        y = x || aux body
+        l_range.index = x || aux body
     | Trm_let_fun (_, _, _, body, _) -> aux body
     | Trm_for_c (init, _, _, body, _) -> aux init || aux body
     | _ -> false

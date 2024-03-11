@@ -107,10 +107,14 @@ let%transfo local_name ~(var : var) (var_typ : typ)
       let used_vars = List.fold_left (fun vs t ->
         Var_set.union vs (trm_free_vars t)
       ) Var_set.empty used_formulas in
-      if Var_set.mem var used_vars then
-        trm_fail t "resources still mention replaced variable after transformation"
-      else
+      let var_conflicts = match Var_map.find_opt var t_res_before.aliases with
+        | Some var_alias -> trm_free_vars var_alias
+        | None -> Var_set.singleton var
+      in
+      if Var_set.disjoint var_conflicts used_vars then
         Trace.justif "resources do not mention replaced variable after transformation"
+      else
+        trm_fail t "resources still mention replaced variable after transformation"
     end
   )) tg
 

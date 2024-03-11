@@ -54,29 +54,37 @@ let all_c_raw_parsers (filename: string): trm =
 *)
 
 
-  (*  TODO: currently a 'make clean_ser' is needed when the ast.ml file changes;
-     it would be better to compare against the timestamp of ast.ml, however
-     this requires obtaining the path to this files, somehow. *)
-let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : string * trm=
+(*  TODO: currently a 'make clean_ser' is needed when the ast.ml file changes;
+   it would be better to compare against the timestamp of ast.ml, however
+   this requires obtaining the path to this files, somehow.
+   We should instead add a checksum of ast.ml with a ppx, and check against it here. *)
+let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : string * trm =
   (* "ser" means serialized *)
   let ser_filename = filename ^ ".ser" in
   (* Load existing serialized file, if any *)
   let existing_ser_contents_opt =
     if not serialize
-       || !Flags.ignore_serialized
-       || not (Sys.file_exists ser_filename)
-       || not (Xfile.is_newer_than ser_filename filename) then
-       None
+      || !Flags.ignore_serialized
+      || not (Sys.file_exists ser_filename)
+      || not (Xfile.is_newer_than ser_filename filename) then
+      None
     else begin
       if !Flags.debug_parsing_serialization
         then Tools.info (sprintf "unserializing ast: %s." ser_filename);
       try
-        let header, ast = Xfile.unserialize_from ser_filename in
-        begin try
-          let ast = Scope_computation.infer_var_ids ast in
-          Some (header,ast)
-        with _ ->
-          Tools.info (sprintf "failure in infer_var_ids on unserialized ast for %s, reparsing." ser_filename);
+        let ser_file = open_in_bin ser_filename in
+        let deps = Marshal.from_channel ser_file in
+        if List.for_all (Xfile.is_newer_than ser_filename) deps then
+          let header, ast = Marshal.from_channel ser_file in
+          begin try
+            let ast = Scope_computation.infer_var_ids ast in
+            Some (deps,header,ast)
+          with _ ->
+            Tools.info (sprintf "failure in infer_var_ids on unserialized ast for %s, reparsing." ser_filename);
+            None
+          end
+        else begin
+          Tools.info (sprintf "serialized ast %s is outdated" ser_filename);
           None
         end
       with _ ->
@@ -85,23 +93,33 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
     end
     in
   (* Parse, if not using serialized contents *)
-  let header, ast =
+  let deps, header, ast =
     match existing_ser_contents_opt with
     | Some header_and_ast -> header_and_ast
     | None ->
-        if !Flags.debug_parsing_serialization
-          then Tools.info (sprintf "parsing ast: %s." filename);
-        (* Parsing per ser *)
+        if !Flags.debug_parsing_serialization then
+          Tools.info (sprintf "parsing ast: %s." filename);
+        (* Parsing per se *)
         let header = get_c_includes filename in (* header contains include *)
         let ast = raw_parser filename in
-        header, ast
+        let toplevel_seq = trm_inv trm_seq_inv ast in
+        let deps = Mlist.fold_left (fun deps instr ->
+          match trm_include_inv instr with
+          | Some filename -> filename :: deps
+          | None -> deps
+          ) [] toplevel_seq in
+        if !Flags.debug_parsing_serialization then
+          Tools.info (sprintf "ast depends on header files: %s." (String.concat ", " deps));
+        deps, header, ast
     in
   (* Save to serialization file, if applicable *)
   if (not serialize || not !Flags.dont_serialize)
      && existing_ser_contents_opt = None then begin
     try
       let clean_ast = Trm.prepare_for_serialize ast in
-      Xfile.serialize_to ser_filename (header, clean_ast);
+      let out_file = open_out_bin ser_filename in
+      Marshal.to_channel out_file deps [];
+      Marshal.to_channel out_file (header, clean_ast) [];
       if !Flags.debug_parsing_serialization
         then Tools.info (sprintf "serialized ast: %s." ser_filename);
     with e ->

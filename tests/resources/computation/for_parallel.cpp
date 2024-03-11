@@ -6,7 +6,7 @@ void matmul(float* C, float* A, float* B, int m, int n, int p) {
 
   for (int i = 0; i < m; i++) {
     __parallel_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
-    __modifies("Group(range(0, n, 1), fun j -> &C[MINDEX2(m, n, i, j)] ~> Cell)");
+    __modifies("for j in 0..n -> &C[MINDEX2(m, n, i, j)] ~> Cell");
     for (int j = 0; j < n; j++) {
       __parallel_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
       __modifies("&C[MINDEX2(m, n, i, j)] ~> Cell");

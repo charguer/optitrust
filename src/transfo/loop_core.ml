@@ -7,7 +7,7 @@ open Target
       [t] - ast of the loop. *)
 let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let error = "Loop_core.color_aux: only simple loops are supported." in
-  let ((index , start, direction, stop, step), body, _contract) = trm_inv ~error trm_for_inv t in
+  let ({index; start; direction; stop; step}, body, _contract) = trm_inv ~error trm_for_inv t in
   let i_color = new_var (match i_color with
    | Some cl -> cl
    | _ -> "c" ^ index.name
@@ -17,11 +17,12 @@ let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
     | Post_inc | Pre_inc -> true
     | _ -> false
     end in
+  (* FIXME: Loop bounds are at least unintuitive and probably broken... *)
   let nb_colors = nb_colors in
-    trm_pass_labels t (trm_for (i_color, start, direction, nb_colors, Post_inc) (
+    trm_pass_labels t (trm_for { index = i_color; start; direction; stop = nb_colors; step = Post_inc } (
       trm_seq_nomarks [
-        trm_for (index, (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; loop_step_to_trm step]), direction, stop,
-          (if is_step_one then Step nb_colors else Step (trm_apps (trm_binop Binop_mul) [nb_colors; loop_step_to_trm step]))) body
+        trm_for { index; start = (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; loop_step_to_trm step]); direction; stop;
+          step = (if is_step_one then Step nb_colors else Step (trm_apps (trm_binop Binop_mul) [nb_colors; loop_step_to_trm step])) } body
       ]
   ))
 
@@ -29,20 +30,22 @@ let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
 let color (nb_colors : trm) (i_color : string option ) : Transfo.local =
     apply_on_path (color_aux nb_colors  i_color)
 
-let ghost_tile_divides = name_to_var "tile_divides"
-let ghost_untile_divides = name_to_var "untile_divides"
+let ghost_tile_divides = toplevel_var "tile_divides"
+let ghost_untile_divides = toplevel_var "untile_divides"
 
-let ghost_ro_tile_divides = name_to_var "ro_tile_divides"
-let ghost_ro_untile_divides = name_to_var "ro_untile_divides"
+let ghost_ro_tile_divides = toplevel_var "ro_tile_divides"
+let ghost_ro_untile_divides = toplevel_var "ro_untile_divides"
+
+let ghost_tiled_index_in_range = toplevel_var "tiled_index_in_range"
 
 (*  [tile_aux divides b tile_index t]: tiles loop [t],
       [tile_index] - string representing the index used for the new outer loop,
       [bound] - a tile_bound type variable representing the type of the bound used in
                  this transformation,
       [t] - ast of targeted loop. *)
-let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
+let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
   let error = "Loop_core.tile_aux: only simple loops are supported." in
-  let ((index, start, direction, stop, step), body, contract_opt) = trm_inv ~error trm_for_inv t in
+  let ({index; start; direction; stop; step}, body, contract_opt) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   (* TODO: enable other styles for TileDivides *)
   if bound = TileDivides then begin
@@ -78,8 +81,8 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
       (trm_var ?typ:start.typ index)
      in
      let new_index = iteration_to_index iteration in
-     let outer_range = (tile_index, (trm_int 0), DirUp, tile_count, Post_inc) in
-     let inner_range = (index, (trm_int 0), DirUp, tile_size, Post_inc) in
+     let outer_range = { index = tile_index; start = (trm_int 0); direction = DirUp; stop = tile_count; step = Post_inc } in
+     let inner_range = { index; start = (trm_int 0); direction = DirUp; stop = tile_size; step = Post_inc } in
 
      match contract_opt with
      | None ->
@@ -118,54 +121,50 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
               in
               let i = new_var index.name in
               let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
-              Resource_trm.ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("n", count); ("items", items)])
+              Resource_trm.ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("size", count); ("items", items)])
             )
         in
         let ghosts_before = add_tiling_ghost ghost_tile_divides ghost_ro_tile_divides contract.iter_contract.pre.linear in
         let ghosts_after = add_tiling_ghost ghost_untile_divides ghost_ro_untile_divides contract.iter_contract.post.linear in
 
+        let body_seq = trm_inv trm_seq_inv (trm_subst_var index new_index body) in
+        let ghost_tile_index = Resource_trm.ghost (ghost_call ghost_tiled_index_in_range [("tile_index", trm_var tile_index); ("index", trm_var index); ("tile_count", tile_count); ("tile_size", tile_size); ("size", count)]) in
+        let body = trm_like ~old:body (trm_seq (Mlist.push_front ghost_tile_index body_seq)) in
+
         trm_seq_nobrace_nomarks (ghosts_before @ [
           trm_for ~contract:contract_outer outer_range (trm_seq_nomarks [
-            trm_copy (trm_for ~contract:contract_inner inner_range (trm_subst_var index new_index body))
+            trm_copy (trm_for ~contract:contract_inner inner_range body)
           ])
         ] @ ghosts_after)
 
 
   end else begin
-  Trace.justif "Tiling in this form is always correct.";
-  let tile_bound =
-   if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index ) (trm_mul tile_size (loop_step_to_trm step)) in
-  let inner_loop =
-   begin match bound with
-   | TileBoundMin ->
-     let tile_bound =
-     trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
-     trm_for (index, (trm_var tile_index), direction, (tile_bound), step) body
-   | TileDivides ->
-     (* TODO: should be assert false ? *)
-     trm_for (index, (trm_var tile_index), direction, (tile_bound), step) body
-   | TileBoundAnd ->
-     let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
-     let cond = trm_and (trm_ineq direction (trm_var_get index)
-       (if is_step_one step
-         then (trm_add (trm_var tile_index) tile_size)
-         else (trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_var_get index) stop)
-      in
-     let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
-       else trm_prim_compound Binop_add (trm_var index) (loop_step_to_trm step) in
-     let new_body = trm_subst_var index (trm_var_get index) body in
-     trm_for_c init cond step new_body
-   end in
-   let outer_loop_step = if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step)) in
-   let outer_loop =
-      trm_for (tile_index, start, direction, stop, outer_loop_step) (trm_seq_nomarks [inner_loop])
-   in
-   trm_pass_labels t outer_loop
+    let inner_loop = match bound with
+      | TileBoundMin ->
+        let tile_bound =
+          if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step)) in
+        let tile_bound =
+          trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
+        trm_for { index; start = trm_var tile_index; direction; stop = tile_bound; step } body
+      | TileBoundAnd ->
+        let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
+        let cond = trm_and (trm_ineq direction (trm_var_get index)
+          (if is_step_one step
+            then (trm_add (trm_var tile_index) tile_size)
+            else (trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_var_get index) stop)
+          in
+        let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
+          else trm_prim_compound Binop_add (trm_var index) (loop_step_to_trm step) in
+        let new_body = trm_subst_var index (trm_var_get index) body in
+        trm_for_c init cond step new_body
+      | TileDivides -> assert false
+    in
+    let outer_loop_step = if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step)) in
+    let outer_loop =
+        trm_for { index = tile_index; start; direction; stop; step = outer_loop_step } (trm_seq_nomarks [inner_loop])
+    in
+    trm_pass_labels t outer_loop
   end
-
-(* [tile tile_index bound tile_size t p]: applies [tile_aux] at trm [t] with path [p] *)
-let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) : Transfo.local =
-   apply_on_path (tile_aux tile_index bound tile_size )
 
 (* [hoist_aux name decl_index array_size t]: extracts a variable declared inside a loop as an array of size [loop_bound -1]
     then replace all the occurrences of that variable with an array access at the loop index,
@@ -175,13 +174,12 @@ let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) : Transfo.
 (* LATER/ deprecated *)
 let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : trm) : trm =
   match t.desc with
-  | Trm_for (l_range, body, contract) ->
+  | Trm_for (range, body, contract) ->
     begin match body.desc with
     | Trm_seq tl ->
-      let (index, _, _, stop, _) = l_range in
       (* TODO: stop - start ; check step *)
       (* Arith.simpl *)
-      let stop_bd = begin match array_size with | Some arr_sz -> arr_sz | None -> stop end in
+      let stop_bd = begin match array_size with | Some arr_sz -> arr_sz | None -> range.stop end in
       let ty = ref (typ_auto()) in
       let new_name = ref dummy_var in
       let f_update (t : trm) : trm =
@@ -189,14 +187,14 @@ let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : 
         | Trm_let (vk, (x, tx), _) ->
           new_name := new_var (Tools.string_subst "${var}" x.name name);
           ty := get_inner_ptr_type tx;
-          trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var index] )
+          trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var range.index] )
         | _ -> trm_fail t "Loop_core.hoist_aux: expected a variable declaration"
         in
       let new_tl = Mlist.update_nth decl_index f_update tl in
       let new_body = trm_seq new_tl in
         trm_seq_nobrace_nomarks [
           trm_let_array Var_mutable (!new_name, !ty) (Trm stop_bd) (trm_uninitialized ());
-          trm_for ?contract l_range new_body ]
+          trm_for ?contract range new_body ]
     | _ -> trm_fail t "Loop_core.hoist_aux: body of the loop should be a sequence"
     end
   | _ -> trm_fail t "Loop_core.hoist_aux: only simple loops are supported"
@@ -239,8 +237,7 @@ let fusion_on_block (keep_label : bool): Transfo.local =
       [t] - ast of the loop. *)
 let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : trm =
   let error = "Loop_core.grid_enumerate_aux: expected a simple for loop" in
-  let (l_range, body, _contract) = trm_inv ~error trm_for_inv t in
-  let (index, _, direction, _, _) = l_range in
+  let (range, body, _contract) = trm_inv ~error trm_for_inv t in
   let indices_and_bounds = List.map (fun (i, b) -> Trm.new_var i, b) indices_and_bounds in
   let new_body =
     begin match body.desc with
@@ -249,15 +246,16 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
             if i = 0 then let acc = trm_var ind in acc
             else trm_apps (trm_binop Binop_add) [trm_apps (trm_binop Binop_mul) [
                 acc; bnd]; trm_var ind])  (trm_unit ()) indices_and_bounds in
-        let old_loop_index_decl = trm_let_immut (index, typ_int ()) old_loop_index_val in
+        let old_loop_index_decl = trm_let_immut (range.index, typ_int ()) old_loop_index_val in
         let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
         trm_seq new_tl
     | _ -> trm_fail body "Loop_core.grid_enumerate_aux: the body of the loop should be a sequence"
     end in
 
-    Xlist.fold_lefti (fun i acc (ind, bnd) ->
-      if i = 0 then  trm_for (ind, (trm_int 0), direction, bnd, (Post_inc)) acc
-        else  trm_for (ind, (trm_int 0), DirUp, bnd, Post_inc) (trm_seq_nomarks [acc])
+    Xlist.fold_lefti (fun i acc (index, stop) ->
+      if i = 0
+        then trm_for { index; start = trm_int 0; direction = range.direction; stop; step = Post_inc } acc
+        else trm_for { index; start = trm_int 0; direction = DirUp; stop; step = Post_inc } (trm_seq_nomarks [acc])
     ) new_body (List.rev indices_and_bounds)
 
 (* [grid_enumerate indices_and_bounds t p]: applies [grid_enumerate_aux indices_and_bounds] at trm [t] with path [p]. *)
@@ -273,9 +271,9 @@ let trm_roll = trm_var (toplevel_var "roll")
       [t] - ast of the loop. *)
 let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark) (t : trm) : trm =
   let error = "Loop_core.unroll_on: only simple loops supported" in
-  let (l_range, body, contract) = trm_inv ~error trm_for_inv t in
-  let (index, start, dir, stop, step) = l_range in
-  if dir <> DirUp then trm_fail t "Loop_core.unroll_on: only loops going upwards are supported";
+  let (range, body, contract) = trm_inv ~error trm_for_inv t in
+  let { index; start; direction; stop; step } = range in
+  if direction <> DirUp then trm_fail t "Loop_core.unroll_on: only loops going upwards are supported";
   let step = trm_inv trm_int_inv (loop_step_to_trm step) in
   let error = "Loop_core.unroll_on: either the loop start bound should be a integer literal or the loop end should be of the form 'start + k'" in
   let nb_iter =
@@ -319,7 +317,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
           new_indices
         in
         let rewrite_contract = {
-          pre = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range l_range formula] () ;
+          pre = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] () ;
           post = Resource_set.make ~linear:output ()
         } in
         (* LATER: build proof term instead *)
@@ -333,7 +331,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
         in
         let rewrite_contract = {
           pre = Resource_set.make ~linear:input ();
-          post = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range l_range formula] ()
+          post = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] ()
         } in
         Resource_trm.ghost_admitted rewrite_contract ~justif:trm_roll
       ) contract.iter_contract.post.linear
@@ -368,7 +366,7 @@ let unswitch (trm_index : int) : Transfo.local =
       [t] - ast of the loop to be transformed. *)
 let to_unit_steps_aux (new_index : string) (t : trm) : trm =
   let error = "Loop_core.to_unit_steps: only simple loops are supported." in
-  let ((index, start, direction, stop, step), _, _) = trm_inv ~error trm_for_inv t in
+  let ({ index; start; direction; stop; step }, _, _) = trm_inv ~error trm_for_inv t in
   let new_index = new_var (match new_index with
   | "" -> index.name ^ "_step"
   | _ -> new_index) in
@@ -385,19 +383,18 @@ let to_unit_steps_aux (new_index : string) (t : trm) : trm =
      | _ -> trm_sub stop start
     in
 
-  let new_stop  =
-  begin match direction with
-  | DirUp ->  (trm_div (aux start stop) loop_step)
-  | DirUpEq -> (trm_div (aux start stop) loop_step)
-  | DirDown -> (trm_div (aux start stop) loop_step)
-  | DirDownEq -> (trm_div (aux start stop) loop_step)
-  end in
+  let new_stop = match direction with
+    | DirUp -> (trm_div (aux start stop) loop_step)
+    | DirUpEq -> (trm_div (aux start stop) loop_step)
+    | DirDown -> (trm_div (aux start stop) loop_step)
+    | DirDownEq -> (trm_div (aux start stop) loop_step)
+  in
 
   let new_decl = trm_let_mut (index, typ_int() ) (trm_apps (trm_binop Binop_add)[
           start;
           trm_apps (trm_binop Binop_mul) [trm_var new_index; loop_step]
         ]) in
-  trm_for (new_index, (trm_int 0), direction, new_stop, Post_inc)
+  trm_for { index = new_index; start = trm_int 0; direction; stop = new_stop; step = Post_inc }
     (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
 
 (* [loop_to_unit_steps new_index t p]: applies [to_unit_steps_aux] to the trm [t] with path [p]. *)
@@ -428,7 +425,7 @@ let fold_aux (index : string) (start : int) (step : int) (t : trm) : trm =
     if not (Internal.same_trm loop_body local_body)
       then trm_fail t1 "Loop_core.fold_aux: all the instructions should have the same shape but differ by the index";
   ) other_instr;
-  trm_pass_labels t (trm_for (index, (trm_int start), DirUp, (trm_int nb), (if step = 1 then Post_inc else Step (trm_int step))) (trm_seq_nomarks [loop_body]))
+  trm_pass_labels t (trm_for { index; start = trm_int start; direction = DirUp; stop = trm_int nb; step = (if step = 1 then Post_inc else Step (trm_int step)) } (trm_seq_nomarks [loop_body]))
 
 (* [fold index start step t p]: applies [fold_aux] at trm [t] with path [p]. *)
 let fold (index : string) (start : int) (step : int) : Transfo.local =
@@ -443,20 +440,20 @@ let fold (index : string) (start : int) (step : int) : Transfo.local =
      *)
 let split_range_aux (nb : int) (cut : trm) (t : trm) : trm =
   let error = "Loop_core.split_range: expected a target to a simple for loop" in
-  let ((index, start, direction, stop, step), body, _contract) = trm_inv ~error trm_for_inv t in
+  let (range, body, _contract) = trm_inv ~error trm_for_inv t in
   let split_index = match nb, cut with
     | 0, {desc = Trm_val (Val_lit (Lit_unit)); _} -> trm_fail t "Loop_core.split_range_aux: one of the args nb or cut should be set "
     | 0, _ -> cut
     | _, {desc = Trm_val (Val_lit (Lit_unit));_} ->
-      begin match trm_int_inv start with
+      begin match trm_int_inv range.start with
       | Some start -> trm_int (start + nb)
-      | None -> trm_add start (trm_int nb)
+      | None -> trm_add range.start (trm_int nb)
       end
     | n, c -> trm_fail t "Loop_core.split_range_aux: can't provide both the nb and cut args"
   in
   trm_seq_nobrace_nomarks [
-    trm_for (index, start, direction, split_index, step) body;
-    trm_copy (trm_for (index, split_index, direction, stop, step) body)]
+    trm_for { range with stop = split_index } body;
+    trm_copy (trm_for { range with start = split_index } body)]
 
 (* [split_range nb cut t p]: applies [split_range_aux] at the trm [t] with path [p]. *)
 let split_range (nb : int) (cut : trm) : Transfo.local =
@@ -466,9 +463,9 @@ let split_range (nb : int) (cut : trm) : Transfo.local =
 let rename_index (new_index : string) : Transfo.local =
   apply_on_path (fun t ->
     let error = "Loop_core.shift: expected a target to a simple for loop" in
-    let ((index, start, direction, stop, step), body, _contract) = trm_inv ~error trm_for_inv t in
+    let (range, body, _contract) = trm_inv ~error trm_for_inv t in
     (* TODO: Rename inside contract to preserve it *)
-    let new_index = { qualifier = []; name = new_index; id = index.id } in
-    let new_body = trm_subst_var index (trm_var new_index) body in
-    trm_for ~annot:t.annot (new_index, start, direction, stop, step) new_body
+    let new_index = { qualifier = []; name = new_index; id = range.index.id } in
+    let new_body = trm_subst_var range.index (trm_var new_index) body in
+    trm_for ~annot:t.annot { range with index = new_index } new_body
   )

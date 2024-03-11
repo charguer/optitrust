@@ -177,13 +177,13 @@ let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : tr
       let new_first_trm = trm_seq_nobrace_nomarks[
           trm_let_array vk (local_var, var_type) (Trm array_size) (trm_uninitialized ());
           trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]) (trm_get curr_var_trm);
-          trm_copy (trm_for (index, (trm_int 1), DirUp, array_size, Post_inc)
+          trm_copy (trm_for { index; start = trm_int 1; direction = DirUp; stop = array_size; step = Post_inc }
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm]))]
           in
       let new_snd_instr = trm_subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var (name_to_var "ANY")) [array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_nobrace_nomarks [
                       trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]));
-                      trm_for (index, (trm_int 1), DirUp, array_size, Post_inc) (trm_seq_nomarks [op])
+                      trm_for { index; start = trm_int 1; direction = DirUp; stop = array_size; step = Post_inc } (trm_seq_nomarks [op])
                      ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
       { t with desc = Trm_seq new_tl}

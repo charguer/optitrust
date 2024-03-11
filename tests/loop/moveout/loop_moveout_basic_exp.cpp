@@ -79,8 +79,7 @@ void arr(int* t, int* x) {
   }
   for (int i = 0; i < 3; i++) {
     __sequentially_modifies("x ~> Matrix1(5)");
-    __modifies(
-        "Group(range(0, 5, 1), fun j -> &t[MINDEX2(3, 5, i, j)] ~> Cell)");
+    __modifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
     for (int j = 0; j < 5; j++) {
       __consumes("_Uninit(&t[MINDEX2(3, 5, i, j)] ~> Cell)");
       __produces("&t[MINDEX2(3, 5, i, j)] ~> Cell");
@@ -97,8 +96,7 @@ void arr_wrong1(int* t, int* x) {
   for (int i = 0; i < 3; i++) {
     __sequentially_modifies("_Uninit(x ~> Matrix1(5))");
     __sequentially_modifies("&v ~> Cell");
-    __modifies(
-        "Group(range(0, 5, 1), fun j -> &t[MINDEX2(3, 5, i, j)] ~> Cell)");
+    __modifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
     for (int j = 0; j < 5; j++) {
       __parallel_reads("&v ~> Cell");
       __consumes("_Uninit(&x[MINDEX1(5, j)] ~> Cell)");

@@ -305,17 +305,16 @@ and print_trm_desc style (t : trm_desc) : document =
      let dbody = print_trm style body in
      print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
-  | Trm_for (l_range, body, _) ->
-    let (index, start, direction, stop, step) = l_range in
-    let dstart = print_trm style start in
-    let dstop = print_trm style stop in
-    let ddir  = match direction with
+  | Trm_for (range, body, _) ->
+    let dstart = print_trm style range.start in
+    let dstop = print_trm style range.stop in
+    let ddir  = match range.direction with
     | DirUp -> string "Up"
     | DirDown -> string "Down"
     | DirUpEq -> string "UpEq"
     | DirDownEq -> string "DownEq"
     in
-    let dstep = match step with
+    let dstep = match range.step with
     | Post_inc -> string "Post_inc"
     | Post_dec -> string "Post_dec"
     | Pre_inc -> string "Pre_inc"
@@ -324,7 +323,7 @@ and print_trm_desc style (t : trm_desc) : document =
     in
     let dbody = print_trm style body in
     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
-      [print_var style index; dstart; ddir; dstop; dstep; dbody])
+      [print_var style range.index; dstart; ddir; dstop; dstep; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm style cond in
      let dcases =
@@ -470,9 +469,8 @@ and print_trm_annot style (t : trm) : document =
   let cstyle_annot = trm_get_cstyles t in
   let dcstyle = print_cstyles_annot style cstyle_annot in
 
-  let files_annot = trm_get_files_annot t in
-  let dfiles_str = List.map print_files_annot files_annot in
-  let dfiles = print_list dfiles_str in
+  let file_annot = t.annot.trm_annot_file in
+  let dfile = print_file_annot file_annot in
 
   let dreferent = match t.annot.trm_annot_referent with None -> string "None" | Some _ -> string "Some" in
     (* not printing referent term recursively; LATER: print the id of that term *)
@@ -485,7 +483,7 @@ and print_trm_annot style (t : trm) : document =
     string "trm_annot_stringrepr"; equals; dstringrepr ^^ semi ^//^
     string "trm_annot_pragma"; equals; dpragmas ^^ semi ^//^
     string "trm_annot_cstyle"; equals; dcstyle ^^ semi ^//^
-    string "trm_annot_files"; equals; dfiles ^^ semi ^//^
+    string "trm_annot_file"; equals; dfile ^^ semi ^//^
     string "trm_annot_referent"; equals; dreferent
     ])
 
@@ -531,11 +529,12 @@ and print_trm style (t : trm) : document =
          string "errors"; equals; derrors ^^ semi ^//^
          string "desc"; equals; ddesc ])
 
-(* [print_files_annot ann]: prints as string files annotation [ann] *)
-and print_files_annot (ann : files_annot) : document =
+(* [print_file_annot ann]: prints as string files annotation [ann] *)
+and print_file_annot (ann : file_annot) : document =
   match ann with
-  | Include s -> string ("Include " ^ s)
+  | Inside_file -> string "Inside"
   | Main_file -> string "Main_file"
+  | Included_file s -> string ("Include " ^ s)
 
 
 (* [print_constructor_kind ck]: prints constructor kinds. *)

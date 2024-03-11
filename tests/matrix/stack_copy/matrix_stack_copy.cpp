@@ -7,7 +7,7 @@ void f() {
   float* const s = (float* const) MALLOC2(32, 32, sizeof(float));
 
   for (int i = 0; i < 32; i++) {
-    __writes("Group(range(0, 32, 1), fun j -> &s[MINDEX2(32, 32, i, j)] ~> Cell)");
+    __writes("for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell");
 
     for (int j = 0; j < 32; j++) {
       __writes("&s[MINDEX2(32, 32, i, j)] ~> Cell");
@@ -17,7 +17,7 @@ void f() {
   }
 
   for (int i = 0; i < 32; i++) {
-    __modifies("Group(range(0, 32, 1), fun j -> &s[MINDEX2(32, 32, i, j)] ~> Cell)");
+    __modifies("for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell");
 
     // TODO? s[i][j] = x[j]
     for (int j = 0; j < 32; j++) {
@@ -32,7 +32,7 @@ void f() {
   }
 
   for (int i = 0; i < 32; i++) {
-    __reads("Group(range(0, 32, 1), fun j -> &s[MINDEX2(32, 32, i, j)] ~> Cell)");
+    __reads("for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell");
 
     for (int j = 0; j < 32; j++) {
       __reads("&s[MINDEX2(32, 32, i, j)] ~> Cell");

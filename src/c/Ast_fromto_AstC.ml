@@ -151,9 +151,8 @@ let stackvar_elim (t : trm) : trm =
       onscope env t (fun t -> List.iter (fun (x, _tx) ->
        let mut = Var_immutable in (* if is_typ_ptr tx then Var_mutable else Var_immutable in *)
        add_var env x mut) targs; trm_map aux t)
-    | Trm_for (l_range, _, _) ->
-        let (index, _, _, _, _) = l_range in
-        onscope env t (fun t -> add_var env index Var_immutable; trm_map aux t)
+    | Trm_for (range, _, _) ->
+        onscope env t (fun t -> add_var env range.index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
         onscope env t (fun t -> trm_map aux t)
     | _ -> trm_map aux t
@@ -214,9 +213,8 @@ let stackvar_intro (t : trm) : trm =
       add_var env f Var_immutable;
       onscope env t (fun t ->
       List.iter (fun (x, _tx) -> let mut = Var_immutable in (add_var env x mut)) targs; trm_map aux t)
-    | Trm_for (l_range, _, _) ->
-      let (index, _, _, _, _) = l_range in
-      onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
+    | Trm_for (range, _, _) ->
+      onscope env t (fun t -> begin add_var env range.index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1], _) when is_var_mutable !env x  -> t1
     | _ -> trm_map aux t
@@ -791,10 +789,12 @@ let ctx_produced_res_to_trm (style: style) (produced_res: produced_resource_set)
 
 let ctx_usage_map_to_strings res_used =
   List.map (function
-    | hyp, SplittedReadOnly -> sprintf "RO %s" hyp.name
-    | hyp, UsedUninit -> sprintf "Uninit %s" hyp.name
-    | hyp, UsedFull -> sprintf "Full %s" hyp.name
-    | hyp, JoinedReadOnly -> sprintf "JoinRO %s" hyp.name
+    | hyp, Required -> sprintf "%s" hyp.name
+    | hyp, Ensured -> sprintf "Ensured %s" hyp.name
+    | hyp, ConsumedFull -> sprintf "Full %s" hyp.name
+    | hyp, ConsumedUninit -> sprintf "Uninit %s" hyp.name
+    | hyp, SplittedFrac -> sprintf "Subfrac %s" hyp.name
+    | hyp, JoinedFrac -> sprintf "JoinFrac %s" hyp.name
     | hyp, Produced -> sprintf "Produced %s" hyp.name)
     (Hyp_map.bindings res_used)
 
@@ -853,7 +853,7 @@ let display_ctx_resources (style: style) (t: trm): trm list =
 let computed_resources_intro (style: style) (t: trm): trm =
   let rec aux t =
     match t.desc with
-    | Trm_seq instrs when not (List.mem Main_file (trm_get_files_annot t)) ->
+    | Trm_seq instrs when not (trm_is_mainfile t) ->
       let tl_before =
         if style.typing.typing_ctx_res
           then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before)

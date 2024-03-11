@@ -46,7 +46,7 @@ void nested_loops(float* M1, float* M2, int n) {
   int c = 0;
   for (int i = 0; i < n; i++) {
     __sequentially_modifies("&c ~> Cell");
-    __reads("Group(range(0, n, 1), fun j -> &M1[MINDEX2(n, n, i, j)] ~> Cell)");
+    __reads("for j in 0..n -> &M1[MINDEX2(n, n, i, j)] ~> Cell");
     int acc = 0;
     for (int j = 0; j < n; j++) {
       __sequentially_modifies("&acc ~> Cell");
@@ -65,5 +65,21 @@ void seq_modifies_into_par_reads() {
     __sequentially_modifies("&acc ~> Cell");
     __parallel_reads("&x ~> Cell");
     acc += x;
+  }
+}
+
+__ghost_ret assert_in_range() {
+  __requires("i: int");
+  __requires("n: int");
+  __requires("in_range(i, 0..n)");
+}
+
+void useless_pure_facts(int n, int i) {
+  __requires("in_range(i, 0..n)");
+  __requires("__assert_leq(0, i)");
+  for (int j = 0; j < 100; j++) {
+    __invariant("in_range(k, 0..n)");
+    __loop_ghosts("k: int");
+    __ghost(assert_in_range, "i := k, n := n");
   }
 }

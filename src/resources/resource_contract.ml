@@ -186,15 +186,21 @@ let contract_outside_loop range contract =
   let post = Resource_set.union invariant_after post in
   { pre; post }
 
+let parallel_reads_inside_loop range par_reads =
+  List.map (fun (x, formula) -> match formula_read_only_inv formula with
+    | Some { frac; formula } -> (x, formula_read_only ~frac:(trm_div frac (formula_range_count (formula_loop_range range))) formula)
+    | None -> failwith "Cannot compute contract inside the loop: parallel_reads contains a non RO resource.")
+    par_reads
+
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of its body. *)
 let contract_inside_loop range contract =
-  let (index, _, _, _, _) = range in
-  let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var index) (formula_loop_range range)) in
-  let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list contract.parallel_reads contract.iter_contract.pre) in
+  let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
+  let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list par_reads_inside contract.iter_contract.pre) in
+  let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var range.index) (formula_loop_range range)) in
   let pre = { pre with pure = index_in_range_hyp :: contract.loop_ghosts @ pre.pure } in
   let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in
-  let post = Resource_set.add_linear_list contract.parallel_reads contract.iter_contract.post in
+  let post = Resource_set.add_linear_list par_reads_inside contract.iter_contract.post in
   let post = Resource_set.union invariant_after_one_iter post in
   { pre; post }
 

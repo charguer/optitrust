@@ -1358,37 +1358,36 @@ and routine_to_doc (r : omp_routine) : document =
 
 (* [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
 (* FIXME: #odoc why is annotation required on callees? *)
-and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
-  let (index, start, direction, stop, step) = l_range in
-  let init = trm_let Var_mutable (index, typ_int()) start  in
-  let cond = begin match direction with
-    | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var index;stop]
-    | DirUpEq -> trm_apps (trm_binop Binop_le) [trm_var index;stop]
+and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
+  let init = trm_let Var_mutable (range.index, typ_int()) range.start in
+  let cond = begin match range.direction with
+    | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var range.index; range.stop]
+    | DirUpEq -> trm_apps (trm_binop Binop_le) [trm_var range.index; range.stop]
     | DirDown ->
-      trm_apps (trm_binop Binop_gt) [trm_var index;stop]
+      trm_apps (trm_binop Binop_gt) [trm_var range.index; range.stop]
     | DirDownEq ->
-      trm_apps (trm_binop Binop_ge) [trm_var index;stop]
+      trm_apps (trm_binop Binop_ge) [trm_var range.index; range.stop]
    end in
   let step =
-    begin match direction with
+    begin match range.direction with
     | DirUp | DirUpEq ->
-      begin match step with
+      begin match range.step with
       | Pre_inc ->
-        trm_apps (trm_unop Unop_pre_inc) [trm_var index]
+        trm_apps (trm_unop Unop_pre_inc) [trm_var range.index]
       | Post_inc ->
-        trm_apps (trm_unop Unop_post_inc) [trm_var index]
+        trm_apps (trm_unop Unop_post_inc) [trm_var range.index]
       | Step st ->
-        trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var index; st]
+        trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var range.index; st]
       | _ -> trm_fail body "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
     | DirDown | DirDownEq ->
-      begin match step with
+      begin match range.step with
       | Pre_dec ->
-        trm_apps (trm_unop Unop_pre_dec) [trm_var index]
+        trm_apps (trm_unop Unop_pre_dec) [trm_var range.index]
       | Post_dec ->
-        trm_apps (trm_unop Unop_post_dec) [trm_var index]
+        trm_apps (trm_unop Unop_post_dec) [trm_var range.index]
       | Step st ->
-        trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var index; st]
+        trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var range.index; st]
       | _ -> trm_fail body "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
 
@@ -1397,9 +1396,18 @@ and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
 
 and formula_to_doc style (f: formula): document =
   let open Resource_formula in
-  match formula_model_inv f with
-  | Some (t, formula) -> (trm_to_doc style t) ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ (trm_to_doc style formula)
-  | None -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}}
+  Pattern.pattern_match f [
+    Pattern.(formula_model !__ !__) (fun t formula ->
+      trm_to_doc style t ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ trm_to_doc style formula
+    );
+    Pattern.(formula_range !__ !__ (trm_int (eq 1))) (fun start stop ->
+      trm_to_doc ~prec:16 style start ^^ string ".." ^^ trm_to_doc ~prec:16 style stop
+    );
+    Pattern.(trm_apps2 (trm_var (var_eq var_group)) !__ (trm_fun (!__ ^:: nil) !__)) (fun range (index, _) body ->
+      string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
+    );
+    Pattern.(!__) (fun _ -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}})
+  ]
 
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)

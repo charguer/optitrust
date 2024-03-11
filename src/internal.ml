@@ -341,13 +341,12 @@ let rec local_decl (x : var) (t : trm) : trm option =
     ordered list of their indices where the order is the depth order *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
-  | Trm_for (l_range, body, _) ->
-    let (index, _, _, _, _) = l_range in
+  | Trm_for (range, body, _) ->
     begin match body.desc with
     | Trm_seq tl when Mlist.length tl = 1  ->
       let f_loop = Mlist.nth tl 0 in
-      index :: get_loop_nest_indices f_loop
-    | _ -> index :: []
+      range.index :: get_loop_nest_indices f_loop
+    | _ -> range.index :: []
     end
   | Trm_for_c (_, _, _, body, _) ->
     let index = for_loop_index t in

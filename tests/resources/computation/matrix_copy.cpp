@@ -14,12 +14,12 @@ void matrix_free(float* p) {
   free(p);
 }
 
-void matrix_copy(float* in, float* out, int n, int m) {
-  __reads("in ~> Matrix2(n, m)");
-  __modifies("out ~> Matrix2(n, m)");
+void matrix_copy(float* src, float* dst, int n, int m) {
+  __reads("src ~> Matrix2(n, m)");
+  __modifies("dst ~> Matrix2(n, m)");
   __admitted();
-  memcpy(in, out, n * m * sizeof(float));
-  /*__ensures("$out = $in");*/
+  memcpy(dst, src, n * m * sizeof(float));
+  /*__ensures("$dst = $src");*/
 }
 
 int main() {

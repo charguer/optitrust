@@ -13,7 +13,7 @@ __GHOST(unfreeze_cell) {
 }
 
 void f(float* M, int n) {
-  __modifies("Group(range(0,n,1), fun i -> &M[i] ~> Cell)");
+  __modifies("for i in 0..n -> &M[i] ~> Cell");
 
   for (int i = 0; i < n; ++i) {
     __consumes("&M[i] ~> Cell");

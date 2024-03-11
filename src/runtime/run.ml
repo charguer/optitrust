@@ -172,6 +172,13 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     Trace.init ~prefix ~parser filename;
     begin
       try
+        if !Flags.check_validity then
+          Trace.step ~kind:Step_transfo ~name:"Preprocessing loop contracts" (fun () ->
+            Marks.with_fresh_mark (fun mark ->
+              Resources.fix_loop_default_contracts ~mark [];
+              Resources.loop_minimize Target.[nbAny; cMark mark]
+            )
+          );
         Show.with_captured_show ~activated:activate_capture_show contents_captured_show (fun () ->
           may_report_time "script-exec" f)
       with

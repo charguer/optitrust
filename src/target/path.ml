@@ -115,12 +115,12 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_abort (Ret (Some (aux body)))}
        | Dir_body, Trm_fun (params, tyret, body, contract) ->
           trm_replace (Trm_fun (params, tyret, aux body, contract)) t
-       | Dir_for_start, Trm_for ((index, start, direction, stop, step), body, contract) ->
-          { t with desc = Trm_for ((index, aux start, direction, stop, step), body, contract)}
-       | Dir_for_stop, Trm_for ((index, start, direction, stop, step), body, contract) ->
-          { t with desc = Trm_for ((index, start, direction, aux stop, step), body, contract)}
-       | Dir_for_step, Trm_for ((index, start, direction, stop, step), body, contract) ->
-          { t with desc = Trm_for ((index, start, direction, stop, apply_on_loop_step aux step), body, contract)}
+       | Dir_for_start, Trm_for (range, body, contract) ->
+          { t with desc = Trm_for ({ range with start = aux range.start }, body, contract)}
+       | Dir_for_stop, Trm_for (range, body, contract) ->
+          { t with desc = Trm_for ({ range with stop = aux range.stop }, body, contract)}
+       | Dir_for_step, Trm_for (range, body, contract) ->
+          { t with desc = Trm_for ({ range with step = apply_on_loop_step aux range.step }, body, contract)}
        | Dir_for_c_init, Trm_for_c (init, cond, step, body, contract) ->
           { t with desc = Trm_for_c (aux init, cond, step, body, contract)}
        | Dir_for_c_step, Trm_for_c (init, cond, step, body, contract) ->
@@ -327,16 +327,12 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         | Dir_body, Trm_do_while (body, _)
         | Dir_body, Trm_abort (Ret (Some body)) ->
         aux body ctx
-      | Dir_for_start, Trm_for (l_range, _, _) ->
-        let (_, start, _, _, _) = l_range in
-        aux start ctx
-      | Dir_for_stop, Trm_for (l_range, _, _) ->
-        let (_,  _, _, stop, _) = l_range in
-        aux stop ctx
-
-      | Dir_for_step, Trm_for (l_range, _, _) ->
-        let (_, _, _, _, step) = l_range in
-        let step_trm = loop_step_to_trm step in
+      | Dir_for_start, Trm_for (range, _, _) ->
+        aux range.start ctx
+      | Dir_for_stop, Trm_for (range, _, _) ->
+        aux range.stop ctx
+      | Dir_for_step, Trm_for (range, _, _) ->
+        let step_trm = loop_step_to_trm range.step in
         aux step_trm ctx
       | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
         aux init ctx
