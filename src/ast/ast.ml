@@ -764,7 +764,7 @@ and fun_spec =
 and loop_contract = {
   loop_ghosts: resource_item list;
   invariant: resource_set;
-  parallel_reads: resource_item list; (* all the resources should be RO(f, _) with a distinct f bound in loop_ghosts *)
+  parallel_reads: resource_item list; (* all the resources should be of the form RO(_, _) *)
   iter_contract: fun_contract;
 }
 

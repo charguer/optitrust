@@ -141,6 +141,11 @@ let trm_is_subrange = trm_var var_is_subrange
 let formula_is_subrange (range1: trm) (range2: trm) =
   trm_apps trm_is_subrange [range1; range2]
 
+let var_range_count = toplevel_var "range_count"
+let trm_range_count = trm_var var_range_count
+let formula_range_count (range: trm) =
+  trm_apps trm_range_count [range]
+
 module Pattern = struct
   include Pattern
 

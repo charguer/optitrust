@@ -228,7 +228,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
 
       let split_res = Resources.before_trm (Mlist.nth tl2 0) in (* = R *)
       let (_, split_res_comm, _) = (* R' *)
-        Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear (linear_invariant @ contract.parallel_reads)
+        Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear (linear_invariant @ Resource_contract.parallel_reads_inside_loop l_range contract.parallel_reads)
       in
 
       (* Remove resources that refer to local variables in tl1 *)
@@ -534,7 +534,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
     | Some contract when not generate_if ->
       (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
-      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (contract.parallel_reads @ contract.iter_contract.pre.linear) in
+      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (Resource_contract.parallel_reads_inside_loop range contract.parallel_reads @ contract.iter_contract.pre.linear) in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }
     | _ -> contract
   in
@@ -633,7 +633,7 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
     | Some contract when not generate_if ->
       (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Xoption.unsome ~error:"requires computed resources" alloc_instr.ctx.ctx_resources_after in
-      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (contract.parallel_reads @ contract.iter_contract.pre.linear) in
+      let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (Resource_contract.parallel_reads_inside_loop range contract.parallel_reads @ contract.iter_contract.pre.linear) in
       Some { contract with invariant = { contract.invariant with linear = new_invariant } }
     | _ -> contract
   in
