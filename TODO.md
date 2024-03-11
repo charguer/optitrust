@@ -312,6 +312,23 @@
 
 # Trace
 
+- related:
+  - Justifications Variable.inline/Function.inline/Matrix.elim_mindex
+  - pre/postprocessing (1. infer contracts; then elim header)
+  - pretty-print Group and range
+  - renaming '__sreads', '__xreads', ..
+
+- add expand/collapse feature on trace steps
+  - green checks are displayed separately on the right
+
+- remove line display by default
+
+- replace pink script box with entire script, clickable
+
+- display: minimal diff (default), diff with all code (click to expand, or button), collapse one side and/or change vertical split (gridify)
+
+- make scrolling independant between left steps and right diffs (gridify)
+
 - Add infrastructure for executing a test with reparsing after every step,
   or after every big-step (can be controlled by a per-test flag).
 
