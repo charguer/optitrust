@@ -62,6 +62,7 @@ void commute() {
     __sequentially_modifies("&x ~> Cell");
     __sequentially_modifies("&y ~> Cell");
     __parallel_reads("&z ~> Cell");
+    __parallel_reads("&z ~> Cell");
     x += z;
     y += z;
   }

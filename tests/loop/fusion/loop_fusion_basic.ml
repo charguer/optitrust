@@ -19,14 +19,13 @@ let _ = Run.script_cpp ( fun _ ->
   !! Loop_basic.fusion [cFunDef "uninit"; cFor "i"; occFirst];
 
   (* 3. Wrong fusions are rejected. *)
-  (* TODO:
   !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fusion [cFunDef "wrong_rw_rw"; cFor "i"; occFirst]);
   !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fusion [cFunDef "wrong_rw_ro"; cFor "i"; occFirst]);
   !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fusion [cFunDef "wrong_ro_rw"; cFor "i"; occFirst]);
-*)
+
   (* TODO:
   !! Loop_basic.fission_basic [cFunBody "ghosts"; cFor "k"; tBefore];
   *)

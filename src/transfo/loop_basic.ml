@@ -414,7 +414,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     trm_for_inv_instrs
   ) loops in
   match loops_ri with
-  | [(loop_range1, loop_instrs1, _contract1); (loop_range2, loop_instrs2, _contract2)] ->
+  | [(loop_range1, loop_instrs1, contract1); (loop_range2, loop_instrs2, contract2)] ->
     (* DEPRECATED: need to rename index anyway since #var-id
     if not (same_loop_index loop_range1 loop_range2) then
       trm_fail t "Loop_basic.fusion_on: expected matching loop indices"; *)
@@ -423,6 +423,70 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     let new_loop_range, _, _ = List.nth loops_ri target_loop_i in
     let idx1 = loop_range1.index in
     let idx2 = loop_range2.index in
+
+    let contract = begin match (contract1, contract2) with
+    | Some contract1, Some contract2 ->
+      let open Resource_formula in
+
+      let loop1 = List.nth loops 0 in
+      let loop2 = List.nth loops 1 in
+      if Var_set.mem loop_range1.index (Resource_set.used_vars contract1.invariant) then
+        trm_fail loop1 "loop invariant uses loop index";
+      if Var_set.mem loop_range2.index (Resource_set.used_vars contract2.invariant) then
+        trm_fail loop2 "loop invariant uses loop index";
+
+      let usage1 = Resources.usage_of_trm loop1 in
+      let usage2 = Resources.usage_of_trm loop2 in
+      let ctx2 = Resources.before_trm loop2 in
+
+      (* TODO: restrict to relevant invariant resources *)
+
+      (* FIXME: Resources.assert_usages_commute API was not flexible enough *)
+      let interference = Resources.collect_interferences usage1 usage2 in
+      (* TODO: factorize, also used in fission *)
+      let resource_set_of_hyp_map (hyps: 'a Hyp_map.t) (resources: resource_item list): resource_item list =
+        List.filter (fun (h, _) -> Hyp_map.mem h hyps) resources
+      in
+      let interference_resources = resource_set_of_hyp_map interference ctx2.linear in
+      let shared1 = contract1.invariant.linear @ contract1.parallel_reads in
+      let shared2 = contract2.invariant.linear @ contract2.parallel_reads in
+      let resources_in_common ra rb =
+        let (used, _, _, _) = Resource_computation.intersect_linear_resource_set interference_resources shared1 in
+        used <> []
+      in
+      if resources_in_common interference_resources shared1 ||
+         resources_in_common interference_resources shared2
+      then trm_fail t (Resources.string_of_interference interference);
+
+      let (pre1, post1, pre2, post2) =
+        if upwards
+        then (
+          contract1.iter_contract.pre,
+          contract1.iter_contract.post,
+          Resource_set.subst_var idx2 (trm_var idx1) contract2.iter_contract.pre,
+          Resource_set.subst_var idx2 (trm_var idx1) contract2.iter_contract.post)
+        else (
+          Resource_set.subst_var idx1 (trm_var idx2) contract1.iter_contract.pre,
+          Resource_set.subst_var idx1 (trm_var idx2) contract1.iter_contract.post,
+          contract2.iter_contract.pre,
+          contract2.iter_contract.post)
+      in
+      let (_, remaining, missing, _) =
+        Resource_computation.intersect_linear_resource_set pre2.linear post1.linear in
+      Some {
+        loop_ghosts = contract1.loop_ghosts @ contract2.loop_ghosts;
+        invariant = Resource_set.union contract1.invariant contract2.invariant;
+        parallel_reads = contract1.parallel_reads @ contract2.parallel_reads;
+        iter_contract = {
+          pre = Resource_set.union pre1 { pre2 with linear = missing };
+          post = Resource_set.union post2 { post1 with linear = remaining };
+        }
+      }
+    | _ when !Flags.check_validity ->
+      trm_fail t "requires annotated for loops to check validity"
+    | _ -> None
+    end in
+
     let loop_instrs1', loop_instrs2' =
       if upwards
       then loop_instrs1, Mlist.map (trm_subst_var idx2 (trm_var idx1)) loop_instrs2
@@ -430,7 +494,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     in
     let new_loop_instrs = Mlist.merge loop_instrs1' loop_instrs2' in
     (* TODO: trm_for_update on loop1? *)
-    let new_loop = trm_for_instrs ~annot:lt.annot ?loc:lt.loc new_loop_range new_loop_instrs in
+    let new_loop = trm_for_instrs ~annot:lt.annot ?loc:lt.loc ?contract new_loop_range new_loop_instrs in
     let new_instrs = Mlist.insert_at update_index new_loop other_instrs in
     trm_seq ~annot:t.annot ?loc:t.loc new_instrs
   | _ -> failwith "unreachable"
@@ -455,8 +519,11 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
 let%transfo fusion ?(upwards : bool = true) (tg : target) : unit =
   Target.iter (fun p ->
     let (index, p_seq) = Path.index_in_seq p in
-    Target.apply_at_path (fusion_on index upwards) p_seq
-    ) tg
+    Resources.required_for_check ();
+    Target.apply_at_path (fusion_on index upwards) p_seq;
+    Resources.required_for_check ();
+  ) tg;
+  Resources.justif_correct "loop resources where successfully merged"
 
 (* [grid_enumerate index_and_bounds tg]: expects the target [tg] to point at a loop iterating over
     a grid. The grid can be of any dimension.
