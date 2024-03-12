@@ -343,7 +343,6 @@ let default_unfold_simpl (tg : target) : unit =
           After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
 let%transfo unfold ?(simpl : Transfo.t = default_unfold_simpl) ?(delete : bool = true) ?(at : target = []) (tg : target) : unit =
-  Trace.tag_valid_by_composition ();
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
