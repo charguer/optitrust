@@ -81,6 +81,20 @@ void commute() {
   }
 }
 
+void excl_ros(int* t, int n) {
+  __reads("for i in 1..n -> &t[i] ~> Cell");
+  int x = 0;
+  int y = 0;
+  for (int i = 1; i < n; i++) {
+    __sequentially_modifies("&y ~> Cell");
+    __sequentially_modifies("&x ~> Cell");
+    __reads("&t[i] ~> Cell");
+    __reads("&t[i] ~> Cell");
+    y += t[i];
+    x += t[i];
+  }
+}
+
 void wrong_rw_rw() {
   __pure();
 

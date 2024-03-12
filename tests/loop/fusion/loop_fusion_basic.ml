@@ -18,7 +18,10 @@ let _ = Run.script_cpp ( fun _ ->
   (* 3. Uninit tests. *)
   !! Loop_basic.fusion [cFunDef "uninit"; cFor "i"; occFirst];
 
-  (* 3. Wrong fusions are rejected. *)
+  (* 4. Exclusive ROs with fraction variables. *)
+  !! Loop_basic.fusion [cFunDef "excl_ros"; cFor "i"; occFirst];
+
+  (* 5. Wrong fusions are rejected. *)
   !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop_basic.fusion [cFunDef "wrong_rw_rw"; cFor "i"; occFirst]);
   !! Trace.failure_expected (fun _e -> true) (fun () ->

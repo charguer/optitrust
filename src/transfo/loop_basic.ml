@@ -451,9 +451,10 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
       let shared1 = contract1.invariant.linear @ contract1.parallel_reads in
       let shared2 = contract2.invariant.linear @ contract2.parallel_reads in
       let resources_in_common ra rb =
-        let (used, _, _, _) = Resource_computation.intersect_linear_resource_set interference_resources shared1 in
+        let (used, _, _, _) = Resource_computation.partial_extract_linear_resource_set interference_resources shared1 in
         used <> []
       in
+      (* TODO: instead of filtering, add featrues to collect interference to match paper formula *)
       if resources_in_common interference_resources shared1 ||
          resources_in_common interference_resources shared2
       then trm_fail t (Resources.string_of_interference interference);
@@ -471,15 +472,16 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
           contract2.iter_contract.pre,
           contract2.iter_contract.post)
       in
-      let (_, remaining, missing, _) =
-        Resource_computation.intersect_linear_resource_set pre2.linear post1.linear in
+      let (_, post1', pre2', _) =
+        (* TODO: the same on resource_set to match paper *)
+        Resource_computation.partial_extract_linear_resource_set post1.linear pre2.linear in
       Some {
         loop_ghosts = contract1.loop_ghosts @ contract2.loop_ghosts;
         invariant = Resource_set.union contract1.invariant contract2.invariant;
         parallel_reads = contract1.parallel_reads @ contract2.parallel_reads;
         iter_contract = {
-          pre = Resource_set.union pre1 { pre2 with linear = missing };
-          post = Resource_set.union post2 { post1 with linear = remaining };
+          pre = Resource_set.union pre1 { pre2 with linear = pre2' };
+          post = Resource_set.union post2 { post1 with linear = post1' };
         }
       }
     | _ when !Flags.check_validity ->
