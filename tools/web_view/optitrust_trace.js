@@ -467,9 +467,12 @@ function expandRecursively(idStep) {
   const newValue = ! expanded[idStep];
   // recursive traversal
   function aux(idStep, newValue) {
-    expanded[idStep] = newValue;
     var step = steps[idStep];
-    if (options.atomic_substeps || !step.tags.includes("atomic")) {
+    if (isStepHidden(step)) {
+      return; // don't force expansion of hidden steps
+    }
+    expanded[idStep] = newValue;
+    if (!options.atomic_substeps || !step.tags.includes("atomic")) {
       for (var i = 0; i < step.sub.length; i++) {
         var idSubstep = step.sub[i];
         aux(idSubstep, newValue);
@@ -479,6 +482,24 @@ function expandRecursively(idStep) {
   aux(idStep, newValue);
   reloadTraceView();
   loadStepDetails(idStep);
+}
+
+// expand all paths that lead to an error,
+// the function returns a boolean indicating if a sub-stepn has an error in it
+function expandToRevealErrors(idStep) {
+  var step = steps[idStep];
+  var isError = (step.kind == "Error");
+  var hasErrorSubstep = false;
+  for (var i = 0; i < step.sub.length; i++) {
+    var idSubstep = step.sub[i];
+    var isErrorSubstep = expandToRevealErrors(idSubstep);
+    hasErrorSubstep = hasErrorSubstep || isErrorSubstep;
+  }
+  var ret = isError || hasErrorSubstep;
+  if (ret) {
+    expanded[idStep] = true;
+  }
+  return ret;
 }
 
 
@@ -522,15 +543,28 @@ function loadStepDetails(idStep) {
   */
 }
 
-function stepToHTML(step, isOutermostLevel) {
+function isStepHidden(step) {
   if (options["hide-same-code"] && step.tags.includes("same-code")) {
-    return "";
+    return true;
+  } else if (! options.step_change && step.kind == "Change") {
+    return true;
+  } else if (step.tags.some((tag) => options["hide-" + tag])) {
+    return true;
+  } else if (options["hide_empty_diff"] && step.diff == "") {
+    return true;
   }
-  if (! options.step_change && step.kind == "Change") {
-    return "";
-  }
+  return false;
+}
 
+function stepToHTML(step, isOutermostLevel) {
+  // Read flag indicating if step is expanded
   var isStepExpanded = (typeof expanded[step.id] !== 'undefined') && expanded[step.id];
+
+  // Compute if step should be hidden, in case it is not forced to be expanded
+  var hideStep = !isStepExpanded && isStepHidden(step);
+  if (hideStep) {
+    return "";
+  }
 
   // console.log("steptohtml " + step.id);
   var s = "";
@@ -550,12 +584,6 @@ function stepToHTML(step, isOutermostLevel) {
     }
   }
 
-  // Compute if this step is hidden
-  var hideStep = (step.tags.some((tag) => options["hide-" + tag]));
-  if (options["hide_empty_diff"] &&  step.diff == "") {
-    hideStep = true;
-  }
-
   // DEPRECATED
     // (!options.target_steps && step.kind == "Target") ||
     // (!options.io_steps && step.kind == "IO") ||
@@ -565,9 +593,7 @@ function stepToHTML(step, isOutermostLevel) {
   /*if (isRoot) {
     return "<ul class='step-sub'> " + sSubs + "</ul>\n";
   } else */
-  if (hideStep) {
-    return ""; //sSubs;
-  }
+
 
   // TODO: display check_validity
 
@@ -963,7 +989,10 @@ document.addEventListener('DOMContentLoaded', function () {
   } else {
     // expand the root, to see the top-level items
     expanded[stepInit] = true;
+    // expand to ensure errors are all visible
+    expandToRevealErrors(stepInit);
   }
+  // display tree
   reloadTraceView(); // calls loadStepDetails(selectedStep)
 });
 

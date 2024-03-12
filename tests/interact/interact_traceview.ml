@@ -36,6 +36,10 @@ let _ = Run.script_cpp (fun _ ->
   !! Label.add "lab1" [cVarDef "a"];
   !! Label.add "lab2" [cVarDef "a"];
 
+  (* Uncomment next line to see an error
+  !! Label.add "lab2" [cVarDef "xx"];
+  *)
+
   (* Details of multi-target processing *)
   bigstep "second part";
   !! Target.iteri (fun i p ->

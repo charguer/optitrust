@@ -692,7 +692,7 @@ let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_
     step_script_line = None;
     step_time_start = time_start;
     step_exectime = step_exectime;
-    step_name = "direct ast change";
+    step_name = "Changed AST directly";
     step_args = [];
     step_justif = [];
     step_flag_check_validity = flag_check_validity;
