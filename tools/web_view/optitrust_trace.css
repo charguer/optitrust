@@ -197,6 +197,9 @@ h2 {
 .step-title:hover {
    cursor:pointer;
 }
+.step-bullet {
+  padding-right: 2px;
+}
 .step-bullet:hover {
   cursor:pointer;
 }

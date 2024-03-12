@@ -1,3 +1,7 @@
+//›
+// ⌵
+
+
 // The function [Trace.dump_trace_to_js] in [trace.ml] documents the data representation
 // used for the trace. It looks like this, where 0 is always the id of the root step.
 
@@ -96,6 +100,11 @@ var optionsDescr = [ // extended by initAllTags
     kind: "UI",
     default: false,
   }, */
+  { key: "kind",
+    name: "kind",
+    kind: "UI",
+    default: false,
+  },
   { key: "compact",
     name: "compact",
     kind: "UI",
@@ -666,17 +675,32 @@ function stepToHTML(step, isOutermostLevel) {
   }
 
   var sKind = "";
-  if (step.script_line !== undefined) {
-    sKind = " [<b>" + step.script_line + "</b>] ";
-  } else if (step.kind == "Transfo") {
-    sKind = "";
-  } else if (!options.compact) {
+  // DEPRECATED line number
+  //  if (step.script_line !== undefined) {
+  //  sKind = " [<b>" + step.script_line + "</b>] ";
+  // } else
+  // DEPRECATED show kind conditionally
+  // if (step.kind == "Transfo") {
+  //  sKind = "";
+  // } else if (!options.compact) {
+  //  sKind = " [" + escapeHTML(step.kind) + "] ";
+  // }
+  if (options.kind) {
     sKind = " [" + escapeHTML(step.kind) + "] ";
   }
-  var sScript = escapeHTML(step.script);
+
+  var sScript = escapeHTML(step.script).trim();
   if (step.kind == "Big") {
     sScript = "<b>Bigstep: " + sScript + "</b>";
+  } else if (step.kind == "Small") {
+    // remove the leading '!! ' or '!!!'
+    if (sScript.startsWith('!!!')) {
+      sScript = sScript.substring(3).trim();
+    } else if (sScript.startsWith('!!')) {
+      sScript = sScript.substring(2).trim();
+    }
   }
+
   var sOnClick = "";
   if (step.hasOwnProperty("id")) { // LATER: refine
     sOnClick = "onclick='loadStepDetails(" + step.id + ")'";
@@ -747,7 +771,7 @@ function stepToHTML(step, isOutermostLevel) {
 
   // Line contents
   if (! isRoot) {
-    s += "<div id='tree-step-" + step.id + "' class='tree-step " + fullLineClass + "'><span class='step-bullet' " + sOnClickFocusOnStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + " " + sScript + sTags + "</span></div>";
+    s += "<div id='tree-step-" + step.id + "' class='tree-step " + fullLineClass + "'><span class='step-bullet' " + sOnClickFocusOnStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + "" + sScript + sTags + "</span></div>";
   }
 
   if (options.justif) {
@@ -855,10 +879,10 @@ function viewDetailsNormal() {
 function viewDetailsFull() {
   for (var key in options) {
     options[key] = false;
+    options["justif"] = false;
   }
   options["tree"] = true;
   options["args"] = true;
-  options["justif"] = true;
   options["exectime"] = true;
   options["step_change"] = true;
   optionsCheckboxUpdate();
