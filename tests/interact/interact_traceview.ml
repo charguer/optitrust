@@ -38,7 +38,7 @@ let _ = Run.script_cpp (fun _ ->
 
   (* Details of multi-target processing *)
   bigstep "second part";
-  !! Target.iteri (fun i _t p ->
+  !! Target.iteri (fun i p ->
        Label.add ("occ" ^ string_of_int i) [cPath p])
      [nbMulti; cVarDef ""];
 

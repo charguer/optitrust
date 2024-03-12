@@ -53,6 +53,11 @@ var optionsDefaultValueForTags = { // true = checked = hidden
 var allTags = {}; // filled by initAllTags
 
 var optionsDescr = [ // extended by initAllTags
+  { key: "advanced",
+    name: "advanced",
+    kind: "standard",
+    default: false
+  },
   { key: "hide_empty_diff",
     name: "hide-empty-diff",
     kind: "advanced",
@@ -144,11 +149,6 @@ var optionsDescr = [ // extended by initAllTags
     name: "basic-modules",
     kind: "advanced",
     default: true,
-  },
-  { key: "advanced",
-    name: "advanced",
-    kind: "standard",
-    default: false
   }
 ];
 
@@ -954,12 +954,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // start by showing the tree of steps on the root, or the requested step
   var stepInit = 0; // root
-  expanded[stepInit] = true;
-  if (typeof startupOpenStep !== "undefined") {
-    // DEPRECATED stepInit = startupOpenStep;
-    expanded[startupOpenStep] = true;
-  }
   selectedStep = steps[stepInit];
+  if (typeof startupOpenStep !== "undefined") {
+    // expand the targeted step, recursively
+    expandRecursively(startupOpenStep);
+    // DEPRECATED stepInit = startupOpenStep;
+    // DEPRECATED expanded[startupOpenStep] = true;
+  } else {
+    // expand the root, to see the top-level items
+    expanded[stepInit] = true;
+  }
   reloadTraceView(); // calls loadStepDetails(selectedStep)
 });
 
