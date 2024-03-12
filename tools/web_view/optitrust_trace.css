@@ -197,10 +197,12 @@ h2 {
 .step-title:hover {
    cursor:pointer;
 }
-.step-bullet {
-  padding-right: 2px;
+.step-expand {
+  padding-left: 2px;
+  padding-right: 4px;
+  font-weight: bold;
 }
-.step-bullet:hover {
+.step-expand:hover {
   cursor:pointer;
 }
 .checkbox-label {

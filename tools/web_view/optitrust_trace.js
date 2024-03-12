@@ -1,7 +1,3 @@
-//›
-// ⌵
-
-
 // The function [Trace.dump_trace_to_js] in [trace.ml] documents the data representation
 // used for the trace. It looks like this, where 0 is always the id of the root step.
 
@@ -57,11 +53,6 @@ var optionsDefaultValueForTags = { // true = checked = hidden
 var allTags = {}; // filled by initAllTags
 
 var optionsDescr = [ // extended by initAllTags
-  { key: "hide_substeps",
-    name: "hide-substeps",
-    kind: "advanced",
-    default: false
-  },
   { key: "hide_empty_diff",
     name: "hide-empty-diff",
     kind: "advanced",
@@ -139,6 +130,11 @@ var optionsDescr = [ // extended by initAllTags
     kind: "standard",
     default: false,
   },*/
+  { key: "expand_all",
+    name: "expand-all",
+    kind: "standard",
+    default: false,
+  },
   { key: "atomic_substeps",
     name: "atomic-substeps",
     kind: "advanced",
@@ -159,6 +155,8 @@ var optionsDescr = [ // extended by initAllTags
 var options = {}; // filled by initOptions, maps key to value
 var optionsDefault = {}; // filled by initOptions, maps key to default value
 
+var expanded = []; // maps node ids to boolean values, indicating if node is expanded;
+                   // entries in this map are optional for nodes
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -284,7 +282,10 @@ var curSdiff = -1;
 var curBdiff = -1;
 var idSourceLeft = -1;
 var idSourceRight = -1;
+
 var selectedStep = undefined; // stores a step object
+ // DEPRECATED: selectedStep is now always the root step,
+ // but in the future we could keep it
 
 function loadDebugMsgs(messages) {
   var s = '';
@@ -416,16 +417,70 @@ function loadSource(sourceCode, dontResetView) {
   //curSource = id;
 }
 
-// handles a click on a step bullet item, to focus on that step
-function focusOnStep(idStep) {
-  //console.log("focusOnStep " + idStep + " with parent " + steps[idStep].parent_id);
-  options["hide_substeps"] = false;
-  optionsCheckboxUpdate();
-  resetView();
-  var step = steps[idStep];
-  selectedStep = step;
-  reloadTraceView();
+function exandClickHandler(event) {
+  console.log(event);
 }
+
+// handles click or ctrl+click
+function expandClick(event, idStep) {
+  //console.log(event);
+  if (event.ctrlKey) {
+    expandRecursively(idStep);
+  } else {
+    toggleExpandStep(idStep);
+  }
+}
+
+
+
+// handles a click on a step expand control
+function toggleExpandStep(idStep) {
+  if (options["expand_all"]) {
+    return;
+  }
+
+  //console.log("toggleExpandStep " + idStep + " with parent " + steps[idStep].parent_id);
+  var step = steps[idStep];
+
+  // add an expansion entry if needed
+  if (typeof expanded[idStep] === 'undefined') {
+    expanded[idStep] = false;
+  }
+  // toggle expansion and update tree view
+  expanded[idStep] = ! expanded[idStep];
+  reloadTraceView(); // LATER: could be smarter to redraw only the subtree involved
+  //DEPRECATED select step and focus on it if expanding
+  // if (expanded[idStep]) {
+  loadStepDetails(idStep);
+
+}
+
+// handles a ctrl+click on a step expand control
+function expandRecursively(idStep) {
+  if (options["expand_all"]) {
+    return;
+  }
+  // add an expansion entry if needed
+  if (typeof expanded[idStep] === 'undefined') {
+    expanded[idStep] = false;
+  }
+  const newValue = ! expanded[idStep];
+  // recursive traversal
+  function aux(idStep, newValue) {
+    expanded[idStep] = newValue;
+    var step = steps[idStep];
+    if (options.atomic_substeps || !step.tags.includes("atomic")) {
+      for (var i = 0; i < step.sub.length; i++) {
+        var idSubstep = step.sub[i];
+        aux(idSubstep, newValue);
+      }
+    }
+  };
+  aux(idStep, newValue);
+  reloadTraceView();
+  loadStepDetails(idStep);
+}
+
 
 // handles a click on a step, to view details
 function loadStepDetails(idStep) {
@@ -474,20 +529,20 @@ function stepToHTML(step, isOutermostLevel) {
   if (! options.step_change && step.kind == "Change") {
     return "";
   }
-  if (options["hide_substeps"]
-    && step.kind != "Root"
-    && step.kind != "Big"
-    && step.kind != "Small") {
-    return "";
-  }
+
+  var isStepExpanded = (typeof expanded[step.id] !== 'undefined') && expanded[step.id];
 
   // console.log("steptohtml " + step.id);
   var s = "";
 
   // Recursive steps
   var sSubs = "";
-  const showSubsteps =
-    (options.atomic_substeps || !step.tags.includes("atomic"));
+  var showSubsteps; // defined by conditionals below
+  if (options["expand_all"]) {
+    showSubsteps = options.atomic_substeps || !step.tags.includes("atomic");
+  } else {
+    showSubsteps = isStepExpanded;
+  }
   if (showSubsteps) {
     for (var i = 0; i < step.sub.length; i++) {
       var substep = steps[step.sub[i]];
@@ -610,26 +665,29 @@ function stepToHTML(step, isOutermostLevel) {
     sArgs = "<span class='args'>" + escapeHTML(sArgs) + "</span>";
   }
 
-  // Link to focus on step and to exit current focus // root is its own parent
-  var idOnClickFocusOnStep = (isOutermostLevel) ? step.parent_id : step.id;
-  var sOnClickFocusOnStep = "onclick='focusOnStep(" + idOnClickFocusOnStep + ")'";
+  // Toggle expand symbol
+  var sOnClickToggleStep = " onmousedown='expandClick(event, " + step.id + ")'";
+  var sStepSymbol = "&#9679;" // bullet for leaves
+  if (step.sub.length > 0) {
+    sStepSymbol = (isStepExpanded) ? "⌵" : "›";
+  }
 
-  // Line symbol
-  var sStepSymbol;
+  // Validity Symbol
+  var sValiditySymbol;
   if (root_checking_validity) {
     if (step.isvalid) {
-      sStepSymbol = "&#10004;" // check
+      sValiditySymbol = "&#10004;" // check
     } else if (step.has_valid_parent) {
-      sStepSymbol = "&diams;"; // diamond, validity is covered by a parent
+      sValiditySymbol = "&diams;"; // diamond, validity is covered by a parent
     } else if (! step.check_validity) {
-      sStepSymbol = "&#9679;" // circle, was not trying to check validity
+      sValiditySymbol = "&#9679;" // circle, was not trying to check validity
       // lineClass = "step-has-valid_parent";
     } else { // step.check_validity && ! step.isvalid
-      sStepSymbol= "&#10060"; // cross, for a trustme step
+      sValiditySymbol= "&#10060"; // cross, for a trustme step
       lineClass = "step-invalid";
     }
   } else {
-    sStepSymbol = "&#9679;" // circle, was not trying to check validity
+    sValiditySymbol = "";
   }
 
   // Line color
@@ -649,7 +707,7 @@ function stepToHTML(step, isOutermostLevel) {
 
   // Line contents
   if (! isRoot) {
-    s += "<div id='tree-step-" + step.id + "' class='tree-step " + fullLineClass + "'><span class='step-bullet' " + sOnClickFocusOnStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + "" + sScript + sTags + "</span></div>";
+    s += "<div id='tree-step-" + step.id + "' class='tree-step " + fullLineClass + "'><span class='step-expand' " + sOnClickToggleStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + "" + sScript + sTags + sValiditySymbol + "</span></div>";
   }
 
   if (options.justif) {
@@ -755,6 +813,7 @@ function viewDetailsFull() {
     options[key] = false;
     options["justif"] = false;
   }
+  options["expand_all"] = true;
   options["args"] = true;
   options["exectime"] = true;
   options["step_change"] = true;
@@ -895,8 +954,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // start by showing the tree of steps on the root, or the requested step
   var stepInit = 0; // root
+  expanded[stepInit] = true;
   if (typeof startupOpenStep !== "undefined") {
-    stepInit = startupOpenStep;
+    // DEPRECATED stepInit = startupOpenStep;
+    expanded[startupOpenStep] = true;
   }
   selectedStep = steps[stepInit];
   reloadTraceView(); // calls loadStepDetails(selectedStep)
