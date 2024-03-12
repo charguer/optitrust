@@ -1569,6 +1569,8 @@ let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
   let get_next_id () : int =
     incr next_id;
     !next_id in
+  if !Flags.trace_for_webview
+    then out "var webview = true;\n";
   out "var steps = [];\n";
   let idroot = get_next_id() in
   dump_step_tree_to_js ~is_substep_of_targeted_line:false get_next_id out idroot step;

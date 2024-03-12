@@ -106,6 +106,28 @@
         ]
       },
       {
+        "label": "View trace for webview",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_full_trace",
+          "-detailed-trace",
+          "-trace-for-webview"
+        ]
+      },
+      {
         "label": "View trace from intermediate state",
         "type": "shell",
         "command": "tools/view_result.sh",

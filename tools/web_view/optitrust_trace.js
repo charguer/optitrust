@@ -9,6 +9,7 @@
 
 /*
 var startupOpenStep = 45; // optional binding
+var webview = true; // optional binding
 var steps = [];
 steps[0] = {
    id: 0, // corresponds to the step number
@@ -59,7 +60,7 @@ var optionsDescr = [ // extended by initAllTags
   { key: "hide_substeps",
     name: "hide-substeps",
     kind: "advanced",
-    default: false,
+    default: false
   },
   { key: "hide_empty_diff",
     name: "hide-empty-diff",
@@ -151,9 +152,10 @@ var optionsDescr = [ // extended by initAllTags
   { key: "advanced",
     name: "advanced",
     kind: "standard",
-    default: false,
+    default: false
   }
 ];
+
 var options = {}; // filled by initOptions, maps key to value
 var optionsDefault = {}; // filled by initOptions, maps key to default value
 
@@ -766,9 +768,13 @@ function initOptions() {
     optionsDefault[descr.key] = descr.default;
     options[descr.key] = descr.default;
   }
+  // default value for 'advanced' depends on whether
+  // the 'webview' variable is defined in *_trace.js
+  if (typeof webview === "undefined" || webview === false) {
+    options.advanced = true;
+  }
 }
 
-initOptions();
 function initControls() {
   var s = "";
   /* DEPRECATED function addRow(sTitle, sRow) {
