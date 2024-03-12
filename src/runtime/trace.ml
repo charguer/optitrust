@@ -753,7 +753,7 @@ let tag_atomic () : unit =
 
 (** [tag_valid_by_composition] is called by a transformation after open_step to indicate that it should be valid by composition. This can be used for filtering trace display or checking that it is indeed valid by composition. *)
 let tag_valid_by_composition () : unit =
-  tag "should_be_valid_by_composition"
+  () (* DEPRECATED: tag "should_be_valid_by_composition" *)
 
 (** [tag_simpl_arith] is called by a transformation after open_step to indicate that it performs arithmetic simplifications. This can be used for filtering trace display. *)
 let tag_simpl_arith () : unit =
