@@ -103,7 +103,7 @@ let use_light_diff : bool ref = ref false
 
 (* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them.
    It affects the behavior of the parsing function [c_parser] to bypass [cfeatures_elim].
-   It affects the behavior of the printing function [output_prog] to bypass [cfeatures_intro].
+   It affects the behavior of the printipng function [output_prog] to bypass [cfeatures_intro].
    Note: this option is orthogonal to [print_optitrust_syntax]; beware, however, that it makes
    no sense to print encoded terms without [print_optitrust_syntax] activated. *)
 let bypass_cfeatures : bool ref = ref false
@@ -160,6 +160,9 @@ let process_mode (mode : string) : unit =
   | "full-trace" -> Execution_mode_full_trace
   | "exec" -> Execution_mode_exec
   | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
+
+(* Options to whether to export the trace for website view *)
+let trace_for_webview : bool ref = ref false
 
 (* Options to control how much details are exported in the trace *)
 let detailed_trace : bool ref = ref false
@@ -221,6 +224,7 @@ type cmdline_args = (string * Arg.spec * string) list
 let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
+     ("-trace-for-webview", Arg.Set trace_for_webview, " generate a trace with the appropriate features for export to a website ");
      ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");

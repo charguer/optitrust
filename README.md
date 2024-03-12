@@ -20,7 +20,7 @@ It takes about 30 minutes to install the required OCaml software.
 Installation of system packages:
 
 ```sh
-   sudo apt-get install opam clang-format libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
+   sudo apt-get install opam clang clang-format libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
    # for C++ headers support:
    sudo apt-get install libc++-dev
    # optional, only if you prefer using `meld` over `code -d`:
@@ -139,11 +139,10 @@ Alternatively, use the quick open prompt (`ctrl+p`), then paste `ext install oca
 In VSCode, open the file `~/.config/Code/User/keybindings.json`.
 For VSCodium, this file is located at `~/.config/VSCodium/User/keybindings.json`.
 If you have an empty file, paste the following contents.
-If you have a nonempty file, copy the inner contents of the outermost braces,
-and merge that contents just before the final closing brace of the existing file.
-
+If you have a nonempty file, copy the bindings into your file.
 
 ```jsonc
+[
   // OptiTrust keybindings
   {
     "key": "f5",
@@ -251,6 +250,8 @@ and merge that contents just before the final closing brace of the existing file
      "when": "config.optitrust.enableKeybindings"
   },
   // Unused "alt+f6", "alt+f7", "ctrl+shift+f6",..
+  // End of OptiTrust keybindings
+]  
 ```
 
 Note: the shortcuts refer to tasks that are defined in `.vscode/tasks.json`,
