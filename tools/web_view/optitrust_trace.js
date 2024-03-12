@@ -56,102 +56,102 @@ var optionsDefaultValueForTags = { // true = checked = hidden
 var allTags = {}; // filled by initAllTags
 
 var optionsDescr = [ // extended by initAllTags
-  { key: "tree",
-    name: "tree",
-    kind: "UI",
-    default: true,
-  },
   { key: "hide_substeps",
     name: "hide-substeps",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   { key: "hide_empty_diff",
     name: "hide-empty-diff",
-    kind: "UI",
+    kind: "advanced",
     default: true,
   },
   { key: "ast_before",
     name: "ast-before",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },
   { key: "ast_after",
     name: "ast-after",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },
 /*  { key: "stats",
     name: "stats",
-    kind: "UI",
+    kind: "standard",
     default: false,
   }, */
   { key: "kind",
     name: "kind",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   { key: "compact",
     name: "compact",
-    kind: "UI",
+    kind: "advanced",
     default: true,
   },
   { key: "step_change",
     name: "step-change",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   { key: "args",
     name: "arguments",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },
   { key: "justif",
     name: "justification",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   /* always-true
   { key: "simpl-show",
     name: "simpl-show-steps",
-    kind: "UI",
+    kind: "standard",
     default: true,
   },*/
   { key: "exectime",
     name: "exectime",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   { key: "tags",
     name: "tags",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   { key: "debug_msgs",
     name: "debug-msgs",
-    kind: "UI",
+    kind: "advanced",
     default: true,
   },
   /* DEPRECATED
    { key: "io_steps",
     name: "io-steps",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },
   { key: "target_steps",
     name: "target-steps",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },*/
   { key: "atomic_substeps",
     name: "atomic-substeps",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   { key: "basic_modules",
     name: "basic-modules",
-    kind: "UI",
+    kind: "advanced",
     default: true,
+  },
+  { key: "advanced",
+    name: "advanced",
+    kind: "standard",
+    default: false,
   }
 ];
 var options = {}; // filled by initOptions, maps key to value
@@ -708,11 +708,12 @@ function reloadTraceView() {
   //console.log("reloadTraceView " + selectedStep.id);
   // var shouldShowDetails = ($("#detailsDiv").html() == "");
   resetView();
+  /* DEPRECATED: hide tree
   if (options.tree) {
     $("#detailsDiv").show();
   } else {
     $("#detailsDiv").hide();
-  }
+  }*/
   if (typeof selectedStep !== "undefined") {
     loadStepDetails(selectedStep.id); // TODO inline here?
     $("#detailsDiv").html(stepToHTML(selectedStep, true));
@@ -730,7 +731,10 @@ function reloadTraceView() {
 function optionsCheckboxUpdate() {
   // update checkbox display // TODO: use this also in other place
   for (var key in options) {
-    $('#option_' + key).prop('checked', options[key]);
+    var elem = $('#option_' + key);
+    if (elem.length == 1) {
+      elem.prop('checked', options[key]);
+    }
   }
 }
 
@@ -749,7 +753,6 @@ function viewDetailsFull() {
     options[key] = false;
     options["justif"] = false;
   }
-  options["tree"] = true;
   options["args"] = true;
   options["exectime"] = true;
   options["step_change"] = true;
@@ -775,8 +778,16 @@ function initControls() {
   // Generate checkboxes
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
+    // skip advanced options if not options advanced selected
+    if (! options.advanced && (descr.kind == "advanced" || descr.kind == "tag")) {
+      continue;
+    }
     var id = "option_" + descr.key;
-    s += htmlCheckbox(id, descr.name, "details-checkbox", "updateOptions()");
+    var oncheck = "updateOptions()";
+    if (descr.name == "advanced") {
+      oncheck += "; initControls()";
+    }
+    s += htmlCheckbox(id, descr.name, "details-checkbox", oncheck);
   }
 
   // Full/normal button
@@ -799,8 +810,10 @@ function updateOptions() {
   var ast_before_was_checked = options.ast_before;
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
-    var id = "option_" + descr.key;
-    options[descr.key] = $('#' + id).prop('checked');
+    var elem = $('#option_' + descr.key);
+    if (elem.length == 1) {
+      options[descr.key] = elem.prop('checked');
+    }
   }
   /* LATER
   if (options.exectime) {
@@ -850,7 +863,7 @@ function initAllTags() {
     var descr = {
       key: key,
       name: key,
-      kind: "UI",
+      kind: "tag",
       default: val,
     };
     optionsDescr.push(descr);
