@@ -34,24 +34,10 @@ Additional fields are set by the function   initTree
 - parent_id
 - has_valid_parent
 
-The function initSteps() builds an array of [bigsteps] and an array of [smallsteps],
-in order of appearance.
-
-Representation of a big step:
-  bigsteps[k] = step object with additional fields:
-      bigstep_id: // the id of the step in the bigsteps array
-      start: // an index in smallstep array, inclusive
-      stop: // an index in smallstep array, exclusive
-  smallsteps[k] = step object with additional fields:
-      smallspep_id: // the id of the step in the smallsteps array
-
 */
 
-// data structures filled by function initSteps
-var smallsteps = [];
-var bigsteps = [];
-var hasBigsteps = undefined; // false iff bigsteps is empty
-var root_checking_validity = undefined; // set during initSteps
+// Flag indicating whether the trace has been produced with [Flag.check_validity = true]
+var root_checking_validity = undefined;
 
 // checkbox status; may change default values here
 
@@ -391,45 +377,12 @@ function resetView() {
   $(".ctrl-button").removeClass("ctrl-button-selected ctrl-button-covered");
 }
 
-function getBdiffCovering(sdiffId) {
-  for (var i = 0; i < bigsteps.length; i++) {
-    if (bigsteps[i].start <= sdiffId && sdiffId < bigsteps[i].stop) {
-      return i;
-    }
-  }
-  return -1; // should not happen
-}
-
 function showOrHide(obj, visible) {
   if (visible) {
     obj.show();
   } else {
     obj.hide();
   }
-}
-
-function hideNoncoveredButtons(bdiffId) {
-  // if (smallsteps.length <= maxButtons)
-  //  return; // no hiding needed if only a few steps
-  var step = bigsteps[bdiffId];
-  var start = step.start;
-  var stop = step.stop;
-  /*for (var i = 0; i <= codes.length; i++) {
-    // DEPRECATED showOrHide($("#button_code_" + i), (start <= i && i <= stop));
-    if (i < smallsteps.length)
-      showOrHide($("#button_sdiff_" + i), (start <= i && i < stop));
-  }*/
-  for (var i = 0; i < smallsteps.length; i++) {
-    showOrHide($("#button_sdiff_" + i), (start <= i && i < stop));
-  }
-}
-
-function showBdiffCovered(sdiffId) {
-  var bdiffId = getBdiffCovering(sdiffId);
-  if (bdiffId == -1)
-    return;
-  $("#button_bdiff_" + bdiffId).addClass("ctrl-button-covered");
-  hideNoncoveredButtons(bdiffId);
 }
 
 function displayInfo(descr) {
@@ -461,75 +414,6 @@ function loadSource(sourceCode, dontResetView) {
   //curSource = id;
 }
 
-function loadSdiff(id) {
-  $('#button_sdiff_next').focus();
-  resetView();
-  $("#diffDiv").show();
-  var step = smallsteps[id];
-  selectedStep = step;
-  reloadTraceView(); //loadStepDetails(step.id);
-  loadDiffForStep(step);
-  var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
-  if (options.exectime) {
-    var nbMilliseconds = Math.round(1000 * step.exectime);
-    var sTime = htmlSpan(nbMilliseconds + "ms", "timing-info") + "<div style='clear: both'></div>";
-    sStep += sTime;
-  }
-  displayInfo(sStep);
-  $("#button_sdiff_" + id).addClass("ctrl-button-selected");
-  // DEPRECATED $("#button_code_" + id).addClass("ctrl-button-covered");
-  // DEPRECATED $("#button_code_" + (id+1)).addClass("ctrl-button-covered");
-  showBdiffCovered(id);
-  curSdiff = id;
-  idSourceLeft = id;
-  idSourceRight = id+1;
-}
-
-function loadBdiff(id) {
-  $('#button_bdiff_next').focus();
-  resetView();
-  $("#diffDiv").show();
-  var step = bigsteps[id];
-  selectedStep = step;
-  reloadTraceView(); // loadStepDetails(step.id);
-  loadDiffForStep(step);
-  $("#button_bdiff_" + id).addClass("ctrl-button-selected");
-  var sStep = htmlSpan(escapeHTML(step.script), "step-info");
-  displayInfo(sStep);
-  curBdiff = id;
-  // $("#button_sdiff_" + bigsteps[id].start).addClass("ctrl-button-covered");
-  hideNoncoveredButtons(id);
-  curSdiff = bigsteps[id].start - 1; // -1 to anticipate for "next" being pressed
-  idSourceLeft = bigsteps[id].start;
-  idSourceRight =bigsteps[id].stop;
-}
-
-// LATER: simplify, as curSource is deprecated
-function nextSdiff() {
-  /*if (curSdiff == -1 && curSource != -1) {
-    curSdiff = curSource - 1;
-  }*/
-  //var id = Math.min(curSdiff + 1, smallsteps.length-1);
-  var id = (curSdiff + 1) % smallsteps.length;
-  loadSdiff(id);
-}
-
-// LATER: simplify, as curSource is deprecated
-function nextBdiff() {
-  /*if (curBdiff == -1) {
-    if (curSdiff == -1 && curSource != -1) {
-      curSdiff = curSource - 1;
-    }
-    curBdiff = getBdiffCovering(curSdiff) - 1; // anticipate for the +1 operation
-  }
-  //var id = Math.min(curBdiff + 1, bigsteps.length-1);
-  if (curBdiff == -1) {
-    curBdiff = 0;
-  }*/
-  var id = (curBdiff + 1) % bigsteps.length;
-  loadBdiff(id);
-}
-
 // handles a click on a step bullet item, to focus on that step
 function focusOnStep(idStep) {
   //console.log("focusOnStep " + idStep + " with parent " + steps[idStep].parent_id);
@@ -539,14 +423,6 @@ function focusOnStep(idStep) {
   var step = steps[idStep];
   selectedStep = step;
   reloadTraceView();
-  if (step.hasOwnProperty("smallstep_id")) {
-    //console.log("reload small step " + steps[step.smallstep_id].id)
-    loadSdiff(step.smallstep_id);
-  } else if (step.hasOwnProperty("bigstep_id")) {
-    //console.log("reload big step " + steps[step.bigstep_id].id)
-    loadBdiff(step.bigstep_id);
-  }
-
 }
 
 // handles a click on a step, to view details
@@ -850,14 +726,6 @@ function reloadTraceView() {
   //}
 }
 
-// handles click on the "all" button
-function viewDetailsAll() {
-  // $("#diffDiv").hide();
-  selectedStep = steps[0]; // root
-  reloadTraceView();
-  // $("#detailsDiv").html(stepToHTML(selectedStep));
-}
-
 // handles update after click on "normal" or "full" button
 function optionsCheckboxUpdate() {
   // update checkbox display // TODO: use this also in other place
@@ -900,41 +768,9 @@ function initOptions() {
 initOptions();
 function initControls() {
   var s = "";
-  function addRow(sTitle, sRow) {
+  /* DEPRECATED function addRow(sTitle, sRow) {
     s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br class='row-br'/>";
-  };
-
-  // Code buttons
-  /* DEPRECATED
-  var sCode = "";
-  sCode += htmlButton("button_code_next", "next", "next-button", "nextSource()");
-  for (var i = 0; i < codes.length; i++) {
-    sCode += htmlButton("button_code_" + i, i, "ctrl-button", "loadSource(" + i + ")");
-  }
-  addRow("Source", sCode);
-  */
-
-  // Big diff buttons
-    var sBdiff = "";
-  sBdiff += htmlButton("button_bdiff_next", "next", "next-button", "nextBdiff()");
-  for (var i = 0; i < bigsteps.length; i++) {
-    sBdiff += htmlButton("button_bdiff_" + i, (i+1), "ctrl-button", "loadBdiff(" + i + ")");
-  }
-  if (bigsteps.length > 1) {
-    addRow("BigSteps", sBdiff);
-  }
-
-  // Small diff buttons
-  var sSdiff = "";
-  sSdiff += htmlButton("button_sdiff_next", "next", "next-button", "nextSdiff()");
-  for (var i = 0; i < smallsteps.length; i++) {
-    sSdiff += htmlButton("button_sdiff_" + i, (i+1), "ctrl-button", "loadSdiff(" + i + ")");
-  }
-  addRow("SmallSteps", sSdiff);
-
-  // Details button
-  // s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
-  s += htmlButton("button_all", "all", "details-button", "viewDetailsAll()");
+  }; */
 
   // Generate checkboxes
   for (var i = 0; i < optionsDescr.length; i++) {
@@ -946,6 +782,7 @@ function initControls() {
   // Full/normal button
   s += htmlButton("button_normal", "normal", "details-button", "viewDetailsNormal()");
   s += htmlButton("button_full", "full", "details-button", "viewDetailsFull()");
+  s += htmlButton("button_reset", "reset", "details-button", "location.reload()");
 
   $("#contents").html(s);
 
@@ -981,70 +818,6 @@ function updateOptions() {
     }
   }
   reloadTraceView();
-}
-
-function initSteps() {
-  // reads global variable [steps]
-  // writes global variables [smallsteps] and [bigsteps] and [hasBigsteps]
-  var rootStep = steps[0];
-  root_checking_validity = steps[0].check_validity;
-  var rootSub = rootStep.sub;
-  if (rootSub.length == 0) {
-    console.log("Error: no steps in tree")
-    return;
-  }
-  // set global variable [hasBigsteps]
-  hasBigsteps = false;
-  for (var i = 0; i < rootSub.length; i++) {
-    if (steps[rootSub[i]].kind == "Big") {
-      hasBigsteps = true;
-      break;
-    }
-  }
-
-  // counter used to fill [smallsteps] array
-  var curSmallStep = 0;
-
-  // function to iterate over an array of step ids treated as small steps
-  function numberSmallSteps(stepIds) {
-    for (var i = 0; i < stepIds.length; i++) {
-      var smallstep_id = stepIds[i];
-      var smallstep = steps[smallstep_id];
-      if (smallstep.kind == "IO" || smallstep.kind == "Typing") {
-        continue;
-      }
-      if (smallstep.kind != "Small") {
-        console.log("Error: numberSmallSteps expected a small step but encountered a step of kind " + smallstep.kind);
-      }
-      // DEPRECATED(redundant) smallstep.id = smallstep_id;
-      smallstep.smallstep_id = curSmallStep;
-      smallsteps[curSmallStep] = smallstep;
-      curSmallStep++;
-    }
-  };
-
-  if (hasBigsteps) {
-    // filling of [bigsteps] and [smallsteps] array
-    for (var i = 0; i < rootSub.length; i++) {
-      var bigstep_id = rootSub[i];
-      var bigstep = steps[bigstep_id];
-      if (bigstep.kind == "IO") {
-        continue;
-      }
-      if (bigstep.kind != "Big") {
-        console.log("Error: initSteps expected a big-step but encountered a step of kind " + bigstep.kind);
-      }
-      // DEPRECATED(redundant) bigstep.id = bigstep_id;
-      bigstep.start = curSmallStep;
-      numberSmallSteps(bigstep.sub);
-      bigstep.stop = curSmallStep;
-      bigstep.bigstep_id = i;
-      bigsteps[i] = bigstep;
-    }
-  } else {
-    // there are no big-steps, filling only [smallsteps] array
-    numberSmallSteps(rootSub);
-  }
 }
 
 function initTree(id, parent_id, has_valid_parent) {
@@ -1087,10 +860,8 @@ function initAllTags() {
 
 document.addEventListener('DOMContentLoaded', function () {
   var isRootedTrace = (steps[0].kind == "Root");
+  root_checking_validity = steps[0].check_validity;
   initEditor();
-  if (isRootedTrace) {
-    initSteps();
-  }
   initAllTags();
   initOptions();
   initControls();
@@ -1098,16 +869,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initTree(0, 0, false); // the root is its own parent, has no valid parent
   // editor.setValue("click on a button");
   if (isRootedTrace) {
-    /*if (hasBigsteps) {
-      loadBdiff(0);
-    } else {
-      loadSdiff(0);
-    }
-    DEPRECATED
-    */
-    $('#button_bdiff_next').focus();
   } else {
-    $('#button_sdiff_next').hide();
     $('.row-title').hide();
     $('.row-br').hide();
   }
