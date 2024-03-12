@@ -75,6 +75,17 @@ let inline_aux (index : int) (body_mark : mark) (subst_mark : mark) (p_local : p
           (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
           (Seq.map (fun (g, f) -> (g, trm_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
         in
+        if !Flags.check_validity then begin
+          (* FIXME: this check should be done by Variable.inline instead of this transfo, which should bind temporary variables *)
+          Var_map.iter (fun _ arg_val ->
+            if Option.is_some (trm_var_inv arg_val) then
+              Trace.justif "inlining variable argument is always correct, does not intefere with anything"
+            else if Option.is_some (trm_lit_inv arg_val) then
+              Trace.justif "inlining literal argument is always correct, does not intefere with anything"
+            else
+              trm_fail arg_val "inlining arbitrary argument is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc"
+          ) subst_map
+        end;
         let fun_decl_body = trm_subst subst_map (trm_copy body) in
         let name = match t.desc with
           | Trm_let (vk, (x, _), _) -> x

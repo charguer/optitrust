@@ -297,10 +297,17 @@ let subtract_linear_resource_set ?(split_frac: bool = false) ?(evar_ctx: unifica
       raise_resource_not_found Linear res_item evar_ctx res_from
   ) ([], res_from, evar_ctx) res_removed
 
-(** [intersect_linear_resource_set] computes the intersection between two linear resource sets
+(** [partial_extract_linear_resource_set] computes the intersection between two linear resource sets
     If [evar_ctx] is provided, this is done up to evar unification.
+  Returns [(used, res_left', res_right', evar_ctx')] where:
+  - [used] are the consumed resource items
+  - [res_left'] is what remains from [res_left]
+  - [res_right'] is what remains from [res_right]
+  - [evar_ctx'] is the evar context updated with new unification choices
+
+  FIXME: not symmetrical left/right doc (uninit)
 *)
-let intersect_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.empty) (res_left: linear_resource_set) (res_right: linear_resource_set)
+let partial_extract_linear_resource_set ?(evar_ctx: unification_ctx = Var_map.empty) (res_left: linear_resource_set) (res_right: linear_resource_set)
   : used_resource_item list * linear_resource_set * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, res_left, unmatched_right, evar_ctx) res_item ->
     try

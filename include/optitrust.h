@@ -306,6 +306,32 @@ __GHOST(forget_init) {
   __admitted();
 }
 
+/* ---- In Range ---- */
+
+__GHOST(in_range_extend) {
+  __requires("x: int, r1: range, r2: range");
+  __requires("in_range(x, r1), is_subrange(r1, r2)");
+  __ensures("in_range(x, r2)");
+  __admitted();
+}
+
+__GHOST(in_range_shift) {
+  __requires("x: int, k: int, a: int, b: int, s: int");
+  __requires("in_range(x, range(a, b, s))");
+  __ensures("in_range(x+k, range(a+k, b+k, s))");
+  __admitted();
+}
+
+__GHOST(in_range_shift_extend) {
+  __requires("x: int, k: int, r: range, a: int, b: int, s: int");
+  __requires("in_range(x, range(a, b, s))");
+  __requires("is_subrange(range(a+k, b+k, s), r)");
+  __ensures("in_range(x+k, r)");
+
+  __ghost(in_range_shift, "x, k, a, b, s");
+  __ghost(in_range_extend, "x+k, range(a+k, b+k, s), r");
+}
+
 /* ---- Group Ghosts ---- */
 
 __GHOST(ro_fork_group) {

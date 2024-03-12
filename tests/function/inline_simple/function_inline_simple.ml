@@ -2,6 +2,8 @@
 open Optitrust
 open Target
 
+(* TODO: let _ = Flags.check_validity := true *)
+
 (* Fix this unit test *)
 let _ = Run.script_cpp (fun _ ->
 

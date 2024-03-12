@@ -26,6 +26,36 @@ let __produces (r: string) = Produces, r
 let __sequentially_reads (r: string) = SequentiallyReads, r
 let __sequentially_modifies (r: string) = SequentiallyModifies, r
 
+let delete_annots_on (t : trm) : trm =
+  let rec aux t =
+    let t = if
+      (Option.is_some (Resource_trm.ghost_inv t)) ||
+      (Option.is_some (Resource_trm.ghost_begin_inv t)) ||
+      (Option.is_some (Resource_trm.ghost_end_inv t))
+      then trm_seq_nobrace_nomarks []
+      else t
+    in
+    let t = begin match t.desc with
+    | Trm_fun (args, ret_ty, body, contract) ->
+      trm_replace (Trm_fun (args, ret_ty, body, FunSpecUnknown)) t
+    | Trm_let_fun (f, ty, args, body, contract) ->
+      trm_replace (Trm_let_fun (f, ty, args, body, FunSpecUnknown)) t
+    | Trm_for (loop_range, body, contract) ->
+      trm_replace (Trm_for (loop_range, body, None)) t
+    | Trm_for_c (start, cond, stop, body, contract) ->
+      trm_replace (Trm_for_c (start, cond, stop, body, None)) t
+    | _ -> t
+    end in
+    trm_map aux t
+  in
+  aux t
+
+let delete_annots (tg : Target.target) : unit =
+  Nobrace_transfo.remove_after (fun () ->
+    Target.apply_at_target_paths delete_annots_on tg;
+    Show.ast ()
+  )
+
 let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
   let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
   trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
