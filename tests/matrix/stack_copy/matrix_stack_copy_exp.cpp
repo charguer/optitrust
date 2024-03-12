@@ -4,11 +4,9 @@ void f() {
   __pure();
   float* const s = (float* const)MALLOC2(32, 32, sizeof(float));
   for (int i = 0; i < 32; i++) {
-    __consumes("_Uninit(for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell)");
-    __produces("for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell");
+    __writes("for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell");
     for (int j = 0; j < 32; j++) {
-      __consumes("_Uninit(&s[MINDEX2(32, 32, i, j)] ~> Cell)");
-      __produces("&s[MINDEX2(32, 32, i, j)] ~> Cell");
+      __writes("&s[MINDEX2(32, 32, i, j)] ~> Cell");
       s[MINDEX2(32, 32, i, j)] = 0;
     }
   }

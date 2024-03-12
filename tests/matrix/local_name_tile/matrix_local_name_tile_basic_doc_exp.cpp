@@ -16,8 +16,7 @@ void f() {
       },
       "");
   for (int i = 3; i < 7; i++) {
-    __consumes("_Uninit(&b[MINDEX1(7 - 3, i - 3)] ~> Cell)");
-    __produces("&b[MINDEX1(7 - 3, i - 3)] ~> Cell");
+    __writes("&b[MINDEX1(7 - 3, i - 3)] ~> Cell");
     b[MINDEX1(7 - 3, i - 3)] = 0;
   }
   __ghost(

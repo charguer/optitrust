@@ -30,8 +30,7 @@ void produced_uninit_used_ro(int* t2) {
     int x = t2[MINDEX1(10, i)];
   }
   for (int i = 0; i < 10; i++) {
-    __consumes("_Uninit(&t2[MINDEX1(10, i)] ~> Cell)");
-    __produces("&t2[MINDEX1(10, i)] ~> Cell");
+    __writes("&t2[MINDEX1(10, i)] ~> Cell");
     t2[MINDEX1(10, i)] = 2;
   }
   for (int i = 0; i < 10; i++) {

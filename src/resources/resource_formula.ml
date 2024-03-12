@@ -271,9 +271,11 @@ let formula_arith_checked = trm_var var_arith_checked
 
   Resources are matched if they have the same formula, the resource names in [comm] are the names from [res1].
 
-  If [~filter] is provided, keep separated resources for which [filter] returns false.
+  If [~filter_map_left] is provided, for each resource [r] in [res1]:
+  - if [filter_map_left r] returns [Some r'], use [r'] in the comparison with resources in [res2], in case of a match put [r'] in [comm], else leave [r] in [res1].
+  - if it returns [None], keep the resource separated from the one in [res2].
 *)
-let filter_common_resources ?(filter = fun _ -> true) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
+let filter_common_resources ?(filter_map_left = fun x -> Some x) (res1: resource_item list) (res2: resource_item list): resource_item list * resource_item list * resource_item list =
   let res2 = ref res2 in
   let rec try_remove_same_formula formula l =
     match l with
@@ -281,13 +283,15 @@ let filter_common_resources ?(filter = fun _ -> true) (res1: resource_item list)
     | (_,f)::l when are_same_trm f formula -> Some l
     | res::l -> Option.map (fun l -> res::l) (try_remove_same_formula formula l)
   in
-  let common, res1 = List.partition
-    (fun (_, formula) ->
-      if filter formula then
-        match try_remove_same_formula formula !res2 with
-        | None -> false
-        | Some new_res2 -> res2 := new_res2; true
-      else false)
+  let common, res1 = List.partition_map
+    (fun (x, formula) ->
+      match filter_map_left formula with
+      | Some formula' ->
+        begin match try_remove_same_formula formula' !res2 with
+        | None -> Either.Right (x, formula)
+        | Some new_res2 -> res2 := new_res2; Either.Left (x, formula')
+        end
+      | None -> Either.Right (x, formula))
     res1
   in
   common, res1, !res2

@@ -39,12 +39,9 @@ void f2(float* A, float* B, int m, int n, int p) {
   __reads("B ~> Matrix2(p, n)");
   float* const sum = (float* const)MALLOC2(m, n, sizeof(float));
   for (int i = 0; i < m; i++) {
-    __consumes(
-        "_Uninit(for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell)");
-    __produces("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
+    __writes("for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell");
     for (int j = 0; j < n; j++) {
-      __consumes("_Uninit(&sum[MINDEX2(m, n, i, j)] ~> Cell)");
-      __produces("&sum[MINDEX2(m, n, i, j)] ~> Cell");
+      __writes("&sum[MINDEX2(m, n, i, j)] ~> Cell");
       sum[MINDEX2(m, n, i, j)] = 0.f;
     }
   }

@@ -14,8 +14,7 @@ void init_arr_evry_iter() {
   for (int i = 0; i < 6; i++) {
     __sequentially_modifies("_Uninit(for j in 0..3 -> &x[j] ~> Cell)");
     for (int j = 0; j < 3; j++) {
-      __consumes("_Uninit(&x[j] ~> Cell)");
-      __produces("&x[j] ~> Cell");
+      __writes("&x[j] ~> Cell");
       x[j] = 0;
     }
     for (int j = 0; j < 3; j++) {

@@ -880,7 +880,7 @@ let rec contract_intro (style: style) (t: trm): trm =
       seq_push tres t) named_formulas t
   in
 
-  let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
+  let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) ?(writes_prim: var option) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
     let common_linear, pre_linear, post_linear = Resource_formula.filter_common_resources pre_linear post_linear in
 
     (* FIXME: This turns two reads formulas with a shared id into reads formulas with distinct id.
@@ -910,11 +910,17 @@ let rec contract_intro (style: style) (t: trm): trm =
       Tools.warn ("Some fractions should have been discarded but they were not found in context: " ^ String.concat ", " (Hashtbl.fold (fun frac () acc -> frac.name :: acc) frac_to_remove []));
 
     let t = push_named_formulas reads_prim reads_res t in
+    let t, pre_linear, post_linear = match writes_prim with
+      | Some writes_prim ->
+        let writes_res, pre_linear, post_linear = Resource_formula.filter_common_resources ~filter_map_left:formula_uninit_inv pre_linear post_linear in
+        push_named_formulas writes_prim writes_res t, pre_linear, post_linear
+      | None -> t, pre_linear, post_linear
+    in
     let t = push_named_formulas modifies_prim modifies_res t in
     (pre_pure, pre_linear, post_linear, t)
   in
   let push_reads_and_modifies ?(force=false) = if style.cstyle.ast.print_contract_internal_repr && not force then
-    fun _ _ pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)
+    fun _ _ ?writes_prim pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)
     else push_reads_and_modifies
   in
 
@@ -927,7 +933,7 @@ let rec contract_intro (style: style) (t: trm): trm =
     | FunSpecContract contract ->
       let used_vars = fun_contract_used_vars contract in
       let pre_pure, pre_linear, post_linear, body =
-        push_reads_and_modifies __reads __modifies contract.pre.pure contract.pre.linear contract.post.linear body
+        push_reads_and_modifies __reads __modifies ~writes_prim:__writes contract.pre.pure contract.pre.linear contract.post.linear body
       in
       let body = push_named_formulas __produces post_linear body in
       let body = push_named_formulas __ensures ~used_vars contract.post.pure body in
@@ -961,7 +967,7 @@ let rec contract_intro (style: style) (t: trm): trm =
       | Some contract ->
         let used_vars = loop_contract_used_vars contract in
         let loop_ghosts, pre_linear, post_linear, body =
-          push_reads_and_modifies __reads __modifies
+          push_reads_and_modifies __reads __modifies ~writes_prim:__writes
             contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
         in
         let body = push_named_formulas __produces post_linear body in

@@ -22,51 +22,34 @@ void malloc_uninit_pre() {
       },
       "");
   for (int i = 0; i < 10; i++) {
-    __consumes(
-        "_Uninit(for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, "
-        "4 - 0, i - 0, j - 2, k - 0)] ~> Cell)");
-    __produces(
+    __writes(
         "for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, "
         "i - 0, j - 2, k - 0)] ~> Cell");
     for (int j = 2; j < 10; j++) {
-      __consumes(
-          "_Uninit(for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j "
-          "- 2, k - 0)] ~> Cell)");
-      __produces(
+      __writes(
           "for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k "
           "- 0)] ~> Cell");
       for (int k = 0; k < 4; k++) {
-        __consumes(
-            "_Uninit(&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] "
-            "~> Cell)");
-        __produces(
+        __writes(
             "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] ~> Cell");
         x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] = 1;
       }
     }
   }
   for (int i1 = 0; i1 < 10; i1++) {
-    __consumes(
-        "_Uninit(for i2 in 2..10 -> for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, "
-        "i1, i2, i3)] ~> Cell)");
-    __produces(
+    __writes(
         "for i2 in 2..10 -> for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, "
         "i3)] ~> Cell");
     __reads(
         "for i2 in 2..10 -> for i3 in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - "
         "0, i1 - 0, i2 - 2, i3 - 0)] ~> Cell");
     for (int i2 = 2; i2 < 10; i2++) {
-      __consumes(
-          "_Uninit(for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> "
-          "Cell)");
-      __produces(
-          "for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
+      __writes("for i3 in 0..4 -> &a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
       __reads(
           "for i3 in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, "
           "i3 - 0)] ~> Cell");
       for (int i3 = 0; i3 < 4; i3++) {
-        __consumes("_Uninit(&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell)");
-        __produces("&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
+        __writes("&a[MINDEX3(10, 10, 4, i1, i2, i3)] ~> Cell");
         __reads(
             "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> "
             "Cell");
@@ -99,8 +82,7 @@ void malloc_uninit_post() {
       group_focus_subrange_uninit,
       "items := fun i -> &a[MINDEX1(10, i)] ~> Cell, sub_range := 2..10");
   for (int i1 = 2; i1 < 10; i1++) {
-    __consumes("_Uninit(&a[MINDEX1(10, i1)] ~> Cell)");
-    __produces("&a[MINDEX1(10, i1)] ~> Cell");
+    __writes("&a[MINDEX1(10, i1)] ~> Cell");
     a[MINDEX1(10, i1)] = 1;
   }
   T* const x = (T* const)MALLOC1(10 - 2, sizeof(T));
@@ -113,8 +95,7 @@ void malloc_uninit_post() {
       },
       "");
   for (int i1 = 2; i1 < 10; i1++) {
-    __consumes("_Uninit(&x[MINDEX1(10 - 2, i1 - 2)] ~> Cell)");
-    __produces("&x[MINDEX1(10 - 2, i1 - 2)] ~> Cell");
+    __writes("&x[MINDEX1(10 - 2, i1 - 2)] ~> Cell");
     __reads("&a[MINDEX1(10, i1)] ~> Cell");
     x[MINDEX1(10 - 2, i1 - 2)] = a[MINDEX1(10, i1)];
   }
@@ -156,24 +137,15 @@ void malloc_uninit_prepost() {
       },
       "");
   for (int i = 0; i < 10; i++) {
-    __consumes(
-        "_Uninit(for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, "
-        "4 - 0, i - 0, j - 2, k - 0)] ~> Cell)");
-    __produces(
+    __writes(
         "for j in 2..10 -> for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, "
         "i - 0, j - 2, k - 0)] ~> Cell");
     for (int j = 2; j < 10; j++) {
-      __consumes(
-          "_Uninit(for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j "
-          "- 2, k - 0)] ~> Cell)");
-      __produces(
+      __writes(
           "for k in 0..4 -> &x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k "
           "- 0)] ~> Cell");
       for (int k = 0; k < 4; k++) {
-        __consumes(
-            "_Uninit(&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] "
-            "~> Cell)");
-        __produces(
+        __writes(
             "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] ~> Cell");
         x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i - 0, j - 2, k - 0)] = 1;
       }
