@@ -108,7 +108,7 @@ let stop () : unit =
 
 (* [may_report_time msg f]: returns the result of [f()] and, if not in batch mode, reports the time taken by that call on stdout. *)
 let may_report_time (msg : string) (f : unit -> 'a) : 'a =
-  if not (Flags.is_execution_mode_step ()) then
+  if not !Flags.report_exectime then
     f ()
   else begin
     let (r, t) = Tools.measure_time f in
@@ -157,8 +157,10 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   let produce_trace () : unit =
     may_report_time "dump-trace" (fun () ->
-      Trace.dump_full_trace_to_js ~prefix ();
-      Trace.dump_trace_to_textfile ~prefix ())
+      Trace.dump_full_trace_to_js ~prefix ());
+    if !Flags.trace_as_text then
+      may_report_time "dump-trace-as-text" (fun () ->
+        Trace.dump_trace_to_textfile ~prefix ());
     in
 
   (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)

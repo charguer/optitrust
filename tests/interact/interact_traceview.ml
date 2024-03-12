@@ -5,23 +5,25 @@ open Prelude
 
 let _ = Flags.check_validity := true
 
-(* Uncomment the line below to see all details in the full trace,
+(* Use the line below to see all details in the full trace,
    and not only when requesting a per-step trace
 let _ = Flags.detailed_trace := true
 *)
 
-(* Uncomment the line below to shrink ASTs during diffs. *)
+(* Use the line below to shrink ASTs during diffs. *)
 let _ = Flags.use_light_diff := true
 
-(* Uncomment the line below to control use of clang-format
+(* Use the line below to control use of clang-format *)
 let _ = Flags.use_clang_format := true
- *)
 
-(* Uncomment the line below to see encoded syntax in trace
+(* Use the line below to control reporting of execution time *)
+let _ = Flags.report_exectime := true
+
+(* Use the line below to see encoded syntax in trace
 let _ = Flags.print_optitrust_syntax := true
 *)
 
-(* Uncomment the line below to see on stdout the opening and closing of steps:
+(* Use the line below to see on stdout the opening and closing of steps:
 let _ = Trace.debug_open_close_step := true
 *)
 
