@@ -291,6 +291,19 @@ __GHOST(close_wand) {
   __admitted();
 }
 
+__GHOST(hide) {
+  __requires("H: formula");
+  __consumes("H");
+  __ensures("H2: formula");
+  __produces("Wand(H2, H), H2");
+  __admitted();
+}
+
+__GHOST(hide_rev) {
+  __reverts(hide);
+  __ghost(close_wand, "");
+}
+
 __GHOST(wand_simplify) {
   __requires("H1: formula, H2: formula, H3: formula");
   __consumes("Wand(H1, H2), Wand(H2, H3)");

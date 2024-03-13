@@ -1095,7 +1095,6 @@ let rec compute_resources
         ] in
         begin match res, contract_invoc with
         | Some res, Some invoc ->
-          assert (invoc.contract_produced.produced_pure = []);
           let inverse_pre = List.map (fun { produced_hyp; produced_formula } -> (produced_hyp, produced_formula)) invoc.contract_produced.produced_linear in
           let inverse_post = List.map (fun { pre_hyp; used_formula } -> (pre_hyp, used_formula))
             invoc.contract_inst.used_linear

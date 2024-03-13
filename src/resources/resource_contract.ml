@@ -206,13 +206,12 @@ let contract_inside_loop range contract =
 
 (** [revert_fun_contract contract] returns a contract that swaps the resources produced and consumed. *)
 let revert_fun_contract contract =
-  assert (contract.post.pure = []);
   assert (contract.post.fun_specs = Var_map.empty);
   assert (contract.post.aliases = Var_map.empty);
   assert (contract.post.efracs = []);
   {
     pre = {
-      pure = contract.pre.pure;
+      pure = contract.pre.pure @ contract.post.pure;
       linear = contract.post.linear;
       fun_specs = contract.pre.fun_specs;
       aliases = contract.pre.aliases;

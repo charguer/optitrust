@@ -89,6 +89,7 @@ let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
     - [t]: the modified term that contains [curr_var].
   *)
 let local_name_on (curr_var : var) (var_typ : typ)
+  ~(uninit_pre : bool) ~(uninit_post : bool)
   (local_var : string) (t : trm) : trm =
   let local_var = Trm.new_var local_var in
   let let_instr = trm_let_mut (local_var, var_typ) (trm_var_possibly_mut ~typ:var_typ curr_var) in
@@ -100,12 +101,27 @@ let local_name_on (curr_var : var) (var_typ : typ)
   variable [local_var] and replaces [var] with [local_var] in
   the term at target [tg]. *)
 let%transfo local_name ~(var : var) (var_typ : typ)
+  ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
   ~(local_var : string) (tg : target) : unit =
+  if (uninit_pre || uninit_post) then
+    failwith "not implemented";
   Target.iter (fun p -> Marks.with_fresh_mark_on p (fun m ->
     Nobrace_transfo.remove_after (fun () ->
-      Target.apply_at_path (local_name_on var var_typ local_var) p
+      Target.apply_at_path (local_name_on var var_typ ~uninit_pre ~uninit_post local_var) p
     );
     if !Flags.check_validity then begin
+      step_backtrack ~discard_after:true (fun () ->
+        let p = resolve_mark_exactly_one m in
+        Nobrace_transfo.remove_after (fun () ->
+        Target.apply_at_path (fun t ->
+          let (_, open_w, close_w) = Resource_trm.ghost_pair_hide
+            (Resource_formula.formula_cell var) in
+          trm_seq_nobrace_nomarks [open_w; t; close_w]
+        ) p
+        );
+        recompute_resources ()
+      )
+      (* DEPRECATED:
       Resources.ensure_computed ();
       let t = get_trm_at_exn [cMark m] in
       let t_res_usage = Resources.usage_of_trm t in
@@ -123,6 +139,7 @@ let%transfo local_name ~(var : var) (var_typ : typ)
         Trace.justif "resources do not mention replaced variable after transformation"
       else
         trm_fail t "resources still mention replaced variable after transformation"
+      *)
     end
   )) tg
 
