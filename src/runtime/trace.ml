@@ -608,11 +608,11 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
   assert(the_trace.step_stack = []);
   let step_root_infos = {
     step_id = next_step_id();
-    step_script = "Contents of " ^ source;
+    step_script = "Trace for " ^ source;
     step_script_line = None;
     step_time_start = now();
     step_exectime = dummy_exectime;
-    step_name = "Full script";
+    step_name = "";
     step_args = [("extension", the_trace.context.extension) ];
     step_justif = [];
     step_flag_check_validity = !Flags.check_validity;
@@ -1266,10 +1266,11 @@ let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
    [~style] allows to specify a printing style for ASTs; the default
    style is computed based on the global flags.   *)
 (* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) (filename : string) : unit =
+let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) ?(program : string option) (filename : string) : unit =
   ast_just_before_first_call_to_restore_original := None; (* TEMPORARY HACK *)
   invalidate ();
   let basename = Filename.basename filename in
+  let program = Option.value program ~default:basename in
   let extension = Filename.extension basename in
   let default_prefix = Filename.remove_extension filename in
   let ml_file_name =
@@ -1312,7 +1313,7 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
   the_trace.cur_ast_typed <- false;
   the_trace.cur_style <- begin match style with Some s -> s | None -> Style.default_custom_style() end;
   the_trace.step_stack <- [];
-  open_root_step ~source:ml_file_name ();
+  open_root_step ~source:program ();
 
   (* If recompute resources between steps is enabled, we need resources to be computed after the initial parsing as well *)
   if !Flags.recompute_resources_between_steps then recompute_resources ();

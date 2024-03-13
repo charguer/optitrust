@@ -455,8 +455,11 @@ function toggleExpandStep(idStep) {
 
 }
 
-// handles a ctrl+click on a step expand control
-function expandRecursively(idStep) {
+// handles a ctrl+click on a step expand control;
+// if depth is an int, it serves as a bound;
+// if depth is a kind (e.g. 'Root', 'Small' or 'Big),
+/// it expands until reaching that kind.
+function expandRecursively(idStep, depth) {
   if (options["expand_all"]) {
     return;
   }
@@ -466,8 +469,15 @@ function expandRecursively(idStep) {
   }
   const newValue = ! expanded[idStep];
   // recursive traversal
-  function aux(idStep, newValue) {
+  function aux(idStep, newValue, depth) {
     var step = steps[idStep];
+    if (depth === 0 || step.kind === depth)
+      return;
+    var depthForSub = depth;
+    if (Number.isInteger(depth)) {
+      depthForSub = depth-1;
+    }
+
     if (isStepHidden(step)) {
       return; // don't force expansion of hidden steps
     }
@@ -475,11 +485,11 @@ function expandRecursively(idStep) {
     if (!options.atomic_substeps || !step.tags.includes("atomic")) {
       for (var i = 0; i < step.sub.length; i++) {
         var idSubstep = step.sub[i];
-        aux(idSubstep, newValue);
+        aux(idSubstep, newValue, depthForSub);
       }
     }
   };
-  aux(idStep, newValue);
+  aux(idStep, newValue, depth);
   reloadTraceView();
   loadStepDetails(idStep);
 }
@@ -702,7 +712,7 @@ function stepToHTML(step, isOutermostLevel) {
   var sValiditySymbol;
   if (root_checking_validity) {
     if (step.isvalid) {
-      sValiditySymbol = "&#10004;" // check
+      sValiditySymbol = "<font color='green'>&#10004;</font>" // check
     } else if (step.has_valid_parent) {
       sValiditySymbol = "&diams;"; // diamond, validity is covered by a parent
     } else if (! step.check_validity) {
@@ -732,9 +742,9 @@ function stepToHTML(step, isOutermostLevel) {
   }
 
   // Line contents
-  if (! isRoot) {
+  // if (! isRoot) {
     s += "<div id='tree-step-" + step.id + "' class='tree-step " + fullLineClass + "'><span class='step-expand' " + sOnClickToggleStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + "" + sScript + sTags + sValiditySymbol + "</span></div>";
-  }
+  //}
 
   if (options.justif) {
     for (var i = 0; i < step.justif.length; i++) {
@@ -746,6 +756,7 @@ function stepToHTML(step, isOutermostLevel) {
   s += "<ul class='step-sub'> " + sSubs + "</ul>\n";
 
   if (isOutermostLevel) {
+    // return "<ul class='step-sub'><li> " + s + "<li></ul>\n";
     return s;
   } else {
     return "<li>" + s + "</li>\n";
@@ -982,13 +993,13 @@ document.addEventListener('DOMContentLoaded', function () {
   var stepInit = 0; // root
   selectedStep = steps[stepInit];
   if (typeof startupOpenStep !== "undefined") {
-    // expand the targeted step, recursively
+    // if a step is targeted, expand it recursively
     expandRecursively(startupOpenStep);
     // DEPRECATED stepInit = startupOpenStep;
     // DEPRECATED expanded[startupOpenStep] = true;
   } else {
-    // expand the root, to see the top-level items
-    expanded[stepInit] = true;
+    // expand big and small steps
+    expandRecursively(stepInit, 'Small');
     // expand to ensure errors are all visible
     expandToRevealErrors(stepInit);
   }

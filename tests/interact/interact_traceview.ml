@@ -14,7 +14,7 @@ let _ = Flags.detailed_trace := true
 let _ = Flags.use_light_diff := true
 
 (* Use the line below to control use of clang-format *)
-let _ = Flags.use_clang_format := true
+let _ = Flags.use_clang_format := false
 
 (* Use the line below to control reporting of execution time *)
 let _ = Flags.report_exectime := true
