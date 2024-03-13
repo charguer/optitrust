@@ -142,7 +142,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   Flags.process_cmdline_args ();
   Target.show_next_id_reset ();
 
-  let default_basename = get_program_basename () in
+  let program_basename = get_program_basename () in
+
+  let default_basename = program_basename in
   let dirname = Filename.dirname default_basename in
   let prefix =
     match prefix with
@@ -171,7 +173,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   (* Set the input file, execute the function [f], dump the results. *)
   (try
-    Trace.init ~prefix ~parser filename;
+    Trace.init ~program:program_basename ~prefix ~parser filename;
     begin
       try
         if !Flags.check_validity then
