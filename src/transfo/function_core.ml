@@ -92,6 +92,8 @@ let inline_aux (index : int) (body_mark : mark) (subst_mark : mark) (p_local : p
           | _ -> dummy_var
         in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
+        if !Flags.check_validity && nb_gotos > 0 then
+          trm_fail t "inlining functions featuring return instructions in the body is not yet supported";
         let marked_body = if body_mark <> "" then trm_add_mark body_mark processed_body else Nobrace.set_if_sequence processed_body in
         let exit_label = if nb_gotos = 0 then trm_seq_nobrace_nomarks [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =

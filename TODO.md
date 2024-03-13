@@ -151,6 +151,15 @@
   Running this command would not modify the file `tester_ignored.txt`,
   however it would update the files `tester_diff.txt` and `tester_failed.txt`.
 
+## Tester without check
+
+- add two options to 'script_cpp': '~trustme:true', '~also_with_trustme:true'
+- add option to tester '~skip_also_with_trustme:true'
+- for every '~also_with_trustme:true' path/foo.ml:
+  + generate '_tests_trustme/path/foo.cpp' from 'path/foo.cpp' using delete_annots, lazily
+  + generate '_tests_trustme/path/foo_exp.cpp' ...
+  + generate '_tests_trustme/path/foo.ml' by replacing '~also_with_trustme:true' with '~trustme:true'
+  + add the generated scripts to the tester worklist
 
 # Tests
 
@@ -315,7 +324,6 @@
 - related:
   - Justifications Variable.inline/Function.inline/Matrix.elim_mindex
   - pre/postprocessing (1. infer contracts; then elim header)
-  - pretty-print Group and range
   - renaming '__sreads', '__xreads', ..
 
 - add expand/collapse feature on trace steps
