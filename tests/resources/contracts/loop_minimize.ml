@@ -20,4 +20,5 @@ let _ = Run.script_cpp (fun () ->
 
     !! loop_minimize [cFunBody "seq_modifies_into_par_reads"; cFor "i"];
     !! loop_minimize [cFunBody "useless_pure_facts"; cFor "j"];
+    !! loop_minimize [nbMulti; cFunBody "useless_exclusive_pure_facts"; cFor "k"];
 )

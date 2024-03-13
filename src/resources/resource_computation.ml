@@ -906,15 +906,17 @@ let rec compute_resources
     | Trm_fun (args, ret_type, body, contract) ->
       let compute_resources_in_body contract =
         let body_res = Resource_set.bind ~keep_efracs:false ~old_res:res ~new_res:contract.pre in
-        (* LATER: Merge used pure facts *)
-        ignore (compute_resources ~expected_res:contract.post (Some body_res) body);
+        let body_usage, _ = compute_resources ~expected_res:contract.post (Some body_res) body in
+        match body_usage with
+        | Some body_usage -> Var_map.filter (fun _ usage -> usage = Required) body_usage
+        | None -> Var_map.empty
       in
       begin match contract with
       | FunSpecContract contract ->
-        compute_resources_in_body contract;
+        let body_usage = compute_resources_in_body contract in
         let contract = fun_contract_subst res.aliases contract in
         let args = List.map (fun (x, _) -> x) args in
-        (Some Var_map.empty, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
+        (Some body_usage, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
       | FunSpecReverts reverted_fn ->
         (* LATER: allow non empty arg list for reversible functions, this requires subtitution in the reversed contract *)
         assert (args = []);
@@ -922,14 +924,14 @@ let rec compute_resources
         let reverted_spec = Var_map.find reverted_fn res.fun_specs in
         assert (reverted_spec.args = []);
         let reverse_contract = revert_fun_contract reverted_spec.contract in
-        compute_resources_in_body reverse_contract;
+        let body_usage = compute_resources_in_body reverse_contract in
         let args = List.map (fun (x, _) -> x) args in
         let fun_specs =
           res.fun_specs |>
           Var_map.add reverted_fn { reverted_spec with inverse = Some var_result } |>
           Var_map.add var_result { args; contract = reverse_contract; inverse = Some reverted_fn }
         in
-        (Some Var_map.empty, Some { res with fun_specs })
+        (Some body_usage, Some { res with fun_specs })
       | FunSpecUnknown -> (Some Var_map.empty, Some res)
       end
 
@@ -1138,9 +1140,10 @@ let rec compute_resources
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
       let inner_contract = contract_inside_loop range contract in
-      ignore (compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~keep_efracs:false ~old_res:res ~new_res:inner_contract.pre)) body);
+      let inner_usage, _ = compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~keep_efracs:false ~old_res:res ~new_res:inner_contract.pre)) body in
 
-      Some usage_map, Some res_after
+      let usage_map = Option.map (fun inner_usage -> update_usage_map ~current_usage:usage_map ~extra_usage:(Var_map.filter (fun _ usage -> usage = Required) inner_usage)) inner_usage in
+      usage_map, Some res_after
 
     (* Pass through constructions that do not interfere with resource checking *)
     | Trm_typedef _ ->

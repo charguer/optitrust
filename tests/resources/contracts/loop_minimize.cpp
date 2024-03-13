@@ -94,3 +94,21 @@ void useless_pure_facts(int n, int i) {
     __ghost(assert_in_range, "k, n");
   }
 }
+
+void useless_exclusive_pure_facts(int n, int i) {
+  __requires("in_range(i, 0..n)");
+
+  for (int k = 0; k < 10; k++) {
+    __ensures("in_range(i, 0..n+3)");
+    __ensures("in_range(i, 0..n)");
+    __ghost(in_range_extend, "i, 0..n, 0..n+3");
+  }
+  for (int k = 0; k < 10; k++) {
+    __requires("in_range(i, 0..n+3)");
+    __requires("in_range(i, 0..n)");
+    for (int j = 0; j < 100; j++) {
+      __ghost(assert_in_range, "i, n+3");
+    }
+  }
+}
+
