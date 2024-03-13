@@ -173,9 +173,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   (* Set the input file, execute the function [f], dump the results. *)
   (try
-    Trace.init ~program:program_basename ~prefix ~parser filename;
     begin
       try
+        Trace.init ~program:program_basename ~prefix ~parser filename;
         if !Flags.check_validity then
           Trace.step ~kind:Step_transfo ~name:"Preprocessing loop contracts" (fun () ->
             Marks.with_fresh_mark (fun mark ->

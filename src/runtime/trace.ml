@@ -772,30 +772,6 @@ let tag_simpl_access () : unit =
 let without_substep_validity_checks (f: unit -> 'a): 'a =
   Flags.with_flag Flags.check_validity false f
 
-(** [try_validate_step_by_compostion s] sets a computation to be valid if all its substeps are valid. *)
-let try_validate_step_by_compostion (s : step_tree) : unit =
-  let infos = s.step_infos in
-  if not infos.step_valid then begin
-    let kinds_excluded = [Step_target_resolve; Step_io] in (* TODO: target_resolve might not be needed anymore *)
-    let subs = List.filter (fun si -> not (List.mem si.step_kind kinds_excluded)) s.step_sub in
-    if List.for_all (fun sub -> sub.step_infos.step_valid) subs then begin
-      let asts1: trm list = [s.step_ast_before] @
-        (List.map (fun sub -> sub.step_ast_after) subs);
-      in
-      let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) subs) @
-        [s.step_ast_after]
-      in
-      if List.for_all2 (==) asts1 asts2 then begin
-        infos.step_tags <- "valid_by_composition" :: infos.step_tags;
-        infos.step_valid <- true
-      end (* else begin
-        printf "%s\n" (infos.step_name);
-        printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
-        printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);
-      end *)
-    end
-  end
-
 (** [make_substeps_chained step] Finalize the list of substeps of [step],
     by inserting [Step_change] steps where the ast was modified directly
     in-between steps, to ensure that from [ast_before] we reach [ast_after]
@@ -1240,7 +1216,7 @@ let target_resolve_step (f: trm-> Path.path list) (t:trm) : Path.path list =
 (** [target_iter_step] is for wrapping the processing of one among several
     targets. *)
 let target_iter_step (istep : int) (f: unit->unit) : unit =
-  step ~kind:Step_group ~name:(sprintf "Target-iter-#%d" istep) ~tags:["target"] f
+  step ~kind:Step_group ~name:(sprintf "Target #%d" istep) f
 
 (** [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
    like at the start of the program.  *)

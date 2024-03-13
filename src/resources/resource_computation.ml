@@ -1170,7 +1170,7 @@ let rec compute_resources
         let used_res = assert_resource_impl res expected_res in
         t.ctx.ctx_resources_post_inst <- Some used_res
       with
-      | StoppedOnFirstError as e -> raise e
+      | StoppedOnFirstError as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
       | e -> ignore (handle_resource_errors t PostconditionCheck e)
       end;
       Some expected_res

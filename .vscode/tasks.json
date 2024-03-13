@@ -336,6 +336,21 @@
         }
       },
       {
+        "label": "Run the previously failed tests",
+        "type": "shell",
+        "command": "./tester",
+        "args": [
+          "run",
+          "tofix.tests"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "presentation": {
+          "clear": true
+        }
+      },
+      {
         "label": "Open unit test ML and CPP files",
         "type": "shell",
         "command": "${workspaceFolder}/.vscode/open_test.sh",
