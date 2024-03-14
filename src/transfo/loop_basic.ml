@@ -786,13 +786,28 @@ let shift_kind_to_string = function
 | StartAt t -> "StartAt " ^ (AstC_to_c.ast_to_string t)
 | StopAt t -> "StopAt " ^ (AstC_to_c.ast_to_string t)
 
+let ghost_group_shift = toplevel_var "group_shift"
+let ghost_group_unshift = toplevel_var "group_unshift"
 
 (* [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
 let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let index' = new_var index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
-  let ({ index; start; direction; stop; step }, body_terms, _contract) =
+  let ({ index; start; direction; stop; step }, body_terms, contract) =
     trm_inv ~error trm_for_inv_instrs t in
+  if !Flags.check_validity then begin
+    match kind with
+    | ShiftBy v | StartAt v | StopAt v ->
+      if Resources.trm_is_referentially_transparent v then
+        (* TODO: also works for read-only *)
+        Trace.justif "shifting by a referentially transparent expression is always correct"
+      else
+        trm_fail v "shifting by a non-referentially transparent expression is not yet supported, requires checking that expression is read-only, introduce a binding with 'Sequence.insert' to workaround" (* TODO: combi doing this *)
+    | StartAtZero -> Trace.justif "shifting to zero is always correct, loop range is read-only"
+  end;
+  (* spec:
+    let start' = trm_add start shift in
+    let stop' = trm_add stop shift in *)
   let (shift, start', stop') = match kind with
   (* spec:
     let start' = trm_add start shift in
@@ -803,19 +818,44 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   | StartAt v -> (trm_sub v start, v, trm_add stop (trm_sub v start))
   | StopAt v -> (trm_sub v stop, trm_add start (trm_sub v stop), v)
   in
+  let index_expr = trm_sub (trm_var index') shift in
   (* NOTE: assuming int type if no type is available *)
   let body_terms' = Mlist.push_front (
-    trm_let_immut (index, (Option.value ~default:(typ_int ()) start.typ))
-      (trm_sub (trm_var index') shift)) body_terms in
-  let t2 = trm_for_instrs ~annot:t.annot { index = index'; start = start'; direction; stop = stop'; step } body_terms' in
-  t2
+    trm_let_immut (index, (Option.value ~default:(typ_int ()) start.typ)) index_expr) body_terms in
+  let range' = { index = index'; start = start'; direction; stop = stop'; step } in
+  begin match contract with
+  | None ->
+    trm_for_instrs ~annot:t.annot range' body_terms'
+    (* trm_fail t "expected loop contract when checking validity" ? *)
+  | Some contract ->
+    let open Resource_formula in
+    let shift_ghosts ghost =
+      List.map (fun (_, formula) ->
+        let i = new_var index.name in
+        let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
+        Resource_trm.ghost (ghost_call ghost [
+          "start", start; "stop", stop; "step", loop_step_to_trm step; "items", items;
+          "shift", shift; "new_start", start'; "new_stop", stop'])
+      )
+    in
+    let ghosts_before = shift_ghosts ghost_group_shift contract.iter_contract.pre.linear in
+    let ghosts_after = shift_ghosts ghost_group_unshift contract.iter_contract.post.linear in
+    let contract' = Resource_contract.loop_contract_subst (Var_map.singleton index index_expr) contract in
+    trm_seq_nobrace_nomarks (ghosts_before @ [
+     trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms'
+     ] @ ghosts_after)
+  end
 
-(* [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
+(** [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
+
+  validity: expressions used in shifting must be referentially transparent, other expressions can be bound before using [Sequence.insert].
   *)
 let%transfo shift ?(reparse : bool = false) (index : string) (kind : shift_kind) (tg : target) : unit =
   (* FIXME: having to think about reparse here is not great *)
-  reparse_after ~reparse (
-    Target.apply_at_target_paths (shift_on index kind)) tg
+  reparse_after ~reparse (fun tg ->
+    Nobrace_transfo.remove_after (fun () ->
+      Target.apply_at_target_paths (shift_on index kind) tg)
+  ) tg
 
 type extension_kind =
 | ExtendNothing

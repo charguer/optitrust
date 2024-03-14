@@ -130,6 +130,14 @@ let usage_filter usage filter (h, _) =
   | Some Produced -> filter.produced
   | Some (Required | Ensured) -> failwith "usage_filter used on pure resource"
 
+let trm_is_referentially_transparent (t: trm): bool =
+  if Option.is_some (trm_var_inv t) then
+    true
+  else if Option.is_some (trm_lit_inv t) then
+    true
+  else
+    (* TODO: look at resource usage, empty linear usage is OK *)
+    false
 
 (** If output_new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
 let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (contract: fun_contract) (usage: resource_usage_map): fun_contract =
