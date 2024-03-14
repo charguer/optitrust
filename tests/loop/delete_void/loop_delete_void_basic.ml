@@ -1,6 +1,8 @@
 open Optitrust
 open Target
 
+let _ = Flags.check_validity := true
+
 let _ = Run.script_cpp(fun _ ->
   !! Loop_basic.delete_void [cFor "i"];
   !! Loop_basic.delete_void [cFor "i3"];
