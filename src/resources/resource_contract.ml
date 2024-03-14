@@ -231,6 +231,13 @@ let fun_contract_subst ctx contract =
   { pre = Resource_set.subst ctx contract.pre;
     post = Resource_set.subst ctx contract.post }
 
+(** [loop_contract_subst ctx contract] substitutes variables from [ctx] inside [contract] *)
+let loop_contract_subst ctx contract =
+  { loop_ghosts = contract.loop_ghosts;
+    invariant = Resource_set.subst ctx contract.invariant;
+    parallel_reads = List.map (fun (h, t) -> (h, trm_subst ctx t)) contract.parallel_reads;
+    iter_contract = fun_contract_subst ctx contract.iter_contract }
+
 (** [specialize_contract contract args] specializes the [contract] with the given [args], a subset of pure resources of the precondition *)
 let specialize_contract contract args =
   fun_contract_subst args { contract with pre = { contract.pre with pure = List.filter (fun (ghost_var, _) -> not (Var_map.mem ghost_var args)) contract.pre.pure } }

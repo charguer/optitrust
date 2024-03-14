@@ -871,7 +871,8 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
 
 (* [rename_index new_index]: renames the loop index variable *)
 let%transfo rename_index (new_index : string) (tg : target) : unit =
-  apply_on_targets (Loop_core.rename_index new_index) tg
+  apply_on_targets (Loop_core.rename_index new_index) tg;
+  Trace.justif "renaming loop index is always correct (unique ids avoid name conflicts)"
 
 (* FIXME: duplicated code from tiling. *)
 let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_step : trm) (t : trm) : trm =
