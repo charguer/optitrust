@@ -1,34 +1,26 @@
 open Prelude
 open Target
 
-(* [insert_aux index code t]: inserts trm [code] at index [index] in sequence [t],
+(* [insert_at index code t]: inserts trm [code] at index [index] in sequence [t],
     [index] - a valid index where the instruction can be added,
     [code] - instruction to be added as an arbitrary trm,
     [t] - ast of the outer sequence where the insertion will be performed. *)
-let insert_aux (index : int) (code : trm) (t : trm) : trm =
+let insert_at (code : trm) (index : int) (t : trm) : trm =
   let error = "Sequence_core.insert_aux: expected the sequence on where insertion is performed." in
   let tl = trm_inv ~error trm_seq_inv t in
   let new_tl = Mlist.insert_at index code tl in
   (* TODO: Should use alter here ? *)
   trm_seq ~annot:t.annot new_tl
 
-(* [insert index code t p]: applies [insert_aux] at trm [t] with path [p]. *)
-let insert (index : int) (code : trm) : Transfo.local =
-  apply_on_path (insert_aux index code)
-
-(* [delete_aux index nb_instr t]: deletes a number of instructions inside the sequence starting
+(* [delete_at index nb_instr t]: deletes a number of instructions inside the sequence starting
       from [index] and ending at ([index] + [nb]),
       [index] - starting index,
       [nb] - number of instructions to delete,
       [t] - ast of the outer sequence where the deletion is performed. *)
-let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
+let delete_at (index : int) ?(nb_instr : int = 1) (t : trm) : trm =
   let error = "Sequence_core.delete_aux: expected the sequence on which the trms are deleted." in
   let tl = trm_inv ~error trm_seq_inv t in
   trm_seq ~annot:t.annot (Mlist.remove index nb_instr tl)
-
-(* [delete index nb_instr t p]: applies [delete_aux] at trm [t] with path [p].*)
-let delete (index : int) (nb_instr : int) : Transfo.local =
-  apply_on_path (delete_aux index nb_instr)
 
 (* [intro_aux index nb t]: regroups instructions with indices falling in the range [index, index + nb) into a sub-sequence,
        [mark] - mark to insert on the new sub-sequence,

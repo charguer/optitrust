@@ -173,8 +173,8 @@ let%transfo move ~(dest : target) (tg : target) : unit =
       move_in_seq ~dest:[dBefore i] (target_of_path p)
     ) tg
   else begin
-    iter_on_targets (fun t p ->
-      let tg_trm = Path.resolve_path p t in
+    Target.iter (fun p ->
+      let tg_trm = Target.resolve_path p in
       Marks.add "instr_move_out" (target_of_path p);
       Sequence_basic.insert tg_trm dest;
       Instr_basic.delete [cMark "instr_move_out"]) tg
@@ -182,25 +182,24 @@ let%transfo move ~(dest : target) (tg : target) : unit =
 
 (* [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
 let%transfo move_out (tg : target) : unit =
-  iter_on_targets (fun t p ->
+  Target.iter (fun p ->
     let (seq, _) = try Internal.isolate_last_dir_in_seq p with | Contextualized_error _ ->
       path_fail p "Instr.move_out: only instructions can be targeted" in
-    let tg_seq = target_of_path seq in
     let tg_instr = target_of_path p in
-    move ~dest:tg_seq tg_instr
+    move ~dest:[cPath seq; tBefore] tg_instr
   ) tg
 
 (* [move_out_of_fun tg]: moves the instruction targeted by [tg] just befor the toplevel declaration function
     that it belongs to. *)
 let%transfo move_out_of_fun (tg : target) : unit =
-  iteri_on_targets (fun i t p ->
+  Target.iteri (fun i p ->
     let path_to_topfun = Internal.get_ascendant_topfun_path p in
     let mark = "move_out_fun" ^ (string_of_int i) in
     match path_to_topfun with
     | Some pf -> begin
       Marks.add mark (target_of_path pf);
       let tg_instr = target_of_path p in
-      move ~dest:[cMark mark] tg_instr;
+      move ~dest:[cMark mark; tBefore] tg_instr;
       Marks.remove mark [cMark mark]
       end
     | None -> path_fail p "Instr.move_out_of_fun: can't move toplevel instructions"

@@ -2,35 +2,11 @@ open Prelude
 open Target
 
 
-(* ==========TODO: replace the old one*)
-
-
-(* [new_insert_on code t index]: inserts trm [code] at index [index] in sequence [t],
-    [code] - instruction to be added as an arbitrary trm,
-    [t] - ast of the outer sequence where the insertion will be performed,
-    [index] - a valid index where the instruction can be added *)
-let new_insert_on (code : trm) (t : trm) (index : int) : trm =
-  let error = "Sequence_core.insert_aux: expected the sequence on where insertion is performed." in
-  let tl = trm_inv ~error trm_seq_inv t in
-  let new_tl = Mlist.insert_at index code tl in
-  trm_seq ~annot:t.annot new_tl
-
-(* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins),
-     [code] - the instruction that is going to be added, provided by the user as an arbitrary trm. *)
-let%transfo new_insert ?(reparse : bool = false) (code : trm) (tg : target) : unit =
-  Target.reparse_after ~reparse (
-    Target.apply_at_target_paths_before (new_insert_on code)) tg
-
-
-  (*==========*)
-
-
 
 (* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins),
      [code] - the instruction that is going to be added, provided by the user as an arbitrary trm. *)
 let%transfo insert ?(reparse : bool = false) (code : trm) (tg : target) : unit =
-  Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) ->
-    Sequence_core.insert i code t p) ) tg
+  Target.reparse_after ~reparse (Target.apply_at_target_paths_before (fun t i -> Sequence_core.insert_at code i t)) tg
 
 
 (* [delete index nb tg]: expects the target [tg] to point at an instruction,
@@ -40,17 +16,16 @@ let%transfo insert ?(reparse : bool = false) (code : trm) (tg : target) : unit =
    later.
    If the next instructions need an invariant H' and { H } del_instr { H'' }
    we need both H ==> H' and H'' ==> H'. *)
-let%transfo delete ?(nb : int = 1) (tg : target) : unit =
+let%transfo delete (tg : target) : unit =
+  (* TODO: Manage delete of spans *)
   Resources.required_for_check ();
   Target.iter (fun p ->
     if !Flags.check_validity then begin
-      if nb <> 1 then
-        path_fail p "Sequence_basic.delete";
       Resources.assert_instr_effects_shadowed p;
       Trace.justif "nothing modified by the instruction is observed later"
     end;
     let p, i = Internal.isolate_last_dir_in_seq p in
-    apply_at_path (Sequence_core.delete_aux i nb) p
+    apply_at_path (Sequence_core.delete_at i) p
   ) tg
 
 (* [intro i nb tg]: expects the target [tg] to point at an instruction inside a sequence.

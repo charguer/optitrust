@@ -966,7 +966,7 @@ let delete_void_on (i : int) (t_seq : trm) : trm option =
     Option.bind (trm_for_inv_instrs t_loop) (fun (_, body, _) ->
       if Mlist.is_empty body
       (* 2. delete *)
-      then Some (Sequence_core.delete i 1 t_seq [])
+      then Some (Sequence_core.delete_at i t_seq)
       else None
     ))
 

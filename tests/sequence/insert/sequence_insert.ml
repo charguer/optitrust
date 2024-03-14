@@ -14,6 +14,6 @@ let _ = Run.script_cpp  (fun _ ->
   !! Sequence_basic.insert (stmt "int test () {return 0;}") [tAfter; cTypDef "vect"];
 
   !! Trace.restore_original();
-  !! Sequence_basic.new_insert (stmt "p++;") [nbMulti; tAfter; cTopFunDef "main"; cVarDef ""];
+  !! Sequence_basic.insert (stmt "p++;") [nbMulti; tAfter; cTopFunDef "main"; cVarDef ""];
 
 )
