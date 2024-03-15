@@ -127,8 +127,8 @@ let swap_on (t: trm): trm =
       assert (inner_post.pure == []);
       assert (inner_inv.pure == []);
 
-      let new_inner_pre = Resource_set.make ~linear:(group_pre @ group_par_reads @ group_lininv) () in
-      let new_inner_post = Resource_set.union (Resource_set.make ~linear:(group_post @ group_par_reads) ()) (Resource_set.subst_loop_range_step inner_range (Resource_set.make ~linear:group_lininv ())) in
+      let new_inner_pre = { outer_contract.iter_contract.pre with linear = group_pre @ group_par_reads @ group_lininv } in
+      let new_inner_post = Resource_set.union { outer_contract.iter_contract.post with linear = group_post @ group_par_reads } (Resource_set.subst_loop_range_step inner_range (Resource_set.make ~linear:group_lininv ())) in
       let new_inner_par_reads = par_lininv @ par_reads_twice @ par_iter in
       let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; parallel_reads = new_inner_par_reads; iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
 

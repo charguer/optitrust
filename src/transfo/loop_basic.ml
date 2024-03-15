@@ -166,21 +166,12 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
     trm_for_inv_instrs t
   in
   let tl1, tl2 = Mlist.split index tl in
-  let fst_contract = ref None in
-  let snd_contract = ref None in
-  begin match contract with
-  | _ when not !Flags.check_validity -> ()
-  | None -> trm_fail t "Loop_basic.fission_on: requires an annotated for loop to check validity"
-  | Some contract ->
-    let open Resource_formula in
+  let fst_contract, snd_contract = begin match contract with
+    | _ when not !Flags.check_validity -> None, None
+    | None -> trm_fail t "Loop_basic.fission_on: requires an annotated for loop to check validity"
+    | Some contract ->
+      let open Resource_formula in
 
-    if (Mlist.is_empty tl1) then begin
-      fst_contract := Some Resource_contract.empty_loop_contract;
-      snd_contract := Some contract
-    end else if (Mlist.is_empty tl2) then begin
-      fst_contract := Some contract;
-      snd_contract := Some Resource_contract.empty_loop_contract;
-    end else begin
       (*
         for C(onsume) P(roduce) I(nvariant)
           tl1
@@ -286,25 +277,32 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       in
       let split_res_without_efracs = List.map (fun (h, formula) -> (h, trm_subst efrac_map formula)) split_res_comm in
 
-      fst_contract := Some {
+      let tl1_ensured = List.filter (fun (x, f) ->
+        Var_map.find_opt x tl1_usage = Some Ensured &&
+          Var_set.disjoint (trm_free_vars f) bound_in_tl1
+        ) split_res.pure
+      in
+      let middle_iter_contract = Resource_set.make ~pure:tl1_ensured ~linear:split_res_without_efracs () in
+
+      let fst_contract = Some {
         loop_ghosts = contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl1_inv };
         parallel_reads = contract.parallel_reads;
         iter_contract = {
           pre = contract.iter_contract.pre;
-          post = Resource_set.make ~linear:split_res_without_efracs ();
+          post = middle_iter_contract;
         }
-      };
+      } in
       let partial_snd_contract = {
         loop_ghosts = (*List.map (fun (efrac, _) -> (efrac, trm_frac)) split_res.efracs @*) contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl2_inv_writes };
         parallel_reads = contract.parallel_reads;
         iter_contract = {
-          pre = Resource_set.make ~linear:split_res_without_efracs ();
+          pre = { middle_iter_contract with pure = tl1_ensured @ contract.iter_contract.pre.pure };
           post = contract.iter_contract.post;
         }
       } in
-      snd_contract := Some (
+      let snd_contract = Some (
         List.fold_left (fun acc (h, f) ->
           let clause = match formula_read_only_inv f with
           | Some _ -> Resource_contract.SequentiallyModifies
@@ -312,12 +310,13 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
           in
           Resource_contract.push_loop_contract_clause clause (Resource_formula.new_anon_hyp (), f) acc
         ) partial_snd_contract tl1_inv_reads
-      );
+      ) in
+      fst_contract, snd_contract
     end;
-  end;
+  in
 
-  let ta = trm_add_mark mark_loops (trm_for_instrs ?contract:!fst_contract l_range tl1) in
-  let tb = trm_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:!snd_contract l_range tl2)) in
+  let ta = trm_add_mark mark_loops (trm_for_instrs ?contract:fst_contract l_range tl1) in
+  let tb = trm_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:snd_contract l_range tl2)) in
   (ta, tb)
     (* Note: the trm_copy is needed because the loop index in the
        two loops must have a different id. We copy the second loop
