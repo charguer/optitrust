@@ -75,6 +75,15 @@ let remove_duplicates (lst : 'a list) =
   Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
   *)
 
+(* Same as List.nth_opt but return None if given a negative index *)
+let nth_opt l n =
+  if n < 0 then None else
+  let rec nth_aux l n =
+    match l with
+    | [] -> None
+    | a::l -> if n = 0 then Some a else nth_aux l (n-1)
+  in nth_aux l n
+
 (* [update_nth f l i]: returns a copy of the list [l] where the element [x] at index [i] is replaced with [f x].
    NOTE: The index [i] must be valid. *)
 let update_nth (i : int) (f : 'a -> 'a) (l : 'a list) : 'a list =

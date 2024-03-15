@@ -3,18 +3,17 @@ open Target
 
 (* [delete tg]: expects the target [tg] to point at an instruction inside a sequence
       then it will remove that instruciton from that sequence *)
-let%transfo delete (tg : target) : unit =
-  Sequence_basic.delete tg
+let delete = Sequence_basic.delete
 
 (* [copy ~target tg]: expects the target [tg] to point at an instruction that is
-    going to be copied to the relative target [where]. If [delete] is true then
-    the targetd instruction will be delete. *)
-let%transfo copy ?(mark_copy : mark = no_mark) ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = []) (tg : target) : unit =
-  Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) ->
-      let tg_dest_path_seq, dest_index = if dest = [] then p, i+1 else Constr.resolve_target_between_exactly_one dest t in
-      if tg_dest_path_seq <> p then path_fail p "Instr_basic.copy: the destination target should be unique and belong to the same block as the main targets";
-      Instr_core.copy mark_copy dest_index i delete t p) tg
+    going to be copied to the target [dest].
+    TODO: Either support copying at arbitrary location or use a relative target *)
+let%transfo copy ?(mark_copy : mark = no_mark) ?(rev : bool = false) ?(dest:target = []) (tg : target) : unit =
+  Target.iter ~rev (fun path ->
+      let (i,p_seq) = Path.index_in_seq path in
+      let tg_dest_path_seq, dest_index = if dest = [] then p_seq, i+1 else Target.resolve_target_between_exactly_one dest in
+      if tg_dest_path_seq <> p_seq then path_fail p_seq "Instr_basic.copy: the destination target should be unique and belong to the same block as the main targets";
+      Target.apply_at_path (Instr_core.copy_at mark_copy dest_index i) p_seq) tg
 
 
 (* [move ~rev ~dest tg] move the instructions at target [tg] to the relative position [dest].

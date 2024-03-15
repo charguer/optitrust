@@ -1,23 +1,31 @@
 open Prelude
 
-(* [copy_aux dest_index index t]: copies instruction with [index] to the [dest_index],
-     [dest_index] - the relative [index] where the target instruction will be copied,
+(* [copy_at dest_index index t]: copies instruction at [index] to the [dest_index],
+     [dest_index] - the [index] where the target instruction will be copied,
      [index] - index of the targeted instruction,
-     [delete] - if true then the original instruction will be deleted,
      [t] - ast of the surrounding sequence of the targeted instruction. *)
-let copy_aux (mark_copy : mark) (dest_index : int) (index : int) (delete : bool) (t : trm) : trm =
+let copy_at (mark_copy : mark) (dest_index : int) (index : int) (t: trm) : trm =
   let error = "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions." in
   let tl = trm_inv ~error trm_seq_inv t in
   let instr_to_copy = trm_add_mark mark_copy (Mlist.nth tl index) in
-  let instr_to_copy = if delete then instr_to_copy else trm_copy instr_to_copy in
-  let index_to_remove = if dest_index <= index then index + 1 else index in
+  let instr_to_copy = trm_copy instr_to_copy in
   let new_tl = Mlist.insert_at dest_index instr_to_copy tl in
-  let new_tl = if not delete then new_tl else Mlist.remove index_to_remove  1 new_tl in
   trm_seq ~annot:t.annot new_tl
 
-(* [copy dest_index index delete t p]: apply [copy_aux] at trm [t] with path [p] *)
-let copy (mark_copy : mark) (dest_index : int) (index : int) (delete : bool) : Target.Transfo.local =
-  Target.apply_on_path (copy_aux mark_copy dest_index index delete)
+
+(* [move_at dest_index index t]: moves instruction at [index] to the [dest_index],
+     [dest_index] - the [index] where the target instruction will be copied,
+     [index] - index of the targeted instruction,
+     [t] - ast of the surrounding sequence of the targeted instruction. *)
+let move_at (dest_index: int) (index: int) (t: trm): trm =
+  let error = "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions." in
+  let tl = trm_inv ~error trm_seq_inv t in
+  let instr_to_copy = Mlist.nth tl index in
+  let index_to_remove = if dest_index <= index then index + 1 else index in
+  let new_tl = Mlist.insert_at dest_index instr_to_copy tl in
+  let new_tl = Mlist.remove index_to_remove 1 new_tl in
+  trm_seq ~annot:t.annot new_tl
+
 
 (* [accumulate_aux t]: transform a list of write instructions into a single instruction,
       [t] - the ast of the sequence containing the instructions. *)

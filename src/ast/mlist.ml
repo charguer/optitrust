@@ -65,7 +65,7 @@ let nth (ml : 'a t) (index : int) : 'a =
 
 (* [nth_opt ml index]: get the nth item from [ml]. *)
 let nth_opt (ml : 'a t) (index : int) : 'a option =
-  List.nth_opt ml.items index
+  Xlist.nth_opt ml.items index
 
 (* [fold_lefti acc_f acc ml]: applies Xlist.fold_lefti to ml.items. *)
 let fold_lefti (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
@@ -144,7 +144,7 @@ let extract ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (st
 
 (* [remove start nb ml]: removes items that fall in the range [start, start + nb).  *)
 let remove (start : int) (nb : int) (ml : 'a t) : 'a t =
-  fst (extract start nb ml)
+  fst (extract ~stop_left_bias:false start nb ml)
 
 (** [concat_mapi f ml] maps all the elements of [ml] to a list using [f],
     and flatten this list inside the sequence.

@@ -4,51 +4,6 @@ open Resource_formula
 open Resource_contract
 open Resources
 
-(** <private> *)
-let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
-  let error = "Ghost_pair.move_in_seq: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
-  let instr = Mlist.nth instrs i in
-  let current_i = ref i in
-  let dest_offset, interference_with_instr =
-    match direction with
-    | -1 -> 0, fun next -> collect_trm_interferences next instr
-    | 1 -> 1, fun next -> collect_trm_interferences instr next
-    | _ -> failwith "Ghost_pair.move_in_seq: expected -1 or 1 direction"
-  in
-  let commutes_with_next () : bool =
-    let next_i = !current_i + direction in
-    let commutes = match Mlist.nth_opt instrs next_i with
-    | Some next ->
-      let interference = interference_with_instr next in
-      let commutes = Hyp_map.is_empty interference in
-      (* DEBUG:
-      if not commutes then
-        print_string (string_of_interference interference); *)
-      commutes
-    | None ->
-      false
-    in
-    if commutes then current_i := next_i;
-    commutes
-  in
-  while commutes_with_next () do () done;
-  if i != !current_i then
-    let dest_i = !current_i + dest_offset in
-    Instr_core.copy_aux no_mark dest_i i true seq
-  else
-    seq
-
-(** Moves instruction at index [i] in sequence [seq] as far down as possible, as long as effects commute.
-    TODO: what about var ids and pure facts scopes?
-   *)
-let move_down_in_seq (i : int) (seq : trm) : trm = move_in_seq i 1 seq
-
-(** Moves instruction at index [i] in sequence [seq] as far up as possible, as long as effects commute.
-    TODO: what about var ids and pure facts scopes?
-   *)
-let move_up_in_seq (i : int) (seq : trm) : trm = move_in_seq i (-1) seq
-
 (** <private>
     Moves all begins downwards, starting from downmost ones. *)
 let move_all_begins_downwards (seq : trm) : trm =
@@ -64,7 +19,7 @@ let move_all_begins_downwards (seq : trm) : trm =
   let upwards_begins = !begins in
   (* Printf.printf "upwards_begins: %s\n" (Tools.list_to_string (List.map string_of_int upwards_begins)); *)
   List.fold_left (fun seq beg_i ->
-    move_down_in_seq beg_i seq
+    Ghost.move_down_in_seq beg_i seq
   ) seq upwards_begins
 
 (** <private>
@@ -82,7 +37,7 @@ let move_all_ends_upwards (seq : trm) : trm =
   let downwards_ends = List.rev !ends in
   (* Printf.printf "downwards_ends: %s\n" (Tools.list_to_string (List.map string_of_int downwards_ends)); *)
   List.fold_left (fun seq end_i ->
-    move_up_in_seq end_i seq
+    Ghost.move_up_in_seq end_i seq
   ) seq downwards_ends
 
 (** <private>
