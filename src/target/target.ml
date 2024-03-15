@@ -96,34 +96,31 @@ let tSpan (tbegin: target) (tend: target): constr =
 (* [nbMulti]: matches one or more trms
    Note: all the targets that resolve to more than one trm require this constraint. *)
 let nbMulti : constr =
-  Constr_occurrences ExpectedMulti
+  Constr_occurrences ExpectMulti
 
 (* [nbAny]: matches zero or more trms. *)
 let nbAny : constr =
-    Constr_occurrences ExpectedAnyNb
+    Constr_occurrences ExpectAnyNb
 
 (* [nbExact nb]: matches [nb] trms. *)
 let nbExact (nb : int) : constr =
-    Constr_occurrences (ExpectedNb nb)
+    Constr_occurrences (ExpectNb nb)
 
 (* [occIndices ~nb indices]: matches target occurrences based on [indices]. *)
-let occIndices ?(nb : int = -1) (indices : int list) : constr =
-  let expected_nb = match nb with
-    | -1 -> None
-    | _ -> Some nb in
-  Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
+let occIndices ?(nb : int option) (indices : int list) : constr =
+  Constr_occurrences (SelectOcc (nb, indices))
 
 (* [occIndex ~nb index]: matches the trm with the index occurrence [index]. *)
-let occIndex ?(nb : int = -1) (index : int) : constr =
-  occIndices ~nb [index]
+let occIndex ?(nb : int option) (index : int) : constr =
+  occIndices ?nb [index]
 
 (* [occFirst]: matches the first occurrence of the target. *)
 let occFirst : constr =
-  Constr_occurrences FirstOcc
+  occIndex 0
 
 (* [occLast]: matches the last occurrence of a target. *)
 let occLast : constr =
-  Constr_occurrences LastOcc
+  occIndex (-1)
 
 (******************************************************************************)
 (*                                Directions                                  *)

@@ -48,9 +48,11 @@ let list_filteri (p : int -> 'a -> bool ) (l : 'a list) : 'a list =
   in
   aux 0 [] l
 
-(* [filter_selected indices l]: keeps only the elements from [l] whose indices belong to the list [indices]. *)
+(* [filter_selected indices l]: keeps only the elements from [l] whose indices belong to the list [indices].
+   Negative indices are counted from the end. *)
 let filter_selected (indices : int list) (l : 'a list) : 'a list =
-  list_filteri (fun i _ -> List.mem i indices) l
+  let len = List.length l in
+  list_filteri (fun i _ -> List.mem i indices || List.mem (i-len) indices) l
 
 (* [remove x xs]: remove item [x] from list [xs]. *)
 let remove (x : 'a) (xs : 'a list) : 'a list =

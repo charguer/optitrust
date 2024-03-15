@@ -48,13 +48,11 @@ type target_relative =
 
 (* [target_occurrences]: the number of targets to match *)
 type target_occurrences =
-    | ExpectedOne  (* = 1 occurence, the default value *)
-    | ExpectedNb of int  (* exactly n occurrences *)
-    | ExpectedMulti  (* > 0 number of occurrences *)
-    | ExpectedAnyNb  (* any number of occurrences *)
-    | ExpectedSelected of int option * int list
-    | FirstOcc
-    | LastOcc
+    | ExpectNb of int  (* exactly n occurrences *)
+    | ExpectMulti  (* > 0 number of occurrences *)
+    | ExpectAnyNb  (* any number of occurrences *)
+    | SelectOcc of int option * int list (* filter the occurences to keep only those in the list, negative index are taken from the back, if the first argument is given, check that the number of occurences is exactly that *)
+
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
 
@@ -504,17 +502,14 @@ and target_struct_to_string (tgs : target_struct) : string =
 (* [target_occurrences_to_string occ]: pretty prints target_occurrences [occ] *)
 and target_occurrences_to_string (occ : target_occurrences) =
   match occ with
-  | FirstOcc -> "FirstOcc"
-  | LastOcc -> "LastOcc"
-  | ExpectedOne -> "ExpectedOne"
-  | ExpectedNb n -> Printf.sprintf "ExpectedNb(%d)" n
-  | ExpectedMulti -> "ExpectedMulti"
-  | ExpectedAnyNb -> "ExpectedAnyNb"
-  | ExpectedSelected (ex_opt, il) ->
+  | ExpectNb n -> Printf.sprintf "ExpectNb(%d)" n
+  | ExpectMulti -> "ExpectMulti"
+  | ExpectAnyNb -> "ExpectAnyNb"
+  | SelectOcc (ex_opt, il) ->
     let exact_nb_s = match ex_opt with
     | None -> "None"
     | Some i -> "Some " ^ (string_of_int i) in
-    Printf.sprintf "ExpectedSelect(%s, %s)" exact_nb_s (Tools.list_to_string (List.map (string_of_int) il))
+    Printf.sprintf "SelectOcc(%s, %s)" exact_nb_s (Tools.list_to_string (List.map (string_of_int) il))
 
 (* [target_relative_to_string rel]: pretty prints the relative target [rel] *)
 and target_relative_to_string (rel : target_relative) =
@@ -730,7 +725,7 @@ let target_flatten (tg : target) : target =
     aux tg
 
 (* [target_to_target_struct]: converts a target into a target struct  *)
-let target_to_target_struct (tr : target) : target_struct =
+let target_to_target_struct ?(default_occ = ExpectNb 1) (tr : target) : target_struct =
   let tr = target_flatten tr in
   let relative = ref None in
   let occurences = ref None in
@@ -756,7 +751,7 @@ let target_to_target_struct (tr : target) : target_struct =
   let tgs = {
     target_path = List.filter (function | Constr_relative _ | Constr_occurrences _ -> false | _ -> true) tr;
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
-    target_occurrences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end;
+    target_occurrences = begin match !occurences with | None -> default_occ | Some oc -> oc end;
     target_incontracts = !incontracts;
     } in
   tgs
@@ -1374,9 +1369,9 @@ and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs :
 (* [resolve_target_struct tgs t]: resolves the structured target [tgs] over trm [t]
     This function gets the result from [resolve_target_simple] and checks if it matches
     the given requirements. If one of the requirements is not fulfilled the target resolution will fail. *)
-and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
+and resolve_target_struct ?(depth = DepthAny) (tgs : target_struct) (t : trm) : paths =
   (* DEBUG: printf "tgs: %s\n" (target_struct_to_string tgs); *)
-  let res = resolve_target_simple ~incontracts:tgs.target_incontracts tgs.target_path t in
+  let res = resolve_target_simple ~incontracts:tgs.target_incontracts ~depth tgs.target_path t in
   (* DEBUG: if res <> [] then
     printf "resolve_target_struct res: %s\n" (paths_to_string res); *)
   let nb = List.length res in
@@ -1384,22 +1379,22 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let error s =
     raise (Resolve_target_failure s) in
   begin match tgs.target_occurrences with
-  | ExpectedOne -> if nb <> 1 then error (Printf.sprintf "resolve_target_struct: expected exactly one match, got %d." nb); res
-  | ExpectedNb n -> if nb <> n then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d." n nb); res
-  | ExpectedMulti -> if nb = 0 then error (Printf.sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb); res
-  | ExpectedAnyNb -> res
-  | ExpectedSelected (n_opt, i_selected) ->
+  | ExpectNb 1 -> if nb <> 1 then error (Printf.sprintf "resolve_target_struct: expected exactly one match, got %d." nb); res
+  | ExpectNb n -> if nb <> n then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d." n nb); res
+  | ExpectMulti -> if nb = 0 then error (Printf.sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb); res
+  | ExpectAnyNb -> res
+  | SelectOcc (n_opt, i_selected) ->
     begin match n_opt with
     | Some n ->
       if n <> nb then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
         else
           Xlist.filter_selected i_selected res;
-    | None -> if nb = 0
-                then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
-                else Xlist.filter_selected i_selected res;
+    | None ->
+      let min_nb = List.fold_left (fun acc i -> if i > 0 then max (i+1) acc else max (-i) acc) 0 i_selected in
+      if nb < min_nb
+        then error (Printf.sprintf "resolve_target_struct: expected at least %d matches, got %d" min_nb nb)
+        else Xlist.filter_selected i_selected res;
     end
-  | FirstOcc -> [fst (Xlist.uncons res)]
-  | LastOcc ->  [snd (Xlist.unlast res)]
   end
 
 (* [fix_target_between rel t p]:
@@ -1503,12 +1498,12 @@ and resolve_target_exactly_one (tg : target) (t : trm) : path =
 
 (* [resolve_target_between_children] resolves target [tg] restricted to spaces between children items of [t] *)
 and resolve_target_between_children (tg: target) (t: trm) : int list =
-  let tgs = target_to_target_struct tg in
+  let tgs = target_to_target_struct ~default_occ:ExpectAnyNb tg in
   let depth = match tgs.target_relative with
     | TargetBefore | TargetAfter -> 1
     | _ -> 0
   in
-  let res = resolve_target_simple ~incontracts:tgs.target_incontracts ~depth:(DepthAt depth) tgs.target_path t in
+  let res = resolve_target_struct ~depth:(DepthAt depth) tgs t in
   let ps =
     if tgs.target_relative <> TargetAt then
       List.concat_map (fix_target_between tgs.target_relative t) res
@@ -1572,6 +1567,9 @@ and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t :
             spans
 
         with
+        | Resolve_target_failure str ->
+          print_info loc "Constr.resolve_constraint: tSpan sub-target failed: %s" str;
+          []
         | DifferentNumberOfStartAndStopPaths (len_start, len_stop) ->
           print_info loc "Constr.resolve_constraint: tSpan found different numbers of start (%d) and stop (%d) paths\n" len_start len_stop;
           []

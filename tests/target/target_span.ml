@@ -13,4 +13,6 @@ let _ = Run.script_cpp (fun () ->
 
   !! show [ tSpan [tFirst] [tLast] ];
 
+  !! show [ tSpan [tAfter; occFirst; cPlusEq ()] [tBefore; occLast; cPlusEq ()] ];
+
 )
