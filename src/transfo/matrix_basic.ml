@@ -215,12 +215,9 @@ let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
         (* TODO: is this exactly the same check as for variables? *)
         let t = resolve_path p in
         let t_res_usage = Resources.usage_of_trm t in
-        let t_res_before = Resources.before_trm t in
-        let t_res_after = Resources.after_trm t in
-        let used_formulas = Resources.(formulas_of_hyps (hyps_of_usage t_res_usage) (t_res_before.linear @ t_res_after.linear)) in
-        let used_vars = List.fold_left (fun vs t ->
-          Var_set.union vs (trm_free_vars t)
-        ) Var_set.empty used_formulas in
+        let t_res_before = Resources.(filter_touched t_res_usage (before_trm t)) in
+        let t_res_after = Resources.(filter_touched t_res_usage (after_trm t)) in
+        let used_vars = Var_set.union (Resource_set.used_vars t_res_before) (Resource_set.used_vars t_res_after) in
         if Var_set.mem !ret_var used_vars then
           trm_fail t "resources still mention replaced variable after transformation"
         else
@@ -643,12 +640,9 @@ let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg 
         (* TODO: is this exactly the same check as for Variable.local_name and Matrix.local_name? *)
         let t = get_trm_at_exn [cMark m] in
         let t_res_usage = Resources.usage_of_trm t in
-        let t_res_before = Resources.before_trm t in
-        let t_res_after = Resources.after_trm t in
-        let used_formulas = Resources.(formulas_of_hyps (hyps_of_usage t_res_usage) (t_res_before.linear @ t_res_after.linear)) in
-        let used_vars = List.fold_left (fun vs t ->
-          Var_set.union vs (trm_free_vars t)
-        ) Var_set.empty used_formulas in
+        let t_res_before = Resources.(filter_touched t_res_usage (before_trm t)) in
+        let t_res_after = Resources.(filter_touched t_res_usage (after_trm t)) in
+        let used_vars = Var_set.union (Resource_set.used_vars t_res_before) (Resource_set.used_vars t_res_after) in
         if Var_set.mem var used_vars then
           trm_fail t "resources still mention replaced variable after transformation"
         else

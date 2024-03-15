@@ -1,5 +1,4 @@
 #include <optitrust.h>
-#include "matmul.h"
 
 /* Multiplies the matrix A (dim m x p) by the matrix B (dim p x n),
  * and writes the result in the matrix C (dim m x n):

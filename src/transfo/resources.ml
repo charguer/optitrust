@@ -108,19 +108,19 @@ let compute_usage_of_instrs (instrs : trm mlist) : resource_usage_map =
     Resource_computation.update_usage_map ~current_usage:usage_map ~extra_usage:(usage_of_trm t)
   ) Resource_computation.empty_usage_map (Mlist.to_list instrs)
 
-type usage_filter =
+type linear_usage_filter =
  { unused: bool; read_only: bool; joined_read_only: bool; uninit: bool; full: bool; produced: bool; }
 
-let keep_all = { unused = true; read_only = true; joined_read_only = true; uninit = true; full = true; produced = true; }
-let keep_none = { unused = false; read_only = false; joined_read_only = false; uninit = false; full = false; produced = false; }
-let keep_touched = { keep_all with unused = false; }
-let keep_used = { keep_touched with produced = false; }
-let keep_produced = { keep_none with produced = true; }
-let keep_unused = { keep_none with unused = true; }
+let keep_all_linear = { unused = true; read_only = true; joined_read_only = true; uninit = true; full = true; produced = true; }
+let keep_none_linear = { unused = false; read_only = false; joined_read_only = false; uninit = false; full = false; produced = false; }
+let keep_touched_linear = { keep_all_linear with unused = false; }
+let keep_used = { keep_touched_linear with produced = false; }
+let keep_produced = { keep_none_linear with produced = true; }
+let keep_unused = { keep_none_linear with unused = true; }
 let keep_written = { keep_used with read_only = false; joined_read_only = false; }
 
 (** A filter compatible with [List.filter] or [List.partition] that selects resources by their usage in the usage map given. *)
-let usage_filter usage filter (h, _) =
+let linear_usage_filter usage filter (h, _) =
   match Var_map.find_opt h usage with
   | None -> filter.unused
   | Some SplittedFrac -> filter.read_only
@@ -128,7 +128,29 @@ let usage_filter usage filter (h, _) =
   | Some ConsumedUninit -> filter.uninit
   | Some ConsumedFull -> filter.full
   | Some Produced -> filter.produced
-  | Some (Required | Ensured) -> failwith "usage_filter used on pure resource"
+  | Some (Required | Ensured) -> failwith "linear_usage_filter used on pure resource"
+
+type pure_usage_filter =
+ { unused: bool; required: bool; ensured: bool }
+
+let keep_all_pure = { unused = true; required = true; ensured = true }
+let keep_none_pure = { unused = false; required = false; ensured = false }
+let keep_touched_pure = { keep_all_pure with unused = false; }
+let keep_unused_pure = { keep_none_pure with unused = true; }
+let keep_required = { keep_none_pure with required = true; }
+let keep_ensured = { keep_none_pure with ensured = true; }
+
+(** A filter compatible with [List.filter] or [List.partition] that selects resources by their usage in the usage map given. *)
+let pure_usage_filter usage filter (h, _) =
+  match Var_map.find_opt h usage with
+  | None -> filter.unused
+  | Some Required -> filter.required
+  | Some Ensured -> filter.ensured
+  | Some (SplittedFrac | JoinedFrac | ConsumedUninit | ConsumedFull | Produced) ->
+    failwith "linear_usage_filter used on linear resource"
+
+let filter_touched (usage: resource_usage_map) (res: resource_set) =
+  Resource_set.filter ~pure_filter:(pure_usage_filter usage keep_touched_pure) ~linear_filter:(linear_usage_filter usage keep_touched_linear) res
 
 let trm_is_referentially_transparent (t: trm): bool =
   if Option.is_some (trm_var_inv t) then
@@ -529,29 +551,6 @@ let assert_usages_commute (loc : location) (before : resource_usage_map) (after 
   if not (Hyp_map.is_empty interference) then
     loc_fail loc (string_of_interference interference)
 
-let hyps_of_usage (res : resource_usage_map) : hyp list =
-  List.map (fun (h, _) -> h) (Hyp_map.bindings res)
-
-(** <private>
-    Collects the resources that are consumed Full or Uninit (i.e. possibly written to) by term [t].
-    *)
-let write_usage_of (t : trm) : hyp list =
-  let res = usage_of_trm t in
-  let keep hyp res_usage =
-    match res_usage with
-    | ConsumedFull | ConsumedUninit -> true
-    | SplittedFrac | JoinedFrac | Produced | Required | Ensured -> false
-  in
-  let write_res = Hyp_map.filter keep res in
-  hyps_of_usage write_res
-
-(** <private>
-    Returns a list of formulas from a list of hypothesis variables.
-    *)
-let formulas_of_hyps (hyps: hyp list) (resources: resource_item list): formula list =
-  let hyp_map = Hyp_map.of_seq (List.to_seq resources) in
-  List.map (fun h -> Hyp_map.find h hyp_map) hyps
-
 (** Checks that the effects from the instruction at path [p] are shadowed by following effects
    in the program.
 
@@ -561,9 +560,9 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) (p :
   step_backtrack ~discard_after:true (fun () ->
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
       Target.apply_at_path (fun instr ->
-        let write_hyps = write_usage_of instr in
         let res_before = before_trm instr in
-        let write_res = formulas_of_hyps write_hyps res_before.linear in
+        let write_res = List.filter (linear_usage_filter (usage_of_trm instr) keep_written) res_before.linear in
+        let write_res = List.map (fun (_, formula) -> formula) write_res in
         let write_res = List.filter pred write_res in
         let uninit_ghosts = List.filter_map (fun res ->
           if Option.is_none (formula_uninit_inv res) then Some (Resource_trm.ghost_forget_init res) else None) write_res in

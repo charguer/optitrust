@@ -174,3 +174,9 @@ let used_vars (res: resource_set): Var_set.t =
 let remove_unused_efracs (res: resource_set): resource_set =
   let used = used_vars res in
   { res with efracs = List.filter (fun (efrac, _) -> Var_set.mem efrac used) res.efracs }
+
+
+(** [filter ?pure_filter ?linear_filter res] removes the resources for which the corresponding filter returns false.
+    If a filter function is not given, do not filter the corresponding field. *)
+let filter ?(pure_filter = fun _ -> true) ?(linear_filter = fun _ -> true) res =
+  { res with pure = List.filter pure_filter res.pure; linear = List.filter linear_filter res.linear }

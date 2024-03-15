@@ -338,7 +338,7 @@ let update_usage (hyp: hyp) (current_usage: resource_usage option) (extra_usage:
   | u, None -> u
   | Some Required, Some Required -> Some Required
   | Some Ensured, Some Required -> Some Ensured
-  | Some Required, Some Ensured -> failwith (sprintf "Ensured resource %s share id with another one" (var_to_string hyp))
+  | Some (Required | Ensured), Some Ensured -> failwith (sprintf "Ensured resource %s share id with another one" (var_to_string hyp))
   | Some (Required | Ensured), _ | _, Some (Required | Ensured) ->
     failwith (sprintf "Resource %s is used both as a pure and as a linear resource" (var_to_string hyp))
   | Some Produced, Some (ConsumedFull | ConsumedUninit) -> None
@@ -894,7 +894,8 @@ let rec compute_resources
       compute_resources (Some res) (Matrix_core.alloc_with_ty ~annot:referent ~annot_call:referent dims ty)
 
     (* Values and variables are pure. *)
-    | Trm_val _ | Trm_var _ -> (Some Var_map.empty, Some res) (* TODO: Manage return values for pointers *)
+    | Trm_val _ -> (Some Var_map.empty, Some res)
+    | Trm_var (_, x) -> (Some (Var_map.singleton x Required), Some res) (* TODO: Manage return values for pointers *)
 
     (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
     | Trm_let_fun (name, ret_type, args, body, contract) ->
@@ -977,6 +978,7 @@ let rec compute_resources
         | _ -> res_after
         ) res_after
       in
+      let usage_map = Option.map (Var_map.add var Ensured) usage_map in
       usage_map, Option.map (fun res_after -> Resource_set.rename_var var_result var res_after) res_after
 
     (* TODO: try to factorize *)
@@ -1166,9 +1168,15 @@ let rec compute_resources
     | Some res, Some expected_res ->
       (* Check that the expected resources after the expression are actually the resources available after the expression *)
       begin try
-        (* TODO: check names *)
+        (* LATER: add an annotation to provide post instantiation hints *)
         let used_res = assert_resource_impl res expected_res in
-        t.ctx.ctx_resources_post_inst <- Some used_res
+        t.ctx.ctx_resources_post_inst <- Some used_res;
+        (* We need to account for pure usage inside the post instantiation, but filter out invariants that are passed to the next iteration without modification. *)
+        t.ctx.ctx_resources_usage <- Option.map (fun current_usage -> update_usage_map ~current_usage ~extra_usage:(used_set_to_usage_map { used_pure = List.filter (fun { pre_hyp; inst_by } ->
+            match trm_var_inv inst_by with
+            | Some x -> not (var_eq x pre_hyp)
+            | None -> true
+          ) used_res.used_pure; used_linear = [] })) t.ctx.ctx_resources_usage;
       with
       | StoppedOnFirstError as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
       | e -> ignore (handle_resource_errors t PostconditionCheck e)
