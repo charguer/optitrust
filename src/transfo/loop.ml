@@ -807,8 +807,7 @@ let%transfo unroll_nest_of_1 ?(inner_braces : bool = false) ?(outer_seq_with_mar
       Pattern.__ ()
     ];
     (* LATER: Replace this by a proper handling of loop ghosts in Loop_basic.unroll *)
-    if contract <> None then
-      Resources.detach_loop_ro_focus (target_of_path p);
+    Resources.detach_loop_ro_focus (target_of_path p);
 
     Marks.with_fresh_mark (fun subst_mark ->
       Loop_basic.unroll ~inner_braces ~outer_seq_with_mark ~subst_mark (target_of_path p);

@@ -87,9 +87,8 @@ let swap_on (t: trm): trm =
   (* TODO: refactor *)
   Pattern.pattern_match t [
     Pattern.(!(trm_for !__ (
-      trm_seq (mlist (!(trm_for !__ !__ (some !__)) ^:: nil)) (* ^|
-      (!(trm_for !__ !__ (some !__))) *)
-      ) (some !__)))
+      trm_seq (mlist (!(trm_for !__ !__ !strict_loop_contract) ^:: nil)))
+      !strict_loop_contract))
     (fun outer_loop outer_range inner_loop inner_range body inner_contract outer_contract ->
       let open Resource_contract in
       if outer_contract.invariant <> Resource_set.empty then
@@ -130,13 +129,13 @@ let swap_on (t: trm): trm =
       let new_inner_pre = { outer_contract.iter_contract.pre with linear = group_pre @ group_par_reads @ group_lininv } in
       let new_inner_post = Resource_set.union { outer_contract.iter_contract.post with linear = group_post @ group_par_reads } (Resource_set.subst_loop_range_step inner_range (Resource_set.make ~linear:group_lininv ())) in
       let new_inner_par_reads = par_lininv @ par_reads_twice @ par_iter in
-      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; parallel_reads = new_inner_par_reads; iter_contract = { pre = new_inner_pre; post = new_inner_post } } in
+      let new_inner_contract = { loop_ghosts; invariant = Resource_set.empty; parallel_reads = new_inner_par_reads; iter_contract = { pre = new_inner_pre; post = new_inner_post }; strict = true } in
 
       let new_outer_inv = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_lininv ())) (Resource_set.make ~linear:par_lininv ()) in
       let new_outer_par_reads = (Resource_set.group_range outer_range (Resource_set.make ~linear:group_par_reads ())).linear @ par_reads_twice in
       let new_outer_pre = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_pre ())) (Resource_set.make ~linear:par_iter ()) in
       let new_outer_post = Resource_set.union (Resource_set.group_range outer_range (Resource_set.make ~linear:group_post ())) (Resource_set.make ~linear:par_iter ()) in
-      let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; parallel_reads = new_outer_par_reads; iter_contract = { pre = new_outer_pre; post = new_outer_post } } in
+      let new_outer_contract = { loop_ghosts; invariant = new_outer_inv; parallel_reads = new_outer_par_reads; iter_contract = { pre = new_outer_pre; post = new_outer_post }; strict = true } in
 
       trm_seq_nobrace_nomarks (swaps_pre @
         [trm_for inner_range ~annot:inner_loop.annot ~contract:new_outer_contract (trm_seq_nomarks [

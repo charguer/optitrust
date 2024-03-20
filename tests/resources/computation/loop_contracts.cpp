@@ -44,6 +44,7 @@ void array_copy_explicit(float* A, float* B, int n) {
     __reads("A ~> Array(n)");
     __modifies("B ~> Array(n)");
     for (int i = 0; i < n; ++i) {
+        __strict();
         __parallel_reads("A ~> Array(n)");
         __sequentially_modifies("B ~> Array(n)");
 
@@ -97,6 +98,7 @@ void array_copy_par(float* A, float* B, int n) {
     __ghost(ro_array_unfold, "A");
     __ghost(array_unfold, "B");
     for (int i = 0; i < n; ++i) {
+        __strict();
         __reads("&A[i] ~> Cell");
         __modifies("&B[i] ~> Cell");
         B[i] = A[i];
@@ -126,6 +128,7 @@ void array_copy_with_tmp(float* A, float* B, int n) {
     __ghost(array_unfold, "T");
     __ghost(array_unfold, "B");
     for (int i = 0; i < n; ++i) {
+        __strict();
         __parallel_reads("A ~> Array(n)");
         __modifies("&B[i] ~> Cell, &T[i] ~> Cell");
 

@@ -51,9 +51,11 @@ void matrix_copy(int* D, int* S) {
           "tile_count := 256, tile_size := 4, size := 1024, items := fun i -> "
           "&D[MINDEX1(1024, i)] ~> Cell");
   for (int bi = 0; bi < 256; bi++) {
+    __strict();
     __parallel_reads("S ~> Matrix1(1024)");
     __modifies("for i in 0..4 -> &D[MINDEX1(1024, bi * 4 + i)] ~> Cell");
     for (int i = 0; i < 4; i++) {
+      __strict();
       __parallel_reads("S ~> Matrix1(1024)");
       __modifies("&D[MINDEX1(1024, bi * 4 + i)] ~> Cell");
       __ghost(tiled_index_in_range,

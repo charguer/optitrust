@@ -6,6 +6,7 @@ void f(int* t, int* u) {
   int* const x_step = (int* const)MALLOC1(10, sizeof(int));
   int* const z_step = (int* const)MALLOC1(10, sizeof(int));
   for (int i = 0; i < 10; i++) {
+    __strict();
     __modifies("_Uninit(&z_step[MINDEX1(10, i)] ~> Cell)");
     __modifies("_Uninit(&x_step[MINDEX1(10, i)] ~> Cell)");
     __modifies("&u[i] ~> Cell");
@@ -20,12 +21,15 @@ void f(int* t, int* u) {
   MFREE1(10, z_step);
   MFREE1(10, x_step);
   for (int l = 0; l < 5; l++) {
+    __strict();
     __sequentially_modifies("for i in 0..10 -> &u[i] ~> Cell");
     const __ghost_fn focus2_6 =
         __ghost_begin(group_focus_subrange, "sub_range := 2..6");
     for (int m = 2; m < 6; m++) {
+      __strict();
       __modifies("&u[m] ~> Cell");
       for (int n = 4; n < 11; n += 2) {
+        __strict();
         __sequentially_modifies("&u[m] ~> Cell");
         int* const y = (int* const)MALLOC0(sizeof(int));
         y[MINDEX0()] = 0;
@@ -41,16 +45,19 @@ void f2(float* A, float* B, int m, int n, int p) {
   __reads("A ~> Matrix2(m, p)");
   __reads("B ~> Matrix2(p, n)");
   for (int i = 0; i < m; i++) {
+    __strict();
     __parallel_reads("A ~> Matrix2(m, p)");
     __parallel_reads("B ~> Matrix2(p, n)");
     float* const sum_step = (float* const)MALLOC1(n, sizeof(float));
     for (int j = 0; j < n; j++) {
+      __strict();
       __parallel_reads("A ~> Matrix2(m, p)");
       __parallel_reads("B ~> Matrix2(p, n)");
       __modifies("_Uninit(&sum_step[MINDEX1(n, j)] ~> Cell)");
       float* const sum = &sum_step[MINDEX1(n, j)];
       sum[MINDEX0()] = 0.f;
       for (int k = 0; k < p; k++) {
+        __strict();
         __sequentially_modifies("sum ~> Matrix0()");
         __parallel_reads("A ~> Matrix2(m, p)");
         __parallel_reads("B ~> Matrix2(p, n)");

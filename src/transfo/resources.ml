@@ -3,74 +3,6 @@ open Target
 open Resource_formula
 open Resource_contract
 
-type unparsed_contract = (contract_clause_type * string) list
-
-let with_desugared_res push_fn clause (x, formula) contract =
-  push_fn clause (x, (desugar_formula (Ast_fromto_AstC.caddress_elim formula))) contract
-
-let parse_fun_contract =
-  parse_contract_clauses empty_fun_contract (with_desugared_res push_fun_contract_clause)
-
-let parse_loop_contract =
-  parse_contract_clauses empty_loop_contract (with_desugared_res push_loop_contract_clause)
-
-let __pure () = Requires, ""
-let __requires (r: string) = Requires, r
-let __ensures (r: string) = Ensures, r
-let __invariant (r: string) = Invariant, r
-let __reads (r: string) = Reads, r
-let __writes (r: string) = Writes, r
-let __modifies (r: string) = Modifies, r
-let __consumes (r: string) = Consumes, r
-let __produces (r: string) = Produces, r
-let __sequentially_reads (r: string) = SequentiallyReads, r
-let __sequentially_modifies (r: string) = SequentiallyModifies, r
-
-let delete_annots_on (t : trm) : trm =
-  let rec aux t =
-    let t = if
-      (Option.is_some (Resource_trm.ghost_inv t)) ||
-      (Option.is_some (Resource_trm.ghost_begin_inv t)) ||
-      (Option.is_some (Resource_trm.ghost_end_inv t))
-      then trm_seq_nobrace_nomarks []
-      else t
-    in
-    let t = begin match t.desc with
-    | Trm_fun (args, ret_ty, body, contract) ->
-      trm_replace (Trm_fun (args, ret_ty, body, FunSpecUnknown)) t
-    | Trm_let_fun (f, ty, args, body, contract) ->
-      trm_replace (Trm_let_fun (f, ty, args, body, FunSpecUnknown)) t
-    | Trm_for (loop_range, body, contract) ->
-      trm_replace (Trm_for (loop_range, body, None)) t
-    | Trm_for_c (start, cond, stop, body, contract) ->
-      trm_replace (Trm_for_c (start, cond, stop, body, None)) t
-    | _ -> t
-    end in
-    trm_map aux t
-  in
-  aux t
-
-let delete_annots (tg : Target.target) : unit =
-  Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths delete_annots_on tg;
-    Show.ast ()
-  )
-
-let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
-  let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
-  trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
-
-let%transfo set_fun_contract (contract: unparsed_contract) (tg : Target.target) : unit =
-  Target.apply_at_target_paths (set_fun_contract_on (parse_fun_contract contract)) tg
-
-let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
-  let range, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
-  trm_like ~old:t (trm_for ~contract range body)
-
-let%transfo set_loop_contract (contract: unparsed_contract) (tg: Target.target): unit =
-  Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract contract)) tg
-
-
 let ensure_computed = Trace.recompute_resources
 
 (* TODO: avoid recomputing all resources for validity checks. *)
@@ -83,10 +15,6 @@ let justif_correct (why : string) : unit =
     Trace.justif (sprintf "resources are correct: %s" why)
   end
 
-let trm_for_contract t =
-  match trm_for_inv t with
-  | Some (_, _, Some c) -> Some c
-  | _ -> None
 
 (** Returns the resource usage of the given term, fails if unavailable. *)
 let usage_of_trm (t : trm) =
@@ -412,7 +340,8 @@ let minimize_loop_contract contract usage =
   let new_contract = { loop_ghosts = !new_fracs @ contract.loop_ghosts;
     invariant = new_invariant;
     parallel_reads = new_parallel_reads;
-    iter_contract = new_iter_contract; }
+    iter_contract = new_iter_contract;
+    strict = contract.strict }
   in
   let new_contract_used_vars = loop_contract_used_vars new_contract in
 
@@ -428,7 +357,6 @@ let minimize_loop_contract contract usage =
 
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
-  let contract = unsome_or_trm_fail t "loop_minimize_on: expected a contract on the for loop" contract in
 
   let body_res_usage = usage_of_trm body in
   let new_contract = minimize_loop_contract contract body_res_usage in
@@ -442,50 +370,133 @@ let%transfo loop_minimize (*?(indepth : bool = false)*) (tg: target) : unit =
   justif_correct "only changed loop contracts"
 
 
-let fix_loop_default_contract_on ?(mark: mark = "") (t: trm): trm =
-  let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
-  if contract <> None then trm_fail t "fix_loop_default_contract_on: the loop already has a contract set";
+let make_strict_loop_contract_on (t: trm): trm =
+  let range, body, contract = trm_inv ~error:"make_strict_loop_contract_on: not a for loop" trm_for_inv t in
+  if contract.strict then trm_fail t "make_strict_loop_contract_on: the loop already has a strict contract";
 
-  let res_before = unsome_or_trm_fail t "fix_loop_default_contract_on: resources need to be computed before this transformation" t.ctx.ctx_resources_before in
+  let body_res_usage = usage_of_trm body in
+  let { contract_frame } = unsome_or_trm_fail t "make_strict_loop_contract_on: resources need to be computed before this transformation" t.ctx.ctx_resources_contract_invoc in
 
   let fracs = ref [] in
-  let lin_invariant, parallel_reads = List.partition_map (fun (_, f) ->
-    match formula_read_only_inv f with
-    | Some { formula } ->
+  let lin_invariant = ref [] in
+  let parallel_reads = ref [] in
+  List.iter (fun (x, f) ->
+    match Var_map.find_opt x body_res_usage with
+    | None -> ()
+    | Some (ConsumedFull | ConsumedUninit) ->
+      lin_invariant := (new_anon_hyp (), f) :: !lin_invariant;
+    | Some (SplittedFrac | JoinedFrac) ->
       let frac, frac_item = new_frac () in
       fracs := frac_item :: !fracs;
-      Either.right (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) formula)
-    | None -> Either.left (new_anon_hyp (), f))
-    res_before.linear in
-  let contract = {
-    loop_ghosts = !fracs;
-    invariant = Resource_set.make ~linear:lin_invariant ();
-    parallel_reads;
-    iter_contract = empty_fun_contract }
-  in
-  trm_alter ~desc:(Trm_for (range, body, Some contract)) t
+      let f = match formula_read_only_inv f with
+        | Some { formula } -> formula
+        | None -> f
+      in
+      parallel_reads := (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) f) :: !parallel_reads
+    | Some _ -> failwith "Found a usage incompatible with the loop contract frame")
+    contract_frame;
 
-let rec fix_loop_default_contract_rec ?(mark: mark = no_mark) (t: trm): trm =
+  let contract = {
+    loop_ghosts = (List.rev !fracs) @ contract.loop_ghosts;
+    invariant = Resource_set.add_linear_list (List.rev !lin_invariant) contract.invariant;
+    parallel_reads = (List.rev !parallel_reads) @ contract.parallel_reads;
+    iter_contract = contract.iter_contract;
+    strict = true }
+  in
+  trm_alter ~desc:(Trm_for (range, body, contract)) t
+
+let rec make_strict_loop_contract_rec (t: trm): trm =
   match t.ctx.ctx_resources_before with
   | None -> t
   | Some _ ->
-    let t = trm_map ~keep_ctx:true (fix_loop_default_contract_rec ~mark) t in
+    let t = trm_map ~keep_ctx:true make_strict_loop_contract_rec t in
     match t.desc with
-    | Trm_for (_, _, None) -> trm_add_mark mark (fix_loop_default_contract_on ~mark t)
+    | Trm_for (_, _, contract) when not contract.strict ->
+      make_strict_loop_contract_on t
     | _ -> t
 
-(** [fix_loop_default_contracts] uses computed resources to fix the default loop contracts on all the children of the targeted node *)
-let%transfo fix_loop_default_contracts ?(mark: mark = no_mark) (tg: target): unit =
+(** [make_strict_loop_contracts] uses computed resources to fix the default loop contracts on all the children of the targeted node *)
+let%transfo make_strict_loop_contracts (tg: target): unit =
   ensure_computed ();
-  Target.apply_at_target_paths (fix_loop_default_contract_rec ~mark) tg;
+  Target.apply_at_target_paths make_strict_loop_contract_rec tg;
   justif_correct "only changed loop contracts"
+
+type unparsed_contract = (contract_clause_type * string) list
+
+let with_desugared_res push_fn clause (x, formula) contract =
+  push_fn clause (x, (desugar_formula (Ast_fromto_AstC.caddress_elim formula))) contract
+
+let parse_fun_contract =
+  parse_contract_clauses empty_fun_contract (with_desugared_res push_fun_contract_clause)
+
+let parse_loop_contract ~strict =
+  parse_contract_clauses (if strict then empty_strict_loop_contract else empty_loop_contract) (with_desugared_res push_loop_contract_clause)
+
+let __pure () = Requires, ""
+let __requires (r: string) = Requires, r
+let __ensures (r: string) = Ensures, r
+let __invariant (r: string) = Invariant, r
+let __reads (r: string) = Reads, r
+let __writes (r: string) = Writes, r
+let __modifies (r: string) = Modifies, r
+let __consumes (r: string) = Consumes, r
+let __produces (r: string) = Produces, r
+let __sequentially_reads (r: string) = SequentiallyReads, r
+let __sequentially_modifies (r: string) = SequentiallyModifies, r
+
+let delete_annots_on (t : trm) : trm =
+  let rec aux t =
+    let t = if
+      (Option.is_some (Resource_trm.ghost_inv t)) ||
+      (Option.is_some (Resource_trm.ghost_begin_inv t)) ||
+      (Option.is_some (Resource_trm.ghost_end_inv t))
+      then trm_seq_nobrace_nomarks []
+      else t
+    in
+    let t = begin match t.desc with
+    | Trm_fun (args, ret_ty, body, contract) ->
+      trm_replace (Trm_fun (args, ret_ty, body, FunSpecUnknown)) t
+    | Trm_let_fun (f, ty, args, body, contract) ->
+      trm_replace (Trm_let_fun (f, ty, args, body, FunSpecUnknown)) t
+    | Trm_for (loop_range, body, contract) ->
+      trm_replace (Trm_for (loop_range, body, empty_loop_contract)) t
+    | Trm_for_c (start, cond, stop, body, contract) ->
+      trm_replace (Trm_for_c (start, cond, stop, body, None)) t
+    | _ -> t
+    end in
+    trm_map aux t
+  in
+  aux t
+
+let delete_annots (tg : Target.target) : unit =
+  Nobrace_transfo.remove_after (fun () ->
+    Target.apply_at_target_paths delete_annots_on tg;
+    Show.ast ()
+  )
+
+let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
+  let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
+  trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
+
+let%transfo set_fun_contract (contract: unparsed_contract) (tg : Target.target) : unit =
+  Target.apply_at_target_paths (set_fun_contract_on (parse_fun_contract contract)) tg
+
+let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
+  let range, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
+  trm_like ~old:t (trm_for ~contract range body)
+
+let%transfo set_loop_contract ?(strict:bool=true) (contract: unparsed_contract) (tg: Target.target): unit =
+  Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract ~strict contract)) tg;
+  if not strict then begin
+    ensure_computed ();
+    Target.apply_at_target_paths make_strict_loop_contract_on tg
+  end
 
 
 let ghost_group_ro_focus = toplevel_var "group_ro_focus"
 
 let detach_loop_ro_focus_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"detach_loop_ro_focus_on: not a for loop" trm_for_inv t in
-  let contract = unsome_or_trm_fail t "detach_loop_ro_focus_on: expected a contract on the for loop" contract in
   let iter_reads, iter_pre, iter_post = filter_common_resources ~filter_map_left:(fun formula -> Option.map (fun _ -> formula) (formula_read_only_inv formula)) contract.iter_contract.pre.linear contract.iter_contract.post.linear in
   let new_par_reads = List.map (fun (x, formula) -> (x, formula_group_range range formula)) iter_reads in
   let contract = { contract with

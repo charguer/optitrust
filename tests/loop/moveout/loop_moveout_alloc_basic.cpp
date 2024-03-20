@@ -5,6 +5,7 @@ void alloc(int n) {
 
   int x = 0;
   for (int i = 0; i < 3; i++) {
+    __strict();
     __sequentially_modifies("&x ~> Cell");
 
     int* const m = (int* const) MALLOC1(n, sizeof(int));
@@ -18,6 +19,7 @@ void var_wrong(int* t) {
 
   int x = 0;
   for (int i = 0; i < 3; i++) {
+    __strict();
     __sequentially_modifies("_Uninit(&x ~> Cell)");
     __modifies("&t[MINDEX1(3, i)] ~> Cell");
     x = 3;

@@ -30,11 +30,13 @@ void weird(int* k, int n1, int n2) {
       __ghost_begin(ro_fork_group, "r := 0..n2, H := k ~> Cell");
   int acc = 0;
   for (int i = 0; i < n1; ++i) {
+    __strict();
     __sequentially_modifies("&acc ~> Cell");
     __reads("k ~> Cell");
     acc += *k;
   }
   for (int j = 0; j < n2; ++j) {
+    __strict();
     __sequentially_modifies("&acc ~> Cell");
     __reads("k ~> Cell");
     acc += *k;

@@ -268,11 +268,11 @@ let trm_uninitialized ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ()
   trm_make ~annot ?loc ?ctx (Trm_val (Val_lit (Lit_uninitialized)))
 
 (* [trm_for ~annot ?loc ?ctx index start direction stop step body]: simple for loop *)
-let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_spec)
+let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_contract = empty_loop_contract)
   (loop_range : loop_range) (body : trm) : trm =
   trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_for (loop_range, body, contract))
 
-let trm_for_instrs ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_spec)
+let trm_for_instrs ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_contract option)
 (loop_range : loop_range) (body_instrs : trm mlist) : trm =
   trm_for ~annot ?loc ?ctx ?contract loop_range (trm_seq body_instrs)
 
@@ -1175,15 +1175,15 @@ let trm_is_unary_compound_assign (t : trm) : bool =
   | _ -> false
 
 (* [trm_for_inv t]: gets the loop range from loop [t] *)
-let trm_for_inv (t : trm) : (loop_range * trm * loop_spec)  option =
+let trm_for_inv (t : trm) : (loop_range * trm * loop_contract)  option =
 match t.desc with
 | Trm_for (l_range, body, contract) -> Some (l_range, body, contract)
 | _ -> None
 
 (* [trm_for_inv_instrs t]: gets the loop range and body instructions from loop [t]. *)
-let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist * loop_spec) option =
-Option.bind (trm_for_inv t) (fun (r, b, c) ->
-  Option.map (fun instrs -> (r, instrs, c)) (trm_seq_inv b))
+let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist * loop_contract) option =
+  Option.bind (trm_for_inv t) (fun (r, b, c) ->
+    Option.map (fun instrs -> (r, instrs, c)) (trm_seq_inv b))
 
 (* [is_trm_seq t]: checks if [t] is a sequence. *)
 let is_trm_seq (t : trm) : bool =
@@ -1803,7 +1803,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     let iter_contract = fun_contract_map contract.iter_contract in
     if share_if_no_change && loop_ghosts == contract.loop_ghosts && invariant == contract.invariant && parallel_reads == contract.parallel_reads && iter_contract == contract.iter_contract
       then contract
-      else { loop_ghosts; invariant; parallel_reads; iter_contract }
+      else { loop_ghosts; invariant; parallel_reads; iter_contract; strict = contract.strict }
   in
 
   let t' = match t.desc with
@@ -1897,10 +1897,10 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       else { range with start; stop; step }
     in
     let body' = f is_terminal body in
-    let contract' = opt_map loop_contract_map (==) contract in
+    let contract' = loop_contract_map contract in
     if (share_if_no_change && range' == range && body' == body && contract' == contract)
       then t
-      else (trm_for ~annot ?loc ?contract:contract' ~ctx range' body')
+      else (trm_for ~annot ?loc ~contract:contract' ~ctx range' body')
   | Trm_switch (cond, cases) ->
       let cond' = f false cond in
       let cases' = list_map
@@ -2063,17 +2063,11 @@ let trm_map_vars_ret_ctx
         then range
         else { range with index; start; stop; step }
       in
-      let loop_ctx, contract' = match contract with
-      | None -> (loop_ctx, None)
-      | Some c ->
-        let loop_ctx, c' = loop_contract_map loop_ctx c in
-        let c' = if (c == c') then contract else Some c' in
-        (loop_ctx, c')
-      in
+      let loop_ctx, contract' = loop_contract_map loop_ctx contract in
       let loop_ctx, body' = f_map loop_ctx body in
       let t' = if (range' == range && body' == body && contract == contract')
         then t
-        else (trm_for ~annot ?loc ~ctx:t_ctx ?contract:contract' range' body')
+        else (trm_for ~annot ?loc ~ctx:t_ctx ~contract:contract' range' body')
       in
       let ctx = exit_scope ctx loop_ctx t' in
       (ctx, t')
@@ -2249,7 +2243,7 @@ let trm_map_vars_ret_ctx
     let contract =
       if (loop_ghosts == contract.loop_ghosts && invariant == contract.invariant && parallel_reads == contract.parallel_reads && iter_contract == contract.iter_contract)
       then contract
-      else { loop_ghosts; invariant; parallel_reads; iter_contract }
+      else { loop_ghosts; invariant; parallel_reads; iter_contract; strict = contract.strict }
     in
     (ctx, contract)
 

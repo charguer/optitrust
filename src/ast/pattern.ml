@@ -150,3 +150,6 @@ let none k xo =
   match xo with
   | None -> k
   | Some _ -> raise Next
+
+let strict_loop_contract k lc =
+  if lc.strict then k else raise Next

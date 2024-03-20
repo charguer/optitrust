@@ -29,6 +29,7 @@ int main(){
   }
 */
   for (int m = 2; m < N-2; m++) {
+    __strict();
     __sequentially_modifies("&x ~> Cell");
     x += m;
   }

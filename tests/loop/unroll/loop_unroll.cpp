@@ -32,6 +32,7 @@ void iter_contract_ro(int* M) {
 
   int acc = 0;
   for (int x = 0; x < 3; x++) {
+    __strict();
     __sequentially_modifies("&acc ~> Cell");
     __reads("&M[MINDEX1(3,x)] ~> Cell");
     acc += M[MINDEX1(3,x)];

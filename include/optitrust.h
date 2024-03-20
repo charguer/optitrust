@@ -23,6 +23,7 @@ inline void __sequentially_reads(const char*) {}
 inline void __sequentially_modifies(const char*) {}
 inline void __parallel_reads(const char*) {}
 inline void __loop_ghosts(const char*) {}
+inline void __strict() {}
 
 inline void __admitted() {}
 

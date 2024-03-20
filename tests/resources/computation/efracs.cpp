@@ -35,11 +35,13 @@ void weird(int* k, int n1, int n2) {
   // forall (g < f) (h <= f - g), _RO(g / range_count(r1), _), _RO(h / range_count(r2), _), _RO(f - g - h, H)
   int acc = 0;
   for (int i = 0; i < n1; ++i) {
+    __strict();
     __reads("k ~> Cell");
     __sequentially_modifies("&acc ~> Cell");
     acc += *k;
   }
   for (int j = 0; j < n2; ++j) {
+    __strict();
     __reads("k ~> Cell");
     __sequentially_modifies("&acc ~> Cell");
     acc += *k;

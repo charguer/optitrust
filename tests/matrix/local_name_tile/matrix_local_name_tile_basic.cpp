@@ -17,9 +17,11 @@ void malloc_uninit_pre() {
                "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
     for (int j = 2; j < 10; j++) {
+      __strict();
       __writes("for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
       for (int k = 0; k < 4; k++) {
+        __strict();
         __writes("&a[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
         a[MINDEX3(10,10,4,i,j,k)] = 1;
@@ -41,12 +43,14 @@ void malloc_uninit_post() {
     "sub_range := 2..10");
 
   for (int i1 = 2; i1 < 10; i1++) {
+    __strict();
     __writes("&a[MINDEX1(10,i1)] ~> Cell");
 
     a[MINDEX1(10,i1)] = 1;
   }
 
   for (int i = 2; i < 10; i++) {
+    __strict();
     __modifies("&a[MINDEX1(10,i)] ~> Cell");
 
     a[MINDEX1(10,i)] += 1;
@@ -70,9 +74,11 @@ void malloc_uninit_prepost() {
                "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
     for (int j = 2; j < 10; j++) {
+      __strict();
       __writes("for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
       for (int k = 0; k < 4; k++) {
+        __strict();
         __writes("&a[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
         a[MINDEX3(10,10,4,i,j,k)] = 1;
@@ -93,9 +99,11 @@ void f(T* b) {
                "  &b[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
     for (int j = 0; j < 10; j++) {
+      __strict();
       __modifies("for k in 0..4 -> &b[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
       for (int k = 0; k < 4; k++) {
+        __strict();
         __modifies("&b[MINDEX3(10,10,4,i,j,k)] ~> Cell");
 
         b[MINDEX3(10,10,4,i,j,k)] = 1;

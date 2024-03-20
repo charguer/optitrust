@@ -6,10 +6,12 @@ void add(int* out, int* xs, int* ys, int h, int w) {
   __reads("ys ~> Matrix2(h, w)");
 
   for (int y = 0; y < h; y++) {
+    __strict();
     __writes("for x in 0..w -> &out[MINDEX2(h, w, y, x)] ~> Cell");
     __parallel_reads("xs ~> Matrix2(h, w)");
     __parallel_reads("ys ~> Matrix2(h, w)");
     for (int x = 0; x < w; x++) {
+      __strict();
       __writes("&out[MINDEX2(h, w, y, x)] ~> Cell");
       __parallel_reads("xs ~> Matrix2(h, w)");
       __parallel_reads("ys ~> Matrix2(h, w)");
@@ -27,9 +29,11 @@ void vbox(int* out, int* in_, int h, int w) {
   __reads("in_ ~> Matrix2(h, w)");
 
   for (int y = 0; y < h; y++) {
+    __strict();
     __writes("for x in 0..(w-2) -> &out[MINDEX2(h, w-2, y, x)] ~> Cell");
     __parallel_reads("in_ ~> Matrix2(h, w)");
     for (int x = 0; x < w - 2; x++) {
+      __strict();
       __writes("&out[MINDEX2(h, w-2, y, x)] ~> Cell");
       __parallel_reads("in_ ~> Matrix2(h, w)");
 
@@ -52,9 +56,11 @@ void hbox(int* out, int* in_, int h, int w) {
   __reads("in_ ~> Matrix2(h, w)");
 
   for (int y = 0; y < h - 2; y++) {
+    __strict();
     __writes("for x in 0..w -> &out[MINDEX2(h-2, w, y, x)] ~> Cell");
     __parallel_reads("in_ ~> Matrix2(h, w)");
     for (int x = 0; x < w; x++) {
+      __strict();
       __writes("&out[MINDEX2(h-2, w, y, x)] ~> Cell");
       __parallel_reads("in_ ~> Matrix2(h, w)");
 

@@ -39,6 +39,7 @@ void iter_contract(int* M) {
   __modifies("M ~> Matrix1(3)");
 
   for (int i = 0; i < 3; i++) {
+    __strict();
     __modifies("&M[MINDEX1(3,i)] ~> Cell");
     M[MINDEX1(3,i)] = 0;
   }

@@ -14,8 +14,9 @@ let _ = Run.script_cpp (fun () ->
 
     (* Weird behavior because acc is already stack-var encoded when parsing the contract:
        we need to write `acc` and not `&acc` *)
-    !! Resources.(set_loop_contract [__sequentially_modifies("acc ~> Cell")]) [cFor "j"];
+    !! Resources.(set_loop_contract [__sequentially_modifies("acc ~> Cell")]) [cFunBody "loop"; cFor "j"];
 
+    !! Resources.(set_loop_contract ~strict:false [__reads("&M[MINDEX1(n, j)] ~> Cell")]) [cFunBody "non_strict"; cFor "j"];
     (*!! Trace.apply Scope.unique_alpha_rename;*)
 
     Resources.show ();

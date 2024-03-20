@@ -1693,13 +1693,11 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
         (add_dir Dir_for_step (aux step_t)) @
         (add_dir Dir_body (aux_body body)) @
         if incontracts then
-          Xoption.flat_map (fun contract ->
-            (aux_contract_dir Contract_pre contract.iter_contract.pre) @
-            (aux_contract_dir Contract_post contract.iter_contract.post) @
-            (aux_resource_set_dir Contract_loop_ghosts Resource_set_pure contract.loop_ghosts) @
-            (aux_resource_set_dir Contract_parallel_reads Resource_set_linear contract.parallel_reads) @
-            (aux_contract_dir Contract_invariant contract.invariant)
-          ) contract
+          (aux_contract_dir Contract_pre contract.iter_contract.pre) @
+          (aux_contract_dir Contract_post contract.iter_contract.post) @
+          (aux_resource_set_dir Contract_loop_ghosts Resource_set_pure contract.loop_ghosts) @
+          (aux_resource_set_dir Contract_parallel_reads Resource_set_linear contract.parallel_reads) @
+          (aux_contract_dir Contract_invariant contract.invariant)
         else []
 
      | Trm_for_c (init, cond, step, body, invariant) ->

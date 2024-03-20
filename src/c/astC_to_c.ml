@@ -655,14 +655,14 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
   | _ ->
     dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style ~print_struct_init_type:false init ^^ dsemi
 
-and loop_spec_to_doc style (loop_spec : loop_spec) : doc =
-  option_to_doc "<no_loop_spec>" (loop_contract_to_doc style) loop_spec
-
 and loop_contract_to_doc style (loop_contract : loop_contract) : doc =
   key_value_to_doc [
     "loop_ghosts", resource_item_list_to_doc style loop_contract.loop_ghosts;
     "invariant", resource_set_to_doc style loop_contract.invariant;
-    "iter_contract", fun_contract_to_doc style loop_contract.iter_contract; ]
+    "iter_contract", fun_contract_to_doc style loop_contract.iter_contract;
+    "parallel_reads", resource_item_list_to_doc style loop_contract.parallel_reads;
+    "strict", if loop_contract.strict then string "true" else string "false" ]
+
 
 and fun_contract_to_doc style (fun_contract : fun_contract) : doc =
   key_value_to_doc [

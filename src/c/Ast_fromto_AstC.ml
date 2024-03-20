@@ -623,6 +623,7 @@ let __sequentially_reads = name_to_var "__sequentially_reads"
 let __sequentially_modifies = name_to_var "__sequentially_modifies"
 let __parallel_reads = name_to_var "__parallel_reads"
 let __loop_ghosts = name_to_var "__loop_ghosts"
+let __strict = name_to_var "__strict"
 
 let __reverts = name_to_var "__reverts"
 
@@ -653,6 +654,7 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
     | "__sequentially_modifies" -> Some SequentiallyModifies
     | "__parallel_reads" -> Some ParallelReads
     | "__loop_ghosts" -> Some LoopGhosts
+    | "__strict" -> Some Strict
     | _ -> None
   in
   let arg = Option.value ~default:(trm_string "") (List.nth_opt args 0) in
@@ -696,8 +698,16 @@ let extract_fun_spec (seq: trm mlist) : fun_spec * trm mlist =
     | Some c -> FunSpecContract c, seq
 
 
-let extract_loop_spec (seq: trm mlist) : loop_spec * trm mlist =
-  extract_contract empty_loop_contract push_loop_contract_clause seq
+let extract_loop_contract (seq: trm mlist) : loop_contract * trm mlist =
+  let enc_contract, seq = extract_encoded_contract_clauses seq in
+  let is_strict = ref false in
+  let enc_contract = List.filter (fun (clause_type, _) ->
+    if clause_type = Strict then
+      (is_strict := true; false)
+    else true) enc_contract in
+  let start_contract = if !is_strict then empty_strict_loop_contract else empty_loop_contract in
+  parse_contract_clauses start_contract push_loop_contract_clause enc_contract, seq
+
 
 let contract_elim (t: trm): trm =
   debug_current_stage "contract_elim";
@@ -724,10 +734,10 @@ let contract_elim (t: trm): trm =
     end
 
   | Trm_for (range, body, contract) ->
-    assert (contract = None);
+    assert (contract = empty_loop_contract);
     begin match trm_seq_inv body with
     | Some body_seq ->
-      let contract, new_body = extract_loop_spec body_seq in
+      let contract, new_body = extract_loop_contract body_seq in
       let new_body = Mlist.map aux new_body in
       trm_alter ~desc:(Trm_for (range, trm_seq new_body, contract)) t
     | None -> trm_map aux t
@@ -960,34 +970,30 @@ let rec contract_intro (style: style) (t: trm): trm =
 
   | Trm_for (range, body0, contract) ->
     let body = contract_intro style body0 in
-    let body =
-      match contract with
-      | Some contract when contract = empty_loop_contract ->
-        seq_push (trm_apps (trm_var __pure) []) body
-      | Some contract ->
-        let used_vars = loop_contract_used_vars contract in
-        let loop_ghosts, pre_linear, post_linear, body =
-          push_reads_and_modifies __reads __modifies ~writes_prim:__writes
-            contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
-        in
-        let body = push_named_formulas __produces post_linear body in
-        let body = push_named_formulas __ensures ~used_vars contract.iter_contract.post.pure body in
-        let body = push_named_formulas __consumes pre_linear body in
-        let body = push_named_formulas __requires ~used_vars contract.iter_contract.pre.pure body in
-        List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;
-        let loop_ghosts, _, _, body =
-          push_reads_and_modifies ~force:true __parallel_reads __parallel_reads
-            loop_ghosts contract.parallel_reads contract.parallel_reads body
-        in
-        let loop_ghosts, invariant_linear, _, body =
-          push_reads_and_modifies __sequentially_reads __sequentially_modifies
-            loop_ghosts contract.invariant.linear contract.invariant.linear body
-        in
-        let body = push_named_formulas __sequentially_modifies ~used_vars invariant_linear body in
-        let body = push_named_formulas __loop_ghosts ~used_vars loop_ghosts body in
-        push_named_formulas __invariant ~used_vars contract.invariant.pure body
-      | None -> body
+    let used_vars = loop_contract_used_vars contract in
+    let loop_ghosts, pre_linear, post_linear, body =
+      push_reads_and_modifies __reads __modifies ~writes_prim:__writes
+        contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
     in
+    let body = push_named_formulas __produces post_linear body in
+    let body = push_named_formulas __ensures ~used_vars contract.iter_contract.post.pure body in
+    let body = push_named_formulas __consumes pre_linear body in
+    let body = push_named_formulas __requires ~used_vars contract.iter_contract.pre.pure body in
+    List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;
+    let loop_ghosts, _, _, body =
+      push_reads_and_modifies ~force:true __parallel_reads __parallel_reads
+        loop_ghosts contract.parallel_reads contract.parallel_reads body
+    in
+    let loop_ghosts, invariant_linear, _, body =
+      push_reads_and_modifies __sequentially_reads __sequentially_modifies
+        loop_ghosts contract.invariant.linear contract.invariant.linear body
+    in
+    let body = push_named_formulas __sequentially_modifies ~used_vars invariant_linear body in
+    let body = push_named_formulas __invariant ~used_vars contract.invariant.pure body in
+    let body = push_named_formulas __loop_ghosts ~used_vars loop_ghosts body in
+    let body = if contract.strict
+      then seq_push (trm_apps (trm_var __strict) []) body
+      else body in
     if body == body0
       then t
       else trm_like ~old:t (trm_for range body)

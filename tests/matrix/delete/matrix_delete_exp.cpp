@@ -3,9 +3,10 @@
 typedef float T;
 
 void simple(int N) {
-__pure();
+  __pure();
   int x;
   for (int i = 0; i < N; i++) {
+    __strict();
     __sequentially_modifies("&x ~> Cell");
     x += i;
   }

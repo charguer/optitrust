@@ -48,6 +48,7 @@ void array_copy(float* A, float* B, int n) {
   __modifies("B ~> Array(n)");
   __reads("A ~> Array(n)");
   for (int i = 0; i < n; ++i) {
+    __strict();
     __sequentially_modifies("B ~> Array(n)");
     __parallel_reads("A ~> Array(n)");
     __ghost(array_ro_focus, "M := A, i := i");
@@ -62,6 +63,7 @@ void array_copy_explicit(float* A, float* B, int n) {
   __modifies("B ~> Array(n)");
   __reads("A ~> Array(n)");
   for (int i = 0; i < n; ++i) {
+    __strict();
     __sequentially_modifies("B ~> Array(n)");
     __parallel_reads("A ~> Array(n)");
     __ghost(array_ro_focus, "M := A, i := i");
@@ -113,6 +115,7 @@ void array_copy_par(float* A, float* B, int n) {
   __ghost(array_unfold, "M := B");
 #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
+    __strict();
     __modifies("&B[i] ~> Cell");
     __reads("&A[i] ~> Cell");
     B[i] = A[i];
@@ -141,6 +144,7 @@ void array_copy_with_tmp(float* A, float* B, int n) {
   __ghost(array_unfold, "M := T");
   __ghost(array_unfold, "M := B");
   for (int i = 0; i < n; ++i) {
+    __strict();
     __parallel_reads("A ~> Array(n)");
     __modifies("&B[i] ~> Cell");
     __modifies("&T[i] ~> Cell");

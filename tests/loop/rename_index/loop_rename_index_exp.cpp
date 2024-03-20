@@ -22,6 +22,7 @@ int main() {
 void contract(int* t, int n) {
   __modifies("t ~> Matrix1(n)");
   for (int j = 0; j < n; j++) {
+    __strict();
     __modifies("&t[MINDEX1(n, j)] ~> Cell");
     t[MINDEX1(n, j)] += j;
   }

@@ -5,6 +5,7 @@ void f(int* t, int* u) {
   __writes("u ~> Matrix1(10)");
 
   for (int i = 0; i < 10; i++) {
+    __strict();
     __reads("&t[MINDEX1(10, i)] ~> Cell");
     __writes("&u[MINDEX1(10, i)] ~> Cell");
 
@@ -15,9 +16,11 @@ void f(int* t, int* u) {
 
   __ghost(matrix1_ro_focus, "t, 0");
   for (int l = 0; l < 5; l++) {
+    __strict();
     __parallel_reads("&t[MINDEX1(10, 0)] ~> Cell");
 
     for (int m = 0; m < 2; m++) {
+      __strict();
       __parallel_reads("&t[MINDEX1(10, 0)] ~> Cell");
 
       int x = l + m + t[MINDEX1(10, 0)];
@@ -26,14 +29,14 @@ void f(int* t, int* u) {
   __ghost(matrix1_ro_unfocus, "t");
 
   for (int a = 0; a < 8; a++) {
-    __pure();
+    __strict();
 
     int y = 0;
     for (int b = 0; b < 5; b++) {
-      __pure();
+      __strict();
 
       for (int c = 0; c < 2; c++) {
-        __pure();
+        __strict();
 
         int x = a + b + c;
       }

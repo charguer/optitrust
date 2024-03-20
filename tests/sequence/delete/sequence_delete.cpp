@@ -27,6 +27,7 @@ void dead_code() {
   int x = 3;
   for (int i = 0; i < 2; i++) {
     for (int j = 0; j < 3; j++) {
+      __strict();
       __sequentially_modifies("_Uninit(&z ~> Cell)");
       z = i + j;
     }

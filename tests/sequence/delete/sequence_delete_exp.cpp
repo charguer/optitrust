@@ -12,6 +12,7 @@ void dead_code() {
   z++;
   int x = 3;
   for (int i = 0; i < 2; i++) {
+    __strict();
     __sequentially_modifies("&x ~> Cell");
     __sequentially_modifies("&z ~> Cell");
     z = i;

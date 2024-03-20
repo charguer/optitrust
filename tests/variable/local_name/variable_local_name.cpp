@@ -7,8 +7,10 @@ void ok1() {
 
   T a;
   for (int j = 0; j < 10; j++) {
+    __strict();
     __sequentially_modifies("&a ~> Cell");
     for (int i = 0; i < j; i++) {
+      __strict();
       __sequentially_modifies("&a ~> Cell");
       a++;
     }
@@ -32,8 +34,10 @@ void ko1() {
   T a;
   int& b = a;
   for (int j = 0; j < 10; j++) {
+    __strict();
     __sequentially_modifies("&a ~> Cell");
     for (int i = 0; i < j; i++) {
+      __strict();
       __sequentially_modifies("&a ~> Cell");
       a++;
       b++;

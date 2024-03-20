@@ -115,8 +115,8 @@ let hoist_on (name : string)
     | Some free_index -> Mlist.remove free_index 1 body_instrs_new_decl
     | None -> trm_fail body "Loop_basic.hoist: expected free instruction"
   end in
-  let new_body_instrs, new_contract = match contract with
-  | Some contract ->
+  let new_body_instrs, new_contract =
+  if contract.strict then
     let dims = List.tl (!new_dims) in
     let other_indices = List.init (List.length dims) (fun _ -> Trm.new_var (fresh_var_name ())) in
     let indices = (arith_f new_index) :: (List.map trm_var other_indices) in
@@ -127,16 +127,15 @@ let hoist_on (name : string)
       Resource_formula.formula_group_range { index = i; start = trm_int 0; direction = DirUp; stop = d; step = Post_inc } acc
     ) (List.combine other_indices dims) Resource_formula.(formula_model access trm_cell) in
     let new_resource = Resource_formula.(formula_uninit grouped_access) in
-    new_body_instrs, Some (Resource_contract.push_loop_contract_clause Modifies (Resource_formula.new_anon_hyp (), new_resource) contract)
-  | None ->
-    (* TODO: Generate ghost focus *)
-    new_body_instrs, None
+    new_body_instrs, Resource_contract.push_loop_contract_clause Modifies (Resource_formula.new_anon_hyp (), new_resource) contract
+  else
+    new_body_instrs, contract
   in
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_nobrace_nomarks [
     trm_add_mark mark_alloc
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
-    trm_for ?contract:new_contract ~annot:t.annot range new_body;
+    trm_for ~contract:new_contract ~annot:t.annot range new_body;
     trm_add_mark mark_free
       (Matrix_trm.free !new_dims (trm_var !new_var));
   ]
@@ -166,11 +165,13 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
     trm_for_inv_instrs t
   in
   let tl1, tl2 = Mlist.split index tl in
-  let fst_contract, snd_contract = begin match contract with
-    | _ when not !Flags.check_validity -> None, None
-    | None -> trm_fail t "Loop_basic.fission_on: requires an annotated for loop to check validity"
-    | Some contract ->
+  let fst_contract, snd_contract =
+    if not !Flags.check_validity then
+      empty_loop_contract, empty_loop_contract
+    else
       let open Resource_formula in
+
+      if not contract.strict then trm_fail t "Loop_basic.fission_on: requires a strict loop contract to check validity";
 
       (*
         for C(onsume) P(roduce) I(nvariant)
@@ -284,14 +285,15 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       in
       let middle_iter_contract = Resource_set.make ~pure:tl1_ensured ~linear:split_res_without_efracs () in
 
-      let fst_contract = Some {
+      let fst_contract = {
         loop_ghosts = contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl1_inv };
         parallel_reads = contract.parallel_reads;
         iter_contract = {
           pre = contract.iter_contract.pre;
           post = middle_iter_contract;
-        }
+        };
+        strict = true;
       } in
       let partial_snd_contract = {
         loop_ghosts = (*List.map (fun (efrac, _) -> (efrac, trm_frac)) split_res.efracs @*) contract.loop_ghosts;
@@ -300,9 +302,10 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         iter_contract = {
           pre = { middle_iter_contract with pure = tl1_ensured @ contract.iter_contract.pre.pure };
           post = contract.iter_contract.post;
-        }
+        };
+        strict = true;
       } in
-      let snd_contract = Some (
+      let snd_contract =
         List.fold_left (fun acc (h, f) ->
           let clause = match formula_read_only_inv f with
           | Some _ -> Resource_contract.SequentiallyModifies
@@ -310,13 +313,12 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
           in
           Resource_contract.push_loop_contract_clause clause (Resource_formula.new_anon_hyp (), f) acc
         ) partial_snd_contract tl1_inv_reads
-      ) in
+      in
       fst_contract, snd_contract
-    end;
   in
 
-  let ta = trm_add_mark mark_loops (trm_for_instrs ?contract:fst_contract l_range tl1) in
-  let tb = trm_add_mark mark_loops (trm_copy (trm_for_instrs ?contract:snd_contract l_range tl2)) in
+  let ta = trm_add_mark mark_loops (trm_for_instrs ~contract:fst_contract l_range tl1) in
+  let tb = trm_add_mark mark_loops (trm_copy (trm_for_instrs ~contract:snd_contract l_range tl2)) in
   (ta, tb)
     (* Note: the trm_copy is needed because the loop index in the
        two loops must have a different id. We copy the second loop
@@ -423,8 +425,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     let idx1 = loop_range1.index in
     let idx2 = loop_range2.index in
 
-    let contract = begin match (contract1, contract2) with
-    | Some contract1, Some contract2 ->
+    let contract = if contract1.strict && contract2.strict then
       let open Resource_formula in
 
       let loop1 = List.nth loops 0 in
@@ -474,19 +475,21 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
       let (_, post1', pre2', _) =
         (* TODO: the same on resource_set to match paper *)
         Resource_computation.partial_extract_linear_resource_set post1.linear pre2.linear in
-      Some {
+      {
         loop_ghosts = contract1.loop_ghosts @ contract2.loop_ghosts;
         invariant = Resource_set.union contract1.invariant contract2.invariant;
         parallel_reads = contract1.parallel_reads @ contract2.parallel_reads;
         iter_contract = {
           pre = Resource_set.union pre1 { pre2 with linear = pre2' };
           post = Resource_set.union post2 { post1 with linear = post1' };
-        }
+        };
+        strict = true;
       }
-    | _ when !Flags.check_validity ->
+    else if !Flags.check_validity then
       trm_fail t "requires annotated for loops to check validity"
-    | _ -> None
-    end in
+    else
+      empty_loop_contract
+    in
 
     let loop_instrs1', loop_instrs2' =
       if upwards
@@ -495,7 +498,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     in
     let new_loop_instrs = Mlist.merge loop_instrs1' loop_instrs2' in
     (* TODO: trm_for_update on loop1? *)
-    let new_loop = trm_for_instrs ~annot:lt.annot ?loc:lt.loc ?contract new_loop_range new_loop_instrs in
+    let new_loop = trm_for_instrs ~annot:lt.annot ?loc:lt.loc ~contract new_loop_range new_loop_instrs in
     let new_instrs = Mlist.insert_at update_index new_loop other_instrs in
     trm_seq ~annot:t.annot ?loc:t.loc new_instrs
   | _ -> failwith "unreachable"
@@ -585,7 +588,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
     | Generate_if -> ()
     | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
     | Produced_resources_uninit_after ->
-      let contract = Xoption.unsome ~error:"Need the for loop contract to be set" contract in
+      if not contract.strict then failwith "Need the for loop contract to be strict";
       let instr_usage = Resources.usage_of_trm instr in
       let invariant_written_by_instr = List.filter (Resources.(linear_usage_filter instr_usage keep_written)) contract.invariant.linear in
       List.iter (fun (_, f) -> match Resource_formula.formula_uninit_inv f with
@@ -598,16 +601,17 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
   end;
 
   let generate_if = (empty_range = Generate_if) in
-  let contract = match contract with
-    | Some contract when not generate_if ->
+  let contract =
+    if generate_if || not contract.strict then
+      contract
+    else
       (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Xoption.unsome ~error:"Loop_basic.move_out: requires computed resources" instr.ctx.ctx_resources_after in
       let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (Resource_contract.parallel_reads_inside_loop range contract.parallel_reads @ contract.iter_contract.pre.linear) in
-      Some { contract with invariant = { contract.invariant with linear = new_invariant } }
-    | _ -> contract
+      { contract with invariant = { contract.invariant with linear = new_invariant } }
   in
 
-  let loop = trm_for ?contract range (trm_seq rest) in
+  let loop = trm_for ~contract range (trm_seq rest) in
   let non_empty_cond = trm_ineq range.direction range.start range.stop in
   let instr_outside = if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr in
   trm_seq_nobrace_nomarks [
@@ -678,11 +682,12 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
     let error = "expected MFREEN instr" in
     let _ = trm_inv ~error Matrix_trm.free_inv free_instr in
 
+    (* FIXME: Code duplicated from move_out_on *)
     begin match empty_range with
     | Generate_if -> ()
     | Arithmetically_impossible -> failwith "Arithmetically_impossible is not implemented yet"
     | Produced_resources_uninit_after ->
-      let contract = Xoption.unsome ~error:"Need the for loop contract to be set" contract in
+      if not contract.strict then failwith "Need the for loop contract to be strict";
       let assert_instr_uses_no_invariant instr =
         let instr_usage = Resources.usage_of_trm instr in
         let invariant_usage = List.filter (Resources.(linear_usage_filter instr_usage keep_touched_linear)) contract.invariant.linear in
@@ -697,16 +702,17 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
   end;
 
   let generate_if = (empty_range = Generate_if) in
-  let contract = match contract with
-    | Some contract when not generate_if ->
+  let contract =
+    if generate_if || not contract.strict then
+      contract
+    else
       (* FIXME: this still requires resources to update contract even when not checking validity! *)
       let resources_after = Xoption.unsome ~error:"requires computed resources" alloc_instr.ctx.ctx_resources_after in
       let _, new_invariant, _ = Resource_computation.subtract_linear_resource_set resources_after.linear (Resource_contract.parallel_reads_inside_loop range contract.parallel_reads @ contract.iter_contract.pre.linear) in
-      Some { contract with invariant = { contract.invariant with linear = new_invariant } }
-    | _ -> contract
+      { contract with invariant = { contract.invariant with linear = new_invariant } }
   in
 
-  let loop = trm_for ~annot:t.annot ?contract range (trm_seq rest) in
+  let loop = trm_for ~annot:t.annot ~contract range (trm_seq rest) in
   let wrap_instr instr =
     let non_empty_cond = trm_ineq range.direction range.start range.stop in
     if generate_if then trm_if non_empty_cond instr (trm_unit ()) else instr
@@ -822,11 +828,10 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let body_terms' = Mlist.push_front (
     trm_let_immut (index, (Option.value ~default:(typ_int ()) start.typ)) index_expr) body_terms in
   let range' = { index = index'; start = start'; direction; stop = stop'; step } in
-  begin match contract with
-  | None ->
+  begin if not contract.strict then
     trm_for_instrs ~annot:t.annot range' body_terms'
     (* trm_fail t "expected loop contract when checking validity" ? *)
-  | Some contract ->
+  else
     let open Resource_formula in
     let shift_ghosts ghost =
       List.map (fun (_, formula) ->

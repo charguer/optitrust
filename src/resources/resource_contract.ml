@@ -65,12 +65,13 @@ type contract_clause_type =
   | LoopGhosts
   (** Pure resources that are the same across all iterations. *)
 
+  | Strict
+  (** On loop contracts, do not allow other resources than the one mentionned inside the loop iterations.
+      By default, all the resources that remain after instantiating the contract are considered as additional invariants.
+      This permits the omission of most __sequentially_modifies clauses. *)
+
 (** User-facing contract clause, combining clause type and resouce item. *)
 type contract_clause = contract_clause_type * contract_resource_item
-
-(** The empty function contract, implies purity. *)
-let empty_fun_contract =
-  { pre = Resource_set.empty; post = Resource_set.empty }
 
 (** {!trm_copy} for fun contracts. *)
 let fun_contract_copy (contract : fun_contract) : fun_contract =
@@ -82,10 +83,6 @@ let fun_contract_copy (contract : fun_contract) : fun_contract =
   match spec with
   | FunSpecContract c' -> c'
   | _ -> failwith "should not happen"
-
-(** The empty loop contract, implies purity. *)
-let empty_loop_contract =
-  { loop_ghosts = []; invariant = Resource_set.empty; parallel_reads = []; iter_contract = empty_fun_contract }
 
 (* TODO: remove or replace with better mechanism. hint to maximize instantiated fraction. *)
 let _Full = toplevel_var "_Full"
@@ -132,6 +129,7 @@ let push_fun_contract_clause (clause: contract_clause_type)
   | SequentiallyModifies -> failwith "SequentiallyModifies only makes sense for loop contracts"
   | ParallelReads -> failwith "ParallelReads only makes sense for loop contracts"
   | LoopGhosts -> failwith "LoopGhosts only makes sense for loop contracts"
+  | Strict -> failwith "Strict should never appear with resources inside"
 
 let push_loop_contract_clause (clause: contract_clause_type)
     (res: resource_item) (contract: loop_contract) =
@@ -236,7 +234,8 @@ let loop_contract_subst ctx contract =
   { loop_ghosts = contract.loop_ghosts;
     invariant = Resource_set.subst ctx contract.invariant;
     parallel_reads = List.map (fun (h, t) -> (h, trm_subst ctx t)) contract.parallel_reads;
-    iter_contract = fun_contract_subst ctx contract.iter_contract }
+    iter_contract = fun_contract_subst ctx contract.iter_contract;
+    strict = contract.strict }
 
 (** [specialize_contract contract args] specializes the [contract] with the given [args], a subset of pure resources of the precondition *)
 let specialize_contract contract args =

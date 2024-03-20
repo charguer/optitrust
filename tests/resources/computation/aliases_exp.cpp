@@ -4,6 +4,7 @@ void array_copy_ref_alias(float* A, float* B, int n) {
   __modifies("B ~> Matrix1(n)");
   __reads("A ~> Matrix1(n)");
   for (int i = 0; i < n; ++i) {
+    __strict();
     __modifies("&B[MINDEX1(n, i)] ~> Cell");
     __reads("&A[MINDEX1(n, i)] ~> Cell");
     float& a = A[MINDEX1(n, i)];
@@ -16,6 +17,7 @@ void array_copy_ptr_alias(float* A, float* B, int n) {
   __modifies("B ~> Matrix1(n)");
   __reads("A ~> Matrix1(n)");
   for (int i = 0; i < n; ++i) {
+    __strict();
     __modifies("&B[MINDEX1(n, i)] ~> Cell");
     __reads("&A[MINDEX1(n, i)] ~> Cell");
     float* const a = &A[MINDEX1(n, i)];
@@ -28,6 +30,7 @@ void array_copy_index_alias(float* A, float* B, int n) {
   __modifies("B ~> Matrix1(n)");
   __reads("A ~> Matrix1(n)");
   for (int i = 0; i < n; ++i) {
+    __strict();
     __modifies("&B[MINDEX1(n, i)] ~> Cell");
     __reads("&A[MINDEX1(n, i)] ~> Cell");
     const int j = i;
@@ -40,6 +43,7 @@ void array_copy_alias_on_alias(float* A, float* B, int n) {
   __reads("A ~> Matrix1(n)");
   float* const C = A;
   for (int i = 0; i < n; ++i) {
+    __strict();
     __modifies("&B[MINDEX1(n, i)] ~> Cell");
     __reads("&A[MINDEX1(n, i)] ~> Cell");
     float& a = C[MINDEX1(n, i)];

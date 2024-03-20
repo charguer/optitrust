@@ -28,7 +28,7 @@ void f() {
   }
 
   for (int y = 0; y < 10; y++) {
-    __pure();
+    __strict();
 
   }
 

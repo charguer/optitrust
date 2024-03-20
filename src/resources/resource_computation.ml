@@ -1130,21 +1130,35 @@ let rec compute_resources
 
     (* Typecheck the whole for loop by instantiating its outer contract, and type the inside with the inner contract. *)
     | Trm_for (range, body, contract) ->
-      (* If there is no contract, put all the resources in a virtual invariant *)
-      let contract = match contract with
-        | Some contract -> contract
-        | None ->
-          let invariant_res = Resource_set.make ~linear:(List.map (fun (_, f) -> (new_anon_hyp (), f)) res.linear) () in
-          { Resource_contract.empty_loop_contract with invariant = invariant_res }
-      in
-
       let outer_contract = contract_outside_loop range contract in
       let usage_map, res_after = compute_contract_invoc outer_contract res t in
 
       let inner_contract = contract_inside_loop range contract in
+      (* If the contract is not strict put all the framed resources inside the invariant *)
+      let inner_contract, included_frame_hyps = if contract.strict then inner_contract, Var_set.empty else
+        let frame = (Option.get t.ctx.ctx_resources_contract_invoc).contract_frame in
+        (* Put the frame ressources at the end to make them used less often *)
+        { pre = { inner_contract.pre with linear = inner_contract.pre.linear @ frame };
+          post = { inner_contract.post with linear = inner_contract.post.linear @ frame } },
+        List.fold_left (fun acc (x, _) -> Var_set.add x acc) Var_set.empty frame
+      in
       let inner_usage, _ = compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~keep_efracs:false ~old_res:res ~new_res:inner_contract.pre)) body in
 
-      let usage_map = Option.map (fun inner_usage -> update_usage_map ~current_usage:usage_map ~extra_usage:(Var_map.filter (fun _ usage -> usage = Required) inner_usage)) inner_usage in
+      let usage_map, res_after =
+        match inner_usage with
+        | Some inner_usage ->
+          let extra_usage = Var_map.filter (fun x usage -> usage = Required || Var_set.mem x included_frame_hyps) inner_usage in
+          let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage in
+          let res_after = if contract.strict then res_after else
+            (* We need to change the ids of resources from the frame that were consumed inside the loop *)
+            { res_after with linear = List.map (fun (x, f) -> match Var_map.find_opt x extra_usage with
+              | Some (ConsumedFull | ConsumedUninit) -> (new_anon_hyp (), f)
+              | _ -> (x, f)) res_after.linear }
+          in
+          Some usage_map, res_after
+        | None -> None, res_after
+      in
+
       usage_map, Some res_after
 
     (* Pass through constructions that do not interfere with resource checking *)

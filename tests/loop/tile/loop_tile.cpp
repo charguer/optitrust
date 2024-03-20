@@ -40,6 +40,7 @@ void matrix_copy(int* D, int* S) {
   __reads("S ~> Matrix1(1024)");
 
   for (int i = 0; i < 1024; ++i) {
+    __strict();
     __modifies("&D[MINDEX1(1024, i)] ~> Cell");
     __parallel_reads("S ~> Matrix1(1024)");
     __GHOST_BEGIN(focus, matrix1_ro_focus, "S, i");

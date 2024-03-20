@@ -19,6 +19,7 @@ void f(float* M, int n) {
         __consumes("for i in 0..n -> &M[i] ~> Cell");
         __produces("for i in 0..n -> &M[i] ~> FrozenCell");
         for (int i = 0; i < n; ++i) {
+          __strict();
           __consumes("&M[i] ~> Cell");
           __produces("&M[i] ~> FrozenCell");
           __ghost(freeze_cell, "p := &M[i]");
@@ -31,6 +32,7 @@ void f(float* M, int n) {
         __consumes("for i in 0..n -> &M[i] ~> FrozenCell");
         __produces("for i in 0..n -> &M[i] ~> Cell");
         for (int i = 0; i < n; ++i) {
+          __strict();
           __consumes("&M[i] ~> FrozenCell");
           __produces("&M[i] ~> Cell");
           __ghost(unfreeze_cell, "p := &M[i]");

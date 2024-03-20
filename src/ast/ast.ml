@@ -687,7 +687,7 @@ and trm_desc =
   | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
   | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
   | Trm_while of trm * trm     (* while (t1) { t2 } *)
-  | Trm_for of loop_range  * trm * loop_spec
+  | Trm_for of loop_range * trm * loop_contract
   | Trm_for_c of trm * trm * trm * trm * resource_set option
   | Trm_do_while of trm * trm (* TODO: Can this be efficiently desugared? *)
   (* Remark: in the AST, arguments of cases that are enum labels
@@ -766,9 +766,8 @@ and loop_contract = {
   invariant: resource_set;
   parallel_reads: resource_item list; (* all the resources should be of the form RO(_, _) *)
   iter_contract: fun_contract;
+  strict: bool; (* Non strict loop contracts take all the resources in the frame after instantiation as additional invariants *)
 }
-
-and loop_spec = loop_contract option
 
 and used_resource_item = {
   pre_hyp: hyp;
@@ -1117,6 +1116,23 @@ let unknown_ctx (): ctx = {
 
 let typing_ctx (ctx_types: typ_ctx): ctx =
   { (unknown_ctx ()) with ctx_types = Some ctx_types }
+
+
+ (** The empty resource set. *)
+let empty_resource_set = { pure = []; linear = []; fun_specs = Var_map.empty; aliases = Var_map.empty; efracs = [] }
+
+(** The empty function contract, printed as __pure(). *)
+let empty_fun_contract =
+  { pre = empty_resource_set; post = empty_resource_set }
+
+(** The empty loop contract, like on a loop without any annotation *)
+let empty_loop_contract =
+  { loop_ghosts = []; invariant = empty_resource_set; parallel_reads = []; iter_contract = empty_fun_contract; strict = false }
+
+(** The empty strict loop contract, that contains nothing *)
+let empty_strict_loop_contract =
+  { empty_loop_contract with strict = true }
+
 
 (*****************************************************************************)
 

@@ -27,7 +27,7 @@ let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Va
   { pure; linear; fun_specs; aliases; efracs }
 
 (** The empty resource set. *)
-let empty = make ()
+let empty = empty_resource_set
 
 (** [demote_efracs res] transforms all the efracs inside [res] into regular fractions. *)
 let demote_efracs (res: resource_set): resource_set =

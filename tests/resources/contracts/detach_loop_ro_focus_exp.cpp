@@ -4,6 +4,7 @@ void f(int* M) {
   __reads("M ~> Matrix1(10)");
   int acc = 0;
   for (int i = 0; i < 10; ++i) {
+    __strict();
     __sequentially_modifies("&acc ~> Cell");
     __parallel_reads("M ~> Matrix1(10)");
     const __ghost_fn __ghost_pair_1 = __ghost_begin(

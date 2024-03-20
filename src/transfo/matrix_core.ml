@@ -200,7 +200,7 @@ let pointwise_fors
         Resource_contract.push_loop_contract_clause clause res contract
       ) contract formulas
     in
-    let contract = Resource_contract.empty_loop_contract
+    let contract = empty_strict_loop_contract
       |> push_clauses Reads reads
       |> push_clauses Writes writes
       |> push_clauses Modifies modifies
