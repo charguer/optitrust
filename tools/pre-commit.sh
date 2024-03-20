@@ -6,8 +6,8 @@ then
   exit 0
 fi
 
-STASH_NAME="pre-commit-$(date +%s)"
-git stash push --quiet --keep-index --include-untracked -m $STASH_NAME
+STASH_NAME="Stash before pre-commit ($(date))"
+git stash push --quiet --keep-index --include-untracked -m "${STASH_NAME}"
 
 pushd $(git rev-parse --show-toplevel) > /dev/null
 
@@ -16,9 +16,11 @@ TESTER_RESULT=$?
 
 popd > /dev/null
 
-if git stash list | head -n 1 | grep -q ${STASH_NAME}
+if git stash list | head -n 1 | grep -q "${STASH_NAME}"
 then
   git restore --worktree -s stash@{0} :/
+  # The untracked part is somehow not included in the main stash but in stash^3
+  git restore --worktree --overlay -s stash@{0}^3 :/
   git stash drop --quiet
 fi
 
