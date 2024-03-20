@@ -101,13 +101,16 @@ let ghost_shift
   ((range, formula): loop_range list * formula)
   ((shifted_range, shifted_formula): loop_range list * formula)
   (uninit_pre : bool) (uninit_post : bool): trm =
-  (* FIXME: this can be explained as a sequence of calls to group_shift* ghosts *)
-  let open Resource_formula in
-  let before = List.fold_right (fun r f -> formula_group_range r f) range formula in
-  let after = List.fold_right (fun r f -> formula_group_range r f) shifted_range shifted_formula in
-  let before = if uninit_pre then formula_uninit before else before in
-  let after = if uninit_post then formula_uninit after else after in
-  Resource_trm.ghost_rewrite before after (trm_var shift_groups)
+  if !Flags.check_validity then (* FIXME: need more precise flag? *)
+    (* FIXME: this can be explained as a sequence of calls to group_shift* ghosts *)
+    let open Resource_formula in
+    let before = List.fold_right (fun r f -> formula_group_range r f) range formula in
+    let after = List.fold_right (fun r f -> formula_group_range r f) shifted_range shifted_formula in
+    let before = if uninit_pre then formula_uninit before else before in
+    let after = if uninit_post then formula_uninit after else after in
+    Resource_trm.ghost_rewrite before after (trm_var shift_groups)
+  else
+    trm_seq_nobrace_nomarks []
 
 (** <private> *)
 let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_core.nd_range)

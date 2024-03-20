@@ -289,7 +289,7 @@ let%transfo local_name_tile
   ?(uninit_pre : bool = false) ?(uninit_post : bool = false) (* TODO: bool option with inference. *)
   ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  let (delete, rename, into) = if local_var = ""
+  let (delete, rename, tmp_var) = if local_var = ""
     then (true, true, fresh_var_name ())
     else (delete, false, local_var)
   in
@@ -298,7 +298,7 @@ let%transfo local_name_tile
     let v = ref dummy_var in
     Matrix_basic.local_name_tile ~mark_accesses ~indices
       ~uninit_pre ~uninit_post
-      ~alloc_instr ~ret_var:v ~local_var tile (target_of_path p);
+      ~alloc_instr ~ret_var:v ~local_var:tmp_var tile (target_of_path p);
     simpl [cMark mark_accesses];
     if delete then begin
       (* DEPRECATED:
@@ -311,7 +311,7 @@ let%transfo local_name_tile
         (* (Option.value ~default:(surrounding_tg @ [cVarDef !v]) alloc_instr *)
         delete_alias alloc_instr;
         if rename then
-          Variable_basic.rename ~into:!v.name [cMark m; cVarDef into];
+          Variable_basic.rename ~into:!v.name [cMark m; cVarDef tmp_var];
       );
     end
   ) tg)

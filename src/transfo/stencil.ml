@@ -137,6 +137,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
   Marks.with_fresh_mark (fun to_fuse ->
     let all_writes = ref Var_map.empty in
     (* 1. prepare loop nests for fusion *)
+    Trace.step ~kind:Step_group ~name:("1. prepare loop nests for fusion") (fun () ->
     Target.iteri (fun loop_i p ->
       must_be_in_surrounding_sequence p;
       (* 1.1 pry out each target to reveal loop nests *)
@@ -164,10 +165,12 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       (* Show.current_ast_at_path "slided" p; *)
       Marks.add to_fuse (target_of_path p);
     ) tg;
+    );
     (* 2. fuse loop nests *)
     let to_fuse_paths = Target.resolve_target [nbMulti; cMark to_fuse] in
     let nest_to_fuse = if fuse_inner_loops
       then outer_loop_count + (List.length tile) else outer_loop_count in
+    Trace.step ~kind:Step_group ~name:("2. fuse loop nests") (fun () ->
     if fuse_inner_loops then begin
       match to_fuse_paths with
       | first :: others ->
@@ -180,6 +183,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
     in
     (* Show.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
     Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:(target_of_path (snd (Xlist.unlast to_fuse_paths))) (target_of_paths to_fuse_paths);
+    );
     (* Show.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
     (* 3. reduce temporary storage *)
     let surrounding_seq = Xoption.unsome !surrounding_sequence in
@@ -204,7 +208,9 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       end;
     in
     (* TODO: iter in reverse order of code appearance. *)
+    Trace.step ~kind:Step_group ~name:("3. reduce temporary storage") (fun () ->
     Var_map.iter reduce_local_memory local_memory
+    )
   )
 
 let fusion_targets ~(nest_of : int) ?(overlaps : (string * (trm list)) list = []) ~(outputs : string list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =

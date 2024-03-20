@@ -1217,6 +1217,7 @@ let rec set_indices_internal (indices : string list) (outer_p : path) : unit =
 
 let set_indices (indices : string list) (outer_p : path) : unit =
   let tmp_indices = List.init (List.length indices) (fun _ -> fresh_var_name ()) in
+  (* LATER: rely on unique ids instead? may trigger unwanted renames *)
   set_indices_internal tmp_indices outer_p;
   set_indices_internal indices outer_p;
   ()
