@@ -35,8 +35,8 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     let m_between = next_mark () in
     fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [nbExact 1; Constr_paths [p_seq]; cMark m_interstice];
     if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
-      Resources.loop_minimize [nbExact 2; Constr_paths [p_seq]; cMark m_loops];
       Ghost_pair.minimize_all_in_seq [nbExact 2; Constr_paths [p_seq]; cMark m_loops; dBody];
+      Resources.loop_minimize [nbExact 2; Constr_paths [p_seq]; cMark m_loops];
     end;
 
     (* And go through the outer loops *)

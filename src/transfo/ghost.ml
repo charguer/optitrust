@@ -10,9 +10,6 @@ let rec contains_only_ghost_code (t: trm): bool =
   | Trm_for (_, body, _) -> contains_only_ghost_code body
   | _ -> false
 
-let is_pure_ghost_call (t: trm): bool =
-  trm_has_cstyle GhostCall t && Var_map.for_all (fun _ usage -> usage = Required || usage = Ensured) (usage_of_trm t)
-
 let embed_loop_on (mark : mark) (t: trm): trm =
   let t = loop_minimize_on t in
   if not (contains_only_ghost_code t) then failwith "Ghost.embed_loop_on: the loop contains non ghost code";
@@ -26,7 +23,7 @@ let%transfo embed_loop ?(mark : mark = "") (tg: target): unit =
   Resources.justif_correct "only changed ghost code"
 
 (** <private> *)
-let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
+let farthest_commuting_pos (i : int) (direction : int) (seq : trm) : int =
   let error = "Ghost_pair.move_in_seq: expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
   let instr = Mlist.nth instrs i in
@@ -35,7 +32,7 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
     match direction with
     | -1 -> 0, fun next -> collect_trm_interferences next instr
     | 1 -> 1, fun next -> collect_trm_interferences instr next
-    | _ -> failwith "Ghost_pair.move_in_seq: expected -1 or 1 direction"
+    | _ -> failwith "Ghost.farthest_commuting_pos: expected -1 or 1 direction"
   in
   let commutes_with_next () : bool =
     let next_i = !current_i + direction in
@@ -54,33 +51,20 @@ let move_in_seq (i : int) (direction : int) (seq : trm) : trm =
     commutes
   in
   while commutes_with_next () do () done;
-  if i != !current_i then
-    let dest_i = !current_i + dest_offset in
-    Instr_core.move_at dest_i i seq
-  else
-    seq
+  !current_i + dest_offset
 
 (** Moves instruction at index [i] in sequence [seq] as far down as possible, as long as effects commute. *)
-let move_down_in_seq (i : int) (seq : trm) : trm = move_in_seq i 1 seq
+let move_down_in_seq (i : int) (seq : trm) : trm =
+  let desired_pos = farthest_commuting_pos i 1 seq in
+  if desired_pos <= i + 1 then
+    seq
+  else
+    Instr_core.move_at desired_pos i seq
 
 (** Moves instruction at index [i] in sequence [seq] as far up as possible, as long as effects commute. *)
-let move_up_in_seq (i : int) (seq : trm) : trm = move_in_seq i (-1) seq
-
-(** Moves all pure ghosts upwards, starting from upmost ones. *)
-let move_all_pure_upwards_in (seq : trm) : trm =
-  let error = "Ghost.move_all_pure_upwards: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
-  let pures = ref [] in
-  Mlist.iteri (fun i instr ->
-    if is_pure_ghost_call instr then
-      pures := i :: !pures;
-    ) instrs;
-  let pures = List.rev !pures in
-  List.fold_left (fun seq pure_i ->
-    move_up_in_seq pure_i seq
-  ) seq pures
-
-let%transfo move_all_pure_upwards (tg: target): unit =
-  Resources.ensure_computed ();
-  Target.apply_at_target_paths move_all_pure_upwards_in tg;
-  Resources.justif_correct "only changed ghost code"
+let move_up_in_seq (i : int) (seq : trm) : trm =
+  let desired_pos = farthest_commuting_pos i (-1) seq in
+  if desired_pos >= i then
+    seq
+  else
+    Instr_core.move_at desired_pos i seq

@@ -158,7 +158,7 @@ let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
     let seq_dest_mark = Mark.next () in
     insert (trm_add_mark seq_dest_mark (trm_seq Mlist.empty)) [cMark dest_mark];
     Ghost_pair.minimize_all_in_seq (target_of_path seq_path);
-    Ghost.move_all_pure_upwards (target_of_path seq_path);
+    Ghost_pure.move_all_upwards (target_of_path seq_path);
 
     Instr_basic.move ~dest:[cMark seq_dest_mark; tBefore] [cMarkSpan mark];
 
