@@ -1,13 +1,21 @@
 #include <optitrust.h>
-#include <stdio.h>
-
-int N;
 
 typedef float T;
 
-int main() {
+void simple(int N) {
+__pure();
+  int x;
   for (int i = 0; i < N; i++) {
-    printf("%i\n", i);
+    __sequentially_modifies("&x ~> Cell");
+    x += i;
   }
-  return 0;
+  x++;
+}
+
+void ko(int n) {
+  T* const c = (T* const)MALLOC1(n, sizeof(T));
+  for (int i = 0; i < n; i++) {
+    c[MINDEX1(n, i)] = i;
+  }
+  MFREE1(n, c);
 }

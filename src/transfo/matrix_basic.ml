@@ -738,19 +738,19 @@ let delete_on (var : var) (t : trm) : trm =
   let rec update_accesses_and_alloc (t : trm) : trm =
     (* TODO: use let_alloc_inv_with_ty *)
     match trm_let_inv t with
-    | Some (_kind, v, vtyp, init) when v = var ->
+    | Some (_kind, v, vtyp, init) when var_eq v var ->
       (* TODO: deal with CALLOC *)
       assert (Option.is_some (Matrix_core.alloc_inv_with_ty init));
       trm_seq_nobrace_nomarks []
     | _ ->
       begin match trm_var_inv t with
-      | Some n when n = var ->
+      | Some n when var_eq n var ->
         trm_fail t "Matrix_basic.delete_on: matrix should not be used anymore"
       | _ ->
         let is_free_var = begin match Matrix_trm.free_inv t with
         | Some freed ->
           begin match trm_var_inv freed with
-          | Some n -> n = var
+          | Some n -> var_eq n var
           | None -> false
           end
         | None -> false
@@ -761,13 +761,16 @@ let delete_on (var : var) (t : trm) : trm =
   in
   update_accesses_and_alloc t
 
-(* [delete] expects target [tg] to poitn to a sequence defining matrix [var], and deletes it.
+(* [delete] expects target [tg] to point to a sequence defining matrix [var], and deletes it.
   Both allocation and de-allocation instructions are deleted.
-  Checks that [var] is not used anywhere.
+  [var] should not be used anywhere, this is checked through var ids.
+  TODO: additionnal check/invariant: this assumes that alloc/free dimensions are read-only expressions
    *)
 let%transfo delete ~(var : var) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths (delete_on var) tg)
+    Target.apply_at_target_paths (delete_on var) tg);
+  Scope.infer_var_ids (); (* FIXME: redundant with trm -> trm function checks *)
+  Trace.justif "matrix is not used anywhere"
 
 (* [read_last_write]: expects the target [tg] to pint at a matrix read operation, and replaces it with the value that was last written to this matrix index. The [write] target must correspond to this last write.
   For correctness, if [V] was written at index [i], reading [V[j/i]] should be equivalent to reading at index [j].
