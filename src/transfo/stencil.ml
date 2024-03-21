@@ -201,7 +201,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       if may_eliminate then
         Matrix.elim alloc_instr
       else begin
-        let touched_nd_tiles = List.map2 (fun size idx -> (trm_var idx, size)) sizes outer_loop_indices in
+        let touched_nd_tiles = List.map2 (fun size idx -> (trm_var idx, trm_add (trm_var idx) size)) sizes outer_loop_indices in
         let untouched_nd_tiles = List.map (fun size -> (trm_int 0, size)) (Xlist.drop (List.length sizes) dims) in
         let nd_tiles = touched_nd_tiles @ untouched_nd_tiles in
         Matrix.local_name_tile_after ~alloc_instr ~simpl nd_tiles (target_of_path inner_p);

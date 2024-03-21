@@ -113,7 +113,8 @@ let ghost_shift
     trm_seq_nobrace_nomarks []
 
 (** <private> *)
-let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_core.nd_range)
+let local_name_tile_on (mark_dims : mark)
+  (mark_accesses : mark) (var : var) (nd_range : Matrix_core.nd_range)
   (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm)
   (indices : string list) (uninit_pre : bool) (uninit_post : bool)
   (t : trm) : trm =
@@ -126,7 +127,7 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_cor
   let nested_loop_range = List.map2 (fun (a, b) index ->
     { index; start = a; direction = DirUp; stop = b; step = Post_inc }
   ) nd_range indices_list in
-  let tile_dims = List.map (fun (a, b) -> trm_sub b a) nd_range in
+  let tile_dims = List.map (fun (a, b) -> trm_add_mark mark_dims (trm_sub b a)) nd_range in
   let tile_indices = List.map2 (fun (offset, _) ind -> trm_sub ind offset) nd_range indices in
   let alloc_instr = Matrix_core.let_alloc_with_ty local_var tile_dims elem_ty in
   let map_indices = List.map (fun (offset, _) -> fun i -> trm_sub i offset) nd_range in
@@ -188,7 +189,9 @@ let local_name_tile_on (mark_accesses : mark) (var : var) (nd_range : Matrix_cor
   - factorize and update {! Matrix_basic.local_name} with no tile
   - factorize with {! Matrix_stack_copy}
   *)
-let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
+let%transfo local_name_tile
+  ?(mark_dims : mark = no_mark)
+  ?(mark_accesses : mark = no_mark)
   ?(indices : string list = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var)
   (* TODO: check [uninit_pre] and [uninit_post] in resources,
      could also be inferred instead of provided *)
@@ -203,7 +206,7 @@ let%transfo local_name_tile ?(mark_accesses : mark = no_mark)
       let v, dims, elem_ty, size = trm_inv ~error Matrix_core.let_alloc_inv_with_ty t1 in
       ret_var := v;
       Target.apply_at_path (local_name_tile_on
-        mark_accesses v tile local_var dims elem_ty size indices uninit_pre uninit_post
+        mark_dims mark_accesses v tile local_var dims elem_ty size indices uninit_pre uninit_post
       ) p;
       if !Flags.check_validity then begin
         Resources.ensure_computed ();

@@ -294,12 +294,14 @@ let%transfo local_name_tile
     else (delete, false, local_var)
   in
   let (uninit_pre, uninit_post) = if delete then (true, true) else (uninit_pre, uninit_post) in
-  Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun p ->
+  Marks.with_fresh_mark (fun mark_simpl -> Target.iter (fun p ->
     let v = ref dummy_var in
-    Matrix_basic.local_name_tile ~mark_accesses ~indices
-      ~uninit_pre ~uninit_post
+    Matrix_basic.local_name_tile
+      ~mark_dims:mark_simpl
+      ~mark_accesses:mark_simpl
+      ~indices ~uninit_pre ~uninit_post
       ~alloc_instr ~ret_var:v ~local_var:tmp_var tile (target_of_path p);
-    simpl [cMark mark_accesses];
+    simpl [cMark mark_simpl];
     if delete then begin
       (* DEPRECATED:
       let (_, surrounding_seq) = Path.index_in_seq p in

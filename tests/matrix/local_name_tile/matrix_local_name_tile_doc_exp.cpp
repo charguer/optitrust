@@ -5,12 +5,11 @@ void f() {
   int* const a = (int* const)MALLOC1(10, sizeof(int));
   const __ghost_fn focus =
       __ghost_begin(group_focus_subrange_uninit, "sub_range := 3..7");
-  int* const b = (int* const)MALLOC1(7 - 3, sizeof(int));
+  int* const b = (int* const)MALLOC1(4, sizeof(int));
   __ghost(
       [&]() {
-        __consumes("_Uninit(b ~> Matrix1(7 - 3))");
-        __produces(
-            "_Uninit(for i1 in 3..7 -> &b[MINDEX1(7 - 3, i1 - 3)] ~> Cell)");
+        __consumes("_Uninit(b ~> Matrix1(4))");
+        __produces("_Uninit(for i1 in 3..7 -> &b[MINDEX1(4, i1 - 3)] ~> Cell)");
         __admitted();
         __with("justif := shift_groups");
       },
@@ -21,14 +20,13 @@ void f() {
   }
   __ghost(
       [&]() {
-        __consumes(
-            "_Uninit(for i1 in 3..7 -> &b[MINDEX1(7 - 3, i1 - 3)] ~> Cell)");
-        __produces("_Uninit(b ~> Matrix1(7 - 3))");
+        __consumes("_Uninit(for i1 in 3..7 -> &b[MINDEX1(4, i1 - 3)] ~> Cell)");
+        __produces("_Uninit(b ~> Matrix1(4))");
         __admitted();
         __with("justif := shift_groups");
       },
       "");
-  MFREE1(7 - 3, b);
+  MFREE1(4, b);
   __ghost_end(focus);
   MFREE1(10, a);
 }
