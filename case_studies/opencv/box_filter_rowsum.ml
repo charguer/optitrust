@@ -30,4 +30,5 @@ let _ = Run.script_cpp (fun () ->
   let for_kn = [cPath cn3; cFor ~stop:[cVar "kn"] "i"] in
   !! Loop.fusion_targets ~into:(occLast :: for_kn) (nbMulti :: for_kn);
 
+  !! Resources.delete_annots [];
 )

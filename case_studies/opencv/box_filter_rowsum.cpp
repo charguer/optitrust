@@ -9,6 +9,11 @@ typedef uint16_t ST;
   n: size of the row resulting from filtering
 */
 void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
+  __requires("kn >= 0, n >= 1, cn >= 0");
+  __requires("is_subrange(0..kn, 0..(n + kn))"); // TODO: solve
+  __requires("is_subrange(0..(n-1), 0..(n + kn))"); // TODO: solve
+  __requires("is_subrange((0+kn)..(n-1+kn), 0..(n + kn))"); // TODO: solve
+  __requires("in_range(0, 0..n)"); // TODO: solve
   __reads("S ~> Matrix2(n+kn, cn)");
   __modifies("D ~> Matrix2(n, cn)"); // TODO: writes?
 
@@ -22,6 +27,8 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
     for (int i = 0; i < kn; i++) {
       __parallel_reads("S ~> Matrix2(n+kn, cn)");
       __sequentially_modifies("&s ~> Cell");
+
+      __ghost(in_range_extend, "i, 0..kn, 0..(n + kn)");
       __GHOST_BEGIN(sf, matrix2_ro_focus, "M := S, i := i, j := c");
       s += (ST) S[MINDEX2(n+kn, cn, i, c)];
       __GHOST_END(sf);
@@ -35,12 +42,15 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
       __sequentially_modifies("&s ~> Cell");
       __sequentially_modifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
+      __ghost(in_range_extend, "i, 0..(n-1), 0..(n+kn)");
       __GHOST_BEGIN(sf1, matrix2_ro_focus, "M := S, i := i, j := c");
       s -= (ST) S[MINDEX2(n+kn, cn, i, c)];
       __GHOST_END(sf1);
+      __ghost(in_range_shift_extend, "i, kn, 0..(n+kn), 0, n-1, 1");
       __GHOST_BEGIN(sf2, matrix2_ro_focus, "M := S, i := i + kn, j := c");
       s += (ST) S[MINDEX2(n+kn, cn, i + kn, c)];
       __GHOST_END(sf2);
+      __ghost(in_range_shift_extend, "i, 1, 0..n, 0, n-1, 1");
       __GHOST_BEGIN(df, group_focus, "items := fun i -> &D[MINDEX2(n, cn, i, c)] ~> Cell, i := i + 1");
       D[MINDEX2(n, cn, i + 1, c)] = s;
       __GHOST_END(df);
@@ -57,6 +67,11 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
 }
 
 void rowSum_cn1(const int kn, const T* S, ST* D, const int n) {
+  __requires("kn >= 0, n >= 1");
+  __requires("is_subrange(0..kn, 0..(n + kn))");
+  __requires("is_subrange(0..(n-1), 0..(n + kn))");
+  __requires("is_subrange((0+kn)..(n-1+kn), 0..(n + kn))");
+  __requires("in_range(0, 0..n)");
   __reads("S ~> Matrix2(n+kn, 1)");
   __modifies("D ~> Matrix2(n, 1)"); // TODO: writes?
 
@@ -64,6 +79,11 @@ void rowSum_cn1(const int kn, const T* S, ST* D, const int n) {
 }
 
 void rowSum_cn3(const int kn, const T* S, ST* D, const int n) {
+  __requires("kn >= 0, n >= 1");
+  __requires("is_subrange(0..kn, 0..(n + kn))");
+  __requires("is_subrange(0..(n-1), 0..(n + kn))");
+  __requires("is_subrange((0+kn)..(n-1+kn), 0..(n + kn))");
+  __requires("in_range(0, 0..n)");
   __reads("S ~> Matrix2(n+kn, 3)");
   __modifies("D ~> Matrix2(n, 3)"); // TODO: writes?
 
