@@ -43,10 +43,10 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let dl = Path.resolve_path p_local dl in
       let _, x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv dl in
       if !Flags.check_validity then begin
-        if Resources.trm_is_referentially_transparent init then
-          Trace.justif "inlining a referentially transparent expression is always correct"
+        if Resources.trm_is_pure init then
+          Trace.justif "inlining a pure expression is always correct"
         else
-          trm_fail init "inlining non-referentially transparent expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc"
+          trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc"
       end;
       let init = trm_add_mark mark init in
       let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) (trm_subst_var x init) tl in
@@ -203,6 +203,7 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ?(value : t
 (* [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
     variable [subst], then it will check for occurrences of the variable [subst] and replace is with [put]. *)
 let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
+  (* TODO: justif: needs to check that [subst = put] fact exists. *)
   Target.reparse_after ~reparse (
     Target.apply_on_targets (Variable_core.subst subst put)
   ) tg

@@ -1414,6 +1414,10 @@ let var_any_bool = new_var "ANY_BOOL"
   let trm_add_inv (t : trm) : (trm * trm) option  =
     trm_binop_inv Binop_add t
 
+  (* [trm_eq_inv t1 t2]: deconstructs t = t1 == t2 *)
+  let trm_eq_inv (t : trm) : (trm * trm) option  =
+    trm_binop_inv Binop_eq t
+
   (* [trm_mul t1 t2]: generates t1 * t2 *)
   let trm_mul ?(loc) ?(ctx : ctx option) ?(typ) (t1 : trm) (t2 : trm) : trm =
     let typ = Xoption.ors [typ; t1.typ; t2.typ] in
@@ -1728,6 +1732,10 @@ let fun_with_empty_body (t : trm) : trm =
   | Trm_let_fun (v, vt, args, _body, contract) ->
     trm_alter ~desc:(Trm_let_fun (v, vt, args, trm_uninitialized (), contract)) t
   | _ -> failwith "Trm.fun_with_empty_body expected let fun"
+
+(** [trm_seq_enforce t]: if [t] is not already a sequence, wrap it in one. *)
+let trm_seq_enforce (t : trm) : trm =
+  if is_trm_seq t then t else trm_seq_nomarks [t]
 
 (* ********************************************************************************************** *)
 

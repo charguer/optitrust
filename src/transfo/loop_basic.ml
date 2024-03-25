@@ -803,11 +803,11 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   if !Flags.check_validity then begin
     match kind with
     | ShiftBy v | StartAt v | StopAt v ->
-      if Resources.trm_is_referentially_transparent v then
+      if Resources.trm_is_pure v then
         (* TODO: also works for read-only *)
-        Trace.justif "shifting by a referentially transparent expression is always correct"
+        Trace.justif "shifting by a pure expression is always correct"
       else
-        trm_fail v "shifting by a non-referentially transparent expression is not yet supported, requires checking that expression is read-only, introduce a binding with 'Sequence.insert' to workaround" (* TODO: combi doing this *)
+        trm_fail v "shifting by a non-pure expression is not yet supported, requires checking that expression is read-only, introduce a binding with 'Sequence.insert' to workaround" (* TODO: combi doing this *)
     | StartAtZero -> Trace.justif "shifting to zero is always correct, loop range is read-only"
   end;
   (* spec:

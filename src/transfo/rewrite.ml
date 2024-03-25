@@ -11,3 +11,6 @@ let%transfo equiv_at ?(simpl : Transfo.t = no_simpl) ?(glob_defs : string = "") 
     Rewrite_basic.equiv_at ~mark ~glob_defs ~ctx ~indepth rule tg;
     simpl [cMark mark]
   )) tg
+(* TODO: rule_def / rule_at
+   target rule expressed as function with '==' body
+   *)

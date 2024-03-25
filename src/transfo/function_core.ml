@@ -78,10 +78,10 @@ let inline_aux (index : int) (body_mark : mark) (subst_mark : mark) (p_local : p
         if !Flags.check_validity then begin
           (* FIXME: this check should be done by Variable.inline instead of this transfo, which should bind temporary variables *)
           Var_map.iter (fun _ arg_val ->
-            if not (Resources.trm_is_referentially_transparent arg_val) then
-              trm_fail arg_val "inlining non-referentially transparent argument is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc"
+            if not (Resources.trm_is_pure arg_val) then
+              trm_fail arg_val "inlining non-pure argument is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc"
           ) subst_map;
-          Trace.justif "inlining referentially transparent expressions is always correct"
+          Trace.justif "inlining pure expressions is always correct"
         end;
         let fun_decl_body = trm_subst subst_map (trm_copy body) in
         let name = match t.desc with

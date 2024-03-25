@@ -60,7 +60,25 @@ void uninit(int* t, int* u, int n) {
     x += t[i];
   }
 }
+/*
+void uninit_ro(int* t, int* u, int n) {
+  __writes("for i in 1..n -> &t[i] ~> Cell");
 
+  int x = 0;
+  for (int i = 1; i < n; i++) {
+    __writes("&t[i] ~> Cell");
+    t[i] = i;
+  }
+  for (int i = 1; i < n; i++) {
+    __sequentially_modifies("&x ~> Cell");
+    __parallel_reads("for i in 1..n -> &t[i] ~> Cell");
+
+    __GHOST_BEGIN(tf, group_ro_focus, "i := i");
+    x += t[i];
+    __GHOST_END(tf);
+  }
+}
+*/
 void commute() {
   __pure();
   int x;

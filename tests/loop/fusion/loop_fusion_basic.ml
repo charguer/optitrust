@@ -17,6 +17,9 @@ let _ = Run.script_cpp ( fun _ ->
 
   (* 3. Uninit tests. *)
   !! Loop_basic.fusion [cFunDef "uninit"; cFor "i"; occFirst];
+  (* FIXME: how to deal with this?
+    (* !! Resources.loop_parallelize_read *)
+    !! Loop_basic.fusion [cFunDef "uninit_ro"; cFor "i"; occFirst]; *)
 
   (* 4. Exclusive ROs with fraction variables. *)
   !! Loop_basic.fusion [cFunDef "excl_ros"; cFor "i"; occFirst];

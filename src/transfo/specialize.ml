@@ -2,7 +2,22 @@ open Prelude
 open Target
 include Specialize_basic
 
-
+(* TODO: generalize to any condition, e.g. (Trm.Cmp (var "x") (lit 1)) *)
+(** [variable]: adds a specialized execution path when [var == value]. *)
+let%transfo variable ~(var : string) ~(value : trm)
+  ?(mark_then : mark = no_mark) ?(mark_else : mark = no_mark)
+  (tg : target) : unit =
+  let var = find_var_in_current_ast ~target:tg var in
+  Marks.with_marks (fun next_mark ->
+    let mark_then = Mark.reuse_or_next next_mark mark_then in
+    let mark_else = Mark.reuse_or_next next_mark mark_else in
+    Target.iter (fun p ->
+      let cond = trm_eq (trm_var var) value in
+      If.insert ~cond ~mark_then ~mark_else (target_of_path p);
+      Trace.without_substep_validity_checks (fun () ->
+        (* TODO: we should know that [var = value] in the then branch. *)
+        Variable.subst ~subst:var ~put:value [cMark mark_then]);
+    ) tg)
 
 let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) : unit =
   Ast_data.fill_fun_defs_tbl (get_ast());
