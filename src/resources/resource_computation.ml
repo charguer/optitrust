@@ -16,6 +16,7 @@ module Resource_primitives = struct
   let __add = toplevel_var "__add"
   let __sub = toplevel_var "__sub"
   let __mul = toplevel_var "__mul"
+  let __eq = toplevel_var "__eq"
   let __array_access = toplevel_var "__array_access"
   let __add_inplace = toplevel_var "__add_inplace"
   let __sub_inplace = toplevel_var "__sub_inplace"
@@ -44,6 +45,7 @@ module Resource_primitives = struct
     | Binop_mul -> "__mul"
     | Binop_array_access -> "__array_access"
     | Binop_set -> "__set"
+    | Binop_eq -> "__eq"
     | _ -> raise Unknown
 
   let to_var (p: prim): var =
@@ -1160,6 +1162,29 @@ let rec compute_resources
       in
 
       usage_map, Some res_after
+
+    (* Typecheck the 'then' and 'else' branches separately (including evaluating 'cond'),
+       then try to join resources ('then' ==> 'else').
+       *)
+    | Trm_if (cond, then_, else_) ->
+      printf "Trm_if!\n";
+      let usage_cond, res_cond = compute_resources (Some res) cond in
+      (* TODO: add pure facts?
+      match formula_of_trm cond with
+      | Some c ->
+      | None -> *)
+      let usage_then, res_then = compute_resources_and_merge_usage res_cond usage_cond then_ in
+      let usage_else, res_else = compute_resources_and_merge_usage res_cond usage_cond else_ in
+      begin match res_then, res_else with
+      | Some rt, Some re ->
+        let used_join = assert_resource_impl rt re in
+        let usage_join = Option.map (fun ue ->
+          update_usage_map ~current_usage:ue ~extra_usage:(used_set_to_usage_map used_join)
+        ) usage_else in
+        usage_join, res_else
+      | _ ->
+        None, None
+      end
 
     (* Pass through constructions that do not interfere with resource checking *)
     | Trm_typedef _ ->

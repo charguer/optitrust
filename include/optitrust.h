@@ -103,6 +103,12 @@ template<typename T> T __mul(T x1, T x2) {
   return x1 * x2;
 }
 
+template<typename T> T __eq(T x1, T x2) {
+  __pure();
+  __admitted();
+  return x1 == x2;
+}
+
 template<typename T> T* __array_access(T* tab, int i) {
   __pure();
   __admitted();
@@ -655,6 +661,36 @@ __GHOST(group_shift_ro) {
 
 __GHOST(group_unshift_ro) {
   __reverts(group_shift_ro);
+  __admitted();
+}
+
+/* --- group split/join and nested variants: */
+
+__GHOST(group_split) {
+  __requires("start: int, stop: int, step: int, split: int, items: int -> formula");
+  __requires("bound_check: in_range(split, range(start, stop, step))");
+  __consumes("for i in range(start, stop, step) -> items(i)");
+  __produces("for i in range(start, split, step) -> items(i)");
+  __produces("for i in range(split, stop, step) -> items(i)");
+  __admitted();
+}
+
+__GHOST(group_join) {
+  __reverts(group_split);
+  __admitted();
+}
+
+__GHOST(group_split_uninit) {
+  __requires("start: int, stop: int, step: int, split: int, items: int -> formula");
+  __requires("bound_check: in_range(split, range(start, stop, step))");
+  __consumes("_Uninit(for i in range(start, stop, step) -> items(i))");
+  __produces("_Uninit(for i in range(start, split, step) -> items(i))");
+  __produces("_Uninit(for i in range(split, stop, step) -> items(i))");
+  __admitted();
+}
+
+__GHOST(group_join_uninit) {
+  __reverts(group_split_uninit);
   __admitted();
 }
 
