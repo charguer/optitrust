@@ -10,9 +10,9 @@ let insert_on (cond : trm) (mark : mark) (mark_then : mark) (mark_else : mark) (
     if Resources.trm_is_pure cond then
       Trace.justif "inserted condition is pure, scopes are checked by var ids"
   end;
-  let t = trm_seq_enforce t in
+  let t = trm_seq_enforce t in (* keeping marks on both branches, is that desired? *)
   let else_br = if else_branch then (trm_add_mark mark_else (trm_copy t)) else trm_unit() in
-  let then_br = trm_add_mark mark_then (trm_filter_mark (fun _ -> false) t) in
+  let then_br = trm_add_mark mark_then t in
   trm_add_mark mark (trm_if cond then_br else_br)
 
 (** [insert cond tg]: expects the target [tg] to point at an instruction

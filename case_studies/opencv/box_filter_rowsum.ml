@@ -4,13 +4,26 @@ open Prelude
 let _ = Flags.check_validity := false (* TODO: true *)
 
 let _ = Run.script_cpp (fun () ->
-  !! Resources.delete_annots [];
+  !! Resources.ensure_computed ();
+
+  !! Resources.delete_annots []; (* TODO: remove *)
 
   (* TODO: kn == 1, kn == 3 *)
   (* FIXME: why not working on fun body? *)
   bigstep "prepare for specialization";
-  !! Specialize.variable ~var:"cn" ~value:(trm_int 1) ~mark_then:"cn1" ~mark_else:"generic" [cFunBody "rowSum"; cFor "c"];
-  !! Specialize.variable ~var:"cn" ~value:(trm_int 3) ~mark_then:"cn3" [cFunBody "rowSum"; cMark "generic"];
+  !! Marks.add "generic" [cFunBody "rowSum"; cFor "c"];
+  let specialize (var, n) = begin
+    let mark_then = sprintf "%s%i" var n in
+    Specialize.variable ~var ~value:(trm_int n) ~mark_then [cFunBody "rowSum"; cMark "generic"];
+    Marks.remove "generic" [cMark mark_then; cFor "c"];
+  end in
+  !! List.iter specialize ["kn", 3; "kn", 5; "cn", 1; "cn", 3];
+
+  bigstep "kn == 3";
+  !! Reduce.elim ~unroll:true [cMark "kn3"; cArrayWrite "D"];
+
+  bigstep "kn == 5";
+  !! Reduce.elim ~unroll:true [cMark "kn5"; cArrayWrite "D"];
 
   bigstep "cn == 1";
   !! Loop.unroll [cMark "cn1"; cFor "c"];
@@ -31,5 +44,5 @@ let _ = Run.script_cpp (fun () ->
   let for_kn = [cMark "cn3"; cFor ~stop:[cVar "kn"] "i"] in
   !! Loop.fusion_targets ~into:(occLast :: for_kn) (nbMulti :: for_kn);
 
-  (* !! Resources.delete_annots []; *)
+  !! Resources.delete_annots [];
 )

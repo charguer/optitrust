@@ -282,6 +282,24 @@ inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
   memcpy((void*)(dest2), (void*)(src2), elems*bytes_per_item);
 }
 
+/* ---- Algorithmic Functions ---- */
+
+/* TODO: generalize to any monoid/group, see doc/sliding-window.md */
+// template<typename T, typename ST>
+uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, int j) {
+  // TODO: allow negative ranges
+  // not necessary here?:
+  // __requires("check_bound1: 0 <= start, check_bound2: start <= stop, check_bound3: stop <= n");
+  __reads("for k in start..stop -> &input[MINDEX2(n, m, k, j)] ~> Cell");
+
+  /* T acc = 0;
+  for (int k = start; k < stop; k++) {
+    __reads("&input[MINDEX1(n, k)] ~> Cell");
+    acc = acc + input[MINDEX(n, k)];
+  }
+  return acc; */
+}
+
 /* ---- Ghosts ---- */
 
 __GHOST(close_wand) {
@@ -487,6 +505,22 @@ __GHOST(group_ro_unfocus) {
   __ghost(close_wand, "");
 }
 
+__GHOST(group2_ro_focus) {
+  __requires("i: int, r: range, r2: range, items: int * int -> formula, f: _Fraction");
+  __requires("bound_check: in_range(i, r)");
+  __consumes("_RO(f, for i2 in r2 -> for i in r -> items(i2, i))");
+  __produces("Wand(_RO(f, for i2 in r2 -> items(i2, i)),"
+                  "_RO(f, for i2 in r2 -> for i in r -> items(i2, i)))");
+  __produces("_RO(f, for i2 in r2 -> items(i2, i))");
+  __admitted();
+}
+
+__GHOST(group2_ro_unfocus) {
+  __reverts(group2_ro_focus);
+
+  __ghost(close_wand, "");
+}
+
 __GHOST(group_focus_subrange) {
   __requires("sub_range: range, big_range: range, items: int -> formula");
   __requires("bound_check: is_subrange(sub_range, big_range)");
@@ -497,6 +531,20 @@ __GHOST(group_focus_subrange) {
 
 __GHOST(group_unfocus_subrange) {
   __reverts(group_focus_subrange);
+  __ghost(close_wand, "");
+}
+
+__GHOST(group_focus_subrange_ro) {
+  __requires("sub_range: range, big_range: range, items: int -> formula, f: _Fraction");
+  __requires("bound_check: is_subrange(sub_range, big_range)");
+  __consumes("_RO(f, Group(big_range, items))");
+  __produces("Wand(_RO(f, Group(sub_range, items)), _RO(f, Group(big_range, items)))");
+  __produces("_RO(f, Group(sub_range, items))");
+  __admitted();
+}
+
+__GHOST(group_unfocus_subrange_ro) {
+  __reverts(group_focus_subrange_ro);
   __ghost(close_wand, "");
 }
 
