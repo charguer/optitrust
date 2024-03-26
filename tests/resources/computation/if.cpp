@@ -9,8 +9,6 @@ int f(int x) {
   } else {
     r = x;
   }
-
-  return r;
 }
 
 void g(int* t, int i) {

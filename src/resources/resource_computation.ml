@@ -1166,25 +1166,44 @@ let rec compute_resources
     (* Typecheck the 'then' and 'else' branches separately (including evaluating 'cond'),
        then try to join resources ('then' ==> 'else').
        *)
-    | Trm_if (cond, then_, else_) ->
-      printf "Trm_if!\n";
+    | Trm_if (cond, then_branch, else_branch) ->
       let usage_cond, res_cond = compute_resources (Some res) cond in
       (* TODO: add pure facts?
       match formula_of_trm cond with
       | Some c ->
       | None -> *)
-      let usage_then, res_then = compute_resources_and_merge_usage res_cond usage_cond then_ in
-      let usage_else, res_else = compute_resources_and_merge_usage res_cond usage_cond else_ in
-      begin match res_then, res_else with
-      | Some rt, Some re ->
-        let used_join = assert_resource_impl rt re in
-        let usage_join = Option.map (fun ue ->
-          update_usage_map ~current_usage:ue ~extra_usage:(used_set_to_usage_map used_join)
-        ) usage_else in
-        usage_join, res_else
-      | _ ->
-        None, None
-      end
+
+      let usage_then, res_then = compute_resources res_cond then_branch in
+      let usage_else, res_else = compute_resources res_cond else_branch in
+      let** res_cond in
+      let** res_then in
+      let** res_else in
+
+      (* TODO: allow the user to customize the join resources *)
+      (* TODO: be more clever about the synthetized join resources *)
+      let res_join = Resource_set.make ~linear:res_then.linear () in
+      let used_join_then = assert_resource_impl res_then res_join in
+      let used_join_else = assert_resource_impl res_else res_join in
+      let usage_joined = match usage_then, usage_else with
+        | Some usage_then, Some usage_else ->
+          let usage_then_joined = update_usage_map ~current_usage:usage_then ~extra_usage:(used_set_to_usage_map used_join_then) in
+          let usage_else_joined = update_usage_map ~current_usage:usage_else ~extra_usage:(used_set_to_usage_map used_join_else) in
+          Some (Var_map.merge (fun x ut ue -> match ut, ue with
+          | (Some Required, (Some Required | None)) | (None, Some Required) -> Some Required
+          | (Some Ensured | None), (Some Ensured | None) -> None
+          | (Some (Required | Ensured), _) | (_, Some (Required | Ensured)) -> failwith "Mixing pure and linear resources"
+          | (None, _) | (_, None) -> failwith "Consumed in a branch but not in the other"
+          | (Some ConsumedFull, _) | (_, Some ConsumedFull) -> Some ConsumedFull
+          | (Some ConsumedUninit, Some ConsumedUninit) -> Some ConsumedUninit
+          | (Some (SplittedFrac | JoinedFrac), _) | (_, Some (SplittedFrac | JoinedFrac)) -> failwith "After join instantiation, RO usage should have disappeared"
+          | (Some Produced, _) | (_, Some Produced) -> failwith "Found a resource that is produced in one branch and is not in the join resource set")
+          usage_then_joined usage_else_joined)
+        | _, _ -> None
+      in
+      let res_usage = update_usage_map_opt ~current_usage:usage_cond ~extra_usage:usage_joined in
+      let res_usage = Option.map (fun res_usage -> List.fold_left (fun used_set (h, _) -> Hyp_map.add h Produced used_set) res_usage res_join.linear) res_usage in
+
+      res_usage, Some (Resource_set.bind ~keep_efracs:true ~old_res:res_cond ~new_res:res_join)
 
     (* Pass through constructions that do not interfere with resource checking *)
     | Trm_typedef _ ->
