@@ -572,6 +572,6 @@ let find_surrounding_expr (p : path) (t : trm) : path =
 (** Given a path to a sub-expression of an instruction,
     returns the path to the instruction, and the rest of the path *)
 let path_in_instr (p : path) (t : trm) : (path * path) =
-  let to_instr = find_surrounding_expr p t in
+  let to_instr = parent (find_surrounding_expr p t) in
   let to_expr = Xlist.drop (List.length to_instr) p in
   (to_instr, to_expr)

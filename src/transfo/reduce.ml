@@ -22,6 +22,7 @@ let reduce_inv (t : trm) : (trm * trm * trm * trm * trm * trm) option =
 
 (** <private> *)
 let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : trm) : trm =
+  Show.trm t;
   let alloc_loop = ref None in
   let updated_t = Path.apply_on_path (fun red_t ->
     let error = "expected call to reduce" in
@@ -33,7 +34,7 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     let loop_range = { index; start; direction = DirUp; stop; step = Post_inc } in
     alloc_loop := Some (
       trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) (trm_cast acc_typ (trm_int 0))),
-      trm_add_mark mark_loop (trm_for loop_range (trm_seq_nobrace_nomarks [
+      trm_add_mark mark_loop (trm_for loop_range (trm_seq_nomarks [
         (* trm_prim_compound Binop_add (trm_var acc) value *)
         trm_set (trm_var acc) (trm_add (trm_var_get acc) value)
       ])));
@@ -51,34 +52,31 @@ let%transfo elim_basic ?(mark_alloc : mark = no_mark) ?(mark_loop : mark = no_ma
   ) tg)
 
 (** <private> *)
-let elim_inline_on (mark_simpl : mark) (to_expr : path) (t : trm) : trm =
-  Path.apply_on_path (fun red_t ->
-    let error = "expected call to reduce" in
-    let (start, stop, input, n, m, j) = trm_inv ~error reduce_inv red_t in
-    let nb_elems = Arith_core.(simplify true (fun e -> gather (compute e))) (trm_sub stop start) in
-    match trm_int_inv nb_elems with
-    | Some nb_elems ->
-      let acc_typ = Option.value ~default:(typ_constr ([], "uint16_t")) red_t.typ in
-      if nb_elems = 0 then begin
-        trm_cast acc_typ (trm_int 0)
-      end else begin
-        let values = List.init nb_elems (fun k ->
-          let i = trm_add_mark mark_simpl (trm_add start (trm_int k)) in
-          trm_cast acc_typ (Matrix_trm.get input [n; m] [i; j])
-        ) in
-        Xlist.reduce_left trm_add values
-      end
-    | None ->
-      trm_fail t "expected trivially constant loop range"
-  ) t to_expr
+let elim_inline_on (mark_simpl : mark) (red_t : trm) : trm =
+  let error = "expected call to reduce" in
+  let (start, stop, input, n, m, j) = trm_inv ~error reduce_inv red_t in
+  let nb_elems = Arith_core.(simplify true (fun e -> gather (compute e))) (trm_sub stop start) in
+  match trm_int_inv nb_elems with
+  | Some nb_elems ->
+    let acc_typ = Option.value ~default:(typ_constr ([], "uint16_t")) red_t.typ in
+    if nb_elems = 0 then begin
+      trm_cast acc_typ (trm_int 0)
+    end else begin
+      let values = List.init nb_elems (fun k ->
+        let i = trm_add_mark mark_simpl (trm_add start (trm_int k)) in
+        trm_cast acc_typ (Matrix_trm.get input [n; m] [i; j])
+      ) in
+      Xlist.reduce_left trm_add values
+    end
+  | None ->
+    trm_fail red_t "expected trivially constant loop range"
 
 (** [elim_inline tg]: eliminates a call to [reduce], expanding it to an inlined expression.
     TODO: later, implement this as combi (1. unroll; 2. inline accumulator; 3. simplify zero add)
     *)
 let%transfo elim_inline ?(mark_simpl : mark = no_mark) (tg : target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
-    let (to_instr, to_expr) = Path.path_in_instr p (Trace.ast ()) in
-    Target.apply_at_path (elim_inline_on mark_simpl to_expr) to_instr
+    Target.apply_at_path (elim_inline_on mark_simpl) p
   ) tg)
 
 (** [elim_basic tg]: eliminates a call to [reduce], expanding it to a for loop.
@@ -141,6 +139,7 @@ let slide_on (mark_simpl : mark) (i : int) (t : trm) : trm =
   let new_range = { range with start = trm_add_mark mark_simpl (trm_add range.start step) } in
   trm_seq_nobrace_nomarks [
     trm_let_mut (acc, acc_typ) base_reduce;
+    trm_set (trm_copy (trm_subst_var range.index (trm_int 0) out)) (trm_var_get acc);
     trm_for new_range (trm_seq_nomarks [
       (* trm_prim_compound Binop_add (trm_var acc) value *)
       trm_set (trm_var acc) (trm_add (trm_var_get acc) (trm_sub rec_reduce_add rec_reduce_sub));

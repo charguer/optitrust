@@ -35,27 +35,30 @@ let _ = Run.script_cpp (fun () ->
   bigstep "cn == 1";
   !! Loop.unroll [cMark "cn1"; cFor "c"];
   !! Reduce.slide [cMark "cn1"; cArrayWrite "D"];
-  (* FIXME: !! Reduce.elim [occFirst; cMark "cn1"; cFun "reduce_spe1"]; *)
+  !! Reduce.elim [occFirst; cMark "cn1"; cFun "reduce_spe1"];
   !! Reduce.elim ~inline:true [nbMulti; cMark "cn1"; cFor "i"; cFun "reduce_spe1"];
 
   bigstep "cn == 3";
   !! Loop.unroll [cMark "cn3"; cFor "c"];
   !! Reduce.slide [nbMulti; cMark "cn3"; cArrayWrite "D"];
-  (* FIXME: !! Reduce.elim [occFirst; cMark "cn3"; cFun "reduce_spe1"]; *)
+  !! Reduce.elim [nbMulti; cMark "cn3"; cVarDef ""; dBody; cFun "reduce_spe1"];
   !! Reduce.elim ~inline:true [nbMulti; cMark "cn3"; cFor "i"; cFun "reduce_spe1"];
 
-  (* TODO: !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor "i" ~body:[cArrayWrite "D"]]; *)
+  (* TODO: ?
+    !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor "i" ~body:[cArrayWrite "D"]]; *)
   let for_dwrite = [cMark "cn3"; cFor "i" ~body:[cArrayWrite "D"]] in
   !! Loop.fusion_targets ~into:(occLast :: for_dwrite) (nbMulti :: for_dwrite);
 
-  (* TODO: !! Instr.gather_targets [nbMulti; cMark "cn3"; cStrict; cArrayWrite "D"]; *)
-  (* let dwrite = [cMark "cn3"; cStrict; cArrayWrite "D"] in
+  (* TODO: ?
+    !! Instr.gather_targets [nbMulti; cMark "cn3"; cStrict; cArrayWrite "D"]; *)
+  let dwrite = [cMark "cn3"; cStrict; cArrayWrite "D"] in
   let last_dwrite = resolve_target_exactly_one (occLast :: dwrite) in
   !! Instr.move ~dest:[tBefore; cPath last_dwrite] (nbMulti :: dwrite);
 
-  (* TODO: !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor ~stop:[cVar "kn"] "i"]; *)
+  (* TODO: ?
+    !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor ~stop:[cVar "kn"] "i"]; *)
   let for_kn = [cMark "cn3"; cFor ~stop:[cVar "kn"] "i"] in
-  !! Loop.fusion_targets ~into:(occLast :: for_kn) (nbMulti :: for_kn); *)
+  !! Loop.fusion_targets ~into:(occLast :: for_kn) (nbMulti :: for_kn);
 
   bigstep "cleanup";
   !! Resources.delete_annots [];
