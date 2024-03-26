@@ -1208,28 +1208,22 @@ let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
 
 (* [trm_fors_inv nb t]: gets a list of loop ranges up to the loop at depth [nb] from nested loops [t] *)
 let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
-let nb_loops = ref 0 in
-let body_to_return  = ref (trm_int 0) in
-let rec aux (t : trm) : loop_range list =
-  match t.desc with
-  | Trm_for (l_range, body, _) ->
-    incr nb_loops;
-    begin match body.desc with
-    | Trm_seq tl when Mlist.length tl = 1 ->
-      if !nb_loops = nb
-        then begin
-          body_to_return := body;
-          l_range :: []
-          end
-        else l_range :: aux (Mlist.nth tl 0)
-    | _ ->  l_range :: []
-    end
-
-  | _ -> []
+  let rec aux (nb : int) (ranges_rev: loop_range list) (t : trm) : (loop_range list * trm) option =
+    if nb = 0 then Some (List.rev ranges_rev, t) (* arrived at requested body *)
+    else
+      let t = if ranges_rev = []
+        (* at first, 't' should be the for loop *)
+        then Some t
+        (* then, 't' is the sequence of a surrounding loop *)
+        else Option.bind (trm_seq_inv t) (fun instrs -> Mlist.nth_opt instrs 0)
+      in
+      Option.bind t (fun t -> begin match trm_for_inv t with
+      | Some (range, body, _) ->
+        aux (nb - 1) (range :: ranges_rev) body
+      | _ -> None
+      end)
   in
-
-let loop_range_list = aux t in
-if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
+  aux nb [] t
 
 let trm_new_inv (t : trm) : (typ * trm list * trm) option =
 match trm_apps_inv t with

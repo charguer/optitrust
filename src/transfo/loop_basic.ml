@@ -37,6 +37,41 @@ let%transfo tile ?(index : string = "b${id}")
     Target.apply_at_target_paths (Loop_core.tile index bound tile_size) tg
   )
 
+let collapse_on (simpl_mark : mark) (index : string) (t : trm) : trm =
+  let error = "expected 2 nested simple loops" in
+  let (ranges, body) = trm_inv ~error (trm_fors_inv 2) t in
+  let ri = List.nth ranges 0 in
+  let rj = List.nth ranges 1 in
+  if not (is_step_one (ri.step)) || not (is_step_one (rj.step)) then
+    trm_fail t "non-unary range steps are not yet supported";
+  if ri.direction <> DirUp || rj.direction <> DirUp then
+    trm_fail t "non-increasing range directions are not yet supported";
+  let nbi = trm_sub ri.stop ri.start in
+  let nbj = trm_sub rj.stop rj.start in
+  let k = new_var (index |>
+    Tools.string_subst "${i}" ri.index.name |>
+    Tools.string_subst "${j}" rj.index.name) in
+  let var_k = trm_var ~typ:(typ_int ()) k in
+  let rk = {
+    index = k; start = trm_int 0; stop = trm_add_mark simpl_mark (trm_mul nbi nbj);
+    direction = DirUp; step = Post_inc
+  } in
+  let new_i = trm_add_mark simpl_mark (trm_add ri.start (trm_div var_k nbj)) in
+  let new_j = trm_add_mark simpl_mark (trm_add rj.start (trm_mod var_k nbj)) in
+  let subst = Var_map.(empty |> add ri.index new_i |> add rj.index new_j) in
+  trm_for rk (trm_subst subst body)
+
+(** [collapse]: expects the target [tg] to point at a simple loop nest:
+    [for i in 0..Ni { for j in 0..Nj { b(i, j) } }]
+    And collapses the loop nest, producing:
+    [for k in 0..(Ni*Nj) { b(k / Nj, k % Nj) } ]
+
+    This is the opposite of [tile].
+    *)
+let%transfo collapse ?(simpl_mark : mark = no_mark)
+  ?(index : string = "${i}${j}") (tg : target) : unit =
+  Target.apply_at_target_paths (collapse_on simpl_mark index) tg
+
 (* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
     simple loop. Let's say for {int i ...} {
         int x; [tg]

@@ -3,12 +3,15 @@ open Prelude
 
 let _ = Flags.check_validity := false (* TODO: true *)
 
+(* Reproducing OpenCV code from:
+   https://github.com/opencv/opencv/blob/4.x/modules/imgproc/src/box_filter.simd.hpp
+   *)
+
 let _ = Run.script_cpp (fun () ->
   !! Resources.ensure_computed ();
 
   !! Resources.delete_annots []; (* TODO: remove *)
 
-  (* TODO: kn == 1, kn == 3 *)
   (* FIXME: why not working on fun body? *)
   bigstep "prepare for specialization";
   !! Marks.add "generic" [cFunBody "rowSum"; cFor "c"];
@@ -20,11 +23,16 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter specialize ["kn", 3; "kn", 5; "cn", 1; "cn", 3];
 
   bigstep "kn == 3";
-  !! Reduce.elim ~unroll:true [cMark "kn3"; cArrayWrite "D"];
+  !! Reduce.elim ~inline:true [cMark "kn3"; cArrayWrite "D"];
+  !! Loop.swap [cMark "kn3"; cFor "c"];
+  !! Loop.collapse [cMark "kn3"; cFor "i"];
 
   bigstep "kn == 5";
-  !! Reduce.elim ~unroll:true [cMark "kn5"; cArrayWrite "D"];
+  !! Reduce.elim ~inline:true [cMark "kn5"; cArrayWrite "D"];
+  !! Loop.swap [cMark "kn5"; cFor "c"];
+  !! Loop.collapse [cMark "kn5"; cFor "i"];
 
+(*
   bigstep "cn == 1";
   !! Loop.unroll [cMark "cn1"; cFor "c"];
 
@@ -43,6 +51,7 @@ let _ = Run.script_cpp (fun () ->
   (* TODO: !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor ~stop:[cVar "kn"] "i"]; *)
   let for_kn = [cMark "cn3"; cFor ~stop:[cVar "kn"] "i"] in
   !! Loop.fusion_targets ~into:(occLast :: for_kn) (nbMulti :: for_kn);
-
+*)
   !! Resources.delete_annots [];
+  !! Matrix.elim_mops [];
 )

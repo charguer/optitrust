@@ -1113,6 +1113,21 @@ let%transfo tile ?(index : string = "b${id}")
     end
   ) tg
 
+(** [collapse]: expects the target [tg] to point at a simple loop nest:
+    [for i in 0..Ni { for j in 0..Nj { b(i, j) } }]
+    And collapses the loop nest, producing:
+    [for k in 0..(Ni*Nj) { b(k / Nj, k % Nj) } ]
+
+    This is the opposite of [tile].
+    *)
+let%transfo collapse ?(simpl : Transfo.t = default_simpl)
+  ?(index : string = "${i}${j}") (tg : target) : unit =
+  Marks.with_marks (fun next_mark -> Target.iter (fun p ->
+    let simpl_mark = next_mark () in
+    Loop_basic.collapse ~simpl_mark (target_of_path p);
+    simpl [cMark simpl_mark];
+  ) tg)
+
 (* [slide]: like [tile] but with the addition of a [step] parameter that controls how many iterations stand between the start of two tiles. Depending on [step] and [size], some iterations may be discarded or duplicated.
 *)
 let%transfo slide ?(index : string = "b${id}")
