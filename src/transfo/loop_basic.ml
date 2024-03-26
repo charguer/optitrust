@@ -38,6 +38,7 @@ let%transfo tile ?(index : string = "b${id}")
   )
 
 let collapse_on (simpl_mark : mark) (index : string) (t : trm) : trm =
+  (* TODO: check that ranges have start <= stop. *)
   let error = "expected 2 nested simple loops" in
   let (ranges, body) = trm_inv ~error (trm_fors_inv 2) t in
   let ri = List.nth ranges 0 in

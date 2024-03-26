@@ -23,35 +23,41 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter specialize ["kn", 3; "kn", 5; "cn", 1; "cn", 3];
 
   bigstep "kn == 3";
-  !! Reduce.elim ~inline:true [cMark "kn3"; cArrayWrite "D"];
+  !! Reduce.elim ~inline:true [cMark "kn3"; cFun "reduce_spe1"];
   !! Loop.swap [cMark "kn3"; cFor "c"];
   !! Loop.collapse [cMark "kn3"; cFor "i"];
 
   bigstep "kn == 5";
-  !! Reduce.elim ~inline:true [cMark "kn5"; cArrayWrite "D"];
+  !! Reduce.elim ~inline:true [cMark "kn5"; cFun "reduce_spe1"];
   !! Loop.swap [cMark "kn5"; cFor "c"];
   !! Loop.collapse [cMark "kn5"; cFor "i"];
 
-(*
   bigstep "cn == 1";
   !! Loop.unroll [cMark "cn1"; cFor "c"];
+  !! Reduce.slide [cMark "cn1"; cArrayWrite "D"];
+  (* FIXME: !! Reduce.elim [occFirst; cMark "cn1"; cFun "reduce_spe1"]; *)
+  !! Reduce.elim ~inline:true [nbMulti; cMark "cn1"; cFor "i"; cFun "reduce_spe1"];
 
   bigstep "cn == 3";
   !! Loop.unroll [cMark "cn3"; cFor "c"];
+  !! Reduce.slide [nbMulti; cMark "cn3"; cArrayWrite "D"];
+  (* FIXME: !! Reduce.elim [occFirst; cMark "cn3"; cFun "reduce_spe1"]; *)
+  !! Reduce.elim ~inline:true [nbMulti; cMark "cn3"; cFor "i"; cFun "reduce_spe1"];
 
   (* TODO: !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor "i" ~body:[cArrayWrite "D"]]; *)
   let for_dwrite = [cMark "cn3"; cFor "i" ~body:[cArrayWrite "D"]] in
   !! Loop.fusion_targets ~into:(occLast :: for_dwrite) (nbMulti :: for_dwrite);
 
   (* TODO: !! Instr.gather_targets [nbMulti; cMark "cn3"; cStrict; cArrayWrite "D"]; *)
-  let dwrite = [cMark "cn3"; cStrict; cArrayWrite "D"] in
+  (* let dwrite = [cMark "cn3"; cStrict; cArrayWrite "D"] in
   let last_dwrite = resolve_target_exactly_one (occLast :: dwrite) in
   !! Instr.move ~dest:[tBefore; cPath last_dwrite] (nbMulti :: dwrite);
 
   (* TODO: !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor ~stop:[cVar "kn"] "i"]; *)
   let for_kn = [cMark "cn3"; cFor ~stop:[cVar "kn"] "i"] in
-  !! Loop.fusion_targets ~into:(occLast :: for_kn) (nbMulti :: for_kn);
-*)
+  !! Loop.fusion_targets ~into:(occLast :: for_kn) (nbMulti :: for_kn); *)
+
+  bigstep "cleanup";
   !! Resources.delete_annots [];
   !! Matrix.elim_mops [];
 )
