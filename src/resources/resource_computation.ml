@@ -16,6 +16,8 @@ module Resource_primitives = struct
   let __add = toplevel_var "__add"
   let __sub = toplevel_var "__sub"
   let __mul = toplevel_var "__mul"
+  let __div = toplevel_var "__div"
+  let __mod = toplevel_var "__mod"
   let __array_access = toplevel_var "__array_access"
   let __add_inplace = toplevel_var "__add_inplace"
   let __sub_inplace = toplevel_var "__sub_inplace"
@@ -42,6 +44,8 @@ module Resource_primitives = struct
     | Binop_add -> "__add"
     | Binop_sub -> "__sub"
     | Binop_mul -> "__mul"
+    | Binop_div -> "__div"
+    | Binop_mod -> "__mod"
     | Binop_array_access -> "__array_access"
     | Binop_set -> "__set"
     | _ -> raise Unknown

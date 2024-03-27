@@ -9,10 +9,10 @@ let _ = Flags.check_validity := false (* TODO: true *)
    Remaining differences:
    - [ic/cn*cn + ic%cn] instead of [ic],
      could fix by arith simpl or with [PROJNM(...)] ops and simpls
-   - using [s = s + x - y] instead of [s += s; s -= y], could fix with compound op transfos
+   - using [s = s + x - y] instead of [s += s; s -= y], could fix with compound op transfos: Function.use_infix_ops_at, check += encode/decode -- Reduce.slide could also do this
    - [1..n] instead [of 0..(n-1)] loops, could fix by Loop.shift StartAtZero
    - [i++; i * 3|4|cn] instead of [i += 3|4|cn; i], could fix by Loop.scale
-   - [k++; + k] instead of [k++, S++, D++].
+   - [k++; + k] instead of [k++, S++, D++], we may not want to introduce such pointer arithmetic.
    - no template support yet for S/ST types; OpenCV also casts inputs from uchar
    *)
 
@@ -52,7 +52,7 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
   );
 
-  bigstep "postprocessing";
+  bigstep "postprocessing and optional style";
   !! Resources.delete_annots [];
   !! Matrix.elim_mops [];
 )

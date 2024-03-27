@@ -256,6 +256,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
               begin match trm_fors_inv alloc_arity snd_instr with
               | Some (loop_range, body) ->
                 let new_dims = dim :: dims in
+                let loop_range = List.map fst loop_range in
                 let indices = List.fold_left (fun acc range -> (trm_var range.index) :: acc) [] (List.rev loop_range) in
                 let new_indices = (trm_var index) :: indices in
                 let new_loop_range = loop_range @ [{ index; start = trm_int 0; direction = DirUp; stop = dim; step = Post_inc }] in
@@ -370,6 +371,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let frth_instr = Mlist.nth tl 3 in
                   let new_frth_instr = begin match trm_fors_inv alloc_arity frth_instr with
                     | Some (loop_range, body) ->
+                      let loop_range = List.map fst loop_range in
                       let new_loop_range = loop_range @ [{ index; start = trm_int 0; direction = DirUp; stop = dim; step = Post_inc }] in
                       let ps2 = Constr.resolve_target tg body in
                       let new_body =
@@ -383,6 +385,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let fifth_instr = Mlist.nth tl 4 in
                   let new_fifth_instr = begin match trm_fors_inv alloc_arity fifth_instr with
                     | Some (loop_range, body) ->
+                      let loop_range = List.map fst loop_range in
                       let new_loop_range = loop_range @ [{ index; start = trm_int 0; direction = DirUp; stop = dim; step = Post_inc }] in
                       let ps2 = Constr.resolve_target tg body in
                       let new_body =

@@ -319,6 +319,10 @@
 
 - implement a transfo 'delay_write': `WR(X = Y); RD(X); --> RD(Y); WR(X = Y)`
 
+- check that basic transfos don't move effects via substitution etc, use binders + inline, introduce combinators for this pattern, `subst_or_decl(flag, subst_map, t)` 
+
+- implement transfos that leverage invariants on models (building block of reduce.slide, etc)
+
 # Trace
 
 - related:

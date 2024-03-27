@@ -40,6 +40,10 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     trm_var_get acc
   ) t to_expr in
   let (alloc, loop) = Option.get !alloc_loop in
+  (* TODO: if !Flags.check_validity then
+    generate group_focus_subrange_ro scoped ghost
+    is valid by definition of reduce (not supporting negative ranges)
+     *)
   trm_seq_nobrace_nomarks [alloc; loop; updated_t]
 
 (** [elim_basic tg]: eliminates a call to [reduce], expanding it to a for loop. *)
@@ -54,6 +58,10 @@ let elim_inline_on (mark_simpl : mark) (red_t : trm) : trm =
   let error = "expected call to reduce" in
   let (start, stop, input, n, m, j) = trm_inv ~error reduce_inv red_t in
   let nb_elems = Arith_core.(simplify true (fun e -> gather (compute e))) (trm_sub stop start) in
+  (* TODO: if !Flags.check_validity then
+    generate group_focus_subrange_ro scoped ghost and/or unrolled version
+    is valid because unroll is valid and by definition of reduce (not supporting negative ranges)
+     *)
   match trm_int_inv nb_elems with
   | Some nb_elems ->
     let acc_typ = Option.value ~default:(typ_constr ([], "uint16_t")) red_t.typ in
@@ -125,6 +133,11 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
     b
   | _ -> trm_fail t "only supporting reduce stopping at loop index + constant variable"
   end in
+  (* TODO:
+    if !Flags.check_validity = true then
+      check that reduce args are formula_convertible
+      check that range is non-empty and well-ordered (stop > start)
+  *)
   let acc = new_var "s" in
   let acc_typ = Option.get red.typ in
   let make_reduce start stop = reduce start stop input n m j in
@@ -137,7 +150,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let new_range = { range with start = trm_add_mark mark_simpl (trm_add range.start step) } in
   trm_seq_nobrace_nomarks [
     trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) base_reduce);
-    trm_set (trm_copy (trm_subst_var range.index (trm_int 0) out)) (trm_var_get acc);
+    trm_set (trm_copy (trm_subst_var range.index range.start out)) (trm_var_get acc);
     trm_for new_range (trm_seq_nomarks [
       (* trm_prim_compound Binop_add (trm_var acc) value *)
       trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub);
@@ -148,9 +161,9 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
 (** [slide_basic tg]: given a target to a call to [set(p, reduce)] within a perfectly nested loop:
     [for i in 0..n { set(p, reduce(... i ...)) }]
     allocates a variable outside the loop to compute next values based on previous values:
-    [alloc s = reduce(... 0 ...); for i in 1..n { set(s, f(s)); set(p, s) }]
+    [alloc s = reduce(... 0 ...); set(p[i := 0], s); for i in 1..n { set(s, f(s)); set(p, s) }]
 
-    TODO: generate check that n > 0
+    TODO: generate check that n > 0, check that reduce args are formula convertible
   *)
 let%transfo slide_basic ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_mark)
   (tg : target) : unit =

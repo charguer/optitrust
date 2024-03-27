@@ -103,6 +103,21 @@ template<typename T> T __mul(T x1, T x2) {
   return x1 * x2;
 }
 
+template<typename T> T __div(T x1, T x2) {
+  __pure();
+  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
+  // + only for integer types?
+  __admitted();
+  return x1 / x2;
+}
+
+template<typename T> T __mod(T x1, T x2) {
+  __pure();
+  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
+  __admitted();
+  return x1 / x2;
+}
+
 template<typename T> T* __array_access(T* tab, int i) {
   __pure();
   __admitted();
@@ -286,7 +301,7 @@ inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
 
 /* TODO: generalize to any monoid/group, see doc/sliding-window.md */
 // template<typename T, typename ST>
-uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, int j) {
+uint16_t reduce_spe2(int start, int stop, const uint8_t* input, int n, int m, int j) {
   // TODO: allow negative ranges
   // not necessary here?:
   // __requires("check_bound1: 0 <= start, check_bound2: start <= stop, check_bound3: stop <= n");
@@ -298,6 +313,13 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
     acc = acc + input[MINDEX(n, k)];
   }
   return acc; */
+}
+
+uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, int j) {
+  __requires("check_range: is_subrange(start..stop, 0..n)");
+  __requires("bound_check: in_range(j, m)");
+  __reads("input ~> Matrix2");
+  // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
 }
 
 /* ---- Ghosts ---- */

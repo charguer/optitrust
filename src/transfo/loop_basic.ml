@@ -37,21 +37,27 @@ let%transfo tile ?(index : string = "b${id}")
     Target.apply_at_target_paths (Loop_core.tile index bound tile_size) tg
   )
 
-
-(** <private *)
-let collapse_on (simpl_mark : mark) (index : string) (t : trm) : trm =
-  (* TODO: check that ranges have start <= stop. *)
-  (* TODO: maybe only zero-starting loops to reduce complexity. *)
+(** <private> *)
+let collapse_analyse (ri_rj_body : (loop_range * loop_contract * loop_range * loop_contract * trm) option ref) (t : trm) : trm =
   let error = "expected 2 nested simple loops" in
   let (ranges, body) = trm_inv ~error (trm_fors_inv 2) t in
-  let ri = List.nth ranges 0 in
-  let rj = List.nth ranges 1 in
+  let (ri, ci) = List.nth ranges 0 in
+  let (rj, cj) = List.nth ranges 1 in
+  if not (is_trm_int 0 ri.start) || not (is_trm_int 0 rj.start) then
+    trm_fail t "non-zero range starts are not yet supported: use loop shift first";
   if not (is_step_one (ri.step)) || not (is_step_one (rj.step)) then
-    trm_fail t "non-unary range steps are not yet supported";
+    trm_fail t "non-unary range steps are not yet supported: use loop scale first";
   if ri.direction <> DirUp || rj.direction <> DirUp then
-    trm_fail t "non-increasing range directions are not yet supported";
-  let nbi = trm_sub ri.stop ri.start in
-  let nbj = trm_sub rj.stop rj.start in
+    trm_fail t "non-increasing range directions are not yet supported: use loop reverse first";
+  ri_rj_body := Some (ri, ci, rj, cj, body);
+  t
+
+(** <private> *)
+let collapse_on (simpl_mark : mark) (index : string)
+  (ri : loop_range) (ci : loop_contract) (rj : loop_range) (cj : loop_contract)
+  (body : trm) (t : trm) : trm =
+  let nbi = ri.stop (* start = 0; trm_sub ri.stop ri.start *) in
+  let nbj = rj.stop (* start = 0; trm_sub rj.stop rj.start *) in
   let k = new_var (index |>
     Tools.string_subst "${i}" ri.index.name |>
     Tools.string_subst "${j}" rj.index.name) in
@@ -60,21 +66,56 @@ let collapse_on (simpl_mark : mark) (index : string) (t : trm) : trm =
     index = k; start = trm_int 0; stop = trm_add_mark simpl_mark (trm_mul nbi nbj);
     direction = DirUp; step = Post_inc
   } in
-  let new_i = trm_add_mark simpl_mark (trm_add ri.start (trm_div var_k nbj)) in
-  let new_j = trm_add_mark simpl_mark (trm_add rj.start (trm_mod var_k nbj)) in
+  let new_i = trm_add_mark simpl_mark (* (trm_add ri.start = 0 *) (trm_div var_k nbj) in
+  let new_j = trm_add_mark simpl_mark (* (trm_add rj.start = 0 *) (trm_mod var_k nbj) in
   let subst = Var_map.(empty |> add ri.index new_i |> add rj.index new_j) in
-  trm_for rk (trm_subst subst body)
+  (* TODO: works when invariants are the same, and pre/post are the same modulo a star,
+    still need to insert ghosts to flatten the double star. *)
+  let contract = Resource_contract.loop_contract_subst subst cj in
+  trm_for ~contract rk (trm_subst subst body)
 
 (** [collapse]: expects the target [tg] to point at a simple loop nest:
     [for i in 0..Ni { for j in 0..Nj { b(i, j) } }]
     And collapses the loop nest, producing:
     [for k in 0..(Ni*Nj) { b(k / Nj, k % Nj) } ]
 
+    Correct if Ni >= 0 and Nj >= 0.
+
     This is the opposite of [tile].
+
+    LATER:
+    - could generate binders for i, j
+    - could generate i := PROJ1(Ni, Nj, k), j := PROJ2(Ni, Nj, k)
+    - then can simplify MINDEX2(Ni, Nj, PROJ1(Ni, Nj, k), PROJ2(Ni, Nj, k))
+      |--> MINDEX2PROJ(Ni, Nj, k) |-- elim_mops --> k
+    - can be generalized to collapsing N loops and deriving PROJNM and MINDEXNPROJ
     *)
 let%transfo collapse ?(simpl_mark : mark = no_mark)
   ?(index : string = "${i}${j}") (tg : target) : unit =
-  Target.apply_at_target_paths (collapse_on simpl_mark index) tg
+  Target.iter (fun p ->
+    let ri_rj_body = ref None in
+    let _ = Path.apply_on_path (collapse_analyse ri_rj_body) (Trace.ast ()) p in
+    let (ri, ci, rj, cj, body) = Option.get !ri_rj_body in
+    if !Flags.check_validity then begin
+      step_backtrack ~discard_after:true (fun () ->
+        Nobrace_transfo.remove_after (fun () ->
+          Target.apply_at_path (fun t ->
+            (* TODO: use proper obligation mechanism. *)
+            let pure = Resource_formula.[
+              new_anon_hyp (), formula_geq ri.stop (trm_int 0);
+              new_anon_hyp (), formula_geq rj.stop (trm_int 0)
+            ] in
+            let contract = { pre = Resource_set.make ~pure (); post = Resource_set.empty } in
+            let g = Resource_trm.ghost (ghost_closure_call contract (trm_seq_nomarks [])) in
+            trm_seq_nobrace_nomarks [g; t]
+          ) p;
+          recompute_resources ()
+        )
+      );
+      Trace.justif "correct when start >= stop for both ranges"
+    end;
+    Target.apply_at_path (collapse_on simpl_mark index ri ci rj cj body) p
+  ) tg
 
 (* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
     simple loop. Let's say for {int i ...} {

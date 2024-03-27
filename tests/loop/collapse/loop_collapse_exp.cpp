@@ -1,20 +1,37 @@
 #include <optitrust.h>
 
-
-
-  void consts (  )  {
+void consts() {
+__pure();
   int x;
-  for ( int ij = 0; ij < 5 * 5; ij++ ) { x += ij / 5 + ij % 5; }
+  for (int ij = 0; ij < 5 * 5; ij++) {
+    __strict();
+    __sequentially_modifies("&x ~> Cell");
+    x += ij / 5 + ij % 5;
+  }
 }
 
-  void from_zero ( int n, int m )  {
+  void from_zero(int n, int m) {
+__requires("__assert_geq(n, 0)");
+  __requires("__assert_geq(m, 0)");
   int x;
-  for ( int ij = 0; ij < n * m; ij++ ) { x += ij / m + ij % m; }
+  for (int ij = 0; ij < n * m; ij++) {
+    __strict();
+    __sequentially_modifies("&x ~> Cell");
+    x += ij / m + ij % m;
+  }
 }
 
-  void incr ( int ai, int bi, int aj, int bj )  {
+void from_zero_wrong(int n, int m) {
+  __requires("__assert_geq(n, 0)");
+  __requires("__assert_geq(m, 0)");
   int x;
-  for ( int ij = 0; ij < ( bi - ai ) * ( bj - aj ); ij++ ) {
-    x += ai + ij / ( bj - aj ) + aj + ij % ( bj - aj );
+  for (int i = 0; i < n; i++) {
+    __strict();
+    __sequentially_modifies("&x ~> Cell");
+    for (int j = 0; j < m; j++) {
+    __strict();
+      __sequentially_modifies("&x ~> Cell");
+      x += i + j;
+    }
   }
 }
