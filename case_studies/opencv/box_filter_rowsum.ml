@@ -3,8 +3,17 @@ open Prelude
 
 let _ = Flags.check_validity := false (* TODO: true *)
 
-(* Reproducing OpenCV code from:
+(** Reproducing OpenCV code from:
    https://github.com/opencv/opencv/blob/4.x/modules/imgproc/src/box_filter.simd.hpp
+
+   Remaining differences:
+   - [ic/cn*cn + ic%cn] instead of [ic],
+     could fix by arith simpl or with [PROJNM(...)] ops and simpls
+   - using [s = s + x - y] instead of [s += s; s -= y], could fix with compound op transfos
+   - [1..n] instead [of 0..(n-1)] loops, could fix by Loop.shift StartAtZero
+   - [i++; i * 3|4|cn] instead of [i += 3|4|cn; i], could fix by Loop.scale
+   - [k++; + k] instead of [k++, S++, D++].
+   - no template support yet for S/ST types; OpenCV also casts inputs from uchar
    *)
 
 let _ = Run.script_cpp (fun () ->
@@ -12,55 +21,38 @@ let _ = Run.script_cpp (fun () ->
 
   !! Resources.delete_annots []; (* TODO: remove *)
 
-  (* FIXME: why not working on fun body? *)
+  (* FIXME: not working on fun body because need to go inside seq. *)
   bigstep "prepare for specialization";
-  !! Marks.add "generic" [cFunBody "rowSum"; cFor "c"];
-  let specialize (var, n) = begin
-    let mark_then = sprintf "%s%i" var n in
-    Specialize.variable ~var ~value:(trm_int n) ~mark_then [cFunBody "rowSum"; cMark "generic"];
-    Marks.remove "generic" [cMark mark_then; cFor "c"];
-  end in
-  !! List.iter specialize ["kn", 3; "kn", 5; "cn", 1; "cn", 3];
+  let mark_then (var, _value) = sprintf "%s" var in
+  !! Specialize.variable_multi ~mark_then ~mark_else:"generic"
+    ["kn", trm_int 3; "kn", trm_int 5; "cn", trm_int 1; "cn", trm_int 3; "cn", trm_int 4]
+    [cFunBody "rowSum"; cFor "c"];
 
-  bigstep "kn == 3";
-  !! Reduce.elim ~inline:true [cMark "kn3"; cFun "reduce_spe1"];
-  !! Loop.swap [cMark "kn3"; cFor "c"];
-  !! Loop.collapse [cMark "kn3"; cFor "i"];
+  bigstep "generic";
+  !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "generic"; cArrayWrite "D"];
+  !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
+  !! Variable.elim_reuse [nbMulti; cMark "acc"];
+  !! Reduce.elim ~inline:true [nbMulti; cMark "generic"; cFor "i"; cFun "reduce_spe1"];
 
-  bigstep "kn == 5";
-  !! Reduce.elim ~inline:true [cMark "kn5"; cFun "reduce_spe1"];
-  !! Loop.swap [cMark "kn5"; cFor "c"];
-  !! Loop.collapse [cMark "kn5"; cFor "i"];
+  bigstep "kn";
+  !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cFun "reduce_spe1"];
+  !! Loop.swap [nbMulti; cMark "kn"; cFor "c"];
+  !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
 
-  bigstep "cn == 1";
-  !! Loop.unroll [cMark "cn1"; cFor "c"];
-  !! Reduce.slide [cMark "cn1"; cArrayWrite "D"];
-  !! Reduce.elim [occFirst; cMark "cn1"; cFun "reduce_spe1"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "cn1"; cFor "i"; cFun "reduce_spe1"];
+  bigstep "cn";
+  !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "cn"; cArrayWrite "D"];
+  !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
+  !! Variable.elim_reuse [nbMulti; cMark "acc"];
+  !! Reduce.elim ~inline:true [nbMulti; cMark "cn"; cFor "i"; cFun "reduce_spe1"];
+  !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
+  !! foreach_target [nbMulti; cMark "cn"] (fun c ->
+    Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
+    Instr.gather_targets [c; cStrict; cArrayWrite "D"];
+    Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor ~stop:[cVar "kn"] "i"];
+    Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
+  );
 
-  bigstep "cn == 3";
-  !! Loop.unroll [cMark "cn3"; cFor "c"];
-  !! Reduce.slide [nbMulti; cMark "cn3"; cArrayWrite "D"];
-  !! Reduce.elim [nbMulti; cMark "cn3"; cVarDef ""; dBody; cFun "reduce_spe1"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "cn3"; cFor "i"; cFun "reduce_spe1"];
-
-  (* TODO: ?
-    !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor "i" ~body:[cArrayWrite "D"]]; *)
-  let for_dwrite = [cMark "cn3"; cFor "i" ~body:[cArrayWrite "D"]] in
-  !! Loop.fusion_targets ~into:(occLast :: for_dwrite) (nbMulti :: for_dwrite);
-
-  (* TODO: ?
-    !! Instr.gather_targets [nbMulti; cMark "cn3"; cStrict; cArrayWrite "D"]; *)
-  let dwrite = [cMark "cn3"; cStrict; cArrayWrite "D"] in
-  let last_dwrite = resolve_target_exactly_one (occLast :: dwrite) in
-  !! Instr.move ~dest:[tBefore; cPath last_dwrite] (nbMulti :: dwrite);
-
-  (* TODO: ?
-    !! Loop.fusion_targets ~into:FuseIntoLast [nbMulti; cMark "cn3"; cFor ~stop:[cVar "kn"] "i"]; *)
-  let for_kn = [cMark "cn3"; cFor ~stop:[cVar "kn"] "i"] in
-  !! Loop.fusion_targets ~into:(occLast :: for_kn) (nbMulti :: for_kn);
-
-  bigstep "cleanup";
+  bigstep "postprocessing";
   !! Resources.delete_annots [];
   !! Matrix.elim_mops [];
 )

@@ -506,6 +506,13 @@ let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true)
     )
   ) tg
 
+
+type fuse_into =
+| FuseIntoFirst
+| FuseIntoLast
+| FuseInto of target
+| FuseIntoOcc of int
+
 (* [fusion_targets tg]: similar to [fusion] except that this transformation assumes that [tg] points to multiple
     not neccessarily consecutive for loops.
     All targeted loops must be in the same sequence.
@@ -516,7 +523,9 @@ let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true)
 
   LATER ?(into_occ : int = 1)
   *)
-let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true) ?(rename : path -> Variable.rename option = fun p -> None) (tg : target) : unit =
+let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int = 1)
+  ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true)
+  ?(rename : path -> Variable.rename option = fun p -> None) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   assert (not adapt_all_indices); (* TODO *)
   (* adapt_all_indices => adapt_fused_indices *)
@@ -576,26 +585,30 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
         fuse_loops fuse_into (shift - 1) todo;
       end;
   in
-  match into with
-  | Some tg ->
-    let p = Target.resolve_target_exactly_one tg in
-    may_rename_loop_body p;
-    let (fuse_into, p_seq) = Path.index_in_seq p in
-    (* TODO: Option.get error message *)
-    let pos = Option.get (Xlist.index_of fuse_into ordered_indices) in
-    let (before, inc_after) = Xlist.split_at pos ordered_indices in
-    let after = Xlist.drop 1 inc_after in
-    let to_fuse = (List.rev before) @ after in
-    (* Printf.printf "fuse_into: %i\n" fuse_into;
-    List.iter (Printf.printf "%i ") to_fuse;
-    Printf.printf "\n"; *)
-    fuse_loops fuse_into 0 to_fuse
-  | None ->
-    match ordered_indices with
-    | [] -> ()
-    | fuse_into :: to_fuse ->
-      may_rename_loop_body (p_seq @ [Dir_seq_nth fuse_into]);
-      fuse_loops fuse_into 0 to_fuse
+  let fuse_into =
+    match into with
+    (* TODO: first/last/occ error msgs *)
+    | FuseIntoFirst -> fst (Xlist.uncons ordered_indices)
+    | FuseIntoLast -> snd (Xlist.unlast ordered_indices)
+    | FuseIntoOcc occ -> List.nth ordered_indices occ
+    | FuseInto tg ->
+      let p = Target.resolve_target_exactly_one tg in
+      let (fuse_into, p_seq_tg) = Path.index_in_seq p in
+      if p_seq_tg <> p_seq then
+        path_fail p_seq_tg "fusion targets are not in the same sequence";
+      fuse_into
+  in
+  let pos = Xoption.unsome_or_else (Xlist.index_of fuse_into ordered_indices) (fun () ->
+    path_fail p_seq "invalid fuse_into index"
+  ) in
+  let (before, inc_after) = Xlist.split_at pos ordered_indices in
+  let after = Xlist.drop 1 inc_after in
+  let to_fuse = (List.rev before) @ after in
+  (* Printf.printf "fuse_into: %i\n" fuse_into;
+  List.iter (Printf.printf "%i ") to_fuse;
+  Printf.printf "\n"; *)
+  may_rename_loop_body (p_seq @ [Dir_seq_nth fuse_into]);
+  fuse_loops fuse_into 0 to_fuse
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,
     then it will move that instruction outside the for loop that it belongs to.

@@ -99,40 +99,22 @@ type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
     Note: This transformation assumes that [tg]  is going to be pointing at multiple instructions,
     hence no need to provide the occurrecen target [nbMulti] before the main target. *)
 let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
-  (* FIXME: This is heavily broken with the new Instr_basic.move.
-     Moreover, the approach taken here cannot be validated most of the time.
-     Use instead a mark that moves with instructions *)
-  let tg = filter_constr_occurrence tg in
-  let tg_dest = ref [] in
-  let reverse = ref true in
-  begin match dest with
-  | GatherAtFirst ->
-    tg_dest := [tAfter; occFirst] @ tg;
-    reverse := true
-  | GatherAtLast ->
-    tg_dest := [tBefore; occLast] @ tg;
-    reverse := false
-  | GatherAt tg_dest1 ->
-    tg_dest := tg_dest1;
-    match get_relative_type tg_dest1 with
-    | Some tg_rel ->
-      begin match tg_rel with
-      | TargetBefore ->
-        reverse := false
-      | TargetAfter ->
-        reverse := true
-      | TargetBetweenAll ->
-        failwith "Instr.gather_targets: need to support TargetBetweenAll"
-      | TargetFirst ->
-        reverse := true
-      | TargetLast ->
-        reverse := false
-      | TargetAt -> failwith "Instr.gather_targets: if you used GatherAt you should provide a valid relative target"
-      end
-    | None -> failwith "Instr.gather_targets: if you used GatherAt you should provide a valid relative target"
-  end;
-  let tg = enable_multi_targets tg in
-  Instr_basic.move ~rev:!reverse ~dest:!tg_dest tg
+  Marks.with_marks (fun next_mark ->
+    let paths = resolve_target (enable_multi_targets tg) in
+    let move_paths rel dest_p ps =
+      let m = Marks.add_next_mark_on next_mark dest_p in
+      move ~dest:[rel; cMark m] [Constr_paths ps]
+    in
+    begin match dest with
+    | GatherAtFirst ->
+      let (first, rest) = Xlist.uncons paths in
+      move_paths tAfter first rest
+    | GatherAtLast ->
+      let (rest, last) = Xlist.unlast paths in
+      move_paths tBefore last rest
+    | GatherAt tg_dest ->
+      failwith "GatherAt not yet implemented, need to move instrs before and after target in right order, maybe Instr.move should already behave like GatherAt?"
+    end)
 
 (* [move_in_seq ~dest tg] perform the same actions as {!Instr_basic.move},
    but move the instructions with the ghost pairs they need around them. *)

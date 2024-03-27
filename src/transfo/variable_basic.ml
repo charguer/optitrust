@@ -97,7 +97,10 @@ let local_name_on (curr_var : var) (var_typ : typ)
 
 (** [local_name ~var var_typ ~local_var tg] declares a local
   variable [local_var] and replaces [var] with [local_var] in
-  the term at target [tg]. *)
+  the term at target [tg].
+
+  TODO: compose as Instr.insert alloc; Storage/Cell.reuse;
+  *)
 let%transfo local_name ~(var : var) (var_typ : typ)
   ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
   ~(local_var : string) (tg : target) : unit =
@@ -207,6 +210,45 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
   Target.reparse_after ~reparse (
     Target.apply_on_targets (Variable_core.subst subst put)
   ) tg
+
+(** <private> *)
+let elim_reuse_on (i : int) (seq_t : trm) : trm =
+  let error = "expected sequence" in
+  let instrs = trm_inv ~error trm_seq_inv seq_t in
+  let xy = ref None in
+  let update_decl t =
+    let error = "expected variable declaration" in
+    let (kind, x, ty, init) = trm_inv ~error trm_let_inv t in
+    assert (kind = Var_mutable);
+    let error = "expected initial value to be a new(get(var))" in
+    let (_ty, dims, init_val) = trm_inv ~error trm_new_inv init in
+    assert (dims = []);
+    let init_val_get = trm_inv ~error trm_get_inv init_val in
+    let init_val_get_var = trm_inv ~error trm_var_inv init_val_get in
+    xy := Some (x, init_val_get_var);
+    trm_seq_nobrace_nomarks []
+  in
+  let substitute_var t =
+    let (x, y) = Option.get !xy in
+    trm_subst_var x (trm_var y) t
+  in
+  let new_instrs = Mlist.update_at_index_and_fix_beyond i
+    update_decl substitute_var instrs
+  in
+  trm_seq ~annot:seq_t.annot ?loc:seq_t.loc new_instrs
+
+(** [elim_reuse]: given a targeted variable declaration [let x = get(y)], eliminates the variable
+  declaration, reusing variable [y] instead of [x].
+  This is correct if [y] was not used anymore after this declaration.
+
+  TODO: think about the relationship between this, [reuse], [elim_redundant], and [local_name].
+  local_name should Instr.insert alloc; Storage.reuse; Storage.read_last_write; Instr.delete x = x
+  *)
+let%transfo elim_reuse (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+    let (i, p_seq) = Path.index_in_seq p in
+    Target.apply_at_path (elim_reuse_on i) p_seq
+  ) tg)
 
 (* [bind ~const ~mark fresh_name tg]: expects the target [tg] to be pointing at any trm, then it will insert a variable declaration
       with name [fresh_name] just before the instruction that contains the target [tg], and replace the targeted trm with an occurrence

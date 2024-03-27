@@ -37,8 +37,11 @@ let%transfo tile ?(index : string = "b${id}")
     Target.apply_at_target_paths (Loop_core.tile index bound tile_size) tg
   )
 
+
+(** <private *)
 let collapse_on (simpl_mark : mark) (index : string) (t : trm) : trm =
   (* TODO: check that ranges have start <= stop. *)
+  (* TODO: maybe only zero-starting loops to reduce complexity. *)
   let error = "expected 2 nested simple loops" in
   let (ranges, body) = trm_inv ~error (trm_fors_inv 2) t in
   let ri = List.nth ranges 0 in

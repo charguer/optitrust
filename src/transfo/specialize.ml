@@ -19,6 +19,26 @@ let%transfo variable ~(var : string) ~(value : trm)
         Variable.subst ~subst:var ~put:value [cMark mark_then]);
     ) tg)
 
+(** [variable_multi]: repeats [variable] transfo to create multiple specialized paths.
+
+    - [mark_then]: function to create a mark based on [var, value]
+    *)
+let%transfo variable_multi ?(mark_then : (string * trm) -> mark = fun _ ->  no_mark)
+  ?(mark_else : mark = no_mark)
+  (pairs: (string * trm) list) (tg : target) : unit =
+  Marks.with_marks (fun next_mark ->
+    let generic_mark = Mark.reuse_or_next next_mark mark_else in
+    Marks.add generic_mark tg;
+    let specialize (var, value) = begin
+      let this_mark_then = next_mark () in
+      variable ~var ~value ~mark_then:this_mark_then [cMark generic_mark];
+      Marks.remove generic_mark [cMark this_mark_then; cMark generic_mark];
+      let mark_then = mark_then (var, value) in
+      Marks.add mark_then [cMark this_mark_then];
+    end in
+    List.iter specialize pairs;
+  )
+
 let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) : unit =
   Ast_data.fill_fun_defs_tbl (get_ast());
   iter_on_targets (fun t p ->

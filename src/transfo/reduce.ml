@@ -22,7 +22,6 @@ let reduce_inv (t : trm) : (trm * trm * trm * trm * trm * trm) option =
 
 (** <private> *)
 let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : trm) : trm =
-  Show.trm t;
   let alloc_loop = ref None in
   let updated_t = Path.apply_on_path (fun red_t ->
     let error = "expected call to reduce" in
@@ -47,7 +46,6 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
 let%transfo elim_basic ?(mark_alloc : mark = no_mark) ?(mark_loop : mark = no_mark) (tg : target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (to_instr, to_expr) = Path.path_in_instr p (Trace.ast ()) in
-    Show.paths [p; to_instr; to_expr];
     Target.apply_at_path (elim_basic_on mark_alloc mark_loop to_expr) to_instr
   ) tg)
 
@@ -100,7 +98,7 @@ let%transfo elim ?(unroll : bool = false) ?(inline : bool = false) (tg : target)
   )
 
 (** <private> *)
-let slide_on (mark_simpl : mark) (i : int) (t : trm) : trm =
+let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let error = "expected for loop" in
   let (range, instrs, _) = trm_inv ~error trm_for_inv_instrs t in
   if not (is_step_one range.step) then
@@ -138,11 +136,11 @@ let slide_on (mark_simpl : mark) (i : int) (t : trm) : trm =
   let rec_reduce_sub = make_reduce (trm_sub index step) index in
   let new_range = { range with start = trm_add_mark mark_simpl (trm_add range.start step) } in
   trm_seq_nobrace_nomarks [
-    trm_let_mut (acc, acc_typ) base_reduce;
+    trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) base_reduce);
     trm_set (trm_copy (trm_subst_var range.index (trm_int 0) out)) (trm_var_get acc);
     trm_for new_range (trm_seq_nomarks [
       (* trm_prim_compound Binop_add (trm_var acc) value *)
-      trm_set (trm_var acc) (trm_add (trm_var_get acc) (trm_sub rec_reduce_add rec_reduce_sub));
+      trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub);
       trm_set out (trm_var_get acc)
     ]);
   ]
@@ -154,10 +152,11 @@ let slide_on (mark_simpl : mark) (i : int) (t : trm) : trm =
 
     TODO: generate check that n > 0
   *)
-let%transfo slide_basic ?(mark_simpl : mark = no_mark) (tg : target) : unit =
+let%transfo slide_basic ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_mark)
+  (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (i, loop_p) = Path.index_in_surrounding_loop p in
-    Target.apply_at_path (slide_on mark_simpl i) loop_p
+    Target.apply_at_path (slide_on mark_alloc mark_simpl i) loop_p
   ) tg)
 
 (** [slide tg]: given a target to a call to [set(p, reduce)] within a perfectly nested loop:
@@ -167,9 +166,9 @@ let%transfo slide_basic ?(mark_simpl : mark = no_mark) (tg : target) : unit =
 
     TODO: generate check that n > 0
   *)
-let%transfo slide ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo slide ?(mark_alloc : mark = no_mark) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let mark_simpl = next_mark () in
-    slide_basic ~mark_simpl (target_of_path p);
+    slide_basic ~mark_alloc ~mark_simpl (target_of_path p);
     simpl [cMark mark_simpl];
   ) tg)

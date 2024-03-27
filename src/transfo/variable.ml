@@ -238,6 +238,7 @@ let%transfo reuse ?(reparse : bool = false) (space : trm) (tg : target) : unit =
       | None -> trm_fail decl_t "Variable.reuse: could not match the declaration"
       end
       )) tg
+
 (* [renames rename tg: expects [tg] to point at a sequence.
     [rename] can be either ByList l where l denotes a list of pairs on which
     each pair consists the current variable and the one that is going to replace it.

@@ -182,7 +182,8 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       Some (Variable.Rename.AddSuffix (Tools.list_to_string ~sep:"_" ~bounds:("_","") writes))
     in
     (* Show.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
-    Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:(target_of_path (snd (Xlist.unlast to_fuse_paths))) (target_of_paths to_fuse_paths);
+    (* DEPRECATED: ~into: (target_of_path (snd (Xlist.unlast to_fuse_paths))) *)
+    Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:FuseIntoLast (target_of_paths to_fuse_paths);
     );
     (* Show.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
     (* 3. reduce temporary storage *)
