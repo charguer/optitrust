@@ -140,12 +140,12 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
     Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step ->
       Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))
     );
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_eq)) !__ !__) Arith_core.check_eq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_neq)) !__ !__) Arith_core.check_neq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_gt)) !__ !__) Arith_core.check_gt;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_geq)) !__ !__) Arith_core.check_geq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_lt)) !__ !__) Arith_core.check_lt;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_leq)) !__ !__) Arith_core.check_leq;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_is_eq)) !__ !__) Arith_core.check_eq;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_is_neq)) !__ !__) Arith_core.check_neq;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_is_gt)) !__ !__) Arith_core.check_gt;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_is_geq)) !__ !__) Arith_core.check_geq;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_is_lt)) !__ !__) Arith_core.check_lt;
+    Pattern.(trm_apps2 (trm_var (var_eq formula_is_leq)) !__ !__) Arith_core.check_leq;
     Pattern.__ false
   ] in
   if arith_solved then
@@ -459,6 +459,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
   let evar_ctx = Var_map.map (fun x -> Some (trm_subst res_from.aliases x)) subst_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) evar_ctx dominated_evars in
 
+  let res_to = Resource_set.subst_aliases res_from.aliases res_to in
   let res_from = Resource_set.subst_all_aliases res_from in
   assert (Var_map.is_empty res_to.aliases);
   assert (res_to.efracs = []);
@@ -1123,6 +1124,27 @@ let rec compute_resources
           );
           Pattern.(!__) (fun _ -> failwith "__ghost_end expects a single variable as argument")
         ]
+
+      | exception Spec_not_found fn when var_eq fn Resource_trm.var_assert_alias ->
+        if effective_args <> [] then failwith "__assert_alias expects only ghost arguments";
+        let ghost_call = trm_apps ~annot:referent (trm_var Resource_trm.var_assert_eq) [] ~ghost_args in
+        let usage_map, res = compute_resources (Some res) ghost_call in
+        let** res in
+
+        let var = ref None in
+        let subst = ref None in
+        List.iter (fun (arg, value) -> match arg.name with
+        | "x" -> begin match trm_var_inv value with
+          | Some x -> var := Some x
+          | None -> failwith "__assert_alias expects a simple variable as first argument"
+          end
+        | "y" -> subst := Some value
+        | _ -> ()) (ghost_args @ Option.value ~default:[] (Option.map (fun inv -> List.map (fun { pre_hyp; inst_by } -> (pre_hyp, inst_by)) inv.contract_inst.used_pure) ghost_call.ctx.ctx_resources_contract_invoc));
+        let var = Option.get !var in
+        let subst = trm_subst res.aliases (Option.get !subst) in (* Aliases never refer to other aliases *)
+        if Var_map.mem var res.aliases then failwith (sprintf "Cannot add an alias for '%s': this variable already has an alias" (var_to_string var));
+        let aliases = Var_map.add var subst res.aliases in
+        usage_map, Some ({ res with aliases })
 
       | exception Spec_not_found fn when var_eq fn Resource_trm.var_admitted ->
         (* Stop the resource computation in the instructions following the call to __admitted()

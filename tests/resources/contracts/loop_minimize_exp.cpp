@@ -83,7 +83,7 @@ __ghost_ret assert_in_range() {
 
 void useless_pure_facts(int n, int i) {
   __requires("in_range(i, 0..n)");
-  __requires("__assert_leq(0, i)");
+  __requires("__is_leq(0, i)");
   for (int j = 0; j < 100; j++) {
     __strict();
     __loop_ghosts("k: int");

@@ -139,11 +139,13 @@ let rename_var (x: var) (new_x: var) (res: resource_set) : resource_set =
         })
     }
 
-let subst_all_aliases (res: resource_set): resource_set =
+let subst_aliases (aliases: trm Var_map.t) (res: resource_set): resource_set =
   (* Invariant: [res.fun_specs] cannot refer variables in [res.aliases].
      This invariant is needed for performance reasons *)
-  { (subst res.aliases { res with fun_specs = Var_map.empty; aliases = Var_map.empty })
-    with fun_specs = res.fun_specs }
+  { (subst aliases { res with fun_specs = Var_map.empty }) with fun_specs = res.fun_specs }
+
+let subst_all_aliases (res: resource_set): resource_set =
+  subst_aliases res.aliases { res with aliases = Var_map.empty }
 
 (** Substitutes a loop index with its starting value. *)
 let subst_loop_range_start range = subst_var range.index range.start

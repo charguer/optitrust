@@ -15,6 +15,7 @@ void g(int* t, int i) {
   __writes("&t[i] ~> Cell");
 
   if (i == 0) {
+    __ghost(assert_alias, "i, 0");
     t[0] = 0;
   } else {
     t[i] = 0;

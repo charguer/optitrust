@@ -844,6 +844,16 @@ __GHOST(mindex3_contiguous_ro_rev) {
   __admitted();
 }
 
+/* ---- Ghosts to check assertions ---- */
+
+__GHOST(assert_eq) {
+  /* Names x and y are used in assert_alias code */
+  __requires("x: int, y: int, eq: x = y");
+}
+
+inline __ghost_ret assert_alias() {}
+
+
 /* ---- Arithmetic Functions ---- */
 
 inline int exact_div(int n, int b) {
