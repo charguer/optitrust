@@ -73,6 +73,7 @@ let rec formula_of_trm (t: trm): formula option =
       | Some Prim_binop Binop_add
       | Some Prim_binop Binop_sub
       | Some Prim_binop Binop_mul
+      | Some Prim_binop Binop_eq
       | Some Prim_binop Binop_div (* TODO: think hard about 'div' totality *)
       | Some Prim_binop Binop_mod
       | Some Prim_binop Binop_array_access

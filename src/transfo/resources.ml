@@ -83,16 +83,9 @@ let filter_touched (usage: resource_usage_map) (res: resource_set) =
 (** [trm_is_pure]: Does this term always evaluate to the same value?
     The computed value should no be affected by observable program state.
     Computing the value should not affect the observable program state. *)
-let rec trm_is_pure (t: trm): bool =
-  if Option.is_some (trm_var_inv t) then
-    true
-  else if Option.is_some (trm_lit_inv t) then
-    true
-  else
-    (* TODO: look at resource usage, empty linear usage is pure *)
-    match trm_eq_inv t with
-    | Some (a, b) -> trm_is_pure a && trm_is_pure b
-    | None -> false
+let trm_is_pure (t: trm): bool =
+  (* TODO: ? look at resource usage, empty linear usage is pure *)
+  Option.is_some (Resource_formula.formula_of_trm t)
 
 (** If output_new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
 let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (contract: fun_contract) (usage: resource_usage_map): fun_contract =

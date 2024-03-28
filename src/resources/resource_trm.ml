@@ -102,6 +102,10 @@ let ghost_forget_init (f: formula): trm =
   ghost (ghost_call var_ghost_forget_init ["H", f])
 
 let var_assert_alias = toplevel_var "assert_alias"
+
+let ghost_intro_alias (x : var) (t : trm) : trm =
+  ghost (ghost_call var_assert_alias ["x", trm_var x; "y", t])
+
 let var_assert_eq = toplevel_var "assert_eq"
 
 let var_ghost_hide = toplevel_var "hide"

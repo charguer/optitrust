@@ -206,10 +206,24 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ?(value : t
 (* [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
     variable [subst], then it will check for occurrences of the variable [subst] and replace is with [put]. *)
 let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
-  (* TODO: justif: needs to check that [subst = put] fact exists. *)
-  Target.reparse_after ~reparse (
-    Target.apply_on_targets (Variable_core.subst subst put)
-  ) tg
+  Nobrace_transfo.remove_after (fun () -> Target.reparse_after ~reparse (
+    Target.iter (fun p ->
+      if !Flags.check_validity then begin
+        let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
+        Target.apply_at_path (fun instr_t ->
+          let g = Resource_trm.ghost_intro_alias subst put in
+          let t = Path.apply_on_path (trm_subst_var subst put) instr_t expr_p in
+          match trm_seq_inv t with
+          | Some instrs ->
+            trm_seq ~annot:t.annot ?loc:t.loc (Mlist.push_front g instrs)
+          | None ->
+            trm_seq_nobrace_nomarks [g; t]
+        ) instr_p;
+        Resources.justif_correct (sprintf "can substitute %s for its value" subst.name)
+      end else
+        Target.apply_at_path (trm_subst_var subst put) p
+    )
+  ) tg)
 
 
 (** <private> *)

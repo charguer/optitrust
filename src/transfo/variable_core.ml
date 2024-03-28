@@ -57,17 +57,6 @@ let rename_aux (index : int) (new_name : string) (t : trm) : trm =
 let rename (new_name : string) (index : int): Transfo.local =
   apply_on_path (rename_aux index new_name)
 
-(* [subst_aux name space t]: replaces all occurrences of [name] with [space],
-        [name] - name of the variable whose occurrences are going to be replaced,
-        [space] - trm which is going to replace all the occurrences of [name],
-        [t] - any node in the ast that contains an occurrence of [name]. *)
-let subst_aux (name : var) (space : trm) (t : trm) : trm =
-  trm_subst_var name space t
-
-(* [subst name space t p]: applies [subst_aux] at trm [t] with path [p] *)
-let subst (name : var) (space : trm) : Transfo.local =
-  apply_on_path (subst_aux name space)
-
 
 (* [init_detach_aux t]: detaches the targeted variable declaration,
       [t] - ast of the targeted variable declaration. *)

@@ -5,12 +5,8 @@ open Prelude
       [cond] - condition of the if statement given as string as a trm,
       [t] - ast of the outer sequence containing the instruction. *)
 let insert_on (cond : trm) (mark : mark) (mark_then : mark) (mark_else : mark) (else_branch : bool) (t : trm) : trm =
-  if !Flags.check_validity then begin
-    if else_branch = false then trm_fail t "inserting if without else requires further checks";
-    if Resources.trm_is_pure cond then
-      Trace.justif "inserted condition is pure, scopes are checked by var ids"
-  end;
   let t = trm_seq_enforce t in (* keeping marks on both branches, is that desired? *)
+
   let else_br = if else_branch then (trm_add_mark mark_else (trm_copy t)) else trm_unit() in
   let then_br = trm_add_mark mark_then t in
   trm_add_mark mark (trm_if cond then_br else_br)
@@ -23,6 +19,14 @@ let insert_on (cond : trm) (mark : mark) (mark_then : mark) (mark_else : mark) (
     Note:
       If [cond] is given as arbitrary string the flag [reparse] should be set to true. *)
 let%transfo insert ?(cond : trm = trm_any_bool) ?(reparse : bool = false) ?(mark : mark = no_mark) ?(mark_then : mark = no_mark) ?(mark_else : mark = no_mark) ?(else_branch : bool = true) (tg : target) : unit =
+  if !Flags.check_validity then begin
+    if else_branch = false then failwith "inserting if without else requires further checks";
+    if Resources.trm_is_pure cond then
+      Trace.justif "pure condition can safely be inserted"
+    else
+      (* TODO: check that Insert.instr cond is OK. *)
+      trm_fail cond "condition is not pure, more advanced checks not yet supported"
+  end;
   Target.reparse_after ~reparse (Target.apply_at_target_paths (insert_on cond mark mark_then mark_else else_branch)) tg
 
 let elim_true_on (t : trm) : trm =

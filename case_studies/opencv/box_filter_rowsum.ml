@@ -1,7 +1,8 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.check_validity := false (* TODO: true *)
+let _ = Flags.check_validity := true
+let _ = Flags.recompute_resources_between_steps := true
 
 (** Reproducing OpenCV code from:
    https://github.com/opencv/opencv/blob/4.x/modules/imgproc/src/box_filter.simd.hpp
@@ -18,8 +19,6 @@ let _ = Flags.check_validity := false (* TODO: true *)
 
 let _ = Run.script_cpp (fun () ->
   !! Resources.ensure_computed ();
-
-  !! Resources.delete_annots []; (* TODO: remove *)
 
   (* FIXME: not working on fun body because need to go inside seq. *)
   bigstep "prepare for specialization";
@@ -53,6 +52,7 @@ let _ = Run.script_cpp (fun () ->
   );
 
   bigstep "postprocessing and optional style";
+  Flags.recompute_resources_between_steps := false;
   !! Resources.delete_annots [];
   !! Matrix.elim_mops [];
 )

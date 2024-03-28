@@ -133,11 +133,12 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
     b
   | _ -> trm_fail t "only supporting reduce stopping at loop index + constant variable"
   end in
-  (* TODO:
-    if !Flags.check_validity = true then
-      check that reduce args are formula_convertible
-      check that range is non-empty and well-ordered (stop > start)
-  *)
+  if !Flags.check_validity = true then begin
+    if List.for_all Resources.trm_is_pure [start; stop; input; n; m; j] then
+      Trace.justif "all reduce arguments are pure"
+    else
+      trm_fail red "some reduce arguments are not pure"
+  end;
   let acc = new_var "s" in
   let acc_typ = Option.get red.typ in
   let make_reduce start stop = reduce start stop input n m j in
@@ -169,7 +170,8 @@ let%transfo slide_basic ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_
   (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (i, loop_p) = Path.index_in_surrounding_loop p in
-    Target.apply_at_path (slide_on mark_alloc mark_simpl i) loop_p
+    Target.apply_at_path (slide_on mark_alloc mark_simpl i) loop_p;
+    Tools.warn("TODO: check that range is non-empty and well-ordered (stop > start)");
   ) tg)
 
 (** [slide tg]: given a target to a call to [set(p, reduce)] within a perfectly nested loop:

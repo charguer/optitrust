@@ -14,9 +14,7 @@ let%transfo variable ~(var : string) ~(value : trm)
     Target.iter (fun p ->
       let cond = trm_eq (trm_var var) value in
       If.insert ~cond ~mark_then ~mark_else (target_of_path p);
-      Trace.without_substep_validity_checks (fun () ->
-        (* TODO: we should know that [var = value] in the then branch. *)
-        Variable.subst ~subst:var ~put:value [cMark mark_then]);
+      Variable.subst ~subst:var ~put:value [cMark mark_then];
     ) tg)
 
 (** [variable_multi]: repeats [variable] transfo to create multiple specialized paths.
