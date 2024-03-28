@@ -1218,15 +1218,21 @@ let rec compute_resources
         | Some usage_then, Some usage_else ->
           let usage_then_joined = update_usage_map ~current_usage:usage_then ~extra_usage:(used_set_to_usage_map used_join_then) in
           let usage_else_joined = update_usage_map ~current_usage:usage_else ~extra_usage:(used_set_to_usage_map used_join_else) in
+          let on_conflict x explanation =
+            failwith (sprintf "%s %s" (var_to_string x) explanation) in
           Some (Var_map.merge (fun x ut ue -> match ut, ue with
           | (Some Required, (Some Required | None)) | (None, Some Required) -> Some Required
           | (Some Ensured | None), (Some Ensured | None) -> None
-          | (Some (Required | Ensured), _) | (_, Some (Required | Ensured)) -> failwith "Mixing pure and linear resources"
-          | (None, _) | (_, None) -> failwith "Consumed in a branch but not in the other"
+          | (Some (Required | Ensured), _) | (_, Some (Required | Ensured)) ->
+            on_conflict x "mixed in pure and linear"
+          | (None, _) | (_, None) ->
+            on_conflict x "consumed in a branch but not in the other"
           | (Some ConsumedFull, _) | (_, Some ConsumedFull) -> Some ConsumedFull
           | (Some ConsumedUninit, Some ConsumedUninit) -> Some ConsumedUninit
-          | (Some (SplittedFrac | JoinedFrac), _) | (_, Some (SplittedFrac | JoinedFrac)) -> failwith "After join instantiation, RO usage should have disappeared"
-          | (Some Produced, _) | (_, Some Produced) -> failwith "Found a resource that is produced in one branch and is not in the join resource set")
+          | (Some (SplittedFrac | JoinedFrac), _) | (_, Some (SplittedFrac | JoinedFrac)) ->
+            on_conflict x "RO usage should have disappeared after join instantiation"
+          | (Some Produced, _) | (_, Some Produced) ->
+            on_conflict x "is produced in one branch and is not in the join resource set")
           usage_then_joined usage_else_joined)
         | _, _ -> None
       in
