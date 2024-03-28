@@ -741,6 +741,8 @@ let action_addexp (tests : string list) : unit =
     let prefix = Filename.remove_extension test in
     let outfile = prefix ^ "_out.cpp" in
     let expfile = prefix ^ "_exp.cpp" in
+    if not !dry_run then
+      Trace.cleanup_cpp_file_using_clang_format ~uncomment_pragma:true outfile;
     (* TODO: the tester program checks that `foo_exp.cpp` does
   not yet exist *)
     run_action ~print:true (sprintf "cp %s %s" outfile expfile);
