@@ -62,6 +62,10 @@ let resource_names (res: resource_set) : Var_set.t =
 let push_front_pure (res: resource_item) (res_set: resource_set) =
   { res_set with pure = res :: res_set.pure }
 
+(** Pushes a pure resource item at the end of a set. *)
+let push_back_pure (res: resource_item) (res_set: resource_set) =
+  { res_set with pure = res_set.pure @ [res] }
+
 (** Adds a linear resource item to a set. *)
 let add_linear (res: resource_item) (res_set: resource_set) =
   { res_set with linear = res :: res_set.linear }

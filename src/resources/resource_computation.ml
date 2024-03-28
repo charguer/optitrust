@@ -140,12 +140,12 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
     Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step ->
       Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))
     );
-    Pattern.(trm_apps2 (trm_var (var_eq formula_is_eq)) !__ !__) Arith_core.check_eq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_is_neq)) !__ !__) Arith_core.check_neq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_is_gt)) !__ !__) Arith_core.check_gt;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_is_geq)) !__ !__) Arith_core.check_geq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_is_lt)) !__ !__) Arith_core.check_lt;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_is_leq)) !__ !__) Arith_core.check_leq;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_eq)) !__ !__) Arith_core.check_eq;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_neq)) !__ !__) Arith_core.check_neq;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_gt)) !__ !__) Arith_core.check_gt;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_geq)) !__ !__) Arith_core.check_geq;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_lt)) !__ !__) Arith_core.check_lt;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_leq)) !__ !__) Arith_core.check_leq;
     Pattern.__ false
   ] in
   if arith_solved then
@@ -1190,20 +1190,22 @@ let rec compute_resources
        *)
     | Trm_if (cond, then_branch, else_branch) ->
       let usage_cond, res_cond = compute_resources (Some res) cond in
-      (* TODO: add pure facts?
-      match formula_of_trm cond with
-      | Some c ->
-      | None -> *)
-
-      let usage_then, res_then = compute_resources res_cond then_branch in
-      let usage_else, res_else = compute_resources res_cond else_branch in
       let** res_cond in
+      let res_before_then, res_before_else = match trm_to_formula_prop cond with
+        | Some prop ->
+          Resource_set.push_back_pure (new_anon_hyp (), prop) res_cond,
+          Resource_set.push_back_pure (new_anon_hyp (), formula_not prop) res_cond
+        | None -> res_cond, res_cond
+      in
+
+      let usage_then, res_then = compute_resources (Some res_before_then) then_branch in
+      let usage_else, res_else = compute_resources (Some res_before_else) else_branch in
       let** res_then in
       let** res_else in
 
       (* TODO: allow the user to customize the join resources *)
       (* TODO: be more clever about the synthetized join resources *)
-      let res_join = Resource_set.make ~linear:res_then.linear () in
+      let res_join = Resource_set.make ~linear:res_else.linear () in
       let used_join_then = assert_resource_impl res_then res_join in
       let used_join_else = assert_resource_impl res_else res_join in
       let usage_joined = match usage_then, usage_else with
