@@ -37,7 +37,6 @@ let minimize_all_in (seq : trm) : trm =
   let post_inst = seq.ctx.ctx_resources_post_inst in
   List.fold_left (fun seq pure_i ->
     let desired_pos = Ghost.farthest_commuting_pos pure_i 1 seq in
-    printf "%d -> %d\n" pure_i desired_pos;
     (* A pure fact at the bottom of a sequence can be removed
         if the post instantiation does not use it. *)
     (* We need to do this here because other pure ghosts
@@ -66,4 +65,24 @@ let minimize_all_in (seq : trm) : trm =
 let%transfo minimize_all_in_seq (tg: target): unit =
   Resources.ensure_computed ();
   Target.apply_at_target_paths minimize_all_in tg;
+  Resources.justif_correct "only changed ghost code"
+
+let fission_at (mark_between: mark) (split_i: int) (seq: trm) : trm =
+  let error = "Ghost_pair.fission_at: expected sequence" in
+  let instrs = trm_inv ~error trm_seq_inv seq in
+  let tl1, tl2 = Mlist.split split_i instrs in
+
+  let pure_ghosts1 = List.filter_map (fun instr ->
+    if is_pure_ghost_call instr then
+      Some (trm_copy instr)
+    else
+      None) (Mlist.to_list tl1) in
+  trm_like ~old:seq (trm_seq_helper [TrmMlist tl1; Mark mark_between; TrmList pure_ghosts1; TrmMlist tl2])
+
+(** Duplicates the pure ghosts at the targeted sequence interstice, to remove dependencies between the two parts of the sequence. *)
+let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
+  Target.iter (fun p_before ->
+    let (p_seq, split_i) = Path.extract_last_dir_before p_before in
+    apply_at_path (fission_at mark_between split_i) p_seq
+  ) tg;
   Resources.justif_correct "only changed ghost code"

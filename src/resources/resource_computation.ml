@@ -472,8 +472,10 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
   let evar_ctx = List.fold_left (fun evar_ctx (efrac, _) -> Var_map.add efrac None evar_ctx) evar_ctx efracs in
 
   let used_linear, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx res_from.linear res_to.linear in
+  (* Prefer the most recently generated pure fact when a choice has to be made *)
+  let available_pure = List.rev res_from.pure in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
-      unify_pure res_item res_from.pure evar_ctx) evar_ctx not_dominated_pure_res_to
+      unify_pure res_item available_pure evar_ctx) evar_ctx not_dominated_pure_res_to
   in
 
   (* All dominated evars should have been instantiated at this point.
