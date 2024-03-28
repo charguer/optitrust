@@ -18,6 +18,7 @@ module Resource_primitives = struct
   let __mul = toplevel_var "__mul"
   let __div = toplevel_var "__div"
   let __mod = toplevel_var "__mod"
+  let __eq = toplevel_var "__eq"
   let __array_access = toplevel_var "__array_access"
   let __add_inplace = toplevel_var "__add_inplace"
   let __sub_inplace = toplevel_var "__sub_inplace"
@@ -48,6 +49,7 @@ module Resource_primitives = struct
     | Binop_mod -> "__mod"
     | Binop_array_access -> "__array_access"
     | Binop_set -> "__set"
+    | Binop_eq -> "__eq"
     | _ -> raise Unknown
 
   let to_var (p: prim): var =
@@ -142,12 +144,12 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
     Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step ->
       Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))
     );
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_eq)) !__ !__) Arith_core.check_eq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_neq)) !__ !__) Arith_core.check_neq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_gt)) !__ !__) Arith_core.check_gt;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_geq)) !__ !__) Arith_core.check_geq;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_lt)) !__ !__) Arith_core.check_lt;
-    Pattern.(trm_apps2 (trm_var (var_eq formula_assert_leq)) !__ !__) Arith_core.check_leq;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_eq)) !__ !__) Arith_core.check_eq;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_neq)) !__ !__) Arith_core.check_neq;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_gt)) !__ !__) Arith_core.check_gt;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_geq)) !__ !__) Arith_core.check_geq;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_lt)) !__ !__) Arith_core.check_lt;
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_leq)) !__ !__) Arith_core.check_leq;
     Pattern.__ false
   ] in
   if arith_solved then
@@ -461,6 +463,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
   let evar_ctx = Var_map.map (fun x -> Some (trm_subst res_from.aliases x)) subst_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) evar_ctx dominated_evars in
 
+  let res_to = Resource_set.subst_aliases res_from.aliases res_to in
   let res_from = Resource_set.subst_all_aliases res_from in
   assert (Var_map.is_empty res_to.aliases);
   assert (res_to.efracs = []);
@@ -1126,6 +1129,27 @@ let rec compute_resources
           Pattern.(!__) (fun _ -> failwith "__ghost_end expects a single variable as argument")
         ]
 
+      | exception Spec_not_found fn when var_eq fn Resource_trm.var_assert_alias ->
+        if effective_args <> [] then failwith "__assert_alias expects only ghost arguments";
+        let ghost_call = trm_apps ~annot:referent (trm_var Resource_trm.var_assert_eq) [] ~ghost_args in
+        let usage_map, res = compute_resources (Some res) ghost_call in
+        let** res in
+
+        let var = ref None in
+        let subst = ref None in
+        List.iter (fun (arg, value) -> match arg.name with
+        | "x" -> begin match trm_var_inv value with
+          | Some x -> var := Some x
+          | None -> failwith "__assert_alias expects a simple variable as first argument"
+          end
+        | "y" -> subst := Some value
+        | _ -> ()) (ghost_args @ Option.value ~default:[] (Option.map (fun inv -> List.map (fun { pre_hyp; inst_by } -> (pre_hyp, inst_by)) inv.contract_inst.used_pure) ghost_call.ctx.ctx_resources_contract_invoc));
+        let var = Option.get !var in
+        let subst = trm_subst res.aliases (Option.get !subst) in (* Aliases never refer to other aliases *)
+        if Var_map.mem var res.aliases then failwith (sprintf "Cannot add an alias for '%s': this variable already has an alias" (var_to_string var));
+        let aliases = Var_map.add var subst res.aliases in
+        usage_map, Some ({ res with aliases })
+
       | exception Spec_not_found fn when var_eq fn Resource_trm.var_admitted ->
         (* Stop the resource computation in the instructions following the call to __admitted()
            by forgetting the context without raising any error. *)
@@ -1164,6 +1188,50 @@ let rec compute_resources
       in
 
       usage_map, Some res_after
+
+    (* Typecheck the 'then' and 'else' branches separately (including evaluating 'cond'),
+       then try to join resources ('then' ==> 'else').
+       *)
+    | Trm_if (cond, then_branch, else_branch) ->
+      let usage_cond, res_cond = compute_resources (Some res) cond in
+      let** res_cond in
+      let res_before_then, res_before_else = match trm_to_formula_prop cond with
+        | Some prop ->
+          Resource_set.push_back_pure (new_anon_hyp (), prop) res_cond,
+          Resource_set.push_back_pure (new_anon_hyp (), formula_not prop) res_cond
+        | None -> res_cond, res_cond
+      in
+
+      let usage_then, res_then = compute_resources (Some res_before_then) then_branch in
+      let usage_else, res_else = compute_resources (Some res_before_else) else_branch in
+      let** res_then in
+      let** res_else in
+
+      (* TODO: allow the user to customize the join resources *)
+      (* TODO: be more clever about the synthetized join resources *)
+      let res_join = Resource_set.make ~linear:res_else.linear () in
+      let used_join_then = assert_resource_impl res_then res_join in
+      let used_join_else = assert_resource_impl res_else res_join in
+      let usage_joined = match usage_then, usage_else with
+        | Some usage_then, Some usage_else ->
+          let usage_then_joined = update_usage_map ~current_usage:usage_then ~extra_usage:(used_set_to_usage_map used_join_then) in
+          let usage_else_joined = update_usage_map ~current_usage:usage_else ~extra_usage:(used_set_to_usage_map used_join_else) in
+          Some (Var_map.merge (fun x ut ue -> match ut, ue with
+          | (Some Required, (Some Required | None)) | (None, Some Required) -> Some Required
+          | (Some Ensured | None), (Some Ensured | None) -> None
+          | (Some (Required | Ensured), _) | (_, Some (Required | Ensured)) -> failwith "Mixing pure and linear resources"
+          | (None, _) | (_, None) -> failwith "Consumed in a branch but not in the other"
+          | (Some ConsumedFull, _) | (_, Some ConsumedFull) -> Some ConsumedFull
+          | (Some ConsumedUninit, Some ConsumedUninit) -> Some ConsumedUninit
+          | (Some (SplittedFrac | JoinedFrac), _) | (_, Some (SplittedFrac | JoinedFrac)) -> failwith "After join instantiation, RO usage should have disappeared"
+          | (Some Produced, _) | (_, Some Produced) -> failwith "Found a resource that is produced in one branch and is not in the join resource set")
+          usage_then_joined usage_else_joined)
+        | _, _ -> None
+      in
+      let res_usage = update_usage_map_opt ~current_usage:usage_cond ~extra_usage:usage_joined in
+      let res_usage = Option.map (fun res_usage -> List.fold_left (fun used_set (h, _) -> Hyp_map.add h Produced used_set) res_usage res_join.linear) res_usage in
+
+      res_usage, Some (Resource_set.bind ~keep_efracs:true ~old_res:res_cond ~new_res:res_join)
 
     (* Pass through constructions that do not interfere with resource checking *)
     | Trm_typedef _ ->

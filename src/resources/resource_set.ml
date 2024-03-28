@@ -62,6 +62,10 @@ let resource_names (res: resource_set) : Var_set.t =
 let push_front_pure (res: resource_item) (res_set: resource_set) =
   { res_set with pure = res :: res_set.pure }
 
+(** Pushes a pure resource item at the end of a set. *)
+let push_back_pure (res: resource_item) (res_set: resource_set) =
+  { res_set with pure = res_set.pure @ [res] }
+
 (** Adds a linear resource item to a set. *)
 let add_linear (res: resource_item) (res_set: resource_set) =
   { res_set with linear = res :: res_set.linear }
@@ -139,11 +143,13 @@ let rename_var (x: var) (new_x: var) (res: resource_set) : resource_set =
         })
     }
 
-let subst_all_aliases (res: resource_set): resource_set =
+let subst_aliases (aliases: trm Var_map.t) (res: resource_set): resource_set =
   (* Invariant: [res.fun_specs] cannot refer variables in [res.aliases].
      This invariant is needed for performance reasons *)
-  { (subst res.aliases { res with fun_specs = Var_map.empty; aliases = Var_map.empty })
-    with fun_specs = res.fun_specs }
+  { (subst aliases { res with fun_specs = Var_map.empty }) with fun_specs = res.fun_specs }
+
+let subst_all_aliases (res: resource_set): resource_set =
+  subst_aliases res.aliases { res with aliases = Var_map.empty }
 
 (** Substitutes a loop index with its starting value. *)
 let subst_loop_range_start range = subst_var range.index range.start

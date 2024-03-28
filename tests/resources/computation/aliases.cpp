@@ -60,8 +60,22 @@ void dummy_modifies(int* p) {
 }
 
 void bidirectional_alias() {
+  __pure();
+
   int x = 0;
   int& y = x;
   dummy_modifies(&y);
   x++;
+}
+
+void eq_to_alias(float* A, int n) {
+  __requires("n = 1024");
+  __modifies("A ~> Matrix1(n)");
+
+  __ghost(assert_alias, "n");
+  for (int i = 0; i < 1024; ++i) {
+    __strict();
+    __modifies("&A[MINDEX1(1024, i)] ~> Cell");
+    A[MINDEX1(1024, i)] = 0;
+  }
 }

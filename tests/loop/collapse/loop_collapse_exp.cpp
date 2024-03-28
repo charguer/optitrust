@@ -1,7 +1,7 @@
 #include <optitrust.h>
 
 void consts() {
-__pure();
+  __pure();
   int x;
   for (int ij = 0; ij < 5 * 5; ij++) {
     __strict();
@@ -10,9 +10,9 @@ __pure();
   }
 }
 
-  void from_zero(int n, int m) {
-__requires("__assert_geq(n, 0)");
-  __requires("__assert_geq(m, 0)");
+void from_zero(int n, int m) {
+  __requires("__is_geq(n, 0)");
+  __requires("__is_geq(m, 0)");
   int x;
   for (int ij = 0; ij < n * m; ij++) {
     __strict();
@@ -22,14 +22,14 @@ __requires("__assert_geq(n, 0)");
 }
 
 void from_zero_wrong(int n, int m) {
-  __requires("__assert_geq(n, 0)");
-  __requires("__assert_geq(m, 0)");
+  __requires("__is_geq(n, 0)");
+  __requires("__is_geq(m, 0)");
   int x;
   for (int i = 0; i < n; i++) {
     __strict();
     __sequentially_modifies("&x ~> Cell");
     for (int j = 0; j < m; j++) {
-    __strict();
+      __strict();
       __sequentially_modifies("&x ~> Cell");
       x += i + j;
     }

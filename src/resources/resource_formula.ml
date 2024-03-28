@@ -87,6 +87,82 @@ let rec formula_of_trm (t: trm): formula option =
     end
   | _ -> None
 
+let var_is_eq = toplevel_var "__is_eq"
+let var_is_neq = toplevel_var "__is_neq"
+let var_is_lt = toplevel_var "__is_lt"
+let var_is_gt = toplevel_var "__is_gt"
+let var_is_leq = toplevel_var "__is_leq"
+let var_is_geq = toplevel_var "__is_geq"
+let var_not = toplevel_var "__not"
+let var_and = toplevel_var "__and"
+let var_or = toplevel_var "__or"
+
+let formula_binop (cmp: var) (a: formula) (b: formula): formula =
+  trm_apps ~annot:formula_annot (trm_var cmp) [a; b]
+
+let formula_eq = formula_binop var_is_eq
+let formula_neq = formula_binop var_is_neq
+let formula_lt = formula_binop var_is_lt
+let formula_gt = formula_binop var_is_gt
+let formula_leq = formula_binop var_is_leq
+let formula_geq = formula_binop var_is_geq
+let formula_and = formula_binop var_and
+let formula_or = formula_binop var_or
+
+let formula_not (formula: formula) = trm_apps ~annot:formula_annot (trm_var var_not) [formula]
+
+let rec trm_to_formula_prop (t: trm): formula option =
+  let open Xoption.OptionMonad in
+  let formula_prop = match t.desc with
+    | Trm_apps (fn, args, _) ->
+      begin match trm_prim_inv fn with
+      | Some Prim_unop Unop_neg ->
+        let* arg = match args with [arg] -> Some arg | _ -> None in
+        begin match trm_to_formula_prop arg with
+        | Some negated_prop ->
+          Some (formula_not negated_prop)
+        | None ->
+          let* bool_formula = formula_of_trm t in
+          Some (formula_eq t (trm_bool false))
+        end
+      | Some Prim_binop binop ->
+        let* arg_l, arg_r = match args with [arg_l; arg_r] -> Some (arg_l, arg_r) | _ -> None in
+        begin match binop with
+        | Binop_eq | Binop_neq | Binop_le | Binop_lt | Binop_ge | Binop_gt ->
+          let* arg_l = formula_of_trm arg_l in
+          let* arg_r = formula_of_trm arg_r in
+          let formula_cmp = match binop with
+            | Binop_eq -> formula_eq
+            | Binop_neq -> formula_neq
+            | Binop_le -> formula_leq
+            | Binop_lt -> formula_lt
+            | Binop_ge -> formula_geq
+            | Binop_gt -> formula_gt
+            | _ -> assert false
+          in
+          Some (formula_cmp arg_l arg_r)
+        | Binop_and | Binop_or ->
+          let* arg_l = trm_to_formula_prop arg_l in
+          let* arg_r = trm_to_formula_prop arg_r in
+          let formula_binop = match binop with
+            | Binop_and -> formula_and
+            | Binop_or -> formula_or
+            | _ -> assert false
+          in
+          Some (formula_binop arg_l arg_r)
+        | _ -> None
+        end
+      | _ -> None
+      end
+    | _ -> None
+  in
+  match formula_prop with
+  | Some prop -> Some prop
+  | None ->
+    let* formula = formula_of_trm t in
+    Some (formula_eq formula (trm_bool true))
+
+
 (* -------- SMART FORMULA CONSTRUCTORS, INVERTERS and COMBINATORS -------- *)
 
 let formula_fun =
@@ -243,23 +319,6 @@ let var_fun_type = toplevel_var "_Fun"
 
 let formula_fun_type (targ: trm) (tres: trm) =
   trm_apps (trm_var var_fun_type) [targ; tres]
-
-let formula_assert_eq = toplevel_var "__assert_eq"
-let formula_assert_neq = toplevel_var "__assert_neq"
-let formula_assert_lt = toplevel_var "__assert_lt"
-let formula_assert_gt = toplevel_var "__assert_gt"
-let formula_assert_leq = toplevel_var "__assert_leq"
-let formula_assert_geq = toplevel_var "__assert_geq"
-
-let formula_cmp (cmp: var) (a: formula) (b: formula): formula =
-  trm_apps ~annot:formula_annot (trm_var cmp) [a; b]
-
-let formula_eq = formula_cmp formula_assert_eq
-let formula_neq = formula_cmp formula_assert_neq
-let formula_lt = formula_cmp formula_assert_lt
-let formula_gt = formula_cmp formula_assert_gt
-let formula_leq = formula_cmp formula_assert_leq
-let formula_geq = formula_cmp formula_assert_geq
 
 let var_arith_checked = toplevel_var "arith_checked"
 let formula_arith_checked = trm_var var_arith_checked

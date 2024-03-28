@@ -96,13 +96,16 @@ let ghost_rewrite (before: formula) (after: formula) (justif: formula): trm =
   } in
   ghost_admitted contract ~justif
 
-let var_ghost_forget_init = name_to_var "forget_init"
+let var_ghost_forget_init = toplevel_var "forget_init"
 
 let ghost_forget_init (f: formula): trm =
   ghost (ghost_call var_ghost_forget_init ["H", f])
 
-let var_ghost_hide = name_to_var "hide"
-let var_ghost_hide_rev = name_to_var "hide_rev"
+let var_assert_alias = toplevel_var "assert_alias"
+let var_assert_eq = toplevel_var "assert_eq"
+
+let var_ghost_hide = toplevel_var "hide"
+let var_ghost_hide_rev = toplevel_var "hide_rev"
 
 let ghost_pair_hide (f: formula): var * trm * trm =
   ghost_pair (ghost_call var_ghost_hide ["H", f])

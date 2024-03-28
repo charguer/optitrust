@@ -205,6 +205,7 @@ let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
       Var_map.find x scope_ctx.fun_prototypes
     with
     | Not_found when var_eq x Resource_trm.var_admitted -> { ghost_args = [Resource_trm.var_justif] }
+    | Not_found when var_eq x Resource_trm.var_assert_alias -> Var_map.find Resource_trm.var_assert_eq scope_ctx.fun_prototypes
     | Not_found -> failwith (sprintf "Could not find a prototype for function %s" (var_to_string x))
     end
   | _ -> failwith (sprintf "Could not find a prototype for trm at location %s" (loc_to_string t.loc))
