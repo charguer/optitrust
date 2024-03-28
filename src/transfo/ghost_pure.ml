@@ -86,3 +86,32 @@ let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
     apply_at_path (fission_at mark_between split_i) p_seq
   ) tg;
   Resources.justif_correct "only changed ghost code"
+
+let copy_inside_from_seq (index: int) (seq: trm): trm =
+  let error = "Ghost_pair.copy_inside_from_seq: expected sequence" in
+  let instrs = trm_inv ~error trm_seq_inv seq in
+  let tl_before, t, tl_after = Mlist.get_item_and_its_relatives index instrs in
+
+  let pure_ghosts_before = List.filter_map (fun instr ->
+    if is_pure_ghost_call instr then
+      Some (trm_copy instr)
+    else
+      None) (Mlist.to_list tl_before) in
+
+  let new_t = Pattern.pattern_match t [
+    Pattern.(trm_for !__ (trm_seq !__) !__) (fun range body contract ->
+      trm_like ~old:t (trm_for ~contract range (trm_seq_helper [TrmList pure_ghosts_before; TrmMlist body]))
+    );
+    (* LATER: Manage other kinds of terms with a notion of inside *)
+    Pattern.(!__) (fun _ -> failwith "Ghost_pair.copy_inside_from_seq: the targetted item is not handled")
+  ] in
+
+  trm_like ~old:seq (trm_seq_helper [TrmMlist tl_before; Trm new_t; TrmMlist tl_after])
+
+(** Copies all the pure ghosts of the surrounding sequence at the begining of the body of the targetted instruction. *)
+let%transfo copy_surrounding_inside (tg: target): unit =
+  Target.iter (fun p ->
+    let index, p_seq = Path.index_in_seq p in
+    apply_at_path (copy_inside_from_seq index) p_seq
+  ) tg;
+  Resources.justif_correct "only changed ghost code"
