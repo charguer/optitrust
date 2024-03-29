@@ -14,6 +14,19 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
   __reads("S ~> Matrix2(n+kn, cn)");
   __modifies("D ~> Matrix2(n, cn)"); // TODO: writes?
 
+  // TODO: could be derived during transfos:
+  __requires("for i in (0 + 1)..n -> is_subrange((i + kn - 1)..(i + kn), 0..n + kn)");
+  __requires("for i in (0 + 1)..n -> is_subrange(i-1..i, 0..n + kn)");
+  __requires("for i in (0 + 1)..n -> is_subrange(i..i + kn, 0..n + kn)");
+  __requires("is_subrange(0..(0 + kn), 0..(n + kn))");
+  __requires("in_range(0 + 1, 0..n)");
+  __requires("for i in 1..n -> is_subrange((i + kn - 1)..(i + kn), 0..n + kn)");
+  __requires("for i in 1..n -> is_subrange(i-1..i, 0..n + kn)");
+  __requires("for i in 1..n -> is_subrange(i..i + kn, 0..n + kn)");
+  __requires("is_subrange(0..kn, 0..(n + kn))");
+  __requires("in_range(1, 0..n)");
+  __requires("for i in 0..kn -> in_range(i, 0..n + kn)");
+
   __ghost(swap_groups, "items := fun i, c -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
   for (int c = 0; c < cn; c++) { // foreach channel
     __parallel_reads("S ~> Matrix2(n+kn, cn)");

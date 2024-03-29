@@ -266,6 +266,37 @@ let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
 let trm_unroll = trm_var (toplevel_var "unroll")
 let trm_roll = trm_var (toplevel_var "roll")
 
+let unroll_ghost_pair (range : loop_range) (contract : loop_contract)
+  (new_indices : trm list) : (trm list * trm list) =
+  let open Resource_formula in
+  (* LATER: Handle formulas that depend on a model abstracted by the loop *)
+  let unroll_ghosts = List.map (fun (_, formula) ->
+      let output = List.map (fun new_index ->
+        (new_anon_hyp (), trm_subst_var range.index new_index (trm_copy formula)))
+        new_indices
+      in
+      let rewrite_contract = {
+        pre = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] () ;
+        post = Resource_set.make ~linear:output ()
+      } in
+      (* LATER: build proof term instead *)
+      Resource_trm.ghost_admitted rewrite_contract ~justif:trm_unroll
+    ) contract.iter_contract.pre.linear
+  in
+  let roll_ghosts = List.map (fun (_, formula) ->
+      let input = List.map (fun new_index ->
+        (new_anon_hyp (), trm_subst_var range.index new_index (trm_copy formula)))
+        new_indices
+      in
+      let rewrite_contract = {
+        pre = Resource_set.make ~linear:input ();
+        post = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] ()
+      } in
+      Resource_trm.ghost_admitted rewrite_contract ~justif:trm_roll
+    ) contract.iter_contract.post.linear
+  in
+  (unroll_ghosts, roll_ghosts)
+
 (* [unroll_on index t]: unrolls loop [t],
       [inner_braces] - a flag on the visibility of generated inner sequences,
       [outer_seq_mark] - generates an outer sequence with a mark,
@@ -310,33 +341,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
   if not contract.strict then
     outer_seq
   else
-    let open Resource_formula in
-    (* LATER: Handle formulas that depend on a model abstracted by the loop *)
-    let unroll_ghosts = List.map (fun (_, formula) ->
-        let output = List.map (fun new_index ->
-          (new_anon_hyp (), trm_subst_var index new_index (trm_copy formula)))
-          new_indices
-        in
-        let rewrite_contract = {
-          pre = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] () ;
-          post = Resource_set.make ~linear:output ()
-        } in
-        (* LATER: build proof term instead *)
-        Resource_trm.ghost_admitted rewrite_contract ~justif:trm_unroll
-      ) contract.iter_contract.pre.linear
-    in
-    let roll_ghosts = List.map (fun (_, formula) ->
-        let input = List.map (fun new_index ->
-          (new_anon_hyp (), trm_subst_var index new_index (trm_copy formula)))
-          new_indices
-        in
-        let rewrite_contract = {
-          pre = Resource_set.make ~linear:input ();
-          post = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] ()
-        } in
-        Resource_trm.ghost_admitted rewrite_contract ~justif:trm_roll
-      ) contract.iter_contract.post.linear
-    in
+    let (unroll_ghosts, roll_ghosts) = unroll_ghost_pair range contract new_indices in
     trm_seq_nobrace_nomarks (unroll_ghosts @ outer_seq :: roll_ghosts)
 
 
@@ -431,6 +436,14 @@ let fold_aux (index : string) (start : int) (step : int) (t : trm) : trm =
 (* [fold index start step t p]: applies [fold_aux] at trm [t] with path [p]. *)
 let fold (index : string) (start : int) (step : int) : Transfo.local =
   apply_on_path (fold_aux index start step)
+
+
+let ghost_group_split = toplevel_var "group_split"
+let ghost_group_split_ro = toplevel_var "group_split_ro"
+let ghost_group_split_uninit = toplevel_var "group_split_uninit"
+let ghost_group_join = toplevel_var "group_join"
+let ghost_group_join_ro = toplevel_var "group_join_ro"
+let ghost_group_join_uninit = toplevel_var "group_join_uninit"
 
 (* [split_range_aux nb cut]: splits a loop into two loops based on the range,
      [nb] - by default this argument has value 0, if provided it means that it will split the loop at start + nb iteration,

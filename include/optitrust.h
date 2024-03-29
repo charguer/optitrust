@@ -764,6 +764,21 @@ __GHOST(group_join_uninit) {
   __admitted();
 }
 
+__GHOST(group_split_ro) {
+  __requires("start: int, stop: int, step: int, split: int, items: int -> formula");
+  __requires("bound_check: in_range(split, range(start, stop, step))");
+  __requires("f: _Fraction");
+  __consumes("_RO(f, for i in range(start, stop, step) -> items(i))");
+  __produces("_RO(f, for i in range(start, split, step) -> items(i))");
+  __produces("_RO(f, for i in range(split, stop, step) -> items(i))");
+  __admitted();
+}
+
+__GHOST(group_join_ro) {
+  __reverts(group_split_ro);
+  __admitted();
+}
+
 /* ---- Matrix Ghosts ---- */
 
 __GHOST(matrix2_focus)  {

@@ -113,3 +113,11 @@ let var_ghost_hide_rev = toplevel_var "hide_rev"
 
 let ghost_pair_hide (f: formula): var * trm * trm =
   ghost_pair (ghost_call var_ghost_hide ["H", f])
+
+let var_ghost_group_focus_subrange = toplevel_var "group_focus_subrange"
+let var_ghost_group_focus_subrange_ro = toplevel_var "group_focus_subrange_ro"
+let var_ghost_group_focus_subrange_uninit = toplevel_var "group_focus_subrange_uninit"
+
+let var_ghost_matrix2_ro_focus = toplevel_var "matrix2_ro_focus"
+
+let var_ghost_in_range_extend = toplevel_var "in_range_extend"

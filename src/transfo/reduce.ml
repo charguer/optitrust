@@ -20,9 +20,33 @@ let reduce_inv (t : trm) : (trm * trm * trm * trm * trm * trm) option =
     end
   | _ -> None
 
+(* MAYBE LATER: subrange focus
+let (beg_focus, end_focus) = if !Flags.check_validity then
+  let open Resource_trm in
+  let open Resource_formula in
+  let (_, a, b) = ghost_pair (ghost_call var_ghost_group_focus_subrange_ro [
+    "sub_range", formula_range start stop (trm_int 1);
+    "big_range", formula_range (trm_int 0) n (trm_int 1);
+  ]) in
+  (a, b)
+else
+  trm_seq_nobrace_nomarks [], trm_seq_nobrace_nomarks []
+in *)
+
+(** <private> *)
+let focus_reduce_item (input : trm) (i : trm) (j : trm) (n : trm) (m : trm)
+  (wrapped_t : trm) : trm =
+  let open Resource_formula in
+  if !Flags.check_validity then
+    let (_, beg_focus, end_focus) = Resource_trm.(ghost_pair (ghost_call
+      var_ghost_matrix2_ro_focus ["M", input; "i", i; "j", j; "m", n; "n", m])) in
+    trm_seq_nobrace_nomarks [beg_focus; wrapped_t; end_focus]
+  else
+    wrapped_t
+
 (** <private> *)
 let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : trm) : trm =
-  let alloc_loop = ref None in
+  let prefix = ref None in
   let updated_t = Path.apply_on_path (fun red_t ->
     let error = "expected call to reduce" in
     let (start, stop, input, n, m, j) = trm_inv ~error reduce_inv red_t in
@@ -31,58 +55,82 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     let index = new_var "i" in
     let value = (trm_cast acc_typ (Matrix_trm.get input [n; m] [trm_var index; j])) in
     let loop_range = { index; start; direction = DirUp; stop; step = Post_inc } in
-    alloc_loop := Some (
-      trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) (trm_cast acc_typ (trm_int 0))),
-      trm_add_mark mark_loop (trm_for loop_range (trm_seq_nomarks [
+    let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
+      push_loop_contract_clause SequentiallyModifies
+        (new_anon_hyp (), formula_cell acc) |>
+      push_loop_contract_clause ParallelReads
+        (new_anon_hyp (), formula_matrix input [n; m]) |>
+      (* FIXME: derive this requires from previous facts. *)
+      push_loop_contract_clause Requires
+        (new_anon_hyp (), formula_in_range (trm_var index)
+          (formula_range (trm_int 0) n (trm_int 1)))
+    )) in
+    prefix := Some [
+      trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) (trm_cast acc_typ (trm_int 0)));
+      trm_add_mark mark_loop (trm_for loop_range ~contract (trm_seq_nomarks [
         (* trm_prim_compound Binop_add (trm_var acc) value *)
-        trm_set (trm_var acc) (trm_add (trm_var_get acc) value)
-      ])));
+        focus_reduce_item input (trm_var index) j n m (
+          trm_set (trm_var acc) (trm_add (trm_var_get acc) value))
+      ]))
+    ];
     trm_var_get acc
   ) t to_expr in
-  let (alloc, loop) = Option.get !alloc_loop in
-  (* TODO: if !Flags.check_validity then
-    generate group_focus_subrange_ro scoped ghost
-    is valid by definition of reduce (not supporting negative ranges)
-     *)
-  trm_seq_nobrace_nomarks [alloc; loop; updated_t]
+  let prefix = Option.get !prefix in
+  trm_seq_nobrace_nomarks (prefix @ [updated_t])
 
 (** [elim_basic tg]: eliminates a call to [reduce], expanding it to a for loop. *)
 let%transfo elim_basic ?(mark_alloc : mark = no_mark) ?(mark_loop : mark = no_mark) (tg : target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (to_instr, to_expr) = Path.path_in_instr p (Trace.ast ()) in
-    Target.apply_at_path (elim_basic_on mark_alloc mark_loop to_expr) to_instr
+    Target.apply_at_path (elim_basic_on mark_alloc mark_loop to_expr) to_instr;
+    if !Flags.check_validity then
+      Trace.justif "valid by definition of reduce (not supporting negative ranges)"
   ) tg)
 
 (** <private> *)
-let elim_inline_on (mark_simpl : mark) (red_t : trm) : trm =
-  let error = "expected call to reduce" in
-  let (start, stop, input, n, m, j) = trm_inv ~error reduce_inv red_t in
-  let nb_elems = Arith_core.(simplify true (fun e -> gather (compute e))) (trm_sub stop start) in
-  (* TODO: if !Flags.check_validity then
-    generate group_focus_subrange_ro scoped ghost and/or unrolled version
-    is valid because unroll is valid and by definition of reduce (not supporting negative ranges)
-     *)
-  match trm_int_inv nb_elems with
-  | Some nb_elems ->
-    let acc_typ = Option.value ~default:(typ_constr ([], "uint16_t")) red_t.typ in
-    if nb_elems = 0 then begin
-      trm_cast acc_typ (trm_int 0)
-    end else begin
-      let values = List.init nb_elems (fun k ->
-        let i = trm_add_mark mark_simpl (trm_add start (trm_int k)) in
-        trm_cast acc_typ (Matrix_trm.get input [n; m] [i; j])
-      ) in
-      Xlist.reduce_left trm_add values
-    end
-  | None ->
-    trm_fail red_t "expected trivially constant loop range"
+let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
+  let focuses = ref (fun x -> x) in
+  let t2 = Path.apply_on_path (fun red_t ->
+    let error = "expected call to reduce" in
+    let (start, stop, input, n, m, j) = trm_inv ~error reduce_inv red_t in
+    let nb_elems = Arith_core.(simplify true (fun e -> gather (compute e))) (trm_sub stop start) in
+    match trm_int_inv nb_elems with
+    | Some nb_elems ->
+      let acc_typ = Option.value ~default:(typ_constr ([], "uint16_t")) red_t.typ in
+      if nb_elems = 0 then begin
+        trm_cast acc_typ (trm_int 0)
+      end else begin
+        let values = List.init nb_elems (fun k ->
+          let i = trm_add_mark mark_simpl (trm_add start (trm_int k)) in
+          let focuses_prev = !focuses in
+          focuses := (fun x -> focuses_prev (trm_seq_nobrace_nomarks [
+            (* is_subrange(start..stop, 0..n) --> in_range(k, 0..n) *)
+            Resource_formula.(Resource_trm.(ghost (ghost_call
+              var_ghost_in_range_extend [
+              "x", i;
+              "r1", formula_range start stop (trm_int 1);
+              "r2", formula_range (trm_int 0) n (trm_int 1)
+            ])));
+            focus_reduce_item input i j n m x
+          ]));
+          trm_cast acc_typ (Matrix_trm.get input [n; m] [i; j])
+        ) in
+        Xlist.reduce_left trm_add values
+      end
+    | None ->
+      trm_fail red_t "expected trivially constant loop range"
+  ) t red_p in
+  !focuses(t2)
 
 (** [elim_inline tg]: eliminates a call to [reduce], expanding it to an inlined expression.
     TODO: later, implement this as combi (1. unroll; 2. inline accumulator; 3. simplify zero add)
     *)
 let%transfo elim_inline ?(mark_simpl : mark = no_mark) (tg : target) =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
-    Target.apply_at_path (elim_inline_on mark_simpl) p
+    let instr_p, expr_p = Path.path_in_instr p (Trace.ast ()) in
+    Target.apply_at_path (elim_inline_on mark_simpl expr_p) instr_p;
+    if !Flags.check_validity then
+      Trace.justif "valid by definition of reduce (not supporting negative ranges)"
   ) tg)
 
 (** [elim_basic tg]: eliminates a call to [reduce], expanding it to a for loop.
@@ -108,7 +156,7 @@ let%transfo elim ?(unroll : bool = false) ?(inline : bool = false) (tg : target)
 (** <private> *)
 let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let error = "expected for loop" in
-  let (range, instrs, _) = trm_inv ~error trm_for_inv_instrs t in
+  let (range, instrs, contract) = trm_inv ~error trm_for_inv_instrs t in
   if not (is_step_one range.step) then
     trm_fail t "non-unary loop range not yet supported";
   if range.direction <> DirUp then
@@ -146,32 +194,68 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let base_reduce = make_reduce range.start (trm_add_mark mark_simpl (trm_add range.start delta)) in
   let index = trm_var range.index in
   let rec_stop = trm_add index delta in
-  let rec_reduce_add = make_reduce (trm_sub rec_stop step) rec_stop in
-  let rec_reduce_sub = make_reduce (trm_sub index step) index in
+  let rec_reduce_add_start = trm_sub rec_stop step in
+  let rec_reduce_add = make_reduce rec_reduce_add_start rec_stop in
+  let rec_reduce_sub_start = trm_sub index step in
+  let rec_reduce_sub = make_reduce rec_reduce_sub_start index in
   let new_range = { range with start = trm_add_mark mark_simpl (trm_add range.start step) } in
-  trm_seq_nobrace_nomarks [
+  let open Resource_formula in
+  let add_split_ghost ghost ro_ghost uninit_ghost =
+    (* TODO: factorize pattern with tiling ghosts *)
+    List.map (fun (_, formula) ->
+      let ghost, formula = match formula_mode_inv formula with
+      | RO, formula -> ro_ghost, formula
+      | Uninit, formula -> uninit_ghost, formula
+      | Full, formula -> ghost, formula
+      in
+      let i = new_var range.index.name in
+      let items = formula_fun [i, typ_int ()] None (trm_subst_var range.index (trm_var i) formula) in
+      Resource_trm.ghost (ghost_call ghost [
+        "start", range.start; "stop", range.stop; "step", step;
+        "split", new_range.start; "items", items
+      ])
+    )
+  in
+  let split_ghosts = Loop_core.(add_split_ghost ghost_group_split ghost_group_split_ro ghost_group_split_uninit) contract.iter_contract.pre.linear in
+  let join_ghosts = Loop_core.(add_split_ghost ghost_group_join ghost_group_join_ro ghost_group_join_uninit) contract.iter_contract.post.linear in
+  let one_range = { range with stop = new_range.start } in
+  let (unroll_ghosts, roll_ghosts) = Loop_core.unroll_ghost_pair one_range contract [range.start] in
+  let new_contract = contract |>
+    Resource_contract.push_loop_contract_clause SequentiallyModifies
+      (new_anon_hyp (), formula_cell acc) |>
+    (* FIXME: derive these requires from previous facts. *)
+    Resource_contract.push_loop_contract_clause Requires
+      (new_anon_hyp (), formula_is_subrange
+        (formula_range rec_reduce_add_start rec_stop step)
+        (formula_range (trm_int 0) n step)) |>
+    Resource_contract.push_loop_contract_clause Requires
+      (new_anon_hyp (), formula_is_subrange
+        (formula_range rec_reduce_sub_start index step)
+        (formula_range (trm_int 0) n step))
+  in
+  trm_seq_nobrace_nomarks (
+    split_ghosts @ unroll_ghosts @ [
     trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) base_reduce);
     trm_set (trm_copy (trm_subst_var range.index range.start out)) (trm_var_get acc);
-    trm_for new_range (trm_seq_nomarks [
+    ] @ roll_ghosts @ [
+    trm_for new_range ~contract:new_contract (trm_seq_nomarks [
       (* trm_prim_compound Binop_add (trm_var acc) value *)
       trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub);
       trm_set out (trm_var_get acc)
-    ]);
-  ]
+    ])] @ join_ghosts
+  )
 
 (** [slide_basic tg]: given a target to a call to [set(p, reduce)] within a perfectly nested loop:
     [for i in 0..n { set(p, reduce(... i ...)) }]
     allocates a variable outside the loop to compute next values based on previous values:
     [alloc s = reduce(... 0 ...); set(p[i := 0], s); for i in 1..n { set(s, f(s)); set(p, s) }]
-
-    TODO: generate check that n > 0, check that reduce args are formula convertible
   *)
 let%transfo slide_basic ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_mark)
   (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (i, loop_p) = Path.index_in_surrounding_loop p in
     Target.apply_at_path (slide_on mark_alloc mark_simpl i) loop_p;
-    Tools.warn("TODO: check that range is non-empty and well-ordered (stop > start)");
+    Tools.warn("TODO: check well-ordered range (stop > start), see loop collapse for example.");
   ) tg)
 
 (** [slide tg]: given a target to a call to [set(p, reduce)] within a perfectly nested loop:

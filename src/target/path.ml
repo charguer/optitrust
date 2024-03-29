@@ -573,6 +573,7 @@ let find_surrounding_expr (p : path) (t : trm) : path =
     returns the path to the instruction, and the rest of the path.
     Given a path to an instruction, returns it. *)
 let path_in_instr (p : path) (t : trm) : (path * path) =
-  let to_instr = if t.is_statement then p else parent (find_surrounding_expr p t) in
+  let p_t = resolve_path p t in
+  let to_instr = if p_t.is_statement then p else parent (find_surrounding_expr p t) in
   let to_expr = Xlist.drop (List.length to_instr) p in
   (to_instr, to_expr)
