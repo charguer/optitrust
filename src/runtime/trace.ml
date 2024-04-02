@@ -1442,11 +1442,20 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
     || s.step_kind = Step_big
     || s.step_kind = Step_small *)
   let should_compute_diff =
-       ((not is_mode_step_trace) || is_substep_of_targeted_line)
-    && (!Flags.detailed_trace ||
-        match s.step_kind with (* select steps that deserve a diff in non-detailed mode, based on their kind *)
-        | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
-        | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false)
+       is_substep_of_targeted_line
+    || match Flags.get_trace_js_details () with
+       (* Select steps that deserve a diff in the current mode, based on their kind *)
+       | Flags.Trace_js_details_none -> false
+       | Flags.Trace_js_details_only_main_steps ->
+          begin match s.step_kind with
+          | Step_root | Step_big | Step_small -> true
+          | Step_transfo | Step_trustme | Step_error | Step_show | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false
+          end
+       | Flags.Trace_js_details_proper_steps ->
+          begin match s.step_kind with
+          | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
+          | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false
+          end
     in
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line get_next_id out in
@@ -1478,7 +1487,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       Some (compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp")
     end else None in
   let sBefore, sAfter =
-    if should_compute_diff && !Flags.detailed_trace then begin
+    if should_compute_diff then begin
       let sBefore = Some (compute_command_base64 "cat tmp_before.cpp") in
       let sAfter = Some (compute_command_base64 "cat tmp_after.cpp") in
       sBefore, sAfter
@@ -1679,9 +1688,9 @@ let produce_output_and_exit () : unit =
   (* Output the step description *)
   begin match !Flags.execution_mode with
   | Execution_mode_step_diff -> produce_diff_output step
-  | Execution_mode_step_trace -> produce_trace_output step
+  | Execution_mode_step_trace _ -> produce_trace_output step
   | Execution_mode_exec
-  | Execution_mode_full_trace -> raise (TraceFailure "produce_output_and_exit should be in a 'step' execution mode")
+  | Execution_mode_full_trace _ -> raise (TraceFailure "produce_output_and_exit should be in a 'step' execution mode")
   end;
   (* Print debug messages of the current step *)
   List.iter (fun s -> printf "%s\n" s) step.step_infos.step_debug_msgs;

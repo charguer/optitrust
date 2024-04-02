@@ -217,8 +217,8 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     Trace.dump ~store_in_trace:false (Trace.get_style()) ~append_comments ~prefix ();
         (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
 
-    (* Dump full trace if option [-dump-trace] as provided *)
-    if !Flags.execution_mode = Execution_mode_full_trace
+    (* Dump full trace if option [-dump-trace] was provided *)
+    if (match !Flags.execution_mode with Execution_mode_full_trace _ -> true | _ -> false)
       then produce_trace();
 
     (* Dump one file for each big step if option [-dump-big-steps] was provided *)

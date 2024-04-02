@@ -143,21 +143,54 @@ let dont_serialize = ref false
 (* [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
 
+(* Amount of details of the trace to dump (ast-before/ast-after, etc),
+   when executing [Trace.dump_step_tree_to_js] *)
+
+type trace_js_details =
+  | Trace_js_details_none (* never call [output_prog] during [dump_step_tree_to_js] *)
+  | Trace_js_details_only_main_steps (* call [output_prog] only for root, big, and small steps *)
+  | Trace_js_details_proper_steps (* call it for every kind of steps --unless irrelevant kind *)
+
 (* [execution_mode] of the script *)
 
 type execution_mode =
   | Execution_mode_step_diff (* produce a diff for a small-step, assumes [target_line] is provided *)
-  | Execution_mode_step_trace (* produce a trace for a small-step, assumes [target_line] is provided *)
-  | Execution_mode_full_trace (* produce a trace, and an output file, for the full script *)
+  | Execution_mode_step_trace of trace_js_details (* produce a trace for a small-step, assumes [target_line] is provided *)
+  | Execution_mode_full_trace of trace_js_details (* produce a trace, and an output file, for the full script *)
   | Execution_mode_exec (* produce only the final output file obtained at the end of the script *)
 
 let execution_mode : execution_mode ref = ref Execution_mode_exec
 
+(* [get_trace_js_details] returns for the [trace_js_details] for a trace mode,
+   fails otherwise *)
+let get_trace_js_details () : trace_js_details =
+  match !execution_mode with
+  | Execution_mode_step_trace tjd -> tjd
+  | Execution_mode_full_trace tjd -> tjd
+  | Execution_mode_step_diff
+  | Execution_mode_exec -> failwith "Execution mode should be 'trace' for get_trace_js_details"
+
+(* [set_detailed_trace] forces the options of the execution mode to be [Trace_js_details_only_all_steps] *)
+let set_detailed_trace () : unit =
+  execution_mode := match !execution_mode with
+  | Execution_mode_step_trace _ -> Execution_mode_step_trace Trace_js_details_proper_steps
+  | Execution_mode_full_trace _ -> Execution_mode_full_trace Trace_js_details_proper_steps
+  | Execution_mode_step_diff | Execution_mode_exec ->
+      failwith "Execution mode should be 'trace' for set_detailed_trace"
+
+(* [set_no_diff_in_trace] forces the options of the execution mode to be [Trace_js_details_only_all_steps] *)
+let set_no_diff_in_trace () : unit =
+  execution_mode := match !execution_mode with
+  | Execution_mode_step_trace _ -> Execution_mode_step_trace Trace_js_details_none
+  | Execution_mode_full_trace _ -> Execution_mode_full_trace Trace_js_details_none
+  | Execution_mode_step_diff | Execution_mode_exec ->
+      failwith "Execution mode should be 'trace' for set_no_diff_in_trace"
+
 let process_mode (mode : string) : unit =
   execution_mode := match mode with
   | "step-diff" -> Execution_mode_step_diff
-  | "step-trace" -> Execution_mode_step_trace
-  | "full-trace" -> Execution_mode_full_trace
+  | "step-trace" -> Execution_mode_step_trace Trace_js_details_proper_steps
+  | "full-trace" -> Execution_mode_full_trace Trace_js_details_only_main_steps
   | "exec" -> Execution_mode_exec
   | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
 
@@ -169,10 +202,6 @@ let trace_for_webview : bool ref = ref false
 
 (* Options to generate a text version of the trace *)
 let trace_as_text : bool ref = ref false
-
-(* Options to control how much details are exported in the trace *)
-let detailed_trace : bool ref = ref false
-(* LATER: also add a light-mode, tracing only small and big steps *)
 
 (* Option to display full resource information in the trace *)
 let detailed_resources_in_trace : bool ref = ref false
@@ -191,15 +220,15 @@ let get_target_line () : int =
 let is_execution_mode_step () : bool =
   match !execution_mode with
   | Execution_mode_step_diff
-  | Execution_mode_step_trace -> true
+  | Execution_mode_step_trace _ -> true
   | Execution_mode_exec
-  | Execution_mode_full_trace -> false
+  | Execution_mode_full_trace _ -> false
 
 (* [is_execution_mode_trace ()] returns the execution mode is producing a trace *)
 let is_execution_mode_trace () : bool =
   match !execution_mode with
-  | Execution_mode_step_trace
-  | Execution_mode_full_trace -> true
+  | Execution_mode_step_trace _
+  | Execution_mode_full_trace _ -> true
   | Execution_mode_step_diff
   | Execution_mode_exec -> false
 
@@ -232,7 +261,8 @@ let spec : cmdline_args =
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
      ("-trace-as-text", Arg.Set trace_as_text, " additionnaly generate a plain text trace in 'foo_trace.txt' ");
      ("-trace-for-webview", Arg.Set trace_for_webview, " generate a trace with the appropriate features for export to a website ");
-     ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
+     ("-detailed-trace", Arg.Unit set_detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
+     ("-no-diff-in-trace", Arg.Unit set_no_diff_in_trace, " save time by not generating any diff in the JavasScript trace ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)
