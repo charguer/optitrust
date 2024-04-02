@@ -23,3 +23,5 @@ let%transfo simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr))
 let default_simpl tg = simpl_surrounding_expr (fun x -> compute (gather x)) (nbAny :: tg)
 *)
 let default_simpl tg = simpl_surrounding_expr gather (nbAny :: tg)
+
+let do_nothing tg = ()

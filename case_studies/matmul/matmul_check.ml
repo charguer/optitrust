@@ -35,7 +35,7 @@ let _ = Run.script_cpp (fun () ->
     [cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "k"];
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
-  !! Loop.unroll [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
+  !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
 
-  postprocessing ();
+  !! postprocessing ();
 )
