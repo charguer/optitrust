@@ -24,6 +24,8 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Loop.swap [cFunBody "indep_reads"; cFor "i"];
 
-  (* FIXME: *)
+  (* FIXME: Cannot swap with a parallel focus, we need some kind of move out. *)
   (*!! Loop.swap [cFunBody "ghost_pairs"; cFor "i"];*)
+
+  !! Loop.swap [cFunBody "ghost_pure"; cFor "i"];
 )

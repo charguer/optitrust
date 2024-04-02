@@ -134,13 +134,15 @@ let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
     Marks.add dest_mark (target_of_path (seq_path @ [Dir_before dest_index]));
 
     Ghost_pair.fission ~mark_between:mark_end (target_of_path (seq_path @ [Dir_before span.stop]));
+    Ghost_pure.fission [cPath seq_path; cMark mark_end];
     Ghost_pair.fission ~mark_between:mark_begin (target_of_path (seq_path @ [Dir_before span.start]));
+    Ghost_pure.fission [cPath seq_path; cMark mark_begin];
 
     (* TODO: Make a better API for this kind of mark in sequence *)
     let seq_dest_mark = Mark.next () in
     insert (trm_add_mark seq_dest_mark (trm_seq Mlist.empty)) [cMark dest_mark];
     Ghost_pair.minimize_all_in_seq (target_of_path seq_path);
-    Ghost_pure.move_all_upwards (target_of_path seq_path);
+    Ghost_pure.minimize_all_in_seq (target_of_path seq_path);
 
     Instr_basic.move ~dest:[cMark seq_dest_mark; tBefore] [cMarkSpan mark];
 

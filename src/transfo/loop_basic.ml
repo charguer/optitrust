@@ -240,10 +240,11 @@ let%transfo hoist ?(name : string = "${var}_step")
     [t]: ast of the loop
     *)
 let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
-  let (l_range, tl, contract) = trm_inv
+  let (l_range, t_seq, contract) = trm_inv
     ~error:"Loop_basic.fission_on: only simple loops are supported"
-    trm_for_inv_instrs t
+    trm_for_inv t
   in
+  let tl = trm_inv trm_seq_inv t_seq in
   let tl1, tl2 = Mlist.split index tl in
   let fst_contract, snd_contract =
     if not !Flags.check_validity then
@@ -280,7 +281,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let linear_invariant = contract.invariant.linear in (* = I *)
       let linear_invariant_hyps = Var_set.of_list (List.map (fun (h, _) -> h) linear_invariant) in
 
-      let loop_start_res = Resources.before_trm (Mlist.nth tl 0) in
+      let loop_start_res = Resources.before_trm t_seq in
       let tl1_usage = Resources.compute_usage_of_instrs tl1 in
       let tl1_inv_usage = (* = I' * Iro *)
         Hyp_map.filter (fun h _ -> Var_set.mem h linear_invariant_hyps) tl1_usage
@@ -298,7 +299,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let tl1_inv = resource_set_of_hyp_map tl1_inv_usage loop_start_res.linear in
       let (_, tl2_inv_writes, _) = Resource_computation.subtract_linear_resource_set ~split_frac:false linear_invariant tl1_inv in (* = I'' *)
 
-      let split_res = Resources.before_trm (Mlist.nth tl2 0) in (* = R *)
+      let split_res = if Mlist.is_empty tl2 then Resources.after_trm t_seq else Resources.before_trm (Mlist.nth tl2 0) in (* = R *)
       let (_, split_res_comm, _) = (* R' *)
         Resource_computation.subtract_linear_resource_set ~split_frac:false split_res.linear (linear_invariant @ Resource_contract.parallel_reads_inside_loop l_range contract.parallel_reads)
       in
@@ -358,8 +359,12 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       in
       let split_res_without_efracs = List.map (fun (h, formula) -> (h, trm_subst efrac_map formula)) split_res_comm in
 
+      let tl2_usage = Resources.compute_usage_of_instrs tl2 in
+      let post_inst_usage = Resource_computation.used_set_to_usage_map (Resources.post_inst t_seq) in
+      let usage_after_tl1 = Resource_computation.update_usage_map ~current_usage:tl2_usage ~extra_usage:post_inst_usage in
       let tl1_ensured = List.filter (fun (x, f) ->
         Var_map.find_opt x tl1_usage = Some Ensured &&
+          Var_map.mem x usage_after_tl1 &&
           Var_set.disjoint (trm_free_vars f) bound_in_tl1
         ) split_res.pure
       in
@@ -381,7 +386,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         parallel_reads = contract.parallel_reads;
         iter_contract = {
           pre = { middle_iter_contract with pure = tl1_ensured @ contract.iter_contract.pre.pure };
-          post = contract.iter_contract.post;
+          post = contract.iter_contract.post; (* LATER: Can be slightly more clever here, by removing ensures that are already done by the first loop. *)
         };
         strict = true;
       } in
@@ -430,7 +435,6 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
       ); *)
       Resources.required_for_check ();
       apply_at_path (fission_on mark_loops mark_between_loops split_i) p_loop;
-      Resources.required_for_check (); (* TODO: is it useful again here? *)
     ) tg
   );
   Resources.justif_correct "loop resources where successfully split"

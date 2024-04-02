@@ -137,12 +137,36 @@ void ghost_pairs(int* x) {
   for (int i = 0; i < 5; i++) {
     __strict();
     __parallel_reads("x ~> Matrix1(1)");
-    const __ghost_fn focus_x = __ghost_begin(matrix1_ro_focus, "i := 0");
+    const __ghost_fn focus_x =
+        __ghost_begin(matrix1_ro_focus, "M := x, i := 0");
     for (int j = 0; j < 5; j++) {
       __strict();
       __parallel_reads("&x[MINDEX1(1, 0)] ~> Cell");
       x[MINDEX1(1, 0)] + 1;
     }
     __ghost_end(focus_x);
+  }
+}
+
+void ghost_pure(int* M) {
+  __reads("M ~> Matrix1(1024)");
+  for (int bi = 0; bi < 128; ++bi) {
+    __strict();
+    __parallel_reads("M ~> Matrix1(1024)");
+    for (int j = 0; j < 4; ++j) {
+      __strict();
+      __parallel_reads("M ~> Matrix1(1024)");
+      for (int i = 0; i < 8; ++i) {
+        __strict();
+        __parallel_reads("M ~> Matrix1(1024)");
+        __ghost(tiled_index_in_range,
+                "tile_index := bi, index := i, tile_count := 128, tile_size := "
+                "8, size := 1024");
+        const __ghost_fn focus =
+            __ghost_begin(matrix1_ro_focus, "M := M, i := bi * 8 + i");
+        M[MINDEX1(1024, bi * 8 + i)];
+        __ghost_end(focus);
+      }
+    }
   }
 }

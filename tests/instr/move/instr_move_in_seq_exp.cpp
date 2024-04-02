@@ -38,9 +38,8 @@ void pure_facts() {
   const int k = 0;
   __ghost(trivial_init, "k := k");
   __ghost(trivial_change, "k := k + 3");
-  __ghost(trivial_change, "k := k + 4");
-  __ghost(trivial_change, "k := k + 5");
   req_triv(k + 3);
+  __ghost(trivial_change, "k := k + 4");
   req_triv(k + 4);
   k + 1;
   k + 2;
@@ -50,6 +49,5 @@ void pure_facts() {
 void pure_noop() {
   __pure();
   __ghost(trivial_init, "k := 0");
-  __ghost(trivial_change, "k := 1");
   req_triv(0);
 }

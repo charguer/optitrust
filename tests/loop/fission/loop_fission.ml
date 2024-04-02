@@ -11,6 +11,7 @@ let _ = Run.script_cpp ( fun _ ->
   !! Loop.fission ~nest_of:3 [cFunBody "seq_ro_par_rw"; tAfter; sInstr " = x"];
 
   !! Loop.fission ~nest_of:2 [cFunBody "ghost_scope"; tAfter; sInstr "y = x"];
+  !! Loop.fission [cFunBody "ghost_pure"; cLabel "split"; tBefore];
 
   (* no op on edges *)
   !! Loop.fission [cFunBody "edges"; cForBody "i"; tFirst];

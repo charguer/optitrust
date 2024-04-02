@@ -140,6 +140,16 @@ void wrong_ro_rw() {
   }
 }
 
+void empty() {
+  __pure();
+  for (int i = 0; i < 1024; ++i) {
+    __strict();
+  }
+  for (int i = 0; i < 1024; ++i) {
+    __strict();
+  }
+}
+
 int testAllInstr(int* t, int* u, int n) {
   __pure();
   for (int i = 0; i < 5; i++) {

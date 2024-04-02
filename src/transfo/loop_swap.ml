@@ -274,20 +274,26 @@ let%transfo swap ?(mark_outer_loop : mark = no_mark) ?(mark_inner_loop : mark = 
       let pairs = Ghost_pair.elim_all_pairs_at next_m inner_seq_p in
 
       let loop_pairs = List.map (fun (pair_token, begin_m, end_m) ->
-        Loop_basic.fission_basic [Constr_paths [seq_p]; cMark begin_m; tAfter];
-        Loop_basic.fission_basic [Constr_paths [seq_p]; cMark end_m; tBefore];
+        let split_begin_m = next_m () in
+        Ghost_pure.fission ~mark_between:split_begin_m [cPath seq_p; cMark begin_m; tAfter];
+        Loop_basic.fission_basic [cPath seq_p; cMark split_begin_m];
+        let split_end_m = next_m () in
+        Ghost_pure.fission ~mark_between:split_end_m [cPath seq_p; cMark end_m; tBefore];
+        Loop_basic.fission_basic [cPath seq_p; cMark split_end_m];
         let loop_begin_m = next_m () in
         let loop_end_m = next_m () in
-        Ghost.embed_loop ~mark:loop_begin_m [Constr_paths [seq_p]; cFor ~body:[cMark begin_m] ""];
-        Ghost.embed_loop ~mark:loop_end_m [Constr_paths [seq_p]; cFor ~body:[cMark end_m] ""];
+        Ghost_pure.minimize_all_in_seq [cPath seq_p; cFor ~body:[cMark begin_m] ""];
+        Ghost.embed_loop ~mark:loop_begin_m [cPath seq_p; cFor ~body:[cMark begin_m] ""];
+        Ghost_pure.minimize_all_in_seq [cPath seq_p; cFor ~body:[cMark end_m] ""];
+        Ghost.embed_loop ~mark:loop_end_m [cPath seq_p; cFor ~body:[cMark end_m] ""];
         (pair_token, loop_begin_m, loop_end_m)
       ) pairs in
 
       Ghost_pair.reintro_pairs_at loop_pairs seq_p;
 
-      let inner_loop_p = resolve_target_exactly_one [cMark inner_loop_m] in
-      let _, outer_loop_p = Path.index_in_surrounding_loop inner_loop_p in
-      swap_basic (target_of_path outer_loop_p);
+      Ghost_pure.copy_surrounding_inside [cPath seq_p; cMark inner_loop_m];
+      Ghost_pure.minimize_all_in_seq [cPath seq_p; cMark outer_loop_m; dBody];
+      swap_basic [cPath seq_p; cMark outer_loop_m];
     end
   )
   ) tg

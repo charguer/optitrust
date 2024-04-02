@@ -30,6 +30,11 @@ let before_trm (t : trm) =
 let after_trm (t : trm) =
   unsome_or_trm_fail t "expected resources after to be available" t.ctx.ctx_resources_after
 
+(** Returns the instantiation of the post condition perfomed after the term t,
+    fails if unavailable. *)
+let post_inst (t: trm) =
+  unsome_or_trm_fail t "expected instantiation of a post-condition to be available" t.ctx.ctx_resources_post_inst
+
 (** Computes the resource usage of a consecutive sequence of instructions. *)
 let compute_usage_of_instrs (instrs : trm mlist) : resource_usage_map =
   List.fold_left (fun usage_map t ->

@@ -178,6 +178,50 @@ void ghost_scope(int m, int n) {
   }
 }
 
+__ghost_ret ensures_pure() {
+  __requires("n: int");
+  __ensures("Triv(n)");
+  __admitted();
+}
+
+void requires_pure(int n) { __requires("Triv(n)"); }
+
+void ensures_not_ghost(int n) {
+  __ensures("Triv(n)");
+  __ghost(ensures_pure, "n := n");
+}
+
+void ghost_pure(int m, int n) {
+  __pure();
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __ensures("Triv(5)");
+    __ensures("Triv(6)");
+    ensures_not_ghost(5);
+    ensures_not_ghost(6);
+    ensures_not_ghost(7);
+    __ghost(ensures_pure, "n := 1");
+    requires_pure(1);
+    __ghost(ensures_pure, "n := 3");
+    requires_pure(3);
+  }
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __requires("Triv(5)");
+    __requires("Triv(6)");
+    __ensures("Triv(6)");
+  split:
+    __ghost(ensures_pure, "n := 2");
+    requires_pure(2);
+    __ghost(ensures_pure, "n := 3");
+    requires_pure(3);
+    __ghost(ensures_pure, "n := 4");
+    requires_pure(4);
+    requires_pure(5);
+    requires_pure(6);
+  }
+}
+
 void edges() {
   for (int i = 0; i < 5; i++) {
     int x = i;

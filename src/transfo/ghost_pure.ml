@@ -34,7 +34,7 @@ let minimize_all_in (seq : trm) : trm =
     if is_pure_ghost_call instr then
       pures := i :: !pures;
     ) instrs;
-  let post_inst = seq.ctx.ctx_resources_post_inst in
+  let post_inst_usage = Option.map Resource_computation.used_set_to_usage_map seq.ctx.ctx_resources_post_inst in
   List.fold_left (fun seq pure_i ->
     let desired_pos = Ghost.farthest_commuting_pos pure_i 1 seq in
     (* A pure fact at the bottom of a sequence can be removed
@@ -43,15 +43,14 @@ let minimize_all_in (seq : trm) : trm =
         may become the last instruction afterwards without
         beeing deleted themselves *)
     let delete_pure =
-      match post_inst with
+      match post_inst_usage with
       | None -> false (* LATER: Should we move out of the sequence in this case ? *)
-      | Some post_inst ->
+      | Some post_inst_usage ->
         let instrs = trm_inv trm_seq_inv seq in
         if desired_pos <> Mlist.length instrs then
           false
         else
           let pure_usage = Resources.usage_of_trm (Mlist.nth instrs pure_i) in
-          let post_inst_usage = Resource_computation.used_set_to_usage_map post_inst in
           Hyp_map.is_empty (Resources.collect_interferences pure_usage post_inst_usage)
     in
     if delete_pure then
@@ -81,6 +80,7 @@ let fission_at (mark_between: mark) (split_i: int) (seq: trm) : trm =
 
 (** Duplicates the pure ghosts at the targeted sequence interstice, to remove dependencies between the two parts of the sequence. *)
 let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
+  Resources.ensure_computed ();
   Target.iter (fun p_before ->
     let (p_seq, split_i) = Path.extract_last_dir_before p_before in
     apply_at_path (fission_at mark_between split_i) p_seq
