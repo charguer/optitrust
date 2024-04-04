@@ -1051,8 +1051,9 @@ let%transfo slide ?(index : string = "b${id}")
 let delete_void_on (i : int) (t_seq : trm) : trm option =
   (* 1. check empty body *)
   Option.bind (trm_seq_nth_inv i t_seq) (fun t_loop ->
-    Option.bind (trm_for_inv_instrs t_loop) (fun (_, body, _) ->
-      if Mlist.is_empty body
+    Option.bind (trm_for_inv_instrs t_loop) (fun (range, body, _) ->
+      if Mlist.is_empty body && Resources.trm_is_pure range.start && Resources.trm_is_pure range.stop && Resources.trm_is_pure (loop_step_to_trm range.step)
+      (* TODO: No need to check pure range if this is a global invariant of Trm_for *)
       (* 2. delete *)
       then Some (Sequence_core.delete_at i t_seq)
       else None

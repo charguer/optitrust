@@ -140,13 +140,13 @@ let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
 
     (* TODO: Make a better API for this kind of mark in sequence *)
     let seq_dest_mark = Mark.next () in
-    insert (trm_add_mark seq_dest_mark (trm_seq Mlist.empty)) [cMark dest_mark];
+    Marks.add_fake_instr seq_dest_mark [cMark dest_mark];
     Ghost_pair.minimize_all_in_seq (target_of_path seq_path);
     Ghost_pure.minimize_all_in_seq (target_of_path seq_path);
 
     Instr_basic.move ~dest:[cMark seq_dest_mark; tBefore] [cMarkSpan mark];
 
-    delete [cMark seq_dest_mark];
+    Marks.remove_fake_instr [cMark seq_dest_mark];
     Marks.remove_st (fun m -> m = mark_begin || m = mark_end || m = dest_mark) (target_of_path seq_path);
   ) tg
 

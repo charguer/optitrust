@@ -23,7 +23,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     let p_interstice = Target.resolve_mark_exactly_one m_interstice in
     let (p_loop_body, _) = Path.extract_last_dir_before p_interstice in
     let p_loop = Path.parent_with_dir p_loop_body Dir_body in
-    let (_, p_seq) = Path.index_in_seq p_loop in
+    let (_, p_outer_seq) = Path.index_in_seq p_loop in
     let m_interstice = if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
       let m = next_mark () in
       Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
@@ -33,12 +33,22 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     end else
       m_interstice
     in
-    let m_loops = next_mark () in
+
     let m_between = next_mark () in
-    fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [nbExact 1; cPath p_loop_body; cMark m_interstice];
-    if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
-      Ghost_pair.minimize_all_in_seq [nbExact 2; cPath p_seq; cMark m_loops; dBody];
-      Resources.loop_minimize [nbExact 2; cPath p_seq; cMark m_loops];
+    let p_interstice = Target.resolve_target_exactly_one [cPath p_loop_body; cMark m_interstice] in
+    let (p_seq, i) = Path.extract_last_dir_before p_interstice in
+    let seq_instrs = trm_inv ~error:"expected seq" trm_seq_inv (Target.resolve_path p_seq) in
+    if i = 0 then
+      Marks.add m_between [cPath p_loop; tBefore]
+    else if i = Mlist.length seq_instrs then
+      Marks.add m_between [cPath p_loop; tAfter]
+    else begin
+      let m_loops = next_mark () in
+      fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between (target_of_path p_interstice);
+      if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
+        Ghost_pair.minimize_all_in_seq [nbExact 2; cPath p_outer_seq; cMark m_loops; dBody];
+        Resources.loop_minimize [nbExact 2; cPath p_outer_seq; cMark m_loops];
+      end;
     end;
 
     (* And go through the outer loops *)
@@ -64,17 +74,8 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     *)
 let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
   Target.iter (fun p_interstice -> Marks.with_marks (fun next_mark ->
-    let (p_seq, i) = Path.extract_last_dir_before p_interstice in
-    (* TODO: factorize *)
-    let seq = Target.resolve_path p_seq in
-    let instrs = trm_inv ~error:"expected seq" trm_seq_inv seq in
-    let seq_length = Mlist.length instrs in
-    if (i < 0) || (i > seq_length) then path_fail p_seq (sprintf "invalid index for fission: %d" i);
-    let is_on_edge = (i = 0) || (i = seq_length) in
-    if not is_on_edge then begin
-      let m_interstice = Marks.add_next_mark_on next_mark p_interstice in
-      fission_rec next_mark nest_of m_interstice
-    end
+    let m_interstice = Marks.add_next_mark_on next_mark p_interstice in
+    fission_rec next_mark nest_of m_interstice
   )) tg
 
 (* LATER/ deprecated
@@ -893,15 +894,17 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
 
   (* bring the loop down by one if necessary *)
   if not is_at_bottom then begin
-    (* hoist all allocs, distribute ghost pairs, and fission all instrs to isolate the loops to be swaped *)
-    hoist_all_allocs (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr));
-    (* ~indices:[index_in_loop; index_in_loop+1] *)
-    (* FIXME:  index_in_loop may be wrong because 'bring_down_loop' changes indexing *)
-    fission [cMark m_instr; tBefore];
-    fission [cMark m_instr; tAfter];
-    let m_instr'' = next_mark () in
-    Loop_swap.f ~mark_inner_loop:m_instr'' (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr));
-    (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
+    Trace.step_group (sprintf "bring down %s" index) (fun () ->
+      (* hoist all allocs, distribute ghost pairs, and fission all instrs to isolate the loops to be swaped *)
+      hoist_all_allocs (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr));
+      (* ~indices:[index_in_loop; index_in_loop+1] *)
+      (* FIXME:  index_in_loop may be wrong because 'bring_down_loop' changes indexing *)
+      fission [cMark m_instr; tBefore];
+      fission [cMark m_instr; tAfter];
+      let m_instr'' = next_mark () in
+      Loop_swap.f ~mark_inner_loop:m_instr'' (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr));
+      (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
+    );
   end;
 
   m_instr
@@ -1201,6 +1204,7 @@ let%transfo slides ?(index : string = "b${id}")
   [nest_of] - number of perfectly nested loops to delete
   *)
 let%transfo delete_void ?(nest_of : int = 1) (tg : target) : unit =
+  Trace.justif "empty loop with pure range";
   let rec aux (nest_of : int) (p : path) : unit =
     if nest_of > 0 then begin
       aux (nest_of - 1) (Path.to_inner_loop p);
@@ -1212,7 +1216,7 @@ let%transfo delete_void ?(nest_of : int = 1) (tg : target) : unit =
 (* TODO: should this be in basic? *)
 (* [delete_void]: deletes all loop nests with empty body. *)
 let%transfo delete_all_void (tg : target) : unit =
-  Trace.justif_always_correct ();
+  Trace.justif "empty loops with pure ranges";
   Target.iter (fun p ->
     Target.apply_at_path (trm_bottom_up (fun t ->
       match trm_seq_inv t with

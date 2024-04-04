@@ -20,7 +20,9 @@ let int = trm_int
 let%transfo postprocessing (_u: unit) : unit =
   Trace.tag "pre-post-processing";
   Flags.recompute_resources_between_steps := false;
-  Matrix.elim_mops []
+  Matrix.elim_mops [];
+  Resources.delete_annots [];
+  Loop.delete_all_void []
 
 (* FIXME: avoid inlining *)
 let _ = Run.script_cpp (fun () ->

@@ -33,3 +33,22 @@ let add_next_mark_on (next_m : unit -> mark) (p : path) : mark =
   add_next_mark next_m (target_of_path p)
 
 
+(** [add_fake_instr m tg]: adds a mark [m] at the location of the target [tg] as a fake sequence item.
+   NOTE: if m = "" then does nothing. *)
+let%transfo add_fake_instr (m : mark) (tg : target) : unit =
+  Marks_basic.justif ();
+  if m = "" then ()
+  else
+    Sequence.insert (trm_add_mark m (trm_seq Mlist.empty)) tg
+
+(** [remove_fake_instr m tg]: remove a fake sequence item mark. *)
+let%transfo remove_fake_instr (tg : target) : unit =
+  Marks_basic.justif ();
+  Target.iter (fun p ->
+    let t = Target.resolve_path p in
+    let error ="Marks.remove_fake_instr: should target a fake instr mark" in
+    let t_seq = trm_inv ~error trm_seq_inv t in
+    if Mlist.length t_seq <> 0 then failwith error;
+    Sequence.delete (target_of_path p)
+  ) tg
+

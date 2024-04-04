@@ -471,7 +471,8 @@ let delete_annots_on (t : trm) : trm =
   in
   aux t
 
-let delete_annots (tg : Target.target) : unit =
+let%transfo delete_annots (tg : Target.target) : unit =
+  Trace.justif "changes only annotations";
   Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths delete_annots_on tg;
     Show.ast ()

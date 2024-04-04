@@ -1213,10 +1213,15 @@ let target_resolve_step (f: trm-> Path.path list) (t:trm) : Path.path list =
   end;
   ps
 
+(** [target_iter_step] is for wrapping substeps that are together. *)
+let step_group (name: string) (f: unit -> unit): unit =
+  step ~kind:Step_group ~name f
+
 (** [target_iter_step] is for wrapping the processing of one among several
     targets. *)
 let target_iter_step (istep : int) (f: unit->unit) : unit =
-  step ~kind:Step_group ~name:(sprintf "Target #%d" istep) f
+  step_group (sprintf "Target #%d" istep) f
+
 
 (** [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
    like at the start of the program.  *)

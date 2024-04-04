@@ -74,7 +74,7 @@ h2 {
 
 .warning {
    padding: 1em;
-   background: red;
+   background: orange;
    font-weight: bold;
    font-size: 1em;
 }
@@ -177,7 +177,7 @@ h2 {
 }
 
 .step-invalid {
-  background: #99c9ff;
+  background: #fcc;
 }
 .step-error {
   background: #ff3939;
