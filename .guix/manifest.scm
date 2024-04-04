@@ -31,7 +31,6 @@
          "nano"
 	 "graphviz"
          "ocaml-merlin"
-        ;; "ocaml-graph-mf"
          "emacs"
          "emacs-org"
          "emacs-org-ref"
