@@ -47,6 +47,13 @@
 
 - Support higher order contracts
 
+- Add a cleanup function for contexts that only keeps relevant variables when a scope is exited
+This also includes nested function calls.
+Ex:
+  f(g(x)) 
+    if context after g(x) = h: int, P1 h, P2, x: float, P3 x, i: int, P4 i h, j: int, P5 i j
+    and post-condition of f only mentions i, we want to keep h, i, P1 and P4 but not the rest in the context after f(g(x))
+
 - Add Ghost_pair.fusion
 
 
