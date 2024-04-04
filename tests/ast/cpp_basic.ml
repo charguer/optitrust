@@ -1,13 +1,12 @@
-(* A test for the parsing of C++ features *)
-
+(* This tests checks the parsing of basic C++ features. *)
 open Optitrust
 open Syntax
 
 let _ = Flags.use_light_diff := false
 
 let _ = Run.script_cpp (fun () ->
-  !! Sequence_basic.insert (stmt "int c = 0;") [tBefore; cVarDef "a"];
-  !! Sequence_basic.insert (stmt "int h(int x) {return x;}") [tBefore; cFunDef "main"];
-  (* Trace.reparse(); *) (* TODO: transformations that insert C++ (but not C) code *)
-
-)
+            (* Try to insert some code into the AST to see whether the source
+               was correctly parsed and translated back to C++. *)
+            !! Sequence_basic.insert (stmt "int c = 0;")
+              [occFirst; tBefore; cVarDef "vecOfInt"];
+          )
