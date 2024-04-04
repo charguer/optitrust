@@ -27,7 +27,7 @@
   (specifications->manifest
    (list "bash"
          "coreutils"
-         "gcc-toolchain"
+         "gcc-toolchain@11.3"
          "nano"
 	 "graphviz"
          "ocaml-merlin"
