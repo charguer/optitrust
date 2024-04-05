@@ -6,8 +6,8 @@ void f(int *t, int *u) {
 
   for (int i = 0; i < 10; i++) {
     __strict();
-    __reads("&t[i] ~> Cell");
-    __modifies("&u[i] ~> Cell");
+    __xreads("&t[i] ~> Cell");
+    __xmodifies("&u[i] ~> Cell");
 
     int x;
     x = t[i];
@@ -21,7 +21,7 @@ void f(int *t, int *u) {
     __GHOST_BEGIN(focus2_6, group_focus_subrange, "sub_range := 2..6");
     for (int m = 2; m < 6; m++) {
       __strict();
-      __modifies("&u[m] ~> Cell");
+      __xmodifies("&u[m] ~> Cell");
 
       for (int n = 4; n < 11; n += 2) {
         int y;
@@ -49,11 +49,11 @@ void f2(float* A, float* B, int m, int n, int p) {
 
   for (int i = 0; i < m; i++) {
     __strict();
-    __parallel_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+    __sreads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
     for (int j = 0; j < n; j++) {
       __strict();
-      __parallel_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+      __sreads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
       float sum;
       sum = 0.0f;

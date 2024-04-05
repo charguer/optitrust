@@ -36,14 +36,14 @@ void weird(int* k, int n1, int n2) {
   int acc = 0;
   for (int i = 0; i < n1; ++i) {
     __strict();
-    __reads("k ~> Cell");
-    __sequentially_modifies("&acc ~> Cell");
+    __xreads("k ~> Cell");
+    __smodifies("&acc ~> Cell");
     acc += *k;
   }
   for (int j = 0; j < n2; ++j) {
     __strict();
-    __reads("k ~> Cell");
-    __sequentially_modifies("&acc ~> Cell");
+    __xreads("k ~> Cell");
+    __smodifies("&acc ~> Cell");
     acc += *k;
   }
   __GHOST_END(second_fork);

@@ -7,7 +7,7 @@ void parallel(int* t, int* u, int n) {
 
   for (int i = 1; i < n; i++) {
     __strict();
-    __modifies(
+    __xmodifies(
       "&t[i] ~> Cell,"
       "&u[i] ~> Cell");
     int a = i;
@@ -40,9 +40,9 @@ void uninit(int* t, int* u, int n) {
   int x = 0;
   for (int i = 1; i < n; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __consumes("_Uninit(&t[i] ~> Cell)");
-    __produces("&t[i] ~> Cell");
+    __smodifies("&x ~> Cell");
+    __xconsumes("_Uninit(&t[i] ~> Cell)");
+    __xproduces("&t[i] ~> Cell");
 
     t[i] = i;
     x += t[i];
@@ -56,7 +56,7 @@ void commute() {
   int y;
   for (int i = 0; i < 5; i++) {
     __strict();
-    __sequentially_modifies(
+    __smodifies(
       "&x ~> Cell,"
       "&y ~> Cell");
     x++;
@@ -66,8 +66,8 @@ void commute() {
   int z = 2;
   for (int j = 0; j < 5; j++) {
     __strict();
-    __parallel_reads("&z ~> Cell");
-    __sequentially_modifies(
+    __sreads("&z ~> Cell");
+    __smodifies(
       "&x ~> Cell,"
       "&y ~> Cell");
     x += z;
@@ -76,7 +76,7 @@ void commute() {
 
   for (int k1 = 0; k1 < 5; k1++) {
     __strict();
-    __sequentially_modifies(
+    __smodifies(
       "&x ~> Cell,"
       "&y ~> Cell,"
       "&z ~> Cell");
@@ -84,7 +84,7 @@ void commute() {
     x += 1;
     for (int k2 = 0; k2 < 5; k2++) {
       __strict();
-      __sequentially_modifies("&y ~> Cell");
+      __smodifies("&y ~> Cell");
       y += 1;
     }
     z += 1;
@@ -97,7 +97,7 @@ void wrong_rw_rw() {
   int x = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
     x++;
   }
@@ -110,8 +110,8 @@ void wrong_rw_ro() {
   int y = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __sequentially_modifies("&y ~> Cell");
+    __smodifies("&x ~> Cell");
+    __smodifies("&y ~> Cell");
     x++;
     y += x;
   }
@@ -124,8 +124,8 @@ void wrong_ro_rw() {
   int y = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __sequentially_modifies("&y ~> Cell");
+    __smodifies("&x ~> Cell");
+    __smodifies("&y ~> Cell");
     y += x;
     x++;
   }
@@ -165,12 +165,12 @@ int testAllInstr2(int* t, int* u, int n) {
 }
 
 int testAllInstrContracts(int* t, int* u, int n) {
-    __modifies(
+  __modifies(
     "for i in 1..n -> &t[i] ~> Cell,"
     "for i in 1..n -> &u[i] ~> Cell");
   for (int i = 1; i < n; i++) {
     __strict();
-    __modifies(
+    __xmodifies(
       "&t[i] ~> Cell,"
       "&u[i] ~> Cell");
     int a = i;
@@ -191,14 +191,14 @@ void ghosts() {
       __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..5");
   for (int i = 0; i < 5; i++) {
     __strict();
-    __reads("&x ~> Cell");
+    __xreads("&x ~> Cell");
     __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
     for (int k = 0; k < 5; k++) {
       __strict();
-      __parallel_reads("for j in 0..5 -> &x ~> Cell");
+      __sreads("for j in 0..5 -> &x ~> Cell");
       for (int j = 0; j < 5; j++) {
         __strict();
-        __reads("&x ~> Cell");
+        __xreads("&x ~> Cell");
         x + 1;
       }
     }
@@ -215,15 +215,15 @@ void double_ghosts() {
       __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..5");
   for (int i = 0; i < 5; i++) {
     __strict();
-    __reads("&x ~> Cell");
+    __xreads("&x ~> Cell");
     __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
     __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
     for (int k = 0; k < 5; k++) {
       __strict();
-      __parallel_reads("for j in 0..5 -> &x ~> Cell");
+      __sreads("for j in 0..5 -> &x ~> Cell");
       for (int j = 0; j < 5; j++) {
         __strict();
-        __reads("&x ~> Cell");
+        __xreads("&x ~> Cell");
         x + 1;
       }
     }

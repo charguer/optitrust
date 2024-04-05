@@ -10,68 +10,55 @@ open Resource_formula
 
 (* TODO: module Resource_user / Resource_interface / Resource_syntax. *)
 
-(** User-facing contract clause types.
-
-  Giving a linear function contract clause to a for loop results in each iteration having separate resources.
-  If consuming [R1] and producing [R2], the loop itself consumes [Group(range, R1)] and produces [Group(range, R2)].
-  *)
-type contract_clause_type =
+(** User-facing function contract clause types. *)
+type fun_contract_clause_type =
   | Requires
-  (** Pure resource items required in precondition.
-
-      TODO: semantics for loops. *)
+  (** Pure resource items required in precondition. *)
 
   | Ensures
-  (** Pure resource items ensured in postcondition.
+  (** Pure resource items ensured in postcondition. *)
 
-      TODO: semantics for loops. *)
+  | Reads
+  (** Syntactic sugar for consuming [_RO(f, R)] and producing [_RO(f, R)].
+      [f] is a new fraction added to the required pure resource items. *)
+
+  | Writes
+  (** Syntactic sugar for consuming [_Uninit(R)] and producing [R]. *)
+
+  | Modifies
+  (** Syntactic sugar for consuming [R] and producing [R]. *)
+
+  | Consumes
+  (** Linear resource items consumed in precondition. *)
+
+  | Produces
+  (** Linear resource items produced in postcondition. *)
+
+(** User-facing loop contract clause types. *)
+type loop_contract_clause_type =
+  | LoopVars
+  (** Pure resources that are the same across all iterations. *)
+
+  | Exclusive of fun_contract_clause_type
+  (** Resources that are exclusive to one iteration. *)
 
   | Invariant
   (** Pure resource items that are invariant in all iterations of a for loop.
       If iterating on [i] index, requires [R(i)] and ensures [R(i + step)]. *)
 
-  | Reads
-  (** Syntactic sugar for consuming [_RO(f, R)] and producing [_RO(f, R)].
-      [f] is a new fraction added to the required pure resource items.
-      This is a function contract clause. *)
-
-  | Writes
-  (** Syntactic sugar for consuming [_Uninit(R)] and producing [R].
-      This is a function contract clause. *)
-
-  | Modifies
-  (** Syntactic sugar for consuming [R] and producing [R].
-      This is a function contract clause. *)
-
-  | Consumes
-  (** Linear resource items consumed in precondition.
-      This is a function contract clause. *)
-
-  | Produces
-  (** Linear resource items produced in postcondition.
-      This is a function contract clause. *)
-
-  | SequentiallyReads
-  (** Linear resource items that are passed as read only from any loop iteration to the next.
-      Syntactic sugar for sequentially modifying [_RO(f, R)].
-      [f] is a new fraction bound by the loop. *)
-
-  | SequentiallyModifies
+  | SharedModifies
   (** Linear resource items that are invariantly modified in all loop iterations. *)
 
-  | ParallelReads
+  | SharedReads
   (** Linear resource items that are read in parallel by all loop iterations. *)
-
-  | LoopGhosts
-  (** Pure resources that are the same across all iterations. *)
 
   | Strict
   (** On loop contracts, do not allow other resources than the one mentionned inside the loop iterations.
       By default, all the resources that remain after instantiating the contract are considered as additional invariants.
-      This permits the omission of most __sequentially_modifies clauses. *)
+      This permits the omission of most __smodifies and __sreads clauses. *)
 
-(** User-facing contract clause, combining clause type and resouce item. *)
-type contract_clause = contract_clause_type * contract_resource_item
+(*(** User-facing contract clause, combining clause type and resouce item. *)
+type contract_clause = contract_clause_type * contract_resource_item*)
 
 (** {!trm_copy} for fun contracts. *)
 let fun_contract_copy (contract : fun_contract) : fun_contract =
@@ -114,7 +101,7 @@ let resource_item_uninit ((name, formula): resource_item): resource_item =
   (name, formula_uninit formula)
 
 (* LATER: Preserve user syntax using annotations *)
-let push_fun_contract_clause (clause: contract_clause_type)
+let push_fun_contract_clause (clause: fun_contract_clause_type)
     (res: resource_item) (contract: fun_contract) =
   match clause with
   | Requires -> { contract with pre = Resource_set.push_front_pure res contract.pre }
@@ -124,36 +111,26 @@ let push_fun_contract_clause (clause: contract_clause_type)
   | Reads -> push_read_only_fun_contract_res res contract
   | Writes -> { pre = Resource_set.add_linear (resource_item_uninit res) contract.pre ; post = Resource_set.add_linear res contract.post }
   | Modifies -> { pre = Resource_set.add_linear res contract.pre ; post = Resource_set.add_linear res contract.post }
-  | Invariant -> { pre = Resource_set.push_front_pure res contract.pre ; post = Resource_set.push_front_pure res contract.post }
-  | SequentiallyReads -> failwith "SequentiallyReads only makes sense for loop contracts"
-  | SequentiallyModifies -> failwith "SequentiallyModifies only makes sense for loop contracts"
-  | ParallelReads -> failwith "ParallelReads only makes sense for loop contracts"
-  | LoopGhosts -> failwith "LoopGhosts only makes sense for loop contracts"
-  | Strict -> failwith "Strict should never appear with resources inside"
 
-let push_loop_contract_clause (clause: contract_clause_type)
+let push_loop_contract_clause (clause: loop_contract_clause_type)
     (res: resource_item) (contract: loop_contract) =
   match clause with
-  | Invariant -> { contract with invariant = Resource_set.push_front_pure res contract.invariant }
-  | Reads ->
+  | LoopVars -> { contract with loop_ghosts = res :: contract.loop_ghosts }
+  | Exclusive Reads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
     let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; iter_contract = push_fun_contract_clause Modifies (name, ro_formula) contract.iter_contract }
-  | SequentiallyReads ->
-    let name, formula = res in
-    let frac_var, frac_ghost = new_frac () in
-    let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
-    { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; invariant = Resource_set.add_linear (name, ro_formula) contract.invariant }
-  | SequentiallyModifies ->
+  | Exclusive clause -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
+  | Invariant -> { contract with invariant = Resource_set.push_front_pure res contract.invariant }
+  | SharedModifies ->
     { contract with invariant = Resource_set.add_linear res contract.invariant }
-  | ParallelReads ->
+  | SharedReads ->
     let name, formula = res in
     let frac_var, frac_ghost = new_frac () in
     let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
     { contract with loop_ghosts = frac_ghost :: contract.loop_ghosts; parallel_reads = (name, ro_formula) :: contract.parallel_reads }
-  | LoopGhosts -> { contract with loop_ghosts = res :: contract.loop_ghosts }
-  | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
+  | Strict -> failwith "Strict should never appear with resources inside"
 
 let parse_contract_res_item ((name, formula): contract_resource_item): resource_item =
   let name = match name with
@@ -162,7 +139,7 @@ let parse_contract_res_item ((name, formula): contract_resource_item): resource_
   in
   (name, formula)
 
-let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: contract_clause_type -> resource_item -> 'c -> 'c) (clauses: (contract_clause_type * string) list) : 'c =
+let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: 'clause_type -> resource_item -> 'c -> 'c) (clauses: ('clause_type * string) list) : 'c =
   List.fold_right (fun (clause, desc) contract  ->
       try
         let res_list = Resource_cparser.resource_list (Resource_clexer.lex_resources) (Lexing.from_string desc) in

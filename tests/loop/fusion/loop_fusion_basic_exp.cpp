@@ -5,8 +5,8 @@ void parallel(int* t, int* u, int n) {
   __modifies("for i in 1..n -> &u[i] ~> Cell");
   for (int i = 1; i < n; i++) {
     __strict();
-    __modifies("&t[i] ~> Cell");
-    __modifies("&u[i] ~> Cell");
+    __xmodifies("&t[i] ~> Cell");
+    __xmodifies("&u[i] ~> Cell");
     int a = i;
     t[i] += a;
     int b = i;
@@ -33,8 +33,8 @@ void uninit(int* t, int* u, int n) {
   int x = 0;
   for (int i = 1; i < n; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __writes("&t[i] ~> Cell");
+    __smodifies("&x ~> Cell");
+    __xwrites("&t[i] ~> Cell");
     t[i] = i;
     x += t[i];
   }
@@ -46,30 +46,30 @@ void commute() {
   int y;
   for (int i = 0; i < 5; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __sequentially_modifies("&y ~> Cell");
+    __smodifies("&x ~> Cell");
+    __smodifies("&y ~> Cell");
     x++;
     y++;
   }
   int z = 2;
   for (int j = 0; j < 5; j++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __sequentially_modifies("&y ~> Cell");
-    __parallel_reads("&z ~> Cell");
-    __parallel_reads("&z ~> Cell");
+    __smodifies("&x ~> Cell");
+    __smodifies("&y ~> Cell");
+    __sreads("&z ~> Cell");
+    __sreads("&z ~> Cell");
     x += z;
     y += z;
   }
   for (int k1 = 0; k1 < 5; k1++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __sequentially_modifies("&y ~> Cell");
-    __sequentially_modifies("&z ~> Cell");
+    __smodifies("&x ~> Cell");
+    __smodifies("&y ~> Cell");
+    __smodifies("&z ~> Cell");
     x += 1;
     for (int k2 = 0; k2 < 5; k2++) {
       __strict();
-      __sequentially_modifies("&y ~> Cell");
+      __smodifies("&y ~> Cell");
       y += 1;
     }
     z += 1;
@@ -82,10 +82,10 @@ void excl_ros(int* t, int n) {
   int y = 0;
   for (int i = 1; i < n; i++) {
     __strict();
-    __sequentially_modifies("&y ~> Cell");
-    __sequentially_modifies("&x ~> Cell");
-    __reads("&t[i] ~> Cell");
-    __reads("&t[i] ~> Cell");
+    __smodifies("&y ~> Cell");
+    __smodifies("&x ~> Cell");
+    __xreads("&t[i] ~> Cell");
+    __xreads("&t[i] ~> Cell");
     y += t[i];
     x += t[i];
   }
@@ -96,12 +96,12 @@ void wrong_rw_rw() {
   int x = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
 }
@@ -112,13 +112,13 @@ void wrong_rw_ro() {
   int y = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&y ~> Cell");
-    __parallel_reads("&x ~> Cell");
+    __smodifies("&y ~> Cell");
+    __sreads("&x ~> Cell");
     y += x;
   }
 }
@@ -129,13 +129,13 @@ void wrong_ro_rw() {
   int y = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&y ~> Cell");
-    __parallel_reads("&x ~> Cell");
+    __smodifies("&y ~> Cell");
+    __sreads("&x ~> Cell");
     y += x;
   }
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
 }

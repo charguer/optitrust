@@ -6,14 +6,14 @@ void parallel(int* t, int* u, int n) {
     "for i in 1..n -> &u[i] ~> Cell");
 
   for (int i = 1; i < n; i++) {
-    __modifies(
+    __xmodifies(
       "&t[i] ~> Cell,"
       "&u[i] ~> Cell");
     int a = i;
     t[i] += a;
   }
   for (int i = 1; i < n; i++) {
-    __modifies(
+    __xmodifies(
       "&t[i] ~> Cell,"
       "&u[i] ~> Cell");
     int b = i;
@@ -49,14 +49,14 @@ void uninit(int* t, int* u, int n) {
   int x = 0;
   for (int i = 1; i < n; i++) {
     __strict();
-    __consumes("_Uninit(&t[i] ~> Cell)");
-    __produces("&t[i] ~> Cell");
+    __xconsumes("_Uninit(&t[i] ~> Cell)");
+    __xproduces("&t[i] ~> Cell");
     t[i] = i;
   }
   for (int i = 1; i < n; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __modifies("&t[i] ~> Cell");
+    __smodifies("&x ~> Cell");
+    __xmodifies("&t[i] ~> Cell");
     x += t[i];
   }
 }
@@ -66,12 +66,12 @@ void uninit_ro(int* t, int* u, int n) {
 
   int x = 0;
   for (int i = 1; i < n; i++) {
-    __writes("&t[i] ~> Cell");
+    __xwrites("&t[i] ~> Cell");
     t[i] = i;
   }
   for (int i = 1; i < n; i++) {
-    __sequentially_modifies("&x ~> Cell");
-    __parallel_reads("for i in 1..n -> &t[i] ~> Cell");
+    __smodifies("&x ~> Cell");
+    __sreads("for i in 1..n -> &t[i] ~> Cell");
 
     __GHOST_BEGIN(tf, group_ro_focus, "i := i");
     x += t[i];
@@ -85,44 +85,44 @@ void commute() {
   int y;
   for (int i = 0; i < 5; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
   for (int i = 0; i < 5; i++) {
     __strict();
-    __sequentially_modifies("&y ~> Cell");
+    __smodifies("&y ~> Cell");
     y++;
   }
   int z = 2;
   for (int j = 0; j < 5; j++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __parallel_reads("&z ~> Cell");
+    __smodifies("&x ~> Cell");
+    __sreads("&z ~> Cell");
     x += z;
   }
   for (int j = 0; j < 5; j++) {
     __strict();
-    __sequentially_modifies("&y ~> Cell");
-    __parallel_reads("&z ~> Cell");
+    __smodifies("&y ~> Cell");
+    __sreads("&z ~> Cell");
     y += z;
   }
   for (int k1 = 0; k1 < 5; k1++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x += 1;
   }
   for (int k1 = 0; k1 < 5; k1++) {
     __strict();
-    __sequentially_modifies("&y ~> Cell");
+    __smodifies("&y ~> Cell");
     for (int k2 = 0; k2 < 5; k2++) {
       __strict();
-      __sequentially_modifies("&y ~> Cell");
+      __smodifies("&y ~> Cell");
       y += 1;
     }
   }
   for (int k1 = 0; k1 < 5; k1++) {
     __strict();
-    __sequentially_modifies("&z ~> Cell");
+    __smodifies("&z ~> Cell");
     z += 1;
   }
 }
@@ -135,14 +135,14 @@ void excl_ros(int* t, int n) {
   int y = 0;
   for (int i = 1; i < n; i++) {
     __strict();
-    __sequentially_modifies("&y ~> Cell");
-    __reads("&t[i] ~> Cell");
+    __smodifies("&y ~> Cell");
+    __xreads("&t[i] ~> Cell");
     y += t[i];
   }
   for (int i = 1; i < n; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __reads("&t[i] ~> Cell");
+    __smodifies("&x ~> Cell");
+    __xreads("&t[i] ~> Cell");
     x += t[i];
   }
 }
@@ -153,12 +153,12 @@ void wrong_rw_rw() {
   int x = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
 }
@@ -170,13 +170,13 @@ void wrong_rw_ro() {
   int y = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
   for (int i = 0; i < 4; i++) {
     __strict();
-    __parallel_reads("&x ~> Cell");
-    __sequentially_modifies("&y ~> Cell");
+    __sreads("&x ~> Cell");
+    __smodifies("&y ~> Cell");
     y += x;
   }
 }
@@ -188,13 +188,13 @@ void wrong_ro_rw() {
   int y = 0;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __parallel_reads("&x ~> Cell");
-    __sequentially_modifies("&y ~> Cell");
+    __sreads("&x ~> Cell");
+    __smodifies("&y ~> Cell");
     y += x;
   }
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x++;
   }
 }
@@ -208,14 +208,14 @@ void ghosts() {
       __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..5");
   for (int i = 0; i < 5; i++) {
     __strict();
-    __reads("&x ~> Cell");
+    __xreads("&x ~> Cell");
     __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
     for (int k = 0; k < 5; k++) {
       __strict();
-      __parallel_reads("for j in 0..5 -> &x ~> Cell");
+      __sreads("for j in 0..5 -> &x ~> Cell");
       for (int j = 0; j < 5; j++) {
         __strict();
-        __reads("&x ~> Cell");
+        __xreads("&x ~> Cell");
         x + 1;
       }
     }
@@ -232,15 +232,15 @@ void double_ghosts() {
       __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..5");
   for (int i = 0; i < 5; i++) {
     __strict();
-    __reads("&x ~> Cell");
+    __xreads("&x ~> Cell");
     __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
     __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
     for (int k = 0; k < 5; k++) {
       __strict();
-      __parallel_reads("for j in 0..5 -> &x ~> Cell");
+      __sreads("for j in 0..5 -> &x ~> Cell");
       for (int j = 0; j < 5; j++) {
         __strict();
-        __reads("&x ~> Cell");
+        __xreads("&x ~> Cell");
         x + 1;
       }
     }

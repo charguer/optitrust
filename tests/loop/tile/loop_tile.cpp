@@ -41,8 +41,8 @@ void matrix_copy(int* D, int* S) {
 
   for (int i = 0; i < 1024; ++i) {
     __strict();
-    __modifies("&D[MINDEX1(1024, i)] ~> Cell");
-    __parallel_reads("S ~> Matrix1(1024)");
+    __xmodifies("&D[MINDEX1(1024, i)] ~> Cell");
+    __sreads("S ~> Matrix1(1024)");
     __GHOST_BEGIN(focus, matrix1_ro_focus, "S, i");
     D[MINDEX1(1024, i)] = S[MINDEX1(1024, i)];
     __GHOST_END(focus);

@@ -46,7 +46,7 @@ for i = 0 to n
 correct when:
 
 for i = 0 to n
-  __parallel_reads(for i in r -> in ~> Cell);
+  __sreads(for i in r -> in ~> Cell);
   T1
   with_focus_subrange (i..i+k) {
     out[i] = reduce(monoid_add, in, i, i+k) # ou i, k
@@ -56,7 +56,7 @@ for i = 0 to n
 --> (bind)
 
 for i = 0 to n
-  __parallel_reads(for i in r -> in ~> Cell);
+  __sreads(for i in r -> in ~> Cell);
   T1
   with_focus_subrange (i..i+k) {
     alloc s
@@ -69,7 +69,7 @@ for i = 0 to n
 
 alloc s
 for i = 0 to n
-  __parallel_reads(for i in r -> in ~> Cell);
+  __sreads(for i in r -> in ~> Cell);
   T1
   with_focus_subrange (i..i+k) {
     s = reduce(monoid_add, in, i, i+k)

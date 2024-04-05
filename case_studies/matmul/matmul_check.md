@@ -6,13 +6,13 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
   __modifies("C ~> Matrix2(m, n)");
 
   for (int i = 0; i < m; i++) {
-    __modifies("for j in 0..n ->"
+    __xmodifies("for j in 0..n ->"
       " &C[MINDEX2(m, n, i, j)] ~> Cell");
-    __sequentially_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+    __sreads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
     for (int j = 0; j < n; j++) {
-      __modifies("&C[MINDEX2(m, n, i, j)] ~> Cell");
-      __sequentially_reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
+      __xmodifies("&C[MINDEX2(m, n, i, j)] ~> Cell");
+      __sreads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
 
       float sum = 0.0f;
       for (int k = 0; k < p; k++) {
@@ -44,13 +44,13 @@ void mm1024(float* C, float* A, float* B) {
   __modifies("C ~> Matrix2(1024, 1024)");
 
   for (int i = 0; i < 1024; i++) {
-    __modifies("for j in 0..1024 ->"
+    __xmodifies("for j in 0..1024 ->"
       " &C[MINDEX2(1024, 1024, i, j)] ~> Cell");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+    __sreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
     for (int j = 0; j < 1024; j++) {
-      __modifies("&C[MINDEX2(1024, 1024, i, j)] ~> Cell");
-      __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+      __xmodifies("&C[MINDEX2(1024, 1024, i, j)] ~> Cell");
+      __sreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
       float sum = 0.0f;
       for (int k = 0; k < 1024; k++) {
@@ -72,22 +72,22 @@ void mm1024(float* C, float* A, float* B) {
   __scoped_ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
     " to_item := fun i -> Group(range(1024), fun j -> &C[i][j] ~> Cell)");
   for (int bi = 0; bi < 32; bi++) {
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+    __xmodifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
+    __sreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
     for (int i = 0; i < 32; i++) {
-      __modifies("Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell)");
-      __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+      __xmodifies("Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell)");
+      __sreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
       __scoped_ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
         " to_item := fun j -> &C[bi * 32 + i][j] ~> Cell)");
       for (int bj = 0; bj < 32; bj++) {
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
-        __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+        __xmodifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
+        __sreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
         for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+          __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+          __sreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
           float sum = 0.f;
           for (int bk = 0; bk < 256; bk++) {
@@ -117,9 +117,9 @@ void mm1024(float* C, float* A, float* B) {
 [...]
         float* const sum = (float* const)malloc(sizeof(float[32]));
         for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __modifies("&sum[j] ~> Cell");
-          __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+          __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+          __xmodifies("&sum[j] ~> Cell");
+          __sreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
           sum[j] = 0.f;
           for (int bk = 0; bk < 256; bk++) {
@@ -150,15 +150,15 @@ TODO: minimize contracts?
           __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
           for (int j = 0; j < 32; j++) {
             // __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-            __modifies("&sum[j] ~> Cell"); // write-only
+            __xmodifies("&sum[j] ~> Cell"); // write-only
             // __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
             sum[j] = 0.f;
           }
           for (int j = 0; j < 32; j++) {
             // __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-            __modifies("&sum[j] ~> Cell");
-            __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+            __xmodifies("&sum[j] ~> Cell");
+            __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
             for (int bk = 0; bk < 256; bk++) {
               for (int k = 0; k < 4; k++) {
@@ -169,8 +169,8 @@ TODO: minimize contracts?
             }
           }
           for (int j = 0; j < 32; j++) {
-            __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell"); // write-only
-            __modifies("&sum[j] ~> Cell"); // read-only
+            __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell"); // write-only
+            __xmodifies("&sum[j] ~> Cell"); // read-only
             // __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
             C[bi * 32 + i][bj * 32 + j] = sum[j];
@@ -187,13 +187,13 @@ TODO: minimize contracts?
 ```c
 [...]
         for (int bk = 0; bk < 256; bk++) {
-          __sequentially_modifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
-          __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+          __smodifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
+          __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                                "Group(range(32), B ~> Matrix2(1024, 1024))");
 
           for (int j = 0; j < 32; j++) {
-            __modifies("&sum[j] ~> Cell");
-            __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+            __xmodifies("&sum[j] ~> Cell");
+            __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
             for (int k = 0; k < 4; k++) {
               __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
@@ -212,18 +212,18 @@ TODO: minimize contracts?
 ```c
 [...]
         for (int bk = 0; bk < 256; bk++) {
-          __sequentially_modifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
-          __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+          __smodifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
+          __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                                "Group(range(32), B ~> Matrix2(1024, 1024))");
 
           for (int k = 0; k < 4; k++) {
-            __sequentially_modifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
-            __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+            __smodifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
+            __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                                  "Group(range(32), B ~> Matrix2(1024, 1024))");
 
             for (int j = 0; j < 32; j++) {
-              __modifies("&sum[j] ~> Cell");
-              __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+              __xmodifies("&sum[j] ~> Cell");
+              __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
               __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
               __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
@@ -245,8 +245,8 @@ TODO: minimize contracts?
     __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
     __scoped_ghost {
       for (int i = 0; i < 32; i++) {
-        __consumes("for j in 0..1024 ->  &C[bi * 32 + i][j] ~> Cell");
-        __produces("for bj in 0..32 -> for j in 0..32 ->"
+        __xconsumes("for j in 0..1024 ->  &C[bi * 32 + i][j] ~> Cell");
+        __xproduces("for bj in 0..32 -> for j in 0..32 ->"
                   "  &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
         __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
@@ -257,36 +257,36 @@ TODO: minimize contracts?
     __scoped_ghost(group_swap, "to_item := fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
     for (int bj = 0; bj < 32; bj++) {
-      __modifies("Group(range(32), fun i -> Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
-      __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+      __xmodifies("Group(range(32), fun i -> Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
+      __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                            "Group(range(32), B ~> Matrix2(1024, 1024))");
 
       for (int i = 0; i < 32; i++) {
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
-        __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+        __xmodifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
+        __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
         float* const sum = (float* const)malloc(sizeof(float[32]));
         { // not a seq
           __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
           __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
           for (int j = 0; j < 32; j++) {
-            __modifies("&sum[j] ~> Cell");
+            __xmodifies("&sum[j] ~> Cell");
 
             sum[j] = 0.f;
           }
           for (int bk = 0; bk < 256; bk++) {
-            __sequentially_modifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
-            __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+            __smodifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
+            __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                                 "Group(range(32), B ~> Matrix2(1024, 1024))");
 
             for (int k = 0; k < 4; k++) {
-              __sequentially_modifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
-              __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+              __smodifies("Group(range(32), fun j -> &sum[j] ~> Cell)");
+              __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                                   "Group(range(32), B ~> Matrix2(1024, 1024))");
 
               for (int j = 0; j < 32; j++) {
-                __modifies("&sum[j] ~> Cell");
-                __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+                __xmodifies("&sum[j] ~> Cell");
+                __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
                 __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
                 __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
@@ -295,8 +295,8 @@ TODO: minimize contracts?
             }
           }
           for (int j = 0; j < 32; j++) {
-            __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-            __reads("&sum[j] ~> Cell");
+            __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+            __xreads("&sum[j] ~> Cell");
 
             C[bi * 32 + i][bj * 32 + j] = sum[j];
           }
@@ -313,30 +313,30 @@ TODO: minimize contracts?
 [...]
       float* const sum = (float* const)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
-        __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
-        __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+        __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+        __xmodifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
+        __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
         __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
         __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
         for (int j = 0; j < 32; j++) {
-          __modifies("&sum[i][j] ~> Cell");
+          __xmodifies("&sum[i][j] ~> Cell");
 
           sum[i][j] = 0.f;
         }
         for (int bk = 0; bk < 256; bk++) {
-          __sequentially_modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-          __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+          __smodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+          __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                                "Group(range(32), B ~> Matrix2(1024, 1024))");
 
           for (int k = 0; k < 4; k++) {
-            __sequentially_modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-            __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+            __smodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+            __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                                 "Group(range(32), B ~> Matrix2(1024, 1024))");
 
             for (int j = 0; j < 32; j++) {
-              __modifies("&sum[i][j] ~> Cell");
-              __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+              __xmodifies("&sum[i][j] ~> Cell");
+              __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
               __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
               __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
@@ -345,8 +345,8 @@ TODO: minimize contracts?
           }
         }
         for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __reads("&sum[i][j] ~> Cell");
+          __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+          __xreads("&sum[i][j] ~> Cell");
 
           C[bi * 32 + i][bj * 32 + j] = sum[i][j];
         }
@@ -363,17 +363,17 @@ TODO: minimize contracts?
 [...]
       float* const sum = (float* const)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
-        __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+        __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
 
         for (int j = 0; j < 32; j++) {
-          __modifies("&sum[i][j] ~> Cell");
+          __xmodifies("&sum[i][j] ~> Cell");
 
           sum[i][j] = 0.f;
         }
       }
       for (int i = 0; i < 32; i++) {
-        __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-        __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+        __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+        __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
         __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
         __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
@@ -384,8 +384,8 @@ TODO: minimize contracts?
             [...]
 
             for (int j = 0; j < 32; j++) {
-              __modifies("&sum[i][j] ~> Cell");
-              __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+              __xmodifies("&sum[i][j] ~> Cell");
+              __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
               __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
               __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
@@ -395,12 +395,12 @@ TODO: minimize contracts?
         }
       }
       for (int i = 0; i < 32; i++) {
-        __reads("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
+        __xreads("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+        __xmodifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
 
         for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __reads("&sum[i][j] ~> Cell");
+          __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+          __xreads("&sum[i][j] ~> Cell");
 
           C[bi * 32 + i][bj * 32 + j] = sum[i][j];
         }
@@ -425,20 +425,20 @@ TODO: minimize contracts?
       }
 
       for (int bk = 0; bk < 256; bk++) {
-        __sequentially_modifies("Group(range(32), fun i -> Group(range(32), fun j -> &sum[i][j] ~> Cell))");
-        __sequentially_reads("Group(range(32), fun i -> A ~> Matrix2(1024, 1024)),"
+        __smodifies("Group(range(32), fun i -> Group(range(32), fun j -> &sum[i][j] ~> Cell))");
+        __sreads("Group(range(32), fun i -> A ~> Matrix2(1024, 1024)),"
                              "Group(range(32), fun i -> B ~> Matrix2(1024, 1024))");
 
         for (int i = 0; i < 32; i++) {
-          __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-          __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+          __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+          __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
           for (int k = 0; k < 4; k++) {
             [...]
 
             for (int j = 0; j < 32; j++) {
-              __modifies("&sum[i][j] ~> Cell");
-              __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+              __xmodifies("&sum[i][j] ~> Cell");
+              __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
               __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
               __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
@@ -460,16 +460,16 @@ TODO: minimize contracts?
 [...]
   float* const pB = (float* const)malloc(sizeof(float[32][256][4][32]));
   for (int bi = 0; bi < 32; bi++) {
-    __sequentially_modifies("Group(range(32), fun bj -> Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))))");
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+    __smodifies("Group(range(32), fun bj -> Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))))");
+    __xmodifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
+    __sreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
     __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
     __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
     __scoped_ghost {
       for (int i = 0; i < 32; i++) {
-        __consumes("for j in 0..1024 -> &C[bi * 32 + i][j] ~> Cell");
-        __produces("for bj in 0..32 -> for j in 0..32 ->"
+        __xconsumes("for j in 0..1024 -> &C[bi * 32 + i][j] ~> Cell");
+        __xproduces("for bj in 0..32 -> for j in 0..32 ->"
                   "  &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
         __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
@@ -479,17 +479,17 @@ TODO: minimize contracts?
     __scoped_ghost(group_swap, "to_item := fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
     for (int bj = 0; bj < 32; bj++) {
-      __modifies("Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)))");
-      __modifies("Group(range(32), fun i -> Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
-      __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024)),"
+      __xmodifies("Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)))");
+      __xmodifies("Group(range(32), fun i -> Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
+      __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                            "Group(range(32), B ~> Matrix2(1024, 1024))");
 
       float* const sum = (float* const)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
-        __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+        __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
 
         for (int j = 0; j < 32; j++) {
-          __modifies("&sum[i][j] ~> Cell");
+          __xmodifies("&sum[i][j] ~> Cell");
 
           sum[i][j] = 0.f;
         }
@@ -507,22 +507,22 @@ TODO: minimize contracts?
       // __ghost swap???
 
       for (int bk = 0; bk < 256; bk++) {
-        __modifies("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
+        __xmodifies("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
         [...]
 
         for (int i = 0; i < 32; i++) {
-          __sequentially_modifies("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
-          __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-          __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+          __smodifies("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
+          __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+          __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
           for (int k = 0; k < 4; k++) {
-            __modifies("Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)");
+            __xmodifies("Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)");
             [...]
 
             for (int j = 0; j < 32; j++) {
-              __modifies("&pB[bj][bk][k][j] ~> Cell");
-              __modifies("&sum[i][j] ~> Cell");
-              __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
+              __xmodifies("&pB[bj][bk][k][j] ~> Cell");
+              __xmodifies("&sum[i][j] ~> Cell");
+              __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
               __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
               __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
@@ -533,12 +533,12 @@ TODO: minimize contracts?
         }
       }
       for (int i = 0; i < 32; i++) {
-        __reads("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
+        __xreads("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+        __xmodifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
 
         for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __reads("&sum[i][j] ~> Cell");
+          __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+          __xreads("&sum[i][j] ~> Cell");
 
           C[bi * 32 + i][bj * 32 + j] = sum[i][j];
         }
@@ -559,8 +559,8 @@ TODO: minimize contracts?
 ```c
 // [...]
   for (int bj = 0; bj < 32; bj++) {
-    __modifies("Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)))");
-    __sequentially_reads("B ~> Matrix2(1024, 1024))");
+    __xmodifies("Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)))");
+    __sreads("B ~> Matrix2(1024, 1024))");
 
     /* FIXME: what is happening here?
     __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32"); // fait pour 'i'
@@ -575,16 +575,16 @@ TODO: minimize contracts?
     */
 
     for (int bk = 0; bk < 256; bk++) {
-      __modifies("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
-      __sequentially_reads("B ~> Matrix2(1024, 1024))");
+      __xmodifies("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
+      __sreads("B ~> Matrix2(1024, 1024))");
 
       for (int k = 0; k < 4; k++) {
-        __modifies("Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)");
-        __sequentially_reads("Group(range(32), B ~> Matrix2(1024, 1024))");
+        __xmodifies("Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)");
+        __sreads("Group(range(32), B ~> Matrix2(1024, 1024))");
 
         for (int j = 0; j < 32; j++) {
-          __modifies("&pB[bj][bk][k][j] ~> Cell");
-          __reads("B ~> Matrix2(1024, 1024))");
+          __xmodifies("&pB[bj][bk][k][j] ~> Cell");
+          __xreads("B ~> Matrix2(1024, 1024))");
 
           __scoped_ghost(matrix2_ro_focus, "B, bk * 4 + k, bj * 32 + j");
           pB[bj][bk][k][j] = B[bk * 4 + k][bj * 32 + j];
@@ -593,14 +593,14 @@ TODO: minimize contracts?
     }
   }
   for (int bi = 0; bi < 32; bi++) {
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __sequentially_reads("A ~> Matrix2(1024, 1024), pB ~> Matrix4(32, 256, 4, 32)");
+    __xmodifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
+    __sreads("A ~> Matrix2(1024, 1024), pB ~> Matrix4(32, 256, 4, 32)");
 
     __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
     __scoped_ghost {
       for (int i = 0; i < 32; i++) {
-        __consumes("for j in 0..1024 -> &C[bi * 32 + i][j] ~> Cell");
-        __produces("for bj in 0..32 -> for j in 0..32 ->"
+        __xconsumes("for j in 0..1024 -> &C[bi * 32 + i][j] ~> Cell");
+        __xproduces("for bj in 0..32 -> for j in 0..32 ->"
                   "  &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
         __ghost(tile_divides, "tile_count := 32, tile_size := 32, n := 1024,"
@@ -610,16 +610,16 @@ TODO: minimize contracts?
     __scoped_ghost(group_swap, "to_item := fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell");
 
     for (int bj = 0; bj < 32; bj++) {
-      __reads("Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)))");
-      __modifies("Group(range(32), fun i -> Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
-      __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024))");
+      __xreads("Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)))");
+      __xmodifies("Group(range(32), fun i -> Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
+      __sreads("Group(range(32), A ~> Matrix2(1024, 1024))");
 
       float* const sum = (float* const)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
-        __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+        __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
 
         for (int j = 0; j < 32; j++) {
-          __modifies("&sum[i][j] ~> Cell");
+          __xmodifies("&sum[i][j] ~> Cell");
 
           sum[i][j] = 0.f;
         }
@@ -636,24 +636,24 @@ TODO: minimize contracts?
       }
 
       for (int bk = 0; bk < 256; bk++) {
-        __sequentially_modifies("Group(range(32), fun i -> Group(range(32), fun j -> &sum[i][j] ~> Cell))");
-        __sequentially_reads("Group(range(32), fun i -> A ~> Matrix2(1024, 1024))");
-        __reads("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
+        __smodifies("Group(range(32), fun i -> Group(range(32), fun j -> &sum[i][j] ~> Cell))");
+        __sreads("Group(range(32), fun i -> A ~> Matrix2(1024, 1024))");
+        __xreads("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
 
         for (int i = 0; i < 32; i++) {
-          __sequentially_reads("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
-          __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-          __reads("A ~> Matrix2(1024, 1024)");
+          __sreads("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
+          __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+          __xreads("A ~> Matrix2(1024, 1024)");
 
           for (int k = 0; k < 4; k++) {
-            __reads("Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)");
-            __sequentially_modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-            __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024))");
+            __xreads("Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)");
+            __smodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+            __sreads("Group(range(32), A ~> Matrix2(1024, 1024))");
 
             for (int j = 0; j < 32; j++) {
-              __modifies("&sum[i][j] ~> Cell");
-              __reads("A ~> Matrix2(1024, 1024)");
-              __reads("&pB[bj][bk][k][j] ~> Cell");
+              __xmodifies("&sum[i][j] ~> Cell");
+              __xreads("A ~> Matrix2(1024, 1024)");
+              __xreads("&pB[bj][bk][k][j] ~> Cell");
 
               __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
               sum[i][j] += A[bi * 32 + i][bk * 4 + k] * pB[bj][bk][k][j];
@@ -662,12 +662,12 @@ TODO: minimize contracts?
         }
       }
       for (int i = 0; i < 32; i++) {
-        __reads("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-        __modifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
+        __xreads("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+        __xmodifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
 
         for (int j = 0; j < 32; j++) {
-          __modifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
-          __reads("&sum[i][j] ~> Cell");
+          __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
+          __xreads("&sum[i][j] ~> Cell");
 
           C[bi * 32 + i][bj * 32 + j] = sum[i][j];
         }
@@ -696,22 +696,22 @@ TODO: minimize contracts?
 ```c
 [...]
         for (int i = 0; i < 32; i++) {
-          __sequentially_reads("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
-          __modifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
-          __reads("A ~> Matrix2(1024, 1024)");
+          __sreads("Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))");
+          __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
+          __xreads("A ~> Matrix2(1024, 1024)");
 
           float s[32];
           // TODO: wrap in ghosts going to byte model? how to enforce contiguity?
           memcpy(s, &sum[i][0], sizeof(float[32]));
           for (int k = 0; k < 4; k++) {
-            __reads("Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)");
-            __sequentially_modifies("Group(range(32), fun j -> &s[j] ~> Cell)");
-            __sequentially_reads("Group(range(32), A ~> Matrix2(1024, 1024))");
+            __xreads("Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)");
+            __smodifies("Group(range(32), fun j -> &s[j] ~> Cell)");
+            __sreads("Group(range(32), A ~> Matrix2(1024, 1024))");
 
             for (int j = 0; j < 32; j++) {
-              __modifies("&s[j] ~> Cell");
-              __reads("A ~> Matrix2(1024, 1024)");
-              __reads("&pB[bj][bk][k][j] ~> Cell");
+              __xmodifies("&s[j] ~> Cell");
+              __xreads("A ~> Matrix2(1024, 1024)");
+              __xreads("&pB[bj][bk][k][j] ~> Cell");
 
               __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + k");
               s[j] += A[bi * 32 + i][bk * 4 + k] * pB[bj][bk][k][j];
@@ -756,9 +756,9 @@ TODO: minimize contracts?
 ```c
 [...]
           for (int j = 0; j < 32; j++) {
-            __modifies("&s[j] ~> Cell");
-            __reads("A ~> Matrix2(1024, 1024)");
-            __reads("&pB[bj][bk][0][j] ~> Cell");
+            __xmodifies("&s[j] ~> Cell");
+            __xreads("A ~> Matrix2(1024, 1024)");
+            __xreads("&pB[bj][bk][0][j] ~> Cell");
 
             __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + 0");
             // TODO: need ghosts to see matrix as flat array
@@ -766,9 +766,9 @@ TODO: minimize contracts?
                     pB[32768 * bj + 128 * bk + 32 * 0 + j];
           }
           for (int j = 0; j < 32; j++) {
-            __modifies("&s[j] ~> Cell");
-            __reads("A ~> Matrix2(1024, 1024)");
-            __reads("&pB[bj][bk][1][j] ~> Cell");
+            __xmodifies("&s[j] ~> Cell");
+            __xreads("A ~> Matrix2(1024, 1024)");
+            __xreads("&pB[bj][bk][1][j] ~> Cell");
 
             __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + 1");
             // TODO: need ghosts to see matrix as flat array
@@ -776,9 +776,9 @@ TODO: minimize contracts?
                     pB[32768 * bj + 128 * bk + 32 * 1 + j];
           }
           for (int j = 0; j < 32; j++) {
-            __modifies("&s[j] ~> Cell");
-            __reads("A ~> Matrix2(1024, 1024)");
-            __reads("&pB[bj][bk][2][j] ~> Cell");
+            __xmodifies("&s[j] ~> Cell");
+            __xreads("A ~> Matrix2(1024, 1024)");
+            __xreads("&pB[bj][bk][2][j] ~> Cell");
 
             __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + 2");
             // TODO: need ghosts to see matrix as flat array
@@ -786,9 +786,9 @@ TODO: minimize contracts?
                     pB[32768 * bj + 128 * bk + 32 * 2 + j];
           }
           for (int j = 0; j < 32; j++) {
-            __modifies("&s[j] ~> Cell");
-            __reads("A ~> Matrix2(1024, 1024)");
-            __reads("&pB[bj][bk][3][j] ~> Cell");
+            __xmodifies("&s[j] ~> Cell");
+            __xreads("A ~> Matrix2(1024, 1024)");
+            __xreads("&pB[bj][bk][3][j] ~> Cell");
 
             __scoped_ghost(matrix2_ro_focus, "A, bi * 32 + i, bk * 4 + 3");
             // TODO: need ghosts to see matrix as flat array
@@ -808,16 +808,16 @@ TODO: minimize contracts?
   // TODO: scoped ghost seq_reads to reads
   #pragma omp parallel for
   for (int bj = 0; bj < 32; bj++) {
-    __modifies("Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)))");
-    __reads("B ~> Matrix2(1024, 1024))");
+    __xmodifies("Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell)))");
+    __xreads("B ~> Matrix2(1024, 1024))");
 
     [...]
   }
   // TODO: scoped ghost seq_reads to reads
   #pragma omp parallel for
   for (int bi = 0; bi < 32; bi++) {
-    __modifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
-    __reads("A ~> Matrix2(1024, 1024), pB ~> Matrix4(32, 256, 4, 32)");
+    __xmodifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
+    __xreads("A ~> Matrix2(1024, 1024), pB ~> Matrix4(32, 256, 4, 32)");
 
     [...]
           #pragma omp simd

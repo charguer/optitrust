@@ -13,7 +13,7 @@ void f() {
   a += b;
   for (int i = 0; i < 4; i++) {
     __strict();
-    __sequentially_modifies("&a ~> Cell");
+    __smodifies("&a ~> Cell");
     a++;
   }
 }

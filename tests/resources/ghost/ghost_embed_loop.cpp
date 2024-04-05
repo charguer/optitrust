@@ -17,14 +17,14 @@ void f(float* M, int n) {
 
   for (int i = 0; i < n; ++i) {
     __strict();
-    __consumes("&M[i] ~> Cell");
-    __produces("&M[i] ~> FrozenCell");
+    __xconsumes("&M[i] ~> Cell");
+    __xproduces("&M[i] ~> FrozenCell");
     __ghost(freeze_cell, "p := &M[i]");
   }
   for (int i = 0; i < n; ++i) {
     __strict();
-    __consumes("&M[i] ~> FrozenCell");
-    __produces("&M[i] ~> Cell");
+    __xconsumes("&M[i] ~> FrozenCell");
+    __xproduces("&M[i] ~> Cell");
     __ghost(unfreeze_cell, "p := &M[i]");
   }
 }

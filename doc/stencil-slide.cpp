@@ -6,10 +6,10 @@ void stencil(int* a, int* b) {
 
   for (int i = 0; i < 6; i++) {
     if (i == 0) {
-      __modifies("_Uninit(for k in 0..8 -> a[MINDEX1(8, k)] ~> Cell)");
+      __xmodifies("_Uninit(for k in 0..8 -> a[MINDEX1(8, k)] ~> Cell)");
     } else {
-      __modifies("for k in 0..i+2 -> a[MINDEX1(8, k)] ~> Cell");
-      __modifies("_Uninit(for k in i+2..8 -> a[MINDEX1(8, k)] ~> Cell)");
+      __xmodifies("for k in 0..i+2 -> a[MINDEX1(8, k)] ~> Cell");
+      __xmodifies("_Uninit(for k in i+2..8 -> a[MINDEX1(8, k)] ~> Cell)");
     }
 
     if (i == 0) {
@@ -30,7 +30,7 @@ void stencil(int* a, int* b) {
     }
     // TODO: __ghost(group_shift_uninit)
     for (int j = 0; j < 3; j++) {
-      __writes("a[MINDEX1(8, i+j)] ~> Cell");
+      __xwrites("a[MINDEX1(8, i+j)] ~> Cell");
       a[MINDEX1(8, i+j)] = i+j;
     }
     // TODO: __ghost(group_unshift)
@@ -39,8 +39,8 @@ void stencil(int* a, int* b) {
     // 0..i+3 * Uninit(i+3..8)
   }
   for (int i = 0; i < 6; i++) {
-    __writes("b[MINDEX1(6, i)] ~> Cell");
-    __parallel_reads("a ~> Matrix1(8)");
+    __xwrites("b[MINDEX1(6, i)] ~> Cell");
+    __sreads("a ~> Matrix1(8)");
     // TODO: in_range_extend, in_range_shift_extend, matrix2_ro_focus scopes
     b[MINDEX1(6, i)] = a[MINDEX1(8, i)] + a[MINDEX1(8, i+1)] + a[MINDEX1(8, i+2)];
   }

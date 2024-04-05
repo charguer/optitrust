@@ -264,15 +264,15 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
 
     Example:
       for i
-        __consumes("&t[i] ~> Struct");
-        __produces("RO(1 - f, &t[i] ~> Struct), RO(f, &t[i].k ~> Cell)");
+        __xconsumes("&t[i] ~> Struct");
+        __xproduces("RO(1 - f, &t[i] ~> Struct), RO(f, &t[i].k ~> Cell)");
         __ghost(focus_ro_k);
 
     we could do instead:
 
       for i
-        __consumes("RO(f, &t[i] ~> Struct)");
-        __produces("RO(f, &t[i].k ~> Cell)");
+        __xconsumes("RO(f, &t[i] ~> Struct)");
+        __xproduces("RO(f, &t[i].k ~> Cell)");
         __ghost(focus_ro_k);
 
     ===========
@@ -424,7 +424,8 @@ let%transfo make_strict_loop_contracts (tg: target): unit =
   Target.apply_at_target_paths make_strict_loop_contract_rec tg;
   justif_correct "only changed loop contracts"
 
-type unparsed_contract = (contract_clause_type * string) list
+type unparsed_fun_contract = (fun_contract_clause_type * string) list
+type unparsed_loop_contract = (loop_contract_clause_type * string) list
 
 let with_desugared_res push_fn clause (x, formula) contract =
   push_fn clause (x, (desugar_formula (Ast_fromto_AstC.caddress_elim formula))) contract
@@ -435,17 +436,26 @@ let parse_fun_contract =
 let parse_loop_contract ~strict =
   parse_contract_clauses (if strict then empty_strict_loop_contract else empty_loop_contract) (with_desugared_res push_loop_contract_clause)
 
-let __pure () = Requires, ""
+let __pure = Requires, ""
 let __requires (r: string) = Requires, r
 let __ensures (r: string) = Ensures, r
-let __invariant (r: string) = Invariant, r
 let __reads (r: string) = Reads, r
 let __writes (r: string) = Writes, r
 let __modifies (r: string) = Modifies, r
 let __consumes (r: string) = Consumes, r
 let __produces (r: string) = Produces, r
-let __sequentially_reads (r: string) = SequentiallyReads, r
-let __sequentially_modifies (r: string) = SequentiallyModifies, r
+
+let __loop_requires (r: string) = LoopVars, r
+let __xrequires (r: string) = Exclusive Requires, r
+let __xensures (r: string) = Exclusive Ensures, r
+let __xreads (r: string) = Exclusive Reads, r
+let __xwrites (r: string) = Exclusive Writes, r
+let __xmodifies (r: string) = Exclusive Modifies, r
+let __xconsumes (r: string) = Exclusive Consumes, r
+let __xproduces (r: string) = Exclusive Produces, r
+let __invariant (r: string) = Invariant, r
+let __sreads (r: string) = SharedReads, r
+let __smodifies (r: string) = SharedModifies, r
 
 let delete_annots_on (t : trm) : trm =
   let rec aux t =
@@ -482,14 +492,14 @@ let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
   let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
   trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
 
-let%transfo set_fun_contract (contract: unparsed_contract) (tg : Target.target) : unit =
+let%transfo set_fun_contract (contract: unparsed_fun_contract) (tg : Target.target) : unit =
   Target.apply_at_target_paths (set_fun_contract_on (parse_fun_contract contract)) tg
 
 let set_loop_contract_on (contract: loop_contract) (t: trm): trm =
   let range, body, _ = trm_inv ~error:"Resource.set_loop_contract_on: Expected for loop" trm_for_inv t in
   trm_like ~old:t (trm_for ~contract range body)
 
-let%transfo set_loop_contract ?(strict:bool=true) (contract: unparsed_contract) (tg: Target.target): unit =
+let%transfo set_loop_contract ?(strict:bool=true) (contract: unparsed_loop_contract) (tg: Target.target): unit =
   Target.apply_at_target_paths (set_loop_contract_on (parse_loop_contract ~strict contract)) tg;
   if not strict then begin
     ensure_computed ();

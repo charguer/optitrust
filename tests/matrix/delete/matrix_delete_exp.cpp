@@ -7,7 +7,7 @@ void simple(int N) {
   int x;
   for (int i = 0; i < N; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x += i;
   }
   x++;

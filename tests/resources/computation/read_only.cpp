@@ -14,16 +14,16 @@ void array_computation(float* M, int n) {
   int acc = 0;
   for (int i = 0; i < n; ++i) {
     __strict();
-    __sequentially_modifies("&acc ~> Cell");
-    __reads("&M[MINDEX1(n, i)] ~> Cell, &M[MINDEX1(n, i)] ~> Cell");
+    __smodifies("&acc ~> Cell");
+    __xreads("&M[MINDEX1(n, i)] ~> Cell, &M[MINDEX1(n, i)] ~> Cell");
 
     acc += M[MINDEX1(n, i)];
   }
 
   for (int i = 0; i < n; ++i) {
     __strict();
-    __parallel_reads("&acc ~> Cell, &acc ~> Cell");
-    __modifies("&M[MINDEX1(n, i)] ~> Cell");
+    __sreads("&acc ~> Cell, &acc ~> Cell");
+    __xmodifies("&M[MINDEX1(n, i)] ~> Cell");
 
     M[MINDEX1(n, i)] = acc;
   }

@@ -6,20 +6,20 @@ void matmul_seq(float* C, float* A, float* B, int m, int n, int p) {
   __reads("B ~> Matrix2(p, n)");
   for (int i = 0; i < m; i++) {
     __strict();
-    __sequentially_modifies("C ~> Matrix2(m, n)");
-    __parallel_reads("A ~> Matrix2(m, p)");
-    __parallel_reads("B ~> Matrix2(p, n)");
+    __smodifies("C ~> Matrix2(m, n)");
+    __sreads("A ~> Matrix2(m, p)");
+    __sreads("B ~> Matrix2(p, n)");
     for (int j = 0; j < n; j++) {
       __strict();
-      __sequentially_modifies("C ~> Matrix2(m, n)");
-      __parallel_reads("A ~> Matrix2(m, p)");
-      __parallel_reads("B ~> Matrix2(p, n)");
+      __smodifies("C ~> Matrix2(m, n)");
+      __sreads("A ~> Matrix2(m, p)");
+      __sreads("B ~> Matrix2(p, n)");
       float sum = 0.f;
       for (int k = 0; k < p; k++) {
         __strict();
-        __sequentially_modifies("&sum ~> Cell");
-        __parallel_reads("A ~> Matrix2(m, p)");
-        __parallel_reads("B ~> Matrix2(p, n)");
+        __smodifies("&sum ~> Cell");
+        __sreads("A ~> Matrix2(m, p)");
+        __sreads("B ~> Matrix2(p, n)");
         const __ghost_fn focusA =
             __ghost_begin(matrix2_ro_focus, "M := A, i := i, j := k");
         const __ghost_fn focusB =
@@ -42,20 +42,20 @@ void matmul_par(float* C, float* A, float* B, int m, int n, int p) {
   __reads("B ~> Matrix2(p, n)");
   for (int i = 0; i < m; i++) {
     __strict();
-    __parallel_reads("A ~> Matrix2(m, p)");
-    __parallel_reads("B ~> Matrix2(p, n)");
-    __modifies("for j in 0..n -> &C[MINDEX2(m, n, i, j)] ~> Cell");
+    __sreads("A ~> Matrix2(m, p)");
+    __sreads("B ~> Matrix2(p, n)");
+    __xmodifies("for j in 0..n -> &C[MINDEX2(m, n, i, j)] ~> Cell");
     for (int j = 0; j < n; j++) {
       __strict();
-      __parallel_reads("A ~> Matrix2(m, p)");
-      __parallel_reads("B ~> Matrix2(p, n)");
-      __modifies("&C[MINDEX2(m, n, i, j)] ~> Cell");
+      __sreads("A ~> Matrix2(m, p)");
+      __sreads("B ~> Matrix2(p, n)");
+      __xmodifies("&C[MINDEX2(m, n, i, j)] ~> Cell");
       float sum = 0.f;
       for (int k = 0; k < p; k++) {
         __strict();
-        __sequentially_modifies("&sum ~> Cell");
-        __parallel_reads("A ~> Matrix2(m, p)");
-        __parallel_reads("B ~> Matrix2(p, n)");
+        __smodifies("&sum ~> Cell");
+        __sreads("A ~> Matrix2(m, p)");
+        __sreads("B ~> Matrix2(p, n)");
         const __ghost_fn focusA =
             __ghost_begin(matrix2_ro_focus, "M := A, i := i, j := k");
         const __ghost_fn focusB =

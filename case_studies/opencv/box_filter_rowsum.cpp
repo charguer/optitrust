@@ -29,13 +29,13 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
 
   __ghost(swap_groups, "items := fun i, c -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
   for (int c = 0; c < cn; c++) { // foreach channel
-    __parallel_reads("S ~> Matrix2(n+kn, cn)");
-    __modifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+    __sreads("S ~> Matrix2(n+kn, cn)");
+    __xmodifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
     for (int i = 0; i < n; i++) { // for each pixel
-      __requires("is_subrange(i..i + kn, 0..n + kn)"); // TODO: solve
-      __parallel_reads("S ~> Matrix2(n+kn, cn)");
-      __modifies("&D[MINDEX2(n, cn, i, c)] ~> Cell");
+      __xrequires("is_subrange(i..i + kn, 0..n + kn)"); // TODO: solve
+      __sreads("S ~> Matrix2(n+kn, cn)");
+      __xmodifies("&D[MINDEX2(n, cn, i, c)] ~> Cell");
 
       // __GHOST_BEGIN(dfc, group2_ro_focus, "i := c, items := fun i, c -> &S[MINDEX2(n+kn, cn, i, c)] ~> Cell");
       // __GHOST_BEGIN(dfi, group_focus_subrange_ro, "i..i+kn, 0..n+kn");
@@ -63,14 +63,14 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
 
   __ghost(swap_groups, "items := fun i, c -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
   for (int c = 0; c < cn; c++) { // foreach channel
-    __parallel_reads("S ~> Matrix2(n+kn, cn)");
-    __modifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+    __sreads("S ~> Matrix2(n+kn, cn)");
+    __xmodifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
     // initialize the sliding window
     ST s = 0;
     for (int i = 0; i < kn; i++) {
-      __parallel_reads("S ~> Matrix2(n+kn, cn)");
-      __sequentially_modifies("&s ~> Cell");
+      __sreads("S ~> Matrix2(n+kn, cn)");
+      __smodifies("&s ~> Cell");
 
       __ghost(in_range_extend, "i, 0..kn, 0..(n + kn)");
       __GHOST_BEGIN(sf, matrix2_ro_focus, "M := S, i := i, j := c");
@@ -82,9 +82,9 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
     __GHOST_END(df);
     // for each pixel, shift the sliding window
     for (int i = 0; i < n-1; i++) {
-      __parallel_reads("S ~> Matrix2(n+kn, cn)");
-      __sequentially_modifies("&s ~> Cell");
-      __sequentially_modifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+      __sreads("S ~> Matrix2(n+kn, cn)");
+      __smodifies("&s ~> Cell");
+      __smodifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
       __ghost(in_range_extend, "i, 0..(n-1), 0..(n+kn)");
       __GHOST_BEGIN(sf1, matrix2_ro_focus, "M := S, i := i, j := c");

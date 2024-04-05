@@ -6,8 +6,8 @@ void alloc(int n) {
   int* const m = (int* const)MALLOC1(n, sizeof(int));
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("_Uninit(m ~> Matrix1(n))");
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("_Uninit(m ~> Matrix1(n))");
+    __smodifies("&x ~> Cell");
     x++;
   }
   MFREE1(n, m);
@@ -18,8 +18,8 @@ void var_wrong(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("_Uninit(&x ~> Cell)");
-    __modifies("&t[MINDEX1(3, i)] ~> Cell");
+    __smodifies("_Uninit(&x ~> Cell)");
+    __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = 3;
     t[MINDEX1(3, i)] = x;
   }

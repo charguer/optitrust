@@ -9,10 +9,10 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
   __modifies("C ~> Matrix2(m, n)");
 
   for (int i = 0; i < m; i++) {
-    __modifies("for j in 0..n -> &C[MINDEX2(m, n, i, j)] ~> Cell");
+    __xmodifies("for j in 0..n -> &C[MINDEX2(m, n, i, j)] ~> Cell");
 
     for (int j = 0; j < n; j++) {
-      __modifies("&C[MINDEX2(m, n, i, j)] ~> Cell");
+      __xmodifies("&C[MINDEX2(m, n, i, j)] ~> Cell");
 
       float sum = 0.0f;
       for (int k = 0; k < p; k++) {

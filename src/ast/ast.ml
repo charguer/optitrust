@@ -1496,7 +1496,7 @@ let default_style () : style = {
 
 (** Style for reparsing *)
 let style_for_reparse () : style =
-  { print_contract_internal_repr = false;
+  { print_contract_internal_repr = true;
     print_var_id = false;
     print_generated_ids = false;
     print_string_repr = false;

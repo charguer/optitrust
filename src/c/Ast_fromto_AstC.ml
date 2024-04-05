@@ -613,16 +613,22 @@ open Resource_contract
 let __pure = name_to_var "__pure"
 let __requires = name_to_var "__requires"
 let __ensures = name_to_var "__ensures"
-let __invariant = name_to_var "__invariant"
 let __reads = name_to_var "__reads"
 let __writes = name_to_var "__writes"
 let __modifies = name_to_var "__modifies"
 let __consumes = name_to_var "__consumes"
 let __produces = name_to_var "__produces"
-let __sequentially_reads = name_to_var "__sequentially_reads"
-let __sequentially_modifies = name_to_var "__sequentially_modifies"
-let __parallel_reads = name_to_var "__parallel_reads"
-let __loop_ghosts = name_to_var "__loop_ghosts"
+
+let __xrequires = name_to_var "__xrequires"
+let __xensures = name_to_var "__xensures"
+let __xreads = name_to_var "__xreads"
+let __xwrites = name_to_var "__xwrites"
+let __xmodifies = name_to_var "__xmodifies"
+let __xconsumes = name_to_var "__xconsumes"
+let __xproduces = name_to_var "__xproduces"
+let __invariant = name_to_var "__invariant"
+let __smodifies = name_to_var "__smodifies"
+let __sreads = name_to_var "__sreads"
 let __strict = name_to_var "__strict"
 
 let __reverts = name_to_var "__reverts"
@@ -635,28 +641,44 @@ let __joined_res = name_to_var "__joined_res"
 let __contract_inst = name_to_var "__contract_inst"
 let __post_inst = name_to_var "__post_inst"
 
-let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
+let fun_clause_type_inv (clause: var) : fun_contract_clause_type option =
+  match clause.name with
+  | "__pure" -> Some Requires
+  | "__requires" -> Some Requires
+  | "__ensures" -> Some Ensures
+  | "__reads" -> Some Reads
+  | "__writes" -> Some Writes
+  | "__modifies" -> Some Modifies
+  | "__consumes" -> Some Consumes
+  | "__produces" -> Some Produces
+  | "__xrequires" | "__xensures" | "__xreads" | "__xwrites" | "__xmodifies"
+  | "__xconsumes" | "__xproduces" | "__invariant" | "__sreads" | "__smodifies" | "__strict" ->
+    failwith (sprintf "Found the loop contract clause '%s' in a function contract" clause.name)
+  | _ -> None
+
+let loop_clause_type_inv (clause: var) : loop_contract_clause_type option =
+  match clause.name with
+  | "__requires" -> Some LoopVars
+  | "__xrequires" -> Some (Exclusive Requires)
+  | "__xensures" -> Some (Exclusive Ensures)
+  | "__xreads" -> Some (Exclusive Reads)
+  | "__xwrites" -> Some (Exclusive Writes)
+  | "__xmodifies" -> Some (Exclusive Modifies)
+  | "__xconsumes" -> Some (Exclusive Consumes)
+  | "__xproduces" -> Some (Exclusive Produces)
+  | "__invariant" -> Some Invariant
+  | "__sreads" -> Some SharedReads
+  | "__smodifies" -> Some SharedModifies
+  | "__strict" -> Some Strict
+  | "__pure" | "__ensures" | "__reads" | "__writes" | "__modifies" | "__consumes" | "__produces" ->
+    failwith (sprintf "Found the function contract clause '%s' in a loop contract" clause.name)
+  | _ -> None
+
+let encoded_clause_inv (clause_type_inv: var -> 'clause_type option) (t: trm): ('clause_type * string) option =
   let open Xoption.OptionMonad in
   let* fn, args = trm_apps_inv t in
   let* fn_var = trm_var_inv fn in
-  let* clause =
-    match fn_var.name with
-    | "__pure" -> Some Requires
-    | "__requires" -> Some Requires
-    | "__ensures" -> Some Ensures
-    | "__invariant" -> Some Invariant
-    | "__reads" -> Some Reads
-    | "__writes" -> Some Writes
-    | "__modifies" -> Some Modifies
-    | "__consumes" -> Some Consumes
-    | "__produces" -> Some Produces
-    | "__sequentially_reads" -> Some SequentiallyReads
-    | "__sequentially_modifies" -> Some SequentiallyModifies
-    | "__parallel_reads" -> Some ParallelReads
-    | "__loop_ghosts" -> Some LoopGhosts
-    | "__strict" -> Some Strict
-    | _ -> None
-  in
+  let* clause = clause_type_inv fn_var in
   let arg = Option.value ~default:(trm_string "") (List.nth_opt args 0) in
   let* arg = trm_lit_inv arg in
   let* arg =
@@ -666,19 +688,19 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
   in
   Some (clause, arg)
 
-let rec extract_encoded_contract_clauses (seq: trm mlist):
-  (contract_clause_type * string) list * trm mlist =
-  match Option.bind (Mlist.nth_opt seq 0) encoded_contract_inv with
+let rec extract_encoded_contract_clauses (clause_type_inv: var -> 'clause_type option) (seq: trm mlist):
+  ('clause_type * string) list * trm mlist =
+  match Option.bind (Mlist.nth_opt seq 0) (encoded_clause_inv clause_type_inv) with
   | Some contract ->
-    let cont, seq = extract_encoded_contract_clauses (Mlist.pop_front seq) in
+    let cont, seq = extract_encoded_contract_clauses clause_type_inv (Mlist.pop_front seq) in
     contract::cont, seq
   | None -> [], seq
 
-let extract_contract (empty_contract: 'c) (push_contract_clause: contract_clause_type -> resource_item -> 'c -> 'c) (seq: trm mlist) : 'c option * trm mlist =
-  let enc_contract, seq = extract_encoded_contract_clauses seq in
+let extract_fun_contract (seq: trm mlist) : fun_contract option * trm mlist =
+  let enc_contract, seq = extract_encoded_contract_clauses fun_clause_type_inv seq in
   match enc_contract with
   | [] -> None, seq
-  | _ -> Some (parse_contract_clauses empty_contract push_contract_clause enc_contract), seq
+  | _ -> Some (parse_contract_clauses empty_fun_contract push_fun_contract_clause enc_contract), seq
 
 let encoded_reverts_inv (t: trm): var option =
   Pattern.pattern_match t [
@@ -692,14 +714,14 @@ let extract_fun_spec (seq: trm mlist) : fun_spec * trm mlist =
   match Option.bind (Mlist.nth_opt seq 0) encoded_reverts_inv with
   | Some reverts_fn -> FunSpecReverts reverts_fn, Mlist.pop_front seq
   | None ->
-    let contract_opt, seq = extract_contract empty_fun_contract push_fun_contract_clause seq in
+    let contract_opt, seq = extract_fun_contract seq in
     match contract_opt with
     | None -> FunSpecUnknown, seq
     | Some c -> FunSpecContract c, seq
 
 
 let extract_loop_contract (seq: trm mlist) : loop_contract * trm mlist =
-  let enc_contract, seq = extract_encoded_contract_clauses seq in
+  let enc_contract, seq = extract_encoded_contract_clauses loop_clause_type_inv seq in
   let is_strict = ref false in
   let enc_contract = List.filter (fun (clause_type, _) ->
     if clause_type = Strict then
@@ -890,23 +912,26 @@ let rec contract_intro (style: style) (t: trm): trm =
       seq_push tres t) named_formulas t
   in
 
-  let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) ?(writes_prim: var option) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
+  let push_common_clauses ?(reads_clause: var option) ~(modifies_clause: var) ?(writes_clause: var option) (pure_with_fracs: resource_item list) (pre_linear: resource_item list) (post_linear: resource_item list) (t: trm): resource_item list * resource_item list * resource_item list * trm =
     let common_linear, pre_linear, post_linear = Resource_formula.filter_common_resources pre_linear post_linear in
 
     (* FIXME: This turns two reads formulas with a shared id into reads formulas with distinct id.
        Maybe this is not a problem in practice. *)
     let frac_to_remove = Hashtbl.create (List.length common_linear) in
     let reads_res, modifies_res =
-      List.partition_map (fun (h, formula) ->
-        match formula_read_only_inv formula with
-        | Some { frac; formula = ro_formula } ->
-          begin match trm_var_inv frac with
-          | Some frac_atom ->
-            Hashtbl.add frac_to_remove frac_atom ();
-            Left (h, ro_formula)
-          | None -> Right (h, formula)
-          end
-        | None -> Right (h, formula)) common_linear
+      if reads_clause = None then
+        [], common_linear
+      else
+        List.partition_map (fun (h, formula) ->
+          match formula_read_only_inv formula with
+          | Some { frac; formula = ro_formula } ->
+            begin match trm_var_inv frac with
+            | Some frac_atom ->
+              Hashtbl.add frac_to_remove frac_atom ();
+              Left (h, ro_formula)
+            | None -> Right (h, formula)
+            end
+          | None -> Right (h, formula)) common_linear
     in
 
     let hyp_not_mem_before_pop (hyp, _) =
@@ -919,19 +944,22 @@ let rec contract_intro (style: style) (t: trm): trm =
     if (Hashtbl.length frac_to_remove != 0) then
       Tools.warn ("Some fractions should have been discarded but they were not found in context: " ^ String.concat ", " (Hashtbl.fold (fun frac () acc -> frac.name :: acc) frac_to_remove []));
 
-    let t = push_named_formulas reads_prim reads_res t in
-    let t, pre_linear, post_linear = match writes_prim with
+    let t = match reads_clause with
+      | Some reads_clause -> push_named_formulas reads_clause reads_res t
+      | None -> t
+    in
+    let t, pre_linear, post_linear = match writes_clause with
       | Some writes_prim ->
         let writes_res, pre_linear, post_linear = Resource_formula.filter_common_resources ~filter_map_left:formula_uninit_inv pre_linear post_linear in
         push_named_formulas writes_prim writes_res t, pre_linear, post_linear
       | None -> t, pre_linear, post_linear
     in
-    let t = push_named_formulas modifies_prim modifies_res t in
+    let t = push_named_formulas modifies_clause modifies_res t in
     (pre_pure, pre_linear, post_linear, t)
   in
-  let push_reads_and_modifies ?(force=false) = if style.cstyle.ast.print_contract_internal_repr && not force then
-    fun _ _ ?writes_prim pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)
-    else push_reads_and_modifies
+  let push_common_clauses ?(force=false) = if style.cstyle.ast.print_contract_internal_repr && not force then
+    fun ?reads_clause ~modifies_clause ?writes_clause pure_with_fracs pre_linear post_linear t -> (pure_with_fracs, pre_linear, post_linear, t)
+    else push_common_clauses
   in
 
   (* TODO: Inline into Trm_fun branch when Trm_let_fun disappears *)
@@ -943,7 +971,7 @@ let rec contract_intro (style: style) (t: trm): trm =
     | FunSpecContract contract ->
       let used_vars = fun_contract_used_vars contract in
       let pre_pure, pre_linear, post_linear, body =
-        push_reads_and_modifies __reads __modifies ~writes_prim:__writes contract.pre.pure contract.pre.linear contract.post.linear body
+        push_common_clauses ~reads_clause:__reads ~modifies_clause:__modifies ~writes_clause:__writes contract.pre.pure contract.pre.linear contract.post.linear body
       in
       let body = push_named_formulas __produces post_linear body in
       let body = push_named_formulas __ensures ~used_vars contract.post.pure body in
@@ -972,25 +1000,21 @@ let rec contract_intro (style: style) (t: trm): trm =
     let body = contract_intro style body0 in
     let used_vars = loop_contract_used_vars contract in
     let loop_ghosts, pre_linear, post_linear, body =
-      push_reads_and_modifies __reads __modifies ~writes_prim:__writes
+      push_common_clauses ~reads_clause:__xreads ~modifies_clause:__xmodifies ~writes_clause:__xwrites
         contract.loop_ghosts contract.iter_contract.pre.linear contract.iter_contract.post.linear body
     in
-    let body = push_named_formulas __produces post_linear body in
-    let body = push_named_formulas __ensures ~used_vars contract.iter_contract.post.pure body in
-    let body = push_named_formulas __consumes pre_linear body in
-    let body = push_named_formulas __requires ~used_vars contract.iter_contract.pre.pure body in
+    let body = push_named_formulas __xproduces post_linear body in
+    let body = push_named_formulas __xensures ~used_vars contract.iter_contract.post.pure body in
+    let body = push_named_formulas __xconsumes pre_linear body in
+    let body = push_named_formulas __xrequires ~used_vars contract.iter_contract.pre.pure body in
     List.iter (fun (_, formula) -> if formula_read_only_inv formula = None then failwith "parallel_reads contains non RO resources") contract.parallel_reads;
     let loop_ghosts, _, _, body =
-      push_reads_and_modifies ~force:true __parallel_reads __parallel_reads
+      push_common_clauses ~force:true ~reads_clause:__sreads ~modifies_clause:__sreads
         loop_ghosts contract.parallel_reads contract.parallel_reads body
     in
-    let loop_ghosts, invariant_linear, _, body =
-      push_reads_and_modifies __sequentially_reads __sequentially_modifies
-        loop_ghosts contract.invariant.linear contract.invariant.linear body
-    in
-    let body = push_named_formulas __sequentially_modifies ~used_vars invariant_linear body in
+    let body = push_named_formulas __smodifies ~used_vars contract.invariant.linear body in
     let body = push_named_formulas __invariant ~used_vars contract.invariant.pure body in
-    let body = push_named_formulas __loop_ghosts ~used_vars loop_ghosts body in
+    let body = push_named_formulas __requires ~used_vars loop_ghosts body in
     let body = if contract.strict
       then seq_push (trm_apps (trm_var __strict) []) body
       else body in

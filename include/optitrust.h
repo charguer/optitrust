@@ -13,17 +13,23 @@
 inline void __pure() {}
 inline void __requires(const char*) {}
 inline void __ensures(const char*) {}
-inline void __invariant(const char*) {}
 inline void __reads(const char*) {}
 inline void __writes(const char*) {}
 inline void __modifies(const char*) {}
 inline void __consumes(const char*) {}
 inline void __produces(const char*) {}
-inline void __sequentially_reads(const char*) {}
-inline void __sequentially_modifies(const char*) {}
-inline void __parallel_reads(const char*) {}
-inline void __loop_ghosts(const char*) {}
+
 inline void __strict() {}
+inline void __xrequires(const char*) {}
+inline void __xensures(const char*) {}
+inline void __xreads(const char*) {}
+inline void __xwrites(const char*) {}
+inline void __xmodifies(const char*) {}
+inline void __xconsumes(const char*) {}
+inline void __xproduces(const char*) {}
+inline void __invariant(const char*) {}
+inline void __smodifies(const char*) {}
+inline void __sreads(const char*) {}
 
 inline void __admitted() {}
 
@@ -315,7 +321,7 @@ uint16_t reduce_spe2(int start, int stop, const uint8_t* input, int n, int m, in
 
   /* T acc = 0;
   for (int k = start; k < stop; k++) {
-    __reads("&input[MINDEX1(n, k)] ~> Cell");
+    __xreads("&input[MINDEX1(n, k)] ~> Cell");
     acc = acc + input[MINDEX(n, k)];
   }
   return acc; */
@@ -629,11 +635,11 @@ __GHOST(group2_focus_subrange_uninit) {
                  "    &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))"
                  "))");
       for (int i = 0; i < 10; i++) {
-        __consumes("_Uninit("
+        __xconsumes("_Uninit("
                   "Group(0..10, fun j -> "
                   "for k in 0..4 ->"
                   "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))");
-        __produces("_Uninit("
+        __xproduces("_Uninit("
                   "Group(2..10, fun j -> "
                   "for k in 0..4 ->"
                   "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))"
@@ -655,11 +661,11 @@ __GHOST(group2_focus_subrange_uninit) {
     },
     [&]() {
       for (int i = 0; i < 10; i++) {
-        __produces("_Uninit("
+        __xproduces("_Uninit("
                   "Group(0..10, fun j -> "
                   "for k in 0..4 ->"
                   "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))");
-        __consumes("_Uninit("
+        __xconsumes("_Uninit("
                   "Group(2..10, fun j -> "
                   "for k in 0..4 ->"
                   "  &a[MINDEX3(10,10,4,i,j,k)] ~> Cell))"

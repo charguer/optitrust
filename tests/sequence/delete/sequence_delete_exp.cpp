@@ -13,8 +13,8 @@ void dead_code() {
   int x = 3;
   for (int i = 0; i < 2; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __sequentially_modifies("&z ~> Cell");
+    __smodifies("&x ~> Cell");
+    __smodifies("&z ~> Cell");
     z = i;
     x = z;
   }

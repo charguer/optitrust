@@ -6,14 +6,14 @@ void f(int* t, int* u) {
   int* const t2 = (int* const)MALLOC1(10, sizeof(int));
   for (int i = 0; i < 10; i++) {
     __strict();
-    __writes("&t2[MINDEX1(10, i)] ~> Cell");
-    __reads("&t[MINDEX1(10, i)] ~> Cell");
+    __xwrites("&t2[MINDEX1(10, i)] ~> Cell");
+    __xreads("&t[MINDEX1(10, i)] ~> Cell");
     t2[MINDEX1(10, i)] = t[MINDEX1(10, i)];
   }
   for (int i = 0; i < 10; i++) {
     __strict();
-    __writes("&u[MINDEX1(10, i)] ~> Cell");
-    __reads("&t2[MINDEX1(10, i)] ~> Cell");
+    __xwrites("&u[MINDEX1(10, i)] ~> Cell");
+    __xreads("&t2[MINDEX1(10, i)] ~> Cell");
     int x = t2[MINDEX1(10, i)];
     u[MINDEX1(10, i)] = x;
     int z = x;
@@ -24,10 +24,10 @@ void f(int* t, int* u) {
   t02[MINDEX0()] = t[MINDEX1(10, 0)];
   for (int l = 0; l < 5; l++) {
     __strict();
-    __parallel_reads("t02 ~> Matrix0()");
+    __sreads("t02 ~> Matrix0()");
     for (int m = 0; m < 2; m++) {
       __strict();
-      __parallel_reads("t02 ~> Matrix0()");
+      __sreads("t02 ~> Matrix0()");
       int x = l + m + t02[MINDEX0()];
     }
   }
@@ -36,19 +36,19 @@ void f(int* t, int* u) {
   int* const a2 = (int* const)MALLOC1(8, sizeof(int));
   for (int a = 0; a < 8; a++) {
     __strict();
-    __writes("&a2[MINDEX1(8, a)] ~> Cell");
+    __xwrites("&a2[MINDEX1(8, a)] ~> Cell");
     a2[MINDEX1(8, a)] = a;
   }
   for (int a = 0; a < 8; a++) {
     __strict();
-    __reads("&a2[MINDEX1(8, a)] ~> Cell");
+    __xreads("&a2[MINDEX1(8, a)] ~> Cell");
     int y = 0;
     for (int b = 0; b < 5; b++) {
       __strict();
-      __parallel_reads("&a2[MINDEX1(8, a)] ~> Cell");
+      __sreads("&a2[MINDEX1(8, a)] ~> Cell");
       for (int c = 0; c < 2; c++) {
         __strict();
-        __parallel_reads("&a2[MINDEX1(8, a)] ~> Cell");
+        __sreads("&a2[MINDEX1(8, a)] ~> Cell");
         int x = a2[MINDEX1(8, a)] + b + c;
       }
       int z = 0;

@@ -201,9 +201,9 @@ let pointwise_fors
       ) contract formulas
     in
     let contract = empty_strict_loop_contract
-      |> push_clauses Reads reads
-      |> push_clauses Writes writes
-      |> push_clauses Modifies modifies
+      |> push_clauses (Exclusive Reads) reads
+      |> push_clauses (Exclusive Writes) writes
+      |> push_clauses (Exclusive Modifies) modifies
     in
     let t' = trm_for ~contract range (if (is_trm_seq t) then t else trm_seq_nomarks [t]) in
     let reads' = List.map (Resource_formula.formula_group_range range) reads in

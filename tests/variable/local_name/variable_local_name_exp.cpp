@@ -7,11 +7,11 @@ __pure();
   T a;
       for (int j = 0; j < 10; j++) {
       __strict();
-      __sequentially_modifies("&a ~> Cell");
+      __smodifies("&a ~> Cell");
     auto x = a;
         for (int i = 0; i < j; i++) {
 __strict();
-__sequentially_modifies("&x ~> Cell");
+__smodifies("&x ~> Cell");
           x++;
         }
         a = x;
@@ -33,10 +33,10 @@ void ko1() {
   int& b = a;
   for (int j = 0; j < 10; j++) {
     __strict();
-    __sequentially_modifies("&a ~> Cell");
+    __smodifies("&a ~> Cell");
         for (int i = 0; i < j; i++) {
       __strict();
-      __sequentially_modifies("&a ~> Cell");
+      __smodifies("&a ~> Cell");
       a++;
       b++;
     }

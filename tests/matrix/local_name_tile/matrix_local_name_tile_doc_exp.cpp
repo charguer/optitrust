@@ -16,7 +16,7 @@ void f() {
       "");
   for (int i = 3; i < 7; i++) {
     __strict();
-    __writes("&b[MINDEX1(4, i - 3)] ~> Cell");
+    __xwrites("&b[MINDEX1(4, i - 3)] ~> Cell");
     b[MINDEX1(4, i - 3)] = 0;
   }
   __ghost(

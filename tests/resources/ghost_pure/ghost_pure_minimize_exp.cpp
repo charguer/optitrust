@@ -40,7 +40,7 @@
   __pure();
   for ( int i = 0; i < 100; ++i ) {
     __strict();
-    __ensures("Triv(i)");
+    __xensures("Triv(i)");
     __ghost(trivial_init, "k := i + 12");
     req_triv(i + 12);
     __ghost(trivial_init, "k := i");

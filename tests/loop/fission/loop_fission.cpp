@@ -94,18 +94,18 @@ void seq_ro_par_rw(int m, int n, int o, int* t) {
   int x = 0;
   for (int i = 0; i < m; i++) {
     __strict();
-    __parallel_reads("&x ~> Cell");
-    __modifies("for j in 0..n -> for k in 0..o -> &t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
+    __sreads("&x ~> Cell");
+    __xmodifies("for j in 0..n -> for k in 0..o -> &t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
 
     for (int j = 0; j < n; j++) {
       __strict();
-      __parallel_reads("&x ~> Cell");
-      __modifies("for k in 0..o -> &t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
+      __sreads("&x ~> Cell");
+      __xmodifies("for k in 0..o -> &t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
 
       for (int k = 0; k < o; k++) {
         __strict();
-        __parallel_reads("&x ~> Cell");
-        __modifies("&t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
+        __sreads("&x ~> Cell");
+        __xmodifies("&t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
 
         t[MINDEX3(m, n, o, i, j, k)] = x;
         int y = t[MINDEX3(m, n, o, i, j, k)];
@@ -120,12 +120,12 @@ void ghost_scope(int m, int n) {
   int x = 0;
   for (int i = 0; i < m; i++) {
     __strict();
-    __parallel_reads("&x ~> Cell");
+    __sreads("&x ~> Cell");
 
     __GHOST_BEGIN(xfg, ro_fork_group, "H := &x ~> Cell, r:= 0..n");
     for (int j = 0; j < n; j++) {
         __strict();
-        __reads("&x ~> Cell");
+        __xreads("&x ~> Cell");
 
         int y = x;
         int z = x;
@@ -154,7 +154,7 @@ void ghost_pure(int m, int n) {
 
   for (int i = 0; i < m; i++) {
     __strict();
-    __ensures("Triv(6)");
+    __xensures("Triv(6)");
 
     __ghost(ensures_pure, "1");
     __ghost(ensures_pure, "2");

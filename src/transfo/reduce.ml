@@ -56,12 +56,12 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     let value = (trm_cast acc_typ (Matrix_trm.get input [n; m] [trm_var index; j])) in
     let loop_range = { index; start; direction = DirUp; stop; step = Post_inc } in
     let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
-      push_loop_contract_clause SequentiallyModifies
+      push_loop_contract_clause SharedModifies
         (new_anon_hyp (), formula_cell acc) |>
-      push_loop_contract_clause ParallelReads
+      push_loop_contract_clause SharedReads
         (new_anon_hyp (), formula_matrix input [n; m]) |>
       (* FIXME: derive this requires from previous facts. *)
-      push_loop_contract_clause Requires
+      push_loop_contract_clause (Exclusive Requires)
         (new_anon_hyp (), formula_in_range (trm_var index)
           (formula_range (trm_int 0) n (trm_int 1)))
     )) in
@@ -221,14 +221,14 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let one_range = { range with stop = new_range.start } in
   let (unroll_ghosts, roll_ghosts) = Loop_core.unroll_ghost_pair one_range contract [range.start] in
   let new_contract = contract |>
-    Resource_contract.push_loop_contract_clause SequentiallyModifies
+    Resource_contract.push_loop_contract_clause SharedModifies
       (new_anon_hyp (), formula_cell acc) |>
     (* FIXME: derive these requires from previous facts. *)
-    Resource_contract.push_loop_contract_clause Requires
+    Resource_contract.push_loop_contract_clause (Exclusive Requires)
       (new_anon_hyp (), formula_is_subrange
         (formula_range rec_reduce_add_start rec_stop step)
         (formula_range (trm_int 0) n step)) |>
-    Resource_contract.push_loop_contract_clause Requires
+    Resource_contract.push_loop_contract_clause (Exclusive Requires)
       (new_anon_hyp (), formula_is_subrange
         (formula_range rec_reduce_sub_start index step)
         (formula_range (trm_int 0) n step))

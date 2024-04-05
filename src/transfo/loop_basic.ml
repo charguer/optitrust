@@ -207,7 +207,7 @@ let hoist_on (name : string)
       Resource_formula.formula_group_range { index = i; start = trm_int 0; direction = DirUp; stop = d; step = Post_inc } acc
     ) (List.combine other_indices dims) Resource_formula.(formula_model access trm_cell) in
     let new_resource = Resource_formula.(formula_uninit grouped_access) in
-    new_body_instrs, Resource_contract.push_loop_contract_clause Modifies (Resource_formula.new_anon_hyp (), new_resource) contract
+    new_body_instrs, Resource_contract.push_loop_contract_clause (Exclusive Modifies) (Resource_formula.new_anon_hyp (), new_resource) contract
   else
     new_body_instrs, contract
   in
@@ -380,25 +380,16 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         };
         strict = true;
       } in
-      let partial_snd_contract = {
+      let snd_contract = {
         loop_ghosts = (*List.map (fun (efrac, _) -> (efrac, trm_frac)) split_res.efracs @*) contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl2_inv_writes };
-        parallel_reads = contract.parallel_reads;
+        parallel_reads = tl1_inv_reads @ contract.parallel_reads;
         iter_contract = {
           pre = { middle_iter_contract with pure = tl1_ensured @ contract.iter_contract.pre.pure };
           post = contract.iter_contract.post; (* LATER: Can be slightly more clever here, by removing ensures that are already done by the first loop. *)
         };
         strict = true;
       } in
-      let snd_contract =
-        List.fold_left (fun acc (h, f) ->
-          let clause = match formula_read_only_inv f with
-          | Some _ -> Resource_contract.SequentiallyModifies
-          | None -> Resource_contract.SequentiallyReads
-          in
-          Resource_contract.push_loop_contract_clause clause (Resource_formula.new_anon_hyp (), f) acc
-        ) partial_snd_contract tl1_inv_reads
-      in
       fst_contract, snd_contract
   in
 

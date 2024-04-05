@@ -6,12 +6,12 @@ void f1(int* y) {
   int z = 0;
   for (int a = 0; a < 4; a++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __sequentially_modifies("&z ~> Cell");
-    __sequentially_modifies("y ~> Matrix2(4, 4)");
+    __smodifies("&x ~> Cell");
+    __smodifies("&z ~> Cell");
+    __smodifies("y ~> Matrix2(4, 4)");
     for (int b = 0; b < 4; b++) {
       __strict();
-      __sequentially_modifies("&x ~> Cell");
+      __smodifies("&x ~> Cell");
       x++;
       x++;
     }
@@ -20,10 +20,10 @@ void f1(int* y) {
             "&y[MINDEX2(4, 4, b, c)] ~> Cell");
     for (int c = 0; c < 4; c++) {
       __strict();
-      __modifies("for b in 0..4 -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
+      __xmodifies("for b in 0..4 -> &y[MINDEX2(4, 4, b, c)] ~> Cell");
       for (int b = 0; b < 4; b++) {
         __strict();
-        __modifies("&y[MINDEX2(4, 4, b, c)] ~> Cell");
+        __xmodifies("&y[MINDEX2(4, 4, b, c)] ~> Cell");
         y[MINDEX2(4, 4, b, c)]++;
       }
     }
@@ -32,7 +32,7 @@ void f1(int* y) {
             "&y[MINDEX2(4, 4, b, c)] ~> Cell");
     for (int b = 0; b < 4; b++) {
       __strict();
-      __sequentially_modifies("&z ~> Cell");
+      __smodifies("&z ~> Cell");
       z++;
       z++;
     }
@@ -45,28 +45,28 @@ void f2(float* A, float* B, int m, int n, int p) {
   float* const sum = (float* const)MALLOC2(m, n, sizeof(float));
   for (int i = 0; i < m; i++) {
     __strict();
-    __writes("for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell");
+    __xwrites("for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell");
     for (int j = 0; j < n; j++) {
       __strict();
-      __writes("&sum[MINDEX2(m, n, i, j)] ~> Cell");
+      __xwrites("&sum[MINDEX2(m, n, i, j)] ~> Cell");
       sum[MINDEX2(m, n, i, j)] = 0.f;
     }
   }
   for (int k = 0; k < p; k++) {
     __strict();
-    __sequentially_modifies("sum ~> Matrix2(m, n)");
-    __parallel_reads("A ~> Matrix2(m, p)");
-    __parallel_reads("B ~> Matrix2(p, n)");
+    __smodifies("sum ~> Matrix2(m, n)");
+    __sreads("A ~> Matrix2(m, p)");
+    __sreads("B ~> Matrix2(p, n)");
     for (int i = 0; i < m; i++) {
       __strict();
-      __parallel_reads("A ~> Matrix2(m, p)");
-      __parallel_reads("B ~> Matrix2(p, n)");
-      __modifies("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
+      __sreads("A ~> Matrix2(m, p)");
+      __sreads("B ~> Matrix2(p, n)");
+      __xmodifies("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
       for (int j = 0; j < n; j++) {
         __strict();
-        __parallel_reads("A ~> Matrix2(m, p)");
-        __parallel_reads("B ~> Matrix2(p, n)");
-        __modifies("&sum[MINDEX2(m, n, i, j)] ~> Cell");
+        __sreads("A ~> Matrix2(m, p)");
+        __sreads("B ~> Matrix2(p, n)");
+        __xmodifies("&sum[MINDEX2(m, n, i, j)] ~> Cell");
         __ghost(matrix2_ro_focus, "M := A, i := i, j := k");
         __ghost(matrix2_ro_focus, "M := B, i := k, j := j");
         sum[MINDEX2(m, n, i, j)] +=
@@ -78,13 +78,13 @@ void f2(float* A, float* B, int m, int n, int p) {
   }
   for (int i = 0; i < m; i++) {
     __strict();
-    __consumes("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
-    __produces(
+    __xconsumes("for j in 0..n -> &sum[MINDEX2(m, n, i, j)] ~> Cell");
+    __xproduces(
         "_Uninit(for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell)");
     for (int j = 0; j < n; j++) {
       __strict();
-      __consumes("&sum[MINDEX2(m, n, i, j)] ~> Cell");
-      __produces("_Uninit(&sum[MINDEX2(m, n, i, j)] ~> Cell)");
+      __xconsumes("&sum[MINDEX2(m, n, i, j)] ~> Cell");
+      __xproduces("_Uninit(&sum[MINDEX2(m, n, i, j)] ~> Cell)");
       sum[MINDEX2(m, n, i, j)]++;
     }
   }
@@ -97,16 +97,16 @@ void f1_wrong() {
   int y = 0;
   for (int a = 0; a < 4; a++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __sequentially_modifies("&y ~> Cell");
+    __smodifies("&x ~> Cell");
+    __smodifies("&y ~> Cell");
     for (int b = 0; b < 4; b++) {
       __strict();
-      __sequentially_modifies("&x ~> Cell");
-      __sequentially_modifies("&y ~> Cell");
+      __smodifies("&x ~> Cell");
+      __smodifies("&y ~> Cell");
       x = 0;
       for (int c = 0; c < 4; c++) {
         __strict();
-        __sequentially_modifies("&x ~> Cell");
+        __smodifies("&x ~> Cell");
         x += c;
       }
       y += x;

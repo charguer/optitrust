@@ -33,7 +33,7 @@ void f() {
 void g() {
   __pure();
   for (int i = 0; i < 100; ++i) {
-    __ensures("Triv(i)");
+    __xensures("Triv(i)");
     __ghost(trivial_init, "i");
     __ghost(trivial_init, "i*2");
     __ghost(trivial_init, "i+12");

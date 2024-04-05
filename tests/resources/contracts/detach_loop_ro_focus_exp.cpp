@@ -5,8 +5,8 @@ void f(int* M) {
   int acc = 0;
   for (int i = 0; i < 10; ++i) {
     __strict();
-    __sequentially_modifies("&acc ~> Cell");
-    __parallel_reads("M ~> Matrix1(10)");
+    __smodifies("&acc ~> Cell");
+    __sreads("M ~> Matrix1(10)");
     const __ghost_fn __ghost_pair_1 = __ghost_begin(
         group_ro_focus, "i := i, items := fun i -> &M[MINDEX1(10, i)] ~> Cell");
     acc += M[MINDEX1(10, i)];

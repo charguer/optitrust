@@ -165,7 +165,7 @@ let%transfo swap_basic (tg : target) : unit =
 
   {v
   for i: <<< tg @outer_loop_m
-    __sequentially_reads(H);
+    __sreads(H);
     GHOST_BEGIN(gp, g);
     for j: <<< @inner_loop_m
       body;

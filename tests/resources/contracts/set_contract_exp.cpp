@@ -23,7 +23,7 @@ void incr_range(int* m, int sz) {
   __modifies("m ~> Matrix1(sz)");
   for (int i = 0; i < sz; ++i) {
     __strict();
-    __modifies("&m[MINDEX1(sz, i)] ~> Cell");
+    __xmodifies("&m[MINDEX1(sz, i)] ~> Cell");
     incr(&m[MINDEX1(sz, i)]);
   }
 }
@@ -33,7 +33,7 @@ void loop(int n) {
   int acc = 0;
   for (int j = 0; j < n; ++j) {
     __strict();
-    __sequentially_modifies("&acc ~> Cell");
+    __smodifies("&acc ~> Cell");
     ++acc;
   }
 }
@@ -43,8 +43,8 @@ void non_strict(int* M, int n) {
   int acc = 0;
   for (int j = 0; j < n; ++j) {
     __strict();
-    __sequentially_modifies("&acc ~> Cell");
-    __reads("&M[MINDEX1(n, j)] ~> Cell");
+    __smodifies("&acc ~> Cell");
+    __xreads("&M[MINDEX1(n, j)] ~> Cell");
     acc += M[MINDEX1(n, j)];
   }
 }

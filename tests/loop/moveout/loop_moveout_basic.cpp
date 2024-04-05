@@ -6,8 +6,8 @@ void var(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("_Uninit(&x ~> Cell)");
-    __modifies("&t[MINDEX1(3, i)] ~> Cell");
+    __smodifies("_Uninit(&x ~> Cell)");
+    __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = 3;
     t[MINDEX1(3, i)] = x;
   }
@@ -19,8 +19,8 @@ void var_wrong1(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("_Uninit(&x ~> Cell)");
-    __modifies("&t[MINDEX1(3, i)] ~> Cell");
+    __smodifies("_Uninit(&x ~> Cell)");
+    __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x = i; // can't move out, depends on 'i'
     t[MINDEX1(3, i)] = x;
   }
@@ -32,8 +32,8 @@ void var_wrong2(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("_Uninit(&x ~> Cell)");
-    __modifies("&t[MINDEX1(3, i)] ~> Cell");
+    __smodifies("_Uninit(&x ~> Cell)");
+    __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     t[MINDEX1(3, i)] = 0;
     x = 3; // can't move out, not first in sequence
     t[MINDEX1(3, i)] += x;
@@ -46,8 +46,8 @@ void var_wrong3(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __modifies("&t[MINDEX1(3, i)] ~> Cell");
+    __smodifies("&x ~> Cell");
+    __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
     x += 3; // can't move out, reads previous 'x'
     t[MINDEX1(3, i)] = x;
   }
@@ -59,8 +59,8 @@ void var_wrong4(int* t) {
   int x = 0;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("_Uninit(&x ~> Cell)");
-    __modifies("&t[MINDEX1(3, i)] ~> Cell");
+    __smodifies("_Uninit(&x ~> Cell)");
+    __xmodifies("&t[MINDEX1(3, i)] ~> Cell");
 
     x = 3; // can't move out, previous iterations modify 'x'
     x++;
@@ -74,8 +74,8 @@ void var_needs_if(int* t, int n) {
   int x = 0;
   for (int i = 0; i < n; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
-    __modifies("&t[MINDEX1(n, i)] ~> Cell");
+    __smodifies("&x ~> Cell");
+    __xmodifies("&t[MINDEX1(n, i)] ~> Cell");
 
     x = 3;
     t[MINDEX1(n, i)] = x;
@@ -90,18 +90,18 @@ void arr(int* t, int* x) {
 
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("_Uninit(x ~> Matrix1(5))");
-    __modifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
+    __smodifies("_Uninit(x ~> Matrix1(5))");
+    __xmodifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
 
     for (int j = 0; j < 5; j++) {
       __strict();
-      __writes("&x[MINDEX1(5, j)] ~> Cell");
+      __xwrites("&x[MINDEX1(5, j)] ~> Cell");
       x[MINDEX1(5, j)] = 3;
     }
     for (int j = 0; j < 5; j++) {
       __strict();
-      __writes("&t[MINDEX2(3, 5, i, j)] ~> Cell");
-      __reads("&x[MINDEX1(5, j)] ~> Cell");
+      __xwrites("&t[MINDEX2(3, 5, i, j)] ~> Cell");
+      __xreads("&x[MINDEX1(5, j)] ~> Cell");
       t[MINDEX2(3, 5, i, j)] = x[MINDEX1(5, j)];
     }
   }
@@ -113,18 +113,18 @@ void arr_wrong1(int* t, int* x) {
   int v = 3;
   for (int i = 0; i < 3; i++) {
     __strict();
-    __sequentially_modifies("_Uninit(x ~> Matrix1(5)), &v ~> Cell");
-    __modifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
+    __smodifies("_Uninit(x ~> Matrix1(5)), &v ~> Cell");
+    __xmodifies("for j in 0..5 -> &t[MINDEX2(3, 5, i, j)] ~> Cell");
 
     for (int j = 0; j < 5; j++) { // can't move out, 'v' is not loop invariant
-      __parallel_reads("&v ~> Cell");
-      __writes("&x[MINDEX1(5, j)] ~> Cell");
+      __sreads("&v ~> Cell");
+      __xwrites("&x[MINDEX1(5, j)] ~> Cell");
       x[MINDEX1(5, j)] = v;
     }
     for (int j = 0; j < 5; j++) {
       __strict();
-      __writes("&t[MINDEX2(3, 5, i, j)] ~> Cell");
-      __reads("&x[MINDEX1(5, j)] ~> Cell");
+      __xwrites("&t[MINDEX2(3, 5, i, j)] ~> Cell");
+      __xreads("&x[MINDEX1(5, j)] ~> Cell");
       t[MINDEX2(3, 5, i, j)] = x[MINDEX1(5, j)];
     }
     v++;
@@ -138,14 +138,14 @@ void test(int* t){
   int b = 6;
   for (int i = 0; i < 10; i++) {
     __strict();
-    __parallel_reads("&a ~> Cell, &b ~> Cell");
-    __modifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
+    __sreads("&a ~> Cell, &b ~> Cell");
+    __xmodifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
 
     int r = i;
     for (int j = 0; j < 10; j++) {
       __strict();
-      __parallel_reads("&a ~> Cell, &b ~> Cell");
-      __sequentially_modifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
+      __sreads("&a ~> Cell, &b ~> Cell");
+      __smodifies("_Uninit(&t[MINDEX1(10, i)] ~> Cell)");
 
       int s = i;
       int x = a + b;

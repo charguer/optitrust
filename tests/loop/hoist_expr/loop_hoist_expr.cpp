@@ -6,8 +6,8 @@ void f(int* t, int* u) {
 
   for (int i = 0; i < 10; i++) {
     __strict();
-    __reads("&t[MINDEX1(10, i)] ~> Cell");
-    __writes("&u[MINDEX1(10, i)] ~> Cell");
+    __xreads("&t[MINDEX1(10, i)] ~> Cell");
+    __xwrites("&u[MINDEX1(10, i)] ~> Cell");
 
     int x = t[MINDEX1(10, i)];
     u[MINDEX1(10, i)] = x;
@@ -17,11 +17,11 @@ void f(int* t, int* u) {
   __ghost(matrix1_ro_focus, "t, 0");
   for (int l = 0; l < 5; l++) {
     __strict();
-    __parallel_reads("&t[MINDEX1(10, 0)] ~> Cell");
+    __sreads("&t[MINDEX1(10, 0)] ~> Cell");
 
     for (int m = 0; m < 2; m++) {
       __strict();
-      __parallel_reads("&t[MINDEX1(10, 0)] ~> Cell");
+      __sreads("&t[MINDEX1(10, 0)] ~> Cell");
 
       int x = l + m + t[MINDEX1(10, 0)];
     }

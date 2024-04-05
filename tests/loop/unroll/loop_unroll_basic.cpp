@@ -40,7 +40,7 @@ void iter_contract(int* M) {
 
   for (int i = 0; i < 3; i++) {
     __strict();
-    __modifies("&M[MINDEX1(3,i)] ~> Cell");
+    __xmodifies("&M[MINDEX1(3,i)] ~> Cell");
     M[MINDEX1(3,i)] = 0;
   }
 }

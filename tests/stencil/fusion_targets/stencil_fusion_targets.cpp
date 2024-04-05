@@ -7,14 +7,14 @@ void add(int* out, int* xs, int* ys, int h, int w) {
 
   for (int y = 0; y < h; y++) {
     __strict();
-    __writes("for x in 0..w -> &out[MINDEX2(h, w, y, x)] ~> Cell");
-    __parallel_reads("xs ~> Matrix2(h, w)");
-    __parallel_reads("ys ~> Matrix2(h, w)");
+    __xwrites("for x in 0..w -> &out[MINDEX2(h, w, y, x)] ~> Cell");
+    __sreads("xs ~> Matrix2(h, w)");
+    __sreads("ys ~> Matrix2(h, w)");
     for (int x = 0; x < w; x++) {
       __strict();
-      __writes("&out[MINDEX2(h, w, y, x)] ~> Cell");
-      __parallel_reads("xs ~> Matrix2(h, w)");
-      __parallel_reads("ys ~> Matrix2(h, w)");
+      __xwrites("&out[MINDEX2(h, w, y, x)] ~> Cell");
+      __sreads("xs ~> Matrix2(h, w)");
+      __sreads("ys ~> Matrix2(h, w)");
       __GHOST_BEGIN(xsf, matrix2_ro_focus, "xs, y, x");
       __GHOST_BEGIN(ysf, matrix2_ro_focus, "ys, y, x");
       out[MINDEX2(h, w, y, x)] = xs[MINDEX2(h, w, y, x)] + ys[MINDEX2(h, w, y, x)];
@@ -30,12 +30,12 @@ void vbox(int* out, int* in_, int h, int w) {
 
   for (int y = 0; y < h; y++) {
     __strict();
-    __writes("for x in 0..(w-2) -> &out[MINDEX2(h, w-2, y, x)] ~> Cell");
-    __parallel_reads("in_ ~> Matrix2(h, w)");
+    __xwrites("for x in 0..(w-2) -> &out[MINDEX2(h, w-2, y, x)] ~> Cell");
+    __sreads("in_ ~> Matrix2(h, w)");
     for (int x = 0; x < w - 2; x++) {
       __strict();
-      __writes("&out[MINDEX2(h, w-2, y, x)] ~> Cell");
-      __parallel_reads("in_ ~> Matrix2(h, w)");
+      __xwrites("&out[MINDEX2(h, w-2, y, x)] ~> Cell");
+      __sreads("in_ ~> Matrix2(h, w)");
 
       __ghost(in_range_extend, "x, 0..(w-2), 0..w");
       __ghost(in_range_shift_extend, "x, 1, 0..w, 0, w-2");
@@ -57,12 +57,12 @@ void hbox(int* out, int* in_, int h, int w) {
 
   for (int y = 0; y < h - 2; y++) {
     __strict();
-    __writes("for x in 0..w -> &out[MINDEX2(h-2, w, y, x)] ~> Cell");
-    __parallel_reads("in_ ~> Matrix2(h, w)");
+    __xwrites("for x in 0..w -> &out[MINDEX2(h-2, w, y, x)] ~> Cell");
+    __sreads("in_ ~> Matrix2(h, w)");
     for (int x = 0; x < w; x++) {
       __strict();
-      __writes("&out[MINDEX2(h-2, w, y, x)] ~> Cell");
-      __parallel_reads("in_ ~> Matrix2(h, w)");
+      __xwrites("&out[MINDEX2(h-2, w, y, x)] ~> Cell");
+      __sreads("in_ ~> Matrix2(h, w)");
 
       __ghost(in_range_extend, "y, 0..(h-2), 0..h");
       __ghost(in_range_shift_extend, "y, 1, 0..h, 0, h-2");

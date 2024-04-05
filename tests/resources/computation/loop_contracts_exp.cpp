@@ -49,8 +49,8 @@ void array_copy(float* A, float* B, int n) {
   __reads("A ~> Array(n)");
   for (int i = 0; i < n; ++i) {
     __strict();
-    __sequentially_modifies("B ~> Array(n)");
-    __parallel_reads("A ~> Array(n)");
+    __smodifies("B ~> Array(n)");
+    __sreads("A ~> Array(n)");
     __ghost(array_ro_focus, "M := A, i := i");
     __ghost(array_focus, "M := B, i := i");
     B[i] = A[i];
@@ -64,8 +64,8 @@ void array_copy_explicit(float* A, float* B, int n) {
   __reads("A ~> Array(n)");
   for (int i = 0; i < n; ++i) {
     __strict();
-    __sequentially_modifies("B ~> Array(n)");
-    __parallel_reads("A ~> Array(n)");
+    __smodifies("B ~> Array(n)");
+    __sreads("A ~> Array(n)");
     __ghost(array_ro_focus, "M := A, i := i");
     __ghost(array_focus, "M := B, i := i");
     B[i] = A[i];
@@ -116,8 +116,8 @@ void array_copy_par(float* A, float* B, int n) {
 #pragma omp parallel for
   for (int i = 0; i < n; ++i) {
     __strict();
-    __modifies("&B[i] ~> Cell");
-    __reads("&A[i] ~> Cell");
+    __xmodifies("&B[i] ~> Cell");
+    __xreads("&A[i] ~> Cell");
     B[i] = A[i];
   }
   __ghost(array_fold, "M := B");
@@ -145,9 +145,9 @@ void array_copy_with_tmp(float* A, float* B, int n) {
   __ghost(array_unfold, "M := B");
   for (int i = 0; i < n; ++i) {
     __strict();
-    __parallel_reads("A ~> Array(n)");
-    __modifies("&B[i] ~> Cell");
-    __modifies("&T[i] ~> Cell");
+    __sreads("A ~> Array(n)");
+    __xmodifies("&B[i] ~> Cell");
+    __xmodifies("&T[i] ~> Cell");
     __ghost(array_ro_focus, "M := A, i := i");
     T[i] = A[i];
     __ghost(array_ro_unfocus, "M := A");

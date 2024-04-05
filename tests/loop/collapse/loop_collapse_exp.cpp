@@ -5,7 +5,7 @@ void consts() {
   int x;
   for (int ij = 0; ij < 5 * 5; ij++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x += ij / 5 + ij % 5;
   }
 }
@@ -16,7 +16,7 @@ void from_zero(int n, int m) {
   int x;
   for (int ij = 0; ij < n * m; ij++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     x += ij / m + ij % m;
   }
 }
@@ -27,10 +27,10 @@ void from_zero_wrong(int n, int m) {
   int x;
   for (int i = 0; i < n; i++) {
     __strict();
-    __sequentially_modifies("&x ~> Cell");
+    __smodifies("&x ~> Cell");
     for (int j = 0; j < m; j++) {
       __strict();
-      __sequentially_modifies("&x ~> Cell");
+      __smodifies("&x ~> Cell");
       x += i + j;
     }
   }
