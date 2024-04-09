@@ -187,6 +187,24 @@ module Dep_map = struct
            (* Otherwise, we create a new binding. *)
            add d das acc
       ) ds dm
+  (** [Dep_map.may_bind_set ds das dm f]: does the same thing as
+      [Dep_map.bind_set ds das dm], but only for those dependencies from [ds]
+      for which the function [f] returns [true]. *)
+  let may_bind_set (ds : Dep_set.t) (das : DepAttr_set.t)
+        (dm : DepAttr_set.t t) (f : (Dep.t -> bool)) : DepAttr_set.t t =
+    Dep_set.fold (fun d acc ->
+        if (f d) then
+          let b = find_opt d dm in
+          match b with
+          | Some das' ->
+             (* If a previous binding exists, we compute the union of the sets
+                of dependency attributes. *)
+             let das'' = DepAttr_set.union das das' in
+             add d das'' acc
+          | None ->
+             (* Otherwise, we create a new binding. *)
+             add d das acc
+        else acc) ds dm
   (** [Dep_map.has_with_attribute d da dm]: checks whether the map of
       dependencies to sets of dependency attributes [dm] has a binding for the
       dependency [d] with the dependency attribute [da] in its set of dependency
