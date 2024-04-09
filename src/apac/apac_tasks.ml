@@ -370,30 +370,28 @@ module TaskGraphOper = struct
             children = ch;
           } in
         TaskGraph.V.create vl') g'
-  let rec propagate_dependency_attribute (a : DepAttr_set.t) (ds : Dep_set.t)
+  let rec propagate_dependency_attribute (das : DepAttr_set.t) (ds : Dep_set.t)
             (g : TaskGraph.t) : TaskGraph.t =
     TaskGraph.map_vertex (fun v ->
         let v' : Task.t = TaskGraph.V.label v in
-        let ioattrs = Dep_set.fold (fun d acc ->
-                          if (Dep_set.mem d v'.ins) || (Dep_set.mem d v'.inouts)
-                          then
-                            Dep_map.add d a acc
-                          else
-                            acc) ds v'.ioattrs in
-        let children = List.map (fun gl ->
-                           List.map (fun go ->
-                               (propagate_dependency_attribute a ds) go
-                             ) gl
-                         ) v'.children in
-        let v' : Task.t = {
-            current = v'.current;
-            attrs = v'.attrs;
-            ins = v'.ins;
-            inouts = v'.inouts;
-            ioattrs = ioattrs;
-            children = children;
-          } in
-        TaskGraph.V.create v') g
+         let ioattrs = Dep_map.may_bind_set ds das v'.ioattrs
+                         (fun d ->
+                           (Dep_set.mem d v'.ins) ||
+                             (Dep_set.mem d v'.inouts)) in
+         let children = List.map (fun gl ->
+                            List.map (fun go ->
+                                (propagate_dependency_attribute das ds) go
+                              ) gl
+                          ) v'.children in
+         let v' : Task.t = {
+             current = v'.current;
+             attrs = v'.attrs;
+             ins = v'.ins;
+             inouts = v'.inouts;
+             ioattrs = ioattrs;
+             children = children;
+           } in
+         TaskGraph.V.create v') g
 end
 
 (** [TaskGraphTraverse]: a module implementing a traversal function for task
