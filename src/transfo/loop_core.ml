@@ -271,31 +271,57 @@ let unroll_ghost_pair (range : loop_range) (contract : loop_contract)
   let open Resource_formula in
   (* LATER: Handle formulas that depend on a model abstracted by the loop *)
   let unroll_ghosts = List.map (fun (_, formula) ->
-      let output = List.map (fun new_index ->
-        (new_anon_hyp (), trm_subst_var range.index new_index (trm_copy formula)))
-        new_indices
-      in
-      let rewrite_contract = {
-        pre = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] () ;
-        post = Resource_set.make ~linear:output ()
-      } in
-      (* LATER: build proof term instead *)
-      Resource_trm.ghost_admitted rewrite_contract ~justif:trm_unroll
-    ) contract.iter_contract.pre.linear
+    let output = List.map (fun new_index ->
+      (new_anon_hyp (), trm_subst_var range.index new_index (trm_copy formula)))
+      new_indices
+    in
+    let rewrite_contract = {
+      pre = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] () ;
+      post = Resource_set.make ~linear:output ()
+    } in
+    (* LATER: build proof term instead *)
+    Resource_trm.ghost_admitted rewrite_contract ~justif:trm_unroll
+  ) contract.iter_contract.pre.linear
+  in
+  let unroll_pure_ghosts = List.map (fun (_, formula) ->
+    let output = List.map (fun new_index ->
+      (new_anon_hyp (), trm_subst_var range.index new_index (trm_copy formula)))
+      new_indices
+    in
+    let rewrite_contract = {
+      pre = Resource_set.make ~pure:[new_anon_hyp (), formula_group_range range formula] () ;
+      post = Resource_set.make ~pure:output ()
+    } in
+    (* LATER: build proof term instead *)
+    Resource_trm.ghost_admitted rewrite_contract ~justif:trm_unroll
+  ) contract.iter_contract.pre.pure
   in
   let roll_ghosts = List.map (fun (_, formula) ->
-      let input = List.map (fun new_index ->
-        (new_anon_hyp (), trm_subst_var range.index new_index (trm_copy formula)))
-        new_indices
-      in
-      let rewrite_contract = {
-        pre = Resource_set.make ~linear:input ();
-        post = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] ()
-      } in
-      Resource_trm.ghost_admitted rewrite_contract ~justif:trm_roll
-    ) contract.iter_contract.post.linear
+    let input = List.map (fun new_index ->
+      (new_anon_hyp (), trm_subst_var range.index new_index (trm_copy formula)))
+      new_indices
+    in
+    let rewrite_contract = {
+      pre = Resource_set.make ~linear:input ();
+      post = Resource_set.make ~linear:[new_anon_hyp (), formula_group_range range formula] ()
+    } in
+    Resource_trm.ghost_admitted rewrite_contract ~justif:trm_roll
+  ) contract.iter_contract.post.linear
   in
-  (unroll_ghosts, roll_ghosts)
+  let roll_pure_ghosts = List.map (fun (_, formula) ->
+    let input = List.map (fun new_index ->
+      (new_anon_hyp (), trm_subst_var range.index new_index (trm_copy formula)))
+      new_indices
+    in
+    let rewrite_contract = {
+      pre = Resource_set.make ~pure:input ();
+      post = Resource_set.make ~pure:[new_anon_hyp (), formula_group_range range formula] ();
+    } in
+    (* LATER: build proof term instead *)
+    Resource_trm.ghost_admitted rewrite_contract ~justif:trm_roll
+  ) contract.iter_contract.post.pure
+  in
+  (unroll_pure_ghosts @ unroll_ghosts, roll_pure_ghosts @ roll_ghosts)
 
 (* [unroll_on index t]: unrolls loop [t],
       [inner_braces] - a flag on the visibility of generated inner sequences,
@@ -441,9 +467,11 @@ let fold (index : string) (start : int) (step : int) : Transfo.local =
 let ghost_group_split = toplevel_var "group_split"
 let ghost_group_split_ro = toplevel_var "group_split_ro"
 let ghost_group_split_uninit = toplevel_var "group_split_uninit"
+let ghost_group_split_pure = toplevel_var "group_split_pure"
 let ghost_group_join = toplevel_var "group_join"
 let ghost_group_join_ro = toplevel_var "group_join_ro"
 let ghost_group_join_uninit = toplevel_var "group_join_uninit"
+let ghost_group_join_pure = toplevel_var "group_join_pure"
 
 (* [split_range_aux nb cut]: splits a loop into two loops based on the range,
      [nb] - by default this argument has value 0, if provided it means that it will split the loop at start + nb iteration,

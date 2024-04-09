@@ -121,3 +121,10 @@ let var_ghost_group_focus_subrange_uninit = toplevel_var "group_focus_subrange_u
 let var_ghost_matrix2_ro_focus = toplevel_var "matrix2_ro_focus"
 
 let var_ghost_in_range_extend = toplevel_var "in_range_extend"
+
+let var_ghost_subrange_to_group_in_range = toplevel_var "subrange_to_group_in_range"
+
+let var_ghost_assume = toplevel_var "assume"
+
+let assume (f: formula): trm =
+  ghost (ghost_call var_ghost_assume ["F", f])

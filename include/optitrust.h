@@ -336,6 +336,12 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
 
 /* ---- Ghosts ---- */
 
+__GHOST(assume) {
+  __requires("F: formula");
+  __ensures("P: F");
+  __admitted();
+}
+
 __GHOST(close_wand) {
   /* LATER: Replace that id with a generated name on the respective open */
   __requires("H1: formula, H2: formula");
@@ -396,6 +402,13 @@ __GHOST(in_range_shift_extend) {
 
   __ghost(in_range_shift, "x, k, a, b, s");
   __ghost(in_range_extend, "x+k, range(a+k, b+k, s), r");
+}
+
+__GHOST(subrange_to_group_in_range) {
+  __requires("r1: range, r2: range");
+  __requires("is_subrange(r1, r2)");
+  __ensures("for i in r1 -> in_range(i, r2)");
+  __admitted();
 }
 
 /* ---- Group Ghosts ---- */
@@ -508,6 +521,43 @@ __GHOST(ro_tile_divides) {
 
 __GHOST(ro_untile_divides) {
   __reverts(ro_tile_divides);
+  __admitted();
+}
+
+__GHOST(group_collapse) {
+  __requires("n: int, m: int, items: (int * int) -> resource");
+  __consumes("for i in 0..n -> for j in 0..m -> items(i, j)");
+  __produces("for ij in 0..(n * m) -> items(ij / m, ij % m)");
+  __admitted();
+}
+
+__GHOST(group_uncollapse) {
+  __reverts(group_collapse);
+  __admitted();
+}
+
+__GHOST(group_collapse_ro) {
+  __requires("n: int, m: int, items: (int * int) -> resource, "
+             "f: _Fraction");
+  __consumes("_RO(f, for i in 0..n -> for j in 0..m -> items(i, j))");
+  __produces("_RO(f, for ij in 0..(n * m) -> items(ij / m, ij % m))");
+  __admitted();
+}
+
+__GHOST(group_uncollapse_ro) {
+  __reverts(group_collapse_ro);
+  __admitted();
+}
+
+__GHOST(group_collapse_uninit) {
+  __requires("n: int, m: int, items: (int * int) -> resource");
+  __consumes("_Uninit(for i in 0..n -> for j in 0..m -> items(i, j))");
+  __produces("_Uninit(for ij in 0..(n * m) -> items(ij / m, ij % m))");
+  __admitted();
+}
+
+__GHOST(group_uncollapse_uninit) {
+  __reverts(group_collapse_uninit);
   __admitted();
 }
 
@@ -782,6 +832,20 @@ __GHOST(group_split_ro) {
 
 __GHOST(group_join_ro) {
   __reverts(group_split_ro);
+  __admitted();
+}
+
+__GHOST(group_split_pure) {
+  __requires("start: int, stop: int, step: int, split: int, items: int -> formula");
+  __requires("bound_check: in_range(split, range(start, stop, step))");
+  __requires("for i in range(start, stop, step) -> items(i)");
+  __ensures("for i in range(start, split, step) -> items(i)");
+  __ensures("for i in range(split, stop, step) -> items(i)");
+  __admitted();
+}
+
+__GHOST(group_join_pure) {
+  __reverts(group_split_pure);
   __admitted();
 }
 

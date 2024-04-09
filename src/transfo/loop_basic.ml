@@ -52,6 +52,13 @@ let collapse_analyse (ri_rj_body : (loop_range * loop_contract * loop_range * lo
   ri_rj_body := Some (ri, ci, rj, cj, body);
   t
 
+let ghost_group_collapse = toplevel_var "group_collapse"
+let ghost_group_uncollapse = toplevel_var "group_uncollapse"
+let ghost_group_collapse_ro = toplevel_var "group_collapse_ro"
+let ghost_group_uncollapse_ro = toplevel_var "group_uncollapse_ro"
+let ghost_group_collapse_uninit = toplevel_var "group_collapse_uninit"
+let ghost_group_uncollapse_uninit = toplevel_var "group_uncollapse_uninit"
+
 (** <private> *)
 let collapse_on (simpl_mark : mark) (index : string)
   (ri : loop_range) (ci : loop_contract) (rj : loop_range) (cj : loop_contract)
@@ -71,8 +78,47 @@ let collapse_on (simpl_mark : mark) (index : string)
   let subst = Var_map.(empty |> add ri.index new_i |> add rj.index new_j) in
   (* TODO: works when invariants are the same, and pre/post are the same modulo a star,
     still need to insert ghosts to flatten the double star. *)
+  (* group_collapse / group_uncollapse*)
+  let open Resource_formula in
+  let add_collapse_ghost ghost ghost_ro ghost_uninit =
+    List.map (fun (_, formula) ->
+      let ghost, formula = match formula_mode_inv formula with
+      | Full, f -> ghost, f
+      | RO, f -> ghost_ro, f
+      | Uninit, f -> ghost_uninit, f
+      in
+      let items = trm_copy (formula_fun [ri.index, typ_int (); rj.index, typ_int ()] None formula) in
+      Resource_trm.ghost (ghost_call ghost [
+        "n", nbi; "m", nbj; "items", items
+      ])
+    )
+  in
+  let ghosts_before = add_collapse_ghost ghost_group_collapse ghost_group_collapse_ro ghost_group_collapse_uninit cj.iter_contract.pre.linear in
+  let ghosts_after = add_collapse_ghost ghost_group_uncollapse ghost_group_uncollapse_ro ghost_group_uncollapse_uninit cj.iter_contract.post.linear in
   let contract = Resource_contract.loop_contract_subst subst cj in
-  trm_for ~contract rk (trm_subst subst body)
+  let body2 = if !Flags.check_validity then
+    let instrs = trm_inv ~error:"expected seq" trm_seq_inv body in
+    let open Resource_formula in
+    let open Resource_trm in
+    let instrs2 = instrs |>
+      Mlist.push_front (assume (formula_in_range new_j (formula_loop_range rj))) |>
+      Mlist.push_front (assume (formula_in_range new_i (formula_loop_range ri)))
+    in
+    trm_seq ~annot:body.annot instrs2
+  else
+    body
+  in
+  let t2 = trm_for ~contract rk (trm_subst subst body2) in
+  if !Flags.check_validity then begin
+    Resource_formula.(Resource_trm.(trm_seq_helper ~braces:false [
+      Trm (assume (formula_geq ri.stop (trm_int 0)));
+      Trm (assume (formula_geq rj.stop (trm_int 0)));
+      TrmList ghosts_before;
+      Trm t2;
+      TrmList ghosts_after
+    ]))
+  end else
+    t2
 
 (** [collapse]: expects the target [tg] to point at a simple loop nest:
     [for i in 0..Ni { for j in 0..Nj { b(i, j) } }]
@@ -92,19 +138,15 @@ let collapse_on (simpl_mark : mark) (index : string)
     *)
 let%transfo collapse ?(simpl_mark : mark = no_mark)
   ?(index : string = "${i}${j}") (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun () ->
   Target.iter (fun p ->
     let ri_rj_body = ref None in
     let _ = Path.apply_on_path (collapse_analyse ri_rj_body) (Trace.ast ()) p in
     let (ri, ci, rj, cj, body) = Option.get !ri_rj_body in
     if !Flags.check_validity then begin
+    (* DEPRECATED: using assume instead
       step_backtrack ~discard_after:true (fun () ->
-        Nobrace_transfo.remove_after (fun () ->
           Target.apply_at_path (fun t ->
-            (* TODO: use proper obligation mechanism. *)
-            let pure = Resource_formula.[
-              new_anon_hyp (), formula_geq ri.stop (trm_int 0);
-              new_anon_hyp (), formula_geq rj.stop (trm_int 0)
-            ] in
             let contract = { pre = Resource_set.make ~pure (); post = Resource_set.empty } in
             let g = Resource_trm.ghost (ghost_closure_call contract (trm_seq_nomarks [])) in
             trm_seq_nobrace_nomarks [g; t]
@@ -112,10 +154,11 @@ let%transfo collapse ?(simpl_mark : mark = no_mark)
           recompute_resources ()
         )
       );
+    *)
       Trace.justif "correct when start >= stop for both ranges"
     end;
     Target.apply_at_path (collapse_on simpl_mark index ri ci rj cj body) p
-  ) tg
+  ) tg)
 
 (* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
     simple loop. Let's say for {int i ...} {
