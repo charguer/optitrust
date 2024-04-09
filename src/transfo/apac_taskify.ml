@@ -181,11 +181,12 @@ let parallel_task_group
     involved in the data accesses. *)
 let trm_discover_dependencies (locals : symbols)
       (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map)  =
-  (** [trm_look_for_dependencies.aux ins inouts subs filter nested attr t]:
+  (** [trm_look_for_dependencies.aux ins inouts attrs filter nested attr t]:
       builds [ins], a stack of input (read-only) data dependencies in [t],
       [inouts], a stack of input-output (read-write) data dependencies in [t],
-      [subs], a set stack of dependency-dependency attribute pairs indicating
-      which of the dependencies have the [Subscripted] attribute.
+      [attrs], a set stack of dependency-dependency attribute pairs indicating
+      which of the dependencies have the [Subscripted] or the [Accessor]
+      attribute.
 
       Note that we build stacks by side-effect instead of returning a list.
       This is due to the usage of [trm_iter] for visiting [t]. [trm_iter] allows
@@ -200,7 +201,7 @@ let trm_discover_dependencies (locals : symbols)
       calls to [aux], e.g. in the case of nested data accesses (see the
       [access_attr] type for more details). *)
   let rec aux (ins : dep Stack.t) (inouts : dep Stack.t)
-            (subs : (dep * DepAttr_set.t) Stack.t) (filter : Var_set.t)
+            (attrs : (dep * DepAttr_set.t) Stack.t) (filter : Var_set.t)
             (nested : bool) (attr : DepAttr.t) (t : trm) : unit =
     let error = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
                                 '%s' is not a valid OpenMP depends expression"
@@ -217,16 +218,19 @@ let trm_discover_dependencies (locals : symbols)
          let d = if degree < 1 then Dep_var (v) else Dep.of_trm t v degree in
          begin
            match attr with
+           | Accessor ->
+              Stack.push d ins;
+              Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
            | ArgIn -> Stack.push d ins
            | ArgInOut -> Stack.push d inouts
            | _ -> fail t.loc ebadattr
          end
     (* - get operations ([*t'], [**t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
-       aux ins inouts subs filter false attr t'
+       aux ins inouts attrs filter false attr t'
     (* - address operations ([&t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
-       aux ins inouts subs filter false attr t'
+       aux ins inouts attrs filter false attr t'
     (* - array accesses ([t'[i]], [t' -> [i]]), *)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _)
@@ -238,9 +242,12 @@ let trm_discover_dependencies (locals : symbols)
          match (trm_resolve_pointer_and_degree base) with
          | Some (v, _) when not (Var_set.mem v filter) ->
             let d = Dep_trm (t, v) in
-            Stack.push (d, (DepAttr_set.singleton Subscripted)) subs;
+            Stack.push (d, (DepAttr_set.singleton Subscripted)) attrs;
             begin
               match attr with
+              | Accessor ->
+                 Stack.push d ins;
+                 Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
               | ArgIn -> Stack.push d ins
               | ArgInOut -> Stack.push d inouts
               | _ -> fail t.loc ebadattr
@@ -251,13 +258,13 @@ let trm_discover_dependencies (locals : symbols)
            fun a -> match a with
                     | Array_access_get t''
                       | Array_access_addr t'' ->
-                       aux ins inouts subs filter false ArgIn t''
+                       aux ins inouts attrs filter false Accessor t''
                     | _ -> ()
          ) accesses
     (* - unary increment and decrement operations ([t'++], [--t'], ...), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
-       aux ins inouts subs filter false ArgInOut t'
+       aux ins inouts attrs filter false ArgInOut t'
     (* - function calls ([f(args)], ...). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        if Var_Hashtbl.mem const_records v then
@@ -269,9 +276,9 @@ let trm_discover_dependencies (locals : symbols)
                begin
                  let const = Int_map.find pos const_record.const_args in
                  if const.is_const then
-                   aux ins inouts subs filter false ArgIn arg
+                   aux ins inouts attrs filter false ArgIn arg
                  else
-                   aux ins inouts subs filter false ArgInOut arg
+                   aux ins inouts attrs filter false ArgInOut arg
                end
              else
                begin
@@ -288,21 +295,20 @@ let trm_discover_dependencies (locals : symbols)
            ) args
        else
          List.iter (fun arg ->
-             aux ins inouts subs filter false ArgInOut arg
+             aux ins inouts attrs filter false ArgInOut arg
            ) args
     (* - set operation ([a = 1], [b = ptr], [*c = 42], ...), *)
     | Trm_apps _ when is_set_operation t ->
        let error' = "Apac_core.trm_look_for_dependencies.aux: expected set \
                      operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
-       let _ = Debug_transfo.trm "SET" t in
        begin
          match (trm_resolve_binop_lval_and_get_with_deref lval) with
          | Some (lv, _) ->
             let d = Dep_trm (lval, lv.v) in
             Stack.push d inouts;
-            aux ins inouts subs filter false ArgInOut lval;
-            aux ins inouts subs filter false ArgIn rval
+            aux ins inouts attrs filter false ArgInOut lval;
+            aux ins inouts attrs filter false ArgIn rval
          | None -> fail t.loc error
        end
     | Trm_let (vk, (v, ty), init, _) ->
@@ -310,7 +316,7 @@ let trm_discover_dependencies (locals : symbols)
        let d = Dep.of_trm (trm_var ~kind:vk v) v degree in
        Stack.push d inouts;
        Var_Hashtbl.add locals v degree;
-       aux ins inouts subs filter false ArgIn init
+       aux ins inouts attrs filter false ArgIn init
     | Trm_let_mult (vk, tvs, inits) ->
        let (vs, _) = List.split tvs in
        let filter = Var_set.of_list vs in
@@ -319,25 +325,25 @@ let trm_discover_dependencies (locals : symbols)
            let d = Dep.of_trm (trm_var ~kind:vk v) v degree in
            Stack.push d inouts;
            Var_Hashtbl.add locals v degree;
-           aux ins inouts subs filter false ArgIn init
+           aux ins inouts attrs filter false ArgIn init
          ) tvs inits
     (* In the case of any other term, we explore the child terms. *)
     | _ ->
-       trm_iter (aux ins inouts subs filter false attr) t
+       trm_iter (aux ins inouts attrs filter false attr) t
   in
   (* In the main part of the function, we begin by creating empty stacks to
      contain the discovered in and in-out dependencies as well as an
      dependency-dependecy attribute stack. *)
   let ins : dep Stack.t = Stack.create () in
   let inouts : dep Stack.t = Stack.create () in
-  let subs : (dep * DepAttr_set.t) Stack.t = Stack.create () in
+  let attrs : (dep * DepAttr_set.t) Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
-  let _ = aux ins inouts subs (Var_set.empty) false ArgIn t in
+  let _ = aux ins inouts attrs (Var_set.empty) false ArgIn t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
   let ins' = Dep_set.of_stack ins in
   let inouts' = Dep_set.of_stack inouts in
-  let subs' = Dep_map.of_stack subs in
-  (ins', inouts', subs')
+  let attrs' = Dep_map.of_stack attrs in
+  (ins', inouts', attrs')
 
 (* [taskify_on p t]: see [taskify]. *)
 let taskify_on (p : path) (t : trm) : unit =
@@ -453,6 +459,8 @@ let taskify_on (p : path) (t : trm) : unit =
           increment term of the for-loop. *)
        let c = TaskGraphOper.propagate_dependency_attribute
                  (DepAttr_set.singleton InductionVariable) ins' c in
+       
+         let _ = Printf.printf "between propag\n"  in
        let c = TaskGraphOper.propagate_dependency_attribute
                  (DepAttr_set.singleton InductionVariable) inouts' c in
        (* Include the dependencies from the body sequence into the sets of
@@ -462,6 +470,7 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins ct.ins,
           Dep_set.union inouts ct.inouts,
           Dep_map.union2 ioattrs ct.ioattrs) in
+         let _ = Printf.printf "ioattrs for_end : %s\n" (Dep_map.to_string ioattrs) in
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
        let attrs = if (Task.has_attr ct HasJump) then

@@ -32,6 +32,11 @@ let emit_omp_task (t : Task.t) : trms =
     end
   else
     begin
+      let sync = Dep_set.filter (fun d ->
+                     Dep_map.has_with_attribute d Accessor t.ioattrs
+                   ) t.ins in
+      let sync = Dep_set.to_list sync in
+      let sync = if (List.length sync) < 1 then [] else [Depend [In sync]] in
       let (firstprivate, ins') =
         if (Task.has_attr t WaitForSome) then
           (Dep_set.empty,
@@ -58,9 +63,11 @@ let emit_omp_task (t : Task.t) : trms =
         begin
           if ins' <> [] || inouts' <> [] then
             begin
-              let pragma = Taskwait depend in
               let first = List.hd t.current in
-              let first = trm_add_pragma pragma first in
+              let first = trm_add_pragma (Taskwait depend) first in
+              let first = if sync <> [] then
+                            trm_add_pragma (Taskwait sync) first
+                          else first in
               first :: (List.tl t.current)
             end
           else t.current
@@ -83,7 +90,11 @@ let emit_omp_task (t : Task.t) : trms =
                         List.hd t.current
                       else
                         trm_seq_nomarks t.current in
-          [trm_add_pragma pragma instr]
+          let instr = trm_add_pragma pragma instr in
+          let instr = if sync <> [] then
+                        trm_add_pragma (Taskwait sync) instr
+                      else instr in
+          [instr]
         end
     end
 
