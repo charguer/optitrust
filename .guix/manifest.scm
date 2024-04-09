@@ -27,7 +27,9 @@
   (specifications->manifest
    (list "bash"
          "coreutils"
+         "time"
          "gcc-toolchain@11.3"
+         "libomp@13"
          "nano"
 	 "graphviz"
          "ocaml-merlin"
