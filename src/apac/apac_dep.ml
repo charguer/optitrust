@@ -154,6 +154,8 @@ module Dep_set = struct
   (** [Dep_set.to_list s]: converts the set of dependencies [s] into a list of
       dependencies. *)
   let to_list (s : t) = List.of_seq (to_seq s)
+  (** [Dep_set.to_string s]: generates a string representation of the set of
+      dependencies [s]. *)
   let to_string (s : t) : string =
     if is_empty s then "[ empty ]"
     else "[" ^ (fold (fun d res -> res ^ (Dep.to_string d) ^ " ") s " ") ^ "]"
