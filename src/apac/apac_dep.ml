@@ -199,6 +199,15 @@ module Dep_map = struct
       sets. *)
   let of_stack (s : (dep * DepAttr_set.t) Stack.t) : DepAttr_set.t t =
     Stack.fold (fun res (d, das) -> add d das res) empty s
+  (** [Dep_map.to_string dm]: generates a string representation of the map of
+      dependencies to sets of dependency attributes [dm]. *)
+  let to_string (dm : DepAttr_set.t t) : string =
+    if is_empty dm then "[ empty ]"
+    else "[" ^
+           (fold (fun d das res ->
+                res ^ (Dep.to_string d) ^ "(" ^ (DepAttr_set.to_string das) ^
+                  ") ") dm " "
+           ) ^ "]"
 end
 
 (** [ioattrs_map]: a type of maps of dependencies to sets of dependency
