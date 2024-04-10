@@ -16,7 +16,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
      gotos to an exiting label [Apac_core.goto_label]. The result is a sequence.
      Note that both the return variable and the exiting label are defined in the
      upcoming steps. *)
-  let res_var = new_var "__res" in
+  let res_var = new_var Apac_macros.result_variable in
   let body', _ = Internal.replace_return_with_assign ~check_terminal:false
     ~exit_label:Apac_macros.goto_label res_var body in
   (* Add the '__exit' label at the end of the sequence. *)
