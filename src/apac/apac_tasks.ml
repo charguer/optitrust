@@ -358,6 +358,12 @@ let export_task_graph g f : unit =
   DotExport.output_nested_graph file g;
   close_out file
 
+let dot_to_pdf (dot : string) : unit =
+  let location = Filename.dirname dot in
+  let file = Filename.basename dot in
+  let out = location ^ "/" ^ (Filename.remove_extension file) ^ ".pdf" in
+  ignore (Sys.command ("dot -Tpdf -o " ^ out ^ " " ^ dot))
+
 (** [TaskGraphBuilder]: a module allowing us to make the [TaskGraphOper]
     module. *)
 module TaskGraphBuilder = Builder.I(TaskGraph)
