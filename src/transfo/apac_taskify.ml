@@ -895,7 +895,9 @@ let taskify_on (p : path) (t : trm) : unit =
   let g' = TaskGraphOper.recursive_transitive_reduction g in
   const_record.task_graph <- Some (g');
   TaskGraphPrinter.print g';
-  export_task_graph g' ("apac_task_graph_" ^ f.name ^ ".dot")
+  let dot = "apac_task_graph_" ^ f.name ^ ".dot" in
+  export_task_graph g' dot;
+  dot_to_pdf dot
   (*fill const_record.variables t task_graph;
   Printf.printf "Augmented AST for <%s> follows:\n%s\n"
     (var_to_string f) (atrm_to_string aast)*)
