@@ -45,7 +45,7 @@ type const_arg = {
     mutable to_unconst_by_propagation : int Var_map.t;
   }
 
-(* [const_fun]: a function constification record. *)
+(** [const_fun]: a function constification record. *)
 type const_fun = {
     (* Map (0-based argument position -> constification record) of
        constification records for all the arguments of the function. *)
@@ -59,8 +59,8 @@ type const_fun = {
     is_ret_ref : bool;
     (* Tells whether the function is a class member method. *)
     mutable is_class_method : bool;
-    (* Augmented AST of the function's body storing data dependencies of its
-       instructions. See [atrm] below. *)
+    (* Hierarchical graph of function's statements considered as potential
+       tasks. See [TaskGraph]. *)
     mutable task_graph : TaskGraph.t option;
     (* Hash table ([var] -> [int]) of locally-defined symbols, including
        arguments, storing their pointer degree. See [symbols] below. *)
