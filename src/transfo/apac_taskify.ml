@@ -369,6 +369,18 @@ let taskify_on (p : path) (t : trm) : unit =
        let this = Task.create t attrs scope ins inouts ioattrs [] in
        let this' = TaskGraph.V.create this in
        let _ = TaskGraph.add_vertex g this' in
+       let (jumps, tasks) = List.partition (fun e ->
+                                (Task.has_attr e IsJump) ||
+                                  (Task.has_attr e ExitPoint)) tasks in
+       let tasks = if (List.length jumps) > 0 then
+                     let first = List.hd jumps in
+                     let tail = List.tl jumps in
+                     let jump = List.fold_left (fun j t ->
+                                    Task.merge j t) first tail in
+                     let jump = Task.add_attr jump ExitPoint in
+                     tasks @ [jump]
+                   else tasks
+       in
        let tasks = List.map (
                        fun task ->
                        let v = TaskGraph.V.create task in
@@ -591,15 +603,43 @@ let taskify_on (p : path) (t : trm) : unit =
           term. Variable declarations should never appear in tasks. *)
        Task.create t attrs scope' ins inouts Dep_map.empty []
     | Trm_apps _ ->
-       (* Look for dependencies and their attributes in the current term and
-          initialize the in and in-out dependency sets as well as the map of
-          dependency attribute sets. *)
-       let (ins, inouts, ioattrs) = trm_discover_dependencies s t in
-       (* Convert the local scope to a set. *)
-       let scope = var_set_of_var_hashtbl s in
-       (* Create the task corresponding to the current graph node using all the
-          elements computed above. *)
-       Task.create t TaskAttr_set.empty scope ins inouts ioattrs []
+       (* Check whether [t] is an assignment to
+          [Apac_macros.result_variable]. *)
+       let isjump = if (is_set_operation t) then
+                      let error = "Apac_taskify.taskify_on.fill: expected set \
+                                   operation." in
+                      let (lval, _) = trm_inv ~error set_inv t in
+                      match trm_resolve_binop_lval_and_get_with_deref lval with
+                      | Some (lvar, _) when
+                             lvar.v.name = Apac_macros.result_variable -> true
+                      | _ -> false
+                    else false
+       in
+       if isjump then
+         (* When [t] is an assignment to [Apac_macros.result_variable] replacing
+            the original return statement, we can create a [Task] instance for
+            it, even if it will actually nevery become a task. The [Singleton]
+            and the [HasJump] attributes mean that the [Task] will not be merged
+            with any other task, except for the immediately following `goto'
+            statement (see the next match case), and that it features an
+            unconditional jump. We assign the task with the [IsJump] attribute
+            too in order to indicate that the task itself is a part of an
+            unconditional jump. See [Apac_tasks.TaskAttr]. *)
+         let attrs = TaskAttr_set.singleton Singleton in
+         let attrs = TaskAttr_set.add HasJump attrs in
+         let attrs = TaskAttr_set.add IsJump attrs in
+         Task.create t attrs Var_set.empty
+           Dep_set.empty Dep_set.empty Dep_map.empty []
+       else
+         (* Look for dependencies and their attributes in the current term and
+            initialize the in and in-out dependency sets as well as the map of
+            dependency attribute sets. *)
+         let (ins, inouts, ioattrs) = trm_discover_dependencies s t in
+         (* Convert the local scope to a set. *)
+         let scope = var_set_of_var_hashtbl s in
+         (* Create the task corresponding to the current graph node using all
+            the elements computed above. *)
+         Task.create t TaskAttr_set.empty scope ins inouts ioattrs []
     | Trm_if (cond, yes, no) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
