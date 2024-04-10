@@ -159,6 +159,10 @@ let emit_omp_task (t : Task.t) : trms =
                                  | Dep_var v -> v :: acc
                                  | Dep_trm (t, v) -> v :: acc
                                  | _ -> acc) firstprivate [] in
+          let depth_local_var = new_var (get_apac_variable ApacDepthLocal) in
+          let firstprivate = if !Apac_macros.instrument_code then
+                               depth_local_var :: firstprivate
+                             else firstprivate in
           let firstprivate = if (List.length firstprivate) > 0 then
                                [FirstPrivate firstprivate]
                              else [] in
