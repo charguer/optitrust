@@ -2,6 +2,7 @@ open Optitrust
 open Target 
 
 let _ = Run.script_cpp (fun () ->
+            let _ = Flags.code_print_width := 1024 in
             (* Target all of the function definitions. *)
             !! Apac_constify.constify [nbAny; cFunDefAndDecl ""];
             !! Apac_taskify.parallel_task_group
