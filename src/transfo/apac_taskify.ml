@@ -157,7 +157,8 @@ let parallel_task_group
     (* 3) Get the name of the target function through the deconstruction of the
        corresponding AST term. *)
     let error =
-    "Apac.parallel_task_group: expected a target to a function definition" in
+      "Apac_taskify.parallel_task_group: expected a target to a function \
+     definition" in
     let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv (
       Path.get_trm_at_path p t
     ) in
