@@ -643,5 +643,6 @@ let instrument_unit ?(backend : task_backend = OpenMP) (tg : target) : unit =
 let instrument ?(backend : task_backend = OpenMP)
       (tgu : target) (tgg : target) : unit =
   Trace.ensure_header "#include <stdlib.h>";
+  Trace.ensure_header "#include <omp.h>";
   instrument_unit ~backend tgu;
   instrument_task_group tgg
