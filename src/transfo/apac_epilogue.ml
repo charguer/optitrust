@@ -7,7 +7,7 @@ open Apac_miscellaneous
 open Apac_dep
 open Apac_backend
 
-(* [trmq]: a persistent FIFO queue of terms. *)
+(** [trmq]: a persistent FIFO queue of terms. *)
 type trmq = trm Queue.t
 
 let subst_pragmas (va : var) (tv : trm)
