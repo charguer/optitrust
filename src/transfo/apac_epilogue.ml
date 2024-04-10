@@ -499,7 +499,7 @@ let instrument_task_group_on (t : trm) : trm =
                     (get_apac_variable ApacCountOk) ^
                       " = " ^
                         (get_apac_variable ApacCountInfinite) ^
-                          " ? " ^
+                          " || " ^
                             (get_apac_variable ApacCount) ^
                               " < " ^
                                 (get_apac_variable ApacCountMax)))
@@ -521,7 +521,7 @@ let instrument_task_group_on (t : trm) : trm =
                     (get_apac_variable ApacDepthOk) ^
                       " = " ^
                         (get_apac_variable ApacDepthInfinite) ^
-                          " ? " ^
+                          " || " ^
                             (get_apac_variable ApacDepthLocal) ^
                               " < " ^
                                 (get_apac_variable ApacDepthMax)))
