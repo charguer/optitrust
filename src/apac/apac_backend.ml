@@ -11,6 +11,33 @@ type task_backend =
   | ApacProfiler (* Do not create tasks. Insert calls to profiling functions
                     instead. *)
 
+(** [apac_variable]: enumeration of instrumentation variables that might appear
+    in the resulting source code. *)
+type apac_variable =
+  | ApacCount (* Gives the current task count. *)
+  | ApacDepth (* Gives the current task depth. *)
+  | ApacDepthLocal (* Task-private copy of [ApacDepth]. *)
+  | ApacCountOk (* True if the task count limit was not reached yet. *)
+  | ApacDepthOk (* True if the task depth limit was not reached yet. *)
+  | ApacCountInfinite (* True when the task count is not limited. *)
+  | ApacDepthInfinite (* True when the task depth is not limited. *)
+  | ApacCountMax (* Gives the maximum task count. *)
+  | ApacDepthMax (* Gives the maximum task depth. *)
+
+(** [get_apac_variable]: generates a string representation of the
+    instrumentation variable [v]. *)
+let get_apac_variable (v : apac_variable) : string =
+  match v with
+  | ApacCount -> "__apac_count"
+  | ApacDepth -> "__apac_depth"
+  | ApacDepthLocal -> "__apac_depth_local"
+  | ApacCountOk -> "__apac_count_ok"
+  | ApacDepthOk -> "__apac_depth_ok"
+  | ApacCountInfinite -> "__apac_count_infinite"
+  | ApacDepthInfinite -> "__apac_depth_infinite"
+  | ApacCountMax -> "__apac_count_max"
+  | ApacDepthMax -> "__apac_depth_max"
+
 (** [next_id]: generates unique integer identifiers starting from zero. *)
 let next_id = Tools.fresh_generator ()
 
@@ -19,6 +46,58 @@ let next_id = Tools.fresh_generator ()
 let next_profsection () : string =
   let id = next_id () in
   "apac_profsection" ^ (string_of_int id)
+
+(** [count_update ~backend postamble]: generates the portion of the
+    instrumentation code allowing to update the task count [ApacCount] variable.
+    If [postamble] is [false], it produces code to increment the counter when a
+    new task is about to be spawned. In order to produce code to decrement the
+    counter at the end of a task, set [postamble] to [true]. Also, by default,
+    the target backend is OpenMP. This can be changed through the optional
+    [backend] argument. *)
+let count_update ?(backend : task_backend = OpenMP) (postamble : bool) : trm =
+  (* Retrieve the string representation of the involved instrumentation
+     variables. *)
+  let count = get_apac_variable ApacCount in
+  let ok = get_apac_variable ApacCountOk in
+  (* Decide on the update operation to apply. *)
+  let op = if postamble then "--" else "++" in
+  (* Build the task count update term. *)
+  let update = code (Instr (count ^ op)) in
+  (* When the target backend is *)
+  let update = match backend with
+    | OpenMP ->
+       (* Prepend it with the OpenMP atomic pragma. *)
+       trm_add_pragma (Atomic None) update
+    | ApacProfiler ->
+       (* Keep it as is. *)
+       update
+  in
+  (* Put the update statement into a sequence. *)
+  let update = trm_seq_nomarks [update] in
+  (* Convert the string representation of [ok] to a term prior to *)
+  let condition = code (Expr ok) in
+  (* building the final if-conditional. *)
+  trm_if condition update (trm_unit ())
+
+(** [depth_update]: generate the portion of the instrumentation code allowing
+    to update the task depth [ApacDepth] variable at the beginning of a newly
+    spawned task. *)
+let depth_update () : trm =
+  (* Retrieve the string representation of the involved instrumentation
+     variables. *)
+  let count = get_apac_variable ApacDepth in
+  let local = get_apac_variable ApacDepthLocal in
+  let ok1 = get_apac_variable ApacCountOk in
+  let ok2 = get_apac_variable ApacDepthOk in
+  (* Build the task depth increment term. *)
+  let increment = code (Instr (count ^ " = " ^ local ^ " + 1")) in
+  (* Put the increment term into a sequence. *)
+  let increment = trm_seq_nomarks [increment] in
+  (* Convert the string representations of [ok1] and [ok2] to a boolean
+     expression term prior to *)
+  let condition = code (Expr (ok1 ^ " || " ^ ok2)) in
+  (* building the final if-conditional. *)
+  trm_if condition increment (trm_unit ())
 
 let emit_omp_task (t : Task.t) : trms =
   if (Task.has_attr t ExitPoint) || (Task.has_attr t WaitForNone) then
@@ -83,18 +162,34 @@ let emit_omp_task (t : Task.t) : trms =
           let firstprivate = if (List.length firstprivate) > 0 then
                                [FirstPrivate firstprivate]
                              else [] in
+          let cutoff = (get_apac_variable ApacCountOk) ^ " || " ^
+                         (get_apac_variable ApacDepthOk) in
+          let cutoff = [If cutoff] in
           let clauses = shared @ depend in
           let clauses = clauses @ firstprivate in
+          let clauses = if !Apac_macros.instrument_code then
+                          clauses @ cutoff
+                        else clauses in
           let pragma = Task clauses in
-          let instr = if (List.length t.current) < 2 then
-                        List.hd t.current
-                      else
-                        trm_seq_nomarks t.current in
+          let count_preamble = count_update false in
+          let depth_preamble = depth_update () in
+          let count_postamble = count_update true in
+          let instr = if !Apac_macros.instrument_code then
+                        depth_preamble :: t.current
+                      else t.current in
+          let instr = if !Apac_macros.instrument_code then
+                        instr @ [count_postamble]
+                      else instr in
+          let instr = if not (!Apac_macros.instrument_code) &&
+                           (List.length instr < 2) then
+                        List.hd instr
+                      else trm_seq_nomarks instr in
           let instr = trm_add_pragma pragma instr in
           let instr = if sync <> [] then
                         trm_add_pragma (Taskwait sync) instr
                       else instr in
-          [instr]
+          if !Apac_macros.instrument_code then [count_preamble; instr]
+          else [instr]
         end
     end
 

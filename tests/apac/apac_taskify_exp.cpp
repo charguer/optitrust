@@ -15,24 +15,27 @@ void p(int v) {
 void r(int v, const int z) { int a = 15 + z, b = a + 2, c = a + b + v++; }
 
 void c(int* tab, const int size) {
-  /*@__apac_task_group*/ #pragma omp taskgroup {
+#pragma omp taskgroup
+  {
     int i;
-#pragma omp task default(shared) depend(inout : *tab)
+#pragma omp task default(shared) depend(inout : tab[0])
     f(tab);
-#pragma omp task default(shared) depend(in : size) depend(inout : i, tab[i])
+#pragma omp taskwait depend(in : size) depend(inout : i)
     for (i = 0; i < size; i++) {
-#pragma omp task default(shared) depend(inout : tab[i])
+#pragma omp taskwait depend(in : i)
+#pragma omp task default(shared) depend(inout : tab[i]) firstprivate(i)
       {
         tab[i] += 2;
         p(tab[i]);
+        p(tab[i]);
       }
     }
-#pragma omp task default(shared) depend(in : *tab)
+#pragma omp task default(shared) depend(in : tab[0])
     h(tab);
-#pragma omp task default(shared) depend(in : *tab)
+#pragma omp task default(shared) depend(in : tab[0])
     g(tab);
   __apac_exit:;
-  } /*__apac_task_group@*/
+  }
 }
 
 int main() {

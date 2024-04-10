@@ -5,6 +5,7 @@ open Mark
 open Target
 open Apac_miscellaneous
 open Apac_dep
+open Apac_backend
 
 (* [trmq]: a persistent FIFO queue of terms. *)
 type trmq = trm Queue.t
@@ -483,3 +484,164 @@ let heapify_on (t : trm) : trm =
 let heapify (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
       Target.apply_at_target_paths heapify_on tg)
+
+(* [instrument_task_group_on t]: see [instrument_task_group]. *)
+let instrument_task_group_on (t : trm) : trm =
+  (* Deconstruct the sequence term [t]. *)
+  let error = "Apac_epilogue.instrument_task_group_on: expected a target to a \
+               sequence" in
+  let seq = trm_inv ~error trm_seq_inv t in
+  (* Build the definition term of the boolean deciding whether the task spawning
+     should be cut off based on the current task count. *)
+  let ok1 = code
+              (Instr
+                 ("int " ^
+                    (get_apac_variable ApacCountOk) ^
+                      " = " ^
+                        (get_apac_variable ApacCountInfinite) ^
+                          " ? " ^
+                            (get_apac_variable ApacCount) ^
+                              " < " ^
+                                (get_apac_variable ApacCountMax)))
+  in
+  (* Build the definition term of the local task-private copy of the current
+     task depth [ApacDepthLocal] variable. *)
+  let local = code
+                (Instr
+                   ("int " ^
+                      (get_apac_variable ApacDepthLocal) ^
+                        " = " ^
+                          (get_apac_variable ApacDepth)))
+  in
+  (* Build the definition term of the boolean deciding whether the task spawning
+     should be cut off based on the current task depth. *)
+  let ok2 = code
+              (Instr
+                 ("int " ^
+                    (get_apac_variable ApacDepthOk) ^
+                      " = " ^
+                        (get_apac_variable ApacDepthInfinite) ^
+                          " ? " ^
+                            (get_apac_variable ApacDepthLocal) ^
+                              " < " ^
+                                (get_apac_variable ApacDepthMax)))
+  in
+  (* Prepend these three terms to the original sequence and *)
+  let seq' = [ok1; local; ok2] in
+  let seq' = Mlist.of_list seq' in
+  let seq' = Mlist.merge seq' seq in
+  (* rebuild a new one. *)
+  trm_seq ~ctx:t.ctx ~annot:t.annot seq'
+  
+(* [instrument_task_group tg]: expects the target [tg] to point at a task group
+   sequence in which it prepends all the terms with instrumentation terms
+   involved in the task granularity control in the resulting source code. *)
+let instrument_task_group (tg : target) : unit =
+  Target.apply_at_target_paths instrument_task_group_on tg
+
+(* [instrument_unit_on ~backend t]: see [instrument_unit]. *)
+let instrument_unit_on ?(backend : task_backend = OpenMP) (t : trm) : trm =
+  (* Deconstruct the sequence term [t]. *)
+  let error = "Apac_epilogue.instrument_unit_on: expected a target to a \
+               sequence" in
+  let seq = trm_inv ~error trm_seq_inv t in
+  (* Build the definition term of the flag allowing the end-user to disable the
+     task creation cut-off based on the number of active tasks. *)
+  let ok1 = code
+              (Instr
+                 ("const static int " ^
+                    (get_apac_variable ApacCountInfinite) ^
+                      " = getenv(\"" ^
+                        Apac_macros.apac_count_infinite ^
+                          "\") ? 1 : 0"))
+  in
+  (* Build the definition term of the flag allowing the end-user to disable the
+     task creation cut-off based on the current task depth. *)
+  let ok2 = code
+              (Instr
+                 ("const static int " ^
+                    (get_apac_variable ApacDepthInfinite) ^
+                      " = getenv(\"" ^
+                        Apac_macros.apac_depth_infinite ^
+                          "\") ? 1 : 0"))
+  in
+  (* Build the definition term of the parameter allowing the end-user to
+     manually set the maximum count of active tasks. *)
+  let max1 = code
+              (Instr
+                 ("const static int " ^
+                    (get_apac_variable ApacCountMax) ^
+                      " = getenv(\"" ^
+                        Apac_macros.apac_count_max ^
+                          "\") ? atoi(getenv(\"" ^
+                            Apac_macros.apac_count_max ^
+                              "\")) : omp_get_max_threads() * " ^
+                                (string_of_int
+                                   Apac_macros.apac_count_thread_factor)))
+  in
+  (* Build the definition term of the parameter allowing the end-user to
+     manually set the maximum task depth. *)
+  let max2 = code
+              (Instr
+                 ("const static int " ^
+                    (get_apac_variable ApacDepthMax) ^
+                      " = getenv(\"" ^
+                        Apac_macros.apac_depth_max ^
+                          "\") ? atoi(getenv(\"" ^
+                            Apac_macros.apac_depth_max ^
+                              "\")) : " ^
+                                (string_of_int
+                                   Apac_macros.apac_depth_max_default)))
+  in
+  (* Build the definition term of the counter of active tasks. *)
+  let c1 = code
+             (Instr
+                ("int " ^
+                   (get_apac_variable ApacCount) ^
+                     " = 0"))
+  in
+  (* Build the definition term of the counter of the current task depth. *)
+  let c2 = code
+             (Instr
+                ("int " ^
+                   (get_apac_variable ApacDepth) ^
+                     " = 0"))
+  in
+  (* Prepend these three terms to the original sequence.*)
+  let seq' = [ok1; ok2; max1; max2; c1; c2] in
+  (* If the backend is OpenMP, we have to include an extra pragma directive to
+     make [ApacDepth] thread-private. *)
+  let seq' = match backend with
+    | OpenMP ->
+       let pragma = code
+                      (Stmt
+                         ("#pragma omp threadprivate(" ^
+                            (get_apac_variable ApacDepth) ^
+                              ")")) in
+       seq' @ [pragma]
+    | _ -> seq'
+  in
+  let seq' = Mlist.of_list seq' in
+  let seq' = Mlist.merge seq' seq in
+  (* Finally, we rebuild an updated sequence. *)
+  trm_seq ~ctx:t.ctx ~annot:t.annot seq'
+
+(* [instrument_unit ~backend tg]: expects the target [tg] to point at the
+   top-level sequence in which it prepends all the terms with instrumentation
+   terms involved in the task granularity control in the resulting source code.
+   The optional argument [backend] controls the target task-based programming
+   backend. By default, we consider OpenMP. *)
+let instrument_unit ?(backend : task_backend = OpenMP) (tg : target) : unit =
+  Target.apply_at_target_paths (instrument_unit_on ~backend) tg
+
+(* [instrument ~backend tgu tgg]: expects the target [tgu] to point at the
+   top-level sequence and the target [tgg] to point at a task group sequence.
+   The transformation then prepends all the terms in these sequences with
+   instrumentation terms involved in the task granularity control in the
+   resulting source code. The optional argument [backend] controls the target
+   task-based programming backend. By default, we consider OpenMP. *)
+let instrument ?(backend : task_backend = OpenMP)
+      (tgu : target) (tgg : target) : unit =
+  Trace.ensure_header "#include <stdlib.h>";
+  instrument_unit ~backend tgu;
+  instrument_task_group tgg
