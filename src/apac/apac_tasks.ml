@@ -96,6 +96,7 @@ module rec Task : sig
          val create :
            trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
            ioattrs_map -> TaskGraph.t list list -> t
+         val add_attr : t -> TaskAttr.t -> t
          val has_attr : t -> TaskAttr.t -> bool
          val has_subs : t -> bool
          val merge : t -> t -> t
@@ -172,6 +173,17 @@ module rec Task : sig
       inouts = inouts';
       ioattrs = ioattrs';
       children = children;
+    }
+  (** [Task.add_attr task attr]: adds the attribute [attr] to the set of
+      attributes of the task [task]. Other components of [task] remain
+      unaffected. *)
+  let add_attr (task : t) (attr : TaskAttr.t) : t = {
+      current = task.current;
+      attrs = TaskAttr_set.add attr task.attrs;
+      ins = task.ins;
+      inouts = task.inouts;
+      ioattrs = task.ioattrs;
+      children = task.children;
     }
   (** [Task.has_attr task attr]: checks whether the task [task] has the
       attribute [attr]. *)
