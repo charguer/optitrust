@@ -10,6 +10,9 @@ open Apac_backend
 (** [trmq]: a persistent FIFO queue of terms. *)
 type trmq = trm Queue.t
 
+(** [varq]: a persistent FIFO queue of variables. *)
+type varq = (var * trm) Queue.t
+
 let subst_pragmas (va : var) (tv : trm)
       (pl : cpragma list) : cpragma list =
   let aux (dl : deps) : deps =
@@ -68,7 +71,8 @@ let heapify_on (t : trm) : trm =
      declaration when the reference status has to be determined before calling
      the function as the information cannot be restored from within the function
      like in the case of a multiple variable declaration. *)
-  let one ?(reference = false) ?(mult = false) (deletes : trmq)
+  let one ?(reference = false) ?(mult = false)
+        (deletes : trmq) (variables : varq)
         (vk : varkind) (v : var) (ty : typ) (init : trm) : typed_var * trm =
     (* Beyond promoting variables to the heap, this function allow for producing
        an adequate [delete] term allowing for future de-allocation of the
@@ -365,14 +369,32 @@ let heapify_on (t : trm) : trm =
       begin
         let vt = trm_var ~kind:vk v in
         let dt = trm_delete (!delete = 2) vt in
+        let fp = new_var (get_apac_variable ApacDepthLocal) in
+        let fp = [FirstPrivate [fp]] in
+        let co = (get_apac_variable ApacCountOk) ^ " || " ^
+                         (get_apac_variable ApacDepthOk) in
+        let co = [If co] in
         let inout = Dep.of_trm (trm_get vt) v 1 in
         let inout = [Inout [inout]] in
         let depend = [Depend inout] in
         let clauses = [Default Shared_m] in
         let clauses = clauses @ depend in
+        let clauses = if !Apac_macros.instrument_code then clauses @ fp @ co
+                      else clauses in
         let pragma = Task clauses in
+        let count_preamble = count_update false in
+        let depth_preamble = depth_update () in
+        let count_postamble = count_update true in
+        let dt = if !Apac_macros.instrument_code then
+                   let dt' = [depth_preamble; dt; count_postamble] in
+                   trm_seq_nomarks dt'
+                 else dt in
         let dt = trm_add_pragma pragma dt in
-        Queue.add dt deletes
+        let dt = if !Apac_macros.instrument_code then
+                   Syntax.trm_seq_no_brace [count_preamble; dt]
+                 else dt in
+        Queue.add dt deletes;
+        if !delete <> 2 then Queue.add (v, vt) variables;
       end;
     result
   in
@@ -384,21 +406,21 @@ let heapify_on (t : trm) : trm =
      - before [break] and [continue] statements in the current sequence term [t]
        if it is the body of a loop or a case of a [switch] statement (see the
        [breakable] flag). *)
-  let rec delete (deletes : trms) (t : trm) : trm =
+  let rec delete (deletes : trms) (level : int) (t : trm) : trm =
     match t.desc with
     | Trm_seq _ ->
        let breakable = trm_has_mark Apac_macros.heapify_breakable_mark t in
-       let t' = trm_map (delete deletes) t in
+       let t' = trm_map (delete deletes (level + 1)) t in
        let error = "[heapify_on.delete]: expected a sequence term." in
        let stmts = trm_inv ~error trm_seq_inv t' in
        let stmts' = match Mlist.findi (fun t -> is_trm_abort t) stmts with
          | Some (idx, abort) when is_return abort || breakable ->
             let abort' = Syntax.trm_seq_no_brace (deletes @ [abort]) in
             Mlist.replace_at idx abort' stmts
-         | Some (idx, abort) -> stmts
-         | _ ->
+         | _ when level < 1 ->
             let len = Mlist.length stmts in
             Mlist.insert_sublist_at len deletes stmts
+         | _ -> stmts
        in
        trm_seq ~annot:t.annot stmts'
     | _ -> t
@@ -409,6 +431,8 @@ let heapify_on (t : trm) : trm =
   (* Initialize a queue for the [delete] terms allowing for deallocating the
      promoted variables.*)
   let deletes = Queue.create () in
+  (* Initialize a queue for the deleted variables.*)
+  let variables = Queue.create () in
   (* Map over the terms in [ml] and perform the heapification of single and
      multiple variable declarations using the
      [Apac_basic.heapify_intro_on.single] function. *)
@@ -417,14 +441,15 @@ let heapify_on (t : trm) : trm =
                | Trm_let (kind, (v, ty), init, _) ->
                   let ((v2, ty2), init2) =
                     one ~reference:(trm_has_cstyle Reference t) deletes
-                      kind v ty init in
+                      variables kind v ty init in
                   trm_let kind (v2, ty2) init2
                | Trm_let_mult (kind, vtys, inits) ->
                   (* To heapify a multiple variable declaration, we loop over
                      all the declarations in the corresponding term. *)
                   let updated = List.map2 (
                                     fun (v, ty) init ->
-                                    one ~mult:true deletes kind v ty init
+                                    one ~mult:true deletes variables
+                                      kind v ty init
                                   ) vtys inits in
                   (* The multiple variable declaration constructor
                      [trm_let_mult] expects the typed variables and
@@ -434,29 +459,19 @@ let heapify_on (t : trm) : trm =
                | _ -> t) ml in
   (* Transform the [deletes] queue into a list. *)
   let deletes = List.of_seq (Queue.to_seq deletes) in
+  (* Transform the [variables] queue into a list. *)
+  let variables = List.of_seq (Queue.to_seq variables) in
   let ml = Mlist.map (fun t ->
-               List.fold_left (fun acc dt ->
-                   match dt.desc with
-                   | Trm_delete (arr, tv) when not arr ->
-                      begin match tv.desc with
-                      | Trm_var (_, v) -> apply_on_pragmas (fun pl ->
-                                              (subst_pragmas v tv)
-                                                pl) acc
-                      | _ -> acc
-                      end
-                   | _ -> acc) t deletes) ml in
+               List.fold_left (fun acc (v, tv) ->
+                  apply_on_pragmas (fun pl -> (subst_pragmas v tv) pl) acc
+                 ) t variables) ml in
   (* Build an updated the sequence term. *)
   let t' = trm_seq ~annot:t.annot ml in
-  let t' = List.fold_left (fun acc dt ->
-               match dt.desc with
-               | Trm_delete (arr, tv) when not arr ->
-                  begin match tv.desc with
-                  | Trm_var (_, v) -> trm_subst_var v (trm_get tv) acc
-                  | _ -> acc
-                  end
-               | _ -> acc) t' deletes in
+  let t' = List.fold_left (fun acc (v, tv) ->
+               trm_subst_var v (trm_get tv) acc
+             ) t' variables in
   (* Add the [delete] terms from [deletes] to [t']. *)
-  delete deletes t'
+  delete deletes 0 t'
 
 (* [heapify tg]: expects the target [tg] to point at a sequence in which it
    promotes variables delacred on the stack to the heap. It applies on each
