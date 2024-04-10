@@ -257,7 +257,8 @@ let typ_constify (ty : typ) : typ =
    behind an lvalue and check whether it has been dereferenced, i.e. following
    an array access or the use of [*]. Upon success, it returns the corresponding
    labelled variable. See [LVar] for more details on labelled variables. *)
-let trm_resolve_binop_lval_and_get_with_deref (t : trm) : (LVar.t * bool) option =
+let trm_resolve_binop_lval_and_get_with_deref
+      (t : trm) : (LVar.t * bool) option =
   let rec aux (dereferenced : bool) (l : label) (t : trm) :
             (LVar.t * bool) option =
     match t.desc with
