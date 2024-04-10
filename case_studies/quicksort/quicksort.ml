@@ -5,6 +5,7 @@ open Ast
 
 let _ = Run.script_cpp (fun () ->
             let _ = Flags.code_print_width := 1024 in
+            let _ = Apac_macros.instrument_code := true in
             (* Target all of the function definitions except for the 'main'
                function. *)
             !! Apac_constify.constify [
@@ -24,6 +25,9 @@ let _ = Run.script_cpp (fun () ->
             !! Apac_taskify.taskify [nbAny; cMark Apac_macros.task_group_mark];
             !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
             !! Apac_taskify.insert_tasks
+              [nbAny; cMark Apac_macros.task_group_mark];
+            !! Apac_epilogue.instrument
+              []
               [nbAny; cMark Apac_macros.task_group_mark];
             !! Marks.remove Apac_macros.task_group_mark [
                 nbAny;
