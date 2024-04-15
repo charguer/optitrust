@@ -525,19 +525,15 @@ end = struct
           (* Get the first element from the queue of vertices to visit. This
              will be the current element to process. *)
           let hd = Queue.take q in
-          (* Then, retrieve its predecessors and *)
-          let p = TaskGraph.pred g hd in
-          (* its successors. *)
-          let s = TaskGraph.succ g hd in
           (* If all of its predecessors has been visited, i.e. if all of them
              are in the hash table of visited nodes, *)
-          let all = List.for_all (fun e -> H.mem v e) p in
+          let all = TaskGraph.fold_pred (fun p a -> a && H.mem v p) g hd true in
           if all && not (H.mem v hd) then
             begin
               (* visit the current element, *)
               H.add v hd ();
               (* push its successors to the queue of vertices to visit, *)
-              List.iter (fun e -> Queue.push e q) s;
+              TaskGraph.iter_succ (fun e -> Queue.push e q) g hd;
               (* codify the current element, *)
               let ce = if root then [] else c hd in
               (* append it to the list of already codified elements and
