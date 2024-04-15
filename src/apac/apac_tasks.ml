@@ -115,6 +115,7 @@ module rec Task : sig
            trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
            ioattrs_map -> TaskGraph.t list list -> t
          val add_attr : t -> TaskAttr.t -> t
+         val add_attrs : t -> TaskAttr_set.t -> t
          val has_attr : t -> TaskAttr.t -> bool
          val has_subs : t -> bool
          val merge : t -> t -> t
@@ -198,6 +199,18 @@ module rec Task : sig
   let add_attr (task : t) (attr : TaskAttr.t) : t = {
       current = task.current;
       attrs = TaskAttr_set.add attr task.attrs;
+      ins = task.ins;
+      inouts = task.inouts;
+      ioattrs = task.ioattrs;
+      children = task.children;
+    }
+  (** [Task.add_attrs task attrs]: updates the set of task attributes of the
+      task [task]. The new set of task attributes of [task] is the union of the
+      initial set of task attributes with the set of task attributes [attrs].
+      Other components of [task] remain unaffected. *)
+  let add_attrs (task : t) (attrs : TaskAttr_set.t) : t = {
+      current = task.current;
+      attrs = TaskAttr_set.union task.attrs attrs;
       ins = task.ins;
       inouts = task.inouts;
       ioattrs = task.ioattrs;
