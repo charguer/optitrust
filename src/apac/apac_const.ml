@@ -65,6 +65,8 @@ type const_fun = {
     (* Hash table ([var] -> [int]) of locally-defined symbols, including
        arguments, storing their pointer degree. See [symbols] below. *)
     variables : symbols;
+    (* Backup of the original AST of the function. *)
+    ast_backup : trm;
   }
 
 (* [const_funs]: type for a hash table of [const_fun]. The keys are functions

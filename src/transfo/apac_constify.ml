@@ -186,6 +186,7 @@ let build_constification_records_on (t : trm) : unit =
       is_class_method = false;
       task_graph = None;
       variables = locals;
+      ast_backup = t;
     } in
   (* and add it to [const_records] (global variable, see Part II.1) if it is not
      present in the hash table already, e.g. in the case of a
