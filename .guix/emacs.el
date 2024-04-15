@@ -57,6 +57,19 @@
 (define-key projectile-mode-map (kbd "s-p") 'projectile-command-map)
 (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
 
+(require 'dired-sidebar)
+(add-hook 'dired-sidebar-mode-hook
+          (lambda ()
+            (unless (file-remote-p default-directory)
+              (auto-revert-mode))))
+(push 'toggle-window-split dired-sidebar-toggle-hidden-commands)
+(push 'rotate-windows dired-sidebar-toggle-hidden-commands)
+(setq dired-sidebar-subtree-line-prefix "__")
+(setq dired-sidebar-theme 'arrows)
+(setq dired-sidebar-use-term-integration t)
+(setq dired-sidebar-use-custom-font t)
+(local-set-key [24 14] 'dired-sidebar-toggle-sidebar)
+
 (setq inhibit-startup-screen t)
 
 (setq column-number-mode t)

@@ -38,6 +38,7 @@
          "emacs-org-ref"
          "emacs-tuareg"
          "emacs-projectile"
+         "emacs-dired-sidebar"
          "emacs-spacemacs-theme"
          "git"))
   (package->development-manifest
