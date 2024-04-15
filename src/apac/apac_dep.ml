@@ -217,6 +217,12 @@ module Dep_map = struct
   let has_with_attribute (d : Dep.t) (da : DepAttr.t)
         (dm : DepAttr_set.t t) : bool =
     exists (fun k a -> Dep.equal k d && DepAttr_set.mem da a) dm
+  (** [Dep_map.remove_attribute da dm]: removes the dependency attribute [da]
+      from all the bindings in the map of dependencies to dependency attribute
+      sets [dm]. *)
+  let remove_attribute
+        (da : DepAttr.t) (dm : DepAttr_set.t t) : DepAttr_set.t t =
+    map (fun das -> DepAttr_set.remove da das) dm        
   (** [Dep_map.of_stack s]: converts the stack of dependency-dependency
       attribute set pairs [s] to a map of dependencies to dependency attribute
       sets. *)
