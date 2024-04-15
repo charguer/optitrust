@@ -1021,7 +1021,11 @@ let merge_on (p : path) (t : trm) : unit =
     | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
                           taskify?" in
   iter g;
-  export_task_graph g "apac_task_graph_merged.dot"
+  Printf.printf "Merged task graph of << %s >> follows:\n" (var_to_string f);
+  TaskGraphPrinter.print g;
+  let dot = "apac_task_graph_" ^ f.name ^ "_merged.dot" in
+  export_task_graph g dot;
+  dot_to_pdf dot
 
 let merge (tg : target) : unit =
   Nobrace.enter ();
