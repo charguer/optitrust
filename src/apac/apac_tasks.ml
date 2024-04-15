@@ -456,6 +456,45 @@ module TaskGraphOper = struct
              children = children;
            } in
          TaskGraph.V.create v') g
+  (** [TaskGraphOper.update_task_attributes f attrs g]: Update the task
+      attribute sets of all the tasks in the task graph [g] with the attributes
+      from the task attribute set [attrs] and using the provided task update
+      function [f]. *)
+  let rec update_task_attributes
+            (f : (Task.t -> TaskAttr_set.t -> Task.t)) (attrs : TaskAttr_set.t)
+            (g : TaskGraph.t) : TaskGraph.t =
+    TaskGraph.map_vertex (fun v ->
+        (** Get the task [t] from the current task graph vertex [v].*)
+        let t : Task.t = TaskGraph.V.label v in
+        (** Apply [f] with the task attribute set [attrs] on the current task
+            [t]. *)
+        let t = f t attrs in
+        (** Perform the update recursively on child task graphs. *)
+        let children = List.map (fun gl ->
+                           List.map (fun go ->
+                               (update_task_attributes f attrs) go
+                             ) gl
+                         ) t.children in
+        (** Update the task's child task graphs. *)
+        let t : Task.t = {
+            current = t.current;
+            attrs = t.attrs;
+            ins = t.ins;
+            inouts = t.inouts;
+            ioattrs = t.ioattrs;
+            children = children;
+          } in
+        (** Rebuild and return a task graph node using the updated task [t]. *)
+        TaskGraph.V.create t) g
+  (** [TaskGraphOper.root g]: find the root node of the task graph [g], i.e. the
+      node without any predecessor. *)
+  let root (g : TaskGraph.t) : TaskGraph.V.t =
+    (* Traverse the graph [g] and find the node without predecessors. This will
+       be the root node. *)
+    let vs = TaskGraph.fold_vertex (fun v acc ->
+                 if TaskGraph.in_degree g v < 1 then v::acc else acc
+               ) g [] in
+    List.hd vs
 end
 
 (** [TaskGraphTraverse]: a module implementing a traversal function for task
