@@ -100,7 +100,8 @@ let depth_update () : trm =
   trm_if condition increment (trm_unit ())
 
 let emit_omp_task (t : Task.t) : trms =
-  if (Task.has_attr t ExitPoint) || (Task.has_attr t WaitForNone) then
+  if ((Task.has_attr t ExitPoint) || (Task.has_attr t WaitForNone)) &&
+       not (Task.has_attr t IsJump) && not (Task.has_attr t WaitForAll) then
     t.current
   else if (Task.has_attr t WaitForAll) || (Task.has_attr t IsJump) then
     begin
