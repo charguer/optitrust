@@ -57,3 +57,7 @@ let apac_count_thread_factor : int = 10
 (** [apac_depth_max_default]: the default value of [apac_depth_max] is a an
     arbitrary value initially set to [5]. It can be changed here. *)
 let apac_depth_max_default : int = 5
+
+(** [apac_main]: name of the function that should be considered as the starting
+    point of the input source code. By default, this is the `main' function. *)
+let apac_main : string ref = ref "main"

@@ -168,7 +168,7 @@ let parallel_task_group
        Note that if the target function is the 'main' function, we want the
        task group to be executed only by one thread, the master thread. *)
     if not placeholder then
-      let master = master || (var_has_name qvar "main") in
+      let master = master || (var_has_name qvar !Apac_macros.apac_main) in
       task_group ~mark_group ~master [cMark mark]
     else
       Marks.add Apac_macros.task_group_mark [cMark mark];
