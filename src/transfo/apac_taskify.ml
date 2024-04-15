@@ -478,7 +478,7 @@ let taskify_on (p : path) (t : trm) : unit =
        else a :: (join (b :: r))
     | _ -> tasks
   in
-  let rec sanitize (tasks : Task.t list) : Task.t list =
+ (* let rec sanitize (tasks : Task.t list) : Task.t list =
     match tasks with
     | a :: b :: r ->
        let ifa = not (Task.has_attr a WaitForAll) in
@@ -495,7 +495,7 @@ let taskify_on (p : path) (t : trm) : unit =
          a :: (sanitize (b' :: r))
        else a :: (sanitize (b :: r))
     | _ -> tasks
-  in
+  in*)
   (* Auxiliary function to transform a portion of the existing AST into a local
      fill_task_graphed AST (see [atrm]). *)
   let rec fill (s : symbols) (t : trm) (g : TaskGraph.t) : Task.t =
@@ -511,26 +511,40 @@ let taskify_on (p : path) (t : trm) : unit =
               Dep_set.union inouts' task.inouts,
               Dep_map.union2 ioattrs' task.ioattrs))
            (Dep_set.empty, Dep_set.empty, Dep_map.empty) tasks in
-       let has_jump = List.exists (fun e -> Task.has_attr e HasJump) tasks in
-       let attrs = if has_jump then TaskAttr_set.singleton HasJump
-                   else TaskAttr_set.empty in
-       let this = Task.create t attrs scope ins inouts ioattrs [] in
-       let this' = TaskGraph.V.create this in
-       let _ = TaskGraph.add_vertex g this' in
        let (jumps, tasks) = List.partition (fun e ->
                                 (Task.has_attr e IsJump) ||
                                   (Task.has_attr e ExitPoint)) tasks in
+       let has_other_than_jumps = tasks <> [] in
        let tasks = if (List.length jumps) > 0 then
                      let first = List.hd jumps in
                      let tail = List.tl jumps in
                      let jump = List.fold_left (fun j t ->
                                     Task.merge j t) first tail in
-                     let jump = Task.add_attr jump ExitPoint in
+                     let jump = if Task.has_attr jump IsJump then
+                                  Task.add_attr jump WaitForAll else jump in
                      tasks @ [jump]
                    else tasks
        in
        let tasks = join tasks in
-       let tasks = sanitize tasks in
+       let has_jump = List.exists (fun e -> Task.has_attr e HasJump) tasks in
+       let attrs = if has_jump then TaskAttr_set.singleton HasJump
+                   else TaskAttr_set.empty in
+       let wait_only = has_other_than_jumps && List.for_all (fun e ->
+                           (Task.has_attr e WaitForAll) ||
+                               (Task.has_attr e WaitForNone)) tasks in
+       let tasks = if wait_only then
+                     List.map (fun e ->
+                         let e' = Task.drop_attr e WaitForSome in
+                         let e' = Task.drop_attr e' WaitForAll in
+                         Task.add_attr e' WaitForNone
+                       ) tasks
+                   else tasks in
+       let attrs = if wait_only then
+                     TaskAttr_set.add WaitForNone attrs
+                   else attrs in
+       let this = Task.create t attrs scope ins inouts ioattrs [] in
+       let this' = TaskGraph.V.create this in
+       let _ = TaskGraph.add_vertex g this' in
        let tasks = List.map (
                        fun task ->
                        let v = TaskGraph.V.create task in
@@ -649,9 +663,12 @@ let taskify_on (p : path) (t : trm) : unit =
        let attrs = if (Task.has_attr ct HasJump) then
                      TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
+       (** If the body contains only synchronization barriers, and put a general
+           synchronization barrier in front of this for-loop. *)
+       let waits = Task.has_attr ct WaitForNone in
        (* A for-loop node should not become a task by itself. *)
        let attrs = TaskAttr_set.add (
-                       if partial then WaitForAll else WaitForSome
+                       if partial || waits then WaitForAll else WaitForSome
                      ) attrs in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
@@ -737,9 +754,12 @@ let taskify_on (p : path) (t : trm) : unit =
        let attrs = if (Task.has_attr ct HasJump) then
                      TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
+       (** If the body contains only synchronization barriers, and put a general
+           synchronization barrier in front of this for-loop. *)
+       let waits = Task.has_attr ct WaitForNone in
        (* A for-loop node should not become a task by itself. *)
        let attrs = TaskAttr_set.add (
-                       if partial then WaitForAll else WaitForSome
+                       if partial || waits then WaitForAll else WaitForSome
                      ) attrs in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
@@ -772,12 +792,12 @@ let taskify_on (p : path) (t : trm) : unit =
                                | Dep_trm (_, v) -> not (Var_set.mem v nv)
                                | _ -> true
                     ) inouts in
-       let attrs = if (Dep_set.cardinal ins > 0) &&
+       let attrs = if (Dep_set.cardinal ins > 0) ||
                         (Dep_set.cardinal others > 0) then
                      TaskAttr_set.add (
                          if partial then WaitForAll else WaitForSome
-                       ) attrs else
-                     TaskAttr_set.add WaitForNone attrs in
+                       ) attrs
+                   else TaskAttr_set.add WaitForNone attrs in
        (* Create a barrier corresponding to the current variable declaration
           term. Variable declarations should never appear in tasks. *)
        Task.create t attrs scope' ins inouts Dep_map.empty [[]]
@@ -870,9 +890,13 @@ let taskify_on (p : path) (t : trm) : unit =
                      TaskAttr_set.singleton HasJump
                    else
                      TaskAttr_set.empty in
+       (** If the bodies contain only synchronization barriers, and put a
+           general synchronization barrier in front of this if-conditional. *)
+       let waits = Task.has_attr ty WaitForNone &&
+                     (missing_tn || Task.has_attr tn WaitForNone) in
        (* An [if] node should not become a task by itself. *)
        let attrs = TaskAttr_set.add (
-                       if partial then WaitForAll else WaitForSome
+                       if partial || waits then WaitForAll else WaitForSome
                      ) attrs in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
@@ -916,9 +940,12 @@ let taskify_on (p : path) (t : trm) : unit =
        let attrs = if (Task.has_attr tb HasJump) then
                      TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
+       (** If the body contains only synchronization barriers, and put a general
+           synchronization barrier in front of this while-loop. *)
+       let waits = Task.has_attr tb WaitForNone in
        (* A while-loop node should not become a task by itself. *)
        let attrs = TaskAttr_set.add (
-                       if partial then WaitForAll else WaitForSome
+                       if partial || waits then WaitForAll else WaitForSome
                      ) attrs in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
@@ -958,9 +985,12 @@ let taskify_on (p : path) (t : trm) : unit =
        let attrs = if (Task.has_attr tb HasJump) then
                      TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
+       (** If the body contains only synchronization barriers, and put a general
+           synchronization barrier in front of this do-while-loop. *)
+       let waits = Task.has_attr tb WaitForNone in
        (* A do-while-loop node should not become a task by itself. *)
        let attrs = TaskAttr_set.add (
-                       if partial then WaitForAll else WaitForSome
+                       if partial || waits then WaitForAll else WaitForSome
                      ) attrs in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
@@ -1022,9 +1052,14 @@ let taskify_on (p : path) (t : trm) : unit =
        let has_jump = List.exists (fun e -> Task.has_attr e HasJump) tbs in
        let attrs = if has_jump then TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
+       (** If the body contains only synchronization barriers, and put a general
+           synchronization barrier in front of this for-loop. *)
+       let waits = List.for_all (fun e ->
+                       Task.has_attr e WaitForNone
+                     ) tbs in
        (* A switch node should not become a task by itself. *)
        let attrs = TaskAttr_set.add (
-                       if partial then WaitForAll else WaitForSome
+                       if partial || waits then WaitForAll else WaitForSome
                      ) attrs in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
