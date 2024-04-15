@@ -1,127 +1,208 @@
-#include <random>
-#include <iostream>
-#include <stdexcept>
-#include <vector>
-#include <array>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
+typedef struct {
+  double x, y, z;
+  double weight;
+  double fx, fy, fz;
+  double vx, vy, vz;
+} Particle;
 
-struct Particle{
-    double x,y,z;
-    double weight;
-    double fx,fy,fz;
-    double vx, vy, vz;
-};
+typedef struct {
+  Particle * particles;
+  size_t size, capacity;
+} Cell;
 
+Cell * cell_create(size_t capacity) {
+  Cell * new_cell = (Cell *) malloc(sizeof(Cell));
+  if(!new_cell) { return NULL; }
+  new_cell->particles = (Particle *) malloc(capacity * sizeof(Particle));
+  if(!new_cell->particles) { return NULL; }
+  new_cell->capacity = capacity;
+  new_cell->size = 0L;
+  return new_cell;
+}
 
-class Cell{
-    std::vector<Particle> particles;
+Cell * cell_add_particle(Cell * cell, Particle particle) {
+  if(!cell) { return NULL; }
+  if(!cell->particles) { return NULL; }
+  if(cell->size == cell->capacity) {
+    cell->particles = (Particle *)
+      realloc(cell->particles, 1024 * sizeof(Particle));
+    if(!cell->particles) { return NULL; }
+    cell->capacity += 1024;
+  }
+  cell->particles[cell->size] = particle;
+  cell->size++;
+  return cell;
+}
 
-public:
-    Cell(){}
+Cell * cell_self_compute(Cell * cell) {
+  if(!cell) { return NULL; }
+  
+  for(size_t idxSrc = 0; idxSrc < cell->size; idxSrc++) {
+    for(size_t idxTgt = idxSrc + 1; idxTgt < cell->size; idxTgt++) {
+      double dx = cell->particles[idxSrc].x - cell->particles[idxTgt].x;
+      double dy = cell->particles[idxSrc].y - cell->particles[idxTgt].y;
+      double dz = cell->particles[idxSrc].z - cell->particles[idxTgt].z;
 
-    void addParticle(const Particle& inPart){
-        particles.push_back(inPart);
+      double inv_square_distance = (double) 1.0 / (dx * dx + dy * dy + dz * dz);
+      double inv_distance = sqrt(inv_square_distance);
+
+      inv_square_distance *= inv_distance;
+      inv_square_distance *=
+        cell->particles[idxTgt].weight * cell->particles[idxSrc].weight;
+
+      dx *= inv_square_distance;
+      dy *= inv_square_distance;
+      dz *= inv_square_distance;
+
+      cell->particles[idxSrc].x += dx;
+      cell->particles[idxSrc].y += dy;
+      cell->particles[idxSrc].z += dz;
+
+      cell->particles[idxTgt].x -= dx;
+      cell->particles[idxTgt].y -= dy;
+      cell->particles[idxTgt].z -= dz;
     }
+  }
 
-    void selfCompute(){
-        for(int idxSrc = 0 ; idxSrc < int(particles.size()) ; ++idxSrc){
-            for(int idxTgt = idxSrc+1 ; idxTgt < int(particles.size()) ; ++idxTgt){
-                double dx = particles[idxSrc].x - particles[idxTgt].x;
-                double dy = particles[idxSrc].y - particles[idxTgt].y;
-                double dz = particles[idxSrc].z - particles[idxTgt].z;
+  return cell;
+}
 
-                double inv_square_distance = double(1.0) / (dx*dx + dy*dy + dz*dz);
-                double inv_distance = std::sqrt(inv_square_distance);
+Cell * cell_neighbor_compute(Cell * me, Cell * neighbor) {
+  if(!cell || !neighbor) { return NULL; }
+  if(me == neighbor) { return me; }
+  
+  for(size_t idxSrc = 0; idxSrc < me->size; idxSrc++) {
+    for(size_t idxTgt = 0; idxTgt < neighbor->size; idxTgt++) {
+      double dx = me->particles[idxSrc].x - neighbor->particles[idxTgt].x;
+      double dy = me->particles[idxSrc].y - neighbor->particles[idxTgt].y;
+      double dz = me->particles[idxSrc].z - neighbor->particles[idxTgt].z;
 
-                inv_square_distance *= inv_distance;
-                inv_square_distance *= particles[idxTgt].weight * particles[idxSrc].weight;
+      double inv_square_distance = (double) 1.0 / (dx * dx + dy * dy + dz * dz);
+      double inv_distance = sqrt(inv_square_distance);
 
-                dx *= inv_square_distance;
-                dy *= inv_square_distance;
-                dz *= inv_square_distance;
+      inv_square_distance *= inv_distance;
+      inv_square_distance *=
+        neighbor->particles[idxTgt].weight * me->particles[idxSrc].weight;
 
-                particles[idxSrc].x += dx;
-                particles[idxSrc].y += dy;
-                particles[idxSrc].z += dz;
+      dx *= inv_square_distance;
+      dy *= inv_square_distance;
+      dz *= inv_square_distance;
 
-                particles[idxTgt].x -= dx;
-                particles[idxTgt].y -= dy;
-                particles[idxTgt].z -= dz;
-            }
-        }
+      me->particles[idxSrc].x += dx;
+      me->particles[idxSrc].y += dy;
+      me->particles[idxSrc].z += dz;
     }
+  }
 
-    void neighCompute(const Cell& inCell){
-        if(this == &inCell){
-            return;
-        }
-        
-        for(int idxSrc = 0 ; idxSrc < int(particles.size()) ; ++idxSrc){
-            for(int idxTgt = 0 ; idxTgt < int(inCell.particles.size()) ; ++idxTgt){
-                double dx = particles[idxSrc].x - inCell.particles[idxTgt].x;
-                double dy = particles[idxSrc].y - inCell.particles[idxTgt].y;
-                double dz = particles[idxSrc].z - inCell.particles[idxTgt].z;
+  return me;
+}
 
-                double inv_square_distance = double(1.0) / (dx*dx + dy*dy + dz*dz);
-                double inv_distance = std::sqrt(inv_square_distance);
+Cell * cell_update(Cell * cell, double time_step){
+  if(!cell) { return NULL; }
+  
+  for(size_t idxSrc = 0; idxSrc < cell->size; idxSrc++) {
+    cell->particles[idxSrc].vx +=
+      (cell->particles[idxSrc].fx / cell->particles[idxSrc].weight) * time_step;
+    cell->particles[idxSrc].vy +=
+      (cell->particles[idxSrc].fy / cell->particles[idxSrc].weight) * time_step;
+    cell->particles[idxSrc].vz +=
+      (cell->particles[idxSrc].fz / cell->particles[idxSrc].weight) * time_step;
+    
+    cell->particles[idxSrc].x += cell->particles[idxSrc].vx * time_step;
+    cell->particles[idxSrc].y += cell->particles[idxSrc].vy * time_step;
+    cell->particles[idxSrc].z += cell->particles[idxSrc].vz * time_step;
+  }
 
-                inv_square_distance *= inv_distance;
-                inv_square_distance *= inCell.particles[idxTgt].weight * particles[idxSrc].weight;
+  return cell;
+}
 
-                dx *= inv_square_distance;
-                dy *= inv_square_distance;
-                dz *= inv_square_distance;
+Cell * cell_remove_ot_of_intervals(Cell * cell, Cell ** particles_to_remove,
+                                   double minPosCell[3], double maxPosCell[3]) {
+  if(!cell) { return NULL; }
+  
+  *particles_to_remove = cell_create(cell->size);
 
-                particles[idxSrc].x += dx;
-                particles[idxSrc].y += dy;
-                particles[idxSrc].z += dz;
-
-                // V2
-                // inCell.particles[idxTgt].x -= dx;
-                // inCell.particles[idxTgt].y -= dy;
-                // inCell.particles[idxTgt].z -= dz;
-                // ENDV
-            }
-        }
+  size_t idxPart = 0;
+  while(idxPart != cell->size) {
+    if(cell->particles[idxPart].x < minPosCell[0]
+       || cell->particles[idxPart].y < minPosCell[1]
+       || cell->particles[idxPart].z < minPosCell[2]
+       || maxPosCell[0] <= cell->particles[idxPart].x
+       || maxPosCell[1] <= cell->particles[idxPart].y
+       || maxPosCell[2] <= cell->particles[idxPart].z) {
+      *particles_to_remove =
+        cell_add_particle(*particles_to_remove, cell->particles[idxPart]);
+      cell->particles[idxPart] = cell->particles[--cell->size];
+    } else {
+      idxPart++;
     }
+  }
+  
+  return cell;
+}
 
-    void update(const double timeStep){
-        for(int idxSrc = 0 ; idxSrc < int(particles.size()) ; ++idxSrc){
-            particles[idxSrc].vx += (particles[idxSrc].fx / particles[idxSrc].weight) * timeStep;
-            particles[idxSrc].vy += (particles[idxSrc].fy / particles[idxSrc].weight) * timeStep;
-            particles[idxSrc].vz += (particles[idxSrc].fz / particles[idxSrc].weight) * timeStep;
+typedef struct {
+  double box_width, cell_width;
+  size_t nb_cells_per_dim, size, capacity;
+  Cell ** cells;
+} Grid;
 
-            particles[idxSrc].x += particles[idxSrc].vx * timeStep;
-            particles[idxSrc].y += particles[idxSrc].vy * timeStep;
-            particles[idxSrc].z += particles[idxSrc].vz * timeStep;
-        }
-    }
+int grid_cell_idx_from_position(Grid * grid, Particle particle) {
+  if(!grid) { return -1; }
+  
+  int x = (int) (particle.x / grid->cellWidth),
+    y = (int) (particle.y / grid->cellWidth),
+    z = (int) (particle.z / grid->cellWidth);
+  return (x * grid->nbCellsPerDim + y) * grid->nbCellsPerDim + z;
+}
 
-    std::vector<Particle> removeOutOfIntervals(const std::array<double,3>& minPosCell,
-                                               const std::array<double,3>& maxPosCell){
-        std::vector<Particle> particlesToRemove;
+Grid * grid_create(double box_width, double cell_width, Cell * cell) {
+  if(!cell) { return NULL; }
+  
+  Grid * new_grid = (Grid *) malloc(sizeof(Grid));
+  if(!new_grid) { return NULL; }
 
-        size_t idxPart = 0;
-        while(idxPart != particles.size()){
-            if(particles[idxPart].x < minPosCell[0]
-                    || particles[idxPart].y < minPosCell[1]
-                    || particles[idxPart].z < minPosCell[2]
-                    || maxPosCell[0] <= particles[idxPart].x
-                    || maxPosCell[1] <= particles[idxPart].y
-                    || maxPosCell[2] <= particles[idxPart].z){
-                particlesToRemove.push_back(particles[idxPart]);
-                particles[idxPart] = particles.back();
-                particles.pop_back();
-            }
-            else{
-                idxPart += 1;
-            }
-        }
+  new_grid->box_width = box_width;
+  new_grid->cell_width = cell_width;
+  new_grid->nb_cells_per_dim = (size_t) (box_width / cell_width);
+  new_grid->capacity =
+    new_grid->nb_cells_per_dim *
+    new_grid->nb_cells_per_dim *
+    new_grid->nb_cells_per_dim;
+  
+  new_grid->cells = (Cell **) malloc(new_grid->capacity * sizeof(Cell *));
+  if(!new_grid->cells) { return NULL; }
+  
+  new_grid->size = 0L;
 
-        return particlesToRemove;
-    }
-};
+  for(size_t idxPart = 0; idxPart < cell->size; idxPart++) {
+    int cell_idx =
+      grid_cell_idx_from_position(new_grid, cell->particles[idxPart]);
+    if(cell_idx < 0) { return NULL; }
+    new_grid->cells[cell_idx] = cell_add_particle(new_grid->cells[cell_idx],
+                                                  cell->particles[idxPart]);
+    if(!new_grid->cells[cell_idx]) { return NULL; }
+  }
+  
+  return new_grid;
+}
 
+Grid * grid_add_cell(Grid * grid, Cell * cell) {
+  if(!grid) { return NULL; }
+  if(!grid->cells) { return NULL; }
+  if(grid->size == grid->capacity) {
+    grid->cells = realloc(grid->cells, 1024 * sizeof(Cell *));
+    if(!grid->cells) { return NULL; }
+    grid->capacity += 1024;
+  }
+  grid->cells[grid->size] = cell;
+  grid->size++;
+  return grid;
+}
 
 class Grid{
     const double boxWidth;
@@ -129,30 +210,8 @@ class Grid{
     const int nbCellsPerDim;
     std::vector<Cell> cells;
 
-    std::array<int,3> cellCoordFromPosition(const Particle& inPart) const {
-        return std::array<int,3>{{int(inPart.x/cellWidth),
-                                  int(inPart.y/cellWidth),
-                                  int(inPart.z/cellWidth)}};
-    }
-
-    int cellIdxFromPosition(const Particle& inPart) const {
-        const std::array<int,3> coord = cellCoordFromPosition(inPart);
-        return (coord[0]*nbCellsPerDim + coord[1])*nbCellsPerDim + coord[2];
-    }
 
 public:
-    Grid(const double inBoxWidth, const double inCellWidth,
-         const std::vector<Particle>& inParticles)
-        : boxWidth(inBoxWidth), cellWidth(inCellWidth),
-          nbCellsPerDim(inBoxWidth/inCellWidth) {
-
-        cells.resize(nbCellsPerDim*nbCellsPerDim*nbCellsPerDim);
-
-        for(int idxPart = 0 ; idxPart < int(inParticles.size()) ; ++idxPart){
-            const int cellIdx = cellIdxFromPosition(inParticles[idxPart]);
-            cells[cellIdx].addParticle(inParticles[idxPart]);
-        }
-    }
 
     void compute(){
         for(int idxX = 0 ; idxX < nbCellsPerDim ; ++idxX){
