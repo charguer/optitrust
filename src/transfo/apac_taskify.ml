@@ -782,7 +782,7 @@ let taskify_on (p : path) (t : trm) : unit =
                      TaskAttr_set.add WaitForNone attrs in
        (* Create a barrier corresponding to the current variable declaration
           term. Variable declarations should never appear in tasks. *)
-       Task.create t attrs scope' ins inouts Dep_map.empty []
+       Task.create t attrs scope' ins inouts Dep_map.empty [[]]
     | Trm_apps _ ->
        (* Check whether [t] is an assignment to
           [Apac_macros.result_variable]. *)
@@ -829,7 +829,7 @@ let taskify_on (p : path) (t : trm) : unit =
          in
          (* Create the task corresponding to the current graph node using all
             the elements computed above. *)
-         Task.create t attrs scope ins inouts ioattrs []
+         Task.create t attrs scope ins inouts ioattrs [[]]
     | Trm_if (cond, yes, no) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -1051,7 +1051,7 @@ let taskify_on (p : path) (t : trm) : unit =
                      ) in
        (* in order to be able to use it when creating the task corresponding to
           the current [delete] graph node. *)
-       Task.create t attrs scope Dep_set.empty inouts Dep_map.empty []
+       Task.create t attrs scope Dep_set.empty inouts Dep_map.empty [[]]
     | Trm_goto target ->
        (* If the target label of the [goto] is not the [Apac_core.goto_label] we
           use within the return statement replacement transformation
@@ -1071,7 +1071,7 @@ let taskify_on (p : path) (t : trm) : unit =
          let attrs = TaskAttr_set.add HasJump attrs in
          let attrs = TaskAttr_set.add IsJump attrs in
          Task.create t attrs Var_set.empty
-           Dep_set.empty Dep_set.empty Dep_map.empty []
+           Dep_set.empty Dep_set.empty Dep_map.empty [[]]
     | Trm_val v ->
        (* Retrieve the first label attribute of the current term, if any. *)
        let l = trm_get_labels t in
@@ -1088,7 +1088,7 @@ let taskify_on (p : path) (t : trm) : unit =
           let attrs = TaskAttr_set.singleton Singleton in
           let attrs = TaskAttr_set.add ExitPoint attrs in
           Task.create t attrs Var_set.empty
-            Dep_set.empty Dep_set.empty Dep_map.empty []
+            Dep_set.empty Dep_set.empty Dep_map.empty [[]]
        (* Otherwise, fail. Other types of values are not allowed as first-level
           instructions within a task group. *)
        | _ ->
@@ -1128,13 +1128,14 @@ let taskify_on (p : path) (t : trm) : unit =
        let inouts = Dep_set.union ins inouts in
        (* Create the task corresponding to the current OpenMP routine call graph
           node. *)
-       Task.create t attrs scope Dep_set.empty inouts Dep_map.empty []
+       Task.create t attrs scope Dep_set.empty inouts Dep_map.empty [[]]
        (* 2) On the other hand, all the other routines do not involve any
              variables and thus do not require dependency discovery. *)
        | _ ->
           (* Create the task corresponding to the current OpenMP routine call
              graph node. *)
-          Task.create t attrs scope Dep_set.empty Dep_set.empty Dep_map.empty []
+          Task.create
+            t attrs scope Dep_set.empty Dep_set.empty Dep_map.empty [[]]
        end
     | _ ->
        let error = Printf.sprintf
