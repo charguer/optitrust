@@ -6,8 +6,12 @@ let _ = Run.script_cpp (fun () ->
             (* Target all of the function definitions. *)
             !! Apac_constify.constify [nbAny; cFunDefAndDecl ""];
             !! Apac_taskify.parallel_task_group
-              ~mark_group:true [nbAny; cFunDef "c"];
+              ~mark_group:true [nbAny; cFunDefAndDecl ""];
             !! Apac_taskify.taskify [nbAny; cMark Apac_macros.task_group_mark];
+            !! Apac_taskify.find_candidates_minimum_funcalls ~min:2
+              [nbAny; cMark Apac_macros.task_group_mark];
+            !! Apac_taskify.taskify_callers ();
+            !! Apac_taskify.restore [nbAny; cFunDefAndDecl ""];
             !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
             !! Apac_taskify.insert_tasks
               [nbAny; cMark Apac_macros.task_group_mark];
