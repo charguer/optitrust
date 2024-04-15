@@ -130,7 +130,7 @@ let emit_omp_task (t : Task.t) : trms =
       in
       let ins' = Dep_set.to_list ins' in
       let ins' = if (List.length ins') < 1 then [] else [In ins'] in
-      let inouts' = if (Task.has_attr t WaitForSome) then
+      let inouts' = if (Task.has_attr t WaitForSome) && t.children <> [] then
                       Dep_set.filter (fun d ->
                           Dep_map.has_with_attribute d Condition t.ioattrs
                         ) t.inouts
