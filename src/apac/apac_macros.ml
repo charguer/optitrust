@@ -48,12 +48,12 @@ let apac_count_max : string = "APAC_TASK_COUNT_MAX"
     allowing the end-user to manually set the maximum task depth. *)
 let apac_depth_max : string = "APAC_TASK_DEPTH_MAX"
 
-(** [apac_count_thread_factor]: The default value of [apac_count_max] is a
+(** [apac_count_thread_factor]: the default value of [apac_count_max] is a
     multiple of the maximum amount of threads available for parallel task
     execution. This multiple, or this factor, is initially set to [10], but it
     can be changed here. *)
 let apac_count_thread_factor : int = 10
 
-(** [apac_depth_max_default]: The default value of [apac_depth_max] is a an
+(** [apac_depth_max_default]: the default value of [apac_depth_max] is a an
     arbitrary value initially set to [5]. It can be changed here. *)
 let apac_depth_max_default : int = 5
