@@ -24,6 +24,7 @@ module TaskAttr : sig
     | ExitPoint
   val compare : t -> t -> int
   val equal : t -> t -> bool
+  val to_string : t -> string
 end = struct
   type t =
     (** Never merge the task with other tasks. *)
@@ -54,10 +55,27 @@ end = struct
   (** [TaskAttr.equal ta1 ta2]: checks the equality of two task attributes [ta1]
       and [ta2]. See [TaskAttr.compare]. *)
   let equal (ta1 : t) (ta2 : t) : bool = compare ta1 ta2 = 0
+  (** [TaskAttr.to_string ta]: returns a string representation of the task
+      attribute [ta]. *)
+  let to_string (ta : t) : string =
+    match ta with
+    | Singleton -> "Singleton"
+    | WaitForNone -> "WaitForNone"
+    | WaitForSome -> "WaitForSome"
+    | WaitForAll -> "WaitForAll"
+    | HasJump -> "HasJump"
+    | IsJump -> "IsJump"
+    | ExitPoint -> "ExitPoint"
 end
 
 (** [TaskAttr_set]: a module to represent sets of task attributes. *)
-module TaskAttr_set = Set.Make(TaskAttr)
+module TaskAttr_set = struct
+  include Set.Make(TaskAttr)
+  (** [TaskAttr_set.to_string tas]: returns a string representation of the set
+      of task attributes [tas]. *)
+  let to_string (tas : t) : string =
+    fold (fun ta acc -> acc ^ (TaskAttr.to_string ta) ^ " ") tas " "
+end
 
 (** [TaskWeight]: a module to represent weights of edges in a task graph. See
    [TaskGraph]. *)
