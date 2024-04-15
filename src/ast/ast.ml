@@ -86,7 +86,16 @@ module Var_set = Set.Make(Var)
 module Var_map = Map.Make(Var)
 
 (* [Var_Hashtbl]: a hash table module used for variables *)
-module Var_Hashtbl = Hashtbl.Make(Var)
+module Var_Hashtbl = struct
+  include Hashtbl.Make(Var)
+  (** [Var_Hashtbl.find_or_default table key default]: returns the current
+      binding of [key] in [table] and [true], or [default] and [false], if no
+      such binding exists. *)
+  let find_or_default (table : 'a t) (key : var) (default : 'a) : 'a * bool =
+    match (find_opt table key) with
+    | Some value -> (value, true)
+    | None -> (default, false)
+end
 
 (* [varmap]: instantiation of Var_map *)
 type 'a varmap = 'a Var_map.t
