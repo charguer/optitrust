@@ -292,7 +292,17 @@ module rec Task : sig
                      let ioa = if ioa <> "" then " " ^ ioa else ioa in
                      acc ^ " " ^ (Dep.to_string a) ^ ioa
                    ) task.inouts "" in
-    what ^ " (in: [" ^ ins ^ " ], inout: [" ^ inouts ^ " ])\n"
+    let instr = AstC_to_c.ast_to_string (List.hd task.current) in
+    let instr = String.split_on_char '\n' instr in
+    let instr = List.hd instr in
+    let instr = String.split_on_char '"' instr in
+    let instr = List.hd instr in
+    let instr = String.trim instr in
+    let limit = String.length instr in
+    let limit = if limit > 20 then 20 else limit in
+    let excerpt = String.sub instr 0 limit in
+    what ^ "[ " ^ excerpt  ^ " ]" ^ " (in: [" ^ ins ^ " ], inout: [" ^ inouts ^ " ]) (" ^
+      (TaskAttr_set.to_string task.attrs) ^ ")\n"
   (** [Task.to_label task]: returns a string representation of [task] used when
       converting a task graph into the Dot text format. See
       [TaskGraphPrinter]. *)
@@ -302,10 +312,15 @@ module rec Task : sig
                    acc ^ " > " ^ desc
                  ) "" task.current in
     let instr = AstC_to_c.ast_to_string (List.hd task.current) in
+    let instr = String.split_on_char '\n' instr in
+    let instr = List.hd instr in
+    let instr = String.split_on_char '"' instr in
+    let instr = List.hd instr in
+    let instr = String.trim instr in
     let limit = String.length instr in
     let limit = if limit > 20 then 20 else limit in
     let excerpt = String.sub instr 0 limit in
-    what ^ "\n" ^ excerpt
+    what ^ "\\n" ^ (TaskAttr_set.to_string task.attrs) ^ "\\n" ^ excerpt
 end and TaskGraph : Sig.IM
         with type V.label = Task.t and
              type E.label = TaskWeight.t =
@@ -368,7 +383,7 @@ module TaskGraphPrinter = struct
                                              let o = aux g' (indent ^ "    ") in
                                              acc ^ o) "" gl
                                 in acc ^ og) "" vl.children in
-          acc ^ indent ^ (Task.to_string vl) ^ sg) g ""
+          acc ^ indent ^ (string_of_int (TaskGraph.V.hash v)) ^ ": " ^ (Task.to_string vl) ^ sg) g ""
     in
     aux g ""
   (** [TaskGraphPrinter.print g]: prints a string representation of a possibly
