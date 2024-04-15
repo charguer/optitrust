@@ -656,7 +656,6 @@ let taskify_on (p : path) (t : trm) : unit =
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
        let attrs = TaskAttr_set.add Singleton attrs in
-       let c = TaskGraphOper.transitive_reduction c in
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
        Task.create t attrs scope ins inouts ioattrs [[c]]
@@ -745,7 +744,6 @@ let taskify_on (p : path) (t : trm) : unit =
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
        let attrs = TaskAttr_set.add Singleton attrs in
-       let c = TaskGraphOper.transitive_reduction c in
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
        Task.create t attrs scope ins inouts ioattrs [[c]] 
@@ -879,8 +877,6 @@ let taskify_on (p : path) (t : trm) : unit =
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
        let attrs = TaskAttr_set.add Singleton attrs in
-       let gy = TaskGraphOper.transitive_reduction gy in
-       let gn = TaskGraphOper.transitive_reduction gn in
        (* Initialize the list of sub-graphs corresponding to the [then] branch
           and, if present, for the [else] branch too. *)
        let children = if missing_tn then [] else [gn] in
