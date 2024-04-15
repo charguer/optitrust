@@ -934,6 +934,7 @@ let taskify_on (p : path) (t : trm) : unit =
   let _ = fill const_record.variables t g in
   let g' = TaskGraphOper.recursive_transitive_reduction g in
   const_record.task_graph <- Some (g');
+  Printf.printf "Task graph of << %s >> follows:\n" (var_to_string f);
   TaskGraphPrinter.print g';
   let dot = "apac_task_graph_" ^ f.name ^ ".dot" in
   export_task_graph g' dot;
