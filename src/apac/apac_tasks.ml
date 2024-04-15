@@ -118,6 +118,7 @@ module rec Task : sig
          val add_attrs : t -> TaskAttr_set.t -> t
          val has_attr : t -> TaskAttr.t -> bool
          val has_subs : t -> bool
+         val drop_attr : t -> TaskAttr.t -> t
          val merge : t -> t -> t
          val update : t -> trms -> t
          val empty : unit -> t
@@ -224,6 +225,17 @@ module rec Task : sig
       the task [task] has the [Subscripted] attribute (see [TaskAttr.t]). *)
   let has_subs (task : t) : bool =
     Dep_map.exists (fun _ das -> DepAttr_set.mem Subscripted das) task.ioattrs
+  (** [Task.drop_attr task attr]: removes the attribute [attr] from the set of
+      attributes of the task [task]. Other components of [task] remain
+      unaffected. *)
+  let drop_attr (task : t) (attr : TaskAttr.t) : t = {
+      current = task.current;
+      attrs = TaskAttr_set.remove attr task.attrs;
+      ins = task.ins;
+      inouts = task.inouts;
+      ioattrs = task.ioattrs;
+      children = task.children;
+    }
   (** [Task.merge t1 t2]: merges two tasks into a new single task. *)
   let merge (t1 : t) (t2 : t) : t =
     (* For this, we concatenate the lists of associated AST terms, *)
