@@ -72,7 +72,7 @@ Cell * cell_self_compute(Cell * cell) {
 }
 
 Cell * cell_neighbor_compute(Cell * me, Cell * neighbor) {
-  if(!cell || !neighbor) { return NULL; }
+  if(!me || !neighbor) { return NULL; }
   if(me == neighbor) { return me; }
   
   for(size_t idxSrc = 0; idxSrc < me->size; idxSrc++) {
@@ -154,10 +154,10 @@ typedef struct {
 int grid_cell_idx_from_position(Grid * grid, Particle particle) {
   if(!grid) { return -1; }
   
-  int x = (int) (particle.x / grid->cellWidth),
-    y = (int) (particle.y / grid->cellWidth),
-    z = (int) (particle.z / grid->cellWidth);
-  return (x * grid->nbCellsPerDim + y) * grid->nbCellsPerDim + z;
+  int x = (int) (particle.x / grid->cell_width),
+      y = (int) (particle.y / grid->cell_width),
+      z = (int) (particle.z / grid->cell_width);
+  return (x * grid->nb_cells_per_dim + y) * grid->nb_cells_per_dim + z;
 }
 
 Grid * grid_create(double box_width, double cell_width, Cell * cell) {
@@ -195,7 +195,7 @@ Grid * grid_add_cell(Grid * grid, Cell * cell) {
   if(!grid) { return NULL; }
   if(!grid->cells) { return NULL; }
   if(grid->size == grid->capacity) {
-    grid->cells = realloc(grid->cells, 1024 * sizeof(Cell *));
+    grid->cells = (Cell **) realloc(grid->cells, 1024 * sizeof(Cell *));
     if(!grid->cells) { return NULL; }
     grid->capacity += 1024;
   }
@@ -204,113 +204,53 @@ Grid * grid_add_cell(Grid * grid, Cell * cell) {
   return grid;
 }
 
-class Grid{
-    const double boxWidth;
-    const double cellWidth;
-    const int nbCellsPerDim;
-    std::vector<Cell> cells;
+Grid * grid_compute(Grid * grid) {
+  for(size_t idx_x = 0; idx_x < grid->nb_cells_per_dim; idx_x++) {
+    for(size_t idx_y = 0; idx_y < grid->nb_cells_per_dim; idx_y++) {
+      for(size_t idx_z = 0; idx_z < grid->nb_cells_per_dim; idx_z++) {
+        Cell * cell = grid->cells[(idx_x * grid->nb_cells_per_dim + idx_y)
+                                  * grid->nb_cells_per_dim + idx_z];
+        
+        cell = cell_self_compute(cell);
+        if(!cell) { return NULL; }
 
-
-public:
-
-    void compute(){
-        for(int idxX = 0 ; idxX < nbCellsPerDim ; ++idxX){
-            for(int idxY = 0 ; idxY < nbCellsPerDim ; ++idxY){
-                for(int idxZ = 0 ; idxZ < nbCellsPerDim ; ++idxZ){
-
-                    const int cellIdx = (idxX*nbCellsPerDim + idxY)*nbCellsPerDim + idxZ;
-                    // V1
-                    // cell mut be private in the task !!
-                    Cell& cell = cells[cellIdx];
-                    cell.selfCompute();
-                    // V2
-                    // cellIdx must be private in the task !!
-                    // TODO cells[cellIdx].selfCompute();
-                    // ENDV
-
-                    for(int idxNeighX = -1 ; idxNeighX <= 1 ; ++idxNeighX){
-                        for(int idxNeighY = -1 ; idxNeighY <= 1 ; ++idxNeighY){
-                            for(int idxNeighZ = -1 ; idxNeighZ <= 1 ; ++idxNeighZ){
-                                const long int otherCellIdx = (((idxX+idxNeighX+nbCellsPerDim)%nbCellsPerDim)*nbCellsPerDim
-                                                              + ((idxY+idxNeighY+nbCellsPerDim)%nbCellsPerDim))*nbCellsPerDim
-                                                              + ((idxZ+idxNeighZ+nbCellsPerDim)%nbCellsPerDim);
-                                // V1
-                                // otherCell mut be private in the task !!
-                                Cell& otherCell = cells[otherCellIdx];
-                                cell.neighCompute(otherCell);
-                                // V2
-                                //if(cellIdx < otherCellIdx){
-                                //    // otherCellIdx must be private in the task !!
-                                //    cell.neighCompute(cells[otherCellIdx]);
-                                //}
-                                // ENDV
-                            }
-                        }
-                    }
-
-                }
+        for(int idx_x_neigh = -1; idx_x_neigh <= 1; idx_x_neigh++) {
+          for(int idx_y_neigh = -1; idx_y_neigh <= 1; idx_y_neigh++) {
+            for(int idx_z_neigh = -1; idx_z_neigh <= 1; idx_z_neigh++) {
+              const size_t idx = 
+                (((idx_x + idx_x_neigh + grid->nb_cells_per_dim) 
+                    % grid->nb_cells_per_dim) * grid->nb_cells_per_dim
+                + ((idx_y + idx_y_neigh + grid->nb_cells_per_dim) 
+                    % grid->nb_cells_per_dim)) * grid->nb_cells_per_dim
+                + ((idx_z + idx_z_neigh + grid->nb_cells_per_dim) 
+                    % grid->nb_cells_per_dim);
+              
+              Cell * neighbor = grid->cells[idx];
+              neighbor = cell_neighbor_compute(cell, neighbor);
+              if(!neighbor) { return NULL; }
             }
+          }
         }
+      }
     }
+  }
 
-    void update(const double timeStep){
-        std::vector<Particle> particles;
+  return grid;
+}
 
-        for(int idxX = 0 ; idxX < nbCellsPerDim ; ++idxX){
-            for(int idxY = 0 ; idxY < nbCellsPerDim ; ++idxY){
-                for(int idxZ = 0 ; idxZ < nbCellsPerDim ; ++idxZ){
-                    const int cellIdx = (idxX*nbCellsPerDim + idxY)*nbCellsPerDim + idxZ;
-
-                    const std::array<double,3> minPosCell {{idxX*cellWidth,
-                                                            idxY*cellWidth,
-                                                            idxZ*cellWidth}};
-                    const std::array<double,3> maxPosCell {{(idxX+1)*cellWidth,
-                                                            (idxY+1)*cellWidth,
-                                                            (idxZ+1)*cellWidth}};
-
-                    // V1
-                    // cell mut be private in the task !!
-                    Cell& cell = cells[cellIdx];
-                    cell.update(timeStep);
-                    std::vector<Particle> movedParticles = cell.removeOutOfIntervals(minPosCell, maxPosCell);
-                    particles.insert(particles.end(), movedParticles.begin(), movedParticles.end());
-                    // V2
-                    // cellIdx must be private in the task !!
-                    // cells[cellIdx].update(timeStep);
-                    // std::vector<Particle> movedParticles = cells[cellIdx].removeOutOfIntervals(minPosCell, maxPosCell);
-                    // particles.insert(particles.end(), movedParticles.begin(), movedParticles.end());
-                    // ENDV
-                }
-            }
-        }
-
-        for(int idxPart = 0 ; idxPart < int(particles.size()) ; ++idxPart){
-            while( particles[idxPart].x < 0){
-                particles[idxPart].x += boxWidth;
-            }
-            while( boxWidth <= particles[idxPart].x ){
-                particles[idxPart].x -= boxWidth;
-            }
-
-            while( particles[idxPart].y < 0){
-                particles[idxPart].y += boxWidth;
-            }
-            while( boxWidth <= particles[idxPart].y ){
-                particles[idxPart].y -= boxWidth;
-            }
-
-            while( particles[idxPart].z < 0){
-                particles[idxPart].z += boxWidth;
-            }
-            while( boxWidth <= particles[idxPart].z ){
-                particles[idxPart].z -= boxWidth;
-            }
-
-            const int cellIdx = cellIdxFromPosition(particles[idxPart]);
-            cells[cellIdx].addParticle(particles[idxPart]);
-        }
+Grid * grid_update(Grid * grid, double time_step) {
+  for(size_t idx_x = 0; idx_x < grid->nb_cells_per_dim; idx_x++) {
+    for(size_t idx_y = 0; idx_y < grid->nb_cells_per_dim; idx_y++) {
+      for(size_t idx_z = 0; idx_z < grid->nb_cells_per_dim; idx_z++) {
+        Cell * cell = grid->cells[(idx_x * grid->nb_cells_per_dim + idx_y)
+                                  * grid->nb_cells_per_dim + idx_z];
+        
+        cell = cell_update(cell, time_step);
+        if(!cell) { return NULL; }
+      }
     }
-};
+  }
+}
 
 
 int main(){
