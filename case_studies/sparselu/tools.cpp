@@ -130,23 +130,3 @@ int store_matrix(
   fclose(file);
   return 0;
 }
-
-float * allocate_clean_block(size_t submatrix_size) {
-  float * p, * q;
-  p = (float *) malloc(submatrix_size * submatrix_size * sizeof(float));
-  q = p;
-
-  if (p != NULL) {
-    for (size_t i = 0; i < submatrix_size; i++) {
-      for (size_t j = 0; j < submatrix_size; j++) {
-        (*p) = 0.0;
-        p++;
-      }
-    }
-  } else {
-    fprintf(stderr, "Error: Failed to allocate memory for a block.\n");
-    return NULL;
-  }
-
-  return q;
-}
