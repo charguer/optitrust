@@ -100,10 +100,10 @@ let depth_update () : trm =
   trm_if condition increment (trm_unit ())
 
 let emit_omp_task (t : Task.t) : trms =
-  if (Task.has_attr t WaitForNone) ||
-       ((Task.has_attr t ExitPoint) && not (Task.has_attr t IsJump)) then
+  if (Task.attributed t WaitForNone) ||
+       ((Task.attributed t ExitPoint) && not (Task.attributed t IsJump)) then
     t.current
-  else if (Task.has_attr t WaitForAll) || (Task.has_attr t IsJump) then
+  else if (Task.attributed t WaitForAll) || (Task.attributed t IsJump) then
     begin
       let pragma = Taskwait [] in
       let first = List.hd t.current in
@@ -118,7 +118,7 @@ let emit_omp_task (t : Task.t) : trms =
       let sync = Dep_set.to_list sync in
       let sync = if (List.length sync) < 1 then [] else [Depend [In sync]] in
       let (firstprivate, ins') =
-        if (Task.has_attr t WaitForSome) then
+        if (Task.attributed t WaitForSome) then
           (Dep_set.empty,
            Dep_set.filter (fun d ->
                Dep_map.has_with_attribute d Condition t.ioattrs
@@ -134,7 +134,7 @@ let emit_omp_task (t : Task.t) : trms =
                      | Some d' -> d'
                      | None -> d) ins' in
       let ins' = if (List.length ins') < 1 then [] else [In ins'] in
-      let inouts' = if (Task.has_attr t WaitForSome) && t.children <> [] then
+      let inouts' = if (Task.attributed t WaitForSome) && t.children <> [] then
                       Dep_set.filter (fun d ->
                           Dep_map.has_with_attribute d Condition t.ioattrs
                         ) t.inouts
@@ -147,7 +147,7 @@ let emit_omp_task (t : Task.t) : trms =
       let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
       let depend = List.append ins' inouts' in
       let depend = if (List.length depend) < 1 then [] else [Depend depend] in
-      if (Task.has_attr t WaitForSome) then
+      if (Task.attributed t WaitForSome) then
         begin
           if ins' <> [] || inouts' <> [] then
             begin
@@ -217,9 +217,9 @@ let emit_profiler_task (t : Task.t) : trms =
     | None -> "_"
     | Some { loc_end = {pos_line = line; _}; _} -> string_of_int line
   in
-  if (Task.has_attr t ExitPoint) ||
-       (Task.has_attr t HasJump) ||
-         (Task.has_attr t WaitForNone) then t.current
+  if (Task.attributed t ExitPoint) ||
+       (Task.attributed t HasJump) ||
+         (Task.attributed t WaitForNone) then t.current
   else
     let reads = Dep_set.cardinal t.ins in
     let writes = Dep_set.cardinal t.inouts in
@@ -355,7 +355,7 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        trm_add_mark heapify_mark instr
                     | _ -> instr
                     end) task.current in
-  let task = Task.update task current in
+  task.current <- current;
   match backend with
   | OpenMP -> emit_omp_task task
   | ApacProfiler -> emit_profiler_task task

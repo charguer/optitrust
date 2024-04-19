@@ -104,23 +104,19 @@ end
     Nodes can be merged or removed. *)
 module rec Task : sig
          type t = {
-             current : trms;
-             attrs : TaskAttr_set.t;
+             mutable current : trms;
+             mutable attrs : TaskAttr_set.t;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
              mutable ioattrs : ioattrs_map;
-             children : TaskGraph.t list list;
+             mutable children : TaskGraph.t list list;
            }
          val create :
            trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
            ioattrs_map -> TaskGraph.t list list -> t
-         val add_attr : t -> TaskAttr.t -> t
-         val add_attrs : t -> TaskAttr_set.t -> t
-         val has_attr : t -> TaskAttr.t -> bool
-         val has_subs : t -> bool
-         val drop_attr : t -> TaskAttr.t -> t
+         val attributed : t -> TaskAttr.t -> bool
+         val subscripted : t -> bool
          val merge : t -> t -> t
-         val update : t -> trms -> t
          val empty : unit -> t
          val to_string : t -> string
          val to_label : t -> string
@@ -130,11 +126,11 @@ module rec Task : sig
       (** - a list of AST terms associated with it (initially, only one term is
           in the list; multiple terms may appear after merging of two or more
           nodes), *)
-      current : trms;
+      mutable current : trms;
       (** - a set of attributes which help us to translate the task into
           taskified source code (see [TaskAttr] as well as the `backend.ml'
           file), *)
-      attrs : TaskAttr_set.t;
+      mutable attrs : TaskAttr_set.t;
       (** - a set of input (read only) data dependencies (see [Dep]), *)
       mutable ins : Dep_set.t;
       (** - a set of input-output (read-write) data dependencies (see [Dep]), *)
@@ -145,8 +141,9 @@ module rec Task : sig
       (** - a list of lists of nested task graphs (each term in [current] may
           have more than one child task graph associated to it, i.e. a then and
           an else branch in the case of an if-conditional statement). *)
-      children : TaskGraph.t list list;
+      mutable children : TaskGraph.t list list;
     }
+  
   (** [Task.create current attrs scope ins inouts children]: creates a new task
       graph node based on the [current] AST term, the set of task [attrs], the
       set of the current scope's variables, the set of input dependencies [ins],
@@ -194,48 +191,17 @@ module rec Task : sig
       ioattrs = ioattrs';
       children = children;
     }
-  (** [Task.add_attr task attr]: adds the attribute [attr] to the set of
-      attributes of the task [task]. Other components of [task] remain
-      unaffected. *)
-  let add_attr (task : t) (attr : TaskAttr.t) : t = {
-      current = task.current;
-      attrs = TaskAttr_set.add attr task.attrs;
-      ins = task.ins;
-      inouts = task.inouts;
-      ioattrs = task.ioattrs;
-      children = task.children;
-    }
-  (** [Task.add_attrs task attrs]: updates the set of task attributes of the
-      task [task]. The new set of task attributes of [task] is the union of the
-      initial set of task attributes with the set of task attributes [attrs].
-      Other components of [task] remain unaffected. *)
-  let add_attrs (task : t) (attrs : TaskAttr_set.t) : t = {
-      current = task.current;
-      attrs = TaskAttr_set.union task.attrs attrs;
-      ins = task.ins;
-      inouts = task.inouts;
-      ioattrs = task.ioattrs;
-      children = task.children;
-    }
-  (** [Task.has_attr task attr]: checks whether the task [task] has the
+
+  (** [Task.attributed task attr]: checks whether the task [task] carries the
       attribute [attr]. *)
-  let has_attr (task : t) (attr : TaskAttr.t) : bool =
+  let attributed (task : t) (attr : TaskAttr.t) : bool =
     TaskAttr_set.mem attr task.attrs
-  (** [Task.has_subs task]: checks whether at least one of the dependencies of
-      the task [task] has the [Subscripted] attribute (see [TaskAttr.t]). *)
-  let has_subs (task : t) : bool =
+  
+  (** [Task.subscripted task]: checks whether at least one of the dependencies
+      of the task [task] has the [Subscripted] attribute (see [TaskAttr.t]). *)
+  let subscripted (task : t) : bool =
     Dep_map.exists (fun _ das -> DepAttr_set.mem Subscripted das) task.ioattrs
-  (** [Task.drop_attr task attr]: removes the attribute [attr] from the set of
-      attributes of the task [task]. Other components of [task] remain
-      unaffected. *)
-  let drop_attr (task : t) (attr : TaskAttr.t) : t = {
-      current = task.current;
-      attrs = TaskAttr_set.remove attr task.attrs;
-      ins = task.ins;
-      inouts = task.inouts;
-      ioattrs = task.ioattrs;
-      children = task.children;
-    }
+  
   (** [Task.merge t1 t2]: merges two tasks into a new single task. *)
   let merge (t1 : t) (t2 : t) : t =
     (* For this, we concatenate the lists of associated AST terms, *)
@@ -258,17 +224,7 @@ module rec Task : sig
       ioattrs = ioattrs';
       children = children';
     }
-  (** [Task.update task instrs]: updates the list of AST terms associated with
-      [task] and replaces it with the list of AST terms [instrs]. Other
-      components of [task] remain unaffected. *)
-  let update (task : t) (instrs : trms) : t = {
-      current = instrs;
-      attrs = task.attrs;
-      ins = task.ins;
-      inouts = task.inouts;
-      ioattrs = task.ioattrs;
-      children = task.children;
-    }
+  
   (** [Task.empty]: produces an empty task having no AST term associated with it
       as well as without any attributes, dependencies or nested graphs. *)
   let empty () = {
@@ -279,6 +235,7 @@ module rec Task : sig
       ioattrs = Dep_map.empty;
       children = [];
     }
+  
   (** [Task.to_string task]: returns a string representation of [task]. *)
   let to_string (task : t) : string =
     let what = List.fold_left (fun acc term ->
@@ -313,8 +270,10 @@ module rec Task : sig
     let limit = String.length instr in
     let limit = if limit > 20 then 20 else limit in
     let excerpt = String.sub instr 0 limit in
-    what ^ "[ " ^ excerpt  ^ " ]" ^ " (in: [" ^ ins ^ " ], inout: [" ^ inouts ^ " ]) (" ^
-      (TaskAttr_set.to_string task.attrs) ^ ")\n"
+    what ^ "[ " ^ excerpt  ^ " ]" ^
+      " (in: [" ^ ins ^ " ], inout: [" ^ inouts ^ " ]) (" ^
+        (TaskAttr_set.to_string task.attrs) ^ ")\n"
+  
   (** [Task.to_label task]: returns a string representation of [task] used when
       converting a task graph into the Dot text format. See
       [TaskGraphPrinter]. *)
@@ -432,72 +391,25 @@ module TaskGraphOper = struct
   include Oper.Make(TaskGraphBuilder)
   let rec recursive_transitive_reduction (g : TaskGraph.t) : TaskGraph.t =
     let g' = transitive_reduction g in
-    TaskGraph.map_vertex (fun v ->
+    TaskGraph.iter_vertex (fun v ->
         let vl : Task.t = TaskGraph.V.label v in
-        let ch = List.map (fun gl ->
-                     List.map (fun go -> recursive_transitive_reduction go) gl
-                   ) vl.children in
-        let vl' : Task.t = {
-            current = vl.current;
-            attrs = vl.attrs;
-            ins = vl.ins;
-            inouts = vl.inouts;
-            ioattrs = vl.ioattrs;
-            children = ch;
-          } in
-        TaskGraph.V.create vl') g'
+        vl.children <- List.map (fun gs ->
+                     List.map (fun g' -> recursive_transitive_reduction g') gs
+                         ) vl.children) g';
+    g'
   let rec propagate_dependency_attribute (das : DepAttr_set.t) (ds : Dep_set.t)
-            (g : TaskGraph.t) : TaskGraph.t =
-    TaskGraph.map_vertex (fun v ->
+            (g : TaskGraph.t) : unit =
+    TaskGraph.iter_vertex (fun v ->
         let v' : Task.t = TaskGraph.V.label v in
-         let ioattrs = Dep_map.may_bind_set ds das v'.ioattrs
-                         (fun d ->
-                           (Dep_set.mem d v'.ins) ||
-                             (Dep_set.mem d v'.inouts)) in
-         let children = List.map (fun gl ->
-                            List.map (fun go ->
-                                (propagate_dependency_attribute das ds) go
-                              ) gl
-                          ) v'.children in
-         let v' : Task.t = {
-             current = v'.current;
-             attrs = v'.attrs;
-             ins = v'.ins;
-             inouts = v'.inouts;
-             ioattrs = ioattrs;
-             children = children;
-           } in
-         TaskGraph.V.create v') g
-  (** [TaskGraphOper.update_task_attributes f attrs g]: Update the task
-      attribute sets of all the tasks in the task graph [g] with the attributes
-      from the task attribute set [attrs] and using the provided task update
-      function [f]. *)
-  let rec update_task_attributes
-            (f : (Task.t -> TaskAttr_set.t -> Task.t)) (attrs : TaskAttr_set.t)
-            (g : TaskGraph.t) : TaskGraph.t =
-    TaskGraph.map_vertex (fun v ->
-        (** Get the task [t] from the current task graph vertex [v].*)
-        let t : Task.t = TaskGraph.V.label v in
-        (** Apply [f] with the task attribute set [attrs] on the current task
-            [t]. *)
-        let t = f t attrs in
-        (** Perform the update recursively on child task graphs. *)
-        let children = List.map (fun gl ->
-                           List.map (fun go ->
-                               (update_task_attributes f attrs) go
-                             ) gl
-                         ) t.children in
-        (** Update the task's child task graphs. *)
-        let t : Task.t = {
-            current = t.current;
-            attrs = t.attrs;
-            ins = t.ins;
-            inouts = t.inouts;
-            ioattrs = t.ioattrs;
-            children = children;
-          } in
-        (** Rebuild and return a task graph node using the updated task [t]. *)
-        TaskGraph.V.create t) g
+        v'.ioattrs <- Dep_map.may_bind_set ds das v'.ioattrs
+                        (fun d ->
+                          (Dep_set.mem d v'.ins) ||
+                            (Dep_set.mem d v'.inouts));
+        List.iter (fun gs ->
+            List.iter (fun g' ->
+                (propagate_dependency_attribute das ds) g'
+              ) gs
+          ) v'.children) g
   (** [TaskGraphOper.root g]: find the root node of the task graph [g], i.e. the
       node without any predecessor. *)
   let root (g : TaskGraph.t) : TaskGraph.V.t =
