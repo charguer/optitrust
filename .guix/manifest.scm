@@ -28,6 +28,8 @@
    (list "bash"
          "coreutils"
          "time"
+         "gdb"
+         "valgrind"
          "gcc-toolchain@11.3"
          "libomp@13"
          "nano"
