@@ -18,10 +18,12 @@ let find_candidates_minimum_funcalls_on ?(min : int = 2)
   (** Initialize function calls counter. *)
   let counter = ref 0 in
   let rec count (t : trm) : unit =
-     match t.desc with
-    (** If [t] is a function call, increase [counter] and recurse deeper in the
-        AST. *)
-    | Trm_apps ({ desc = Trm_var _}, _) -> incr counter; trm_iter count t
+    match t.desc with
+    (** If [t] is a call to a function with a known definition, increase
+        [counter] and recurse deeper in the AST. *)
+    | Trm_apps ({ desc = Trm_var (_, f)}, _)
+         when Var_Hashtbl.mem const_records f ->
+       incr counter; trm_iter count t
     (** Otherwise, just recurse deeper in the AST. *)
     | _ -> trm_iter count t
   in
@@ -44,8 +46,7 @@ let find_candidates_minimum_funcalls_on ?(min : int = 2)
   count (List.hd r.current);
   (** If the AST contains at least [min] function calls, mark the function as
       taskification candidate. *)
-  if !counter >= min (* && f.name <> !Apac_macros.apac_main *) then
-    Var_Hashtbl.add const_candidates f ()
+  if !counter >= min then Var_Hashtbl.add const_candidates f ()
 
 (** [find_candidates_minimum_funcalls ~min tg]: expects the target [tg] to point
     at a function definition. It makes the functions a taskification candidate
