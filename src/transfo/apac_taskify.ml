@@ -271,7 +271,7 @@ let parallel_task_group
     paired with an access attribute. The second list contains all the variables
     involved in the data accesses. *)
 let trm_discover_dependencies (locals : symbols)
-      (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map * bool)  =
+      (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map * TaskAttr_set.t)  =
   (** [trm_look_for_dependencies.aux ins inouts attrs filter nested attr t]:
       builds [ins], a stack of input (read-only) data dependencies in [t],
       [inouts], a stack of input-output (read-write) data dependencies in [t],
@@ -293,7 +293,7 @@ let trm_discover_dependencies (locals : symbols)
       [access_attr] type for more details). *)
   let rec aux (ins : dep Stack.t) (inouts : dep Stack.t)
             (attrs : (dep * DepAttr_set.t) Stack.t) (filter : Var_set.t)
-            (nested : bool) (attr : DepAttr.t) (t : trm) : bool =
+            (nested : bool) (attr : DepAttr.t) (t : trm) : bool * bool =
     let error = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
                                 '%s' is not a valid OpenMP depends expression"
                   (AstC_to_c.ast_to_string t) in
@@ -327,8 +327,8 @@ let trm_discover_dependencies (locals : symbols)
            | ArgInOut -> Stack.push d inouts
            | _ -> fail t.loc ebadattr
          end;
-         exists
-       else false
+         (exists, false)
+       else (true, true)
     (* - get operations ([*t'], [**t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
        aux ins inouts attrs filter false attr t'
@@ -361,15 +361,15 @@ let trm_discover_dependencies (locals : symbols)
            | _ -> fail t.loc error
          end;
        in
-       let exists = List.fold_left (fun e a ->
-                        match a with
-                        | Array_access_get t''
-                          | Array_access_addr t'' ->
-                           e && (aux ins inouts attrs filter false Accessor t'')
-                        | _ -> e
-                      ) exists accesses
-       in
-       exists
+       List.fold_left (fun (e, f) a ->
+           match a with
+           | Array_access_get t''
+             | Array_access_addr t'' ->
+              let (e', f') =
+                (aux ins inouts attrs filter false Accessor t'') in
+              (e && e', f || f')
+           | _ -> (e, f)
+         ) (exists, false) accesses
     (* - unary increment and decrement operations ([t'++], [--t'], ...), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
@@ -384,12 +384,10 @@ let trm_discover_dependencies (locals : symbols)
              if (Int_map.mem pos const_record.const_args) then
                begin
                  let const = Int_map.find pos const_record.const_args in
-                 if const.is_const then
-                   exists := !exists &&
-                               (aux ins inouts attrs filter false ArgIn arg)
-                 else
-                   exists := !exists &&
-                               (aux ins inouts attrs filter false ArgInOut arg)
+                 let aa : DepAttr.t =
+                   if const.is_const then ArgIn else ArgInOut in
+                 let (exists', _) = aux ins inouts attrs filter false aa arg in
+                 exists := !exists && exists'
                end
              else
                begin
@@ -404,13 +402,13 @@ let trm_discover_dependencies (locals : symbols)
                  fail None error
                end
            ) args;
-         !exists
+         (!exists, true)
        else
          begin
            List.iter (fun arg ->
                let _ = aux ins inouts attrs filter false ArgInOut arg in ()
              ) args;
-           false
+           (false, true)
          end
     (* - set operation ([a = 1], [b = ptr], [*c = 42], ...), *)
     | Trm_apps _ when is_set_operation t ->
@@ -422,8 +420,9 @@ let trm_discover_dependencies (locals : symbols)
          | Some (lv, _) ->
             let d = Dep_trm (lval, lv.v) in
             Stack.push d inouts;
-            (aux ins inouts attrs filter false ArgInOut lval) &&
-            (aux ins inouts attrs filter false ArgIn rval)
+            let (le, lf) = aux ins inouts attrs filter false ArgInOut lval in
+            let (re, rf) = aux ins inouts attrs filter false ArgIn rval in
+            (le && re, lf || rf)
          | None -> fail t.loc error
        end
     | Trm_let (vk, (v, ty), init, _) ->
@@ -436,21 +435,26 @@ let trm_discover_dependencies (locals : symbols)
     | Trm_let_mult (vk, tvs, inits) ->
        let (vs, _) = List.split tvs in
        let filter = Var_set.of_list vs in
-       List.fold_left2 (fun exists (v, ty) init ->
+       List.fold_left2 (fun (exists, isfun) (v, ty) init ->
            let degree = typ_get_degree ty in
            let degree = if vk = Var_immutable then degree else degree - 1 in
            let d = Dep.of_trm (trm_var ~kind:vk v) v degree in
            Stack.push d inouts;
            Var_Hashtbl.add locals v degree;
-           exists && (aux ins inouts attrs filter false ArgIn init)
-         ) true tvs inits
+           let (exists', isfun') =
+             aux ins inouts attrs filter false ArgIn init in
+           (exists && exists', isfun || isfun')
+         ) (true, false) tvs inits
     (* In the case of any other term, we explore the child terms. *)
     | _ ->
        let exists = ref true in
+       let isfun = ref false in
        trm_iter (fun t' ->
-           exists := !exists && (aux ins inouts attrs filter false attr t')
+           let (exists', isfun') = aux ins inouts attrs filter false attr t' in
+           exists := !exists && exists';
+           isfun := !isfun || isfun'
          ) t;
-       !exists
+       (!exists, !isfun)
   in
   (* In the main part of the function, we begin by creating empty stacks to
      contain the discovered in and in-out dependencies as well as an
@@ -459,16 +463,21 @@ let trm_discover_dependencies (locals : symbols)
   let inouts : dep Stack.t = Stack.create () in
   let attrs : (dep * DepAttr_set.t) Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
-  let exists = aux ins inouts attrs (Var_set.empty) false ArgIn t in
+  let (exists, isfun) = aux ins inouts attrs (Var_set.empty) false ArgIn t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
   let ins' = Dep_set.of_stack ins in
   let inouts' = Dep_set.of_stack inouts in
   let attrs' = Dep_map.of_stack attrs in
-  (ins', inouts', attrs', not(exists))
+  let tas = TaskAttr_set.empty in
+  let tas = if (not exists) then TaskAttr_set.add WaitForAll tas else tas in
+  let tas = if (not isfun) && exists then
+              TaskAttr_set.add WaitForSome tas
+            else tas in
+  (ins', inouts', attrs', tas)
 
 (* [taskify_on p t]: see [taskify]. *)
 let taskify_on (p : path) (t : trm) : unit =
-  let rec join (tasks : Task.t list) : Task.t list =
+ (* let rec join (tasks : Task.t list) : Task.t list =
     match tasks with
     | a :: b :: r ->
        let ifa = Task.attributed a WaitForAll in
@@ -479,7 +488,7 @@ let taskify_on (p : path) (t : trm) : unit =
          join (t :: r)
        else a :: (join (b :: r))
     | _ -> tasks
-  in
+  in *)
  (* let rec sanitize (tasks : Task.t list) : Task.t list =
     match tasks with
     | a :: b :: r ->
@@ -516,7 +525,7 @@ let taskify_on (p : path) (t : trm) : unit =
        let (jumps, tasks) = List.partition (fun e ->
                                 (Task.attributed e IsJump) ||
                                   (Task.attributed e ExitPoint)) tasks in
-       let has_other_than_jumps = tasks <> [] in
+       (* let has_other_than_jumps = tasks <> [] in*)
        let tasks = if (List.length jumps) > 0 then
                      let first = List.hd jumps in
                      let tail = List.tl jumps in
@@ -527,11 +536,11 @@ let taskify_on (p : path) (t : trm) : unit =
                      tasks @ [jump]
                    else tasks
        in
-       let tasks = join tasks in
+       (*   let tasks = join tasks in *)
        let has_jump = List.exists (fun e -> Task.attributed e HasJump) tasks in
        let attrs = if has_jump then TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
-       let wait_only = has_other_than_jumps && List.for_all (fun e ->
+    (*   let wait_only = has_other_than_jumps && List.for_all (fun e ->
                            (Task.attributed e WaitForAll) ||
                                (Task.attributed e WaitForNone)) tasks in
        if wait_only then
@@ -542,7 +551,7 @@ let taskify_on (p : path) (t : trm) : unit =
            ) tasks;
        let attrs = if wait_only then
                      TaskAttr_set.add WaitForNone attrs
-                   else attrs in
+                   else attrs in *)
        let this = Task.create t attrs scope ins inouts ioattrs [] in
        let this' = TaskGraph.V.create this in
        let _ = TaskGraph.add_vertex g this' in
@@ -603,9 +612,9 @@ let taskify_on (p : path) (t : trm) : unit =
           scope. *)
        let scope = var_set_of_var_hashtbl s in
        (* Launch dependency discovery in the initialization term as well as *)
-       let (ins, inouts, ioattrs, partial) = trm_discover_dependencies s init in
+       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s init in
        (* in the conditional statement representing the upper loop bound. *)
-       let (ins', inouts', ioattrs', partial') =
+       let (ins', inouts', ioattrs', tas') =
          trm_discover_dependencies s cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the for-loop. *)
@@ -614,13 +623,13 @@ let taskify_on (p : path) (t : trm) : unit =
        let ioattrs' = Dep_map.bind_set inouts'
                        (DepAttr_set.singleton Condition) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
-       let (ins, inouts, ioattrs, partial) =
+       let (ins, inouts, ioattrs, tas) =
          (Dep_set.union ins ins',
           Dep_set.union inouts inouts',
           Dep_map.union2 ioattrs ioattrs',
-          partial && partial') in
+          TaskAttr_set.union2 tas tas') in
        (* Launch dependency discovery in the increment term. *)
-       let (ins', inouts', ioattrs', partial') =
+       let (ins', inouts', ioattrs', tas') =
          trm_discover_dependencies s inc in
        (* Add the [InductionVariable] attribute to the input and input-output
           dependencies discovered in the increment term of the for-loop. *)
@@ -629,11 +638,11 @@ let taskify_on (p : path) (t : trm) : unit =
        let ioattrs' = Dep_map.bind_set inouts'
                        (DepAttr_set.singleton InductionVariable) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
-       let (ins, inouts, ioattrs, partial) =
+       let (ins, inouts, ioattrs, tas) =
          (Dep_set.union ins ins',
           Dep_set.union inouts inouts',
           Dep_map.union2 ioattrs ioattrs',
-          partial && partial') in
+          TaskAttr_set.union2 tas tas') in
        (* Create a sub-graph for the body sequence, i.e. [instr], of the
           for-loop. *)
        let c = TaskGraph.create() in
@@ -661,22 +670,17 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_map.union2 ioattrs ioattrs') in
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
-       let attrs = if (Task.attributed ct HasJump) then
-                     TaskAttr_set.singleton HasJump
-                   else TaskAttr_set.empty in
-       (** If the body contains only synchronization barriers, and put a general
-           synchronization barrier in front of this for-loop. *)
-       let waits = Task.attributed ct WaitForNone in
+       let tas = if (Task.attributed ct HasJump) then
+                     TaskAttr_set.add HasJump tas
+                   else tas in
        (* A for-loop node should not become a task by itself. *)
-       let attrs = TaskAttr_set.add (
-                       if partial || waits then WaitForAll else WaitForSome
-                     ) attrs in
+       let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
-       let attrs = TaskAttr_set.add Singleton attrs in
+       let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
-       Task.create t attrs scope ins inouts ioattrs [[c]]
+       Task.create t tas scope ins inouts ioattrs [[c]]
     | Trm_for (range, instr, _) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -687,11 +691,11 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Explode the [range] specifier to allow for dependency discovery. *)
        let (index, init, _, cond, step, _) = range in
        (* Launch dependency discovery in the initialization term as well as *)
-       let (ins, inouts, ioattrs, partial) = trm_discover_dependencies s init in
+       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s init in
        (** Add the iterator [index] to the scope of the current loop. *)
        Var_Hashtbl.add s index 0;
        (* in the conditional statement representing the upper loop bound. *)
-       let (ins', inouts', ioattrs', partial') =
+       let (ins', inouts', ioattrs', tas') =
          trm_discover_dependencies s cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the for-loop. *)
@@ -700,22 +704,22 @@ let taskify_on (p : path) (t : trm) : unit =
        let ioattrs' = Dep_map.bind_set inouts'
                        (DepAttr_set.singleton Condition) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
-       let (ins, inouts, ioattrs, partial) =
+       let (ins, inouts, ioattrs, tas) =
          (Dep_set.union ins ins',
           Dep_set.union inouts inouts',
           Dep_map.union2 ioattrs ioattrs',
-          partial && partial') in
+          TaskAttr_set.union2 tas tas') in
        (* Check whether [step] is formed of a term. In other words, check
           whether it is not simply a unary increment or decrement, but something
           like [i += a * 2]. In this case, *)
-       let (ins', inouts', ioattrs', partial') = match step with
+       let (ins', inouts', ioattrs', tas') = match step with
          (* we have to look for dependencies in this term. *)
          | Step st -> trm_discover_dependencies s st
          (* Otherwise, we have to add an input-output dependency on the
             induction variable [index]. *)
          | _ ->
             let div = Dep_var index in
-            (ins, Dep_set.add div inouts, ioattrs, partial)
+            (ins, Dep_set.add div inouts, ioattrs, tas)
        in
        (* Add the [InductionVariable] attribute to the input and input-output
           dependencies discovered in the increment term of the for-loop. *)
@@ -724,11 +728,11 @@ let taskify_on (p : path) (t : trm) : unit =
        let ioattrs' = Dep_map.bind_set inouts'
                        (DepAttr_set.singleton InductionVariable) ioattrs' in
        (* Gather the discovered dependencies, if any. *)
-       let (ins, inouts, ioattrs, partial) =
+       let (ins, inouts, ioattrs, tas) =
          (Dep_set.union ins ins',
           Dep_set.union inouts inouts',
           Dep_map.union2 ioattrs ioattrs',
-          partial && partial') in
+          TaskAttr_set.union2 tas tas') in
        (* Create a sub-graph for the body sequence, i.e. [instr], of the
           for-loop. *)
        let c = TaskGraph.create() in
@@ -752,29 +756,24 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_map.union2 ioattrs ct.ioattrs) in
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
-       let attrs = if (Task.attributed ct HasJump) then
-                     TaskAttr_set.singleton HasJump
-                   else TaskAttr_set.empty in
-       (** If the body contains only synchronization barriers, and put a general
-           synchronization barrier in front of this for-loop. *)
-       let waits = Task.attributed ct WaitForNone in
+       let tas = if (Task.attributed ct HasJump) then
+                     TaskAttr_set.add HasJump tas
+                   else tas in
        (* A for-loop node should not become a task by itself. *)
-       let attrs = TaskAttr_set.add (
-                       if partial || waits then WaitForAll else WaitForSome
-                     ) attrs in
+       let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
-       let attrs = TaskAttr_set.add Singleton attrs in
+       let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
-       Task.create t attrs scope ins inouts ioattrs [[c]] 
+       Task.create t tas scope ins inouts ioattrs [[c]] 
     | Trm_let _
       | Trm_let_mult _ ->
        (* Keep the state of the local scope from before variable declaration. *)
        let scope = var_set_of_var_hashtbl s in
        (* Look for dependencies in the current variable declaration term and
           initialize the in and in-out dependency sets. *)
-       let (ins, inouts, _, partial) = trm_discover_dependencies s t in
+       let (ins, inouts, _, tas) = trm_discover_dependencies s t in
        (* Convert the updated local scope to a set. *)
        let scope' = var_set_of_var_hashtbl s in
        (* Compute the set of variables that have been declared. *)
@@ -782,7 +781,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Variable declarations should never become tasks, but rather
           synchronization barriers, nor be merged with other task graph
           nodes. *)
-       let attrs = TaskAttr_set.singleton Singleton in
+       let tas = TaskAttr_set.add Singleton tas in
        (* However, the synchronization barrier is needed only when the variable
           declaration depends on previously declared variables, i.e. when the in
           dependency set of the declaration is empty and the in-out dependency
@@ -793,15 +792,16 @@ let taskify_on (p : path) (t : trm) : unit =
                                | Dep_trm (_, v) -> not (Var_set.mem v nv)
                                | _ -> true
                     ) inouts in
-       let attrs = if (Dep_set.cardinal ins > 0) ||
-                        (Dep_set.cardinal others > 0) then
-                     TaskAttr_set.add (
-                         if partial then WaitForAll else WaitForSome
-                       ) attrs
-                   else TaskAttr_set.add WaitForNone attrs in
+       let tas = if ((Dep_set.cardinal ins > 0) ||
+                         (Dep_set.cardinal others > 0)) &&
+                        (not (TaskAttr_set.mem WaitForAll tas)) then
+                     TaskAttr_set.add WaitForSome tas
+                 else TaskAttr_set.add WaitForNone (
+                          TaskAttr_set.remove WaitForSome (
+                              TaskAttr_set.remove WaitForAll tas)) in
        (* Create a barrier corresponding to the current variable declaration
           term. Variable declarations should never appear in tasks. *)
-       Task.create t attrs scope' ins inouts Dep_map.empty [[]]
+       Task.create t tas scope' ins inouts Dep_map.empty [[]]
     | Trm_apps _ ->
        (* Check whether [t] is an assignment to
           [Apac_macros.result_variable]. *)
@@ -834,21 +834,12 @@ let taskify_on (p : path) (t : trm) : unit =
          (* Look for dependencies and their attributes in the current term and
             initialize the in and in-out dependency sets as well as the map of
             dependency attribute sets. *)
-         let (ins, inouts, ioattrs, partial) = trm_discover_dependencies s t in
+         let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s t in
          (* Convert the local scope to a set. *)
          let scope = var_set_of_var_hashtbl s in
-         (* When the dependency analysis finds an occurence of a variable
-            without known, definition, we can not reliably determine the
-            dependencies of the potential resulting task. Therefore, in this
-            case, we transform this node into a global synchronization
-            barrier. *)
-         let attrs = if partial then
-                       TaskAttr_set.singleton WaitForAll
-                     else TaskAttr_set.empty
-         in
          (* Create the task corresponding to the current graph node using all
             the elements computed above. *)
-         Task.create t attrs scope ins inouts ioattrs [[]]
+         Task.create t tas scope ins inouts ioattrs [[]]
     | Trm_if (cond, yes, no) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -858,7 +849,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies and their attributes in the conditional
           expression of the [if] and initialize the in and in-out dependency
           sets as well as the map of dependency attribute sets. *)
-       let (ins, inouts, ioattrs, partial) = trm_discover_dependencies s cond in
+       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the if-statement. *)
        let ioattrs = Dep_map.bind_set ins
@@ -886,29 +877,22 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_map.union2 ioattrs tn.ioattrs) in
        (* If the [then] or the [else] branch contains an unconditional jump, we
           need to propagate this information upwards. *)
-       let attrs = if (Task.attributed ty HasJump) || (Task.attributed tn HasJump)
-                   then
-                     TaskAttr_set.singleton HasJump
-                   else
-                     TaskAttr_set.empty in
-       (** If the bodies contain only synchronization barriers, and put a
-           general synchronization barrier in front of this if-conditional. *)
-       let waits = Task.attributed ty WaitForNone &&
-                     (missing_tn || Task.attributed tn WaitForNone) in
+       let tas = if (Task.attributed ty HasJump) ||
+                      (Task.attributed tn HasJump)
+                 then TaskAttr_set.add HasJump tas
+                 else tas in
        (* An [if] node should not become a task by itself. *)
-       let attrs = TaskAttr_set.add (
-                       if partial || waits then WaitForAll else WaitForSome
-                     ) attrs in
+       let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
-       let attrs = TaskAttr_set.add Singleton attrs in
+       let tas = TaskAttr_set.add Singleton tas in
        (* Initialize the list of sub-graphs corresponding to the [then] branch
           and, if present, for the [else] branch too. *)
        let children = if missing_tn then [] else [gn] in
        let children = gy :: children in
        (* Create the task corresponding to the current [if] graph node using all
           the elements computed above. *)
-       Task.create t attrs scope ins inouts ioattrs [children]
+       Task.create t tas scope ins inouts ioattrs [children]
     | Trm_while (cond, body) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -918,7 +902,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies and their attributes in the conditional
           expression of the [while] and initialize the in and in-out dependency
           sets as well as the map of dependency attributes. *)
-       let (ins, inouts, ioattrs, partial) = trm_discover_dependencies s cond in
+       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the while-loop. *)
        let ioattrs = Dep_map.bind_set ins
@@ -938,22 +922,17 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_map.union2 ioattrs tb.ioattrs) in
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
-       let attrs = if (Task.attributed tb HasJump) then
-                     TaskAttr_set.singleton HasJump
-                   else TaskAttr_set.empty in
-       (** If the body contains only synchronization barriers, and put a general
-           synchronization barrier in front of this while-loop. *)
-       let waits = Task.attributed tb WaitForNone in
+       let tas = if (Task.attributed tb HasJump) then
+                     TaskAttr_set.add HasJump tas
+                   else tas in
        (* A while-loop node should not become a task by itself. *)
-       let attrs = TaskAttr_set.add (
-                       if partial || waits then WaitForAll else WaitForSome
-                     ) attrs in
+       let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
-       let attrs = TaskAttr_set.add Singleton attrs in
+       let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current [while] graph node using
           all the elements computed above. *)
-       Task.create t attrs scope ins inouts ioattrs [[gb]]
+       Task.create t tas scope ins inouts ioattrs [[gb]]
     | Trm_do_while (body, cond) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -963,7 +942,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies in the conditional expression of the do-while
           and initialize the in and in-out dependency sets as well as the map of
           dependency attribute sets. *)
-       let (ins, inouts, ioattrs, partial) = trm_discover_dependencies s cond in
+       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the do-while-loop. *)
        let ioattrs = Dep_map.bind_set ins
@@ -983,22 +962,17 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_map.union2 ioattrs tb.ioattrs) in
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
-       let attrs = if (Task.attributed tb HasJump) then
-                     TaskAttr_set.singleton HasJump
-                   else TaskAttr_set.empty in
-       (** If the body contains only synchronization barriers, and put a general
-           synchronization barrier in front of this do-while-loop. *)
-       let waits = Task.attributed tb WaitForNone in
+       let tas = if (Task.attributed tb HasJump) then
+                     TaskAttr_set.add HasJump tas
+                   else tas in
        (* A do-while-loop node should not become a task by itself. *)
-       let attrs = TaskAttr_set.add (
-                       if partial || waits then WaitForAll else WaitForSome
-                     ) attrs in
+       let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
-       let attrs = TaskAttr_set.add Singleton attrs in
+       let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current [do-while] graph node
           using all the elements computed above. *)
-       Task.create t attrs scope ins inouts ioattrs [[gb]]
+       Task.create t tas scope ins inouts ioattrs [[gb]]
     | Trm_switch (cond, cases) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -1008,7 +982,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies and their attributes in the conditional
           expression of the [switch] and initialize the in and in-out dependency
           sets as well as the map of dependency attribute sets. *)
-       let (ins, inouts, ioattrs, partial) = trm_discover_dependencies s cond in
+       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the
           switch-statement. *)
@@ -1051,39 +1025,31 @@ let taskify_on (p : path) (t : trm) : unit =
        (* If at least one of the block sequences contains an unconditional jump
           other than [break], we need to propagate this information upwards. *)
        let has_jump = List.exists (fun e -> Task.attributed e HasJump) tbs in
-       let attrs = if has_jump then TaskAttr_set.singleton HasJump
-                   else TaskAttr_set.empty in
-       (** If the body contains only synchronization barriers, and put a general
-           synchronization barrier in front of this for-loop. *)
-       let waits = List.for_all (fun e ->
-                       Task.attributed e WaitForNone
-                     ) tbs in
+       let tas = if has_jump then TaskAttr_set.add HasJump tas
+                   else tas in
        (* A switch node should not become a task by itself. *)
-       let attrs = TaskAttr_set.add (
-                       if partial || waits then WaitForAll else WaitForSome
-                     ) attrs in
+       let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
           potential tasks. *)
-       let attrs = TaskAttr_set.add Singleton attrs in
+       let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current [switch] graph node
           using all the elements computed above. *)
-       Task.create t attrs scope ins inouts ioattrs [gbs]
+       Task.create t tas scope ins inouts ioattrs [gbs]
     | Trm_delete (_, target) ->
        (* Look for dependencies in the target term of the [delete]. [delete] is
           a destructive operation, we need to consider all of the dependencies
           as in-out dependencies, of course. *)
-       let (ins, inouts, _, partial) = trm_discover_dependencies s target in
+       let (ins, inouts, _, tas) = trm_discover_dependencies s target in
        let inouts = Dep_set.union ins inouts in
        (* Convert the local scope to a set *)
        let scope = var_set_of_var_hashtbl s in
        (* Transform this task into a synchronization barrier. See
           [Apac_tasks.TaskAttr]. *)
-       let attrs = TaskAttr_set.singleton (
-                       if partial then WaitForAll else WaitForSome
-                     ) in
-       (* in order to be able to use it when creating the task corresponding to
+       let tas = TaskAttr_set.union2
+                   tas (TaskAttr_set.singleton WaitForSome) in
+                        (* in order to be able to use it when creating the task corresponding to
           the current [delete] graph node. *)
-       Task.create t attrs scope Dep_set.empty inouts Dep_map.empty [[]]
+       Task.create t tas scope Dep_set.empty inouts Dep_map.empty [[]]
     | Trm_goto target ->
        (* If the target label of the [goto] is not the [Apac_core.goto_label] we
           use within the return statement replacement transformation
@@ -1133,9 +1099,8 @@ let taskify_on (p : path) (t : trm) : unit =
     | Trm_omp_routine r ->
        (* Convert the local scope to a set. *)
        let scope = var_set_of_var_hashtbl s in
-       (* Initialize an empty task attribute set. Calls to OpenMP routines does
-          not need any attribute. *)
-       let attrs = TaskAttr_set.empty in
+       (* Calls to OpenMP routines must not become parallelizable tasks! *)
+       let attrs = TaskAttr_set.singleton WaitForAll in
        (* When it comes to OpenMP routine calls, we consider two different
           situations: *)
        begin match r with

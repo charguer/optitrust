@@ -71,6 +71,13 @@ end
 (** [TaskAttr_set]: a module to represent sets of task attributes. *)
 module TaskAttr_set = struct
   include Set.Make(TaskAttr)
+  (** [TaskAttr_set.union2 tas1 tas2]: same as [TaskAttr_set.union], but if the
+      union of the sets of task attributes [tas1] and [tas2] contains both the
+      [WaitForSome] attribute and the [WaitForAll] attribute, only the latter is
+      kept. *)
+  let union2 (tas1 : t) (tas2 : t) : t =
+    let tas = union tas1 tas2 in
+    if mem WaitForAll tas then remove WaitForSome tas else tas
   (** [TaskAttr_set.to_string tas]: returns a string representation of the set
       of task attributes [tas]. *)
   let to_string (tas : t) : string =

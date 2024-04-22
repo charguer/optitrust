@@ -4,7 +4,9 @@ open Trm
 open Mark
 open Target
 open Apac_miscellaneous
+open Apac_records
 open Apac_dep
+open Apac_tasks
 open Apac_backend
 
 (** [trmq]: a persistent FIFO queue of terms. *)
@@ -661,3 +663,112 @@ let instrument ?(backend : task_backend = OpenMP)
   Trace.ensure_header "#include <omp.h>";
   instrument_unit ~backend tgu;
   instrument_task_group tgg
+
+(* [reduce_waits_on p t]: see [reduce_waits]. *)
+let reduce_waits_on (p : path) (t : trm) : unit =
+  let rec waits (g : TaskGraph.t) (v : TaskGraph.V.t) : bool =
+    let t = TaskGraph.V.label v in
+    let w = (Task.attributed t WaitForSome) ||
+              (Task.attributed t WaitForAll) ||
+                (Task.attributed t WaitForNone) ||
+                  (TaskGraph.in_degree g v < 1) in
+    let _ = Printf.printf "Testing task: %s (%s)\n" (Task.to_string t) (if w then "Y" else "N") in
+    List.fold_left (fun al gl ->
+        al && List.fold_left (fun ao go ->
+                 ao && TaskGraph.fold_vertex (fun v' av ->
+                           av && (waits go v')
+                         ) go w
+               ) w gl
+      ) w t.children
+  in
+  let rec propagate (v : TaskGraph.V.t) : unit =
+    let t = TaskGraph.V.label v in
+    t.attrs <- TaskAttr_set.remove WaitForSome t.attrs;
+    t.attrs <- TaskAttr_set.remove WaitForAll t.attrs;
+    t.attrs <- TaskAttr_set.add WaitForNone t.attrs;
+    List.iter (fun g ->
+        List.iter (fun g' ->
+            TaskGraph.iter_vertex (fun v' ->
+                propagate v'
+              ) g'
+          ) g
+      ) t.children
+  in
+  let rec iter (f : TaskGraph.V.t -> bool)
+            (g : TaskGraph.t) (v : TaskGraph.V.t) : unit =
+    let me = f v in
+    if (TaskGraph.fold_succ (fun v' a -> a && waits g v') g v me) then
+      TaskGraph.iter_succ (fun v' -> iter f g v') g v
+  in
+  let rec prev (f : TaskGraph.V.t -> bool)
+            (g : TaskGraph.t) (v : TaskGraph.V.t) : unit =
+    let me = f v in
+    if (TaskGraph.fold_pred (fun v' a -> a && waits g v') g v me) then
+      TaskGraph.iter_pred (fun v' -> prev f g v') g v
+  in
+  (* Find the parent function. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_taskify.join_on: unable to find parent \
+                          function. Task group outside of a function?" in
+  (* Find the corresponding constification record in [const_records]. *)
+  let const_record = Var_Hashtbl.find const_records f in
+  (* Build the augmented AST correspoding to the function's body. *)
+  let g = match const_record.task_graph with
+    | Some (g') -> g'
+    | None -> fail t.loc "Apac_taskify.join_on: Missing task graph. Did you \
+                          taskify?" in
+  let r = TaskGraphOper.root g in
+  let s = TaskGraph.fold_vertex (fun v acc ->
+              if TaskGraph.out_degree g v < 1 then v::acc else acc
+            ) g [] in
+  let s = List.hd s in
+  let continue = ref true in
+  let last = ref s in
+  Printf.printf "Joining '%s'\n" (var_to_string f);
+  iter (fun v ->
+      if !continue then
+        begin
+          let w = waits g v in
+          if w then propagate v
+          else
+            begin
+              continue := false
+            end;
+          w
+        end
+      else false) g r;
+  continue := true;
+  Printf.printf "Bottom-up '%s'\n" (var_to_string f);
+  prev (fun v ->
+      if !continue then
+        begin
+          let w = waits g v in
+          if w then
+            begin
+              propagate v;
+              last := v
+            end
+          else
+            begin
+    (*          let t = TaskGraph.V.label !last in
+              t.attrs <- TaskAttr_set.remove WaitForNone t.attrs;
+              t.attrs <- TaskAttr_set.add WaitForAll t.attrs; *)
+              continue := false
+            end;
+          w
+        end
+      else false) g s;
+  TaskGraph.iter_vertex (fun v ->
+      if TaskGraph.V.equal v !last then
+        let t = TaskGraph.V.label v in
+        let _ = Printf.printf "EQUALITY on %s\n" (Task.to_string t) in
+        t.attrs <- TaskAttr_set.remove WaitForNone t.attrs;
+        t.attrs <- TaskAttr_set.add WaitForAll t.attrs
+    ) g;
+  let dot = "apac_task_graph_" ^ f.name ^ "_join.dot" in
+  export_task_graph g dot;
+  dot_to_pdf dot
+
+let reduce_waits (tg : target) : unit =
+  Target.iter (fun t p -> reduce_waits_on p (Path.get_trm_at_path p t)) tg
