@@ -60,6 +60,13 @@ let find_candidates_minimum_funcalls ?(min : int = 2) (tg : target) : unit =
     However, only the function calls to the taskification candidates shall be
     transformed into parallelizable tasks. *)
 let rec taskify_callers () : unit =
+  let is_candidate_caller = ref false in
+  let rec calls (c : unit Var_Hashtbl.t) (t : trm) : unit =
+    match t.desc with
+    | Trm_apps ({ desc = Trm_var (_, f)}, _) when (Var_Hashtbl.mem c f) ->
+       is_candidate_caller := true
+    | _ -> trm_iter (calls c) t
+  in
   let insertions =
     Var_Hashtbl.fold (fun f cr ins ->
         (** We shall update only the callers which has not been qualified as
@@ -81,24 +88,24 @@ let rec taskify_callers () : unit =
                   current task [t] is the first element in the list of AST terms
                   associated with [t]. *)
               let body = List.hd t.current in
-              match body.desc with
-              (** If [t] is a function call to one of the taskification
-                  candidates, make this call an un-mergeable task with the
-                  attributes from the task attribute set [tas]. *)
-              | Trm_apps ({ desc = Trm_var (_, c)}, _) ->
-                 if (Var_Hashtbl.mem const_candidates c)
-                 then
-                   begin
-                     (** Also, the current caller becomes a taskification
-                         candidate. *)
-                     Var_Hashtbl.add const_candidates f ();
-                     is_caller := true;
-                     t.attrs <- TaskAttr_set.add Singleton t.attrs
-                   end
-                 (** Otherwise, prevent [t] from actually becoming a
-                     parallelizable task. *)
-                 else t.attrs <- TaskAttr_set.add WaitForSome t.attrs
-              | _ -> t.attrs <- TaskAttr_set.add WaitForSome t.attrs) g;
+              calls const_candidates body;
+              if !is_candidate_caller then
+                begin
+                  (** If [t] is a function call to one of the taskification
+                      candidates, make this call an un-mergeable task with the
+                      attributes from the task attribute set [tas]. *)
+                  (** Also, the current caller becomes a taskification
+                      candidate. *)
+                  Var_Hashtbl.add const_candidates f ();
+                  is_caller := true;
+                  is_candidate_caller := false;
+                  t.attrs <- TaskAttr_set.add Singleton t.attrs
+                end
+              (** Otherwise, prevent [t] from actually becoming a
+                  parallelizable task, if necessary. *)
+              else if not (TaskAttr_set.mem WaitForNone t.attrs) &&
+                        not (TaskAttr_set.mem WaitForAll t.attrs) then
+                t.attrs <- TaskAttr_set.add WaitForSome t.attrs) g;
           (** If the current caller becomes a taskification candidate, it means
               that we make a new insertion into [const_candidates]. *)
           if !is_caller then ins + 1 else ins
