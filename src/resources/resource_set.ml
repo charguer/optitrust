@@ -87,10 +87,9 @@ let read_only (res: resource_set): resource_set =
   let frac_var, frac_item = new_frac () in
   let frac = trm_var frac_var in
   let linear = List.map (fun (x, formula) ->
-      match formula_read_only_inv formula with
-      (* makes the previous RO duplicable by not duplicating fractions. *)
-      | Some { formula } -> (x, formula_read_only ~frac formula)
-      | None -> (x, formula_read_only ~frac formula)) res.linear in
+      let { formula } = formula_read_only_inv_all formula in
+      (x, formula_read_only ~frac formula)
+    ) res.linear in
   { res with pure = frac_item :: res.pure ; linear; efracs = [] }
 
 (** Returns the union of two resource sets, accumulating pure items and separating linear items with a star. *)

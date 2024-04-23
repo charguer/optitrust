@@ -105,9 +105,9 @@ let swap_on (t: trm): trm =
 
       let outer_par_reads_hyps = List.fold_left (fun acc (hyp, _) -> Var_set.add hyp acc) Var_set.empty outer_contract.parallel_reads in
       let inner_invoc = Xoption.unsome inner_loop.ctx.ctx_resources_contract_invoc in
-      let from_outer_par_reads_set = List.fold_left (fun acc { pre_hyp; inst_by } ->
+      let from_outer_par_reads_set = List.fold_left (fun acc { hyp; inst_by } ->
           if Var_set.mem (Resource_computation.Formula_inst.origin_hyp inst_by) outer_par_reads_hyps then
-            Var_set.add pre_hyp acc
+            Var_set.add hyp acc
           else
             acc
         ) Var_set.empty inner_invoc.contract_inst.used_linear in

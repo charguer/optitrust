@@ -162,10 +162,10 @@ let contract_outside_loop range contract =
   { pre; post }
 
 let parallel_reads_inside_loop range par_reads =
-  List.map (fun (x, formula) -> match formula_read_only_inv formula with
-    | Some { frac; formula } -> (x, formula_read_only ~frac:(trm_div frac (formula_range_count (formula_loop_range range))) formula)
-    | None -> failwith "Cannot compute contract inside the loop: parallel_reads contains a non RO resource.")
-    par_reads
+  List.map (fun (x, formula) ->
+      let { frac; formula } = formula_read_only_inv_all formula in
+      (x, formula_read_only ~frac:(trm_div frac (formula_range_count (formula_loop_range range))) formula)
+    ) par_reads
 
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
   the contract of its body. *)

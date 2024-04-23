@@ -256,11 +256,22 @@ let formula_map_under_read_only (f_map: formula -> formula) (formula: formula) =
     formula_read_only ~frac (f_map formula)
   | None -> f_map formula
 
+let formula_read_only_inv_all (formula: formula): read_only_formula =
+  Pattern.pattern_match formula [
+    Pattern.(formula_read_only !__ !__) (fun frac formula -> { frac; formula });
+    Pattern.(!__) (fun formula -> {frac = full_frac; formula})
+  ]
+
 let formula_uninit_inv (formula: formula): formula option =
   Pattern.pattern_match_opt formula [
     Pattern.(formula_uninit !__) (fun f -> f);
   ]
 
+let formula_remove_uninit (formula: formula): formula =
+  Pattern.pattern_match formula [
+    Pattern.(formula_uninit !__) (fun f -> f);
+    Pattern.(!__) (fun f -> f);
+  ]
 
 (** Applies a function below an uninit wrapper if there is one,
     otherwise simply applies the function. *)

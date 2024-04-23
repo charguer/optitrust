@@ -93,55 +93,27 @@ let trm_is_pure (t: trm): bool =
   Option.is_some (Resource_formula.formula_of_trm t)
 
 (** If output_new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
-let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (contract: fun_contract) (usage: resource_usage_map): fun_contract =
-  let new_fracs = ref [] in
-
-  let new_linear_post = ref contract.post.linear in
-  let filter_linear_pre (hyp, formula) =
-    match Hyp_map.find_opt hyp usage with
-    | None ->
-      let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula)] in
-      new_linear_post := np;
-      None
-    | Some (Required | Ensured) -> failwith (sprintf "minimize_fun_contract: the linear resource %s is used like a pure resource" (var_to_string hyp))
-    | Some ConsumedFull -> Some (hyp, formula)
-    | Some SplittedFrac ->
-      let base_formula = match formula_read_only_inv formula with
-      | Some { formula } -> formula
-      | None -> formula
-      in
-      begin try
-        let _, np, _ = Resource_computation.subtract_linear_resource_set !new_linear_post [(hyp, formula_uninit formula)] in
-        let frac_var, frac_ghost = new_frac () in
-        new_fracs := frac_ghost :: !new_fracs;
-        let ro_formula = formula_read_only ~frac:(trm_var frac_var) base_formula in
-        new_linear_post := (hyp, ro_formula) :: np;
-        Some (hyp, ro_formula)
-      with Resource_computation.Resource_not_found _ -> Some (hyp, formula)
-      end
-    | Some JoinedFrac ->
-      (* LATER: Return None here and patch post-condition *)
-      Some (hyp, formula)
-    | Some ConsumedUninit ->
-      begin match formula_uninit_inv formula with
-      | Some _ -> Some (hyp, formula)
-      | None -> Some (hyp, formula_uninit formula)
-      end
-    | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
+let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (contract: fun_contract) (post_inst: used_resource_set) (usage: resource_usage_map): fun_contract =
+  let open Resource_computation in
+  let post_renaming, post_renaming_back = List.fold_left (fun (renaming, renaming_back) { hyp; inst_by } ->
+      let inst_by_hyp = Formula_inst.origin_hyp inst_by in
+      (Var_map.add hyp inst_by_hyp renaming, Var_map.add inst_by_hyp hyp renaming_back)
+    ) (Var_map.empty, Var_map.empty) post_inst.used_linear
   in
-
-  let new_linear_pre = List.filter_map filter_linear_pre contract.pre.linear in
+  let renamed_post = List.map (fun (hyp, formula) -> (Var_map.find hyp post_renaming, formula)) contract.post.linear in
+  let { new_fracs; linear_pre; linear_post } = minimize_linear_triple contract.pre.linear renamed_post usage in
+  let linear_post = List.map (fun (hyp, formula) -> (Option.value ~default:hyp (Var_map.find_opt hyp post_renaming_back), formula)) linear_post in
 
   let added_fracs = match output_new_fracs with
   | Some out ->
-    out := !new_fracs @ !out;
+    out := new_fracs @ !out;
     []
-  | None -> !new_fracs
+  | None -> new_fracs
   in
 
   let new_contract = {
-    pre = { contract.pre with pure = added_fracs @ contract.pre.pure ; linear = new_linear_pre };
-    post = { contract.post with linear = !new_linear_post }
+    pre = { contract.pre with pure = added_fracs @ contract.pre.pure ; linear = linear_pre };
+    post = { contract.post with linear = linear_post }
   } in
   let new_contract_used_vars = fun_contract_used_vars new_contract in
 
@@ -154,6 +126,25 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
       pure = List.filter filter_pure_pre new_contract.pre.pure
     }
   }
+
+let fun_minimize_on (t: trm): trm =
+  let name, typ, args, body, contract = match t.desc with
+    | Trm_let_fun (name, typ, args, body, FunSpecContract contract) ->
+        name, typ, args, body, contract
+    | _ -> failwith "fun_minimize_on: not a function definition with a contract"
+  in
+
+  let body_usage = usage_of_trm body in
+  let post_inst = post_inst body in
+  let new_contract = minimize_fun_contract contract post_inst body_usage in
+  trm_like ~old:t (trm_let_fun name typ args body ~contract:(FunSpecContract new_contract))
+
+(* [fun_minimize]: minimize a function contract by looking at the resource usage of its body *)
+let%transfo fun_minimize (tg: target) : unit =
+  ensure_computed ();
+  Target.apply_at_target_paths fun_minimize_on tg;
+  justif_correct "only changed function contracts"
+
 
 (** Specification of loop minimization.
 
@@ -316,17 +307,14 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
     leads to the code in the previous example.
 *)
 
-let minimize_loop_contract contract usage =
+let minimize_loop_contract contract post_inst usage =
   let new_fracs = ref [] in
   let new_linear_invariant, added_par_reads = List.fold_right (fun (hyp, formula) (lin_inv, par_reads) ->
     match Hyp_map.find_opt hyp usage with
     | None -> (lin_inv, par_reads)
     | Some (Required | Ensured) -> failwith (sprintf "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp))
     | Some (SplittedFrac | JoinedFrac) ->
-      let formula = match formula_read_only_inv formula with
-        | Some { formula } -> formula
-        | None -> formula
-      in
+      let { formula } = formula_read_only_inv_all formula in
       let frac_var, frac_ghost = new_frac () in
       new_fracs := frac_ghost :: !new_fracs;
       let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
@@ -338,7 +326,7 @@ let minimize_loop_contract contract usage =
   let new_invariant = { contract.invariant with linear = new_linear_invariant } in
   let new_parallel_reads = added_par_reads @ List.filter (fun (hyp, _) -> Hyp_map.mem hyp usage) contract.parallel_reads in
 
-  let new_iter_contract = minimize_fun_contract ~output_new_fracs:new_fracs contract.iter_contract usage in
+  let new_iter_contract = minimize_fun_contract ~output_new_fracs:new_fracs contract.iter_contract post_inst usage in
 
   let new_contract = { loop_ghosts = !new_fracs @ contract.loop_ghosts;
     invariant = new_invariant;
@@ -357,12 +345,12 @@ let minimize_loop_contract contract usage =
     invariant = { new_contract.invariant with pure = List.filter filter_pure_pre new_contract.invariant.pure }
   }
 
-
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv t in
 
-  let body_res_usage = usage_of_trm body in
-  let new_contract = minimize_loop_contract contract body_res_usage in
+  let body_usage = usage_of_trm body in
+  let post_inst = post_inst body in
+  let new_contract = minimize_loop_contract contract post_inst body_usage in
   trm_like ~old:t (trm_for range ~contract:new_contract body)
 
 (* [loop_minimize]: minimize linear invariants of a loop contract *)
@@ -391,10 +379,7 @@ let make_strict_loop_contract_on (t: trm): trm =
     | Some (SplittedFrac | JoinedFrac) ->
       let frac, frac_item = new_frac () in
       fracs := frac_item :: !fracs;
-      let f = match formula_read_only_inv f with
-        | Some { formula } -> formula
-        | None -> f
-      in
+      let { formula = f } = formula_read_only_inv_all f in
       parallel_reads := (new_anon_hyp (), formula_read_only ~frac:(trm_var frac) f) :: !parallel_reads
     | Some _ -> failwith "Found a usage incompatible with the loop contract frame")
     contract_frame;

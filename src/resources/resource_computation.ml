@@ -236,27 +236,24 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       let* evar_ctx = unify_trm formula_to_unify formula evar_ctx in
       let used_formula = if uninit then formula_uninit formula_to_unify else formula_to_unify in
       Some (
-        { pre_hyp = x; inst_by = Formula_inst.inst_hyp candidate_name; used_formula },
+        { hyp = x; inst_by = Formula_inst.inst_hyp candidate_name; used_formula },
         None,
         evar_ctx)
     ) res evar_ctx
   in
 
   let unify_and_split_read_only
-    (pre_hyp: hyp) ~(new_frac: var) (formula: formula)
+    (hyp: hyp) ~(new_frac: var) (formula: formula)
     (res: linear_resource_set)
     (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is a read-only resource. *)
     (* LATER: Improve the structure of the linear_resource_set to make this
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
-      let cur_frac, formula_candidate = match formula_read_only_inv formula_candidate with
-        | Some { frac; formula } -> frac, formula
-        | None -> full_frac, formula_candidate
-      in
+      let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
       let* evar_ctx = unify_trm formula_candidate formula evar_ctx in
       Some (
-        { pre_hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
+        { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         Some (h, formula_read_only ~frac:(trm_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
     ) res evar_ctx
   in
@@ -351,6 +348,7 @@ let update_usage (hyp: hyp) (current_usage: resource_usage option) (extra_usage:
   | Some Produced, Some (SplittedFrac | JoinedFrac) -> Some Produced
   | _, Some Produced -> failwith (sprintf "Produced resource %s share id with another one" (var_to_string hyp))
   | Some (ConsumedFull | ConsumedUninit), _ -> failwith (sprintf "Consumed resource %s share id with another one" (var_to_string hyp))
+  | Some JoinedFrac, Some ConsumedUninit -> Some ConsumedUninit
   | Some (SplittedFrac | JoinedFrac), Some (ConsumedFull | ConsumedUninit) -> Some ConsumedFull
   | Some JoinedFrac, Some JoinedFrac -> Some JoinedFrac
   | Some (SplittedFrac | JoinedFrac), Some (SplittedFrac | JoinedFrac) -> Some SplittedFrac
@@ -493,7 +491,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
   List.iter (check_frac_le subst_ctx) efracs;
 
   let used_pure = List.map (fun (hyp, formula) ->
-      { pre_hyp = hyp; inst_by = Var_map.find hyp subst_ctx; used_formula = trm_subst subst_ctx formula }
+      { hyp; inst_by = Var_map.find hyp subst_ctx; used_formula = trm_subst subst_ctx formula }
     ) res_to.pure in
 
   (* Check higher order function contracts in the post-condition *)
@@ -811,6 +809,93 @@ let _ = Printexc.register_printer (function
   | _ -> None)
 
 
+type minimized_linear_triple = {
+  new_fracs: resource_item list;
+  linear_pre: resource_item list;
+  linear_post: resource_item list;
+  frame: resource_item list;
+}
+
+type minimize_linear_triple_post_modif =
+  | RemoveUnused
+  | WeakenSplitFrac of { new_hyp: hyp; frac_before: formula; new_frac: var }
+  | RemoveJoinedFrac of formula
+
+(** [minimize_linear_triple linear_pre linear_post usage] removes and weakens resources from linear_pre and linear_post
+    such that a term with usage map [usage] can still typecheck.
+    Ideally it removes as much resources as possible, and put them in the [frame] field of the return value.
+    While weakening resources new fractions might be generated and are stored in the [new_fracs] field of the return value.
+
+    It assumes that [linear_pre] and especially [linear_post] have resource names that correspond to the usage map [usage]. *)
+let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resource_item list) (usage: resource_usage_map): minimized_linear_triple =
+  let new_fracs = ref [] in
+  let frame = ref [] in
+  let post_modifs = ref Var_map.empty in
+  let filter_linear_pre (hyp, formula) =
+    match Hyp_map.find_opt hyp usage with
+    | None ->
+      post_modifs := Var_map.add hyp RemoveUnused !post_modifs;
+      frame := (hyp, formula) :: !frame;
+      None
+    | Some (Required | Ensured) -> failwith (sprintf "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp))
+    | Some Produced -> failwith (sprintf "minimize_linear_triple: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
+    | Some ConsumedFull -> Some (hyp, formula)
+    | Some ConsumedUninit ->
+      begin match formula_uninit_inv formula with
+      | Some _ -> Some (hyp, formula)
+      | None -> Some (hyp, formula_uninit formula)
+      end
+    | Some SplittedFrac ->
+      let { frac = frac_before; formula = base_formula } = formula_read_only_inv_all formula in
+      let new_hyp = new_anon_hyp () in
+      let frac_var, frac_ghost = new_frac () in
+      new_fracs := frac_ghost :: !new_fracs;
+      post_modifs := Var_map.add hyp (WeakenSplitFrac { new_hyp; frac_before; new_frac = frac_var }) !post_modifs;
+      frame := (hyp, formula_read_only ~frac:(trm_sub frac_before (trm_var frac_var)) base_formula) :: !frame;
+      Some (new_hyp, formula_read_only ~frac:(trm_var frac_var) base_formula)
+    | Some JoinedFrac ->
+      let { frac = frac_before } = formula_read_only_inv_all formula in
+      post_modifs := Var_map.add hyp (RemoveJoinedFrac frac_before) !post_modifs;
+      frame := (hyp, formula) :: !frame;
+      None
+  in
+  let linear_pre = List.filter_map filter_linear_pre linear_pre in
+
+  let frac_wand_diff frac_before frac_after =
+    let frac_base_before, frac_holes_before = formula_to_frac_wand frac_before in
+    let frac_base_after, frac_holes_after = formula_to_frac_wand frac_after in
+    assert (Trm.are_same_trm frac_base_before frac_base_after);
+    let frac_holes_only_before = Xlist.diff frac_holes_before frac_holes_after in
+    let frac_holes_only_after = Xlist.diff frac_holes_after frac_holes_before in
+    (frac_holes_only_before, frac_holes_only_after)
+  in
+  let var_map_try_pop var map =
+    match Var_map.find_opt var !map with
+    | None -> None
+    | Some x ->
+      map := Var_map.remove var !map;
+      Some x
+  in
+  let filter_linear_post (hyp, formula) =
+    match var_map_try_pop hyp post_modifs with
+    | None -> [(hyp, formula)]
+    | Some RemoveUnused -> []
+    | Some WeakenSplitFrac { new_hyp; frac_before; new_frac } ->
+      let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all (formula_remove_uninit formula) in
+      let frac_holes_only_before, frac_holes_only_after = frac_wand_diff frac_before frac_after in
+      let carved_frac = frac_wand_to_formula (trm_var new_frac, frac_holes_only_after) in
+      let remaining_fracs = List.map (fun frac -> (new_anon_hyp (), formula_read_only ~frac base_formula)) frac_holes_only_before in
+      (new_hyp, formula_read_only ~frac:carved_frac base_formula) :: remaining_fracs
+    | Some RemoveJoinedFrac frac_before ->
+      let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all (formula_remove_uninit formula) in
+      let frac_holes_only_before, frac_holes_only_after = frac_wand_diff frac_before frac_after in
+      assert (frac_holes_only_after = []);
+      List.map (fun frac -> (new_anon_hyp (), formula_read_only ~frac base_formula)) frac_holes_only_before
+  in
+  let linear_post = List.concat_map filter_linear_post linear_post in
+  if not (Var_map.is_empty !post_modifs) then failwith "minimize_linear_triple: missing resources that need to be patched in the post-condition";
+  { new_fracs = List.rev !new_fracs; linear_pre; linear_post; frame = List.rev !frame }
+
 (** Knowing that term [t] has contract [contract], and that [res] is available before [t],
   [compute_contract_invoc contract ?subst_ctx res t] returns the resources used by [t],
   and the resources available after [t].
@@ -1109,7 +1194,7 @@ let rec compute_resources
         begin match res, contract_invoc with
         | Some res, Some invoc ->
           let inverse_pre = List.map (fun { produced_hyp; produced_formula } -> (produced_hyp, produced_formula)) invoc.contract_produced.produced_linear in
-          let inverse_post = List.map (fun { pre_hyp; used_formula } -> (pre_hyp, used_formula))
+          let inverse_post = List.map (fun { hyp; used_formula } -> (hyp, used_formula))
             invoc.contract_inst.used_linear
           in
           let inverse_spec = { args = [];
@@ -1145,7 +1230,7 @@ let rec compute_resources
           | None -> failwith "__assert_alias expects a simple variable as first argument"
           end
         | "y" -> subst := Some value
-        | _ -> ()) (ghost_args @ Option.value ~default:[] (Option.map (fun inv -> List.map (fun { pre_hyp; inst_by } -> (pre_hyp, inst_by)) inv.contract_inst.used_pure) ghost_call.ctx.ctx_resources_contract_invoc));
+        | _ -> ()) (ghost_args @ Option.value ~default:[] (Option.map (fun inv -> List.map (fun { hyp; inst_by } -> (hyp, inst_by)) inv.contract_inst.used_pure) ghost_call.ctx.ctx_resources_contract_invoc));
         let var = Option.get !var in
         let subst = trm_subst res.aliases (Option.get !subst) in (* Aliases never refer to other aliases *)
         if Var_map.mem var res.aliases then failwith (sprintf "Cannot add an alias for '%s': this variable already has an alias" (var_to_string var));
@@ -1270,9 +1355,9 @@ let rec compute_resources
         let used_res = assert_resource_impl res expected_res in
         t.ctx.ctx_resources_post_inst <- Some used_res;
         (* We need to account for pure usage inside the post instantiation, but filter out invariants that are passed to the next iteration without modification. *)
-        t.ctx.ctx_resources_usage <- Option.map (fun current_usage -> update_usage_map ~current_usage ~extra_usage:(used_set_to_usage_map { used_pure = List.filter (fun { pre_hyp; inst_by } ->
+        t.ctx.ctx_resources_usage <- Option.map (fun current_usage -> update_usage_map ~current_usage ~extra_usage:(used_set_to_usage_map { used_pure = List.filter (fun { hyp; inst_by } ->
             match trm_var_inv inst_by with
-            | Some x -> not (var_eq x pre_hyp)
+            | Some x -> not (var_eq x hyp)
             | None -> true
           ) used_res.used_pure; used_linear = [] })) t.ctx.ctx_resources_usage;
       with

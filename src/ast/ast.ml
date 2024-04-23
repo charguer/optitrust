@@ -770,7 +770,7 @@ and loop_contract = {
 }
 
 and used_resource_item = {
-  pre_hyp: hyp;
+  hyp: hyp;
   inst_by: formula;
   used_formula: formula;
 }

@@ -803,7 +803,7 @@ let ctx_resources_to_trm (style: style) (res: resource_set) : trm =
 let ctx_used_res_item_to_string (style: style) (res: used_resource_item) : string =
   let sinst = formula_to_string style res.inst_by in
   let sformula = formula_to_string style res.used_formula in
-  Printf.sprintf "%s := %s : %s" res.pre_hyp.name sinst sformula
+  Printf.sprintf "%s := %s : %s" res.hyp.name sinst sformula
 
 let ctx_used_res_to_trm (style: style) ~(clause: var) (used_res: used_resource_set) : trm =
   let spure = trm_array_of_string (List.map (ctx_used_res_item_to_string style) used_res.used_pure) in
