@@ -24,6 +24,10 @@ let _ = Run.script_cpp (fun () ->
             !! Apac_taskify.taskify_callers ();
             !! Apac_taskify.restore [nbAny; cFunDefAndDecl ""];
             !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
+            !! Apac_epilogue.synchronize_subscripts [
+                nbAny;
+                cMark Apac_macros.task_group_mark
+              ];
             !! Apac_epilogue.reduce_waits [
                 nbAny;
                 cMark Apac_macros.task_group_mark
