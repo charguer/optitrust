@@ -15,6 +15,14 @@ type trmq = trm Queue.t
 (** [varq]: a persistent FIFO queue of variables. *)
 type varq = (var * trm) Queue.t
 
+(** [depscope]: a hash table of dependencies to their location in a task
+    graph. *)
+type depscope = (TaskGraph.V.t * TaskGraph.t) Dep_hashtbl.t
+
+(** [substack]: a stack of array subscript-related dependencies with their last
+    write location. *)
+type substack = (Dep.t * TaskGraph.V.t * TaskGraph.t) Stack.t
+
 let subst_pragmas (va : var) (tv : trm)
       (pl : cpragma list) : cpragma list =
   let aux (dl : deps) : deps =
@@ -672,7 +680,6 @@ let reduce_waits_on (p : path) (t : trm) : unit =
               (Task.attributed t WaitForAll) ||
                 (Task.attributed t WaitForNone) ||
                   (TaskGraph.in_degree g v < 1) in
-    let _ = Printf.printf "Testing task: %s (%s)\n" (Task.to_string t) (if w then "Y" else "N") in
     List.fold_left (fun al gl ->
         al && List.fold_left (fun ao go ->
                  ao && TaskGraph.fold_vertex (fun v' av ->
@@ -772,3 +779,75 @@ let reduce_waits_on (p : path) (t : trm) : unit =
 
 let reduce_waits (tg : target) : unit =
   Target.iter (fun t p -> reduce_waits_on p (Path.get_trm_at_path p t)) tg
+
+(* [synchronize_subscripts_on p t]: see [synchronize_subscripts]. *)
+let synchronize_subscripts_on (p : path) (t : trm) : unit =
+  let rec synchronize (scope : depscope) (subscripts : substack)
+          (graph : TaskGraph.t) (vertex : TaskGraph.V.t) : unit =
+    let task = TaskGraph.V.label vertex in
+    let subscripted = Dep_set.filter (fun d ->
+                          Dep_map.has_with_attribute
+                            d Accessor task.ioattrs
+                        ) task.ins in
+    if (Dep_set.cardinal subscripted) > 0 then
+      begin
+        Dep_set.iter (fun d ->
+            if (Dep_hashtbl.mem scope d) then
+              begin
+                let (v, g) = Dep_hashtbl.find scope d in
+                Stack.push (d, v, g) subscripts
+              end
+          ) subscripted;
+        task.ioattrs <- Dep_map.remove_attribute Accessor task.ioattrs
+      end;
+    if (not (Task.attributed task WaitForAll)) &&
+         (not (Task.attributed task WaitForSome)) &&
+           (not (Task.attributed task WaitForNone)) then
+      Dep_set.iter (fun d ->
+          Dep_hashtbl.add scope d (vertex, graph)
+        ) task.inouts;
+    List.iter (fun gl ->
+        List.iter (fun go ->
+            TaskGraphTraverse.iter
+              (synchronize (Dep_hashtbl.copy scope) subscripts go) go
+          ) gl
+      ) task.children
+  in
+  let process (d : Dep.t) (v : TaskGraph.V.t) (g : TaskGraph.t) : unit =
+    let succ = TaskGraph.fold_succ (fun s a -> a @ [s]) g v [] in
+    let v' = TaskGraph.V.label v in
+    let _ = Printf.printf "processing successors of: %s\n" (Task.to_string v') in
+    if (List.length succ) > 0 then
+      begin
+        let first = List.hd succ in
+        let task = TaskGraph.V.label first in
+        task.ins <- Dep_set.add d task.ins;
+        task.ioattrs <-
+          Dep_map.add d (DepAttr_set.singleton Accessor) task.ioattrs
+      end
+  in
+  (* Find the parent function. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_core.merge_on: unable to find parent \
+                          function. Task group outside of a function?" in
+  (* Find the corresponding constification record in [const_records]. *)
+  let const_record = Var_Hashtbl.find const_records f in
+  (* Build the augmented AST correspoding to the function's body. *)
+  let g = match const_record.task_graph with
+    | Some (g') -> g'
+    | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
+                          taskify?" in
+  let scope = Dep_hashtbl.create 97 in
+  let subscripts = Stack.create () in
+  TaskGraphTraverse.iter (synchronize scope subscripts g) g;
+  Stack.iter (fun (d, v, g) -> process d v g) subscripts;
+  Printf.printf "Sync. subscripts task graph of << %s >> follows:\n" (var_to_string f);
+  TaskGraphPrinter.print g;
+  let dot = "apac_task_graph_" ^ f.name ^ "_sync.dot" in
+  export_task_graph g dot;
+  dot_to_pdf dot
+
+let synchronize_subscripts (tg : target) : unit =
+  Target.iter (fun t p ->
+      synchronize_subscripts_on p (Path.get_trm_at_path p t)) tg
