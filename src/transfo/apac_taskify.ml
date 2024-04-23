@@ -657,17 +657,17 @@ let taskify_on (p : path) (t : trm) : unit =
          (DepAttr_set.singleton InductionVariable) ins' c;
        TaskGraphOper.propagate_dependency_attribute
          (DepAttr_set.singleton InductionVariable) inouts' c;
-       (* Do not keep [Condition] attributes from the underlying scopes.
-          Otherwise, it collides with the usage of the [Condition] attribute
-          within this for-loop. *)
-       let ioattrs' = Dep_map.remove_attribute Condition ct.ioattrs in
+       (** The [Condition] and the [Accessor] dependency attributes are not
+           valid outside of their initial scope. *)
+       ct.ioattrs <- Dep_map.remove_attribute Condition ct.ioattrs;
+       ct.ioattrs <- Dep_map.remove_attribute Accessor ct.ioattrs;
        (* Include the dependencies from the body sequence into the sets of
           dependencies of the current [for] graph node, i.e. [ins] and [inouts],
           by the means of a union operation. *)
        let (ins, inouts, ioattrs) =
          (Dep_set.union ins ct.ins,
           Dep_set.union inouts ct.inouts,
-          Dep_map.union2 ioattrs ioattrs') in
+          Dep_map.union2 ioattrs ct.ioattrs) in
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
        let tas = if (Task.attributed ct HasJump) then
@@ -747,6 +747,10 @@ let taskify_on (p : path) (t : trm) : unit =
          (DepAttr_set.singleton InductionVariable) ins' c;
        TaskGraphOper.propagate_dependency_attribute
          (DepAttr_set.singleton InductionVariable) inouts' c;
+       (** The [Condition] and the [Accessor] dependency attributes are not
+           valid outside of their initial scope. *)
+       ct.ioattrs <- Dep_map.remove_attribute Condition ct.ioattrs;
+       ct.ioattrs <- Dep_map.remove_attribute Accessor ct.ioattrs;
        (* Include the dependencies from the body sequence into the sets of
           dependencies of the current [for] graph node, i.e. [ins] and [inouts],
           by the means of a union operation. *)
@@ -864,6 +868,12 @@ let taskify_on (p : path) (t : trm) : unit =
        (* If there is no [else] branch, create an empty task. *)
        let missing_tn = is_trm_unit no in 
        let tn = if missing_tn then Task.empty () else fill s no gn in
+       (** The [Condition] and the [Accessor] dependency attributes are not
+           valid outside of their initial scope. *)
+       ty.ioattrs <- Dep_map.remove_attribute Condition ty.ioattrs;
+       ty.ioattrs <- Dep_map.remove_attribute Accessor ty.ioattrs;
+       tn.ioattrs <- Dep_map.remove_attribute Condition tn.ioattrs;
+       tn.ioattrs <- Dep_map.remove_attribute Accessor tn.ioattrs;
        (* Include the dependencies and their attributes from the branches into
           the current [if] graph node, i.e. [ins], [inouts] and [ioattrs], by
           the means of union operations. *)
@@ -913,6 +923,10 @@ let taskify_on (p : path) (t : trm) : unit =
        let gb = TaskGraph.create () in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
        let tb = fill s body gb in
+       (** The [Condition] and the [Accessor] dependency attributes are not
+           valid outside of their initial scope. *)
+       tb.ioattrs <- Dep_map.remove_attribute Condition tb.ioattrs;
+       tb.ioattrs <- Dep_map.remove_attribute Accessor tb.ioattrs;
        (* Include the dependencies and their attributes from the body sequence
           into the current [while] graph node, i.e. into [ins], [inouts] and
           [ioattrs], by the means of a union operation. *)
@@ -953,6 +967,10 @@ let taskify_on (p : path) (t : trm) : unit =
        let gb = TaskGraph.create () in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
        let tb = fill s body gb in
+       (** The [Condition] and the [Accessor] dependency attributes are not
+           valid outside of their initial scope. *)
+       tb.ioattrs <- Dep_map.remove_attribute Condition tb.ioattrs;
+       tb.ioattrs <- Dep_map.remove_attribute Accessor tb.ioattrs;
        (* Include the dependencies and their attributes from the body sequence
           into the current [do-while] graph node, i.e. [ins], [inouts] and
           [ioattrs], by the means of a union operation. *)
@@ -1018,6 +1036,10 @@ let taskify_on (p : path) (t : trm) : unit =
           [ioattrs], by the means of union operations. *)
        let (ins, inouts, ioattrs) =
          List.fold_left (fun (ins', inouts', ioattrs') (tb : Task.t) ->
+             (** The [Condition] and the [Accessor] dependency attributes are
+                 not valid outside of their initial scope. *)
+             tb.ioattrs <- Dep_map.remove_attribute Condition tb.ioattrs;
+             tb.ioattrs <- Dep_map.remove_attribute Accessor tb.ioattrs;
              (Dep_set.union ins' tb.ins,
               Dep_set.union inouts' tb.inouts,
               Dep_map.union2 ioattrs' tb.ioattrs))
