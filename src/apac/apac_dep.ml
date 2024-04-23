@@ -71,6 +71,7 @@ module Dep : sig
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val equal2 : t -> t -> bool
+  val hash : t -> int
 end = struct
   type t = dep
   (** [Dep.degree d]: returns the degree of the dependency [d] if it is of type
@@ -140,6 +141,9 @@ end = struct
     let d1' = to_string2 d1 in
     let d2' = to_string2 d2 in
     d1' = d2'
+  let hash (d : t) : int =
+    let d' = to_string d in
+    Hashtbl.hash d'
 end
 
 (** [Dep_set]: a module to represent sets of dependencies. Typically, we will
@@ -243,24 +247,27 @@ end
     attributes. *)
 type ioattrs_map = DepAttr_set.t Dep_map.t
 
-(* [find_parent_function p]: goes back up the path [p] and looks for the first
-   term corresponding to a function definition. If a function definition is
-   found, it returns the name of the function as a variable. We use
-   [find_parent_function] to determine the parent function of a task group
-   sequence in order to access its constification record in [const_funs]. *)
+(** [Dep_hashtbl]: a module to represent hash tables of dependencies. *)
+module Dep_hashtbl = Hashtbl.Make(Dep)
+
+(** [find_parent_function p]: goes back up the path [p] and looks for the first
+    term corresponding to a function definition. If a function definition is
+    found, it returns the name of the function as a variable. We use
+    [find_parent_function] to determine the parent function of a task group
+    sequence in order to access its constification record in [const_funs]. *)
 let find_parent_function (p : path) : var option =
-  (* We shall go back on our steps in the path, i.e. in the direction of the
-     root of the AST, so we need to reverse [p]. *)
+  (** We shall go back on our steps in the path, i.e. in the direction of the
+      root of the AST, so we need to reverse [p]. *)
   let reversed = List.tl (List.rev p) in
-  (* We use an auxiliary function in order to hide to the outside world the need
-     for the path reversal. *)
+  (** We use an auxiliary function in order to hide to the outside world the
+      need for the path reversal. *)
   let rec aux (p : path) : var option =
-    (* The function simply goes recursively through the reversed [p] *)
+    (** The function simply goes recursively through the reversed [p] *)
     match p with
     | e :: f -> 
        begin
-         (* and if it detects a function definition, it returns it. *)
-         (* FIXME : Optimize by passing non-reversed list as argument ? *)
+         (** and if it detects a function definition, it returns it. *)
+         (** FIXME : Optimize by passing non-reversed list as argument ? *)
          let tg = target_of_path (List.rev p) in
          let t = get_trm_at_exn tg in
          match t.desc with
