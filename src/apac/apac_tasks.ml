@@ -432,6 +432,7 @@ end
     graphs. *)
 module TaskGraphTraverse : sig
   val codify : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
+  val iter : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
 end = struct
   (** [TaskGraphTraverse.H]: a hash table module for task graph vertices. *)
   module H = Hashtbl.Make(TaskGraph.V)
@@ -471,7 +472,7 @@ end = struct
                  recurse. *)
               visit false (ts @ ce)
             end
-          (* Otherwise, do nothing and recurse. *)
+              (* Otherwise, do nothing and recurse. *)
           else visit false ts
         end
     in
@@ -480,5 +481,46 @@ end = struct
     (* Start the codification process with an empty list of codified
        elements. *)
     visit true []
+  (** [TaskGraphTraverse.iter c g]: iterates over the vertices of the task graph
+      [g] while applying the user-provided function [f] on each of them. *)
+  let iter (f : (TaskGraph.V.t -> unit)) (g : TaskGraph.t) : unit =
+    (* Find and extract the root node. *)
+    let r = TaskGraphOper.root g in
+    (* Create an hash table for already visited nodes. *)
+    let v = H.create 97 in
+    (* Create a queue for elements to visit. *)
+    let q = Queue.create () in
+    let rec visit (root : bool) : unit =
+      (* If the queue of elements to visit is empty, we are done. Return the
+         list of codified elements. *)
+      if not (Queue.is_empty q) then
+        begin
+          (* Get the first element from the queue of vertices to visit. This
+             will be the current element to process. *)
+          let hd = Queue.take q in
+          (* If all of its predecessors has been visited, i.e. if all of them
+             are in the hash table of visited nodes, *)
+          let all = TaskGraph.fold_pred (fun p a -> a && H.mem v p) g hd true in
+          if all && not (H.mem v hd) then
+            begin
+              (* visit the current element, *)
+              H.add v hd ();
+              (* push its successors to the queue of vertices to visit, *)
+              TaskGraph.iter_succ (fun e -> Queue.push e q) g hd;
+              (* apply [f] on the current element, *)
+              if (not root) then f hd; 
+              (* append it to the list of already codified elements and
+                 recurse. *)
+              visit false
+            end
+          (* Otherwise, do nothing and recurse. *)
+          else visit false
+        end
+    in
+    (* Push the root element to the queue and *)
+    Queue.push r q;
+    (* Start the codification process with an empty list of codified
+       elements. *)
+    visit true
 end
 
