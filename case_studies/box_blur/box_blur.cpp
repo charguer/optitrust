@@ -1,6 +1,5 @@
-
+#include <optitrust.h>
 #include "box_blur.h"
-#include "../../include/optitrust.h"
 
 // output: (h-2).(w-8).float
 // input :     h.    w.float
@@ -61,7 +60,7 @@ void blur_fused(float* output, float* input, int width, int height) {
 int main() {
   const int W = 1024;
   const int H = 1024;
-  
+
   float* output = (float*) calloc((W-2) * (H-2), sizeof(float));
   float* input = (float*) malloc(W * H * sizeof(float));
 

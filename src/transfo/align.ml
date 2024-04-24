@@ -6,15 +6,15 @@ include Align_basic
     then them will convert it to an aligned one with alignment size [vec_align]. *)
 let alloc (vec_align : trm) : Target.Transfo.t =
   iter_on_targets (fun t p ->
-    let tg_trm = Path.get_trm_at_path p t in
-    begin match Matrix_core.alloc_inv tg_trm with
+    let tg_trm = Path.resolve_path p t in
+    begin match Matrix_trm.alloc_inv tg_trm with
     | Some (dims, sz, zero_init) ->
       if zero_init
-        then fail tg_trm.loc "Align.alloc: can't align calloc macros";
+        then trm_fail tg_trm "Align.alloc: can't align calloc macros";
       let num_dims = List.length dims in
       let new_fun_name = toplevel_var ("MALLOC_ALIGNED" ^ (string_of_int num_dims)) in
       Function_basic.replace_with_change_args new_fun_name (fun tl ->
         tl @ [vec_align]) (target_of_path p)
-    | None -> fail tg_trm.loc "Align.alloc: expected a call to MALLOC function "
+    | None -> trm_fail tg_trm "Align.alloc: expected a call to MALLOC function "
     end
 )

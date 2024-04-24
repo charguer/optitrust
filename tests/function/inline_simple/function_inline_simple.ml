@@ -2,6 +2,8 @@
 open Optitrust
 open Target
 
+(* TODO: let _ = Flags.check_validity := true *)
+
 (* Fix this unit test *)
 let _ = Run.script_cpp (fun _ ->
 
@@ -40,7 +42,7 @@ const vect w = r
   !! Function.inline [nbMulti; cFun "m"];
 
   (* with naming of the arguments *)
-  !! Trace.alternative (fun () ->
-    Function.inline ~vars:(Variable.Rename.add_suffix "2") ~args:["v"] [nbMulti;cFunDef "main";cFun "f"];);
+  !! Trace.restore_original();
+  !! Function.inline ~vars:(Variable.Rename.add_suffix "2") ~args:["v"] [nbMulti;cFunDef "main";cFun "f"];
 
 )

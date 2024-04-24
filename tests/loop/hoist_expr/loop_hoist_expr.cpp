@@ -1,25 +1,43 @@
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
-int *t;
-int *u;
+void f(int* t, int* u) {
+  __reads("t ~> Matrix1(10)");
+  __writes("u ~> Matrix1(10)");
 
-int main() {
   for (int i = 0; i < 10; i++) {
-    int x = t[i];
-    u[i] = x;
+    __strict();
+    __xreads("&t[MINDEX1(10, i)] ~> Cell");
+    __xwrites("&u[MINDEX1(10, i)] ~> Cell");
+
+    int x = t[MINDEX1(10, i)];
+    u[MINDEX1(10, i)] = x;
     int z = x;
   }
 
+  __ghost(matrix1_ro_focus, "t, 0");
   for (int l = 0; l < 5; l++) {
+    __strict();
+    __sreads("&t[MINDEX1(10, 0)] ~> Cell");
+
     for (int m = 0; m < 2; m++) {
-      int x = l + m + t[0];
+      __strict();
+      __sreads("&t[MINDEX1(10, 0)] ~> Cell");
+
+      int x = l + m + t[MINDEX1(10, 0)];
     }
   }
+  __ghost(matrix1_ro_unfocus, "t");
 
   for (int a = 0; a < 8; a++) {
+    __strict();
+
     int y = 0;
     for (int b = 0; b < 5; b++) {
+      __strict();
+
       for (int c = 0; c < 2; c++) {
+        __strict();
+
         int x = a + b + c;
       }
       int z = 0;

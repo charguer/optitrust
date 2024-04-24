@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 int main () {
   int i1 = 0, i2 = 0, i3 = 0;

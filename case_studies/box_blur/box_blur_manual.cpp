@@ -1,6 +1,5 @@
-
+#include <optitrust.h>
 #include "box_blur.h"
-#include "../../include/optitrust.h"
 
 // output: (h-2).(w-8).float
 // input :     h.    w.float

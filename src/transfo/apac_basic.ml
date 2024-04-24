@@ -3,6 +3,8 @@ open Target
 open Path
 include Apac_core
 
+let debug = false
+
 (* [mark_taskification_candidates_on]: see [mark_taskification_candidates]. *)
 let mark_taskification_candidates_on (t : trm) : trm =
   (* Initialize a reference holding the number of function calls within the body
@@ -159,7 +161,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
 
     [mark] - mark to put on the sequence the function's body is wrapped into,
     [tg] - target function definition AST term. *)
-let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
+let use_goto_for_return ?(mark : mark = no_mark) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.apply_at_target_paths (use_goto_for_return_on mark) tg
   )
@@ -200,7 +202,7 @@ let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
   let simple = List.map2 (fun tv ti -> trm_let vk tv ti) tvs' tis in
   (* Return a new sequence (without braces) containing the newly generated
      simple variable declarations. *)
-    trm_seq_no_brace simple
+    trm_seq_nobrace_nomarks simple
 
 (* [unfold_let_mult ~constify tg]: expects target [tg] to point
    at a multiple variable declaration. Then, it replaces it by a sequence of
@@ -342,16 +344,16 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
              fun tv ti ->
              let res = trm_let_update_aliases tv ti aliases in res > 0
            ) tvs tis in
-       let _ = Printf.printf "which_aliases is %d long\n" (List.length which_aliases) in
+       let _ = if debug then Printf.printf "which_aliases is %d long\n" (List.length which_aliases) in
        (* If all the elements of [which_aliases] are [false], *)
        if (List.for_all (fun a -> a = false) which_aliases) then
-         let _ = Printf.printf "all false\n" in
+         let _ = if debug then Printf.printf "all false\n" in
          (* there are no aliases to constant variables and there is nothing
             todo. Return [t] unchanged. *)
          t
            (* If all the elements of [which_aliases] are [true], *)
        else if (List.for_all (fun a -> a = true) which_aliases) then
-         let _ = Printf.printf "all true\n" in
+         let _ = if debug then Printf.printf "all true\n" in
          (* we can safely constify all the variable declarations in the multiple
             variable declaration without splitting it into a sequence of simple
             variable declarations beforehand. *)
@@ -366,7 +368,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
            if is_typ_const (get_inner_type fty) then
              (* we can complete the constification of selected variables within
                 the multiple variable declaration without splitting it. *)
-             let _ = Printf.printf "Partial constification possible\n" in
+             let _ = if debug then Printf.printf "Partial constification possible\n" in
              let tvs' = List.map2 (
                             fun (v, ty) const ->
                             if const then (v, typ_constify ty) else (v, ty)
@@ -692,7 +694,7 @@ let heapify_on (t : trm) : trm =
      let (vtys2, inits2) = List.split updated in
      (* Return an update multiple variable declaration term. *)
      trm_let_mult kind vtys2 inits2
-  | _ -> fail t.loc "Apac_basic.heapify: expected a target to a variable \
+  | _ -> trm_fail t "Apac_basic.heapify: expected a target to a variable \
                      declaration or a multiple variable declaration."
 
 (* [heapify tg]: expects the target [tg] to point at a simple or a multiple
@@ -743,7 +745,7 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
       | Some(res), None -> Some(res)
       | None, Some(res) -> Some(res)
       | None, None -> None
-      | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers"
+      | Some(_), Some(_) -> trm_fail t "Should not happen : Binary operator between pointers"
       end
     (* variable : resolve variable *)
     | Trm_var (_ ,qv) ->

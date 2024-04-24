@@ -1,13 +1,10 @@
 open Optitrust
-open Target
 open Prelude
 open Ast_fromto_AstC
 
-(* let _ = Flags.set_dump_clang_ast() *)
-
-let _ =
-  Flags.dump_ast_details := true;
-  Flags.bypass_cfeatures := false
+(* let _ = Flags.dump_ast_details := true; *)
+let _ = Flags.bypass_cfeatures := true
+let _ = Flags.print_optitrust_syntax := true
 
 
 (* Option to choose the size of the test *)

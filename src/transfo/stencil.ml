@@ -1,4 +1,3 @@
-open Target
 open Prelude
 
 (* TODO: unit tests + document *)
@@ -7,10 +6,10 @@ type nd_tile = Matrix_core.nd_tile
 
 let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p ->
-    let loop_t = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let loop_t = Target.resolve_path p in
     let error = "Stencil.loop_align_stop_extend_start: expected simple loop" in
-    let ((_index, start', _dir, stop', _step, _par), _body, _contract) = trm_inv ~error trm_for_inv loop_t in
+    let ({ start = start'; stop = stop' }, _body, _contract) = trm_inv ~error trm_for_inv loop_t in
     if (Internal.same_trm start start') && (Internal.same_trm stop stop') then
       ()
     else begin
@@ -24,19 +23,19 @@ let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : 
 
 let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1) ?(simpl : Transfo.t = Arith.default_simpl) (tg:target) : unit =
   Trace.tag_valid_by_composition ();
-  let orig_p = resolve_target_exactly_one orig (Trace.ast ()) in
-  let ps = resolve_target tg (Trace.ast ()) in
+  let orig_p = resolve_target_exactly_one orig in
+  let ps = resolve_target tg in
   let rec aux (nest_of : int) (orig_p : path) (ps : paths) (map_vars : tmap list) =
     if nest_of > 0 then begin
       (* is this a good idea? simplify original loop range before using it. *)
       Loop.simpl_range ~simpl (target_of_path orig_p);
       let t = Path.resolve_path orig_p (Trace.ast ()) in
       let error = "Stencil.loop_align_stop_extend_start_like: expected simple loop" in
-      let ((index, start, _dir, stop, _step, _par), _body, _contract) = trm_inv ~error trm_for_inv t in
+      let ({ index; start; stop }, _body, _contract) = trm_inv ~error trm_for_inv t in
       let map_vars' = List.map2 (fun p map_var ->
         let start = trm_subst map_var start in
         let stop = trm_subst map_var stop in
-        let ((tg_index, _, _, _, _, _), _, _) = trm_inv ~error trm_for_inv (Path.resolve_path p (Trace.ast ())) in
+        let ({ index = tg_index }, _, _) = trm_inv ~error trm_for_inv (Path.resolve_path p (Trace.ast ())) in
         loop_align_stop_extend_start ~start ~stop ~simpl (target_of_path p);
         Var_map.add index (trm_var tg_index) map_var
       ) ps map_vars in
@@ -60,7 +59,7 @@ let rec pry_loop_nest (nest_of: int) (simpl : Transfo.t) (p : path) : unit =
         (* TODO: sequence with other things inside?
         begin match trm_seq_inv t with
         | Some
-        | None -> *) fail t.loc "Stencil.pry_loop_nest: expected nested for loops, potentially hidden by function calls."
+        | None -> *) trm_fail t "Stencil.pry_loop_nest: expected nested for loops, potentially hidden by function calls."
       end
   end
 
@@ -80,7 +79,7 @@ let may_slide (written : var list) (sizes : trm list) (steps : trm list) ~(simpl
       Some (size, step)
   ) sizes steps in
   let inner_loop_indices = List.filter_map (fun (base_index, szst) ->
-    Option.map (fun _ -> Tools.list_to_string ~sep:"_" ~bounds:["";""] ~add_space:false (base_index :: written)) szst
+    Option.map (fun _ -> Tools.list_to_string ~sep:"_" ~bounds:("","") (base_index :: written)) szst
   ) (List.combine outer_loop_indices size_steps) in
   Loop.slides ~iter:TileIterLocal ~size_steps ~simpl (target_of_path p);
   Loop.set_indices (outer_loop_indices @ inner_loop_indices) p;
@@ -103,13 +102,13 @@ let var_of_def (def_t : trm) : var =
 let collect_writes (p : path) : Var_set.t =
   let writes = ref Var_set.empty in
   (* 1. collect all array writes *)
-  Target.iter (fun t p ->
-    let waccess_t = Path.get_trm_at_path p t in
+  Target.iter (fun p ->
+    let waccess_t = Target.resolve_path p in
     writes := Var_set.add (var_of_access waccess_t) !writes;
   ) ((target_of_path p) @ [nbAny; cArrayWriteAccess ""]);
   (* 2. filter out all writes to locally defined arrays *)
-  Target.iter (fun t p ->
-    let vdef_t = Path.get_trm_at_path p t in
+  Target.iter (fun p ->
+    let vdef_t = Target.resolve_path p in
     writes := Var_set.remove (var_of_def vdef_t) !writes;
   ) ((target_of_path p) @ [nbAny; cVarDef ""]);
   !writes
@@ -138,7 +137,8 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
   Marks.with_fresh_mark (fun to_fuse ->
     let all_writes = ref Var_map.empty in
     (* 1. prepare loop nests for fusion *)
-    Target.iteri (fun loop_i _ p ->
+    Trace.step ~kind:Step_group ~name:("1. prepare loop nests for fusion") (fun () ->
+    Target.iteri (fun loop_i p ->
       must_be_in_surrounding_sequence p;
       (* 1.1 pry out each target to reveal loop nests *)
       pry_loop_nest outer_loop_count simpl p;
@@ -162,13 +162,15 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
         assert (not (Var_map.mem w !all_writes));
         all_writes := Var_map.add w (sizes, inner_loop_indices) !all_writes
       ) writes;
-      (* Transfo_debug.current_ast_at_path "slided" p; *)
+      (* Show.current_ast_at_path "slided" p; *)
       Marks.add to_fuse (target_of_path p);
     ) tg;
+    );
     (* 2. fuse loop nests *)
-    let to_fuse_paths = Target.resolve_target [nbMulti; cMark to_fuse] (Trace.ast ()) in
+    let to_fuse_paths = Target.resolve_target [nbMulti; cMark to_fuse] in
     let nest_to_fuse = if fuse_inner_loops
       then outer_loop_count + (List.length tile) else outer_loop_count in
+    Trace.step ~kind:Step_group ~name:("2. fuse loop nests") (fun () ->
     if fuse_inner_loops then begin
       match to_fuse_paths with
       | first :: others ->
@@ -177,18 +179,20 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
     end;
     let rename loop_p =
       let writes = List.map (fun v -> v.name) (Var_set.elements (collect_writes loop_p)) in
-      Some (Variable.Rename.AddSuffix (Tools.list_to_string ~sep:"_" ~bounds:["_";""] ~add_space:false writes))
+      Some (Variable.Rename.AddSuffix (Tools.list_to_string ~sep:"_" ~bounds:("_","") writes))
     in
-    (* Transfo_debug.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
-    Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:(target_of_path (snd (Xlist.unlast to_fuse_paths))) (target_of_paths to_fuse_paths);
-    (* Transfo_debug.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
+    (* Show.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
+    (* DEPRECATED: ~into: (target_of_path (snd (Xlist.unlast to_fuse_paths))) *)
+    Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:FuseIntoLast (target_of_paths to_fuse_paths);
+    );
+    (* Show.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
     (* 3. reduce temporary storage *)
-    let surrounding_seq = Tools.unsome !surrounding_sequence in
+    let surrounding_seq = Xoption.unsome !surrounding_sequence in
     let local_memory = Var_map.filter (fun v _ -> not (Var_set.mem v !outputs')) !all_writes in
-    let fused_p = path_of_target_mark_one_current_ast to_fuse in
+    let fused_p = resolve_mark_exactly_one to_fuse in
     let outer_loop_indices = Loop.get_indices outer_loop_count fused_p in
     let reduce_local_memory var (sizes, _) =
-      let fused_p = path_of_target_mark_one_current_ast to_fuse in
+      let fused_p = resolve_mark_exactly_one to_fuse in
       let inner_p = Path.to_inner_loop_n outer_loop_count fused_p in
       let alloc_instr = (target_of_path surrounding_seq) @ [cVarDef var.name] in
       let alloc_trm = get_trm_at_exn (alloc_instr @ [dInit]) in
@@ -198,14 +202,16 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       if may_eliminate then
         Matrix.elim alloc_instr
       else begin
-        let touched_nd_tiles = List.map2 (fun size idx -> (trm_var idx, size)) sizes outer_loop_indices in
+        let touched_nd_tiles = List.map2 (fun size idx -> (trm_var idx, trm_add (trm_var idx) size)) sizes outer_loop_indices in
         let untouched_nd_tiles = List.map (fun size -> (trm_int 0, size)) (Xlist.drop (List.length sizes) dims) in
         let nd_tiles = touched_nd_tiles @ untouched_nd_tiles in
         Matrix.local_name_tile_after ~alloc_instr ~simpl nd_tiles (target_of_path inner_p);
       end;
     in
     (* TODO: iter in reverse order of code appearance. *)
+    Trace.step ~kind:Step_group ~name:("3. reduce temporary storage") (fun () ->
     Var_map.iter reduce_local_memory local_memory
+    )
   )
 
 let fusion_targets ~(nest_of : int) ?(overlaps : (string * (trm list)) list = []) ~(outputs : string list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =

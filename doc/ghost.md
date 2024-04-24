@@ -55,3 +55,29 @@ int main() {
 ```
 
 `__bind` is not implemented yet
+
+# Group ghosts combinations
+
+For group tiling and shifting, we define a trusted/verified ghost that operates on the first (outer) group of a formula (e.g. `group_shift`).
+To handle multiple nested groups, we define variants that operate on the n-th group of a formula (e.g. `group_shift2`, `group_shift3`, ...).
+This is equivalent to using `for` loops but avoids having to write contracts: `group_shift{n+1} = for i { group_shift{n} }`.
+This requires definining `n` ghosts for `n` nest sizes, but is not too bad.
+To shift the 2nd and 3rd groups, one can use sequential composition: `group2_shift(...); group3_shift(...)`.
+This does not require writing contracts so we do *not* built-in ghosts for every possible combination, e.g. `group23_shift = group2_shift; group3_shift`.
+
+Instead of shifting the 2nd and 3rd groups, we could also define ghosts that shift all groups up to the 2nd or 3rd.
+This would allow using less ghosts to shift multiple groups in a nest, however this would encourage shifting more groups than necessary.
+Because shift no-ops have a syntactic impact on logic formulas, we avoid this solution.
+
+A similar design should probably be used for all group ghosts that operate on the first (outer) group of a formula.
+
+At a metaprogramming level, OCaml scripts can also use these ghost building blocks with more practical APIs for multigroup shifts/tiles, e.g.: `shift [s1, s2, s3]`, `shift [(1, s1); (3, s3)]`.
+
+# Permission mode combinations
+
+Many ghosts are applicable to different permission modes: `R`, `_Uninit(R)`, `RO(f, R)`.
+This is the case of group tiling and shifting mentioned earlier.
+Currently, we accept defining 3 variants of such ghosts for every permission mode.
+
+In the future, one can imagine that we would support permission polymorphism.
+By taking a parameter `P := Full | _Uninit | \x. RO(?f, x)`, a ghost could produce/consume, e.g.: `P(R)`.

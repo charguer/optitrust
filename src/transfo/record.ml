@@ -31,20 +31,20 @@ let set_implicit (tg : Target.target) : unit =
       let tid = match tid_r, tid_l with
       | -1, _ -> tid_l
       | _, -1 -> tid_r
-      | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
+      | _, _ -> if tid_r = tid_l then tid_r else trm_fail t "set_explicit_aux: different types in an assignment"
       in
       let struct_def =
         if tid <> -1 then match Context.typid_to_typedef tid with
           | Some td -> td
-          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
+          | _ -> trm_fail t "set_explicit_aux: could not get the declaration of typedef"
         else
-          fail t.loc "set_explicit_aux: explicit assignment is supported only for struct types"
+          trm_fail t "set_explicit_aux: explicit assignment is supported only for struct types"
       in
-      let field_list = Internal.get_field_list struct_def in
+      let field_list = Internal.get_field_list tg_trm struct_def in
       let nb = List.length field_list in
       Sequence_basic.intro ~mark:"__SEQUENCE_MARK" nb tg;
       Record_basic.set_implicit [Target.cMark "__SEQUENCE_MARK"];
-    | _ -> fail tg_trm.loc "Record.set_implicit: expected a set operation"
+    | _ -> trm_fail tg_trm "Record.set_implicit: expected a set operation"
 
 ) tg
 

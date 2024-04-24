@@ -1,12 +1,11 @@
 open Optitrust
-open Target
 open Prelude
 
 let _ = Flags.pretty_matrix_notation := true
 
 (* TODO: generalize *)
 let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
-  Scope.check_var_ids (Trace.ast ());
+  Scope.infer_var_ids ();
   Trace.tag_atomic ();
   let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule tg in
   List.iter rewrite [
@@ -20,7 +19,7 @@ let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) 
 (* TODO: generalize *)
 let%transfo simpl_inplace_noop (tg : target) : unit =
   Trace.tag_atomic ();
-  Target.iter (fun _ p ->
+  Target.iter (fun p ->
     let surrounding_instr_p = Loop.find_surrounding_instr p (Trace.ast ()) in
     Arith.default_simpl (target_of_path p);
     let surrounding_instr = (target_of_path surrounding_instr_p) in

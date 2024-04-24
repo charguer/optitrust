@@ -19,7 +19,7 @@ void test_nonconst_fail() {
 // TODO: simplify parts of the test below
 
 
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 const int CHUNK_SIZE = 10;
 typedef struct {

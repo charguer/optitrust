@@ -33,10 +33,10 @@ void concat(int* a, int* b) {
 
 
 void matrix_copy(float* in, float* out, int n, int m) {
-    __reads("in => Matrix");
-    __modifies("out => Matrix");
-    __requires("Hsz_in: dim($in) = (n, m); Hsz_out: dim($out) = (n, m)");
-    __ensures("$out = $in");
+  __reads("in => Matrix");
+  __modifies("out => Matrix");
+  __requires("Hsz_in: dim($in) = (n, m); Hsz_out: dim($out) = (n, m)");
+  __ensures("$out = $in");
 }
 
 pour matrix_inplace_add:
@@ -58,14 +58,14 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
   __reads("a => MatrixSized<float>(m, o); b => MatrixSized(o, n)");
   __modifies("output => MatrixSized(m, n)");
   for (int i = 0; i < m; i++) {
-    __reads("a; b");
-    __modifies("output");
+    __xreads("a; b");
+    __xmodifies("output");
     for (int j = 0; j < n; j++) {
       float sum = 0.0f;
       // alloc(sum)
       for (int k = 0; k < p; k++) {
-        __reads("a; b")
-        __modifies("sum => Cell<float>")
+        __xreads("a; b")
+        __xmodifies("sum => Cell<float>")
         sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
       }
 
@@ -89,20 +89,20 @@ __produces("GroupRange(0, m, fun i ->
 */
 
 int find_one_divisor(int n) {
-    ensures("H: not_prime n")
-    produces("r: int; P: r * $res = n")
+  ensures("H: not_prime n")
+  produces("r: int; P: r * $res = n")
 
-    ...
+  ...
 }
 
 void test_divisor() {
-    int a = find_divisor(34);
-    __binds("d := r; Hd := P");
-    __assert("d * a = 34")
+  int a = find_divisor(34);
+  __binds("d := r; Hd := P");
+  __assert("d * a = 34")
 }
 
 T* malloc2(int m, int n, size_t sz) {
-    __produces("res => MatrixSized<T>(m, n)");
+  __produces("res => MatrixSized<T>(m, n)");
 }
 
 __ghost("MatrixTile.tile_dim1_relative(bt, sz)");

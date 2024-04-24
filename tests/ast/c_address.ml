@@ -5,9 +5,9 @@ open Ast_fromto_AstC
 (* Note: [address_elim] is not meant work in the presence of stack variables;
    thus [stackvar_elim] must be called first. *)
 
-let _ =
-  Flags.dump_ast_details := true;
-  Flags.bypass_cfeatures := true
+(* let _ = Flags.dump_ast_details := true; *)
+let _ = Flags.bypass_cfeatures := true
+let _ = Flags.print_optitrust_syntax := true
 
 
 (* Option to choose the size of the test *)
@@ -18,7 +18,10 @@ let filename =
   | _ -> "c_big.cpp"
 
 let _ = Run.script_cpp ~filename (fun () ->
-  Trace.apply C_scope.infer_var_ids;
+    (*!! Show.(trm ~style:InternalAst)  (Trm.prepare_for_serialize (Trace.ast()));*)
+    (*!! Xfile.serialize_to "foo.txt" (Trm.prepare_for_serialize(Trace.ast()));*)
+
+  Scope.infer_var_ids ();
 
   !! Trace.apply infix_elim;
      Trace.apply stackvar_elim;

@@ -22,18 +22,15 @@ Calls to Trm.toplevel_var must be done before the scope resolution, otherwise th
 {2 Transition states}
 
 After parsing, identifiers are set to the dummy value [-1].
-The function {!Scope.infer_var_ids} produces an ast with correct identifiers according to the scoping rules.
+The function {!Scope_computation.infer_var_ids} produces an ast with correct identifiers according to the scoping rules.
 This function is called during the encoding/decoding phases.
 
-TODO: implement
-If a transformation introduces dummy identifiers, it should call [Trace.needs_infer_var_ids] to ensure that the stable AST invariant is restored.
+If a transformation introduces dummy identifiers, it should call [Scope.infer_var_ids] to compute missing ids at the end of the transformation to restore the invariants.
 
 {2 Checking invariants}
 
 {!Scope.check_unique_var_ids} checks the Uniqueness Invariant. It fails if the invariant is broken.
 It has an option to also check the Identification Invariant.
-
-{!Scope.check_var_ids} checks all three invariants.
 
 {2 Display mechanism}
 
@@ -42,10 +39,18 @@ This function renames program variables to give each binder a unique name.
 For example 'x' with id #18 could be printed as 'x__0' and 'x' with id #29 as 'x__1'.
 
 TODO: call [Flags.display_var_ids := true] in your script to activate this renaming.
+
+{1 AST design choices}
+
+Some AST nodes such as Trm_for must respect the invariant that their body is always a Trm_seq.
+This might seem inefficient and insufficiently typed but it allows to target the body sequence like any other sequence,
+and still distinguish the body from the whole loop (or any other construction that respects the Trm_seq invariant) after
+target resolution.
 *)
 
 (* for debugging and message printing *)
 let printf = Printf.printf
+let eprintf = Printf.eprintf
 let sprintf = Printf.sprintf
 
 (*****************************************************************************)
@@ -91,6 +96,8 @@ type mark = string
 (* [marks]: a list of marks *)
 and marks = mark list
 
+let no_mark = ""
+
 (* [mlists]: generalized lists, see module mlist.ml *)
 type 'a mlist = 'a Mlist.t
 
@@ -113,7 +120,7 @@ let var_to_string (v : var) : string =
   q_str ^ v.name ^ "#" ^ id_str
 
 let assert_var_id_set ~error_loc v =
-  if not (v.id >= 0) then failwith (sprintf "%s: Variable %s has an id that is not set (maybe forgot to call Trace.apply Scope.infer_var_ids)" error_loc (var_to_string v))
+  if not (v.id >= 0) then failwith (sprintf "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v))
 
 let var_eq (v1 : var) (v2 : var) : bool =
   assert_var_id_set ~error_loc:"var_eq" v1;
@@ -151,8 +158,7 @@ let var_map_of_list l = Var_map.of_seq (List.to_seq l)
 let vars_to_string vs = Trace_printers.(list_arg_printer var_to_string vs)
 
 (* [next_var_int]: generates an integer for variable names *)
-let next_var_int : unit -> int =
-  Tools.fresh_generator()
+let next_var_int : unit -> int = Tools.fresh_generator ~never_reset:true ()
 
 (* [next_fresh_var_int]: generates an integer for variable names that is safe to
    reset with [reset_fresh_var_int]. *)
@@ -175,7 +181,11 @@ end
 module Qualified_set = Set.Make(Qualified_name)
 module Qualified_map = Map.Make(Qualified_name)
 
-(* The id is a unique name for the hypothesis that cannot be shadowed *)
+(** An hypothesis is a variable bound by logic formulas.
+
+  The id is a unique name for the hypothesis that cannot be shadowed
+
+  TODO: #hyp remove this alias, what is an hypothesis anyway? *)
 type hyp = var
 module Hyp_map = Var_map
 
@@ -223,6 +233,8 @@ type 'a labelmap = 'a Tools.String_map.t
 (* [labels]: a list of labels. *)
 type labels = label list
 
+let no_label = ""
+
 (* [string_trm]: description of a term as a string (convenient for the user) *)
 type string_trm = string
 
@@ -258,6 +270,7 @@ and code_kind =
   | Expr of string  (* expression of the form a * (b + 1) *)
   | Stmt of string  (* functions, for loops, while loops etc *)
   | Instr of string (* a = b, a += b *)
+  | Comment of string (* "// txt", or "/*txt*/" *)
 
 
 (*****************************************************************************)
@@ -322,7 +335,7 @@ and typed_vars = typed_var list
 (*****************************************************************************)
 (* [typedef]: is a record containing the id of the type, the name of the new defined
     type, for sum types there can be also more then one variable. And finally the
-     body of the type *)
+     body of the type *) (* TODO: rename typdef_ to typedef_ *)
 and typedef = {
   typdef_loc : location;      (* the location of the typedef *)
   typdef_tconstr : constrname; (* the defined type [t] *)
@@ -469,6 +482,9 @@ and cstyle_annot =
      LATER: Use different printers for different languages *)
   | ResourceFormula
 
+  (* tag used by light diff *)
+  | BodyHiddenForLightDiff
+
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind =
   | Constructor_implicit
@@ -481,10 +497,11 @@ and destructor_kind =
   | Destructor_delete
   | Destructor_simpl
 
-(* [files_annot]: file annotation *)
-and files_annot =
-  | Include of string
+(* [file_annot]: file annotation *)
+and file_annot =
+  | Inside_file
   | Main_file
+  | Included_file of string
 
 (* [cpragma]: type alias for directives *)
 and cpragma = directive
@@ -497,7 +514,8 @@ and trm_annot = {
     trm_annot_stringrepr : stringreprid option;
     trm_annot_pragma : cpragma list;
     trm_annot_cstyle : cstyle_annot list;
-    trm_annot_files : files_annot list;
+    trm_annot_file : file_annot;
+    trm_annot_referent : trm option; (* used for typing errors *)
   }
   (* LATER: use a smartconstruct for trm_annot with optional arguments *)
 
@@ -561,7 +579,7 @@ and prim =
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_compound_assgn_op of binary_op (* e.g. "a += b" *)
   | Prim_overloaded_op of prim (* used for overloaded operators *)
-  | Prim_new of typ (* "new T" *)
+  | Prim_new of typ * trm list (* "new T", with optional array dimensions *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
 (* [lit]: literals *)
@@ -607,6 +625,8 @@ and trm =
    is_statement : bool;
    typ : typ option;
    mutable ctx : ctx;
+   mutable errors : string list;
+   (* LATER: mutable typing_aux should be the only mutable flag *)
 }
 
 (* [trms]: a list of trms *)
@@ -644,11 +664,14 @@ and typ_ctx = {
 (*****************************************************************************)
 
 
-(* [loop_parallel]: for parallel loops this flag is set to true *)
-and loop_parallel = bool
-
-(* [loop_range]: a type for representing  for loops *)
-and loop_range = var * trm * loop_dir * trm * loop_step * loop_parallel
+(* [loop_range]: a type for representing for loops range *)
+and loop_range = {
+  index: var;
+  start: trm;
+  direction: loop_dir;
+  stop: trm;
+  step: loop_step;
+}
 
 (* [trm_desc]: description of an ast node *)
 and trm_desc =
@@ -662,10 +685,10 @@ and trm_desc =
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
-  | Trm_apps of trm * trm list * (hyp * formula) list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
+  | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
   | Trm_while of trm * trm     (* while (t1) { t2 } *)
-  | Trm_for of loop_range  * trm * loop_spec
-  | Trm_for_c of trm * trm * trm * trm * resource_spec
+  | Trm_for of loop_range * trm * loop_contract
+  | Trm_for_c of trm * trm * trm * trm * resource_set option
   | Trm_do_while of trm * trm (* TODO: Can this be efficiently desugared? *)
   (* Remark: in the AST, arguments of cases that are enum labels
      appear as variables, hence the use of terms as opposed to
@@ -707,30 +730,47 @@ and resource_item = hyp * formula
 and resource_set = {
   pure: resource_item list;
   linear: resource_item list;
-  fun_contracts: (var list * fun_contract) varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup, the var list is the list of program arguments of the function. *)
+  fun_specs: fun_spec_resource varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup. *)
+  aliases: trm varmap; (** Map of variables to their definition, variables may come from the program or pure facts *)
+  efracs: (hyp * formula) list; (** List of existential fracs that can be chosen afterwards as long as they are smaller than the frac expression. *)
 }
 
-and resource_spec = resource_set option
+(* Represents the knowledge of the specification of a function *)
+and fun_spec_resource = {
+  args: var list; (** List of program arguments to the function *)
+  contract: fun_contract;
+  inverse: var option;
+}
 
 and fun_contract = {
   pre: resource_set;
   post: resource_set;
 }
 
-and fun_spec = fun_contract option
+and fun_spec =
+  | FunSpecUnknown
+  | FunSpecContract of fun_contract
+  | FunSpecReverts of var
+  (** [FunSpecReverts f] is the reverse of the spec of [f]. *)
 
-(* forall ghosts, { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } loop { invariant(n) * Group(iter_contract.post(i)) } *)
-(* forall ghosts, { invariant(i) * iter_contract.pre(i) } loop body { invariant(i) * iter_contract.post(i) } *)
+(* forall ghosts,
+    { invariant(0) * RO(parallel_reads) * for i -> iter_contract.pre(i) }
+      loop
+    { invariant(n) * RO(parallel_reads) * for i -> iter_contract.post(i) } *)
+(* forall ghosts,
+    { invariant(i) * RO(parallel_reads) * iter_contract.pre(i) }
+      loop body
+    { invariant(i) * RO(parallel_reads) * iter_contract.post(i) } *)
 and loop_contract = {
   loop_ghosts: resource_item list;
   invariant: resource_set;
+  parallel_reads: resource_item list; (* all the resources should be of the form RO(_, _) *)
   iter_contract: fun_contract;
+  strict: bool; (* Non strict loop contracts take all the resources in the frame after instantiation as additional invariants *)
 }
 
-and loop_spec = loop_contract option
-
 and used_resource_item = {
-  hyp_to_inst: hyp;
+  hyp: hyp;
   inst_by: formula;
   used_formula: formula;
 }
@@ -740,8 +780,8 @@ and used_resource_set = {
 }
 
 and produced_resource_item = {
+  post_hyp: hyp;
   produced_hyp: hyp;
-  produced_from: hyp;
   produced_formula: formula;
 }
 and produced_resource_set = {
@@ -750,18 +790,21 @@ and produced_resource_set = {
 }
 
 and resource_usage =
-  | NotUsed
-  | UsedReadOnly
-  | UsedFull
+  | Required
+  | Ensured
+  | ConsumedFull
+  | ConsumedUninit
+  | SplittedFrac
+  | JoinedFrac
+  | Produced
 
-(* may be useful: resource_consumed_map + resource_produced_map? *)
-(* All hyps in contexts have Some entry, None entry means hyp is not in context. *)
 and resource_usage_map = resource_usage Hyp_map.t
 
 and contract_invoc = {
   contract_frame: resource_item list;
   contract_inst: used_resource_set;
   contract_produced: produced_resource_set;
+  contract_joined_resources: (hyp * hyp) list;
 }
 
 (* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)
@@ -1032,9 +1075,13 @@ let trm_desc_to_string : trm_desc -> string =
 
 let resource_usage_opt_to_string = function
 | None -> "None"
-| Some NotUsed -> "NotUsed"
-| Some UsedReadOnly -> "UsedReadOnly"
-| Some UsedFull -> "UsedFull"
+| Some Required -> "Required"
+| Some Ensured -> "Ensured"
+| Some SplittedFrac -> "SplittedFrac"
+| Some ConsumedUninit -> "ConsumedUninit"
+| Some ConsumedFull -> "ConsumedFull"
+| Some JoinedFrac -> "JoinedFrac"
+| Some Produced -> "Produced"
 
 (* **************************** Rewrite rules ****************************** *)
 (* [pat]: patterns *)
@@ -1061,46 +1108,93 @@ type fields_order =
 
 (* ************************* Resource constructors ************************* *)
 
-let unknown_ctx: ctx = {
+let unknown_ctx (): ctx = {
   ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
   ctx_resources_usage = None; ctx_resources_contract_invoc = None;
   ctx_resources_post_inst = None;
 }
 
 let typing_ctx (ctx_types: typ_ctx): ctx =
-  { unknown_ctx with ctx_types = Some ctx_types }
+  { (unknown_ctx ()) with ctx_types = Some ctx_types }
+
+
+ (** The empty resource set. *)
+let empty_resource_set = { pure = []; linear = []; fun_specs = Var_map.empty; aliases = Var_map.empty; efracs = [] }
+
+(** The empty function contract, printed as __pure(). *)
+let empty_fun_contract =
+  { pre = empty_resource_set; post = empty_resource_set }
+
+(** The empty loop contract, like on a loop without any annotation *)
+let empty_loop_contract =
+  { loop_ghosts = []; invariant = empty_resource_set; parallel_reads = []; iter_contract = empty_fun_contract; strict = false }
+
+(** The empty strict loop contract, that contains nothing *)
+let empty_strict_loop_contract =
+  { empty_loop_contract with strict = true }
+
 
 (*****************************************************************************)
 
+type error_context = {
+  path: Dir.path option;
+  trm: trm option;
+  loc: location;
+  msg: string;
+  (* TODO: fatal: bool; *)
+}
 
-(* [TransfoError]: exception raised in case a transformation fails *)
-exception TransfoError of location * string
+(** [Contextualized_error]: exception raised within a given context. *)
+exception Contextualized_error of error_context list * exn
 
-(* [Resolve_target_failure]: exception raised when a target couldn't be resolved *)
-exception Resolve_target_failure of location option * string
+let contextualized_error (ctx : error_context) (error : string) : 'a =
+  raise (Contextualized_error ([ctx], Failure error))
 
+let contextualized_exn (ctx : error_context) (exn : exn) : 'a =
+  Printexc.(raise_with_backtrace (Contextualized_error ([ctx], exn)) (get_raw_backtrace ()))
 
-let _ = Printexc.register_printer (function
-  | TransfoError (loc, errmsg) -> Some (Printf.sprintf "%s: %s" (loc_to_string loc) errmsg)
-  | _ -> None)
+(* LATER: use Path.fail or fail ~path *)
+(* [path_fail p err]: fails with error [error] raised on path [p] *)
+let path_fail (p : Dir.path) (error : string) : 'a =
+  contextualized_error {
+    path = Some p;
+    trm = None;
+    loc = None;
+    msg = ""
+  } error
 
-(* [fail loc err]: fails with error [err] raised at location [loc] *)
-let fail (loc : location) (err : string) : 'a =
-  raise (TransfoError (loc, err))
+let path_exn (p : Dir.path) ?(error : string = "") (exn : exn) : 'a =
+  contextualized_exn {
+    path = Some p;
+    trm = None;
+    loc = None;
+    msg = error
+  } exn
 
-let unsome_or_fail (loc: location) (error: string) (x_opt : 'a option) : 'a =
+(* LATER: move to trm.ml or have fail ~trm *)
+(* [trm_fail t err]: fails with error [error] raised on term [t] *)
+let trm_fail (t : trm) (error : string) : 'a =
+  contextualized_error {
+    path = None;
+    trm = Some t;
+    loc = t.loc;
+    msg = ""
+  } error
+
+let unsome_or_trm_fail (t: trm) (error: string) (x_opt : 'a option) : 'a =
     match x_opt with
     | Some x -> x
-    | None -> fail loc error
-
-let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
-  try f () with
-  | TransfoError (_, msg2) -> assert (msg = msg2)
-
-
-
+    | None -> trm_fail t error
 
 (* ********************************************************************************************** *)
+
+let loc_fail (loc : location) (error : string) : 'a =
+  contextualized_error {
+    path = None;
+    trm = None;
+    loc = loc;
+    msg = ""
+  } error
 
 (* [print_info loc]: computes a function that prints information related to some location in file only if the verbose
    flag is activated *)
@@ -1157,8 +1251,7 @@ let contains_decl (x : var) (t : trm) : bool =
     | Trm_let (_, (y, _), _) when y = x -> true
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
     | Trm_for (l_range, body, _) ->
-        let (y, _, _, _, _, _) = l_range in
-        y = x || aux body
+        l_range.index = x || aux body
     | Trm_let_fun (_, _, _, body, _) -> aux body
     | Trm_for_c (init, _, _, body, _) -> aux init || aux body
     | _ -> false
@@ -1254,6 +1347,7 @@ let code_to_str (code : code_kind) : string =
   | Expr e -> e
   | Stmt s -> s
   | Instr s -> s
+  | Comment s -> s
 
 
 (* [var_mutability_unkown]: dummy value used for variable mutability *)
@@ -1273,7 +1367,7 @@ let top_level_fun_bindings (t : trm) : tmap =
           | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
           | _ -> ()
         ) tl
-      | _ -> fail t.loc "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
+      | _ -> failwith "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
    in
   aux t;
   !tmap
@@ -1324,9 +1418,9 @@ let typedef_get_members ?(access : access_control option) (t : trm) : (label * t
           end
         | Record_field_method _ -> acc
       ) [] (List.rev rf)
-    | _ -> fail t.loc "Ast.typdef_get_members: this function should be called only for typedef structs and classes"
+    | _ -> trm_fail t "Ast.typdef_get_members: this function should be called only for typedef structs and classes"
     end
-  | _ -> fail t.loc "Ast.typedef_get_members: can't get members of a trm that's not a type definition."
+  | _ -> trm_fail t "Ast.typedef_get_members: can't get members of a trm that's not a type definition."
 
 
 (* [typedef_get_methods ~access t]: returns all the methods of typedef [t]. If [access] is provided as an argument
@@ -1345,9 +1439,9 @@ let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
           | None -> trm :: acc
           end
       ) [] (List.rev rf)
-    | _ -> fail t.loc "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
+    | _ -> trm_fail t "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
     end
-  | _ -> fail t.loc "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
+  | _ -> trm_fail t "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
 
 (* [typedef_get_all_fields t]: returns all the fields of [t]. *)
 let typedef_get_all_fields (t : trm) : record_fields =
@@ -1355,19 +1449,57 @@ let typedef_get_all_fields (t : trm) : record_fields =
   | Trm_typedef td ->
     begin match td.typdef_body with
     | Typdef_record rf -> rf
-    | _ -> fail t.loc "Ast.typdef_get_all_fields: this function should be called only for structs and classes."
+    | _ -> trm_fail t "Ast.typdef_get_all_fields: this function should be called only for structs and classes."
     end
-  | _ -> fail t.loc "Ast.get_all_fields: only structs and classes have fields"
+  | _ -> trm_fail t "Ast.get_all_fields: only structs and classes have fields"
 
 
-(* [get_member_type rf]: returns the type of the member [rf]. *)
-let get_member_type (rf : record_field) : typ =
+(* [get_member_type t rf]: returns the type of the member [rf]. *)
+let get_member_type (t : trm) (rf : record_field) : typ =
   match rf with
   | Record_field_member (_, ty) -> ty
   | Record_field_method t1 ->
     begin match t1.desc with
     | Trm_let_fun (_, ty, _, _, _) -> ty
-    | _ -> fail None "Ast.get_member_type: can't get the type of the member [rf]."
+    | _ -> trm_fail t "Ast.get_member_type: can't get the type of the member [rf]."
     end
 
 (*****************************************************************************)
+(* Printing options *)
+
+(* The record [print_style] contains a list of options specifying what should
+   be printed by the [to_doc] and [to_string] functions that apply to the
+   various AST datatypes. *)
+
+type style = {
+  print_contract_internal_repr: bool; (* print internal loop contract *)
+  print_var_id: bool; (* print internal variable identifiers *)
+  print_generated_ids: bool; (* print auto-generated names *)
+  print_string_repr: bool; (* print string representation for expressions *)
+  print_mark: bool; (* print marks *)
+  print_annot: bool; (* print annotations *)
+  print_errors: bool; (* print errors *)
+  (* LATER: node_id: bool; print internal AST node identifier *)
+}
+
+(* Default style *)
+
+let default_style () : style = {
+  print_contract_internal_repr = false;
+  print_var_id = !Flags.debug_var_id;
+  print_generated_ids = !Flags.always_name_resource_hyp;
+  print_string_repr = !Flags.debug_stringreprs;
+  print_mark = true;
+  print_annot = false; (* LATER: add support for this *)
+  print_errors = true;
+}
+
+(** Style for reparsing *)
+let style_for_reparse () : style =
+  { print_contract_internal_repr = true;
+    print_var_id = false;
+    print_generated_ids = false;
+    print_string_repr = false;
+    print_mark = false;
+    print_annot = false;
+    print_errors = false; }

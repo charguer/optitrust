@@ -1,9 +1,9 @@
 int main() {
   int x = 0;
-  for (int i = 0; i < i + 2; i++) {
+  for (int i = 0; i < 2; i++) {
     x += i;
   }
-  for (int i = i + 2; i < 10; i++) {
+  for (int i = 2; i < 10; i++) {
     x += i;
   }
   int cut = 2;

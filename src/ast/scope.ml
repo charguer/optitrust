@@ -2,6 +2,8 @@ open Ast
 open Trm
 module String_map = Tools.String_map
 
+let infer_var_ids () = Trace.apply Scope_computation.infer_var_ids
+
 let ends_with_num_suffix_rexp = Str.regexp ".*_[0-9]+"
 let ends_with_num_suffix name =
   Str.string_match ends_with_num_suffix_rexp name 0
@@ -57,45 +59,6 @@ let unique_alpha_rename (t : trm) : trm =
   ) !toplevel_vars;
   trm_rename_vars map_var () t
 
-(* LATER: #var-id, flag to disable check for performance *)
-(* cost: traverse the AST in O(n) and O(m log m) where m is the number of binders. *)
-(* TODO: raise error or ignore the dummy ids (-1) *)
-let check_unique_var_ids (t : trm) : unit =
-  (* LATER: refactor with function mapping over bindings? *)
-  let vars = ref Var_set.empty in
-  let add_var v =
-    if Var_set.mem v !vars then
-      failwith (sprintf "variable '%s' is not declared with a unique id" (var_to_string v));
-    vars := Var_set.add v !vars
-  in
-  let rec aux t =
-    begin match t.desc with
-    | Trm_let (_, (x, _), _) ->
-      add_var x
-    | Trm_let_mult (_, tvs, _) ->
-      List.iter (fun (x, _) -> add_var x) tvs
-    | Trm_let_fun (x, _, _, _, _)
-      (* FIXME: kind of C-specific? *)
-      when not (Trm.is_fun_with_empty_body t) ->
-      add_var x
-    | Trm_for ((x, _, _, _, _, _), _, _) ->
-      add_var x
-    (* | Trm_typedef td -> *)
-    | _ -> ()
-    end;
-    trm_iter aux t
-  in
-  aux t
-
-(* TODO: deal with OCaml and other languages *)
-let infer_var_ids t =
- let t2 = C_scope.infer_var_ids t in
- check_unique_var_ids t2;
- t2
-
-let check_var_ids t =
-  C_scope.check_var_ids t;
-  check_unique_var_ids t
 
 let trm_let_or_let_fun_inv t =
   match trm_let_inv t with
@@ -123,7 +86,7 @@ let assert_no_interference ~(after_what : string) ~(on_interference : string) tl
   match find_interference tl_new_scope tl_after with
   | [] -> ()
   | [x] -> failwith (sprintf "local variable '%s' is used after %s, but will now be %s" (var_to_string x) after_what on_interference)
-  | xs -> failwith (sprintf "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:["'";"'"] (List.map var_to_string xs)) after_what on_interference)
+  | xs -> failwith (sprintf "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:("'","'") (List.map var_to_string xs)) after_what on_interference)
 
 (** If [x] is used in [instrs], traces a justification, otherwise fails. *)
 let justif_unused_in (x : var) (instrs : trm mlist) : unit =
@@ -134,10 +97,10 @@ let justif_unused_in (x : var) (instrs : trm mlist) : unit =
 
 (** Given a path to a variable definition, assert that it is unused using [justif_unused_in]. *)
 let justif_unused (p : Path.path) : unit =
-  let t = Path.get_trm_at_path p (Trace.ast ()) in
+  let t = Path.resolve_path p (Trace.ast ()) in
   let error = "expected a variable or function definition within a sequence" in
   let x = trm_inv ~error trm_let_or_let_fun_inv t in
   let (index, pseq) = Path.index_in_seq p in
-  let instrs = trm_inv ~error trm_seq_inv (Path.get_trm_at_path pseq (Trace.ast ())) in
+  let instrs = trm_inv ~error trm_seq_inv (Path.resolve_path pseq (Trace.ast ())) in
   let _, instrs_after = Mlist.split (index + 1) instrs in
   justif_unused_in x instrs_after

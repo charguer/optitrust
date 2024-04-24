@@ -55,11 +55,10 @@ let%transfo flush (vl : vars) (tg : target) : unit =
 
 let add_pragma_on_parallelizable_for (directive: directive) (t: trm): trm =
   if !Flags.check_validity then begin
-    let error = "OMP transformation is invalid: it is not applied on an annotated for loop." in
-    let contract = trm_inv ~error Resources.trm_for_contract t in
+    let error = "OMP transformation is invalid: it is not applied on a for loop." in
+    let _, _, contract = trm_inv ~error trm_for_inv t in
     let error = "OMP transformation is invalid" in
-    List.iter (Resources.assert_hyp_read_only ~error) contract.invariant.linear;
-    Trace.justif "The for loop is parallelizable";
+    Resources.justif_parallelizable_loop_contract ~error contract;
   end;
   trm_add_pragma directive t
 

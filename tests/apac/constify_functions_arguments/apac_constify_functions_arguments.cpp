@@ -1,8 +1,10 @@
+
 int f(int a) {
     int b = a;
     b = 1;
     return b;
 }
+
 
 void g(int a[2]) {
     a[f(1)]--;
@@ -64,6 +66,7 @@ void n5(int * a, int & b, int c) {
     int & e = n4(b, c);
 }
 
+
 void o(int a, int b, int c) {
     int &d=a, *e=&b;
     d = 1;
@@ -98,9 +101,9 @@ namespace BB {
 
 namespace AA {
     void f(int &a) {
-        a = 1;   
+        a = 1;
     }
-    
+
     void g(int a, int b, int c) {
         f(a);
         BB::h(b);
@@ -115,13 +118,13 @@ class CC {
 public:
     int * i;
     int * j;
-    
+
     void f(int * a, int b) {
         i = a;
         *j = 42;
         p(i, j);
     }
-    
+
     int q(int a);
 
     void p(int * a, int * b) { *a = *b + 1; }
@@ -134,4 +137,3 @@ int CC::q(int a) {
 void q(CC a, int b, int c) {
     a.f(&b, 1);
 }
-

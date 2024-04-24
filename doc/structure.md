@@ -69,12 +69,14 @@ By default, a target expects to resolve to exactly one path. The modifier `nbMul
 
 The constraints are defined in the files `constr.ml` and `target.ml`. The resolution of targets is implemented in `constr.ml`. The high-level operators involving targets are implemented in `target.ml` and are described next.
 
-- `Target.apply (tr : trm -> path -> trm) (tg : target) : unit` applies a transformation `tr` at all paths that correspond to the target `tg`. The transformation `tr` takes as first argument a full ast `t`, and as second argument the path `p` pointed at by target. The arguments `t` and `p` may be, e.g., exploited by `apply_on_path`.
+- `Target.iter (tr : path -> unit) (tg : target) : unit` applies an operation `tr` (performing side-effects) at all paths that correspond to the target `tg`.
 
-- `Target.iter (tr : trm -> path -> unit) (tg : target) : unit` applies an operation `tr` (performing side-effects) at all paths that correspond to the target `tg`. Compared with `Target.apply`, the transformation `tr` produces a result of type `unit` instead of producing a new `trm`.
+- `Target.apply_at_target_paths (tr : trm -> trm) (tg : target) : unit` applies a local transformation `tr` at all paths that correspond to the target `tg`.
+
+- If you already have a resolved path and want to apply a local transformation, you can call `Target.apply_at_path`.
 
 Some transformations such as `Instr.insert` need to aim not at one AST node but at a point in-between two instructions. The modifiers `tBefore` and `tAfter` may be placed in the target, e.g. `[tBefore; sInstr "i++"]`.
-The modifiers `tFirst` and `tLast` are also available. When such modifiers are used, the path produced by the target resolution mechanism is represented as `[dir1; dir2; .. ; dirN; Dir_before i]`, where the direction `dirN` reaches a sequence, and where `i` denotes the index inside this sequence at which, e.g., the insertion operation should be performed. The syntax `let (pseq,i) = Path.last_dir_before_inv_success p in` may be used to extract from such a path the path to the sequence `pseq = [dir1; dir2; .. ; dirN]` and, separately, the index `i`.
+The modifiers `tFirst` and `tLast` are also available. When such modifiers are used, the path produced by the target resolution mechanism is represented as `[dir1; dir2; .. ; dirN; Dir_before i]`, where the direction `dirN` reaches a sequence, and where `i` denotes the index inside this sequence at which, e.g., the insertion operation should be performed. The syntax `let (pseq,i) = Path.extract_last_dir_before p in` may be used to extract from such a path the path to the sequence `pseq = [dir1; dir2; .. ; dirN]` and, separately, the index `i`.
 
 # Trace
 
@@ -97,6 +99,8 @@ When a transformation produces a fresh piece of AST using smart constructors, th
 
 # Example transformation: modifying the AST at a given target
 
+FIXME: Remove usage of Target.apply
+
 Example: `Marks_basic.add (m : mark) (tg : target) : unit`.
 This transformation attaches a mark named `m` to the nodes at the paths targeted by `tg`.
 This function can be implemented as:
@@ -114,6 +118,8 @@ where `t` denotes the targeted subterm.
 
 
 # Example transformation: modifying the AST at a surrounding node
+
+FIXME: Remove usage of Target.apply
 
 Example: `Sequence.delete (tg : target) : unit`.
 This transformation removes the targeted instruction from its surrounding sequence.

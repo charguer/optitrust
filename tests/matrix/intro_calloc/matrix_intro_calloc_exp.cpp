@@ -1,8 +1,7 @@
+#include <optitrust.h>
 #include <stdlib.h>
 
-#include "../../../include/optitrust.h"
-
-int *q;
+int* q;
 
 const int N = 10;
 

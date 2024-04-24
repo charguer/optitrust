@@ -50,9 +50,17 @@ let cStrict : constr =
 let cInDepth : constr =
   Constr_depth DepthAny
 
+(* [cInContracts]: matches also in contracts. *)
+let cInContracts : constr =
+  Constr_incontracts
+
 (* [cTarget cstrs]: a constraint build on top of a list of constraints. *)
 let cTarget (cstrs : constr list) : constr =
   Constr_target cstrs
+
+(* [cPath] converts a path into a target *)
+let cPath (p : path) : constr =
+  Constr_paths [p]
 
 (******************************************************************************)
 (*                             Relative targets                               *)
@@ -73,6 +81,14 @@ let tFirst : constr =
 let tLast : constr =
   Constr_relative TargetLast
 
+(* [tBetweenAll]: matches all instructions in a sequence. *)
+let tBetweenAll : constr =
+  Constr_relative TargetBetweenAll
+
+(* [tSpan]: matches a sub-sequence of contiguous instructions between the two targets *)
+let tSpan (tbegin: target) (tend: target): constr =
+  Constr_span (tbegin, tend)
+
 (******************************************************************************)
 (*                            Number of targets                               *)
 (******************************************************************************)
@@ -80,34 +96,31 @@ let tLast : constr =
 (* [nbMulti]: matches one or more trms
    Note: all the targets that resolve to more than one trm require this constraint. *)
 let nbMulti : constr =
-  Constr_occurrences ExpectedMulti
+  Constr_occurrences ExpectMulti
 
 (* [nbAny]: matches zero or more trms. *)
 let nbAny : constr =
-    Constr_occurrences ExpectedAnyNb
+    Constr_occurrences ExpectAnyNb
 
 (* [nbExact nb]: matches [nb] trms. *)
 let nbExact (nb : int) : constr =
-    Constr_occurrences (ExpectedNb nb)
+    Constr_occurrences (ExpectNb nb)
 
 (* [occIndices ~nb indices]: matches target occurrences based on [indices]. *)
-let occIndices ?(nb : int = -1) (indices : int list) : constr =
-  let expected_nb = match nb with
-    | -1 -> None
-    | _ -> Some nb in
-  Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
+let occIndices ?(nb : int option) (indices : int list) : constr =
+  Constr_occurrences (SelectOcc (nb, indices))
 
 (* [occIndex ~nb index]: matches the trm with the index occurrence [index]. *)
-let occIndex ?(nb : int = -1) (index : int) : constr =
-  occIndices ~nb [index]
+let occIndex ?(nb : int option) (index : int) : constr =
+  occIndices ?nb [index]
 
 (* [occFirst]: matches the first occurrence of the target. *)
 let occFirst : constr =
-  Constr_occurrences FirstOcc
+  occIndex 0
 
 (* [occLast]: matches the last occurrence of a target. *)
 let occLast : constr =
-  Constr_occurrences LastOcc
+  occIndex (-1)
 
 (******************************************************************************)
 (*                                Directions                                  *)
@@ -124,6 +137,14 @@ let target_of_paths (ps : paths) : target =
 (* [dRoot]: matches the root of the ast. *)
 let dRoot : constr =
     Constr_root
+
+(* [dBefore]: matches the interstice before the instruction at index [n] in a sequence. *)
+let dBefore (i : int) : constr =
+  Constr_dir (Dir_before i)
+
+(* [dAfter]: matches the interstice after the instruction at index [n] in a sequence. *)
+let dAfter (i : int) : constr =
+  Constr_dir (Dir_before (i + 1))
 
 (* [dArrayNth]: matches the trm with index [n] on an array initialization list. *)
 let dArrayNth (n : int) : constr =
@@ -302,7 +323,7 @@ let typ_constraint_default : typ_constraint =
 (* [make_typ_constraint ~typ ~typ_pred ()]: make a type constraint based on [typ] or [typ_pred]. *)
 let make_typ_constraint ?(typ:string="") ?(typ_pred : typ_constraint = typ_constraint_default) () : typ_constraint =
   if typ <> "" && typ_pred != typ_constraint_default
-    then fail None "Target.make_typ_constraint: cannot provide both ~typ and ~typ_pred.";
+    then failwith "Target.make_typ_constraint: cannot provide both ~typ and ~typ_pred.";
   if typ = ""
     then typ_pred
     else (fun (ty : typ) -> typ = (AstC_to_c.typ_to_string ty))
@@ -331,7 +352,7 @@ let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_
 
         then [cAnd [tg; [cHasTypePred typ_pred]]]
       else
-        fail None "Target.with_type: type targets should be used with the type or a predicated on the type but not
+        failwith "Target.with_type: type targets should be used with the type or a predicated on the type but not
                    both at the same time"
     end
 
@@ -393,6 +414,10 @@ let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target =
   ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
   Constr_for (ro, start, direction, stop, step, body)
+
+let cForBody ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = [])
+  ?(body : target = []) (index : string) : constr =
+  cTarget [cFor ~start ?direction ~stop ~step ~body index; dBody]
 
 
 (* [cForNestedAtDepth i]: matches the loop at depth [i] on a nested loops trm. *)
@@ -488,7 +513,7 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
   | [] -> args_pred
   | _ ->
       if args_pred != target_list_pred_default
-        then fail None "cFunDef: can't provide both args and args_pred";
+        then failwith "cFunDef: can't provide both args and args_pred";
       target_list_simpl args
 
 (* [cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions
@@ -812,6 +837,11 @@ let cMarkSt (pred : mark -> bool) : constr =
 let cMarkAny : constr =
   Constr_mark ((fun _ -> true), "any_mark")
 
+(* [cMarkSpan]: matches a span marked with mark [m]. *)
+let cMarkSpan (m: mark) : constr =
+  let m_begin, m_end = span_marks m in
+  tSpan [cMark m_begin] [cMark m_end]
+
 (* [cLabel ~substr ~body ~regexp label]:  match a  C labels
     [substr] - match label name partially
     [body] - match based on the trm the label is labelling
@@ -1045,8 +1075,9 @@ let cArrayRead ?(index = []) (x : string) : constr =
     [[cCellAccess ~base:[cVar x] ~index ()]]
     [[cArrayWriteAccess x]]] ()
 
-let cPlusEq (lhs_tg : target) : constr =
-  cPrimFun ~args:[lhs_tg; [cTrue]] (Prim_compound_assgn_op Binop_add)
+let cPlusEq ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
+  cPrimFun ~args:[lhs; rhs] (Prim_compound_assgn_op Binop_add)
+
 
 (* [cOmp_match_all]: matches an OpenMP directive. *)
 let cOmp_match_all : directive->bool =
@@ -1070,11 +1101,6 @@ let cNamespace ?(substr : bool = false) ?(regexp : bool = false) (name : string)
 (*                          Target resolution                                 *)
 (******************************************************************************)
 
-(* NOW INCLUDED
-let resolve_target = Constr.resolve_target
-let resolve_target_between = Constr.resolve_target_between
-*)
-
 (* [check tg]: can be used as a debugging step. *)
 let check (tg : target) : unit =
   Trace.call (fun t -> ignore (resolve_target tg t))
@@ -1097,6 +1123,7 @@ let relative_target (tg : target) : target =
 
 (******************************************************************************)
 (*                          Apply on target operations                        *)
+(* DEPRECATED SECTION: only use functions from the next section in new code   *)
 (******************************************************************************)
 
 (* [Transfo]: type of transformations. *)
@@ -1138,8 +1165,10 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
         t3
     in
   AstC_to_c.init_stringreprs();
-  let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro (trm_erase_var_ids t3) in
-  let _doc = AstC_to_c.ast_to_doc ~optitrust_syntax t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
+  let cstyle = AstC_to_c.default_style() in
+  let fromto_style = Ast_fromto_AstC.{ cstyle; typing = Style.typing_none } in
+  let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro fromto_style (trm_erase_var_ids t3) in
+  let _doc = AstC_to_c.(ast_to_doc { cstyle with optitrust_syntax }) t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
   let m = AstC_to_c.get_and_clear_stringreprs() in
   t2, m (* we return t2, not t3, because t3 has hidden bodies *)
 
@@ -1160,10 +1189,10 @@ let compute_stringreprs_and_update_ast ?(optitrust_syntax:bool=false) (f : trm->
 
 
 (* [debug_dissapearing_mark]: only for debugging purposes. *)
-let debug_disappearing_mark = true
+let debug_disappearing_mark = false
 
-(* [Interrupted_applyi_on_transformed_targets]: exception raise when targets are not resolved successfully. *)
-exception Interrupted_applyi_on_transformed_targets of trm
+(* [Interrupted_applyi]: exception raise when targets are not resolved successfully. *)
+exception Interrupted_applyi of trm
 
 (* [fix_target tg]: fix target [tg]. *)
 let fix_target (tg : target) : target =
@@ -1184,7 +1213,6 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
   let topfuns = Constr.get_target_regexp_topfuns_opt tgs in
   let t2, m = compute_stringreprs ?topfuns:topfuns (Constr.match_regexp_trm_kinds kinds) t in
   if !Flags.debug_stringreprs then
-    (* AstC_to_c.trm_print_debug t2; *)
     AstC_to_c.print_stringreprs m;
   let stringreprs = convert_stringreprs_from_documentation_to_string m in
   Constr.stringreprs := Some stringreprs;
@@ -1209,26 +1237,12 @@ let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm
 let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
 
-(* [path_of_target_mark_one m t]: a wrapper for calling [resolve_target] with a mark for which we
-    expect a single occurence. *)
-let path_of_target_mark_one (m : mark) (t : trm) : path =
-  match resolve_target [nbExact 1; cMark m] t with
-  | [p] -> p
-  | _ -> fail t.loc "Target.resolve_target_mark_one: unreachable because nbExact 1 should return one path"
-
 (* [resolve_target_mark_one_else_any m t]: a wrapper for calling [resolve_target] with a mark for which we
     expect a single occurence. *)
 let resolve_target_mark_one_else_any (m : mark) (t : trm) : paths =
     try resolve_target [nbExact 1; cMark m] t
-    with Ast.Resolve_target_failure _ ->
+    with Constr.Resolve_target_failure _ ->
       resolve_target [nbAny; cMark m] t
-
-(* [resolve_target_between_mark_one_else_any]: a wrapper for calling [resolve_target] with a mark for
-    which we expect a single occurence. *)
-let resolve_target_between_mark_one_else_any (m : mark) (t : trm) : (path * int) list =
-    try resolve_target_between [nbExact 1; cMark m] t
-    with Ast.Resolve_target_failure _ ->
-        resolve_target_between [nbAny; cMark m] t
 
 (* [applyi_on_transformed_targets transformer tr tg]: apply a transformation [tr] on target [tg],
      [transformer] - change the resolved path so that more information about the context of the node is given,
@@ -1273,11 +1287,11 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
                       else (*failwith*) (Printf.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
                     in
                   if debug_disappearing_mark
-                    then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-                    else fail None msg
+                    then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
+                    else failwith msg
             )
           ) t marks
-        with Interrupted_applyi_on_transformed_targets t -> t
+        with Interrupted_applyi t -> t
         end)
     )))
 
@@ -1338,7 +1352,7 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
       let t =
         Stats.comp_stats "iteri_on_transformed_targets add marks" (fun () ->
           List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
-      Trace.set_ast t; (* Never use the function [set_ast] in another file!. *)
+      Trace.set_ast_for_target_iter t;
       (* iterate over these marks *)
       try
         List.iteri (fun imark m ->
@@ -1351,9 +1365,9 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
               let t =
                 Stats.comp_stats "iteri_on_transformed_targets remove mark" (fun () ->
                   apply_on_path (trm_rem_mark m) t p) in
-              Trace.set_ast t; (* Never use the function [set_ast] in another file!. *)
+              Trace.set_ast_for_target_iter t;
               Stats.comp_stats (Printf.sprintf "iteri_on_transformed_targets perform transfo %d" imark) (fun () ->
-                  tr imark t (transformer p)
+                  Trace.target_iter_step imark (fun () -> tr imark t (transformer p))
               )
           | ps ->
               let msg =
@@ -1362,10 +1376,10 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
                   else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
                 in
               if debug_disappearing_mark
-                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-                else fail None msg
+                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
+                else failwith msg
         ) marks
-      with Interrupted_applyi_on_transformed_targets t -> Trace.set_ast t (* view the ast when the bug appears. *)
+      with Interrupted_applyi t -> Trace.set_ast t (* view the ast when the bug appears. *)
       ))))
 
 (* [iter_on_transformed_targets ~rev transformer tr tg]: similar to [apply_on_transformed_targets] except,
@@ -1420,7 +1434,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
             let t_seq, _ = resolve_path_and_ctx p_to_seq t in
             let i = begin match get_mark_index m t_seq with
              | Some i -> i |
-              None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
+              None -> trm_fail t_seq "applyi_on_transformed_targets_between: could not get the between index" end in
             let t = apply_on_path (trm_rem_mark_between m) t p_to_seq in
             tr imark t (transformer (p_to_seq,i))
           | ps ->
@@ -1429,10 +1443,10 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
                 then "applyi_on_transformed_targets_between: a mark was duplicated"
                 else (Printf.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
             if debug_disappearing_mark
-              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-              else fail None msg
+              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
+              else failwith msg
         )) t marks
-      with Interrupted_applyi_on_transformed_targets t -> t
+      with Interrupted_applyi t -> t
     ))
 
 (* [apply_on_transformed_targets_between transformer tr tg]: similar to [applyi_to_transformed_targets_between] except that
@@ -1463,7 +1477,8 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 
 
 (******************************************************************************)
-(*                                   New target system TODO: deprecate old one *)
+(*                                   New target system                        *)
+(* TODO: remove the old one                                                   *)
 (******************************************************************************)
 
 (* [trm_add_marks_at_paths marks ps t] adds at the paths [ps] the marks named
@@ -1474,9 +1489,10 @@ let trm_add_marks_at_paths (marks:mark list) (ps:paths) (t:trm) : trm =
   if List.length ps <> List.length marks
     then failwith "trm_add_marks_at_paths: expects as many marks as paths";
   List.fold_left2 (fun t p m ->
-      match last_dir_before_inv p with
-      | None -> apply_on_path (trm_add_mark m) t p
-      | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+      match Path.extract_last_dir p with
+      | p_to_seq, Before i -> apply_on_path (trm_add_mark_between i m) t p_to_seq
+      | p_to_seq, Span span -> apply_on_path (trm_add_mark_span span m) t p_to_seq
+      | _ -> apply_on_path (trm_add_mark m) t p)
     t ps marks
 
 (* [trm_add_mark_at_paths markof ps t] adds a mark computed as
@@ -1484,9 +1500,16 @@ let trm_add_marks_at_paths (marks:mark list) (ps:paths) (t:trm) : trm =
    among the list of paths [ps] *)
 let trm_add_mark_at_paths (markof:path->trm->mark) (ps:paths) (t:trm) : trm =
   let marks = List.map (fun pi ->
-    let ti = Path.get_trm_at_path pi t in
+    let ti = Path.resolve_path pi t in
     markof pi ti) ps in
   trm_add_marks_at_paths marks ps t
+
+(* [trm_remove_mark_at_path] removes the mark [m] at path [p] inside term [t] *)
+let trm_remove_mark_at_path (m: mark) (p: path) (t: trm) : trm =
+  match Path.extract_last_dir p with
+    | p_to_seq, Before i -> apply_on_path (trm_rem_mark_between m) t p_to_seq
+    | p_to_seq, Span span -> apply_on_path (trm_rem_mark_span m) t p_to_seq
+    | _ -> apply_on_path (trm_rem_mark m) t p
 
 (* LATER: add an optimization flag for transformations who know that they don't
    break the paths in the case of multiple targets, this avoids placing marks
@@ -1495,101 +1518,94 @@ let trm_add_mark_at_paths (markof:path->trm->mark) (ps:paths) (t:trm) : trm =
      [rev] - process the resolved paths in reverse order,
      [tg] - target
      [tr] - processing to be applied at the nodes corresponding at target [tg];
-            [tr i t p] where
+            [tr i p] where
             [i] is the index of the occurrence,
-            [t] is the current full ast
             [p] is the path towards the target occurrence. *)
-let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
+let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit =
   (* TODO TEMPORARY *)
   let c_o_r_bak = !Constr.old_resolution in
   Constr.old_resolution := false;
-  let tr_wrapped i t p =
+  let tr_wrapped i p =
     Constr.old_resolution := c_o_r_bak;
-    tr i t p;
+    tr i p;
     Constr.old_resolution := false
-    in
+  in
 
   let tg = fix_target tg in
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
-      let ps = resolve_target tg t in
+    let ps = resolve_target tg t in
     let ps = if rev then List.rev ps else ps in
     match ps with
     | [] -> ()
     | [p] -> (* Call the transformation at that path *)
-             tr_wrapped 0 t p
+             tr_wrapped 0 p
     | _ ->
       (* LATER: optimization to avoid mark for first occurrence *)
-      let marks = List.map (fun _ -> Mark.next()) ps in
-      let t = trm_add_marks_at_paths marks ps t in
-      Trace.set_ast t;
+      let marks = List.map (fun p ->
+        let is_span = match extract_last_dir p with
+          | _, Span _ -> true
+          | _ -> false
+        in
+        (Mark.next(), is_span)) ps in
+      let t = trm_add_marks_at_paths (List.map fst marks) ps t in
+      Trace.set_ast_for_target_iter t;
       (* Iterate over these marks *)
-      try
-        List.iteri (fun occ m ->
-          let t = Trace.ast() in
-          (* Recover the path to the i-th mark (the one number [occ]) *)
-          let ps = resolve_target_mark_one_else_any m t in
-          match ps with
-          | [p] ->
+      List.iteri (fun occ (m, is_span) ->
+        let t = Trace.ast() in
+        (* Recover the path to the i-th mark (the one number [occ]) *)
+        let tg = [nbAny; if is_span then cMarkSpan m else cMark m] in
+        let ps = resolve_target tg t in
+        match ps with
+        | [p] ->
+            (* Here we don't call [Marks.remove] to avoid a circular dependency issue.
+                The term [t] corresponds to the ast with the current mark removed. *)
+            let t = trm_remove_mark_at_path m p t in
+            Trace.target_iter_step occ (fun () ->
               (* Start by removing the mark *)
-              (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
-              let t =
-                match last_dir_before_inv p with
-                | None -> apply_on_path (trm_rem_mark m) t p
-                | Some (p_to_seq,i) -> apply_on_path (trm_rem_mark_between m) t p_to_seq
-                in
-              Trace.set_ast t;
-              (* Call the transformation at that path *)
-              tr_wrapped occ t p
-          | ps ->
-              (* There were not exactly one occurrence of the mark: either zero or multiple *)
-              let msg =
-                if ps <> []
-                  then "iteri_on_transformed_targets: a mark was duplicated"
-                  else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
-                in
-              if debug_disappearing_mark
-                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-                else fail None msg
+              Trace.set_ast_for_target_iter t;
+              (* Call the transformation at that path, wrapping the operations
+                inside a group step *)
+              tr_wrapped occ p)
+        | ps ->
+            (* There were not exactly one occurrence of the mark: either zero or multiple *)
+            let msg =
+              if ps <> []
+                then "Target.iteri: a mark was duplicated"
+                else (Printf.sprintf "Target.iteri: mark %s disappeared" m)
+              in
+            failwith msg
         ) marks
-      with Interrupted_applyi_on_transformed_targets t ->
-         (* Record the ast carried by the exception to allow visualizing the ast *)
-         Trace.set_ast t
       );
     Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
 
 (* [iter] same as [iteri] but without occurence index *)
-let iter ?(rev : bool = false) (tr : trm -> path -> unit) : target -> unit =
-  iteri ~rev (fun occ t p -> tr t p)
+let iter ?(rev : bool = false) (tr : path -> unit) : target -> unit =
+  iteri ~rev (fun occ p -> tr p)
+
+(** [resolve_path p]: follow a path from the AST root and return the subterm found *)
+let resolve_path (p: path): trm =
+  Path.resolve_path p (Trace.ast ())
 
 let iter_at_target_paths ?(rev : bool = false) (transfo : trm -> unit) (tg : target) : unit =
-  iter ~rev (fun t p -> transfo (Path.get_trm_at_path p t)) tg
+  iter ~rev (fun p -> transfo (resolve_path p)) tg
 
-(* [applyi tr tg]: apply transformation [tr] on the current ast
-   to each of the paths targeted by [tg].
-     [tg] - target
-     [tr] - a call to [tr i t p] should compute the updated term where
-            [i] is the index of the occurrence,
-            [t] is the current full ast
-            [p] is the path towards the target occurrence. *)
-let applyi ?(rev : bool = false) (tr : int -> trm -> path -> trm) (tg : target): unit =
-  iteri ~rev (fun occ t p -> Trace.set_ast (tr occ t p)) tg
-
-let apply ?(rev : bool = false) (tr : trm -> path -> trm) (tg : target) : unit =
-  applyi ~rev (fun _occ t p -> tr t p) tg
+(** [apply_at_path transfo p]: follow a path from the AST root to apply a function on the corresponding subterm *)
+let apply_at_path (transfo : trm -> trm) (p : path) : unit =
+  Trace.apply (fun t -> Path.apply_on_path transfo t p)
 
 let apply_at_target_paths ?(rev : bool = false) (transfo : trm -> trm) (tg : target) : unit =
-  apply ~rev (fun t p -> Path.apply_on_path transfo t p) tg
+  iter ~rev (fun p -> apply_at_path transfo p) tg
 
 let applyi_at_target_paths ?(rev : bool = false) (transfo : int -> trm -> trm) (tg : target) : unit =
-  applyi ~rev (fun i t p -> Path.apply_on_path (transfo i) t p) tg
+  iteri ~rev (fun i p -> apply_at_path (transfo i) p) tg
 
 (* ... [transfo t i] where [t] denotes the sequence and [i] denotes the index
    of the item in the sequence before which the target is aiming at. *)
-let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : unit =
-  apply (fun t pb ->
-    let (p,i) = Path.last_dir_before_inv_success pb in
-    Path.apply_on_path (fun tseq -> transfo tseq i) t p) tg
+let apply_at_target_paths_before ?(rev : bool = false) (transfo : trm -> int -> trm) (tg : target) : unit =
+  iter ~rev (fun pb ->
+    let (p,i) = Path.extract_last_dir_before pb in
+    apply_at_path (fun tseq -> transfo tseq i) p) tg
 
 
 (******************************************************************************)
@@ -1598,81 +1614,45 @@ let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : u
 
 (* [target_show_aux m t]: add mark [m] around the term [t]. *)
 let target_show_aux ?(types : bool = false) (m : mark) (t : trm) : trm =
-   let ty_as_string = begin match t.typ with | Some ty -> AstC_to_c.typ_to_string ty | _ ->  "" end in
-   let m = if types then Printf.sprintf "m %s" ty_as_string else m in
-   trm_add_mark m t
-
-(* [target_show_transfo m t p]: apply [target_show_aux] at the trm [t] with path [p]. *)
-let target_show_transfo ?(types : bool = false)(m : mark) : Transfo.local =
-  apply_on_path (target_show_aux ~types m)
+  let ty_as_string = match t.typ with
+    | Some ty -> AstC_to_c.typ_to_string ty
+    | _ ->  ""
+  in
+  let m = if types then Printf.sprintf "m %s" ty_as_string else m in
+  trm_add_mark m t
 
 (* [target_between_show_aux m k t]: add a a mark [m] at the trm [t] at index [k] at position
     [k] in the marks list of the sequence described by the term [t]. *)
 let target_between_show_aux (m : mark) (k : int) (t : trm) : trm =
-    trm_add_mark_between k m t
+  trm_add_mark_between k m t
 
-(* [target_between_show_transfo id k t p]: apply [target_between_show_transfo_aux] at trm [t] with path [p]. *)
-let target_between_show_transfo (m : mark) : Transfo.local_between =
-  fun (k:int) -> apply_on_path (target_between_show_aux m k)
+(******************************************************************************)
+(*                               Target aliases                               *)
+(******************************************************************************)
 
+let resolve_target (tg : target) : paths =
+  Constr.resolve_target tg (Trace.ast ())
 
-(* [show_next_id] used for batch mode execution of unit tests, to generate names of for marks.
-    Only used when [Flags.execute_show_even_in_batch_mode] is set.  *)
-let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
-  Tools.resetable_fresh_generator()
+let resolve_target_exactly_one (tg: target) : path =
+  Constr.resolve_target_exactly_one tg (Trace.ast ())
 
-(* [show ~line:int tg]: transformation for visualizing targets.
-   The operation add marks if the command line argument [-exit-line]
-   matches the [line] argument provided to the function. Otherwise, the
-   [show] function only checks that the path resolve properly.
-   There is no need for a prefix such as [!!] in front of the [show]
-   function, because it is recognized as a special function by the preprocessor
-   that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
-  (* DEPRECATED ?(reparse : bool = false)  if reparse then reparse_alias(); *)
-  (* Calling [enable_multi_targets] to automatically add [nbMulti] if there is no occurence constraint. *)
-  let tg = enable_multi_targets tg in
-  let interactive_action () =
-    let marks_base = show_next_id() in
-    let mark_of_occurence (i:int) : string =
-      if (*DEPRECATED batch_mode &&*) !Flags.execute_show_even_in_batch_mode
-        then Printf.sprintf "%d_%d" marks_base i
-        else Printf.sprintf "%d" i
-      in
-    if Constr.is_target_between tg then begin
-      applyi_on_targets_between (fun i t (p,k) ->
-        let m = mark_of_occurence i in
-        target_between_show_transfo m k t p) tg
-    end else begin
-      applyi_on_targets (fun i t p ->
-        let m = mark_of_occurence i in
-        target_show_transfo ~types m t p) tg
-    end
-    in
-  let action_otherwise () =
-    (* If in regular batch mode, then we only check that the targets are valid *)
-    if Constr.is_target_between tg
-      then applyi_on_targets_between (fun _i t (_p,_k) -> t) tg
-      else applyi_on_targets (fun _i t _p -> t) tg
-    in
-  Trace.show_step ~line ~interactive_action ~action_otherwise ()
+let resolve_path (p : path) : trm =
+  Path.resolve_path p (Trace.ast ())
 
-(* [show_ast] enables to view the current ast. *)
-let show_ast ?(line:int = -1) () : unit =
-  let t = Trace.ast() in
-  Trace.interactive_step ~line ~ast_before:(fun () -> empty_ast) ~ast_after:(fun () -> t)
+let resolve_mark_exactly_one (m : mark) : path =
+  resolve_target_exactly_one [nbExact 1; cMark m]
 
-let show_computed_res ?(line:int = -1) ?(ast: trm = Trace.ast ()) () : unit =
-  Flags.(with_flag display_resources false (fun () ->
-    with_flag always_name_resource_hyp true (fun () ->
-      Trace.interactive_step ~line ~ast_before:(fun () -> ast)
-        ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro ast))))
+let resolve_target_between (tg : target) : (path * int) list =
+  Constr.resolve_target_between tg (Trace.ast ())
 
-(* LATER: Fix me *)
-(* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
-let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =
-  show ~line (* DEPRECATED ~reparse*) ~types:true tg
+let resolve_target_between_exactly_one (tg : target) : path * int =
+  Constr.resolve_target_between_exactly_one tg (Trace.ast ())
 
+let resolve_target_span (tg: target) (t: trm) : (path * span) list =
+  Constr.resolve_target_span tg (Trace.ast ())
+
+let resolve_target_span_exactly_one (tg: target) : path * span =
+  Constr.resolve_target_span_exactly_one tg (Trace.ast ())
 
   (** LATER rename to get_trm_at_option et gt_trm_at_exn *)
 (* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [tg]. *)
@@ -1689,7 +1669,7 @@ let get_trm_at (tg : target) : trm option =
 
 (* [get_ast ()]: return the full ast. *)
 let get_ast () : trm =
-  Tools.unsome (get_trm_at [])
+  Xoption.unsome (get_trm_at [])
 
 
 (******************************************************************************)
@@ -1703,7 +1683,7 @@ let get_ast () : trm =
 let get_function_var_at (dl : path) : var option =
   let fun_decl = match get_trm_at (target_of_path dl) with
     | Some fd -> fd
-    | None -> fail None "get_function_name_at: couldn't retrive the function name at the targeted path"
+    | None -> path_fail dl "get_function_name_at: couldn't retrive the function name at the targeted path"
    in
   match fun_decl.desc with
   | Trm_let_fun (f, _, _, _, _) -> Some f
@@ -1717,7 +1697,7 @@ let get_toplevel_function_var_containing (dl : path) : var option =
   | _ -> None
 
 
-(* [reparse_only fun_nmaes]: reparse only those functions whose identifier is contained in [fun_names]. *)
+(* [reparse_only fun_names]: reparse only those functions whose identifier is contained in [fun_names]. *)
 let reparse_only ?(update_cur_ast : bool = true) (fun_names : var list) : unit =
   Trace.parsing_step (fun () -> Trace.call (fun t ->
     let chopped_ast, chopped_ast_map  =  hide_function_bodies (function f -> not (List.mem f fun_names)) t in
@@ -1745,6 +1725,7 @@ let get_relative_type (tg : target) : target_relative option =
     For example type definitions are modified.
     See example in [Record.reveal_field]. The argument [~reparse:false] can be
     specified to deactivate the reparsing.
+    Should only be called by transformations that do not change type definitions.
     There is an optimization for reparsing only top-level functions that are
     involved in the path targeted by the target [tg]; LATER: should deactivate
     this for transformations that make global changes beyond the targetd functions *)
@@ -1761,9 +1742,9 @@ let reparse_after ?(update_cur_ast : bool = true) ?(reparse : bool = true) (tr :
       (* FIXME: will not appear in trace *)
       let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
         if Constr.is_target_between tg
-        then let tg_ps = resolve_target_between tg ast in
+        then let tg_ps = Constr.resolve_target_between tg ast in
             fst (List.split tg_ps)
-        else resolve_target tg ast
+        else Constr.resolve_target tg ast
         ) in
       tr tg;
       if !Flags.use_light_diff then begin
@@ -1805,16 +1786,12 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
 
 
 (******************************************************************************)
-(*                               Target aliases                               *)
+(*                               Tooling for Show.target                      *)
 (******************************************************************************)
 
-let resolve_target_current_ast (tg : target) : paths =
-  resolve_target tg (Trace.ast ())
+(* [show_next_id] used for batch mode execution of unit tests, to generate names of for marks.
+    Only used for tests/target/*.ml tests. *)
+let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
+  Tools.resetable_fresh_generator()
 
-let resolve_path_current_ast (p : path) : trm  =
-  Path.resolve_path p (Trace.ast ())
 
-let path_of_target_mark_one_current_ast (m : mark) : path =
-  path_of_target_mark_one m (Trace.ast ())
-
-let (~~) f a b = f b a

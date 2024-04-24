@@ -2,8 +2,11 @@
   (name optitrust)
   (public_name optitrust)
   (preprocess (pps ppx_transfo))
-  (libraries compcert_parser clangml refl pprint str base64)
-  (modes byte native))
+  (libraries clangml refl pprint str base64)
+  ;FUTURE USE libraries compcert_parser
+  (modes byte native)
+  ;could have faster compilation with -opaque?
+  (ocamlopt_flags (:standard -opaque)))
 
 (include_subdirs unqualified)
 

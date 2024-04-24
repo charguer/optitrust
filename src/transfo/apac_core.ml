@@ -37,7 +37,7 @@ type lvar = { v : var; l : label; }
    [lv]. *)
 let lvar_to_string (lv : lvar) : string =
   let q_str = String.concat "" (List.map (fun q -> q ^ "::") lv.v.qualifier) in
-  let id_str = if lv.v.id = -1 then "?" else (string_of_int lv.v.id) in
+  let id_str = if lv.v.id = inferred_var_id then "?" else (string_of_int lv.v.id) in
   let member = if lv.l <> "" then lv.l ^ "#" else lv.l in
   q_str ^ lv.v.name ^ "#" ^ member ^ id_str
 
@@ -170,10 +170,10 @@ type const_unconst_objects = (var * var * var) Stack.t
    [Apac_basic.constify_arguments] function. This process is straightforward in
    the case of simple variable declarations. However, if an argument alias is
    declared within a multiple variable declaration, we have two different
-   situations to consider: 
+   situations to consider:
 
    1) the inner type of the multiple variable declaration is already constant:
-    
+
       // [i] is a constant integer, [j] is a mutable pointer to a constant
       // integer
       int const i, * j;
@@ -287,7 +287,8 @@ let typ_get_degree (ty : typ) : int =
     | Typ_constr _ when typ_is_alias ty ->
       begin match typ_get_alias ty with
       | Some (ty) -> aux degree ty
-      | None -> fail None "Apac_core.typ_get_degree: unable to determine the \
+      (* TODO: thread-through term for trm_fail. *)
+      | None -> failwith "Apac_core.typ_get_degree: unable to determine the \
                            basic type of a typedef alias."
       end
     | _ -> degree
@@ -786,7 +787,7 @@ let build_constification_records_on (t : trm) : unit =
 let build_constification_records (tg : target) : unit =
   Target.iter_at_target_paths (build_constification_records_on) tg
 
-(* [identify_mutables_on p t]: see [identify_mutables]. *)
+(* [identify_mutables_on t]: see [identify_mutables]. *)
 let identify_mutables_on (p : path) (t : trm) : unit =
   (* Auxiliary function which recursively visits all the terms of the body
      [fun_body] of the function [fun_var] in order to resolve dependencies
@@ -961,7 +962,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
        trm_iter (aux aliases fun_var) fun_body
     (* Increment or decrement unary operation: update the unconstification
        stack. *)
-    | Trm_apps _ when trm_is_unop_inc_or_dec fun_body ->
+    | Trm_apps _ when trm_is_unary_compound_assign fun_body ->
        let error = "Apac_basic.identify_mutables_on: unable to retrieve
                     variable name" in
        let var_lvar = trm_inv ~error
@@ -1085,4 +1086,4 @@ let identify_mutables_on (p : path) (t : trm) : unit =
    arguments should not be constified and adds them to the [to_unconst] stack
    (global variable, see Part II.1). *)
 let identify_mutables (tg : target) : unit =
-  Target.iter (fun t p -> identify_mutables_on p (get_trm_at_path p t)) tg
+  Target.iter (fun p -> identify_mutables_on p (Target.resolve_path p)) tg

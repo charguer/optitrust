@@ -34,9 +34,9 @@ let _ = Run.script_cpp (fun _ ->
     !!(););
 
   !! Trace.alternative (fun () ->
-    !! Trace.failure_expected (fun () ->
+    !! Trace.failure_expected (fun _e -> true) (fun () ->
        Loop.reorder ~order:["e"] [cFor "a"];);
-    !! Trace.failure_expected (fun () ->
+    !! Trace.failure_expected (fun _e -> true) (fun () ->
        Loop.reorder ~order:["e"; "f"] [cFor "e"];)
     );
 

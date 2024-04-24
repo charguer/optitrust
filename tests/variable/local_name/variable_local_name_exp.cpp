@@ -1,18 +1,65 @@
+#include <optitrust.h>
+
 typedef int T;
 
-int main() {
+void ok1() {
+__pure();
   T a;
-  for (int k = 6; k < 50; k++) {
-    for (int j = 0; j < 10; j++) {
-      /*@mymark*/ /*no-brace*/ {
-        T x = a;
+      for (int j = 0; j < 10; j++) {
+      __strict();
+      __smodifies("&a ~> Cell");
+    auto x = a;
         for (int i = 0; i < j; i++) {
+__strict();
+__smodifies("&x ~> Cell");
           x++;
         }
         a = x;
-      } /*mymark@*/
+      }
+}
+
+void ok2() {
+  __pure();
+  T a;
+  auto x = a;
+l : { x++; }
+  a = x;
+  int y = 0;
+}
+
+void ko1() {
+  __pure();
+  T a;
+  int& b = a;
+  for (int j = 0; j < 10; j++) {
+    __strict();
+    __smodifies("&a ~> Cell");
+        for (int i = 0; i < j; i++) {
+      __strict();
+      __smodifies("&a ~> Cell");
+      a++;
+      b++;
     }
   }
   int y = 0;
-  return 0;
+  }
+
+void ko2() {
+  __pure();
+  T a;
+  int& b = a;
+l : {
+  a++;
+  b++;
+}
+  int y = 0;
+}
+
+void ko_scope() {
+  __pure();
+  T x;
+  T a;
+auto x1 = a;
+l : { x1++; }
+a = x1;
 }

@@ -2,9 +2,9 @@ open Optitrust
 open Ast_fromto_AstC
 open Target
 
-let _ =
-  Flags.dump_ast_details := true;
-  Flags.bypass_cfeatures := true
+(* let _ = Flags.dump_ast_details := true; *)
+let _ = Flags.bypass_cfeatures := true
+let _ = Flags.print_optitrust_syntax := true
 
 (* Option to choose the size of the test *)
 let filename =
@@ -14,8 +14,7 @@ let filename =
   | _ -> "c_big.cpp"
 
 let _ = Run.script_cpp ~filename (fun () ->
-  Trace.apply C_scope.infer_var_ids;
-
+  Scope.infer_var_ids ();
   (* TODO  let t = Trace.ast() in *)
   !! Trace.apply stackvar_elim;   (* Press F6 on this line to see the encoding *) (* Press Alt+F6 to check the blank diff of the round-trip *)
   !! Trace.apply stackvar_intro; (* Press F6 on this line to see the decoding *)

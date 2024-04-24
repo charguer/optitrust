@@ -1,8 +1,11 @@
-const int N = 3;
-const int M = 5;
-int s = 2;
-const int u = 2;
-int main(){
+#include <optitrust.h>
+
+const int N = 2;
+const int L = 4;
+const int U = 7;
+
+void f() {
+  int s = 0;
 
   for (int i = s; i < s + N; i++) {
     int a = 1;
@@ -12,7 +15,7 @@ int main(){
     int e = d + 5;
   }
 
-  for (int j = u; j < M; j++){
+  for (int j = L; j < U; j++){
     int x = j;
     int y = j + 1;
   }
@@ -22,7 +25,16 @@ int main(){
       s = k + k2;
     }
   }
+}
 
-  return 0;
+void iter_contract_ro(int* M) {
+  __reads("M ~> Matrix1(3)");
 
+  int acc = 0;
+  for (int x = 0; x < 3; x++) {
+    __strict();
+    __smodifies("&acc ~> Cell");
+    __xreads("&M[MINDEX1(3,x)] ~> Cell");
+    acc += M[MINDEX1(3,x)];
+  }
 }

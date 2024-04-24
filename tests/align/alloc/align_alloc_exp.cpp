@@ -1,6 +1,5 @@
+#include <optitrust.h>
 #include <stdlib.h>
-
-#include "../../../include/optitrust.h"
 
 typedef int T;
 

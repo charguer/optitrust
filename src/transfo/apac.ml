@@ -84,7 +84,7 @@ let constify (tg : target) : unit =
     also comments within the function.
 *)
 let unfold_function_calls (tg : target) : unit =
-  Target.iter (fun t p ->
+  Target.iter (fun p ->
     (* Get the parent term to check whether it is an assignment (outside of a
        declaration). If it is the case, we do not need to apply the
        transformation. It would only create a superfluous variable. *)
@@ -113,7 +113,7 @@ let unfold_function_calls (tg : target) : unit =
     In the second step, we put the marked sequence into an OpenMP task group.
     See [Apac_basic.task_group] for more details. *)
 let parallel_task_group : Transfo.t =
-  Target.iter (fun t p ->
+  Target.iter (fun p ->
     (* Create a mark. *)
     let mark = Mark.next() in
     (* Wrap the target function's body into a marked sequence and replace return
@@ -124,7 +124,7 @@ let parallel_task_group : Transfo.t =
     let error =
     "Apac.parallel_task_group: expected a target to a function definition" in
     let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv (
-      Path.get_trm_at_path p t
+      Target.resolve_path p
     ) in
     (* Transform the marked instruction sequence corresponding to the target
        function's body into an OpenMP task group.
@@ -194,7 +194,7 @@ let heapify_nested_seq : Transfo.t =
           - 'break', 'continue': only the current loop, not deeper. *)
       | Trm_abort _ when is_return t || is_first_depth ->
         begin match get_delete_task ptrs with
-        | Some (tr) -> trm_seq_no_brace [tr; trm_map (aux ptrs is_first_depth) t]
+        | Some (tr) -> trm_seq_nobrace_nomarks [tr; trm_map (aux ptrs is_first_depth) t]
         | _ -> t
         end
       | _ -> trm_map (aux ptrs is_first_depth) t
@@ -215,7 +215,7 @@ let heapify_nested_seq : Transfo.t =
       | _ -> t
     in
     let decl_cptrs = Hashtbl.create 10 in
-    let tg_trm = Path.get_trm_at_path p t in
+    let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_seq tl -> Nobrace_transfo.remove_after (fun _ ->
       transfo_on_targets (trm_map (aux decl_cptrs true)) (target_of_path p));
@@ -333,7 +333,7 @@ let sync_with_taskwait : Transfo.t =
       | Trm_abort Ret (Some tr) -> add_taskwait decl_vars (get_all_vars [] tr) t
       | _ -> t
     in
-    let tg_trm = Path.get_trm_at_path p t in
+    let tg_trm = Path.resolve_path p t in
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (qv, ty, args, body, _) ->
@@ -620,7 +620,7 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
         trm_add_pragma (get_cpagma_from_dep_infos dis_in dis_inout) t
       | _ -> t
     in
-    let tg_trm = Path.get_trm_at_path p t in
+    let tg_trm = Path.resolve_path p t in
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (_, _, tvl, _, _) ->

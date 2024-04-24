@@ -12,38 +12,16 @@ open Target
    - label as a standalone instruction (=> currently encoded as Trm_label ("foo", trm_unit))
    - or label around an instruction. *)
 
-
-
-(*==============TODO : new*)
-
-(* [new_add_on label t]: adds label [label] to trm [t]
-      [label] - label that is going to label trm [t]
-      [t] - a trm *)
-let new_add_on (label : string) (t : trm) : trm =
-  trm_add_label label t
-
 (* [add label tg]: adds a C-label named [label] to the front of the terms
    matching the target [tg].
-
-   @correctness: always correct. *)
-let new_add (label : string) : Target.Transfo.t =
-  Target.apply_at_target_paths (new_add_on label)
-
-
-
-
-(* [add label tg]: adds a C-label named [label] to the front of the terms
-   matching the target [tg].
+   Does nothing if [label = no_label].
 
    @correctness: always correct. *)
 let%transfo add (label : string) (tg:target) : unit =
   Trace.justif_always_correct();
-  Target.apply_on_targets (Label_core.add label) tg
+  if label = no_label then () else
+  Target.apply_at_target_paths (trm_add_label label) tg
 
 (* [remove label tg]: removes a C-label named [label] matched by th target [tg]. *)
-let remove : Target.Transfo.t =
-  Target.apply_on_targets (Label_core.remove)
-
-(* [remove_multiple tgs]: removes a list  of C-labels. *)
-let remove_multiple (tgs : target list) =
-  List.fold_left (fun () x-> remove x )() tgs
+let%transfo remove (tg: target) : unit =
+  Target.apply_at_target_paths trm_rem_labels tg

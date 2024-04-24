@@ -71,28 +71,28 @@ let%transfo set_explicit (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     apply_on_targets (Arrays_core.set_explicit) tg)
 
-let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses : mark option) (t : trm) : trm =
+let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses : mark) (t : trm) : trm =
   let error = "Arrays_basic.inline_constant_on: expected array access with constant index" in
-  (* Transfo_debug.trm "t" t; *)
+  (* Show.trm "t" t; *)
   let ptr_t = trm_inv ~error trm_get_inv t in
   let (base, index) = trm_inv ~error array_access_inv ptr_t in
   let var = trm_inv ~error trm_var_inv base in
   if var <> array_var then
-    fail base.loc error;
+    trm_fail base error;
   (* TODO: check that moving trm evaluation here is ok *)
   begin match trm_inv ~error trm_lit_inv index with
-  | Lit_int i -> trm_may_add_mark mark_accesses (List.nth array_vals i)
-  | _ -> fail index.loc error
+  | Lit_int i -> trm_add_mark mark_accesses (List.nth array_vals i)
+  | _ -> trm_fail index error
   end
 
 (* [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
   *)
-let%transfo inline_constant ?(mark_accesses : mark option) ~(decl : target) (tg : target) : unit =
+let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) (tg : target) : unit =
   let decl_p = resolve_target_exactly_one_with_stringreprs_available decl (Trace.ast ()) in
   let decl_t = Path.resolve_path decl_p (Trace.ast ()) in
   let error = "Arrays_basic.inline_constant: expected constant array literal declaration" in
   let (_, var, typ, init) = trm_inv ~error trm_let_inv decl_t in
-  let (_elem_ty, _size) = typ_inv ~error decl_t.loc typ_const_array_inv typ in
+  let (_elem_ty, _size) = typ_inv ~error decl_t typ_const_array_inv typ in
   let array_mlist = trm_inv ~error array_inv init in
   Target.apply_at_target_paths (inline_constant_on var (Mlist.to_list array_mlist) mark_accesses) tg
 
@@ -101,9 +101,9 @@ let elim_on (decl_index : int) (t : trm) : trm =
     let error = "Arrays.elim_constant_on: expected constant array literal declaration" in
     let (_, name, typ, init) = trm_inv ~error trm_let_inv t in
     (* Printf.printf "QSJIDO:\n%s\n" (Ast_to_text.ast_to_string t); *)
-    let (_elem_ty, _size) = typ_inv ~error t.loc typ_const_array_inv typ in
+    let (_elem_ty, _size) = typ_inv ~error t typ_const_array_inv typ in
     let _array_mlist = trm_inv ~error array_inv init in
-    trm_seq_no_brace []
+    trm_seq_nobrace_nomarks []
   in
   (* TODO: check that its not used anywhere *)
 
@@ -117,7 +117,7 @@ let elim_on (decl_index : int) (t : trm) : trm =
   *)
 let%transfo elim (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply (fun t p ->
+    Target.iter (fun p ->
       let (i, p_seq) = Path.index_in_seq p in
-      Path.apply_on_path (elim_on i) t p_seq
+      Target.apply_at_path (elim_on i) p_seq
   ) tg)

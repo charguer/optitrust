@@ -6,16 +6,38 @@ perf
 interact
 tester.ml
 
+# BROKEN RESOURCES
+matrix/local_name_tile/matrix_local_name_tile.ml
+stencil/fusion_targets/stencil_fusion_targets.ml
+matrix/delocalize_obj/matrix_delocalize_obj.ml
+loop/swap/loop_swap_doc.ml
+loop/moveout/loop_moveout_doc.ml
+loop/move/loop_move_doc.ml
+
+# BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
+apac/constify_functions_arguments/apac_constify_functions_arguments.ml
+
+
 pointer/fold
 
-
 # TO FIX:
+instr/gather
 function/uninline
 record/method_to_const
 function/rename_args
+function/beta
 align/def
 matrix/insert_access_dim_index
 record/reorder_fields
+array/elim_constant
+record/align_field
+loop/unfold_bound
+matrix/reorder_dims
+matrix/delocalize
+record/align_field
+apac/heapify_nested_seq
+variable/delocalize
+variable/delocalize_in_vars
 
 # NO FIX:
 aos_to_soa
@@ -29,6 +51,9 @@ record/modif
 record/to_variables
 variable/ref_to_var
 variable/exchange
+swap/coords_fixed
+swap/coords_vari
+specialize/function_arg
 
 function/inline
 
@@ -36,20 +61,3 @@ function/inline
 apac/insert_tasks_naive
 apac/sync_with_taskwait
 variable/intro_pattern_array
-
-# TO FIX:
-array/elim_constant
-record/align_field
-loop/unroll
-loop/unfold_bound
-matrix/reorder_dims
-matrix/delocalize
-record/align_field
-apac/heapify_nested_seq
-
-# ???
-swap/coords_fixed
-swap/coords_vari
-specialize/function_arg
-
-

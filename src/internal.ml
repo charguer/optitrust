@@ -46,6 +46,7 @@ let same_val (v1 : value) (v2 : value) : bool =
 (* FIXME: use targets instead of same_trm. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
+  Tools.warn "Internal.change_trm is DEPRECATED!";
   let rec apply_change (t' : trm) : trm=
     if same_trm t' t_before then
       trm_copy t_after
@@ -96,9 +97,10 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   let apply_change (t : trm) : trm =
     let rec aux (t : trm) : trm =
       match t.desc with
-      | Trm_val (Val_prim (Prim_new ty)) ->
+      | Trm_val (Val_prim (Prim_new (ty, dims))) ->
+        (* TODO: map dims_opt types? *)
          trm_prim ~annot:t.annot ?loc:t.loc
-           (Prim_new (change_typ ty))
+           (Prim_new ((change_typ ty), dims))
       | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
          trm_unop ~annot:t.annot ?loc:t.loc
            (Unop_cast (change_typ ty))
@@ -125,7 +127,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
        | Trm_var (_, x) ->
           let ty = begin match t.typ with
                    | Some ty -> ty
-                   | None -> fail t.loc "Internal.apply_change: all variable occurrences should have a type"
+                   | None -> trm_fail t "Internal.apply_change: all variable occurrences should have a type"
                    end in
         trm_var ~annot:t.annot ?loc:t.loc ~typ:(change_typ ty) x
       | _ -> trm_map aux t
@@ -158,7 +160,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
     | Dir_record_field _ :: Dir_seq_nth i :: dl'  -> (List.rev dl', i)
       (* Printf.printf "Path: %s\n" (Path.path_to_string dl); *)
     | _ ->
-      fail None "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
+      path_fail dl "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
 (* [get_instruction_in_surrounding_sequence dl]: for a trm with path [dl] return the path to the surrouding sequence
@@ -167,7 +169,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
 let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
   let rec aux (acc : path) (dl : path) =
     match dl with
-    | [] -> fail None "Internal.get_instruction_in_surrounding_sequence: empty path"
+    | [] -> path_fail dl "Internal.get_instruction_in_surrounding_sequence: empty path"
     | Dir_seq_nth i :: dl'-> (List.rev dl', acc, i)
     | dir :: dl' -> aux (dir :: acc) dl'
   in aux [] (List.rev dl)
@@ -209,16 +211,16 @@ let is_decl_body (dl : path) : bool =
   | Dir_body :: _ -> true
   | _ -> false
 
-(* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
-let get_field_list (td : typedef) : (field * typ) list =
+(* [get_field_list t td]: in the case of typedef struct give back the list of struct fields *)
+let get_field_list (t : trm) (td : typedef) : (field * typ) list =
   match td.typdef_body with
   | Typdef_record rfl ->
     List.map (fun (rf, _) ->
       match rf with
       | Record_field_member (lb, ty) -> (lb, ty)
-      | _ -> fail None "Internal.get_field_list: expected a struct without methods"
+      | _ -> trm_fail t "Internal.get_field_list: expected a struct without methods"
     ) rfl
-  | _ -> fail None "Internal.get_field_list: expected a Typedef_prod"
+  | _ -> trm_fail t "Internal.get_field_list: expected a Typedef_prod"
 
 
 (* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
@@ -310,7 +312,7 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
       | Some _ -> acc
       | _ -> aux t1
   ) None tl
-  | _ -> fail full_ast.loc "Internal.top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
+  | _ -> trm_fail full_ast "Internal.top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
 
 
 (* [local_decl x t]: check if [t] is a declaration with name [x], if that's the case the return that declaration *)
@@ -339,13 +341,12 @@ let rec local_decl (x : var) (t : trm) : trm option =
     ordered list of their indices where the order is the depth order *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
-  | Trm_for (l_range, body, _) ->
-    let (index, _, _, _, _, _) = l_range in
+  | Trm_for (range, body, _) ->
     begin match body.desc with
     | Trm_seq tl when Mlist.length tl = 1  ->
       let f_loop = Mlist.nth tl 0 in
-      index :: get_loop_nest_indices f_loop
-    | _ -> index :: []
+      range.index :: get_loop_nest_indices f_loop
+    | _ -> range.index :: []
     end
   | Trm_for_c (_, _, _, body, _) ->
     let index = for_loop_index t in
@@ -366,13 +367,13 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   | Trm_for (l_range, body, _) ->
     Some ((fun b -> trm_for l_range b), body)
   | _ ->
-    fail t.loc "Internal.extract_loop: expected a loop"
+    trm_fail t "Internal.extract_loop: expected a loop"
 
 (* [get_field_index field fields]: for a struct field with name [field] and [fields] being the list of fields of the
     same struct, return back the index of field [field] in the list of fields [fields]. *)
-let get_field_index (field : field) (fields : record_fields) : int =
+let get_field_index (t : trm) (field : field) (fields : record_fields) : int =
   let rec aux field fields c = match fields with
-    | [] -> failwith "Internal.get_field_index: empty list"
+    | [] -> trm_fail t "Internal.get_field_index: empty list"
     | (rf, _) :: tl ->
       begin match rf with
       | Record_field_member (f, _) ->
@@ -400,7 +401,7 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
         let new_fn = { qualifier = fn.qualifier; name = (rename_fun fn.name); id = fn.id } in
         let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body, contract)) t in
         Record_field_method new_t
-      | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
+      | _ -> trm_fail t "Internal.rename_record_fields: record member not supported."
       end
       in
     apply_on_record_fields app_fun rfs
@@ -412,7 +413,7 @@ let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ )
     | Record_field_member (f, ty) ->
       let ty = if Tools.pattern_matches pattern f then typ_update ty else ty in
       Record_field_member (f, ty)
-    | Record_field_method t -> fail None "Internal.update_record_fields_type: can't update the type of a method."
+    | Record_field_method t -> trm_fail t "Internal.update_record_fields_type: can't update the type of a method."
       in
     apply_on_record_fields app_fun rfs
 
@@ -420,10 +421,10 @@ let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ )
 let change_loop_body (loop : trm) (body : trm) : trm =
   match loop.desc with
   | Trm_for (l_range, _, contract) ->
-    trm_for ?contract l_range body
+    trm_for ~contract l_range body
   | Trm_for_c (init, cond, step, _, invariant) ->
     trm_for_c ?invariant init cond step body
-  | _-> fail loop.loc "Internal.change_loop_body: expected for loop"
+  | _-> trm_fail loop "Internal.change_loop_body: expected for loop"
 
 (* [is_trm_loop t] check if [t] is a loop or not *)
 let is_trm_loop (t : trm) : bool =
@@ -462,7 +463,7 @@ let get_constr_from_target (tg : target) : constr =
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
       [r] - the name of the variable replacing the return statement, can be [dummy_var] to ... ?
       [t] - ast of the body of the function. *)
-let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : label = "") (r : var) (t : trm) : (trm * int) =
+let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : label = no_label) (r : var) (t : trm) : (trm * int) =
   let nb_gotos = ref 0 in
   let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with
@@ -477,15 +478,15 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
             then t_assign
             else begin
                  incr nb_gotos;
-                 if exit_label = "" then t_assign else trm_seq_no_brace [t_assign; trm_goto exit_label]
+                 if exit_label = no_label then t_assign else trm_seq_nobrace_nomarks [t_assign; trm_goto exit_label]
                  end
         | _ ->
             incr nb_gotos;
-            if exit_label = "" then trm_unit () else trm_goto exit_label
+            if exit_label = no_label then trm_unit () else trm_goto exit_label
         end
       | _ ->
           incr nb_gotos;
-          if exit_label = "" then trm_unit () else trm_goto exit_label
+          if exit_label = no_label then trm_unit () else trm_goto exit_label
       end
     | Trm_let_fun _ -> t (* do not recurse through local function definitions *)
     | _-> trm_map_with_terminal is_terminal aux t

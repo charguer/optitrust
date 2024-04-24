@@ -25,7 +25,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     let var_type = List.fold_left (^) "" var_type in
     let other_vars = List.map (fun x -> var_type ^ " " ^ x) other_vars in
     let var_decl_list = first_var :: other_vars in
-    (Tools.list_to_string ~sep:"," ~bounds:["";""] var_decl_list)
+    (Tools.list_to_string ~sep:", " ~bounds:("","") var_decl_list)
     in
   let var_decls = Str.split (Str.regexp_string ";") var_decls in
   List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls
@@ -33,7 +33,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
 
   let output_file = Filename.temp_file "tmp_rule" ".cpp" in
   let splitted_pattern = Str.split (Str.regexp_string "==>") pattern in
-  if List.length splitted_pattern < 2 then fail None "Trm_matching.parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
+  if List.length splitted_pattern < 2 then failwith "Trm_matching.parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
     for the declaration of variables used in the pattern and the rule itself" ;
   let var_decls = String.trim (List.nth splitted_pattern 0) in
   let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
@@ -50,7 +50,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
       let ast = Target.get_ast () in
       let ast2 = trm_seq_add_last (stmt main_fun_str) ast in
       let prefix = Filename.remove_extension output_file in
-      Trace.output_prog (Trace.get_context ()) prefix ast2;
+      Trace.output_prog (Style.custom_style_for_reparse()) (Trace.get_context ()) prefix ast2;
       trm_main_inv_toplevel_defs ast
       (* AstC_to_c.ast_to_file output_file ast2; *)
     end else begin
@@ -59,11 +59,11 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     end
   in
 
-  let _, ast_of_file = Trace.parse ~parser:(CParsers.get_default ()) output_file in
+  let _, ast_of_file = Trace.parse ~parser:(CParsers.get_default ~serialize:false ()) output_file in
   Sys.remove output_file;
 
   let defs = trm_main_inv_toplevel_defs ast_of_file in
-  if defs = [] then fail ast_of_file.loc "Trm_matching.parse_pattern: couldn't parse pattern";
+  if defs = [] then trm_fail ast_of_file "Trm_matching.parse_pattern: couldn't parse pattern";
   let (ctx_defs, main_fun) = Xlist.unlast defs in
   let ctx_vars_to_orig = Var_map.of_seq (Seq.zip
     (Seq.filter_map Trm.decl_name (List.to_seq ctx_defs))
@@ -73,7 +73,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   | Trm_let_fun (_, _, args, body, _) ->
     begin match body.desc with
     | Trm_seq tl1 ->
-      if Mlist.length tl1 < 1 then fail body.loc "Trm_matching.parse_pattern: please enter a pattern
+      if Mlist.length tl1 < 1 then trm_fail body "Trm_matching.parse_pattern: please enter a pattern
                                                   of the shape var_decls ==> rule_to_apply";
       let pattern_instr_ret = Mlist.nth tl1 0 in
       let pattern_instr =
@@ -81,16 +81,16 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
       | Trm_abort (Ret r1) ->
         begin match  r1 with
         | Some t1 -> t1
-        | _ -> fail pattern_instr_ret.loc "Trm_matching.parse_pattern: this should never appear"
+        | _ -> trm_fail pattern_instr_ret "Trm_matching.parse_pattern: this should never appear"
         end
       | _ -> pattern_instr_ret
       end in
       let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x.name aux_var_decls then Some (x, ty) else None ) args in
       let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
       (pattern_vars, aux_vars, trm_subst ctx_vars_to_orig pattern_instr)
-    | _ -> fail body.loc ("Trm_matching.parse_pattern: body of the function f should be a sequence " ^ (AstC_to_c.ast_to_string body))
+    | _ -> trm_fail body ("Trm_matching.parse_pattern: body of the function f should be a sequence " ^ (AstC_to_c.ast_to_string body))
       end
-  | _ -> fail main_fun.loc "Trm_matching.parse_pattern: the pattern was not entered correctly"
+  | _ -> trm_fail main_fun "Trm_matching.parse_pattern: the pattern was not entered correctly"
 
 
 (* [parse_rule pattern]: returns a rewrite rule derived from [pattern](see [parse_pattern] ) which is a record containing
@@ -101,7 +101,7 @@ let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : strin
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_eq));_},[t1; t2], _) ->
     {rule_vars = pattern_vars; rule_aux_vars = aux_vars; rule_from = t1; rule_to = t2}
   | _ ->
-    fail pattern_instr.loc "Trm_matching.parse_rule: could not parse the given rule"
+    trm_fail pattern_instr "Trm_matching.parse_rule: could not parse the given rule"
 
 (* [Rule_mismatch]: exception raised by [rule_match] *)
 exception Rule_mismatch
@@ -192,11 +192,11 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     | Trm_apps (({ desc = Trm_var (_, x); _} as trm_x), ts1, _), _ when higher_order_inst && is_var x ->
         let typ_args, typ_ret =
           match trm_x.typ with
-          | None -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" (var_to_string x))
+          | None -> trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" (var_to_string x))
           | Some ({typ_desc = Typ_fun (typ_args, typ_ret); _}) -> typ_args, typ_ret
-          | _ -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" (var_to_string x))
+          | _ -> trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" (var_to_string x))
           in
-        let msg1 i ti = fail None (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s
+        let msg1 i ti = trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s
                                      is not a variable.  It is the term: %s" i (var_to_string x) (Ast_to_text.ast_to_string ti)) in
         let xargs = List.mapi (fun i ti -> match ti.desc with
           | Trm_var (_, x)
@@ -204,10 +204,10 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
           | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}], _) -> x
           | _ -> msg1 i ti) ts1 in
         (* DEPRECATED
-          let msg2 i = fail t2.loc (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
+          let msg2 i = trm_fail t2 (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
           let targs = List.mapi (fun i xi -> match get_binding xi with Some typed_yi -> typed_yi | None -> msg2 i) xargs in *)
         if List.length typ_args <> List.length xargs
-          then fail t2.loc (Printf.sprintf "Trm_matching.rule_match: the function call does not have the same number of arguments
+          then trm_fail t2 (Printf.sprintf "Trm_matching.rule_match: the function call does not have the same number of arguments
                                             as the higher-order function variable %s" (var_to_string x));
         let targs = List.combine xargs typ_args in
         (* LATER ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
@@ -221,15 +221,15 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 
-    | Trm_for ((index1, start1, _direction1, stop1, step1, _is_parallel1), body1, _),
-      Trm_for ((index2, start2, _direction2, stop2, step2, _is_parallel2), body2, _) ->
-        aux start1 start2;
-        aux stop1 stop2;
-        begin match step1, step2 with
+    | Trm_for (range1, body1, _),
+      Trm_for (range2, body2, _) ->
+        aux range1.start range2.start;
+        aux range2.stop range2.stop;
+        begin match range1.step, range2.step with
         | Step stept1, Step stept2 -> aux stept1 stept2
-        | _ -> if step1 <> step2 then mismatch()
+        | _ -> if range1.step <> range2.step then mismatch()
         end;
-        with_binding (typ_int()) index1 index2 (fun () -> aux body1 body2)
+        with_binding (typ_int()) range1.index range2.index (fun () -> aux body1 body2)
 
     | Trm_for_c (init1, cond1, step1, body1, _), Trm_for_c (init2, cond2, step2, body2, _) ->
         aux_with_bindings [init1; cond1; step1; body1] [init2; cond2; step2; body2]

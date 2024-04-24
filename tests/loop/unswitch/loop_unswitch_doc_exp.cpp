@@ -1,8 +1,6 @@
 #include <stdbool.h>
 
-bool b;
-
-int main() {
+void f(bool b) {
   int s;
   int t;
   if (b)

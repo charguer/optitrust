@@ -5,6 +5,7 @@
 
 /*
 var startupOpenStep = 45; // optional binding
+var webview = true; // optional binding
 var steps = [];
 steps[0] = {
    id: 0, // corresponds to the step number
@@ -12,7 +13,10 @@ steps[0] = {
    exectime: 0.0453;   // in seconds
    name: "..",
    args: [ { name: "..", value: ".."}, { name: "..", value: ".." } ],
+   tags: ["..", ".."],
+   debug_msgs: ["..", ".."],
    justif: ["..", ".." ],
+   check_validity: true,
    isvalid: true,
    script: window.atob("..."),
    script_line: 23, // possibly undefined
@@ -27,24 +31,10 @@ Additional fields are set by the function   initTree
 - parent_id
 - has_valid_parent
 
-The function initSteps() builds an array of [bigsteps] and an array of [smallsteps],
-in order of appearance.
-
-Representation of a big step:
-  bigsteps[k] = step object with additional fields:
-      bigstep_id: // the id of the step in the bigsteps array
-      start: // an index in smallstep array, inclusive
-      stop: // an index in smallstep array, exclusive
-  smallsteps[k] = step object with additional fields:
-      smallspep_id: // the id of the step in the smallsteps array
-
 */
 
-// data structures filled by function initSteps
-var smallsteps = [];
-var bigsteps = [];
-var hasBigsteps = undefined; // false iff bigsteps is empty
-
+// Flag indicating whether the trace has been produced with [Flag.check_validity = true]
+var root_checking_validity = undefined;
 
 // checkbox status; may change default values here
 
@@ -57,81 +47,116 @@ var optionsDefaultValueForTags = { // true = checked = hidden
     "target": true,
     "marks": true,
     "simpl": true,
+    "typing": true,
    };
 
 var allTags = {}; // filled by initAllTags
 
 var optionsDescr = [ // extended by initAllTags
-  { key: "details",
-    name: "details",
-    kind: "UI",
+  { key: "advanced",
+    name: "advanced",
+    kind: "standard",
+    default: false
+  },
+  { key: "hide_empty_diff",
+    name: "hide-empty-diff",
+    kind: "advanced",
     default: true,
   },
   { key: "ast_before",
     name: "ast-before",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },
   { key: "ast_after",
     name: "ast-after",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },
 /*  { key: "stats",
     name: "stats",
-    kind: "UI",
+    kind: "standard",
     default: false,
   }, */
+  { key: "kind",
+    name: "kind",
+    kind: "advanced",
+    default: false,
+  },
   { key: "compact",
     name: "compact",
-    kind: "UI",
+    kind: "advanced",
     default: true,
+  },
+  { key: "step_change",
+    name: "step-change",
+    kind: "advanced",
+    default: false,
+  },
+  { key: "args",
+    name: "arguments",
+    kind: "standard",
+    default: false,
   },
   { key: "justif",
     name: "justification",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
+  /* always-true
+  { key: "simpl-show",
+    name: "simpl-show-steps",
+    kind: "standard",
+    default: true,
+  },*/
   { key: "exectime",
     name: "exectime",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   { key: "tags",
     name: "tags",
-    kind: "UI",
+    kind: "advanced",
     default: false,
+  },
+  { key: "debug_msgs",
+    name: "debug-msgs",
+    kind: "advanced",
+    default: true,
   },
   /* DEPRECATED
    { key: "io_steps",
     name: "io-steps",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },
   { key: "target_steps",
     name: "target-steps",
-    kind: "UI",
+    kind: "standard",
     default: false,
   },*/
-  { key: "noop_steps",
-    name: "noop-steps",
-    kind: "UI",
-    default: true,
+  { key: "expand_all",
+    name: "expand-all",
+    kind: "standard",
+    default: false,
   },
   { key: "atomic_substeps",
     name: "atomic-substeps",
-    kind: "UI",
+    kind: "advanced",
     default: false,
   },
   { key: "basic_modules",
     name: "basic-modules",
-    kind: "UI",
+    kind: "advanced",
     default: true,
   }
 ];
-var options = {}; // filled by initOptions
 
+var options = {}; // filled by initOptions, maps key to value
+var optionsDefault = {}; // filled by initOptions, maps key to default value
 
+var expanded = []; // maps node ids to boolean values, indicating if node is expanded;
+                   // entries in this map are optional for nodes
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -242,7 +267,7 @@ function htmlButton(id, label, css, onclick) {
 }
 
 function htmlCheckbox(id, label, css, onclick) {
-  return "<label><input id='" + id + "' class='" + css + "' type='checkbox' onclick='" + onclick + "'>" + label + "</label>";
+  return "<label class='checkbox-label'><input id='" + id + "' class='" + css + "' type='checkbox' onclick='" + onclick + "'>" + label + "</label>";
 }
 
 
@@ -257,8 +282,54 @@ var curSdiff = -1;
 var curBdiff = -1;
 var idSourceLeft = -1;
 var idSourceRight = -1;
-var selectedStep = undefined; // stores a step object
 
+var selectedStep = undefined; // stores a step object
+ // DEPRECATED: selectedStep is now always the root step,
+ // but in the future we could keep it
+
+function loadDebugMsgs(messages) {
+  var s = '';
+  if (options.debug_msgs && messages) {
+    for (var i = 0; i < messages.length; i++) {
+      s += escapeHTML(messages[i]);
+    }
+  }
+  $('#debugMsgDiv').html(s);
+}
+
+function extractShowStep(step) {
+  if (step.kind == "Show") {
+    return step;
+  } else if (step.sub.length == 1) {
+    return extractShowStep(steps[step.sub[0]]);
+  } else {
+    throw new Error("ERROR: extractShowStep: did not find a step-show in depth");
+  }
+}
+
+function loadDiffForStep(step) {
+  // Special case for the diff of steps whose action is a "show" operation,
+  // for which we show the diff of the substep
+  if (step.tags.includes("show")) {
+    try {
+      step = extractShowStep(step);
+    } catch (error) {
+      console.log("ERROR: extractShowStep: did not find a step-show in depth");
+    }
+  }
+  // Print diff for step
+  var diffString = "";
+  if (step.diff == undefined) {
+    // console.log("Diff was not computed for this step");
+    $("#debugMsgDiv").html("Diff was not saved for this step; to see it, request the trace of a specific step or set the flag detailed_trace");
+  } else if (step.diff == "") {
+    $("#debugMsgDiv").html("Diff is empty");
+  } else {
+    $("#debugMsgDiv").html("");
+    diffString = step.diff;
+  }
+  loadDiffFromString(diffString);
+}
 
 function loadDiffFromString(diffString) {
   // this function should be called only after DOM contents is loaded
@@ -309,45 +380,12 @@ function resetView() {
   $(".ctrl-button").removeClass("ctrl-button-selected ctrl-button-covered");
 }
 
-function getBdiffCovering(sdiffId) {
-  for (var i = 0; i < bigsteps.length; i++) {
-    if (bigsteps[i].start <= sdiffId && sdiffId < bigsteps[i].stop) {
-      return i;
-    }
-  }
-  return -1; // should not happen
-}
-
 function showOrHide(obj, visible) {
   if (visible) {
     obj.show();
   } else {
     obj.hide();
   }
-}
-
-function hideNoncoveredButtons(bdiffId) {
-  // if (smallsteps.length <= maxButtons)
-  //  return; // no hiding needed if only a few steps
-  var step = bigsteps[bdiffId];
-  var start = step.start;
-  var stop = step.stop;
-  /*for (var i = 0; i <= codes.length; i++) {
-    // DEPRECATED showOrHide($("#button_code_" + i), (start <= i && i <= stop));
-    if (i < smallsteps.length)
-      showOrHide($("#button_sdiff_" + i), (start <= i && i < stop));
-  }*/
-  for (var i = 0; i < smallsteps.length; i++) {
-    showOrHide($("#button_sdiff_" + i), (start <= i && i < stop));
-  }
-}
-
-function showBdiffCovered(sdiffId) {
-  var bdiffId = getBdiffCovering(sdiffId);
-  if (bdiffId == -1)
-    return;
-  $("#button_bdiff_" + bdiffId).addClass("ctrl-button-covered");
-  hideNoncoveredButtons(bdiffId);
 }
 
 function displayInfo(descr) {
@@ -367,100 +405,133 @@ function loadSource(sourceCode, dontResetView) {
     resetView();
   }
   $("#sourceDiv").show();
+  if (sourceCode == undefined) {
+    sourceCode = "";
+    // console.log("AST was not saved for this step");
+    // $("#debugMsgDiv").html("AST was not saved for this step");
+    sourceCode = "// AST was not saved for this step; to see it, request the trace of a specific step or set the flag detailed_trace";
+  }
   editor.setValue(sourceCode);
   // DEPRECTED $("#button_code_" + id).addClass("ctrl-button-selected");
   // showBdiffCovered(id);
   //curSource = id;
 }
 
-function loadSdiff(id) {
-  $('#button_sdiff_next').focus();
-  resetView();
-  $("#diffDiv").show();
-  var step = smallsteps[id];
-  selectedStep = step;
-  reloadTraceView(); //loadStepDetails(step.id);
-  loadDiffFromString(step.diff);
-  var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
-  if (options.exectime) {
-    var sTime = htmlSpan(Math.round(1000 * step.exectime) + "ms", "timing-info") + "<div style='clear: both'></div>";
-    sStep += sTime;
-  }
-  displayInfo(sStep);
-  $("#button_sdiff_" + id).addClass("ctrl-button-selected");
-  // DEPRECATED $("#button_code_" + id).addClass("ctrl-button-covered");
-  // DEPRECATED $("#button_code_" + (id+1)).addClass("ctrl-button-covered");
-  showBdiffCovered(id);
-  curSdiff = id;
-  idSourceLeft = id;
-  idSourceRight = id+1;
+function exandClickHandler(event) {
+  console.log(event);
 }
 
-function loadBdiff(id) {
-  $('#button_bdiff_next').focus();
-  resetView();
-  $("#diffDiv").show();
-  var step = bigsteps[id];
-  selectedStep = step;
-  reloadTraceView(); // loadStepDetails(step.id);
-  loadDiffFromString(step.diff);
-  $("#button_bdiff_" + id).addClass("ctrl-button-selected");
-  var sStep = htmlSpan(escapeHTML(step.script), "step-info");
-  displayInfo(sStep);
-  curBdiff = id;
-  // $("#button_sdiff_" + bigsteps[id].start).addClass("ctrl-button-covered");
-  hideNoncoveredButtons(id);
-  curSdiff = bigsteps[id].start - 1; // -1 to anticipate for "next" being pressed
-  idSourceLeft = bigsteps[id].start;
-  idSourceRight =bigsteps[id].stop;
-}
-
-// LATER: simplify, as curSource is deprecated
-function nextSdiff() {
-  /*if (curSdiff == -1 && curSource != -1) {
-    curSdiff = curSource - 1;
-  }*/
-  //var id = Math.min(curSdiff + 1, smallsteps.length-1);
-  var id = (curSdiff + 1) % smallsteps.length;
-  loadSdiff(id);
-}
-
-// LATER: simplify, as curSource is deprecated
-function nextBdiff() {
-  /*if (curBdiff == -1) {
-    if (curSdiff == -1 && curSource != -1) {
-      curSdiff = curSource - 1;
+// handles click or ctrl+click or shift+click or shift+ctrl+click
+function expandClick(event, idStep) {
+  //console.log(event);
+  const expandHidden = event.shiftKey;
+  if (event.ctrlKey) {
+    // ctrl+click expands recursively
+    // shift+ctrl+click expands recursively, including hidden steps
+    expandRecursively(idStep, expandHidden);
+  } else {
+    if (expandHidden) {
+      // shift+click expands at depth one, even hidden substeps
+      expandRecursively(idStep, expandHidden, 1);
+    } else {
+      // click expands or collapse
+      toggleExpandStep(idStep);
     }
-    curBdiff = getBdiffCovering(curSdiff) - 1; // anticipate for the +1 operation
   }
-  //var id = Math.min(curBdiff + 1, bigsteps.length-1);
-  if (curBdiff == -1) {
-    curBdiff = 0;
-  }*/
-  var id = (curBdiff + 1) % bigsteps.length;
-  console.log(id);
-  loadBdiff(id);
 }
 
-// handles a click on a step bullet item, to focus on that step
-function focusOnStep(idStep) {
-  resetView();
-  var step = steps[idStep];
-  selectedStep = step;
-  if (step.hasOwnProperty("smallstep_id")) {
-    loadSdiff(step.smallstep_id);
-  } else if (step.hasOwnProperty("bigstep_id")) {
-    loadSdiff(step.bigstep_id);
+// handles a click on a step expand control
+function toggleExpandStep(idStep) {
+  if (options["expand_all"]) {
+    return;
   }
-  reloadTraceView();
+
+  //console.log("toggleExpandStep " + idStep + " with parent " + steps[idStep].parent_id);
+  var step = steps[idStep];
+
+  // add an expansion entry if needed
+  if (typeof expanded[idStep] === 'undefined') {
+    expanded[idStep] = false;
+  }
+  // toggle expansion and update tree view
+  expanded[idStep] = ! expanded[idStep];
+  reloadTraceView(); // LATER: could be smarter to redraw only the subtree involved
+  //DEPRECATED select step and focus on it if expanding
+  // if (expanded[idStep]) {
+  loadStepDetails(idStep);
+
 }
+
+// handles a [shift]+[ctrl]+click on a step expand control;
+// If depth is an int, it serves as a bound;
+// if depth is a kind (e.g. 'Root', 'Small' or 'Big),
+// thn it expands until reaching that kind.
+// If expandHidden is true, then isStepHidden(step) is ignored.
+function expandRecursively(idStep, expandHidden, depth) {
+  if (options["expand_all"]) {
+    return;
+  }
+  // add an expansion entry if needed
+  if (typeof expanded[idStep] === 'undefined') {
+    expanded[idStep] = false;
+  }
+  const newValue = ! expanded[idStep];
+  // recursive traversal
+  function aux(idStep, newValue, depth) {
+    var step = steps[idStep];
+    if (depth === -1 || step.kind === depth)
+      return;
+    var depthForSub = depth;
+    if (Number.isInteger(depth)) {
+      depthForSub = depth-1;
+    }
+
+    if (!expandHidden && isStepHidden(step)) {
+      return; // don't expand hidden steps
+    }
+    expanded[idStep] = newValue;
+    if (!options.atomic_substeps || !step.tags.includes("atomic")) {
+      for (var i = 0; i < step.sub.length; i++) {
+        var idSubstep = step.sub[i];
+        aux(idSubstep, newValue, depthForSub);
+      }
+    }
+  };
+  aux(idStep, newValue, depth);
+  reloadTraceView();
+  loadStepDetails(idStep);
+}
+
+// expand all paths that lead to an error,
+// the function returns a boolean indicating if a sub-stepn has an error in it
+function expandToRevealErrors(idStep) {
+  var step = steps[idStep];
+  var isError = (step.kind == "Error");
+  var hasErrorSubstep = false;
+  for (var i = 0; i < step.sub.length; i++) {
+    var idSubstep = step.sub[i];
+    var isErrorSubstep = expandToRevealErrors(idSubstep);
+    hasErrorSubstep = hasErrorSubstep || isErrorSubstep;
+  }
+  var ret = isError || hasErrorSubstep;
+  if (ret) {
+    expanded[idStep] = true;
+  }
+  return ret;
+}
+
 
 // handles a click on a step, to view details
 function loadStepDetails(idStep) {
   var step = steps[idStep];
+
+  $(".tree-step").removeClass("step-selected");
+  $("#tree-step-" + idStep).addClass("step-selected");
+
   if (options.ast_before || options.ast_after) {
     var ast = (options.ast_before) ? step.ast_before : step.ast_after;
     loadSource(ast, true);
+    $("#debugMsgDiv").html("")
     $("#diffDiv").hide();
     $("#statsDiv").hide();
     $("#sourceDiv").show();
@@ -471,7 +542,8 @@ function loadStepDetails(idStep) {
     $("#statsDiv").show();
     $("#sourceDiv").hide();
   } else {
-    loadDiffFromString(step.diff);
+    loadDebugMsgs(step.debug_msgs);
+    loadDiffForStep(step);
     $("#diffDiv").show();
     $("#statsDiv").hide();
     $("#sourceDiv").hide();
@@ -489,18 +561,40 @@ function loadStepDetails(idStep) {
   */
 }
 
+function isStepHidden(step) {
+  if (options["hide-same-code"] && step.tags.includes("same-code")) {
+    return true;
+  } else if (! options.step_change && step.kind == "Change") {
+    return true;
+  } else if (step.tags.some((tag) => options["hide-" + tag])) {
+    return true;
+  } else if (options["hide_empty_diff"] && step.diff == "") {
+    return true;
+  }
+  return false;
+}
+
 function stepToHTML(step, isOutermostLevel) {
-  if (!options.noop_steps && (step.ast_before == step.ast_after)) {
-    // TODO: precompute '==' somewhere
+  // Read flag indicating if step is expanded
+  var isStepExpanded = (typeof expanded[step.id] !== 'undefined') && expanded[step.id];
+
+  // Compute if step should be hidden, in case it is not forced to be expanded
+  var hideStep = !isStepExpanded && isStepHidden(step);
+  if (hideStep) {
     return "";
   }
 
   // console.log("steptohtml " + step.id);
   var s = "";
-  var sSubs = "";
 
-  const showSubsteps =
-    (options.atomic_substeps || !step.tags.includes("atomic"));
+  // Recursive steps
+  var sSubs = "";
+  var showSubsteps; // defined by conditionals below
+  if (options["expand_all"]) {
+    showSubsteps = options.atomic_substeps || !step.tags.includes("atomic");
+  } else {
+    showSubsteps = isStepExpanded;
+  }
   if (showSubsteps) {
     for (var i = 0; i < step.sub.length; i++) {
       var substep = steps[step.sub[i]];
@@ -508,28 +602,24 @@ function stepToHTML(step, isOutermostLevel) {
     }
   }
 
-  const hideStep = (step.tags.some((tag) => options["hide-" + tag]));
   // DEPRECATED
     // (!options.target_steps && step.kind == "Target") ||
     // (!options.io_steps && step.kind == "IO") ||
-  var isRoot = (step.id == 0);
+  var isRoot = (step.kind == "Root");
+   // (step.id == 0);
+
   /*if (isRoot) {
     return "<ul class='step-sub'> " + sSubs + "</ul>\n";
-  } else */ if (hideStep) {
-    return sSubs;
-  }
+  } else */
 
-  var validityClass = "";
+
+  // TODO: display check_validity
+
+  var lineClass = "";
   if (step.kind == "IO" || step.kind == "Target") {
-    validityClass = "step-io-target";
+    lineClass = "step-io-target";
   } else if (step.kind == "Error") {
-    validityClass = "step-error";
-  } else if (step.isvalid) {
-    validityClass= "step-valid";
-  } else if (step.has_valid_parent) {
-    validityClass = "step-has-valid_parent";
-  } else {
-    validityClass = "step-invalid";
+    lineClass = "step-error";
   }
   var sTime = "";
   if (options.exectime) {
@@ -542,7 +632,11 @@ function stepToHTML(step, isOutermostLevel) {
     } else {
       nb = Math.round(100 * t) / 100;
     }
-    sTime = "" + nb + "ms";
+    if (t < 0.1) { // don't display < 0.1ms
+      sTime = "";
+    } else {
+      sTime = "" + nb + "ms";
+    }
     var sTimeClass = "exectime-small";
     if (t > 50) {
       sTimeClass = "exectime-heavy";
@@ -550,20 +644,40 @@ function stepToHTML(step, isOutermostLevel) {
       sTimeClass = "exectime-mid";
     }
     sTime = "<span class='" + sTimeClass + "'>" + sTime + "</span>";
-
   }
+
+  var sHasMsg = "";
+  if (step.debug_msgs && step.debug_msgs.length > 0) {
+    sHasMsg = "<span class='has-debug-msg'>MSG</span>";
+  }
+
   var sKind = "";
-  if (step.script_line !== undefined) {
-    sKind = " [<b>" + step.script_line + "</b>] ";
-  } else if (step.kind == "Transfo") {
-    sKind = "";
-  } else if (!options.compact) {
+  // DEPRECATED line number
+  //  if (step.script_line !== undefined) {
+  //  sKind = " [<b>" + step.script_line + "</b>] ";
+  // } else
+  // DEPRECATED show kind conditionally
+  // if (step.kind == "Transfo") {
+  //  sKind = "";
+  // } else if (!options.compact) {
+  //  sKind = " [" + escapeHTML(step.kind) + "] ";
+  // }
+  if (options.kind) {
     sKind = " [" + escapeHTML(step.kind) + "] ";
   }
-  var sScript = escapeHTML(step.script);
+
+  var sScript = escapeHTML(step.script).trim();
   if (step.kind == "Big") {
     sScript = "<b>Bigstep: " + sScript + "</b>";
+  } else if (step.kind == "Small") {
+    // remove the leading '!! ' or '!!!'
+    if (sScript.startsWith('!!!')) {
+      sScript = sScript.substring(3).trim();
+    } else if (sScript.startsWith('!!')) {
+      sScript = sScript.substring(2).trim();
+    }
   }
+
   var sOnClick = "";
   if (step.hasOwnProperty("id")) { // LATER: refine
     sOnClick = "onclick='loadStepDetails(" + step.id + ")'";
@@ -582,15 +696,63 @@ function stepToHTML(step, isOutermostLevel) {
   }
   sName = sName.replace(/_loop_list/,'');
 
-  var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.id + ")'";
-  if (isOutermostLevel && step.id != 0) {
-    var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.parent_id + ")'";
+  var sArgs = "";
+  if (options.args && step.args) {
+    for (var i = 0; i < step.args.length; i++) {
+      var arg = step.args[i];
+      if (arg.name == "") {
+        sArgs += " " + arg.value;
+      } else {
+        sArgs += " " + arg.name + ":" + arg.value;
+      }
+    }
+    sArgs = "<span class='args'>" + escapeHTML(sArgs) + "</span>";
+  }
+
+  // Toggle expand symbol
+  var sOnClickToggleStep = " onmousedown='expandClick(event, " + step.id + ")'";
+  var sStepSymbol = "&#9679;" // bullet for leaves
+  if (step.sub.length > 0) {
+    sStepSymbol = (isStepExpanded) ? "⌵" : "›";
+  }
+
+  // Validity Symbol
+  var sValiditySymbol;
+  if (root_checking_validity) {
+    if (step.isvalid) {
+      sValiditySymbol = "<font color='green'>&#10004;</font>" // check
+    } else if (step.has_valid_parent) {
+      sValiditySymbol = "&diams;"; // diamond, validity is covered by a parent
+    } else if (! step.check_validity) {
+      sValiditySymbol = "&#9679;" // circle, was not trying to check validity
+      // lineClass = "step-has-valid_parent";
+    } else { // step.check_validity && ! step.isvalid
+      sValiditySymbol= "&#10060"; // cross, for a trustme step
+      lineClass = "step-invalid";
+    }
+  } else {
+    sValiditySymbol = "";
+  }
+
+  // Line color
+  var fullLineClass = "";
+  if (step.kind == "Big") {
+    fullLineClass = "step-big";
+  } else if (step.kind == "Small") {
+    if (step.tags.includes("show")) {
+      lineClass = "step-show";
+    } else if (step.isvalid) {
+      lineClass = "step-valid";
+    }
+  }
+  if (step.diff == undefined) {
+    lineClass += " step-nodiff";
   }
 
   // Line contents
-  if (! isRoot) {
-    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + " " + sScript + sTags + "</span></div>";
-  }
+  // if (! isRoot) {
+    s += "<div id='tree-step-" + step.id + "' class='tree-step " + fullLineClass + "'><span class='step-expand' " + sOnClickToggleStep + ">" + sStepSymbol +"</span><span " + sOnClick + " class='step-title " + lineClass + "'>" + sTime + sKind + sHasMsg + sName + sArgs + "" + sScript + sTags + sValiditySymbol + "</span></div>";
+  //}
 
   if (options.justif) {
     for (var i = 0; i < step.justif.length; i++) {
@@ -602,6 +764,7 @@ function stepToHTML(step, isOutermostLevel) {
   s += "<ul class='step-sub'> " + sSubs + "</ul>\n";
 
   if (isOutermostLevel) {
+    // return "<ul class='step-sub'><li> " + s + "<li></ul>\n";
     return s;
   } else {
     return "<li>" + s + "</li>\n";
@@ -647,13 +810,15 @@ function visitSteps(step, visitedSteps) {
 }
 
 function reloadTraceView() {
+  //console.log("reloadTraceView " + selectedStep.id);
   // var shouldShowDetails = ($("#detailsDiv").html() == "");
   resetView();
-  if (options.details) {
+  /* DEPRECATED: hide tree
+  if (options.tree) {
     $("#detailsDiv").show();
   } else {
     $("#detailsDiv").hide();
-  }
+  }*/
   if (typeof selectedStep !== "undefined") {
     loadStepDetails(selectedStep.id); // TODO inline here?
     $("#detailsDiv").html(stepToHTML(selectedStep, true));
@@ -667,86 +832,78 @@ function reloadTraceView() {
   //}
 }
 
-// handles click on the "all" button
-function viewDetailsAll() {
-  // $("#diffDiv").hide();
-  selectedStep = steps[0]; // root
+// handles update after click on "normal" or "full" button
+function optionsCheckboxUpdate() {
+  // update checkbox display // TODO: use this also in other place
+  for (var key in options) {
+    var elem = $('#option_' + key);
+    if (elem.length == 1) {
+      elem.prop('checked', options[key]);
+    }
+  }
+}
+
+// handles click on the "normal" button
+function viewDetailsNormal() {
+  for (var key in options) {
+    options[key] = optionsDefault[key];
+  }
+  optionsCheckboxUpdate();
   reloadTraceView();
-  // $("#detailsDiv").html(stepToHTML(selectedStep));
 }
 
 // handles click on the "full" button
 function viewDetailsFull() {
   for (var key in options) {
     options[key] = false;
+    options["justif"] = false;
   }
-  options["details"] = true;
-  options["justif"] = true;
+  options["expand_all"] = true;
+  options["args"] = true;
   options["exectime"] = true;
-  options["noop_steps"] = true; // TODO: should be a tag
-
-  // update checkbox display // TODO: use this also in other place
-  for (var key in options) {
-    $('#option_' + key).prop('checked', options[key]);
-  }
+  options["step_change"] = true;
+  optionsCheckboxUpdate();
   reloadTraceView();
 }
 
 function initOptions() {
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
+    optionsDefault[descr.key] = descr.default;
     options[descr.key] = descr.default;
+  }
+  // default value for 'advanced' depends on whether
+  // the 'webview' variable is defined in *_trace.js
+  if (typeof webview === "undefined" || webview === false) {
+    options.advanced = true;
   }
 }
 
-initOptions();
 function initControls() {
   var s = "";
-  function addRow(sTitle, sRow) {
-    s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br/>";
-  };
-
-  // Code buttons
-  /* DEPRECATED
-  var sCode = "";
-  sCode += htmlButton("button_code_next", "next", "next-button", "nextSource()");
-  for (var i = 0; i < codes.length; i++) {
-    sCode += htmlButton("button_code_" + i, i, "ctrl-button", "loadSource(" + i + ")");
-  }
-  addRow("Source", sCode);
-  */
-
-  // Big diff buttons
-    var sBdiff = "";
-  sBdiff += htmlButton("button_bdiff_next", "next", "next-button", "nextBdiff()");
-  for (var i = 0; i < bigsteps.length; i++) {
-    sBdiff += htmlButton("button_bdiff_" + i, (i+1), "ctrl-button", "loadBdiff(" + i + ")");
-  }
-  if (bigsteps.length > 1) {
-    addRow("BigSteps", sBdiff);
-  }
-
-  // Small diff buttons
-  var sSdiff = "";
-  sSdiff += htmlButton("button_sdiff_next", "next", "next-button", "nextSdiff()");
-  for (var i = 0; i < smallsteps.length; i++) {
-    sSdiff += htmlButton("button_sdiff_" + i, (i+1), "ctrl-button", "loadSdiff(" + i + ")");
-  }
-  addRow("SmallSteps", sSdiff);
-
-  // Details button
-  // s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
-  s += htmlButton("button_all", "all", "details-button", "viewDetailsAll()");
+  /* DEPRECATED function addRow(sTitle, sRow) {
+    s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br class='row-br'/>";
+  }; */
 
   // Generate checkboxes
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
+    // skip advanced options if not options advanced selected
+    if (! options.advanced && (descr.kind == "advanced" || descr.kind == "tag")) {
+      continue;
+    }
     var id = "option_" + descr.key;
-    s += htmlCheckbox(id, descr.name, "details-checkbox", "updateOptions()");
+    var oncheck = "updateOptions()";
+    if (descr.name == "advanced") {
+      oncheck += "; initControls()";
+    }
+    s += htmlCheckbox(id, descr.name, "details-checkbox", oncheck);
   }
 
-  // Full button
+  // Full/normal button
+  s += htmlButton("button_normal", "normal", "details-button", "viewDetailsNormal()");
   s += htmlButton("button_full", "full", "details-button", "viewDetailsFull()");
+  s += htmlButton("button_reset", "reset", "details-button", "location.reload()");
 
   $("#contents").html(s);
 
@@ -763,8 +920,10 @@ function updateOptions() {
   var ast_before_was_checked = options.ast_before;
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
-    var id = "option_" + descr.key;
-    options[descr.key] = $('#' + id).prop('checked');
+    var elem = $('#option_' + descr.key);
+    if (elem.length == 1) {
+      options[descr.key] = elem.prop('checked');
+    }
   }
   /* LATER
   if (options.exectime) {
@@ -782,63 +941,6 @@ function updateOptions() {
     }
   }
   reloadTraceView();
-}
-
-function initSteps() {
-  // reads global variable [steps]
-  // writes global variables [smallsteps] and [bigsteps] and [hasBigsteps]
-  var rootStep = steps[0];
-  var rootSub = rootStep.sub;
-  if (rootSub.length == 0) {
-    console.log("Error: no steps in tree")
-    return;
-  }
-  // set global variable [hasBigsteps]
-  hasBigsteps = (steps[rootSub[0]].kind == "Big");
-
-  // counter used to fill [smallsteps] array
-  var curSmallStep = 0;
-
-  // function to iterate over an array of step ids treated as small steps
-  function numberSmallSteps(stepIds) {
-    for (var i = 0; i < stepIds.length; i++) {
-      var smallstep_id = stepIds[i];
-      var smallstep = steps[smallstep_id];
-      if (smallstep.kind == "IO") {
-        continue;
-      }
-      if (smallstep.kind != "Small") {
-        console.log("Error: numberSmallSteps expected a small step but encountered a step of kind " + smallstep.kind);
-      }
-      // DEPRECATED(redundant) smallstep.id = smallstep_id;
-      smallstep.smallstep_id = curSmallStep;
-      smallsteps[curSmallStep] = smallstep;
-      curSmallStep++;
-    }
-  };
-
-  if (hasBigsteps) {
-    // filling of [bigsteps] and [smallsteps] array
-    for (var i = 0; i < rootSub.length; i++) {
-      var bigstep_id = rootSub[i];
-      var bigstep = steps[bigstep_id];
-      if (bigstep.kind == "IO") {
-        continue;
-      }
-      if (bigstep.kind != "Big") {
-        console.log("Error: initSteps expected a big-step but encountered a step of kind " + bigstep.kind);
-      }
-      // DEPRECATED(redundant) bigstep.id = bigstep_id;
-      bigstep.start = curSmallStep;
-      numberSmallSteps(bigstep.sub);
-      bigstep.stop = curSmallStep;
-      bigstep.bigstep_id = i;
-      bigsteps[i] = bigstep;
-    }
-  } else {
-    // there are no big-steps, filling only [smallsteps] array
-    numberSmallSteps(rootSub);
-  }
 }
 
 function initTree(id, parent_id, has_valid_parent) {
@@ -871,7 +973,7 @@ function initAllTags() {
     var descr = {
       key: key,
       name: key,
-      kind: "UI",
+      kind: "tag",
       default: val,
     };
     optionsDescr.push(descr);
@@ -880,27 +982,36 @@ function initAllTags() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+  var isRootedTrace = (steps[0].kind == "Root");
+  root_checking_validity = steps[0].check_validity;
   initEditor();
-  initSteps();
-  initTree(0, 0, false); // the root is its own parent, has no valid parent
   initAllTags();
   initOptions();
   initControls();
   initSplitView();
+  initTree(0, 0, false); // the root is its own parent, has no valid parent
   // editor.setValue("click on a button");
-  if (hasBigsteps) {
-    loadBdiff(0); }
-  else {
-    loadSdiff(0);
+  if (isRootedTrace) {
+  } else {
+    $('.row-title').hide();
+    $('.row-br').hide();
   }
-  $('#button_bdiff_next').focus();
 
   // start by showing the tree of steps on the root, or the requested step
   var stepInit = 0; // root
-  if (typeof startupOpenStep !== "undefined") {
-    stepInit = startupOpenStep;
-  }
   selectedStep = steps[stepInit];
+  if (typeof startupOpenStep !== "undefined") {
+    // if a step is targeted, expand it recursively
+    expandRecursively(startupOpenStep, false);
+    // DEPRECATED stepInit = startupOpenStep;
+    // DEPRECATED expanded[startupOpenStep] = true;
+  } else {
+    // expand big and small steps
+    expandRecursively(stepInit, false, 'Small');
+    // expand to ensure errors are all visible
+    expandToRevealErrors(stepInit);
+  }
+  // display tree
   reloadTraceView(); // calls loadStepDetails(selectedStep)
 });
 

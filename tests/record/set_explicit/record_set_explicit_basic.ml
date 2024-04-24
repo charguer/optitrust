@@ -13,9 +13,8 @@ let _ = Run.script_cpp ( fun _ ->
   !! Record_basic.set_explicit [sInstr "c.speed ="];
 
 
-  !! Trace.alternative (fun () ->
-    !! Record_basic.set_explicit [sInstr "c = a"];
-    !! Record_basic.set_explicit [nbMulti;cOr [[sInstr "c.pos ="]; [sInstr "c.speed ="]]];
-    !! ());
+  !! Trace.restore_original();
+  !! Record_basic.set_explicit [sInstr "c = a"];
+  !! Record_basic.set_explicit [nbMulti;cOr [[sInstr "c.pos ="]; [sInstr "c.speed ="]]];
 
 )

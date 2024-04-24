@@ -10,9 +10,9 @@ let%transfo delete (tg : target) : unit =
   let tr () =
     Sequence_basic.delete tg in
   if !Flags.check_validity then begin
-    Target.iter (fun t p ->
+    Target.iter (fun p ->
       let error =  "Function.delete expects to target a function definition within a sequence" in
-      let (_, _, _, _) = trm_inv ~error trm_let_fun_inv (Path.get_trm_at_path p t) in
+      let (_, _, _, _) = trm_inv ~error trm_let_fun_inv (resolve_path p) in
       Scope.justif_unused p
     ) tg;
     tr();
@@ -29,7 +29,7 @@ let%transfo delete (tg : target) : unit =
 
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
-let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
+let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = no_mark) (tg : target) : unit =
   Nobrace_transfo.remove_after ( fun _ ->
     applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ t (p, p_local, i)  ->
@@ -88,8 +88,7 @@ let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bo
    @correctness: always works, and also needs to instantiate variables in the
    local invariants in the body. *)
 
-let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : target) : unit =
-  Resources.justif_correct "arguments are pure/reproducible";
+let%transfo inline ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
@@ -101,7 +100,7 @@ let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : 
 (* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases
     when the decaration of the function call can be founded at the targeted function call contrary to [inline]
     which will need to find first the toplevel declaration.  *)
-let beta ?(body_mark : mark = "") (tg : target) : unit =
+let beta ?(body_mark : mark = no_mark) (tg : target) : unit =
   inline ~body_mark tg
 
 

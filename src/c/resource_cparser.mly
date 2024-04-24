@@ -8,12 +8,13 @@
 %token <string> IDENT
 %token <int> INT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW FUN COLON_EQUAL EOF
+%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL DOTDOT
+%token FUN FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
 
-%start <contract_resource list> resource_list
-%start <(hyp * formula) list> ghost_arg_list
+%start <contract_resource_item list> resource_list
+%start <resource_item list> ghost_arg_list
 
 %%
 
@@ -27,15 +28,21 @@ flex_list(delimiter, X):
 
 atomic_formula:
   | x=IDENT
-    { trm_var { qualifier = []; name = x; id = -1 } }
+    { trm_var { qualifier = []; name = x; id = inferred_var_id } }
   | x=INT_LIT
     { trm_int x }
   | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
     { trm_apps func args }
-  | AMPERSAND; tab=atomic_formula; LBRACKET; index=atomic_formula; RBRACKET;
-    { trm_array_access tab index }
+  | AMPERSAND; x=address_formula;
+    { trm_address_of x }
   | LPAR; f=formula; RPAR
     { f }
+
+address_formula:
+  | tab=address_formula; LBRACKET; index=atomic_formula; RBRACKET;
+    { trm_array_get tab index }
+  | x=IDENT
+    { trm_var { qualifier = []; name = x; id = inferred_var_id } }
 
 arith_factor:
   | a=arith_factor; STAR; b=atomic_formula;
@@ -68,6 +75,8 @@ formula_cmp:
     { formula_geq a b }
   | a=arith_term; NEQ; b=arith_term;
     { formula_neq a b }
+  | start=arith_term; DOTDOT; stop=arith_term;
+    { formula_range start stop (trm_int 1) }
   | a=arith_term;
     { a }
 
@@ -83,7 +92,9 @@ formula:
   | t=atomic_formula; SQUIG_ARROW; f=atomic_formula;
     { formula_model t f }
   | FUN; args=separated_nonempty_list(COMMA, IDENT); ARROW; body=formula;
-    { trm_fun ~annot:formula_annot (List.map (fun x -> { qualifier = []; name = x; id = -1 }, typ_make Typ_auto) args) None body }
+    { trm_fun ~annot:formula_annot (List.map (fun x -> name_to_var x, typ_auto ()) args) None body }
+  | FOR; index=IDENT; IN; range=formula_cmp; ARROW; body=formula;
+    { trm_apps ~annot:formula_annot trm_group [range; trm_fun ~annot:formula_annot [name_to_var index, typ_int ()] None body] }
 
 resource:
   | f=formula

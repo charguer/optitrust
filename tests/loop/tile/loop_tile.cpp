@@ -1,10 +1,11 @@
 #include <stdio.h>
+#include <optitrust.h>
 
 int min(int x, int y) {
   return (x < y) ? x : y;
 }
 
-int main() {
+void f() {
   int s1 = 0;
   int s2 = 0;
   int s3 = 0;
@@ -32,5 +33,18 @@ int main() {
     t3 += k;
   }
   printf ("%d %d %d\n", t1, t2, t3);
-  return 0;
+}
+
+void matrix_copy(int* D, int* S) {
+  __modifies("D ~> Matrix1(1024)");
+  __reads("S ~> Matrix1(1024)");
+
+  for (int i = 0; i < 1024; ++i) {
+    __strict();
+    __xmodifies("&D[MINDEX1(1024, i)] ~> Cell");
+    __sreads("S ~> Matrix1(1024)");
+    __GHOST_BEGIN(focus, matrix1_ro_focus, "S, i");
+    D[MINDEX1(1024, i)] = S[MINDEX1(1024, i)];
+    __GHOST_END(focus);
+  }
 }

@@ -26,16 +26,18 @@ let save_batch_result ~(basename : string) ~(exec_success : bool) ~(diff_success
   } in
   batch_results := result :: !batch_results
 
+(* NOT YET IMPLEMENTED *)
 let compare_expected_serialized : bool ref = ref false
 let stop_on_error : bool ref = ref false
 
-(* Function to report progress, can be overwritten by tester.ml *)
+(* Function to report progress *)
 (* TODO: not sure if eprintf should be used by default ;
          should be using a flag to control verbosity *)
 let report_progress script_name =
+  let msg = Printf.sprintf "Batch test executing: %s" script_name in
   if !Flags.hide_stdout
-    then (Printf.eprintf "Batch test executing: %s\n" script_name; flush stderr)
-    else (Printf.printf "Batch test executing: %s\n" script_name; flush stdout)
+    then (Printf.eprintf "%s\n" msg; flush stderr)
+    else (Printf.printf "%s\n" msg; flush stdout)
 
 
 (******************************************************************************)
@@ -52,6 +54,7 @@ let run_test ~(script_name:string) (test: unit -> (module TEST)) =
   let program_name = !Flags.program_name in
   let program_path = Filename.dirname program_name in
   Flags.program_name := program_path ^ "/" ^ script_name;
+  Tools.reset_all_generators ();
   report_progress script_name;
   begin try
     let _ = test () in

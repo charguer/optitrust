@@ -15,28 +15,8 @@
    <!--Make sure to load the CSS file in that order-->
    <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/lib/highlight.js_github.min.css" />
    <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/lib/diff2html.min.css" />
+   <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/optitrust_diff.css" />
    <script type="text/javascript" src="{WEB_VIEW_FOLDER}/lib/diff2html-ui.min.js"></script>
-
-<style>
-/* Hide the filename since we're concerned with only one file name */
-.d2h-file-header {
-   display: none;
-}
-.d2h-code-side-line {
-  padding: 0em;
-}
-.d2h-code-side-linenumber {
-  display: none;
-}
-
-/* disable the highlighting of words diff on a line */
-.d2h-code-line ins, .d2h-code-side-line ins {
-    background-color: #dfd;
-}
-.d2h-code-line del, .d2h-code-side-line del {
-    background-color: #fee8e9;
-}
-</style>
 
 <script>
    var diffString = "";

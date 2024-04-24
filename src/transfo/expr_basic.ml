@@ -43,9 +43,9 @@ let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (t
   let ro = match constr, rexp with
     | None, None -> None
     | Some (Constr_regexp r), None -> Some r
-    | Some _, None -> fail None "Expr_basic.view_subterms: [~constr] argument must be a regexp-constraint (e.g., sInstr or sExpr)"
+    | Some _, None -> failwith "Expr_basic.view_subterms: [~constr] argument must be a regexp-constraint (e.g., sInstr or sExpr)"
     | None, Some r -> Some r
-    | Some _, Some _ -> fail None "Expr_basic.view_subterms: cannot provide both [~constr] and [rexp]"
+    | Some _, Some _ -> failwith "Expr_basic.view_subterms: cannot provide both [~constr] and [rexp]"
     in
   let stringreprs = Target.compute_stringreprs_and_update_ast (fun _ -> true) in
   (* for debug: AstC_to_c.print_stringreprs stringreprs; *)

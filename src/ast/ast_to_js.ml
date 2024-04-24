@@ -29,7 +29,7 @@ let typ_to_json(typ : typ) : t =
 
 (* [typdef_to_json td]: converts an OptiTrust typedef to a json object *)
 let typdef_to_json(td : typedef) : t =
-  Str (Tools.document_to_string (bquotes (AstC_to_c.typedef_to_doc td)))
+  Str (Tools.document_to_string (bquotes (AstC_to_c.(typedef_to_doc (default_style())) td)))
 
 (* [json_to_js]: creates a javascript variable of type json object from ast [j] *)
 let json_to_js (index : int) (j : t) : document =
@@ -192,7 +192,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "val";
-          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(AstC_to_c.val_to_doc (trm_get_cstyles t) t.typ v))));
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (AstC_to_c.(val_to_doc (default_style())) (trm_get_cstyles t) t.typ v))));
           children_to_field [] ]
     | Trm_var (_, x) ->
         [ kind_to_field "var";
@@ -237,14 +237,13 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";
           children_to_field children]
-    | Trm_for (l_range, body, _) ->
-      let (index, start, _, stop, step, _) = l_range in
+    | Trm_for (range, body, _) ->
       [ kind_to_field "simple_for";
-          (strquote "index", strquote index.name); (* TODO: #var-id , also encode qualifier and id ? *)
+          (strquote "index", strquote range.index.name); (* TODO: #var-id , also encode qualifier and id ? *)
           children_to_field [
-            child_to_json "start" (aux start);
-            child_to_json "stop" (aux stop);
-            child_to_json "step" (aux (loop_step_to_trm step));
+            child_to_json "start" (aux range.start);
+            child_to_json "stop" (aux range.stop);
+            child_to_json "step" (aux (loop_step_to_trm range.step));
             child_to_json "body" (aux body) ] ]
     | Trm_for_c (init, cond, step, body, _) ->
         [ kind_to_field "for";
@@ -282,7 +281,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
                 match case with
                 | ([],body) -> [(body_label, aux body)]
                 | ([tpat],body) -> [(pat_label, aux tpat); (body_label, aux body)]
-                | (_,body) -> fail t.loc "Ast_to_js.multipattern switch not yet supported in json output"
+                | (_,body) -> trm_fail t "Ast_to_js.multipattern switch not yet supported in json output"
            *)
     | Trm_abort res ->
         begin match res with
@@ -353,6 +352,7 @@ let ast_to_json (trm_root : trm) : json =
                           | None -> strquote "<no type information>"
                           | Some typ -> typ_to_json typ )));
       (strquote "is_statement", Json.Bool t.is_statement);
+      (strquote "errors", Json.List (List.map Json.str t.errors));
       (* (strquote "annot", strquote (annot_list_to_string t) ); *) (* Fix me! *)
       (strquote "loc", loc_to_json t);
       ]) in

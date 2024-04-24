@@ -7,6 +7,6 @@ int main() {
   int d = c + c;
   int& e = c;
   d = c + c;
-  const int e1 = (int f(int a) { return a + 1; })(2);
+  const int e1 = f(2);
   return 0;
 }

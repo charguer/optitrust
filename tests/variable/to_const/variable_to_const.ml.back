@@ -38,7 +38,7 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Variable_basic.to_const [cVarDef "bad"];
   !! Trace.reparse();
-  !! Trace.failure_expected (fun () -> ());
+  !! Trace.failure_expected (fun _e -> true) (fun () -> ());
   *)
 
 )

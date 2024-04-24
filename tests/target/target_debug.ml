@@ -1,5 +1,6 @@
 open Optitrust
-open Target
+open Prelude
+let show = Show.add_marks_for_target_unit_tests
 
 (*let _= Flags.use_new_encodings :=  false*)
 
@@ -16,8 +17,9 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp (fun () ->
 
-  show [cOr [[cVarDef "a"];[cVarDef "b"];[cVarDef "c"];[cVarDef "d"]]];
-  show [cVarDefs ["a";"b";"c";"d"]];
+  !! show [cOr [[cVarDef "a"];[cVarDef "b"];[cVarDef "c"];[cVarDef "d"]]];
+  !! show [cVarDefs ["a";"b";"c";"d"]];
+
   (*show [cTopFunDef "a"];
   (* !! Expr.view_subterms [dRoot]; *)
   (* !! Expr.view_subterms ~constr:(sInstr "+= 2") [dRoot]; *)

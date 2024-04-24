@@ -77,6 +77,12 @@ else:
   # -mcpu=core-avx2
   target = "llvm -mcpu=core-avx2"
 
+  def dump(make_s, f):
+    if False: # set to True to dump
+      f = open(f, "w")
+      f.write(make_s())
+      f.close()
+
   def build_mm_tvm():
     bn = 32
     kfactor = 4
@@ -118,11 +124,13 @@ else:
     s[packedB].vectorize(littleN)
     s[packedB].parallel(bigN)
 
-    # print(tvm.lower(s, [A, B, C], simple_mode=True))
+    dump(lambda: str(tvm.lower(s, [A, B, C], name="mm")), "tvm_ir")
 
     return tvm.build(s, [A, B, C], target=target, name="mm")
 
   mm_tvm = build_mm_tvm()
+
+  dump(mm_tvm.get_source, "tvm_code")
 
   dev = tvm.device(target, 0)
   to_dev = lambda x: tvm.nd.array(x, dev)

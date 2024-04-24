@@ -21,7 +21,7 @@ let replace_fun (name : var) : Target.Transfo.local =
 (* [view_subterms_aux stringreprs ro]: prints the string representations of all the subterms of [t]  *)
 let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp option) (t : trm) : trm =
   let sprintf = Printf.sprintf in
-  let rec aux t =
+  let rec aux (t : trm) : trm =
     let sloc =
       match t.loc with
       | None -> "<noloc>"
@@ -61,7 +61,7 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
         in
       Str.global_replace (Str.regexp "\n") " " s
       in
-    let sannot = Tools.document_to_string (Ast_to_text.print_trm_annot t) in
+    let sannot = Tools.document_to_string (Ast_to_text.(print_trm_annot (default_style())) t) in
     let tkind = Constr.get_trm_kind t in
     let skind = Constr.trm_kind_to_string tkind in
     let sreg =

@@ -5,7 +5,7 @@
   exception SyntaxError of string
 }
 
-let ident = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
+let ident = ['a'-'z' 'A'-'Z' '_' '#'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
 let int_lit = ['0'-'9']+
 let blank = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
@@ -17,6 +17,8 @@ rule lex_resources = parse
   | "->" { ARROW }
   | "~>" { SQUIG_ARROW }
   | "fun" { FUN }
+  | "for" { FOR }
+  | "in" { IN }
   | ":=" { COLON_EQUAL }
   | '(' { LPAR }
   | ')' { RPAR }
@@ -33,6 +35,7 @@ rule lex_resources = parse
   | "<=" { LEQ }
   | ">=" { GEQ }
   | "<>" { NEQ }
+  | ".." { DOTDOT }
   | blank { lex_resources lexbuf }
   | newline { new_line lexbuf; lex_resources lexbuf }
   | ident { IDENT (lexeme lexbuf) }

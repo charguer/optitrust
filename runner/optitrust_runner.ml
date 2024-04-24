@@ -2,6 +2,12 @@
  * first argument and execute it as if it was an OCaml program. *)
 
 let () =
+  let optitrust_root = match Sys.getenv_opt "OPTITRUST_FOLDER" with
+  | Some path -> path
+  | None -> Filename.dirname (Filename.dirname Sys.argv.(0))
+  in
+  Optitrust.Flags.optitrust_root := optitrust_root;
+
   if Array.length Sys.argv >= !Arg.current + 2 then (
     Arg.current := !Arg.current + 1;
     let plugin_name = Sys.argv.(!Arg.current) in

@@ -1,8 +1,14 @@
-open Prelude
-open Target
+open Ast
+open Trm
+open Typ
+open Mark
+open Matrix_trm
 
-(* list of (offset, size) *)
+(** list of (offset, size) *)
 type nd_tile = (trm * trm) list
+
+(** list of (start, end) *)
+type nd_range = (trm * trm) list
 
 (* TODO?
 (* [tile_none]: special tile value where the dimension should be kept fully *)
@@ -12,69 +18,13 @@ let tile_all: trm * trm = trm_int 1, trm_int 0
 let tile_none: trm * trm = trm_int 0, trm_int 0
 *)
 
-(* [access t dims indices]: builds the a matrix access with the index defined by macro [MINDEX], see [mindex] function.
-    Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
-let access ?(annot : trm_annot = trm_annot_default) (t : trm) (dims : trms) (indices : trms) : trm =
-  let mindex_trm = mindex dims indices in
-  trm_apps ~annot (trm_binop Binop_array_access) [t; mindex_trm]
-
-(* [access_inv t]: returns the array access base, the list of dimensions and indices used as args at matrix access [t]. *)
-let access_inv (t : trm) : (trm * trms * trms) option=
-  match t.desc with
-  | Trm_apps (f, [base;index], _) ->
-    begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_array_access) ->
-      begin match mindex_inv index with
-      | Some (dm, ind) -> Some (base, dm, ind)
-      | _ -> None
-      end
-    | _ -> None
-    end
-  | _ -> None
-
-(* [get base dims indices]: takes the trm built from access function and puts it into a get operation. *)
-let get (base : trm) (dims : trms) (indices : trms) : trm =
-  let access_trm = access base dims indices in
-  trm_apps (trm_unop Unop_get) [access_trm]
-
-(* [get_inv t]: gets the trm inside a get oepration on an access. *)
-let get_inv (t : trm) : (trm * trms * trms) option =
-  match t.desc with
-  | Trm_apps (_f,[base], _) when is_get_operation t -> access_inv base
-  | _ -> None
-
-(* [set base dims indices arg]: creates a set operation on which the address where the write is done
-    is an access trm built with function accesses and [arg] is the value which is written to that
-    that address. *)
-let set (base : trm) (dims : trms) (indices : trms) (arg : trm) : trm =
-  let write_trm = access base dims indices in
-  trm_apps (trm_binop (Binop_set)) [write_trm; arg]
-
-(* [set_inv t]: returns the arguments used in the function [set]. *)
-let set_inv (t : trm) : (trm * trms * trms * trm)  option =
-  match t.desc with
-  | Trm_apps (_f, [addr;v], _) when is_set_operation t ->
-    begin match access_inv addr with
-    | Some (base, dims, indices) -> Some (base, dims, indices, v)
-    | None -> None
-    end
-  | _ -> None
-
-(* |alloc ~init dims size]: creates a call to function the MALLOC$(N) and CALLOC$(N) where [N] is the
-     number of dimensions and [size] is the size in bytes occupied by a single matrix element in
-     the memeory. *)
-let alloc ?(init : trm option) (dims : trms) (size : trm) : trm =
-  let n = List.length dims in
-  match init with
-  | Some _ -> trm_apps (trm_var (name_to_var ("CALLOC" ^  (string_of_int n)))) (dims @ [size])
-  | None -> trm_apps (trm_var (name_to_var ("MALLOC" ^  (string_of_int n)))) (dims @ [size])
-
-
-let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
+(* TODO: doc. [annot] is for annoting the outer cast operation, [annot_call]
+  is for annotating the inner call to malloc *)
+let alloc_with_ty ?(annot : trm_annot = trm_annot_default) ?(annot_call : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
   let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
   trm_cast ~annot (typ_const_ptr ty) (
-    trm_apps (trm_var (name_to_var ("MALLOC" ^  (string_of_int n)))) (dims @ [size]))
+    trm_apps ~annot:annot_call (trm_var (malloc_var n)) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
   (* Option.bind (trm_new_inv t) (fun (_, t2) -> *)
@@ -105,25 +55,6 @@ let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
   let n = List.length dims in
   trm_apps (trm_toplevel_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
 
-
-(* [zero_initialized]: a boolean type used as flag to tell if the array cells should be initialized to zero or not. *)
-type zero_initialized = bool
-
-
-(* [alloc_inv t]:  returns all the args used in function alloc [t]. *)
-let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
-  match t.desc with
-  | Trm_apps (f, args,_) ->
-    begin match f.desc with
-    | Trm_var (_, f_var) ->
-      let dims , size = Xlist.unlast args in
-      if (Tools.pattern_matches "CALLOC" f_var.name) then Some (dims, size, true)
-        else if (Tools.pattern_matches "MALLOC" f_var.name) then Some (dims, size, false)
-        else None
-    | _ -> None
-    end
-  | _ -> None
-
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) option =
   match t.desc with
@@ -139,39 +70,150 @@ let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) opt
 
   | _ -> None
 
-let free (dims : trms) (t : trm) : trm =
-  let n = List.length dims in
-  trm_apps (trm_var (name_to_var ("MFREE" ^  (string_of_int n)))) (dims @ [t])
+let mmemcpy_var = toplevel_var "MMEMCPY"
 
-let free_inv (t : trm) : trm option =
-  Option.bind (trm_apps_inv t) (fun (f, args) ->
-  Option.bind (trm_var_inv f) (fun f_var ->
-    if Tools.pattern_matches "MFREE" f_var.name
-    then begin
-      let _dims, t = Xlist.unlast args in
-      Some t
-    end else None
-  ))
+(** [memcpy dest d_offset d_dims src s_offset s_dims copy_dims elem_size] uses a series
+    of [matrixN_contiguous] and [mindexN_contiguous] ghosts to issue a [MMEMCPY] from
+    matrix [dest] at [d_offset] to matrix [src] at [s_offset].
 
-(* [replace_all_accesses]: replace all accesses to [prev_v] in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].*)
-let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices : (trm -> trm) list) (mark : mark option) (t : trm) : trm =
+    Preconditions:
+    - [dest] has dims [d_dims] and [(len d_offset) <= (len d_dims)]
+    - [src] has dims [s_dims] and [(len s_offset) <= (len s_dims)]
+    - [(len d_dims) - (len d_offset) = (len s_dims) - (len s_offset) = (len copy_dims)]
+    - [take_last (len copy_dims) d_dims = take_last (len copy_dims) s_dims]
+  *)
+let memcpy
+  (dest : trm) (d_offset : trm list) (d_dims : trm list)
+   (src : trm) (s_offset : trm list) (s_dims : trm list)
+  (copy_dims : trm list) (elem_size : trm) : trm =
+  let dol = List.length d_offset in
+  let ddl = List.length d_dims in
+  let sol = List.length s_offset in
+  let sdl = List.length s_dims in
+  let cdl = List.length copy_dims in
+  assert (dol <= ddl && sol <= sdl);
+  assert (ddl - dol == cdl && sdl - sol == cdl);
+  if copy_dims = [] then Nobrace.trm_seq_nomarks [] else
+
+  let compute_flat_offset offset offset_length dims =
+    (* N1 ... NO ... NM
+       o1 ... oO
+       o1*N2*...*NM + ... + oO*N{O-1}*...*NM
+      *)
+    (* if offset = [] then trm_int 0 else *)
+    let (sum_terms, _) = List.fold_left (fun (sum_terms, multipliers) dim_offset ->
+      let multipliers = Xlist.drop_one_or_else (fun () -> []) multipliers in
+      let sum_term = List.fold_left trm_mul dim_offset multipliers in
+      let sum_terms = sum_terms @ [sum_term] in
+      (sum_terms, multipliers)
+    ) ([], dims) offset in
+    List.fold_right trm_add sum_terms (trm_int 0)
+  in
+  let d_flat_offset = compute_flat_offset d_offset dol d_dims in
+  let s_flat_offset = compute_flat_offset s_offset sol s_dims in
+  let flat_elems = Xlist.reduce_left trm_mul copy_dims in
+  let t = trm_apps (trm_var mmemcpy_var)
+    [dest; d_flat_offset; src; s_flat_offset; flat_elems; elem_size] in
+
+  let scoped_mindex_contiguous_write mat_trm dims offset t =
+    if dims < 2 then t else
+    let a = Matrix_trm.mindex_contiguous_ghost_call dims "_uninit" ["M", mat_trm] in
+    let b = Matrix_trm.mindex_contiguous_rev_ghost_call dims "" ["M", mat_trm] in
+    Nobrace.trm_seq_nomarks Resource_trm.[ghost a; t; ghost b]
+  in
+  let scoped_mindex_contiguous_read mat_trm dims offset t =
+    if dims < 2 then t else
+    Resource_trm.ghost_scope (Matrix_trm.mindex_contiguous_ghost_call
+     dims "_ro" ["M", mat_trm]
+    ) t
+  in
+  let t = scoped_mindex_contiguous_write dest ddl d_offset t in
+  let t = scoped_mindex_contiguous_read src sdl s_offset t in
+  (* TODO: call matrixN_contiguous on copy_dims *)
+  t
+
+(** same as {!memcpy}, but constructs [elem_size] parameter from element type [ty]. *)
+let memcpy_with_ty
+  (dest : trm) (d_offset : trm list) (d_dims : trm list)
+  (src : trm) (s_offset : trm list) (s_dims : trm list)
+  (copy_dims : trm list) (ty : typ) : trm =
+  let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
+  memcpy dest d_offset d_dims src s_offset s_dims copy_dims size
+
+(** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
+    using the [map_access] function.
+
+    Fails if [v] occurs in a sub-term that is not an access to [v], as this could mean some
+    accesses are hidden (e.g. behind a function call).
+
+    - the dimensions and type of the matrix [v] are stored in [ret_dims_and_typ] if provided.
+    *)
+let map_all_accesses (v : var) ?(ret_dims_and_typ : (trms * typ) option ref option)
+  (map_access : trms -> trms -> trm) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match access_inv t with
-    | Some (f, prev_dims, prev_indices) ->
+    | Some (f, dims, indices) ->
       begin match trm_var_inv f with
-      | Some n when n = prev_v ->
-        let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
-        trm_may_add_mark mark (access (trm_var v) dims indices)
+      | Some x when var_eq x v ->
+        Option.iter (fun rdt ->
+          if Option.is_none !rdt then begin
+            let typ = Option.get (typ_const_ptr_inv (Option.get f.typ)) in
+            rdt := Some (dims, typ);
+          end;
+        ) ret_dims_and_typ;
+        map_access dims indices
       | _ -> trm_map aux t
       end
     | None ->
       begin match trm_var_inv t with
-      | Some n when n = prev_v ->
-        fail t.loc "Matrix_core.replace_all_accesses: variable access is not covered"
+      | Some x when x = v ->
+        trm_fail t "map_all_accesses: variable access is not covered"
       | _ -> trm_map aux t
       end
   in
   aux t
+
+(** [replace_all_accesses prev_v v dims map_indices mark t] replaces all accesses to [prev_v]
+    in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].
+    *)
+let replace_all_accesses (prev_v : var) (v : var) (dims : trm list)
+  (map_indices : (trm -> trm) list) (mark : mark) (t : trm) : trm =
+  map_all_accesses prev_v (fun prev_dims prev_indices ->
+    let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
+    trm_add_mark mark (access (trm_var v) dims indices)
+  ) t
+
+(** [pointwise_fors ?reads ?writes ?modifies ranges body] creates nested loops
+  with [ranges] over the main body [body].
+  The body has the given [reads], [writes], and [modifies].
+  Each loop contract adds a layer of pointwise Group resources.
+  *)
+let pointwise_fors
+  ?(reads: formula list = [])
+  ?(writes: formula list = [])
+  ?(modifies: formula list = [])
+  (ranges : loop_range list) (body : trm) : trm =
+  let (t, _, _, _) = List.fold_right (fun range (t, reads, writes, modifies) ->
+    let push_clauses clause formulas contract =
+      List.fold_left (fun contract formula ->
+        let res = (Resource_formula.new_anon_hyp (), formula) in
+        Resource_contract.push_loop_contract_clause clause res contract
+      ) contract formulas
+    in
+    let contract = empty_strict_loop_contract
+      |> push_clauses (Exclusive Reads) reads
+      |> push_clauses (Exclusive Writes) writes
+      |> push_clauses (Exclusive Modifies) modifies
+    in
+    let t' = trm_for ~contract range (if (is_trm_seq t) then t else trm_seq_nomarks [t]) in
+    let reads' = List.map (Resource_formula.formula_group_range range) reads in
+    let writes' = List.map (Resource_formula.formula_group_range range) writes in
+    let modifies' = List.map (Resource_formula.formula_group_range range) modifies in
+    (t', reads', writes', modifies')
+  ) ranges (body, reads, writes, modifies)
+  in
+  t
+
 
 (****************************************************************************************************)
 (*                        Core transformations on C matrices                                        *)
@@ -183,11 +225,7 @@ let intro_calloc_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_var (_, f);_},[dim; size], _) when var_has_name f "calloc" ->
     alloc ~init:(trm_int 0) [dim] size
-  | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
-
-let intro_calloc : Target.Transfo.local =
-  Target.apply_on_path (intro_calloc_aux)
-
+  | _ -> trm_fail t "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
 (* [intro_malloc_aux t]: replaces a call to calloc with a call to MALLOC,
      [t] - ast of the call to alloc. *)
@@ -195,13 +233,7 @@ let intro_malloc_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size],_);_}],_) when (var_has_name f "malloc") ->
     alloc [dim] size
-  | _ -> fail t.loc "Matrix_core.intro_malloc: expected a function call to malloc"
-
-
-(* [intro_malloc t p]: applies [intro_malloc_aux] at trm [t] with path [p]. *)
-let intro_malloc : Target.Transfo.local =
-  Target.apply_on_path (intro_malloc_aux)
-
+  | _ -> trm_fail t "Matrix_core.intro_malloc: expected a function call to malloc"
 
 (* [intro_mindex_aux dim t] replaces an array access at index [i] with an array access at MINDEX([dim],i),
       [dim] - the size of the array accesses with [t],
@@ -212,13 +244,9 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
     begin match trm_prim_inv f with
     | Some (Prim_binop Binop_array_access) ->
       trm_apps ~annot:t.annot f [base; mindex [dim] [index]]
-    | _ -> fail t.loc "Matrix_core.intro_mindex_aux: expected a primitive array access operation"
+    | _ -> trm_fail t "Matrix_core.intro_mindex_aux: expected a primitive array access operation"
     end
-  | _ -> fail t.loc "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
-
-(* [intro_mindex dim t p]: applies [intro_mindex_aux] at trm [t] with path [p]. *)
-let intro_mindex (dim : trm) : Target.Transfo.local =
-  Target.apply_on_path (intro_mindex_aux dim)
+  | _ -> trm_fail t "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
 
 (* [reorder_dims_aux order t]: reorders the dimensions in a call to CALLOC, MALLOC or MINDEX,
       [order] - a list of indices based on which the elements in dims should be ordered,
@@ -232,10 +260,10 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
            Xlist.rotate rotate_n id_perm
       else
         begin match order with
-      | [] -> fail t.loc "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
+      | [] -> trm_fail t "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
       | _ -> order
       end in
-    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> fail t.loc "Matrix_core.order is not a permutation of indices" end;
+    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices" end;
     let reordered_dims = Xlist.reorder order dims in
     let reordered_indices = Xlist.reorder order indices in
     mindex (reordered_dims) (reordered_indices)
@@ -246,19 +274,14 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
            Xlist.rotate rotate_n id_perm
       else
         begin match order with
-      | [] -> fail t.loc "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
+      | [] -> trm_fail t "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
       | _ -> order
       end in
-    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> fail t.loc "Matrix_core.order is not a permutation of indices" end;
+    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices" end;
     let reordered_dims = Xlist.reorder order dims in
     let init = if zero_init then Some (trm_int 0 ) else None in
     alloc ?init reordered_dims size
-  | _ -> fail t.loc "Matrix_core.reorder_dims_aux: expected  a function call to CALLOC or MINDEX"
-
-(* [reorder_dims rotate_n order t p]: applies [reorder_dims_aux] at trm [t] with path [p]. *)
-let reorder_dims (rotate_n : int ) (order : int list) : Target.Transfo.local =
-  Target.apply_on_path (reorder_dims_aux rotate_n order)
-
+  | _ -> trm_fail t "Matrix_core.reorder_dims_aux: expected  a function call to CALLOC or MINDEX"
 
 (* [insert_alloc_dim_aux new_dim t]: adds a new dimension at the beginning of the list of dimension,
      [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to CALLOC or MALLOC,
@@ -269,10 +292,7 @@ let insert_alloc_dim_aux ?(last : bool = false) (new_dim : trm) (t : trm) : trm 
     let new_dims = if last then dims @ [new_dim] else new_dim :: dims in
     let init = if zero_init then Some (trm_int 0) else None in
     alloc ?init new_dims size
-  | None -> fail t.loc "Matrix_core.insert_alloc_dim_aux: expected a function call to CALLOC"
-
-let insert_alloc_dim (new_dim : trm) : Target.Transfo.local =
-  Target.apply_on_path (insert_alloc_dim_aux new_dim)
+  | None -> trm_fail t "Matrix_core.insert_alloc_dim_aux: expected a function call to CALLOC"
 
 (* [insert_access_dim_index_aux new_dim new_index t]: add a new dimension at the beginning of the list of dimension
      and add a new index at the begining of the list of indices in the call to MINDEX inside the
@@ -286,12 +306,7 @@ let insert_access_dim_index_aux ?(last : bool = false) (new_dim : trm) (new_inde
     let new_dims = if last then dims @ [new_dim] else new_dim :: dims in
     let new_indices = if last then indices @ [new_index] else new_index :: indices in
     access base new_dims new_indices
-  | None -> fail t.loc "Matrix_core.insert_access_dim_index_aux: expected an array access "
-
-(* [insert_access_dim_inidex new_timd new_index t p]: applies [insert_access_dim_index_aux] at trm [t] with path [p]. *)
-let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.local =
-  Target.apply_on_path (insert_access_dim_index_aux new_dim new_index)
-
+  | None -> trm_fail t "Matrix_core.insert_access_dim_index_aux: expected an array access "
 
 (* [local_name_aux mark var local_var malloc_trms var_type t] insert a local matrix declaration with name [local_var] and copy the content
       from the matrix [var] to [local_var] and replace all the accesses of that matrix inside the targeted insturction [t].
@@ -301,7 +316,7 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.l
       [t] - ast of thee instuction which contains accesses to [var]. *)
 
 (* TODO: superseded by tile version *)
-let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
+let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
   let local_var = Trm.new_var local_var in
   let local_var_type = var_type in
@@ -311,7 +326,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices_list = List.map Trm.new_var indices_list in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
-  let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp,  dim, Post_inc, false)) dims indices_list in
+  let nested_loop_range = List.map2 (fun dim ind-> { index = ind; start = (trm_int 0); direction = DirUp; stop = dim; step = Post_inc }) dims indices_list in
   begin match local_ops with
     | Local_arith _ ->
       let write_on_local_var =
@@ -322,8 +337,8 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
       let new_t = trm_subst_var var (trm_var local_var) t in
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let last_instr = free dims (trm_var_get local_var) in
-      let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
-      begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
+      let final_trm = Nobrace.trm_seq_nomarks [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
+      trm_add_mark mark final_trm
     | Local_obj (init, swap, free_fn) ->
       let write_on_local_var =
         trm_apps (trm_var init)  [access (trm_var_get local_var) dims indices] in
@@ -336,253 +351,6 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
       let last_instr = free dims (trm_var_get local_var) in
-      let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
-      begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
+      let final_trm = Nobrace.trm_seq_nomarks [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
+      trm_add_mark mark final_trm
     end
-
-
-(* TODO: superseded by tile version, except when accesses are not visible (new_t = subst_var does not work) *)
-(* [local_name mark var local_var malloc_trms var_type indices local_ops t p]: applies [local_name_aux] at trm [t] with path [p]. *)
-let local_name (mark : mark option) (var : var) (local_var : string) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : string list ) (local_ops : local_ops) : Target.Transfo.local =
-  Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices local_ops)
-
-(* TODO: Factorize *)
-let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm) (indices : (var list)) (local_ops : local_ops) (t : trm) : trm =
-  let local_var = Trm.new_var local_var in
-  let indices_list = begin match indices with
-  | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims | _ as l -> l  end in
-  let indices = List.map (fun ind -> trm_var ind) indices_list in
-  let nested_loop_range = List.map2 (fun (offset, size) ind -> (ind, offset, DirUp, trm_add offset size, Post_inc, false)) tile indices_list in
-  let tile_dims = List.map (fun (_, size) -> size) tile in
-  let tile_indices = List.map2 (fun (offset, _) ind -> trm_sub ind offset) tile indices in
-  let alloc_instr = let_alloc_with_ty local_var tile_dims elem_ty in
-  let map_indices = List.map (fun (offset, size) -> fun i -> trm_sub i offset) tile in
-  let new_t = replace_all_accesses var local_var tile_dims map_indices mark_accesses t in
-  let final_trm = begin match local_ops with
-    | Local_arith _ ->
-      let write_on_local_var =
-        trm_set (access (trm_var local_var) tile_dims tile_indices) (trm_get (access (trm_var var) dims indices)) in
-      let write_on_var =
-        trm_set (access (trm_var var) dims indices) (trm_get (access (trm_var local_var) tile_dims tile_indices)) in
-      let load_for = trm_copy (trm_fors nested_loop_range write_on_local_var) in
-      let unload_for = trm_copy (trm_fors nested_loop_range write_on_var) in
-      let free_instr = free tile_dims (trm_var local_var) in
-      trm_seq_no_brace [alloc_instr; load_for; new_t; unload_for; free_instr]
-    | Local_obj (init, swap, free_fn) ->
-      failwith "unimplemented" (*
-      let write_on_local_var =
-        trm_apps (trm_var init)  [access (trm_var_get local_var) tile_dims tile_indices] in
-      let write_on_var =
-        trm_apps (trm_var swap) [access (trm_var_get var) dims indices; access (trm_var_get local_var) tile_dims tile_indices] in
-      let free_local_var =
-        trm_apps (trm_var free_fn)  [access (trm_var_get local_var) tile_dims tile_indices] in
-      let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
-      let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
-      let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
-      let last_instr = free tile_dims (trm_var_get local_var) in
-      trm_seq_no_brace [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr]
-      *)
-  end in
-  trm_may_add_mark mark final_trm
-
-
-(* [local_name_tile]: applies [local_name_tile_aux] at trm [t] with path [p]. *)
-let local_name_tile (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : string) (dims : trms) (elem_ty : typ) (size : trm) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
-  Target.apply_on_path (local_name_tile_aux mark mark_accesses var tile local_var dims elem_ty size indices local_ops)
-
-
-(* TODO: Factorize me *)
-
-(* [delocalize_aux dim init_zero acc_in_place acc any_mark labels index]: TODO  *)
-let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (labels : label list) (index : string) (ops : local_ops) (t : trm) : trm =
-  let index = new_var index in
-  match t.desc with
-  | Trm_seq tl ->
-    if Mlist.length tl < 5 then fail t.loc "Matrix_core.delocalize_aux: the targeted  sequence does not have the correct shape";
-    let add_labels = List.length labels = 3 in
-    let decl = Mlist.nth tl 0 in
-    begin match decl.desc with
-    | Trm_let (_, (local_var, ty), init) ->
-      begin match get_init_val init with
-      | Some init1 ->
-        begin match init1.desc with
-         | Trm_apps (_, [alloc_trm], _) ->
-          begin match alloc_inv alloc_trm with
-          | Some (dims, _, _) ->
-              let alloc_arity = List.length dims in
-              let new_alloc_trm = insert_alloc_dim_aux dim alloc_trm in
-              let new_decl = trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_cast (get_inner_ptr_type ty) new_alloc_trm) in
-              let snd_instr = Mlist.nth tl 1 in
-              begin match trm_fors_inv alloc_arity snd_instr with
-              | Some (loop_range, body) ->
-                let new_dims = dim :: dims in
-                let indices = List.fold_left (fun acc (ind, _, _, _, _, _) -> (trm_var ind) :: acc) [] (List.rev loop_range) in
-                let new_indices = (trm_var index) :: indices in
-                let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
-                let tg = [nbAny; cCellAccess ~base:[cVar local_var.name] ()] in
-                let set_instr =
-                begin match body.desc with
-                | Trm_seq tl when Mlist.length tl = 1->
-                  Mlist.nth tl 0
-                | _ -> body
-                end in
-                begin match ops with
-                | Local_arith (li, op) ->
-                  begin match set_inv set_instr with
-                  | Some (base, dims, indices, old_var_access) ->
-                    let acc, acc_provided = match acc with
-                    | Some s ->
-                      if s = "" then "s",false else s,true
-                    | None -> "s", false
-                   in
-                  let new_access = access base new_dims new_indices in
-                  let init_val = trm_lit li in
-                  let init_trm =
-                    if init_zero
-                      then trm_seq_nomarks [set base new_dims new_indices init_val]
-                      else trm_seq_nomarks [
-                        set base new_dims((trm_int 0) :: indices) old_var_access;
-                        trm_for (index, (trm_int 1), DirUp, dim, (Post_inc), false) (set base new_dims new_indices init_val;)]
-                      in
-
-                    let op_fun (l_arg : trm) (r_arg : trm) = trm_prim_compound op l_arg r_arg in
-                    let acc_trm  =
-                    if acc_in_place
-                      then
-                      if acc_provided
-                        then fail t.loc "Matrix_core.delocalize_aux: if acc_in_place is set to true there is not need to provide an accumulator"
-                        else begin
-                          trm_seq_nomarks [
-                           trm_set (get_operation_arg old_var_access) (trm_get (access (base) new_dims ((trm_int 0) :: indices)));
-                           trm_for (index, (trm_int 1), DirUp, dim, (Post_inc), false) ( op_fun (get_operation_arg old_var_access) (trm_get new_access))]
-                        end
-                      else
-                        if not acc_provided then fail t.loc "Matrix_core.delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
-                          let acc_var = new_var acc in
-                          (trm_seq_nomarks [
-                            trm_let_mut (acc_var, typ_double ()) init_val;
-                            trm_for (index, (trm_int 0), DirUp, dim, (Post_inc), false) (trm_seq_nomarks [
-                                op_fun (trm_var acc_var) (trm_get new_access)]);
-                            trm_set (get_operation_arg old_var_access) (trm_var_get acc_var)]) in
-                  let new_fst_instr =
-                    if add_labels then begin
-                      let label_to_add = List.nth labels 0 in
-                        if label_to_add = ""
-                        then new_decl
-                        else trm_add_label label_to_add (trm_seq_no_brace [
-                          trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ());
-                          (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
-                      end
-                    else new_decl in
-
-                  let new_snd_instr = if init_zero
-                    then trm_fors new_loop_range init_trm
-                    else trm_fors loop_range init_trm in
-
-                  let thrd_instr = Mlist.nth tl 2 in
-                  let ps2 = resolve_target tg thrd_instr in
-                  let new_thrd_instr =
-                    List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var (name_to_var "ANY")) [dim]))) acc p
-                    ) thrd_instr ps2 in
-
-                  let new_frth_instr =
-                    trm_fors loop_range acc_trm in
-
-                  let fifth_instr = Mlist.nth tl 4 in
-                  let new_fifth_instr = if add_labels then
-                     let label_to_add = List.nth labels 2 in
-                     if label_to_add = "" then fifth_instr else trm_add_label label_to_add fifth_instr
-                      else fifth_instr in
-
-                    trm_seq ~annot:t.annot (Mlist.of_list [new_fst_instr; trm_copy new_snd_instr; new_thrd_instr; trm_copy new_frth_instr; new_fifth_instr])
-                  | _ -> fail set_instr.loc "Matrix_core.delocalize_aux"
-                  end
-                | Local_obj (_init_f, _merge_f, free_f) ->
-
-                  let new_fst_instr =
-                    if add_labels then begin
-                      let label_to_add = List.nth labels 0 in
-                        if label_to_add = ""
-                        then new_decl
-                        else (trm_seq_no_brace [
-                          trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ());
-                          (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
-                      end
-                    else new_decl in
-
-                  let ps1 = resolve_target tg body in
-                  let new_snd_instr =
-                    let updated_mindex =
-                    List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
-                    ) body ps1 in
-                    (* TODO: Implement the case when init_zero = false *)
-                    trm_fors new_loop_range updated_mindex in
-
-                  let thrd_instr = Mlist.nth tl 2 in
-                  let ps2 = resolve_target tg thrd_instr in
-                  let new_thrd_instr =
-                    List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var (name_to_var "ANY")) [dim]))) acc p
-                    ) thrd_instr ps2 in
-
-                  let frth_instr = Mlist.nth tl 3 in
-                  let new_frth_instr = begin match trm_fors_inv alloc_arity frth_instr with
-                    | Some (loop_range, body) ->
-                      let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
-                      let ps2 = resolve_target tg body in
-                      let new_body =
-                          List.fold_left (fun acc p ->
-                        apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
-                      ) body ps2  in
-                      trm_fors new_loop_range new_body
-                    | _ -> fail t.loc "Matrix_core.delocalize_aux: expected the accumulation loop"
-                    end in
-
-                  let fifth_instr = Mlist.nth tl 4 in
-                  let new_fifth_instr = begin match trm_fors_inv alloc_arity fifth_instr with
-                    | Some (loop_range, body) ->
-                      let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
-                      let ps2 = resolve_target tg body in
-                      let new_body =
-                          List.fold_left (fun acc p ->
-                        apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
-                      ) body ps2  in
-                      trm_fors new_loop_range new_body
-                    | _ -> fail t.loc "Matrix_core.delocalize_aux: expected the accumulation loop"
-                    end in
-
-                  let sixth_instr = Mlist.nth tl 5 in
-                    let final_groups =
-                      if List.length labels = 0 then [new_fst_instr; trm_copy new_snd_instr; new_thrd_instr; trm_copy new_frth_instr; trm_copy new_fifth_instr; sixth_instr]
-                       else List.mapi ( fun i lb ->
-                        let new_subsgroup = if i = 0
-                          then trm_seq_no_brace [new_fst_instr; new_snd_instr]
-                          else if i = 1 then trm_seq_no_brace [new_thrd_instr; new_frth_instr]
-                          else trm_seq_no_brace [new_fifth_instr; sixth_instr]
-                          in
-                        if lb = "" then new_subsgroup else trm_add_label lb new_subsgroup
-
-                       ) labels
-                    in
-                  trm_seq ~annot:t.annot (Mlist.of_list final_groups)
-                end
-
-              | _ -> fail snd_instr.loc "Matrix_core.delocalize_aux: expected the nested loops where the local matrix initialization is done"
-              end
-          | _ -> fail init.loc "Matrix_core.delocalize_aux: the local variable should be declared together with its mermory allocation"
-          end
-         | _ -> fail init1.loc "Matrix_core.delocalize_aux: couldn't find the cast operation "
-        end
-
-      | _ -> fail init.loc "Matrix_core.couldn't get the alloc trms for the target local variable declaration"
-      end
-    | _ -> fail t.loc "Matrix_core.delocalize_aux: expected the declaration of the local variable"
-    end
-  |  _ -> fail t.loc "Matrix_core.delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
-
-
-(* [delocalize dim init_zero acc_in_place acc any_mark labels index ops t p]: applies [delocalize_aux] at trm [t] with path [p]. *)
-let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (labels : label list) (index : string) (ops : local_ops): Target.Transfo.local =
-  Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc any_mark labels index ops)

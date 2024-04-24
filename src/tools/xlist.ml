@@ -48,9 +48,11 @@ let list_filteri (p : int -> 'a -> bool ) (l : 'a list) : 'a list =
   in
   aux 0 [] l
 
-(* [filter_selected indices l]: keeps only the elements from [l] whose indices belong to the list [indices]. *)
+(* [filter_selected indices l]: keeps only the elements from [l] whose indices belong to the list [indices].
+   Negative indices are counted from the end. *)
 let filter_selected (indices : int list) (l : 'a list) : 'a list =
-  list_filteri (fun i _ -> List.mem i indices) l
+  let len = List.length l in
+  list_filteri (fun i _ -> List.mem i indices || List.mem (i-len) indices) l
 
 (* [remove x xs]: remove item [x] from list [xs]. *)
 let remove (x : 'a) (xs : 'a list) : 'a list =
@@ -72,6 +74,15 @@ let remove_duplicates (lst : 'a list) =
   List.iter (fun x -> Hashtbl.replace unique_set x ()) lst;
   Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
   *)
+
+(* Same as List.nth_opt but return None if given a negative index *)
+let nth_opt l n =
+  if n < 0 then None else
+  let rec nth_aux l n =
+    match l with
+    | [] -> None
+    | a::l -> if n = 0 then Some a else nth_aux l (n-1)
+  in nth_aux l n
 
 (* [update_nth f l i]: returns a copy of the list [l] where the element [x] at index [i] is replaced with [f x].
    NOTE: The index [i] must be valid. *)
@@ -138,6 +149,10 @@ let find_map (f : 'a -> 'b option) (t : 'a list) : 'b option =
 let index_of (x : 'a) (l : 'a list) : int option =
   fold_lefti (fun i acc y -> if x = y then Some i else acc) None l
 
+(* Same as List.find_index, but only available in 5.1. *)
+let find_index (f : 'a -> bool) (l : 'a list) : int option =
+  fold_lefti (fun i acc y -> if f y then Some i else acc) None l
+
 (* [Invalid_permutation]: exception raised by [check_permutation. *)
 exception Invalid_permutation
 
@@ -191,10 +206,36 @@ let extract_element (l : 'a list) (index : int) : ('a * 'a list) =
   let l, l1 = extract l index 1 in
   (List.nth l 0), l1
 
-(* [drop n l]: drops the first [n] elements from [l]. *)
+(** [drop_one_or_else f l] drops the first element from [l].
+    If [l] is empty, returns [f ()] instead.
+    *)
+let drop_one_or_else (f : unit -> 'a list) (l : 'a list) : 'a list =
+  match l with
+  | [] -> f ()
+  | _::l' -> l'
+
+(** [drop n l]: drops the first [n] elements from [l].
+
+  Fails if there are not enough elements to drop.
+    *)
 let rec drop (n : int) (l: 'a list) : 'a list =
-  if n <= 0 then l
-  else drop (n - 1) (List.tl l)
+  if n < 0 then failwith "drop: invalid negative argument"; (* could be outside of recursion *)
+  if n = 0 then l else
+    drop (n - 1) (drop_one_or_else (fun () -> failwith "drop: not enough elements to drop") l)
+
+(* [take n l]: take the first [n] elements from [l]. *)
+let rec take (n : int) (l: 'a list) : 'a list =
+  if n < 0 then failwith "take: invalid negative argument"; (* could be outside of recursion *)
+  if n = 0 then [] else
+    match l with
+    | [] -> failwith "take: not enough many elements to take"
+    | x::l' -> x :: (take (n - 1) l')
+
+(* [drop_last n l]: drops the last [n] elements from [l]. *)
+let drop_last (n : int) (l: 'a list) : 'a list =
+  let nb_take = List.length l - n in
+  if nb_take < 0 then failwith "drop_last: list not long enough";
+  take nb_take l
 
 (* [take_last n l]: takes the last [n] elements from [l]. *)
 let take_last (n : int) (l : 'a list) : 'a list =
@@ -203,3 +244,20 @@ let take_last (n : int) (l : 'a list) : 'a list =
 (* [diff l1 l2]: takes the difference between lists [l1] and [l2].
    *)
 let diff l1 l2 = List.filter (fun x -> not (List.mem x l2)) l1
+
+(** [reduce_left f l] is equivalent to [List.fold_left f (hd l) (tl l)]
+
+  Fails if [l] is empty.
+  *)
+let reduce_left f l =
+  match l with
+  | [] -> failwith "reduce_left: empty list"
+  | hd :: tl -> List.fold_left f hd tl
+
+(** [reduce_right f l] is equivalent to [List.fold_right f (unlast l) (last l)]
+
+  Fails if [l] is empty.
+  *)
+let reduce_right f l =
+  let firsts, last = unlast l in
+  List.fold_right f firsts last

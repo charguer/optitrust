@@ -1,90 +1,230 @@
-int n;
+#include <optitrust.h>
 
-int m;
-
-int o;
-
-int p;
-
-int q;
-
-int main() {
+void pure(int n, int m, int o, int p, int q) {
+  __pure();
   for (int i = 1; i < n; i++) {
+    __strict();
     int a = i;
   }
   for (int i = 1; i < n; i++) {
+    __strict();
     int b = i;
   }
   for (int i = 1; i < n; i++) {
+    __strict();
     int c = i;
   }
   for (int i = 1; i < n; i++) {
+    __strict();
     int d = i;
   }
   for (int i = 1; i < n; i++) {
+    __strict();
     for (int j = 1; j < m; j++) {
+      __strict();
       int x = i;
     }
   }
   for (int i = 1; i < n; i++) {
+    __strict();
     for (int j = 1; j < m; j++) {
+      __strict();
       int b = i;
     }
   }
   for (int i = 1; i < n; i++) {
+    __strict();
     for (int j = 1; j < m; j++) {
+      __strict();
       int c = i;
     }
   }
   for (int u = 0; u < o; u++) {
+    __strict();
     for (int i = 1; i < n; i++) {
+      __strict();
       for (int j = 0; j < m; j++) {
+        __strict();
         for (int v = 0; v < p; v++) {
+          __strict();
           int x = i;
           int c = i;
         }
       }
     }
     for (int i = 1; i < n; i++) {
+      __strict();
       for (int j = 0; j < m; j++) {
+        __strict();
         int e = j;
       }
     }
   }
   for (int i = 1; i < n; i++) {
+    __strict();
     for (int j = 1; j < m; j++) {
+      __strict();
       for (int k = 1; k < o; k++) {
+        __strict();
         int y = i;
         int b = i;
       }
     }
   }
   for (int i = 1; i < n; i++) {
+    __strict();
     for (int j = 1; j < m; j++) {
+      __strict();
       for (int k = 1; k < o; k++) {
+        __strict();
         int c = i;
       }
     }
   }
   for (int u = 0; u < o; u++) {
+    __strict();
     int a;
     for (int v = 0; v < p; v++) {
+      __strict();
       for (int i = 1; i < n; i++) {
+        __strict();
         for (int j = 1; j < n; j++) {
+          __strict();
           for (int k = 1; k < n; k++) {
+            __strict();
             int y = i;
             int b = i;
           }
         }
       }
       for (int i = 1; i < n; i++) {
+        __strict();
         for (int j = 1; j < n; j++) {
+          __strict();
           for (int k = 1; k < n; k++) {
+            __strict();
             int c = i;
           }
         }
       }
     }
   }
-  return 0;
+}
+
+void seq_ro_par_rw(int m, int n, int o, int* t) {
+  __modifies("t ~> Matrix3(m, n, o)");
+  int x = 0;
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __sreads("&x ~> Cell");
+    __xwrites(
+        "for j in 0..n -> for k in 0..o -> &t[MINDEX3(m, n, o, i, j, k)] ~> "
+        "Cell");
+    for (int j = 0; j < n; j++) {
+      __strict();
+      __sreads("&x ~> Cell");
+      __xwrites("for k in 0..o -> &t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
+      for (int k = 0; k < o; k++) {
+        __strict();
+        __sreads("&x ~> Cell");
+        __xwrites("&t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
+        t[MINDEX3(m, n, o, i, j, k)] = x;
+      }
+    }
+  }
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __xreads(
+        "for j in 0..n -> for k in 0..o -> &t[MINDEX3(m, n, o, i, j, k)] ~> "
+        "Cell");
+    for (int j = 0; j < n; j++) {
+      __strict();
+      __xreads("for k in 0..o -> &t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
+      for (int k = 0; k < o; k++) {
+        __strict();
+        __xreads("&t[MINDEX3(m, n, o, i, j, k)] ~> Cell");
+        int y = t[MINDEX3(m, n, o, i, j, k)];
+      }
+    }
+  }
+}
+
+void ghost_scope(int m, int n) {
+  __pure();
+  int x = 0;
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __sreads("&x ~> Cell");
+    const __ghost_fn xfg =
+        __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..n");
+    for (int j = 0; j < n; j++) {
+      __strict();
+      __xreads("&x ~> Cell");
+      int y = x;
+    }
+    __ghost_end(xfg);
+  }
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __sreads("&x ~> Cell");
+    const __ghost_fn __ghost_pair_1 =
+        __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..n");
+    for (int j = 0; j < n; j++) {
+      __strict();
+      __xreads("&x ~> Cell");
+      int z = x;
+    }
+    __ghost_end(__ghost_pair_1);
+  }
+}
+
+__ghost_ret ensures_pure() {
+  __requires("n: int");
+  __ensures("Triv(n)");
+  __admitted();
+}
+
+void requires_pure(int n) { __requires("Triv(n)"); }
+
+void ensures_not_ghost(int n) {
+  __ensures("Triv(n)");
+  __ghost(ensures_pure, "n := n");
+}
+
+void ghost_pure(int m, int n) {
+  __pure();
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __xensures("Triv(5)");
+    __xensures("Triv(6)");
+    ensures_not_ghost(5);
+    ensures_not_ghost(6);
+    ensures_not_ghost(7);
+    __ghost(ensures_pure, "n := 1");
+    requires_pure(1);
+    __ghost(ensures_pure, "n := 3");
+    requires_pure(3);
+  }
+  for (int i = 0; i < m; i++) {
+    __strict();
+    __xrequires("Triv(5)");
+    __xrequires("Triv(6)");
+    __xensures("Triv(6)");
+  split:
+    __ghost(ensures_pure, "n := 2");
+    requires_pure(2);
+    __ghost(ensures_pure, "n := 3");
+    requires_pure(3);
+    __ghost(ensures_pure, "n := 4");
+    requires_pure(4);
+    requires_pure(5);
+    requires_pure(6);
+  }
+}
+
+void edges() {
+  for (int i = 0; i < 5; i++) {
+    int x = i;
+    x++;
+  }
 }

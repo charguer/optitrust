@@ -1,3 +1,5 @@
+#include <optitrust.h>
+
 int main() {
   int x = 0;
   const int st = 0;
@@ -14,5 +16,14 @@ int main() {
   }
   for (int bar = N; bar > 0; bar--) {
     x += bar;
+  }
+}
+
+void contract(int* t, int n) {
+  __modifies("t ~> Matrix1(n)");
+  for (int j = 0; j < n; j++) {
+    __strict();
+    __xmodifies("&t[MINDEX1(n, j)] ~> Cell");
+    t[MINDEX1(n, j)] += j;
   }
 }

@@ -35,6 +35,40 @@ end
 (*                          Extensions to Pprint                              *)
 (******************************************************************************)
 
+(* TODO:
+
+
+TODO: essayer utf8format
+
+XString.of_str_opt_list
+XString.of_opt_list
+
+XString.of_opt ('a -> string) -> 'a option -> string
+XString.of_str_opt (string option) -> string
+XString.of_list ('a -> string) ('a list)
+XString.of_str_list (string list)
+
+Tools :
+  XOpt.to_string
+  Xlist.to_string
+  Xlist.to_string (XOpt.to_string  )..
+  // plutot que list_opt_to_string
+
+List
+Array.of_list
+Array.to_list
+
+
+//Xstring.of_doc
+//Doc.of_string
+
+Xstring.to_doc
+Doc.to_string
+
+Doc.of_doc_list (doc list) sep bounds
+Doc.of_list ('a -> doc) ('a list) sep bounds
+*)
+
 (* [print_node s]: converts string the [s] to pprint document and add a trailing space *)
 let print_node (s : string) : document =
   string s ^^ blank 1
@@ -48,21 +82,26 @@ let print_list ?(sep : string = ";") (dl : document list) : document =
   surround 2 1 lbracket (separate (string sep ^^ break 1) dl) rbracket
 
 (* [list_to_doc]: advanced version of [print_list] that supports special treatment for empty lists.
+   If [empty] is given and the list is empty, returns [empty].
     LATER: merge with [print_list], making [empty] an optional argument? *)
-let list_to_doc ?(empty : document = empty) ?(sep:document = semi) ?(bounds = [empty; empty]) (l : document list) : document =
+let list_to_doc ?(sep:document = semi) ?(bounds = [empty; empty]) ?(empty : document option) (l : document list) : document =
   let lb = List.nth bounds 0 in
   let rb = List.nth bounds 1 in
   let rec aux = function
-    | [] -> empty
+    | [] -> PPrint.empty
     | [s] -> s
     | s1 :: s2 :: sl -> s1 ^^ sep ^^ string " " ^^ aux (s2 :: sl)
   in
-   lb ^^ aux l ^^ rb
+  match (l, empty) with
+  | [], Some e -> e
+  | _ -> lb ^^ aux l ^^ rb
 
 (* [print_object dl]: prints a list of documents in the form [{x, y, z}]. *)
+(* TODO rename Doc.braces_coma_of_list *)
 let print_object (dl : document list) : document =
   surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
 
+(* TODO rename Doc.parens_coma_of_list *)
 (* [print_pair dl]: prints documents [d1] and [d2] in the form [(d1,d2)]. *)
 let print_pair (d1 : document) (d2 : document) : document =
   parens (d1 ^^ comma ^/^ d2)
@@ -77,18 +116,25 @@ let document_to_string ?(width:PPrint.requirement=80) (d : document) : string =
 (*                 Extensions for fresh name generation                       *)
 (******************************************************************************)
 
-(* [fresh_generator()]: generates a function that can be used to return
-   the next integer at each invokation. *)
-let fresh_generator () : (unit -> int) =
-  let n = ref 0 in
-  fun () ->
-    incr n;
-    !n
+let generator_reset_closures = ref []
+
+(* [reset_all_generators]: reset all the generators created by this module *)
+let reset_all_generators () =
+  List.iter (fun reset -> reset ()) !generator_reset_closures
 
 (* [resetable_fresh_generator()]: returns a pair of a generator and its reset function *)
-let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
+let resetable_fresh_generator ?(never_reset = false) () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
-  (fun () -> incr n; !n), (fun () -> n := 0)
+  let next () = incr n; !n in
+  let reset () = n := 0 in
+  if not never_reset then
+    generator_reset_closures := reset :: !generator_reset_closures;
+  next, reset
+
+(* [fresh_generator()]: generates a function that can be used to return
+   the next integer at each invokation. *)
+let fresh_generator ?(never_reset = false) () : (unit -> int) =
+  fst (resetable_fresh_generator ~never_reset ())
 
 let next_tmp_name: unit -> string =
   let gen = fresh_generator () in
@@ -100,12 +146,7 @@ let next_tmp_name: unit -> string =
 
 (* [list_to_string ?sep ?bounds l]: returns a string representation of a list of strings.
    By default, it produces [  [s1; s2; s3] ]. *)
-let list_to_string ?(sep:string=";") ?(add_space:bool=true) ?(bounds:string list = ["[";"]"]) (l : string list) : string =
-  let sep = if add_space then sep ^ " " else sep in
-  let (bl,br) = match bounds with
-    | [bl; br] -> (bl,br)
-    | _ -> failwith "list_to_string: bounds argument must be a list of length 2"
-    in
+let list_to_string ?(sep:string="; ") ?bounds:((bl, br) : string * string = ("[","]")) (l : string list) : string =
   let rec aux = function
     | [] -> ""
     | [s] -> s
@@ -184,61 +225,9 @@ let bool_of_var (s : string) : bool option =
   try Some (bool_of_string s )
   with | Invalid_argument _ -> None
 
-
-(******************************************************************************)
-(*                          Extensions to Option                              *)
-(******************************************************************************)
-
-(* [option_to_string]: returns "None" or "Some [f v]" *)
-let option_to_string (f : 'a -> string) (o : 'a option) : string =
-  Option.value ~default:"None" (
-    Option.map (fun v -> "Some " ^ f v) o)
-
-(* [option_map]: applies [f] on optional objects *)
-let option_map (f : 'a -> 'b) (o : 'a option) : 'b option =
-  match o with
-  | None -> None
-  | Some v -> Some (f v)
-
-(* [option_and a b]:
-  returns None if [a] is None, otherwise [b].
-   *)
-let option_and (a : 'a option) (b : 'a option) : 'a option =
-  match a with
-  | None -> None
-  | Some _ -> b
-
-(* [option_or a b]:
-  returns [a] if [a] is Some, otherwise [b].
-  *)
-let option_or (a : 'a option) (b : 'a option) : 'a option =
-  match a with
-  | Some _ -> a
-  | None -> b
-
-(* [option_ors]: n-ary [option_or]. *)
-let option_ors (opts : 'a option list) : 'a option =
-  List.fold_left option_or None opts
-
-(* [unsome x_opt]: extracts the underlying object of [x_opt] is there is one such object. *)
-let unsome ?(error:string="Tools.unsome found None") (x_opt : 'a option) : 'a =
-  match x_opt with
-  | Some x -> x
-  | None -> failwith error
-
-let option_flat_map (f: 'a -> 'b list) (opt: 'a option): 'b list =
-  Option.value ~default:[] (Option.map f opt)
-
-(* [OptionMonad]: when opened add the operators [let*] and [and*] for the
-   option monad. *)
-module OptionMonad = struct
-  let (let*) = Option.bind
-
-  let (and*) a b =
-    let* a in
-    let* b in
-    Some (a, b)
-end
+(* [ref_list_add r x] adds [x] to the head of the list of reference [r] *)
+let ref_list_add (r: 'a list ref) (x: 'a) : unit =
+  r := x :: !r
 
 (******************************************************************************)
 (*                          Extensions for Hashtbl                            *)
@@ -268,6 +257,8 @@ let hashtbl_to_list (h : ('a, 'b) Hashtbl.t) : ('a * 'b) list =
 (******************************************************************************)
 
 module Terminal = struct
+  type color = string
+
   let no_color = "\027[0m"
 
   let black = "\027[0;30m"
@@ -287,9 +278,22 @@ module Terminal = struct
   let light_cyan = "\027[1;36m"
   let white = "\027[1;37m"
 
-  let with_color c msg =
+  let with_color (c:color) (msg:string) : string =
     Printf.sprintf "%s%s%s" c msg no_color
+
+  let report (color:color) (header:string) (msg:string) : unit =
+    Printf.printf "%s: %s\n" (with_color color header) msg
 end
+
+let error (msg : string) : unit =
+  Terminal.(report red "ERROR" msg)
+
+let warn (msg : string) : unit =
+  Terminal.(report orange "WARNING" msg)
+
+let info (msg : string) : unit =
+  Terminal.(report blue "INFO" msg)
+
 
 (******************************************************************************)
 (*                          Functor Applications                         *)
@@ -297,3 +301,15 @@ end
 
 module String_map = Map.Make(String)
 module String_set = Set.Make(String)
+
+
+(******************************************************************************)
+(*                          String functions                         *)
+(******************************************************************************)
+
+let remove_suffix ~(suffix : string) (s : string) : string =
+  let nsuffix = String.length suffix in
+  let ns = String.length s in
+  if nsuffix > ns
+    then failwith "remove_suffix: invalid argument";
+  String.sub s 0 (ns - nsuffix)

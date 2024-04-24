@@ -74,7 +74,7 @@ h2 {
 
 .warning {
    padding: 1em;
-   background: red;
+   background: orange;
    font-weight: bold;
    font-size: 1em;
 }
@@ -92,6 +92,10 @@ h2 {
   min-width: 2em;
   margin: 3px;
   text-align: center;
+}
+
+#button_normal {
+  margin-left: 1em;
 }
 
 .details-button {
@@ -145,8 +149,26 @@ h2 {
 .diffBefore {}
 .diffAfter {}
 
+.tree-step {
+  display: inline-block;
+  width: 100%;
+}
+
+.step-big {
+  background: #bbbbff;
+  padding: 2px;
+  border-top: 2px solid black;
+}
+
+.step-selected {
+  background: white;
+}
+
 .step-valid, .step-justif {
   background: #99ffc9;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-radius: 10px;
 }
 .step-justif-text {
   margin-left: 3em;
@@ -155,17 +177,36 @@ h2 {
 }
 
 .step-invalid {
-  background: #99c9ff;
+  background: #fcc;
 }
 .step-error {
   background: #ff3939;
   font-weight: bold;
 }
+.step-show {
+  background: #e7ff49;
+}
+
+.step-nodiff {
+  color: #555555;
+}
+
 .step-io-target {
   background: #fdf7bf;
 }
 .step-title:hover {
    cursor:pointer;
+}
+.step-expand {
+  padding-left: 2px;
+  padding-right: 4px;
+  font-weight: bold;
+}
+.step-expand:hover {
+  cursor:pointer;
+}
+.checkbox-label {
+  cursor:pointer;
 }
 
 .exectime-heavy {
@@ -182,6 +223,18 @@ h2 {
   padding-right: 2px;
   padding-left: 2px;
   padding-bottom: 1px;
+}
+
+.has-debug-msg {
+  padding-left: 5px;
+  padding-right: 5px;
+  background: #ff9d60;
+  border-radius: 10px;
+}
+
+#debugMsgDiv {
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
 /* ---- vertical split view */
@@ -220,7 +273,7 @@ ul {
   padding-left: 0.5ex;
 }
 ul ul {
-  padding-left: 1ex;
+  padding-left: 1.5em;
 }
 li {
   padding-left: 0ex;

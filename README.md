@@ -12,7 +12,6 @@ In the meanwhile, if you are interested in a demo, please get in touch with @cha
 
 # OptiTrust Installation
 
-
 --------------------------------------------------------------------------------
 ## Installation
 
@@ -23,7 +22,9 @@ It takes about 30 minutes to install the required OCaml software.
 Installation of system packages:
 
 ```sh
-   sudo apt-get install opam clang-format libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
+   sudo apt-get install opam clang clang-format libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
+   # for C++ headers support:
+   sudo apt-get install libc++-dev
    # optional, only if you prefer using `meld` over `code -d`:
    sudo apt-get install meld
 ```
@@ -41,6 +42,14 @@ Installation of OCaml ecosystem:
    opam install odoc lambdasoup
    # then in any case execute the last line below
    eval $(opam env)
+```
+
+# Precompiling headers
+
+For faster compilation, we precompile header files.
+
+```sh
+  make precompile
 ```
 
 # Install libraries for parsing
@@ -132,11 +141,10 @@ Alternatively, use the quick open prompt (`ctrl+p`), then paste `ext install oca
 In VSCode, open the file `~/.config/Code/User/keybindings.json`.
 For VSCodium, this file is located at `~/.config/VSCodium/User/keybindings.json`.
 If you have an empty file, paste the following contents.
-If you have a nonempty file, copy the inner contents of the outermost braces,
-and merge that contents just before the final closing brace of the existing file.
-
+If you have a nonempty file, copy the bindings into your file.
 
 ```jsonc
+[
   // OptiTrust keybindings
   {
     "key": "f5",
@@ -151,21 +159,27 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
+    "key": "ctrl+shift+f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View trace detailed",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "shift+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View trace for one step",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
     "key": "f6",
     "command": "workbench.action.tasks.runTask",
     "args": "View diff",
     "when": "config.optitrust.enableKeybindings"
   },
   {
-    "key": "alt+f6",
+    "key": "ctrl+shift+f6",
     "command": "workbench.action.tasks.runTask",
-    "args": "View big step diff",
-    "when": "config.optitrust.enableKeybindings"
-  },
-  {
-    "key":"ctrl+shift+f6",
-    "command": "workbench.action.tasks.runTask",
-    "args": "View diff for ast encoding",
+    "args": "View diff using internal syntax",
     "when": "config.optitrust.enableKeybindings"
   },
   // For working with unit tests
@@ -179,6 +193,12 @@ and merge that contents just before the final closing brace of the existing file
     "key": "ctrl+f10",
     "command": "workbench.action.tasks.runTask",
     "args": "Run the current test",
+    "when": "config.optitrust.enableKeybindings"
+  },
+  {
+    "key": "ctrl+shift+f10",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open diff for the current test",
     "when": "config.optitrust.enableKeybindings"
   },
   {
@@ -207,9 +227,9 @@ and merge that contents just before the final closing brace of the existing file
     "when": "config.optitrust.enableKeybindings"
   },
   {
-    "key": "alt+f7",
+    "key": "shift+f7",
     "command": "workbench.action.tasks.runTask",
-    "args": "View big step diff from intermediate state",
+    "args": "View trace from intermediate state",
     "when": "config.optitrust.enableKeybindings"
   },
   {
@@ -218,13 +238,22 @@ and merge that contents just before the final closing brace of the existing file
     "args": "Save intermediate state",
     "when": "config.optitrust.enableKeybindings"
   },
+  // To open documentation
+  {
+    "key": "f11",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open doc for current source file in browser",
+    "when": "config.optitrust.enableKeybindings && resourceExtname == .ml"
+  },
   // For killing a task, type 'ctrl+k' twice, then 'enter'
   {
      "key": "ctrl+k ctrl+k",
      "command": "workbench.action.tasks.terminate",
      "when": "config.optitrust.enableKeybindings"
   },
-
+  // Unused "alt+f6", "alt+f7", "ctrl+shift+f6",..
+  // End of OptiTrust keybindings
+]  
 ```
 
 Note: the shortcuts refer to tasks that are defined in `.vscode/tasks.json`,
@@ -241,11 +270,12 @@ The result should be the same as with typing `F6`, except that it runs
 faster because the execution proceeds not from the beginning of the script
 but instead from the line of the snapshot taken using `ctrl+F7`.
 
-### Deactivate conficting Ubuntu binding
+### Deactivate possibly conficting bindings
 
-IMPORTANT: on Ubuntu, `Alt+F6`, `Alt+F7` etc. are bound to window manipulation operations,
-e.g. resize. You can either modify the shortcut, or (easier) deactivate the Ubuntu binding.
-To that end you may use the following commands:
+On desktop managers such as Ubuntu's, certain shortcuts such as
+`Alt+F6`, `Alt+F7` etc. are bound to window manipulation operations,
+e.g. window resize. If you want to use these shortcuts, you may wish
+to deactivate the Ubuntu bindings. To that end, use the following commands:
 
 ```sh
   sudo apt-get install dconf-editor
@@ -279,6 +309,13 @@ Another shortcut to try is `shift+F5`, on any line of the `matmul.ml` file
 After a dozen seconds, you should see the full transformation trace for the
 matrix-multiply case study.
 
+### Viewing keyboard shortcuts
+
+It may not be easy at first to recall all the shortcuts. Besides using a sticker
+at the bottom of your screen, you can use the command `./shortcuts.sh` to display
+the shortcuts, and in VSCode use menu File / Preferences / Keyboard Shortcuts,
+then type "optitrust" in the query bar.
+
 ### Troubleshooting
 
 If you don't see a diff, possible issues include:
@@ -290,6 +327,22 @@ If you don't see a diff, possible issues include:
    - the compilation failed due to incorrect setup; you should see error
      messages in the terminal.
 
+
+--------------------------------------------------------------------------------
+## Documentation
+
+The documentation for OptiTrust is generated using the OCaml 'odoc' tool.
+
+https://ocaml.github.io/odoc/odoc_for_authors.html
+
+The top-level command `make doc` calls 'dune build @doc', which invokes 'odoc'.
+Then, the generated documentation is copied into the folder '_doc'.
+There, the documentation is patched in order to add the diffs associated
+with the documentation unit tests (files tests/.../*_doc.ml).
+
+The patch operation is implemented in "doc/add_tests_into_doc.ml".
+
+The top-level command `make viewdoc` compiles the doc and opens it.
 
 
 --------------------------------------------------------------------------------

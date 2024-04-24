@@ -16,8 +16,15 @@ let _ = Run.script_cpp (fun () ->
   show [cVarDef "b"];
   show [tFirst; cFunDef "main"; cStrict; dBody];
 
+  (* uncomment to test wrong path:
+  let ps = Target.resolve_target [cVarDef "a"] in
+  !! Label.add "wrong" (target_of_path ((List.hd ps) @ Path.[Dir_else])); *)
+  (* uncomment to test wrong term:
+    FIXME: marks on == doesn't seem to work
+  !! Variable.init_detach [cVarInit "a"]; *)
+
   (* Show the current ast *)
-  show_ast();
+  Resources.show_ast();
   (* Show the resources *)
   Resources.show();
 
@@ -37,8 +44,7 @@ let _ = Run.script_cpp (fun () ->
   !! Label.add "m6" [cVarDef "a"];
   !! Label.add "m7" [cVarDef "a"];
 
-  (* Trace.dump() is called implicitly called at the end of file;
-     this function handles the case where the cursor was after the last '!!'. *)
+  (* Trace.dump is called implicitly called at the end of file *)
 )
 
 

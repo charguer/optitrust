@@ -1,6 +1,9 @@
 open Optitrust
 open Target
 
+let _ = Flags.dont_serialize := true (* because member functions *)
+let _ = Flags.ignore_serialized := true (* because member functions *)
+
 let _ = Run.script_cpp (fun _ ->
 
   !! Record_basic.rename_fields (fun x -> "rel_" ^ x) [cTypDef "vect"];

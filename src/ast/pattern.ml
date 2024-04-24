@@ -17,6 +17,13 @@ let rec pattern_match (v: 'a) (ks: ('a -> 'b) list): 'b =
     end
   | [] -> raise Failed
 
+let pattern_match_opt (v: 'a) (ks: ('a -> 'b) list): 'b option =
+  try
+    Some (pattern_match v ks)
+  with Failed -> None
+
+let when_ (cond : bool) : unit = if not cond then raise Next
+
 let (!) (inside: 'a -> 't -> 'b) (k:'t -> 'a) (v: 't): 'b = inside (k v) v
 let __ (k: 'a) (v: 't): 'a = k
 let (^|) (p1: 'a -> 't -> 'b) (p2: 'a -> 't -> 'b) (k: 'a) (v: 't) =
@@ -41,7 +48,7 @@ let trm_seq (fn: 'a -> trm mlist -> 'b) (k: 'a) (t: trm): 'b =
   | Some seq -> fn k seq
   | None -> raise Next
 
-let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> (hyp * formula) list -> 'd) (k: 'a) (t: trm): 'd =
+let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> resource_item list -> 'd) (k: 'a) (t: trm): 'd =
   match t.desc with
   | Trm_apps (f, a, ga) ->
     let k = fn k f in
@@ -83,13 +90,29 @@ let trm_int (f: 'a -> int -> 'b) (k: 'a) (t: trm): 'b =
   | Some x -> f k x
   | _ -> raise Next
 
-let trm_fun args ?(ret_type = __) ?(contract = __) body k t =
+let trm_fun args body k t =
   match t.desc with
   | Trm_fun (targs, tret_type, tbody, tcontract) ->
     let k = args k targs in
-    let k = ret_type k tret_type in
+    let k = body k tbody in
+    k
+  | _ -> raise Next
+
+let trm_fun_with_contract args body contract k t =
+  match t.desc with
+  | Trm_fun (targs, tret_type, tbody, FunSpecContract tcontract) ->
+    let k = args k targs in
     let k = body k tbody in
     let k = contract k tcontract in
+    k
+  | _ -> raise Next
+
+let trm_for range body spec k t =
+  match t.desc with
+  | Trm_for (trange, tbody, tspec) ->
+    let k = range k trange in
+    let k = body k tbody in
+    let k = spec k tspec in
     k
   | _ -> raise Next
 
@@ -98,7 +121,35 @@ let trm_string f k t =
   | Some (Lit_string str) -> f k str
   | _ -> raise Next
 
+let trm_binop binop ft1 ft2 k t =
+  match trm_binop_inv binop t with
+  | Some (t1, t2) ->
+    let k = ft1 k t1 in
+    let k = ft2 k t2 in
+    k
+  | None -> raise Next
+
+let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
+let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2
+let trm_mul ft1 ft2 = trm_binop Binop_mul ft1 ft2
+let trm_div ft1 ft2 = trm_binop Binop_div ft1 ft2
+
+let mlist f k t = f k (Mlist.to_list t)
+
 let pair f1 f2 k (x1, x2) =
   let k = f1 k x1 in
   let k = f2 k x2 in
   k
+
+let some f k xo =
+  match xo with
+  | Some x -> f k x
+  | None -> raise Next
+
+let none k xo =
+  match xo with
+  | None -> k
+  | Some _ -> raise Next
+
+let strict_loop_contract k lc =
+  if lc.strict then k else raise Next

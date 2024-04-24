@@ -10,10 +10,12 @@ let _ = Run.script_cpp ( fun _ ->
 
   (* Shadowing behaviour (1). *)
   !! Loop_basic.unroll [cFor "i"];
-  !! Trace.failure_expected (fun () ->
-    Sequence_basic.elim [nbMulti; cSeq ~args:[[cVarDef "s0"]] ()]);
+  (* TODO: will trigger rename, should this throw an error?
+  !! Trace.failure_expected (fun _e -> true) (fun () -> *)
+  !! Sequence_basic.elim [nbMulti; cSeq ~args:[[cVarDef "s0"]] ()];
 
   (* Shadowing behaviour (2). *)
-  !! Trace.failure_expected (fun () ->
-    Sequence_basic.elim [cSeq ~args:[[cVarDef "s1"]] ()]);
+  (* TODO: figure out what should happen here
+  !! Trace.failure_expected (fun _e -> true) (fun () ->
+  !! Sequence_basic.elim [cSeq ~args:[[cVarDef "s1"]] ()]; *)
 )

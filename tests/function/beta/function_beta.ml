@@ -8,7 +8,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Function.beta [cFun "f"];
 
   (* Case when f is an inline function call *)
-  !! Variable_basic.inline ~accept_functions:true [cFunDef "g"];
+  !! Variable_basic.inline [cFunDef "g"];
   !! Function.beta ~indepth:true [];
 
 )

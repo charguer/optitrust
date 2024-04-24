@@ -24,6 +24,10 @@ let of_list (l : 'a list) : 'a t =
 let to_list (ml : 'a t) : 'a list =
   ml.items
 
+(* [get_marks ml]: return a list of marks inside mlist [ml] *)
+let get_marks (ml: 'a t) : mark list list =
+  ml.marks
+
 (* [empty] : empty mlist. *)
 let empty : 'a t =
   {items = [];
@@ -61,7 +65,7 @@ let nth (ml : 'a t) (index : int) : 'a =
 
 (* [nth_opt ml index]: get the nth item from [ml]. *)
 let nth_opt (ml : 'a t) (index : int) : 'a option =
-  List.nth_opt ml.items index
+  Xlist.nth_opt ml.items index
 
 (* [fold_lefti acc_f acc ml]: applies Xlist.fold_lefti to ml.items. *)
 let fold_lefti (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
@@ -79,10 +83,6 @@ let rev (ml : 'a t) : 'a t =
   { items = List.rev ml.items;
     marks = List.rev ml.marks }
 
-(* [partition ml]: applies List.partition to ml.items *)
-let partition (pred : 'a -> bool) (ml : 'a t) : ('a t * 'a t) =
-  let ml_items_sat, ml_items = List.partition pred ml.items in
-  (of_list ml_items_sat, of_list ml_items  )
 
 (***********************************************************************)
 
@@ -94,21 +94,33 @@ let is_empty (ml :'a t) : bool =
 let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   { ml with items = Xlist.update_nth index (fun _ -> x) ml.items }
 
-(* [insert_at index m ml]: inserts at [index] in ml mark [m]. *)
+(* [insert_mark_at index m ml]: inserts at [index] in ml mark [m]. *)
 let insert_mark_at (index : int) (m : mark) (ml : 'a t) : 'a t =
   { ml with marks = Xlist.update_nth index (fun ms -> m :: ms) ml.marks}
 
-(* [remove_at index m ml]: removes at [index] in ml mark [m]. *)
-let remove_mark (m : mark) (ml : 'a t) : 'a t =
-  let new_marks = List.map (fun ms -> List.filter (fun x -> x <> m) ms) ml.marks in
+(* [insert_marks_at index m ml]: inserts at [index] in ml marks [m]. *)
+let insert_marks_at (index : int) (m : mark list) (ml : 'a t) : 'a t =
+  { ml with marks = Xlist.update_nth index (fun ms -> m @ ms) ml.marks}
+
+(* [filter_marks f ml]: remove all marks that do not satisfy [f m]. *)
+let filter_marks (f: mark -> bool) (ml: 'a t) : 'a t =
+  let new_marks = List.map (fun ms -> List.filter f ms) ml.marks in
   { ml with marks = new_marks }
+
+(* [remove_at index m ml] removes mark [m] in [ml]. *)
+let remove_mark (m : mark) (ml : 'a t) : 'a t =
+  filter_marks (fun x -> x <> m) ml
+
+(* [remove_all_marks ml] removes all marks from [ml]. *)
+let remove_all_marks (ml: 'a t): 'a t =
+  of_list ml.items
 
 (* [split ~left_bias index ml]: splits mlist [ml] at [index]
     [left_bias] - if true then the boundary marks will go with the first part of the mlist. *)
-let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t=
+let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t =
   let items1, items2 = Xlist.split_at index ml.items in
   let marks1a, marks2a = Xlist.split_at (index + if left_bias then 1 else 0) ml.marks in
-  let marks1 = if left_bias then marks1a else marks1a @ [] in
+  let marks1 = if left_bias then marks1a else marks1a @ [[]] in
   let marks2 = if left_bias then [] :: marks2a else marks2a in
   ({items = items1; marks = marks1}, {items = items2; marks = marks2})
 
@@ -132,7 +144,35 @@ let extract ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (st
 
 (* [remove start nb ml]: removes items that fall in the range [start, start + nb).  *)
 let remove (start : int) (nb : int) (ml : 'a t) : 'a t =
-  fst (extract start nb ml)
+  fst (extract ~stop_left_bias:false start nb ml)
+
+(** [concat_mapi f ml] maps all the elements of [ml] to a list using [f],
+    and flatten this list inside the sequence.
+    Preserves all marks between elements groups, mergins them when needed. *)
+let concat_mapi (f: int -> 'a -> 'b t) (ml: 'a t) : 'b t =
+  let rec aux i items marks =
+    match items, marks with
+    | [], [m] -> { items = []; marks = [m] }
+    | [], _ | _, [] -> assert false
+    | it :: items, m :: marks ->
+      let new_items = f i it in
+      let new_items = insert_marks_at 0 m new_items in
+      let tail = aux (i+1) items marks in
+      merge new_items tail
+  in
+  aux 0 ml.items ml.marks
+
+(** Same as concat_mapi but the generated list does not depend on the index inside the list *)
+let concat_map (f: 'a -> 'b t) (ml: 'a t) : 'b t =
+  concat_mapi (fun _ -> f) ml
+
+(** Similar to List.filteri but maintains marks as required. *)
+let filteri (f : int -> 'a -> bool) (ml : 'a t) : 'a t =
+  concat_mapi (fun i x -> if f i x then of_list [x] else empty) ml
+
+(* Same as MList.filteri but the filtering decision does not depend on the index inside the list. *)
+let filter (f: 'a -> bool) (ml: 'a t) : 'a t =
+  filteri (fun _ -> f) ml
 
 (* [insert_sublist_at index sl ml]: inserts mlist [sl] at [index] in [ml]. *)
 let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
@@ -149,11 +189,15 @@ let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
 
 (* [push_front x ml]: inserts the element [x] at the beginning of the mlist [ml]. *)
 let push_front (x : 'a) (ml : 'a t) : 'a t =
-  insert_at 0 x ml
+  (* DEPRECATED: weird marks behaviour
+    insert_at 0 x ml *)
+  merge (of_list [x]) ml
 
 (* [push_back x ml]: inserts the element [x] at the end of the mlist [ml]. *)
 let push_back (x : 'a) (ml : 'a t) : 'a t =
-  insert_at (length ml) x ml
+  (* DEPRECATED: weird marks behaviour
+    insert_at (length ml) x ml *)
+  merge ml (of_list [x])
 
 (* [pop_front ml]: removes the first element from the mlist [ml]. *)
 let pop_front (ml : 'a t) : 'a t =
@@ -164,6 +208,10 @@ let pop_back (ml : 'a t) : 'a t =
   let ln = length ml in
   remove (ln - 1) 1 ml
 
+(* [lst ml]: returns the last element from the mlist [ml]. *)
+let lst (ml : 'a t) : 'a option =
+  let ln = length ml in
+  nth_opt ml (ln - 1)
 
 (* [update_nth n transfo ml]: applies function [transfo] at the item with index [n] in mlist [ml]. *)
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
@@ -189,3 +237,17 @@ let get_item_and_its_relatives (index : int) (items : 'a t) : ('a t * 'a * 'a t)
       else failwith "Mlist.get_item_and_its_relatives: expected a list with a single element"
   in
   (lfront, element, lback)
+
+(* [flatten_marks f_item f_marks]: interleave items generated by [f_marks] and [f_item] into a single list *)
+let flatten_marks (f_item: 'a -> 'b) (f_marks: mark list -> 'b) (ml: 'a t): 'b list =
+  let rec aux items marks =
+    match items, marks with
+    | [], [[]] -> []
+    | [], [m] -> [f_marks m]
+    | [], _ | _, [] -> assert false
+    | i :: is, [] :: ms ->
+      f_item i :: aux is ms
+    | i :: is, m :: ms ->
+      f_marks m :: f_item i :: aux is ms
+  in
+  aux ml.items ml.marks

@@ -1,6 +1,5 @@
+#include <optitrust.h>
 #include <stdlib.h>
-
-#include "../../include/optitrust.h"
 #include <stdint.h>
 #include "harris.h"
 #include "omp.h"

@@ -14,7 +14,7 @@ let typid_to_typedef (tid : typconstrid) : typedef option =
   let t_root = Target.get_ast () in
   match t_root.desc with
   | Trm_seq _ -> aux t_root
-  | _ -> fail t_root.loc "Context.typid_to_typedef: expected the ast of the main file"
+  | _ -> trm_fail t_root "Context.typid_to_typedef: expected the ast of the main file"
 
 (* [record_typ_to_typid ty]: gets the id of the record type [ty]. *)
 let record_typ_to_typid (ty : typ) : typconstrid option =
@@ -50,4 +50,4 @@ let typid_to_trm (tid : typconstrid) : trm option =
   let t_root = Target.get_ast () in
   match t_root.desc with
   | Trm_seq _ -> aux t_root
-  | _ -> fail t_root.loc "Context.typid_to_typedef: expected the ast of the main file"
+  | _ -> trm_fail t_root "Context.typid_to_typedef: expected the ast of the main file"

@@ -1,7 +1,7 @@
-
-open Prelude
 open PPrint
-open Target
+open Ast
+open Trm
+open Typ
 
 (* debug flags *)
 let debug = false
@@ -12,7 +12,7 @@ let mark_nosimpl = "__arith_core_nosimpl"
 
 (* [has_mark_nosimplf t]: check if [t] should be skipped by the simplifier or not.*)
 let has_mark_nosimpl (t : trm) : bool =
-  trm_has_mark mark_nosimpl t
+  Mark.trm_has_mark mark_nosimpl t
   (* LATER Ast.trm_has_mark *)
 
 (* arithmetic operation type *)
@@ -20,7 +20,7 @@ type arith_op =
   | Arith_shift
   | Arith_scale
 
-(* [transform_aux aop inv pre_cast post_cast u t]: shifts or scale the right hand
+(* [transform aop inv pre_cast post_cast u t]: shifts or scale the right hand
     side of a set operation with term [u]
     [aop] - a flag to decide if the arithmetic operation should be Arith_scale
        or Arith_shift
@@ -30,7 +30,7 @@ type arith_op =
       set operation before shifting
     [post_cast] - casting of type [post_cast] performed after shifting
     [t] - the ast of the set operation *)
-let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option)
+let transform (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option)
   (post_cast : typ option)(t : trm) : trm =
   let binop_op = match aop with
     | Arith_shift -> if inv then Binop_sub else Binop_add
@@ -46,7 +46,7 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
 
      | Some ty, None -> trm_replace (Trm_apps (f, [lhs;
                     trm_apps_binop (trm_cast ty rhs) u], [])) t
-     | _ -> fail t.loc "Arith_core.transform_aux: can't apply both pre-casting
+     | _ -> trm_fail t "Arith_core.transform_aux: can't apply both pre-casting
                         and post-casting"
     end
   | Trm_apps (_, [arg], _) when is_get_operation t ->
@@ -54,27 +54,18 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
      | None , None -> trm_apps_binop t u
      | None, Some ty -> trm_cast ty (trm_apps_binop t u)
      | Some ty, None -> trm_apps_binop (trm_cast ty t)  u
-     | _ -> fail t.loc "Arith_core.transfom_aux: can't apply both pre-casting
+     | _ -> trm_fail t "Arith_core.transfom_aux: can't apply both pre-casting
                         and post-casting"
     end
-  | _ -> fail t.loc "Arith_core.transform_aux: expected a get or a set operation"
+  | _ -> trm_fail t "Arith_core.transform_aux: expected a get or a set operation"
 
-(* [transform aop inv pre_cast post_cast u t p: applies [transform_aux] at the trm with path [p]. *)
-let transform (aop : arith_op)(inv : bool) (u : trm) (pre_cast : typ option)
-  (post_cast : typ option) : Transfo.local =
-  apply_on_path (transform_aux aop inv u pre_cast post_cast)
-
-
-(* [apply_aux op arg t]: applies binary_operation [op] on [t] with the second  argument of the operation being [arg],
+(* [apply op arg t]: applies binary_operation [op] on [t] with the second  argument of the operation being [arg],
     [op] -the binary operation to apply.
     [arg] - the second operand of [op].
     [t] - the first argument in the performed operation. *)
-let apply_aux (op : binary_op) (arg : trm) (t : trm) : trm =
+let apply (op : binary_op) (arg : trm) (t : trm) : trm =
   trm_apps (trm_binop op) [t; arg]
 
-(* [apply op arg t p]: applies [transform_aux] at the trm [t] with path [p]. *)
-let apply (op : binary_op) (arg : trm) : Transfo.local =
-  apply_on_path (apply_aux op arg)
 
 (******************************************************************************)
 (*                          Types                                        *)
@@ -149,17 +140,17 @@ let is_integer_typ (typ : typ option) : bool =
     let t2 = Option.value ~default:t (typ_const_inv t) in
     begin match t2.typ_desc with
     | Typ_int -> true
-    | Typ_float | Typ_double -> false
-    | _ -> failwith (Printf.sprintf "unsupported type: %s" (AstC_to_c.typ_to_string t))
+    | _ -> false
     end
   | _ ->
-    printf "WARNING: trm_to_naive_expr: missing type information, assuming floating point\n";
+    if !Flags.report_all_warnings
+      then Tools.warn "trm_to_naive_expr: missing type information, assuming floating point";
     (* if true then failwith "DEBUGME"; *)
     false (* LATER: fix this assumption *)
 
 let unsupported_binop (op : binary_op) =
   let s = Tools.document_to_string (Ast_to_text.print_binop op) in
-  fail None ("Arith_core: unsupported binop: " ^ s)
+  failwith ("Arith_core: unsupported binop: " ^ s)
 
 let expr_make ?(loc : loc) ~(typ : typ option) (desc : expr_desc) : expr =
   { expr_desc = desc;
@@ -191,7 +182,7 @@ let expr_one (typ : typ option) : expr =
     | Typ_double -> expr_double 1.0
     | _ -> failwith (Printf.sprintf "unsupported type: %s" (AstC_to_c.typ_to_string t))
     end
-  | None -> fail None "expr_one: requires a known type"
+  | None -> failwith "expr_one: requires a known type"
 
 (* [expr_atom id] produces a variable [id], denoting an arbitrary subterm form ast.ml *)
 let expr_atom ?(loc : loc) ~(typ : typ option) (id : id) : expr =
@@ -311,6 +302,8 @@ let normalize_one (e : expr) : expr =
     | Expr_binop (Binop_div, e1, { expr_desc = Expr_prod []; _}) -> e1
     (* [0 mod e2 = 0] *)
     | Expr_binop (Binop_mod, ({ expr_desc = Expr_int 0; _} as ezero), e2) -> ezero
+    (* [e1 % 1 = 0] *)
+    | Expr_binop (Binop_mod, e1, { expr_desc = Expr_int 1; _ }) -> expr_int 0
     (* [e1 << 0 = e1] and [e1 >> 0 = e1] *)
     | Expr_binop ((Binop_shiftr | Binop_shiftl), e1, { expr_desc = Expr_int 0; _}) -> e1
     | _ -> e
@@ -366,13 +359,14 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
           in
         string sop ^^ string "(" ^^ aux e1 ^^ string "," ^^ aux e2 ^^ string ")"
     | Expr_atom id ->
+        let style = AstC_to_c.default_style() in
         begin match Atom_map.find_opt id atoms with
         | Some t1 ->
             begin match t1.desc with
-            | Trm_var (_, x) -> AstC_to_c.var_to_doc x
+            | Trm_var (_, x) -> AstC_to_c.var_to_doc style x
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _},
-               [{desc = Trm_var (_, x); _}], _) -> AstC_to_c.var_to_doc x
-            | _ -> braces (AstC_to_c.trm_to_doc t1)
+               [{desc = Trm_var (_, x); _}], _) -> AstC_to_c.var_to_doc style x
+            | _ -> braces (AstC_to_c.trm_to_doc style t1)
             end
         | _  ->
           (* To identify atoms, we use letters 'a', 'b', ... then
@@ -437,8 +431,8 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
         parens (aux e1) ^^ string sop ^^ parens (aux e2)
      | Expr_atom id ->
       begin match Atom_map.find_opt id atoms with
-      | Some t1 -> (AstC_to_c.trm_to_doc t1)
-      | _  -> fail None "Arith_core.expr_to_math_string: couldn't convert
+      | Some t1 -> AstC_to_c.(trm_to_doc (default_style())) t1
+      | _  -> failwith "Arith_core.expr_to_math_string: couldn't convert
                         an atom expr to a trm"
       end
   in
@@ -519,11 +513,10 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
 
 (* [create_or_reuse_atom_for_trm atoms t]: auxiliary function for [trm_to_naive_expr]*)
 let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
-  let no_id = -1 in
-  let occ = ref no_id in
+  let occ = ref inferred_var_id in
   Atom_map.iter (fun id tid ->
-    if !occ = no_id && Internal.same_trm t tid then occ := id) !atoms;
-    if !occ = no_id
+    if !occ = inferred_var_id && are_same_trm t tid then occ := id) !atoms;
+    if !occ = inferred_var_id
       then begin
         let new_id = next_id() in
         atoms := Atom_map.add new_id t !atoms;
@@ -557,7 +550,10 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           | true, true -> true
           | false, false -> false
           | _ ->
-            printf "WARNING: arith types differ: %s and %s\n" (Tools.option_to_string AstC_to_c.typ_to_string t1.typ) (Tools.option_to_string AstC_to_c.typ_to_string t2.typ);
+            if !Flags.report_all_warnings
+              then Tools.warn (sprintf "arith types differ: %s and %s\n"
+                    (Xoption.to_string AstC_to_c.typ_to_string t1.typ)
+                    (Xoption.to_string AstC_to_c.typ_to_string t2.typ));
             false
             (* LATER: failwith "should not happen" *)
          in
@@ -569,7 +565,7 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           | Binop_mul -> expr_mul ?loc ~typ (aux t1) (aux t2)
           | Binop_exact_div ->
               if not (is_integer_op())
-                then fail t.loc "trm_to_naive_expr: Binop_exact_div expected to be an integer operation";
+                then trm_fail t "trm_to_naive_expr: Binop_exact_div expected to be an integer operation";
               expr_div ?loc ~typ (aux t1) (aux t2)
           | Binop_div ->
               if is_integer_op()
@@ -622,7 +618,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
         let abs_w = abs w in
         let abs_t =
           if abs_w = 1 then e_trm else trm_mul ?loc (trm_int abs_w) e_trm
-          in
+        in
         if i = 0 then begin
           if w >= 0 then abs_t else trm_minus ?loc abs_t
         end else begin
@@ -678,7 +674,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 -> t1
-        | _ -> fail None "Arith_core.expr_to_trm: couldn't convert an atom expr to a trm"
+        | _ -> failwith "Arith_core.expr_to_trm: couldn't convert an atom expr to a trm"
         end
     in
   aux e
@@ -877,7 +873,7 @@ let rec compute_power_int (n:int) (w:int) : int =
 let rec compute_power_double (f:float) (w:int) : float =
   if w < 0 then begin
     let inv = compute_power_double f (-w) in
-    if inv = 0. then fail None "compute_power_double: division by zero";
+    if inv = 0. then failwith "compute_power_double: division by zero";
     1.0 /. inv
   end else begin
     if w = 0 then 1.0 else f *. compute_power_double f (w-1)
@@ -897,8 +893,8 @@ let update_typ (mem_t : typ option ref) (new_t : typ option) : unit =
       begin match !mem_t with
       | None -> mem_t := Some nt
       | Some mt ->
-        if (mt <> nt) then
-          printf "WARNING: arith types differ: %s and %s\n" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt)
+        if (mt <> nt) && !Flags.report_all_warnings then
+          Tools.warn (sprintf "arith types differ: %s and %s" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt))
       end
 
 let compute_wexpr_sum ~(typ : typ option) ?(loc) (wes:wexprs) : wexpr =
@@ -939,8 +935,8 @@ let compute_wexpr_prod ~(typ : typ option) ?(loc) (wes:wexprs) : wexpr =
       ) 1 wes_select in
     let num = wes_prod wes_pos in
     let denum = wes_prod wes_neg in
-    if denum = 0 then fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division by zero: %d / %d" num denum);
-    if num mod denum <> 0 then fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division is not exact: %d / %d" num denum);
+    if denum = 0 then loc_fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division by zero: %d / %d" num denum);
+    if num mod denum <> 0 then loc_fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division is not exact: %d / %d" num denum);
     let n = num / denum in
     (1, expr_int n)
   end else begin
@@ -980,14 +976,14 @@ let compute_one (e : expr) : expr =
   | Expr_binop (op, { expr_desc = Expr_int n1; _}, { expr_desc = Expr_int n2; _}) ->
      begin match op with
      | Binop_exact_div ->
-        if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: exact_div(%d, %d)" n1 n2);
-        if (n1 mod n2) <> 0 then fail loc (Printf.sprintf "compute_one: division is not exact: exact_div(%d, %d)" n1 n2);
+        if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: integer division by zero: exact_div(%d, %d)" n1 n2);
+        if (n1 mod n2) <> 0 then loc_fail loc (Printf.sprintf "compute_one: division is not exact: exact_div(%d, %d)" n1 n2);
         expr_int (n1 / n2) (* integer division with rounding *)
      | Binop_div ->
-        if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
+        if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
         expr_int (n1 / n2) (* integer division with rounding *)
      | Binop_mod ->
-        if n2 = 0 then fail loc (Printf.sprintf "compute_one: modulo by zero: %d / %d" n1 n2);
+        if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: modulo by zero: %d / %d" n1 n2);
         expr_int (n1 mod n2)
      | Binop_shiftl ->
         expr_int (n1 lsl n2)
@@ -1044,27 +1040,48 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
   )
   with e -> Printf.printf "Arith.simplify_at_node: error on processing at loc %s\n" (loc_to_string t.loc); raise e
 
-(* [simplify_aux indepth f t]: converts node [t] to an expression, then applies the
+(* [simplify indepth f t]: converts node [t] to an expression, then applies the
      simplifier [f], then it converts it back to a trm
     params:
       [f]: simplifier function
       [t]: the node on which the simplifications should be performed
     return:
       update t with the simplified expressions
-  LATER: should [simplify_aux false f t] fail if [t] is not an application of prim_arith? *)
-let rec simplify_aux (indepth : bool) (f : expr -> expr) (t : trm) : trm =
+  LATER: should [simplify false f t] fail if [t] is not an application of prim_arith? *)
+let rec simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
   if not indepth
     then begin
-       let f_atom_identity = (fun ti -> ti) in
-       simplify_at_node f_atom_identity f t
-      end
+      let f_atom_identity = (fun ti -> ti) in
+      simplify_at_node f_atom_identity f t
+    end
     else begin
-     let f_atom_simplify = simplify_aux indepth f in
-     map_on_arith_nodes (simplify_at_node f_atom_simplify f) t end
-
-(* [simplify indepth f t p]: applies [simplify_aux] at the trm with path [p] *)
-let simplify (indepth : bool) (f : expr -> expr) : Transfo.local =
-  apply_on_path (simplify_aux indepth f)
+      let f_atom_simplify = simplify indepth f in
+      map_on_arith_nodes (simplify_at_node f_atom_simplify f) t
+    end
 
 
+(******************************************************************************)
+(*                          Static checks on terms                           *)
+(******************************************************************************)
 
+let trm_int_inv t =
+  let neg, abs_t = match trm_unop_inv t with
+    | Some (Unop_minus, abs_t) -> true, abs_t
+    | _ -> false, t
+  in
+  Option.map (fun n -> if neg then -n else n) (Trm.trm_int_inv abs_t)
+
+
+(* [check_int_compare cmp t1 t2] tries to statically check that [cmp t1 t2] always holds. *)
+let check_int_compare (cmp: int -> int -> bool) (t1: trm) (t2: trm) : bool =
+  let t = simplify true (fun e -> gather (compute e)) (trm_sub t1 t2) in
+  match trm_int_inv t with
+  | Some i when cmp i 0 -> true
+  | _ -> false
+
+let check_eq = check_int_compare (==)
+let check_neq = check_int_compare (!=)
+let check_gt = check_int_compare (>)
+let check_geq = check_int_compare (>=)
+let check_lt = check_int_compare (<)
+let check_leq = check_int_compare (<=)

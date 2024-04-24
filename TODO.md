@@ -23,7 +23,7 @@
 ../src/convention.ml
 
 
-# Features
+# AST features
 
 - `Trm_files` do deal with multiple files, and simplify includes
 - encode Module/namespace the same way?
@@ -36,11 +36,27 @@
   - compare types?
   - compare computed resources?
   - compare contracts?
+- recursive functions
+- compound litteral (struct on the fly)
 
 # Typechecking
 
 - (AC) Implement an incremental typechecker, able to retypecheck only the parts that are changed.
 
+- Resource checker should complain if a function without a contract contains ghost or contracts;
+  in any case, should not make resources available in any subterm of a function without a contract.
+  to see..
+
+- Support higher order contracts
+
+- Add a cleanup function for contexts that only keeps relevant variables when a scope is exited
+This also includes nested function calls.
+Ex:
+  f(g(x)) 
+    if context after g(x) = h: int, P1 h, P2, x: float, P3 x, i: int, P4 i h, j: int, P5 i j
+    and post-condition of f only mentions i, we want to keep h, i, P1 and P4 but not the rest in the context after f(g(x))
+
+- Add Ghost_pair.fusion
 
 
 # Shortcuts
@@ -72,15 +88,6 @@
 - Bind a shortcut for executing F6 under the assumption
   that /src folder has not changed (skipping dependency tests)
 
-- Bind a shortcut that dumps a trace only for the current line.
-  This command would dump all the intermediate ASTs.
-```
-  {
-    "key":"alt+f5",
-    "command": "workbench.action.tasks.runTask",
-    "args": "View trace with -trace-details-only-for-line",
-  },
-```
 
 - Modify the behavior of dump-full-trace shortcut (shift+F5),
   so that, by default, it stores only diffs in the JS file and not all ASTs
@@ -153,6 +160,15 @@
   Running this command would not modify the file `tester_ignored.txt`,
   however it would update the files `tester_diff.txt` and `tester_failed.txt`.
 
+## Tester without check
+
+- add two options to 'script_cpp': '~trustme:true', '~also_with_trustme:true'
+- add option to tester '~skip_also_with_trustme:true'
+- for every '~also_with_trustme:true' path/foo.ml:
+  + generate '_tests_trustme/path/foo.cpp' from 'path/foo.cpp' using delete_annots, lazily
+  + generate '_tests_trustme/path/foo_exp.cpp' ...
+  + generate '_tests_trustme/path/foo.ml' by replacing '~also_with_trustme:true' with '~trustme:true'
+  + add the generated scripts to the tester worklist
 
 # Tests
 
@@ -171,6 +187,11 @@
 - When tests are fixed, revive the PIC demo (requires a typechecker, otherwise
   it is too slow).
 
+- "failure_expected: the operation was supposed to fail but it didn't"
+  does not report a useful backtrace
+
+- "failure_expected (fun _e -> true)" should be replaced with a catch of the
+  relevant exception, e.g. RessourceError, etc.
 
 # VSCode
 
@@ -213,6 +234,12 @@
 
 
 # Parser
+
+- When invalid C code is provided, we should use clangml in a mode that raises
+  an error, not a mode that silently deletes the boggus lines.
+
+- Serialization does not work yet with CPP member functions; eg cpp_varids.ml
+  and see comment in class_member_elim
 
 - Keep marks on reparse: tests same ASt and reuse marks at paths
 
@@ -299,12 +326,36 @@
        (fun t (p,i) -> swap_at_path i t p) tg
 ```
 
+- implement a transfo 'delay_write': `WR(X = Y); RD(X); --> RD(Y); WR(X = Y)`
+
+- check that basic transfos don't move effects via substitution etc, use binders + inline, introduce combinators for this pattern, `subst_or_decl(flag, subst_map, t)` 
+
+- implement transfos that leverage invariants on models (building block of reduce.slide, etc)
+
 # Trace
+
+- related:
+  - Justifications Variable.inline/Function.inline/Matrix.elim_mindex
+  - pre/postprocessing (1. infer contracts; then elim header)
+  - renaming '__sreads', '__xreads', ..
+
+- add expand/collapse feature on trace steps
+  - green checks are displayed separately on the right
+
+- remove line display by default
+
+- replace pink script box with entire script, clickable
+
+- display: minimal diff (default), diff with all code (click to expand, or button), collapse one side and/or change vertical split (gridify)
+
+- make scrolling independant between left steps and right diffs (gridify)
 
 - Add infrastructure for executing a test with reparsing after every step,
   or after every big-step (can be controlled by a per-test flag).
 
 - Revive the trace.ml code for generating a cpp file for every small/big step.
+
+- Verify that a ghost/contract modifiying transformation indeed modifies only ghosts and contracts
 
 
 # Flags
@@ -331,7 +382,9 @@
 
 # Stats
 
-- Cleanup the `stats.ml` file. Remove the timing-related mechanism.
+- Cleanup the `stats.ml` file. The timing-related mechanism might be no
+  longer needed if we can fit everything into steps, however it is not
+  trivial to view initial-parse and final-dump-trace as steps of the trace.
   Implement a record of counters, for keeping track of the number of:
   term allocated, number of recursive calls in target resolution,
   total cost of string allocated for trm representation for target resolution.
@@ -361,6 +414,16 @@
 - Replace calls to the deprecated function target_iter by Target.iter.
   Likewise for apply and its variants.
 
+- A combinator `Target.group_by prefix ?drop_prefix=false tg` that resolves a target `tg` to paths `ps`,
+  then partition the paths according to the result of `prefix p` of each path `p`.
+  Returns a list of the form (prefix, paths_with_that_prefix|suffixes)
+  from the decomposition of the path,
+  of type `path * path list`. The list should be ordered with smallest prefixes first.
+- Another combinator `Target.apply_with_group_by prefix tg (fun prefix ps -> transfo)`
+  that iterates the transfo on the list.
+
+- resolve_path does not yet include Dir_contract
+
 # Case study
 
 - (AC) Fix pic_demo and remove `Loop.hoist_old`
@@ -379,6 +442,18 @@
 
 - Create a mechanism for scripting the generation of interactive demos, for the webiste.
 
+# AST representation
+
+- Add a checker for AST invariants
+
+
+# Debugger
+
+- Try usage of ocamldebug
+  https://github.com/hackwaly/ocamlearlybird
+  https://github.com/ocamllabs/vscode-ocaml-platform#debugging-ocaml-programs-experimental
+
+
 # Pending Issues to Track
 
 To learn more, just grep for the tag in the source code:
@@ -396,6 +471,7 @@ grep -r '[tag]' .
   - #var-id-dir-name
   - #this-id
   - #type-id
+- #hyp
 - #odoc
   - check: should be fixed in version 2.3.0+ (https://github.com/ocaml/odoc/issues/1001)
 
@@ -423,4 +499,39 @@ grep -r '[tag]' .
   Show.desc tg;     (* prints the trm_desc of the term, i.e. like raw AST syntax but without subterms *)
   Show.stmt tg;     (* prints the is_statement information of the term *)
   Show.info tg;     (* combination of show_desc; show_annot; show_stmt; show_typ; show_res; show_marks *)
+```
+
+# Generalized uninit
+
+```c
+
+void f(int* p, bool b) {
+  __consumes("Uninit(p ~> Cell)"); // Init(i, p ~> Cell)
+  __produces("Uninit(p ~> Cell)"); // Init(i, p ~> Cell)
+  if (b) {
+    *p = 3;
+  }
+}
+
+void g(int* p, bool b) {
+  __consumes("Uninit(p ~> Cell)");
+  __produces("p ~> Cell");
+  *p = 6;
+  f(p, b);
+}
+
+void f2(int* p, bool b) {
+  __consumes("Uninit(p ~> Cell)");
+  __produces("p ~> Cell");
+  int z = 3;
+  if (b) {
+    *p = z;
+  }
+  // requires annotation: if b then p ~> Cell else Uninit(p ~> Cell)
+  z++;
+  if (!b) {
+    *p = z;
+  }
+}
+
 ```

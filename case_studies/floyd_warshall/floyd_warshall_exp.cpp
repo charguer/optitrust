@@ -1,4 +1,4 @@
-#include "../../include/optitrust.h"
+#include <optitrust.h>
 
 // NOTE: using pretty matrix notation
 int optitrust_floyd(uint32_t N, uint32_t* A) {

@@ -15,7 +15,7 @@ type rename = Variable.Rename.t
       [fresh_names] different from "". *)
 let%transfo bind_args (fresh_names : string list) (tg : target) : unit =
   iter_on_targets (fun t p ->
-    let call_trm = get_trm_at_path p t in
+    let call_trm = resolve_path p t in
     let call_mark = "bind_args_mark" in
     let nb_fresh_names = List.length fresh_names in
     let error = "Function.bind_args: expected a target to a function call." in
@@ -23,7 +23,7 @@ let%transfo bind_args (fresh_names : string list) (tg : target) : unit =
     if nb_fresh_names = 0
       then ()
       else if List.length tl <> nb_fresh_names then
-        fail call_trm.loc "Function.bind_args: each argument should be binded to a variable or the empty string. "
+        trm_fail call_trm "Function.bind_args: each argument should be binded to a variable or the empty string. "
       else begin
         Marks.add call_mark (target_of_path p);
         List.iteri (fun ind fresh_name ->
@@ -213,7 +213,6 @@ int f2() { // result of Funciton_basic.inline_cal
 let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : string list = []) ?(keep_res : bool = false)
   ?(delete : bool = false) ?(debug : bool = false) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
-  Trace.tag_valid_by_composition ();
   Marks.with_fresh_mark (fun subst_mark ->
     (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
     let function_names = ref Var_set.empty in
@@ -229,10 +228,10 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
-      let call_trm = Path.get_trm_at_path path_to_call t in
+      let call_trm = Path.resolve_path path_to_call t in
       begin match call_trm.desc with
         | Trm_apps ({desc = Trm_var (_, f)}, _, _) -> function_names := Var_set.add f !function_names;
-        | _ ->  fail t.loc "Function.get_function_name_from_call: couldn't get the name of the called function"
+        | _ ->  trm_fail t "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
@@ -248,27 +247,27 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         Stats.comp_stats "elim_body" (fun () ->
           elim_body ~vars [cMark body_mark];);
         if deep_cleanup then begin
-          let success_attach = match Trace.backtrack_on_failure (fun () ->
+          let success_attach = match Trace.step_backtrack_on_failure (fun () ->
             Variable_basic.init_attach [new_target]
           ) with
-          | Success -> true
-          | Failure Variable_core.Init_attach_no_occurrences
-          | Failure Variable_core.Init_attach_occurrence_below_control ->
-            false
+          | Success () -> true
+          | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences))
+          | Failure (Contextualized_error (_, Variable_core.Init_attach_occurrence_below_control)) ->
+              false
           | Failure e -> raise e
           in
           if success_attach then begin
             Variable.inline ~simpl [new_target];
             Variable.inline_and_rename ~simpl [nbAny; cVarDef !resname];
             if not keep_res then begin
-              ignore (Trace.backtrack_on_failure (fun () ->
+              ignore (Trace.step_backtrack_on_failure (fun () ->
                 Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]
               ));
               (* TODO: only with | TransfoError ? *)
               Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ]
             end;
           end else if not keep_res then
-            ignore (Trace.backtrack_on_failure (fun () ->
+            ignore (Trace.step_backtrack_on_failure (fun () ->
               Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]
               (* TODO: only with | TransfoError ? *)
             ));
@@ -293,11 +292,11 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ ->
-          if debug then Transfo_debug.path "Full_path to the call" path_to_call;
+          if debug then Show.path ~msg:"Full_path to the call" path_to_call;
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call) ;
         mark_added := true;
         post_processing ~deep_cleanup:true ();
-      | _ -> fail tg_out_trm.loc "Function.inline: please be sure that you're tageting a proper function call"
+      | _ -> trm_fail tg_out_trm "Function.inline: please be sure that you're tageting a proper function call"
       end;
     ) tg;
     if delete then Function_basic.delete [cOr
@@ -312,8 +311,8 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
   ?(delete : bool = true) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
   Trace.tag_valid_by_composition ();
-  Target.iter (fun t p ->
-    let def_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let def_trm = Target.resolve_path p in
     let error = "Function.inline_def: expected function definition" in
     let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
     (* FIXME: deal with qvar *)
@@ -334,7 +333,7 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
 
 (* [beta ~indepth tg]: applies beta-reduction on candidate function calls that appear
     either "exactly at" or "anywhere in depth" in the target [tg], depending on the value of ~indepth. *)
-let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target) : unit =
+let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = no_mark) (tg : target) : unit =
   let tg = if indepth
     then tg @ [cFun ~fun_:[cFunDef ""] ""]
     else tg in
@@ -350,7 +349,7 @@ let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target
       | Trm_apps _ -> Function_basic.beta ~body_mark (target_of_path parent_path)
       | _ -> ()
       end
-    | _ -> fail t.loc "Function.beta: this transformation expects a target to a function call"
+    | _ -> trm_fail t "Function.beta: this transformation expects a target to a function call"
   ) tg
 
 (* [use_infix_ops ~tg_ops]: expects the target [tg] to be pointing at an instruction that can be converted to
@@ -372,7 +371,7 @@ let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = tr
 let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg : target) : unit =
   let tg_fun_def = match get_trm_at fct with
   | Some td -> td
-  | None -> fail None "Function.uninline: fct target does point to any node" in
+  | None -> failwith "Function.uninline: fct target does point to any node" in
   iter_on_targets (fun _ p ->
     let mark = Mark.next () in
     match tg_fun_def.desc with
@@ -383,9 +382,9 @@ let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg
         Sequence_basic.intro nb ~mark (target_of_path p);
         if contains_for_loop then Sequence_basic.intro_on_instr [cMark mark; cFor_c "";dBody];
         Function_basic.uninline ~fct [cMark mark]
-      | _ -> fail tg_fun_def.loc "Function.uninline: weird function declaration "
+      | _ -> trm_fail tg_fun_def "Function.uninline: weird function declaration "
       end
-    | _ -> fail tg_fun_def.loc "Function.uinline: fct arg should point to a a function declaration"
+    | _ -> trm_fail tg_fun_def "Function.uinline: fct arg should point to a a function declaration"
   ) tg
 
 (* [insert ~reparse decl tg]: expects the relative target [t] to point before or after an instruction,

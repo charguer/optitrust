@@ -18,9 +18,9 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
       begin match td.typdef_body with
       | Typdef_alias dx ->
          dx, typ_constr ([], td.typdef_tconstr)
-      | _ -> fail d.loc "Typedef_core.fold_aux: expected a type definition"
+      | _ -> trm_fail d "Typedef_core.fold_aux: expected a type definition"
       end
-    | _ -> fail d.loc "Typedef_core.fold_aux: expected a typedef"
+    | _ -> trm_fail d "Typedef_core.fold_aux: expected a typedef"
     end in
 
    Internal.change_typ ~change_at:[fold_at] dx ty_x t in
@@ -50,9 +50,9 @@ let unfold_aux (delete : bool) (unfold_at : target) (index : int) (t : trm) : tr
       | Typdef_alias dx ->
         let ty_x = typ_constr ([], td.typdef_tconstr) ~tid:td.typdef_typid in
         dx, ty_x
-      | _ -> fail d.loc "Typedef_core.unfold_aux: expected a typedef alias"
+      | _ -> trm_fail d "Typedef_core.unfold_aux: expected a typedef alias"
       end
-    | _ -> fail d.loc "Typedef_core.unfold_aux: expected a typdef_alias"
+    | _ -> trm_fail d "Typedef_core.unfold_aux: expected a typdef_alias"
     end in Internal.change_typ ~change_at:[unfold_at] ty_x dx t in
   let new_tl = Mlist.update_at_index_and_fix_beyond ~delete index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
@@ -68,7 +68,7 @@ let insert_copy_aux (name : string) (t : trm) : trm =
   let error = "Typedef_core.insert_copy_aux: expected a typedef declaration." in
   let td = trm_inv ~error trm_typedef_inv t in
   let td_copy = trm_typedef {td with typdef_tconstr = name} in
-  trm_seq_no_brace [t; td_copy]
+  trm_seq_nobrace_nomarks [t; td_copy]
 
 (* [insert_copy name t p]: applies [insert_copy_aux] at trm [t] with path [p] *)
 let insert_copy (name : string) : Target.Transfo.local =

@@ -1,5 +1,4 @@
-
-#include "../../../include/optitrust.h"
+#include <optitrust.h>
 
 int main() {
   int i = 0;

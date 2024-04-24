@@ -2,6 +2,8 @@ open Prelude
 open Target
 include Instr_basic
 
+let insert = Sequence.insert
+let delete = Sequence.delete
 
 (* [read_last_write ~write tg]: similar to [Instr_basic.read_last_write] except that this transformation
      tries to find the last write instead of asking explicitly for a target to that write,
@@ -9,7 +11,7 @@ include Instr_basic
                    be deleted
      [write]: optional explicit target to the last write instruction
      Note: This transformation will fail in case it doesn't find a write to to the address that it reads from. *)
-let%transfo read_last_write ?(write_mark : mark option) ?(write : target = []) (tg : target) : unit =
+let%transfo read_last_write ?(write_mark : mark = no_mark) ?(write : target = []) (tg : target) : unit =
   if write <>  []
     then Instr_basic.read_last_write ~write tg
     else begin
@@ -34,15 +36,15 @@ let%transfo read_last_write ?(write_mark : mark option) ?(write : target = []) (
                        | _ -> ()
                        end
               ) tl
-            | _ -> fail seq_trm.loc (Printf.sprintf "Instr.read_last_write: expected the sequence which contains the targeted get operation got %s" (AstC_to_c.ast_to_string seq_trm))
+            | _ -> trm_fail seq_trm (Printf.sprintf "Instr.read_last_write: expected the sequence which contains the targeted get operation got %s" (AstC_to_c.ast_to_string seq_trm))
             end;
             begin match !write_index with
             | Some index ->
               let write =  (target_of_path path_to_seq) @ [dSeqNth index] in
               Instr_basic.read_last_write ~write  (target_of_path p);
-              begin match write_mark with | Some m -> Marks.add m write | _ -> () end
+              Marks.add write_mark write
 
-            | None -> fail tg_trm.loc "Instr.read_last_write: couuldn't find a write operation for your targeted read operation"
+            | None -> trm_fail tg_trm "Instr.read_last_write: couuldn't find a write operation for your targeted read operation"
             end
           | _ ->
               Instr_basic.read_last_write  ~write (target_of_path p)
@@ -69,10 +71,10 @@ let%transfo accumulate ?(nb : int option) (tg : target) : unit =
       | Some n ->
         Sequence_basic.intro ~mark:"temp_MARK" n (target_of_path p);
         Instr_basic.accumulate [cMark "temp_MARK"]
-      | _ -> fail t.loc "Instr.accumulate: if the given target is a write operation please
+      | _ -> trm_fail t "Instr.accumulate: if the given target is a write operation please
            provide me the number [nb] of instructions to consider in the accumulation"
       end
-    | _ -> fail t.loc "Instr.accumulate: expected a target to a sequence or a target to an instruction and the number of instructions to consider too"
+    | _ -> trm_fail t "Instr.accumulate: expected a target to a sequence or a target to an instruction and the number of instructions to consider too"
     end
   ) tg
 
@@ -84,80 +86,118 @@ let%transfo accumulate_targets (tg : target) : unit =
   Sequence.intro_targets ~mark tg;
   Instr_basic.accumulate [cMark mark]
 
+(* DEPRECATED: Use immediate children targets instead *)
 type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
 
 
 (* [gather_targets ~dest tg]: expects the target [tg] to point to one or more instructions, than
     it will move this instructions just before the instruction targeted by [dest].
 
+    DEPRECATED with this interface:
+    It should be replaced by a more robust equivalent using relative immediate children targets.
+
     Note: This transformation assumes that [tg]  is going to be pointing at multiple instructions,
     hence no need to provide the occurrecen target [nbMulti] before the main target. *)
 let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
-  let tg = filter_constr_occurrence tg in
-  let tg_dest = ref [] in
-  let reverse = ref true in
-  begin match dest with
-  | GatherAtFirst ->
-    tg_dest := [tAfter; occFirst] @ tg;
-    reverse := true
-  | GatherAtLast ->
-    tg_dest := [tBefore; occLast] @ tg;
-    reverse := false
-  | GatherAt tg_dest1 ->
-    tg_dest := tg_dest1;
-    match get_relative_type tg_dest1 with
-    | Some tg_rel ->
-      begin match tg_rel with
-      | TargetBefore ->
-        reverse := false
-      | TargetAfter ->
-        reverse := true
-      | TargetFirst ->
-        reverse := true
-      | TargetLast ->
-        reverse := false
-      | TargetAt -> fail None "Instr.gather_targets: if you used GatherAt you should provide a valid relative target"
-      end
-    | None -> fail None "Instr.gather_targets: if you used GatherAt you should provide a valid relative target"
-  end;
-  let tg = enable_multi_targets tg in
-  Instr_basic.move ~rev:!reverse ~dest:!tg_dest tg
+  Marks.with_marks (fun next_mark ->
+    let paths = resolve_target (enable_multi_targets tg) in
+    let move_paths rel dest_p ps =
+      let m = Marks.add_next_mark_on next_mark dest_p in
+      move ~dest:[rel; cMark m] [Constr_paths ps]
+    in
+    begin match dest with
+    | GatherAtFirst ->
+      let (first, rest) = Xlist.uncons paths in
+      move_paths tAfter first rest
+    | GatherAtLast ->
+      let (rest, last) = Xlist.unlast paths in
+      move_paths tBefore last rest
+    | GatherAt tg_dest ->
+      failwith "GatherAt not yet implemented, need to move instrs before and after target in right order, maybe Instr.move should already behave like GatherAt?"
+    end)
 
-(* [move dest tg]: move the invariant [tg] to destination [dest]
-   Note: The transformation does not check if [tg] points to some invariant code or not
-   LATER: Check if [tg] is dependent on other instructions of the same scope *)
-let%transfo move ~dest:(dest : target) (tg : target) : unit =
+(* [move_in_seq ~dest tg] perform the same actions as {!Instr_basic.move},
+   but move the instructions with the ghost pairs they need around them. *)
+let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
+  if !Flags.resource_typing_enabled then
+    Target.iter (fun p ->
+      let seq_path, span = Path.extract_last_dir_span p in
+      let t_seq = Target.resolve_path seq_path in
+      let dest_index = match Constr.resolve_target_between_children dest t_seq with
+        | [i] -> i
+        | [] -> trm_fail t_seq "Instr.move_in_seq: could not find the destination target";
+        | _ -> trm_fail t_seq "Instr.move_in_seq: the destination target should be unique";
+      in
+
+      let mark = Mark.next () in
+      let (mark_begin, mark_end) = span_marks mark in
+      let dest_mark = Mark.next () in
+      Marks.add dest_mark (target_of_path (seq_path @ [Dir_before dest_index]));
+
+      Ghost_pair.fission ~mark_between:mark_end (target_of_path (seq_path @ [Dir_before span.stop]));
+      Ghost_pure.fission [cPath seq_path; cMark mark_end];
+      Ghost_pair.fission ~mark_between:mark_begin (target_of_path (seq_path @ [Dir_before span.start]));
+      Ghost_pure.fission [cPath seq_path; cMark mark_begin];
+
+      (* TODO: Make a better API for this kind of mark in sequence *)
+      let seq_dest_mark = Mark.next () in
+      Marks.add_fake_instr seq_dest_mark [cMark dest_mark];
+      Ghost_pair.minimize_all_in_seq (target_of_path seq_path);
+      Ghost_pure.minimize_all_in_seq (target_of_path seq_path);
+
+      Instr_basic.move ~dest:[cMark seq_dest_mark; tBefore] [cMarkSpan mark];
+
+      Marks.remove_fake_instr [cMark seq_dest_mark];
+      Marks.remove_st (fun m -> m = mark_begin || m = mark_end || m = dest_mark) (target_of_path seq_path);
+    ) tg
+  else
+    Instr_basic.move ~dest tg
+
+(* [move dest tg]: move the instructions pointed by [tg] to destination [dest]
+   Note: If checking validity, dest must be in the same sequence as the moved instructions.
+*)
+let%transfo move ~(dest : target) (tg : target) : unit =
   Trace.tag_atomic ();
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
-    Marks.add "instr_move_out" (target_of_path p);
-    Sequence_basic.insert tg_trm dest;
-    Instr_basic.delete [cMark "instr_move_out"]) tg
+  if !Flags.check_validity then
+    (* TODO: handle move out of loop, conditions, etc. *)
+    Target.iter (fun p ->
+      let seq_path, span = Path.extract_last_dir_span p in
+      let dest_path, i = Target.resolve_target_between_exactly_one dest in
+      if seq_path <> dest_path then
+        path_fail dest_path "Instr.move: Unsupported move outside the sequence when checking validity";
+      move_in_seq ~dest:[dBefore i] (target_of_path p)
+    ) tg
+  else begin
+    Target.iter (fun p ->
+      let tg_trm = Target.resolve_path p in
+      Marks.add "instr_move_out" (target_of_path p);
+      Sequence_basic.insert tg_trm dest;
+      Instr_basic.delete [cMark "instr_move_out"]) tg
+  end
 
 (* [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
 let%transfo move_out (tg : target) : unit =
-  iter_on_targets (fun t p ->
-    let (seq, _) = try Internal.isolate_last_dir_in_seq p with | TransfoError _ ->
-      fail None "Instr.move_out: only instructions can be targeted" in
-    let tg_seq = target_of_path seq in
+  Target.iter (fun p ->
+    let (seq, _) = try Internal.isolate_last_dir_in_seq p with | Contextualized_error _ ->
+      path_fail p "Instr.move_out: only instructions can be targeted" in
     let tg_instr = target_of_path p in
-    move ~dest:tg_seq tg_instr
+    move ~dest:[cPath seq; tBefore] tg_instr
   ) tg
 
 (* [move_out_of_fun tg]: moves the instruction targeted by [tg] just befor the toplevel declaration function
     that it belongs to. *)
 let%transfo move_out_of_fun (tg : target) : unit =
-  iteri_on_targets (fun i t p ->
+  Target.iteri (fun i p ->
     let path_to_topfun = Internal.get_ascendant_topfun_path p in
     let mark = "move_out_fun" ^ (string_of_int i) in
     match path_to_topfun with
     | Some pf -> begin
       Marks.add mark (target_of_path pf);
       let tg_instr = target_of_path p in
-      move ~dest:[cMark mark] tg_instr;
+      move ~dest:[cMark mark; tBefore] tg_instr;
       Marks.remove mark [cMark mark]
       end
-    | None -> fail None "Instr.move_out_of_fun: can't move toplevel instructions"
+    | None -> path_fail p "Instr.move_out_of_fun: can't move toplevel instructions"
 
   ) tg
 
