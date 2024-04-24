@@ -185,3 +185,48 @@ let remove_unused_efracs (res: resource_set): resource_set =
     If a filter function is not given, do not filter the corresponding field. *)
 let filter ?(pure_filter = fun _ -> true) ?(linear_filter = fun _ -> true) res =
   { res with pure = List.filter pure_filter res.pure; linear = List.filter linear_filter res.linear }
+
+
+type linear_usage_filter =
+ { unused: bool; read_only: bool; joined_read_only: bool; uninit: bool; full: bool; produced: bool; }
+
+let keep_all_linear = { unused = true; read_only = true; joined_read_only = true; uninit = true; full = true; produced = true; }
+let keep_none_linear = { unused = false; read_only = false; joined_read_only = false; uninit = false; full = false; produced = false; }
+let keep_touched_linear = { keep_all_linear with unused = false; }
+let keep_used = { keep_touched_linear with produced = false; }
+let keep_produced = { keep_none_linear with produced = true; }
+let keep_unused = { keep_none_linear with unused = true; }
+let keep_written = { keep_used with read_only = false; joined_read_only = false; }
+
+(** A filter compatible with [List.filter] or [List.partition] that selects resources by their usage in the usage map given. *)
+let linear_usage_filter usage filter (h, _) =
+  match Var_map.find_opt h usage with
+  | None -> filter.unused
+  | Some SplittedFrac -> filter.read_only
+  | Some JoinedFrac -> filter.joined_read_only
+  | Some ConsumedUninit -> filter.uninit
+  | Some ConsumedFull -> filter.full
+  | Some Produced -> filter.produced
+  | Some (Required | Ensured) -> failwith "linear_usage_filter used on pure resource"
+
+type pure_usage_filter =
+ { unused: bool; required: bool; ensured: bool }
+
+let keep_all_pure = { unused = true; required = true; ensured = true }
+let keep_none_pure = { unused = false; required = false; ensured = false }
+let keep_touched_pure = { keep_all_pure with unused = false; }
+let keep_unused_pure = { keep_none_pure with unused = true; }
+let keep_required = { keep_none_pure with required = true; }
+let keep_ensured = { keep_none_pure with ensured = true; }
+
+(** A filter compatible with [List.filter] or [List.partition] that selects resources by their usage in the usage map given. *)
+let pure_usage_filter usage filter (h, _) =
+  match Var_map.find_opt h usage with
+  | None -> filter.unused
+  | Some Required -> filter.required
+  | Some Ensured -> filter.ensured
+  | Some (SplittedFrac | JoinedFrac | ConsumedUninit | ConsumedFull | Produced) ->
+    failwith "pure_usage_filter used on linear resource"
+
+let filter_touched (usage: resource_usage_map) (res: resource_set) =
+  filter ~pure_filter:(pure_usage_filter usage keep_touched_pure) ~linear_filter:(linear_usage_filter usage keep_touched_linear) res

@@ -708,7 +708,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
     | Produced_resources_uninit_after ->
       if not contract.strict then failwith "Need the for loop contract to be strict";
       let instr_usage = Resources.usage_of_trm instr in
-      let invariant_written_by_instr = List.filter (Resources.(linear_usage_filter instr_usage keep_written)) contract.invariant.linear in
+      let invariant_written_by_instr = List.filter (Resource_set.(linear_usage_filter instr_usage keep_written)) contract.invariant.linear in
       List.iter (fun (_, f) -> match Resource_formula.formula_uninit_inv f with
         | Some _ -> ()
         | None -> trm_fail instr "The instruction cannot be moved out because it consumes resources that are not uninitialized after the loop (and the loop range could be empty)"
@@ -808,7 +808,7 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
       if not contract.strict then failwith "Need the for loop contract to be strict";
       let assert_instr_uses_no_invariant instr =
         let instr_usage = Resources.usage_of_trm instr in
-        let invariant_usage = List.filter (Resources.(linear_usage_filter instr_usage keep_touched_linear)) contract.invariant.linear in
+        let invariant_usage = List.filter (Resource_set.(linear_usage_filter instr_usage keep_touched_linear)) contract.invariant.linear in
         if invariant_usage <> [] then
           trm_fail instr "does not support moving out instructions that touch invariant resources"
       in

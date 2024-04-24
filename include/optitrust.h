@@ -157,25 +157,25 @@ template<typename T> void __mul_inplace(T* p, T x) {
 template<typename T> T __post_inc(T* p) {
   __modifies("p ~> Cell");
   __admitted();
-  return p++;
+  return (*p)++;
 }
 
 template<typename T> T __post_dec(T* p) {
   __modifies("p ~> Cell");
   __admitted();
-  return p--;
+  return (*p)--;
 }
 
 template<typename T> T __pre_inc(T* p) {
   __modifies("p ~> Cell");
   __admitted();
-  return ++p;
+  return ++(*p);
 }
 
 template<typename T> T __pre_dec(T* p) {
   __modifies("p ~> Cell");
   __admitted();
-  return --p;
+  return --(*p);
 }
 
 /* ---- Matrix Functions ---- */
@@ -458,7 +458,7 @@ __GHOST(swap_groups_rev) {
 __GHOST(ro_swap_groups) {
   __requires("items: int * int -> formula, inner_range: range, outer_range: range, f: _Fraction");
   __consumes("_RO(f, for i in outer_range -> for j in inner_range -> items(i,j))");
-  __produces("_RO(f,for j in inner_range -> for i in outer_range -> items(i,j))");
+  __produces("_RO(f, for j in inner_range -> for i in outer_range -> items(i,j))");
   __admitted();
 }
 

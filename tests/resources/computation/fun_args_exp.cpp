@@ -12,16 +12,27 @@ int g(int x) {
   return 2 * x;
 }
 
-int modify(int* t) {
-  __modifies("t ~> Cell");
-  __admitted();
-  return 1;
-}
-
 void h(int* t) {
-  __modifies("t ~> Cell");
+  __reads("t ~> Cell");
   int r = f(3);
   r = *t;
   const int s0 = g(g(3));
   const int s1 = g(f(3));
+}
+
+int incr(int* t) {
+  __modifies("t ~> Cell");
+  __admitted();
+  *t += 1;
+  return *t;
+}
+
+void write_in_args() {
+  __pure();
+  int x = 0;
+  int y = 0;
+  int z;
+  x = incr(&y);
+  z = incr(&x) + incr(&y);
+  x = incr(&x);
 }

@@ -41,50 +41,6 @@ let compute_usage_of_instrs (instrs : trm mlist) : resource_usage_map =
     Resource_computation.update_usage_map ~current_usage:usage_map ~extra_usage:(usage_of_trm t)
   ) Resource_computation.empty_usage_map (Mlist.to_list instrs)
 
-type linear_usage_filter =
- { unused: bool; read_only: bool; joined_read_only: bool; uninit: bool; full: bool; produced: bool; }
-
-let keep_all_linear = { unused = true; read_only = true; joined_read_only = true; uninit = true; full = true; produced = true; }
-let keep_none_linear = { unused = false; read_only = false; joined_read_only = false; uninit = false; full = false; produced = false; }
-let keep_touched_linear = { keep_all_linear with unused = false; }
-let keep_used = { keep_touched_linear with produced = false; }
-let keep_produced = { keep_none_linear with produced = true; }
-let keep_unused = { keep_none_linear with unused = true; }
-let keep_written = { keep_used with read_only = false; joined_read_only = false; }
-
-(** A filter compatible with [List.filter] or [List.partition] that selects resources by their usage in the usage map given. *)
-let linear_usage_filter usage filter (h, _) =
-  match Var_map.find_opt h usage with
-  | None -> filter.unused
-  | Some SplittedFrac -> filter.read_only
-  | Some JoinedFrac -> filter.joined_read_only
-  | Some ConsumedUninit -> filter.uninit
-  | Some ConsumedFull -> filter.full
-  | Some Produced -> filter.produced
-  | Some (Required | Ensured) -> failwith "linear_usage_filter used on pure resource"
-
-type pure_usage_filter =
- { unused: bool; required: bool; ensured: bool }
-
-let keep_all_pure = { unused = true; required = true; ensured = true }
-let keep_none_pure = { unused = false; required = false; ensured = false }
-let keep_touched_pure = { keep_all_pure with unused = false; }
-let keep_unused_pure = { keep_none_pure with unused = true; }
-let keep_required = { keep_none_pure with required = true; }
-let keep_ensured = { keep_none_pure with ensured = true; }
-
-(** A filter compatible with [List.filter] or [List.partition] that selects resources by their usage in the usage map given. *)
-let pure_usage_filter usage filter (h, _) =
-  match Var_map.find_opt h usage with
-  | None -> filter.unused
-  | Some Required -> filter.required
-  | Some Ensured -> filter.ensured
-  | Some (SplittedFrac | JoinedFrac | ConsumedUninit | ConsumedFull | Produced) ->
-    failwith "linear_usage_filter used on linear resource"
-
-let filter_touched (usage: resource_usage_map) (res: resource_set) =
-  Resource_set.filter ~pure_filter:(pure_usage_filter usage keep_touched_pure) ~linear_filter:(linear_usage_filter usage keep_touched_linear) res
-
 (** [trm_is_pure]: Does this term always evaluate to the same value?
     The computed value should no be affected by observable program state.
     Computing the value should not affect the observable program state. *)
@@ -571,7 +527,7 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) (p :
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
       Target.apply_at_path (fun instr ->
         let res_before = before_trm instr in
-        let write_res = List.filter (linear_usage_filter (usage_of_trm instr) keep_written) res_before.linear in
+        let write_res = List.filter (Resource_set.(linear_usage_filter (usage_of_trm instr) keep_written)) res_before.linear in
         let write_res = List.map (fun (_, formula) -> formula) write_res in
         let write_res = List.filter pred write_res in
         let uninit_ghosts = List.filter_map (fun res ->

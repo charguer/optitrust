@@ -221,8 +221,8 @@ let%transfo local_name_tile
         (* TODO: is this exactly the same check as for variables? *)
         let t = resolve_path p in
         let t_res_usage = Resources.usage_of_trm t in
-        let t_res_before = Resources.(filter_touched t_res_usage (before_trm t)) in
-        let t_res_after = Resources.(filter_touched t_res_usage (after_trm t)) in
+        let t_res_before = Resource_set.filter_touched t_res_usage (Resources.before_trm t) in
+        let t_res_after = Resource_set.filter_touched t_res_usage (Resources.after_trm t) in
         let used_vars = Var_set.union (Resource_set.used_vars t_res_before) (Resource_set.used_vars t_res_after) in
         if Var_set.mem !ret_var used_vars then
           trm_fail t "resources still mention replaced variable after transformation"
@@ -649,8 +649,8 @@ let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg 
         (* TODO: is this exactly the same check as for Variable.local_name and Matrix.local_name? *)
         let t = get_trm_at_exn [cMark m] in
         let t_res_usage = Resources.usage_of_trm t in
-        let t_res_before = Resources.(filter_touched t_res_usage (before_trm t)) in
-        let t_res_after = Resources.(filter_touched t_res_usage (after_trm t)) in
+        let t_res_before = Resource_set.filter_touched t_res_usage (Resources.before_trm t) in
+        let t_res_after = Resource_set.filter_touched t_res_usage (Resources.after_trm t) in
         let used_vars = Var_set.union (Resource_set.used_vars t_res_before) (Resource_set.used_vars t_res_after) in
         if Var_set.mem var used_vars then
           trm_fail t "resources still mention replaced variable after transformation"

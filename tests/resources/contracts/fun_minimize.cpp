@@ -103,12 +103,57 @@ void read_and_multi_merge_frac(int* M, int n) {
   __ghost(ro_swap_groups, "items := fun j, i -> &M[MINDEX2(n,n,i,j)] ~> Cell, f := f3");
 }
 
-// Typing of this function is broken
+// Typing of these functions is broken
 /*void split_frac_generic(int* M, int n) {
   __consumes("M ~> Matrix2(n, n)");
   __ensures("f: _Frac");
   __produces("_RO(1-f, M ~> Matrix2(n, n)), _RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n,n,i,j)] ~> Cell)");
 
+  __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
+}
+
+void split_subfrac_generic(int* M, int n) {
+  __requires("a: _Frac");
+  __consumes("_RO(a, M ~> Matrix2(n, n))");
+  __ensures("f: _Frac");
+  __produces("_RO(a-f, M ~> Matrix2(n, n)), _RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n,n,i,j)] ~> Cell)");
+
+  __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
+}
+
+void split_frac_generic_opposite(int* M, int n) {
+  __consumes("M ~> Matrix2(n, n)");
+  __ensures("f: _Frac");
+  __produces("_RO(f, M ~> Matrix2(n, n)), _RO(1-f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n,n,i,j)] ~> Cell)");
+
+  __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
+}
+
+void split_frac_generic_constrained(int* M, int n) {
+  __consumes("M ~> Matrix2(n, n)");
+  __ensures("f: _Frac, g: _Frac");
+  __produces("_RO(g, M ~> Matrix2(n, n)), _RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n,n,i,j)] ~> Cell)");
+
+  __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
+}
+
+void split_frac_same(int* M1, int* M2, int n) {
+  __consumes("M1 ~> Matrix2(n, n)");
+  __consumes("M2 ~> Matrix2(n, n)");
+  __ensures("f: _Frac");
+  __produces("_RO(1-f, M1 ~> Matrix2(n, n)), _RO(f, for j in 0..n -> for i in 0..n -> &M1[MINDEX2(n,n,i,j)] ~> Cell)");
+  __produces("_RO(1-f, M2 ~> Matrix2(n, n)), _RO(f, for j in 0..n -> for i in 0..n -> &M2[MINDEX2(n,n,i,j)] ~> Cell)");
+
+  __ghost(ro_swap_groups, "items := fun i, j -> &M1[MINDEX2(n,n,i,j)] ~> Cell");
+  __ghost(ro_swap_groups, "items := fun i, j -> &M2[MINDEX2(n,n,i,j)] ~> Cell");
+}
+
+void split_frac_twice(int* M, int n) {
+  __consumes("M ~> Matrix2(n, n)");
+  __ensures("f: _Frac");
+  __produces("_RO(1-f-f, M1 ~> Matrix2(n, n)), _RO(f, for j in 0..n -> for i in 0..n -> &M1[MINDEX2(n,n,i,j)] ~> Cell), _RO(f, for j in 0..n -> for i in 0..n -> &M1[MINDEX2(n,n,i,j)] ~> Cell)");
+
+  __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
   __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
 }*/
 

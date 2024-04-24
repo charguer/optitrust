@@ -401,7 +401,6 @@ let new_efracs_from_used_set (res_used: used_resource_set): (hyp * formula) list
 exception Spec_not_found of var
 exception Anonymous_function_without_spec
 exception NotConsumedResources of linear_resource_set
-exception ImpureFunctionArgument of exn
 exception FractionConstraintUnsatisfied of formula * formula
 
 type frac_quotient = { base: formula; num: int; den: int }
@@ -700,6 +699,14 @@ let simplify_read_only_resources (res: linear_resource_set): (linear_resource_se
   ) ro_buckets non_ro_res in
   (res, !simpl_steps)
 
+(** [add_joined_frac_usage ro_simpl_steps usage] adds the usage
+    corresponding to the read only simplifications [ro_simpl_steps] into the usage map [usage]. *)
+let add_joined_frac_usage ro_simpl_steps usage =
+  List.fold_left (fun used_set (joined_into, taken_from) ->
+    let used_set = add_usage joined_into JoinedFrac used_set in
+    let used_set = add_usage taken_from ConsumedFull used_set in
+    used_set) usage ro_simpl_steps
+
 (**
   [resource_merge_after_frame res_after frame] returns [res_after] * [frame] with simplifications.
   Cancels magic wands in [frame] with linear resources in [res_after] and
@@ -721,10 +728,7 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
   let used_set = List.fold_left (fun used_set (h, _) -> Hyp_map.add h Produced used_set) used_set res_after.linear in
 
   let linear, ro_simpl_steps = simplify_read_only_resources (res_after.linear @ frame) in
-  let used_set = List.fold_left (fun used_set (joined_into, taken_from) ->
-    let used_set = add_usage joined_into JoinedFrac used_set in
-    let used_set = add_usage taken_from ConsumedFull used_set in
-    used_set) used_set ro_simpl_steps in
+  let used_set = add_joined_frac_usage ro_simpl_steps used_set in
 
   { res_after with linear }, used_set, ro_simpl_steps
 
@@ -802,8 +806,6 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "No specification for function %s" (var_to_string fn))
   | NotConsumedResources res ->
     Some (Printf.sprintf "Resources not consumed after the end of the block:\n%s" (resource_list_to_string res))
-  | ImpureFunctionArgument err ->
-    Some (Printf.sprintf "Function argument subexpression resource preservation check failed: %s" (Printexc.to_string err))
   | ResourceError (_t, phase, err) ->
     Some (Printf.sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string err));
   | _ -> None)
@@ -814,6 +816,7 @@ type minimized_linear_triple = {
   linear_pre: resource_item list;
   linear_post: resource_item list;
   frame: resource_item list;
+  usage_map: resource_usage_map;
 }
 
 type minimize_linear_triple_post_modif =
@@ -876,6 +879,12 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
       map := Var_map.remove var !map;
       Some x
   in
+  let updated_usage_map = ref usage in
+  let filled_frac_hole_to_read_only base_formula frac =
+    let new_hyp = new_anon_hyp () in
+    updated_usage_map := add_usage new_hyp Produced !updated_usage_map;
+    (new_hyp, formula_read_only ~frac base_formula)
+  in
   let filter_linear_post (hyp, formula) =
     match var_map_try_pop hyp post_modifs with
     | None -> [(hyp, formula)]
@@ -884,17 +893,19 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
       let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all (formula_remove_uninit formula) in
       let frac_holes_only_before, frac_holes_only_after = frac_wand_diff frac_before frac_after in
       let carved_frac = frac_wand_to_formula (trm_var new_frac, frac_holes_only_after) in
-      let remaining_fracs = List.map (fun frac -> (new_anon_hyp (), formula_read_only ~frac base_formula)) frac_holes_only_before in
-      (new_hyp, formula_read_only ~frac:carved_frac base_formula) :: remaining_fracs
+      let remaining_fracs = List.map (filled_frac_hole_to_read_only base_formula) frac_holes_only_before in
+      let carved_frac_hyp = new_anon_hyp () in
+      updated_usage_map := add_usage carved_frac_hyp Produced !updated_usage_map;
+      (carved_frac_hyp, formula_read_only ~frac:carved_frac base_formula) :: remaining_fracs
     | Some RemoveJoinedFrac frac_before ->
       let { frac = frac_after; formula = base_formula } = formula_read_only_inv_all (formula_remove_uninit formula) in
       let frac_holes_only_before, frac_holes_only_after = frac_wand_diff frac_before frac_after in
       assert (frac_holes_only_after = []);
-      List.map (fun frac -> (new_anon_hyp (), formula_read_only ~frac base_formula)) frac_holes_only_before
+      List.map (filled_frac_hole_to_read_only base_formula) frac_holes_only_before
   in
   let linear_post = List.concat_map filter_linear_post linear_post in
   if not (Var_map.is_empty !post_modifs) then failwith "minimize_linear_triple: missing resources that need to be patched in the post-condition";
-  { new_fracs = List.rev !new_fracs; linear_pre; linear_post; frame = List.rev !frame }
+  { new_fracs = List.rev !new_fracs; linear_pre; linear_post; frame = List.rev !frame; usage_map = !updated_usage_map }
 
 (** Knowing that term [t] has contract [contract], and that [res] is available before [t],
   [compute_contract_invoc contract ?subst_ctx res t] returns the resources used by [t],
@@ -975,7 +986,7 @@ let rec compute_resources
   let referent : trm_annot =
     Trm.(trm_annot_set_referent trm_annot_default t) in
   t.ctx.ctx_resources_before <- res;
-  let (let**) (x: 'a option) (f: 'a -> 'b option * 'c option) =
+  let (let**) (type a) (x: a option) (f: a -> resource_usage_map option * resource_set option) =
     match x with
     | Some x -> f x
     | None -> None, None
@@ -1080,50 +1091,54 @@ let rec compute_resources
       begin match find_fun_spec fn res.fun_specs with (* try to find spec *)
       | spec ->
         (* If the function has a specification.
-        Check that the [effective_args] use separate resources (order of evaluation does not matter): for now, only deal with read only.
+        Check that the [effective_args] use separate resources (order of evaluation does not matter).
         Check that all [effective_args] do not appear in the function contract unless they are formula-convertible (cf. formula_of_term).
         Build the instantation context with the known [effective_args] and [ghost_args].
         Then [compute_contract_invoc] to deduct used and remaining resources.
         *)
 
-        (* TODO: Cast into readonly: better error message when a resource exists in RO only but asking for RW *)
-        let read_only_res = Resource_set.read_only res in
-        let compute_and_check_resources_in_arg usage_map arg =
-          (* Give resources as read only and check that they are still there after the argument evaluation *)
-          (* LATER: Collect pure facts of arguments:
-              f(3+i), f(g(a)) where g returns a + a, f(g(a)) where g ensures res mod a = 0 *)
-          let usage_map, post_arg_res = compute_resources_and_merge_usage (Some read_only_res) usage_map arg in
-          begin match post_arg_res with
-          | Some post_arg_res ->
-            begin try ignore (assert_resource_impl post_arg_res (Resource_set.make ~linear:read_only_res.linear ()))
-            with e -> raise (ImpureFunctionArgument e)
-            end
-          | None -> ()
-          end;
-          usage_map
+        let compute_and_check_resources_in_arg res arg =
+          match compute_resources (Some res) arg with
+          | Some arg_usage_map, Some post_arg_res ->
+            let minimized_triple = minimize_linear_triple res.linear post_arg_res.linear arg_usage_map in
+            let res_after_arg = { res with pure = res.pure @ minimized_triple.new_fracs; linear = minimized_triple.frame } in
+            let minimized_post = Resource_set.(filter ~pure_filter:(pure_usage_filter arg_usage_map keep_ensured) (make ~pure:post_arg_res.pure ~linear:minimized_triple.linear_post ())) in
+            Some (res_after_arg, minimized_triple.linear_pre, minimized_post, minimized_triple.usage_map)
+          | _ -> None
         in
         (* Check the function itself as if it is an argument of the call (useful for closures) *)
-        let usage_map = compute_and_check_resources_in_arg (Some Var_map.empty) fn in
+        let** res_after_fn, fn_pre, fn_post, usage_map = compute_and_check_resources_in_arg res fn in
 
         let contract_fv = fun_contract_free_vars spec.contract in
-        let subst_ctx, usage_map = try
-          List.fold_left2 (fun (subst_map, usage_map) contract_arg effective_arg ->
-            let usage_map = compute_and_check_resources_in_arg usage_map effective_arg in
+        let** subst_ctx, res_arg_frame, args_pre, args_post, usage_map = try
+          List.fold_left2 (fun acc contract_arg effective_arg ->
+            let open Xoption.OptionMonad in
+            let* subst_map, unused_res, acc_pre, acc_post, usage_map = acc in
+            let* unused_res, new_pre, new_post, arg_usage_map = compute_and_check_resources_in_arg unused_res effective_arg in
+            let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:arg_usage_map in
+            let acc_pre = new_pre @ acc_pre in
+            let acc_post = Resource_set.union new_post acc_post in
 
             (* For all effective arguments that will appear in the instantiated contract,
                check that they have a formula interpretation *)
-            if Var_set.mem contract_arg contract_fv then begin
+            let subst_map = if Var_set.mem contract_arg contract_fv then begin
               let arg_formula = match formula_of_trm effective_arg with
                 | Some formula -> formula
                 | None -> trm_fail effective_arg (Printf.sprintf "Could not make a formula out of term '%s', required because of instantiation of %s contract" (AstC_to_c.ast_to_string effective_arg) (AstC_to_c.ast_to_string fn))
               in
-              Var_map.add contract_arg arg_formula subst_map, usage_map
+              Var_map.add contract_arg arg_formula subst_map
             end else
-              subst_map, usage_map
-          ) (Var_map.empty, usage_map) spec.args effective_args;
+              subst_map
+            in
+            Some (subst_map, unused_res, acc_pre, acc_post, usage_map)
+          ) (Some (Var_map.empty, res_after_fn, fn_pre, fn_post, usage_map)) spec.args effective_args
         with Invalid_argument _ ->
           failwith (Printf.sprintf "Mismatching number of arguments for %s" (AstC_to_c.ast_to_string fn))
         in
+        let res_after_args = Resource_set.union res_arg_frame args_post in
+        let linear_res_after_args, ro_simpl_steps = simplify_read_only_resources res_after_args.linear in
+        let res_after_args = { res_after_args with linear = linear_res_after_args } in
+        let usage_map = add_joined_frac_usage ro_simpl_steps usage_map in
 
         let ghost_args_vars = ref Var_set.empty in
         let subst_ctx = List.fold_left (fun subst_ctx (ghost_var, ghost_inst) ->
@@ -1138,16 +1153,14 @@ let rec compute_resources
         in
         assert (Var_set.is_empty !ghost_args_vars);
 
-        let call_usage_map, res_after = compute_contract_invoc contract ~subst_ctx res t in
-        let usage_map = Option.map (fun usage_map ->
-          let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
-              let ghost_inst_fv = trm_free_vars ghost_inst in
-              Var_set.fold (fun x -> Hyp_map.add x Required) ghost_inst_fv usage_map
-            ) usage_map ghost_args in
-          update_usage_map ~current_usage:usage_map ~extra_usage:call_usage_map) usage_map
-        in
+        let call_usage_map, res_after = compute_contract_invoc contract ~subst_ctx res_after_args t in
+        let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
+            let ghost_inst_fv = trm_free_vars ghost_inst in
+            Var_set.fold (fun x -> Hyp_map.add x Required) ghost_inst_fv usage_map
+          ) usage_map ghost_args in
+        let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:call_usage_map in
 
-        usage_map, Some res_after
+        Some usage_map, Some res_after
 
       | exception Spec_not_found fn when var_eq fn Resource_primitives.__cast ->
         (* TK: we treat cast as identity function. *)
@@ -1344,31 +1357,36 @@ let rec compute_resources
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
-  if debug_print_computation_stack then Printf.eprintf "=====\nWith resources: %s\nSaving %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
+  if debug_print_computation_stack then
+    Printf.eprintf "=====\nWith resources: %s\nWith usage: %s\nSaving %s\n\n"
+      (resource_set_opt_to_string res)
+      (Option.value ~default:"<unknown>" (Option.map (fun usage_map -> String.concat ", " (Ast_fromto_AstC.ctx_usage_map_to_strings usage_map)) usage_map))
+      (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_after <- res;
-  let res =
-    match res, expected_res with
-    | Some res, Some expected_res ->
-      (* Check that the expected resources after the expression are actually the resources available after the expression *)
-      begin try
-        (* LATER: add an annotation to provide post instantiation hints *)
-        let used_res = assert_resource_impl res expected_res in
-        t.ctx.ctx_resources_post_inst <- Some used_res;
-        (* We need to account for pure usage inside the post instantiation, but filter out invariants that are passed to the next iteration without modification. *)
-        t.ctx.ctx_resources_usage <- Option.map (fun current_usage -> update_usage_map ~current_usage ~extra_usage:(used_set_to_usage_map { used_pure = List.filter (fun { hyp; inst_by } ->
-            match trm_var_inv inst_by with
-            | Some x -> not (var_eq x hyp)
-            | None -> true
-          ) used_res.used_pure; used_linear = [] })) t.ctx.ctx_resources_usage;
-      with
-      | StoppedOnFirstError as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
-      | e -> ignore (handle_resource_errors t PostconditionCheck e)
-      end;
-      Some expected_res
-    | _, None -> res
-    | None, _ -> expected_res
-  in
-  usage_map, res
+  match res, expected_res with
+  | Some res, Some expected_res ->
+    (* Check that the expected resources after the expression are actually the resources available after the expression *)
+    begin try
+      (* LATER: add an annotation to provide post instantiation hints *)
+      let used_res = assert_resource_impl res expected_res in
+      t.ctx.ctx_resources_post_inst <- Some used_res;
+      (* We need to account for pure usage inside the post instantiation, but filter out invariants that are passed to the next iteration without modification. *)
+      let usage_map = Option.map (fun current_usage -> update_usage_map ~current_usage ~extra_usage:(used_set_to_usage_map { used_pure = List.filter (fun { hyp; inst_by } ->
+          match trm_var_inv inst_by with
+          | Some x -> not (var_eq x hyp)
+          | None -> true
+        ) used_res.used_pure; used_linear = [] })) t.ctx.ctx_resources_usage
+      in
+      t.ctx.ctx_resources_usage <- usage_map;
+      usage_map, Some expected_res
+    with
+    | StoppedOnFirstError as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
+    | e ->
+      ignore (handle_resource_errors t PostconditionCheck e);
+      None, Some expected_res
+    end
+  | _, None -> usage_map, res
+  | None, _ -> usage_map, expected_res
 
 (** <private> [compute_resources] that propagates usages. *)
 and compute_resources_and_merge_usage
