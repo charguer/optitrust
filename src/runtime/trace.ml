@@ -1060,6 +1060,7 @@ and recompute_resources (): unit =
     typing_step ~name:"Resource recomputation" recompute_resources_on_ast
 
 and recompute_resources_on_ast () : unit =
+  if not !Flags.resource_typing_enabled then failwith "Cannot compute resources when resource typing is disabled";
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
   try
