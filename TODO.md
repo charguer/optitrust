@@ -23,7 +23,7 @@
 ../src/convention.ml
 
 
-# Features
+# AST features
 
 - `Trm_files` do deal with multiple files, and simplify includes
 - encode Module/namespace the same way?
@@ -36,6 +36,8 @@
   - compare types?
   - compare computed resources?
   - compare contracts?
+- recursive functions
+- compound litteral (struct on the fly)
 
 # Typechecking
 
