@@ -169,7 +169,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) ?(goal_sol
   (* Add flag to disallow pure instantiation *)
   let find_formula formula (hyp_candidate, formula_candidate) =
     Option.map (fun evar_ctx -> Var_map.add x (Some (trm_var hyp_candidate)) evar_ctx)
-      (unify_trm formula_candidate formula evar_ctx)
+      (unify_trm formula formula_candidate evar_ctx)
   in
   match List.find_map (find_formula formula) res with
   | Some evar_ctx -> evar_ctx
@@ -233,7 +233,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
           | None -> Formula_inst.inst_forget_init candidate_name, formula_candidate
         else Formula_inst.inst_hyp candidate_name, formula_candidate
       in
-      let* evar_ctx = unify_trm formula_to_unify formula evar_ctx in
+      let* evar_ctx = unify_trm formula formula_to_unify evar_ctx in
       let used_formula = if uninit then formula_uninit formula_to_unify else formula_to_unify in
       Some (
         { hyp = x; inst_by = Formula_inst.inst_hyp candidate_name; used_formula },
@@ -251,7 +251,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
       function faster on most frequent cases *)
     extract (fun (h, formula_candidate) ->
       let { frac = cur_frac; formula = formula_candidate } = formula_read_only_inv_all formula_candidate in
-      let* evar_ctx = unify_trm formula_candidate formula evar_ctx in
+      let* evar_ctx = unify_trm formula formula_candidate evar_ctx in
       Some (
         { hyp ; inst_by = Formula_inst.inst_split_read_only ~new_frac ~old_frac:cur_frac h; used_formula = formula_read_only ~frac:(trm_var new_frac) formula_candidate },
         Some (h, formula_read_only ~frac:(trm_sub cur_frac (trm_var new_frac)) formula_candidate), evar_ctx)
@@ -473,6 +473,14 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
   let available_pure = List.rev res_from.pure in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
       unify_pure res_item available_pure evar_ctx) evar_ctx not_dominated_pure_res_to
+  in
+
+  (* Remove unconstrained efracs from subst_ctx and efracs list *)
+  let evar_ctx, efracs = List.fold_left (fun (evar_ctx, efracs) (efrac, bound) ->
+      match Var_map.find efrac evar_ctx with
+      | None -> (Var_map.remove efrac evar_ctx, efracs)
+      | Some _ -> (evar_ctx, (efrac, bound) :: efracs)
+    ) (evar_ctx, []) efracs
   in
 
   (* All dominated evars should have been instantiated at this point.
@@ -757,19 +765,18 @@ let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resou
     | _ -> raise Anonymous_function_without_spec
     end
 
-let named_formula_to_string nf : string =
-  let style = Ast_fromto_AstC.style_of_custom_style (Style.default_custom_style ()) in
-  Ast_fromto_AstC.named_formula_to_string style nf
+let formula_style = Ast_fromto_AstC.style_of_custom_style (Style.default_custom_style ())
+let formula_to_string = Ast_fromto_AstC.formula_to_string formula_style
+let named_formula_to_string = Ast_fromto_AstC.named_formula_to_string formula_style
 
 (* FIXME: move printing out of this file. *)
 let resource_list_to_string res_list : string =
   String.concat "\n" (List.map named_formula_to_string res_list)
 
 let resource_set_to_string res : string =
-  let style = Ast_fromto_AstC.style_of_custom_style (Style.default_custom_style ()) in
   let spure = resource_list_to_string res.pure in
   let sefracs = if res.efracs = [] then ""
-    else String.concat "\n" ("" :: List.map (fun efrac -> Ast_fromto_AstC.efrac_to_string style efrac) res.efracs)
+    else String.concat "\n" ("" :: List.map (fun efrac -> Ast_fromto_AstC.efrac_to_string formula_style efrac) res.efracs)
   in
   let slin = resource_list_to_string res.linear in
   Printf.sprintf "pure:\n%s%s\n\nlinear:\n%s\n" spure sefracs slin
@@ -806,6 +813,8 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "No specification for function %s" (var_to_string fn))
   | NotConsumedResources res ->
     Some (Printf.sprintf "Resources not consumed after the end of the block:\n%s" (resource_list_to_string res))
+  | FractionConstraintUnsatisfied (efrac, bigger_frac) ->
+    Some (Printf.sprintf "Fraction constraint unsatisfied: %s <= %s (currently we only reason about fractions of the form a - a/n - ... - a/n)" (formula_to_string efrac) (formula_to_string bigger_frac))
   | ResourceError (_t, phase, err) ->
     Some (Printf.sprintf "%s error: %s" (resource_error_phase_to_string phase) (Printexc.to_string err));
   | _ -> None)

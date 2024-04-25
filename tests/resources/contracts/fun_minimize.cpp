@@ -104,7 +104,7 @@ void read_and_multi_merge_frac(int* M, int n) {
 }
 
 // Typing of these functions is broken
-/*void split_frac_generic(int* M, int n) {
+void split_frac_generic(int* M, int n) {
   __consumes("M ~> Matrix2(n, n)");
   __ensures("f: _Frac");
   __produces("_RO(1-f, M ~> Matrix2(n, n)), _RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n,n,i,j)] ~> Cell)");
@@ -121,15 +121,15 @@ void split_subfrac_generic(int* M, int n) {
   __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
 }
 
-void split_frac_generic_opposite(int* M, int n) {
+/*void split_frac_generic_opposite(int* M, int n) {
   __consumes("M ~> Matrix2(n, n)");
   __ensures("f: _Frac");
   __produces("_RO(f, M ~> Matrix2(n, n)), _RO(1-f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n,n,i,j)] ~> Cell)");
 
   __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
-}
+}*/
 
-void split_frac_generic_constrained(int* M, int n) {
+void split_frac_generic_lossy(int* M, int n) {
   __consumes("M ~> Matrix2(n, n)");
   __ensures("f: _Frac, g: _Frac");
   __produces("_RO(g, M ~> Matrix2(n, n)), _RO(f, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n,n,i,j)] ~> Cell)");
@@ -137,7 +137,7 @@ void split_frac_generic_constrained(int* M, int n) {
   __ghost(ro_swap_groups, "items := fun i, j -> &M[MINDEX2(n,n,i,j)] ~> Cell");
 }
 
-void split_frac_same(int* M1, int* M2, int n) {
+/*void split_frac_same(int* M1, int* M2, int n) {
   __consumes("M1 ~> Matrix2(n, n)");
   __consumes("M2 ~> Matrix2(n, n)");
   __ensures("f: _Frac");

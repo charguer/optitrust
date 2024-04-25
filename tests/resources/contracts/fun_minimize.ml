@@ -18,7 +18,10 @@ let _ = Run.script_cpp (fun () ->
     !! fun_minimize [cFunDef "read_and_multi_merge_frac"];
 
     (* Typing of split_frac_generic is broken *)
-    (*!! fun_minimize [cFunDef "split_frac_generic"];*)
+    !! fun_minimize [cFunDef "split_frac_generic"];
+    !! fun_minimize [cFunDef "split_subfrac_generic"];
+    (* This contract does not respect the assumptions of minimize *)
+    (* !! fun_minimize [cFunDef "split_frac_generic_lossy"]; *)
     (* fun_minimize does not respect evar constraints as it should *)
     (*!! fun_minimize [cFunDef "split_frac_specific"];*)
 )
