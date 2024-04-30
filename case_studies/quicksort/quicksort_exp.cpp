@@ -51,9 +51,9 @@ void sort_core(int* in_out_data, const int right_limit) {
       int* pivot = new int();
 #pragma omp task default(shared) depend(in : right_limit) depend(inout : in_out_data[0], pivot[0])
       partition(pivot, in_out_data, right_limit);
+#pragma omp taskwait depend(in : pivot[0])
 #pragma omp task default(shared) depend(in : pivot[0]) depend(inout : in_out_data[0])
       sort_core(&in_out_data[0], *pivot);
-#pragma omp taskwait depend(in : pivot[0])
 #pragma omp task default(shared) depend(in : pivot[0], right_limit) depend(inout : in_out_data[*pivot + 1])
       sort_core(&in_out_data[*pivot + 1], right_limit - (*pivot + 1));
 #pragma omp task default(shared) depend(inout : pivot[0])

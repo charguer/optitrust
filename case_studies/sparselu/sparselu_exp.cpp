@@ -69,60 +69,38 @@ int sparselu(float** matrix, const size_t matrix_size, const size_t submatrix_si
 #pragma omp taskgroup
   {
 #pragma omp taskwait depend(in : matrix_size)
-#pragma omp taskwait depend(in : matrix_size) depend(inout : matrix[ii * matrix_size + jj], matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj])
     for (int kk = 0; kk < matrix_size; kk++) {
-#pragma omp taskwait depend(in : kk, matrix_size)
 #pragma omp task default(shared) depend(in : submatrix_size) depend(inout : matrix[kk * matrix_size + kk]) firstprivate(matrix_size, kk)
       lu0(matrix[kk * matrix_size + kk], submatrix_size);
 #pragma omp taskwait depend(in : kk, matrix_size)
-#pragma omp taskwait depend(in : kk, matrix_size) depend(inout : matrix[kk * matrix_size + jj])
       for (int jj = kk + 1; jj < matrix_size; jj++) {
-#pragma omp taskwait depend(in : jj, kk, matrix_size)
 #pragma omp taskwait depend(in : jj, kk, matrix_size) depend(inout : matrix[kk * matrix_size + jj])
         if (matrix[kk * matrix_size + jj] != NULL) {
-#pragma omp taskwait depend(in : jj, kk, matrix_size)
 #pragma omp task default(shared) depend(in : matrix[kk * matrix_size + kk], submatrix_size) depend(inout : matrix[kk * matrix_size + jj]) firstprivate(matrix_size, kk, jj)
           fwd(matrix[kk * matrix_size + kk], matrix[kk * matrix_size + jj], submatrix_size);
         }
       }
 #pragma omp taskwait depend(in : kk, matrix_size)
-#pragma omp taskwait depend(in : kk, matrix_size) depend(inout : matrix[ii * matrix_size + kk])
       for (int ii = kk + 1; ii < matrix_size; ii++) {
-#pragma omp taskwait depend(in : ii, kk, matrix_size)
 #pragma omp taskwait depend(in : ii, kk, matrix_size) depend(inout : matrix[ii * matrix_size + kk])
         if (matrix[ii * matrix_size + kk] != NULL) {
-#pragma omp taskwait depend(in : ii, kk, matrix_size)
 #pragma omp task default(shared) depend(in : matrix[kk * matrix_size + kk], submatrix_size) depend(inout : matrix[ii * matrix_size + kk]) firstprivate(matrix_size, kk, ii)
           bdiv(matrix[kk * matrix_size + kk], matrix[ii * matrix_size + kk], submatrix_size);
         }
       }
 #pragma omp taskwait depend(in : kk, matrix_size)
-#pragma omp taskwait depend(in : kk, matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj], matrix_size) depend(inout : matrix[ii * matrix_size + jj])
       for (int ii = kk + 1; ii < matrix_size; ii++) {
-#pragma omp taskwait depend(in : ii, kk, matrix_size)
-#pragma omp taskwait depend(in : ii, kk, matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj], matrix_size) depend(inout : matrix[ii * matrix_size + jj])
+#pragma omp taskwait depend(in : ii, kk, matrix[ii * matrix_size + kk], matrix_size)
         if (matrix[ii * matrix_size + kk] != NULL) {
 #pragma omp taskwait depend(in : ii, kk, matrix_size)
-#pragma omp taskwait depend(in : ii, kk, matrix[kk * matrix_size + jj], matrix_size) depend(inout : matrix[ii * matrix_size + jj])
           for (int jj = kk + 1; jj < matrix_size; jj++) {
-#pragma omp taskwait depend(in : ii, jj, kk, matrix_size)
-#pragma omp taskwait depend(in : ii, jj, kk, matrix[kk * matrix_size + jj], matrix_size) depend(inout : matrix[ii * matrix_size + jj])
+#pragma omp taskwait depend(in : ii, jj, kk, matrix[kk * matrix_size + jj], matrix_size)
             if (matrix[kk * matrix_size + jj] != NULL) {
-#pragma omp taskwait depend(in : ii, jj, matrix_size)
 #pragma omp taskwait depend(in : ii, jj, matrix_size) depend(inout : matrix[ii * matrix_size + jj])
               if (matrix[ii * matrix_size + jj] == NULL) {
-#pragma omp taskwait depend(in : ii, jj, matrix_size)
 #pragma omp task default(shared) depend(inout : matrix[ii * matrix_size + jj], submatrix_size) firstprivate(matrix_size, jj, ii)
                 matrix[ii * matrix_size + jj] = allocate_clean_block(submatrix_size);
-#pragma omp taskwait depend(in : ii, jj, matrix_size)
-#pragma omp taskwait depend(in : ii, jj, matrix[ii * matrix_size + jj], matrix_size)
-                if (matrix[ii * matrix_size + jj] == NULL) {
-#pragma omp taskwait
-                  __apac_result = 1;
-                  goto __apac_exit;
-                }
               }
-#pragma omp taskwait depend(in : ii, jj, kk, matrix_size)
 #pragma omp task default(shared) depend(in : matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj], submatrix_size) depend(inout : matrix[ii * matrix_size + jj]) firstprivate(matrix_size, kk, jj, ii)
               bmod(matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj], matrix[ii * matrix_size + jj], submatrix_size);
             }
