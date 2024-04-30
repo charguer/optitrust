@@ -2,11 +2,21 @@
 .d2h-file-header {
    display: none;
 }
-.d2h-code-side-line {
-  padding: 0em;
+
+/* Hide the diff line number because we're showing full file comparisons */
+.d2h-info {
+   display: none;
 }
-.d2h-code-side-linenumber {
-  display: none;
+
+.d2h-file-wrapper {
+  border: none;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+.d2h-code-side-line {
+  padding: 0;
+  padding-left: 4px;
 }
 
 /* disable the highlighting of words diff on a line */
@@ -16,8 +26,25 @@
 }
 
 .d2h-code-line-prefix {
-  color: transparent;
-  width: 0;
-  display: inline-block;
-  margin-left: -0.5em;
+  display: none;
 }
+
+.d2h-code-side-linenumber:not(.d2h-info) {
+  display: table-cell;
+  position: sticky;
+  left: 0;
+  cursor: auto;
+  direction: ltr;
+  padding: 0 4px;
+  border-right: 2px solid #eee;
+}
+.d2h-code-side-linenumber::after {
+  content: none;
+}
+
+.diffBefore {
+  border-right: 1px solid #888;
+  padding-right: -1px;
+}
+.diffAfter {}
+

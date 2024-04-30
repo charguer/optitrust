@@ -905,7 +905,7 @@ function initControls() {
   s += htmlButton("button_full", "full", "details-button", "viewDetailsFull()");
   s += htmlButton("button_reset", "reset", "details-button", "location.reload()");
 
-  $("#contents").html(s);
+  $("#controls").html(s);
 
   // initialize checkboxes
   for (var i = 0; i < optionsDescr.length; i++) {

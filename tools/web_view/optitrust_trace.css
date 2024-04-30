@@ -1,16 +1,17 @@
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  height: 100vh;
+  margin: 0px;
+  padding: 8px;
+  box-sizing: border-box;
+  gap: 8px;
+  overflow: hidden;
+}
 
 pre {
   margin: 0;
-}
-
-/* Hide the filename since we're concerned with only one file name */
-.d2h-file-header {
-   display: none;
-}
-
-/* Hide the diff line number because we're showing full file comparisons */
-.d2h-info {
-   display: none;
 }
 
 .title {
@@ -79,10 +80,6 @@ h2 {
    font-size: 1em;
 }
 
-#contents {
-  margin-bottom: 1em;
-}
-
 .row-title {
   display: inline-block;
   width: 5em;
@@ -94,15 +91,14 @@ h2 {
   text-align: center;
 }
 
-#button_normal {
-  margin-left: 1em;
-}
-
 .details-button {
   min-width: 5em;
-  margin-top: 8px;
   text-align: center;
-  margin-right: 1em;
+  margin-right: 8px;
+}
+
+label + .details-button {
+  margin-left: 8px;
 }
 
 .next-button {
@@ -145,9 +141,6 @@ h2 {
   border: 1px solid #eee;
   height: auto;
 }
-
-.diffBefore {}
-.diffAfter {}
 
 .tree-step {
   display: inline-block;
@@ -241,27 +234,35 @@ h2 {
 
 .split-pane {
   display: flex;
-  /* flex-direction: row; */
+  flex-direction: row;
   outline: 1px solid #888;
+  overflow: hidden;
 }
 
 .left-pane {
   background: #EEE;
   border-right: 1px solid #CCC;
+  overflow-y: auto;
 }
 
 .right-pane {
   background: #FFF;
-  flex: 1 1 0%;
-  /* flex-grow: 1; */
+  flex: 1 1 0;
+  overflow-y: auto;
 }
 
 .resizing-handle {
-  background: rgb(192, 192, 192); /*transparent;*/
-  width: 8px;
-  margin: 0 -5px;
-  cursor:col-resize;
+  background: #888;
+  width: 4px;
+  cursor: col-resize;
   z-index: 999;
+}
+.resizing-handle:hover {
+  width: 8px;
+  margin: 0 -2px;
+}
+.resizing-handle:active {
+  background: #999;
 }
 
 /* ---- */

@@ -19,24 +19,21 @@
    <script src="{WEB_VIEW_FOLDER}/lib/codemirror/clike.js"></script>
 
    <script type="text/javascript" src="{WEB_VIEW_FOLDER}/lib/diff2html-ui.min.js"></script>
+   <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/optitrust_diff.css" />
 
    <script src="{WEB_VIEW_FOLDER}/optitrust_trace.js"></script>
    <link rel="stylesheet" type="text/css" href="{WEB_VIEW_FOLDER}/optitrust_trace.css" />
 
    <script src="{TRACEJSFILE}"></script>
-
-   <style></style><script></script>
 </head>
 <body>
 
 <!---------------------------------------------------------------------------->
 
-<div id="contents"></div>
-
-<div id="infoDiv"></div>
+<div id="controls"></div>
 
 <div class="split-pane">
-  <div class="left-pane" id="detailsDiv"></div>
+  <div class="left-pane" id="detailsDiv" style="width: 40%;"></div>
   <div class="resizing-handle" id="vSplitDiv"></div>
   <div class="right-pane">
     <pre id="debugMsgDiv"></pre>
