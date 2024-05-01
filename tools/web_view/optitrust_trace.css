@@ -1,13 +1,8 @@
 body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
   height: 100vh;
-  margin: 0px;
-  padding: 8px;
-  box-sizing: border-box;
-  gap: 8px;
+  margin: 0;
   overflow: hidden;
+  font-family: sans-serif;
 }
 
 pre {
@@ -175,7 +170,6 @@ pre {
 .split-pane {
   display: flex;
   flex-direction: row;
-  outline: 1px solid #888;
   overflow: hidden;
   height: 100%;
   width: 100%;

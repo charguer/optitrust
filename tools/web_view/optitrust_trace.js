@@ -652,10 +652,11 @@ function stepToHTML(step, display) {
   }
   var sName = escapeHTML(step.name);
   if (!options.basic_modules) {
-    sName = sName.replace(/_basic/,'');
-    sName = sName.replace(/_loop_list/,'');
+    sName = sName.replace('_basic','');
+    sName = sName.replace('_loop_list','');
   }
-  sName = sName.replace(/\./,'<wbr>.');
+  sName = sName.replaceAll('.','<wbr>.');
+  sName = sName.replaceAll('(','(<wbr>');
 
   var sArgs = "";
   if (options.args && step.args) {
