@@ -30,18 +30,21 @@
 
 <!---------------------------------------------------------------------------->
 
-<div id="controls"></div>
 
 <div class="split-pane">
-  <div class="left-pane" id="detailsDiv" style="width: 40%;"></div>
+  <div class="left-pane" style="width: 40%;">
+    <div id="treeDiv"></div>
+    <div class="controls" id="treeControls"></div>
+  </div>
   <div class="resizing-handle" id="vSplitDiv"></div>
   <div class="right-pane">
-    <pre id="debugMsgDiv">Failed loading the trace {TRACEJSFILE}</pre>
+    <div id="debugMsgDiv">Failed loading the trace {TRACEJSFILE}</div>
     <div id="diffDiv"></div>
-    <div id="statsDiv"></div>
     <div id="sourceDiv">
       <textarea id='source_code' class="source col-sm-auto"></textarea>
     </div>
+    <div id="statsDiv"></div>
+    <div class="controls" id="astControls"></div>
   </div>
 </div>
 

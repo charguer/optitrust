@@ -55,7 +55,7 @@ var allTags = {}; // filled by initAllTags
 var optionsDescr = [ // extended by initAllTags
   { key: "advanced",
     name: "advanced",
-    kind: "standard",
+    kind: "tree",
     default: false
   },
   { key: "hide_empty_diff",
@@ -63,16 +63,7 @@ var optionsDescr = [ // extended by initAllTags
     kind: "advanced",
     default: true,
   },
-  { key: "ast_before",
-    name: "ast-before",
-    kind: "standard",
-    default: false,
-  },
-  { key: "ast_after",
-    name: "ast-after",
-    kind: "standard",
-    default: false,
-  },
+  /*,*/
 /*  { key: "stats",
     name: "stats",
     kind: "standard",
@@ -83,11 +74,7 @@ var optionsDescr = [ // extended by initAllTags
     kind: "advanced",
     default: false,
   },
-  { key: "compact",
-    name: "compact",
-    kind: "advanced",
-    default: true,
-  },
+
   { key: "step_change",
     name: "step-change",
     kind: "advanced",
@@ -95,12 +82,12 @@ var optionsDescr = [ // extended by initAllTags
   },
   { key: "args",
     name: "arguments",
-    kind: "standard",
+    kind: "tree",
     default: false,
   },
   { key: "justif",
     name: "justification",
-    kind: "standard",
+    kind: "tree",
     default: false,
   },
   /* always-true
@@ -144,7 +131,30 @@ var optionsDescr = [ // extended by initAllTags
     name: "basic-modules",
     kind: "advanced",
     default: true,
-  }
+  },
+  { key: "ast_diff",
+    name: "ast-diff",
+    kind: "ast",
+    radio: "ast-display",
+    default: true,
+  },
+  { key: "ast_before",
+    name: "ast-before",
+    kind: "ast",
+    radio: "ast-display",
+    default: false,
+  },
+  { key: "ast_after",
+    name: "ast-after",
+    kind: "ast",
+    radio: "ast-display",
+    default: false,
+  },
+  { key: "compact",
+    name: "compact",
+    kind: "ast",
+    default: true,
+  },
 ];
 
 var options = {}; // filled by initOptions, maps key to value
@@ -266,6 +276,10 @@ function htmlCheckbox(id, label, css, onclick) {
   return "<label class='checkbox-label'><input id='" + id + "' class='" + css + "' type='checkbox' onclick='" + onclick + "'>" + label + "</label>";
 }
 
+function htmlRadio(id, label, css, radio_name, onclick) {
+  return "<label class='checkbox-label'><input id='" + id + "' class='" + css + "' type='radio' name='"+radio_name+"' onclick='" + onclick + "'>" + label + "</label>";
+}
+
 
 function htmlSpan(contents, css) {
   return "<span class='" + css +"'>" + contents + "</span>";
@@ -368,7 +382,7 @@ if (options.compact) {
 function resetView() {
   /*$("#sourceDiv").hide();
   $("#diffDiv").hide();
-  $("#detailsDiv").html("");
+  $("#treeDiv").html("");
   $("#infoDiv").html("");*/
   curSource = -1;
   curSdiff = -1;
@@ -768,11 +782,11 @@ function visitSteps(step, visitedSteps) {
 
 function reloadTraceView() {
   //console.log("reloadTraceView " + selectedStep.id);
-  // var shouldShowDetails = ($("#detailsDiv").html() == "");
+  // var shouldShowDetails = ($("#treeDiv").html() == "");
   resetView();
 
   var rootStep = steps[0];
-  $("#detailsDiv").html(stepToHTML(rootStep, 'outermost'));
+  $("#treeDiv").html(stepToHTML(rootStep, 'outermost'));
 
   loadStepDetails(selectedStep); // TODO inline here?
 }
@@ -803,6 +817,7 @@ function viewDetailsFull() {
   for (var key in options) {
     options[key] = false;
   }
+  options["ast_diff"] = true;
   options["basic_modules"] = true;
   options["args"] = true;
   options["exectime"] = true;
@@ -820,10 +835,8 @@ function initOptions() {
 }
 
 function initControls() {
-  var s = "";
-  /* DEPRECATED function addRow(sTitle, sRow) {
-    s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br class='row-br'/>";
-  }; */
+  var sTreeControls = "";
+  var sAstControls = "";
 
   // Generate checkboxes
   for (var i = 0; i < optionsDescr.length; i++) {
@@ -837,14 +850,25 @@ function initControls() {
     if (descr.name == "advanced") {
       oncheck += "; initControls()";
     }
-    s += htmlCheckbox(id, descr.name, "details-checkbox", oncheck);
+    let sControl;
+    if (descr.radio) {
+      sControl = htmlRadio(id, descr.name, "ast-radio", descr.radio, oncheck);
+    } else {
+      sControl = htmlCheckbox(id, descr.name, "ast-checkbox", oncheck);
+    }
+    if (descr.kind == "ast") {
+      sAstControls += sControl;
+    } else {
+      sTreeControls += sControl;
+    }
   }
 
   // Full/normal button
-  s += htmlButton("button_normal", "normal", "details-button", "viewDetailsNormal()");
-  s += htmlButton("button_full", "full", "details-button", "viewDetailsFull()");
+  sTreeControls += htmlButton("button_normal", "normal", "details-button", "viewDetailsNormal()");
+  sTreeControls += htmlButton("button_full", "full", "details-button", "viewDetailsFull()");
 
-  $("#controls").html(s);
+  $("#treeControls").html(sTreeControls);
+  $("#astControls").html(sAstControls);
 
   // initialize checkboxes
   for (var i = 0; i < optionsDescr.length; i++) {
@@ -856,27 +880,11 @@ function initControls() {
 
 // handles modification of options by click on the checkboxes
 function updateOptions() {
-  var ast_before_was_checked = options.ast_before;
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
     var elem = $('#option_' + descr.key);
     if (elem.length == 1) {
       options[descr.key] = elem.prop('checked');
-    }
-  }
-  /* LATER
-  if (options.exectime) {
-    options["hide-IO"] = false;
-    $('#option_hide-IO').prop('checked', false);
-  }*/
-  if (options.ast_before && options.ast_after) {
-    if (ast_before_was_checked) {
-      options.ast_before = false;
-      $('#option_ast_before').prop('checked', options.ast_before);
-    } else {
-      options.ast_after = false;
-      $('#option_ast_after').prop('checked', options.ast_after);
-      // LATER: a function to change an option and the checkbox
     }
   }
   reloadTraceView();

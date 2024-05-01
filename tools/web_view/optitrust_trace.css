@@ -14,15 +14,6 @@ pre {
   margin: 0;
 }
 
-.details-button {
-  min-width: 5em;
-  text-align: center;
-  margin-right: 8px;
-}
-
-label + .details-button {
-  margin-left: 8px;
-}
 
 /*codemirror infinite height*/
 #source_code {
@@ -176,6 +167,7 @@ label + .details-button {
 #debugMsgDiv {
   margin-left: 10px;
   margin-right: 10px;
+  font-family: monospace;
 }
 
 /* ---- vertical split view */
@@ -190,14 +182,23 @@ label + .details-button {
 }
 
 .left-pane {
-  background: #EEE;
-  border-right: 1px solid #CCC;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .right-pane {
-  background: #FFF;
+  display: flex;
+  flex-direction: column;
   flex: 1 1 0;
+  overflow: hidden;
+}
+
+#diffDiv {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+#sourceDiv {
+  flex-grow: 1;
   overflow-y: auto;
 }
 
@@ -213,6 +214,23 @@ label + .details-button {
 }
 .resizing-handle:active {
   background: #999;
+}
+
+#treeDiv {
+  background: #EEE;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  border-top: 1px solid #888;
+  padding: 8px;
+  gap: 0 4px;
+}
+.details-button {
+  min-width: 5em;
+  text-align: center;
 }
 
 ol {
