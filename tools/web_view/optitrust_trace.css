@@ -14,83 +14,6 @@ pre {
   margin: 0;
 }
 
-.title {
-   font-size: 300%;
-   font-weight: bold;
-   text-align: center;
-}
-
-h1 {
-   padding: 4px;
-   /*color: #0000CC;*/
-   background: #ADAFAF;
-}
-
-h2 {
-   padding: 4px;
-   /*color: #006600;*/
-   background: #00FFFF;
-   padding-left: 1em;
-}
-
-
-.name {
-   padding: 5px 5px 1px 50px;
-   background: #FFCFA0;
-   font-weight: bold;
-   font-size: 22px;
-}
-
-.spec {
-  margin-top: 0.5em;
-}
-
-.src {
-   /* border: 1px solid black; */
-   padding-bottom: 5px;
-   padding-top: 5px;
-   margin-top: 1em;
-   margin-bottom: 0.5em;
-   background: #FFE0FF;
-   font-weight: bold;
-}
-
-.src {
-   border: 1px solid black;
-   padding: 1px 5px 1px 5px;
-   background: #FFFFA0;
-   font-weight: bold;
-}
-
-.diff {
-   margin: 2px 0px 2px 0px;
-}
-
-.error {
-   padding: 2em;
-   background: red;
-   font-weight: bold;
-   font-size: 2em;
-}
-
-.warning {
-   padding: 1em;
-   background: orange;
-   font-weight: bold;
-   font-size: 1em;
-}
-
-.row-title {
-  display: inline-block;
-  width: 5em;
-}
-
-.ctrl-button {
-  min-width: 2em;
-  margin: 3px;
-  text-align: center;
-}
-
 .details-button {
   min-width: 5em;
   text-align: center;
@@ -99,37 +22,6 @@ h2 {
 
 label + .details-button {
   margin-left: 8px;
-}
-
-.next-button {
-  width: 5em;
-  margin: 3px;
-  text-align: center;
-}
-
-.ctrl-button-selected {
-  background-color: #3C3F20;
-  color: white;
-}
-
-.ctrl-button-covered {
-  background-color: #4CAF50;
-}
-
-#infoDiv {
-  /*min-height: 1em;*/
-  background-color: #FFCCCC;
-  border: 1px solid black;
-  margin-bottom: 1em;
-  padding: 3px;
-}
-
-.step-info {
-  font-family: monospace;
-}
-
-.timing-info {
-  float: right;
 }
 
 /*codemirror infinite height*/
@@ -143,79 +35,135 @@ label + .details-button {
 }
 
 .tree-step {
-  display: inline-block;
   width: 100%;
+  margin: 0 0 0 -100%;
+  padding: 0 0 0 100%;
 }
 
 .step-big {
-  background: #bbbbff;
-  padding: 2px;
+  background: #cfb;
   border-top: 2px solid black;
+  font-weight: bold;
+}
+
+.step-root {
+  font-weight: bold;
 }
 
 .step-selected {
   background: white;
 }
 
-.step-valid, .step-justif {
-  background: #99ffc9;
+.step-title {
   padding-left: 5px;
   padding-right: 5px;
-  border-radius: 10px;
+  border-radius: 5px;
+  cursor:pointer;
 }
-.step-justif-text {
-  margin-left: 3em;
-  background: #dafae9;
-  font-style: italic;
+.step-title:hover {
+  box-shadow: inset 0 0 1em #fff;
+}
+.step-title:active {
+  box-shadow: inset 0 0 1em #eee;
 }
 
-.step-invalid {
+.step-small.step-valid .step-title {
+  background: #9fc;
+}
+.step-invalid .step-title {
   background: #fcc;
 }
-.step-error {
-  background: #ff3939;
+.step-error .step-title {
+  background: #f33;
   font-weight: bold;
 }
-.step-show {
-  background: #e7ff49;
+.step-show .step-title {
+  background: #5cf;
+}
+.step-io-target .step-title {
+  background: #d0bffd;
 }
 
 .step-nodiff {
   color: #555555;
 }
 
-.step-io-target {
-  background: #fdf7bf;
-}
-.step-title:hover {
-   cursor:pointer;
-}
 .step-expand {
-  padding-left: 2px;
-  padding-right: 4px;
-  font-weight: bold;
-}
-.step-expand:hover {
+  display: inline-block;
+  /* See https://css-tricks.com/snippets/css/css-triangle/ to know why this draws a triangle */
+  border: 0.3em solid transparent;
+  border-left-color: black;
+  margin-left: 0.35em;
+  margin-right: 0.05em;
+  margin-bottom: 1px;
   cursor:pointer;
 }
+.step-expand:hover {
+  opacity: 75%;
+}
+.step-expand:active {
+  opacity: 90%;
+}
+.step-expanded {
+  border-left-color: transparent;
+  border-top-color: black;
+  margin: 0 0.2em -0.1em;
+}
+.step-leaf {
+  display: inline-block;
+  border: 0.2em solid;
+  border-radius: 0.2em;
+  margin: 0 0.3em 3px;
+}
+.step-fully-expanded {
+  border: 0.3em solid transparent;
+  border-top-color: #60f;
+  border-radius: 0;
+  margin: 0 0.2em -0.1em;
+}
+
+
+.step-justif-text {
+  margin-left: 3em;
+  background: #dfe;
+  font-style: italic;
+}
+
+.step-tag {
+  display: inline-block;
+  margin-left: 2px;
+  background: #eeb;
+  padding: 0 4px;
+  border-radius: 5px;
+}
+
+.step-validity {
+  margin-left: 0.2em;
+  text-decoration: none;
+}
+.step-valid .step-validity {
+  color: green;
+}
+
 .checkbox-label {
   cursor:pointer;
 }
 
 .exectime-heavy {
-  background: #FF6666;
+  background: #f66;
 }
 .exectime-mid {
-  background: #fdda8f;
+  background: #fd8;
 }
 .exectime-small {
-  background: #ffffff;
+  background: #fff;
 }
 .exectime-heavy, .exectime-mid, .exectime-small {
   margin-right: 5px;
   padding-right: 2px;
   padding-left: 2px;
   padding-bottom: 1px;
+  border-radius: 5px;
 }
 
 .has-debug-msg {
@@ -237,6 +185,8 @@ label + .details-button {
   flex-direction: row;
   outline: 1px solid #888;
   overflow: hidden;
+  height: 100%;
+  width: 100%;
 }
 
 .left-pane {
@@ -265,18 +215,16 @@ label + .details-button {
   background: #999;
 }
 
-/* ---- */
-
-/* ---- compact:*/
-ul {
+ol {
   list-style-type: none;
   margin: 0;
   padding-left: 0.5ex;
 }
-ul ul {
-  padding-left: 1.5em;
+ol ol {
+  padding-left: 1em;
+  border-left: 1px dotted #888;
+  margin-left: 0.5em;
 }
 li {
   padding-left: 0ex;
 }
-/*---- */

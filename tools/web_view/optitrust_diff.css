@@ -3,20 +3,18 @@
    display: none;
 }
 
-/* Hide the diff line number because we're showing full file comparisons */
-.d2h-info {
-   display: none;
-}
-
 .d2h-file-wrapper {
   border: none;
   margin-bottom: 0;
   overflow: hidden;
 }
 
+.d2h-cntx {
+  padding: 0 4px;
+}
+
 .d2h-code-side-line {
   padding: 0;
-  padding-left: 4px;
 }
 
 /* disable the highlighting of words diff on a line */
@@ -29,22 +27,39 @@
   display: none;
 }
 
-.d2h-code-side-linenumber:not(.d2h-info) {
+.d2h-code-side-linenumber {
   display: table-cell;
   position: sticky;
   left: 0;
   cursor: auto;
   direction: ltr;
   padding: 0 4px;
-  border-right: 2px solid #eee;
+  border: none;
+  border-right: 1px solid #eee;
 }
 .d2h-code-side-linenumber::after {
   content: none;
 }
 
-.diffBefore {
-  border-right: 1px solid #888;
-  padding-right: -1px;
+/* Hide the diff line number because we're showing full file comparisons */
+.d2h-info {
+   display: none;
 }
-.diffAfter {}
 
+.d2h-files-diff {
+  display: flex;
+}
+
+.d2h-file-side-diff {
+  display: block;
+  margin-bottom: 0;
+  margin-right: 0;
+}
+.d2h-file-side-diff + .d2h-file-side-diff {
+  border-left: 1px solid #888;
+}
+
+.d2h-diff-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
