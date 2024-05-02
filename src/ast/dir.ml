@@ -3,12 +3,9 @@
 (*                                  Grammar of paths                          *)
 (******************************************************************************)
 
-(* A [path] is a "fully explicit path" describing a point in the AST as a list
-    of directions through the nodes from that AST. *)
-type path = dir list
 
 (* [dir]: direction type *)
-and dir =
+type dir =
   (* [Dir_before] is used by target_between, to aim for a position in a sequence
   TODO:
     Dir_around of int * diraround
@@ -93,62 +90,18 @@ and resource_set_dir =
   | Resource_set_linear
   | Resource_set_fun_contracts
 
+[@@deriving show, ord]
+
+(* [dir_to_string d]: print direction [d]*)
+let dir_to_string = show_dir
+
+(* A [path] is a "fully explicit path" describing a point in the AST as a list
+    of directions through the nodes from that AST. *)
+type path = dir list
+
 (* [paths]: target resolutions produces a list of paths(explicit list of directions),
             we let [paths] be a shorthand for such type. *)
 type paths = path list
-
-
-(* [dir_to_string d]: print direction [d]*)
-let dir_to_string (d : dir) : string =
-  match d with
-  | Dir_before n -> "Dir_before " ^ (string_of_int n)
-  | Dir_span { start; stop } -> "Dir_span " ^ (string_of_int start) ^ " " ^ (string_of_int stop)
-  | Dir_array_nth n -> "Dir_array_nth " ^ (string_of_int n)
-  | Dir_struct_nth n -> "Dir_struct_nth " ^ (string_of_int n)
-  | Dir_seq_nth n-> "Dir_seq_nth " ^ (string_of_int n)
-  | Dir_cond -> "Dir_cond"
-  | Dir_then -> "Dir_then"
-  | Dir_else -> "Dir_else"
-  | Dir_body -> "Dir_body"
-  | Dir_var_body -> "Dir_var_body"
-  | Dir_for_start -> "Dir_for_start"
-  | Dir_for_stop -> "Dir_for_stop"
-  | Dir_for_step -> "Dir_for_step"
-  | Dir_for_c_init -> "Dir_for_c_init"
-  | Dir_for_c_step -> "Dir_for_c_step"
-  | Dir_app_fun -> "Dir_app_fun"
-  | Dir_arg_nth n -> "Dir_arg_nth " ^ (string_of_int n)
-  | Dir_name -> "Dir_name"
-  | Dir_case (n, cd) ->
-      let s_cd =
-        match cd with
-        | Case_name n -> "Case_name " ^ (string_of_int n)
-        | Case_body -> "Case_body"
-      in
-      "Dir_case (" ^ (string_of_int n) ^ ", " ^ s_cd ^ ")"
-  | Dir_enum_const (n, ecd) ->
-      let s_ecd =
-        match ecd with
-        | Enum_const_name -> "Enum_const_name"
-        | Enum_const_val -> "Enum_const_val"
-      in
-      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
-  | Dir_record_field i ->
-    "Dir_record_field " ^ string_of_int i
-  | Dir_namespace -> "Dir_namespace"
-  | Dir_contract (cdir, rdir, i) -> Printf.sprintf "Dir_contract(%s, %s, %d)"
-    (match cdir with
-    | Contract_pre -> "Contract_pre"
-    | Contract_post -> "Contract_post"
-    | Contract_loop_ghosts -> "Contract_loop_ghosts"
-    | Contract_parallel_reads -> "Contract_parallel_reads"
-    | Contract_invariant -> "Contract_invariant")
-    (match rdir with
-    | Resource_set_pure -> "Resource_set_pure"
-    | Resource_set_linear -> "Resource_set_linear"
-    | Resource_set_fun_contracts -> "Resource_set_fun_contracts")
-    i
-  | Dir_ghost_arg_nth n -> "Dir_ghost_arg_nth " ^ (string_of_int n)
 
 (* [path_to_string dl]: print the path [dl] *)
 let path_to_string (dl : path) : string =
@@ -157,95 +110,13 @@ let path_to_string (dl : path) : string =
     String.sub s 4 ((String.length s) - 4)
   ) dl)
 
-
 (* [paths_to_string ~sep dls]: print the list of paths [dls] *)
 let paths_to_string ?(sep:string="; ") (dls : paths) : string =
   Tools.list_to_string ~sep (List.map path_to_string dls)
 
-(******************************************************************************)
-(*                                  Compare path                              *)
-(******************************************************************************)
-
-(* [compare_dir d d']: comparison functions for path sorting the order between direction does not matter.
-    When one path is the prefix of the other, it must be considered "greater" *)
-let compare_dir (d : dir) (d' : dir) : int =
-  match d, d' with
-  | Dir_before n, Dir_before m -> compare n m
-  | Dir_span { start; stop }, Dir_span { start = start'; stop = stop' } ->
-    let cmp_indices = compare start start' in
-    if cmp_indices = 0 then compare stop stop' else cmp_indices
-  | Dir_array_nth n, Dir_array_nth m -> compare n m
-  | Dir_seq_nth n, Dir_seq_nth m -> compare n m
-  | Dir_struct_nth n, Dir_struct_nth m -> compare n m
-  | Dir_arg_nth n, Dir_arg_nth m -> compare n m
-  | Dir_case (n, cd), Dir_case (m, cd') ->
-      let cn = compare n m in
-      if cn <> 0 then cn else
-        begin match cd, cd' with
-        | Case_name i, Case_name j -> compare i j
-        | Case_body, Case_body -> 0
-        | Case_name _, _ -> -1
-        | _, Case_name _ -> 1
-        end
-  | Dir_enum_const (n, ecd), Dir_enum_const (m, ecd') ->
-      let cn = compare n m in
-      if cn <> 0 then cn else
-        begin match ecd, ecd' with
-        | d, d' when d = d' -> 0
-        | Enum_const_name, _ -> -1
-        | Enum_const_val, _ -> 1
-        end
-  | Dir_ghost_arg_nth n, Dir_ghost_arg_nth m -> compare n m
-  (* FIXME: There are a lot of missing cases including Dir_contract *)
-  | d, d' when d = d' -> 0
-  | Dir_before _, _ -> -1
-  | _, Dir_before _ -> 1
-  | Dir_span _, _ -> -1
-  | _, Dir_span _ -> 1
-  | Dir_array_nth _, _ -> -1
-  | _, Dir_array_nth _ -> 1
-  | Dir_struct_nth _, _ -> -1
-  | _, Dir_struct_nth _ -> 1
-  | Dir_seq_nth _, _ -> -1
-  | _, Dir_seq_nth _ -> 1
-  | Dir_cond, _ -> -1
-  | _, Dir_cond -> 1
-  | Dir_then, _ -> -1
-  | _, Dir_then -> 1
-  | Dir_else, _ -> -1
-  | _, Dir_else -> 1
-  | Dir_body, _ -> -1
-  | _, Dir_body -> 1
-  | Dir_var_body, _ -> -1
-  | _, Dir_var_body -> 1
-  | Dir_for_start, _ -> -1
-  | _, Dir_for_start -> 1
-  | Dir_for_stop, _ -> -1
-  | _, Dir_for_stop -> 1
-  | Dir_for_step, _ -> -1
-  | _, Dir_for_step -> 1
-  | Dir_for_c_init, _ -> -1
-  | _, Dir_for_c_init -> 1
-  | Dir_for_c_step, _ -> -1
-  | _, Dir_for_c_step -> 1
-  | Dir_app_fun, _ -> -1
-  | _, Dir_app_fun -> 1
-  | Dir_arg_nth _, _ -> -1
-  | _, Dir_arg_nth _ -> 1
-  | Dir_name, _ -> -1
-  | _, Dir_name -> 1
-  | Dir_case _, _ -> -1
-  | _, Dir_case _ -> 1
-  | Dir_record_field _, _ -> -1
-  | _ , Dir_record_field _ -> 1
-  | Dir_namespace, _ -> -1
-  | _, Dir_namespace -> 1
-  | Dir_contract _, _ -> -1
-  | _, Dir_contract _ -> 1
-  | Dir_ghost_arg_nth _, _ -> -1
-  | _, Dir_ghost_arg_nth _ -> 1
-
-(* [compare_path dl dl']: compare paths [dl] and [dl'] based on function compare_dir *)
+(** [compare_path dl dl']: compare paths [dl] and [dl'] based on the generated function compare_dir.
+  When one path is the prefix of the other, it must be considered "greater"
+*)
 let rec compare_path (dl : path) (dl' : path) : int =
   match dl, dl' with
   | [], [] -> 0

@@ -172,10 +172,7 @@ let fresh_var_name ?(prefix = "_v") (): string =
 
 module Qualified_name = struct
   type t = string list * string
-  let compare ((q1, n1) : t) ((q2, n2) : t) =
-    match List.compare (String.compare) q1 q2 with
-    | 0 -> String.compare n1 n2
-    | c -> c
+  [@@deriving ord]
 end
 
 module Qualified_set = Set.Make(Qualified_name)

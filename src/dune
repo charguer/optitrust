@@ -1,7 +1,7 @@
 (library
   (name optitrust)
   (public_name optitrust)
-  (preprocess (pps ppx_transfo))
+  (preprocess (pps ppx_transfo ppx_deriving.show ppx_deriving.ord))
   (libraries clangml refl pprint str base64)
   ;FUTURE USE libraries compcert_parser
   (modes byte native)
