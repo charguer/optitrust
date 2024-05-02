@@ -725,7 +725,7 @@ function stepToHTML(step, display) {
     lineClass += " step-nodiff";
   }
 
-  s += "<div id='tree-step-" + step.id + "' class='tree-step " + lineClass + "'><span class='"+ sStepExpandClass +"' " + sOnClickToggleStep + "></span>" + sTime + sHasMsg + "<span " + sOnClick + " class='step-title'>" + sKind + sName + sScript + sArgs + "</span>" + sTags + sValiditySymbol + "</div>"
+  s += "<div id='tree-step-" + step.id + "' class='tree-step " + lineClass + "'><span class='"+ sStepExpandClass +"' " + sOnClickToggleStep + "></span><span " + sOnClick + " class='step-title'>" + sTime + sHasMsg + sKind + sName + sScript + sArgs + sTags + sValiditySymbol + "</span></div>"
 
   if (options.justif) {
     for (var i = 0; i < step.justif.length; i++) {

@@ -51,6 +51,7 @@ module Int_map = Map.Make(Int)
 let ml_file_excerpts = ref Int_map.empty
 
 (** [compute_ml_file_excerpts lines]: is a function for grouping lines according to the [!!] symbols. *)
+(* FIXME: The user will write scripts that make this approach produce weird results. Replace !! operators by a PPX for a robust alternative. *)
 let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   let r = ref Int_map.empty in
   let start = ref 0 in
@@ -62,11 +63,8 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
       then printf "Excerpt[%d] = <<<%s>>>\n\n" i s;
     r := Int_map.add i s !r;
     Buffer.clear acc; in
-  let regexp_let = Str.regexp "^[ ]*let" in
-  let starts_with_let (str : string) : bool =
-    Str.string_match regexp_let str 0 in
-  (* match a line that starts with '!!' or 'bigstep' *)
-  let regexp_step = Str.regexp "^[ ]*\\(!!\\|bigstep\\)" in
+  (* match a line that starts with '!!', 'bigstep' or 'let' *)
+  let regexp_step = Str.regexp "^[ ]*\\(!!\\|bigstep\\|let\\)" in
   let starts_with_step (str : string) : bool =
     Str.string_match regexp_step str 0 in
   let process_line (iline : int) (line : string) : unit =
@@ -74,10 +72,8 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
       push();
       start := iline;
     end;
-    if not (starts_with_let line) then begin
-      Buffer.add_string acc line;
-      Buffer.add_string acc "\n";
-    end;
+    Buffer.add_string acc line;
+    Buffer.add_string acc "\n";
     in
   List.iteri process_line lines;
   push();
