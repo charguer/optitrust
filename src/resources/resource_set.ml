@@ -13,13 +13,6 @@ open Resource_formula
 
     Linear resource items are unordered (name, formula) pairs, the name binds a linear variable in the usage context. Two linear resources with the same name correspond to the same version, i.e. have the same value / model.
     e.g. [H1: p ~> Cell, H2: foreach i in 0..n -> &t[i] ~> Cell]
-
-    TODO: should
-    type hyp
-    -->
-    type pure_var
-    type linear_var
-    ?
      *)
 
 (** Makes a resource set given its components. *)

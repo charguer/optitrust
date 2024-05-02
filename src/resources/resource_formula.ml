@@ -20,12 +20,12 @@ let next_hyp_id = Tools.fresh_generator ()
 (** Returns a variable with a generated name.
 
   TODO: separate pure ($) and linear (#). *)
-let new_anon_hyp (): hyp =
+let new_anon_hyp (): var =
   let hid = next_hyp_id () in
   new_hyp (sprintf "#%d" hid)
 
 (* TODO: should be new_var_like and maybe useful elsewhere? *)
-let new_hyp_like (h: hyp): hyp =
+let new_hyp_like (h: var): var =
   new_hyp ~qualifier:h.qualifier h.name
 
 (** _HasModel(p, Cell) <=> p ~> Cell *)

@@ -327,15 +327,15 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let loop_start_res = Resources.before_trm t_seq in
       let tl1_usage = Resources.compute_usage_of_instrs tl1 in
       let tl1_inv_usage = (* = I' * Iro *)
-        Hyp_map.filter (fun h _ -> Var_set.mem h linear_invariant_hyps) tl1_usage
+        Var_map.filter (fun h _ -> Var_set.mem h linear_invariant_hyps) tl1_usage
       in
-      let tl1_inv_reads, (* = Iro *) tl1_inv_writes (* = I' *) = Hyp_map.partition (fun _ res_usage ->
+      let tl1_inv_reads, (* = Iro *) tl1_inv_writes (* = I' *) = Var_map.partition (fun _ res_usage ->
         match res_usage with
         | SplittedFrac | JoinedFrac -> true
         | _ -> false
       ) tl1_inv_usage in
-      let resource_set_of_hyp_map (hyps: 'a Hyp_map.t) (resources: resource_item list): resource_item list =
-        List.filter (fun (h, _) -> Hyp_map.mem h hyps) resources
+      let resource_set_of_hyp_map (hyps: 'a Var_map.t) (resources: resource_item list): resource_item list =
+        List.filter (fun (h, _) -> Var_map.mem h hyps) resources
       in
       let tl1_inv_reads = resource_set_of_hyp_map tl1_inv_reads loop_start_res.linear in
       (* let tl1_inv_writes = resource_set_of_hyp_map tl1_inv_writes ctx_res.linear in *)
@@ -562,8 +562,8 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
       (* FIXME: Resources.assert_usages_commute API was not flexible enough *)
       let interference = Resources.collect_interferences usage1 usage2 in
       (* TODO: factorize, also used in fission *)
-      let resource_set_of_hyp_map (hyps: 'a Hyp_map.t) (resources: resource_item list): resource_item list =
-        List.filter (fun (h, _) -> Hyp_map.mem h hyps) resources
+      let resource_set_of_hyp_map (hyps: 'a Var_map.t) (resources: resource_item list): resource_item list =
+        List.filter (fun (h, _) -> Var_map.mem h hyps) resources
       in
       let interference_resources = resource_set_of_hyp_map interference ctx2.linear in
       let shared1 = contract1.invariant.linear @ contract1.parallel_reads in

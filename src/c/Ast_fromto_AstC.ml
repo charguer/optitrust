@@ -828,7 +828,7 @@ let ctx_usage_map_to_strings res_used =
     | hyp, SplittedFrac -> sprintf "Subfrac %s" hyp.name
     | hyp, JoinedFrac -> sprintf "JoinFrac %s" hyp.name
     | hyp, Produced -> sprintf "Produced %s" hyp.name)
-    (Hyp_map.bindings res_used)
+    (Var_map.bindings res_used)
 
 let debug_ctx_before = false
 

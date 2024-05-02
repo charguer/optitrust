@@ -51,7 +51,7 @@ let minimize_all_in (seq : trm) : trm =
           false
         else
           let pure_usage = Resources.usage_of_trm (Mlist.nth instrs pure_i) in
-          Hyp_map.is_empty (Resources.collect_interferences pure_usage post_inst_usage)
+          Var_map.is_empty (Resources.collect_interferences pure_usage post_inst_usage)
     in
     if delete_pure then
       Sequence_core.delete_at pure_i seq

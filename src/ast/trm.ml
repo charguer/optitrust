@@ -2273,7 +2273,7 @@ let trm_rename_vars_ret_ctx
   ?(post_process: 'ctx -> trm -> 'ctx * trm = fun ctx t -> (ctx, t))
   (map_var: 'ctx -> var -> var)
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> ctx, map_var ctx bind)
-  ?(map_ghost_arg_name: 'ctx -> trm -> hyp -> hyp = fun ctx _ g -> map_var ctx g)
+  ?(map_ghost_arg_name: 'ctx -> trm -> var -> var = fun ctx _ g -> map_var ctx g)
   (ctx: 'ctx) (t: trm): 'ctx * trm =
   trm_map_vars_ret_ctx ~keep_ctx ~enter_scope ~exit_scope ~post_process:(fun ctx t ->
     match t.desc with
@@ -2300,7 +2300,7 @@ let trm_rename_vars
   ?(post_process: 'ctx -> trm -> 'ctx * trm = fun ctx t -> (ctx, t))
   (map_var: 'ctx -> var -> var)
   ?(map_binder: 'ctx -> var -> bool -> 'ctx * var = fun ctx bind is_predecl -> (ctx, map_var ctx bind))
-  ?(map_ghost_arg_name: 'ctx -> trm -> hyp -> hyp = fun ctx _ g -> map_var ctx g)
+  ?(map_ghost_arg_name: 'ctx -> trm -> var -> var = fun ctx _ g -> map_var ctx g)
   (ctx: 'ctx) (t: trm): trm =
   snd (trm_rename_vars_ret_ctx ~keep_ctx ~enter_scope ~exit_scope ~post_process map_var ~map_binder ~map_ghost_arg_name ctx t)
 
@@ -2310,7 +2310,7 @@ let trm_iter_vars
   ?(post_process: 'ctx -> trm -> 'ctx = fun ctx _ -> ctx)
   (iter_var: 'ctx -> var -> unit)
   ?(iter_binder: 'ctx -> var -> bool -> 'ctx = fun ctx bind is_predecl -> iter_var ctx bind; ctx)
-  ?(iter_ghost_arg_name: 'ctx -> trm -> hyp -> unit = fun ctx _ g -> iter_var ctx g)
+  ?(iter_ghost_arg_name: 'ctx -> trm -> var -> unit = fun ctx _ g -> iter_var ctx g)
   (ctx: 'ctx) (t: trm): unit =
   ignore (trm_rename_vars ~keep_ctx:true ~enter_scope ~exit_scope
     ~post_process:(fun ctx trm -> (post_process ctx trm, trm))

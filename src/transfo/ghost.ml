@@ -39,7 +39,7 @@ let farthest_commuting_pos (i : int) (direction : int) (seq : trm) : int =
     let commutes = match Mlist.nth_opt instrs next_i with
     | Some next ->
       let interference = interference_with_instr next in
-      let commutes = Hyp_map.is_empty interference in
+      let commutes = Var_map.is_empty interference in
       (* DEBUG:
       if not commutes then
         print_string (string_of_interference interference); *)

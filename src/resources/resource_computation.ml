@@ -73,30 +73,30 @@ let var_result = Resource_set.var_result
 module Formula_inst = struct
   type t = formula
 
-  let inst_hyp (h: hyp): t = trm_var h
+  let inst_hyp (h: var): t = trm_var h
   let inst_hyp_inv = trm_var_inv
 
   let var_SplitRO = toplevel_var "SplitRO"
 
-  let inst_split_read_only ~(new_frac: var) ~(old_frac: formula) (h: hyp) : t =
+  let inst_split_read_only ~(new_frac: var) ~(old_frac: formula) (h: var) : t =
     trm_apps (trm_var var_SplitRO) [trm_var new_frac; old_frac; inst_hyp h]
 
-  let inst_split_read_only_inv (f: t): (var * formula * hyp) option =
+  let inst_split_read_only_inv (f: t): (var * formula * var) option =
     Pattern.pattern_match_opt f [
       Pattern.(trm_apps3 (trm_var (var_eq var_SplitRO)) (trm_var !__) !__ (trm_var !__)) (fun frac old_frac hyp -> (frac, old_frac, hyp))
     ]
 
   let var_ForgetInit = toplevel_var "ForgetInit"
 
-  let inst_forget_init (h: hyp) : t =
+  let inst_forget_init (h: var) : t =
     trm_apps (trm_var var_ForgetInit) [inst_hyp h]
 
-  let inst_forget_init_inv (f: t): hyp option =
+  let inst_forget_init_inv (f: t): var option =
     Pattern.pattern_match_opt f [
       Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h -> h)
     ]
 
-  let origin_hyp (f: t): hyp =
+  let origin_hyp (f: t): var =
     match inst_hyp_inv f with
     | Some h -> h
     | None ->
@@ -243,7 +243,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   in
 
   let unify_and_split_read_only
-    (hyp: hyp) ~(new_frac: var) (formula: formula)
+    (hyp: var) ~(new_frac: var) (formula: formula)
     (res: linear_resource_set)
     (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
     (* Used by {!subtract_linear_resource_item} in the case where [formula] is a read-only resource. *)
@@ -335,7 +335,7 @@ let eliminate_dominated_evars (res: resource_set): pure_resource_set * var list 
 
 (** [update_usage hyp current_usage extra_usage] returns the usage resulting from using
     [current_usage] before using [extra_usage]. *)
-let update_usage (hyp: hyp) (current_usage: resource_usage option) (extra_usage: resource_usage option): resource_usage option =
+let update_usage (hyp: var) (current_usage: resource_usage option) (extra_usage: resource_usage option): resource_usage option =
   match current_usage, extra_usage with
   | None, u -> u
   | u, None -> u
@@ -356,7 +356,7 @@ let update_usage (hyp: hyp) (current_usage: resource_usage option) (extra_usage:
 (** [update_usage_map ~current_usage ~extra_usage] returns the usage map resulting from using
     [current_usage] before using [extra_usage]. *)
 let update_usage_map ~(current_usage: resource_usage_map) ~(extra_usage: resource_usage_map): resource_usage_map =
-  Hyp_map.merge update_usage current_usage extra_usage
+  Var_map.merge update_usage current_usage extra_usage
 
 let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usage: resource_usage_map option): resource_usage_map option =
   let open Xoption.OptionMonad in
@@ -365,33 +365,33 @@ let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(extra_usa
   Some (update_usage_map ~current_usage ~extra_usage)
 
 (** [add_usage hyp extra_usage usage_map] adds the [extra_usage] of hypothesis [hyp] to the [usage_map]. *)
-let add_usage (hyp: hyp) (extra_usage: resource_usage) (usage_map: resource_usage_map): resource_usage_map =
-  let current_usage = Hyp_map.find_opt hyp usage_map in
+let add_usage (hyp: var) (extra_usage: resource_usage) (usage_map: resource_usage_map): resource_usage_map =
+  let current_usage = Var_map.find_opt hyp usage_map in
   match update_usage hyp current_usage (Some extra_usage) with
-  | None -> Hyp_map.remove hyp usage_map
-  | Some new_usage -> Hyp_map.add hyp new_usage usage_map
+  | None -> Var_map.remove hyp usage_map
+  | Some new_usage -> Var_map.add hyp new_usage usage_map
 
 (** [used_set_to_usage_map res_used] converts the used resource set [res_used] into the corresponding usage map. *)
 let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
   let pure_usage = List.fold_left (fun usage_map { inst_by } ->
       let used_fv = trm_free_vars inst_by in
-      Var_set.fold (fun x -> Hyp_map.add x Required) used_fv usage_map)
-    Hyp_map.empty res_used.used_pure
+      Var_set.fold (fun x -> Var_map.add x Required) used_fv usage_map)
+    Var_map.empty res_used.used_pure
   in
   List.fold_left (fun usage_map { inst_by; used_formula } ->
     match Formula_inst.inst_split_read_only_inv inst_by with
-    | Some (_, _, orig_hyp) -> Hyp_map.add orig_hyp SplittedFrac usage_map
+    | Some (_, _, orig_hyp) -> Var_map.add orig_hyp SplittedFrac usage_map
     | None ->
       let hyp_usage = if formula_uninit_inv used_formula = None then ConsumedFull else ConsumedUninit in
       match Formula_inst.inst_hyp_inv inst_by with
-      | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
+      | Some hyp -> Var_map.add hyp hyp_usage usage_map
       | None ->
         match Formula_inst.inst_forget_init_inv inst_by with
-        | Some hyp -> Hyp_map.add hyp hyp_usage usage_map
+        | Some hyp -> Var_map.add hyp hyp_usage usage_map
         | None -> failwith "Weird resource used"
   ) pure_usage res_used.used_linear
 
-let new_efracs_from_used_set (res_used: used_resource_set): (hyp * formula) list =
+let new_efracs_from_used_set (res_used: used_resource_set): (var * formula) list =
   List.filter_map (fun { inst_by } ->
     match Formula_inst.inst_split_read_only_inv inst_by with
     | Some (efrac, bigger_frac, _) -> Some (efrac, bigger_frac)
@@ -558,8 +558,8 @@ let produced_resources_to_resource_set (res_produced: produced_resource_set): re
 
 (** Internal type to represent RO formula frac wands. *)
 type frac_wand = formula * formula list
-type frac_wand_list = (hyp * frac_wand) list
-type frac_simplification_steps = (hyp * hyp) list
+type frac_wand_list = (var * frac_wand) list
+type frac_simplification_steps = (var * var) list
 
 let rec formula_to_frac_wand (frac: formula) : frac_wand =
   match trm_binop_inv Binop_sub frac with
@@ -577,7 +577,7 @@ let frac_wand_to_formula ((base_frac, carved_fracs): frac_wand): formula =
     - for each [hi] we try to join the current fraction with another one that has [hi] in the head position
     - then, once we are stuck, we look if [g] occurs in one of the minuses (carved frac) of the other wands
 *)
-let rec simplify_frac_wands (frac_wands: (hyp * frac_wand) list): frac_simplification_steps * frac_wand_list =
+let rec simplify_frac_wands (frac_wands: (var * frac_wand) list): frac_simplification_steps * frac_wand_list =
   let rec try_pop_base_frac (base_frac: formula) (frac_wands: frac_wand_list) =
     let open Xoption.OptionMonad in
     match frac_wands with
@@ -730,10 +730,10 @@ let add_joined_frac_usage ro_simpl_steps usage =
   Ex: res_after.linear = RO('a, t)  and  frame = RO('b - 'a, t)
   gives res.linear = RO('b, t)
  *)
-let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set * resource_usage_map * (hyp * hyp) list =
+let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set * resource_usage_map * (var * var) list =
   let res_after = produced_resources_to_resource_set res_after in
-  let used_set = List.fold_left (fun used_set (h, _) -> Hyp_map.add h Ensured used_set) Hyp_map.empty res_after.pure in
-  let used_set = List.fold_left (fun used_set (h, _) -> Hyp_map.add h Produced used_set) used_set res_after.linear in
+  let used_set = List.fold_left (fun used_set (h, _) -> Var_map.add h Ensured used_set) Var_map.empty res_after.pure in
+  let used_set = List.fold_left (fun used_set (h, _) -> Var_map.add h Produced used_set) used_set res_after.linear in
 
   let linear, ro_simpl_steps = simplify_read_only_resources (res_after.linear @ frame) in
   let used_set = add_joined_frac_usage ro_simpl_steps used_set in
@@ -830,7 +830,7 @@ type minimized_linear_triple = {
 
 type minimize_linear_triple_post_modif =
   | RemoveUnused
-  | WeakenSplitFrac of { new_hyp: hyp; frac_before: formula; new_frac: var }
+  | WeakenSplitFrac of { new_hyp: var; frac_before: formula; new_frac: var }
   | RemoveJoinedFrac of formula
 
 (** [minimize_linear_triple linear_pre linear_post usage] removes and weakens resources from linear_pre and linear_post
@@ -844,7 +844,7 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
   let frame = ref [] in
   let post_modifs = ref Var_map.empty in
   let filter_linear_pre (hyp, formula) =
-    match Hyp_map.find_opt hyp usage with
+    match Var_map.find_opt hyp usage with
     | None ->
       post_modifs := Var_map.add hyp RemoveUnused !post_modifs;
       frame := (hyp, formula) :: !frame;
@@ -965,7 +965,7 @@ let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
   None, None
 
 
-let empty_usage_map = Hyp_map.empty
+let empty_usage_map = Var_map.empty
 
 (* TODO?
 Resources.Computation.compute_resource
@@ -1165,7 +1165,7 @@ let rec compute_resources
         let call_usage_map, res_after = compute_contract_invoc contract ~subst_ctx res_after_args t in
         let usage_map = List.fold_left (fun usage_map (_, ghost_inst) ->
             let ghost_inst_fv = trm_free_vars ghost_inst in
-            Var_set.fold (fun x -> Hyp_map.add x Required) ghost_inst_fv usage_map
+            Var_set.fold (fun x -> Var_map.add x Required) ghost_inst_fv usage_map
           ) usage_map ghost_args in
         let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:call_usage_map in
 
@@ -1348,7 +1348,7 @@ let rec compute_resources
         | _, _ -> None
       in
       let res_usage = update_usage_map_opt ~current_usage:usage_cond ~extra_usage:usage_joined in
-      let res_usage = Option.map (fun res_usage -> List.fold_left (fun used_set (h, _) -> Hyp_map.add h Produced used_set) res_usage res_join.linear) res_usage in
+      let res_usage = Option.map (fun res_usage -> List.fold_left (fun used_set (h, _) -> Var_map.add h Produced used_set) res_usage res_join.linear) res_usage in
 
       res_usage, Some (Resource_set.bind ~keep_efracs:true ~old_res:res_cond ~new_res:res_join)
 

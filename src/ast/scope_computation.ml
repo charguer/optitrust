@@ -227,7 +227,7 @@ let check_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t) (_ : va
       failwith (sprintf "Ghost argument %s is not the same as the ghost in the prototype %s." (var_to_string g) (var_to_string g'))
   with Not_found -> failwith (sprintf "Ghost argument %s is not part of the function prototype" (var_to_string g))
 
-let check_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> unit =
+let check_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> unit =
   on_ghost_arg_name scope_ctx fn check_ghost_arg_name_aux
 
 (** internal *)
@@ -330,10 +330,10 @@ let only_infer_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t)
   end
 
 (* TODO: assymmetric with other functions, use flag? *)
-let only_infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> var =
+let only_infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> var =
   on_ghost_arg_name scope_ctx fn only_infer_ghost_arg_name_aux
 
-let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : hyp -> var =
+let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> var =
   on_ghost_arg_name scope_ctx fn (fun gpam gap v ->
     let v' = only_infer_ghost_arg_name_aux gpam gap v in
     check_ghost_arg_name_aux gpam gap v';

@@ -266,7 +266,7 @@ let%transfo fun_minimize (tg: target) : unit =
 let minimize_loop_contract contract post_inst usage =
   let new_fracs = ref [] in
   let new_linear_invariant, added_par_reads = List.fold_right (fun (hyp, formula) (lin_inv, par_reads) ->
-    match Hyp_map.find_opt hyp usage with
+    match Var_map.find_opt hyp usage with
     | None -> (lin_inv, par_reads)
     | Some (Required | Ensured) -> failwith (sprintf "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp))
     | Some (SplittedFrac | JoinedFrac) ->
@@ -280,7 +280,7 @@ let minimize_loop_contract contract post_inst usage =
     ) contract.invariant.linear ([], [])
   in
   let new_invariant = { contract.invariant with linear = new_linear_invariant } in
-  let new_parallel_reads = added_par_reads @ List.filter (fun (hyp, _) -> Hyp_map.mem hyp usage) contract.parallel_reads in
+  let new_parallel_reads = added_par_reads @ List.filter (fun (hyp, _) -> Var_map.mem hyp usage) contract.parallel_reads in
 
   let new_iter_contract = minimize_fun_contract ~output_new_fracs:new_fracs contract.iter_contract post_inst usage in
 
@@ -491,7 +491,7 @@ let justif_parallelizable_loop_contract ~error (contract: loop_contract): unit =
 
 (** Collects effects intererences as a map from hyps to pairs of interfering resource usages. *)
 (* TODO: is the [before] / [after] relationship still required? *)
-let collect_interferences (before : resource_usage_map) (after : resource_usage_map) : (resource_usage option * resource_usage option) Hyp_map.t =
+let collect_interferences (before : resource_usage_map) (after : resource_usage_map) : (resource_usage option * resource_usage option) Var_map.t =
   let res_merge _ a_res_usage b_res_usage =
     match (a_res_usage, b_res_usage) with
     | _, None
@@ -500,21 +500,21 @@ let collect_interferences (before : resource_usage_map) (after : resource_usage_
     | _, Some (Ensured | Produced | ConsumedFull | ConsumedUninit) -> Some (a_res_usage, b_res_usage)
     | _ -> None
   in
-  Hyp_map.merge res_merge before after
+  Var_map.merge res_merge before after
 
 (** Collects effects intererences as a map from hyps to pairs of interfering resource usages. *)
 (* TODO: is the [before] / [after] relationship still required? *)
-let collect_trm_interferences (before : trm) (after : trm) : (resource_usage option * resource_usage option) Hyp_map.t =
+let collect_trm_interferences (before : trm) (after : trm) : (resource_usage option * resource_usage option) Var_map.t =
   collect_interferences (usage_of_trm before) (usage_of_trm after)
 
 (** <private> *)
-let string_of_interference (interference : (resource_usage option * resource_usage option) Hyp_map.t) : string =
-  sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2)) (Hyp_map.bindings interference)))
+let string_of_interference (interference : (resource_usage option * resource_usage option) Var_map.t) : string =
+  sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2)) (Var_map.bindings interference)))
 
 (** Checks that resource usages commute, infer var ids to check pure facts scope. *)
 let assert_usages_commute (loc : location) (before : resource_usage_map) (after : resource_usage_map) : unit =
   let interference = collect_interferences before after in
-  if not (Hyp_map.is_empty interference) then
+  if not (Var_map.is_empty interference) then
     loc_fail loc (string_of_interference interference)
 
 (** Checks that the effects from the instruction at path [p] are shadowed by following effects
@@ -549,14 +549,14 @@ let assert_not_self_interfering (t : trm) : unit =
   let res_after = after_trm t in
   let res_usage = usage_of_trm t in
   let res_used_uninit = List.filter (fun (h, f) ->
-    match Hyp_map.find_opt h res_usage with
+    match Var_map.find_opt h res_usage with
     | Some ConsumedFull -> trm_fail t "trm has self interfering resource usage"
     | Some ConsumedUninit -> true
     | Some (SplittedFrac|JoinedFrac) | None -> false
     | Some (Produced|Required|Ensured) -> trm_fail t "trm has invalid resource usage"
   ) res_before.linear in
   let res_produced = List.filter (fun (h, f) ->
-    match Hyp_map.find_opt h res_usage with
+    match Var_map.find_opt h res_usage with
     | Some Produced -> true
     | Some (SplittedFrac|JoinedFrac) | None -> false
     | Some (ConsumedFull|ConsumedUninit|Required|Ensured) -> trm_fail t "trm has invalid resource usage"
@@ -578,11 +578,11 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   let usage_interferes hyp res_usage =
     match res_usage with
     | Required | Ensured | SplittedFrac | JoinedFrac -> false
-    | ConsumedFull | ConsumedUninit | Produced -> Hyp_map.mem hyp res
+    | ConsumedFull | ConsumedUninit | Produced -> Var_map.mem hyp res
   in
   let instr_interference i t =
-    let interferences = Hyp_map.filter usage_interferes (usage_of_trm t) in
-    if Hyp_map.is_empty interferences then None else Some (i, interferences)
+    let interferences = Var_map.filter usage_interferes (usage_of_trm t) in
+    if Var_map.is_empty interferences then None else Some (i, interferences)
   in
   let interferences = List.filter_map (fun x -> x) (List.mapi instr_interference other_instrs) in
   if interferences <> [] then
@@ -590,7 +590,7 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
     trm_fail seq (sprintf "Resources.assert_instr_redundant: not redundant due to resources %s\n" (Tools.list_to_string (List.concat_map (fun (i, usage) ->
       List.map (fun (x, u) ->
         sprintf "conflict with instr %d on %s (%s)" (i + 1) x.name (resource_usage_opt_to_string (Some u))
-      ) (Hyp_map.bindings usage)
+      ) (Var_map.bindings usage)
     ) interferences)));
   ()
 

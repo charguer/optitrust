@@ -181,14 +181,6 @@ end
 module Qualified_set = Set.Make(Qualified_name)
 module Qualified_map = Map.Make(Qualified_name)
 
-(** An hypothesis is a variable bound by logic formulas.
-
-  The id is a unique name for the hypothesis that cannot be shadowed
-
-  TODO: #hyp remove this alias, what is an hypothesis anyway? *)
-type hyp = var
-module Hyp_map = Var_map
-
 (* [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
    or [vect] in C type [struct { int x,y }; *)
 type typconstr = Qualified_name.t
@@ -725,14 +717,14 @@ and trm_desc =
 
 
 and formula = trm
-and resource_item = hyp * formula
+and resource_item = var * formula
 
 and resource_set = {
   pure: resource_item list;
   linear: resource_item list;
   fun_specs: fun_spec_resource varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup. *)
   aliases: trm varmap; (** Map of variables to their definition, variables may come from the program or pure facts *)
-  efracs: (hyp * formula) list; (** List of existential fracs that can be chosen afterwards as long as they are smaller than the frac expression. *)
+  efracs: (var * formula) list; (** List of existential fracs that can be chosen afterwards as long as they are smaller than the frac expression. *)
 }
 
 (* Represents the knowledge of the specification of a function *)
@@ -770,7 +762,7 @@ and loop_contract = {
 }
 
 and used_resource_item = {
-  hyp: hyp;
+  hyp: var;
   inst_by: formula;
   used_formula: formula;
 }
@@ -780,8 +772,8 @@ and used_resource_set = {
 }
 
 and produced_resource_item = {
-  post_hyp: hyp;
-  produced_hyp: hyp;
+  post_hyp: var;
+  produced_hyp: var;
   produced_formula: formula;
 }
 and produced_resource_set = {
@@ -798,13 +790,13 @@ and resource_usage =
   | JoinedFrac
   | Produced
 
-and resource_usage_map = resource_usage Hyp_map.t
+and resource_usage_map = resource_usage Var_map.t
 
 and contract_invoc = {
   contract_frame: resource_item list;
   contract_inst: used_resource_set;
   contract_produced: produced_resource_set;
-  contract_joined_resources: (hyp * hyp) list;
+  contract_joined_resources: (var * var) list;
 }
 
 (* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)
