@@ -177,7 +177,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
       try
         Trace.init ~program:program_basename ~prefix ~parser filename;
         if !Flags.check_validity then
-          Trace.step ~kind:Step_transfo ~name:"Preprocessing loop contracts" (fun () ->
+          Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing loop contracts" (fun () ->
             Resources.make_strict_loop_contracts [];
           );
         Show.with_captured_show ~activated:activate_capture_show contents_captured_show (fun () ->

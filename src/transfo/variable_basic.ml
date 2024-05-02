@@ -315,9 +315,9 @@ let%transfo bind ?(const : bool = false) ?(mark_let : mark = no_mark) ?(mark_occ
       value.
   @correctness: always correct if the result type checks. *)
 let%transfo to_const (tg : target) : unit =
-  Trace.justif "always correct if the result type checks (TODO: check)";
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-     ( fun t (p, i) -> Variable_core.from_to_const true i t p) tg
+     ( fun t (p, i) -> Variable_core.from_to_const true i t p) tg;
+  Resources.justif_correct "always correct if the result type checks"
 
 (* [to_nonconst tg]: expects the target [tg] to be point at a variable declaration,
       If the variable is mutable then does nothing, otherwise change the mutability of the targeted variable to a mutable one,

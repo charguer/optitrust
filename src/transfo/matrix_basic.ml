@@ -681,7 +681,7 @@ let elim_mindex_on (t : trm) : trm =
    [...]
    *)
 let%transfo elim_mindex (tg : target) : unit =
-  Trace.justif "correct if size and index expressions are pure (TODO: check)";
+  Resources.justif_correct "size and index expressions are pure";
   Target.apply_at_target_paths elim_mindex_on tg
 
 let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
