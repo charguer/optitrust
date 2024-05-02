@@ -36,6 +36,7 @@
   padding: 0 4px;
   border: none;
   border-right: 1px solid #eee;
+  width: fit-content;
 }
 .d2h-code-side-linenumber::after {
   content: none;
