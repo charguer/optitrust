@@ -35,6 +35,7 @@ loop/unfold_bound
 matrix/reorder_dims
 matrix/delocalize
 record/align_field
+apac/heapify
 apac/heapify_nested_seq
 variable/delocalize
 variable/delocalize_in_vars

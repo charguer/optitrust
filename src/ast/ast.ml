@@ -560,7 +560,11 @@ and prim =
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_compound_assgn_op of binary_op (* e.g. "a += b" *)
   | Prim_overloaded_op of prim (* used for overloaded operators *)
-  | Prim_new of typ * trm list (* "new T", with optional array dimensions *)
+  | Prim_ref of typ (* "ref T", used to wrap mutable variables *)
+  | Prim_ref_array of typ * trm list (* "ref[m,n] T", used to wrap mutable arrays *)
+  | Prim_new of typ (* C++ "new T" *)
+  | Prim_delete (* C++ "delete t" *)
+  | Prim_delete_array (* C++ "delete[] t" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
 (* [lit]: literals *)
@@ -700,7 +704,6 @@ and trm_desc =
   | Trm_template of template_parameter_list * trm (* templates *)
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm * fun_spec (* anonymous functions, [&](int const& x) -> void ({r += x;}) *) (* TODO: Is return type useful ? *)
-  | Trm_delete of bool * trm                      (* delete t, delete[] t *)
 
 (*****************************************************************************)
 
@@ -1052,7 +1055,6 @@ let trm_desc_to_string : trm_desc -> string =
   | Trm_template _ -> "Trm_template"
   | Trm_using_directive _ -> "Trm_using_directive"
   | Trm_fun _ -> "Trm_fun"
-  | Trm_delete _ -> "Trm_delete"
 
 let resource_usage_opt_to_string = function
 | None -> "None"

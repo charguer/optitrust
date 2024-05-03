@@ -860,13 +860,13 @@ and tr_expr (e : expr) : trm =
   | New {placement_args = _; qual_type = q; array_size = seo; init = _} ->
     let tq = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
     begin match seo with
-      | None -> trm_prim ?loc ~ctx (Prim_new (tq, []))
+      | None -> trm_prim ?loc ~ctx (Prim_new tq)
       | Some se ->
         let te = tr_expr se in
         begin match te with
           | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
-            trm_prim ?loc ~ctx (Prim_new ((typ_array tq (Const n)), []))
-          | _ -> trm_prim ?loc ~ctx (Prim_new ((typ_array tq (Trm te)), []))
+            trm_prim ?loc ~ctx (Prim_new (typ_array tq (Const n)))
+          | _ -> trm_prim ?loc ~ctx (Prim_new (typ_array tq (Trm te)))
         end
     end
   | Delete {global_delete = _; array_form = b; argument = e} ->

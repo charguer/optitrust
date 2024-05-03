@@ -10,7 +10,7 @@ type linear_resource_set = resource_item list
 (** Maps OptiTrust primitives to variables that can be given a contract in [optitrust.h] *)
 module Resource_primitives = struct
   let __cast = toplevel_var "__cast"
-  let __new = toplevel_var "__new"
+  let __ref = toplevel_var "__ref"
   let __get = toplevel_var "__get"
   let __set = toplevel_var "__set"
   let __add = toplevel_var "__add"
@@ -57,8 +57,8 @@ module Resource_primitives = struct
     | Prim_unop u -> unop_to_var_name u
     | Prim_binop b -> binop_to_var_name b
     | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
-    | Prim_new (_, []) -> "__new"
-    (* | Prim_new (_, dims) -> "__new_array"  SAME AS MALLOCN but with implicit trm_apps *)
+    | Prim_ref _ -> "__ref"
+    (* | Prim_ref_array (_, dims) -> "__ref_array"  SAME AS MALLOCN but with implicit trm_apps *)
     | _ -> raise Unknown)
 
 end
@@ -1004,7 +1004,7 @@ let rec compute_resources
     let** res in
     try begin match t.desc with
     (* new array is typed as MALLOCN with correct dims *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_new (ty, dims))) }, _, []) when dims <> [] ->
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_ref_array (ty, dims))) }, _, []) ->
       compute_resources (Some res) (Matrix_core.alloc_with_ty ~annot:referent ~annot_call:referent dims ty)
 
     (* Values and variables are pure. *)
@@ -1064,10 +1064,13 @@ let rec compute_resources
       let extract_let_mut ti =
         match trm_let_inv ti with
         | Some (_, x, _, t) ->
-          begin match trm_new_inv t with
-          | Some (_, [], _) -> [formula_cell x]
-          | Some (_, dims, _) -> [formula_matrix (trm_var x) dims]
-          | None -> []
+          begin match trm_ref_inv t with
+          | Some _ -> [formula_cell x]
+          | None ->
+            begin match trm_ref_array_inv t with
+            | Some (_, dims, _) -> [formula_matrix (trm_var x) dims]
+            | None -> []
+            end
           end
         | None -> []
       in

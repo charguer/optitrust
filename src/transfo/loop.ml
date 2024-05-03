@@ -78,27 +78,6 @@ let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
     fission_rec next_mark nest_of m_interstice
   )) tg
 
-(* LATER/ deprecated
-let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
-      let detach_first =
-      match tg_trm.desc with
-        | Trm_let (_, (_, _), init) ->
-          begin match init.desc with
-          | Trm_val(Val_lit (Lit_uninitialized)) -> false
-          | Trm_val(Val_prim (Prim_new _))-> false
-          | _ -> true
-          end
-        | _ -> trm_fail tg_trm "Loop.hoist: expected a variable declaration"
-        in
-        match detach_first with
-        | true ->
-          Variable_basic.init_detach (target_of_path p);
-          Loop_basic.hoist_old ~name ?array_size (target_of_path p);
-        | false -> Loop_basic.hoist_old ~name ?array_size (target_of_path p)
-  ) tg
-*)
 (* TODO: redundant with 'hoist' *)
 (* [hoist_alloc_loop_list]: this transformation is similar to [Loop_basic.hoist], but also supports undetached
    variable declarations, hoisting through multiple loops, and inlining array indexing code.
@@ -132,7 +111,7 @@ let%transfo hoist_alloc_loop_list
     in
     let only_allocs = is_trm_malloc ||
       (is_trm_uninitialized init) ||
-      (is_trm_new_uninitialized init) in
+      (is_trm_ref_uninitialized init) in
     if not only_allocs then begin
       Variable_basic.init_detach (target_of_path p);
       let (_, seq_path) = Path.index_in_seq p in

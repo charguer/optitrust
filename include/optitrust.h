@@ -73,7 +73,7 @@ inline void __reverts(__ghost_fn) {}
 
 /* ---- Contract for primitive functions ---- */
 
-template<typename T> T* __new(T init) {
+template<typename T> T* __ref(T init) {
   __produces("_Res ~> Cell");
   __admitted();
   return new T(init);

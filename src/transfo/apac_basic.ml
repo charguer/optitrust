@@ -487,7 +487,7 @@ let heapify_on (t : trm) : trm =
               (* In the case of a multiple variable declaration, [ty] is not a
                  reference yet. We have to both constify it and assign it the
                  reference type. *)
-              ((v, typ_ptr Ptr_kind_ref (typ_const ty)), trm_new tyi init)
+              ((v, typ_ptr Ptr_kind_ref (typ_const ty)), trm_ref tyi init)
             (* Otherwise, we return the declarations elements as they are. *)
             else
               ((v, ty), init)
@@ -514,7 +514,7 @@ let heapify_on (t : trm) : trm =
 
                    Note that, here, we perform the test on the inner type
                    because [ty] is a const type in this case. *)
-                let init2 = if is_typ_ptr tyi then init else trm_new ty init in
+                let init2 = if is_typ_ptr tyi then init else trm_ref ty init in
                 (* Return the updated variable declaration and definition. *)
                 ((v, ty2), init2)
               end
@@ -538,7 +538,7 @@ let heapify_on (t : trm) : trm =
                    tab]. *)
                 let ty2 = if is_typ_const tya then typ_const ty2 else ty2 in
                 (* Return the updated variable declaration and definition. *)
-                ((v, ty2), trm_new ty init)
+                ((v, ty2), trm_ref ty init)
               end
             (* 3) Any other cases. Typically, we refer here to static variable
                declarations and definitions such as [int a = 1] or to variable
@@ -558,7 +558,7 @@ let heapify_on (t : trm) : trm =
 
                    Note that, here, we perform the test on directly [ty] is the
                    outer type is not a const type in this case. *)
-                let init2 = if is_typ_ptr ty then init else trm_new ty init in
+                let init2 = if is_typ_ptr ty then init else trm_ref ty init in
                 (* Return the updated variable declaration and definition. *)
                 ((v, ty2), init2)
               end
@@ -588,7 +588,7 @@ let heapify_on (t : trm) : trm =
             if is_typ_const tyi && not (trm_can_resolve_pointer init) then
               (* In the case of a simple variable declaration, [ty] is already a
                  reference. We only have to constify it. *)
-              ((v, typ_const ty), trm_new tyi init2)
+              ((v, typ_const ty), trm_ref tyi init2)
             else
               (* The above affirmation is true only in the case of constant
                  references. For mutable references, we have to restore the
@@ -621,7 +621,7 @@ let heapify_on (t : trm) : trm =
 
                    Note that, here, we perform the test on the inner type
                    because [ty] is a const type in this case. *)
-                let init2 = if is_typ_ptr tyc then init else trm_new ty init in
+                let init2 = if is_typ_ptr tyc then init else trm_ref ty init in
                 (* Return the updated variable declaration and definition. *)
                 ((v, ty2), init2)
               end
@@ -648,7 +648,7 @@ let heapify_on (t : trm) : trm =
                    is required only in the case of an array of constants.
                    Otherwise, it is done implicitly by OptiTrust. *)
                 let init2 =
-                  if is_typ_const tya then trm_new ty init else init in
+                  if is_typ_const tya then trm_ref ty init else init in
                 (* Return the updated variable declaration and definition. *)
                 ((v, ty2), init2)
               end
@@ -667,7 +667,7 @@ let heapify_on (t : trm) : trm =
                 (* The transformation of [init] to an adequate allocation term
                    is required only in the case of an array of constants.
                    Otherwise, it is done implicitly by OptiTrust. *)
-              let init2 = if is_typ_const tyi then trm_new ty init else init in
+              let init2 = if is_typ_const tyi then trm_ref ty init else init in
               (* Return the updated variable declaration and definition. *)
               ((v, ty2), init2)
           end

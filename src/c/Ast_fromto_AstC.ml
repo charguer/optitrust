@@ -104,7 +104,7 @@ let create_env () = ref env_empty
     TODO: specify and improve support for arrays
 
    Note: "reference" annotation is added to allow decoding *)
- (* TODO: properly deal with const/mut array allocations on stack using Prim_new *)
+ (* TODO: properly deal with const/mut array allocations on stack using Prim_ref_array *)
 let stackvar_elim (t : trm) : trm =
   debug_current_stage "stackvar_elim";
   let env = create_env () in
@@ -132,7 +132,7 @@ let stackvar_elim (t : trm) : trm =
         begin match xm with
         | Var_mutable ->
           (* TODO: document the case that corresponds to Constructed_init *)
-          let new_body = if trm_has_cstyle Constructed_init tbody then aux tbody else trm_new ty (aux tbody) in
+          let new_body = if trm_has_cstyle Constructed_init tbody then aux tbody else trm_ref ty (aux tbody) in
           trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), new_body)) t)
         | Var_immutable ->
           trm_map aux t
@@ -188,11 +188,13 @@ let stackvar_intro (t : trm) : trm =
       if trm_has_cstyle Stackvar t
         then
           begin match tx.typ_desc , tbody.desc with
-          | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1], [])  ->
+          | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _));_}, [tbody1], [])  ->
               trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody1)) t)
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _  when trm_has_cstyle Constructed_init tbody ->
             trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody)) t)
-          | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
+          | _ ->
+            printf "%s\n" (Ast_to_text.ast_to_string t);
+            failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
       else if trm_has_cstyle Reference t then
         begin match tx.typ_desc with
@@ -229,7 +231,7 @@ let stackvar_intro (t : trm) : trm =
      - [t[i]] becomes [t + i] -- nothing to do in the code of the translation
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[t])] *)
- (* TODO: properly deal with const/mut array allocations on stack using Prim_new *)
+ (* TODO: properly deal with const/mut array allocations on stack using Prim_ref_array *)
 let caddress_elim (t : trm) : trm =
   debug_current_stage "caddress_elim";
   let rec aux t =

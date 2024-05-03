@@ -27,7 +27,7 @@ let alloc_with_ty ?(annot : trm_annot = trm_annot_default) ?(annot_call : trm_an
     trm_apps ~annot:annot_call (trm_var (malloc_var n)) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
-  (* Option.bind (trm_new_inv t) (fun (_, t2) -> *)
+  (* Option.bind (trm_ref_inv t) (fun (_, t2) -> *)
   Option.bind (trm_cast_inv t) (fun (ty, t3) ->
   Option.bind (trm_apps_inv t3) (fun (f, args) ->
   Option.bind (trm_var_inv f) (fun f_var ->

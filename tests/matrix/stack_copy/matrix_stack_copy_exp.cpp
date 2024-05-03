@@ -15,7 +15,7 @@ void f() {
   for (int i = 0; i < 32; i++) {
     __strict();
     __xmodifies("for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell");
-    float* const x = new float(32)();
+    float* const x = ref[32] float();
     const __ghost_fn __ghost_pair_1 =
         __ghost_begin(mindex2_contiguous_ro, "M := s");
     MMEMCPY(x, 0, s, i * 32 + 0, 32, sizeof(float));

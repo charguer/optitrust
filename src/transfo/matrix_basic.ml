@@ -523,7 +523,7 @@ let intro_malloc0_on (mark_alloc : mark) (mark_free : mark) (x : var) (t : trm) 
   Mlist.iteri (fun i instr ->
     match trm_let_inv instr with
     | Some (_, y, ty, init) when x = y ->
-      if (is_trm_new_uninitialized init) ||
+      if (is_trm_ref_uninitialized init) ||
          (is_trm_uninitialized init)
       then begin
         assert (Option.is_none !decl_info_opt);
@@ -613,7 +613,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   (* let array_typ = List.fold_left (fun acc i -> typ_array acc (Trm i)) typ new_dims in *)
   trm_seq_nobrace_nomarks [
     (* TODO: define Matrix_core.stack_alloc, FIXME: new with dims has to be uninit? use different prim? *)
-    trm_let Var_immutable (stack_var, typ_const_ptr typ) (trm_new typ ~dims:new_dims (trm_uninitialized ()));
+    trm_let Var_immutable (stack_var, typ_const_ptr typ) (trm_ref typ ~dims:new_dims (trm_uninitialized ()));
     Matrix_core.memcpy_with_ty
       (trm_var stack_var) [] new_dims
       (trm_var var) common_indices dims

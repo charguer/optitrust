@@ -316,9 +316,16 @@ and prim_to_doc style (p : prim) : document =
   | Prim_binop op -> binop_to_doc style op
   | Prim_compound_assgn_op op -> (binop_to_doc style op) ^^ equals
   | Prim_overloaded_op p -> prim_to_doc style p
-  | Prim_new (t, dims) ->
-    let dims_doc = list_to_doc ~empty ~bounds:[lparen; rparen] (List.map (trm_to_doc style) dims) in
-    string "new" ^^ blank 1 ^^ typ_to_doc t ^^ dims_doc
+  | Prim_ref t ->
+    string "ref" ^^ blank 1 ^^ typ_to_doc t
+  | Prim_ref_array (t, dims) ->
+    string "ref" ^^ list_to_doc ~bounds:[lbracket;rbracket] (List.map (trm_to_doc style) dims) ^^ blank 1 ^^ typ_to_doc t
+  | Prim_new t ->
+    string "new" ^^ blank 1 ^^ typ_to_doc t
+  | Prim_delete ->
+    string "delete"
+  | Prim_delete_array ->
+    string "delete[]"
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
 (* [val_to_doc style v]: converts values to pprint documents. *)
@@ -612,12 +619,6 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
     | Trm_fun (tvl, ty_opt, body, _) when trm_has_cstyle ResourceFormula t -> dattr ^^ formula_fun_to_doc style ~semicolon ty_opt tvl body
     | Trm_fun (tvl, ty_opt, body, _) -> dattr ^^ trm_fun_to_doc style ~semicolon ty_opt tvl body
-     (* DEPRECATED | Trm_this ->
-        if trm_has_cstyle Implicit_this t then empty else string "this" *)
-    | Trm_delete (is_array, body) ->
-      let is_arr = if is_array then string "[]" else empty in
-      let dbody = decorate_trm style body in
-      string "delete" ^^ is_arr ^^ blank 1 ^^ dbody ^^ semi
     end in
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;
@@ -1112,13 +1113,18 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
               trm_fail f
                 "apps_to_doc style: conditional operator must have three arguments"
            end
-        | Prim_new (t, dims) ->
+        | Prim_ref _ | Prim_ref_array _ | Prim_new _ ->
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
           let tr_init = decorate_trm style value in
-          let tr_prim = prim_to_doc style (Prim_new (t, dims)) in
+          let tr_prim = prim_to_doc style p in
           let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
           tr_prim ^^ init_val
+        | Prim_delete | Prim_delete_array ->
+          let ptr = List.hd tl in
+          let tr_ptr = decorate_trm style ptr in
+          let tr_prim = prim_to_doc style p in
+          tr_prim ^^ blank 1 ^^ tr_ptr
         end
      | _ -> trm_fail f (Printf.sprintf "AstC_to_c.apps_to_doc style: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end

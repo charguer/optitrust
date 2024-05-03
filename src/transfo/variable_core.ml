@@ -451,7 +451,7 @@ let ref_to_var_aux (t : trm) : trm =
   | Trm_let (vk, (x, tx), init) when trm_has_cstyle Reference t ->
     let t_annot = trm_rem_cstyle Reference t in
     let t_annot = trm_add_cstyle Stackvar t_annot in
-    (trm_let ~annot:t_annot.annot vk (x, tx) (trm_new (get_inner_ptr_type tx) (trm_get init)))
+    (trm_let ~annot:t_annot.annot vk (x, tx) (trm_ref (get_inner_ptr_type tx) (trm_get init)))
   | _ -> trm_fail t "Variable_core.ref_to_var_aux: expected a target to a reference declaration"
 
 

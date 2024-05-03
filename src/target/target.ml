@@ -774,10 +774,10 @@ let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_l
 let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_binop op)
 
-(* [let cPrimNew ~arg ()]: matches "new" primitive operation
-    [arg] - match based on the arguments of the "new" primitive. *)
-let cPrimNew ?(arg : target = []) () : constr =
-  cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false)
+(* [let cPrimRef ~arg ()]: matches "ref" primitive operation
+    [arg] - match based on the arguments of the "ref" primitive. *)
+let cPrimRef ?(arg : target = []) () : constr =
+  cPrimPredFun ~args:[arg] (function Prim_ref _ -> true | _ -> false)
 
 (* [dVarInit: alias to dVarBody. *)
 let dVarInit : constr =

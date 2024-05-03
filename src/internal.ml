@@ -97,10 +97,18 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   let apply_change (t : trm) : trm =
     let rec aux (t : trm) : trm =
       match t.desc with
-      | Trm_val (Val_prim (Prim_new (ty, dims))) ->
+      | Trm_val (Val_prim (Prim_ref ty)) ->
         (* TODO: map dims_opt types? *)
          trm_prim ~annot:t.annot ?loc:t.loc
-           (Prim_new ((change_typ ty), dims))
+           (Prim_ref (change_typ ty))
+      | Trm_val (Val_prim (Prim_ref_array (ty, dims))) ->
+        (* TODO: map dims_opt types? *)
+         trm_prim ~annot:t.annot ?loc:t.loc
+           (Prim_ref_array ((change_typ ty), dims))
+      | Trm_val (Val_prim (Prim_new ty)) ->
+        (* TODO: map dims_opt types? *)
+         trm_prim ~annot:t.annot ?loc:t.loc
+           (Prim_new (change_typ ty))
       | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
          trm_unop ~annot:t.annot ?loc:t.loc
            (Unop_cast (change_typ ty))

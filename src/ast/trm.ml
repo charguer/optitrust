@@ -311,9 +311,8 @@ let var_this = name_to_var "this"
 let trm_this ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () =
   trm_make ~annot ?loc ?typ ?ctx (Trm_var (Var_immutable, var_this))
 
-(* [trm_delete ~annot ?loc ?typ ?ctx is_array_form t]: delete operator  *)
-let trm_delete ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (is_array_form : bool) (t : trm) =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_delete (is_array_form, t))
+
+
 
 (* ********************************** Auxiliary functions ************************************ *)
 
@@ -767,10 +766,10 @@ let rec get_init_val (t : trm) : trm option =
       end
   | Trm_apps(f,[base], _) ->
         begin match f.desc with
-        | Trm_val (Val_prim (Prim_new _)) -> Some base
+        | Trm_val (Val_prim (Prim_ref _)) -> Some base
         | _ -> Some t
         end
-  | Trm_val (Val_prim (Prim_new _))  -> None
+  | Trm_val (Val_prim (Prim_ref _))  -> None
   | _ ->
       Some t
 
@@ -944,12 +943,12 @@ let is_get_operation (t : trm) : bool =
   | Trm_apps ({desc = Trm_val(Val_prim (Prim_unop Unop_get))}, _, _) -> true
   | _ -> false
 
-(* [is_new_operation t] checks if [t] is new operation *)
-let is_new_operation (t : trm) : bool =
+(* [is_ref_operation t] checks if [t] is new operation *)
+let is_ref_operation (t : trm) : bool =
   match t.desc with
   | Trm_apps (f, _, _) ->
     begin match trm_prim_inv f with
-    | Some (Prim_new _) -> true
+    | Some (Prim_ref _) -> true
     | _ -> false
     end
   | _ -> false
@@ -996,10 +995,10 @@ let get_operation_arg (t : trm) : trm =
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1], _) -> t1
   | _ -> t
 
-(* [new_operation_arg t]: get the argument of the encoded new operation. *)
-let new_operation_arg (t : trm) : trm =
+(* [ref_operation_arg t]: get the argument of the encoded new operation. *)
+let ref_operation_arg (t : trm) : trm =
   match t.desc with
-  | Trm_apps (_, [arg], _) when is_new_operation t -> arg
+  | Trm_apps (_, [arg], _) when is_ref_operation t -> arg
   | _ -> t
 
 (* [trm_let_mut ~annot ?ctx typed_var init]: an extension of trm_let for
@@ -1008,7 +1007,7 @@ let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
-  let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new (var_type, []))) [init]) in
+  let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_ref var_type)) [init]) in
   trm_add_cstyle Stackvar t_let
 
 (* [trm_let_ref ~annot ?ctx typed_var init]: an extension of trm_let for creating references *)
@@ -1028,11 +1027,12 @@ let trm_let_immut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   trm_let ~annot ?loc ?ctx Var_immutable (var_name, var_type) (init)
 
 (* [trm_let_array ~annot ?ctx typed_var sz init]: an extension of trm_let for creating array variable declarations *)
+(* FIXME: This function is weird and creates a ref instead of ref_array... *)
 let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind : varkind )
   (typed_var : typed_var) (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
-  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new (var_type, []))) [init]  in
+  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_ref var_type)) [init]  in
   let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
   if kind = Var_mutable then trm_add_cstyle Stackvar res else res
 
@@ -1175,14 +1175,23 @@ let trm_fors_inv (nb : int) (t : trm) : ((loop_range * loop_contract) list * trm
   in
   aux nb [] t
 
-let trm_new_inv (t : trm) : (typ * trm list * trm) option =
-match trm_apps_inv t with
-| Some (f, [v]) ->
-  begin match trm_prim_inv f with
-  | Some (Prim_new (ty, dims_opt)) -> Some (ty, dims_opt, v)
+let trm_ref_inv (t : trm) : (typ * trm) option =
+  match trm_apps_inv t with
+  | Some (f, [v]) ->
+    begin match trm_prim_inv f with
+    | Some (Prim_ref ty) -> Some (ty, v)
+    | _ -> None
+    end
   | _ -> None
-  end
-| _ -> None
+
+let trm_ref_array_inv (t: trm) : (typ * trm list * trm) option =
+  match trm_apps_inv t with
+  | Some (f, [v]) ->
+    begin match trm_prim_inv f with
+    | Some (Prim_ref_array (ty, dims)) -> Some (ty, dims, v)
+    | _ -> None
+    end
+  | _ -> None
 
 (* [is_trm_uninitialized t]: checks if [t] is the body of an uninitialized function or variable *)
 let is_trm_uninitialized (t:trm) : bool =
@@ -1190,9 +1199,9 @@ match t.desc with
 | Trm_val (Val_lit Lit_uninitialized) -> true
 | _ -> false
 
-let is_trm_new_uninitialized (t : trm) : bool =
-match trm_new_inv t with
-| Some (_, _, v) -> is_trm_uninitialized v
+let is_trm_ref_uninitialized (t : trm) : bool =
+match trm_ref_inv t with
+| Some (_, v) -> is_trm_uninitialized v
 | None -> false
 
 
@@ -1316,11 +1325,7 @@ match trm_new_inv t with
   let trm_var_possibly_mut ?(const : bool = false) ?(typ : typ option) (x : var) : trm =
     if const then trm_var ?typ ~kind:Var_immutable x else trm_var_get ?typ x
 
-  (* [trm_new ty t]: generates "new ty" *)
-  let trm_new (ty : typ) ?(dims : trm list = []) (t : trm) : trm =
-    trm_apps (trm_prim (Prim_new (ty, dims))) [t]
-
-let var_any_bool = new_var "ANY_BOOL"
+  let var_any_bool = new_var "ANY_BOOL"
 
   (* [trm_any_bool]: generates ANY_BOOL () *)
   let trm_any_bool : trm =
@@ -1457,6 +1462,20 @@ let var_any_bool = new_var "ANY_BOOL"
     (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
     trm_apps ?loc ~annot ?typ (trm_prim ?loc ?ctx (Prim_compound_assgn_op binop)) [t1; t2]
 
+(* [trm_ref ty t]: generates "ref ty(t)" or "ref[dims] ty(t)" *)
+let trm_ref ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (ty : typ) ?(dims : trm list option) (t : trm) : trm =
+  match dims with
+  | None -> trm_apps ?loc ~annot ?ctx (trm_prim (Prim_ref ty)) [t]
+  | Some dims -> trm_apps ?loc ~annot ?ctx (trm_prim (Prim_ref_array (ty, dims))) [t]
+
+(* [trm_new ~annot ?loc ?ctx is_array_form t]: new operator form C++ *)
+let trm_new ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (ty : typ) (t : trm): trm =
+  trm_apps ?loc ~annot ?ctx (trm_prim (Prim_new ty)) [t]
+
+(* [trm_delete ~annot ?loc ?ctx is_array_form t]: delete operator from C++ *)
+let trm_delete ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (is_array_form : bool) (t : trm) =
+  let prim_delete = if is_array_form then Prim_delete_array else Prim_delete in
+  trm_apps ?loc ~annot ?ctx (trm_prim prim_delete) [t]
 
 
 

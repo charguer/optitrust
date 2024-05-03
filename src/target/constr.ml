@@ -826,7 +826,7 @@ let get_trm_kind (t : trm) : trm_kind =
    | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
    | Trm_typedef _ -> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
-   | Trm_fun _ | Trm_delete _ -> TrmKind_Expr
+   | Trm_fun _ -> TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
    | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
@@ -1083,7 +1083,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
         if not accept_encoded then
           begin match f.desc with
-          | Trm_val (Val_prim (Prim_new _))
+          | Trm_val (Val_prim (Prim_ref _))
           | Trm_val (Val_prim (Prim_unop Unop_get)) -> false
           |  _ -> check_target p_fun f &&
                   check_list ~incontracts ~depth:(DepthAny) cl_args args
@@ -1129,7 +1129,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
-     | Constr_var_init , Trm_apps ({desc = Trm_val (Val_prim (Prim_new _)); _}, [arg], _) -> false
+     | Constr_var_init , Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _)); _}, [arg], _) -> false
      | Constr_var_init, Trm_val (Val_lit (Lit_uninitialized)) -> false
      | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
@@ -1803,8 +1803,8 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
   | Dir_var_body, Trm_let (_, _, body) ->
-     let new_op_arg = new_operation_arg body in
-     add_dir Dir_var_body (aux new_op_arg)
+     let ref_op_arg = ref_operation_arg body in
+     add_dir Dir_var_body (aux ref_op_arg)
   | Dir_body, Trm_let (_, _,body)
     | Dir_body, Trm_let_fun (_, _, _, body, _)
     | Dir_body, Trm_for_c (_, _, _, body, _)

@@ -180,10 +180,18 @@ and print_prim style (p : prim) : document =
   | Prim_overloaded_op p ->
     let dp = print_prim style p in
     print_node "Prim_overloaded_op" ^^ dp
-  | Prim_new (t, dims) ->
+  | Prim_ref t ->
      let dt = print_typ style t in
-     let dims_doc = list_to_doc ~empty ~bounds:[lparen; rparen] (List.map (print_trm style) dims) in
-     print_node "Prim_new" ^^ dt ^^ dims_doc
+     print_node "Prim_ref" ^^ dt
+  | Prim_ref_array (t, dims) ->
+     let dt = print_typ style t in
+     let dims_doc = list_to_doc ~empty ~bounds:[lbracket; rbracket] (List.map (print_trm style) dims) in
+     print_node "Prim_ref_array" ^^ dt ^^ dims_doc
+  | Prim_new t ->
+     let dt = print_typ style t in
+     print_node "Prim_new" ^^ dt
+  | Prim_delete -> print_node "Prim_delete"
+  | Prim_delete_array -> print_node "Prim_delete_array"
   | Prim_conditional_op -> print_node "Prim_conditional_op"
 
 (* [print_lit l]: converts literals to pprint document *)
@@ -384,12 +392,6 @@ and print_trm_desc style (t : trm_desc) : document =
     print_node "Trm_fun" ^^
       parens (separate (comma ^^ break 1)
         [print_list dtvl; dtout; dt])
-  | Trm_delete (b, t1) ->
-    let bd = string (string_of_bool b) in
-    let td = print_trm style t1  in
-    print_node "Trm_delete"  ^^
-      parens (separate (comma ^^ break 1)
-        [bd; td])
 
 (* [print_record_type rt]: converts record types to pprint document *)
 and print_record_type (rt : record_type) : document =
