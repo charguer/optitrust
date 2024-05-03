@@ -1371,26 +1371,19 @@ and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
   let step =
     begin match range.direction with
     | DirUp | DirUpEq ->
-      begin match range.step with
-      | Pre_inc ->
+      if trm_is_one range.step && trm_has_cstyle Prefix_step range.step then
         trm_apps (trm_unop Unop_pre_inc) [trm_var range.index]
-      | Post_inc ->
+      else if trm_is_one range.step && trm_has_cstyle Postfix_step range.step then
         trm_apps (trm_unop Unop_post_inc) [trm_var range.index]
-      | Step st ->
-        trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var range.index; st]
-      | _ -> trm_fail body "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
-      end
+      else
+        trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var range.index; range.step]
     | DirDown | DirDownEq ->
-      begin match range.step with
-      | Pre_dec ->
+      if trm_is_one range.step && trm_has_cstyle Prefix_step range.step then
         trm_apps (trm_unop Unop_pre_dec) [trm_var range.index]
-      | Post_dec ->
+      else if trm_is_one range.step && trm_has_cstyle Postfix_step range.step then
         trm_apps (trm_unop Unop_post_dec) [trm_var range.index]
-      | Step st ->
-        trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var range.index; st]
-      | _ -> trm_fail body "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
-      end
-
+      else
+        trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var range.index; range.step]
     end in
     trm_for_c ?loc init cond step body
 

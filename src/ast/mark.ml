@@ -114,23 +114,3 @@ let get_mark_index (m : mark) (t : trm) : int option =
         if List.mem m ml then Some i else None
     ) None (Mlist.get_marks tl)
   | _ -> trm_fail t "Ast.get_mark_index: expected a sequence trm"
-
-
-(* [loop_step_to_trm l_step]: returns the loop step as trm *)
-let loop_step_to_trm (l_step: loop_step) : trm =
-  match l_step with
-  | Post_inc | Post_dec | Pre_inc | Pre_dec -> trm_lit (Lit_int 1)
-  | Step s -> s
-
-
-(* [is_step_one step]: checks if the step of the loop is one or not *)
-let is_step_one (step : loop_step) : bool =
-  match step with
-  | Post_inc | Post_dec | Pre_inc | Pre_dec -> true
-  | _ -> false
-
-(* [apply_on_loop_step]: applies [f] on the step [l_step] *)
-let apply_on_loop_step (f : trm -> trm) (l_step : loop_step) : loop_step =
-  match l_step with
-  | Step st -> Step (f st)
-  | _ -> l_step

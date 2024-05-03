@@ -237,14 +237,6 @@ type size =
   | Const of int (* t[3] *)
   | Trm of trm   (* t[2*nb] *)
 
-(* [loop_step]: loop step kinds *)
-and loop_step =
-  | Pre_inc     (* ++i   *)
-  | Post_inc    (* i++   *)
-  | Pre_dec     (* --i   *)
-  | Post_dec    (* i--   *)
-  | Step of trm (* i += 2*)
-
 (* [loop_dir]: loop bound inequalities *)
 and loop_dir =
   | DirUp      (* i < 2  *)
@@ -394,8 +386,8 @@ and cstyle_annot =
      on this special kind of no-scope block *)
   | Multi_decl      (* annotation for encoding mutiple one line declarations *)
 
-  (* DEPRECATED *)
-  | Postfix_set     (* annotates all x++ and x-- unary operations aswrite operations *)
+  | Prefix_step (* on a loop step, writes ++i / --i instead of i += 1 / i -= 1 *)
+  | Postfix_step (* on a loop step, writes i++ / i-- instead of i += 1 / i -= 1 *)
 
   (* [int& x = 3]  encoded as  [let x : ( int* ) = ref 3] in the internal AST *)
   | Reference
@@ -659,7 +651,7 @@ and loop_range = {
   start: trm;
   direction: loop_dir;
   stop: trm;
-  step: loop_step;
+  step: trm;
 }
 
 (* [trm_desc]: description of an ast node *)

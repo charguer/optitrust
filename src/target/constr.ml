@@ -1022,7 +1022,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         direction_match &&
         check_target p_start range.start &&
         check_target p_stop range.stop &&
-        check_target p_step (loop_step_to_trm range.step) &&
+        check_target p_step range.step &&
         check_target p_body body
      | Constr_while (p_cond, p_body), Trm_while (cond, body) ->
         check_target p_cond cond &&
@@ -1687,10 +1687,9 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
      | Trm_for (range, body, contract) ->
-        let step_t = loop_step_to_trm range.step in
         (add_dir Dir_for_start (aux range.start)) @
         (add_dir Dir_for_stop (aux range.stop)) @
-        (add_dir Dir_for_step (aux step_t)) @
+        (add_dir Dir_for_step (aux range.step)) @
         (add_dir Dir_body (aux_body body)) @
         if incontracts then
           (aux_contract_dir Contract_pre contract.iter_contract.pre) @

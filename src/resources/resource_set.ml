@@ -147,7 +147,7 @@ let subst_all_aliases (res: resource_set): resource_set =
 let subst_loop_range_start range = subst_var range.index range.start
 
 (** Substitutes a loop index with its value after one iteration *)
-let subst_loop_range_step range = subst_var range.index (trm_add (trm_var range.index) (Mark.loop_step_to_trm range.step))
+let subst_loop_range_step range = subst_var range.index (trm_add (trm_var range.index) range.step)
 
 (** Substitutes a loop index with its end value. *)
 let subst_loop_range_end range = subst_var range.index range.stop

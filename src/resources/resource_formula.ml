@@ -301,7 +301,7 @@ let formula_map_under_mode (f_map: formula -> formula): formula -> formula =
 
 let formula_loop_range (range: loop_range): formula =
   if range.direction <> DirUp then failwith "formula_loop_range only supports DirUp";
-  formula_range range.start range.stop (loop_step_to_trm range.step)
+  formula_range range.start range.stop range.step
 
 let formula_group_range (range: loop_range) =
   formula_map_under_mode (fun fi ->

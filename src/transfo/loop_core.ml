@@ -12,17 +12,13 @@ let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
    | Some cl -> cl
    | _ -> "c" ^ index.name
   ) in
-  let is_step_one =
-    begin match step with
-    | Post_inc | Pre_inc -> true
-    | _ -> false
-    end in
+  let is_step_one = trm_is_one step in
   (* FIXME: Loop bounds are at least unintuitive and probably broken... *)
   let nb_colors = nb_colors in
-    trm_pass_labels t (trm_for { index = i_color; start; direction; stop = nb_colors; step = Post_inc } (
+    trm_pass_labels t (trm_for { index = i_color; start; direction; stop = nb_colors; step = trm_step_one () } (
       trm_seq_nomarks [
-        trm_for { index; start = (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; loop_step_to_trm step]); direction; stop;
-          step = (if is_step_one then Step nb_colors else Step (trm_apps (trm_binop Binop_mul) [nb_colors; loop_step_to_trm step])) } body
+        trm_for { index; start = (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; step]); direction; stop;
+          step = (if is_step_one then nb_colors else (trm_apps (trm_binop Binop_mul) [nb_colors; step])) } body
       ]
   ))
 
@@ -53,12 +49,9 @@ let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) 
     assert (Internal.same_trm start (trm_int 0));
     assert (direction = DirUp);
     let (count, iteration_to_index) =
-      if is_step_one step
+      if trm_is_one step
         then (stop, fun i -> i)
-        else match step with
-        | Step s ->
-          (trm_div stop s, fun i -> trm_mul i s)
-        | _ -> assert false
+        else (trm_div stop step, fun i -> trm_mul i step)
     in
     let ratio : int option =
       match trm_int_inv count, trm_int_inv tile_size with
@@ -81,8 +74,8 @@ let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) 
     (trm_var ?typ:start.typ index)
     in
     let new_index = iteration_to_index iteration in
-    let outer_range = { index = tile_index; start = (trm_int 0); direction = DirUp; stop = tile_count; step = Post_inc } in
-    let inner_range = { index; start = (trm_int 0); direction = DirUp; stop = tile_size; step = Post_inc } in
+    let outer_range = { index = tile_index; start = (trm_int 0); direction = DirUp; stop = tile_count; step = trm_step_one () } in
+    let inner_range = { index; start = (trm_int 0); direction = DirUp; stop = tile_size; step = trm_step_one () } in
 
     if not contract.strict then
       trm_for outer_range (trm_seq_nomarks [
@@ -143,24 +136,24 @@ let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) 
     let inner_loop = match bound with
       | TileBoundMin ->
         let tile_bound =
-          if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step)) in
+          if trm_is_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size step) in
         let tile_bound =
           trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
         trm_for { index; start = trm_var tile_index; direction; stop = tile_bound; step } body
       | TileBoundAnd ->
         let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
         let cond = trm_and (trm_ineq direction (trm_var_get index)
-          (if is_step_one step
+          (if trm_is_one step
             then (trm_add (trm_var tile_index) tile_size)
-            else (trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_var_get index) stop)
+            else (trm_add (trm_var tile_index) (trm_mul tile_size step) ))) (trm_ineq direction (trm_var_get index) stop)
           in
-        let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
-          else trm_prim_compound Binop_add (trm_var index) (loop_step_to_trm step) in
+        let step =  if trm_is_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
+          else trm_prim_compound Binop_add (trm_var index) step in
         let new_body = trm_subst_var index (trm_var_get index) body in
         trm_for_c init cond step new_body
       | TileDivides -> assert false
     in
-    let outer_loop_step = if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step)) in
+    let outer_loop_step = if trm_is_one step then tile_size else (trm_mul tile_size step) in
     let outer_loop =
         trm_for { index = tile_index; start; direction; stop; step = outer_loop_step } (trm_seq_nomarks [inner_loop])
     in
@@ -255,8 +248,8 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
 
     Xlist.fold_lefti (fun i acc (index, stop) ->
       if i = 0
-        then trm_for { index; start = trm_int 0; direction = range.direction; stop; step = Post_inc } acc
-        else trm_for { index; start = trm_int 0; direction = DirUp; stop; step = Post_inc } (trm_seq_nomarks [acc])
+        then trm_for { index; start = trm_int 0; direction = range.direction; stop; step = trm_step_one () } acc
+        else trm_for { index; start = trm_int 0; direction = DirUp; stop; step = trm_step_one () } (trm_seq_nomarks [acc])
     ) new_body (List.rev indices_and_bounds)
 
 (* [grid_enumerate indices_and_bounds t p]: applies [grid_enumerate_aux indices_and_bounds] at trm [t] with path [p]. *)
@@ -332,7 +325,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
   let (range, body, contract) = trm_inv ~error trm_for_inv t in
   let { index; start; direction; stop; step } = range in
   if direction <> DirUp then trm_fail t "Loop_core.unroll_on: only loops going upwards are supported";
-  let step = trm_inv trm_int_inv (loop_step_to_trm step) in
+  let step = trm_inv trm_int_inv step in
   let error = "Loop_core.unroll_on: either the loop start bound should be a integer literal or the loop end should be of the form 'start + k'" in
   let nb_iter =
     Pattern.pattern_match stop [
@@ -405,28 +398,25 @@ let to_unit_steps_aux (new_index : string) (t : trm) : trm =
 
   let body_trms = for_loop_body_trms t in
   let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_var_get index) t) body_trms in
-  let loop_step = match step with
-  | Step l_step -> l_step
-  | _ -> trm_int 1 in
-   let aux (start : trm) (stop : trm) : trm =
-     match trm_lit_inv start with
-     | Some (Lit_int 0) ->
-       stop
-     | _ -> trm_sub stop start
-    in
+  let aux (start : trm) (stop : trm) : trm =
+    match trm_lit_inv start with
+    | Some (Lit_int 0) ->
+      stop
+    | _ -> trm_sub stop start
+  in
 
   let new_stop = match direction with
-    | DirUp -> (trm_div (aux start stop) loop_step)
-    | DirUpEq -> (trm_div (aux start stop) loop_step)
-    | DirDown -> (trm_div (aux start stop) loop_step)
-    | DirDownEq -> (trm_div (aux start stop) loop_step)
+    | DirUp -> (trm_div (aux start stop) step)
+    | DirUpEq -> (trm_div (aux start stop) step)
+    | DirDown -> (trm_div (aux start stop) step)
+    | DirDownEq -> (trm_div (aux start stop) step)
   in
 
   let new_decl = trm_let_mut (index, typ_int() ) (trm_apps (trm_binop Binop_add)[
           start;
-          trm_apps (trm_binop Binop_mul) [trm_var new_index; loop_step]
+          trm_apps (trm_binop Binop_mul) [trm_var new_index; step]
         ]) in
-  trm_for { index = new_index; start = trm_int 0; direction; stop = new_stop; step = Post_inc }
+  trm_for { index = new_index; start = trm_int 0; direction; stop = new_stop; step = trm_step_one () }
     (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
 
 (* [loop_to_unit_steps new_index t p]: applies [to_unit_steps_aux] to the trm [t] with path [p]. *)
@@ -457,7 +447,7 @@ let fold_aux (index : string) (start : int) (step : int) (t : trm) : trm =
     if not (Internal.same_trm loop_body local_body)
       then trm_fail t1 "Loop_core.fold_aux: all the instructions should have the same shape but differ by the index";
   ) other_instr;
-  trm_pass_labels t (trm_for { index; start = trm_int start; direction = DirUp; stop = trm_int nb; step = (if step = 1 then Post_inc else Step (trm_int step)) } (trm_seq_nomarks [loop_body]))
+  trm_pass_labels t (trm_for { index; start = trm_int start; direction = DirUp; stop = trm_int nb; step = (if step = 1 then trm_step_one () else (trm_int step)) } (trm_seq_nomarks [loop_body]))
 
 (* [fold index start step t p]: applies [fold_aux] at trm [t] with path [p]. *)
 let fold (index : string) (start : int) (step : int) : Transfo.local =

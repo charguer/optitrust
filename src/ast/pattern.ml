@@ -31,7 +31,7 @@ let (^|) (p1: 'a -> 't -> 'b) (p2: 'a -> 't -> 'b) (k: 'a) (v: 't) =
 
 let check (f: 't -> bool) (k: 'a) (v: 't): 'a =
   if f v then k else raise Next
-let eq (x: 't) : 'a -> 't -> 'a = check ((==) x)
+let eq (x: 't) : 'a -> 't -> 'a = check ((=) x)
 
 let trm_let (mut: 'a -> varkind -> 'b) (var: 'b -> var -> 'c) (typ: 'c -> typ -> 'd) (body: 'd -> trm -> 'e) (k: 'a) (t: trm): 'e =
   match trm_let_inv t with
@@ -121,6 +121,14 @@ let trm_string f k t =
   | Some (Lit_string str) -> f k str
   | _ -> raise Next
 
+let trm_unop funop ft k t =
+  match trm_unop_inv t with
+  | Some (unop, t0) ->
+    let k = funop k unop in
+    let k = ft k t0 in
+    k
+  | None -> raise Next
+
 let trm_binop binop ft1 ft2 k t =
   match trm_binop_inv binop t with
   | Some (t1, t2) ->
@@ -129,10 +137,23 @@ let trm_binop binop ft1 ft2 k t =
     k
   | None -> raise Next
 
+let trm_prim_compound binop ft1 ft2 k t =
+  trm_apps2 (fun k t -> match trm_prim_inv t with
+    | Some (Prim_compound_assgn_op op) when op = binop -> k
+    | _ -> raise Next
+  ) ft1 ft2 k t
+
 let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
 let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2
 let trm_mul ft1 ft2 = trm_binop Binop_mul ft1 ft2
 let trm_div ft1 ft2 = trm_binop Binop_div ft1 ft2
+
+let trm_lt ft1 ft2 = trm_binop Binop_lt ft1 ft2
+let trm_le ft1 ft2 = trm_binop Binop_le ft1 ft2
+let trm_gt ft1 ft2 = trm_binop Binop_gt ft1 ft2
+let trm_ge ft1 ft2 = trm_binop Binop_ge ft1 ft2
+let trm_eq ft1 ft2 = trm_binop Binop_eq ft1 ft2
+let trm_neq ft1 ft2 = trm_binop Binop_neq ft1 ft2
 
 let mlist f k t = f k (Mlist.to_list t)
 

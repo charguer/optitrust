@@ -45,7 +45,7 @@ let collapse_analyse (ri_rj_body : (loop_range * loop_contract * loop_range * lo
   let (rj, cj) = List.nth ranges 1 in
   if not (is_trm_int 0 ri.start) || not (is_trm_int 0 rj.start) then
     trm_fail t "non-zero range starts are not yet supported: use loop shift first";
-  if not (is_step_one (ri.step)) || not (is_step_one (rj.step)) then
+  if not (trm_is_one (ri.step)) || not (trm_is_one (rj.step)) then
     trm_fail t "non-unary range steps are not yet supported: use loop scale first";
   if ri.direction <> DirUp || rj.direction <> DirUp then
     trm_fail t "non-increasing range directions are not yet supported: use loop reverse first";
@@ -71,7 +71,7 @@ let collapse_on (simpl_mark : mark) (index : string)
   let var_k = trm_var ~typ:(typ_int ()) k in
   let rk = {
     index = k; start = trm_int 0; stop = trm_add_mark simpl_mark (trm_mul nbi nbj);
-    direction = DirUp; step = Post_inc
+    direction = DirUp; step = trm_step_one ()
   } in
   let new_i = trm_add_mark simpl_mark (* (trm_add ri.start = 0 *) (trm_div var_k nbj) in
   let new_j = trm_add_mark simpl_mark (* (trm_add rj.start = 0 *) (trm_mod var_k nbj) in
@@ -189,17 +189,16 @@ let hoist_on (name : string)
   let (range, body, contract) = trm_inv ~error trm_for_inv t in
   let { index; start; direction; stop; step} = range in
   assert (direction = DirUp); (* TODO: other directions *)
-  let (array_size, new_index) = match step with
-  | Pre_inc | Post_inc ->
-     (trm_sub stop start, trm_sub (trm_var index) start)
-  | Step s ->
-    (* i = start; i < stop; i += step *)
-    let trm_ceil_div a b =
-      trm_div (trm_add a (trm_sub b (trm_int 1))) b
-    in
-     (trm_ceil_div (trm_sub stop start) s,
-      trm_div (trm_sub (trm_var index) start) s)
-  | _ -> trm_fail t "Loop_basic.hoist_on: unsupported loop step"
+  let (array_size, new_index) =
+    if trm_is_one step then
+      (trm_sub stop start, trm_sub (trm_var index) start)
+    else
+      (* i = start; i < stop; i += step *)
+      let trm_ceil_div a b =
+        trm_div (trm_add a (trm_sub b (trm_int 1))) b
+      in
+      (trm_ceil_div (trm_sub stop start) step,
+        trm_div (trm_sub (trm_var index) start) step)
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
   let elem_ty = ref (typ_auto()) in
@@ -247,7 +246,7 @@ let hoist_on (name : string)
     let access = trm_array_access (trm_var !new_var) mindex in
     let grouped_access = List.fold_right (fun (i, d) acc ->
       (* FIXME: need to match inner loop ranges. *)
-      Resource_formula.formula_group_range { index = i; start = trm_int 0; direction = DirUp; stop = d; step = Post_inc } acc
+      Resource_formula.formula_group_range { index = i; start = trm_int 0; direction = DirUp; stop = d; step = trm_step_one () } acc
     ) (List.combine other_indices dims) Resource_formula.(formula_model access trm_cell) in
     let new_resource = Resource_formula.(formula_uninit grouped_access) in
     new_body_instrs, Resource_contract.push_loop_contract_clause (Exclusive Modifies) (Resource_formula.new_anon_hyp (), new_resource) contract
@@ -474,31 +473,19 @@ let%transfo fission_basic ?(mark_loops : mark = no_mark) ?(mark_between_loops : 
   Resources.justif_correct "loop resources where successfully split"
 
 (* TODO: valid in C but not C++? *)
-let normalize_loop_step (s : loop_step) : loop_step =
-  match s with
-  | Pre_inc -> Post_inc
-  | Post_inc -> Post_inc
-  | Pre_dec -> Post_dec
-  | Post_dec -> Post_dec
-  | Step amount ->
-    if is_trm_int 1 amount then Post_inc else s
-
-let same_loop_step (a : loop_step) (b : loop_step) : bool =
-  match ((normalize_loop_step a), (normalize_loop_step b)) with
-  (* | (Pre_inc, Pre_inc) -> true *)
-  | (Post_inc, Post_inc) -> true
-  (* | (Pre_dec, Pre_dec) -> true *)
-  | (Post_dec, Post_dec) -> true
-  | (Step s_a, Step s_b) -> Internal.same_trm s_a s_b
-  | _ -> false
+let normalize_loop_step (step : trm) : trm =
+  if trm_is_one step then
+    trm_step_one ()
+  else
+    step
 
 let same_loop_range
   (range1 : loop_range)
   (range2 : loop_range) : bool =
-  Internal.same_trm range1.start range2.start &&
+  are_same_trm range1.start range2.start &&
   (range1.direction = range2.direction) &&
-  Internal.same_trm range1.stop range2.stop &&
-  same_loop_step range1.step range2.step
+  are_same_trm range1.stop range2.stop &&
+  are_same_trm range1.step range2.step
 
 let same_loop_index (a : loop_range) (b : loop_range) : bool =
   assert (a.index.qualifier = [] && b.index.qualifier = []);
@@ -956,7 +943,7 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
         let i = new_var index.name in
         let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
         Resource_trm.ghost (ghost_call ghost [
-          "start", start; "stop", stop; "step", loop_step_to_trm step; "items", items;
+          "start", start; "stop", stop; "step", step; "items", items;
           "shift", shift; "new_start", start'; "new_stop", stop'])
       )
     in
@@ -996,7 +983,7 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
   let ({ index; start; direction; stop; step }, body, _contract) = trm_inv ~error trm_for_inv t in
   assert (direction = DirUp);
   (* TODO: does it work in other cases?
-     assert (is_step_one step); *)
+     assert (trm_is_one step); *)
   (* avoid merging new ifs with previous ones *)
   let added_if = ref false in
   let make_if cond body =
@@ -1042,7 +1029,7 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
   let ({ index; start; direction; stop; step }, body, _contract) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   let tile_bound =
-   if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step)) in
+   if trm_is_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size step) in
   let inner_loop =
   begin match bound with
   | TileBoundMin ->
@@ -1054,19 +1041,19 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
   | TileBoundAnd ->
     let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
     let cond = trm_and (trm_ineq direction (trm_var_get index)
-      (if is_step_one step
+      (if trm_is_one step
         then (trm_add (trm_var tile_index) tile_size)
-        else (trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_var_get index) stop)
+        else (trm_add (trm_var tile_index) (trm_mul tile_size step) ))) (trm_ineq direction (trm_var_get index) stop)
       in
-    let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
-      else trm_prim_compound Binop_add (trm_var index) (loop_step_to_trm step) in
+    let step =  if trm_is_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
+      else trm_prim_compound Binop_add (trm_var index) step in
     let new_body = trm_subst_var index (trm_var_get index) body in
     trm_for_c init cond step new_body
   end in
   (* NOTE: only outer loop differs from tiling? *)
-  let may_scale x = if is_step_one step
-    then x else trm_mul x (loop_step_to_trm step) in
-  let outer_loop_step = Step (may_scale tile_step) in
+  let may_scale x = if trm_is_one step
+    then x else trm_mul x step in
+  let outer_loop_step = may_scale tile_step in
   let outer_stop = (trm_add stop (may_scale (trm_sub tile_step tile_size))) in
   let outer_loop =
       trm_for { index = tile_index; start; direction; stop = outer_stop; step = outer_loop_step } (trm_seq_nomarks [inner_loop])
@@ -1086,7 +1073,7 @@ let delete_void_on (i : int) (t_seq : trm) : trm option =
   (* 1. check empty body *)
   Option.bind (trm_seq_nth_inv i t_seq) (fun t_loop ->
     Option.bind (trm_for_inv_instrs t_loop) (fun (range, body, _) ->
-      if Mlist.is_empty body && Resources.trm_is_pure range.start && Resources.trm_is_pure range.stop && Resources.trm_is_pure (loop_step_to_trm range.step)
+      if Mlist.is_empty body && Resources.trm_is_pure range.start && Resources.trm_is_pure range.stop && Resources.trm_is_pure range.step
       (* TODO: No need to check pure range if this is a global invariant of Trm_for *)
       (* 2. delete *)
       then Some (Sequence_core.delete_at i t_seq)

@@ -386,6 +386,10 @@ let trm_neq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ?loc ?ctx ~typ:(typ_unit ()) (trm_binop Binop_neq) [t1; t2]
 
+let trm_step_one_pre () = trm_add_cstyle Prefix_step (trm_int 1)
+let trm_step_one_post () = trm_add_cstyle Postfix_step (trm_int 1)
+let trm_step_one = trm_step_one_post
+
 type ghost_call = {
   ghost_fn: trm;
   ghost_args: (var * formula) list;
@@ -576,6 +580,11 @@ let trm_int_inv (t : trm) : int option =
   | Some (Lit_int n) -> Some n
   | _ -> None
 
+(* [trm_is_one step]: checks if the step of the loop is one or not *)
+let trm_is_one (step : trm) : bool =
+  match trm_int_inv step with
+  | Some 1 -> true
+  | _ -> false
 
 (* [trm_inv ~error k t]: returns the results of applying [k] on t, if the result is [None]
      then function fails with error [error]. *)
@@ -1026,66 +1035,6 @@ let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind 
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new (var_type, []))) [init]  in
   let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
   if kind = Var_mutable then trm_add_cstyle Stackvar res else res
-
-
-(* [trm_for_c_inv_simple_init init]: checks if the init loop component is simple. If that's the case then return
-   initial value of the loop index.
-  Ex.:
-    int x = a -> Some (x, a, true)
-    x = a -> Some (x, a, false) *)
-let trm_for_c_inv_simple_init (init : trm) : (var * trm) option =
-  match init.desc with
-  | Trm_let (_, (x, _), init_val) ->
-    begin match get_init_val init_val with
-    | Some init1 -> Some (x, init1)
-    | _ -> None
-    end
-  | _ -> None
-
-
-(* [trm_for_c_inv_simple_stop stop]: checks if the loop bound is simple.  If that's the case return that bound. *)
-let trm_for_c_inv_simple_stop (stop : trm) : (loop_dir * trm) option =
-  match stop.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _},
-                 [_; n], _) -> Some (DirUp, n)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _},
-              [_; n], _) -> Some (DirUpEq, n)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _},
-              [_; n], _) -> Some (DirDown, n)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
-              [_; n], _) -> Some (DirDownEq, n)
-  | _ -> None
-
-(* [trm_for_c_inv_simple_step step]: checks if the loop step is simple. If that's the case then return that step. *)
-let trm_for_c_inv_simple_step (step : trm) : loop_step option =
-  match step.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_inc)); _}, _, _) ->
-      Some Post_inc
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_inc)); _}, _, _) ->
-     Some Pre_inc
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_dec)); _}, _, _) ->
-     Some Post_dec
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_dec)); _}, _, _) ->
-     Some Pre_dec
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op _)); _},
-                 [_; n], _) -> Some (Step n)
-  | _ -> None
-
-
-(* [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)
-let trm_for_of_trm_for_c (t : trm) : trm =
-  match t.desc with
-  | Trm_for_c (init, cond , step, body, _) ->
-    let init_ops = trm_for_c_inv_simple_init init in
-    let bound_ops = trm_for_c_inv_simple_stop cond in
-    let step_ops = trm_for_c_inv_simple_step step in
-    begin match init_ops, bound_ops, step_ops with
-    | Some (index, start), Some (direction, stop), Some step ->
-      trm_for { index; start; direction; stop; step } body
-    | _ -> t
-    end
-  | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
-
 
 (* [compute_app_unop_value p v1]: simplifies unary operations on literals. *)
 let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
@@ -1890,13 +1839,9 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
         then t
         else (trm_for_c ~annot ?loc ?invariant:invariant' ~ctx init' cond' step' body')
   | Trm_for (range, body, contract) ->
-    let { index; start; direction; stop; step } = range in
     let start = f false range.start in
     let stop = f false range.stop in
-    let step = match range.step with
-      | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
-      | Step sp -> Step (f is_terminal sp)
-      in
+    let step = f false range.step in
     let range' = if share_if_no_change && range.step == step && range.start == start && range.stop == stop
       then range
       else { range with start; stop; step }
@@ -2058,12 +2003,9 @@ let trm_map_vars_ret_ctx
 
     | Trm_for (range, body, contract) ->
       let loop_ctx, index = map_binder (enter_scope ctx t) range.index false in
-      let step = match range.step with
-      | Post_inc | Post_dec | Pre_inc | Pre_dec -> range.step
-      | Step sp -> Step (snd (f_map loop_ctx sp))
-      in
       let _, start = f_map loop_ctx range.start in
       let _, stop = f_map loop_ctx range.stop in
+      let _, step = f_map loop_ctx range.step in
       let range' = if (range.index == index && range.step == step && range.start == start && range.stop == stop)
         then range
         else { range with index; start; stop; step }

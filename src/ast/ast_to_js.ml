@@ -243,7 +243,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [
             child_to_json "start" (aux range.start);
             child_to_json "stop" (aux range.stop);
-            child_to_json "step" (aux (loop_step_to_trm range.step));
+            child_to_json "step" (aux range.step);
             child_to_json "body" (aux body) ] ]
     | Trm_for_c (init, cond, step, body, _) ->
         [ kind_to_field "for";

@@ -326,7 +326,7 @@ let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms :
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices_list = List.map Trm.new_var indices_list in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
-  let nested_loop_range = List.map2 (fun dim ind-> { index = ind; start = (trm_int 0); direction = DirUp; stop = dim; step = Post_inc }) dims indices_list in
+  let nested_loop_range = List.map2 (fun dim ind-> { index = ind; start = (trm_int 0); direction = DirUp; stop = dim; step = trm_step_one () }) dims indices_list in
   begin match local_ops with
     | Local_arith _ ->
       let write_on_local_var =

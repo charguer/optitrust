@@ -120,7 +120,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_for_stop, Trm_for (range, body, contract) ->
           { t with desc = Trm_for ({ range with stop = aux range.stop }, body, contract)}
        | Dir_for_step, Trm_for (range, body, contract) ->
-          { t with desc = Trm_for ({ range with step = apply_on_loop_step aux range.step }, body, contract)}
+          { t with desc = Trm_for ({ range with step = aux range.step }, body, contract)}
        | Dir_for_c_init, Trm_for_c (init, cond, step, body, contract) ->
           { t with desc = Trm_for_c (aux init, cond, step, body, contract)}
        | Dir_for_c_step, Trm_for_c (init, cond, step, body, contract) ->
@@ -332,8 +332,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       | Dir_for_stop, Trm_for (range, _, _) ->
         aux range.stop ctx
       | Dir_for_step, Trm_for (range, _, _) ->
-        let step_trm = loop_step_to_trm range.step in
-        aux step_trm ctx
+        aux range.step ctx
       | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
         aux init ctx
       | Dir_for_c_step, Trm_for_c (init, _, step, _, _) ->

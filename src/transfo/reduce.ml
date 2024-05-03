@@ -54,7 +54,7 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     let acc_typ = Option.value ~default:(typ_constr ([], "uint16_t")) red_t.typ in
     let index = new_var "i" in
     let value = (trm_cast acc_typ (Matrix_trm.get input [n; m] [trm_var index; j])) in
-    let loop_range = { index; start; direction = DirUp; stop; step = Post_inc } in
+    let loop_range = { index; start; direction = DirUp; stop; step = trm_step_one () } in
     let derive_in_range = Resource_trm.(Resource_formula.(ghost (ghost_call var_ghost_subrange_to_group_in_range [
       "r1", formula_range start stop (trm_int 1);
       "r2", formula_range (trm_int 0) n (trm_int 1);
@@ -163,7 +163,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   (* FIXME: needs refactor, do at least unrolling with combi *)
   let error = "expected for loop" in
   let (range, instrs, contract) = trm_inv ~error trm_for_inv_instrs t in
-  if not (is_step_one range.step) then
+  if not (trm_is_one range.step) then
     trm_fail t "non-unary loop range not yet supported";
   if range.direction <> DirUp then
     trm_fail t "non-increasing loop direction not yet supported";
@@ -206,7 +206,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let acc = new_var "s" in
   let acc_typ = Option.get red.typ in
   let make_reduce start stop = reduce start stop input n m j in
-  let step = loop_step_to_trm range.step in
+  let step = range.step in
   let base_reduce = make_reduce range.start (trm_add_mark mark_simpl (trm_add range.start delta)) in
   let index = trm_var range.index in
   let rec_stop = trm_add index delta in

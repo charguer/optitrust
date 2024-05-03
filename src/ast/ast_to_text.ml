@@ -321,13 +321,7 @@ and print_trm_desc style (t : trm_desc) : document =
     | DirUpEq -> string "UpEq"
     | DirDownEq -> string "DownEq"
     in
-    let dstep = match range.step with
-    | Post_inc -> string "Post_inc"
-    | Post_dec -> string "Post_dec"
-    | Pre_inc -> string "Pre_inc"
-    | Pre_dec -> string "Pre_dec"
-    | Step st -> string "Step " ^^ parens (print_trm style st)
-    in
+    let dstep = print_trm style range.step in
     let dbody = print_trm style body in
     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
       [print_var style range.index; dstart; ddir; dstop; dstep; dbody])
@@ -565,7 +559,8 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Fun_inline -> string "Fun_inline"
  | No_braces id -> string ("No_braces " ^ string_of_int id)
  | Multi_decl -> string "Multi_decl"
- | Postfix_set -> string "Postfix_set"
+ | Prefix_step -> string "Prefix_step"
+ | Postfix_step -> string "Postfix_step"
  | Reference -> string "Reference"
  | Stackvar -> string "Stackvar"
  | Is_struct -> string "Is_struct"

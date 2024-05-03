@@ -206,6 +206,62 @@ let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
 
+(* [trm_for_c_inv_simple_init init]: checks if the init loop component is simple. If that's the case then return
+   initial value of the loop index.
+  Ex.:
+    int x = a -> Some (x, a)
+    x = a -> None *)
+let trm_for_c_inv_simple_init (init : trm) : (var * trm) option =
+  match init.desc with
+  | Trm_let (_, (x, _), init_val) ->
+    begin match get_init_val init_val with
+    | Some init1 -> Some (x, init1)
+    | _ -> None
+    end
+  | _ -> None
+
+(* [trm_for_c_inv_simple_stop stop]: checks if the loop bound is simple.  If that's the case return that bound. *)
+let trm_for_c_inv_simple_stop (loop_index: var) (stop_expr : trm) : (loop_dir * trm) option =
+  (* Using eq instead of the more efficient var_eq because var ids are not computed at this step *)
+  Pattern.pattern_match_opt stop_expr [
+    Pattern.(trm_lt (trm_var (eq loop_index)) !__) (fun n -> (DirUp, n));
+    Pattern.(trm_le (trm_var (eq loop_index)) !__) (fun n -> (DirUpEq, n));
+    Pattern.(trm_gt (trm_var (eq loop_index)) !__) (fun n -> (DirDown, n));
+    Pattern.(trm_ge (trm_var (eq loop_index)) !__) (fun n -> (DirDownEq, n))
+  ]
+
+(* [trm_for_c_inv_simple_step step]: checks if the loop step is simple. If that's the case then return that step. *)
+let trm_for_c_inv_simple_step (loop_index: var) (loop_dir: loop_dir) (step_expr : trm) : trm option =
+  match loop_dir with
+  | DirUp | DirUpEq ->
+    (* Using eq instead of the more efficient var_eq because var ids are not computed at this step *)
+    Pattern.pattern_match_opt step_expr [
+      Pattern.(!(trm_unop (eq Unop_post_inc) (trm_var (eq loop_index)))) (fun _ -> trm_step_one_post ());
+      Pattern.(!(trm_unop (eq Unop_pre_inc) (trm_var (eq loop_index)))) (fun _ -> trm_step_one_pre ());
+      Pattern.(trm_prim_compound Binop_add (trm_var (eq loop_index)) !__) (fun x -> x);
+    ]
+  | DirDown | DirDownEq ->
+    Pattern.pattern_match_opt step_expr [
+      Pattern.(!(trm_unop (eq Unop_post_dec) (trm_var (eq loop_index)))) (fun _ -> trm_step_one_post ());
+      Pattern.(!(trm_unop (eq Unop_pre_dec) (trm_var (eq loop_index)))) (fun _ -> trm_step_one_pre ());
+      Pattern.(trm_prim_compound Binop_sub (trm_var (eq loop_index)) !__) (fun x -> x);
+    ]
+
+(* [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)
+let trm_for_of_trm_for_c (t : trm) : trm =
+  match t.desc with
+  | Trm_for_c (init, cond , step, body, _) ->
+    let open Xoption.OptionMonad in
+    let simple_loop_opt =
+      let* index, start = trm_for_c_inv_simple_init init in
+      let* direction, stop = trm_for_c_inv_simple_stop index cond in
+      let* step = trm_for_c_inv_simple_step index direction step in
+      Some (trm_for { index; start; direction; stop; step } body)
+    in
+    Option.value ~default:t simple_loop_opt
+  | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
+
+
 (* [tr_type_desc ?loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
@@ -414,7 +470,7 @@ and tr_stmt (s : stmt) : trm =
     in
     let step = tr_stmt_opt stepo in
     let body = tr_stmt body in
-    trm_for_of_trm_for_c(trm_for_c?loc ~ctx init cond step body)
+    trm_for_of_trm_for_c (trm_for_c ?loc ~ctx init cond step body)
   | For _ ->
     loc_fail loc "Clang_to_astRawC.tr_stmt: variable declaration forbidden in for conditions"
   | Return eo ->
