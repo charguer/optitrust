@@ -29,6 +29,22 @@ let default_style () =
 
 (*----------------------------------------------------------------------------------*)
 
+let print_field field_name elt =
+  group (separate (blank 1) [string field_name; equals; elt ^^ semi ^^ break 1])
+
+let print_fields fields =
+  group (braces (nest 2 (blank 1 ^^ concat fields)))
+
+let print_list_field field_name list =
+  match list with
+  | [] -> empty
+  | _ -> print_field field_name (print_list list)
+
+let print_opt_field field_name opt =
+  match opt with
+  | None -> empty
+  | Some elt -> print_field field_name elt
+
 (* [print_typ_desc only_desc t]: converts type descriptions to pprint document *)
 let rec print_typ_desc style (t : typ_desc) : document =
   match t with
@@ -93,17 +109,9 @@ and print_typ style (t : typ) : document =
   let ddesc = print_typ_desc style t.typ_desc in
   if style.only_desc then ddesc
   else
-    let dannot =
-      List.fold_left (fun d a -> print_typ_annot a ^^ blank 1 ^^ d) underscore
-        t.typ_annot
-    in
-    let dattr =
-      print_list (List.map (print_attribute style) t.typ_attributes)
-    in
-    braces (separate (blank 1) [string "annot"; equals;
-                                dannot ^^ semi ^//^ string "desc"; equals;
-                                ddesc ^^ semi ^//^ string "attributes"; equals;
-                                dattr])
+    let dannot = List.map print_typ_annot t.typ_annot in
+    let dattr = List.map (print_attribute style) t.typ_attributes in
+    print_fields [print_list_field "annot" dannot; print_field "desc" ddesc; print_list_field "attributes" dattr]
 (* [print_unop style op]: converts unary operators to pprint document *)
 and print_unop style (op : unary_op) : document =
   match op with
@@ -248,12 +256,11 @@ and print_trm_desc style (t : trm_desc) : document =
     let dvk = match vk with
     | Var_immutable -> string "Var_immutable"
     | Var_mutable ->  string "Var_mutable"
-
     in
     let dtx = print_typ style tx in
     let dt = print_trm style t in
     print_node "Trm_let" ^^
-      parens (separate (comma ^^ break 1) [dvk; print_var style x; dtx; dt])
+      parens (concat (List.map (fun x -> group (x ^^ comma ^^ break 1)) [dvk; print_var style x; dtx; dt]))
   | Trm_let_mult (vk, tvl, tl) ->
     let dvk = match vk with
     | Var_mutable -> string "Var_mutable"
@@ -303,7 +310,7 @@ and print_trm_desc style (t : trm_desc) : document =
      let dcond = print_trm style cond in
      let dstep = print_trm style step in
      let dbody = print_trm style body in
-     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
+     print_node "Trm_for_c" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
   | Trm_for (range, body, _) ->
     let dstart = print_trm style range.start in
@@ -399,15 +406,15 @@ and print_record_type (rt : record_type) : document =
 
 (* [print_typedef style td]: converts typedef to pprint document *)
 and print_typedef style (td : typedef) : document =
-  let dloc = print_loc style td.typdef_loc in
+  let dloc = Option.map (print_loc style) td.typdef_loc in
   let dbody = print_typedef_body style td.typdef_body in
-  braces (separate (blank 1) [
-    string "loc"; equals; dloc ^^ semi ^//^
-    string "tconstr"; equals; string td.typdef_tconstr ^^ semi ^//^
-    string "typid"; equals; string (string_of_int td.typdef_typid) ^^ semi ^//^
-    string "vars"; equals; separate comma (List.map string td.typdef_vars) ^^ semi ^//^
-    string "body"; equals; dbody ^^ semi
-    ])
+  print_fields [
+    print_opt_field "loc" dloc;
+    print_field "tconstr" (string td.typdef_tconstr);
+    print_field "typid" (string (string_of_int td.typdef_typid));
+    print_field "vars" (separate comma (List.map string td.typdef_vars));
+    print_field "body" dbody
+  ]
 
 (* [print_typedef_body style tdbody]: converts typedef to pprint document *)
 and print_typedef_body style (tdbody : typdef_body) : document =
@@ -451,48 +458,45 @@ and print_typedef_body style (tdbody : typdef_body) : document =
 and print_trm_annot style (t : trm) : document =
 
   let t_attributes = trm_get_attr t in
-  let dattr = print_list (List.map (print_attribute style) t_attributes) in
+  let dattr = List.map (print_attribute style) t_attributes in
 
   let t_marks = trm_get_marks t in
-  let dmarks = print_list (List.map string t_marks) in
+  let dmarks = List.map string t_marks in
 
   (*let derrors = print_list (List.map string t.errors) in*)
 
   let t_labels = trm_get_labels t in
-  let dlabels = print_list (List.map string t_labels) in
+  let dlabels = List.map string t_labels in
 
-  let dstringrepr = begin match trm_get_stringreprid t with | Some id -> string "Some " ^^ string (string_of_int id) | None -> string "None" end in
+  let dstringrepr = Option.map (fun id -> string (string_of_int id)) (trm_get_stringreprid t) in
   let t_pragmas = trm_get_pragmas t in
-  let t_pragmas_str = List.map print_directive t_pragmas in
-  let dpragmas = print_list t_pragmas_str in
+  let dpragmas = List.map print_directive t_pragmas in
 
   let cstyle_annot = trm_get_cstyles t in
-  let dcstyle = print_cstyles_annot style cstyle_annot in
+  let dcstyle = List.map (print_cstyle_annot style) cstyle_annot in
 
   let file_annot = t.annot.trm_annot_file in
   let dfile = print_file_annot file_annot in
 
-  let dreferent = match t.annot.trm_annot_referent with None -> string "None" | Some _ -> string "Some" in
+  let dreferent = Option.map (fun _ -> string "Defined") t.annot.trm_annot_referent in
     (* not printing referent term recursively; LATER: print the id of that term *)
 
-  braces (separate (blank 1) [
-    (*string "trm_errors"; equals; derrors ^^ semi ^//^ REDUNDANT *)
-    string "trm_annot_attributes"; equals; dattr ^^ semi ^//^
-    string "trm_annot_marks"; equals; dmarks ^^ semi ^//^
-    string "trm_annot_labels"; equals; dlabels ^^ semi ^//^
-    string "trm_annot_stringrepr"; equals; dstringrepr ^^ semi ^//^
-    string "trm_annot_pragma"; equals; dpragmas ^^ semi ^//^
-    string "trm_annot_cstyle"; equals; dcstyle ^^ semi ^//^
-    string "trm_annot_file"; equals; dfile ^^ semi ^//^
-    string "trm_annot_referent"; equals; dreferent
-    ])
+  print_fields [
+    print_list_field "trm_annot_attributes" dattr;
+    print_list_field "trm_annot_marks" dmarks;
+    print_list_field "trm_annot_labels" dlabels;
+    print_opt_field "trm_annot_stringrepr" dstringrepr;
+    print_list_field "trm_annot_pragma" dpragmas;
+    print_list_field "trm_annot_cstyle" dcstyle;
+    print_opt_field "trm_annot_file" dfile;
+    print_opt_field "trm_annot_referent" dreferent
+  ]
 
 (* [print_loc style loc]: converts location [loc] to pprint document *)
-and print_loc style (loc : location) : document =
-  match loc with
-  | None -> underscore
-  | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
-      print_pair (string filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
+and print_loc style (loc : trm_loc) : document =
+  let {pos_line = start_row; pos_col = start_column} = loc.loc_start in
+  let {pos_line = end_row; pos_col = end_column} = loc.loc_end in
+  print_pair (string loc.loc_file) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column))
 
 (* [print_trm style t]: converts trm [t] to pprint document *)
 and print_trm style (t : trm) : document =
@@ -500,13 +504,9 @@ and print_trm style (t : trm) : document =
   if style.only_desc then ddesc
     else
       let dannot = print_trm_annot style t in
-      let dloc = print_loc style t.loc in
+      let dloc = Option.map (print_loc style) t.loc in
       let dinstr = string (string_of_bool t.is_statement) in
-      let dtyp =
-        match t.typ with
-        | None -> underscore
-        | Some ty -> print_typ style ty
-      in
+      let dtyp = Option.map (print_typ style) t.typ in
 
       let opt_str c o = if o = None then "-" else c in
       let dctx =
@@ -518,23 +518,23 @@ and print_trm style (t : trm) : document =
               opt_str "a" t.ctx.ctx_resources_after;
               opt_str "p" t.ctx.ctx_resources_post_inst] in
 
-      let derrors = print_list (List.map string t.errors) in
-      braces (separate (blank 1)
-        [string "annot"; equals; dannot ^^ semi ^//^
-         string "loc"; equals; dloc ^^ semi ^//^
-         string "is_statement"; equals; dinstr ^^ semi ^//^
-         (*LATER: string "add"; equals;*)
-         string "typ"; equals; dtyp ^//^
-         string "ctx"; equals; string dctx ^^ semi ^//^
-         string "errors"; equals; derrors ^^ semi ^//^
-         string "desc"; equals; ddesc ])
+      let derrors = List.map string t.errors in
+      print_fields [
+        print_field "annot" dannot;
+        print_opt_field "loc" dloc;
+        print_field "is_statement" dinstr;
+        print_opt_field "typ" dtyp;
+        print_field "ctx" (string dctx);
+        print_list_field "errors" derrors;
+        print_field "desc" ddesc
+      ]
 
 (* [print_file_annot ann]: prints as string files annotation [ann] *)
-and print_file_annot (ann : file_annot) : document =
+and print_file_annot (ann : file_annot) : document option =
   match ann with
-  | Inside_file -> string "Inside"
-  | Main_file -> string "Main_file"
-  | Included_file s -> string ("Include " ^ s)
+  | Inside_file -> None
+  | Main_file -> Some (string "Main_file")
+  | Included_file s -> Some (string ("Include " ^ s))
 
 
 (* [print_constructor_kind ck]: prints constructor kinds. *)

@@ -75,7 +75,7 @@ let print_node (s : string) : document =
 
 (* [parens d]: adds parentheses around a pprint document. *)
 let parens (d : document) : document =
-  soft_surround 2 1 lparen d rparen
+  soft_surround 2 0 lparen d rparen
 
 (* [print_list ~sep dl]: displays a list of items, separated with [sep] and a space. By default, [sep] is a semicolon. *)
 let print_list ?(sep : string = ";") (dl : document list) : document =
