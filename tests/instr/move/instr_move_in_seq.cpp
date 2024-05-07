@@ -38,6 +38,10 @@ void pure_facts() {
   req_triv(k+3);
   req_triv(k+4);
   __ghost(trivial_change, "k+5");
+  k+5;
+  k+6;
+  const int z = 0;
+  req_triv(k+5);
 }
 
 void pure_noop() {

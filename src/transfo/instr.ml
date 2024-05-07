@@ -86,36 +86,6 @@ let%transfo accumulate_targets (tg : target) : unit =
   Sequence.intro_targets ~mark tg;
   Instr_basic.accumulate [cMark mark]
 
-(* DEPRECATED: Use immediate children targets instead *)
-type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
-
-
-(* [gather_targets ~dest tg]: expects the target [tg] to point to one or more instructions, than
-    it will move this instructions just before the instruction targeted by [dest].
-
-    DEPRECATED with this interface:
-    It should be replaced by a more robust equivalent using relative immediate children targets.
-
-    Note: This transformation assumes that [tg]  is going to be pointing at multiple instructions,
-    hence no need to provide the occurrecen target [nbMulti] before the main target. *)
-let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
-  Marks.with_marks (fun next_mark ->
-    let paths = resolve_target (enable_multi_targets tg) in
-    let move_paths rel dest_p ps =
-      let m = Marks.add_next_mark_on next_mark dest_p in
-      move ~dest:[rel; cMark m] [Constr_paths ps]
-    in
-    begin match dest with
-    | GatherAtFirst ->
-      let (first, rest) = Xlist.uncons paths in
-      move_paths tAfter first rest
-    | GatherAtLast ->
-      let (rest, last) = Xlist.unlast paths in
-      move_paths tBefore last rest
-    | GatherAt tg_dest ->
-      failwith "GatherAt not yet implemented, need to move instrs before and after target in right order, maybe Instr.move should already behave like GatherAt?"
-    end)
-
 (* [move_in_seq ~dest tg] perform the same actions as {!Instr_basic.move},
    but move the instructions with the ghost pairs they need around them. *)
 let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
@@ -152,6 +122,41 @@ let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
     ) tg
   else
     Instr_basic.move ~dest tg
+
+(* DEPRECATED: Use immediate children targets instead *)
+type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
+
+
+(* [gather_targets ~dest tg]: expects the target [tg] to point to one or more instructions, than
+    it will move this instructions just before the instruction targeted by [dest].
+
+    DEPRECATED with this interface:
+    It should be replaced by a more robust equivalent using relative immediate children targets.
+
+    Note: This transformation assumes that [tg]  is going to be pointing at multiple instructions,
+    hence no need to provide the occurrecen target [nbMulti] before the main target. *)
+let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
+  Marks.with_marks (fun next_mark ->
+    let paths = resolve_target (enable_multi_targets tg) in
+    (* FIXME: do we need to put marks everywhere or just on ~dest ? should the Target.iter of move_in_seq not take care of marking paths for stability? *)
+    let marks = List.map (Marks.add_next_mark_on next_mark) paths in
+    (* let move_paths rel dest_p ps =
+      let m = Marks.add_next_mark_on next_mark dest_p in
+      move_in_seq ~dest:[rel; cMark m] [Constr_paths ps]
+    in *)
+    let move_marked rel dest_m ms =
+      move_in_seq ~dest:[rel; cMark dest_m] [nbAny; cMarks ms]
+    in
+    begin match dest with
+    | GatherAtFirst ->
+      let (first, rest) = Xlist.uncons marks in
+      move_marked tAfter first rest
+    | GatherAtLast ->
+      let (rest, last) = Xlist.unlast marks in
+      move_marked tBefore last rest
+    | GatherAt tg_dest ->
+      failwith "GatherAt not yet implemented, need to move instrs before and after target in right order, maybe Instr.move should already behave like GatherAt?"
+    end)
 
 (* [move dest tg]: move the instructions pointed by [tg] to destination [dest]
    Note: If checking validity, dest must be in the same sequence as the moved instructions.

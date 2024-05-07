@@ -512,10 +512,13 @@ let string_of_interference (interference : (resource_usage option * resource_usa
   sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2)) (Var_map.bindings interference)))
 
 (** Checks that resource usages commute, infer var ids to check pure facts scope. *)
-let assert_usages_commute (loc : location) (before : resource_usage_map) (after : resource_usage_map) : unit =
+let assert_usages_commute
+  (ctxs : error_context list)
+  (before : resource_usage_map)
+  (after : resource_usage_map) : unit =
   let interference = collect_interferences before after in
   if not (Var_map.is_empty interference) then
-    loc_fail loc (string_of_interference interference)
+    contextualized_error ctxs (string_of_interference interference)
 
 (** Checks that the effects from the instruction at path [p] are shadowed by following effects
    in the program.

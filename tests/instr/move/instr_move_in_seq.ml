@@ -17,5 +17,7 @@ let _ = Run.script_cpp (fun _ ->
     Instr.move_in_seq ~dest:[cVarDef "k"; tBefore] [cFunBody "pure_facts"; tSpan [cCall "req_triv"; occFirst; tBefore] [cCall "req_triv"; occLast; tAfter]]
   );
 
+  !! Instr.move_in_seq ~dest:[cVarDef "z"; tAfter] [cFunBody "pure_facts"; cCall "req_triv"; occLast];
+
   !! Instr.move_in_seq ~dest:[tFirst] [cFunBody "pure_noop"; cCall "req_triv"];
 )

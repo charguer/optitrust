@@ -261,7 +261,7 @@ let elim_reuse_on (i : int) (x : var) (y : var) (seq_t : trm) : trm =
   local_name should Instr.insert alloc; Storage.reuse; Storage.read_last_write; Instr.delete x = x
   *)
 let%transfo elim_reuse (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+  Target.iter (fun p ->
     let xy = ref None in
     let _ = Path.apply_on_path (elim_analyse xy) (Trace.ast ()) p in
     let (x, y) = Option.get !xy in
@@ -283,8 +283,9 @@ let%transfo elim_reuse (tg : target) : unit =
       );
       Trace.justif (sprintf "variable %s is not used after declaration" y.name)
     end;
-    Target.apply_at_path (elim_reuse_on i x y) p_seq
-  ) tg)
+    Nobrace_transfo.remove_after (fun () ->
+      Target.apply_at_path (elim_reuse_on i x y) p_seq)
+  ) tg
 
 (* [bind ~const ~mark fresh_name tg]: expects the target [tg] to be pointing at any trm, then it will insert a variable declaration
       with name [fresh_name] just before the instruction that contains the target [tg], and replace the targeted trm with an occurrence

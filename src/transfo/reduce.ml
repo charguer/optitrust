@@ -55,29 +55,38 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     let index = new_var "i" in
     let value = (trm_cast acc_typ (Matrix_trm.get input [n; m] [trm_var index; j])) in
     let loop_range = { index; start; direction = DirUp; stop; step = trm_step_one () } in
-    let derive_in_range = Resource_trm.(Resource_formula.(ghost (ghost_call var_ghost_subrange_to_group_in_range [
-      "r1", formula_range start stop (trm_int 1);
-      "r2", formula_range (trm_int 0) n (trm_int 1);
-    ]))) in
-    let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
-      push_loop_contract_clause SharedModifies
-        (new_anon_hyp (), formula_cell acc) |>
-      push_loop_contract_clause SharedReads
-        (new_anon_hyp (), formula_matrix input [n; m]) |>
-      (* TODO: should this use require or some pure focus? *)
-      push_loop_contract_clause (Exclusive Requires)
-        (new_anon_hyp (), formula_in_range (trm_var index)
-          (formula_range (trm_int 0) n (trm_int 1)))
-    )) in
-    prefix := Some [
-      derive_in_range;
-      trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) (trm_cast acc_typ (trm_int 0)));
-      trm_add_mark mark_loop (trm_for loop_range ~contract (trm_seq_nomarks [
-        (* trm_prim_compound Binop_add (trm_var acc) value *)
-        focus_reduce_item input (trm_var index) j n m (
-          trm_set (trm_var acc) (trm_add (trm_var_get acc) value))
-      ]))
-    ];
+    if !Flags.check_validity then begin
+      let derive_in_range = Resource_trm.(Resource_formula.(ghost (ghost_call var_ghost_subrange_to_group_in_range [
+        "r1", formula_range start stop (trm_int 1);
+        "r2", formula_range (trm_int 0) n (trm_int 1);
+      ]))) in
+      let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
+        push_loop_contract_clause SharedModifies
+          (new_anon_hyp (), formula_cell acc) |>
+        push_loop_contract_clause SharedReads
+          (new_anon_hyp (), formula_matrix input [n; m]) |>
+        (* TODO: should this use require or some pure focus? *)
+        push_loop_contract_clause (Exclusive Requires)
+          (new_anon_hyp (), formula_in_range (trm_var index)
+            (formula_range (trm_int 0) n (trm_int 1)))
+      )) in
+      prefix := Some [
+        derive_in_range;
+        trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) (trm_cast acc_typ (trm_int 0)));
+        trm_add_mark mark_loop (trm_for loop_range ~contract (trm_seq_nomarks [
+          (* trm_prim_compound Binop_add (trm_var acc) value *)
+          focus_reduce_item input (trm_var index) j n m (
+            trm_set (trm_var acc) (trm_add (trm_var_get acc) value))
+        ]))
+      ];
+    end else begin
+      prefix := Some [
+        trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) (trm_cast acc_typ (trm_int 0)));
+        trm_add_mark mark_loop (trm_for loop_range (trm_seq_nomarks [
+          trm_set (trm_var acc) (trm_add (trm_var_get acc) value)
+        ]))
+      ];
+    end;
     trm_var_get acc
   ) t to_expr in
   let prefix = Option.get !prefix in
@@ -125,7 +134,7 @@ let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
     | None ->
       trm_fail red_t "expected trivially constant loop range"
   ) t red_p in
-  !focuses(t2)
+  if !Flags.check_validity then !focuses(t2) else t2
 
 (** [elim_inline tg]: eliminates a call to [reduce], expanding it to an inlined expression.
     TODO: later, implement this as combi (1. unroll; 2. inline accumulator; 3. simplify zero add)
@@ -187,6 +196,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
     b
   | _ -> trm_fail t "only supporting reduce stopping at loop index + constant variable"
   end in
+  let subst_start_index = trm_subst_var range.index (trm_add_mark mark_simpl range.start) in
   if !Flags.check_validity = true then begin
     let usage_before = Resources.compute_usage_of_instrs before_instrs in
     let usage_red_linear = Var_map.filter (fun x u ->
@@ -195,8 +205,8 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
       | _ -> true
     ) (Resources.usage_of_trm red) in
     let usage_after = Resources.compute_usage_of_instrs after_instrs in
-    Resources.assert_usages_commute red.loc usage_before usage_red_linear;
-    Resources.assert_usages_commute red.loc usage_red_linear usage_after;
+    Resources.assert_usages_commute [trm_error_context red] usage_before usage_red_linear;
+    Resources.assert_usages_commute [trm_error_context red] usage_red_linear usage_after;
     Trace.justif "reduction input commutes with other loop instructions";
     if List.for_all Resources.trm_is_pure [start; stop; input; n; m; j] then
       Trace.justif "all reduce arguments are pure"
@@ -215,70 +225,84 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
   let rec_reduce_sub_start = trm_add_mark mark_simpl (trm_sub index step) in
   let rec_reduce_sub = make_reduce rec_reduce_sub_start index in
   let new_range = { range with start = trm_add_mark mark_simpl (trm_add range.start step) } in
-  let open Resource_formula in
-  let dispatch_ghosts ghost ro_ghost uninit_ghost formula =
-    match formula_mode_inv formula with
-    | RO, formula -> ro_ghost, formula
-    | Uninit, formula -> uninit_ghost, formula
-    | Full, formula -> ghost, formula
-  in
-  let add_split_ghost ghost_fn =
-    (* TODO: factorize pattern with tiling ghosts *)
-    List.map (fun (_, formula) ->
-      let ghost, formula = ghost_fn formula in
-      let i = new_var range.index.name in
-      let items = formula_fun [i, typ_int ()] None (trm_subst_var range.index (trm_var i) formula) in
-      Resource_trm.ghost (ghost_call ghost [
-        "start", range.start; "stop", range.stop; "step", step;
-        "split", new_range.start; "items", items
-      ])
-    )
-  in
-  let split_assumption = Resource_trm.(Resource_formula.[
-    assume (formula_in_range new_range.start (formula_range range.start range.stop step))
-  ]) in
-  let subrange_assumptions = Resource_trm.(Resource_formula.[
-    assume (formula_is_subrange
-      (formula_range rec_reduce_add_start rec_stop step)
-      (formula_range (trm_int 0) n step)
-    );
-    assume (formula_is_subrange
-      (formula_range rec_reduce_sub_start index step)
-      (formula_range (trm_int 0) n step)
-    );
-  ]) in
-  let split_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_split ghost_group_split_ro ghost_group_split_uninit)) contract.iter_contract.pre.linear in
-  let join_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_join ghost_group_join_ro ghost_group_join_uninit)) contract.iter_contract.post.linear in
-  let pure_split_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_group_split_pure, f)) contract.iter_contract.pre.pure in
-  let pure_join_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_group_join_pure, f)) contract.iter_contract.post.pure in
-  let one_range = { range with stop = new_range.start } in
-  let (unroll_ghosts, roll_ghosts) = Loop_core.unroll_ghost_pair one_range contract [range.start] in
-  let new_contract = contract |>
-    Resource_contract.push_loop_contract_clause SharedModifies
-      (new_anon_hyp (), formula_cell acc)
-  in
-  let subst_start_index = trm_subst_var range.index (trm_add_mark mark_simpl range.start) in
-  trm_seq_helper ~braces:false [
-    TrmList split_assumption;
-    TrmList pure_split_ghosts;
-    TrmList split_ghosts;
-    TrmList unroll_ghosts;
-    TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) before_instrs);
-    Trm (trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) base_reduce));
-    Trm (trm_set (trm_copy (subst_start_index out)) (trm_var_get acc));
-    TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) after_instrs);
-    TrmList roll_ghosts;
-    Trm (trm_for new_range ~contract:new_contract (trm_seq_helper [
-      TrmList subrange_assumptions;
-      TrmMlist before_instrs;
-      (* trm_prim_compound Binop_add (trm_var acc) value *)
-      Trm (trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
-      Trm (trm_set out (trm_var_get acc));
-      TrmMlist after_instrs;
-    ]));
-    TrmList pure_join_ghosts;
-    TrmList join_ghosts
-  ]
+  if !Flags.check_validity then begin
+    let open Resource_formula in
+    let dispatch_ghosts ghost ro_ghost uninit_ghost formula =
+      match formula_mode_inv formula with
+      | RO, formula -> ro_ghost, formula
+      | Uninit, formula -> uninit_ghost, formula
+      | Full, formula -> ghost, formula
+    in
+    let add_split_ghost ghost_fn =
+      (* TODO: factorize pattern with tiling ghosts *)
+      List.map (fun (_, formula) ->
+        let ghost, formula = ghost_fn formula in
+        let i = new_var range.index.name in
+        let items = formula_fun [i, typ_int ()] None (trm_subst_var range.index (trm_var i) formula) in
+        Resource_trm.ghost (ghost_call ghost [
+          "start", range.start; "stop", range.stop; "step", step;
+          "split", new_range.start; "items", items
+        ])
+      )
+    in
+    let split_assumption = Resource_trm.(Resource_formula.[
+      assume (formula_in_range new_range.start (formula_range range.start range.stop step))
+    ]) in
+    let subrange_assumptions = Resource_trm.(Resource_formula.[
+      assume (formula_is_subrange
+        (formula_range rec_reduce_add_start rec_stop step)
+        (formula_range (trm_int 0) n step)
+      );
+      assume (formula_is_subrange
+        (formula_range rec_reduce_sub_start index step)
+        (formula_range (trm_int 0) n step)
+      );
+    ]) in
+    let split_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_split ghost_group_split_ro ghost_group_split_uninit)) contract.iter_contract.pre.linear in
+    let join_ghosts = Loop_core.(add_split_ghost (dispatch_ghosts ghost_group_join ghost_group_join_ro ghost_group_join_uninit)) contract.iter_contract.post.linear in
+    let pure_split_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_group_split_pure, f)) contract.iter_contract.pre.pure in
+    let pure_join_ghosts = Loop_core.(add_split_ghost (fun f -> ghost_group_join_pure, f)) contract.iter_contract.post.pure in
+    let one_range = { range with stop = new_range.start } in
+    let (unroll_ghosts, roll_ghosts) = Loop_core.unroll_ghost_pair one_range contract [range.start] in
+    let new_contract = contract |>
+      Resource_contract.push_loop_contract_clause SharedModifies
+        (new_anon_hyp (), formula_cell acc)
+    in
+    trm_seq_helper ~braces:false [
+      TrmList split_assumption;
+      TrmList pure_split_ghosts;
+      TrmList split_ghosts;
+      TrmList unroll_ghosts;
+      TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) before_instrs);
+      Trm (trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) base_reduce));
+      Trm (trm_set (trm_copy (subst_start_index out)) (trm_var_get acc));
+      TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) after_instrs);
+      TrmList roll_ghosts;
+      Trm (trm_for new_range ~contract:new_contract (trm_seq_helper [
+        TrmList subrange_assumptions;
+        TrmMlist before_instrs;
+        (* trm_prim_compound Binop_add (trm_var acc) value *)
+        Trm (trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
+        Trm (trm_set out (trm_var_get acc));
+        TrmMlist after_instrs;
+      ]));
+      TrmList pure_join_ghosts;
+      TrmList join_ghosts
+    ]
+  end else
+    trm_seq_helper ~braces:false [
+      TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) before_instrs);
+      Trm (trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) base_reduce));
+      Trm (trm_set (trm_copy (subst_start_index out)) (trm_var_get acc));
+      TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) after_instrs);
+      Trm (trm_for new_range (trm_seq_helper [
+        TrmMlist before_instrs;
+        (* trm_prim_compound Binop_add (trm_var acc) value *)
+        Trm (trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
+        Trm (trm_set out (trm_var_get acc));
+        TrmMlist after_instrs;
+      ]));
+    ]
 
 (** [slide_basic tg]: given a target to a call to [set(p, reduce)] within a perfectly nested loop:
     [for i in 0..n { set(p, reduce(... i ...)) }]
