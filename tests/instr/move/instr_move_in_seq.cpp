@@ -51,3 +51,12 @@ void pure_noop() {
   __ghost(trivial_change, "1");
   req_triv(0);
 }
+
+void with_assert_alias(int x) {
+  __pure();
+  if (x == 0) {
+    __ghost(assert_alias, "x, 0");
+    int a = x+1;
+    int b = x+2;
+  }
+}

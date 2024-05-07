@@ -542,15 +542,15 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
     | [] -> ()
     | to_fuse :: todo ->
       let fuse_into_tg = target_of_path (p_seq @ [Path.Dir_seq_nth fuse_into]) in
+      (* Printf.printf "to_fuse: %i\n" to_fuse;
+      Printf.printf "fuse_into: %i\n" fuse_into; *)
       (* If we are fusing from top to bottom *)
       if to_fuse < fuse_into then begin
-        (* Printf.printf "to_fuse: %i\n" to_fuse;
-        Printf.printf "fuse_into: %i\n" fuse_into; *)
         let to_fuse' = to_fuse in (* no shift *)
         let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
         may_rename_loop_body p_current;
         if to_fuse' <> fuse_into - 1 then begin
-          Instr_basic.move ~dest:[dBefore fuse_into] (target_of_path p_current);
+          Instr.move_in_seq ~dest:[dBefore fuse_into] (target_of_path p_current);
         end;
         fusion ~nest_of ~adapt_fused_indices ~upwards:false fuse_into_tg;
         fuse_loops (fuse_into - 1) (shift - 1) todo;
@@ -561,7 +561,7 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
         let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
         may_rename_loop_body p_current;
         if to_fuse' <> (fuse_into + 1) then begin
-          Instr_basic.move ~dest:[dAfter fuse_into] (target_of_path p_current);
+          Instr.move_in_seq ~dest:[dAfter fuse_into] (target_of_path p_current);
         end;
         fusion ~nest_of ~adapt_fused_indices fuse_into_tg;
         fuse_loops fuse_into (shift - 1) todo;
