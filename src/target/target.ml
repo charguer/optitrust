@@ -1600,13 +1600,21 @@ let apply_at_target_paths ?(rev : bool = false) (transfo : trm -> trm) (tg : tar
 let applyi_at_target_paths ?(rev : bool = false) (transfo : int -> trm -> trm) (tg : target) : unit =
   iteri ~rev (fun i p -> apply_at_path (transfo i) p) tg
 
-(* ... [transfo t i] where [t] denotes the sequence and [i] denotes the index
+(* [apply_at_target_paths_before transfo tg]: similar to [apply_on_target_paths]
+   but transformations are called as [transfo t i] where [t] denotes the sequence and [i] denotes the index
    of the item in the sequence before which the target is aiming at. *)
 let apply_at_target_paths_before ?(rev : bool = false) (transfo : trm -> int -> trm) (tg : target) : unit =
   iter ~rev (fun pb ->
     let (p,i) = Path.extract_last_dir_before pb in
     apply_at_path (fun tseq -> transfo tseq i) p) tg
 
+(* [apply_at_target_paths_before transfo tg]: similar to [apply_on_target_paths]
+   but transformations are called as [transfo i t] where [t] denotes the sequence and [i] denotes the index
+   of the item in the sequence at which the target is aiming at. *)
+let apply_at_target_paths_in_seq ?(rev : bool = false) (transfo : int -> trm -> trm) (tg : target) : unit =
+  iter ~rev (fun pb ->
+    let i, p_seq = Path.index_in_seq pb in
+    apply_at_path (transfo i) p_seq) tg
 
 (******************************************************************************)
 (*                                   Show                                     *)

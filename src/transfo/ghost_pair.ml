@@ -233,10 +233,7 @@ let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq:
 (** Introduce a ghost pair starting on the targeted ghost, and ending at the first closing candidate. *)
 let%transfo intro ?(name: string option) ?(end_mark: mark = no_mark) (tg: target) =
   Resources.ensure_computed ();
-  Target.iter (fun p ->
-    let i, p = Path.index_in_seq p in
-    apply_at_path (intro_at ?name ~end_mark i) p
-  ) tg;
+  Target.apply_at_target_paths_in_seq (intro_at ?name ~end_mark) tg;
   Resources.justif_correct "only changed ghost code"
 
 
@@ -267,10 +264,7 @@ let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (
 (** Split a ghost pair into two independant ghost calls *)
 let%transfo elim ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (tg: target) =
   Resources.ensure_computed ();
-  Target.iter (fun p ->
-    let i, p = Path.index_in_seq p in
-    apply_at_path (elim_at ~mark_begin ~mark_end i) p
-  ) tg;
+  Target.apply_at_target_paths_in_seq (elim_at ~mark_begin ~mark_end) tg;
   Resources.justif_correct "only changed ghost code"
 
 
@@ -302,10 +296,9 @@ let%transfo reintro_pairs_at (pairs: (var * mark * mark) list) (p: path): unit =
   Resources.ensure_computed ();
   (* FIXME: Quadratic search of marks *)
   List.iter (fun (pair_token, begin_mark, end_mark) ->
-    Target.iter (fun p ->
-      let i, p = Path.index_in_seq p in
-      apply_at_path (intro_at ~name:pair_token.name ~end_mark i) p
-    ) [Constr_paths [p]; cMark begin_mark]
+    Target.apply_at_target_paths_in_seq
+      (intro_at ~name:pair_token.name ~end_mark)
+      [Constr_paths [p]; cMark begin_mark]
   ) pairs;
   Resources.justif_correct "only changed ghost code"
 

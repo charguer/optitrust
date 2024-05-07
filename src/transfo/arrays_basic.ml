@@ -117,7 +117,4 @@ let elim_on (decl_index : int) (t : trm) : trm =
   *)
 let%transfo elim (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-    Target.iter (fun p ->
-      let (i, p_seq) = Path.index_in_seq p in
-      Target.apply_at_path (elim_on i) p_seq
-  ) tg)
+    Target.apply_at_target_paths_in_seq elim_on tg)

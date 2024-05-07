@@ -462,10 +462,6 @@ let to_inner_loop (p : path) : path =
 let rec to_inner_loop_n (n : int) (p : path) : path =
    if n > 0 then to_inner_loop_n (n - 1) (to_inner_loop p) else p
 
-let index_in_seq (p : path) : int * path =
-   match List.rev p with
-   | Dir_seq_nth i :: p' -> (i, List.rev p')
-   | _ -> path_fail p "Path.index_in_seq: unexpected path"
 
 (* [index_in_surrounding_loop]: takes the path to a term inside a loop,
    and returns the index of that term in the sequence of the loop body,
@@ -501,6 +497,11 @@ let extract_last_dir (p: path): path * last_dir =
   | Dir_before i -> parent_path, Before i
   | Dir_span span -> parent_path, Span span
   | _ -> p, Here
+
+let index_in_seq (p : path) : int * path =
+   match extract_last_dir p with
+   | p', Nth i -> (i, p')
+   | _ -> path_fail p "Path.index_in_seq: expected a Dir_seq_nth at the end of the path; you should target instructions in a sequence"
 
 (* [last_dir_before_inv p] for a path of the form [p1 @ Dir_before n]
    returns the pair [Some (p1,n)], else returns [None]. *)

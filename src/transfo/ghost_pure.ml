@@ -110,8 +110,5 @@ let copy_inside_from_seq (index: int) (seq: trm): trm =
 
 (** Copies all the pure ghosts of the surrounding sequence at the begining of the body of the targetted instruction. *)
 let%transfo copy_surrounding_inside (tg: target): unit =
-  Target.iter (fun p ->
-    let index, p_seq = Path.index_in_seq p in
-    apply_at_path (copy_inside_from_seq index) p_seq
-  ) tg;
+  Target.apply_at_target_paths_in_seq copy_inside_from_seq tg;
   Resources.justif_correct "only changed ghost code"
