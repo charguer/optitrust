@@ -1009,12 +1009,12 @@ let rec compute_resources
 
     (* Values and variables are pure. *)
     | Trm_val _ -> (Some Var_map.empty, Some res)
-    | Trm_var (_, x) -> (Some (Var_map.singleton x Required), Some res) (* TODO: Manage return values for pointers *)
+    | Trm_var x -> (Some (Var_map.singleton x Required), Some res) (* TODO: Manage return values for pointers *)
 
     (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       (* TODO: Remove trm_let_fun *)
-      compute_resources (Some res) (trm_let ~annot:referent Var_immutable (name, typ_auto ()) (trm_fun ~annot:referent args (Some ret_type) body ~contract))
+      compute_resources (Some res) (trm_let ~annot:referent (name, typ_auto ()) (trm_fun ~annot:referent args (Some ret_type) body ~contract))
 
     (* Defining a function is pure by itself, we check that the body satisfies the contract.
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
@@ -1063,7 +1063,7 @@ let rec compute_resources
       let** res in
       let extract_let_mut ti =
         match trm_let_inv ti with
-        | Some (_, x, _, t) ->
+        | Some (x, _, t) ->
           begin match trm_ref_inv t with
           | Some _ -> [formula_cell x]
           | None ->
@@ -1085,7 +1085,7 @@ let rec compute_resources
     (* First compute the resources of [body].
        If the body is convertible to a formula, remember it as alias.
        Finally replace all mentions of [var_result] with [var]. *)
-    | Trm_let (_, (var, typ), body) ->
+    | Trm_let ((var, typ), body) ->
       let usage_map, res_after = compute_resources (Some res) body in
       let res_after = Option.map (fun res_after ->
         match formula_of_trm body with

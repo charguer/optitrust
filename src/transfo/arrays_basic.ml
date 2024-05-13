@@ -91,7 +91,7 @@ let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) (
   let decl_p = resolve_target_exactly_one_with_stringreprs_available decl (Trace.ast ()) in
   let decl_t = Path.resolve_path decl_p (Trace.ast ()) in
   let error = "Arrays_basic.inline_constant: expected constant array literal declaration" in
-  let (_, var, typ, init) = trm_inv ~error trm_let_inv decl_t in
+  let (var, typ, init) = trm_inv ~error trm_let_inv decl_t in
   let (_elem_ty, _size) = typ_inv ~error decl_t typ_const_array_inv typ in
   let array_mlist = trm_inv ~error array_inv init in
   Target.apply_at_target_paths (inline_constant_on var (Mlist.to_list array_mlist) mark_accesses) tg
@@ -99,7 +99,7 @@ let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) (
 let elim_on (decl_index : int) (t : trm) : trm =
   let remove_decl (t : trm) : trm =
     let error = "Arrays.elim_constant_on: expected constant array literal declaration" in
-    let (_, name, typ, init) = trm_inv ~error trm_let_inv t in
+    let (name, typ, init) = trm_inv ~error trm_let_inv t in
     (* Printf.printf "QSJIDO:\n%s\n" (Ast_to_text.ast_to_string t); *)
     let (_elem_ty, _size) = typ_inv ~error t typ_const_array_inv typ in
     let _array_mlist = trm_inv ~error array_inv init in

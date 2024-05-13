@@ -28,10 +28,10 @@ let choose_aux (select_arg : var list -> int) (t : trm) : trm =
        if nb <> List.length args then trm_fail t "Specialize_core.choose_aux: number of args is not correct";
         let choices = List.map (fun arg ->
           match arg.desc with
-          | Trm_var (_, s) -> s
+          | Trm_var s -> s
           | Trm_apps (_, [v], _)  ->
             begin match v.desc with
-            | Trm_var (_, v) -> v
+            | Trm_var v -> v
             | _ -> trm_fail arg "Specialize_core.choose_aux: could not match non constant variable"
             end
           | _ ->

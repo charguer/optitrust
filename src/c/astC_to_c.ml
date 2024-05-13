@@ -430,7 +430,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       if trm_has_cstyle Empty_cond t
         then empty
         else dattr ^^ val_to_doc style (trm_get_cstyles t) (t.typ) v
-    | Trm_var (_, x) ->
+    | Trm_var x ->
       (* if x.qvar_var = "this"
         then
           if trm_has_cstyle Implicit_this t
@@ -462,8 +462,8 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
         end
       in
       dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
-    | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc style ~semicolon tx t
-    | Trm_let_mult (_, tvl, tl) -> dattr ^^ trm_let_mult_to_doc style ~semicolon tvl tl
+    | Trm_let (tx,t) -> dattr ^^ trm_let_to_doc style ~semicolon tx t
+    | Trm_let_mult bs -> dattr ^^ trm_let_mult_to_doc style ~semicolon bs
     | Trm_let_fun (f, r, tvl, b, _) ->
       let fun_annot = trm_get_cstyles t in
       let static = if trm_has_cstyle Static_fun t then string "static" else empty in
@@ -633,16 +633,6 @@ and record_type_to_doc (rt : record_type) : document =
 and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc style ((var_to_doc style)) tv in
- (* DEPREACTED
-  let dinit = begin match init.desc with
-    | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-    | Trm_apps (_, args) when trm_has_cstyle Constructed_init init ->
-      list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (trm_to_doc style) args) ^^ dsemi
-    | _ ->
-      equals ^^ blank 1 ^^ decorate_trm style ~print_struct_init_type:false init ^^ dsemi
-  end in
-  dtx ^^ blank 1 ^^ dinit
-  *)
   match init.desc with
   | Trm_val (Val_lit Lit_uninitialized) -> dtx ^^ semi
   | Trm_apps (_, args, _) when trm_has_cstyle Constructed_init init ->
@@ -692,13 +682,13 @@ and fun_spec_resource_varmap_to_doc style (fun_specs : fun_spec_resource varmap)
 
 
 
-(* [trm_let_mult_to_doc style ~semicolon tv vl tl]: converts multiple variable declarations to pprint document *)
-and trm_let_mult_to_doc style ?(semicolon : bool = true) (tvl : typed_vars) (tl : trm list) : document =
+(* [trm_let_mult_to_doc style ~semicolon tv bs]: converts multiple variable declarations to pprint document *)
+and trm_let_mult_to_doc style ?(semicolon : bool = true) (bs : (typed_var * trm) list) : document =
   let rec get_inner_ptrs_and_consts (ty : typ) : typ =
     match ty.typ_desc with
     | Typ_const ({typ_desc = Typ_ptr { inner_typ = ty; _ }; _ }) -> get_inner_ptrs_and_consts ty
     | Typ_ptr { inner_typ = ty; _ } -> get_inner_ptrs_and_consts ty
-    | Typ_array (ty, _) -> get_inner_ptrs_and_consts ty
+    (*| Typ_array (ty, _) -> get_inner_ptrs_and_consts ty (* To handle this case, the function get_ptrs_and_consts_doc need to be adjusted. For now reject this case, even though a C syntax exists. *)*)
     | _ -> ty
   in
 
@@ -718,24 +708,25 @@ and trm_let_mult_to_doc style ?(semicolon : bool = true) (tvl : typed_vars) (tl 
   in
 
   (* check if all the declarations are of the same type *)
-  let ty = Xlist.fold_lefti (fun i acc (x, ty) ->
+  let ty = Xlist.fold_lefti (fun i acc ((_, ty), _) ->
     let ty = get_inner_ptrs_and_consts ty in
     if i = 0 then ty
     else if ty <> acc then
       failwith "AstC_to_c.trm_let_mult_to_doc style: all variables in trm_let_mult must have the same type."
     else acc
-    ) (typ_unit ()) tvl
+    ) (typ_unit ()) bs
   in
 
   let dsemi = if semicolon then semi else empty in
   let dtx = typ_to_doc ty in
-  let dtl = List.map2 (fun (v,ty) t ->
-  let ptr_ = get_ptrs_and_consts_doc ty in
-    if is_trm_uninitialized t
-      then ptr_ ^^ var_to_doc style v
-      else ptr_ ^^ var_to_doc style v ^^ equals ^^ decorate_trm style t
-  ) tvl tl in
-  dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
+  let dtl = List.map (fun ((v,ty),t) ->
+      let ptr_ = get_ptrs_and_consts_doc ty in
+      if is_trm_uninitialized t
+        then ptr_ ^^ var_to_doc style v
+        else ptr_ ^^ var_to_doc style v ^^ equals ^^ decorate_trm style t
+    ) bs
+  in
+  dtx ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
 
 
 (* [aux_class_constructor_to_doc style ]: converst class constructor declaration to pprint document. *)
@@ -901,18 +892,11 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
 and multi_decl_to_doc style (loc : location) (tl : trms) : document =
  let get_info (t : trm) : document =
   begin match t.desc with
-  | Trm_let (vk, (x, _), init) ->
-    begin match vk with
-    | Var_immutable ->
-      begin match init.desc with
+  | Trm_let ((x, _), init) ->
+    begin match init.desc with
       | Trm_val(Val_lit Lit_uninitialized) -> var_to_doc style x
+      (*| Trm_apps (GET?, [base], _)-> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style base*)
       | _ -> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style init
-      end
-    | _ ->
-      begin match init.desc with
-      | Trm_apps (_, [base], _)-> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style base
-      | _ -> var_to_doc style x
-      end
     end
   | Trm_typedef _ -> string ""
   | _ -> loc_fail loc "AstC_to_c.multi_decl_to_doc style: only variables declarations allowed"
@@ -927,14 +911,12 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
            end
   | hd :: _ ->
     match hd.desc with
-    | Trm_let (vk, (_, ty), _) ->
-      begin match vk with
-      | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
-      | _ -> begin match ty.typ_desc with
+    | Trm_let ((_, ty), _) ->
+      string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
+      (*| Var_mutable -> begin match ty.typ_desc with
             | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} when is_generated_typ ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
             | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
-            end
-       end
+            end*)
   | _ -> loc_fail loc "AstC_to_c.multi_decl_to_doc style: expected a trm_let"
   end
 
@@ -952,10 +934,10 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
 
   match f.desc with
   (* Case of function pointers *)
-  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ], _) ->
+  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var x; _ } ], _) ->
       aux_arguments (var_to_doc style x)
   (* Case of MALLOC *)
-  | Trm_var (_, x) when (style.pretty_matrix_notation && Tools.pattern_matches "MALLOC" x.name) ->
+  | Trm_var x when (style.pretty_matrix_notation && Tools.pattern_matches "MALLOC" x.name) ->
     let dims, size = Xlist.unlast tl in
     let error = "expected MALLOC(.., sizeof(..))" in
     let size_var = trm_inv ~error trm_var_inv size in
@@ -972,11 +954,11 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
     (separate empty (List.map bracketed_trm dims)) ^^
     (string "))")
   (* Case of MFREE *)
-  | Trm_var (_, x) when (style.pretty_matrix_notation && Tools.pattern_matches "MFREE" x.name) ->
+  | Trm_var x when (style.pretty_matrix_notation && Tools.pattern_matches "MFREE" x.name) ->
     let dims, ptr = Xlist.unlast tl in
     (string "free") ^^ lparen ^^ (decorate_trm style ptr) ^^ rparen
   (* Case of function by name *)
-  | Trm_var (_, x) ->
+  | Trm_var x ->
     let var_doc = trm_var_to_doc style x f in
     aux_arguments var_doc
   (* Case of inlined function *)
@@ -1014,7 +996,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
                         d ^^ dot ^^ string f1
                       else
                         let d = decorate_trm style ~prec (get_operation_arg t) in
-                        d ^^ minus ^^ rangle ^^ string f1
+                       d ^^ minus ^^ rangle ^^ string f1
                  else d ^^ dot ^^ string f1
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
@@ -1362,7 +1344,7 @@ and routine_to_doc (r : omp_routine) : document =
 (* [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
-  let init = trm_let Var_mutable (range.index, typ_int()) range.start in
+  let init = trm_let (range.index, typ_int()) range.start in
   let cond = begin match range.direction with
     | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var range.index; range.stop]
     | DirUpEq -> trm_apps (trm_binop Binop_le) [trm_var range.index; range.stop]

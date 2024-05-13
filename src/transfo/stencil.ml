@@ -96,7 +96,7 @@ let var_of_access (access_t : trm) : var =
   var
 let var_of_def (def_t : trm) : var =
   let error = "Stencil.var_of_def: expected variable declaration" in
-  let (_, var, _, _) = trm_inv ~error trm_let_inv def_t in
+  let (var, _, _) = trm_inv ~error trm_let_inv def_t in
   var
 
 let collect_writes (p : path) : Var_set.t =

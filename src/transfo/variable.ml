@@ -45,21 +45,16 @@ let%transfo fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : 
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_let (vk, (_, tx), _) ->
-      let ty = get_inner_ptr_type tx in
-      begin match ty.typ_desc with
-      (* If the declared variable has a refernce type checking its mutability is not needed*)
-      | Typ_ptr _ when trm_has_cstyle Reference tg_trm ->
-        Variable_basic.fold ~at (target_of_path p)
-      (* In other cases we need to check the mutability of the variable *)
-      | _ -> begin match vk with
-            | Var_immutable -> Variable_basic.fold ~at (target_of_path p)
-            | _ -> if nonconst = true
-                then Variable_basic.fold ~at (target_of_path p)
-                else
-                  trm_fail tg_trm "Variable.fold: if you want to use fold for mutable variables you should set
-                            ~nonconst to true when calling this transformation"
-            end
+    | Trm_let ((_, tx), init) ->
+      begin match trm_ref_inv init with
+      | Some _ when nonconst = false ->
+        trm_fail tg_trm "Variable.fold: if you want to use fold for mutable variables you should set
+                          ~nonconst to true when calling this transformation"
+      | Some _ ->
+        Variable_basic.to_const (target_of_path p);
+        Variable_basic.fold ~at (target_of_path p);
+        Variable_basic.to_nonconst (target_of_path p);
+      | None -> Variable_basic.fold ~at (target_of_path p)
       end
     | _ -> trm_fail tg_trm "Variable.fold: expected a variable declaration"
 ) tg
@@ -195,8 +190,7 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
     let new_t = trm_subst new_inst pattern_instr in
     apply_on_targets (fun t p -> apply_on_path (fun _ -> new_t) t p) (target_of_path p)
   ) tg;
-  let vk = if const then Var_immutable else Var_mutable in
-  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) ~size:(trm_int nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
+  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array ~const (x, typ_double ()) ~size:(trm_int nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
   Nobrace_transfo.remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_nobrace_nomarks instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
@@ -208,15 +202,10 @@ let%transfo detach_if_needed (tg : target) : unit =
   iter_on_targets (fun t p ->
     let decl_t  = Path.resolve_path p t in
     match decl_t.desc with
-    | Trm_let(vk,(_, _), init) ->
-      begin match vk with
-      | Var_immutable -> ()
-      | _ ->
-        begin match init.desc with
-        | Trm_apps (_,[_init], _) ->
-          Variable_basic.init_detach (target_of_path p)
-        | _ -> ()
-        end
+    | Trm_let((_, _), init) ->
+      begin match trm_ref_inv init with
+      | None -> ()
+      | Some init -> Variable_basic.init_detach (target_of_path p)
       end
     | _ -> trm_fail t "Variable.init_detach_aux: variable could not be matched, make sure your path is correct"
   ) tg
@@ -348,25 +337,17 @@ let%transfo unfold ?(simpl : Transfo.t = default_unfold_simpl) ?(delete : bool =
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
     match tg_trm.desc with
-    | Trm_let (vk, (x, _tx), init) ->
-
-      let mark = begin match get_init_val init with
-      | Some init -> Mark.next ()
-      | _ -> trm_fail tg_trm "Variable.unfold: you should never try to inline uninitialized variables"
-      end in
-      begin match vk with
-      | Var_immutable ->
-        if delete
-          then Variable_basic.inline ~mark tg_decl
-          else Variable_basic.unfold ~mark ~at tg_decl
-      | Var_mutable ->
-        if not (trm_has_cstyle Reference tg_trm) then Variable_basic.to_const tg_decl;
-        if trm_has_cstyle Reference tg_trm
-          then Variable_basic.inline ~mark tg_decl
-          else if delete
-            then Variable_basic.inline ~mark tg_decl
-          else Variable_basic.unfold ~mark ~at tg_decl
+    | Trm_let ((x, _tx), init) ->
+      let mark = Mark.next () in
+      begin match trm_ref_inv_init init with
+      | Some init when is_trm_uninitialized init ->
+        trm_fail tg_trm "Variable.unfold: you should never try to inline uninitialized variables"
+      | Some _ -> Variable_basic.to_const tg_decl
+      | None -> ()
       end;
+      if delete
+        then Variable_basic.inline ~mark tg_decl
+        else Variable_basic.unfold ~mark ~at tg_decl;
       simpl [cMark mark];
       Marks.remove mark [nbAny; cMark mark]
     | _ -> trm_fail t "Variable.unfold: expected a target to a variable declaration"
@@ -395,37 +376,23 @@ let%transfo inline_and_rename ?(simpl: Transfo.t = default_inline_simpl) (tg : t
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     let tg_scope = target_of_path path_to_seq in
     match tg_trm.desc with
-    | Trm_let (vk, (y, ty), init) ->
+    | Trm_let ((y, ty), init) ->
         let spec_target = tg_scope @ [cVarDef y.name] in
-        begin match get_init_val init with
-        | Some v ->
-          begin match v.desc with
-          | Trm_var (_, x) ->
-            if is_typ_const ty then begin
-                inline ~simpl spec_target;
-                renames (ByList [(x.name,y.name)]) tg_scope
-              end
-             else begin
-              Variable_basic.to_const spec_target;
-              inline ~simpl spec_target;
-              renames (ByList [(x.name,y.name)]) tg_scope
-              end
-          | Trm_apps (_, [{desc = Trm_var (_, x);_}], _) when is_get_operation v ->
-             if is_typ_const ty then begin
-                inline ~simpl spec_target;
-                renames (ByList [(x.name,y.name)]) tg_scope
-              end
-             else begin
-              Variable_basic.to_const spec_target;
-              inline ~simpl spec_target;
-              renames (ByList [(x.name,y.name)]) tg_scope
-              end
-          | _ ->
-            (* DEBUG: *)
-            (* Printf.printf "For variable %s\n got value %s\n" y (Ast_to_text.ast_to_string v); *)
-            trm_fail tg_trm "Variable.inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
-          end
-        | _ -> trm_fail init "Variable.inline_and_rename: please try targeting initialized variable declarations"
+        let init = match trm_ref_inv_init init with
+          | Some init -> Variable_basic.to_const spec_target; init
+          | None -> init
+        in
+        begin match init.desc with
+        | Trm_var x ->
+          inline ~simpl spec_target;
+          renames (ByList [(x.name,y.name)]) tg_scope
+        | Trm_apps (_, [{desc = Trm_var x;_}], _) when is_get_operation init ->
+          inline ~simpl spec_target;
+          renames (ByList [(x.name,y.name)]) tg_scope
+        | _ ->
+          (* DEBUG: *)
+          (*Printf.printf "For variable %s\n got value %s\n" (var_to_string y) (Ast_to_text.ast_to_string init);*)
+          trm_fail tg_trm "Variable.inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
         end
     | _ -> trm_fail t "Variable.inline_and_rename: expected the declaration of the variable which is going to be inlined"
   ) tg
@@ -439,7 +406,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
     match tg_trm.desc with
-    | Trm_let (_, (x, _), init_x) ->
+    | Trm_let ((x, _), init_x) ->
       let source_var = ref dummy_var in
       if source = []
       then
@@ -449,7 +416,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
             if i >= index then ()
             else
               begin match t1.desc with
-              | Trm_let (_, (y, _), init_y) when are_same_trm init_x init_y ->
+              | Trm_let ((y, _), init_y) when are_same_trm init_x init_y ->
                 source_var := y
               | _ -> ()
               end
@@ -463,7 +430,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
           | Some p -> Path.resolve_path p t
           | None -> trm_fail t "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
         match source_decl_trm.desc with
-        | Trm_let (_, (y, _), init_y) when are_same_trm init_x init_y ->
+        | Trm_let ((y, _), init_y) when are_same_trm init_x init_y ->
           source_var := y
         | _ -> trm_fail source_decl_trm "Variable.elim_redundant: the soource target should point to a variable declaration"
       end;

@@ -86,8 +86,8 @@ let%transfo read_last_write ~write:(write : target) (tg : target) : unit =
   let written_trm =
     match write_trm.desc with
     | Trm_apps (_, [_;rhs], _) when is_set_operation write_trm -> rhs
-    | Trm_let (_, _, init) ->
-      begin match get_init_val init with
+    | Trm_let (_, init) ->
+      begin match trm_ref_inv_init init with
       | Some init -> init
       | None -> trm_fail write_trm "Instr_basic.read_last_write: the targeted write operation should be either a set operation or
            or an initialized variable declaration"

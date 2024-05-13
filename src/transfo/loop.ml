@@ -170,7 +170,7 @@ let%transfo hoist_alloc_loop_list
     | Some _ -> Tools.warn "Loop.hoist_alloc: not hoisting ghost begin"
     | _ -> begin
     match tg_trm.desc with
-    | Trm_let (_vk, (x, _), init) ->
+    | Trm_let ((x, _), init) ->
       if 1 <= (List.length loops) then begin
         let name_template = Tools.string_subst "${var}" x.name tmp_names in
         let alloc_name =
@@ -1035,9 +1035,9 @@ let%transfo unfold_bound (tg : target) : unit =
     match tg_trm.desc with
     | Trm_for (range, _, _) ->
       begin match range.stop.desc with
-      | Trm_var (_, x) ->
+      | Trm_var x ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
-      | Trm_apps (_, [{desc = Trm_var (_, x);_}], _) when is_get_operation range.stop ->
+      | Trm_apps (_, [{desc = Trm_var x;_}], _) when is_get_operation range.stop ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
       | _ -> trm_fail tg_trm "Loop.unfold_bound: can't unfold loop bounds that are not variables"
       end

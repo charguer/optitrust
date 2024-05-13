@@ -324,7 +324,7 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
                              (* We continue to recurse on the internal term. *)
                            ); _ }, [t; _], _) -> aux l t
     (* [t] actually leads to a variable *)
-    | Trm_var (_, var) ->
+    | Trm_var var ->
        (* Use [var] and the label [l] to build the associated labelled
           variable and return it. *)
        let lv : lvar = { v = var; l = l } in Some lv
@@ -399,7 +399,7 @@ let trm_resolve_binop_lval_and_get_with_deref (t : trm) : (lvar * bool) option =
     match t.desc with
     (* We have found the variable, build and return the resulting labelled
        variable. *)
-    | Trm_var (_, var) ->
+    | Trm_var var ->
        let lv : lvar = { v = var; l = l } in Some (lv, dereferenced)
     (* [t] is an array access, which means that the operand was dereferenced.
        Continue resolution on the latter. *)
@@ -459,7 +459,7 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
             (* We continue to recurse on the internal term. *)
             _}, [term; _], _) -> aux l term
     (* [t] actually leads to a variable *)
-    | Trm_var (_, var) ->
+    | Trm_var var ->
        (* Use [var] and the label [l] to build the associated labelled
           variable and return it. *)
        let lv : lvar = { v = var; l = l } in Some lv
@@ -515,7 +515,7 @@ let trm_resolve_pointer_and_aliased_variable
          | Some (_), Some (_) -> None
        end
     (* [t] actually leads to a variable *)
-    | Trm_var (_, v) ->
+    | Trm_var v ->
        (* Use [var] and the label [l] to build the associated labelled
           variable. *)
        let lv : lvar = { v = v; l = l } in
@@ -804,7 +804,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
       | Trm_while _ ->
        trm_iter (aux aliases fun_var) fun_body
     (* Function call: update dependencies. *)
-    | Trm_apps ({ desc = Trm_var (_ , name); _ }, args, _) when
+    | Trm_apps ({ desc = Trm_var name; _ }, args, _) when
            Var_Hashtbl.mem const_records name ->
        (* Find the corresponding function constification record containing the
           constification records of all of the arguments. *)
@@ -859,17 +859,17 @@ let identify_mutables_on (p : path) (t : trm) : unit =
          ) args;
        trm_iter (aux aliases fun_var) fun_body
     (* Variable declaration: update list of aliases. *)
-    | Trm_let (_, lval, { desc = Trm_apps (_, [rval], _); _ }) ->
+    | Trm_let (lval, { desc = Trm_apps (_, [rval], _); _ }) ->
        let _ =
          trm_let_update_aliases ~reference:(trm_has_cstyle Reference fun_body)
            lval rval aliases in
        trm_iter (aux aliases fun_var) fun_body
     (* Multiple variable declaration: update list of aliases. *)
-    | Trm_let_mult (_, lvals, rvals) ->
-       List.iter2 (
-           fun lval rval ->
+    | Trm_let_mult bs ->
+       List.iter (
+           fun (lval, rval) ->
            let _ = trm_let_update_aliases lval rval aliases in ()
-         ) lvals rvals;
+         ) bs;
        trm_iter (aux aliases fun_var) fun_body
     (* Assignment or compound assignment: update the unconstification stack. *)
     | Trm_apps _ when is_set_operation fun_body ->

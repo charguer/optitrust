@@ -39,11 +39,10 @@ let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
   )))
 
 let let_alloc_with_ty ?(annot : trm_annot = trm_annot_default) (v : var) (dims : trms) (ty : typ) : trm =
-  trm_let Var_immutable (v, typ_const_ptr ty) (
-    alloc_with_ty dims ty)
+  trm_let (v, typ_const_ptr ty) (alloc_with_ty dims ty)
 
 let let_alloc_inv_with_ty (t : trm) : (var * trms * typ * trm) option =
-  Option.bind (trm_let_inv t) (fun (_vk, v, vt, init) ->
+  Option.bind (trm_let_inv t) (fun (v, vt, init) ->
   Option.bind (alloc_inv_with_ty init) (fun (dims, elem_t, size) ->
     Some (v, dims, elem_t, size)
   ))
@@ -54,21 +53,6 @@ let let_alloc_inv_with_ty (t : trm) : (var * trms * typ * trm) option =
 let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
   let n = List.length dims in
   trm_apps (trm_toplevel_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
-
-(* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
-let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) option =
-  match t.desc with
-  | Trm_let (_, (x, ty), init) ->
-    begin match get_init_val init with
-    | Some init1 ->
-      begin match alloc_inv  init1 with
-      | Some (dims, size, z_in) -> Some (x, (get_inner_ptr_type ty), dims, size, z_in)
-      | _ -> None
-      end
-    | _ -> None
-    end
-
-  | _ -> None
 
 let mmemcpy_var = toplevel_var "MMEMCPY"
 
@@ -223,7 +207,7 @@ let pointwise_fors
      [t] - ast of the call to alloc. *)
 let intro_calloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size], _) when var_has_name f "calloc" ->
+  | Trm_apps ({desc = Trm_var f;_},[dim; size], _) when var_has_name f "calloc" ->
     alloc ~init:(trm_int 0) [dim] size
   | _ -> trm_fail t "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
@@ -231,7 +215,7 @@ let intro_calloc_aux (t : trm) : trm =
      [t] - ast of the call to alloc. *)
 let intro_malloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size],_);_}],_) when (var_has_name f "malloc") ->
+  | Trm_apps ({desc = Trm_var f;_},[{desc = Trm_apps (_,[dim ;size],_);_}],_) when (var_has_name f "malloc") ->
     alloc [dim] size
   | _ -> trm_fail t "Matrix_core.intro_malloc: expected a function call to malloc"
 

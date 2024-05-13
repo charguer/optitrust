@@ -213,11 +213,9 @@ let wrap_const ?(const : bool = false) (t : typ) : typ =
     x = a -> None *)
 let trm_for_c_inv_simple_init (init : trm) : (var * trm) option =
   match init.desc with
-  | Trm_let (_, (x, _), init_val) ->
-    begin match get_init_val init_val with
-    | Some init1 -> Some (x, init1)
-    | _ -> None
-    end
+  | Trm_let ((x, _), init) ->
+    (* init has not been encoded at this stage so there is no ref to unwrap *)
+    Some (x, init)
   | _ -> None
 
 (* [trm_for_c_inv_simple_stop stop]: checks if the loop bound is simple.  If that's the case return that bound. *)
@@ -250,7 +248,7 @@ let trm_for_c_inv_simple_step (loop_index: var) (loop_dir: loop_dir) (step_expr 
 (* [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)
 let trm_for_of_trm_for_c (t : trm) : trm =
   match t.desc with
-  | Trm_for_c (init, cond , step, body, _) ->
+  | Trm_for_c (init, cond, step, body, _) ->
     let open Xoption.OptionMonad in
     let simple_loop_opt =
       let* index, start = trm_for_c_inv_simple_init init in
@@ -487,14 +485,13 @@ and tr_stmt (s : stmt) : trm =
       | [d] -> tr_decl d
       | _ ->
        let dls = tr_decl_list dl in
-       let typed_vars, init_list = List.fold_left (fun (acc1, acc2) t1 ->
+       let bindings = List.fold_right (fun t1 acc ->
         begin match t1.desc with
-        | Trm_let (_, (x, ty), init) ->
-          ((x, ty) :: acc1, init :: acc2)
+        | Trm_let ((x, ty), init) -> (((x, ty), init) :: acc)
         | _ -> loc_fail loc "Clang_to_astRawC.tr_stmr: expected a multip declaration statemnt"
         end
-       )([], []) dls in
-       trm_let_mult ?loc ~ctx Var_mutable (List.rev typed_vars) (List.rev init_list)
+       ) dls [] in
+       trm_let_mult ?loc ~ctx bindings
     end
   | Expr e ->
     tr_expr e
@@ -746,18 +743,18 @@ and tr_expr (e : expr) : trm =
     let tf = tr_expr f in
     let tf = trm_add_cstyle (Clang_cursor (cursor_of_node f)) tf in
     begin match tf.desc with
-    | Trm_var (_, x) when var_has_name x "exact_div" ->
+    | Trm_var x when var_has_name x "exact_div" ->
       begin match List.map tr_expr el with
       | [n; b] ->
         trm_apps ?loc ~ctx ?typ (trm_binop Binop_exact_div) [n; b]
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: 'exact_div' expects two arguments"
       end
-    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.name 0 ->
+    | Trm_var x when Str.string_match (Str.regexp "overloaded=") x.name 0 ->
         begin match el with
         | [tl;tr] -> trm_set ?loc ~ctx (tr_expr tl) (tr_expr tr)
         | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
         end
-    | Trm_var (_, x) when var_has_name x "overloaded_call" ->
+    | Trm_var x when var_has_name x "overloaded_call" ->
       let t_args = List.map tr_expr el in
       let call_name , call_args = Xlist.uncons t_args in
       trm_apps ?loc ~ctx ?typ call_name call_args
@@ -1203,9 +1200,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       in
     let v = name_to_var n in
     ctx_var_add v tt;
-    (* dummy value used for variable mutability *)
-    let mut = if is_typ_const tt then Var_immutable else Var_mutable  in
-    trm_let ?loc mut (v,tt) te
+    trm_let ?loc (v,tt) te
   | TypedefDecl {name = tn; underlying_type = q} ->
     let tc = name_to_typconstr tn in
     let tid = next_typconstrid () in

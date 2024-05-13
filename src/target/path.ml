@@ -92,15 +92,15 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_if (cond, aux then_t, else_t)}
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (cond, then_t, aux else_t) }
-       | Dir_var_body, Trm_let (vk,tx,body) ->
+       | Dir_var_body, Trm_let (tx,body) ->
           let body =
           begin match trm_ref_inv body with
           | Some (ty, arg) -> trm_ref ty (aux arg)
           | None -> aux body
           end in
-          { t with desc = Trm_let (vk, tx, body)}
-       | Dir_body, Trm_let (vk, tx, body) ->
-          trm_replace (Trm_let (vk, tx, aux body)) t
+          { t with desc = Trm_let (tx, body)}
+       | Dir_body, Trm_let (tx, body) ->
+          trm_replace (Trm_let (tx, aux body)) t
        | Dir_body, Trm_let_fun (x, tx, txl, body, contract) ->
           { t with desc = Trm_let_fun (x, tx, txl, aux body, contract)}
        | Dir_body, Trm_for (l_range, body, contract) ->
@@ -141,7 +141,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               (fun (x1, tx) ->
                 let t' = aux (trm_var ?loc:t.loc x1) in
                 match t'.desc with
-                | Trm_var (_,  x') -> (x', tx)
+                | Trm_var x' -> (x', tx)
                 | _ ->
                   (* trm_fail t *)
                    path_fail dl ("Path.apply_on_path: transformation must preserve fun arguments")
@@ -149,17 +149,17 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               txl
           in
           trm_replace (Trm_let_fun (x, tx, txl', body, contract)) t
-        | Dir_name , Trm_let (vk,(x,tx),body) ->
+        | Dir_name , Trm_let ((x,tx),body) ->
           let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x', tx), body)}
+          | Trm_var x' -> { t with desc = Trm_let ((x', tx), body)}
           | _ -> (* trm_fail t *)
             path_fail dl "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body, contract) ->
           let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body, contract)}
+          | Trm_var x' -> { t with desc = Trm_let_fun (x', tx, txl, body, contract)}
           | _ ->
             path_fail dl "Path.apply_on_path: transformation must preserve names(function)"
           end
@@ -319,10 +319,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         end
       | Dir_body, Trm_for (_, body, _) ->
         aux body ctx
-      | Dir_var_body, Trm_let (_, _, body) ->
+      | Dir_var_body, Trm_let (_, body) ->
         let ref_op_arg = ref_operation_arg body in
         if is_ref_operation body then aux ref_op_arg (body :: ctx) else aux body ctx
-      | Dir_body, Trm_let (_, _, body)
+      | Dir_body, Trm_let (_, body)
         | Dir_body, Trm_while (_, body)
         | Dir_body, Trm_do_while (body, _)
         | Dir_body, Trm_abort (Ret (Some body)) ->
@@ -351,7 +351,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           (fun (x, _) -> aux (trm_var ?loc x) ctx)
       | Dir_name, Trm_let_fun (x, _, _, _, _) ->
         aux (trm_var ?loc x) ctx
-      | Dir_name , Trm_let (_,(x,_),_) ->
+      | Dir_name , Trm_let ((x,_),_) ->
         aux (trm_var ?loc x) ctx
       | Dir_name, Trm_goto x ->
         (* CHECK: #var-id-dir-name , is this correct? *)

@@ -12,13 +12,13 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base; index], _) ->
       begin match base.desc with
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x)}], _) when (var_eq x array_var) ->
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var x}], _) when (var_eq x array_var) ->
         begin match index.desc with
         | Trm_val (Val_lit (Lit_int i)) ->
           if i >= List.length new_vars
             then trm_fail index "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
             else (trm_var (List.nth new_vars i))
-        | Trm_apps ({desc = Trm_var (_, x); _}, _, _) when var_has_name x "ANY" ->
+        | Trm_apps ({desc = Trm_var x; _}, _, _) when var_has_name x "ANY" ->
           let nb_vars = List.length new_vars in
           trm_address_of (trm_apps (trm_var (name_to_var "CHOOSE")) ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars)))
         | _ -> trm_fail index "Arrays_core.inline_array_access: only integer indices are supported"
@@ -42,7 +42,7 @@ let to_variables_aux (new_vars : string list) (index : int) (t : trm) : trm =
     let array_var = ref dummy_var in
     let f_update_at (t : trm) : trm =
       begin match t.desc with
-        | Trm_let (_, (x , tx), init) ->
+        | Trm_let ((x , tx), init) ->
           array_var := x;
           begin match (get_inner_ptr_type tx).typ_desc with
           | Typ_array (t_var,_) ->
@@ -199,10 +199,10 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
       | _ -> trm_fail t "Arrays_core.tile_aux: no enums expected"
       end
 
-    | Trm_let (Var_mutable, (y,ty), init) when var_has_name y base_type_name ->
+    | Trm_let ((y,ty), init) when var_has_name y base_type_name ->
         begin match ty.typ_desc with
         | Typ_ptr {inner_typ = {typ_desc = Typ_constr (yc, _, _); _};_} when typconstr_has_name yc base_type_name ->
-          trm_let Var_mutable ~annot:d.annot (y, ty) init
+          trm_let ~annot:d.annot (y, ty) init
         | _ -> trm_fail t "Arrays_core.tile_aux: expected a pointer because of heap allocation"
         end
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
@@ -426,7 +426,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         | _ -> trm_map aux t
         end
 
-    | Trm_let (vk, (n, dx), init) ->
+    | Trm_let ((n, dx), init) ->
        begin match dx.typ_desc with
        | Typ_ptr {inner_typ = ty;_} ->
         begin match ty.typ_desc with
@@ -452,8 +452,8 @@ let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
     [t] - ast of the array declaration. *)
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
-  | Trm_let (vk, (x, tx), init) ->
-    let init = match get_init_val init with
+  | Trm_let ((x, tx), init) ->
+    let init = match trm_ref_inv_init init with
     | Some init -> init
     | None -> trm_fail t "set_explicit_aux: could not get the initialization trms for the targeted array declaration" in
     begin match init.desc with

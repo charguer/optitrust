@@ -43,6 +43,11 @@ let debug_current_stage (msg: string) : unit =
 
    Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t] *)
 
+(* [varkind]: type for the mutability of the variable *)
+type varkind =
+  | Var_immutable (* const variables *)
+  | Var_mutable   (* non-const stack-allocated variable. *)
+
 (* [env]: a map for storing all the variables as keys, and their mutability as values *)
 type env = varkind Var_map.t
 
@@ -94,13 +99,13 @@ let create_env () = ref env_empty
 
 
 (* [stackvar_elim t]: applies the following encodings
-    - [int a = 5] with [<annotation:stackvar> int* a = new int(5)]
-    - a variable occurrence [a] becomes [ * a]
-    - [const int c = 5] remains unchange
+    - [int a = 5] with [int* a = ref int(5)]
+    - a variable occurrence [a] becomes [* a]
+    - [const int c = 5] remains unchanged
     - simplify patterns of the form [&*p] and [*&p] into [p].
     - [int& b = a] becomes [<annotation:reference> int* b = &*a] which simplifies to [<annot..>int* b = a]
     - [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [int* const].
-    - More complicated example: [int a = 5; int* b = &a] becomes [int* a = new int(5); int** b = new int*(&a);]
+    - More complicated example: [int a = 5; int* b = &a] becomes [int* a = ref int(5); int** b = ref int*(a);]
     TODO: specify and improve support for arrays
 
    Note: "reference" annotation is added to allow decoding *)
@@ -111,11 +116,11 @@ let stackvar_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
-    | Trm_var (_, x) ->
+    | Trm_var x ->
       if is_var_mutable !env x
-        then trm_get (trm_replace (Trm_var (Var_mutable, x)) t)
-        else trm_replace (Trm_var (Var_immutable, x)) t
-    | Trm_let (_, (x, ty), tbody) ->
+        then trm_get (trm_replace (Trm_var x) t)
+        else trm_replace (Trm_var x) t
+    | Trm_let ((x, ty), tbody) ->
       (* is the type of x (or elements of x in case it is a fixed-size array) a const type? *)
       let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
       add_var env x xm; (* Note: the onscope function will take care to remove this *)
@@ -126,24 +131,28 @@ let stackvar_elim (t : trm) : trm =
         | Var_immutable -> trm_fail t "Ast_fromto_AstC.tackvar_elim: unsupported references on const variables"
         | _ ->
           (* generate a pointer type, with suitable annotations *)
-          trm_add_cstyle Reference (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))) t)
+          trm_add_cstyle Reference (trm_replace (Trm_let ((x, typ_ptr_generated ty1), trm_address_of (aux tbody))) t)
         end
       | None ->
         begin match xm with
         | Var_mutable ->
           (* TODO: document the case that corresponds to Constructed_init *)
           let new_body = if trm_has_cstyle Constructed_init tbody then aux tbody else trm_ref ty (aux tbody) in
-          trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), new_body)) t)
+          trm_replace (Trm_let ((x, typ_ptr_generated ty), new_body)) t
         | Var_immutable ->
           trm_map aux t
         end
       end
-    | Trm_let_mult (_, tvl, tl) ->
-      List.iter2 (fun (x, ty) tbody ->
-        let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
-        add_var env x xm
-      ) tvl tl;
-      trm_map aux t
+    | Trm_let_mult bs ->
+      let bs = List.map (fun ((x, ty), tbody) ->
+          let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
+          add_var env x xm;
+          match xm with
+          | Var_immutable -> ((x, ty), aux tbody)
+          | Var_mutable -> ((x, typ_ptr_generated ty), trm_ref ty (aux tbody))
+        ) bs
+      in
+      trm_replace (Trm_let_mult bs) t
     | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody, _) ->
       (* function names are by default immutable *)
@@ -161,7 +170,7 @@ let stackvar_elim (t : trm) : trm =
 
 
 (* [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following decodings:
-     - [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
+     - [int *a = ref int(5)] with [int a = 5]
      - [const int c = 5] remains unchanged
      - [<annotation:reference> int* b = a] becomes [int& b = *&(a)], which simplifies as [int& b = a]
         where &a is obtained after translating [a]
@@ -177,38 +186,37 @@ let stackvar_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
-    | Trm_var (_, x) ->
-      (* Note: if AST invariants are preserved (are they?) the first argument of Trm_var should be equal to [Env.get !env x] *)
+    | Trm_var x ->
       if is_var_mutable !env x
-        then trm_address_of (trm_replace (Trm_var (Var_mutable, x)) t)
+        then trm_address_of (trm_replace (Trm_var x) t)
         else t
-    | Trm_let (_, (x, tx), tbody) ->
-      let vk = if is_typ_const (get_inner_array_type tx) then Var_immutable else Var_mutable in
-      add_var env x vk;
-      if trm_has_cstyle Stackvar t
-        then
-          begin match tx.typ_desc , tbody.desc with
-          | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _));_}, [tbody1], [])  ->
-              trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody1)) t)
-          | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _  when trm_has_cstyle Constructed_init tbody ->
-            trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody)) t)
-          | _ ->
-            printf "%s\n" (Ast_to_text.ast_to_string t);
-            failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
-          end
-      else if trm_has_cstyle Reference t then
-        begin match tx.typ_desc with
-        | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} ->
-          trm_rem_cstyle Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
-        | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
-        end
-      else trm_replace (Trm_let (vk, (x, tx), aux tbody)) t
-    | Trm_let_mult (_, tvl, tl) ->
-      List.iter2 (fun (x, ty) tbody ->
-        let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
-        add_var env x xm
-      ) tvl tl;
-      trm_map aux t
+    | Trm_let ((x, tx), tbody) ->
+      begin match tx.typ_desc, tbody.desc with
+      | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _ when trm_has_cstyle Reference t ->
+        add_var env x Var_mutable;
+        trm_rem_cstyle Reference { t with desc = Trm_let ((x, typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
+      | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _));_}, [tbody1], [])  ->
+        add_var env x Var_mutable;
+        trm_replace (Trm_let ((x, tx1), aux tbody1)) t
+      | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _  when trm_has_cstyle Constructed_init tbody ->
+        add_var env x Var_mutable;
+        trm_replace (Trm_let ((x, tx1), aux tbody)) t
+      | _ ->
+        add_var env x Var_immutable;
+        trm_replace (Trm_let ((x, tx), aux tbody)) t
+      end
+    | Trm_let_mult bs ->
+      (* FIXME: Is it possible to handle C++ references and Constructed_init in let_mult ? *)
+      let bs = List.map (fun ((x, tx), tbody) ->
+        match tx.typ_desc, tbody.desc with
+        | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _));_}, [tbody1], [])  ->
+          add_var env x Var_mutable;
+          ((x, tx1), aux tbody1)
+        | _ ->
+          add_var env x Var_immutable;
+          ((x, tx), aux tbody)
+      ) bs in
+      trm_replace (Trm_let_mult bs) t
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody, _) ->
@@ -218,7 +226,7 @@ let stackvar_intro (t : trm) : trm =
     | Trm_for (range, _, _) ->
       onscope env t (fun t -> begin add_var env range.index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1], _) when is_var_mutable !env x  -> t1
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var x; _} as t1], _) when is_var_mutable !env x  -> t1
     | _ -> trm_map aux t
     end in
    aux t
@@ -400,7 +408,7 @@ let method_call_intro (t : trm) : trm =
       let base, args = Xlist.uncons args in
       let struct_access =
         begin match f.desc with
-        | Trm_var (_, f) -> trm_struct_get (trm_get base) f.name
+        | Trm_var f -> trm_struct_get (trm_get base) f.name
         (* Special case when function_beta transformation is applied. *)
         | _ -> failwith "DEPRECATED?" (* f *)
         end in
@@ -438,11 +446,10 @@ let class_member_elim (t : trm) : trm =
       to_subst := Var_map.add var_this typed_this !to_subst;
       trm_alter ~desc:(Trm_let_fun (v, ty, (var_this, this_typ) :: vl, body, contract)) t
     | Trm_let_fun (v, ty, vl, body, contract) when is_class_constructor t ->
-      let this_mut = Var_immutable in
       let var_this = new_var "this" in
       let this_typ = get_class_typ current_class v in
       let this_body = trm_apps (trm_toplevel_var "malloc") [trm_toplevel_var ("sizeof(" ^ v.name ^ ")")] in
-      let this_alloc = trm_let this_mut (var_this, this_typ) this_body in
+      let this_alloc = trm_let (var_this, this_typ) this_body in
       let typed_this = trm_var ~typ:this_typ var_this in
       to_subst := Var_map.add var_this typed_this !to_subst;
       let ret_this = trm_ret (Some (trm_get typed_this)) in
@@ -551,9 +558,9 @@ and ghost_args_elim_in_seq (ts: trm list): trm list =
         let ghost_args, ts = grab_ghost_args ts in
         (trm_alter ~desc:(Trm_apps (f, args, ghost_args)) t, ts)
       );
-      Pattern.(trm_let !__ !__ !__ !(trm_apps !__ !__ nil)) (fun mut var typ body f args ->
+      Pattern.(trm_let !__ !__ !(trm_apps !__ !__ nil)) (fun var typ body f args ->
         let ghost_args, ts = grab_ghost_args ts in
-        (trm_alter ~desc:(Trm_let (mut, (var, typ), trm_alter ~desc:(Trm_apps (f,args,ghost_args)) body)) t, ts));
+        (trm_alter ~desc:(Trm_let ((var, typ), trm_alter ~desc:(Trm_apps (f,args,ghost_args)) body)) t, ts));
       Pattern.__ (t, ts)
     ]
     in
@@ -590,13 +597,13 @@ let ghost_args_intro (style: style) (t: trm) : trm =
           let t = trm_map aux t in
           Nobrace.trm_seq_nomarks [t; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
         );
-        Pattern.(trm_let !__ !__ !__ !(trm_apps __ __ !(__ ^:: __))) (fun mut var typ call ghost_args ->
+        Pattern.(trm_let !__ !__ !(trm_apps __ __ !(__ ^:: __))) (fun var typ call ghost_args ->
           let call = trm_map aux call in
-          Nobrace.trm_seq_nomarks [trm_like ~old:t (trm_let mut (var, typ) call); trm_apps var__with [ghost_args_to_trm_string ghost_args]]
+          Nobrace.trm_seq_nomarks [trm_like ~old:t (trm_let (var, typ) call); trm_apps var__with [ghost_args_to_trm_string ghost_args]]
         );
-        Pattern.(trm_let __ !__ !__ (trm_apps1 (trm_var (var_eq Resource_trm.var_ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ->
+        Pattern.(trm_let !__ !__ (trm_apps1 (trm_var (var_eq Resource_trm.var_ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ->
           let ghost_fn = aux ghost_fn in
-          trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let Var_immutable (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
+          trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
         );
         Pattern.(!__) (fun t -> trm_map aux t)
       ]) seq in
@@ -837,7 +844,7 @@ let debug_ctx_before = false
 let display_ctx_resources (style: style) (t: trm): trm list =
   let t =
     match t.desc with
-    | Trm_let (_, _, body) -> { t with ctx = { body.ctx with ctx_resources_before = t.ctx.ctx_resources_before; ctx_resources_after = t.ctx.ctx_resources_after } }
+    | Trm_let (_, body) -> { t with ctx = { body.ctx with ctx_resources_before = t.ctx.ctx_resources_before; ctx_resources_after = t.ctx.ctx_resources_after } }
     | _ -> t
   in
   let tl_used =

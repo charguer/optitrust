@@ -141,8 +141,8 @@ let trm_val ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (v : 
 
 (** [trm_var]: create a variable occurence. *)
 let trm_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
-?(kind : varkind = Var_mutable) (v : var) : trm =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_var (kind, v))
+(v : var) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_var v)
 
 (** Creates a new variable, using a fresh identifier. *)
 let new_var ?(qualifier : string list = []) (name : string) : var =
@@ -185,13 +185,13 @@ let trm_record ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
 
 (* [trm_let ~annot ?loc ?ctx kind typed_var init]: variable declaration *)
 let trm_let ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
-  (kind : varkind) (typed_var : typed_var) (init : trm): trm =
-  trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let (kind, typed_var, init))
+  (typed_var : typed_var) (init : trm): trm =
+  trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let (typed_var, init))
 
-(* [trm_let ~annot ?loc ?ctx kind ty vl tl]: multiple variable declarations *)
-let trm_let_mult ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind : varkind)
-   (tvl : typed_vars) (tl : trms) : trm =
-  trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let_mult (kind, tvl, tl))
+(* [trm_let ~annot ?loc ?ctx kind ty tl]: multiple variable declarations *)
+let trm_let_mult ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
+   (tl : (typed_var * trm) list) : trm =
+  trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let_mult tl)
 
 (* [trm_let ~annot ?loc ?ctx name ret_typ args body]: function definition *)
 let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec = FunSpecUnknown)
@@ -309,7 +309,7 @@ let var_this = name_to_var "this"
 (* [trm_this ~annot ?loc ?typ ?ctx ()]: this pointer.
    NOTE: var id = inferred_var_id *)
 let trm_this ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_var (Var_immutable, var_this))
+  trm_make ~annot ?loc ?typ ?ctx (Trm_var var_this)
 
 
 
@@ -553,7 +553,7 @@ let trm_add_label (l : label) (t : trm) : trm =
     or a list of variable in the case when we have multiple variable declarations in one line *)
 let rec trm_vardef_get_vars (t : trm) : var list =
   match t.desc with
-  | Trm_let (_, (x, _), _) -> [x]
+  | Trm_let ((x, _), _) -> [x]
   | Trm_seq tl when trm_has_cstyle Multi_decl t -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
   | _ -> []
 
@@ -596,16 +596,16 @@ let trm_inv ?(error : string = "") (k : trm -> 'a option) (t : trm) : 'a =
 
 (* [trm_let_inv t]: returns the components of a [trm_let] constructor if [t] is a let declaration.
      Otherwise it returns [None]. *)
-let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
+let trm_let_inv (t : trm) : (var * typ * trm) option =
   match t.desc with
-  | Trm_let (vk, (x, tx), init) -> Some (vk, x, tx, init)
+  | Trm_let ((x, tx), init) -> Some (x, tx, init)
   | _ -> None
 
 (* [trm_let_mult_inv t]: returns the components of a [trm_let_mult] constructor if [t] is a multiple let declaration.
      Otherwise it returns [None]. *)
-let trm_let_mult_inv (t : trm) : (varkind * typed_vars * trm list) option =
+let trm_let_mult_inv (t : trm) : (typed_var * trm) list option =
   match t.desc with
-  | Trm_let_mult (vk, tvs, inits) -> Some (vk, tvs, inits)
+  | Trm_let_mult ts -> Some ts
   | _ -> None
 
 (* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
@@ -655,7 +655,7 @@ let trm_val_inv (t: trm): value option =
     Otherwise it returns [None]. *)
 let trm_var_inv (t : trm) : var option =
   match t.desc with
-  | Trm_var (_, x) -> Some x
+  | Trm_var x -> Some x
   | _ -> None
 
 let trm_array_inv (t: trm) : trm mlist option =
@@ -747,15 +747,15 @@ let trm_mlist_inv_marks (t : trm) : mark list list option =
 (* [decl_name t]: returns the name of the declared variable/function. *)
 let decl_name (t : trm) : var option =
   match t.desc with
-  | Trm_let (_,(x,_),_) -> Some x
+  | Trm_let ((x,_),_) -> Some x
   | Trm_let_fun (f, _, _, _, _) -> Some f
   | _ -> None
 
 (* [vars_bound_in_trm_init t]: gets the list of variables that are bound inside the initialization trm of the for_c loop*)
 let vars_bound_in_trm_init (t : trm) : var list =
   match t.desc with
-  | Trm_let (_, (x,_), _) -> [x]
-  | Trm_let_mult (_, tvl, _) -> fst (List.split tvl)
+  | Trm_let ((x,_), _) -> [x]
+  | Trm_let_mult ts -> (List.map (fun ((x, _), _) -> x)) ts
   | _ -> []
 
 (* [is_null_pointer ty t]: check if t == (void * ) 0 *)
@@ -764,24 +764,20 @@ let is_null_pointer (ty : typ) (t : trm) : bool =
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_unit;_}}, Trm_val (Val_lit (Lit_int 0)) -> true
   | _ -> false
 
-
-
-(* [get_init_val t]: gets the value of a variable initialization *)
-let rec get_init_val (t : trm) : trm option =
+(* [trm_ref_inv_init t]: gets the value of a variable initialization. *)
+let trm_ref_inv_init (t : trm) : trm option =
+  (* TODO: Replace by a call to trm_ref_inv after cheking the two first patterns never occur*)
   match t.desc with
-  | Trm_let (vk, (_, _), init) ->
-      begin match vk with
-      | Var_immutable -> Some init
-      | _ -> get_init_val init
-      end
-  | Trm_apps(f,[base], _) ->
+  | Trm_let _ ->
+    failwith "trm_ref_inv_init: should be called on the initializer of a let, not the let node itself."
+  | Trm_val (Val_prim (Prim_ref _))  ->
+    failwith "trm_ref_inv_init: should be called on a ref operator application, not the operator itself."
+  | Trm_apps(f, [base], []) ->
         begin match f.desc with
         | Trm_val (Val_prim (Prim_ref _)) -> Some base
-        | _ -> Some t
+        | _ -> None
         end
-  | Trm_val (Val_prim (Prim_ref _))  -> None
-  | _ ->
-      Some t
+  | _ -> None
 
 (* [for_loop_index t]: returns the index of the loop [t] *)
 let for_loop_index (t : trm) : var =
@@ -794,126 +790,13 @@ let for_loop_index (t : trm) : var =
         - for (int i = …; …) *)
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [{desc = Trm_var (_, x); _}; _], _) -> x
+                 [{desc = Trm_var x; _}; _], _) -> x
      | _ -> begin match trm_var_inv init with
             | Some x -> x
             | None -> trm_fail init "Ast.for_loop_index: could't get the loop index"
             end
      end
   | _ -> trm_fail t "Ast.for_loop_index: expected for loop"
-
-(* [for_loop_init t]: returns the initial value of the loop index *)
-let for_loop_init (t : trm) : trm =
-  match t.desc with
-  | Trm_for_c (init, _, _, _, _) ->
-     (* covered cases:
-        - for (i = n; …)
-        - for (int i = n; …) *)
-     begin match init.desc with
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [_; n], _) -> n
-     | Trm_let (_,(_, _), init) ->
-        begin match get_init_val init with
-        | Some v  -> v
-        | None -> trm_fail init "Ast.for_loop_init: bad for loop initialization"
-        end
-     | _ -> trm_fail init "Ast.for_loop_init: bad for loop initialisation"
-     end
-  | _ -> trm_fail t "Ast.for_loop_init: expected for loop"
-
-(* [for_loop_bound t]: returns the bound of the for loop *)
-let for_loop_bound (t : trm) : trm =
-  match t.desc with
-  | Trm_for_c (_, cond, _, _, _) ->
-     (* covered cases:
-       - for (…; i < n; …)
-       - for (…; i <= n; …)
-       - for (…; i > n; …)
-       - for (…; i >= n; …) *)
-     begin match cond.desc with
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _},
-                 [_; n], _) -> n
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _},
-                 [_; n], _) -> n
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _},
-                 [_; n], _) -> n
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
-                 [_; n], _) -> n
-     | _ -> trm_fail cond "Ast.for_loop_bound: bad for loop condition"
-     end
-  | _ -> trm_fail t "Ast.for_loop_bound: expected for loop"
-
-(* [for_loop_step t]: returns the step increment of the for loop *)
-let for_loop_step (t : trm) : trm =
-  match t.desc with
-  | Trm_for_c (_, _, step, _, _) ->
-     (* covered cases:
-        - for (…; …; i++)
-        - for (…; …; ++i)
-        - for (…; …; i--)
-        - for (…; …; --i)
-        - for (…; …; i += n) for n > 0
-        - for (…; …; i -= n) for n > 0 *)
-     begin match step.desc with
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_inc)); _}, _, _) ->
-        trm_lit (Lit_int 1)
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_inc)); _}, _, _) ->
-        trm_lit (Lit_int 1)
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_dec)); _}, _, _) ->
-        trm_lit (Lit_int 1)
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_dec)); _}, _, _) ->
-        trm_lit (Lit_int 1)
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [_; t'], _) ->
-        begin match t'.desc with
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_add)); _},
-                    [_; n], _) ->
-           n
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_sub)); _},
-                    [_; n], _) ->
-           trm_apps (trm_unop Unop_minus) [n]
-        | _ -> trm_fail step "Ast.for_loop_step: bad for loop step"
-        end
-     | _ -> trm_fail step "Ast.for_loop_step: bad for loop step"
-     end
-  | _ -> trm_fail t "Ast.for_loop_step: expected for loop"
-
-(* [for_loop_nb_iter t]: gets the number of iterations of a for loop *)
-let for_loop_nb_iter (t : trm) : trm =
-  let init = for_loop_init t in
-  let bound = for_loop_bound t in
-  let step = for_loop_step t in
-  (* reorder to use positive step *)
-  let (init, bound, step) =
-    match step.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_minus)); _}, [step'], _) ->
-       (bound, init, step')
-    | _ -> (init, bound, step)
-  in
-  match init.desc, bound.desc, step.desc with
-  (* if all vars are integers, perform the computation to simplify *)
-  | Trm_val (Val_lit (Lit_int init)), Trm_val (Val_lit (Lit_int bound)),
-    Trm_val (Val_lit (Lit_int step)) ->
-     trm_lit (Lit_int ((bound - init + step - 1) / step))
-  (* otherwise, use the same formula with terms *)
-  | _ ->
-     trm_apps (trm_binop Binop_div)
-       [
-         trm_apps (trm_binop Binop_sub)
-           [
-             trm_apps (trm_binop Binop_add)
-               [
-                 trm_apps (trm_binop Binop_sub)
-                   [
-                     bound;
-                     init
-                   ];
-                 step
-               ];
-             trm_lit (Lit_int 1)
-           ];
-         step
-       ]
 
 (* [for_loop_body_trms t]: gets the list of trms from the body of the loop *)
 let for_loop_body_trms (t : trm) : trm mlist =
@@ -1017,15 +900,13 @@ let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
-  let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_ref var_type)) [init]) in
-  trm_add_cstyle Stackvar t_let
+  trm_let ?loc ?ctx (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_ref var_type)) [init])
 
 (* [trm_let_ref ~annot ?ctx typed_var init]: an extension of trm_let for creating references *)
-let trm_let_ref ?(annot = trm_annot_default) ?(loc)  ?(ctx : ctx option)
-  (typed_var : typed_var) (init : trm): trm =
+let trm_let_ref ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
-  let t_let = trm_let ?loc ?ctx Var_mutable (var_name, var_type_ptr) init in
+  let t_let = trm_let ?loc ?ctx (var_name, var_type_ptr) init in
   trm_add_cstyle Reference t_let
 
 
@@ -1034,17 +915,16 @@ let trm_let_immut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = typ_const var_type in
-  trm_let ~annot ?loc ?ctx Var_immutable (var_name, var_type) (init)
+  trm_let ~annot ?loc ?ctx (var_name, var_type) (init)
 
-(* [trm_let_array ~annot ?ctx typed_var sz init]: an extension of trm_let for creating array variable declarations *)
+(* [trm_let_array ~annot ?ctx ~const typed_var sz init]: an extension of trm_let for creating array variable declarations *)
 (* FIXME: This function is weird and creates a ref instead of ref_array... *)
-let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind : varkind )
+let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(const : bool = false)
   (typed_var : typed_var) ?(size : trm option) (init : trm): trm =
   let var_name, var_type = typed_var in
-  let var_type = if kind = Var_immutable then typ_const (typ_array var_type ?size) else typ_ptr_generated (typ_array var_type ?size) in
-  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_ref var_type)) [init]  in
-  let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
-  if kind = Var_mutable then trm_add_cstyle Stackvar res else res
+  let var_type = if const then typ_const (typ_array var_type ?size) else typ_ptr_generated (typ_array var_type ?size) in
+  let var_init = if const then init else trm_apps (trm_prim (Prim_ref var_type)) [init]  in
+  trm_let ~annot ?loc ?ctx (var_name, var_type) var_init
 
 (* [compute_app_unop_value p v1]: simplifies unary operations on literals. *)
 let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
@@ -1095,7 +975,7 @@ let compute_app_binop_value (p : binary_op) (typ1 : typ option) (typ2 : typ opti
 let decl_list_to_typed_vars (tl : trms) : typed_vars =
   List.map (fun t ->
     match t.desc with
-    | Trm_let (_, (x, tx),_) -> (x, get_inner_ptr_type tx)
+    | Trm_let ((x, tx),_) -> (x, get_inner_ptr_type tx)
     | _ -> trm_fail t "Ast.decl_list_to_typed_vars: expected a list of declarations"
   ) tl
 
@@ -1148,15 +1028,6 @@ let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist * loop_contract) opti
 let is_trm_seq (t : trm) : bool =
 match t.desc with
 | Trm_seq _ -> true  | _ -> false
-
-(* [trm_var_def_inv t] gets the name type and the initialization value *)
-let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option =
-match t.desc with
-| Trm_let (vk, (x,tx), init) ->
-  let init1 = match get_init_val init with
-  | Some init1 -> Some init1
-  | _ -> None in Some (vk, x, get_inner_ptr_type tx, init1)
-| _ -> None
 
 (* [trm_fors rgs tbody] creates nested loops with the main body [tbody] each
   nested loop takes its components from [rgs]. *)
@@ -1333,7 +1204,7 @@ match trm_ref_inv t with
 
   (* [trm_var_possibly_mut ~const ?typ x]: reads the value of x, it can be x or *x  *)
   let trm_var_possibly_mut ?(const : bool = false) ?(typ : typ option) (x : var) : trm =
-    if const then trm_var ?typ ~kind:Var_immutable x else trm_var_get ?typ x
+    if const then trm_var ?typ x else trm_var_get ?typ x
 
   let var_any_bool = new_var "ANY_BOOL"
 
@@ -1804,15 +1675,15 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     if (share_if_no_change(*redundant*) && tl' == tl)
       then t
       else (trm_record ~annot ?loc ?typ ~ctx tl')
-  | Trm_let (vk, tv, init) ->
+  | Trm_let (tv, init) ->
     let init' = f false init in
     if (share_if_no_change && init' == init)
       then t
-      else (trm_let ~annot ?loc ~ctx vk tv init')
-  | Trm_let_mult (vk, tvs, tis) ->
-    let tis' = list_map (f false) (==) tis in
-    if (tis' == tis) then t else
-      (trm_let_mult ~annot ?loc ~ctx vk tvs tis')
+      else (trm_let ~annot ?loc ~ctx tv init')
+  | Trm_let_mult ts ->
+    let ts' = list_map (fun (x, init) -> (x, f false init)) (fun (_, init1) (_, init2) -> init1 == init2) ts in
+    if (ts' == ts) then t else
+      (trm_let_mult ~annot ?loc ~ctx ts')
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
     let contract' = fun_spec_map fun_contract_map (==) contract in
@@ -1964,7 +1835,7 @@ let trm_used_vars (t: trm): Var_set.t =
   aux t;
   !vars
 
-type var_metadata = trm_annot * location * typ option * ctx * varkind
+type var_metadata = trm_annot * location * typ option * ctx
 
 let trm_map_vars_ret_ctx
   ?(keep_ctx = false)
@@ -1983,33 +1854,31 @@ let trm_map_vars_ret_ctx
     let t_ctx = if keep_ctx then t.ctx else unknown_ctx () in
 
     let ctx, trm = match t.desc with
-    | Trm_var (kind, x) ->
-      (ctx, map_var ctx (annot, loc, typ, t_ctx, kind) x)
+    | Trm_var x ->
+      (ctx, map_var ctx (annot, loc, typ, t_ctx) x)
 
-    | Trm_let (var_kind, (var, typ), body) ->
+    | Trm_let ((var, typ), body) ->
       let _, body' = f_map ctx body in
       (* FIXME: in C, extern int x; is a predeclaration, however, it is not stored in the AST *)
       let cont_ctx, var' = map_binder ctx var false in
       let t' = if (body == body' && var == var')
         then t
-        else (trm_let ~annot ?loc ~ctx:t_ctx var_kind (var', typ) body')
+        else (trm_let ~annot ?loc ~ctx:t_ctx (var', typ) body')
       in
       (cont_ctx, t')
 
-    | Trm_let_mult (vk, tvs, ts) ->
+    | Trm_let_mult ts ->
       let cont_ctx = ref ctx in
-      let tvsts' = List.map2 (fun tv t ->
-        let var, typ = tv in
-        let (_, t') = f_map !cont_ctx t in
-        let cont_ctx', var' = map_binder !cont_ctx var false in
+      let ts' = List.map (fun binding ->
+        let (var, typ), t = binding in
+        let cont_ctx', t' = f_map !cont_ctx t in
+        let cont_ctx', var' = map_binder cont_ctx' var false in
         cont_ctx := cont_ctx';
-        let tv' = if var == var' then tv else (var', typ) in
-        (tv', t')
-      ) tvs ts in
-      let (tvs', ts') = List.split tvsts' in
-      let t' = if ((List.for_all2 (==) ts ts') && List.for_all2 (==) tvs tvs')
+        if var == var' && t == t' then binding else ((var', typ), t')
+      ) ts in
+      let t' = if ((List.for_all2 (==) ts ts'))
         then t
-        else (trm_let_mult ~annot ?loc ~ctx:t_ctx vk tvs' ts')
+        else (trm_let_mult ~annot ?loc ~ctx:t_ctx ts')
       in
       (!cont_ctx, t')
 
@@ -2259,9 +2128,9 @@ let trm_rename_vars_ret_ctx
       let other_fn' = map_var ctx other_fn in
       post_process ctx (trm_alter ~desc:(Trm_fun (args, rettyp, body, FunSpecReverts other_fn')) t)
     | _ -> post_process ctx t
-    ) ~map_binder (fun ctx (annot, loc, typ, vctx, kind) var ->
+    ) ~map_binder (fun ctx (annot, loc, typ, vctx) var ->
       let var = map_var ctx var in
-      trm_var ~annot ?loc ?typ ~ctx:vctx ~kind var
+      trm_var ~annot ?loc ?typ ~ctx:vctx var
     ) ctx t
 
 let trm_rename_vars
@@ -2330,8 +2199,8 @@ let trm_copy (t : trm) : trm =
 let trm_subst
   ?(on_subst : trm -> trm -> trm = fun old_t new_t -> trm_copy new_t)
   (subst_map: trm varmap) (t: trm) =
-  let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): var_metadata) (var: var) =
-    let var_t = trm_var ~annot ?loc ?typ ~kind var in
+  let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx): var_metadata) (var: var) =
+    let var_t = trm_var ~annot ?loc ?typ var in
     match Var_map.find_opt var subst_map with
     | Some subst_t -> on_subst var_t subst_t
     | None -> var_t
@@ -2365,7 +2234,7 @@ type unification_ctx = eval varmap
     beta reduction if possible. *)
 let rec unfold_if_resolved_evar (t: trm) (evar_ctx: unification_ctx): trm * unification_ctx =
   match t.desc with
-  | Trm_var (_, x) ->
+  | Trm_var x ->
     begin match Var_map.find_opt x evar_ctx with
     | Some (Some t) ->
       let t, evar_ctx = unfold_if_resolved_evar t evar_ctx in
@@ -2532,7 +2401,7 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
         | Some tdef ->  tdef
         | _ -> def
         end
-      | Trm_let (_, (x, _), _) ->
+      | Trm_let ((x, _), _) ->
         (* There is a slight difference between clang and menhir how they handle function declarations, that's why we
          need to check if there are variables inside the function map *)
         begin match Var_map.find_opt x chopped_fun_map with
@@ -2582,7 +2451,7 @@ let trm_def_or_used_vars (t : trm) : Var_set.t =
     | Some x -> vars := Var_set.add x !vars
     | _ ->
     begin match trm_let_inv t with
-    | Some (_, x, _, _) -> vars := Var_set.add x !vars
+    | Some (x, _, _) -> vars := Var_set.add x !vars
     | _ ->
     begin match trm_let_fun_inv t with
     | Some (x, _, _, _) -> vars := Var_set.add x !vars

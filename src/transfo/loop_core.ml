@@ -178,7 +178,7 @@ let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : 
       let new_name = ref dummy_var in
       let f_update (t : trm) : trm =
         match t.desc with
-        | Trm_let (vk, (x, tx), _) ->
+        | Trm_let ((x, tx), _) ->
           new_name := new_var (Tools.string_subst "${var}" x.name name);
           ty := get_inner_ptr_type tx;
           trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var range.index] )
@@ -186,9 +186,9 @@ let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : 
         in
       let new_tl = Mlist.update_nth decl_index f_update tl in
       let new_body = trm_seq new_tl in
-        trm_seq_nobrace_nomarks [
-          trm_let_array Var_mutable (!new_name, !ty) ~size:stop_bd (trm_uninitialized ());
-          trm_for ~contract range new_body ]
+      trm_seq_nobrace_nomarks [
+        trm_let_array (!new_name, !ty) ~size:stop_bd (trm_uninitialized ());
+        trm_for ~contract range new_body ]
     | _ -> trm_fail t "Loop_core.hoist_aux: body of the loop should be a sequence"
     end
   | _ -> trm_fail t "Loop_core.hoist_aux: only simple loops are supported"

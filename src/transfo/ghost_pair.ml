@@ -282,7 +282,7 @@ let elim_all_pairs_at (gen_mark: unit -> mark) (p: path): (var * mark * mark) li
     let mark_begin = gen_mark () in
     let mark_end = gen_mark () in
     let t_let = resolve_path p in
-    let _, pair_token, _, _ = trm_inv trm_let_inv t_let in
+    let pair_token, _, _ = trm_inv trm_let_inv t_let in
     marks := (pair_token, mark_begin, mark_end) :: !marks;
     let i, p = Path.index_in_seq p in
     apply_at_path (elim_at ~mark_begin ~mark_end i) p

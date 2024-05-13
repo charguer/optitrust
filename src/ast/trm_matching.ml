@@ -137,7 +137,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     match Var_map.find_opt x !inst with
     | None -> None
     | Some (ty,t0) -> match t0.desc with
-       | Trm_var (_, y) -> Some (y, ty)
+       | Trm_var y -> Some (y, ty)
        | _ -> None
     in
   let with_binding ?(loc:location) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
@@ -168,8 +168,8 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     let rec aux_with_bindings (ts1 : trms) (ts2 : trms) : unit =
       match ts1, ts2 with
       | [], [] -> ()
-      | ({ desc = Trm_let (_vk1, (x1,t1), init1); _ } as dt1) :: tr1,
-        ({ desc = Trm_let (_vk2, (x2,t2), init2); _ } as dt2) :: tr2 ->
+      | ({ desc = Trm_let ((x1,t1), init1); _ } as dt1) :: tr1,
+        ({ desc = Trm_let ((x2,t2), init2); _ } as dt2) :: tr2 ->
            if not (same_types  (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
             Printf.printf "Type mismatch on trm_let\n";
             mismatch ~t1:dt1 ~t2:dt2 ()
@@ -185,11 +185,11 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     match t1.desc, t2.desc with
 
     (* Case for treating a match against a pattern variable *)
-    | Trm_var (_, x), _ when is_var x -> find_var x t2
+    | Trm_var x, _ when is_var x -> find_var x t2
 
     (* Case for treating a match against a pattern such as [body(i)],
        where [body] is a pattern variable that corresponds to a function. *)
-    | Trm_apps (({ desc = Trm_var (_, x); _} as trm_x), ts1, _), _ when higher_order_inst && is_var x ->
+    | Trm_apps (({ desc = Trm_var x; _} as trm_x), ts1, _), _ when higher_order_inst && is_var x ->
         let typ_args, typ_ret =
           match trm_x.typ with
           | None -> trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" (var_to_string x))
@@ -199,9 +199,9 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         let msg1 i ti = trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s
                                      is not a variable.  It is the term: %s" i (var_to_string x) (Ast_to_text.ast_to_string ti)) in
         let xargs = List.mapi (fun i ti -> match ti.desc with
-          | Trm_var (_, x)
+          | Trm_var x
           (* LATER: find out if it is really correct to igore the get operation here *)
-          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}], _) -> x
+          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var x; _}], _) -> x
           | _ -> msg1 i ti) ts1 in
         (* DEPRECATED
           let msg2 i = trm_fail t2 (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
@@ -217,7 +217,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         let func = trm_let_fun x typ_ret targs body in
         find_var x func
 
-    | Trm_var (_, x1), Trm_var (_, x2) when var_eq x1 x2 -> ()
+    | Trm_var x1, Trm_var x2 when var_eq x1 x2 -> ()
 
     | Trm_val v1, Trm_val v2 when are_same_trm (trm_val v1) (trm_val v2) -> ()
 

@@ -106,11 +106,7 @@ type paths = path list
 [@@deriving show]
 
 (* [path_to_string dl]: print the path [dl] *)
-let path_to_string (dl : path) : string =
-  "Dir." ^ Tools.list_to_string (List.map (fun d ->
-    let s = dir_to_string d in
-    String.sub s 4 ((String.length s) - 4)
-  ) dl)
+let path_to_string = show_path
 
 (* [paths_to_string ~sep dls]: print the list of paths [dls] *)
 let paths_to_string ?(sep:string="; ") (dls : paths) : string =

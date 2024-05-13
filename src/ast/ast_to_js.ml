@@ -194,7 +194,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "val";
           (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (AstC_to_c.(val_to_doc (default_style())) (trm_get_cstyles t) t.typ v))));
           children_to_field [] ]
-    | Trm_var (_, x) ->
+    | Trm_var x ->
         [ kind_to_field "var";
           value_to_field x.name; (* TODO: #var-id , also encode qualifier and id ? *)
           children_to_field [] ]
@@ -205,7 +205,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_array l ->
         [ kind_to_field "array";
           children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
-    | Trm_let (_,(x,typ),init) ->
+    | Trm_let ((x,typ),init) ->
         [ kind_to_field "var-def";
           (strquote "name", strquote x.name); (* TODO: #var-id , also encode qualifier and id ? *)
           (strquote "def-type", typ_to_json typ);

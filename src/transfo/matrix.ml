@@ -10,17 +10,17 @@ let%transfo intro_calloc (tg : target) : unit =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
-    | Trm_let (_, (x,_), init) ->
-      begin match get_init_val init with
+    | Trm_let ((x,_), init) ->
+      begin match trm_ref_inv_init init with
       | Some t1 ->
         begin match t1.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[calloc_trm], _) ->
           begin match calloc_trm.desc with
-          | Trm_apps ({desc = Trm_var (_, f);_}, _, _) when (var_has_name f "calloc") ->
+          | Trm_apps ({desc = Trm_var f;_}, _, _) when (var_has_name f "calloc") ->
             Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
           | _ -> trm_fail t1 "intro_calloc: couldn't find the call to calloc function"
           end
-        | Trm_apps ({desc = Trm_var (_, f);_},_,_) when (var_has_name f "calloc") ->
+        | Trm_apps ({desc = Trm_var f;_},_,_) when (var_has_name f "calloc") ->
           Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
         | _ -> try Matrix_basic.intro_calloc [cWriteVar x.name; cFun "calloc"]
           with | _ ->
@@ -47,7 +47,7 @@ let%transfo intro_mindex (dim : trm) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let error = "Matrix.intro_mindex: the target should point at matrix declaration." in
-    let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
+    let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
     Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x.name] ()]
   ) tg
 
@@ -58,17 +58,17 @@ let%transfo intro_malloc (tg : target) : unit =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
-    | Trm_let (_, (x,_), init) ->
-      begin match get_init_val init with
+    | Trm_let ((x,_), init) ->
+      begin match trm_ref_inv_init init with
       | Some t1 ->
         begin match t1.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm], _) ->
           begin match malloc_trm.desc with
-          | Trm_apps ({desc = Trm_var (_, f);_}, _, _) when (var_has_name f "malloc") ->
+          | Trm_apps ({desc = Trm_var f;_}, _, _) when (var_has_name f "malloc") ->
             Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
           | _ -> trm_fail t1 "intro_malloc: couldn't find the call to malloc function"
           end
-        | Trm_apps ({desc = Trm_var (_, f);_},_,_) when  (var_has_name f "malloc") ->
+        | Trm_apps ({desc = Trm_var f;_},_,_) when  (var_has_name f "malloc") ->
           Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
         | _ ->
          try Matrix_basic.intro_malloc [cWriteVar x.name; cFun "malloc"]
@@ -96,9 +96,9 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with
-    | Trm_let (_, (p, _), _) ->
+    | Trm_let ((p, _), _) ->
       Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
-    | Trm_apps (_, [{desc = Trm_var (_, p)}; _], _)  when is_set_operation tg_trm ->
+    | Trm_apps (_, [{desc = Trm_var p}; _], _)  when is_set_operation tg_trm ->
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
     | _ -> trm_fail tg_trm "biject: expected a variable declaration"
   ) tg
@@ -196,7 +196,7 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
     let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm = Path.resolve_path p t in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
-    let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
+    let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
     Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x.name; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x.name] (); cFun ~regexp:true "MINDEX."]]])
   ) tg
 
@@ -212,7 +212,7 @@ let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Target.iter (fun p_def ->
     let t_def = Target.resolve_path p_def in
-    let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
+    let (x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
     let (_, p_seq) = Path.index_in_seq p_def in
     let tg_seq = target_of_path p_seq in
     read_last_write ~write:(tg_seq @ [cArrayWrite x.name]) (tg_seq @ [nbAny; cArrayRead x.name]);
@@ -247,7 +247,7 @@ let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : targe
   Trace.tag_valid_by_composition ();
   Target.iter (fun p_def -> Marks.with_fresh_mark (fun mark_accesses ->
     let t_def = Target.resolve_path p_def in
-    let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
+    let (x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
     let (_, p_seq) = Path.index_in_seq p_def in
     (* TODO: use simpl there as well? *)
     elim_mops ((target_of_path p_seq) @ [nbAny; cArrayRead x.name]);
@@ -258,7 +258,7 @@ let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : targe
 (* [iter_on_var_defs]: helper for transformations that need to iterate
   on variable definitions while requiring the path to the surrounding sequence.
    *)
-let iter_on_var_defs (f : (varkind * var * typ * trm) -> (int * path) -> unit) (tg : target) : unit =
+let iter_on_var_defs (f : (var * typ * trm) -> (int * path) -> unit) (tg : target) : unit =
   Target.iter (fun p ->
     let t_local = Target.resolve_path p in
     let error = "Matrix.iter_on_var_defs: expected target on variable definition" in
@@ -273,7 +273,7 @@ let iter_on_var_defs (f : (varkind * var * typ * trm) -> (int * path) -> unit) (
    *)
 let%transfo delete (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  iter_on_var_defs (fun (_, var, _, _) (_, p_seq) ->
+  iter_on_var_defs (fun (var, _, _) (_, p_seq) ->
     Matrix_basic.delete ~var (target_of_path p_seq)
   ) tg
 
@@ -333,7 +333,7 @@ let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : string lis
 let%transfo storage_folding ~(dim : int) ~(size : trm)
   ?(kind : storage_folding_kind = ModuloIndices) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  iter_on_var_defs (fun (_, var, _, _) (_, p_seq) ->
+  iter_on_var_defs (fun (var, _, _) (_, p_seq) ->
     Matrix_basic.storage_folding ~var ~dim ~size ~kind (target_of_path p_seq)
   ) tg
 

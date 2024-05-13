@@ -33,10 +33,9 @@ let check (f: 't -> bool) (k: 'a) (v: 't): 'a =
   if f v then k else raise Next
 let eq (x: 't) : 'a -> 't -> 'a = check ((=) x)
 
-let trm_let (mut: 'a -> varkind -> 'b) (var: 'b -> var -> 'c) (typ: 'c -> typ -> 'd) (body: 'd -> trm -> 'e) (k: 'a) (t: trm): 'e =
+let trm_let (var: 'a -> var -> 'b) (typ: 'b -> typ -> 'c) (body: 'c -> trm -> 'd) (k: 'a) (t: trm): 'd =
   match trm_let_inv t with
-  | Some (tmut, tvar, ttyp, tbody) ->
-    let k = mut k tmut in
+  | Some (tvar, ttyp, tbody) ->
     let k = var k tvar in
     let k = typ k ttyp in
     let k = body k tbody in

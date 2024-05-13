@@ -245,10 +245,9 @@ and print_trm_desc style (t : trm_desc) : document =
   | Trm_val v ->
      let dv = print_val style v in
      print_node "Trm_val" ^^ parens dv
-  | Trm_var (vk, v) ->
-    let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
+  | Trm_var v ->
     let v_d = print_var style v in
-    string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ v_d ^^ rparen
+    string "Trm_var" ^^ parens v_d
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm style) tl in
@@ -259,27 +258,15 @@ and print_trm_desc style (t : trm_desc) : document =
       let td = print_trm style t in
       match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
      print_node "Trm_record" ^^ print_list dtl
-  | Trm_let (vk,(x,tx),t) ->
-    let dvk = match vk with
-    | Var_immutable -> string "Var_immutable"
-    | Var_mutable ->  string "Var_mutable"
-    in
+  | Trm_let ((x,tx),t) ->
     let dtx = print_typ style tx in
     let dt = print_trm style t in
     print_node "Trm_let" ^^
-      parens (concat (List.map (fun x -> group (x ^^ comma ^^ break 1)) [dvk; print_var style x; dtx; dt]))
-  | Trm_let_mult (vk, tvl, tl) ->
-    let dvk = match vk with
-    | Var_mutable -> string "Var_mutable"
-    | Var_immutable -> string "Var_immutable"
-      in
-    let dtx = List.map (fun (x, ty) -> parens (print_var style x ^^ comma ^^ print_typ { style with only_desc = true } (* TODO: why is it so? *) ty)) tvl in
-    let dts = List.map (fun t -> print_trm style t) tl in
-    let dtl = List.map2 (fun v t ->  parens (v ^^ comma ^^ t)) dtx dts in
-    let dtx = Tools.list_to_doc ~sep:comma dtx in
-    print_node "Trm_let_mult" ^^
-      parens (separate (comma ^^ break 1)
-        [dvk; dtx; print_list dtl;])
+      parens (concat (List.map (fun x -> group (x ^^ comma ^^ break 1)) [print_var style x; dtx; dt]))
+  | Trm_let_mult bs ->
+    let dtl = List.map (fun ((x, ty), t) ->
+      parens (parens (print_var style x ^^ comma ^^ print_typ { style with only_desc = true } (* TODO: why is it so? *) ty) ^^ comma ^^ print_trm style t)) bs in
+    print_node "Trm_let_mult" ^^ parens (print_list dtl)
   | Trm_let_fun (f, r, tvl, b, _) ->
     let dout = print_typ style r in
     let dtvl = List.map(function (x,tx) ->
@@ -563,7 +550,6 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Prefix_step -> string "Prefix_step"
  | Postfix_step -> string "Postfix_step"
  | Reference -> string "Reference"
- | Stackvar -> string "Stackvar"
  | Is_struct -> string "Is_struct"
  | Is_rec_struct -> string "Is_rec_struct"
  | Is_class -> string "Is_class"

@@ -216,7 +216,7 @@ let hoist_on (name : string)
       (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
     let mindex = mindex !new_dims partial_indices in
     let new_access = trm_array_access (trm_var !new_var) mindex in
-    let tmp_var = trm_let Var_immutable (x, typ_const_ptr etyp) new_access in
+    let tmp_var = trm_let (x, typ_const_ptr etyp) new_access in
     trm_add_mark mark_tmp_var tmp_var
   in
   let body_instrs_new_decl = Mlist.update_nth decl_index update_decl body_instrs in
@@ -350,7 +350,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       (* LATER: Run scope destructors and generalize the rest with pure variables *)
       let bound_in_tl1 = Mlist.fold_left (fun acc ti -> (* TODO: gather bound_vars_in_trms *)
           match trm_let_inv ti with
-          | Some (vk, v, typ, init) -> Var_set.add v acc
+          | Some (v, typ, init) -> Var_set.add v acc
           | None -> acc
         ) Var_set.empty tl1
       in
@@ -782,7 +782,7 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
       *)
 
     let error = "expected MALLOCN instr" in
-    let (_, _, _, alloc_init) = trm_inv ~error trm_let_inv alloc_instr in
+    let (_, _, alloc_init) = trm_inv ~error trm_let_inv alloc_instr in
     let _ = trm_inv ~error Matrix_core.alloc_inv_with_ty alloc_init in
     let error = "expected MFREEN instr" in
     let _ = trm_inv ~error Matrix_trm.free_inv free_instr in

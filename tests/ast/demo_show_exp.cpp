@@ -30,8 +30,7 @@ for-trm-internal-desc: Trm_for (i,
   Trm_val (Val_lit (Lit_int 3)),
   Trm_val (Val_lit (Lit_int 1)),
   Trm_seq [
-    Trm_apps (Trm_val (Val_prim (Prim_unop Unop_post_inc)),
-      [ Trm_var( Var_mutable,x) ])
+    Trm_apps (Trm_val (Val_prim (Prim_unop Unop_post_inc)), [ Trm_var(x) ])
   ])
 desc: Trm_for
 typ: target resolves to 3 paths
@@ -39,7 +38,6 @@ typ: target resolves to 3 paths
 [occ #2] int
 [occ #3] <no_typ>
 marks: [mymark2; mymark1]
-cstyle-item: [ Stackvar ]
-annot: { trm_annot_file = Main_file; }
+cstyle-item: annot: { trm_annot_file = Main_file; }
 
 */

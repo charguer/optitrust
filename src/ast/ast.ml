@@ -387,11 +387,6 @@ and cstyle_annot =
   (* [int& x = 3]  encoded as  [let x : ( int* ) = ref 3] in the internal AST *)
   | Reference
 
-  (* annotation to distinguish [int x = 3]  vs [int* const x = ref 3]
-     because the two have the same encoding in the internal AST.
-     annotation is carried by the Trm_let. *) (* LATER: is the type also annotation? *)
-  | Stackvar
-
   (* distinguish between class vs struct *)
   | Is_struct
 
@@ -656,11 +651,11 @@ and loop_range = {
 (* [trm_desc]: description of an ast node *)
 and trm_desc =
   | Trm_val of value
-  | Trm_var of varkind * var (* TODO: varkind ?? *)
+  | Trm_var of var
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
-  | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  | Trm_let_mult of varkind * typed_vars * trm list
+  | Trm_let of typed_var * trm (* int x = 3 *)
+  | Trm_let_mult of (typed_var * trm) list (* TODO: change to non-scoping seq *)
   | Trm_let_fun of var * typ * typed_vars * trm * fun_spec
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
@@ -796,11 +791,6 @@ and template_param_kind =
 
 (* [template_parameter_list]: template parameter list *)
 and template_parameter_list = (string * template_param_kind * bool) list
-
-(* [varkind]: type for the mutability of the variable *)
-and varkind =
-  | Var_immutable (* const variables *)
-  | Var_mutable   (* non-const stack-allocated variable. *)
 
 (* [abort]: ways of aborting *)
 and abort =
@@ -1226,7 +1216,7 @@ let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
 let contains_decl (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
-    | Trm_let (_, (y, _), _) when y = x -> true
+    | Trm_let ((y, _), _) when y = x -> true
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
     | Trm_for (l_range, body, _) ->
         l_range.index = x || aux body
@@ -1316,11 +1306,6 @@ let code_to_str (code : code_kind) : string =
   | Instr s -> s
   | Comment s -> s
 
-
-(* [var_mutability_unkown]: dummy value used for variable mutability *)
-let var_mutability_unknown = Var_mutable
-
-
 (*****************************************************************************)
 
 (* [top_level_fun_bindings t]: returns a map with keys the names of toplevel function names and values being their bodies *)
@@ -1349,14 +1334,6 @@ let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
     | _ -> ()
   ) tm1;
   !common
-
-(* [get_mutability t]: if [t] is a variable declaration or a variable occurrence then return its occurrences
-    otherwise return nothing *)
-let get_mutability (t : trm) : varkind option =
-  match t.desc with
-  | Trm_let (vk, _, _) -> Some vk
-  | Trm_var (vk, _) -> Some vk
-  | _ -> None
 
 
 (*****************************************************************************)

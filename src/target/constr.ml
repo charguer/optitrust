@@ -793,17 +793,17 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_then then_t &&
         check_target p_else else_t
-      | Constr_decl_var (ty_pred, name, p_body) , Trm_let (_,(x,tx), body) ->
+      | Constr_decl_var (ty_pred, name, p_body) , Trm_let ((x,tx), body) ->
         ty_pred (get_inner_ptr_type tx) &&
         check_name name x.name &&
         check_target p_body body
-     | Constr_decl_vars (ty_pred, name, p_body), Trm_let_mult (_, tvl, tl) ->
-        List.fold_left2 (fun acc (x, tx) body ->
+     | Constr_decl_vars (ty_pred, name, p_body), Trm_let_mult bs ->
+        List.fold_left (fun acc ((x, tx), body) ->
           let b = ty_pred (get_inner_ptr_type tx) &&
             check_name name x.name &&
             check_target p_body body in
           acc || b
-        ) false tvl tl
+        ) false bs
      | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def, cx_opt),
        Trm_let_fun (x, tx, args, body, _) ->
         let body_check =
@@ -835,7 +835,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
      | Constr_seq cl, Trm_seq tl when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
         check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER: check why depth 0 here and not
         in Constr_app *)
-     | Constr_var name, Trm_var (_, x) ->
+     | Constr_var name, Trm_var x ->
         check_name name x.name
      | Constr_lit pred_l, Trm_val (Val_lit l) ->
         pred_l l
@@ -1382,7 +1382,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
      end
   else
      begin match t.desc with
-     | Trm_let (_ ,(_, _), body) ->
+     | Trm_let ((_, _), body) ->
        add_dir Dir_body (aux body)
      | Trm_let_fun (_, _ , _, body, contract)
      | Trm_fun (_, _, body, contract) ->
@@ -1545,10 +1545,10 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
-  | Dir_var_body, Trm_let (_, _, body) ->
+  | Dir_var_body, Trm_let (_, body) ->
      let ref_op_arg = ref_operation_arg body in
      add_dir Dir_var_body (aux ref_op_arg)
-  | Dir_body, Trm_let (_, _,body)
+  | Dir_body, Trm_let (_, body)
     | Dir_body, Trm_let_fun (_, _, _, body, _)
     | Dir_body, Trm_for_c (_, _, _, body, _)
     | Dir_body, Trm_for (_, body, _)
@@ -1577,7 +1577,7 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
      add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id }))
   | Dir_name, Trm_let_fun (x, _, _, _, _) ->
     add_dir Dir_name (aux (trm_var ?loc x))
-  | Dir_name, Trm_let (_,(x,_),_) ->
+  | Dir_name, Trm_let ((x,_),_) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_goto x ->
     (* CHECK: #var-id-dir-name , is this correct? *)

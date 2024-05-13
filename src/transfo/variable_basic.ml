@@ -6,8 +6,7 @@ open Prelude
              is performed on all the ast nodes in the same level as the
              declaration or deeper, by default [at] = []. *)
 let%transfo fold ?(at : target = []) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.fold at i t p) tg
+  Target.apply_at_target_paths_in_seq (Variable_core.fold_decl_at at) tg
 
 (** [unfold ~mark ~at tg]: expects the target [tg] to be pointing at a variable declaration,
     then it will replace all the occurence of this variable inside the terms pointed by the
@@ -21,7 +20,7 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
   Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
   Target.iter (fun p ->
     let t_decl = Target.resolve_path p in
-    let _, x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv t_decl in
+    let x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv t_decl in
     let init = trm_add_mark mark init in
     Target.apply_at_target_paths (trm_subst_var x init) at
   ) tg
@@ -41,7 +40,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let tl = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
       let dl = Path.resolve_path p_local dl in
-      let _, x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv dl in
+      let x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv dl in
       if !Flags.check_validity then begin
         if Resources.trm_is_pure init then
           Trace.justif "inlining a pure expression is always correct"
@@ -229,8 +228,8 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
 (** <private> *)
 let elim_analyse (xy : (var * var) option ref) (t : trm) : trm =
   let error = "expected variable declaration" in
-  let (kind, x, ty, init) = trm_inv ~error trm_let_inv t in
-  assert (kind = Var_mutable);
+  let (x, ty, init) = trm_inv ~error trm_let_inv t in
+  assert (Option.is_some (trm_ref_inv init));
   let error = "expected initial value to be a ref(get(var))" in
   let (_ty, init_val) = trm_inv ~error trm_ref_inv init in
   let init_val_get = trm_inv ~error trm_get_inv init_val in
@@ -314,16 +313,14 @@ let%transfo bind ?(const : bool = false) ?(mark_let : mark = no_mark) ?(mark_occ
       value.
   @correctness: always correct if the result type checks. *)
 let%transfo to_const (tg : target) : unit =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-     ( fun t (p, i) -> Variable_core.from_to_const true i t p) tg;
+  Target.apply_at_target_paths_in_seq Variable_core.to_const_at tg;
   Resources.justif_correct "always correct if the result type checks"
 
 (* [to_nonconst tg]: expects the target [tg] to be point at a variable declaration,
       If the variable is mutable then does nothing, otherwise change the mutability of the targeted variable to a mutable one,
       and replace all the variable occurrences with a get operation containing that occurrence. *)
 let%transfo to_nonconst (tg : target) : unit =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-     ( fun t (p, i) -> Variable_core.from_to_const false i t p) tg
+  Target.apply_at_target_paths_in_seq Variable_core.to_nonconst_at tg
 
 
 (* [simpl_deref ~indepth tg]: expects the target [tg] to be pointing at expressions of the form  *(&b), &( *b) in depth

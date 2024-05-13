@@ -41,7 +41,7 @@ let ghost (g : ghost_call): trm =
 
 let ghost_begin (ghost_pair_var: var) (ghost_call: ghost_call) : trm =
   void_when_resource_typing_disabled (fun () ->
-    trm_add_cstyle GhostCall (trm_let Var_immutable (ghost_pair_var, typ_ghost_fn)
+    trm_add_cstyle GhostCall (trm_let (ghost_pair_var, typ_ghost_fn)
       (trm_apps (trm_var var_ghost_begin) [ghost ghost_call])))
 
 let ghost_end (ghost_pair_var: var): trm =
@@ -67,7 +67,7 @@ let ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): t
 
 let ghost_begin_inv (t: trm): (var * ghost_call) option =
   Pattern.pattern_match t [
-    Pattern.(trm_let __ !__ __ (trm_apps1 (trm_var (var_eq var_ghost_begin)) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args ->
+    Pattern.(trm_let !__ __ (trm_apps1 (trm_var (var_eq var_ghost_begin)) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args ->
       Some (pair_var, { ghost_fn; ghost_args })
     );
     Pattern.__ None

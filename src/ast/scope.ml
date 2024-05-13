@@ -62,7 +62,7 @@ let unique_alpha_rename (t : trm) : trm =
 
 let trm_let_or_let_fun_inv t =
   match trm_let_inv t with
-  | Some (_, x, _, _) -> Some x
+  | Some (x, _, _) -> Some x
   | _ ->
   begin match trm_let_fun_inv t with
   | Some (x, _, _, _) -> Some x

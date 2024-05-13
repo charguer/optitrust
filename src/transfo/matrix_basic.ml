@@ -49,7 +49,7 @@ let%transfo local_name ?(my_mark : mark = no_mark) ?(indices : (string list) = [
   let remove = (my_mark = no_mark) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
-      | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
+      | Trm_let ((_, ty), _) -> get_inner_ptr_type ty
       | Trm_apps (_, [lhs; _rhs], _) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty
@@ -242,8 +242,8 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
     let add_labels = List.length labels = 3 in
     let decl = Mlist.nth tl 0 in
     begin match decl.desc with
-    | Trm_let (_, (local_var, ty), init) ->
-      begin match get_init_val init with
+    | Trm_let ((local_var, ty), init) ->
+      begin match trm_ref_inv_init init with
       | Some init1 ->
         begin match init1.desc with
          | Trm_apps (_, [alloc_trm], _) ->
@@ -522,7 +522,7 @@ let intro_malloc0_on (mark_alloc : mark) (mark_free : mark) (x : var) (t : trm) 
   let decl_info_opt = ref None in
   Mlist.iteri (fun i instr ->
     match trm_let_inv instr with
-    | Some (_, y, ty, init) when x = y ->
+    | Some (y, ty, init) when x = y ->
       if (is_trm_ref_uninitialized init) ||
          (is_trm_uninitialized init)
       then begin
@@ -613,7 +613,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   (* let array_typ = List.fold_left (fun acc i -> typ_array acc (Trm i)) typ new_dims in *)
   trm_seq_nobrace_nomarks [
     (* TODO: define Matrix_core.stack_alloc, FIXME: new with dims has to be uninit? use different prim? *)
-    trm_let Var_immutable (stack_var, typ_const_ptr typ) (trm_ref typ ~dims:new_dims (trm_uninitialized ()));
+    trm_let (stack_var, typ_const_ptr typ) (trm_ref typ ~dims:new_dims (trm_uninitialized ()));
     Matrix_core.memcpy_with_ty
       (trm_var stack_var) [] new_dims
       (trm_var var) common_indices dims
@@ -701,7 +701,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
       begin match Matrix_core.let_alloc_inv_with_ty t with
       | Some (v, dims, etyp, size) when v = var ->
         let new_dims = Xlist.update_nth dim (fun _ -> n) dims in
-        trm_let ~annot:t.annot Var_immutable (v, typ_const_ptr etyp) (Matrix_core.alloc_with_ty new_dims etyp)
+        trm_let ~annot:t.annot (v, typ_const_ptr etyp) (Matrix_core.alloc_with_ty new_dims etyp)
       | _ ->
         begin match trm_var_inv t with
         | Some n when n = var ->
@@ -744,7 +744,7 @@ let delete_on (var : var) (t : trm) : trm =
   let rec update_accesses_and_alloc (t : trm) : trm =
     (* TODO: use let_alloc_inv_with_ty *)
     match trm_let_inv t with
-    | Some (_kind, v, vtyp, init) when var_eq v var ->
+    | Some (v, vtyp, init) when var_eq v var ->
       (* TODO: deal with CALLOC *)
       assert (Option.is_some (Matrix_core.alloc_inv_with_ty init));
       trm_seq_nobrace_nomarks []

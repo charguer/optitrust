@@ -42,7 +42,7 @@ let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) :
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_apps ({desc = Trm_var (_, qf)} as call, args, _) ->
+    | Trm_apps ({desc = Trm_var qf} as call, args, _) ->
       let opt_trms = List.map2 (fun arg arg_k ->
         if not arg_k then Some arg else None
       ) args args_to_keep in

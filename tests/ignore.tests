@@ -37,6 +37,7 @@ matrix/delocalize
 record/align_field
 apac/heapify
 apac/heapify_nested_seq
+apac/unfold_let_mult_const
 variable/delocalize
 variable/delocalize_in_vars
 

@@ -60,7 +60,7 @@ let inline_aux (index : int) (body_mark : mark) (subst_mark : mark) (p_local : p
     begin match fun_call.desc with
     | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
       let fun_decl = begin match tfun.desc with
-      | Trm_var (_, f) ->
+      | Trm_var f ->
         begin match Internal.toplevel_decl ~require_body:true f with
         | Some decl -> decl
         | _ -> trm_fail tfun (sprintf "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
@@ -85,7 +85,7 @@ let inline_aux (index : int) (body_mark : mark) (subst_mark : mark) (p_local : p
         end;
         let fun_decl_body = trm_subst subst_map (trm_copy body) in
         let name = match t.desc with
-          | Trm_let (vk, (x, _), _) -> x
+          | Trm_let ((x, _), _) -> x
           | _ -> dummy_var
         in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
@@ -226,7 +226,7 @@ let dsp_call_aux (dsp : string) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_, [lhs; rhs], _) when is_set_operation t ->
     begin match rhs.desc with
-    | Trm_apps ({desc = Trm_var (_, f); _}, args, _) ->
+    | Trm_apps ({desc = Trm_var f; _}, args, _) ->
         let dsp_name = if dsp = "" then f.name ^ "_dsp" else dsp in
         (* TODO: avoid using name_to_var, take var as arg. *)
         trm_apps (trm_var (name_to_var dsp_name)) (args @ [lhs])

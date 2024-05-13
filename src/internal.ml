@@ -99,8 +99,8 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
          trm_unop ~annot:t.annot ?loc:t.loc
            (Unop_cast (change_typ ty))
-      | Trm_let (vk,(y,ty),init) ->
-        trm_let ~annot:t.annot ?loc:t.loc vk (y,change_typ ty) (aux init)
+      | Trm_let ((y,ty),init) ->
+        trm_let ~annot:t.annot ?loc:t.loc (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body, _) ->
          trm_let_fun ~annot:t.annot ?loc:t.loc f (change_typ ty)
             (List.map (fun (y, ty) -> (y, change_typ ty)) args)
@@ -119,7 +119,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
            trm_typedef ~annot:t.annot ?loc:t.loc { td with typdef_body = Typdef_record rf}
         | _ -> trm_map aux t
         end
-       | Trm_var (_, x) ->
+       | Trm_var x ->
           let ty = begin match t.typ with
                    | Some ty -> ty
                    | None -> trm_fail t "Internal.apply_change: all variable occurrences should have a type"
@@ -254,7 +254,7 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
       end
     | None -> -1
     end
-  | Trm_let (_,(_,tx),_) ->
+  | Trm_let ((_,tx),_) ->
     get_typid_from_typ (get_inner_ptr_type tx)
   | Trm_var _ ->
       begin match t.typ with
@@ -288,7 +288,7 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
             end) None rfs
           | _ -> None
           end
-    | Trm_let (_, (y, _), _) when var_eq y x -> Some t1
+    | Trm_let ((y, _), _) when var_eq y x -> Some t1
     | Trm_let_fun (y, _, _, body, _) when var_eq y x ->
       if require_body then begin
         match body.desc with
@@ -314,7 +314,7 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
 let rec local_decl (x : var) (t : trm) : trm option =
   match t.desc with
   (* DEPRECATED: | Trm_typedef td when td.typdef_tconstr = x -> Some t *)
-  | Trm_let (_, (y, _), _) when var_eq y x -> Some t
+  | Trm_let ((y, _), _) when var_eq y x -> Some t
   | Trm_let_fun (y, _, _, body, _) ->
     if var_eq y x then Some t else local_decl x body
   | Trm_seq tl ->
@@ -497,7 +497,7 @@ let get_field_name (rf : record_field) : string option =
   | Record_field_method t1 ->
     (* CHECK: #var-id *)
     begin match t1.desc with
-    | Trm_let (_, (n, _), _) -> Some n.name
+    | Trm_let ((n, _), _) -> Some n.name
     | Trm_let_fun (qn, _, _, _, _) -> Some qn.name
     | _ -> None
     end

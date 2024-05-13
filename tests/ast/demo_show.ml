@@ -1,8 +1,8 @@
 open Optitrust
 open Prelude
 
-let has_stackvar (t : trm) : bool =
-  Trm.trm_get_cstyles t = [Stackvar]
+let has_reference (t : trm) : bool =
+  Trm.trm_get_cstyles t = [Reference]
 
 let _ = Run.script_cpp ~capture_show_in_batch:true (fun () ->
   !! ShowAt.trm ~msg:"AST" [];
@@ -19,7 +19,7 @@ let _ = Run.script_cpp ~capture_show_in_batch:true (fun () ->
   !! Marks.add "mymark1" [cForBody "i"; cVar "x"];
   !! Marks.add "mymark2" [cForBody "i"; cVar "x"];
   !! ShowAt.marks ~msg:"marks" [cForBody "i"; cVar "x"];
-  !! ShowAt.cstyle ~msg:"cstyle-item" [nbAny; Constr_pred has_stackvar];
+  !! ShowAt.cstyle ~msg:"cstyle-item" [nbAny; Constr_pred has_reference];
   !! ShowAt.annot ~msg:"annot" [dRoot];
 
 )

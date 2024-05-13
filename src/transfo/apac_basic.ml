@@ -168,12 +168,11 @@ let use_goto_for_return ?(mark : mark = no_mark) (tg : target) : unit =
 
 (* [unfold_let_mult_on ?constify t]: see [unfold_let_mult]. *)
 let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
-  (* Deconstruct the target multiple variable declaration term [t] into the
-     variable kind [vk], the list of typed variables [tvs] being declared and
+  (* Deconstruct the target multiple variable declaration term [t] into the list of typed variables [tvs] being declared and
      the list of initialization terms [tis]. *)
   let error = "Apac_basic.unfold_let_mult_on: expected a target to a multiple \
                variable declaration." in
-  let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
+  let bs = trm_inv ~error trm_let_mult_inv t in
   (* In addition to the unfolding of the target multiple variable declaration,
      this transformation allows for constifying one or more of the underlying
      declarations. Which declarations will be constified, if any, will be
@@ -189,20 +188,21 @@ let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
     if constify <> [] then
       constify
     else
-      List.init (List.length tvs) (Fun.const false)
+      List.init (List.length bs) (Fun.const false)
   in
   (* Perform the constification of the concerned variable declarations. *)
-  let tvs' = List.map2 (
-                 fun (v, ty) const ->
-                 if const then (v, typ_constify ty) else (v, ty)
-               ) tvs constify
+  (* FIXME: this constifies the types but breaks the invariants stating that in the internal encoding const variables are not initialized with ref and not read with get. See [Variable.to_const]. *)
+  let bs' = List.map2 (
+                 fun ((v, ty), body) const ->
+                 if const then ((v, typ_constify ty), body) else ((v, ty), body)
+               ) bs constify
   in
   (* Transform the multiple variable declaration into a sequence of simple
      variable declarations. *)
-  let simple = List.map2 (fun tv ti -> trm_let vk tv ti) tvs' tis in
+  let simple = List.map (fun (tv, ti) -> trm_let tv ti) bs' in
   (* Return a new sequence (without braces) containing the newly generated
      simple variable declarations. *)
-    trm_seq_nobrace_nomarks simple
+  trm_seq_nobrace_nomarks simple
 
 (* [unfold_let_mult ~constify tg]: expects target [tg] to point
    at a multiple variable declaration. Then, it replaces it by a sequence of
@@ -301,7 +301,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
       | Trm_while _ -> trm_map (aux aliases) t
     (* Variable declaration: update list of aliases and constify the lvalue if
        it is an alias to a constant variable. *)
-    | Trm_let (_, lval, { desc = Trm_apps (_, [rval], _); _ }) ->
+    | Trm_let (lval, { desc = Trm_apps (_, [rval], _); _ }) ->
        (* Check whether the declared variable is a reference. *)
        let reference = trm_has_cstyle Reference t in
        (* Check whether the declared variable is an alias to a function argument
@@ -335,15 +335,15 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
          t
     (* Multiple variable declaration: update list of aliases and constify the
        lvalues if they are alias to constant variables. *)
-    | Trm_let_mult (vk, tvs, tis) ->
+    | Trm_let_mult bs ->
        (* Check whether the declared variables represent aliases to function
           arguments or previously declared variables and return the test results
           in the form of a list of boolean values. *)
        let which_aliases : bool list =
-         List.map2 (
-             fun tv ti ->
+         List.map (
+             fun (tv, ti) ->
              let res = trm_let_update_aliases tv ti aliases in res > 0
-           ) tvs tis in
+           ) bs in
        let _ = if debug then Printf.printf "which_aliases is %d long\n" (List.length which_aliases) in
        (* If all the elements of [which_aliases] are [false], *)
        if (List.for_all (fun a -> a = false) which_aliases) then
@@ -357,23 +357,23 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
          (* we can safely constify all the variable declarations in the multiple
             variable declaration without splitting it into a sequence of simple
             variable declarations beforehand. *)
-         let tvs' = List.map (fun (v, ty) -> (v, typ_constify ty)) tvs in
-         trm_let_mult vk tvs' tis
+         let bs' = List.map (fun ((v, ty), init) -> ((v, typ_constify ty), init)) bs in
+         trm_let_mult bs'
        else
          begin
            (* If only some of the elements of [which_aliases] are [true] but the
               inner type of the multiple variable declaration is already
               constant, *)
-           let (_, fty) = List.nth tvs 0 in
+           let ((_, fty), _) = List.nth bs 0 in
            if is_typ_const (get_inner_type fty) then
              (* we can complete the constification of selected variables within
                 the multiple variable declaration without splitting it. *)
              let _ = if debug then Printf.printf "Partial constification possible\n" in
-             let tvs' = List.map2 (
-                            fun (v, ty) const ->
-                            if const then (v, typ_constify ty) else (v, ty)
-                          ) tvs which_aliases in
-             trm_let_mult vk tvs' tis
+             let bs' = List.map2 (
+                            fun ((v, ty), init) const ->
+                            if const then ((v, typ_constify ty), init) else ((v, ty), init)
+                          ) bs which_aliases in
+             trm_let_mult bs'
            else
              (* Otherwise, we will have to split the multiple variable
                 delcaration into a sequence of simple variable declarations and
@@ -676,24 +676,21 @@ let heapify_on (t : trm) : trm =
   (* [t] must be either *)
   match t.desc with
   (* a simple variable declaration, or *)
-  | Trm_let (kind, (v, ty), init) ->
+  | Trm_let ((v, ty), init) ->
      (* Call [heapify_on.single] once. *)
      let ((v2, ty2), init2) =
        single ~reference:(trm_has_cstyle Reference t) v ty init in
      (* Return an update single variable declaration term. *)
-     trm_let kind (v2, ty2) init2
+     trm_let (v2, ty2) init2
   (* a multiple variable declaration. *)
-  | Trm_let_mult (kind, vtys, inits) ->
+  | Trm_let_mult binds ->
      (* Call [heapify_on.single] multiple times in a loop over all the
         declarations in the multiple variable declaration term. *)
-     let updated = List.map2 (
-                       fun (v, ty) init -> single ~mult:true v ty init
-                     ) vtys inits in
-     (* The upcoming instruction expects the updates typed variables and
-        initialization terms in separate lists. *)
-     let (vtys2, inits2) = List.split updated in
+     let binds2 = List.map (
+                       fun ((v, ty), init) -> single ~mult:true v ty init
+                     ) binds in
      (* Return an update multiple variable declaration term. *)
-     trm_let_mult kind vtys2 inits2
+     trm_let_mult binds2
   | _ -> trm_fail t "Apac_basic.heapify: expected a target to a variable \
                      declaration or a multiple variable declaration."
 
@@ -748,7 +745,7 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
       | Some(_), Some(_) -> trm_fail t "Should not happen : Binary operator between pointers"
       end
     (* variable : resolve variable *)
-    | Trm_var (_ ,qv) ->
+    | Trm_var qv ->
       begin match Hashtbl.find_opt va qv with
       | Some (d, arg_idx) when (d + depth) > 0 -> Some (arg_idx)
       | _ -> None

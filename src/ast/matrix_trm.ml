@@ -41,7 +41,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
     let n = List.length dims_and_indices in
     if (n mod 2 = 0 && n/2 <= max_nb_dims) then
       begin match f.desc with
-      | Trm_var (_, fv) when var_eq (mindex_var (n/2)) fv ->
+      | Trm_var fv when var_eq (mindex_var (n/2)) fv ->
           Some (Xlist.split_at (n/2) dims_and_indices)
       | _ -> None
       end
@@ -119,7 +119,7 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
   match t.desc with
   | Trm_apps (f, args,_) ->
     begin match f.desc with
-    | Trm_var (_, f_var) ->
+    | Trm_var f_var ->
       let dims , size = Xlist.unlast args in
       if (Tools.pattern_matches "CALLOC" f_var.name) then Some (dims, size, true)
         else if (Tools.pattern_matches "MALLOC" f_var.name) then Some (dims, size, false)
