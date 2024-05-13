@@ -29,26 +29,13 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_template _, Trm_template _ -> true
   | _ , _ -> false
 
-(* [same_trm ~ast_decode t1 t2]: check if [t1] and [t2] have the same string representation *)
-let same_trm ?(ast_decode:bool=false) (t1 : trm) (t2 : trm) : bool =
-  if same_kind t1 t2 then
-    AstC_to_c.ast_to_string t1 = AstC_to_c.ast_to_string  t2
-   else false
-
-(* [same_val v1 v2]: check if [v1] and [v2] give the same value *)
-let same_val (v1 : value) (v2 : value) : bool =
-  same_trm (trm_val v1) (trm_val v2)
-
-
 (* [change_trm ~change_at t_before t_after t]: replace all the occurrences of [t_before] with [t_after]
    If [change_at] is not equal to [[]] then this function is applied only to descendants of the trm corresponding to
    the targets [change_at] *)
-(* FIXME: use targets instead of same_trm. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
-  Tools.warn "Internal.change_trm is DEPRECATED!";
   let rec apply_change (t' : trm) : trm=
-    if same_trm t' t_before then
+    if are_same_trm t' t_before then
       trm_copy t_after
       else trm_map apply_change t'
       in
@@ -63,7 +50,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
       let tr = if not (List.mem nbAny tr)
         then [nbAny] @ tr
         else tr in
-      let epl = resolve_target_with_stringreprs_available tr t' in
+      let epl = Constr.resolve_target tr t' in
       match epl with
       | [] ->
          print_info t'.loc "Internal.change_trm: no matching subterm for target %s\n"

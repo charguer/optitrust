@@ -152,10 +152,8 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
   | Typ_array (t, s) ->
      let d = typ_to_doc t in
      begin match s with
-     | Undefined -> d ^^ brackets empty
-     | Const n -> d ^^ brackets (string (string_of_int n))
-     | Trm t' -> d ^^ brackets (decorate_trm (default_style()) t')
-
+     | None -> d ^^ brackets empty
+     | Some t' -> d ^^ brackets (decorate_trm (default_style()) t')
      end
   | Typ_fun _ ->
      print_info None "AstC_to_c.typ_desc_to_doc: typ_fun not implemented\n";
@@ -213,12 +211,11 @@ and typed_var_to_doc: 'a. style -> ('a -> document) -> ('a * typ) -> document = 
   let (x, ty) = tx in
   let is_const = is_typ_const ty in
   let const_string = if is_const then blank 1 ^^ string " const " ^^ blank 1 else empty in
-  let rec aux (t : typ) (s : size) : document * document list =
+  let rec aux (t : typ) (s : trm option) : document * document list =
     let ds =
       match s with
-      | Undefined -> brackets empty
-      | Const n -> brackets (string (string_of_int n))
-      | Trm t' -> brackets (decorate_trm style t')
+      | None -> brackets empty
+      | Some t' -> brackets (decorate_trm style t')
     in
     match t.typ_desc with
     | Typ_array (t, s') ->

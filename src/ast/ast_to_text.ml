@@ -78,9 +78,8 @@ let rec print_typ_desc style (t : typ_desc) : document =
      let dt = print_typ style t in
      let ds =
        begin match s with
-       | Undefined -> underscore
-       | Const n -> string (string_of_int n)
-       | Trm t' -> print_trm style t'
+       | None -> underscore
+       | Some t' -> print_trm style t'
        end
      in
      print_node "Typ_array" ^^ print_pair dt ds

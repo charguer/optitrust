@@ -37,7 +37,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
 
 (* [fold fold_at index t p]: applies [fold_aux] at trm [t] with path [p]. *)
 let fold (fold_at : target) (index) : Transfo.local =
-  apply_on_path(fold_aux fold_at index)
+  apply_on_path (fold_aux fold_at index)
 
 
 
@@ -164,7 +164,7 @@ let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : tr
               trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
       end in
       let new_first_trm = trm_seq_nobrace_nomarks[
-          trm_let_array vk (local_var, var_type) (Trm array_size) (trm_uninitialized ());
+          trm_let_array vk (local_var, var_type) ~size:array_size (trm_uninitialized ());
           trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]) (trm_get curr_var_trm);
           trm_copy (trm_for { index; start = trm_int 1; direction = DirUp; stop = array_size; step = trm_step_one () }
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm]))]
@@ -276,9 +276,9 @@ let bind_aux (mark_let:mark) (mark_occ:mark) (mark_body : mark) (index : int) (f
         let sz = (Mlist.length tl)  in
         if const
           then
-            trm_let_array Var_immutable (fresh_var, node_type) (Const sz) targeted_node
+            trm_let_array Var_immutable (fresh_var, node_type) ~size:(trm_int sz) targeted_node
           else
-            trm_let_array Var_mutable (fresh_var, node_type) (Const sz) targeted_node
+            trm_let_array Var_mutable (fresh_var, node_type) ~size:(trm_int sz) targeted_node
       | _ ->
         let node_type = if is_ptr then typ_ptr Ptr_kind_mut node_type else node_type in
         let node_type = begin match typ with | Some ty -> ty | _ -> node_type end in

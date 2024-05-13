@@ -431,7 +431,7 @@ let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false
 
 let assert_same_dims (a : trms) (b : trms) : unit =
   (* TODO: need something better for term equality *)
-  if not (List.for_all2 Internal.same_trm a b) then begin
+  if not (List.for_all2 are_same_trm a b) then begin
     Tools.warn "Matrix_basic: dimensions mismatch";
     Show.trms ~msg:"a" a;
     Show.trms ~msg:"b" b;
@@ -600,7 +600,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   let new_t = Matrix_core.map_all_accesses var ~ret_dims_and_typ (fun dims indices ->
     let (common_indices, new_indices) = Xlist.split_at copy_dims indices in
     begin match !common_indices_opt with
-    | Some ci -> assert (List.for_all2 Internal.same_trm ci common_indices);
+    | Some ci -> assert (List.for_all2 are_same_trm ci common_indices);
     | None -> common_indices_opt := Some common_indices
     end;
     let new_dims = Xlist.take_last copy_dims dims in
@@ -797,7 +797,7 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
       Matrix_trm.get_inv t
     in
     assert_same_dims wr_dims rd_dims;
-    if not (Internal.same_trm wr_base rd_base) then
+    if not (are_same_trm wr_base rd_base) then
       trm_fail t "Matrix_basic.read_last_write: array base mistmach";
     let rd_value = List.fold_left (fun value (wr_i, rd_i) ->
       begin match trm_var_inv wr_i with
@@ -805,7 +805,7 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
         trm_subst_var wr_i_var rd_i value
       | None ->
         let error = "Matrix_basic.read_last_write: expected write index to be a variable, or to be the same as the read index" in
-        if (Internal.same_trm wr_i rd_i) then value
+        if (are_same_trm wr_i rd_i) then value
         else trm_fail wr_i error
       end
     ) wr_value (List.combine wr_indices rd_indices)

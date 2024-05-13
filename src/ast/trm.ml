@@ -658,6 +658,16 @@ let trm_var_inv (t : trm) : var option =
   | Trm_var (_, x) -> Some x
   | _ -> None
 
+let trm_array_inv (t: trm) : trm mlist option =
+  match t.desc with
+  | Trm_array ts -> Some ts
+  | _ -> None
+
+let trm_record_inv (t: trm) : (label option * trm) mlist option =
+  match t.desc with
+  | Trm_record fs -> Some fs
+  | _ -> None
+
 (* [trm_free_inv]: deconstructs a 'free(x)' call. *)
 let trm_free_inv (t : trm) : trm option =
   match trm_apps_inv t with
@@ -1029,9 +1039,9 @@ let trm_let_immut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
 (* [trm_let_array ~annot ?ctx typed_var sz init]: an extension of trm_let for creating array variable declarations *)
 (* FIXME: This function is weird and creates a ref instead of ref_array... *)
 let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind : varkind )
-  (typed_var : typed_var) (sz : size)(init : trm): trm =
+  (typed_var : typed_var) ?(size : trm option) (init : trm): trm =
   let var_name, var_type = typed_var in
-  let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
+  let var_type = if kind = Var_immutable then typ_const (typ_array var_type ?size) else typ_ptr_generated (typ_array var_type ?size) in
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_ref var_type)) [init]  in
   let res = trm_let ~annot ?loc ?ctx kind (var_name, var_type) var_init in
   if kind = Var_mutable then trm_add_cstyle Stackvar res else res
@@ -2403,7 +2413,27 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
 
     | Trm_val ve ->
       let* v = trm_val_inv t_left in
+      (* FIXME: This can fail because primitives may recursively contain types and terms *)
       check (ve = v)
+
+    | Trm_array tse ->
+      let* ts = trm_array_inv t_left in
+      begin try
+        List.fold_left2 (fun evar_ctx t te -> let* evar_ctx in unify_trm t te evar_ctx) (Some evar_ctx) (Mlist.to_list ts) (Mlist.to_list tse)
+      with Invalid_argument _ -> None end
+
+    | Trm_record fieldse ->
+      (* TODO: Order of named fields should not matter, but currently it does *)
+      let* fields = trm_record_inv t_left in
+      begin try
+        List.fold_left2 (fun evar_ctx (fname, t) (fnamee, te) ->
+            let* evar_ctx in
+            if fname = fnamee
+              then unify_trm t te evar_ctx
+              else None
+          )
+          (Some evar_ctx) (Mlist.to_list fields) (Mlist.to_list fieldse)
+      with Invalid_argument _ -> None end
 
     | Trm_apps (fe, argse, ghost_args) ->
       let* f, args = trm_apps_inv t_left in

@@ -123,7 +123,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     | Some (ty,t0) ->
         if Trm.is_trm_uninitialized t0 then
           inst := Var_map.add x (ty,u) !inst
-        else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
+        else if not (are_same_trm t0 u) then begin
           if error_msg then begin (* TODO: if + raise helper *)
             Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" (var_to_string x)
               (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
@@ -219,7 +219,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
 
     | Trm_var (_, x1), Trm_var (_, x2) when var_eq x1 x2 -> ()
 
-    | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
+    | Trm_val v1, Trm_val v2 when are_same_trm (trm_val v1) (trm_val v2) -> ()
 
     | Trm_for (range1, body1, _),
       Trm_for (range2, body2, _) ->

@@ -282,19 +282,18 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
     begin match eo with
-      | None -> wrap_const ~const (typ_array t (Const n))
+      | None -> wrap_const ~const (typ_array t ~size:(trm_int n))
       | Some e ->
-        let s = tr_expr e in
-        wrap_const ~const (typ_array t (Trm s))
+        let size = tr_expr e in
+        wrap_const ~const (typ_array t ~size)
     end
   | VariableArray {element = q; size = eo} ->
     let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
-    let s = tr_expr eo in
-    wrap_const ~const (typ_array t (Trm s))
+    let size = tr_expr eo in
+    wrap_const ~const (typ_array t ~size)
   | IncompleteArray q ->
     let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
-
-    wrap_const ~const (typ_array t Undefined)
+    wrap_const ~const (typ_array t)
   | Auto ->
     typ_auto ()
   | BuiltinType b ->
@@ -862,12 +861,8 @@ and tr_expr (e : expr) : trm =
     begin match seo with
       | None -> trm_prim ?loc ~ctx (Prim_new tq)
       | Some se ->
-        let te = tr_expr se in
-        begin match te with
-          | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
-            trm_prim ?loc ~ctx (Prim_new (typ_array tq (Const n)))
-          | _ -> trm_prim ?loc ~ctx (Prim_new (typ_array tq (Trm te)))
-        end
+        let size = tr_expr se in
+        trm_prim ?loc ~ctx (Prim_new (typ_array tq ~size))
     end
   | Delete {global_delete = _; array_form = b; argument = e} ->
     let te = tr_expr e in

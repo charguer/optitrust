@@ -46,7 +46,7 @@ let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) 
   (* TODO: enable other styles for TileDivides *)
   if bound = TileDivides then begin
     (* TODO: other cases *)
-    assert (Internal.same_trm start (trm_int 0));
+    assert (are_same_trm start (trm_int 0));
     assert (direction = DirUp);
     let (count, iteration_to_index) =
       if trm_is_one step
@@ -187,7 +187,7 @@ let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : 
       let new_tl = Mlist.update_nth decl_index f_update tl in
       let new_body = trm_seq new_tl in
         trm_seq_nobrace_nomarks [
-          trm_let_array Var_mutable (!new_name, !ty) (Trm stop_bd) (trm_uninitialized ());
+          trm_let_array Var_mutable (!new_name, !ty) ~size:stop_bd (trm_uninitialized ());
           trm_for ~contract range new_body ]
     | _ -> trm_fail t "Loop_core.hoist_aux: body of the loop should be a sequence"
     end
@@ -444,7 +444,7 @@ let fold_aux (index : string) (start : int) (step : int) (t : trm) : trm =
   let loop_body = Internal.change_trm (trm_int start) (trm_var index) first_instr in
   List.iteri( fun i t1 ->
     let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in
-    if not (Internal.same_trm loop_body local_body)
+    if not (are_same_trm loop_body local_body)
       then trm_fail t1 "Loop_core.fold_aux: all the instructions should have the same shape but differ by the index";
   ) other_instr;
   trm_pass_labels t (trm_for { index; start = trm_int start; direction = DirUp; stop = trm_int nb; step = (if step = 1 then trm_step_one () else (trm_int step)) } (trm_seq_nomarks [loop_body]))

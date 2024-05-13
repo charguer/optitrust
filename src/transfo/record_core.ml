@@ -245,7 +245,7 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
 
           let typ_update (ty : typ) : typ =
             match field_type.typ_desc with
-              | Typ_array (_, size) -> typ_array ty size
+              | Typ_array (_, size) -> typ_array ty ?size
               | _ -> ty
             in
           let inner_type_field_list = Internal.update_record_fields_type typ_update inner_type_field_list in

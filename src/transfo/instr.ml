@@ -30,8 +30,8 @@ let%transfo read_last_write ?(write_mark : mark = no_mark) ?(write : target = []
                   then ()
                   else begin match t1.desc with
                        | Trm_apps (_, [ls; _rs], _) when is_set_operation t1 ->
-                         if Internal.same_trm ls arg then write_index := Some i else ()
-                       | Trm_let (_, (x, _), _) when Internal.same_trm (trm_var x) arg ->
+                         if are_same_trm ls arg then write_index := Some i else ()
+                       | Trm_let (_, (x, _), _) when are_same_trm (trm_var x) arg ->
                           write_index := Some i
                        | _ -> ()
                        end

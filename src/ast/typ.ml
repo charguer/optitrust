@@ -81,8 +81,8 @@ let typ_ptr ?(annot : typ_annot list = []) ?(attributes = [])
   typ_make ~annot ~attributes (Typ_ptr {ptr_kind = kind; inner_typ = t} )
 
 (* [typ_array ~annot ~attributes t s]: array type constructor *)
-let typ_array ?(annot : typ_annot list = []) ?(attributes = []) (t : typ) (s : size) : typ =
-  typ_make ~annot ~attributes (Typ_array (t, s))
+let typ_array ?(annot : typ_annot list = []) ?(attributes = []) ?(size : trm option) (t : typ) : typ =
+  typ_make ~annot ~attributes (Typ_array (t, size))
 
 (* [typ_fun ~annot ~attributes args res]: function type constructor *)
 let typ_fun ?(annot : typ_annot list = []) ?(attributes = [])
@@ -141,7 +141,7 @@ let typ_ptr_inv (ty : typ) : typ option =
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
   | _ -> None
 
-let typ_array_inv (ty : typ) : (typ * size) option =
+let typ_array_inv (ty : typ) : (typ * trm option) option =
   match ty.typ_desc with
   | Typ_array (typ, size) -> Some (typ, size)
   | _ -> None
@@ -158,7 +158,7 @@ let typ_const_ptr (ty : typ) : typ =
 let typ_const_ptr_inv (ty : typ) : typ option =
   Option.bind (typ_const_inv ty) typ_ptr_inv
 
-let typ_const_array_inv (ty : typ) : (typ * size) option =
+let typ_const_array_inv (ty : typ) : (typ * trm option) option =
   Option.bind (typ_array_inv ty) (fun (ty2, size) ->
     Option.map (fun ty3 -> (ty3, size)) (typ_const_inv ty2))
 
@@ -336,7 +336,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   let attributes = ty.typ_attributes in
   match ty.typ_desc with
   | Typ_ptr {ptr_kind= pk; inner_typ = ty} -> typ_ptr ~annot ~attributes pk (f ty)
-  | Typ_array (ty, n) -> typ_array ~annot ~attributes (f ty) n
+  | Typ_array (ty, size) -> typ_array ~annot ~attributes (f ty) ?size
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
@@ -366,7 +366,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
        if match_generated_star then (pk1 = pk2) && (is_generated_typ typ_1 && is_generated_typ typ_2) && (aux typ_a1 typ_a2)
         else (not (is_generated_typ typ_1 || is_generated_typ typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2)
       | Typ_array (typa1, size1), Typ_array (typa2, size2) ->
-          (same_types typa1 typa2) && (same_sizes size1 size2)
+          (same_types typa1 typa2) && (size1 = size2)
       | _, _ -> false)
 
 let typ_of_get (t : typ) : typ option =

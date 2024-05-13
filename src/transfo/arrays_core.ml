@@ -173,39 +173,26 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
               [
                 trm_typedef {
                   td with typdef_tconstr = block_name;
-                  typdef_body = Typdef_alias (typ_array ty (Trm (trm_var block_size)))};
+                  typdef_body = Typdef_alias (typ_array ty ~size:(trm_var block_size))};
                 trm_typedef {
                   td with typdef_tconstr = td.typdef_tconstr;
                   typdef_body = Typdef_alias (typ_ptr Ptr_kind_mut (typ_constr ([], block_name) ~tid:td.typdef_typid ))}]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
            begin match s with
-           | Undefined -> trm_fail t "Arrays_core.tile_aux: array size must be provided"
-           | Const n ->
-              let n_div_b =
-                trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); trm_var block_size]
-              in
-              let tid = next_typconstrid () in
-              trm_seq_nobrace_nomarks
-                [
-                  trm_typedef {
-                    td with typdef_tconstr = block_name;
-                    typdef_body = Typdef_alias (typ_array ty (Trm (trm_var block_size)))};
-                  trm_typedef{
-                    td with typdef_tconstr = td.typdef_tconstr;
-                    typdef_body = Typdef_alias (typ_array (typ_constr ([], block_name) ~tid) (Trm n_div_b))}]
-           | Trm t' ->
+           | None -> trm_fail t "Arrays_core.tile_aux: array size must be provided"
+           | Some t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var block_size] in
               let tid = next_typconstrid () in
               trm_seq_nobrace_nomarks
                 [
                   trm_typedef {
                     td with typdef_tconstr = block_name;
-                    typdef_body = Typdef_alias (typ_array ty (Trm (trm_var block_size)))};
+                    typdef_body = Typdef_alias (typ_array ty ~size:(trm_var block_size))};
 
                   trm_typedef {
                     td with typdef_tconstr = td.typdef_tconstr;
-                    typdef_body = Typdef_alias (typ_array (typ_constr ([], block_name) ~tid) (Trm t''))}]
+                    typdef_body = Typdef_alias (typ_array (typ_constr ([], block_name) ~tid) ~size:t'')}]
            end
         | _ -> trm_fail t "Arrays_core.tile_aux: expected array or pointer type declaration"
         end
@@ -405,7 +392,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
       | Typdef_record rf ->
         let rf = List.map (fun (rf1, rf_annot) ->
           match rf1 with
-          | Record_field_member (lb, ty) -> ((Record_field_member (lb, typ_array ty (Trm (trm_var sz)))), rf_annot)
+          | Record_field_member (lb, ty) -> ((Record_field_member (lb, typ_array ty ~size:(trm_var sz))), rf_annot)
           | Record_field_method _ -> (Record_field_method (trm_map aux t), rf_annot)
         ) rf in
         trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rf}

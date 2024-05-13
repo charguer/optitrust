@@ -196,7 +196,7 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
     apply_on_targets (fun t p -> apply_on_path (fun _ -> new_t) t p) (target_of_path p)
   ) tg;
   let vk = if const then Var_immutable else Var_mutable in
-  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) (Const nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
+  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) ~size:(trm_int nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
   Nobrace_transfo.remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_nobrace_nomarks instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
@@ -442,33 +442,33 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
     | Trm_let (_, (x, _), init_x) ->
       let source_var = ref dummy_var in
       if source = []
-        then
-          begin match seq_trm.desc with
-          | Trm_seq tl ->
-            Mlist.iteri (fun i t1 ->
+      then
+        begin match seq_trm.desc with
+        | Trm_seq tl ->
+          Mlist.iteri (fun i t1 ->
             if i >= index then ()
-                else
-                begin match t1.desc with
-                | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
-                  source_var := y
-                | _ -> ()
-                end
-            ) tl
-          | _ -> trm_fail t "Variable.elim_redundant: couldn't find the englobing sequence, try providing the source argument to solve this problem"
-          end
-       else
-        begin
-          let source_paths = Constr.resolve_target source t in
-          let source_decl_trm = match List.nth_opt source_paths i with
-            | Some p -> Path.resolve_path p t
-            | None -> trm_fail t "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
-          match source_decl_trm.desc with
-          | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
-            source_var := y
-          | _ -> trm_fail source_decl_trm "Variable.elim_redundant: the soource target should point to a variable declaration"
-        end;
-        Variable_basic.fold ~at:([cVarDef x.name]) ((target_of_path path_to_seq) @ [cVarDef !source_var.name]);
-        inline ((target_of_path path_to_seq) @ [cVarDef x.name])
+            else
+              begin match t1.desc with
+              | Trm_let (_, (y, _), init_y) when are_same_trm init_x init_y ->
+                source_var := y
+              | _ -> ()
+              end
+          ) tl;
+          if !source_var == dummy_var then trm_fail tg_trm "Variable.elim_redundant: could not find a redundant definition before the target"
+        | _ -> trm_fail t "Variable.elim_redundant: couldn't find the englobing sequence, try providing the source argument to solve this problem"
+        end
+      else begin
+        let source_paths = Constr.resolve_target source t in
+        let source_decl_trm = match List.nth_opt source_paths i with
+          | Some p -> Path.resolve_path p t
+          | None -> trm_fail t "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
+        match source_decl_trm.desc with
+        | Trm_let (_, (y, _), init_y) when are_same_trm init_x init_y ->
+          source_var := y
+        | _ -> trm_fail source_decl_trm "Variable.elim_redundant: the soource target should point to a variable declaration"
+      end;
+      Variable_basic.fold ~at:([cVarDef x.name]) ((target_of_path path_to_seq) @ [cVarDef !source_var.name]);
+      inline ((target_of_path path_to_seq) @ [cVarDef x.name])
     | _ -> trm_fail tg_trm "Variable.elim_redundant: the main target should point to the declaration of the variable you want to eliminate"
 
   ) tg
@@ -548,7 +548,7 @@ let%transfo bind_syntactic ?(dest : target = []) ?(fresh_name : string = "x${occ
   (* TODO: use hashmap *)
   let bound = ref [] in
   let bind_or_reuse t p =
-    match List.find_opt (fun (t2, _) -> Internal.same_trm t t2) !bound with
+    match List.find_opt (fun (t2, _) -> are_same_trm t t2) !bound with
     | None -> begin
       let x = Tools.string_subst "${occ}" (string_of_int (List.length !bound)) fresh_name in
       let mark_let = next_mark () in

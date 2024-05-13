@@ -249,15 +249,9 @@ type code_kind =
   | Comment of string (* "// txt", or "/*txt*/" *)
 [@@deriving show]
 
-(* [size]: array sizes *)
-type size =
-  | Undefined    (* t[] *)
-  | Const of int (* t[3] *)
-  | Trm of trm   (* t[2*nb] *)
-
 (*****************************************************************************)
 (* [typ_desc]: type description *)
-and typ_desc =
+type typ_desc =
   | Typ_const of typ   (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar * typconstrid (* e.g. ['a] in the type ['a -> 'a] -- *)
   (* FIXME: ^ One of the two argument is redundant, we should probably only keep the id, or use sharing
@@ -277,7 +271,7 @@ and typ_desc =
   | Typ_string                              (* string a *)
   | Typ_ptr of
     {ptr_kind : ptr_kind; inner_typ: typ }  (* "int*" *)
-  | Typ_array of typ * size                 (* int[3], or int[], or int[2*n] *)
+  | Typ_array of typ * trm option           (* int[2*n], or int[] *)
   | Typ_fun of (typ list) * typ             (* int f(int x, int y) *)
   | Typ_record of record_type * typ         (* class, struct, union *)
   | Typ_template_param of string            (* template(Soon..) *)
@@ -1255,17 +1249,6 @@ let contains_field_access (f : field) (t : trm) : bool =
   in aux t
 
 (* ********************************************************************************************** *)
-
-(* [same_sizes sz1 sz2]: checks if two arrays are of the same size *)
-let same_sizes (sz1 : size) (sz2 : size) : bool =
- match sz1, sz2 with
- | Undefined, Undefined -> true
- | Const i1, Const i2 -> i1 = i2
- | Trm t1, Trm t2->  t1 = t2
- | _, _ -> false
-
-(* ********************************************************************************************** *)
-
 
 (* [typ_kind]: initialization type kind *)
 type typ_kind =
