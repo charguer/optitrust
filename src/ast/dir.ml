@@ -90,7 +90,7 @@ and resource_set_dir =
   | Resource_set_linear
   | Resource_set_fun_contracts
 
-[@@deriving show, ord]
+[@@deriving show { with_path = false }, ord]
 
 (* [dir_to_string d]: print direction [d]*)
 let dir_to_string = show_dir
@@ -98,10 +98,12 @@ let dir_to_string = show_dir
 (* A [path] is a "fully explicit path" describing a point in the AST as a list
     of directions through the nodes from that AST. *)
 type path = dir list
+[@@deriving show]
 
 (* [paths]: target resolutions produces a list of paths(explicit list of directions),
             we let [paths] be a shorthand for such type. *)
 type paths = path list
+[@@deriving show]
 
 (* [path_to_string dl]: print the path [dl] *)
 let path_to_string (dl : path) : string =

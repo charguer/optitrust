@@ -231,28 +231,29 @@ type string_trm = string
 type constrname = string
 type 'a constrnamemap = 'a Tools.String_map.t
 
-(* [size]: array sizes *)
-type size =
-  | Undefined    (* t[] *)
-  | Const of int (* t[3] *)
-  | Trm of trm   (* t[2*nb] *)
-
 (* [loop_dir]: loop bound inequalities *)
-and loop_dir =
+type loop_dir =
   | DirUp      (* i < 2  *)
   | DirUpEq    (* i <= 2 *)
   | DirDown    (* i > 0  *)
   | DirDownEq  (* i >= 0 *)
+[@@deriving show]
 
 (* [code_kind]; code kind entered by the user *)
-and code_kind =
+type code_kind =
   | Lit of string   (* 1, "hello", 1.0, (), true, false *)
   | Atyp of string  (* int, double float, vect, particle *)
   | Expr of string  (* expression of the form a * (b + 1) *)
   | Stmt of string  (* functions, for loops, while loops etc *)
   | Instr of string (* a = b, a += b *)
   | Comment of string (* "// txt", or "/*txt*/" *)
+[@@deriving show]
 
+(* [size]: array sizes *)
+type size =
+  | Undefined    (* t[] *)
+  | Const of int (* t[3] *)
+  | Trm of trm   (* t[2*nb] *)
 
 (*****************************************************************************)
 (* [typ_desc]: type description *)

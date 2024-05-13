@@ -27,7 +27,7 @@ type trm_kind =
   | TrmKind_Instr
   | TrmKind_Expr
   | TrmKind_Any
-
+[@@deriving show { with_path = false }]
 
 
 (* [rexp]: data structure for storing regular expressions *)
@@ -36,6 +36,7 @@ type rexp = {
   rexp_exp : regexp;
   rexp_substr : bool;
   rexp_trm_kind : trm_kind }
+let pp_rexp fmt rexp = Format.pp_print_string fmt rexp.rexp_desc
 
 (* [target_relative]: target kind *)
 type target_relative =
@@ -45,6 +46,7 @@ type target_relative =
     | TargetBetweenAll
     | TargetBefore
     | TargetAfter
+[@@deriving show { with_path = false }]
 
 (* [target_occurrences]: the number of targets to match *)
 type target_occurrences =
@@ -52,6 +54,10 @@ type target_occurrences =
     | ExpectMulti  (* > 0 number of occurrences *)
     | ExpectAnyNb  (* any number of occurrences *)
     | SelectOcc of int option * int list (* filter the occurences to keep only those in the list, negative index are taken from the back, if the first argument is given, check that the number of occurences is exactly that *)
+[@@deriving show { with_path = false }]
+
+type cxcursor = Clang.cxcursor
+let pp_cxcursor fmt _ = Format.pp_print_string fmt "<cxcursor>"
 
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
@@ -66,6 +72,8 @@ and targets = target list
 and depth =
   | DepthAny
   | DepthAt of int
+
+[@@deriving show { with_path = false }]
 
 (* [constr]: are the unit constrainst that are checked when target is being resolved, a constraint can be one of the following ones
      - direction constraints
@@ -117,7 +125,7 @@ and constr =
   (* decl_vars *)
   | Constr_decl_vars of typ_constraint * constr_name * target
   (* decl_fun: name, args, body is_def*)
-  | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target * bool * Clang.cxcursor option
+  | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target * bool * cxcursor option
   (* decl_type: name *)
   | Constr_decl_type of constr_name
   (* decl_enum: name, constants *)
@@ -247,6 +255,11 @@ and abort_kind =
   | Break
   | Continue
 
+[@@deriving show { with_path = false }]
+
+let target_to_string = show_target
+let constr_to_string = show_constr
+let trm_kind_to_string = show_trm_kind
 
 (* [target_simple]: is a [target] without any of the following relative constraints
    Constr_relative, Constr_occurrences, Constr_target.
@@ -279,260 +292,6 @@ let depth_pred (d : depth) : depth =
   | DepthAt n ->
       if n <= 0 then failwith "Constr.depth_pred: argument of DepthAt is not positive";
       DepthAt (n-1)
-
-(******************************************************************************)
-(*                        Pretty-printing of targets                          *)
-(******************************************************************************)
-
-(* [trm_kind_to_string k]: pretty prints trm kind [k] *)
-let trm_kind_to_string (k : trm_kind) : string =
-  match k with
-  | TrmKind_Typedef -> "Typedef"
-  | TrmKind_Ctrl -> "Ctrl"
-  | TrmKind_Instr -> "Instr"
-  | TrmKind_Expr -> "Expr"
-  | TrmKind_Any -> "Any"
-
-(* [rexp_to_string r]: pretty prints rexp [r] *)
-let rexp_to_string (r : rexp) : string =
-  (trm_kind_to_string r.rexp_trm_kind) ^ "-" ^
-  (if r.rexp_substr then "Sub" else "Exact") ^ "-" ^
-  r.rexp_desc
-
-(* [depth_to_string depth]: pretty prints depth [depth] *)
-let depth_to_string (depth : depth) : string =
-  match depth with
-  | DepthAny -> "DepthAny"
-  | DepthAt n -> "DepthAt " ^ string_of_int n
-
-(* [constr_to_string c]: pretty prints constraint [c] *)
-let rec constr_to_string (c : constr) : string =
-  match c with
-  | Constr_depth depth -> "Depth " ^ (depth_to_string depth)
-  | Constr_incontracts -> "Incontracts"
-  | Constr_dir d -> dir_to_string d
-  | Constr_paths ps -> paths_to_string ps
-  | Constr_include s -> "Include " ^ s
-  | Constr_regexp r -> "Regexp " ^ rexp_to_string r
-  | Constr_for_c (p_init, p_cond, p_step, p_body) ->
-     let s_init = target_to_string p_init in
-     let s_cond = target_to_string p_cond in
-     let s_step = target_to_string p_step in
-     let s_body = target_to_string p_body in
-     "For (" ^ s_init ^ ", " ^ s_cond ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
-  | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body) ->
-    let s_index =
-      match p_index with | None -> "_" | Some r -> rexp_to_string r
-    in
-    let s_direction = match p_direction with
-    | Some DirUp -> "Up"
-    | Some DirUpEq -> "UpEq"
-    | Some DirDown -> "Down"
-    | Some DirDownEq -> "DownEq"
-    | None -> "AnyDirection"
-    in
-    let s_start = target_to_string p_start in
-    let s_stop = target_to_string p_stop in
-    let s_step = target_to_string p_step in
-    let s_body = target_to_string p_body in
-    "For ("^s_index ^ " ," ^ s_direction ^ " , " ^ s_start ^ ", " ^ s_stop ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
-  | Constr_while (p_cond, p_body) ->
-     let s_cond = target_to_string p_cond in
-     let s_body = target_to_string p_body in
-     "While (" ^ s_cond ^ ", " ^ s_body ^ ")"
-  | Constr_do_while (p_body, p_cond) ->
-     let s_body = target_to_string p_body in
-     let s_cond = target_to_string p_cond in
-     "Do_While (" ^ s_body ^ ", " ^ s_cond ^ ")"
-  | Constr_if (p_cond, p_then, p_else) ->
-     let s_cond = target_to_string p_cond in
-     let s_then = target_to_string p_then in
-     let s_else = target_to_string p_else in
-     "If (" ^ s_cond ^ ", " ^ s_then ^ ", " ^ s_else ^ ")"
-  | Constr_decl_var (_ty_pred, name, p_body) ->
-     let s_name =
-       match name with | None -> "_" | Some r -> rexp_to_string r
-     in
-     let s_body = target_to_string p_body in
-     "Decl_var (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
-     (* LATER: add a string representation for type constraints *)
-  | Constr_decl_vars (_ty_pred, name, p_body) ->
-     let s_name =
-       match name with | None -> "_" | Some r -> rexp_to_string r
-     in
-     let s_body = target_to_string p_body in
-     "Decl_vars (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
-     (* LATER: add a string representation for type constraints *)
-  | Constr_decl_fun (_ty_pred,name, _tgt_list_pred, p_body, is_def, _opt) ->
-    let s_name =
-       match name with | None -> "_" | Some r -> rexp_to_string r
-     in
-     let spred = _tgt_list_pred.target_list_pred_to_string() in
-     let s_body = target_to_string p_body in
-     let s_is_def = string_of_bool is_def in
-     "Decl_fun (<ty_pred>, " ^ s_name ^ spred ^ s_body ^ s_is_def ^ ")"
-
-  | Constr_decl_type name ->
-     let s_name =
-       match name with | None -> "_" | Some r -> rexp_to_string r
-     in
-     "Decl_type " ^ s_name
-  | Constr_decl_enum (name, c_const) ->
-     let s_name =
-       match name with | None -> "_" | Some r -> rexp_to_string r
-     in
-     let s_const =
-       match c_const with
-       | None -> "_"
-       | Some np_l ->
-          let sl =
-            List.map
-              (fun (n, p) ->
-                let s_n =
-                  match n with | None -> "_" | Some r -> rexp_to_string r
-                in
-                let s_p = target_to_string p in
-                "(" ^ s_n ^ ", " ^ s_p ^ ")"
-              )
-              np_l
-          in
-          list_to_string sl
-     in
-     "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
-  | Constr_seq tgt_list_pred ->
-     let spred = tgt_list_pred.target_list_pred_to_string() in
-     Printf.sprintf "Seq (%s)" spred
-  | Constr_var name ->
-     "Var " ^ (match name with | None -> "_" | Some r -> rexp_to_string r)
-  | Constr_lit _ -> "Lit"
-  | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
-    let spred = tgt_list_pred.target_list_pred_to_string() in
-    let s_fun = target_to_string p_fun in
-    "App (" ^ s_fun ^ ", " ^ spred ^ string_of_bool(accept_encoded) ^ ")"
-  | Constr_label (so, p_body) ->
-     let s_label =
-       match so with | None -> "_" | Some r -> rexp_to_string r
-     in
-     let s_body = target_to_string p_body in
-     "Label (" ^ s_label ^ ", " ^ s_body ^ ")"
-  | Constr_goto so ->
-     let s_label =
-       match so with | None -> "_" | Some r -> rexp_to_string r
-     in
-     "Goto " ^ s_label
-  | Constr_return p_res ->
-      let s_res = target_to_string p_res in
-      "Return " ^ s_res
-  | Constr_abort kind ->
-     let s_kind =
-       match kind with
-       | Any -> "Any"
-       | Return -> "Return"
-       | Break -> "Break"
-       | Continue -> "Continue"
-     in
-     "Abort_" ^ s_kind
-  | Constr_access (p_base, ca, _) ->
-     let s_accesses =
-       match ca with
-       | None -> "_"
-       | Some cal -> list_to_string (List.map access_to_string cal)
-     in
-     let s_base = target_to_string p_base in
-     "Access (" ^ s_accesses ^ ", " ^ s_base ^ ")"
-  | Constr_switch (p_cond, cc) ->
-     let s_cond = target_to_string p_cond in
-     let s_cases =
-       match cc with
-       | None -> "_"
-       | Some cl ->
-          let string_of_kind = function
-            | Case_val p_val -> "Case_val " ^ target_to_string p_val
-            | Case_default -> "Default"
-            | Case_any -> "Any"
-          in
-          let sl =
-            List.map
-              (fun (k, p_body) ->
-                let s_body = target_to_string p_body in
-                "(" ^ string_of_kind k ^ ", " ^ s_body ^ ")"
-              )
-              cl
-          in
-          list_to_string sl
-     in
-     "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
-  | Constr_relative tr -> target_relative_to_string tr
-  | Constr_span (tbegin, tend) -> "Span (" ^ target_to_string tbegin ^ ", " ^ target_to_string tend ^ ")"
-  | Constr_occurrences oc -> target_occurrences_to_string oc
-  | Constr_target cl ->
-    let string_cl = List.map constr_to_string cl in
-    "Target" ^ list_to_string string_cl
-  | Constr_bool b -> if b then "True" else "False"
-  | Constr_root -> "Root"
-  | Constr_prim _ -> "Prim"
-  | Constr_mark (_, str) -> "Mark (" ^ str ^ ")"
-  | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
-  | Constr_and tl -> "And (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
-  | Constr_diff (tl1, tl2) -> "Diff (" ^ Tools.list_to_string (List.map target_to_string tl1) ^ "," ^ Tools.list_to_string (List.map target_to_string tl2) ^ ")"
-  | Constr_arg _ -> "<Constr_args>"
-  | Constr_hastype _ -> "<Constr_hastype>"
-  | Constr_var_init -> "Var_init"
-  | Constr_array_init -> "Array_init "
-  | Constr_struct_init -> "Struct_init"
-  | Constr_omp (_, str) -> "Omp (" ^ str ^ ")"
-  | Constr_namespace cn -> "Namespace (" ^ (match cn with | None -> "_" | Some r -> rexp_to_string r) ^ ")"
-  | Constr_pred _ -> "<Constr_pred>"
-
-
-(* [target_to_string tg]: pretty prints target [tg] *)
-and target_to_string (tg : target) : string =
-  list_to_string (List.map constr_to_string tg)
-
-
-(* [target_struct_to_string tgs]: pretty prints target struct [tgs] *)
-and target_struct_to_string (tgs : target_struct) : string =
-  "TargetStruct(" ^
-    target_relative_to_string tgs.target_relative ^ ", " ^
-    target_occurrences_to_string tgs.target_occurrences ^ ", " ^
-    target_to_string tgs.target_path ^ ", " ^
-    if tgs.target_incontracts then "incontracts" else "notincontracts" ^ ")"
-
-
-(* [target_occurrences_to_string occ]: pretty prints target_occurrences [occ] *)
-and target_occurrences_to_string (occ : target_occurrences) =
-  match occ with
-  | ExpectNb n -> Printf.sprintf "ExpectNb(%d)" n
-  | ExpectMulti -> "ExpectMulti"
-  | ExpectAnyNb -> "ExpectAnyNb"
-  | SelectOcc (ex_opt, il) ->
-    let exact_nb_s = match ex_opt with
-    | None -> "None"
-    | Some i -> "Some " ^ (string_of_int i) in
-    Printf.sprintf "SelectOcc(%s, %s)" exact_nb_s (Tools.list_to_string (List.map (string_of_int) il))
-
-(* [target_relative_to_string rel]: pretty prints the relative target [rel] *)
-and target_relative_to_string (rel : target_relative) =
-  match rel with
-  | TargetAt -> "TargetAt"
-  | TargetFirst -> "TargetFirst"
-  | TargetLast -> "TargetLast"
-  | TargetBetweenAll -> "TargetBetweenAll"
-  | TargetBefore -> "TargetBefore"
-  | TargetAfter -> "TargetAfter"
-
-(* [access_to_string ca]: pretty prints access [ca] *)
-and access_to_string (ca : constr_access) : string =
-  match ca with
-  | Array_access p_index ->
-     let s_index = target_to_string p_index in
-     "Array_access " ^ s_index
-  | Struct_access so ->
-     let s_field =
-       match so with | None -> "_" | Some r -> rexp_to_string r
-     in
-     "Struct_access " ^ s_field
-  | Any_access -> "Any_access"
 
 (* [constr_map f c]: applies [f] recursively on constraint [c] *)
 let constr_map (f : constr -> constr) (c : constr) : constr =
@@ -1435,35 +1194,19 @@ and resolve_target (tg : target) (t : trm) : paths =
   match tg with
   (* shortcut: paths are already resolved *)
   | [Constr_paths ps] -> ps
-  | _ -> Trace.target_resolve_step (resolve_target_internal tg) t (* LATER: could use Trace.add_arg to provide the target as string *)
+  | _ -> Trace.target_resolve_step (fun () ->
+    Trace.step_arg (target_to_string tg);
+    let tgs = target_to_target_struct tg in
+    let res = resolve_target_struct tgs t in
+    (* Patch the path if it is a target_between *)
+    let ps =
+      if tgs.target_relative <> TargetAt then begin
+        let res2 = List.concat_map (fix_target_between tgs.target_relative t) res in
+        res2
+      end else res
+      in
+    ps)
 
-(* LATER optimization: close_target_resolve_step could return the result of its
-    call to add_marks_at_paths, possibly via a reference, in case it is computed.
-
-  [resolve_target_internal ?place_marks tg t]: resolves the target [tg].
-   If -dump-trace is provided, Trace.iter calls this function with [~place_marks:Some ..],
-   so that it can obtain the ast decorated with [marks] and the list of marks
-   used are stored in the reference [place_marks]. This optimization avoids placing
-   marks twice. *)
-and resolve_target_internal (*?(place_marks : mark list ref option)*) (tg : target) (t : trm) : paths =
-  let tgs = target_to_target_struct tg in
-  (* try *)
-  let res = resolve_target_struct tgs t in
-  (* printf "res=\n%s\n" (Path.paths_to_string res); *)
-  (* Patch the path if it is a target_between *)
-  let ps =
-    if tgs.target_relative <> TargetAt then begin
-      let res2 = List.concat_map (fix_target_between tgs.target_relative t) res in
-      (* printf "res2=\n%s\n" (Path.paths_to_string res2); *)
-      res2
-    end else res
-    in
-  ps
-
-    (* FIXME: prevents exception from being caught above
-  with Resolve_target_failure (_loc_opt,str) ->
-      fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
-      *)
   (* LATER FOR THE OPTIMIZATION
       let marks = List.map (fun _ -> Mark.next()) ps in
       (* LATER: could use a system to set all the marks in a single pass over the ast,

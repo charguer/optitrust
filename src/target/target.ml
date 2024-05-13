@@ -234,7 +234,7 @@ let dArg (n : int) : constr =
     [substr] - denotes a flag to decide if we should target strings that contain string [s] as a strict substring
     [trmKind] - denotes the kind of the ast note represented in code by string [s]. *)
 let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
-    { rexp_desc = (if regexp then "Regexp" else "String") ^ "(\"" ^ s ^ "\")";
+    { rexp_desc = if regexp then "/"^ s ^"/" else "\"" ^ s ^ "\"";
       rexp_exp =
         (let pat1 = if regexp then s else Str.quote s in
         let pat2 = if substr then pat1 else ("^" ^ pat1 ^ "$") in

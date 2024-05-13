@@ -722,7 +722,7 @@ let justif_always_correct () : unit =
 
 (** [step_arg] is called by a transformation after open_step in order
    to store the string representations of one argument. *)
-let step_arg ~(name:string) ~(value:string) : unit =
+let step_arg ?(name:string="") (value:string) : unit =
   let step = get_cur_step () in
   let infos = step.step_infos in
   infos.step_args <- (name,value)::infos.step_args
@@ -1196,12 +1196,12 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
 (** [target_resolve_step] has a special handling because it saves a diff
    between an AST and an AST decorated with marks for targeted paths,
    even though the [cur_ast] is not updated with the marks. *)
-let target_resolve_step (f: trm-> Path.path list) (t:trm) : Path.path list =
+let target_resolve_step (f: unit -> Path.path list) : Path.path list =
   ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"Target-resolve" ());
-  let ps = f t in
+  let ps = f () in
   if Flags.is_execution_mode_trace() then begin
-    let marked_ast, _marks = Path.add_marks_at_paths ps t in
     let cur_ast = the_trace.cur_ast in
+    let marked_ast, _marks = Path.add_marks_at_paths ps cur_ast in
     the_trace.cur_ast <- marked_ast;
     close_step();
     the_trace.cur_ast <- cur_ast
@@ -1790,7 +1790,7 @@ let show_step ?(name:string="show") ~(ast_left:trm) ~(style_left:output_style) ~
 let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =
   step ~kind:Step_transfo ~name (fun () ->
     (* printf "> %s\n" name; *)
-    List.iter (fun (k, v) -> step_arg ~name:k ~value:v) args;
+    List.iter (fun (k, v) -> step_arg ~name:k v) args;
     f ();
     (* printf "< %s\n" name; *)
   )
