@@ -7,4 +7,4 @@
   (name 'guix-extra)
   (url "https://gitlab.inria.fr/mfelsoci/guix-extra.git")
   (branch "master")
-  (commit "0db4a2fb39f7140ebdd607f8c4225358e47bf691")))
+  (commit "359a0f122d9ca5845358f60ae4a25a73dc6c978f")))
