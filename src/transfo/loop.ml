@@ -1018,14 +1018,19 @@ let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (
   fold ~index ~start ~step !nb_targets first_target;
   Variable.fold ~nonconst:true [nbAny;cVarDef "" ~body:[cInt !nb_targets]]
 
-(* [isolate_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, then it will
-   split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop. *)
-let%transfo isolate_first_iteration ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
+(* [unroll_first_iterations nb tg]: expects the target [tg] to be pointing at a simple loop;
+   it extracts the sequences associated with the [nb] first iterations before loop.
+   . *)
+let%transfo unroll_first_iterations (nb:int) ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
   Target.iter (fun p ->
-    Loop_basic.split_range ~nb:1 (target_of_path p);
+    Loop_basic.split_range ~nb (target_of_path p);
     unroll ~simpl (target_of_path p)
   ) tg
 
+(* [unroll_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, it
+   extracts the sequence associated with the first iteration before the loop. *)
+let%transfo unroll_first_iteration ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
+  unroll_first_iterations 1 ~simpl tg
 
 (* [unfold_bound tg]: inlines the bound of the targeted loop if that loop is a simple for loop and if that bound
     is a variable and not a complex expression. *)
