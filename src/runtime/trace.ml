@@ -334,6 +334,32 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
 let dummy_exectime : float = 0.
 
 
+
+
+(******************************************************************************)
+(*                                   Tree iterator                            *)
+(******************************************************************************)
+
+(** [iter_step_tree f s] calls the function [f] on every subnode of [s], in DFS order. *)
+let iter_step_tree (f:step_tree->unit) (s:step_tree) : unit =
+  let rec aux (s:step_tree) : unit =
+    f s;
+    List.iter aux s.step_sub
+    in
+  aux s
+
+exception StepFound of step_tree
+
+(** [get_step_with_id id s] finds in the tree [s] the node with identifier [id].
+    Raises [Not_found] otherwise. *)
+let get_step_with_id (id:int) (s:step_tree) : step_tree =
+  try
+    iter_step_tree (fun si ->
+      if si.step_infos.step_id = id then raise (StepFound si)) s;
+    raise Not_found
+  with StepFound si -> si
+
+
 (******************************************************************************)
 (*                                   Checker                                  *)
 (******************************************************************************)
