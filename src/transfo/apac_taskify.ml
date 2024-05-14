@@ -272,7 +272,7 @@ let parallel_task_group
     involved in the data accesses. *)
 let trm_discover_dependencies (locals : symbols)
       (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map * TaskAttr_set.t)  =
-  (** [trm_look_for_dependencies.aux ins inouts attrs filter nested attr t]:
+  (** [trm_look_for_dependencies.aux ins inouts attrs filter nested fc attr t]:
       builds [ins], a stack of input (read-only) data dependencies in [t],
       [inouts], a stack of input-output (read-write) data dependencies in [t],
       [attrs], a set stack of dependency-dependency attribute pairs indicating
@@ -288,12 +288,15 @@ let trm_discover_dependencies (locals : symbols)
       it simply continues to explore the AST. This happens, for example, in the
       case of a nested get operation such as [***ptr].
 
+      When [fc] is [true], it means that [t] is part of a function call.
+
       Finally, [attr] allows for passing access attributes between recursive
       calls to [aux], e.g. in the case of nested data accesses (see the
       [access_attr] type for more details). *)
   let rec aux (ins : dep Stack.t) (inouts : dep Stack.t)
             (attrs : (dep * DepAttr_set.t) Stack.t) (filter : Var_set.t)
-            (nested : bool) (attr : DepAttr.t) (t : trm) : bool * bool =
+            (nested : bool) (fc : bool) (attr : DepAttr.t)
+            (t : trm) : bool * bool =
     let error = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
                                 '%s' is not a valid OpenMP depends expression"
                   (AstC_to_c.ast_to_string t) in
@@ -331,22 +334,36 @@ let trm_discover_dependencies (locals : symbols)
        else (true, true)
     (* - get operations ([*t'], [**t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
-       aux ins inouts attrs filter false attr t'
+       aux ins inouts attrs filter false fc attr t'
     (* - address operations ([&t'], ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
-       aux ins inouts attrs filter false attr t'
+       aux ins inouts attrs filter false false attr t'
     (* - array accesses ([t'[i]], [t' -> [i]]), *)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _)
       | Trm_apps ({desc = Trm_val
                             (Val_prim (Prim_binop Binop_array_get)); _}, _) ->
        let (base, accesses) = get_nested_accesses t in
+       let cd = List.length accesses in
        let exists =
          begin
            match (trm_resolve_pointer_and_degree base) with
            | Some (v, _) when not (Var_set.mem v filter) ->
-              let e = Var_Hashtbl.mem locals v in
-              let d = Dep_trm (t, v) in
+              let (td, e) = Var_Hashtbl.find_or_default locals v 0 in
+              let d = if fc && (cd < td) then
+                        let rec process = fun t v dg ->
+                          let t' = match (Dep.of_trm t v dg) with
+                            | Dep_trm (vt, _) -> vt
+                            | _ -> t
+                          in
+                          let dg' = dg - 1 in
+                          if dg' > 0 then process t' v dg' else t'
+                        in
+                        let t' = process t v (td - cd) in
+                        Dep_trm (t', v)
+                      else                      
+                        Dep_trm (t, v)
+              in
               Stack.push (d, (DepAttr_set.singleton Subscripted)) attrs;
               begin
                 match attr with
@@ -366,14 +383,14 @@ let trm_discover_dependencies (locals : symbols)
            | Array_access_get t''
              | Array_access_addr t'' ->
               let (e', f') =
-                (aux ins inouts attrs filter false Accessor t'') in
+                (aux ins inouts attrs filter false false Accessor t'') in
               (e && e', f || f')
            | _ -> (e, f)
          ) (exists, false) accesses
     (* - unary increment and decrement operations ([t'++], [--t'], ...), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
-       aux ins inouts attrs filter false ArgInOut t'
+       aux ins inouts attrs filter false fc ArgInOut t'
     (* - function calls ([f(args)], ...). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        if Var_Hashtbl.mem const_records v then
@@ -386,7 +403,8 @@ let trm_discover_dependencies (locals : symbols)
                  let const = Int_map.find pos const_record.const_args in
                  let aa : DepAttr.t =
                    if const.is_const then ArgIn else ArgInOut in
-                 let (exists', _) = aux ins inouts attrs filter false aa arg in
+                 let (exists', _) =
+                   aux ins inouts attrs filter false true aa arg in
                  exists := !exists && exists'
                end
              else
@@ -406,7 +424,7 @@ let trm_discover_dependencies (locals : symbols)
        else
          begin
            List.iter (fun arg ->
-               let _ = aux ins inouts attrs filter false ArgInOut arg in ()
+               let _ = aux ins inouts attrs filter false true ArgInOut arg in ()
              ) args;
            (false, true)
          end
@@ -420,8 +438,10 @@ let trm_discover_dependencies (locals : symbols)
          | Some (lv, _) ->
             let d = Dep_trm (lval, lv.v) in
             Stack.push d inouts;
-            let (le, lf) = aux ins inouts attrs filter false ArgInOut lval in
-            let (re, rf) = aux ins inouts attrs filter false ArgIn rval in
+            let (le, lf) =
+              aux ins inouts attrs filter false false ArgInOut lval in
+            let (re, rf) =
+              aux ins inouts attrs filter false false ArgIn rval in
             (le && re, lf || rf)
          | None -> fail t.loc error
        end
@@ -431,7 +451,7 @@ let trm_discover_dependencies (locals : symbols)
        let d = Dep.of_trm (trm_var ~kind:vk v) v degree in
        Stack.push d inouts;
        Var_Hashtbl.add locals v degree;
-       aux ins inouts attrs filter false ArgIn init
+       aux ins inouts attrs filter false false ArgIn init
     | Trm_let_mult (vk, tvs, inits) ->
        let (vs, _) = List.split tvs in
        let filter = Var_set.of_list vs in
@@ -442,7 +462,7 @@ let trm_discover_dependencies (locals : symbols)
            Stack.push d inouts;
            Var_Hashtbl.add locals v degree;
            let (exists', isfun') =
-             aux ins inouts attrs filter false ArgIn init in
+             aux ins inouts attrs filter false false ArgIn init in
            (exists && exists', isfun || isfun')
          ) (true, false) tvs inits
     (* In the case of any other term, we explore the child terms. *)
@@ -450,7 +470,8 @@ let trm_discover_dependencies (locals : symbols)
        let exists = ref true in
        let isfun = ref false in
        trm_iter (fun t' ->
-           let (exists', isfun') = aux ins inouts attrs filter false attr t' in
+           let (exists', isfun') =
+             aux ins inouts attrs filter false false attr t' in
            exists := !exists && exists';
            isfun := !isfun || isfun'
          ) t;
@@ -463,7 +484,8 @@ let trm_discover_dependencies (locals : symbols)
   let inouts : dep Stack.t = Stack.create () in
   let attrs : (dep * DepAttr_set.t) Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
-  let (exists, isfun) = aux ins inouts attrs (Var_set.empty) false ArgIn t in
+  let (exists, isfun) =
+    aux ins inouts attrs (Var_set.empty) false false ArgIn t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
   let ins' = Dep_set.of_stack ins in
   let inouts' = Dep_set.of_stack inouts in
