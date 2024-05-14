@@ -3,6 +3,7 @@
 
 open Prelude
 open Target
+open Loop_core
 include Loop_basic
 include Loop_swap
 

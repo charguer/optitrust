@@ -26,6 +26,14 @@ let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
 let color (nb_colors : trm) (i_color : string option ) : Transfo.local =
     apply_on_path (color_aux nb_colors  i_color)
 
+(* [tile_bound]: used for loop tiling transformation *)
+type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
+
+let tile_bound_to_string = function
+  | TileBoundMin -> "TileBoundMin"
+  | TileBoundAnd -> "TileBoundAnd"
+  | TileDivides -> "TileDivides"
+
 let ghost_tile_divides = toplevel_var "tile_divides"
 let ghost_untile_divides = toplevel_var "untile_divides"
 

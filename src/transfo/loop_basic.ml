@@ -1,6 +1,7 @@
 open Prelude
 open Target
 open Matrix_trm
+open Loop_core
 
 (* [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,
    let's say [for (int i = start; i < stop; i += step) { body } ].

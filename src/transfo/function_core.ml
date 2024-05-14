@@ -159,6 +159,11 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
 let uninline (fct_decl : trm) : Transfo.local =
   apply_on_path (uninline_aux fct_decl)
 
+(* [trm_var_assoc_list to_map al]: creates a map from an association list wher keys are variables and values are trms *)
+let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =
+  let tm = Var_map.empty in
+  List.fold_left (fun acc (k, v) -> Var_map.add k v acc) tm al
+
 (* [rename_args_aux vl t]: renames arguments of function [t] and replace all the occurrences of its
     arguments of the args inside its body with the new names provided as arguments,
       [vl] - new arguments, can be [dummy_var] to avoid renaming.

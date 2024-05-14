@@ -678,7 +678,35 @@ let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
 
+(* MIGHT DISAPPEAR? *)
+(* [trm_access]: concrete accesses in a trm *)
+type trm_access =
+  | Array_access_get of trm (* operator -> [i] *)
+  | Array_access_addr of trm (* operator [i] *)
+  | Struct_access_get of field (* operator->f *)
+  | Struct_access_addr of field (* operator.f *)
 
+(* [get_nested_accesses t]: for a given trm [t], if it's an access trm return the list of accesses,
+    the list starts with the base, and ends with the last access *)
+let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _},
+              [t'], _) ->
+     let (base, al) = get_nested_accesses t' in
+     (base, Struct_access_addr f :: al)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _},
+              [t'], _) ->
+     let (base, al) = get_nested_accesses t' in
+     (base, Struct_access_get f :: al)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
+              [t'; i], _) ->
+     let (base, al) = get_nested_accesses t' in
+     (base, Array_access_addr i :: al)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
+              [t'; i], _) ->
+     let (base, al) = get_nested_accesses t' in
+     (base, Array_access_get i :: al)
+  | _ -> (t, [])
 
 
 (* [extract_last_path_item p]: extracts the last direction from a nonempty path *)

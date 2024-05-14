@@ -157,6 +157,33 @@ let parse ~(parser: parser) (filename : string) : string * trm =
 
 let debug_light_diff = ref false
 
+(* [top_level_fun_bindings t]: returns a map with keys the names of toplevel function names and values being their bodies *)
+let top_level_fun_bindings (t : trm) : tmap =
+  let tmap = ref Var_map.empty in
+    let aux (t : trm) : unit =
+      match t.desc with
+      | Trm_seq tl ->
+        Mlist.iter (fun t1 ->
+          match t1.desc with
+          | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
+          | _ -> ()
+        ) tl
+      | _ -> failwith "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
+   in
+  aux t;
+  !tmap
+
+(* [get_common_top_fun tm1 tm2]: takes two maps, binding function names to terms describing the function bodies,
+    and returns the list of function names that are bound to the same terms in the two maps. *)
+let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
+  let common = ref [] in
+  Var_map.iter (fun f1 b1 ->
+    match Var_map.find_opt f1 tm2 with
+    | Some b2 when b1 == b2 -> common := f1 :: !common
+    | _ -> ()
+  ) tm1;
+  !common
+
 (** [light_diff astBefore astAfter]: find all the functions that have not change after
     applying a transformation and hides their body for a more robust view diff. *)
 let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =

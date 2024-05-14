@@ -2,6 +2,7 @@ open Prelude
 open Target
 
 
+
 (* [set_explicit_aux t]: transforms an assigment into a list of field assignments,
      [t] - ast of the assignment. *)
 let set_explicit_aux (t : trm) : trm =
@@ -121,6 +122,19 @@ let set_implicit_aux (t: trm) : trm =
 (* [set_implicit keep_label t p]: applies [set_implicit_aux] at trm [t] with path [p]. *)
 let set_implicit (keep_label : bool) : Transfo.local =
   apply_on_path (set_implicit_aux)
+
+(* [contains_field_access f t]: checks if [t] contains an access on field [f] *)
+let contains_field_access (f : field) (t : trm) : bool =
+  let rec aux (t : trm) : bool =
+   match t.desc with
+   | Trm_apps (f', tl, _) ->
+      begin match f'.desc with
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_access f1))) -> f = f1
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_get f1))) -> f = f1
+      | _ -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
+      end
+   | _ -> false
+  in aux t
 
 (* [inline_struct_accesses x t]: changes all the occurrences of the struct accesses to a field into a field,
       [x] - the name of the field for which the transformation is applied,
@@ -275,6 +289,11 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
 let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
   apply_on_path (reveal_field_aux field_to_reveal index)
 
+(* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
+type fields_order =
+  | Move_before of (field * field list)
+  | Move_after of (field * field list)
+  | Reorder_all of field list
 
 (* [compute_bijection order fl]: based on the [order] given, computes the bijection
     of the indices after applying that order. *)

@@ -249,6 +249,16 @@ type code_kind =
   | Comment of string (* "// txt", or "/*txt*/" *)
 [@@deriving show]
 
+(* [code_to_str]: extracts the code from the trms that contain the arbitrary code. *)
+let code_to_str (code : code_kind) : string =
+  match code with
+  | Lit l -> l
+  | Atyp ty -> ty
+  | Expr e -> e
+  | Stmt s -> s
+  | Instr s -> s
+  | Comment s -> s
+
 (*****************************************************************************)
 (* [typ_desc]: type description *)
 type typ_desc =
@@ -909,6 +919,7 @@ and clause =
   | Link of vars
   | Num_teams of var
   | Thread_limit of var
+
 (* [atomic_operation]: atomic operations for atomic OpenMP directives *)
 and atomic_operation =
   | Read
@@ -1051,28 +1062,7 @@ let resource_usage_opt_to_string = function
 | Some JoinedFrac -> "JoinedFrac"
 | Some Produced -> "Produced"
 
-(* **************************** Rewrite rules ****************************** *)
-(* [pat]: patterns *)
-type pat = trm
-
-(* [rewrite_rule]: a type for defining rewrite rules *)
-type rewrite_rule = {
-  rule_vars : typed_vars;
-  rule_aux_vars : typed_vars;
-  rule_from : pat;
-  rule_to : pat }
-
-(* basic rewrite rules *)
-type base = rewrite_rule list
-
-(* trm map used for rewrite rules and pattern matching *)
 type tmap = trm Var_map.t
-
-(* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
-type fields_order =
-  | Move_before of (field * field list)
-  | Move_after of (field * field list)
-  | Reorder_all of field list
 
 (* ************************* Resource constructors ************************* *)
 
@@ -1183,108 +1173,6 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
 
 (* ********************************************************************************************** *)
 
-(* MIGHT DISAPPEAR? *)
-(* [trm_access]: concrete accesses in a trm *)
-type trm_access =
-  | Array_access_get of trm (* operator -> [i] *)
-  | Array_access_addr of trm (* operator [i] *)
-  | Struct_access_get of field (* operator->f *)
-  | Struct_access_addr of field (* operator.f *)
-
-(* [get_nested_accesses t]: for a given trm [t], if it's an access trm return the list of accesses,
-    the list starts with the base, and ends with the last access *)
-let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _},
-              [t'], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Struct_access_addr f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _},
-              [t'], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Struct_access_get f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
-              [t'; i], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Array_access_addr i :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
-              [t'; i], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Array_access_get i :: al)
-  | _ -> (t, [])
-
-
-(* ********************************************************************************************** *)
-
-(* [contains_decl x t]: checks if t constains a sub-trm that is a redeclaration of a variable x *)
-let contains_decl (x : var) (t : trm) : bool =
-  let rec aux (t : trm) : bool =
-    match t.desc with
-    | Trm_let ((y, _), _) when y = x -> true
-    | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
-    | Trm_for (l_range, body, _) ->
-        l_range.index = x || aux body
-    | Trm_let_fun (_, _, _, body, _) -> aux body
-    | Trm_for_c (init, _, _, body, _) -> aux init || aux body
-    | _ -> false
-  in aux t
-
-(* [contains_field_access f t]: checks if [t] contains an access on field [f] *)
-let contains_field_access (f : field) (t : trm) : bool =
-  let rec aux (t : trm) : bool =
-   match t.desc with
-   | Trm_apps (f', tl, _) ->
-      begin match f'.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access f1))) -> f = f1
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_get f1))) -> f = f1
-      | _ -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
-      end
-   | _ -> false
-  in aux t
-
-(* ********************************************************************************************** *)
-
-(* [typ_kind]: initialization type kind *)
-type typ_kind =
-  | Typ_kind_undefined
-  | Typ_kind_reference
-  | Typ_kind_array
-  | Typ_kind_sum
-  | Typ_kind_record
-  | Typ_kind_basic of typ_desc
-  | Typ_kind_fun
-  | Typ_kind_var
-
-(* [typ_kind_to_string tpk]: converts a type kind to a string *)
-let typ_kind_to_string (tpk : typ_kind) : string =
-  begin match tpk with
-  | Typ_kind_undefined -> "undefined"
-  | Typ_kind_reference -> "reference"
-  | Typ_kind_array -> "array"
-  | Typ_kind_sum -> "sum"
-  | Typ_kind_record -> "prod"
-  | Typ_kind_basic _ -> "basic"
-  | Typ_kind_fun -> "fun"
-  | Typ_kind_var -> "var"
-  end
-
-(* LATER: move *)
-(* [tile_bound]: used for loop tiling transformation *)
-type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
-
-let tile_bound_to_string = function
-  | TileBoundMin -> "TileBoundMin"
-  | TileBoundAnd -> "TileBoundAnd"
-  | TileDivides -> "TileDivides"
-
-
-(*****************************************************************************)
-
-(* TODO: move *)
-(* [rename]: variable renaming based on the suffix or by using a predefined list of pairs, where each pair gives the
-    current variable and the one that is going to replace it *)
-type rename = | Suffix of string | Rename_list of (var * var) list
-
 (* TODO: move *)
 (* TODO: rename to monoid *)
 (* [local_ops]: type used for the local_name transformation. *)
@@ -1298,57 +1186,6 @@ type local_ops =
 
 
 (*****************************************************************************)
-
-
-(* [code_to_str]: extracts the code from the trms that contain the arbitrary code. *)
-let code_to_str (code : code_kind) : string =
-  match code with
-  | Lit l -> l
-  | Atyp ty -> ty
-  | Expr e -> e
-  | Stmt s -> s
-  | Instr s -> s
-  | Comment s -> s
-
-(*****************************************************************************)
-
-(* [top_level_fun_bindings t]: returns a map with keys the names of toplevel function names and values being their bodies *)
-let top_level_fun_bindings (t : trm) : tmap =
-  let tmap = ref Var_map.empty in
-    let aux (t : trm) : unit =
-      match t.desc with
-      | Trm_seq tl ->
-        Mlist.iter (fun t1 ->
-          match t1.desc with
-          | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
-          | _ -> ()
-        ) tl
-      | _ -> failwith "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
-   in
-  aux t;
-  !tmap
-
-(* [get_common_top_fun tm1 tm2]: takes two maps, binding function names to terms describing the function bodies,
-    and returns the list of function names that are bound to the same terms in the two maps. *)
-let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
-  let common = ref [] in
-  Var_map.iter (fun f1 b1 ->
-    match Var_map.find_opt f1 tm2 with
-    | Some b2 when b1 == b2 -> common := f1 :: !common
-    | _ -> ()
-  ) tm1;
-  !common
-
-
-(*****************************************************************************)
-
-(* [trm_var_assoc_list to_map al]: creates a map from an association list wher keys are variables and values are trms *)
-let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =
-  let tm = Var_map.empty in
-  List.fold_left (fun acc (k, v) -> Var_map.add k v acc) tm al
-
-(*****************************************************************************)
-
 
 (* [typedef_get_members ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
      then only members with the specified access_control are returned. *)
@@ -1443,11 +1280,12 @@ let default_style () : style = {
 }
 
 (** Style for reparsing *)
-let style_for_reparse () : style =
-  { print_contract_internal_repr = true;
-    print_var_id = false;
-    print_generated_ids = false;
-    print_string_repr = false;
-    print_mark = false;
-    print_annot = false;
-    print_errors = false; }
+let style_for_reparse () : style = {
+  print_contract_internal_repr = true;
+  print_var_id = false;
+  print_generated_ids = false;
+  print_string_repr = false;
+  print_mark = false;
+  print_annot = false;
+  print_errors = false;
+}

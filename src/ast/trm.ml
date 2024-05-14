@@ -2430,19 +2430,6 @@ let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : tr
 
 
 (*****************************************************************************)
-(* [build_nested_accesses base access_list]: from a list of accesses build the original trm *)
-let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
-  List.fold_left (fun acc access ->
-    match access with
-    | Struct_access_addr f ->
-      trm_apps (trm_unop (Unop_struct_access f)) [acc]
-    | Struct_access_get f ->
-      trm_apps (trm_unop (Unop_struct_get f)) [acc]
-    | Array_access_addr i ->
-      trm_apps (trm_binop (Binop_array_access)) [acc;i]
-    | Array_access_get i ->
-      trm_apps (trm_binop (Binop_array_get)) [acc;i]
-  ) base access_list
 
 let trm_def_or_used_vars (t : trm) : Var_set.t =
   let vars = ref Var_set.empty in

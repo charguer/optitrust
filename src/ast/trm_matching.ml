@@ -92,6 +92,12 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
       end
   | _ -> trm_fail main_fun "Trm_matching.parse_pattern: the pattern was not entered correctly"
 
+(* [rewrite_rule]: a type for defining rewrite rules *)
+type rewrite_rule = {
+  rule_vars : typed_vars;
+  rule_aux_vars : typed_vars;
+  rule_from : trm;
+  rule_to : trm}
 
 (* [parse_rule pattern]: returns a rewrite rule derived from [pattern](see [parse_pattern] ) which is a record containing
     the the list of  variables used in that rule,  the rule itself and the result after applying that rule. *)
