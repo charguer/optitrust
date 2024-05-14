@@ -121,8 +121,8 @@ let emit_omp_task (t : Task.t) : trms =
         if (Task.attributed t WaitForSome) then
           (Dep_set.empty,
            Dep_set.filter (fun d ->
-               (Dep_map.has_with_attribute d Condition t.ioattrs) ||
-                 (Dep_map.has_with_attribute d InductionVariable t.ioattrs)
+               (Dep_map.has_with_attribute d Condition t.ioattrs) &&
+                 not (Dep_map.has_with_attribute d InductionVariable t.ioattrs)
              ) t.ins)
         else
           Dep_set.partition (fun d ->
