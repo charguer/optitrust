@@ -329,7 +329,8 @@ function loadDiffForStep(step) {
   var diffString = "";
   if (step.diff == undefined) {
     // console.log("Diff was not computed for this step");
-    $("#debugMsgDiv").html("Diff was not saved for this step; to see it, request the trace of a specific step or set the flag detailed_trace");
+    $("#debugMsgDiv").html("Diff was not saved for this step; to see it, request the trace of step " + step.id);
+    // + " or set the flag detailed_trace"
   } else if (step.diff == "") {
     $("#debugMsgDiv").html("Diff is empty");
   } else {

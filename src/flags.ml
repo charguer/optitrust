@@ -80,6 +80,9 @@ let reparse_at_big_steps : bool ref = ref false
 (* [report_big_steps]: flag to report on the progress of big steps during a script execution. *)
 let report_big_steps : bool ref = ref false
 
+(* [use_clang_cursor]: flag to control whether in include clang cursor information in the AST, this information may be useful for resolving overloading *)
+let use_clang_cursor : bool ref = ref false
+
 (* [use_clang_format]: flag to use clang-format or not in output CPP files. *)
 let use_clang_format : bool ref = ref true
 
@@ -153,13 +156,21 @@ type execution_mode =
 
 let execution_mode : execution_mode ref = ref Execution_mode_exec
 
+(* Option to serialize the ML trace object in addition to dumping its JS respresentation;
+   Currently only set when the requested mode in [full-trace] *)
+let serialize_trace : bool ref = ref false
+
 let process_mode (mode : string) : unit =
-  execution_mode := match mode with
-  | "step-diff" -> Execution_mode_step_diff
-  | "step-trace" -> Execution_mode_step_trace
-  | "full-trace" -> Execution_mode_full_trace
-  | "exec" -> Execution_mode_exec
-  | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
+  execution_mode :=
+    begin match mode with
+    | "step-diff" -> Execution_mode_step_diff
+    | "step-trace" -> Execution_mode_step_trace
+    | "full-trace" -> Execution_mode_full_trace
+    | "exec" -> Execution_mode_exec
+    | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
+    end;
+  if !execution_mode = Execution_mode_full_trace
+    then serialize_trace := true
 
 (* Options to report execution time information about script and trace generation *)
 let report_exectime : bool ref = ref false
@@ -231,7 +242,7 @@ let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
      ("-trace-as-text", Arg.Set trace_as_text, " additionnaly generate a plain text trace in 'foo_trace.txt' ");
-     ("-trace-for-webview", Arg.Set trace_for_webview, " generate a trace with the appropriate features for export to a website ");
+     ("-trace-for-webview", Arg.Set trace_for_webview, " generate a trace with the appropriate features for export to a standalone website ");
      ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");

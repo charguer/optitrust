@@ -116,7 +116,7 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
   if (not serialize || not !Flags.dont_serialize)
      && existing_ser_contents_opt = None then begin
     try
-      let clean_ast = Trm.prepare_for_serialize ast in
+      let clean_ast = Trm.prepare_for_serialize ~remove_ctx:true ast in
       let out_file = open_out_bin ser_filename in
       Marshal.to_channel out_file deps [];
       Marshal.to_channel out_file (header, clean_ast) [];

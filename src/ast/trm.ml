@@ -109,6 +109,13 @@ let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : tr
 let trm_add_cstyle (cs : cstyle_annot) (t : trm) : trm =
   apply_on_cstyles (fun cstyles -> cs :: cstyles) t
 
+(* [trm_add_cstyle_clang_cursor cursor t] adds a clang cursor information as a style on [t],
+   but only if the flag for using clang cursor is activated *)
+let trm_add_cstyle_clang_cursor (cursor : Clang.cxcursor) (t : trm) : trm =
+  if !Flags.use_clang_cursor
+    then trm_add_cstyle (Clang_cursor cursor) t
+    else t
+
 (* [trm_filter_cstyle pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
 let trm_filter_cstyle (pred : cstyle_annot -> bool) (t : trm) : trm =
   apply_on_cstyles (fun cstyles -> List.filter (fun cs -> pred cs) cstyles) t
@@ -2168,12 +2175,17 @@ let trm_erase_var_ids (t : trm) : trm =
   in
   aux t
 
-(* [prepare_for_serialize t] should be called before serializing an ast. *)
-let prepare_for_serialize (t:trm) : trm =
-  let rec aux t =
-    trm_map aux (drop_clang_cursor { t with ctx = unknown_ctx() } )
-    in
-  aux t
+(* [prepare_for_serialize ?remove_ctx t] should be called before serializing an ast.
+   This function is a no-op if [remove_ctx=false] and the flag [use_clang_cursor] is not set. *)
+let prepare_for_serialize ?(remove_ctx : bool = false) (t:trm) : trm =
+  if not remove_ctx && not !Flags.use_clang_cursor then t else
+  begin
+    let rec aux t =
+      let t = if remove_ctx then { t with ctx = unknown_ctx() } else t in
+      trm_map aux (drop_clang_cursor t)
+      in
+    aux t
+  end
 
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let trm_copy (t : trm) : trm =
