@@ -499,36 +499,36 @@ let trm_discover_dependencies (locals : symbols)
 
 (* [taskify_on p t]: see [taskify]. *)
 let taskify_on (p : path) (t : trm) : unit =
- (* let rec join (tasks : Task.t list) : Task.t list =
-    match tasks with
-    | a :: b :: r ->
-       let ifa = Task.attributed a WaitForAll in
-       let ifb = Task.attributed b WaitForAll || Task.attributed b ExitPoint in
-       if ifa && ifb then
-         let t = Task.merge a b in
-         t.attrs <- TaskAttr_set.add Singleton t.attrs;
-         join (t :: r)
-       else a :: (join (b :: r))
-    | _ -> tasks
-  in *)
- (* let rec sanitize (tasks : Task.t list) : Task.t list =
-    match tasks with
-    | a :: b :: r ->
-       let ifa = not (Task.attributed a WaitForAll) in
-       let ifb = Task.attributed b WaitForAll in
-       if ifa && ifb then
-         let b' : Task.t = {
-             current = b.current;
-             attrs = b.attrs;
-             ins = Dep_set.union a.ins b.ins;
-             inouts = Dep_set.union a.inouts b.inouts;
-             ioattrs = Dep_map.union2 a.ioattrs b.ioattrs;
-             children = b.children;
-           } in
-         a :: (sanitize (b' :: r))
-       else a :: (sanitize (b :: r))
-    | _ -> tasks
-  in*)
+  (* let rec join (tasks : Task.t list) : Task.t list =
+     match tasks with
+     | a :: b :: r ->
+     let ifa = Task.attributed a WaitForAll in
+     let ifb = Task.attributed b WaitForAll || Task.attributed b ExitPoint in
+     if ifa && ifb then
+     let t = Task.merge a b in
+     t.attrs <- TaskAttr_set.add Singleton t.attrs;
+     join (t :: r)
+     else a :: (join (b :: r))
+     | _ -> tasks
+     in *)
+  (* let rec sanitize (tasks : Task.t list) : Task.t list =
+     match tasks with
+     | a :: b :: r ->
+     let ifa = not (Task.attributed a WaitForAll) in
+     let ifb = Task.attributed b WaitForAll in
+     if ifa && ifb then
+     let b' : Task.t = {
+     current = b.current;
+     attrs = b.attrs;
+     ins = Dep_set.union a.ins b.ins;
+     inouts = Dep_set.union a.inouts b.inouts;
+     ioattrs = Dep_map.union2 a.ioattrs b.ioattrs;
+     children = b.children;
+     } in
+     a :: (sanitize (b' :: r))
+     else a :: (sanitize (b :: r))
+     | _ -> tasks
+     in*)
   (* Auxiliary function to transform a portion of the existing AST into a local
      fill_task_graphed AST (see [atrm]). *)
   let rec fill (s : symbols) (t : trm) (g : TaskGraph.t) : Task.t =
@@ -556,24 +556,24 @@ let taskify_on (p : path) (t : trm) : unit =
                      if Task.attributed jump IsJump then
                        jump.attrs <- TaskAttr_set.add WaitForAll jump.attrs;
                      tasks @ [jump]
-                   else tasks
+                     else tasks
        in
        (*   let tasks = join tasks in *)
        let has_jump = List.exists (fun e -> Task.attributed e HasJump) tasks in
        let attrs = if has_jump then TaskAttr_set.singleton HasJump
                    else TaskAttr_set.empty in
-    (*   let wait_only = has_other_than_jumps && List.for_all (fun e ->
-                           (Task.attributed e WaitForAll) ||
-                               (Task.attributed e WaitForNone)) tasks in
-       if wait_only then
-         List.iter (fun (e : Task.t) ->
-             e.attrs <- TaskAttr_set.remove WaitForSome e.attrs;
-             e.attrs <- TaskAttr_set.remove WaitForAll e.attrs;
-             e.attrs <- TaskAttr_set.add WaitForNone e.attrs
-           ) tasks;
-       let attrs = if wait_only then
-                     TaskAttr_set.add WaitForNone attrs
-                   else attrs in *)
+       (*   let wait_only = has_other_than_jumps && List.for_all (fun e ->
+            (Task.attributed e WaitForAll) ||
+            (Task.attributed e WaitForNone)) tasks in
+            if wait_only then
+            List.iter (fun (e : Task.t) ->
+            e.attrs <- TaskAttr_set.remove WaitForSome e.attrs;
+            e.attrs <- TaskAttr_set.remove WaitForAll e.attrs;
+            e.attrs <- TaskAttr_set.add WaitForNone e.attrs
+            ) tasks;
+            let attrs = if wait_only then
+            TaskAttr_set.add WaitForNone attrs
+            else attrs in *)
        let this = Task.create t attrs scope ins inouts ioattrs [] in
        let this' = TaskGraph.V.create this in
        let _ = TaskGraph.add_vertex g this' in
@@ -641,9 +641,9 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the for-loop. *)
        let ioattrs' = Dep_map.bind_set ins'
-                       (DepAttr_set.singleton Condition) ioattrs' in
+                        (DepAttr_set.singleton Condition) ioattrs' in
        let ioattrs' = Dep_map.bind_set inouts'
-                       (DepAttr_set.singleton Condition) ioattrs' in
+                        (DepAttr_set.singleton Condition) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
        let (ins, inouts, ioattrs, tas) =
          (Dep_set.union ins ins',
@@ -656,9 +656,9 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Add the [InductionVariable] attribute to the input and input-output
           dependencies discovered in the increment term of the for-loop. *)
        let ioattrs' = Dep_map.bind_set ins'
-                       (DepAttr_set.singleton InductionVariable) ioattrs' in
+                        (DepAttr_set.singleton InductionVariable) ioattrs' in
        let ioattrs' = Dep_map.bind_set inouts'
-                       (DepAttr_set.singleton InductionVariable) ioattrs' in
+                        (DepAttr_set.singleton InductionVariable) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
        let (ins, inouts, ioattrs, tas) =
          (Dep_set.union ins ins',
@@ -679,10 +679,11 @@ let taskify_on (p : path) (t : trm) : unit =
          (DepAttr_set.singleton InductionVariable) ins' c;
        TaskGraphOper.propagate_dependency_attribute
          (DepAttr_set.singleton InductionVariable) inouts' c;
-       (** The [Condition] and the [Accessor] dependency attributes are not
-           valid outside of their initial scope. *)
+       (** The [Condition], the [Accessor] and the [Subscripted] dependency
+           attributes are not valid outside of their initial scope. *)
        ct.ioattrs <- Dep_map.remove_attribute Condition ct.ioattrs;
        ct.ioattrs <- Dep_map.remove_attribute Accessor ct.ioattrs;
+       ct.ioattrs <- Dep_map.remove_attribute Subscripted ct.ioattrs;
        (* Include the dependencies from the body sequence into the sets of
           dependencies of the current [for] graph node, i.e. [ins] and [inouts],
           by the means of a union operation. *)
@@ -693,8 +694,8 @@ let taskify_on (p : path) (t : trm) : unit =
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
        let tas = if (Task.attributed ct HasJump) then
-                     TaskAttr_set.add HasJump tas
-                   else tas in
+                   TaskAttr_set.add HasJump tas
+                 else tas in
        (* A for-loop node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -722,9 +723,9 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the for-loop. *)
        let ioattrs' = Dep_map.bind_set ins'
-                       (DepAttr_set.singleton Condition) ioattrs' in
+                        (DepAttr_set.singleton Condition) ioattrs' in
        let ioattrs' = Dep_map.bind_set inouts'
-                       (DepAttr_set.singleton Condition) ioattrs' in
+                        (DepAttr_set.singleton Condition) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
        let (ins, inouts, ioattrs, tas) =
          (Dep_set.union ins ins',
@@ -746,9 +747,9 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Add the [InductionVariable] attribute to the input and input-output
           dependencies discovered in the increment term of the for-loop. *)
        let ioattrs' = Dep_map.bind_set ins'
-                       (DepAttr_set.singleton InductionVariable) ioattrs' in
+                        (DepAttr_set.singleton InductionVariable) ioattrs' in
        let ioattrs' = Dep_map.bind_set inouts'
-                       (DepAttr_set.singleton InductionVariable) ioattrs' in
+                        (DepAttr_set.singleton InductionVariable) ioattrs' in
        (* Gather the discovered dependencies, if any. *)
        let (ins, inouts, ioattrs, tas) =
          (Dep_set.union ins ins',
@@ -769,10 +770,11 @@ let taskify_on (p : path) (t : trm) : unit =
          (DepAttr_set.singleton InductionVariable) ins' c;
        TaskGraphOper.propagate_dependency_attribute
          (DepAttr_set.singleton InductionVariable) inouts' c;
-       (** The [Condition] and the [Accessor] dependency attributes are not
-           valid outside of their initial scope. *)
+       (** The [Condition], the [Accessor] and the [Subscripted] dependency
+           attributes are not valid outside of their initial scope. *)
        ct.ioattrs <- Dep_map.remove_attribute Condition ct.ioattrs;
        ct.ioattrs <- Dep_map.remove_attribute Accessor ct.ioattrs;
+       ct.ioattrs <- Dep_map.remove_attribute Subscripted ct.ioattrs;
        (* Include the dependencies from the body sequence into the sets of
           dependencies of the current [for] graph node, i.e. [ins] and [inouts],
           by the means of a union operation. *)
@@ -783,8 +785,8 @@ let taskify_on (p : path) (t : trm) : unit =
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
        let tas = if (Task.attributed ct HasJump) then
-                     TaskAttr_set.add HasJump tas
-                   else tas in
+                   TaskAttr_set.add HasJump tas
+                 else tas in
        (* A for-loop node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -813,15 +815,15 @@ let taskify_on (p : path) (t : trm) : unit =
           dependency set of the declaration is empty and the in-out dependency
           set contains other variables than those being declared. *)
        let others = Dep_set.filter (
-                      fun d -> match d with
-                               | Dep_var v -> not (Var_set.mem v nv)
-                               | Dep_trm (_, v) -> not (Var_set.mem v nv)
-                               | _ -> true
-                    ) inouts in
+                        fun d -> match d with
+                                 | Dep_var v -> not (Var_set.mem v nv)
+                                 | Dep_trm (_, v) -> not (Var_set.mem v nv)
+                                 | _ -> true
+                      ) inouts in
        let tas = if ((Dep_set.cardinal ins > 0) ||
-                         (Dep_set.cardinal others > 0)) &&
-                        (not (TaskAttr_set.mem WaitForAll tas)) then
-                     TaskAttr_set.add WaitForSome tas
+                       (Dep_set.cardinal others > 0)) &&
+                      (not (TaskAttr_set.mem WaitForAll tas)) then
+                   TaskAttr_set.add WaitForSome tas
                  else TaskAttr_set.add WaitForNone (
                           TaskAttr_set.remove WaitForSome (
                               TaskAttr_set.remove WaitForAll tas)) in
@@ -890,12 +892,14 @@ let taskify_on (p : path) (t : trm) : unit =
        (* If there is no [else] branch, create an empty task. *)
        let missing_tn = is_trm_unit no in 
        let tn = if missing_tn then Task.empty () else fill s no gn in
-       (** The [Condition] and the [Accessor] dependency attributes are not
-           valid outside of their initial scope. *)
+       (** The [Condition], the [Accessor] and the [Subscripted] dependency
+           attributes are not valid outside of their initial scope. *)
        ty.ioattrs <- Dep_map.remove_attribute Condition ty.ioattrs;
        ty.ioattrs <- Dep_map.remove_attribute Accessor ty.ioattrs;
+       ty.ioattrs <- Dep_map.remove_attribute Subscripted ty.ioattrs;
        tn.ioattrs <- Dep_map.remove_attribute Condition tn.ioattrs;
        tn.ioattrs <- Dep_map.remove_attribute Accessor tn.ioattrs;
+       tn.ioattrs <- Dep_map.remove_attribute Subscripted tn.ioattrs;
        (* Include the dependencies and their attributes from the branches into
           the current [if] graph node, i.e. [ins], [inouts] and [ioattrs], by
           the means of union operations. *)
@@ -945,10 +949,11 @@ let taskify_on (p : path) (t : trm) : unit =
        let gb = TaskGraph.create () in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
        let tb = fill s body gb in
-       (** The [Condition] and the [Accessor] dependency attributes are not
-           valid outside of their initial scope. *)
+       (** The [Condition], the [Accessor] and the [Subscripted] dependency
+           attributes are not valid outside of their initial scope. *)
        tb.ioattrs <- Dep_map.remove_attribute Condition tb.ioattrs;
        tb.ioattrs <- Dep_map.remove_attribute Accessor tb.ioattrs;
+       tb.ioattrs <- Dep_map.remove_attribute Subscripted tb.ioattrs;
        (* Include the dependencies and their attributes from the body sequence
           into the current [while] graph node, i.e. into [ins], [inouts] and
           [ioattrs], by the means of a union operation. *)
@@ -959,8 +964,8 @@ let taskify_on (p : path) (t : trm) : unit =
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
        let tas = if (Task.attributed tb HasJump) then
-                     TaskAttr_set.add HasJump tas
-                   else tas in
+                   TaskAttr_set.add HasJump tas
+                 else tas in
        (* A while-loop node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -989,10 +994,11 @@ let taskify_on (p : path) (t : trm) : unit =
        let gb = TaskGraph.create () in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
        let tb = fill s body gb in
-       (** The [Condition] and the [Accessor] dependency attributes are not
-           valid outside of their initial scope. *)
+       (** The [Condition], the [Accessor] and the [Subscripted] dependency
+           attributes are not valid outside of their initial scope. *)
        tb.ioattrs <- Dep_map.remove_attribute Condition tb.ioattrs;
        tb.ioattrs <- Dep_map.remove_attribute Accessor tb.ioattrs;
+       tb.ioattrs <- Dep_map.remove_attribute Subscripted tb.ioattrs;
        (* Include the dependencies and their attributes from the body sequence
           into the current [do-while] graph node, i.e. [ins], [inouts] and
           [ioattrs], by the means of a union operation. *)
@@ -1003,8 +1009,8 @@ let taskify_on (p : path) (t : trm) : unit =
        (* If the body sequence contains an unconditional jump, we need to
           propagate this information upwards. *)
        let tas = if (Task.attributed tb HasJump) then
-                     TaskAttr_set.add HasJump tas
-                   else tas in
+                   TaskAttr_set.add HasJump tas
+                 else tas in
        (* A do-while-loop node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -1058,19 +1064,21 @@ let taskify_on (p : path) (t : trm) : unit =
           [ioattrs], by the means of union operations. *)
        let (ins, inouts, ioattrs) =
          List.fold_left (fun (ins', inouts', ioattrs') (tb : Task.t) ->
-             (** The [Condition] and the [Accessor] dependency attributes are
-                 not valid outside of their initial scope. *)
+             (** The [Condition], the [Accessor] and the [Subscripted]
+                 dependency attributes are not valid outside of their initial
+                 scope. *)
              tb.ioattrs <- Dep_map.remove_attribute Condition tb.ioattrs;
              tb.ioattrs <- Dep_map.remove_attribute Accessor tb.ioattrs;
+             tb.ioattrs <- Dep_map.remove_attribute Subscripted tb.ioattrs;
              (Dep_set.union ins' tb.ins,
               Dep_set.union inouts' tb.inouts,
               Dep_map.union2 ioattrs' tb.ioattrs))
-               (ins, inouts, ioattrs) tbs in
+           (ins, inouts, ioattrs) tbs in
        (* If at least one of the block sequences contains an unconditional jump
           other than [break], we need to propagate this information upwards. *)
        let has_jump = List.exists (fun e -> Task.attributed e HasJump) tbs in
        let tas = if has_jump then TaskAttr_set.add HasJump tas
-                   else tas in
+                 else tas in
        (* A switch node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -1091,7 +1099,7 @@ let taskify_on (p : path) (t : trm) : unit =
           [Apac_tasks.TaskAttr]. *)
        let tas = TaskAttr_set.union2
                    tas (TaskAttr_set.singleton WaitForSome) in
-                        (* in order to be able to use it when creating the task corresponding to
+       (* in order to be able to use it when creating the task corresponding to
           the current [delete] graph node. *)
        Task.create t tas scope Dep_set.empty inouts Dep_map.empty [[]]
     | Trm_goto target ->
@@ -1121,11 +1129,11 @@ let taskify_on (p : path) (t : trm) : unit =
        (* We have to check whether this value term is a goto label arising from
           [Apac_basic.use_goto_for_return]. *)
        begin match v with
-         (* If it is the case, we can create a [Task] instance for it, even if
-            it will actually nevery become a task. The [Singleton] and the
-            [ExitPoint] attributes mean that the [Task] will not be merged with
-            any other task and that it represents the exit point of the
-            execution sequence. See [Apac_tasks.TaskAttr]. *)
+       (* If it is the case, we can create a [Task] instance for it, even if
+          it will actually nevery become a task. The [Singleton] and the
+          [ExitPoint] attributes mean that the [Task] will not be merged with
+          any other task and that it represents the exit point of the
+          execution sequence. See [Apac_tasks.TaskAttr]. *)
        | Val_lit (Lit_unit) when l = Apac_macros.goto_label ->
           let attrs = TaskAttr_set.singleton Singleton in
           let attrs = TaskAttr_set.add ExitPoint attrs in
@@ -1149,29 +1157,29 @@ let taskify_on (p : path) (t : trm) : unit =
           situations: *)
        begin match r with
        (* 1) On the one hand, there are routines taking a variable as an
-             argument. In this case, we have to perform dependency discovery. *)
+          argument. In this case, we have to perform dependency discovery. *)
        | Set_default_device v
-       | Init_lock v 
-       | Init_nest_lock v 
-       | Destroy_lock v 
-       | Destroy_nest_lock v
-       | Set_lock v 
-       | Set_nest_lock v 
-       | Unset_lock v 
-       | Unset_nest_lock v 
-       | Test_lock v 
-       | Test_nest_lock v ->
+         | Init_lock v 
+         | Init_nest_lock v 
+         | Destroy_lock v 
+         | Destroy_nest_lock v
+         | Set_lock v 
+         | Set_nest_lock v 
+         | Unset_lock v 
+         | Unset_nest_lock v 
+         | Test_lock v 
+         | Test_nest_lock v ->
           (* Look for dependencies in the routine argument [v]. The above
              routines modify the variable they take as an argument. Therefore,
              we need to consider all of the dependencies as in-out
              dependencies. *)
-       let (ins, inouts, _, _) = trm_discover_dependencies s (trm_var v) in
-       let inouts = Dep_set.union ins inouts in
-       (* Create the task corresponding to the current OpenMP routine call graph
-          node. *)
-       Task.create t attrs scope Dep_set.empty inouts Dep_map.empty [[]]
+          let (ins, inouts, _, _) = trm_discover_dependencies s (trm_var v) in
+          let inouts = Dep_set.union ins inouts in
+          (* Create the task corresponding to the current OpenMP routine call graph
+             node. *)
+          Task.create t attrs scope Dep_set.empty inouts Dep_map.empty [[]]
        (* 2) On the other hand, all the other routines do not involve any
-             variables and thus do not require dependency discovery. *)
+          variables and thus do not require dependency discovery. *)
        | _ ->
           (* Create the task corresponding to the current OpenMP routine call
              graph node. *)
@@ -1201,9 +1209,9 @@ let taskify_on (p : path) (t : trm) : unit =
   let dot = "apac_task_graph_" ^ f.name ^ ".dot" in
   export_task_graph g' dot;
   dot_to_pdf dot
-  (*fill const_record.variables t task_graph;
+(*fill const_record.variables t task_graph;
   Printf.printf "Augmented AST for <%s> follows:\n%s\n"
-    (var_to_string f) (atrm_to_string aast)*)
+  (var_to_string f) (atrm_to_string aast)*)
     
 let taskify (tg : target) : unit =
   Target.iter (fun t p -> taskify_on p (get_trm_at_path p t)) tg
