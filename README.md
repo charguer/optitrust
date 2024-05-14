@@ -44,6 +44,12 @@ Installation of OCaml ecosystem:
    eval $(opam env)
 ```
 
+# Install precommit hooks
+
+```sh
+  make install_git_hooks
+```
+
 # Precompiling headers
 
 For faster compilation, we precompile header files.

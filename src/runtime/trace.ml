@@ -112,8 +112,7 @@ let init_logs prefix =
   timing_log_handle := Some timing_log;
   let stats_log = open_out ("stats.log") in
   stats_log_handle := Some stats_log;
-  logs := timing_log :: stats_log :: clog :: [];
-  clog
+  logs := timing_log :: stats_log :: clog :: []
 
 (** [write_log clog msg]: writes the string [msg] to the channel [clog]. *)
 let write_log (clog : out_channel) (msg : string) : unit =
@@ -189,16 +188,14 @@ let process_ast_before_after_for_diff (style_before : output_style) (style_after
 
 (** [context]: contains general information about:
    - the source code that was loaded initially using [set_init_file],
-   - the prefix of the filenames in which to output the final result using [dump]
-   - the log file to report on the transformation performed. *)
+   - the prefix of the filenames in which to output the final result using [dump] *)
 type context =
   { parser : parser;
     (* DEPRECATED?
        directory : string; *)
     mutable prefix : string; (* TODO: needs mutable? *)
     extension : string;
-    header : string;
-    clog : out_channel; }
+    header : string; }
 
 (** [contex_dummy]: used for [trace_dummy]. *)
 let context_dummy : context =
@@ -206,8 +203,7 @@ let context_dummy : context =
     (* directory = ""; *)
     prefix = "";
     extension = "";
-    header = "";
-    clog = stdout; }
+    header = "" }
 
 (* DEPRECATED [stepdescr]: description of a script step. *)
 type stepdescr = {
@@ -1281,11 +1277,11 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
   last_stats := !start_stats;
 
   let prefix = if prefix = "" then default_prefix else prefix in
-  let clog = init_logs prefix in
+  init_logs prefix;
 
   let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser filename) in
 
-  let context = { parser; extension; prefix; header; clog } in
+  let context = { parser; extension; prefix; header } in
   the_trace.context <- context;
   the_trace.cur_ast <- cur_ast;
   the_trace.cur_ast_typed <- false;
@@ -1428,6 +1424,51 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
     )
 *)
 
+(** [compute_command_base64 str] executes the shell command [str], captures its output,
+    and return it as a string. TODO: deal with error in a cleaner way, by deleting the
+    file first, then testing if the output file exists. *)
+let compute_command_base64 (str : string) : string =
+  cmd (sprintf "%s | base64 -w 0 > tmp.base64" str);
+  Xfile.get_contents ~newline_at_end:false "tmp.base64"
+
+(** [compute_prog_before s] returns a string describing the code before the step [s] starts. *)
+let compute_prog_before ?(style:output_style option) (s:step_tree) : string =
+  let ctx = the_trace.context in
+  let style = Option.value ~default:s.step_style_before style in
+  output_prog style ctx "tmp_before" s.step_ast_before;
+  compute_command_base64 "cat tmp_before.cpp"
+
+(** [compute_prog_after s] returns a string describing the code before the step [s] starts. *)
+let compute_prog_after ?(style:output_style option) (s:step_tree) : string =
+  let ctx = the_trace.context in
+  let style = Option.value ~default:s.step_style_after style in
+  output_prog style ctx "tmp_after" s.step_ast_after;
+  compute_command_base64 "cat tmp_after.cpp"
+
+(** [compute_diff s] returns the string describing the diff associated with the step [s].
+    The AST are printed using the style_before and style_after of [s]. *)
+let compute_diff (s:step_tree) : string =
+  (* Handle the light-diff feature, which eliminates top-level functions that
+     are physically identical in the AST before and after *)
+  let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
+  (* Patch the AST with custom processing, only for debugging purposes *)
+  let disp_ast_before = !trace_custom_postprocessing ast_before in
+  let disp_ast_after = !trace_custom_postprocessing ast_after in
+  (* Dump the two files, and evaluate the diff command
+     (beware the files may be reused by [compute_diff_and_before_after]) *)
+  let ctx = the_trace.context in
+  output_prog s.step_style_before ctx "tmp_before" disp_ast_before;
+  output_prog s.step_style_after ctx "tmp_after" disp_ast_after;
+  compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp"
+
+(** [compute_diff_and_before_after s] returns not just the diff, but also the contents
+    of the files that correspond to the AST-before and AST-after for the step [s]. *)
+let compute_diff_and_before_after (s:step_tree) : string * string * string =
+  let sDiff = compute_diff s in
+  let sBefore = compute_command_base64 "cat tmp_before.cpp" in
+  let sAfter = compute_command_base64 "cat tmp_after.cpp" in
+  sDiff, sBefore, sAfter
+
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
 let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
@@ -1453,39 +1494,21 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
     in
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line get_next_id out in
-  (* LATER: move these functions elsewhere? *)
-  let compute_command_base64 (s : string) : string =
-    cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
-    Xfile.get_contents ~newline_at_end:false "tmp.base64"
-    in
   (* Assign ids to sub-steps *)
   let sub_ids = List.map (fun _ -> get_next_id()) s.step_sub in
   (* Dump Json for this node *)
-  let ctx = the_trace.context in
-  let sDiff =
+  let sBefore, sAfter, sDiff =
     if should_compute_diff then begin
-      (* handling light diff *)
-      let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
-      (* custom processing for debugging *)
-      let disp_ast_before = !trace_custom_postprocessing ast_before in
-      let disp_ast_after = !trace_custom_postprocessing ast_after in
-      (* computing diff *)
-      begin try
-        output_prog s.step_style_before ctx "tmp_before" disp_ast_before;
-        output_prog s.step_style_after ctx "tmp_after" disp_ast_after;
+      try
+        let sBefore, sAfter, sDiff = compute_diff_and_before_after s in
+        Some sBefore, Some sAfter, Some sDiff
       with e ->
         (* Prevent any exception during printing to corrupt the entire trace *)
         let exn = Printexc.to_string e in
-        Printf.eprintf "Error while saving trace:\n%s\n" exn
-      end;
-      Some (compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp")
-    end else None in
-  let sBefore, sAfter =
-    if should_compute_diff then begin
-      let sBefore = Some (compute_command_base64 "cat tmp_before.cpp") in
-      let sAfter = Some (compute_command_base64 "cat tmp_after.cpp") in
-      sBefore, sAfter
-    end else None, None
+        Printf.eprintf "Error while saving trace:\n%s\n" exn;
+        None, None, None
+    end else
+      None, None, None
     in
   let json = (* TODO: check if ~html_newlines:true is needed for certain calls to [Json.str] *)
     Json.obj_quoted_keys [
@@ -1538,7 +1561,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       }
 ]}
    *)
-let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
+let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : string option) (step:step_tree) : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
@@ -1549,8 +1572,14 @@ let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
   let get_next_id () : int =
     incr next_id;
     !next_id in
+  (* Print additional information *)
   if !Flags.trace_for_webview
     then out "var webview = true;\n";
+  begin match serialized_trace_timestamp with
+  | None -> ()
+  | Some timestamp -> out (sprintf "var serialized_trace_timestamp = \"%s\";\n" timestamp);
+  end;
+  (* Print the trace, each step produces a line of the form "step[i] = ...;" *)
   out "var steps = [];\n";
   let idroot = get_next_id() in
   dump_step_tree_to_js ~is_substep_of_targeted_line:false get_next_id out idroot step;
@@ -1559,9 +1588,30 @@ let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
   cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp";
   close_out out_js
 
-(** [dump_full_trace_to_js ()] invokes [dump_trace_to_js] on the root step *)
+(** [serialize_full_trace_and_get_timestamp] serializes the current trace object
+    into a file named "prefix.trace", and return the timestamp of that file
+    as a string. *)
+let serialize_full_trace_and_get_timestamp ~(prefix : string) : string =
+  let ser_filename = prefix ^ ".trace" in
+  let out_file = open_out_bin ser_filename in
+  Marshal.to_channel out_file the_trace [Closures];
+  close_out out_file;
+  let timestamp = string_of_float ((Unix.stat ser_filename).st_mtime) in
+  timestamp
+
+(** [dump_full_trace_to_js ()] invokes [dump_trace_to_js] on the root step,
+     and serialize the trace object into "prefix.trace" if the flag
+     [serialized_trace] is set.
+     In case of serialization, the JS file contains an additional line of the form:
+     [var serialized_trace_timestamp = "...";] storing the timestamp of the
+     serialized trace (as a string). *)
 let dump_full_trace_to_js ?(prefix : string = "") () : unit =
-  dump_trace_to_js ~prefix (get_root_step())
+  let serialized_trace_timestamp =
+    if !Flags.serialize_trace
+      then Some (serialize_full_trace_and_get_timestamp ~prefix)
+      else None
+    in
+  dump_trace_to_js ~prefix ?serialized_trace_timestamp (get_root_step())
 
 (** [step_tree_to_doc step_tree] takes a step tree and gives a string
    representation of it, using indentation to represent substeps *)

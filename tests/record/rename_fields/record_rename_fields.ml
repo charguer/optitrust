@@ -1,8 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Flags.dont_serialize := true (* because member functions *)
-let _ = Flags.ignore_serialized := true (* because member functions *)
+let _ = Flags.  ()
 
 let _ = Run.script_cpp (fun _ ->
 

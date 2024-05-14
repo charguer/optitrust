@@ -146,6 +146,12 @@ let dont_serialize = ref false
 (* [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
 
+(* [use_member_functions()] should be called for now by test files that involve the
+   use of member functions *)
+let use_member_functions() : unit =
+  use_clang_cursor := true;
+  ignore_serialized := true
+
 (* [execution_mode] of the script *)
 
 type execution_mode =
@@ -312,6 +318,7 @@ let ignore_serialized_default = ref !ignore_serialized
 let reset_flags_to_default () : unit =
   ignore_serialized := !ignore_serialized_default;
   dump_ast_details := false;
+  use_clang_cursor := false;
   bypass_cfeatures := false;
   print_optitrust_syntax := false;
   use_light_diff := false;

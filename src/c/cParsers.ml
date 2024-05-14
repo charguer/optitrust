@@ -120,6 +120,7 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
       let out_file = open_out_bin ser_filename in
       Marshal.to_channel out_file deps [];
       Marshal.to_channel out_file (header, clean_ast) [];
+      close_out out_file;
       if !Flags.debug_parsing_serialization
         then Tools.info (sprintf "serialized ast: %s." ser_filename);
     with e ->

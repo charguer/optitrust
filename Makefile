@@ -84,6 +84,7 @@ clean: clean_cache
 
 clean_cache:
 	find . -type f -name '*.ser' -exec rm {} +
+	find . -type f -name '*.trace' -exec rm {} +
 	find . -type f -name '*_notfmt.cpp' -exec rm {} +
 
 watch:

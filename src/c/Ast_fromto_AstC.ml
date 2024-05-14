@@ -390,7 +390,7 @@ let method_call_elim (t : trm) : trm =
       in
       let qualifier = class_qualifier @ [class_name] in
       let t_var = begin match Ast_data.get_cursor_of_trm tr with
-      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var ~qualifier f))
+      | Some (cx) -> trm_add_cstyle_clang_cursor cx (trm_var (name_to_var ~qualifier f))
       | None -> trm_fail t "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
       end in
       trm_add_cstyle Method_call (trm_apps ~ghost_args (t_var) ([trm_address_of base] @ args))
