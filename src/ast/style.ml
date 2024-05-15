@@ -25,6 +25,8 @@ type style =
   | InternalAstOnlyDesc
 
 and typing_style = {
+  typing_contracts : bool;
+  typing_ghost : bool;
   typing_ctx_res : bool;
   typing_produced_res : bool;
   typing_used_res : bool;
@@ -51,6 +53,8 @@ let ast_style_of_custom_style (style : custom_style) : Ast.style =
 (** Typing styles *)
 
 let typing_all : typing_style = {
+  typing_contracts = true;
+  typing_ghost = true;
   typing_ctx_res = true;
   typing_produced_res = true;
   typing_joined_res = true;
@@ -59,6 +63,8 @@ let typing_all : typing_style = {
   typing_contract_inst = true; }
 
 let typing_none : typing_style = {
+  typing_contracts = false;
+  typing_ghost = false;
   typing_ctx_res = false;
   typing_produced_res = false;
   typing_joined_res = false;
@@ -66,21 +72,23 @@ let typing_none : typing_style = {
   typing_framed_res = false;
   typing_contract_inst = false; }
 
+let typing_annot : typing_style =
+  { typing_none with
+      typing_ghost = true;
+      typing_contracts = true; }
+
 let typing_ctx : typing_style =
-  { typing_none with typing_ctx_res = true; }
+  { typing_annot with typing_ctx_res = true; }
 
-let typing_delta : typing_style =
+let typing_usage : typing_style =
+  { typing_ctx with typing_used_res = true; }
+
+let typing_all_but_frame : typing_style =
   { typing_all with typing_framed_res = false; }
-
-(** [is_typing_none typing_style] returns a boolean value indicating
-    whether the [typing_style] provided as argument is the same as
-    [typing_none], that is, request printing no information at all. *)
-let is_typing_none (typing_style : typing_style) : bool =
-  typing_style = typing_none
 
 (** Common printing options *)
 
-let c ?(typing_style : typing_style = typing_none) () : style  =
+let c ?(typing_style : typing_style = typing_annot) () : style  =
   Custom {
     decode = true;
     typing = typing_style;
@@ -96,7 +104,7 @@ let internal () : style =
   let s = AstC_to_c.default_style () in
   Custom {
     decode = false;
-    typing = typing_none;
+    typing = typing_annot;
     print = Lang_C { s with
       optitrust_syntax = true;
       ast = { s.ast with print_var_id = true; print_generated_ids = true } } }
@@ -105,24 +113,24 @@ let internal_ast () : style  =
   let s = Ast_to_text.default_style () in
   Custom {
     decode = false;
-    typing = typing_none;
+    typing = typing_annot;
     print = Lang_AST s }
 
 let internal_ast_only_desc () : style =
   let s = Ast_to_text.default_style () in
   Custom {
     decode = false;
-    typing = typing_none;
+    typing = typing_annot;
     print = Lang_AST { s with only_desc = true } }
 
 let default_custom_style () : custom_style =
   { decode = not !Flags.bypass_cfeatures && not !Flags.print_optitrust_syntax;
-    typing = typing_none;
+    typing = typing_annot;
     print = Lang_C (AstC_to_c.(default_style())) }
 
 let custom_style_for_reparse () : custom_style =
   { decode = true;
-    typing = typing_none;
+    typing = typing_annot;
     print = Lang_C (AstC_to_c.style_for_reparse()) }
 
 (* [to_custom_style style] eliminates the redundant constructors *)
@@ -138,3 +146,4 @@ let to_custom_style (style : style) : custom_style =
     match style_as_custom with
     | Custom custom_style -> custom_style
     | _ -> failwith "Show.to_custom_style: not custom"
+

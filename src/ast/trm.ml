@@ -2511,3 +2511,4 @@ let rec simpl_array_get_get (t : trm) : trm = (* DEPRECATED? *)
     | _ -> trm_map aux t
     end
   | _ -> trm_map aux t
+

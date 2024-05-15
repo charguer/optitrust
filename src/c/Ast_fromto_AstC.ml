@@ -614,6 +614,15 @@ let ghost_args_intro (style: style) (t: trm) : trm =
   in
   aux t
 
+let ghost_remove (t : trm) : trm =
+  Nobrace.remove_after_trm_op (Resource_trm.delete_annots_on ~delete_contracts:false ~delete_ghost:true) t
+
+let ghost_args_intro_or_remove_ghost (style: style) (t: trm) : trm =
+  if style.typing.typing_ghost
+    then ghost_args_intro style t
+    else ghost_remove t
+
+
 (********************** Decode contract annotations ***************************)
 
 open Resource_contract
@@ -913,6 +922,8 @@ let computed_resources_intro (style: style) (t: trm): trm =
   aux t
 
 let rec contract_intro (style: style) (t: trm): trm =
+  if not style.typing.typing_contracts then t else
+
   (* debug_current_stage "contract_intro"; *)
   let push_named_formulas (contract_prim: var) ?(used_vars: Var_set.t option) (named_formulas: resource_item list) (t: trm): trm =
     List.fold_right (fun named_formula t ->
@@ -1117,7 +1128,7 @@ let cfeatures_intro (style : style) : trm -> trm =
   method_call_intro |>
   class_member_intro |>
   autogen_alpha_rename style |>
-  ghost_args_intro style |>
+  ghost_args_intro_or_remove_ghost style |>
   autogen_alpha_rename style |>
   contract_intro style
   )
@@ -1129,7 +1140,7 @@ let meta_intro ?(skip_var_ids = false) (style: style) : trm -> trm =
   (if skip_var_ids then t else Scope_computation.infer_var_ids ~failure_allowed:false t) |>
   formula_sugar_intro |>
   autogen_alpha_rename style |>
-  ghost_args_intro style |>
+  ghost_args_intro_or_remove_ghost style |>
   autogen_alpha_rename style |>
   contract_intro style
 

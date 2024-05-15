@@ -133,21 +133,56 @@ var optionsDescr = [ // extended by initAllTags
     default: true,
   },
   { key: "ast_diff",
-    name: "ast-diff",
+    name: "Diff",
     kind: "ast",
     radio: "ast-display",
     default: true,
   },
   { key: "ast_before",
-    name: "ast-before",
+    name: "Before",
     kind: "ast",
     radio: "ast-display",
     default: false,
   },
   { key: "ast_after",
-    name: "ast-after",
+    name: "After",
     kind: "ast",
     radio: "ast-display",
+    default: false,
+  },
+  { key: "decode",
+    name: "decode",
+    kind: "ast",
+    default: true,
+  },
+  { key: "view_code",
+    name: "Code",
+    kind: "ast",
+    radio: "ast-view",
+    default: true,
+  },
+  { key: "view_annot",
+    name: "Annot",
+    kind: "ast",
+    radio: "ast-view",
+    default: false,
+  },
+  { key: "view_resources",
+    name: "Resources",
+    kind: "ast",
+    radio: "ast-view",
+    default: false,
+  },
+  { key: "view_usage",
+    name: "Usage",
+    kind: "ast",
+    radio: "ast-view",
+    default: false,
+  },
+  { key: "view_full",
+    name: "Full",
+    kind: "ast",
+    radio: "ast-view",
     default: false,
   },
   { key: "compact",
@@ -163,6 +198,19 @@ var optionsDefault = {}; // filled by initOptions, maps key to default value
 var expanded = []; // maps node ids to true, false or "full", indicating if node is expanded;
                    // entries in this map are optional for nodes
 var hasErrorSubstep = []; // maps node ids to boolean indicating if the node contains an error
+
+// given the value of a 'radio' field, return the key of the activated option having this 'radio' field.
+function getRadioOption(radio) {
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    var key = descr.key;
+    if (descr.radio && descr.radio == radio && options[key]) {
+      return key;
+    }
+  }
+  return "getRadioOption_notfound";
+}
+
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -329,7 +377,7 @@ function loadDiffForStep(step) {
   var diffString = "";
   if (step.diff == undefined) {
     // console.log("Diff was not computed for this step");
-    $("#debugMsgDiv").html("Diff was not saved for this step; to see it, request the trace of step " + step.id);
+    $("#debugMsgDiv").html("Diff was not saved for this step; to see it, request the trace of step " + step.id + " with mode " + getRadioOption('ast-view') + " and decode=" + options.decode);
     // + " or set the flag detailed_trace"
   } else if (step.diff == "") {
     $("#debugMsgDiv").html("Diff is empty");

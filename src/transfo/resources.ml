@@ -398,34 +398,11 @@ let __invariant (r: string) = Invariant, r
 let __sreads (r: string) = SharedReads, r
 let __smodifies (r: string) = SharedModifies, r
 
-let delete_annots_on (t : trm) : trm =
-  let rec aux t =
-    let t = if
-      (Option.is_some (Resource_trm.ghost_inv t)) ||
-      (Option.is_some (Resource_trm.ghost_begin_inv t)) ||
-      (Option.is_some (Resource_trm.ghost_end_inv t))
-      then trm_seq_nobrace_nomarks []
-      else t
-    in
-    let t = begin match t.desc with
-    | Trm_fun (args, ret_ty, body, contract) ->
-      trm_replace (Trm_fun (args, ret_ty, body, FunSpecUnknown)) t
-    | Trm_let_fun (f, ty, args, body, contract) ->
-      trm_replace (Trm_let_fun (f, ty, args, body, FunSpecUnknown)) t
-    | Trm_for (loop_range, body, contract) ->
-      trm_replace (Trm_for (loop_range, body, empty_loop_contract)) t
-    | Trm_for_c (start, cond, stop, body, contract) ->
-      trm_replace (Trm_for_c (start, cond, stop, body, None)) t
-    | _ -> t
-    end in
-    trm_map aux t
-  in
-  aux t
 
 let%transfo delete_annots (tg : Target.target) : unit =
   Trace.justif "changes only annotations";
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths delete_annots_on tg;
+    Target.apply_at_target_paths Resource_trm.delete_annots_on tg;
     Show.ast ()
   )
 

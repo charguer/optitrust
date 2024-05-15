@@ -311,9 +311,9 @@ let ctx ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit
 (* [delta] is like [res] but shows all but [frame] information.
    TODO: ideally we would hide the [ctx_res] fields, but this requires
    replace the resource ids occurring in other fields with their
-   corresonding formula. In [inst] and [produced], the ids should be hidden *)
+   corresonding formula. In [inst] and [produced], the ids should be hidden *) (* LATER: rename delta *)
 let delta ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit =
-  res ~msg ~ast ~typing_style:Style.typing_delta ()
+  res ~msg ~ast ~typing_style:Style.typing_all_but_frame ()
 
 
 (* LATER: Fix me
