@@ -98,10 +98,10 @@ int sparselu(float ** matrix, size_t matrix_size, size_t submatrix_size) {
       if (matrix[ii * matrix_size + kk] != NULL) {
         for (size_t jj = kk + 1; jj < matrix_size; jj++) {
           if (matrix[kk * matrix_size + jj] != NULL) {
-            if (matrix[ii * matrix_size + jj] == NULL) {
-              matrix[ii * matrix_size + jj] =
-                allocate_clean_block(submatrix_size);
-            }
+            matrix[ii * matrix_size + jj] = 
+              !matrix[ii * matrix_size + jj] ? 
+                allocate_clean_block(submatrix_size) : 
+                  matrix[ii * matrix_size + jj];
             bmod(
               matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj],
               matrix[ii * matrix_size + jj], submatrix_size
