@@ -151,7 +151,11 @@ let index_of (x : 'a) (l : 'a list) : int option =
 
 (* Same as List.find_index, but only available in 5.1. *)
 let find_index (f : 'a -> bool) (l : 'a list) : int option =
-  fold_lefti (fun i acc y -> if f y then Some i else acc) None l
+  fold_lefti (fun i acc y ->
+    if Option.is_some acc then acc
+    else begin
+      if f y then Some i else acc
+    end) None l
 
 (* [Invalid_permutation]: exception raised by [check_permutation. *)
 exception Invalid_permutation

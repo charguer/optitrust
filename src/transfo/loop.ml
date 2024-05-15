@@ -538,6 +538,7 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
     in
   let p_seq = Option.get !seq_path in
   let ordered_indices = List.sort (fun (i1, _) (i2, _) -> compare i1 i2) !indices_in_seq in
+  (* TODO: refactor ? *)
   (* TODO: use gather_targets GatherAt preprocessing *)
   (* Then, fuse all loops into one, moving loops in the sequence if necessary. *)
   let rec fuse_loops fuse_into todo =
@@ -551,7 +552,6 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
       Printf.printf "fuse_into: %i\n" fuse_into; *)
       (* If we are fusing from top to bottom *)
       if (fst to_fuse) < (fst fuse_into) then begin
-        (* FIXME: refactor ? *)
         let span_beg = resolve_target_exactly_one ([tAfter] @ tg_current) in
         let span_end = resolve_target_exactly_one ([tBefore] @ fuse_into_tg) in
         let (_, span_beg) = Path.extract_last_dir_before span_beg in
