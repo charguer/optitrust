@@ -113,12 +113,18 @@ end = struct
     | Dep_ptr d' -> to_string d'
   (** [Dep.to_string2 d]: generates a string representation of the dependency
       [d]. Unlike [Dep.to_string], this function considers only the variable
-      part of [Dep.t], i.e. in the case of [Dep_trm], it compares only the
-      second member of the ([trm], [var]) pair. *)
+      part of [Dep.t] and the pointer degree if [d] is a [Dep_trm]. In this
+      case, it generates the string representation of the second member of the
+      ([trm], [var]) pair appended with `n' pairs of brackets '[]' where `n' is
+      the pointer degree of [var]. For example, [Dep.to_string2] of
+      'tab\[i\]\[2\]' gives 'tab\[\]\[\]'. *)
   let rec to_string2 (d : t) : string =
     match d with
     | Dep_var v -> v.name
-    | Dep_trm (_, v) -> v.name
+    | Dep_trm (t', v) ->
+       let (_, accesses) = get_nested_accesses t' in
+       let accesses = List.fold_left (fun acc _ -> "[]" ^ acc) "" accesses in
+       v.name ^ accesses
     | Dep_ptr d' -> to_string2 d'
   (** [Dep.compare d1 d2]: compares two dependencies [d1] and [d2]. Note that
       dependencies are not only simple variables. We consider also pointer
