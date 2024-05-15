@@ -73,8 +73,10 @@ let get_contents_or_empty file =
 (** Append a string to the end of an existing file *)
 
 let append_contents filename str =
-  let contents = get_contents filename in
-  put_contents filename (contents^str)
+  (* open in append mode *)
+  let c = open_out_gen [Open_append; Open_creat] 0o666 filename in
+  output_string c str;
+  close_out c
 
 
 (* [serialize_to filename t]: dumps the object [obj] of type 'a into file [filename]. *)

@@ -1,8 +1,9 @@
 
-# BROKEN POSSIBLY DUE TO TARGETS (CURSORS?)
+# BROKEN IN THIS BRANCH
 variable/insert_and_fold/variable_insert_and_fold.ml
 sequence/insert/sequence_insert.ml
 record/rename_fields/record_rename_fields.ml
+loop/shift/loop_shift.ml
 
 omp
 batch

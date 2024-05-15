@@ -331,6 +331,7 @@ let reset_flags_to_default () : unit =
   reparse_between_steps := false;
   recompute_resources_between_steps := false;
   trm_combinators_warn_unsupported_case := true;
+  serialize_trace := false;
   warned_array_subscript_not_supported := Tools.String_set.empty
 
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =

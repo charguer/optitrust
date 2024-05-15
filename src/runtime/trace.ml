@@ -286,7 +286,8 @@ type step_stack = step_tree list
 
 (** [trace]: a record made of a context, a current AST, and a list of ASTs that were
    saved as "interesting intermediate steps", via the [Trace.save] function.
-   Any call to the [step] function adds a copy of [cur_ast] into [history]. *)
+   Any call to the [step] function adds a copy of [cur_ast] into [history].
+  TODO: Rename to open_trace? *)
 type trace = {
   mutable context : context;
   mutable cur_ast : trm;
@@ -334,30 +335,6 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
 let dummy_exectime : float = 0.
 
 
-
-
-(******************************************************************************)
-(*                                   Tree iterator                            *)
-(******************************************************************************)
-
-(** [iter_step_tree f s] calls the function [f] on every subnode of [s], in DFS order. *)
-let iter_step_tree (f:step_tree->unit) (s:step_tree) : unit =
-  let rec aux (s:step_tree) : unit =
-    f s;
-    List.iter aux s.step_sub
-    in
-  aux s
-
-exception StepFound of step_tree
-
-(** [get_step_with_id id s] finds in the tree [s] the node with identifier [id].
-    Raises [Not_found] otherwise. *)
-let get_step_with_id (id:int) (s:step_tree) : step_tree =
-  try
-    iter_step_tree (fun si ->
-      if si.step_infos.step_id = id then raise (StepFound si)) s;
-    raise Not_found
-  with StepFound si -> si
 
 
 (******************************************************************************)
@@ -1454,8 +1431,11 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
     and return it as a string. TODO: deal with error in a cleaner way, by deleting the
     file first, then testing if the output file exists. *)
 let compute_command_base64 (str : string) : string =
-  cmd (sprintf "%s | base64 -w 0 > tmp.base64" str);
-  Xfile.get_contents ~newline_at_end:false "tmp.base64"
+  let tmp_filename = Filename.temp_file "base64" ".txt" in
+  cmd (sprintf "%s | base64 -w 0 > %s" str tmp_filename);
+  let base64 = Xfile.get_contents ~newline_at_end:false tmp_filename in
+  Sys.remove tmp_filename;
+  base64
 
 (** [compute_prog_before s] returns a string describing the code before the step [s] starts. *)
 let compute_prog_before ?(style:output_style option) (s:step_tree) : string =
@@ -1483,6 +1463,7 @@ let compute_diff (s:step_tree) : string =
   (* Dump the two files, and evaluate the diff command
      (beware the files may be reused by [compute_diff_and_before_after]) *)
   let ctx = the_trace.context in
+  (* TODO: use temporary filenames instead *)
   output_prog s.step_style_before ctx "tmp_before" disp_ast_before;
   output_prog s.step_style_after ctx "tmp_after" disp_ast_after;
   compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp"
@@ -1620,7 +1601,7 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
 let serialize_full_trace_and_get_timestamp ~(prefix : string) : string =
   let ser_filename = prefix ^ ".trace" in
   let out_file = open_out_bin ser_filename in
-  Marshal.to_channel out_file the_trace [Closures];
+  Marshal.to_channel out_file (get_root_step()) [];
   close_out out_file;
   let timestamp = string_of_float ((Unix.stat ser_filename).st_mtime) in
   timestamp
@@ -1648,6 +1629,7 @@ let step_tree_to_doc (step_tree:step_tree) : document =
     let space = blank 1 in
     let tab = blank (depth * ident_width) in
        tab
+    ^^ string (sprintf "%d:" i.step_id) ^^ space
     ^^ string (step_kind_to_string s.step_kind)
     ^^ space
     ^^ string (sprintf "(%dms)" (int_of_float (i.step_exectime *. 1000.)))
@@ -1989,12 +1971,7 @@ let dump (style : output_style) ?(store_in_trace = true) ?(prefix : string = "")
     output_prog style ctx (prefix ^ "_out") (the_trace.cur_ast);
     if append_comments <> "" then begin
       let filename = prefix ^ "_out.cpp" in
-      (* open in append mode *)
-      let c = open_out_gen [Open_append; Open_creat] 0o666 filename in
-      output_string c "/*\n";
-      output_string c append_comments;
-      output_string c "\n*/\n";
-      close_out c
+      Xfile.append_contents filename ("/*\n" ^ append_comments ^ "\n*/\n");
     end
     in
   if store_in_trace
@@ -2068,38 +2045,3 @@ let update_style () : unit =
 (* LATER: add a mechanism for automatic simplifications after every step *)
 
 
-
-
-(******************************************************************************)
-(*                                  Views                     *)
-(******************************************************************************)
-
-type user_view = View_code | View_annot | View_resources | View_usage | View_full (* TODO: jojson for getting this value typed from url args *)
-
-(* TODO: move *)
-(* The view_mode corresponds to that used in optitrust_trace.js *)
-let user_view_of_string (mode : string) : user_view =
-  match mode with
-    | "view_code" -> View_code
-    | "view_annot" -> View_annot
-    | "view_resources" -> View_resources
-    | "view_usage" -> View_usage
-    | "view_full" -> View_full
-    | _ -> failwith (Printf.sprintf "user_view_of_string: unknown mode '%s'" mode)
-
-(* [custom_style_of_view_mode decode view] computes the style
-  associated with a user-level specified "view mode" and a boolean
-  indicating whether the syntax should be C or OptiTrust. *)
-let custom_style_of_view_mode (decode : bool) (user_view : user_view) : output_style =
-  let open Style in
-  let typing =
-    match user_view with
-    | View_code -> typing_none
-    | View_annot -> typing_annot
-    | View_resources -> typing_ctx
-    | View_usage -> typing_usage
-    | View_full -> typing_all_but_frame
-    in
-  { decode;
-    typing;
-    print = Lang_C (AstC_to_c.default_style ()) }
