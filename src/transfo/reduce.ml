@@ -60,7 +60,7 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
         "r1", formula_range start stop (trm_int 1);
         "r2", formula_range (trm_int 0) n (trm_int 1);
       ]))) in
-      let contract = Resource_contract.(Resource_formula.(empty_loop_contract |>
+      let contract = Resource_contract.(Resource_formula.(empty_strict_loop_contract |>
         push_loop_contract_clause SharedModifies
           (new_anon_hyp (), formula_cell acc) |>
         push_loop_contract_clause SharedReads
