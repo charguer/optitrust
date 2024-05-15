@@ -350,6 +350,7 @@ let trm_discover_dependencies (locals : symbols)
            match (trm_resolve_pointer_and_degree base) with
            | Some (v, _) when not (Var_set.mem v filter) ->
               let (td, e) = Var_Hashtbl.find_or_default locals v 0 in
+              let d' = Dep_trm (t, v) in
               let d = if fc && (cd < td) then
                         let rec process = fun t v dg ->
                           let t' = match (Dep.of_trm t v dg) with
@@ -362,16 +363,19 @@ let trm_discover_dependencies (locals : symbols)
                         let t' = process t v (td - cd) in
                         Dep_trm (t', v)
                       else                      
-                        Dep_trm (t, v)
+                        d'
               in
               Stack.push (d, (DepAttr_set.singleton Subscripted)) attrs;
               begin
                 match attr with
                 | Accessor ->
                    Stack.push d ins;
-                   Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
-                | ArgIn -> Stack.push d ins
-                | ArgInOut -> Stack.push d inouts
+                   Stack.push (d, (DepAttr_set.singleton Accessor)) attrs;
+                   if d <> d' then Stack.push d' ins
+                | ArgIn -> Stack.push d ins; if d <> d' then Stack.push d' ins
+                | ArgInOut ->
+                   Stack.push d inouts;
+                   if d <> d' then Stack.push d' ins
                 | _ -> fail t.loc ebadattr
               end;
               e
