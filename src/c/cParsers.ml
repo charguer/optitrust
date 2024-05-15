@@ -1,5 +1,5 @@
-open Prelude
-
+open Ast
+open Trm
 
 (* TODO: Get rid of this aweful C(++) only include handling *)
 (* [get_cpp_includes filename]: gets the list of file includes syntactically visible
@@ -113,8 +113,7 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
         deps, header, ast
     in
   (* Save to serialization file, if applicable *)
-  if (not serialize || not !Flags.dont_serialize)
-     && existing_ser_contents_opt = None then begin
+  if serialize && !Flags.serialize && existing_ser_contents_opt = None then begin
     try
       let clean_ast = Trm.prepare_for_serialize ~remove_ctx:true ast in
       let out_file = open_out_bin ser_filename in
@@ -126,21 +125,20 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
     with e ->
       Tools.warn (sprintf "failure serializing ast to %s, skipping serialization. Error: %s\n" ser_filename (Printexc.to_string e));
   end;
-  (* Possibly ably the decoding *)
+  (* Possibly perform the decoding *)
   let ast = if !Flags.bypass_cfeatures then ast else Ast_fromto_AstC.cfeatures_elim ast in
   (* Return the header and the ast *)
   (header, ast)
 
 
-let clang ~(serialize:bool) =
-  c_parser ~serialize clang_raw_parser
+let clang = c_parser clang_raw_parser
 (*  FOR FUTURE USE
 let menhir = c_parser menhir_raw_parser
 let all = c_parser all_c_raw_parsers *)
 
-let get_default ~(serialize:bool) () =
+let parse ~(serialize:bool) (filename:string) =
   match !Flags.c_parser_name with
-  | "default" | "clang" -> clang ~serialize
+  | "default" | "clang" -> clang ~serialize filename
   | _ -> failwith "the available cparser options are 'default', 'clang'"
   (* FOR FUTURE USE
   | "menhir" -> menhir

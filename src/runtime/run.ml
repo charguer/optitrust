@@ -116,7 +116,7 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
     r
   end
 
-(* [script ~filename ~extension ~batching ~check_exit_at_end ~prefix ~parser f]:
+(* [script ~filename ~extension ~batching ~check_exit_at_end ~prefix f]:
    serves as "main" function for an Optitrust script. It takes care of parsing
    the command line arguments, handling the errors, and parsing the file that will be processed,
    before running the function [f] provided and outputing the results.
@@ -138,7 +138,7 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
       This flag only has an effect if a [-exit_line] option was passed on the command line.
    - [~prefix:string] allows providing the basename for the output files produced
    *)
-let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ~(parser : Trace.parser) ?(capture_show_in_batch = false) (f : unit -> unit) : unit =
+let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(capture_show_in_batch = false) (f : unit -> unit) : unit =
   Flags.process_cmdline_args ();
   Target.show_next_id_reset ();
 
@@ -173,7 +173,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   (try
     begin
       try
-        Trace.init ~program:program_basename ~prefix ~parser filename;
+        Trace.init ~program:program_basename ~prefix filename;
         if !Flags.check_validity then
           Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing loop contracts" (fun () ->
             Resources.make_strict_loop_contracts [];
@@ -244,7 +244,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   (* Printf.printf "END  %s\n" basename; *)
   ()
 
-(* [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix ~parser f]:
+(* [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix f]:
    is a specialized version of [script f] that parses C/C++ files.
 
    Its specific options are:
@@ -253,7 +253,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp".
      See the specification of [generate_source_with_inlined_header_cpp] for additional features.
    The rest of the options are the same as [script f] *)
-let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(capture_show_in_batch = false) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
+let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(capture_show_in_batch = false) ?(prefix : string option) (f : unit -> unit) : unit =
   may_report_time "script-cpp" (fun () ->
     (* Handles preprocessor -- FUTURE USE MENHIR PARSER
     Compcert_parser.Clflags.prepro_options := prepro;
@@ -278,18 +278,12 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
         Some inlinefilename
     in
 
-    let parser =
-      match parser with
-      | Some p -> p
-      | None -> CParsers.get_default ~serialize:true ()
-    in
+    script ?filename ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
 
-    script ~parser ?filename ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
-
-(* [doc_script_cpp ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
+(* [doc_script_cpp ~f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
     as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
     executes the transformation [f] using [script_cpp]  *)
-let doc_script_cpp ?(parser : Trace.parser option) (f : unit -> unit) (src : string) : unit =
+let doc_script_cpp (f : unit -> unit) (src : string) : unit =
   (* Handle names *)
   let basename = get_program_basename () in
   let docbasename = basename ^ "_doc" in
@@ -301,7 +295,7 @@ let doc_script_cpp ?(parser : Trace.parser option) (f : unit -> unit) (src : str
   Xfile.put_contents docfilename src;
 
   (* Invoke [script_cpp] *)
-  script_cpp ~prefix:(Filename.basename docbasename) ~filename:(Filename.basename docfilename) ?parser ~check_exit_at_end:false f;
+  script_cpp ~prefix:(Filename.basename docbasename) ~filename:(Filename.basename docfilename) ~check_exit_at_end:false f;
 
   Flags.documentation_save_file_at_first_check := ""
 

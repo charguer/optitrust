@@ -139,9 +139,9 @@ let reparse_between_steps = ref false
 (* [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
 
-(* [dont_serialize] disables the generation of serialized AST obtained from parsing;
+(* [serialize] enable the generation of serialized AST obtained from parsing;
    ( LATER:only one flag merged with ignore_serialized?)  *)
-let dont_serialize = ref false
+let serialize = ref true
 
 (* [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
@@ -262,7 +262,7 @@ let spec : cmdline_args =
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
-     ("-dont-serialize", Arg.Set dont_serialize, " do not serialize the parsed AST");
+     ("-dont-serialize", Arg.Clear serialize, " do not serialize the parsed AST");
      ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
      ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");

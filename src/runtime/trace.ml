@@ -141,11 +141,11 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (* TODO: encode header information in the AST *)
 type parser = string -> string * trm
 
-(** [parse ~parser filename]:
+(** [parse filename]:
    call the parser on the given file while recording statistics *)
-let parse ~(parser: parser) (filename : string) : string * trm =
+let parse ?(serialize=true) (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
-  let parsed_file = stats ~name:"tr_ast" (fun () -> parser filename) in
+  let parsed_file = stats ~name:"tr_ast" (fun () -> CParsers.parse ~serialize filename) in
   print_info None "Parsing Done.\n";
   parsed_file
 
@@ -189,26 +189,18 @@ let process_ast_before_after_for_diff (style_before : output_style) (style_after
 (** [context]: contains general information about:
    - the source code that was loaded initially using [set_init_file],
    - the prefix of the filenames in which to output the final result using [dump] *)
-type context =
-  { parser : parser;
-    prefix : string;
-    extension : string;
-    header : string; }
+type context = {
+  prefix : string;
+  extension : string;
+  header : string;
+}
 
 (** [contex_dummy]: used for [trace_dummy]. *)
-let context_dummy : context =
-  { parser = (fun _ -> failwith "context_dummy has no parser");
-    (* directory = ""; *)
-    prefix = "";
-    extension = "";
-    header = "" }
-
-(* DEPRECATED [stepdescr]: description of a script step. *)
-type stepdescr = {
-  mutable isbigstep : string option; (* if the step is the beginning of a big step,
-                                        then the value is [Some descr] *)
-  mutable script : string; (* excerpt from the transformation script, or "" *)
-  mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
+let context_dummy : context = {
+  prefix = "";
+  extension = "";
+  header = ""
+}
 
 (** [step_kind] : classifies the kind of steps.*)
 type step_kind =
@@ -553,7 +545,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
 (******************************************************************************)
 
 (** [reparse_trm ctx ast]: prints [ast] in a temporary file and reparses it using Clang. *)
-let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (ast : trm) : trm =
+let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
   (* Disable caching for reparsing *)
   Flags.with_flag Flags.debug_parsing_serialization false (fun () ->
 
@@ -565,19 +557,13 @@ let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (
     let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
     output_prog (Style.custom_style_for_reparse()) ~beautify:false ctx in_prefix ast;
 
-    let parser =
-      match parser with
-      | Some p -> p
-      | None -> ctx.parser
-    in
-
-    let (_, t) = parse ~parser (in_prefix ^ ctx.extension) in
+    let (_, t) = parse (in_prefix ^ ctx.extension) in
     (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
     t
   )
 
-let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code during the step starting at") ?(parser: parser option) () =
-  let tnew = reparse_trm ~info ?parser the_trace.cur_context the_trace.cur_ast in
+let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code during the step starting at") () =
+  let tnew = reparse_trm ~info the_trace.cur_context the_trace.cur_ast in
   if update_cur_ast then begin
     the_trace.cur_ast <- tnew;
     the_trace.cur_ast_typed <- false;
@@ -1050,7 +1036,7 @@ and typing_step ~name (f : unit -> unit) : unit =
    information is properly set up.
    WARNING: reparsing discards all the marks in the AST. *)
 and reparse ?(update_cur_ast = true) ?(info : string option) ?(parser: parser option) () : unit =
-  parsing_step (reparse_ast ~update_cur_ast ?info ?parser)
+  parsing_step (reparse_ast ~update_cur_ast ?info)
 
 and recompute_resources (): unit =
   if not the_trace.cur_ast_typed then
@@ -1075,7 +1061,7 @@ and recompute_resources_on_ast () : unit =
 (** [retypecheck] is currently implemented as [reparse], but in the future it
    would use a dedicated typechecker. *)
 let retypecheck ?(info : string option) ?(parser: parser option) () =
-  typing_step ~name:"Retypecheck" (reparse_ast ?info ?parser)
+  typing_step ~name:"Retypecheck" (reparse_ast ?info)
 
 (** [close_step_kind_if_needed k] is used by
    [close_smallstep_if_needed] and [close_bigstep_if_needed] *)
@@ -1230,12 +1216,11 @@ let invalidate () : unit =
   the_trace.cur_ast_typed <- trace_dummy.cur_ast_typed;
   the_trace.step_stack <- trace_dummy.step_stack
 
-(** [get_initial_ast ~parser filename]: gets the initial ast before applying any trasformations
-     [parser] - choose which parser to use for parsing the source code
+(** [get_initial_ast filename]: gets the initial ast before applying any trasformations
      [filename] - filename of the source code
      returns header and ast. *)
-let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
-  parse ~parser filename
+let get_initial_ast (filename : string) : (string * trm) =
+  parse filename
 
 (** [init f]: initializes the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -1243,7 +1228,7 @@ let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f].
    style is computed based on the global flags.   *)
-let init ~(prefix : string) ~(parser: parser) ~(program : string) (filename : string) : unit =
+let init ~(prefix : string) ~(program : string) (filename : string) : unit =
   ast_just_before_first_call_to_restore_original := None; (* TEMPORARY HACK *)
   invalidate ();
   let basename = Filename.basename filename in
@@ -1275,9 +1260,9 @@ let init ~(prefix : string) ~(parser: parser) ~(program : string) (filename : st
 
   init_logs prefix;
 
-  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser filename) in
+  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast filename) in
 
-  let context = { parser; extension; prefix; header } in
+  let context = { extension; prefix; header } in
   the_trace.cur_context <- context;
   the_trace.cur_ast <- cur_ast;
   the_trace.cur_ast_typed <- false;
@@ -1594,7 +1579,7 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
 let serialize_full_trace_and_get_timestamp ~(prefix : string) : string =
   let ser_filename = prefix ^ ".trace" in
   let out_file = open_out_bin ser_filename in
-  Marshal.to_channel out_file (get_root_step()) [Closures]; (* TODO: Remove parser closure *)
+  Marshal.to_channel out_file (get_root_step()) [];
   close_out out_file;
   let timestamp = string_of_float ((Unix.stat ser_filename).st_mtime) in
   timestamp
