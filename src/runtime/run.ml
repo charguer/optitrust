@@ -143,18 +143,16 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   Target.show_next_id_reset ();
 
   let program_basename = get_program_basename () in
-
-  let default_basename = program_basename in
-  let dirname = Filename.dirname default_basename in
+  let dirname = Filename.dirname program_basename in
   let prefix =
     match prefix with
     | Some prefix -> Filename.concat dirname prefix
-    | None -> default_basename
+    | None -> program_basename
   in
   let filename =
     match filename with
     | Some filename -> Filename.concat dirname filename
-    | None -> default_basename ^ extension
+    | None -> program_basename ^ extension
   in
 
   let produce_trace () : unit =

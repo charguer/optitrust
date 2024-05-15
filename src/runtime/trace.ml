@@ -1240,27 +1240,19 @@ let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
    The history is initialized with the initial AST.
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f].
-   [~style] allows to specify a printing style for ASTs; the default
    style is computed based on the global flags.   *)
-(* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) ?(program : string option) (filename : string) : unit =
+let init ~(prefix : string) ~(parser: parser) ~(program : string) (filename : string) : unit =
   ast_just_before_first_call_to_restore_original := None; (* TEMPORARY HACK *)
   invalidate ();
   let basename = Filename.basename filename in
-  let program = Option.value program ~default:basename in
   let extension = Filename.extension basename in
-  let default_prefix = Filename.remove_extension filename in
-  let ml_file_name =
-    if Tools.pattern_matches "_inlined" default_prefix
-      then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
-      else default_prefix in
+  let script_filename = program ^ ".ml" in
   (* TODO: could optimize the setting of the flag only_big_step by
      testing the target line only for "bigstep", without computing
      all of compute_ml_file_excerpts *)
-  if true (*!Flags.analyse_stats || Flags.is_execution_mode_trace()*) then begin
-    let src_file = (ml_file_name ^ ".ml") in
-    if Sys.file_exists src_file then begin
-      let lines = Xfile.get_lines src_file in
+  if !Flags.analyse_stats || Flags.is_execution_mode_trace() then begin
+    if Sys.file_exists script_filename then begin
+      let lines = Xfile.get_lines script_filename in
       (* printf "%s\n" (Tools.list_to_string ~sep:"\n" lines); *)
       ml_file_excerpts := compute_ml_file_excerpts lines;
       (* Automatically set the flag [only_big_steps] if targeted line  *)
@@ -1279,7 +1271,6 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
   start_stats := get_cur_stats ();
   last_stats := !start_stats;
 
-  let prefix = if prefix = "" then default_prefix else prefix in
   init_logs prefix;
 
   let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser filename) in
@@ -1288,7 +1279,7 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
   the_trace.context <- context;
   the_trace.cur_ast <- cur_ast;
   the_trace.cur_ast_typed <- false;
-  the_trace.cur_style <- begin match style with Some s -> s | None -> Style.default_custom_style() end;
+  the_trace.cur_style <- Style.default_custom_style();
   the_trace.step_stack <- [];
   open_root_step ~source:program ();
 
