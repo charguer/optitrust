@@ -20,7 +20,6 @@ apac/constify_functions_arguments/apac_constify_functions_arguments.ml
 pointer/fold
 
 # TO FIX:
-instr/gather
 function/uninline
 record/method_to_const
 function/rename_args

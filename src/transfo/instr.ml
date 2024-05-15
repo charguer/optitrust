@@ -134,26 +134,117 @@ type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
     It should be replaced by a more robust equivalent using relative immediate children targets.
 
     Note: This transformation assumes that [tg]  is going to be pointing at multiple instructions,
-    hence no need to provide the occurrecen target [nbMulti] before the main target. *)
+    hence no need to provide the occurrecen target [nbMulti] before the main target.
+
+    TODO: add flags to choose:
+    - failing if the instructions cannot be put strictly side-to-side
+    - allowing ghosts to be moved automatically if there is a dependence
+    - allowing non-ghosts to be moved
+   *)
 let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
   Marks.with_marks (fun next_mark ->
     let paths = resolve_target (enable_multi_targets tg) in
-    (* FIXME: do we need to put marks everywhere or just on ~dest ? should the Target.iter of move_in_seq not take care of marking paths for stability? *)
-    let marks = List.map (Marks.add_next_mark_on next_mark) paths in
-    (* let move_paths rel dest_p ps =
-      let m = Marks.add_next_mark_on next_mark dest_p in
-      move_in_seq ~dest:[rel; cMark m] [Constr_paths ps]
-    in *)
-    let move_marked rel dest_m ms =
-      move_in_seq ~dest:[rel; cMark dest_m] [nbAny; cMarks ms]
+    (* TODO: factorize with move_in_seq and Loop.fusion_targets *)
+    let seq_p = ref None in
+    let assert_seq_p seq_p' =
+      match !seq_p with
+      | None -> seq_p := Some seq_p';
+      | Some sp ->
+        if sp <> seq_p' then path_fail seq_p' "paths are not in the same sequence";
+    in
+    let indices = List.map (fun p ->
+      let (i, seq_p) = Path.index_in_seq p in
+      assert_seq_p seq_p;
+      (* let m = Marks.add_next_mark_on next_mark p in
+      printf "m = %s\n" m;
+      (i, m) *)
+      i
+    ) paths in
+    let sorted_indices = List.sort compare indices in
+
+    let move_index_marks dest to_move =
+      (* let dest_p = resolve_target_exactly_one dest in
+      let (seq_p, dest_index) = Path.extract_last_dir_before dest_p in
+      assert_seq_p seq_p; *)
+      let seq_p = Xoption.unsome !seq_p in
+      let tg_span span = target_of_path (seq_p @ [Dir_span span]) in
+
+      (*
+      let dest_mark = Marks.add_next_mark next_mark (target_of_path dest_p) in
+      let instr_dest_mark = next_mark () in
+      Marks.add_fake_instr instr_dest_mark [cMark dest_mark]; *)
+
+      (* move a span of instrs to a destination,
+         along with necessary dependencies collected on the way *)
+      let rec move_downwards_with_deps (span : Dir.span) (dest : int) : Dir.span =
+        (* printf "move downwards (%d, %d) - %d\n" span.start span.stop dest; *)
+        if span.stop >= dest then
+          (* the span of instruction has reached the destination *)
+          span
+        else
+          match Trace.step_backtrack_on_failure (fun () ->
+            move_in_seq ~dest:[dAfter span.stop] (tg_span span)
+          ) with
+          | Success () ->
+            move_downwards_with_deps { start = span.start + 1; stop = span.stop + 1 } dest
+          | Failure _ ->
+            move_downwards_with_deps { start = span.start; stop = span.stop + 1 } dest
+      in
+
+      let rec move_upwards_with_deps (span : Dir.span) (dest : int) : Dir.span =
+        (* printf "move upwards (%d, %d) - %d\n" span.start span.stop dest; *)
+        if span.start <= (dest + 1) then
+          (* the span of instruction has reached the destination *)
+          span
+        else
+          match Trace.step_backtrack_on_failure (fun () ->
+            move_in_seq ~dest:[dBefore (span.start - 1)] (tg_span span)
+          ) with
+          | Success () ->
+            move_upwards_with_deps { start = span.start - 1; stop = span.stop - 1 } dest
+          | Failure _ ->
+            move_upwards_with_deps { start = span.start - 1; stop = span.stop } dest
+      in
+
+      (* printf "dest = %d\n" dest;
+      printf "to_move = %s\n" (Tools.list_to_string (List.map string_of_int to_move)); *)
+      let (above, below) = match Xlist.find_index (fun i -> i > dest) to_move with
+      | Some i -> printf "split_at %i\n" i; Xlist.split_at i to_move
+      | None -> (to_move, [])
+      in
+
+      if above <> [] then begin
+        let above_span = ref None in
+        let above_dests = (Xlist.drop 1 above) @ [dest] in
+        List.iter2 (fun i dest ->
+          (* printf "above: i = %d, dest = %d\n" i dest; *)
+          above_span := Some (match !above_span with
+          | None -> move_downwards_with_deps { start = i; stop = i + 1 } dest
+          | Some span -> move_downwards_with_deps { span with stop = i + 1 } dest);
+        ) above above_dests;
+      end;
+
+      if below <> [] then begin
+        let below_rev = List.rev below in
+        let below_span = ref None in
+        let below_dests = (Xlist.drop 1 below_rev) @ [dest] in
+        List.iter2 (fun i dest ->
+          (* printf "below: i = %d, dest = %d\n" i dest; *)
+          below_span := Some (match !below_span with
+          | None -> move_upwards_with_deps { start = i; stop = i + 1 } dest
+          | Some span -> move_upwards_with_deps { span with start = i } dest);
+        ) below_rev below_dests;
+      end;
+
+      (* Marks.remove_fake_instr [cMark instr_dest_mark]; *)
     in
     begin match dest with
     | GatherAtFirst ->
-      let (first, rest) = Xlist.uncons marks in
-      move_marked tAfter first rest
+      let (first, rest) = Xlist.uncons sorted_indices in
+      move_index_marks first rest
     | GatherAtLast ->
-      let (rest, last) = Xlist.unlast marks in
-      move_marked tBefore last rest
+      let (rest, last) = Xlist.unlast sorted_indices in
+      move_index_marks last rest
     | GatherAt tg_dest ->
       failwith "GatherAt not yet implemented, need to move instrs before and after target in right order, maybe Instr.move should already behave like GatherAt?"
     end)

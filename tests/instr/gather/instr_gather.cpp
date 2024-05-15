@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int main() {
+void foo() {
   __pure();
 
   int x = 3;
@@ -23,6 +23,22 @@ int main() {
     z += 1;
   }
   int t = 2;
+}
 
-  // TODO: return 0;
+void with_deps() {
+  __pure();
+
+  int a = 0;
+  int b = 0;
+  int x = 0;
+  int y = 0;
+  int u = 0;
+  int v = 0;
+
+  a += 1;
+  x += a;
+  u += x;
+  v += 1;
+  y += b;
+  b += 1;
 }
