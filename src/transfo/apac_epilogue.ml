@@ -851,3 +851,65 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
 let synchronize_subscripts (tg : target) : unit =
   Target.iter (fun t p ->
       synchronize_subscripts_on p (Path.get_trm_at_path p t)) tg
+
+(* [reduce_waits2_on p t]: see [reduce_waits2]. *)
+let reduce_waits2_on (p : path) (t : trm) : unit =
+  let rec process (previous : (Task.t * int) Stack.t) (level : int)
+            (vertex : TaskGraph.V.t) : unit =
+    let task : Task.t = TaskGraph.V.label vertex in
+    if (Task.taskified task) then
+      Stack.push (task, level) previous
+    else if (Task.attributed task WaitForSome) then
+      begin
+        let ins = Dep_set.filter (fun d ->
+                      Dep_map.has_with_attribute d Condition task.ioattrs
+                    ) task.ins in
+        let inouts = Dep_set.filter (fun d ->
+                      Dep_map.has_with_attribute d Condition task.ioattrs
+                       ) task.inouts in
+        let task' : Task.t = {
+            current = task.current;
+            attrs = task.attrs;
+            ins = ins;
+            inouts = inouts;
+            ioattrs = task.ioattrs;
+            children = task.children;
+          }
+        in
+        let depends = Stack.fold (fun acc (t, l) ->
+                          acc || (Task.depending t task' (l <> level))
+                        ) false previous in
+        if (not depends) then
+          begin
+            task.attrs <- TaskAttr_set.remove WaitForSome task.attrs;
+            task.attrs <- TaskAttr_set.add WaitForNone task.attrs
+          end
+      end;
+    List.iter (fun gl ->
+        List.iter (fun go ->
+            TaskGraphTraverse.iter (process previous (level + 1)) go
+          ) gl
+      ) task.children
+  in
+  (* Find the parent function. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_epilogue.reduce_waits2_on: unable to find \
+                          parent function. Task group outside of a function?" in
+  (* Find the corresponding constification record in [const_records]. *)
+  let const_record = Var_Hashtbl.find const_records f in
+  (* Build the augmented AST correspoding to the function's body. *)
+  let g = match const_record.task_graph with
+    | Some (g') -> g'
+    | None -> fail t.loc "Apac_epilogue.reduce_waits2_on: Missing task graph. \
+                          Did you taskify?" in
+  let previous : (Task.t * int) Stack.t = Stack.create () in
+  TaskGraphTraverse.iter (process previous 1) g;
+  Printf.printf "Reduced waits2 task graph of << %s >> follows:\n" (var_to_string f);
+  TaskGraphPrinter.print g;
+  let dot = "apac_task_graph_" ^ f.name ^ "_waits2.dot" in
+  export_task_graph g dot;
+  dot_to_pdf dot
+
+let reduce_waits2 (tg : target) : unit =
+  Target.iter (fun t p -> reduce_waits2_on p (Path.get_trm_at_path p t)) tg
