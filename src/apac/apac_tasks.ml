@@ -219,6 +219,9 @@ module rec Task : sig
     let ins' = Dep_set.union t1.ins t2.ins in
     (* compute the union of the input-output dependency sets, *)
     let inouts' = Dep_set.union t1.inouts t2.inouts in
+    (** remove from the set of input dependencies the dependencies that are both
+        input and input-output dependencies, *)
+    let ins' = Dep_set.diff ins' inouts' in
     (* compute the union of maps of dependency attributes, *)
     let ioattrs' = Dep_map.union2 t1.ioattrs t2.ioattrs in
     (* concatenate the list of lists of nested graphs of [t1] and [t2]. *)
