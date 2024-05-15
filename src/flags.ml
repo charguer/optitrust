@@ -294,10 +294,6 @@ let process_cmdline_args ?(args : cmdline_args = []) () : unit =
     ("usage: no argument expected, only options");
   fix_flags()
 
-(* [documentation_ssave_file_atfirst_check]: flag used for a hack used by function [doc_script_cpp], for generating
-    the output associated with the documentation of a unit test, before running the main contents of the file. *)
-let documentation_save_file_at_first_check = ref ""
-
 (* cf. Trm.trm_combinators_unsupported_case *)
 let trm_combinators_warn_unsupported_case = ref true
 

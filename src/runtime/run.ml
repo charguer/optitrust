@@ -279,23 +279,3 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
     in
 
     script ?filename ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
-
-(* [doc_script_cpp ~f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
-    as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
-    executes the transformation [f] using [script_cpp]  *)
-let doc_script_cpp (f : unit -> unit) (src : string) : unit =
-  (* Handle names *)
-  let basename = get_program_basename () in
-  let docbasename = basename ^ "_doc" in
-  let docfilename = docbasename ^ ".cpp" in
-
-  (* Special flag to save the diff of the first step *)
-  Flags.documentation_save_file_at_first_check := docbasename;
-  (* Write the contents of the cpp file; note that it will be overwritten at the first '!!' from the script. *)
-  Xfile.put_contents docfilename src;
-
-  (* Invoke [script_cpp] *)
-  script_cpp ~prefix:(Filename.basename docbasename) ~filename:(Filename.basename docfilename) ~check_exit_at_end:false f;
-
-  Flags.documentation_save_file_at_first_check := ""
-
