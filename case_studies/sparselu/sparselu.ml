@@ -32,6 +32,10 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ]; 
+            !! Apac_epilogue.reduce_waits2 [
+                nbAny;
+                cMark Apac_macros.task_group_mark
+              ]; 
             !! Apac_taskify.insert_tasks
               [nbAny; cMark Apac_macros.task_group_mark];
           (*  !! Apac_epilogue.instrument
