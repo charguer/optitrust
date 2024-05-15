@@ -1115,39 +1115,40 @@ type error_context = {
 (** [Contextualized_error]: exception raised within a given context. *)
 exception Contextualized_error of error_context list * exn
 
-let contextualized_error (ctx : error_context) (error : string) : 'a =
-  raise (Contextualized_error ([ctx], Failure error))
+let contextualized_error (ctxs : error_context list) (error : string) : 'a =
+  raise (Contextualized_error (ctxs, Failure error))
 
-let contextualized_exn (ctx : error_context) (exn : exn) : 'a =
-  Printexc.(raise_with_backtrace (Contextualized_error ([ctx], exn)) (get_raw_backtrace ()))
+let contextualized_exn (ctxs : error_context list) (exn : exn) : 'a =
+  Printexc.(raise_with_backtrace (Contextualized_error (ctxs, exn)) (get_raw_backtrace ()))
+
+let path_error_context (p : Dir.path) : error_context =
+  {
+    path = Some p;
+    trm = None;
+    loc = None;
+    msg = ""
+  }
 
 (* LATER: use Path.fail or fail ~path *)
 (* [path_fail p err]: fails with error [error] raised on path [p] *)
 let path_fail (p : Dir.path) (error : string) : 'a =
-  contextualized_error {
-    path = Some p;
-    trm = None;
-    loc = None;
-    msg = ""
-  } error
+  contextualized_error [path_error_context p] error
 
 let path_exn (p : Dir.path) ?(error : string = "") (exn : exn) : 'a =
-  contextualized_exn {
-    path = Some p;
-    trm = None;
-    loc = None;
-    msg = error
-  } exn
+  contextualized_exn [path_error_context p] exn
 
-(* LATER: move to trm.ml or have fail ~trm *)
-(* [trm_fail t err]: fails with error [error] raised on term [t] *)
-let trm_fail (t : trm) (error : string) : 'a =
-  contextualized_error {
+let trm_error_context (t : trm) : error_context =
+  {
     path = None;
     trm = Some t;
     loc = t.loc;
     msg = ""
-  } error
+  }
+
+(* LATER: move to trm.ml or have fail ~trm *)
+(* [trm_fail t err]: fails with error [error] raised on term [t] *)
+let trm_fail (t : trm) (error : string) : 'a =
+  contextualized_error [trm_error_context t] error
 
 let unsome_or_trm_fail (t: trm) (error: string) (x_opt : 'a option) : 'a =
     match x_opt with
@@ -1156,13 +1157,16 @@ let unsome_or_trm_fail (t: trm) (error: string) (x_opt : 'a option) : 'a =
 
 (* ********************************************************************************************** *)
 
-let loc_fail (loc : location) (error : string) : 'a =
-  contextualized_error {
+let loc_error_context (loc : location) : error_context =
+  {
     path = None;
     trm = None;
     loc = loc;
     msg = ""
-  } error
+  }
+
+let loc_fail (loc : location) (error : string) : 'a =
+  contextualized_error [loc_error_context loc] error
 
 (* [print_info loc]: computes a function that prints information related to some location in file only if the verbose
    flag is activated *)

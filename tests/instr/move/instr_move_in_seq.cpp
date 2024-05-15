@@ -38,6 +38,10 @@ void pure_facts() {
   req_triv(k+3);
   req_triv(k+4);
   __ghost(trivial_change, "k+5");
+  k+5;
+  k+6;
+  const int z = 0;
+  req_triv(k+5);
 }
 
 void pure_noop() {
@@ -46,4 +50,13 @@ void pure_noop() {
   __ghost(trivial_init, "0");
   __ghost(trivial_change, "1");
   req_triv(0);
+}
+
+void with_assert_alias(int x) {
+  __pure();
+  if (x == 0) {
+    __ghost(assert_alias, "x, 0");
+    int a = x+1;
+    int b = x+2;
+  }
 }

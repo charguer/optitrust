@@ -982,15 +982,21 @@ and error_step (exn : exn): unit =
     List.iter (fun c ->
       Option.iter (fun p ->
         let mark = Mark.next () in
+        let (p, add_mark) = match Path.extract_last_dir p with
+        | p, Path.Span s -> (p, ref (trm_add_mark_span s mark))
+        | p, Path.Before i -> (p, ref (trm_add_mark_between i mark))
+        | _ -> (p, ref (trm_add_mark mark))
+        in
         let prefix = ref p in
         let prefix_invalid = ref true in
         (* TODO: factorize this code in Path. module *)
         while !prefix_invalid do
           try
-            the_trace.cur_ast <- Path.apply_on_path (trm_add_mark mark) the_trace.cur_ast !prefix;
+            the_trace.cur_ast <- Path.apply_on_path !add_mark the_trace.cur_ast !prefix;
             prefix_invalid := false;
           with
           | _ -> (* TODO: more precise catch ? *)
+            add_mark := trm_add_mark mark;
             prefix := Path.parent !prefix
         done;
         let prefix_len = List.length !prefix in

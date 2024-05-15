@@ -17,8 +17,17 @@ let _ = Flags.recompute_resources_between_steps := true
    - no template support yet for S/ST types; OpenCV also casts inputs from uchar
    *)
 
+(* FIXME: should be done by flag ~elimoptitrust:true *)
+let%transfo postprocessing (_u: unit) : unit =
+  Trace.tag "pre-post-processing";
+  Flags.recompute_resources_between_steps := false;
+  Matrix.elim_mops [];
+  Resources.delete_annots [];
+  Loop.delete_all_void []
+
 let _ = Run.script_cpp (fun () ->
   !! Resources.ensure_computed ();
+  (* Resources.delete_annots []; *)
 
   (* FIXME: not working on fun body because need to go inside seq. *)
   bigstep "prepare for specialization";
@@ -52,7 +61,5 @@ let _ = Run.script_cpp (fun () ->
   );
 
   bigstep "postprocessing and optional style";
-  Flags.recompute_resources_between_steps := false;
-  !! Resources.delete_annots [];
-  !! Matrix.elim_mops [];
+  !! postprocessing ();
 )

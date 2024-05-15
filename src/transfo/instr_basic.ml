@@ -47,6 +47,7 @@ let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
         | [] -> trm_fail t_seq "Instr_basic.move: could not find the destination target";
         | _ -> trm_fail t_seq "Instr_basic.move: the destination target should be unique";
       in
+      (* TODO: if debug, step_debug mark add *)
       let before_index, mid_index, after_index =
         if span.start < dest_index then begin
           if span.stop > dest_index then trm_fail t_seq "Instr.basic.move: the destination should be outside the moved span";
@@ -63,7 +64,11 @@ let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
       if !Flags.check_validity then begin
         let usage_before = Resources.compute_usage_of_instrs swapped_before in
         let usage_after = Resources.compute_usage_of_instrs swapped_after in
-        Resources.assert_usages_commute t_seq.loc usage_before usage_after;
+        let ctx = [
+          path_error_context (p_seq @ [Dir_before dest_index]);
+          path_error_context p
+        ] in
+        Resources.assert_usages_commute ctx usage_before usage_after;
         Trace.justif "resources commute"
       end;
 

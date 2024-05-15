@@ -508,6 +508,7 @@ type fuse_into =
 let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int = 1)
   ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true)
   ?(rename : path -> Variable.rename option = fun p -> None) (tg : target) : unit =
+  Marks.with_marks (fun next_mark ->
   Trace.tag_valid_by_composition ();
   assert (not adapt_all_indices); (* TODO *)
   (* adapt_all_indices => adapt_fused_indices *)
@@ -518,6 +519,7 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
   let seq_path = ref None in
   let indices_in_seq = ref [] in
   Target.iter (fun p ->
+    let m = Marks.add_next_mark_on next_mark p in
     let (i, p_seq) = Path.index_in_seq p in
     begin match !seq_path with
     | None -> seq_path := Some p_seq
@@ -525,46 +527,79 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
       if p_seq <> p_seq' then
         trm_fail (Target.resolve_path p_seq) "Loop.fusion_targets: targeted loops are not in the same sequence"
     end;
-    indices_in_seq := i :: !indices_in_seq;
+    indices_in_seq := (i, m) :: !indices_in_seq;
   ) (nbMulti :: tg);
-  (* TODO: use gather_targets GatherAt preprocessing *)
-  (* Then, fuse all loops into one, moving loops in the sequence if necessary. *)
-  let may_rename_loop_body loop_p =
+  let may_rename_loop_body loop_tg =
+    let loop_p = resolve_target_exactly_one loop_tg in
     Option.iter  (fun r ->
       let inner_loop_p = Path.to_inner_loop_n (nest_of - 1) loop_p in
       Variable.renames r (target_of_path (inner_loop_p @ [Path.Dir_body]));
     ) (rename loop_p)
     in
   let p_seq = Option.get !seq_path in
-  let ordered_indices = List.sort compare !indices_in_seq in
-  let rec fuse_loops fuse_into shift todo =
+  let ordered_indices = List.sort (fun (i1, _) (i2, _) -> compare i1 i2) !indices_in_seq in
+  (* TODO: use gather_targets GatherAt preprocessing *)
+  (* Then, fuse all loops into one, moving loops in the sequence if necessary. *)
+  let rec fuse_loops fuse_into todo =
     match todo with
     | [] -> ()
     | to_fuse :: todo ->
-      let fuse_into_tg = target_of_path (p_seq @ [Path.Dir_seq_nth fuse_into]) in
+      let fuse_into_tg = (target_of_path p_seq) @ [cMark (snd fuse_into)] in
+      let tg_current = (target_of_path p_seq) @ [cMark (snd to_fuse)] in
+      may_rename_loop_body tg_current;
+      (* Printf.printf "to_fuse: %i\n" to_fuse;
+      Printf.printf "fuse_into: %i\n" fuse_into; *)
       (* If we are fusing from top to bottom *)
-      if to_fuse < fuse_into then begin
-        (* Printf.printf "to_fuse: %i\n" to_fuse;
-        Printf.printf "fuse_into: %i\n" fuse_into; *)
-        let to_fuse' = to_fuse in (* no shift *)
-        let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
-        may_rename_loop_body p_current;
-        if to_fuse' <> fuse_into - 1 then begin
-          Instr_basic.move ~dest:[dBefore fuse_into] (target_of_path p_current);
-        end;
+      if (fst to_fuse) < (fst fuse_into) then begin
+        (* FIXME: refactor ? *)
+        let span_beg = resolve_target_exactly_one ([tAfter] @ tg_current) in
+        let span_end = resolve_target_exactly_one ([tBefore] @ fuse_into_tg) in
+        let (_, span_beg) = Path.extract_last_dir_before span_beg in
+        let (_, span_end) = Path.extract_last_dir_before span_end in
+        let not_before_current = ref 0 in
+        (* 1. move as much as possible before tg_current *)
+        (* printf "%d - %d\n" span_beg (span_end - 1); *)
+        for i = span_beg to span_end - 1 do
+          (* TODO: add flag to only allow backtrack for ghosts instead of all instrs? *)
+          match Trace.step_backtrack_on_failure (fun () ->
+            Instr_basic.move ~dest:[tBefore; cMark (snd to_fuse)] (target_of_path (p_seq @ [Path.Dir_seq_nth i]));
+          ) with
+          | Success () -> ()
+          | Failure _ -> incr not_before_current;
+        done;
+        (* printf "%d - %d\n" (span_end - 1) (span_end); *)
+        (* 2. move the rest after fuse_into_tg *)
+        for i = span_end - 1 downto span_end - !not_before_current do
+          Instr_basic.move ~dest:[tAfter; cMark (snd fuse_into)] (target_of_path (p_seq @ [Path.Dir_seq_nth i]));
+        done;
+        (* Instr.move_in_seq ~dest:[tBefore; cMark (snd fuse_into)] tg_current; *)
+        (* 3. fuse *)
         fusion ~nest_of ~adapt_fused_indices ~upwards:false fuse_into_tg;
-        fuse_loops (fuse_into - 1) (shift - 1) todo;
+        fuse_loops fuse_into todo;
       end;
       (* If we are fusing from bottom to top *)
-      if to_fuse > fuse_into then begin
-        let to_fuse' = to_fuse + shift in
-        let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
-        may_rename_loop_body p_current;
-        if to_fuse' <> (fuse_into + 1) then begin
-          Instr_basic.move ~dest:[dAfter fuse_into] (target_of_path p_current);
-        end;
+      if (fst to_fuse) > (fst fuse_into) then begin
+        let span_beg = resolve_target_exactly_one ([tAfter] @ fuse_into_tg) in
+        let span_end = resolve_target_exactly_one ([tBefore] @ tg_current) in
+        let (_, span_beg) = Path.extract_last_dir_before span_beg in
+        let (_, span_end) = Path.extract_last_dir_before span_end in
+        let not_after_current = ref 0 in
+        (* 1. move as much as possible after tg_current *)
+        for i = span_end downto span_beg do
+          match Trace.step_backtrack_on_failure (fun () ->
+            Instr_basic.move ~dest:[tAfter; cMark (snd to_fuse)] (target_of_path (p_seq @ [Path.Dir_seq_nth i]));
+          ) with
+          | Success () -> ()
+          | Failure _ -> incr not_after_current;
+        done;
+        (* 2. move the rest before fuse_into_tg *)
+        for i = span_beg to span_beg + (!not_after_current - 1) do
+          Instr_basic.move ~dest:[tBefore; cMark (snd fuse_into)] (target_of_path (p_seq @ [Path.Dir_seq_nth i]));
+        done;
+        (* Instr.move_in_seq ~dest:[tAfter; cMark (snd fuse_into)] tg_current; *)
+        (* 3. fuse *)
         fusion ~nest_of ~adapt_fused_indices fuse_into_tg;
-        fuse_loops fuse_into (shift - 1) todo;
+        fuse_loops fuse_into todo;
       end;
   in
   let fuse_into =
@@ -575,12 +610,13 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
     | FuseIntoOcc occ -> List.nth ordered_indices occ
     | FuseInto tg ->
       let p = Target.resolve_target_exactly_one tg in
+      let m = Marks.add_next_mark_on next_mark p in
       let (fuse_into, p_seq_tg) = Path.index_in_seq p in
       if p_seq_tg <> p_seq then
         path_fail p_seq_tg "fusion targets are not in the same sequence";
-      fuse_into
+      (fuse_into, m)
   in
-  let pos = Xoption.unsome_or_else (Xlist.index_of fuse_into ordered_indices) (fun () ->
+  let pos = Xoption.unsome_or_else (Xlist.find_index (fun x -> (fst x) = (fst fuse_into)) ordered_indices) (fun () ->
     path_fail p_seq "invalid fuse_into index"
   ) in
   let (before, inc_after) = Xlist.split_at pos ordered_indices in
@@ -589,8 +625,9 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
   (* Printf.printf "fuse_into: %i\n" fuse_into;
   List.iter (Printf.printf "%i ") to_fuse;
   Printf.printf "\n"; *)
-  may_rename_loop_body (p_seq @ [Dir_seq_nth fuse_into]);
-  fuse_loops fuse_into 0 to_fuse
+  may_rename_loop_body (target_of_path (p_seq @ [Dir_seq_nth (fst fuse_into)]));
+  fuse_loops fuse_into to_fuse
+  )
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,
     then it will move that instruction outside the for loop that it belongs to.

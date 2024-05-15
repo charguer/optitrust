@@ -106,6 +106,16 @@ let var_assert_alias = toplevel_var "assert_alias"
 let ghost_intro_alias (x : var) (t : trm) : trm =
   ghost (ghost_call var_assert_alias ["x", trm_var x; "y", t])
 
+let is_ghost_alias (t : trm) : bool =
+  begin match ghost_inv t with
+  | Some { ghost_fn = g; _ } ->
+    begin match trm_var_inv g with
+    | Some v when var_eq var_assert_alias v -> true
+    | _ -> false
+    end
+  | _ -> false
+  end
+
 let var_assert_eq = toplevel_var "assert_eq"
 
 let var_ghost_hide = toplevel_var "hide"

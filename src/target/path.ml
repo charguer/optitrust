@@ -33,16 +33,11 @@ let app_to_nth_dflt (l : 'a list) (n : int) (cont : 'a -> 'b list) : 'b list =
 let handle_path_error (p : path) (f : unit -> 'a) : 'a =
   try f ()
   with
-  | Contextualized_error (contexts, e) as exn ->
+  | Contextualized_error (contexts, e) ->
     (* TODO? chop prefix
     let prefix_p = Xlist.drop_last (List.length rest_p) p in
     raise (Path_error (prefix_p, e)) *)
-    begin match contexts with
-    | c :: _ when Option.is_some c.path ->
-      (* FIXME: don't drop c_rest *)
-      path_exn p e
-    | _ -> path_exn p exn
-    end
+    contextualized_exn ((path_error_context p) :: contexts) e
   | e -> path_exn p e
 
 (* [apply_on_path transfo t dl]: follow an explicit path to apply a function on the corresponding subterm *)
