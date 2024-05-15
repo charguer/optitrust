@@ -121,6 +121,7 @@ module rec Task : sig
          val create :
            trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
            ioattrs_map -> TaskGraph.t list list -> t
+         val depending : t -> t -> bool -> bool
          val attributed : t -> TaskAttr.t -> bool
          val subscripted : t -> bool
          val merge : t -> t -> t
@@ -198,6 +199,17 @@ module rec Task : sig
       ioattrs = ioattrs';
       children = children;
     }
+
+  (** [Task.depending t1 t2 alt]: checks whether the task [t2] depends on the
+      task [t1]. If [alt] is [true], the alternative dependency string
+      representations shall be considered, see [Dep.to_string2]. *)
+  let depending (t1 : t) (t2 : t) (alt : bool) : bool =
+    let inter = if alt then Dep_set.inter2 else Dep_set.inter in
+    let op1 = inter t1.inouts t2.ins in
+    let op2 = inter t1.ins t2.inouts in
+    let op3 = inter t1.inouts t2.inouts in
+    not ((Dep_set.is_empty op1) && (Dep_set.is_empty op2) &&
+           (Dep_set.is_empty op3))
 
   (** [Task.attributed task attr]: checks whether the task [task] carries the
       attribute [attr]. *)
