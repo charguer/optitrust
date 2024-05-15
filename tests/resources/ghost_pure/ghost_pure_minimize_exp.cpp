@@ -46,3 +46,32 @@
     __ghost(trivial_init, "k := i");
   }
 }
+
+void must_be_zero(int i) { __requires("__is_eq(i, 0)"); }
+
+void must_be_zero_ens(int i) {
+  __requires("__is_eq(i, 0)");
+  __ensures("__is_eq(i * 1, 0)");
+  __admitted();
+}
+
+void h(int i, int j) {
+  __requires("__is_eq(i, j)");
+  if (j == 0) {
+    __ghost(assert_alias, "x := j, y := 0");
+    __ghost(assert_alias, "x := j, y := 0");
+    must_be_zero(i);
+    __ghost(assert_alias, "x := j, y := 0");
+  }
+}
+
+void h2(int i, int j) {
+  __requires("__is_eq(i, j)");
+  if (j == 0) {
+    __ghost(assert_alias, "x := j, y := 0");
+    __ghost(assert_alias, "x := j, y := 0");
+    must_be_zero_ens(i);
+    __ghost(assert_alias, "x := j, y := 0");
+    must_be_zero(i * 1);
+  }
+}

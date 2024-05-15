@@ -1,15 +1,18 @@
-int* t;
-int* u;
-int* v;
-int n;
+#include <optitrust.h>
 
-int main() {
+void f(int* t, int* u, int* v, int n) {
+  __modifies("for i in 0..n -> &t[i] ~> Cell");
+  __modifies("for i in 0..n -> &u[i] ~> Cell");
+  __modifies("for i in 0..n -> &v[i] ~> Cell");
+
   float p = 5.0;
   for (int i = 0; i < n; i++) {
+    __xmodifies("&t[i] ~> Cell");
     t[i] = i;
   }
   int x = 1;
   for (int i = 0; i < n; i++) {
+    __xmodifies("&u[i] ~> Cell");
     u[i] += i;
   }
   for (int k0 = 0; k0 < n; k0++) {
@@ -26,11 +29,58 @@ int main() {
     }
   }
   for (int j = 0; j < n; j++) {
+    __xmodifies("&v[j] ~> Cell");
     v[j] += j;
   }
   int a;
   int b;
   int c;
-  return 0;
 }
 
+void with_deps1(int n) {
+  __pure();
+
+  int a = 0;
+  int b = 0;
+  int x = 0;
+  int y = 0;
+  int u = 0;
+  int v = 0;
+
+  for (int i = 0; i < n; i++) {
+    __smodifies("&a ~> Cell");
+    a++;
+  }
+  x += a;
+  u += x;
+  v += 1;
+  y += b;
+  for (int j = 0; j < n; j++) {
+    __smodifies("&b ~> Cell");
+    b++;
+  }
+}
+
+void with_deps2(int n) {
+  __pure();
+
+  int a = 0;
+  int b = 0;
+  int x = 0;
+  int y = 0;
+  int u = 0;
+  int v = 0;
+
+  for (int i = 0; i < n; i++) {
+    __smodifies("&a ~> Cell");
+    a++;
+  }
+  x += a;
+  u += x;
+  v += 1;
+  y += b;
+  for (int j = 0; j < n; j++) {
+    __smodifies("&b ~> Cell");
+    b++;
+  }
+}

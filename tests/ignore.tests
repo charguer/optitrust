@@ -8,7 +8,6 @@ tester.ml
 
 # BROKEN RESOURCES
 matrix/local_name_tile/matrix_local_name_tile.ml
-stencil/fusion_targets/stencil_fusion_targets.ml
 matrix/delocalize_obj/matrix_delocalize_obj.ml
 loop/swap/loop_swap_doc.ml
 loop/moveout/loop_moveout_doc.ml

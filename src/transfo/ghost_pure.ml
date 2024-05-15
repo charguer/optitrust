@@ -27,12 +27,12 @@ let%transfo move_all_upwards (tg: target): unit =
     If they reach the bottom of the sequence and are not used in a post-condition
     instantiation, remove them *)
 let minimize_all_in (seq : trm) : trm =
-  let error = "Ghost_pure.move_all_downwards: expected sequence" in
+  let error = "expected sequence" in
   let instrs = trm_inv ~error trm_seq_inv seq in
-  let pures = ref [] in
+  let pures_rev = ref [] in
   Mlist.iteri (fun i instr ->
-    if is_pure_ghost_call instr then
-      pures := i :: !pures;
+    if is_pure_ghost_call instr && not (Resource_trm.is_ghost_alias instr) then
+      pures_rev := i :: !pures_rev;
     ) instrs;
   let post_inst_usage = Option.map Resource_computation.used_set_to_usage_map seq.ctx.ctx_resources_post_inst in
   List.fold_left (fun seq pure_i ->
@@ -59,7 +59,7 @@ let minimize_all_in (seq : trm) : trm =
       seq
     else
       Instr_core.move_at desired_pos pure_i seq
-  ) seq !pures
+  ) seq !pures_rev
 
 let%transfo minimize_all_in_seq (tg: target): unit =
   Resources.ensure_computed ();

@@ -1258,7 +1258,11 @@ let rec compute_resources
         | _ -> ()) (ghost_args @ Option.value ~default:[] (Option.map (fun inv -> List.map (fun { hyp; inst_by } -> (hyp, inst_by)) inv.contract_inst.used_pure) ghost_call.ctx.ctx_resources_contract_invoc));
         let var = Option.get !var in
         let subst = trm_subst res.aliases (Option.get !subst) in (* Aliases never refer to other aliases *)
-        if Var_map.mem var res.aliases then failwith (sprintf "Cannot add an alias for '%s': this variable already has an alias" (var_to_string var));
+        begin match Var_map.find_opt var res.aliases with
+        | None -> ()
+        | Some alias when are_same_trm alias subst -> ()
+        | _ -> failwith (sprintf "Cannot add an alias for '%s': this variable already has an alias" (var_to_string var))
+        end;
         let aliases = Var_map.add var subst res.aliases in
         usage_map, Some ({ res with aliases })
 
