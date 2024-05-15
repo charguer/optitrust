@@ -191,9 +191,7 @@ let process_ast_before_after_for_diff (style_before : output_style) (style_after
    - the prefix of the filenames in which to output the final result using [dump] *)
 type context =
   { parser : parser;
-    (* DEPRECATED?
-       directory : string; *)
-    mutable prefix : string; (* TODO: needs mutable? *)
+    prefix : string;
     extension : string;
     header : string; }
 
@@ -267,6 +265,7 @@ type step_infos = {
 (** [step_tree]: history type used for storing all the trace information about all steps, recursively. *)
 type step_tree = {
   mutable step_kind : step_kind;
+  mutable step_context : context;
   mutable step_ast_before : trm; (* possibly [empty_ast], for "show" steps *)
   mutable step_ast_after : trm;
   mutable step_style_before : output_style;
@@ -289,7 +288,7 @@ type step_stack = step_tree list
    Any call to the [step] function adds a copy of [cur_ast] into [history].
   TODO: Rename to open_trace? *)
 type trace = {
-  mutable context : context;
+  mutable cur_context : context;
   mutable cur_ast : trm;
   mutable cur_style : output_style;
   mutable cur_ast_typed : bool;
@@ -303,7 +302,7 @@ let trm_dummy : trm =
 (** [trace_dummy]: an trace made of dummy context and dummy trm,
    whose purpose is to enforce that [Trace.init] is called before any transformation *)
 let trace_dummy : trace =
-  { context = context_dummy;
+  { cur_context = context_dummy;
     cur_ast = trm_dummy; (* dummy *)
     cur_style = Style.default_custom_style();
     cur_ast_typed = true;
@@ -316,12 +315,12 @@ let the_trace : trace =
 
 (** [is_trace_dummy()]: returns whether the trace was never initialized. *)
 let is_trace_dummy () : bool =
-  the_trace.context == context_dummy
+  the_trace.cur_context == context_dummy
 
 (** [get_decorated_history]: gets history from trace with a few meta information *)
 (* TODO: remove this function? *)
 let get_decorated_history ?(prefix : string = "") () : string * context * step_tree =
-  let ctx = the_trace.context in
+  let ctx = the_trace.cur_context in
   let prefix = (* LATER: figure out why we needed a custom prefix here *)
     if prefix = "" then ctx.prefix else prefix in
   let tree =
@@ -466,15 +465,15 @@ let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (file
 
 (** [get_header ()]: get the header of the current file (e.g. include directives) *)
 let get_header () : string =
-  the_trace.context.header
+  the_trace.cur_context.header
 
 (** [ensure_header]: ensures that the header [h] is included in the header of the current file. *)
 (* FIXME: does not show in diff this way *)
 let ensure_header (h : string) : unit =
-  let ctx = the_trace.context in
+  let ctx = the_trace.cur_context in
   let found = Tools.pattern_matches h (ctx.header) in
   if not found then
-    the_trace.context <- { ctx with header = ctx.header ^ h ^ "\n" }
+    the_trace.cur_context <- { ctx with header = ctx.header ^ h ^ "\n" }
 
 (** [output_prog style ctx prefix ast]: writes the program described by the term [ast] into file.
    - one describing the CPP code ("prefix.cpp")
@@ -578,7 +577,7 @@ let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (
   )
 
 let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code during the step starting at") ?(parser: parser option) () =
-  let tnew = reparse_trm ~info ?parser the_trace.context the_trace.cur_ast in
+  let tnew = reparse_trm ~info ?parser the_trace.cur_context the_trace.cur_ast in
   if update_cur_ast then begin
     the_trace.cur_ast <- tnew;
     the_trace.cur_ast_typed <- false;
@@ -608,7 +607,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_time_start = now();
     step_exectime = dummy_exectime;
     step_name = "";
-    step_args = [("extension", the_trace.context.extension) ];
+    step_args = [("extension", the_trace.cur_context.extension) ];
     step_justif = [];
     step_flag_check_validity = !Flags.check_validity;
     step_valid = false;
@@ -617,6 +616,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
   } in
   let step_root = {
     step_kind = Step_root;
+    step_context = the_trace.cur_context;
     step_ast_before = the_trace.cur_ast;
     step_style_before = the_trace.cur_style;
     step_ast_after = trm_dummy;
@@ -665,6 +665,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
   let step = {
     (* fields set at the start of the step *)
     step_kind = kind;
+    step_context = the_trace.cur_context;
     step_ast_before = the_trace.cur_ast;
     step_style_before = the_trace.cur_style;
     (* mutated during the lifetime of the step: *)
@@ -696,6 +697,7 @@ let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_
     step_debug_msgs = [];
   } in
   { step_kind = Step_change;
+    step_context = the_trace.cur_context;
     step_ast_before = ast_before;
     step_style_before = style;
     step_sub = [];
@@ -1223,7 +1225,7 @@ let target_iter_step (istep : int) (f: unit->unit) : unit =
    like at the start of the program.  *)
 let invalidate () : unit =
   close_logs();
-  the_trace.context <- trace_dummy.context;
+  the_trace.cur_context <- trace_dummy.cur_context;
   the_trace.cur_ast <- trace_dummy.cur_ast;
   the_trace.cur_ast_typed <- trace_dummy.cur_ast_typed;
   the_trace.step_stack <- trace_dummy.step_stack
@@ -1276,7 +1278,7 @@ let init ~(prefix : string) ~(parser: parser) ~(program : string) (filename : st
   let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser filename) in
 
   let context = { parser; extension; prefix; header } in
-  the_trace.context <- context;
+  the_trace.cur_context <- context;
   the_trace.cur_ast <- cur_ast;
   the_trace.cur_ast_typed <- false;
   the_trace.cur_style <- Style.default_custom_style();
@@ -1430,14 +1432,14 @@ let compute_command_base64 (str : string) : string =
 
 (** [compute_prog_before s] returns a string describing the code before the step [s] starts. *)
 let compute_prog_before ?(style:output_style option) (s:step_tree) : string =
-  let ctx = the_trace.context in
+  let ctx = s.step_context in
   let style = Option.value ~default:s.step_style_before style in
   output_prog style ctx "tmp_before" s.step_ast_before;
   compute_command_base64 "cat tmp_before.cpp"
 
 (** [compute_prog_after s] returns a string describing the code before the step [s] starts. *)
 let compute_prog_after ?(style:output_style option) (s:step_tree) : string =
-  let ctx = the_trace.context in
+  let ctx = s.step_context in
   let style = Option.value ~default:s.step_style_after style in
   output_prog style ctx "tmp_after" s.step_ast_after;
   compute_command_base64 "cat tmp_after.cpp"
@@ -1453,7 +1455,7 @@ let compute_diff (s:step_tree) : string =
   let disp_ast_after = !trace_custom_postprocessing ast_after in
   (* Dump the two files, and evaluate the diff command
      (beware the files may be reused by [compute_diff_and_before_after]) *)
-  let ctx = the_trace.context in
+  let ctx = s.step_context in
   (* TODO: use temporary filenames instead *)
   output_prog s.step_style_before ctx "tmp_before" disp_ast_before;
   output_prog s.step_style_after ctx "tmp_after" disp_ast_after;
@@ -1561,7 +1563,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
    *)
 let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : string option) (step:step_tree) : unit =
   let prefix =
-    if prefix = "" then the_trace.context.prefix else prefix in
+    if prefix = "" then step.step_context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
   if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
   let out_js = open_out filename in
@@ -1592,7 +1594,7 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
 let serialize_full_trace_and_get_timestamp ~(prefix : string) : string =
   let ser_filename = prefix ^ ".trace" in
   let out_file = open_out_bin ser_filename in
-  Marshal.to_channel out_file (get_root_step()) [];
+  Marshal.to_channel out_file (get_root_step()) [Closures]; (* TODO: Remove parser closure *)
   close_out out_file;
   let timestamp = string_of_float ((Unix.stat ser_filename).st_mtime) in
   timestamp
@@ -1645,7 +1647,7 @@ let step_tree_to_file (filename:string) (step_tree:step_tree) =
 (** [dump_trace_to_textfile] dumps a trace into a text file *)
 let dump_trace_to_textfile ?(prefix : string = "") () : unit =
   let prefix =
-    if prefix = "" then the_trace.context.prefix else prefix in
+    if prefix = "" then the_trace.cur_context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in
   if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
   step_tree_to_file filename (get_root_step())
@@ -1664,9 +1666,8 @@ let output_prog_check_empty (style : output_style) (ctx : context) (prefix : str
 
 (** [produce_diff_output_internal step] is an auxiliary function for [produce_diff_output]. *)
 let produce_diff_output_internal (step:step_tree) : unit =
-  let trace = the_trace in
-  let ctx = trace.context in
-  let prefix = (* ctx.directory ^ *) ctx.prefix in
+  let ctx = step.step_context in
+  let prefix = ctx.prefix in
   (* Extract the two ASTs and the styles that should be used for the diff *)
   let ast_before, ast_after = step.step_ast_before, step.step_ast_after in
   let style_before, style_after = step.step_style_before, step.step_style_after in
@@ -1684,9 +1685,7 @@ let produce_diff_output_internal (step:step_tree) : unit =
 
 (** [produce_trace_output step] is an auxiliary function for [produce_output_and_exit] *)
 let produce_trace_output (step:step_tree) : unit =
-  let trace = the_trace in (* LATER: cleanup and factorize next 3 lines *)
-  let ctx = trace.context in
-  let prefix = (* ctx.directory ^*) ctx.prefix in
+  let prefix = step.step_context.prefix in
   dump_trace_to_js ~prefix step
 
 (** [extract_show_step] extracts a [Step_show] nested as unique substep in depth
@@ -1956,7 +1955,7 @@ let bigstep (s : string) : unit =
      as comments near the end of the output file *)
 let dump (style : output_style) ?(store_in_trace = true) ?(prefix : string = "") ?(append_comments : string = "") () : unit =
   let action () =
-    let ctx = the_trace.context in
+    let ctx = the_trace.cur_context in
     let prefix =
       if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
     output_prog style ctx (prefix ^ "_out") (the_trace.cur_ast);
@@ -2016,7 +2015,7 @@ let set_ast_for_target_iter (t:trm) : unit =
 (** [get_context ()]: returns the current context. Like [ast()], it should only be called
    within the scope of [Trace.apply] or [Trace.call]. *)
 let get_context () : context =
-  the_trace.context
+  the_trace.cur_context
 
 (** [get_style ()]: read the current style using for printing ASTs in the trace. *)
 let get_style () : output_style =
