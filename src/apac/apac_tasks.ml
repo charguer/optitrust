@@ -124,6 +124,7 @@ module rec Task : sig
          val depending : t -> t -> bool -> bool
          val attributed : t -> TaskAttr.t -> bool
          val subscripted : t -> bool
+         val taskified : t -> bool
          val merge : t -> t -> t
          val empty : unit -> t
          val to_string : t -> string
@@ -220,6 +221,16 @@ module rec Task : sig
       of the task [task] has the [Subscripted] attribute (see [TaskAttr.t]). *)
   let subscripted (task : t) : bool =
     Dep_map.exists (fun _ das -> DepAttr_set.mem Subscripted das) task.ioattrs
+
+  (** [Task.taskified task]: checks whether the task [task] has been taskified,
+      i.e. it should become a parallelizable task, not a synchronization barrier
+      for instance. *)
+  let taskified (task : t) : bool =
+    let waits = attributed task WaitForSome ||
+                  attributed task WaitForAll ||
+                    attributed task WaitForNone in
+    let exits = attributed task IsJump || attributed task ExitPoint in
+    not (waits) && not (exits)
   
   (** [Task.merge t1 t2]: merges two tasks into a new single task. *)
   let merge (t1 : t) (t2 : t) : t =
