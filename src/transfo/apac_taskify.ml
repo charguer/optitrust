@@ -1210,12 +1210,9 @@ let taskify_on (p : path) (t : trm) : unit =
   const_record.task_graph <- Some (g');
   Printf.printf "Task graph of << %s >> follows:\n" (var_to_string f);
   TaskGraphPrinter.print g';
-  let dot = "apac_task_graph_" ^ f.name ^ ".dot" in
+  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ ".dot" in
   export_task_graph g' dot;
   dot_to_pdf dot
-(*fill const_record.variables t task_graph;
-  Printf.printf "Augmented AST for <%s> follows:\n%s\n"
-  (var_to_string f) (atrm_to_string aast)*)
     
 let taskify (tg : target) : unit =
   Target.iter (fun t p -> taskify_on p (get_trm_at_path p t)) tg
@@ -1298,7 +1295,7 @@ let merge_on (p : path) (t : trm) : unit =
   iter g;
   Printf.printf "Merged task graph of << %s >> follows:\n" (var_to_string f);
   TaskGraphPrinter.print g;
-  let dot = "apac_task_graph_" ^ f.name ^ "_merged.dot" in
+  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_merged.dot" in
   export_task_graph g dot;
   dot_to_pdf dot
 

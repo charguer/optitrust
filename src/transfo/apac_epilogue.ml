@@ -773,7 +773,7 @@ let reduce_waits_on (p : path) (t : trm) : unit =
         t.attrs <- TaskAttr_set.remove WaitForNone t.attrs;
         t.attrs <- TaskAttr_set.add WaitForAll t.attrs
     ) g;
-  let dot = "apac_task_graph_" ^ f.name ^ "_join.dot" in
+  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_join.dot" in
   export_task_graph g dot;
   dot_to_pdf dot
 
@@ -844,7 +844,7 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
   Stack.iter (fun (d, v, g) -> process d v g) subscripts;
   Printf.printf "Sync. subscripts task graph of << %s >> follows:\n" (var_to_string f);
   TaskGraphPrinter.print g;
-  let dot = "apac_task_graph_" ^ f.name ^ "_sync.dot" in
+  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_sync.dot" in
   export_task_graph g dot;
   dot_to_pdf dot
 
@@ -907,7 +907,7 @@ let reduce_waits2_on (p : path) (t : trm) : unit =
   TaskGraphTraverse.iter (process previous 1) g;
   Printf.printf "Reduced waits2 task graph of << %s >> follows:\n" (var_to_string f);
   TaskGraphPrinter.print g;
-  let dot = "apac_task_graph_" ^ f.name ^ "_waits2.dot" in
+  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_waits2.dot" in
   export_task_graph g dot;
   dot_to_pdf dot
 

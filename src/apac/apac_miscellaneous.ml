@@ -2,6 +2,11 @@ open Ast
 open Typ
 open Apac_lvar
 
+(** [cwd]: returns the path to the current working directory. *)
+let cwd () : string =
+  Flags.process_program_name ();
+  Filename.dirname (!Flags.program_name)
+
 (* [typ_is_alias ty]: checks if [ty] is a user-defined alias to a basic type. *)
 let typ_is_alias (ty : typ) : bool =
   match ty.typ_desc with
