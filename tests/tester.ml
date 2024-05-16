@@ -521,7 +521,7 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
     (* If no original file, or if original files mismatch, compute clang-format and compare *)
     if not !same then begin
       (* format [filename_out], generating the file [orig_out] on the way *)
-      Trace.cleanup_cpp_file_using_clang_format ~uncomment_pragma:true filename_out;
+      Trace.cleanup_cpp_file_using_clang_format filename_out;
       if not (Sys.file_exists orig_out)
         then fail "match_expected assumes keep_file_before_clang_format to be true";
       (* now ready to compare formatted files *)
@@ -742,7 +742,7 @@ let action_addexp (tests : string list) : unit =
     let outfile = prefix ^ "_out.cpp" in
     let expfile = prefix ^ "_exp.cpp" in
     if not !dry_run then
-      Trace.cleanup_cpp_file_using_clang_format ~uncomment_pragma:true outfile;
+      Trace.cleanup_cpp_file_using_clang_format outfile;
     (* TODO: the tester program checks that `foo_exp.cpp` does
   not yet exist *)
     run_action ~print:true (sprintf "cp %s %s" outfile expfile);

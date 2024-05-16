@@ -253,6 +253,24 @@ let hashtbl_to_list (h : ('a, 'b) Hashtbl.t) : ('a * 'b) list =
   Hashtbl.fold (fun k v acc -> (k, v) :: acc) h []
 
 (******************************************************************************)
+(*                          Command line processes                         *)
+(******************************************************************************)
+
+(** [get_process_output ?input cmd]: executes the process [cmd] and return its standard output as a string.
+    Optionally give it the [input] string on stdin. *)
+let get_process_output ?(input:string option) (cmd: string): string =
+  let cmd_output, cmd_input = Unix.open_process cmd in
+  begin match input with
+  | Some input -> output_string cmd_input input
+  | None -> ()
+  end;
+  close_out cmd_input;
+  let output = In_channel.input_all cmd_output in
+  close_in cmd_output;
+  output
+
+
+(******************************************************************************)
 (*                                Bash Utilities                              *)
 (******************************************************************************)
 

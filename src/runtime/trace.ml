@@ -1376,11 +1376,6 @@ let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : s
   ) hist_and_descr
   *)
 
-(* TODO: move  *)
-let cmd s =
-  (* FOR DEBUG Printf.printf "execute: %s\n" s; flush stdout; *)
-  ignore (Sys.command s)
-
 (* Only for debugging purposes.
   [trace_custom_postprocessing] is a function applied to all ast-after that
   are dumped in the trace *)
@@ -1405,54 +1400,55 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
     )
 *)
 
-(** [compute_command_base64 str] executes the shell command [str], captures its output,
-    and return it as a string. TODO: deal with error in a cleaner way, by deleting the
-    file first, then testing if the output file exists. *)
-let compute_command_base64 (str : string) : string =
-  let tmp_filename = Filename.temp_file "base64" ".txt" in
-  cmd (sprintf "%s | base64 -w 0 > %s" str tmp_filename);
-  let base64 = Xfile.get_contents ~newline_at_end:false tmp_filename in
-  Sys.remove tmp_filename;
-  base64
+let code_to_temp_file ?(temp_prefix="code") (style:output_style) (ctx: context) (ast: trm): string =
+  (* Patch the AST with custom processing, only for debugging purposes *)
+  let ast = !trace_custom_postprocessing ast in
+  let filename = Filename.temp_file temp_prefix ctx.extension in
+  let prefix = Filename.remove_extension filename in
+  output_prog style ctx prefix ast;
+  filename
 
-(** [compute_prog_before s] returns a string describing the code before the step [s] starts. *)
-let compute_prog_before ?(style:output_style option) (s:step_tree) : string =
-  let ctx = s.step_context in
+let get_code ?(temp_prefix) (style:output_style) (ctx: context) (ast: trm): string =
+  let filename = code_to_temp_file ?temp_prefix style ctx ast in
+  let prog = Xfile.get_contents filename in
+  Sys.remove filename;
+  prog
+
+(** [get_code_before s] returns the code before the step [s] starts as a string. *)
+let get_code_before ?(style:output_style option) (s:step_tree) : string =
   let style = Option.value ~default:s.step_style_before style in
-  output_prog style ctx "tmp_before" s.step_ast_before;
-  compute_command_base64 "cat tmp_before.cpp"
+  get_code ~temp_prefix:"before" style s.step_context s.step_ast_before
 
-(** [compute_prog_after s] returns a string describing the code before the step [s] starts. *)
-let compute_prog_after ?(style:output_style option) (s:step_tree) : string =
-  let ctx = s.step_context in
+(** [get_code_after s] returns the code after the step [s] ends as a string. *)
+let get_code_after ?(style:output_style option) (s:step_tree) : string =
   let style = Option.value ~default:s.step_style_after style in
-  output_prog style ctx "tmp_after" s.step_ast_after;
-  compute_command_base64 "cat tmp_after.cpp"
+  get_code ~temp_prefix:"after" style s.step_context s.step_ast_before
+
+let compute_diff_and_before_after ~(drop_before_after: bool) (s:step_tree) : string * string * string =
+  (* Handle the light-diff feature, which eliminates top-level functions that
+     are physically identical in the AST before and after *)
+  let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
+
+  (* Dump the two files, and evaluate the diff command *)
+  let before_file = code_to_temp_file ~temp_prefix:"before" s.step_style_before s.step_context ast_before in
+  let after_file = code_to_temp_file ~temp_prefix:"after" s.step_style_after s.step_context ast_after in
+  let sDiff = Tools.get_process_output (sprintf "git diff --ignore-all-space --no-index -U10 %s %s" before_file after_file) in
+  let sBefore = if drop_before_after then "" else Xfile.get_contents before_file in
+  let sAfter = if drop_before_after then "" else Xfile.get_contents after_file in
+  Sys.remove before_file;
+  Sys.remove after_file;
+  sDiff, sBefore, sAfter
 
 (** [compute_diff s] returns the string describing the diff associated with the step [s].
     The AST are printed using the style_before and style_after of [s]. *)
 let compute_diff (s:step_tree) : string =
-  (* Handle the light-diff feature, which eliminates top-level functions that
-     are physically identical in the AST before and after *)
-  let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
-  (* Patch the AST with custom processing, only for debugging purposes *)
-  let disp_ast_before = !trace_custom_postprocessing ast_before in
-  let disp_ast_after = !trace_custom_postprocessing ast_after in
-  (* Dump the two files, and evaluate the diff command
-     (beware the files may be reused by [compute_diff_and_before_after]) *)
-  let ctx = s.step_context in
-  (* TODO: use temporary filenames instead *)
-  output_prog s.step_style_before ctx "tmp_before" disp_ast_before;
-  output_prog s.step_style_after ctx "tmp_after" disp_ast_after;
-  compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp"
+  let diff, _, _ = compute_diff_and_before_after ~drop_before_after:true s in
+  diff
 
 (** [compute_diff_and_before_after s] returns not just the diff, but also the contents
     of the files that correspond to the AST-before and AST-after for the step [s]. *)
 let compute_diff_and_before_after (s:step_tree) : string * string * string =
-  let sDiff = compute_diff s in
-  let sBefore = compute_command_base64 "cat tmp_before.cpp" in
-  let sAfter = compute_command_base64 "cat tmp_after.cpp" in
-  sDiff, sBefore, sAfter
+  compute_diff_and_before_after ~drop_before_after:false s
 
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
@@ -1470,7 +1466,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
     || s.step_kind = Step_big
     || s.step_kind = Step_small *)
   let should_compute_diff =
-         !Flags.trace_for_webview
+         !Flags.standalone_trace_webview
       && ((not is_mode_step_trace) || is_substep_of_targeted_line)
       && (!Flags.detailed_trace ||
         match s.step_kind with (* select steps that deserve a diff in non-detailed mode, based on their kind *)
@@ -1501,7 +1497,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       "kind", Json.str (step_kind_to_string s.step_kind);
       "exectime", Json.float i.step_exectime;
       "name", Json.str i.step_name;
-      "script", Json.base64 (Base64.encode_exn i.step_script);
+      "script", Json.base64 (i.step_script);
       "script_line", Json.(optionof int) (if i.step_script_line = Some (-1) then None else i.step_script_line);
         (* TODO: avoid use of -1 for undef line *)
       "args", Json.(listof (fun (k,v) -> Json.obj_quoted_keys ["name", str k; "value",str v])) i.step_args;
@@ -1558,8 +1554,8 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
     incr next_id;
     !next_id in
   (* Print additional information *)
-  if !Flags.trace_for_webview
-    then out "var webview = true;\n";
+  if !Flags.standalone_trace_webview
+    then out "var standalone_webview = true;\n";
   begin match serialized_trace_timestamp with
   | None -> ()
   | Some timestamp -> out (sprintf "var serialized_trace_timestamp = \"%s\";\n" timestamp);
@@ -1568,9 +1564,6 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
   out "var steps = [];\n";
   let idroot = get_next_id() in
   dump_step_tree_to_js ~is_substep_of_targeted_line:false get_next_id out idroot step;
-  (* Clean up the files generated by the functions located in dump_step_tree_to_js_and_return_id
-     LATER: move this elsewhere *)
-  cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp";
   close_out out_js
 
 (** [serialize_full_trace_and_get_timestamp] serializes the current trace object

@@ -22,7 +22,7 @@ let _ =
   let comments_to_app =
     Printf.sprintf "step_name: %s\nbefore: %s\ndiff: %s\n"
       step.step_infos.step_name
-      (compute_prog_before step)
+      (get_code_before step)
       (compute_diff step)
   in
   Xfile.append_contents (prefix ^ "_out.cpp") ("/*\n" ^ comments_to_app ^ "\n*/\n")

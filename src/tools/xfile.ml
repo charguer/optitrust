@@ -55,8 +55,7 @@ let get_lines_or_empty file =
 let get_contents file =
    let lines = get_lines file in
    (String.concat "\n" lines) ^ "\n" *)
-(* LATER: currently the flag newline_at_end is ignored; it should go in a separate function *)
-let get_contents ?(newline_at_end:bool=true) file =
+let get_contents file =
   let ic = open_in_bin file in
   let n = in_channel_length ic in
   let text = really_input_string ic n in
