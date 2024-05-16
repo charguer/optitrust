@@ -1387,12 +1387,11 @@ and formula_to_doc style (f: formula): document =
     Pattern.(!__) (fun _ -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}})
   ]
 
-(* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
-    If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)
+(* [ast_to_doc t]: converts a full OptiTrust ast to a pprint document. *)
 let ast_to_doc style (t : trm) : document =
   decorate_trm style t
 
-(* [ast_to_outchannel ~comment_pragma ~optitrust_syntax out t]: print ast [t] to an out_channel [out] *)
+(* [ast_to_outchannel out t]: print ast [t] to an out_channel [out] *)
 let ast_to_outchannel style (out : out_channel) (t : trm) : unit =
   ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc style t)
 

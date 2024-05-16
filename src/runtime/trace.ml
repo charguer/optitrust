@@ -30,7 +30,6 @@ let check_trace_at_every_step = ref false
 (* For debugging, insert this line in your code:
    let _ = Trace.debug_open_close_step := true
 *)
-let next_step_id = fresh_generator ()
 
 (* Other debug flags *)
 
@@ -240,7 +239,7 @@ let step_kind_to_string (k:step_kind) : string =
 
 (** [step_infos] *)
 type step_infos = {
-  mutable step_id : int; (* for debugging purpose *)
+  mutable step_id : int;
   mutable step_script : string;
   mutable step_script_line : int option;
   mutable step_time_start : float; (* seconds since start *)
@@ -280,6 +279,7 @@ type step_stack = step_tree list
    Any call to the [step] function adds a copy of [cur_ast] into [history].
   TODO: Rename to open_trace? *)
 type trace = {
+  mutable next_step_id : int;
   mutable cur_context : context;
   mutable cur_ast : trm;
   mutable cur_style : output_style;
@@ -291,19 +291,20 @@ type trace = {
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
 
-(** [trace_dummy]: an trace made of dummy context and dummy trm,
-   whose purpose is to enforce that [Trace.init] is called before any transformation *)
-let trace_dummy : trace =
-  { cur_context = context_dummy;
-    cur_ast = trm_dummy; (* dummy *)
-    cur_style = Style.default_custom_style();
-    cur_ast_typed = true;
-    step_stack = []; (* dummy *)
-    }
-
 (** [the_trace]: the trace produced by the current script. *)
-let the_trace : trace =
-  trace_dummy
+let the_trace : trace = {
+  next_step_id = 0;
+  cur_context = context_dummy;
+  cur_ast = trm_dummy; (* dummy *)
+  cur_style = Style.default_custom_style();
+  cur_ast_typed = true;
+  step_stack = []; (* dummy *)
+}
+
+let next_step_id () =
+  let id = the_trace.next_step_id in
+  the_trace.next_step_id <- id + 1;
+  id
 
 (** [is_trace_dummy()]: returns whether the trace was never initialized. *)
 let is_trace_dummy () : bool =
@@ -585,7 +586,7 @@ let get_cur_step ?(error : string = "get_cur_step: empty stack") () : step_tree 
    the bottom element of the [step_stack].
    Assumes fields of [the_trace] have already been initialized. *)
 let open_root_step ?(source : string = "<unnamed-file>") () : unit =
-  assert(the_trace.step_stack = []);
+  assert(the_trace.step_stack = [] && the_trace.next_step_id = 0);
   let step_root_infos = {
     step_id = next_step_id();
     step_script = "Trace for " ^ source;
@@ -925,7 +926,11 @@ and close_step ?(discard = false) ?(on_error = false) ?(check:step_tree option) 
       end;
       if !debug_open_close_step
         then eprintf "%sTrace.close_step[%d]: %s\n" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string step.step_kind);
-      if not discard then begin
+      if discard then
+        (* Discarded step id should be reused to prevent creating holes in recorded step ids.
+           Non contiguous step ids break the JS displaying the trace. *)
+        the_trace.next_step_id <- step.step_infos.step_id
+      else begin
         (* Finalize the step, by reversing the list of substeps and computing validity *)
         finalize_step ~on_error step;
         (* Folding step into parent substeps *)
@@ -1211,10 +1216,12 @@ let target_iter_step (istep : int) (f: unit->unit) : unit =
    like at the start of the program.  *)
 let invalidate () : unit =
   close_logs();
-  the_trace.cur_context <- trace_dummy.cur_context;
-  the_trace.cur_ast <- trace_dummy.cur_ast;
-  the_trace.cur_ast_typed <- trace_dummy.cur_ast_typed;
-  the_trace.step_stack <- trace_dummy.step_stack
+  the_trace.next_step_id <- 0;
+  the_trace.cur_context <- context_dummy;
+  the_trace.cur_ast <- trm_dummy;
+  the_trace.cur_style <- Style.default_custom_style();
+  the_trace.cur_ast_typed <- true;
+  the_trace.step_stack <- []
 
 (** [get_initial_ast filename]: gets the initial ast before applying any trasformations
      [filename] - filename of the source code
@@ -1263,6 +1270,7 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
   let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast filename) in
 
   let context = { extension; prefix; header } in
+  the_trace.next_step_id <- 0;
   the_trace.cur_context <- context;
   the_trace.cur_ast <- cur_ast;
   the_trace.cur_ast_typed <- false;
@@ -1452,7 +1460,7 @@ let compute_diff_and_before_after (s:step_tree) : string * string * string =
 
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
-let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
+let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(out:string->unit)  (s:step_tree) : unit =
   let i = s.step_infos in
   (* Determine whether diff needs to be computed for this step *)
   let is_mode_step_trace = Flags.is_execution_mode_step () in
@@ -1474,9 +1482,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
         | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false)
     in
   (* Recursive calls *)
-  let aux = dump_step_tree_to_js ~is_substep_of_targeted_line get_next_id out in
-  (* Assign ids to sub-steps *)
-  let sub_ids = List.map (fun _ -> get_next_id()) s.step_sub in
+  let aux = dump_step_tree_to_js ~is_substep_of_targeted_line root_id out in
   (* Dump Json for this node *)
   let sBefore, sAfter, sDiff =
     if should_compute_diff then begin
@@ -1491,6 +1497,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
     end else
       None, None, None
     in
+  let id = s.step_infos.step_id - root_id in
   let json = (* TODO: check if ~html_newlines:true is needed for certain calls to [Json.str] *)
     Json.obj_quoted_keys [
       "id", Json.int id;
@@ -1507,7 +1514,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       "justif", Json.(listof str) i.step_justif;
       "tags", Json.(listof str) i.step_tags;
       "debug_msgs", Json.(listof str) i.step_debug_msgs;
-      "sub", Json.(listof int) sub_ids;
+      "sub", Json.(listof int) (List.map (fun sub -> sub.step_infos.step_id - root_id) s.step_sub);
       "ast_before", Json.(optionof base64) sBefore;
       "ast_after", Json.(optionof base64) sAfter;
       "diff", Json.(optionof base64) sDiff;
@@ -1517,7 +1524,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
   if is_smallstep_of_targeted_line
     then out (sprintf "var startupOpenStep = %d;\n" id);
   (* Process sub-steps recursively *)
-  List.iter2 aux sub_ids s.step_sub
+  List.iter aux s.step_sub
 
 
 (** [dump_trace_to_js step]: writes into a file called [`prefix`_trace.js] the
@@ -1549,10 +1556,6 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
   if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
   let out_js = open_out filename in
   let out = output_string out_js in
-  let next_id = ref (-1) in
-  let get_next_id () : int =
-    incr next_id;
-    !next_id in
   (* Print additional information *)
   if !Flags.standalone_trace_webview
     then out "var standalone_webview = true;\n";
@@ -1560,10 +1563,14 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
   | None -> ()
   | Some timestamp -> out (sprintf "var serialized_trace_timestamp = \"%s\";\n" timestamp);
   end;
+  (* Since step_ids are attributed in execution order they always correspond to depth first traversal.
+    We also use depth first traversal step id in the JS trace.
+    No matter which step is the JS root, there is a constant offset between serialized trace and JS step ids. *)
+  let root_id = step.step_infos.step_id in
+  out (sprintf "var root_serialized_step_id = %d;\n" root_id);
   (* Print the trace, each step produces a line of the form "step[i] = ...;" *)
   out "var steps = [];\n";
-  let idroot = get_next_id() in
-  dump_step_tree_to_js ~is_substep_of_targeted_line:false get_next_id out idroot step;
+  dump_step_tree_to_js ~is_substep_of_targeted_line:false root_id out step;
   close_out out_js
 
 (** [serialize_full_trace_and_get_timestamp] serializes the current trace object
