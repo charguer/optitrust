@@ -68,7 +68,7 @@
 (setq dired-sidebar-theme 'arrows)
 (setq dired-sidebar-use-term-integration t)
 (setq dired-sidebar-use-custom-font t)
-(local-set-key [24 14] 'dired-sidebar-toggle-sidebar)
+(define-key projectile-mode-map (kbd "C-x n") 'dired-sidebar-toggle-sidebar)
 
 (setq inhibit-startup-screen t)
 
