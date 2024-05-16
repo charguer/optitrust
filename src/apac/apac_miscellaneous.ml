@@ -1,6 +1,5 @@
 open Ast
 open Typ
-open Apac_lvar
 
 (** [cwd]: returns the path to the current working directory. *)
 let cwd () : string =
@@ -67,10 +66,10 @@ let typ_get_degree (ty : typ) : int =
 (* [trm_strip_accesses_and_references_and_get_lvar t]: strips [*t, &t, ...]
    recursively and if [t] is a variable, it returns the associated labelled
    variable. *)
-let trm_strip_accesses_and_references_and_get_lvar (t : trm) : LVar.t option =
+let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
   (* Internal auxiliary recursive function allowing us to hide the [l] parameter
      to the outside world. *)
-  let rec aux (l : label) (t : trm) : LVar.t option =
+  let rec aux (l : label) (t : trm) : lvar option =
     match t.desc with
     (* [t] is a unary operation *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
@@ -94,7 +93,7 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : LVar.t option =
     | Trm_var (_, var) ->
        (* Use [var] and the label [l] to build the associated labelled
           variable and return it. *)
-       let lv : LVar.t = { v = var; l = l } in Some lv
+       let lv : lvar = { v = var; l = l } in Some lv
     | _ -> None
   in
   aux "" t

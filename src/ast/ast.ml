@@ -55,7 +55,9 @@ type strm = string
 type styp = string
 
 type var_id = int
-(** [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
+
+(** [var]: variables are uniquely identified with [id], but are printed using a
+    qualified name. *)
 type var = { qualifier: string list; name: string; id: var_id }
 
 let var_to_string (v : var) : string =
@@ -183,6 +185,54 @@ type 'a labelmap = 'a Tools.String_map.t
 
 (* [labels]: a list of labels. *)
 type labels = label list
+
+(** [lvar]: labelled variables to distinguish between member variables of a
+    structure or a class. Structure and class member variables are referred to
+    through the [var] of the associated structure or class instance and the
+    label of the target member variable. In other words, each structure and
+    class instance has its unique identifier within the corresponding [var], but
+    not the underlying member variables. This means that the [var] type on its
+    own does not allow us to refer to different member variables, only to the
+    parent structure or class instance. To cope with that, the [lvar] type
+    combines the original [var] type with member variable labels.
+
+    For example, let us consider:
+
+    class C \{
+      int a; int b;
+      int f() \{ int c = a / b; return c; \}
+      int g() \{ return a * b; \}
+    \}
+
+    In 'f', both 'a' and 'b' will have 'this' as name as well as the same
+    identifier such as 75, for example. In 'g', the identifier will change, let
+    us say to 42, but then both 'a' and 'b' in 'g' will have 'this' as name and
+    42 as identifier. *)
+type lvar = { v : var; l : label; }
+
+(** [LVar]: module to represent labelled variables. *)
+module LVar = struct
+  type t = lvar
+  (** [LVar.equal lv1 lv2]: checks equality of two labelled variables [lv1] and
+      [lv2]. At first, [var_eq] checks checks the equality of the variable part.
+      Then, we check the equality of the labels. *)
+  let equal (lv1 : t) (lv2 : t) : bool = var_eq lv1.v lv2.v && lv1.l = lv2.l
+  (** [LVar.hash lv]: hashes the [lv] key of type [Lvar.t]. Note that the hash
+      is based on both the variable unique identifier and the label. *)
+  let hash (lv : t) : int = Hashtbl.hash ((string_of_int lv.v.id) ^ lv.l)
+  (** [LVar.to_string lv]: returns a string representation of the labelled
+      variable [lv]. *)
+  let to_string (lv : t) : string =
+    let q_str =
+      String.concat "" (List.map (fun q -> q ^ "::") lv.v.qualifier) in
+    let id_str = if lv.v.id = -1 then "?" else (string_of_int lv.v.id) in
+    let member = if lv.l <> "" then lv.l ^ "#" else lv.l in
+    q_str ^ lv.v.name ^ "#" ^ member ^ id_str
+end
+
+(** [LVar_Hashtbl]: specific type of hash tables where the keys are labelled
+    variables. *)
+module LVar_Hashtbl = Hashtbl.Make(LVar)
 
 (* [string_trm]: description of a term as a string (convenient for the user) *)
 type string_trm = string

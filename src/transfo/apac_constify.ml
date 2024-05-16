@@ -6,7 +6,6 @@ open Path
 open Target
 open Tools
 open Apac_miscellaneous
-open Apac_lvar
 open Apac_const
 open Apac_records
 
@@ -522,7 +521,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
       (* For each member variable of the parent class, *)
       List.iteri (fun idx (label, ty) ->
           (* build the corresponding labelled variable and *)
-          let lv : LVar.t = { v = this; l = label } in
+          let lv : lvar = { v = this; l = label } in
           (* add it to the hash table of aliases. *)
           LVar_Hashtbl.add aliases lv ((- idx), typ_get_degree ty)
         ) class_siblings
@@ -542,7 +541,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
      table of aliases above. *)
   let args = if const_record.is_class_method then List.tl args else args in
   List.iteri (fun pos (v, ty) ->
-      let lv : LVar.t = { v = v; l = String.empty } in
+      let lv : lvar = { v = v; l = String.empty } in
       LVar_Hashtbl.add aliases lv (pos, typ_get_degree ty)
     ) args;
   (* Actually compute the dependencies of the function definition at [path]
@@ -765,7 +764,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   if force then
     begin
       List.iteri (fun arg_pos (arg_var, arg_ty) ->
-          let arg_lv : LVar.t = { v = arg_var; l = String.empty } in
+          let arg_lv : lvar = { v = arg_var; l = String.empty } in
           LVar_Hashtbl.add aliases arg_lv (arg_pos, typ_get_degree arg_ty)
         ) args'
     end
@@ -787,7 +786,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
               let arg_cr = Int_map.find arg_pos const_record.const_args in
               if arg_cr.is_const then
                 begin
-                  let arg_lv : LVar.t = { v = arg_var; l = String.empty } in
+                  let arg_lv : lvar = { v = arg_var; l = String.empty } in
                   LVar_Hashtbl.add
                     aliases arg_lv (arg_pos, typ_get_degree arg_ty)
                 end

@@ -5,7 +5,6 @@ open Path
 open Target
 open Mark
 open Tools
-open Apac_lvar
 open Apac_miscellaneous
 open Apac_tasks
 
@@ -260,14 +259,14 @@ let typ_constify (ty : typ) : typ =
    an array access or the use of [*]. Upon success, it returns the corresponding
    labelled variable. See [LVar] for more details on labelled variables. *)
 let trm_resolve_binop_lval_and_get_with_deref
-      (t : trm) : (LVar.t * bool) option =
+      (t : trm) : (lvar * bool) option =
   let rec aux (dereferenced : bool) (l : label) (t : trm) :
-            (LVar.t * bool) option =
+            (lvar * bool) option =
     match t.desc with
     (* We have found the variable, build and return the resulting labelled
        variable. *)
     | Trm_var (_, var) ->
-       let lv : LVar.t = { v = var; l = l } in Some (lv, dereferenced)
+       let lv : lvar = { v = var; l = l } in Some (lv, dereferenced)
     (* [t] is an array access, which means that the operand was dereferenced.
        Continue resolution on the latter. *)
     | Trm_apps ({
@@ -298,9 +297,9 @@ let trm_resolve_binop_lval_and_get_with_deref
    variable (including the associated label if we are dealing with a class
    member variable) involved in a unary operation (++, --, & or get) or array
    access [t] and return it in a form of a labelled variable. *)
-let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : LVar.t option =
+let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
   (* Simply recurse over unary operations and array accesses. *)
-  let rec aux (l : label) (t : trm) : LVar.t option =
+  let rec aux (l : label) (t : trm) : lvar option =
     match t.desc with
     (* [t] is a unary operation *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [term]) ->
@@ -329,7 +328,7 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : LVar.t option =
     | Trm_var (_, var) ->
        (* Use [var] and the label [l] to build the associated labelled
           variable and return it. *)
-       let lv : LVar.t = { v = var; l = l } in Some lv
+       let lv : lvar = { v = var; l = l } in Some lv
     | _ -> None
   in
   aux "" t
@@ -341,9 +340,9 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : LVar.t option =
    function returns the labelled variable corresponding to the resulting pointer
    as well as the 0-based position of the aliased argument. *)
 let trm_resolve_pointer_and_aliased_variable
-      (t : trm) (aliases : const_aliases) : (LVar.t * int) option =
+      (t : trm) (aliases : const_aliases) : (lvar * int) option =
   (* Simply recurse over different kinds of operations. *)
-  let rec aux (degree : int) (l : label) (t : trm) : (LVar.t * int) option =
+  let rec aux (degree : int) (l : label) (t : trm) : (lvar * int) option =
     match t.desc with
     (* [t] is a unary operation *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
@@ -385,7 +384,7 @@ let trm_resolve_pointer_and_aliased_variable
     | Trm_var (_, v) ->
        (* Use [var] and the label [l] to build the associated labelled
           variable. *)
-       let lv : LVar.t = { v = v; l = l } in
+       let lv : lvar = { v = v; l = l } in
        (* Check if its an argument or an alias to an argument, then return the
           labelled variable as well as the corresponding 0-based position of the
           aliased argument. *)       
@@ -417,7 +416,7 @@ let trm_let_update_aliases ?(reference = false)
   (* Deconstruct the typed variable *)
   let (v, ty) = tv in
   (* and build the corresponding labelled variable. *)
-  let lv : LVar.t = { v = v; l = String.empty } in
+  let lv : lvar = { v = v; l = String.empty } in
   (* If we are working with a reference, *)
   if is_reference ty || reference then
     begin
