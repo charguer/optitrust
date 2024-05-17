@@ -167,7 +167,7 @@ If you have a nonempty file, copy the bindings into your file.
   {
     "key": "ctrl+shift+f5",
     "command": "workbench.action.tasks.runTask",
-    "args": "View trace detailed",
+    "args": "View standalone detailed trace",
     "when": "config.optitrust.enableKeybindings"
   },
   {

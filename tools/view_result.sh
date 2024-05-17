@@ -8,6 +8,7 @@
 # - step_result: view the result after executing the targeted line
 # - step_trace: view the trace at the targeted line
 # - full_trace: view the full execution trace
+# - standalone_full_trace: view the full execution trace as a standalone webpage
 # - save_inter: save the AST at the specified line
 # - step_diff_from_inter: execute the script from the line specified in
 #     the last call to this script performed in mode save_inter
@@ -95,6 +96,10 @@ if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ] || [ "$
 elif [ "${MODE}" = "step_trace" ]; then
 
   OPTIONS="${OPTIONS} -mode step-trace"
+
+elif [ "${MODE}" = "standalone_full_trace" ]; then
+
+  OPTIONS="${OPTIONS} -mode standalone-full-trace"
 
 elif [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
@@ -217,7 +222,11 @@ if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_diff.sh ${SRCBASE} cpp
 
-elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
+elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "standalone_full_trace" ]; then
+
+  ${TOOLS_FOLDER}/open_standalone_trace.sh ${SRCBASE}
+
+elif [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_trace.sh ${SRCBASE}
 

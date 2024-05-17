@@ -264,9 +264,8 @@ let get_process_output ?(input:string option) (cmd: string): string =
   | Some input -> output_string cmd_input input
   | None -> ()
   end;
-  close_out cmd_input;
   let output = In_channel.input_all cmd_output in
-  close_in cmd_output;
+  ignore (Unix.close_process (cmd_output, cmd_input));
   output
 
 

@@ -1432,7 +1432,7 @@ let get_code_after ?(style:output_style option) (s:step_tree) : string =
   let style = Option.value ~default:s.step_style_after style in
   get_code ~temp_prefix:"after" style s.step_context s.step_ast_before
 
-let compute_diff_and_before_after ~(drop_before_after: bool) (s:step_tree) : string * string * string =
+let compute_before_after_and_diff ~(drop_before_after: bool) (s:step_tree) : string * string * string =
   (* Handle the light-diff feature, which eliminates top-level functions that
      are physically identical in the AST before and after *)
   let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
@@ -1445,18 +1445,18 @@ let compute_diff_and_before_after ~(drop_before_after: bool) (s:step_tree) : str
   let sAfter = if drop_before_after then "" else Xfile.get_contents after_file in
   Sys.remove before_file;
   Sys.remove after_file;
-  sDiff, sBefore, sAfter
+  sBefore, sAfter, sDiff
 
 (** [compute_diff s] returns the string describing the diff associated with the step [s].
     The AST are printed using the style_before and style_after of [s]. *)
 let compute_diff (s:step_tree) : string =
-  let diff, _, _ = compute_diff_and_before_after ~drop_before_after:true s in
+  let _, _, diff = compute_before_after_and_diff ~drop_before_after:true s in
   diff
 
-(** [compute_diff_and_before_after s] returns not just the diff, but also the contents
+(** [compute_before_after_and_diff s] returns not just the diff, but also the contents
     of the files that correspond to the AST-before and AST-after for the step [s]. *)
-let compute_diff_and_before_after (s:step_tree) : string * string * string =
-  compute_diff_and_before_after ~drop_before_after:false s
+let compute_before_after_and_diff (s:step_tree) : string * string * string =
+  compute_before_after_and_diff ~drop_before_after:false s
 
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
@@ -1474,7 +1474,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
     || s.step_kind = Step_big
     || s.step_kind = Step_small *)
   let should_compute_diff =
-         !Flags.standalone_trace_webview
+      (not !Flags.serialize_trace)
       && ((not is_mode_step_trace) || is_substep_of_targeted_line)
       && (!Flags.detailed_trace ||
         match s.step_kind with (* select steps that deserve a diff in non-detailed mode, based on their kind *)
@@ -1487,7 +1487,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
   let sBefore, sAfter, sDiff =
     if should_compute_diff then begin
       try
-        let sBefore, sAfter, sDiff = compute_diff_and_before_after s in
+        let sBefore, sAfter, sDiff = compute_before_after_and_diff s in
         Some sBefore, Some sAfter, Some sDiff
       with e ->
         (* Prevent any exception during printing to corrupt the entire trace *)
@@ -1542,8 +1542,8 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       justif: ["..", ".." ],
       script: window.atob("..."),
       scriptline: 23, // possibly undefined
-      astBefore: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
-      astAfter: window.atob("..."), // NOT YET IMPLEMENTED
+      astBefore: window.atob("..."), // could also an id of an source code stored in a different array, for improved factorization
+      astAfter: window.atob("..."),
       diff: window.atob("..."), // could be slow if requested for all!
       sub: [ j1, j2, ... jK ]  // ids of the sub-steps
       }
@@ -1557,11 +1557,15 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
   let out_js = open_out filename in
   let out = output_string out_js in
   (* Print additional information *)
-  if !Flags.standalone_trace_webview
-    then out "var standalone_webview = true;\n";
   begin match serialized_trace_timestamp with
-  | None -> ()
-  | Some timestamp -> out (sprintf "var serialized_trace_timestamp = \"%s\";\n" timestamp);
+  | None ->
+    out "var serialized_trace = null;\n"
+  | Some timestamp ->
+    let ser_filename = prefix ^ ".trace" in
+    out (sprintf "\
+      var serialized_trace = \"%s\";\n\
+      var serialized_trace_timestamp = \"%s\";\n"
+      ser_filename timestamp);
   end;
   (* Since step_ids are attributed in execution order they always correspond to depth first traversal.
     We also use depth first traversal step id in the JS trace.
@@ -1590,7 +1594,7 @@ let serialize_full_trace_and_get_timestamp ~(prefix : string) : string =
      In case of serialization, the JS file contains an additional line of the form:
      [var serialized_trace_timestamp = "...";] storing the timestamp of the
      serialized trace (as a string). *)
-let dump_full_trace_to_js ?(prefix : string = "") () : unit =
+let dump_full_trace_to_js ~(prefix : string) : unit =
   let serialized_trace_timestamp =
     if !Flags.serialize_trace
       then Some (serialize_full_trace_and_get_timestamp ~prefix)
@@ -1630,7 +1634,7 @@ let step_tree_to_file (filename:string) (step_tree:step_tree) =
   close_out out
 
 (** [dump_trace_to_textfile] dumps a trace into a text file *)
-let dump_trace_to_textfile ?(prefix : string = "") () : unit =
+let dump_trace_to_textfile ~(prefix : string) : unit =
   let prefix =
     if prefix = "" then the_trace.cur_context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in

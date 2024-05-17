@@ -101,7 +101,7 @@
         ]
       },
       {
-        "label": "View trace detailed",
+        "label": "View standalone trace",
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -114,14 +114,13 @@
           "clear": true
         },
         "args": [
-          "full_trace",
+          "standalone_full_trace",
           "${relativeFile}",
-          "${lineNumber}",
-          "-detailed-trace"
+          "${lineNumber}"
         ]
       },
       {
-        "label": "View trace for webview",
+        "label": "View standalone detailed trace",
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -134,11 +133,10 @@
           "clear": true
         },
         "args": [
-          "full_trace",
+          "standalone_full_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-detailed-trace",
-          "-trace-for-webview"
+          "-detailed-trace"
         ]
       },
       {

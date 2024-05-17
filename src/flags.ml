@@ -171,18 +171,16 @@ let process_mode (mode : string) : unit =
     begin match mode with
     | "step-diff" -> Execution_mode_step_diff
     | "step-trace" -> Execution_mode_step_trace
-    | "full-trace" -> Execution_mode_full_trace
+    | "full-trace" ->
+      serialize_trace := true;
+      Execution_mode_full_trace
+    | "standalone-full-trace" -> Execution_mode_full_trace
     | "exec" -> Execution_mode_exec
     | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
-    end;
-  if !execution_mode = Execution_mode_full_trace
-    then serialize_trace := true
+    end
 
 (* Options to report execution time information about script and trace generation *)
 let report_exectime : bool ref = ref false
-
-(* Options to export the trace for a standalone website view without server *)
-let standalone_trace_webview: bool ref = ref false
 
 (* Options to generate a text version of the trace *)
 let trace_as_text : bool ref = ref false
@@ -246,9 +244,8 @@ type cmdline_args = (string * Arg.spec * string) list
 (* [spec]: possible command line arguments. *)
 let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
-     ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
+     ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'standalone-full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
      ("-trace-as-text", Arg.Set trace_as_text, " additionnaly generate a plain text trace in 'foo_trace.txt' ");
-     ("-standalone-trace-webview", Arg.Set standalone_trace_webview, " generate a trace with the appropriate features for export to a standalone website ");
      ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");

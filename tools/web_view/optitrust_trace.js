@@ -208,7 +208,6 @@ function getRadioOption(radio) {
       return key;
     }
   }
-  return "getRadioOption_notfound";
 }
 
 
@@ -374,18 +373,42 @@ function loadDiffForStep(step) {
     }
   }
   // Print diff for step
-  var diffString = "";
+  var stepDiff;
   if (step.diff == undefined) {
-    // console.log("Diff was not computed for this step");
-    $("#debugMsgDiv").html("Diff was not saved for this step; to see it, request the trace of step " + step.id + " with mode " + getRadioOption('ast-view') + " and decode=" + options.decode);
-    // + " or set the flag detailed_trace"
-  } else if (step.diff == "") {
-    $("#debugMsgDiv").html("Diff is empty");
+    if (serialized_trace) {
+      stepDiff = fetch(serialized_trace + `?view=diff&step=${step.id + root_serialized_step_id}&timestamp=${serialized_trace_timestamp}`)
+        .then((response) => {
+          if (response.status == 419) {
+            window.location.reload();
+            throw new Error(`Trace is out of date, reloading page`);
+          }
+          else if(!response.ok) {
+          return response.text().then((error) => {
+              throw new Error(`Failed to retreive data: ${error}`);
+            });
+          }
+          return response.text();
+        });
+    } else {
+      stepDiff = Promise.reject(new Error(`Diff was not computed for this step and there is no serialized trace`))
+    }
   } else {
-    $("#debugMsgDiv").html("");
-    diffString = step.diff;
+    stepDiff = Promise.resolve(step.diff);
   }
-  loadDiffFromString(diffString);
+  stepDiff
+    .then((diff) => {
+      if (diff == "") {
+        $("#debugMsgDiv").html("Diff is empty");
+        $("#diffDiv").html("");
+      } else {
+        $("#debugMsgDiv").html("");
+        loadDiffFromString(diff);
+      }
+    })
+    .catch((err) => {
+        $("#debugMsgDiv").html(err.message);
+        $("#diffDiv").html("");
+    });
 }
 
 function loadDiffFromString(diffString) {
@@ -768,9 +791,8 @@ function stepToHTML(step, display) {
   }
   if (step.tags.includes("show")) {
     lineClass += " step-show";
-  } else if (step.isvalid) {
   }
-  if (step.diff == undefined) {
+  if (serialized_trace == undefined && step.diff == undefined) {
     lineClass += " step-nodiff";
   }
 

@@ -157,10 +157,10 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   let produce_trace () : unit =
     may_report_time "dump-trace" (fun () ->
-      Trace.dump_full_trace_to_js ~prefix ());
+      Trace.dump_full_trace_to_js ~prefix);
     if !Flags.trace_as_text then
       may_report_time "dump-trace-as-text" (fun () ->
-        Trace.dump_trace_to_textfile ~prefix ());
+        Trace.dump_trace_to_textfile ~prefix);
     in
 
   (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
