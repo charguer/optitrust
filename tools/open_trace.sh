@@ -25,4 +25,6 @@ do
 done
 
 # Open the browser with the target file
-${TOOLS_FOLDER}/open_in_browser.sh "localhost:6775/${TARGET}" "Trace for ${FILEBASE}"
+URL="http://localhost:6775/${TARGET}"
+echo "Opening browser on ${URL}"
+${TOOLS_FOLDER}/open_in_browser.sh "${URL}" "${FILEBASE} - OptiTrust Trace"

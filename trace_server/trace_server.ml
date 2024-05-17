@@ -10,7 +10,7 @@ let handle_exn_response sub_handler request =
   with
   | Invalid_query msg -> Dream.respond ~status:`Bad_Request msg
   | Trace_not_found path -> Dream.respond ~status:`Not_Found ("Trace " ^ path ^ " not found")
-  | Trace_invalid path -> Dream.respond ~status:`Internal_Server_Error ("Trace " ^ path ^ " is invalid")
+  | Trace_deserialization_error path -> Dream.respond ~status:`Internal_Server_Error ("Trace deserialization failed for " ^ path)
   | Trace_out_of_date path -> Dream.respond ~status:(`Status 419) ("Wrong timestamp for " ^ path)
   | Step_not_found (path, step_id) -> Dream.respond ~status:`Not_Found ("Could not find step " ^ string_of_int step_id ^ " in trace " ^ path)
 
@@ -45,6 +45,27 @@ let style_of_query request : Trace.output_style =
   { decode = get_query_as_bool request "decode";
     typing;
     print = Lang_C (AstC_to_c.default_style ()) }
+
+type trace_cache_entry = {
+  trace_path: string;
+  trace_timestamp: string;
+  trace_tree: Trace.step_tree;
+}
+let trace_cache = ref None
+
+let read_trace_tree ~(timestamp:string) (path: string): Trace.step_tree =
+  Trace_query.check_trace_file ~timestamp path;
+  let trace = match !trace_cache with
+    | Some { trace_path; trace_timestamp; trace_tree } when
+        path = trace_path && timestamp = trace_timestamp ->
+      trace_tree
+    | _ ->
+      Tools.info "Loading trace file %s" path;
+      let trace_tree = Trace_query.deserialize_trace_tree path in
+      trace_cache := Some { trace_path = path; trace_timestamp = timestamp; trace_tree };
+      trace_tree
+  in
+  trace
 
 let handle_get_request request =
   let path, _ = Dream.split_target (Dream.target request) in
