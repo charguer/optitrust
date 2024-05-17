@@ -50,7 +50,7 @@ let generate_source_with_inlined_header_cpp (basepath : string) (input_file : st
   let s = ref (Xfile.get_contents (Filename.concat basepath input_file)) in
   let perform_inline finline =
       let include_instr = "#include \"" ^ finline ^ "\"" in
-      if debug_inline_cpp then Printf.printf "Inlined %s\n" include_instr;
+      if debug_inline_cpp then Tools.debug "Inlined %s" include_instr;
       let contents = Xfile.get_contents (Filename.concat basepath finline) in
       s := Tools.string_subst_first include_instr contents !s;
       s := Tools.string_subst include_instr "" !s
@@ -64,7 +64,7 @@ let generate_source_with_inlined_header_cpp (basepath : string) (input_file : st
       let fimplem = corename ^ ".c" in
       let include_instr = "#include \"" ^ fheader ^ "\"" in
       let include_instr_new = "#include \"" ^ fheader ^ "\"\n#include \"" ^ fimplem ^ "\"" in
-      if debug_inline_cpp then Printf.printf "Prepare inline of implementation for %s\n" include_instr;
+      if debug_inline_cpp then Tools.debug "Prepare inline of implementation for %s" include_instr;
       s := Tools.string_subst include_instr include_instr_new !s;
       perform_inline fimplem;
       perform_inline fheader;
@@ -112,7 +112,7 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
     f ()
   else begin
     let (r, t) = Tools.measure_time f in
-    Printf.printf "Time %s: %dms\n" msg t;
+    Tools.info "Time %s: %dms" msg t;
     r
   end
 
@@ -163,7 +163,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
         Trace.dump_trace_to_textfile ~prefix);
     in
 
-  (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
+  (* DEBUG: Tools.debug "script default_basename=%s filename=%s prefix=%s " default_basename filename prefix; *)
 
   let stats_before = Stats.get_cur_stats () in
   let contents_captured_show = ref "" in
@@ -186,7 +186,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
           let backtrace = Printexc.get_backtrace () in
           Trace.finalize_on_error ~exn:e;
           produce_trace();
-          Printf.eprintf "========> BACKTRACE:\n%s\n" backtrace;
+          Tools.debug "========> BACKTRACE:\n%s" backtrace;
           exit 1 (* FIXME: don't exit in batch? *)
     end;
     flush stdout;
@@ -239,9 +239,8 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   if !Flags.analyse_stats
     then
       let stats_str = Stats.stats_diff_str stats_before stats_after in
-      Printf.printf "%s\n" stats_str;
+      Tools.info "%s" stats_str;
 
-  (* Printf.printf "END  %s\n" basename; *)
   ()
 
 (* [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix f]:
@@ -274,7 +273,7 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
         let basename = Filename.chop_extension filename in
         let inlinefilename = basename ^ "_inlined.cpp" in
         generate_source_with_inlined_header_cpp basepath filename inline inlinefilename;
-        if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
+        if debug_inline_cpp then Tools.debug "Generated %s" inlinefilename;
         Some inlinefilename
     in
 

@@ -65,7 +65,7 @@ let fill_fun_defs_tbl (t : trm) : unit =
     | _ -> trm_iter aux t
    in
    let res = aux t in
-   if !debug then Hashtbl.iter (fun _k v -> Printf.printf "Value: %s\n" (AstC_to_c.ast_to_string v)) fun_defs;
+   if !debug then Hashtbl.iter (fun _k v -> Tools.debug "Value: %s" (AstC_to_c.ast_to_string v)) fun_defs;
    res
 
 (* [get_function_def t]: assumes that [t] is the callee of a function call, annotated with the Clang cxcursor.

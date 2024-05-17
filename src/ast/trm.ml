@@ -1594,8 +1594,9 @@ let trm_seq_enforce (t : trm) : trm =
 
 let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
   if !Flags.report_all_warnings && !Flags.trm_combinators_warn_unsupported_case then begin
-    Tools.warn (sprintf "don't know how to '%s' on '%s'" f_name (trm_desc_to_string t.desc));
-    Printf.printf "<suppressing similar warnings henceforth>\n";
+    Tools.warn "don't know how to '%s' on '%s'\n\
+      <suppressing similar warnings henceforth>"
+      f_name (trm_desc_to_string t.desc);
     Flags.trm_combinators_warn_unsupported_case := false;
   end;
   t
@@ -2194,7 +2195,7 @@ let trm_copy (t : trm) : trm =
       Tools.warn "A binder should always be introduced with a fresh id, not with an inferred id.";
       (var_map, v)
     end else begin
-      if (Var_map.mem v var_map) then failwith (sprintf "trm_copy found a second binder for %s" (var_to_string v));
+      if (Var_map.mem v var_map) then failwith "trm_copy found a second binder for %s" (var_to_string v);
       let new_v = new_var ~qualifier:v.qualifier v.name in
       (Var_map.add v new_v var_map, new_v)
     end

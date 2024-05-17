@@ -299,18 +299,20 @@ module Terminal = struct
     Printf.sprintf "%s%s%s" c msg no_color
 
   let report (color:color) (header:string) (msg:string) : unit =
-    Printf.printf "%s: %s\n" (with_color color header) msg
+    Printf.eprintf "%s: %s\n" (with_color color header) msg
 end
 
-let error (msg : string) : unit =
-  Terminal.(report red "ERROR" msg)
+let error_fun = ref Terminal.(report red "ERROR")
+let error msg = Printf.ksprintf !error_fun msg
 
-let warn (msg : string) : unit =
-  Terminal.(report orange "WARNING" msg)
+let warn_fun = ref Terminal.(report orange "WARNING")
+let warn msg = Printf.ksprintf !warn_fun msg
 
-let info (msg : string) : unit =
-  Terminal.(report blue "INFO" msg)
+let info_fun = ref Terminal.(report blue "INFO")
+let info msg = Printf.ksprintf !info_fun msg
 
+let debug_fun = ref (Printf.eprintf "%s\n")
+let debug msg = Printf.ksprintf !debug_fun msg
 
 (******************************************************************************)
 (*                          Functor Applications                         *)

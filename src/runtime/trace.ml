@@ -59,7 +59,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
     let s = Buffer.contents acc in
     let i = !start+1 in
     if !debug_compute_ml_file_excerpts
-      then printf "Excerpt[%d] = <<<%s>>>\n\n" i s;
+      then Tools.debug "Excerpt[%d] = <<<%s>>>" i s;
     r := Int_map.add i s !r;
     Buffer.clear acc; in
   (* match a line that starts with '!!', 'bigstep' or 'let' *)
@@ -162,9 +162,7 @@ let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
     let topfun_after = top_level_fun_bindings astAfter in
     let topfun_common = get_common_top_fun topfun_before topfun_after in
     if !debug_light_diff then begin
-       eprintf "light_diff removes common functions: ";
-       List.iter (fun f -> eprintf "%s " f.name) topfun_common;
-       eprintf "\n";
+       Tools.debug "light_diff removes common functions: %s" (String.concat " " (List.map (fun f -> f.name) topfun_common))
     end;
     let filter_common ast = fst (hide_function_bodies (fun f -> List.mem f topfun_common) ast) in
     let new_astBefore = filter_common astBefore in
@@ -415,7 +413,7 @@ let check_the_trace ~(final:bool) : unit =
 let filename_before_clang_format (filename:string) : string =
   let base =
     try Filename.chop_suffix filename ".cpp"
-    with _ -> failwith (sprintf "filename_before_clang_format: expects a .cpp file, provided: %s." filename) in
+    with _ -> failwith "filename_before_clang_format: expects a .cpp file, provided: %s." filename in
   base ^ "_notfmt.cpp"
 
 (* LATER: document and factorize *)
@@ -490,7 +488,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
           Ast_fromto_AstC.cfeatures_intro fromto_style ast
         with
         | Scope_computation.InvalidVarId msg ->
-          Tools.warn (sprintf "output_prog could not decode due do invalid var ids: %s" msg);
+          Tools.warn "output_prog could not decode due do invalid var ids: %s" msg;
           (* TODO: add comment in code or in trace by returning info to callers *)
           Ast_fromto_AstC.meta_intro fromto_style ast
       end else
@@ -536,7 +534,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     with | Failure s ->
       close_out out_ast;
       close_out out_enc;
-      failwith s
+      failwith "%s" s
     end
   end
 
@@ -551,7 +549,7 @@ let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
 
     if !Flags.debug_reparse then begin
       let info = if info <> "" then info else "of a term during the step starting at" in
-      Printf.printf "Reparse: %s.\n" info;
+      Tools.debug "Reparse: %s." info;
       flush stdout
     end;
     let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
@@ -578,7 +576,7 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
 (** [get_cur_step ()] returns the current step --there should always be one. *)
 let get_cur_step ?(error : string = "get_cur_step: empty stack") () : step_tree =
   match the_trace.step_stack with
-  | [] -> failwith error
+  | [] -> failwith "%s" error
   | step::_ -> step
 
 (** [open_root_step] is called only by [Trace.init], for initializing
@@ -663,7 +661,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     in
   the_trace.step_stack <- step :: the_trace.step_stack;
   if !debug_open_close_step
-    then eprintf "%sTrace.open_step [%d]: %s (%s)\n" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string kind) name;
+    then Tools.debug "%sTrace.open_step [%d]: %s (%s)" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string kind) name;
   step
 
 (** [change_step] helps creating a [Step_change] during [finalize]. *)
@@ -924,7 +922,7 @@ and close_step ?(discard = false) ?(on_error = false) ?(check:step_tree option) 
             then raise (TraceFailure "close_step: not closing the expected step")
       end;
       if !debug_open_close_step
-        then eprintf "%sTrace.close_step[%d]: %s\n" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string step.step_kind);
+        then Tools.debug "%sTrace.close_step[%d]: %s" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string step.step_kind);
       if discard then
         (* Discarded step id should be reused to prevent creating holes in recorded step ids.
            Non contiguous step ids break the JS displaying the trace. *)
@@ -1255,7 +1253,7 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
         let regexp_bigstep = Str.regexp "^[ ]*\\(bigstep\\)" in
         let starts_with_bigstep = Str.string_match regexp_bigstep line_str 0 in
         if starts_with_bigstep then begin
-          printf "Reporting diff for big-step\n";
+          Tools.debug "Reporting diff for big-step";
           Flags.only_big_steps := true;
         end
       end;
@@ -1493,7 +1491,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       with e ->
         (* Prevent any exception during printing to corrupt the entire trace *)
         let exn = Printexc.to_string e in
-        Printf.eprintf "Error while saving trace:\n%s\n" exn;
+        Tools.warn "Error while saving trace:\n%s" exn;
         None, None, None
     end else
       None, None, None
@@ -1554,7 +1552,7 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
   let prefix =
     if prefix = "" then step.step_context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
-  if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
+  if !debug_notify_dump_trace then Tools.debug "Dumping trace to '%s'" filename;
   let out_js = open_out filename in
   let out = output_string out_js in
   (* Print additional information *)
@@ -1639,7 +1637,7 @@ let dump_trace_to_textfile ~(prefix : string) : unit =
   let prefix =
     if prefix = "" then the_trace.cur_context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in
-  if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
+  if !debug_notify_dump_trace then Tools.debug "Dumping trace to '%s'" filename;
   step_tree_to_file filename (get_root_step())
 
 (** [output_prog_check_empty style ctx prefix ast_opt]: similar to [output_prog], but it
@@ -1725,7 +1723,7 @@ let produce_output_and_exit () : unit =
   | Execution_mode_full_trace -> raise (TraceFailure "produce_output_and_exit should be in a 'step' execution mode")
   end;
   (* Print debug messages of the current step *)
-  List.iter (fun s -> printf "%s\n" s) step.step_infos.step_debug_msgs;
+  List.iter (fun s -> Tools.debug "%s" s) step.step_infos.step_debug_msgs;
   (* Exit *)
   close_logs ();
   exit 0
@@ -1775,7 +1773,7 @@ let open_bigstep ~(line : int) (title:string) : unit =
   ignore (open_step ~kind:Step_big ~name:"" ~step_script:title ~line ());
   (* Handle progress report *)
   if !Flags.report_big_steps then begin
-    Printf.printf "Executing bigstep %s%s\n"
+    Tools.debug "Executing bigstep %s%s"
       (if line <> -1 then sprintf "at line %d" line else "")
       title
   end
@@ -1887,11 +1885,11 @@ let finalize ?(on_error = false) () : unit =
   (* Check the trace invariant (optional) *)
   try check_the_trace ~final:true
   with Invalid_trace msg ->
-    Tools.warn (sprintf "NON-FATAL ERROR: Trace.check_the_trace reports: %s\n" msg)
+    Tools.error "Trace.check_the_trace reports: %s" msg
 
 (** [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
 let finalize_on_error ~(exn: exn) : unit =
-  Printf.eprintf "%s\n" (Printexc.to_string exn); (* FIXME: not here? *)
+  Tools.error "%s" (Printexc.to_string exn); (* FIXME: not here? *)
   error_step exn;
   let rec close_all_steps () : unit =
     match the_trace.step_stack with

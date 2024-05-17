@@ -48,7 +48,7 @@ let _ = Run.script_cpp (fun _ ->
 
 (* For testing all lines concerning one variable:
     !! (for i = 0 to 5 do
-         Printf.printf "===%d====\n" i;
+         Tools.debug "===%d====" i;
          Arith_basic.(simpl gather_rec) [occIndex i; cWriteVar "t"; dRHS];
     done);
 *)

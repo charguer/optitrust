@@ -18,6 +18,7 @@ dune build trace_server/ensure_up_to_date
 # Restart a trace server. Does noting if the port 6775 is already taken. In that case, we assume it is an up-to-date optitrust_trace_server and continue.
 nohup dune exec optitrust_trace_server > /dev/null 2>&1 &
 # Wait until the server is initialized
+echo "Waiting for trace server initialization..."
 while ! curl -s localhost:6775
 do
   sleep 0.1

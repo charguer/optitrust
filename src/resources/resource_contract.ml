@@ -145,7 +145,7 @@ let parse_contract_clauses (empty_contract: 'c) (push_contract_clause: 'clause_t
         let res_list = Resource_cparser.resource_list (Resource_clexer.lex_resources) (Lexing.from_string desc) in
         List.fold_right (fun res contract -> push_contract_clause clause (parse_contract_res_item res) contract) res_list contract
       with Resource_cparser.Error ->
-        failwith ("Failed to parse resource: " ^ desc)
+        failwith "Failed to parse resource: %s" desc
     ) clauses empty_contract
 
 (** [contract_outside_loop range contract] takes the [contract] of a for-loop over [range] and returns

@@ -10,7 +10,7 @@ let set_explicit (tg : Target.target) : unit =
     let tg_trm = Path.resolve_path p t in
       begin match tg_trm.desc with
       | Trm_let ((x,tx), _) ->
-        if is_reference tx then Printf.printf "WARNING: set_explicit on a reference can only be correct if the reference is used for read-only purpose\n";
+        if is_reference tx then Tools.debug "WARNING: set_explicit on a reference can only be correct if the reference is used for read-only purpose";
         Variable_basic.init_detach (Target.target_of_path p);
         Record_basic.set_explicit ((Target.target_of_path surrounding_seq) @ [Target.cStrict;Target.cWriteVar x.name])
       | _ -> Record_basic.set_explicit (Target.target_of_path p)

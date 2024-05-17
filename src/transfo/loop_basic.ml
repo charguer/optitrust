@@ -396,7 +396,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let efrac_map = Var_map.mapi (fun efrac efrac_val ->
         match efrac_val with
         | Some efrac_val -> efrac_val
-        | None -> failwith (sprintf "At the splitting point, existential fraction %s was not eliminated" efrac.name))
+        | None -> failwith "At the splitting point, existential fraction %s was not eliminated" efrac.name)
         !efrac_map
       in
       let split_res_without_efracs = List.map (fun (h, formula) -> (h, trm_subst efrac_map formula)) split_res_comm in

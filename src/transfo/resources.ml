@@ -268,7 +268,7 @@ let minimize_loop_contract contract post_inst usage =
   let new_linear_invariant, added_par_reads = List.fold_right (fun (hyp, formula) (lin_inv, par_reads) ->
     match Var_map.find_opt hyp usage with
     | None -> (lin_inv, par_reads)
-    | Some (Required | Ensured) -> failwith (sprintf "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp))
+    | Some (Required | Ensured) -> failwith "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp)
     | Some (SplittedFrac | JoinedFrac) ->
       let { formula } = formula_read_only_inv_all formula in
       let frac_var, frac_ghost = new_frac () in
@@ -276,7 +276,7 @@ let minimize_loop_contract contract post_inst usage =
       let ro_formula = formula_read_only ~frac:(trm_var frac_var) formula in
       (lin_inv, (hyp, ro_formula) :: par_reads)
     | Some (ConsumedUninit | ConsumedFull) -> ((hyp, formula) :: lin_inv, par_reads)
-    | Some Produced -> failwith (sprintf "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
+    | Some Produced -> failwith "loop_minimize_on: Produced resource %s has the same id as a contract resource" (var_to_string hyp)
     ) contract.invariant.linear ([], [])
   in
   let new_invariant = { contract.invariant with linear = new_linear_invariant } in
@@ -459,11 +459,11 @@ let%transfo detach_loop_ro_focus (tg: target): unit =
 let assert_hyp_read_only ~(error : string) ((x, t) : resource_item) : unit =
   match formula_read_only_inv t with
   | Some _ -> ()
-  | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.(named_formula_to_string (default_style ())) (x, t)))
+  | None -> failwith "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.(named_formula_to_string (default_style ())) (x, t))
 
 let justif_parallelizable_loop_contract ~error (contract: loop_contract): unit =
   if contract.invariant.linear <> []
-    then failwith (sprintf "%s: the for loop is not parallelizable, invariant non empty." error)
+    then failwith "%s: the for loop is not parallelizable, invariant non empty." error
     else Trace.justif "The for loop is parallelizable"
 
 (** Collects effects intererences as a map from hyps to pairs of interfering resource usages. *)

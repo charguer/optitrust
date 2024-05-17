@@ -11,7 +11,7 @@ let warn_array_subscript_not_supported (t : typ option) : unit =
   if !Flags.report_all_warnings
     && not (String_set.mem str !Flags.warned_array_subscript_not_supported) then begin
     Flags.warned_array_subscript_not_supported := String_set.add str !Flags.warned_array_subscript_not_supported;
-    Tools.warn (sprintf "does not support array subscript base type '%s'" str);
+    Tools.warn "does not support array subscript base type '%s'" str;
   end
 
 (* [loc_of_node n]: gets the location of node [n] *)
@@ -88,12 +88,12 @@ let ctx_var_add (tv : var) (t : typ) : unit =
 
 (* [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
-  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" (Tools.document_to_string (Ast_to_text.print_typconstr tn)) tid;
+  if debug_typedefs then Tools.debug "Type %s has been added into map with typconstrid %d" (Tools.document_to_string (Ast_to_text.print_typconstr tn)) tid;
   ctx_tconstr := Qualified_map.add tn tid (!ctx_tconstr)
 
 (* [ctx_typedef_add tn tid td]: adds typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
-  if debug_typedefs then Printf.printf "Typedef for %s has been registered\n" (Tools.document_to_string (Ast_to_text.print_typconstr tn));
+  if debug_typedefs then Tools.debug "Typedef for %s has been registered" (Tools.document_to_string (Ast_to_text.print_typconstr tn));
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
 (* [ctx_label_add lb tid]: adds label [lb] with id [tid] in map [ctx_label] *)
@@ -958,7 +958,7 @@ and tr_decl_list (dl : decl list) : trms =
             let ty = {ft with typ_attributes = al} in
             (Record_field_member (fn, ty), Access_unspecified)
           | _ ->
-            Printf.printf "Failing from here\n";
+            Tools.debug "Failing from here";
             loc_fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in struct declaration"
 
         ) fl in
@@ -1275,7 +1275,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
         | CXXProtected -> access_spec := Access_protected; acc
         | _ -> loc_fail loc "Clang_to_astRawC.tr_decl_list: unkwown access specifier"
         end
-      | _ -> Printf.printf "Failing from here\n";
+      | _ -> Tools.debug "Failing from here";
         loc_fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
     ) [] fl in
       let tc = name_to_typconstr rn in

@@ -450,7 +450,7 @@ let simpl_index_add_on (t : trm) : trm =
   let delta_dims = (List.length long_dims) - (List.length short_dims) in
   let trimmed_long_dims = Xlist.drop delta_dims long_dims in
   (* DEBUG
-  Printf.printf "delta: %i\n" delta_dims;
+  Tools.debug "delta: %i" delta_dims;
   Debug.trms "trimmed long" trimmed_long_dims;
   Debug.trms "short" short_dims;
   *)

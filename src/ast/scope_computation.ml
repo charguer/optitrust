@@ -26,36 +26,36 @@ type scope_ctx = {
 }
 
 let print_scope_ctx scope_ctx =
-  printf "{\n";
-  printf "  prefix_qualifier_rev = %s;\n" (Tools.list_to_string scope_ctx.prefix_qualifier_rev);
-  printf "  conflicts = %s;\n" (
+  Tools.debug "{";
+  Tools.debug "  prefix_qualifier_rev = %s;" (Tools.list_to_string scope_ctx.prefix_qualifier_rev);
+  Tools.debug "  conflicts = %s;" (
     vars_to_string (
     List.of_seq (
     Seq.map (fun (q, n) -> name_to_var ~qualifier:q n) (
     Qualified_set.to_seq scope_ctx.conflicts))));
-  printf "  predefined = %s;\n" (
+  Tools.debug "  predefined = %s;" (
     vars_to_string (
     List.of_seq (
     Seq.map (fun (q, n) -> name_to_var ~qualifier:q n) (
     Qualified_set.to_seq scope_ctx.predefined))));
-  printf "  var_ids = %s;\n" (
+  Tools.debug "  var_ids = %s;" (
     vars_to_string (
     List.of_seq (
     Seq.map (fun ((q, n), id) -> { qualifier = q; name = n; id = id }) (
     Qualified_map.to_seq scope_ctx.var_ids))));
-  printf "  shadowed = %s;\n" (
+  Tools.debug "  shadowed = %s;" (
     Tools.list_to_string (
     List.of_seq (
     Seq.map (fun (v, n) -> sprintf "%s is shadowed by %s" (var_to_string v) (var_to_string n)) (
     Var_map.to_seq scope_ctx.shadowed)))
   );
-  printf "  renames = %s;\n" (
+  Tools.debug "  renames = %s;" (
     Tools.list_to_string (
     List.of_seq (
     Seq.map (fun (v, n) -> sprintf "%s -> %s" (var_to_string v) n) (
     Var_map.to_seq !(scope_ctx.renames))))
   );
-  printf "}\n"
+  Tools.debug "}"
 
 (** internal *)
 let toplevel_scope_ctx (): scope_ctx = {
@@ -77,7 +77,7 @@ let check_unique_var_ids (t : trm) : unit =
   let vars = ref Var_set.empty in
   let add_var v =
     if Var_set.mem v !vars then
-      failwith (sprintf "variable '%s' is not declared with a unique id" (var_to_string v));
+      failwith "variable '%s' is not declared with a unique id" (var_to_string v);
     vars := Var_set.add v !vars
   in
   let rec aux t =
@@ -206,9 +206,9 @@ let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
     with
     | Not_found when var_eq x Resource_trm.var_admitted -> { ghost_args = [Resource_trm.var_justif] }
     | Not_found when var_eq x Resource_trm.var_assert_alias -> Var_map.find Resource_trm.var_assert_eq scope_ctx.fun_prototypes
-    | Not_found -> failwith (sprintf "Could not find a prototype for function %s" (var_to_string x))
+    | Not_found -> failwith "Could not find a prototype for function %s" (var_to_string x)
     end
-  | _ -> failwith (sprintf "Could not find a prototype for trm at location %s" (loc_to_string t.loc))
+  | _ -> failwith "Could not find a prototype for trm at location %s" (loc_to_string t.loc)
 
 let on_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm)
   (f : var Qualified_map.t -> var list ref -> 'a) : 'a =
@@ -224,8 +224,8 @@ let check_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t) (_ : va
   try
     let g' = Qualified_map.find (g.qualifier, g.name) ghost_proto_arg_map in
     if g.id <> g'.id then
-      failwith (sprintf "Ghost argument %s is not the same as the ghost in the prototype %s." (var_to_string g) (var_to_string g'))
-  with Not_found -> failwith (sprintf "Ghost argument %s is not part of the function prototype" (var_to_string g))
+      failwith "Ghost argument %s is not the same as the ghost in the prototype %s." (var_to_string g) (var_to_string g')
+  with Not_found -> failwith "Ghost argument %s is not part of the function prototype" (var_to_string g)
 
 let check_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> unit =
   on_ghost_arg_name scope_ctx fn check_ghost_arg_name_aux
@@ -282,9 +282,9 @@ let scope_ctx_exit outer_ctx inner_ctx t =
     in
     let union_var_ids (q, n) a b =
       if debug then begin
-        printf "outer:\n";
+        Tools.debug "outer:";
         print_scope_ctx outer_ctx;
-        printf "inner:\n";
+        Tools.debug "inner:";
         print_scope_ctx inner_ctx;
       end;
       raise (InvalidVarId (sprintf "variable '%s' is defined both inside and outside of namespace" (var_to_string (name_to_var ~qualifier:q n))))
@@ -309,7 +309,7 @@ let post_process_ctx ~(failure_allowed : bool) ctx t =
     let f_reverted = infer_map_var ~failure_allowed ctx f_reverted in
     begin match Var_map.find_opt f_reverted ctx.fun_prototypes with
     | Some proto -> { ctx with fun_prototypes = Var_map.add f_var proto ctx.fun_prototypes }
-    | None -> failwith (sprintf "Function %s cannot revert %s because its contract is undefined" (var_to_string f_var) (var_to_string f_reverted))
+    | None -> failwith "Function %s cannot revert %s because its contract is undefined" (var_to_string f_var) (var_to_string f_reverted)
     end
   | _ -> ctx
 

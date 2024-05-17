@@ -48,8 +48,8 @@ let unique_alpha_rename (t : trm) : trm =
       v'
     in
     (* DEBUG:
-    Printf.printf "v: %s\n" (var_to_string v);
-    Printf.printf "v': %s\n" (var_to_string v'); *)
+    Tools.debug "v: %s" (var_to_string v);
+    Tools.debug "v': %s" (var_to_string v'); *)
     v'
   in
   (* initialize entries for toplevel variables. *)
@@ -85,14 +85,14 @@ let find_interference tl_new_scope tl_after : var list =
 let assert_no_interference ~(after_what : string) ~(on_interference : string) tl_new_scope tl_after : unit =
   match find_interference tl_new_scope tl_after with
   | [] -> ()
-  | [x] -> failwith (sprintf "local variable '%s' is used after %s, but will now be %s" (var_to_string x) after_what on_interference)
-  | xs -> failwith (sprintf "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:("'","'") (List.map var_to_string xs)) after_what on_interference)
+  | [x] -> failwith "local variable '%s' is used after %s, but will now be %s" (var_to_string x) after_what on_interference
+  | xs -> failwith "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:("'","'") (List.map var_to_string xs)) after_what on_interference
 
 (** If [x] is used in [instrs], traces a justification, otherwise fails. *)
 let justif_unused_in (x : var) (instrs : trm mlist) : unit =
   let fv = trm_free_vars (trm_seq instrs) in
   if Var_set.mem x fv then
-    failwith (sprintf "'%s' is used" (var_to_string x));
+    failwith "'%s' is used" (var_to_string x);
   Trace.justif (sprintf "'%s' is unused" (var_to_string x))
 
 (** Given a path to a variable definition, assert that it is unused using [justif_unused_in]. *)

@@ -99,10 +99,10 @@ let add_stringreprs_entry (t : trm) (d : document) : unit =
 (* [print_stringreprs m]: for debugging purposes. *)
 let print_stringreprs (m : stringreprs) : unit =
   let pr id d =
-    Printf.printf "stringreprs[%d] = %s\n----\n" id (document_to_string d) in
-  Printf.printf "====<stringreprs>====\n";
+    Tools.debug "stringreprs[%d] = %s\n----" id (document_to_string d) in
+  Tools.debug "====<stringreprs>====";
   Hashtbl.iter pr m;
-  Printf.printf "====</stringreprs>====\n"
+  Tools.debug "====</stringreprs>===="
 
 (*----------------------------------------------------------------------------------*)
 
@@ -403,7 +403,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
                 (hardline ^^ string "*/" ^^ hardline )]
       (List.map (fun error -> string (sprintf "ERROR: %s" error)) t.errors) in
     if !Flags.debug_errors_msg_embedded_in_ast && (List.length t.errors) > 0
-      then Printf.eprintf "PRINTING ERROR IN COMMENT IN AST---:\n%s---\n" (Tools.document_to_string derror);
+      then Tools.debug "PRINTING ERROR IN COMMENT IN AST---:\n%s---" (Tools.document_to_string derror);
     derror ^^ dt
   end
 
@@ -908,7 +908,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
             sub size_var.name (length "sizeof(") ((length size_var.name) - (length "sizeof()")),
             sub size_var.name ((length size_var.name) - (length ")")) (length ")") with
       | "sizeof(", ty_str, ")" -> ty_str
-      | _ -> failwith error
+      | _ -> failwith "%s" error
     ) in
     let bracketed_trm t = brackets (decorate_trm style ~prec:0 t) in
     (string "malloc(sizeof(") ^^ (string ty_str) ^^

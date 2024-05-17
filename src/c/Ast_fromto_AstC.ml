@@ -26,7 +26,7 @@ let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
   ) else f
 
 let debug_current_stage (msg: string) : unit =
-  if debug then printf "%s\n" msg
+  if debug then Tools.debug "%s" msg
 
 (*
 
@@ -385,7 +385,7 @@ let method_call_elim (t : trm) : trm =
                     Option.bind (typ_ptr_inv gbt) (fun btyp ->
                     typ_constr_inv btyp))) with
         | Some r -> r
-        | None -> failwith (sprintf "Ast_fromto_AstC.method_call_elim: unsupported base: %s\n" (Ast_to_text.ast_to_string base))
+        | None -> failwith "Ast_fromto_AstC.method_call_elim: unsupported base: %s\n" (Ast_to_text.ast_to_string base)
         end
       in
       let qualifier = class_qualifier @ [class_name] in
@@ -512,7 +512,7 @@ let parse_ghost_args ghost_args_str =
   try
     Resource_cparser.ghost_arg_list Resource_clexer.lex_resources (Lexing.from_string ghost_args_str)
   with Resource_cparser.Error ->
-    failwith ("Failed to parse ghost arguments: " ^ ghost_args_str)
+    failwith "Failed to parse ghost arguments: %s" ghost_args_str
 
 let trm_var_with_name (name: string) = Pattern.(trm_var (check (fun v -> var_has_name v name)))
 
@@ -671,7 +671,7 @@ let fun_clause_type_inv (clause: var) : fun_contract_clause_type option =
   | "__produces" -> Some Produces
   | "__xrequires" | "__xensures" | "__xreads" | "__xwrites" | "__xmodifies"
   | "__xconsumes" | "__xproduces" | "__invariant" | "__sreads" | "__smodifies" | "__strict" ->
-    failwith (sprintf "Found the loop contract clause '%s' in a function contract" clause.name)
+    failwith "Found the loop contract clause '%s' in a function contract" clause.name
   | _ -> None
 
 let loop_clause_type_inv (clause: var) : loop_contract_clause_type option =
@@ -689,7 +689,7 @@ let loop_clause_type_inv (clause: var) : loop_contract_clause_type option =
   | "__smodifies" -> Some SharedModifies
   | "__strict" -> Some Strict
   | "__pure" | "__ensures" | "__reads" | "__writes" | "__modifies" | "__consumes" | "__produces" ->
-    failwith (sprintf "Found the function contract clause '%s' in a loop contract" clause.name)
+    failwith "Found the function contract clause '%s' in a loop contract" clause.name
   | _ -> None
 
 let encoded_clause_inv (clause_type_inv: var -> 'clause_type option) (t: trm): ('clause_type * string) option =
@@ -962,7 +962,7 @@ let rec contract_intro (style: style) (t: trm): trm =
     in
     let pre_pure = List.filter hyp_not_mem_before_pop pure_with_fracs in
     if (Hashtbl.length frac_to_remove != 0) then
-      Tools.warn ("Some fractions should have been discarded but they were not found in context: " ^ String.concat ", " (Hashtbl.fold (fun frac () acc -> frac.name :: acc) frac_to_remove []));
+      Tools.warn "Some fractions should have been discarded but they were not found in context: %s" (String.concat ", " (Hashtbl.fold (fun frac () acc -> frac.name :: acc) frac_to_remove []));
 
     let t = match reads_clause with
       | Some reads_clause -> push_named_formulas reads_clause reads_res t

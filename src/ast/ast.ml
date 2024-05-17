@@ -48,9 +48,8 @@ and still distinguish the body from the whole loop (or any other construction th
 target resolution.
 *)
 
-(* for debugging and message printing *)
-let printf = Printf.printf
-let eprintf = Printf.eprintf
+(* raise exception with format string *)
+let failwith msg = Printf.ksprintf failwith msg
 let sprintf = Printf.sprintf
 
 (*****************************************************************************)
@@ -120,7 +119,7 @@ let var_to_string (v : var) : string =
   q_str ^ v.name ^ "#" ^ id_str
 
 let assert_var_id_set ~error_loc v =
-  if not (v.id >= 0) then failwith (sprintf "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v))
+  if not (v.id >= 0) then failwith "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v)
 
 let var_eq (v1 : var) (v2 : var) : bool =
   assert_var_id_set ~error_loc:"var_eq" v1;

@@ -73,8 +73,13 @@ let handle_get_request request =
     Dream.from_filesystem dirname filename request
 
 let () =
-  Dream.run ~port:6775
-  (*@@ Dream.logger*)
+  Tools.error_fun := (fun msg -> Dream.error (fun log -> log "%s" msg));
+  Tools.warn_fun := (fun msg -> Dream.warning (fun log -> log "%s" msg));
+  Tools.info_fun := (fun msg -> Dream.info (fun log -> log "%s" msg));
+  Tools.debug_fun := (fun msg -> Dream.debug (fun log -> log "%s" msg));
+
+  Dream.run ~port:6775 ~adjust_terminal:false
+  @@ Dream.logger
   @@ handle_exn_response
   @@ Dream.router [
     Dream.get "**" handle_get_request;

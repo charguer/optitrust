@@ -516,7 +516,7 @@ let extract_last_dir_before (p : path) : path * int =
   if p = [] then path_fail p "Path.extract_last_dir_before does not apply to an empty path";
   match last_dir_before_inv p with
   | None ->
-      if debug_path then Printf.printf "Path: %s\n" (path_to_string p);
+      if debug_path then Tools.debug "Path: %s" (path_to_string p);
       path_fail p "Path.extract_last_dir_before expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
   | Some res -> res
 
@@ -527,7 +527,7 @@ let extract_last_dir_span (p: path) : path * span =
   | parent_path, Nth i -> parent_path, { start = i; stop = i+1 }
   | parent_path, Before i -> parent_path, { start = i; stop = i }
   | _ ->
-      if debug_path then Printf.printf "Path: %s\n" (path_to_string p);
+      if debug_path then Tools.debug "Path: %s" (path_to_string p);
       path_fail p "Path.extract_last_dir_span expects the last direction to be inside a sequence."
 
 

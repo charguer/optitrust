@@ -153,7 +153,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
     match List.rev dl with
     | Dir_seq_nth i :: dl' -> (List.rev dl',i)
     | Dir_record_field _ :: Dir_seq_nth i :: dl'  -> (List.rev dl', i)
-      (* Printf.printf "Path: %s\n" (Path.path_to_string dl); *)
+      (* Tools.debug "Path: %s" (Path.path_to_string dl); *)
     | _ ->
       path_fail dl "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)

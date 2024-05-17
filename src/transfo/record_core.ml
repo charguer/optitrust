@@ -28,7 +28,7 @@ let set_explicit_aux (t : trm) : trm =
           | Some td -> td
           | _ -> trm_fail t "Record_core.set_explicit_aux: could not get the declaration of typedef"
         else begin
-          Printf.printf "%s\n" (AstC_to_c.ast_to_string t);
+          Tools.debug "%s" (AstC_to_c.ast_to_string t);
           trm_fail t "Record_core.set_explicit_aux: explicit assignment cannot operate on unknown types"
         end
       in
@@ -310,7 +310,7 @@ let compute_bijection (order : fields_order) (fl : (field * int) list) : int lis
     if List.length order <> List.length fl then failwith "Record_core.compute_bijection: Reorder all should contain all the fields.";
     List.map (fun f -> match List.assoc_opt f fl with
       | Some ind -> ind
-      | None -> failwith (Printf.sprintf "Record_core:compute_bijection: couldn't find field %s." f)
+      | None -> failwith "Record_core:compute_bijection: couldn't find field %s." f
     ) order
 
 (* [reorder_fields_aux order index t]: reorders the fields of the struct [t] based on [order],

@@ -17,7 +17,7 @@ let move_all_begins_downwards (seq : trm) : trm =
   in
   Mlist.iteri find_begins instrs;
   let upwards_begins = !begins in
-  (* Printf.printf "upwards_begins: %s\n" (Tools.list_to_string (List.map string_of_int upwards_begins)); *)
+  (* Tools.debug "upwards_begins: %s" (Tools.list_to_string (List.map string_of_int upwards_begins)); *)
   List.fold_left (fun seq beg_i ->
     Ghost.move_down_in_seq beg_i seq
   ) seq upwards_begins
@@ -35,7 +35,7 @@ let move_all_ends_upwards (seq : trm) : trm =
   in
   Mlist.iteri find_ends instrs;
   let downwards_ends = List.rev !ends in
-  (* Printf.printf "downwards_ends: %s\n" (Tools.list_to_string (List.map string_of_int downwards_ends)); *)
+  (* Tools.debug "downwards_ends: %s" (Tools.list_to_string (List.map string_of_int downwards_ends)); *)
   List.fold_left (fun seq end_i ->
     Ghost.move_up_in_seq end_i seq
   ) seq downwards_ends
@@ -199,7 +199,7 @@ let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq:
       let _ = subtract_linear_resource_set pre2 post1 in
       true
     with Resource_not_found _ as exn ->
-      if debug_intro then Printf.eprintf "%s\n\n" (Printexc.to_string exn);
+      if debug_intro then Tools.debug "%s" (Printexc.to_string exn);
       false
   in
 
