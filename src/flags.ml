@@ -118,10 +118,6 @@ let print_optitrust_syntax = ref false
    This allows for the propagation of the backtrace. *)
 let stop_on_first_resource_error = ref true
 
-(* [always_name_resource_hyp]: Always print named for resource hypothesis even if they were unnamed.
- * Automatically set to true during Resources.show. *)
-let always_name_resource_hyp = ref false
-
 (** [resource_typing_enabled]: if false, never attempt typing resources and never introduce ghosts. *)
 let resource_typing_enabled = ref true
 
@@ -318,7 +314,6 @@ let reset_flags_to_default () : unit =
   pretty_matrix_notation := false;
   display_includes := false;
   stop_on_first_resource_error := true;
-  always_name_resource_hyp := false;
   resource_typing_enabled := true;
   check_validity := false;
   reparse_between_steps := false;

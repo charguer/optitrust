@@ -425,15 +425,14 @@ let style_normal_code () =
 
 let style_resources ?(print_var_id : bool option) () = (*TODO factorize with Show.res *)
   let cstyle_default = AstC_to_c.(default_style()) in
-  let aststyle_default = Ast.default_style () in
-  let ast_style = { aststyle_default with print_generated_ids = true } in
+  let ast_style = Ast.default_style () in
   let ast_style = match print_var_id with
   | None -> ast_style
   | Some b -> { ast_style with print_var_id = b }
   in
   let typing_style = if !Flags.detailed_resources_in_trace then Style.typing_all else Style.typing_ctx in
   Style.({ decode = false;
-    typing = typing_style;
+    typing = { typing_style with print_generated_res_ids = true } ;
     print = Lang_C { cstyle_default with
       ast = ast_style;
       optitrust_syntax = true; } })
@@ -1430,7 +1429,7 @@ let get_code_before ?(style:output_style option) (s:step_tree) : string =
 (** [get_code_after s] returns the code after the step [s] ends as a string. *)
 let get_code_after ?(style:output_style option) (s:step_tree) : string =
   let style = Option.value ~default:s.step_style_after style in
-  get_code ~temp_prefix:"after" style s.step_context s.step_ast_before
+  get_code ~temp_prefix:"after" style s.step_context s.step_ast_after
 
 let compute_before_after_and_diff ?(style:output_style option) ~(drop_before_after: bool) (s:step_tree) : string * string * string =
   (* Handle the light-diff feature, which eliminates top-level functions that

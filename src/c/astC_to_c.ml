@@ -643,45 +643,6 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
   | _ ->
     dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style ~print_struct_init_type:false init ^^ dsemi
 
-and loop_contract_to_doc style (loop_contract : loop_contract) : doc =
-  key_value_to_doc [
-    "loop_ghosts", resource_item_list_to_doc style loop_contract.loop_ghosts;
-    "invariant", resource_set_to_doc style loop_contract.invariant;
-    "iter_contract", fun_contract_to_doc style loop_contract.iter_contract;
-    "parallel_reads", resource_item_list_to_doc style loop_contract.parallel_reads;
-    "strict", if loop_contract.strict then string "true" else string "false" ]
-
-
-and fun_contract_to_doc style (fun_contract : fun_contract) : doc =
-  key_value_to_doc [
-    "pre", resource_set_to_doc style fun_contract.pre;
-    "post", resource_set_to_doc style fun_contract.post; ]
-
-and resource_item_list_to_doc style (resource_item_list : resource_item list) : doc =
-  list_to_doc ~bounds:[lbracket; rbracket] ~sep:semi
-    (List.map (resource_item_to_doc style) resource_item_list)
-
-and resource_set_to_doc style (resource_set : resource_set) : doc =
-  key_value_to_doc [
-    "pure", resource_item_list_to_doc style resource_set.pure;
-    "linear", resource_item_list_to_doc style resource_set.linear;
-    "fun_specs", fun_spec_resource_varmap_to_doc style resource_set.fun_specs; ]
-
-and resource_item_to_doc style (resource_item : resource_item) : doc =
-  let hyp, formula = resource_item in
-  let sid =
-    if hyp.name.[0] = '#' && not style.ast.print_generated_ids
-      then empty
-      else (var_to_doc style hyp) ^^ (string ": ") in
-  sid ^^ formula_to_doc style formula
-
-and fun_spec_resource_varmap_to_doc style (fun_specs : fun_spec_resource varmap) : doc =
-  string "<fun_spec for: " ^^
-  (list_to_doc ~bounds:[lbracket; rbracket] ~sep:semi (List.map (fun (f, s) -> var_to_doc style f) (Var_map.bindings fun_specs))) ^^
-  string ">"
-
-
-
 (* [trm_let_mult_to_doc style ~semicolon tv bs]: converts multiple variable declarations to pprint document *)
 and trm_let_mult_to_doc style ?(semicolon : bool = true) (bs : (typed_var * trm) list) : document =
   let rec get_inner_ptrs_and_consts (ty : typ) : typ =

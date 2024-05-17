@@ -286,8 +286,7 @@ let res ?(msg : string = "show-resources") ?(var_id : bool option)
   let ast_left = Trace.ast() in
   let ast_right = ast_left in
   let style_left = Style.default_custom_style () in
-  let aststyle_default = Ast.default_style () in
-  let ast_style = { aststyle_default with print_generated_ids = true } in
+  let ast_style = Ast.default_style () in
   let ast_style = match var_id with
   | None -> ast_style
   | Some b -> { ast_style with print_var_id = b }
@@ -296,10 +295,9 @@ let res ?(msg : string = "show-resources") ?(var_id : bool option)
   let cstyle = { cstyle_default with
     ast = ast_style;
     optitrust_syntax = true; } in
-  (*let customstyle_default = Style.default_custom_style() in*)
-  let style_right = { (*customstyle_default with*)
+  let style_right = {
       decode = false;
-      typing = typing_style;
+      typing = { typing_style with print_generated_res_ids = true };
       print = Lang_C cstyle } in
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
 

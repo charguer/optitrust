@@ -1418,7 +1418,6 @@ let get_member_type (t : trm) (rf : record_field) : typ =
 type style = {
   print_contract_internal_repr: bool; (* print internal loop contract *)
   print_var_id: bool; (* print internal variable identifiers *)
-  print_generated_ids: bool; (* print auto-generated names *)
   print_string_repr: bool; (* print string representation for expressions *)
   print_mark: bool; (* print marks *)
   print_annot: bool; (* print annotations *)
@@ -1431,7 +1430,6 @@ type style = {
 let default_style () : style = {
   print_contract_internal_repr = false;
   print_var_id = !Flags.debug_var_id;
-  print_generated_ids = !Flags.always_name_resource_hyp;
   print_string_repr = !Flags.debug_stringreprs;
   print_mark = true;
   print_annot = false; (* LATER: add support for this *)
@@ -1442,7 +1440,6 @@ let default_style () : style = {
 let style_for_reparse () : style =
   { print_contract_internal_repr = true;
     print_var_id = false;
-    print_generated_ids = false;
     print_string_repr = false;
     print_mark = false;
     print_annot = false;

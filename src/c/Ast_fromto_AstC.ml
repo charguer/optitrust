@@ -788,7 +788,7 @@ let contract_elim (t: trm): trm =
 
 let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, formula): string =
   let sformula = formula_to_string style formula in
-  if not (style.cstyle.ast.print_generated_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" hyp.name
+  if not (style.typing.print_generated_res_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" hyp.name
     then Printf.sprintf "%s" sformula
     else begin
       let hyp_s = if style.cstyle.ast.print_var_id then var_to_string hyp else hyp.name in
@@ -1091,7 +1091,7 @@ let autogen_alpha_rename style (t : trm) : trm =
     | None -> v
   in
 
-  if style.cstyle.ast.print_generated_ids
+  if style.typing.print_generated_res_ids
     then t (* When we want to print generated ids we prefer to keep them in sync with internal names *)
     else trm_rename_vars ~map_binder map_var (0, Var_map.empty) t
 

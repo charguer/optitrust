@@ -32,7 +32,9 @@ and typing_style = {
   typing_used_res : bool;
   typing_joined_res : bool;
   typing_framed_res : bool;
-  typing_contract_inst : bool; }
+  typing_contract_inst : bool;
+  print_generated_res_ids: bool; (* print auto-generated resource names *)
+  }
 
 and custom_style = {
   decode : bool; (* TODO: decode on non full ASTs? *)
@@ -60,7 +62,9 @@ let typing_all : typing_style = {
   typing_joined_res = true;
   typing_used_res = true;
   typing_framed_res = true;
-  typing_contract_inst = true; }
+  typing_contract_inst = true;
+  print_generated_res_ids = true;
+}
 
 let typing_none : typing_style = {
   typing_contracts = false;
@@ -70,7 +74,9 @@ let typing_none : typing_style = {
   typing_joined_res = false;
   typing_used_res = false;
   typing_framed_res = false;
-  typing_contract_inst = false; }
+  typing_contract_inst = false;
+  print_generated_res_ids = false;
+}
 
 let typing_annot : typing_style =
   { typing_none with
@@ -81,7 +87,9 @@ let typing_ctx : typing_style =
   { typing_annot with typing_ctx_res = true; }
 
 let typing_usage : typing_style =
-  { typing_ctx with typing_used_res = true; }
+  { typing_ctx with
+      typing_used_res = true;
+      print_generated_res_ids = true; }
 
 let typing_all_but_frame : typing_style =
   { typing_all with typing_framed_res = false; }
@@ -104,10 +112,10 @@ let internal () : style =
   let s = AstC_to_c.default_style () in
   Custom {
     decode = false;
-    typing = typing_annot;
+    typing = { typing_annot with print_generated_res_ids = true };
     print = Lang_C { s with
       optitrust_syntax = true;
-      ast = { s.ast with print_var_id = true; print_generated_ids = true } } }
+      ast = { s.ast with print_var_id = true } } }
 
 let internal_ast () : style  =
   let s = Ast_to_text.default_style () in
