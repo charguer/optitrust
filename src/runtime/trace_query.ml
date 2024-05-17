@@ -44,38 +44,3 @@ let read_trace_tree ?(timestamp: string option) (path: string) : step_tree =
     close_in file;
     tree
   with _ -> raise (Trace_invalid path)
-
-(******************************************************************************)
-(*                                  Views                     *)
-(******************************************************************************)
-
-type user_view = View_code | View_annot | View_resources | View_usage | View_full
-
-(* TODO: move *)
-(* The view_mode corresponds to that used in optitrust_trace.js *)
-let user_view_of_string (mode : string) : user_view =
-  match mode with
-    | "view_code" -> View_code
-    | "view_annot" -> View_annot
-    | "view_resources" -> View_resources
-    | "view_usage" -> View_usage
-    | "view_full" -> View_full
-    | _ -> failwith (Printf.sprintf "user_view_of_string: unknown mode '%s'" mode)
-
-(* [custom_style_of_view_mode decode view] computes the style
-  associated with a user-level specified "view mode" and a boolean
-  indicating whether the syntax should be C or OptiTrust. *)
-let custom_style_of_view_mode (decode : bool) (user_view : user_view) : output_style =
-  let open Style in
-  let typing =
-    match user_view with
-    | View_code -> typing_none
-    | View_annot -> typing_annot
-    | View_resources -> typing_ctx
-    | View_usage -> typing_usage
-    | View_full -> typing_all_but_frame
-    in
-  { decode;
-    typing;
-    print = Lang_C (AstC_to_c.default_style ()) }
-

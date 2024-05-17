@@ -1,4 +1,5 @@
-open Optitrust.Trace_query
+open Optitrust
+open Trace_query
 
 exception Invalid_query of string
 
@@ -22,6 +23,27 @@ let get_query_as_int request query_name =
   | Some query -> query
   | None -> raise (Invalid_query ("Query parameter " ^ query_name ^ " should be an integer"))
 
+let get_query_as_bool request query_name =
+  let query = get_query request query_name in
+  match bool_of_string_opt query with
+  | Some query -> query
+  | None -> raise (Invalid_query ("Query parameter " ^ query_name ^ " should be a boolean"))
+
+let style_of_query request : Trace.output_style =
+  let open Style in
+  let typing =
+    match (get_query request "typing_style") with
+    | "hide" -> typing_none
+    | "annot" -> typing_annot
+    | "ctx" -> typing_ctx
+    | "usage" -> typing_usage
+    | "full" -> typing_all_but_frame
+    | style -> raise (Invalid_query ("Invalid typing style " ^ style))
+    in
+  { decode = get_query_as_bool request "decode";
+    typing;
+    print = Lang_C (AstC_to_c.default_style ()) }
+
 let handle_get_request request =
   let path, _ = Dream.split_target (Dream.target request) in
   let path = String.sub path 1 (String.length path - 1) in
@@ -36,8 +58,9 @@ let handle_get_request request =
     begin match view_mode with
     | "diff" ->
       begin try
+        let style = style_of_query request in
         let step = get_step_with_id step_id trace in
-        Dream.respond (Optitrust.Trace.compute_diff step)
+        Dream.respond (Optitrust.Trace.compute_diff ~style step)
       with Not_found ->
         Dream.respond ~status:`Not_Found ("Could not find step " ^ string_of_int step_id)
       end

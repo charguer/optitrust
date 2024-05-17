@@ -1432,14 +1432,16 @@ let get_code_after ?(style:output_style option) (s:step_tree) : string =
   let style = Option.value ~default:s.step_style_after style in
   get_code ~temp_prefix:"after" style s.step_context s.step_ast_before
 
-let compute_before_after_and_diff ~(drop_before_after: bool) (s:step_tree) : string * string * string =
+let compute_before_after_and_diff ?(style:output_style option) ~(drop_before_after: bool) (s:step_tree) : string * string * string =
   (* Handle the light-diff feature, which eliminates top-level functions that
      are physically identical in the AST before and after *)
   let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
 
   (* Dump the two files, and evaluate the diff command *)
-  let before_file = code_to_temp_file ~temp_prefix:"before" s.step_style_before s.step_context ast_before in
-  let after_file = code_to_temp_file ~temp_prefix:"after" s.step_style_after s.step_context ast_after in
+  let style_before = Option.value ~default:s.step_style_before style in
+  let before_file = code_to_temp_file ~temp_prefix:"before" style_before s.step_context ast_before in
+  let style_after = Option.value ~default:s.step_style_after style in
+  let after_file = code_to_temp_file ~temp_prefix:"after" style_after s.step_context ast_after in
   let sDiff = Tools.get_process_output (sprintf "git diff --ignore-all-space --no-index -U10 %s %s" before_file after_file) in
   let sBefore = if drop_before_after then "" else Xfile.get_contents before_file in
   let sAfter = if drop_before_after then "" else Xfile.get_contents after_file in
@@ -1449,14 +1451,14 @@ let compute_before_after_and_diff ~(drop_before_after: bool) (s:step_tree) : str
 
 (** [compute_diff s] returns the string describing the diff associated with the step [s].
     The AST are printed using the style_before and style_after of [s]. *)
-let compute_diff (s:step_tree) : string =
-  let _, _, diff = compute_before_after_and_diff ~drop_before_after:true s in
+let compute_diff ?(style:output_style option) (s:step_tree) : string =
+  let _, _, diff = compute_before_after_and_diff ?style ~drop_before_after:true s in
   diff
 
 (** [compute_before_after_and_diff s] returns not just the diff, but also the contents
     of the files that correspond to the AST-before and AST-after for the step [s]. *)
-let compute_before_after_and_diff (s:step_tree) : string * string * string =
-  compute_before_after_and_diff ~drop_before_after:false s
+let compute_before_after_and_diff ?(style:output_style option) (s:step_tree) : string * string * string =
+  compute_before_after_and_diff ?style ~drop_before_after:false s
 
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)

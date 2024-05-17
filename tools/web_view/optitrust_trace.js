@@ -132,61 +132,61 @@ var optionsDescr = [ // extended by initAllTags
     kind: "advanced",
     default: true,
   },
-  { key: "ast_diff",
+  { radio: "view",
+    value: "diff",
     name: "Diff",
     kind: "ast",
-    radio: "ast-display",
     default: true,
   },
-  { key: "ast_before",
-    name: "Before",
+  { radio: "view",
+    value: "code_before",
+    name: "Code before",
     kind: "ast",
-    radio: "ast-display",
     default: false,
   },
-  { key: "ast_after",
-    name: "After",
+  { radio: "view",
+    value: "code_after",
+    name: "Code after",
     kind: "ast",
-    radio: "ast-display",
     default: false,
   },
   { key: "decode",
-    name: "decode",
-    kind: "ast",
+    name: "Decode",
+    kind: "serialized_ast",
     default: true,
   },
-  { key: "view_code",
-    name: "Code",
-    kind: "ast",
-    radio: "ast-view",
+  { radio: "typing_style",
+    value: "hide",
+    name: "Hide res",
+    kind: "serialized_ast",
+    default: false,
+  },
+  { radio: "typing_style",
+    value: "annot",
+    name: "Res annot",
+    kind: "serialized_ast",
     default: true,
   },
-  { key: "view_annot",
-    name: "Annot",
-    kind: "ast",
-    radio: "ast-view",
+  { radio: "typing_style",
+    value: "ctx",
+    name: "Res context",
+    kind: "serialized_ast",
     default: false,
   },
-  { key: "view_resources",
-    name: "Resources",
-    kind: "ast",
-    radio: "ast-view",
+  { radio: "typing_style",
+    value: "usage",
+    name: "Res usage",
+    kind: "serialized_ast",
     default: false,
   },
-  { key: "view_usage",
-    name: "Usage",
-    kind: "ast",
-    radio: "ast-view",
-    default: false,
-  },
-  { key: "view_full",
-    name: "Full",
-    kind: "ast",
-    radio: "ast-view",
+  { radio: "typing_style",
+    value: "full",
+    name: "Full res",
+    kind: "serialized_ast",
     default: false,
   },
   { key: "compact",
-    name: "compact",
+    name: "Compact",
     kind: "ast",
     default: true,
   },
@@ -203,9 +203,8 @@ var hasErrorSubstep = []; // maps node ids to boolean indicating if the node con
 function getRadioOption(radio) {
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
-    var key = descr.key;
-    if (descr.radio && descr.radio == radio && options[key]) {
-      return key;
+    if (descr.radio && descr.radio == radio && options[descr.key]) {
+      return descr.value;
     }
   }
 }
@@ -376,7 +375,7 @@ function loadDiffForStep(step) {
   var stepDiff;
   if (step.diff == undefined) {
     if (serialized_trace) {
-      stepDiff = fetch(serialized_trace + `?view=diff&step=${step.id + root_serialized_step_id}&timestamp=${serialized_trace_timestamp}`)
+      stepDiff = fetch(serialized_trace + `?view=diff&step=${step.id + root_serialized_step_id}&decode=${options.decode}&typing_style=${getRadioOption("typing_style")}&timestamp=${serialized_trace_timestamp}`)
         .then((response) => {
           if (response.status == 419) {
             window.location.reload();
@@ -587,8 +586,8 @@ function loadStepDetails(idStep) {
   $(".tree-step").removeClass("step-selected");
   $("#tree-step-" + idStep).addClass("step-selected");
 
-  if (options.ast_before || options.ast_after) {
-    var ast = (options.ast_before) ? step.ast_before : step.ast_after;
+  if (options.view_code_before || options.view_code_after) {
+    var ast = (options.view_code_before) ? step.ast_before : step.ast_after;
     loadSource(ast, true);
     $("#debugMsgDiv").html("")
     $("#diffDiv").hide();
@@ -889,7 +888,8 @@ function viewDetailsFull() {
   for (var key in options) {
     options[key] = false;
   }
-  options["ast_diff"] = true;
+  options["view_diff"] = true;
+  options["typeinfo_annot"] = true;
   options["basic_modules"] = true;
   options["args"] = true;
   options["exectime"] = true;
@@ -901,6 +901,9 @@ function viewDetailsFull() {
 function initOptions() {
   for (var i = 0; i < optionsDescr.length; i++) {
     var descr = optionsDescr[i];
+    if (descr.radio && !descr.key) {
+      descr.key = descr.radio + "_" + descr.value
+    }
     optionsDefault[descr.key] = descr.default;
     options[descr.key] = descr.default;
   }
@@ -930,6 +933,10 @@ function initControls() {
     }
     if (descr.kind == "ast") {
       sAstControls += sControl;
+    } else if (descr.kind == "serialized_ast") {
+      if (serialized_trace) {
+        sAstControls += sControl;
+      }
     } else {
       sTreeControls += sControl;
     }
