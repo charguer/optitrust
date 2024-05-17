@@ -2,6 +2,7 @@ open Optitrust
 open Trace_query
 
 exception Invalid_query of string
+exception Step_not_found of string * int
 
 let handle_exn_response sub_handler request =
   try
@@ -11,6 +12,7 @@ let handle_exn_response sub_handler request =
   | Trace_not_found path -> Dream.respond ~status:`Not_Found ("Trace " ^ path ^ " not found")
   | Trace_invalid path -> Dream.respond ~status:`Internal_Server_Error ("Trace " ^ path ^ " is invalid")
   | Trace_out_of_date path -> Dream.respond ~status:(`Status 419) ("Wrong timestamp for " ^ path)
+  | Step_not_found (path, step_id) -> Dream.respond ~status:`Not_Found ("Could not find step " ^ string_of_int step_id ^ " in trace " ^ path)
 
 let get_query request query_name =
   match Dream.query request query_name with
@@ -55,17 +57,18 @@ let handle_get_request request =
     let trace = read_trace_tree ~timestamp path in
     let step_id = get_query_as_int request "step" in
     let view_mode = get_query request "view" in
+    let style = style_of_query request in
+    let step =
+      try
+        get_step_with_id step_id trace
+      with Not_found -> raise (Step_not_found (path, step_id))
+    in
     begin match view_mode with
-    | "diff" ->
-      begin try
-        let style = style_of_query request in
-        let step = get_step_with_id step_id trace in
-        Dream.respond (Optitrust.Trace.compute_diff ~style step)
-      with Not_found ->
-        Dream.respond ~status:`Not_Found ("Could not find step " ^ string_of_int step_id)
-      end
-    | _ -> Dream.respond ~status:`Bad_Request ("Invalid view method " ^ view_mode)
-      end
+    | "diff" -> Dream.respond (Optitrust.Trace.compute_diff ~style step)
+    | "code_before" -> Dream.respond (Optitrust.Trace.get_code_before ~style step)
+    | "code_after" -> Dream.respond (Optitrust.Trace.get_code_after ~style step)
+    | _ -> Dream.respond ~status:`Bad_Request ("Invalid view mode " ^ view_mode)
+    end
   end else
     Dream.from_filesystem dirname filename request
 

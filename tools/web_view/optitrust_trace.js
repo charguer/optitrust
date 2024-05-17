@@ -20,8 +20,8 @@ steps[0] = {
    isvalid: true,
    script: window.atob("..."),
    script_line: 23, // possibly undefined
-   astBefore: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
-   astAfter: window.atob("..."), // NOT YET IMPLEMENTED
+   code_before: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
+   code_after: window.atob("..."), // NOT YET IMPLEMENTED
    diff: window.atob("..."), // could be slow if requested for all!
    sub: [ j1, j2, ... jK ]  // ids of the sub-steps
    }
@@ -341,14 +341,14 @@ var idSourceRight = -1;
 
 var selectedStep = undefined; // stores the id of the selected step
 
-function loadDebugMsgs(messages) {
+function loadStepDebugMsgs(messages) {
   var s = '';
   if (options.debug_msgs && messages) {
     for (var i = 0; i < messages.length; i++) {
       s += escapeHTML(messages[i]);
     }
   }
-  $('#debugMsgDiv').html(s);
+  $('#stepMsgDiv').html(s);
 }
 
 function extractShowStep(step) {
@@ -359,55 +359,6 @@ function extractShowStep(step) {
   } else {
     throw new Error("ERROR: extractShowStep: did not find a step-show in depth");
   }
-}
-
-function loadDiffForStep(step) {
-  // Special case for the diff of steps whose action is a "show" operation,
-  // for which we show the diff of the substep
-  if (step.tags.includes("show")) {
-    try {
-      step = extractShowStep(step);
-    } catch (error) {
-      console.log("ERROR: extractShowStep: did not find a step-show in depth");
-    }
-  }
-  // Print diff for step
-  var stepDiff;
-  if (step.diff == undefined) {
-    if (serialized_trace) {
-      stepDiff = fetch(serialized_trace + `?view=diff&step=${step.id + root_serialized_step_id}&decode=${options.decode}&typing_style=${getRadioOption("typing_style")}&timestamp=${serialized_trace_timestamp}`)
-        .then((response) => {
-          if (response.status == 419) {
-            window.location.reload();
-            throw new Error(`Trace is out of date, reloading page`);
-          }
-          else if(!response.ok) {
-          return response.text().then((error) => {
-              throw new Error(`Failed to retreive data: ${error}`);
-            });
-          }
-          return response.text();
-        });
-    } else {
-      stepDiff = Promise.reject(new Error(`Diff was not computed for this step and there is no serialized trace`))
-    }
-  } else {
-    stepDiff = Promise.resolve(step.diff);
-  }
-  stepDiff
-    .then((diff) => {
-      if (diff == "") {
-        $("#debugMsgDiv").html("Diff is empty");
-        $("#diffDiv").html("");
-      } else {
-        $("#debugMsgDiv").html("");
-        loadDiffFromString(diff);
-      }
-    })
-    .catch((err) => {
-        $("#debugMsgDiv").html(err.message);
-        $("#diffDiv").html("");
-    });
 }
 
 function loadDiffFromString(diffString) {
@@ -439,9 +390,9 @@ if (options.compact) {
  $('.d2h-file-side-diff').first().addClass('diffBefore');
  $('.d2h-file-side-diff').last().addClass('diffAfter');
  $('.diffBefore .d2h-code-side-linenumber').click(function(e) {
-     var line = e.target.outerText; loadSourceAtLine(selectedStep.ast_before, line); });
+     var line = e.target.outerText; loadSourceAtLine(selectedStep.code_before, line); });
  $('.diffAfter .d2h-code-side-linenumber').click(function(e) {
-     var line = e.target.outerText; loadSourceAtLine(selectedStep.ast_after, line); });
+     var line = e.target.outerText; loadSourceAtLine(selectedStep.code_after, line); });
   */
 
   // if hideLines() has been called once, call it again
@@ -481,21 +432,9 @@ function displayInfo(descr) {
    delay);
 }*/
 
-function loadSource(sourceCode, dontResetView) {
-  if (! dontResetView) {
-    resetView();
-  }
+function loadSource(sourceCode) {
   $("#sourceDiv").show();
-  if (sourceCode == undefined) {
-    sourceCode = "";
-    // console.log("AST was not saved for this step");
-    // $("#debugMsgDiv").html("AST was not saved for this step");
-    sourceCode = "// AST was not saved for this step; to see it, request the trace of a specific step or set the flag detailed_trace";
-  }
   editor.setValue(sourceCode);
-  // DEPRECTED $("#button_code_" + id).addClass("ctrl-button-selected");
-  // showBdiffCovered(id);
-  //curSource = id;
 }
 
 function exandClickHandler(event) {
@@ -577,7 +516,6 @@ function checkErrorSubstep(idStep) {
   return hasErrorSubstep[idStep];
 }
 
-
 // handles a click on a step, to view details
 function loadStepDetails(idStep) {
   selectedStep = idStep;
@@ -586,37 +524,88 @@ function loadStepDetails(idStep) {
   $(".tree-step").removeClass("step-selected");
   $("#tree-step-" + idStep).addClass("step-selected");
 
-  if (options.view_code_before || options.view_code_after) {
-    var ast = (options.view_code_before) ? step.ast_before : step.ast_after;
-    loadSource(ast, true);
-    $("#debugMsgDiv").html("")
-    $("#diffDiv").hide();
-    $("#statsDiv").hide();
-    $("#sourceDiv").show();
-  } else if (/* options.stats */ false) {
-    let visitedSteps = new Set();
-    $("#statsDiv").html(stepToHTMLStats(step, true, visitedSteps));
-    $("#diffDiv").hide();
-    $("#statsDiv").show();
-    $("#sourceDiv").hide();
-  } else {
-    loadDebugMsgs(step.debug_msgs);
-    loadDiffForStep(step);
-    $("#diffDiv").show();
-    $("#statsDiv").hide();
-    $("#sourceDiv").hide();
+  loadStepDebugMsgs(step.debug_msgs);
+
+  // Special case for the diff of steps whose action is a "show" operation,
+  // for which we show the diff of the substep
+  if (step.tags.includes("show")) {
+    try {
+      step = extractShowStep(step);
+    } catch (error) {
+      console.log("ERROR: extractShowStep: did not find a step-show in depth");
+    }
   }
 
-  /*
-  if (step.kind == "Target") {
-    $("#diffDiv").show();
-    //loadSource(step.ast_after, true);
-  } else {
-    $("#diffDiv").hide();
-    // loadSource(step.ast_before, true);
-    loadSource(step.ast_before, true);
+  let view = getRadioOption("view");
+
+  // Print diff for step
+  var stepCode;
+  if (serialized_trace) {
+    // We have a serialized trace server, get the step details from there
+    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&decode=${options.decode}&typing_style=${getRadioOption("typing_style")}&timestamp=${serialized_trace_timestamp}`)
+      .then((response) => {
+        if (response.status == 419) {
+          window.location.reload();
+          throw new Error(`Trace is out of date, reloading page`);
+        }
+        else if(!response.ok) {
+        return response.text().then((error) => {
+            throw new Error(`Failed to retreive data: ${error}`);
+          });
+        }
+        return response.text();
+      });
   }
-  */
+  else {
+    // No trace server: get the step details directly from the step object or fail
+    if (view == "diff") {
+      if (step.diff == undefined) {
+        stepCode = Promise.reject(new Error("Diff was not computed for this step and there is no serialized trace"))
+      } else {
+        stepCode = Promise.resolve(step.diff);
+      }
+    } else if (view == "code_before") {
+      if (step.code_before == undefined) {
+        stepCode = Promise.reject(new Error("Code before this step was not saved, request the trace of a specific step or set the flag detailed_trace"))
+      } else {
+        stepCode = Promise.resolve(step.code_before);
+      }
+    } else if (view == "code_after") {
+      if (step.code_after == undefined) {
+        stepCode = Promise.reject(new Error("Code after this step was not saved, request the trace of a specific step or set the flag detailed_trace"))
+      } else {
+        stepCode = Promise.resolve(step.code_after);
+      }
+    } else {
+      stepCode = Promise.reject(new Error(`View mode ${view} is not included in standalone traces`))
+    }
+  }
+  stepCode
+    .then((code) => {
+      if (view == "diff") {
+        if (code == "") {
+          throw new Error("Diff is empty");
+        } else {
+          $("#debugMsgDiv").html("");
+          $("#diffDiv").show();
+          $("#statsDiv").hide();
+          $("#sourceDiv").hide();
+          loadDiffFromString(code);
+        }
+      } else {
+        $("#debugMsgDiv").html("");
+        loadSource(code);
+        $("#diffDiv").hide();
+        $("#statsDiv").hide();
+        $("#sourceDiv").show();
+      }
+    })
+    .catch((err) => {
+      $("#debugMsgDiv").html(err.message);
+      $("#diffDiv").hide();
+      $("#statsDiv").hide();
+      $("#sourceDiv").hide();
+    });
 }
 
 function isStepHidden(step) {
@@ -821,7 +810,7 @@ function stepToHTMLStats(step) {
 }
 
 function visitSteps(step, visitedSteps) {
-  if (!options.noop_steps && (step.ast_before == step.ast_after)) {
+  if (!options.noop_steps && (step.code_before == step.code_after)) {
     // TODO: precompute '==' somewhere
     return "";
   }

@@ -1517,8 +1517,8 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       "tags", Json.(listof str) i.step_tags;
       "debug_msgs", Json.(listof str) i.step_debug_msgs;
       "sub", Json.(listof int) (List.map (fun sub -> sub.step_infos.step_id - root_id) s.step_sub);
-      "ast_before", Json.(optionof base64) sBefore;
-      "ast_after", Json.(optionof base64) sAfter;
+      "code_before", Json.(optionof base64) sBefore;
+      "code_after", Json.(optionof base64) sAfter;
       "diff", Json.(optionof base64) sDiff;
     ] in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
