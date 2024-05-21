@@ -26,8 +26,7 @@ let%transfo postprocessing (_u: unit) : unit =
   Loop.delete_all_void []
 
 let _ = Run.script_cpp (fun () ->
-  !! Resources.ensure_computed ();
-  (* Resources.delete_annots []; *)
+  (* !! Resources.ensure_computed (); *)
 
   (* FIXME: not working on fun body because need to go inside seq. *)
   bigstep "prepare for specialization";
