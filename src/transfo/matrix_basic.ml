@@ -659,10 +659,7 @@ let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg 
       end
     )) tg)
 
-let elim_mindex_on (t : trm) : trm =
-  let (dims, idxs) = trm_inv
-    ~error:"Matrix_basic.elim_mindex_on: expected MINDEX expression"
-    mindex_inv t in
+let elim_mindex_on_opt (t : trm) : trm option =
   let rec generate_index (acc : trm) (dims : trms) (idxs : trms) : trm =
     match (dims, idxs) with
     | (d :: dr, i :: ir) ->
@@ -670,7 +667,14 @@ let elim_mindex_on (t : trm) : trm =
       generate_index new_acc dr ir
     | _ -> acc
   in
-  generate_index (trm_int 0) dims idxs
+  match mindex_inv t with
+  | Some (dims, idxs) -> Some (generate_index (trm_int 0) dims idxs)
+  | None -> None
+
+let elim_mindex_on (t : trm) : trm =
+  match elim_mindex_on_opt t with
+  | Some t2 -> t2
+  | None -> trm_fail t "expected MINDEX expression"
 
 (* [elim_mindex] expects target [tg] to point at a call to MINDEX,
   and replaces it with the flattened index computation.
@@ -683,6 +687,17 @@ let elim_mindex_on (t : trm) : trm =
 let%transfo elim_mindex (tg : target) : unit =
   Resources.justif_correct "size and index expressions are pure";
   Target.apply_at_target_paths elim_mindex_on tg
+
+(* recursive version of [elim_mindex]. *)
+let%transfo elim_all_mindex (tg : target) : unit =
+  Resources.justif_correct "size and index expressions are pure";
+  Target.iter (fun p ->
+    Target.apply_at_path (trm_bottom_up (fun t ->
+      match elim_mindex_on_opt t with
+      | Some t2 -> t2
+      | None -> t
+    )) p
+  ) tg
 
 let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
   let new_dims = ref [] in
