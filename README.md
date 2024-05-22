@@ -333,6 +333,9 @@ If you don't see a diff, possible issues include:
    - the compilation failed due to incorrect setup; you should see error
      messages in the terminal.
 
+For debugging the server that extracts information from serialized trace,
+run in a terminal: `chmod`.
+
 
 --------------------------------------------------------------------------------
 ## Documentation

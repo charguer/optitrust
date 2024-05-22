@@ -33,18 +33,28 @@ let get_query_as_bool request query_name =
 
 let style_of_query request : Trace.output_style =
   let open Style in
+  let typing_style_name = get_query request "typing_style" in
   let typing =
-    match (get_query request "typing_style") with
+    match typing_style_name with
     | "hide" -> typing_none
     | "annot" -> typing_annot
     | "ctx" -> typing_ctx
     | "usage" -> typing_usage
     | "full" -> typing_all_but_frame
+    | "html" -> typing_annot (* TODO: should be typing_html *)
     | style -> raise (Invalid_query ("Invalid typing style " ^ style))
     in
+  let html_tags = (typing_style_name = "html") in
   { decode = get_query_as_bool request "decode";
     typing;
-    print = Lang_C (AstC_to_c.default_style ()) }
+    print = Lang_C (AstC_to_c.
+    { ast = Ast.default_style();
+      html_tags;
+      optitrust_syntax = false; (* LATER: should be controlled by client *)
+      pretty_matrix_notation = true; (* LATER: should be controlled by client *)
+      commented_pragma = false; }) }
+    (* TODO: in astc_to_c need to put a span around the
+       generated_res_ids *)
 
 type trace_cache_entry = {
   trace_path: string;
@@ -84,10 +94,13 @@ let handle_get_request request =
         get_step_with_id step_id trace
       with Not_found -> raise (Step_not_found (path, step_id))
     in
+    let respond_fct =
+      let typing_style_name = get_query request "typing_style" in
+      if typing_style_name = "html" then Dream.html else Dream.respond in
     begin match view_mode with
-    | "diff" -> Dream.respond (Optitrust.Trace.compute_diff ~style step)
-    | "code_before" -> Dream.respond (Optitrust.Trace.get_code_before ~style step)
-    | "code_after" -> Dream.respond (Optitrust.Trace.get_code_after ~style step)
+    | "diff" -> respond_fct (Optitrust.Trace.compute_diff ~style step)
+    | "code_before" -> respond_fct (Optitrust.Trace.get_code_before ~style step)
+    | "code_after" -> respond_fct (Optitrust.Trace.get_code_after ~style step)
     | _ -> Dream.respond ~status:`Bad_Request ("Invalid view mode " ^ view_mode)
     end
   end else

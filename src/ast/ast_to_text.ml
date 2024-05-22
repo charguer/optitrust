@@ -16,7 +16,7 @@ open Tools
 type style = {
   ast: Ast.style;
   only_desc: bool; (* prints only the description field *)
-}
+} [@@deriving show]
 
 (* Default style *)
 
@@ -571,6 +571,7 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Clang_cursor _ -> string "Clang_cursor"
  | Display_null_uppercase -> string "Display_null_uppercase"
  | GhostCall -> string "GhostCall"
+ | TypingInfo -> string "TypingInfo"
  | ResourceFormula -> string "ResourceFormula"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"
 

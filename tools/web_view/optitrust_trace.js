@@ -37,6 +37,8 @@ Additional fields are set by the function   initTree
 // Flag indicating whether the trace has been produced with [Flag.check_validity = true]
 var root_checking_validity = undefined;
 
+var debug_html_view = true;
+
 // checkbox status; may change default values here
 
 var optionsDefaultValueForTags = { // true = checked = hidden
@@ -137,13 +139,13 @@ var optionsDescr = [ // extended by initAllTags
     value: "diff",
     name: "Diff",
     kind: "ast",
-    default: true,
+    default: !debug_html_view,
   },
   { radio: "view",
     value: "code_before",
     name: "Code before",
     kind: "ast",
-    default: false,
+    default: debug_html_view,
   },
   { radio: "view",
     value: "code_after",
@@ -166,7 +168,7 @@ var optionsDescr = [ // extended by initAllTags
     value: "annot",
     name: "Res annot",
     kind: "serialized_ast",
-    default: true,
+    default: !debug_html_view,
   },
   { radio: "typing_style",
     value: "ctx",
@@ -185,6 +187,12 @@ var optionsDescr = [ // extended by initAllTags
     name: "Full res",
     kind: "serialized_ast",
     default: false,
+  },
+  { radio: "typing_style",
+    value: "html",
+    name: "Interactive",
+    kind: "serialized_ast",
+    default: debug_html_view,
   },
   { key: "compact",
     name: "Compact",
@@ -438,6 +446,23 @@ function loadSource(sourceCode) {
   editor.setValue(sourceCode);
 }
 
+function loadSourceInHtml(sourceCodeInHtml) {
+  $("#sourceInHtmlDiv").show();
+  $("#sourceInHtmlDiv_source").html(sourceCodeInHtml);
+  //$("#sourceInHtmlDiv_source").html(sourceCodeInHtml);
+  console.log({foo: sourceCodeInHtml});
+  $(".c_instr").click(function(event) {
+    var elem = event.target;
+    loadSourceInHtmlDetails(elem);
+    console.log(elem.id);
+    });
+}
+
+function loadSourceInHtmlDetails(htmlElem) {
+  // copy the selected instruction into the details area, which uses a different css
+  $("#sourceInHtmlDiv_infos").html(htmlElem.outerHTML);
+}
+
 function exandClickHandler(event) {
   console.log(event);
 }
@@ -537,13 +562,15 @@ function loadStepDetails(idStep) {
     }
   }
 
+  // Get view mode and style
   let view = getRadioOption("view");
+  let typing_style = getRadioOption("typing_style");
 
   // Print diff for step
   var stepCode;
   if (serialized_trace) {
     // We have a serialized trace server, get the step details from there
-    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&decode=${options.decode}&typing_style=${getRadioOption("typing_style")}&timestamp=${serialized_trace_timestamp}`)
+    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&decode=${options.decode}&typing_style=${typing_style}&timestamp=${serialized_trace_timestamp}`)
       .then((response) => {
         if (response.status == 419) {
           window.location.reload();
@@ -581,31 +608,32 @@ function loadStepDetails(idStep) {
       stepCode = Promise.reject(new Error(`View mode ${view} is not included in standalone traces`))
     }
   }
+  $("#debugMsgDiv").html("");
+  $("#diffDiv").hide();
+  $("#statsDiv").hide();
+  $("#sourceDiv").hide();
+  $("#sourceInHtmlDiv").hide();
   stepCode
     .then((code) => {
       if (view == "diff") {
         if (code == "") {
           throw new Error("Diff is empty");
         } else {
-          $("#debugMsgDiv").html("");
           $("#diffDiv").show();
-          $("#statsDiv").hide();
-          $("#sourceDiv").hide();
           loadDiffFromString(code);
         }
+      } else if (view == "code_before" || view == "code_after") {
+        if (typing_style == "html") {
+          loadSourceInHtml(code);
+        } else {
+          loadSource(code);
+        }
       } else {
-        $("#debugMsgDiv").html("");
-        loadSource(code);
-        $("#diffDiv").hide();
-        $("#statsDiv").hide();
-        $("#sourceDiv").show();
+        console.log("invalid view");
       }
     })
     .catch((err) => {
       $("#debugMsgDiv").html(err.message);
-      $("#diffDiv").hide();
-      $("#statsDiv").hide();
-      $("#sourceDiv").hide();
     });
 }
 
@@ -1037,6 +1065,7 @@ document.addEventListener('DOMContentLoaded', function () {
 var resizer, leftSplit, rightSplit;
 
 function initSplitView() {
+  // TODO: loop over elements with class splitter
   resizer = document.getElementById('vSplitDiv');
   leftSplit = resizer.previousElementSibling;
   rightSplit = resizer.nextElementSibling;

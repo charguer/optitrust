@@ -47,6 +47,8 @@ and print_language =
   (* Redundant constructors, to avoid need for parentheses,
      e.g. ~style:XC  instead of ~style:(c()) *)
 
+[@@deriving show]
+
 let ast_style_of_custom_style (style : custom_style) : Ast.style =
   match style.print with
   | Lang_AST s -> s.ast
@@ -94,6 +96,10 @@ let typing_usage : typing_style =
 let typing_all_but_frame : typing_style =
   { typing_all with typing_framed_res = false; }
 
+(* typing display for interactive html document *)
+let typing_html : typing_style =
+  typing_all_but_frame (* could also be typing_all *)
+
 (** Common printing options *)
 
 let c ?(typing_style : typing_style = typing_annot) () : style  =
@@ -133,7 +139,7 @@ let internal_ast_only_desc () : style =
 
 let default_custom_style () : custom_style =
   { decode = not !Flags.bypass_cfeatures && not !Flags.print_optitrust_syntax;
-    typing = typing_annot;
+    typing = if !Flags.debug_html_view then typing_all else typing_annot;
     print = Lang_C (AstC_to_c.(default_style())) }
 
 let custom_style_for_reparse () : custom_style =

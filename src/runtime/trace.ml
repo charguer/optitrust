@@ -458,7 +458,8 @@ let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (file
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
   )
 
-(** [get_header ()]: get the header of the current file (e.g. include directives) *)
+(** [get_header ()]: get the header of the current file (e.g. include directives)
+     DEPRECATED? *)
 let get_header () : string =
   the_trace.cur_context.header
 
@@ -479,10 +480,17 @@ let ensure_header (h : string) : unit =
 let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let use_clang_format = beautify && !Flags.use_clang_format in
   let file_prog = prefix ^ ctx.extension in
-  let out_prog = open_out file_prog in
+  let out_prog = open_out_bin file_prog in
   begin try
+    (* Print the code into file, using the specified style *)
+    let cstyle = match style.print with
+      | Lang_AST _-> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_AST")
+      | Lang_C cstyle -> cstyle
+      in
     (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
-    output_string out_prog ctx.header;
+    Tools.info "headers %s\n" (AstC_to_c.escape cstyle ctx.header);
+    output_string out_prog "coucou&lt;&gt;coucou";
+    output_string out_prog (AstC_to_c.escape cstyle ctx.header);
     (* Convert contracts into code *)
     let fromto_style = Ast_fromto_AstC.style_of_custom_style style in
     let ast = Ast_fromto_AstC.computed_resources_intro fromto_style ast in
@@ -498,11 +506,6 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
           Ast_fromto_AstC.meta_intro fromto_style ast
       end else
         Ast_fromto_AstC.meta_intro fromto_style ast
-      in
-    (* Print the code into file, using the specified style *)
-    let cstyle = match style.print with
-      | Lang_AST _-> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_AST")
-      | Lang_C cstyle -> cstyle
       in
     AstC_to_c.ast_to_outchannel cstyle out_prog ast;
     output_string out_prog "\n";
@@ -1519,6 +1522,7 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
 *)
 
 let code_to_temp_file ?(temp_prefix="code") (style:output_style) (ctx: context) (ast: trm): string =
+  (*Tools.info "style :%s\n" (Style.show_custom_style style);*)
   (* Patch the AST with custom processing, only for debugging purposes *)
   let ast = !trace_custom_postprocessing ast in
   let filename = Filename.temp_file temp_prefix ctx.extension in
@@ -1529,12 +1533,16 @@ let code_to_temp_file ?(temp_prefix="code") (style:output_style) (ctx: context) 
 let get_code ?(temp_prefix) (style:output_style) (ctx: context) (ast: trm): string =
   let filename = code_to_temp_file ?temp_prefix style ctx ast in
   let prog = Xfile.get_contents filename in
-  Sys.remove filename;
+  (* DEBUG ::  Sys.remove filename; *)
+     Tools.info "tempfile: %s\n" filename;
+     ignore (Sys.command (sprintf "cat %s" filename));
+     Tools.info "contents: %s\n" (Xfile.get_contents filename);
   prog
 
 (** [get_code_before s] returns the code before the step [s] starts as a string. *)
 let get_code_before ?(style:output_style option) (s:step_tree) : string =
-  let style = Option.value ~default:s.step_style_before style in
+  (*let style = Option.value ~default:s.step_style_before style in*)
+  let style = s.step_style_before in
   get_code ~temp_prefix:"before" style s.step_context s.step_ast_before
 
 (** [get_code_after s] returns the code after the step [s] ends as a string. *)
@@ -1793,6 +1801,7 @@ let produce_diff_output_internal (step:step_tree) : unit =
   let ast_before, ast_after = process_ast_before_after_for_diff style_before style_after ast_before ast_after in
   (* Common printing function *)
   let output_ast style filename_prefix ast =
+    (*DEBUG: Tools.info "style for diff :%s\n" (Style.show_custom_style style);*)
     output_prog_check_empty style ctx filename_prefix ast;
     print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
     in

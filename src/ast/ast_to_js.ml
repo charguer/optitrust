@@ -24,8 +24,8 @@ let nodeid_invalid = (-1)
 
 
 (* [typ_to_json typ]: converts an OptiTrust type to a Json object  *)
-let typ_to_json(typ : typ) : t =
-  Str (Tools.document_to_string (bquotes (AstC_to_c.typ_to_doc typ)) )
+let typ_to_json (typ : typ) : t =
+  Str (Tools.document_to_string (bquotes (AstC_to_c.(typ_to_doc (default_style())) typ)) )
 
 (* [typdef_to_json td]: converts an OptiTrust typedef to a json object *)
 let typdef_to_json(td : typedef) : t =

@@ -448,6 +448,9 @@ and cstyle_annot =
   (* Use the __ghost syntax for a ghost call *)
   | GhostCall
 
+  (* Used for typing information, e.g. __ctx_res, __used_res *)
+  | TypingInfo
+
   (* tag for printing using resource syntax
      LATER: Use different printers for different languages *)
   | ResourceFormula
@@ -470,8 +473,8 @@ and destructor_kind =
 (* [file_annot]: file annotation *)
 and file_annot =
   | Inside_file
-  | Main_file
   | Included_file of string
+  | Main_file
 
 (* [cpragma]: type alias for directives *)
 and cpragma = directive
@@ -1422,7 +1425,7 @@ type style = {
   print_annot: bool; (* print annotations *)
   print_errors: bool; (* print errors *)
   (* LATER: node_id: bool; print internal AST node identifier *)
-}
+} [@@deriving show]
 
 (* Default style *)
 

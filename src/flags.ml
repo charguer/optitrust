@@ -59,6 +59,9 @@ let set_dump_small_steps (foldername : string) : unit =
 let print_backtrace_on_error : bool ref = ref true
  (*LATER: make available from command line*)
 
+(* temporary *)
+let debug_html_view = ref false
+
 (* [debug_parsing_serialization]: flag to trace operations involving serialization/deserialization of parse trees. *)
 let debug_parsing_serialization = ref false
 

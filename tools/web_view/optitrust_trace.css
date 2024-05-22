@@ -198,6 +198,34 @@ pre {
   overflow: hidden;
 }
 
+
+#sourceInHtmlDiv {
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+
+  /* printing code in html view */
+  font-family: monospace;
+  /*white-space: pre-wrap;*/
+}
+
+#sourceInHtmlDiv_source {
+  display: flex;
+  flex-direction: column;
+}
+
+#sourceInHtmlDiv_infos {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+
+
 #diffDiv {
   flex-grow: 1;
   overflow-y: auto;
@@ -250,4 +278,28 @@ ol ol {
 }
 li {
   padding-left: 0ex;
+}
+
+.c_keyword {
+  font-weight: bold;
+}
+
+.c_top { } /* full file */
+.c_topdef {
+  margin-top: 1em; }
+.c_seq_body {
+  margin-left: 1em;
+}
+.c_instr {
+  background: rgb(92, 252, 114);
+  margin: 1pt;
+}
+.c_instr:hover {
+  cursor:pointer;
+}
+#sourceInHtmlDiv_source .c_infos {
+  display: none;
+}
+#sourceInHtmlDiv_infos .c_infos {
+  display: inline;
 }

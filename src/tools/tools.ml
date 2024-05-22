@@ -332,3 +332,36 @@ let remove_suffix ~(suffix : string) (s : string) : string =
   if nsuffix > ns
     then failwith "remove_suffix: invalid argument";
   String.sub s 0 (ns - nsuffix)
+
+
+
+
+(******************************************************************************)
+(*                          HTML functions                         *)
+(******************************************************************************)
+
+let html_escape s =
+  (* LATER: optimize s when the output is identical to the input *)
+  let buffer = Buffer.create (String.length s * 2) in
+  s |> String.iter begin function
+    | '&' -> Buffer.add_string buffer "&amp;"
+    | '<' -> Buffer.add_string buffer "&lt;"
+    | '>' -> Buffer.add_string buffer "&gt;"
+    | c -> Buffer.add_char buffer c
+    end;
+  Buffer.contents buffer
+
+(* FULL VERSION
+let html_escape s =
+  (* LATER: optimize s when the output is identical to the input *)
+  let buffer = Buffer.create (String.length s * 2) in
+  s |> String.iter begin function
+    | '&' -> Buffer.add_string buffer "&amp;"
+    | '<' -> Buffer.add_string buffer "&lt;"
+    | '>' -> Buffer.add_string buffer "&gt;"
+    | '"' -> Buffer.add_string buffer "&quot;"
+    | '\'' -> Buffer.add_string buffer "&#x27;"
+    | c -> Buffer.add_char buffer c
+    end;
+  Buffer.contents buffer
+*)

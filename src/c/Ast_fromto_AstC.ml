@@ -636,6 +636,7 @@ let __writes = name_to_var "__writes"
 let __modifies = name_to_var "__modifies"
 let __consumes = name_to_var "__consumes"
 let __produces = name_to_var "__produces"
+(* LATER: trm_add_cstyle ContractInfo *)
 
 let __xrequires = name_to_var "__xrequires"
 let __xensures = name_to_var "__xensures"
@@ -658,6 +659,7 @@ let __framed_res = name_to_var "__framed_res"
 let __joined_res = name_to_var "__joined_res"
 let __contract_inst = name_to_var "__contract_inst"
 let __post_inst = name_to_var "__post_inst"
+let typing_info : trm -> trm = trm_add_cstyle TypingInfo
 
 let fun_clause_type_inv (clause: var) : fun_contract_clause_type option =
   match clause.name with
@@ -858,9 +860,10 @@ let display_ctx_resources (style: style) (t: trm): trm list =
   in
   let tl_used =
     if style.typing.typing_used_res
-      then Option.to_list (Option.map (fun res_used ->
+       (* LATER: name the function [List.map typing_info (Option.to_list (Option.map...] *)
+      then List.map typing_info (Option.to_list (Option.map (fun res_used ->
         let s_used = ctx_usage_map_to_strings res_used in
-        trm_apps (trm_var __used_res) (List.map trm_string s_used)) t.ctx.ctx_resources_usage)
+        trm_apps (trm_var __used_res) (List.map trm_string s_used)) t.ctx.ctx_resources_usage))
       else []
     in
   let tl = match t.ctx.ctx_resources_contract_invoc with
@@ -869,33 +872,33 @@ let display_ctx_resources (style: style) (t: trm): trm list =
       (* TODO: use a combinator to factorize the pattern "if then else []" *)
       let tl_frame =
         if style.typing.typing_framed_res
-          then [ trm_apps (trm_var __framed_res) (List.map trm_string (List.map (named_formula_to_string style) contract_invoc.contract_frame)) ]
+          then [typing_info (trm_apps (trm_var __framed_res) (List.map trm_string (List.map (named_formula_to_string style) contract_invoc.contract_frame))) ]
           else []
         in
       let tl_inst =
         if style.typing.typing_contract_inst
-          then [ctx_used_res_to_trm style ~clause:__contract_inst contract_invoc.contract_inst]
+          then [typing_info (ctx_used_res_to_trm style ~clause:__contract_inst contract_invoc.contract_inst) ]
           else [] in
       let tl_produced =
         if style.typing.typing_produced_res
-          then [ctx_produced_res_to_trm style contract_invoc.contract_produced ]
+          then [typing_info (ctx_produced_res_to_trm style contract_invoc.contract_produced )]
           else [] in
       let tl_joined =
         if style.typing.typing_joined_res
-          then [trm_apps (trm_var __joined_res) (List.map trm_string
+          then [typing_info (trm_apps (trm_var __joined_res) (List.map trm_string
                   (List.map (fun (x, y) -> sprintf "%s <-- %s" x.name y.name)
-                   contract_invoc.contract_joined_resources)) ]
+                   contract_invoc.contract_joined_resources))) ]
           else [] in
       tl_frame @ tl_inst @ [ t ] @ tl_produced @ tl_joined
   in
   let tl_before =
     if debug_ctx_before (* TODO : assert == *)
-      then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before)
+      then List.map typing_info (Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before))
       else []
     in
   let tl_after =
     if style.typing.typing_ctx_res
-      then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_after)
+      then List.map typing_info (Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_after))
       else []
     in
   (tl_before @ tl_used @ tl @ tl_after)
@@ -906,12 +909,12 @@ let computed_resources_intro (style: style) (t: trm): trm =
     | Trm_seq instrs when not (trm_is_mainfile t) ->
       let tl_before =
         if style.typing.typing_ctx_res
-          then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before)
+          then List.map typing_info (Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before))
           else []
         in
       let tl_post_inst =
         if style.typing.typing_used_res
-          then Option.to_list (Option.map (ctx_used_res_to_trm style ~clause:__post_inst) t.ctx.ctx_resources_post_inst)
+          then List.map typing_info (Option.to_list (Option.map (ctx_used_res_to_trm style ~clause:__post_inst) t.ctx.ctx_resources_post_inst))
           else []
         in
       let process_instr instr = Mlist.of_list (display_ctx_resources style (aux instr)) in

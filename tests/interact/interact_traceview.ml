@@ -33,6 +33,9 @@ let _ = Trace.debug_open_close_step := true
 
 let _ = Run.script_cpp (fun _ ->
 
+  (* To debug html view, use, Flags.debug_html_view := true then F6 (diff) on the next line: *)
+  (*!! Trace.set_ast (Trm.empty_ast);*)
+
   (* Try task "view trace" on this program; debug messages below should appead in the trace *)
   bigstep "first part";
   !! Label.add "lab1" [cVarDef "a"];
