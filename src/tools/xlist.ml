@@ -261,3 +261,25 @@ let reduce_left f l =
 let reduce_right f l =
   let firsts, last = unlast l in
   List.fold_right f firsts last
+
+(** [length_common_prefix l1 l2] returns the number of items that are
+    identical at the head of the two lists [l1] and [l2]. The output
+    value is an integer in the range 0 inclusive to [min (length l1) (length l2)].
+    Item are compared using OCaml's builtin equality. *)
+let length_common_prefix (l1 : 'a list) (l2 : 'a list) : int =
+  let rec aux acc l1 l2 =
+    match l1, l2 with
+    | x1::t1, y1::t2 ->
+        if x1 = y1
+          then aux (acc+1) t1 t2
+          else acc
+    | _ -> acc
+    in
+  aux 0 l1 l2
+
+
+
+
+
+
+

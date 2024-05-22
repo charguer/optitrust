@@ -181,6 +181,9 @@ let report_exectime : bool ref = ref false
 (* Options to generate a text version of the trace *)
 let trace_as_text : bool ref = ref false
 
+(* Options to control whether to reuse data from the the trace serialized at a prior execution *)
+let reuse_trace : bool ref = ref false
+
 (* Options to control how much details are exported in the trace *)
 let detailed_trace : bool ref = ref false
 (* LATER: also add a light-mode, tracing only small and big steps *)
@@ -242,6 +245,7 @@ let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'standalone-full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
      ("-trace-as-text", Arg.Set trace_as_text, " additionnaly generate a plain text trace in 'foo_trace.txt' ");
+     ("-reuse-trace", Arg.Set reuse_trace, " reuse as much as possible of the existing trace, taking into account changes in the script, but not all library changes.");
      ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");

@@ -19,7 +19,8 @@ steps[0] = {
    check_validity: true,
    isvalid: true,
    script: window.atob("..."),
-   script_line: 23, // possibly undefined
+   script_line_start: 23, // possibly undefined
+   script_line_stop: 24, // possibly undefined
    code_before: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
    code_after: window.atob("..."), // NOT YET IMPLEMENTED
    diff: window.atob("..."), // could be slow if requested for all!

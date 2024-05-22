@@ -239,7 +239,8 @@ let step_kind_to_string (k:step_kind) : string =
 type step_infos = {
   mutable step_id : int;
   mutable step_script : string;
-  mutable step_script_line : int option;
+  mutable step_script_line_start : int option; (* line from script, inclusive *)
+  mutable step_script_line_stop : int option; (* line from script, inclusive *)
   mutable step_time_start : float; (* seconds since start *)
   mutable step_exectime : float; (* seconds *)
   mutable step_name : string;
@@ -282,6 +283,9 @@ type trace = {
   mutable cur_ast : trm;
   mutable cur_style : output_style;
   mutable cur_ast_typed : bool;
+  mutable script_lines : string list;
+    (* LATER: should read the files copied by dune, or processed by the ppx,
+       to avoid reading modifications that the user might have done in parallel *)
   mutable step_stack : step_stack; (* stack of open steps *)
 }
 
@@ -296,6 +300,7 @@ let the_trace : trace = {
   cur_ast = trm_dummy; (* dummy *)
   cur_style = Style.default_custom_style();
   cur_ast_typed = true;
+  script_lines = []; (* dummy *)
   step_stack = []; (* dummy *)
 }
 
@@ -587,7 +592,8 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
   let step_root_infos = {
     step_id = next_step_id();
     step_script = "Trace for " ^ source;
-    step_script_line = None;
+    step_script_line_start = None;
+    step_script_line_stop = None;
     step_time_start = now();
     step_exectime = dummy_exectime;
     step_name = "";
@@ -629,13 +635,31 @@ let get_excerpt (line : int) : string =
     | None -> (*LATER: failwith? *) sprintf "<get_excerpt: no binding for line %d>" line
   end
 
+(* TEMPORARY function to fix the value of step_script_line_stop of a small-step
+   at the time of opening the next small-step or big-step, to [line - 1].
+   We make the assumption here that no 2 small-steps appear on the same line of the script. *)
+let patch_line_stop_of_previous_small_step (step_stack : step_stack) (line : int option) : unit =
+  match line with
+  | None -> ()
+  | Some line ->
+     match step_stack with
+     | [] -> ()
+     | step_parent :: _ ->
+         match step_parent.step_sub with
+         | [] -> ()
+         | step_prev :: _ ->
+             let infos = step_prev.step_infos in
+             if infos.step_script_line_stop = None
+                then infos.step_script_line_stop <- Some (line - 1)
+
 (** [open_step] is called at the start of every big-step, or small-step,
    or combi, or basic transformation. *)
-let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) () : step_tree =
+let open_step ?(valid:bool=false) ?(line_start : int option) ?(line_stop : int option) ?(step_script:string="") ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) () : step_tree =
   let infos = {
     step_id = next_step_id();
     step_script = step_script;
-    step_script_line = line;
+    step_script_line_start = line_start;
+    step_script_line_stop = line_stop;
     step_time_start = now();
     step_exectime = dummy_exectime;
     step_name = name;
@@ -659,6 +683,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_ast_after = trm_dummy;
     step_style_after = the_trace.cur_style; }
     in
+  patch_line_stop_of_previous_small_step the_trace.step_stack line_start;
   the_trace.step_stack <- step :: the_trace.step_stack;
   if !debug_open_close_step
     then Tools.debug "%sTrace.open_step [%d]: %s (%s)" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string kind) name;
@@ -669,7 +694,8 @@ let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_
   let infos = {
     step_id = next_step_id();
     step_script = "";
-    step_script_line = None;
+    step_script_line_start = None;
+    step_script_line_stop = None;
     step_time_start = time_start;
     step_exectime = step_exectime;
     step_name = "Changed AST directly";
@@ -940,16 +966,16 @@ and close_step ?(discard = false) ?(on_error = false) ?(check:step_tree option) 
 
 (** [step_and_get_handle] is a function wrapping the body of a transformation,
     like [step] but also returns the object describing the step *)
-and step_and_get_handle ?(valid:bool=false) ?(line : int = -1) ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a * step_tree =
-  let s = open_step ~valid ~line ~tags ~kind ~name () in
+and step_and_get_handle ?(valid:bool=false) ?(line_start : int = -1) ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a * step_tree =
+  let s = open_step ~valid ~line_start ~tags ~kind ~name () in
   let r = body () in
   assert (get_cur_step () == s);
   close_step ~check:s ();
   r, s
 
 (** [step] is a function wrapping the body of a transformation *)
-and step ?(valid:bool option) ?(line : int option) ?(tags:string list option) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
-  let r, _s = step_and_get_handle ?valid ?line ?tags ~kind ~name body in
+and step ?(valid:bool option) ?(line_start : int option) ?(tags:string list option) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
+  let r, _s = step_and_get_handle ?valid ?line_start ?tags ~kind ~name body in
   r
 
 (** [parsing_step f] adds a step accounting for a parsing operation *)
@@ -1218,6 +1244,7 @@ let invalidate () : unit =
   the_trace.cur_ast <- trm_dummy;
   the_trace.cur_style <- Style.default_custom_style();
   the_trace.cur_ast_typed <- true;
+  the_trace.script_lines <- [];
   the_trace.step_stack <- []
 
 (** [get_initial_ast filename]: gets the initial ast before applying any trasformations
@@ -1225,6 +1252,16 @@ let invalidate () : unit =
      returns header and ast. *)
 let get_initial_ast (filename : string) : (string * trm) =
   parse filename
+
+
+(** [get_script_lines program] returns the lines of the script, or the empty list. *)
+let get_script_lines (program : string) : string list =
+  let script_filename = program ^ ".ml" in
+  if Sys.file_exists script_filename
+    then Xfile.get_lines script_filename
+    else []
+    (* LATER: depending on the mode, we may want to raise an error if
+        the script filename does not exist *)
 
 (** [init f]: initializes the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -1237,15 +1274,14 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
   invalidate ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
-  let script_filename = program ^ ".ml" in
+  let script_lines = get_script_lines program in
   (* TODO: could optimize the setting of the flag only_big_step by
      testing the target line only for "bigstep", without computing
      all of compute_ml_file_excerpts *)
   if !Flags.analyse_stats || Flags.is_execution_mode_trace() then begin
-    if Sys.file_exists script_filename then begin
-      let lines = Xfile.get_lines script_filename in
+    if script_lines <> [] then begin
       (* printf "%s\n" (Tools.list_to_string ~sep:"\n" lines); *)
-      ml_file_excerpts := compute_ml_file_excerpts lines;
+      ml_file_excerpts := compute_ml_file_excerpts script_lines;
       (* Automatically set the flag [only_big_steps] if targeted line  *)
       if Flags.is_execution_mode_step() then begin
         let line_num = Flags.get_target_line() in
@@ -1272,6 +1308,7 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
   the_trace.cur_ast <- cur_ast;
   the_trace.cur_ast_typed <- false;
   the_trace.cur_style <- Style.default_custom_style();
+  the_trace.script_lines <- script_lines;
   the_trace.step_stack <- [];
   open_root_step ~source:program ();
 
@@ -1348,6 +1385,82 @@ let call (f : trm -> unit) : unit =
     then failwith "Trace.init must be called prior to any transformation.";
   f the_trace.cur_ast
 
+
+(* TEMP
+if Flags.reuse_trace
+
+the_trace <- load shallow copy from serialized trace
+  -- should 'program' be stored in 'the_trace' ?
+let new_script_lines = get_script_lines program in
+let old_script_lines = the_trace.script_lines in
+let nb_common_script_lines = length_common_prefix new_script_lines old_script_lines in
+if Flags.is_execution_mode_step() then begin
+  match step_tree_find is_step_targeted the_trace.step_stack with
+  | Some s ->
+      begin match !Flags.execution_mode with
+      | Execution_mode_step_diff ->
+          dump_diff for s
+          exit
+      | Execution_mode_step_trace ->
+          let subtree = trim_tree the_trace.step_stack ~stop_at_step:s in
+          dump_trace subtree
+          exit
+      | _ -> failwith "invalid mode for execution mode step"
+      end
+  | None ->
+      the_trace <- trim_tree the_trace.step_stack ~keep_steps_before_line:nb_common_script_lines
+      reopen_trace() --- restore global counters, undo finalize of root-step and big-step.
+      Flags.skip_steps_until_line <- Some nb_common_script_lines;
+      ...
+      at the end of the execution the trace should be serialized, even in 'diff' mode.
+
+  update small_step to say: if script_line_stop <= skip_steps_until_line,
+  then ignore the action in the small-step, simply load the cur_ast and global counters.
+  (needed to evaluate the 'let-bindings' in the middle; unless we also instrument
+  the let-binding to be special [let%step x = ..] with recording of the value of [x].
+  so that we can provide the value without recomputing it.
+
+*)
+
+(* [unfinalize_step] is called by [reopen_trace_for_next_small_step] *)
+(*
+let unfinalize_step (step : step_tree) : unit =
+  assert (step.step_kind = Step_big || step.step_kind = Step_root);
+  let infos = step.step_infos in
+  the_trace.cur_ast <-
+    substep.step_ast_after for the last substep (head after revers)
+    step.step_ast_before if no substep;
+  (* Flip back lists *)
+  infos.step_args <- List.rev infos.step_args;
+  infos.step_tags <- List.rev infos.step_tags;
+  infos.step_debug_msgs <- List.rev infos.step_debug_msgs;
+  infos.step_justif <- List.rev infos.step_justif;
+  step.step_sub <- List.rev step.step_sub;
+  drop all step_changes from step_sub (or check there is none).
+  i.step_valid <- false;
+  infos.step_exectime <- 0.; (* dummy *)
+*)
+
+(* [reopen_trace_for_next_small_step()] reopens the root step and, if it exists,
+   the last big step, so that we can resume executing small steps from that point. *)
+   (**
+let reopen_trace_for_next_small_step () : unit =
+  match the_trace.step_stack with
+  | [root_step] ->
+      unfinalize_step root_step;
+      begin match root_step.step_sub with (* now in reverse order *)
+      | last_big_step :: other_big_steps_in_rev_order when last_big_step.step_kind = Step_big ->
+          root_step.step_sub <- other_big_steps_in_rev_order;
+          unfinalize_step last_big_step;
+          the_trace.step_stack <- [last_big_step; root_step];
+      | _ -> ()
+      end
+  | _ -> failwith "reopen_trace_for_next_small_step: step_stack should store exactly one item, the root"
+*)
+(* trim_tree
+   - should take care of restoring the global counters and the_trace.cur_xxx to the
+     value corresponding to the last step.
+   *)
 
 
 (******************************************************************************)
@@ -1457,6 +1570,24 @@ let compute_diff ?(style:output_style option) (s:step_tree) : string =
 let compute_before_after_and_diff ?(style:output_style option) (s:step_tree) : string * string * string =
   compute_before_after_and_diff ?style ~drop_before_after:false s
 
+(** [is_step_targeted step] assumes [Flags.is_execution_mode_step() = true],
+    it indicates whether [step] is the small or big step targeted by the user,
+    according to the line [Flags.get_target_line()]. *)
+let is_step_targeted (s : step_tree) : bool =
+  assert (Flags.is_execution_mode_step ());
+  let line_target = Flags.get_target_line() in (* call valid because execution_mode is 'step' *)
+  let i = s.step_infos in
+  match i.step_script_line_start, i.step_script_line_stop with
+  | None, _ -> false
+  | Some line_start, None
+  | Some line_start, _ when s.step_kind = Step_big ->
+      line_start = line_target
+  | Some line_start, Some line_stop when s.step_kind = Step_small ->
+      line_start <= line_target && line_target <= line_stop
+  | _ -> false
+(* LATER: the match might be simplified when we start using ppx to materialize small-steps
+    and we are sure to get valid numbers for line_start and line_stop when opening the step. *)
+
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
 let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(out:string->unit)  (s:step_tree) : unit =
@@ -1464,9 +1595,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
   (* Determine whether diff needs to be computed for this step *)
   let is_mode_step_trace = Flags.is_execution_mode_step () in
   let is_smallstep_of_targeted_line =
-       is_mode_step_trace
-    && i.step_script_line = Some (Flags.get_target_line())
-    in
+       is_mode_step_trace && is_step_targeted s in
   let is_substep_of_targeted_line =
       is_substep_of_targeted_line || is_smallstep_of_targeted_line in
     (* FOR FUTURE USE WITH LIGHT MODE
@@ -1504,7 +1633,8 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       "exectime", Json.float i.step_exectime;
       "name", Json.str i.step_name;
       "script", Json.base64 (i.step_script);
-      "script_line", Json.(optionof int) (if i.step_script_line = Some (-1) then None else i.step_script_line);
+      "script_line_start", Json.(optionof int) (if i.step_script_line_start = Some (-1) then None else i.step_script_line_start);
+      "script_line_stop", Json.(optionof int) (if i.step_script_line_stop = Some (-1) then None else i.step_script_line_stop);
         (* TODO: avoid use of -1 for undef line *)
       "args", Json.(listof (fun (k,v) -> Json.obj_quoted_keys ["name", str k; "value",str v])) i.step_args;
       "check_validity", Json.bool i.step_flag_check_validity;
@@ -1770,7 +1900,7 @@ let open_bigstep ~(line : int) (title:string) : unit =
   (* Reparse if needed *)
   if !Flags.reparse_at_big_steps
     then reparse ();
-  ignore (open_step ~kind:Step_big ~name:"" ~step_script:title ~line ());
+  ignore (open_step ~kind:Step_big ~name:"" ~step_script:title ~line_start:line ());
   (* Handle progress report *)
   if !Flags.report_big_steps then begin
     Tools.debug "Executing bigstep %s%s"
@@ -1793,7 +1923,7 @@ let open_smallstep ~(line : int) ?reparse:(need_reparse:bool=false) () : unit =
       then get_excerpt line
       else ""
     in
-  ignore (open_step ~kind:Step_small ~name:"" ~line ~step_script ())
+  ignore (open_step ~kind:Step_small ~name:"" ~line_start:line ~step_script ())
 
 (** [show_step ~ast_left ~style_left ~ast_right ~style_right]
    is used to implement the visualization operations.
