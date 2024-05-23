@@ -496,7 +496,7 @@ let rename_index (new_index : string) : Transfo.local =
   apply_on_path (fun t ->
     let error = "Loop_core.shift: expected a target to a simple for loop" in
     let (range, body, contract) = trm_inv ~error trm_for_inv t in
-    let new_index = { qualifier = []; name = new_index; id = range.index.id } in
+    let new_index = { namespaces = []; name = new_index; id = range.index.id } in
     let new_body = trm_subst_var range.index (trm_var new_index) body in
     let new_contract = Resource_contract.loop_contract_subst (Var_map.singleton range.index (trm_var new_index)) contract in
     trm_for ~annot:t.annot ~contract:new_contract { range with index = new_index } new_body

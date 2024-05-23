@@ -174,14 +174,14 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
     string "decltype" ^^ parens (decorate_trm (default_style()) t)
 
 and var_to_doc style (v : var) : document =
-  let qualified = (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^ string v.name in
+  let qualified = (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^ string v.name in
   if style.ast.print_var_id then
     qualified ^^ string ("/*#" ^ string_of_int v.id ^ "*/")
   else
     qualified
 
-and typconstr_to_doc ((qualifier, name) : typconstr) : document =
-  (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
+and typconstr_to_doc ((namespaces, name) : typconstr) : document =
+  (concat_map (fun q -> string q ^^ string "::") namespaces) ^^
   (string name)
 
 (* [typ_annot_to_doc]: converts type annotations to pprint document. *)
@@ -901,7 +901,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
     let dims, size = Xlist.unlast tl in
     let error = "expected MALLOC(.., sizeof(..))" in
     let size_var = trm_inv ~error trm_var_inv size in
-    assert (size_var.qualifier = []);
+    assert (size_var.namespaces = []);
     let ty_str = String.(
       match sub size_var.name 0 (length "sizeof("),
             sub size_var.name (length "sizeof(") ((length size_var.name) - (length "sizeof()")),

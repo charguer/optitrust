@@ -123,18 +123,17 @@ let reset_all_generators () =
   List.iter (fun reset -> reset ()) !generator_reset_closures
 
 (* [resetable_fresh_generator()]: returns a pair of a generator and its reset function *)
-let resetable_fresh_generator ?(never_reset = false) () : (unit -> int) * (unit -> unit) =
+let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
   let next () = incr n; !n in
   let reset () = n := 0 in
-  if not never_reset then
-    generator_reset_closures := reset :: !generator_reset_closures;
+  generator_reset_closures := reset :: !generator_reset_closures;
   next, reset
 
 (* [fresh_generator()]: generates a function that can be used to return
    the next integer at each invokation. *)
-let fresh_generator ?(never_reset = false) () : (unit -> int) =
-  fst (resetable_fresh_generator ~never_reset ())
+let fresh_generator () : (unit -> int) =
+  fst (resetable_fresh_generator ())
 
 let next_tmp_name: unit -> string =
   let gen = fresh_generator () in

@@ -1,10 +1,3 @@
-
-# BROKEN IN THIS BRANCH
-variable/insert_and_fold/variable_insert_and_fold.ml
-sequence/insert/sequence_insert.ml
-record/rename_fields/record_rename_fields.ml
-loop/shift/loop_shift.ml
-
 omp
 batch
 cparser
@@ -67,6 +60,8 @@ specialize/function_arg
 function/inline
 
 # #var-id
+ast/cpp_varids.ml
 apac/insert_tasks_naive
 apac/sync_with_taskwait
 variable/intro_pattern_array
+record/rename_fields/record_rename_fields.ml

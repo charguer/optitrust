@@ -488,7 +488,7 @@ let same_loop_range
   are_same_trm range1.step range2.step
 
 let same_loop_index (a : loop_range) (b : loop_range) : bool =
-  assert (a.index.qualifier = [] && b.index.qualifier = []);
+  assert (a.index.namespaces = [] && b.index.namespaces = []);
   a.index.name = b.index.name
 
 (* [t] is a sequence;

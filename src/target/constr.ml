@@ -1418,7 +1418,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
            xto_l
         in
         (* CHECK: #var-id-dir-name , is this correct? *)
-        add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id })) @
+        add_dir Dir_name (aux (trm_var ?loc (name_to_var td.typdef_tconstr))) @
         (explore_list (List.map (fun (y, _) -> trm_var ?loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
            (aux)) @
@@ -1574,14 +1574,14 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
     (* CHECK: #var-id-dir-name , is this correct? *)
-     add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id }))
+     add_dir Dir_name (aux (trm_var ?loc (name_to_var (td.typdef_tconstr))))
   | Dir_name, Trm_let_fun (x, _, _, _, _) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_let ((x,_),_) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_goto x ->
     (* CHECK: #var-id-dir-name , is this correct? *)
-    add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = x; id = dummy_var_id }))
+    add_dir Dir_name (aux (trm_var ?loc (name_to_var x)))
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt cases n
        (fun (tl, body) ->

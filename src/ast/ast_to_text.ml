@@ -228,15 +228,15 @@ and print_attribute style (a : attribute) : document =
 
 (* [print_var]: converts [v] into a docuemnt. *)
 and print_ast_var style (v : var) : document =
-  (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
+  (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^
   string v.name ^^ (if style.print_var_id then string ("#" ^ string_of_int v.id) else empty)
 
 (* [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =
   print_ast_var style.ast v
 
-and print_typconstr ((qualifier, name) : typconstr) : document =
-  (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
+and print_typconstr ((namespaces, name) : typconstr) : document =
+  (concat_map (fun q -> string q ^^ string "::") namespaces) ^^
   string name
 
 (* [print_trm_desc style t]: converts the description of trm [t] to pprint document *)

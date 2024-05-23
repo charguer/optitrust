@@ -513,10 +513,10 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
 
 (* [create_or_reuse_atom_for_trm atoms t]: auxiliary function for [trm_to_naive_expr]*)
 let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
-  let occ = ref inferred_var_id in
+  let occ = ref 0 in
   Atom_map.iter (fun id tid ->
-    if !occ = inferred_var_id && are_same_trm t tid then occ := id) !atoms;
-    if !occ = inferred_var_id
+    if !occ = 0 && are_same_trm t tid then occ := id) !atoms;
+    if !occ = 0
       then begin
         let new_id = next_id() in
         atoms := Atom_map.add new_id t !atoms;

@@ -84,7 +84,7 @@ let debug_typedefs = false
 
 (* [ctx_var_add tv]: adds variable [v] with type [t] in map [ctx_var] *)
 let ctx_var_add (tv : var) (t : typ) : unit =
-  ctx_var := Qualified_map.add (tv.qualifier, tv.name) t (!ctx_var)
+  ctx_var := Qualified_map.add (tv.namespaces, tv.name) t (!ctx_var)
 
 (* [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
@@ -116,12 +116,12 @@ let get_ctx () : ctx =
   }
 
 (* CHECK: #type-id *)
-let name_to_typconstr ?(qualifier = []) (n : string) : typconstr =
+let name_to_typconstr ?(namespaces = []) (n : string) : typconstr =
   [], n
 
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
-let get_typid_for_type (qualifier : string list) (name : string) : int  =
-   let tid = Qualified_map.find_opt (qualifier, name) !ctx_tconstr in
+let get_typid_for_type (namespaces : string list) (name : string) : int  =
+   let tid = Qualified_map.find_opt (namespaces, name) !ctx_tconstr in
    begin match tid with
    | Some id -> id
    | None -> -1
@@ -782,7 +782,7 @@ and tr_expr (e : expr) : trm =
           (* hack with ctx_var *)
           Qualified_map.find_opt (qpath, s) !ctx_var
         in
-        let res = trm_var ?loc ~ctx ?typ (name_to_var ~qualifier:qpath s) in
+        let res = trm_var ?loc ~ctx ?typ (name_to_var ~namespaces:qpath s) in
         let targs = List.map (fun (targ : template_argument) -> begin match targ with | Type q -> (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: something went wrong." end) targs in
         begin match targs with
         | [] -> res
@@ -1049,7 +1049,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               | None -> trm_lit ?loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t [] tb
+            trm_let_fun ?loc (name_to_var ~namespaces:qpath s) out_t [] tb
           | Some {non_variadic = pl; variadic = _} ->
             let args =
               List.combine
@@ -1066,7 +1066,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               | None -> trm_lit ?loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t args tb
+            trm_let_fun ?loc (name_to_var ~namespaces:qpath s) out_t args tb
         end
       |_ -> loc_fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
@@ -1108,7 +1108,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           | None -> trm_lit ?loc Lit_uninitialized
           | Some s -> tr_stmt s
         in
-        trm_add_cstyle Method (trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  args tb)
+        trm_add_cstyle Method (trm_let_fun ?loc (name_to_var ~namespaces:qpath s) out_t  args tb)
       |_ -> loc_fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
     let res = trm_add_cstyle_clang_cursor (cursor_of_node d) res in
@@ -1131,7 +1131,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           let t_il = (tr_member_initialized_list : ?loc:trm_loc -> constructor_initializer list -> trms) ?loc il in
           insert_at_top_of_seq t_il tb
       in
-    let res = trm_let_fun ?loc (name_to_var ~qualifier:qpath class_name) (typ_unit ()) args tb in
+    let res = trm_let_fun ?loc (name_to_var ~namespaces:qpath class_name) (typ_unit ()) args tb in
     let res = trm_add_cstyle_clang_cursor (cursor_of_node d) res in
     if ib
      then trm_add_cstyle (Class_constructor Constructor_implicit) res

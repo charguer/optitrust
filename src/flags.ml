@@ -146,7 +146,8 @@ let ignore_serialized = ref false
    use of member functions *)
 let use_member_functions() : unit =
   use_clang_cursor := true;
-  ignore_serialized := true
+  ignore_serialized := true;
+  serialize := false
 
 (* [execution_mode] of the script *)
 

@@ -376,7 +376,7 @@ let method_call_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base], _)} as tr, args, ghost_args) ->
-      let ((class_qualifier, class_name), _, _) =
+      let ((class_namespaces, class_name), _, _) =
         match Option.bind base.typ typ_constr_inv with
         | Some r -> r
         | None ->
@@ -388,9 +388,9 @@ let method_call_elim (t : trm) : trm =
         | None -> failwith "Ast_fromto_AstC.method_call_elim: unsupported base: %s\n" (Ast_to_text.ast_to_string base)
         end
       in
-      let qualifier = class_qualifier @ [class_name] in
+      let namespaces = class_namespaces @ [class_name] in
       let t_var = begin match Ast_data.get_cursor_of_trm tr with
-      | Some (cx) -> trm_add_cstyle_clang_cursor cx (trm_var (name_to_var ~qualifier f))
+      | Some (cx) -> trm_add_cstyle_clang_cursor cx (trm_var (name_to_var ~namespaces f))
       | None -> trm_fail t "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
       end in
       trm_add_cstyle Method_call (trm_apps ~ghost_args (t_var) ([trm_address_of base] @ args))
@@ -428,7 +428,7 @@ let class_member_elim (t : trm) : trm =
     | None ->
       if not !Flags.ignore_serialized
         then failwith "unsupported member definition outside of class structure when serializing";
-      let c = snd (Xlist.unlast method_var.qualifier) in
+      let c = snd (Xlist.unlast method_var.namespaces) in
       let tid = Clang_to_astRawC.get_typid_for_type [] c in (* HACK *)
       (c,tid)
       in

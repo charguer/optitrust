@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Flags.  ()
+let _ = Flags.use_member_functions ()
 
 let _ = Run.script_cpp (fun _ ->
 

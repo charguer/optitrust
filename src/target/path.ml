@@ -355,10 +355,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         aux (trm_var ?loc x) ctx
       | Dir_name, Trm_goto x ->
         (* CHECK: #var-id-dir-name , is this correct? *)
-        aux (trm_var ?loc { qualifier = []; name = x; id = dummy_var_id}) ctx
+        aux (trm_var ?loc (name_to_var x)) ctx
       | Dir_name, Trm_typedef td ->
       (* CHECK: #var-id-dir-name , is this correct? *)
-      let var = { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id } in
+      let var = name_to_var td.typdef_tconstr in
       aux (trm_var ?loc var) ctx
       | Dir_case (n, cd), Trm_switch (_, cases) ->
         app_to_nth dl cases n

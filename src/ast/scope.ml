@@ -15,10 +15,9 @@ let ends_with_num_suffix name =
    note: if name already ends with '_N', first binding ends with `_N_1`.
    *)
 (* NOTE: using unqualified names to detect conflict because
-  namespace management is language-dependant.contents
-  We keep qualifiers from original AST. *)
-(* LATER: also add language-specific ability to correct qualifiers?
-    *)
+  namespace management is language-dependant. We keep namespaces from original AST.
+  This is probably not a very good idea but our namespace management probably needs a rework. *)
+(* LATER: also add language-specific ability to correct namespaces? *)
 let unique_alpha_rename (t : trm) : trm =
   (* map from name to next suffix number *)
   (* use deterministic hash table ? *)
@@ -52,11 +51,6 @@ let unique_alpha_rename (t : trm) : trm =
     Tools.debug "v': %s" (var_to_string v'); *)
     v'
   in
-  (* initialize entries for toplevel variables. *)
-  Qualified_map.iter (fun (q, n) id ->
-    let var = { qualifier = q; name = n; id = id } in
-    ignore (map_var () var)
-  ) !toplevel_vars;
   trm_rename_vars map_var () t
 
 
@@ -73,10 +67,10 @@ let trm_let_or_let_fun_inv t =
     A let-binding interferes if it appears as a free variable in [tl_after]. *)
 let find_interference tl_new_scope tl_after : var list =
   let fv_after = trm_free_vars (trm_seq tl_after) in
-  let fv_after = Qualified_set.of_seq (Seq.map (fun v -> (v.qualifier, v.name)) (Var_set.to_seq fv_after)) in
+  let fv_after = Qualified_set.of_seq (Seq.map (fun v -> (v.namespaces, v.name)) (Var_set.to_seq fv_after)) in
   let find_toplevel_bind t =
     match trm_let_or_let_fun_inv t with
-    | Some x when Qualified_set.mem (x.qualifier, x.name) fv_after -> Some x
+    | Some x when Qualified_set.mem (x.namespaces, x.name) fv_after -> Some x
     | _ -> None
   in
   List.filter_map find_toplevel_bind (Mlist.to_list tl_new_scope)

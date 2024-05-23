@@ -500,7 +500,7 @@ let rename_struct_accesses (struct_name : string) (rename : rename) (t : trm) : 
         | Some ty ->
           begin match ty.typ_desc with
           | Typ_constr (x, _, _) when (typconstr_has_name x struct_name) ->
-            let renamed_var = { qualifier = qf.qualifier; name = rename qf.name; id = qf.id } in
+            let renamed_var = { namespaces = qf.namespaces; name = rename qf.name; id = qf.id } in
             trm_apps ~annot:t.annot ?typ:t.typ ~ghost_args {f with desc = Trm_var renamed_var} args
           | _ -> trm_map aux t
           end
