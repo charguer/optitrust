@@ -59,7 +59,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     end
   in
 
-  let _, ast_of_file = Trace.parse ~parser:(CParsers.get_default ~serialize:false ()) output_file in
+  let _, ast_of_file = Trace.parse ~serialize:false output_file in
   Sys.remove output_file;
 
   let defs = trm_main_inv_toplevel_defs ast_of_file in
@@ -131,10 +131,10 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
           inst := Var_map.add x (ty,u) !inst
         else if not (are_same_trm t0 u) then begin
           if error_msg then begin (* TODO: if + raise helper *)
-            Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" (var_to_string x)
+            Tools.debug "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'." (var_to_string x)
               (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
-            Printf.printf "Witout encodings: '%s' is not identical to '%s'.\n" (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
-            Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
+            Tools.debug "Witout encodings: '%s' is not identical to '%s'." (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
+            Tools.debug "Locations: '%s' and '%s.'" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
           end;
           raise Rule_mismatch
         end
@@ -158,8 +158,8 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let mismatch ?(t1:trm=t1) ?(t2:trm=t2) () : unit =
       if error_msg then begin
-        Printf.printf "Mismatch on subterm, comparing '%s' with '%s'.\n" (AstC_to_c.ast_to_string t1) (AstC_to_c.ast_to_string t2);
-        Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
+        Tools.debug "Mismatch on subterm, comparing '%s' with '%s'." (AstC_to_c.ast_to_string t1) (AstC_to_c.ast_to_string t2);
+        Tools.debug "Locations: '%s' and '%s.'" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
       end;
       raise Rule_mismatch
       in
@@ -177,7 +177,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
       | ({ desc = Trm_let ((x1,t1), init1); _ } as dt1) :: tr1,
         ({ desc = Trm_let ((x2,t2), init2); _ } as dt2) :: tr2 ->
            if not (same_types  (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
-            Printf.printf "Type mismatch on trm_let\n";
+            Tools.debug "Type mismatch on trm_let";
             mismatch ~t1:dt1 ~t2:dt2 ()
           end;
           aux init1 init2;
@@ -250,7 +250,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
   begin try aux pat t
   with Rule_mismatch ->
     if error_msg then begin
-      Printf.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat)
+      Tools.debug "Mismatch comparing\n------\n%s\n------\n%s\n------" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat)
           (AstC_to_c.ast_to_string ~optitrust_syntax:true t);
     end;
     raise Rule_mismatch

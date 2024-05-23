@@ -153,7 +153,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
     match List.rev dl with
     | Dir_seq_nth i :: dl' -> (List.rev dl',i)
     | Dir_record_field _ :: Dir_seq_nth i :: dl'  -> (List.rev dl', i)
-      (* Printf.printf "Path: %s\n" (Path.path_to_string dl); *)
+      (* Tools.debug "Path: %s" (Path.path_to_string dl); *)
     | _ ->
       path_fail dl "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
@@ -386,20 +386,20 @@ let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : reco
 
 (* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
 (* FIXME: #var-id , sets id to inferred_var_id, requiring id inference afterwards. *)
-let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =
+let rename_record_fields (rename_fun : string -> string) (rfs : record_fields) : record_fields =
   let app_fun (rf : record_field) : record_field =
     match rf with
     | Record_field_member (f, ty) -> Record_field_member (rename_fun f, ty)
     | Record_field_method t ->
       begin match t.desc with
       | Trm_let_fun (fn, ret_ty, args, body, contract) ->
-        let new_fn = { qualifier = fn.qualifier; name = (rename_fun fn.name); id = fn.id } in
+        let new_fn = { namespaces = fn.namespaces; name = (rename_fun fn.name); id = unset_var_id } in
         let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body, contract)) t in
         Record_field_method new_t
       | _ -> trm_fail t "Internal.rename_record_fields: record member not supported."
       end
-      in
-    apply_on_record_fields app_fun rfs
+  in
+  apply_on_record_fields app_fun rfs
 
 (* [update_record_fields_type typ_update rfs]: updates the type of [rfs] based on [typ_update] function. *)
 let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ ) (rfs : record_fields) : record_fields =

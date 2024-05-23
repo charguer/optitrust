@@ -57,7 +57,7 @@ let loc_to_json (t : trm) : json =
 
 (* [typd_var_lis_to_json ty]: converts a list of typed vars to a Json object *)
 let typed_var_list_to_json (tv : typed_vars) : json =
-  (* TODO: #var-id , also encode qualifier and id ? *)
+  (* TODO: #var-id , also encode namespaces and id ? *)
   Json.Obj (List.map (fun (v,typ) -> (strquote v.name, typ_to_json typ)) tv)
 
 
@@ -196,7 +196,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [] ]
     | Trm_var x ->
         [ kind_to_field "var";
-          value_to_field x.name; (* TODO: #var-id , also encode qualifier and id ? *)
+          value_to_field x.name; (* TODO: #var-id , also encode namespaces and id ? *)
           children_to_field [] ]
     | Trm_record l ->
         [ kind_to_field  "struct";
@@ -207,13 +207,13 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
     | Trm_let ((x,typ),init) ->
         [ kind_to_field "var-def";
-          (strquote "name", strquote x.name); (* TODO: #var-id , also encode qualifier and id ? *)
+          (strquote "name", strquote x.name); (* TODO: #var-id , also encode namespaces and id ? *)
           (strquote "def-type", typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_let_mult _ -> [] (* TODO: *)
     | Trm_let_fun (f, typ, xts, tbody, _) ->
       [ kind_to_field "fun-def";
-            (strquote "name", strquote f.name); (* TODO: #var-id , also encode qualifier and id ? *)
+            (strquote "name", strquote f.name); (* TODO: #var-id , also encode namespaces and id ? *)
             (strquote "args", typed_var_list_to_json xts);
             (strquote "return_type", typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
@@ -239,7 +239,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field children]
     | Trm_for (range, body, _) ->
       [ kind_to_field "simple_for";
-          (strquote "index", strquote range.index.name); (* TODO: #var-id , also encode qualifier and id ? *)
+          (strquote "index", strquote range.index.name); (* TODO: #var-id , also encode namespaces and id ? *)
           children_to_field [
             child_to_json "start" (aux range.start);
             child_to_json "stop" (aux range.stop);

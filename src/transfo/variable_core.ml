@@ -23,21 +23,19 @@ let fold_decl_at (fold_at : target) (index : int) (t : trm) : trm =
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
 
-(* [rename_aux index new_name t]: renames the variable declared on the targeted declaration all its occurrences,
-      [index] - index of the targeted declaration inside its surrounding sequence,
+(* [rename_at new_name index t]: renames all the occurences of the variable declared on the targeted declaration,
       [new_name] - the new name for the targeted variable,
+      [index] - index of the targeted declaration inside its surrounding sequence,
       [t] - ast of the sequence that contains the targeted declaration. *)
-let rename_aux (index : int) (new_name : string) (t : trm) : trm =
-  let error = "Variable_core.rename_aux: expected the surrounding sequence of the targeted declaration." in
+let rename_at (new_name : string) (index : int) (t : trm) : trm =
+  let error = "Variable_core.rename_at: expected a target inside a sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
-  let old_var, _, _ = trm_inv ~error:"Variable_core.rename_aux: expected a tartget to variable declaration." trm_let_inv (Mlist.nth tl index) in
-  trm_rename_vars (fun () var -> if var_eq var old_var then { var with name = new_name } else var) () t
-
-
-(* [rename new_name index t p]: applies [rename_aux] at trm [t] with path [p]. *)
-let rename (new_name : string) (index : int): Transfo.local =
-  apply_on_path (rename_aux index new_name)
-
+  let old_var, _, _ = trm_inv ~error:"Variable_core.rename_at: expected a target to a variable declaration." trm_let_inv (Mlist.nth tl index) in
+  let new_var = if is_toplevel_var old_var
+    then toplevel_var ~namespaces:old_var.namespaces new_name
+    else { old_var with name = new_name }
+  in
+  trm_rename_vars (fun () var -> if var_eq var old_var then new_var else var) () t
 
 (* [init_detach_aux t]: detaches the targeted variable declaration,
       [t] - ast of the targeted variable declaration. *)

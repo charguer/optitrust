@@ -28,7 +28,7 @@ flex_list(delimiter, X):
 
 atomic_formula:
   | x=IDENT
-    { trm_var { qualifier = []; name = x; id = inferred_var_id } }
+    { trm_var (name_to_var x) }
   | x=INT_LIT
     { trm_int x }
   | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
@@ -42,7 +42,7 @@ address_formula:
   | tab=address_formula; LBRACKET; index=atomic_formula; RBRACKET;
     { trm_array_get tab index }
   | x=IDENT
-    { trm_var { qualifier = []; name = x; id = inferred_var_id } }
+    { trm_var (name_to_var x) }
 
 arith_factor:
   | a=arith_factor; STAR; b=atomic_formula;

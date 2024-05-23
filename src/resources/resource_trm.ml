@@ -138,3 +138,35 @@ let var_ghost_assume = toplevel_var "assume"
 
 let assume (f: formula): trm =
   ghost (ghost_call var_ghost_assume ["F", f])
+
+
+
+(*****************************************************************************)
+(* Contracts and annotations *)
+
+let delete_annots_on ?(delete_contracts = true) ?(delete_ghost = true) (t : trm) : trm =
+  let rec aux t =
+    let t =
+      if delete_ghost &&
+        ((Option.is_some (ghost_inv t)) ||
+        (Option.is_some (ghost_begin_inv t)) ||
+        (Option.is_some (ghost_end_inv t)))
+      then Nobrace.trm_seq_nomarks []
+      else t
+    in
+    let t =
+      if not delete_contracts then t else
+      begin match t.desc with
+      | Trm_fun (args, ret_ty, body, contract) ->
+        trm_replace (Trm_fun (args, ret_ty, body, FunSpecUnknown)) t
+      | Trm_let_fun (f, ty, args, body, contract) ->
+        trm_replace (Trm_let_fun (f, ty, args, body, FunSpecUnknown)) t
+      | Trm_for (loop_range, body, contract) ->
+        trm_replace (Trm_for (loop_range, body, empty_loop_contract)) t
+      | Trm_for_c (start, cond, stop, body, contract) ->
+        trm_replace (Trm_for_c (start, cond, stop, body, None)) t
+      | _ -> t
+      end in
+    trm_map aux t
+  in
+  aux t

@@ -1,5 +1,5 @@
-open Prelude
-
+open Ast
+open Trm
 
 (* TODO: Get rid of this aweful C(++) only include handling *)
 (* [get_cpp_includes filename]: gets the list of file includes syntactically visible
@@ -70,7 +70,7 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
       None
     else begin
       if !Flags.debug_parsing_serialization
-        then Tools.info (sprintf "unserializing ast: %s." ser_filename);
+        then Tools.info "unserializing ast: %s." ser_filename;
       try
         let ser_file = open_in_bin ser_filename in
         let deps = Marshal.from_channel ser_file in
@@ -80,15 +80,15 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
             let ast = Scope_computation.infer_var_ids ast in
             Some (deps,header,ast)
           with _ ->
-            Tools.info (sprintf "failure in infer_var_ids on unserialized ast for %s, reparsing." ser_filename);
+            Tools.info "failure in infer_var_ids on unserialized ast for %s, reparsing." ser_filename;
             None
           end
         else begin
-          Tools.info (sprintf "serialized ast %s is outdated" ser_filename);
+          Tools.info "serialized ast %s is outdated" ser_filename;
           None
         end
       with _ ->
-        Tools.info (sprintf "failure unserializing ast from %s, will reparse." ser_filename);
+        Tools.info "failure unserializing ast from %s, will reparse." ser_filename;
         None
     end
     in
@@ -98,7 +98,7 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
     | Some header_and_ast -> header_and_ast
     | None ->
         if !Flags.debug_parsing_serialization then
-          Tools.info (sprintf "parsing ast: %s." filename);
+          Tools.info "parsing ast: %s." filename;
         (* Parsing per se *)
         let header = get_c_includes filename in (* header contains include *)
         let ast = raw_parser filename in
@@ -109,37 +109,36 @@ let c_parser ~(serialize:bool) (raw_parser: string -> trm) (filename: string) : 
           | None -> deps
           ) [] toplevel_seq in
         if !Flags.debug_parsing_serialization then
-          Tools.info (sprintf "ast depends on header files: %s." (String.concat ", " deps));
+          Tools.info "ast depends on header files: %s." (String.concat ", " deps);
         deps, header, ast
     in
   (* Save to serialization file, if applicable *)
-  if (not serialize || not !Flags.dont_serialize)
-     && existing_ser_contents_opt = None then begin
+  if serialize && !Flags.serialize && existing_ser_contents_opt = None then begin
     try
-      let clean_ast = Trm.prepare_for_serialize ast in
+      let clean_ast = Trm.prepare_for_serialize ~remove_ctx:true ast in
       let out_file = open_out_bin ser_filename in
       Marshal.to_channel out_file deps [];
       Marshal.to_channel out_file (header, clean_ast) [];
+      close_out out_file;
       if !Flags.debug_parsing_serialization
-        then Tools.info (sprintf "serialized ast: %s." ser_filename);
+        then Tools.info "serialized ast: %s." ser_filename;
     with e ->
-      Tools.warn (sprintf "failure serializing ast to %s, skipping serialization. Error: %s\n" ser_filename (Printexc.to_string e));
+      Tools.warn "failure serializing ast to %s, skipping serialization. Error: %s" ser_filename (Printexc.to_string e);
   end;
-  (* Possibly ably the decoding *)
+  (* Possibly perform the decoding *)
   let ast = if !Flags.bypass_cfeatures then ast else Ast_fromto_AstC.cfeatures_elim ast in
   (* Return the header and the ast *)
   (header, ast)
 
 
-let clang ~(serialize:bool) =
-  c_parser ~serialize clang_raw_parser
+let clang = c_parser clang_raw_parser
 (*  FOR FUTURE USE
 let menhir = c_parser menhir_raw_parser
 let all = c_parser all_c_raw_parsers *)
 
-let get_default ~(serialize:bool) () =
+let parse ~(serialize:bool) (filename:string) =
   match !Flags.c_parser_name with
-  | "default" | "clang" -> clang ~serialize
+  | "default" | "clang" -> clang ~serialize filename
   | _ -> failwith "the available cparser options are 'default', 'clang'"
   (* FOR FUTURE USE
   | "menhir" -> menhir

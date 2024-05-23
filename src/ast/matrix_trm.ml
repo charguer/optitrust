@@ -7,7 +7,7 @@ let toplevel_var_with_dim name_pattern =
   let vars = Array.init (max_nb_dims + 1) (fun n -> toplevel_var (sprintf name_pattern n)) in
   fun n ->
     try vars.(n)
-    with Invalid_argument _ -> failwith (sprintf (name_pattern ^^ " is not defined (too many dimensions)") n)
+    with Invalid_argument _ -> failwith "%s" (sprintf (name_pattern ^^ " is not defined (too many dimensions)") n)
 
 let toplevel_var_with_dim_inv getter v =
   let exception Found of int in

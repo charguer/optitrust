@@ -8,16 +8,16 @@ let _ = Run.script_cpp (fun _ ->
   !! Label.add "lab1" [cVarDef "a"]; (**)
 
   (* The next block of code debugs printing of errors *)
-  !! let t = Trace.ast() in
+  let t = Trace.ast() in
   let t = Resource_computation.trm_deep_copy t in
-  t.errors <- ["foo"];
+  !! t.errors <- ["foo"];
   Trace.set_ast t;
   (*Show.(trm ~style:InternalAst) t;*)
   (*Show.trm t;*)
   !! ();
 
   (* The next line sets an invalid contract *)
-  !! Resources.(set_loop_contract [__modifies("&m[MINDEX1(sz, i)] ~> Cell")]) [cFor "i"];
+  !! Resources.(set_loop_contract [(Exclusive Modifies, "&m[MINDEX1(sz, i)] ~> Cell")]) [cFor "i"];
   (* The line [ensure_computed] triggers a resource typing error.
      If [resource_errors_as_warnings] is [true], the error is
      simply displayed.

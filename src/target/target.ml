@@ -1145,7 +1145,7 @@ let convert_stringreprs_from_documentation_to_string (m : AstC_to_c.stringreprs)
     targeted by the targets; to that end, we need to hide the body of the
     top level definitions that are not targeted). *)
 let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_name list option) (f : trm->bool) (t : trm) : trm * AstC_to_c.stringreprs =
-  (* DEBUG Printf.printf "compute_stringreprs %d\n" (match topfuns with
+  (* DEBUG Tools.debug "compute_stringreprs %d" (match topfuns with
     | None -> -1
     | Some ts -> List.length ts); *)
   let t2 = Trm.label_subterms_with_fresh_stringreprids f t in
@@ -1155,10 +1155,10 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
     | None -> t2 (* need string reprs for all top level functions *)
     | Some topfuns_regexps -> (* need only for certain functions *)
         (* Note: if topfuns_regexps = [], we need stringrepr for no functions at all *)
-        (* DEBUG Printf.printf "compute_stringreprs functions:\n";
+        (* DEBUG Tools.debug "compute_stringreprs functions:";
         List.iter (function
           | None -> assert false
-          | Some rexp -> Printf.printf "-> %s\n" (rexp_to_string rexp)) topfuns_regexps; *)
+          | Some rexp -> Tools.debug "-> %s" (rexp_to_string rexp)) topfuns_regexps; *)
         let hidetopfun topfunvar =
           not (List.exists (fun rexp -> Constr.check_name rexp topfunvar.name) topfuns_regexps) in
         let t3, _ = hide_function_bodies hidetopfun t2 in
@@ -1166,7 +1166,7 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
     in
   AstC_to_c.init_stringreprs();
   let cstyle = AstC_to_c.default_style() in
-  let fromto_style = Ast_fromto_AstC.{ cstyle; typing = Style.typing_none } in
+  let fromto_style = Ast_fromto_AstC.{ cstyle; typing = Style.typing_annot } in
   let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro fromto_style (trm_erase_var_ids t3) in
   let _doc = AstC_to_c.(ast_to_doc { cstyle with optitrust_syntax }) t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
   let m = AstC_to_c.get_and_clear_stringreprs() in
@@ -1209,7 +1209,7 @@ let fix_target (tg : target) : target =
 let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a) : 'a =
   let kinds = Constr.get_target_regexp_kinds tgs in
   (* for debug  List.iter (fun k -> Printf.printf "(kind:%s)" (Constr.trm_kind_to_string k)) kinds;
-      Printf.printf "==end of kinds==\n";. *)
+      Tools.debug "==end of kinds==";. *)
   let topfuns = Constr.get_target_regexp_topfuns_opt tgs in
   let t2, m = compute_stringreprs ?topfuns:topfuns (Constr.match_regexp_trm_kinds kinds) t in
   if !Flags.debug_stringreprs then
@@ -1264,12 +1264,12 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
     | _ ->
         let marks = List.map (fun _ -> Mark.next()) ps in
         (* add marks for occurences -- could be implemented in a single path, if optimization were needed. *)
-        (* Printf.printf "Before applyin_marks: %s\n" (AstC_to_c.ast_to_string t);. *)
+        (* Tools.debug "Before applyin_marks: %s" (AstC_to_c.ast_to_string t);. *)
         let t =
              Stats.comp_stats "applyi_on_transformed_targets add marks" (fun () ->
               Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_add_mark" (fun () ->
               List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks)) in
-        (* Printf.printf "After applying_marks: %s\n" (AstC_to_c.ast_to_string t);. *)
+        (* Tools.debug "After applying_marks: %s" (AstC_to_c.ast_to_string t);. *)
         (* iterate over these marks. *)
         Stats.comp_stats "applyi_on_transformed_targets apply transfo" (fun () ->
         begin try
@@ -1287,8 +1287,8 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
                       else (*failwith*) (Printf.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
                     in
                   if debug_disappearing_mark
-                    then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
-                    else failwith msg
+                    then (Tools.error "%s" msg; raise (Interrupted_applyi t))
+                    else failwith "%s" msg
             )
           ) t marks
         with Interrupted_applyi t -> t
@@ -1376,8 +1376,8 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
                   else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
                 in
               if debug_disappearing_mark
-                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
-                else failwith msg
+                then (Tools.error "%s" msg; raise (Interrupted_applyi t))
+                else failwith "%s" msg
         ) marks
       with Interrupted_applyi t -> Trace.set_ast t (* view the ast when the bug appears. *)
       ))))
@@ -1443,8 +1443,8 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
                 then "applyi_on_transformed_targets_between: a mark was duplicated"
                 else (Printf.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
             if debug_disappearing_mark
-              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi t))
-              else failwith msg
+              then (Tools.error "%s" msg; raise (Interrupted_applyi t))
+              else failwith "%s" msg
         )) t marks
       with Interrupted_applyi t -> t
     ))
@@ -1574,7 +1574,7 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
                 then "Target.iteri: a mark was duplicated"
                 else (Printf.sprintf "Target.iteri: mark %s disappeared" m)
               in
-            failwith msg
+            failwith "%s" msg
         ) marks
       );
     Constr.old_resolution := c_o_r_bak (* TEMPORARY *)

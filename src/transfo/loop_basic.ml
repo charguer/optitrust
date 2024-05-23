@@ -397,7 +397,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
       let efrac_map = Var_map.mapi (fun efrac efrac_val ->
         match efrac_val with
         | Some efrac_val -> efrac_val
-        | None -> failwith (sprintf "At the splitting point, existential fraction %s was not eliminated" efrac.name))
+        | None -> failwith "At the splitting point, existential fraction %s was not eliminated" efrac.name)
         !efrac_map
       in
       let split_res_without_efracs = List.map (fun (h, formula) -> (h, trm_subst efrac_map formula)) split_res_comm in
@@ -489,7 +489,7 @@ let same_loop_range
   are_same_trm range1.step range2.step
 
 let same_loop_index (a : loop_range) (b : loop_range) : bool =
-  assert (a.index.qualifier = [] && b.index.qualifier = []);
+  assert (a.index.namespaces = [] && b.index.namespaces = []);
   a.index.name = b.index.name
 
 (* [t] is a sequence;

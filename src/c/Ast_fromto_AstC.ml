@@ -26,7 +26,7 @@ let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
   ) else f
 
 let debug_current_stage (msg: string) : unit =
-  if debug then printf "%s\n" msg
+  if debug then Tools.debug "%s" msg
 
 (*
 
@@ -376,7 +376,7 @@ let method_call_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base], _)} as tr, args, ghost_args) ->
-      let ((class_qualifier, class_name), _, _) =
+      let ((class_namespaces, class_name), _, _) =
         match Option.bind base.typ typ_constr_inv with
         | Some r -> r
         | None ->
@@ -385,12 +385,12 @@ let method_call_elim (t : trm) : trm =
                     Option.bind (typ_ptr_inv gbt) (fun btyp ->
                     typ_constr_inv btyp))) with
         | Some r -> r
-        | None -> failwith (sprintf "Ast_fromto_AstC.method_call_elim: unsupported base: %s\n" (Ast_to_text.ast_to_string base))
+        | None -> failwith "Ast_fromto_AstC.method_call_elim: unsupported base: %s\n" (Ast_to_text.ast_to_string base)
         end
       in
-      let qualifier = class_qualifier @ [class_name] in
+      let namespaces = class_namespaces @ [class_name] in
       let t_var = begin match Ast_data.get_cursor_of_trm tr with
-      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var ~qualifier f))
+      | Some (cx) -> trm_add_cstyle_clang_cursor cx (trm_var (name_to_var ~namespaces f))
       | None -> trm_fail t "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
       end in
       trm_add_cstyle Method_call (trm_apps ~ghost_args (t_var) ([trm_address_of base] @ args))
@@ -428,7 +428,7 @@ let class_member_elim (t : trm) : trm =
     | None ->
       if not !Flags.ignore_serialized
         then failwith "unsupported member definition outside of class structure when serializing";
-      let c = snd (Xlist.unlast method_var.qualifier) in
+      let c = snd (Xlist.unlast method_var.namespaces) in
       let tid = Clang_to_astRawC.get_typid_for_type [] c in (* HACK *)
       (c,tid)
       in
@@ -512,7 +512,7 @@ let parse_ghost_args ghost_args_str =
   try
     Resource_cparser.ghost_arg_list Resource_clexer.lex_resources (Lexing.from_string ghost_args_str)
   with Resource_cparser.Error ->
-    failwith ("Failed to parse ghost arguments: " ^ ghost_args_str)
+    failwith "Failed to parse ghost arguments: %s" ghost_args_str
 
 let trm_var_with_name (name: string) = Pattern.(trm_var (check (fun v -> var_has_name v name)))
 
@@ -614,6 +614,15 @@ let ghost_args_intro (style: style) (t: trm) : trm =
   in
   aux t
 
+let ghost_remove (t : trm) : trm =
+  Nobrace.remove_after_trm_op (Resource_trm.delete_annots_on ~delete_contracts:false ~delete_ghost:true) t
+
+let ghost_args_intro_or_remove_ghost (style: style) (t: trm) : trm =
+  if style.typing.typing_ghost
+    then ghost_args_intro style t
+    else ghost_remove t
+
+
 (********************** Decode contract annotations ***************************)
 
 open Resource_contract
@@ -662,7 +671,7 @@ let fun_clause_type_inv (clause: var) : fun_contract_clause_type option =
   | "__produces" -> Some Produces
   | "__xrequires" | "__xensures" | "__xreads" | "__xwrites" | "__xmodifies"
   | "__xconsumes" | "__xproduces" | "__invariant" | "__sreads" | "__smodifies" | "__strict" ->
-    failwith (sprintf "Found the loop contract clause '%s' in a function contract" clause.name)
+    failwith "Found the loop contract clause '%s' in a function contract" clause.name
   | _ -> None
 
 let loop_clause_type_inv (clause: var) : loop_contract_clause_type option =
@@ -680,7 +689,7 @@ let loop_clause_type_inv (clause: var) : loop_contract_clause_type option =
   | "__smodifies" -> Some SharedModifies
   | "__strict" -> Some Strict
   | "__pure" | "__ensures" | "__reads" | "__writes" | "__modifies" | "__consumes" | "__produces" ->
-    failwith (sprintf "Found the function contract clause '%s' in a loop contract" clause.name)
+    failwith "Found the function contract clause '%s' in a loop contract" clause.name
   | _ -> None
 
 let encoded_clause_inv (clause_type_inv: var -> 'clause_type option) (t: trm): ('clause_type * string) option =
@@ -779,7 +788,7 @@ let contract_elim (t: trm): trm =
 
 let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, formula): string =
   let sformula = formula_to_string style formula in
-  if not (style.cstyle.ast.print_generated_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" hyp.name
+  if not (style.typing.print_generated_res_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" hyp.name
     then Printf.sprintf "%s" sformula
     else begin
       let hyp_s = if style.cstyle.ast.print_var_id then var_to_string hyp else hyp.name in
@@ -913,6 +922,8 @@ let computed_resources_intro (style: style) (t: trm): trm =
   aux t
 
 let rec contract_intro (style: style) (t: trm): trm =
+  if not style.typing.typing_contracts then t else
+
   (* debug_current_stage "contract_intro"; *)
   let push_named_formulas (contract_prim: var) ?(used_vars: Var_set.t option) (named_formulas: resource_item list) (t: trm): trm =
     List.fold_right (fun named_formula t ->
@@ -951,7 +962,7 @@ let rec contract_intro (style: style) (t: trm): trm =
     in
     let pre_pure = List.filter hyp_not_mem_before_pop pure_with_fracs in
     if (Hashtbl.length frac_to_remove != 0) then
-      Tools.warn ("Some fractions should have been discarded but they were not found in context: " ^ String.concat ", " (Hashtbl.fold (fun frac () acc -> frac.name :: acc) frac_to_remove []));
+      Tools.warn "Some fractions should have been discarded but they were not found in context: %s" (String.concat ", " (Hashtbl.fold (fun frac () acc -> frac.name :: acc) frac_to_remove []));
 
     let t = match reads_clause with
       | Some reads_clause -> push_named_formulas reads_clause reads_res t
@@ -1080,7 +1091,7 @@ let autogen_alpha_rename style (t : trm) : trm =
     | None -> v
   in
 
-  if style.cstyle.ast.print_generated_ids
+  if style.typing.print_generated_res_ids
     then t (* When we want to print generated ids we prefer to keep them in sync with internal names *)
     else trm_rename_vars ~map_binder map_var (0, Var_map.empty) t
 
@@ -1117,7 +1128,7 @@ let cfeatures_intro (style : style) : trm -> trm =
   method_call_intro |>
   class_member_intro |>
   autogen_alpha_rename style |>
-  ghost_args_intro style |>
+  ghost_args_intro_or_remove_ghost style |>
   autogen_alpha_rename style |>
   contract_intro style
   )
@@ -1129,7 +1140,7 @@ let meta_intro ?(skip_var_ids = false) (style: style) : trm -> trm =
   (if skip_var_ids then t else Scope_computation.infer_var_ids ~failure_allowed:false t) |>
   formula_sugar_intro |>
   autogen_alpha_rename style |>
-  ghost_args_intro style |>
+  ghost_args_intro_or_remove_ghost style |>
   autogen_alpha_rename style |>
   contract_intro style
 

@@ -30,7 +30,6 @@ let check_trace_at_every_step = ref false
 (* For debugging, insert this line in your code:
    let _ = Trace.debug_open_close_step := true
 *)
-let next_step_id = fresh_generator ()
 
 (* Other debug flags *)
 
@@ -60,7 +59,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
     let s = Buffer.contents acc in
     let i = !start+1 in
     if !debug_compute_ml_file_excerpts
-      then printf "Excerpt[%d] = <<<%s>>>\n\n" i s;
+      then Tools.debug "Excerpt[%d] = <<<%s>>>" i s;
     r := Int_map.add i s !r;
     Buffer.clear acc; in
   (* match a line that starts with '!!', 'bigstep' or 'let' *)
@@ -112,8 +111,7 @@ let init_logs prefix =
   timing_log_handle := Some timing_log;
   let stats_log = open_out ("stats.log") in
   stats_log_handle := Some stats_log;
-  logs := timing_log :: stats_log :: clog :: [];
-  clog
+  logs := timing_log :: stats_log :: clog :: []
 
 (** [write_log clog msg]: writes the string [msg] to the channel [clog]. *)
 let write_log (clog : out_channel) (msg : string) : unit =
@@ -142,11 +140,11 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (* TODO: encode header information in the AST *)
 type parser = string -> string * trm
 
-(** [parse ~parser filename]:
+(** [parse filename]:
    call the parser on the given file while recording statistics *)
-let parse ~(parser: parser) (filename : string) : string * trm =
+let parse ?(serialize=true) (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
-  let parsed_file = stats ~name:"tr_ast" (fun () -> parser filename) in
+  let parsed_file = stats ~name:"tr_ast" (fun () -> CParsers.parse ~serialize filename) in
   print_info None "Parsing Done.\n";
   parsed_file
 
@@ -191,9 +189,7 @@ let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
     let topfun_after = top_level_fun_bindings astAfter in
     let topfun_common = get_common_top_fun topfun_before topfun_after in
     if !debug_light_diff then begin
-       eprintf "light_diff removes common functions: ";
-       List.iter (fun f -> eprintf "%s " f.name) topfun_common;
-       eprintf "\n";
+       Tools.debug "light_diff removes common functions: %s" (String.concat " " (List.map (fun f -> f.name) topfun_common))
     end;
     let filter_common ast = fst (hide_function_bodies (fun f -> List.mem f topfun_common) ast) in
     let new_astBefore = filter_common astBefore in
@@ -216,32 +212,19 @@ let process_ast_before_after_for_diff (style_before : output_style) (style_after
 
 (** [context]: contains general information about:
    - the source code that was loaded initially using [set_init_file],
-   - the prefix of the filenames in which to output the final result using [dump]
-   - the log file to report on the transformation performed. *)
-type context =
-  { parser : parser;
-    (* DEPRECATED?
-       directory : string; *)
-    mutable prefix : string; (* TODO: needs mutable? *)
-    extension : string;
-    header : string;
-    clog : out_channel; }
+   - the prefix of the filenames in which to output the final result using [dump] *)
+type context = {
+  prefix : string;
+  extension : string;
+  header : string;
+}
 
 (** [contex_dummy]: used for [trace_dummy]. *)
-let context_dummy : context =
-  { parser = (fun _ -> failwith "context_dummy has no parser");
-    (* directory = ""; *)
-    prefix = "";
-    extension = "";
-    header = "";
-    clog = stdout; }
-
-(* DEPRECATED [stepdescr]: description of a script step. *)
-type stepdescr = {
-  mutable isbigstep : string option; (* if the step is the beginning of a big step,
-                                        then the value is [Some descr] *)
-  mutable script : string; (* excerpt from the transformation script, or "" *)
-  mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
+let context_dummy : context = {
+  prefix = "";
+  extension = "";
+  header = ""
+}
 
 (** [step_kind] : classifies the kind of steps.*)
 type step_kind =
@@ -281,7 +264,7 @@ let step_kind_to_string (k:step_kind) : string =
 
 (** [step_infos] *)
 type step_infos = {
-  mutable step_id : int; (* for debugging purpose *)
+  mutable step_id : int;
   mutable step_script : string;
   mutable step_script_line : int option;
   mutable step_time_start : float; (* seconds since start *)
@@ -298,6 +281,7 @@ type step_infos = {
 (** [step_tree]: history type used for storing all the trace information about all steps, recursively. *)
 type step_tree = {
   mutable step_kind : step_kind;
+  mutable step_context : context;
   mutable step_ast_before : trm; (* possibly [empty_ast], for "show" steps *)
   mutable step_ast_after : trm;
   mutable step_style_before : output_style;
@@ -317,9 +301,11 @@ type step_stack = step_tree list
 
 (** [trace]: a record made of a context, a current AST, and a list of ASTs that were
    saved as "interesting intermediate steps", via the [Trace.save] function.
-   Any call to the [step] function adds a copy of [cur_ast] into [history]. *)
+   Any call to the [step] function adds a copy of [cur_ast] into [history].
+  TODO: Rename to open_trace? *)
 type trace = {
-  mutable context : context;
+  mutable next_step_id : int;
+  mutable cur_context : context;
   mutable cur_ast : trm;
   mutable cur_style : output_style;
   mutable cur_ast_typed : bool;
@@ -330,28 +316,29 @@ type trace = {
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
 
-(** [trace_dummy]: an trace made of dummy context and dummy trm,
-   whose purpose is to enforce that [Trace.init] is called before any transformation *)
-let trace_dummy : trace =
-  { context = context_dummy;
-    cur_ast = trm_dummy; (* dummy *)
-    cur_style = Style.default_custom_style();
-    cur_ast_typed = true;
-    step_stack = []; (* dummy *)
-    }
-
 (** [the_trace]: the trace produced by the current script. *)
-let the_trace : trace =
-  trace_dummy
+let the_trace : trace = {
+  next_step_id = 0;
+  cur_context = context_dummy;
+  cur_ast = trm_dummy; (* dummy *)
+  cur_style = Style.default_custom_style();
+  cur_ast_typed = true;
+  step_stack = []; (* dummy *)
+}
+
+let next_step_id () =
+  let id = the_trace.next_step_id in
+  the_trace.next_step_id <- id + 1;
+  id
 
 (** [is_trace_dummy()]: returns whether the trace was never initialized. *)
 let is_trace_dummy () : bool =
-  the_trace.context == context_dummy
+  the_trace.cur_context == context_dummy
 
 (** [get_decorated_history]: gets history from trace with a few meta information *)
 (* TODO: remove this function? *)
 let get_decorated_history ?(prefix : string = "") () : string * context * step_tree =
-  let ctx = the_trace.context in
+  let ctx = the_trace.cur_context in
   let prefix = (* LATER: figure out why we needed a custom prefix here *)
     if prefix = "" then ctx.prefix else prefix in
   let tree =
@@ -363,6 +350,8 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
   (prefix, ctx, tree)
 
 let dummy_exectime : float = 0.
+
+
 
 
 (******************************************************************************)
@@ -451,7 +440,7 @@ let check_the_trace ~(final:bool) : unit =
 let filename_before_clang_format (filename:string) : string =
   let base =
     try Filename.chop_suffix filename ".cpp"
-    with _ -> failwith (sprintf "filename_before_clang_format: expects a .cpp file, provided: %s." filename) in
+    with _ -> failwith "filename_before_clang_format: expects a .cpp file, provided: %s." filename in
   base ^ "_notfmt.cpp"
 
 (* LATER: document and factorize *)
@@ -461,15 +450,14 @@ let style_normal_code () =
 
 let style_resources ?(print_var_id : bool option) () = (*TODO factorize with Show.res *)
   let cstyle_default = AstC_to_c.(default_style()) in
-  let aststyle_default = Ast.default_style () in
-  let ast_style = { aststyle_default with print_generated_ids = true } in
+  let ast_style = Ast.default_style () in
   let ast_style = match print_var_id with
   | None -> ast_style
   | Some b -> { ast_style with print_var_id = b }
   in
   let typing_style = if !Flags.detailed_resources_in_trace then Style.typing_all else Style.typing_ctx in
   Style.({ decode = false;
-    typing = typing_style;
+    typing = { typing_style with print_generated_res_ids = true } ;
     print = Lang_C { cstyle_default with
       ast = ast_style;
       optitrust_syntax = true; } })
@@ -494,15 +482,15 @@ let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (file
 
 (** [get_header ()]: get the header of the current file (e.g. include directives) *)
 let get_header () : string =
-  the_trace.context.header
+  the_trace.cur_context.header
 
 (** [ensure_header]: ensures that the header [h] is included in the header of the current file. *)
 (* FIXME: does not show in diff this way *)
 let ensure_header (h : string) : unit =
-  let ctx = the_trace.context in
+  let ctx = the_trace.cur_context in
   let found = Tools.pattern_matches h (ctx.header) in
   if not found then
-    the_trace.context <- { ctx with header = ctx.header ^ h ^ "\n" }
+    the_trace.cur_context <- { ctx with header = ctx.header ^ h ^ "\n" }
 
 (** [output_prog style ctx prefix ast]: writes the program described by the term [ast] into file.
    - one describing the CPP code ("prefix.cpp")
@@ -527,7 +515,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
           Ast_fromto_AstC.cfeatures_intro fromto_style ast
         with
         | Scope_computation.InvalidVarId msg ->
-          Tools.warn (sprintf "output_prog could not decode due do invalid var ids: %s" msg);
+          Tools.warn "output_prog could not decode due do invalid var ids: %s" msg;
           (* TODO: add comment in code or in trace by returning info to callers *)
           Ast_fromto_AstC.meta_intro fromto_style ast
       end else
@@ -573,7 +561,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     with | Failure s ->
       close_out out_ast;
       close_out out_enc;
-      failwith s
+      failwith "%s" s
     end
   end
 
@@ -582,31 +570,25 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
 (******************************************************************************)
 
 (** [reparse_trm ctx ast]: prints [ast] in a temporary file and reparses it using Clang. *)
-let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (ast : trm) : trm =
+let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
   (* Disable caching for reparsing *)
   Flags.with_flag Flags.debug_parsing_serialization false (fun () ->
 
     if !Flags.debug_reparse then begin
       let info = if info <> "" then info else "of a term during the step starting at" in
-      Printf.printf "Reparse: %s.\n" info;
+      Tools.debug "Reparse: %s." info;
       flush stdout
     end;
     let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
     output_prog (Style.custom_style_for_reparse()) ~beautify:false ctx in_prefix ast;
 
-    let parser =
-      match parser with
-      | Some p -> p
-      | None -> ctx.parser
-    in
-
-    let (_, t) = parse ~parser (in_prefix ^ ctx.extension) in
+    let (_, t) = parse (in_prefix ^ ctx.extension) in
     (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
     t
   )
 
-let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code during the step starting at") ?(parser: parser option) () =
-  let tnew = reparse_trm ~info ?parser the_trace.context the_trace.cur_ast in
+let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code during the step starting at") () =
+  let tnew = reparse_trm ~info the_trace.cur_context the_trace.cur_ast in
   if update_cur_ast then begin
     the_trace.cur_ast <- tnew;
     the_trace.cur_ast_typed <- false;
@@ -621,14 +603,14 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
 (** [get_cur_step ()] returns the current step --there should always be one. *)
 let get_cur_step ?(error : string = "get_cur_step: empty stack") () : step_tree =
   match the_trace.step_stack with
-  | [] -> failwith error
+  | [] -> failwith "%s" error
   | step::_ -> step
 
 (** [open_root_step] is called only by [Trace.init], for initializing
    the bottom element of the [step_stack].
    Assumes fields of [the_trace] have already been initialized. *)
 let open_root_step ?(source : string = "<unnamed-file>") () : unit =
-  assert(the_trace.step_stack = []);
+  assert(the_trace.step_stack = [] && the_trace.next_step_id = 0);
   let step_root_infos = {
     step_id = next_step_id();
     step_script = "Trace for " ^ source;
@@ -636,7 +618,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_time_start = now();
     step_exectime = dummy_exectime;
     step_name = "";
-    step_args = [("extension", the_trace.context.extension) ];
+    step_args = [("extension", the_trace.cur_context.extension) ];
     step_justif = [];
     step_flag_check_validity = !Flags.check_validity;
     step_valid = false;
@@ -645,6 +627,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
   } in
   let step_root = {
     step_kind = Step_root;
+    step_context = the_trace.cur_context;
     step_ast_before = the_trace.cur_ast;
     step_style_before = the_trace.cur_style;
     step_ast_after = trm_dummy;
@@ -693,6 +676,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
   let step = {
     (* fields set at the start of the step *)
     step_kind = kind;
+    step_context = the_trace.cur_context;
     step_ast_before = the_trace.cur_ast;
     step_style_before = the_trace.cur_style;
     (* mutated during the lifetime of the step: *)
@@ -704,7 +688,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     in
   the_trace.step_stack <- step :: the_trace.step_stack;
   if !debug_open_close_step
-    then eprintf "%sTrace.open_step [%d]: %s (%s)\n" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string kind) name;
+    then Tools.debug "%sTrace.open_step [%d]: %s (%s)" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string kind) name;
   step
 
 (** [change_step] helps creating a [Step_change] during [finalize]. *)
@@ -724,6 +708,7 @@ let change_step ~(ast_before:trm) ~(style:output_style) ~(ast_after:trm) ~(time_
     step_debug_msgs = [];
   } in
   { step_kind = Step_change;
+    step_context = the_trace.cur_context;
     step_ast_before = ast_before;
     step_style_before = style;
     step_sub = [];
@@ -964,8 +949,12 @@ and close_step ?(discard = false) ?(on_error = false) ?(check:step_tree option) 
             then raise (TraceFailure "close_step: not closing the expected step")
       end;
       if !debug_open_close_step
-        then eprintf "%sTrace.close_step[%d]: %s\n" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string step.step_kind);
-      if not discard then begin
+        then Tools.debug "%sTrace.close_step[%d]: %s" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string step.step_kind);
+      if discard then
+        (* Discarded step id should be reused to prevent creating holes in recorded step ids.
+           Non contiguous step ids break the JS displaying the trace. *)
+        the_trace.next_step_id <- step.step_infos.step_id
+      else begin
         (* Finalize the step, by reversing the list of substeps and computing validity *)
         finalize_step ~on_error step;
         (* Folding step into parent substeps *)
@@ -1082,7 +1071,7 @@ and typing_step ~name (f : unit -> unit) : unit =
    information is properly set up.
    WARNING: reparsing discards all the marks in the AST. *)
 and reparse ?(update_cur_ast = true) ?(info : string option) ?(parser: parser option) () : unit =
-  parsing_step (reparse_ast ~update_cur_ast ?info ?parser)
+  parsing_step (reparse_ast ~update_cur_ast ?info)
 
 and recompute_resources (): unit =
   if not the_trace.cur_ast_typed then
@@ -1107,7 +1096,7 @@ and recompute_resources_on_ast () : unit =
 (** [retypecheck] is currently implemented as [reparse], but in the future it
    would use a dedicated typechecker. *)
 let retypecheck ?(info : string option) ?(parser: parser option) () =
-  typing_step ~name:"Retypecheck" (reparse_ast ?info ?parser)
+  typing_step ~name:"Retypecheck" (reparse_ast ?info)
 
 (** [close_step_kind_if_needed k] is used by
    [close_smallstep_if_needed] and [close_bigstep_if_needed] *)
@@ -1257,44 +1246,37 @@ let target_iter_step (istep : int) (f: unit->unit) : unit =
    like at the start of the program.  *)
 let invalidate () : unit =
   close_logs();
-  the_trace.context <- trace_dummy.context;
-  the_trace.cur_ast <- trace_dummy.cur_ast;
-  the_trace.cur_ast_typed <- trace_dummy.cur_ast_typed;
-  the_trace.step_stack <- trace_dummy.step_stack
+  the_trace.next_step_id <- 0;
+  the_trace.cur_context <- context_dummy;
+  the_trace.cur_ast <- trm_dummy;
+  the_trace.cur_style <- Style.default_custom_style();
+  the_trace.cur_ast_typed <- true;
+  the_trace.step_stack <- []
 
-(** [get_initial_ast ~parser filename]: gets the initial ast before applying any trasformations
-     [parser] - choose which parser to use for parsing the source code
+(** [get_initial_ast filename]: gets the initial ast before applying any trasformations
      [filename] - filename of the source code
      returns header and ast. *)
-let get_initial_ast ~(parser : parser) (filename : string) : (string * trm) =
-  parse ~parser filename
+let get_initial_ast (filename : string) : (string * trm) =
+  parse filename
 
 (** [init f]: initializes the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
    The history is initialized with the initial AST.
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f].
-   [~style] allows to specify a printing style for ASTs; the default
    style is computed based on the global flags.   *)
-(* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) ?(program : string option) (filename : string) : unit =
+let init ~(prefix : string) ~(program : string) (filename : string) : unit =
   ast_just_before_first_call_to_restore_original := None; (* TEMPORARY HACK *)
   invalidate ();
   let basename = Filename.basename filename in
-  let program = Option.value program ~default:basename in
   let extension = Filename.extension basename in
-  let default_prefix = Filename.remove_extension filename in
-  let ml_file_name =
-    if Tools.pattern_matches "_inlined" default_prefix
-      then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
-      else default_prefix in
+  let script_filename = program ^ ".ml" in
   (* TODO: could optimize the setting of the flag only_big_step by
      testing the target line only for "bigstep", without computing
      all of compute_ml_file_excerpts *)
-  if true (*!Flags.analyse_stats || Flags.is_execution_mode_trace()*) then begin
-    let src_file = (ml_file_name ^ ".ml") in
-    if Sys.file_exists src_file then begin
-      let lines = Xfile.get_lines src_file in
+  if !Flags.analyse_stats || Flags.is_execution_mode_trace() then begin
+    if Sys.file_exists script_filename then begin
+      let lines = Xfile.get_lines script_filename in
       (* printf "%s\n" (Tools.list_to_string ~sep:"\n" lines); *)
       ml_file_excerpts := compute_ml_file_excerpts lines;
       (* Automatically set the flag [only_big_steps] if targeted line  *)
@@ -1304,7 +1286,7 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
         let regexp_bigstep = Str.regexp "^[ ]*\\(bigstep\\)" in
         let starts_with_bigstep = Str.string_match regexp_bigstep line_str 0 in
         if starts_with_bigstep then begin
-          printf "Reporting diff for big-step\n";
+          Tools.debug "Reporting diff for big-step";
           Flags.only_big_steps := true;
         end
       end;
@@ -1313,16 +1295,16 @@ let init ?(prefix : string = "") ?(style:output_style option) ~(parser: parser) 
   start_stats := get_cur_stats ();
   last_stats := !start_stats;
 
-  let prefix = if prefix = "" then default_prefix else prefix in
-  let clog = init_logs prefix in
+  init_logs prefix;
 
-  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser filename) in
+  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast filename) in
 
-  let context = { parser; extension; prefix; header; clog } in
-  the_trace.context <- context;
+  let context = { extension; prefix; header } in
+  the_trace.next_step_id <- 0;
+  the_trace.cur_context <- context;
   the_trace.cur_ast <- cur_ast;
   the_trace.cur_ast_typed <- false;
-  the_trace.cur_style <- begin match style with Some s -> s | None -> Style.default_custom_style() end;
+  the_trace.cur_style <- Style.default_custom_style();
   the_trace.step_stack <- [];
   open_root_step ~source:program ();
 
@@ -1432,11 +1414,6 @@ let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : s
   ) hist_and_descr
   *)
 
-(* TODO: move  *)
-let cmd s =
-  (* FOR DEBUG Printf.printf "execute: %s\n" s; flush stdout; *)
-  ignore (Sys.command s)
-
 (* Only for debugging purposes.
   [trace_custom_postprocessing] is a function applied to all ast-after that
   are dumped in the trace *)
@@ -1461,9 +1438,61 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
     )
 *)
 
+let code_to_temp_file ?(temp_prefix="code") (style:output_style) (ctx: context) (ast: trm): string =
+  (* Patch the AST with custom processing, only for debugging purposes *)
+  let ast = !trace_custom_postprocessing ast in
+  let filename = Filename.temp_file temp_prefix ctx.extension in
+  let prefix = Filename.remove_extension filename in
+  output_prog style ctx prefix ast;
+  filename
+
+let get_code ?(temp_prefix) (style:output_style) (ctx: context) (ast: trm): string =
+  let filename = code_to_temp_file ?temp_prefix style ctx ast in
+  let prog = Xfile.get_contents filename in
+  Sys.remove filename;
+  prog
+
+(** [get_code_before s] returns the code before the step [s] starts as a string. *)
+let get_code_before ?(style:output_style option) (s:step_tree) : string =
+  let style = Option.value ~default:s.step_style_before style in
+  get_code ~temp_prefix:"before" style s.step_context s.step_ast_before
+
+(** [get_code_after s] returns the code after the step [s] ends as a string. *)
+let get_code_after ?(style:output_style option) (s:step_tree) : string =
+  let style = Option.value ~default:s.step_style_after style in
+  get_code ~temp_prefix:"after" style s.step_context s.step_ast_after
+
+let compute_before_after_and_diff ?(style:output_style option) ~(drop_before_after: bool) (s:step_tree) : string * string * string =
+  (* Handle the light-diff feature, which eliminates top-level functions that
+     are physically identical in the AST before and after *)
+  let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
+
+  (* Dump the two files, and evaluate the diff command *)
+  let style_before = Option.value ~default:s.step_style_before style in
+  let before_file = code_to_temp_file ~temp_prefix:"before" style_before s.step_context ast_before in
+  let style_after = Option.value ~default:s.step_style_after style in
+  let after_file = code_to_temp_file ~temp_prefix:"after" style_after s.step_context ast_after in
+  let sDiff = Tools.get_process_output (sprintf "git diff --ignore-all-space --no-index -U10 %s %s" before_file after_file) in
+  let sBefore = if drop_before_after then "" else Xfile.get_contents before_file in
+  let sAfter = if drop_before_after then "" else Xfile.get_contents after_file in
+  Sys.remove before_file;
+  Sys.remove after_file;
+  sBefore, sAfter, sDiff
+
+(** [compute_diff s] returns the string describing the diff associated with the step [s].
+    The AST are printed using the style_before and style_after of [s]. *)
+let compute_diff ?(style:output_style option) (s:step_tree) : string =
+  let _, _, diff = compute_before_after_and_diff ?style ~drop_before_after:true s in
+  diff
+
+(** [compute_before_after_and_diff s] returns not just the diff, but also the contents
+    of the files that correspond to the AST-before and AST-after for the step [s]. *)
+let compute_before_after_and_diff ?(style:output_style option) (s:step_tree) : string * string * string =
+  compute_before_after_and_diff ?style ~drop_before_after:false s
+
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
-let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
+let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(out:string->unit)  (s:step_tree) : unit =
   let i = s.step_infos in
   (* Determine whether diff needs to be computed for this step *)
   let is_mode_step_trace = Flags.is_execution_mode_step () in
@@ -1477,55 +1506,37 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
     || s.step_kind = Step_big
     || s.step_kind = Step_small *)
   let should_compute_diff =
-       ((not is_mode_step_trace) || is_substep_of_targeted_line)
-    && (!Flags.detailed_trace ||
+      (not !Flags.serialize_trace)
+      && ((not is_mode_step_trace) || is_substep_of_targeted_line)
+      && (!Flags.detailed_trace ||
         match s.step_kind with (* select steps that deserve a diff in non-detailed mode, based on their kind *)
         | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
         | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false)
     in
   (* Recursive calls *)
-  let aux = dump_step_tree_to_js ~is_substep_of_targeted_line get_next_id out in
-  (* LATER: move these functions elsewhere? *)
-  let compute_command_base64 (s : string) : string =
-    cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
-    Xfile.get_contents ~newline_at_end:false "tmp.base64"
-    in
-  (* Assign ids to sub-steps *)
-  let sub_ids = List.map (fun _ -> get_next_id()) s.step_sub in
+  let aux = dump_step_tree_to_js ~is_substep_of_targeted_line root_id out in
   (* Dump Json for this node *)
-  let ctx = the_trace.context in
-  let sDiff =
+  let sBefore, sAfter, sDiff =
     if should_compute_diff then begin
-      (* handling light diff *)
-      let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
-      (* custom processing for debugging *)
-      let disp_ast_before = !trace_custom_postprocessing ast_before in
-      let disp_ast_after = !trace_custom_postprocessing ast_after in
-      (* computing diff *)
-      begin try
-        output_prog s.step_style_before ctx "tmp_before" disp_ast_before;
-        output_prog s.step_style_after ctx "tmp_after" disp_ast_after;
+      try
+        let sBefore, sAfter, sDiff = compute_before_after_and_diff s in
+        Some sBefore, Some sAfter, Some sDiff
       with e ->
         (* Prevent any exception during printing to corrupt the entire trace *)
         let exn = Printexc.to_string e in
-        Printf.eprintf "Error while saving trace:\n%s\n" exn
-      end;
-      Some (compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp")
-    end else None in
-  let sBefore, sAfter =
-    if should_compute_diff && !Flags.detailed_trace then begin
-      let sBefore = Some (compute_command_base64 "cat tmp_before.cpp") in
-      let sAfter = Some (compute_command_base64 "cat tmp_after.cpp") in
-      sBefore, sAfter
-    end else None, None
+        Tools.warn "Error while saving trace:\n%s" exn;
+        None, None, None
+    end else
+      None, None, None
     in
+  let id = s.step_infos.step_id - root_id in
   let json = (* TODO: check if ~html_newlines:true is needed for certain calls to [Json.str] *)
     Json.obj_quoted_keys [
       "id", Json.int id;
       "kind", Json.str (step_kind_to_string s.step_kind);
       "exectime", Json.float i.step_exectime;
       "name", Json.str i.step_name;
-      "script", Json.base64 (Base64.encode_exn i.step_script);
+      "script", Json.base64 (i.step_script);
       "script_line", Json.(optionof int) (if i.step_script_line = Some (-1) then None else i.step_script_line);
         (* TODO: avoid use of -1 for undef line *)
       "args", Json.(listof (fun (k,v) -> Json.obj_quoted_keys ["name", str k; "value",str v])) i.step_args;
@@ -1535,9 +1546,9 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       "justif", Json.(listof str) i.step_justif;
       "tags", Json.(listof str) i.step_tags;
       "debug_msgs", Json.(listof str) i.step_debug_msgs;
-      "sub", Json.(listof int) sub_ids;
-      "ast_before", Json.(optionof base64) sBefore;
-      "ast_after", Json.(optionof base64) sAfter;
+      "sub", Json.(listof int) (List.map (fun sub -> sub.step_infos.step_id - root_id) s.step_sub);
+      "code_before", Json.(optionof base64) sBefore;
+      "code_after", Json.(optionof base64) sAfter;
       "diff", Json.(optionof base64) sDiff;
     ] in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
@@ -1545,7 +1556,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
   if is_smallstep_of_targeted_line
     then out (sprintf "var startupOpenStep = %d;\n" id);
   (* Process sub-steps recursively *)
-  List.iter2 aux sub_ids s.step_sub
+  List.iter aux s.step_sub
 
 
 (** [dump_trace_to_js step]: writes into a file called [`prefix`_trace.js] the
@@ -1563,37 +1574,65 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (get_next_id:un
       justif: ["..", ".." ],
       script: window.atob("..."),
       scriptline: 23, // possibly undefined
-      astBefore: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
-      astAfter: window.atob("..."), // NOT YET IMPLEMENTED
+      astBefore: window.atob("..."), // could also an id of an source code stored in a different array, for improved factorization
+      astAfter: window.atob("..."),
       diff: window.atob("..."), // could be slow if requested for all!
       sub: [ j1, j2, ... jK ]  // ids of the sub-steps
       }
 ]}
    *)
-let dump_trace_to_js ?(prefix : string = "") (step:step_tree) : unit =
+let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : string option) (step:step_tree) : unit =
   let prefix =
-    if prefix = "" then the_trace.context.prefix else prefix in
+    if prefix = "" then step.step_context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
-  if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
+  if !debug_notify_dump_trace then Tools.debug "Dumping trace to '%s'" filename;
   let out_js = open_out filename in
   let out = output_string out_js in
-  let next_id = ref (-1) in
-  let get_next_id () : int =
-    incr next_id;
-    !next_id in
-  if !Flags.trace_for_webview
-    then out "var webview = true;\n";
+  (* Print additional information *)
+  begin match serialized_trace_timestamp with
+  | None ->
+    out "var serialized_trace = null;\n"
+  | Some timestamp ->
+    let ser_filename = prefix ^ ".trace" in
+    out (sprintf "\
+      var serialized_trace = \"%s\";\n\
+      var serialized_trace_timestamp = \"%s\";\n"
+      ser_filename timestamp);
+  end;
+  (* Since step_ids are attributed in execution order they always correspond to depth first traversal.
+    We also use depth first traversal step id in the JS trace.
+    No matter which step is the JS root, there is a constant offset between serialized trace and JS step ids. *)
+  let root_id = step.step_infos.step_id in
+  out (sprintf "var root_serialized_step_id = %d;\n" root_id);
+  (* Print the trace, each step produces a line of the form "step[i] = ...;" *)
   out "var steps = [];\n";
-  let idroot = get_next_id() in
-  dump_step_tree_to_js ~is_substep_of_targeted_line:false get_next_id out idroot step;
-  (* Clean up the files generated by the functions located in dump_step_tree_to_js_and_return_id
-     LATER: move this elsewhere *)
-  cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp";
+  dump_step_tree_to_js ~is_substep_of_targeted_line:false root_id out step;
   close_out out_js
 
-(** [dump_full_trace_to_js ()] invokes [dump_trace_to_js] on the root step *)
-let dump_full_trace_to_js ?(prefix : string = "") () : unit =
-  dump_trace_to_js ~prefix (get_root_step())
+(** [serialize_full_trace_and_get_timestamp] serializes the current trace object
+    into a file named "prefix.trace", and return the timestamp of that file
+    as a string. *)
+let serialize_full_trace_and_get_timestamp ~(prefix : string) : string =
+  let ser_filename = prefix ^ ".trace" in
+  let out_file = open_out_bin ser_filename in
+  Marshal.to_channel out_file (get_root_step()) [];
+  close_out out_file;
+  let timestamp = string_of_float ((Unix.stat ser_filename).st_mtime) in
+  timestamp
+
+(** [dump_full_trace_to_js ()] invokes [dump_trace_to_js] on the root step,
+     and serialize the trace object into "prefix.trace" if the flag
+     [serialized_trace] is set.
+     In case of serialization, the JS file contains an additional line of the form:
+     [var serialized_trace_timestamp = "...";] storing the timestamp of the
+     serialized trace (as a string). *)
+let dump_full_trace_to_js ~(prefix : string) : unit =
+  let serialized_trace_timestamp =
+    if !Flags.serialize_trace
+      then Some (serialize_full_trace_and_get_timestamp ~prefix)
+      else None
+    in
+  dump_trace_to_js ~prefix ?serialized_trace_timestamp (get_root_step())
 
 (** [step_tree_to_doc step_tree] takes a step tree and gives a string
    representation of it, using indentation to represent substeps *)
@@ -1604,6 +1643,7 @@ let step_tree_to_doc (step_tree:step_tree) : document =
     let space = blank 1 in
     let tab = blank (depth * ident_width) in
        tab
+    ^^ string (sprintf "%d:" i.step_id) ^^ space
     ^^ string (step_kind_to_string s.step_kind)
     ^^ space
     ^^ string (sprintf "(%dms)" (int_of_float (i.step_exectime *. 1000.)))
@@ -1626,11 +1666,11 @@ let step_tree_to_file (filename:string) (step_tree:step_tree) =
   close_out out
 
 (** [dump_trace_to_textfile] dumps a trace into a text file *)
-let dump_trace_to_textfile ?(prefix : string = "") () : unit =
+let dump_trace_to_textfile ~(prefix : string) : unit =
   let prefix =
-    if prefix = "" then the_trace.context.prefix else prefix in
+    if prefix = "" then the_trace.cur_context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in
-  if !debug_notify_dump_trace then eprintf "Dumping trace to '%s'\n" filename;
+  if !debug_notify_dump_trace then Tools.debug "Dumping trace to '%s'" filename;
   step_tree_to_file filename (get_root_step())
 
 (** [output_prog_check_empty style ctx prefix ast_opt]: similar to [output_prog], but it
@@ -1647,9 +1687,8 @@ let output_prog_check_empty (style : output_style) (ctx : context) (prefix : str
 
 (** [produce_diff_output_internal step] is an auxiliary function for [produce_diff_output]. *)
 let produce_diff_output_internal (step:step_tree) : unit =
-  let trace = the_trace in
-  let ctx = trace.context in
-  let prefix = (* ctx.directory ^ *) ctx.prefix in
+  let ctx = step.step_context in
+  let prefix = ctx.prefix in
   (* Extract the two ASTs and the styles that should be used for the diff *)
   let ast_before, ast_after = step.step_ast_before, step.step_ast_after in
   let style_before, style_after = step.step_style_before, step.step_style_after in
@@ -1667,9 +1706,7 @@ let produce_diff_output_internal (step:step_tree) : unit =
 
 (** [produce_trace_output step] is an auxiliary function for [produce_output_and_exit] *)
 let produce_trace_output (step:step_tree) : unit =
-  let trace = the_trace in (* LATER: cleanup and factorize next 3 lines *)
-  let ctx = trace.context in
-  let prefix = (* ctx.directory ^*) ctx.prefix in
+  let prefix = step.step_context.prefix in
   dump_trace_to_js ~prefix step
 
 (** [extract_show_step] extracts a [Step_show] nested as unique substep in depth
@@ -1719,7 +1756,7 @@ let produce_output_and_exit () : unit =
   | Execution_mode_full_trace -> raise (TraceFailure "produce_output_and_exit should be in a 'step' execution mode")
   end;
   (* Print debug messages of the current step *)
-  List.iter (fun s -> printf "%s\n" s) step.step_infos.step_debug_msgs;
+  List.iter (fun s -> Tools.debug "%s" s) step.step_infos.step_debug_msgs;
   (* Exit *)
   close_logs ();
   exit 0
@@ -1769,7 +1806,7 @@ let open_bigstep ~(line : int) (title:string) : unit =
   ignore (open_step ~kind:Step_big ~name:"" ~step_script:title ~line ());
   (* Handle progress report *)
   if !Flags.report_big_steps then begin
-    Printf.printf "Executing bigstep %s%s\n"
+    Tools.debug "Executing bigstep %s%s"
       (if line <> -1 then sprintf "at line %d" line else "")
       title
   end
@@ -1881,11 +1918,11 @@ let finalize ?(on_error = false) () : unit =
   (* Check the trace invariant (optional) *)
   try check_the_trace ~final:true
   with Invalid_trace msg ->
-    Tools.warn (sprintf "NON-FATAL ERROR: Trace.check_the_trace reports: %s\n" msg)
+    Tools.error "Trace.check_the_trace reports: %s" msg
 
 (** [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
 let finalize_on_error ~(exn: exn) : unit =
-  Printf.eprintf "%s\n" (Printexc.to_string exn); (* FIXME: not here? *)
+  Tools.error "%s" (Printexc.to_string exn); (* FIXME: not here? *)
   error_step exn;
   let rec close_all_steps () : unit =
     match the_trace.step_stack with
@@ -1939,18 +1976,13 @@ let bigstep (s : string) : unit =
      as comments near the end of the output file *)
 let dump (style : output_style) ?(store_in_trace = true) ?(prefix : string = "") ?(append_comments : string = "") () : unit =
   let action () =
-    let ctx = the_trace.context in
+    let ctx = the_trace.cur_context in
     let prefix =
       if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
     output_prog style ctx (prefix ^ "_out") (the_trace.cur_ast);
     if append_comments <> "" then begin
       let filename = prefix ^ "_out.cpp" in
-      (* open in append mode *)
-      let c = open_out_gen [Open_append; Open_creat] 0o666 filename in
-      output_string c "/*\n";
-      output_string c append_comments;
-      output_string c "\n*/\n";
-      close_out c
+      Xfile.append_contents filename ("/*\n" ^ append_comments ^ "\n*/\n");
     end
     in
   if store_in_trace
@@ -2004,7 +2036,7 @@ let set_ast_for_target_iter (t:trm) : unit =
 (** [get_context ()]: returns the current context. Like [ast()], it should only be called
    within the scope of [Trace.apply] or [Trace.call]. *)
 let get_context () : context =
-  the_trace.context
+  the_trace.cur_context
 
 (** [get_style ()]: read the current style using for printing ASTs in the trace. *)
 let get_style () : output_style =
@@ -2022,3 +2054,5 @@ let update_style () : unit =
 
 (* LATER:  need to reparse to hide spurious parentheses *)
 (* LATER: add a mechanism for automatic simplifications after every step *)
+
+

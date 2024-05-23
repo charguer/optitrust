@@ -1,23 +1,24 @@
 #!/bin/bash
 
 # Usage:
-#   ./tools/view_result.sh ${DIRNAME} ${FILENAME} ${LINENUMBER} ${MODE}
+#   ./tools/view_result.sh ${MODE} ${FILEPATH} ${LINENUMBER} ${OPTIONS}
 #
 # where MODE is one of:
-# - view_step_diff: view the diff at the targeted line
-# - view_step_trace: view the trace at the targeted line
-# - view_full_trace: view the full execution trace
+# - step_diff: view the diff at the targeted line
+# - step_result: view the result after executing the targeted line
+# - step_trace: view the trace at the targeted line
+# - full_trace: view the full execution trace
+# - standalone_full_trace: view the full execution trace as a standalone webpage
 # - save_inter: save the AST at the specified line
-# - view_step_diff_from_inter: execute the script from the line specified in
+# - step_diff_from_inter: execute the script from the line specified in
 #     the last call to this script performed in mode save_inter
 #  FUTURE USE:
-# - view_full_trace_from_inter
-# - view_result: DEPRECATED, but could be revived in the future
+# - full_trace_from_inter
 
 # Additional arguments are passed to the execution of the script
 #
 # Example usage:
-#    ./tools/view_result.sh ./tests/interact interact_traceview 21 view_step_diff
+#    ./tools/view_result.sh step_diff ./tests/interact/interact_traceview.ml 21
 #
 # This script is meant to be called from VScode via a keybinding,
 # via run_action.sh to enable the loading of a browser window.
@@ -40,20 +41,20 @@ TIMER1=`date +%s%3N`
 set -euo pipefail
 
 # Parsing arguments
-DIRNAME=$1
-FILEBASE=$2
+MODE=$1
+FILEPATH=$(readlink -f -- "$2")
 LINE=$3
-MODE=$4
-OPTIONS="${@:5}"
+OPTIONS="${@:4}"
+
+DIRNAME=$(dirname $FILEPATH)
+FILEBASE=$(basename $FILEPATH .ml)
 
 # Additional environment variables.
 ${FLAGS:=""}
-
-# DEPRECATED? TRACEFLAGS are used only in trace mode.
-${TRACEFLAGS:=""}
+${CODE_VIEWER:="code -r"}
 
 # Path to the tools and optitrust folder
-TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0";)")
+TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0")")
 export OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")
 SRC_FOLDER=$(readlink -f ${OPTITRUST_FOLDER}/src)
 
@@ -88,15 +89,19 @@ fi
 
 # Add EXECUTION MODE
 
-if [ "${MODE}" = "view_step_diff" ] || [ "${MODE}" = "view_step_diff_from_inter" ]; then
+if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ] || [ "${MODE}" = "step_result" ]; then
 
   OPTIONS="${OPTIONS} -mode step-diff"
 
-elif [ "${MODE}" = "view_step_trace" ]; then
+elif [ "${MODE}" = "step_trace" ]; then
 
   OPTIONS="${OPTIONS} -mode step-trace"
 
-elif [ "${MODE}" = "view_full_trace" ] || [ "${MODE}" = "view_full_trace_from_inter" ]; then
+elif [ "${MODE}" = "standalone_full_trace" ]; then
+
+  OPTIONS="${OPTIONS} -mode standalone-full-trace"
+
+elif [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
   OPTIONS="${OPTIONS} -mode full-trace"
 
@@ -109,11 +114,6 @@ else
 
   echo "view_result.sh invalid MODE argument: ${MODE}" >> /dev/stderr
   exit 1
-fi
-
-# Add TRACEFLAGS
-if [ "${MODE}" = "view_step_trace" ] || [ "${MODE}" = "view_full_trace" ] || [ "${MODE}" = "view_full_trace_from_inter" ]; then
-  OPTIONS="${OPTIONS} ${TRACEFLAGS}"
 fi
 
 # Add TARGET LINE
@@ -144,9 +144,9 @@ if [ "${MODE}" = "save_inter" ]; then
 
   echo "Produced ${SRCBASE}.ml"
 
-elif [ "${MODE}" = "view_step_diff_from_inter" ] || [ "${MODE}" = "view_full_trace_from_inter" ]; then
+elif [ "${MODE}" = "step_diff_from_inter" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
-  # In mode "view_step_diff_from_inter", we generate a file called "${FILEBASE}_fast.ml"
+  # In mode "step_diff_from_inter", we generate a file called "${FILEBASE}_fast.ml"
   # by taking "${FILEBASE}_inter.ml" and adding to it the lines from "${FILEBASE}.ml"
   # at the position after the line specified for the call with mode "save_inter".
 
@@ -218,11 +218,15 @@ OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS
 
 TIMER7=`date +%s%3N`
 
-if [ "${MODE}" = "view_step_diff" ] || [ "${MODE}" = "view_step_diff_from_inter" ]; then
+if [ "${MODE}" = "step_diff" ] || [ "${MODE}" = "step_diff_from_inter" ]; then
 
-  ${TOOLS_FOLDER}/open_diff.sh ${SRCBASE} cpp ${MODE}
+  ${TOOLS_FOLDER}/open_diff.sh ${SRCBASE} cpp
 
-elif [ "${MODE}" = "view_step_trace" ] || [ "${MODE}" = "view_full_trace" ] || [ "${MODE}" = "view_full_trace_from_inter" ]; then
+elif [ "${MODE}" = "step_trace" ] || [ "${MODE}" = "standalone_full_trace" ]; then
+
+  ${TOOLS_FOLDER}/open_standalone_trace.sh ${SRCBASE}
+
+elif [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; then
 
   ${TOOLS_FOLDER}/open_trace.sh ${SRCBASE}
 
@@ -230,10 +234,9 @@ elif [ "${MODE}" = "save_inter" ]; then
 
   echo "Produced ${SRCBASE}_before.cpp as checkpoint for line ${LINE}"
 
-elif [ "${MODE}" = "view_result" ]; then
-  # for future use
+elif [ "${MODE}" = "step_result" ]; then
 
-  ${TOOLS_FOLDER}/open_result.sh ${SRCBASE}
+  ${CODE_VIEWER} ${SRCBASE}_after.cpp
 
 else
 

@@ -91,7 +91,7 @@ let measure_stats (f : unit -> 'a) : 'a * stats =
 
 let print_stats (msg : string) (f : unit -> 'a) : 'a =
   let (r, s) = measure_stats f in
-  Printf.printf "%s: %s\n" msg (stats_to_string s);
+  Tools.info "%s: %s" msg (stats_to_string s);
   r
 
 (* [stats ~cond ~name f]: computes and prints stats only if [Flags.analyse_stats] is set to true. *)

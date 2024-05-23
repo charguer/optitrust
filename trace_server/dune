@@ -1,0 +1,15 @@
+(executable
+ (name trace_server)
+ (public_name optitrust_trace_server)
+ (libraries dream optitrust)
+)
+
+; The rule trace_server/ensure_up_to_date updates trace_server and kills potentially running outdated servers
+(rule
+ (target ensure_up_to_date)
+ (deps trace_server.exe)
+ (action
+  (progn
+   (with-accepted-exit-codes (or 0 1) (run killall -q optitrust_trace_server))
+   (run touch ensure_up_to_date)
+  )))

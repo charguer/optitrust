@@ -36,8 +36,8 @@ type lvar = { v : var; l : label; }
 (* [lvar_to_string] returns a string representation of the labelled variable
    [lv]. *)
 let lvar_to_string (lv : lvar) : string =
-  let q_str = String.concat "" (List.map (fun q -> q ^ "::") lv.v.qualifier) in
-  let id_str = if lv.v.id = inferred_var_id then "?" else (string_of_int lv.v.id) in
+  let q_str = String.concat "" (List.map (fun q -> q ^ "::") lv.v.namespaces) in
+  let id_str = if has_unset_id lv.v then "?" else (string_of_int lv.v.id) in
   let member = if lv.l <> "" then lv.l ^ "#" else lv.l in
   q_str ^ lv.v.name ^ "#" ^ member ^ id_str
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 TOOLS_FOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
+TOOLS_FOLDER=$(realpath --relative-to=. ${TOOLS_FOLDER})
 WEB_VIEW_FOLDER="${TOOLS_FOLDER}/web_view"
 
 FILEBASE=$1

@@ -1,9 +1,8 @@
-
-# This script opens ${FILEPATH} in a fresh browser, unless a windows
+# This script opens ${URL} in a fresh browser, unless a windows
 # with title ${WINDOWTITLE} already exists, in which case this window
 # in brought to the front and its contents is refreshed.
 
-FILEPATH=$1
+URL=$1
 WINDOWTITLE=$2
 
 # SELECT BROWSER
@@ -22,27 +21,24 @@ fi
 if [ -z "${WINDOWTITLE}" ]; then
 
     ## Launch fresh browser
-    # echo "${OPTITRUST_BROWSER} ${FILEPATH}"
-    nohup ${OPTITRUST_BROWSER} ${FILEPATH} >/dev/null 2>&1 &
+    nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &
     # TODO factorize
 
 else
 
-  WID=`xdotool search --screen 0 --name "${WINDOWTITLE}" | head -1`
+  WID=`xdotool search --name "${WINDOWTITLE}" | head -1`
 
   if [ -n "${WID}" ]; then
-    #echo "found window to reuse"
     # Immediately brings the window to the front
     # echo ${WID}
     # xdotool windowactivate $WID
     xdotool windowactivate --sync $WID
-    #echo "now refreshing"
     # Refresh the page
     xdotool key ctrl+r
 
   else
     ## Launch fresh browser
-    nohup ${OPTITRUST_BROWSER} ${FILEPATH} >/dev/null 2>&1 &
+    nohup ${OPTITRUST_BROWSER} ${URL} >/dev/null 2>&1 &
 
   fi
 

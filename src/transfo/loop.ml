@@ -326,9 +326,9 @@ begin
     let hoist_path = Constr.resolve_target_exactly_one dest (Trace.ast ()) in
     let (common_path, hoist_relpath, target_relpath) = Path.split_common_prefix hoist_path target_path in
     (*
-    Printf.printf "common path: %s\n" (Path.path_to_string common_path);
-    Printf.printf "hoist relative path: %s\n" (Path.path_to_string hoist_relpath);
-    Printf.printf "target relative path: %s\n" (Path.path_to_string target_relpath);
+    Tools.debug "common path: %s" (Path.path_to_string common_path);
+    Tools.debug "hoist relative path: %s" (Path.path_to_string hoist_relpath);
+    Tools.debug "target relative path: %s" (Path.path_to_string target_relpath);
     *)
     let hoist_before_index = match hoist_relpath with
     | Dir_before bi :: [] -> bi
@@ -376,7 +376,7 @@ let%transfo hoist_expr (name : string)
                (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   targets_iter_with_loop_lists ~indep ~dest (fun loops p ->
-    (* Printf.printf "%s\n" (Tools.list_to_string (List.map string_of_int loops)); *)
+    (* Tools.debug "%s" (Tools.list_to_string (List.map string_of_int loops)); *)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
 
@@ -623,7 +623,7 @@ let%transfo fusion_targets ?(into : fuse_into = FuseIntoFirst) ?(nest_of : int =
   let (before, inc_after) = Xlist.split_at pos ordered_indices in
   let after = Xlist.drop 1 inc_after in
   let to_fuse = (List.rev before) @ after in
-  (* Printf.printf "fuse_into: %i\n" fuse_into;
+  (* Tools.debug "fuse_into: %i" fuse_into;
   List.iter (Printf.printf "%i ") to_fuse;
   Printf.printf "\n"; *)
   may_rename_loop_body (target_of_path (p_seq @ [Dir_seq_nth (fst fuse_into)]));
@@ -902,7 +902,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
   let ({ index = i }, body, _contract) = trm_inv
     ~error:"Loop.reorder_at: expected simple loop."
     trm_for_inv loop_trm in
-  (* Printf.printf "before i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
+  (* Tools.debug "before i = '%s':\n%s" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
 
   (* recursively bring the loop down if necessary *)
   if i.name <> index then begin
@@ -920,7 +920,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
       fission [cMark m_instr; tAfter];
       let m_instr'' = next_mark () in
       Loop_swap.f ~mark_inner_loop:m_instr'' (target_of_path (path_of_loop_surrounding_mark_current_ast m_instr));
-      (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
+      (* Tools.debug "after i = '%s':\n%s" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
     );
   end;
 
@@ -1018,7 +1018,7 @@ let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
     match remaining_loops with
     | [] -> ()
     | loop_index :: rl -> begin
-      (* Printf.printf "index = '%s'\n" index; *)
+      (* Tools.debug "index = '%s'" index; *)
       let m = bring_down_loop loop_index next_mark p in
       aux rl next_mark (path_of_loop_surrounding_mark_current_ast m)
     end

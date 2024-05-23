@@ -228,15 +228,15 @@ and print_attribute style (a : attribute) : document =
 
 (* [print_var]: converts [v] into a docuemnt. *)
 and print_ast_var style (v : var) : document =
-  (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
+  (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^
   string v.name ^^ (if style.print_var_id then string ("#" ^ string_of_int v.id) else empty)
 
 (* [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =
   print_ast_var style.ast v
 
-and print_typconstr ((qualifier, name) : typconstr) : document =
-  (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
+and print_typconstr ((namespaces, name) : typconstr) : document =
+  (concat_map (fun q -> string q ^^ string "::") namespaces) ^^
   string name
 
 (* [print_trm_desc style t]: converts the description of trm [t] to pprint document *)
@@ -367,7 +367,11 @@ and print_trm_desc style (t : trm_desc) : document =
     let dt = print_trm style dcls in
     print_node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
       [string name; string (string_of_bool inline); dt])
-  | Trm_template _ ->  print_node "Trm_template _"
+  | Trm_template (template_params, t) ->
+    let template_params = List.map (fun (name, _, _) ->
+      (* LATER: Handle template_param_kind and the variadic flag *)
+      string name) template_params in
+    print_node "Trm_template " ^^  print_list template_params ^^ print_trm style t
   | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
   | Trm_fun (tvl , ty_opt, b, _) ->
     let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ style ty | None -> string "None" end in
@@ -566,7 +570,6 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Class_constructor ck -> print_constructor_kind ck
  | Class_destructor dk -> print_destructor_kind dk
  | Member_initializer -> string "Member_initializer"
- | Redundant_decl -> string "Redundant_decl"
  | Brace_init -> string "Brace_init"
  | Clang_cursor _ -> string "Clang_cursor"
  | Display_null_uppercase -> string "Display_null_uppercase"

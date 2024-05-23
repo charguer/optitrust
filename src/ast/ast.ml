@@ -4,24 +4,27 @@
 {1 Variables}
 
 The type [var] is used to represent program variables for local variables, function names, function arguments and loop indices.
-A [var] carries a name as a string, a unique identifier and optionally a namespace qualifier.
+A [var] carries a name as a string, a unique identifier and optionally a namespace path.
 A program variable has a binding point (let, let fun, for), and a number of occurences.
 
 {2 When the AST is in a stable state}
 
-{b Identification Invariant}: In a stable AST, every variable carries a non-dummy identifier ([>= 0]).
+{b Identification Invariant}: In a stable AST, every variable carries a non-null identifier ([<> 0]).
 
 {b Uniqueness Invariant}: In a given AST, two different binding points must introduce variables using different ids, regardless of their names.
 To ensure uniqueness, transformations must call {!Trm.trm_copy} when duplicating subterms.
 
 {b Scoping Invariant}: If an occurence of a variable [x] refers to a binding point of 'x' according to the scoping rules of the programming language, then the two variables must have the same identifier.
 
-We provide an easy way to preregister global toplevel variables using {!Trm.toplevel_var}. The varaible returned by this call will be considered predeclared and the id will be shared by the toplevel binder of the same name.
+Global toplevel variables are assigned an id based on their fully qualified name. These ids are negative. Call {!Trm.toplevel_var name} to get a global toplevel variable with the given name.
+
+TODO: Check that this is still correct:
+We provide an easy way to preregister global toplevel variables using {!Trm.toplevel_var}. The variable returned by this call will be considered predeclared and the id will be shared by the toplevel binder of the same name.
 Calls to Trm.toplevel_var must be done before the scope resolution, otherwise the id will not correspond to the one already set in the AST.
 
 {2 Transition states}
 
-After parsing, identifiers are set to the dummy value [-1].
+After parsing, identifiers are set to the dummy value [0].
 The function {!Scope_computation.infer_var_ids} produces an ast with correct identifiers according to the scoping rules.
 This function is called during the encoding/decoding phases.
 
@@ -38,8 +41,6 @@ In order to pretty print ASTs with identifiers in a deterministic and human-read
 This function renames program variables to give each binder a unique name.
 For example 'x' with id #18 could be printed as 'x__0' and 'x' with id #29 as 'x__1'.
 
-TODO: call [Flags.display_var_ids := true] in your script to activate this renaming.
-
 {1 AST design choices}
 
 Some AST nodes such as Trm_for must respect the invariant that their body is always a Trm_seq.
@@ -48,9 +49,8 @@ and still distinguish the body from the whole loop (or any other construction th
 target resolution.
 *)
 
-(* for debugging and message printing *)
-let printf = Printf.printf
-let eprintf = Printf.eprintf
+(* raise exception with format string *)
+let failwith msg = Printf.ksprintf failwith msg
 let sprintf = Printf.sprintf
 
 (*****************************************************************************)
@@ -94,33 +94,36 @@ type loc = int (* TODO: remove this? and rename location to loc for conciseness 
 type mark = string
 
 (* [marks]: a list of marks *)
-and marks = mark list
+type marks = mark list
 
 let no_mark = ""
 
 (* [mlists]: generalized lists, see module mlist.ml *)
 type 'a mlist = 'a Mlist.t
 
-(* [strm]: string representation of a term, as provided by the user *)
-type strm = string
-
-(* [styp]: string representation of a type, as provided by the user *)
-type styp = string
-
 type var_id = int
-(** [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
-type var = { qualifier: string list; name: string; id: var_id }
+let unset_var_id = 0
 
-let inferred_var_id = -1
-let dummy_var_id = -2
+(** [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
+type var = { namespaces: string list; name: string; id: var_id }
+
+let has_unset_id var = var.id = unset_var_id
+let is_toplevel_var var = var.id < 0
+
+let qualified_name_to_string namespaces name =
+  String.concat "" (List.map (fun q -> q ^ "::") namespaces) ^ name
 
 let var_to_string (v : var) : string =
-  let q_str = String.concat "" (List.map (fun q -> q ^ "::") v.qualifier) in
-  let id_str = if v.id = inferred_var_id then "?" else (string_of_int v.id) in
-  q_str ^ v.name ^ "#" ^ id_str
+  let qualified_name = qualified_name_to_string v.namespaces v.name in
+  if is_toplevel_var v then
+    qualified_name
+  else if has_unset_id v then
+    qualified_name ^ "?"
+  else
+    qualified_name ^ "#" ^ string_of_int v.id
 
 let assert_var_id_set ~error_loc v =
-  if not (v.id >= 0) then failwith (sprintf "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v))
+  if has_unset_id v then failwith "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v)
 
 let var_eq (v1 : var) (v2 : var) : bool =
   assert_var_id_set ~error_loc:"var_eq" v1;
@@ -157,18 +160,13 @@ let var_map_of_list l = Var_map.of_seq (List.to_seq l)
 (* let vars_to_string vs = Tools.list_to_string vs *)
 let vars_to_string vs = Trace_printers.(list_arg_printer var_to_string vs)
 
-(* [next_var_int]: generates an integer for variable names *)
-let next_var_int : unit -> int = Tools.fresh_generator ~never_reset:true ()
+(* [next_var_id]: generates an integer for variable names *)
+let next_var_id : unit -> int = Tools.fresh_generator ()
 
-(* [next_fresh_var_int]: generates an integer for variable names that is safe to
-   reset with [reset_fresh_var_int]. *)
-let (next_fresh_var_int, reset_fresh_var_int) : (unit -> int) * (unit -> unit) =
-  Tools.resetable_fresh_generator ()
-
-(* [fresh_var]: creates a variable name based on [next_var_int] generator *)
-let fresh_var_name ?(prefix = "_v") (): string =
-  let id = next_fresh_var_int () in
-  prefix ^ string_of_int id
+(* [fresh_var_name]: creates a fresh variable name *)
+let fresh_var_name : ?prefix:string -> unit -> string =
+  let next_number = Tools.fresh_generator () in
+  fun ?(prefix = "_v") () -> prefix ^ string_of_int (next_number ())
 
 module Qualified_name = struct
   type t = string list * string
@@ -444,9 +442,6 @@ and cstyle_annot =
   | Class_constructor of constructor_kind
   | Class_destructor of destructor_kind
   | Member_initializer
-
-  (* LATER: what use? *)
-  | Redundant_decl
 
   (* used for int[2] = { 3, 4 }, the trm_array is annotated with [Brace_init] *)
   | Brace_init
@@ -1259,7 +1254,6 @@ let get_member_type (t : trm) (rf : record_field) : typ =
 type style = {
   print_contract_internal_repr: bool; (* print internal loop contract *)
   print_var_id: bool; (* print internal variable identifiers *)
-  print_generated_ids: bool; (* print auto-generated names *)
   print_string_repr: bool; (* print string representation for expressions *)
   print_mark: bool; (* print marks *)
   print_annot: bool; (* print annotations *)
@@ -1272,7 +1266,6 @@ type style = {
 let default_style () : style = {
   print_contract_internal_repr = false;
   print_var_id = !Flags.debug_var_id;
-  print_generated_ids = !Flags.always_name_resource_hyp;
   print_string_repr = !Flags.debug_stringreprs;
   print_mark = true;
   print_annot = false; (* LATER: add support for this *)
@@ -1283,7 +1276,6 @@ let default_style () : style = {
 let style_for_reparse () : style = {
   print_contract_internal_repr = true;
   print_var_id = false;
-  print_generated_ids = false;
   print_string_repr = false;
   print_mark = false;
   print_annot = false;

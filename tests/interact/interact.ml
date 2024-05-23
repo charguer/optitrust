@@ -7,14 +7,14 @@
 
 open Optitrust
 open Target
-
+open Prelude
 
 let _ = Run.script_cpp (fun () ->
 
   !! Label.add "m0" [cVarDef "a"];
-  show [cVarDef "a"];
-  show [cVarDef "b"];
-  show [tFirst; cFunDef "main"; cStrict; dBody];
+  ShowAt.trm [cVarDef "a"];
+  ShowAt.trm [cVarDef "b"];
+  ShowAt.trm [tFirst; cFunDef "main"; cStrict; dBody];
 
   (* uncomment to test wrong path:
   let ps = Target.resolve_target [cVarDef "a"] in
@@ -30,7 +30,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];
-  show [cVarDef "a"];
+  ShowAt.trm [cVarDef "a"];
   (* Showing operation with reparse *)
   !! Label.add "m2" [cVarDef "a"];
   (* Showing two operations at once *)

@@ -57,8 +57,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
     rename its declaration and all its occurrences. *)
 let%transfo rename ~into:(new_name : string) (tg : target) : unit =
   Trace.justif "correct if there is no name conflict (checked through variable ids)";
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.rename new_name i t p) tg
+  Target.apply_at_target_paths_in_seq (Variable_core.rename_at new_name) tg
 
 (* [init_detach tg]: expects the target [tg] to point at a variable initialization.
    It then splits the instruction into a variable declaration and a set operation. *)

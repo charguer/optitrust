@@ -37,10 +37,9 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "view_step_diff"
+          "step_diff",
+          "${relativeFile}",
+          "${lineNumber}"
         ]
       },
       {
@@ -57,11 +56,29 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
+          "step_diff",
+          "${relativeFile}",
           "${lineNumber}",
-          "view_step_diff",
           "-print-optitrust-syntax"
+        ]
+      },
+      {
+        "label": "View step result",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "step_result",
+          "${relativeFile}",
+          "${lineNumber}"
         ]
       },
       {
@@ -78,14 +95,13 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
+          "full_trace",
+          "${relativeFile}",
           "${lineNumber}",
-          "view_full_trace"
         ]
       },
       {
-        "label": "View trace detailed",
+        "label": "View standalone trace",
         "type": "shell",
         "command": "tools/view_result.sh",
         "options": {
@@ -98,33 +114,29 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
+          "standalone_full_trace",
+          "${relativeFile}",
+          "${lineNumber}"
+        ]
+      },
+      {
+        "label": "View standalone detailed trace",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "standalone_full_trace",
+          "${relativeFile}",
           "${lineNumber}",
-          "view_full_trace",
           "-detailed-trace"
-        ]
-      },
-      {
-        "label": "View trace for webview",
-        "type": "shell",
-        "command": "tools/view_result.sh",
-        "options": {
-          "cwd": "${workspaceFolder}",
-          "shell": {
-            "args": ["-i"]
-          }
-        },
-        "presentation": {
-          "clear": true
-        },
-        "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "view_full_trace",
-          "-detailed-trace",
-          "-trace-for-webview"
         ]
       },
       {
@@ -141,10 +153,9 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
+          "full_trace_from_inter",
+          "${relativeFile}",
           "${lineNumber}",
-          "viewfull_trace_from_inter"
         ]
       },
       {
@@ -161,10 +172,9 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
+          "step_trace",
+          "${relativeFile}",
           "${lineNumber}",
-          "view_step_trace",
           "-detailed-trace"
         ]
       },
@@ -182,10 +192,9 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
+          "step_diff",
+          "${relativeFile}",
           "${lineNumber}",
-          "view_step_diff",
           "-only-big-steps"
         ]
       },
@@ -203,10 +212,9 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
+          "step_diff_from_inter",
+          "${relativeFile}",
           "${lineNumber}",
-          "view_step_diff_from_inter"
         ]
       },
       {
@@ -223,10 +231,9 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
+          "step_diff_from_inter",
+          "${relativeFile}",
           "${lineNumber}",
-          "view_step_diff_from_inter",
           "-only-big-steps"
         ]
       },
@@ -244,10 +251,9 @@
           "clear": true
         },
         "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "save_inter"
+          "save_inter",
+          "${relativeFile}",
+          "${lineNumber}"
         ]
       },
       {

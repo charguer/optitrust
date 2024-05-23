@@ -162,9 +162,16 @@ pre {
   font-size: 0.8em;
 }
 
+#stepMsgDiv {
+  padding-left: 10px;
+  padding-right: 10px;
+  font-family: monospace;
+  background: #ff9d60;
+}
+
 #debugMsgDiv {
-  margin-left: 10px;
-  margin-right: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
   font-family: monospace;
 }
 
@@ -186,6 +193,7 @@ pre {
 .right-pane {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   flex: 1 1 0;
   overflow: hidden;
 }

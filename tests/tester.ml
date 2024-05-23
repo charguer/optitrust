@@ -514,25 +514,25 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
     let same = ref false in
     (* First, attempt to compare original files *)
     if Sys.file_exists orig_exp && (Unix.stat orig_exp).st_mtime >= (Unix.stat filename_exp).st_mtime then begin
-      if !debug_match_expected then Tools.info (sprintf "tested correctness without clang-format: %s" filename_out);
+      if !debug_match_expected then Tools.info "tested correctness without clang-format: %s" filename_out;
       let same_orig = same_contents filename_out orig_exp in
       if same_orig then same := true;
     end;
     (* If no original file, or if original files mismatch, compute clang-format and compare *)
     if not !same then begin
       (* format [filename_out], generating the file [orig_out] on the way *)
-      Trace.cleanup_cpp_file_using_clang_format ~uncomment_pragma:true filename_out;
+      Trace.cleanup_cpp_file_using_clang_format filename_out;
       if not (Sys.file_exists orig_out)
         then fail "match_expected assumes keep_file_before_clang_format to be true";
       (* now ready to compare formatted files *)
       let same_formatted = same_contents filename_out filename_exp in
       (* if debug_match_expected then Tools.info (sprintf "correctness is %s" (if same then "true" else "false"));*)
-      if !debug_match_expected then Tools.info (sprintf "checked correctness using clang-format: %s" filename_out);
+      if !debug_match_expected then Tools.info "checked correctness using clang-format: %s" filename_out;
       if same_formatted then begin
         (* for next time, save the orig_out as orig_exp, because the result
           of formatting both files using clang-format is identical *)
         ignore (Sys.command (sprintf "cp %s %s" orig_out orig_exp));
-        if !debug_match_expected then Tools.info (sprintf "saved unformatted output for future comparisons: %s." orig_exp);
+        if !debug_match_expected then Tools.info "saved unformatted output for future comparisons: %s." orig_exp;
       end;
       if same_formatted then same := true;
     end;
@@ -588,7 +588,7 @@ let action_run (tests : string list) : unit =
   (* Delete existing output files to avoid considering them in case an error occurs *)
   let delete_output test =
     let rm (f:string) : unit =
-      (*if !debug_match_expected then Tools.info (sprintf "rm %s" f);*)
+      (*if !debug_match_expected then Tools.info "rm %s" f;*)
       ignore (do_is_ko (sprintf "rm -f %s > /dev/null" f)) in
     let prefix = Filename.remove_extension test in
     let filename_out = sprintf "%s_out.cpp" prefix in
@@ -742,7 +742,7 @@ let action_addexp (tests : string list) : unit =
     let outfile = prefix ^ "_out.cpp" in
     let expfile = prefix ^ "_exp.cpp" in
     if not !dry_run then
-      Trace.cleanup_cpp_file_using_clang_format ~uncomment_pragma:true outfile;
+      Trace.cleanup_cpp_file_using_clang_format outfile;
     (* TODO: the tester program checks that `foo_exp.cpp` does
   not yet exist *)
     run_action ~print:true (sprintf "cp %s %s" outfile expfile);

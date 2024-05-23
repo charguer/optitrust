@@ -1,7 +1,8 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.ignore_serialized := true (* because member functions *)
+let _ = Flags.use_member_functions()
+
 (**
 let _ = Flags.bypass_cfeatures := true
 *)

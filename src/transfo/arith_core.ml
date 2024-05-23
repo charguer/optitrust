@@ -150,7 +150,7 @@ let is_integer_typ (typ : typ option) : bool =
 
 let unsupported_binop (op : binary_op) =
   let s = Tools.document_to_string (Ast_to_text.print_binop op) in
-  failwith ("Arith_core: unsupported binop: " ^ s)
+  failwith "Arith_core: unsupported binop: %s" s
 
 let expr_make ?(loc : loc) ~(typ : typ option) (desc : expr_desc) : expr =
   { expr_desc = desc;
@@ -180,7 +180,7 @@ let expr_one (typ : typ option) : expr =
     | Typ_int -> expr_int 1
     | Typ_float -> expr_float 1.0
     | Typ_double -> expr_double 1.0
-    | _ -> failwith (Printf.sprintf "unsupported type: %s" (AstC_to_c.typ_to_string t))
+    | _ -> failwith "unsupported type: %s" (AstC_to_c.typ_to_string t)
     end
   | None -> failwith "expr_one: requires a known type"
 
@@ -482,7 +482,7 @@ let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr)
     let e2 = f e1 in
     let e3 = (if cleanup then normalize_one else identity) e2 in
     if debug_rec
-      then Printf.printf "Step:\n\t%s\n\t%s\n\t%s\n" (expr_to_string no_atoms e)
+      then Tools.debug "Step:\n\t%s\n\t%s\n\t%s" (expr_to_string no_atoms e)
         (expr_to_string no_atoms e2) (expr_to_string no_atoms e3);
     e3 in
   if recurse
@@ -492,7 +492,7 @@ let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr)
 (* [apply_bottom_up_debug e]: function used only for debugging purposes *)
 let apply_bottom_up_debug (e : expr) : expr =
   let f ei =
-    if debug then Printf.printf "Bottom-up %s\n" (expr_to_string no_atoms ei);
+    if debug then Tools.debug "Bottom-up %s" (expr_to_string no_atoms ei);
     ei in
   apply_bottom_up f e
 
@@ -501,7 +501,7 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
   let f ei =
     let ej = (if cleanup then normalize_one else identity) ei in
     if debug
-      then Printf.printf "Bottom-up-if:\n\t%s\n\t%s\n"
+      then Tools.debug "Bottom-up-if:\n\t%s\n\t%s"
             (expr_to_string no_atoms ei) (expr_to_string no_atoms ej); ej
     in
   apply_bottom_up_if recurse cleanup f e
@@ -513,10 +513,10 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
 
 (* [create_or_reuse_atom_for_trm atoms t]: auxiliary function for [trm_to_naive_expr]*)
 let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
-  let occ = ref inferred_var_id in
+  let occ = ref 0 in
   Atom_map.iter (fun id tid ->
-    if !occ = inferred_var_id && are_same_trm t tid then occ := id) !atoms;
-    if !occ = inferred_var_id
+    if !occ = 0 && are_same_trm t tid then occ := id) !atoms;
+    if !occ = 0
       then begin
         let new_id = next_id() in
         atoms := Atom_map.add new_id t !atoms;
@@ -551,9 +551,9 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           | false, false -> false
           | _ ->
             if !Flags.report_all_warnings
-              then Tools.warn (sprintf "arith types differ: %s and %s\n"
+              then Tools.warn "arith types differ: %s and %s"
                     (Xoption.to_string AstC_to_c.typ_to_string t1.typ)
-                    (Xoption.to_string AstC_to_c.typ_to_string t2.typ));
+                    (Xoption.to_string AstC_to_c.typ_to_string t2.typ);
             false
             (* LATER: failwith "should not happen" *)
          in
@@ -591,12 +591,12 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
 let trm_to_expr (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
   if debug && false
-    then Printf.printf "Expr before conversion: %s\n" (Ast_to_text.ast_to_string t);
+    then Tools.debug "Expr before conversion: %s" (Ast_to_text.ast_to_string t);
   if debug
-    then Printf.printf "Expr after conversion: %s\n" (expr_to_string atoms expr);
+    then Tools.debug "Expr after conversion: %s" (expr_to_string atoms expr);
   let res = normalize expr in
   if debug
-    then Printf.printf "Expr after normalization: %s\n" (expr_to_string atoms res);
+    then Tools.debug "Expr after normalization: %s" (expr_to_string atoms res);
   res, atoms
 
 (* [expr_to_trm atoms e]: converts expr [e] to trm  *)
@@ -894,7 +894,7 @@ let update_typ (mem_t : typ option ref) (new_t : typ option) : unit =
       | None -> mem_t := Some nt
       | Some mt ->
         if (mt <> nt) && !Flags.report_all_warnings then
-          Tools.warn (sprintf "arith types differ: %s and %s" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt))
+          Tools.warn "arith types differ: %s and %s" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt)
       end
 
 let compute_wexpr_sum ~(typ : typ option) ?(loc) (wes:wexprs) : wexpr =
@@ -1033,12 +1033,12 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
     | _ -> Atom_map.map f_atom atoms
     in
   let expr2 = f expr in
-  if debug then Printf.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
+  if debug then Tools.debug "Expr after transformation: %s" (expr_to_string atoms expr2);
   (* let expr3 = normalize expr2 in
-  if debug then Printf.printf "Expr after normalization: %s\n" (expr_to_string atoms expr3); *)
+  if debug then Tools.debug "Expr after normalization: %s" (expr_to_string atoms expr3); *)
   expr_to_trm atoms2 expr2
   )
-  with e -> Printf.printf "Arith.simplify_at_node: error on processing at loc %s\n" (loc_to_string t.loc); raise e
+  with e -> Tools.debug "Arith.simplify_at_node: error on processing at loc %s" (loc_to_string t.loc); raise e
 
 (* [simplify indepth f t]: converts node [t] to an expression, then applies the
      simplifier [f], then it converts it back to a trm

@@ -123,18 +123,17 @@ let reset_all_generators () =
   List.iter (fun reset -> reset ()) !generator_reset_closures
 
 (* [resetable_fresh_generator()]: returns a pair of a generator and its reset function *)
-let resetable_fresh_generator ?(never_reset = false) () : (unit -> int) * (unit -> unit) =
+let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
   let next () = incr n; !n in
   let reset () = n := 0 in
-  if not never_reset then
-    generator_reset_closures := reset :: !generator_reset_closures;
+  generator_reset_closures := reset :: !generator_reset_closures;
   next, reset
 
 (* [fresh_generator()]: generates a function that can be used to return
    the next integer at each invokation. *)
-let fresh_generator ?(never_reset = false) () : (unit -> int) =
-  fst (resetable_fresh_generator ~never_reset ())
+let fresh_generator () : (unit -> int) =
+  fst (resetable_fresh_generator ())
 
 let next_tmp_name: unit -> string =
   let gen = fresh_generator () in
@@ -253,6 +252,23 @@ let hashtbl_to_list (h : ('a, 'b) Hashtbl.t) : ('a * 'b) list =
   Hashtbl.fold (fun k v acc -> (k, v) :: acc) h []
 
 (******************************************************************************)
+(*                          Command line processes                         *)
+(******************************************************************************)
+
+(** [get_process_output ?input cmd]: executes the process [cmd] and return its standard output as a string.
+    Optionally give it the [input] string on stdin. *)
+let get_process_output ?(input:string option) (cmd: string): string =
+  let cmd_output, cmd_input = Unix.open_process cmd in
+  begin match input with
+  | Some input -> output_string cmd_input input
+  | None -> ()
+  end;
+  let output = In_channel.input_all cmd_output in
+  ignore (Unix.close_process (cmd_output, cmd_input));
+  output
+
+
+(******************************************************************************)
 (*                                Bash Utilities                              *)
 (******************************************************************************)
 
@@ -282,18 +298,20 @@ module Terminal = struct
     Printf.sprintf "%s%s%s" c msg no_color
 
   let report (color:color) (header:string) (msg:string) : unit =
-    Printf.printf "%s: %s\n" (with_color color header) msg
+    Printf.eprintf "%s: %s\n" (with_color color header) msg
 end
 
-let error (msg : string) : unit =
-  Terminal.(report red "ERROR" msg)
+let error_fun = ref Terminal.(report red "ERROR")
+let error msg = Printf.ksprintf !error_fun msg
 
-let warn (msg : string) : unit =
-  Terminal.(report orange "WARNING" msg)
+let warn_fun = ref Terminal.(report orange "WARNING")
+let warn msg = Printf.ksprintf !warn_fun msg
 
-let info (msg : string) : unit =
-  Terminal.(report blue "INFO" msg)
+let info_fun = ref Terminal.(report blue "INFO")
+let info msg = Printf.ksprintf !info_fun msg
 
+let debug_fun = ref (Printf.eprintf "%s\n")
+let debug msg = Printf.ksprintf !debug_fun msg
 
 (******************************************************************************)
 (*                          Functor Applications                         *)

@@ -109,6 +109,13 @@ let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : tr
 let trm_add_cstyle (cs : cstyle_annot) (t : trm) : trm =
   apply_on_cstyles (fun cstyles -> cs :: cstyles) t
 
+(* [trm_add_cstyle_clang_cursor cursor t] adds a clang cursor information as a style on [t],
+   but only if the flag for using clang cursor is activated *)
+let trm_add_cstyle_clang_cursor (cursor : Clang.cxcursor) (t : trm) : trm =
+  if !Flags.use_clang_cursor
+    then trm_add_cstyle (Clang_cursor cursor) t
+    else t
+
 (* [trm_filter_cstyle pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
 let trm_filter_cstyle (pred : cstyle_annot -> bool) (t : trm) : trm =
   apply_on_cstyles (fun cstyles -> List.filter (fun cs -> pred cs) cstyles) t
@@ -145,33 +152,50 @@ let trm_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
   trm_make ~annot ?loc ?typ ?ctx (Trm_var v)
 
 (** Creates a new variable, using a fresh identifier. *)
-let new_var ?(qualifier : string list = []) (name : string) : var =
-  let id = next_var_int () in { qualifier; name; id }
+let new_var ?(namespaces: string list = []) (name : string) : var =
+  let id = next_var_id () in
+  { namespaces; name; id }
 
 (** Refers to a variable by name, letting its identifier be inferred.
     This variable cannot be stored in a [varmap] before its identifier is inferred. *)
-let name_to_var ?(qualifier : string list = []) (name : string) : var =
-  { qualifier; name; id = inferred_var_id }
+let name_to_var ?(namespaces: string list = []) (name : string) : var =
+  { namespaces; name; id = unset_var_id }
 
-let dummy_var = { qualifier = []; name = ""; id = dummy_var_id }
+module Toplevel_id = struct
+  type t = var_id
+  let compare = Int.compare
+  let equal = Int.equal
+  let hash id = id
+  let from_qualified_name ~namespaces name =
+    let qualified_name = qualified_name_to_string namespaces name in
+    let hash = Hashtbl.hash qualified_name in
+    - hash - 1
+end
 
-(** Map of toplevel variables. Note that some of them can be declared but never defined. *)
-let toplevel_vars: var_id Qualified_map.t ref = ref Qualified_map.empty
+module Toplevel_hashtbl = Hashtbl.Make(Toplevel_id)
 
-(* TODO: Decide if we want to change the pattern to fail if the toplevel_var already exists. *)
-(** [toplevel_var]: return the toplevel variable with the given name
+(** Set of toplevel variables already attributed.
+    This is used by toplevel_var to check collisions and perform hash consing. *)
+let toplevel_vars = Toplevel_hashtbl.create 32
+
+(** [toplevel_var]: return the toplevel variable with the given name.
   A new variable identifier is predeclared if the variable did not exist.
-    *)
-let toplevel_var ?(qualifier : string list = []) (name : string) : var =
-  match Qualified_map.find_opt (qualifier, name) !toplevel_vars with
+  Note that *)
+let toplevel_var ?(namespaces: string list = []) (name : string) : var =
+  let id = Toplevel_id.from_qualified_name ~namespaces name in
+  match Toplevel_hashtbl.find_opt toplevel_vars id with
+  | Some var when var.namespaces = namespaces && var.name = name -> var
+  | Some _ -> failwith "Hash conflict for toplevel variables. This should not happen unless you create a stupid amount of toplevel variables. If you are extremely unlucky, maybe try to add a seed to the Toplevel_uid.from_name function."
   | None ->
-    let v = new_var ~qualifier name in
-    toplevel_vars := Qualified_map.add (qualifier, name) v.id !toplevel_vars;
-    v
-  | Some id -> { qualifier; name; id }
+      let var = { namespaces; name; id } in
+      Toplevel_hashtbl.add toplevel_vars id var;
+      var
 
-let trm_toplevel_var ?(qualifier : string list = []) (name : string) : trm =
-  trm_var (toplevel_var ~qualifier name)
+(** A dummy variable for special cases. *)
+let dummy_var = toplevel_var ""
+
+let trm_toplevel_var ?(namespaces: string list = []) (name : string) : trm =
+  trm_var (toplevel_var ~namespaces name)
 
 (* [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
@@ -1533,7 +1557,7 @@ let get_typ_arguments (t : trm) : typ list =
   ) [] c_annot
 
 let var_has_name (v : var) (n : string) : bool =
-  v.qualifier = [] && v.name = n
+  v.namespaces = [] && v.name = n
 
 (* [is_trm_record t]: checks if [t] has [Trm_record] or [Trm_array] description or not. *)
   let is_trm_record (t : trm) : bool =
@@ -1587,8 +1611,9 @@ let trm_seq_enforce (t : trm) : trm =
 
 let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
   if !Flags.report_all_warnings && !Flags.trm_combinators_warn_unsupported_case then begin
-    Tools.warn (sprintf "don't know how to '%s' on '%s'" f_name (trm_desc_to_string t.desc));
-    Printf.printf "<suppressing similar warnings henceforth>\n";
+    Tools.warn "don't know how to '%s' on '%s'\n\
+      <suppressing similar warnings henceforth>"
+      f_name (trm_desc_to_string t.desc);
     Flags.trm_combinators_warn_unsupported_case := false;
   end;
   t
@@ -2163,32 +2188,37 @@ let trm_iter_vars
 let trm_erase_var_ids (t : trm) : trm =
   let rec aux t =
     match trm_var_inv t with
-    | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~qualifier:x.qualifier x.name)
+    | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~namespaces:x.namespaces x.name)
     | _ -> trm_map aux t
   in
   aux t
 
-(* [prepare_for_serialize t] should be called before serializing an ast. *)
-let prepare_for_serialize (t:trm) : trm =
-  let rec aux t =
-    trm_map aux (drop_clang_cursor { t with ctx = unknown_ctx() } )
-    in
-  aux t
+(* [prepare_for_serialize ?remove_ctx t] should be called before serializing an ast.
+   This function is a no-op if [remove_ctx=false] and the flag [use_clang_cursor] is not set. *)
+let prepare_for_serialize ?(remove_ctx : bool = false) (t:trm) : trm =
+  if not remove_ctx && not !Flags.use_clang_cursor then t else
+  begin
+    let rec aux t =
+      let t = if remove_ctx then { t with ctx = unknown_ctx() } else t in
+      trm_map aux (drop_clang_cursor t)
+      in
+    aux t
+  end
 
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let trm_copy (t : trm) : trm =
   let map_binder var_map v _ =
-    if v.id = inferred_var_id then begin
+    if has_unset_id v then begin
       Tools.warn "A binder should always be introduced with a fresh id, not with an inferred id.";
       (var_map, v)
     end else begin
-      if (Var_map.mem v var_map) then failwith (sprintf "trm_copy found a second binder for %s" (var_to_string v));
-      let new_v = new_var ~qualifier:v.qualifier v.name in
+      if (Var_map.mem v var_map) then failwith "trm_copy found a second binder for %s" (var_to_string v);
+      let new_v = new_var ~namespaces:v.namespaces v.name in
       (Var_map.add v new_v var_map, new_v)
     end
   in
   let map_var var_map v =
-    if v.id = inferred_var_id then v
+    if has_unset_id v then v
     else match Var_map.find_opt v var_map with
     | Some nv -> nv
     | None -> v
@@ -2237,6 +2267,8 @@ let rec unfold_if_resolved_evar (t: trm) (evar_ctx: unification_ctx): trm * unif
   | Trm_var x ->
     begin match Var_map.find_opt x evar_ctx with
     | Some (Some t) ->
+      (* Avoid cycles in this function, this can help debugging *)
+      let evar_ctx = Var_map.remove x evar_ctx in
       let t, evar_ctx = unfold_if_resolved_evar t evar_ctx in
       (* Path compression in case of cascading evars *)
       t, Var_map.add x (Some t) evar_ctx
@@ -2486,3 +2518,4 @@ let rec simpl_array_get_get (t : trm) : trm = (* DEPRECATED? *)
     | _ -> trm_map aux t
     end
   | _ -> trm_map aux t
+
