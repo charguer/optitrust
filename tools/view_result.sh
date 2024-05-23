@@ -42,7 +42,7 @@ set -euo pipefail
 
 # Parsing arguments
 MODE=$1
-FILEPATH=$2
+FILEPATH=$(readlink -f -- "$2")
 LINE=$3
 OPTIONS="${@:4}"
 
@@ -54,7 +54,7 @@ ${FLAGS:=""}
 ${CODE_VIEWER:="code -r"}
 
 # Path to the tools and optitrust folder
-TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0";)")
+TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0")")
 export OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")
 SRC_FOLDER=$(readlink -f ${OPTITRUST_FOLDER}/src)
 

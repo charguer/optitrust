@@ -119,9 +119,6 @@ let get_ctx () : ctx =
 let name_to_typconstr ?(qualifier = []) (n : string) : typconstr =
   [], n
 
-(* [redundant_decl]: a reference used for checking if the declaration is redundant or not. *)
-let redundant_decl = ref false
-
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
 let get_typid_for_type (qualifier : string list) (name : string) : int  =
    let tid = Qualified_map.find_opt (qualifier, name) !ctx_tconstr in
@@ -260,12 +257,17 @@ let trm_for_of_trm_for_c (t : trm) : trm =
   | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
 
 
+(* [redundant_template_definition_type]: Set by [tr_type_desc] when the type corresponds to a redundant template definition. *)
+let redundant_template_definition_type = ref false
+
+(* Raised by [tr_decl] when the current declaration is a redundant template definition. *)
+exception RedundantTemplateDefinition
+
 (* [tr_type_desc ?loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
 (* FIXME: #odoc why is annotation required on callees? *)
 let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types : bool = true) (d : type_desc) : typ =
-  redundant_decl := false;
   match d with
   | Pointer q ->
     let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
@@ -378,7 +380,7 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
     let tr_e = tr_expr e in
     wrap_const ~const (typ_decl tr_e)
   | SubstTemplateTypeParm tys ->
-    redundant_decl := true;
+    redundant_template_definition_type := true;
     wrap_const ~const (typ_template_param tys)
 
   | InjectedClassName {desc = q_d; _} ->
@@ -918,28 +920,17 @@ and tr_attribute (loc : location) (a : Clang.Ast.attribute) : attribute =
 
 (* [tr_decl_list dl]: translates a list of declarations *)
 and tr_decl_list (dl : decl list) : trms =
-  let loc =
-    (* some recursive calls might be on the empty list *)
-    match dl with
-    | d :: _ -> loc_of_node d
-    | _ -> None
-  in
   match dl with
-  | [] -> []
-  | [d] -> [tr_decl d]
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
-                                        complete_definition = _; _}} ::
+                                        complete_definition = _; _}} as record_node ::
     {decoration = _; desc = TypedefDecl {name = tn; underlying_type = _q}} ::
-    dl' ->
+    dl' when rn = "" || rn = tn ->
+    (* typedef struct rn { int x, y; } tn; construction is encoded weirdly as two consecutive decls. *)
+    let loc = loc_of_node record_node in
     begin match k with
       | Struct ->
-        (* typed { int x,ef struct rny; } tn;
-           is only allowed if rn is empty or same as tn. *)
-        if rn <> "" && rn <> tn
-          then loc_fail loc (Printf.sprintf "Clang_to_astRawC.Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);
-
         (* First add the constructor name to the context, needed for recursive types *)
         let tc = name_to_typconstr tn in
         let tid = next_typconstrid () in
@@ -979,11 +970,14 @@ and tr_decl_list (dl : decl list) : trms =
 
       | _ -> loc_fail loc "Clang_to_astRawC.tr_decl_list: only struct records are allowed"
     end
-
-  | d :: d' :: dl ->
-    let td = tr_decl d in
-    let tl = tr_decl_list (d' :: dl) in
-    td :: tl
+  | d :: dl ->
+    begin try
+      let td = tr_decl d in
+      td :: tr_decl_list dl
+    with RedundantTemplateDefinition ->
+      tr_decl_list dl
+    end
+  | [] -> []
 
 (* [tr_member_initialized_list ?loc init_list]: translates class member initializer lists. *)
 (* FIXME: #odoc why is annotation required on callees? *)
@@ -1041,7 +1035,9 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let {calling_conv = _; result = _; parameters = po;
          exception_spec = _; _} = t in
 
+    redundant_template_definition_type := false;
     let tt = (tr_type_desc : ?loc:trm_loc -> ?const:bool -> ?tr_record_types:bool -> type_desc -> typ) ?loc (FunctionType t) in
+    if !redundant_template_definition_type then raise RedundantTemplateDefinition;
     let res = begin match tt.typ_desc with
       | Typ_fun (args_t, out_t) ->
         begin match po with
@@ -1053,7 +1049,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               | None -> trm_lit ?loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  [] tb
+            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t [] tb
           | Some {non_variadic = pl; variadic = _} ->
             let args =
               List.combine
@@ -1070,12 +1066,11 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               | None -> trm_lit ?loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  args tb
+            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t args tb
         end
       |_ -> loc_fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
-    let res = trm_add_cstyle_clang_cursor (cursor_of_node d) res in
-    if !redundant_decl then trm_add_cstyle Redundant_decl res else res
+    trm_add_cstyle_clang_cursor (cursor_of_node d) res
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; nested_name_specifier = nns; _};
                static = st; const = c; _} ->
     let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns in

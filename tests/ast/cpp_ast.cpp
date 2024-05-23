@@ -25,3 +25,9 @@ class test {
     return;
   }
 };
+
+template<typename T> void foo(T) {}
+
+void a() {
+  foo(45);
+}

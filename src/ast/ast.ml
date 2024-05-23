@@ -434,9 +434,6 @@ and cstyle_annot =
   | Class_destructor of destructor_kind
   | Member_initializer
 
-  (* LATER: what use? *)
-  | Redundant_decl
-
   (* used for int[2] = { 3, 4 }, the trm_array is annotated with [Brace_init] *)
   | Brace_init
 

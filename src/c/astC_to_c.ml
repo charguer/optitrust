@@ -484,7 +484,6 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
           hardline ^^ string "else" ^^ blank 1 ^^ de
       end
     | Trm_seq tl ->
-      let tl = Mlist.filter (fun t -> not (trm_has_cstyle Redundant_decl t)) tl in
       if trm_has_cstyle Multi_decl t then
         dattr ^^ multi_decl_to_doc style loc (Mlist.to_list tl)
       else if (not !Flags.display_includes) && (trm_is_include t) then
