@@ -878,7 +878,7 @@ function viewDetailsFull() {
     options[key] = false;
   }
   options["view_diff"] = true;
-  options["typeinfo_annot"] = true;
+  options["typing_style_full"] = true;
   options["basic_modules"] = true;
   options["args"] = true;
   options["exectime"] = true;
