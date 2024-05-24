@@ -511,7 +511,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
     (* Function call *)
     | Trm_apps ({ desc = Trm_var _} as f, args) ->
       (*let (_, qvar) = trm_inv trm_var_inv f in
-      let _ = Printf.printf "Getting deps of function: %s\n" qvar in*)
+      let _ = Tools.debug "Getting deps of function: %s" qvar in*)
       let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
       List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t ->
         match (Apac_core.trm_strip_accesses_and_references_and_get t).desc with
@@ -549,9 +549,9 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
     | Trm_apps (_, tl) -> List.fold_left aux dis tl
     (* Variable *)
     | Trm_var (_, qv) ->
-      let _ = Printf.printf "Trying to find %s\n" qv.qvar_str in
+      let _ = Tools.debug "Trying to find %s" qv.qvar_str in
       let (depth, _) = Hashtbl.find vd qv.qvar_str in
-      let _ = Printf.printf "Found %s\n" qv.qvar_str in
+      let _ = Tools.debug "Found %s" qv.qvar_str in
       let di = { dep_depth = depth; dep_in = true; dep_shared = false;} in
       (qv.qvar_str, di) :: dis
     | _ -> dis

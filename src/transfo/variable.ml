@@ -391,7 +391,7 @@ let%transfo inline_and_rename ?(simpl: Transfo.t = default_inline_simpl) (tg : t
           renames (ByList [(x.name,y.name)]) tg_scope
         | _ ->
           (* DEBUG: *)
-          (*Printf.printf "For variable %s\n got value %s\n" (var_to_string y) (Ast_to_text.ast_to_string init);*)
+          (*Tools.debug "For variable %s\n got value %s" (var_to_string y) (Ast_to_text.ast_to_string init);*)
           trm_fail tg_trm "Variable.inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
         end
     | _ -> trm_fail t "Variable.inline_and_rename: expected the declaration of the variable which is going to be inlined"
@@ -489,7 +489,7 @@ let%transfo bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : 
   let mark_let = Mark.next() in
   let mark_occ = Mark.next() in
   Variable_basic.bind ~const ~is_ptr ~mark_let:mark_let ~mark_occ:mark_occ ?typ ~remove_nobrace:false fresh_name [cMark mark_fst];
-  (*Printf.printf "ex2: %s\n" (AstC_to_c.ast_to_string (Trace.ast()))*)
+  (*Tools.debug "ex2: %s" (AstC_to_c.ast_to_string (Trace.ast()))*)
   (* move the binding to the desired target *)
   Instr.move ~dest [cMark mark_let];
   (* replace the contents of all remaining marked occurrences with the same contents at the first occurrence *)

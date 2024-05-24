@@ -99,10 +99,10 @@ let add_stringreprs_entry (t : trm) (d : document) : unit =
 (* [print_stringreprs m]: for debugging purposes. *)
 let print_stringreprs (m : stringreprs) : unit =
   let pr id d =
-    Printf.printf "stringreprs[%d] = %s\n----\n" id (document_to_string d) in
-  Printf.printf "====<stringreprs>====\n";
+    Tools.debug "stringreprs[%d] = %s\n----" id (document_to_string d) in
+  Tools.debug "====<stringreprs>====";
   Hashtbl.iter pr m;
-  Printf.printf "====</stringreprs>====\n"
+  Tools.debug "====</stringreprs>===="
 
 (*----------------------------------------------------------------------------------*)
 
@@ -174,14 +174,14 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
     string "decltype" ^^ parens (decorate_trm (default_style()) t)
 
 and var_to_doc style (v : var) : document =
-  let qualified = (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^ string v.name in
+  let qualified = (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^ string v.name in
   if style.ast.print_var_id then
     qualified ^^ string ("/*#" ^ string_of_int v.id ^ "*/")
   else
     qualified
 
-and typconstr_to_doc ((qualifier, name) : typconstr) : document =
-  (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
+and typconstr_to_doc ((namespaces, name) : typconstr) : document =
+  (concat_map (fun q -> string q ^^ string "::") namespaces) ^^
   (string name)
 
 (* [typ_annot_to_doc]: converts type annotations to pprint document. *)
@@ -403,7 +403,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
                 (hardline ^^ string "*/" ^^ hardline )]
       (List.map (fun error -> string (sprintf "ERROR: %s" error)) t.errors) in
     if !Flags.debug_errors_msg_embedded_in_ast && (List.length t.errors) > 0
-      then Printf.eprintf "PRINTING ERROR IN COMMENT IN AST---:\n%s---\n" (Tools.document_to_string derror);
+      then Tools.debug "PRINTING ERROR IN COMMENT IN AST---:\n%s---" (Tools.document_to_string derror);
     derror ^^ dt
   end
 
@@ -484,7 +484,6 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
           hardline ^^ string "else" ^^ blank 1 ^^ de
       end
     | Trm_seq tl ->
-      let tl = Mlist.filter (fun t -> not (trm_has_cstyle Redundant_decl t)) tl in
       if trm_has_cstyle Multi_decl t then
         dattr ^^ multi_decl_to_doc style loc (Mlist.to_list tl)
       else if (not !Flags.display_includes) && (trm_is_include t) then
@@ -642,45 +641,6 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
       dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map (decorate_trm style) tl) ^^ dsemi
   | _ ->
     dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style ~print_struct_init_type:false init ^^ dsemi
-
-and loop_contract_to_doc style (loop_contract : loop_contract) : doc =
-  key_value_to_doc [
-    "loop_ghosts", resource_item_list_to_doc style loop_contract.loop_ghosts;
-    "invariant", resource_set_to_doc style loop_contract.invariant;
-    "iter_contract", fun_contract_to_doc style loop_contract.iter_contract;
-    "parallel_reads", resource_item_list_to_doc style loop_contract.parallel_reads;
-    "strict", if loop_contract.strict then string "true" else string "false" ]
-
-
-and fun_contract_to_doc style (fun_contract : fun_contract) : doc =
-  key_value_to_doc [
-    "pre", resource_set_to_doc style fun_contract.pre;
-    "post", resource_set_to_doc style fun_contract.post; ]
-
-and resource_item_list_to_doc style (resource_item_list : resource_item list) : doc =
-  list_to_doc ~bounds:[lbracket; rbracket] ~sep:semi
-    (List.map (resource_item_to_doc style) resource_item_list)
-
-and resource_set_to_doc style (resource_set : resource_set) : doc =
-  key_value_to_doc [
-    "pure", resource_item_list_to_doc style resource_set.pure;
-    "linear", resource_item_list_to_doc style resource_set.linear;
-    "fun_specs", fun_spec_resource_varmap_to_doc style resource_set.fun_specs; ]
-
-and resource_item_to_doc style (resource_item : resource_item) : doc =
-  let hyp, formula = resource_item in
-  let sid =
-    if hyp.name.[0] = '#' && not style.ast.print_generated_ids
-      then empty
-      else (var_to_doc style hyp) ^^ (string ": ") in
-  sid ^^ formula_to_doc style formula
-
-and fun_spec_resource_varmap_to_doc style (fun_specs : fun_spec_resource varmap) : doc =
-  string "<fun_spec for: " ^^
-  (list_to_doc ~bounds:[lbracket; rbracket] ~sep:semi (List.map (fun (f, s) -> var_to_doc style f) (Var_map.bindings fun_specs))) ^^
-  string ">"
-
-
 
 (* [trm_let_mult_to_doc style ~semicolon tv bs]: converts multiple variable declarations to pprint document *)
 and trm_let_mult_to_doc style ?(semicolon : bool = true) (bs : (typed_var * trm) list) : document =
@@ -941,13 +901,13 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
     let dims, size = Xlist.unlast tl in
     let error = "expected MALLOC(.., sizeof(..))" in
     let size_var = trm_inv ~error trm_var_inv size in
-    assert (size_var.qualifier = []);
+    assert (size_var.namespaces = []);
     let ty_str = String.(
       match sub size_var.name 0 (length "sizeof("),
             sub size_var.name (length "sizeof(") ((length size_var.name) - (length "sizeof()")),
             sub size_var.name ((length size_var.name) - (length ")")) (length ")") with
       | "sizeof(", ty_str, ")" -> ty_str
-      | _ -> failwith error
+      | _ -> failwith "%s" error
     ) in
     let bracketed_trm t = brackets (decorate_trm style ~prec:0 t) in
     (string "malloc(sizeof(") ^^ (string ty_str) ^^
@@ -1387,12 +1347,11 @@ and formula_to_doc style (f: formula): document =
     Pattern.(!__) (fun _ -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}})
   ]
 
-(* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
-    If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)
+(* [ast_to_doc t]: converts a full OptiTrust ast to a pprint document. *)
 let ast_to_doc style (t : trm) : document =
   decorate_trm style t
 
-(* [ast_to_outchannel ~comment_pragma ~optitrust_syntax out t]: print ast [t] to an out_channel [out] *)
+(* [ast_to_outchannel out t]: print ast [t] to an out_channel [out] *)
 let ast_to_outchannel style (out : out_channel) (t : trm) : unit =
   ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc style t)
 

@@ -1,5 +1,7 @@
 open Prelude
 
+type rewrite_rule = Trm_matching.rewrite_rule
+
 (* [apply_rule rule t]: applies rule [rule] on trm [t]. *)
 let apply_rule_aux ~(error_msg : bool) ~(mark : mark) (rule : rewrite_rule) (t : trm) : trm =
   let inst : tmap = Trm_matching.rule_match ~error_msg (rule.rule_vars  @ rule.rule_aux_vars) rule.rule_from t in

@@ -48,7 +48,6 @@ let report_progress script_name =
 module type TEST = sig end
 
 let run_test ~(script_name:string) (test: unit -> (module TEST)) =
-  let toplevel_vars = !Trm.toplevel_vars in
   Flags.reset_flags_to_default ();
   Flags.process_program_name ();
   let program_name = !Flags.program_name in
@@ -71,7 +70,6 @@ let run_test ~(script_name:string) (test: unit -> (module TEST)) =
     end;
     Printf.eprintf "%s\n" (Printexc.to_string e)
   end;
-  Trm.toplevel_vars := toplevel_vars;
   Flags.program_name := program_name
 
 

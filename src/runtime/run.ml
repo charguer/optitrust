@@ -50,7 +50,7 @@ let generate_source_with_inlined_header_cpp (basepath : string) (input_file : st
   let s = ref (Xfile.get_contents (Filename.concat basepath input_file)) in
   let perform_inline finline =
       let include_instr = "#include \"" ^ finline ^ "\"" in
-      if debug_inline_cpp then Printf.printf "Inlined %s\n" include_instr;
+      if debug_inline_cpp then Tools.debug "Inlined %s" include_instr;
       let contents = Xfile.get_contents (Filename.concat basepath finline) in
       s := Tools.string_subst_first include_instr contents !s;
       s := Tools.string_subst include_instr "" !s
@@ -64,7 +64,7 @@ let generate_source_with_inlined_header_cpp (basepath : string) (input_file : st
       let fimplem = corename ^ ".c" in
       let include_instr = "#include \"" ^ fheader ^ "\"" in
       let include_instr_new = "#include \"" ^ fheader ^ "\"\n#include \"" ^ fimplem ^ "\"" in
-      if debug_inline_cpp then Printf.printf "Prepare inline of implementation for %s\n" include_instr;
+      if debug_inline_cpp then Tools.debug "Prepare inline of implementation for %s" include_instr;
       s := Tools.string_subst include_instr include_instr_new !s;
       perform_inline fimplem;
       perform_inline fheader;
@@ -112,11 +112,11 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
     f ()
   else begin
     let (r, t) = Tools.measure_time f in
-    Printf.printf "Time %s: %dms\n" msg t;
+    Tools.info "Time %s: %dms" msg t;
     r
   end
 
-(* [script ~filename ~extension ~batching ~check_exit_at_end ~prefix ~parser f]:
+(* [script ~filename ~extension ~batching ~check_exit_at_end ~prefix f]:
    serves as "main" function for an Optitrust script. It takes care of parsing
    the command line arguments, handling the errors, and parsing the file that will be processed,
    before running the function [f] provided and outputing the results.
@@ -138,34 +138,32 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
       This flag only has an effect if a [-exit_line] option was passed on the command line.
    - [~prefix:string] allows providing the basename for the output files produced
    *)
-let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ~(parser : Trace.parser) ?(capture_show_in_batch = false) (f : unit -> unit) : unit =
+let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(capture_show_in_batch = false) (f : unit -> unit) : unit =
   Flags.process_cmdline_args ();
   Target.show_next_id_reset ();
 
   let program_basename = get_program_basename () in
-
-  let default_basename = program_basename in
-  let dirname = Filename.dirname default_basename in
+  let dirname = Filename.dirname program_basename in
   let prefix =
     match prefix with
     | Some prefix -> Filename.concat dirname prefix
-    | None -> default_basename
+    | None -> program_basename
   in
   let filename =
     match filename with
     | Some filename -> Filename.concat dirname filename
-    | None -> default_basename ^ extension
+    | None -> program_basename ^ extension
   in
 
   let produce_trace () : unit =
     may_report_time "dump-trace" (fun () ->
-      Trace.dump_full_trace_to_js ~prefix ());
+      Trace.dump_full_trace_to_js ~prefix);
     if !Flags.trace_as_text then
       may_report_time "dump-trace-as-text" (fun () ->
-        Trace.dump_trace_to_textfile ~prefix ());
+        Trace.dump_trace_to_textfile ~prefix);
     in
 
-  (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
+  (* DEBUG: Tools.debug "script default_basename=%s filename=%s prefix=%s " default_basename filename prefix; *)
 
   let stats_before = Stats.get_cur_stats () in
   let contents_captured_show = ref "" in
@@ -175,7 +173,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   (try
     begin
       try
-        Trace.init ~program:program_basename ~prefix ~parser filename;
+        Trace.init ~program:program_basename ~prefix filename;
         if !Flags.check_validity then
           Trace.step ~kind:Step_small ~tags:["pre-post-processing"] ~name:"Preprocessing loop contracts" (fun () ->
             Resources.make_strict_loop_contracts [];
@@ -188,7 +186,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
           let backtrace = Printexc.get_backtrace () in
           Trace.finalize_on_error ~exn:e;
           produce_trace();
-          Printf.eprintf "========> BACKTRACE:\n%s\n" backtrace;
+          Tools.debug "========> BACKTRACE:\n%s" backtrace;
           exit 1 (* FIXME: don't exit in batch? *)
     end;
     flush stdout;
@@ -241,12 +239,11 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   if !Flags.analyse_stats
     then
       let stats_str = Stats.stats_diff_str stats_before stats_after in
-      Printf.printf "%s\n" stats_str;
+      Tools.info "%s" stats_str;
 
-  (* Printf.printf "END  %s\n" basename; *)
   ()
 
-(* [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix ~parser f]:
+(* [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix f]:
    is a specialized version of [script f] that parses C/C++ files.
 
    Its specific options are:
@@ -255,7 +252,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp".
      See the specification of [generate_source_with_inlined_header_cpp] for additional features.
    The rest of the options are the same as [script f] *)
-let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(capture_show_in_batch = false) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
+let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(capture_show_in_batch = false) ?(prefix : string option) (f : unit -> unit) : unit =
   may_report_time "script-cpp" (fun () ->
     (* Handles preprocessor -- FUTURE USE MENHIR PARSER
     Compcert_parser.Clflags.prepro_options := prepro;
@@ -276,34 +273,8 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
         let basename = Filename.chop_extension filename in
         let inlinefilename = basename ^ "_inlined.cpp" in
         generate_source_with_inlined_header_cpp basepath filename inline inlinefilename;
-        if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
+        if debug_inline_cpp then Tools.debug "Generated %s" inlinefilename;
         Some inlinefilename
     in
 
-    let parser =
-      match parser with
-      | Some p -> p
-      | None -> CParsers.get_default ~serialize:true ()
-    in
-
-    script ~parser ?filename ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)
-
-(* [doc_script_cpp ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
-    as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
-    executes the transformation [f] using [script_cpp]  *)
-let doc_script_cpp ?(parser : Trace.parser option) (f : unit -> unit) (src : string) : unit =
-  (* Handle names *)
-  let basename = get_program_basename () in
-  let docbasename = basename ^ "_doc" in
-  let docfilename = docbasename ^ ".cpp" in
-
-  (* Special flag to save the diff of the first step *)
-  Flags.documentation_save_file_at_first_check := docbasename;
-  (* Write the contents of the cpp file; note that it will be overwritten at the first '!!' from the script. *)
-  Xfile.put_contents docfilename src;
-
-  (* Invoke [script_cpp] *)
-  script_cpp ~prefix:(Filename.basename docbasename) ~filename:(Filename.basename docfilename) ?parser ~check_exit_at_end:false f;
-
-  Flags.documentation_save_file_at_first_check := ""
-
+    script ?filename ~capture_show_in_batch ~extension:".cpp" ~check_exit_at_end ?prefix f)

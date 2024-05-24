@@ -159,6 +159,11 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
 let uninline (fct_decl : trm) : Transfo.local =
   apply_on_path (uninline_aux fct_decl)
 
+(* [trm_var_assoc_list to_map al]: creates a map from an association list wher keys are variables and values are trms *)
+let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =
+  let tm = Var_map.empty in
+  List.fold_left (fun acc (k, v) -> Var_map.add k v acc) tm al
+
 (* [rename_args_aux vl t]: renames arguments of function [t] and replace all the occurrences of its
     arguments of the args inside its body with the new names provided as arguments,
       [vl] - new arguments, can be [dummy_var] to avoid renaming.
@@ -182,9 +187,9 @@ let rename_args (vl : var list) : Transfo.local =
 let replace_with_change_args_aux (new_fun_name : var) (arg_mapper : trms -> trms) (t : trm) : trm =
   let error = "Function_core.replace_with_change_args_aux: expected a target to a function call" in
   let (f, args) = trm_inv ~error trm_apps_inv t in
-  (* to change name and keep qualifier/id:
+  (* to change name and keep namespaces/id:
   let fv = trm_inv ~error trm_var_inv f in
-  { qualifier = fv.qualifier; name = new_fun_name; id = fv.id } *)
+  { namespaces = fv.namespaces; name = new_fun_name; id = fv.id } *)
   trm_replace (Trm_apps ((trm_var new_fun_name), arg_mapper args, [])) t
 
 (* [replace_with_change_args new_fun_name arg_mapper t p]: applies [replace_with_change_args_aux] at trm [t] with path [p]. *)

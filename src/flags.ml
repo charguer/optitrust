@@ -80,6 +80,9 @@ let reparse_at_big_steps : bool ref = ref false
 (* [report_big_steps]: flag to report on the progress of big steps during a script execution. *)
 let report_big_steps : bool ref = ref false
 
+(* [use_clang_cursor]: flag to control whether in include clang cursor information in the AST, this information may be useful for resolving overloading *)
+let use_clang_cursor : bool ref = ref false
+
 (* [use_clang_format]: flag to use clang-format or not in output CPP files. *)
 let use_clang_format : bool ref = ref true
 
@@ -115,10 +118,6 @@ let print_optitrust_syntax = ref false
    This allows for the propagation of the backtrace. *)
 let stop_on_first_resource_error = ref true
 
-(* [always_name_resource_hyp]: Always print named for resource hypothesis even if they were unnamed.
- * Automatically set to true during Resources.show. *)
-let always_name_resource_hyp = ref false
-
 (** [resource_typing_enabled]: if false, never attempt typing resources and never introduce ghosts. *)
 let resource_typing_enabled = ref true
 
@@ -136,12 +135,19 @@ let reparse_between_steps = ref false
 (* [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
 
-(* [dont_serialize] disables the generation of serialized AST obtained from parsing;
+(* [serialize] enable the generation of serialized AST obtained from parsing;
    ( LATER:only one flag merged with ignore_serialized?)  *)
-let dont_serialize = ref false
+let serialize = ref true
 
 (* [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
+
+(* [use_member_functions()] should be called for now by test files that involve the
+   use of member functions *)
+let use_member_functions() : unit =
+  use_clang_cursor := true;
+  ignore_serialized := true;
+  serialize := false
 
 (* [execution_mode] of the script *)
 
@@ -153,19 +159,25 @@ type execution_mode =
 
 let execution_mode : execution_mode ref = ref Execution_mode_exec
 
+(* Option to serialize the ML trace object in addition to dumping its JS respresentation;
+   Currently only set when the requested mode in [full-trace] *)
+let serialize_trace : bool ref = ref false
+
 let process_mode (mode : string) : unit =
-  execution_mode := match mode with
-  | "step-diff" -> Execution_mode_step_diff
-  | "step-trace" -> Execution_mode_step_trace
-  | "full-trace" -> Execution_mode_full_trace
-  | "exec" -> Execution_mode_exec
-  | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
+  execution_mode :=
+    begin match mode with
+    | "step-diff" -> Execution_mode_step_diff
+    | "step-trace" -> Execution_mode_step_trace
+    | "full-trace" ->
+      serialize_trace := true;
+      Execution_mode_full_trace
+    | "standalone-full-trace" -> Execution_mode_full_trace
+    | "exec" -> Execution_mode_exec
+    | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
+    end
 
 (* Options to report execution time information about script and trace generation *)
 let report_exectime : bool ref = ref false
-
-(* Options to whether to export the trace for website view *)
-let trace_for_webview : bool ref = ref false
 
 (* Options to generate a text version of the trace *)
 let trace_as_text : bool ref = ref false
@@ -229,9 +241,8 @@ type cmdline_args = (string * Arg.spec * string) list
 (* [spec]: possible command line arguments. *)
 let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
-     ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
+     ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'standalone-full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
      ("-trace-as-text", Arg.Set trace_as_text, " additionnaly generate a plain text trace in 'foo_trace.txt' ");
-     ("-trace-for-webview", Arg.Set trace_for_webview, " generate a trace with the appropriate features for export to a website ");
      ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
@@ -245,7 +256,7 @@ let spec : cmdline_args =
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
-     ("-dont-serialize", Arg.Set dont_serialize, " do not serialize the parsed AST");
+     ("-dont-serialize", Arg.Clear serialize, " do not serialize the parsed AST");
      ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
      ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
@@ -277,10 +288,6 @@ let process_cmdline_args ?(args : cmdline_args = []) () : unit =
     ("usage: no argument expected, only options");
   fix_flags()
 
-(* [documentation_ssave_file_atfirst_check]: flag used for a hack used by function [doc_script_cpp], for generating
-    the output associated with the documentation of a unit test, before running the main contents of the file. *)
-let documentation_save_file_at_first_check = ref ""
-
 (* cf. Trm.trm_combinators_unsupported_case *)
 let trm_combinators_warn_unsupported_case = ref true
 
@@ -301,18 +308,19 @@ let ignore_serialized_default = ref !ignore_serialized
 let reset_flags_to_default () : unit =
   ignore_serialized := !ignore_serialized_default;
   dump_ast_details := false;
+  use_clang_cursor := false;
   bypass_cfeatures := false;
   print_optitrust_syntax := false;
   use_light_diff := false;
   pretty_matrix_notation := false;
   display_includes := false;
   stop_on_first_resource_error := true;
-  always_name_resource_hyp := false;
   resource_typing_enabled := true;
   check_validity := false;
   reparse_between_steps := false;
   recompute_resources_between_steps := false;
   trm_combinators_warn_unsupported_case := true;
+  serialize_trace := false;
   warned_array_subscript_not_supported := Tools.String_set.empty
 
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =

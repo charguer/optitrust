@@ -48,7 +48,7 @@ let%transfo remove_fake_instr (tg : target) : unit =
     let t = Target.resolve_path p in
     let error ="Marks.remove_fake_instr: should target a fake instr mark" in
     let t_seq = trm_inv ~error trm_seq_inv t in
-    if Mlist.length t_seq <> 0 then failwith error;
+    if Mlist.length t_seq <> 0 then failwith "%s" error;
     Sequence.delete (target_of_path p)
   ) tg
 

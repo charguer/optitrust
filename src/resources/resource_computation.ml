@@ -341,13 +341,13 @@ let update_usage (hyp: var) (current_usage: resource_usage option) (extra_usage:
   | u, None -> u
   | Some Required, Some Required -> Some Required
   | Some Ensured, Some Required -> Some Ensured
-  | Some (Required | Ensured), Some Ensured -> failwith (sprintf "Ensured resource %s share id with another one" (var_to_string hyp))
+  | Some (Required | Ensured), Some Ensured -> failwith "Ensured resource %s share id with another one" (var_to_string hyp)
   | Some (Required | Ensured), _ | _, Some (Required | Ensured) ->
-    failwith (sprintf "Resource %s is used both as a pure and as a linear resource" (var_to_string hyp))
+    failwith "Resource %s is used both as a pure and as a linear resource" (var_to_string hyp)
   | Some Produced, Some (ConsumedFull | ConsumedUninit) -> None
   | Some Produced, Some (SplittedFrac | JoinedFrac) -> Some Produced
-  | _, Some Produced -> failwith (sprintf "Produced resource %s share id with another one" (var_to_string hyp))
-  | Some (ConsumedFull | ConsumedUninit), _ -> failwith (sprintf "Consumed resource %s share id with another one" (var_to_string hyp))
+  | _, Some Produced -> failwith "Produced resource %s share id with another one" (var_to_string hyp)
+  | Some (ConsumedFull | ConsumedUninit), _ -> failwith "Consumed resource %s share id with another one" (var_to_string hyp)
   | Some JoinedFrac, Some ConsumedUninit -> Some ConsumedUninit
   | Some (SplittedFrac | JoinedFrac), Some (ConsumedFull | ConsumedUninit) -> Some ConsumedFull
   | Some JoinedFrac, Some JoinedFrac -> Some JoinedFrac
@@ -490,7 +490,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
       | None ->
         let inst_failed_evars = Var_map.filter (fun _ -> Option.is_none) evar_ctx in
         let inst_failed_evars_str = String.concat ", " (List.map (fun (evar, _) -> evar.name) (Var_map.bindings inst_failed_evars)) in
-        failwith ("failed to instantiate evars " ^ inst_failed_evars_str)) evar_ctx
+        failwith "failed to instantiate evars %s" inst_failed_evars_str) evar_ctx
   in
 
   (* Check that efrac constaints are satisfied *)
@@ -508,7 +508,7 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
               | _, None -> None (* We can drop extra specifications *)
               | None, Some _ -> raise (Spec_not_found fn_name)
               | Some spec_from, Some spec_to ->
-                failwith (sprintf "higher order functions are not yet implemented (found a spec for %s in pre-condition)" (var_to_string fn_name))
+                failwith "higher order functions are not yet implemented (found a spec for %s in pre-condition)" (var_to_string fn_name)
             )
             res_from.fun_specs res_to.fun_specs);
 
@@ -849,8 +849,8 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
       post_modifs := Var_map.add hyp RemoveUnused !post_modifs;
       frame := (hyp, formula) :: !frame;
       None
-    | Some (Required | Ensured) -> failwith (sprintf "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp))
-    | Some Produced -> failwith (sprintf "minimize_linear_triple: Produced resource %s has the same id as a contract resource" (var_to_string hyp))
+    | Some (Required | Ensured) -> failwith "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp)
+    | Some Produced -> failwith "minimize_linear_triple: Produced resource %s has the same id as a contract resource" (var_to_string hyp)
     | Some ConsumedFull -> Some (hyp, formula)
     | Some ConsumedUninit ->
       begin match formula_uninit_inv formula with
@@ -952,11 +952,11 @@ let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
   let tref = trm_find_referent t in
   if !Flags.debug_errors_msg_embedded_in_ast then begin
     if tref != t
-      then Printf.eprintf "GRABBING REFERENT FOR TERM:----\n%s\n-----\n" (AstC_to_c.ast_to_string t);
-    Printf.eprintf "SAVING ERROR IN TERM:----\n%s\n-----\n%s-----\n" (AstC_to_c.ast_to_string tref) (Ast_to_text.ast_to_string tref);
+      then Tools.debug "GRABBING REFERENT FOR TERM:----\n%s\n-----" (AstC_to_c.ast_to_string t);
+    Tools.debug "SAVING ERROR IN TERM:----\n%s\n-----\n%s-----" (AstC_to_c.ast_to_string tref) (Ast_to_text.ast_to_string tref);
   end;
   tref.errors <- error_str :: tref.errors;
-  (*Printf.eprintf "ADDERROR %s\n  %s\n" error_str (AstC_to_c.ast_to_string t);*)
+  (*Tools.debug "ADDERROR %s\n  %s" error_str (AstC_to_c.ast_to_string t);*)
   (* Accumulate the error *)
   global_errors := (phase, exn) :: !global_errors;
   (* Interrupt if stop on first error *)
@@ -989,7 +989,7 @@ let rec compute_resources
   ?(expected_res: resource_set option)
   (res: resource_set option)
   (t: trm) : resource_usage_map option * resource_set option =
-  if debug_print_computation_stack then Printf.eprintf "=====\nWith resources: %s\nComputing %s\n\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
+  if debug_print_computation_stack then Tools.debug "=====\nWith resources: %s\nComputing %s\n" (resource_set_opt_to_string res) (AstC_to_c.ast_to_string t);
   (* Define the referent for hooking type errors on existing terms
      when errors are triggered on terms that are generated on-the-fly. *)
   let referent : trm_annot =
@@ -1075,7 +1075,7 @@ let rec compute_resources
         | None -> []
       in
       let to_free = List.concat_map extract_let_mut instrs in
-      (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
+      (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
       let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), formula_uninit f)) to_free) () in
       let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
       let usage_map = update_usage_map_opt ~current_usage:usage_map ~extra_usage:(Some (used_set_to_usage_map removed_res)) in
@@ -1145,7 +1145,7 @@ let rec compute_resources
             Some (subst_map, unused_res, acc_pre, acc_post, usage_map)
           ) (Some (Var_map.empty, res_after_fn, fn_pre, fn_post, usage_map)) spec.args effective_args
         with Invalid_argument _ ->
-          failwith (Printf.sprintf "Mismatching number of arguments for %s" (AstC_to_c.ast_to_string fn))
+          failwith "Mismatching number of arguments for %s" (AstC_to_c.ast_to_string fn)
         in
         let res_after_args = Resource_set.union res_arg_frame args_post in
         let linear_res_after_args, ro_simpl_steps = simplify_read_only_resources res_after_args.linear in
@@ -1154,7 +1154,7 @@ let rec compute_resources
 
         let ghost_args_vars = ref Var_set.empty in
         let subst_ctx = List.fold_left (fun subst_ctx (ghost_var, ghost_inst) ->
-          if Var_set.mem ghost_var !ghost_args_vars then (failwith (sprintf "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (AstC_to_c.ast_to_string fn)));
+          if Var_set.mem ghost_var !ghost_args_vars then (failwith "Ghost argument %s given twice for function %s" (var_to_string ghost_var) (AstC_to_c.ast_to_string fn));
           ghost_args_vars := Var_set.add ghost_var !ghost_args_vars;
           Var_map.add ghost_var ghost_inst subst_ctx) subst_ctx ghost_args
         in
@@ -1209,7 +1209,7 @@ let rec compute_resources
             let spec = find_fun_spec ghost_fn res.fun_specs in
             begin match spec.inverse with
             | Some _ -> ()
-            | None -> failwith (sprintf "%s is not reversible but is used inside __ghost_begin" (var_to_string fn))
+            | None -> failwith "%s is not reversible but is used inside __ghost_begin" (var_to_string fn)
             end;
             let usage_map, res = compute_resources (Some res) ghost_call in
             usage_map, res, ghost_call.ctx.ctx_resources_contract_invoc
@@ -1261,7 +1261,7 @@ let rec compute_resources
         begin match Var_map.find_opt var res.aliases with
         | None -> ()
         | Some alias when are_same_trm alias subst -> ()
-        | _ -> failwith (sprintf "Cannot add an alias for '%s': this variable already has an alias" (var_to_string var))
+        | _ -> failwith "Cannot add an alias for '%s': this variable already has an alias" (var_to_string var)
         end;
         let aliases = Var_map.add var subst res.aliases in
         usage_map, Some ({ res with aliases })
@@ -1336,7 +1336,7 @@ let rec compute_resources
           let usage_else_joined = update_usage_map ~current_usage:usage_else ~extra_usage:(used_set_to_usage_map used_join_else) in
           Some (Var_map.merge (fun x ut ue ->
               let on_conflict explanation =
-                failwith (sprintf "%s %s (%s / %s)" (var_to_string x) explanation (resource_usage_opt_to_string ut) (resource_usage_opt_to_string ue))
+                failwith "%s %s (%s / %s)" (var_to_string x) explanation (resource_usage_opt_to_string ut) (resource_usage_opt_to_string ue)
               in
               match ut, ue with
               | (Some Required, (Some Required | None)) | (None, Some Required) -> Some Required
@@ -1374,7 +1374,7 @@ let rec compute_resources
 
   t.ctx.ctx_resources_usage <- usage_map;
   if debug_print_computation_stack then
-    Printf.eprintf "=====\nWith resources: %s\nWith usage: %s\nSaving %s\n\n"
+    Tools.debug "=====\nWith resources: %s\nWith usage: %s\nSaving %s\n"
       (resource_set_opt_to_string res)
       (Option.value ~default:"<unknown>" (Option.map (fun usage_map -> String.concat ", " (Ast_fromto_AstC.ctx_usage_map_to_strings usage_map)) usage_map))
       (AstC_to_c.ast_to_string t);

@@ -4,24 +4,27 @@
 {1 Variables}
 
 The type [var] is used to represent program variables for local variables, function names, function arguments and loop indices.
-A [var] carries a name as a string, a unique identifier and optionally a namespace qualifier.
+A [var] carries a name as a string, a unique identifier and optionally a namespace path.
 A program variable has a binding point (let, let fun, for), and a number of occurences.
 
 {2 When the AST is in a stable state}
 
-{b Identification Invariant}: In a stable AST, every variable carries a non-dummy identifier ([>= 0]).
+{b Identification Invariant}: In a stable AST, every variable carries a non-null identifier ([<> 0]).
 
 {b Uniqueness Invariant}: In a given AST, two different binding points must introduce variables using different ids, regardless of their names.
 To ensure uniqueness, transformations must call {!Trm.trm_copy} when duplicating subterms.
 
 {b Scoping Invariant}: If an occurence of a variable [x] refers to a binding point of 'x' according to the scoping rules of the programming language, then the two variables must have the same identifier.
 
-We provide an easy way to preregister global toplevel variables using {!Trm.toplevel_var}. The varaible returned by this call will be considered predeclared and the id will be shared by the toplevel binder of the same name.
+Global toplevel variables are assigned an id based on their fully qualified name. These ids are negative. Call {!Trm.toplevel_var name} to get a global toplevel variable with the given name.
+
+TODO: Check that this is still correct:
+We provide an easy way to preregister global toplevel variables using {!Trm.toplevel_var}. The variable returned by this call will be considered predeclared and the id will be shared by the toplevel binder of the same name.
 Calls to Trm.toplevel_var must be done before the scope resolution, otherwise the id will not correspond to the one already set in the AST.
 
 {2 Transition states}
 
-After parsing, identifiers are set to the dummy value [-1].
+After parsing, identifiers are set to the dummy value [0].
 The function {!Scope_computation.infer_var_ids} produces an ast with correct identifiers according to the scoping rules.
 This function is called during the encoding/decoding phases.
 
@@ -38,8 +41,6 @@ In order to pretty print ASTs with identifiers in a deterministic and human-read
 This function renames program variables to give each binder a unique name.
 For example 'x' with id #18 could be printed as 'x__0' and 'x' with id #29 as 'x__1'.
 
-TODO: call [Flags.display_var_ids := true] in your script to activate this renaming.
-
 {1 AST design choices}
 
 Some AST nodes such as Trm_for must respect the invariant that their body is always a Trm_seq.
@@ -48,9 +49,8 @@ and still distinguish the body from the whole loop (or any other construction th
 target resolution.
 *)
 
-(* for debugging and message printing *)
-let printf = Printf.printf
-let eprintf = Printf.eprintf
+(* raise exception with format string *)
+let failwith msg = Printf.ksprintf failwith msg
 let sprintf = Printf.sprintf
 
 (*****************************************************************************)
@@ -94,33 +94,36 @@ type loc = int (* TODO: remove this? and rename location to loc for conciseness 
 type mark = string
 
 (* [marks]: a list of marks *)
-and marks = mark list
+type marks = mark list
 
 let no_mark = ""
 
 (* [mlists]: generalized lists, see module mlist.ml *)
 type 'a mlist = 'a Mlist.t
 
-(* [strm]: string representation of a term, as provided by the user *)
-type strm = string
-
-(* [styp]: string representation of a type, as provided by the user *)
-type styp = string
-
 type var_id = int
-(** [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
-type var = { qualifier: string list; name: string; id: var_id }
+let unset_var_id = 0
 
-let inferred_var_id = -1
-let dummy_var_id = -2
+(** [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
+type var = { namespaces: string list; name: string; id: var_id }
+
+let has_unset_id var = var.id = unset_var_id
+let is_toplevel_var var = var.id < 0
+
+let qualified_name_to_string namespaces name =
+  String.concat "" (List.map (fun q -> q ^ "::") namespaces) ^ name
 
 let var_to_string (v : var) : string =
-  let q_str = String.concat "" (List.map (fun q -> q ^ "::") v.qualifier) in
-  let id_str = if v.id = inferred_var_id then "?" else (string_of_int v.id) in
-  q_str ^ v.name ^ "#" ^ id_str
+  let qualified_name = qualified_name_to_string v.namespaces v.name in
+  if is_toplevel_var v then
+    qualified_name
+  else if has_unset_id v then
+    qualified_name ^ "?"
+  else
+    qualified_name ^ "#" ^ string_of_int v.id
 
 let assert_var_id_set ~error_loc v =
-  if not (v.id >= 0) then failwith (sprintf "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v))
+  if has_unset_id v then failwith "%s: Variable %s has an id that is not set (maybe forgot to call Scope.infer_var_ids)" error_loc (var_to_string v)
 
 let var_eq (v1 : var) (v2 : var) : bool =
   assert_var_id_set ~error_loc:"var_eq" v1;
@@ -157,18 +160,13 @@ let var_map_of_list l = Var_map.of_seq (List.to_seq l)
 (* let vars_to_string vs = Tools.list_to_string vs *)
 let vars_to_string vs = Trace_printers.(list_arg_printer var_to_string vs)
 
-(* [next_var_int]: generates an integer for variable names *)
-let next_var_int : unit -> int = Tools.fresh_generator ~never_reset:true ()
+(* [next_var_id]: generates an integer for variable names *)
+let next_var_id : unit -> int = Tools.fresh_generator ()
 
-(* [next_fresh_var_int]: generates an integer for variable names that is safe to
-   reset with [reset_fresh_var_int]. *)
-let (next_fresh_var_int, reset_fresh_var_int) : (unit -> int) * (unit -> unit) =
-  Tools.resetable_fresh_generator ()
-
-(* [fresh_var]: creates a variable name based on [next_var_int] generator *)
-let fresh_var_name ?(prefix = "_v") (): string =
-  let id = next_fresh_var_int () in
-  prefix ^ string_of_int id
+(* [fresh_var_name]: creates a fresh variable name *)
+let fresh_var_name : ?prefix:string -> unit -> string =
+  let next_number = Tools.fresh_generator () in
+  fun ?(prefix = "_v") () -> prefix ^ string_of_int (next_number ())
 
 module Qualified_name = struct
   type t = string list * string
@@ -248,6 +246,16 @@ type code_kind =
   | Instr of string (* a = b, a += b *)
   | Comment of string (* "// txt", or "/*txt*/" *)
 [@@deriving show]
+
+(* [code_to_str]: extracts the code from the trms that contain the arbitrary code. *)
+let code_to_str (code : code_kind) : string =
+  match code with
+  | Lit l -> l
+  | Atyp ty -> ty
+  | Expr e -> e
+  | Stmt s -> s
+  | Instr s -> s
+  | Comment s -> s
 
 (*****************************************************************************)
 (* [typ_desc]: type description *)
@@ -434,9 +442,6 @@ and cstyle_annot =
   | Class_constructor of constructor_kind
   | Class_destructor of destructor_kind
   | Member_initializer
-
-  (* LATER: what use? *)
-  | Redundant_decl
 
   (* used for int[2] = { 3, 4 }, the trm_array is annotated with [Brace_init] *)
   | Brace_init
@@ -907,6 +912,7 @@ and clause =
   | Link of vars
   | Num_teams of var
   | Thread_limit of var
+
 (* [atomic_operation]: atomic operations for atomic OpenMP directives *)
 and atomic_operation =
   | Read
@@ -1049,28 +1055,7 @@ let resource_usage_opt_to_string = function
 | Some JoinedFrac -> "JoinedFrac"
 | Some Produced -> "Produced"
 
-(* **************************** Rewrite rules ****************************** *)
-(* [pat]: patterns *)
-type pat = trm
-
-(* [rewrite_rule]: a type for defining rewrite rules *)
-type rewrite_rule = {
-  rule_vars : typed_vars;
-  rule_aux_vars : typed_vars;
-  rule_from : pat;
-  rule_to : pat }
-
-(* basic rewrite rules *)
-type base = rewrite_rule list
-
-(* trm map used for rewrite rules and pattern matching *)
 type tmap = trm Var_map.t
-
-(* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
-type fields_order =
-  | Move_before of (field * field list)
-  | Move_after of (field * field list)
-  | Reorder_all of field list
 
 (* ************************* Resource constructors ************************* *)
 
@@ -1181,108 +1166,6 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
 
 (* ********************************************************************************************** *)
 
-(* MIGHT DISAPPEAR? *)
-(* [trm_access]: concrete accesses in a trm *)
-type trm_access =
-  | Array_access_get of trm (* operator -> [i] *)
-  | Array_access_addr of trm (* operator [i] *)
-  | Struct_access_get of field (* operator->f *)
-  | Struct_access_addr of field (* operator.f *)
-
-(* [get_nested_accesses t]: for a given trm [t], if it's an access trm return the list of accesses,
-    the list starts with the base, and ends with the last access *)
-let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _},
-              [t'], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Struct_access_addr f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _},
-              [t'], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Struct_access_get f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
-              [t'; i], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Array_access_addr i :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
-              [t'; i], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Array_access_get i :: al)
-  | _ -> (t, [])
-
-
-(* ********************************************************************************************** *)
-
-(* [contains_decl x t]: checks if t constains a sub-trm that is a redeclaration of a variable x *)
-let contains_decl (x : var) (t : trm) : bool =
-  let rec aux (t : trm) : bool =
-    match t.desc with
-    | Trm_let ((y, _), _) when y = x -> true
-    | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
-    | Trm_for (l_range, body, _) ->
-        l_range.index = x || aux body
-    | Trm_let_fun (_, _, _, body, _) -> aux body
-    | Trm_for_c (init, _, _, body, _) -> aux init || aux body
-    | _ -> false
-  in aux t
-
-(* [contains_field_access f t]: checks if [t] contains an access on field [f] *)
-let contains_field_access (f : field) (t : trm) : bool =
-  let rec aux (t : trm) : bool =
-   match t.desc with
-   | Trm_apps (f', tl, _) ->
-      begin match f'.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access f1))) -> f = f1
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_get f1))) -> f = f1
-      | _ -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
-      end
-   | _ -> false
-  in aux t
-
-(* ********************************************************************************************** *)
-
-(* [typ_kind]: initialization type kind *)
-type typ_kind =
-  | Typ_kind_undefined
-  | Typ_kind_reference
-  | Typ_kind_array
-  | Typ_kind_sum
-  | Typ_kind_record
-  | Typ_kind_basic of typ_desc
-  | Typ_kind_fun
-  | Typ_kind_var
-
-(* [typ_kind_to_string tpk]: converts a type kind to a string *)
-let typ_kind_to_string (tpk : typ_kind) : string =
-  begin match tpk with
-  | Typ_kind_undefined -> "undefined"
-  | Typ_kind_reference -> "reference"
-  | Typ_kind_array -> "array"
-  | Typ_kind_sum -> "sum"
-  | Typ_kind_record -> "prod"
-  | Typ_kind_basic _ -> "basic"
-  | Typ_kind_fun -> "fun"
-  | Typ_kind_var -> "var"
-  end
-
-(* LATER: move *)
-(* [tile_bound]: used for loop tiling transformation *)
-type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
-
-let tile_bound_to_string = function
-  | TileBoundMin -> "TileBoundMin"
-  | TileBoundAnd -> "TileBoundAnd"
-  | TileDivides -> "TileDivides"
-
-
-(*****************************************************************************)
-
-(* TODO: move *)
-(* [rename]: variable renaming based on the suffix or by using a predefined list of pairs, where each pair gives the
-    current variable and the one that is going to replace it *)
-type rename = | Suffix of string | Rename_list of (var * var) list
-
 (* TODO: move *)
 (* TODO: rename to monoid *)
 (* [local_ops]: type used for the local_name transformation. *)
@@ -1296,57 +1179,6 @@ type local_ops =
 
 
 (*****************************************************************************)
-
-
-(* [code_to_str]: extracts the code from the trms that contain the arbitrary code. *)
-let code_to_str (code : code_kind) : string =
-  match code with
-  | Lit l -> l
-  | Atyp ty -> ty
-  | Expr e -> e
-  | Stmt s -> s
-  | Instr s -> s
-  | Comment s -> s
-
-(*****************************************************************************)
-
-(* [top_level_fun_bindings t]: returns a map with keys the names of toplevel function names and values being their bodies *)
-let top_level_fun_bindings (t : trm) : tmap =
-  let tmap = ref Var_map.empty in
-    let aux (t : trm) : unit =
-      match t.desc with
-      | Trm_seq tl ->
-        Mlist.iter (fun t1 ->
-          match t1.desc with
-          | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
-          | _ -> ()
-        ) tl
-      | _ -> failwith "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
-   in
-  aux t;
-  !tmap
-
-(* [get_common_top_fun tm1 tm2]: takes two maps, binding function names to terms describing the function bodies,
-    and returns the list of function names that are bound to the same terms in the two maps. *)
-let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
-  let common = ref [] in
-  Var_map.iter (fun f1 b1 ->
-    match Var_map.find_opt f1 tm2 with
-    | Some b2 when b1 == b2 -> common := f1 :: !common
-    | _ -> ()
-  ) tm1;
-  !common
-
-
-(*****************************************************************************)
-
-(* [trm_var_assoc_list to_map al]: creates a map from an association list wher keys are variables and values are trms *)
-let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =
-  let tm = Var_map.empty in
-  List.fold_left (fun acc (k, v) -> Var_map.add k v acc) tm al
-
-(*****************************************************************************)
-
 
 (* [typedef_get_members ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
      then only members with the specified access_control are returned. *)
@@ -1420,7 +1252,6 @@ let get_member_type (t : trm) (rf : record_field) : typ =
 type style = {
   print_contract_internal_repr: bool; (* print internal loop contract *)
   print_var_id: bool; (* print internal variable identifiers *)
-  print_generated_ids: bool; (* print auto-generated names *)
   print_string_repr: bool; (* print string representation for expressions *)
   print_mark: bool; (* print marks *)
   print_annot: bool; (* print annotations *)
@@ -1433,7 +1264,6 @@ type style = {
 let default_style () : style = {
   print_contract_internal_repr = false;
   print_var_id = !Flags.debug_var_id;
-  print_generated_ids = !Flags.always_name_resource_hyp;
   print_string_repr = !Flags.debug_stringreprs;
   print_mark = true;
   print_annot = false; (* LATER: add support for this *)
@@ -1441,11 +1271,11 @@ let default_style () : style = {
 }
 
 (** Style for reparsing *)
-let style_for_reparse () : style =
-  { print_contract_internal_repr = true;
-    print_var_id = false;
-    print_generated_ids = false;
-    print_string_repr = false;
-    print_mark = false;
-    print_annot = false;
-    print_errors = false; }
+let style_for_reparse () : style = {
+  print_contract_internal_repr = true;
+  print_var_id = false;
+  print_string_repr = false;
+  print_mark = false;
+  print_annot = false;
+  print_errors = false;
+}

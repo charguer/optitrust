@@ -26,7 +26,7 @@ let new_anon_hyp (): var =
 
 (* TODO: should be new_var_like and maybe useful elsewhere? *)
 let new_hyp_like (h: var): var =
-  new_hyp ~qualifier:h.qualifier h.name
+  new_hyp ~namespaces:h.namespaces h.name
 
 (** _HasModel(p, Cell) <=> p ~> Cell *)
 let var_has_model = toplevel_var "_HasModel"
@@ -305,7 +305,7 @@ let formula_loop_range (range: loop_range): formula =
 
 let formula_group_range (range: loop_range) =
   formula_map_under_mode (fun fi ->
-    let range_var = new_var ~qualifier:range.index.qualifier range.index.name in
+    let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
     trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int ()] None fi]
   )

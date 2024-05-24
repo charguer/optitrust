@@ -209,7 +209,7 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
       (* printf "dest = %d\n" dest;
       printf "to_move = %s\n" (Tools.list_to_string (List.map string_of_int to_move)); *)
       let (above, below) = match Xlist.find_index (fun i -> i > dest) to_move with
-      | Some i -> printf "split_at %i\n" i; Xlist.split_at i to_move
+      | Some i -> Tools.debug "split_at %i\n" i; Xlist.split_at i to_move
       | None -> (to_move, [])
       in
 

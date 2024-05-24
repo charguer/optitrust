@@ -51,11 +51,11 @@ let find_var_in_current_ast ?(target : target = []) (name : string) : var =
       Var_set.union acc (trm_def_or_used_vars (Target.resolve_path p))
     ) Var_set.empty (resolve_target target)
   in
-  let candidates = Var_set.filter (fun v -> v.qualifier = [] && v.name = name) vars in
+  let candidates = Var_set.filter (fun v -> v.namespaces = [] && v.name = name) vars in
   match Var_set.cardinal candidates with
-  | 0 -> failwith (sprintf "could not find variable '%s' in current AST variables: %s" name (vars_to_string (Var_set.elements vars)))
+  | 0 -> failwith "could not find variable '%s' in current AST variables: %s" name (vars_to_string (Var_set.elements vars))
   | 1 -> Var_set.choose candidates
-  | n -> failwith (sprintf "%d variables with name '%s' found in current AST: %s" n name (vars_to_string (Var_set.elements candidates)))
+  | n -> failwith "%d variables with name '%s' found in current AST: %s" n name (vars_to_string (Var_set.elements candidates))
 
 let foreach_target (tg : target) (f : constr -> unit) : unit =
   Target.iter (fun p -> f (cTarget (target_of_path p))) tg

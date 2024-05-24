@@ -22,3 +22,8 @@ class queue {
 class test {
   static void Partition(int* outPivot, queue<int> data) { return; }
 };
+
+template <typename T>
+void foo(T) {}
+
+void a() { foo(45); }

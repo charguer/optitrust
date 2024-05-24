@@ -439,9 +439,9 @@ let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option 
         in
       ignore (aux c);
       !answer in
-  (* Printf.printf "get_target_regexp_topfuns_opt %d\n" (List.length tgs); *)
+  (* Tools.debug "get_target_regexp_topfuns_opt %d" (List.length tgs); *)
   let tgs = List.filter (fun tg -> List.exists has_regexp tg) tgs in
-  (*Printf.printf "get_target_regexp_topfuns_opt filter %d\n" (List.length tgs);*)
+  (*Tools.debug "get_target_regexp_topfuns_opt filter %d" (List.length tgs);*)
   try
     let constr_names : constr_name list ref = ref [] in
     let rec find_in_target (cs : constr list) : unit =
@@ -455,10 +455,10 @@ let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option 
       | [] -> raise Topfuns_cannot_filter
       in
     List.iter find_in_target tgs;
-    (*Printf.printf "get_target_regexp_topfuns_opt Some %d\n" (List.length !constr_names);*)
+    (*Tools.debug "get_target_regexp_topfuns_opt Some %d" (List.length !constr_names);*)
     Some !constr_names
   with Topfuns_cannot_filter ->
-    (* Printf.printf "get_target_regexp_topfuns_opt None\n";*)
+    (* Tools.debug "get_target_regexp_topfuns_opt None";*)
     None
 
 
@@ -616,10 +616,10 @@ let print_stringreprs () : unit =
   | None -> failwith "Constr.print_stringreprs: no table registered"
   | Some m ->
       let pr id s =
-        Printf.printf "stringreprs[%d] = %s\n----\n" id s in
-      Printf.printf "====<constr.stringreprs>====\n";
+        Tools.debug "stringreprs[%d] = %s\n----" id s in
+      Tools.debug "====<constr.stringreprs>====";
       Hashtbl.iter pr m;
-      Printf.printf "====</constr.stringreprs>====\n"
+      Tools.debug "====</constr.stringreprs>===="
 
 (* [get_stringrepr t]: returns the string representation saved in table [stringreprs],
    or an empty string otherwise *)
@@ -627,7 +627,7 @@ let get_stringrepr (t : trm) : string =
     let print (t : trm) : unit =
       let s = AstC_to_c.default_style () in
       let style = { s with ast = { s.ast with print_string_repr = true } } in
-      Printf.printf "==\n%s\n===\n" (AstC_to_c.ast_to_string ~style t)
+      Tools.debug "==\n%s\n===" (AstC_to_c.ast_to_string ~style t)
       in
     match !stringreprs with
     | None -> trm_fail t (Printf.sprintf "Constr.get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
@@ -639,7 +639,7 @@ let get_stringrepr (t : trm) : string =
               (* This term must correspond to a node that was removed during
                  [cfeatures_intro], hence not printed *)
               if !Flags.debug_stringreprs then begin
-                Tools.warn (sprintf "missing stringrepr for id %i" id);
+                Tools.warn "missing stringrepr for id %i" id;
                 print t;
               end;
               ""
@@ -665,7 +665,7 @@ let match_regexp_trm (r : rexp) (t : trm) : bool =
   if not (match_regexp_trm_kind r.rexp_trm_kind t) then false else begin
     let s = get_stringrepr t in
     if !Flags.debug_stringreprs then
-      Printf.printf "Considered: %s\n" s;
+      Tools.debug "Considered: %s" s;
     s <> "" && match_regexp_str r s
     (* If the stringrepr is not available, we return false *)
   end
@@ -675,7 +675,35 @@ let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
 
+(* MIGHT DISAPPEAR? *)
+(* [trm_access]: concrete accesses in a trm *)
+type trm_access =
+  | Array_access_get of trm (* operator -> [i] *)
+  | Array_access_addr of trm (* operator [i] *)
+  | Struct_access_get of field (* operator->f *)
+  | Struct_access_addr of field (* operator.f *)
 
+(* [get_nested_accesses t]: for a given trm [t], if it's an access trm return the list of accesses,
+    the list starts with the base, and ends with the last access *)
+let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _},
+              [t'], _) ->
+     let (base, al) = get_nested_accesses t' in
+     (base, Struct_access_addr f :: al)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _},
+              [t'], _) ->
+     let (base, al) = get_nested_accesses t' in
+     (base, Struct_access_get f :: al)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
+              [t'; i], _) ->
+     let (base, al) = get_nested_accesses t' in
+     (base, Array_access_addr i :: al)
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
+              [t'; i], _) ->
+     let (base, al) = get_nested_accesses t' in
+     (base, Array_access_get i :: al)
+  | _ -> (t, [])
 
 
 (* [extract_last_path_item p]: extracts the last direction from a nonempty path *)
@@ -1028,7 +1056,7 @@ and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs :
             Path.union acc potential_targets
           end ) [] tl in
        if debug_resolution then begin
-          Printf.printf "resolve_target_simple[Constr_or]\n  ~target:%s\n  ~term:%s\n  ~res:%s\n"
+          Tools.debug "resolve_target_simple[Constr_or]\n  ~target:%s\n  ~term:%s\n  ~res:%s"
             (target_to_string trs)
             (AstC_to_c.ast_to_string t)
             (paths_to_string ~sep:"\n   " res)
@@ -1105,7 +1133,7 @@ and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs :
 
       (* DEBUG *)
       if debug_resolution then begin
-         Printf.printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
+         Tools.debug "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s"
           (if strict then "true" else "false")
           (target_to_string trs)
           (AstC_to_c.ast_to_string t)
@@ -1410,7 +1438,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
            xto_l
         in
         (* CHECK: #var-id-dir-name , is this correct? *)
-        add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id })) @
+        add_dir Dir_name (aux (trm_var ?loc (name_to_var td.typdef_tconstr))) @
         (explore_list (List.map (fun (y, _) -> trm_var ?loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
            (aux)) @
@@ -1566,14 +1594,14 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
     (* CHECK: #var-id-dir-name , is this correct? *)
-     add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = dummy_var_id }))
+     add_dir Dir_name (aux (trm_var ?loc (name_to_var (td.typdef_tconstr))))
   | Dir_name, Trm_let_fun (x, _, _, _, _) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_let ((x,_),_) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_goto x ->
     (* CHECK: #var-id-dir-name , is this correct? *)
-    add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = x; id = dummy_var_id }))
+    add_dir Dir_name (aux (trm_var ?loc (name_to_var x)))
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt cases n
        (fun (tl, body) ->

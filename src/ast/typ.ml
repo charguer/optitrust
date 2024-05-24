@@ -185,84 +185,108 @@ let is_generated_typ (ty : typ) : bool =
 
 
 (* [is_atomic_typ ty]: checks if [ty] is an atomic type *)
-  let is_atomic_typ (ty : typ) : bool =
-    match ty.typ_desc with
-    | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char |Typ_string -> true
-    | _ -> false
-
-  (* [get_typ_kind ctx ty]: based on the context [ctx], get the kind of type [ty] *)
-  let rec get_typ_kind (ctx : typ_ctx) (ty : typ) : typ_kind =
-    if is_atomic_typ ty then Typ_kind_basic ty.typ_desc
-      else
-    match ty.typ_desc with
-    | Typ_const ty1 -> get_typ_kind ctx ty1
-    | Typ_ptr rf when rf.ptr_kind = Ptr_kind_ref -> Typ_kind_reference
-    | (Typ_ptr _| Typ_array _) -> Typ_kind_array
-    | Typ_fun _ -> Typ_kind_fun
-    | Typ_var _ -> Typ_kind_var
-    | Typ_constr (_, tid, _) ->
-       let td_opt = Typ_map.find_opt tid ctx.ctx_typedef in
-       begin match td_opt with
-       | None -> Typ_kind_undefined
-       | Some td ->
-           begin match td.typdef_body with
-          | Typdef_alias ty1 -> get_typ_kind ctx ty1
-          | Typdef_record _ -> Typ_kind_record
-          | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum
-          end
-       end
-    | _ -> Typ_kind_basic ty.typ_desc
-
-  (* [get_inner_ptr_type ty]: gets the underlying type of [ty] when [ty] is a generated pointer type *)
-  let get_inner_ptr_type (ty : typ) : typ =
-    match ty.typ_desc with
-    | Typ_ptr {inner_typ = ty1;_} when is_generated_typ ty -> ty1
-    | _ -> ty
-
-  (* [get_inner_array_type ty]: returns the underlying type of [ty] when [ty] is an array type. *)
-  let get_inner_array_type (ty : typ) : typ =
-    match ty.typ_desc with
-    | Typ_array (ty, _) -> ty
-    | _ -> ty
+let is_atomic_typ (ty : typ) : bool =
+  match ty.typ_desc with
+  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char |Typ_string -> true
+  | _ -> false
 
 
-  (* [get_inner_const_type ty]: gets the underlying type of [ty] when [ty] is a const type *)
-  let get_inner_const_type (ty : typ) : typ =
-    match ty.typ_desc with
-    | Typ_const ty -> ty
-    | _ -> ty
+(* [typ_kind]: initialization type kind *)
+type typ_kind =
+  | Typ_kind_undefined
+  | Typ_kind_reference
+  | Typ_kind_array
+  | Typ_kind_sum
+  | Typ_kind_record
+  | Typ_kind_basic of typ_desc
+  | Typ_kind_fun
+  | Typ_kind_var
 
-  (* [get_inner_type ty]: returns the inner type of [ty] when [ty] is a pointer type, const type or an array type. *)
-  let get_inner_type (ty : typ) : typ =
-    match ty.typ_desc with
-    | Typ_const ty -> ty
-    | Typ_ptr {inner_typ = ty; _} -> ty
-    | Typ_array (ty, _) -> ty
-    | _ -> ty
+(* [typ_kind_to_string tpk]: converts a type kind to a string *)
+let typ_kind_to_string (tpk : typ_kind) : string =
+  begin match tpk with
+  | Typ_kind_undefined -> "undefined"
+  | Typ_kind_reference -> "reference"
+  | Typ_kind_array -> "array"
+  | Typ_kind_sum -> "sum"
+  | Typ_kind_record -> "prod"
+  | Typ_kind_basic _ -> "basic"
+  | Typ_kind_fun -> "fun"
+  | Typ_kind_var -> "var"
+  end
+
+(* [get_typ_kind ctx ty]: based on the context [ctx], get the kind of type [ty] *)
+let rec get_typ_kind (ctx : typ_ctx) (ty : typ) : typ_kind =
+  if is_atomic_typ ty then Typ_kind_basic ty.typ_desc
+    else
+  match ty.typ_desc with
+  | Typ_const ty1 -> get_typ_kind ctx ty1
+  | Typ_ptr rf when rf.ptr_kind = Ptr_kind_ref -> Typ_kind_reference
+  | (Typ_ptr _| Typ_array _) -> Typ_kind_array
+  | Typ_fun _ -> Typ_kind_fun
+  | Typ_var _ -> Typ_kind_var
+  | Typ_constr (_, tid, _) ->
+      let td_opt = Typ_map.find_opt tid ctx.ctx_typedef in
+      begin match td_opt with
+      | None -> Typ_kind_undefined
+      | Some td ->
+          begin match td.typdef_body with
+        | Typdef_alias ty1 -> get_typ_kind ctx ty1
+        | Typdef_record _ -> Typ_kind_record
+        | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum
+        end
+      end
+  | _ -> Typ_kind_basic ty.typ_desc
+
+(* [get_inner_ptr_type ty]: gets the underlying type of [ty] when [ty] is a generated pointer type *)
+let get_inner_ptr_type (ty : typ) : typ =
+  match ty.typ_desc with
+  | Typ_ptr {inner_typ = ty1;_} when is_generated_typ ty -> ty1
+  | _ -> ty
+
+(* [get_inner_array_type ty]: returns the underlying type of [ty] when [ty] is an array type. *)
+let get_inner_array_type (ty : typ) : typ =
+  match ty.typ_desc with
+  | Typ_array (ty, _) -> ty
+  | _ -> ty
 
 
-  (* [decl_type t]: returns the type of declaration [t]. *)
-  let decl_type (t : trm) : typ option =
-    match t.desc with
-    | Trm_let ((_, tx), _) -> Some (get_inner_ptr_type tx)
-    | Trm_let_fun (_, ty, _, _, _) -> Some ty
-    | _ -> None
+(* [get_inner_const_type ty]: gets the underlying type of [ty] when [ty] is a const type *)
+let get_inner_const_type (ty : typ) : typ =
+  match ty.typ_desc with
+  | Typ_const ty -> ty
+  | _ -> ty
+
+(* [get_inner_type ty]: returns the inner type of [ty] when [ty] is a pointer type, const type or an array type. *)
+let get_inner_type (ty : typ) : typ =
+  match ty.typ_desc with
+  | Typ_const ty -> ty
+  | Typ_ptr {inner_typ = ty; _} -> ty
+  | Typ_array (ty, _) -> ty
+  | _ -> ty
 
 
-  (* [is_reference]: checks if the type is a reference type or not *)
-  let is_reference (ty : typ) : bool =
-    let ty = get_inner_ptr_type ty in
-    match ty.typ_desc with
-    | Typ_ptr {ptr_kind = Ptr_kind_ref;_} -> true
-    | _ -> false
+(* [decl_type t]: returns the type of declaration [t]. *)
+let decl_type (t : trm) : typ option =
+  match t.desc with
+  | Trm_let ((_, tx), _) -> Some (get_inner_ptr_type tx)
+  | Trm_let_fun (_, ty, _, _, _) -> Some ty
+  | _ -> None
 
-  (* [is_typ_const ty]: checks if [ty] is a const type *)
-  let is_typ_const (ty : typ) : bool =
-    match ty.typ_desc with
-    | Typ_const _ -> true
-    (* | Typ_array (ty, s) -> is_typ_const ty *)
-    | _ -> false
 
+(* [is_reference]: checks if the type is a reference type or not *)
+let is_reference (ty : typ) : bool =
+  let ty = get_inner_ptr_type ty in
+  match ty.typ_desc with
+  | Typ_ptr {ptr_kind = Ptr_kind_ref;_} -> true
+  | _ -> false
+
+(* [is_typ_const ty]: checks if [ty] is a const type *)
+let is_typ_const (ty : typ) : bool =
+  match ty.typ_desc with
+  | Typ_const _ -> true
+  (* | Typ_array (ty, s) -> is_typ_const ty *)
+  | _ -> false
 
 
 (* [is_type_unit t]: checks if the [t] has type void *)
@@ -324,8 +348,8 @@ let typ_align (align : trm) (ty : typ) =
     | Typ_array _ -> true
     | _ -> false
 
-let typconstr_has_name ((qualifier, name) : typconstr) (n : string) : bool =
-  qualifier = [] && name = n
+let typconstr_has_name ((namespaces, name) : typconstr) (n : string) : bool =
+  namespaces = [] && name = n
 
 (* ********************************************************************************************** *)
 

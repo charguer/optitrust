@@ -6,7 +6,7 @@ open Prelude
 let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
   (* LATER: see if we can have an ast comparison function *)
   let success = Ast_to_text.ast_to_string t1 = Ast_to_text.ast_to_string t2 in
-  Printf.printf "Checking %s: %s\n" test_name (if success
+  Tools.debug "Checking %s: %s" test_name (if success
     then "succcess"
     else Printf.sprintf "failure (see %s_ast_{1,2}.{ast,cpp})" test_name);
   if not success then begin

@@ -100,7 +100,7 @@ let elim_on (decl_index : int) (t : trm) : trm =
   let remove_decl (t : trm) : trm =
     let error = "Arrays.elim_constant_on: expected constant array literal declaration" in
     let (name, typ, init) = trm_inv ~error trm_let_inv t in
-    (* Printf.printf "QSJIDO:\n%s\n" (Ast_to_text.ast_to_string t); *)
+    (* Tools.debug "QSJIDO:\n%s" (Ast_to_text.ast_to_string t); *)
     let (_elem_ty, _size) = typ_inv ~error t typ_const_array_inv typ in
     let _array_mlist = trm_inv ~error array_inv init in
     trm_seq_nobrace_nomarks []

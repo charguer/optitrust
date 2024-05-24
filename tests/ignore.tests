@@ -63,6 +63,8 @@ specialize/function_arg
 function/inline
 
 # #var-id
+ast/cpp_varids.ml
 apac/insert_tasks_naive
 apac/sync_with_taskwait
 variable/intro_pattern_array
+record/rename_fields/record_rename_fields.ml

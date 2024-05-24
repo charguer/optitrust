@@ -13,57 +13,59 @@ type fun_prototype = {
 
 (* LATER: support overloading. here or encoding? *)
 type scope_ctx = {
-  prefix_qualifier_rev: string list; (** Prefix qualifier corresponding to the current namespace (if at the top level)
+  namespace_path_rev: string list; (** Current namespace path for identifiers
       example: for namespace X::Y, it is "Y"::"X"::[] *)
   conflicts: Qualified_set.t; (** Set of variables defined in the current surrounding sequence and cannot be shadowed *)
   predefined: Qualified_set.t; (** Set of variables pre-defined in the current scope that can be redefined reusing the same id *)
   var_ids: var_id Qualified_map.t; (** Map from variables to their unique ids *)
   (* constr_name / field_names *)
   fun_prototypes: fun_prototype Var_map.t; (** Map from variable storing functions to their prototype *)
+  toplevel: bool; (** A boolean to indicate if we are at toplevel or not. Variables declared at toplevel always get toplevel identifiers with negative ids. *)
 
   shadowed: var Var_map.t; (** Shadowed variables, using them triggers a rename. *)
   renames: string Var_map.t ref; (** When identfiers are correct, but the name needs to be changed. This field is a global accumulator. *)
 }
 
 let print_scope_ctx scope_ctx =
-  printf "{\n";
-  printf "  prefix_qualifier_rev = %s;\n" (Tools.list_to_string scope_ctx.prefix_qualifier_rev);
-  printf "  conflicts = %s;\n" (
+  Tools.debug "{";
+  Tools.debug "  namespace_path_rev = %s;" (Tools.list_to_string scope_ctx.namespace_path_rev);
+  Tools.debug "  conflicts = %s;" (
     vars_to_string (
     List.of_seq (
-    Seq.map (fun (q, n) -> name_to_var ~qualifier:q n) (
+    Seq.map (fun (q, n) -> name_to_var ~namespaces:q n) (
     Qualified_set.to_seq scope_ctx.conflicts))));
-  printf "  predefined = %s;\n" (
+  Tools.debug "  predefined = %s;" (
     vars_to_string (
     List.of_seq (
-    Seq.map (fun (q, n) -> name_to_var ~qualifier:q n) (
+    Seq.map (fun (q, n) -> name_to_var ~namespaces:q n) (
     Qualified_set.to_seq scope_ctx.predefined))));
-  printf "  var_ids = %s;\n" (
+  Tools.debug "  var_ids = %s;" (
     vars_to_string (
     List.of_seq (
-    Seq.map (fun ((q, n), id) -> { qualifier = q; name = n; id = id }) (
+    Seq.map (fun ((q, n), id) -> { namespaces = q; name = n; id = id }) (
     Qualified_map.to_seq scope_ctx.var_ids))));
-  printf "  shadowed = %s;\n" (
+  Tools.debug "  shadowed = %s;" (
     Tools.list_to_string (
     List.of_seq (
     Seq.map (fun (v, n) -> sprintf "%s is shadowed by %s" (var_to_string v) (var_to_string n)) (
     Var_map.to_seq scope_ctx.shadowed)))
   );
-  printf "  renames = %s;\n" (
+  Tools.debug "  renames = %s;" (
     Tools.list_to_string (
     List.of_seq (
     Seq.map (fun (v, n) -> sprintf "%s -> %s" (var_to_string v) n) (
     Var_map.to_seq !(scope_ctx.renames))))
   );
-  printf "}\n"
+  Tools.debug "}"
 
 (** internal *)
 let toplevel_scope_ctx (): scope_ctx = {
-  prefix_qualifier_rev = [];
+  namespace_path_rev = [];
   conflicts = Qualified_set.empty;
-  predefined = Qualified_map.fold (fun qname _ set -> Qualified_set.add qname set) !toplevel_vars Qualified_set.empty;
-  var_ids = !toplevel_vars;
+  predefined = Qualified_set.empty;
+  var_ids = Qualified_map.empty;
   fun_prototypes = Var_map.empty;
+  toplevel = true;
   shadowed = Var_map.empty;
   renames = ref Var_map.empty;
 }
@@ -77,7 +79,7 @@ let check_unique_var_ids (t : trm) : unit =
   let vars = ref Var_set.empty in
   let add_var v =
     if Var_set.mem v !vars then
-      failwith (sprintf "variable '%s' is not declared with a unique id" (var_to_string v));
+      failwith "variable '%s' is not declared with a unique id" (var_to_string v);
     vars := Var_set.add v !vars
   in
   let rec aux t =
@@ -99,42 +101,51 @@ let check_unique_var_ids (t : trm) : unit =
   in
   aux t
 
-(** raise an [InvalidVarId] error, or recover if failing is not permitted. *)
-let invalid_or_recover ~(failure_allowed : bool)
-  (error : string) (recovery : 'a) : 'a =
-  if failure_allowed
-    then raise (InvalidVarId error)
-    else recovery
+(** raise an [InvalidVarId] error. *)
+let raise_invalid_var_id (error : string) : unit =
+  raise (InvalidVarId error)
 
 (** internal *)
-let scope_ctx_record_rename var scope_ctx =
+let scope_ctx_record_rename ~failure_allowed var scope_ctx =
   (* DEBUG: printf "renaming %s\n" (var_to_string var); *)
+  (* We should never ask to rename toplevel variables since they should never conflict. *)
+  if failure_allowed && is_toplevel_var var then raise_invalid_var_id (sprintf "cannot rename the toplevel variable %s" var.name);
   (* FIXME: fresh_var_name should be deterministic based on visible scope / free vars. *)
   scope_ctx.renames := Var_map.add var (fresh_var_name ~prefix:var.name ()) !(scope_ctx.renames)
 
 (** internal *)
 let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
-  let qualified = (var.qualifier, var.name) in
+  let qualified = (var.namespaces, var.name) in
   let infer_var_id () =
     (* Case 1: infer var id according to name. *)
     match Qualified_map.find_opt qualified scope_ctx.var_ids with
-    | Some id -> { qualifier = var.qualifier; name = var.name; id }
-    (* LATER: this can be confusing if triggered when not expected *)
-    | None -> toplevel_var ~qualifier:var.qualifier var.name
+    | Some id -> { namespaces = var.namespaces; name = var.name; id }
+    (* If the variable is not found in the current context, it should be a toplevel variable.
+       This can be confusing if triggered when not expected *)
+    | None when scope_ctx.namespace_path_rev <> [] -> failwith "variable %s is used inside open namespaces but is never declared." (var_to_string var)
+    | None -> toplevel_var ~namespaces:var.namespaces var.name
   in
   let check_var_id () =
-    (* Case 3: check var id consisent with name. *)
-    begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
-    | None ->
-      invalid_or_recover ~failure_allowed
-        (sprintf "variable %s is used but not in scope." (var_to_string var)) var
-    | Some id when (id <> var.id) && not (Var_map.mem var scope_ctx.shadowed) ->
-      invalid_or_recover ~failure_allowed
-        (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) id) var
-    | _ -> var
-    end
+    if failure_allowed then begin
+      (* Case 3: check var id consisent with name. *)
+      if is_toplevel_var var then
+        begin if not (var_eq (toplevel_var ~namespaces:var.namespaces var.name) var) then
+          raise (InvalidVarId (sprintf "toplevel variable %s has a wrong id" (var_to_string var)))
+        end
+      else
+        begin match Qualified_map.find_opt qualified scope_ctx.var_ids with
+        | None ->
+          raise (InvalidVarId
+            (sprintf "variable %s is used but not in scope." (var_to_string var)))
+        | Some id when (id <> var.id) && not (Var_map.mem var scope_ctx.shadowed) ->
+          raise (InvalidVarId (
+            (sprintf "variable %s is used but variable #%d is in scope." (var_to_string var) id)))
+        | _ -> ()
+        end
+    end;
+    var
   in
-  let var' = if var.id = inferred_var_id
+  let var' = if has_unset_id var
     then infer_var_id ()
     else check_var_id ()
   in
@@ -145,56 +156,72 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
     | None -> ()
     | Some v_shadow ->
       if not (Var_map.mem v_shadow !(scope_ctx.renames))
-        then scope_ctx_record_rename v_shadow scope_ctx;
+        then scope_ctx_record_rename ~failure_allowed v_shadow scope_ctx;
       rename_shadows v_shadow scope_ctx
   in
   rename_shadows var' scope_ctx;
   var'
 
+let infer_id_for_toplevel_var var scope_ctx =
+  let namespaces = match var.namespaces with
+  | "" :: namespaces -> namespaces
+  | namespaces -> List.rev_append scope_ctx.namespace_path_rev namespaces
+  in
+  if namespaces = [] then
+    (* Small optimization for hash-consing when there is no namespace *)
+    toplevel_var var.name
+  else
+    let toplevel_var = toplevel_var ~namespaces var.name in
+    { toplevel_var with namespaces = var.namespaces }
+
 (** internal *)
 let infer_map_binder ~(failure_allowed : bool) (scope_ctx : scope_ctx)
   var is_predecl : scope_ctx * var =
-  let qualified = (var.qualifier, var.name) in
+  let qualified = (var.namespaces, var.name) in
   let infer_var_id () =
-    if Qualified_set.mem qualified scope_ctx.predefined
-    then { qualifier = var.qualifier; name = var.name;
-           id = Qualified_map.find qualified scope_ctx.var_ids }
-    else new_var ~qualifier:var.qualifier var.name
+    if Qualified_set.mem qualified scope_ctx.predefined then
+      { namespaces = var.namespaces;
+        name = var.name;
+        id = Qualified_map.find qualified scope_ctx.var_ids }
+    else if scope_ctx.toplevel then
+      infer_id_for_toplevel_var var scope_ctx
+    else new_var ~namespaces:var.namespaces var.name
   in
-  (* currently we add all possible qualifiers to the data structures,
-  the alternative is to add only one qualifier (absolute?) and to
-  perform more complex .mem checks taking qualifiers into account. *)
-  let add_for_each_qualifier var obj_add obj =
-    let qualifier = ref var.qualifier in
+  (* currently we add all possible namespaces paths to the data structures,
+  the alternative is to add only one path (absolute?) and to
+  perform more complex .mem checks taking namespaces into account. *)
+  (* FIXME: This is broken for absolute paths *)
+  let add_for_each_namespace_suffix var obj_add obj =
+    let namespaces = ref var.namespaces in
     List.fold_left (fun obj q ->
-      qualifier := q :: !qualifier;
-      obj_add (!qualifier, var.name) obj
-    ) (obj_add qualified obj) scope_ctx.prefix_qualifier_rev
+      namespaces := q :: !namespaces;
+      obj_add (!namespaces, var.name) obj
+    ) (obj_add qualified obj) scope_ctx.namespace_path_rev
   in
   (* 1. infer var id if necessary *)
-  let var = if var.id = inferred_var_id then infer_var_id () else var in
+  let var = if has_unset_id var then infer_var_id () else var in
   if var.name = "" then
     (* 2. C/C++ allows giving no variable names *)
     (scope_ctx, var)
   else if is_predecl then
     (* 3. predeclarations don't conflict *)
     (* TODO: handle combination with renaming *)
-    ({ scope_ctx with predefined = add_for_each_qualifier var Qualified_set.add scope_ctx.predefined;
-     var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids },
+    ({ scope_ctx with predefined = add_for_each_namespace_suffix var Qualified_set.add scope_ctx.predefined;
+     var_ids = add_for_each_namespace_suffix var (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids },
      var)
   else begin
     (* 4. fix redefinitions or shadowing conflicts by renaming later on. *)
     if Qualified_set.mem qualified scope_ctx.conflicts
-      then scope_ctx_record_rename var scope_ctx;
+      then scope_ctx_record_rename ~failure_allowed var scope_ctx;
     let scope_ctx = match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id when id <> var.id ->
-      { scope_ctx with shadowed = Var_map.add { qualifier = []; name = ""; id } var scope_ctx.shadowed }
+      { scope_ctx with shadowed = Var_map.add { namespaces = []; name = ""; id } var scope_ctx.shadowed }
     | _ -> scope_ctx
     in
     (* 5. normal case *)
-    ({ scope_ctx with conflicts = add_for_each_qualifier var Qualified_set.add scope_ctx.conflicts;
-    predefined = add_for_each_qualifier var Qualified_set.add scope_ctx.predefined;
-    var_ids = add_for_each_qualifier var (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids },
+    ({ scope_ctx with conflicts = add_for_each_namespace_suffix var Qualified_set.add scope_ctx.conflicts;
+    predefined = add_for_each_namespace_suffix var Qualified_set.add scope_ctx.predefined;
+    var_ids = add_for_each_namespace_suffix var (fun q -> Qualified_map.add q var.id) scope_ctx.var_ids },
     var)
   end
 
@@ -206,15 +233,15 @@ let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
     with
     | Not_found when var_eq x Resource_trm.var_admitted -> { ghost_args = [Resource_trm.var_justif] }
     | Not_found when var_eq x Resource_trm.var_assert_alias -> Var_map.find Resource_trm.var_assert_eq scope_ctx.fun_prototypes
-    | Not_found -> failwith (sprintf "Could not find a prototype for function %s" (var_to_string x))
+    | Not_found -> failwith "Could not find a prototype for function %s" (var_to_string x)
     end
-  | _ -> failwith (sprintf "Could not find a prototype for trm at location %s" (loc_to_string t.loc))
+  | _ -> failwith "Could not find a prototype for trm at location %s" (loc_to_string t.loc)
 
 let on_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm)
   (f : var Qualified_map.t -> var list ref -> 'a) : 'a =
   let fn_prototype = find_prototype scope_ctx fn in
   let ghost_proto_arg_map = List.fold_left (fun map ghost_var ->
-    Qualified_map.add (ghost_var.qualifier, ghost_var.name) ghost_var map
+    Qualified_map.add (ghost_var.namespaces, ghost_var.name) ghost_var map
   ) Qualified_map.empty fn_prototype.ghost_args in
   let ghost_args_proto = ref fn_prototype.ghost_args in
   f ghost_proto_arg_map ghost_args_proto
@@ -222,10 +249,10 @@ let on_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm)
 let check_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t) (_ : var list ref)
   (g : var) =
   try
-    let g' = Qualified_map.find (g.qualifier, g.name) ghost_proto_arg_map in
+    let g' = Qualified_map.find (g.namespaces, g.name) ghost_proto_arg_map in
     if g.id <> g'.id then
-      failwith (sprintf "Ghost argument %s is not the same as the ghost in the prototype %s." (var_to_string g) (var_to_string g'))
-  with Not_found -> failwith (sprintf "Ghost argument %s is not part of the function prototype" (var_to_string g))
+      failwith "Ghost argument %s is not the same as the ghost in the prototype %s." (var_to_string g) (var_to_string g')
+  with Not_found -> failwith "Ghost argument %s is not part of the function prototype" (var_to_string g)
 
 let check_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> unit =
   on_ghost_arg_name scope_ctx fn check_ghost_arg_name_aux
@@ -235,12 +262,12 @@ let enter_scope check_binder scope_ctx t =
   match t.desc with
   | Trm_namespace (name, _, _) ->
     (* TODO: conflicts ~= filter_map is_qualified conflicts *)
-    { scope_ctx with prefix_qualifier_rev = name :: scope_ctx.prefix_qualifier_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; }
+    { scope_ctx with namespace_path_rev = name :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; }
   | Trm_typedef td ->
     begin match td.typdef_body with
     | Typdef_alias _ -> scope_ctx
     | Typdef_record rfl ->
-      let scope_ctx = { scope_ctx with prefix_qualifier_rev = td.typdef_tconstr :: scope_ctx.prefix_qualifier_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; } in
+      let scope_ctx = { scope_ctx with namespace_path_rev = td.typdef_tconstr :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; } in
       (* order of declaration does not matter for class members:
          this is equivalent to implicit predefinitions. *)
       List.fold_left (fun scope_ctx (rf, _) ->
@@ -250,14 +277,14 @@ let enter_scope check_binder scope_ctx t =
         | Record_field_method rfm ->
           let error = "Scope_computation.enter_scope: expected field method" in
           let (v, _, _, _) = trm_inv ~error trm_let_fun_inv rfm in
-          assert (v.qualifier = []);
+          assert (v.namespaces = []);
           check_binder scope_ctx v true
         end
       ) scope_ctx rfl
     | _ -> failwith "unexpected typdef_body"
     end
   | _ ->
-    { scope_ctx with prefix_qualifier_rev = []; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; }
+    { scope_ctx with namespace_path_rev = []; toplevel = false; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; }
 
 (** internal *)
 let scope_ctx_exit outer_ctx inner_ctx t =
@@ -269,34 +296,35 @@ let scope_ctx_exit outer_ctx inner_ctx t =
       example:
       namespace q0 { namespace q2 { void f(); }}
       namespace q1 { void f(); namespace q2 { void f() { return q0::q2::f(); } }}
-      [q0::q2::f; q1::f; f; q2::f; q1::q2::f;] --exit q2--> prefix_qualifier_rev = q2::q1::[]
-      [q0::q2::f; q1::f; q2::f; q1::q2::f] --exit q1--> prefix_qualifier_rev = q1::[]
+      [q0::q2::f; q1::f; f; q2::f; q1::q2::f;] --exit q2--> namespace_path_rev = q2::q1::[]
+      [q0::q2::f; q1::f; q2::f; q1::q2::f] --exit q1--> namespace_path_rev = q1::[]
       [q0::q2::f; q1::f; q1::q2::f] *)
-    let rec is_qualified ?(prefix_qualifier_rev = inner_ctx.prefix_qualifier_rev) ((q, n): typconstr)  : bool =
-      match (q, prefix_qualifier_rev) with
+    let rec is_qualified ?(namespace_path_rev = inner_ctx.namespace_path_rev) ((q, n): typconstr)  : bool =
+      match (q, namespace_path_rev) with
       (* Case 1. qualifier starts with current namespace *)
       | (fq :: _, pq :: _) when fq = pq -> true
       (* Case 2. qualifier starts with other namespace *)
-      | (_, _ :: pqr) -> is_qualified (q, n) ~prefix_qualifier_rev:pqr
+      | (_, _ :: pqr) -> is_qualified (q, n) ~namespace_path_rev:pqr
       | _ -> false
     in
     let union_var_ids (q, n) a b =
       if debug then begin
-        printf "outer:\n";
+        Tools.debug "outer:";
         print_scope_ctx outer_ctx;
-        printf "inner:\n";
+        Tools.debug "inner:";
         print_scope_ctx inner_ctx;
       end;
-      raise (InvalidVarId (sprintf "variable '%s' is defined both inside and outside of namespace" (var_to_string (name_to_var ~qualifier:q n))))
+      raise (InvalidVarId (sprintf "variable '%s' is defined both inside and outside of namespace" (var_to_string (name_to_var ~namespaces:q n))))
     in
-    { prefix_qualifier_rev = outer_ctx.prefix_qualifier_rev;
+    { namespace_path_rev = outer_ctx.namespace_path_rev;
       (* conflict in inner_ctx: [f; N::f], keep [N::f] conflict. *)
       conflicts = Qualified_set.union outer_ctx.conflicts (Qualified_set.filter is_qualified (inner_ctx.conflicts));
       predefined = Qualified_set.union outer_ctx.predefined (Qualified_set.filter is_qualified (inner_ctx.predefined));
       var_ids = Qualified_map.union union_var_ids outer_ctx.var_ids (Qualified_map.filter (fun k v -> is_qualified k) inner_ctx.var_ids);
       fun_prototypes = Var_map.union (fun x _ _ ->
         raise (InvalidVarId (sprintf "variable '%s' has a function specification both inside and outside the namespace" (var_to_string x))))
-        outer_ctx.fun_prototypes (Var_map.filter (fun x _ -> is_qualified (x.qualifier, x.name)) inner_ctx.fun_prototypes);
+        outer_ctx.fun_prototypes (Var_map.filter (fun x _ -> is_qualified (x.namespaces, x.name)) inner_ctx.fun_prototypes);
+      toplevel = outer_ctx.toplevel;
       shadowed = outer_ctx.shadowed;
       renames = inner_ctx.renames; }
   | _ -> { outer_ctx with renames = inner_ctx.renames }
@@ -309,7 +337,7 @@ let post_process_ctx ~(failure_allowed : bool) ctx t =
     let f_reverted = infer_map_var ~failure_allowed ctx f_reverted in
     begin match Var_map.find_opt f_reverted ctx.fun_prototypes with
     | Some proto -> { ctx with fun_prototypes = Var_map.add f_var proto ctx.fun_prototypes }
-    | None -> failwith (sprintf "Function %s cannot revert %s because its contract is undefined" (var_to_string f_var) (var_to_string f_reverted))
+    | None -> failwith "Function %s cannot revert %s because its contract is undefined" (var_to_string f_var) (var_to_string f_reverted)
     end
   | _ -> ctx
 
@@ -324,7 +352,7 @@ let only_infer_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t)
       g_proto
   else begin
     ghost_args_proto := [];
-    match Qualified_map.find_opt (g.qualifier, g.name) ghost_proto_arg_map with
+    match Qualified_map.find_opt (g.namespaces, g.name) ghost_proto_arg_map with
     | Some g' -> g'
     | None -> g (* inference failed, but leaving this for check *)
   end
@@ -343,7 +371,7 @@ let infer_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm) : var -> var =
 let rename_vars_if_needed (t : trm) (renames : string Var_map.t) =
   let may_rename (v : var) : var =
     match Var_map.find_opt v renames with
-    | Some name -> { qualifier = v.qualifier; name; id = v.id }
+    | Some name -> { namespaces = v.namespaces; name; id = v.id }
     | None -> v
   in
   let map_var () v = may_rename v in

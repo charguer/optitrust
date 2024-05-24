@@ -36,10 +36,10 @@ let to_backslashn (x:string) : string =
 let raw (x:string) : t =
   Raw x
 
-(* [base64]: creates the JS expression [window.atob("...")],
-   which computes a string as a base64 decoding. *)
-let base64 (xencoded:string) : t =
-  Raw (Printf.sprintf "window.atob(\"%s\")" xencoded)
+(* [base64 str]: creates the JS expression [window.atob("...")],
+   which is equal to the string [str]. *)
+let base64 (str :string) : t =
+  Raw (Printf.sprintf "window.atob(\"%s\")" (Base64.encode_exn str))
 
 (* [str x]: creates a Json string, to be displayed in quotes,
    and optionally converts line returns in one way or another (should not do both) *)

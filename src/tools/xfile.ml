@@ -55,8 +55,7 @@ let get_lines_or_empty file =
 let get_contents file =
    let lines = get_lines file in
    (String.concat "\n" lines) ^ "\n" *)
-(* LATER: currently the flag newline_at_end is ignored; it should go in a separate function *)
-let get_contents ?(newline_at_end:bool=true) file =
+let get_contents file =
   let ic = open_in_bin file in
   let n = in_channel_length ic in
   let text = really_input_string ic n in
@@ -73,8 +72,10 @@ let get_contents_or_empty file =
 (** Append a string to the end of an existing file *)
 
 let append_contents filename str =
-  let contents = get_contents filename in
-  put_contents filename (contents^str)
+  (* open in append mode *)
+  let c = open_out_gen [Open_append; Open_creat] 0o666 filename in
+  output_string c str;
+  close_out c
 
 
 (* [serialize_to filename t]: dumps the object [obj] of type 'a into file [filename]. *)
