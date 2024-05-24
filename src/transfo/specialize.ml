@@ -37,6 +37,7 @@ let%transfo variable_multi ?(mark_then : (string * trm) -> mark = fun _ ->  no_m
     List.iter specialize pairs;
   )
 
+(* TOFIX LATER
 let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) : unit =
   Ast_data.fill_fun_defs_tbl (get_ast());
   iter_on_targets (fun t p ->
@@ -58,7 +59,7 @@ let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) :
         | None -> None
           in
 
-      Specialize_basic.fundefs spec_name opt_trms [cTopFunDef ?clang_id qf.name];
+      Specialize_basic.fundefs spec_name opt_trms [cTopFunDef (* TODO: should also pass namespaces *) qf.name];
       (* FIXME: #var-id,
           1. recover var from previous transfo?
           2. create var before previous transfo? *)
@@ -68,3 +69,4 @@ let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) :
     | _ -> trm_fail tg_trm "Specialize.function_arg: expected a target to a function call."
 
   ) tg
+*)

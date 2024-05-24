@@ -56,9 +56,6 @@ type target_occurrences =
     | SelectOcc of int option * int list (* filter the occurences to keep only those in the list, negative index are taken from the back, if the first argument is given, check that the number of occurences is exactly that *)
 [@@deriving show { with_path = false }]
 
-type cxcursor = Clang.cxcursor
-let pp_cxcursor fmt _ = Format.pp_print_string fmt "<cxcursor>"
-
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
 
@@ -125,7 +122,7 @@ and constr =
   (* decl_vars *)
   | Constr_decl_vars of typ_constraint * constr_name * target
   (* decl_fun: name, args, body is_def*)
-  | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target * bool * cxcursor option
+  | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target * bool
   (* decl_type: name *)
   | Constr_decl_type of constr_name
   (* decl_enum: name, constants *)
@@ -338,9 +335,9 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_decl_vars (ty_pred, name, p_body) ->
     let s_body = aux p_body in
     Constr_decl_vars (ty_pred, name, s_body)
-  | Constr_decl_fun (ty_pred,name, tgt_list_pred, p_body, is_def, cx_opt) ->
+  | Constr_decl_fun (ty_pred,name, tgt_list_pred, p_body, is_def) ->
      let s_body = if is_def then aux p_body else p_body in
-     Constr_decl_fun (ty_pred,name, tgt_list_pred, s_body, is_def, cx_opt)
+     Constr_decl_fun (ty_pred,name, tgt_list_pred, s_body, is_def)
   | Constr_decl_type name -> c
   | Constr_decl_enum (name, c_const) ->
      let s_const = Xoption.map (List.map (fun (n,tg) -> (n,aux tg))) c_const in
@@ -451,7 +448,7 @@ let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option 
       match cs with
       | Constr_target [ Constr_root;
                         Constr_depth (DepthAt 1);
-                        Constr_decl_fun (_, ((Some _) as constr_name), _, _,_, _) ]
+                        Constr_decl_fun (_, ((Some _) as constr_name), _, _, _) ]
             :: _ ->
           constr_names := constr_name :: !constr_names
       | _ :: cs2 -> find_in_target cs2
@@ -804,21 +801,16 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
             check_target p_body body in
           acc || b
         ) false bs
-     | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def, cx_opt),
+     | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def),
        Trm_let_fun (x, tx, args, body, _) ->
         let body_check =
           let is_body_unit = is_trm_uninitialized body in
           if is_def then (check_target p_body body && not (is_body_unit))
            else is_body_unit in
-        let cursor_check = match (Ast_data.get_cursor_of_trm t), cx_opt with
-        | None, Some cx -> false
-        | _ , _ -> true
-          in
         ty_pred tx &&
         check_name name x.name &&
         check_args cl_args args &&
-        body_check &&
-        cursor_check
+        body_check
      | Constr_decl_type name, Trm_typedef td ->
         let is_new_typ = begin match td.typdef_body with
         | Typdef_alias _ -> true

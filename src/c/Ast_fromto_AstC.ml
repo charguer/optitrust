@@ -375,7 +375,7 @@ let method_call_elim (t : trm) : trm =
   debug_current_stage "method_call_elim";
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base], _)} as tr, args, ghost_args) ->
+    | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base], _)} (*as tr*), args, ghost_args) ->
       let ((class_qualifier, class_name), _, _) =
         match Option.bind base.typ typ_constr_inv with
         | Some r -> r
@@ -389,10 +389,7 @@ let method_call_elim (t : trm) : trm =
         end
       in
       let qualifier = class_qualifier @ [class_name] in
-      let t_var = begin match Ast_data.get_cursor_of_trm tr with
-      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var ~qualifier f))
-      | None -> trm_fail t "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
-      end in
+      let t_var = trm_var (name_to_var ~qualifier f) in
       trm_add_cstyle Method_call (trm_apps ~ghost_args (t_var) ([trm_address_of base] @ args))
     | _ -> trm_map aux t
    in

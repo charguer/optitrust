@@ -741,7 +741,7 @@ and tr_expr (e : expr) : trm =
     end
   | Call {callee = f; args = el} ->
     let tf = tr_expr f in
-    let tf = trm_add_cstyle (Clang_cursor (cursor_of_node f)) tf in
+    (* DEPREACTED let tf = trm_add_cstyle (Clang_cursor (cursor_of_node f)) tf in*)
     begin match tf.desc with
     | Trm_var x when var_has_name x "exact_div" ->
       begin match List.map tr_expr el with
@@ -781,6 +781,11 @@ and tr_expr (e : expr) : trm =
           Qualified_map.find_opt (qpath, s) !ctx_var
         in
         let res = trm_var ?loc ~ctx ?typ (name_to_var ~qualifier:qpath s) in
+        (*
+        let unified_symbol_resolution1 = Clang.get_cursor_usr (cursor_of_node e) in
+        let unified_symbol_resolution2 = Clang.get_cursor_usr (Clang.get_cursor_definition (cursor_of_node e)) in
+        printf "%s ---- %s\n" unified_symbol_resolution1 unified_symbol_resolution2;
+        *)
         let targs = List.map (fun (targ : template_argument) -> begin match targ with | Type q -> (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: something went wrong." end) targs in
         begin match targs with
         | [] -> res
@@ -1074,7 +1079,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
         end
       |_ -> loc_fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
-    let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in
+    (* DEPREACTED let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in *)
     if !redundant_decl then trm_add_cstyle Redundant_decl res else res
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; nested_name_specifier = nns; _};
                static = st; const = c; _} ->
@@ -1116,7 +1121,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
         trm_add_cstyle Method (trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  args tb)
       |_ -> loc_fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
-    let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in
+    (* DEPREACTED let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in *)
     if st
       then trm_add_cstyle Static_fun res
       else if c then trm_add_cstyle Const_method res
@@ -1137,7 +1142,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           insert_at_top_of_seq t_il tb
       in
     let res = trm_let_fun ?loc (name_to_var ~qualifier:qpath class_name) (typ_unit ()) args tb in
-    let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in
+    (* DEPREACTED let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in *)
     if ib
      then trm_add_cstyle (Class_constructor Constructor_implicit) res
      else if eb then trm_add_cstyle (Class_constructor Constructor_explicit) res
@@ -1150,7 +1155,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     | Some s -> tr_stmt s in
     let class_name = Tools.clean_class_name cn in
     let res = trm_let_fun ?loc (name_to_var class_name) (typ_unit ()) [] tb in
-    let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in
+    (* DEPREACTED let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in*)
     if df
       then trm_add_cstyle (Class_destructor Destructor_default) res
       else if dl then trm_add_cstyle (Class_destructor Destructor_delete) res
@@ -1185,7 +1190,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           begin match q.desc with
           | Elaborated _ -> trm_add_cstyle Constructed_init (trm_apps f_name args)
           | Record _ ->
-            let f_name = trm_add_cstyle (Clang_cursor (cursor_of_node e)) f_name in
+            (* DEPREACTED let f_name = trm_add_cstyle (Clang_cursor (cursor_of_node e)) f_name in*)
             trm_add_cstyle Constructed_init (trm_apps f_name args)
           | _ -> tr_expr e
           end

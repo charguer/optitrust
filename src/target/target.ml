@@ -527,16 +527,16 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
      [name] - match based on the name of the function. *)
 let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(is_def : bool = true) ?(clang_id : Clang.cxcursor option)(name : string) : constr =
+  ?(is_def : bool = true) (name : string) : constr =
   let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
   let ty_pred = make_typ_constraint ~typ:ret_typ ~typ_pred:ret_typ_pred () in
-  Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def, clang_id)
+  Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def)
 
 (* [cFunBody] same as [cFunDef] followed by [dBody]. *)
 let cFunBody ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(is_def : bool = true) ?(clang_id : Clang.cxcursor option)(name : string) : constr =
-  cTarget [cFunDef ~args ~args_pred ~ret_typ ~ret_typ_pred ~regexp ~is_def ?clang_id name; dBody]
+  ?(is_def : bool = true) (name : string) : constr =
+  cTarget [cFunDef ~args ~args_pred ~ret_typ ~ret_typ_pred ~regexp ~is_def name; dBody]
 
 (* [cFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions and declarations
      [args] - match based on arguments
@@ -548,8 +548,8 @@ let cFunBody ?(args : targets = []) ?(args_pred : target_list_pred = target_list
      [name] - match based on the name of the function. *)
 let cFunDefAndDecl ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(clang_id : Clang.cxcursor option)(name : string) : constr =
-  let fund (is_def : bool) = cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ?clang_id name in
+  (name : string) : constr =
+  let fund (is_def : bool) = cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name in
   cOr [[fund true]; [fund false]]
 
 (* [cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches top level function definitions
@@ -563,8 +563,8 @@ let cFunDefAndDecl ?(args : targets = []) ?(args_pred : target_list_pred = targe
      [name] - match based on the name of the function. *)
 let cTopFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(is_def : bool = true) ?(clang_id : Clang.cxcursor option) (name : string) : constr =
-  cTarget [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ?clang_id name ]
+  ?(is_def : bool = true) (name : string) : constr =
+  cTarget [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name ]
 
 (* [cTopFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp name]: matches top level function definitions
      and declarations
@@ -576,9 +576,8 @@ let cTopFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_li
      [regexp] - match based on regexp
      [name] - match based on the name of the function. *)
 let cTopFunDefAndDecl ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
-  ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(clang_id : Clang.cxcursor option) (name : string) : constr =
-  let topfund (is_def : bool) = cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ?clang_id name in
+  ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false) (name : string) : constr =
+  let topfund (is_def : bool) = cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name in
   cOr [[topfund true ]; [topfund false]]
 
 (* [cTopFunDefAndDeclReg reg]: matches top level function definitions and declarations based on regexp [reg]. *)

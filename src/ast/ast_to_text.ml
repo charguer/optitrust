@@ -568,7 +568,6 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Member_initializer -> string "Member_initializer"
  | Redundant_decl -> string "Redundant_decl"
  | Brace_init -> string "Brace_init"
- | Clang_cursor _ -> string "Clang_cursor"
  | Display_null_uppercase -> string "Display_null_uppercase"
  | GhostCall -> string "GhostCall"
  | ResourceFormula -> string "ResourceFormula"

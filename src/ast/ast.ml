@@ -441,8 +441,6 @@ and cstyle_annot =
   (* used for int[2] = { 3, 4 }, the trm_array is annotated with [Brace_init] *)
   | Brace_init
 
-  | Clang_cursor of Clang.cxcursor
-
   (* tag for printing [NULL] instead of [nullptr] *)
   | Display_null_uppercase
 

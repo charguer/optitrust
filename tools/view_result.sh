@@ -210,6 +210,9 @@ TIMER6=`date +%s%3N`
 # if [ ! -z ${OPTIONS} ]; then
 echo "Execution options: ${OPTIONS}"
 
+# LATER: only do this if error is raised
+make -C ${OPTITRUST_FOLDER} precompile
+
 # TODO: --no-build
 OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS} || [[ "${MODE}" == *"trace"* ]]
 
