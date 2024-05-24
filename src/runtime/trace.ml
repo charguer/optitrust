@@ -471,6 +471,30 @@ let ensure_header (h : string) : unit =
   if not found then
     the_trace.cur_context <- { ctx with header = ctx.header ^ h ^ "\n" }
 
+(** [export_ast style ctx ast] produces a document containing the contents to be exported in a file
+    or in a browser view. *)
+let export_ast (style:output_style) (ctx : context) (ast : trm) : document =
+  (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
+  let headers_doc = AstC_to_c.escape (cstyle_of_custom_style style) ctx.header;
+  (* Convert contracts into code *)
+  let fromto_style = Ast_fromto_AstC.style_of_custom_style style in
+  let ast = Ast_fromto_AstC.computed_resources_intro fromto_style ast in
+  (* Optionally convert from OptiTrust to C syntax *)
+  let ast =
+    if style.decode then begin
+      try
+        Ast_fromto_AstC.cfeatures_intro fromto_style ast
+      with
+      | Scope_computation.InvalidVarId msg ->
+        Tools.warn "output_prog could not decode due do invalid var ids: %s" msg;
+        (* TODO: add comment in code or in trace by returning info to callers *)
+        Ast_fromto_AstC.meta_intro fromto_style ast
+    end else
+      Ast_fromto_AstC.meta_intro fromto_style ast
+    in
+  let ast_doc = AstC_to_c.ast_to_doc cstyle ast in
+  PPrint.(headers_doc ^^ ast_doc ^^ hardline)
+
 (** [output_prog style ctx prefix ast]: writes the program described by the term [ast] into file.
    - one describing the CPP code ("prefix.cpp")
    If the flag [-dump-ast-details] is set, also produce:
@@ -479,44 +503,15 @@ let ensure_header (h : string) : unit =
    The CPP code is formatted using clang-format, unless [-disable-clang-format] is passed. *)
 let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let use_clang_format = beautify && !Flags.use_clang_format in
+  (* Export the file *)
   let file_prog = prefix ^ ctx.extension in
-  let out_prog = open_out_bin file_prog in
-  begin try
-    (* Print the code into file, using the specified style *)
-    let cstyle = match style.print with
-      | Lang_AST _-> raise (TraceFailure "output_prog requires a Lang_C printing mode, not a Lang_AST")
-      | Lang_C cstyle -> cstyle
-      in
-    (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
-    Tools.info "headers %s\n" (AstC_to_c.escape cstyle ctx.header);
-    output_string out_prog "coucou&lt;&gt;coucou";
-    output_string out_prog (AstC_to_c.escape cstyle ctx.header);
-    (* Convert contracts into code *)
-    let fromto_style = Ast_fromto_AstC.style_of_custom_style style in
-    let ast = Ast_fromto_AstC.computed_resources_intro fromto_style ast in
-    (* Optionally convert from OptiTrust to C syntax *)
-    let ast =
-      if style.decode then begin
-        try
-          Ast_fromto_AstC.cfeatures_intro fromto_style ast
-        with
-        | Scope_computation.InvalidVarId msg ->
-          Tools.warn "output_prog could not decode due do invalid var ids: %s" msg;
-          (* TODO: add comment in code or in trace by returning info to callers *)
-          Ast_fromto_AstC.meta_intro fromto_style ast
-      end else
-        Ast_fromto_AstC.meta_intro fromto_style ast
-      in
-    AstC_to_c.ast_to_outchannel cstyle out_prog ast;
-    output_string out_prog "\n";
-    close_out out_prog;
-  with | Failure _ as exn ->
-    close_out out_prog;
-    Printexc.(raise_with_backtrace exn (get_raw_backtrace ()))
-  end;
+  let doc = export_ast style ctx ast in
+  Tools.document_to_file ~width:!Flags.code_print_width file_prog doc;
   (* Beautify the generated C++ code using clang-format *)
-  if use_clang_format
-    then cleanup_cpp_file_using_clang_format ~uncomment_pragma:use_clang_format file_prog;
+  if use_clang_format then begin
+    let uncomment_pragma = (cstyle_of_custom_style cstyle).commented_pragma in
+    then cleanup_cpp_file_using_clang_format ~uncomment_pragma file_prog;
+  end;
   (* Optionally (flag [-dump-ast-details]), generated output also in OptiTrust syntax and Raw syntax *)
   if !Flags.dump_ast_details then begin
     let file_ast = prefix ^ ".ast" in

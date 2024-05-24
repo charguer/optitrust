@@ -106,11 +106,23 @@ let print_object (dl : document list) : document =
 let print_pair (d1 : document) (d2 : document) : document =
   parens (d1 ^^ comma ^/^ d2)
 
-(* [document_to_string d]: converts a document into a string. *)
+(* [document_to_string d]: converts a document [d] into a string. *)
 let document_to_string ?(width:PPrint.requirement=80) (d : document) : string =
   let b = Buffer.create 15 in (* the vast majority of string representation have less than 15 chars *)
   ToBuffer.pretty 0.9 width b d;
   Buffer.contents b
+
+(* [document_to_file ~nbcols filename d]: writes the document [d] into a file,
+   for a specified number of columns [width]. The parameter rfrac is the ribbon width,
+   a fraction relative to width; The ribbon width is the maximum number of
+   non-indentation characters per line. *)
+let document_to_file ?(rfrac:float=0.9) ?(width:int=100) (filename:string) (d:document) : unit =
+  let out = open_out filename in
+  ToChannel.pretty rfrac width out d;
+  close_out out
+  (* try .. with | Failure _ as exn ->
+    Printexc.(raise_with_backtrace exn (get_raw_backtrace ())) *)
+
 
 (******************************************************************************)
 (*                 Extensions for fresh name generation                       *)

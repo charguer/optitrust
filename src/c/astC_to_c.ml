@@ -8,11 +8,6 @@ open Tools
 
 (* TODO: implement support for printing trm annotations when style.ast.print_annot=true *)
 
-
-
-(* TODO: generic move to Xdoc *)
-type doc = document
-
 (*----------------------------------------------------------------------------------*)
 (* Options for printing *)
 
@@ -1417,6 +1412,7 @@ let ast_to_outchannel style (out : out_channel) (t : trm) : unit =
 
 (* [ast_to_file ~optitrust_syntax filename t]: print ast [t] to file [filename] *)
 let ast_to_file style (filename : string) (t : trm) : unit =
+  (* same as: Tools.document_to_file ~rfrac:0.9 ~width:(!Flags.code_print_width) out (ast_to_doc style t) *)
   let out = open_out filename in
   ast_to_outchannel style out t;
   close_out out

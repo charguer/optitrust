@@ -161,3 +161,7 @@ let to_custom_style (style : style) : custom_style =
     | Custom custom_style -> custom_style
     | _ -> failwith "Show.to_custom_style: not custom"
 
+let cstyle_of_custom_style (custom_style : custom_style) : AstC_to_c.style =
+  match style.print with
+    | Lang_AST _-> raise (TraceFailure "cstyle_of_custom_style: requires a Lang_C printing mode, not a Lang_AST")
+    | Lang_C cstyle -> cstyle
