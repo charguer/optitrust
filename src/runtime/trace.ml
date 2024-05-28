@@ -1508,10 +1508,18 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
   let should_compute_diff =
       (not !Flags.serialize_trace)
       && ((not is_mode_step_trace) || is_substep_of_targeted_line)
-      && (!Flags.detailed_trace ||
-        match s.step_kind with (* select steps that deserve a diff in non-detailed mode, based on their kind *)
-        | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
-        | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false)
+      && (match !Flags.substeps_including_ast with
+          | SubstepsAST_all -> true
+          | SubstepsAST_small ->
+              begin match s.step_kind with
+              | Step_root | Step_big | Step_small -> true
+              | _ -> false
+              end
+          | SubstepsAST_all_important ->
+              begin match s.step_kind with (* select steps that deserve a diff in non-detailed mode, based on their kind *)
+              | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
+              | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false
+             end)
     in
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line root_id out in

@@ -5,9 +5,9 @@ open Prelude
 
 let _ = Flags.check_validity := true
 
-(* Use the line below to see all details in the full trace,
-   and not only when requesting a per-step trace
-let _ = Flags.detailed_trace := true
+(* Use the line below to generate a smaller trace with ast
+   only for big and small steps
+let _ = Flags.process_substeps_including_ast "small"
 *)
 
 (* Use the line below to shrink ASTs during diffs. *)
