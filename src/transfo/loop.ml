@@ -22,30 +22,30 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
   if nest_of > 0 then begin
     (* Apply fission in innermost loop *)
     let p_interstice = Target.resolve_mark_exactly_one m_interstice in
-    let (p_loop_body, _) = Path.extract_last_dir_before p_interstice in
+    let (p_loop_body, i) = Path.extract_last_dir_before p_interstice in
+    let loop_body_instrs = trm_inv ~error:"expected seq" trm_seq_inv (Target.resolve_path p_loop_body) in
+
     let p_loop = Path.parent_with_dir p_loop_body Dir_body in
     let (_, p_outer_seq) = Path.index_in_seq p_loop in
-    let m_interstice = if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
-      let m = next_mark () in
-      Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
-      Ghost_pure.fission [cPath p_loop_body; cMark m];
-      Ghost_pure.minimize_all_in_seq (target_of_path p_loop_body);
-      m
-    end else
-      m_interstice
-    in
 
     let m_between = next_mark () in
-    let p_interstice = Target.resolve_target_exactly_one [cPath p_loop_body; cMark m_interstice] in
-    let (p_seq, i) = Path.extract_last_dir_before p_interstice in
-    let seq_instrs = trm_inv ~error:"expected seq" trm_seq_inv (Target.resolve_path p_seq) in
     if i = 0 then
       Marks.add m_between [cPath p_loop; tBefore]
-    else if i = Mlist.length seq_instrs then
+    else if i = Mlist.length loop_body_instrs then
       Marks.add m_between [cPath p_loop; tAfter]
     else begin
+      let m_interstice = if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
+        let m = next_mark () in
+        Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
+        Ghost_pure.fission [cPath p_loop_body; cMark m];
+        Ghost_pure.minimize_all_in_seq (target_of_path p_loop_body);
+        m
+      end else
+        m_interstice
+      in
+
       let m_loops = next_mark () in
-      fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between (target_of_path p_interstice);
+      fission_basic ~mark_loops:m_loops ~mark_between_loops:m_between [cPath p_loop_body; cMark m_interstice];
       if !Flags.check_validity then begin (* FIXME: hide condition between better API? *)
         Ghost_pair.minimize_all_in_seq [nbExact 2; cPath p_outer_seq; cMark m_loops; dBody];
         Resources.loop_minimize [nbExact 2; cPath p_outer_seq; cMark m_loops];
