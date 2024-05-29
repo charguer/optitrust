@@ -456,6 +456,89 @@ let%transfo detach_loop_ro_focus (tg: target): unit =
   justif_correct "only changed loop contracts"
 
 
+let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
+  let t_seq = trm_inv trm_seq_inv t in
+  let t_seq_before, t_seq_after = Mlist.split split_index t_seq in
+  let split_res = if Mlist.is_empty t_seq_after then after_trm t else before_trm (Mlist.nth t_seq_after 0) in
+  let usage = compute_usage_of_instrs t_seq_before in
+
+  let splitted_hyps, subst = List.fold_left (fun (splitted_hyp, subst) (hyp, formula) ->
+    match formula_read_only_inv formula with
+    | None -> splitted_hyp, subst
+    | Some { frac; formula } ->
+      let rec extract_arbitrary_carved_fracs frac =
+        Pattern.pattern_match frac [
+          Pattern.(trm_sub !__ (trm_var !__)) (fun base_frac removed_var ->
+            Pattern.when_ (Var_map.find_opt removed_var usage = Some ArbitrarilyChosen);
+            let base_frac, arbitrarily_carved_fracs = extract_arbitrary_carved_fracs base_frac in
+            base_frac, removed_var :: arbitrarily_carved_fracs
+          );
+          Pattern.(!__) (fun frac -> frac, [])
+        ]
+      in
+      let base_frac, carved_arbitrary = extract_arbitrary_carved_fracs frac in
+      if carved_arbitrary = [] then
+        splitted_hyp, subst
+      else
+        let nb_splits = 1 + List.length carved_arbitrary in
+        let repl_frac = trm_div base_frac (trm_int nb_splits) in
+        let subst = List.fold_left (fun subst var ->
+          if Var_map.mem var subst then failwith "Arbitrarily chosen variable %s is carved twice" (var_to_string var);
+          Var_map.add var repl_frac subst) subst carved_arbitrary in
+        (hyp, base_frac, nb_splits, formula) :: splitted_hyp, subst
+    ) ([], Var_map.empty) split_res.linear
+  in
+
+  let rec specialize_input_fracs t =
+    match t.desc, t.ctx.ctx_resources_contract_invoc with
+    | Trm_apps (fn, args, gargs), Some invoc ->
+      let new_gargs = List.fold_left (fun gargs { hyp; inst_by } ->
+        match trm_var_inv inst_by with
+        | Some var ->
+          begin match Var_map.find_opt var subst with
+          | Some repl -> (hyp, repl) :: gargs
+          | None -> gargs
+          end
+        | None -> gargs
+        ) gargs invoc.contract_inst.used_pure in
+      let t = if gargs == new_gargs then t else trm_alter ~desc:(Trm_apps (fn, args, new_gargs)) t in
+      trm_map specialize_input_fracs t
+    | _ -> trm_map specialize_input_fracs t
+  in
+
+  let split_ghost_for_hyp (hyp, base_frac, nb_splits, formula) =
+    Resource_trm.ghost (ghost_call (toplevel_var (sprintf "ro_split%d" nb_splits)) ["f", base_frac; "H", formula])
+  in
+
+  let remaining_splitted_hyps = ref splitted_hyps in
+  let t_seq_before = Mlist.concat_map (fun t ->
+    let usage = usage_of_trm t in
+    let produced_splitted_hyps, remaining_hyps = List.partition (fun (hyp, _, _, _) -> Var_map.find_opt hyp usage = Some Produced) !remaining_splitted_hyps in
+    remaining_splitted_hyps := remaining_hyps;
+    let split_ghosts = List.map split_ghost_for_hyp produced_splitted_hyps in
+    let t = specialize_input_fracs t in
+    Mlist.of_list (t :: split_ghosts)
+    ) t_seq_before in
+
+  let top_splits = List.map split_ghost_for_hyp !remaining_splitted_hyps in
+  let allow_joins = List.map (fun (hyp, base_frac, nb_splits, formula) ->
+    Resource_trm.ghost (ghost_call (toplevel_var (sprintf "ro_allow_join%d" nb_splits)) ["f", base_frac; "H", formula])
+  ) splitted_hyps
+  in
+
+  trm_like ~old:t (trm_subst subst (trm_seq_helper [TrmList top_splits; TrmMlist t_seq_before; TrmList allow_joins; TrmMlist t_seq_after]))
+
+(** [specialize_arbitrary_fracs tg] specializes all the arbitrarily chosen fractions that appear at the given point in a sequence.
+
+  If a given ressource has n carved holes at the split point, then each of these will be specialized to 1/(n+1) and ghosts will be inserted to pre-split the resource as early as possible.
+
+  Currently this does not check that the eliminated arbitrary fractions are not used outside the sequence immediately surrounding the target. This may be a cause of typing errors after calling this transformation.
+*)
+let%transfo specialize_arbitrary_fracs (tg: target): unit =
+  Target.apply_at_target_paths_before specialize_arbitrary_fracs_at tg;
+  justif_correct "only changed typing annotations"
+
+
 let assert_hyp_read_only ~(error : string) ((x, t) : resource_item) : unit =
   match formula_read_only_inv t with
   | Some _ -> ()
