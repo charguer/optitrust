@@ -140,7 +140,7 @@ void empty() {
   }
 }
 
-int testAllInstr(int* t, int* u, int n) {
+void testAllInstr(int* t, int* u, int n) {
   __pure();
   for (int i = 0; (i < 5); i++) {
     __strict();
@@ -152,7 +152,7 @@ int testAllInstr(int* t, int* u, int n) {
   }
 }
 
-int testAllInstr2(int* t, int* u, int n) {
+void testAllInstr2(int* t, int* u, int n) {
   __pure();
   for (int i = 0; (i < 5); i++) {
     __strict();
@@ -164,7 +164,7 @@ int testAllInstr2(int* t, int* u, int n) {
   }
 }
 
-int testAllInstrContracts(int* t, int* u, int n) {
+void testAllInstrContracts(int* t, int* u, int n) {
   __modifies(
     "for i in 1..n -> &t[i] ~> Cell,"
     "for i in 1..n -> &u[i] ~> Cell");
@@ -187,8 +187,7 @@ void ghosts() {
   __pure();
 
   int x = 0;
-  const __ghost_fn __ghost_pair_1 =
-      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..5");
+  __GHOST_BEGIN(fork_out, ro_fork_group, "H := &x ~> Cell, r := 0..5");
   for (int i = 0; i < 5; i++) {
     __strict();
     __xreads("&x ~> Cell");
@@ -204,31 +203,5 @@ void ghosts() {
     }
     __ghost(ro_join_group, "H := &x ~> Cell, r := 0..5");
   }
-  __ghost_end(__ghost_pair_1);
-}
-
-void double_ghosts() {
-  __pure();
-
-  int x = 0;
-  const __ghost_fn __ghost_pair_1 =
-      __ghost_begin(ro_fork_group, "H := &x ~> Cell, r := 0..5");
-  for (int i = 0; i < 5; i++) {
-    __strict();
-    __xreads("&x ~> Cell");
-    __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
-    __ghost(ro_fork_group, "H := &x ~> Cell, r := 0..5");
-    for (int k = 0; k < 5; k++) {
-      __strict();
-      __sreads("for j in 0..5 -> &x ~> Cell");
-      for (int j = 0; j < 5; j++) {
-        __strict();
-        __xreads("&x ~> Cell");
-        x + 1;
-      }
-    }
-    __ghost(ro_join_group, "H := &x ~> Cell, r := 0..5");
-    __ghost(ro_join_group, "H := &x ~> Cell, r := 0..5");
-  }
-  __ghost_end(__ghost_pair_1);
+  __GHOST_END(fork_out);
 }

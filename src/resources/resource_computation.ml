@@ -266,11 +266,19 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
     );
     (* we split a fraction from an RO if we don't care about the fraction we get (evar). *)
     Pattern.(formula_read_only (trm_var !__) !__) (fun frac_var ro_formula ->
-      Pattern.when_ (split_frac && Var_map.find_opt frac_var evar_ctx = Some None);
+      match Var_map.find_opt frac_var evar_ctx with
       (* TODO: ADT == Some NotKnown *)
-      let new_frac, _ = new_frac () in
-      let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
-      unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
+      | Some None when split_frac ->
+        (* Unknown fraction and split_frac: split a subfraction *)
+        let new_frac, _ = new_frac () in
+        let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
+        unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
+      | Some (Some frac) when are_same_trm frac (trm_int 1) ->
+        (* evar_ctx tells we have RO(1, H): remove the RO wrapper *)
+        unify_and_remove_linear (x, ro_formula) ~uninit:false res evar_ctx
+      | _ ->
+        (* Other cases: match the exact fraction *)
+        unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx
     );
     Pattern.(formula_uninit !__) (fun formula ->
       unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx);
@@ -341,8 +349,9 @@ let update_usage (hyp: var) (current_usage: resource_usage option) (extra_usage:
   | u, None -> u
   | Some Required, Some Required -> Some Required
   | Some Ensured, Some Required -> Some Ensured
-  | Some (Required | Ensured), Some Ensured -> failwith "Ensured resource %s share id with another one" (var_to_string hyp)
-  | Some (Required | Ensured), _ | _, Some (Required | Ensured) ->
+  | Some ArbitrarilyChosen, Some Required -> Some ArbitrarilyChosen
+  | Some (Required | ArbitrarilyChosen | Ensured), Some (Ensured | ArbitrarilyChosen) -> failwith "Ensured resource %s share id with another one" (var_to_string hyp)
+  | Some (Required | Ensured | ArbitrarilyChosen), _ | _, Some (Required | Ensured | ArbitrarilyChosen) ->
     failwith "Resource %s is used both as a pure and as a linear resource" (var_to_string hyp)
   | Some Produced, Some (ConsumedFull | ConsumedUninit) -> None
   | Some Produced, Some (SplittedFrac | JoinedFrac) -> Some Produced
@@ -391,10 +400,10 @@ let used_set_to_usage_map (res_used: used_resource_set) : resource_usage_map =
         | None -> failwith "Weird resource used"
   ) pure_usage res_used.used_linear
 
-let new_efracs_from_used_set (res_used: used_resource_set): (var * formula) list =
+let new_fracs_from_used_set (res_used: used_resource_set): (var * formula) list =
   List.filter_map (fun { inst_by } ->
     match Formula_inst.inst_split_read_only_inv inst_by with
-    | Some (efrac, bigger_frac, _) -> Some (efrac, bigger_frac)
+    | Some (frac, _, _) -> Some (frac, trm_frac)
     | None -> None
   ) res_used.used_linear
 
@@ -455,7 +464,7 @@ let check_frac_le subst_ctx (efrac, bigger_frac) =
 
   TODO: Add unit tests for this specific function
 *)
-let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) ?(specialize_efracs: bool = false) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
+let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
   let not_dominated_pure_res_to, dominated_evars = eliminate_dominated_evars res_to in
   let evar_ctx = Var_map.map (fun x -> Some (trm_subst res_from.aliases x)) subst_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) evar_ctx dominated_evars in
@@ -463,24 +472,12 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
   let res_to = Resource_set.subst_aliases res_from.aliases res_to in
   let res_from = Resource_set.subst_all_aliases res_from in
   assert (Var_map.is_empty res_to.aliases);
-  assert (res_to.efracs = []);
-
-  let efracs = if specialize_efracs then res_from.efracs else [] in
-  let evar_ctx = List.fold_left (fun evar_ctx (efrac, _) -> Var_map.add efrac None evar_ctx) evar_ctx efracs in
 
   let used_linear, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx res_from.linear res_to.linear in
   (* Prefer the most recently generated pure fact when a choice has to be made *)
   let available_pure = List.rev res_from.pure in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
       unify_pure res_item available_pure evar_ctx) evar_ctx not_dominated_pure_res_to
-  in
-
-  (* Remove unconstrained efracs from subst_ctx and efracs list *)
-  let evar_ctx, efracs = List.fold_left (fun (evar_ctx, efracs) (efrac, bound) ->
-      match Var_map.find efrac evar_ctx with
-      | None -> (Var_map.remove efrac evar_ctx, efracs)
-      | Some _ -> (evar_ctx, (efrac, bound) :: efracs)
-    ) (evar_ctx, []) efracs
   in
 
   (* All dominated evars should have been instantiated at this point.
@@ -492,10 +489,6 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
         let inst_failed_evars_str = String.concat ", " (List.map (fun (evar, _) -> evar.name) (Var_map.bindings inst_failed_evars)) in
         failwith "failed to instantiate evars %s" inst_failed_evars_str) evar_ctx
   in
-
-  (* Check that efrac constaints are satisfied *)
-  (* FIXME: It is probably unsound to always check f <= g goals, some inequalities should be strict. *)
-  List.iter (check_frac_le subst_ctx) efracs;
 
   let used_pure = List.map (fun (hyp, formula) ->
       { hyp; inst_by = Var_map.find hyp subst_ctx; used_formula = trm_subst subst_ctx formula }
@@ -512,21 +505,12 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
             )
             res_from.fun_specs res_to.fun_specs);
 
-  (* Filter out all leftovers with a null fraction *)
-  let leftover_linear = List.filter (fun (h, formula) ->
-    match formula_read_only_inv formula with
-    | Some { frac } ->
-      let frac_quotient = frac_to_quotient (trm_subst subst_ctx frac) in
-      frac_quotient.num <> 0
-    | None -> true
-  ) leftover_linear in
-
   (subst_ctx, { used_pure; used_linear }, leftover_linear)
 
 (* FIXME: resource set intuition breaks down, should we talk about resource predicates? *)
 (** [assert_resource_impl res_from res_to] checks that [res_from] ==> [res_to]. *)
 let assert_resource_impl (res_from: resource_set) (res_to: resource_set) : used_resource_set =
-  let _, used_res, leftovers = extract_resources ~split_frac:false ~specialize_efracs:true res_from res_to in
+  let _, used_res, leftovers = extract_resources ~split_frac:false res_from res_to in
   if leftovers <> [] then raise (NotConsumedResources leftovers);
   used_res
 
@@ -775,11 +759,8 @@ let resource_list_to_string res_list : string =
 
 let resource_set_to_string res : string =
   let spure = resource_list_to_string res.pure in
-  let sefracs = if res.efracs = [] then ""
-    else String.concat "\n" ("" :: List.map (fun efrac -> Ast_fromto_AstC.efrac_to_string formula_style efrac) res.efracs)
-  in
   let slin = resource_list_to_string res.linear in
-  Printf.sprintf "pure:\n%s%s\n\nlinear:\n%s\n" spure sefracs slin
+  Printf.sprintf "pure:\n%s\n\nlinear:\n%s\n" spure slin
 
 let resource_set_opt_to_string res : string =
   Xoption.map_or resource_set_to_string "UnspecifiedRes" res
@@ -849,7 +830,7 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
       post_modifs := Var_map.add hyp RemoveUnused !post_modifs;
       frame := (hyp, formula) :: !frame;
       None
-    | Some (Required | Ensured) -> failwith "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp)
+    | Some (Required | Ensured | ArbitrarilyChosen) -> failwith "minimize_linear_triple: the linear resource %s is used like a pure resource" (var_to_string hyp)
     | Some Produced -> failwith "minimize_linear_triple: Produced resource %s has the same id as a contract resource" (var_to_string hyp)
     | Some ConsumedFull -> Some (hyp, formula)
     | Some ConsumedUninit ->
@@ -926,11 +907,13 @@ let minimize_linear_triple (linear_pre: resource_item list) (linear_post: resour
 let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.empty) (res: resource_set) (t: trm): resource_usage_map * resource_set =
   let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
 
-  let res_produced = compute_produced_resources subst_ctx contract.post in
   let usage = used_set_to_usage_map res_used in
+  let new_fracs = new_fracs_from_used_set res_used in
+  let usage = List.fold_left (fun usage (frac, _) -> Var_map.add frac ArbitrarilyChosen usage) usage new_fracs in
+  let res_produced = compute_produced_resources subst_ctx contract.post in
 
   let new_res, usage_after, ro_simpl_steps = resource_merge_after_frame res_produced res_frame in
-  let new_res = { new_res with efracs = new_efracs_from_used_set res_used } in
+  let new_res = { new_res with pure = new_fracs @ new_res.pure } in
 
   t.ctx.ctx_resources_contract_invoc <- Some {
     contract_frame = res_frame;
@@ -939,7 +922,7 @@ let compute_contract_invoc (contract: fun_contract) ?(subst_ctx: tmap = Var_map.
     contract_joined_resources = ro_simpl_steps };
 
   let total_usage = update_usage_map ~current_usage:usage ~extra_usage:usage_after in
-  total_usage, Resource_set.(remove_unused_efracs (bind ~keep_efracs:true ~old_res:res ~new_res))
+  Resource_set.(remove_useless_fracs total_usage (bind ~old_res:res ~new_res))
 
 (** <private> *)
 let debug_print_computation_stack = false
@@ -1020,7 +1003,7 @@ let rec compute_resources
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
     | Trm_fun (args, ret_type, body, contract) ->
       let compute_resources_in_body contract =
-        let body_res = Resource_set.bind ~keep_efracs:false ~old_res:res ~new_res:contract.pre in
+        let body_res = Resource_set.bind ~old_res:res ~new_res:contract.pre in
         let body_usage, _ = compute_resources ~expected_res:contract.post (Some body_res) body in
         match body_usage with
         | Some body_usage -> Var_map.filter (fun _ usage -> usage = Required) body_usage
@@ -1286,7 +1269,7 @@ let rec compute_resources
           post = { inner_contract.post with linear = inner_contract.post.linear @ frame } },
         List.fold_left (fun acc (x, _) -> Var_set.add x acc) Var_set.empty frame
       in
-      let inner_usage, _ = compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~keep_efracs:false ~old_res:res ~new_res:inner_contract.pre)) body in
+      let inner_usage, _ = compute_resources ~expected_res:inner_contract.post (Some (Resource_set.bind ~old_res:res ~new_res:inner_contract.pre)) body in
 
       let usage_map, res_after =
         match inner_usage with
@@ -1340,8 +1323,8 @@ let rec compute_resources
               in
               match ut, ue with
               | (Some Required, (Some Required | None)) | (None, Some Required) -> Some Required
-              | (Some Ensured | None), (Some Ensured | None) -> None
-              | (Some (Required | Ensured), _) | (_, Some (Required | Ensured)) ->
+              | (Some (Ensured | ArbitrarilyChosen) | None), (Some (Ensured | ArbitrarilyChosen) | None) -> None
+              | (Some (Required | Ensured | ArbitrarilyChosen), _) | (_, Some (Required | Ensured | ArbitrarilyChosen)) ->
                 on_conflict "mixed in pure and linear"
               | (None, _) | (_, None) ->
                 on_conflict "consumed in a branch but not in the other"
@@ -1357,7 +1340,7 @@ let rec compute_resources
       let res_usage = update_usage_map_opt ~current_usage:usage_cond ~extra_usage:usage_joined in
       let res_usage = Option.map (fun res_usage -> List.fold_left (fun used_set (h, _) -> Var_map.add h Produced used_set) res_usage res_join.linear) res_usage in
 
-      res_usage, Some (Resource_set.bind ~keep_efracs:true ~old_res:res_cond ~new_res:res_join)
+      res_usage, Some (Resource_set.bind ~old_res:res_cond ~new_res:res_join)
 
     (* Pass through constructions that do not interfere with resource checking *)
     | Trm_typedef _ ->

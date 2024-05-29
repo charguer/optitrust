@@ -360,58 +360,23 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         ) split_res_comm
       in
 
-      (* Remove resources that are only leftover parts of a frame by instantiating efracs. *)
-      (* Currently use a simple algorithm that considers that each efrac is used at most in one framed context. *)
-      let efrac_map =
-        ref (List.fold_left (fun efrac_map (efrac, _) -> Var_map.add efrac None efrac_map) Var_map.empty split_res.efracs)
-      in
-      let try_nullify_frac (frac: formula): bool =
-        let open Xoption.OptionMonad in
-        let rec aux frac nb_efracs =
-          Pattern.pattern_match frac [
-            Pattern.(trm_sub !__ (trm_var !__)) (fun base_frac removed_var ->
-              Pattern.when_ (Var_map.find_opt removed_var !efrac_map = Some None);
-              let* efrac_val = aux base_frac (nb_efracs + 1) in
-              efrac_map := Var_map.add removed_var (Some efrac_val) !efrac_map;
-              Some efrac_val
-            );
-            Pattern.(!__) (fun _ ->
-              if nb_efracs = 0 then None
-              else if nb_efracs = 1 then Some frac
-              else Some (trm_div frac (trm_int nb_efracs))
-            )
-          ]
-        in
-        Option.is_some (aux frac 0)
-      in
-      let split_res_comm = List.filter (fun (h, formula) ->
-        match Var_map.find_opt h tl1_usage with
-        | Some SplittedFrac ->
-          begin match formula_read_only_inv formula with
-          | Some { frac } when try_nullify_frac frac -> false
-          | _ -> true
-          end
-        | _ -> true
-      ) split_res_comm in
-      (* LATER: Allow efracs that are not eliminated *)
-      let efrac_map = Var_map.mapi (fun efrac efrac_val ->
-        match efrac_val with
-        | Some efrac_val -> efrac_val
-        | None -> failwith "At the splitting point, existential fraction %s was not eliminated" efrac.name)
-        !efrac_map
-      in
-      let split_res_without_efracs = List.map (fun (h, formula) -> (h, trm_subst efrac_map formula)) split_res_comm in
-
       let tl2_usage = Resources.compute_usage_of_instrs tl2 in
       let post_inst_usage = Resource_computation.used_set_to_usage_map (Resources.post_inst t_seq) in
       let usage_after_tl1 = Resource_computation.update_usage_map ~current_usage:tl2_usage ~extra_usage:post_inst_usage in
+      let used_in_split_res_comm = Resource_set.used_vars (Resource_set.make ~linear:split_res_comm ()) in
       let tl1_ensured = List.filter (fun (x, f) ->
-        Var_map.find_opt x tl1_usage = Some Ensured &&
+        match Var_map.find_opt x tl1_usage with
+        | Some (Ensured | ArbitrarilyChosen) when
+          Var_set.mem x used_in_split_res_comm ->
+            failwith "The resources at split point depend on the variable %s created before in the sequence" (var_to_string x)
+        | Some Ensured when
           Var_map.mem x usage_after_tl1 &&
-          Var_set.disjoint (trm_free_vars f) bound_in_tl1
+          Var_set.disjoint (trm_free_vars f) bound_in_tl1 ->
+            true
+        | _ -> false
         ) split_res.pure
       in
-      let middle_iter_contract = Resource_set.make ~pure:tl1_ensured ~linear:split_res_without_efracs () in
+      let middle_iter_contract = Resource_set.copy (Resource_set.make ~pure:tl1_ensured ~linear:split_res_comm ()) in
 
       let fst_contract = {
         loop_ghosts = contract.loop_ghosts;
@@ -424,11 +389,11 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         strict = true;
       } in
       let snd_contract = {
-        loop_ghosts = (*List.map (fun (efrac, _) -> (efrac, trm_frac)) split_res.efracs @*) contract.loop_ghosts;
+        loop_ghosts = contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl2_inv_writes };
         parallel_reads = tl1_inv_reads @ contract.parallel_reads;
         iter_contract = {
-          pre = { middle_iter_contract with pure = tl1_ensured @ contract.iter_contract.pre.pure };
+          pre = { middle_iter_contract with pure = middle_iter_contract.pure @ contract.iter_contract.pre.pure };
           post = contract.iter_contract.post; (* LATER: Can be slightly more clever here, by removing ensures that are already done by the first loop. *)
         };
         strict = true;

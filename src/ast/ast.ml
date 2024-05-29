@@ -709,7 +709,6 @@ and resource_set = {
   linear: resource_item list;
   fun_specs: fun_spec_resource varmap; (** Pure facts that give specification to functions are stored here instead of pure to allow easier lookup. *)
   aliases: trm varmap; (** Map of variables to their definition, variables may come from the program or pure facts *)
-  efracs: (var * formula) list; (** List of existential fracs that can be chosen afterwards as long as they are smaller than the frac expression. *)
 }
 
 (* Represents the knowledge of the specification of a function *)
@@ -769,6 +768,7 @@ and produced_resource_set = {
 and resource_usage =
   | Required
   | Ensured
+  | ArbitrarilyChosen
   | ConsumedFull
   | ConsumedUninit
   | SplittedFrac
@@ -1049,6 +1049,7 @@ let resource_usage_opt_to_string = function
 | None -> "None"
 | Some Required -> "Required"
 | Some Ensured -> "Ensured"
+| Some ArbitrarilyChosen -> "ArbitrarilyChosen"
 | Some SplittedFrac -> "SplittedFrac"
 | Some ConsumedUninit -> "ConsumedUninit"
 | Some ConsumedFull -> "ConsumedFull"
@@ -1070,7 +1071,7 @@ let typing_ctx (ctx_types: typ_ctx): ctx =
 
 
  (** The empty resource set. *)
-let empty_resource_set = { pure = []; linear = []; fun_specs = Var_map.empty; aliases = Var_map.empty; efracs = [] }
+let empty_resource_set = { pure = []; linear = []; fun_specs = Var_map.empty; aliases = Var_map.empty }
 
 (** The empty function contract, printed as __pure(). *)
 let empty_fun_contract =

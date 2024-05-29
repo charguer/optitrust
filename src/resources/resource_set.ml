@@ -17,29 +17,19 @@ open Resource_formula
 
 (** Makes a resource set given its components. *)
 let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Var_map.empty) ?(efracs = []) () =
-  { pure; linear; fun_specs; aliases; efracs }
+  { pure; linear; fun_specs; aliases }
 
 (** The empty resource set. *)
 let empty = empty_resource_set
 
-(** [demote_efracs res] transforms all the efracs inside [res] into regular fractions. *)
-let demote_efracs (res: resource_set): resource_set =
-  { res with
-      pure = res.pure @ List.map (fun (efrac, _) -> (efrac, trm_frac)) res.efracs;
-      efracs = [] }
-
 (** If after consuming [old_res], [new_res] was produced, then [bind] generates the resulting resource set.
-
     Pure resources are accumulated, and linear resources are replaced.
-    Unless [keep_efracs] is set to true, existential fractions inside [old_res] are turned into regular fractions.
-    *)
-let bind ~(keep_efracs: bool) ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
-  let old_res = if keep_efracs then old_res else demote_efracs old_res in
+*)
+let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
   { pure = old_res.pure @ new_res.pure;
     linear = new_res.linear;
     fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs;
-    aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases;
-    efracs = old_res.efracs @ new_res.efracs; }
+    aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases; }
 
 (** Returns the set of resource names bound by a resource set.*)
 (* DEPRECATED
@@ -72,8 +62,7 @@ let group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
     linear = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.linear;
     fun_specs = res.fun_specs;
-    aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *)
-    efracs = res.efracs; (* Maybe we loose in generality here *) }
+    aliases = res.aliases; (* FIXME: Probably wrong when aliasing variables from [pure] *) }
 
 (** Given a resource set, produces a resource set with read-only access to its resources that can be duplicated: RW_in => RO_out; RO_out => RO_out * (trm_copy RO_out); *)
 let read_only (res: resource_set): resource_set =
@@ -83,14 +72,13 @@ let read_only (res: resource_set): resource_set =
       let { formula } = formula_read_only_inv_all formula in
       (x, formula_read_only ~frac formula)
     ) res.linear in
-  { res with pure = frac_item :: res.pure ; linear; efracs = [] }
+  { res with pure = frac_item :: res.pure ; linear }
 
 (** Returns the union of two resource sets, accumulating pure items and separating linear items with a star. *)
 let union (res1: resource_set) (res2: resource_set): resource_set =
   { pure = res1.pure @ res2.pure; linear = res1.linear @ res2.linear;
     fun_specs = Var_map.union (fun _ _ c -> Some c) res1.fun_specs res2.fun_specs;
-    aliases = Var_map.union (fun _ _ d -> Some d) res1.aliases res2.aliases;
-    efracs = res1.efracs @ res2.efracs }
+    aliases = Var_map.union (fun _ _ d -> Some d) res1.aliases res2.aliases; }
 
 (** The built-in variable representing a function's return value. *)
 (* FIXME: #var-id, id should be different for every let/letfun? like 'this' ids? *)
@@ -115,8 +103,7 @@ let rec subst (subst_map: tmap) (res: resource_set): resource_set =
         res.fun_specs
   in
   let aliases = Var_map.map (fun def -> trm_subst subst_map def) res.aliases in
-  let efracs = List.map (fun (f, lt_frac) -> (f, trm_subst subst_map lt_frac)) res.efracs in
-  { pure; linear; fun_specs; aliases; efracs }
+  { pure; linear; fun_specs; aliases }
 
 let subst_var (x: var) (t: trm) (res: resource_set) : resource_set =
   subst (Var_map.singleton x t) res
@@ -152,6 +139,13 @@ let subst_loop_range_step range = subst_var range.index (trm_add (trm_var range.
 (** Substitutes a loop index with its end value. *)
 let subst_loop_range_end range = subst_var range.index range.stop
 
+(** [copy res]: refreshes all the binders in [res] to preserve var-id unicity. *)
+let copy ?(subst = Var_map.empty) (res: resource_set): resource_set =
+  match trm_fun_inv (trm_copy (trm_fun ~contract:(FunSpecContract { pre = res; post = empty }) [] None (trm_uninitialized ()))) with
+  | Some (_, _, _, FunSpecContract { pre }) -> pre
+  | _ -> failwith "Resource_set.copy failed"
+
+
 (** [used_vars res] returns the set of variables that are used inside [res].
 
     A variable is considered to be used if it is a free variable inside one formula in the resource set.
@@ -165,13 +159,21 @@ let used_vars (res: resource_set): Var_set.t =
   let pure_used_vars = List.fold_left combine_used_vars Var_set.empty res.pure in
   List.fold_left combine_used_vars pure_used_vars res.linear
 
-(** [remove_unused_efracs res] removes all existantial fractions that are not used inside [res].
-
-    This is always sound since it corresponds to instantiating a fraction with any value satisfying the constraint
-    (there always exist a fraction smaller than any other). *)
-let remove_unused_efracs (res: resource_set): resource_set =
+(** [remove_useless_fracs usage res]: removes all fractions that have 0 occurences inside [res] from both [usage] and [res]. *)
+(* LATER: Maybe we should have a more general remove_useless_inhabited_pure.*)
+let remove_useless_fracs (usage: resource_usage_map) (res: resource_set): resource_usage_map * resource_set =
   let used = used_vars res in
-  { res with efracs = List.filter (fun (efrac, _) -> Var_set.mem efrac used) res.efracs }
+  let usage = ref usage in
+  let res = { res with
+    pure = List.filter (fun (hyp, hyp_type) ->
+      if (are_same_trm hyp_type trm_frac) && not (Var_set.mem hyp used) then begin
+        usage := Var_map.remove hyp !usage;
+        false
+      end else
+        true
+      ) res.pure
+    } in
+  !usage, res
 
 
 (** [filter ?pure_filter ?linear_filter res] removes the resources for which the corresponding filter returns false.
@@ -200,13 +202,13 @@ let linear_usage_filter usage filter (h, _) =
   | Some ConsumedUninit -> filter.uninit
   | Some ConsumedFull -> filter.full
   | Some Produced -> filter.produced
-  | Some (Required | Ensured) -> failwith "linear_usage_filter used on pure resource"
+  | Some (Required | Ensured | ArbitrarilyChosen) -> failwith "linear_usage_filter used on pure resource"
 
 type pure_usage_filter =
- { unused: bool; required: bool; ensured: bool }
+ { unused: bool; required: bool; ensured: bool; arbitrarily_chosen: bool }
 
-let keep_all_pure = { unused = true; required = true; ensured = true }
-let keep_none_pure = { unused = false; required = false; ensured = false }
+let keep_all_pure = { unused = true; required = true; ensured = true; arbitrarily_chosen = true; }
+let keep_none_pure = { unused = false; required = false; ensured = false; arbitrarily_chosen = false }
 let keep_touched_pure = { keep_all_pure with unused = false; }
 let keep_unused_pure = { keep_none_pure with unused = true; }
 let keep_required = { keep_none_pure with required = true; }
@@ -218,6 +220,7 @@ let pure_usage_filter usage filter (h, _) =
   | None -> filter.unused
   | Some Required -> filter.required
   | Some Ensured -> filter.ensured
+  | Some ArbitrarilyChosen -> filter.arbitrarily_chosen
   | Some (SplittedFrac | JoinedFrac | ConsumedUninit | ConsumedFull | Produced) ->
     failwith "pure_usage_filter used on linear resource"
 

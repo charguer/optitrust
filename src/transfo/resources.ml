@@ -268,7 +268,7 @@ let minimize_loop_contract contract post_inst usage =
   let new_linear_invariant, added_par_reads = List.fold_right (fun (hyp, formula) (lin_inv, par_reads) ->
     match Var_map.find_opt hyp usage with
     | None -> (lin_inv, par_reads)
-    | Some (Required | Ensured) -> failwith "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp)
+    | Some (Required | Ensured | ArbitrarilyChosen) -> failwith "minimize_loop_contract: the linear resource %s is used like a pure resource" (var_to_string hyp)
     | Some (SplittedFrac | JoinedFrac) ->
       let { formula } = formula_read_only_inv_all formula in
       let frac_var, frac_ghost = new_frac () in
@@ -533,13 +533,13 @@ let assert_not_self_interfering (t : trm) : unit =
     | Some ConsumedFull -> trm_fail t "trm has self interfering resource usage"
     | Some ConsumedUninit -> true
     | Some (SplittedFrac|JoinedFrac) | None -> false
-    | Some (Produced|Required|Ensured) -> trm_fail t "trm has invalid resource usage"
+    | Some (Produced|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
   ) res_before.linear in
   let res_produced = List.filter (fun (h, f) ->
     match Var_map.find_opt h res_usage with
     | Some Produced -> true
     | Some (SplittedFrac|JoinedFrac) | None -> false
-    | Some (ConsumedFull|ConsumedUninit|Required|Ensured) -> trm_fail t "trm has invalid resource usage"
+    | Some (ConsumedFull|ConsumedUninit|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
   ignore (Resource_computation.subtract_linear_resource_set res_produced res_used_uninit)
 
@@ -557,7 +557,7 @@ let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
   let res = usage_of_trm instr in
   let usage_interferes hyp res_usage =
     match res_usage with
-    | Required | Ensured | SplittedFrac | JoinedFrac -> false
+    | Required | Ensured | ArbitrarilyChosen | SplittedFrac | JoinedFrac -> false
     | ConsumedFull | ConsumedUninit | Produced -> Var_map.mem hyp res
   in
   let instr_interference i t =

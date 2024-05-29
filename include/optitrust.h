@@ -411,6 +411,50 @@ __GHOST(subrange_to_group_in_range) {
   __admitted();
 }
 
+/* ---- Manually split RO resources ---- */
+
+__GHOST(ro_split2) {
+  __requires("f: _Fraction, H: formula");
+  __consumes("_RO(f, H)");
+  __produces("_RO(f/2, H), _RO(f/2, H)");
+  __admitted();
+}
+
+__GHOST(ro_split3) {
+  __requires("f: _Fraction, H: formula");
+  __consumes("_RO(f, H)");
+  __produces("_RO(f/3, H), _RO(f/3, H), _RO(f/3, H)");
+  __admitted();
+}
+
+__GHOST(ro_split4) {
+  __requires("f: _Fraction, H: formula");
+  __consumes("_RO(f, H)");
+  __produces("_RO(f/4, H), _RO(f/4, H), _RO(f/4, H), _RO(f/4, H)");
+  __admitted();
+}
+
+__GHOST(ro_allow_join2) {
+  __requires("f: _Fraction, H: formula");
+  __consumes("_RO(f/2, H)");
+  __produces("_RO(f - f/2, H)");
+  __admitted();
+}
+
+__GHOST(ro_allow_join3) {
+  __requires("f: _Fraction, H: formula");
+  __consumes("_RO(f/3, H)");
+  __produces("_RO(f - f/3 - f/3, H)");
+  __admitted();
+}
+
+__GHOST(ro_allow_join4) {
+  __requires("f: _Fraction, H: formula");
+  __consumes("_RO(f/4, H)");
+  __produces("_RO(f - f/4 - f/4 - f/4, H)");
+  __admitted();
+}
+
 /* ---- Group Ghosts ---- */
 
 __GHOST(ro_fork_group) {
