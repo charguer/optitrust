@@ -535,6 +535,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
   Currently this does not check that the eliminated arbitrary fractions are not used outside the sequence immediately surrounding the target. This may be a cause of typing errors after calling this transformation.
 *)
 let%transfo specialize_arbitrary_fracs (tg: target): unit =
+  ensure_computed ();
   Target.apply_at_target_paths_before specialize_arbitrary_fracs_at tg;
   justif_correct "only changed typing annotations"
 

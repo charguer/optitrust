@@ -39,6 +39,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
         Ghost_pair.fission ~mark_between:m (target_of_path p_interstice);
         Ghost_pure.fission [cPath p_loop_body; cMark m];
         Ghost_pure.minimize_all_in_seq (target_of_path p_loop_body);
+        Resources.specialize_arbitrary_fracs [cPath p_loop_body; cMark m];
         m
       end else
         m_interstice
