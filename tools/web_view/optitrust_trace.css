@@ -3,6 +3,8 @@ body {
   margin: 0;
   overflow: hidden;
   font-family: sans-serif;
+  font-size: 10pt;
+  line-height: 1.4;
 }
 
 pre {
@@ -18,11 +20,12 @@ pre {
 .CodeMirror {
   border: 1px solid #eee;
   height: auto;
+  font-size: 9pt;
 }
 
 .tree-step {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
   margin: 0 0 0 -100%;
   padding: 0 0 0 100%;
@@ -75,39 +78,55 @@ pre {
 }
 
 .step-expand {
+  --bullet-color: black;
   display: inline-block;
   /* See https://css-tricks.com/snippets/css/css-triangle/ to know why this draws a triangle */
   border: 0.3em solid transparent;
-  border-left-color: black;
-  margin-left: 0.35em;
-  margin-right: 0.05em;
-  margin-bottom: 1px;
+  border-left-color: var(--bullet-color);
+  margin: 0.42em 0.05em 0 0.35em;
   cursor:pointer;
 }
 .step-expand:hover {
-  opacity: 75%;
+  --bullet-color: #000a;
 }
-.step-expand:active {
-  opacity: 90%;
+.step-expand::after {
+  content: "";
+  display: block;
+  height: calc(100% - .2em);
+  margin-top: .5em;
+  margin-bottom: -.5em;
+  margin-right: -1px;
 }
 .step-expanded {
   border-left-color: transparent;
-  border-top-color: black;
-  margin: 0 0.2em -0.3em;
+  border-top-color: var(--bullet-color);
+  margin: 0.6em 0.2em 0;
+  align-self: stretch;
 }
 .step-leaf {
   display: inline-block;
   border: 0.2em solid;
   border-radius: 0.2em;
-  margin: 0 0.3em;
+  margin: 0.5em 0.3em 0;
+  align-self: flex-start;
 }
 .step-fully-expanded {
   border: 0.3em solid transparent;
   border-top-color: #60f;
   border-radius: 0;
-  margin: 0 0.2em -0.3em;
+  margin: 0.6em 0.2em 0;
+  align-self: stretch;
 }
 
+.step-expanded::after, .step-fully-expanded::after {
+  content: "";
+  border-left: 1px solid #ccc;
+  display: block;
+  height: calc(100% - .2em);
+  margin-top: .5em;
+  margin-bottom: -.5em;
+  margin-right: -1px;
+}
 
 .step-justif-text {
   margin-left: 3em;
@@ -229,6 +248,7 @@ pre {
 .controls {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
   border-top: 1px solid #888;
   padding: 8px;
   gap: 0 4px;
@@ -244,8 +264,8 @@ ol {
   padding-left: 0.5ex;
 }
 ol ol {
-  padding-left: 1em;
-  border-left: 1px dotted #888;
+  padding-left: 0.5em;
+  border-left: 1px solid #ccc;
   margin-left: 0.5em;
 }
 li {

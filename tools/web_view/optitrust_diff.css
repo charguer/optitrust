@@ -1,12 +1,24 @@
+body {
+  margin: 0;
+}
+
 /* Hide the filename since we're concerned with only one file name */
 .d2h-file-header {
-   display: none;
+  display: none;
 }
 
 .d2h-file-wrapper {
   border: none;
   margin-bottom: 0;
   overflow: hidden;
+}
+
+.d2h-diff-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: monospace;
+  font-size: 9pt;
+  line-height: 1.4;
 }
 
 .d2h-diff-table td {
@@ -19,8 +31,8 @@
 
 /* disable the highlighting of words diff on a line */
 .d2h-code-line ins, .d2h-code-side-line ins, .d2h-code-line del, .d2h-code-side-line del {
-    background-color: initial;
-    vertical-align: initial;
+  background-color: initial;
+  vertical-align: initial;
 }
 
 .d2h-code-line-prefix {
@@ -42,10 +54,10 @@
   content: none;
 }
 
-/* Hide the diff line number because we're showing full file comparisons */
-.d2h-info {
-   display: none;
-}
+/* Don't hide the diff line number because it removes useful context information */
+/*.d2h-info {
+  display: none;
+}*/
 
 .d2h-files-diff {
   display: flex;
@@ -58,9 +70,4 @@
 }
 .d2h-file-side-diff + .d2h-file-side-diff {
   border-left: 1px solid #888;
-}
-
-.d2h-diff-table {
-  border-collapse: separate;
-  border-spacing: 0;
 }
