@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Usage: from the root of the OptiTrust repon, call:
-#   tests/gen_tests_files_for_debug.sh
+# Usage: from the root of the OptiTrust repo, call:
+#   tools/tester/gen_tests_files_for_debug.sh
 #
 # The execution of this script creates dummy *.tests files,
 # which may then be used for debugging `tester.ml`.
