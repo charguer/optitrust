@@ -4,7 +4,7 @@ open Prelude
 
 type nd_tile = Matrix_core.nd_tile
 
-let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Target.iter (fun p ->
     let loop_t = Target.resolve_path p in
@@ -21,7 +21,7 @@ let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : 
   (* Trace.reparse ();
   simpl tg *)
 
-let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1) ?(simpl : Transfo.t = Arith.default_simpl) (tg:target) : unit =
+let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1) ?(simpl : target -> unit = Arith.default_simpl) (tg:target) : unit =
   Trace.tag_valid_by_composition ();
   let orig_p = resolve_target_exactly_one orig in
   let ps = resolve_target tg in
@@ -45,7 +45,7 @@ let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1
   in aux nest_of orig_p ps (List.map (fun _ -> Var_map.empty) ps)
 
 (* TODO: inline ~delete:IfOnlyCall *)
-let rec pry_loop_nest (nest_of: int) (simpl : Transfo.t) (p : path) : unit =
+let rec pry_loop_nest (nest_of: int) (simpl : target -> unit) (p : path) : unit =
   if nest_of > 0 then begin
     let t = Path.resolve_path p (Trace.ast ()) in
     match trm_for_inv t with
@@ -68,7 +68,7 @@ let rec pry_loop_nest (nest_of: int) (simpl : Transfo.t) (p : path) : unit =
   Keeps outer loop index names and uses [written] as suffix for inner loop index names.
   Returns the list of created inner loop index names.
   *)
-let may_slide (written : var list) (sizes : trm list) (steps : trm list) ~(simpl : Transfo.t) (p : path) : string list =
+let may_slide (written : var list) (sizes : trm list) (steps : trm list) ~(simpl : target -> unit) (p : path) : string list =
   let written = List.map (fun v -> v.name) written in
   let outer_loop_count = List.length sizes in
   let outer_loop_indices = List.map (fun v -> v.name) (Loop.get_indices outer_loop_count p) in
@@ -118,7 +118,7 @@ let collect_writes (p : path) : Var_set.t =
  [overlaps]: list of [var, overlap] pairs, where [var] is a variable being written to by a loop, that needs to be produced in tiles of [tile_size + overlap] due to following dependencies.
  [outputs]: list of variables to keep alive after the stencil chain is fused.
  *)
-let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm list)) list = []) ~(outputs : string list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = true) (tg : target) : unit =
+let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm list)) list = []) ~(outputs : string list) ?(simpl : target -> unit = Arith.default_simpl) ?(fuse_inner_loops : bool = true) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let outer_loop_count = List.length tile in
   let surrounding_sequence = ref None in
@@ -214,6 +214,6 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
     )
   )
 
-let fusion_targets ~(nest_of : int) ?(overlaps : (string * (trm list)) list = []) ~(outputs : string list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =
+let fusion_targets ~(nest_of : int) ?(overlaps : (string * (trm list)) list = []) ~(outputs : string list) ?(simpl : target -> unit = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   fusion_targets_tile (List.init nest_of (fun _ -> trm_int 1)) ~overlaps ~outputs ~simpl ~fuse_inner_loops tg

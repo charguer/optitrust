@@ -56,7 +56,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
          print_info t'.loc "Internal.change_trm: no matching subterm for target %s\n"
            (target_to_string tr);
          t'
-      | _ -> List.fold_left (apply_on_path apply_change) t' epl
+      | _ -> List.fold_left (Path.apply_on_path apply_change) t' epl
     )
     t
     change_at in
@@ -141,7 +141,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
          print_info t'.loc "Internal.change_typ: no matching subterm for target %s\n"
            (target_to_string tr);
          t'
-      | _ -> List.fold_left (apply_on_path apply_change) t' epl
+      | _ -> List.fold_left (Path.apply_on_path apply_change) t' epl
     )
     t
     change_at

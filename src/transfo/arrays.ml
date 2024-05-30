@@ -45,10 +45,10 @@ let unroll_index_vars_from_array_reads (tg : target) : unit =
 (* FIXME: should be equal to arith default? *)
 let default_inline_constant_simpl tg = Arith.(simpl_surrounding_expr (fun x -> compute (gather x))) (nbAny :: tg)
 
-(* [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
+(** [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
 For every variable in non-constant indices, this transformation will attempt unrolling the corresponding for loop.
   *)
-let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) ?(simpl : Transfo.t = default_inline_constant_simpl) (tg : target) : unit =
+let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) ?(simpl : target -> unit = default_inline_constant_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   (* TODO: unroll if necessary *)
   Marks.with_fresh_mark (fun m ->
@@ -58,7 +58,7 @@ let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) ?
     Arrays_basic.inline_constant ~mark_accesses ~decl [nbMulti; cMark m]
   )
 
-(* [elim_constant] expects the target [tg] to point at a constant array literal declaration, and resolves all its accesses, that must be at constant indices. Then, eliminates the array declaration.
+(** [elim_constant] expects the target [tg] to point at a constant array literal declaration, and resolves all its accesses, that must be at constant indices. Then, eliminates the array declaration.
   *)
 let%transfo elim_constant ?(mark_accesses : mark = no_mark) (tg : target) : unit =
   Target.iter (fun p ->

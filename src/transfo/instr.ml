@@ -5,7 +5,7 @@ include Instr_basic
 let insert = Sequence.insert
 let delete = Sequence.delete
 
-(* [read_last_write ~write tg]: similar to [Instr_basic.read_last_write] except that this transformation
+(** [read_last_write ~write tg]: similar to [Instr_basic.read_last_write] except that this transformation
      tries to find the last write instead of asking explicitly for a target to that write,
      [write_mark]: a mark used by the transformation [inline_last_write] to mark the instruction that needs to
                    be deleted
@@ -15,13 +15,13 @@ let%transfo read_last_write ?(write_mark : mark = no_mark) ?(write : target = []
   if write <>  []
     then Instr_basic.read_last_write ~write tg
     else begin
-      iter_on_targets (fun t p ->
-        let tg_trm = Path.resolve_path p t in
+      Target.iter (fun p ->
+        let tg_trm = Target.resolve_path p in
         let arg = get_operation_arg tg_trm in
           begin match write with
           | [] ->
             let path_to_seq, _, index = Internal.get_instruction_in_surrounding_sequence p in
-            let seq_trm = Path.resolve_path path_to_seq t in
+            let seq_trm = Target.resolve_path path_to_seq in
             let write_index = ref None in
             begin match seq_trm.desc with
             | Trm_seq tl ->
@@ -47,23 +47,23 @@ let%transfo read_last_write ?(write_mark : mark = no_mark) ?(write : target = []
             | None -> trm_fail tg_trm "Instr.read_last_write: couuldn't find a write operation for your targeted read operation"
             end
           | _ ->
-              Instr_basic.read_last_write  ~write (target_of_path p)
+              Instr_basic.read_last_write ~write (target_of_path p)
           end
     ) tg end
 
-(* [inline_last_write ~write ~write_mark tg]: similar to [read_last_write] except that this one
+(** [inline_last_write ~write ~write_mark tg]: similar to [read_last_write] except that this one
     deletes the last write operation. *)
 let%transfo inline_last_write ?(write : target = []) ?(write_mark : mark = "__todelete__") (tg : target) : unit =
   let write_mark = if write = [] then Some write_mark else None in
   read_last_write ~write ?write_mark tg;
   if write <> [] then  Instr_basic.delete write else Instr_basic.delete [nbMulti;cMark "__todelete__"]
 
-(* [accumulate tg]: similar to [Instr_basic.accumulate], however this transformation requires the user to use a
+(** [accumulate tg]: similar to [Instr_basic.accumulate], however this transformation requires the user to use a
     different target. For this transformation the user needs to provide a target to the first instruction
     and the number [nb] of consecutive instructions that can be accumulated into a single one. *)
 let%transfo accumulate ?(nb : int option) (tg : target) : unit =
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     begin match tg_trm.desc with
     | Trm_seq _ -> Instr_basic.accumulate (target_of_path p)
     | _  when is_set_operation tg_trm ->
@@ -71,14 +71,14 @@ let%transfo accumulate ?(nb : int option) (tg : target) : unit =
       | Some n ->
         Sequence_basic.intro ~mark:"temp_MARK" n (target_of_path p);
         Instr_basic.accumulate [cMark "temp_MARK"]
-      | _ -> trm_fail t "Instr.accumulate: if the given target is a write operation please
+      | _ -> trm_fail tg_trm "Instr.accumulate: if the given target is a write operation please
            provide me the number [nb] of instructions to consider in the accumulation"
       end
-    | _ -> trm_fail t "Instr.accumulate: expected a target to a sequence or a target to an instruction and the number of instructions to consider too"
+    | _ -> trm_fail tg_trm "Instr.accumulate: expected a target to a sequence or a target to an instruction and the number of instructions to consider too"
     end
   ) tg
 
-(* [accumulate_targets tg]: similar to [Instr_basic.accumulate], the main difference is that this transformation
+(** [accumulate_targets tg]: similar to [Instr_basic.accumulate], the main difference is that this transformation
      expects the target [tg] to point to multiple instructions instead of a sequence that consists of multiple
      instructions that can be reduced to a single one. Here the regrouping is done automatically. *)
 let%transfo accumulate_targets (tg : target) : unit =
@@ -86,7 +86,7 @@ let%transfo accumulate_targets (tg : target) : unit =
   Sequence.intro_targets ~mark tg;
   Instr_basic.accumulate [cMark mark]
 
-(* [move_in_seq ~dest tg] perform the same actions as {!Instr_basic.move},
+(** [move_in_seq ~dest tg] perform the same actions as {!Instr_basic.move},
    but move the instructions with the ghost pairs they need around them. *)
 let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
   if !Flags.resource_typing_enabled then
@@ -127,7 +127,7 @@ let%transfo move_in_seq ~(dest: target) (tg: target) : unit =
 type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
 
 
-(* [gather_targets ~dest tg]: expects the target [tg] to point to one or more instructions, than
+(** [gather_targets ~dest tg]: expects the target [tg] to point to one or more instructions, than
     it will move this instructions just before the instruction targeted by [dest].
 
     DEPRECATED with this interface:
@@ -271,7 +271,7 @@ let%transfo move ~(dest : target) (tg : target) : unit =
       Instr_basic.delete [cMark "instr_move_out"]) tg
   end
 
-(* [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
+(** [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
 let%transfo move_out (tg : target) : unit =
   Target.iter (fun p ->
     let (seq, _) = try Internal.isolate_last_dir_in_seq p with | Contextualized_error _ ->
@@ -280,7 +280,7 @@ let%transfo move_out (tg : target) : unit =
     move ~dest:[cPath seq; tBefore] tg_instr
   ) tg
 
-(* [move_out_of_fun tg]: moves the instruction targeted by [tg] just befor the toplevel declaration function
+(** [move_out_of_fun tg]: moves the instruction targeted by [tg] just befor the toplevel declaration function
     that it belongs to. *)
 let%transfo move_out_of_fun (tg : target) : unit =
   Target.iteri (fun i p ->
@@ -298,11 +298,11 @@ let%transfo move_out_of_fun (tg : target) : unit =
   ) tg
 
 (* TODO: %transfo ? *)
-(* [set_atomic tg]: just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9 *)
-let set_atomic : Transfo.t =
+(** [set_atomic tg]: just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9 *)
+let set_atomic : target -> unit =
   Omp_basic.atomic
 
 (* TODO: %transfo ? *)
-(* [unset_atomic ty]: the opposite of [set_atomic]. *)
-let unset_atomic : Transfo.t =
-  apply_on_targets (apply_on_path (trm_filter_pragma (function | Atomic _ -> false | _ -> true)))
+(** [unset_atomic ty]: the opposite of [set_atomic]. *)
+let unset_atomic : target -> unit =
+  apply_at_target_paths (trm_filter_pragma (function | Atomic _ -> false | _ -> true))

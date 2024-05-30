@@ -3,12 +3,12 @@ open Target
 include Matrix_basic
 
 
-(* [intro_calloc tg]: expects the target [tg] to point at a variable declaration
+(** [intro_calloc tg]: expects the target [tg] to point at a variable declaration
     then it will check its body for a call to calloc. On this extended path it will call
     the [Matrix_basic.intro_calloc] transformation *)
 let%transfo intro_calloc (tg : target) : unit =
-  iter_on_targets ( fun t p ->
-    let tg_trm,_ = Path.resolve_path_and_ctx p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     match tg_trm.desc with
     | Trm_let ((x,_), init) ->
       begin match trm_ref_inv_init init with
@@ -41,22 +41,22 @@ let%transfo intro_calloc (tg : target) : unit =
   ) tg
 
 
-(* [intro_mindex dim]; expects the target [tg] to point at at a matrix declaration, then it will change
+(** [intro_mindex dim]; expects the target [tg] to point at at a matrix declaration, then it will change
      all its occurrence accesses into Optitrust MINDEX accesses. *)
 let%transfo intro_mindex (dim : trm) (tg : target) : unit =
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     let error = "Matrix.intro_mindex: the target should point at matrix declaration." in
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
     Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x.name] ()]
   ) tg
 
-(* [intro_malloc tg]: expects the target [tg] to point at a variable declaration
+(** [intro_malloc tg]: expects the target [tg] to point at a variable declaration
     then it will check its body for a call to malloc. On this extended path it will call
     the [Matrix_basic.intro_malloc] transformation. *)
 let%transfo intro_malloc (tg : target) : unit =
-  iter_on_targets ( fun t p ->
-    let tg_trm,_ = Path.resolve_path_and_ctx p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     match tg_trm.desc with
     | Trm_let ((x,_), init) ->
       begin match trm_ref_inv_init init with
@@ -89,11 +89,11 @@ let%transfo intro_malloc (tg : target) : unit =
   ) tg
 
 
-(* [biject fun_bij tg]: expects the target [tg] to point at at a matrix declaration , then it will search for all its
+(** [biject fun_bij tg]: expects the target [tg] to point at at a matrix declaration , then it will search for all its
     acccesses and replace MINDEX with  [fun_bij]. *)
 let%transfo biject (fun_bij : var) (tg : target) : unit =
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with
     | Trm_let ((p, _), _) ->
@@ -103,12 +103,12 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
     | _ -> trm_fail tg_trm "biject: expected a variable declaration"
   ) tg
 
-(* [intro_mops dims]: expects the target [tg] to point at an array declaration allocated with
+(** [intro_mops dims]: expects the target [tg] to point at an array declaration allocated with
       calloc or malloc, then it will apply intro_calloc or intor_mmaloc based on the type of
       the current allocation used. Then it will search for all accesses and apply intro_mindex. *)
 let%transfo intro_mops (dim : trm) (tg : target) : unit =
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     let error = "Matrix.intro_mops: the target should be pointing at a matrix declaration" in
     let _ = trm_inv ~error trm_let_inv tg_trm in
     intro_mindex dim (target_of_path p);
@@ -126,7 +126,7 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
   ) tg
 
 
-(* [elim_mops]: expects the target [tg] to point at a subterm and
+(** [elim_mops]: expects the target [tg] to point at a subterm and
   eliminates all MINDEX macros in that subterm.
 
   TODO:
@@ -146,7 +146,7 @@ let%transfo elim_mops (tg : target): unit =
     ) tg
   )
 
-(* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
+(** [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
 let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
@@ -190,13 +190,13 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
     Scope.infer_var_ids ()
 
 
-(* [reorder_dims ~rotate_n ~order tg] expects the target [tg] to point at at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions
+(** [reorder_dims ~rotate_n ~order tg] expects the target [tg] to point at at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions
       and apply the reordering of the dimensions. *)
 let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg : target) : unit =
   let rotate_n = match rotate_n with Some n -> n | None -> 0  in
-  iter_on_targets (fun t p ->
+  Target.iter (fun p ->
     let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
-    let tg_trm = Path.resolve_path p t in
+    let tg_trm = Target.resolve_path p in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
     Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x.name; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x.name] (); cFun ~regexp:true "MINDEX."]]])
@@ -207,10 +207,10 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
   - (2) should start from replaced bottom leaf instead of top scope target? *)
 let simpl_void_loops = Loop.delete_all_void
 
-(* [elim]: eliminates the matrix [var] defined in at the declaration targeted by [tg].
+(** [elim]: eliminates the matrix [var] defined in at the declaration targeted by [tg].
   All reads from [var] must be eliminated The values of [var] must only be read locally, i.e. directly after being written.
   *)
-let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
+let%transfo elim ?(simpl : target -> unit = simpl_void_loops) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Target.iter (fun p_def ->
     let t_def = Target.resolve_path p_def in
@@ -228,11 +228,11 @@ let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
 (* TODO: local_name_tile ~shift_to_zero *)
 (* + shift_to_zero ~nest_of *)
 
-(* [inline_constant]: expects [tg] to target a matrix definition,
+(** [inline_constant]: expects [tg] to target a matrix definition,
    then first uses [Matrix.elim_mops] on all reads before attempting
    to use [Arrays.inline_constant].
    *)
-let%transfo inline_constant ?(simpl : Transfo.t = Arith.default_simpl) ~(decl : target) (tg : target) : unit =
+let%transfo inline_constant ?(simpl : target -> unit = Arith.default_simpl) ~(decl : target) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Target.iter (fun p -> Marks.with_fresh_mark (fun mark_accesses ->
     (* TODO: use simpl there as well? *)
@@ -241,11 +241,11 @@ let%transfo inline_constant ?(simpl : Transfo.t = Arith.default_simpl) ~(decl : 
     simpl [nbAny; cMark mark_accesses];
   )) tg
 
-(* [elim_constant]: expects [tg] to target a matrix definition,
+(** [elim_constant]: expects [tg] to target a matrix definition,
    then first uses [Matrix.elim_mops] on all reads before attempting
    to use [Arrays.elim_constant].
    *)
-let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo elim_constant ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Target.iter (fun p_def -> Marks.with_fresh_mark (fun mark_accesses ->
     let t_def = Target.resolve_path p_def in
@@ -257,7 +257,7 @@ let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : targe
     simpl [nbAny; cMark mark_accesses];
   )) tg
 
-(* [iter_on_var_defs]: helper for transformations that need to iterate
+(** [iter_on_var_defs]: helper for transformations that need to iterate
   on variable definitions while requiring the path to the surrounding sequence.
    *)
 let iter_on_var_defs (f : (var * typ * trm) -> (int * path) -> unit) (tg : target) : unit =
@@ -269,7 +269,7 @@ let iter_on_var_defs (f : (var * typ * trm) -> (int * path) -> unit) (tg : targe
     f let_bits seq_bits
   ) tg
 
-(* [delete] expects target [tg] to point to a definition of matrix [var], and deletes it.
+(** [delete] expects target [tg] to point to a definition of matrix [var], and deletes it.
   Both allocation and de-allocation instructions are deleted.
   Checks that [var] is not used anywhere in the visible scope.
    *)
@@ -289,7 +289,7 @@ let%transfo local_name_tile
   ?(delete: bool = false) ?(indices : string list = [])
   ~(alloc_instr : target) ?(local_var : string = "") (tile : Matrix_core.nd_tile)
   ?(uninit_pre : bool = false) ?(uninit_post : bool = false) (* TODO: bool option with inference. *)
-  ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let (delete, rename, tmp_var) = if local_var = ""
     then (true, true, fresh_var_name ())
@@ -324,7 +324,7 @@ let%transfo local_name_tile
    introduces the local name for the rest of the sequence. *)
 let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : string list = [])
   ~(alloc_instr : target) ?(local_var : string = "") (tile : Matrix_core.nd_tile)
-  ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Marks.with_fresh_mark (fun mark -> Target.iter (fun p ->
     Sequence.intro_after ~mark (target_of_path p);

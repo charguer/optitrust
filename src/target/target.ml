@@ -1114,25 +1114,9 @@ let enable_multi_targets (tg : target) : target =
       then tg
       else nbMulti::tg
 
-(* [relative_target tg]: convert target [tg] to a relative target. *)
-let relative_target (tg : target) : target =
-  if List.exists (function Constr_relative _ -> true | _ -> false) tg
-    then tg
-    else tBefore :: tg
-
 (******************************************************************************)
-(*                          Apply on target operations                        *)
-(* DEPRECATED SECTION: only use functions from the next section in new code   *)
+(*                    Update of AST string representation                     *)
 (******************************************************************************)
-
-(* [Transfo]: type of transformations. *)
-module Transfo = struct
-  type t = target -> unit
-  type local = trm -> path -> trm
-  type local_between = int -> local
-end
-
-let apply_on_path = Path.apply_on_path
 
 (* [convert_stringreprs_from_documentation_to_string m]: convert string representations [m] to a string. *)
 let convert_stringreprs_from_documentation_to_string (m : AstC_to_c.stringreprs) : (stringreprid, string) Hashtbl.t =
@@ -1186,21 +1170,6 @@ let compute_stringreprs_and_update_ast ?(optitrust_syntax:bool=false) (f : trm->
   | Some m -> m
   | _ -> assert false (* table was set in Trace.apply *)
 
-
-(* [debug_dissapearing_mark]: only for debugging purposes. *)
-let debug_disappearing_mark = false
-
-(* [Interrupted_applyi]: exception raise when targets are not resolved successfully. *)
-exception Interrupted_applyi of trm
-
-(* [fix_target tg]: fix target [tg]. *)
-let fix_target (tg : target) : target =
-  (* Occurrence constraints should be unique. *)
-  let check_occurrences = List.exists (function Constr_occurrences _ -> true | _ -> false) tg in
-  (* If there are logic constraints then multiple occurrences are allowed. *)
-  let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
-  if (not check_occurrences) && check_logic then nbMulti :: tg else tg
-
 (* [with_stringreprs_available_for tgs t (fun t2 -> action)]:  execute the [action]
    in a context where the AST [t] is viewed as [t2], which is a copy of [t] where
    certain nodes have their string representation available. Which nodes are concerned
@@ -1243,242 +1212,17 @@ let resolve_target_mark_one_else_any (m : mark) (t : trm) : paths =
     with Constr.Resolve_target_failure _ ->
       resolve_target [nbAny; cMark m] t
 
-(* [applyi_on_transformed_targets transformer tr tg]: apply a transformation [tr] on target [tg],
-     [transformer] - change the resolved path so that more information about the context of the node is given,
-     [tr] - transformation to be applied at the nodes corresponding at target [tg],
-     [tg] - target. *)
-let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
-  Stats.comp_stats "applyi_on_transformed_targets" (fun () ->
-  let tg = fix_target tg in
-  Trace.apply (fun t -> with_stringreprs_available_for [tg] t (fun t ->
-      (* LATER: use apply_with_stringreprs
-                           and take an optional list of auxiliary targets as argument. *)
-    let ps =
-      Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_targets" (fun () ->
-          resolve_target tg t) in
-    let ps = if rev then List.rev ps else ps in
-    match ps with
-    | [] -> t
-    | [p] -> tr 0 t (transformer p)
-    | _ ->
-        let marks = List.map (fun _ -> Mark.next()) ps in
-        (* add marks for occurences -- could be implemented in a single path, if optimization were needed. *)
-        (* Tools.debug "Before applyin_marks: %s" (AstC_to_c.ast_to_string t);. *)
-        let t =
-             Stats.comp_stats "applyi_on_transformed_targets add marks" (fun () ->
-              Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_add_mark" (fun () ->
-              List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks)) in
-        (* Tools.debug "After applying_marks: %s" (AstC_to_c.ast_to_string t);. *)
-        (* iterate over these marks. *)
-        Stats.comp_stats "applyi_on_transformed_targets apply transfo" (fun () ->
-        begin try
-          Xlist.fold_lefti (fun imark t m ->
-            Stats.stats ~cond:!Flags.analyse_stats_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
-              let ps = resolve_target_mark_one_else_any m t in
-              match ps with
-              | [p] ->
-                  let t = apply_on_path (trm_rem_mark m) t p in
-                  tr imark t (transformer p)
-              | ps ->
-                  let msg =
-                    if ps <> []
-                      then "applyi_on_transformed_targets: a mark was duplicated"
-                      else (*failwith*) (Printf.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
-                    in
-                  if debug_disappearing_mark
-                    then (Tools.error "%s" msg; raise (Interrupted_applyi t))
-                    else failwith "%s" msg
-            )
-          ) t marks
-        with Interrupted_applyi t -> t
-        end)
-    )))
-
-(* [apply_on_transformed_targets ~replace_top transformer tr tg]: similar to [applyi_to_transformed_targets] except,
-     that here the index of the resolved_path is not considered.
-      [transformer] - change the resolved path so that more information about the context of the node is given,
-      [tr] - transformation to be applied at the nodes corresponding at target [tg],
-      [tg] - target. *)
-let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets  ~rev transformer (fun _i t descr -> tr t descr) tg
-
-
-(* [applyi_on_targets ~replace tr tg]: similar [applyi_on_transformed_targets] but here the transformer is the
-     identity function
-      [tr] - transformation to be applied at the nodes corresponding at target [tg]
-      [tg] - target. *)
-let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets (fun p -> p) tr tg
-
-
-(* [apply_on_targets ~replace tr tg]: similar to [applyi_on_targets] but here the index of the resolved path is not
-    taken into account,
-      [tr] - transformation to be applied,
-      [tg] - target. *)
-let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
-  applyi_on_targets (fun _i t dl -> tr t dl) tg
-
-(* [transfo_on_targets tr tg]: similar to [apply_on_targets] but this one is applies [tr] on the fly. *)
-let transfo_on_targets (tr : trm -> trm) (tg : target) : unit =
-  apply_on_targets (fun t dl -> apply_on_path tr t dl) tg
-
-(* [iteri_on_transformed_targets transformer tr tg]: similar to [applyi_on_transformed_targets] except this one is meant
-     to be used for combi transformations,
-     [rev] - process the resolved paths in reverse order,
-     [transformer] - change the resolved path so that more information about the context of the node is given,
-     [tr] - transformation to be applied at the nodes corresponding at target [tg],
-     [tg] - target,
-     LATER: try to better factorize the code.
-     LATER: add timing measurements. *)
-let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
-  Stats.comp_stats "iteri_on_transformed_targets" (fun () ->
-  let tg = fix_target tg in
-  Trace.call (fun t -> with_stringreprs_available_for [tg] t (fun t ->
-    Stats.comp_stats "iteri_on_transformed_targets with_stringreprs_available" (fun () ->
-    let ps =
-      Stats.comp_stats "iteri_on_transformed_targets resolve_target" (fun () ->
-        resolve_target tg t)
-      (* ALTERNATIVE with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2). *) in
-    let ps = if rev then List.rev ps else ps in
-    match ps with
-    | [] -> ()
-    | [p] -> Stats.comp_stats "iteri_on_transformed_targets transform one" (fun () ->
-          tr 0 t (transformer p))
-    | _ ->
-      let marks = List.map (fun _ -> Mark.next()) ps in
-      let _t_before = t in
-      (* add marks for occurences -- could be implemented in a single pass, if optimization were needed. *)
-      let t =
-        Stats.comp_stats "iteri_on_transformed_targets add marks" (fun () ->
-          List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
-      Trace.set_ast_for_target_iter t;
-      (* iterate over these marks *)
-      try
-        List.iteri (fun imark m ->
-          let t = Trace.ast() in (* valid because inside the scope of [Trace.call]. *)
-          let ps = Stats.comp_stats "iteri_on_transformed_targets find mark" (fun () ->
-            resolve_target_mark_one_else_any m t) in
-          match ps with
-          | [p] ->
-              (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
-              let t =
-                Stats.comp_stats "iteri_on_transformed_targets remove mark" (fun () ->
-                  apply_on_path (trm_rem_mark m) t p) in
-              Trace.set_ast_for_target_iter t;
-              Stats.comp_stats (Printf.sprintf "iteri_on_transformed_targets perform transfo %d" imark) (fun () ->
-                  Trace.target_iter_step imark (fun () -> tr imark t (transformer p))
-              )
-          | ps ->
-              let msg =
-                if ps <> []
-                  then "iteri_on_transformed_targets: a mark was duplicated"
-                  else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
-                in
-              if debug_disappearing_mark
-                then (Tools.error "%s" msg; raise (Interrupted_applyi t))
-                else failwith "%s" msg
-        ) marks
-      with Interrupted_applyi t -> Trace.set_ast t (* view the ast when the bug appears. *)
-      ))))
-
-(* [iter_on_transformed_targets ~rev transformer tr tg]: similar to [apply_on_transformed_targets] except,
-     that here the index of the resolved_path is not considered.
-      [rev] - process the resolved paths in reverse order,
-      [transformer] - change the resolved path so that more information about the context of the node is given,
-      [tr] - transformation to be applied at the nodes corresponding at target [tg],
-      [tg] - target. *)
-let iter_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : trm -> 'a -> unit) (tg : target) : unit =
-  iteri_on_transformed_targets ~rev transformer (fun _i t descr -> tr t descr) tg
-
-(* [iteri_on_targets ~replace tr tg]: similar to [iteri_on_transformed_targets] except that here the transformer is
-    the identity function
-        [tg] - target
-        [tr] - transformation to be applied at the nodes corresponding at target [tg]. *)
-let iteri_on_targets ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
-  iteri_on_transformed_targets~rev (fun p -> p) tr tg
-
-(* [iter_on_targets ~rev tr tg]: similar to [iteri_on_targets] but here the index of the resolved path is not
-     taken into account
-      [rev] - process the resolved paths in reverse order
-      [tr] - transformation to be applied at the nodes corresponding at target [tg]
-      [tg] - target. *)
-let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : target) : unit =
-  iteri_on_targets ~rev (fun _i t dl -> tr t dl) tg
-
-
-(* [applyi_on_transformed_targets_between transformer tr tg]: apply transformation [tr] on a target relative to [tg]
-      [transformer] - change the resolved path so that more information about the context of the node is given
-      [tr] - transformation to be applied at the nodes corresponding to target [tg]
-      [tg] - target. *)
-let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
-  Trace.apply (fun t -> with_stringreprs_available_for [tg] t (fun t ->
-  let ps =
-    Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_targets" (fun () -> resolve_target_between tg t
-      (* ALTERNATIVE
-      with_stringreprs_available_for tg t (fun t2 ->
-        resolve_target_between tg t2). *) ) in
-  match ps with
-  | [] -> t
-  | [p] -> tr 0 t (transformer p)
-  | _ ->
-    let marks = List.map (fun _ -> Mark.next ()) ps in
-    let t = Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_add_mark" (fun () ->
-      List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
-    try
-      Xlist.fold_lefti (fun imark t m ->
-        Stats.stats ~cond:!Flags.analyse_stats_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
-          let ps = resolve_target_mark_one_else_any m t in
-          match ps with
-          | [p_to_seq] ->
-            let t_seq, _ = resolve_path_and_ctx p_to_seq t in
-            let i = begin match get_mark_index m t_seq with
-             | Some i -> i |
-              None -> trm_fail t_seq "applyi_on_transformed_targets_between: could not get the between index" end in
-            let t = apply_on_path (trm_rem_mark_between m) t p_to_seq in
-            tr imark t (transformer (p_to_seq,i))
-          | ps ->
-            let msg =
-              if ps <> []
-                then "applyi_on_transformed_targets_between: a mark was duplicated"
-                else (Printf.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
-            if debug_disappearing_mark
-              then (Tools.error "%s" msg; raise (Interrupted_applyi t))
-              else failwith "%s" msg
-        )) t marks
-      with Interrupted_applyi t -> t
-    ))
-
-(* [apply_on_transformed_targets_between transformer tr tg]: similar to [applyi_to_transformed_targets_between] except that
-     here the index of the resolved_path is not considered.
-      [transformer] - change the resolved path so that more information about the context of the node is given,
-      [tr] - transformation to be applied at the nodes corresponding to target [tg],
-      [tg] - target. *)
-let apply_on_transformed_targets_between (transformer: path * int -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets_between transformer (fun _i t descr -> tr t descr) tg
-
-
-(* [applyi_on_targets_between ~replace tr tg]: similar to [applyi_on_transformed_targets_between] except that here
-    the transformer is the identity function.
-      [tr] - transformation to be applied at the nodes corresponding to target [tg]
-      [tg] - target. *)
-let applyi_on_targets_between (tr : int -> trm -> path * int -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets_between (fun (p,i) -> (p,i)) tr tg
-
-(* [apply_on_targets_between ~replace tr tg]: similar to [applyi_on_targets_between] except that here the index
-     of the resolved path is not taken into account.
-      [tg] - target,
-      [tr] - transformation to be applied. *)
-let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
-  (* TRICK: If tg is not a relative target then the following line makes it relative, this is used only for OpenMP pragmas. *)
-  let tg = relative_target tg in
-  applyi_on_targets_between (fun _i t pk -> tr t pk) tg
-
-
-
 (******************************************************************************)
-(*                                   New target system                        *)
-(* TODO: remove the old one                                                   *)
+(*                       Target resolution system                             *)
 (******************************************************************************)
+
+(* [fix_target_multi tg]: fix target [tg] to be nbMulti by default if cOr or cAnd is present. *)
+let fix_target_multi (tg : target) : target =
+  (* Occurrence constraints should be unique. *)
+  let check_occurrences = List.exists (function Constr_occurrences _ -> true | _ -> false) tg in
+  (* If there are logic constraints then multiple occurrences are allowed. *)
+  let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
+  if (not check_occurrences) && check_logic then nbMulti :: tg else tg
 
 (* [trm_add_marks_at_paths marks ps t] adds at the paths [ps] the marks named
    [marks] in the term [t], and returns the resulting term. *)
@@ -1530,7 +1274,7 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
     Constr.old_resolution := false
   in
 
-  let tg = fix_target tg in
+  let tg = fix_target_multi tg in
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
     let ps = resolve_target tg t in
@@ -1739,7 +1483,7 @@ let get_relative_type (tg : target) : target_relative option =
 (* TODO: change strategy for reparse, probably based on missing types?
    else on annotations added by clangml but cleared by smart-constructors
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)
-let reparse_after ?(update_cur_ast : bool = true) ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit =
+let reparse_after ?(update_cur_ast : bool = true) ?(reparse : bool = true) (tr : target -> unit) (tg : target) : unit =
     if not reparse then tr tg else begin
       let tg = enable_multi_targets tg in
       let ast = (get_ast()) in
@@ -1771,7 +1515,7 @@ let list_of_option (o : 'a option) : 'a list =
   | None -> []
   | Some x -> [x]
 
-let reparse_after ?(reparse : bool = true) (tr_of : (apply_on_target_arg -> apply_on_target_arg) -> Transfo.t) : Transfo.t =
+let reparse_after ?(reparse : bool = true) (tr_of : (apply_on_target_arg -> apply_on_target_arg) -> target -> unit) : target -> unit =
   fun (tg : target) ->
     let function_names_to_reparse : string list ref = ref [] in
     let reparse_where (tr : apply_on_target_arg) : apply_on_target_arg =
@@ -1785,7 +1529,7 @@ let reparse_after ?(reparse : bool = true) (tr_of : (apply_on_target_arg -> appl
 
 
 example usage: in Access_basic.
-let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.t =
+let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) : target -> unit =
   Target.reparse_after ~reparse (fun reparse_where ->
     Target.apply_on_targets (reparse_where (Accesses_core.transform f_get f_set)))
 

@@ -1,26 +1,22 @@
 open Prelude
 open Target
 
-(* [any_aux e t]: replaces the function call [t] with [e]
+(** [any_on e t]: replaces the function call [t] with [e]
       [e] - the expression replacing the call to function [ANY],
       [t] - ast of a call to function [ANY]. *)
-let any_aux (e : trm) (t : trm) : trm =
-  let error = "Specialize_core.any_aux: expected a trm_var with ANY annotation."  in
+let any_on (e : trm) (t : trm) : trm =
+  let error = "Specialize_core.any_on: expected a trm_var with ANY annotation."  in
   let (f, _) = trm_inv ~error trm_apps_inv t in
   let any = trm_inv ~error trm_var_inv f in
   if Tools.pattern_matches "ANY?." any.name
     then  e
-    else trm_fail f "Specialize_core.any_aux: expected the special function ANY"
+    else trm_fail f "Specialize_core.any_on: expected the special function ANY"
 
-(* [any e t p]: applies [any_aux] at trm [t] with path [p]. *)
-let any (e : trm) : Target.Transfo.local =
-  Target.apply_on_path (any_aux e)
-
-(* [choose_aux  selelct_arg t]: replaces the function call [t] with one of its arguments that satisfies
+(** [choose_on selelct_arg t]: replaces the function call [t] with one of its arguments that satisfies
      the predicate  [select_arg],
       [select_arg] - a predicate on the index of the argument that should be choosed,
       [t] - ast of the call to function choose. *)
-let choose_aux (select_arg : var list -> int) (t : trm) : trm =
+let choose_on (select_arg : var list -> int) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_f, argnb :: args, _)  ->
     begin match argnb.desc with
@@ -42,25 +38,19 @@ let choose_aux (select_arg : var list -> int) (t : trm) : trm =
         trm_var_get (List.nth choices id )
     | _ -> trm_fail argnb "Specialize_core.choose_aux: expected a literel trm"
     end
-  | _ -> trm_fail t "Specialize_core.choose_aux: expected a call to funtion choose"
+  | _ -> trm_fail t "Specialize_core.choose_on: expected a call to funtion choose"
 
-
-(* [choose select_arg t p]: applies [choose_aux] at trm [t] with path [p]. *)
-let choose (select_arg : var list -> int) : Target.Transfo.local =
-  Target.apply_on_path (choose_aux select_arg)
-
-
-(* [fun_defs_aux spec_name spec_args t]: inserts a copy of the function definition [t], specializing
+(** [fun_def_aux spec_name spec_args t]: inserts a copy of the function definition [t], specializing
       one of its arguments based on the list [spec_args].
       [spec_name] - the name of the copy
       [spec_args] - an optional list of trms, telling the transformation which argss it shoudl specialize,
       [t] - ast of the function definition. *)
-let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) : trm =
+let fun_def_on (spec_name : string) (spec_args : (trm option) list) (t : trm) : trm =
   let spec_var = Trm.new_var spec_name in
   match t.desc with
   | Trm_let_fun (qf, ret_ty, args, body, _) ->
     (* Check if spec_args is of the correct shape. *)
-    if List.length spec_args <> List.length args then trm_fail t "Specialize_core.fun_defs_aux: the list of arguments to specialize
+    if List.length spec_args <> List.length args then trm_fail t "Specialize_core.fun_def_on: the list of arguments to specialize
         should match the list of the arguments of the targeted function.";
 
     let args_map = List.combine args spec_args in
@@ -92,17 +82,11 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
     trm_seq_nobrace_nomarks [t; new_def]
   | _ -> trm_fail t "Specialize_core.fun_defs_aux: expected a target to a function definition."
 
-
-(* [fun_defs spec_name spec_args t p]: applies [fun_defs_aux] at trm [ŧ] with path [p]. *)
-let fun_defs (spec_name : string) (spec_args : (trm option) list) : Target.Transfo.local =
-  apply_on_path (fun_defs_aux spec_name spec_args)
-
-
-(* [fun_calls_aux spec_name args_to_choose t]: replaces the function call [t] with another function call.
+(** [fun_call_on spec_name args_to_choose t]: replaces the function call [t] with another function call.
     [spec_name] - the name of the function that appears on the new call,
     [args_to_choose] - a list of booleans telling the transformation which of the current arguments
         from the current call should be kept.*)
-let fun_calls_aux (spec_name : var) (args_to_choose : bool list) (t : trm) : trm =
+let fun_call_on (spec_name : var) (args_to_choose : bool list) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_f, args, _) ->
     let new_args = List.fold_left2 (fun acc b t1 ->
@@ -110,8 +94,4 @@ let fun_calls_aux (spec_name : var) (args_to_choose : bool list) (t : trm) : trm
         then t1 :: acc
         else acc) [] args_to_choose args in
     trm_apps (trm_var spec_name) (List.rev new_args)
-  | _ -> trm_fail t "Specialize_core.fun_calls_aux: expected a target to a function call"
-
-(* [fun_calls spec_name args_to_choose t p]: applies [fun_calls_aux] to the trm [t] with path [p]. *)
-let fun_calls (spec_name : var) (args_to_choose : bool list) : Transfo.local =
-  apply_on_path (fun_calls_aux spec_name args_to_choose)
+  | _ -> trm_fail t "Specialize_core.fun_call_on: expected a target to a function call"

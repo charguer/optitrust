@@ -311,19 +311,14 @@ Ex:
 
 - Perform renaming following the pattern; swap
 
-```
-   // function on subterm (ast local)
-   let swap_on (index : int) (t : trm) : trm =
-      // only these functions produce new pieces of ast
+```ocaml
+   (* function on subterm (ast local) *)
+  let swap_on (index : int) (t : trm) : trm =
+    _ (* only these functions produce new pieces of ast *)
 
-   // function on paths (ast global)
-   let swap_at (index : int) : Target.Transfo.local = // trm -> path -> trm
-     Target.apply_on_path (swap_on index)
-
-   // function for end-user (ast global)
-   let swap (tg : target) : unit =
-     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-       (fun t (p,i) -> swap_at_path i t p) tg
+  (* function for end-user (ast global) *)
+  let%transfo swap (tg : target) : unit =
+    apply_at_target_path_in_seq swap_on tg
 ```
 
 - implement a transfo 'delay_write': `WR(X = Y); RD(X); --> RD(Y); WR(X = Y)`

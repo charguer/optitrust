@@ -40,8 +40,8 @@ let%transfo variable_multi ?(mark_then : (string * trm) -> mark = fun _ ->  no_m
 (* TOFIX LATER
 let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) : unit =
   Ast_data.fill_fun_defs_tbl (get_ast());
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     match tg_trm.desc with
     | Trm_apps ({desc = Trm_var qf} as call, args, _) ->
       let opt_trms = List.map2 (fun arg arg_k ->
