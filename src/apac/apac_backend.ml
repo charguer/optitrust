@@ -239,14 +239,20 @@ let emit_profiler_task (t : Task.t) : trms =
     let section = code (Instr section) in
     let ins' = Dep_set.to_list t.ins in
     let ins' = List.map (fun e ->
-                   let d = Dep.to_string e in
+                   let d = match e with
+                     | Dep_trm (_, v) -> v.name
+                     | _ -> Dep.to_string e
+                   in
                    let s =
                      profsection ^ ".addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
                    code (Instr s)
                  ) ins' in
     let inouts' = Dep_set.to_list t.inouts in
     let inouts' = List.map (fun e ->
-                      let d = Dep.to_string e in
+                      let d = match e with
+                        | Dep_trm (_, v) -> v.name
+                        | _ -> Dep.to_string e
+                      in
                       let s =
                         profsection ^ ".addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
                       code (Instr s)
