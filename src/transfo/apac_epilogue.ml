@@ -384,7 +384,7 @@ let heapify_on (t : trm) : trm =
         let co = (get_apac_variable ApacCountOk) ^ " || " ^
                          (get_apac_variable ApacDepthOk) in
         let co = [If co] in
-        let inout = Dep.of_trm (trm_get vt) v 1 in
+        let inout = Dep_var v in
         let inout = [Inout [inout]] in
         let depend = [Depend inout] in
         let clauses = [Default Shared_m] in
