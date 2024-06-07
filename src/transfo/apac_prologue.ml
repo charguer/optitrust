@@ -19,9 +19,14 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
   let res_var = new_var Apac_macros.result_variable in
   let body', _ = Internal.replace_return_with_assign ~check_terminal:false
                    ~exit_label:Apac_macros.goto_label res_var body in
-  (* Add the the return variable into the function's constification record. *)
-  let const_record = Var_Hashtbl.find Apac_records.const_records var in
-  Var_Hashtbl.add const_record.variables res_var 0;
+  (* Add the the return variable into the function's constification record, if
+     it exists. This may not be the case when testing the transformation
+     separately, for example. *)
+  if (Var_Hashtbl.mem Apac_records.const_records var) then
+    begin
+      let const_record = Var_Hashtbl.find Apac_records.const_records var in
+      Var_Hashtbl.add const_record.variables res_var 0
+    end;
   (* Add the '__exit' label at the end of the sequence. *)
   let body' = trm_seq_add_last
                 (trm_add_label Apac_macros.goto_label (trm_unit())) body' in
