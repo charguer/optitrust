@@ -1,26 +1,26 @@
 int g(int a, int b) {
-  int __res;
+  int __apac_result;
 #pragma omp taskgroup
   {
-    __res = a + b + a;
+    __apac_result = a + b + a;
     goto __apac_exit;
   __apac_exit:;
   }
-  return __res;
+  return __apac_result;
 }
 
 int f() {
-  int __res;
+  int __apac_result;
 #pragma omp taskgroup
   {
     const int x = 3;
     int y = 5;
     int z = 3;
-    __res = g(x, g(y, z));
+    __apac_result = g(x, g(y, z));
     goto __apac_exit;
   __apac_exit:;
   }
-  return __res;
+  return __apac_result;
 }
 
 void h() {
@@ -32,7 +32,7 @@ void h() {
 }
 
 int main() {
-  int __res;
+  int __apac_result;
 #pragma omp parallel
 #pragma omp master
 #pragma omp taskgroup
@@ -40,5 +40,5 @@ int main() {
     f();
   __apac_exit:;
   }
-  return __res;
+  return __apac_result;
 }
