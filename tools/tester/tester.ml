@@ -245,6 +245,7 @@ let disable_lineshift : bool ref = ref false
 let full_report : bool ref = ref false
 
 
+
 (*****************************************************************************)
 (** FUTURE OPTIONS *) (* use of cache, and controlling output file generation *)
 
@@ -303,6 +304,7 @@ let spec : cmdline_args =
      ("-full-report", Arg.Set full_report, " report a list with the status of each test in order.");
      ("-all-warnings", Arg.Set Flags.report_all_warnings, " report all warnings.");
      ("-use-clang-format", Arg.Set Flags.use_clang_format, " forces the use of clang-format even in tester mode; automatically activated by -dump-trace.");
+     ("-stop-on-error", Arg.Set Flags.tester_stop_on_error, " stop on first failed test.");
 
      (* NOT YET IMPLEMENTED *)
      ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
@@ -674,6 +676,10 @@ let action_run (tests : string list) : unit =
     Flags.program_name := "tester.ml";
     Dynlink.loadfile "tools/tester/batch/batch.cmxs"
   with
+  | Flags.Batching_interrupted_on_error ->
+      close_redirected_stdout();
+      Printf.eprintf "Tester interrupted on first error\n";
+      exit 1
   | Dynlink.Error err ->
       close_redirected_stdout();
       let sbt = Printexc.get_backtrace() in

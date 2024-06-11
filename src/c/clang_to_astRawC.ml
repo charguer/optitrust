@@ -677,12 +677,13 @@ and tr_expr (e : expr) : trm =
       | _ ->
         let trm_apps1 unop t1 = trm_apps ?loc ?typ ~ctx (trm_unop ?loc unop) [t1] in
         begin match k with
+          (* TODO: use the smart constructors instead; like trm_minus *)
           | PostInc -> trm_apps1 Unop_post_inc t
           | PostDec -> trm_apps1 Unop_post_dec t
           | PreInc -> trm_apps1 Unop_pre_inc t
           | PreDec -> trm_apps1 Unop_pre_dec t
           | Deref -> trm_apps1 Unop_get t
-          | Minus -> trm_apps1 Unop_minus t
+          | Minus -> trm_minus ?loc ?typ ~ctx t  (* DEPRECATED trm_apps1 Unop_minus t *)
           | Plus -> trm_apps1 Unop_plus t
           | Not -> trm_apps1 Unop_bitwise_neg t
           | LNot -> trm_apps1 Unop_neg t

@@ -337,3 +337,11 @@ let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =
     -dump-ast-details
   and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
 ***************************************************************************************************************)
+
+
+
+(* TODO MOVE TO TESTER COMMON *)
+
+exception Batching_interrupted_on_error
+
+let tester_stop_on_error : bool ref = ref false
