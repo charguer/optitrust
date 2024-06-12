@@ -7,7 +7,7 @@ open Tools
 open PPrint
 
 (** [output_style] describes the mode in which an AST should be pretty-printed *)
-type output_style = Style.custom_style
+type output_style = Style.output_style
 
 (** Exceptions raised by this module when the user does not respect
     the interaction rules, or when internal invariants are broken *)
@@ -321,7 +321,7 @@ let the_trace : trace = {
   next_step_id = 0;
   cur_context = context_dummy;
   cur_ast = trm_dummy; (* dummy *)
-  cur_style = Style.default_custom_style();
+  cur_style = Style.default_style();
   cur_ast_typed = true;
   step_stack = []; (* dummy *)
 }
@@ -446,7 +446,7 @@ let filename_before_clang_format (filename:string) : string =
 (* LATER: document and factorize *)
 
 let style_normal_code () =
-  Style.default_custom_style ()
+  Style.default_style ()
 
 let style_resources ?(print_var_id : bool option) () = (*TODO factorize with Show.res *)
   let cstyle_default = AstC_to_c.(default_style()) in
@@ -506,7 +506,7 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     (* Print the header, in particular the include directives *) (* LATER: include header directives into the AST representation *)
     output_string out_prog ctx.header;
     (* Convert contracts into code *)
-    let fromto_style = Ast_fromto_AstC.style_of_custom_style style in
+    let fromto_style = Ast_fromto_AstC.style_of_output_style style in
     let ast = Ast_fromto_AstC.computed_resources_intro fromto_style ast in
     (* Optionally convert from OptiTrust to C syntax *)
     let ast =
@@ -580,9 +580,9 @@ let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
       flush stdout
     end;
     let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
-    output_prog (Style.custom_style_for_reparse()) ~beautify:false ctx in_prefix ast;
+    output_prog (Style.style_for_reparse()) ~beautify:false ctx in_prefix ast;
 
-    let (_, t) = parse (in_prefix ^ ctx.extension) in
+    let (_, t) = parse ~serialize:false (in_prefix ^ ctx.extension) in
     (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
     t
   )
@@ -1249,7 +1249,7 @@ let invalidate () : unit =
   the_trace.next_step_id <- 0;
   the_trace.cur_context <- context_dummy;
   the_trace.cur_ast <- trm_dummy;
-  the_trace.cur_style <- Style.default_custom_style();
+  the_trace.cur_style <- Style.default_style();
   the_trace.cur_ast_typed <- true;
   the_trace.step_stack <- []
 
@@ -1304,7 +1304,7 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
   the_trace.cur_context <- context;
   the_trace.cur_ast <- cur_ast;
   the_trace.cur_ast_typed <- false;
-  the_trace.cur_style <- Style.default_custom_style();
+  the_trace.cur_style <- Style.default_style();
   the_trace.step_stack <- [];
   open_root_step ~source:program ();
 
@@ -2057,7 +2057,7 @@ let set_style (style:output_style) : unit =
 (** [update_style ()]: updates the current style using for printing ASTs in the trace
    by reading the flags. Call this function after modifying global flags. *)
 let update_style () : unit =
-  the_trace.cur_style <- Style.default_custom_style()
+  the_trace.cur_style <- Style.default_style()
 
 
 (* LATER:  need to reparse to hide spurious parentheses *)

@@ -7,13 +7,13 @@ type style = {
   cstyle : AstC_to_c.style;
 }
 
-let style_of_custom_style (style : Style.custom_style) : style =
+let style_of_output_style (style : Style.output_style) : style =
   match style.print with
   | Lang_C s -> { typing = style.typing; cstyle = s }
   | _ -> failwith "style_of_custom_style: expected Lang_C"
 
 let default_style () : style =
-  style_of_custom_style (Style.default_custom_style ())
+  style_of_output_style (Style.default_style ())
 
 let debug = false
 

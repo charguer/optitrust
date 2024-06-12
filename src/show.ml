@@ -76,35 +76,34 @@ let paths ?(msg : string = "") (ps : paths) : unit =
 
 (* Print terms *)
 
-let trm ?(style = Default) ?(msg : string = "") (t : trm) : unit =
+let trm ?(style = default_style ()) ?(msg : string = "") (t : trm) : unit =
   prt_msg msg;
-  let custom_style = to_custom_style style in
   let st =
-    match custom_style.print with
+    match style.print with
     | Lang_AST style -> Ast_to_text.ast_to_string ~style t
-    | Lang_C style ->
+    | Lang_C c_style ->
       let t =
-        if custom_style.decode then begin
+        if style.decode then begin
           if not (Trm.trm_is_mainfile t) then begin
             prt "WARNING: trm: unsupported decoding of non root trm, falling back on printing encoded term\n";
             t
           end else begin
-            Ast_fromto_AstC.(cfeatures_intro (style_of_custom_style custom_style)) t
+            Ast_fromto_AstC.(cfeatures_intro (style_of_output_style style)) t
           end
-        end else Ast_fromto_AstC.(meta_intro ~skip_var_ids:true (style_of_custom_style custom_style)) t
+        end else Ast_fromto_AstC.(meta_intro ~skip_var_ids:true (style_of_output_style style)) t
         in
-      AstC_to_c.ast_to_string ~style t
+      AstC_to_c.ast_to_string ~style:c_style t
     in
   prt ~suffix:"\n" st
 
-let trms ?(style = Default) ?(msg : string = "") (ts : trms) : unit =
+let trms ?(style = default_style ()) ?(msg : string = "") (ts : trms) : unit =
   prt_list ~msg trm ts
 
 let trm_internal ?(msg : string option) (t : trm) : unit =
-  trm ~style:Internal ?msg t
+  trm ~style:(internal ()) ?msg t
 
 let trm_text ?(msg : string option) ?(only_desc : bool = false) (t : trm) : unit =
-  let style = if only_desc then InternalAstOnlyDesc else InternalAst in
+  let style = if only_desc then internal_ast_only_desc () else internal_ast () in
   trm ~style ?msg t
 
 
@@ -184,7 +183,7 @@ module At = struct
   let path ?(msg : string = "") (tg : Target.target) : unit =
     at ~msg (fun p _t -> path p) tg
 
-  let trm ?(style = Default) ?(msg : string = "") (tg : Target.target) : unit =
+  let trm ?(style = default_style ()) ?(msg : string = "") (tg : Target.target) : unit =
     at_trm ~msg (trm ~style) tg
 
   let typ = at_trm (fun t -> typ_opt t.typ)
@@ -227,7 +226,7 @@ end
 let ast ?(internal : bool = true) ?(contract_internal_repr : bool option) ?(var_id : bool option)
   ?(msg : string = "show-ast") ?(ast : trm = Trace.ast ()) () : unit =
   let ast_left = ast in
-  let style_default = Style.default_custom_style () in
+  let style_default = Style.default_style () in
   let style_left = style_default in
   let style_right =
     if not internal then style_default else begin
@@ -266,7 +265,7 @@ let target ?(msg : string = "show-target") ?(line : int = -1) ?(types : bool = f
     Trace.ast() in
   let ast_left = Trace.ast() in
   let ast_right = step_backtrack ~discard_after:true add_marks_and_get_ast in
-  let style_left = Style.default_custom_style () in
+  let style_left = Style.default_style () in
   let style_right = style_left in
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
   (* LATER: we could pass a closure to show_step instead of an ast_right argument *)
@@ -284,7 +283,7 @@ let res ?(msg : string = "show-resources") ?(var_id : bool option)
  () : unit =
   let ast_left = Trace.ast() in
   let ast_right = ast_left in
-  let style_left = Style.default_custom_style () in
+  let style_left = Style.default_style () in
   let ast_style = Ast.default_style () in
   let ast_style = match var_id with
   | None -> ast_style

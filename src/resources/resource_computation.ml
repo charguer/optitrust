@@ -749,7 +749,7 @@ let find_fun_spec (t: trm) (fun_specs: fun_spec_resource varmap): fun_spec_resou
     | _ -> raise Anonymous_function_without_spec
     end
 
-let formula_style = Ast_fromto_AstC.style_of_custom_style (Style.default_custom_style ())
+let formula_style = Ast_fromto_AstC.style_of_output_style (Style.default_style ())
 let formula_to_string = Ast_fromto_AstC.formula_to_string formula_style
 let named_formula_to_string = Ast_fromto_AstC.named_formula_to_string formula_style
 
