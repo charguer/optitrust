@@ -8,12 +8,12 @@ let _ = Run.script_cpp ~capture_show_in_batch:true (fun () ->
   !! ShowAt.trm ~msg:"AST" [];
   (*!! ShowAt.trm ~msg:"for trm" [cFor "i"]; --> need decoding of nonroot*)
   (* TODO: ensure a deterministic printing of identifiers
-  !! ShowAt.(trm ~style:Internal) ~msg:"var-trm-internal" [cVarDef "x"];
-  !! ShowAt.(trm ~style:Internal) ~msg:"for-trm-internal" [cFor "i"];
+  !! ShowAt.(trm ~style:(Style.internal ())) ~msg:"var-trm-internal" [cVarDef "x"];
+  !! ShowAt.(trm ~style:(Style.internal ())) ~msg:"for-trm-internal" [cFor "i"];
   *)
   (* too verbose
-     !! ShowAt.(trm ~style:InternalAst) ~msg:"for-trm-internal-ast" [cFor "i"]; *)
-  !! ShowAt.(trm ~style:InternalAstOnlyDesc) ~msg:"for-trm-internal-desc" [cFor "i"];
+     !! ShowAt.(trm ~style:(Style.internal_ast ())) ~msg:"for-trm-internal-ast" [cFor "i"]; *)
+  !! ShowAt.(trm ~style:(Style.internal_ast_only_desc ())) ~msg:"for-trm-internal-desc" [cFor "i"];
   !! ShowAt.desc ~msg:"desc" [cFor "i"];
   !! ShowAt.typ ~msg:"typ" [nbAny; cVar "x"]; (* cInContracts *)
   !! Marks.add "mymark1" [cForBody "i"; cVar "x"];

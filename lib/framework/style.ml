@@ -16,15 +16,7 @@
 (*----------------------------------------------------------------------------------*)
 (* Printing options *)
 
-type style =
-  | Custom of custom_style
-  | Default
-  | C
-  | Internal
-  | InternalAst
-  | InternalAstOnlyDesc
-
-and typing_style = {
+type typing_style = {
   typing_contracts : bool;
   typing_ghost : bool;
   typing_ctx_res : bool;
@@ -36,7 +28,7 @@ and typing_style = {
   print_generated_res_ids: bool; (* print auto-generated resource names *)
   }
 
-and custom_style = {
+type output_style = {
   decode : bool; (* TODO: decode on non full ASTs? *)
   typing : typing_style;
   print : print_language }
@@ -91,64 +83,43 @@ let typing_all_but_frame : typing_style =
 
 (** Common printing options *)
 
-let c ?(typing_style : typing_style = typing_annot) () : style  =
-  Custom {
-    decode = true;
+let c ?(typing_style : typing_style = typing_annot) () : output_style =
+  { decode = true;
     typing = typing_style;
     print = Lang_C ( Ast_to_c.( default_style ()) ) }
 
-let c_res () : style  =
+let c_res () : output_style  =
   c ~typing_style:typing_all ()
 
-let c_ctx () : style  =
+let c_ctx () : output_style =
   c ~typing_style:typing_ctx ()
 
-let internal () : style =
+let internal () : output_style =
   let s = Ast_to_c.default_style () in
-  Custom {
-    decode = false;
+  { decode = false;
     typing = { typing_annot with print_generated_res_ids = true };
     print = Lang_C { s with
       optitrust_syntax = true;
       print_var_id = true } }
 
-let internal_ast () : style  =
-  Custom {
-    decode = false;
+let internal_ast () : output_style =
+  { decode = false;
     typing = typing_annot;
-    print = Lang_AST {
-      print_var_id = !Flags.debug_var_id;
-      only_desc = false } }
+    print = Lang_AST { Ast_to_text.style_full with
+      print_var_id = !Flags.debug_var_id } }
 
-let internal_ast_only_desc () : style =
-  Custom {
-    decode = false;
+let internal_ast_only_desc () : output_style =
+  { decode = false;
     typing = typing_annot;
-    print = Lang_AST {
-      print_var_id = !Flags.debug_var_id;
-      only_desc = true } }
+    print = Lang_AST { Ast_to_text.style_desc with
+      print_var_id = !Flags.debug_var_id } }
 
-let default_custom_style () : custom_style =
+let default_style () : output_style =
   { decode = not !Flags.bypass_cfeatures && not !Flags.print_optitrust_syntax;
     typing = typing_annot;
-    print = Lang_C (Ast_to_c.(default_style())) }
+    print = Lang_C (Ast_to_c.default_style ()) }
 
-let custom_style_for_reparse () : custom_style =
+let style_for_reparse () : output_style =
   { decode = true;
     typing = typing_annot;
-    print = Lang_C (Ast_to_c.style_for_reparse()) }
-
-(** [to_custom_style style] eliminates the redundant constructors *)
-let to_custom_style (style : style) : custom_style =
-  let style_as_custom = match style with
-    | Default -> Custom (default_custom_style())
-    | Custom _ -> style
-    | C -> c()
-    | Internal -> internal()
-    | InternalAst -> internal_ast()
-    | InternalAstOnlyDesc -> internal_ast_only_desc()
-    in
-    match style_as_custom with
-    | Custom custom_style -> custom_style
-    | _ -> failwith "Show.to_custom_style: not custom"
-
+    print = Lang_C (Ast_to_c.style_for_reparse ()) }

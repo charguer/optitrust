@@ -1,8 +1,5 @@
 open PPrint
 open Ast
-open Trm
-open Typ
-open Mark
 open Tools
 
 (*  Note: This module is used mainly for debugging purposes. *)
@@ -15,18 +12,26 @@ open Tools
 
 type style = {
   print_var_id: bool; (* prints the variable ids *)
-  only_desc: bool; (* prints only the description field *)
+  show_types: bool;
+  show_other: bool;
 }
 
 (* Default style *)
 
 let style_desc =
   { print_var_id = false;
-    only_desc = true; }
+    show_types = false;
+    show_other = false; }
 
 let style_full =
   { print_var_id = false;
-    only_desc = false; }
+    show_types = true;
+    show_other = true; }
+
+let style_types =
+  { print_var_id = false;
+    show_types = true;
+    show_other = false; }
 
 let default_style = style_desc
 
@@ -200,7 +205,7 @@ and print_trm_desc style (t : trm_desc) : document =
       parens (concat (List.map (fun x -> group (x ^^ comma ^^ break 1)) [print_var style x; dtx; dt]))
   | Trm_let_mult bs ->
     let dtl = List.map (fun ((x, ty), t) ->
-      parens (parens (print_var style x ^^ comma ^^ print_typ { style with only_desc = true } (* TODO: why is it so? *) ty) ^^ comma ^^ print_trm style t)) bs in
+      parens (parens (print_var style x ^^ comma ^^ print_typ style ty) ^^ comma ^^ print_trm style t)) bs in
     print_node "Trm_let_mult" ^^ parens (print_list dtl)
   | Trm_let_fun (f, r, tvl, b, _) ->
     let dout = print_typ style r in
@@ -365,22 +370,22 @@ and print_typedef_body style (tdbody : typedef_body) : document =
 
 and print_trm_annot style (t : trm) : document =
 
-  let t_attributes = trm_get_attr t in
+  let t_attributes = t.annot.trm_annot_attributes in
   let dattr = List.map (print_attribute style) t_attributes in
 
-  let t_marks = trm_get_marks t in
+  let t_marks = t.annot.trm_annot_marks in
   let dmarks = List.map string t_marks in
 
   (*let derrors = print_list (List.map string t.errors) in*)
 
-  let t_labels = trm_get_labels t in
+  let t_labels = t.annot.trm_annot_labels in
   let dlabels = List.map string t_labels in
 
-  let dstringrepr = Option.map (fun id -> string (string_of_int id)) (trm_get_stringreprid t) in
-  let t_pragmas = trm_get_pragmas t in
+  let dstringrepr = Option.map (fun id -> string (string_of_int id)) t.annot.trm_annot_stringrepr in
+  let t_pragmas = t.annot.trm_annot_pragma in
   let dpragmas = List.map print_directive t_pragmas in
 
-  let cstyle_annot = trm_get_cstyles t in
+  let cstyle_annot = t.annot.trm_annot_cstyle in
   let dcstyle = List.map (print_cstyle_annot style) cstyle_annot in
 
   let file_annot = t.annot.trm_annot_file in
@@ -402,14 +407,15 @@ and print_trm_annot style (t : trm) : document =
 
 (** [print_loc style loc]: converts location [loc] to pprint document *)
 and print_loc style (loc : trm_loc) : document =
-  let {pos_line = start_row; pos_col = start_column} = loc.loc_start in
+  string (loc_to_string (Some loc))
+  (*let {pos_line = start_row; pos_col = start_column} = loc.loc_start in
   let {pos_line = end_row; pos_col = end_column} = loc.loc_end in
-  print_pair (string loc.loc_file) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column))
+  print_pair (string loc.loc_file) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column))*)
 
 (** [print_trm style t]: converts trm [t] to pprint document *)
 and print_trm style (t : trm) : document =
   let ddesc = print_trm_desc style t.desc in
-  if style.only_desc then ddesc
+  if not style.show_types && not style.show_other then ddesc
     else
       let dannot = print_trm_annot style t in
       let dloc = Option.map (print_loc style) t.loc in
@@ -425,14 +431,15 @@ and print_trm style (t : trm) : document =
               opt_str "p" t.ctx.ctx_resources_post_inst] in
 
       let derrors = List.map string t.errors in
-      print_fields [
-        print_field "annot" dannot;
-        print_opt_field "loc" dloc;
-        print_opt_field "typ" dtyp;
-        print_field "ctx" (string dctx);
-        print_list_field "errors" derrors;
-        print_field "desc" ddesc
-      ]
+      print_fields (
+        (if style.show_types then [print_opt_field "typ" dtyp] else []) @
+        (if style.show_other then
+          [ print_field "annot" dannot;
+            print_opt_field "loc" dloc;
+            print_field "ctx" (string dctx);
+            print_list_field "errors" derrors ]
+        else []) @
+        [print_field "desc" ddesc])
 
 (** [print_file_annot ann]: prints as string files annotation [ann] *)
 and print_file_annot (ann : file_annot) : document option =

@@ -50,7 +50,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
       let ast = Target.get_ast () in
       let ast2 = trm_seq_add_last (stmt main_fun_str) ast in
       let prefix = Filename.remove_extension output_file in
-      Trace.output_prog (Style.custom_style_for_reparse()) (Trace.get_context ()) prefix ast2;
+      Trace.output_prog (Style.style_for_reparse()) (Trace.get_context ()) prefix ast2;
       trm_main_inv_toplevel_defs ast
       (* Ast_to_c.ast_to_file output_file ast2; *)
     end else begin
