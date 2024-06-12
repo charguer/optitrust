@@ -404,134 +404,115 @@ let typ_of_get (t : typ) : typ option =
 
 let without_const (ty:typ) : typ =
   match ty.typ_desc with
-  | Typ_const tyc -> ty
+  | Typ_const tyc -> tyc
   | _ -> ty
 
 
+let normalize_int (ty: typ): typ =
+  match ty.typ_desc with
+  | Typ_constr (([], "size_t"), _, []) -> typ_int ~annot:[Long; Unsigned] ()
+  | _ -> ty
+
+let normalize_arith_type (ty: typ): typ =
+  normalize_int (without_const ty)
+
 (** Auxiliary functions to determine the type of unary/binary operators *)
 
+let check_compat_arith_type ~(error:string) ?(loc: location) (tyd1:typ) (tyd2:typ) : unit =
+  match tyd1.typ_desc, tyd2.typ_desc with
+  | Typ_template_param s1, Typ_template_param s2 when s1 = s2 -> ()
+  | Typ_int, Typ_int (* TODO: Manage unsigned / length *)
+  | Typ_float, Typ_float
+  | Typ_double, Typ_double
+  | Typ_bool, Typ_bool (* TODO: Add a flag to disallow / allow only booleans ? *)
+  | Typ_constr (([], "size_t"), _, []), Typ_constr (([], "size_t"), _, [])
+    -> ()
+  | _, _ ->
+    Tools.warn "%s: %s: %s != %s" (loc_to_string loc) error (Ast_to_text.typ_to_string tyd1) (Ast_to_text.typ_to_string tyd2)
 
-(* COPIED FROM AST_TO_TEXT TO AVOID DEPENDENCY
-  [print_loc style loc]: converts location [loc] to pprint document *)
-
-let print_loc (loc : trm_loc) (**: document *)=
-  let open PPrint in let open Tools  in
-  let {pos_line = start_row; pos_col = start_column} = loc.loc_start in
-  let {pos_line = end_row; pos_col = end_column} = loc.loc_end in
-  print_pair (string loc.loc_file) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column))
-
-let report_typ_errors = false
-
-let typ_fail loc error = (* LATER: could not use localized_error *)
-  if report_typ_errors then begin
-    begin match loc with None -> () | Some loc ->
-      let sloc = Tools.document_to_string (print_loc loc) in
-      Printf.eprintf "%s\n" sloc;
-    end;
-    failwith error
-  end
-
-(* LATER: move to trm.ml or have fail ~trm *)
-(* [trm_fail t err]: fails with error [error] raised on term [t] *)
-let trm_fail (t : trm) (error : string) : 'a =
-  contextualized_error [trm_error_context t] error
-
-
-
-  (* Auxiliary function *)
-  let check_compat_arith_type ~(error:unit->unit) (tyd1:typ_desc) (tyd2:typ_desc) : unit =
-      match tyd1, tyd2 with
-      | Typ_template_param s1, Typ_template_param s2 when s1 = s2 -> ()
-      | Typ_int, Typ_int
-      | Typ_float, Typ_float
-      | Typ_double, Typ_double -> ()
-      | _, _ -> error()
-
-  (* [typ_binop_arith_resolve typR typ1 typ2] takes three optional types:
-     the type of the result, and the type of two arguments.
-     It returns the type of the result of the binary operation, and the
-     type of the operator, of the form [T -> T -> T].
-     they are equivalent. *)
-  let typ_binop_arith_resolve ?(loc) (typR:typ option) (typ1:typ option) (typ2:typ option) : typ option * typ option =
-    let typR = Option.map without_const typR in
-    let typ1 = Option.map without_const typ1 in
-    let typ2 = Option.map without_const typ2 in
-    let typ_arg =
-      match typ1, typ2 with
-      | _, None -> typ1
-      | None, _ -> typ2
-      | Some ty1, Some ty2 ->
-          check_compat_arith_type ~error:(fun () -> typ_fail loc "typ_binop_arith_resolve: incompatible types for arguments of binary operator") ty1.typ_desc ty2.typ_desc;
-          typ1
-       in
-    let typ_res =
-      match typR, typ_arg with
-      | _, None -> typR
-      | None, _ -> typ_arg
-      | Some ty1, Some ty2 ->
-          check_compat_arith_type ~error:(fun () -> typ_fail loc "typ_binop_arith_resolve: incompatible types for argument and result of binary operator") ty1.typ_desc ty2.typ_desc;
-          typR
-       in
-    let typ_op =
-      match typ_res with
-      | Some ty -> Some (typ_fun [ty; ty] ty)
-      | None -> None
+(** [typ_binop_arith_resolve typR typ1 typ2] takes three optional types:
+    the type of the result, and the type of two arguments.
+    It returns the type of the result of the binary operation, and the
+    type of the operator, of the form [T -> T -> T].
+    they are equivalent. *)
+let typ_binop_arith_resolve ?(loc) (typR:typ option) (typ1:typ option) (typ2:typ option) : typ option * typ option =
+  let typR = Option.map normalize_arith_type typR in
+  let typ1 = Option.map normalize_arith_type typ1 in
+  let typ2 = Option.map normalize_arith_type typ2 in
+  let typ_arg =
+    match typ1, typ2 with
+    | _, None -> typ1
+    | None, _ -> typ2
+    | Some ty1, Some ty2 ->
+        check_compat_arith_type ~error:"typ_binop_arith_resolve: incompatible types for arguments of binary operator" ?loc ty1 ty2;
+        typ1
       in
-    typ_res, typ_op
-
-  (* [typ_binop_bitwise_resolve] similar to above.
-     LATER: add restriction on the types of arguments? *)
-  let typ_binop_bitwise_resolve = typ_binop_arith_resolve
-
-  (* [typ_binop_comparison_resolve] similar to above. Result type is [T -> T -> bool] *)
-  let typ_binop_comparison_resolve ?(loc) (typR:typ option) (typ1:typ option) (typ2:typ option) : typ option * typ option =
-    let typR = Option.map without_const typR in
-    let typ1 = Option.map without_const typ1 in
-    let typ2 = Option.map without_const typ2 in
-    let typ_arg =
-      match typ1, typ2 with
-      | _, None -> typ1
-      | None, _ -> typ2
-      | Some ty1, Some ty2 ->
-          check_compat_arith_type ~error:(fun () -> typ_fail loc "typ_binop_comparison_resolve: incompatible types for arguments of comparison operator") ty1.typ_desc ty2.typ_desc;
-          typ1
-       in
-    let typ_res =
-      match typR with
-      | None -> Some (typ_bool ())
-      | Some ty1 ->
-          match ty1.typ_desc with
-          | Typ_bool -> typR
-          | _ -> typ_fail loc "typ_binop_arith_resolve: non-boolean result type for comparison operator"; typR
+  let typ_res =
+    match typR, typ_arg with
+    | _, None -> typR
+    | None, _ -> typ_arg
+    | Some ty1, Some ty2 ->
+        check_compat_arith_type ~error:"typ_binop_arith_resolve: incompatible types for argument and result of binary operator" ?loc ty1 ty2;
+        typR
       in
-    let typ_op =
-      match typ_arg, typ_res with
-      | Some tya, Some tyb -> Some (typ_fun [tya; tya] tyb)
-      | _ -> None
+  let typ_op =
+    match typ_res with
+    | Some ty -> Some (typ_fun [ty; ty] ty)
+    | None -> None
+    in
+  typ_res, typ_op
+
+(** [typ_binop_bitwise_resolve] similar to above.
+    LATER: add restriction on the types of arguments? *)
+let typ_binop_bitwise_resolve = typ_binop_arith_resolve
+
+(** [typ_binop_comparison_resolve] similar to above. Result type is [T -> T -> bool] *)
+let typ_binop_comparison_resolve ?(loc) (typR:typ option) (typ1:typ option) (typ2:typ option) : typ option * typ option =
+  let typR = Option.map normalize_arith_type typR in
+  let typ1 = Option.map normalize_arith_type typ1 in
+  let typ2 = Option.map normalize_arith_type typ2 in
+  let typ_arg =
+    match typ1, typ2 with
+    | _, None -> typ1
+    | None, _ -> typ2
+    | Some ty1, Some ty2 ->
+        check_compat_arith_type ~error:"typ_binop_comparison_resolve: incompatible types for arguments of comparison operator" ?loc ty1 ty2;
+        typ1
       in
-    typ_res, typ_op
+  let typ_res =
+    match typR with
+    | None -> Some (typ_bool ())
+    | Some ty1 ->
+        match ty1.typ_desc with
+        | Typ_bool -> typR
+        | _ -> Tools.warn "%s: typ_binop_arith_resolve: non-boolean result type for comparison operator (%s)" (loc_to_string loc) (Ast_to_text.typ_to_string ty1); typR
+    in
+  let typ_op =
+    match typ_arg, typ_res with
+    | Some tya, Some tyb -> Some (typ_fun [tya; tya] tyb)
+    | _ -> None
+    in
+  typ_res, typ_op
 
-  (* [typ_binop_boolean_resolve] similar to above.
-     LATER: add restriction on the types of arguments? *)
-  let typ_binop_boolean_resolve = typ_binop_comparison_resolve
+(** [typ_binop_boolean_resolve] similar to above.
+    LATER: add restriction on the types of arguments? *)
+let typ_binop_boolean_resolve = typ_binop_comparison_resolve
 
-  (* [typ_unop_arith_resolve] similar to above. Result type is [T -> T] *)
-  let typ_unop_arith_resolve ?(loc) (typR:typ option) (typ1:typ option) : typ option * typ option =
-    let typR = Option.map without_const typR in
-    let typ1 = Option.map without_const typ1 in
-    let typ_res =
-      match typR, typ1 with
-      | _, None -> typR
-      | None, _ -> typ1
-      | Some ty1, Some ty2 ->
-          check_compat_arith_type ~error:(fun () -> typ_fail loc "typ_binop_arith_resolve: incompatible types for argument and result of binary operator") ty1.typ_desc ty2.typ_desc;
-          typR
-       in
-    let typ_op =
-      match typ_res with
-      | Some tya -> Some (typ_fun [tya] tya)
-      | _ -> None
+(** [typ_unop_arith_resolve] similar to above. Result type is [T -> T] *)
+let typ_unop_arith_resolve ?(loc) (typR:typ option) (typ1:typ option) : typ option * typ option =
+  let typR = Option.map normalize_arith_type typR in
+  let typ1 = Option.map normalize_arith_type typ1 in
+  let typ_res =
+    match typR, typ1 with
+    | _, None -> typR
+    | None, _ -> typ1
+    | Some ty1, Some ty2 ->
+        check_compat_arith_type ~error:"typ_binop_arith_resolve: incompatible types for argument and result of binary operator" ?loc ty1 ty2;
+        typR
       in
-    typ_res, typ_op
-
-
+  let typ_op =
+    match typ_res with
+    | Some tya -> Some (typ_fun [tya] tya)
+    | _ -> None
+    in
+  typ_res, typ_op
