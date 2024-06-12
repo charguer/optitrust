@@ -522,7 +522,7 @@ let match_expected (filename_out:string) (filename_exp:string) : bool =
   if not (Sys.file_exists filename_exp)
     then fail "match_expected expects filename_exp to exit";
   let same_contents (f1 : string) (f2 : string) : bool =
-    do_is_ok (sprintf "./tests/diff.sh %s %s > /dev/null" f1 f2) in
+    do_is_ok (sprintf "./tools/diff.sh %s %s > /dev/null" f1 f2) in
   if !Flags.use_clang_format then begin
     if !debug_match_expected then Tools.info "[use_clang_format] is on, cannot optimize [match_expected]";
     same_contents filename_out filename_exp
@@ -607,7 +607,7 @@ let action_run (tests : string list) : unit =
   (* LATER: could re-implement batch_tests.sh in OCaml *)
   let tests_to_process_string = String.concat " " tests_to_process in
   let sdisable_lineshift = if !disable_lineshift then "export DISABLE_LINESHIFT=1; " else "" in
-  do_or_die (sprintf "%stests/batch_tests.sh %s > tests/batch/batch.ml"
+  do_or_die (sprintf "%stools/tester/batch_tests.sh %s > tools/tester/batch/batch.ml"
     sdisable_lineshift tests_to_process_string);
 
   (* Delete existing output files to avoid considering them in case an error occurs *)
@@ -625,11 +625,11 @@ let action_run (tests : string list) : unit =
   List.iter delete_output tests_to_process;
 
   (* Compile the `batch.ml` file, using dune hacks *)
-  do_or_die "cp tests/batch/dune_disabled tests/batch/dune";
-  let compile_success = do_is_ok "dune build tests/batch/batch.cmxs" in
-  do_or_die "rm tests/batch/dune";
+  do_or_die "cp tools/tester/batch/dune_disabled tools/tester/batch/dune";
+  let compile_success = do_is_ok "dune build tools/tester/batch/batch.cmxs" in
+  do_or_die "rm tools/tester/batch/dune";
   if not compile_success then begin
-    eprintf "failed to compile tests/batch/batch.ml";
+    eprintf "failed to compile tools/tester/batch/batch.ml";
     exit 2
   end;
   (* DEPRECATED printf "\n"; *)
@@ -662,7 +662,7 @@ let action_run (tests : string list) : unit =
   (* Execute the `batch.ml` program *)
   begin try
     Flags.program_name := "tester.ml";
-    Dynlink.loadfile "tests/batch/batch.cmxs"
+    Dynlink.loadfile "tools/tester/batch/batch.cmxs"
   with
   | Dynlink.Error err ->
       close_redirected_stdout();

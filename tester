@@ -19,7 +19,7 @@ cd ${OPTITRUST_PATH}
 ARGS="$@"
 FIRSTARG=$(echo ${ARGS} | awk '{print $1;}')
 
-CMD="export OCAMLRUNPARAM=b && dune exec tests/tester.exe -- ${FOLDER_RELATIVE_PATH} ${ARGS}"
+CMD="export OCAMLRUNPARAM=b && dune exec optitrust_tester -- ${FOLDER_RELATIVE_PATH} ${ARGS}"
 
 # Save the command for run commands
 if [ "${FIRSTARG}" = "run" ]; then

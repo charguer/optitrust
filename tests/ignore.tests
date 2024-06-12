@@ -1,10 +1,8 @@
 omp
-batch
 cparser
 debug
 perf
 interact
-tester.ml
 
 # DEAL with namespaces
 specialize/function_arg/specialize_function_arg.ml

@@ -14,7 +14,7 @@ TARGET=$(realpath --relative-to=${OPTITRUST_FOLDER} ${TARGET})
 
 cd ${OPTITRUST_FOLDER}
 # The next line tests if we need to rebuild the trace server, in that case, it kills any potentially running trace server.
-dune build trace_server/ensure_up_to_date
+dune build tools/trace_server/ensure_up_to_date
 # Restart a trace server. Does noting if the port 6775 is already taken. In that case, we assume it is an up-to-date optitrust_trace_server and continue.
 nohup dune exec optitrust_trace_server > /dev/null 2>&1 &
 # Wait until the server is initialized

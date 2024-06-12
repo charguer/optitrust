@@ -1,5 +1,4 @@
 **/tmp_*.cpp
-batch/batch.ml
 ast/cpp_debug.ml
 ast/cpp_debug.cpp
 ast/cpp_debug_exp.cpp

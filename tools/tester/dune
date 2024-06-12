@@ -3,5 +3,5 @@
   (modules tester)
   (libraries optitrust dynlink)
   (link_flags (-linkall))
-  ;(public_name optitrust_tester)
+  (public_name optitrust_tester)
  )

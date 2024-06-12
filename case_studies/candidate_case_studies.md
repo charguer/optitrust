@@ -5,6 +5,9 @@
 - *Ray Tracing?*
 - *Ocean Modeling?*, e.g. done in Futhark
 - *Room Acoustics?*, Larisa Stoltzfus paper.
+- *Bionformatics?*, [Seq](https://dl.acm.org/doi/10.1145/3360551).
+- *Block-Based Compression?*, "Hierarchical Multi-Dimensional Arrays and its
+Implementation in the CoLa Domain Specific Language for Block-Based Data Compression"
 
 # Image processing Case Studies
 
