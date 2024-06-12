@@ -537,7 +537,10 @@ function loadStepDetails(idStep) {
   }
 
   let view = getRadioOption("view");
+  queryStepDetails(step, view);
+}
 
+function queryStepDetails(step, view, hadEmptyDiff = false) {
   // Print diff for step
   var stepCode;
   if (serialized_trace) {
@@ -584,7 +587,7 @@ function loadStepDetails(idStep) {
     .then((code) => {
       if (view == "diff") {
         if (code == "") {
-          throw new Error("Diff is empty");
+          queryStepDetails(step, "code_after", true);
         } else {
           $("#debugMsgDiv").html("");
           $("#diffDiv").show();
@@ -593,7 +596,11 @@ function loadStepDetails(idStep) {
           loadDiffFromString(code);
         }
       } else {
-        $("#debugMsgDiv").html("");
+        if (hadEmptyDiff) {
+          $("#debugMsgDiv").html("Diff is empty. Showing full code:");
+        } else {
+          $("#debugMsgDiv").html("");
+        }
         loadSource(code);
         $("#diffDiv").hide();
         $("#statsDiv").hide();
