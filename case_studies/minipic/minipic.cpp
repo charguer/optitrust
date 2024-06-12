@@ -52,8 +52,8 @@ const double cellX = (areaX / gridX);
 const double cellY = (areaY / gridY);
 const double cellZ = (areaZ / gridZ);
 
-int block = 2;
-int halfBlock = (block / 2);
+const int block = 2;
+const int halfBlock = (block / 2);
 
 const int maxPartsPerCell = 1000000;
 
@@ -231,3 +231,10 @@ int simulate(double stepDuration, int nbSteps, int* bagsSize, particle* bags, ve
 
   }
 }
+
+// 1. dérouler matmuls
+// 2. mise à l'échelle données
+// 3. AoS -> SoA
+// 4. AoSoA
+// 5. découper les boucles
+// 6. parallel blocks
