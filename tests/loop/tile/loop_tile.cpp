@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include <optitrust.h>
 
-int min(int x, int y) {
-  return (x < y) ? x : y;
-}
-
 void f() {
   int s1 = 0;
   int s2 = 0;

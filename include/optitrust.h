@@ -318,7 +318,9 @@ uint16_t reduce_spe2(int start, int stop, const uint8_t* input, int n, int m, in
   // not necessary here?:
   // __requires("check_bound1: 0 <= start, check_bound2: start <= stop, check_bound3: stop <= n");
   __reads("for k in start..stop -> &input[MINDEX2(n, m, k, j)] ~> Cell");
+  __admitted();
 
+  return 0;
   /* T acc = 0;
   for (int k = start; k < stop; k++) {
     __xreads("&input[MINDEX1(n, k)] ~> Cell");
@@ -331,7 +333,9 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
   __requires("check_range: is_subrange(start..stop, 0..n)");
   __requires("bound_check: in_range(j, 0..m)");
   __reads("input ~> Matrix2(n, m)");
+  __admitted();
   // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
+  return 0;
 }
 
 /* ---- Ghosts ---- */
@@ -1074,6 +1078,18 @@ inline int exact_div(int n, int b) {
   __pure();
   __admitted();
   return n / b;
+}
+
+inline int min(int a, int b) {
+  __pure();
+  __admitted();
+  return a < b ? a : b;
+}
+
+inline int max(int a, int b) {
+  __pure();
+  __admitted();
+  return a > b ? a : b;
 }
 
 /* ---- Other Functions ---- */

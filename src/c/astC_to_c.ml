@@ -570,7 +570,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       | Continue _ -> dattr ^^ string "continue" ^^ dsemi
       end
     | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
-    | Trm_arbitrary a_kind  ->
+    | Trm_arbitrary a_kind ->
       let code_str =
       begin match a_kind with
       | Lit l -> string l
@@ -580,7 +580,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       | Comment s -> string s
       | _ -> trm_fail t "AstC_to_c.trm_to_doc style: arbitrary code should be entered by using Lit, Expr and Stmt only"
       end  in
-      dattr ^^ code_str
+      string "/* @arbitrary */" ^^ dattr ^^ code_str ^^ string "/* arbitary@ */"
     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
     | Trm_extern (lang, tl) ->
         begin match tl with

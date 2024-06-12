@@ -1,8 +1,6 @@
 #include <optitrust.h>
 #include <stdio.h>
 
-int min(int a, int b) { return (a < b ? a : b); }
-
 int main() {
   for (int bi = 0; bi < 15 + 3 * (1 - 2); bi += 1 * 3) {
     for (int bj = 0; bj < 15 + 3 * (2 - 3); bj += 2 * 3) {

@@ -18,4 +18,5 @@ let _ = Run.script_cpp (fun _ ->
   (* FIXME: #var-id, need to eliminate (parse) Trm_arbitrary.
   !! Expr_basic.replace (stmt "int f2(int a, int b, int c) { return a ; }") [cFunDef "f2" ];
   *)
+  !!! (); (* TODO: Find how to eliminate this reparse *)
 )

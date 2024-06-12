@@ -4,9 +4,9 @@ typedef struct {
   double z;
 } vect;
 
-const auto b = 500;
+auto b = 500;
 
-const auto a = 300;
+auto a = 300;
 
 typedef struct {
   vect pos;

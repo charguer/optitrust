@@ -5,6 +5,6 @@ open Prelude
 let _ = Run.script_cpp (fun _ ->
   let y = find_var_in_current_ast "y" in
   !! Variable_basic.subst ~subst:y ~put:(expr "2 + x") [cVarDef "z"];
-  !! Variable_basic.subst ~subst:y ~put:(Trm.trm_int 5) [cFunDef "main"];
+  !! Variable_basic.subst ~reparse:true ~subst:y ~put:(Trm.trm_int 5) [cFunDef "main"];
 
 )
