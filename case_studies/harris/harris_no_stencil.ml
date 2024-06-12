@@ -18,7 +18,7 @@ module Image = struct
 end
 
 (* TODO: generalize *)
-let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo simpl_mins ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_atomic ();
   let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule tg in
   List.iter rewrite [

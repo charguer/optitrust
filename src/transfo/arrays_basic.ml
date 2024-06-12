@@ -1,36 +1,34 @@
 open Prelude
 open Target
 
-(* [to_variables new_vars tg]: expects the target [tg] to point at an array declaration.
+(** [to_variables new_vars tg]: expects the target [tg] to point at an array declaration.
     Then it transforms this declaration into a list of declarations.
     [new_vars] - denotes the list of variables that is going to replace the initial declaration
       the length of this list is equal to [size -1] where [size] is the size of the array.*)
 let%transfo to_variables (new_vars : string list) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Arrays_core.to_variables new_vars i t p
-  ) tg)
+    apply_at_target_paths_in_seq (Arrays_core.to_variables_at new_vars) tg
+  )
 
 
-(* [tile ~block_type block_size tg]: expects the target [tg] to point at an array declaration.
+(** [tile ~block_type block_size tg]: expects the target [tg] to point at an array declaration.
    Then it takes that declaration and transforms it into a tiled array. All the accesses of the
    targeted array are handled as well.
    [block_type] - denotes the name of the array which is going to represent a tile.
    [block_size] - size of the block of tiles. *)
 let%transfo tile ?(block_type : typvar = "") (block_size : var) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Arrays_core.tile block_type block_size i t p) tg)
+    apply_at_target_paths_in_seq (Arrays_core.tile_at block_type block_size) tg
+  )
 
-(* [swap name x tg]: expects the target [tg] to point at an array declaration.
+(** [swap name x tg]: expects the target [tg] to point at an array declaration.
    It changes the declaration so that the bounds of the array are switched. Also
    all the accesses of the targeted array are handled as well.*)
 let%transfo swap (tg : target) : unit =
-  apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Arrays_core.swap i t p) tg
+  apply_at_target_paths_in_seq Arrays_core.swap_at tg
 
 
-(* [aos_to_soa tv sz] finds the definition of type [tv] which should be a typedef Record.
+(** [aos_to_soa tv sz] finds the definition of type [tv] which should be a typedef Record.
     Then it will change its struct fields type to arrys of size [sz] with type their current type.
     All the accesses will be swapped.
     Ex:
@@ -59,17 +57,17 @@ let%transfo swap (tg : target) : unit =
       }
 *)
 let aos_to_soa (tv : typvar) (sz : var) : unit =
-  apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,_) ->  Arrays_core.aos_to_soa tv sz t p) [cFunDef "main"]
+  Trace.apply (fun t ->
+    Arrays_core.aos_to_soa_rec tv sz t
+  )
 
-
-(* [set_explicit tg] expects the target [tg] to point at an array declaration
+(** [set_explicit tg] expects the target [tg] to point at an array declaration
     then it will remove the initialization trm and a list of write operations on
     each of the cells of the targeted array.
 *)
 let%transfo set_explicit (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    apply_on_targets (Arrays_core.set_explicit) tg)
+    apply_at_target_paths (Arrays_core.detach_init_on) tg)
 
 let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses : mark) (t : trm) : trm =
   let error = "Arrays_basic.inline_constant_on: expected array access with constant index" in
@@ -85,7 +83,7 @@ let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses 
   | _ -> trm_fail index error
   end
 
-(* [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
+(** [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
   *)
 let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) (tg : target) : unit =
   let decl_p = resolve_target_exactly_one_with_stringreprs_available decl (Trace.ast ()) in
@@ -113,7 +111,7 @@ let elim_on (decl_index : int) (t : trm) : trm =
   let new_instrs = Mlist.update_nth decl_index remove_decl instrs in
   trm_seq ~annot:t.annot ?loc:t.loc new_instrs
 
-(* [elim] expects the target [tg] to point at a constant array literal declaration, and eliminates it if it is not accessed anymore.
+(** [elim] expects the target [tg] to point at a constant array literal declaration, and eliminates it if it is not accessed anymore.
   *)
 let%transfo elim (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->

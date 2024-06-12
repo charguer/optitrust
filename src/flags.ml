@@ -183,8 +183,17 @@ let report_exectime : bool ref = ref false
 let trace_as_text : bool ref = ref false
 
 (* Options to control how much details are exported in the trace *)
-let detailed_trace : bool ref = ref false
-(* LATER: also add a light-mode, tracing only small and big steps *)
+type substeps_including_ast = SubstepsAST_all | SubstepsAST_all_important | SubstepsAST_small
+(* LATER: none *)
+
+let substeps_including_ast : substeps_including_ast ref = ref SubstepsAST_all
+
+let process_substeps_including_ast (s:string) : unit =
+  substeps_including_ast := match s with
+  | "all" -> SubstepsAST_all
+  | "all-important" -> SubstepsAST_all_important
+  | "small" -> SubstepsAST_small
+  | _ -> failwith "substeps_including_ast: invalid value"
 
 (* Option to display full resource information in the trace *)
 let detailed_resources_in_trace : bool ref = ref false
@@ -243,7 +252,7 @@ let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'standalone-full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
      ("-trace-as-text", Arg.Set trace_as_text, " additionnaly generate a plain text trace in 'foo_trace.txt' ");
-     ("-detailed-trace", Arg.Set detailed_trace, " generate the trace with all details (internal steps, AST before/after)  ");
+     ("-substeps-including-ast", Arg.String process_substeps_including_ast, " control which AST are produced, among: 'all' (default), 'small' (only small steps), 'all-important' (all important) ");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)

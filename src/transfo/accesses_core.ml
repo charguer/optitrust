@@ -1,12 +1,12 @@
 open Prelude
 
-(* [transform_aux f_get f_set t]: applies f_get or f_set depending on the fact if
+(** [transform_on f_get f_set t]: applies f_get or f_set depending on the fact if
     [t] is a get operation or a set operation,
       [f_get] - the get operation that is going to be applied,
       [f_set] - the set operation that is going to be applied,
       [t] - the ast of the node where the operation is applied to. *)
-let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
-  let error = "Accesses_core.transform_aux: expected either a get or a set operation" in
+let transform_on (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
+  let error = "Accesses_core.transform_on: expected either a get or a set operation" in
   let (f,args) = trm_inv ~error trm_apps_inv t in
   if is_get_operation t
     then f_get t
@@ -14,18 +14,13 @@ let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
      then begin match args with
       | [addr; targ] ->
         trm_replace (Trm_apps (f, [addr; f_set targ], [])) t
-      | _ -> trm_fail t "Accesses_core.transform_aux: expected either a get or a set operation"
+      | _ -> trm_fail t "Accesses_core.transform_on: expected either a get or a set operation"
       end
-    else trm_fail t "Accesses_core.transform_aux: expected a get operation"
+    else trm_fail t "Accesses_core.transform_on: expected a get operation"
 
-
-(* [transform f_get f_set t p]: applies [transform_aux] at the trm with path [p] *)
-let transform (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.local =
-  Target.apply_on_path (transform_aux f_get f_set)
-
-(* [intro_aux t]: changes encodings "struct_get(get (t), f)" to "get(struct_access (t, f))",
+(** [intro_on t]: changes encodings "struct_get(get (t), f)" to "get(struct_access (t, f))",
       [t] - ast of the node where the accesses can be found. *)
-let intro_aux (t : trm) : trm =
+let intro_on (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [arg], _) ->
@@ -41,7 +36,3 @@ let intro_aux (t : trm) : trm =
     | _ -> trm_map aux t
   in
   aux t
-
-(* [intro t p]: applies [intro_aux] at trm [t] with path [p]. *)
-let intro : Target.Transfo.local =
-  Target.apply_on_path (intro_aux)

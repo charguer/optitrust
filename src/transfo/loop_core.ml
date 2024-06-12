@@ -1,11 +1,11 @@
 open Prelude
 open Target
 
-(*  [color_aux nb_colors i_color t]: transform a loop into two nested loops based on the coloring pattern,
+(** [color_on nb_colors i_color t]: transform a loop into two nested loops based on the coloring pattern,
       [nb_colors] - a variable used to represent the number of colors,
       [i_color] - a variable representing the index used of the new outer loop,
       [t] - ast of the loop. *)
-let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
+let color_on (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let error = "Loop_core.color_aux: only simple loops are supported." in
   let ({index; start; direction; stop; step}, body, _contract) = trm_inv ~error trm_for_inv t in
   let i_color = new_var (match i_color with
@@ -22,11 +22,7 @@ let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
       ]
   ))
 
-(* [color nb_colors i_color t p]: applies [color_aux] at trm [t] with path [p] *)
-let color (nb_colors : trm) (i_color : string option ) : Transfo.local =
-    apply_on_path (color_aux nb_colors  i_color)
-
-(* [tile_bound]: used for loop tiling transformation *)
+(** [tile_bound]: used for loop tiling transformation *)
 type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
 
 let tile_bound_to_string = function
@@ -42,12 +38,12 @@ let ghost_ro_untile_divides = toplevel_var "ro_untile_divides"
 
 let ghost_tiled_index_in_range = toplevel_var "tiled_index_in_range"
 
-(*  [tile_aux divides b tile_index t]: tiles loop [t],
+(** [tile_on divides b tile_index t]: tiles loop [t],
       [tile_index] - string representing the index used for the new outer loop,
       [bound] - a tile_bound type variable representing the type of the bound used in
                  this transformation,
       [t] - ast of targeted loop. *)
-let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
+let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
   let error = "Loop_core.tile_aux: only simple loops are supported." in
   let ({index; start; direction; stop; step}, body, contract) = trm_inv ~error trm_for_inv t in
   let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
@@ -168,51 +164,14 @@ let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) 
     trm_pass_labels t outer_loop
   end
 
-(* [hoist_aux name decl_index array_size t]: extracts a variable declared inside a loop as an array of size [loop_bound -1]
-    then replace all the occurrences of that variable with an array access at the loop index,
-      [name] - pattern of the form "${var}_something" for the name entered by the user, if not
-              entered by the user, the dafault pattern ${var}_step is used,
-      [t] - ast of the loop. *)
-(* LATER/ deprecated *)
-let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : trm) : trm =
-  match t.desc with
-  | Trm_for (range, body, contract) ->
-    begin match body.desc with
-    | Trm_seq tl ->
-      (* TODO: stop - start ; check step *)
-      (* Arith.simpl *)
-      let stop_bd = begin match array_size with | Some arr_sz -> arr_sz | None -> range.stop end in
-      let ty = ref (typ_auto()) in
-      let new_name = ref dummy_var in
-      let f_update (t : trm) : trm =
-        match t.desc with
-        | Trm_let ((x, tx), _) ->
-          new_name := new_var (Tools.string_subst "${var}" x.name name);
-          ty := get_inner_ptr_type tx;
-          trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var range.index] )
-        | _ -> trm_fail t "Loop_core.hoist_aux: expected a variable declaration"
-        in
-      let new_tl = Mlist.update_nth decl_index f_update tl in
-      let new_body = trm_seq new_tl in
-      trm_seq_nobrace_nomarks [
-        trm_let_array (!new_name, !ty) ~size:stop_bd (trm_uninitialized ());
-        trm_for ~contract range new_body ]
-    | _ -> trm_fail t "Loop_core.hoist_aux: body of the loop should be a sequence"
-    end
-  | _ -> trm_fail t "Loop_core.hoist_aux: only simple loops are supported"
 
-(* [hoist name index array_size t p]: applies [hoist_aux] at trm [t] with path [p]. *)
-(* LATER/ deprecated
-let hoist_old (name : string) (index : int) (array_size : trm option): Transfo.local =
-   apply_on_path (hoist_aux name index array_size)
-*)
-(* [fusion_on_block_aux t]: merges two or more loops with the same components except the body,
+(** [fusion_on_block_on t]: merges two or more loops with the same components except the body,
       [t] - ast of the sequence containing the loops. *)
-let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =
+let fusion_on_block_on (keep_label : bool) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let n = Mlist.length tl in
-    if n < 2 then trm_fail t "fission_aux: there must be >= 2 loops to apply fussion";
+    if n < 2 then trm_fail t "fusion_on_block_on: there must be >= 2 loops to apply fussion";
     let first_loop = Mlist.nth tl 0 in
      begin match  first_loop.desc with
     | Trm_for (l_range, _, contract) ->
@@ -225,20 +184,16 @@ let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =
       ) [] tl in
       let res = trm_for ~contract l_range (trm_seq_nomarks fusioned_body) in
       if keep_label then trm_pass_labels t res else res
-    | _ -> trm_fail t "Loop_core.fusion_on_block_aux: all loops should be simple loops"
+    | _ -> trm_fail t "Loop_core.fusion_on_block_on: all loops should be simple loops"
     end
-  | _ -> trm_fail t "Loop_core.fission_aux: expected a sequence of for loops"
+  | _ -> trm_fail t "Loop_core.fusion_on_block_on: expected a sequence of for loops"
 
-(* [fusion_on_block keep_label t p]: applies [fusion_on_block_aux t p] at trm [t] with path [p]. *)
-let fusion_on_block (keep_label : bool): Transfo.local =
-  apply_on_path (fusion_on_block_aux keep_label)
-
-(* [grid_enumerate_aux indices_and_bounds t]: transforms a loop over a grid into nested loops over
+(** [grid_enumerate_on indices_and_bounds t]: transforms a loop over a grid into nested loops over
     each dimension of that grid,
       [indices_and_bounds] - a list of pairs representing the index and the bound for each dimension,
       [t] - ast of the loop. *)
-let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : trm =
-  let error = "Loop_core.grid_enumerate_aux: expected a simple for loop" in
+let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm =
+  let error = "Loop_core.grid_enumerate_on: expected a simple for loop" in
   let (range, body, _contract) = trm_inv ~error trm_for_inv t in
   let indices_and_bounds = List.map (fun (i, b) -> Trm.new_var i, b) indices_and_bounds in
   let new_body =
@@ -251,7 +206,7 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
         let old_loop_index_decl = trm_let_immut (range.index, typ_int ()) old_loop_index_val in
         let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
         trm_seq new_tl
-    | _ -> trm_fail body "Loop_core.grid_enumerate_aux: the body of the loop should be a sequence"
+    | _ -> trm_fail body "Loop_core.grid_enumerate_on: the body of the loop should be a sequence"
     end in
 
     Xlist.fold_lefti (fun i acc (index, stop) ->
@@ -259,10 +214,6 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
         then trm_for { index; start = trm_int 0; direction = range.direction; stop; step = trm_step_one () } acc
         else trm_for { index; start = trm_int 0; direction = DirUp; stop; step = trm_step_one () } (trm_seq_nomarks [acc])
     ) new_body (List.rev indices_and_bounds)
-
-(* [grid_enumerate indices_and_bounds t p]: applies [grid_enumerate_aux indices_and_bounds] at trm [t] with path [p]. *)
-let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
-  apply_on_path (grid_enumerate_aux indices_and_bounds)
 
 let trm_unroll = trm_var (toplevel_var "unroll")
 let trm_roll = trm_var (toplevel_var "roll")
@@ -324,7 +275,7 @@ let unroll_ghost_pair (range : loop_range) (contract : loop_contract)
   in
   (unroll_pure_ghosts @ unroll_ghosts, roll_pure_ghosts @ roll_ghosts)
 
-(* [unroll_on index t]: unrolls loop [t],
+(** [unroll_on index t]: unrolls loop [t],
       [inner_braces] - a flag on the visibility of generated inner sequences,
       [outer_seq_mark] - generates an outer sequence with a mark,
       [t] - ast of the loop. *)
@@ -372,15 +323,11 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
     trm_seq_nobrace_nomarks (unroll_ghosts @ outer_seq :: roll_ghosts)
 
 
-(* [unroll braces my_mark t p]: applies [unroll_aux] at trm [t] with path [p]. *)
-let unroll (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark) : Transfo.local =
-  apply_on_path (unroll_on inner_braces outer_seq_with_mark subst_mark)
-
-(* [unswitch_aux trm_index t]: extracts an if statement inside the loop whose condition,
+(** [unswitch_at trm_index t]: extracts an if statement inside the loop whose condition,
     is not dependent on the index of the loop or any other local variables,
       [trm_index] - index of the if statement inside the body of the loop,
       [t] - ast of the for loop. *)
-let unswitch_aux (trm_index : int) (t : trm) : trm =
+let unswitch_at (trm_index : int) (t : trm) : trm =
   let tl = for_loop_body_trms t in
   let if_stmt = Mlist.nth tl trm_index in
   let error = "Loop_core.unswitch_aux: expected an if statement."  in
@@ -390,14 +337,10 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
   let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (Mlist.replace_at trm_index t1 tl )) in
   trm_if cond (wrap_branch then_) (trm_copy (wrap_branch else_))
 
-(* [unswitch trm_index t p]: applies [unswitch_aux] at trm [t] with path [p]. *)
-let unswitch (trm_index : int) : Transfo.local =
-  apply_on_path (unswitch_aux trm_index)
-
-(* [to_unit_steps_aux new_index t]: transforms loop [t] into a loop with unit steps,
+(** [to_unit_steps_on new_index t]: transforms loop [t] into a loop with unit steps,
       [new_index] - a string representing the new index for the transformed loop,
       [t] - ast of the loop to be transformed. *)
-let to_unit_steps_aux (new_index : string) (t : trm) : trm =
+let to_unit_steps_on (new_index : string) (t : trm) : trm =
   let error = "Loop_core.to_unit_steps: only simple loops are supported." in
   let ({ index; start; direction; stop; step }, _, _) = trm_inv ~error trm_for_inv t in
   let new_index = new_var (match new_index with
@@ -427,12 +370,7 @@ let to_unit_steps_aux (new_index : string) (t : trm) : trm =
   trm_for { index = new_index; start = trm_int 0; direction; stop = new_stop; step = trm_step_one () }
     (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
 
-(* [loop_to_unit_steps new_index t p]: applies [to_unit_steps_aux] to the trm [t] with path [p]. *)
-let to_unit_steps (new_index : string) : Transfo.local =
-  apply_on_path (to_unit_steps_aux new_index)
-
-
-(* [fold_aux index start step t]: transforms a sequence of instructions into a for loop,
+(** [fold_at index start step t]: transforms a sequence of instructions into a for loop,
       [index] - index of the generated for loop,
       [start] - starting value for the index of the generated for loop,
       [step] - step of the generated for loop,
@@ -441,7 +379,7 @@ let to_unit_steps (new_index : string) : Transfo.local =
     NOTE: we trust the user that "stop" corresponds to the number of iterations
     LATER: use  sExpr  to mark the subexpression that correspnod to the string "start";
     then you can Generic.replace at these marks.*)
-let fold_aux (index : string) (start : int) (step : int) (t : trm) : trm =
+let fold_at (index : string) (start : int) (step : int) (t : trm) : trm =
   let index = new_var index in
   let error = "Loop_core.fold_aux: expected a sequence of instructions" in
   let tl = trm_inv ~error trm_seq_inv t in
@@ -457,10 +395,6 @@ let fold_aux (index : string) (start : int) (step : int) (t : trm) : trm =
   ) other_instr;
   trm_pass_labels t (trm_for { index; start = trm_int start; direction = DirUp; stop = trm_int nb; step = (if step = 1 then trm_step_one () else (trm_int step)) } (trm_seq_nomarks [loop_body]))
 
-(* [fold index start step t p]: applies [fold_aux] at trm [t] with path [p]. *)
-let fold (index : string) (start : int) (step : int) : Transfo.local =
-  apply_on_path (fold_aux index start step)
-
 
 let ghost_group_split = toplevel_var "group_split"
 let ghost_group_split_ro = toplevel_var "group_split_ro"
@@ -471,14 +405,14 @@ let ghost_group_join_ro = toplevel_var "group_join_ro"
 let ghost_group_join_uninit = toplevel_var "group_join_uninit"
 let ghost_group_join_pure = toplevel_var "group_join_pure"
 
-(* [split_range_aux nb cut]: splits a loop into two loops based on the range,
+(** [split_range_at nb cut]: splits a loop into two loops based on the range,
      [nb] - by default this argument has value 0, if provided it means that it will split the loop at start + nb iteration,
      [cut] - by default this argument has value tmr_unit(), if provided then the loop will be splited at that iteration,
      [t] - ast of the for loop.
 
      TODO: Optional arguments instead of weird "default" values
      *)
-let split_range_aux (nb : int) (cut : trm) (t : trm) : trm =
+let split_range_at (nb : int) (cut : trm) (t : trm) : trm =
   let error = "Loop_core.split_range: expected a target to a simple for loop" in
   let (range, body, _contract) = trm_inv ~error trm_for_inv t in
   let split_index = match nb, cut with
@@ -495,17 +429,11 @@ let split_range_aux (nb : int) (cut : trm) (t : trm) : trm =
     trm_for { range with stop = split_index } body;
     trm_copy (trm_for { range with start = split_index } body)]
 
-(* [split_range nb cut t p]: applies [split_range_aux] at the trm [t] with path [p]. *)
-let split_range (nb : int) (cut : trm) : Transfo.local =
-  apply_on_path (split_range_aux nb cut)
-
-(* [rename_index new_index]: renames the loop index variable *)
-let rename_index (new_index : string) : Transfo.local =
-  apply_on_path (fun t ->
-    let error = "Loop_core.shift: expected a target to a simple for loop" in
-    let (range, body, contract) = trm_inv ~error trm_for_inv t in
-    let new_index = { namespaces = []; name = new_index; id = range.index.id } in
-    let new_body = trm_subst_var range.index (trm_var new_index) body in
-    let new_contract = Resource_contract.loop_contract_subst (Var_map.singleton range.index (trm_var new_index)) contract in
-    trm_for ~annot:t.annot ~contract:new_contract { range with index = new_index } new_body
-  )
+(** [rename_index_on new_index]: renames the loop index variable *)
+let rename_index_on (new_index : string) (t: trm) : trm =
+  let error = "Loop_core.shift: expected a target to a simple for loop" in
+  let (range, body, contract) = trm_inv ~error trm_for_inv t in
+  let new_index = { namespaces = []; name = new_index; id = range.index.id } in
+  let new_body = trm_subst_var range.index (trm_var new_index) body in
+  let new_contract = Resource_contract.loop_contract_subst (Var_map.singleton range.index (trm_var new_index)) contract in
+  trm_for ~annot:t.annot ~contract:new_contract { range with index = new_index } new_body

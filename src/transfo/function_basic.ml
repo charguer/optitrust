@@ -1,7 +1,7 @@
 open Prelude
 open Target
 
-(* [delete tg]: delete the targeted function definition.
+(** [delete tg]: delete the targeted function definition.
    Correct if the function is never used.
 
    Currently checked by verifying that the targets correspond to
@@ -21,7 +21,7 @@ let%transfo delete (tg : target) : unit =
     tr ()
 
 
-(* [bind_intro ~fresh_name ~const ~my_mark tg]: expects the target [t] to point at a function call.
+(** [bind_intro ~fresh_name ~const ~my_mark tg]: expects the target [t] to point at a function call.
      Then it will generate a new variable declaration named as [fresh_name] with type being the same
      as the one of the function call, and initialized to the function call itself.
      If [const] is true the the bound variable will be declared as an immutable variable otherwise immutable.
@@ -30,14 +30,15 @@ let%transfo delete (tg : target) : unit =
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
 let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = no_mark) (tg : target) : unit =
-  Nobrace_transfo.remove_after ( fun _ ->
-    applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-    (fun occ t (p, p_local, i)  ->
+  Nobrace_transfo.remove_after (fun _ ->
+    Target.iteri (fun occ p ->
+      let (p, p_local, i) = Internal.get_instruction_in_surrounding_sequence p in
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
-    Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
+      Target.apply_at_path (Function_core.bind_intro_at my_mark i fresh_name const p_local) p
+    ) tg
   )
 
-(* [inline ~body_mark tg]: expects the target [tg] to point at a function call inside a declaration
+(** [inline ~body_mark tg]: expects the target [tg] to point at a function call inside a declaration
     or inside a sequence in case the function is of void type. Example:
           int r = g(a);
       or  g(a);
@@ -91,58 +92,61 @@ let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bo
 let%transfo inline ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
-    apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-     (fun  t (p, p_local, i) ->
-        Stats.comp_stats "inline call to Function_core.inline" (fun () ->
-          Function_core.inline i body_mark ~subst_mark p_local t p)) tg))
+    Target.iter (fun p ->
+      let (p, p_local, i) = Internal.get_instruction_in_surrounding_sequence p in
+      Stats.comp_stats "inline call to Function_core.inline" (fun () ->
+        Target.apply_at_path (Function_core.inline_at i body_mark subst_mark p_local) p
+      )
+    ) tg
+  ))
 
 
-(* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases
+(** [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases
     when the decaration of the function call can be founded at the targeted function call contrary to [inline]
     which will need to find first the toplevel declaration.  *)
 let beta ?(body_mark : mark = no_mark) (tg : target) : unit =
   inline ~body_mark tg
 
 
-(* [use_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x = x (op) a,
+(** [use_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x = x (op) a,
     then it will transform that instruction into x (op)= a. Ex: x = x + 1 --> x += 1. *)
 let%transfo use_infix_ops_at ?(allow_identity : bool = true) (tg : target) : unit =
-  apply_on_targets (Function_core.use_infix_ops allow_identity) tg
+  apply_at_target_paths (Function_core.use_infix_ops_on allow_identity) tg
 
-(* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
+(** [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
     Then it will replace that sequence with a call to the fuction with declaration targeted by [fct]. *)
 let%transfo uninline ~fct:(fct : target) (tg : target) : unit =
   Trace.call (fun t ->
     let fct_path = resolve_target_exactly_one_with_stringreprs_available fct t in
     let fct_decl = Path.resolve_path fct_path t in
-    apply_on_targets (Function_core.uninline fct_decl) tg)
+    apply_at_target_paths (Function_core.uninline_on fct_decl) tg)
 
-(* [rename_args new_args tg]: expects the target [tg] to point at a function declaration, then it will rename the args of
+(** [rename_args new_args tg]: expects the target [tg] to point at a function declaration, then it will rename the args of
      that function. If there are local variables declared inside the body of the function that have the same name as one
      of the function args then it will skip those variables on all their occurrences. *)
 let%transfo rename_args (new_args : var list) (tg : target) : unit =
-  apply_on_targets (Function_core.rename_args new_args) tg
+  apply_at_target_paths (Function_core.rename_args_on new_args) tg
 
 
-(* [replace_with_change_args new_fun_name arg_mapper tg]: expects the target [tg] to point at a function call, then it will
+(** [replace_with_change_args new_fun_name arg_mapper tg]: expects the target [tg] to point at a function call, then it will
     replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments. *)
 let%transfo replace_with_change_args (new_fun_name : var) (arg_mapper : trms -> trms) (tg : target) : unit =
-   apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg
+  apply_at_target_paths (Function_core.replace_with_change_args_on new_fun_name arg_mapper) tg
 
-(* [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will
+(** [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will
      inserts a new version of that definition whose return type is void.
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
 let%transfo dsp_def ?(arg : string = "res") ?(func : string = "dsp") (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Function_core.dsp_def i arg func t p) tg)
+    apply_at_target_paths_in_seq (fun i t -> Function_core.dsp_def_at i arg func t) tg)
 
-(* [dsp_call ~dsp tg]: expects the target [tg] to point at a function call whose parent trm is a write operation
+(** [dsp_call ~dsp tg]: expects the target [tg] to point at a function call whose parent trm is a write operation
     then it will convert that write operation into a function call.
     Let's say that the targeted function call is r = f(x, y);
     If [dsp] is the empty string, then "f_dsp" will be used as a name based on the original name "f".
     Note: This transformation assumes that dsp_def has been already applied to the definition of the called function. *)
 let%transfo dsp_call ?(dsp : string = "") (tg : target) : unit =
-  apply_on_transformed_targets (Path.parent)
-    (fun t p -> Function_core.dsp_call dsp t p) tg
+  Target.iter (fun p ->
+    Target.apply_at_path (Function_core.dsp_call_on dsp) (Path.parent p)
+  ) tg

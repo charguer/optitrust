@@ -6,7 +6,7 @@ open Mlist
 include Apac_basic
 include Apac_core
 
-(* [constify tg]: expects target [tg] to point at a function definition. It
+(** [constify tg]: expects target [tg] to point at a function definition. It
    constifies function arguments and functions whenever it is possible depending
    on data accesses, aliases and dependencies. *)
 let constify (tg : target) : unit =
@@ -52,7 +52,7 @@ let constify (tg : target) : unit =
       Apac_basic.unfold_let_mult ~constify:v (tg @ [cMark k])
     ) Apac_core.to_const_mult
 
-(* [unfold_function_calls tg]: expects target [tg] to point at a function
+(** [unfold_function_calls tg]: expects target [tg] to point at a function
    definition. It moves all function calls under target [tg] out of variable
    declarations and nested function calls.
 
@@ -102,7 +102,7 @@ let unfold_function_calls (tg : target) : unit =
     end
   ) tg
 
-(* [parallel_task_group tg]: expects target [tg] to point at a function
+(** [parallel_task_group tg]: expects target [tg] to point at a function
     definition.
 
     The first step of the transformation consists in replacing return statements
@@ -112,7 +112,7 @@ let unfold_function_calls (tg : target) : unit =
 
     In the second step, we put the marked sequence into an OpenMP task group.
     See [Apac_basic.task_group] for more details. *)
-let parallel_task_group : Transfo.t =
+let parallel_task_group : target -> unit =
   Target.iter (fun p ->
     (* Create a mark. *)
     let mark = Mark.next() in
@@ -136,11 +136,11 @@ let parallel_task_group : Transfo.t =
     Marks.remove mark [cMark mark];
   )
 (*
-(* [decl_cptrs]: hashtable storing available varaibles and whether they are
+(** [decl_cptrs]: hashtable storing available varaibles and whether they are
     arrays. *)
 type decl_cptrs = (var, bool) Hashtbl.t
 
-(* [get_delete_task ptrs]: returns an OpenMP task that deletes the variable
+(** [get_delete_task ptrs]: returns an OpenMP task that deletes the variable
     contained in [ptrs]. Each variable has an InOut dependency. *)
 let get_delete_task (ptrs : decl_cptrs) : trm option =
   let vars = Tools.hashtbl_keys_to_list ptrs in
@@ -151,13 +151,13 @@ let get_delete_task (ptrs : decl_cptrs) : trm option =
     let delete_trms : trms = List.map (fun var -> trm_delete (Hashtbl.find ptrs var) (trm_var var)) vars in
     Some (trm_add_pragmas [Task [Depend [Inout deps]]] (trm_seq_nomarks delete_trms))
 
-(* [heapify_nested_seq tg]: expects target [tg] to point at a sequence. Then, it
+(** [heapify_nested_seq tg]: expects target [tg] to point at a sequence. Then, it
     will:
     - send on the heap all variables declared in this scope,
     - dereference all use of them (add  '*'),
     - add task to delete these variables before 'return', 'break' and 'continue'
       statements when needed. *)
-let heapify_nested_seq : Transfo.t =
+let heapify_nested_seq : target -> unit =
   Target.iter (fun t p ->
     (* Heapifies variables and adds 'delete' tasks before certain Trm_abort. *)
     let rec aux (ptrs : decl_cptrs) (is_first_depth : bool) (t : trm) : trm =
@@ -215,15 +215,15 @@ let heapify_nested_seq : Transfo.t =
       | _ -> t
     in
     let decl_cptrs = Hashtbl.create 10 in
-    let tg_trm = Path.resolve_path p t in
+    let tg_trm = Target.resolve_path p in
     match tg_trm.desc with
     | Trm_seq tl -> Nobrace_transfo.remove_after (fun _ ->
-      transfo_on_targets (trm_map (aux decl_cptrs true)) (target_of_path p));
-      transfo_on_targets (add_end_delete_task decl_cptrs) (target_of_path p)
+      apply_at_target_paths (trm_map (aux decl_cptrs true)) (target_of_path p));
+      apply_at_target_paths (add_end_delete_task decl_cptrs) (target_of_path p)
     | _ -> fail None "Apac.heapify_nested_seq: Expects target to point at a sequence"
   )
 
-(* [get_all_vars acc t]: returns the list of variables used in
+(** [get_all_vars acc t]: returns the list of variables used in
     application [t]. *)
 let rec get_all_vars (acc: vars) (t : trm) : vars =
   match t.desc with
@@ -231,17 +231,17 @@ let rec get_all_vars (acc: vars) (t : trm) : vars =
   | Trm_var (_, qv) when not (List.mem qv acc) -> qv :: acc
   | _ -> acc
 
-(* [get_dep var ty]: returns the dep of the typ [ty]. *)
+(** [get_dep var ty]: returns the dep of the typ [ty]. *)
 let get_dep (var : var) (ty : typ) : dep =
   let rec aux (depth : int) : dep =
     if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
   in
   aux (typ_get_degree ty)
 
-(* [sync_with_taskwait tg]: expects target [tg] to point at a function
+(** [sync_with_taskwait tg]: expects target [tg] to point at a function
     definition. Then, it will add 'taskwait' OpenMP pragmas before loop and
     conditional branches. It also adds it at the end of loops. *)
-let sync_with_taskwait : Transfo.t =
+let sync_with_taskwait : target -> unit =
   Target.iter (fun t p ->
     let add_taskwait (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
       match vars with
@@ -333,37 +333,37 @@ let sync_with_taskwait : Transfo.t =
       | Trm_abort Ret (Some tr) -> add_taskwait decl_vars (get_all_vars [] tr) t
       | _ -> t
     in
-    let tg_trm = Path.resolve_path p t in
+    let tg_trm = Target.resolve_path p in
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (qv, ty, args, body, _) ->
       List.iter (fun (var, ty) -> if var.name <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
-      transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
+      apply_at_target_paths (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
 
-(* [fun_loc]: function's Unified Symbol Resolution *)
+(** [fun_loc]: function's Unified Symbol Resolution *)
 type fun_loc = var
 
-(* [dep_info]: stores data of dependencies of tasks. *)
+(** [dep_info]: stores data of dependencies of tasks. *)
 type dep_info = {
   dep_depth : int;
   dep_in : bool;
   dep_shared : bool;
 }
 
-(* [fun_args_deps]: hashtable storing dep_info for each function argument. *)
+(** [fun_args_deps]: hashtable storing dep_info for each function argument. *)
 type fun_args_deps = (fun_loc, dep_info list) Hashtbl.t
 
-(* [dep_infos]: list of dep_info and the corresponding variables. *)
+(** [dep_infos]: list of dep_info and the corresponding variables. *)
 type dep_infos = (var * dep_info) list
 
-(* [vars_depth]: hashtable storing the pointer depth of variable and its name.
+(** [vars_depth]: hashtable storing the pointer depth of variable and its name.
     The name of the variable is in the key and the value in order to use
     Apac_basic.get_vars_data_from_cptr_arith. *)
 type vars_depth = var vars_tbl
 
-(* [is_base_type ty]: checks whether [ty] is a base type or not. *)
+(** [is_base_type ty]: checks whether [ty] is a base type or not. *)
 let rec is_base_type (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
@@ -376,7 +376,7 @@ let rec is_base_type (ty : typ) : bool =
     end
   | _ -> false
 
-(* [is_dep_in ty]: checks whether the OpenMP dependency type of [ty] is In. It
+(** [is_dep_in ty]: checks whether the OpenMP dependency type of [ty] is In. It
     does not handle auto! *)
 let rec is_dep_in (ty : typ) : bool =
   (* Returns true if there is 'const' before every pointer and before the base
@@ -426,7 +426,7 @@ let rec is_dep_in (ty : typ) : bool =
   | _ when is_base_type ty -> true
   | _ -> aux ty
 
-(* [get_functions_args_deps tg]: expects target [tg] to point at the root. Then,
+(** [get_functions_args_deps tg]: expects target [tg] to point at the root. Then,
     it will return the dep_info of each function argument. *)
 let get_functions_args_deps (tg : target) : fun_args_deps =
   let rec aux (fad : fun_args_deps) (is_method : bool) (t : trm) : unit =
@@ -462,7 +462,7 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
   aux fad false tg_trm;
   fad
 
-(* [count_unop_get t]: returns the number of nested unary operations of [t]. *)
+(** [count_unop_get t]: returns the number of nested unary operations of [t]. *)
 let count_unop_get (t : trm) : int =
   let rec aux (count : int) (t : trm) : int =
     match t.desc with
@@ -472,7 +472,7 @@ let count_unop_get (t : trm) : int =
   in
   aux 0 t
 
-(* [is_unary_mutation t]: checks if [t] is a primitive unary operaiton that
+(** [is_unary_mutation t]: checks if [t] is a primitive unary operaiton that
     mutates a variable. *)
 let is_unary_mutation (t : trm) : bool =
   match t.desc with
@@ -483,7 +483,7 @@ let is_unary_mutation (t : trm) : bool =
     end
   | _ -> false
 
-(* [get_unary_mutation_qvar t]: returns fully qualified name of a variable
+(** [get_unary_mutation_qvar t]: returns fully qualified name of a variable
     behind unary mutatation operator. *)
 let get_unary_mutation_qvar (t : trm) : var =
   let rec aux (t : trm) : var =
@@ -501,7 +501,7 @@ let get_unary_mutation_qvar (t : trm) : var =
     end
   | _ -> new_var "hello"
 
-(* [get_apps_deps vd fad t]: gets the list of dependencies of trm [t]. Expects
+(** [get_apps_deps vd fad t]: gets the list of dependencies of trm [t]. Expects
     the transformation [unfold_funcall] to be applied before. The returned list
     may have duplicates or different dependencies for the same variable, so it
     must be post-processed. *)
@@ -558,7 +558,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
   in
   aux [] t
 
-(* [sort_dep_infos dis]: returns the the list of dependencies for In and InOut
+(** [sort_dep_infos dis]: returns the the list of dependencies for In and InOut
     dependencies from dep_info list [dis]. *)
 let sort_dep_infos (dis : dep_infos) : (dep_infos * dep_infos) =
   let dep_in_tbl : (var, dep_info) Hashtbl.t = Hashtbl.create 10 in
@@ -573,7 +573,7 @@ let sort_dep_infos (dis : dep_infos) : (dep_infos * dep_infos) =
     ) dis;
   (Tools.hashtbl_to_list dep_in_tbl, Tools.hashtbl_to_list dep_inout_tbl)
 
-(* [get_cpagma_from_dep_infos dis_in dis_inout]: returns the cpragma
+(** [get_cpagma_from_dep_infos dis_in dis_inout]: returns the cpragma
     corresponding to a task.
 
     [dis_in] - list of In dependencies,
@@ -595,12 +595,12 @@ let get_cpagma_from_dep_infos (dis_in : dep_infos) (dis_inout : dep_infos) : cpr
     let clauses = if is_empty shared_vars then clauses else Shared shared_vars :: clauses in
     Task clauses
 
-(* [insert_tasks_naive fad]: expects target [tg] to point at a function
+(** [insert_tasks_naive fad]: expects target [tg] to point at a function
     definition. Then, it will insert task in the function's body.
 
     This is a naive implementation that adds a task on every
     instruction/application. *)
-let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
+let insert_tasks_naive (fad : fun_args_deps) : target -> unit =
   Target.iter (fun t p ->
     let rec aux (vd : vars_depth) (t : trm) : trm =
       match t.desc with
@@ -620,7 +620,7 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
         trm_add_pragma (get_cpagma_from_dep_infos dis_in dis_inout) t
       | _ -> t
     in
-    let tg_trm = Path.resolve_path p t in
+    let tg_trm = Target.resolve_path p in
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (_, _, tvl, _, _) ->

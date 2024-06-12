@@ -323,7 +323,7 @@ let%transfo slide_basic ?(mark_alloc : mark = no_mark) ?(mark_simpl : mark = no_
 
     TODO: generate check that n > 0
   *)
-let%transfo slide ?(mark_alloc : mark = no_mark) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo slide ?(mark_alloc : mark = no_mark) ?(simpl : target -> unit = Arith.default_simpl) (tg : target) : unit =
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let mark_simpl = next_mark () in
     slide_basic ~mark_alloc ~mark_simpl (target_of_path p);

@@ -3,22 +3,22 @@ open Target
 open Matrix_trm
 open Loop_core
 
-(* [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,
+(** [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,
    let's say [for (int i = start; i < stop; i += step) { body } ].
    [nb_colors] - an expression denoting the number of colors (e.g., ["2"]),
    [index] - denotes a fresh name to use as index for iterating over colors.
 
    In case [step = 1]:
-   [for (int index = 0; index < nb_color; index++) {
-      for (int i = index; i < stop; i += nb_color) { body }].
+   {@c[for (int index = 0; index < nb_color; index++) {
+      for (int i = index; i < stop; i += nb_color) { body }]}.
 
    In the general case, it produces:
-   [for (int index = 0; index < nb_color; index++) {
-      for (int i = index*step; i < stop; i += step*nb_color) { body }]. *)
+   {@c[for (int index = 0; index < nb_color; index++) {
+      for (int i = index*step; i < stop; i += step*nb_color) { body }]}. *)
 let%transfo color (nb_colors : trm) ?(index : string option) (tg : target) : unit =
-  apply_on_targets (Loop_core.color nb_colors index) tg
+  apply_at_target_paths (Loop_core.color_on nb_colors index) tg
 
-(* [tile tile_size index tg]: expects the target [tg] to point at a simple loop,
+(** [tile tile_size index tg]: expects the target [tg] to point at a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
    divides - denotes a flag to know if tile_size divides the size of the array or not
    [tile_size] - denotes the width of the tile (e.g., ["2"])
@@ -29,13 +29,13 @@ let%transfo color (nb_colors : trm) ?(index : string option) (tg : target) : uni
       - TileDivides: generates a constraint of the form [i < X], which is only true if B divides X
 
    It produces:
-   [for (int index = 0; index < stop; index += tile_size) {
-      for (int i = index; i < min(X, bx+B); i++) { body }]. *)
+   {@c[for (int index = 0; index < stop; index += tile_size) {
+      for (int i = index; i < min(X, bx+B); i++) { body }]}. *)
 let%transfo tile ?(index : string = "b${id}")
          ?(bound : tile_bound = TileBoundMin)
          (tile_size : trm) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths (Loop_core.tile index bound tile_size) tg
+    Target.apply_at_target_paths (Loop_core.tile_on index bound tile_size) tg
   )
 
 (** <private> *)
@@ -161,7 +161,7 @@ let%transfo collapse ?(simpl_mark : mark = no_mark)
     Target.apply_at_path (collapse_on simpl_mark index ri ci rj cj body) p
   ) tg)
 
-(* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
+(** [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
     simple loop. Let's say for {int i ...} {
         int x; [tg]
         ...
@@ -277,7 +277,7 @@ let%transfo hoist ?(name : string = "${var}_step")
       apply_at_path (hoist_on name mark_alloc mark_free mark_tmp_var arith_f i) p
       ) tg)
 
-(* [fission_on_as_pair]: split loop [t] into two loops
+(** [fission_on_as_pair]: split loop [t] into two loops
 
     [index]: index of the splitting point
     [t]: ast of the loop
@@ -360,58 +360,23 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         ) split_res_comm
       in
 
-      (* Remove resources that are only leftover parts of a frame by instantiating efracs. *)
-      (* Currently use a simple algorithm that considers that each efrac is used at most in one framed context. *)
-      let efrac_map =
-        ref (List.fold_left (fun efrac_map (efrac, _) -> Var_map.add efrac None efrac_map) Var_map.empty split_res.efracs)
-      in
-      let try_nullify_frac (frac: formula): bool =
-        let open Xoption.OptionMonad in
-        let rec aux frac nb_efracs =
-          Pattern.pattern_match frac [
-            Pattern.(trm_sub !__ (trm_var !__)) (fun base_frac removed_var ->
-              Pattern.when_ (Var_map.find_opt removed_var !efrac_map = Some None);
-              let* efrac_val = aux base_frac (nb_efracs + 1) in
-              efrac_map := Var_map.add removed_var (Some efrac_val) !efrac_map;
-              Some efrac_val
-            );
-            Pattern.(!__) (fun _ ->
-              if nb_efracs = 0 then None
-              else if nb_efracs = 1 then Some frac
-              else Some (trm_div frac (trm_int nb_efracs))
-            )
-          ]
-        in
-        Option.is_some (aux frac 0)
-      in
-      let split_res_comm = List.filter (fun (h, formula) ->
-        match Var_map.find_opt h tl1_usage with
-        | Some SplittedFrac ->
-          begin match formula_read_only_inv formula with
-          | Some { frac } when try_nullify_frac frac -> false
-          | _ -> true
-          end
-        | _ -> true
-      ) split_res_comm in
-      (* LATER: Allow efracs that are not eliminated *)
-      let efrac_map = Var_map.mapi (fun efrac efrac_val ->
-        match efrac_val with
-        | Some efrac_val -> efrac_val
-        | None -> failwith "At the splitting point, existential fraction %s was not eliminated" efrac.name)
-        !efrac_map
-      in
-      let split_res_without_efracs = List.map (fun (h, formula) -> (h, trm_subst efrac_map formula)) split_res_comm in
-
       let tl2_usage = Resources.compute_usage_of_instrs tl2 in
       let post_inst_usage = Resource_computation.used_set_to_usage_map (Resources.post_inst t_seq) in
       let usage_after_tl1 = Resource_computation.update_usage_map ~current_usage:tl2_usage ~extra_usage:post_inst_usage in
+      let used_in_split_res_comm = Resource_set.used_vars (Resource_set.make ~linear:split_res_comm ()) in
       let tl1_ensured = List.filter (fun (x, f) ->
-        Var_map.find_opt x tl1_usage = Some Ensured &&
+        match Var_map.find_opt x tl1_usage with
+        | Some (Ensured | ArbitrarilyChosen) when
+          Var_set.mem x used_in_split_res_comm ->
+            failwith "The resources at split point depend on the variable %s created before in the sequence" (var_to_string x)
+        | Some Ensured when
           Var_map.mem x usage_after_tl1 &&
-          Var_set.disjoint (trm_free_vars f) bound_in_tl1
+          Var_set.disjoint (trm_free_vars f) bound_in_tl1 ->
+            true
+        | _ -> false
         ) split_res.pure
       in
-      let middle_iter_contract = Resource_set.make ~pure:tl1_ensured ~linear:split_res_without_efracs () in
+      let middle_iter_contract = Resource_set.copy (Resource_set.make ~pure:tl1_ensured ~linear:split_res_comm ()) in
 
       let fst_contract = {
         loop_ghosts = contract.loop_ghosts;
@@ -424,11 +389,11 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
         strict = true;
       } in
       let snd_contract = {
-        loop_ghosts = (*List.map (fun (efrac, _) -> (efrac, trm_frac)) split_res.efracs @*) contract.loop_ghosts;
+        loop_ghosts = contract.loop_ghosts;
         invariant = { contract.invariant with linear = tl2_inv_writes };
         parallel_reads = tl1_inv_reads @ contract.parallel_reads;
         iter_contract = {
-          pre = { middle_iter_contract with pure = tl1_ensured @ contract.iter_contract.pre.pure };
+          pre = { middle_iter_contract with pure = middle_iter_contract.pure @ contract.iter_contract.pre.pure };
           post = contract.iter_contract.post; (* LATER: Can be slightly more clever here, by removing ensures that are already done by the first loop. *)
         };
         strict = true;
@@ -443,7 +408,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
        two loops must have a different id. We copy the second loop
        because fission_all_instr process them from the end. *)
 
-(* [fission_on]: split loop [t] into two loops
+(** [fission_on]: split loop [t] into two loops
 
     [index]: index of the splitting point
     [t]: ast of the loop
@@ -452,7 +417,7 @@ let fission_on (mark_loops : mark) (mark_between_loops : mark) (index : int) (t 
   let (ta,tb) = fission_on_as_pair mark_loops index t in
   trm_seq_helper ~braces:false [ Trm ta; Mark mark_between_loops; Trm tb ]
 
-(* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
+(** [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 
    @correctness: Reads in new second loop need to never depend on writes on
@@ -609,7 +574,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     trm_seq ~annot:t.annot ?loc:t.loc new_instrs
   | _ -> failwith "unreachable"
 
-(* [fusion]: expects the target [tg] to point at a loop that is followed by another loop with the same range (start, stop, step).
+(** [fusion]: expects the target [tg] to point at a loop that is followed by another loop with the same range (start, stop, step).
   Merges the two loops into a single one, sequencing the loop bodies into a new loop body:
 
   for (int i = start; i < stop; i += step) {
@@ -635,7 +600,7 @@ let%transfo fusion ?(upwards : bool = true) (tg : target) : unit =
   ) tg;
   Resources.justif_correct "loop resources where successfully merged"
 
-(* [grid_enumerate index_and_bounds tg]: expects the target [tg] to point at a loop iterating over
+(** [grid_enumerate index_and_bounds tg]: expects the target [tg] to point at a loop iterating over
     a grid. The grid can be of any dimension.
     Loop  [tg] then is transformed into nested loops
     where the number of nested loops is equal to the number of dimensions.
@@ -652,9 +617,9 @@ let%transfo fusion ?(upwards : bool = true) (tg : target) : unit =
                                             }
                                           } *)
 let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target) : unit =
-  apply_on_targets (Loop_core.grid_enumerate index_and_bounds) tg
+  apply_at_target_paths (Loop_core.grid_enumerate_on index_and_bounds) tg
 
-(* [unroll ~braces ~my_mark tg]: expects the target to point at a simple loop of the shape
+(** [unroll ~braces ~my_mark tg]: expects the target to point at a simple loop of the shape
     for (int i = a; i < a + C; i++) or for (int i = 0; i < C; i++)
       then it will move the instructions out of the loop by replacing
       the index i occurrence with a + j in and j in the second case where
@@ -664,7 +629,7 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
 let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = no_mark) ?(subst_mark : mark = no_mark) (tg : target): unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
-    apply_on_targets (Loop_core.unroll inner_braces outer_seq_with_mark subst_mark) tg)
+    apply_at_target_paths (Loop_core.unroll_on inner_braces outer_seq_with_mark subst_mark) tg)
 
 
 type empty_range_mode =
@@ -672,7 +637,7 @@ type empty_range_mode =
 | Arithmetically_impossible
 | Produced_resources_uninit_after
 
-(* [move_out_on trm_index t]: moves an invariant instruction just before loop [t],
+(** [move_out_on trm_index t]: moves an invariant instruction just before loop [t],
     [trm_index] - index of that instruction on its surrouding sequence (just checks that it is 0),
     [t] - ast of the for loop.
   *)
@@ -841,18 +806,21 @@ let%transfo move_out_alloc ?(empty_range: empty_range_mode = Produced_resources_
       apply_at_path (move_out_alloc_on empty_range i) p
   ) tg)
 
-(* [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition
+(** [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition
      (not dependent on loop index or local variables) inside a loop.  Then it will take that
       if statment outside the loop.
 
    @correctness: requires that the loop is parallelizable *)
 let%transfo unswitch (tg : target) : unit =
-  Nobrace_transfo.remove_after ( fun _ ->
-  apply_on_transformed_targets(Path.index_in_surrounding_loop)
-    (fun t (i, p) -> Loop_core.unswitch i t p) tg)
+  Nobrace_transfo.remove_after (fun _ ->
+    Target.iter (fun p ->
+      let i, p = Path.index_in_surrounding_loop p in
+      Target.apply_at_path (Loop_core.unswitch_at i) p
+    ) tg
+  )
 
 
-(* [to_unit_steps index tg]: expects target [tg] to point at a for loop
+(** [to_unit_steps index tg]: expects target [tg] to point at a for loop
     [index] - denotes the new index for the transformed loop
         by default is an empty string. The reason for that is to check if the user
         gave the name of the new index of not. If not then [index] = unit_index
@@ -868,22 +836,20 @@ let%transfo unswitch (tg : target) : unit =
             s += i;
            } *)
 let%transfo to_unit_steps ?(index : string = "" ) (tg : target) : unit =
-  apply_on_targets (Loop_core.to_unit_steps index) tg
+  apply_at_target_paths (Loop_core.to_unit_steps_on index) tg
 
-(* [fold ~direction index start stop step tg]: expects the target [tg] to point at the first instruction in a sequence
+(** [fold ~direction index start stop step tg]: expects the target [tg] to point at the first instruction in a sequence
     and it assumes that the sequence containing the target [tg] is composed of a list of instructions which
     can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop
     components. *)
 let%transfo fold ~(index : string) ~(start : int) ~(step : int) (tg : target) : unit =
-  apply_on_targets (
-    Loop_core.fold index start step
-  ) tg
+  apply_at_target_paths (Loop_core.fold_at index start step) tg
 
-(* [split_range nb cut tg]: expects the target [tg] to point at a simple loop
+(** [split_range nb cut tg]: expects the target [tg] to point at a simple loop
     then based on the arguments nb or cut it will split the loop into two loops. *)
 let%transfo split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
   Nobrace_transfo.remove_after( fun _ ->
-    apply_on_targets (Loop_core.split_range nb cut) tg )
+    apply_at_target_paths (Loop_core.split_range_at nb cut) tg )
 
 type shift_kind =
 | ShiftBy of trm
@@ -1021,7 +987,7 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
 
 (* [rename_index new_index]: renames the loop index variable *)
 let%transfo rename_index (new_index : string) (tg : target) : unit =
-  apply_on_targets (Loop_core.rename_index new_index) tg;
+  apply_at_target_paths (Loop_core.rename_index_on new_index) tg;
   Trace.justif "renaming loop index is always correct (unique ids avoid name conflicts)"
 
 (* FIXME: duplicated code from tiling. *)

@@ -2,11 +2,11 @@ open Prelude
 open Target
 include Align_basic
 
-(* [alloc vec_align tg]: expects the target [tg] to point at a call at a OptiTrust MALLOC macro,
+(** [alloc vec_align tg]: expects the target [tg] to point at a call at a OptiTrust MALLOC macro,
     then them will convert it to an aligned one with alignment size [vec_align]. *)
-let alloc (vec_align : trm) : Target.Transfo.t =
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
+let alloc (vec_align : trm) : target -> unit =
+  Target.iter (fun p ->
+    let tg_trm = Target.resolve_path p in
     begin match Matrix_trm.alloc_inv tg_trm with
     | Some (dims, sz, zero_init) ->
       if zero_init
@@ -17,4 +17,4 @@ let alloc (vec_align : trm) : Target.Transfo.t =
         tl @ [vec_align]) (target_of_path p)
     | None -> trm_fail tg_trm "Align.alloc: expected a call to MALLOC function "
     end
-)
+  )

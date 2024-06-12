@@ -1,11 +1,11 @@
 open Prelude
 open Target
 
-(* [delete tg]: expects the target [tg] to point at an instruction inside a sequence
+(** [delete tg]: expects the target [tg] to point at an instruction inside a sequence
       then it will remove that instruciton from that sequence *)
 let delete = Sequence_basic.delete
 
-(* [copy ~target tg]: expects the target [tg] to point at an instruction that is
+(** [copy ~target tg]: expects the target [tg] to point at an instruction that is
     going to be copied to the target [dest].
     TODO: Either support copying at arbitrary location or use a relative target *)
 let%transfo copy ?(mark_copy : mark = no_mark) ?(rev : bool = false) ?(dest:target = []) (tg : target) : unit =
@@ -16,7 +16,7 @@ let%transfo copy ?(mark_copy : mark = no_mark) ?(rev : bool = false) ?(dest:targ
       Target.apply_at_path (Instr_core.copy_at mark_copy dest_index i) p_seq) tg
 
 
-(* [move ~rev ~dest tg] move the instructions at target [tg] to the relative position [dest].
+(** [move ~rev ~dest tg] move the instructions at target [tg] to the relative position [dest].
     If you want to move contiguous instructions together, you can use a span target.
 
     The relative position [dest] is computed independently for each target so it is
@@ -78,7 +78,7 @@ let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
   ) tg;
   Scope.infer_var_ids ()
 
-(* [read_last_write ~write tg]: expects the target [tg] to point at a read operation,
+(** [read_last_write ~write tg]: expects the target [tg] to point at a read operation,
     then it replaces the read operation with left hand side of the write operation targeted
     by [write]
 
@@ -99,12 +99,12 @@ let%transfo read_last_write ~write:(write : target) (tg : target) : unit =
       end
     | _ -> trm_fail write_trm "Instr_basic.read_last_write: the targeted write operation should be either a set operation or
       an initialized variable declaration" in
-  Target.apply_on_targets (fun t p ->
-    let get_op_path = Internal.get_ascendant_path (fun t -> (is_get_operation t)) p t in
-    if get_op_path = [] then t else
-    Target.apply_on_path (fun _ -> written_trm) t p) tg
+  Target.iter (fun p ->
+    let get_op_path = Internal.get_ascendant_path (fun t -> (is_get_operation t)) p (Trace.ast ()) in
+    if get_op_path <> [] then
+    Target.apply_at_path (fun _ -> written_trm) p) tg
 
-(* [accumulate tg] expects the target [tg] to point at a block of write operations that write to the same memory location
+(** [accumulate tg] expects the target [tg] to point at a block of write operations that write to the same memory location
     then accumulate those write operations into a single one.
     Ex.
     int x;
@@ -115,4 +115,4 @@ let%transfo read_last_write ~write:(write : target) (tg : target) : unit =
     }
     is transformed to x += 1+2+3 *)
 let%transfo accumulate (tg : target) : unit =
-  Target.apply_on_targets (Instr_core.accumulate) tg
+  Target.apply_at_target_paths (Instr_core.accumulate_on) tg

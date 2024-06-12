@@ -2,7 +2,7 @@ open Prelude
 open Target
 include Sequence_basic
 
-(* [intro ~start ~stop ~nb ~on ~mark ~visible]: this is a high level function for inserting a subsequnece
+(** [intro ~start ~stop ~nb ~on ~mark ~visible]: this is a high level function for inserting a subsequnece
     inside another sequence.
      [start] - denotes the target for the starting point of the sub-sequence, it should be used in conjunction with
               [nb] or [end].
@@ -33,7 +33,7 @@ let%transfo intro ?(start : target = []) ?(stop : target = []) ?(nb : int = 0)
          end
 
 
-(* [intro_targets tg]: expects the target [tg] to point at one or more consecutive instuctions
+(** [intro_targets tg]: expects the target [tg] to point at one or more consecutive instuctions
       then it will introduce a sequence that contains those instructions. *)
 let%transfo intro_targets ?(mark : string = no_mark)(tg : target) : unit =
   let nb_targets = ref 0 in
@@ -41,18 +41,18 @@ let%transfo intro_targets ?(mark : string = no_mark)(tg : target) : unit =
   let first_target = [Target.occFirst] @ (Target.filter_constr_occurrence tg) in
   let surrounding_seq = ref [] in
   let tg = Target.enable_multi_targets tg in
-  Target.iteri_on_targets (
-    fun i t p ->
+  Target.iteri (
+    fun i p ->
       let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
       if i = 0 then surrounding_seq := path_to_seq
-        else if !surrounding_seq <> path_to_seq then trm_fail t "Sequence.intro_targets: all the targeted instructions should belong to the same scope and be consecutive";
-      if index <> !prev_index + 1 && !prev_index <> -1 then trm_fail t "Sequence.intro_targets: all the targeted instructions should be consecutive";
+        else if !surrounding_seq <> path_to_seq then path_fail p "Sequence.intro_targets: all the targeted instructions should belong to the same scope and be consecutive";
+      if index <> !prev_index + 1 && !prev_index <> -1 then path_fail p "Sequence.intro_targets: all the targeted instructions should be consecutive";
       incr nb_targets;
   ) tg;
   if !nb_targets < 1 then failwith "Sequence.intro_targets: expected at least 1 instruction";
   Sequence_basic.intro ~mark !nb_targets first_target
 
-(* [apply ~start ~stop ~nb f]: invokes [f mark] where the [mark] is attached to a temporary sequence created
+(** [apply ~start ~stop ~nb f]: invokes [f mark] where the [mark] is attached to a temporary sequence created
    by [Sequence.intro ~start ~stop ~nb]. This sequence is eliminated immediately afterwards. *)
 let apply ?(start : target = []) ?(stop : target = []) ?(nb : int = 0) (f : mark -> unit) : unit =
   let mark = Mark.next () in

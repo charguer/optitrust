@@ -22,4 +22,8 @@ let _ = Run.script_cpp ( fun _ ->
   !! Trace.failure_expected (fun _e -> true) (fun () ->
     Loop.fission [cFunBody "edges"; cForBody "i"; dAfter 2]);
 
+  !! Loop.fission [cFunDef "specialize_one_fork"; cFor "j"; tBefore];
+  !! Loop.fission [cFunDef "specialize_two_forks"; cFor "j"; tBefore];
+  !! Loop.fission [cFunDef "specialize_two_forks_twice"; cCall "ro_join_group"; occFirst; tAfter];
+  !! Loop.fission [cFunDef "specialize_two_forks_twice"; cFor "j"; tBefore];
 )

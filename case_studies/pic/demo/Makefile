@@ -1,3 +1,4 @@
+# FIXME: This Makefile is broken !
 
 # Example usage for rebuilding just the demo:
 #   make optitrust sequence_sub_out.cpp
@@ -5,7 +6,7 @@
 TARGET_MAKE_ALL := transfo
 
 
-OPTITRUST := ..
+OPTITRUST := ../../..
 
 TESTS := pic_demo.ml
 
@@ -15,11 +16,11 @@ PROGEXT := native
 
 TRACEFLAGS := -usesingle
 
-include ../tests/Common.Makefile
+include $(OPTITRUST)/tests/Common.Makefile
 
 
 # 'make import' imports the source files from ../case_studies/pic/
-PICDIR := ../case_studies/pic
+PICDIR := ..
 SCRIPTDIR := $(PICDIR)/scripts
 
 SOURCES := \
@@ -68,7 +69,7 @@ cleanfiles:
 	$(V)rm -f $(FILES)
 	cd $(PICDIR)/simulations/ && rm -rf *_out.c
 
-optim: pic_demo_out.cpp 
+optim: pic_demo_out.cpp
 	$(V)cp $< $(PICDIR)/simulations/pic_optimized.c
 	$(V)sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized.c
 	@echo "Produced $(PICDIR)/simulations/pic_optimized.c"
@@ -78,7 +79,7 @@ optim: pic_demo_out.cpp
 	$(V)mv $*_out.cpp $*_single_out.cpp
 	@echo "Produced $@"
 
-optim_single: pic_demo_single_out.cpp 
+optim_single: pic_demo_single_out.cpp
 	$(V)cp $< $(PICDIR)/simulations/pic_optimized_single.c
 	$(V)sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized_single.c
 	@echo "Produced $(PICDIR)/simulations/pic_optimized_single.c"
@@ -128,17 +129,10 @@ chkbigsteps: bigsteps_gen chksteps_run
 
 chksmallsteps: smallsteps_gen chksteps_run
 
-init: optitrust import 
+init: optitrust import
 
 trace: pic_demo_trace.html
-	sed -i "s/<script>/<script>hideLines();/" pic_demo_trace.html 
-	
+	sed -i "s/<script>/<script>hideLines();/" pic_demo_trace.html
 
 traceview: trace
 	$(V)chromium-browser pic_demo_trace.html &
-
-
-
-
-
-

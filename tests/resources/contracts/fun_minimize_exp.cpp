@@ -164,6 +164,8 @@ void split_frac_specific(int* M, int n) {
   __produces(
       "_RO(1 / 2, for j in 0..n -> for i in 0..n -> &M[MINDEX2(n, n, i, j)] ~> "
       "Cell)");
+  __ghost(ro_split2, "f := 1, H := M ~> Matrix2(n, n)");
   __ghost(ro_swap_groups,
-          "items := fun i, j -> &M[MINDEX2(n, n, i, j)] ~> Cell");
+          "items := fun i, j -> &M[MINDEX2(n, n, i, j)] ~> Cell, f := 1 / 2");
+  __ghost(ro_allow_join2, "f := 1, H := M ~> Matrix2(n, n)");
 }

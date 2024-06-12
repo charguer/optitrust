@@ -178,12 +178,12 @@ let tile_zero ?(index : var = "b${id}") (tile_size : trm) (tg : target) : unit =
 Rather than taking the argument `tg` and passing it to `Target.iter`, we prefer writing the code in "partial application" style, as follows:
 
 ```
-let tile_zero ?(index : var = "b${id}") (tile_size : trm) : Transfo.t =
+let tile_zero ?(index : var = "b${id}") (tile_size : trm) : target -> unit =
   Target.iter (fun t p ->
     reparse_after (Loop_basic.tile ~index tile_size) (target_of_path p);
     shift StartAtZero (target_of_path (Path.to_inner_loop p));
     )
 ```
-where `Transfo.t` is a shorthand for the type `target -> unit`.
+where `target -> unit` is a shorthand for the type `target -> unit`.
 
 

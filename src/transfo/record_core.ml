@@ -1,11 +1,9 @@
 open Prelude
 open Target
 
-
-
-(* [set_explicit_aux t]: transforms an assigment into a list of field assignments,
+(** [set_explicit_on t]: transforms an assigment into a list of field assignments,
      [t] - ast of the assignment. *)
-let set_explicit_aux (t : trm) : trm =
+let set_explicit_on (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, [lt; rt], _) ->
     (* Temporary hack for overloaded set operator *)
@@ -21,7 +19,7 @@ let set_explicit_aux (t : trm) : trm =
       | -1, _ -> tid_l
       | _, -1 -> tid_r
       | _, _ -> if tid_r = tid_l then tid_r
-                  else trm_fail t "Record_core.set_explicit_aux: different types in an assignment"
+                  else trm_fail t "Record_core.set_explicit_on: different types in an assignment"
       in
       let struct_def =
         if tid <> -1 then
@@ -55,14 +53,9 @@ let set_explicit_aux (t : trm) : trm =
       end
   | _ -> trm_fail t "Record_core.set_explicit_aux: expected a set operation"
 
-(* [set_explicit t p]: applies [set_explicit_aux] at trm [t] with path [p]. *)
-let set_explicit : Transfo.local =
-  apply_on_path(set_explicit_aux )
-
-
-(* [set_implicit t]: transform a sequence with a list of explicit field assignments into a single assignment,
+(** [set_implicit t]: transform a sequence with a list of explicit field assignments into a single assignment,
       [t] - ast of the sequence containing the assignments. *)
-let set_implicit_aux (t: trm) : trm =
+let set_implicit_on (t: trm) : trm =
   match t.desc with
   | Trm_seq tl ->
      let rhs_trms = Mlist.fold_left ( fun acc instr ->
@@ -78,18 +71,18 @@ let set_implicit_aux (t: trm) : trm =
                | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
                | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))->
                   [trm_get rt]
-               | _ -> trm_fail f' "Record_core.set_implicit_aux: expected a struct acces on the right hand side of the assignment"
+               | _ -> trm_fail f' "Record_core.set_implicit_on: expected a struct acces on the right hand side of the assignment"
                end
-              | _ -> trm_fail f' "Record_core.set_implicit_aux: expected a trm_apps"
+              | _ -> trm_fail f' "Record_core.set_implicit_on: expected a trm_apps"
             end
             | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
             | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))->
                   [rt]
-            | _ -> trm_fail f' "Record_core.set_implicit_aux: expected a struct acces on the right hand side of the assignment"
+            | _ -> trm_fail f' "Record_core.set_implicit_on: expected a struct acces on the right hand side of the assignment"
            end
           | _ -> acc @ [rhs]
           end
-      | _ -> trm_fail t "Record_core.set_implicit_aux: expected a set operation"
+      | _ -> trm_fail t "Record_core.set_implicit_on: expected a set operation"
     ) [] tl in
     let first_instruction = Mlist.nth tl 0 in
     begin match first_instruction.desc with
@@ -101,9 +94,9 @@ let set_implicit_aux (t: trm) : trm =
               begin match f'.desc with
               | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
               | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> lt
-              | _ -> trm_fail f' "Record_core.set_implicit_aux: expected a struct access on the left hand side of the assignment"
+              | _ -> trm_fail f' "Record_core.set_implicit_on: expected a struct access on the left hand side of the assignment"
               end
-            | _ -> trm_fail lhs "Record_core.set_implicit_aux: expected a struct access"
+            | _ -> trm_fail lhs "Record_core.set_implicit_on: expected a struct access"
             end
             in
             begin match rhs_trms with
@@ -112,18 +105,14 @@ let set_implicit_aux (t: trm) : trm =
               let rhs_trms = List.map (fun t1 -> (None, t1)) rhs_trms in
               trm_pass_labels t (trm_set lt (trm_record (Mlist.of_list rhs_trms)))
             end
-          | _ -> trm_fail f "Record_core.set_explicit_aux: expected an assignment instruction"
+          | _ -> trm_fail f "Record_core.set_implicit_on: expected an assignment instruction"
           end
-      | _ -> trm_fail t "Record_core.set_implicit_aux: expected a sequence with all explicit assignments"
+      | _ -> trm_fail t "Record_core.set_implicit_on: expected a sequence with all explicit assignments"
 
     end
-  | _ -> trm_fail t "Record_core.set_implicit_aux: sequence which contains the set instructions was not matched"
+  | _ -> trm_fail t "Record_core.set_implicit_on: sequence which contains the set instructions was not matched"
 
-(* [set_implicit keep_label t p]: applies [set_implicit_aux] at trm [t] with path [p]. *)
-let set_implicit (keep_label : bool) : Transfo.local =
-  apply_on_path (set_implicit_aux)
-
-(* [contains_field_access f t]: checks if [t] contains an access on field [f] *)
+(** [contains_field_access f t]: checks if [t] contains an access on field [f] *)
 let contains_field_access (f : field) (t : trm) : bool =
   let rec aux (t : trm) : bool =
    match t.desc with
@@ -136,7 +125,7 @@ let contains_field_access (f : field) (t : trm) : bool =
    | _ -> false
   in aux t
 
-(* [inline_struct_accesses x t]: changes all the occurrences of the struct accesses to a field into a field,
+(** [inline_struct_accesses x t]: changes all the occurrences of the struct accesses to a field into a field,
       [x] - the name of the field for which the transformation is applied,
       [t] - ast node located in the same level as the stract declaration or deeper. *)
 let inline_struct_accesses (x : field) (t : trm) : trm =
@@ -172,7 +161,7 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
 
    in aux "" t
 
-(* [inline_struct_initialization struct_name field_list field_index t]: changes all struct in struct initializations,
+(** [inline_struct_initialization struct_name field_list field_index t]: changes all struct in struct initializations,
       [struct_name] - the type of the struct that is being inlined,
       [field_list] - a list of fields from the original type of the struct,
       [field_index] - index of the field in the outer struct,
@@ -212,12 +201,12 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
     | _ -> trm_map aux t
   in aux t
 
-(* [reveal_field_aux field_to_reveal index t]: reveals field [field_to_reveal] on its typedef struct definition,
+(** [reveal_field_at field_to_reveal index t]: reveals field [field_to_reveal] on its typedef struct definition,
      update all the initializations and accesses according to this change,
       [field_to_reveal] - field that is going to be revealed,
       [index] - index of the struct declaration inside the sequence it belongs to,
       [t] - trm corresponding to a typedef struct definition. *)
-let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
+let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let td_name = ref "" in
@@ -285,17 +274,13 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
 
   | _ -> trm_fail t "Record_core.reveal_field_aux: expected the surrounding sequence"
 
-(* [reveal_field field_to_reveal index t p]: applies [reveal_field] at trm [t] with path [p]. *)
-let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
-  apply_on_path (reveal_field_aux field_to_reveal index)
-
-(* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
+(** [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
 type fields_order =
   | Move_before of (field * field list)
   | Move_after of (field * field list)
   | Reorder_all of field list
 
-(* [compute_bijection order fl]: based on the [order] given, computes the bijection
+(** [compute_bijection order fl]: based on the [order] given, computes the bijection
     of the indices after applying that order. *)
 let compute_bijection (order : fields_order) (fl : (field * int) list) : int list =
   match order with
@@ -332,10 +317,10 @@ let compute_bijection (order : fields_order) (fl : (field * int) list) : int lis
       | None -> failwith "Record_core:compute_bijection: couldn't find field %s." f
     ) order
 
-(* [reorder_fields_aux order index t]: reorders the fields of the struct [t] based on [order],
+(** [reorder_fields_at order index t]: reorders the fields of the struct [t] based on [order],
      [order] - order based on which the fields will be reordered,
      [t] - ast of the typedef Record. *)
-let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
+let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
   let error = "Record_core.reorder_fields_aux: expected the surrouding sequence of the targeted declaration." in
   let tl = trm_inv ~error trm_seq_inv t in
   let bij = ref [] in
@@ -352,17 +337,17 @@ let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
           | Record_field_method t1 ->
             begin match trm_typedef_inv t1 with
             | Some td -> (td.typdef_tconstr, i)
-            | _ -> trm_fail t "Record_core.reorder_fields_aux: unkown method definition."
+            | _ -> trm_fail t "Record_core.reorder_fields_at: unkown method definition."
             end
         ) rfl in
         bij := compute_bijection order rfl_str_rep;
         let new_rfl = Xlist.reorder !bij rfl in
         trm_alter ~desc:(Trm_typedef {td with typdef_body = Typdef_record new_rfl}) t
 
-      | _ -> trm_fail t "Record_core.reorder_fields_aux: expected a target to a record type definition."
+      | _ -> trm_fail t "Record_core.reorder_fields_at: expected a target to a record type definition."
 
       end
-    | _ -> trm_fail t "Record_core.reorder_fields_aux: expected a target pointing to a typedef."
+    | _ -> trm_fail t "Record_core.reorder_fields_at: expected a target pointing to a typedef."
     in
   let f_update_further (t : trm) : trm =
     let rec aux (t : trm) : trm =
@@ -382,11 +367,7 @@ let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_replace (Trm_seq new_tl) t
 
-(* [reorder_fields index order t p]: applies [reorder_fields_aux] at trm [t] with path [p]. *)
-let reorder_fields (order : fields_order) (index : int) : Transfo.local =
-  apply_on_path (reorder_fields_aux order index)
-
-(* [inline_struct_accesses name field t]: transforms a specific struct access into a variable occurrence,
+(** [inline_struct_accesses name field t]: transforms a specific struct access into a variable occurrence,
     [name] - name of the variable to replace the struct access,
     [field] - struct accesses on this field are going to be replaced with [name],
     [t] - ast node located in the same level as the variable declaration. *)
@@ -409,11 +390,11 @@ let inline_struct_accesses (name : var) (field : field) (t : trm) : trm =
     end
    in aux t
 
-(* [to_variables_aux index t]: changes a variable declaration of type typedef struct into a list
+(** [to_variables_at index t]: changes a variable declaration of type typedef struct into a list
       of variable declarations with types inherited from the fields of the underlying type,
       [index] - index of the declaration inside the sequence it belongs to,
       [t] - ast of the surrounding sequence of the variable declarations. *)
-let to_variables_aux (index : int) (t : trm) : trm =
+let to_variables_at (index : int) (t : trm) : trm =
   let error = "Record_core.struct_to_variables_aux: expected the surrounding sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
   let field_list = ref [] in
@@ -462,12 +443,8 @@ let to_variables_aux (index : int) (t : trm) : trm =
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
 
-(* [to_variables index t p]: applies [to_variables_aux] at trm [t] with path [p]. *)
-let to_variables (index : int) : Transfo.local =
-  apply_on_path (to_variables_aux index)
-
 (* TODO: merge with Variable.Rename *)
-(* [Rename]: a module used for renaming the struct fields. *)
+(** [Rename]: a module used for renaming the struct fields. *)
 module Rename = struct
   type t = string -> string
   let add_prefix (s : string) : t =
@@ -478,10 +455,10 @@ module Rename = struct
       if Tools.pattern_matches pattern s then tr s else s
 end
 
-(* [rename]: instantiation of module [Rename]. *)
+(** [rename]: instantiation of module [Rename]. *)
 type rename = Rename.t
 
-(* [rename_struct_accesses struct_name renam t]: renames all struct accesses based on [rename],
+(** [rename_struct_accesses struct_name renam t]: renames all struct accesses based on [rename],
       [struct_name] - the constructed type whose fields are going to be renamed,
       [rename] - a type used to rename the struct fields,
       [t] - any node in the same level as the struct declaration.*)
@@ -530,11 +507,11 @@ let rename_struct_accesses (struct_name : string) (rename : rename) (t : trm) : 
     | _ -> trm_map aux t
    in aux t
 
-(* [rename_fields_aux index rename t]: renames struct fields in the typedef struct definitions,
+(** [rename_fields_at index rename t]: renames struct fields in the typedef struct definitions,
       [index] - the index of the struct declaration in the sequence [t],
       [rename] - a type used to rename the fields,
       [t] - the ast of the sequence which contains the struct declaration. *)
-let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
+let rename_fields_at (index : int) (rename : rename) (t : trm) : trm =
   let error = "Record_core.rename_fields_aux: expected the sequence which contains the typedef declaration." in
   let tl = trm_inv ~error trm_seq_inv t in
   let struct_name = ref "" in
@@ -552,16 +529,12 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
 
-(* [rename_fields index rename t p]: applies [rename_aux] at trm [t] with path [p]. *)
-let rename_fields (index : int) (rename : rename) : Transfo.local =
-  apply_on_path (rename_fields_aux index rename)
-
-(* [update_fields_type_aux pattern ty t]: changes the current type for all the struct fields,
+(** [update_fields_type_aux pattern ty t]: changes the current type for all the struct fields,
       that are matched with [pattern] and whose type can be changed by [typ_update].
       [pattern] - regular expression to match struct fields,
       [typ_update] - function that modifies only specific types,
       [t] - the ast of the typedef definition. *)
-let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
+let update_fields_type_on (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
   | Trm_typedef ({typdef_body = Typdef_record rfl;_}  as td) ->
     (* LATER: FIX ME! *)
@@ -582,14 +555,10 @@ let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : tr
     trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rfl}
   | _ -> trm_fail t "Record_core.reanme_fields_aux: expected a typedef declaration"
 
-(* [update_fields_type pattern typ_update t p]: applies [update_fields_type_aux] at trm [t] with path [p]. *)
-let update_fields_type (pattern : string) (typ_update : typ -> typ) : Transfo.local =
-  apply_on_path (update_fields_type_aux pattern typ_update )
 
-
-(* [simpl_proj_aux t]: transforms all expression of the form {1, 2, 3}.f into the trm it projects to,
+(** [simpl_proj_on t]: transforms all expression of the form {1, 2, 3}.f into the trm it projects to,
       [t] - ast of the node whose descendants can contain struct initialization list projections. *)
-let simpl_proj_aux (t : trm) : trm =
+let simpl_proj_on (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [struct_list], _) ->
@@ -617,12 +586,7 @@ let simpl_proj_aux (t : trm) : trm =
     | _ -> trm_map aux t
    in aux t
 
-(* [simpl_proj t p]: applies [simpl_proj_aux] at trm [t] with path [p]. *)
-let simpl_proj : Transfo.local =
-  apply_on_path (simpl_proj_aux)
-
-
-(* [Struct_modif]: a module for defining struct modifications. *)
+(** [Struct_modif]: a module for defining struct modifications. *)
 module Struct_modif = struct
   (* Fields of a struct *)
 
@@ -632,12 +596,12 @@ module Struct_modif = struct
   let fields_identity :  fields -> fields =
     Fun.id
 
-  (* [modif] is the type of a function such as [f_get],
+  (** [recmodif] is the type of a function such as [f_get],
      which is meant to be called as [f_get aux t], where
      [aux] is the function for recursively processing subterms. *)
   type recmodif = (trm->trm)
 
-  (* Arguments for [struct_modif]:
+  (** Arguments for [struct_modif]:
      - [f_fields] is for modifying struct fields
      - [f_get] is for [get(access(base,f))]
      - [f_set] is for [set(access(base, f), rhs)]
@@ -665,7 +629,7 @@ module Struct_modif = struct
 
 end
 
-(* [modif_accesses struct_name arg t]: modify struct accesses,
+(** [modif_accesses struct_name arg t]: modify struct accesses,
     [old_and_new_fields] - used to replace some specific fields,
     [struct_name] - used for checking the type of the struct access,
     [arg] - see Struct_modif module,
@@ -712,11 +676,11 @@ let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fiel
       end
     in aux t
 
-(* [struct_modif_aux new_fields f_get f_set use_annot_of index t],
+(** [struct_modif_at new_fields f_get f_set use_annot_of index t],
      [arg] - Struct_modif type,
      [index] - index of the typedef on its surrounding sequence,
      [t] - ast of the main sequence containing the typedef definition. *)
-let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
+let struct_modif_at (arg : Struct_modif.arg) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let tdef = begin match Mlist.nth_opt tl index with
@@ -740,12 +704,8 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
     end
   | _ -> trm_fail t "Record_core.Record_core.struct_modif: exepcted the surrounding sequence of the typedef "
 
-(* [struct_modif arg index t p]: applies [struct_modif_aux] at trm [t] with path [p]. *)
-let struct_modif (arg : Struct_modif.arg) (index : int) : Transfo.local =
-  apply_on_path (struct_modif_aux arg index)
-
-(* [change_field_access_kind_aux acc_kind f t]: changes the access_kind for field [f] to [acc_kind] of class or struct [t]. *)
-let change_field_access_kind_aux (acc_kind : record_field_annot) (f : field) (t : trm) : trm =
+(** [change_field_access_kind_on acc_kind f t]: changes the access_kind for field [f] to [acc_kind] of class or struct [t]. *)
+let change_field_access_kind_on (acc_kind : record_field_annot) (f : field) (t : trm) : trm =
   match t.desc with
   | Trm_typedef td ->
     begin match td.typdef_body with
@@ -768,14 +728,10 @@ let change_field_access_kind_aux (acc_kind : record_field_annot) (f : field) (t 
   | _ -> trm_fail t "Record_core.change_field_access_kind_aux: expected a targetd to a typedef."
 
 
-(* [change_field_access_kind acc_kind f t p]: applies [change_field_access_kind] at trm [t] with path [p]. *)
-let change_field_access_kind (acc_kind : record_field_annot) (f : field) : Transfo.local =
-  apply_on_path (change_field_access_kind_aux acc_kind f)
-
-(* [method_to_const_aux method_name t]: converts the [method_name] method to a a const one,
+(** [method_to_const_on method_name t]: converts the [method_name] method to a a const one,
     if the targeted method is already const than this transformation does nothing.
     [method_name] - the name of the method that's going to be converted.*)
-let method_to_const_aux (method_name : var) (t : trm) : trm =
+let method_to_const_on (method_name : var) (t : trm) : trm =
   match t.desc with
   | Trm_typedef td ->
     begin match td.typdef_body with
@@ -805,8 +761,3 @@ let method_to_const_aux (method_name : var) (t : trm) : trm =
     | _ ->  trm_fail t "Record_core.method_to_const_aux: expected a target to a typedef record definition."
     end
   | _ -> trm_fail t "Record_core.method_to_const_aux: expected a target to a record definition."
-
-
-(* [method_to_const method_name t p]: applies [method_to_const_aux] at trm [t] with path [p]. *)
-let method_to_const (method_name : var) : Transfo.local =
-  apply_on_path (method_to_const_aux method_name)

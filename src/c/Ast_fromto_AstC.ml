@@ -792,11 +792,6 @@ let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, fo
       Printf.sprintf "%s: %s" hyp_s sformula
     end
 
-let efrac_to_string (style: style) (efrac, bigger_frac): string =
-  (* TODO: pass style through *)
-  let sbigger = formula_to_string style bigger_frac in
-  Printf.sprintf "?%s <= %s" efrac.name sbigger
-
 (* [seq_push code t]: inserts trm [code] at the begining of sequence [t],
     [code] - instruction to be added,
     [t] - ast of the outer sequence where the insertion will be performed. *)
@@ -811,7 +806,7 @@ let trm_array_of_string list =
 
 let ctx_resources_to_trm (style: style) (res: resource_set) : trm =
   let used_vars = Resource_set.used_vars res in
-  let spure = trm_array_of_string (List.map (named_formula_to_string style ~used_vars) res.pure @ List.map (efrac_to_string style) res.efracs) in
+  let spure = trm_array_of_string (List.map (named_formula_to_string style ~used_vars) res.pure) in
   let slin = trm_array_of_string (List.map (named_formula_to_string style) res.linear) in
   trm_apps (trm_var __ctx_res) [spure; slin]
 
@@ -838,6 +833,7 @@ let ctx_usage_map_to_strings res_used =
   List.map (function
     | hyp, Required -> sprintf "%s" hyp.name
     | hyp, Ensured -> sprintf "Ensured %s" hyp.name
+    | hyp, ArbitrarilyChosen -> sprintf "Arbitrary %s" hyp.name
     | hyp, ConsumedFull -> sprintf "Full %s" hyp.name
     | hyp, ConsumedUninit -> sprintf "Uninit %s" hyp.name
     | hyp, SplittedFrac -> sprintf "Subfrac %s" hyp.name

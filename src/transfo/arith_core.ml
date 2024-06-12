@@ -1038,7 +1038,10 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
   if debug then Tools.debug "Expr after normalization: %s" (expr_to_string atoms expr3); *)
   expr_to_trm atoms2 expr2
   )
-  with e -> Tools.debug "Arith.simplify_at_node: error on processing at loc %s" (loc_to_string t.loc); raise e
+  with e ->
+    Tools.warn "Arith.simplify_at_node: error on processing at loc %s:\n%s" (loc_to_string t.loc) (Printexc.to_string e);
+    (* LATER: Sanitize this module to remove errors when reaching an unsupported case and stop catching the exception here *)
+    t
 
 (* [simplify indepth f t]: converts node [t] to an expression, then applies the
      simplifier [f], then it converts it back to a trm

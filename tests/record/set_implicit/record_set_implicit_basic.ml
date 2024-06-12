@@ -4,7 +4,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Record_basic.set_implicit ~keep_label:true [cLabel "group1"];
+  !! Record_basic.set_implicit [cLabel "group1"];
   (* DONE: check that the wrapper handles the label with dBody;
      here, the label "group1" should disappear *)
 
