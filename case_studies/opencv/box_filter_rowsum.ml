@@ -35,11 +35,12 @@ let _ = Run.script_cpp (fun () ->
     ["kn", trm_int 3; "kn", trm_int 5; "cn", trm_int 1; "cn", trm_int 3; "cn", trm_int 4]
     [cFunBody "rowSum"; cFor "c"];
 
-  bigstep "generic";
-  !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "generic"; cArrayWrite "D"];
+  bigstep "generic + cn";
+  let c = cMarks ["generic"; "cn"] in
+  !! Reduce.slide ~mark_alloc:"acc" [nbMulti; c; cArrayWrite "D"];
   !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "generic"; cFor "i"; cFun "reduce_spe1"];
+  !! Reduce.elim ~inline:true [nbMulti; c; cFor "i"; cFun "reduce_spe1"];
 
   bigstep "kn";
   !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cFun "reduce_spe1"];
@@ -47,10 +48,10 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
 
   bigstep "cn";
-  !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "cn"; cArrayWrite "D"];
+  (* !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "cn"; cArrayWrite "D"];
   !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "cn"; cFor "i"; cFun "reduce_spe1"];
+  !! Reduce.elim ~inline:true [nbMulti; cMark "cn"; cFor "i"; cFun "reduce_spe1"]; *)
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
   !! foreach_target [nbMulti; cMark "cn"] (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
