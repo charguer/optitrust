@@ -11,7 +11,19 @@
     "--fallback-read-dot-merlin",
   ],
   "files.associations": {
+    "*.md": "markdown",
+    "*.v": "coq",
+    "*.ml": "ocaml",
+    "*.mli": "ocaml",
+    "*.json": "jsonc",
+    "*.tex": "latex",
+    "*.js": "javascript",
+    ".html": "html",
     "*.Makefile": "makefile",
+    "array": "cpp",
+    "string_view": "cpp",
+    "initializer_list": "cpp",
+    "utility": "cpp"
   },
   "swapf.patterns": [
     {
