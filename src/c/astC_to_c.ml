@@ -30,6 +30,7 @@ type style = {
   ast: Ast.style;
   optitrust_syntax: bool; (* print "set(p,v)" instead of "p=v", and print "array_access(t,i)" etc *)
   pretty_matrix_notation: bool; (* print t[MINDEX(n,m,a,b)] as t[a][b] *)
+  show_cast_origin: bool; (* print (int)float_var as cast<float, int>(float_var) *)
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
 }
 
@@ -39,6 +40,7 @@ let default_style () : style =
   { ast = s;
     optitrust_syntax = !Flags.print_optitrust_syntax;
     pretty_matrix_notation = !Flags.pretty_matrix_notation;
+    show_cast_origin = !Flags.print_cast_origin;
     commented_pragma = !Flags.use_clang_format; }
 
 (** Style for reparsing *)
@@ -46,6 +48,7 @@ let style_for_reparse () : style =
   { ast = Ast.style_for_reparse();
     optitrust_syntax = false;
     pretty_matrix_notation = false;
+    show_cast_origin = false;
     commented_pragma = false; }
 
 (*----------------------------------------------------------------------------------*)
@@ -275,9 +278,13 @@ and unop_to_doc style (op : unary_op) : document =
   | Unop_post_dec | Unop_pre_dec -> twice minus
   | Unop_struct_access s -> dot ^^ string s
   | Unop_struct_get s -> dot ^^ string s
-  | Unop_cast t ->
-     let dt = typ_to_doc t in
-     string "static_cast" ^^ langle ^^ dt ^^ rangle
+  | Unop_cast { from_typ; to_typ } ->
+    let dt = typ_to_doc to_typ in
+    if style.show_cast_origin then
+      let ft = typ_to_doc from_typ in
+      string "cast" ^^ langle ^^ ft ^^ comma ^^ dt ^^ rangle
+    else
+      string "static_cast" ^^ langle ^^ dt ^^ rangle
 
 (** [binop_to_doc style op]: converts binary operators to pprint documents. *)
 and binop_to_doc style (op : binary_op) : document =
@@ -958,7 +965,9 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
                         let d = decorate_trm style ~prec (get_operation_arg t) in
                        d ^^ minus ^^ rangle ^^ string f1
                  else d ^^ dot ^^ string f1
-              | Unop_cast ty ->
+              | Unop_cast ty when style.show_cast_origin ->
+                 unop_to_doc style op ^^ parens d
+              | Unop_cast { to_typ = ty } ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d
               end

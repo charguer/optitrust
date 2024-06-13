@@ -269,6 +269,9 @@ exception RedundantTemplateDefinition
 (* FIXME: #odoc why is annotation required on callees? *)
 let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types : bool = true) (d : type_desc) : typ =
   match d with
+  | Pointer ({desc = FunctionType _ } as q) ->
+      (* Pointer to functions in C are just functions for OptiTrust *)
+      tr_qual_type ?loc ~tr_record_types q
   | Pointer q ->
     let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
     let ty = typ_ptr Ptr_kind_mut t in
@@ -277,8 +280,7 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
     let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
     wrap_const ~const (typ_ptr Ptr_kind_ref t)
   | RValueReference  q ->
-    let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
-    wrap_const ~const (typ_ptr Ptr_kind_ref (typ_ptr Ptr_kind_ref t))
+    loc_fail loc "rvalue references are not supported"
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
     begin match eo with
@@ -334,7 +336,7 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
         let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns  in
         let typ_to_add = typ_constr (qpath, n) ~tid:(get_typid_for_type qpath n)  in
         wrap_const ~const typ_to_add
-      | _ -> loc_fail loc ("tr_type_desc: only identifiers are allowed in type definitions")
+      | _ -> loc_fail loc "tr_type_desc: only identifiers are allowed in type definitions"
     end
   | Elaborated {keyword = k; nested_name_specifier = nns; named_type = q} ->
       let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns in
@@ -611,8 +613,7 @@ and tr_expr (e : expr) : trm =
     let q = Clang.Type.of_node e in
     try Some ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q) with
     | _ ->
-      print_info loc "tr_expr: unable to translate type %s\n"
-        (Clang.Type.show q);
+      print_info loc "tr_expr: unable to translate type %s\n" (Clang.Type.show q);
       None
   in
   let ctx = get_ctx() in
@@ -781,7 +782,7 @@ and tr_expr (e : expr) : trm =
           (* let q = Clang.Type.of_cursor (Clang.Expr.get_definition e) in
            * Some (tr_qual_type ?loc q) *)
           (* hack with ctx_var *)
-          Qualified_map.find_opt (qpath, s) !ctx_var
+          Xoption.or_ (Qualified_map.find_opt (qpath, s) !ctx_var) typ
         in
         let res = trm_var ?loc ~ctx ?typ (name_to_var ~namespaces:qpath s) in
         (* DEPRECATED? get cursor info with locations of variables
@@ -853,13 +854,14 @@ and tr_expr (e : expr) : trm =
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: unsupported construct"
     end
   | Cast {kind = k; qual_type = q; operand = e'} ->
-    begin match k with
-      | CStyle | Static | Functional ->
-        let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
-        let te' = tr_expr e' in
-        trm_apps ?loc ~ctx ?typ (trm_unop ?loc ~ctx (Unop_cast t)) [te']
+    let to_typ = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
+    let inner_expr = tr_expr e' in
+    let from_typ = Option.value ~default:(typ_auto ()) inner_expr.typ in
 
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only static casts are allowed"
+    begin match k with
+    | CStyle | Static | Functional (* TODO: Add cstyle for decinding how to reprint cast *) ->
+      trm_cast ?loc ~ctx ~from_typ to_typ inner_expr
+    | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only static casts are allowed"
     end
   | New {placement_args = _; qual_type = q; array_size = seo; init = _} ->
     let tq = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in

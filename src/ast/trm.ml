@@ -314,8 +314,8 @@ let trm_binop ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (p 
   trm_val ~annot:annot ?loc ?typ ?ctx (Val_prim (Prim_binop p))
 
 (** [trm_cast ty t]: type cast *)
-let trm_cast ?(annot : trm_annot = trm_annot_default) (ty : typ) (t : trm) : trm =
-  trm_apps ~annot (trm_unop (Unop_cast ty)) [t]
+let trm_cast ?(annot : trm_annot = trm_annot_default) ?(loc) ?(ctx: ctx option) ?(from_typ : typ = typ_auto ()) (typ : typ) (t : trm) : trm =
+  trm_apps ~annot ?loc ~typ ?ctx (trm_unop (Unop_cast { from_typ ; to_typ = typ })) [t]
 
 (** [typ_of_lit l]: get the type of a literal *)
 let typ_of_lit (l : lit) : typ option =
@@ -713,7 +713,7 @@ let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
 
 let trm_cast_inv (t : trm) : (typ * trm) option =
   match trm_unop_inv t with
-  | Some (Unop_cast ty, t2) -> Some (ty, t2)
+  | Some (Unop_cast { to_typ } , t2) -> Some (to_typ, t2)
   | _ -> None
 
 let trm_get_inv (t : trm) : trm option =

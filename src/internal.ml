@@ -96,9 +96,8 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         (* TODO: map dims_opt types? *)
          trm_prim ~annot:t.annot ?loc:t.loc
            (Prim_new (change_typ ty))
-      | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
-         trm_unop ~annot:t.annot ?loc:t.loc
-           (Unop_cast (change_typ ty))
+      | Trm_val (Val_prim (Prim_unop (Unop_cast { from_typ; to_typ }))) ->
+         trm_unop ~annot:t.annot ?loc:t.loc (Unop_cast { from_typ = change_typ from_typ; to_typ = change_typ to_typ })
       | Trm_let ((y,ty),init) ->
         trm_let ~annot:t.annot ?loc:t.loc (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body, _) ->

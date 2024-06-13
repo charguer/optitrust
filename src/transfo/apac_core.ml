@@ -488,7 +488,7 @@ let trm_resolve_pointer_and_aliased_variable
        | Unop_address -> aux (degree + 1) l t
        (* When it is a cast operation, the pointer degree is represented by the
           sum of the current degree and the degree of the target type. *)
-       | Unop_cast ty -> aux (degree + typ_get_degree ty) l t
+       | Unop_cast { to_typ } -> aux (degree + typ_get_degree to_typ) l t
        (* Whenever we stumble upon a structure access or get operation, we
           extract the label of the structure field involved in the operation.
           However, the degree remains the same. *)

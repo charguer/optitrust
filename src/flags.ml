@@ -8,7 +8,7 @@
 (** [verbose]: flag to activate the printing of debug information *)
 let verbose : bool ref = ref false
 
-(* Flag to hide stdout produced by tests when executed from ./tester *)
+(** Flag to hide stdout produced by tests when executed from ./tester *)
 let hide_stdout : bool ref = ref false
 
 (** [analyse_stats]: flag to meansure the time taken by each transformation. *)
@@ -29,6 +29,9 @@ let pretty_matrix_notation : bool ref = ref false
 
 (* whether to display includes AST or not. *)
 let display_includes : bool ref = ref false
+
+(** [print_cast_origin]: print the casts in C++ with origin type information *)
+let print_cast_origin : bool ref = ref false
 
 (** [report_all_warning]: flag to control display of "known" warnings.
    [true] by default, but [false] by default when using the tester on multiple tests. *)
@@ -62,7 +65,7 @@ let print_backtrace_on_error : bool ref = ref true
 (** [debug_parsing_serialization]: flag to trace operations involving serialization/deserialization of parse trees. *)
 let debug_parsing_serialization = ref false
 
-(** [debug_reparse]: flag to print operations saving and reading error messages saved in the ast. *)
+(** [debug_errors_msg_embedded_in_ast]: flag to print operations saving and reading error messages saved in the ast. *)
 let debug_errors_msg_embedded_in_ast : bool ref = ref false
 
 (** [debug_reparse]: flag to print the line numbers at which reparsing is triggered. *)
@@ -149,7 +152,7 @@ type execution_mode =
 
 let execution_mode : execution_mode ref = ref Execution_mode_exec
 
-(* Option to serialize the ML trace object in addition to dumping its JS respresentation;
+(** Option to serialize the ML trace object in addition to dumping its JS respresentation;
    Currently only set when the requested mode in [full-trace] *)
 let serialize_trace : bool ref = ref false
 
@@ -166,13 +169,13 @@ let process_mode (mode : string) : unit =
     | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
     end
 
-(* Options to report execution time information about script and trace generation *)
+(** Options to report execution time information about script and trace generation *)
 let report_exectime : bool ref = ref false
 
-(* Options to generate a text version of the trace *)
+(** Options to generate a text version of the trace *)
 let trace_as_text : bool ref = ref false
 
-(* Options to control how much details are exported in the trace *)
+(** Options to control how much details are exported in the trace *)
 type substeps_including_ast = SubstepsAST_all | SubstepsAST_all_important | SubstepsAST_small
 (* LATER: none *)
 
@@ -185,7 +188,7 @@ let process_substeps_including_ast (s:string) : unit =
   | "small" -> SubstepsAST_small
   | _ -> failwith "substeps_including_ast: invalid value"
 
-(* Option to display full resource information in the trace *)
+(** Option to display full resource information in the trace *)
 let detailed_resources_in_trace : bool ref = ref false
 
 (** [target_line]: indicate which line to target in execution mode
@@ -223,10 +226,10 @@ let only_big_steps : bool ref = ref false
 (** [c_parser_name]: name of the C parser to use *)
 let c_parser_name : string ref = ref "default"
 
-(* Name of the root installation folder. It can also be the name of the source folder for not installed builds. *)
+(** Name of the root installation folder. It can also be the name of the source folder for not installed builds. *)
 let optitrust_root : string ref = ref "."
 
-(* Name of the currently executed transformation script.
+(** Name of the currently executed transformation script.
    By default it is Sys.argv.(0) but it can be different in case of dynamic loading. *)
 let program_name : string ref = ref ""
 
@@ -267,7 +270,7 @@ let spec : cmdline_args =
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
 
-(* Remember the name of the currently executed script *)
+(** Remember the name of the currently executed script *)
 let process_program_name () =
   if !program_name = "" then program_name := Sys.argv.(!Arg.current)
 
@@ -287,11 +290,11 @@ let process_cmdline_args ?(args : cmdline_args = []) () : unit =
     ("usage: no argument expected, only options");
   fix_flags()
 
-(* cf. Trm.trm_combinators_unsupported_case *)
+(** cf. Trm.trm_combinators_unsupported_case *)
 let trm_combinators_warn_unsupported_case = ref true
 
 (* TODO: keep per-file state somewhere cleaner *)
-(* cf. Clang_to_astRawC.warn_array_subscript_not_supported *)
+(** cf. Clang_to_astRawC.warn_array_subscript_not_supported *)
 let warned_array_subscript_not_supported = ref Tools.String_set.empty
 
 (** [ignore_serialized_default] is used by [reset_flags_to_default()],
@@ -312,6 +315,7 @@ let reset_flags_to_default () : unit =
   use_light_diff := false;
   pretty_matrix_notation := false;
   display_includes := false;
+  print_cast_origin := false;
   stop_on_first_resource_error := true;
   resource_typing_enabled := true;
   check_validity := false;

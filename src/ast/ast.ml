@@ -509,7 +509,7 @@ and unary_op =
   | Unop_pre_dec                 (* --x *)
   | Unop_struct_access of field  (* struct access encoding*)
   | Unop_struct_get of field     (* struct access *)
-  | Unop_cast of typ             (* (int)x *)
+  | Unop_cast of { from_typ: typ; to_typ: typ } (* (int)x *)
 
 (* LATER: numeric operation takes a type argument *)
 (** [binary_op]: binary operators *)

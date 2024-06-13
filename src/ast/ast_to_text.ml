@@ -135,9 +135,10 @@ and print_unop style (op : unary_op) : document =
   | Unop_pre_dec -> string "Unop_pre_dec"
   | Unop_struct_access f -> print_node "Unop_struct_access" ^^ string f
   | Unop_struct_get f -> print_node "Unop_struct_get" ^^ string f
-  | Unop_cast t ->
-     let dt = print_typ style t in
-     print_node "Unop_cast" ^^ dt
+  | Unop_cast { from_typ; to_typ } ->
+    let ft = print_typ style from_typ in
+    let dt = print_typ style to_typ in
+    print_node "Unop_cast(" ^^ ft ^^ string " -> " ^^ dt ^^ string ")"
 
 (** [print_binop]: converts binary operators to pprint document *)
 and print_binop (op : binary_op) : document =

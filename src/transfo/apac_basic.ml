@@ -730,7 +730,7 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
       begin match uo with
       | Unop_get -> aux (depth-1) t
       | Unop_address -> aux (depth+1) t
-      | Unop_cast ty -> aux (depth + typ_get_degree ty) t
+      | Unop_cast { to_typ } -> aux (depth + typ_get_degree to_typ) t
       | _ -> None
       end
     (* binop array access : progress deeper + update depth *)
