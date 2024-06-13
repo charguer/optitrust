@@ -38,6 +38,8 @@ module Resource_primitives = struct
     | Unop_post_inc -> "__post_inc"
     | Unop_post_dec -> "__post_dec"
     | Unop_cast t -> "__cast"
+    | Unop_struct_access f -> "__struct_access_" ^ f (* FIXME: is this a good encoding? *)
+    | Unop_struct_get f -> "__struct_get_" ^ f (* FIXME: is this a good encoding? *)
     | _ -> raise Unknown
 
   let binop_to_var_name (u: binary_op): string =
@@ -53,13 +55,17 @@ module Resource_primitives = struct
     | _ -> raise Unknown
 
   let to_var (p: prim): var =
-    toplevel_var (match p with
-    | Prim_unop u -> unop_to_var_name u
-    | Prim_binop b -> binop_to_var_name b
-    | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
-    | Prim_ref _ -> "__ref"
-    (* | Prim_ref_array (_, dims) -> "__ref_array"  SAME AS MALLOCN but with implicit trm_apps *)
-    | _ -> raise Unknown)
+    let rec to_var_name p =
+      match p with
+      | Prim_unop u -> unop_to_var_name u
+      | Prim_binop b -> binop_to_var_name b
+      | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
+      | Prim_overloaded_op p -> to_var_name p
+      | Prim_ref _ -> "__ref"
+      (* | Prim_ref_array (_, dims) -> "__ref_array"  SAME AS MALLOCN but with implicit trm_apps *)
+      | _ -> raise Unknown
+    in
+    toplevel_var (to_var_name p)
 
 end
 
@@ -983,6 +989,18 @@ let rec compute_resources
     | Some x -> f x
     | None -> None, None
   in
+  (* Types subexpression [e] such that its effects are separated from the effects of other subexpressions. [res] is the typing context available for this subexpression.
+    When typing succeeds, returns [Some (unused_res, pre, post, usage_map)].
+   *)
+  let compute_subexpr_resources res e =
+    match compute_resources (Some res) e with
+    | Some usage_map, Some post_res ->
+      let minimized_triple = minimize_linear_triple res.linear post_res.linear usage_map in
+      let unused_res = { res with pure = res.pure @ minimized_triple.new_fracs; linear = minimized_triple.frame } in
+      let minimized_post = Resource_set.(filter ~pure_filter:(pure_usage_filter usage_map keep_ensured) (make ~pure:post_res.pure ~linear:minimized_triple.linear_post ())) in
+      Some (unused_res, minimized_triple.linear_pre, minimized_post, minimized_triple.usage_map)
+    | _ -> None
+  in
   let usage_map, res =
     let** res in
     try begin match t.desc with
@@ -1081,6 +1099,24 @@ let rec compute_resources
       let usage_map = Option.map (Var_map.add var Ensured) usage_map in
       usage_map, Option.map (fun res_after -> Resource_set.rename_var var_result var res_after) res_after
 
+    | Trm_record fields ->
+      (* TODO: factorize more subexpr logic with Trm_apps *)
+      let** unused_res, post, usage_map =
+        List.fold_left (fun acc ((_, v) : typvar option * trm) ->
+          let open Xoption.OptionMonad in
+          let* res, current_post, current_usage = acc in
+          let* unused_res, _pre, extra_post, extra_usage = compute_subexpr_resources res v in
+          let usage_map = update_usage_map ~current_usage ~extra_usage in
+          let post = Resource_set.union current_post extra_post in
+          Some (unused_res, post, usage_map)
+        ) (Some (res, empty_resource_set, empty_usage_map)) (Mlist.to_list fields)
+      in
+      let res_after = Resource_set.union unused_res post in
+      let linear_res_after, ro_simpl_steps = simplify_read_only_resources res_after.linear in
+      let res_after = { res_after with linear = linear_res_after } in
+      let usage_map = add_joined_frac_usage ro_simpl_steps usage_map in
+      Some usage_map, Some res_after
+
     (* TODO: try to factorize *)
     | Trm_apps (fn, effective_args, ghost_args) ->
       begin match find_fun_spec fn res.fun_specs with (* try to find spec *)
@@ -1092,24 +1128,15 @@ let rec compute_resources
         Then [compute_contract_invoc] to deduct used and remaining resources.
         *)
 
-        let compute_and_check_resources_in_arg res arg =
-          match compute_resources (Some res) arg with
-          | Some arg_usage_map, Some post_arg_res ->
-            let minimized_triple = minimize_linear_triple res.linear post_arg_res.linear arg_usage_map in
-            let res_after_arg = { res with pure = res.pure @ minimized_triple.new_fracs; linear = minimized_triple.frame } in
-            let minimized_post = Resource_set.(filter ~pure_filter:(pure_usage_filter arg_usage_map keep_ensured) (make ~pure:post_arg_res.pure ~linear:minimized_triple.linear_post ())) in
-            Some (res_after_arg, minimized_triple.linear_pre, minimized_post, minimized_triple.usage_map)
-          | _ -> None
-        in
         (* Check the function itself as if it is an argument of the call (useful for closures) *)
-        let** res_after_fn, fn_pre, fn_post, usage_map = compute_and_check_resources_in_arg res fn in
+        let** res_after_fn, fn_pre, fn_post, usage_map = compute_subexpr_resources res fn in
 
         let contract_fv = fun_contract_free_vars spec.contract in
         let** subst_ctx, res_arg_frame, args_pre, args_post, usage_map = try
           List.fold_left2 (fun acc contract_arg effective_arg ->
             let open Xoption.OptionMonad in
             let* subst_map, unused_res, acc_pre, acc_post, usage_map = acc in
-            let* unused_res, new_pre, new_post, arg_usage_map = compute_and_check_resources_in_arg unused_res effective_arg in
+            let* unused_res, new_pre, new_post, arg_usage_map = compute_subexpr_resources unused_res effective_arg in
             let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:arg_usage_map in
             let acc_pre = new_pre @ acc_pre in
             let acc_post = Resource_set.union new_post acc_post in
@@ -1349,7 +1376,7 @@ let rec compute_resources
     | Trm_template (params, t) ->
       compute_resources (Some res) t
 
-    | _ -> trm_fail t ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
+    | _ -> trm_fail t ("resource computation not implemented for " ^ AstC_to_c.ast_to_string t)
     end with
     | StoppedOnFirstError as e -> Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
     | e -> handle_resource_errors t ResourceComputation e

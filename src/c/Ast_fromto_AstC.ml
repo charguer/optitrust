@@ -348,6 +348,9 @@ let infix_elim (t : trm) : trm =
     (* Convert [ x = y ] into [ (=)(&x, y) ] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr], _) ->
       trm_replace (Trm_apps (op, [trm_address_of tl;tr], [])) t
+    (* FIXME: for now, do the same for overloaded (=), is this correct? *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_overloaded_op (Prim_binop Binop_set)))} as op, [tl; tr], _) ->
+      trm_replace (Trm_apps (op, [trm_address_of tl;tr], [])) t
     | _ -> trm_map aux t
   in
   debug_before_after_trm "infix_elim" aux t
@@ -365,6 +368,8 @@ let infix_intro (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base], _) when is_unary_compound_assign unop ->
       trm_replace (Trm_apps(op, [trm_get base], [])) t
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr], _) ->
+      trm_replace (Trm_apps (op, [trm_get tl;tr], [])) t
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_overloaded_op (Prim_binop Binop_set)))} as op, [tl; tr], _) ->
       trm_replace (Trm_apps (op, [trm_get tl;tr], [])) t
     | _ -> trm_map aux t
   in aux t

@@ -8,11 +8,39 @@ typedef struct {
   double x, y, z;
 } vect;
 
+REGISTER_STRUCT_ACCESS(x)
+REGISTER_STRUCT_ACCESS(y)
+REGISTER_STRUCT_ACCESS(z)
+/*
+template<typename T> T __struct_access_x(T* v) {
+  __pure();
+  __admitted();
+  return v.x;
+}
+
+template<typename T> T __struct_access_y(T* v) {
+  __pure();
+  __admitted();
+  return v.y;
+}
+
+template<typename T> T __struct_access_y(T* v) {
+  __pure();
+  __admitted();
+  return v.z;
+}
+*/
 vect vect_add(vect v1, vect v2) {
+  __pure();
+  __admitted();
+
   return (vect) { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
 }
 
 vect vect_mul(double d, vect v) {
+  __pure();
+  __admitted();
+
   return (vect) { d * v.x, d * v.y, d * v.z };
 }
 
@@ -25,6 +53,11 @@ typedef struct {
   double charge;
   double mass;
 } particle;
+
+REGISTER_STRUCT_ACCESS(pos)
+REGISTER_STRUCT_ACCESS(speed)
+REGISTER_STRUCT_ACCESS(charge)
+REGISTER_STRUCT_ACCESS(mass)
 
 // =========================================================
 // Grid representation
@@ -42,7 +75,7 @@ const double cellX = (areaX / gridX);
 const double cellY = (areaY / gridY);
 const double cellZ = (areaZ / gridZ);
 
-const int maxPartsPerCell = 1000000;
+// const int maxPartsPerCell = 1000000;
 
 // TODO: support return in type check to remove addmitteds
 
@@ -123,7 +156,7 @@ vect matrix_vect_mul(const double_nbCorners coeffs, const vect_nbCorners matrix)
 
 // =========================================================
 // Coordinates of a cell
-
+/*
 typedef struct {
   int iX;
   int iY;
@@ -141,16 +174,46 @@ int idCellOfPos(vect pos) {
   __pure();
   __admitted();
 
-  int iX = int_of_double((pos.x / cellX));
-  int iY = int_of_double((pos.y / cellY));
-  int iZ = int_of_double((pos.z / cellZ));
+  const int iX = int_of_double((pos.x / cellX));
+  const int iY = int_of_double((pos.y / cellY));
+  const int iZ = int_of_double((pos.z / cellZ));
   return cellOfCoord(iX, iY, iZ);
 }
-
+*/
 // =========================================================
 // Core loop
 
+int simulate_single_cell(double stepDuration,
+  particle* particles, int nbParticles,
+  vect_nbCorners fieldAtCorners, int nbSteps)
+{
+  __modifies("particles ~> Matrix1(nbParticles)");
+  __reads("fieldAtCorners ~> Matrix1(nbCorners)");
 
+  for (int idStep = 0; idStep < nbSteps; idStep++) {
+    for (int idPart = 0; idPart < nbParticles; idPart++) {
+      __xmodifies("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
+
+      const particle p = particles[MINDEX1(nbParticles, idPart)];
+
+      // Interpolate the field based on the position relative to the corners of the cell
+      const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
+      const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
+
+      // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
+      const vect accel = vect_mul(p.charge / p.mass, fieldAtPos);
+
+      // Compute the new speed and position for the particle.
+      const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
+      const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
+      const particle p2 = { pos2, speed2 };
+
+      particles[MINDEX1(nbParticles, idPart)] = p2;
+    }
+  }
+}
+
+/*
 int simulate_core(double stepDuration,
   particle* curBag, int* curBagSize,
   particle* nextBag, int* nextBagSize,
@@ -164,32 +227,36 @@ int simulate_core(double stepDuration,
   __reads("fieldAtCorners ~> Matrix1(nbCorners)");
 
   __GHOST_BEGIN(focus1, matrix1_ro_focus, "curBagSize, idCell");
-  int nbParts = curBagSize[MINDEX1(nbCells, idCell)];
+  const int nbParts = curBagSize[MINDEX1(nbCells, idCell)];
+  // __ghost(assume, "in_range(nbParts, 0..maxPartsPerCell)");
   for (int idPart = 0; idPart < nbParts; idPart++) {
     __ghost(assume, "in_range(idPart, 0..maxPartsPerCell)"); // TODO: remove
     __GHOST_BEGIN(focus2, matrix2_ro_focus, "curBag, idCell, idPart");
-    particle* p = &curBag[MINDEX2(nbCells, maxPartsPerCell, idCell, idPart)];
+    const particle p = curBag[MINDEX2(nbCells, maxPartsPerCell, idCell, idPart)];
     __GHOST_END(focus2);
 
     // Interpolate the field based on the position relative to the corners of the cell
-    double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
-    vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
+    const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
+    const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
 
     // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-    vect accel = vect_mul(p->charge / p->mass, fieldAtPos);
+    const vect accel = vect_mul(p.charge / p.mass, fieldAtPos);
 
     // Compute the new speed and position for the particle.
-    vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
-    vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
-    particle p2 = { pos2, speed2 };
+    const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
+    const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
+    const particle p2 = { pos2, speed2 };
 
     // Compute the location of the cell that now contains the particle
-    int idCellNext = idCellOfPos(pos2);
+    // TODO: wrap around pos2
+    const int idCellNext = idCellOfPos(pos2);
+    __ghost(assume, "in_range(idCellNext, 0..nbCells)"); // TODO: remove
 
     // Push the updated particle into the bag associated with its target cell
     __GHOST_BEGIN(focus3, matrix1_focus, "nextBagSize, idCellNext");
-    int idPartNext = nextBagSize[MINDEX1(nbCells, idCellNext)]++;
+    const int idPartNext = nextBagSize[MINDEX1(nbCells, idCellNext)]++;
     __GHOST_END(focus3);
+    __ghost(assume, "in_range(idPartNext, 0..maxPartsPerCell)"); // TODO: remove
     __GHOST_BEGIN(focus4, matrix2_focus, "nextBag, idCellNext, idPartNext");
     nextBag[MINDEX2(nbCells, maxPartsPerCell, idCellNext, idPartNext)] = p2;
     __GHOST_END(focus4);
@@ -197,6 +264,7 @@ int simulate_core(double stepDuration,
   curBagSize[MINDEX1(nbCells, idCell)] = 0;
   __GHOST_END(focus1);
 }
+*/
 
 // =========================================================
 

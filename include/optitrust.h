@@ -178,6 +178,19 @@ template<typename T> T __pre_dec(T* p) {
   return --(*p);
 }
 
+// LATER: remove the need for this
+#define REGISTER_STRUCT_ACCESS(f)\
+template<typename T> T* __struct_access_##f(T* v) {\
+  __pure();\
+  __admitted();\
+  return &(v->f);\
+}\
+template<typename T> T __struct_get_##f(T v) {\
+  __pure();\
+  __admitted();\
+  return v.f;\
+}
+
 /* ---- Matrix Functions ---- */
 
 inline int MINDEX0() {
