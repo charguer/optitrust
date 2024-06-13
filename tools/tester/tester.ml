@@ -141,6 +141,11 @@ module StringSet = Set.Make(String)
   For each test `foo` considered, the command `gcc foo_exp.cpp` is executed.
   The purpose is to test that all output files compile.
 
+  The compiler command produces as output information on which tests fail.
+  It generates a number of `*.tests` files:
+  - `success.tests`: tests that have succeeded
+  - `errors.tests`: tests that are not success
+  Besides, the file `tofix.tests` is updated in a same was as for the 'run' command.
 
   ----
   LATER: an action 'sort':
@@ -359,12 +364,16 @@ let ensure_ml_extension ?(check_file_exists = true) (path : string) : string =
   else
     error()
 
+let line_commented_with_dash (s:string) : bool =
+  let regex = Str.regexp "[ \t]*#.*" in
+  Str.string_match regex s 0
+
 (** Return the list of tests mentioned in file [f], ignoring empty lines
-    and lines commented out with a '#' as first character *)
+    and lines commented out with a '#' as leading nonblank character *)
 let rec tests_from_file ?(relative = false) (file : string) : string list =
   if debug then printf "tests_from_file %s\n" file;
   let folder = Filename.dirname file in
-  let lines = List.filter (fun s -> s <> "" && s.[0] <> '#') (Xfile.get_lines_or_empty file) in
+  let lines = List.filter (fun s -> s <> "" && not (line_commented_with_dash s)) (Xfile.get_lines_or_empty file) in
   ~~ List.concat_map lines (fun test ->
     let test = if not relative || folder = "." then test else folder ^ "/" ^ test in
     (* TODO: this code should share common patterns with resolve_arg;
@@ -844,31 +853,51 @@ let action_meld (tests : string list) : unit =
 
 let action_compile (tests : string list) : unit =
   let tests, _tests_ignored = get_tests_to_process_for_run_and_compile "compile" tests in
-  let report = ref [] in
+  let cmd_failed = ref [] in
+  let tests_failed = ref [] in
+  let tests_success = ref [] in
   ~~ List.iter tests (fun test ->
 
     let prefix = Filename.remove_extension test in
     let expfile = prefix ^ "_exp.cpp" in
-    let cmd = sprintf "gcc -I include -c %s" expfile in
-    if debug then printf "%s\n" cmd;
-    if not !dry_run then begin
-      let exit_code = Sys.command cmd in
-      let success = (exit_code = 0) in
-      printf "Compiling '%s'... %s\n" expfile (if success then "succeeded" else "failed");
-      if not success then report := cmd :: !report;
+    if not (Sys.file_exists expfile) then begin
+      if !verbose
+        then printf "Warning: missing exp file: %s\n" expfile
     end else begin
-      printf "[dry]   %s\n" cmd
-    end;
+      let cmd = sprintf "gcc -Werror -I include -c %s" expfile in
+      if debug then printf "%s\n" cmd;
+      if not !dry_run then begin
+        let exit_code = Sys.command cmd in
+        let success = (exit_code = 0) in
+        printf "Compiling '%s'... %s\n" expfile (if success then "succeeded" else "failed");
+        if success then begin
+          tests_success := expfile :: !tests_success
+        end else begin
+          tests_failed := expfile :: !tests_failed;
+          cmd_failed := cmd :: !cmd_failed;
+        end
+      end else begin
+        printf "[dry]   %s\n" cmd
+      end
+    end
   );
   if not !dry_run then begin
-    if !report = [] then begin
-      printf "Success.\n";
-    end else begin
-      printf "Compilation errors:\n";
-      List.iter (fun cmd -> printf "   %s\n" cmd;)
-        (List.rev !report)
+    (* Produce .tests files *)
+    Xfile.put_lines "success.tests" !tests_success;
+    Xfile.put_lines "errors.tests" !tests_failed;
+    update_tofix_tests_list();
+    (* Produce text output *)
+    if not !dry_run then begin
+      if !cmd_failed = [] then begin
+        printf "Success.\n";
+      end else begin
+        printf "Compilation errors:\n";
+        List.iter (fun cmd -> printf "   %s\n" cmd;)
+          (List.rev !cmd_failed)
+      end
     end
   end
+
 
 
 (*****************************************************************************)
@@ -950,7 +979,7 @@ let _main : unit =
 
   (* Handle confirmation *)
   begin try
-    let without_confirmation = ["run"; "meld"; "diff"] in
+    let without_confirmation = ["run"; "meld"; "diff"; "compile"] in
     let needs_confirmation = (not (List.mem !action without_confirmation)) && not !skip_confirmation in
     if not needs_confirmation then begin
       execute()

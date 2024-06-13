@@ -1,0 +1,108 @@
+
+# WRONG TRANSFO TO FIX
+
+tests/matrix/intro_mops/matrix_intro_mops_doc_exp.cpp
+tests/matrix/intro_mops/matrix_intro_mops_exp.cpp
+tests/matrix/intro_mindex/matrix_intro_mindex_doc_exp.cpp
+tests/matrix/intro_mindex/matrix_intro_mindex_basic_doc_exp.cpp
+tests/matrix/intro_mindex/matrix_intro_mindex_exp.cpp
+tests/loop/slide/loop_slide_doc_exp.cpp
+tests/loop/hoist/loop_hoist_basic_doc_exp.cpp
+  # need to insert optitrust.h either via script or in cpp source
+
+tests/align/alloc/align_alloc_doc_exp.cpp
+tests/align/alloc/align_alloc_exp.cpp
+  # missing MALLOC_ALIGNED1
+
+tests/instr/read_last_write/instr_read_last_write_doc_exp.cpp
+  # the transfo needs to remove a 'get'
+
+tests/loop/move/loop_move_exp.cpp
+  # avoid binding x inside a loop on x
+
+tests/record/rename_fields/record_rename_fields_exp.cpp
+tests/matrix/local_name_obj/matrix_local_name_obj_exp.cpp
+  # other issues
+
+tests/record/to_variables/record_to_variables_exp.cpp
+  # the test is semantically incorrect
+
+tests/function/beta/function_beta_basic_exp.cpp
+  # variable x should be public in class
+
+tests/aos_to_soa/typedef/aos_to_soa_typedef_exp.cpp
+  # boggus
+
+# OUTPUT DISPLAY TO FIX
+
+tests/function/inline/function_inline_exp.cpp
+  # display 'int;'
+
+tests/function/uninline/function_uninline_basic_exp.cpp
+  # higher-order functions should use c++ syntax
+
+tests/loop/shift/loop_shift_basic_exp.cpp
+  # double display of 'const'
+
+tests/matrix/simpl/matrix_simpl_exp.cpp
+  # missing extern in display
+
+tests/matrix/stack_copy/matrix_stack_copy_exp.cpp
+  # 'ref' shown in display
+
+tests/variable/bind/variable_bind_exp.cpp
+  # mysterious C syntax
+
+
+
+# NOT MEANT TO COMPILE
+
+# - the 'CHOOSE' token is meant to be inlined
+tests/variable/delocalize_in_vars/variable_delocalize_in_vars_doc_exp.cpp
+tests/variable/delocalize_in_vars/variable_delocalize_in_vars_exp.cpp
+tests/variable/delocalize/variable_delocalize_exp.cpp
+
+# - change type to an incompatible type
+tests/variable/change_type/variable_change_type_exp.cpp
+
+
+# FUTURE WORK
+
+# ast wip
+tests/ast/cpp_ast_exp.cpp
+tests/ast/c_stackvar_ptr_exp.cpp
+tests/ast/c_stackvar_exp.cpp
+tests/ast/c_infix_exp.cpp
+tests/ast/c_features_exp.cpp
+tests/ast/c_address_exp.cpp
+
+# apac not supported
+tests/apac/unfold_let_mult_const/apac_unfold_let_mult_const_exp.cpp
+tests/apac/heapify/apac_heapify_exp.cpp
+tests/apac/constify_args/apac_constify_args_exp.cpp
+
+# omp not supported
+tests/omp/teams4_exp.cpp
+tests/omp/teams3_exp.cpp
+tests/omp/teams2_exp.cpp
+tests/omp/teams1_exp.cpp
+tests/omp/taskyield1_exp.cpp
+tests/omp/task_dep5_exp.cpp
+tests/omp/target_data3_exp.cpp
+tests/omp/target3_exp.cpp
+tests/omp/target2_exp.cpp
+tests/omp/target1_exp.cpp
+tests/omp/simd8_exp.cpp
+tests/omp/simd2_exp.cpp
+tests/omp/reduction4_exp.cpp
+tests/omp/private1_exp.cpp
+tests/omp/get_nthrs1_exp.cpp
+tests/omp/async_target4_exp.cpp
+tests/omp/async_target3_exp.cpp
+tests/omp/async_target2_exp.cpp
+tests/omp/array_sections4_exp.cpp
+tests/omp/array_sections3_exp.cpp
+tests/omp/array_sections2_exp.cpp
+
+
+

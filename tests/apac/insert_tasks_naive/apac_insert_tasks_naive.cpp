@@ -6,7 +6,7 @@ int g(int &a) {
   return 0;
 }
 
-int h() {
+void h() {
   int a;
   int b;
   a = 1;

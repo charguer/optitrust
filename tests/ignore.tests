@@ -4,6 +4,11 @@ debug
 perf
 interact
 
+# BROKEN TRANSFO TO FIX
+specialize/function_defs/specialize_function_defs_doc.ml
+specialize/function_defs/specialize_function_defs.ml
+
+
 # DEAL with namespaces
 specialize/function_arg/specialize_function_arg.ml
 specialize/function_arg/specialize_function_arg_doc.ml

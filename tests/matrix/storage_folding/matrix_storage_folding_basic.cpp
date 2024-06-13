@@ -13,7 +13,7 @@ int main() {
       b[MINDEX1(N-2, i-2)] = a[MINDEX1(N, i-2)] + a[MINDEX1(N, i-1)] + a[MINDEX1(N, i)];
     }
     if (i >= 4) {
-      printf("%i\n", b[MINDEX1(N-2, i-4)] + b[MINDEX1(N-2, i-3)] + b[MINDEX1(N-2, i-2)]);
+      printf("%f\n", b[MINDEX1(N-2, i-4)] + b[MINDEX1(N-2, i-3)] + b[MINDEX1(N-2, i-2)]);
     }
   }
 

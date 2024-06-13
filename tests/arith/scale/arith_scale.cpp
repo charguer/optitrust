@@ -12,13 +12,13 @@ int main() {
    for (int i = 0; i < N; i++) {
       s += t[i];  // internally: set(s, app(+, [get(s); get(access(t,i))]))
    }
-   printf("%d\n", s);
+   printf("%f\n", s);
 }
 
 
 float* u;
 
-int other() {
+void other() {
    const int N = 5;
    for (int i = 0; i < N; i++) {
       double a = u[i];

@@ -16,7 +16,7 @@ int main() {
                                    a[MINDEX1(3, i % 3)];
     }
     if (i >= 4) {
-      printf("%i\n", b[MINDEX1(3, (i - 4) % 3)] + b[MINDEX1(3, (i - 3) % 3)] +
+      printf("%f\n", b[MINDEX1(3, (i - 4) % 3)] + b[MINDEX1(3, (i - 3) % 3)] +
                          b[MINDEX1(3, (i - 2) % 3)]);
     }
   }

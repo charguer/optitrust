@@ -2,7 +2,7 @@ int f(int a, int b) { return a + b; }
 
 int g(int& a) { return 0; }
 
-int h() {
+void h() {
   int a;
   int b;
 #pragma omp task shared(a) depend(inout : a)
