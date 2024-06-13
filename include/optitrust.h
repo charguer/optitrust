@@ -913,6 +913,21 @@ __GHOST(matrix2_unfocus) {
   __ghost(close_wand, "");
 }
 
+__GHOST(matrix1_focus) {
+  __requires("M: ptr, i: int, n: int");
+  __requires("bound_check: in_range(i, 0..n)");
+  __consumes("M ~> Matrix1(n)");
+  __produces("Wand(&M[MINDEX1(n, i)] ~> Cell, M ~> Matrix1(n)), &M[MINDEX1(n, i)] ~> Cell");
+
+  __ghost(group_focus, "i := i, bound_check := bound_check");
+}
+
+__GHOST(matrix1_unfocus) {
+  __reverts(matrix1_focus);
+
+  __ghost(close_wand, "");
+}
+
 __GHOST(matrix1_ro_focus) {
   __requires("M: ptr, i: int, n: int, f: _Fraction");
   __requires("bound_check: in_range(i, 0..n)");
