@@ -35,6 +35,7 @@ rule lex_resources = parse
   | "<=" { LEQ }
   | ">=" { GEQ }
   | "<>" { NEQ }
+  | "." { DOT }
   | ".." { DOTDOT }
   | blank { lex_resources lexbuf }
   | newline { new_line lexbuf; lex_resources lexbuf }

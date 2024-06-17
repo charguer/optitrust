@@ -7,5 +7,8 @@ let _ = Flags.recompute_resources_between_steps := true
 (** Reproducing a subset of the PIC case study *)
 
 let _ = Run.script_cpp (fun () ->
+  let ctx = cFunBody "simulate_single_cell" in
   !! Resources.ensure_computed ();
+  !! Function.inline [ctx; multi cFun ["matrix_vect_mul"]];
+  !! Function.inline [ctx; multi cFun ["vect_add"; "vect_mul"]];
 )

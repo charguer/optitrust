@@ -77,7 +77,9 @@ let rec formula_of_trm (t: trm): formula option =
       | Some Prim_binop Binop_div (* TODO: think hard about 'div' totality *)
       | Some Prim_binop Binop_mod
       | Some Prim_binop Binop_array_access
-          -> Some (trm_apps fn f_args)
+      | Some Prim_unop (Unop_struct_access _)
+      | Some Prim_unop (Unop_struct_get _)
+        -> Some (trm_apps fn f_args)
       | Some _ -> None
       | None ->
         begin match trm_var_inv fn with
@@ -86,6 +88,11 @@ let rec formula_of_trm (t: trm): formula option =
           | _ -> None
         end
     end
+  | Trm_record fields ->
+    let* fields' = try Some (Mlist.map (fun (f, t) ->
+      (f, Option.get (formula_of_trm t))
+    ) fields) with Invalid_argument _ -> None in
+    Some (trm_record fields')
   | _ -> None
 
 let var_is_eq = toplevel_var "__is_eq"

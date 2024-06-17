@@ -120,6 +120,8 @@ typedef struct { double v[nbCorners]; } double_nbCorners;
 
 typedef struct { vect v[nbCorners]; } vect_nbCorners;
 
+REGISTER_STRUCT_ACCESS(v)
+
 double_nbCorners cornerInterpolationCoeff(vect pos) {
   __pure();
   __admitted();
@@ -143,13 +145,18 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
 }
 
 vect matrix_vect_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
-  __pure();
-  __admitted();
+  __reads("for i in 0..nbCorners -> &(coeffs.v)[k] ~> Cell");
+  __reads("for i in 0..nbCorners -> &(matrix.v)[k] ~> Cell");
 
   vect res = { 0., 0., 0. };
   for (int k = 0; k < nbCorners; k++) {
+    __xreads("&(coeffs.v)[k] ~> Cell");
+    __xreads("&(matrix.v)[k] ~> Cell");
+
     res = vect_add(res, vect_mul(coeffs.v[k], matrix.v[k]));
   }
+
+  __admitted();
   return res;
 }
 

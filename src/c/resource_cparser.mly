@@ -8,7 +8,7 @@
 %token <string> IDENT
 %token <int> INT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
-%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL DOTDOT
+%token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL DOT DOTDOT
 %token FUN FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
@@ -41,6 +41,10 @@ atomic_formula:
 address_formula:
   | tab=address_formula; LBRACKET; index=atomic_formula; RBRACKET;
     { trm_array_get tab index }
+  | base=address_formula; DOT; field=IDENT;
+    { trm_struct_get base field }
+  | LPAR; f=address_formula; RPAR
+    { f }
   | x=IDENT
     { trm_var (name_to_var x) }
 

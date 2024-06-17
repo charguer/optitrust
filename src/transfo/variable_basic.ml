@@ -40,12 +40,27 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       let tl = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
       let dl = Path.resolve_path p_local dl in
-      let x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv dl in
+      let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
       if !Flags.check_validity then begin
         if Resources.trm_is_pure init then
+          (* Case 1: pure expression *)
           Trace.justif "inlining a pure expression is always correct"
-        else
-          trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc"
+        else begin
+          (* Case 2: non-interfering, deletable and duplicable expression *)
+          Resources.assert_instr_effects_shadowed p;
+          Resources.assert_not_self_interfering dl;
+          let end_occ_index = Mlist.length tl in  (* TODO: more precise *)
+          (* is calling this useful?
+          Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
+          let usage = Resources.usage_of_trm dl in
+          let _, instrs_after_let = Mlist.split (index + 1) tl in
+          let context_instrs, _ = Mlist.split end_occ_index instrs_after_let in
+          let context_usage = Resources.compute_usage_of_instrs context_instrs in
+          Resources.assert_usages_commute [path_error_context p] usage context_usage;
+          Trace.justif "inlining a deletable and duplicable expression through a non-interfering context is correct"
+          (* TODO: Case 3 ? *)
+          (* trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc" *)
+        end
       end;
       let init = trm_add_mark mark init in
       let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) (trm_subst_var x init) tl in
