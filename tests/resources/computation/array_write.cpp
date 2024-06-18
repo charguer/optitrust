@@ -32,12 +32,12 @@ void f() {
 
   float* const M = array_alloc(32);
   __ghost(array_focus, "M, 0");
-  M[0] = 0;
+  M[0] = 0.f;
   __ghost(array_unfocus, "M");
   array_free(M);
 }
 
 void g(float* t) {
   __modifies("&t[0] ~> Cell");
-  t[0] = 0;
+  t[0] = 0.f;
 }

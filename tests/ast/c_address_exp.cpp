@@ -51,7 +51,7 @@ void bag_init(bag* b, int id_bag, int id_cell) {
 }
 
 void bag_append(bag* b, bag* other, int id_bag, int id_cell) {
-  if (other->front) {
+  if ((bool)other->front) {
     set(b->back->next, other->front);
     set(b->back, other->back);
     bag_init(other, id_bag, id_cell);
@@ -66,7 +66,7 @@ void bag_nullify(bag* b) {
 int bag_size(bag* b) {
   chunk* c = b->front;
   int size = 0;
-  while (c) {
+  while ((bool)c) {
     += (size, c->size);
     set(c, c->next);
   }
@@ -212,7 +212,7 @@ chunk* manual_chunk_alloc(int thread_id) {
 }
 
 void manual_chunk_free(chunk* c, int thread_id) {
-  if (free_index[thread_id][0] < FREELIST_SIZE) {
+  if ((unsigned int)free_index[thread_id][0] < FREELIST_SIZE) {
     set(free_chunks[thread_id][free_index[thread_id][0]++], c);
   } else {
     free(c);
@@ -312,21 +312,21 @@ const int gridZ = 64;
 
 const int nbCells = gridX * gridY * gridZ;
 
-const double cellX = areaX / gridX;
+const double cellX = areaX / (double)gridX;
 
-const double cellY = areaY / gridY;
+const double cellY = areaY / (double)gridY;
 
-const double cellZ = areaZ / gridZ;
+const double cellZ = areaZ / (double)gridZ;
 
 const int nbSteps = 100;
 
-int int_of_double(double a) { return (int)a - (a < 0.); }
+int int_of_double(double a) { return (int)a - (int)(a < 0.); }
 
 int wrap(int gridSize, int a) { return (a % gridSize + gridSize) % gridSize; }
 
 const int nbCorners = 8;
 
-vect* fields = (vect*)malloc(nbCells * sizeof(vect));
+vect* fields = (vect*)malloc((long unsigned int)nbCells * sizeof(vect));
 
 int MINDEX3(int N1, int N2, int N3, int i1, int i2, int i3) {
   return i1 * N2 * N3 + i2 * N2 + i3;
@@ -345,17 +345,17 @@ int idCellOfPos(vect pos) {
 
 double relativePosX(double x) {
   int iX = int_of_double(x / cellX);
-  return (x - iX * cellX) / cellX;
+  return (x - (double)iX * cellX) / cellX;
 }
 
 double relativePosY(double y) {
   int iY = int_of_double(y / cellY);
-  return (y - iY * cellY) / cellY;
+  return (y - (double)iY * cellY) / cellY;
 }
 
 double relativePosZ(double z) {
   int iZ = int_of_double(z / cellZ);
-  return (z - iZ * cellZ) / cellZ;
+  return (z - (double)iZ * cellZ) / cellZ;
 }
 
 typedef struct {
@@ -456,10 +456,11 @@ void init(bag* bagsCur, bag* bagsNext, vect* field) {}
 void updateFieldUsingNextCharge(double* nextCharge, vect* field) {}
 
 int main() {
-  bag* bagsCur = (bag*)malloc(nbCells * sizeof(bag));
-  bag* bagsNext = (bag*)malloc(nbCells * sizeof(bag));
-  double* nextCharge = (double*)malloc(nbCells * sizeof(double));
-  vect* field = (vect*)malloc(nbCells * sizeof(vect));
+  bag* bagsCur = (bag*)malloc((long unsigned int)nbCells * sizeof(bag));
+  bag* bagsNext = (bag*)malloc((long unsigned int)nbCells * sizeof(bag));
+  double* nextCharge =
+      (double*)malloc((long unsigned int)nbCells * sizeof(double));
+  vect* field = (vect*)malloc((long unsigned int)nbCells * sizeof(vect));
   init(bagsCur, bagsNext, field);
   for (int step = 0; step < nbSteps; step++) {
     updateFieldUsingNextCharge(nextCharge, field);

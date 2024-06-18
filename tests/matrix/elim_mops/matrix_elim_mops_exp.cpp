@@ -15,7 +15,7 @@ void outer_alloc(int n, int m, int* p) {
 
 void inner_alloc(int n, int m) {
   __pure();
-  int* const p = (int* const)CALLOC2(n, m, sizeof(int));
+  int* const p = (int*)CALLOC2(n, m, sizeof(int));
   for (int i = 0; i < n; i++) {
     __strict();
     __xmodifies("for j in 0..m -> &p[i * m + j] ~> Cell");

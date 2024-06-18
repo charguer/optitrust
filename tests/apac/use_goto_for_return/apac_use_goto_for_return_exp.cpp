@@ -31,8 +31,8 @@ void h() {
 float i(float pi, float a) {
   float __res;
   {
-    float coef = 11.7f;
-    if (a < 0.) {
+    float coef = (float)11.7;
+    if ((double)a < 0.) {
       __res = coef * a;
       goto __exit;
     }

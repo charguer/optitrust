@@ -2,7 +2,7 @@
 
 int main() {
   const int nbCells = 10;
-  double* deposit = (double*)MALLOC1(nbCells, sizeof(int));
+  double* deposit = (double*)MALLOC1((long unsigned int)nbCells, sizeof(int));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     deposit[MINDEX1(nbCells, idCell)] += 1.;
   }

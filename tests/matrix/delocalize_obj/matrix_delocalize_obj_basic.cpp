@@ -60,7 +60,7 @@ int main() {
       bag_init(&bagNexts[MINDEX1(nbCells, i1)]);
     }
     for (int idCell = 0; idCell < nbCells; idCell++) {
-      for (particle *p = bag_iter_begin(&bag_it, NULL); p != NULL;
+      for (particle *p = bag_iter_begin(&bag_it, nullptr); p != nullptr;
            p = bag_iter_next_common(&bag_it, true)) {
         bag_push(&bagNexts[MINDEX1(nbCells, idCell)], *p);
       }

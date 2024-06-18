@@ -631,17 +631,17 @@ and tr_expr (e : expr) : trm =
   | CompoundLiteral {init = init_expr; qual_type = _q} -> tr_expr init_expr
   | IntegerLiteral i ->
     begin match i with
-      | Int i -> trm_lit ~typ ?loc ~ctx (Lit_int i)
+      | Int i -> trm_lit ?typ ?loc ~ctx (Lit_int i)
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only int literal allowed"
     end
-  | BoolLiteral b -> trm_lit ~typ ?loc ~ctx (Lit_bool b)
+  | BoolLiteral b -> trm_lit ?loc ~ctx (Lit_bool b)
   | FloatingLiteral f ->
     begin match f with
-      | Float f -> trm_lit ~typ ?loc ~ctx (Lit_double f)
+      | Float f -> trm_lit ?typ ?loc ~ctx (Lit_double f)
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only float literal allowed"
     end
   | StringLiteral {byte_width = _; bytes = s; string_kind = _} ->
-    trm_lit ~typ ?loc ~ctx (Lit_string s)
+    trm_lit ?typ ?loc ~ctx (Lit_string s)
 
 
   | InitList el ->
@@ -853,14 +853,30 @@ and tr_expr (e : expr) : trm =
       | [e] -> tr_expr e
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: unsupported construct"
     end
-  | Cast {kind = k; qual_type = q; operand = e'} ->
-    let to_typ = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
-    let inner_expr = tr_expr e' in
-    let from_typ = Option.value ~default:(typ_auto ()) inner_expr.typ in
-
-    begin match k with
-    | CStyle | Static | Functional (* TODO: Add cstyle for decinding how to reprint cast *) ->
-      trm_cast ?loc ~ctx ~from_typ to_typ inner_expr
+  | Cast { kind; qual_type; operand } ->
+    let inner_expr = tr_expr operand in
+    (* TODO: Maybe treat size_t as a special type distinct from unsigned long like in Rust *)
+    let to_typ = Clang.Type.get_typedef_underlying_type ~recursive:true qual_type in
+    let from_typ = Clang.Type.get_typedef_underlying_type ~recursive:true (Clang.Type.of_node operand) in
+    let is_semantic_cast : bool =
+      match from_typ.desc, to_typ.desc with
+      | BuiltinType from_b, BuiltinType to_b when from_b = to_b -> false
+      | BuiltinType _, BuiltinType _ -> true
+      | _, Pointer _ when is_null_pointer inner_expr -> false
+      | Pointer _, BuiltinType _ | BuiltinType _, Pointer _ -> true
+      | _ -> false
+    in
+    begin match kind with
+    | Implicit when not is_semantic_cast -> inner_expr
+    | Implicit | CStyle | Static | Functional (* TODO: Add cstyle for decinding how to reprint cast *) ->
+      (* Do not use tr_qual_type since we want to discard cv-qualifiers on the inserted cast operation *)
+      let to_typ = tr_type_desc ?loc to_typ.desc in
+      begin match trm_cast_inv inner_expr with
+      | Some (inner_cast_typ, _) when same_types to_typ inner_cast_typ -> inner_expr
+      | _ ->
+        let from_typ = tr_type_desc ?loc from_typ.desc in
+        trm_cast ?loc ~ctx ~from_typ to_typ inner_expr
+      end
     | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only static casts are allowed"
     end
   | New {placement_args = _; qual_type = q; array_size = seo; init = _} ->

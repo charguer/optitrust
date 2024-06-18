@@ -255,9 +255,10 @@ and lit_to_doc style (cstyles: cstyle_annot list) (typ : typ option) (l : lit) :
   | Lit_double f ->
     begin match typ with
     | Some { typ_desc = Typ_float; _ } ->
-      string ((string_of_float f) ^ "f")
+      (* FIXME: This prints too much useless and confusing digits that exceed the precision of a float *)
+      string ((sprintf "%F" f) ^ "f")
     | _ ->
-      string (string_of_float f)
+      string (sprintf "%F" f)
     end
   | Lit_string s -> dquotes (separate (backslash ^^ string "n") (lines s))
   | Lit_nullptr ->

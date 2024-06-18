@@ -81,10 +81,10 @@ void fork_then_write(float* M) {
     for (int j = 0; j < 5; j++) {
       __strict();
       __xreads("&M[MINDEX1(5, i)] ~> Cell");
-      M[MINDEX1(5, i)] + 1;
+      M[MINDEX1(5, i)] + (float)1;
     }
     __ghost(ro_join_group, "H := &M[MINDEX1(5, i)] ~> Cell, r := 0..5");
-    M[MINDEX1(5, i)] = i;
+    M[MINDEX1(5, i)] = (float)i;
   }
 }
 
@@ -94,15 +94,15 @@ void read_then_fork(float* M) {
     __strict();
     __xreads("&M[MINDEX1(5, i)] ~> Cell");
     __ghost(ro_split2, "f := #_2, H := &M[MINDEX1(5, i)] ~> Cell");
-    M[MINDEX1(5, i)] + i;
+    M[MINDEX1(5, i)] + (float)i;
     __ghost(ro_fork_group,
             "f := #_2 / 2, H := &M[MINDEX1(5, i)] ~> Cell, r := 0..5");
-    M[MINDEX1(5, i)] + i;
+    M[MINDEX1(5, i)] + (float)i;
     __ghost(ro_allow_join2, "f := #_2, H := &M[MINDEX1(5, i)] ~> Cell");
     for (int j = 0; j < 5; j++) {
       __strict();
       __xreads("&M[MINDEX1(5, i)] ~> Cell");
-      M[MINDEX1(5, i)] + 1;
+      M[MINDEX1(5, i)] + (float)1;
     }
     __ghost(ro_join_group, "H := &M[MINDEX1(5, i)] ~> Cell, r := 0..5");
   }
@@ -113,7 +113,7 @@ void write_then_fork(float* M) {
   for (int i = 0; i < 5; i++) {
     __strict();
     __xwrites("&M[MINDEX1(5, i)] ~> Cell");
-    M[MINDEX1(5, i)] = i;
+    M[MINDEX1(5, i)] = (float)i;
     __ghost(ro_split2, "f := 1, H := &M[MINDEX1(5, i)] ~> Cell");
     __ghost(ro_fork_group,
             "f := 1 / 2, H := &M[MINDEX1(5, i)] ~> Cell, r := 0..5");
@@ -121,7 +121,7 @@ void write_then_fork(float* M) {
     for (int j = 0; j < 5; j++) {
       __strict();
       __xreads("&M[MINDEX1(5, i)] ~> Cell");
-      M[MINDEX1(5, i)] + 1;
+      M[MINDEX1(5, i)] + (float)1;
     }
     __ghost(ro_join_group, "H := &M[MINDEX1(5, i)] ~> Cell, r := 0..5");
   }

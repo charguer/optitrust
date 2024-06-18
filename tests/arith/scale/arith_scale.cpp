@@ -15,14 +15,11 @@ int main() {
    printf("%f\n", s);
 }
 
-
-float* u;
-
-void other() {
+void other(float* u) {
    const int N = 5;
    for (int i = 0; i < N; i++) {
-      double a = u[i];
-      double b = 3.14 * a + 0.68;
+      float a = u[i];
+      float b = 3.14 * a + 0.68;
       u[i] = b;
    }
 }

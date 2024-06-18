@@ -3,7 +3,7 @@
 float* matrix_alloc(int N1, int N2) {
   __produces("_Res ~> Matrix2(N1, N2)");
   __admitted();
-  float* p = (float*)malloc(N1 * N2 * sizeof(float));
+  float* p = (float*)malloc((long unsigned int)(N1 * N2) * sizeof(float));
   return p;
 }
 
@@ -19,7 +19,7 @@ void matrix_copy(float* src, float* dst, int n, int m) {
   __modifies("dst ~> Matrix2(n, m)");
   __reads("src ~> Matrix2(n, m)");
   __admitted();
-  memcpy(dst, src, n * m * sizeof(float));
+  memcpy(dst, src, (long unsigned int)(n * m) * sizeof(float));
 }
 
 int main() {

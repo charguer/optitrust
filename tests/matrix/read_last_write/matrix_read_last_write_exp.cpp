@@ -21,7 +21,7 @@ int main() {
   float* img = (float*)MALLOC2(8, 8, sizeof(float));
   for (int y = 0; y < 8; y++) {
     for (int x = 0; x < 8; x++) {
-      img[MINDEX2(8, 8, y, x)] = y + x;
+      img[MINDEX2(8, 8, y, x)] = (float)(y + x);
     }
   }
   for (int y = 0; y < 6; y++) {
@@ -29,7 +29,7 @@ int main() {
       float acc = 0.f;
       for (int yd = 0; yd < 3; yd++) {
         for (int xd = 0; xd < 3; xd++) {
-          acc += y + yd + (x + xd);
+          acc += (float)(y + yd + (x + xd));
         }
       }
     }

@@ -4,12 +4,12 @@ typedef int T;
 
 void malloc_uninit_pre() {
   __pure();
-  T* const a = (T* const)MALLOC3(10, 10, 4, sizeof(T));
+  T* const a = (T*)MALLOC3(10, 10, 4, sizeof(T));
   const __ghost_fn focus = __ghost_begin(
       group2_focus_subrange_uninit,
       "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10, 10, 4, i, j, "
       "k)] ~> Cell, sub_range := 2..10");
-  T* const x = (T* const)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
+  T* const x = (T*)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");
@@ -83,7 +83,7 @@ void malloc_uninit_pre() {
 
 void malloc_uninit_post() {
   __pure();
-  T* const a = (T* const)MALLOC1(10, sizeof(T));
+  T* const a = (T*)MALLOC1(10, sizeof(T));
   const __ghost_fn focus = __ghost_begin(
       group_focus_subrange_uninit,
       "items := fun i -> &a[MINDEX1(10, i)] ~> Cell, sub_range := 2..10");
@@ -92,7 +92,7 @@ void malloc_uninit_post() {
     __xwrites("&a[MINDEX1(10, i1)] ~> Cell");
     a[MINDEX1(10, i1)] = 1;
   }
-  T* const x = (T* const)MALLOC1(10 - 2, sizeof(T));
+  T* const x = (T*)MALLOC1(10 - 2, sizeof(T));
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix1(10 - 2))");
@@ -128,12 +128,12 @@ void malloc_uninit_post() {
 
 void malloc_uninit_prepost() {
   __pure();
-  T* const a = (T* const)MALLOC3(10, 10, 4, sizeof(T));
+  T* const a = (T*)MALLOC3(10, 10, 4, sizeof(T));
   const __ghost_fn focus = __ghost_begin(
       group2_focus_subrange_uninit,
       "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10, 10, 4, i, j, "
       "k)] ~> Cell, sub_range := 2..10");
-  T* const x = (T* const)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
+  T* const x = (T*)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");

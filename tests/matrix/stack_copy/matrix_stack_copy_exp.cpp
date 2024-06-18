@@ -2,14 +2,14 @@
 
 void f() {
   __pure();
-  float* const s = (float* const)MALLOC2(32, 32, sizeof(float));
+  float* const s = (float*)MALLOC2(32, 32, sizeof(float));
   for (int i = 0; i < 32; i++) {
     __strict();
     __xwrites("for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell");
     for (int j = 0; j < 32; j++) {
       __strict();
       __xwrites("&s[MINDEX2(32, 32, i, j)] ~> Cell");
-      s[MINDEX2(32, 32, i, j)] = 0;
+      s[MINDEX2(32, 32, i, j)] = (float)0;
     }
   }
   for (int i = 0; i < 32; i++) {
@@ -26,7 +26,7 @@ void f() {
       for (int k = 0; k < 4; k++) {
         __strict();
         __smodifies("&x[MINDEX1(32, j)] ~> Cell");
-        x[MINDEX1(32, j)] += k;
+        x[MINDEX1(32, j)] += (float)k;
       }
     }
     __ghost(mindex2_contiguous_uninit, "M := s");

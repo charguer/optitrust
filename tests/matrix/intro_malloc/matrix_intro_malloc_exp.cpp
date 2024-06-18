@@ -3,11 +3,11 @@
 
 const int N = 10;
 
-int *q;
+int* q;
 
-void allocate() { q = (int *)MALLOC1(N, sizeof(int)); }
+void allocate() { q = (int*)MALLOC1((long unsigned int)N, sizeof(int)); }
 
 int main() {
-  int *p = (int *)MALLOC1(N, sizeof(int));
+  int* p = (int*)MALLOC1((long unsigned int)N, sizeof(int));
   return 0;
 }

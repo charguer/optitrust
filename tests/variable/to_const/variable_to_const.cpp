@@ -28,9 +28,9 @@ void test_vect(){
   part* r = &q[0];
   int e = r[0].pos.x;
 
-  int* f = 0;
+  int* f = nullptr;
   int fv = *f;
-  int* g = 0;
+  int* g = nullptr;
   for (int i = 0; i < 2; i++) {
     g[1] = 0;
     int gv = *(&g[1]);

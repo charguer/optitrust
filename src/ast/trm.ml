@@ -329,7 +329,7 @@ let typ_of_lit (l : lit) : typ option =
   | Lit_nullptr -> Some (typ_unit ())
 
 (** [trm_lit ~annot ?loc ?ctx l]: literal *)
-let trm_lit ?(typ : typ option = None) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : trm =
+let trm_lit ?(typ : typ option) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : trm =
   let typ = Xoption.or_ typ (typ_of_lit l) in
   trm_val ~annot:annot ?loc ?ctx ?typ (Val_lit l)
 
@@ -338,11 +338,11 @@ let trm_unit ?(loc) () : trm =
 let trm_bool ?(loc) (b : bool) =
   trm_lit ?loc (Lit_bool b)
 (* LATER: allow arbitrary sized integer types/values *)
-let trm_int ?(loc) (i : int) =
+let trm_int ?(typ = typ_int ()) ?(loc) (i : int) =
   trm_lit ?loc (Lit_int i)
 (* LATER: may need arbitrary sized float values *)
 let trm_float ?(typ : typ = typ_float ()) ?(loc) (d : float) =
-  trm_lit ~typ:(Some typ) ?loc (Lit_double d)
+  trm_lit ~typ:typ ?loc (Lit_double d)
 let trm_double ?(loc) (d : float) =
   trm_lit ?loc (Lit_double d)
 let trm_string ?(loc) (s : string) =
@@ -758,10 +758,10 @@ let vars_bound_in_trm_init (t : trm) : var list =
   | Trm_let_mult ts -> (List.map (fun ((x, _), _) -> x)) ts
   | _ -> []
 
-(** [is_null_pointer ty t]: check if t == (void * ) 0 *)
-let is_null_pointer (ty : typ) (t : trm) : bool =
-  match ty.typ_desc, t.desc with
-  | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_unit;_}}, Trm_val (Val_lit (Lit_int 0)) -> true
+(** [is_null_pointer t]: check if t == nullptr *)
+let is_null_pointer (t : trm) : bool =
+  match trm_lit_inv t with
+  | Some Lit_nullptr -> true
   | _ -> false
 
 (** [trm_ref_inv_init t]: gets the value of a variable initialization. *)
@@ -934,7 +934,19 @@ let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
   | Unop_pre_inc, Lit_int n -> trm_int (n + 1)
   | Unop_post_dec, Lit_int n -> trm_int (n - 1)
   | Unop_pre_dec, Lit_int n -> trm_int (n - 1)
-  | _ -> failwith "Ast.compute_app_unop_value: only negation can be applied here"
+  | Unop_cast { to_typ }, Lit_int n ->
+    begin match to_typ.typ_desc with
+    | Typ_int -> trm_int ~typ:to_typ n
+    | Typ_float -> trm_float ~typ:to_typ (float_of_int n)
+    | _ -> failwith "compute_app_unop_value: cast not supported"
+    end
+  | Unop_cast { to_typ }, Lit_double f ->
+    begin match to_typ.typ_desc with
+    | Typ_int -> trm_int ~typ:to_typ (int_of_float f)
+    | Typ_float -> trm_float ~typ:to_typ f
+    | _ -> failwith "compute_app_unop_value: cast not supported"
+    end
+  | _ -> failwith "compute_app_unop_value: unary operator not supported"
 
 (** [compute_app_binop_value]: simplifies binary operations on literals. *)
 let compute_app_binop_value (p : binary_op) (typ1 : typ option) (typ2 : typ option) (v1 : lit) (v2 : lit) : trm =

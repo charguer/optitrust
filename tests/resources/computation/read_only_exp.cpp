@@ -23,6 +23,6 @@ void array_computation(float* M, int n) {
     __sreads("&acc ~> Cell");
     __sreads("&acc ~> Cell");
     __xmodifies("&M[MINDEX1(n, i)] ~> Cell");
-    M[MINDEX1(n, i)] = acc;
+    M[MINDEX1(n, i)] = (float)acc;
   }
 }

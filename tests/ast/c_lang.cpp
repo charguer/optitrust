@@ -10,6 +10,7 @@ void f(int a);
 void g(int* a);
 void h(const char* c);
 
+// In fact in C prototypes remove outside const
 void fc(int const a);
 void gc(int* const a);
 void hc(const char* const c);
@@ -20,6 +21,7 @@ void hc(const char* const c);
 void demo_stack_var() {
   int const x = 3;
   f(x);
+  fc(x);
 
   int z;
   z = 6;
@@ -27,6 +29,7 @@ void demo_stack_var() {
 
   int y = 5;
   f(y);
+  fc(y);
   y = y + 1;
   y += 4;
 }
@@ -94,12 +97,20 @@ void demo_stack_array() {
 }
 
 
+void demo_array_access(int i, size_t k, char* buf) {
+  const char a[] = "azlkrj";
+  buf[k] = a[i];
+  buf[i] = a[k];
+  buf + i;
+  buf + k;
+}
+
 //------------------------------------------------------
 // Coercions
 
 void demo_explicit_coercions() {
   bool b = true;
-  int i = b;
+  int i = (int)b;
   bool b2 = (bool) i;
   float r = (float) i;
   myint i2 = (myint) i;

@@ -14,9 +14,9 @@ void simple(int N) {
 }
 
 void ko(int n) {
-  T* const c = (T* const)MALLOC1(n, sizeof(T));
+  T* const c = (T*)MALLOC1(n, sizeof(T));
   for (int i = 0; i < n; i++) {
-    c[MINDEX1(n, i)] = i;
+    c[MINDEX1(n, i)] = (float)i;
   }
   MFREE1(n, c);
 }

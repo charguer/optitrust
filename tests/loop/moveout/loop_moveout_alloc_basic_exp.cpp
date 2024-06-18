@@ -3,7 +3,7 @@
 void alloc(int n) {
   __pure();
   int x = 0;
-  int* const m = (int* const)MALLOC1(n, sizeof(int));
+  int* const m = (int*)MALLOC1(n, sizeof(int));
   for (int i = 0; i < 3; i++) {
     __strict();
     __smodifies("_Uninit(m ~> Matrix1(n))");

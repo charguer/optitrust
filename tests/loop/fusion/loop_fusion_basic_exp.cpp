@@ -21,9 +21,9 @@ void parallel(int* t, int* u, int n) {
   }
   for (int i = 0; i < 3; i++) {
     __strict();
-    int* const m1 = (int* const)MALLOC1(5, sizeof(int));
+    int* const m1 = (int*)MALLOC1(5, sizeof(int));
     MFREE1(5, m1);
-    int* const m2 = (int* const)MALLOC1(5, sizeof(int));
+    int* const m2 = (int*)MALLOC1(5, sizeof(int));
     MFREE1(5, m2);
   }
 }

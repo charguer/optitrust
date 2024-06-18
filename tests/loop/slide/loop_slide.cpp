@@ -13,7 +13,7 @@ int main() {
   }
 
   for (int k = 0; k < 15; k += 3) {
-    s[MINDEX1(32, k)] = 1.0;
+    s[MINDEX1(32, k)] = 1.0f;
   }
 
   free(s);

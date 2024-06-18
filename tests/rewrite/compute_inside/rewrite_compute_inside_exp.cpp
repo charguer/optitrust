@@ -12,11 +12,11 @@ block1 : {
 }
 block2 : {
   float y;
-  y = 3.5;
-  y = 6.25;
-  y = 4.28571428571;
-  y = 10.;
-  y = 5.;
+  y = 3.5f;
+  y = 6.25f;
+  y = 4.28571428571f;
+  y = 10.f;
+  y = 5.f;
 }
 block3 : {
   bool a;
@@ -33,7 +33,7 @@ block3 : {
   c = a || b || true;
   c = false;
   c = true;
-  a = a & b;
+  a = a && b;
 }
   return 0;
 }

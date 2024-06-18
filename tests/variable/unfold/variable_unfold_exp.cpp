@@ -38,7 +38,7 @@ typedef struct {
 } bag;
 
 int main() {
-  bag* b = (bag*)malloc(100 * sizeof(bag));
+  bag* b = (bag*)malloc((long unsigned int)100 * sizeof(bag));
   chunk* c = b->front;
   int nb = c->size;
   for (int i = 0; i < nb; i++) {

@@ -4,22 +4,20 @@ int main() {
   const int N = 5;
   double t[N];
   for (int i = 0; i < N; i++) {
-    t[i] = (i + 3.14) / i;
+    t[i] = ((double)i + 3.14) / i;
   }
-  double s = 0;
+  double s = (double)0;
   for (int i = 0; i < N; i++) {
     s += t[i] * i;
   }
   printf("%f\n", s);
 }
 
-float* u;
-
-void other() {
+void other(float* u) {
   const int N = 5;
   for (int i = 0; i < N; i++) {
-    double a = (double)u[i] * i;
-    double b = 3.14 * a + 0.68;
+    float a = (double)u[i] * i;
+    float b = (float)(3.14 * (double)a + 0.68);
     u[i] = (float)(b * i);
   }
 }

@@ -23,7 +23,7 @@ let tile_none: trm * trm = trm_int 0, trm_int 0
 let alloc_with_ty ?(annot : trm_annot = trm_annot_default) ?(annot_call : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
   let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
-  trm_cast ~annot (typ_const_ptr ty) (
+  trm_cast ~annot (typ_ptr Ptr_kind_mut ty) (
     trm_apps ~annot:annot_call (trm_var (malloc_var n)) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
@@ -34,7 +34,7 @@ let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
     if Tools.pattern_matches "MALLOC" f_var.name
     then begin
       let dims, size = Xlist.unlast args in
-      Some (dims, Option.get (typ_const_ptr_inv ty), size)
+      Some (dims, Option.get (typ_ptr_inv ty), size)
     end else None
   )))
 

@@ -14,7 +14,7 @@ typedef vect myvect;
 int main() {
   int a = 5;
   p++;
-  const float b = 5.;
+  const float b = (float)5.;
   p++;
   int x = 3;
   p++;

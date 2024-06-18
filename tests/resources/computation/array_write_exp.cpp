@@ -3,7 +3,7 @@
 float* array_alloc(int len) {
   __produces("_Res ~> Array(len)");
   __admitted();
-  return (float*)malloc(len * sizeof(float));
+  return (float*)malloc((long unsigned int)len * sizeof(float));
 }
 
 void array_free(float* M) {
@@ -37,12 +37,12 @@ void f() {
   __pure();
   float* const M = array_alloc(32);
   __ghost(array_focus, "M := M, i := 0");
-  M[0] = 0;
+  M[0] = 0.f;
   __ghost(array_unfocus, "M := M");
   array_free(M);
 }
 
 void g(float* t) {
   __modifies("&t[0] ~> Cell");
-  t[0] = 0;
+  t[0] = 0.f;
 }

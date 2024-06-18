@@ -44,7 +44,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
 
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
 
-  let main_fun_str = "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
+  let main_fun_str = "void f(" ^ fun_args ^ "){ " ^ pat ^ "; }" in
   let ctx_defs_orig = if ctx
     then begin
       let ast = Target.get_ast () in
@@ -73,18 +73,9 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   | Trm_let_fun (_, _, args, body, _) ->
     begin match body.desc with
     | Trm_seq tl1 ->
-      if Mlist.length tl1 < 1 then trm_fail body "Trm_matching.parse_pattern: please enter a pattern
-                                                  of the shape var_decls ==> rule_to_apply";
-      let pattern_instr_ret = Mlist.nth tl1 0 in
-      let pattern_instr =
-      begin match pattern_instr_ret.desc with
-      | Trm_abort (Ret r1) ->
-        begin match  r1 with
-        | Some t1 -> t1
-        | _ -> trm_fail pattern_instr_ret "Trm_matching.parse_pattern: this should never appear"
-        end
-      | _ -> pattern_instr_ret
-      end in
+      if Mlist.length tl1 != 1 then
+        trm_fail body "Trm_matching.parse_pattern: error in pattern recovery";
+      let pattern_instr = Mlist.nth tl1 0 in
       let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x.name aux_var_decls then Some (x, ty) else None ) args in
       let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
       (pattern_vars, aux_vars, trm_subst ctx_vars_to_orig pattern_instr)

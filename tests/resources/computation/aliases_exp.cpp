@@ -70,6 +70,6 @@ void eq_to_alias(float* A, int n) {
   for (int i = 0; i < 1024; ++i) {
     __strict();
     __xmodifies("&A[MINDEX1(1024, i)] ~> Cell");
-    A[MINDEX1(1024, i)] = 0;
+    A[MINDEX1(1024, i)] = 0.f;
   }
 }

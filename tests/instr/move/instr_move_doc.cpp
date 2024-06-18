@@ -1,6 +1,6 @@
 
 int main() {
-  if (1) {
+  if (true) {
     return 0;
   } else {
     int c = 1;

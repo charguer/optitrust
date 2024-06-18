@@ -127,7 +127,7 @@ void array_copy_par(float* A, float* B, int n) {
 float* array_alloc(int sz) {
   __produces("_Res ~> Array(sz)");
   __admitted();
-  return (float*)malloc(sz * sizeof(float));
+  return (float*)malloc((long unsigned int)sz * sizeof(float));
 }
 
 void array_free(float* A) {

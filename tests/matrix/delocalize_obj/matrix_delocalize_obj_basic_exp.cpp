@@ -62,7 +62,7 @@ mark : {
     }
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL;
+    for (particle* p = bag_iter_begin(&bag_it, nullptr); p != nullptr;
          p = bag_iter_next_common(&bag_it, true)) {
       bag_push(&bagNexts[MINDEX2(N0, nbCells, ANY(N0), idCell)], *p);
     }
