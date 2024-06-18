@@ -44,11 +44,12 @@ let%transfo intro_calloc (tg : target) : unit =
 (** [intro_mindex dim]; expects the target [tg] to point at at a matrix declaration, then it will change
      all its occurrence accesses into Optitrust MINDEX accesses. *)
 let%transfo intro_mindex (dim : trm) (tg : target) : unit =
+  Scope.infer_var_ids ();
   Target.iter (fun p ->
     let tg_trm = Target.resolve_path p in
     let error = "Matrix.intro_mindex: the target should point at matrix declaration." in
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x.name] ()]
+    Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVarId x] ()]
   ) tg
 
 (** [intro_malloc tg]: expects the target [tg] to point at a variable declaration
@@ -97,9 +98,9 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with
     | Trm_let ((p, _), _) ->
-      Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
+      Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVarId p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
     | Trm_apps (_, [{desc = Trm_var p}; _], _)  when is_set_operation tg_trm ->
-      Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
+      Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVarId p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
     | _ -> trm_fail tg_trm "biject: expected a variable declaration"
   ) tg
 
@@ -199,7 +200,7 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
     let tg_trm = Target.resolve_path p in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x.name; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x.name] (); cFun ~regexp:true "MINDEX."]]])
+    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x.name; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVarId x] (); cFun ~regexp:true "MINDEX."]]])
   ) tg
 
 (* FIXME:

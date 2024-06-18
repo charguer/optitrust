@@ -586,7 +586,7 @@ let assert_usages_commute
 
    - if provided [pred], allows specifying which formulas to include in the shadowing check.
     *)
-let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) (p : path) : unit =
+let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(keep_instr : bool = false) (p : path) : unit =
   step_backtrack ~discard_after:true (fun () ->
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
       Target.apply_at_path (fun instr ->
@@ -594,9 +594,14 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) (p :
         let write_res = List.filter (Resource_set.(linear_usage_filter (usage_of_trm instr) keep_written)) res_before.linear in
         let write_res = List.map (fun (_, formula) -> formula) write_res in
         let write_res = List.filter pred write_res in
+        (* DEBUG
+        Show.trm ~msg:"instr" instr;
+        Show.trms ~msg:"write_res" write_res; *)
         let uninit_ghosts = List.filter_map (fun res ->
           if Option.is_none (formula_uninit_inv res) then Some (Resource_trm.ghost_forget_init res) else None) write_res in
-        trm_seq_nobrace_nomarks uninit_ghosts
+        if keep_instr
+          then trm_seq_nobrace_nomarks (instr :: uninit_ghosts)
+          else trm_seq_nobrace_nomarks uninit_ghosts
       ) p
     );
     recompute_resources ()

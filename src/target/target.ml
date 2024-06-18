@@ -647,6 +647,12 @@ let cVar ?(regexp : bool = false) ?(substr : bool = false) ?(typ : string = "")
   if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization. *)
   Constr_target (with_type ~typ ~typ_pred [c])
 
+let cVarId (var : var) : constr =
+  Constr_pred (fun t ->
+    match trm_var_inv t with
+    | Some v -> var_eq v var
+    | None -> false)
+
 (* [cVarReg reg]: matches variables occurrences based on regexp. *)
 let cVarReg (reg : string) : constr =
   cVar ~regexp:true reg

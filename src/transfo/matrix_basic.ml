@@ -260,7 +260,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                 let indices = List.fold_left (fun acc range -> (trm_var range.index) :: acc) [] (List.rev loop_range) in
                 let new_indices = (trm_var index) :: indices in
                 let new_loop_range = loop_range @ [{ index; start = trm_int 0; direction = DirUp; stop = dim; step = trm_step_one () }] in
-                let tg = [nbAny; cCellAccess ~base:[cVar local_var.name] ()] in
+                let tg = [nbAny; cCellAccess ~base:[cVarId local_var] ()] in
                 let set_instr =
                 begin match body.desc with
                 | Trm_seq tl when Mlist.length tl = 1->

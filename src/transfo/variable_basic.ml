@@ -47,9 +47,29 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           Trace.justif "inlining a pure expression is always correct"
         else begin
           (* Case 2: non-interfering, deletable and duplicable expression *)
+          Resources.required_for_check ();
           Resources.assert_instr_effects_shadowed p;
+          let t_seq = Target.resolve_path p_seq in (* -- DUPLICATE CODE *)
+          let tl = trm_inv ~error trm_seq_inv t_seq in
+          let dl = Mlist.nth tl index in
+          let dl = Path.resolve_path p_local dl in (* -- *)
           Resources.assert_not_self_interfering dl;
-          let end_occ_index = Mlist.length tl in  (* TODO: more precise *)
+          let occurences = Constr.resolve_target [cVarId x] t_seq in
+          let end_occ_index = match snd (Xlist.unlast occurences) with
+          | Dir_seq_nth i :: _ -> i
+          | p -> path_fail p "expected path to be inside current sequence"
+          in
+          List.iter (fun occ_p ->
+            (* check below only works for sequences and instructions *)
+            List.iter (fun dir ->
+              let open Dir in
+              match dir with
+              | Dir_body | Dir_then | Dir_else
+              | Dir_for_c_init | Dir_for_c_step | Dir_case _
+              | Dir_contract _ | Dir_ghost_arg_nth _ -> ()
+              | _ -> path_fail occ_p (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
+            ) occ_p
+          ) (Xlist.drop 1 occurences);
           (* is calling this useful?
           Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
           let usage = Resources.usage_of_trm dl in

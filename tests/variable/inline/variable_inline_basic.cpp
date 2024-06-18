@@ -3,7 +3,7 @@ int f(int a) {
 }
 
 int main() {
-  
+
   // inlining of variable
   const int a = 2;
   const int b = a + a;
@@ -17,3 +17,17 @@ int main() {
   return 0;
 }
 
+/* TODO:
+
+int y = f(&x); // can't inline
+for i in r:
+  pre/post uninit x
+
+  x = 2;
+  y;
+  g(x);
+
+
+also tests where instrs cannot be deletete or duplicated through control flow
+
+*/

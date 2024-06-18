@@ -86,8 +86,17 @@ let admitted ?(justif: trm option) (): trm =
   in
   trm_apps (trm_var var_admitted) [] ~ghost_args
 
+let admitted_inv (t : trm) : (resource_item list) option =
+  Pattern.pattern_match t [
+    Pattern.(trm_apps (trm_var (var_eq var_admitted)) nil !__) (fun ghost_args ->
+      Some ghost_args
+    );
+    Pattern.(__) None
+  ]
+
 let ghost_admitted ?(justif: trm option) (contract: fun_contract): trm =
   ghost (ghost_closure_call contract (trm_seq_nomarks [admitted ?justif ()]))
+
 
 let ghost_rewrite (before: formula) (after: formula) (justif: formula): trm =
   let contract = {

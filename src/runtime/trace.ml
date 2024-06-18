@@ -1081,6 +1081,8 @@ and recompute_resources_on_ast () : unit =
   if not !Flags.resource_typing_enabled then failwith "Cannot compute resources when resource typing is disabled";
   let t = Scope_computation.infer_var_ids the_trace.cur_ast in (* Resource computation needs var_ids to be calculated *)
   (* Compute a typed AST *)
+
+  (* Printf.printf "%s\n" (AstC_to_c.ast_to_string ~style (Ast_fromto_AstC.(meta_intro ~skip_var_ids:true (style_of_custom_style custom_style)) t)); *)
   try
     the_trace.cur_ast <- Resource_computation.trm_recompute_resources Resource_set.empty t;
     the_trace.cur_ast_typed <- true;

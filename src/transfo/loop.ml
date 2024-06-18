@@ -120,7 +120,7 @@ let%transfo hoist_alloc_loop_list
       Matrix_basic.intro_malloc0 ~mark_alloc ~mark_free x (target_of_path seq_path);
     end else begin
       Marks.add mark_alloc (target_of_path p);
-      Marks.add mark_free [cFun ~args:((List.init !dim_count (fun _ -> [])) @ [[cVar x.name]]) (sprintf "MFREE%d" !dim_count)];
+      Marks.add mark_free [cFun ~args:((List.init !dim_count (fun _ -> [])) @ [[cVarId x]]) (sprintf "MFREE%d" !dim_count)];
     end
   in
   let simpl_hoist_tmp_var () : unit =

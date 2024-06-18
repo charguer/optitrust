@@ -40,6 +40,8 @@ Installation of OCaml ecosystem:
    opam install dune refl clangml pprint menhir menhirLib base64 ocamlbuild ocaml-lsp-server ppx_deriving
    # next line used only for generating the documentation of OptiTrust:
    opam install odoc lambdasoup
+   # fancy traces
+   opam install dream
    # then in any case execute the last line below
    eval $(opam env)
 ```

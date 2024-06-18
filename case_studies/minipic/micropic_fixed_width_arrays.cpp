@@ -114,8 +114,16 @@ double relativePosZ(double z) {
 
 const int nbCorners = 8;
 
-double* cornerInterpolationCoeff(vect pos) {
-  __produces("_Res ~> Matrix1(nbCorners)");
+typedef struct { int v[nbCorners]; } int_nbCorners;
+
+typedef struct { double v[nbCorners]; } double_nbCorners;
+
+typedef struct { vect v[nbCorners]; } vect_nbCorners;
+
+REGISTER_STRUCT_ACCESS(v)
+
+double_nbCorners cornerInterpolationCoeff(vect pos) {
+  __produces("for k in 0..nbCorners -> &_Res.v[k] ~> Cell");
   __admitted();
 
   const double rX = relativePosX(pos.x);
@@ -124,28 +132,34 @@ double* cornerInterpolationCoeff(vect pos) {
   const double cX = 1. + -1. * rX;
   const double cY = 1. + -1. * rY;
   const double cZ = 1. + -1. * rZ;
-  double* const r = (double* const) MALLOC1(nbCorners, sizeof(double));
-  r[0] = cX * cY * cZ;
-  r[1] = cX * cY * rZ;
-  r[2] = cX * rY * cZ;
-  r[3] = cX * rY * rZ;
-  r[4] = rX * cY * cZ;
-  r[5] = rX * cY * rZ;
-  r[6] = rX * rY * cZ;
-  r[7] = rX * rY * rZ;
+  double_nbCorners r;
+  r.v[0] = cX * cY * cZ;
+  r.v[1] = cX * cY * rZ;
+  r.v[2] = cX * rY * cZ;
+  r.v[3] = cX * rY * rZ;
+  r.v[4] = rX * cY * cZ;
+  r.v[5] = rX * cY * rZ;
+  r.v[6] = rX * rY * cZ;
+  r.v[7] = rX * rY * rZ;
   return r;
 }
 
-vect matrix_vect_mul(double* coeffs, vect* matrix) {
-  __reads("coeffs ~> Matrix1(nbCorners)");
-  __reads("matrix ~> Matrix1(nbCorners)");
+
+void CORNERS_FREE(double_nbCorners x) {
+  __consumes("for k in 0..nbCorners -> &x.v[k] ~> Cell");
+  __admitted();
+}
+
+vect matrix_vect_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
+  __reads("for k in 0..nbCorners -> &coeffs.v[k] ~> Cell");
+  __reads("for k in 0..nbCorners -> &matrix.v[k] ~> Cell");
 
   vect res = { 0., 0., 0. };
   for (int k = 0; k < nbCorners; k++) {
-    __xreads("&coeffs[MINDEX1(nbCorners, k)] ~> Cell");
-    __xreads("&matrix[MINDEX1(nbCorners, k)] ~> Cell");
+    __xreads("&coeffs.v[k] ~> Cell");
+    __xreads("&matrix.v[k] ~> Cell");
 
-    res = vect_add(res, vect_mul(coeffs[MINDEX1(nbCorners, k)], matrix[MINDEX1(nbCorners, k)]));
+    res = vect_add(res, vect_mul(coeffs.v[k], matrix.v[k]));
   }
 
   __admitted();
@@ -182,12 +196,13 @@ int idCellOfPos(vect pos) {
 // =========================================================
 // Core loop
 
-void simulate_single_cell(double stepDuration,
+int simulate_single_cell(double stepDuration,
   particle* particles, int nbParticles,
-  vect* fieldAtCorners, int nbSteps)
+  vect_nbCorners fieldAtCorners, int nbSteps)
 {
   __modifies("particles ~> Matrix1(nbParticles)");
-  __reads("fieldAtCorners ~> Matrix1(nbCorners)");
+  // __reads("fieldAtCorners ~> Matrix1(nbCorners)");
+  __reads("for k in 0..nbCorners -> &fieldAtCorners.v[k] ~> Cell");
 
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
@@ -196,9 +211,9 @@ void simulate_single_cell(double stepDuration,
       const particle p = particles[MINDEX1(nbParticles, idPart)];
 
       // Interpolate the field based on the position relative to the corners of the cell
-      double* const coeffs = cornerInterpolationCoeff(p.pos);
+      const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
       const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
-      MFREE1(nbCorners, coeffs);
+      CORNERS_FREE(coeffs); // FIXME
 
       // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
       const vect accel = vect_mul(p.charge / p.mass, fieldAtPos);

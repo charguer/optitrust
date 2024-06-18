@@ -179,7 +179,7 @@ let change_type_at (new_type : typvar) (index : int) (t : trm) : trm =
       let dl = Mlist.nth tl index in
       let error = "Variable_core.change_type_aux: expected a target to a variable declaration." in
       let (x, tx, _) = trm_inv ~error trm_let_inv dl in
-        Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[cVar x.name]] t
+        Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[cVarId x]] t
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
     trm_seq ~annot:t.annot new_tl
