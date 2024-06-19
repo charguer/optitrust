@@ -1,3 +1,8 @@
+# Benchmark Suites
+
+- PolyBench
+- NAS: https://github.com/GMAP/NPB-CPP
+
 # Physical Simulation Case Studies
 
 - [PIC](pic).

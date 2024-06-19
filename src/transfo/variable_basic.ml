@@ -46,9 +46,9 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           (* Case 1: pure expression *)
           Trace.justif "inlining a pure expression is always correct"
         else begin
-          (* Case 2: non-interfering, deletable and duplicable expression *)
+          (* Case 2: duplicable expression can be inlined if we don't go through interfering context, control flow or formulas *)
           Resources.required_for_check ();
-          Resources.assert_instr_effects_shadowed p;
+          (* Resources.assert_instr_effects_shadowed p; *)
           let t_seq = Target.resolve_path p_seq in (* -- DUPLICATE CODE *)
           let tl = trm_inv ~error trm_seq_inv t_seq in
           let dl = Mlist.nth tl index in
@@ -59,12 +59,13 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           | Dir_seq_nth i :: _ -> i
           | p -> path_fail p "expected path to be inside current sequence"
           in
+          (* check that we don't go through control flow or formulas *)
           List.iter (fun occ_p ->
-            (* check below only works for sequences and instructions *)
             List.iter (fun dir ->
               let open Dir in
               match dir with
               | Dir_body | Dir_then | Dir_else
+              | Dir_for_start | Dir_for_stop | Dir_for_step
               | Dir_for_c_init | Dir_for_c_step | Dir_case _
               | Dir_contract _ | Dir_ghost_arg_nth _ -> ()
               | _ -> path_fail occ_p (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
@@ -77,8 +78,8 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           let context_instrs, _ = Mlist.split end_occ_index instrs_after_let in
           let context_usage = Resources.compute_usage_of_instrs context_instrs in
           Resources.assert_usages_commute [path_error_context p] usage context_usage;
-          Trace.justif "inlining a deletable and duplicable expression through a non-interfering context is correct"
-          (* TODO: Case 3 ? *)
+          Trace.justif "inlining a duplicable expression through a non-interfering, non-control-flow and non-formula context is correct"
+          (* TODO: Case 3 ? recursive traversal analysis with special constructor cases? *)
           (* trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc" *)
         end
       end;
