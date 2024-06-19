@@ -10,7 +10,6 @@ A program is represented by its abstract syntax tree (AST). It corresponds to an
   + The `annot` field stores meta-data, including C display styles (e.g., `*p.f` vs `p->f`).
   + The `loc` field stores the location in the source file.
   + The `typ` and `ctx` fields store typing information.
-  + The `is_statement` caches the information of whether a term corresponds to a statement or an expression.
 
 - The grammar of terms includes values (type `value`), literals (type `lit`), primitive operators (type `prim`, and `unop` and `binop`).
 

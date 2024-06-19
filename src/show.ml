@@ -212,7 +212,6 @@ module At = struct
 
   (* TODO: printer for resources and ctx and usage informations *)
 
-  (* LATER: is_statement *)
   (* LATER: arith *)
 end
 

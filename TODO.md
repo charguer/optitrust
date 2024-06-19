@@ -491,7 +491,6 @@ grep -r '[tag]' .
   Show.marks tg;    (* prints the list of marks carried by the term (for sequences, prints in-between marks too) *)
   Show.annot tg;    (* prints the list of annotations associated with a term *)
   Show.desc tg;     (* prints the trm_desc of the term, i.e. like raw AST syntax but without subterms *)
-  Show.stmt tg;     (* prints the is_statement information of the term *)
   Show.info tg;     (* combination of show_desc; show_annot; show_stmt; show_typ; show_res; show_marks *)
 ```
 

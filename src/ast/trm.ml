@@ -16,53 +16,30 @@ let trm_annot_default = {
   trm_annot_referent = None;
 }
 
-(** [is_statement_of_desc t_desc]: checks if t_tesc corresponds to a statement or not  *)
-let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
-  match t_desc with
-  | Trm_let _ | Trm_let_mult _ | Trm_let_fun _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _
-  | Trm_do_while _ | Trm_for_c _ | Trm_for _ | Trm_switch _ | Trm_abort _ | Trm_goto _  -> true
-  | Trm_apps _ ->
-    begin match ty with
-    | Some {typ_desc = Typ_unit ; _} -> true
-    | _ -> false
-    end
-  | _ -> false
-
-(** [trm_build ~annot ?loc ~is_statement ?typ ?ctx ?errors ~desc ()]: builds trm [t] with its fields given as arguments. *)
-let trm_build ~(annot : trm_annot) ?(loc : location) ~(is_statement : bool) ?(typ : typ option)
+(** [trm_build ~annot ?loc ?typ ?ctx ?errors ~desc ()]: builds trm [t] with its fields given as arguments. *)
+let trm_build ~(annot : trm_annot) ?(loc : location) ?(typ : typ option)
   ?(ctx : ctx = unknown_ctx ()) ?(errors : string list = []) ~(desc : trm_desc) () : trm =
-  let t = {annot; loc; is_statement; typ; desc; ctx; errors} in
+  let t = {annot; loc; typ; desc; ctx; errors} in
   Stats.incr_trm_alloc ();
   t
 
-(** [trm_make ~annot ?loc ~is_statement ?typ ?ctx ?errors desc]: builds trm [t] with description [desc] and other fields given
+(** [trm_make ~annot ?loc ?typ ?ctx ?errors desc]: builds trm [t] with description [desc] and other fields given
     as default ones. *)
-let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location) ?(is_statement : bool option)
+let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location)
     ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) (desc : trm_desc) : trm =
-   let is_statement =
-     match is_statement with
-     | Some b -> b
-     | None -> is_statement_of_desc typ desc
-     in
-   trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ?errors ()
+  trm_build ~annot ~desc ?loc ?typ ?ctx ?errors ()
 
 
-(** [trm_alter ~annot ?loc ?is_statement ?typ ?ctx ?desc t]: alters any of the fields of [t] that was provided as argument. *)
-let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statement : bool option)
+(** [trm_alter ~annot ?loc ?typ ?ctx ?desc t]: alters any of the fields of [t] that was provided as argument. *)
+let trm_alter ?(annot : trm_annot option) ?(loc : location option)
  ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) ?(desc : trm_desc option) (t : trm) : trm =
     let annot = match annot with Some x -> x | None -> t.annot in
     let loc = match loc with Some x -> x | None -> t.loc in
     let typ = match typ with | None -> t.typ | _ -> typ in
-    let is_statement = match is_statement with
-      | Some x -> x
-      | None -> match desc with
-                | Some d -> is_statement_of_desc typ d
-                | None -> t.is_statement
-      in
     let ctx = Option.value ~default:t.ctx ctx in
     let errors = Option.value ~default:t.errors errors in
     let desc = match desc with | Some x -> x | None -> t.desc in
-    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ~errors ()
+    trm_build ~annot ~desc ?loc ?typ ~ctx ~errors ()
 
 (** [trm_replace desc t]: an alias of [trm_alter] to alter only the descriptiong of [t]. *)
 let trm_replace (desc : trm_desc) (t : trm) : trm =
@@ -430,6 +407,17 @@ let trm_attr_add (att : attribute) (t : trm) : trm =
 
 (*****************************************************************************)
 
+(** [trm_is_statement t]: checks if [t] corresponds to a statement or not *)
+let trm_is_statement (t : trm) : bool =
+  match t.desc with
+  | Trm_let _ | Trm_let_mult _ | Trm_let_fun _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _
+  | Trm_do_while _ | Trm_for_c _ | Trm_for _ | Trm_switch _ | Trm_abort _ | Trm_goto _  -> true
+  | Trm_apps _ ->
+    begin match t.typ with
+    | Some {typ_desc = Typ_unit ; _} -> true
+    | _ -> false
+    end
+  | _ -> false
 
 (* ********************************** Annotation manipulation ************************************ *)
 (**** Attributes  ****)

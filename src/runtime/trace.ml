@@ -1423,7 +1423,7 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
    place this definition at the top of your script.
 
       let _ = Trace.trace_custom_postprocessing := (fun t ->
-        let tg = [nbAny; cPred (fun ti -> ti.is_statement)] in
+        let tg = [nbAny; cPred trm_is_statement] in
         let ps = resolve_target tg t in
         let markof _pi ti =
           match ti.typ with

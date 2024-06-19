@@ -558,7 +558,7 @@ let find_surrounding_expr (p : path) (t : trm) : path =
   let rec aux p =
     let pp = parent p in
     let pp_t = resolve_path pp t in
-    if not pp_t.is_statement then aux pp else p
+    if not (trm_is_statement pp_t) then aux pp else p
   in
   (* can be useful for user to directly target statement
   assert (not (Path.resolve_path p t).is_statement); *)
@@ -569,6 +569,6 @@ let find_surrounding_expr (p : path) (t : trm) : path =
     Given a path to an instruction, returns it. *)
 let path_in_instr (p : path) (t : trm) : (path * path) =
   let p_t = resolve_path p t in
-  let to_instr = if p_t.is_statement then p else parent (find_surrounding_expr p t) in
+  let to_instr = if trm_is_statement p_t then p else parent (find_surrounding_expr p t) in
   let to_expr = Xlist.drop (List.length to_instr) p in
   (to_instr, to_expr)

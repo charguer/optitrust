@@ -492,7 +492,6 @@ and print_trm style (t : trm) : document =
     else
       let dannot = print_trm_annot style t in
       let dloc = Option.map (print_loc style) t.loc in
-      let dinstr = string (string_of_bool t.is_statement) in
       let dtyp = Option.map (print_typ style) t.typ in
 
       let opt_str c o = if o = None then "-" else c in
@@ -509,7 +508,6 @@ and print_trm style (t : trm) : document =
       print_fields [
         print_field "annot" dannot;
         print_opt_field "loc" dloc;
-        print_field "is_statement" dinstr;
         print_opt_field "typ" dtyp;
         print_field "ctx" (string dctx);
         print_list_field "errors" derrors;

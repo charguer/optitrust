@@ -600,7 +600,6 @@ and trm =
  { annot : trm_annot;
    desc : trm_desc;
    loc : location;
-   is_statement : bool;
    typ : typ option;
    mutable ctx : ctx;
    mutable errors : string list;

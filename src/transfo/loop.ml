@@ -298,9 +298,9 @@ let find_surrounding_instr (p : path) (t : trm) : path =
   let rec aux p =
     let p_t = Path.resolve_path p t in
     (* TODO: use resolve_path_and_ctx instead of is_statement *)
-    if p_t.is_statement then p else aux (Path.parent p)
+    if trm_is_statement p_t then p else aux (Path.parent p)
   in
-  assert (not (Path.resolve_path p t).is_statement);
+  assert (not (trm_is_statement (Path.resolve_path p t)));
   aux p
 
 (** [hoist_expr_loop_list]: this transformation hoists an expression outside of multiple loops
