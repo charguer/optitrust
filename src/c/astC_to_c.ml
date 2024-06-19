@@ -57,37 +57,37 @@ let style_for_reparse () : style =
    AST being printed, and preferably to reinitialize the stringreprs
    table before starting. *)
 
-(* [stringreprids]: Hashtable for storing the string representation of trm. *)
+(** [stringreprids]: Hashtable for storing the string representation of trm. *)
 type stringreprs = (Ast.stringreprid, document) Hashtbl.t
 
-(* [stringreprs]: string representations are stored only when the user uses string matching targets. *)
+(** [stringreprs]: string representations are stored only when the user uses string matching targets. *)
 let stringreprs : stringreprs option ref = ref None
 
-(* [clear_string_reprs ()]: clearn all the stored string representations. *)
+(** [clear_string_reprs ()]: clearn all the stored string representations. *)
 let clear_stringreprs () =
   stringreprs := None
 
-(* [get_stringreprs ()]: gets the current string representations. *)
+(** [get_stringreprs ()]: gets the current string representations. *)
 let get_stringreprs () : stringreprs =
   match !stringreprs with
   | Some m -> m
   | None -> failwith "AstC_to_c.get_stringreprs: must call init_stringreprs or set_stringreprs first"
 
-(* [get_and_clear_stringreprs ()]: gets the current string representations and delete them. *)
+(** [get_and_clear_stringreprs ()]: gets the current string representations and delete them. *)
 let get_and_clear_stringreprs () : stringreprs =
   let m = get_stringreprs() in
   stringreprs := None;
   m
 
-(* [set_stringreprs t]: replaces the current string representations with [t]. *)
+(** [set_stringreprs t]: replaces the current string representations with [t]. *)
 let set_stringreprs (t : stringreprs) : unit =
   stringreprs := Some t
 
-(* [init_string_reprs]: creates the hashtable used for storing the string representations. *)
+(** [init_string_reprs]: creates the hashtable used for storing the string representations. *)
 let init_stringreprs () =
   stringreprs := Some (Hashtbl.create 100)
 
-(* [add_stringreprs_entry t d]: adds trm [t] into the table of representations. *)
+(** [add_stringreprs_entry t d]: adds trm [t] into the table of representations. *)
 let add_stringreprs_entry (t : trm) (d : document) : unit =
   match !stringreprs with
   | None -> ()
@@ -96,7 +96,7 @@ let add_stringreprs_entry (t : trm) (d : document) : unit =
       | None -> ()
       | Some id -> Hashtbl.add m id d
 
-(* [print_stringreprs m]: for debugging purposes. *)
+(** [print_stringreprs m]: for debugging purposes. *)
 let print_stringreprs (m : stringreprs) : unit =
   let pr id d =
     Tools.debug "stringreprs[%d] = %s\n----" id (document_to_string d) in
@@ -118,7 +118,7 @@ let print_stringreprs (m : stringreprs) : unit =
 
 **************************************************************************************************************)
 
-(* [typ_desc_to_doc t]: converts ast type descriptions to pprint documents. *)
+(** [typ_desc_to_doc t]: converts ast type descriptions to pprint documents. *)
 (* TODO: for types of the form   int[x]  the x is printed
         using the default style *)
 let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document =
@@ -184,14 +184,14 @@ and typconstr_to_doc ((namespaces, name) : typconstr) : document =
   (concat_map (fun q -> string q ^^ string "::") namespaces) ^^
   (string name)
 
-(* [typ_annot_to_doc]: converts type annotations to pprint document. *)
+(** [typ_annot_to_doc]: converts type annotations to pprint document. *)
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
   | Long -> string "long"
   | Short -> string "short"
 
-(* [typ_to_doc]: converts ast types to pprint document. *)
+(** [typ_to_doc]: converts ast types to pprint document. *)
 and typ_to_doc (t : typ) : document =
   let is_injected = typ_has_attribute Injected t in
   let d = typ_desc_to_doc ~is_injected t.typ_desc in
@@ -206,7 +206,7 @@ and typ_to_doc (t : typ) : document =
   in
   dattr ^^ dannot ^^ d
 
-(* [typed_var_to_doc style tx]: pairs like (x, int) are printed as int x. *)
+(** [typed_var_to_doc style tx]: pairs like (x, int) are printed as int x. *)
 and typed_var_to_doc: 'a. style -> ('a -> document) -> ('a * typ) -> document = fun style x_to_doc -> fun tx ->
   let (x, ty) = tx in
   let is_const = is_typ_const ty in
@@ -242,7 +242,7 @@ and typed_var_to_doc: 'a. style -> ('a -> document) -> ('a * typ) -> document = 
      dattr ^^ typ_to_doc ty ^^ blank 1 ^^ const_string ^^ x_to_doc x
   | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ x_to_doc x
 
-(* [lit_to_doc style l]: converts literals to pprint documents. *)
+(** [lit_to_doc style l]: converts literals to pprint documents. *)
 and lit_to_doc style (cstyles: cstyle_annot list) (typ : typ option) (l : lit) : document =
   match l with
   | Lit_unit -> semi
@@ -262,7 +262,7 @@ and lit_to_doc style (cstyles: cstyle_annot list) (typ : typ option) (l : lit) :
         then string "NULL"
         else string "nullptr"
 
-(* [unop_to_doc style op]: converts unary operators to pprint documents. *)
+(** [unop_to_doc style op]: converts unary operators to pprint documents. *)
 and unop_to_doc style (op : unary_op) : document =
   match op with
   | Unop_get -> star
@@ -279,7 +279,7 @@ and unop_to_doc style (op : unary_op) : document =
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
 
-(* [binop_to_doc style op]: converts binary operators to pprint documents. *)
+(** [binop_to_doc style op]: converts binary operators to pprint documents. *)
 and binop_to_doc style (op : binary_op) : document =
   match op with
   | Binop_set -> equals
@@ -306,7 +306,7 @@ and binop_to_doc style (op : binary_op) : document =
   | Binop_shiftr -> twice rangle
   | Binop_xor -> caret
 
-(* [prim_to_doc style p]: converts primitives to pprint documents. *)
+(** [prim_to_doc style p]: converts primitives to pprint documents. *)
 and prim_to_doc style (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc style op
@@ -325,20 +325,20 @@ and prim_to_doc style (p : prim) : document =
     string "delete[]"
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
-(* [val_to_doc style v]: converts values to pprint documents. *)
+(** [val_to_doc style v]: converts values to pprint documents. *)
 and val_to_doc style (cstyles : cstyle_annot list) (typ : typ option) (v : value) : document =
   match v with
   | Val_lit l -> lit_to_doc style cstyles typ l
   | Val_prim p -> prim_to_doc style p
 
-(* [attr_to_doc a]: converts attributes to pprint documents. *)
+(** [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc (a : attribute) : document =
   match a with
   | Alignas t -> string "alignas" ^^ parens (decorate_trm (default_style()) t)
   | GeneratedTyp | Injected -> empty
   | Others -> empty
 
-(* [decorate_trm style ~semicolon ~prec ~print_struct_init_type t]:
+(** [decorate_trm style ~semicolon ~prec ~print_struct_init_type t]:
     - if [prec] is greater than the precedence of [t] then decorate [t] with parentheses
     - if [t] is marked,then decorate [t] with those marks.
     - if t is struct initialization list outside a variable declaration, then decorate [t] with a cast in front
@@ -407,14 +407,14 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
     derror ^^ dt
   end
 
-(* [trm_var_to_doc style v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
+(** [trm_var_to_doc style v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
 and trm_var_to_doc style (x : var) (t : trm) : document =
   let typ_args = get_typ_arguments t in
   let typ_args_d = List.map typ_to_doc typ_args in
   let typ_args_d = begin match typ_args_d with | [] -> empty | _ -> list_to_doc ~sep:comma ~bounds:[langle; rangle] typ_args_d end in
   var_to_doc style x ^^ typ_args_d
 
-(* [trm_to_doc style ~semicolon ~prec ~print_struct_init_type  t]: converts [t] to a pprint document *)
+(** [trm_to_doc style ~semicolon ~prec ~print_struct_init_type  t]: converts [t] to a pprint document *)
 and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false) (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
@@ -620,7 +620,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
   add_stringreprs_entry t d;
   d
 
-(* [record_type_to_doc rt]: converts a C++ record type to a pprint document *)
+(** [record_type_to_doc rt]: converts a C++ record type to a pprint document *)
 and record_type_to_doc (rt : record_type) : document =
   match rt with
   | Struct -> string "struct"
@@ -628,7 +628,7 @@ and record_type_to_doc (rt : record_type) : document =
   | Class -> string "class"
 
 
-(* [trm_let_to_doc style ~semicolon tv init]: converts a variable declaration to print document *)
+(** [trm_let_to_doc style ~semicolon tv init]: converts a variable declaration to print document *)
 and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc style ((var_to_doc style)) tv in
@@ -642,7 +642,7 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
   | _ ->
     dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style ~print_struct_init_type:false init ^^ dsemi
 
-(* [trm_let_mult_to_doc style ~semicolon tv bs]: converts multiple variable declarations to pprint document *)
+(** [trm_let_mult_to_doc style ~semicolon tv bs]: converts multiple variable declarations to pprint document *)
 and trm_let_mult_to_doc style ?(semicolon : bool = true) (bs : (typed_var * trm) list) : document =
   let rec get_inner_ptrs_and_consts (ty : typ) : typ =
     match ty.typ_desc with
@@ -689,7 +689,7 @@ and trm_let_mult_to_doc style ?(semicolon : bool = true) (bs : (typed_var * trm)
   dtx ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
 
 
-(* [aux_class_constructor_to_doc style ]: converst class constructor declaration to pprint document. *)
+(** [aux_class_constructor_to_doc style ]: converst class constructor declaration to pprint document. *)
 (* DEPRECATED? _semicolon *)
 and aux_class_constructor_to_doc style ?(_semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
   (* Deprecated? let dsemi = if semicolon then semi else empty in*)
@@ -725,7 +725,7 @@ and aux_class_constructor_to_doc style ?(_semicolon : bool = false)  (spec_annot
    in
   (separate (blank 1) [!explicit; var_to_doc style name; parens argd; init_d; dt])
 
-(* [aux_class_destructor_to_doc style ]: converst class constructor declaration to pprint document. *)
+(** [aux_class_destructor_to_doc style ]: converst class constructor declaration to pprint document. *)
 and aux_class_destructor_to_doc style ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (body : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_destructor dk -> dk :: acc | _ -> acc) [] spec_annot in
@@ -739,7 +739,7 @@ and aux_class_destructor_to_doc style ?(semicolon : bool = false)  (spec_annot  
   (separate (blank 1) [tilde; var_to_doc style name; lparen ^^ rparen; dt]) ^^ dsemi
 
 
-(* [aux_fun_to_doc style ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
+(** [aux_fun_to_doc style ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
 and aux_fun_to_doc style ?(semicolon : bool = false) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dinline = if inline then string "inline" else empty in
@@ -751,7 +751,7 @@ and aux_fun_to_doc style ?(semicolon : bool = false) ?(const : bool = false) ?(i
     then (separate (blank 1) [dinline; dr; var_to_doc style f; parens argd; const]) ^^ dsemi
     else separate (blank 1) [dinline; dr; var_to_doc style f; parens argd; const; decorate_trm style b]
 
-(* [trm_let_fun_to_doc style]: converts any OptiTrust function declaration(definition) to a pprint document. *)
+(** [trm_let_fun_to_doc style]: converts any OptiTrust function declaration(definition) to a pprint document. *)
 and trm_let_fun_to_doc style ?(semicolon : bool = false) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
   if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot
     then aux_class_constructor_to_doc style fun_annot f args [] b
@@ -762,12 +762,12 @@ and trm_let_fun_to_doc style ?(semicolon : bool = false) (fun_annot : cstyle_ann
       let const = List.mem Const_method fun_annot in
       aux_fun_to_doc style ~semicolon ~const ~inline f r args b
 
-(* [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
+(** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
 and formula_fun_to_doc style ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   string "fun" ^^ blank 1 ^^ separate (comma ^^ blank 1) (List.map (fun (v, _) -> var_to_doc style v) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style b ^^ dsemi
 
-(* [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
+(** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
 and trm_fun_to_doc style ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style (var_to_doc style) tv) tvl) in
@@ -775,7 +775,7 @@ and trm_fun_to_doc style ?(semicolon : bool = true) (ty : typ option) (tvl : typ
   let capt = brackets (ampersand) in
   separate (blank 1) ([capt; parens (argd); dr; decorate_trm style b]) ^^ dsemi
 
-(* [access_ctrl_to_doc style acc_ctrl]: converts [acc_ctrl] to a pprint document. *)
+(** [access_ctrl_to_doc style acc_ctrl]: converts [acc_ctrl] to a pprint document. *)
 and access_ctrl_to_doc style (acc_ctrl : access_control) : document =
   match acc_ctrl with
   | Access_public -> string "public:"
@@ -783,7 +783,7 @@ and access_ctrl_to_doc style (acc_ctrl : access_control) : document =
   | Access_protected -> string "protected:"
   | Access_unspecified -> empty
 
-(* [typedef_to_doc style ~semicolon td]: converts a type definition to pprint document *)
+(** [typedef_to_doc style ~semicolon td]: converts a type definition to pprint document *)
 and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []) (td : typedef) : document =
   let dsemi = if semicolon then semi else empty in
   let tc = [], td.typdef_tconstr in
@@ -848,7 +848,7 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
       separate (blank 1) [string "enum"; typconstr_to_doc tc;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
-(* [multi_decl_to_doc style loc tl]: converts a sequence with multiple variable declarations into a single multi variable declaration *)
+(** [multi_decl_to_doc style loc tl]: converts a sequence with multiple variable declarations into a single multi variable declaration *)
 and multi_decl_to_doc style (loc : location) (tl : trms) : document =
  let get_info (t : trm) : document =
   begin match t.desc with
@@ -880,7 +880,7 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
   | _ -> loc_fail loc "AstC_to_c.multi_decl_to_doc style: expected a trm_let"
   end
 
-(* [apps_to_doc style ~prec f tl]: converts a function call to pprint document *)
+(** [apps_to_doc style ~prec f tl]: converts a function call to pprint document *)
 and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
@@ -1071,13 +1071,13 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
       let f_doc = decorate_trm style f in
       aux_arguments f_doc
 
-(* [mode_to_doc m]: OpenMP mode to pprint document *)
+(** [mode_to_doc m]: OpenMP mode to pprint document *)
 and mode_to_doc (m : mode) : document =
   match m with
   | Shared_m -> string "shared"
   | None_ -> string "none"
 
-(* [sched_type_to_doc st]: OpenMP scheduling type to pprint document *)
+(** [sched_type_to_doc st]: OpenMP scheduling type to pprint document *)
 and sched_type_to_doc (st : sched_type) : document =
   match st with
   | Static -> string "static"
@@ -1085,7 +1085,7 @@ and sched_type_to_doc (st : sched_type) : document =
   | Guided -> string "guided"
   | Runtime -> string "runtime"
 
-(* [reduction_identifier_to_doc ri]: OpenMP reduction identifier to pprint document *)
+(** [reduction_identifier_to_doc ri]: OpenMP reduction identifier to pprint document *)
 and reduction_identifier_to_doc (ri : reduction_identifier) : document =
   match ri with
   | Plus -> plus
@@ -1099,7 +1099,7 @@ and reduction_identifier_to_doc (ri : reduction_identifier) : document =
   | Min -> string "min"
   | Max -> string "max"
 
-(* [map_typ_to_doc mt]: OpenMP map_type to pprint document *)
+(** [map_typ_to_doc mt]: OpenMP map_type to pprint document *)
 and map_type_to_doc (mt : map_type) : document =
   match mt with
   | Alloc -> string "alloc" ^^ colon
@@ -1108,7 +1108,7 @@ and map_type_to_doc (mt : map_type) : document =
   | ToFrom -> string "tofrom" ^^ colon
   | No_map -> empty
 
-(* [proc_bind_to_doc pb]: OpenMP process bind to pprint document*)
+(** [proc_bind_to_doc pb]: OpenMP process bind to pprint document*)
 and proc_bind_to_doc (pb : proc_bind) : document =
   match pb with
   | Master_pb -> string "master"
@@ -1120,7 +1120,7 @@ and dep_to_doc (d : dep) : document =
   | Dep_var s -> var_to_doc (default_style ()) s  (* TODO #propagate-defaut: propagate style*)
   | Dep_ptr d -> star ^^ dep_to_doc d
 
-(* [dependence_type_to_doc dp]: OpenMP variable dependence type to pprint document *)
+(** [dependence_type_to_doc dp]: OpenMP variable dependence type to pprint document *)
 and dependence_type_to_doc (dp : dependence_type) : document =
   match dp with
   | In vl -> let vl = List.map dep_to_doc vl in
@@ -1135,7 +1135,7 @@ and dependence_type_to_doc (dp : dependence_type) : document =
     string "depend (sink" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Source -> string "source"
 
-(* [clause_to_doc cl]: OpenMP clause to pprint document *)
+(** [clause_to_doc cl]: OpenMP clause to pprint document *)
 and clause_to_doc (cl : clause) : document =
   let style = (default_style ()) in (* TODO #propagate-defaut: propagate style*)
   let vl_to_doc vs = separate_map (string ",") (var_to_doc style) vs in
@@ -1186,7 +1186,7 @@ and clause_to_doc (cl : clause) : document =
   | Num_teams n -> string "num_teams" ^^ parens (var_to_doc style n)
   | Thread_limit n -> string "thread_limit" ^^ parens (var_to_doc style n)
 
-(* [atomic_operation_to_doc ao]: OpenMP atomic operation to pprint document *)
+(** [atomic_operation_to_doc ao]: OpenMP atomic operation to pprint document *)
 and atomic_operation_to_doc (ao : atomic_operation option) : document =
   match ao with
   | None -> empty
@@ -1198,7 +1198,7 @@ and atomic_operation_to_doc (ao : atomic_operation option) : document =
     | Capture -> string "capture"
     end
 
-(* [directive_to_doc d]: OpenMP directive to pprint document *)
+(** [directive_to_doc d]: OpenMP directive to pprint document *)
 and directive_to_doc (d : directive) : document =
   let style = (default_style ()) in (* TODO #propagate-defaut: propagate style*)
   let vl_to_doc vs = separate_map (string ",") (var_to_doc style) vs in
@@ -1256,7 +1256,7 @@ and directive_to_doc (d : directive) : document =
   | Teams_distribute_parallel_for_simd cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^(list_to_doc (List.map clause_to_doc cl))
   | Threadprivate vl -> string "threadprivate" ^^ parens (vl_to_doc vl)
 
-(* [routine_to_doc r]: OpenMP routine to pprint document *)
+(** [routine_to_doc r]: OpenMP routine to pprint document *)
 and routine_to_doc (r : omp_routine) : document =
   let style = (default_style ()) in (* TODO #propagate-defaut: propagate style*)
   match r with
@@ -1301,7 +1301,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_wtime -> string "get_wtime" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
-(* [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
+(** [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
   let init = trm_let (range.index, typ_int()) range.start in
@@ -1347,27 +1347,27 @@ and formula_to_doc style (f: formula): document =
     Pattern.(!__) (fun _ -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}})
   ]
 
-(* [ast_to_doc t]: converts a full OptiTrust ast to a pprint document. *)
+(** [ast_to_doc t]: converts a full OptiTrust ast to a pprint document. *)
 let ast_to_doc style (t : trm) : document =
   decorate_trm style t
 
-(* [ast_to_outchannel out t]: print ast [t] to an out_channel [out] *)
+(** [ast_to_outchannel out t]: print ast [t] to an out_channel [out] *)
 let ast_to_outchannel style (out : out_channel) (t : trm) : unit =
   ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc style t)
 
-(* [ast_to_file ~optitrust_syntax filename t]: print ast [t] to file [filename] *)
+(** [ast_to_file ~optitrust_syntax filename t]: print ast [t] to file [filename] *)
 let ast_to_file style (filename : string) (t : trm) : unit =
   let out = open_out filename in
   ast_to_outchannel style out t;
   close_out out
 
-(* [ast_to_string ~optitrust_syntax t]: converts ast [t] to string *)
+(** [ast_to_string ~optitrust_syntax t]: converts ast [t] to string *)
 let ast_to_string ?(width : PPrint.requirement = 80) ?(style : style option) ?(optitrust_syntax : bool option) (t : trm) : string =
   let style = match style with None -> default_style() | Some s -> s in
   let style = match optitrust_syntax with None -> style | Some b -> { style with optitrust_syntax = b } in
   document_to_string ~width (ast_to_doc style t)
 
-(* [typ_to_string ty]: converts type [ty] to string *)
+(** [typ_to_string ty]: converts type [ty] to string *)
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
   ToBuffer.pretty 0.9 (!Flags.code_print_width) b (typ_to_doc ty);

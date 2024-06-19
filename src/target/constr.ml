@@ -6,7 +6,7 @@ open Str
 open Tools
 open Path
 
-(* [Resolve_target_failure]: exception raised when a target couldn't be resolved *)
+(** [Resolve_target_failure]: exception raised when a target couldn't be resolved *)
 exception Resolve_target_failure of string
 
 (* TODO deprecate this after Target.iter is used everywhere *)
@@ -16,7 +16,7 @@ let old_resolution = ref false
 (*                        Data structure for targets                          *)
 (******************************************************************************)
 
-(* [trm_kind]: type to classify trms into four main classes
+(** [trm_kind]: type to classify trms into four main classes
     1) Structuring statements
     2) Instructions
     3) Expression
@@ -30,7 +30,7 @@ type trm_kind =
 [@@deriving show { with_path = false }]
 
 
-(* [rexp]: data structure for storing regular expressions *)
+(** [rexp]: data structure for storing regular expressions *)
 type rexp = {
   rexp_desc : string; (* printable version of regexp *)
   rexp_exp : regexp;
@@ -38,7 +38,7 @@ type rexp = {
   rexp_trm_kind : trm_kind }
 let pp_rexp fmt rexp = Format.pp_print_string fmt rexp.rexp_desc
 
-(* [target_relative]: target kind *)
+(** [target_relative]: target kind *)
 type target_relative =
     | TargetAt
     | TargetFirst
@@ -48,7 +48,7 @@ type target_relative =
     | TargetAfter
 [@@deriving show { with_path = false }]
 
-(* [target_occurrences]: the number of targets to match *)
+(** [target_occurrences]: the number of targets to match *)
 type target_occurrences =
     | ExpectNb of int  (* exactly n occurrences *)
     | ExpectMulti  (* > 0 number of occurrences *)
@@ -59,20 +59,20 @@ type target_occurrences =
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
 
-(* [target]: is a list of constraints to identify nodes of the AST that we require the result path to go through. *)
+(** [target]: is a list of constraints to identify nodes of the AST that we require the result path to go through. *)
 type target = constr list
 
-(* [targets]: a list of targets *)
+(** [targets]: a list of targets *)
 and targets = target list
 
-(* [depth]: targets by default resolve at any depth, but they can also be resolved only on a specific depth *)
+(** [depth]: targets by default resolve at any depth, but they can also be resolved only on a specific depth *)
 and depth =
   | DepthAny
   | DepthAt of int
 
 [@@deriving show { with_path = false }]
 
-(* [constr]: are the unit constrainst that are checked when target is being resolved, a constraint can be one of the following ones
+(** [constr]: are the unit constrainst that are checked when target is being resolved, a constraint can be one of the following ones
      - direction constraints
      - include directives constraints
      - depth constraints
@@ -191,23 +191,23 @@ and constr =
    is the root, then reaching directly the position, assuming the path
    is valid (option: raise an exception if the path is invalid). *)
 
-(* [typ_constraint]: predicate on types *)
+(** [typ_constraint]: predicate on types *)
 and typ_constraint = typ -> bool
 
-(* [arg_constraint]: constraint on an argument, represented as a target with a single item
+(** [arg_constraint]: constraint on an argument, represented as a target with a single item
     of the form [cArg ..] or [cTrue]  *)
 and arg_constraint = target
 
-(* [var_constraint]: constraint over variable names *)
+(** [var_constraint]: constraint over variable names *)
 and var_constraint = string -> bool
 
-(* [constr_name): names involved in constraints, e.g. for goto labels *)
+(** [constr_name]: names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
 
-(* [constr_enum_const]: constraint on const enums *)
+(** [constr_enum_const]: constraint on const enums *)
 and constr_enum_const = ((constr_name * target) list) option
 
-(* [constr_accesses]: constraint of a list of struct accesses or array accesses *)
+(** [constr_accesses]: constraint of a list of struct accesses or array accesses *)
 and constr_accesses = (constr_access list) option
 
 (* Predicate for expressing constraints over a list of subterms. It consists of:
@@ -217,7 +217,7 @@ and constr_accesses = (constr_access list) option
      the full list should be considered as matching or not.
    - a string that explains what was the user intention *)
 
-(* [target_list_pred]: predicate for expressing constraints over a list of stubterms. It consists of
+(** [target_list_pred]: predicate for expressing constraints over a list of stubterms. It consists of
     - a function that produces the constraints for the i-th subterm
     - a function that takes a list of booleans indicating which of the subterms match their respective constraint,
         and returns a boolean indicatin whether the full list should be considered as matching or not
@@ -227,7 +227,7 @@ and target_list_pred =
     target_list_pred_validate : bool list -> bool;
     target_list_pred_to_string : unit -> string; }
 
-(* [constr_access]: constraint over a single struct or array access  *)
+(** [constr_access]: constraint over a single struct or array access  *)
 and constr_access =
   (* array indices may be arbitrary terms *)
   | Array_access of target
@@ -235,17 +235,17 @@ and constr_access =
   | Struct_access of constr_name
   | Any_access
 
-(* [constr_cases]: for each case, its kind and a constraint on its body *)
+(** [constr_cases]: for each case, its kind and a constraint on its body *)
 and constr_cases = ((case_kind * target) list) option
 
-(* [case_kind]: switch case kind used on [constr_cases] *)
+(** [case_kind]: switch case kind used on [constr_cases] *)
 and case_kind =
   (* case: value *)
   | Case_val of target
   | Case_default
   | Case_any
 
-(* [abort_kind]: abort instruction kind used for abort insitruction constraints  *)
+(** [abort_kind]: abort instruction kind used for abort insitruction constraints  *)
 and abort_kind =
   | Any
   | Return
@@ -258,7 +258,7 @@ let target_to_string = show_target
 let constr_to_string = show_constr
 let trm_kind_to_string = show_trm_kind
 
-(* [target_simple]: is a [target] without any of the following relative constraints
+(** [target_simple]: is a [target] without any of the following relative constraints
    Constr_relative, Constr_occurrences, Constr_target.
    Note: It can include [cStrict] *)
 
@@ -266,7 +266,7 @@ type target_simple = target
 
 
 
-(* [target_struct]: structured representation of a [target] that decomposes the special constructors
+(** [target_struct]: structured representation of a [target] that decomposes the special constructors
    such as Constr_relative, Constr_occurrences, Constr_target from the [target_simple]. *)
 type target_struct = {
    target_path : target_simple; (* this path contains no nbMulti/nbEx/tBefore/etc.., only cStrict can be there *)
@@ -275,14 +275,14 @@ type target_struct = {
    target_incontracts : bool }
 
 
-(* [make_target_list_pred ith_target validate to_string]: creates a simple target_pred object with with its components
+(** [make_target_list_pred ith_target validate to_string]: creates a simple target_pred object with with its components
    being [ith_target], [validate] and [to_string] *)
 let make_target_list_pred (ith_target : int -> target) (validate : bool list -> bool) (to_string : unit -> string) : target_list_pred =
   { target_list_pred_ith_target = ith_target;
     target_list_pred_validate = validate;
     target_list_pred_to_string = to_string; }
 
-(* [depth_pred d]: predicate on the depth *)
+(** [depth_pred d]: predicate on the depth *)
 let depth_pred (d : depth) : depth =
   match d with
   | DepthAny -> DepthAny
@@ -290,7 +290,7 @@ let depth_pred (d : depth) : depth =
       if n <= 0 then failwith "Constr.depth_pred: argument of DepthAt is not positive";
       DepthAt (n-1)
 
-(* [constr_map f c]: applies [f] recursively on constraint [c] *)
+(** [constr_map f c]: applies [f] recursively on constraint [c] *)
 let constr_map (f : constr -> constr) (c : constr) : constr =
   (* LATER: optimize using identity reconstruction, like trm_map with optim *)
   let aux (cs:target) : target =
@@ -392,7 +392,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_namespace _ -> c
   | Constr_pred _ -> c
 
-(* [get_target_regexp_kinds tgs]: gets the list of trm_kinds of the terms
+(** [get_target_regexp_kinds tgs]: gets the list of trm_kinds of the terms
    for which we would potentially need to use the string representation,
    for resolving the targets [tgs]. The result is either a list of kinds
    without [TrmKind_Any], or a singleton list made of [TrmKind_Any]. *)
@@ -420,7 +420,7 @@ let get_target_regexp_kinds (tgs : target list) : trm_kind list =
   List.iter iter_in_target tgs;
   !res
 
-(* [get_target_regexp_kinds tgs: gets the list of the regexp characterizing
+(** [get_target_regexp_kinds tgs]: gets the list of the regexp characterizing
    toplevel functions that appear in the targets that contain constraints based
    on string representation. If one of the targets does not contain the subsequence
    [cTop name] or [cTopFun name], which generate
@@ -466,7 +466,7 @@ let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option 
 (*                        Preprocessing of targets before resolution          *)
 (******************************************************************************)
 
-(* [target_flatten tg]: flattens all the constraints of type Constr_target *)
+(** [target_flatten tg]: flattens all the constraints of type Constr_target *)
 let target_flatten (tg : target) : target =
     let rec aux (cs : target) : target =
       match cs with
@@ -480,7 +480,7 @@ let target_flatten (tg : target) : target =
       in
     aux tg
 
-(* [target_to_target_struct]: converts a target into a target struct  *)
+(** [target_to_target_struct]: converts a target into a target struct  *)
 let target_to_target_struct ?(default_occ = ExpectNb 1) (tr : target) : target_struct =
   let tr = target_flatten tr in
   let relative = ref None in
@@ -512,7 +512,7 @@ let target_to_target_struct ?(default_occ = ExpectNb 1) (tr : target) : target_s
     } in
   tgs
 
-(* [is_target_between tr]: checks if [tr] contains a relative constraint different from TargetAt *)
+(** [is_target_between tr]: checks if [tr] contains a relative constraint different from TargetAt *)
 let is_target_between (tr : target) : bool =
    let tgs = target_to_target_struct tr in
    tgs.target_relative <> TargetAt
@@ -546,11 +546,11 @@ let is_target_between (tr : target) : bool =
   should be locally applied to the patterns described above
  *)
 
-(* [add_dir d dll]: extends current explicit paths with a direction *)
+(** [add_dir d dll]: extends current explicit paths with a direction *)
 let add_dir (d : dir) (dll : paths) : paths =
   List.map (fun dl -> d :: dl) dll
 
-(* [is_equal_lit l l']: compares literals l and l' based on their values *)
+(** [is_equal_lit l l']: compares literals l and l' based on their values *)
 let is_equal_lit (l : lit) (l' : lit) =
   match l, l' with
   | Lit_unit, Lit_unit -> true
@@ -562,7 +562,7 @@ let is_equal_lit (l : lit) (l' : lit) =
   | Lit_nullptr, Lit_nullptr -> true
   | _ -> false
 
-(* [get_trm_kind t]: gets the kind of trm [t] *)
+(** [get_trm_kind t]: gets the kind of trm [t] *)
 (* LATER: we may want to save the kind inside the term? *)
 let get_trm_kind (t : trm) : trm_kind =
    let is_unit = begin match t.typ with
@@ -589,7 +589,7 @@ let get_trm_kind (t : trm) : trm_kind =
    | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ | Trm_using_directive _ -> TrmKind_Any
 
 
-(* [match_regexp_str r s]: checks if [s] can be matched with [r] *)
+(** [match_regexp_str r s]: checks if [s] can be matched with [r] *)
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
   if !Debug.counter = 2 then raise Debug.Breakpoint; *)
@@ -610,7 +610,7 @@ let match_regexp_str (r : rexp) (s : string) : bool =
    from OptiTrust AST to the C AST. *)
 let stringreprs : (stringreprid, string) Hashtbl.t option ref = ref None
 
-(* [print_stringreprs ()]: for debugging purpose *)
+(** [print_stringreprs ()]: for debugging purpose *)
 let print_stringreprs () : unit =
   match !stringreprs with
   | None -> failwith "Constr.print_stringreprs: no table registered"
@@ -621,7 +621,7 @@ let print_stringreprs () : unit =
       Hashtbl.iter pr m;
       Tools.debug "====</constr.stringreprs>===="
 
-(* [get_stringrepr t]: returns the string representation saved in table [stringreprs],
+(** [get_stringrepr t]: returns the string representation saved in table [stringreprs],
    or an empty string otherwise *)
 let get_stringrepr (t : trm) : string =
     let print (t : trm) : unit =
@@ -652,15 +652,15 @@ let get_stringrepr (t : trm) : string =
           end;
           ""
 
-(* [match_regexp_trm_kind k t]: checks if [t] is of kind [k] *)
+(** [match_regexp_trm_kind k t]: checks if [t] is of kind [k] *)
 let match_regexp_trm_kind (k : trm_kind) (t : trm) : bool =
   (k = TrmKind_Any) || (get_trm_kind t = k)
 
-(* [match_regexp_trm_kinds ks t]: checks if [t] is of one of the kinds in [ks] *)
+(** [match_regexp_trm_kinds ks t]: checks if [t] is of one of the kinds in [ks] *)
 let match_regexp_trm_kinds (ks : trm_kind list) (t : trm) : bool =
   List.mem (get_trm_kind t) ks
 
-(* [match_regexp_trm r t]: checks if the string representation of [t] can be matched with [r] *)
+(** [match_regexp_trm r t]: checks if the string representation of [t] can be matched with [r] *)
 let match_regexp_trm (r : rexp) (t : trm) : bool =
   if not (match_regexp_trm_kind r.rexp_trm_kind t) then false else begin
     let s = get_stringrepr t in
@@ -670,20 +670,20 @@ let match_regexp_trm (r : rexp) (t : trm) : bool =
     (* If the stringrepr is not available, we return false *)
   end
 
-(* [is_constr_regexp c]: checks if [c] is a regexp constraint *)
+(** [is_constr_regexp c]: checks if [c] is a regexp constraint *)
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
 
 (* MIGHT DISAPPEAR? *)
-(* [trm_access]: concrete accesses in a trm *)
+(** [trm_access]: concrete accesses in a trm *)
 type trm_access =
   | Array_access_get of trm (* operator -> [i] *)
   | Array_access_addr of trm (* operator [i] *)
   | Struct_access_get of field (* operator->f *)
   | Struct_access_addr of field (* operator.f *)
 
-(* [get_nested_accesses t]: for a given trm [t], if it's an access trm return the list of accesses,
+(** [get_nested_accesses t]: for a given trm [t], if it's an access trm return the list of accesses,
     the list starts with the base, and ends with the last access *)
 let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
   match t.desc with
@@ -706,27 +706,27 @@ let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
   | _ -> (t, [])
 
 
-(* [extract_last_path_item p]: extracts the last direction from a nonempty path *)
+(** [extract_last_path_item p]: extracts the last direction from a nonempty path *)
 let extract_last_path_item (p : path) : dir * path =
   match List.rev p with
   | [] -> raise Not_found
   | d :: p' -> (d, List.rev p')
 
-  (* [get_sequence_length t]: gets the number of instructions on a sequence *)
+  (** [get_sequence_length t]: gets the number of instructions on a sequence *)
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
   | Trm_seq tl -> Mlist.length tl
   | _ -> trm_fail t "Constr.get_sequence_length: expected a sequence"
   end
 
-(* [get_arity_of_seq_at]: gets the arity of a sequence at path [p] *)
+(** [get_arity_of_seq_at]: gets the arity of a sequence at path [p] *)
 (* TODO: move higher in file*)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
   let seq_trm = Path.resolve_path p t in
   get_sequence_length seq_trm
 
 
-(* [check_hastype pred t]: tests whether [t] carries a type
+(** [check_hastype pred t]: tests whether [t] carries a type
    that satisfies [pred]. If [t] does not carry a type information,
    then the return value is [false]. For constraints to work properly,
    one may want to check that types are up to date (e.g. by reparsing). *)
@@ -735,7 +735,7 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
     | Some ty -> pred ty
     | None -> false
 
-(* [check_name name s]: checks if constraint [name] matches string [s] *)
+(** [check_name name s]: checks if constraint [name] matches string [s] *)
 let check_name (name : constr_name) (s : string) : bool =
   match name with
   | None -> true
@@ -743,7 +743,7 @@ let check_name (name : constr_name) (s : string) : bool =
      match_regexp_str r s
 
 
-(* [explore_list tl d cont]: calls [cont] on each element of the list and gathers the results
+(** [explore_list tl d cont]: calls [cont] on each element of the list and gathers the results
     used for seq, array, struct, and fun arguments
    [d] is the function that gives the direction to add depending on the index *)
 let explore_list (tl : 'a list) (d : int -> dir)
@@ -756,7 +756,7 @@ let explore_list (tl : 'a list) (d : int -> dir)
   d: function that gives the direction to add depending on the index
  *)
 
-(* [explore_list_ind tl d dom cont]: calls [cont] on each element of the list,
+(** [explore_list_ind tl d dom cont]: calls [cont] on each element of the list,
    [index] is in the domain and gather results
    [d] is a fucntion that gives direction to add depending on the [index] *)
 let explore_list_ind (tl : 'a list) (d : int -> dir) (dom : int list)
@@ -767,7 +767,7 @@ let explore_list_ind (tl : 'a list) (d : int -> dir) (dom : int list)
     []
     tl
 
-(* [check_constraint ~incontracts c]: checks if constraint c is satisfied by trm t *)
+(** [check_constraint ~incontracts c]: checks if constraint c is satisfied by trm t *)
 let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
    let check_target = check_target ~incontracts in
    if trm_has_cstyle Multi_decl t then
@@ -919,19 +919,19 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
      | _ -> false
      end
 
-(* [check_list ~incontracts ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)
+(** [check_list ~incontracts ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)
 and check_list ~(incontracts:bool) ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~incontracts ~depth (ith_target i) t) tl)
 
-(* [check_args lpred tx]: checks if [txl] satisfy the predicate [lpred] *)
+(** [check_args lpred tx]: checks if [txl] satisfy the predicate [lpred] *)
 and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i tx -> check_arg (ith_target i) tx) txl)
 
-(* [check_arg tg tx]: checks if the typed-variable [tx] satisfies the argument-constraint [tg].
+(** [check_arg tg tx]: checks if the typed-variable [tx] satisfies the argument-constraint [tg].
    An argument constraint is a singleton constraint, of the form [cArg ..] or [cTrue]. *)
 and check_arg (tg:arg_constraint) ((var, var_typ) : typed_var) : bool =
   match tg with
@@ -946,7 +946,7 @@ and check_arg (tg:arg_constraint) ((var, var_typ) : typed_var) : bool =
   | _ -> failwith "Constr.check_arg: target expressing constraints on arguments must be list with at most one item."
 
 
-(* [check_accesses ~inner_accesses ca al]: checks if [al] is matched by [ca] *)
+(** [check_accesses ~inner_accesses ca al]: checks if [al] is matched by [ca] *)
 and check_accesses ~(incontracts:bool) ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
@@ -975,7 +975,7 @@ and check_accesses ~(incontracts:bool) ?(inner_accesses : bool = true) (ca : con
   | None -> true
   | Some cal -> aux cal al
 
-(* [check_cases ~incontract cc cases]: checks if [cases] are matched by [cc] *)
+(** [check_cases ~incontract cc cases]: checks if [cases] are matched by [cc] *)
 and check_cases ~(incontracts:bool) (cc : constr_cases) (cases : (trms * trm) list) : bool =
   let rec aux (cl : (case_kind * target) list)
     (cases : (trms * trm) list) : bool =
@@ -991,7 +991,7 @@ and check_cases ~(incontracts:bool) (cc : constr_cases) (cases : (trms * trm) li
   | None -> true
   | Some cl -> aux cl cases
 
-(* [check_kind ~incontracts k tl]: checks if [tl] are of kind [k] *)
+(** [check_kind ~incontracts k tl]: checks if [tl] are of kind [k] *)
 and check_kind ~(incontracts:bool) (k : case_kind) (tl : trms) : bool =
   match k, tl with
   | Case_any, _ -> true
@@ -1001,7 +1001,7 @@ and check_kind ~(incontracts:bool) (k : case_kind) (tl : trms) : bool =
      List.mem true (List.map (check_target ~incontracts p_val) tl)
   | _ -> false
 
-(* [check_enum_const ~incontracts cec xto_l]: checks if [xto_l] are matched by constraint [cec] *)
+(** [check_enum_const ~incontracts cec xto_l]: checks if [xto_l] are matched by constraint [cec] *)
 and check_enum_const ~(incontracts:bool) (cec : constr_enum_const)
   (xto_l : (var * (trm option)) list) : bool =
   match cec with
@@ -1018,7 +1018,7 @@ and check_enum_const ~(incontracts:bool) (cec : constr_enum_const)
        cnp_l
        xto_l
 
-(* [check_target ~incontracts ~depth tr t]: checks if target tr leads to at least one subterm of t *)
+(** [check_target ~incontracts ~depth tr t]: checks if target tr leads to at least one subterm of t *)
 and check_target ~(incontracts:bool) ?(depth : depth = DepthAny) (tr : target) (t : trm) : bool =
   match resolve_target_simple ~incontracts ~depth tr t with
   | [] -> false
@@ -1030,10 +1030,10 @@ and check_target ~(incontracts:bool) ?(depth : depth = DepthAny) (tr : target) (
   another target that appears after it in the list. Guaranteed by the call to
   sort_unique *)
 
-(* [debug_resolution]: only for debugging *)
+(** [debug_resolution]: only for debugging *)
 and debug_resolution = false
 
-(* [resolve_target_simple ~incontracts ~depth trs t]: the main function that resolves a target
+(** [resolve_target_simple ~incontracts ~depth trs t]: the main function that resolves a target
      It returns a list of paths that resolve to the given target
      [depth] is the depth level where the targetd should be resolved
      [trs]: a clean target t
@@ -1145,7 +1145,7 @@ and resolve_target_simple ~(incontracts:bool) ?(depth : depth = DepthAny) (trs :
   in
   List.sort_uniq compare_path epl
 
-(* [resolve_target_struct tgs t]: resolves the structured target [tgs] over trm [t]
+(** [resolve_target_struct tgs t]: resolves the structured target [tgs] over trm [t]
     This function gets the result from [resolve_target_simple] and checks if it matches
     the given requirements. If one of the requirements is not fulfilled the target resolution will fail. *)
 and resolve_target_struct ?(depth = DepthAny) (tgs : target_struct) (t : trm) : paths =
@@ -1176,7 +1176,7 @@ and resolve_target_struct ?(depth = DepthAny) (tgs : target_struct) (t : trm) : 
     end
   end
 
-(* [fix_target_between rel t p]:
+(** [fix_target_between rel t p]:
    - if rel is [TargetBefore] or [TargetAfter], takes a path to a node in a sequence,
      and convert the last [Dir_seq_nth n] in the path into a [Dir_before n] or [Dir_before (n+1)]
    - if rel is [Target_First] or [TargetLast], takes a path to a sequence with [n] items,
@@ -1208,7 +1208,7 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : paths =
       | Dir_seq_nth i -> [p' @ [Dir_before (i + shift)]]
       | _ -> failwith "Constr.fix_target_between: expected a Dir_seq_nth as last direction"
 
-(* [resolve_target tg t]: resolves the target [tg];
+(** [resolve_target tg t]: resolves the target [tg];
    Marks are set in the ast_after inside the trace only if -dump-trace is provided *)
 and resolve_target (tg : target) (t : trm) : paths =
   match tg with
@@ -1253,13 +1253,13 @@ and resolve_target (tg : target) (t : trm) : paths =
   *)
 
 
-(* [resolve_target_exactly_one tg t]: similar to [resolve_target] but this one fails if the target resolves to more than one path *)
+(** [resolve_target_exactly_one tg t]: similar to [resolve_target] but this one fails if the target resolves to more than one path *)
 and resolve_target_exactly_one (tg : target) (t : trm) : path =
   match resolve_target tg t with
   | [p] -> p
   | _ -> trm_fail t "Constr.resolve_target_exactly_one: obtained several targets."
 
-(* [resolve_target_between_children] resolves target [tg] restricted to spaces between children items of [t] *)
+(** [resolve_target_between_children]: resolves target [tg] restricted to spaces between children items of [t] *)
 and resolve_target_between_children (tg: target) (t: trm) : int list =
   let tgs = target_to_target_struct ~default_occ:ExpectAnyNb tg in
   let depth = match tgs.target_relative with
@@ -1279,7 +1279,7 @@ and resolve_target_between_children (tg: target) (t: trm) : int list =
     print_info t.loc "Constr.resolve_target_between_children: found path %s that does not correspond to a space between children, did you forget to add tBefore or tAfter ?\n" (path_to_string path);
     []
 
-(* [resolve_constraint ~incontracts c p t]: checks [c] against [t] and in case of success continue with [p].
+(** [resolve_constraint ~incontracts c p t]: checks [c] against [t] and in case of success continue with [p].
    With a special case for handling a [Constr_mark] constrained that reaches a
   mark found in aa MList. *)
 and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t : trm) : paths =
@@ -1370,7 +1370,7 @@ and resolve_constraint ~(incontracts:bool) (c : constr) (p : target_simple) (t :
       print_info loc "Constr.resolve_constraint: constraint %s does not hold\n" (constr_to_string c);
     res
 
-(* [explore_in_depth ~incontracts ~depth p t]: calls resolve_target_simple on subterms of t if possible *)
+(** [explore_in_depth ~incontracts ~depth p t]: calls resolve_target_simple on subterms of t if possible *)
 and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target_simple) (t : trm) : paths =
   (* By default, traversing a node decreases the depth *)
   let aux = resolve_target_simple ~incontracts ~depth:(depth_pred depth) p in
@@ -1518,7 +1518,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
   call resolve_target_simple on given case name and body
   i is the index of the case in its switch
  *)
-(* [explore_case ~incontracts depth i case p]: calls resolve_target_simple on given case name and body,
+(** [explore_case ~incontracts depth i case p]: calls resolve_target_simple on given case name and body,
     [i] is the index of the case in its switch satement *)
 and explore_case ~(incontracts:bool) (depth : depth) (i : int) (case : trms * trm) (p : target_simple) : paths =
   let aux = resolve_target_simple ~incontracts ~depth p in
@@ -1538,7 +1538,7 @@ and explore_case ~(incontracts:bool) (depth : depth) (i : int) (case : trms * tr
      ) @
      add_dir (Dir_case (i, Case_body)) (aux body)
 
-(* [follow_dir aux d t]: follows the direction [d] in [t] and call [aux] *)
+(** [follow_dir aux d t]: follows the direction [d] in [t] and call [aux] *)
 and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   let loc = t.loc in
   match d, t.desc with
@@ -1657,22 +1657,22 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
 (*                          Target-between resolution                         *)
 (******************************************************************************)
 
-(* [resolve_target_between tg t]: resolves a target that points before or after an instruction *)
+(** [resolve_target_between tg t]: resolves a target that points before or after an instruction *)
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   List.map extract_last_dir_before (resolve_target tg t)
 
-(* [resolve_target_between_exactly_one tg t]: similar to [resolve_target_between] but this one fails if the target matches
+(** [resolve_target_between_exactly_one tg t]: similar to [resolve_target_between] but this one fails if the target matches
     multiple paths *)
 let resolve_target_between_exactly_one (tg : target) (t : trm) : path * int =
   match resolve_target_between tg t with
   | [(p,i)] -> (p,i)
   | _ -> trm_fail t "Constr.resolve_target_between_exactly_one: target resolved to multiple paths"
 
-(* [resolve_target_span tg t]: resolves a target that points to a span of instruction *)
+(** [resolve_target_span tg t]: resolves a target that points to a span of instruction *)
 let resolve_target_span (tg: target) (t: trm) : (path * span) list =
   List.map extract_last_dir_span (resolve_target tg t)
 
-(* [resolve_target_span_exactly_one tg t]: similar to [resolve_target_span] but this one fails if the target matches
+(** [resolve_target_span_exactly_one tg t]: similar to [resolve_target_span] but this one fails if the target matches
     multiple paths *)
 let resolve_target_span_exactly_one (tg: target) (t: trm) : path * span =
   match resolve_target_span tg t with

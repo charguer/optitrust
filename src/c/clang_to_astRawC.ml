@@ -14,7 +14,7 @@ let warn_array_subscript_not_supported (t : typ option) : unit =
     Tools.warn "does not support array subscript base type '%s'" str;
   end
 
-(* [loc_of_node n]: gets the location of node [n] *)
+(** [loc_of_node n]: gets the location of node [n] *)
 let loc_of_node (n : 'a node) : location =
   let start_location_of_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
   let end_location_of_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
@@ -24,7 +24,7 @@ let loc_of_node (n : 'a node) : location =
                              loc_end = {pos_line = end_row; pos_col = end_column}}
 
 
-(* [loc_from_to start_l end_l]: gets the location from the begining of [start_l] to [end_l]
+(** [loc_from_to start_l end_l]: gets the location from the begining of [start_l] to [end_l]
     if one of the locations is unknown then it will return [None] *)
 let loc_from_to (start_l : location) (end_l : location) : location =
   match start_l, end_l with
@@ -35,7 +35,7 @@ let loc_from_to (start_l : location) (end_l : location) : location =
       Some {loc_file = file; loc_start; loc_end }
   | _ -> None
 
-(* [file_of_node n]: gets the filename that contains node [n] *)
+(** [file_of_node n]: gets the filename that contains node [n] *)
 let file_of_node (n : 'a node) : string =
   match loc_of_node n with
   | Some {loc_file = filename; _} -> filename
@@ -79,32 +79,32 @@ let ctx_reset () : unit =
   ctx_label := String_map.empty;
   ctx_constr := String_map.empty
 
-(* [debug_typedefs]: flag for debugging typedefs *)
+(** [debug_typedefs]: flag for debugging typedefs *)
 let debug_typedefs = false
 
-(* [ctx_var_add tv]: adds variable [v] with type [t] in map [ctx_var] *)
+(** [ctx_var_add tv]: adds variable [v] with type [t] in map [ctx_var] *)
 let ctx_var_add (tv : var) (t : typ) : unit =
   ctx_var := Qualified_map.add (tv.namespaces, tv.name) t (!ctx_var)
 
-(* [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
+(** [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
   if debug_typedefs then Tools.debug "Type %s has been added into map with typconstrid %d" (Tools.document_to_string (Ast_to_text.print_typconstr tn)) tid;
   ctx_tconstr := Qualified_map.add tn tid (!ctx_tconstr)
 
-(* [ctx_typedef_add tn tid td]: adds typedef [td] with id [tid] in map [ctx_typedef] *)
+(** [ctx_typedef_add tn tid td]: adds typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
   if debug_typedefs then Tools.debug "Typedef for %s has been registered" (Tools.document_to_string (Ast_to_text.print_typconstr tn));
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
-(* [ctx_label_add lb tid]: adds label [lb] with id [tid] in map [ctx_label] *)
+(** [ctx_label_add lb tid]: adds label [lb] with id [tid] in map [ctx_label] *)
 let ctx_label_add (lb : label) (tid : typconstrid) : unit =
   ctx_label := String_map.add lb tid (!ctx_label)
 
-(* [ctx_constr_add c tid]: adds constr [c] with id [tid] in map [ctx_constr_add] *)
+(** [ctx_constr_add c tid]: adds constr [c] with id [tid] in map [ctx_constr_add] *)
 let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
   ctx_constr := String_map.add c tid (!ctx_constr)
 
-(* [get_ctx]: gets the current context *)
+(** [get_ctx]: gets the current context *)
 let get_ctx () : ctx =
   (* FIXME: #var-id , ids are dummy wich breaks all varmaps. *)
   typing_ctx {
@@ -119,7 +119,7 @@ let get_ctx () : ctx =
 let name_to_typconstr ?(namespaces = []) (n : string) : typconstr =
   [], n
 
-(* [get_typid_for_type ty]: gets the type id for type [tv]*)
+(** [get_typid_for_type ty]: gets the type id for type [tv]*)
 let get_typid_for_type (namespaces : string list) (name : string) : int  =
    let tid = Qualified_map.find_opt (namespaces, name) !ctx_tconstr in
    begin match tid with
@@ -127,7 +127,7 @@ let get_typid_for_type (namespaces : string list) (name : string) : int  =
    | None -> -1
    end
 
-(* [string_of_overloaded_op ?loc op]: gets names of overloaded operators (later matched for printing) *)
+(** [string_of_overloaded_op ?loc op]: gets names of overloaded operators (later matched for printing) *)
  let string_of_overloaded_op ?(loc : location)
     (op : clang_ext_overloadedoperatorkind) : string =
   match op with
@@ -163,7 +163,7 @@ let get_typid_for_type (namespaces : string list) (name : string) : int  =
   | Call -> "()"
   | _ -> loc_fail loc "Clang_to_astRawC.string_of_overloaded_op: non supported operator"
 
-(* [overload_op ?loc ?ctx op]: gets the primitive operation associated with the overloaded operator [op] *)
+(** [overload_op ?loc ?ctx op]: gets the primitive operation associated with the overloaded operator [op] *)
  let overloaded_op ?(loc : location) ?(ctx : ctx option) (op : clang_ext_overloadedoperatorkind) : trm =
   match op with
   | Plus -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_add))
@@ -198,12 +198,12 @@ let get_typid_for_type (namespaces : string list) (name : string) : int  =
   | Call -> trm_var (name_to_var "overloaded_call")
   | _ -> loc_fail loc "Clang_to_astRawC.overloaded_op: non supported operator"
 
-(* [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)
+(** [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)
 let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
 
-(* [trm_for_c_inv_simple_init init]: checks if the init loop component is simple. If that's the case then return
+(** [trm_for_c_inv_simple_init init]: checks if the init loop component is simple. If that's the case then return
    initial value of the loop index.
   Ex.:
     int x = a -> Some (x, a)
@@ -215,7 +215,7 @@ let trm_for_c_inv_simple_init (init : trm) : (var * trm) option =
     Some (x, init)
   | _ -> None
 
-(* [trm_for_c_inv_simple_stop stop]: checks if the loop bound is simple.  If that's the case return that bound. *)
+(** [trm_for_c_inv_simple_stop stop]: checks if the loop bound is simple.  If that's the case return that bound. *)
 let trm_for_c_inv_simple_stop (loop_index: var) (stop_expr : trm) : (loop_dir * trm) option =
   (* Using eq instead of the more efficient var_eq because var ids are not computed at this step *)
   Pattern.pattern_match_opt stop_expr [
@@ -225,7 +225,7 @@ let trm_for_c_inv_simple_stop (loop_index: var) (stop_expr : trm) : (loop_dir * 
     Pattern.(trm_ge (trm_var (eq loop_index)) !__) (fun n -> (DirDownEq, n))
   ]
 
-(* [trm_for_c_inv_simple_step step]: checks if the loop step is simple. If that's the case then return that step. *)
+(** [trm_for_c_inv_simple_step step]: checks if the loop step is simple. If that's the case then return that step. *)
 let trm_for_c_inv_simple_step (loop_index: var) (loop_dir: loop_dir) (step_expr : trm) : trm option =
   match loop_dir with
   | DirUp | DirUpEq ->
@@ -242,7 +242,7 @@ let trm_for_c_inv_simple_step (loop_index: var) (loop_dir: loop_dir) (step_expr 
       Pattern.(trm_prim_compound Binop_sub (trm_var (eq loop_index)) !__) (fun x -> x);
     ]
 
-(* [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)
+(** [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)
 let trm_for_of_trm_for_c (t : trm) : trm =
   match t.desc with
   | Trm_for_c (init, cond, step, body, _) ->
@@ -257,13 +257,13 @@ let trm_for_of_trm_for_c (t : trm) : trm =
   | _ -> trm_fail t "Ast.trm_for_of_trm_for_c: expected a for loop"
 
 
-(* [redundant_template_definition_type]: Set by [tr_type_desc] when the type corresponds to a redundant template definition. *)
+(** [redundant_template_definition_type]: Set by [tr_type_desc] when the type corresponds to a redundant template definition. *)
 let redundant_template_definition_type = ref false
 
 (* Raised by [tr_decl] when the current declaration is a redundant template definition. *)
 exception RedundantTemplateDefinition
 
-(* [tr_type_desc ?loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
+(** [tr_type_desc ?loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
 (* FIXME: #odoc why is annotation required on callees? *)
@@ -390,17 +390,17 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
 
   | _ -> loc_fail loc "Clang_to_astRawC.tr_type_desc: not implemented"
 
-(* [is_qual_type_const q]: checks if [q] is a const type or not *)
+(** [is_qual_type_const q]: checks if [q] is a const type or not *)
 and is_qual_type_const (q : qual_type) : bool =
   let {const;_} = q in const
 
-(* [tr_qual_type ?loc ~tr_record_types q]: translates  ClanML C/C++ types into OptiTrust types *)
+(** [tr_qual_type ?loc ~tr_record_types q]: translates  ClanML C/C++ types into OptiTrust types *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and tr_qual_type ?(loc : location) ?(tr_record_types : bool = true) (q : qual_type) : typ =
   let ({desc = d; const = c; _} : qual_type) = q in
   (tr_type_desc : ?loc:trm_loc -> ?const:bool -> ?tr_record_types:bool -> type_desc -> typ) ?loc ~const:c ~tr_record_types d
 
-(* [tr_nested_name_specifier ?loc name_specs]: converts Clang.name_specifier to a string list. *)
+(** [tr_nested_name_specifier ?loc name_specs]: converts Clang.name_specifier to a string list. *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and tr_nested_name_specifier ?(loc : location) name_specs : string list =
   match name_specs with
@@ -415,7 +415,7 @@ and tr_nested_name_specifier ?(loc : location) name_specs : string list =
        ) nms
   | None -> []
 
-(* [tr_ident id]: translates identifier [id] into a string *)
+(** [tr_ident id]: translates identifier [id] into a string *)
 and tr_ident (id : ident_ref node) : string =
   let {decoration = _; desc = {nested_name_specifier = _; name = n; _}} = id in
   match n with
@@ -424,7 +424,7 @@ and tr_ident (id : ident_ref node) : string =
     let loc = loc_of_node id in
     loc_fail loc "Clang_to_astRawC.tr_ident_ref: not implemented"
 
-(* [tr_stmt s]: translates statement [s] into an OptiTrust trm *)
+(** [tr_stmt s]: translates statement [s] into an OptiTrust trm *)
 and tr_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
   let ctx = get_ctx () in
@@ -513,7 +513,7 @@ and tr_stmt (s : stmt) : trm =
     loc_fail loc ("Clang_to_astRawC.tr_stmt: the following statement is unsupported: " ^
               Clang.Stmt.show s)
 
-(* [tr_switch s]: translates switch statement [s] into an OptiTrust trm
+(** [tr_switch s]: translates switch statement [s] into an OptiTrust trm
     translation of switch statements:
   - nested cases: only full sharing allowed
       case bla: case bli: … break allowed
@@ -540,7 +540,7 @@ and tr_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
   in
   trm_switch ?loc ~ctx:(get_ctx ()) t  (aux loc cases)
 
-(* [compute_cases case_acc s]: computes a list of nested cases described by s in reverse order
+(** [compute_cases case_acc s]: computes a list of nested cases described by s in reverse order
     and the first instruction of their body *)
 and compute_cases (case_acc : trms) (s : stmt) : trms * stmt =
   let loc = loc_of_node s in
@@ -555,7 +555,7 @@ and compute_cases (case_acc : trms) (s : stmt) : trms * stmt =
 
 
 
-(* [compute_body loc body_acc]: computes the body of a (nested) case starting from the beginning
+(** [compute_body loc body_acc]: computes the body of a (nested) case starting from the beginning
     of the list , stop at first break or fail if none
     return the rest of the case list too
     to find the first break, cases must be written without compound statements
@@ -579,7 +579,7 @@ and compute_body (loc : location) (body_acc : trms)
     end
 
 
-(* [tr_init_list ?loc ~ctx ty el]: translates [el] into a trm, based on type [ty] the initialization list kind
+(** [tr_init_list ?loc ~ctx ty el]: translates [el] into a trm, based on type [ty] the initialization list kind
      is determined. *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and tr_init_list ?(loc : location) ~(ctx : ctx) (ty : typ) (el : expr list) : trm =
@@ -603,7 +603,7 @@ and tr_init_list ?(loc : location) ~(ctx : ctx) (ty : typ) (el : expr list) : tr
     trm_add_cstyle Brace_init (trm_array ?loc ~ctx ~typ:ty (Mlist.of_list tl))
   (* | _ -> loc_fail loc "Clang_to_astRawC.tr_init_list: initialisation lists only allowed for struct and array" *)
 
-(* [tr_expr e]: translates expression [e] into an OptiTrust trm *)
+(** [tr_expr e]: translates expression [e] into an OptiTrust trm *)
 and tr_expr (e : expr) : trm =
   (* let aux = tr_expr *)
   let loc = loc_of_node e in
@@ -916,14 +916,14 @@ and tr_expr (e : expr) : trm =
       ("Clang_to_astRawC.tr_expr: the following expression is unsupported: " ^
        Clang.Expr.show e)
 
-(* [tr_attribute loc a]: translates an attribute [a] to an OptiTrust attribute *)
+(** [tr_attribute loc a]: translates an attribute [a] to an OptiTrust attribute *)
 and tr_attribute (loc : location) (a : Clang.Ast.attribute) : attribute =
   match a.desc with
   | Aligned {spelling = _; alignment_expr = e} -> Alignas (tr_expr e)
   | _ -> loc_fail loc "Clang_to_astRawC.tr_attribute: unsupported attribute"
 
 
-(* [tr_decl_list dl]: translates a list of declarations *)
+(** [tr_decl_list dl]: translates a list of declarations *)
 and tr_decl_list (dl : decl list) : trms =
   match dl with
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
@@ -984,7 +984,7 @@ and tr_decl_list (dl : decl list) : trms =
     end
   | [] -> []
 
-(* [tr_member_initialized_list ?loc init_list]: translates class member initializer lists. *)
+(** [tr_member_initialized_list ?loc init_list]: translates class member initializer lists. *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and tr_member_initialized_list ?(loc : location) (init_list :  constructor_initializer list) : trms =
   let ctx = get_ctx () in
@@ -996,7 +996,7 @@ and tr_member_initialized_list ?(loc : location) (init_list :  constructor_initi
     | _ -> loc_fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple member initializers are supported."
   ) init_list
 
-(* [tr_decl d]: translates declaration [d] from clang to OptiTrust ast. *)
+(** [tr_decl d]: translates declaration [d] from clang to OptiTrust ast. *)
 and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
   let loc = loc_of_node d in
   let ctx = get_ctx () in
@@ -1329,11 +1329,11 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
   | _ -> loc_fail loc "Clang_to_astRawC.tr_decl: not implemented" in
      res
 
-(* [Include_map]: module useed for storing inclued files and their AST-s *)
+(** [Include_map]: module useed for storing inclued files and their AST-s *)
 module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t
 
-(* [filter_out_include filename dl]: filters out all the declarations that are in fact include directives *)
+(** [filter_out_include filename dl]: filters out all the declarations that are in fact include directives *)
 let filter_out_include (filename : string) (dl : decl list) : ((decl list) imap) * (decl list) =
   let rec aux (include_map : (decl list) imap) (dl : decl list) =
     match dl with
@@ -1363,7 +1363,7 @@ let filter_out_include (filename : string) (dl : decl list) : ((decl list) imap)
   in
   aux (Include_map.empty) dl
 
-(* [tr_ast t]: transalate [t] into OptiTrust AST *)
+(** [tr_ast t]: transalate [t] into OptiTrust AST *)
 let tr_ast (t : translation_unit) : trm =
   ctx_reset ();
   (* Initialize id_counter *)

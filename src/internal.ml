@@ -1,7 +1,7 @@
 open Prelude
 open Target
 
-(* [same_kind t1 t2]: check if two ast nodes are of the same kind or not *)
+(** [same_kind t1 t2]: check if two ast nodes are of the same kind or not *)
 let same_kind (t1 : trm) (t2 : trm) : bool =
   match t1.desc, t2 .desc with
   | Trm_val _, Trm_val _ -> true
@@ -29,7 +29,7 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_template _, Trm_template _ -> true
   | _ , _ -> false
 
-(* [change_trm ~change_at t_before t_after t]: replace all the occurrences of [t_before] with [t_after]
+(** [change_trm ~change_at t_before t_after t]: replace all the occurrences of [t_before] with [t_after]
    If [change_at] is not equal to [[]] then this function is applied only to descendants of the trm corresponding to
    the targets [change_at] *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
@@ -62,7 +62,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
     change_at in
     res
 
-(* [change_typ ~change_at ty_before ty_after t]: similar to [change_trm] but for types *)
+(** [change_typ ~change_at ty_before ty_after t]: similar to [change_trm] but for types *)
 let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
   (* change all occurences of ty_before in ty *)
@@ -147,7 +147,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
     change_at
 
 
-(* [isolate_last_dir_in_seq dl]: for a trm with path [dl] return the path to the surrouding sequence of the
+(** [isolate_last_dir_in_seq dl]: for a trm with path [dl] return the path to the surrouding sequence of the
     instruction that contains that trm, and the index of that instruction on that sequence *)
 let isolate_last_dir_in_seq (dl : path) : path * int =
     match List.rev dl with
@@ -158,7 +158,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
       path_fail dl "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
-(* [get_instruction_in_surrounding_sequence dl]: for a trm with path [dl] return the path to the surrouding sequence
+(** [get_instruction_in_surrounding_sequence dl]: for a trm with path [dl] return the path to the surrouding sequence
      of the instruction that contains that trm, the path from that instruction to the trm itself and the index of that
      instruction on that sequence. *)
 let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
@@ -169,7 +169,7 @@ let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
     | dir :: dl' -> aux (dir :: acc) dl'
   in aux [] (List.rev dl)
 
-(* [get_ascendant_path checker dl t]: for a trm with path [dl] return the path to the first ascendant that satisfies
+(** [get_ascendant_path checker dl t]: for a trm with path [dl] return the path to the first ascendant that satisfies
     that satisfies the predicate [checker]. *)
 let get_ascendant_path (checker : trm -> bool) (dl : path) (t : trm) : path =
   let rec aux (dl1 : path) : path =
@@ -181,32 +181,32 @@ let get_ascendant_path (checker : trm -> bool) (dl : path) (t : trm) : path =
     in
   aux (List.rev dl)
 
-(* [get_surrouding_access dl t]: specialization of get_ascendant_path for accesses*)
+(** [get_surrouding_access dl t]: specialization of get_ascendant_path for accesses*)
 let get_ascendant_access_path (dl : path) (t : trm) : path =
   get_ascendant_path is_access dl t
 
-(* [get_ascendant_read_path dl t] specialization of get_ascendant_path for read operations*)
+(** [get_ascendant_read_path dl t] specialization of get_ascendant_path for read operations*)
 let get_ascendant_read_path (dl : path) (t : trm) : path =
   get_ascendant_path is_get_operation dl t
 
-(* [get_ascendant_write_path dl t] specialization of get_ascendant_path for write operations*)
+(** [get_ascendant_write_path dl t] specialization of get_ascendant_path for write operations*)
 let get_ascendant_write_path (dl : path) (t : trm) : path =
   get_ascendant_path is_set_operation dl t
 
-(* [get_ascendant_topfun_path dl]: returns the path to the toplevel function that contains
+(** [get_ascendant_topfun_path dl]: returns the path to the toplevel function that contains
      the trm where the path [dl] points to. *)
 let get_ascendant_topfun_path (dl : path) : path option =
   match dl with
   | Dir_seq_nth i :: Dir_body :: _ -> Some [Dir_seq_nth i]
   | _ -> None
 
-(* [is_decl_body dl]: check if [dl] points to a declaration body *)
+(** [is_decl_body dl]: check if [dl] points to a declaration body *)
 let is_decl_body (dl : path) : bool =
   match List.rev dl with
   | Dir_body :: _ -> true
   | _ -> false
 
-(* [get_field_list t td]: in the case of typedef struct give back the list of struct fields *)
+(** [get_field_list t td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (t : trm) (td : typedef) : (field * typ) list =
   match td.typdef_body with
   | Typdef_record rfl ->
@@ -218,7 +218,7 @@ let get_field_list (t : trm) (td : typedef) : (field * typ) list =
   | _ -> trm_fail t "Internal.get_field_list: expected a Typedef_prod"
 
 
-(* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
+(** [get_typid_from_typ t]: check if typ is a constructed type or a composed type
     In case it is constructed type then return its id.
     In case it is a composed type go in depth and check if it contains a constructed type and return its id.
     Otherwise return -1 meaning that the type [t] is not a constructed type. *)
@@ -232,7 +232,7 @@ let rec get_typid_from_typ (t : typ) : int =
   | Typ_fun (_, ty) -> get_typid_from_typ ty
   | _ -> -1
 
-(* [get_typid_from_trm ~first_martch t]: for trm [t] check if its type is a constructed type.
+(** [get_typid_from_trm ~first_martch t]: for trm [t] check if its type is a constructed type.
    If that's the case then return its id, otherwise return -1, meaning that trm [t] has a different typ. *)
 let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
   match t.desc with
@@ -264,7 +264,7 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
   | _ -> -1
 
 
-(* [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function or variable.
+(** [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function or variable.
       If [require_body] is set to true, then only definitions are considered.*)
 let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
@@ -310,7 +310,7 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   | _ -> trm_fail full_ast "Internal.top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
 
 
-(* [local_decl x t]: check if [t] is a declaration with name [x], if that's the case the return that declaration *)
+(** [local_decl x t]: check if [t] is a declaration with name [x], if that's the case the return that declaration *)
 let rec local_decl (x : var) (t : trm) : trm option =
   match t.desc with
   (* DEPRECATED: | Trm_typedef td when td.typdef_tconstr = x -> Some t *)
@@ -332,7 +332,7 @@ let rec local_decl (x : var) (t : trm) : trm option =
   | _ -> None
 
 (* LATER: Use trm_fors_inv instead *)
-(* [get_loop_nest_indices t]: if node [t] represents a loop nest then go through all of them an return an
+(** [get_loop_nest_indices t]: if node [t] represents a loop nest then go through all of them an return an
     ordered list of their indices where the order is the depth order *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
@@ -353,7 +353,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
     end
   | _ -> []
 
-(* [extract_loop t]: for a loop [t] return a pair of function and trm. Where the function takes trm b
+(** [extract_loop t]: for a loop [t] return a pair of function and trm. Where the function takes trm b
     and gives a loop with the same components as loop [t] but with body b. And the trm is the body of the loop [t]. *)
 let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   match t.desc with
@@ -364,7 +364,7 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   | _ ->
     trm_fail t "Internal.extract_loop: expected a loop"
 
-(* [get_field_index field fields]: for a struct field with name [field] and [fields] being the list of fields of the
+(** [get_field_index field fields]: for a struct field with name [field] and [fields] being the list of fields of the
     same struct, return back the index of field [field] in the list of fields [fields]. *)
 let get_field_index (t : trm) (field : field) (fields : record_fields) : int =
   let rec aux field fields c = match fields with
@@ -379,12 +379,12 @@ let get_field_index (t : trm) (field : field) (fields : record_fields) : int =
   aux field fields 0
 
 
-(* [apply_on_record_fields app_fun rfs]: applies [app_fun] on all the elements of [rfs]. *)
+(** [apply_on_record_fields app_fun rfs]: applies [app_fun] on all the elements of [rfs]. *)
 let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : record_fields) : record_fields =
   List.map (fun (rf, rf_annot) -> (app_fun rf, rf_annot)) rfs
 
 
-(* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
+(** [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
 (* FIXME: #var-id , sets id to inferred_var_id, requiring id inference afterwards. *)
 let rename_record_fields (rename_fun : string -> string) (rfs : record_fields) : record_fields =
   let app_fun (rf : record_field) : record_field =
@@ -401,7 +401,7 @@ let rename_record_fields (rename_fun : string -> string) (rfs : record_fields) :
   in
   apply_on_record_fields app_fun rfs
 
-(* [update_record_fields_type typ_update rfs]: updates the type of [rfs] based on [typ_update] function. *)
+(** [update_record_fields_type typ_update rfs]: updates the type of [rfs] based on [typ_update] function. *)
 let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ ) (rfs : record_fields) : record_fields =
   let app_fun (rf : record_field) : record_field =
     match rf with
@@ -412,7 +412,7 @@ let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ )
       in
     apply_on_record_fields app_fun rfs
 
-(* [change_loop_body loop body]: change the current body of loop [loop] with [body] *)
+(** [change_loop_body loop body]: change the current body of loop [loop] with [body] *)
 let change_loop_body (loop : trm) (body : trm) : trm =
   match loop.desc with
   | Trm_for (l_range, _, contract) ->
@@ -421,13 +421,13 @@ let change_loop_body (loop : trm) (body : trm) : trm =
     trm_for_c ?invariant init cond step body
   | _-> trm_fail loop "Internal.change_loop_body: expected for loop"
 
-(* [is_trm_loop t] check if [t] is a loop or not *)
+(** [is_trm_loop t] check if [t] is a loop or not *)
 let is_trm_loop (t : trm) : bool =
   match t.desc with
   | Trm_for _ | Trm_for_c _ -> true
   | _ -> false
 
-(* [is_struct_type t]: check if [t] is type struct or not
+(** [is_struct_type t]: check if [t] is type struct or not
 
     Note: The current infrastructure of Optitrust supports only
       struct declared via typedefs, later we will add support for
@@ -448,13 +448,13 @@ let is_struct_type (t : typ) : bool =
 
 
 
-(* [get_constr_from_target tg]: get the constraint from a list of constraints(targets) *)
+(** [get_constr_from_target tg]: get the constraint from a list of constraints(targets) *)
 let get_constr_from_target (tg : target) : constr =
   match tg with
   | [cnst] -> cnst
   | _ -> cTarget tg
 
-(* [replace_return_with_assign exit_label r t]: removes all the return statements from the body of a function declaration,
+(** [replace_return_with_assign exit_label r t]: removes all the return statements from the body of a function declaration,
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
       [r] - the name of the variable replacing the return statement, can be [dummy_var] to ... ?
       [t] - ast of the body of the function. *)
@@ -490,7 +490,7 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
   (t, !nb_gotos)
 
 
-(* [get_field_name rf]: returns the name of the field [rf]. *)
+(** [get_field_name rf]: returns the name of the field [rf]. *)
 let get_field_name (rf : record_field) : string option =
   match rf with
   | Record_field_member (n, _) -> Some n

@@ -4,7 +4,7 @@
 (******************************************************************************)
 
 
-(* [dir]: direction type *)
+(** [dir]: direction type *)
 type dir =
   (* [Dir_before] is used by target_between, to aim for a position in a sequence
   TODO:
@@ -64,16 +64,16 @@ type dir =
   (* ghost argument in apps *)
   | Dir_ghost_arg_nth of int
 
-(* [span]: Represent a set of contiguous positions inside a sequence.
+(** [span]: Represent a set of contiguous positions inside a sequence.
    [start] is the postion before the first element, and [stop] is the postion after the last element. *)
 and span = { start: int; stop: int; }
 
-(* [case_dir]: direction to a switch case *)
+(** [case_dir]: direction to a switch case *)
 and case_dir =
   | Case_name of int
   | Case_body
 
-(* [enum_const_dir]: direction to a const enum declaration *)
+(** [enum_const_dir]: direction to a const enum declaration *)
 and enum_const_dir =
   | Enum_const_name
   | Enum_const_val
@@ -92,7 +92,7 @@ and resource_set_dir =
 
 [@@deriving show { with_path = false }, ord]
 
-(* [dir_to_string d]: print direction [d]*)
+(** [dir_to_string d]: print direction [d]*)
 let dir_to_string = show_dir
 
 (* A [path] is a "fully explicit path" describing a point in the AST as a list
@@ -100,15 +100,15 @@ let dir_to_string = show_dir
 type path = dir list
 [@@deriving show]
 
-(* [paths]: target resolutions produces a list of paths(explicit list of directions),
+(** [paths]: target resolutions produces a list of paths(explicit list of directions),
             we let [paths] be a shorthand for such type. *)
 type paths = path list
 [@@deriving show]
 
-(* [path_to_string dl]: print the path [dl] *)
+(** [path_to_string dl]: print the path [dl] *)
 let path_to_string = show_path
 
-(* [paths_to_string ~sep dls]: print the list of paths [dls] *)
+(** [paths_to_string ~sep dls]: print the list of paths [dls] *)
 let paths_to_string ?(sep:string="; ") (dls : paths) : string =
   Tools.list_to_string ~sep (List.map path_to_string dls)
 
@@ -124,7 +124,7 @@ let rec compare_path (dl : path) (dl' : path) : int =
       let cd = compare_dir d d' in
       if cd = 0 then compare_path dl dl' else cd
 
-(* [Path_set]: a set module used for storing paths *)
+(** [Path_set]: a set module used for storing paths *)
 module Path_set = Set.Make(
   struct
   let compare = compare_path
@@ -132,30 +132,30 @@ module Path_set = Set.Make(
   end
 )
 
-(* [set_of_paths p1]: create a set of paths *)
+(** [set_of_paths p1]: create a set of paths *)
 let set_of_paths (p1 : paths) : Path_set.t =
   let set_of_p1 = Path_set.empty in
   List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1
 
-(* [filter_duplicates p1]: remove all the duplicate paths from p1 *)
+(** [filter_duplicates p1]: remove all the duplicate paths from p1 *)
 let filter_duplicates (ps : paths) : paths =
   let sp = set_of_paths ps in
   Path_set.elements sp
 
-(* [intersect p1 p2] compute the intersection of two resolved paths *)
+(** [intersect p1 p2] compute the intersection of two resolved paths *)
 let intersect (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = set_of_paths p1 in
   let set_of_p2 = set_of_paths p2 in
   let inter_p1_p2 = Path_set.inter set_of_p1 set_of_p2 in
   Path_set.elements inter_p1_p2
 
-(* [union p1 p2]: compute the union of two resolved paths and remove duplicates *)
+(** [union p1 p2]: compute the union of two resolved paths and remove duplicates *)
 let union (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = List.fold_left (fun acc x -> Path_set.add x acc) Path_set.empty p1 in
   let set_of_p1_p2 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p2 in
   Path_set.elements set_of_p1_p2
 
-(* [diff p1 p2]: compute the the diff of two resolved paths and remove duplicates *)
+(** [diff p1 p2]: compute the the diff of two resolved paths and remove duplicates *)
 let diff (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = set_of_paths p1 in
   let set_of_p2 = set_of_paths p2 in

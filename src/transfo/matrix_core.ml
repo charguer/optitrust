@@ -11,10 +11,10 @@ type nd_tile = (trm * trm) list
 type nd_range = (trm * trm) list
 
 (* TODO?
-(* [tile_none]: special tile value where the dimension should be kept fully *)
+(** [tile_none]: special tile value where the dimension should be kept fully *)
 let tile_all: trm * trm = trm_int 1, trm_int 0
 
-(* [tile_none]: special tile value where the dimension should be dropped *)
+(** [tile_none]: special tile value where the dimension should be dropped *)
 let tile_none: trm * trm = trm_int 0, trm_int 0
 *)
 
@@ -203,7 +203,7 @@ let pointwise_fors
 (*                        Core transformations on C matrices                                        *)
 (****************************************************************************************************)
 
-(* [intro_calloc_aux t]: replaces a call to calloc with a call to the macro CALLOC,
+(** [intro_calloc_aux t]: replaces a call to calloc with a call to the macro CALLOC,
      [t] - ast of the call to alloc. *)
 let intro_calloc_aux (t : trm) : trm =
   match t.desc with
@@ -211,7 +211,7 @@ let intro_calloc_aux (t : trm) : trm =
     alloc ~init:(trm_int 0) [dim] size
   | _ -> trm_fail t "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
-(* [intro_malloc_aux t]: replaces a call to calloc with a call to MALLOC,
+(** [intro_malloc_aux t]: replaces a call to calloc with a call to MALLOC,
      [t] - ast of the call to alloc. *)
 let intro_malloc_aux (t : trm) : trm =
   match t.desc with
@@ -219,7 +219,7 @@ let intro_malloc_aux (t : trm) : trm =
     alloc [dim] size
   | _ -> trm_fail t "Matrix_core.intro_malloc: expected a function call to malloc"
 
-(* [intro_mindex_aux dim t] replaces an array access at index [i] with an array access at MINDEX([dim],i),
+(** [intro_mindex_aux dim t] replaces an array access at index [i] with an array access at MINDEX([dim],i),
       [dim] - the size of the array accesses with [t],
       [t] - the ast of the array access. *)
 let intro_mindex_aux (dim : trm) (t : trm) : trm =
@@ -232,7 +232,7 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
     end
   | _ -> trm_fail t "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
 
-(* [reorder_dims_aux order t]: reorders the dimensions in a call to CALLOC, MALLOC or MINDEX,
+(** [reorder_dims_aux order t]: reorders the dimensions in a call to CALLOC, MALLOC or MINDEX,
       [order] - a list of indices based on which the elements in dims should be ordered,
       [t] - ast of the call to CALLOC, MALLOC, MINDEX. *)
 let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
@@ -267,7 +267,7 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
     alloc ?init reordered_dims size
   | _ -> trm_fail t "Matrix_core.reorder_dims_aux: expected  a function call to CALLOC or MINDEX"
 
-(* [insert_alloc_dim_aux new_dim t]: adds a new dimension at the beginning of the list of dimension,
+(** [insert_alloc_dim_aux new_dim t]: adds a new dimension at the beginning of the list of dimension,
      [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to CALLOC or MALLOC,
      [t]: ast of the call to ALLOC functions. *)
 let insert_alloc_dim_aux ?(last : bool = false) (new_dim : trm) (t : trm) : trm =
@@ -278,7 +278,7 @@ let insert_alloc_dim_aux ?(last : bool = false) (new_dim : trm) (t : trm) : trm 
     alloc ?init new_dims size
   | None -> trm_fail t "Matrix_core.insert_alloc_dim_aux: expected a function call to CALLOC"
 
-(* [insert_access_dim_index_aux new_dim new_index t]: add a new dimension at the beginning of the list of dimension
+(** [insert_access_dim_index_aux new_dim new_index t]: add a new dimension at the beginning of the list of dimension
      and add a new index at the begining of the list of indices in the call to MINDEX inside the
      targeted array access.
       [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to MINDEX,
@@ -292,13 +292,12 @@ let insert_access_dim_index_aux ?(last : bool = false) (new_dim : trm) (new_inde
     access base new_dims new_indices
   | None -> trm_fail t "Matrix_core.insert_access_dim_index_aux: expected an array access "
 
-(* [local_name_aux mark var local_var malloc_trms var_type t] insert a local matrix declaration with name [local_var] and copy the content
+(** [local_name_aux mark var local_var malloc_trms var_type t] insert a local matrix declaration with name [local_var] and copy the content
       from the matrix [var] to [local_var] and replace all the accesses of that matrix inside the targeted insturction [t].
       [mark] - an optional mark at the final generated sequence,
       [var] - the name of the current matrix used in instruction [t],
       [new_var] - the name of the local matrix which replaces all the current accesses of [var],
       [t] - ast of thee instuction which contains accesses to [var]. *)
-
 (* TODO: superseded by tile version *)
 let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in

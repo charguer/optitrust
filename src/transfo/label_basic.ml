@@ -12,7 +12,7 @@ open Target
    - label as a standalone instruction (=> currently encoded as Trm_label ("foo", trm_unit))
    - or label around an instruction. *)
 
-(* [add label tg]: adds a C-label named [label] to the front of the terms
+(** [add label tg]: adds a C-label named [label] to the front of the terms
    matching the target [tg].
    Does nothing if [label = no_label].
 
@@ -22,6 +22,6 @@ let%transfo add (label : string) (tg:target) : unit =
   if label = no_label then () else
   Target.apply_at_target_paths (trm_add_label label) tg
 
-(* [remove label tg]: removes a C-label named [label] matched by th target [tg]. *)
+(** [remove label tg]: removes a C-label named [label] matched by th target [tg]. *)
 let%transfo remove (tg: target) : unit =
   Target.apply_at_target_paths trm_rem_labels tg

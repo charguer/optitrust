@@ -1,6 +1,6 @@
 open Prelude
 
-(* [may_merge]: if [t] corresponds to two nested ifs, merge them using '&&'.
+(** [may_merge]: if [t] corresponds to two nested ifs, merge them using '&&'.
    *)
 let may_merge (t : trm) : trm option =
   match trm_if_inv t with

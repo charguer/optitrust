@@ -186,7 +186,7 @@ let%transfo change_type (new_type : typvar) (tg : target) : unit =
  Target.apply_at_target_paths_in_seq (Variable_core.change_type_at new_type) tg
 
 
-(* [insert ~constr ~name ~typ ~value tg]: expects the target [tg] to point at any relative location in a sequence
+(** [insert ~constr ~name ~typ ~value tg]: expects the target [tg] to point at any relative location in a sequence
      then it will insert a variable declaration on that location,
      [const] - if true, then the inserted variable is going to be immutable, otherwise mutable,
      [reparse] - if true it will reparse the full ast after applying the trasnformation,
@@ -199,7 +199,7 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ?(value : t
   Target.reparse_after ~reparse (Target.apply_at_target_paths_before (fun t i -> Variable_core.insert_at i const name typ value t)) tg
 
 
-(* [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
+(** [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
     variable [subst], then it will check for occurrences of the variable [subst] and replace is with [put]. *)
 let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () -> Target.reparse_after ~reparse (

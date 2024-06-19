@@ -220,7 +220,7 @@ end
 (*----------------------------------------------------------------------------------*)
 (** Show functions whose output can be viewed as a diff or as steps in trace. *)
 
-(* [ast ()] prints on the left-hand side the C code, and on the right-hand side the internal AST code. Use [~internal:false] to disable the printing of internal.
+(** [ast ()] prints on the left-hand side the C code, and on the right-hand side the internal AST code. Use [~internal:false] to disable the printing of internal.
     TODO: contract_internal_repr is not yet implemented
     EXAMPLE !! Show.ast ~contract_internal_repr:true ();
     TODO: add ~ast_text:true
@@ -249,7 +249,7 @@ let ast ?(internal : bool = true) ?(contract_internal_repr : bool option) ?(var_
   let ast_right = if not internal then Trm.empty_ast else ast_left in
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
 
-(* [target tg] shows the C code on the left-hand side of the diff, and the code decorated
+(** [target tg] shows the C code on the left-hand side of the diff, and the code decorated
    with marks as comments on the terms that the target [tg] resolves to. *)
 let target ?(msg : string = "show-target") ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
   let add_marks_and_get_ast () : trm =
@@ -272,10 +272,10 @@ let target ?(msg : string = "show-target") ?(line : int = -1) ?(types : bool = f
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
   (* LATER: we could pass a closure to show_step instead of an ast_right argument *)
 
-(* [tg] is an alias for [target] *)
+(** [tg] is an alias for [target] *)
 let tg = target
 
-(* [res] shows the C code on the left-hand side of the diff, and the code decorated
+(** [res] shows the C code on the left-hand side of the diff, and the code decorated
    with computed resources on the right-hand side.
    The option [~ast] allows to provide a specific ast, otherwise resources are
    reported for the full current ast.  *)
@@ -302,11 +302,11 @@ let res ?(msg : string = "show-resources") ?(var_id : bool option)
   Trace.show_step ~name:msg ~ast_left ~ast_right ~style_left ~style_right ()
 
 
-(* [ctx] is like [res] but shows only [ctx_res] fields. *)
+(** [ctx] is like [res] but shows only [ctx_res] fields. *)
 let ctx ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : unit =
   res ~msg ~ast ~typing_style:Style.typing_ctx ()
 
-(* [delta] is like [res] but shows all but [frame] information.
+(** [delta] is like [res] but shows all but [frame] information.
    TODO: ideally we would hide the [ctx_res] fields, but this requires
    replace the resource ids occurring in other fields with their
    corresonding formula. In [inst] and [produced], the ids should be hidden *) (* LATER: rename delta *)
@@ -315,7 +315,7 @@ let delta ?(msg : string = "show-resources") ?(ast : trm = Trace.ast ()) () : un
 
 
 (* LATER: Fix me
-(* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
+(** [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
 let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =
   show ~line (* DEPRECATED ~reparse*) ~types:true tg
 *)

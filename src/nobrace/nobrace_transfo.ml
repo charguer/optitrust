@@ -1,7 +1,7 @@
 open Ast
 
 
-(* [remove_after ~remove f]: wrapper for creating and deleting a nobrace sequence.
+(** [remove_after ~remove f]: wrapper for creating and deleting a nobrace sequence.
   Internally it applies the function clean_nobrace over the trm t.
   By default, scope is checked: inlining nobrace sequences should not change variable usage.
   LATER: ideally, we may want to remove all cstyle carrying the identifier ID when remove is false. *)

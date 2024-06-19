@@ -29,7 +29,7 @@ let get_step_with_id (id:int) (s:step_tree) : step_tree =
 exception Trace_not_found of string
 exception Trace_out_of_date of string
 
-(* [check_trace_file ?timestamp path]: Checks that a trace file exists and have the correct timestamp *)
+(** [check_trace_file ?timestamp path]: Checks that a trace file exists and have the correct timestamp *)
 let check_trace_file ?(timestamp: string option) (path: string): unit =
   if not (Sys.file_exists path) then raise (Trace_not_found path);
   begin match timestamp with
@@ -41,7 +41,7 @@ let check_trace_file ?(timestamp: string option) (path: string): unit =
 
 exception Trace_deserialization_error of string
 
-(* [deserialize_trace_tree path]: Reads a serialized trace tree *)
+(** [deserialize_trace_tree path]: Reads a serialized trace tree *)
 let deserialize_trace_tree (path: string) : step_tree =
   try
     let file = open_in_bin path in

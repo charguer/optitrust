@@ -249,7 +249,7 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
       failwith "GatherAt not yet implemented, need to move instrs before and after target in right order, maybe Instr.move should already behave like GatherAt?"
     end)
 
-(* [move dest tg]: move the instructions pointed by [tg] to destination [dest]
+(** [move dest tg]: move the instructions pointed by [tg] to destination [dest]
    Note: If checking validity, dest must be in the same sequence as the moved instructions.
 *)
 let%transfo move ~(dest : target) (tg : target) : unit =

@@ -57,22 +57,22 @@ let sprintf = Printf.sprintf
 
 (* TODO: move to loc.ml *)
 
-(* [pos]: record used to represent a specific location inside the code *)
+(** [pos]: record used to represent a specific location inside the code *)
 type pos = {
     pos_line : int;
     pos_col : int; }
 
-(* [trm_loc]: record used to keep track of the trm information like the
+(** [trm_loc]: record used to keep track of the trm information like the
 file it belongs, and the start and the end positions inside the code. *)
 type trm_loc = {
   loc_file : string;
   loc_start : pos;
   loc_end : pos;}
 
-(* [location]: an optional type representing the location of a trm *)
+(** [location]: an optional type representing the location of a trm *)
 type location = trm_loc option
 
-(* [loc_to_string loc]: pretty print a trm location *)
+(** [loc_to_string loc]: pretty print a trm location *)
 let loc_to_string (loc : location) : string =
   match loc with
   | None -> "Unknown location"
@@ -87,18 +87,18 @@ let loc_to_string (loc : location) : string =
 
 (*****************************************************************************)
 
-(* [loc]: memory location *)
+(** [loc]: memory location *)
 type loc = int (* TODO: remove this? and rename location to loc for conciseness *)
 
-(* [mark]: annotation used for resolving targets, see module mark.ml *)
+(** [mark]: annotation used for resolving targets, see module mark.ml *)
 type mark = string
 
-(* [marks]: a list of marks *)
+(** [marks]: a list of marks *)
 type marks = mark list
 
 let no_mark = ""
 
-(* [mlists]: generalized lists, see module mlist.ml *)
+(** [mlists]: generalized lists, see module mlist.ml *)
 type 'a mlist = 'a Mlist.t
 
 type var_id = int
@@ -140,19 +140,19 @@ module Var = struct
   let hash v = Hashtbl.hash v.id
 end
 
-(* [vars]: variables, a list of elements of type variable *)
+(** [vars]: variables, a list of elements of type variable *)
 type vars = var list
 
-(* [Var_set]: a set module used for storing variables *)
+(** [Var_set]: a set module used for storing variables *)
 module Var_set = Set.Make(Var)
 
-(* [Var_map]: a map module used for mapping variables to values *)
+(** [Var_map]: a map module used for mapping variables to values *)
 module Var_map = Map.Make(Var)
 
-(* [Var_Hashtbl]: a hash table module used for variables *)
+(** [Var_Hashtbl]: a hash table module used for variables *)
 module Var_Hashtbl = Hashtbl.Make(Var)
 
-(* [varmap]: instantiation of Var_map *)
+(** [varmap]: instantiation of Var_map *)
 type 'a varmap = 'a Var_map.t
 
 let var_map_of_list l = Var_map.of_seq (List.to_seq l)
@@ -160,10 +160,10 @@ let var_map_of_list l = Var_map.of_seq (List.to_seq l)
 (* let vars_to_string vs = Tools.list_to_string vs *)
 let vars_to_string vs = Trace_printers.(list_arg_printer var_to_string vs)
 
-(* [next_var_id]: generates an integer for variable names *)
+(** [next_var_id]: generates an integer for variable names *)
 let next_var_id : unit -> int = Tools.fresh_generator ()
 
-(* [fresh_var_name]: creates a fresh variable name *)
+(** [fresh_var_name]: creates a fresh variable name *)
 let fresh_var_name : ?prefix:string -> unit -> string =
   let next_number = Tools.fresh_generator () in
   fun ?(prefix = "_v") () -> prefix ^ string_of_int (next_number ())
@@ -176,60 +176,60 @@ end
 module Qualified_set = Set.Make(Qualified_name)
 module Qualified_map = Map.Make(Qualified_name)
 
-(* [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
+(** [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
    or [vect] in C type [struct { int x,y }; *)
 type typconstr = Qualified_name.t
 
-(* [typvar]: name of type variables (e.g. ['a] in type ['a list] *)
+(** [typvar]: name of type variables (e.g. ['a] in type ['a list] *)
 type typvar = string
 
-(* [typvars]: a list of typvar *)
+(** [typvars]: a list of typvar *)
 type typvars = typvar list
 
-(* [typconstrid]: unique identifier for typ constructors*)
+(** [typconstrid]: unique identifier for typ constructors*)
 (* LATER: #type-id, should type ids be like var ids ? how does that interect with typconstrid ? *)
 type typconstrid = int
 
-(* [next_typconstrid ()] generates and return a new id *)
+(** [next_typconstrid ()] generates and return a new id *)
 let next_typconstrid : (unit -> typconstrid) =
   Tools.fresh_generator ()
 
-(* [stringreprid]: unique identifier used as keys for memoization of string representation of subterms *)
+(** [stringreprid]: unique identifier used as keys for memoization of string representation of subterms *)
 type stringreprid = int
 
-(* [next_stringreprid ()] generates and return a new string representation id *)
+(** [next_stringreprid ()] generates and return a new string representation id *)
 let next_stringreprid : (unit -> stringreprid) =
   Tools.fresh_generator ()
 
-(* ['a typmap] is a map from [typeid] to ['a] *)
+(** ['a typmap] is a map from [typeid] to ['a] *)
 module Typ_map = Map.Make(Int)
 
-(* [typmap]: instantiation of Typ_map *)
+(** [typmap]: instantiation of Typ_map *)
 type 'a typmap = 'a Typ_map.t
 
-(* [field]: struct field defined as a string *)
+(** [field]: struct field defined as a string *)
 type field = string
 
-(* [fields]: struct fields as a list of fields *)
+(** [fields]: struct fields as a list of fields *)
 type fields = field list
 
-(* [label]: labels (for records) *)
+(** [label]: labels (for records) *)
 type label = string
 type 'a labelmap = 'a Tools.String_map.t
 
-(* [labels]: a list of labels. *)
+(** [labels]: a list of labels. *)
 type labels = label list
 
 let no_label = ""
 
-(* [string_trm]: description of a term as a string (convenient for the user) *)
+(** [string_trm]: description of a term as a string (convenient for the user) *)
 type string_trm = string
 
-(* [constrname]: constructor name (for typedef, enum and algebraic datatypes) *)
+(** [constrname]: constructor name (for typedef, enum and algebraic datatypes) *)
 type constrname = string
 type 'a constrnamemap = 'a Tools.String_map.t
 
-(* [loop_dir]: loop bound inequalities *)
+(** [loop_dir]: loop bound inequalities *)
 type loop_dir =
   | DirUp      (* i < 2  *)
   | DirUpEq    (* i <= 2 *)
@@ -237,7 +237,7 @@ type loop_dir =
   | DirDownEq  (* i >= 0 *)
 [@@deriving show]
 
-(* [code_kind]; code kind entered by the user *)
+(** [code_kind]; code kind entered by the user *)
 type code_kind =
   | Lit of string   (* 1, "hello", 1.0, (), true, false *)
   | Atyp of string  (* int, double float, vect, particle *)
@@ -247,7 +247,7 @@ type code_kind =
   | Comment of string (* "// txt", or "/*txt*/" *)
 [@@deriving show]
 
-(* [code_to_str]: extracts the code from the trms that contain the arbitrary code. *)
+(** [code_to_str]: extracts the code from the trms that contain the arbitrary code. *)
 let code_to_str (code : code_kind) : string =
   match code with
   | Lit l -> l
@@ -258,7 +258,7 @@ let code_to_str (code : code_kind) : string =
   | Comment s -> s
 
 (*****************************************************************************)
-(* [typ_desc]: type description *)
+(** [typ_desc]: type description *)
 type typ_desc =
   | Typ_const of typ   (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar * typconstrid (* e.g. ['a] in the type ['a -> 'a] -- *)
@@ -291,33 +291,33 @@ type typ_desc =
      monomorphic codes. *)
   | Typ_decl of trm                        (* Since C++11, decltype (nullptr), create a type out of an expression *)
 
-(* [ptr_kind]: type used for distinguishing pointers from references, note that
+(** [ptr_kind]: type used for distinguishing pointers from references, note that
     both pointers and references are considered by OptiTrust as pointers.*)
 and ptr_kind =
   | Ptr_kind_mut   (* int* *)
   | Ptr_kind_ref   (* int& *)
 
-(* [typ_annot]: annotation for types that can be build from the main ones *)
+(** [typ_annot]: annotation for types that can be build from the main ones *)
 and typ_annot =
   | Unsigned  (* unsigned int *)
   | Long      (* long int *)
   | Short     (* short int *)
 
-(* [typ]: is a record containing the description, annotation and some attributes*)
+(** [typ]: is a record containing the description, annotation and some attributes*)
 and typ = {
   typ_desc : typ_desc;
   typ_annot : typ_annot list;
   typ_attributes : attribute list;
   }
 
-(* [typed_var]: used for function arguments *)
+(** [typed_var]: used for function arguments *)
 and typed_var = var * typ
 
-(* [typed_vars]: a list of typed_var *)
+(** [typed_vars]: a list of typed_var *)
 and typed_vars = typed_var list
 
 (*****************************************************************************)
-(* [typedef]: is a record containing the id of the type, the name of the new defined
+(** [typedef]: is a record containing the id of the type, the name of the new defined
     type, for sum types there can be also more then one variable. And finally the
      body of the type *) (* TODO: rename typdef_ to typedef_ *)
 and typedef = {
@@ -332,7 +332,7 @@ and typedef = {
                             i.e. the description of [...] *)
 }
 
-(* [record_fields]: fields representation for classes, structs and unions. *)
+(** [record_fields]: fields representation for classes, structs and unions. *)
 and record_fields = (record_field * record_field_annot) list
 
 and record_field =
@@ -348,7 +348,7 @@ and access_control =
   | Access_unspecified
 
 
-(* [typedef_body]: typedef kinds *)
+(** [typedef_body]: typedef kinds *)
 and typdef_body =
   | Typdef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
                           list] or [typdef vect t] *)
@@ -363,11 +363,11 @@ and typdef_body =
 (*****************************************************************************)
 
 
-(* [trm_annot]: annotations are used to decorate this AST when it is built from
+(** [trm_annot]: annotations are used to decorate this AST when it is built from
     the Clang AST in such a way to be able to print back the AST like
     the original C code.*)
 
-(* [cstyle_annot]: annotations used for encodings and decodings. *)
+(** [cstyle_annot]: annotations used for encodings and decodings. *)
 and cstyle_annot =
 
   (* distinguish [p->f] vs [( *p ).f], represented as [get(access(p,f)],
@@ -459,7 +459,7 @@ and cstyle_annot =
   (* tag used by light diff *)
   | BodyHiddenForLightDiff
 
-(* [constructor_kind]: special annotation for constructors *)
+(** [constructor_kind]: special annotation for constructors *)
 and constructor_kind =
   | Constructor_implicit
   | Constructor_explicit
@@ -471,16 +471,16 @@ and destructor_kind =
   | Destructor_delete
   | Destructor_simpl
 
-(* [file_annot]: file annotation *)
+(** [file_annot]: file annotation *)
 and file_annot =
   | Inside_file
   | Main_file
   | Included_file of string
 
-(* [cpragma]: type alias for directives *)
+(** [cpragma]: type alias for directives *)
 and cpragma = directive
 
-(* [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
+(** [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
     trm_annot_attributes : attribute list;
     trm_annot_marks : marks;
@@ -495,7 +495,7 @@ and trm_annot = {
 
 (*****************************************************************************)
 
-(* [unary_op]: unary operators *)
+(** [unary_op]: unary operators *)
 and unary_op =
   | Unop_get                     (* the "*" operator as in *p  *)
   | Unop_address                 (* the "&" operator as in &p *)
@@ -512,7 +512,7 @@ and unary_op =
   | Unop_cast of typ             (* (int)x *)
 
 (* LATER: numeric operation takes a type argument *)
-(* [binary_op]: binary operators *)
+(** [binary_op]: binary operators *)
 and binary_op =
   | Binop_set           (* lvalue = rvalue *)
   | Binop_array_access  (* array acces encoding *)
@@ -541,13 +541,13 @@ and binary_op =
   (* | Binop_fmod          (* floatting point modulo, LATER: merge with mod when annotated with type *) *)
 
 
-(* [consistency_mode]: C++ memory model consistency *)
+(** [consistency_mode]: C++ memory model consistency *)
 and consistency_mode =
   | Sequentially_consistent
   | Release
   | Acquire
 
-(* [prim]: primitives  *)
+(** [prim]: primitives  *)
 and prim =
   | Prim_unop of unary_op (* e.g. "!b" *)
   | Prim_binop of binary_op (* e.g. "n + m" *)
@@ -560,7 +560,7 @@ and prim =
   | Prim_delete_array (* C++ "delete[] t" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
-(* [lit]: literals *)
+(** [lit]: literals *)
 and lit =
   | Lit_unit              (* void, e.g. "return;" is represented as "Lit_unit" *)
   | Lit_uninitialized     (* e.g. "int x;" is "int x = Lit_uninitalized" *)
@@ -570,7 +570,7 @@ and lit =
   | Lit_string of string  (* "hello"  *)
   | Lit_nullptr               (* nullptr *)
 
-(* [value]: values *)
+(** [value]: values *)
 and value =
   | Val_lit of lit   (* literal values *)
   | Val_prim of prim (* primitive values *)
@@ -580,14 +580,14 @@ and value =
   (* Is this really useful? Contrary to CFML, I (GB) don't think we need to have
      a value grammar *)
 
-(* [attribute]: trm attributes *)
+(** [attribute]: trm attributes *)
 and attribute =
   | Alignas of trm (* alignas(64) double* deposit; *)
   | GeneratedTyp   (* pointers used only for encoding stack variables*)
   | Injected       (* injected type *)
   | Others         (* TO BE CONTINUED ... *)
 
-(* [record_type]: C++ record types *)
+(** [record_type]: C++ record types *)
 and record_type =
   | Struct  (* struct *)
   | Union   (* union *)
@@ -595,7 +595,7 @@ and record_type =
 
 (*****************************************************************************)
 
-(* [trm] is a record representing an ast node *)
+(** [trm] is a record representing an ast node *)
 and trm =
  { annot : trm_annot;
    desc : trm_desc;
@@ -607,10 +607,10 @@ and trm =
    (* LATER: mutable typing_aux should be the only mutable flag *)
 }
 
-(* [trms]: a list of trms *)
+(** [trms]: a list of trms *)
 and trms = trm list
 
-(* [ctx]: stores context information that can be recomputed and must be updated
+(** [ctx]: stores context information that can be recomputed and must be updated
    when changes occur (reset the field to unknown_ctx for invalidation). *)
 and ctx = {
   mutable ctx_types: typ_ctx option;
@@ -627,7 +627,7 @@ and ctx = {
   mutable ctx_resources_post_inst: used_resource_set option;
 }
 
-(* [typ_ctx]: stores all the information about types, labels, constructors, etc. *)
+(** [typ_ctx]: stores all the information about types, labels, constructors, etc. *)
 and typ_ctx = {
   (* TODO: #var-id, use a varmap? requires changes in clang_to_astRawC *)
   ctx_var : typ Qualified_map.t;             (* from [var] to [typ], i.e. giving the type
@@ -642,7 +642,7 @@ and typ_ctx = {
 (*****************************************************************************)
 
 
-(* [loop_range]: a type for representing for loops range *)
+(** [loop_range]: a type for representing for loops range *)
 and loop_range = {
   index: var;
   start: trm;
@@ -651,7 +651,7 @@ and loop_range = {
   step: trm;
 }
 
-(* [trm_desc]: description of an ast node *)
+(** [trm_desc]: description of an ast node *)
 and trm_desc =
   | Trm_val of value
   | Trm_var of var
@@ -786,16 +786,16 @@ and contract_invoc = {
 
 (* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)
 
-(* [template_param_kind]: parameters kind, typename , empty or another template *)
+(** [template_param_kind]: parameters kind, typename , empty or another template *)
 and template_param_kind =
   | Type_name of typ option               (* <T> *)
   | NonType of typ * trm option           (* <> *)
   | Template of template_parameter_list   (* vect<int, int> (i,j) *)
 
-(* [template_parameter_list]: template parameter list *)
+(** [template_parameter_list]: template parameter list *)
 and template_parameter_list = (string * template_param_kind * bool) list
 
-(* [abort]: ways of aborting *)
+(** [abort]: ways of aborting *)
 and abort =
   | Ret of trm option        (* return;  or return 3; *)
   | Break of label option    (* break; *)
@@ -804,22 +804,22 @@ and abort =
 
 (*****************************************************************************)
 
-(* [mode]: mode used for default OpenMP clause *)
+(** [mode]: mode used for default OpenMP clause *)
 and mode =
   | Shared_m
   | None_
 
-(* [expression]: representing the code inside an If OpenMP clause *)
+(** [expression]: representing the code inside an If OpenMP clause *)
 and expression = string
 
-(* [sched_type]: scheduling type for OpenMP *)
+(** [sched_type]: scheduling type for OpenMP *)
 and sched_type =
   | Static
   | Dynamic
   | Guided
   | Runtime
 
-(* [reduction_identifier]: reduction operation for OpenMP reduction clause *)
+(** [reduction_identifier]: reduction operation for OpenMP reduction clause *)
 and reduction_identifier =
   | Plus
   | Minus
@@ -832,7 +832,7 @@ and reduction_identifier =
   | Min
   | Max
 
-(* [map_type] map type for map OpenMP clause *)
+(** [map_type] map type for map OpenMP clause *)
 and map_type =
   | Alloc
   | To
@@ -840,21 +840,21 @@ and map_type =
   | ToFrom
   | No_map
 
-(* [proc_bind]: process binding *)
+(** [proc_bind]: process binding *)
 and proc_bind =
   | Master_pb
   | Close
   | Spread
 
-(* [dep]:  *)
+(** [dep]:  *)
 and dep =
   | Dep_var of var
   | Dep_ptr of dep
 
-(* [deps]: *)
+(** [deps]: *)
 and deps = dep list
 
-(* [dependecy_type]: dependency kind *)
+(** [dependecy_type]: dependency kind *)
 and dependence_type =
   | In of deps
   | Out of deps
@@ -863,7 +863,7 @@ and dependence_type =
   | Sink of deps
   | Source
 
-(* [clause]: OpenMP clauses *)
+(** [clause]: OpenMP clauses *)
 and clause =
   (* Data sharing clauses *)
   | Default of mode
@@ -913,14 +913,14 @@ and clause =
   | Num_teams of var
   | Thread_limit of var
 
-(* [atomic_operation]: atomic operations for atomic OpenMP directives *)
+(** [atomic_operation]: atomic operations for atomic OpenMP directives *)
 and atomic_operation =
   | Read
   | Write
   | Update
   | Capture
 
-(* [directive]: OpenMP directives *)
+(** [directive]: OpenMP directives *)
 and directive =
   | Atomic of atomic_operation option
   | Atomic_capture
@@ -972,7 +972,7 @@ and directive =
   | Teams_distribute_parallel_for_simd of clause list
   | Threadprivate of vars
 
-(* [omp_routine]: OpenMP Routines *)
+(** [omp_routine]: OpenMP Routines *)
 and omp_routine =
   | Set_num_threads of int
   | Get_num_threads
@@ -1114,7 +1114,7 @@ let path_error_context (p : Dir.path) : error_context =
   }
 
 (* LATER: use Path.fail or fail ~path *)
-(* [path_fail p err]: fails with error [error] raised on path [p] *)
+(** [path_fail p err]: fails with error [error] raised on path [p] *)
 let path_fail (p : Dir.path) (error : string) : 'a =
   contextualized_error [path_error_context p] error
 
@@ -1130,7 +1130,7 @@ let trm_error_context (t : trm) : error_context =
   }
 
 (* LATER: move to trm.ml or have fail ~trm *)
-(* [trm_fail t err]: fails with error [error] raised on term [t] *)
+(** [trm_fail t err]: fails with error [error] raised on term [t] *)
 let trm_fail (t : trm) (error : string) : 'a =
   contextualized_error [trm_error_context t] error
 
@@ -1152,7 +1152,7 @@ let loc_error_context (loc : location) : error_context =
 let loc_fail (loc : location) (error : string) : 'a =
   contextualized_error [loc_error_context loc] error
 
-(* [print_info loc]: computes a function that prints information related to some location in file only if the verbose
+(** [print_info loc]: computes a function that prints information related to some location in file only if the verbose
    flag is activated *)
 let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
   if !Flags.verbose then
@@ -1169,7 +1169,7 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
 
 (* TODO: move *)
 (* TODO: rename to monoid *)
-(* [local_ops]: type used for the local_name transformation. *)
+(** [local_ops]: type used for the local_name transformation. *)
 type local_ops =
 (* | Functional_monoid of trm * trm (* 0 and +; what about += ? *)
    | Imperative_monoid of trm * trm (* create 0 and mutating += (e.g. bag extend) and others (e.g. bag push) *)
@@ -1181,7 +1181,7 @@ type local_ops =
 
 (*****************************************************************************)
 
-(* [typedef_get_members ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
+(** [typedef_get_members ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
      then only members with the specified access_control are returned. *)
 let typedef_get_members ?(access : access_control option) (t : trm) : (label * typ) list =
   match t.desc with
@@ -1202,7 +1202,7 @@ let typedef_get_members ?(access : access_control option) (t : trm) : (label * t
   | _ -> trm_fail t "Ast.typedef_get_members: can't get members of a trm that's not a type definition."
 
 
-(* [typedef_get_methods ~access t]: returns all the methods of typedef [t]. If [access] is provided as an argument
+(** [typedef_get_methods ~access t]: returns all the methods of typedef [t]. If [access] is provided as an argument
       then only methods with the specified access_control are returned. *)
 let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
   match t.desc with
@@ -1222,7 +1222,7 @@ let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
     end
   | _ -> trm_fail t "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
 
-(* [typedef_get_all_fields t]: returns all the fields of [t]. *)
+(** [typedef_get_all_fields t]: returns all the fields of [t]. *)
 let typedef_get_all_fields (t : trm) : record_fields =
   match t.desc with
   | Trm_typedef td ->
@@ -1233,7 +1233,7 @@ let typedef_get_all_fields (t : trm) : record_fields =
   | _ -> trm_fail t "Ast.get_all_fields: only structs and classes have fields"
 
 
-(* [get_member_type t rf]: returns the type of the member [rf]. *)
+(** [get_member_type t rf]: returns the type of the member [rf]. *)
 let get_member_type (t : trm) (rf : record_field) : typ =
   match rf with
   | Record_field_member (_, ty) -> ty

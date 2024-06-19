@@ -65,7 +65,7 @@ let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
   try f () with
   | Contextualized_error (_, Failure msg2) -> assert (msg = msg2)
 
-(* [AstParser]: module for integrating pieces of code given as input by the user. *)
+(** [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct
   let var v = trm_var (name_to_var v)
   (* DEPRECATED: (find_var_in_current_ast v) *)

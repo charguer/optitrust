@@ -45,7 +45,7 @@ let print_opt_field field_name opt =
   | None -> empty
   | Some elt -> print_field field_name elt
 
-(* [print_typ_desc only_desc t]: converts type descriptions to pprint document *)
+(** [print_typ_desc only_desc t]: converts type descriptions to pprint document *)
 let rec print_typ_desc style (t : typ_desc) : document =
   match t with
   | Typ_const t ->
@@ -96,14 +96,14 @@ let rec print_typ_desc style (t : typ_desc) : document =
   | Typ_arbitrary s -> print_node "Typ_arbitrary " ^^ parens (string (code_to_str s))
   | Typ_decl e -> print_node "Typ_decl " ^^ parens (print_trm style e)
 
-(* [print_typ_annot a]: converts type annotations to pprint document *)
+(** [print_typ_annot a]: converts type annotations to pprint document *)
 and print_typ_annot (a : typ_annot) : document =
   match a with
   | Unsigned -> string "Unsigned"
   | Long -> string "Long"
   | Short -> string "Short"
 
-(* [print_typ style t]: converts type records to pprint document *)
+(** [print_typ style t]: converts type records to pprint document *)
 and print_typ style (t : typ) : document =
   let ddesc = print_typ_desc style t.typ_desc in
   if style.only_desc then ddesc
@@ -111,7 +111,8 @@ and print_typ style (t : typ) : document =
     let dannot = List.map print_typ_annot t.typ_annot in
     let dattr = List.map (print_attribute style) t.typ_attributes in
     print_fields [print_list_field "annot" dannot; print_field "desc" ddesc; print_list_field "attributes" dattr]
-(* [print_unop style op]: converts unary operators to pprint document *)
+
+(** [print_unop style op]: converts unary operators to pprint document *)
 and print_unop style (op : unary_op) : document =
   match op with
   | Unop_get -> string "Unop_get"
@@ -130,7 +131,7 @@ and print_unop style (op : unary_op) : document =
      let dt = print_typ style t in
      print_node "Unop_cast" ^^ dt
 
-(* [print_binop]: converts binary operators to pprint document *)
+(** [print_binop]: converts binary operators to pprint document *)
 and print_binop (op : binary_op) : document =
   match op with
   | Binop_set -> string "Binop_set"
@@ -157,14 +158,14 @@ and print_binop (op : binary_op) : document =
   | Binop_xor -> string "Binop_xor"
   (*| Binop_fmod -> string "Binop_fmod"*)
 
-(* [print_consistency cm]: converts OpenMP memory consistency model to pprint document *)
+(** [print_consistency cm]: converts OpenMP memory consistency model to pprint document *)
 and print_consistency (cm : consistency_mode) : document =
   match cm with
   | Sequentially_consistent -> string "Sequentially_consistent"
   | Release -> string "Release"
   | Acquire -> string "Acquire"
 
-(* [print_primt style p]: converts primitive operatios to pprint document *)
+(** [print_primt style p]: converts primitive operatios to pprint document *)
 and print_prim style (p : prim) : document =
   match p with
   | Prim_unop op ->
@@ -193,7 +194,7 @@ and print_prim style (p : prim) : document =
   | Prim_delete_array -> print_node "Prim_delete_array"
   | Prim_conditional_op -> print_node "Prim_conditional_op"
 
-(* [print_lit l]: converts literals to pprint document *)
+(** [print_lit l]: converts literals to pprint document *)
 and print_lit (l : lit) : document =
   match l with
   | Lit_unit -> string "Lit_unit"
@@ -205,7 +206,7 @@ and print_lit (l : lit) : document =
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
   | Lit_nullptr -> print_node "Lit_nullptr"
 
-(* [print_val style v]: converts values to pprint document *)
+(** [print_val style v]: converts values to pprint document *)
 and print_val style (v : value) : document =
   match v with
   | Val_lit l ->
@@ -216,7 +217,7 @@ and print_val style (v : value) : document =
      print_node "Val_prim" ^^ parens dp
 
 
-(* [print_attribute style a]: converts attribute [a] to pprint document *)
+(** [print_attribute style a]: converts attribute [a] to pprint document *)
 and print_attribute style (a : attribute) : document =
   match a with
   | Alignas t ->
@@ -226,12 +227,12 @@ and print_attribute style (a : attribute) : document =
   | Injected -> string "Injected class type"  ^^ blank 1
   | Others -> empty
 
-(* [print_var]: converts [v] into a docuemnt. *)
+(** [print_var]: converts [v] into a docuemnt. *)
 and print_ast_var style (v : var) : document =
   (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^
   string v.name ^^ (if style.print_var_id then string ("#" ^ string_of_int v.id) else empty)
 
-(* [print_var]: converts [v] into a docuemnt. *)
+(** [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =
   print_ast_var style.ast v
 
@@ -239,7 +240,7 @@ and print_typconstr ((namespaces, name) : typconstr) : document =
   (concat_map (fun q -> string q ^^ string "::") namespaces) ^^
   string name
 
-(* [print_trm_desc style t]: converts the description of trm [t] to pprint document *)
+(** [print_trm_desc style t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc style (t : trm_desc) : document =
   match t with
   | Trm_val v ->
@@ -383,14 +384,14 @@ and print_trm_desc style (t : trm_desc) : document =
       parens (separate (comma ^^ break 1)
         [print_list dtvl; dtout; dt])
 
-(* [print_record_type rt]: converts record types to pprint document *)
+(** [print_record_type rt]: converts record types to pprint document *)
 and print_record_type (rt : record_type) : document =
   match rt with
   | Struct -> string "struct"
   | Union -> string "union"
   | Class -> string "class"
 
-(* [print_typedef style td]: converts typedef to pprint document *)
+(** [print_typedef style td]: converts typedef to pprint document *)
 and print_typedef style (td : typedef) : document =
   let dloc = Option.map (print_loc style) td.typdef_loc in
   let dbody = print_typedef_body style td.typdef_body in
@@ -402,7 +403,7 @@ and print_typedef style (td : typedef) : document =
     print_field "body" dbody
   ]
 
-(* [print_typedef_body style tdbody]: converts typedef to pprint document *)
+(** [print_typedef_body style tdbody]: converts typedef to pprint document *)
 and print_typedef_body style (tdbody : typdef_body) : document =
   match tdbody with
   | Typdef_alias t ->
@@ -478,13 +479,13 @@ and print_trm_annot style (t : trm) : document =
     print_opt_field "trm_annot_referent" dreferent
   ]
 
-(* [print_loc style loc]: converts location [loc] to pprint document *)
+(** [print_loc style loc]: converts location [loc] to pprint document *)
 and print_loc style (loc : trm_loc) : document =
   let {pos_line = start_row; pos_col = start_column} = loc.loc_start in
   let {pos_line = end_row; pos_col = end_column} = loc.loc_end in
   print_pair (string loc.loc_file) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column))
 
-(* [print_trm style t]: converts trm [t] to pprint document *)
+(** [print_trm style t]: converts trm [t] to pprint document *)
 and print_trm style (t : trm) : document =
   let ddesc = print_trm_desc style t.desc in
   if style.only_desc then ddesc
@@ -515,7 +516,7 @@ and print_trm style (t : trm) : document =
         print_field "desc" ddesc
       ]
 
-(* [print_file_annot ann]: prints as string files annotation [ann] *)
+(** [print_file_annot ann]: prints as string files annotation [ann] *)
 and print_file_annot (ann : file_annot) : document option =
   match ann with
   | Inside_file -> None
@@ -523,7 +524,7 @@ and print_file_annot (ann : file_annot) : document option =
   | Included_file s -> Some (string ("Include " ^ s))
 
 
-(* [print_constructor_kind ck]: prints constructor kinds. *)
+(** [print_constructor_kind ck]: prints constructor kinds. *)
 and print_constructor_kind (ck : constructor_kind) : document =
   match ck with
   | Constructor_implicit -> string "Constructor_implicit"
@@ -532,18 +533,18 @@ and print_constructor_kind (ck : constructor_kind) : document =
   | Constructor_simpl -> string "Constructor_simpl"
 
 
-(* [print_destructor_kind dk]: prints destructor kinds. *)
+(** [print_destructor_kind dk]: prints destructor kinds. *)
 and print_destructor_kind (dk : destructor_kind) : document =
   match dk with
   | Destructor_default -> string "Destructor_default"
   | Destructor_delete -> string "Destructor_delete"
   | Destructor_simpl -> string "Destructor_simpld"
 
-(* [print_cstyles_annot style anns]: prints a list of cstyle annotation [anns]. *)
+(** [print_cstyles_annot style anns]: prints a list of cstyle annotation [anns]. *)
 and print_cstyles_annot style (anns : cstyle_annot list) : document =
   print_list (List.map (print_cstyle_annot style) anns)
 
-(* [print_cstyle_annot style ann]: prints a cstyle annotation [ann]. *)
+(** [print_cstyle_annot style ann]: prints a cstyle annotation [ann]. *)
 and print_cstyle_annot style (ann : cstyle_annot) : document =
  match ann with
  | Display_no_arrow -> string "Display_no_arrow"
@@ -576,7 +577,7 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | ResourceFormula -> string "ResourceFormula"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"
 
-(* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
+(** [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =
   match ao with
   | None -> empty
@@ -588,7 +589,7 @@ and print_atomic_operation (ao : atomic_operation option) : document =
     | Capture -> string "Capture"
     end
 
-(* [print_directive directive]: converts OpenMP atomic directives to pprint document *)
+(** [print_directive directive]: converts OpenMP atomic directives to pprint document *)
 and print_directive (directive : directive) : document =
   match directive with
   | Atomic ao -> string "Atomic" ^^ blank 1 ^^ print_atomic_operation ao
@@ -641,7 +642,7 @@ and print_directive (directive : directive) : document =
   | Teams_distribute_parallel_for_simd _ -> string "Teams_distribute_parallel_for_simd"
   | Threadprivate _ -> string "Threadprivate"
 
-(* [print_routine routine]: converts OpenMP routine to pprint document *)
+(** [print_routine routine]: converts OpenMP routine to pprint document *)
 and print_routine (routine : omp_routine) : document =
   match routine with
   | Set_num_threads _ -> string "Set_num_threads"
@@ -686,36 +687,36 @@ and print_routine (routine : omp_routine) : document =
   | Get_wtick -> string "Get_wtick"
 
 
-(* [print_ast style out t]: prints the ast [t] on an outer channel [out] *)
+(** [print_ast style out t]: prints the ast [t] on an outer channel [out] *)
 let print_ast style (out : out_channel) (t : trm) : unit =
   let d = print_trm style t in
   ToChannel.pretty 0.9 80 out d
 
-(* [ast_to_file style filename t]: prints ast [t] into file [filename] *)
+(** [ast_to_file style filename t]: prints ast [t] into file [filename] *)
 let ast_to_file style (filename : string) (t : trm) : unit =
   let out = open_out filename in
   print_ast style out t;
   close_out out
 
-(* [ast_to_string style t]: converts ast [t] to a string *)
+(** [ast_to_string style t]: converts ast [t] to a string *)
 let ast_to_string ?(style : style option) (t : trm) : string =
   let style = match style with None -> default_style() | Some s -> s in
   let d = print_trm style t in
   document_to_string d
 
-(* [typedef_to_string style td]: converts typdef [td] to a string *)
+(** [typedef_to_string style td]: converts typdef [td] to a string *)
 let typedef_to_string ?(style : style option) (td : typedef) : string =
   let style = match style with None -> default_style() | Some s -> s in
   let d = print_typedef style td in
   document_to_string d
 
-(* [typ_to_string style t]: converts type [t] to a string  *)
+(** [typ_to_string style t]: converts type [t] to a string  *)
 let typ_to_string ?(style : style option) (t : typ) : string =
   let style = match style with None -> default_style() | Some s -> s in
   let d = print_typ style t in
   document_to_string d
 
-(* [typ_option_to_string style t]: converts an optional type [t] to a string  *)
+(** [typ_option_to_string style t]: converts an optional type [t] to a string  *)
 let typ_option_to_string ?(style : style option) (t : typ option) : string =
   match t with
   | None -> "<notype>"

@@ -5,7 +5,7 @@ include Apac_core
 
 let debug = false
 
-(* [mark_taskification_candidates_on]: see [mark_taskification_candidates]. *)
+(** [mark_taskification_candidates_on]: see [mark_taskification_candidates]. *)
 let mark_taskification_candidates_on (t : trm) : trm =
   (* Initialize a reference holding the number of function calls within the body
      of the target function definiton. *)
@@ -31,7 +31,7 @@ let mark_taskification_candidates_on (t : trm) : trm =
      candidate for taskification. Otherwie, return the AST term unchanged. *)
   if !count > 1 then trm_add_mark "taskify" t else t
 
-(* [mark_taskification_candidates]: expects the target [tg] to point at a
+(** [mark_taskification_candidates]: expects the target [tg] to point at a
    function definition. It marks the functions to taskify, i.e. the functions to
    the body of which we shall insert tasks. For now, we use a naive algorithm to
    determine the candidates for taskification. We consider every function
@@ -39,7 +39,7 @@ let mark_taskification_candidates_on (t : trm) : trm =
 let mark_taskification_candidates (tg : target) : unit =
   Target.apply_at_target_paths (mark_taskification_candidates_on) tg
 
-(* [task_group_on ~master t]: see [task_group] *)
+(** [task_group_on ~master t]: see [task_group] *)
 let task_group_on ~(master : bool) (t : trm) : trm =
   (* Draw the list of pragmas to apply. *)
   let pragmas = if master then
@@ -48,7 +48,7 @@ let task_group_on ~(master : bool) (t : trm) : trm =
   (* Apply the pragmas on the target instruction sequence. *)
   trm_add_pragmas pragmas t
 
-(* [task_group ~master t]: puts the instruction sequence of a function's body
+(** [task_group ~master t]: puts the instruction sequence of a function's body
     into an OpenMP task group, i.e. a block of instructions delimited by curly
     brackets and prepended with the OpenMP pragma '#pragma omp taskgroup'.
 
@@ -106,7 +106,7 @@ let task_group_on ~(master : bool) (t : trm) : trm =
 let task_group ~(master : bool) (tg : target) : unit =
   Target.apply_at_target_paths (task_group_on ~master:master) tg
 
-(* [use_goto_for_return_on mark t]: see [use_goto_for_return]. *)
+(** [use_goto_for_return_on mark t]: see [use_goto_for_return]. *)
 let use_goto_for_return_on (mark : mark) (t : trm) : trm =
   (* Deconstruct the target function definition AST term. *)
   let error =
@@ -139,7 +139,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
      sequence. *)
   trm_let_fun ~annot:t.annot var ret_ty args body'
 
-(* [use_goto_for_return mark]: expects the target [tg] to point at a function
+(** [use_goto_for_return mark]: expects the target [tg] to point at a function
     definition. It replaces potentially multiple return statements by a single
     return statement at the end of the function definition through the usage of
     gotos.
@@ -166,7 +166,7 @@ let use_goto_for_return ?(mark : mark = no_mark) (tg : target) : unit =
     Target.apply_at_target_paths (use_goto_for_return_on mark) tg
   )
 
-(* [unfold_let_mult_on ?constify t]: see [unfold_let_mult]. *)
+(** [unfold_let_mult_on ?constify t]: see [unfold_let_mult]. *)
 let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
   (* Deconstruct the target multiple variable declaration term [t] into the list of typed variables [tvs] being declared and
      the list of initialization terms [tis]. *)
@@ -204,7 +204,7 @@ let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
      simple variable declarations. *)
   trm_seq_nobrace_nomarks simple
 
-(* [unfold_let_mult ~constify tg]: expects target [tg] to point
+(** [unfold_let_mult ~constify tg]: expects target [tg] to point
    at a multiple variable declaration. Then, it replaces it by a sequence of
    simple variable declarations.
 
@@ -224,7 +224,7 @@ let unfold_let_mult ?(constify : bool list = []) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
       Target.apply_at_target_paths (unfold_let_mult_on ~constify) tg)
 
-(* [constify_args_on ?force t]: see [constify_args]. *)
+(** [constify_args_on ?force t]: see [constify_args]. *)
 let constify_args_on ?(force = false) (t : trm) : trm =
   (* Try to deconstruct the target function definition term. *)
   let error = "Apac_basic.constify_args_on expected a target to a function \
@@ -274,7 +274,7 @@ let constify_args_on ?(force = false) (t : trm) : trm =
     else
       let_fun_with_const_args
 
-(* [constify_args ?force tg]: expects the target [tg] to point at a function
+(** [constify_args ?force tg]: expects the target [tg] to point at a function
    definition. Then, based on the constification records in [const_records], it
    shall constify the arguments that should be constified. If the corresponding
    constification record says so, it shall also constify the target function
@@ -286,7 +286,7 @@ let constify_args_on ?(force = false) (t : trm) : trm =
 let constify_args ?(force = false) (tg : target) : unit =
   Target.apply_at_target_paths (constify_args_on ~force) tg
 
-(* [constify_aliases_on ?force t]: see [constify_aliases]. *)
+(** [constify_aliases_on ?force t]: see [constify_aliases]. *)
 let constify_aliases_on ?(force = false) (t : trm) : trm =
   (* Auxiliary function to recursively constify all of the aliases. *)
   let rec aux (aliases : const_aliases) (t : trm) : trm =
@@ -445,7 +445,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   (* Rebuild and return the function definition term with the updated body. *)
   trm_let_fun ~annot:t.annot var ret_ty args body_with_const_aliases
 
-(* [constify_aliases ?force tg]: expects target the target [tg] to point at a
+(** [constify_aliases ?force tg]: expects target the target [tg] to point at a
    function definition. Then, based on the constification records in
    [const_records], it shall constify the aliases to arguments that have been
    constified during the constification process.
@@ -456,7 +456,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
 let constify_aliases ?(force = false) (tg : target) : unit =
   Target.apply_at_target_paths (constify_aliases_on ~force) tg
 
-(* [heapify_on t]: see [heapify]. *)
+(** [heapify_on t]: see [heapify]. *)
 let heapify_on (t : trm) : trm =
   (* [heapify_on.single ?reference ?mult v ty init] is an auxiliary function for
      processing a single variable declaration represented by the variable [v] of
@@ -694,7 +694,7 @@ let heapify_on (t : trm) : trm =
   | _ -> trm_fail t "Apac_basic.heapify: expected a target to a variable \
                      declaration or a multiple variable declaration."
 
-(* [heapify tg]: expects the target [tg] to point at a simple or a multiple
+(** [heapify tg]: expects the target [tg] to point at a simple or a multiple
    variable declaration. Then, if it is necessary, i.e. if the variable is not a
    reference or a pointer to a previously user-allocated memory location, the
    function shall promote the variable from the stack to the heap.
@@ -716,10 +716,10 @@ let heapify_on (t : trm) : trm =
 let heapify (tg : target) : unit =
   Target.apply_at_target_paths (heapify_on) tg
 
-(* [vars_tbl]: hashtable generic to keep track of variables and their pointer
+(** [vars_tbl]: hashtable generic to keep track of variables and their pointer
     depth. This abstrastion is used for generic functions. *)
 type 'a vars_tbl = (var, (int * 'a)) Hashtbl.t
-(* [get_vars_data_from_cptr_arith va t] : resolve pointer operation to get the
+(** [get_vars_data_from_cptr_arith va t] : resolve pointer operation to get the
     pointer variable. Then, return the data of the corresponding variable stored
     in vars_tbl. *)
 let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =

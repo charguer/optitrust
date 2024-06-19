@@ -9,13 +9,13 @@ open Tools
 (*                               Auxiliary functions                               *)
 (***********************************************************************************)
 
-(* [app_to_nth_opt l n cont]: apply a continuation to the nth element of [l] if it exists, returning [None] otherwise. *)
+(** [app_to_nth_opt l n cont]: apply a continuation to the nth element of [l] if it exists, returning [None] otherwise. *)
 let app_to_nth_opt (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b option =
   try Option.map cont (List.nth_opt l n)
   with
   | Invalid_argument _ -> failwith "Path.app_to_nth_opt: index must be non-negative"
 
-(* [app_to_nth cur_p l n cont]: apply a continuation to the nth element of [l] if it exists, failing at path [cur_p] otherwise. *)
+(** [app_to_nth cur_p l n cont]: apply a continuation to the nth element of [l] if it exists, failing at path [cur_p] otherwise. *)
 let app_to_nth (cur_p : path) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
   match app_to_nth_opt l n cont with
   | None ->
@@ -40,7 +40,7 @@ let handle_path_error (p : path) (f : unit -> 'a) : 'a =
     contextualized_exn ((path_error_context p) :: contexts) e
   | e -> path_exn p e
 
-(* [apply_on_path transfo t dl]: follow an explicit path to apply a function on the corresponding subterm *)
+(** [apply_on_path transfo t dl]: follow an explicit path to apply a function on the corresponding subterm *)
 let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
   let rec aux_on_path_rec (dl : path) (t : trm) : trm =
     match dl with
@@ -243,7 +243,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 (*                           Explicit path resolution                              *)
 (***********************************************************************************)
 
-(* [resolve_path_and_ctx dl t]: follow the explicit path and return the corresponding subterm and its context *)
+(** [resolve_path_and_ctx dl t]: follow the explicit path and return the corresponding subterm and its context *)
 (* TODO: The context part of this function is never used *)
 let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   let rec aux_on_path_rec (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
@@ -422,7 +422,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   in
   handle_path_error dl (fun () -> aux_on_path_rec dl t [])
 
-(* [resolve_path dl t]: resolve get the trm that corresponds to path [dl] *)
+(** [resolve_path dl t]: resolve get the trm that corresponds to path [dl] *)
 let resolve_path (dl : path) (t : trm) : trm  =
   fst (resolve_path_and_ctx dl t )
 
@@ -434,31 +434,31 @@ let resolve_path (dl : path) (t : trm) : trm  =
 (* For debugging *)
 let debug_path = false
 
-(* [parent]: returns the parent of a path. *)
+(** [parent]: returns the parent of a path. *)
 let parent (p : path) : path =
    match List.rev p with
    | _ :: p' -> List.rev p'
    | _ -> p
 
-(* [parent_with_dir]: returns the parent of a path [p],
+(** [parent_with_dir]: returns the parent of a path [p],
    checking that the direction from the parent is [d]. *)
 let parent_with_dir (p : path) (d : dir) : path =
    match List.rev p with
    | d' :: p' when d == d' -> List.rev p'
    | _ -> path_fail p "Path.parent_with_dir: unexpected path"
 
-(* [to_inner_loop] takes the path to a loop that contains 1 nested loop,
+(** [to_inner_loop] takes the path to a loop that contains 1 nested loop,
    and returns the path the inner loop *)
 let to_inner_loop (p : path) : path =
   p @ [Dir_body; Dir_seq_nth 0]
 
-(* [to_inner_loops] takes the path to a loop that contains N nested loops,
+(** [to_inner_loops] takes the path to a loop that contains N nested loops,
    and returns the path the inner loop *)
 let rec to_inner_loop_n (n : int) (p : path) : path =
    if n > 0 then to_inner_loop_n (n - 1) (to_inner_loop p) else p
 
 
-(* [index_in_surrounding_loop]: takes the path to a term inside a loop,
+(** [index_in_surrounding_loop]: takes the path to a term inside a loop,
    and returns the index of that term in the sequence of the loop body,
    as well as the path to the loop itself. *)
 let index_in_surrounding_loop (dl : path) : int * path =
@@ -466,7 +466,7 @@ let index_in_surrounding_loop (dl : path) : int * path =
    | Dir_seq_nth i :: Dir_body :: dl' -> (i, List.rev dl')
    | _ -> path_fail dl "Path.index_in_surrounding_loop: unexpected path"
 
-(* [to_outer_loop]: takes the path to a loop surrounded by another loop,
+(** [to_outer_loop]: takes the path to a loop surrounded by another loop,
    and returns the path to the outer loop *)
 let to_outer_loop (p : path) : path =
   snd (index_in_surrounding_loop p)
@@ -498,14 +498,14 @@ let index_in_seq (p : path) : int * path =
    | p', Nth i -> (i, p')
    | _ -> path_fail p "Path.index_in_seq: expected a Dir_seq_nth at the end of the path; you should target instructions in a sequence"
 
-(* [last_dir_before_inv p] for a path of the form [p1 @ Dir_before n]
+(** [last_dir_before_inv p] for a path of the form [p1 @ Dir_before n]
    returns the pair [Some (p1,n)], else returns [None]. *)
 let last_dir_before_inv (p : path) : (path * int) option =
   match extract_last_dir p with
   | parent_path, Before i -> Some (parent_path, i)
   | _ -> None
 
-(* [extract_last_dir_before p] takes a path of the form [p1 @ Dir_before n]
+(** [extract_last_dir_before p] takes a path of the form [p1 @ Dir_before n]
    and returns the pair [(p1,n)] *)
 let extract_last_dir_before (p : path) : path * int =
   if p = [] then path_fail p "Path.extract_last_dir_before does not apply to an empty path";
@@ -515,7 +515,7 @@ let extract_last_dir_before (p : path) : path * int =
       path_fail p "Path.extract_last_dir_before expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
   | Some res -> res
 
-(* [extract_last_dir_span] takes a path that ends inside a sequence and return the corresponding span. *)
+(** [extract_last_dir_span] takes a path that ends inside a sequence and return the corresponding span. *)
 let extract_last_dir_span (p: path) : path * span =
   match extract_last_dir p with
   | parent_path, Span span -> parent_path, span
@@ -526,7 +526,7 @@ let extract_last_dir_span (p: path) : path * span =
       path_fail p "Path.extract_last_dir_span expects the last direction to be inside a sequence."
 
 
-(* [split_common_prefix]: given paths [a] and [b], returns [(p, ra, rb)]
+(** [split_common_prefix]: given paths [a] and [b], returns [(p, ra, rb)]
    such that [a = p @ ra] and [b = p @ rb] *)
 let split_common_prefix (a : path) (b : path) : path * path * path =
    let rec aux (rev_p : path) (ra : path) (rb : path) =

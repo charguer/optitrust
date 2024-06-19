@@ -304,7 +304,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
     simpl [cMark subst_mark];
   )
 
-(* [inline_def]: like [inline], but with [tg] targeting the function definition.
+(** [inline_def]: like [inline], but with [tg] targeting the function definition.
    All function calls are inlined, with [delete = true] as default. *)
 let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : string list = []) ?(keep_res : bool = false)
   ?(delete : bool = true) ?(simpl : target -> unit = Variable.default_inline_simpl) (tg : target) : unit

@@ -43,50 +43,50 @@ let debug_current_stage (msg: string) : unit =
 
    Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t] *)
 
-(* [varkind]: type for the mutability of the variable *)
+(** [varkind]: type for the mutability of the variable *)
 type varkind =
   | Var_immutable (* const variables *)
   | Var_mutable   (* non-const stack-allocated variable. *)
 
-(* [env]: a map for storing all the variables as keys, and their mutability as values *)
+(** [env]: a map for storing all the variables as keys, and their mutability as values *)
 type env = varkind Var_map.t
 
-(* [env_empty]: empty environment *)
+(** [env_empty]: empty environment *)
 let env_empty =
   Var_map.empty
 
-(* [get_varkind env x]: gets the mutability of variable [x]
+(** [get_varkind env x]: gets the mutability of variable [x]
    Note: Functions that come from an external library are set to immutable by default *)
 let get_varkind (env : env) (x : var) : varkind =
   match Var_map.find_opt x env with
   | Some m -> m
   | _ -> Var_immutable
 
-(* [is_var_mutable env x]: checks if variable [x] is mutable or not *)
+(** [is_var_mutable env x]: checks if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool =
   get_varkind env x = Var_mutable
 
-(* [env_extend env e varkind]: adds variable [e] into environment [env] *)
+(** [env_extend env e varkind]: adds variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
   Var_map.add e varkind env
 
-(* [add_var env x xm]: adds variable [x] into environemnt [env] with value [xm] *)
+(** [add_var env x xm]: adds variable [x] into environemnt [env] with value [xm] *)
 let add_var (env : env ref) (x : var) (xm : varkind) : unit =
   env := env_extend !env x xm
 
-(* [trm_address_of t]: adds the "&" operator before [t]
+(** [trm_address_of t]: adds the "&" operator before [t]
     Note: if for example t = *a then [trm_address_of t] = &( *a) = a *)
 let trm_address_of (t : trm) : trm =
   let u = trm_apps ?typ:t.typ (trm_unop Unop_address) [t] in
   trm_simplify_addressof_and_get u
 
-(* [trm_get t]: adds the "*" operator before [t]
+(** [trm_get t]: adds the "*" operator before [t]
     Note: if for example t = &a then [trm_get t] = *( &a) = a *)
 let trm_get (t : trm) : trm =
   let u = trm_apps ?typ:t.typ (trm_unop Unop_get) [t] in
   trm_simplify_addressof_and_get u
 
-(* [onscope env t f]: applies function [f] on [t] without loosing [env]
+(** [onscope env t f]: applies function [f] on [t] without loosing [env]
    Note: This function is used for keeping track of opened scopes *)
 let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     let saved_env = !env in
@@ -94,11 +94,11 @@ let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     env := saved_env;
     res
 
-(* [create_env]: creates an empty environment *)
+(** [create_env]: creates an empty environment *)
 let create_env () = ref env_empty
 
 
-(* [stackvar_elim t]: applies the following encodings
+(** [stackvar_elim t]: applies the following encodings
     - [int a = 5] with [int* a = ref int(5)]
     - a variable occurrence [a] becomes [* a]
     - [const int c = 5] remains unchanged
@@ -169,7 +169,7 @@ let stackvar_elim (t : trm) : trm =
    debug_before_after_trm "stackvar_elim" aux t
 
 
-(* [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following decodings:
+(** [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following decodings:
      - [int *a = ref int(5)] with [int a = 5]
      - [const int c = 5] remains unchanged
      - [<annotation:reference> int* b = a] becomes [int& b = *&(a)], which simplifies as [int& b = a]
@@ -232,7 +232,7 @@ let stackvar_intro (t : trm) : trm =
    aux t
 
 
-(* [caddress_elim t]: applies the following encodings
+(** [caddress_elim t]: applies the following encodings
      - [get(t).f] becomes get(t + offset(f))
      - [t.f] becomes t + offset(f) -- nothing to do in the code of the translation
      - [get(t)[i] ] becomes [get (t + i)]
@@ -265,7 +265,7 @@ let caddress_elim (t : trm) : trm =
   in
   debug_before_after_trm "caddress_elim" aux t
 
-(* [is_access t]: checks if trm [t] is a struct access or an array access *)
+(** [is_access t]: checks if trm [t] is a struct access or an array access *)
 let is_access (t : trm) : bool =
   match t.desc with
   | Trm_apps (tprim, _, _) ->
@@ -275,7 +275,7 @@ let is_access (t : trm) : bool =
     end
   | _ -> false
 
-(* [caddress_intro_aux false t]: is the inverse of [caddress_elim], hence if applies the following decodings:
+(** [caddress_intro_aux false t]: is the inverse of [caddress_elim], hence if applies the following decodings:
      - [get(t + offset(f))] becomes [get(t).f]
      - [t + offset(f)] becomes [t.f]
      - [get (t + i)] becomes [get(t)[i]]
@@ -314,7 +314,7 @@ let caddress_intro =
   debug_current_stage "caddress_intro";
   caddress_intro_aux false
 
-(* [cseq_items_void_type t]: updates [t] in such a way that all instructions appearing in sequences
+(** [cseq_items_void_type t]: updates [t] in such a way that all instructions appearing in sequences
    have type [Typ_unit]. This might not be the case, for example on [x += 2;], Menhir provides an
    [int] type, whereas [Clang] provides a [void] type. *)
 let rec cseq_items_void_type (t : trm) : trm =
@@ -329,7 +329,7 @@ let rec cseq_items_void_type (t : trm) : trm =
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
-(* [infix_elim t]: encode unary and binary operators as OCaml functions, for instance
+(** [infix_elim t]: encode unary and binary operators as OCaml functions, for instance
     - [x++] becomes ++(&x)
     - x = y becomes =(&x, y)
     - x += y becomes +=(&x,y) *)
@@ -352,7 +352,7 @@ let infix_elim (t : trm) : trm =
   in
   debug_before_after_trm "infix_elim" aux t
 
-(* [infix_intro t]: decodes unary and binary oeprators back to C++ unary and binary operators
+(** [infix_intro t]: decodes unary and binary oeprators back to C++ unary and binary operators
     [++(&x)] becomes [++x]
     [+=(&x, y)] becomes [x += y]
     [=(&x, y)] becomes [x = y]*)
@@ -370,7 +370,7 @@ let infix_intro (t : trm) : trm =
   in aux t
 
 
-(* [method_elim t]: encodes class method calls.  *)
+(** [method_elim t]: encodes class method calls.  *)
 let method_call_elim (t : trm) : trm =
   debug_current_stage "method_call_elim";
   let rec aux (t : trm) : trm =
@@ -395,7 +395,7 @@ let method_call_elim (t : trm) : trm =
    in
    debug_before_after_trm "mcall" aux t
 
-(* [method_call_intro t]: decodes class methods calls. *)
+(** [method_call_intro t]: decodes class methods calls. *)
 let method_call_intro (t : trm) : trm =
   debug_current_stage "method_call_intro";
   let rec aux (t : trm) : trm =
@@ -413,7 +413,7 @@ let method_call_intro (t : trm) : trm =
     | _ -> trm_map aux t
      in aux t
 
-(* [class_member_elim t]: encodes class members. *)
+(** [class_member_elim t]: encodes class members. *)
 let class_member_elim (t : trm) : trm =
   debug_current_stage "class_member_elim";
   (* workaround to substitute untyped 'this' variables with typed 'this' variables required by 'method_call_elim' *)
@@ -472,7 +472,7 @@ let class_member_elim (t : trm) : trm =
   ) t
 
 
-(* [class_member_intro t]: decodes class members. *)
+(** [class_member_intro t]: decodes class members. *)
 let class_member_intro (t : trm) : trm =
   debug_current_stage "class_member_intro";
   let rec aux (t : trm) : trm =
@@ -792,7 +792,7 @@ let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, fo
       Printf.sprintf "%s: %s" hyp_s sformula
     end
 
-(* [seq_push code t]: inserts trm [code] at the begining of sequence [t],
+(** [seq_push code t]: inserts trm [code] at the begining of sequence [t],
     [code] - instruction to be added,
     [t] - ast of the outer sequence where the insertion will be performed. *)
 let seq_push (code : trm) (t : trm) : trm =
@@ -1091,7 +1091,7 @@ let autogen_alpha_rename style (t : trm) : trm =
 
 (*************************************** Main entry points *********************************************)
 
-(* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
+(** [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim: trm -> trm =
   debug_before_after_trm "cfeatures_elim" (fun t ->
@@ -1110,7 +1110,7 @@ let cfeatures_elim: trm -> trm =
   formula_sugar_elim |>
   Scope_computation.infer_var_ids)
 
-(* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
+(** [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (style : style) : trm -> trm =
   debug_before_after_trm "cfeatures_intro" (fun t ->
   Scope_computation.infer_var_ids t |>

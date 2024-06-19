@@ -866,7 +866,7 @@ let shift_kind_to_string = function
 let ghost_group_shift = toplevel_var "group_shift"
 let ghost_group_unshift = toplevel_var "group_unshift"
 
-(* [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
+(** [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
 let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let index' = new_var index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
@@ -977,7 +977,7 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
   end in
   trm_for ~annot:t.annot { index; start = start'; direction; stop = stop'; step } body''
 
-(* [extend_range]: extends the range of a loop on [lower] and/or [upper] bounds.
+(** [extend_range]: extends the range of a loop on [lower] and/or [upper] bounds.
    The body of the loop is guarded by ifs statements, doing nothing on the extension points.
 
    For this to be correct, the loop bounds must be extended, not shrinked.
@@ -985,7 +985,7 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
 let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : extension_kind = ExtendNothing) (tg : target) : unit =
   Target.apply_at_target_paths (extend_range_on start stop) tg
 
-(* [rename_index new_index]: renames the loop index variable *)
+(** [rename_index new_index]: renames the loop index variable *)
 let%transfo rename_index (new_index : string) (tg : target) : unit =
   apply_at_target_paths (Loop_core.rename_index_on new_index) tg;
   Trace.justif "renaming loop index is always correct (unique ids avoid name conflicts)"
@@ -1027,7 +1027,7 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
   in
   trm_pass_labels t outer_loop
 
-(* [slide]: like [tile] but with the addition of a [step] parameter that controls how many iterations stand between the start of two tiles. Depending on [step] and [size], some iterations may be discarded or duplicated.
+(** [slide]: like [tile] but with the addition of a [step] parameter that controls how many iterations stand between the start of two tiles. Depending on [step] and [size], some iterations may be discarded or duplicated.
 *)
 let%transfo slide ?(index : string = "b${id}")
   ?(bound : tile_bound = TileBoundMin)
@@ -1047,7 +1047,7 @@ let delete_void_on (i : int) (t_seq : trm) : trm option =
       else None
     ))
 
-(* [delete_void]: deletes a loop with empty body. *)
+(** [delete_void]: deletes a loop with empty body. *)
 let%transfo delete_void (tg : target) : unit =
   Trace.justif_always_correct ();
   Target.iter (fun p ->

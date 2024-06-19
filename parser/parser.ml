@@ -16,7 +16,7 @@ let force = ref false
 (* filenames passed as arguments to the binary *)
 let filenames = ref []
 
-(* [spec]: possible command line arguments. *)
+(** [spec]: possible command line arguments. *)
 let spec : (string * Arg.spec * string) list =
    [ ("-debug", Arg.Set debug, " debug flag for future use");
      ("-verbose", Arg.Set verbose, " verbose mode");

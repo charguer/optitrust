@@ -63,7 +63,7 @@ let rec pry_loop_nest (nest_of: int) (simpl : target -> unit) (p : path) : unit 
       end
   end
 
-(* [may_slide]: slides a stencil that writes to [written] with outer loop at path [p], so that tiles of [sizes] values are produced by inner loops, within outer loops progressing by [steps].
+(** [may_slide]: slides a stencil that writes to [written] with outer loop at path [p], so that tiles of [sizes] values are produced by inner loops, within outer loops progressing by [steps].
 
   Keeps outer loop index names and uses [written] as suffix for inner loop index names.
   Returns the list of created inner loop index names.

@@ -141,7 +141,7 @@ let custom_style_for_reparse () : custom_style =
     typing = typing_annot;
     print = Lang_C (AstC_to_c.style_for_reparse()) }
 
-(* [to_custom_style style] eliminates the redundant constructors *)
+(** [to_custom_style style] eliminates the redundant constructors *)
 let to_custom_style (style : style) : custom_style =
   let style_as_custom = match style with
     | Default -> Custom (default_custom_style())

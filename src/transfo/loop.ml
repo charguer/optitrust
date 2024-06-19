@@ -1012,7 +1012,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (next_mar
    *)
 let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
-  (* [remaining_loops]: sublist of [List.rev order]
+  (** [remaining_loops]: sublist of [List.rev order]
      [p]: path to either the target instruction at [tg],
           or a surrounding for loop. *)
   let rec aux (remaining_loops : string list) (next_mark : unit -> mark) (p : path) : unit =

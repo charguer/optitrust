@@ -1,6 +1,6 @@
 open Prelude
 
-(* [typid_to_typedef tid ]: gets the declaration of a typedef with id [tid]. *)
+(** [typid_to_typedef tid ]: gets the declaration of a typedef with id [tid]. *)
 let typid_to_typedef (tid : typconstrid) : typedef option =
   let rec aux (t : trm) : typedef option =
     match t.desc with
@@ -16,7 +16,7 @@ let typid_to_typedef (tid : typconstrid) : typedef option =
   | Trm_seq _ -> aux t_root
   | _ -> trm_fail t_root "Context.typid_to_typedef: expected the ast of the main file"
 
-(* [record_typ_to_typid ty]: gets the id of the record type [ty]. *)
+(** [record_typ_to_typid ty]: gets the id of the record type [ty]. *)
 let record_typ_to_typid (ty : typ) : typconstrid option =
   let rec aux (ty : typ) : typconstrid option =
     match ty.typ_desc with
@@ -36,7 +36,7 @@ let record_typ_to_typid (ty : typ) : typconstrid option =
   in
   aux ty
 
-(* [typid_to_trm tid ]: gets the trm of a typedef with id [tid]. *)
+(** [typid_to_trm tid ]: gets the trm of a typedef with id [tid]. *)
 let typid_to_trm (tid : typconstrid) : trm option =
   let rec aux (t : trm) : trm option =
     match t.desc with

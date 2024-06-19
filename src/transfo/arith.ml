@@ -4,7 +4,7 @@ open Target
 include Arith_basic
 
 
-(* [simpl_surrounding_expr] first goes to the outside of the targeted expression,
+(** [simpl_surrounding_expr] first goes to the outside of the targeted expression,
    then applies [simpl] *)
 let%transfo simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr)) (tg : target) : unit =
   Trace.tag_valid_by_composition ();

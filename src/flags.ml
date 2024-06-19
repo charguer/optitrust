@@ -5,23 +5,23 @@
    - options for interactivity
    - options for behavior *)
 
-   (* [verbose]: flag to activate the printing of debug information *)
+(** [verbose]: flag to activate the printing of debug information *)
 let verbose : bool ref = ref false
 
 (* Flag to hide stdout produced by tests when executed from ./tester *)
 let hide_stdout : bool ref = ref false
 
-(* [analyse_stats]: flag to meansure the time taken by each transformation. *)
+(** [analyse_stats]: flag to meansure the time taken by each transformation. *)
 let analyse_stats : bool ref = ref false
 
-(* [analyse_stats_details]: flags to meansure the time taken by each step within a transformation
+(** [analyse_stats_details]: flags to meansure the time taken by each step within a transformation
    (in particular, time to resolve targets, to set up marks, etc). *)
 let analyse_stats_details : bool ref = ref false
 
-(* [dump_ast_details]: flag to dump OptiTrust AST, both in the form of a '.ast' and '_enc.cpp' files. *)
+(** [dump_ast_details]: flag to dump OptiTrust AST, both in the form of a '.ast' and '_enc.cpp' files. *)
 let dump_ast_details : bool ref = ref false
 
-(* [pretty_matrix_notation]: flag to display matrix macros with syntactic sugar:
+(** [pretty_matrix_notation]: flag to display matrix macros with syntactic sugar:
   MALLOC2(n, m, sizeof(T)) --> malloc(sizeof(T[n][m]))
   x[MINDEX2(n, m, i, j)] --> x[i][j]
    *)
@@ -30,98 +30,98 @@ let pretty_matrix_notation : bool ref = ref false
 (* whether to display includes AST or not. *)
 let display_includes : bool ref = ref false
 
-(* [report_all_warning]: flag to control display of "known" warnings.
+(** [report_all_warning]: flag to control display of "known" warnings.
    [true] by default, but [false] by default when using the tester on multiple tests. *)
 let report_all_warnings : bool ref = ref true
 
-(* [dump_clang_ast]: flag to dump the AST as produced by clang into a specific file,
+(** [dump_clang_ast]: flag to dump the AST as produced by clang into a specific file,
    by default "clang_ast.ml".  *)
 let dump_clang_ast = ref None
 
 let set_dump_clang_ast () : unit =
   dump_clang_ast := Some "clang_ast.ml.txt"
 
-(* [dump_big_steps]: call [Trace.dump_big_steps] in addition to [Trace.dump] at the end of the script.
+(** [dump_big_steps]: call [Trace.dump_big_steps] in addition to [Trace.dump] at the end of the script.
    Files are generated in the subfolder [!dump_big_steps].  *)
 let dump_big_steps : string option ref = ref None
 
-(* [set_dump_big_steps foldername]: dump bigsteps in folder [foldername]. *)
+(** [set_dump_big_steps foldername]: dump bigsteps in folder [foldername]. *)
 let set_dump_big_steps (foldername : string) : unit =
   dump_big_steps := Some foldername
 
 (* LATER: document *)
-(* [dump_small_steps]:  *)
+(** [dump_small_steps]:  *)
 let dump_small_steps : string option ref = ref None
 let set_dump_small_steps (foldername : string) : unit =
   dump_small_steps := Some foldername
 
-(* [print_backtrace_on_error] *)
+(** [print_backtrace_on_error] *)
 let print_backtrace_on_error : bool ref = ref true
  (*LATER: make available from command line*)
 
-(* [debug_parsing_serialization]: flag to trace operations involving serialization/deserialization of parse trees. *)
+(** [debug_parsing_serialization]: flag to trace operations involving serialization/deserialization of parse trees. *)
 let debug_parsing_serialization = ref false
 
-(* [debug_reparse]: flag to print operations saving and reading error messages saved in the ast. *)
+(** [debug_reparse]: flag to print operations saving and reading error messages saved in the ast. *)
 let debug_errors_msg_embedded_in_ast : bool ref = ref false
 
-(* [debug_reparse]: flag to print the line numbers at which reparsing is triggered. *)
+(** [debug_reparse]: flag to print the line numbers at which reparsing is triggered. *)
 let debug_reparse : bool ref = ref false
 
-(* [debug_stringreprs]: flag to print stringreprs debugging info *)
+(** [debug_stringreprs]: flag to print stringreprs debugging info *)
 let debug_stringreprs : bool ref = ref false
 
-(* [debug_var_id]: display ids on variables when outputing C code *)
+(** [debug_var_id]: display ids on variables when outputing C code *)
 let debug_var_id : bool ref = ref false
 
-(* [reparse_at_big_steps]: flag to force reparsing of the entire file at each entry of a big step. *)
+(** [reparse_at_big_steps]: flag to force reparsing of the entire file at each entry of a big step. *)
 let reparse_at_big_steps : bool ref = ref false
 
-(* [report_big_steps]: flag to report on the progress of big steps during a script execution. *)
+(** [report_big_steps]: flag to report on the progress of big steps during a script execution. *)
 let report_big_steps : bool ref = ref false
 
-(* [use_clang_cursor]: flag to control whether in include clang cursor information in the AST, this information may be useful for resolving overloading *)
+(** [use_clang_cursor]: flag to control whether in include clang cursor information in the AST, this information may be useful for resolving overloading *)
 let use_clang_cursor : bool ref = ref false
 
-(* [use_clang_format]: flag to use clang-format or not in output CPP files. *)
+(** [use_clang_format]: flag to use clang-format or not in output CPP files. *)
 let use_clang_format : bool ref = ref true
 
-(* [keep_file_before_clang_format]: flag to save the file before cleaning up with clang format
+(** [keep_file_before_clang_format]: flag to save the file before cleaning up with clang format
    "foo_out.cpp" is saved as "foo_out_notfmt.cpp". Used by the tester for faster correctness checks. *)
 let keep_file_before_clang_format : bool ref = ref false
 
-(* [clang_format_nb_columns]: flag to control the limit on the column for clang-format. *)
+(** [clang_format_nb_columns]: flag to control the limit on the column for clang-format. *)
 let clang_format_nb_columns : int ref = ref 80
 
-(* [code_print_width]: flag to choose the width of the printed code on stdout. *)
+(** [code_print_width]: flag to choose the width of the printed code on stdout. *)
 let code_print_width = ref 80
 
-(* [verbose_mode]: flag to report more about file manipulations performed by the tool. *)
+(** [verbose_mode]: flag to report more about file manipulations performed by the tool. *)
 let verbose_mode : bool ref = ref false
 
-(* [use_light_diff]: flag to enable "light diffs", whereby we hide the function body of all the
+(** [use_light_diff]: flag to enable "light diffs", whereby we hide the function body of all the
    toplevel functions that are not affected by the transformation. *)
    (* TODO: could it be true by default? *)
 let use_light_diff : bool ref = ref false
 
-(* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them.
+(** [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them.
    It affects the behavior of the parsing function [c_parser] to bypass [cfeatures_elim].
    It affects the behavior of the printipng function [output_prog] to bypass [cfeatures_intro].
    Note: this option is orthogonal to [print_optitrust_syntax]; beware, however, that it makes
    no sense to print encoded terms without [print_optitrust_syntax] activated. *)
 let bypass_cfeatures : bool ref = ref false
 
-(* [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
+(** [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
 let print_optitrust_syntax = ref false
 
-(* [stop_on_first_resource_error]: Stops on the first resource error found.
+(** [stop_on_first_resource_error]: Stops on the first resource error found.
    This allows for the propagation of the backtrace. *)
 let stop_on_first_resource_error = ref true
 
 (** [resource_typing_enabled]: if false, never attempt typing resources and never introduce ghosts. *)
 let resource_typing_enabled = ref true
 
-(* [check_validity]: perform validation of transformations *)
+(** [check_validity]: perform validation of transformations *)
 let check_validity = ref false
 
 (** [disable_resource_typing ()] should be called when using OptiTrust without resources. *)
@@ -129,27 +129,27 @@ let disable_resource_typing () =
   resource_typing_enabled := false;
   check_validity := false
 
-(* [reparse_between_step]: always reparse between two steps *)
+(** [reparse_between_step]: always reparse between two steps *)
 let reparse_between_steps = ref false
 
-(* [recompute_resources_between_steps]: always recompute resources between two steps *)
+(** [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
 
-(* [serialize] enable the generation of serialized AST obtained from parsing;
+(** [serialize] enable the generation of serialized AST obtained from parsing;
    ( LATER:only one flag merged with ignore_serialized?)  *)
 let serialize = ref true
 
-(* [ignore_serialized] disables the read of serialized AST saved after parsing *)
+(** [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
 
-(* [use_member_functions()] should be called for now by test files that involve the
+(** [use_member_functions()] should be called for now by test files that involve the
    use of member functions *)
 let use_member_functions() : unit =
   use_clang_cursor := true;
   ignore_serialized := true;
   serialize := false
 
-(* [execution_mode] of the script *)
+(** [execution_mode] of the script *)
 
 type execution_mode =
   | Execution_mode_step_diff (* produce a diff for a small-step, assumes [target_line] is provided *)
@@ -198,17 +198,17 @@ let process_substeps_including_ast (s:string) : unit =
 (* Option to display full resource information in the trace *)
 let detailed_resources_in_trace : bool ref = ref false
 
-(* [target_line]: indicate which line to target in execution mode
+(** [target_line]: indicate which line to target in execution mode
    [Execution_mode_step_trace] or [Execution_mode_step_trace]. *)
 let target_line : int ref = ref (-1)
 
-(* [get_target_line ()]: gets the targeted line, cannot be [-1]. *)
+(** [get_target_line ()]: gets the targeted line, cannot be [-1]. *)
 let get_target_line () : int =
   if !target_line = (-1)
     then failwith "Flags.get_target_line: trying to read an invalid line number";
   !target_line
 
-(* [is_execution_mode_step ()] returns the execution mode is targeting a specific step/line *)
+(** [is_execution_mode_step ()] returns the execution mode is targeting a specific step/line *)
 let is_execution_mode_step () : bool =
   match !execution_mode with
   | Execution_mode_step_diff
@@ -216,7 +216,7 @@ let is_execution_mode_step () : bool =
   | Execution_mode_exec
   | Execution_mode_full_trace -> false
 
-(* [is_execution_mode_trace ()] returns the execution mode is producing a trace *)
+(** [is_execution_mode_trace ()] returns the execution mode is producing a trace *)
 let is_execution_mode_trace () : bool =
   match !execution_mode with
   | Execution_mode_step_trace
@@ -224,13 +224,13 @@ let is_execution_mode_trace () : bool =
   | Execution_mode_step_diff
   | Execution_mode_exec -> false
 
-(* [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
+(** [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
    consider big steps. Triggered by the shortcut for viewing diffs for big-steps.
    Besides, this flag is automatically set is requesting the diff or trace for a specific
    step with the cursor on a line starting with the words "bigstep". *)
 let only_big_steps : bool ref = ref false
 
-(* [c_parser_name]: name of the C parser to use *)
+(** [c_parser_name]: name of the C parser to use *)
 let c_parser_name : string ref = ref "default"
 
 (* Name of the root installation folder. It can also be the name of the source folder for not installed builds. *)
@@ -243,11 +243,11 @@ let program_name : string ref = ref ""
 
 (* List of options *)
 
-(* [cmdline_args]: a list of possible command line arguments. *)
+(** [cmdline_args]: a list of possible command line arguments. *)
 type cmdline_args = (string * Arg.spec * string) list
 
 (* LATER: Register options in the module where they are used *)
-(* [spec]: possible command line arguments. *)
+(** [spec]: possible command line arguments. *)
 let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'standalone-full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
@@ -281,12 +281,12 @@ let spec : cmdline_args =
 let process_program_name () =
   if !program_name = "" then program_name := Sys.argv.(!Arg.current)
 
-(* [fix_flags ()]: processes flags than implies other flags. *)
+(** [fix_flags ()]: processes flags than implies other flags. *)
 let fix_flags () =
   if !analyse_stats_details then analyse_stats := true;
   if !reparse_at_big_steps then debug_reparse := true
 
-(* [process_cmdline_args ~args ()]: processes all the command line arguments used during the script execution.
+(** [process_cmdline_args ~args ()]: processes all the command line arguments used during the script execution.
    If args are given, add them to the list of possible flags.
    This function has no effect if it was already called before. *)
 let process_cmdline_args ?(args : cmdline_args = []) () : unit =
@@ -304,11 +304,11 @@ let trm_combinators_warn_unsupported_case = ref true
 (* cf. Clang_to_astRawC.warn_array_subscript_not_supported *)
 let warned_array_subscript_not_supported = ref Tools.String_set.empty
 
-(* [ignore_serialized_default] is used by [reset_flags_to_default()],
+(** [ignore_serialized_default] is used by [reset_flags_to_default()],
    which is used by batching for ther tester *)
 let ignore_serialized_default = ref !ignore_serialized
 
-(* [reset_flags_to_default] is used by [batching.ml] to avoid propagation of effects
+(** [reset_flags_to_default] is used by [batching.ml] to avoid propagation of effects
   TODO: complete implementation by going over all relevant flags,
   and using a record of values.
   TODO: alternative: save flags and restore them at the end of a batching run.

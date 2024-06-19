@@ -9,7 +9,7 @@ open Path
 (* I.1 Constification        *)
 (*****************************)
 
-(* [lvar] Labelled variable type. We make use of this type to make a difference
+(** [lvar] Labelled variable type. We make use of this type to make a difference
    between class member variables. Indeed, in the case of a class member, the
    associated variable is represented always by [this]. As a result every member
    of a given class ends up with [this] as name and the same identifier (which
@@ -33,7 +33,7 @@ open Path
 *)
 type lvar = { v : var; l : label; }
 
-(* [lvar_to_string] returns a string representation of the labelled variable
+(** [lvar_to_string] returns a string representation of the labelled variable
    [lv]. *)
 let lvar_to_string (lv : lvar) : string =
   let q_str = String.concat "" (List.map (fun q -> q ^ "::") lv.v.namespaces) in
@@ -41,7 +41,7 @@ let lvar_to_string (lv : lvar) : string =
   let member = if lv.l <> "" then lv.l ^ "#" else lv.l in
   q_str ^ lv.v.name ^ "#" ^ member ^ id_str
 
-(* [LVar] and [LVar_Hashtbl]: specific type of hash tables where the keys are of
+(** [LVar] and [LVar_Hashtbl]: specific type of hash tables where the keys are of
    type [lvar]. *)
 module LVar = struct
   type t = lvar
@@ -51,7 +51,7 @@ end
 
 module LVar_Hashtbl = Hashtbl.Make(LVar)
 
-(* [const_arg]: an argument constification record. *)
+(** [const_arg]: an argument constification record. *)
 type const_arg = {
   (* Tells whether the argument is a reference or a pointer. *)
   is_ptr_or_ref : bool;
@@ -85,7 +85,7 @@ type const_arg = {
   mutable to_unconst_by_propagation : (var * var) list;
 }
 
-(* [const_fun]: a function constification record. *)
+(** [const_fun]: a function constification record. *)
 type const_fun = {
     (* Associative (argument variable -> constification record) list of
        constification records for all the argument of the function. *)
@@ -101,11 +101,11 @@ type const_fun = {
     mutable is_class_method : bool;
 }
 
-(* [const_funs]: type for a hash table of [const_fun]. The keys are functions
+(** [const_funs]: type for a hash table of [const_fun]. The keys are functions
    represented by terms of type [var]. *)
 type const_funs = const_fun Var_Hashtbl.t
 
-(* [const_aliases]: type for hash table of argument aliases.
+(** [const_aliases]: type for hash table of argument aliases.
 
    Pointers and references used within a function definition might be linked to
    the same data as the arguments of the function, i.e. they represent aliases
@@ -118,7 +118,7 @@ type const_funs = const_fun Var_Hashtbl.t
    2. *)
 type const_aliases = (lvar * int) LVar_Hashtbl.t
 
-(* [const_unconst]: type of stack of function arguments, except for objects,
+(** [const_unconst]: type of stack of function arguments, except for objects,
    that must not be constified.
 
    At the beginning of the constification process, we assume that every function
@@ -143,7 +143,7 @@ type const_aliases = (lvar * int) LVar_Hashtbl.t
    [unconstify_mutables.unconstify_to_unconst_objects]. *)
 type const_unconst = (var * var) Stack.t
 
-(* [const_unconst_objects]: type of stack of function arguments, represented by
+(** [const_unconst_objects]: type of stack of function arguments, represented by
    objects, that must not be constified.
 
    When an object is passed as argument to a function, it must not be constified
@@ -161,7 +161,7 @@ type const_unconst = (var * var) Stack.t
    the first [var] will be unconstified too. *)
 type const_unconst_objects = (var * var * var) Stack.t
 
-(* [const_mult]: type of hash table for multiple variable declarations that must
+(** [const_mult]: type of hash table for multiple variable declarations that must
    be transformed into sequences of simple variable declarations while
    constifying one or more of the variables being declared.
 
@@ -228,7 +228,7 @@ let const_records : const_funs = Var_Hashtbl.create 10
 let to_unconst : const_unconst = Stack.create ()
 let to_unconst_objects : const_unconst_objects = Stack.create ()
 
-(* [const_mult]: hash table for multiple variable declarations that must be
+(** [const_mult]: hash table for multiple variable declarations that must be
    transformed into sequences of simple variable declarations while constifying
    one or more of the variables being declared. See [const_mult]. *)
 let to_const_mult : const_mult = Hashtbl.create 10
@@ -238,7 +238,7 @@ let to_const_mult : const_mult = Hashtbl.create 10
 (* III.1 General-purpose      *)
 (******************************)
 
-(* [typ_is_alias ty]: checks if [ty] is a user-defined alias to a basic type. *)
+(** [typ_is_alias ty]: checks if [ty] is a user-defined alias to a basic type. *)
 let typ_is_alias (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_constr (_, id, _) ->
@@ -252,7 +252,7 @@ let typ_is_alias (ty : typ) : bool =
     end
   | _ -> false
 
-(* [typ_get_alias ty]: if [ty] is a user-defined alias to a basic type, it
+(** [typ_get_alias ty]: if [ty] is a user-defined alias to a basic type, it
    returns the latter. *)
 let typ_get_alias (ty : typ) : typ option =
   match ty.typ_desc with
@@ -268,7 +268,7 @@ let typ_get_alias (ty : typ) : typ option =
   | _ -> None
 
 
-(* [typ_get_degree ty]: computes and returns the pointer degree of the type
+(** [typ_get_degree ty]: computes and returns the pointer degree of the type
    [ty]. For example, for [int ** a], it returns 2. *)
 let typ_get_degree (ty : typ) : int =
   (* Auxiliary function to actually compute the degree. *)
@@ -297,7 +297,7 @@ let typ_get_degree (ty : typ) : int =
      parameter to the outside world. *)
   aux 0 ty
 
-(* [trm_strip_accesses_and_references_and_get_lvar t]: strips [*t, &t, ...]
+(** [trm_strip_accesses_and_references_and_get_lvar t]: strips [*t, &t, ...]
    recursively and if [t] is a variable, it returns the associated labelled
    variable. *)
 let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
@@ -336,7 +336,7 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
 (* III.2 Constification *)
 (************************)
 
-(* [typ_constify ty]: constifies [ty] by applying the 'const' keyword wherever
+(** [typ_constify ty]: constifies [ty] by applying the 'const' keyword wherever
    it is possible. *)
 let typ_constify (ty : typ) : typ =
   (* Aliases for often referenced values *)
@@ -389,7 +389,7 @@ let typ_constify (ty : typ) : typ =
   (* [ty] is of any other type. *)
   | _ -> aux ty
 
-(* [trm_resolve_binop_lval_and_get_with_deref] tries to resolve the variable
+(** [trm_resolve_binop_lval_and_get_with_deref] tries to resolve the variable
    behind an lvalue and check whether it has been dereferences, i.e. following
    an array access or the use of [*]. Upon success, it returns the corresponding
    labelled variable. See [LVar] for more details on labelled variables. *)
@@ -427,7 +427,7 @@ let trm_resolve_binop_lval_and_get_with_deref (t : trm) : (lvar * bool) option =
   in
   aux false "" t
 
-(* [trm_resolve_var_in_unop_or_array_access_and_get t] tries to resolve the
+(** [trm_resolve_var_in_unop_or_array_access_and_get t] tries to resolve the
    variable (including the associated label if we are dealing with a class
    member variable) involved in a unary operation (++, --, & or get) or array
    access [t] and return it in a form of a labelled variable. *)
@@ -467,7 +467,7 @@ let trm_resolve_var_in_unop_or_array_access_and_get (t : trm) : lvar option =
   in
   aux "" t
 
-(* [trm_resolve_pointer_and_aliased_variable t aliases]: tries to resolve
+(** [trm_resolve_pointer_and_aliased_variable t aliases]: tries to resolve
    pointer operation [t] and checks in [aliases] whether the resulting pointer
    is an argument or an alias to an argument. If the pointer operation succeedes
    and if the resulting pointer is an argument or an alias to an argument, the
@@ -530,7 +530,7 @@ let trm_resolve_pointer_and_aliased_variable
   in
   aux 0 "" t
 
-(* [trm_can_resolve_pointer t]: tries to resolve operation [t] to unique
+(** [trm_can_resolve_pointer t]: tries to resolve operation [t] to unique
    variable and returns [true] on success and [false] otherwise. *)
 let rec trm_can_resolve_pointer (t : trm) : bool =
     match t.desc with
@@ -555,7 +555,7 @@ let rec trm_can_resolve_pointer (t : trm) : bool =
     | Trm_var _ -> true
     | _ -> false
 
-(* [trm_let_update_aliases ?reference tv ti aliases]: checks in [aliases]
+(** [trm_let_update_aliases ?reference tv ti aliases]: checks in [aliases]
    whether the variable declaration specified by the typed variable [tv] and the
    initializaion term [ti] creates an alias to an already existing variable or
    function argument. If it is the case, it updates the alias hash table
@@ -619,7 +619,7 @@ let trm_let_update_aliases ?(reference = false)
       (* There is nothing to do, return 0. *)
   else 0
 
-(* [find_parent_typedef_record p]: goes back up the path [p] and returns the
+(** [find_parent_typedef_record p]: goes back up the path [p] and returns the
    first term corresponding to a class or a structure definition, if any. We use
    this function to determine the parent class of a structure or a function in
    order to access to the member variables of that class or structure. *)
@@ -647,7 +647,7 @@ let find_parent_typedef_record (p : path) : trm option =
   in
   aux reversed
 
-(* [unconstify_mutables] proceeds in two phases, i.e. [unconstify_to_unconst]
+(** [unconstify_mutables] proceeds in two phases, i.e. [unconstify_to_unconst]
    and [unconstify_to_unconst_objects]. At first, it pops out the elements from
    [to_unconst] and then from [to_unconst_objects] (global variables, see Part
    II.1) one by one and propagates the unconstification through the concerned
@@ -743,7 +743,7 @@ let unconstify_mutables () : unit =
 (* IV.1 Constification                    *)
 (******************************************)
 
-(* [build_constification_records_on]: see [build_constification_records]. *)
+(** [build_constification_records_on]: see [build_constification_records]. *)
 let build_constification_records_on (t : trm) : unit =
   (* Deconstruct the function definition term. *)
   let error = "Apac_basic.const_lookup_candidates: expected a target to a \
@@ -781,13 +781,13 @@ let build_constification_records_on (t : trm) : unit =
     end
 
 
-(* [build_constification_records]: expects the target [tg] to point at a
+(** [build_constification_records]: expects the target [tg] to point at a
    function definition. It adds a new entry into [const_records] (global
    variable, see Part II.1) based on the information about the function. *)
 let build_constification_records (tg : target) : unit =
   Target.iter_at_target_paths (build_constification_records_on) tg
 
-(* [identify_mutables_on t]: see [identify_mutables]. *)
+(** [identify_mutables_on t]: see [identify_mutables]. *)
 let identify_mutables_on (p : path) (t : trm) : unit =
   (* Auxiliary function which recursively visits all the terms of the body
      [fun_body] of the function [fun_var] in order to resolve dependencies
@@ -1080,7 +1080,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
      and fill [to_unconst]. *)
   aux aliases var body
 
-(* [identify_mutables tg]: expects the target [tg] to point at a function
+(** [identify_mutables tg]: expects the target [tg] to point at a function
    definition. It recurses over the body of the target function definition in
    order to figure out which function arguments and possible aliases to
    arguments should not be constified and adds them to the [to_unconst] stack

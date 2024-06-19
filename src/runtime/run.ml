@@ -3,7 +3,7 @@
 (******************************************************************************)
 include Tools
 
-(* [set_exn_backtrace b]: based on [b] enable or disable backtracing in case an exception was thrown *)
+(** [set_exn_backtrace b]: based on [b] enable or disable backtracing in case an exception was thrown *)
 let set_exn_backtrace (b : bool) : unit =
   Printexc.record_backtrace b
 
@@ -26,11 +26,11 @@ let _ =
 (*                                 Run                                        *)
 (******************************************************************************)
 
-(* [add_cmdline_args]: registers additional command line flags; see Flags.ml *)
+(** [add_cmdline_args]: registers additional command line flags; see Flags.ml *)
 let process_cmdline_args (args : Flags.cmdline_args) : unit =
    Flags.process_cmdline_args ~args ()
 
-(* [generate_source_with_inlined_header_cpp input_file inline output_file]:
+(** [generate_source_with_inlined_header_cpp input_file inline output_file]:
    takes a file [input_file] and produces a file [output_file] obtained by
    inlining in the source the "#include" corresponding to the files listed
    in the list of filenames [inline].
@@ -43,7 +43,7 @@ let process_cmdline_args (args : Flags.cmdline_args) : unit =
   LATER: currently this test only works to include files that are in the same directory
   as the cpp file, we should generalize this in the support. *)
 
-(* [debug_inline_cpp]: only for debugging purposes *)
+(** [debug_inline_cpp]: only for debugging purposes *)
 let debug_inline_cpp = false
 
 let generate_source_with_inlined_header_cpp (basepath : string) (input_file : string) (inline : string list) (output_file : string) : unit =
@@ -80,7 +80,7 @@ let generate_source_with_inlined_header_cpp (basepath : string) (input_file : st
   List.iter process_item inline;
   Xfile.put_contents (Filename.concat basepath output_file) !s
 
-(* [get_program_basename ()]: returns the basename of the current binary program being used.
+(** [get_program_basename ()]: returns the basename of the current binary program being used.
     It takes care to remove the leading './' and takes care to remove the "with_lines" suffix. *)
 let get_program_basename () : string =
   Flags.process_program_name ();
@@ -99,14 +99,14 @@ let get_program_basename () : string =
     then String.sub b 2 (String.length b - 2)
     else b
 
-(* [Stop]: exception for stopping the execution of the script *)
+(** [Stop]: exception for stopping the execution of the script *)
 exception Stop
 
-(* [stop ()]: raises exception Stop *)
+(** [stop ()]: raises exception Stop *)
 let stop () : unit =
   raise Stop
 
-(* [may_report_time msg f]: returns the result of [f()] and, if not in batch mode, reports the time taken by that call on stdout. *)
+(** [may_report_time msg f]: returns the result of [f()] and, if not in batch mode, reports the time taken by that call on stdout. *)
 let may_report_time (msg : string) (f : unit -> 'a) : 'a =
   if not !Flags.report_exectime then
     f ()
@@ -116,7 +116,7 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
     r
   end
 
-(* [script ~filename ~extension ~batching ~check_exit_at_end ~prefix f]:
+(** [script ~filename ~extension ~batching ~check_exit_at_end ~prefix f]:
    serves as "main" function for an Optitrust script. It takes care of parsing
    the command line arguments, handling the errors, and parsing the file that will be processed,
    before running the function [f] provided and outputing the results.
@@ -243,7 +243,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   ()
 
-(* [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix f]:
+(** [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix f]:
    is a specialized version of [script f] that parses C/C++ files.
 
    Its specific options are:

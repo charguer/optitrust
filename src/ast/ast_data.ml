@@ -3,16 +3,16 @@
 open Ast
 open Trm
 
-(* [fun_defs_tbl]: hashtable type, used for storing the function definitions based on their signature.
+(** [fun_defs_tbl]: hashtable type, used for storing the function definitions based on their signature.
     The key is the Unified Symbol Resolution.
     Using Clang.cxcursor instead is not possible because all Clang.cxcursor give the same key *)
 type fun_defs_tbl = (string, trm) Hashtbl.t
 
-(* [fun_defs] hashtable used for storing function definitions for easier access when needed. *)
+(** [fun_defs] hashtable used for storing function definitions for easier access when needed. *)
 let fun_defs : fun_defs_tbl = Hashtbl.create 1000
 
 
-(* [get_cursor_of_trm t]: returns the Clang.cxcurso id of trm [t] in the case when [t] is a function definition or a function call. *)
+(** [get_cursor_of_trm t]: returns the Clang.cxcurso id of trm [t] in the case when [t] is a function definition or a function call. *)
 let get_cursor_of_trm (t : trm) : Clang.cxcursor option =
   let t_annot = trm_get_cstyles t in
   List.fold_left (fun acc t_ann ->
@@ -26,13 +26,13 @@ let get_cursor_of_trm (t : trm) : Clang.cxcursor option =
 
   ) None t_annot
 
-(* [get_cursor_at_trm_unsome t]: similar to [get_cursor_at_trm] but this one fails in case the trm [t] doesn't have  clang_id.   *)
+(** [get_cursor_at_trm_unsome t]: similar to [get_cursor_at_trm] but this one fails in case the trm [t] doesn't have  clang_id.   *)
 let get_cursor_of_trm_unsome (t :trm) : Clang.cxcursor =
   match get_cursor_of_trm t with
   | Some cx -> cx
   | None -> assert false
 
-(* [get_function_usr t]: assume that t is the callee of a funcall or a function definition, annotated with the Clang cxcursor.
+(** [get_function_usr t]: assume that t is the callee of a funcall or a function definition, annotated with the Clang cxcursor.
     Then it will return the Unified Symbol Resolution of the function. *)
 let get_function_usr (t : trm) : string option =
   match get_cursor_of_trm t with
@@ -43,14 +43,14 @@ let get_function_usr (t : trm) : string option =
     end
   | None -> None
 
-(* [get_function_usr t]: assume that t is the callee of a funcall or a function definition, annotated with the Clang cxcursor.
+(** [get_function_usr t]: assume that t is the callee of a funcall or a function definition, annotated with the Clang cxcursor.
     Then it will return the Unified Symbol Resolution of the function. *)
 let get_function_usr_unsome (t : trm) : string =
   match get_function_usr t with
   | Some (usr) -> usr
   | None -> assert false
 
-(* [fill_fun_defs_tbl t]: traverses the ast [t] and adds into the table [fun_defs] all the function definitions.
+(** [fill_fun_defs_tbl t]: traverses the ast [t] and adds into the table [fun_defs] all the function definitions.
       with keys being   their original Clang.cxcursor id. *)
 let fill_fun_defs_tbl (t : trm) : unit =
   (* First clean the current hashtable. *)
@@ -70,7 +70,7 @@ let fill_fun_defs_tbl (t : trm) : unit =
    if !debug then Hashtbl.iter (fun _k v -> Tools.debug "Value: %s" (AstC_to_c.ast_to_string v)) fun_defs;
    res
 
-(* [get_function_def t]: assumes that [t] is the callee of a function call, annotated with the Clang cxcursor.
+(** [get_function_def t]: assumes that [t] is the callee of a function call, annotated with the Clang cxcursor.
     Then it will return the definition of the function whose name appears in [ŧ]. *)
 let get_function_def (t : trm) : trm =
   match get_function_usr t with

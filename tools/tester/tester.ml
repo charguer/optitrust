@@ -169,7 +169,7 @@ let debug_match_expected = ref false
 
 exception TesterFailure of string
 
-(* [fail msg] is for a fatal error produced by the tester *)
+(** [fail msg] is for a fatal error produced by the tester *)
 let fail (msg:string) : 'a =
   raise (TesterFailure msg)
 
@@ -284,10 +284,10 @@ let _remove_later = comparison_method := Comparison_method_ast;
 (*****************************************************************************)
 (** Parsing of options *)
 
-(* [cmdline_args]: a list of possible command line arguments. *)
+(** [cmdline_args]: a list of possible command line arguments. *)
 type cmdline_args = (string * Arg.spec * string) list
 
-(* [spec]: possible command line arguments. *)
+(** [spec]: possible command line arguments. *)
 let spec : cmdline_args =
    [ ("-dry", Arg.Set dry_run, " only display the list of tests to process");
      ("-hide-stdout", Arg.Set Flags.hide_stdout, " hide the contents that tests print on standard output ");
@@ -313,9 +313,8 @@ let spec : cmdline_args =
 (*****************************************************************************)
 (** Auxiliary function for handling dry-mode *)
 
-(* [run_action] is like [do_or_die], with an option to print the command,
+(** [run_action] is like [do_or_die], with an option to print the command,
    and only prints the command if [-dry] flag has been set *)
-
 let run_action ?(print = false) (cmd : string) : unit =
   (* FOR DEBUG:
    let _ = ignore print in

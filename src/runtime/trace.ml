@@ -155,7 +155,7 @@ let parse ?(serialize=true) (filename : string) : string * trm =
 
 let debug_light_diff = ref false
 
-(* [top_level_fun_bindings t]: returns a map with keys the names of toplevel function names and values being their bodies *)
+(** [top_level_fun_bindings t]: returns a map with keys the names of toplevel function names and values being their bodies *)
 let top_level_fun_bindings (t : trm) : tmap =
   let tmap = ref Var_map.empty in
     let aux (t : trm) : unit =
@@ -171,7 +171,7 @@ let top_level_fun_bindings (t : trm) : tmap =
   aux t;
   !tmap
 
-(* [get_common_top_fun tm1 tm2]: takes two maps, binding function names to terms describing the function bodies,
+(** [get_common_top_fun tm1 tm2]: takes two maps, binding function names to terms describing the function bodies,
     and returns the list of function names that are bound to the same terms in the two maps. *)
 let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
   let common = ref [] in

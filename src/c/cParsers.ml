@@ -2,7 +2,7 @@ open Ast
 open Trm
 
 (* TODO: Get rid of this aweful C(++) only include handling *)
-(* [get_cpp_includes filename]: gets the list of file includes syntactically visible
+(** [get_cpp_includes filename]: gets the list of file includes syntactically visible
    on the first lines of a CPP file -- this implementation is quite restrictive. *)
 let get_c_includes (filename : string) : string =
   (* make sure the include list is clean *)

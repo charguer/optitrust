@@ -76,7 +76,7 @@ let%transfo local_name ~(var : string) ~(local_var : string) (tg : target) : uni
   (* FIXME: find type in context. *)
   Variable_basic.local_name ~var (typ_auto ()) ~local_var tg
 
-(* [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]:
+(** [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]:
     expects the target [tg] to point at a for loop. Then it will surround this loop with a @nobrace
     sequence. After that it will apply another transformation called local other name. Which as the name
     suggests it will declare a new variable inside the targeted block and replace the current one with t he new one.
@@ -144,7 +144,7 @@ let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark = no_mark) ?(ops
   Variable_basic.delocalize ~index ~array_size ~ops [cMark middle_mark];
   )
 
-(* [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]: it's a continuation to the [delocalize] transformation
+(** [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]: it's a continuation to the [delocalize] transformation
     that will unroll all the introduced loops from the basic delocalize transformation and convert the newly declared array
     to a list of variables namely for each index on variable, this variables should be given by the user through the labelled
     argument [vars]. *)

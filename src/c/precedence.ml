@@ -1,16 +1,16 @@
 open Ast
 open Trm
 
-(* [associativity]: associativity type of primitive operations. *)
+(** [associativity]: associativity type of primitive operations. *)
 type associativity = LtoR | RtoL | NA
 
-(* [precedence]: precedence is a pair of precedence value and associativity type. *)
+(** [precedence]: precedence is a pair of precedence value and associativity type. *)
 type precedence = int * associativity
 
-(* [precedence_none]: no precedence. *)
+(** [precedence_none]: no precedence. *)
 let precedence_none : precedence = (0, NA)
 
-(* [precedence_prim p]: computes precedence of the primitive [p]. *)
+(** [precedence_prim p]: computes precedence of the primitive [p]. *)
 let precedence_prim (p : prim) : precedence =
   match p with
   | Prim_unop unop ->
@@ -46,7 +46,7 @@ let precedence_prim (p : prim) : precedence =
   | _ -> precedence_none
 
 
-(* [precedence_trm t]: computes precedence of the trm [t]. *)
+(** [precedence_trm t]: computes precedence of the trm [t]. *)
 let precedence_trm (t : trm) : precedence =
   match t.desc with
   | Trm_apps (f, _, _) ->
@@ -62,7 +62,7 @@ let precedence_trm (t : trm) : precedence =
   | _ -> precedence_none
 
 
-(* [parentheses_needed ~prec t]: checks if the precedence of [t] is greater then [prec]. *)
+(** [parentheses_needed ~prec t]: checks if the precedence of [t] is greater then [prec]. *)
 let parentheses_needed ?(prec : int = 0)  (t : trm) =
   let (prec', assoc) = precedence_trm t in
   prec' < prec

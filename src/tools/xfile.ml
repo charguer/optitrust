@@ -78,17 +78,17 @@ let append_contents filename str =
   close_out c
 
 
-(* [serialize_to filename t]: dumps the object [obj] of type 'a into file [filename]. *)
+(** [serialize_to filename t]: dumps the object [obj] of type 'a into file [filename]. *)
 let serialize_to (filename : string) (obj : 'a) : unit =
   let out_file = open_out_bin filename in
   Marshal.to_channel out_file obj []
 
-(* [unserialize_from filename]: reconstructs the object previously dumped in file [filename]. *)
+(** [unserialize_from filename]: reconstructs the object previously dumped in file [filename]. *)
 let unserialize_from (filename : string) : 'a =
   let in_file = open_in_bin filename in
   Marshal.from_channel in_file
 
-(* [is_newer_than filename1 filename2]: checks if the file [filename1] has a modification date greater
+(** [is_newer_than filename1 filename2]: checks if the file [filename1] has a modification date greater
     than that of the file [filename2]. *)
 let is_newer_than (filename1 : string) (filename2 : string) : bool =
   let t_f1 = Unix.((stat filename1).st_mtime) in

@@ -95,7 +95,7 @@ let fun_minimize_on (t: trm): trm =
   let new_contract = minimize_fun_contract contract post_inst body_usage in
   trm_like ~old:t (trm_let_fun name typ args body ~contract:(FunSpecContract new_contract))
 
-(* [fun_minimize]: minimize a function contract by looking at the resource usage of its body *)
+(** [fun_minimize]: minimize a function contract by looking at the resource usage of its body *)
 let%transfo fun_minimize (tg: target) : unit =
   ensure_computed ();
   Target.apply_at_target_paths fun_minimize_on tg;
@@ -309,7 +309,7 @@ let loop_minimize_on (t: trm): trm =
   let new_contract = minimize_loop_contract contract post_inst body_usage in
   trm_like ~old:t (trm_for range ~contract:new_contract body)
 
-(* [loop_minimize]: minimize linear invariants of a loop contract *)
+(** [loop_minimize]: minimize linear invariants of a loop contract *)
 let%transfo loop_minimize (*?(indepth : bool = false)*) (tg: target) : unit =
   ensure_computed ();
   (* TODO: Perform minimization recursively when indepth is true. *)
@@ -448,7 +448,7 @@ let detach_loop_ro_focus_on (t: trm): trm =
   let new_body = trm_like ~old:body new_body in
   trm_like ~old:t (trm_for range ~contract new_body)
 
-(* [detach_loop_ro_focus tg] transforms all the ressources that are in a reads clause into a resource in a par_read clause with a focus around the loop body. *)
+(** [detach_loop_ro_focus tg] transforms all the ressources that are in a reads clause into a resource in a par_read clause with a focus around the loop body. *)
 let%transfo detach_loop_ro_focus (tg: target): unit =
   Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths detach_loop_ro_focus_on tg

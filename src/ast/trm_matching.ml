@@ -3,7 +3,7 @@ open AstParser
 
 (* CHECK: #var-id, uses of x.name in this file *)
 
-(* [parse_pattern pattern globdefs ctx ]: returns the list of variables used in [pattern] and the ast of that [pattern].
+(** [parse_pattern pattern globdefs ctx ]: returns the list of variables used in [pattern] and the ast of that [pattern].
     [globdefs] - code entered as string that contains all the functions used in the pattern
     [ctx] - if set to true than the user doesn't need to provide the declarations of the functions used in pattern
             insted the function will take the current ast and dump it just before the pattern.
@@ -92,14 +92,14 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
       end
   | _ -> trm_fail main_fun "Trm_matching.parse_pattern: the pattern was not entered correctly"
 
-(* [rewrite_rule]: a type for defining rewrite rules *)
+(** [rewrite_rule]: a type for defining rewrite rules *)
 type rewrite_rule = {
   rule_vars : typed_vars;
   rule_aux_vars : typed_vars;
   rule_from : trm;
   rule_to : trm}
 
-(* [parse_rule pattern]: returns a rewrite rule derived from [pattern](see [parse_pattern] ) which is a record containing
+(** [parse_rule pattern]: returns a rewrite rule derived from [pattern](see [parse_pattern] ) which is a record containing
     the the list of  variables used in that rule,  the rule itself and the result after applying that rule. *)
 let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : rewrite_rule =
   let pattern_vars, aux_vars, pattern_instr = parse_pattern ~glob_defs ~ctx pattern in
@@ -109,13 +109,13 @@ let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : strin
   | _ ->
     trm_fail pattern_instr "Trm_matching.parse_rule: could not parse the given rule"
 
-(* [Rule_mismatch]: exception raised by [rule_match] *)
+(** [Rule_mismatch]: exception raised by [rule_match] *)
 exception Rule_mismatch
 
-(* [rule_match ~higher_order_inst vars pat t]: LATER: Arthur  *)
+(** [rule_match ~higher_order_inst vars pat t]: LATER: Arthur  *)
 let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
 
-  (* [inst] maps each pattern variable to a term and to a type;
+  (** [inst] maps each pattern variable to a term and to a type;
      when pattern variables are not yet instantiated,
      they are bound to the special term trm_uninitialized. *)
      (* LATER: we may need one day to introduce another special term Trm_uninstantiated  *)
@@ -166,7 +166,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     let aux_list (ts1 : trms) (ts2 : trms) : unit =
       if List.length ts1 <> List.length ts2 then mismatch ();
       List.iter2 aux ts1 ts2 in
-    (* [aux_with_bindings] is a function for matching two lists of terms,
+    (** [aux_with_bindings] is a function for matching two lists of terms,
        making sure to extend the [inst] map to take into account the
        variable names that are bound locally; for example,
          [int a = 3; return a]  should match  [int b = 3; return b]
@@ -257,23 +257,23 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
   end;
   Var_map.map (fun (_ty,t) -> t) !inst
 
-(* [Rule_match_ast_list_no_occurrence_for]: exception raised by [tmap_to_list] *)
+(** [Rule_match_ast_list_no_occurrence_for]: exception raised by [tmap_to_list] *)
 exception Rule_match_ast_list_no_occurrence_for of var
 
 
-(* [tmap_to_list keys map]: gets the values of [keys] in [map] as a list *)
+(** [tmap_to_list keys map]: gets the values of [keys] in [map] as a list *)
 let tmap_to_list (keys : typed_vars) (map : tmap) : trms =
   List.map (fun (x, _) -> match Var_map.find_opt x map with
     | Some v -> v
     | None -> raise (Rule_match_ast_list_no_occurrence_for x)
   ) keys
 
-(* [tmap_filter_keys keys map]: get a map with filtered keys *)
+(** [tmap_filter_keys keys map]: get a map with filtered keys *)
 let tmap_filter_keys (keys : typed_vars) (map : tmap) : tmap =
   let keys = fst (List.split keys) in
   Var_map.filter (fun k _ -> List.mem k keys) map
 
-(* [rule_match_as_list pattern_vars pattern_instr t]: returns the list of key values in the map generated from rule_match *)
+(** [rule_match_as_list pattern_vars pattern_instr t]: returns the list of key values in the map generated from rule_match *)
 let rule_match_as_list (pattern_vars : typed_vars) (pattern_instr : trm)  (t : trm) : trms =
   let inst : tmap = rule_match pattern_vars  pattern_instr t in
   List.map (fun (x,_) -> match Var_map.find_opt x inst with
