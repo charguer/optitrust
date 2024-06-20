@@ -140,11 +140,41 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (* TODO: encode header information in the AST *)
 type parser = string -> string * trm
 
+let c_parser ~(persistant:bool) (filename: string) : string * trm =
+  (* "ser" means serialized *)
+  let ser_filename = filename ^ ".ser" in
+
+  let exitcode =
+    Sys.command (Printf.sprintf "dune exec optitrust_c_parser -- %s %s --root %s %s"
+      (if !Flags.ignore_serialized || persistant then "" else "-f")
+      (if !Flags.debug_parsing_serialization then "-v" else "")
+      (!Flags.optitrust_root) filename)
+  in
+  if exitcode <> 0 then failwith "C parser returned with error code %d" exitcode;
+
+  if not (Sys.file_exists ser_filename) then failwith "C parser did not produce the expected file: %s" ser_filename;
+
+  let header, ast =
+    try
+      let ser_file = open_in_bin ser_filename in
+      let _deps = Marshal.from_channel ser_file in (* Used by C parser to store header deps *)
+      Marshal.from_channel ser_file
+    with _ ->
+      failwith "Deserialization failure on file: %s" ser_filename
+  in
+
+  if not persistant then Unix.unlink ser_filename;
+
+  (* Possibly perform the decoding *)
+  let ast = if !Flags.bypass_cfeatures then ast else Ast_fromto_AstC.cfeatures_elim ast in
+  (* Return the header and the ast *)
+  (header, ast)
+
 (** [parse filename]:
    call the parser on the given file while recording statistics *)
-let parse ?(serialize=true) (filename : string) : string * trm =
+let parse ?(persistant=true) (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
-  let parsed_file = stats ~name:"tr_ast" (fun () -> CParsers.parse ~serialize filename) in
+  let parsed_file = stats ~name:"tr_ast" (fun () -> c_parser ~persistant filename) in
   print_info None "Parsing Done.\n";
   parsed_file
 
@@ -582,7 +612,7 @@ let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
     let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
     output_prog (Style.custom_style_for_reparse()) ~beautify:false ctx in_prefix ast;
 
-    let (_, t) = parse (in_prefix ^ ctx.extension) in
+    let (_, t) = parse ~persistant:false (in_prefix ^ ctx.extension) in
     (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
     t
   )

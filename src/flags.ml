@@ -93,9 +93,6 @@ let clang_format_nb_columns : int ref = ref 80
 (** [code_print_width]: flag to choose the width of the printed code on stdout. *)
 let code_print_width = ref 80
 
-(** [verbose_mode]: flag to report more about file manipulations performed by the tool. *)
-let verbose_mode : bool ref = ref false
-
 (** [use_light_diff]: flag to enable "light diffs", whereby we hide the function body of all the
    toplevel functions that are not affected by the transformation. *)
    (* TODO: could it be true by default? *)
@@ -131,10 +128,6 @@ let reparse_between_steps = ref false
 
 (** [recompute_resources_between_steps]: always recompute resources between two steps *)
 let recompute_resources_between_steps = ref false
-
-(** [serialize] enable the generation of serialized AST obtained from parsing;
-   ( LATER:only one flag merged with ignore_serialized?)  *)
-let serialize = ref true
 
 (** [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
@@ -255,7 +248,6 @@ let spec : cmdline_args =
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
-     ("-dont-serialize", Arg.Clear serialize, " do not serialize the parsed AST");
      ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
      ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
@@ -263,7 +255,6 @@ let spec : cmdline_args =
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-clang-format-nb-columns", Arg.Set_int clang_format_nb_columns, " specify the number of columns for clang-format");
      ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
-     ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
 

@@ -1,6 +1,6 @@
 (executable
  (name parser)
- (public_name optitrust_parser)
+ (public_name optitrust_c_parser)
  (libraries clangml refl optitrust)
  (modes byte native)
 )
