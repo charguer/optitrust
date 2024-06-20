@@ -2171,9 +2171,9 @@ let trm_erase_var_ids (t : trm) : trm =
 
 
 (** [prepare_for_serialize ?remove_ctx t] should be called before serializing an ast.
-   This function is a no-op if [remove_ctx=false] and the flag [use_clang_cursor] is not set. *)
+   This function is a no-op if [remove_ctx=false]. *)
 let prepare_for_serialize ?(remove_ctx : bool = false) (t:trm) : trm =
-  if not remove_ctx && not !Flags.use_clang_cursor then t else
+  if not remove_ctx then t else
   begin
     let rec aux t =
       let t = if remove_ctx then { t with ctx = unknown_ctx() } else t in

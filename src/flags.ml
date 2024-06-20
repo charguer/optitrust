@@ -80,9 +80,6 @@ let reparse_at_big_steps : bool ref = ref false
 (** [report_big_steps]: flag to report on the progress of big steps during a script execution. *)
 let report_big_steps : bool ref = ref false
 
-(** [use_clang_cursor]: flag to control whether in include clang cursor information in the AST, this information may be useful for resolving overloading *)
-let use_clang_cursor : bool ref = ref false
-
 (** [use_clang_format]: flag to use clang-format or not in output CPP files. *)
 let use_clang_format : bool ref = ref true
 
@@ -141,13 +138,6 @@ let serialize = ref true
 
 (** [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
-
-(** [use_member_functions()] should be called for now by test files that involve the
-   use of member functions *)
-let use_member_functions() : unit =
-  use_clang_cursor := true;
-  ignore_serialized := true;
-  serialize := false
 
 (** [execution_mode] of the script *)
 
@@ -317,7 +307,6 @@ let ignore_serialized_default = ref !ignore_serialized
 let reset_flags_to_default () : unit =
   ignore_serialized := !ignore_serialized_default;
   dump_ast_details := false;
-  use_clang_cursor := false;
   bypass_cfeatures := false;
   print_optitrust_syntax := false;
   use_light_diff := false;

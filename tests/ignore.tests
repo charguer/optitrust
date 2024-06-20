@@ -24,6 +24,10 @@ loop/move/loop_move_doc.ml
 # BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
 apac/constify_functions_arguments/apac_constify_functions_arguments.ml
 
+# CPP
+ast/cpp_basic.ml
+
+
 
 pointer/fold
 

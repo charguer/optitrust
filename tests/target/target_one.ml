@@ -2,8 +2,6 @@ open Optitrust
 open Prelude
 let show = Show.add_marks_for_target_unit_tests
 
-let _ = Flags.use_member_functions()
-
 (* LATER: add unit test for each constraint function *)
 (*
   !! show [cFieldRead "x" ()];
