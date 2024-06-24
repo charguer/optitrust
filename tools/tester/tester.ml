@@ -372,7 +372,7 @@ let line_commented_with_dash (s:string) : bool =
 let rec tests_from_file ?(relative = false) (file : string) : string list =
   if debug then printf "tests_from_file %s\n" file;
   let folder = Filename.dirname file in
-  let lines = List.filter (fun s -> s <> "" && not (line_commented_with_dash s)) (Xfile.get_lines_or_empty file) in
+  let lines = List.filter (fun s -> s <> "" && not (line_commented_with_dash s)) (File.get_lines_or_empty file) in
   ~~ List.concat_map lines (fun test ->
     let test = if not relative || folder = "." then test else folder ^ "/" ^ test in
     (* TODO: this code should share common patterns with resolve_arg;
@@ -384,7 +384,7 @@ let rec tests_from_file ?(relative = false) (file : string) : string list =
       (* TODO: function for find all tests somewhere *)
       let sname = "-name '*.ml' -and -not -name '*_with_lines.ml'" in
       do_or_die (sprintf "find %s %s > %s" test sname tmp_file);
-      Xfile.get_lines_or_empty tmp_file
+      File.get_lines_or_empty tmp_file
     end else begin
       [ensure_ml_extension ~check_file_exists:false test]
     end
@@ -407,7 +407,7 @@ let find_all_tests_to_ignore (action : string) : File_set.t =
   do_or_die (sprintf "find %s -name '%s' > %s" target basename tmp_file);
   let ignore_tests_files =
       (if Sys.file_exists basename then [basename] else [])
-    @ (Xfile.get_lines_or_empty tmp_file) in
+    @ (File.get_lines_or_empty tmp_file) in
   if !verbose
     then printf "All %s files:\n  %s\n" basename (String.concat "\n  " ignore_tests_files);
   let result = ref File_set.empty in
@@ -430,7 +430,7 @@ let resolve_arg_as_folder (arg : string) : string list =
   if is_folder arg then [arg] else begin
     let sfolders = String.concat " " tests_folders in
     do_or_die (sprintf "find %s -type d -name '%s' > %s" sfolders arg tmp_file);
-    Xfile.get_lines_or_empty tmp_file
+    File.get_lines_or_empty tmp_file
   end
 
 (** Resolve one [argi] to a list of tests (without filtering ignored tests) *)
@@ -480,7 +480,7 @@ let resolve_arg (arg : string) : string list =
       in
     (* LATER: use a version of Sys.command that captures the output *)
     do_or_die (sprintf "find %s %s > %s" sfolders sname tmp_file);
-    let tests = Xfile.get_lines_or_empty tmp_file in
+    let tests = File.get_lines_or_empty tmp_file in
     tests
   end
 
@@ -664,7 +664,7 @@ let action_run (tests : string list) : unit =
       close_out catpured_stdout_channel;
       Unix.dup2 oldstdout Unix.stdout;
       if not !Flags.hide_stdout then begin
-        let catpured_stdout = Xfile.get_contents catpured_stdout_file in
+        let catpured_stdout = File.get_contents catpured_stdout_file in
         print_string catpured_stdout;
       end
     end in
@@ -681,6 +681,7 @@ let action_run (tests : string list) : unit =
       exit 3
   end;
   close_redirected_stdout();
+  flush stderr;
 
   (* Analyse test results *)
   let tests_all = ref [] in
@@ -724,12 +725,12 @@ let action_run (tests : string list) : unit =
   end;
 
   (* Produce .tests files *)
-  Xfile.put_lines "success.tests" !tests_success;
-  Xfile.put_lines "ignored.tests" tests_ignored;
-  Xfile.put_lines "failed.tests" !tests_failed;
-  Xfile.put_lines "wrong.tests" !tests_wrong;
-  Xfile.put_lines "missing_exp.tests" !tests_noexp;
-  Xfile.put_lines "errors.tests" (!tests_wrong @ !tests_failed @ !tests_noexp);
+  File.put_lines "success.tests" !tests_success;
+  File.put_lines "ignored.tests" tests_ignored;
+  File.put_lines "failed.tests" !tests_failed;
+  File.put_lines "wrong.tests" !tests_wrong;
+  File.put_lines "missing_exp.tests" !tests_noexp;
+  File.put_lines "errors.tests" (!tests_wrong @ !tests_failed @ !tests_noexp);
   update_tofix_tests_list();
 
   (* Produce general summary *)
@@ -882,8 +883,8 @@ let action_compile (tests : string list) : unit =
   );
   if not !dry_run then begin
     (* Produce .tests files *)
-    Xfile.put_lines "success.tests" !tests_success;
-    Xfile.put_lines "errors.tests" !tests_failed;
+    File.put_lines "success.tests" !tests_success;
+    File.put_lines "errors.tests" !tests_failed;
     update_tofix_tests_list();
     (* Produce text output *)
     if not !dry_run then begin

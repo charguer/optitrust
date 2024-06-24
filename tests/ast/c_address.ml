@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast_fromto_AstC
+open C_encoding
 
 (* Note: [address_elim] is not meant work in the presence of stack variables;
    thus [stackvar_elim] must be called first. *)

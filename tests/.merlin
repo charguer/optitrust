@@ -1,3 +1,6 @@
-S ../src/**
-B ../_build/default/src/**
-B ../_build/default/src/.optitrust.objs/byte
+S ../lib/**
+B ../_build/default/lib/**
+B ../_build/default/lib/.optitrust.objs/byte
+B ../_build/default/lib/utils/.optitrust_utils.objs/byte
+B ../_build/default/lib/ast/.optitrust_ast.objs/byte
+B ../_build/default/lib/framework/.optitrust_framework.objs/byte

@@ -293,8 +293,6 @@ Ex:
 
 # Repo
 
-- (AC) Move `src/` one level up. Migrate several folders from the root to another repo.
-
 - Add a LICENSE file, such as "gnu gpl 3"
 
 

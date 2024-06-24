@@ -1,0 +1,13 @@
+(library
+  (name optitrust_ast)
+  (public_name optitrust.ast)
+  (preprocess (pps ppx_transfo ppx_deriving.show ppx_deriving.ord))
+  (libraries optitrust.utils)
+  (modes byte native)
+  (flags ((:standard \ -short-paths) -warn-error -69 -w -9-27-32-33 -open Optitrust_utils))
+  ;could have faster compilation with -opaque?
+  (ocamlopt_flags (-opaque)))
+
+(include_subdirs unqualified)
+
+(documentation)

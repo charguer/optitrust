@@ -28,7 +28,7 @@ FCT=${BASH_REMATCH[2]}
 # echo ${MODULE} ${FCT}
 
 SRC_FILE=`echo ${MODULE} | tr '[:upper:]' '[:lower:]'`
-SRC_PATH=${OPTITRUST_PATH}/src/${SRC_FILE}.ml
+SRC_PATH=${OPTITRUST_PATH}/lib/framework/${SRC_FILE}.ml
 
 # echo ${SRC_PATH}
 

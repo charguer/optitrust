@@ -1,5 +1,5 @@
 open Optitrust
-open Ast_fromto_AstC
+open C_encoding
 open Target
 
 (* Note: [address_elim] is not meant work in the presence of stack variables;

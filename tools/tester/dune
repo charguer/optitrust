@@ -3,5 +3,6 @@
   (modules tester)
   (libraries optitrust dynlink)
   (link_flags (-linkall))
+  (link_deps (file ../c_parser/c_parser.exe))
   (public_name optitrust_tester)
  )

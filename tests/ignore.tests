@@ -27,7 +27,8 @@ apac/constify_functions_arguments/apac_constify_functions_arguments.ml
 # CPP
 ast/cpp_basic.ml
 
-
+# fix sizeof with typ in trm
+arith/simpl/arith_simpl.ml
 
 pointer/fold
 
