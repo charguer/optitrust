@@ -295,7 +295,7 @@ let trm_discover_dependencies (locals : symbols)
       [access_attr] type for more details). *)
   let rec aux (ins : dep Stack.t) (inouts : dep Stack.t)
             (attrs : (dep * DepAttr_set.t) Stack.t) (filter : Var_set.t)
-            (nested : bool) (fc : bool) (attr : DepAttr.t)
+            (derefs : int) (fc : bool) (attr : DepAttr.t)
             (t : trm) : bool * bool =
     let error = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
                                 '%s' is not a valid OpenMP depends expression"
@@ -304,81 +304,101 @@ let trm_discover_dependencies (locals : symbols)
                                    dependency attribute '%s' can not be used \
                                    in this context"
                     (DepAttr.to_string attr) in
-    (* We iteratively explore [t] and look for: *)
+    (** We iteratively explore [t] and look for: *)
     match t.desc with
+    (** - direct variable accesses ('t'), *)
     | Trm_var (vk, v) when not (Var_set.mem v filter) ->
        if not (String.starts_with ~prefix:"sizeof(" v.name) then
          let (degree, exists) = Var_Hashtbl.find_or_default locals v 0 in
-         let d = if degree < 1 then
-                   Dep_var (v)
-                 else if vk = Var_immutable then
-                   Dep.of_trm t v degree
-                 else
-                   begin
-                     let d' = Dep.of_trm t v degree in
-                     let d'' = Dep.of_trm (trm_get t) v degree in
-                     mutables := Dep_map.add d' d'' !mutables;
-                     d'
-                   end
+         let d =
+           if degree < 1 then
+             [Dep_var v]
+           else
+             begin
+               let degree' = if fc then degree else derefs in
+               let d' = Dep.of_degree t v degree' in
+               let t' = trm_get t in
+               let d'' = Dep.of_degree t' v degree' in
+               List.iter2 (fun pk pv ->
+                   mutables := Dep_map.add pk pv !mutables
+                 ) d' d'';
+               d'
+             end
          in
          begin
            match attr with
            | Accessor ->
-              Stack.push d ins;
-              Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
-           | ArgIn -> Stack.push d ins
-           | ArgInOut -> Stack.push d inouts
+              List.iter (fun e ->
+                  Stack.push e ins;
+                  Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
+                ) d
+           | ArgIn -> List.iter (fun e -> Stack.push e ins) d
+           | ArgInOut ->
+              List.iteri (fun i e ->
+                  if (i > derefs) && fc || not fc then
+                    Stack.push e inouts
+                  else
+                    Stack.push e ins) (List.rev d)
            | _ -> fail t.loc ebadattr
          end;
          (exists, false)
        else (true, true)
-    (* - get operations ([*t'], [**t'], ...), *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
-       aux ins inouts attrs filter false fc attr t'
-    (* - address operations ([&t'], ...), *)
+    (** - get operations ('*t', '**t', ...), *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, _) ->
+       let t' = trm_simplify_addressof_and_get t in
+       if t <> t' then
+         aux ins inouts attrs filter 0 fc attr t'
+       else
+         begin
+           match (trm_resolve_dereferenced_with_degree t) with
+           | Some (t', d) -> aux ins inouts attrs filter (d - 1) fc attr t'
+           | None -> fail t.loc error
+         end
+    (** - address operations ('&t'), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
-       aux ins inouts attrs filter false false attr t'
-    (* - array accesses ([t'[i]], [t' -> [i]]), *)
+       let t'' = trm_simplify_addressof_and_get t in
+       if t <> t'' then
+         aux ins inouts attrs filter 0 fc attr t''
+       else if (trm_is_array_or_direct_access t') then
+         aux ins inouts attrs filter 0 fc attr t'
+       else
+         fail t.loc error
+    (** - array accesses ('t\[i\]'), *)
     | Trm_apps ({desc = Trm_val
-                          (Val_prim (Prim_binop Binop_array_access)); _}, _)
-      | Trm_apps ({desc = Trm_val
-                            (Val_prim (Prim_binop Binop_array_get)); _}, _) ->
+                          (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
        let (base, accesses) = get_nested_accesses t in
        let cd = List.length accesses in
        let exists =
          begin
-           match (trm_resolve_pointer_and_degree base) with
-           | Some (v, _) when not (Var_set.mem v filter) ->
-              let (td, e) = Var_Hashtbl.find_or_default locals v 0 in
-              let d' = Dep_trm (t, v) in
-              let d = if fc && (cd < td) then
-                        let rec process = fun t v dg ->
-                          let t' = match (Dep.of_trm t v dg) with
-                            | Dep_trm (vt, _) -> vt
-                            | _ -> t
-                          in
-                          let dg' = dg - 1 in
-                          if dg' > 0 then process t' v dg' else t'
-                        in
-                        let t' = process t v (td - cd) in
-                        Dep_trm (t', v)
-                      else                      
-                        d'
+           match base.desc with
+           | Trm_var (_, v) when not (Var_set.mem v filter) ->
+              let (td, ex) = Var_Hashtbl.find_or_default locals v 0 in
+              let d = Dep.of_array t v in
+              let d = if fc && (cd + derefs) < td then
+                        (Dep.of_trm t v 1) :: d
+                      else d
               in
-              Stack.push (d, (DepAttr_set.singleton Subscripted)) attrs;
               begin
                 match attr with
                 | Accessor ->
-                   Stack.push d ins;
-                   Stack.push (d, (DepAttr_set.singleton Accessor)) attrs;
-                   if d <> d' then Stack.push d' ins
-                | ArgIn -> Stack.push d ins; if d <> d' then Stack.push d' ins
+                   List.iter (fun e ->
+                       Stack.push e ins;
+                       Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
+                     ) d
+                | ArgIn -> List.iter (fun e -> Stack.push e ins) d
                 | ArgInOut ->
-                   Stack.push d inouts;
-                   if d <> d' then Stack.push d' ins
+                   let f = List.hd d in
+                   let o = List.tl d in
+                   Stack.push f inouts;
+                   List.iter (fun e -> Stack.push e ins) o
                 | _ -> fail t.loc ebadattr
               end;
-              e
+              let d' = List.rev d in
+              let d' = List.tl d' in
+              List.iter (fun rd ->
+                  Stack.push (rd, (DepAttr_set.singleton Subscripted)) attrs
+                ) d';
+              ex
            | _ -> fail t.loc error
          end;
        in
@@ -387,15 +407,15 @@ let trm_discover_dependencies (locals : symbols)
            | Array_access_get t''
              | Array_access_addr t'' ->
               let (e', f') =
-                (aux ins inouts attrs filter false false Accessor t'') in
+                (aux ins inouts attrs filter 0 false Accessor t'') in
               (e && e', f || f')
            | _ -> (e, f)
          ) (exists, false) accesses
-    (* - unary increment and decrement operations ([t'++], [--t'], ...), *)
+    (** - unary increment and decrement operations ('t++', '--t'), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
-       aux ins inouts attrs filter false fc ArgInOut t'
-    (* - function calls ([f(args)], ...). *)
+       aux ins inouts attrs filter 0 fc ArgInOut t'
+    (** - function calls ('f(args)'). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        if Var_Hashtbl.mem const_records v then
          let const_record : const_fun = Var_Hashtbl.find const_records v in
@@ -408,16 +428,17 @@ let trm_discover_dependencies (locals : symbols)
                  let aa : DepAttr.t =
                    if const.is_const then ArgIn else ArgInOut in
                  let (exists', _) =
-                   aux ins inouts attrs filter false true aa arg in
+                   aux ins inouts attrs filter 0 true aa arg in
                  exists := !exists && exists'
                end
              else
                begin
                  let error =
                    Printf.sprintf
-                     "Apac_core.trm_discover_dependencies: the constification \
-                      record of '%s' has no argument constification record for
-                      the argument on position '%d'."
+                     "Apac_taskify.trm_look_for_dependencies.aux: the \
+                      constification record of '%s' has no argument \
+                      constification record for the argument on position \
+                      '%d'."
                      (var_to_string v)
                      pos
                  in
@@ -428,13 +449,13 @@ let trm_discover_dependencies (locals : symbols)
        else
          begin
            List.iter (fun arg ->
-               let _ = aux ins inouts attrs filter false true ArgInOut arg in ()
+               let _ = aux ins inouts attrs filter 0 true ArgInOut arg in ()
              ) args;
            (false, true)
          end
-    (* - set operation ([a = 1], [b = ptr], [*c = 42], ...), *)
+    (** - set operations ('a = 1', 'b = ptr', '*c = 42', ...), *)
     | Trm_apps _ when is_set_operation t ->
-       let error' = "Apac_core.trm_look_for_dependencies.aux: expected set \
+       let error' = "Apac_taskify.trm_look_for_dependencies.aux: expected set \
                      operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
        begin
@@ -443,19 +464,22 @@ let trm_discover_dependencies (locals : symbols)
             let d = Dep_trm (lval, lv.v) in
             Stack.push d inouts;
             let (le, lf) =
-              aux ins inouts attrs filter false false ArgInOut lval in
+              aux ins inouts attrs filter 0 false ArgInOut lval in
             let (re, rf) =
-              aux ins inouts attrs filter false false ArgIn rval in
+              aux ins inouts attrs filter 0 false ArgIn rval in
             (le && re, lf || rf)
          | None -> fail t.loc error
        end
+    (** - single variable declarations or defitinitions ('int a',
+          'int * b = ptr'), *)
     | Trm_let (vk, (v, ty), init, _) ->
        let degree = typ_get_degree ty in
        let degree = if vk = Var_immutable then degree else degree - 1 in
        let d = Dep.of_trm (trm_var ~kind:vk v) v degree in
        Stack.push d inouts;
        Var_Hashtbl.add locals v degree;
-       aux ins inouts attrs filter false false ArgIn init
+       aux ins inouts attrs filter 0 false ArgIn init
+    (** - multiple variable declarations or definitions ('int a = 1, b'). *)
     | Trm_let_mult (vk, tvs, inits) ->
        let (vs, _) = List.split tvs in
        let filter = Var_set.of_list vs in
@@ -466,16 +490,16 @@ let trm_discover_dependencies (locals : symbols)
            Stack.push d inouts;
            Var_Hashtbl.add locals v degree;
            let (exists', isfun') =
-             aux ins inouts attrs filter false false ArgIn init in
+             aux ins inouts attrs filter 0 false ArgIn init in
            (exists && exists', isfun || isfun')
          ) (true, false) tvs inits
-    (* In the case of any other term, we explore the child terms. *)
+    (** In the case of any other term, we explore the child terms. *)
     | _ ->
        let exists = ref true in
        let isfun = ref false in
        trm_iter (fun t' ->
            let (exists', isfun') =
-             aux ins inouts attrs filter false false attr t' in
+             aux ins inouts attrs filter 0 false attr t' in
            exists := !exists && exists';
            isfun := !isfun || isfun'
          ) t;
@@ -489,7 +513,7 @@ let trm_discover_dependencies (locals : symbols)
   let attrs : (dep * DepAttr_set.t) Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
   let (exists, isfun) =
-    aux ins inouts attrs (Var_set.empty) false false ArgIn t in
+    aux ins inouts attrs (Var_set.empty) 0 false ArgIn t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
   let ins' = Dep_set.of_stack ins in
   let inouts' = Dep_set.of_stack inouts in
@@ -503,36 +527,6 @@ let trm_discover_dependencies (locals : symbols)
 
 (* [taskify_on p t]: see [taskify]. *)
 let taskify_on (p : path) (t : trm) : unit =
-  (* let rec join (tasks : Task.t list) : Task.t list =
-     match tasks with
-     | a :: b :: r ->
-     let ifa = Task.attributed a WaitForAll in
-     let ifb = Task.attributed b WaitForAll || Task.attributed b ExitPoint in
-     if ifa && ifb then
-     let t = Task.merge a b in
-     t.attrs <- TaskAttr_set.add Singleton t.attrs;
-     join (t :: r)
-     else a :: (join (b :: r))
-     | _ -> tasks
-     in *)
-  (* let rec sanitize (tasks : Task.t list) : Task.t list =
-     match tasks with
-     | a :: b :: r ->
-     let ifa = not (Task.attributed a WaitForAll) in
-     let ifb = Task.attributed b WaitForAll in
-     if ifa && ifb then
-     let b' : Task.t = {
-     current = b.current;
-     attrs = b.attrs;
-     ins = Dep_set.union a.ins b.ins;
-     inouts = Dep_set.union a.inouts b.inouts;
-     ioattrs = Dep_map.union2 a.ioattrs b.ioattrs;
-     children = b.children;
-     } in
-     a :: (sanitize (b' :: r))
-     else a :: (sanitize (b :: r))
-     | _ -> tasks
-     in*)
   (* Auxiliary function to transform a portion of the existing AST into a local
      fill_task_graphed AST (see [atrm]). *)
   let rec fill (s : symbols) (t : trm) (g : TaskGraph.t) : Task.t =
@@ -591,21 +585,10 @@ let taskify_on (p : path) (t : trm) : unit =
        for i = 0 to (nb_tasks - 1) do
          let vertex_i = List.nth tasks i in
          let task_i = TaskGraph.V.label vertex_i in
-         let ti_has_subs = Task.subscripted task_i in
          for j = (i + 1) to (nb_tasks - 1) do
            let vertex_j = List.nth tasks j in
            let task_j = TaskGraph.V.label vertex_j in
-           let tj_has_subs = Task.subscripted task_j in
-           let inter = if ti_has_subs && tj_has_subs then
-                         Dep_set.inter
-                       else
-                         Dep_set.inter2 in
-           let op1 = inter task_i.inouts task_j.ins in
-           let op2 = inter task_i.ins task_j.inouts in
-           let op3 = inter task_i.inouts task_j.inouts in
-           let j_depends_on_i =
-             not ((Dep_set.is_empty op1) && (Dep_set.is_empty op2) &&
-                    (Dep_set.is_empty op3)) in
+           let j_depends_on_i = Task.depending task_i task_j in
            let j_depends_on_i = j_depends_on_i ||
                                   Task.attributed task_j ExitPoint ||
                                     Task.attributed task_i WaitForAll ||

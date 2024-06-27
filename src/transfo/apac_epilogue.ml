@@ -877,7 +877,7 @@ let reduce_waits2_on (p : path) (t : trm) : unit =
           }
         in
         let depends = Stack.fold (fun acc (t, l) ->
-                          acc || (Task.depending t task' (l <> level))
+                          acc || (Task.depending t task')
                         ) false previous in
         if (not depends) then
           begin

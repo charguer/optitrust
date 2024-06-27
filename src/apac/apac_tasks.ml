@@ -121,7 +121,7 @@ module rec Task : sig
          val create :
            trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
            ioattrs_map -> TaskGraph.t list list -> t
-         val depending : t -> t -> bool -> bool
+         val depending : t -> t -> bool
          val attributed : t -> TaskAttr.t -> bool
          val subscripted : t -> bool
          val taskified : t -> bool
@@ -201,16 +201,20 @@ module rec Task : sig
       children = children;
     }
 
-  (** [Task.depending t1 t2 alt]: checks whether the task [t2] depends on the
-      task [t1]. If [alt] is [true], the alternative dependency string
-      representations shall be considered, see [Dep.to_string2]. *)
-  let depending (t1 : t) (t2 : t) (alt : bool) : bool =
-    let inter = if alt then Dep_set.inter2 else Dep_set.inter in
-    let op1 = inter t1.inouts t2.ins in
-    let op2 = inter t1.ins t2.inouts in
-    let op3 = inter t1.inouts t2.inouts in
-    not ((Dep_set.is_empty op1) && (Dep_set.is_empty op2) &&
-           (Dep_set.is_empty op3))
+  (** [Task.depending t1 t2]: checks whether the task [t2] depends on the task
+      [t1]. *)
+  let depending (t1 : t) (t2 : t) : bool =
+    let dsf (ioa : ioattrs_map) (d : Dep.t) : bool =
+      Dep_map.has_with_attribute d Subscripted ioa
+    in      
+    let i1 =
+      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) t2.ins (dsf t2.ioattrs) in
+    let i2 =
+      Dep_set.inter2 t1.ins (dsf t1.ioattrs) t2.inouts (dsf t2.ioattrs) in
+    let i3 =
+      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) t2.inouts (dsf t2.ioattrs) in
+    not ((Dep_set.is_empty i1) && (Dep_set.is_empty i2) &&
+           (Dep_set.is_empty i3))
 
   (** [Task.attributed task attr]: checks whether the task [task] carries the
       attribute [attr]. *)

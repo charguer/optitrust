@@ -163,3 +163,31 @@ let trm_resolve_pointer_and_degree (t : trm) : (var * int) option =
     | _ -> None
   in
   aux 0 t
+
+(** [trm_is_array_or_direct_access t]: checks whether the term [t] represents an
+    array or a direct variable access. *)
+let trm_is_array_or_direct_access (t : trm) : bool =
+  match t.desc with
+    | Trm_apps ({desc = Trm_val
+                          (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
+       true
+    | Trm_var _ -> true
+    | _ -> false
+
+(** [trm_resolve_dereferenced_with_degree t]: if the term [t] represents a stack
+    of dereference operations, it returns the underlying array or direct
+    variable access term and the number of dereferencings, i.e. the degree. *)
+let trm_resolve_dereferenced_with_degree (t : trm) : (trm * int) option =
+  let rec aux (degree : int) (t : trm) : (trm * int) option =
+    match t.desc with
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) ->
+       begin match op with
+       | Unop_get -> aux (degree + 1) t'
+       | _ -> None
+       end
+    | Trm_apps ({desc = Trm_val
+                          (Val_prim (Prim_binop Binop_array_access)); _}, _)
+      | Trm_var _ -> Some (t, degree)
+    | _ -> None
+  in
+  aux 0 t
