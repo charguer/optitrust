@@ -354,7 +354,9 @@ let trm_discover_dependencies (locals : symbols)
        else
          begin
            match (trm_resolve_dereferenced_with_degree t) with
-           | Some (t', d) -> aux ins inouts attrs filter (d - 1) fc attr t'
+           | Some (t', d) ->
+              let d' = if attr = ArgInOut && not fc then d else d - 1 in
+              aux ins inouts attrs filter d' fc attr t'
            | None -> fail t.loc error
          end
     (** - address operations ('&t'), *)
