@@ -338,7 +338,7 @@ let trm_discover_dependencies (locals : symbols)
            | ArgIn -> List.iter (fun e -> Stack.push e ins) d
            | ArgInOut ->
               List.iteri (fun i e ->
-                  if (i > derefs) && fc || not fc then
+                  if ((i > derefs) && fc) || ((not fc) && (i >= derefs)) then
                     Stack.push e inouts
                   else
                     Stack.push e ins) (List.rev d)
