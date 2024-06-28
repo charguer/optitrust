@@ -243,20 +243,38 @@ module Dep_set = struct
   (** [Dep_set.inter2]: computes the intersection of [s1] and [s2] while using
       the appropriate equality check (see [Dep.equal], [Dep.equal_dimension] and
       [Dep.equal_variable]). *)
-  let inter2 (s1 : t) (d1sf : (Dep.t -> bool))
-        (s2 : t) (d2sf : (Dep.t -> bool)) : t =
-    fold (fun d1 res ->
+  let inter2 (s1 : t) (d1sf : (Dep.t -> bool)) (s1w : bool)
+        (s2 : t) (d2sf : (Dep.t -> bool)) (s2w : bool) : t =
+    fold (fun d1 res -> 
         let d1t = Dep.is_trm d1 in
         let d1s = d1sf d1 in
+        let d1d = Dep.degree d1 in
         let c =
           exists (fun d2 ->
-              if d1t && (Dep.is_trm d2) then
-                if d1s && (d2sf d2) then
-                  Dep.equal d1 d2
-                else
-                  Dep.equal_dimension d1 d2
+              if not (Dep.equal_variable d1 d2) then false
               else
-                Dep.equal_variable d1 d2) s2
+                begin
+                  match (d1t, (Dep.is_trm d2)) with
+                  | (true, true) ->
+                     let eq = if d1s && (d2sf d2) then
+                                Dep.equal
+                              else
+                                Dep.equal_dimension
+                     in
+                     let d2d = Dep.degree d2 in
+                     if d1d = d2d then
+                       eq d1 d2
+                     else if (d1d > d2d) && s1w && (not s2w) then
+                       false
+                     else if (d1d < d2d) && (not s1w) && s2w then
+                       false
+                     else
+                       true
+                  | (true, false) -> ((not s1w) && s2w) || (s1w && s2w)
+                  | (false, true) -> (s1w && s2w) || (s1w && (not s2w))
+                  | (false, false) -> true
+                end
+            ) s2
         in
         if c then add d1 res else res) s1 empty
   

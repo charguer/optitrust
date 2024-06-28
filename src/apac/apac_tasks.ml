@@ -206,13 +206,17 @@ module rec Task : sig
   let depending (t1 : t) (t2 : t) : bool =
     let dsf (ioa : ioattrs_map) (d : Dep.t) : bool =
       Dep_map.has_with_attribute d Subscripted ioa
-    in      
+    in
+    (* let _ = Printf.printf "Test between:\n%s\nand\n%s\n" (Task.to_string t1) (Task.to_string t2) in *)
     let i1 =
-      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) t2.ins (dsf t2.ioattrs) in
+      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) true t2.ins (dsf t2.ioattrs) false in
+    (* let _ = Printf.printf "i1: %s\n" (Dep_set.to_string i1) in *)
     let i2 =
-      Dep_set.inter2 t1.ins (dsf t1.ioattrs) t2.inouts (dsf t2.ioattrs) in
+      Dep_set.inter2 t1.ins (dsf t1.ioattrs) false t2.inouts (dsf t2.ioattrs) true in
+    (* let _ = Printf.printf "i2: %s\n" (Dep_set.to_string i2) in *)
     let i3 =
-      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) t2.inouts (dsf t2.ioattrs) in
+      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) true t2.inouts (dsf t2.ioattrs) true in
+    (* let _ = Printf.printf "i3: %s\n" (Dep_set.to_string i3) in *)
     not ((Dep_set.is_empty i1) && (Dep_set.is_empty i2) &&
            (Dep_set.is_empty i3))
 
