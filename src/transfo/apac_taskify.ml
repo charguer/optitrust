@@ -317,11 +317,14 @@ let trm_discover_dependencies (locals : symbols)
              begin
                let degree' = if fc then degree else derefs in
                let d' = Dep.of_degree t v degree' in
-               let t' = trm_get t in
-               let d'' = Dep.of_degree t' v degree' in
-               List.iter2 (fun pk pv ->
-                   mutables := Dep_map.add pk pv !mutables
-                 ) d' d'';
+               if vk <> Var_immutable then
+                 begin
+                   let t' = trm_get t in
+                   let d'' = Dep.of_degree t' v degree' in
+                   List.iter2 (fun pk pv ->
+                       mutables := Dep_map.add pk pv !mutables
+                     ) d' d'';
+                 end;
                d'
              end
          in
