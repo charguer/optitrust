@@ -464,8 +464,6 @@ let trm_discover_dependencies (locals : symbols)
        begin
          match (trm_resolve_binop_lval_and_get_with_deref lval) with
          | Some (lv, _) ->
-            let d = Dep_trm (lval, lv.v) in
-            Stack.push d inouts;
             let (le, lf) =
               aux ins inouts attrs filter 0 false ArgInOut lval in
             let (re, rf) =
