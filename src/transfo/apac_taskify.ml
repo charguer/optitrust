@@ -417,7 +417,14 @@ let trm_discover_dependencies (locals : symbols)
     (** - unary increment and decrement operations ('t++', '--t'), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
-       aux ins inouts attrs filter 0 fc ArgInOut t'
+       let t'' =
+         match t'.desc with
+         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
+            vt
+         | Trm_var (_, v) -> t'
+         | _ -> fail t.loc error
+       in
+       aux ins inouts attrs filter 0 fc ArgInOut t''
     (** - function calls ('f(args)'). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        if Var_Hashtbl.mem const_records v then
