@@ -3,6 +3,5 @@ apac_taskify_naive.ml
 apac_taskify_with_instrumentation.ml
 apac_taskify_arrays.ml
 apac_struct.ml
-apac_heapify_nested_seq.ml
 apac_insert_tasks_naive.ml
 apac_sync_with_taskwait.ml
