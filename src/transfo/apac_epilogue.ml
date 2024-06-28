@@ -314,18 +314,9 @@ let heapify_on (t : trm) : trm =
                   (* The transformation of [init] to an adequate allocation term
                      is required only in the case of an array of constants.
                      Otherwise, it is done implicitly by OptiTrust. *)
+                  delete := 2;
                   let init2 =
-                    if is_typ_const tya then
-                      begin
-                        delete := 2;
-                        trm_new ty init
-                      end
-                    else
-                      begin
-                        delete := 0;
-                        init
-                      end
-                  in
+                    if is_typ_const tya then trm_new ty init else init in
                   (* Return the updated variable declaration and definition. *)
                   ((v, ty2), init2)
                 end

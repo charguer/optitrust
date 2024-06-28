@@ -39,6 +39,8 @@ int main() {
   delete f;
 #pragma omp task default(shared) depend(inout : h)
   delete[] h;
+#pragma omp task default(shared) depend(inout : j)
+  delete[] j;
 #pragma omp task default(shared) depend(inout : k)
   delete k;
 #pragma omp task default(shared) depend(inout : l)
@@ -65,5 +67,7 @@ int main() {
   delete[] po;
 #pragma omp task default(shared) depend(inout : pl)
   delete[] pl;
+#pragma omp task default(shared) depend(inout : pg)
+  delete[] pg;
   return 0;
 }
