@@ -9,4 +9,5 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cDiff [[cFunBody "h"; cFun ""]] [[cHasTypeAst (typ_unit ())]]
               ];
-          )
+          );
+        Apac_reset.tnt_blast ()

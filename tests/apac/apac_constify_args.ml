@@ -4,4 +4,5 @@ open Target
 let _ = Run.script_cpp (fun () ->
             !! Apac_constify.constify_args
               ~force:true [nbMulti; cTopFunDefAndDecl "" ];
-          )
+          );
+        Apac_reset.tnt_blast ()

@@ -52,4 +52,5 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cMark Apac_macros.heapify_breakable_mark
               ];
-          )
+          );
+        Apac_reset.tnt_blast ()

@@ -14,4 +14,5 @@ let _ = Run.script_cpp (fun _ ->
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ];
-)
+          );
+        Apac_reset.tnt_blast ()
