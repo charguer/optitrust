@@ -1,4 +1,3 @@
-apac_taskify_naive.ml
 apac_taskify_with_instrumentation.ml
 apac_taskify_arrays.ml
 apac_struct.ml

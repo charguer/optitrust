@@ -8,35 +8,33 @@ int g(int* a) {
 }
 
 int h() {
-  int __res;
-  /*@__apac_task_group*/ #pragma omp taskgroup {
-    int** c;
-    int b;
+  int __apac_result;
+#pragma omp taskgroup
+  {
     int a;
-#pragma omp task default(shared) depend(inout : c)
-    {
-      c = (int**)malloc(sizeof(int));
-      g(*c);
-    }
-#pragma omp task default(shared) depend(inout : b)
-    {
-      b = 0;
-      b = b + 1;
-      b--;
-    }
-#pragma omp task default(shared) depend(inout : a, b)
+    int b;
+    int** c;
+    b = 0;
+    b = b + 1;
+    b--;
+#pragma omp taskwait
+    c = (int**)malloc(sizeof(int));
+#pragma omp taskwait depend(inout : a, b)
     a = 1 + b++;
-#pragma omp task default(shared) depend(inout : b)
-    b++;
-#pragma omp task default(shared) depend(inout : a)
+#pragma omp task default(shared) depend(in : c, c[0]) depend(inout : c[0][0])
+    g(*c);
+#pragma omp taskwait depend(inout : a)
     a = 2;
-#pragma omp task default(shared) depend(in : a, b)
-    f(a, b);
-#pragma omp task default(shared) depend(inout : a)
-    a = 3;
-#pragma omp task default(shared) depend(in : a) depend(inout : **c)
+#pragma omp taskwait depend(inout : b)
+    b++;
+#pragma omp task default(shared) depend(in : b) depend(inout : a)
+    {
+      f(a, b);
+      a = 3;
+    }
+#pragma omp taskwait depend(in : a, c, c[0]) depend(inout : c[0][0])
     **c = a;
   __apac_exit:;
-  } /*__apac_task_group@*/
-  return __res;
+  }
+  return __apac_result;
 }

@@ -10,4 +10,8 @@ let _ = Run.script_cpp (fun () ->
             !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
             !! Apac_taskify.insert_tasks
               [nbAny; cMark Apac_macros.task_group_mark];
+            !! Marks.remove Apac_macros.task_group_mark [
+                nbAny;
+                cMark Apac_macros.task_group_mark
+              ];
           )
