@@ -119,11 +119,14 @@ let emit_omp_task (t : Task.t) : trms =
       let sync = if (List.length sync) < 1 then [] else [Depend [In sync]] in
       let (firstprivate, ins') =
         if (Task.attributed t WaitForSome) then
-          (Dep_set.empty,
-           Dep_set.filter (fun d ->
-               (Dep_map.has_with_attribute d Condition t.ioattrs) &&
-                 not (Dep_map.has_with_attribute d InductionVariable t.ioattrs)
-             ) t.ins)
+          if t.children <> [[]] then
+            (Dep_set.empty,
+             Dep_set.filter (fun d ->
+                 (Dep_map.has_with_attribute d Condition t.ioattrs) &&
+                   not (Dep_map.has_with_attribute d InductionVariable t.ioattrs)
+               ) t.ins)
+          else
+            (Dep_set.empty, t.ins)
         else
           Dep_set.partition (fun d ->
               Dep_map.has_with_attribute d InductionVariable t.ioattrs
@@ -135,7 +138,8 @@ let emit_omp_task (t : Task.t) : trms =
                      | Some d' -> d'
                      | None -> d) ins' in
       let ins' = if (List.length ins') < 1 then [] else [In ins'] in
-      let inouts' = if (Task.attributed t WaitForSome) && t.children <> [] then
+      let inouts' = if (Task.attributed t WaitForSome) && t.children <> [[]]
+                    then
                       Dep_set.filter (fun d ->
                           Dep_map.has_with_attribute d Condition t.ioattrs
                         ) t.inouts
