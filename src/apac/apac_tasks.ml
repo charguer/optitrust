@@ -238,6 +238,8 @@ module rec Task : sig
   
   (** [Task.merge t1 t2]: merges two tasks into a new single task. *)
   let merge (t1 : t) (t2 : t) : t =
+    (** [Task.merge.xor a b]: computes the exclusive OR of [a] and [b]. *)
+    let xor (a : bool) (b : bool) : bool = (a || b) && not (a && b) in
     (* For this, we concatenate the lists of associated AST terms, *)
     let current' = t1.current @ t2.current in
     (* compute the union of attributes, *)
@@ -253,6 +255,11 @@ module rec Task : sig
     let ioattrs' = Dep_map.union2 t1.ioattrs t2.ioattrs in
     (* concatenate the list of lists of nested graphs of [t1] and [t2]. *)
     let children' = t1.children @ t2.children in
+    (** If we are merging a suitable task candidate with an unsuitble task
+        candidate, the result is a suitable task candidate. *)
+    let attrs' =
+      if xor (attributed t1 WaitForSome) (attributed t2 WaitForSome) then
+        TaskAttr_set.remove WaitForSome attrs' else attrs' in
     {
       current = current';
       attrs = attrs';
