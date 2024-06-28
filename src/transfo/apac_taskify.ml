@@ -485,8 +485,8 @@ let trm_discover_dependencies (locals : symbols)
     | Trm_let (vk, (v, ty), init, _) ->
        let degree = typ_get_degree ty in
        let degree = if vk = Var_immutable then degree else degree - 1 in
-       let d = Dep.of_trm (trm_var ~kind:vk v) v degree in
-       Stack.push d inouts;
+       (* let d = Dep.of_trm (trm_var ~kind:vk v) v degree in *)
+       Stack.push (Dep_var v) inouts;
        Var_Hashtbl.add locals v degree;
        aux ins inouts attrs filter 0 false ArgIn init
     (** - multiple variable declarations or definitions ('int a = 1, b'). *)
@@ -496,8 +496,8 @@ let trm_discover_dependencies (locals : symbols)
        List.fold_left2 (fun (exists, isfun) (v, ty) init ->
            let degree = typ_get_degree ty in
            let degree = if vk = Var_immutable then degree else degree - 1 in
-           let d = Dep.of_trm (trm_var ~kind:vk v) v degree in
-           Stack.push d inouts;
+           (* let d = Dep.of_trm (trm_var ~kind:vk v) v degree in *)
+           Stack.push (Dep_var v) inouts;
            Var_Hashtbl.add locals v degree;
            let (exists', isfun') =
              aux ins inouts attrs filter 0 false ArgIn init in
