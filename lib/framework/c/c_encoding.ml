@@ -511,26 +511,26 @@ let trm_var_with_name (name: string) = Pattern.(trm_var (check (fun v -> var_has
 
 let rec ghost_args_elim (t: trm): trm =
   Pattern.pattern_match t [
-    Pattern.(trm_apps2 (trm_var_with_name "__call_with") (trm_apps !__ !__ nil) (trm_string !__)) (fun fn args ghost_args_str ->
+    Pattern.(trm_apps2 (trm_var_with_name "__call_with") (trm_apps !__ !__ nil) (trm_string !__)) (fun fn args ghost_args_str () ->
         let fn = ghost_args_elim fn in
         let args = List.map ghost_args_elim args in
         let ghost_args = parse_ghost_args ghost_args_str in
         trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t
       );
-    Pattern.(trm_apps2 (trm_var_with_name "__ghost") !__ (trm_string !__)) (fun ghost_fn ghost_args_str ->
+    Pattern.(trm_apps2 (trm_var_with_name "__ghost") !__ (trm_string !__)) (fun ghost_fn ghost_args_str () ->
         let ghost_fn = ghost_args_elim ghost_fn in
         let ghost_args = parse_ghost_args ghost_args_str in
         trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
       );
-    Pattern.(trm_apps2 (trm_var_with_name "__ghost_begin") !__ (trm_string !__)) (fun ghost_fn ghost_args_str ->
+    Pattern.(trm_apps2 (trm_var_with_name "__ghost_begin") !__ (trm_string !__)) (fun ghost_fn ghost_args_str () ->
         let ghost_fn = ghost_args_elim ghost_fn in
         let ghost_args = parse_ghost_args ghost_args_str in
         trm_apps (trm_var Resource_trm.var_ghost_begin) [
           trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
         ]
       );
-    Pattern.(trm_seq !__) (fun seq -> trm_alter ~desc:(Trm_seq (Mlist.of_list (ghost_args_elim_in_seq (Mlist.to_list seq)))) t);
-    Pattern.(!__) (fun t -> trm_map ghost_args_elim t)
+    Pattern.(trm_seq !__) (fun seq () -> trm_alter ~desc:(Trm_seq (Mlist.of_list (ghost_args_elim_in_seq (Mlist.to_list seq)))) t);
+    Pattern.__ (fun () -> trm_map ghost_args_elim t)
   ]
 
 and ghost_args_elim_in_seq (ts: trm list): trm list =
@@ -540,21 +540,21 @@ and ghost_args_elim_in_seq (ts: trm list): trm list =
     let grab_ghost_args ts =
       Pattern.pattern_match ts [
         Pattern.(trm_apps1 (trm_var_with_name "__with") (trm_string !__) ^:: !__)
-          (fun ghost_args_str ts -> (parse_ghost_args ghost_args_str, ts));
-        Pattern.__ ([], ts)
+          (fun ghost_args_str ts () -> (parse_ghost_args ghost_args_str, ts));
+        Pattern.__ (fun () -> ([], ts))
       ]
     in
 
     let t = ghost_args_elim t in
     let t, ts = Pattern.pattern_match t [
-      Pattern.(trm_apps !__ !__ nil) (fun f args ->
+      Pattern.(trm_apps !__ !__ nil) (fun f args () ->
         let ghost_args, ts = grab_ghost_args ts in
         (trm_alter ~desc:(Trm_apps (f, args, ghost_args)) t, ts)
       );
-      Pattern.(trm_let !__ !__ !(trm_apps !__ !__ nil)) (fun var typ body f args ->
+      Pattern.(trm_let !__ !__ !(trm_apps !__ !__ nil)) (fun var typ body f args () ->
         let ghost_args, ts = grab_ghost_args ts in
         (trm_alter ~desc:(Trm_let ((var, typ), trm_alter ~desc:(Trm_apps (f,args,ghost_args)) body)) t, ts));
-      Pattern.__ (t, ts)
+      Pattern.__ (fun () -> (t, ts))
     ]
     in
     t :: ghost_args_elim_in_seq ts
@@ -581,24 +581,24 @@ let ghost_args_intro (style: style) (t: trm) : trm =
       (* Inside sequence add __with *)
       Nobrace.enter ();
       let seq = Mlist.map (fun t -> Pattern.pattern_match t [
-        Pattern.(trm_apps !__ nil !__) (fun fn ghost_args ->
+        Pattern.(trm_apps !__ nil !__) (fun fn ghost_args () ->
           if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
           let fn = aux fn in
           trm_like ~old:t (trm_apps var__ghost [fn; ghost_args_to_trm_string ghost_args])
         );
-        Pattern.(trm_apps __ __ !(__ ^:: __)) (fun ghost_args ->
+        Pattern.(trm_apps __ __ !(__ ^:: __)) (fun ghost_args () ->
           let t = trm_map aux t in
           Nobrace.trm_seq_nomarks [t; trm_apps var__with [ghost_args_to_trm_string ghost_args]]
         );
-        Pattern.(trm_let !__ !__ !(trm_apps __ __ !(__ ^:: __))) (fun var typ call ghost_args ->
+        Pattern.(trm_let !__ !__ !(trm_apps __ __ !(__ ^:: __))) (fun var typ call ghost_args () ->
           let call = trm_map aux call in
           Nobrace.trm_seq_nomarks [trm_like ~old:t (trm_let (var, typ) call); trm_apps var__with [ghost_args_to_trm_string ghost_args]]
         );
-        Pattern.(trm_let !__ !__ (trm_apps1 (trm_var (var_eq Resource_trm.var_ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args ->
+        Pattern.(trm_let !__ !__ (trm_apps1 (trm_var (var_eq Resource_trm.var_ghost_begin)) !(trm_apps !__ nil !__))) (fun ghost_pair typ ghost_call ghost_fn ghost_args () ->
           let ghost_fn = aux ghost_fn in
           trm_like ~old:(trm_error_merge ~from:ghost_call t) (trm_let (ghost_pair, typ) (trm_apps (trm_var Resource_trm.var_ghost_begin) [ghost_fn; ghost_args_to_trm_string ghost_args]))
         );
-        Pattern.(!__) (fun t -> trm_map aux t)
+        Pattern.__ (fun () -> trm_map aux t)
       ]) seq in
       let nobrace_id = Nobrace.exit () in
       let seq = Nobrace.flatten_seq nobrace_id seq in
@@ -715,10 +715,10 @@ let extract_fun_contract (seq: trm mlist) : fun_contract option * trm mlist =
 
 let encoded_reverts_inv (t: trm): var option =
   Pattern.pattern_match t [
-    Pattern.(trm_apps1 (trm_var (check (fun v -> v.name = "__reverts"))) (trm_var !__)) (fun revert_fn ->
+    Pattern.(trm_apps1 (trm_var (check (fun v -> v.name = "__reverts"))) (trm_var !__)) (fun revert_fn () ->
       Some revert_fn
     );
-    Pattern.__ None
+    Pattern.__ (fun () -> None)
   ]
 
 let extract_fun_spec (seq: trm mlist) : fun_spec * trm mlist =

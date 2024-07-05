@@ -468,12 +468,12 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
     | Some { frac; formula } ->
       let rec extract_arbitrary_carved_fracs frac =
         Pattern.pattern_match frac [
-          Pattern.(trm_sub !__ (trm_var !__)) (fun base_frac removed_var ->
+          Pattern.(trm_sub !__ (trm_var !__)) (fun base_frac removed_var () ->
             Pattern.when_ (Var_map.find_opt removed_var usage = Some ArbitrarilyChosen);
             let base_frac, arbitrarily_carved_fracs = extract_arbitrary_carved_fracs base_frac in
             base_frac, removed_var :: arbitrarily_carved_fracs
           );
-          Pattern.(!__) (fun frac -> frac, [])
+          Pattern.__ (fun () -> frac, [])
         ]
       in
       let base_frac, carved_arbitrary = extract_arbitrary_carved_fracs frac in

@@ -226,10 +226,10 @@ let trm_for_c_inv_simple_init (init : trm) : (var * trm) option =
 let trm_for_c_inv_simple_stop (loop_index: var) (stop_expr : trm) : (loop_dir * trm) option =
   (* Using eq instead of the more efficient var_eq because var ids are not computed at this step *)
   Pattern.pattern_match_opt stop_expr [
-    Pattern.(trm_lt (trm_var (eq loop_index)) !__) (fun n -> (DirUp, n));
-    Pattern.(trm_le (trm_var (eq loop_index)) !__) (fun n -> (DirUpEq, n));
-    Pattern.(trm_gt (trm_var (eq loop_index)) !__) (fun n -> (DirDown, n));
-    Pattern.(trm_ge (trm_var (eq loop_index)) !__) (fun n -> (DirDownEq, n))
+    Pattern.(trm_lt (trm_var (eq loop_index)) !__) (fun n () -> (DirUp, n));
+    Pattern.(trm_le (trm_var (eq loop_index)) !__) (fun n () -> (DirUpEq, n));
+    Pattern.(trm_gt (trm_var (eq loop_index)) !__) (fun n () -> (DirDown, n));
+    Pattern.(trm_ge (trm_var (eq loop_index)) !__) (fun n () -> (DirDownEq, n))
   ]
 
 (** [trm_for_c_inv_simple_step step]: checks if the loop step is simple. If that's the case then return that step. *)
@@ -238,15 +238,15 @@ let trm_for_c_inv_simple_step (loop_index: var) (loop_dir: loop_dir) (step_expr 
   | DirUp | DirUpEq ->
     (* Using eq instead of the more efficient var_eq because var ids are not computed at this step *)
     Pattern.pattern_match_opt step_expr [
-      Pattern.(!(trm_unop (eq Unop_post_inc) (trm_var (eq loop_index)))) (fun _ -> trm_step_one_post ());
-      Pattern.(!(trm_unop (eq Unop_pre_inc) (trm_var (eq loop_index)))) (fun _ -> trm_step_one_pre ());
-      Pattern.(trm_prim_compound Binop_add (trm_var (eq loop_index)) !__) (fun x -> x);
+      Pattern.(trm_unop (eq Unop_post_inc) (trm_var (eq loop_index))) (fun () -> trm_step_one_post ());
+      Pattern.(trm_unop (eq Unop_pre_inc) (trm_var (eq loop_index))) (fun () -> trm_step_one_pre ());
+      Pattern.(trm_prim_compound Binop_add (trm_var (eq loop_index)) !__) (fun x () -> x);
     ]
   | DirDown | DirDownEq ->
     Pattern.pattern_match_opt step_expr [
-      Pattern.(!(trm_unop (eq Unop_post_dec) (trm_var (eq loop_index)))) (fun _ -> trm_step_one_post ());
-      Pattern.(!(trm_unop (eq Unop_pre_dec) (trm_var (eq loop_index)))) (fun _ -> trm_step_one_pre ());
-      Pattern.(trm_prim_compound Binop_sub (trm_var (eq loop_index)) !__) (fun x -> x);
+      Pattern.(trm_unop (eq Unop_post_dec) (trm_var (eq loop_index))) (fun () -> trm_step_one_post ());
+      Pattern.(trm_unop (eq Unop_pre_dec) (trm_var (eq loop_index))) (fun () -> trm_step_one_pre ());
+      Pattern.(trm_prim_compound Binop_sub (trm_var (eq loop_index)) !__) (fun x () -> x);
     ]
 
 (** [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)

@@ -831,14 +831,14 @@ let%transfo unroll_nest_of_1 ?(inner_braces : bool = false) ?(outer_seq_with_mar
       Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name];
     in
     Pattern.pattern_match range.stop [
-      Pattern.(trm_add __ (trm_var !__)) unfold_bound;
-      Pattern.(trm_var !__) (fun var_stop ->
+      Pattern.(trm_add __ (trm_var !__)) (fun x () -> unfold_bound x);
+      Pattern.(trm_var !__) (fun var_stop () ->
         Pattern.pattern_match range.start [
-          Pattern.(trm_var !__) unfold_bound;
-          Pattern.__ ()
+          Pattern.(trm_var !__) (fun x () -> unfold_bound x);
+          Pattern.__ (fun () -> ())
         ];
         unfold_bound var_stop);
-      Pattern.__ ()
+      Pattern.__ (fun () -> ())
     ];
     (* LATER: Replace this by a proper handling of loop ghosts in Loop_basic.unroll *)
     Resources.detach_loop_ro_focus (target_of_path p);

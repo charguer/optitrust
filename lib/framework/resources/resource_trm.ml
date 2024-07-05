@@ -13,11 +13,11 @@ let var_justif = toplevel_var "justif"
 
 let ghost_inv t =
   Pattern.pattern_match t [
-    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args ->
+    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args () ->
       if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
       Some { ghost_fn; ghost_args }
     );
-    Pattern.(__) None
+    Pattern.(__) (fun () -> None)
   ]
 
 let var_ghost_begin = toplevel_var "__ghost_begin"
@@ -67,16 +67,16 @@ let ghost_scope ?(pair_name: string option) (ghost_call: ghost_call) (t: trm): t
 
 let ghost_begin_inv (t: trm): (var * ghost_call) option =
   Pattern.pattern_match t [
-    Pattern.(trm_let !__ __ (trm_apps1 (trm_var (var_eq var_ghost_begin)) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args ->
+    Pattern.(trm_let !__ __ (trm_apps1 (trm_var (var_eq var_ghost_begin)) (trm_apps !__ nil !__))) (fun pair_var ghost_fn ghost_args () ->
       Some (pair_var, { ghost_fn; ghost_args })
     );
-    Pattern.__ None
+    Pattern.__ (fun () -> None)
   ]
 
 let ghost_end_inv (t: trm): var option =
   Pattern.pattern_match t [
-    Pattern.(trm_apps1 (trm_var (var_eq var_ghost_end)) (trm_var !__)) (fun pair_var -> Some pair_var);
-    Pattern.__ None
+    Pattern.(trm_apps1 (trm_var (var_eq var_ghost_end)) (trm_var !__)) (fun pair_var () -> Some pair_var);
+    Pattern.__ (fun () -> None)
   ]
 
 let admitted ?(justif: trm option) (): trm =

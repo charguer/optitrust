@@ -89,7 +89,7 @@ let swap_on (t: trm): trm =
     Pattern.(!(trm_for !__ (
       trm_seq (mlist (!(trm_for !__ !__ !strict_loop_contract) ^:: nil)))
       !strict_loop_contract))
-    (fun outer_loop outer_range inner_loop inner_range body inner_contract outer_contract ->
+    (fun outer_loop outer_range inner_loop inner_range body inner_contract outer_contract () ->
       let open Resource_contract in
       if outer_contract.invariant <> Resource_set.empty then
         if not !Flags.check_validity then raise Pattern.Next else
@@ -142,7 +142,7 @@ let swap_on (t: trm): trm =
           trm_copy (trm_for outer_range ~annot:outer_loop.annot ~contract:new_inner_contract body)])] @
         swaps_post)
     );
-    Pattern.(!__) (fun t ->
+    Pattern.__ (fun () ->
       assert (not !Flags.check_validity);
       swap_on_any_loop t)
   ]

@@ -99,11 +99,11 @@ let copy_inside_from_seq (index: int) (seq: trm): trm =
       None) (Mlist.to_list tl_before) in
 
   let new_t = Pattern.pattern_match t [
-    Pattern.(trm_for !__ (trm_seq !__) !__) (fun range body contract ->
+    Pattern.(trm_for !__ (trm_seq !__) !__) (fun range body contract () ->
       trm_like ~old:t (trm_for ~contract range (trm_seq_helper [TrmList pure_ghosts_before; TrmMlist body]))
     );
     (* LATER: Manage other kinds of terms with a notion of inside *)
-    Pattern.(!__) (fun _ -> failwith "Ghost_pair.copy_inside_from_seq: the targetted item is not handled")
+    Pattern.__ (fun () -> failwith "Ghost_pair.copy_inside_from_seq: the targetted item is not handled")
   ] in
 
   trm_like ~old:seq (trm_seq_helper [TrmMlist tl_before; Trm new_t; TrmMlist tl_after])

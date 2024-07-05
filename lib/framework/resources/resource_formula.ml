@@ -245,7 +245,7 @@ end
 type read_only_formula = { frac: formula; formula: formula }
 let formula_read_only_inv (formula : formula): read_only_formula option =
   Pattern.pattern_match_opt formula [
-    Pattern.(formula_read_only !__ !__) (fun frac formula -> { frac; formula })
+    Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula })
   ]
 
 (** Applies a function below a read only wrapper if there is one,
@@ -258,19 +258,19 @@ let formula_map_under_read_only (f_map: formula -> formula) (formula: formula) =
 
 let formula_read_only_inv_all (formula: formula): read_only_formula =
   Pattern.pattern_match formula [
-    Pattern.(formula_read_only !__ !__) (fun frac formula -> { frac; formula });
-    Pattern.(!__) (fun formula -> {frac = full_frac; formula})
+    Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula });
+    Pattern.(__) (fun () -> {frac = full_frac; formula})
   ]
 
 let formula_uninit_inv (formula: formula): formula option =
   Pattern.pattern_match_opt formula [
-    Pattern.(formula_uninit !__) (fun f -> f);
+    Pattern.(formula_uninit !__) (fun f () -> f);
   ]
 
 let formula_remove_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
-    Pattern.(formula_uninit !__) (fun f -> f);
-    Pattern.(!__) (fun f -> f);
+    Pattern.(formula_uninit !__) (fun f () -> f);
+    Pattern.(__) (fun () -> formula);
   ]
 
 (** Applies a function below an uninit wrapper if there is one,
@@ -315,11 +315,11 @@ let formula_matrix_inv (f: formula): (trm * trm list) option =
   let rec nested_group_inv (f: formula): (formula * var list * trm list) =
     Pattern.pattern_match f [
       Pattern.(formula_group (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) (trm_fun (pair !__ __ ^:: nil) !__))
-        (fun dim idx inner_formula ->
+        (fun dim idx inner_formula () ->
           let inner_formula, indices, dims = nested_group_inv inner_formula in
           (inner_formula, idx::indices, dim::dims)
         );
-      Pattern.__ (f, [], [])
+      Pattern.__ (fun () -> (f, [], []))
     ]
   in
   let inner_formula, indices, dims = nested_group_inv f in

@@ -8,16 +8,16 @@ exception Next
 (** Exception raised when none of the patterns are matched. *)
 exception Failed
 
-let rec pattern_match (v: 'a) (ks: ('a -> 'b) list): 'b =
+let rec pattern_match (v: 'a) (ks: ('a -> unit -> 'b) list): 'b =
   match ks with
   | k :: ks ->
     begin try
-      k v
+      k v ()
     with Next -> pattern_match v ks
     end
   | [] -> raise Failed
 
-let pattern_match_opt (v: 'a) (ks: ('a -> 'b) list): 'b option =
+let pattern_match_opt (v: 'a) (ks: ('a -> unit -> 'b) list): 'b option =
   try
     Some (pattern_match v ks)
   with Failed -> None

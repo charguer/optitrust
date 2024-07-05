@@ -288,15 +288,15 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
   let error = "Loop_core.unroll_on: either the loop start bound should be a integer literal or the loop end should be of the form 'start + k'" in
   let nb_iter =
     Pattern.pattern_match stop [
-      Pattern.(trm_add !__ (trm_int !__)) (fun start' max_incr ->
+      Pattern.(trm_add !__ (trm_int !__)) (fun start' max_incr () ->
         if are_same_trm start start' then (max_incr + step - 1) / step
         else trm_fail t error
       );
-      Pattern.(trm_int !__) (fun stop ->
+      Pattern.(trm_int !__) (fun stop () ->
         let start = trm_inv ~error trm_int_inv start in
         (stop - start + step - 1) / step
       );
-      Pattern.(!__) (fun _ -> trm_fail t error)
+      Pattern.__ (fun () -> trm_fail t error)
     ]
   in
   let new_indices = match trm_int_inv start with

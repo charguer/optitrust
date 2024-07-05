@@ -83,7 +83,7 @@ module Formula_inst = struct
 
   let inst_split_read_only_inv (f: t): (var * formula * var) option =
     Pattern.pattern_match_opt f [
-      Pattern.(trm_apps3 (trm_var (var_eq var_SplitRO)) (trm_var !__) !__ (trm_var !__)) (fun frac old_frac hyp -> (frac, old_frac, hyp))
+      Pattern.(trm_apps3 (trm_var (var_eq var_SplitRO)) (trm_var !__) !__ (trm_var !__)) (fun frac old_frac hyp () -> (frac, old_frac, hyp))
     ]
 
   let var_ForgetInit = toplevel_var "ForgetInit"
@@ -93,7 +93,7 @@ module Formula_inst = struct
 
   let inst_forget_init_inv (f: t): var option =
     Pattern.pattern_match_opt f [
-      Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h -> h)
+      Pattern.(trm_apps1 (trm_var (var_eq var_ForgetInit)) (trm_var !__)) (fun h () -> h)
     ]
 
   let origin_hyp (f: t): var =
@@ -138,19 +138,19 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
   in
   let formula = trm_subst subst_ctx formula in
   let arith_solved = Pattern.pattern_match formula [
-    Pattern.(trm_apps2 (trm_var (var_eq var_in_range)) !__ (formula_range !__ !__ !__)) (fun index start stop step ->
+    Pattern.(trm_apps2 (trm_var (var_eq var_in_range)) !__ (formula_range !__ !__ !__)) (fun index start stop step () ->
       Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_mod index step) (trm_int 0))
     );
-    Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step ->
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
       Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))
     );
-    Pattern.(trm_apps2 (trm_var (var_eq var_is_eq)) !__ !__) Arith_core.check_eq;
-    Pattern.(trm_apps2 (trm_var (var_eq var_is_neq)) !__ !__) Arith_core.check_neq;
-    Pattern.(trm_apps2 (trm_var (var_eq var_is_gt)) !__ !__) Arith_core.check_gt;
-    Pattern.(trm_apps2 (trm_var (var_eq var_is_geq)) !__ !__) Arith_core.check_geq;
-    Pattern.(trm_apps2 (trm_var (var_eq var_is_lt)) !__ !__) Arith_core.check_lt;
-    Pattern.(trm_apps2 (trm_var (var_eq var_is_leq)) !__ !__) Arith_core.check_leq;
-    Pattern.__ false
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_eq)) !__ !__) (fun t1 t2 () -> Arith_core.check_eq t1 t2);
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_neq)) !__ !__) (fun t1 t2 () -> Arith_core.check_neq t1 t2);
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_gt)) !__ !__) (fun t1 t2 () -> Arith_core.check_gt t1 t2);
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_geq)) !__ !__) (fun t1 t2 () -> Arith_core.check_geq t1 t2);
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_lt)) !__ !__) (fun t1 t2 () -> Arith_core.check_lt t1 t2);
+    Pattern.(trm_apps2 (trm_var (var_eq var_is_leq)) !__ !__) (fun t1 t2 () -> Arith_core.check_leq t1 t2);
+    Pattern.__ (fun () -> false)
   ] in
   if arith_solved then
     let evar_ctx = Var_map.add x (Some formula_arith_checked) evar_ctx in
@@ -261,11 +261,11 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   let formula, evar_ctx = unfold_if_resolved_evar formula evar_ctx in
   Pattern.pattern_match formula [
     (* special case where _Full disables split_frac. *)
-    Pattern.(formula_read_only (trm_apps1 (trm_var (var_eq _Full)) !__) !__) (fun frac ro_formula ->
+    Pattern.(formula_read_only (trm_apps1 (trm_var (var_eq _Full)) !__) !__) (fun frac ro_formula () ->
       unify_and_remove_linear (x, formula_read_only ~frac ro_formula) ~uninit:false res evar_ctx
     );
     (* we split a fraction from an RO if we don't care about the fraction we get (evar). *)
-    Pattern.(formula_read_only (trm_var !__) !__) (fun frac_var ro_formula ->
+    Pattern.(formula_read_only (trm_var !__) !__) (fun frac_var ro_formula () ->
       match Var_map.find_opt frac_var evar_ctx with
       (* TODO: ADT == Some NotKnown *)
       | Some None when split_frac ->
@@ -280,9 +280,9 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
         (* Other cases: match the exact fraction *)
         unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx
     );
-    Pattern.(formula_uninit !__) (fun formula ->
+    Pattern.(formula_uninit !__) (fun formula () ->
       unify_and_remove_linear (x, formula) ~uninit:true res evar_ctx);
-    Pattern.(!__) (fun _ ->
+    Pattern.__ (fun () ->
       unify_and_remove_linear (x, formula) ~uninit:false res evar_ctx)
   ]
 
@@ -416,7 +416,7 @@ type frac_quotient = { base: formula; num: int; den: int }
 
 let rec frac_to_quotient (frac: formula) =
   Pattern.pattern_match frac [
-    Pattern.(trm_sub !__ !__) (fun base_frac removed_frac ->
+    Pattern.(trm_sub !__ !__) (fun base_frac removed_frac () ->
       let base_quot = frac_to_quotient base_frac in
       let removed_quot = frac_to_quotient removed_frac in
       if not (are_same_trm base_quot.base removed_quot.base) then raise Pattern.Next;
@@ -429,10 +429,10 @@ let rec frac_to_quotient (frac: formula) =
       in
       { removed_quot with num }
     );
-    Pattern.(trm_div !__ (trm_int !__)) (fun base_frac den ->
+    Pattern.(trm_div !__ (trm_int !__)) (fun base_frac den () ->
       { base = base_frac; num = 1; den = den }
     );
-    Pattern.(!__) (fun _ ->
+    Pattern.__ (fun () ->
       { base = frac; num = 1; den = 1 }
     )
   ]
@@ -1173,7 +1173,7 @@ let rec compute_resources
            Store the reverse of the instantiated contract as the contract for _Res.
         *)
         let usage_map, res, contract_invoc = Pattern.pattern_match effective_args [
-          Pattern.(trm_apps !(trm_apps2 (trm_var (var_eq Resource_trm.var_with_reverse)) !__ !__) nil !__ ^:: nil) (fun with_rev_app ghost_fn ghost_fn_rev ghost_args ->
+          Pattern.(trm_apps !(trm_apps2 (trm_var (var_eq Resource_trm.var_with_reverse)) !__ !__) nil !__ ^:: nil) (fun with_rev_app ghost_fn ghost_fn_rev ghost_args () ->
             let spec = find_fun_spec ghost_fn res.fun_specs in
             let reverse_contract = revert_fun_contract spec.contract in
             begin match trm_fun_inv ghost_fn_rev with
@@ -1188,7 +1188,7 @@ let rec compute_resources
             with_rev_app.ctx <- ghost_call.ctx; (* Recover context information because it can be useful *)
             usage_map, res, ghost_call.ctx.ctx_resources_contract_invoc
           );
-          Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn ->
+          Pattern.(!(trm_apps !__ nil __) ^:: nil) (fun ghost_call ghost_fn () ->
             let spec = find_fun_spec ghost_fn res.fun_specs in
             begin match spec.inverse with
             | Some _ -> ()
@@ -1216,7 +1216,7 @@ let rec compute_resources
       | exception Spec_not_found fn when var_eq fn Resource_trm.var_ghost_end ->
         (* Calls the closure made by GHOST_BEGIN and removes it from the pure context to ensure good scoping. *)
         Pattern.pattern_match effective_args [
-          Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var ->
+          Pattern.(!(trm_var !__) ^:: nil) (fun fn fn_var () ->
             (* LATER: Maybe check that the variable is indeed introduced by __ghost_begin *)
             let usage_map, res = compute_resources (Some res) (trm_apps ~annot:referent fn []) in
             usage_map, Option.map (fun res -> { res with fun_specs = Var_map.remove fn_var res.fun_specs }) res

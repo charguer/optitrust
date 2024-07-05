@@ -78,11 +78,11 @@ let rec desugar_formula (formula: formula): formula =
   (* Warning: this function can be called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
   (* With incremental var-id resolution we could heavily simplify this *)
   Pattern.pattern_match formula [
-    Pattern.(trm_apps2 (trm_var (check (fun v -> v.name = "_HasModel"))) !__ (trm_apps (trm_var !__) !__ __)) (fun var f args ->
+    Pattern.(trm_apps2 (trm_var (check (fun v -> v.name = "_HasModel"))) !__ (trm_apps (trm_var !__) !__ __)) (fun var f args () ->
         if f.name <> sprintf "Matrix%d" (List.length args) then raise Pattern.Next;
         formula_matrix var args
       );
-    Pattern.(!__) (fun formula -> trm_map desugar_formula formula)
+    Pattern.__ (fun () -> trm_map desugar_formula formula)
   ]
 
 let rec encode_formula (formula: formula): formula =
@@ -218,18 +218,18 @@ let specialize_contract contract args =
 (* TODO: rename and move elsewhere. *)
 let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =
   Pattern.pattern_match ghost_call [
-    Pattern.(trm_apps (trm_fun_with_contract nil !__ !__) nil !__) (fun ghost_body contract ghost_args ->
+    Pattern.(trm_apps (trm_fun_with_contract nil !__ !__) nil !__) (fun ghost_body contract ghost_args () ->
       let subst = List.fold_left (fun subst (g, t) -> Var_map.add g t subst) Var_map.empty ghost_args in
       let body = trm_subst subst ghost_body in
       let contract = if remove_contract then FunSpecUnknown else FunSpecContract (specialize_contract contract subst) in
       trm_fun [] None body ~contract
     );
-    Pattern.(trm_apps !__ nil nil) (fun ghost_fn -> ghost_fn);
-    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args ->
+    Pattern.(trm_apps !__ nil nil) (fun ghost_fn () -> ghost_fn);
+    Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args () ->
       (* TODO: Handle this case by recovering the contract of the called function *)
       failwith "trm_specialized_ghost_closure: Unhandled complex ghost call that is not a closure"
     );
-    Pattern.(!__) (fun _ -> failwith "trm_specialized_ghost_closure must be called with a ghost call as argument")
+    Pattern.__ (fun () -> failwith "trm_specialized_ghost_closure must be called with a ghost call as argument")
   ]
 
 let fun_contract_free_vars (contract: fun_contract): Var_set.t =
