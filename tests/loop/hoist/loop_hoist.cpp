@@ -40,7 +40,7 @@ int main() {
   }
 
   for (int mi = 0; mi < 8; mi++) {
-    float* const m = (float* const) MALLOC1(2, sizeof(float));
+    float* const m = (float*) MALLOC1(2, sizeof(float));
     MFREE1(2, m);
   }
 }

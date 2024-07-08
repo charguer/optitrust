@@ -2,6 +2,7 @@ include Dir (* FIXME: avoid this? *)
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 open Mark
 open Tools
 
@@ -167,8 +168,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                cases
             ) in trm_replace (Trm_switch (cond, updated_cases)) t
         | Dir_record_field n, Trm_typedef td ->
-          begin match td.typdef_body with
-          | Typdef_record rfl ->
+          begin match td.typedef_body with
+          | Typedef_record rfl ->
             let updated_rfl =
               (List.update_nth n (fun (rf, rf_ann) ->
                 match rf with
@@ -176,7 +177,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                 | _ -> path_fail dl "Path.apply_on_path: expected a method."
               ) rfl )
               in
-            trm_replace (Trm_typedef {td with typdef_body = Typdef_record updated_rfl}) t
+            trm_replace (Trm_typedef {td with typedef_body = Typedef_record updated_rfl}) t
           | _ -> path_fail dl "Path.apply_on_path: transformation applied on the wrong typedef."
           end
         | Dir_namespace, Trm_namespace (name, body, inline) ->
@@ -349,9 +350,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         (* CHECK: #var-id-dir-name , is this correct? *)
         aux (trm_var ?loc (name_to_var x)) ctx
       | Dir_name, Trm_typedef td ->
-      (* CHECK: #var-id-dir-name , is this correct? *)
-      let var = name_to_var td.typdef_tconstr in
-      aux (trm_var ?loc var) ctx
+        aux (trm_var ?loc td.typedef_name) ctx
       | Dir_case (n, cd), Trm_switch (_, cases) ->
         app_to_nth dl cases n
           (fun (tl, body) ->
@@ -361,8 +360,8 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
                 app_to_nth dl tl i (fun ith_t -> aux ith_t ctx)
           )
       | Dir_enum_const (n, ecd), Trm_typedef td ->
-        begin match td.typdef_body with
-        | Typdef_enum xto_l ->
+        begin match td.typedef_body with
+        | Typedef_enum xto_l ->
           app_to_nth dl xto_l n
             (fun (x, t_o) ->
               match ecd with
@@ -379,8 +378,8 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         | _ -> loc_fail loc "Path.resolving_path: direction"
         end
       | Dir_record_field n, Trm_typedef td ->
-        begin match td.typdef_body with
-        | Typdef_record rfl ->
+        begin match td.typedef_body with
+        | Typedef_record rfl ->
           app_to_nth dl rfl n
             (fun (rf, rf_annt) -> match rf with
               | Record_field_method t1 -> aux t1 ctx

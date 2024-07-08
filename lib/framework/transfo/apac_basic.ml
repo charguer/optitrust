@@ -128,7 +128,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
   (* If the function's return type is not 'void', we need to declare the return
      variable '__res' at the beginning of the sequence and return its value at
      the end of the sequence. *)
-  let body' = if is_type_unit ret_ty then trm_seq_nomarks [
+  let body' = if is_typ_unit ret_ty then trm_seq_nomarks [
     body'
   ] else trm_seq_nomarks [
     (trm_let_mut (res_var, ret_ty) (trm_uninitialized ()));
@@ -487,7 +487,7 @@ let heapify_on (t : trm) : trm =
               (* In the case of a multiple variable declaration, [ty] is not a
                  reference yet. We have to both constify it and assign it the
                  reference type. *)
-              ((v, typ_ptr Ptr_kind_ref (typ_const ty)), trm_ref tyi init)
+              ((v, typ_ptr (typ_const ty)), trm_ref tyi init)
             (* Otherwise, we return the declarations elements as they are. *)
             else
               ((v, ty), init)
@@ -504,7 +504,7 @@ let heapify_on (t : trm) : trm =
                 let ty2 =
                   if is_typ_ptr (get_inner_const_type tyi) then
                     ty
-                  else typ_ptr Ptr_kind_mut ty
+                  else typ_ptr ty
                 in
                 (* If the variable is a pointer, we consider that it already
                    points to some data in the heap. If it is not the case, e.g.
@@ -532,7 +532,7 @@ let heapify_on (t : trm) : trm =
                 let tya = get_inner_array_type tyi in
                 (* We then transform the lvalue type to a pointer, e.g. [int
                    tab[2]] becomes [int * tab]. *)
-                let ty2 = typ_ptr Ptr_kind_mut tya in
+                let ty2 = typ_ptr tya in
                 (* If it is an array of constants, we also need to add [const]
                    to [const int * tab] so as it becomes [const int * const
                    tab]. *)
@@ -550,7 +550,7 @@ let heapify_on (t : trm) : trm =
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
-                  if not (is_typ_ptr ty) then typ_ptr Ptr_kind_mut ty else ty in
+                  if not (is_typ_ptr ty) then typ_ptr ty else ty in
                 (* If the variable is a pointer, we consider that it already
                    points to some data in the heap. If it is not the case, e.g.
                    in [int i = 1; int * a = &i], it is not of the responsibility
@@ -594,7 +594,7 @@ let heapify_on (t : trm) : trm =
                  references. For mutable references, we have to restore the
                  reference type of [tyi]. Otherwise, a [int &e = i] results in
                  [int * e = i] even if the heapification is not performed. *)
-              ((v, typ_ptr Ptr_kind_ref tyi), init2)
+              ((v, typ_ref tyi), init2)
           end
         (* Otherwise, we distinguish three different cases: *)
         else
@@ -610,7 +610,7 @@ let heapify_on (t : trm) : trm =
                 (* If the variable is already a pointer, we do not need to
                    transform it to a pointer type. *)
                 let ty2 =
-                  if is_typ_ptr tyc then tyc else typ_ptr Ptr_kind_mut tyc in
+                  if is_typ_ptr tyc then tyc else typ_ptr tyc in
                 (* Then, we have to restore the const status of the variable. *)
                 let ty2 = typ_const ty2 in
                 (* If the variable is a pointer, we consider that it already
@@ -639,7 +639,7 @@ let heapify_on (t : trm) : trm =
                 let tya = get_inner_array_type tyi in
                 (* We then transform the lvalue type to a pointer, e.g. [int
                    tab[2]] becomes [int * tab]. *)
-                let ty2 = typ_ptr Ptr_kind_mut tya in
+                let ty2 = typ_ptr tya in
                 (* If it is an array of constants, we also need to add [const]
                    to [const int * tab] so as it becomes [const int * const
                    tab]. *)
@@ -660,7 +660,7 @@ let heapify_on (t : trm) : trm =
             else
               (* We then transform the lvalue type to a pointer, e.g. [int a]
                  becomes [int * a]. *)
-              let ty2 = typ_ptr Ptr_kind_mut tyi in
+              let ty2 = typ_ptr tyi in
               (* Then, we have to restore the const status of the variable if it
                  was present in the original inner type [tyi]. *)
               let ty2 = if is_typ_const tyi then typ_const ty2 else ty2 in

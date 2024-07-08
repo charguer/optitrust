@@ -5,7 +5,7 @@ open Resources
 
 let rec contains_only_ghost_code (t: trm): bool =
   match t.desc with
-  | Trm_apps _ when trm_has_cstyle GhostCall t -> true
+  | Trm_apps _ when trm_has_attribute GhostCall t -> true
   | Trm_seq seq -> List.for_all contains_only_ghost_code (Mlist.to_list seq)
   | Trm_for (_, body, _) -> contains_only_ghost_code body
   | _ -> false

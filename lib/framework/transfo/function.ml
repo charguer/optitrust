@@ -250,10 +250,10 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
             Variable_basic.init_attach [new_target]
           ) with
           | Success () -> true
-          | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences))
-          | Failure (Contextualized_error (_, Variable_core.Init_attach_occurrence_below_control)) ->
+          | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences), _)
+          | Failure (Contextualized_error (_, Variable_core.Init_attach_occurrence_below_control), _) ->
               false
-          | Failure e -> raise e
+          | Failure (e, bt) -> Printexc.raise_with_backtrace e bt
           in
           if success_attach then begin
             Variable.inline ~simpl [new_target];

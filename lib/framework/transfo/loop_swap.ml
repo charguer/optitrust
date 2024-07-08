@@ -37,7 +37,7 @@ let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
   let outer_var = new_var outer_range.index.name in
   let inner_var = new_var inner_range.index.name in
   let formula = trm_subst (Var_map.add outer_range.index (trm_var outer_var) (Var_map.singleton inner_range.index (trm_var inner_var))) formula in
-  let items = formula_fun [outer_var, typ_int (); inner_var, typ_int ()] None formula in
+  let items = formula_fun [outer_var, typ_int; inner_var, typ_int] None formula in
   Resource_trm.ghost (ghost_call ghost_var ["outer_range", formula_loop_range outer_range; "inner_range", formula_loop_range inner_range; "items", items])
 
 
@@ -92,7 +92,7 @@ let swap_on (t: trm): trm =
     (fun outer_loop outer_range inner_loop inner_range body inner_contract outer_contract () ->
       let open Resource_contract in
       if outer_contract.invariant <> Resource_set.empty then
-        if not !Flags.check_validity then raise Pattern.Next else
+        if not !Flags.check_validity then raise_notrace Pattern.Next else
         failwith "Loop.swap: the outer loop has sequential invariants";
 
       Trace.justif "outer loop was parallelizable (swapping loops can only remove possible interleavings)";

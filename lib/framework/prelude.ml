@@ -3,6 +3,7 @@ include Optitrust_ast
 include Ast
 include Trm
 include Typ
+include Contextualized_error
 include Mark
 include Target
 
@@ -77,7 +78,7 @@ module AstParser = struct
 
   let lit l = code (Lit l)
 
-  let ty ty = typ_str (Atyp ty)
+  let ty ty = typ_arbitrary ty
 
   let subst_dollar_number (inst : var list) (s : string) : string =
     failwith "#var-id"

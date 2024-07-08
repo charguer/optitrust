@@ -4,7 +4,7 @@
   (preprocess (pps ppx_transfo ppx_deriving.show ppx_deriving.ord))
   (libraries optitrust.ast optitrust.utils pprint)
   (modes byte native)
-  (flags ((:standard \ -short-paths) -warn-error -69 -w -9-27-32-33 -open Optitrust_utils -open Optitrust_ast))
+  (flags ((:standard \ -short-paths) -g -warn-error -69 -w -9-27-32-33 -open Optitrust_utils -open Optitrust_ast))
   ;could have faster compilation with -opaque?
   (ocamlopt_flags (-opaque)))
 

@@ -442,7 +442,7 @@ let detach_loop_ro_focus_on (t: trm): trm =
   let new_body = List.fold_right (fun (_, formula) ->
     let { formula } = Option.get (formula_read_only_inv formula) in
     let i = new_var range.index.name in
-    let items = formula_fun [i, typ_int ()] None (trm_subst_var range.index (trm_var i) formula) in
+    let items = formula_fun [i, typ_int] None (trm_subst_var range.index (trm_var i) formula) in
     Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
   in
   let new_body = trm_like ~old:body new_body in

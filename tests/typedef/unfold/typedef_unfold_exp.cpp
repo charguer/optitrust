@@ -9,18 +9,18 @@ typedef struct {
 
 typedef vect myvect;
 
-typedef int **mat2d;
+typedef int** mat2d;
 
-typedef int ***mat3d;
+typedef int*** mat3d;
 
-const double f(uint n, myvect v, int ***m) { return 2.; }
+const double f(unsigned int n, myvect v, int*** m) { return 2.; }
 
 int main() {
-  uint x;
-  uint t[3];
+  unsigned int x;
+  unsigned int t[3];
   cdouble y1 = 1.;
   myvect v;
-  int **m;
-  int ***M;
-  int ****T;
+  int** m;
+  int*** M;
+  int**** T;
 }

@@ -118,7 +118,7 @@ let local_name_tile_on (mark_dims : mark)
   (local_var : string) (dims : trms) (elem_ty : typ) (_size : trm)
   (indices : string list) (uninit_pre : bool) (uninit_post : bool)
   (t : trm) : trm =
-  let local_var = Trm.new_var local_var in
+  let local_var = new_var local_var in
   let indices_list = begin match indices with
   | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims
   | _ -> List.map new_var indices end
@@ -301,7 +301,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         if not acc_provided then trm_fail t "Matrix_core.delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
                           let acc_var = new_var acc in
                           (trm_seq_nomarks [
-                            trm_let_mut (acc_var, typ_double ()) init_val;
+                            trm_let_mut (acc_var, typ_f64) init_val;
                             trm_for { index; start = trm_int 0; direction = DirUp; stop = dim; step = trm_step_one () } (trm_seq_nomarks [
                                 op_fun (trm_var acc_var) (trm_get new_access)]);
                             trm_set (get_operation_arg old_var_access) (trm_var_get acc_var)]) in
@@ -613,7 +613,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   (* let array_typ = List.fold_left (fun acc i -> typ_array acc (Trm i)) typ new_dims in *)
   trm_seq_nobrace_nomarks [
     (* TODO: define Matrix_core.stack_alloc, FIXME: new with dims has to be uninit? use different prim? *)
-    trm_let (stack_var, typ_const_ptr typ) (trm_ref typ ~dims:new_dims (trm_uninitialized ()));
+    trm_let (stack_var, typ_ptr typ) (trm_ref typ ~dims:new_dims (trm_uninitialized ()));
     Matrix_core.memcpy_with_ty
       (trm_var stack_var) [] new_dims
       (trm_var var) common_indices dims
@@ -716,7 +716,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
       begin match Matrix_core.let_alloc_inv_with_ty t with
       | Some (v, dims, etyp, size) when v = var ->
         let new_dims = List.update_nth dim (fun _ -> n) dims in
-        trm_let ~annot:t.annot (v, typ_const_ptr etyp) (Matrix_core.alloc_with_ty new_dims etyp)
+        trm_let ~annot:t.annot (v, typ_ptr etyp) (Matrix_core.alloc_with_ty new_dims etyp)
       | _ ->
         begin match trm_var_inv t with
         | Some n when n = var ->

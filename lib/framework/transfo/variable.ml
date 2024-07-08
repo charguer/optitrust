@@ -74,7 +74,7 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
 let%transfo local_name ~(var : string) ~(local_var : string) (tg : target) : unit =
   let var = find_var_in_current_ast ~target:tg var in
   (* FIXME: find type in context. *)
-  Variable_basic.local_name ~var (typ_auto ()) ~local_var tg
+  Variable_basic.local_name ~var typ_auto ~local_var tg
 
 (** [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]:
     expects the target [tg] to point at a for loop. Then it will surround this loop with a @nobrace
@@ -189,7 +189,7 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
     let new_t = trm_subst new_inst pattern_instr in
     Target.apply_at_path (fun _ -> new_t) p
   ) tg;
-  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array ~const (x, typ_double ()) ~size:(trm_int nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
+  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array ~const (x, typ_f64) ~size:(trm_int nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
   Nobrace_transfo.remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_nobrace_nomarks instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
@@ -442,7 +442,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
 (** [insert ~constr name typ value tg]: expects the target [tg] to point at a location in a sequence then it wil insert a
     new variable declaration with name: [name] and type:[typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument. *)
-let%transfo insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ?(value : trm = trm_uninitialized()) (tg : target) : unit =
+let%transfo insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto) ~name:(name : string) ?(value : trm = trm_uninitialized()) (tg : target) : unit =
  Variable_basic.insert ~const ~reparse ~name ~typ ~value tg
 
 (** [insert_list ~const names typ values tg]: expects the target [tg] to be poiting to a location in a sequence

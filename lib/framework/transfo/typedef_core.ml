@@ -15,9 +15,9 @@ let fold_at (fold_at : target) (index : int) (t : trm) : trm=
     let dx, ty_x =
     begin match d.desc with
     | Trm_typedef td ->
-      begin match td.typdef_body with
-      | Typdef_alias dx ->
-         dx, typ_constr ([], td.typdef_tconstr)
+      begin match td.typedef_body with
+      | Typedef_alias dx ->
+         dx, typ_var td.typedef_name
       | _ -> trm_fail d "Typedef_core.fold_at: expected a type definition"
       end
     | _ -> trm_fail d "Typedef_core.fold_at: expected a typedef"
@@ -41,9 +41,9 @@ let unfold_at (delete : bool) (unfold_at : target) (index : int) (t : trm) : trm
     let dx, ty_x =
     begin match d.desc with
     | Trm_typedef td ->
-      begin match td.typdef_body with
-      | Typdef_alias dx ->
-        let ty_x = typ_constr ([], td.typdef_tconstr) ~tid:td.typdef_typid in
+      begin match td.typedef_body with
+      | Typedef_alias dx ->
+        let ty_x = typ_var td.typedef_name in
         dx, ty_x
       | _ -> trm_fail d "Typedef_core.unfold_at: expected a typedef alias"
       end
@@ -58,17 +58,16 @@ let unfold_at (delete : bool) (unfold_at : target) (index : int) (t : trm) : trm
 let insert_copy_of (name : string) (t : trm) : trm =
   let error = "Typedef_core.insert_copy_of: expected a typedef declaration." in
   let td = trm_inv ~error trm_typedef_inv t in
-  let td_copy = trm_typedef {td with typdef_tconstr = name} in
+  let td_copy = trm_typedef {td with typedef_name = name_to_typvar name} in
   trm_seq_nobrace_nomarks [t; td_copy]
 
 (** [insert_at name td_body index]: inserts a new type definition,
       [name] - new type name,
       [td_body] - body of the new type definition,
       [index] - location where the typedef should be inserted inside a sequence. *)
-let insert_at (name : string) (td_body : typdef_body) (index : int) (t : trm) : trm =
+let insert_at (name : string) (td_body : typedef_body) (index : int) (t : trm) : trm =
   let error = "Typedef_core.insert_at: expected the surrounding sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
-  let tid = next_typconstrid () in
-  let trm_to_insert = trm_typedef {typdef_typid = tid; typdef_tconstr = name; typdef_body = td_body;typdef_vars = [];typdef_loc = None} in
+  let trm_to_insert = trm_typedef {typedef_name = name_to_typvar name; typedef_body = td_body } in
   let new_tl = Mlist.insert_at index trm_to_insert tl in
   trm_seq ~annot:t.annot new_tl

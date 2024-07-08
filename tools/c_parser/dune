@@ -3,8 +3,5 @@
  (public_name optitrust_c_parser)
  (libraries clangml optitrust.utils optitrust.ast)
  (modes byte native)
+ (flags ((:standard \ -short-paths) -warn-error -69 -w -9-27-32-33))
 )
-
-(env
-  (dev
-    (flags (:standard -warn-error -69 -w -9-27-32-33))))

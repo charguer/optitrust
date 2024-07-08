@@ -83,12 +83,12 @@ let clean_all_seq (id : int) (t : trm) : trm =
     | Trm_seq tl ->
       let tl = Mlist.map aux tl in
       let tl = flatten_seq id tl in
-      Trm.trm_replace (Trm_seq tl) t
+      trm_replace (Trm_seq tl) t
     | _ -> Trm.trm_map aux t
   in aux t
 
 (** [remove_after_trm_op f t]: computes [f t] and removes in the result the nobrace-sequences that were inserted during that computation. *)
-let remove_after_trm_op (f : trm -> trm)(t : trm) : trm =
+let remove_after_trm_op (f : trm -> trm) (t : trm) : trm =
   enter ();
   let t2 = f t in
   let id = exit () in

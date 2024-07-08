@@ -16,7 +16,7 @@ let%transfo to_variables (new_vars : string list) (tg : target) : unit =
    targeted array are handled as well.
    [block_type] - denotes the name of the array which is going to represent a tile.
    [block_size] - size of the block of tiles. *)
-let%transfo tile ?(block_type : typvar = "") (block_size : var) (tg : target) : unit =
+let%transfo tile ?(block_type : string = "") (block_size : var) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     apply_at_target_paths_in_seq (Arrays_core.tile_at block_type block_size) tg
   )
@@ -90,7 +90,7 @@ let%transfo inline_constant ?(mark_accesses : mark = no_mark) ~(decl : target) (
   let decl_t = Path.resolve_path decl_p (Trace.ast ()) in
   let error = "Arrays_basic.inline_constant: expected constant array literal declaration" in
   let (var, typ, init) = trm_inv ~error trm_let_inv decl_t in
-  let (_elem_ty, _size) = typ_inv ~error decl_t typ_const_array_inv typ in
+  let (_elem_ty, _size) = typ_inv ~error decl_t typ_array_inv typ in
   let array_mlist = trm_inv ~error array_inv init in
   Target.apply_at_target_paths (inline_constant_on var (Mlist.to_list array_mlist) mark_accesses) tg
 
@@ -99,7 +99,7 @@ let elim_on (decl_index : int) (t : trm) : trm =
     let error = "Arrays.elim_constant_on: expected constant array literal declaration" in
     let (name, typ, init) = trm_inv ~error trm_let_inv t in
     (* Tools.debug "QSJIDO:\n%s" (Ast_to_text.ast_to_string t); *)
-    let (_elem_ty, _size) = typ_inv ~error t typ_const_array_inv typ in
+    let (_elem_ty, _size) = typ_inv ~error t typ_array_inv typ in
     let _array_mlist = trm_inv ~error array_inv init in
     trm_seq_nobrace_nomarks []
   in

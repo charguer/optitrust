@@ -2,6 +2,7 @@ open PPrint
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 open Mark
 open Precedence
 open Tools
@@ -132,60 +133,66 @@ let print_stringreprs (m : stringreprs) : unit =
 
 **************************************************************************************************************)
 
-(** [typ_desc_to_doc t]: converts ast type descriptions to pprint documents. *)
-(* TODO: for types of the form   int[x]  the x is printed
-        using the default style *)
-let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document =
-  match t with
-  | Typ_const t when is_typ_ptr t -> typ_to_doc t ^^ string " const"
-  | Typ_const t -> string " const "  ^^ typ_to_doc t
-  | Typ_constr (tc, tid, args) ->
-
-    let d_args = if args = [] || is_injected
-      then empty
-      else begin match args with
-      | [{typ_desc = Typ_unit; _}] ->
-        langle ^^ rangle
-      | _ -> langle ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle
-      end in
-
-    typconstr_to_doc tc ^^ d_args
-  | Typ_auto  -> string "auto"
-  | Typ_unit -> string "void"
-  | Typ_int -> string "int"
-  | Typ_float -> string "float"
-  | Typ_double -> string "double"
-  | Typ_bool -> string "bool"
-  | Typ_char -> string "char"
-  | Typ_string -> string "string"
-  | Typ_ptr { ptr_kind = pk; inner_typ = t} ->
-    begin match pk with
-    | Ptr_kind_mut -> typ_to_doc t ^^ star
-    | Ptr_kind_ref -> typ_to_doc t ^^ ampersand
-    end
-  | Typ_array (t, s) ->
-     let d = typ_to_doc t in
-     begin match s with
-     | None -> d ^^ brackets empty
-     | Some t' -> d ^^ brackets (decorate_trm (default_style()) t')
-     end
-  | Typ_fun _ ->
-     Flags.verbose_warn None "Ast_to_c.typ_desc_to_doc: typ_fun not implemented\n";
-     at
-  | Typ_var (name, _) -> string name
-  | Typ_record (rt, n) ->
-    let d = typ_to_doc n in
-    let drt = record_type_to_doc rt in
-    drt ^^ blank 1 ^^ d
-  | Typ_template_param n ->
-    string n
-  | Typ_arbitrary a_kind ->
-        begin match a_kind with
-        | Atyp ty -> string ty
-        | _ -> failwith "Ast_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Atyp"
+(** [typ_desc_to_doc style t]: converts ast type descriptions to pprint documents. *)
+let rec typ_desc_to_doc style (t : typ) : document =
+  Pattern.pattern_match t [
+    Pattern.typ_auto (fun () -> string "auto");
+    Pattern.typ_unit (fun () -> string "void");
+    Pattern.typ_int (fun () -> string "int");
+    Pattern.typ_uint (fun () -> string "unsigned int");
+    Pattern.typ_f32 (fun () -> string "float");
+    Pattern.typ_f64 (fun () -> string "double");
+    Pattern.typ_bool (fun () -> string "bool");
+    Pattern.typ_char (fun () -> string "char");
+    Pattern.typ_u8 (fun () -> string "uint8_t");
+    Pattern.typ_i8 (fun () -> string "int8_t");
+    Pattern.typ_u16 (fun () -> string "uint16_t");
+    Pattern.typ_i16 (fun () -> string "int16_t");
+    Pattern.typ_u32 (fun () -> string "uint32_t");
+    Pattern.typ_i32 (fun () -> string "int32_t");
+    Pattern.typ_u64 (fun () -> string "uint64_t");
+    Pattern.typ_i64 (fun () -> string "int64_t");
+    Pattern.typ_usize (fun () -> string "size_t");
+    Pattern.typ_isize (fun () -> string "ptrdiff_t");
+    Pattern.(typ_const !(typ_var __)) (fun t () -> string "const " ^^ typ_to_doc style t);
+    Pattern.(typ_const !__) (fun t () -> typ_to_doc style t ^^ string " const");
+    Pattern.(typ_ptr !__) (fun t () -> typ_to_doc style t ^^ star);
+    Pattern.(typ_ref !__) (fun t () -> typ_to_doc style t ^^ ampersand);
+    Pattern.(typ_array __ __) (fun () ->
+      let t, szs = typ_nested_array_inv t in
+      let d = typ_to_doc style t in
+      let dszs = List.map (fun s -> match s with
+        | None -> brackets empty
+        | Some t' -> brackets (decorate_trm style t')
+      ) szs in
+      d ^^ concat dszs
+    );
+    Pattern.(typ_fun !__ !__) (fun _ _ () ->
+      Flags.verbose_warn None "Ast_to_c.typ_desc_to_doc: typ_fun not implemented\n";
+      at
+    );
+    Pattern.(trm_apps1 (typ_var (var_eq typ_typeof_var)) !__) (fun t () ->
+      string "decltype" ^^ parens (decorate_trm style t)
+    );
+    Pattern.(typ_apps !__ !__) (fun ty args () ->
+      let d_args = if trm_has_cstyle InjectedClassName t
+        then empty
+        else begin match args with
+        | [] -> langle ^^ rangle
+        | _ -> langle ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] (List.map (decorate_trm style) args) ^^ rangle
         end
-  | Typ_decl t ->
-    string "decltype" ^^ parens (decorate_trm (default_style()) t)
+      in
+      var_to_doc style (remove_typ_namespace ty) ^^ d_args
+    );
+    Pattern.(typ_var !__) (fun tyx () ->
+      var_to_doc style (remove_typ_namespace tyx)
+    );
+    Pattern.(trm_arbitrary !__) (fun a_kind () ->
+      match a_kind with
+      | Typ ty -> string "/* @arbitrary */" ^^ string ty ^^ string "/* arbitary@ */"
+      | _ -> failwith "Ast_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Typ"
+    );
+  ]
 
 and var_to_doc style (v : var) : document =
   let qualified = (concat_map (fun q -> string q ^^ string "::") v.namespaces) ^^ string v.name in
@@ -194,67 +201,41 @@ and var_to_doc style (v : var) : document =
   else
     qualified
 
-and typconstr_to_doc ((namespaces, name) : typconstr) : document =
-  (concat_map (fun q -> string q ^^ string "::") namespaces) ^^
-  (string name)
-
-(** [typ_annot_to_doc]: converts type annotations to pprint document. *)
-and typ_annot_to_doc (a : typ_annot) : document =
-  match a with
-  | Unsigned -> string "unsigned"
-  | Long -> string "long"
-  | Short -> string "short"
-
 (** [typ_to_doc]: converts ast types to pprint document. *)
-and typ_to_doc (t : typ) : document =
-  let is_injected = typ_has_attribute Injected t in
-  let d = typ_desc_to_doc ~is_injected t.typ_desc in
-  let dannot =
-    List.fold_left (fun d' a -> typ_annot_to_doc a ^^ blank 1 ^^ d') empty
-      t.typ_annot
-  in
+and typ_to_doc style (t : typ) : document =
+  let d = typ_desc_to_doc style t in
   let dattr =
-    match t.typ_attributes with
+    match t.annot.trm_annot_attributes with
     | [] -> empty
-    | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
+    | al -> concat (List.map (attr_to_doc style) al)
   in
-  dattr ^^ dannot ^^ d
+  dattr ^^ d
 
 (** [typed_var_to_doc style tx]: pairs like (x, int) are printed as int x. *)
-and typed_var_to_doc: 'a. style -> ('a -> document) -> ('a * typ) -> document = fun style x_to_doc -> fun tx ->
-  let (x, ty) = tx in
-  let is_const = is_typ_const ty in
-  let const_string = if is_const then blank 1 ^^ string " const " ^^ blank 1 else empty in
-  let rec aux (t : typ) (s : trm option) : document * document list =
-    let ds =
-      match s with
-      | None -> brackets empty
-      | Some t' -> brackets (decorate_trm style t')
-    in
-    match t.typ_desc with
-    | Typ_array (t, s') ->
-       let (base, bracketl) = aux t s' in
-       (base, ds :: bracketl)
-    | _ ->
-       (typ_to_doc t, [ds])
-  in
-  let dattr =
-    match ty.typ_attributes with
-    | [] -> empty
-    | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
-  in
-  let ty = get_inner_const_type ty in
-  match ty.typ_desc with
-  | Typ_array (t, s) ->
-     let (base, bracketl) = aux t s in
-     dattr ^^ const_string ^^ base ^^ blank 1 ^^ x_to_doc x ^^ concat bracketl
-  | Typ_fun (tyl, ty) ->
-    let ret_type = typ_to_doc ty in
-    let arg_types = List.map typ_to_doc tyl in
-    dattr ^^ ret_type ^^ blank 1 ^^ x_to_doc x ^^ (list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
-  | Typ_ptr _ ->
-     dattr ^^ typ_to_doc ty ^^ blank 1 ^^ const_string ^^ x_to_doc x
-  | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ x_to_doc x
+and typed_var_to_doc : 'a. style -> ('a -> document) -> ('a * typ) -> document =
+  fun style (x_to_doc: 'a -> document) ((x, ty) : 'a * typ) ->
+  Pattern.pattern_match ty [
+    Pattern.(typ_array !__ !__) (fun inner_typ size () ->
+      let dsize = match size with
+        | None -> empty
+        | Some sz -> decorate_trm style sz
+      in
+      typed_var_to_doc style (fun x -> x_to_doc x ^^ brackets dsize) (x, inner_typ)
+    );
+    Pattern.(typ_fun !__ !__) (fun arg_typs ret_typ () ->
+      let dattr =
+        match ty.annot.trm_annot_attributes with
+        | [] -> empty
+        | al -> concat (List.map (attr_to_doc style) al)
+      in
+      let dret_type = typ_to_doc style ret_typ in
+      let darg_types = List.map (typ_to_doc style) arg_typs in
+      dattr ^^ dret_type ^^ blank 1 ^^ parens (star ^^ x_to_doc x) ^^ (list_to_doc ~sep:comma ~bounds:[lparen; rparen] darg_types)
+    );
+    Pattern.__ (fun () ->
+      typ_to_doc style ty ^^ blank 1 ^^ x_to_doc x
+    )
+  ]
 
 (** [lit_to_doc style l]: converts literals to pprint documents. *)
 and lit_to_doc style (cstyles: cstyle_annot list) (typ : typ option) (l : lit) : document =
@@ -263,9 +244,9 @@ and lit_to_doc style (cstyles: cstyle_annot list) (typ : typ option) (l : lit) :
   | Lit_uninitialized -> empty
   | Lit_bool b -> string (string_of_bool b)
   | Lit_int i -> string (string_of_int i)
-  | Lit_double f ->
-    begin match typ with
-    | Some { typ_desc = Typ_float; _ } ->
+  | Lit_float f ->
+    begin match Option.bind typ typ_var_inv with
+    | Some v when var_eq v typ_f32_var ->
       string ((string_of_float f) ^ "f")
     | _ ->
       string (string_of_float f)
@@ -290,7 +271,7 @@ and unop_to_doc style (op : unary_op) : document =
   | Unop_struct_access s -> dot ^^ string s
   | Unop_struct_get s -> dot ^^ string s
   | Unop_cast t ->
-     let dt = typ_to_doc t in
+     let dt = typ_to_doc style t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
 
 (** [binop_to_doc style op]: converts binary operators to pprint documents. *)
@@ -328,11 +309,11 @@ and prim_to_doc style (p : prim) : document =
   | Prim_compound_assgn_op op -> (binop_to_doc style op) ^^ equals
   | Prim_overloaded_op p -> prim_to_doc style p
   | Prim_ref t ->
-    string "ref" ^^ blank 1 ^^ typ_to_doc t
+    string "ref" ^^ blank 1 ^^ typ_to_doc style t
   | Prim_ref_array (t, dims) ->
-    string "ref" ^^ list_to_doc ~bounds:[lbracket;rbracket] (List.map (trm_to_doc style) dims) ^^ blank 1 ^^ typ_to_doc t
+    string "ref" ^^ list_to_doc ~bounds:[lbracket;rbracket] (List.map (trm_to_doc style) dims) ^^ blank 1 ^^ typ_to_doc style t
   | Prim_new t ->
-    string "new" ^^ blank 1 ^^ typ_to_doc t
+    string "new" ^^ blank 1 ^^ typ_to_doc style t
   | Prim_delete ->
     string "delete"
   | Prim_delete_array ->
@@ -346,11 +327,10 @@ and val_to_doc style (cstyles : cstyle_annot list) (typ : typ option) (v : value
   | Val_prim p -> prim_to_doc style p
 
 (** [attr_to_doc a]: converts attributes to pprint documents. *)
-and attr_to_doc (a : attribute) : document =
+and attr_to_doc style (a : attribute) : document =
   match a with
-  | Alignas t -> string "alignas" ^^ parens (decorate_trm (default_style()) t)
-  | GeneratedTyp | Injected -> empty
-  | Others -> empty
+  | Alignas t -> string "alignas" ^^ parens (decorate_trm style t) ^^ blank 1
+  | _ -> empty
 
 (** [decorate_trm style ~semicolon ~prec ~print_struct_init_type t]:
     - if [prec] is greater than the precedence of [t] then decorate [t] with parentheses
@@ -424,7 +404,7 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
 (** [trm_var_to_doc style v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
 and trm_var_to_doc style (x : var) (t : trm) : document =
   let typ_args = get_typ_arguments t in
-  let typ_args_d = List.map typ_to_doc typ_args in
+  let typ_args_d = List.map (typ_to_doc style) typ_args in
   let typ_args_d = begin match typ_args_d with | [] -> empty | _ -> list_to_doc ~sep:comma ~bounds:[langle; rangle] typ_args_d end in
   var_to_doc style x ^^ typ_args_d
 
@@ -436,10 +416,11 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
   let dattr =
     match t_attributes with
     | [] -> empty
-    | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
+    | al -> concat (List.map (attr_to_doc style) al)
     in
   let d =
     begin match t.desc with
+    | _ when trm_has_cstyle Type t -> typ_to_doc style t
     | Trm_val v ->
       if trm_has_cstyle Empty_cond t
         then empty
@@ -467,11 +448,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       let init_type = if not print_struct_init_type
         then empty
         else begin match t.typ with
-        | Some ty ->
-          begin match ty.typ_desc with
-          | Typ_constr (_, tid, _) when tid <> -1 -> parens(typ_to_doc ty)
-          | _ -> empty
-          end
+        | Some ty -> parens (typ_to_doc style ty)
         | None -> empty
         end
       in
@@ -593,7 +570,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       | Instr s -> string s ^^ semi
       | Comment s -> string s
       | _ -> trm_fail t "Ast_to_c.trm_to_doc style: arbitrary code should be entered by using Lit, Expr and Stmt only"
-      end  in
+      end in
       string "/* @arbitrary */" ^^ dattr ^^ code_str ^^ string "/* arbitary@ */"
     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
     | Trm_extern (lang, tl) ->
@@ -612,19 +589,18 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
     | Trm_using_directive nmspc -> string "using namespace " ^^ string nmspc ^^ semi
     | Trm_template (tpl, t1) ->
       let dl = decorate_trm style t1 in
-      let dtpl = List.map (fun (n, tpk, _) ->
+      let dtpl = List.map (fun (n, tpk) ->
         match tpk with
-        | Type_name typ_opt ->
+        | Typename typ_opt ->
           begin match typ_opt with
-          | Some ty -> string "typename " ^^ string n ^^ equals ^^ typ_to_doc ty
-          | None -> string "typename " ^^ string n
+          | Some ty -> string "typename " ^^ var_to_doc style (remove_typ_namespace n) ^^ equals ^^ typ_to_doc style ty
+          | None -> string "typename " ^^ var_to_doc style (remove_typ_namespace n)
           end
         | NonType (ty, t_opt) ->
           begin match t_opt with
-          | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ decorate_trm style t1
-          | None -> typ_to_doc ty ^^ blank 1 ^^ string n
+          | Some t1 -> typ_to_doc style   ty ^^ blank 1 ^^ var_to_doc style n ^^ equals ^^ decorate_trm style t1
+          | None -> typ_to_doc style ty ^^ blank 1 ^^ var_to_doc style n
           end
-        | Template _ -> trm_fail t1 "Ast_to_c.template_param_kind_to_doc: nested templates are not supported"
         ) tpl in
       string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
     | Trm_fun (tvl, ty_opt, body, _) when trm_has_cstyle ResourceFormula t -> dattr ^^ formula_fun_to_doc style ~semicolon ty_opt tvl body
@@ -633,14 +609,6 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;
   d
-
-(** [record_type_to_doc rt]: converts a C++ record type to a pprint document *)
-and record_type_to_doc (rt : record_type) : document =
-  match rt with
-  | Struct -> string "struct"
-  | Union -> string "union"
-  | Class -> string "class"
-
 
 (** [trm_let_to_doc style ~semicolon tv init]: converts a variable declaration to print document *)
 and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document =
@@ -658,49 +626,46 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
 
 (** [trm_let_mult_to_doc style ~semicolon tv bs]: converts multiple variable declarations to pprint document *)
 and trm_let_mult_to_doc style ?(semicolon : bool = true) (bs : (typed_var * trm) list) : document =
-  let rec get_inner_ptrs_and_consts (ty : typ) : typ =
-    match ty.typ_desc with
-    | Typ_const ({typ_desc = Typ_ptr { inner_typ = ty; _ }; _ }) -> get_inner_ptrs_and_consts ty
-    | Typ_ptr { inner_typ = ty; _ } -> get_inner_ptrs_and_consts ty
-    (*| Typ_array (ty, _) -> get_inner_ptrs_and_consts ty (* To handle this case, the function get_ptrs_and_consts_doc need to be adjusted. For now reject this case, even though a C syntax exists. *)*)
-    | _ -> ty
-  in
-
-  let get_ptrs_and_consts_doc (ty : typ) : document =
-    let rec aux (l : document list) (ty : typ) : document list =
-      match ty.typ_desc with
-      | Typ_const (ty) when is_typ_ptr ty -> aux ((string "const ") :: l) ty
-      | Typ_ptr {ptr_kind = pt_k; inner_typ = ty} ->
-        let d = begin match pt_k with
-        | Ptr_kind_mut -> star
-        | Ptr_kind_ref -> ampersand
-        end in
-        aux (d :: l) ty
-      | _ -> l
-    in
-    List.fold_left (fun d d1 -> d ^^ d1 ) empty (aux [] ty)
+  let rec split_ptrs (ty: typ): (typ * document) =
+    Pattern.pattern_match ty [
+      Pattern.(typ_const (typ_ptr !__)) (fun ty () ->
+        let ty, dptr = split_ptrs ty in
+        ty, dptr ^^ blank 1 ^^ string "* const"
+      );
+      Pattern.(typ_ptr !__) (fun ty () ->
+        let ty, dptr = split_ptrs ty in
+        ty, dptr ^^ blank 1 ^^ star
+      );
+      Pattern.(typ_ref !__) (fun ty () ->
+        let ty, dptr = split_ptrs ty in
+        ty, dptr ^^ blank 1 ^^ ampersand
+      );
+      (* LATER: Also manage arrays *)
+      Pattern.__ (fun () -> ty, empty)
+    ]
   in
 
   (* check if all the declarations are of the same type *)
-  let ty = List.fold_lefti (fun i acc ((_, ty), _) ->
-    let ty = get_inner_ptrs_and_consts ty in
-    if i = 0 then ty
-    else if ty <> acc then
-      failwith "Ast_to_c.trm_let_mult_to_doc style: all variables in trm_let_mult must have the same type."
-    else acc
-    ) (typ_unit ()) bs
+  let common_ty, decl_list = List.fold_lefti (fun i (common_ty, decl_list) ((x, ty), init) ->
+    let ty, dptr = split_ptrs ty in
+    let common_ty =
+      if i = 0 then ty
+      else if ty <> common_ty then
+        failwith "Ast_to_c.trm_let_mult_to_doc style: all variables in trm_let_mult must have the same type."
+      else common_ty
+    in
+    let dinit = if is_trm_uninitialized init
+      then empty
+      else equals ^^ decorate_trm style init
+    in
+    common_ty, (dptr ^^ var_to_doc style x ^^ dinit) :: decl_list
+    ) (typ_unit, []) bs
   in
+  let decl_list = List.rev decl_list in
 
   let dsemi = if semicolon then semi else empty in
-  let dtx = typ_to_doc ty in
-  let dtl = List.map (fun ((v,ty),t) ->
-      let ptr_ = get_ptrs_and_consts_doc ty in
-      if is_trm_uninitialized t
-        then ptr_ ^^ var_to_doc style v
-        else ptr_ ^^ var_to_doc style v ^^ equals ^^ decorate_trm style t
-    ) bs
-  in
-  dtx ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
+  let dtx = typ_to_doc style common_ty in
+  dtx ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] decl_list ^^ dsemi
 
 
 (** [aux_class_constructor_to_doc style ]: converst class constructor declaration to pprint document. *)
@@ -759,7 +724,7 @@ and aux_fun_to_doc style ?(semicolon : bool = false) ?(const : bool = false) ?(i
   let dinline = if inline then string "inline" else empty in
   let f = { f with name = string_subst "overloaded" "operator" f.name } in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style (var_to_doc style) tv) tvl) in
-  let dr = typ_to_doc r in
+  let dr = typ_to_doc style r in
   let const = if const then string "const" else empty in
   if is_trm_uninitialized b
     then (separate (blank 1) [dinline; dr; var_to_doc style f; parens argd; const]) ^^ dsemi
@@ -785,7 +750,7 @@ and formula_fun_to_doc style ?(semicolon : bool = true) (ty : typ option) (tvl :
 and trm_fun_to_doc style ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style (var_to_doc style) tv) tvl) in
-  let dr = match ty with | Some ty -> string "->" ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 | None -> blank 1 in
+  let dr = match ty with | Some ty -> string "->" ^^ blank 1 ^^ typ_to_doc style ty ^^ blank 1 | None -> blank 1 in
   let capt = brackets (ampersand) in
   separate (blank 1) ([capt; parens (argd); dr; decorate_trm style b]) ^^ dsemi
 
@@ -800,22 +765,12 @@ and access_ctrl_to_doc style (acc_ctrl : access_control) : document =
 (** [typedef_to_doc style ~semicolon td]: converts a type definition to pprint document *)
 and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []) (td : typedef) : document =
   let dsemi = if semicolon then semi else empty in
-  let tc = [], td.typdef_tconstr in
-  match td.typdef_body with
-  | Typdef_alias t ->
-      begin match t.typ_desc with
-      | Typ_array _ ->
-         string "typedef" ^^ blank 1 ^^ typed_var_to_doc style typconstr_to_doc (tc, t) ^^ dsemi
-      | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_fun (tyl, r); _}} ->
-         let dl = List.map typ_to_doc tyl in
-         let dr = typ_to_doc r in
-         separate (blank 1)
-         [string "typedef"; dr; parens (star ^^ typconstr_to_doc tc) ^^ parens (separate (comma ^^ blank 1) dl)] ^^ dsemi
-      | _ ->
-         separate (blank 1) [string "typedef"; typ_to_doc t; typconstr_to_doc tc] ^^ dsemi
-      end
-  | Typdef_record rfl ->
-    let get_document_list ?(default_access : access_control = Access_private)(rtl : record_fields) : document list =
+  let dname = var_to_doc style (remove_typ_namespace td.typedef_name) in
+  match td.typedef_body with
+  | Typedef_alias t ->
+     string "typedef" ^^ blank 1 ^^ typed_var_to_doc style (var_to_doc style) (remove_typ_namespace td.typedef_name, t) ^^ dsemi
+  | Typedef_record rfl ->
+    let get_document_list ?(default_access : access_control = Access_private) (rtl : record_fields) : document list =
       let access_ctrl = ref default_access in
       List.fold_left (fun acc (rt, rt_annot) ->
         let fd =
@@ -836,21 +791,17 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
        in
       let dl = get_document_list rfl in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
-      let record_type = typconstr_to_doc tc in
-      if List.mem Is_struct t_annot
-        then string "struct" ^^ blank 1 ^^ record_type ^^ sbody ^^ blank 1 ^^ semi
-        else if List.mem Is_rec_struct t_annot
-          then
-            string "typedef " ^^ string "struct" ^^ blank 1 ^^ record_type ^^ blank 1 ^^ sbody ^^ record_type ^^ blank 1 ^^ semi
-        else if List.mem Is_class t_annot then
-          let dl = get_document_list ~default_access:Access_unspecified rfl in
-          let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
-          string "class" ^^ blank 1 ^^ record_type ^^ sbody ^^ blank 1 ^^ semi
-        else
-          string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ record_type ^^ blank 1 ^^ semi
-  | Typdef_sum _ ->
-      failwith "Ast_to_c.typedef_to_doc style: sum types are not supported in C/C++"
-  | Typdef_enum enum_const_l ->
+      if List.mem Struct t_annot then
+        string "struct" ^^ blank 1 ^^ dname ^^ sbody ^^ blank 1 ^^ semi
+      else if List.mem Rec_struct t_annot then
+        string "typedef " ^^ string "struct" ^^ blank 1 ^^ dname ^^ blank 1 ^^ sbody ^^ dname ^^ blank 1 ^^ semi
+      else if List.mem Class t_annot then
+        let dl = get_document_list ~default_access:Access_unspecified rfl in
+        let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
+        string "class" ^^ blank 1 ^^ dname ^^ sbody ^^ blank 1 ^^ semi
+      else
+        string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ dname ^^ blank 1 ^^ semi
+  | Typedef_enum enum_const_l ->
       let const_doc_l =
         List.map
          (fun (y, t_o) ->
@@ -859,7 +810,7 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
            | Some t -> separate (blank 1) [var_to_doc style y; equals; decorate_trm style t]
          )
         enum_const_l in
-      separate (blank 1) [string "enum"; typconstr_to_doc tc;
+      separate (blank 1) [string "enum"; dname;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
 (** [multi_decl_to_doc style loc tl]: converts a sequence with multiple variable declarations into a single multi variable declaration *)
@@ -886,7 +837,7 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
   | hd :: _ ->
     match hd.desc with
     | Trm_let ((_, ty), _) ->
-      string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
+      string " " ^^ blank 1 ^^ typ_to_doc style ty ^^ blank 1 ^^ dnames ^^ semi
       (*| Var_mutable -> begin match ty.typ_desc with
             | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} when is_generated_typ ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
             | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
@@ -973,7 +924,7 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
                        d ^^ minus ^^ rangle ^^ string f1
                  else d ^^ dot ^^ string f1
               | Unop_cast ty ->
-                 let dty = typ_to_doc ty in
+                 let dty = typ_to_doc style ty in
                  parens dty ^^ blank 1 ^^ d
               end
            | _ ->
@@ -1318,7 +1269,7 @@ and routine_to_doc (r : omp_routine) : document =
 (** [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and unpack_trm_for ?(loc: location) (range : loop_range) (body : trm) : trm =
-  let init = trm_let (range.index, typ_int()) range.start in
+  let init = trm_let (range.index, typ_int) range.start in
   let cond = begin match range.direction with
     | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var range.index; range.stop]
     | DirUpEq -> trm_apps (trm_binop Binop_le) [trm_var range.index; range.stop]
@@ -1376,13 +1327,12 @@ let ast_to_file style (filename : string) (t : trm) : unit =
   close_out out
 
 (** [ast_to_string ~optitrust_syntax t]: converts ast [t] to string *)
-let ast_to_string ?(width : PPrint.requirement = 80) ?(style : style option) ?(optitrust_syntax : bool option) (t : trm) : string =
-  let style = match style with None -> default_style() | Some s -> s in
+let ast_to_string ?(width : PPrint.requirement = 80) ?(style : style = default_style ()) ?(optitrust_syntax : bool option) (t : trm) : string =
   let style = match optitrust_syntax with None -> style | Some b -> { style with optitrust_syntax = b } in
   document_to_string ~width (ast_to_doc style t)
 
 (** [typ_to_string ty]: converts type [ty] to string *)
-let typ_to_string (ty : typ) : string =
+let typ_to_string ?(style = default_style ()) (ty : typ) : string =
   let b = Buffer.create 80 in
-  ToBuffer.pretty 0.9 (!Flags.code_print_width) b (typ_to_doc ty);
+  ToBuffer.pretty 0.9 (!Flags.code_print_width) b (typ_to_doc style ty);
   Buffer.contents b

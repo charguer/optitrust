@@ -35,6 +35,7 @@ pointer/fold
 # TO FIX:
 function/uninline
 record/method_to_const
+record/set_implicit
 function/rename_args
 function/beta
 align/def
@@ -46,7 +47,6 @@ record/align_field
 loop/unfold_bound
 matrix/reorder_dims
 matrix/delocalize
-record/align_field
 apac/heapify
 apac/heapify_nested_seq
 apac/unfold_let_mult_const

@@ -50,72 +50,8 @@ let print_opt_field field_name opt =
   | None -> empty
   | Some elt -> print_field field_name elt
 
-(** [print_typ_desc only_desc t]: converts type descriptions to pprint document *)
-let rec print_typ_desc style (t : typ_desc) : document =
-  match t with
-  | Typ_const t ->
-    let dt = print_typ style t in
-    print_node "Typ_const" ^^ dt
-  | Typ_var (name, tid) ->
-    print_node "Typ_var" ^^ parens (separate (comma ^^ break 1) [string name; string (string_of_int tid)])
-  | Typ_constr (tc, tid, tl) ->
-    let tv_d = print_typconstr tc in
-    let tl = List.map (print_typ style) tl in
-    print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1)
-      [tv_d; string (string_of_int tid); print_list tl])
-  | Typ_auto -> string "Typ_auto"
-  | Typ_unit -> string "Typ_unit"
-  | Typ_int -> string "Typ_int"
-  | Typ_float -> string "Typ_float"
-  | Typ_double -> string "Typ_double"
-  | Typ_bool -> string "Typ_bool"
-  | Typ_char -> string "Typ_char"
-  | Typ_string -> string "Typ_string"
-  | Typ_ptr {ptr_kind = pk; inner_typ = ty} ->
-     let dpk = begin match pk with
-               | Ptr_kind_mut -> string "pointer"
-               | Ptr_kind_ref -> string "reference"
-               end
-      in
-     let dt = print_typ style ty in
-     print_node "Typ_ptr" ^^ parens (dpk) ^^dt
-  | Typ_array (t, s) ->
-     let dt = print_typ style t in
-     let ds =
-       begin match s with
-       | None -> underscore
-       | Some t' -> print_trm style t'
-       end
-     in
-     print_node "Typ_array" ^^ print_pair dt ds
-  | Typ_fun (tl, t) ->
-     let dtl = List.map (print_typ style) tl in
-     let dt = print_typ style t in
-     print_node "Typ_fun" ^^ parens (print_list dtl ^^ comma ^/^ dt)
-  | Typ_record (rt, name) ->
-    let dt = print_typ style name in
-    let drt = print_record_type rt in
-    print_node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
-  | Typ_template_param name ->
-    print_node "Typ_template_param" ^^ parens (string name)
-  | Typ_arbitrary s -> print_node "Typ_arbitrary " ^^ parens (string (code_to_str s))
-  | Typ_decl e -> print_node "Typ_decl " ^^ parens (print_trm style e)
-
-(** [print_typ_annot a]: converts type annotations to pprint document *)
-and print_typ_annot (a : typ_annot) : document =
-  match a with
-  | Unsigned -> string "Unsigned"
-  | Long -> string "Long"
-  | Short -> string "Short"
-
 (** [print_typ style t]: converts type records to pprint document *)
-and print_typ style (t : typ) : document =
-  let ddesc = print_typ_desc style t.typ_desc in
-  if style.only_desc then ddesc
-  else
-    let dannot = List.map print_typ_annot t.typ_annot in
-    let dattr = List.map (print_attribute style) t.typ_attributes in
-    print_fields [print_list_field "annot" dannot; print_field "desc" ddesc; print_list_field "attributes" dattr]
+let rec print_typ style t = print_trm style t
 
 (** [print_unop style op]: converts unary operators to pprint document *)
 and print_unop style (op : unary_op) : document =
@@ -206,7 +142,7 @@ and print_lit (l : lit) : document =
   | Lit_uninitialized -> string "Lit_uninitialized"
   | Lit_bool b -> print_node "Lit_bool" ^^ string (string_of_bool b)
   | Lit_int n -> print_node "Lit_int" ^^ string (string_of_int n)
-  | Lit_double f -> print_node "Lit_double" ^^ string (string_of_float f)
+  | Lit_float f -> print_node "Lit_float" ^^ string (string_of_float f)
   | Lit_string s ->
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
   | Lit_nullptr -> print_node "Lit_nullptr"
@@ -227,10 +163,7 @@ and print_attribute style (a : attribute) : document =
   match a with
   | Alignas t ->
      string "Alignas" ^^ blank 1 ^^ print_trm style t
-  | GeneratedTyp ->
-    string "GeneratedTyp" ^^ blank 1
-  | Injected -> string "Injected class type"  ^^ blank 1
-  | Others -> empty
+  | GhostCall -> string "GhostCall"
 
 (** [print_var]: converts [v] into a docuemnt. *)
 and print_ast_var style (v : var) : document =
@@ -240,10 +173,6 @@ and print_ast_var style (v : var) : document =
 (** [print_var]: converts [v] into a docuemnt. *)
 and print_var style (v : var) : document =
   print_ast_var style v
-
-and print_typconstr ((namespaces, name) : typconstr) : document =
-  (concat_map (fun q -> string q ^^ string "::") namespaces) ^^
-  string name
 
 (** [print_trm_desc style t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc style (t : trm_desc) : document =
@@ -283,7 +212,8 @@ and print_trm_desc style (t : trm_desc) : document =
     print_node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
         [fd; dout; print_list dtvl; dt])
-  | Trm_typedef td -> print_typedef style td
+  | Trm_typedef td ->
+    print_node "Trm_typedef" ^^ print_typedef style td
   | Trm_if (c, t, e) ->
      let dc = print_trm style c in
      let dt = print_trm style t in
@@ -374,10 +304,10 @@ and print_trm_desc style (t : trm_desc) : document =
     print_node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
       [string name; string (string_of_bool inline); dt])
   | Trm_template (template_params, t) ->
-    let template_params = List.map (fun (name, _, _) ->
-      (* LATER: Handle template_param_kind and the variadic flag *)
-      string name) template_params in
-    print_node "Trm_template " ^^  print_list template_params ^^ print_trm style t
+    let template_params = List.map (fun (name, _) ->
+      (* LATER: Handle template_param_kind *)
+      print_var style name) template_params in
+    print_node "Trm_template" ^^  print_list template_params ^^ break 1 ^^ print_trm style t
   | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
   | Trm_fun (tvl , ty_opt, b, _) ->
     let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ style ty | None -> string "None" end in
@@ -389,32 +319,20 @@ and print_trm_desc style (t : trm_desc) : document =
       parens (separate (comma ^^ break 1)
         [print_list dtvl; dtout; dt])
 
-(** [print_record_type rt]: converts record types to pprint document *)
-and print_record_type (rt : record_type) : document =
-  match rt with
-  | Struct -> string "struct"
-  | Union -> string "union"
-  | Class -> string "class"
-
 (** [print_typedef style td]: converts typedef to pprint document *)
 and print_typedef style (td : typedef) : document =
-  let dloc = Option.map (print_loc style) td.typdef_loc in
-  let dbody = print_typedef_body style td.typdef_body in
   print_fields [
-    print_opt_field "loc" dloc;
-    print_field "tconstr" (string td.typdef_tconstr);
-    print_field "typid" (string (string_of_int td.typdef_typid));
-    print_field "vars" (separate comma (List.map string td.typdef_vars));
-    print_field "body" dbody
+    print_field "name" (print_ast_var style td.typedef_name);
+    print_field "body" (print_typedef_body style td.typedef_body)
   ]
 
 (** [print_typedef_body style tdbody]: converts typedef to pprint document *)
-and print_typedef_body style (tdbody : typdef_body) : document =
+and print_typedef_body style (tdbody : typedef_body) : document =
   match tdbody with
-  | Typdef_alias t ->
+  | Typedef_alias t ->
     let dt = print_typ style t in
     print_node "Typedef_alias" ^^ parens dt
-  | Typdef_record rfl ->
+  | Typedef_record rfl ->
     let get_document_list (rfl : record_fields) : document list =
       let rec aux acc = function
       | [] -> acc
@@ -431,9 +349,7 @@ and print_typedef_body style (tdbody : typdef_body) : document =
       in
       let dtl = get_document_list rfl in
      print_node "Typedef_record" ^^ parens (print_list dtl)
-  | Typdef_sum _ ->
-    failwith "Ast_to_text.print_typedef: sum types are not supported in C/C++"
-  | Typdef_enum enum_const_l ->
+  | Typedef_enum enum_const_l ->
      let denum_const_l =
        print_list
          (List.map
@@ -502,8 +418,7 @@ and print_trm style (t : trm) : document =
       let opt_str c o = if o = None then "-" else c in
       let dctx =
         String.concat ""
-            [ opt_str "t" t.ctx.ctx_types;
-              opt_str "b" t.ctx.ctx_resources_before;
+            [ opt_str "b" t.ctx.ctx_resources_before;
               opt_str "u" t.ctx.ctx_resources_usage;
               opt_str "c" t.ctx.ctx_resources_contract_invoc;
               opt_str "a" t.ctx.ctx_resources_after;
@@ -558,9 +473,9 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Prefix_step -> string "Prefix_step"
  | Postfix_step -> string "Postfix_step"
  | Reference -> string "Reference"
- | Is_struct -> string "Is_struct"
- | Is_rec_struct -> string "Is_rec_struct"
- | Is_class -> string "Is_class"
+ | Struct -> string "Struct"
+ | Rec_struct -> string "Rec_struct"
+ | Class -> string "Class"
  | Static_fun -> string "Static"
  | Method_call -> string "Method_call"
  | Implicit_this -> string "Implicit_this"
@@ -576,8 +491,9 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Member_initializer -> string "Member_initializer"
  | Brace_init -> string "Brace_init"
  | Display_null_uppercase -> string "Display_null_uppercase"
- | GhostCall -> string "GhostCall"
  | ResourceFormula -> string "ResourceFormula"
+ | Type -> string "Type"
+ | InjectedClassName -> string "InjectedClassName"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"
 
 (** [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
@@ -705,6 +621,8 @@ let ast_to_file style (filename : string) (t : trm) : unit =
 let ast_to_string ?(style : style = default_style) (t : trm) : string =
   let d = print_trm style t in
   document_to_string d
+
+let _ = Contextualized_error.trm_printer := ast_to_string ~style:style_desc
 
 (** [typedef_to_string style td]: converts typdef [td] to a string *)
 let typedef_to_string ?(style : style = default_style) (td : typedef) : string =

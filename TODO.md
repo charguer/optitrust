@@ -265,7 +265,7 @@ Ex:
   let lit l =
        try trm_int (int_of_string l)
        with _ ->
-       try trm_double (float_of_string l)
+       try trm_float (float_of_string l)
        with _ ->
        code (Lit l)
 ```
@@ -479,7 +479,6 @@ grep -r '[tag]' .
   Show.trm_ast tg;  (* prints a targeted term, in raw AST syntax *)
   Show.typ tg;      (* prints the type of a targeted term, in C syntax *)
   Show.typ_ast tg;  (* prints the type of a targeted term, in raw AST syntax *)
-  Show.typ_ctx tg;  (* prints the type context *)
   Show.res tg;      (* prints the resource usage of a targeted term *)
   Show.res_ast tg;  (* prints the resource usage of a targeted term, in raw syntax *)   (* need res_enc? *)
   Show.res_ctx tg;  (* prints the full ctx available for typing a targeted term *)

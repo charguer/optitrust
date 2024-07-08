@@ -176,7 +176,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
       | [], [] -> ()
       | ({ desc = Trm_let ((x1,t1), init1); _ } as dt1) :: tr1,
         ({ desc = Trm_let ((x2,t2), init2); _ } as dt2) :: tr2 ->
-           if not (same_types  (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
+           if not (are_same_trm (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
             Tools.debug "Type mismatch on trm_let";
             mismatch ~t1:dt1 ~t2:dt2 ()
           end;
@@ -197,11 +197,16 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
        where [body] is a pattern variable that corresponds to a function. *)
     | Trm_apps (({ desc = Trm_var x; _} as trm_x), ts1, _), _ when higher_order_inst && is_var x ->
         let typ_args, typ_ret =
-          match trm_x.typ with
-          | None -> trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" (var_to_string x))
-          | Some ({typ_desc = Typ_fun (typ_args, typ_ret); _}) -> typ_args, typ_ret
-          | _ -> trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" (var_to_string x))
-          in
+          Pattern.pattern_match trm_x.typ [
+            Pattern.(some (typ_fun !__ !__)) (fun typ_args typ_ret () -> (typ_args, typ_ret));
+            Pattern.none (fun () ->
+              trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" (var_to_string x))
+            );
+            Pattern.(some __) (fun () ->
+              trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" (var_to_string x))
+            )
+          ]
+        in
         let msg1 i ti = trm_fail t1 (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s
                                      is not a variable.  It is the term: %s" i (var_to_string x) (Ast_to_text.ast_to_string ti)) in
         let xargs = List.mapi (fun i ti -> match ti.desc with
@@ -232,7 +237,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         aux range1.start range2.start;
         aux range1.stop range2.stop;
         aux range1.step range2.step;
-        with_binding (typ_int()) range1.index range2.index (fun () -> aux body1 body2)
+        with_binding typ_int range1.index range2.index (fun () -> aux body1 body2)
 
     | Trm_for_c (init1, cond1, step1, body1, _), Trm_for_c (init2, cond2, step2, body2, _) ->
         aux_with_bindings [init1; cond1; step1; body1] [init2; cond2; step2; body2]

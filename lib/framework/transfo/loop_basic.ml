@@ -69,7 +69,7 @@ let collapse_on (simpl_mark : mark) (index : string)
   let k = new_var (index |>
     Tools.string_subst "${i}" ri.index.name |>
     Tools.string_subst "${j}" rj.index.name) in
-  let var_k = trm_var ~typ:(typ_int ()) k in
+  let var_k = trm_var ~typ:(typ_int) k in
   let rk = {
     index = k; start = trm_int 0; stop = trm_add_mark simpl_mark (trm_mul nbi nbj);
     direction = DirUp; step = trm_step_one ()
@@ -88,7 +88,7 @@ let collapse_on (simpl_mark : mark) (index : string)
       | RO, f -> ghost_ro, f
       | Uninit, f -> ghost_uninit, f
       in
-      let items = trm_copy (formula_fun [ri.index, typ_int (); rj.index, typ_int ()] None formula) in
+      let items = trm_copy (formula_fun [ri.index, typ_int; rj.index, typ_int] None formula) in
       Resource_trm.ghost (ghost_call ghost [
         "n", nbi; "m", nbj; "items", items
       ])
@@ -202,7 +202,7 @@ let hoist_on (name : string)
         trm_div (trm_sub (trm_var index) start) step)
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
-  let elem_ty = ref (typ_auto()) in
+  let elem_ty = ref typ_auto in
   let old_var = ref dummy_var in
   let new_var = ref dummy_var in
   let new_dims = ref [] in
@@ -210,14 +210,14 @@ let hoist_on (name : string)
     let error = "Loop_basic.hoist_on: expected variable declaration with MALLOCN initialization" in
     let (x, dims, etyp, elem_size) = trm_inv ~error Matrix_core.let_alloc_inv_with_ty decl in
     old_var := x;
-    new_var := Trm.new_var (Tools.string_subst "${var}" x.name name);
+    new_var := Ast.new_var (Tools.string_subst "${var}" x.name name);
     elem_ty := etyp;
     new_dims := (arith_f array_size) :: dims;
     let partial_indices = (arith_f new_index) ::
       (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
     let mindex = mindex !new_dims partial_indices in
     let new_access = trm_array_access (trm_var !new_var) mindex in
-    let tmp_var = trm_let (x, typ_const_ptr etyp) new_access in
+    let tmp_var = trm_let (x, typ_ptr etyp) new_access in
     trm_add_mark mark_tmp_var tmp_var
   in
   let body_instrs_new_decl = Mlist.update_nth decl_index update_decl body_instrs in
@@ -241,7 +241,7 @@ let hoist_on (name : string)
   let new_body_instrs, new_contract =
   if contract.strict then
     let dims = List.tl (!new_dims) in
-    let other_indices = List.init (List.length dims) (fun _ -> Trm.new_var (fresh_var_name ())) in
+    let other_indices = List.init (List.length dims) (fun _ -> Ast.new_var (fresh_var_name ())) in
     let indices = (arith_f new_index) :: (List.map trm_var other_indices) in
     let mindex = mindex !new_dims indices in
     let access = trm_array_access (trm_var !new_var) mindex in
@@ -898,7 +898,7 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let index_expr = trm_sub (trm_var index') shift in
   (* NOTE: assuming int type if no type is available *)
   let body_terms' = Mlist.push_front (
-    trm_let_immut (index, (Option.value ~default:(typ_int ()) start.typ)) index_expr) body_terms in
+    trm_let_immut (index, (Option.value ~default:(typ_int) start.typ)) index_expr) body_terms in
   let range' = { index = index'; start = start'; direction; stop = stop'; step } in
   begin if not contract.strict then
     trm_for_instrs ~annot:t.annot range' body_terms'
@@ -908,7 +908,7 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
     let shift_ghosts ghost =
       List.map (fun (_, formula) ->
         let i = new_var index.name in
-        let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
+        let items = formula_fun [i, typ_int] None (trm_subst_var index (trm_var i) formula) in
         Resource_trm.ghost (ghost_call ghost [
           "start", start; "stop", stop; "step", step; "items", items;
           "shift", shift; "new_start", start'; "new_stop", stop'])
@@ -1006,7 +1006,7 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
   | TileDivides ->
     trm_for { index; start = trm_var tile_index; direction; stop = tile_bound; step } body
   | TileBoundAnd ->
-    let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
+    let init = trm_let_mut (index, typ_int) (trm_var tile_index) in
     let cond = trm_and (trm_ineq direction (trm_var_get index)
       (if trm_is_one step
         then (trm_add (trm_var tile_index) tile_size)

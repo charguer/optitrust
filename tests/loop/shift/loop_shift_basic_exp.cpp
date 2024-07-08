@@ -1,20 +1,20 @@
 #include <optitrust.h>
 
 int main() {
-__pure();
+  __pure();
   int x = 0;
   const int st = 0;
   const int N = 10;
   for (int i2 = 0 + 2; i2 < 10 + 2; i2++) {
-__strict();
-__smodifies("&x ~> Cell");
+    __strict();
+    __smodifies("&x ~> Cell");
     const int i = i2 - 2;
     x += i;
   }
   for (int j2 = 0; j2 < st + N - st; j2++) {
-__strict();
-__smodifies("&x ~> Cell");
-    const const int j = j2 - -st;
+    __strict();
+    __smodifies("&x ~> Cell");
+    const int const j = j2 - -st;
     x += j;
   }
   int shift = 5;

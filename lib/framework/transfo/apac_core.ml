@@ -240,12 +240,12 @@ let to_const_mult : const_mult = Hashtbl.create 10
 
 (** [typ_is_alias ty]: checks if [ty] is a user-defined alias to a basic type. *)
 let typ_is_alias (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_constr (_, id, _) ->
-    begin match Context.typid_to_typedef id with
+  match typ_var_inv ty with
+  | Some tvar ->
+    begin match Internal.typvar_to_typedef tvar with
     | Some (td) ->
-      begin match td.typdef_body with
-      | Typdef_alias _ -> true
+      begin match td.typedef_body with
+      | Typedef_alias _ -> true
       | _  -> false
       end
     | None -> false
@@ -255,12 +255,12 @@ let typ_is_alias (ty : typ) : bool =
 (** [typ_get_alias ty]: if [ty] is a user-defined alias to a basic type, it
    returns the latter. *)
 let typ_get_alias (ty : typ) : typ option =
-  match ty.typ_desc with
-  | Typ_constr (_, id, _) ->
-    begin match Context.typid_to_typedef id with
+  match typ_var_inv ty with
+  | Some tvar ->
+    begin match Internal.typvar_to_typedef tvar with
     | Some (td) ->
-      begin match td.typdef_body with
-      | Typdef_alias ty -> Some (ty)
+      begin match td.typedef_body with
+      | Typedef_alias ty -> Some (ty)
       | _  -> None
       end
     | None -> None
@@ -272,30 +272,30 @@ let typ_get_alias (ty : typ) : typ option =
    [ty]. For example, for [int ** a], it returns 2. *)
 let typ_get_degree (ty : typ) : int =
   (* Auxiliary function to actually compute the degree. *)
-  let rec aux (degree : int) (ty : typ) : int =
-    match ty.typ_desc with
-    (* If [ty] is a constant type or a reference, keep the current degree value
-       and recurse. *)
-    | Typ_const ty -> aux degree ty
-    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> aux degree ty
-    (* If [ty] is a pointer or an array, increase the degree value and
-       recurse. *)
-    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } -> aux (degree + 1) ty
-    | Typ_array (ty, _) -> aux (degree + 1) ty
-    (* If [ty] is a constructed user-defined type and it is an alias to a basic
+  let rec aux (degree : int) (ty : typ) () : int =
+    Pattern.pattern_match ty [
+      (* If [ty] is a constant type or a reference, keep the current degree value
+        and recurse. *)
+      Pattern.(typ_const !__) (aux degree);
+      Pattern.(typ_ref !__) (aux degree); (* TODO: Check that C++ references are entirely removed by decoding and remove this line *)
+      (* If [ty] is a pointer or an array, increase the degree value and
+        recurse. *)
+      Pattern.(typ_ptr !__) (aux (degree + 1));
+      Pattern.(typ_array !__ __) (aux (degree + 1));
+      (* If [ty] is a constructed user-defined type and it is an alias to a basic
        type, resolve the latter and compute the degree. *)
-    | Typ_constr _ when typ_is_alias ty ->
-      begin match typ_get_alias ty with
-      | Some (ty) -> aux degree ty
-      (* TODO: thread-through term for trm_fail. *)
-      | None -> failwith "Apac_core.typ_get_degree: unable to determine the \
-                           basic type of a typedef alias."
-      end
-    | _ -> degree
+      Pattern.(typ_var __) (fun () ->
+        begin match typ_get_alias ty with
+        | Some ty -> aux degree ty ()
+        | None -> raise_notrace Pattern.Next
+        end
+      );
+      Pattern.__ (fun () -> degree)
+    ]
   in
   (* Call the auxiliary function to compute the degree and hide the [degree]
      parameter to the outside world. *)
-  aux 0 ty
+  aux 0 ty ()
 
 (** [trm_strip_accesses_and_references_and_get_lvar t]: strips [*t, &t, ...]
    recursively and if [t] is a variable, it returns the associated labelled
@@ -338,56 +338,19 @@ let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
 
 (** [typ_constify ty]: constifies [ty] by applying the 'const' keyword wherever
    it is possible. *)
-let typ_constify (ty : typ) : typ =
-  (* Aliases for often referenced values *)
-  let annot = ty.typ_annot in
-  let attributes = ty.typ_attributes in
-  (* Auxiliary function to recursively constify [ty], e.g. 'int * a' becomes
-     'const int * const a'. *)
-  let rec aux (ty : typ) : typ =
-    match ty.typ_desc with
-    (* [ty] is a pointer. *)
-    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } ->
-       typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (aux ty))
-    (* [ty] is a constant pointer. *)
-    | Typ_const { typ_desc =
-                    Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty };
-                  typ_annot = annot;
-                  typ_attributes = attributes } ->
-       typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (aux ty))
-    (* [ty] is a user-defined constructed type. *)
-    | Typ_constr (_, id, _) ->
-       begin match Context.typid_to_typedef id with
-       (* [ty] is a 'typedef' declaration. *)
-       | Some td ->
-          begin match td.typdef_body with
-          (* If the constructed type is an alias to another type, recurse. *)
-          | Typdef_alias ty -> aux ty
-          (* Otherwise, constify the constructed type and return. *)
-          | _ -> typ_const ty
-          end
-       (* [ty] is not a 'typedef' declaration. *)
-       | None -> typ_const ty
-       end
-    (* [ty] is already a constant type. There is nothing to do. *)
-    | Typ_const _ -> ty
-    (* Deal with any other case. *)
-    | _ -> typ_const ty
-  in
-  (* Here begins the main entry point of the function, from where the auxiliary
-     function is called. *)
-  match ty.typ_desc with
-  (* [ty] is a reference. *)
-  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
-    begin match ty.typ_desc with
-    (* [ty] is an rvalue reference, i.e. '&&' is used. *)
-    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
-      typ_lref ~annot ~attributes (aux ty)
-    (* [ty] is a simple reference. *)
-    | _ -> typ_ref ~annot ~attributes (aux ty)
-    end
-  (* [ty] is of any other type. *)
-  | _ -> aux ty
+let rec typ_constify (ty : typ) : typ =
+  (* FIXME: This function has been adapted to new types by mimicking its old semantics. I don't think this is the right one. In particular, const not behind pointers in the OptiTrust AST is probably not a good thing. *)
+  Pattern.pattern_match ty [
+    Pattern.(typ_ptr !__ ^| typ_const (typ_ptr !__)) (fun ty () ->
+      typ_const (typ_ptr (typ_constify ty)));
+    Pattern.(typ_ref !__) (fun ty () -> typ_ref (typ_constify ty));
+    Pattern.(!(typ_const __)) (fun t () -> t);
+    Pattern.__ (fun () ->
+      match typ_get_alias ty with
+      | Some ta -> typ_constify ta
+      | None -> typ_const ty
+    )
+  ]
 
 (** [trm_resolve_binop_lval_and_get_with_deref] tries to resolve the variable
    behind an lvalue and check whether it has been dereferences, i.e. following
@@ -640,7 +603,7 @@ let find_parent_typedef_record (p : path) : trm option =
          let tg = target_of_path (List.rev p) in
          let t = get_trm_at_exn tg in
          match t.desc with
-         | Trm_typedef { typdef_body = Typdef_record _; _ } -> Some (t)
+         | Trm_typedef { typedef_body = Typedef_record _; _ } -> Some (t)
          | _ -> aux f
        end
     | [] -> None

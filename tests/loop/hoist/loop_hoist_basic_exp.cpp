@@ -3,8 +3,8 @@
 void f(int* t, int* u) {
   __modifies("for i in 0..10 -> &u[i] ~> Cell");
   __reads("for i in 0..10 -> &t[i] ~> Cell");
-  int* const x_step = (int* const)MALLOC1(10, sizeof(int));
-  int* const z_step = (int* const)MALLOC1(10, sizeof(int));
+  int* const x_step = (int*)MALLOC1(10, sizeof(int));
+  int* const z_step = (int*)MALLOC1(10, sizeof(int));
   for (int i = 0; i < 10; i++) {
     __strict();
     __xmodifies("_Uninit(&z_step[MINDEX1(10, i)] ~> Cell)");
@@ -31,7 +31,7 @@ void f(int* t, int* u) {
       for (int n = 4; n < 11; n += 2) {
         __strict();
         __smodifies("&u[m] ~> Cell");
-        int* const y = (int* const)MALLOC0(sizeof(int));
+        int* const y = (int*)MALLOC0(sizeof(int));
         y[MINDEX0()] = 0;
         u[m] = y[MINDEX0()];
         MFREE0(y);
@@ -48,7 +48,7 @@ void f2(float* A, float* B, int m, int n, int p) {
     __strict();
     __sreads("A ~> Matrix2(m, p)");
     __sreads("B ~> Matrix2(p, n)");
-    float* const sum_step = (float* const)MALLOC1(n, sizeof(float));
+    float* const sum_step = (float*)MALLOC1(n, sizeof(float));
     for (int j = 0; j < n; j++) {
       __strict();
       __sreads("A ~> Matrix2(m, p)");

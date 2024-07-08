@@ -5,6 +5,7 @@ open Optitrust_ast
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 open Mark
 open Tools
 open Flags
@@ -74,65 +75,13 @@ let file_of_node (n : 'a node) : string =
 
 (* maps from [typ_ctx] *)
 let ctx_var : typ Qualified_map.t ref = ref Qualified_map.empty
-let ctx_tconstr : typconstrid Qualified_map.t ref = ref Qualified_map.empty
-let ctx_typedef : typedef typmap ref = ref Typ_map.empty
-let ctx_label : typconstrid labelmap ref = ref String_map.empty
-let ctx_constr : typconstrid constrnamemap ref = ref String_map.empty
 
 let ctx_reset () : unit =
-  ctx_var := Qualified_map.empty;
-  ctx_tconstr := Qualified_map.empty;
-  ctx_typedef := Typ_map.empty;
-  ctx_label := String_map.empty;
-  ctx_constr := String_map.empty
-
-(** [debug_typedefs]: flag for debugging typedefs *)
-let debug_typedefs = false
+  ctx_var := Qualified_map.empty
 
 (** [ctx_var_add tv]: adds variable [v] with type [t] in map [ctx_var] *)
 let ctx_var_add (tv : var) (t : typ) : unit =
   ctx_var := Qualified_map.add (tv.namespaces, tv.name) t (!ctx_var)
-
-(** [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
-let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
-  if debug_typedefs then Tools.debug "Type %s has been added into map with typconstrid %d" (Tools.document_to_string (Ast_to_text.print_typconstr tn)) tid;
-  ctx_tconstr := Qualified_map.add tn tid (!ctx_tconstr)
-
-(** [ctx_typedef_add tn tid td]: adds typedef [td] with id [tid] in map [ctx_typedef] *)
-let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
-  if debug_typedefs then Tools.debug "Typedef for %s has been registered" (Tools.document_to_string (Ast_to_text.print_typconstr tn));
-  ctx_typedef := Typ_map.add tid td (!ctx_typedef)
-
-(** [ctx_label_add lb tid]: adds label [lb] with id [tid] in map [ctx_label] *)
-let ctx_label_add (lb : label) (tid : typconstrid) : unit =
-  ctx_label := String_map.add lb tid (!ctx_label)
-
-(** [ctx_constr_add c tid]: adds constr [c] with id [tid] in map [ctx_constr_add] *)
-let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
-  ctx_constr := String_map.add c tid (!ctx_constr)
-
-(** [get_ctx]: gets the current context *)
-let get_ctx () : ctx =
-  (* FIXME: #var-id , ids are dummy wich breaks all varmaps. *)
-  typing_ctx {
-    ctx_var = !ctx_var;
-    ctx_tconstr = !ctx_tconstr;
-    ctx_typedef = !ctx_typedef;
-    ctx_label = !ctx_label;
-    ctx_constr = !ctx_constr;
-  }
-
-(* CHECK: #type-id *)
-let name_to_typconstr ?(namespaces = []) (n : string) : typconstr =
-  [], n
-
-(** [get_typid_for_type ty]: gets the type id for type [tv]*)
-let get_typid_for_type (namespaces : string list) (name : string) : int  =
-   let tid = Qualified_map.find_opt (namespaces, name) !ctx_tconstr in
-   begin match tid with
-   | Some id -> id
-   | None -> -1
-   end
 
 (** [string_of_overloaded_op ?loc op]: gets names of overloaded operators (later matched for printing) *)
  let string_of_overloaded_op ?(loc : location)
@@ -206,7 +155,7 @@ let get_typid_for_type (namespaces : string list) (name : string) : int  =
   | _ -> loc_fail loc "Clang_to_astRawC.overloaded_op: non supported operator"
 
 (** [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)
-let wrap_const ?(const : bool = false) (t : typ) : typ =
+let wrap_const ~(const : bool) (t : typ) : typ =
   if const then typ_const t else t
 
 
@@ -270,67 +219,59 @@ let redundant_template_definition_type = ref false
 (* Raised by [tr_decl] when the current declaration is a redundant template definition. *)
 exception RedundantTemplateDefinition
 
-(** [tr_type_desc ?loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
+(** [tr_type_desc ?loc ~const]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
 (* FIXME: #odoc why is annotation required on callees? *)
-let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types : bool = true) (d : type_desc) : typ =
+let rec tr_type_desc ?(loc : location) ?(namespaces = []) (d : type_desc) : typ =
   match d with
   | Pointer q ->
-    let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
-    let ty = typ_ptr Ptr_kind_mut t in
-    wrap_const ~const ty
+    let t = tr_qual_type ?loc  q in
+    typ_ptr t
   | LValueReference  q ->
-    let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
-    wrap_const ~const (typ_ptr Ptr_kind_ref t)
-  | RValueReference  q ->
-    let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
-    wrap_const ~const (typ_ptr Ptr_kind_ref (typ_ptr Ptr_kind_ref t))
+    let t = tr_qual_type ?loc q in
+    typ_ref t
+  | RValueReference q ->
+    failwith "Unsupported rvalue references"
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
-    let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
+    let t = tr_qual_type ?loc q in
     begin match eo with
-      | None -> wrap_const ~const (typ_array t ~size:(trm_int n))
+      | None -> typ_array t ~size:(trm_int n)
       | Some e ->
         let size = tr_expr e in
-        wrap_const ~const (typ_array t ~size)
+        typ_array t ~size
     end
   | VariableArray {element = q; size = eo} ->
-    let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
+    let t = tr_qual_type ?loc q in
     let size = tr_expr eo in
-    wrap_const ~const (typ_array t ~size)
+    typ_array t ~size
   | IncompleteArray q ->
-    let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types q in
-    wrap_const ~const (typ_array t)
-  | Auto ->
-    typ_auto ()
+    let t = tr_qual_type ?loc q in
+    typ_array t
+  | Auto -> typ_auto
   | BuiltinType b ->
     begin match b with
-      | Void -> typ_unit ()
-      | Bool -> wrap_const ~const (typ_bool ())
-      | Int -> wrap_const ~const (typ_int ())
-      | UInt -> wrap_const ~const (typ_int ~annot:[Unsigned] ())
-      | Long -> wrap_const ~const (typ_int ~annot:[Long] ())
-      | ULong -> wrap_const ~const (typ_int ~annot:[Unsigned; Long] ())
-      | LongLong -> wrap_const ~const (typ_int ~annot:[Long; Long] ())
-      | ULongLong -> wrap_const ~const (typ_int ~annot:[Unsigned; Long; Long] ())
-      | Float -> wrap_const ~const (typ_float ())
-      | Double -> wrap_const ~const (typ_double ())
-      | LongDouble -> wrap_const ~const (typ_double ~annot:[Long] ())
-      | Char_S -> wrap_const ~const (typ_char ())
-      | UChar -> wrap_const ~const (typ_char ~annot:[Unsigned] ())
-      | Short -> wrap_const ~const (typ_int ~annot:[Short] ())
-      | UShort -> wrap_const ~const (typ_int ~annot:[Unsigned; Short] ())
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_type_desc: builtin type not implemented"
+      | Void -> typ_unit
+      | Bool -> typ_bool
+      | Int -> typ_int
+      | UInt -> typ_uint
+      | Float -> typ_f32
+      | Double -> typ_f64
+      | LongDouble -> loc_fail loc "Clang_to_ast.tr_type_desc: long double is not implemented, behaviour is too much platform dependant"
+      | Char_S | Char_U -> typ_char
+      | UChar | SChar | Short | UShort | Long | ULong | LongLong | ULongLong ->
+        loc_fail loc "Clang_to_ast.tr_type_desc: short or long types are too much platform dependant, use int if you don't care about the size, and int#_t if you want a precise size for integers"
+      | _ -> loc_fail loc "Clang_to_ast.tr_type_desc: builtin type not implemented"
     end
   | FunctionType {calling_conv = _; result = qr; parameters = po;
                   exception_spec = _; _} ->
-    let tr = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc qr in
+    let tr = tr_qual_type ?loc qr in
     begin match po with
       | None -> typ_fun [] tr
       | Some {non_variadic = pl; variadic = _} ->
         let tl =
           List.map
-            (fun (p : parameter) -> (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc p.desc.qual_type)
+            (fun (p : parameter) -> tr_qual_type ?loc p.desc.qual_type)
             pl
         in
         typ_fun tl tr
@@ -338,64 +279,64 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
   | Typedef {nested_name_specifier = nns; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns  in
-        let typ_to_add = typ_constr (qpath, n) ~tid:(get_typid_for_type qpath n)  in
-        wrap_const ~const typ_to_add
-      | _ -> loc_fail loc ("tr_type_desc: only identifiers are allowed in type definitions")
+        let qpath = namespaces @ tr_nested_name_specifier ?loc nns in
+        if qpath = [] || qpath = ["std"] then
+          (* Map standard sized types to builtins *)
+          begin match n with
+          | "size_t" -> typ_usize
+          | "ptrdiff_t" -> typ_isize
+          | "int8_t" -> typ_i8
+          | "uint8_t" -> typ_u8
+          | "int16_t" -> typ_i16
+          | "uint16_t" -> typ_u16
+          | "int32_t" -> typ_i32
+          | "uint32_t" -> typ_u32
+          | "int64_t" -> typ_i64
+          | "uint64_t" -> typ_u64
+          | _ -> typ_var (name_to_typvar ~namespaces:qpath n)
+          end
+        else
+          typ_var (name_to_typvar ~namespaces:qpath n)
+      | _ -> loc_fail loc "tr_type_desc: only identifiers are allowed in type definitions"
     end
   | Elaborated {keyword = k; nested_name_specifier = nns; named_type = q} ->
-      let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns in
-      begin match k with
-      | Struct -> if tr_record_types then typ_record Struct ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q) else ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q)
-
-      | Class -> if tr_record_types then typ_record Class ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q) else ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q)
-      | NoKeyword -> let tr_ty = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) q in
-        begin match tr_ty.typ_desc with
-        | Typ_constr (qty, tid, tl) ->
-          typ_constr ~annot:tr_ty.typ_annot ~attributes:tr_ty.typ_attributes ~tid ~tl (qpath, (snd qty))
-        | _ -> tr_ty
-        end
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_type_desc: this elaborated type is not supported."
+    let namespaces = namespaces @ tr_nested_name_specifier ?loc nns in
+    let tr_ty = tr_qual_type ?loc ~namespaces q in
+    begin match k with
+      | Struct -> trm_add_cstyle Struct tr_ty
+      | Class -> trm_add_cstyle Class tr_ty
+      | NoKeyword -> tr_ty
+      | _ -> loc_fail loc "Clang_to_ast.tr_type_desc: this elaborated type is not supported."
     end
   | Record {nested_name_specifier = nns; name = n; _} ->
-    let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns in
+    let qpath = namespaces @ tr_nested_name_specifier ?loc nns in
     begin match n with
-      | IdentifierName n ->
-         typ_constr ~tid:(get_typid_for_type qpath n) (qpath, n)
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_type_desc: only identifiers are allowed in records"
+      | IdentifierName n -> typ_var (name_to_typvar ~namespaces:qpath n)
+      | _ -> loc_fail loc "Clang_to_ast.tr_type_desc: only identifiers are allowed in records"
     end
   | Enum {nested_name_specifier = nns; name = n; _} ->
-    let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns in
+    let qpath = namespaces @ tr_nested_name_specifier ?loc nns in
     begin match n with
-      | IdentifierName n ->
-         typ_constr ~tid:(get_typid_for_type qpath n) (qpath, n)
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_type_desc: only identifiers are allowed in enums"
+      | IdentifierName n -> typ_var (name_to_typvar ~namespaces:qpath n)
+      | _ -> loc_fail loc "Clang_to_ast.tr_type_desc: only identifiers are allowed in enums"
     end
-  | TemplateTypeParm name ->
-    wrap_const ~const (typ_template_param name)
+  | TemplateTypeParm name -> typ_var (name_to_typvar name)
   | TemplateSpecialization {name = NameTemplate nm; args = tyl } ->
-    (* For the moment we don't have a way to create an id for builtin types *)
     let tl = (List.map (fun (targ : template_argument) ->
       match targ with
-      | Type q -> (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_type_desc: only simple types are supported as template arguments") tyl) in
-    (* temporary hack for printing <> *)
-    let tl = if tl = [] then [typ_unit()] else tl in
-
-    wrap_const ~const (typ_constr ([], nm) ~tid:(-1) ~tl)
+      | Type q -> tr_qual_type ?loc q
+      | _ -> loc_fail loc "Clang_to_ast.tr_type_desc: only simple types are supported as template arguments") tyl) in
+    typ_apps (typ_var (name_to_typvar ~namespaces nm)) tl
   | Decltype e ->
     let tr_e = tr_expr e in
-    wrap_const ~const (typ_decl tr_e)
+    typ_typeof tr_e
   | SubstTemplateTypeParm tys ->
     redundant_template_definition_type := true;
-    wrap_const ~const (typ_template_param tys)
-
+    typ_var (name_to_typvar tys)
   | InjectedClassName {desc = q_d; _} ->
-    let tq = (tr_type_desc : ?loc:trm_loc -> ?const:bool -> ?tr_record_types:bool -> type_desc -> typ) ?loc q_d in
-    let tq = typ_add_attribute Injected tq in
-    wrap_const ~const tq (* @annot_injected *)
-
-  | _ -> loc_fail loc "Clang_to_astRawC.tr_type_desc: not implemented"
+    let tq = tr_type_desc ?loc q_d in
+    trm_add_cstyle InjectedClassName tq
+  | _ -> loc_fail loc "Clang_to_ast.tr_type_desc: not implemented"
 
 (** [is_qual_type_const q]: checks if [q] is a const type or not *)
 and is_qual_type_const (q : qual_type) : bool =
@@ -403,9 +344,9 @@ and is_qual_type_const (q : qual_type) : bool =
 
 (** [tr_qual_type ?loc ~tr_record_types q]: translates  ClanML C/C++ types into OptiTrust types *)
 (* FIXME: #odoc why is annotation required on callees? *)
-and tr_qual_type ?(loc : location) ?(tr_record_types : bool = true) (q : qual_type) : typ =
-  let ({desc = d; const = c; _} : qual_type) = q in
-  (tr_type_desc : ?loc:trm_loc -> ?const:bool -> ?tr_record_types:bool -> type_desc -> typ) ?loc ~const:c ~tr_record_types d
+and tr_qual_type ?(loc : location) ?(namespaces = []) (q : qual_type) : typ =
+  let ({desc; const; _} : qual_type) = q in
+  wrap_const ~const (tr_type_desc ?loc ~namespaces desc)
 
 (** [tr_nested_name_specifier ?loc name_specs]: converts Clang.name_specifier to a string list. *)
 (* FIXME: #odoc why is annotation required on callees? *)
@@ -432,20 +373,19 @@ and tr_ident (id : ident_ref node) : string =
 (** [tr_stmt s]: translates statement [s] into an OptiTrust trm *)
 and tr_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
-  let ctx = get_ctx () in
   match s.desc with
   | Compound sl ->
     let tl = List.map tr_stmt sl in
-    trm_seq_nomarks ?loc ~ctx tl
+    trm_seq_nomarks ?loc tl
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
     let tc = tr_expr c in
     let tt = tr_stmt st in
     begin match seo with
-      | None -> trm_if ?loc ~ctx tc tt (trm_lit Lit_unit)
+      | None -> trm_if ?loc tc tt (trm_lit Lit_unit)
       | Some se ->
         let te = tr_stmt se in
-        trm_if ?loc ~ctx tc tt te
+        trm_if ?loc tc tt te
     end
   | If _ ->
     (* Add support for this feature. *)
@@ -453,39 +393,39 @@ and tr_stmt (s : stmt) : trm =
   | While {condition_variable = _; cond = c; body = s} ->
     let tc = tr_expr c in
     let ts = tr_stmt s in
-    trm_while ?loc ~ctx tc ts
+    trm_while ?loc tc ts
   | Do {body = s; cond = c;} ->
     let tc = tr_expr c in
     let ts = tr_stmt s in
-    trm_do_while ?loc ~ctx ts tc
+    trm_do_while ?loc ts tc
   | For {init = inito; condition_variable = None; cond = condo; inc = stepo;
          body} ->
     let tr_stmt_opt (so : stmt option) : trm =
       match so with
-      | None -> trm_lit ?loc ~ctx  Lit_unit
+      | None -> trm_lit ?loc Lit_unit
       | Some s -> tr_stmt s
       in
     let init = tr_stmt_opt inito in
     let cond =
       match condo with
       (* no condition is equivalent to true *)
-      | None -> trm_add_cstyle Empty_cond (trm_lit ?loc ~ctx (Lit_bool true))
+      | None -> trm_add_cstyle Empty_cond (trm_lit ?loc (Lit_bool true))
       | Some e -> tr_expr e
     in
     let step = tr_stmt_opt stepo in
     let body = tr_stmt body in
-    trm_for_of_trm_for_c (trm_for_c ?loc ~ctx init cond step body)
+    trm_for_of_trm_for_c (trm_for_c ?loc init cond step body)
   | For _ ->
     loc_fail loc "Clang_to_astRawC.tr_stmt: variable declaration forbidden in for conditions"
   | Return eo ->
     begin match eo with
-      | None -> trm_abort ?loc ~ctx (Ret None)
+      | None -> trm_abort ?loc (Ret None)
       | Some e ->
         let t = tr_expr e in
-        trm_abort ?loc ~ctx (Ret (Some t))
+        trm_abort ?loc (Ret (Some t))
     end
-  | Break -> trm_abort ?loc ~ctx (Break None)
-  | Continue -> trm_abort ?loc ~ctx (Continue None)
+  | Break -> trm_abort ?loc (Break None)
+  | Continue -> trm_abort ?loc (Continue None)
   | Decl dl ->
     begin match dl with
       | [] -> loc_fail loc "Clang_to_astRawC.tr_stmt: empty declaration list"
@@ -498,14 +438,14 @@ and tr_stmt (s : stmt) : trm =
         | _ -> loc_fail loc "Clang_to_astRawC.tr_stmr: expected a multip declaration statemnt"
         end
        ) dls [] in
-       trm_let_mult ?loc ~ctx bindings
+       trm_let_mult ?loc bindings
     end
   | Expr e ->
     tr_expr e
   | Label {label = l; body = s} ->
     let t = tr_stmt s in
     trm_add_label l t
-  | Null -> trm_lit ?loc ~ctx Lit_unit
+  | Null -> trm_lit ?loc Lit_unit
   | Switch {init = None; condition_variable = None; cond = c; body = s} ->
     begin match s.desc with
       | Compound sl -> tr_switch loc c sl
@@ -513,7 +453,7 @@ and tr_stmt (s : stmt) : trm =
     end
   | Switch _ ->
     loc_fail loc "Clang_to_astRawC.tr_stmt: variable declaration forbidden in switch conditions"
-  | Goto l -> trm_goto ?loc ~ctx l
+  | Goto l -> trm_goto ?loc l
   | _ ->
     loc_fail loc ("Clang_to_astRawC.tr_stmt: the following statement is unsupported: " ^
               Clang.Stmt.show s)
@@ -543,7 +483,7 @@ and tr_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
         | _ -> loc_fail loc "Clang_to_astRawC.tr_switch: case or default expected"
       end
   in
-  trm_switch ?loc ~ctx:(get_ctx ()) t  (aux loc cases)
+  trm_switch ?loc t (aux loc cases)
 
 (** [compute_cases case_acc s]: computes a list of nested cases described by s in reverse order
     and the first instruction of their body *)
@@ -576,7 +516,7 @@ and compute_body (loc : location) (body_acc : trms)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> trm_add_cstyle (No_braces 0) (trm_seq_nomarks ?loc ~ctx:(get_ctx ()) tl), sl
+          | tl -> trm_add_cstyle (No_braces 0) (trm_seq_nomarks ?loc tl), sl
         end
       | _ ->
         let t = tr_stmt s in
@@ -584,29 +524,25 @@ and compute_body (loc : location) (body_acc : trms)
     end
 
 
-(** [tr_init_list ?loc ~ctx ty el]: translates [el] into a trm, based on type [ty] the initialization list kind
+(** [tr_init_list ?loc ty el]: translates [el] into a trm, based on type [ty] the initialization list kind
      is determined. *)
 (* FIXME: #odoc why is annotation required on callees? *)
-and tr_init_list ?(loc : location) ~(ctx : ctx) (ty : typ) (el : expr list) : trm =
-  match get_typ_kind (Option.get (get_ctx ()).ctx_types) ty with
-  | Typ_kind_array ->
-     let tl = List.map tr_expr el in
-     trm_array ?loc ~ctx ~typ:ty (Mlist.of_list tl)
-  | Typ_kind_record | Typ_kind_undefined ->
-     let tl = List.map (fun (e : expr) ->
+and tr_init_list ?(loc : location) (ty : typ) (el : expr list) : trm =
+  if is_typ_array ty then
+    let tl = List.map tr_expr el in
+    trm_array ?loc ~typ:ty (Mlist.of_list tl)
+  else
+    let tl = List.map (fun (e : expr) ->
       match e.desc with
-      | DesignatedInit {designators = dl; init = e } ->
+      | DesignatedInit { designators = dl; init = e } ->
         begin match dl with
         | [FieldDesignator f] ->
           (Some f, tr_expr e)
         | _ -> loc_fail loc "Clang_to_astRawC.tr_init_list: struct initialization with multiple designators per field are not supported"
         end
-      | _ -> (None, tr_expr e)) el in
-        trm_record ?loc ~ctx ~typ:ty (Mlist.of_list tl)
-  | _ ->
-    let tl = List.map tr_expr el in
-    trm_add_cstyle Brace_init (trm_array ?loc ~ctx ~typ:ty (Mlist.of_list tl))
-  (* | _ -> loc_fail loc "Clang_to_astRawC.tr_init_list: initialisation lists only allowed for struct and array" *)
+      | _ -> (None, tr_expr e)) el
+    in
+    trm_record ?loc ~typ:ty (Mlist.of_list tl)
 
 (** [tr_expr e]: translates expression [e] into an OptiTrust trm *)
 and tr_expr (e : expr) : trm =
@@ -614,20 +550,19 @@ and tr_expr (e : expr) : trm =
   let loc = loc_of_node e in
   let typ : typ option =
     let q = Clang.Type.of_node e in
-    try Some ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q) with
+    try Some (tr_qual_type ?loc q) with
     | _ ->
       verbose_warn "%s: tr_expr: unable to translate type %s" (loc_to_string loc)
         (Clang.Type.show q);
       None
   in
-  let ctx = get_ctx() in
   match e.desc with
   | ConditionalOperator {cond; then_branch = Some e_then;
                          else_branch = e_else} ->
     let t_cond = tr_expr cond in
     let t_then = tr_expr e_then in
     let t_else = tr_expr e_else in
-    trm_apps ?loc ?typ ~ctx (trm_prim ?loc ~ctx Prim_conditional_op)
+    trm_apps ?loc ?typ (trm_prim ?loc Prim_conditional_op)
       [t_cond; t_then; t_else]
   | ConditionalOperator _ ->
     loc_fail loc
@@ -635,17 +570,17 @@ and tr_expr (e : expr) : trm =
   | CompoundLiteral {init = init_expr; qual_type = _q} -> tr_expr init_expr
   | IntegerLiteral i ->
     begin match i with
-      | Int i -> trm_lit ~typ ?loc ~ctx (Lit_int i)
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only int literal allowed"
+      | Int i -> trm_lit ?typ ?loc (Lit_int i)
+      | CXInt _ -> loc_fail loc "Clang_to_astRawC.tr_expr: found an integer literal that does not fit in OCaml's int"
     end
-  | BoolLiteral b -> trm_lit ~typ ?loc ~ctx (Lit_bool b)
+  | BoolLiteral b -> trm_lit ?typ ?loc (Lit_bool b)
   | FloatingLiteral f ->
     begin match f with
-      | Float f -> trm_lit ~typ ?loc ~ctx (Lit_double f)
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only float literal allowed"
+      | Float f -> trm_lit ?typ ?loc (Lit_float f)
+      | CXFloat _ -> loc_fail loc "Clang_to_astRawC.tr_expr: found a float literal that does not fit in OCaml's float"
     end
   | StringLiteral {byte_width = _; bytes = s; string_kind = _} ->
-    trm_lit ~typ ?loc ~ctx (Lit_string s)
+    trm_lit ?typ ?loc (Lit_string s)
 
 
   | InitList el ->
@@ -654,7 +589,7 @@ and tr_expr (e : expr) : trm =
       | None -> loc_fail loc ("unable to obtain type of an initialization list")
       | Some ty -> ty
     in
-    (tr_init_list : ?loc:trm_loc -> ctx:ctx -> typ -> Clang.Ast.expr list -> trm) ?loc ~ctx tt el
+    tr_init_list ?loc tt el
 
   | UnaryExpr {kind = k; argument = a} ->
     begin match k with
@@ -662,9 +597,9 @@ and tr_expr (e : expr) : trm =
         begin match a with
           | ArgumentExpr e ->
             let t = tr_expr e in
-            trm_apps ?loc ?typ ~ctx (trm_var ?loc (name_to_var "sizeof")) [t]
+            trm_apps ?loc ?typ (trm_var ?loc (name_to_var "sizeof")) [t]
           | ArgumentType q ->
-            trm_var ?loc ?typ ~ctx (name_to_var ("sizeof(" ^ qual_type_to_string q ^ ")"))
+            trm_var ?loc ?typ (name_to_var ("sizeof(" ^ qual_type_to_string q ^ ")"))
         end
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: unsupported unary expr"
     end
@@ -677,9 +612,9 @@ and tr_expr (e : expr) : trm =
            for example, [int p = 3; f(&p)]. In our AST, [p] represents
            the address of the cell at which [3] is stored, thus the
            call is actually [f(p)]. In other words we drop the [&] operator. *)
-        trm_apps ?loc ?typ ~ctx (trm_unop Unop_address) [t]
+        trm_apps ?loc ?typ (trm_unop Unop_address) [t]
       | _ ->
-        let trm_apps1 unop t1 = trm_apps ?loc ?typ ~ctx (trm_unop ?loc unop) [t1] in
+        let trm_apps1 unop t1 = trm_apps ?loc ?typ (trm_unop ?loc unop) [t1] in
         begin match k with
           | PostInc -> trm_apps1 Unop_post_inc t
           | PostDec -> trm_apps1 Unop_post_dec t
@@ -698,10 +633,10 @@ and tr_expr (e : expr) : trm =
     let tr = tr_expr re in
     let tl = tr_expr le in
     let trm_prim_c binop tl tr =
-       trm_prim_compound ?loc ~ctx binop tl tr in
+       trm_prim_compound ?loc binop tl tr in
     begin match k with
       | Assign ->
-        trm_set ?loc ~ctx tl tr
+        trm_set ?loc tl tr
       | AddAssign ->
         trm_prim_c Binop_add tl tr
       | SubAssign ->
@@ -724,24 +659,24 @@ and tr_expr (e : expr) : trm =
          trm_prim_c Binop_xor tl tr
       | _ ->
         begin match k with
-          | Mul -> trm_mul ?loc ~ctx ?typ tl tr
-          | Div -> trm_div ?loc ~ctx ?typ tl tr
-          | Add -> trm_add ?loc ~ctx ?typ tl tr
-          | Sub -> trm_sub ?loc ~ctx ?typ tl tr
-          | LT ->  trm_lt ?loc ~ctx ?typ tl tr
-          | GT ->  trm_gt ?loc ~ctx ?typ tl tr
-          | LE ->  trm_le ?loc ~ctx ?typ tl tr
-          | GE ->  trm_ge ?loc ~ctx ?typ tl tr
-          | EQ ->  trm_eq ?loc ~ctx ?typ tl tr
-          | NE ->  trm_neq ?loc ~ctx ?typ tl tr
-          | And -> trm_bit_and ?loc ~ctx ?typ tl tr
-          | LAnd -> trm_and ?loc ~ctx ?typ tl tr
-          | Or ->  trm_bit_or ?loc ~ctx ?typ tl tr
-          | LOr -> trm_or ?loc ~ctx ?typ tl tr
-          | Shl -> trm_shiftl ?loc ~ctx ?typ tl tr
-          | Shr -> trm_shiftr ?loc ~ctx ?typ tl tr
-          | Rem -> trm_mod ?loc ~ctx ?typ tl tr
-          | Xor -> trm_xor ?loc ~ctx ?typ tl tr
+          | Mul -> trm_mul ?loc ?typ tl tr
+          | Div -> trm_div ?loc ?typ tl tr
+          | Add -> trm_add ?loc ?typ tl tr
+          | Sub -> trm_sub ?loc ?typ tl tr
+          | LT ->  trm_lt ?loc ?typ tl tr
+          | GT ->  trm_gt ?loc ?typ tl tr
+          | LE ->  trm_le ?loc ?typ tl tr
+          | GE ->  trm_ge ?loc ?typ tl tr
+          | EQ ->  trm_eq ?loc ?typ tl tr
+          | NE ->  trm_neq ?loc ?typ tl tr
+          | And -> trm_bit_and ?loc ?typ tl tr
+          | LAnd -> trm_and ?loc ?typ tl tr
+          | Or ->  trm_bit_or ?loc ?typ tl tr
+          | LOr -> trm_or ?loc ?typ tl tr
+          | Shl -> trm_shiftl ?loc ?typ tl tr
+          | Shr -> trm_shiftr ?loc ?typ tl tr
+          | Rem -> trm_mod ?loc ?typ tl tr
+          | Xor -> trm_xor ?loc ?typ tl tr
           | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: binary operator not implemented"
         end
     end
@@ -752,20 +687,20 @@ and tr_expr (e : expr) : trm =
     | Trm_var x when var_has_name x "exact_div" ->
       begin match List.map tr_expr el with
       | [n; b] ->
-        trm_apps ?loc ~ctx ?typ (trm_binop Binop_exact_div) [n; b]
+        trm_apps ?loc ?typ (trm_binop Binop_exact_div) [n; b]
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: 'exact_div' expects two arguments"
       end
     | Trm_var x when Str.string_match (Str.regexp "overloaded=") x.name 0 ->
         begin match el with
-        | [tl;tr] -> trm_set ?loc ~ctx (tr_expr tl) (tr_expr tr)
+        | [tl;tr] -> trm_set ?loc (tr_expr tl) (tr_expr tr)
         | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
         end
     | Trm_var x when var_has_name x "overloaded_call" ->
       let t_args = List.map tr_expr el in
       let call_name , call_args = List.uncons t_args in
-      trm_apps ?loc ~ctx ?typ call_name call_args
+      trm_apps ?loc ?typ call_name call_args
     | _->
-      trm_apps ?loc ~ctx ?typ tf (List.map tr_expr el)
+      trm_apps ?loc ?typ tf (List.map tr_expr el)
     end
   | DeclRef {nested_name_specifier = nns; name = n; template_arguments = targs} -> (* Occurrence of a variable *)
     begin match n with
@@ -775,7 +710,7 @@ and tr_expr (e : expr) : trm =
           we look at the type given in their declaration to take into account
           type aliases
          *)
-        let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns in
+        let qpath = tr_nested_name_specifier ?loc nns in
         let typ : typ option =
           (*
             clangml version: does not work (q = InvalidType for several vars in
@@ -786,18 +721,18 @@ and tr_expr (e : expr) : trm =
           (* hack with ctx_var *)
           Qualified_map.find_opt (qpath, s) !ctx_var
         in
-        let res = trm_var ?loc ~ctx ?typ (name_to_var ~namespaces:qpath s) in
+        let res = trm_var ?loc ?typ (name_to_var ~namespaces:qpath s) in
         (* DEPRECATED? get cursor info with locations of variables
         let unified_symbol_resolution1 = Clang.get_cursor_usr (cursor_of_node e) in
         let unified_symbol_resolution2 = Clang.get_cursor_usr (Clang.get_cursor_definition (cursor_of_node e)) in
         printf "%s ---- %s\n" unified_symbol_resolution1 unified_symbol_resolution2;
         *)
-        let targs = List.map (fun (targ : template_argument) -> begin match targ with | Type q -> (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: something went wrong." end) targs in
+        let targs = List.map (fun (targ : template_argument) -> begin match targ with | Type q -> tr_qual_type ?loc q | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: something went wrong." end) targs in
         begin match targs with
         | [] -> res
         | _ -> trm_add_cstyle (Typ_arguments targs) res
         end
-      | OperatorName op -> overloaded_op ?loc ~ctx  op
+      | OperatorName op -> overloaded_op ?loc op
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only identifiers allowed for variables"
     end
   | Member {base = eo; arrow = has_arrow; field = f} ->
@@ -810,7 +745,7 @@ and tr_expr (e : expr) : trm =
             let f = tr_ident id in
             (* TODO: give type to trm_this *)
             let t_this = trm_get (trm_add_cstyle Implicit_this (trm_this ())) in
-            trm_apps ?loc ~ctx ?typ (trm_unop (Unop_struct_get f)) [t_this]
+            trm_apps ?loc ?typ (trm_unop (Unop_struct_get f)) [t_this]
           | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: fields should be accesses by names"
           end
         else loc_fail loc "Clang_to_astRawC.tr_expr: field accesses should have a base"
@@ -827,11 +762,11 @@ and tr_expr (e : expr) : trm =
       end in
       let base = tr_expr e in
         if has_arrow then
-          trm_apps ?loc ~ctx ?typ (trm_unop (Unop_struct_get f) ) [trm_get base]
+          trm_apps ?loc ?typ (trm_unop (Unop_struct_get f) ) [trm_get base]
         else
           let get_op = trm_unop ?loc (Unop_struct_get f) in
           let get_op = if is_get_operation base then trm_add_cstyle Display_no_arrow get_op else get_op in
-          trm_apps ?loc ~ctx ?typ get_op [base]
+          trm_apps ?loc ?typ get_op [base]
     end
   | ArraySubscript {base = e; index = i} ->
     let ti = tr_expr i in
@@ -846,7 +781,7 @@ and tr_expr (e : expr) : trm =
       (* happens for, e.g., typedef T = int*; *)
       warn_array_subscript_not_supported te.typ;
     end;
-    trm_apps ?loc ~ctx ?typ (trm_binop ?loc ~ctx (Binop_array_get)) [te; ti]
+    trm_apps ?loc ?typ (trm_binop ?loc (Binop_array_get)) [te; ti]
 
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
@@ -858,45 +793,45 @@ and tr_expr (e : expr) : trm =
   | Cast {kind = k; qual_type = q; operand = e'} ->
     begin match k with
       | CStyle | Static | Functional ->
-        let t = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
+        let t = tr_qual_type ?loc q in
         let te' = tr_expr e' in
-        trm_apps ?loc ~ctx ?typ (trm_unop ?loc ~ctx (Unop_cast t)) [te']
+        trm_apps ?loc ?typ (trm_unop ?loc (Unop_cast t)) [te']
 
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only static casts are allowed"
     end
   | New {placement_args = _; qual_type = q; array_size = seo; init = _} ->
-    let tq = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
+    let tq = tr_qual_type ?loc q in
     begin match seo with
-      | None -> trm_prim ?loc ~ctx (Prim_new tq)
+      | None -> trm_prim ?loc (Prim_new tq)
       | Some se ->
         let size = tr_expr se in
-        trm_prim ?loc ~ctx (Prim_new (typ_array tq ~size))
+        trm_prim ?loc (Prim_new (typ_array tq ~size))
     end
   | Delete {global_delete = _; array_form = b; argument = e} ->
     let te = tr_expr e in
-    trm_delete ?loc ~ctx b te
+    trm_delete ?loc b te
   | Lambda {capture_default = ByRef; captures = _; is_mutable = _; parameters = po; result_type = rt; body = b} ->
-    let tt = begin match rt with | Some ty -> Some ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ty ) | None -> None end in
+    let tt = begin match rt with | Some ty -> Some (tr_qual_type ?loc ty ) | None -> None end in
     let tb = tr_stmt b in
     let pl = match po with | Some pl -> pl | None -> [] in
     let args = List.map (fun {decoration = _;
-      desc = {qual_type = q; name = n; default = _}} -> (name_to_var n, (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q)) pl in
+      desc = {qual_type = q; name = n; default = _}} -> (name_to_var n, tr_qual_type ?loc q)) pl in
     List.iter (fun (y, ty) -> ctx_var_add y ty) args;
     trm_fun args tt tb
-  | This -> trm_this ?loc ?typ ~ctx ()
+  | This -> trm_this ?loc ?typ ()
   | UnexposedExpr ImplicitValueInitExpr ->
     verbose_warn "%s: tr_expr: implicit initial value" (loc_to_string loc);
-    trm_lit ?loc ~ctx Lit_uninitialized
+    trm_lit ?loc Lit_uninitialized
   | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) ->
       Tools.warn "Unknown expressions are parsed as null pointers";
-      trm_add_mark "unknown_expr" (trm_null ?loc ~ctx () )
-  | ImplicitValueInit _ -> trm_lit ?loc ~ctx Lit_uninitialized
+      trm_add_mark "unknown_expr" (trm_null ?loc () )
+  | ImplicitValueInit _ -> trm_lit ?loc Lit_uninitialized
 
   (* TODO: clean up and use trm_null everywhere;
      TODO: check whether UnknownExpr (GNUNullExpr, GNUNullExpr) is actually used sometimes *)
-  | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~uppercase:true ?loc ~ctx () (* sometimes Null is translated like this *) (* LATER: in which condition? *)
-  | NullPtrLiteral -> trm_null ?loc ~ctx ()
-  | UnexposedExpr (GNUNullExpr) -> trm_null ~uppercase:true ?loc ~ctx ()
+  | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~uppercase:true ?loc () (* sometimes Null is translated like this *) (* LATER: in which condition? *)
+  | NullPtrLiteral -> trm_null ?loc ()
+  | UnexposedExpr (GNUNullExpr) -> trm_null ~uppercase:true ?loc ()
 
     (* TODO: use Lit_nullptr, and use annotation to know if should print NULL or nullptr *)
 
@@ -939,22 +874,16 @@ and tr_decl_list (dl : decl list) : trms =
     let loc = loc_of_node record_node in
     begin match k with
       | Struct ->
-        (* First add the constructor name to the context, needed for recursive types *)
-        let tc = name_to_typconstr tn in
-        let tid = next_typconstrid () in
-        ctx_tconstr_add tc tid;
-
-        (* Second, parse the fields names and types *)
+        (* parse the fields names and types *)
         let prod_list = List.map ( fun (d : decl) ->
           let loc = loc_of_node d in
           match d with
           | {decoration = _; desc = Field {name = fn; qual_type = q;
                                               bitwidth = _; init = _;
                                               attributes = al}} ->
-            ctx_label_add fn tid;
-            let ft = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
+            let ft = tr_qual_type ?loc q in
             let al = List.map (tr_attribute loc) al in
-            let ty = {ft with typ_attributes = al} in
+            let ty = {ft with annot = { ft.annot with trm_annot_attributes = al } } in
             (Record_field_member (fn, ty), Access_unspecified)
           | _ ->
             Tools.debug "Failing from here";
@@ -964,15 +893,11 @@ and tr_decl_list (dl : decl list) : trms =
         (* Third, add the typedef to the context *)
         let is_rec_type = if rn = "" then false else true in
         let td = {
-          typdef_loc = loc;
-          typdef_typid = tid;
-          typdef_tconstr = tn;
-          typdef_vars = [];
-          typdef_body = Typdef_record prod_list
-          } in
-        ctx_typedef_add tc tid td;
-        let trm_td = trm_typedef ?loc ~ctx:(get_ctx ()) td in
-        let trm_td = if is_rec_type then trm_add_cstyle Is_rec_struct trm_td else trm_td in
+          typedef_name = name_to_typvar tn;
+          typedef_body = Typedef_record prod_list
+        } in
+        let trm_td = trm_typedef ?loc td in
+        let trm_td = if is_rec_type then trm_add_cstyle Rec_struct trm_td else trm_td in
         let tl' = tr_decl_list dl' in
         trm_td :: tl'
 
@@ -990,19 +915,17 @@ and tr_decl_list (dl : decl list) : trms =
 (** [tr_member_initialized_list ?loc init_list]: translates class member initializer lists. *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and tr_member_initialized_list ?(loc : location) (init_list :  constructor_initializer list) : trms =
-  let ctx = get_ctx () in
   List.map (fun {kind = k; init = ie} ->
     match k with
     | Member {indirect = b; field = {desc = f}} ->
       let ti = tr_expr ie in
-      trm_add_cstyle Member_initializer (trm_set (trm_apps ~ctx (trm_unop (Unop_struct_get f)) [trm_this()]) (ti))
+      trm_add_cstyle Member_initializer (trm_set (trm_apps (trm_unop (Unop_struct_get f)) [trm_this()]) (ti))
     | _ -> loc_fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple member initializers are supported."
   ) init_list
 
 (** [tr_decl d]: translates declaration [d] from clang to OptiTrust ast. *)
 and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
   let loc = loc_of_node d in
-  let ctx = get_ctx () in
   let res = match d.desc with
   | EnumDecl {name = tn; constants; _} ->
     let enum_constant_l =
@@ -1016,22 +939,14 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
         )
         constants
     in
-    let tc = name_to_typconstr tn in
-    let tid = next_typconstrid () in
-    ctx_tconstr_add tc tid;
     let td = {
-      typdef_loc = loc;
-      typdef_typid = tid;
-      typdef_tconstr = tn;
-      typdef_vars = [];
-      typdef_body = Typdef_enum enum_constant_l
+      typedef_name = name_to_typvar tn;
+      typedef_body = Typedef_enum enum_constant_l
     } in
-    ctx_typedef_add tc tid td;
-    trm_typedef ?loc ~ctx td
+    trm_typedef ?loc td
   | Function {linkage = _; function_type = t; nested_name_specifier = nns;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
-
-    let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns in
+    let qpath = tr_nested_name_specifier ?loc nns in
     let s =
       begin match n with
         | IdentifierName s -> s
@@ -1044,10 +959,10 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
          exception_spec = _; _} = t in
 
     redundant_template_definition_type := false;
-    let tt = (tr_type_desc : ?loc:trm_loc -> ?const:bool -> ?tr_record_types:bool -> type_desc -> typ) ?loc (FunctionType t) in
+    let tt = tr_type_desc ?loc (FunctionType t) in
     if !redundant_template_definition_type then raise RedundantTemplateDefinition;
-    let res = begin match tt.typ_desc with
-      | Typ_fun (args_t, out_t) ->
+    let res = begin match typ_fun_inv tt with
+      | Some (args_t, out_t) ->
         begin match po with
           | None ->
             if List.length args_t != 0 then
@@ -1076,13 +991,13 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
             in
             trm_let_fun ?loc (name_to_var ~namespaces:qpath s) out_t args tb
         end
-      |_ -> loc_fail loc "Clang_to_astRawC.tr_decl: should not happen"
+      | _ -> loc_fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
     (* DEPREACTED let res =trm_add_cstyle_clang_cursor (cursor_of_node d) res *)
     res
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; nested_name_specifier = nns; _};
                static = st; const = c; _} ->
-    let qpath = (tr_nested_name_specifier : ?loc:trm_loc -> nested_name_specifier option -> typvar list) ?loc nns in
+    let qpath = tr_nested_name_specifier ?loc nns in
     let s =
       begin match n with
       | IdentifierName s -> s
@@ -1093,10 +1008,10 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
 
     let {calling_conv = _; result = _; parameters = po;
          exception_spec = _; _} = ty in
-    let tt = (tr_type_desc : ?loc:trm_loc -> ?const:bool -> ?tr_record_types:bool -> type_desc -> typ) ?loc (FunctionType ty) in
+    let tt = tr_type_desc ?loc (FunctionType ty) in
     let res =
-    begin match tt.typ_desc with
-      | Typ_fun (args_t, out_t) ->
+    begin match typ_fun_inv tt with
+      | Some (args_t, out_t) ->
         let args = begin match po with
           | None ->
             if List.length args_t != 0 then
@@ -1129,7 +1044,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let class_name = Tools.clean_class_name cn in
     let qpath = if in_class_decl then [] else [cn] in
     let args = List.map (fun {decoration = _;
-       desc = {qual_type = q; name = n; default = _}} -> (name_to_var n,(tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q)) pl in
+       desc = {qual_type = q; name = n; default = _}} -> (name_to_var n,tr_qual_type ?loc q)) pl in
     let tb = match bd with
     | None -> trm_lit ?loc Lit_uninitialized
     | Some s -> tr_stmt s in
@@ -1137,10 +1052,10 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       if List.length il = 0
         then tb
         else
-          let t_il = (tr_member_initialized_list : ?loc:trm_loc -> constructor_initializer list -> trms) ?loc il in
+          let t_il = tr_member_initialized_list ?loc il in
           insert_at_top_of_seq t_il tb
       in
-    let res = trm_let_fun ?loc (name_to_var ~namespaces:qpath class_name) (typ_unit ()) args tb in
+    let res = trm_let_fun ?loc (name_to_var ~namespaces:qpath class_name) typ_unit args tb in
     (* DEPREACTED trm_add_cstyle_clang_cursor (cursor_of_node d) res *)
     if ib
      then trm_add_cstyle (Class_constructor Constructor_implicit) res
@@ -1153,34 +1068,21 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     | None -> trm_lit ?loc Lit_uninitialized
     | Some s -> tr_stmt s in
     let class_name = Tools.clean_class_name cn in
-    let res = trm_let_fun ?loc (name_to_var class_name) (typ_unit ()) [] tb in
+    let res = trm_let_fun ?loc (name_to_var class_name) typ_unit [] tb in
     (* DEPREACTED let res =trm_add_cstyle_clang_cursor (cursor_of_node d) in*)
     if df
       then trm_add_cstyle (Class_destructor Destructor_default) res
       else if dl then trm_add_cstyle (Class_destructor Destructor_delete) res
       else trm_add_cstyle (Class_destructor Destructor_simpl) res
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
-    let rec contains_elaborated_type (q : qual_type) : bool =
-      let {desc = d;const = _;_} = q in
-      match d with
-      | Pointer q -> contains_elaborated_type q
-      | LValueReference q -> contains_elaborated_type q
-      | RValueReference q -> contains_elaborated_type q
-      | ConstantArray {element = q;_} -> contains_elaborated_type q
-      | VariableArray {element = q; _} -> contains_elaborated_type q
-      | IncompleteArray q -> contains_elaborated_type q
-      | Elaborated _ -> true
-      | _ -> false
-
-    in
-    let tt = if contains_elaborated_type t then (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc ~tr_record_types:false t else (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc t in
+    let tt = tr_qual_type ?loc t in
     let te =
       begin match eo with
       | None -> trm_lit ?loc Lit_uninitialized
       | Some e ->
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
-          (tr_init_list : ?loc:trm_loc -> ctx:ctx -> typ -> Clang.Ast.expr list -> trm) ?loc ~ctx tt el
+          tr_init_list ?loc tt el
         | Construct {args = args; qual_type = q} ->
           let el = List.filter (fun (e : expr) -> match e.desc with DefaultArg -> false | _ -> true) args in
           let f_name = trm_var (name_to_var (qual_type_to_string q)) in
@@ -1205,99 +1107,77 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     ctx_var_add v tt;
     trm_let ?loc (v,tt) te
   | TypedefDecl {name = tn; underlying_type = q} ->
-    let tc = name_to_typconstr tn in
-    let tid = next_typconstrid () in
-    ctx_tconstr_add tc tid;
-    let tq = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
+    let tq = tr_qual_type ?loc q in
     let td = {
-      typdef_loc = loc;
-      typdef_typid = tid;
-      typdef_tconstr = tn;
-      typdef_vars = [];
-      typdef_body = Typdef_alias tq
+      typedef_name = name_to_typvar tn;
+      typedef_body = Typedef_alias tq
     }
     in
-    ctx_typedef_add tc tid td;
-    trm_typedef ?loc ~ctx td
+    trm_typedef ?loc td
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName tn ->
-        let tc = name_to_typconstr tn in
-        let tid = next_typconstrid () in
-        ctx_tconstr_add tc tid;
-        let tq = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
+        let tq = tr_qual_type ?loc q in
         let td = {
-          typdef_loc = loc;
-          typdef_typid = tid;
-          typdef_tconstr = tn;
-          typdef_vars = [];
-          typdef_body = Typdef_alias tq;} in
-        ctx_typedef_add tc tid td;
-        trm_typedef ?loc ~ctx td
+          typedef_name = name_to_typvar tn;
+          typedef_body = Typedef_alias tq;} in
+        trm_typedef ?loc td
       | _ -> loc_fail loc "Clang_to_astRawC.tr_decl: only identifiers allowed for type aliases"
     end
   | LinkageSpec {language = lang;decls = dl} ->
-     let dls = tr_decl_list dl in
-     let lang = match lang with
-     | C -> "C"
-     | CXX -> "C++"
-     | _ -> "" in
-     trm_extern lang dls
+    let dls = tr_decl_list dl in
+    let lang = match lang with
+    | C -> "C"
+    | CXX -> "C++"
+    | _ -> "" in
+    trm_extern lang dls
   | RecordDecl {keyword = k; attributes = _;
-                                        nested_name_specifier = _; name = rn;
-                                        bases = _; fields = fl; final = _;
-                                        complete_definition = _;_ } ->
-
-      let in_class_decl = true in
-      let def_access = match k with
-        | Struct -> Access_public
-        | _ -> Access_unspecified
-        in
-      let access_spec = ref def_access in
-      let prod_list = List.fold_left (fun acc (d : decl) ->
-      let loc = loc_of_node d in
-      match d with
-      | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
-        let ft = (tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q in
-        let al = List.map (tr_attribute loc) al in
-        let ty = {ft with typ_attributes = al} in
-        acc @ [(Record_field_member (fn, ty), !access_spec)]
-      | {decoration = _; desc = CXXMethod _; _} ->
-        let tdl = tr_decl ~in_class_decl d in
-        acc @ [(Record_field_method tdl, !access_spec)]
-      | {decoration = _; desc = Constructor _; _} ->
-        let tdl = tr_decl ~in_class_decl d in
-        acc @ [(Record_field_method tdl, !access_spec)]
-      | {decoration = _; desc = Destructor _; _} ->
-        let tdl = tr_decl ~in_class_decl d in
-        acc @ [(Record_field_method tdl, !access_spec)]
-      | {decoration = _; desc = AccessSpecifier (spec); _} ->
-        begin match spec with
-        | CXXPublic -> access_spec := Access_public; acc
-        | CXXPrivate -> access_spec := Access_private; acc
-        | CXXProtected -> access_spec := Access_protected; acc
-        | _ -> loc_fail loc "Clang_to_astRawC.tr_decl_list: unkwown access specifier"
-        end
-      | _ -> Tools.debug "Failing from here";
-        loc_fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
-    ) [] fl in
-      let tc = name_to_typconstr rn in
-      let tid = next_typconstrid () in
-      ctx_tconstr_add tc tid;
-      let td = {
-          typdef_loc = loc;
-          typdef_typid = tid;
-          typdef_tconstr = rn;
-          typdef_vars = [];
-          typdef_body = Typdef_record prod_list
-          } in
-        ctx_typedef_add tc tid td;
-
-      begin match k with
-      | Struct -> trm_add_cstyle Is_struct (trm_typedef ?loc ~ctx:(get_ctx()) td)
-      | Class -> trm_add_cstyle Is_class (trm_typedef ?loc ~ctx:(get_ctx()) td)
-      | _ -> loc_fail loc "Clang_to_astRawC.tr_decl_list: only classes and structs are supported."
+                nested_name_specifier = _; name = rn;
+                bases = _; fields = fl; final = _;
+                complete_definition = _;_ } ->
+    let in_class_decl = true in
+    let def_access = match k with
+      | Struct -> Access_public
+      | _ -> Access_unspecified
+      in
+    let access_spec = ref def_access in
+    let prod_list = List.fold_left (fun acc (d : decl) ->
+    let loc = loc_of_node d in
+    match d with
+    | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
+      let ft = tr_qual_type ?loc q in
+      let al = List.map (tr_attribute loc) al in
+      let ty = { ft with annot = { ft.annot with trm_annot_attributes = al } } in
+      acc @ [(Record_field_member (fn, ty), !access_spec)]
+    | {decoration = _; desc = CXXMethod _; _} ->
+      let tdl = tr_decl ~in_class_decl d in
+      acc @ [(Record_field_method tdl, !access_spec)]
+    | {decoration = _; desc = Constructor _; _} ->
+      let tdl = tr_decl ~in_class_decl d in
+      acc @ [(Record_field_method tdl, !access_spec)]
+    | {decoration = _; desc = Destructor _; _} ->
+      let tdl = tr_decl ~in_class_decl d in
+      acc @ [(Record_field_method tdl, !access_spec)]
+    | {decoration = _; desc = AccessSpecifier (spec); _} ->
+      begin match spec with
+      | CXXPublic -> access_spec := Access_public; acc
+      | CXXPrivate -> access_spec := Access_private; acc
+      | CXXProtected -> access_spec := Access_protected; acc
+      | _ -> loc_fail loc "Clang_to_astRawC.tr_decl_list: unkwown access specifier"
       end
+    | _ -> Tools.debug "Failing from here";
+      loc_fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
+  ) [] fl in
+    let td = {
+        typedef_name = name_to_typvar rn;
+        typedef_body = Typedef_record prod_list
+        } in
+
+    begin match k with
+    | Struct -> trm_add_cstyle Struct (trm_typedef ?loc td)
+    | Class -> trm_add_cstyle Class (trm_typedef ?loc td)
+    | _ -> loc_fail loc "Clang_to_astRawC.tr_decl_list: only classes and structs are supported."
+    end
 
   | Namespace {name = n; declarations = dl; inline = b} ->
     let dls = tr_decl_list dl in
@@ -1305,21 +1185,16 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
 
   | TemplateDecl {parameters = {list = pl;_}; decl = d} ->
     let dl = tr_decl d in
-    let pl = List.map (fun {decoration = _;desc = {parameter_name = n; parameter_kind = pk; parameter_pack = b};_} ->
-      let tpk =  begin match pk with
+    let pl = List.map (fun {decoration = _;desc = {parameter_name = n; parameter_kind = pk; parameter_pack};_} ->
+      let n, tpk = match pk with
         | Class {default = opt_q} ->
-         begin match opt_q with
-         | Some q -> Type_name (Some ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q))
-         | None -> Type_name None
-         end
+          (name_to_typvar n, Typename (Option.map (tr_qual_type ?loc) opt_q))
         | NonType {parameter_type = q; default = opt_expr} ->
-         begin match opt_expr with
-         | Some e -> NonType ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q, Some (tr_expr e ))
-         | None -> NonType ((tr_qual_type : ?loc:trm_loc -> ?tr_record_types:bool -> qual_type -> typ) ?loc q, None)
-         end
-        | _ -> loc_fail loc "Clang_to_astRawC.tr_decl: nested templates are not supported" (* LATER: Add support for nested templates *)
-        end in
-        (n, tpk, b)
+          (name_to_var n, NonType (tr_qual_type ?loc q, Option.map tr_expr opt_expr))
+        | Template _ -> loc_fail loc "Clang_to_astRawC.tr_decl: nested templates are not supported" (* LATER: Add support for nested templates *)
+      in
+      if parameter_pack then loc_fail loc "Clang_to_astRawC.tr_decl: parameter packs are not supported";
+      (n, tpk)
     ) pl in
     trm_template pl dl
   | UsingDirective {nested_name_specifier = _; namespace = ns} ->

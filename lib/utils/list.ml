@@ -131,7 +131,7 @@ let find_index (f : 'a -> bool) (l : 'a list) : int option =
       if f y then Some i else acc
     end) None l
 
-(** [Invalid_permutation]: exception raised by [check_permutation. *)
+(** [Invalid_permutation]: exception raised by [check_permutation]. *)
 exception Invalid_permutation
 
 (** [check_permutation nb order]: checks if the list [order] is a permutation of the range list [0,nb].

@@ -1,4 +1,5 @@
+#include <stdint.h>
 
-typedef unsigned char uchar;
+typedef uint8_t uchar;
 
-unsigned char c;
+uint8_t c;

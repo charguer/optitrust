@@ -1,6 +1,7 @@
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 open Mark
 open Matrix_trm
 
@@ -23,7 +24,7 @@ let tile_none: trm * trm = trm_int 0, trm_int 0
 let alloc_with_ty ?(annot : trm_annot = trm_annot_default) ?(annot_call : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
   let size = trm_toplevel_var ("sizeof(" ^ (Ast_to_c.typ_to_string ty) ^ ")") in
-  trm_cast ~annot (typ_const_ptr ty) (
+  trm_cast ~annot (typ_ptr ty) (
     trm_apps ~annot:annot_call (trm_var (malloc_var n)) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
@@ -34,12 +35,12 @@ let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
     if Tools.pattern_matches "MALLOC" f_var.name
     then begin
       let dims, size = List.unlast args in
-      Some (dims, Option.get (typ_const_ptr_inv ty), size)
+      Some (dims, Option.get (typ_ptr_inv ty), size)
     end else None
   )))
 
 let let_alloc_with_ty ?(annot : trm_annot = trm_annot_default) (v : var) (dims : trms) (ty : typ) : trm =
-  trm_let (v, typ_const_ptr ty) (alloc_with_ty dims ty)
+  trm_let (v, typ_ptr ty) (alloc_with_ty dims ty)
 
 let let_alloc_inv_with_ty (t : trm) : (var * trms * typ * trm) option =
   Option.bind (trm_let_inv t) (fun (v, vt, init) ->
@@ -141,7 +142,7 @@ let map_all_accesses (v : var) ?(ret_dims_and_typ : (trms * typ) option ref opti
       | Some x when var_eq x v ->
         Option.iter (fun rdt ->
           if Option.is_none !rdt then begin
-            let typ = Option.get (typ_const_ptr_inv (Option.get f.typ)) in
+            let typ = Option.get (typ_ptr_inv (Option.get (typ_const_inv (Option.get f.typ)))) in
             rdt := Some (dims, typ);
           end;
         ) ret_dims_and_typ;
@@ -301,13 +302,13 @@ let insert_access_dim_index_aux ?(last : bool = false) (new_dim : trm) (new_inde
 (* TODO: superseded by tile version *)
 let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
-  let local_var = Trm.new_var local_var in
+  let local_var = new_var local_var in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
   let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ?init dims size )) in
   let indices_list = begin match indices with
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
-  let indices_list = List.map Trm.new_var indices_list in
+  let indices_list = List.map new_var indices_list in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_range = List.map2 (fun dim ind-> { index = ind; start = (trm_int 0); direction = DirUp; stop = dim; step = trm_step_one () }) dims indices_list in
   begin match local_ops with

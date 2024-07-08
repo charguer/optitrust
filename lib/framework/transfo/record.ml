@@ -26,19 +26,20 @@ let set_implicit (tg : Target.target) : unit =
     let tg_trm = Target.resolve_path p in
     match tg_trm.desc with
     | Trm_apps (_, [lt;rt], _) ->
-      let tid_r = Internal.get_typid_from_trm ~first_match:false rt  in
-      let tid_l = Internal.get_typid_from_trm ~first_match:false  lt  in
-      let tid = match tid_r, tid_l with
-      | -1, _ -> tid_l
-      | _, -1 -> tid_r
-      | _, _ -> if tid_r = tid_l then tid_r else trm_fail tg_trm "set_explicit_aux: different types in an assignment"
+      let tid_r = Internal.get_typvar_from_trm ~first_match:false rt in
+      let tid_l = Internal.get_typvar_from_trm ~first_match:false lt in
+      let tvar = match tid_r, tid_l with
+      | None, Some tvar | Some tvar, None -> tvar
+      | Some tvar_r, Some tvar_l ->
+        if not (var_eq tvar_r tvar_l) then trm_fail tg_trm "set_explicit_aux: different types in an assignment";
+        tvar_r
+      | None, None ->
+        trm_fail tg_trm "set_explicit_aux: explicit assignment is supported only for struct types"
       in
       let struct_def =
-        if tid <> -1 then match Context.typid_to_typedef tid with
-          | Some td -> td
-          | _ -> trm_fail tg_trm "set_explicit_aux: could not get the declaration of typedef"
-        else
-          trm_fail tg_trm "set_explicit_aux: explicit assignment is supported only for struct types"
+        match Internal.typvar_to_typedef tvar with
+        | Some td -> td
+        | _ -> trm_fail tg_trm (sprintf "set_explicit_aux: could not get the declaration of typedef %s" (var_to_string tvar))
       in
       let field_list = Internal.get_field_list tg_trm struct_def in
       let nb = List.length field_list in

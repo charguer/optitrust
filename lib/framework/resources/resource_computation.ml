@@ -1,6 +1,7 @@
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 open Resource_formula
 open Resource_contract
 
@@ -419,13 +420,13 @@ let rec frac_to_quotient (frac: formula) =
     Pattern.(trm_sub !__ !__) (fun base_frac removed_frac () ->
       let base_quot = frac_to_quotient base_frac in
       let removed_quot = frac_to_quotient removed_frac in
-      if not (are_same_trm base_quot.base removed_quot.base) then raise Pattern.Next;
+      if not (are_same_trm base_quot.base removed_quot.base) then raise_notrace Pattern.Next;
       let num =
         if base_quot.den = 1 && base_quot.num = 1 then
           removed_quot.den - removed_quot.num
         else if base_quot.den = removed_quot.den then
           base_quot.num - removed_quot.num
-        else raise Pattern.Next
+        else raise_notrace Pattern.Next
       in
       { removed_quot with num }
     );
@@ -997,7 +998,7 @@ let rec compute_resources
     (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       (* TODO: Remove trm_let_fun *)
-      compute_resources (Some res) (trm_let ~annot:referent (name, typ_auto ()) (trm_fun ~annot:referent args (Some ret_type) body ~contract))
+      compute_resources (Some res) (trm_let ~annot:referent (name, typ_auto) (trm_fun ~annot:referent args (Some ret_type) body ~contract))
 
     (* Defining a function is pure by itself, we check that the body satisfies the contract.
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
@@ -1197,7 +1198,7 @@ let rec compute_resources
             let usage_map, res = compute_resources (Some res) ghost_call in
             usage_map, res, ghost_call.ctx.ctx_resources_contract_invoc
           );
-          Pattern.(!__) (fun _ -> failwith "expected a ghost call inside __ghost_begin")
+          Pattern.__ (fun () -> failwith "expected a ghost call inside __ghost_begin")
         ] in
         begin match res, contract_invoc with
         | Some res, Some invoc ->
@@ -1221,7 +1222,7 @@ let rec compute_resources
             let usage_map, res = compute_resources (Some res) (trm_apps ~annot:referent fn []) in
             usage_map, Option.map (fun res -> { res with fun_specs = Var_map.remove fn_var res.fun_specs }) res
           );
-          Pattern.(!__) (fun _ -> failwith "__ghost_end expects a single variable as argument")
+          Pattern.__ (fun () -> failwith "__ghost_end expects a single variable as argument")
         ]
 
       | exception Spec_not_found fn when var_eq fn Resource_trm.var_assert_alias ->

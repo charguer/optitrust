@@ -104,7 +104,7 @@ let init_attach_at (const : bool) (index : int) (t : trm) : trm =
       [index] - the index for the two added loops,
       [t] - the ast of the sequence generated after applying the local_name transformation. *)
 let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm) : trm =
-  let index = Trm.new_var index in
+  let index = new_var index in
   let error = "Variable_core.delocalize_aux: expected the nobrace sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
     if Mlist.length tl <> 3 then trm_fail t "delocalize_aux: the targeted sequence does not have the correct shape";
@@ -124,8 +124,8 @@ let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm
                                curr_var_trm
                                 (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])))
         | Local_obj (clear_f, transfer_f, _) ->
-            trm_apps ~typ:(typ_unit ()) (trm_var clear_f) [],
-            trm_apps ~typ:(typ_unit()) (trm_var transfer_f)
+            trm_apps ~typ:typ_unit (trm_var clear_f) [],
+            trm_apps ~typ:typ_unit (trm_var transfer_f)
               [trm_get curr_var_trm ;
               trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
       end in
@@ -158,7 +158,7 @@ let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm
 let insert_at (index : int) (const : bool) (name : string) (typ : typ) (value : trm) (t : trm) : trm =
   let error = "Variable_core.insert_at: expected the sequence where the declaration is oing to be inserted" in
   let tl = trm_inv ~error trm_seq_inv t in
-  let new_decl = if const then trm_let_immut (Trm.new_var name, typ) value else trm_let_mut (Trm.new_var name, typ) value in
+  let new_decl = if const then trm_let_immut (new_var name, typ) value else trm_let_mut (new_var name, typ) value in
   let new_tl = Mlist.insert_at index new_decl tl in
   trm_seq ~annot:t.annot new_tl
 
@@ -166,8 +166,8 @@ let insert_at (index : int) (const : bool) (name : string) (typ : typ) (value : 
 (** [change_type_at new_type t]: changes the current type of the targeted variable,
       [new_type] - the new type replacing the current one entered as a string,
       [t] - ast of the sequence that contains the targeted declaration. *)
-let change_type_at (new_type : typvar) (index : int) (t : trm) : trm =
-  let new_type = ty new_type in
+let change_type_at (new_type : string) (index : int) (t : trm) : trm =
+  let new_type = typ_arbitrary new_type in
   match t.desc with
   | Trm_seq tl ->
     let f_update (t : trm) : trm =
@@ -198,51 +198,34 @@ let change_type_at (new_type : typvar) (index : int) (t : trm) : trm =
       (* LATER: cleanup this code, and pull out into auxiliary functions the tooling needed
          to handle arrays *)
 let bind_at (mark_let:mark) (mark_occ:mark) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    let f_update (t : trm) : trm =
-      let targeted_node = Path.resolve_path p_local t in
-      let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
-      let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-      let node_type = match targeted_node.typ with
+  let tl = trm_inv ~error:"Variable_core.bind_aux: expected the surrounding sequence" trm_seq_inv t in
+  let f_update (t : trm) : trm =
+    let targeted_node = Path.resolve_path p_local t in
+    let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
+    let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
+    let node_type = match targeted_node.typ with
       | Some ty -> ty
-      | _ -> typ_auto()
-       in
-      let fresh_var = new_var fresh_name in
-      let replacement_node = trm_add_mark mark_occ (
-        trm_var_possibly_mut ~const ~typ:node_type fresh_var) in
-      let node_to_change =
-        Path.apply_on_path (fun _tsub -> replacement_node) t p_local in
-        (* DEPRECATED Internal.change_trm targeted_node replacement_node t in
-        -- change_trm seems to lose the mark on replacement node *)
-      (* DEPRECATED let node_to_change =
-        Path.apply_on_path (fun tocc -> trm_add_mark "OCC" tocc) node_to_change p_local in *)
-      let targeted_node = trm_add_mark mark_body targeted_node in (* LATER: this is probably boggus *)
-      let decl_to_insert =
-      begin match targeted_node.desc with
-      | Trm_array tl ->
-        let node_type = begin match node_type.typ_desc with
-        | Typ_array (ty, _) -> get_inner_const_type ty
-        | _ -> typ_auto ()
-        end in
-        let sz = (Mlist.length tl)  in
-        trm_let_array ~const (fresh_var, node_type) ~size:(trm_int sz) targeted_node
-      | _ ->
-        let node_type = if is_ptr then typ_ptr Ptr_kind_mut node_type else node_type in
-        let node_type = begin match typ with | Some ty -> ty | _ -> node_type end in
-        if const
-          then trm_let_immut (fresh_var, node_type) targeted_node
-          else trm_let_mut (fresh_var, node_type) targeted_node
-      end in
-      let decl_to_insert = trm_add_mark mark_let decl_to_insert in
-      trm_seq_nobrace_nomarks [decl_to_insert; node_to_change]
+      | _ -> typ_auto
     in
-    let new_tl = Mlist.update_nth index f_update tl in
-    let r = trm_seq ~annot:t.annot new_tl in
-    r
-
-
-  | _ -> trm_fail t "Variable_core.bind_aux: expected the surrounding sequence"
+    let fresh_var = new_var fresh_name in
+    let replacement_node = trm_add_mark mark_occ (
+      trm_var_possibly_mut ~const ~typ:node_type fresh_var) in
+    let node_to_change =
+      Path.apply_on_path (fun _tsub -> replacement_node) t p_local in
+    let targeted_node = trm_add_mark mark_body targeted_node in
+    let decl_to_insert =
+      let node_type = if is_ptr then typ_ptr node_type else node_type in
+      let node_type = match typ with | Some ty -> ty | _ -> node_type in
+      if const
+        then trm_let_immut (fresh_var, node_type) targeted_node
+        else trm_let_mut (fresh_var, node_type) targeted_node
+    in
+    let decl_to_insert = trm_add_mark mark_let decl_to_insert in
+    trm_seq_nobrace_nomarks [decl_to_insert; node_to_change]
+  in
+  let new_tl = Mlist.update_nth index f_update tl in
+  let r = trm_seq ~annot:t.annot new_tl in
+  r
 
 (** [remove_get_operations_on_var x t]: removes one layer of get operations on variable [x].
      i.e. if [x] was a pointer to [v], [get x] becomes [v].
@@ -344,7 +327,7 @@ let ref_to_pointer_at (index : int) (t : trm) : trm =
     | Trm_let ((x, tx), init) when trm_has_cstyle Reference t ->
       var_name := x;
       let tx = get_inner_ptr_type tx in
-      trm_let_mut (x, typ_ptr_generated tx) init
+      trm_let_mut (x, typ_ptr tx) init
     | _ -> trm_fail t "Variable_core.ref_to_pointer_aux: expected a target to a variable declaration"
     in
   let f_update_further (t : trm) : trm =

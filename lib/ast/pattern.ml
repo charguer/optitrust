@@ -1,5 +1,6 @@
 open Ast
 open Trm
+open Typ
 
 (** Raise this exception to check the next pattern of a pattern matching.
     It can be used both inside a pattern combinator and a pattern continuation. *)
@@ -153,6 +154,74 @@ let trm_gt ft1 ft2 = trm_binop Binop_gt ft1 ft2
 let trm_ge ft1 ft2 = trm_binop Binop_ge ft1 ft2
 let trm_eq ft1 ft2 = trm_binop Binop_eq ft1 ft2
 let trm_neq ft1 ft2 = trm_binop Binop_neq ft1 ft2
+
+let trm_arbitrary fa k t =
+  match t.desc with
+  | Trm_arbitrary a -> fa k a
+  | _ -> raise Next
+
+let typ_var = trm_var
+let typ_apps ft fargs k ty =
+  match typ_apps_inv ty with
+  | Some (var, args) ->
+    let k = ft k var in
+    let k = fargs k args in
+    k
+  | None -> raise Next
+
+let typ_unit k = typ_var (var_eq typ_unit_var) k
+let typ_auto k = typ_var (var_eq typ_auto_var) k
+let typ_int k = typ_var (var_eq typ_int_var) k
+let typ_uint k = typ_var (var_eq typ_uint_var) k
+let typ_usize k = typ_var (var_eq typ_usize_var) k
+let typ_isize k = typ_var (var_eq typ_isize_var) k
+let typ_f32 k = typ_var (var_eq typ_f32_var) k
+let typ_f64 k = typ_var (var_eq typ_f64_var) k
+let typ_bool k = typ_var (var_eq typ_bool_var) k
+let typ_char k = typ_var (var_eq typ_char_var) k
+let typ_i8 k = typ_var (var_eq typ_i8_var) k
+let typ_u8 k = typ_var (var_eq typ_u8_var) k
+let typ_i16 k = typ_var (var_eq typ_i16_var) k
+let typ_u16 k = typ_var (var_eq typ_u16_var) k
+let typ_i32 k = typ_var (var_eq typ_i32_var) k
+let typ_u32 k = typ_var (var_eq typ_u32_var) k
+let typ_i64 k = typ_var (var_eq typ_i64_var) k
+let typ_u64 k = typ_var (var_eq typ_u64_var) k
+
+let typ_const fty k ty =
+  match typ_const_inv ty with
+  | Some ty -> fty k ty
+  | None -> raise Next
+
+let typ_ptr fty k ty =
+  match typ_ptr_inv ty with
+  | Some ty -> fty k ty
+  | None -> raise Next
+
+let typ_ref fty k ty =
+  match typ_ref_inv ty with
+  | Some ty -> fty k ty
+  | None -> raise Next
+
+let typ_array fty fsz k ty =
+  match typ_array_inv ty with
+  | Some (ty, sz) ->
+    let k = fty k ty in
+    let k = fsz k sz in
+    k
+  | None -> raise Next
+
+let typ_fun fargs fres k ty =
+  match typ_fun_inv ty with
+  | Some (args, res) ->
+    let k = fargs k args in
+    let k = fres k res in
+    k
+  | None -> raise Next
+
+(* FIXME: This construction is slightly weird because it confuses types and type constructors. It is here for transitionning old code that also makes this confusion. *)
+let typ_constr ftv k ty =
+  (typ_var !__ ^| typ_apps !__ __) (fun var -> ftv k var) ty
 
 let mlist f k t = f k (Mlist.to_list t)
 

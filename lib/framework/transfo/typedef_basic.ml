@@ -27,5 +27,5 @@ let insert_copy (name : string) (tg : Target.target) : unit =
     [name] - is the new type name while
     [td_body] - is the kind of typedef we are going to declare.
                 It can be an alias a product(for struct declarations), a sum type or an enum. *)
-let insert (name : string) (td_body : typdef_body) : target -> unit =
+let insert (name : string) (td_body : typedef_body) : target -> unit =
   Target.apply_at_target_paths_before (fun t i -> Typedef_core.insert_at name td_body i t)

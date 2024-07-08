@@ -432,12 +432,12 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
   let rec aux (fad : fun_args_deps) (is_method : bool) (t : trm) : unit =
     match t.desc with
     | Trm_seq _ | Trm_namespace _ -> trm_iter (aux fad is_method) t
-    | Trm_typedef { typdef_body = Typdef_record _; _ } -> trm_iter (aux fad true) t
+    | Trm_typedef { typedef_body = Typedef_record _; _ } -> trm_iter (aux fad true) t
     | Trm_let_fun (qv, _, tvl, _, _) when qv.name <> "main" ->
       let fc = Ast_data.get_function_usr_unsome t in
       let args_info = List.map (fun (var, ty) ->
         let dep_in = is_dep_in ty in
-        let is_record = match Context.record_typ_to_typid ty with | Some (_) -> true | None -> false in
+        let is_record = match Internal.record_typ_to_typid ty with | Some (_) -> true | None -> false in
         {dep_depth = Apac_core.typ_get_degree (get_inner_ptr_type ty);
         dep_in = dep_in;
         dep_shared = is_reference ty || (is_record && dep_in);}) tvl

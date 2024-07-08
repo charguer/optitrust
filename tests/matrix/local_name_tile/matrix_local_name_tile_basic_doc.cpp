@@ -4,7 +4,7 @@ void f() {
   __pure();
 
   // FIXME: CALLOC
-  int* const a = (int* const) MALLOC1(10, sizeof(int));
+  int* const a = (int*) MALLOC1(10, sizeof(int));
   __GHOST_BEGIN(focus, group_focus_subrange_uninit, "sub_range := 3..7");
   for (int i = 3; i < 7; i++) {
     __strict();

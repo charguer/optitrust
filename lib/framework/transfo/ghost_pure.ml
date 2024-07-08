@@ -1,7 +1,7 @@
 open Prelude
 
 let is_pure_ghost_call (t: trm): bool =
-  trm_has_cstyle GhostCall t && Var_map.for_all (fun _ usage -> usage = Required || usage = Ensured) (Resources.usage_of_trm t)
+  trm_has_attribute GhostCall t && Var_map.for_all (fun _ usage -> usage = Required || usage = Ensured) (Resources.usage_of_trm t)
 
 (** Moves all pure ghosts upwards, starting from upmost ones. *)
 let move_all_upwards_in (seq : trm) : trm =

@@ -46,7 +46,7 @@ let choose_on (select_arg : var list -> int) (t : trm) : trm =
       [spec_args] - an optional list of trms, telling the transformation which argss it shoudl specialize,
       [t] - ast of the function definition. *)
 let fun_def_on (spec_name : string) (spec_args : (trm option) list) (t : trm) : trm =
-  let spec_var = Trm.new_var spec_name in
+  let spec_var = new_var spec_name in
   match t.desc with
   | Trm_let_fun (qf, ret_ty, args, body, _) ->
     (* Check if spec_args is of the correct shape. *)

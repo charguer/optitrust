@@ -170,29 +170,11 @@ let fresh_var_name : ?prefix:string -> unit -> string =
 
 module Qualified_name = struct
   type t = string list * string
-  [@@deriving ord]
+  [@@deriving ord, eq]
 end
 
 module Qualified_set = Set.Make(Qualified_name)
 module Qualified_map = Map.Make(Qualified_name)
-
-(** [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
-   or [vect] in C type [struct { int x,y }; *)
-type typconstr = Qualified_name.t
-
-(** [typvar]: name of type variables (e.g. ['a] in type ['a list] *)
-type typvar = string
-
-(** [typvars]: a list of typvar *)
-type typvars = typvar list
-
-(** [typconstrid]: unique identifier for typ constructors*)
-(* LATER: #type-id, should type ids be like var ids ? how does that interect with typconstrid ? *)
-type typconstrid = int
-
-(** [next_typconstrid ()] generates and return a new id *)
-let next_typconstrid : (unit -> typconstrid) =
-  Tools.fresh_generator ()
 
 (** [stringreprid]: unique identifier used as keys for memoization of string representation of subterms *)
 type stringreprid = int
@@ -200,12 +182,6 @@ type stringreprid = int
 (** [next_stringreprid ()] generates and return a new string representation id *)
 let next_stringreprid : (unit -> stringreprid) =
   Tools.fresh_generator ()
-
-(** ['a typmap] is a map from [typeid] to ['a] *)
-module Typ_map = Map.Make(Int)
-
-(** [typmap]: instantiation of Typ_map *)
-type 'a typmap = 'a Typ_map.t
 
 (** [field]: struct field defined as a string *)
 type field = string
@@ -222,13 +198,6 @@ type labels = label list
 
 let no_label = ""
 
-(** [string_trm]: description of a term as a string (convenient for the user) *)
-type string_trm = string
-
-(** [constrname]: constructor name (for typedef, enum and algebraic datatypes) *)
-type constrname = string
-type 'a constrnamemap = 'a Tools.String_map.t
-
 (** [loop_dir]: loop bound inequalities *)
 type loop_dir =
   | DirUp      (* i < 2  *)
@@ -240,7 +209,7 @@ type loop_dir =
 (** [code_kind]; code kind entered by the user *)
 type code_kind =
   | Lit of string   (* 1, "hello", 1.0, (), true, false *)
-  | Atyp of string  (* int, double float, vect, particle *)
+  | Typ of string  (* int, double float, vect, particle *)
   | Expr of string  (* expression of the form a * (b + 1) *)
   | Stmt of string  (* functions, for loops, while loops etc *)
   | Instr of string (* a = b, a += b *)
@@ -251,64 +220,82 @@ type code_kind =
 let code_to_str (code : code_kind) : string =
   match code with
   | Lit l -> l
-  | Atyp ty -> ty
+  | Typ ty -> ty
   | Expr e -> e
   | Stmt s -> s
   | Instr s -> s
   | Comment s -> s
 
 (*****************************************************************************)
-(** [typ_desc]: type description *)
-type typ_desc =
-  | Typ_const of typ   (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar * typconstrid (* e.g. ['a] in the type ['a -> 'a] -- *)
-  (* FIXME: ^ One of the two argument is redundant, we should probably only keep the id, or use sharing
-     #type-id *)
-  | Typ_constr of typconstr * typconstrid * typ list (* e.g. [int list] or
-                                                  [(int,string) map] or [vect] *)
-  (* FIXME: ^ One of the two first argument is redundant, we should probably only keep the id, or use sharing
-     #type-id *)
-  | Typ_auto                                (* auto *)
-  (* FIXME: ^ It seems that auto should not be treated as a type but more like the absence of type information *)
-  | Typ_unit                                (* void *)
-  | Typ_int                                 (* int *)
-  | Typ_float                               (* float *)
-  | Typ_double                              (* double *)
-  | Typ_bool                                (* bool *)
-  | Typ_char                                (* char *)
-  | Typ_string                              (* string a *)
-  | Typ_ptr of
-    {ptr_kind : ptr_kind; inner_typ: typ }  (* "int*" *)
-  | Typ_array of typ * trm option           (* int[2*n], or int[] *)
-  | Typ_fun of (typ list) * typ             (* int f(int x, int y) *)
-  | Typ_record of record_type * typ         (* class, struct, union *)
-  | Typ_template_param of string            (* template(Soon..) *)
-    (* FIXME: ^ What exactly is this ? Shouldn't it be inside Typ_constr ? *)
-  | Typ_arbitrary of code_kind              (* types entered as string  *)
-  (* The decltype is required for C++ because templates are not typed before
-     monomorphization. I don't think there is any hope for proving anything
-     with these types, but in theory they can be resolved in all
-     monomorphic codes. *)
-  | Typ_decl of trm                        (* Since C++11, decltype (nullptr), create a type out of an expression *)
 
-(** [ptr_kind]: type used for distinguishing pointers from references, note that
-    both pointers and references are considered by OptiTrust as pointers.*)
-and ptr_kind =
-  | Ptr_kind_mut   (* int* *)
-  | Ptr_kind_ref   (* int& *)
+(** [trm] is a record representing an ast node *)
+type trm =
+ { annot : trm_annot; (* Annotations cannot be recomputed. Check if it should not be inlined here. *)
+   desc : trm_desc;
+   loc : location; (* TODO: move into annot ? *)
+   typ : typ option; (* TODO: #typfield: Remove this badly designed field and split between authoritative types for some trm_desc and computed types in ctx *)
+   mutable ctx : ctx; (* Context contains information that can be recomputed over the AST. Transformations can safely discard it. *)
+   mutable errors : string list; (* Maybe split into two and merge with annot and ctx ? *)
+   (* LATER: mutable typing_aux should be the only mutable flag *)
+}
 
-(** [typ_annot]: annotation for types that can be build from the main ones *)
-and typ_annot =
-  | Unsigned  (* unsigned int *)
-  | Long      (* long int *)
-  | Short     (* short int *)
+(** [trms]: a list of trms *)
+and trms = trm list
 
-(** [typ]: is a record containing the description, annotation and some attributes*)
-and typ = {
-  typ_desc : typ_desc;
-  typ_annot : typ_annot list;
-  typ_attributes : attribute list;
-  }
+(** [trm_desc]: description of an ast node *)
+and trm_desc =
+  | Trm_val of value
+  | Trm_var of var
+  | Trm_array of trm mlist (* { 0, 3, 5 } as an array *)
+  | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
+  | Trm_let of typed_var * trm (* int x = 3 *)
+  | Trm_let_mult of (typed_var * trm) list (* TODO: replace with non-scoping seq *)
+  | Trm_let_fun of var * typ * typed_vars * trm * fun_spec (* TODO: Remove and replace with Trm_let (Trm_fun _) *)
+  | Trm_fun of typed_vars * typ option * trm * fun_spec (* anonymous functions, [&](int const& x) -> void {r += x;} *) (* TODO: Remove option on return type *)
+  | Trm_typedef of typedef
+  | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
+  | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
+  | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
+  | Trm_for of loop_range * trm * loop_contract
+  | Trm_for_c of trm * trm * trm * trm * resource_set option (* TODO: Remove from here and desugar into while *)
+  | Trm_while of trm * trm     (* while (t1) { t2 } *)
+  | Trm_do_while of trm * trm (* TODO: Remove from here and desugar into while *)
+  (* Remark: in the AST, arguments of cases that are enum labels
+     appear as variables, hence the use of terms as opposed to
+     closed values to represent case arguments.
+    Trm_switch (cond, [([t1; t2], b1); ([t3], b2); ([], b3)]) =
+    switch (cond) {
+      case t1:
+      case t2:
+        b1;
+        break;
+      case t3:
+        b2;
+        break;
+      default:
+        b3;
+        break;
+    }
+   *)
+  | Trm_switch of trm * ((trms * trm) list)
+  | Trm_abort of abort                            (* return or break or continue *)
+  | Trm_goto of label                             (* goto foo *)
+  | Trm_arbitrary of code_kind                    (* "int x = 10" *)
+  (* TODO: new root for multi-files
+    | Trm_files of trms *)
+  | Trm_omp_routine of omp_routine                (* get_thread_id *)
+  | Trm_extern of string * trms                   (* extern keyword *)
+  | Trm_namespace of string * trm * bool          (* namespaces *)
+  | Trm_template of template_parameter_list * trm (* templates *) (* TODO: Replace by annotated arguments on definitions and calls? *)
+  | Trm_using_directive of string                 (* using namespace std *)
+
+(*****************************************************************************)
+
+(** [typ] is an alias for [trm] used wherever a type is expected *)
+and typ = trm
+
+(** [typvar] is an alias for [var] used wherever a type varaible (i.e. type constructor or base type) is expected *)
+and typvar = var
 
 (** [typed_var]: used for function arguments *)
 and typed_var = var * typ
@@ -319,16 +306,10 @@ and typed_vars = typed_var list
 (*****************************************************************************)
 (** [typedef]: is a record containing the id of the type, the name of the new defined
     type, for sum types there can be also more then one variable. And finally the
-     body of the type *) (* TODO: rename typdef_ to typedef_ *)
+     body of the type *)
 and typedef = {
-  typdef_loc : location;      (* the location of the typedef *)
-  typdef_tconstr : constrname; (* the defined type [t] *)
-  typdef_typid : typconstrid; (* the unique id associated with the type [t] *)
-  (* FIXME: ^ One of the two first argument is redundant, we should probably only keep the id, or use sharing
-    #type-id *)
-  typdef_vars : typvars;      (* the list containing the names ['a] and ['b];
-         [typedef_vars] is always the empty list in C code without templates *)
-  typdef_body : typdef_body;(* the body of the definition,
+  typedef_name : var; (* the defined type [t] *)
+  typedef_body : typedef_body;(* the body of the definition,
                             i.e. the description of [...] *)
 }
 
@@ -349,25 +330,19 @@ and access_control =
 
 
 (** [typedef_body]: typedef kinds *)
-and typdef_body =
-  | Typdef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
-                          list] or [typdef vect t] *)
-  | Typdef_record of record_fields
+and typedef_body =
+  | Typedef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
+                          list] or [typedef vect t] *)
+  | Typedef_record of record_fields
     (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
-  | Typdef_sum of (constrname * typ) list (* for algebraic definitions / enum,
-                                             e.g. [type 'a t = A | B of 'a] *)
-  | Typdef_enum of (var * (trm option)) list (* for C/C++ enums *)
-
+  | Typedef_enum of (var * (trm option)) list (* for C/C++ enums *)
 
 
 (*****************************************************************************)
 
-
-(** [trm_annot]: annotations are used to decorate this AST when it is built from
+(** [cstyle_annot]: annotations are used to decorate this AST when it is built from
     the Clang AST in such a way to be able to print back the AST like
     the original C code.*)
-
-(** [cstyle_annot]: annotations used for encodings and decodings. *)
 and cstyle_annot =
 
   (* distinguish [p->f] vs [( *p ).f], represented as [get(access(p,f)],
@@ -395,16 +370,17 @@ and cstyle_annot =
   (* [int& x = 3]  encoded as  [let x : ( int* ) = ref 3] in the internal AST *)
   | Reference
 
-  (* distinguish between class vs struct *)
-  | Is_struct
+  (* On typedefs, distinguish between class vs struct.
+     On types, determines if the struct keyword was used *)
+  | Struct
 
   (*  [typedef struct node { int item; struct node* p } node; ]
-      this flag [Is_rec_struct] indicates whether to reprint the type at the front. *)
-  | Is_rec_struct
+      this flag [Rec_struct] indicates whether to reprint the type at the front. *)
+  | Rec_struct
 
-  (* distinguish between class vs struct -- seems redundant with is_struct *)
-  | Is_class
-
+  (* On typedefs, distinguish between class vs struct.
+     On types, determines if the class keyword was used *)
+  | Class
 
   (* [static] meta-information on a C-function *)
   | Static_fun
@@ -449,12 +425,12 @@ and cstyle_annot =
   (* tag for printing [NULL] instead of [nullptr] *)
   | Display_null_uppercase
 
-  (* Use the __ghost syntax for a ghost call *)
-  | GhostCall
-
-  (* tag for printing using resource syntax
+  (* tag for printing using resource or type syntax
      LATER: Use different printers for different languages *)
   | ResourceFormula
+  | Type
+
+  | InjectedClassName
 
   (* tag used by light diff *)
   | BodyHiddenForLightDiff
@@ -480,18 +456,23 @@ and file_annot =
 (** [cpragma]: type alias for directives *)
 and cpragma = directive
 
+(** [attribute]: trm attributes *)
+and attribute =
+  | Alignas of trm (* Placed on types like in: alignas(64) double* deposit; *)
+  | GhostCall (* Used for ghost annotations (__ghost syntax in C) *)
+
 (** [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
     trm_annot_attributes : attribute list;
     trm_annot_marks : marks;
-    trm_annot_labels : labels;
-    trm_annot_stringrepr : stringreprid option;
-    trm_annot_pragma : cpragma list;
+    trm_annot_labels : labels; (* TODO: Replace with noop instructions in sequences *)
+    trm_annot_stringrepr : stringreprid option; (* TODO: move to context *)
+    trm_annot_pragma : cpragma list; (* TODO: Maybe merge with attribute ? What is the difference anyway ? *)
     trm_annot_cstyle : cstyle_annot list;
     trm_annot_file : file_annot;
     trm_annot_referent : trm option; (* used for typing errors *)
   }
-  (* LATER: use a smartconstruct for trm_annot with optional arguments *)
+  (* LATER: use a smartconstructor for trm_annot with optional arguments *)
 
 (*****************************************************************************)
 
@@ -566,9 +547,9 @@ and lit =
   | Lit_uninitialized     (* e.g. "int x;" is "int x = Lit_uninitalized" *)
   | Lit_bool of bool      (* true, false *)
   | Lit_int of int        (* 1, 10, 100 *)
-  | Lit_double of float   (* 1.0, 2.0, 0.5 *)
-  | Lit_string of string  (* "hello"  *)
-  | Lit_nullptr               (* nullptr *)
+  | Lit_float of float   (* 1.0, 2.0, 0.5 *)
+  | Lit_string of string  (* "hello" *)
+  | Lit_nullptr           (* nullptr *)
 
 (** [value]: values *)
 and value =
@@ -580,40 +561,20 @@ and value =
   (* Is this really useful? Contrary to CFML, I (GB) don't think we need to have
      a value grammar *)
 
-(** [attribute]: trm attributes *)
-and attribute =
-  | Alignas of trm (* alignas(64) double* deposit; *)
-  | GeneratedTyp   (* pointers used only for encoding stack variables*)
-  | Injected       (* injected type *)
-  | Others         (* TO BE CONTINUED ... *)
-
-(** [record_type]: C++ record types *)
-and record_type =
-  | Struct  (* struct *)
-  | Union   (* union *)
-  | Class   (* class *)
-
-(*****************************************************************************)
-
-(** [trm] is a record representing an ast node *)
-and trm =
- { annot : trm_annot;
-   desc : trm_desc;
-   loc : location;
-   typ : typ option;
-   mutable ctx : ctx;
-   mutable errors : string list;
-   (* LATER: mutable typing_aux should be the only mutable flag *)
+(** [loop_range]: a type for representing for loops range *)
+and loop_range = {
+  index: var;
+  start: trm;
+  direction: loop_dir;
+  stop: trm;
+  step: trm;
 }
 
-(** [trms]: a list of trms *)
-and trms = trm list
+(*****************************************************************************)
 
 (** [ctx]: stores context information that can be recomputed and must be updated
    when changes occur (reset the field to unknown_ctx for invalidation). *)
 and ctx = {
-  mutable ctx_types: typ_ctx option;
-
   (* The set of accessible resources before this term. *)
   mutable ctx_resources_before: resource_set option;
   (* The map of used variables inside the trm (recursively) *)
@@ -625,80 +586,6 @@ and ctx = {
   (* The instantiation of the requested post condition *)
   mutable ctx_resources_post_inst: used_resource_set option;
 }
-
-(** [typ_ctx]: stores all the information about types, labels, constructors, etc. *)
-and typ_ctx = {
-  (* TODO: #var-id, use a varmap? requires changes in clang_to_astRawC *)
-  ctx_var : typ Qualified_map.t;             (* from [var] to [typ], i.e. giving the type
-                                       of program variables *)
-  ctx_tconstr : typconstrid Qualified_map.t; (* from [typconstr] to [typconstrid]. *)
-  ctx_typedef : typedef typmap;     (* from [typconstrid] to [typedef] *)
-  ctx_label : typconstrid labelmap;   (* from [label] to [typconstrid] *)
-  ctx_constr : typconstrid constrnamemap;  (* from [constrname] to [typconstrid] *)
-     (* ^ FIXME: #type-id cleanup all these maps, document better. *)
-}
-
-(*****************************************************************************)
-
-
-(** [loop_range]: a type for representing for loops range *)
-and loop_range = {
-  index: var;
-  start: trm;
-  direction: loop_dir;
-  stop: trm;
-  step: trm;
-}
-
-(** [trm_desc]: description of an ast node *)
-and trm_desc =
-  | Trm_val of value
-  | Trm_var of var
-  | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
-  | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
-  | Trm_let of typed_var * trm (* int x = 3 *)
-  | Trm_let_mult of (typed_var * trm) list (* TODO: change to non-scoping seq *)
-  | Trm_let_fun of var * typ * typed_vars * trm * fun_spec
-  | Trm_typedef of typedef
-  | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
-  | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
-  | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
-  | Trm_while of trm * trm     (* while (t1) { t2 } *)
-  | Trm_for of loop_range * trm * loop_contract
-  | Trm_for_c of trm * trm * trm * trm * resource_set option
-  | Trm_do_while of trm * trm (* TODO: Can this be efficiently desugared? *)
-  (* Remark: in the AST, arguments of cases that are enum labels
-     appear as variables, hence the use of terms as opposed to
-     closed values to represent case arguments.
-    Trm_switch (cond, [([t1; t2], b1); ([t3], b2); ([], b3)]) =
-    switch (cond) {
-      case t1:
-      case t2:
-        b1;
-        break;
-      case t3:
-        b2;
-        break;
-      default:
-        b3;
-        break;
-    }
-   *)
-  | Trm_switch of trm * ((trms * trm) list)
-  | Trm_abort of abort                            (* return or break or continue *)
-  | Trm_goto of label                             (* goto foo *)
-  | Trm_arbitrary of code_kind                    (* "int x = 10" *)
-  (* TODO: new root for multi-files
-    | Trm_files of trms *)
-  | Trm_omp_routine of omp_routine                (* get_thread_id *)
-  | Trm_extern of string * trms                   (* extern keyword *)
-  | Trm_namespace of string * trm * bool          (* namespaces *)
-  | Trm_template of template_parameter_list * trm (* templates *)
-  | Trm_using_directive of string                 (* using namespace std *)
-  | Trm_fun of typed_vars * typ option * trm * fun_spec (* anonymous functions, [&](int const& x) -> void ({r += x;}) *) (* TODO: Is return type useful ? *)
-
-(*****************************************************************************)
-
 
 and formula = trm
 and resource_item = var * formula
@@ -783,16 +670,13 @@ and contract_invoc = {
   contract_joined_resources: (var * var) list;
 }
 
-(* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)
-
-(** [template_param_kind]: parameters kind, typename , empty or another template *)
+(** [template_param_kind]: parameters kind: typename or variable and an optional default value *)
 and template_param_kind =
-  | Type_name of typ option               (* <T> *)
-  | NonType of typ * trm option           (* <> *)
-  | Template of template_parameter_list   (* vect<int, int> (i,j) *)
+  | Typename of typ option               (* <typename T> *)
+  | NonType of typ * trm option           (* <int a> *)
 
 (** [template_parameter_list]: template parameter list *)
-and template_parameter_list = (string * template_param_kind * bool) list
+and template_parameter_list = (var * template_param_kind) list
 
 (** [abort]: ways of aborting *)
 and abort =
@@ -928,7 +812,7 @@ and directive =
   | Cancellation_point of clause * clause list
   | Critical of var * string
   | Declare_simd of clause list
-  | Declare_reduction of reduction_identifier * typvars * expression * clause
+  | Declare_reduction of reduction_identifier * string list * expression * clause
   | Declare_target of clause list
   | Distribute of clause list
   | Distribute_parallel_for of clause list
@@ -1014,6 +898,50 @@ and omp_routine =
   | Get_wtime
   | Get_wtick
 
+(*************************** Variable constructors ***************************)
+
+(** Creates a new variable, using a fresh identifier. *)
+let new_var ?(namespaces: string list = []) (name : string) : var =
+  let id = next_var_id () in
+  { namespaces; name; id }
+
+(** Refers to a variable by name, letting its identifier be inferred.
+    This variable cannot be stored in a [varmap] before its identifier is inferred. *)
+let name_to_var ?(namespaces: string list = []) (name : string) : var =
+  { namespaces; name; id = unset_var_id }
+
+module Toplevel_id = struct
+  type t = var_id
+  let compare = Int.compare
+  let equal = Int.equal
+  let hash id = id
+  let from_qualified_name ~namespaces name =
+    let qualified_name = qualified_name_to_string namespaces name in
+    let hash = Hashtbl.hash qualified_name in
+    - hash - 1
+end
+
+module Toplevel_hashtbl = Hashtbl.Make(Toplevel_id)
+
+(** Set of toplevel variables already attributed.
+    This is used by toplevel_var to check collisions and perform hash consing. *)
+let toplevel_vars = Toplevel_hashtbl.create 32
+
+(** [toplevel_var]: return the toplevel variable with the given name.
+  A new variable identifier is predeclared if the variable did not exist. *)
+let toplevel_var ?(namespaces: string list = []) (name : string) : var =
+  let id = Toplevel_id.from_qualified_name ~namespaces name in
+  match Toplevel_hashtbl.find_opt toplevel_vars id with
+  | Some var when var.namespaces = namespaces && var.name = name -> var
+  | Some _ -> failwith "Hash conflict for toplevel variables. This should not happen unless you create a stupid amount of toplevel variables. If you are extremely unlucky, maybe try to add a seed to the Toplevel_id.from_qualified_name function."
+  | None ->
+      let var = { namespaces; name; id } in
+      Toplevel_hashtbl.add toplevel_vars id var;
+      var
+
+(** A dummy variable for special cases. *)
+let dummy_var = toplevel_var ""
+
 (*****************************************************************************)
 
 let trm_desc_to_string : trm_desc -> string =
@@ -1060,16 +988,12 @@ type tmap = trm Var_map.t
 (* ************************* Resource constructors ************************* *)
 
 let unknown_ctx (): ctx = {
-  ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
+  ctx_resources_before = None; ctx_resources_after = None;
   ctx_resources_usage = None; ctx_resources_contract_invoc = None;
   ctx_resources_post_inst = None;
 }
 
-let typing_ctx (ctx_types: typ_ctx): ctx =
-  { (unknown_ctx ()) with ctx_types = Some ctx_types }
-
-
- (** The empty resource set. *)
+(** The empty resource set. *)
 let empty_resource_set = { pure = []; linear = []; fun_specs = Var_map.empty; aliases = Var_map.empty }
 
 (** The empty function contract, printed as __pure(). *)
@@ -1083,6 +1007,51 @@ let empty_loop_contract =
 (** The empty strict loop contract, that contains nothing *)
 let empty_strict_loop_contract =
   { empty_loop_contract with strict = true }
+
+(* **************************** Trm constructors *************************** *)
+
+(** [trm_annot_default]: default trm annotation *)
+let trm_annot_default = {
+  trm_annot_attributes = [];
+  trm_annot_marks = [];
+  trm_annot_labels = [];
+  trm_annot_stringrepr = None;
+  trm_annot_pragma = [];
+  trm_annot_cstyle = [];
+  trm_annot_file = Inside_file;
+  trm_annot_referent = None;
+}
+
+(** [incr_trm_alloc]: function called once per allocated node. *)
+let incr_trm_alloc : (unit -> unit) ref = ref (fun () -> ())
+
+(** [trm_make ~annot ?loc ?typ ?ctx ?errors desc]: builds trm [t] with description [desc] and other fields given
+    as arguments. *)
+let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location)
+    ?(typ : typ option) ?(ctx : ctx = unknown_ctx ()) ?(errors : string list = []) (desc : trm_desc) : trm =
+  let t = {annot; loc; typ; desc; ctx; errors} in
+  !incr_trm_alloc ();
+  t
+
+(** [trm_alter ~annot ?loc ?typ ?ctx ?desc t]: alters any of the fields of [t] that was provided as argument. *)
+let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(typ : typ option) ?(ctx : ctx option) ?(errors : string list option) ?(desc : trm_desc option) (t : trm) : trm =
+  let annot = match annot with Some x -> x | None -> t.annot in
+  let loc = match loc with Some x -> x | None -> t.loc in
+  let typ = match typ with | None -> t.typ | _ -> typ in
+  let ctx = Option.value ~default:t.ctx ctx in
+  let errors = Option.value ~default:t.errors errors in
+  let desc = match desc with | Some x -> x | None -> t.desc in
+  trm_make ~annot ?loc ?typ ~ctx ~errors desc
+
+(** [trm_replace desc t]: an alias of [trm_alter] to alter only the descriptiong of [t]. *)
+let trm_replace (desc : trm_desc) (t : trm) : trm =
+  trm_alter ~desc t
+
+(** [trm_like]: copies the annotations, location and type of the old trm into a new trm *)
+let trm_like ~(old:trm) (t:trm): trm =
+  trm_alter ~annot:old.annot ~loc:old.loc ~errors:old.errors ?typ:old.typ t
+
+(* More specific constructors are in modules [Typ] and [Trm] *)
 
 (* ********************************************************************************************** *)
 

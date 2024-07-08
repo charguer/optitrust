@@ -352,8 +352,8 @@ let hoist_on (t_loop : trm) : trm =
     trm_copy (trm_for_instrs range (Mlist.of_list ghosts))
   in
   let _, ghost_group_beg, ghost_group_end = trm_ghost_custom_pair
-    (trm_fun [] (Some (typ_unit ())) (wrap_in_for ghost_forward))
-    (trm_fun [] (Some (typ_unit ())) (wrap_in_for (List.rev !ghost_backward_stack)))
+    (trm_fun [] (Some typ_unit) (wrap_in_for ghost_forward))
+    (trm_fun [] (Some typ_unit) (wrap_in_for (List.rev !ghost_backward_stack)))
   in
   let res = trm_seq_nobrace_nomarks [
     ghost_group_beg;

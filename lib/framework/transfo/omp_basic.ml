@@ -29,7 +29,7 @@ let%transfo critical ?(hint : string = "") (v : var) (tg : target) : unit =
 let%transfo declare_simd ?(clause : clause list = []) (tg : target) : unit =
   apply_at_target_paths (trm_add_pragma (Declare_simd clause )) tg
 
-let%transfo declare_reduction (ri : reduction_identifier) (tl : typvars) (e : expression) (clause : clause) (tg : target) : unit =
+let%transfo declare_reduction (ri : reduction_identifier) (tl : string list) (e : expression) (clause : clause) (tg : target) : unit =
   apply_at_target_paths (trm_add_pragma (Declare_reduction (ri, tl, e, clause))) tg
 
 let%transfo declare_target ?(clause : clause list = []) (tg : target) : unit =

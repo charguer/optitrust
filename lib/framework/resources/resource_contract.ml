@@ -79,7 +79,7 @@ let rec desugar_formula (formula: formula): formula =
   (* With incremental var-id resolution we could heavily simplify this *)
   Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_var (check (fun v -> v.name = "_HasModel"))) !__ (trm_apps (trm_var !__) !__ __)) (fun var f args () ->
-        if f.name <> sprintf "Matrix%d" (List.length args) then raise Pattern.Next;
+        if f.name <> sprintf "Matrix%d" (List.length args) then raise_notrace Pattern.Next;
         formula_matrix var args
       );
     Pattern.__ (fun () -> trm_map desugar_formula formula)

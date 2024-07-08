@@ -1,6 +1,7 @@
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 open Mark
 open Stats
 open Tools
@@ -167,7 +168,7 @@ let c_parser ~(persistant:bool) (filename: string) : string * trm =
   if not persistant then Unix.unlink ser_filename;
 
   (* Possibly perform the decoding *)
-  let ast = if !Flags.bypass_cfeatures then ast else C_encoding.cfeatures_elim ast in
+  let ast = if !Flags.bypass_cfeatures then Scope_computation.infer_var_ids ast else C_encoding.cfeatures_elim ast in
   (* Return the header and the ast *)
   (header, ast)
 
@@ -1185,7 +1186,7 @@ let step_backtrack ?(tags:string list=[]) ?(discard_after = false) (f : unit -> 
 
 type 'a backtrack_result =
 | Success of 'a
-| Failure of exn
+| Failure of exn * Printexc.raw_backtrace
 
 (** [step_backtrack_on_failure f] executes [f].
    If [f] succeeds, the step terminates, and [Success] is returned.
@@ -1212,6 +1213,7 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
       close_step ~check:step_group ();
       Success x
     with e -> begin
+      let bt = Printexc.get_raw_backtrace () in
       (* Close all the steps that have been interrupted by the exception *)
       let error = "Trace.step_backtrack_on_failure: unable to close the group" in
       while (get_cur_step ~error () != step_group) do
@@ -1219,7 +1221,7 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
       done;
       (* Close the group step *)
       close_step ~check:step_group ();
-      Failure e
+      Failure (e, bt)
     end in
   (* Close the backtrack step *)
   let is_success = match res with Success _ -> true | Failure _ -> false in
@@ -1367,7 +1369,9 @@ let failure_expected (h : exn -> bool) (f : unit -> unit) : unit =
       raise Failure_expected_did_not_fail
     with
       | Failure_expected_did_not_fail as e -> raise e
-      | e -> if h e then () else raise e
+      | e ->
+        let bt = Printexc.get_raw_backtrace () in
+        if h e then () else Printexc.raise_with_backtrace e bt
   )
 
 (** [apply f]: applies the transformation [f] to the current AST,
@@ -1900,11 +1904,14 @@ let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> 
    is identical to the input AST, obtained from parsing. If not,
    it raises an error. *)
 let check_recover_original () : unit =
-  let check_same ast1 ast2 =
-    if Ast_to_c.ast_to_string ast1 <> Ast_to_c.ast_to_string ast2
-      then raise (TraceFailure "Trace.check_recover_original: the current AST is not identical to the original one.")
-      else () (* FOR DEBUG: Printf.printf "check_recover_original: successful" *)
-    in
+  let check_same cur orig =
+    (* TODO: Do not convert to string to make the comparison. *)
+    let orig_str = Ast_to_c.ast_to_string orig in
+    let cur_str = Ast_to_c.ast_to_string cur in
+    if cur_str <> orig_str then begin
+      raise (TraceFailure "Trace.check_recover_original: the current AST is not identical to the original one")
+    end else () (* FOR DEBUG: Printf.printf "check_recover_original: successful" *)
+  in
   let orig_ast = get_original_ast () in
   call (fun cur_ast -> check_same cur_ast orig_ast)
 

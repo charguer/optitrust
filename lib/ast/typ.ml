@@ -1,404 +1,309 @@
 open Ast
-include Contextualized_error
+open Contextualized_error
 
-(* **************************** Typ constructors *************************** *)
+let typ_annot_default = { trm_annot_default with trm_annot_cstyle = [Type] }
 
-(** [typ_build ~annot ~attributes ~desc ()]: builds typ [ty] with its fields given as arguments. *)
-let typ_build ~(annot : typ_annot list) ?(attributes : attribute list = []) ~(desc : typ_desc) () : typ =
-  let ty = {typ_annot = annot; typ_attributes = attributes; typ_desc = desc} in
-  (* Stats for types? *)
-  ty
+let typ_make ?loc desc = trm_make ~annot:typ_annot_default ?loc desc
+let typ_alter ?loc ?desc t = trm_alter ?loc ?desc t
+let typ_replace desc t = trm_replace desc t
 
-(** [typ_make ~annot ~attributes desc]: builds typ [ty] with the type description [desc] and other fields given. *)
-let typ_make ?(annot : typ_annot list = []) ?(attributes = []) (desc : typ_desc) : typ =
-  typ_build ~annot ~attributes ~desc ()
+(***************************** Typ vars *************************** *)
 
-(** [typ_alter ~annot ~attributes ~desc ty]: alters any of the fields of [ty] that was provided as argument. *)
-let typ_alter ?(annot : typ_annot list = []) ?(attributes = []) ?(desc : typ_desc option) (ty : typ) : typ =
-  let annot = match annot with [] -> ty.typ_annot |_ -> annot in
-  let attributes = match attributes with | [] -> ty.typ_attributes | _ -> attributes in
-  let desc = match desc with | Some td -> td | None -> ty.typ_desc in
-  typ_build ~annot ~attributes ~desc ()
+let typ_namespace = ["__typ"]
 
+let toplevel_typvar ?(namespaces=[]) (name: string) : typvar = toplevel_var ~namespaces:(typ_namespace @ namespaces) name
+let name_to_typvar ?(namespaces=[]) (name: string): typvar =
+  if name = "" then failwith "trying to create a type without name" else
+  name_to_var ~namespaces:(typ_namespace @ namespaces) name
 
-(** [typ_repplace desc]: an alias of [typ_alter] to alter only thet description of the trm [ty]. *)
-let typ_replace (desc : typ_desc) (ty : typ) : typ =
-  typ_alter ~desc ty
+(** [remove_typ_namespace var]: remove the type namespace from the variable [var] for printing in a type context. *)
+let remove_typ_namespace (var: typvar): var =
+  let stripped_nss = match var.namespaces with
+    | ns :: nss when ns = List.hd typ_namespace -> nss
+    | _ -> failwith "variable %s is not in the type namespace" (var_to_string var)
+  in
+  { var with namespaces = stripped_nss }
 
-(** [typ_const ~annot ~attributes t]: const type constructor *)
-let typ_const ?(annot : typ_annot list = []) ?(attributes = [])
-  (t : typ) : typ =
-  (* DEPRECATED {typ_annot = annot; typ_desc = Typ_const t; typ_attributes} *)
-  typ_make ~annot ~attributes (Typ_const t)
+let typ_var (x: typvar): typ = typ_make (Trm_var x)
 
-(** [typ_constr]: create a type constructor. *)
-let typ_constr ?(annot : typ_annot list = []) ?(attributes = []) ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) (name : typconstr) : typ =
-  typ_make ~annot ~attributes (Typ_constr (name, tid, tl))
+(* We may soon need a type for types:
+let typ_type_var = toplevel_typvar "Type"
+let typ_type = typ_var typ_type_var
+*)
 
-let typ_constr_inv (t : typ) : (typconstr * typconstrid * typ list) option =
-  match t.typ_desc with
-  | Typ_constr (name, tid, tl) -> Some (name, tid, tl)
-  | _ -> None
+let typ_unit_var = toplevel_typvar "unit"
+let typ_unit = typ_var typ_unit_var
 
-(** [typ_auto ~annot ~attributes ()]: auto type constructor *)
-let typ_auto ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
-  typ_make ~annot ~attributes Typ_auto
+let typ_apps ?loc (t: typ) (args: trm list) =
+  typ_make ?loc (Trm_apps (t, args, []))
 
-(** [typ_unit ~annot ~attributes ()]: void type constructor *)
-let typ_unit ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
-  typ_make ~annot ~attributes Typ_unit
+let typ_auto_var = toplevel_typvar "auto"
+let typ_auto = typ_var typ_auto_var
 
+(* Types int (resp. uint) represent signed (resp. unsigned) integers without bound checks *)
+let typ_int_var = toplevel_typvar "int"
+let typ_int = typ_var typ_int_var
+let typ_uint_var = toplevel_typvar "uint"
+let typ_uint = typ_var typ_uint_var
 
-(** [typ_int ~annot ~attributes ()]: int type constructor *)
-let typ_int ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
-  typ_make ~annot ~attributes Typ_int
+(* Unsigned and signed version of types with pointer size *)
+let typ_usize_var = toplevel_typvar "usize"
+let typ_usize = typ_var typ_usize_var
+let typ_isize_var = toplevel_typvar "isize"
+let typ_isize = typ_var typ_isize_var
 
-(** [typ_float ~annot ~attributes ()]: float type constructor *)
-let typ_float ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
-  typ_make ~annot ~attributes Typ_float
+(* Types for floating point values with 32 bits (C float's) or 64 bits (C double's) *)
+let typ_f32_var = toplevel_typvar "f32"
+let typ_f32 = typ_var typ_f32_var
+let typ_f64_var = toplevel_typvar "f64"
+let typ_f64 = typ_var typ_f64_var
 
-(** [typ_double ~annot ~attributes ()]: double type constructor *)
-let typ_double ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
-  typ_make ~annot ~attributes Typ_double
+(* Type of booleans *)
+let typ_bool_var = toplevel_typvar "bool"
+let typ_bool = typ_var typ_bool_var
 
-(** [typ_bool ~annot ~attributes ()]: bool type constructor *)
-let typ_bool ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
-  typ_make ~annot ~attributes Typ_bool
+(* Fixed size integers *)
+let typ_i8_var = toplevel_typvar "i8"
+let typ_i8 = typ_var typ_i8_var
+let typ_u8_var = toplevel_typvar "u8"
+let typ_u8 = typ_var typ_u8_var
 
-(** [typ_char ~annot ~attributes ()]: char type constructor *)
-let typ_char ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
-  typ_make ~annot ~attributes Typ_char
+let typ_i16_var = toplevel_typvar "i16"
+let typ_i16 = typ_var typ_i16_var
+let typ_u16_var = toplevel_typvar "u16"
+let typ_u16 = typ_var typ_u16_var
 
+let typ_i32_var = toplevel_typvar "i32"
+let typ_i32 = typ_var typ_i32_var
+let typ_u32_var = toplevel_typvar "u32"
+let typ_u32 = typ_var typ_u32_var
 
-(** [typ_string ~annot ~attributes ()]: char type constructor *)
-let typ_string ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
-  typ_make ~annot ~attributes Typ_string
+let typ_i64_var = toplevel_typvar "i64"
+let typ_i64 = typ_var typ_i64_var
+let typ_u64_var = toplevel_typvar "u64"
+let typ_u64 = typ_var typ_u64_var
 
-(** [typ_ptr ~annot ~attributes kind t]: pointer type constructor,
-   Note: references are considered as pointer types in OptiTrust *)
-let typ_ptr ?(annot : typ_annot list = []) ?(attributes = [])
-  (kind : ptr_kind) (t : typ) : typ =
-  typ_make ~annot ~attributes (Typ_ptr {ptr_kind = kind; inner_typ = t} )
+let typ_const_var = toplevel_typvar "const"
+let typ_const_constr = typ_var typ_const_var
+(** [typ_const ?loc t]: wrapper for making the corresponding const type.
+  After decoding, const types should only appear behind a pointer.
+  LATER: Think about constness of struct members, for now we only support structs without const fields. *)
+let typ_const ?loc (t : typ) : typ =
+  typ_apps ?loc typ_const_constr [t]
 
-(** [typ_array ~annot ~attributes t s]: array type constructor *)
-let typ_array ?(annot : typ_annot list = []) ?(attributes = []) ?(size : trm option) (t : typ) : typ =
-  typ_make ~annot ~attributes (Typ_array (t, size))
+let typ_ptr_var = toplevel_typvar "ptr"
+let typ_ptr_constr = typ_var typ_ptr_var
+(** [typ_ptr ?loc t]: build a pointer type around t *)
+let typ_ptr ?loc (t : typ) : typ = typ_apps ?loc typ_ptr_constr [t]
 
-(** [typ_fun ~annot ~attributes args res]: function type constructor *)
-let typ_fun ?(annot : typ_annot list = []) ?(attributes = [])
-  (args : typ list) (res : typ) : typ =
-  typ_make ~annot ~attributes (Typ_fun (args, res) )
+(* Type of characters and strings *)
+let typ_char_var = toplevel_typvar "char"
+let typ_char = typ_var typ_char_var
+let typ_string = typ_ptr (typ_const typ_char)
 
-(** [typ_record ~annot ~attributes rt name]: record type constructor *)
-let typ_record ?(annot : typ_annot list = []) ?(attributes = [])
-  (rt : record_type) (name : typ) : typ =
-  typ_make ~annot ~attributes (Typ_record (rt, name) )
+let typ_ref_var = toplevel_typvar "reference"
+let typ_ref_constr = typ_var typ_ref_var
+(** [typ_ref ?loc t]: build a C++ reference type around t (these should never exist after decoding) *)
+let typ_ref ?loc (t: typ): typ = typ_apps ?loc typ_ref_constr [t]
 
-(** [typ_template_param ~annot ~attributes name]: template type constructor *)
-let typ_template_param ?(annot : typ_annot list = []) ?(attributes = [])
-  (name : string) : typ =
-  typ_make ~annot ~attributes (Typ_template_param name )
+let typ_array_var = toplevel_typvar "array"
+let typ_array_constr = typ_var typ_array_var
+(** [typ_array ?loc ?size t]: array type constructor *)
+let typ_array ?loc ?(size : trm option) (t : typ) : typ =
+  typ_apps typ_array_constr ([t] @ (Option.to_list size))
 
-(** [typ_ptr_generated ty]: generated pointer type constructor *)
-let typ_ptr_generated (ty : typ) : typ =
-  typ_ptr ~attributes:[GeneratedTyp] Ptr_kind_mut ty
+let typ_tuple_var = toplevel_typvar "tuple"
+let typ_tuple_constr = typ_var typ_tuple_var
+(** [typ_tuple ?loc [t1; ...; tn]]: build the tuple type [t1 * ... * tn] *)
+let typ_tuple ?loc (ts: typ list): typ =
+  typ_apps ?loc typ_tuple_constr ts
 
-(** [typedef_prod ~recursive field_list]: typedef kind constructor *)
-let typdef_record (fields : record_fields) : typdef_body =
-  Typdef_record fields
+let typ_fun_var = toplevel_typvar "fun"
+let typ_fun_constr = typ_var typ_fun_var
+(** [typ_fun ?loc args res]: function type constructor *)
+let typ_fun ?loc (args : typ list) (res : typ) : typ =
+  typ_apps ?loc typ_fun_constr (res :: args)
 
-(** [typ_str ~annot ~attributes s] *)
-let typ_str ?(annot : typ_annot list = []) ?(attributes = [])
-  (s : code_kind) : typ =
-  typ_make ~annot ~attributes (Typ_arbitrary s )
+(** [typ_arbitrary s]: arbitrary string as type, need reparse to eliminate *)
+let typ_arbitrary ?loc (s : string) : typ =
+  typ_make ?loc (Trm_arbitrary (Typ s))
 
-(** [typ_decl ~annot ~attributes expr]: type declaration based on an expression. *)
-let typ_decl ?(annot : typ_annot list = []) ?(attributes = []) (expr : trm) =
-  typ_make ~annot ~attributes (Typ_decl expr )
+let typ_typeof_var = toplevel_typvar "typeof"
+let typ_typeof_constr = typ_var typ_typeof_var
+(** [typ_typeof ?loc expr]: type of the given expression, corresponds to the C++ type written decltype(expr) *)
+let typ_typeof ?loc (expr : trm) =
+  typ_apps typ_typeof_constr [expr]
 
-(** [typ_ref ~annot ~attributes ty]: alias to typ_ptr Ptr_kind_ref ty *)
-let typ_ref ?(annot : typ_annot list = []) ?(attributes = [])
-  (ty : typ) : typ =
-  typ_ptr ~annot ~attributes Ptr_kind_ref ty
+(** [typ_add_attribute attr ty]: adds the attribute [attr] to the type [ty] *)
+let typ_add_attribute (attr : attribute) (ty : typ) : typ =
+  {ty with annot = { ty.annot with trm_annot_attributes = attr :: ty.annot.trm_annot_attributes } }
 
-(** [typ_lref ~annot ~attributes ty]: alias to typ_ref (typ_ref ty). *)
-let typ_lref ?(annot : typ_annot list = []) ?(attributes = [])
-  (ty : typ) : typ =
-    typ_ref ~annot ~attributes (typ_ref ty)
+(** [typ_align align ty]: adds the alignas attribute to type ty *)
+let typ_align (align : trm) (ty : typ) =
+  typ_add_attribute (Alignas align) ty
 
 (*****************************************************************************)
 
+(** [typ_var_inv ty]: if the typ is a variable, return this variable *)
+let typ_var_inv (ty : typ) : typvar option =
+  match ty.desc with
+  | Trm_var v -> Some v
+  | _ -> None
 
-(** [typ_ref_inv ty]: get the inner type of a reference *)
-let typ_ref_inv (ty : typ) : typ option =
-  match ty.typ_desc with
-  | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = ty1} -> Some ty1
+let typ_apps_inv (ty : typ) : (typvar * typ list) option =
+  match ty.desc with
+  | Trm_apps ({ desc = Trm_var v }, args, []) -> Some (v, args)
+  | _ -> None
+
+(** [typ_ptr_inv ty]: get the inner type of a const *)
+let typ_const_inv (ty : typ) : typ option =
+  match typ_apps_inv ty with
+  | Some (v, [ty]) when var_eq v typ_const_var -> Some ty
   | _ -> None
 
 (** [typ_ptr_inv ty]: get the inner type of a pointer *)
 let typ_ptr_inv (ty : typ) : typ option =
-  match ty.typ_desc with
-  | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
+  match typ_apps_inv ty with
+  | Some (v, [ty]) when var_eq v typ_ptr_var -> Some ty
+  | _ -> None
+
+(** [typ_ref_inv ty]: get the inner type of a reference *)
+let typ_ref_inv (ty : typ) : typ option =
+  match typ_apps_inv ty with
+  | Some (v, [ty]) when var_eq v typ_ref_var -> Some ty
   | _ -> None
 
 let typ_array_inv (ty : typ) : (typ * trm option) option =
-  match ty.typ_desc with
-  | Typ_array (typ, size) -> Some (typ, size)
+  match typ_apps_inv ty with
+  | Some (v, [ty]) when var_eq v typ_array_var -> Some (ty, None)
+  | Some (v, [ty; size]) when var_eq v typ_array_var -> Some (ty, Some size)
   | _ -> None
 
-let typ_const_inv (ty : typ) : typ option =
-  match ty.typ_desc with
-  | Typ_const typ -> Some typ
+let rec typ_nested_array_inv (ty: typ) : typ * trm option list =
+  match typ_array_inv ty with
+  | Some (ty, sz) ->
+    let ty, szs = typ_nested_array_inv ty in
+    ty, sz :: szs
+  | None -> ty, []
+
+let typ_fun_inv (ty: typ) : (typ list * typ) option =
+  match typ_apps_inv ty with
+  | Some (v, res :: args) when var_eq v typ_fun_var -> Some (args, res)
   | _ -> None
 
-let typ_const_ptr (ty : typ) : typ =
-  typ_const (typ_ptr Ptr_kind_mut ty)
-
-(** [typ_const_ptr_inv ty]: get the inner type of a constant pointer *)
-let typ_const_ptr_inv (ty : typ) : typ option =
-  Option.bind (typ_const_inv ty) typ_ptr_inv
-
-let typ_const_array_inv (ty : typ) : (typ * trm option) option =
-  Option.bind (typ_array_inv ty) (fun (ty2, size) ->
-    Option.map (fun ty3 -> (ty3, size)) (typ_const_inv ty2))
-
-(** [typ_add_attribute att ty]: adds the attribute [att] to the type [ty] *)
-let typ_add_attribute (att : attribute)(ty : typ) : typ =
-  {ty with typ_attributes = att :: ty.typ_attributes}
-
-(** [typ_has_attribute att ty]: checks if [ty] has attribute [att]. *)
-let typ_has_attribute (att : attribute) (ty : typ) : bool =
-  List.mem att ty.typ_attributes
-
+let typ_constr_inv (ty: typ): var option =
+  match typ_var_inv ty with
+  | Some tv -> Some tv
+  | None ->
+    match typ_apps_inv ty with
+    | Some (tv, _) -> Some tv
+    | None -> None
 
 (*****************************************************************************)
-
 
 let typ_inv ?(error : string = "") (trm : trm) (k : typ -> 'a option) (t : typ) : 'a =
   match k t with
   | None -> if error = "" then assert false else trm_fail trm error
   | Some r -> r
 
-(** [is_generated_typ ty]: checks ia a typ is a type used only for optitrust encoding *)
-let is_generated_typ (ty : typ) : bool =
-  List.mem GeneratedTyp ty.typ_attributes
-
-
-(** [is_atomic_typ ty]: checks if [ty] is an atomic type *)
-let is_atomic_typ (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char |Typ_string -> true
-  | _ -> false
-
-
-(** [typ_kind]: initialization type kind *)
-type typ_kind =
-  | Typ_kind_undefined
-  | Typ_kind_reference
-  | Typ_kind_array
-  | Typ_kind_sum
-  | Typ_kind_record
-  | Typ_kind_basic of typ_desc
-  | Typ_kind_fun
-  | Typ_kind_var
-
-(** [typ_kind_to_string tpk]: converts a type kind to a string *)
-let typ_kind_to_string (tpk : typ_kind) : string =
-  begin match tpk with
-  | Typ_kind_undefined -> "undefined"
-  | Typ_kind_reference -> "reference"
-  | Typ_kind_array -> "array"
-  | Typ_kind_sum -> "sum"
-  | Typ_kind_record -> "prod"
-  | Typ_kind_basic _ -> "basic"
-  | Typ_kind_fun -> "fun"
-  | Typ_kind_var -> "var"
-  end
-
-(** [get_typ_kind ctx ty]: based on the context [ctx], get the kind of type [ty] *)
-let rec get_typ_kind (ctx : typ_ctx) (ty : typ) : typ_kind =
-  if is_atomic_typ ty then Typ_kind_basic ty.typ_desc
-    else
-  match ty.typ_desc with
-  | Typ_const ty1 -> get_typ_kind ctx ty1
-  | Typ_ptr rf when rf.ptr_kind = Ptr_kind_ref -> Typ_kind_reference
-  | (Typ_ptr _| Typ_array _) -> Typ_kind_array
-  | Typ_fun _ -> Typ_kind_fun
-  | Typ_var _ -> Typ_kind_var
-  | Typ_constr (_, tid, _) ->
-      let td_opt = Typ_map.find_opt tid ctx.ctx_typedef in
-      begin match td_opt with
-      | None -> Typ_kind_undefined
-      | Some td ->
-          begin match td.typdef_body with
-        | Typdef_alias ty1 -> get_typ_kind ctx ty1
-        | Typdef_record _ -> Typ_kind_record
-        | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum
-        end
-      end
-  | _ -> Typ_kind_basic ty.typ_desc
-
 (** [get_inner_ptr_type ty]: gets the underlying type of [ty] when [ty] is a generated pointer type *)
 let get_inner_ptr_type (ty : typ) : typ =
-  match ty.typ_desc with
-  | Typ_ptr {inner_typ = ty1;_} when is_generated_typ ty -> ty1
-  | _ -> ty
+  match typ_ptr_inv ty with
+  | Some ty -> ty
+  | None -> ty
 
 (** [get_inner_array_type ty]: returns the underlying type of [ty] when [ty] is an array type. *)
 let get_inner_array_type (ty : typ) : typ =
-  match ty.typ_desc with
-  | Typ_array (ty, _) -> ty
-  | _ -> ty
-
+  match typ_array_inv ty with
+  | Some (ty, _) -> ty
+  | None -> ty
 
 (** [get_inner_const_type ty]: gets the underlying type of [ty] when [ty] is a const type *)
 let get_inner_const_type (ty : typ) : typ =
-  match ty.typ_desc with
-  | Typ_const ty -> ty
-  | _ -> ty
+  match typ_const_inv ty with
+  | Some ty -> ty
+  | None -> ty
 
 (** [get_inner_type ty]: returns the inner type of [ty] when [ty] is a pointer type, const type or an array type. *)
 let get_inner_type (ty : typ) : typ =
-  match ty.typ_desc with
-  | Typ_const ty -> ty
-  | Typ_ptr {inner_typ = ty; _} -> ty
-  | Typ_array (ty, _) -> ty
-  | _ -> ty
+  match typ_const_inv ty with
+  | Some ty -> ty
+  | None ->
+    match typ_ptr_inv ty with
+    | Some ty -> ty
+    | None ->
+      match typ_array_inv ty with
+      | Some (ty, _) -> ty
+      | None -> ty
 
-
-(** [decl_type t]: returns the type of declaration [t]. *)
-let decl_type (t : trm) : typ option =
-  match t.desc with
-  | Trm_let ((_, tx), _) -> Some (get_inner_ptr_type tx)
-  | Trm_let_fun (_, ty, _, _, _) -> Some ty
-  | _ -> None
-
-
-(** [is_reference]: checks if the type is a reference type or not *)
+(** [is_reference]: checks if the type is a reference type or not.
+  FIXME: This function should NEVER be called outside decoding.
+  C++ references MUST be eliminated during decoding phase ! *)
 let is_reference (ty : typ) : bool =
   let ty = get_inner_ptr_type ty in
-  match ty.typ_desc with
-  | Typ_ptr {ptr_kind = Ptr_kind_ref;_} -> true
-  | _ -> false
+  match typ_ref_inv ty with
+  | Some _ -> true
+  | None -> false
 
 (** [is_typ_const ty]: checks if [ty] is a const type *)
 let is_typ_const (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_const _ -> true
-  (* | Typ_array (ty, s) -> is_typ_const ty *)
-  | _ -> false
+  match typ_const_inv ty with
+  | Some _ -> true
+  | None -> false
 
-
-(** [is_type_unit t]: checks if the [t] has type void *)
-let is_type_unit (t : typ) : bool =
-  match t.typ_desc with
-  | Typ_unit -> true
-  | _ -> false
-
-(** [is_lit t]: checks if [t] is a literal or not *)
-let is_lit (t : trm) : bool =
-  match t.desc with
-  | Trm_val (Val_lit _) -> true
+(** [is_typ_unit t]: checks if the [t] has type void *)
+let is_typ_unit (t : typ) : bool =
+  match typ_var_inv t with
+  | Some v when var_eq v typ_unit_var -> true
   | _ -> false
 
 (** [is_typ_ptr ty]: checks if [ty] is a pointer type *)
 let is_typ_ptr (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
+  match typ_ptr_inv ty with
+  | Some _ -> true
   | _ -> false
 
 (** [is_typ_ref ty]: checks if [ty] is a reference type *)
 let is_typ_ref (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_ptr {ptr_kind = Ptr_kind_ref;_} -> true
+  match typ_ref_inv ty with
+  | Some _ -> true
   | _ -> false
 
 (** [is_typ_fun ty]: checks if [ty] is a function type *)
 let is_typ_fun (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_fun _ -> true | _ -> false
+  match typ_fun_inv ty with
+  | Some _ -> true
+  | _ -> false
 
-(** [is_typ_struct struct_name ty]: checks if [ty] is a constructed struct type *)
-let is_typ_struct (struct_name : Qualified_name.t) (ty_opt : typ option) : bool =
-  match ty_opt with
-  | Some ty ->
-    begin match ty.typ_desc with
-    | Typ_constr (sn, _, _) -> sn = struct_name
-    | _ -> false
-    end
-  | None -> false
+(** [is_typ_named name ty]: checks if [ty] is a type named [name] *)
+let is_typ_named (name : var) (ty: typ) : bool =
+  begin match typ_var_inv ty with
+  | Some x -> var_eq x name
+  | _ -> false
+  end
 
+(** [is_typ_array ty]: checks if [ty] is an array type. *)
+let is_typ_array (ty : typ) : bool =
+  match typ_array_inv ty with
+  | Some _ -> true
+  | _ -> false
 
-
-(** [is_typ ty]: checks if [ty] is a proper type *)
-let is_typ (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_arbitrary _ -> false
-  | _ -> true
-
-
-(** [typ_align align ty]: adds the alignas attribute to type ty *)
-let typ_align (align : trm) (ty : typ) =
-  typ_add_attribute (Alignas align) ty
-
-
-(** [is_typ_array ty]: checks if [ty] is of type array. *)
-  let is_typ_array (ty : typ) : bool =
-    match ty.typ_desc with
-    | Typ_array _ -> true
-    | _ -> false
-
-let typconstr_has_name ((namespaces, name) : typconstr) (n : string) : bool =
-  namespaces = [] && name = n
-
-(* ********************************************************************************************** *)
-
-
-(** [typ_map f ty]: applies f on type ty recursively *)
-let typ_map (f : typ -> typ) (ty : typ) : typ =
-  let annot = ty.typ_annot in
-  let attributes = ty.typ_attributes in
-  match ty.typ_desc with
-  | Typ_ptr {ptr_kind= pk; inner_typ = ty} -> typ_ptr ~annot ~attributes pk (f ty)
-  | Typ_array (ty, size) -> typ_array ~annot ~attributes (f ty) ?size
-  | Typ_fun (tyl, ty) ->
-     typ_fun ~annot ~attributes (List.map f tyl) (f ty)
-  (* var, unit, int, float, double, bool, char *)
-  | _ -> ty
-
-
-
-(** [same_types ~match_generated_start typ_1 typ_2]: checks if two types are the same *)
-  let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 : typ) : bool =
-    let aux = same_types ~match_generated_star in
-    (typ_1.typ_annot = typ_2.typ_annot) && (
-      match typ_1.typ_desc, typ_2.typ_desc with
-      | Typ_const typ_a1, Typ_const typ_a2 ->
-        (aux typ_a1 typ_a2)
-      | Typ_var (_, id1), Typ_var (_, id2) ->
-        id1 = id2
-      | Typ_constr (_, id1, tl1), Typ_constr (_, id2, tl2) ->
-        (id1 = id2) && (tl1 = tl2)
-      | Typ_unit, Typ_unit -> true
-      | Typ_int, Typ_int -> true
-      | Typ_float, Typ_float -> true
-      | Typ_double, Typ_double -> true
-      | Typ_bool, Typ_bool -> true
-      | Typ_char, Typ_char -> true
-      | Typ_string, Typ_string -> true
-      | Typ_ptr {ptr_kind = pk1; inner_typ = typ_a1}, Typ_ptr {ptr_kind = pk2; inner_typ = typ_a2} ->
-       if match_generated_star then (pk1 = pk2) && (is_generated_typ typ_1 && is_generated_typ typ_2) && (aux typ_a1 typ_a2)
-        else (not (is_generated_typ typ_1 || is_generated_typ typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2)
-      | Typ_array (typa1, size1), Typ_array (typa2, size2) ->
-          (same_types typa1 typa2) && (size1 = size2)
-      | _, _ -> false)
+(*****************************************************************************)
 
 let typ_of_get (t : typ) : typ option =
-  match t with
-  | { typ_desc = Typ_array (ty, _); _} -> Some ty
-  | { typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _} -> Some ty
-  | { typ_desc = Typ_const { typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _}; _ } -> Some ty
-  | _ -> None
+  let t = get_inner_const_type t in
+  Option.or_ (Option.map fst (typ_array_inv t)) (typ_ptr_inv t)
+
+(** [typ_of_lit l]: get the type of a literal *)
+let typ_of_lit (l : lit) : typ option =
+  match l with
+  | Lit_unit -> Some typ_unit
+  | Lit_uninitialized -> None
+  | Lit_bool _ -> Some typ_bool
+  | Lit_int _ -> Some typ_int
+  | Lit_float _ -> Some typ_f64
+  | Lit_string _ -> Some typ_string
+  | Lit_nullptr -> None
 
 (*****************************************************************************)
 
@@ -407,8 +312,8 @@ let typ_of_get (t : typ) : typ option =
 let typedef_get_members ?(access : access_control option) (t : trm) : (label * typ) list =
   match t.desc with
   | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rf ->
+    begin match td.typedef_body with
+    | Typedef_record rf ->
       List.fold_left (fun acc (rf, rf_ann) ->
         match rf with
         | Record_field_member (lb, ty) ->
@@ -428,8 +333,8 @@ let typedef_get_members ?(access : access_control option) (t : trm) : (label * t
 let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
   match t.desc with
   | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rf ->
+    begin match td.typedef_body with
+    | Typedef_record rf ->
       List.fold_left (fun acc (rf, rf_ann) ->
         match rf with
         | Record_field_member _fm ->  acc
@@ -447,8 +352,8 @@ let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
 let typedef_get_all_fields (t : trm) : record_fields =
   match t.desc with
   | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rf -> rf
+    begin match td.typedef_body with
+    | Typedef_record rf -> rf
     | _ -> trm_fail t "Ast.typdef_get_all_fields: this function should be called only for structs and classes."
     end
   | _ -> trm_fail t "Ast.get_all_fields: only structs and classes have fields"

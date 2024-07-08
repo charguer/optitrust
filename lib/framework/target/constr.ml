@@ -1,6 +1,7 @@
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 open Mark
 open Str
 open Tools
@@ -557,36 +558,31 @@ let is_equal_lit (l : lit) (l' : lit) =
   | Lit_uninitialized, Lit_uninitialized -> true
   | Lit_bool b, Lit_bool b' when b = b' -> true
   | Lit_int n, Lit_int n' when n = n' -> true
-  | Lit_double d, Lit_double d' when d = d' -> true
+  | Lit_float d, Lit_float d' when d = d' -> true
   | Lit_string s, Lit_string s' when s = s' -> true
   | Lit_nullptr, Lit_nullptr -> true
   | _ -> false
 
 (** [get_trm_kind t]: gets the kind of trm [t] *)
-(* LATER: we may want to save the kind inside the term? *)
 let get_trm_kind (t : trm) : trm_kind =
-   let is_unit = begin match t.typ with
-                 | Some ty ->
-                    begin match ty.typ_desc with
-                    | Typ_unit -> true
-                    | _ -> false
-                    end
-                 | None -> false
-                 end
+  let is_unit = begin match t.typ with
+    | Some ty when is_typ_unit ty -> true
+    | _ -> false
+    end
     in
-   match t.desc with
-   | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
-   | Trm_var _ -> TrmKind_Expr
-   | Trm_record _ | Trm_array _ -> TrmKind_Expr
-   | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
-   | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
-   | Trm_typedef _ -> TrmKind_Typedef
-   | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
-   | Trm_fun _ -> TrmKind_Expr
-   | Trm_seq _ -> TrmKind_Ctrl
-   | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
-   | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
-   | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ | Trm_using_directive _ -> TrmKind_Any
+  match t.desc with
+  | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+  | Trm_var _ -> TrmKind_Expr
+  | Trm_record _ | Trm_array _ -> TrmKind_Expr
+  | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
+  | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
+  | Trm_typedef _ -> TrmKind_Typedef
+  | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
+  | Trm_fun _ -> TrmKind_Expr
+  | Trm_seq _ -> TrmKind_Ctrl
+  | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+  | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
+  | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ | Trm_using_directive _ -> TrmKind_Any
 
 
 (** [match_regexp_str r s]: checks if [s] can be matched with [r] *)
@@ -840,16 +836,17 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         check_args cl_args args &&
         body_check
      | Constr_decl_type name, Trm_typedef td ->
-        let is_new_typ = begin match td.typdef_body with
-        | Typdef_alias _ -> true
-        | Typdef_record _ -> true
+        (* TODO: Why do we check this ? *)
+        let is_new_typ = begin match td.typedef_body with
+        | Typedef_alias _ -> true
+        | Typedef_record _ -> true
         | _ -> false
         end in
-        let x = td.typdef_tconstr in
-        is_new_typ && check_name name x
+        let x = td.typedef_name in
+        is_new_typ && check_name name x.name
      | Constr_decl_enum (name, cec), Trm_typedef td ->
-        begin match td.typdef_body with
-        | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const ~incontracts cec xto_l
+        begin match td.typedef_body with
+        | Typedef_enum xto_l -> check_name name td.typedef_name.name && check_enum_const ~incontracts cec xto_l
         | _ -> false
         end
      | Constr_seq cl, Trm_seq tl when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
@@ -1416,8 +1413,8 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
         | _ -> []
         end
      | Trm_typedef td  ->
-      begin match td.typdef_body with
-      | Typdef_record rfl ->
+      begin match td.typedef_body with
+      | Typedef_record rfl ->
         let res = List.fold_lefti (fun i acc (rf, _) ->
           begin match rf with
           | Record_field_method t1 ->
@@ -1426,7 +1423,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
           end
         ) [] rfl in
         res
-      | Typdef_enum xto_l ->
+      | Typedef_enum xto_l ->
         let (il, tl) =
           List.fold_lefti
             (fun n (il, tl) (_, t_o) ->
@@ -1437,8 +1434,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
            ([], [])
            xto_l
         in
-        (* CHECK: #var-id-dir-name , is this correct? *)
-        add_dir Dir_name (aux (trm_var ?loc (name_to_var td.typdef_tconstr))) @
+        add_dir Dir_name (aux (trm_var ?loc td.typedef_name)) @
         (explore_list (List.map (fun (y, _) -> trm_var ?loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
            (aux)) @
@@ -1593,8 +1589,7 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
      app_to_nth_dflt tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
-    (* CHECK: #var-id-dir-name , is this correct? *)
-     add_dir Dir_name (aux (trm_var ?loc (name_to_var (td.typdef_tconstr))))
+    add_dir Dir_name (aux (trm_var ?loc td.typedef_name))
   | Dir_name, Trm_let_fun (x, _, _, _, _) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_let ((x,_),_) ->
@@ -1613,8 +1608,8 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
                 add_dir (Dir_case (n, cd)) (aux ith_t))
        )
   | Dir_enum_const (n, ecd), Trm_typedef td ->
-     begin match td.typdef_body with
-     | Typdef_enum xto_l ->
+     begin match td.typedef_body with
+     | Typedef_enum xto_l ->
           app_to_nth_dflt xto_l n
           (fun (x, t_o) ->
             match ecd with
@@ -1633,8 +1628,8 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
       | _ -> []
       end
   | Dir_record_field i, Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rfl ->
+    begin match td.typedef_body with
+    | Typedef_record rfl ->
       app_to_nth_dflt rfl i (fun (rf, rf_ann) ->
         begin match rf with
         | Record_field_method  t1 ->

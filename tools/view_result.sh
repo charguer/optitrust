@@ -207,8 +207,7 @@ ${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}.ml
 
 TIMER6=`date +%s%3N`
 
-# if [ ! -z ${OPTIONS} ]; then
-echo "Execution options: ${OPTIONS}"
+echo "View ${FILEPATH} with options ${OPTIONS}"
 
 # LATER: only do this if error is raised
 make -C ${OPTITRUST_FOLDER} precompile

@@ -1,6 +1,7 @@
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 open Mark
 open Tools
 open Path
@@ -334,7 +335,7 @@ let cHasTypePred (pred : typ -> bool) : constr =
 
 (** [cHasTypeAst ty]: matches [ty] types. *)
 let cHasTypeAst (ty : typ) : constr =
-  let pred = (fun (ty2 : typ) -> same_types ty ty2) in
+  let pred = (fun (ty2 : typ) -> are_same_trm ty ty2) in
   cHasTypePred (make_typ_constraint ~typ_pred:pred ())
 
 (** [cHasType typ]: matches all types that have the same string representation as [typ]. *)
@@ -675,7 +676,7 @@ let cInt (n : int) : constr =
 let cDoublePred (pred : float -> bool) : constr =
   cLitPred (function l ->
    begin match l with
-   | Lit_double d -> pred d
+   | Lit_float d -> pred d
    | _ -> false
    end )
 
@@ -778,11 +779,11 @@ let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : con
 let cPrimRef ?(arg : target = []) () : constr =
   cPrimPredFun ~args:[arg] (function Prim_ref _ -> true | _ -> false)
 
-(** [dVarInit: alias to dVarBody. *)
+(** [dVarInit] alias to dVarBody. *)
 let dVarInit : constr =
    dVarBody
 
-(** [dInit]: alias to dBody used for variable initializations. *)
+(** [dInit] alias to dBody used for variable initializations. *)
 let dInit : constr =
   dBody
 

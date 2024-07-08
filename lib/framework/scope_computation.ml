@@ -121,8 +121,8 @@ let infer_map_var ~(failure_allowed : bool) (scope_ctx : scope_ctx) var =
     match Qualified_map.find_opt qualified scope_ctx.var_ids with
     | Some id -> { namespaces = var.namespaces; name = var.name; id }
     (* If the variable is not found in the current context, it should be a toplevel variable.
-       This can be confusing if triggered when not expected *)
-    | None when scope_ctx.namespace_path_rev <> [] -> failwith "variable %s is used inside open namespaces but is never declared." (var_to_string var)
+       This can be confusing if triggered when not expected.
+       In particular if we are inside a namespace, we do not take this into account and consider that the variable has an absolute namespace path. *)
     | None -> toplevel_var ~namespaces:var.namespaces var.name
   in
   let check_var_id () =
@@ -264,10 +264,10 @@ let enter_scope check_binder scope_ctx t =
     (* TODO: conflicts ~= filter_map is_qualified conflicts *)
     { scope_ctx with namespace_path_rev = name :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; }
   | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_alias _ -> scope_ctx
-    | Typdef_record rfl ->
-      let scope_ctx = { scope_ctx with namespace_path_rev = td.typdef_tconstr :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; } in
+    begin match td.typedef_body with
+    | Typedef_alias _ -> scope_ctx
+    | Typedef_record rfl ->
+      let scope_ctx = { scope_ctx with namespace_path_rev = td.typedef_name.name :: scope_ctx.namespace_path_rev; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; } in
       (* order of declaration does not matter for class members:
          this is equivalent to implicit predefinitions. *)
       List.fold_left (fun scope_ctx (rf, _) ->
@@ -281,7 +281,7 @@ let enter_scope check_binder scope_ctx t =
           check_binder scope_ctx v true
         end
       ) scope_ctx rfl
-    | _ -> failwith "unexpected typdef_body"
+    | _ -> failwith "unexpected typedef_body"
     end
   | _ ->
     { scope_ctx with namespace_path_rev = []; toplevel = false; conflicts = Qualified_set.empty; predefined = Qualified_set.empty; }
@@ -291,7 +291,7 @@ let scope_ctx_exit outer_ctx inner_ctx t =
   (* TODO: handle ~failure_allowed *)
   match t.desc with
   | Trm_namespace (name, _, _)
-  | Trm_typedef { typdef_tconstr = name } ->
+  | Trm_typedef { typedef_name = { name } } ->
     (* q1::q2::...::qN::n, is qualified by N if q1 = N
       example:
       namespace q0 { namespace q2 { void f(); }}
@@ -299,7 +299,7 @@ let scope_ctx_exit outer_ctx inner_ctx t =
       [q0::q2::f; q1::f; f; q2::f; q1::q2::f;] --exit q2--> namespace_path_rev = q2::q1::[]
       [q0::q2::f; q1::f; q2::f; q1::q2::f] --exit q1--> namespace_path_rev = q1::[]
       [q0::q2::f; q1::f; q1::q2::f] *)
-    let rec is_qualified ?(namespace_path_rev = inner_ctx.namespace_path_rev) ((q, n): typconstr)  : bool =
+    let rec is_qualified ?(namespace_path_rev = inner_ctx.namespace_path_rev) ((q, n): Qualified_name.t)  : bool =
       match (q, namespace_path_rev) with
       (* Case 1. qualifier starts with current namespace *)
       | (fq :: _, pq :: _) when fq = pq -> true

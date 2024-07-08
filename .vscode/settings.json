@@ -43,4 +43,8 @@
       ]
     },
   ],
+  "ocaml.sandbox": {
+    "kind": "opam",
+    "switch": "4.14.2+flambda"
+  },
 }

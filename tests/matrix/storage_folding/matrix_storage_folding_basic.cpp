@@ -5,8 +5,8 @@ extern int N;
 typedef float T;
 
 int main() {
-  T* const a = (T* const) MALLOC1(N, sizeof(T));
-  T* const b = (T* const) MALLOC1(N - 2, sizeof(T));
+  T* const a = (T*) MALLOC1(N, sizeof(T));
+  T* const b = (T*) MALLOC1(N - 2, sizeof(T));
   for (int i = 0; i < N; i++) {
     a[MINDEX1(N, i)] = i;
     if (i >= 2) {

@@ -12,7 +12,7 @@ typedef struct {
 } particle;
 
 typedef struct chunk {
-  struct chunk *next;
+  chunk* next;
   int size;
   int itemsWeight[2];
   int itemsPosX[2];
@@ -29,7 +29,7 @@ void test_arg(particle p) {
   q.speedY = p.speedY;
 }
 
-void test_chunk(chunk *c, particle p) {
+void test_chunk(chunk* c, particle p) {
   c->itemsPosX[0] = p.posX;
   c->itemsPosX[1] = p.posX;
   c->itemsPosY[0] = p.posY;

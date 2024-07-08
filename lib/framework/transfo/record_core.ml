@@ -13,44 +13,39 @@ let set_explicit_on (t : trm) : trm =
       | _ -> lt
       end
      in
-    let tid_r = Internal.get_typid_from_trm rt  in
-      let tid_l = Internal.get_typid_from_trm lt  in
-      let tid = match tid_r, tid_l with
-      | -1, _ -> tid_l
-      | _, -1 -> tid_r
-      | _, _ -> if tid_r = tid_l then tid_r
-                  else trm_fail t "Record_core.set_explicit_on: different types in an assignment"
-      in
-      let struct_def =
-        if tid <> -1 then
-          match Context.typid_to_typedef tid with
-          | Some td -> td
-          | _ -> trm_fail t "Record_core.set_explicit_aux: could not get the declaration of typedef"
-        else begin
-          Tools.debug "%s" (Ast_to_c.ast_to_string t);
-          trm_fail t "Record_core.set_explicit_aux: explicit assignment cannot operate on unknown types"
-        end
-      in
-      let field_list = Internal.get_field_list t struct_def in
-      begin match rt.desc with
-      | Trm_apps (f1, [rt1], _) when is_get_operation rt ->
-         let exp_assgn = List.mapi (fun i (sf, ty) ->
-          trm_set (trm_struct_access ~typ:ty lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
-         ) field_list in
-         trm_seq_nobrace_nomarks exp_assgn
-      | Trm_record st ->
-        let st = List.split_pairs_snd (Mlist.to_list st) in
+    let tid = match Option.bind rt.typ typ_constr_inv, Option.bind lt.typ typ_constr_inv with
+      | None, Some var | Some var, None -> var
+      | Some var_r, Some var_l ->
+        if not (var_eq var_r var_l) then trm_fail t (sprintf "Record_core.set_explicit_on: different types in an assignment ('%s' vs '%s')" (var_to_string var_l) (var_to_string var_r));
+        var_r
+      | None, None ->
+        trm_fail t "Record_core.set_explicit_aux: explicit assignment cannot operate on unknown types"
+    in
+    let struct_def =
+      match Internal.typvar_to_typedef tid with
+      | Some td -> td
+      | _ -> trm_fail t "Record_core.set_explicit_aux: could not get the declaration of typedef"
+    in
+    let field_list = Internal.get_field_list t struct_def in
+    begin match rt.desc with
+    | Trm_apps (f1, [rt1], _) when is_get_operation rt ->
         let exp_assgn = List.mapi (fun i (sf, ty) ->
-          trm_set (trm_struct_access ~typ:ty lt sf) (List.nth st i)
-        ) field_list
-         in
+        trm_set (trm_struct_access ~typ:ty lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
+        ) field_list in
         trm_seq_nobrace_nomarks exp_assgn
-      | _ ->  (* other cases are included here *)
-        let exp_assgn = List.mapi (fun i (sf, ty) ->
-         trm_set (trm_struct_access ~typ:ty lt sf) (trm_struct_get ~typ:ty rt sf)
-         ) field_list in
-         trm_seq_nobrace_nomarks exp_assgn
-      end
+    | Trm_record st ->
+      let st = List.split_pairs_snd (Mlist.to_list st) in
+      let exp_assgn = List.mapi (fun i (sf, ty) ->
+        trm_set (trm_struct_access ~typ:ty lt sf) (List.nth st i)
+      ) field_list
+        in
+      trm_seq_nobrace_nomarks exp_assgn
+    | _ ->  (* other cases are included here *)
+      let exp_assgn = List.mapi (fun i (sf, ty) ->
+        trm_set (trm_struct_access ~typ:ty lt sf) (trm_struct_get ~typ:ty rt sf)
+        ) field_list in
+        trm_seq_nobrace_nomarks exp_assgn
+    end
   | _ -> trm_fail t "Record_core.set_explicit_aux: expected a set operation"
 
 (** [set_implicit t]: transform a sequence with a list of explicit field assignments into a single assignment,
@@ -166,7 +161,7 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
       [field_list] - a list of fields from the original type of the struct,
       [field_index] - index of the field in the outer struct,
       [t] - ast node located in the same level as the main struct declaration or deeper. *)
-let inline_struct_initialization (struct_name : string) (field_list : field list) (field_index : int) (t : trm) : trm =
+let inline_struct_initialization (struct_name : typvar) (field_list : field list) (field_index : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     (* Searching for struct intialization lists of type typedef struct {} struct_name *)
@@ -174,28 +169,29 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
       begin match t.typ with
       | Some ty ->
         let ty = get_inner_const_type ty in
-        begin match ty.typ_desc with
-        | Typ_constr (y, _, _) when (typconstr_has_name y struct_name) ->
-          let lfront, (_,trm_to_change) , lback = Mlist.get_item_and_its_relatives field_index term_list in
-          begin match trm_to_change.desc with
-          | Trm_record sl ->
-            let new_term_list = Mlist.merge_list [lfront; sl; lback] in
-            trm_record ~annot:t.annot ?typ:t.typ new_term_list
+        Pattern.pattern_match ty [
+          Pattern.(typ_constr (var_eq struct_name)) (fun () ->
+            let lfront, (_,trm_to_change) , lback = Mlist.get_item_and_its_relatives field_index term_list in
+            begin match trm_to_change.desc with
+            | Trm_record sl ->
+              let new_term_list = Mlist.merge_list [lfront; sl; lback] in
+              trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
-          | Trm_apps (_, [{desc = Trm_var p;_} as v], _) when is_get_operation trm_to_change ->
-            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ?typ:v.typ p) f))) field_list in
-            let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
-            trm_record ~annot:t.annot ?typ:t.typ new_term_list
+            | Trm_apps (_, [{desc = Trm_var p;_} as v], _) when is_get_operation trm_to_change ->
+              let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ?typ:v.typ p) f))) field_list in
+              let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
+              trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
-          | Trm_var p ->
-            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ?typ:t.typ p) f)) field_list in
-            let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
-            trm_record ~annot:t.annot ?typ:t.typ new_term_list
+            | Trm_var p ->
+              let sl = List.map (fun f -> (None, trm_struct_get (trm_var ?typ:t.typ p) f)) field_list in
+              let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
+              trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
-          | _ -> trm_fail t "Record_core.inline_struct_initialization: struct intialization list is not compatible with definition"
-          end
-        | _ -> trm_map aux t
-        end
+            | _ -> trm_fail t "Record_core.inline_struct_initialization: struct intialization list is not compatible with definition"
+            end
+          );
+          Pattern.__ (fun () -> trm_map aux t)
+        ]
       | _ -> trm_fail t "Record_core.inline_struct_initialization: couldn't find the type of the struct intitialization type, try reparsing first"
         end
     | _ -> trm_map aux t
@@ -209,37 +205,30 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
 let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let td_name = ref "" in
+    let td_name = ref dummy_var in
     let f_list = ref [] in
     let field_index = ref 0 in
     let f_update (t : trm) : trm =
       match t.desc with
       | Trm_typedef td ->
-        begin match td.typdef_body with
-        | Typdef_record field_list ->
+        begin match td.typedef_body with
+        | Typedef_record field_list ->
           field_index := Internal.get_field_index t field_to_reveal field_list;
           let (field_to_reveal_rf,_),field_list  = List.extract_element field_list !field_index in
           let field_type = get_member_type t field_to_reveal_rf in
-          let tyid = begin match field_type.typ_desc with
-          | Typ_constr (_, tid, _) -> tid
-          | Typ_array (ty1, _) ->
-            begin match ty1.typ_desc with
-            | Typ_constr (_, tid, _) -> tid
-            | _ -> trm_fail t "Record_core.reveal_field_aux: expected a type constr"
-            end
-          | _ -> trm_fail t "Record_core.reveal_field_aux: expected a typ_constr"
-          end in
-          let struct_def =
-            if tyid <> -1
-              then match Context.typid_to_typedef tyid with
-                | Some td -> td
-                | _ -> trm_fail t "Record_core.reveal_field_aux: could not get the declaration of typedef"
-              else
-                trm_fail t "Record_core.reveal_field_aux: field revealing is supported only for struct type"
-            in
+          let tyvar =
+            Pattern.pattern_match field_type [
+              Pattern.(typ_array (typ_constr !__) __ ^| typ_constr !__) (fun tv () -> tv);
+              Pattern.__ (fun () -> trm_fail t "Record_core.reveal_field_aux: expected a type constr")
+            ]
+          in
+          let struct_def = match Internal.typvar_to_typedef tyvar with
+            | Some td -> td
+            | _ -> trm_fail t "Record_core.reveal_field_aux: could not get the declaration of typedef"
+          in
 
-          let inner_type_field_list = match struct_def.typdef_body with
-          | Typdef_record rfl -> rfl
+          let inner_type_field_list = match struct_def.typedef_body with
+          | Typedef_record rfl -> rfl
           | _ -> trm_fail t "Record_core.reveal_field_aux: the field wanted to inline should also be of struct type"
           in
 
@@ -247,18 +236,18 @@ let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
              Convention.name_app field_to_reveal f) inner_type_field_list in
 
           let typ_update (ty : typ) : typ =
-            match field_type.typ_desc with
-              | Typ_array (_, size) -> typ_array ty ?size
+            match typ_array_inv field_type with
+              | Some (_, size) -> typ_array ty ?size
               | _ -> ty
             in
           let inner_type_field_list = Internal.update_record_fields_type typ_update inner_type_field_list in
 
           let field_list = List.insert_sublist_at !field_index inner_type_field_list field_list in
 
-          td_name := td.typdef_tconstr;
+          td_name := td.typedef_name;
           f_list := fst (List.split (Internal.get_field_list t struct_def));
 
-          let new_typedef = {td with typdef_body = Typdef_record field_list} in
+          let new_typedef = {td with typedef_body = Typedef_record field_list} in
           trm_replace (Trm_typedef new_typedef) t
 
         | _ -> trm_fail t "Record_core.reveal_field_aux: expected a struct definition"
@@ -324,25 +313,25 @@ let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
   let error = "Record_core.reorder_fields_aux: expected the surrouding sequence of the targeted declaration." in
   let tl = trm_inv ~error trm_seq_inv t in
   let bij = ref [] in
-  let struct_name = ref "" in
+  let struct_name = ref dummy_var in
   let f_update (t : trm) : trm =
     match t.desc with
     | Trm_typedef td ->
-      struct_name := td.typdef_tconstr;
-      begin match td.typdef_body with
-      | Typdef_record rfl ->
+      struct_name := td.typedef_name;
+      begin match td.typedef_body with
+      | Typedef_record rfl ->
         let rfl_str_rep = List.mapi (fun i (rf, _) ->
           match rf with
           | Record_field_member (lb, _) -> (lb, i)
           | Record_field_method t1 ->
             begin match trm_typedef_inv t1 with
-            | Some td -> (td.typdef_tconstr, i)
+            | Some td -> (td.typedef_name.name, i)
             | _ -> trm_fail t "Record_core.reorder_fields_at: unkown method definition."
             end
         ) rfl in
         bij := compute_bijection order rfl_str_rep;
         let new_rfl = List.reorder !bij rfl in
-        trm_alter ~desc:(Trm_typedef {td with typdef_body = Typdef_record new_rfl}) t
+        trm_alter ~desc:(Trm_typedef {td with typedef_body = Typedef_record new_rfl}) t
 
       | _ -> trm_fail t "Record_core.reorder_fields_at: expected a target to a record type definition."
 
@@ -353,13 +342,15 @@ let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
     let rec aux (t : trm) : trm =
       match t.desc with
       | Trm_record mlt ->
-        begin match t.typ with
-        | Some {typ_desc = Typ_constr (qty, _, _)} when typconstr_has_name qty !struct_name ->
-          let lt = Mlist.to_list mlt in
-          let reordered_lt = List.reorder !bij lt in
-          trm_alter ~desc:(Trm_record (Mlist.of_list reordered_lt)) t
-        | _ -> trm_map aux t
-        end
+        let struct_name = !struct_name in
+        Pattern.pattern_match t.typ [
+          Pattern.(some (typ_constr (var_eq struct_name))) (fun () ->
+            let lt = Mlist.to_list mlt in
+            let reordered_lt = List.reorder !bij lt in
+            trm_alter ~desc:(Trm_record (Mlist.of_list reordered_lt)) t
+          );
+          Pattern.__ (fun () -> trm_map aux t)
+        ]
       | _ -> trm_map aux t
       in
     aux t
@@ -403,18 +394,15 @@ let to_variables_at (index : int) (t : trm) : trm =
     let error = "Record_core.struct_to_variables_aux: expected a variable declaration." in
     let (x, tx, init) = trm_inv ~error trm_let_inv t in
       var_name := x;
-      let typid = begin match (get_inner_ptr_type tx).typ_desc with
-        | Typ_constr (_, tid, _) -> tid
-        | _ -> trm_fail t "Record_core.struct_to_variables_aux: expected a struct type"
-        end in
-      let struct_def =
-      if typid <> -1
-        then match Context.typid_to_typedef typid with
-          | Some td -> td
-          | _ -> trm_fail t "Record_core.to_variables_aux: could not get the declaration of typedef"
-        else
-          trm_fail t "Record_core.to_variables_aux: explicit assignment is supported only for struct types"
-       in
+      let typvar = Pattern.pattern_match (get_inner_ptr_type tx) [
+          Pattern.(typ_constr !__) (fun v () -> v);
+          Pattern.__ (fun () -> trm_fail t "Record_core.struct_to_variables_aux: expected a struct type")
+        ]
+      in
+      let struct_def = match Internal.typvar_to_typedef typvar with
+        | Some td -> td
+        | _ -> trm_fail t "Record_core.to_variables_aux: could not get the declaration of typedef"
+      in
       field_list := Internal.get_field_list t struct_def;
       let struct_init_list = begin match init.desc with
                            | Trm_apps(_, [base], _) ->
@@ -462,48 +450,36 @@ type rename = Rename.t
       [struct_name] - the constructed type whose fields are going to be renamed,
       [rename] - a type used to rename the struct fields,
       [t] - any node in the same level as the struct declaration.*)
-let rename_struct_accesses (struct_name : string) (rename : rename) (t : trm) : trm =
+let rename_struct_accesses (struct_name : typvar) (rename : rename) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [base], _) ->
       begin match f.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y))) ->
-          begin match base.typ with
-          | Some ty ->
-            begin match ty.typ_desc with
-            | Typ_constr (x, _, _) when (typconstr_has_name x struct_name) ->
-              trm_apps ~annot:t.annot ?typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
-            | _ -> trm_map aux t
-            end
-          | None -> trm_map aux  t
-          end
+        Pattern.pattern_match base.typ [
+          Pattern.(some (typ_constr (var_eq struct_name))) (fun () ->
+            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))} [base]
+          );
+          Pattern.__ (fun () -> trm_map aux t)
+        ]
       | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
-        begin match base.typ with
-          | Some ty ->
-            begin match ty.typ_desc with
-            | Typ_constr (x, _, _) when (typconstr_has_name x struct_name) ->
-              trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))}  [base]
-            | _ -> trm_map aux t
-            end
-          | None -> trm_map aux t
-          end
-
+        Pattern.pattern_match base.typ [
+          Pattern.(some (typ_constr (var_eq struct_name))) (fun () ->
+            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))} [base]
+          );
+          Pattern.__ (fun () -> trm_map aux t)
+        ]
       | _ -> trm_map aux t
       end
     | Trm_apps ({desc = Trm_var qf; _} as f, args, ghost_args) when trm_has_cstyle Method_call t ->
-        let member_base = fst (List.uncons args) in
-        begin match (get_operation_arg member_base).typ with
-        | Some ty ->
-          begin match ty.typ_desc with
-          | Typ_constr (x, _, _) when (typconstr_has_name x struct_name) ->
-            let renamed_var = { namespaces = qf.namespaces; name = rename qf.name; id = qf.id } in
-            trm_apps ~annot:t.annot ?typ:t.typ ~ghost_args {f with desc = Trm_var renamed_var} args
-          | _ -> trm_map aux t
-          end
-
-        | None -> trm_map aux t
-        end
-
+      let member_base = fst (List.uncons args) in
+      Pattern.pattern_match (get_operation_arg member_base).typ [
+        Pattern.(some (typ_constr (var_eq struct_name))) (fun () ->
+          let renamed_var = { namespaces = qf.namespaces; name = rename qf.name; id = qf.id } in
+          trm_apps ~annot:t.annot ?typ:t.typ ~ghost_args {f with desc = Trm_var renamed_var} args
+        );
+        Pattern.__ (fun () -> trm_map aux t)
+      ]
     | _ -> trm_map aux t
    in aux t
 
@@ -514,13 +490,13 @@ let rename_struct_accesses (struct_name : string) (rename : rename) (t : trm) : 
 let rename_fields_at (index : int) (rename : rename) (t : trm) : trm =
   let error = "Record_core.rename_fields_aux: expected the sequence which contains the typedef declaration." in
   let tl = trm_inv ~error trm_seq_inv t in
-  let struct_name = ref "" in
+  let struct_name = ref dummy_var in
   let f_update (t : trm) : trm =
     match t.desc with
-    | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_record rfl;_}  as td) ->
+    | Trm_typedef ({typedef_name = name; typedef_body = Typedef_record rfl;_} as td) ->
       struct_name := name;
       let rfl = Internal.rename_record_fields rename rfl in
-      trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rfl}
+      trm_typedef ~annot:t.annot {td with typedef_body = Typedef_record rfl}
    | _ -> trm_fail t "Record_core.reanme_fields_aux: expected a typedef declaration"
    in
   let f_update_further (t : trm) : trm =
@@ -534,25 +510,19 @@ let rename_fields_at (index : int) (rename : rename) (t : trm) : trm =
       [pattern] - regular expression to match struct fields,
       [typ_update] - function that modifies only specific types,
       [t] - the ast of the typedef definition. *)
-let update_fields_type_on (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
+let update_fields_type_on (pattern : string) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
-  | Trm_typedef ({typdef_body = Typdef_record rfl;_}  as td) ->
+  | Trm_typedef ({typedef_body = Typedef_record rfl;_}  as td) ->
     (* LATER: FIX ME! *)
     (* let update_type ty = typ_map typ_update ty in *)
-
-    let rec update_type (ty_to_update : typ) : typ =
-      match ty_to_update.typ_desc with
-      | Typ_array _ | Typ_ptr _
-        | Typ_const _ -> typ_map update_type ty_to_update
-      | _ -> ty_to_update
-      in
+    let update_type (ty_to_update : typ) : typ = ty_to_update in
 
     (* let replace_type (s : string) (ty1 : typ) : typ =
       if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
      *)
     let rfl = Internal.update_record_fields_type ~pattern update_type rfl in
     (* let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in *)
-    trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rfl}
+    trm_typedef ~annot:t.annot {td with typedef_body = Typedef_record rfl}
   | _ -> trm_fail t "Record_core.reanme_fields_aux: expected a typedef declaration"
 
 
@@ -566,19 +536,19 @@ let simpl_proj_on (t : trm) : trm =
       | Some (Prim_unop (Unop_struct_get x)) | Some (Prim_unop (Unop_struct_access x))->
         begin match struct_list.desc with
         | Trm_record tl ->
-          let tid = Internal.get_typid_from_trm struct_list in
-            if tid <> -1 then begin
-              let struct_def = match Context.typid_to_typedef tid with
-              | Some td -> td
-              | _ -> trm_fail struct_list "Record_core.simpl_proj_aux: couldn't retrieve the the struct declaration" in
-              let field_list = Internal.get_field_list struct_list struct_def in
-              let field_vars = fst (List.split field_list) in
-              match List.index_of x field_vars  with
-              | Some i -> snd (Mlist.nth tl i)
-              | _ -> t
-              end
-            else
-              t
+          begin match Option.bind struct_list.typ typ_constr_inv with
+          | Some tvar ->
+            let struct_def = match Internal.typvar_to_typedef tvar with
+            | Some td -> td
+            | _ -> trm_fail struct_list "Record_core.simpl_proj_aux: couldn't retrieve the the struct declaration" in
+            let field_list = Internal.get_field_list struct_list struct_def in
+            let field_vars = fst (List.split field_list) in
+            begin match List.index_of x field_vars  with
+            | Some i -> snd (Mlist.nth tl i)
+            | _ -> t
+            end
+          | None -> t
+          end
         | _ -> trm_map aux t
         end
       | _ -> trm_map aux t
@@ -634,9 +604,12 @@ end
     [struct_name] - used for checking the type of the struct access,
     [arg] - see Struct_modif module,
     [t] - trm corresponding to the surrounding sequence of the targeted typedef. *)
-let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fields) (struct_name : string) (arg : Struct_modif.arg) (t : trm) : trm =
-  let struct_typconstr = [], struct_name in
-  let is_target_typ base = is_typ_struct struct_typconstr base.typ in
+let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fields) (struct_name : typvar) (arg : Struct_modif.arg) (t : trm) : trm =
+  let is_target_typ base =
+    match base.typ with
+    | Some typ -> is_typ_named struct_name typ
+    | None -> false
+  in
   let rec aux (t : trm) : trm =
     let default () = trm_map aux t in
 
@@ -688,11 +661,11 @@ let struct_modif_at (arg : Struct_modif.arg) (index : int) (t : trm) : trm =
     | None -> assert false end in
     begin match tdef.desc with
     | Trm_typedef td ->
-      begin match td.typdef_body with
-      | Typdef_record old_fields ->
-         let struct_name = td.typdef_tconstr in
+      begin match td.typedef_body with
+      | Typedef_record old_fields ->
+         let struct_name = td.typedef_name in
          let new_fields = arg.f_fields old_fields in
-         let new_typdef = {td with typdef_body = Typdef_record new_fields} in
+         let new_typdef = {td with typedef_body = Typedef_record new_fields} in
          let new_td = trm_typedef ~annot:tdef.annot new_typdef in
          let f_update = fun t -> new_td in
          let f_update_further = fun t -> modif_accesses (old_fields, new_fields) struct_name arg t in
@@ -708,8 +681,8 @@ let struct_modif_at (arg : Struct_modif.arg) (index : int) (t : trm) : trm =
 let change_field_access_kind_on (acc_kind : record_field_annot) (f : field) (t : trm) : trm =
   match t.desc with
   | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rfs ->
+    begin match td.typedef_body with
+    | Typedef_record rfs ->
       let new_rfs = List.map (fun (rf, rf_ann) ->
         (* if f is given as the default string then all the fields access kind will be changed. *)
         if f = ""
@@ -721,7 +694,7 @@ let change_field_access_kind_on (acc_kind : record_field_annot) (f : field) (t :
             | _ -> (rf, rf_ann)
             end
         ) rfs in
-        let new_td = {td with typdef_body = Typdef_record new_rfs} in
+        let new_td = {td with typedef_body = Typedef_record new_rfs} in
         trm_alter ~desc:(Trm_typedef new_td) t
     | _ -> trm_fail t "Record_core.change_field_access_kind_aux: expected a target to a structured typedef."
     end
@@ -734,8 +707,8 @@ let change_field_access_kind_on (acc_kind : record_field_annot) (f : field) (t :
 let method_to_const_on (method_name : var) (t : trm) : trm =
   match t.desc with
   | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rfl ->
+    begin match td.typedef_body with
+    | Typedef_record rfl ->
         let upd_rfl = List.map (fun (rf, rf_ann) ->
             match rf with
             | Record_field_method t1  ->
@@ -757,7 +730,7 @@ let method_to_const_on (method_name : var) (t : trm) : trm =
             | _ -> (rf, rf_ann)
         ) rfl in
 
-        trm_replace (Trm_typedef {td with typdef_body = Typdef_record upd_rfl}) t
+        trm_replace (Trm_typedef {td with typedef_body = Typedef_record upd_rfl}) t
     | _ ->  trm_fail t "Record_core.method_to_const_aux: expected a target to a typedef record definition."
     end
   | _ -> trm_fail t "Record_core.method_to_const_aux: expected a target to a record definition."

@@ -1,176 +1,71 @@
 open Prelude
 open Target
 
-(** [typid_to_typedef tid ]: gets the declaration of a typedef with id [tid]. *)
-let typid_to_typedef (tid : typconstrid) : typedef option =
+(** [typvar_to_typedef tid]: gets the declaration of a typedef with name [var]. *)
+let typvar_to_typedef (var : typvar) : typedef option =
   let rec aux (t : trm) : typedef option =
     match t.desc with
     | Trm_seq tl -> Mlist.find_map aux tl
     | Trm_namespace (_, t, _) -> aux t
-    | Trm_typedef ({typdef_typid = tid1;_} as td)
-      when tid = tid1 -> Some td
+    | Trm_typedef ({ typedef_name } as td) when var_eq typedef_name var -> Some td
     | _ -> None
   in
-
   let t_root = Target.get_ast () in
   match t_root.desc with
   | Trm_seq _ -> aux t_root
-  | _ -> trm_fail t_root "Context.typid_to_typedef: expected the ast of the main file"
+  | _ -> trm_fail t_root "Internal.typvar_to_typedef: expected the ast of the main file to be a sequence"
 
-(** [record_typ_to_typid ty]: gets the id of the record type [ty]. *)
-let record_typ_to_typid (ty : typ) : typconstrid option =
-  let rec aux (ty : typ) : typconstrid option =
-    match ty.typ_desc with
-    | Typ_const ty -> aux ty
-    | Typ_ptr { inner_typ = ty; _ } -> aux ty
-    | Typ_constr (_, tid, _) ->
-      begin match typid_to_typedef tid with
-      | Some (td) ->
-        begin match td.typdef_body with
-        | Typdef_alias ty -> aux ty
-        | Typdef_record _ -> Some (tid)
-        | _ -> None
-        end
-      | None -> assert false
-      end
-    | _ -> None
-  in
-  aux ty
+(** [record_typ_to_typvar ty]: gets the name of the record type [ty]. This function goes through aliases. *)
+(* Is this function useful ? *)
+let rec record_typ_to_typvar (ty : typ) : typvar option =
+  Pattern.pattern_match ty [
+    Pattern.(typ_const !__) (fun ty () -> record_typ_to_typvar ty);
+    Pattern.(typ_ptr !__) (fun ty () -> record_typ_to_typvar ty);
+    Pattern.(typ_var !__) (fun var () ->
+      match typvar_to_typedef var with
+      | Some { typedef_body = Typedef_alias ty } -> record_typ_to_typvar ty
+      | Some { typedef_body = Typedef_record _ } -> Some var
+      | _ -> None
+    );
+    Pattern.__ (fun () -> None)
+  ]
 
-(** [typid_to_trm tid ]: gets the trm of a typedef with id [tid]. *)
-let typid_to_trm (tid : typconstrid) : trm option =
-  let rec aux (t : trm) : trm option =
-    match t.desc with
-    | Trm_seq tl -> Mlist.find_map aux tl
-    | Trm_namespace (_, t, _) -> aux t
-    | Trm_typedef ({typdef_typid = tid1;_})
-      when tid = tid1 -> Some t
-    | _ -> None
-  in
-
-  let t_root = Target.get_ast () in
-  match t_root.desc with
-  | Trm_seq _ -> aux t_root
-  | _ -> trm_fail t_root "Context.typid_to_typedef: expected the ast of the main file"
-
+let trm_map_at ?(change_at : target list option) (f_map: trm -> trm) (t: trm) : trm =
+  match change_at with
+  | None -> f_map t
+  | Some change_at ->
+    let res = List.fold_left
+      (fun t' tr ->
+        let tr = if not (List.mem nbAny tr)
+          then [nbAny] @ tr
+          else tr in
+        let epl = Constr.resolve_target tr t' in
+        match epl with
+        | [] ->
+          Flags.verbose_warn t'.loc "Internal.change_trm: no matching subterm for target %s"
+            (target_to_string tr);
+          t'
+        | _ -> List.fold_left (Path.apply_on_path f_map) t' epl
+      ) t change_at
+    in
+    res
 
 (** [change_trm ~change_at t_before t_after t]: replace all the occurrences of [t_before] with [t_after]
    If [change_at] is not equal to [[]] then this function is applied only to descendants of the trm corresponding to
    the targets [change_at] *)
-let change_trm ?(change_at : target list = [[]]) (t_before : trm)
+let change_trm ?(change_at : target list option) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
     if are_same_trm t' t_before then
       trm_copy t_after
-      else trm_map apply_change t'
-      in
-  if change_at = [[]] then
-    begin
-    let res = apply_change t in
-    res
-    end
-  else
-    let res = List.fold_left
-    (fun t' tr ->
-      let tr = if not (List.mem nbAny tr)
-        then [nbAny] @ tr
-        else tr in
-      let epl = Constr.resolve_target tr t' in
-      match epl with
-      | [] ->
-         Flags.verbose_warn t'.loc "Internal.change_trm: no matching subterm for target %s"
-           (target_to_string tr);
-         t'
-      | _ -> List.fold_left (Path.apply_on_path apply_change) t' epl
-    )
-    t
-    change_at in
-    res
+    else trm_map apply_change t'
+  in
+  trm_map_at ?change_at apply_change t
 
 (** [change_typ ~change_at ty_before ty_after t]: similar to [change_trm] but for types *)
-let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
+let change_typ ?(change_at : target list option) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
-  (* change all occurences of ty_before in ty *)
-  let rec change_typ (ty : typ) : typ =
-    if same_types ~match_generated_star:false ty ty_before then
-      ty_after
-      else
-        typ_map change_typ ty
-  in
-  let rec replace_type_annot (t : trm) : trm =
-    let t =
-      let typ = match t.typ with
-      | None -> None
-      | Some ty' -> Some (change_typ ty') in
-      trm_alter ?typ t
-    in
-    trm_map replace_type_annot t
-  in
-  let apply_change (t : trm) : trm =
-    let rec aux (t : trm) : trm =
-      match t.desc with
-      | Trm_val (Val_prim (Prim_ref ty)) ->
-        (* TODO: map dims_opt types? *)
-         trm_prim ~annot:t.annot ?loc:t.loc
-           (Prim_ref (change_typ ty))
-      | Trm_val (Val_prim (Prim_ref_array (ty, dims))) ->
-        (* TODO: map dims_opt types? *)
-         trm_prim ~annot:t.annot ?loc:t.loc
-           (Prim_ref_array ((change_typ ty), dims))
-      | Trm_val (Val_prim (Prim_new ty)) ->
-        (* TODO: map dims_opt types? *)
-         trm_prim ~annot:t.annot ?loc:t.loc
-           (Prim_new (change_typ ty))
-      | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
-         trm_unop ~annot:t.annot ?loc:t.loc
-           (Unop_cast (change_typ ty))
-      | Trm_let ((y,ty),init) ->
-        trm_let ~annot:t.annot ?loc:t.loc (y,change_typ ty) (aux init)
-      | Trm_let_fun (f, ty, args, body, _) ->
-         trm_let_fun ~annot:t.annot ?loc:t.loc f (change_typ ty)
-            (List.map (fun (y, ty) -> (y, change_typ ty)) args)
-            (aux body)
-      | Trm_typedef td ->
-        begin match td.typdef_body with
-        | Typdef_alias ty ->
-          trm_typedef  ~annot:t.annot ?loc:t.loc
-           { td with typdef_body = Typdef_alias (change_typ ty)}
-        | Typdef_record rf ->
-           let rf = List.map (fun (rf1, rf_annot) ->
-            match rf1 with
-            | Record_field_member (lb, ty) -> (Record_field_member (lb, change_typ ty), rf_annot)
-            | Record_field_method t -> (Record_field_method (aux t), rf_annot)
-           ) rf in
-           trm_typedef ~annot:t.annot ?loc:t.loc { td with typdef_body = Typdef_record rf}
-        | _ -> trm_map aux t
-        end
-       | Trm_var x ->
-          let ty = begin match t.typ with
-                   | Some ty -> ty
-                   | None -> trm_fail t "Internal.apply_change: all variable occurrences should have a type"
-                   end in
-        trm_var ~annot:t.annot ?loc:t.loc ~typ:(change_typ ty) x
-      | _ -> trm_map aux t
-    in
-    replace_type_annot (aux t)
-  in
-  List.fold_left
-    (fun t' tr ->
-      Flags.verbose := false;
-      let tr = if not (List.mem nbAny tr)
-        then [nbAny] @ tr
-        else tr in
-      let epl = resolve_target_with_stringreprs_available tr t' in
-      match epl with
-      | [] ->
-         Flags.verbose_warn t'.loc "Internal.change_typ: no matching subterm for target %s"
-           (target_to_string tr);
-         t'
-      | _ -> List.fold_left (Path.apply_on_path apply_change) t' epl
-    )
-    t
-    change_at
-
+  change_trm ?change_at ty_before ty_after t
 
 (** [isolate_last_dir_in_seq dl]: for a trm with path [dl] return the path to the surrouding sequence of the
     instruction that contains that trm, and the index of that instruction on that sequence *)
@@ -233,8 +128,8 @@ let is_decl_body (dl : path) : bool =
 
 (** [get_field_list t td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (t : trm) (td : typedef) : (field * typ) list =
-  match td.typdef_body with
-  | Typdef_record rfl ->
+  match td.typedef_body with
+  | Typedef_record rfl ->
     List.map (fun (rf, _) ->
       match rf with
       | Record_field_member (lb, ty) -> (lb, ty)
@@ -243,76 +138,57 @@ let get_field_list (t : trm) (td : typedef) : (field * typ) list =
   | _ -> trm_fail t "Internal.get_field_list: expected a Typedef_prod"
 
 
-(** [get_typid_from_typ t]: check if typ is a constructed type or a composed type
+(** [get_typvar_from_typ t]: check if typ is a constructed type or a composed type
     In case it is constructed type then return its id.
     In case it is a composed type go in depth and check if it contains a constructed type and return its id.
-    Otherwise return -1 meaning that the type [t] is not a constructed type. *)
-let rec get_typid_from_typ (t : typ) : int =
-  match t.typ_desc with
-  | Typ_constr (_, id, _) -> id
-  | Typ_const ty -> get_typid_from_typ ty
-  | Typ_var (_, id) -> id
-  | Typ_ptr {inner_typ = ty;_} -> get_typid_from_typ ty
-  | Typ_array (ty, _) -> get_typid_from_typ ty
-  | Typ_fun (_, ty) -> get_typid_from_typ ty
-  | _ -> -1
+    Otherwise return None meaning that the type [t] is not a constructed type.
 
-(** [get_typid_from_trm ~first_martch t]: for trm [t] check if its type is a constructed type.
-   If that's the case then return its id, otherwise return -1, meaning that trm [t] has a different typ. *)
-let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
+    DEPRECATED: it is here only for [get_typvar_from_trm] implementation, you should probably use [Typ.typ_constr_inv] instead
+*)
+let rec get_typvar_from_typ (ty : typ) : typvar option =
+  Pattern.pattern_match ty [
+    Pattern.(typ_var !__) (fun var () -> Some var);
+    Pattern.(typ_const !__) (fun ty () -> get_typvar_from_typ ty);
+    Pattern.(typ_ptr !__) (fun ty () -> get_typvar_from_typ ty);
+    Pattern.(typ_array !__ __) (fun ty () -> get_typvar_from_typ ty);
+    Pattern.(typ_fun __ !__) (fun ty () -> get_typvar_from_typ ty); (* FIXME: This case is weird *)
+    Pattern.(typ_apps !__ __) (fun var () -> Some var);
+    Pattern.__ (fun () -> None)
+  ]
+
+(** [get_typvar_from_trm ~first_martch t]: for trm [t] check if its type is a constructed type.
+   If that's the case then return its constructor name, otherwise return [None], meaning that trm [t] has a different typ.
+
+  FIXME: This function is very badly designed it is unclear if one wants to get the type inside or outside a field access.
+  Now, almost all types are constructed types because primitive types are not really special, and should not be treated as such.
+  Do not use in new code !
+*)
+let rec get_typvar_from_trm ?(first_match : bool = true) (t : trm) : typvar option =
   match t.desc with
   | Trm_apps (_,[base], _) ->
     begin match t.typ with
     | Some typ ->
-      begin match typ.typ_desc with
-      | Typ_constr (_,id,_) -> id
-      | _ -> if first_match then -1 else get_typid_from_trm base
+      begin match get_typvar_from_typ typ with
+      | Some var -> Some var
+      | None -> if first_match then None else get_typvar_from_trm base
       end
-    | None -> get_typid_from_trm base
+    | None -> get_typvar_from_trm base
     end
-  | Trm_record _ ->
-    begin match t.typ with
-    | Some typ ->
-      begin match typ.typ_desc with
-      | Typ_constr(_,id,_) -> id
-      | _ -> -1
-      end
-    | None -> -1
-    end
-  | Trm_let ((_,tx),_) ->
-    get_typid_from_typ (get_inner_ptr_type tx)
-  | Trm_var _ ->
+  | Trm_let ((_,tx),_) -> get_typvar_from_typ tx
+  | Trm_record _ | Trm_var _ ->
       begin match t.typ with
-      | Some ty ->  get_typid_from_typ ty
-      | _ -> -1
+      | Some ty -> get_typvar_from_typ ty
+      | _ -> None
       end
-  | _ -> -1
+  | _ -> None
 
 
 (** [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function or variable.
-      If [require_body] is set to true, then only definitions are considered.*)
+    If [require_body] is set to true, then only definitions are considered.*)
 let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
-  let rec aux(t1 : trm) : trm option =
+  let aux (t1 : trm) : trm option =
     match t1.desc with
-    | Trm_typedef td ->
-      (* FIXME: #var-id: check and cleanup constrname/var comparisons, what is happening here? *)
-      if var_has_name x td.typdef_tconstr
-        then Some t1
-        else begin match td.typdef_body with
-          | Typdef_record rfs ->
-            List.fold_left (fun acc (rf, _) ->
-            begin match acc with
-            | Some _ -> acc
-            | _ ->
-              begin match rf with
-              | Record_field_method t2 ->
-                aux t2
-              | _ -> None
-              end
-            end) None rfs
-          | _ -> None
-          end
     | Trm_let ((y, _), _) when var_eq y x -> Some t1
     | Trm_let_fun (y, _, _, body, _) when var_eq y x ->
       if require_body then begin
@@ -338,7 +214,6 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
 (** [local_decl x t]: check if [t] is a declaration with name [x], if that's the case the return that declaration *)
 let rec local_decl (x : var) (t : trm) : trm option =
   match t.desc with
-  (* DEPRECATED: | Trm_typedef td when td.typdef_tconstr = x -> Some t *)
   | Trm_let ((y, _), _) when var_eq y x -> Some t
   | Trm_let_fun (y, _, _, body, _) ->
     if var_eq y x then Some t else local_decl x body
@@ -451,27 +326,6 @@ let is_trm_loop (t : trm) : bool =
   match t.desc with
   | Trm_for _ | Trm_for_c _ -> true
   | _ -> false
-
-(** [is_struct_type t]: check if [t] is type struct or not
-
-    Note: The current infrastructure of Optitrust supports only
-      struct declared via typedefs, later we will add support for
-      struct types not declared via a typedef. *)
-let is_struct_type (t : typ) : bool =
-  match t.typ_desc with
-  | Typ_constr (_tv, tid, _) ->
-    begin match Context.typid_to_typedef tid with
-    | Some td ->
-      begin match td.typdef_body with
-      | Typdef_record _ -> true
-      | _ -> false
-      end
-    | _ -> false
-    end
-  | Typ_record _ -> false (* LATER: All the transformations that work with typedefs should also work with structs *)
-  | _ -> false
-
-
 
 (** [get_constr_from_target tg]: get the constraint from a list of constraints(targets) *)
 let get_constr_from_target (tg : target) : constr =

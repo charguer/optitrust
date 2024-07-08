@@ -86,7 +86,7 @@ let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
 let local_name_on (curr_var : var) (var_typ : typ)
   ~(uninit_pre : bool) ~(uninit_post : bool)
   (local_var : string) (t : trm) : trm =
-  let local_var = Trm.new_var local_var in
+  let local_var = new_var local_var in
   let let_instr = trm_let_mut (local_var, var_typ) (trm_var_possibly_mut ~typ:var_typ curr_var) in
   let set_instr = trm_set (trm_var ~typ:var_typ curr_var) (trm_var_possibly_mut ~typ:var_typ local_var) in
   let new_t = trm_subst_var curr_var (trm_var local_var) t in
@@ -182,7 +182,7 @@ let%transfo delocalize ?(index : string = "dl_k") ~(array_size : trm) ~ops:(dl_o
 
 (** [change_type new_type tg]: expects [tg] to point a variable declaration, then it will change the type of
     that variable with [new_type]. *)
-let%transfo change_type (new_type : typvar) (tg : target) : unit =
+let%transfo change_type (new_type : string) (tg : target) : unit =
  Target.apply_at_target_paths_in_seq (Variable_core.change_type_at new_type) tg
 
 

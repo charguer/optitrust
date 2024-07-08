@@ -20,7 +20,7 @@ let bind_intro_at (my_mark : string) (index : int) (fresh_name : string) (const 
 
       let function_type = match function_call.typ with
       | Some typ -> typ
-      |  None -> typ_auto() in
+      |  None -> typ_auto in
       let change_with = (trm_var_possibly_mut ~const ~typ:function_type fresh_var) in
       let decl_to_change = Internal.change_trm function_call change_with t in
 
@@ -89,7 +89,7 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
         let marked_body = if body_mark <> "" then trm_add_mark body_mark processed_body else Nobrace.set_if_sequence processed_body in
         let exit_label = if nb_gotos = 0 then trm_seq_nobrace_nomarks [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
-          if is_type_unit(ty)
+          if is_typ_unit ty
             then [marked_body; exit_label]
             else
               [trm_pass_marks fun_call (trm_let_mut (name, ty) (trm_uninitialized ()));marked_body; exit_label]
@@ -179,15 +179,15 @@ let dsp_def_at (index : int) (arg : string) (func : string) (t : trm) : trm =
   let error = "Function_core.dsp_def_at: expected the surrounding sequence of the targeted function definition." in
   let tl = trm_inv ~error trm_seq_inv t in
 
-  let arg = Trm.new_var arg in
+  let arg = new_var arg in
   let f_update (t : trm) : trm =
     let error = "Function_core.dsp_def_at: expected a target to a function definition." in
     let (f, ret_ty, tvl, body) = trm_inv ~error trm_let_fun_inv t in
     let new_body, _ = Internal.replace_return_with_assign arg body in
-    let new_args = tvl @ [(arg, typ_ptr Ptr_kind_mut ret_ty)] in
+    let new_args = tvl @ [(arg, typ_ptr ret_ty)] in
     let new_fun = if func = "dsp" then f.name ^ "_dsp" else func in
     let new_fun_var = new_var new_fun in
-    let new_fun_def = trm_let_fun ~annot:t.annot new_fun_var (typ_unit ()) new_args new_body in
+    let new_fun_def = trm_let_fun ~annot:t.annot new_fun_var typ_unit new_args new_body in
     trm_seq_nobrace_nomarks [t; new_fun_def]
    in
   let new_tl = Mlist.update_nth index f_update tl in

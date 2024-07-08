@@ -51,7 +51,7 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     let error = "expected call to reduce" in
     let (start, stop, input, n, m, j) = trm_inv ~error reduce_inv red_t in
     let acc = new_var "s" in
-    let acc_typ = Option.value ~default:(typ_constr ([], "uint16_t")) red_t.typ in
+    let acc_typ = Option.value ~default:typ_u16 red_t.typ in
     let index = new_var "i" in
     let value = (trm_cast acc_typ (Matrix_trm.get input [n; m] [trm_var index; j])) in
     let loop_range = { index; start; direction = DirUp; stop; step = trm_step_one () } in
@@ -110,7 +110,7 @@ let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
     let nb_elems = Arith_core.(simplify true (fun e -> gather (compute e))) (trm_sub stop start) in
     match trm_int_inv nb_elems with
     | Some nb_elems ->
-      let acc_typ = Option.value ~default:(typ_constr ([], "uint16_t")) red_t.typ in
+      let acc_typ = Option.value ~default:typ_u16 red_t.typ in
       if nb_elems = 0 then begin
         trm_cast acc_typ (trm_int 0)
       end else begin
@@ -238,7 +238,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
       List.map (fun (_, formula) ->
         let ghost, formula = ghost_fn formula in
         let i = new_var range.index.name in
-        let items = formula_fun [i, typ_int ()] None (trm_subst_var range.index (trm_var i) formula) in
+        let items = formula_fun [i, typ_int] None (trm_subst_var range.index (trm_var i) formula) in
         Resource_trm.ghost (ghost_call ghost [
           "start", range.start; "stop", range.stop; "step", step;
           "split", new_range.start; "items", items

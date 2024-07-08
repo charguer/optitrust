@@ -27,7 +27,7 @@ let cur_stats = {
   stats_target_resolution_steps = 0;
 }
 
-let () = Trm.incr_trm_alloc := fun () ->
+let () = Ast.incr_trm_alloc := fun () ->
   cur_stats.stats_trm_alloc <- cur_stats.stats_trm_alloc + 1
 
 (** [incr_target_resolution_steps ()]: function to count the number of target resolution steps. *)

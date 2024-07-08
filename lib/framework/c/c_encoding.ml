@@ -1,6 +1,7 @@
 open Ast
 open Trm
 open Typ
+open Contextualized_error
 
 type style = {
   typing : Style.typing_style;
@@ -43,35 +44,35 @@ let debug_current_stage (msg: string) : unit =
 
    Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t] *)
 
-(** [varkind]: type for the mutability of the variable *)
-type varkind =
+(** [mutability]: type for the mutability of the variable *)
+type mutability =
   | Var_immutable (* const variables *)
   | Var_mutable   (* non-const stack-allocated variable. *)
 
 (** [env]: a map for storing all the variables as keys, and their mutability as values *)
-type env = varkind Var_map.t
+type env = mutability Var_map.t
 
 (** [env_empty]: empty environment *)
 let env_empty =
   Var_map.empty
 
-(** [get_varkind env x]: gets the mutability of variable [x]
+(** [get_mutability env x]: gets the mutability of variable [x]
    Note: Functions that come from an external library are set to immutable by default *)
-let get_varkind (env : env) (x : var) : varkind =
+let get_mutability (env : env) (x : var) : mutability =
   match Var_map.find_opt x env with
   | Some m -> m
   | _ -> Var_immutable
 
 (** [is_var_mutable env x]: checks if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool =
-  get_varkind env x = Var_mutable
+  get_mutability env x = Var_mutable
 
-(** [env_extend env e varkind]: adds variable [e] into environment [env] *)
-let env_extend (env : env) (e : var) (varkind : varkind) : env =
-  Var_map.add e varkind env
+(** [env_extend env e mutability]: adds variable [e] into environment [env] *)
+let env_extend (env : env) (e : var) (mutability : mutability) : env =
+  Var_map.add e mutability env
 
 (** [add_var env x xm]: adds variable [x] into environemnt [env] with value [xm] *)
-let add_var (env : env ref) (x : var) (xm : varkind) : unit =
+let add_var (env : env ref) (x : var) (xm : mutability) : unit =
   env := env_extend !env x xm
 
 (** [trm_address_of t]: adds the "&" operator before [t]
@@ -113,6 +114,13 @@ let create_env () = ref env_empty
 let stackvar_elim (t : trm) : trm =
   debug_current_stage "stackvar_elim";
   let env = create_env () in
+  let extract_constness (ty: typ): typ * mutability =
+    Pattern.pattern_match ty [
+      Pattern.(typ_const !__) (fun ty () -> ty, Var_immutable);
+      Pattern.(typ_array (typ_const !__) !__) (fun ty size () -> typ_array ?size ty, Var_immutable);
+      Pattern.__ (fun () -> ty, Var_mutable)
+    ]
+  in
   let rec aux (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
@@ -122,34 +130,35 @@ let stackvar_elim (t : trm) : trm =
         else trm_replace (Trm_var x) t
     | Trm_let ((x, ty), tbody) ->
       (* is the type of x (or elements of x in case it is a fixed-size array) a const type? *)
-      let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
+      let ty, xm = extract_constness ty in
       add_var env x xm; (* Note: the onscope function will take care to remove this *)
       (* is the type of x a reference type? *)
       begin match typ_ref_inv ty with
       | Some ty1 ->
         begin match xm with
-        | Var_immutable -> trm_fail t "C_encoding.tackvar_elim: unsupported references on const variables"
+        | Var_immutable -> trm_fail t "C_encoding.stackvar_elim: unsupported references on const variables"
         | _ ->
           (* generate a pointer type, with suitable annotations *)
-          trm_add_cstyle Reference (trm_replace (Trm_let ((x, typ_ptr_generated ty1), trm_address_of (aux tbody))) t)
+          trm_add_cstyle Reference (trm_replace (Trm_let ((x, typ_ptr ty1), trm_address_of (aux tbody))) t)
         end
       | None ->
         begin match xm with
         | Var_mutable ->
           (* TODO: document the case that corresponds to Constructed_init *)
           let new_body = if trm_has_cstyle Constructed_init tbody then aux tbody else trm_ref ty (aux tbody) in
-          trm_replace (Trm_let ((x, typ_ptr_generated ty), new_body)) t
+          trm_replace (Trm_let ((x, typ_ptr ty), new_body)) t
         | Var_immutable ->
-          trm_map aux t
+          let new_body = aux tbody in
+          trm_replace (Trm_let ((x, ty), new_body)) t
         end
       end
     | Trm_let_mult bs ->
       let bs = List.map (fun ((x, ty), tbody) ->
-          let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
+          let ty, xm = extract_constness ty in
           add_var env x xm;
           match xm with
           | Var_immutable -> ((x, ty), aux tbody)
-          | Var_mutable -> ((x, typ_ptr_generated ty), trm_ref ty (aux tbody))
+          | Var_mutable -> ((x, typ_ptr ty), trm_ref ty (aux tbody))
         ) bs
       in
       trm_replace (Trm_let_mult bs) t
@@ -183,38 +192,44 @@ let stackvar_elim (t : trm) : trm =
 let stackvar_intro (t : trm) : trm =
   debug_current_stage "stackvar_intro";
   let env = create_env () in
+  let add_const (ty: typ) : typ =
+    Pattern.pattern_match ty [
+      Pattern.(typ_array !__ !__) (fun ty size () -> typ_array ?size (typ_const ty));
+      Pattern.__ (fun () -> typ_const ty)
+    ]
+  in
   let rec aux (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
     | Trm_var x ->
       if is_var_mutable !env x
-        then trm_address_of (trm_replace (Trm_var x) t)
+        then trm_address_of t
         else t
     | Trm_let ((x, tx), tbody) ->
-      begin match tx.typ_desc, tbody.desc with
-      | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _ when trm_has_cstyle Reference t ->
-        add_var env x Var_mutable;
-        trm_rem_cstyle Reference { t with desc = Trm_let ((x, typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
-      | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _));_}, [tbody1], [])  ->
+      begin match typ_ptr_inv tx, tbody.desc with
+      | _, Trm_apps ({desc = Trm_val (Val_prim (Prim_ref tx1));_}, [tbody1], [])  ->
         add_var env x Var_mutable;
         trm_replace (Trm_let ((x, tx1), aux tbody1)) t
-      | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _  when trm_has_cstyle Constructed_init tbody ->
+      | Some tx1, _ when trm_has_cstyle Reference t ->
+        add_var env x Var_mutable;
+        trm_rem_cstyle Reference { t with desc = Trm_let ((x, typ_ref tx1), trm_get (aux tbody))}
+      | Some tx1, _ when trm_has_cstyle Constructed_init tbody ->
         add_var env x Var_mutable;
         trm_replace (Trm_let ((x, tx1), aux tbody)) t
       | _ ->
         add_var env x Var_immutable;
-        trm_replace (Trm_let ((x, tx), aux tbody)) t
+        trm_replace (Trm_let ((x, add_const tx), aux tbody)) t
       end
     | Trm_let_mult bs ->
       (* FIXME: Is it possible to handle C++ references and Constructed_init in let_mult ? *)
       let bs = List.map (fun ((x, tx), tbody) ->
-        match tx.typ_desc, tbody.desc with
-        | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _));_}, [tbody1], [])  ->
+        match typ_ptr_inv tx, tbody.desc with
+        | Some tx1, Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _));_}, [tbody1], [])  ->
           add_var env x Var_mutable;
           ((x, tx1), aux tbody1)
         | _ ->
           add_var env x Var_immutable;
-          ((x, tx), aux tbody)
+          ((x, add_const tx), aux tbody)
       ) bs in
       trm_replace (Trm_let_mult bs) t
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
@@ -322,10 +337,8 @@ let rec cseq_items_void_type (t : trm) : trm =
   match t2.desc with
   | Trm_seq ts ->
       let enforce_unit (u : trm) : trm =
-        match u.typ with
-        | Some { typ_desc = Typ_unit; _ } -> u
-        | _ -> { u with typ = Some (typ_unit()) }
-        in
+        { u with typ = Some typ_unit }
+      in
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
@@ -341,7 +354,7 @@ let infix_elim (t : trm) : trm =
          represented as [Trm_apps (Prim_compound_assgn_op binop) [trm_addressof(x),y]],
        likewise for [ x -= y]*)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr], _) ->
-      trm_alter ~typ:(typ_unit ()) ~desc:(Trm_apps(op, [trm_address_of tl; tr], [])) t
+      trm_alter ~typ:typ_unit ~desc:(Trm_apps(op, [trm_address_of tl; tr], [])) t
     (* Convert [ x++ ] into [ (++)(&x) ], where [(++)] is like the [incr] function in OCaml *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base], _) when is_unary_compound_assign unop ->
       trm_replace (Trm_apps(op, [trm_address_of base], [])) t
@@ -376,19 +389,21 @@ let method_call_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base], _)} as _tr, args, ghost_args) ->
-      let ((class_namespaces, class_name), _, _) =
-        match Option.bind base.typ typ_constr_inv with
-        | Some r -> r
+      (* LATER: Manage templated class *)
+      let class_var =
+        match Option.bind base.typ typ_var_inv with
+        | Some class_var -> class_var
         | None ->
         begin match Option.bind (trm_get_inv base) (fun gb ->
                     Option.bind gb.typ (fun gbt ->
                     Option.bind (typ_ptr_inv gbt) (fun btyp ->
-                    typ_constr_inv btyp))) with
-        | Some r -> r
+                    typ_var_inv btyp))) with
+        | Some class_var -> class_var
         | None -> failwith "C_encoding.method_call_elim: unsupported base: %s\n" (Ast_to_text.ast_to_string base)
         end
       in
-      let namespaces = class_namespaces @ [class_name] in
+      let class_var = remove_typ_namespace class_var in
+      let namespaces = class_var.namespaces @ [class_var.name] in
       let t_var = trm_var (name_to_var ~namespaces f) in
       trm_add_cstyle Method_call (trm_apps ~ghost_args (t_var) ([trm_address_of base] @ args))
     | _ -> trm_map aux t
@@ -419,18 +434,17 @@ let class_member_elim (t : trm) : trm =
   (* workaround to substitute untyped 'this' variables with typed 'this' variables required by 'method_call_elim' *)
   let to_subst = ref Var_map.empty in
 
-  let get_class_typ (current_class : (typvar*typconstrid) option) (method_var : var) : typ =
-    let c,tid = match current_class with
-    | Some (c,tid) -> (c,tid)
-    | None ->
-      failwith "unsupported member definition outside of class structure when serializing"
-      in
-    typ_ptr_generated (typ_constr ([], c) ~tid)
+  let get_class_typ (current_class : var option) (method_var : var) : typ =
+    let current_class = match current_class with
+    | Some current_class -> current_class
+    | None -> failwith "unsupported member definition outside of class structure when serializing"
+    in
+    typ_ptr (typ_var current_class)
   in
-  let rec aux (current_class : (typvar*typconstrid) option) (t : trm) : trm =
+  let rec aux (current_class : var option) (t : trm) : trm =
     begin match t.desc with
     | Trm_typedef td ->
-      let current_class = Some (td.typdef_tconstr, td.typdef_typid) in
+      let current_class = Some td.typedef_name in
       trm_map (aux current_class) t
     | Trm_let_fun (v, ty, vl, body, contract) when trm_has_cstyle Method t ->
       let var_this = new_var "this" in
@@ -491,7 +505,7 @@ let class_member_intro (t : trm) : trm =
           else
             let tl = Mlist.(pop_front (pop_back tl)) in
             let new_body = trm_alter ~desc:(Trm_seq tl) body in
-            trm_alter ~desc:(Trm_let_fun (qv, typ_unit(), vl, new_body, contract)) t
+            trm_alter ~desc:(Trm_let_fun (qv, typ_unit, vl, new_body, contract)) t
       | _ -> trm_map aux t
       end
    | _ -> trm_map aux t
@@ -520,13 +534,13 @@ let rec ghost_args_elim (t: trm): trm =
     Pattern.(trm_apps2 (trm_var_with_name "__ghost") !__ (trm_string !__)) (fun ghost_fn ghost_args_str () ->
         let ghost_fn = ghost_args_elim ghost_fn in
         let ghost_args = parse_ghost_args ghost_args_str in
-        trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
+        trm_alter ~annot:{t.annot with trm_annot_attributes = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
       );
     Pattern.(trm_apps2 (trm_var_with_name "__ghost_begin") !__ (trm_string !__)) (fun ghost_fn ghost_args_str () ->
         let ghost_fn = ghost_args_elim ghost_fn in
         let ghost_args = parse_ghost_args ghost_args_str in
         trm_apps (trm_var Resource_trm.var_ghost_begin) [
-          trm_alter ~annot:{t.annot with trm_annot_cstyle = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
+          trm_alter ~annot:{t.annot with trm_annot_attributes = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
         ]
       );
     Pattern.(trm_seq !__) (fun seq () -> trm_alter ~desc:(Trm_seq (Mlist.of_list (ghost_args_elim_in_seq (Mlist.to_list seq)))) t);
@@ -582,7 +596,7 @@ let ghost_args_intro (style: style) (t: trm) : trm =
       Nobrace.enter ();
       let seq = Mlist.map (fun t -> Pattern.pattern_match t [
         Pattern.(trm_apps !__ nil !__) (fun fn ghost_args () ->
-          if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
+          if not (trm_has_attribute GhostCall t) then raise_notrace Pattern.Next;
           let fn = aux fn in
           trm_like ~old:t (trm_apps var__ghost [fn; ghost_args_to_trm_string ghost_args])
         );

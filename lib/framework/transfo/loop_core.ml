@@ -118,7 +118,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
               | None -> ghost, formula
             in
             let i = new_var index.name in
-            let items = formula_fun [i, typ_int ()] None (trm_subst_var index (trm_var i) formula) in
+            let items = formula_fun [i, typ_int] None (trm_subst_var index (trm_var i) formula) in
             Resource_trm.ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("size", count); ("items", items)])
           )
       in
@@ -145,7 +145,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
           trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
         trm_for { index; start = trm_var tile_index; direction; stop = tile_bound; step } body
       | TileBoundAnd ->
-        let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
+        let init = trm_let_mut (index, typ_int) (trm_var tile_index) in
         let cond = trm_and (trm_ineq direction (trm_var_get index)
           (if trm_is_one step
             then (trm_add (trm_var tile_index) tile_size)
@@ -195,7 +195,7 @@ let fusion_on_block_on (keep_label : bool) (t : trm) : trm =
 let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm =
   let error = "Loop_core.grid_enumerate_on: expected a simple for loop" in
   let (range, body, _contract) = trm_inv ~error trm_for_inv t in
-  let indices_and_bounds = List.map (fun (i, b) -> Trm.new_var i, b) indices_and_bounds in
+  let indices_and_bounds = List.map (fun (i, b) -> new_var i, b) indices_and_bounds in
   let new_body =
     begin match body.desc with
     | Trm_seq tl ->
@@ -203,7 +203,7 @@ let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm
             if i = 0 then let acc = trm_var ind in acc
             else trm_apps (trm_binop Binop_add) [trm_apps (trm_binop Binop_mul) [
                 acc; bnd]; trm_var ind])  (trm_unit ()) indices_and_bounds in
-        let old_loop_index_decl = trm_let_immut (range.index, typ_int ()) old_loop_index_val in
+        let old_loop_index_decl = trm_let_immut (range.index, typ_int) old_loop_index_val in
         let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
         trm_seq new_tl
     | _ -> trm_fail body "Loop_core.grid_enumerate_on: the body of the loop should be a sequence"
@@ -363,7 +363,7 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
     | DirDownEq -> (trm_div (aux start stop) step)
   in
 
-  let new_decl = trm_let_mut (index, typ_int() ) (trm_apps (trm_binop Binop_add)[
+  let new_decl = trm_let_mut (index, typ_int ) (trm_apps (trm_binop Binop_add)[
           start;
           trm_apps (trm_binop Binop_mul) [trm_var new_index; step]
         ]) in

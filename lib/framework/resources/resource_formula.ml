@@ -205,7 +205,7 @@ let formula_matrix (m: trm) (dims: trm list) : formula =
   let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
   let inner_trm = formula_model (Matrix_trm.access m dims (List.map trm_var indices)) trm_cell in
   List.fold_right2 (fun idx dim formula ->
-    trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int ()] None formula])
+    trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] None formula])
     indices dims inner_trm
 
 let var_in_range = toplevel_var "in_range"
@@ -259,7 +259,7 @@ let formula_map_under_read_only (f_map: formula -> formula) (formula: formula) =
 let formula_read_only_inv_all (formula: formula): read_only_formula =
   Pattern.pattern_match formula [
     Pattern.(formula_read_only !__ !__) (fun frac formula () -> { frac; formula });
-    Pattern.(__) (fun () -> {frac = full_frac; formula})
+    Pattern.__ (fun () -> {frac = full_frac; formula})
   ]
 
 let formula_uninit_inv (formula: formula): formula option =
@@ -270,7 +270,7 @@ let formula_uninit_inv (formula: formula): formula option =
 let formula_remove_uninit (formula: formula): formula =
   Pattern.pattern_match formula [
     Pattern.(formula_uninit !__) (fun f () -> f);
-    Pattern.(__) (fun () -> formula);
+    Pattern.__ (fun () -> formula);
   ]
 
 (** Applies a function below an uninit wrapper if there is one,
@@ -307,7 +307,7 @@ let formula_group_range (range: loop_range) =
   formula_map_under_mode (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
-    trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int ()] None fi]
+    trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int] None fi]
   )
 
 let formula_matrix_inv (f: formula): (trm * trm list) option =

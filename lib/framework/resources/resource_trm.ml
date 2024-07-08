@@ -14,15 +14,15 @@ let var_justif = toplevel_var "justif"
 let ghost_inv t =
   Pattern.pattern_match t [
     Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args () ->
-      if not (trm_has_cstyle GhostCall t) then raise Pattern.Next;
+      if not (trm_has_attribute GhostCall t) then raise_notrace Pattern.Next;
       Some { ghost_fn; ghost_args }
     );
-    Pattern.(__) (fun () -> None)
+    Pattern.__ (fun () -> None)
   ]
 
 let var_ghost_begin = toplevel_var "__ghost_begin"
 let var_ghost_end = toplevel_var "__ghost_end"
-let typ_ghost_fn: typ = typ_const (typ_constr ([], "__ghost_fn") ~tid:(-1))
+let typ_ghost_fn: typ = typ_var (toplevel_typvar "__ghost_fn")
 let var_with_reverse = toplevel_var "__with_reverse"
 
 let ghost_pair_fresh_id = Tools.fresh_generator ()
@@ -41,12 +41,12 @@ let ghost (g : ghost_call): trm =
 
 let ghost_begin (ghost_pair_var: var) (ghost_call: ghost_call) : trm =
   void_when_resource_typing_disabled (fun () ->
-    trm_add_cstyle GhostCall (trm_let (ghost_pair_var, typ_ghost_fn)
+    trm_add_attribute GhostCall (trm_let (ghost_pair_var, typ_ghost_fn)
       (trm_apps (trm_var var_ghost_begin) [ghost ghost_call])))
 
 let ghost_end (ghost_pair_var: var): trm =
   void_when_resource_typing_disabled (fun () ->
-    trm_add_cstyle GhostCall (trm_apps (trm_var var_ghost_end) [trm_var ghost_pair_var]))
+    trm_add_attribute GhostCall (trm_apps (trm_var var_ghost_end) [trm_var ghost_pair_var]))
 
 let ghost_pair ?(name: string option) (ghost_call: ghost_call) : var * trm * trm =
   let ghost_pair_var = generate_ghost_pair_var ?name () in
