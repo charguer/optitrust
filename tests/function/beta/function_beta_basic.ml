@@ -1,8 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Flags.use_member_functions()
-
 let _ = Run.script_cpp (fun _ ->
   (* Functions *)
   !! Variable_basic.inline [cTopFunDef "f"];

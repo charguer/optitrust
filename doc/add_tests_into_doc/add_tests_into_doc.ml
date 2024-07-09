@@ -34,7 +34,7 @@ let compute_test_map () : test_map =
     let n = String.length name in
     if n < 4 then failwith "no _doc suffix";
     String.sub name 0 (n - 4) in
-  let tests = Xfile.get_lines tmp_file |> List.map (fun p ->
+  let tests = File.get_lines tmp_file |> List.map (fun p ->
     let test_name = p |> Filename.basename |> Filename.chop_extension |> remove_doc_suffix in
     (test_name, p)
   ) in
@@ -46,7 +46,7 @@ let insert_contents_for_test (test_name: string) (test_path: string) (target_div
   let add : 'a node -> unit = append_child target_div in
   (* Generate a div for the ml excerpt *)
   do_or_die (sprintf "doc/extract_demo.sh %s %s" test_path tmp_file);
-  let ml_excerpt = Xfile.get_contents_or_empty tmp_file in
+  let ml_excerpt = File.get_contents_or_empty tmp_file in
   add (create_element ~classes:["code-unit-test"] "pre" ~inner_text:ml_excerpt);
   (* Generate a div for the diff
      with class "diff-unit-test" and id e.g. "variable_inline" *)
@@ -59,7 +59,7 @@ let insert_contents_for_test (test_name: string) (test_path: string) (target_div
     eprintf "Could not find file %s\n" expected_cpp_file
   end else begin
     do_or_die (sprintf "git diff --ignore-blank-lines --ignore-all-space --no-index -U100 %s %s | base64 -w 0 > %s" input_cpp_file expected_cpp_file tmp_file);
-    let diff_string = Xfile.get_contents_or_empty tmp_file in
+    let diff_string = File.get_contents_or_empty tmp_file in
     if diff_string = ""
     (* TODO: use Tools.warn *)
     then Printf.printf "WARNING: empty diff for '%s'\n" test_base
@@ -140,7 +140,7 @@ let _ =
   let test_map = compute_test_map () in
 
   do_or_die (sprintf "find src/transfo -name '*.ml' > %s" tmp_file);
-  Xfile.get_lines tmp_file |> List.iter (fun module_src ->
+  File.get_lines tmp_file |> List.iter (fun module_src ->
     let current_module_lowercase = Filename.remove_extension (Filename.basename module_src) in
     if verbose then Printf.printf "-- Processing '%s'\n" current_module_lowercase;
     process_documentation current_module_lowercase test_map

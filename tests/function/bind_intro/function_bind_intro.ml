@@ -1,8 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Flags.use_member_functions()
-
 let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->

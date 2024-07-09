@@ -24,12 +24,12 @@ CLASS
 ================
 
 current:
-  | Typdef_prod of bool * (label * typ) list (* for records / struct,
+  | Typedef_prod of bool * (label * typ) list (* for records / struct,
                                       e.g. [type 'a t = { f : 'a; g : int } *)
 
 new:
 
-  | Typdef_record of record_fields
+  | Typedef_record of record_fields
 
   type record_fields = (record_field * record_field_annot) list
   type record_field =

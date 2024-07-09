@@ -5,7 +5,7 @@ int main() {
 
   int x = 0;
 
-  float* const A = (float* const) CALLOC1(10, sizeof(float));
+  float* const A = (float*) CALLOC1(10, sizeof(float));
   __GHOST_BEGIN(focusA, matrix1_ro_focus, "A, 0");
   x += 1;
   x += A[MINDEX1(10, 0)];
@@ -16,7 +16,7 @@ int main() {
   __GHOST_END(focusA2);
   MFREE1(10, A);
 
-  float* const B = (float* const) CALLOC2(8, 6, sizeof(float));
+  float* const B = (float*) CALLOC2(8, 6, sizeof(float));
   __GHOST_BEGIN(focusBi, group_focus, "i := 1");
   x += 2;
   __GHOST_BEGIN(focusBj, group_focus, "i := 2");

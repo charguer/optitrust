@@ -4,7 +4,7 @@ int f (int x){
 }
 
 int f1 () {
-  f(1);
+  return f(1);
 }
 int main(){
 

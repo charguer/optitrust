@@ -15,6 +15,7 @@ WITHDOC=$2
 # remove extension and _doc suffix if any
 BASE=${FILE%.*}
 BASE=${BASE%_doc}
+BASE=${BASE%_exp}
 
 ARGS="${BASE}.ml ${BASE}.cpp"
 

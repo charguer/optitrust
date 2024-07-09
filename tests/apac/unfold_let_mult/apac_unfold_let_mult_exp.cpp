@@ -1,4 +1,4 @@
-int f(int arg, int* argp) {
+void f(int arg, int* argp) {
   int i;
   int a = 1;
   int b = i;

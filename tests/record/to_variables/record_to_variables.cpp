@@ -19,11 +19,11 @@ int main() {
   vect s;
   s.x = p.x;
   s.y = p.y;
-  
+
   obj a;
   a.weight = 0;
   a.pos = p;
   a.speed = s;
-  
+
   return 0;
 }

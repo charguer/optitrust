@@ -13,9 +13,13 @@ typedef vect myvect;
 
 int main() {
   int a = 5;
+  p++;
   const float b = 5.;
+  p++;
   int x = 3;
+  p++;
   int y = 1;
+  p++;
   printf("%d", y);
   p++;
   y++;
@@ -23,5 +27,6 @@ int main() {
     x++;
   }
   int z = 5;
+  p++;
   return 0;
 }

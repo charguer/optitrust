@@ -1,5 +1,5 @@
 open Optitrust
-open Ast_fromto_AstC
+open C_encoding
 open Target
 
 (* let _ = Flags.dump_ast_details := true; *)

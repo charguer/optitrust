@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int dummy() {
+void dummy() {
   int x = 5;
   int y = 2;
 }

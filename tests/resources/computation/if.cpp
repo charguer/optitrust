@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int f(int x) {
+void f(int x) {
   __pure();
 
   int r;

@@ -7,4 +7,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Loop_basic.tile (lit "3") ~index:"bj" ~bound:TileBoundMin [cFor "j"];
   !! Loop_basic.tile (lit "3") ~index:"bk" ~bound:TileBoundAnd [cFor "k"];
 
+  !!! (); (* TODO: Find how to eliminate this reparse *)
+
 )

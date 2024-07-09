@@ -2,13 +2,13 @@ const int B = 8;
 
 typedef int T_BLOCK[B];
 
-typedef T_BLOCK *T;
+typedef T_BLOCK* T;
 
 T t;
 
 typedef int U_BLOCK[B];
 
-typedef U_BLOCK *U;
+typedef U_BLOCK* U;
 
 U u;
 

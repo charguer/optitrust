@@ -10,7 +10,6 @@ A program is represented by its abstract syntax tree (AST). It corresponds to an
   + The `annot` field stores meta-data, including C display styles (e.g., `*p.f` vs `p->f`).
   + The `loc` field stores the location in the source file.
   + The `typ` and `ctx` fields store typing information.
-  + The `is_statement` caches the information of whether a term corresponds to a statement or an expression.
 
 - The grammar of terms includes values (type `value`), literals (type `lit`), primitive operators (type `prim`, and `unop` and `binop`).
 
@@ -29,13 +28,13 @@ A program is represented by its abstract syntax tree (AST). It corresponds to an
 3. The clangml AST
  is converted into "raw OptiTrust AST" by file `clang_to_astRawC`. At this stage, `x = 4` is represented (roughly) as `Trm_app(Prim_op_set, [Trm_var "x"; Trm_lit (Lit_int 4)])`.
 
-4. The "raw AST" is encoded into the OptiTrust AST by eliminating mutable variables and left-values. For example, `int x = 4` becomes `int* x = new int(4)`. This encoding is implemented by the function `cfeatures_elim` in file `Ast_fromto_AstC.ml`.
+4. The "raw AST" is encoded into the OptiTrust AST by eliminating mutable variables and left-values. For example, `int x = 4` becomes `int* x = new int(4)`. This encoding is implemented by the function `cfeatures_elim` in file `c_encoding.ml`.
    [FIXME: This currently does not respect *linearity* of targets. We want that each targettable trm node in the original AST appears exactly once (no duplication, no suppression) in the encoded AST. This is for example not the case for array and structure access in the current code.
    One allowed transformation is to encode C sequences as blocks of let, terminated by a return value]
 
-5. Reciprocally, the decoding phase implemented by the function `cfeatures_intro` in the same file `Ast_fromto_AstC.ml` converts OptiTrust AST into "raw AST". Annotations (stored in field `annot` of type `trm`) are exploited to guide the output style.
+5. Reciprocally, the decoding phase implemented by the function `cfeatures_intro` in the same file `C_encoding.ml` converts OptiTrust AST into "raw AST". Annotations (stored in field `annot` of type `trm`) are exploited to guide the output style.
 
-6. The file `astC_to_c` prints the "raw AST" into C syntax. The code is optionally beautified using `clangformat`.
+6. The file `Ast_to_c` prints the "raw AST" into C syntax. The code is optionally beautified using `clangformat`.
 
 # Transformations
 

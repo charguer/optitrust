@@ -115,7 +115,7 @@ void mm1024(float* C, float* A, float* B) {
 
 ```c
 [...]
-        float* const sum = (float* const)malloc(sizeof(float[32]));
+        float* const sum = (float*)malloc(sizeof(float[32]));
         for (int j = 0; j < 32; j++) {
           __xmodifies("&C[MINDEX2(1024, 1024, bi * 32 + i, bj * 32 + j)] ~> Cell");
           __xmodifies("&sum[j] ~> Cell");
@@ -144,7 +144,7 @@ TODO: minimize contracts?
 
 ```c
 [...]
-        float* const sum = (float* const)malloc(sizeof(float[32]));
+        float* const sum = (float*)malloc(sizeof(float[32]));
         { // not a seq
           __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
           __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
@@ -265,7 +265,7 @@ TODO: minimize contracts?
         __xmodifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
         __xreads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
 
-        float* const sum = (float* const)malloc(sizeof(float[32]));
+        float* const sum = (float*)malloc(sizeof(float[32]));
         { // not a seq
           __scoped_ghost(ro_fork_group, "H := A ~> Matrix2(1024, 1024), r := 0..32");
           __scoped_ghost(ro_fork_group, "H := B ~> Matrix2(1024, 1024), r := 0..32");
@@ -311,7 +311,7 @@ TODO: minimize contracts?
 
 ```c
 [...]
-      float* const sum = (float* const)malloc(sizeof(float[32][32]));
+      float* const sum = (float*)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
         __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
         __xmodifies("Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell)");
@@ -361,7 +361,7 @@ TODO: minimize contracts?
 
 ```c
 [...]
-      float* const sum = (float* const)malloc(sizeof(float[32][32]));
+      float* const sum = (float*)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
         __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
 
@@ -458,7 +458,7 @@ TODO: minimize contracts?
 
 ```c
 [...]
-  float* const pB = (float* const)malloc(sizeof(float[32][256][4][32]));
+  float* const pB = (float*)malloc(sizeof(float[32][256][4][32]));
   for (int bi = 0; bi < 32; bi++) {
     __smodifies("Group(range(32), fun bj -> Group(range(256), fun bk -> Group(range(4), fun k -> Group(range(32), fun j -> &pB[bj][bk][k][j] ~> Cell))))");
     __xmodifies("Group(range(32), fun i -> Group(range(1024), fun j -> &C[bi * 32 + i][j] ~> Cell))");
@@ -484,7 +484,7 @@ TODO: minimize contracts?
       __sreads("Group(range(32), A ~> Matrix2(1024, 1024)),"
                            "Group(range(32), B ~> Matrix2(1024, 1024))");
 
-      float* const sum = (float* const)malloc(sizeof(float[32][32]));
+      float* const sum = (float*)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
         __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
 
@@ -614,7 +614,7 @@ TODO: minimize contracts?
       __xmodifies("Group(range(32), fun i -> Group(range(32), fun j -> &C[bi * 32 + i][bj * 32 + j] ~> Cell))");
       __sreads("Group(range(32), A ~> Matrix2(1024, 1024))");
 
-      float* const sum = (float* const)malloc(sizeof(float[32][32]));
+      float* const sum = (float*)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
         __xmodifies("Group(range(32), fun j -> &sum[i][j] ~> Cell)");
 

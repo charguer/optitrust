@@ -14,10 +14,6 @@ VIEW=$4 # should be view_diff or save_intermediate_state
 RECOMPILE_OPTITRUST=$5 # should be recompile_optitrust_yes or recompile_optitrust_no
 OPTIONS=${@:6}
 
-# Path to tools folder and src folder
-TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0";)")
-SRCFOLDER=${TOOLS_FOLDER}/..
-
 # This can help with opam switches
 eval $(opam env)
 

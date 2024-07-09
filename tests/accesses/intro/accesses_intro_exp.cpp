@@ -5,7 +5,7 @@ typedef struct {
 
 int foo(vect v) { return v.x; }
 
-int demo() {
+void demo() {
   const vect a = {0, 1};
   int ax;
   /*@body*/ { ax = a.x; } /*body@*/

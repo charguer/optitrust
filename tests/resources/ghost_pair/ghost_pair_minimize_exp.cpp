@@ -3,7 +3,7 @@
 int main() {
   __pure();
   int x = 0;
-  float* const A = (float* const)CALLOC1(10, sizeof(float));
+  float* const A = (float*)CALLOC1(10, sizeof(float));
   x += 1;
   const __ghost_fn focusA = __ghost_begin(matrix1_ro_focus, "M := A, i := 0");
   x += A[MINDEX1(10, 0)];
@@ -11,7 +11,7 @@ int main() {
   x += 1;
   x += 1;
   MFREE1(10, A);
-  float* const B = (float* const)CALLOC2(8, 6, sizeof(float));
+  float* const B = (float*)CALLOC2(8, 6, sizeof(float));
   x += 2;
   x += 1;
   const __ghost_fn focusBi = __ghost_begin(group_focus, "i := 1");

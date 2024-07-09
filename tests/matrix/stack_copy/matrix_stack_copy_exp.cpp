@@ -2,7 +2,7 @@
 
 void f() {
   __pure();
-  float* const s = (float* const)MALLOC2(32, 32, sizeof(float));
+  float* const s = (float*)MALLOC2(32, 32, sizeof(float));
   for (int i = 0; i < 32; i++) {
     __strict();
     __xwrites("for j in 0..32 -> &s[MINDEX2(32, 32, i, j)] ~> Cell");

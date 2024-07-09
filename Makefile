@@ -86,6 +86,7 @@ clean_cache:
 	find . -type f -name '*.ser' -exec rm {} +
 	find . -type f -name '*.trace' -exec rm {} +
 	find . -type f -name '*_notfmt.cpp' -exec rm {} +
+	find . -type f -name '*.cmxs' -exec rm {} +
 
 watch:
 	nohup .vscode/watch.sh >/dev/null 2>&1

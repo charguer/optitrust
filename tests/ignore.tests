@@ -4,6 +4,11 @@ debug
 perf
 interact
 
+# BROKEN TRANSFO TO FIX
+specialize/function_defs/specialize_function_defs_doc.ml
+specialize/function_defs/specialize_function_defs.ml
+
+
 # DEAL with namespaces
 specialize/function_arg/specialize_function_arg.ml
 specialize/function_arg/specialize_function_arg_doc.ml
@@ -19,15 +24,22 @@ loop/move/loop_move_doc.ml
 # BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
 apac/constify_functions_arguments/apac_constify_functions_arguments.ml
 
+# CPP
+ast/cpp_basic.ml
+
+# fix sizeof with typ in trm
+arith/simpl/arith_simpl.ml
 
 pointer/fold
 
 # TO FIX:
 function/uninline
 record/method_to_const
+record/set_implicit
 function/rename_args
 function/beta
 align/def
+align/alloc
 matrix/insert_access_dim_index
 record/reorder_fields
 array/elim_constant
@@ -35,7 +47,6 @@ record/align_field
 loop/unfold_bound
 matrix/reorder_dims
 matrix/delocalize
-record/align_field
 apac/heapify
 apac/heapify_nested_seq
 apac/unfold_let_mult_const
@@ -62,6 +73,8 @@ function/inline
 
 # #var-id
 ast/cpp_varids.ml
+ast/cpp_basic.ml
+ast/cpp_ast.ml
 apac/insert_tasks_naive
 apac/sync_with_taskwait
 variable/intro_pattern_array

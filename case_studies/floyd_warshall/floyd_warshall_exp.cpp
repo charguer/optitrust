@@ -2,8 +2,8 @@
 
 // NOTE: using pretty matrix notation
 int optitrust_floyd(uint32_t N, uint32_t* A) {
-  uint32_t* const kj = (uint32_t* const)malloc(sizeof(uint32_t[N]));
-  uint32_t* const ik = (uint32_t* const)malloc(sizeof(uint32_t[N]));
+  uint32_t* const kj = (uint32_t*)malloc(sizeof(uint32_t[N]));
+  uint32_t* const ik = (uint32_t*)malloc(sizeof(uint32_t[N]));
   for (int k = 0; k < N; k++) {
     for (int j = 0; j < N; j++) {
       kj[j] = A[k * N + j];

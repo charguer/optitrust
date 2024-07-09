@@ -1,12 +1,11 @@
-typedef unsigned int uint;
+typedef unsigned int ui;
 
 typedef double const cdouble;
 
-typedef struct { unsigned int x; unsigned int y; } vect;
+typedef struct { unsigned x; int unsigned y; } vect;
 
 typedef int** mat2d;
-
-typedef int*** mat3d; // to be folded before mat2d, else M would be of type mat2d*
+typedef int*** mat3d;
 
 int main() {
   unsigned int x;

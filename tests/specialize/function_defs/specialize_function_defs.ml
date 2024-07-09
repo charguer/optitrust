@@ -13,4 +13,5 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Specialize_basic.fundefs "f4" [Some (lit "2"); Some (lit "3")] [cTopFunDef "f"];
 
+  !!! (); (* TODO: Find how to eliminate this reparse *)
 )

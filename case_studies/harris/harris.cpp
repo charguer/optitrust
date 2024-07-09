@@ -115,15 +115,15 @@ void harris(float* out, int h, int w, const float* in) {
   const int h2 = h1 - 2;
   const int w2 = w1 - 2;
 
-  float* const gray = (float* const) MALLOC2(h, w, sizeof(float));
-  float* const ix = (float* const) MALLOC2(h1, w1, sizeof(float));
-  float* const iy = (float* const) MALLOC2(h1, w1, sizeof(float));
-  float* const ixx = (float* const) MALLOC2(h1, w1, sizeof(float));
-  float* const ixy = (float* const) MALLOC2(h1, w1, sizeof(float));
-  float* const iyy = (float* const) MALLOC2(h1, w1, sizeof(float));
-  float* const sxx = (float* const) MALLOC2(h2, w2, sizeof(float));
-  float* const sxy = (float* const) MALLOC2(h2, w2, sizeof(float));
-  float* const syy = (float* const) MALLOC2(h2, w2, sizeof(float));
+  float* const gray = (float*) MALLOC2(h, w, sizeof(float));
+  float* const ix = (float*) MALLOC2(h1, w1, sizeof(float));
+  float* const iy = (float*) MALLOC2(h1, w1, sizeof(float));
+  float* const ixx = (float*) MALLOC2(h1, w1, sizeof(float));
+  float* const ixy = (float*) MALLOC2(h1, w1, sizeof(float));
+  float* const iyy = (float*) MALLOC2(h1, w1, sizeof(float));
+  float* const sxx = (float*) MALLOC2(h2, w2, sizeof(float));
+  float* const sxy = (float*) MALLOC2(h2, w2, sizeof(float));
+  float* const syy = (float*) MALLOC2(h2, w2, sizeof(float));
 
   grayscale(gray, h, w, in);
   sobelX(ix, h, w, gray);

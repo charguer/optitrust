@@ -19,12 +19,12 @@ mkdir -p ${TMP_FOLDER}
 
 #==========================================================================
 # Check the dependencies
-# We need a rebuild of the cmx file if any src/ file is more recent
+# We need a rebuild of the cmx file if any lib/ file is more recent
 # than the .ml script
 
 # TIMER4=`date +%s%3N`
 
-LAST_MODIF_LIB=`find ${OPTITRUST_FOLDER}/src -name "*.ml*" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f2-2 -d" "`
+LAST_MODIF_LIB=`find ${OPTITRUST_FOLDER}/lib -name "*.ml*" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f2-2 -d" "`
 
 NEEDS_REBUILD="0"
 
@@ -65,7 +65,7 @@ if [ "${NEEDS_REBUILD}" = "1" ]; then
   # FIXME: This will not work if the script is used outside an optitrust buildtree.
   # We should find a way to detect if we are.
   pushd ${OPTITRUST_FOLDER} > /dev/null
-  dune build tmp/with_lines.cmxs runner/optitrust_runner.exe
+  dune build tmp/with_lines.cmxs tools/runner/optitrust_runner.exe
   popd > /dev/null
 
   mv ${TMP_FOLDER}/with_lines.cmxs ${TARGET}

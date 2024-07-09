@@ -1,6 +1,0 @@
-(executable
- (name optitrust_runner)
- (public_name optitrust_runner)
- (libraries clangml refl pprint str optitrust dynlink)
- (link_flags (-linkall))
- (modes native))

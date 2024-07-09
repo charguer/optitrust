@@ -11,7 +11,7 @@ void init_var_evry_iter() {
 }
 
 void init_arr_evry_iter() {
-  int* const x = (int* const)MALLOC1(3, sizeof(int));
+  int* const x = (int*)MALLOC1(3, sizeof(int));
   for (int i = 0; i < 6; i++) {
     __strict();
     __smodifies("_Uninit(for j in 0..3 -> &x[j] ~> Cell)");

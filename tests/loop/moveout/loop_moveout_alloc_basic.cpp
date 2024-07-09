@@ -8,7 +8,7 @@ void alloc(int n) {
     __strict();
     __smodifies("&x ~> Cell");
 
-    int* const m = (int* const) MALLOC1(n, sizeof(int));
+    int* const m = (int*) MALLOC1(n, sizeof(int));
     x++;
     MFREE1(n, m);
   }

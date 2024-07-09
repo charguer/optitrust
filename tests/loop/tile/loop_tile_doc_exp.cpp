@@ -1,3 +1,5 @@
+#include <optitrust.h>
+
 int main() {
   for (int bi = 0; bi < exact_div(9, 3); bi++) {
     for (int i = 0; i < 3; i++) {

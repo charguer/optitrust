@@ -1,8 +1,6 @@
 open Optitrust
 open Target
 
-let _ = Flags.use_member_functions ()
-
 let _ = Run.script_cpp (fun _ ->
 
   !! Record_basic.rename_fields (fun x -> "rel_" ^ x) [cTypDef "vect"];

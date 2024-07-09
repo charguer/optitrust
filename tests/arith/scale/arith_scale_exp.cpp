@@ -10,12 +10,12 @@ int main() {
   for (int i = 0; i < N; i++) {
     s += t[i] * i;
   }
-  printf("%d\n", s);
+  printf("%f\n", s);
 }
 
 float* u;
 
-int other() {
+void other() {
   const int N = 5;
   for (int i = 0; i < N; i++) {
     double a = (double)u[i] * i;

@@ -6,5 +6,6 @@ open Prelude
 let _ = Run.script_cpp (fun _ ->
 
   !! Specialize_basic.fundefs "f1" [Some (lit "1")] [cTopFunDef "f"];
+  !!! (); (* TODO: Find how to eliminate this reparse *)
 
 )

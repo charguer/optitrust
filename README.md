@@ -354,9 +354,18 @@ The top-level command `make viewdoc` compiles the doc and opens it.
 
 
 --------------------------------------------------------------------------------
-## Optional suggestions
+## Tester
 
-In your `~/.bashrc` you can add an alias to make it easier to invoke the tester.
+For running the test suite, execute:
+
+```sh
+  cd ~/optitrust
+  ~/tester run
+```
+
+See the header of the file `tester.ml` for the full documentation.
+
+Optional: in your `~/.bashrc` you can add an alias to make it easier to invoke the tester.
 
 ```sh
   alias t='~/optitrust/tester'

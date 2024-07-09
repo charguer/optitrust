@@ -1,8 +1,6 @@
 open Optitrust
 open Prelude
 
-let _ = Flags.use_member_functions()
-
 (**
 let _ = Flags.bypass_cfeatures := true
 *)

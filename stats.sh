@@ -17,7 +17,7 @@ NBTESTS=$((NBBASIC+NBCOMBI))
 echo "${NBTESTS} unit tests"
 
 
-cd ${CURDIR}/src
+cd ${CURDIR}/lib
 FILES=`ls *.ml`
 NBFILES=`ls *.ml | wc -l`
 echo "${NBFILES} files in ml"
@@ -27,7 +27,7 @@ echo "${NBLINES} lines of code"
 
 
 
-cd ${CURDIR}/tests/basic   
+cd ${CURDIR}/tests/basic
 FILES=`ls *.ml`
 NBSTEPS_BASIC=`grep -o '!!' ${FILES} | wc -l`
 echo "${NBSTEPS_BASIC} steps in basic unit tests"

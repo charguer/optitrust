@@ -28,7 +28,7 @@ int main () {
     }
   }
 
-  int n = t[1][2] + get_1_x(t) + get_1_y(t) + get_2_x(v, v) + get_2_y(t, t);
+  int n = t[1][2] + get_1_x(v) + get_1_y(t) + get_2_x(v, v) + get_2_y(t, t);
 
   return 0;
 }

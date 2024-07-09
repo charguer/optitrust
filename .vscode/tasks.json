@@ -410,6 +410,24 @@
         }
       },
       {
+        "label": "Compile with gcc",
+        "type": "shell",
+        "command": "gcc",
+        "args": [
+          "-I",
+          "${workspaceFolder}/include",
+          "-c",
+          "${file}",
+        ],
+        "options": {
+          "cwd": "${fileDirname}"
+        },
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always"
+        }
+      },
+      {
         "label": "Diff wrong tests output",
         "type": "shell",
         "command": ".vscode/diff_wrong_tests_output.sh",

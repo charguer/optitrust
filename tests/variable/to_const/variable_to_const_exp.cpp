@@ -15,7 +15,7 @@ typedef struct {
   vect speed;
 } part;
 
-int test_vect() {
+void test_vect() {
   const vect v = {0, 1};
   const vect w = v;
   int a = v.x;

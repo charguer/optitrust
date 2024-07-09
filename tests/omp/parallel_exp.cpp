@@ -1,6 +1,6 @@
 #include <omp.h>
 
-int test() {
+void test() {
   int x = 0;
 #pragma omp parallel for collapse(3)
   for (int a = 0; a < 4; a++) {

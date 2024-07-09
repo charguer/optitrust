@@ -1,3 +1,1 @@
-S ../src/**
-B ../_build/default/src/**
-B ../_build/default/src/.optitrust.objs/byte
+../tests/.merlin

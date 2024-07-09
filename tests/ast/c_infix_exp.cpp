@@ -22,7 +22,7 @@ vect vect_mul(double d, vect v) { return (vect){d * v.x, d * v.y, d * v.z}; }
 const int CHUNK_SIZE = 128;
 
 typedef struct chunk {
-  struct chunk* next;
+  chunk* next;
   int size;
   particle items[CHUNK_SIZE];
 } chunk;
@@ -163,7 +163,7 @@ particle* bag_iter_next(bag_iter* it, bool destructive) {
   return bag_iter_get(it);
 }
 
-void bag_ho_iter_basic(bag* b, void body(particle*)) {
+void bag_ho_iter_basic(bag* b, void (*body)(particle*)) {
   bag_iter it;
   for (particle* p = bag_iter_begin(&it, b); p != NULL;
        set(p, bag_iter_next(&it, true))) {
@@ -171,7 +171,7 @@ void bag_ho_iter_basic(bag* b, void body(particle*)) {
   }
 }
 
-void bag_ho_iter_chunk(bag* b, void body(particle*)) {
+void bag_ho_iter_chunk(bag* b, void (*body)(particle*)) {
   for (chunk* c = b->front; c != NULL; set(c, chunk_next(c, true))) {
     int nb = c->size;
     for (int i = 0; i < nb; i++) {

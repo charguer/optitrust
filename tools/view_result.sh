@@ -56,12 +56,12 @@ ${CODE_VIEWER:="code -r"}
 # Path to the tools and optitrust folder
 TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0")")
 export OPTITRUST_FOLDER=$(dirname "${TOOLS_FOLDER}")
-SRC_FOLDER=$(readlink -f ${OPTITRUST_FOLDER}/src)
+LIB_FOLDER=$(readlink -f ${OPTITRUST_FOLDER}/lib)
 
-# Disallow execution in the src folder
-if [[ ${DIRNAME}/ == ${SRC_FOLDER}/* ]]
+# Disallow execution in the lib folder
+if [[ ${DIRNAME}/ == ${LIB_FOLDER}/* ]]
 then
-    echo "Cannot start view_result.sh in the src folder" >&2
+    echo "Cannot start view_result.sh in the lib folder" >&2
     exit 2
 fi
 
@@ -207,8 +207,7 @@ ${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}.ml
 
 TIMER6=`date +%s%3N`
 
-# if [ ! -z ${OPTIONS} ]; then
-echo "Execution options: ${OPTIONS}"
+echo "View ${FILEPATH} with options ${OPTIONS}"
 
 # LATER: only do this if error is raised
 make -C ${OPTITRUST_FOLDER} precompile

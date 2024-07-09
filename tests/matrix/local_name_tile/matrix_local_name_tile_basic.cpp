@@ -6,7 +6,7 @@ typedef int T;
 void malloc_uninit_pre() {
   __pure();
 
-  T* const a = (T* const) MALLOC3 (10, 10, 4, sizeof(T));
+  T* const a = (T*) MALLOC3 (10, 10, 4, sizeof(T));
 
   __GHOST_BEGIN(focus, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
@@ -37,7 +37,7 @@ void malloc_uninit_pre() {
 void malloc_uninit_post() {
   __pure();
 
-  T* const a = (T* const) MALLOC1(10, sizeof(T));
+  T* const a = (T*) MALLOC1(10, sizeof(T));
   __GHOST_BEGIN(focus, group_focus_subrange_uninit,
     "items := fun i -> &a[MINDEX1(10,i)] ~> Cell, "
     "sub_range := 2..10");
@@ -64,7 +64,7 @@ void malloc_uninit_post() {
 void malloc_uninit_prepost() {
   __pure();
 
-  T* const a = (T* const) MALLOC3 (10, 10, 4, sizeof(T));
+  T* const a = (T*) MALLOC3 (10, 10, 4, sizeof(T));
 
   __GHOST_BEGIN(focus, group2_focus_subrange_uninit,
     "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10,10,4,i,j,k)] ~> Cell, "
@@ -93,7 +93,7 @@ void malloc_uninit_prepost() {
 void f(T* b) {
   __modifies("b ~> Matrix3(10, 10, 4)");
 
-  b = (T* const) CALLOC3 (10, 10, 4, sizeof(T));
+  b = (T*) CALLOC3 (10, 10, 4, sizeof(T));
   for (int i = 0; i < 10; i++) {
     __xmodifies("for j in 0..10 -> for k in 0..4 ->"
                "  &b[MINDEX3(10,10,4,i,j,k)] ~> Cell");

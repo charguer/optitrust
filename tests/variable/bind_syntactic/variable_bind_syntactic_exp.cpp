@@ -15,7 +15,7 @@ int main() {
   int c0 = 4 + 3;
   int c1 = 4 + 4;
   int r = c0 * c0 + c1 * c1;
-  float* const m = (float* const)MALLOC2(5, 6, sizeof(float));
+  float* const m = (float*)MALLOC2(5, 6, sizeof(float));
   float x0 = m[MINDEX2(5, 6, 0, 1)];
   float x1 = m[MINDEX2(5, 6, 1, 0)];
   float x = x0 * x1;

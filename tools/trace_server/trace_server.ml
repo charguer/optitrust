@@ -44,7 +44,7 @@ let style_of_query request : Trace.output_style =
     in
   { decode = get_query_as_bool request "decode";
     typing;
-    print = Lang_C (AstC_to_c.default_style ()) }
+    print = Lang_C (Ast_to_c.default_style ()) }
 
 type trace_cache_entry = {
   trace_path: string;

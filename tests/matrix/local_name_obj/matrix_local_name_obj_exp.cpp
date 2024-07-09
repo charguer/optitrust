@@ -12,7 +12,7 @@ typedef struct {
 } particle;
 
 typedef struct chunk {
-  struct chunk* next;
+  chunk* next;
   int size;
   particle items[10];
 } chunk;

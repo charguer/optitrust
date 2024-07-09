@@ -1,12 +1,12 @@
 int f(int a, int b) { return a + b; }
 
-int f1(int a, int b) { f(a, b); }
+int f1(int a, int b) { return f(a, b); }
 
-int f2(int a) { f(a, 3); }
+int f2(int a) { return f(a, 3); }
 
-int f3(int b) { f(3, b); }
+int f3(int b) { return f(3, b); }
 
-int f4() { f(2, 3); }
+int f4() { return f(2, 3); }
 
 int main() {
   int x;

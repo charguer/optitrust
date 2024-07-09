@@ -42,7 +42,7 @@ void f1(int* y) {
 void f2(float* A, float* B, int m, int n, int p) {
   __reads("A ~> Matrix2(m, p)");
   __reads("B ~> Matrix2(p, n)");
-  float* const sum = (float* const)MALLOC2(m, n, sizeof(float));
+  float* const sum = (float*)MALLOC2(m, n, sizeof(float));
   for (int i = 0; i < m; i++) {
     __strict();
     __xwrites("for _v1 in 0..n -> &sum[MINDEX2(m, n, i, _v1)] ~> Cell");

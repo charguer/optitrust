@@ -1,0 +1,7 @@
+(executable
+ (name optitrust_runner)
+ (public_name optitrust_runner)
+ (libraries clangml refl pprint str optitrust dynlink)
+ (link_flags (-linkall))
+ (link_deps (file ../c_parser/c_parser.exe))
+ (modes native))

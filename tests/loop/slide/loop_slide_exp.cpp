@@ -1,8 +1,6 @@
 #include <optitrust.h>
 #include <stdio.h>
 
-int min(int a, int b) { return (a < b ? a : b); }
-
 int main() {
   float* s = (float*)MALLOC1(32, sizeof(float));
   for (int bi = 0; bi < 32 + (1 - 2); bi += 1) {

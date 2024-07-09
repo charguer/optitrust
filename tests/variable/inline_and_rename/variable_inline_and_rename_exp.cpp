@@ -1,21 +1,21 @@
-int test_const_const() {
+void test_const_const() {
   const int y = 5;
   int z = y + y;
 }
 
-int test_nonconst_const() {
+void test_nonconst_const() {
   int y = 5;
   y = 6;
   y = 7;
   int z = y + y;
 }
 
-int test_const_nonconst() {
+void test_const_nonconst() {
   const int y = 5;
   int z = y + y;
 }
 
-int test_nonconst_nonconst() {
+void test_nonconst_nonconst() {
   int y = 5;
   y = 6;
   y = 7;
@@ -27,13 +27,13 @@ typedef struct {
   int y;
 } vect;
 
-int test_const_const_vect() {
+void test_const_const_vect() {
   const vect b = {6, 7};
   int c = b.x;
   int d = b.y;
 }
 
-int test_nonconst_const_vect() {
+void test_nonconst_const_vect() {
   vect b;
   b.x = 6;
   b.x = 7;
@@ -41,13 +41,13 @@ int test_nonconst_const_vect() {
   int d = b.y;
 }
 
-int test_const_nonconst_vect() {
+void test_const_nonconst_vect() {
   const vect b = {6, 7};
   int c = b.x;
   int d = b.y;
 }
 
-int test_nonconst_nonconst_vect() {
+void test_nonconst_nonconst_vect() {
   vect b;
   b.x = 6;
   b.x = 7;
