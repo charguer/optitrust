@@ -14,6 +14,8 @@
 - *Block-Based Compression?*, "Hierarchical Multi-Dimensional Arrays and its
 Implementation in the CoLa Domain Specific Language for Block-Based Data Compression"
 
+- Collision detection, Bullet, Franz Franchetti's work
+
 # Image processing Case Studies
 
 - [Box Blur](box_blur) inspired from Halide's [blur](https://github.com/halide/Halide/blob/0782d80b4907f94b4bc2b0df806306952ad39111/apps/blur/) app. A simple stencil.

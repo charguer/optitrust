@@ -585,6 +585,7 @@ let assert_usages_commute
    in the program.
 
    - if provided [pred], allows specifying which formulas to include in the shadowing check.
+   - [keep_instr]: is this ever useful? for inlining binding?
     *)
 let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(keep_instr : bool = false) (p : path) : unit =
   step_backtrack ~discard_after:true (fun () ->
@@ -594,9 +595,6 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(ke
         let write_res = List.filter (Resource_set.(linear_usage_filter (usage_of_trm instr) keep_written)) res_before.linear in
         let write_res = List.map (fun (_, formula) -> formula) write_res in
         let write_res = List.filter pred write_res in
-        (* DEBUG
-        Show.trm ~msg:"instr" instr;
-        Show.trms ~msg:"write_res" write_res; *)
         let uninit_ghosts = List.filter_map (fun res ->
           if Option.is_none (formula_uninit_inv res) then Some (Resource_trm.ghost_forget_init res) else None) write_res in
         if keep_instr

@@ -421,12 +421,13 @@ __GHOST(in_range_shift_extend) {
   __ghost(in_range_extend, "x+k, range(a+k, b+k, s), r");
 }
 
-__GHOST(subrange_to_group_in_range) {
+// DEPRECATED? we have in_range_extend and can make loop
+/* __GHOST(subrange_to_group_in_range) {
   __requires("r1: range, r2: range");
   __requires("is_subrange(r1, r2)");
   __ensures("for i in r1 -> in_range(i, r2)");
-  __admitted();
-}
+  __admitted(); // TODO
+} */
 
 /* ---- Manually split RO resources ---- */
 

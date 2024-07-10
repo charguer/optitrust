@@ -77,6 +77,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           let _, instrs_after_let = Mlist.split (index + 1) tl in
           let context_instrs, _ = Mlist.split end_occ_index instrs_after_let in
           let context_usage = Resources.compute_usage_of_instrs context_instrs in
+          (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
           Resources.assert_usages_commute [path_error_context p] usage context_usage;
           Trace.justif "inlining a duplicable expression through a non-interfering, non-control-flow and non-formula context is correct"
           (* TODO: Case 3 ? recursive traversal analysis with special constructor cases? *)

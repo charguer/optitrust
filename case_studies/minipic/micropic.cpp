@@ -189,6 +189,14 @@ void simulate_single_cell(double stepDuration,
   __modifies("particles ~> Matrix1(nbParticles)");
   __reads("fieldAtCorners ~> Matrix1(nbCorners)");
 
+  // 1. copy particles for scaling, simulating calling code
+  particle *const localParticles = MALLOC1(nbParticles, sizeof(particle));
+  for (int idPart = 0; idPart < nbParticles; idPart++) {
+      __xmodifies("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
+    particles[MINDEX1(nbParticles, idPart)]
+  }
+
+  // 2. simulation code
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
       __xmodifies("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
@@ -211,6 +219,9 @@ void simulate_single_cell(double stepDuration,
       particles[MINDEX1(nbParticles, idPart)] = p2;
     }
   }
+
+  // 3. copy particles back, simulating calling code
+  MFREE1(nbParticles, localParticles);
 }
 
 /*
@@ -269,6 +280,7 @@ int simulate_core(double stepDuration,
 // =========================================================
 
 // 1. dérouler matmuls
+// 1.5. set_explicit + simpl_proj
 // 2. mise à l'échelle données
 //   -- http://www.chargueraud.org/research/2022/optitrust/optitrust.pdf sect 4.5
 

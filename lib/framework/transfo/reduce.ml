@@ -56,7 +56,8 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
     let value = (trm_cast acc_typ (Matrix_trm.get input [n; m] [trm_var index; j])) in
     let loop_range = { index; start; direction = DirUp; stop; step = trm_step_one () } in
     if !Flags.check_validity then begin
-      let derive_in_range = Resource_trm.(Resource_formula.(ghost (ghost_call var_ghost_subrange_to_group_in_range [
+      let derive_in_range = Resource_trm.(Resource_formula.(ghost (ghost_call var_ghost_in_range_extend [
+        "x", trm_var index;
         "r1", formula_range start stop (trm_int 1);
         "r2", formula_range (trm_int 0) n (trm_int 1);
       ]))) in
@@ -64,18 +65,14 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
         push_loop_contract_clause SharedModifies
           (new_anon_hyp (), formula_cell acc) |>
         push_loop_contract_clause SharedReads
-          (new_anon_hyp (), formula_matrix input [n; m]) |>
-        (* TODO: should this use require or some pure focus? *)
-        push_loop_contract_clause (Exclusive Requires)
-          (new_anon_hyp (), formula_in_range (trm_var index)
-            (formula_range (trm_int 0) n (trm_int 1)))
+          (new_anon_hyp (), formula_matrix input [n; m])
       )) in
       prefix := Some [
-        derive_in_range;
         trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) (trm_cast acc_typ (trm_int 0)));
         trm_add_mark mark_loop (trm_for loop_range ~contract (trm_seq_nomarks [
-          (* trm_prim_compound Binop_add (trm_var acc) value *)
+          derive_in_range;
           focus_reduce_item input (trm_var index) j n m (
+            (* trm_prim_compound Binop_add (trm_var acc) value *)
             trm_set (trm_var acc) (trm_add (trm_var_get acc) value))
         ]))
       ];
