@@ -476,7 +476,12 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
   let evar_ctx = Var_map.map (fun x -> Some (trm_subst res_from.aliases x)) subst_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) evar_ctx dominated_evars in
 
-  let res_to = Resource_set.subst_aliases res_from.aliases res_to in
+  let evar_ctx = Var_map.merge (fun x evar_ctx_binding alias_binding ->
+    match evar_ctx_binding, alias_binding with
+    | Some _, None -> evar_ctx_binding
+    | None, Some alias_binding -> Some (Some alias_binding)
+    | Some _, Some _ -> failwith "an alias binding conflicts with a unification variable"
+    | None, None -> None) evar_ctx res_from.aliases in
   let res_from = Resource_set.subst_all_aliases res_from in
   assert (Var_map.is_empty res_to.aliases);
 
