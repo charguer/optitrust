@@ -56,7 +56,12 @@ if [ "${NEEDS_REBUILD}" = "1" ]; then
   (modes (native plugin))
   (promote)
   (preprocess (pps ppx_transfo))
-  (libraries optitrust))" > ${TMP_FOLDER}/dune
+  (libraries optitrust)
+  ; disable warning 27: unused var strict
+  ; disable warning 32: unused variable
+  ; disable warning 33: unused open
+  (flags (:standard -w -27-32-33)))
+  " > ${TMP_FOLDER}/dune
 
   # LATER: Think about using dune to check that script is already up to date
 

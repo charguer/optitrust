@@ -35,6 +35,25 @@ let%transfo simpl_rec (f : (expr -> expr)) (tg : target) : unit =
   Trace.tag_simpl_arith ();
   simpl ~indepth:true f tg
 
+(** [compose fs] returns the function obtained as the composition
+    of the functions [fs] *)
+let compose (fs : (expr -> expr) list) : (expr -> expr) =
+  fun (e:expr) ->
+    let rec aux fs e =
+      match fs with
+      | [] -> e
+      | f::fs' -> aux fs' (f e)
+      in
+    aux fs e
+
+(** [simpls fs tg] is like simpl with the composition of the functions fs *)
+let%transfo simpls ?(indepth : bool = false) (fs : (expr -> expr) list) (tg : target) : unit =
+  simpl ~indepth (compose fs) tg
+
+(** [simpls_rec f tg] just an alias for simpl ~indepth:true tg *)
+let%transfo simpls_rec (fs : (expr -> expr) list) (tg : target) : unit =
+  Trace.tag_simpl_arith ();
+  simpls ~indepth:true fs tg
 
 (** [simplify ~indepth tg] applies simpl with the operation being gathering of
     arithmetic experssions *)
