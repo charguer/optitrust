@@ -1,8 +1,8 @@
 
 typedef struct {
   int x;
-  int y; }
-vect;
+  int y;
+} vect;
 
 typedef struct {
   int weight;

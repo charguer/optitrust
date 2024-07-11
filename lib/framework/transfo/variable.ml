@@ -396,6 +396,14 @@ let%transfo inline_and_rename ?(simpl: target -> unit = default_inline_simpl) (t
     | _ -> trm_fail tg_trm "Variable.inline_and_rename: expected the declaration of the variable which is going to be inlined"
   ) tg
 
+(** [subst]: same as {!Variable_basic.subst} with arith simplification *)
+let%transfo subst ?(simpl : target -> unit = default_inline_simpl) ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
+  Marks.with_fresh_mark (fun simpl_mark ->
+    let put = trm_add_mark simpl_mark put in
+    Variable_basic.subst ~reparse ~subst ~put tg;
+    simpl [cMark simpl_mark];
+  )
+
 (** [elim_redundant ~source tg]: expects the target [tg] to be point at a variable declaration with an initial value being
     the same as the variable declaration where [source] points to. Then it will fold the variable at [source] into
     the variable declaration [tg] and inline the declaration in [tg]. *)

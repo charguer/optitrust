@@ -4,49 +4,51 @@ open Target
 (** [set_explicit_on t]: transforms an assigment into a list of field assignments,
      [t] - ast of the assignment. *)
 let set_explicit_on (t : trm) : trm =
+  (* TODO: needs refactoring *)
   match t.desc with
   | Trm_apps (f, [lt; rt], _) ->
     (* Temporary hack for overloaded set operator *)
     let lt = begin match trm_prim_inv f with
-      | Some (Prim_overloaded_op (Prim_binop Binop_set)) ->
-        get_operation_arg lt
-      | _ -> lt
+      | Some (Prim_binop Binop_set)
+      | Some (Prim_overloaded_op (Prim_binop Binop_set)) -> lt
+      | _ -> trm_fail f "expected set operator"
       end
      in
-    let tid = match Option.bind rt.typ typ_constr_inv, Option.bind lt.typ typ_constr_inv with
+    let tid = match Option.bind rt.typ typ_constr_inv, Option.bind (Option.bind lt.typ typ_ptr_inv) typ_constr_inv with
       | None, Some var | Some var, None -> var
       | Some var_r, Some var_l ->
-        if not (var_eq var_r var_l) then trm_fail t (sprintf "Record_core.set_explicit_on: different types in an assignment ('%s' vs '%s')" (var_to_string var_l) (var_to_string var_r));
+        if not (var_eq var_r var_l) then trm_fail t (sprintf "different types in an assignment ('%s' vs '%s')" (var_to_string var_l) (var_to_string var_r));
         var_r
       | None, None ->
-        trm_fail t "Record_core.set_explicit_aux: explicit assignment cannot operate on unknown types"
+        trm_fail t "explicit assignment cannot operate on unknown types"
     in
     let struct_def =
       match Internal.typvar_to_typedef tid with
       | Some td -> td
-      | _ -> trm_fail t "Record_core.set_explicit_aux: could not get the declaration of typedef"
+      | _ -> trm_fail t "could not get the declaration of typedef"
     in
     let field_list = Internal.get_field_list t struct_def in
     begin match rt.desc with
     | Trm_apps (f1, [rt1], _) when is_get_operation rt ->
         let exp_assgn = List.mapi (fun i (sf, ty) ->
-        trm_set (trm_struct_access ~typ:ty lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
+        trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf)
+          {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
         ) field_list in
         trm_seq_nobrace_nomarks exp_assgn
     | Trm_record st ->
       let st = List.split_pairs_snd (Mlist.to_list st) in
       let exp_assgn = List.mapi (fun i (sf, ty) ->
-        trm_set (trm_struct_access ~typ:ty lt sf) (List.nth st i)
+        trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf) (List.nth st i)
       ) field_list
         in
       trm_seq_nobrace_nomarks exp_assgn
     | _ ->  (* other cases are included here *)
       let exp_assgn = List.mapi (fun i (sf, ty) ->
-        trm_set (trm_struct_access ~typ:ty lt sf) (trm_struct_get ~typ:ty rt sf)
+        trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf) (trm_struct_get ~typ:ty rt sf)
         ) field_list in
         trm_seq_nobrace_nomarks exp_assgn
     end
-  | _ -> trm_fail t "Record_core.set_explicit_aux: expected a set operation"
+  | _ -> trm_fail t "expected a set operation"
 
 (** [set_implicit t]: transform a sequence with a list of explicit field assignments into a single assignment,
       [t] - ast of the sequence containing the assignments. *)
@@ -358,27 +360,32 @@ let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_replace (Trm_seq new_tl) t
 
-(** [inline_struct_accesses name field t]: transforms a specific struct access into a variable occurrence,
-    [name] - name of the variable to replace the struct access,
-    [field] - struct accesses on this field are going to be replaced with [name],
-    [t] - ast node located in the same level as the variable declaration. *)
-let inline_struct_accesses (name : var) (field : field) (t : trm) : trm =
+(** <internal> *)
+let to_variables_update (var : var) (is_ref : bool) (fields : (field * typ * var) list) (t : trm) : trm =
   let rec aux (t : trm) : trm =
-    begin match t.desc with
-    | Trm_apps (f, [base], _) ->
-      begin match f.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
-          begin match base.desc with
-          | Trm_var v when v = name ->
-            (* FIXME: #var-id *)
-            trm_var (new_var (Convention.name_app name.name field))
-          | _ -> trm_map aux t
-          end
-      | _ -> trm_map aux t
-      end
-    | _ -> trm_map aux t
-    end
+    Pattern.pattern_match t [
+      Pattern.(
+        (trm_struct_access !__ (trm_var (var_eq var)))
+        ^| (trm_struct_get !__ (trm_var (var_eq var)))
+      ) (fun field () ->
+        match List.find_opt (fun (f, t, v) -> field = f) fields with
+        | Some (f, t, v) -> trm_var v
+        | None -> raise Pattern.Next
+      );
+      Pattern.(trm_var (var_eq var)) (fun () ->
+        Pattern.when_ (not is_ref);
+        trm_record (Mlist.of_list (List.map (fun (f, t, v) ->
+          None, trm_var v
+        ) fields))
+      );
+      Pattern.(trm_unop (eq Unop_get) (trm_var (var_eq var))) (fun () ->
+        Pattern.when_ is_ref;
+        trm_record (Mlist.of_list (List.map (fun (f, t, v) ->
+          None, trm_var_get v
+        ) fields))
+      );
+      Pattern.__ (fun () -> trm_map aux t)
+    ]
    in aux t
 
 (** [to_variables_at index t]: changes a variable declaration of type typedef struct into a list
@@ -386,48 +393,46 @@ let inline_struct_accesses (name : var) (field : field) (t : trm) : trm =
       [index] - index of the declaration inside the sequence it belongs to,
       [t] - ast of the surrounding sequence of the variable declarations. *)
 let to_variables_at (index : int) (t : trm) : trm =
-  let error = "Record_core.struct_to_variables_aux: expected the surrounding sequence." in
+  let error = "expected a surrounding sequence" in
   let tl = trm_inv ~error trm_seq_inv t in
-  let field_list = ref [] in
-  let var_name = ref dummy_var in
+  let fields = ref [] in
+  let var = ref dummy_var in
+  let is_ref = ref false in
   let f_update (t : trm) : trm =
-    let error = "Record_core.struct_to_variables_aux: expected a variable declaration." in
+    let error = "expected a variable declaration" in
     let (x, tx, init) = trm_inv ~error trm_let_inv t in
-      var_name := x;
-      let typvar = Pattern.pattern_match (get_inner_ptr_type tx) [
-          Pattern.(typ_constr !__) (fun v () -> v);
-          Pattern.__ (fun () -> trm_fail t "Record_core.struct_to_variables_aux: expected a struct type")
-        ]
-      in
-      let struct_def = match Internal.typvar_to_typedef typvar with
-        | Some td -> td
-        | _ -> trm_fail t "Record_core.to_variables_aux: could not get the declaration of typedef"
-      in
-      field_list := Internal.get_field_list t struct_def;
-      let struct_init_list = begin match init.desc with
-                           | Trm_apps(_, [base], _) ->
-                            begin match base.desc with
-                            | Trm_record ls -> List.split_pairs_snd (Mlist.to_list ls)
-                            | _ -> trm_fail init "Record_core.struct_to_variables_aux: expected a struct initialisation"
-                            end
-                           | Trm_record ls -> List.split_pairs_snd (Mlist.to_list ls)
-                           | _ -> []
-                           end in
-      let var_decls = List.mapi(fun i (sf, ty) ->
-        (* FIXME: #var-id *)
-        let new_name = new_var (Convention.name_app x.name sf) in
-        match struct_init_list with
-        | [] -> trm_let_mut (new_name, ty) (trm_uninitialized ())
-        | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
-
-        ) !field_list in
-        trm_seq_nobrace_nomarks var_decls
-     in
-  let f_update_further (t : trm) : trm =
-    List.fold_left (fun t2 f1 ->
-          inline_struct_accesses !var_name f1 t2
-        ) t (fst (List.split !field_list))
+    var := x;
+    let typvar = Pattern.pattern_match (get_inner_ptr_type tx) [
+        Pattern.(typ_constr !__) (fun v () -> v);
+        Pattern.__ (fun () -> trm_fail t "expected a struct type")
+      ]
     in
+    let struct_def = match Internal.typvar_to_typedef typvar with
+    | Some td -> td
+    | _ -> trm_fail t "could not get the declaration of typedef"
+    in
+    let field_list = Internal.get_field_list t struct_def in
+    let init' = match trm_ref_inv init with
+    | Some (_, v) -> is_ref := true; v
+    | _ -> is_ref := false; init
+    in
+    let init_list =
+      if is_trm_uninitialized init' then None else begin
+        let error = "expected a struct initialization" in
+        Some (trm_inv ~error trm_record_inv init')
+      end
+    in
+    let var_decls = List.mapi (fun i (sf, ty) ->
+      let field_var = new_var (Convention.name_app x.name sf) in
+      fields := !fields @ [sf, ty, field_var];
+      begin match init_list with
+      | None -> trm_let_maybemut !is_ref (field_var, ty) (trm_uninitialized ())
+      | Some inits -> trm_let_maybemut !is_ref (field_var, ty) (snd (Mlist.nth inits i))
+      end
+    ) field_list in
+    trm_seq_nobrace_nomarks var_decls
+  in
+  let f_update_further (t : trm) : trm = to_variables_update !var !is_ref !fields t in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
 

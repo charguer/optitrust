@@ -25,5 +25,7 @@ int main() {
   a.pos = p;
   a.speed = s;
 
+  const obj b = { .weight = 0, .pos = p, .speed = s};
+
   return 0;
 }

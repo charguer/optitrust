@@ -806,6 +806,12 @@ let trm_let_immut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   let var_name, var_type = typed_var in
   trm_let ~annot ?loc ?ctx (var_name, var_type) (init)
 
+let trm_let_maybemut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (should_be_mut : bool)
+(typed_var : typed_var) (init : trm): trm =
+  if should_be_mut
+  then trm_let_mut ~annot ?loc ?ctx typed_var (init)
+  else trm_let ~annot ?loc ?ctx typed_var (init)
+
 (** [trm_let_array ~annot ?ctx ~const typed_var sz init]: an extension of trm_let for creating array variable declarations *)
 (* FIXME: This function is weird and creates a ref instead of ref_array... *)
 let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(const : bool = false)

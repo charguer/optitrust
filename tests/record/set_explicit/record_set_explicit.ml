@@ -12,4 +12,6 @@ let _ = Run.script_cpp (fun _ ->
     !! Record.set_explicit [cVarDef "u"];
     (* Example without detach *)
     !! Record.set_explicit [sInstr "b = p"];
+    (* Example with const *)
+    !! Record.set_explicit [sInstr "*v = c"];
 )

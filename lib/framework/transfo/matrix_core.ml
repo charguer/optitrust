@@ -142,7 +142,7 @@ let map_all_accesses (v : var) ?(ret_dims_and_typ : (trms * typ) option ref opti
       | Some x when var_eq x v ->
         Option.iter (fun rdt ->
           if Option.is_none !rdt then begin
-            let typ = Option.get (typ_ptr_inv (Option.get (typ_const_inv (Option.get f.typ)))) in
+            let typ = Option.get (typ_ptr_inv (Option.get f.typ)) in
             rdt := Some (dims, typ);
           end;
         ) ret_dims_and_typ;

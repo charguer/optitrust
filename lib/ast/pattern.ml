@@ -160,6 +160,20 @@ let trm_arbitrary fa k t =
   | Trm_arbitrary a -> fa k a
   | _ -> raise Next
 
+let trm_struct_access ffield fbase k =
+  trm_unop (fun k op ->
+    match op with
+    | Unop_struct_access f -> ffield k f
+    | _ -> raise Next
+  ) fbase k
+
+let trm_struct_get ffield fbase k =
+  trm_unop (fun k op ->
+    match op with
+    | Unop_struct_get f -> ffield k f
+    | _ -> raise Next
+  ) fbase k
+
 let typ_var = trm_var
 let typ_apps ft fargs k ty =
   match typ_apps_inv ty with

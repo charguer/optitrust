@@ -49,12 +49,17 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           (* Case 2: duplicable expression can be inlined if we don't go through interfering context, control flow or formulas *)
           Resources.required_for_check ();
           (* Resources.assert_instr_effects_shadowed p; *)
-          let t_seq = Target.resolve_path p_seq in (* -- DUPLICATE CODE *)
+          (* -- DUPLICATE CODE *)
+          let t_seq = Target.resolve_path p_seq in
           let tl = trm_inv ~error trm_seq_inv t_seq in
           let dl = Mlist.nth tl index in
-          let dl = Path.resolve_path p_local dl in (* -- *)
-          Resources.assert_not_self_interfering dl;
+          let dl = Path.resolve_path p_local dl in
+          let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
+          (* -- *)
+          Resources.assert_not_self_interfering init;
+          Show.path ~msg:"inlined" p;
           let occurences = Constr.resolve_target [cVarId x] t_seq in
+          Show.paths ~msg:"occurences" occurences;
           let end_occ_index = match snd (List.unlast occurences) with
           | Dir_seq_nth i :: _ -> i
           | p -> path_fail p "expected path to be inside current sequence"
@@ -73,7 +78,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           ) (List.drop 1 occurences);
           (* is calling this useful?
           Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
-          let usage = Resources.usage_of_trm dl in
+          let usage = Resources.usage_of_trm init in
           let _, instrs_after_let = Mlist.split (index + 1) tl in
           let context_instrs, _ = Mlist.split end_occ_index instrs_after_let in
           let context_usage = Resources.compute_usage_of_instrs context_instrs in
