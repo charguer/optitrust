@@ -362,13 +362,60 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
     | DirDown -> (trm_div (aux start stop) step)
     | DirDownEq -> (trm_div (aux start stop) step)
   in
-
+  (* TODO: this should be an immutable binding *)
   let new_decl = trm_let_mut (index, typ_int ) (trm_apps (trm_binop Binop_add)[
           start;
           trm_apps (trm_binop Binop_mul) [trm_var new_index; step]
         ]) in
   trm_for { index = new_index; start = trm_int 0; direction; stop = new_stop; step = trm_step_one () }
     (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
+
+
+
+(** [scale_range factor new_index t]: transforms loop [t] into a loop with larger steps,
+      [factor] - the multiplicative factor on the indices,
+      [new_index] - a string representing the new index for the transformed loop,
+        (if empty, then we reuse the original name)
+      [t] - ast of the loop to be transformed. *)
+let scale_range (factor : trm) (new_index : string) (t : trm) : trm =
+  let error = "Loop_core.scale_range: only simple loops are supported." in
+  let ({ index; start; direction; stop; step }, _, _) = trm_inv ~error trm_for_inv t in
+  let new_index : var =
+    match new_index with
+    | "" -> index
+    | _ -> new_var (new_index)
+    in
+
+  let body_trms = for_loop_body_trms t in
+  (* LATER: could introduce a variable name for the formula of the old index in terms of the new one:
+   let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_var_get index) t) body_trms in *)
+   (* LATER: replace change_trm with a more efficient substitution *)
+  let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_exact_div (trm_var new_index) factor) t) body_trms in
+  let new_start =
+    match trm_lit_inv start with
+    | Some (Lit_int 0) -> start
+    | _ -> trm_fail t "Loop_core.scale_range: only start at zero is supported."
+    in
+
+  let new_step =
+    match trm_lit_inv step with
+    | Some (Lit_int 1) -> factor
+    | _ -> trm_mul factor step
+    in
+
+  let new_stop = match direction with
+    | DirUp -> (trm_mul factor stop)
+    | DirUpEq | DirDown | DirDownEq -> trm_fail t "Loop_core.scale_range: only up to loops are supported."
+    in
+
+  (* LATER: could introduce a variable name for the formula of the old index in terms of the new one
+  let new_decl = trm_let_mut (index, typ_int ) (trm_apps (trm_binop Binop_add)[
+          start;
+          trm_apps (trm_binop Binop_mul) [trm_var new_index; step]
+        ]) in
+  let new_body = (trm_seq (Mlist.insert_at 0 new_decl body_trms )) in *)
+  let new_body = trm_seq body_trms in
+  trm_for { index = new_index; start = new_start; direction; stop = new_stop; step = new_step } new_body
 
 (** [fold_at index start step t]: transforms a sequence of instructions into a for loop,
       [index] - index of the generated for loop,

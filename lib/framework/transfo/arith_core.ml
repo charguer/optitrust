@@ -1108,3 +1108,21 @@ let check_gt = check_int_compare (>)
 let check_geq = check_int_compare (>=)
 let check_lt = check_int_compare (<)
 let check_leq = check_int_compare (<=)
+
+
+
+(* TODO ARTHUR
+
+D[ic / cn * cn + ic % cn] = (uint16_t)S[ic / cn * cn + ic % cn] +
+ (uint16_t)S[(1 + ic / cn) * cn + ic % cn] +
+ (uint16_t)S[(2 + ic / cn) * cn + ic % cn];
+
+
+
+for i = 0 , i < a    i ++
+  S[3 + 4 * i]
+
+for j = 0 , j < 4*a    j += 4
+   S[3 + 4 * exact_div(j,4)]
+
+*)
