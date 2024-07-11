@@ -159,7 +159,8 @@ let typ_to_expr_typ (ty: typ): expr_typ =
     Pattern.typ_usize (fun () -> Etyp_int);
     Pattern.typ_isize (fun () -> Etyp_int);
     Pattern.__ (fun () ->
-      Tools.warn "Arith_core: type information is neither an integer or a float, assuming f64 computations";
+      Tools.warn "Arith_core: type information (%s) is neither an integer or a float, assuming f64 computations"
+      (Ast_to_c.typ_to_string ty);
       Etyp_f64)
   ]
 
@@ -198,7 +199,7 @@ let expr_float ?(loc : loc) ?(typ : expr_typ = Etyp_f64) (f : float) : expr =
   expr_make ?loc ~typ (Expr_float f)
 
 (** [expr_one typ] produces either [expr_int 1] or [expr_float 1.0] depending on the type *)
-let expr_one (typ : expr_typ option) : expr =
+let expr_one ?loc (typ : expr_typ option) : expr =
   match typ with
   | Some t ->
     begin match t with
@@ -206,7 +207,7 @@ let expr_one (typ : expr_typ option) : expr =
     | Etyp_f32 -> expr_float ~typ:Etyp_f32 1.0
     | Etyp_f64 -> expr_float ~typ:Etyp_f64 1.0
     end
-  | None -> failwith "expr_one: requires a known type"
+  | None -> failwith "expr_one: requires a known type (%s)" (loc_to_string loc)
 
 (** [expr_atom id] produces a variable [id], denoting an arbitrary subterm form ast.ml *)
 let expr_atom ?(loc : loc) ?(typ : expr_typ option) (id : id) : expr =
@@ -570,15 +571,22 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
      (* Recognize binary operators *)
      | Trm_apps (f, [t1; t2], _) ->
        let is_integer_op () = (* indicate if operation is on int or double *)
-          match is_integer_typ (Option.map typ_to_expr_typ t1.typ), is_integer_typ (Option.map typ_to_expr_typ t2.typ) with
+          let is_int_1 = is_integer_typ (Option.map typ_to_expr_typ t1.typ) in
+          let is_int_2 = is_integer_typ (Option.map typ_to_expr_typ t2.typ) in
+          match is_int_1, is_int_2 with
           | true, true -> true
           | false, false -> false
           | _ ->
-            if !Flags.report_all_warnings
+            if    (t1.typ = None && is_int_2)
+               || (t2.typ = None && is_int_1) then
+               true
+            else begin
+              if !Flags.report_all_warnings
               then Tools.warn "arith types differ: %s and %s"
                     (Option.to_string Ast_to_c.typ_to_string t1.typ)
                     (Option.to_string Ast_to_c.typ_to_string t2.typ);
-            false
+                false
+            end
             (* LATER: failwith "should not happen" *)
          in
        begin match trm_prim_inv f with
@@ -851,7 +859,7 @@ let expand_one (e : expr) : expr =
     let typ = e.expr_typ in
     match e.expr_desc with
     | Expr_prod wes ->
-        let exprs_in_sum = List.fold_right (aux typ) wes [expr_one typ] in
+        let exprs_in_sum = List.fold_right (aux typ) wes [expr_one ?loc:e.expr_loc typ] in
         expr_sum_nonweighted ?typ exprs_in_sum
     | _ -> e
     in
@@ -1142,15 +1150,13 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
       update t with the simplified expressions
   LATER: should [simplify false f t] fail if [t] is not an application of prim_arith? *)
 let rec simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
-  if not indepth
-    then begin
-      let f_atom_identity = (fun ti -> ti) in
-      simplify_at_node f_atom_identity f t
-    end
-    else begin
-      let f_atom_simplify = simplify indepth f in
-      map_on_arith_nodes (simplify_at_node f_atom_simplify f) t
-    end
+  if not indepth then begin
+    let f_atom_identity = (fun ti -> ti) in
+    simplify_at_node f_atom_identity f t
+  end else begin
+    let f_atom_simplify = simplify indepth f in
+    map_on_arith_nodes (simplify_at_node f_atom_simplify f) t
+  end
 
 
 (******************************************************************************)

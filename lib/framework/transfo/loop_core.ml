@@ -390,7 +390,7 @@ let scale_range (factor : trm) (new_index : string) (t : trm) : trm =
   (* LATER: could introduce a variable name for the formula of the old index in terms of the new one:
    let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_var_get index) t) body_trms in *)
    (* LATER: replace change_trm with a more efficient substitution *)
-  let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_exact_div ~typ:typ_int (trm_var new_index) factor) t) body_trms in
+  let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_exact_div ~typ:typ_int (trm_var ~typ:typ_int new_index) factor) t) body_trms in
   let new_start =
     match trm_lit_inv start with
     | Some (Lit_int 0) -> start
