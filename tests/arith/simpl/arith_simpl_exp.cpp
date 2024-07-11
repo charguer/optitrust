@@ -62,7 +62,7 @@ int main() {
   for (int ls2 = 2; ls2 < 12; ls2++) {
     ls = 10;
   }
-  int n, m, p, q;
+  int n, m, p, q, eu;
   q = 5;
   q = m;
   q = n;
@@ -83,6 +83,8 @@ int main() {
   q = n * m / p;
   q = n / m * m;
   q = n;
+  eu = n;
+  eu = n + m;
   p = 4;
   p = 4;
   p = m - 2;

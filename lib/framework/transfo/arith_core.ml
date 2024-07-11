@@ -868,6 +868,76 @@ let expand_common (recurse : bool) (e : expr) : expr =
 let expand = expand_common false
 let expand_rec = expand_common true (* Warning: might be quadratic? *)
 
+
+(******************************************************************************)
+(*                          Euclidian                                         *)
+(******************************************************************************)
+
+(** [list_find_at_most_one f l] takes a list [l] and returns zero or one item
+    satisfying [f], and returns the list of remaining items.
+    LATER: implement as tail rec *)
+let rec list_find_at_most_one (f:'a->bool) (l:'a list) : 'a option * 'a list =
+  match l with
+  | [] -> None, []
+  | a::r ->
+      if f a then
+        (Some a, r)
+      else begin
+        let ao,ro = list_find_at_most_one f r in
+        ao, (a::ro)
+      end
+
+
+
+(** [euclidian] exploits (a/q)*q + (a%q) = a.
+The transformation looks for sums that contain:
+  (1) the item [a % q] with multiplicative factor 1
+  (2) the item [a / q] with multiplicative factor [q].
+      where the division is an integer division with flooring.
+Then it replaces the two terms with [a].
+
+NOTE: must check [a] nonnegative.
+
+LATER: generalize to: [a%q] with multiplicative factor k
+
+implementation: extract all the pairs (a,q) that appear as [a%q] with
+multiplicity 1, then for each of them, either extract [a/q] with multiplicity [q]
+and put back [a] in the sum, or put back the original [a%q] in the sum.
+*)
+let euclidian (e : expr) : expr =
+  match e.expr_desc with
+  | Expr_sum wes ->
+      (* filter [1 * (a % q)] items in the original sum [wes] *)
+      let aq_pairs, wes_nonmod = List.partition_map
+        (function
+          | (1, { expr_desc = Expr_binop (Binop_mod, a, q); _ }) as modaq -> Left (a,q,modaq)
+          | we -> Right(we))
+          wes in
+      let wes':wexprs = List.fold_left (fun (wes:wexprs) (a,q,modaq) ->
+          (* auxiliary function to recognize [a/q] -- LATER: could use same_expr to do this? *)
+          let is_a_div_q e =
+            match e.expr_desc with
+            | Expr_binop (Binop_div, a', q') when same_expr a a' && same_expr q q' -> true
+            | _ -> false
+            in
+          (* filter at most one [q*(a/q)] or [(a/q)*q] item in the current sum [wes] *)
+          let opt, wes_rest = list_find_at_most_one (
+            function
+            | (1, { expr_desc = Expr_prod [(1,e1);(1,e2)]; _ }) ->
+                   (is_a_div_q e1 && same_expr q e2)
+                || (is_a_div_q e2 && same_expr q e1)
+            | _ -> false)
+            wes in
+          match opt with
+          | None -> modaq :: wes_rest (* if [q*(a/q)]  not found, put back the original [a%q] *)
+          | Some _ -> (1,a) :: wes_rest (* if [q*(a/q)] found, produce [a] *)
+         ) wes_nonmod aq_pairs
+        in
+      expr_sum wes'
+  | _ -> e
+
+
+
 (******************************************************************************)
 (*                          Compute                                 *)
 (******************************************************************************)
@@ -1111,18 +1181,12 @@ let check_leq = check_int_compare (<=)
 
 
 
+
+
 (* TODO ARTHUR
 
 D[ic / cn * cn + ic % cn] = (uint16_t)S[ic / cn * cn + ic % cn] +
  (uint16_t)S[(1 + ic / cn) * cn + ic % cn] +
  (uint16_t)S[(2 + ic / cn) * cn + ic % cn];
-
-
-
-for i = 0 , i < a    i ++
-  S[3 + 4 * i]
-
-for j = 0 , j < 4*a    j += 4
-   S[3 + 4 * exact_div(j,4)]
 
 *)
