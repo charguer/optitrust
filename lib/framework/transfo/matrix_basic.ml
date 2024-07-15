@@ -45,9 +45,16 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
-let%transfo local_name ?(my_mark : mark = no_mark) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name
+  ?(my_mark : mark = no_mark)
+  ?(indices : (string list) = [])
+  ?(alloc_instr : target option) (* TODO: this should be supported at non-basic level *)
+  ?(type_and_dims : (typ * trms) option)
+  (v : var) ~(into : string)
+  ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add))
+  (tg : target) : unit =
   let remove = (my_mark = no_mark) in
-  let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
+  let get_type_and_dims (t : trm) (tg1 : target) : typ * trms =
     let var_type = begin match t.desc with
       | Trm_let ((_, ty), _) -> get_inner_ptr_type ty
       | Trm_apps (_, [lhs; _rhs], _) when is_set_operation t ->
@@ -58,40 +65,39 @@ let%transfo local_name ?(my_mark : mark = no_mark) ?(indices : (string list) = [
       | _ -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
           target doesn't point to a write operation or a variable declaration \n'" (var_to_string v))
       end in
-      let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
+      let dims = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
         | Some at ->
           begin match Matrix_trm.alloc_inv at with
-          | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
+          | Some (dims, sz, zero_init) -> dims
           | _ -> trm_fail t "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
           end
         | None -> failwith "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
-        end in (var_type, alloc_trms)
+        end in (var_type, dims)
     in
   Nobrace_transfo.remove_after ~remove (fun _ ->
     Target.iter (fun p ->
       let seq_p, _ = Internal.isolate_last_dir_in_seq p in
       let seq_tg = target_of_path seq_p in
       let var_target = cOr [[cVarDef v.name]; [cWriteVar v.name]] in
-      begin match alloc_instr with
-      | Some tg1 ->
-        begin match get_trm_at tg1 with
-        | Some t1 ->
-          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
-          if not remove then Nobrace.enter();
-          Target.apply_at_path (Matrix_core.local_name_aux my_mark v into alloc_trms var_type indices local_ops) p
-        | None -> failwith "Matrix_basical_name: alloc_instr target does not match to any ast node"
+      let (elem_type, dims) = match type_and_dims with
+      | Some stuff -> stuff
+      | None -> begin match alloc_instr with
+        | Some tg1 ->
+          begin match get_trm_at tg1 with
+          | Some t1 -> get_type_and_dims t1 tg1
+          | None -> failwith "Matrix_basical_name: alloc_instr target does not match to any ast node"
+          end
+        | None ->
+          begin match get_trm_at (seq_tg @ [var_target]) with
+          | Some t1 ->
+            let tg1 = (seq_tg @ [var_target]) in
+            get_type_and_dims t1 tg1
+          | None -> failwith "Matrix_basical_name: alloc_instr target does not match to any ast node"
+          end
         end
-      | None ->
-        begin match get_trm_at (seq_tg @ [var_target]) with
-        | Some t1 ->
-          let tg1 = (seq_tg @ [var_target]) in
-          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
-          if not remove then Nobrace.enter();
-          Target.apply_at_path (Matrix_core.local_name_aux my_mark v into alloc_trms var_type indices local_ops) p
-
-        | None -> failwith "Matrix_basical_name: alloc_instr target does not match to any ast node"
-        end
-      end
+      in
+      if not remove then Nobrace.enter();
+      Target.apply_at_path (Matrix_core.local_name_aux my_mark v into dims elem_type indices local_ops) p
     ) tg
   )
 
@@ -192,7 +198,9 @@ let local_name_tile_on (mark_dims : mark)
 let%transfo local_name_tile
   ?(mark_dims : mark = no_mark)
   ?(mark_accesses : mark = no_mark)
-  ?(indices : string list = []) ~(alloc_instr : target) ?(ret_var : var ref = ref dummy_var)
+  ?(indices : string list = [])
+  ~(alloc_instr : target)
+  ?(ret_var : var ref = ref dummy_var)
   (* TODO: check [uninit_pre] and [uninit_post] in resources,
      could also be inferred instead of provided *)
   ?(uninit_pre : bool = false) ?(uninit_post : bool = false)

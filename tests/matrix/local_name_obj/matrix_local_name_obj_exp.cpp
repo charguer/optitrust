@@ -48,13 +48,13 @@ int main() {
   const int N1 = 10;
   const int N2 = 11;
   const int N3 = 12;
-  bag* bagCur = (bag*)MALLOC1(nbCells, sizeof(bag));
+  bag* const bagCur = (bag* const)MALLOC1(nbCells, sizeof(bag));
   bag_iter bag_it;
-  bag* bagNext = (bag*)MALLOC1(nbCells, sizeof(bag));
+  bag* const bagNext = (bag* const)MALLOC1(nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init(&bagNext[MINDEX1(nbCells, idCell)], 0, idCell);
   }
-  bag* bagNexts = (bag*)MALLOC1(nbCells, sizeof(bag));
+  bag* const bagNexts = (bag*)MALLOC1(nbCells, sizeof(bag));
   for (int i1 = 0; i1 < nbCells; i1++) {
     bag_init(&bagNexts[MINDEX1(nbCells, i1)]);
   }

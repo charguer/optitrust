@@ -197,7 +197,7 @@
           "step_trace",
           "${relativeFile}",
           "${lineNumber}",
-          "-detailed-trace"
+          "-mode step-trace"
         ]
       },
       {

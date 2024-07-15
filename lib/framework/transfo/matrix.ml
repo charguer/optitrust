@@ -148,7 +148,7 @@ let%transfo elim_mops (tg : target): unit =
   )
 
 (** [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
-   varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
+   varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basic.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
 let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
   ?(last : bool = false)  ?(use : trm option) (var : var) ~(into : string) ~(dim : trm)  ~(index : string)

@@ -190,19 +190,20 @@ void simulate_single_cell(double stepDuration,
   __reads("fieldAtCorners ~> Matrix1(nbCorners)");
 
   // 1. copy particles for scaling, simulating calling code
+  /*
   particle *const localParticles = (particle *const) MALLOC1(nbParticles, sizeof(particle));
   for (int idPart = 0; idPart < nbParticles; idPart++) {
     __xreads("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
     __xwrites("&localParticles[MINDEX1(nbParticles, idPart)] ~> Cell");
     localParticles[MINDEX1(nbParticles, idPart)] = particles[MINDEX1(nbParticles, idPart)];
-  }
+  } */
 
   // 2. simulation code
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
-      __xmodifies("&localParticles[MINDEX1(nbParticles, idPart)] ~> Cell");
+      __xmodifies("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
 
-      const particle p = localParticles[MINDEX1(nbParticles, idPart)];
+      const particle p = particles[MINDEX1(nbParticles, idPart)];
 
       // Interpolate the field based on the position relative to the corners of the cell
       double* const coeffs = cornerInterpolationCoeff(p.pos);
@@ -217,18 +218,20 @@ void simulate_single_cell(double stepDuration,
       const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
 
       // const particle p2 = { .pos = pos2, .speed = speed2, .charge = p.charge, .mass = p.mass };
-      localParticles[MINDEX1(nbParticles, idPart)].pos = pos2;
-      localParticles[MINDEX1(nbParticles, idPart)].speed = speed2;
+      particles[MINDEX1(nbParticles, idPart)].pos = pos2;
+      particles[MINDEX1(nbParticles, idPart)].speed = speed2;
     }
   }
 
   // 3. copy particles back, simulating calling code
+  /*
   for (int idPart = 0; idPart < nbParticles; idPart++) {
     __xreads("&localParticles[MINDEX1(nbParticles, idPart)] ~> Cell");
     __xwrites("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
     particles[MINDEX1(nbParticles, idPart)] = localParticles[MINDEX1(nbParticles, idPart)];
   }
   MFREE1(nbParticles, localParticles);
+  */
 }
 
 /*

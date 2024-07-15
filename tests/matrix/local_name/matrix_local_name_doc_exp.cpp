@@ -2,12 +2,10 @@
 
 typedef int T;
 
-T* b;
-
 int main() {
   const int N0 = 1;
-  T* a = (T*)CALLOC1(N0, sizeof(T));
-  T* b = (T*)CALLOC1(N0, sizeof(T));
+  T* const a = (T* const)CALLOC1(N0, sizeof(T));
+  T* const b = (T*)MALLOC1(N0, sizeof(T));
   for (int i1 = 0; i1 < N0; i1++) {
     b[MINDEX1(N0, i1)] = a[MINDEX1(N0, i1)];
   }
