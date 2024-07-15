@@ -61,7 +61,6 @@ int main()
   v = (((a * d) / (a / e)) * (1. / e)); // = d
   v = (((a / (1. / e)) + (b * (c / (b / e )))) * (1. / e)); // = a + c
 
-
   // test for recursion in atoms (LATER)
   w = a + a * 3 + f(b * f(c + c) / b); // = 4*a + f(f(2*c))
 
@@ -79,7 +78,7 @@ int main()
   }
 
   // test integer division
-  int n, m, p, q;
+  int n, m, p, q, eu;
   q = exact_div(5 + 5, 2); // = 5
   q = exact_div(n * m, n); // = m, would also be true if non-exact division
   q = exact_div(n, m) * m; // = n, true because when b divides a
@@ -100,6 +99,10 @@ int main()
   q = (n * m * n) / (p * n); // = (n * m) / p
   q = (n / m) * m; // cannot simplify because n might not be divisible by m
   q = (n / 1) / 1;  // = n
+
+  // test euclidian
+  eu = (n / m) * m + (n % m); // = n
+  eu = m + (n % m) + m * (n / m); // = m + n
 
   // test integer addition
   p = (2 + m) - (m + -2); // = 4

@@ -184,7 +184,7 @@ elif [ "${MODE}" = "step_diff_from_inter" ] || [ "${MODE}" = "full_trace_from_in
   sed "${LINE_START}","${LINE_STOP}"'{s/^.*$/  /;}' ${FILEBASE}.ml > ${SRCBASE}.ml
 
   # Patch the call to "script_cpp" so that it loads the saved intermediate CPP file
-  sed -i "s/script_cpp/script_cpp ~filename:\"${FILEBASE}_inter_before.cpp\" ~prefix:\"${FILEBASE}_fast\"/;" ${SRCBASE}.ml
+  sed -i "s/script_cpp/script_cpp ~filename:\"${FILEBASE}_inter_out.cpp\" ~prefix:\"${FILEBASE}_fast\"/;" ${SRCBASE}.ml
 
   # echo "Produced ${SRCBASE}.ml"
 
@@ -234,7 +234,7 @@ elif [ "${MODE}" = "full_trace" ] || [ "${MODE}" = "full_trace_from_inter" ]; th
 
 elif [ "${MODE}" = "save_inter" ]; then
 
-  echo "Produced ${SRCBASE}_before.cpp as checkpoint for line ${LINE}"
+  echo "Produced ${SRCBASE}_out.cpp as checkpoint for line ${LINE}"
 
 elif [ "${MODE}" = "step_result" ]; then
 

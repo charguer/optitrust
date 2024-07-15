@@ -838,6 +838,13 @@ let%transfo unswitch (tg : target) : unit =
 let%transfo to_unit_steps ?(index : string = "" ) (tg : target) : unit =
   apply_at_target_paths (Loop_core.to_unit_steps_on index) tg
 
+
+(** [scale_range ~factor ?index tg]: expects target [tg] to point at a for loop
+    [index]. [factor] denotes the factor by which indices are multiplied. *)
+let%transfo scale_range ~(factor : trm) ?(index : string = "" ) (tg : target) : unit =
+  apply_at_target_paths (Loop_core.scale_range factor index) tg
+
+
 (** [fold ~direction index start stop step tg]: expects the target [tg] to point at the first instruction in a sequence
     and it assumes that the sequence containing the target [tg] is composed of a list of instructions which
     can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop

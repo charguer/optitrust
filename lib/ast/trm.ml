@@ -241,17 +241,17 @@ let trm_lit ?(typ : typ option) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx 
   trm_val ~annot:annot ?loc ?ctx ?typ (Val_lit l)
 
 let trm_unit ?(loc) () : trm =
-  trm_lit ?loc (Lit_unit)
+  trm_lit ~typ:typ_unit ?loc (Lit_unit)
 let trm_bool ?(loc) (b : bool) =
-  trm_lit ?loc (Lit_bool b)
+  trm_lit ~typ:typ_bool ?loc (Lit_bool b)
 (* LATER: allow arbitrary sized integer types/values *)
 let trm_int ?(loc) (i : int) =
-  trm_lit ?loc (Lit_int i)
+  trm_lit ~typ:typ_int ?loc (Lit_int i)
 (* LATER: may need arbitrary sized float values *)
 let trm_float ?(typ : typ = typ_f64) ?(loc) (d : float) =
   trm_lit ~typ ?loc (Lit_float d)
 let trm_string ?(loc) (s : string) =
-  trm_lit ?loc (Lit_string s)
+  trm_lit ~typ:typ_string ?loc (Lit_string s)
 
 (** [trm_null ~annot ?loc ?ctx ()]: build the term [nullptr], or [NULL] if [~uppercase:true] *)
 let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) () : trm =
