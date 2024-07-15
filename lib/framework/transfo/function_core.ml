@@ -122,11 +122,16 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
       begin match trm_prim_inv f1 with
       | Some p when is_infix_prim_fun p ->
         let aux s = Ast_to_c.ast_to_string s in
-        if aux ls <> aux (get_operation_arg get_ls) && aux ls <> aux (get_operation_arg arg)
+        let repr_ls = aux ls in
+        let repr_get_ls = aux (get_operation_arg get_ls) in
+        let repr_arg = aux (get_operation_arg arg) in
+        if repr_ls <> repr_get_ls && repr_ls <> repr_arg
           then t
           else
             let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> trm_fail f "Function_core.use_infix_ops_on: this should never happen" in
-            if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~annot:t.annot binop ls get_ls else  trm_prim_compound ~annot:t.annot binop ls arg
+            if not (repr_ls = repr_get_ls)
+              then trm_prim_compound ~annot:t.annot binop ls get_ls
+              else trm_prim_compound ~annot:t.annot binop ls arg
       | _ ->
         if allow_identity then t else
         trm_fail f1 "Function_core.use_infix_ops_on: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"

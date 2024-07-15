@@ -947,12 +947,7 @@ and check_arg (tg:arg_constraint) ((var, var_typ) : typed_var) : bool =
 and check_accesses ~(incontracts:bool) ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
-    | [], a -> if not inner_accesses
-                  then begin match a with
-                       | [] -> true
-                       | _  -> false
-                       end
-                  else true
+    | [], a -> if not inner_accesses then a = [] else true
     | Array_access p_index :: cal, Array_access_get index :: al ->
        check_target ~incontracts p_index index &&
        aux cal al

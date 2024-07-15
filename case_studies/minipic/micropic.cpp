@@ -50,8 +50,11 @@ vect vect_mul(double d, vect v) {
 typedef struct {
   vect pos;
   vect speed;
+  /*
+  Scaling makes no sense if charge/mass vary ?
   double charge;
   double mass;
+  */
 } particle;
 
 REGISTER_STRUCT_ACCESS(pos)
@@ -184,21 +187,12 @@ int idCellOfPos(vect pos) {
 
 void simulate_single_cell(double stepDuration,
   particle* particles, int nbParticles,
-  vect* fieldAtCorners, int nbSteps)
+  vect* fieldAtCorners, int nbSteps,
+  double particleCharge, double particleMass)
 {
   __modifies("particles ~> Matrix1(nbParticles)");
   __reads("fieldAtCorners ~> Matrix1(nbCorners)");
 
-  // 1. copy particles for scaling, simulating calling code
-  /*
-  particle *const localParticles = (particle *const) MALLOC1(nbParticles, sizeof(particle));
-  for (int idPart = 0; idPart < nbParticles; idPart++) {
-    __xreads("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
-    __xwrites("&localParticles[MINDEX1(nbParticles, idPart)] ~> Cell");
-    localParticles[MINDEX1(nbParticles, idPart)] = particles[MINDEX1(nbParticles, idPart)];
-  } */
-
-  // 2. simulation code
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
       __xmodifies("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
@@ -211,7 +205,7 @@ void simulate_single_cell(double stepDuration,
       MFREE1(nbCorners, coeffs);
 
       // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-      const vect accel = vect_mul(p.charge / p.mass, fieldAtPos);
+      const vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
 
       // Compute the new speed and position for the particle.
       const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
@@ -222,16 +216,6 @@ void simulate_single_cell(double stepDuration,
       particles[MINDEX1(nbParticles, idPart)].speed = speed2;
     }
   }
-
-  // 3. copy particles back, simulating calling code
-  /*
-  for (int idPart = 0; idPart < nbParticles; idPart++) {
-    __xreads("&localParticles[MINDEX1(nbParticles, idPart)] ~> Cell");
-    __xwrites("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
-    particles[MINDEX1(nbParticles, idPart)] = localParticles[MINDEX1(nbParticles, idPart)];
-  }
-  MFREE1(nbParticles, localParticles);
-  */
 }
 
 /*

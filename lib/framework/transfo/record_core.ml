@@ -25,7 +25,7 @@ let set_explicit_on (t : trm) : trm =
     let struct_def =
       match Internal.typvar_to_typedef tid with
       | Some td -> td
-      | _ -> trm_fail t "could not get the declaration of typedef"
+      | _ -> trm_fail t (sprintf "could not get the declaration of typedef for %s" (var_to_string tid))
     in
     let field_list = Internal.get_field_list t struct_def in
     begin match rt.desc with
