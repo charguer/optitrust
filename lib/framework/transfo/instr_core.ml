@@ -40,7 +40,7 @@ let accumulate_on (t : trm) : trm =
       begin match t1.desc with
       | Trm_apps (f, [ls; rs], _)  ->
         begin match rs.desc with
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop binop))} as f, [ls1; rs1], _) ->
+        | Trm_apps ({desc = Trm_prim (Prim_binop binop)} as f, [ls1; rs1], _) ->
           if i = 0 then rs1
           else if i = nb_instr - 1
             then

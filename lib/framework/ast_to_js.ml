@@ -190,13 +190,17 @@ let routine_to_json (routine : omp_routine) : json * json =
      [aux] is goign to be applied for processing chidlren nodes *)
 let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
-    | Trm_val v ->
-        [ kind_to_field "val";
-          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(val_to_doc (default_style())) (trm_get_cstyles t) t.typ v))));
-          children_to_field [] ]
     | Trm_var x ->
         [ kind_to_field "var";
           value_to_field x.name; (* TODO: #var-id , also encode namespaces and id ? *)
+          children_to_field [] ]
+    | Trm_lit l ->
+        [ kind_to_field "lit";
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(lit_to_doc (default_style())) (trm_get_cstyles t) t.typ l))));
+          children_to_field [] ]
+    | Trm_prim p ->
+        [ kind_to_field "prim";
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(prim_to_doc (default_style())) p))));
           children_to_field [] ]
     | Trm_record l ->
         [ kind_to_field  "struct";

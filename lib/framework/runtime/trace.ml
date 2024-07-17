@@ -346,7 +346,7 @@ type trace = {
 
 (** [trm_dummy]: dummy trm. *)
 let trm_dummy : trm =
-  trm_val (Val_lit Lit_unit)
+  trm_lit Lit_unit
 
 (** [the_trace]: the trace produced by the current script. *)
 let the_trace : trace = {

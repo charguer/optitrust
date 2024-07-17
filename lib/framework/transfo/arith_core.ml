@@ -389,7 +389,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
         | Some t1 ->
             begin match t1.desc with
             | Trm_var x -> Ast_to_c.var_to_doc style x
-            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _},
+            | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _},
                [{desc = Trm_var x; _}], _) -> Ast_to_c.var_to_doc style x
             | _ -> braces (Ast_to_c.trm_to_doc style t1)
             end
@@ -560,8 +560,8 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
     if has_mark_nosimpl t then force_atom() else
     match t.desc with
      (* Recognize constants *)
-     | Trm_val (Val_lit (Lit_int n)) -> expr_int ?loc n
-     | Trm_val (Val_lit (Lit_float n)) -> expr_float ?loc ?typ n
+     | Trm_lit (Lit_int n) -> expr_int ?loc n
+     | Trm_lit (Lit_float n) -> expr_float ?loc ?typ n
      (* Recognize unary operators *)
      | Trm_apps (f, [t1], _) ->
        begin match trm_prim_inv f with

@@ -37,14 +37,14 @@ let compute_on (t : trm) : trm =
       | Some v1 -> compute_app_unop_value p v1
       | None -> t
       end
-    | Some (Prim_binop Binop_and), [{desc = Trm_val (Val_lit (Lit_bool true));_}; t2] -> t2
-    | Some (Prim_binop Binop_and), [{desc = Trm_val (Val_lit (Lit_bool false));_};_] -> trm_bool false
-    | Some (Prim_binop Binop_and), [t2; {desc = Trm_val (Val_lit (Lit_bool true));_}] when trm_is_val_or_var t2 -> t2
-    | Some (Prim_binop Binop_and), [t2;{desc = Trm_val (Val_lit (Lit_bool false));_}] when trm_is_val_or_var t2 -> trm_bool false
-    | Some (Prim_binop Binop_or), [{desc = Trm_val (Val_lit (Lit_bool true));_}; _] -> trm_bool true
-    | Some (Prim_binop Binop_or), [{desc = Trm_val (Val_lit (Lit_bool false));_}; _] -> trm_bool false
-    | Some (Prim_binop Binop_or), [t2; {desc = Trm_val (Val_lit (Lit_bool true));_}] when trm_is_val_or_var t2 -> trm_bool true
-    | Some (Prim_binop Binop_or), [t2; {desc = Trm_val (Val_lit (Lit_bool false));_}] when trm_is_val_or_var t2 -> t2
+    | Some (Prim_binop Binop_and), [{desc = Trm_lit (Lit_bool true);_}; t2] -> t2
+    | Some (Prim_binop Binop_and), [{desc = Trm_lit (Lit_bool false);_};_] -> trm_bool false
+    | Some (Prim_binop Binop_and), [t2; {desc = Trm_lit (Lit_bool true);_}] when trm_is_val_or_var t2 -> t2
+    | Some (Prim_binop Binop_and), [t2;{desc = Trm_lit (Lit_bool false);_}] when trm_is_val_or_var t2 -> trm_bool false
+    | Some (Prim_binop Binop_or), [{desc = Trm_lit (Lit_bool true);_}; _] -> trm_bool true
+    | Some (Prim_binop Binop_or), [{desc = Trm_lit (Lit_bool false);_}; _] -> trm_bool false
+    | Some (Prim_binop Binop_or), [t2; {desc = Trm_lit (Lit_bool true);_}] when trm_is_val_or_var t2 -> trm_bool true
+    | Some (Prim_binop Binop_or), [t2; {desc = Trm_lit (Lit_bool false);_}] when trm_is_val_or_var t2 -> t2
     | Some (Prim_binop p), [t1;t2] ->
       begin match (trm_lit_inv t1), (trm_lit_inv t2) with
       | Some v1, Some v2 -> compute_app_binop_value p t1.typ t2.typ v1 v2

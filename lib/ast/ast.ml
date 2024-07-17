@@ -244,8 +244,9 @@ and trms = trm list
 
 (** [trm_desc]: description of an ast node *)
 and trm_desc =
-  | Trm_val of value
   | Trm_var of var
+  | Trm_lit of lit   (* literal values *)
+  | Trm_prim of prim (* primitive values *) (* TODO: Remove and replace with overloaded builtin functions *)
   | Trm_array of trm mlist (* { 0, 3, 5 } as an array *)
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of typed_var * trm (* int x = 3 *)
@@ -551,15 +552,6 @@ and lit =
   | Lit_string of string  (* "hello" *)
   | Lit_nullptr           (* nullptr *)
 
-(** [value]: values *)
-and value =
-  | Val_lit of lit   (* literal values *)
-  | Val_prim of prim (* primitive values *)
-  (* These are values that can only be constructed during the program execution,
-     and thus useful only for carrying out proofs about the program Generic *)
-  (* LATER: add functions, which are also values that can be created at execution time *)
-  (* Is this really useful? Contrary to CFML, I (GB) don't think we need to have
-     a value grammar *)
 
 (** [loop_range]: a type for representing for loops range *)
 and loop_range = {
@@ -946,8 +938,9 @@ let dummy_var = toplevel_var ""
 
 let trm_desc_to_string : trm_desc -> string =
   function
-  | Trm_val _ -> "Trm_val"
   | Trm_var _ -> "Trm_var"
+  | Trm_lit _ -> "Trm_lit"
+  | Trm_prim _ -> "Trm_prim"
   | Trm_array _ -> "Trm_array"
   | Trm_record _ -> "Trm_record"
   | Trm_let _ -> "Trm_let"

@@ -571,8 +571,9 @@ let get_trm_kind (t : trm) : trm_kind =
     end
     in
   match t.desc with
-  | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
   | Trm_var _ -> TrmKind_Expr
+  | Trm_lit _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+  | Trm_prim _ -> TrmKind_Expr
   | Trm_record _ | Trm_array _ -> TrmKind_Expr
   | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
   | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
@@ -683,19 +684,19 @@ type trm_access =
     the list starts with the base, and ends with the last access *)
 let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _},
+  | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_access f)); _},
               [t'], _) ->
      let (base, al) = get_nested_accesses t' in
      (base, Struct_access_addr f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _},
+  | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_get f)); _},
               [t'], _) ->
      let (base, al) = get_nested_accesses t' in
      (base, Struct_access_get f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
+  | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_access); _},
               [t'; i], _) ->
      let (base, al) = get_nested_accesses t' in
      (base, Array_access_addr i :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
+  | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_get); _},
               [t'; i], _) ->
      let (base, al) = get_nested_accesses t' in
      (base, Array_access_get i :: al)
@@ -854,13 +855,13 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         in Constr_app *)
      | Constr_var name, Trm_var x ->
         check_name name x.name
-     | Constr_lit pred_l, Trm_val (Val_lit l) ->
+     | Constr_lit pred_l, Trm_lit l ->
         pred_l l
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
         if not accept_encoded then
           begin match f.desc with
-          | Trm_val (Val_prim (Prim_ref _))
-          | Trm_val (Val_prim (Prim_unop Unop_get)) -> false
+          | Trm_prim (Prim_ref _)
+          | Trm_prim (Prim_unop Unop_get) -> false
           |  _ -> check_target p_fun f &&
                   check_list ~incontracts ~depth:(DepthAny) cl_args args
           end
@@ -889,7 +890,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
      | Constr_bool b, _ -> b
      | Constr_root, _ -> trm_is_mainfile t
 
-     | Constr_prim pred, Trm_val (Val_prim p1) ->
+     | Constr_prim pred, Trm_prim p1 ->
         pred p1
      | Constr_mark (pred, _m), _ ->
         if !old_resolution then begin
@@ -905,8 +906,8 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
-     | Constr_var_init , Trm_apps ({desc = Trm_val (Val_prim (Prim_ref _)); _}, [arg], _) -> false
-     | Constr_var_init, Trm_val (Val_lit (Lit_uninitialized)) -> false
+     | Constr_var_init , Trm_apps ({desc = Trm_prim (Prim_ref _); _}, [arg], _) -> false
+     | Constr_var_init, Trm_lit Lit_uninitialized -> false
      | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
      | Constr_struct_init, Trm_record _ -> true

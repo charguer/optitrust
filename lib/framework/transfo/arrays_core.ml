@@ -10,11 +10,11 @@ open Prelude
 let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base; index], _) ->
+    | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_access);_}, [base; index], _) ->
       begin match base.desc with
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var x}], _) when (var_eq x array_var) ->
+      | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [{desc = Trm_var x}], _) when (var_eq x array_var) ->
         begin match index.desc with
-        | Trm_val (Val_lit (Lit_int i)) ->
+        | Trm_lit (Lit_int i) ->
           if i >= List.length new_vars
             then trm_fail index "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
             else (trm_var (List.nth new_vars i))
@@ -79,9 +79,9 @@ let to_variables_at (new_vars : string list) (index : int) (t : trm) : trm =
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar) (t : trm) : trm =
   let aux = apply_tiling base_type block_name b x in
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [arg], _) ->
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get)}, [arg], _) ->
     begin match arg.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base;index], _) ->
+    | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_access)}, [base;index], _) ->
       Pattern.pattern_match base.typ [
         Pattern.(some (typ_constr (var_eq x))) (fun () ->
           get_array_access (get_array_access base (trm_div index b)) (trm_mod index b)
@@ -188,7 +188,7 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
         );
         Pattern.__ (fun () -> trm_fail t "Arrays_core.tile_at: expected a pointer because of heap allocation")
       ]
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _}, [lhs; rhs], _) ->
+    | Trm_apps ({desc = Trm_prim (Prim_binop Binop_set); _}, [lhs; rhs], _) ->
       (* lhs should have type x *)
       Pattern.pattern_match lhs.typ [
         Pattern.(some (typ_constr !(var_eq base_type_name))) (fun y () ->
@@ -213,9 +213,9 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
 let rec apply_swapping (x : typvar) (t : trm) : trm =
   let aux = apply_swapping x in
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [arg], _) ->
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [arg], _) ->
     begin match arg.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index], _) ->
+    | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_access));_}, [base; index], _) ->
       begin match get_array_access_inv base with
       | Some (base1, index1) ->
         Pattern.pattern_match base1.typ [
@@ -228,7 +228,7 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
       end
     | _ -> trm_map aux t
     end
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index], _) ->
+  | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_access));_}, [base; index], _) ->
       begin match get_array_access_inv base with
       | Some (base1, index1) ->
         Pattern.pattern_match base1.typ [
@@ -300,13 +300,13 @@ let aos_to_soa_rec (struct_name : typvar) (sz : var) (t : trm) : trm =
       begin match get_base.desc with
       | Trm_apps (f, [base], _) ->
          begin match f.desc with
-         | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
-           | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
+         | Trm_prim (Prim_unop (Unop_struct_access _))
+           | Trm_prim (Prim_unop (Unop_struct_get _)) ->
             begin match base.desc with
             | Trm_apps (f', [base'; index], _) ->
                begin match f'.desc with
-               | Trm_val (Val_prim (Prim_binop Binop_array_access))
-                 | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+               | Trm_prim (Prim_binop Binop_array_access)
+                 | Trm_prim (Prim_binop Binop_array_get) ->
                   (*
                     swap accesses only if the type of base' is x (or x* in case of
                     an access on a heap allocated variable)

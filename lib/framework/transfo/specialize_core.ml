@@ -20,7 +20,7 @@ let choose_on (select_arg : var list -> int) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_f, argnb :: args, _)  ->
     begin match argnb.desc with
-    | Trm_val (Val_lit (Lit_int nb)) ->
+    | Trm_lit (Lit_int nb) ->
        if nb <> List.length args then trm_fail t "Specialize_core.choose_aux: number of args is not correct";
         let choices = List.map (fun arg ->
           match arg.desc with

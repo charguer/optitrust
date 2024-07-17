@@ -59,19 +59,19 @@ let set_implicit_on (t: trm) : trm =
         begin match rhs.desc with
         | Trm_apps(f', [rt], _)  ->
           begin match f'.desc with
-          | Trm_val ( Val_prim ( Prim_unop Unop_get ) ) ->
+          | Trm_prim (Prim_unop Unop_get) ->
             begin match rt.desc with
               | Trm_apps(f'',[rt], _) ->
                begin match f''.desc with
-               | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
-               | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))->
+               | Trm_prim (Prim_unop (Unop_struct_access _))
+               | Trm_prim (Prim_unop (Unop_struct_get _))->
                   [trm_get rt]
                | _ -> trm_fail f' "Record_core.set_implicit_on: expected a struct acces on the right hand side of the assignment"
                end
               | _ -> trm_fail f' "Record_core.set_implicit_on: expected a trm_apps"
             end
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))->
+            | Trm_prim (Prim_unop (Unop_struct_access _))
+            | Trm_prim (Prim_unop (Unop_struct_get _))->
                   [rt]
             | _ -> trm_fail f' "Record_core.set_implicit_on: expected a struct acces on the right hand side of the assignment"
            end
@@ -83,12 +83,12 @@ let set_implicit_on (t: trm) : trm =
     begin match first_instruction.desc with
     | Trm_apps(f,[lhs;_], _) ->
           begin match f.desc with
-          | Trm_val ( Val_prim ( Prim_binop Binop_set) ) ->
+          | Trm_prim (Prim_binop Binop_set) ->
             let lt = begin match lhs.desc with
             | Trm_apps(f', [lt], _) ->
               begin match f'.desc with
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> lt
+              | Trm_prim (Prim_unop (Unop_struct_access _))
+              | Trm_prim (Prim_unop (Unop_struct_get _))-> lt
               | _ -> trm_fail f' "Record_core.set_implicit_on: expected a struct access on the left hand side of the assignment"
               end
             | _ -> trm_fail lhs "Record_core.set_implicit_on: expected a struct access"
@@ -113,8 +113,8 @@ let contains_field_access (f : field) (t : trm) : bool =
    match t.desc with
    | Trm_apps (f', tl, _) ->
       begin match f'.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access f1))) -> f = f1
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_get f1))) -> f = f1
+      | Trm_prim (Prim_unop (Unop_struct_access f1)) -> f = f1
+      | Trm_prim (Prim_unop (Unop_struct_get f1)) -> f = f1
       | _ -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
       end
    | _ -> false
@@ -128,7 +128,7 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, base, _) ->
       begin match f.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access z))) ->
+      | Trm_prim (Prim_unop (Unop_struct_access z)) ->
         begin match base with
         | [base'] ->
           if contains_field_access x base'
@@ -139,7 +139,7 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
             else trm_map (aux "") t
         | _ -> trm_fail f "Record_core.inline_struct_access: suspicious struct access"
         end
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) ->
+      | Trm_prim (Prim_unop (Unop_struct_get z)) ->
         begin match base with
         | [base'] ->
           if contains_field_access x base'
@@ -367,8 +367,8 @@ let inline_struct_accesses (name : var) (field : field) (t : trm) : trm =
     begin match t.desc with
     | Trm_apps (f, [base], _) ->
       begin match f.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
+      | Trm_prim (Prim_unop (Unop_struct_access y))
+        | Trm_prim (Prim_unop (Unop_struct_get y)) when y = field ->
           begin match base.desc with
           | Trm_var v when v = name ->
             (* FIXME: #var-id *)
@@ -455,17 +455,17 @@ let rename_struct_accesses (struct_name : typvar) (rename : rename) (t : trm) : 
     match t.desc with
     | Trm_apps (f, [base], _) ->
       begin match f.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y))) ->
+      | Trm_prim (Prim_unop (Unop_struct_access y)) ->
         Pattern.pattern_match base.typ [
           Pattern.(some (typ_constr (var_eq struct_name))) (fun () ->
-            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))} [base]
+            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_prim (Prim_unop (Unop_struct_access (rename y)))} [base]
           );
           Pattern.__ (fun () -> trm_map aux t)
         ]
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
+      | Trm_prim (Prim_unop (Unop_struct_get y)) ->
         Pattern.pattern_match base.typ [
           Pattern.(some (typ_constr (var_eq struct_name))) (fun () ->
-            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))} [base]
+            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_prim (Prim_unop (Unop_struct_get (rename y)))} [base]
           );
           Pattern.__ (fun () -> trm_map aux t)
         ]

@@ -14,7 +14,7 @@ let%transfo intro_calloc (tg : target) : unit =
       begin match trm_ref_inv_init init with
       | Some t1 ->
         begin match t1.desc with
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[calloc_trm], _) ->
+        | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_cast _));_},[calloc_trm], _) ->
           begin match calloc_trm.desc with
           | Trm_apps ({desc = Trm_var f;_}, _, _) when (var_has_name f "calloc") ->
             Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
@@ -63,7 +63,7 @@ let%transfo intro_malloc (tg : target) : unit =
       begin match trm_ref_inv_init init with
       | Some t1 ->
         begin match t1.desc with
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm], _) ->
+        | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_cast _));_},[malloc_trm], _) ->
           begin match malloc_trm.desc with
           | Trm_apps ({desc = Trm_var f;_}, _, _) when (var_has_name f "malloc") ->
             Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])

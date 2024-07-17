@@ -241,11 +241,11 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     | Trm_apps (_, [t1], _) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1], _) ->
+    | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_access f))}, [t1], _) ->
       let r, t1' = aux t1 in
       if r then (true, trm_struct_get ?typ:t.typ ~annot:t.annot t1' f)
       else (false, trm_struct_access ?typ:t.typ ~annot:t.annot t1' f)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2], _) ->
+    | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_access))}, [t1; t2], _) ->
       let r, t1' = aux t1 in
       let _, t2' = aux t2 in
       if r then (true, trm_array_get ~annot:t.annot t1' t2')
@@ -257,7 +257,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
 (** [remove_get_operations_on_var_temporary x t]: to be removed. *)
 let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var y;_}as ty], _) when y = x -> ty
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get)}, [{desc = Trm_var y;_}as ty], _) when y = x -> ty
   | _ -> trm_map (remove_get_operations_on_var_temporary x) t
 
 (** [to_nonconst_at index t]: transforms a constant into a mutable variable.

@@ -25,12 +25,12 @@ AST:
   }
 }
 for-trm-internal-desc: Trm_for (i,
-  Trm_val (Val_lit (Lit_int 0)),
+  Trm_lit (Lit_int 0),
   Up,
-  Trm_val (Val_lit (Lit_int 3)),
-  Trm_val (Val_lit (Lit_int 1)),
+  Trm_lit (Lit_int 3),
+  Trm_lit (Lit_int 1),
   Trm_seq [
-    Trm_apps (Trm_val (Val_prim (Prim_unop Unop_post_inc)), [ Trm_var(x) ])
+    Trm_apps (Trm_prim (Prim_unop Unop_post_inc), [ Trm_var(x) ])
   ])
 desc: Trm_for
 typ: target resolves to 3 paths

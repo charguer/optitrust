@@ -68,10 +68,6 @@ let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
 
 (* **************************** Smart constructors *************************** *)
 
-(** [trm_val ~annot ?loc ?typ ~ctx y]: value *)
-let trm_val ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (v : value) : trm =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_val v)
-
 (** [trm_var]: create a variable occurence. *)
 let trm_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
 (v : var) : trm =
@@ -172,7 +168,7 @@ let trm_goto ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
 (** [trm_uninitialized ~annot ?loc ?ctx ()]: used for variable declarations without initialization
     and function declarations *)
 let trm_uninitialized ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) () : trm =
-  trm_make ~annot ?loc ?ctx (Trm_val (Val_lit (Lit_uninitialized)))
+  trm_make ~annot ?loc ?ctx (Trm_lit (Lit_uninitialized))
 
 (** [trm_for ~annot ?loc ?ctx index start direction stop step body]: simple for loop *)
 let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_contract = empty_loop_contract)
@@ -225,11 +221,11 @@ let trm_this ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () =
 
 (** [trm_unop ~annot ?loc ?ctx p]: unary operator *)
 let trm_unop ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (p : unary_op) : trm =
-  trm_val ~annot ?loc ?ctx (Val_prim (Prim_unop p))
+  trm_make ~annot ?loc ?ctx (Trm_prim (Prim_unop p))
 
 (** [trm_biop ~annot ?loc ?ctx p]: binary operator *)
 let trm_binop ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (p : binary_op) : trm =
-  trm_val ~annot:annot ?loc ?ctx (Val_prim (Prim_binop p))
+  trm_make ~annot:annot ?loc ?ctx (Trm_prim (Prim_binop p))
 
 (** [trm_cast ty t]: type cast *)
 let trm_cast ?(annot : trm_annot = trm_annot_default) (ty : typ) (t : trm) : trm =
@@ -238,7 +234,7 @@ let trm_cast ?(annot : trm_annot = trm_annot_default) (ty : typ) (t : trm) : trm
 (** [trm_lit ~annot ?loc ?ctx l]: literal *)
 let trm_lit ?(typ : typ option) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : trm =
   let typ = Option.or_ typ (typ_of_lit l) in
-  trm_val ~annot:annot ?loc ?ctx ?typ (Val_lit l)
+  trm_make ~annot:annot ?loc ?ctx ?typ (Trm_lit l)
 
 let trm_unit ?(loc) () : trm =
   trm_lit ~typ:typ_unit ?loc (Lit_unit)
@@ -266,7 +262,7 @@ let trm_free ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (memory : t
 
 (** [trm_prim ~annot ?loc ?ctx p]: primitives *)
 let trm_prim ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (p : prim) : trm =
-  trm_val ~annot:annot ?loc ?ctx (Val_prim p)
+  trm_make ~annot:annot ?loc ?ctx (Trm_prim p)
 
 (** [trm_set ~annot ?loc ?ctx t1 t2] *)
 let trm_set ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
@@ -468,13 +464,13 @@ let trm_ret ?(annot = trm_annot_default) ?loc ?ctx (a : trm option) : trm =
 (** [trm_prim_inv t]: gets the primitive operation *)
 let trm_prim_inv (t : trm) : prim option =
   match t.desc with
-  | Trm_val (Val_prim p) -> Some p
+  | Trm_prim p -> Some p
   | _ -> None
 
 (** [trm_lit_inv t]: gets the literal from a literal trm *)
 let trm_lit_inv (t : trm) : lit option =
   match t.desc with
-  | Trm_val (Val_lit v) -> Some v
+  | Trm_lit v -> Some v
   | _ -> None
 
 (** [trm_int_inv t] gets an int literal from a trm *)
@@ -547,13 +543,6 @@ let trm_seq_nth_inv (i : int) (t : trm) : trm option =
     then Some (Mlist.nth instrs i)
     else None
   )
-
-(** [trm_val_inv t]: returns the components of a [trm_val] constructor when [t] is a value.
-    Otherwise it returns [None]. *)
-let trm_val_inv (t: trm): value option =
-  match t.desc with
-  | Trm_val v -> Some v
-  | _ -> None
 
 (** [trm_var_inv t]: returns the components of a [trm_var] constructor when [t] is a variable occurrence.
     Otherwise it returns [None]. *)
@@ -634,7 +623,7 @@ let trm_var_get_inv (t : trm) : var option =
 let trm_prod_inv (t : trm) : trm list =
   let rec aux (indepth : bool) (acc : trm list) (t : trm) : trm list =
     match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_mul))); _}, [l; r], _) -> (aux true acc l) @ (aux true acc r)
+    | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_mul)); _}, [l; r], _) -> (aux true acc l) @ (aux true acc r)
     | _ -> if indepth then acc @ [t] else acc
   in aux false [] t
 
@@ -668,11 +657,11 @@ let trm_ref_inv_init (t : trm) : trm option =
   match t.desc with
   | Trm_let _ ->
     failwith "trm_ref_inv_init: should be called on the initializer of a let, not the let node itself."
-  | Trm_val (Val_prim (Prim_ref _))  ->
+  | Trm_prim (Prim_ref _)  ->
     failwith "trm_ref_inv_init: should be called on a ref operator application, not the operator itself."
   | Trm_apps(f, [base], []) ->
         begin match f.desc with
-        | Trm_val (Val_prim (Prim_ref _)) -> Some base
+        | Trm_prim (Prim_ref _) -> Some base
         | _ -> None
         end
   | _ -> None
@@ -687,7 +676,7 @@ let for_loop_index (t : trm) : var =
         - for (i = …; …)
         - for (int i = …; …) *)
      begin match init.desc with
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
+     | Trm_apps ({desc = Trm_prim (Prim_binop Binop_set); _},
                  [{desc = Trm_var x; _}; _], _) -> x
      | _ -> begin match trm_var_inv init with
             | Some x -> x
@@ -731,7 +720,7 @@ let trm_seq_add_last (t_insert : trm) (t : trm) : trm =
 (** [is_get_operation t]: checks if [t] is a get operation(read operation) *)
 let is_get_operation (t : trm) : bool =
   match t.desc with
-  | Trm_apps ({desc = Trm_val(Val_prim (Prim_unop Unop_get))}, _, _) -> true
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get)}, _, _) -> true
   | _ -> false
 
 (** [is_ref_operation t] checks if [t] is new operation *)
@@ -763,7 +752,7 @@ let is_set_operation (t : trm) : bool =
 (** [is_compound_assignment]: checks if [t] is a compound assignment *)
 let is_compound_assignment (t : trm) : bool =
   match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_compound_assgn_op _))}, _, _) -> true
+  | Trm_apps ({ desc = Trm_prim (Prim_compound_assgn_op _)}, _, _) -> true
   | _ -> false
 
 (** [is_access t]: check if t is a struct or array access *)
@@ -783,7 +772,7 @@ let is_access (t : trm) : bool = match t.desc with
 (** [get_operation_arg t]: gets the arg of a get operation. *)
 let get_operation_arg (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1], _) -> t1
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [t1], _) -> t1
   | _ -> t
 
 (** [ref_operation_arg t]: get the argument of the encoded new operation. *)
@@ -877,7 +866,7 @@ let trm_is_var (t : trm) : bool =
 (** [trm_is_val_or_var t]: checks if [t] is a variable occurrence or a value *)
 let rec trm_is_val_or_var (t : trm) : bool =
 match t.desc with
-| Trm_val _ | Trm_var _ -> true
+| Trm_var _ | Trm_lit _ | Trm_prim _ -> true
 | Trm_apps (_, [var_occ], _) when is_get_operation t -> trm_is_val_or_var var_occ
 | _ -> false
 
@@ -899,7 +888,7 @@ let is_unary_compound_assign (unop : unary_op) : bool =
 (** [trm_is_unary_compound_assign t] checks whether [t] represents a unary  compound assignment: e.g., increment or decrement operation. *)
 let trm_is_unary_compound_assign (t : trm) : bool =
   match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, _, _) when is_unary_compound_assign op -> true
+  | Trm_apps ({ desc = Trm_prim (Prim_unop op); _}, _, _) when is_unary_compound_assign op -> true
   | _ -> false
 
 (** [trm_for_inv t]: gets the loop range from loop [t] *)
@@ -966,7 +955,7 @@ let trm_ref_array_inv (t: trm) : (typ * trm list * trm) option =
 (** [is_trm_uninitialized t]: checks if [t] is the body of an uninitialized function or variable *)
 let is_trm_uninitialized (t:trm) : bool =
 match t.desc with
-| Trm_val (Val_lit Lit_uninitialized) -> true
+| Trm_lit Lit_uninitialized -> true
 | _ -> false
 
 let is_trm_ref_uninitialized (t : trm) : bool =
@@ -1021,7 +1010,7 @@ match trm_ref_inv t with
   (** [is_prim_arith_call t]: checks if [t] is a function call to a primitive arithmetic operation *)
   let is_prim_arith_call (t : trm) : bool =
     match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim p);_}, args, _) when is_prim_arith p -> true
+    | Trm_apps ({desc = Trm_prim p;_}, args, _) when is_prim_arith p -> true
     | _ -> false
 
   (** [is_struct_init t]: checks if [t] is struct_init *)
@@ -1262,7 +1251,7 @@ let array_access (base : trm) (index : trm) : trm =
 
 let array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_},
+  | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_access);_},
               [base;index], _) -> Some (base, index)
   | _ -> None
 
@@ -1273,7 +1262,7 @@ let array_inv (t : trm) : trm mlist option =
 
 let array_get_inv (t : trm) : (trm * trm) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_},
+  | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_get);_},
               [base;index], _) -> Some (base, index)
   | _ -> None
 
@@ -1285,7 +1274,7 @@ let get_array_access (base : trm) (index : trm) : trm =
      is of the form get(array_access(base, index) otherwise None *)
 let get_array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg], _) ->
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get);_}, [arg], _) ->
     array_access_inv arg
   | _ -> None
 
@@ -1300,7 +1289,7 @@ let get_struct_access (f : field) (base : trm) : trm =
 (** [struct_access_inv t]: if [t] is  a struct access then return its base and the accessed field; else Npone *)
 let struct_access_inv (t : trm) : (trm * field) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)));_}, [base], _) -> Some (base, f)
+  | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_access f));_}, [base], _) -> Some (base, f)
   | _ -> None
 
 (** [struct_access_inv_some t]: if [t] is  a struct access then return its base and the accessed field *)
@@ -1312,7 +1301,7 @@ let struct_access_inv_some (t : trm) : (trm * field) =
 (** [struct_get_inv t]: if [t] is a struct get then return its base and the accesses field; else none *)
 let struct_get_inv (t : trm) : (trm * field) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_}, [base], _) -> Some (base, f)
+  | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_get f));_}, [base], _) -> Some (base, f)
   | _ -> None
 
 (** [struct_get_inv_some t]: if [t] is a struct get then return its base and the accesses field *)
@@ -1324,7 +1313,7 @@ let struct_get_inv_some (t : trm) : (trm * field) =
 (** [get_struct_access_inv t]: if [t] is of the form get(struct_access (f, base)) returns Some (f,base); else None *)
 let get_struct_access_inv (t : trm) : (trm * field) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg], _) -> struct_access_inv arg
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get);_}, [arg], _) -> struct_access_inv arg
   | _ -> None
 
 (** [get_struct_access_inv_some t]: if [t] is of the form get(struct_access (f, base)) returns (f,base) *)
@@ -1553,21 +1542,21 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   in
 
   let t' = match t.desc with
-  | Trm_var _ | Trm_val (Val_lit _) -> t
-  | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
+  | Trm_var _ | Trm_lit _ -> t
+  | Trm_prim (Prim_unop (Unop_cast ty)) ->
     let ty' = f false ty in
-    if ty == ty' then t else trm_val ~annot ?loc ?typ ~ctx (Val_prim (Prim_unop (Unop_cast ty')))
-  | Trm_val (Val_prim (Prim_ref ty)) ->
+    if ty == ty' then t else trm_prim ~annot ?loc ~ctx (Prim_unop (Unop_cast ty'))
+  | Trm_prim (Prim_ref ty) ->
     let ty' = f false ty in
-    if ty == ty' then t else trm_val ~annot ?loc ?typ ~ctx (Val_prim (Prim_ref ty'))
-  | Trm_val (Val_prim (Prim_new ty)) ->
+    if ty == ty' then t else trm_prim ~annot ?loc ~ctx (Prim_ref ty')
+  | Trm_prim (Prim_new ty) ->
     let ty' = f false ty in
-    if ty == ty' then t else trm_val ~annot ?loc ?typ ~ctx (Val_prim (Prim_new ty'))
-  | Trm_val (Val_prim (Prim_ref_array (ty, sizes))) ->
+    if ty == ty' then t else trm_prim ~annot ?loc ~ctx (Prim_new ty')
+  | Trm_prim (Prim_ref_array (ty, sizes)) ->
     let ty' = f false ty in
     let sizes' = list_map (f false) (==) sizes in
-    if ty == ty' && sizes == sizes' then t else trm_val ~annot ?loc ?typ ~ctx (Val_prim (Prim_ref_array (ty', sizes')))
-  | Trm_val (Val_prim _) -> t
+    if ty == ty' && sizes == sizes' then t else trm_prim ~annot ?loc ~ctx (Prim_ref_array (ty', sizes'))
+  | Trm_prim _ -> t
   | Trm_array tl ->
     let tl' = mlist_map (f false) (==) tl in
     if (share_if_no_change(*redundant*) && tl' == tl)
@@ -2264,10 +2253,14 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
       (* t_right is a variable but it is not the same as t_left, and none is an unresolved evar *)
       None
 
-    | Trm_val ve ->
-      let* v = trm_val_inv t_left in
+    | Trm_lit le ->
+      let* l = trm_lit_inv t_left in
+      check (l = le)
+
+    | Trm_prim pe ->
+      let* p = trm_prim_inv t_left in
       (* FIXME: This can fail because primitives may recursively contain types and terms *)
-      check (ve = v)
+      check (pe = p)
 
     | Trm_array tse ->
       let* ts = trm_array_inv t_left in
@@ -2440,21 +2433,21 @@ let trm_def_or_used_vars (t : trm) : Var_set.t =
 (** [trm_simplify_addressof_and_get t]: simplifies [&*t] and [*&t] to [t] *)
 let trm_simplify_addressof_and_get (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [
-      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1], _) }
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_address); _}, [
+      {desc = Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [t1], _) }
     ], _)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [
-      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [t1], _) }
+  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [
+      {desc = Trm_apps ({desc = Trm_prim (Prim_unop Unop_address); _}, [t1], _) }
     ], _) -> t1
   | _ -> t
 
 (** [simpl_struct_get_get t]: transform struct_get (get(t1), f) to get(struct_access (t1, f)) *)
 let simpl_struct_get_get (t : trm) : trm = (* DEPRECATED? *)
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1], _) ->
+  | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_get f));_} as op, [t1], _) ->
     begin match t1.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [t2], _) ->
-      {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t2], []))}], []))}
+    | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get);_} as op1, [t2], _) ->
+      {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_prim (Prim_unop (Unop_struct_access f))}, [t2], []))}], []))}
     | _ -> t
     end
   | _ -> t
@@ -2463,10 +2456,10 @@ let simpl_struct_get_get (t : trm) : trm = (* DEPRECATED? *)
 let rec simpl_array_get_get (t : trm) : trm = (* DEPRECATED? *)
   let aux = simpl_array_get_get in
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index], _) ->
+  | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_get));_} as op, [base; index], _) ->
     begin match base.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [base1], _) ->
-       {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base1; index], []))}], []))}
+    | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get);_} as op1, [base1], _) ->
+       {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_prim (Prim_binop Binop_array_access)}, [base1; index], []))}], []))}
     | _ -> trm_map aux t
     end
   | _ -> trm_map aux t

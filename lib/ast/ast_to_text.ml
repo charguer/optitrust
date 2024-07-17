@@ -152,17 +152,6 @@ and print_lit (l : lit) : document =
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
   | Lit_nullptr -> print_node "Lit_nullptr"
 
-(** [print_val style v]: converts values to pprint document *)
-and print_val style (v : value) : document =
-  match v with
-  | Val_lit l ->
-     let dl = print_lit l in
-     print_node "Val_lit" ^^ parens dl
-  | Val_prim p ->
-     let dp = print_prim style p in
-     print_node "Val_prim" ^^ parens dp
-
-
 (** [print_attribute style a]: converts attribute [a] to pprint document *)
 and print_attribute style (a : attribute) : document =
   match a with
@@ -182,12 +171,15 @@ and print_var style (v : var) : document =
 (** [print_trm_desc style t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc style (t : trm_desc) : document =
   match t with
-  | Trm_val v ->
-     let dv = print_val style v in
-     print_node "Trm_val" ^^ parens dv
   | Trm_var v ->
     let v_d = print_var style v in
     string "Trm_var" ^^ parens v_d
+  | Trm_lit l ->
+     let dl = print_lit l in
+     print_node "Trm_lit" ^^ parens dl
+  | Trm_prim p ->
+     let dp = print_prim style p in
+     print_node "Trm_prim" ^^ parens dp
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm style) tl in

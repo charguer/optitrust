@@ -320,12 +320,6 @@ and prim_to_doc style (p : prim) : document =
     string "delete[]"
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
-(** [val_to_doc style v]: converts values to pprint documents. *)
-and val_to_doc style (cstyles : cstyle_annot list) (typ : typ option) (v : value) : document =
-  match v with
-  | Val_lit l -> lit_to_doc style cstyles typ l
-  | Val_prim p -> prim_to_doc style p
-
 (** [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc style (a : attribute) : document =
   match a with
@@ -421,10 +415,6 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
   let d =
     begin match t.desc with
     | _ when trm_has_cstyle Type t -> typ_to_doc style t
-    | Trm_val v ->
-      if trm_has_cstyle Empty_cond t
-        then empty
-        else dattr ^^ val_to_doc style (trm_get_cstyles t) (t.typ) v
     | Trm_var x ->
       (* if x.qvar_var = "this"
         then
@@ -434,6 +424,12 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       else  *)
       let var_doc = trm_var_to_doc style x t in
       dattr ^^ var_doc
+    | Trm_lit l ->
+      if trm_has_cstyle Empty_cond t
+        then empty
+        else dattr ^^ lit_to_doc style (trm_get_cstyles t) t.typ l
+    | Trm_prim p ->
+      dattr ^^ prim_to_doc style p
     | Trm_array tl -> let tl = Mlist.to_list tl in
       let dl = List.map (decorate_trm style ~semicolon ~print_struct_init_type:false) tl in
       dattr ^^ braces (separate (comma ^^ blank 1) dl)
@@ -467,7 +463,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
       let db = decorate_trm style ~semicolon:false b in
       let dt = decorate_trm style ~semicolon:true then_ in
       begin match else_.desc with
-      | Trm_val (Val_lit Lit_unit) ->
+      | Trm_lit Lit_unit ->
         dattr ^^ separate (blank 1) [string "if"; parens db; dt]
       | _ ->
         let de = decorate_trm style ~semicolon:true else_ in
@@ -615,7 +611,7 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc style ((var_to_doc style)) tv in
   match init.desc with
-  | Trm_val (Val_lit Lit_uninitialized) -> dtx ^^ semi
+  | Trm_lit Lit_uninitialized -> dtx ^^ semi
   | Trm_apps (_, args, _) when trm_has_cstyle Constructed_init init ->
     dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm style) args) ^^ dsemi
   | Trm_array tl when trm_has_cstyle Brace_init init ->
@@ -819,7 +815,7 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
   begin match t.desc with
   | Trm_let ((x, _), init) ->
     begin match init.desc with
-      | Trm_val(Val_lit Lit_uninitialized) -> var_to_doc style x
+      | Trm_lit Lit_uninitialized -> var_to_doc style x
       (*| Trm_apps (GET?, [base], _)-> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style base*)
       | _ -> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style init
     end
@@ -853,13 +849,13 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
       in
   let is_get_implicit_this t =
     match t.desc with
-    | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _}, [base], _) -> trm_has_cstyle Implicit_this base
+    | Trm_apps ({ desc = (Trm_prim (Prim_unop Unop_get)); _}, [base], _) -> trm_has_cstyle Implicit_this base
     | _ -> false
   in
 
   match f.desc with
   (* Case of function pointers *)
-  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var x; _ } ], _) ->
+  | Trm_apps ({ desc = (Trm_prim (Prim_unop Unop_get)); _ }, [ { desc = Trm_var x; _ } ], _) ->
       aux_arguments (var_to_doc style x)
   (* Case of MALLOC *)
   | Trm_var x when (style.pretty_matrix_notation && Tools.pattern_matches "MALLOC" x.name) ->
@@ -890,151 +886,147 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
   | Trm_let_fun _ ->
         parens (decorate_trm style f) ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map (decorate_trm style) tl)
   (* Case of primitive operations *)
-  | Trm_val v ->
-     begin match v with
-     | Val_prim p ->
-        begin match p with
-        | Prim_unop op ->
-           begin match tl with
-           | [t] ->
-              let d = decorate_trm style ~prec t in
+  | Trm_prim p ->
+    begin match p with
+    | Prim_unop op ->
+        begin match tl with
+        | [t] ->
+          let d = decorate_trm style ~prec t in
+          begin match op with
+          | Unop_get when style.optitrust_syntax ->
+              string "get(" ^^ d ^^ string ")"
+          | Unop_get -> star ^^ d
+          | Unop_address ->ampersand ^^ d
+          | Unop_neg -> bang ^^ d
+          | Unop_bitwise_neg -> tilde ^^ d
+          | Unop_minus -> minus ^^ blank 1 ^^ d
+          | Unop_plus -> plus ^^ blank 1 ^^ d
+          | Unop_post_inc -> d ^^ twice plus
+          | Unop_post_dec -> d ^^ twice minus
+          | Unop_pre_inc -> twice plus ^^ d
+          | Unop_pre_dec -> twice minus ^^ d
+          | Unop_struct_access f1 when style.optitrust_syntax ->
+              string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
+          | (Unop_struct_get f1 | Unop_struct_access f1) ->
+            if is_get_implicit_this t then string f1
+            else if is_get_operation t then
+                if trm_has_cstyle Display_no_arrow f
+                  then
+                    d ^^ dot ^^ string f1
+                  else
+                    let d = decorate_trm style ~prec (get_operation_arg t) in
+                    d ^^ minus ^^ rangle ^^ string f1
+              else d ^^ dot ^^ string f1
+          | Unop_cast ty ->
+              let dty = typ_to_doc style ty in
+              parens dty ^^ blank 1 ^^ d
+          end
+        | _ ->
+          trm_fail f "Ast_to_c.apps_to_doc style: unary operators must have one argument"
+        end
+    | Prim_binop op ->
+      let (prec1, prec2) =
+        if assoc = LtoR
+          then (prec, prec + 1)
+          else (prec + 1, prec)
+        in
+      let op_d = binop_to_doc style op in
+      begin match tl with
+      | [t1; t2] ->
+        let d1 = decorate_trm style ~prec:prec1 t1 in
+        let d2 = decorate_trm style ~prec:prec2 t2 in
+        begin match op with
+          | Binop_exact_div ->
+          string "exact_div(" ^^ d1 ^^ comma ^^ space ^^ d2 ^^ string ")"
+          | Binop_set when style.optitrust_syntax ->
+            string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+          | Binop_array_access when style.optitrust_syntax ->
+            string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+          | Binop_array_access | Binop_array_get ->
+            let bracketed_trm t = brackets (decorate_trm style ~prec:0 t) in
+            d1 ^^ if not style.pretty_matrix_notation then
+              bracketed_trm (t2)
+            else begin match Matrix_trm.mindex_inv t2 with
+            | None -> bracketed_trm (t2)
+            | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
+            end
+          | _ -> separate (blank 1) [d1; op_d; d2]
+          end
+      | _ -> trm_fail f "Ast_to_c.apps_to_doc style: binary_operators must have two arguments"
+      end
+    | Prim_compound_assgn_op _  ->
+        begin match tl with
+        | [t1; t2] ->
+          let d1 = decorate_trm style ~prec t1 in
+          let d2 = decorate_trm style ~prec t2 in
+          let op_d = prim_to_doc style p in
+          if style.optitrust_syntax
+            then op_d ^^ parens (d1 ^^ comma ^^ d2)
+            else separate (blank 1) [d1; op_d; d2]
+      | _ -> trm_fail f "Ast_to_c.apps_to_doc style: expected at most two argumetns."
+      end
+    | Prim_overloaded_op p_b ->
+        begin match tl with
+        | [t1] ->
+        let d1 = decorate_trm style ~prec t1 in
+        let op_d = prim_to_doc style p_b in
+        if style.optitrust_syntax
+            then op_d ^^ parens (d1)
+            else separate (blank 1) [op_d; d1]
+        | [t1; t2] ->
+          let d1 = decorate_trm style ~prec t1 in
+          let d2 = decorate_trm style ~prec t2 in
+          let op_d = prim_to_doc style p_b in
+          begin match p_b with
+          | Prim_binop op ->
               begin match op with
-              | Unop_get when style.optitrust_syntax ->
-                  string "get(" ^^ d ^^ string ")"
-              | Unop_get -> star ^^ d
-              | Unop_address ->ampersand ^^ d
-              | Unop_neg -> bang ^^ d
-              | Unop_bitwise_neg -> tilde ^^ d
-              | Unop_minus -> minus ^^ blank 1 ^^ d
-              | Unop_plus -> plus ^^ blank 1 ^^ d
-              | Unop_post_inc -> d ^^ twice plus
-              | Unop_post_dec -> d ^^ twice minus
-              | Unop_pre_inc -> twice plus ^^ d
-              | Unop_pre_dec -> twice minus ^^ d
-              | Unop_struct_access f1 when style.optitrust_syntax ->
-                  string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
-              | (Unop_struct_get f1 | Unop_struct_access f1) ->
-                if is_get_implicit_this t then string f1
-                else if is_get_operation t then
-                    if trm_has_cstyle Display_no_arrow f
-                      then
-                        d ^^ dot ^^ string f1
-                      else
-                        let d = decorate_trm style ~prec (get_operation_arg t) in
-                       d ^^ minus ^^ rangle ^^ string f1
-                 else d ^^ dot ^^ string f1
-              | Unop_cast ty ->
-                 let dty = typ_to_doc style ty in
-                 parens dty ^^ blank 1 ^^ d
+              | Binop_set when style.optitrust_syntax ->
+                  string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+              | Binop_array_access when style.optitrust_syntax ->
+                  string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+              | Binop_array_access | Binop_array_get ->
+                let d2 = decorate_trm style ~prec:0 t2 in
+                d1 ^^ brackets (d2)
+              | _ -> separate (blank 1) [d1; op_d; d2]
               end
-           | _ ->
-              trm_fail f "Ast_to_c.apps_to_doc style: unary operators must have one argument"
-           end
-        | Prim_binop op ->
-          let (prec1, prec2) =
-            if assoc = LtoR
-              then (prec, prec + 1)
-              else (prec + 1, prec)
-            in
-          let op_d = binop_to_doc style op in
-          begin match tl with
-          | [t1; t2] ->
-            let d1 = decorate_trm style ~prec:prec1 t1 in
-            let d2 = decorate_trm style ~prec:prec2 t2 in
-            begin match op with
-             | Binop_exact_div ->
-              string "exact_div(" ^^ d1 ^^ comma ^^ space ^^ d2 ^^ string ")"
-             | Binop_set when style.optitrust_syntax ->
-                string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-             | Binop_array_access when style.optitrust_syntax ->
-                string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-             | Binop_array_access | Binop_array_get ->
-                let bracketed_trm t = brackets (decorate_trm style ~prec:0 t) in
-                d1 ^^ if not style.pretty_matrix_notation then
-                  bracketed_trm (t2)
-                else begin match Matrix_trm.mindex_inv t2 with
-                | None -> bracketed_trm (t2)
-                | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
-                end
-             | _ -> separate (blank 1) [d1; op_d; d2]
-             end
+          | Prim_unop Unop_post_inc ->
+            if style.optitrust_syntax
+            then parens (d1) ^^ op_d
+            else separate (blank 1) [d1; op_d]
           | _ -> trm_fail f "Ast_to_c.apps_to_doc style: binary_operators must have two arguments"
           end
-        | Prim_compound_assgn_op _  ->
-           begin match tl with
-           | [t1; t2] ->
-              let d1 = decorate_trm style ~prec t1 in
-              let d2 = decorate_trm style ~prec t2 in
-              let op_d = prim_to_doc style p in
-              if style.optitrust_syntax
-                then op_d ^^ parens (d1 ^^ comma ^^ d2)
-                else separate (blank 1) [d1; op_d; d2]
-          | _ -> trm_fail f "Ast_to_c.apps_to_doc style: expected at most two argumetns."
-          end
-        | Prim_overloaded_op p_b ->
-           begin match tl with
-           | [t1] ->
-            let d1 = decorate_trm style ~prec t1 in
-            let op_d = prim_to_doc style p_b in
-            if style.optitrust_syntax
-                then op_d ^^ parens (d1)
-                else separate (blank 1) [op_d; d1]
-           | [t1; t2] ->
-              let d1 = decorate_trm style ~prec t1 in
-              let d2 = decorate_trm style ~prec t2 in
-              let op_d = prim_to_doc style p_b in
-              begin match p_b with
-              | Prim_binop op ->
-                  begin match op with
-                  | Binop_set when style.optitrust_syntax ->
-                      string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-                  | Binop_array_access when style.optitrust_syntax ->
-                      string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-                  | Binop_array_access | Binop_array_get ->
-                    let d2 = decorate_trm style ~prec:0 t2 in
-                    d1 ^^ brackets (d2)
-                  | _ -> separate (blank 1) [d1; op_d; d2]
-                  end
-              | Prim_unop Unop_post_inc ->
-                if style.optitrust_syntax
-                then parens (d1) ^^ op_d
-                else separate (blank 1) [d1; op_d]
-              | _ -> trm_fail f "Ast_to_c.apps_to_doc style: binary_operators must have two arguments"
-              end
-          | _ ->
-            Printf.printf "Nb_args: %d" (List.length tl);
-            trm_fail f "Ast_to_c.apps_to_doc style: expected at most two argumetns."
-          end
+      | _ ->
+        Printf.printf "Nb_args: %d" (List.length tl);
+        trm_fail f "Ast_to_c.apps_to_doc style: expected at most two argumetns."
+      end
 
-        | Prim_conditional_op ->
-           begin match tl with
-           | [t1; t2; t3] ->
-              let d1 = decorate_trm style ~prec:4 t1 in
-              let d2 = decorate_trm style ~prec:4 t2 in
-              let d3 = decorate_trm style ~prec:4 t3 in
-              parens (separate (blank 1) [d1; qmark; d2; colon; d3])
-           | _ ->
-              trm_fail f
-                "apps_to_doc style: conditional operator must have three arguments"
-           end
-        | Prim_ref _ | Prim_ref_array _ | Prim_new _ ->
-          (* Here we assume that trm_apps has only one trm as argument *)
-          let value = List.hd tl in
-          let tr_init = decorate_trm style value in
-          let tr_prim = prim_to_doc style p in
-          let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
-          tr_prim ^^ init_val
-        | Prim_delete | Prim_delete_array ->
-          let ptr = List.hd tl in
-          let tr_ptr = decorate_trm style ptr in
-          let tr_prim = prim_to_doc style p in
-          tr_prim ^^ blank 1 ^^ tr_ptr
+    | Prim_conditional_op ->
+        begin match tl with
+        | [t1; t2; t3] ->
+          let d1 = decorate_trm style ~prec:4 t1 in
+          let d2 = decorate_trm style ~prec:4 t2 in
+          let d3 = decorate_trm style ~prec:4 t3 in
+          parens (separate (blank 1) [d1; qmark; d2; colon; d3])
+        | _ ->
+          trm_fail f
+            "apps_to_doc style: conditional operator must have three arguments"
         end
-     | _ -> trm_fail f (Printf.sprintf "Ast_to_c.apps_to_doc style: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
-     end
-   | _ ->
-      let f_doc = decorate_trm style f in
-      aux_arguments f_doc
+    | Prim_ref _ | Prim_ref_array _ | Prim_new _ ->
+      (* Here we assume that trm_apps has only one trm as argument *)
+      let value = List.hd tl in
+      let tr_init = decorate_trm style value in
+      let tr_prim = prim_to_doc style p in
+      let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
+      tr_prim ^^ init_val
+    | Prim_delete | Prim_delete_array ->
+      let ptr = List.hd tl in
+      let tr_ptr = decorate_trm style ptr in
+      let tr_prim = prim_to_doc style p in
+      tr_prim ^^ blank 1 ^^ tr_ptr
+    end
+  | _ ->
+    let f_doc = decorate_trm style f in
+    aux_arguments f_doc
 
 (** [mode_to_doc m]: OpenMP mode to pprint document *)
 and mode_to_doc (m : mode) : document =

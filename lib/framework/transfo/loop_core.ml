@@ -463,9 +463,9 @@ let split_range_at (nb : int) (cut : trm) (t : trm) : trm =
   let error = "Loop_core.split_range: expected a target to a simple for loop" in
   let (range, body, _contract) = trm_inv ~error trm_for_inv t in
   let split_index = match nb, cut with
-    | 0, {desc = Trm_val (Val_lit (Lit_unit)); _} -> trm_fail t "Loop_core.split_range_aux: one of the args nb or cut should be set "
+    | 0, {desc = Trm_lit (Lit_unit); _} -> trm_fail t "Loop_core.split_range_aux: one of the args nb or cut should be set "
     | 0, _ -> cut
-    | _, {desc = Trm_val (Val_lit (Lit_unit));_} ->
+    | _, {desc = Trm_lit (Lit_unit);_} ->
       begin match trm_int_inv range.start with
       | Some start -> trm_int (start + nb)
       | None -> trm_add range.start (trm_int nb)

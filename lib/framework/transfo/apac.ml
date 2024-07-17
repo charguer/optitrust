@@ -466,7 +466,7 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
 let count_unop_get (t : trm) : int =
   let rec aux (count : int) (t : trm) : int =
     match t.desc with
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [tr]) -> aux (count+1) tr
+    | Trm_apps ({ desc = Trm_prim (Prim_unop Unop_get)}, [tr]) -> aux (count+1) tr
     | Trm_apps (_, tl) -> List.fold_left aux count tl
     | _ -> count
   in
@@ -476,7 +476,7 @@ let count_unop_get (t : trm) : int =
     mutates a variable. *)
 let is_unary_mutation (t : trm) : bool =
   match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, _) ->
+  | Trm_apps ({ desc = Trm_prim (Prim_unop uo); _}, _) ->
     begin match uo with
     | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> true
     | _ -> false
@@ -488,13 +488,13 @@ let is_unary_mutation (t : trm) : bool =
 let get_unary_mutation_qvar (t : trm) : var =
   let rec aux (t : trm) : var =
     match t.desc with
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address))); _}, [t]) -> aux t
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _}, [t; _]) -> aux t
+    | Trm_apps ({ desc = Trm_prim (Prim_unop (Unop_get | Unop_address)); _}, [t]) -> aux t
+    | Trm_apps ({ desc = Trm_prim (Prim_binop (Binop_array_access)); _}, [t; _]) -> aux t
     | Trm_var (_, name)-> name
     | _ -> new_var "hello"
   in
   match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, [tr]) ->
+  | Trm_apps ({ desc = Trm_prim (Prim_unop uo); _}, [tr]) ->
     begin match uo with
     | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> aux tr
     | _ -> new_var "hello"

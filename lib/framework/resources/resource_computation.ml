@@ -697,7 +697,7 @@ let simplify_read_only_resources (res: linear_resource_set): (linear_resource_se
     List.fold_left (fun res (hyp, frac_wand) ->
       let frac = frac_wand_to_formula frac_wand in
       match frac.desc with
-      | Trm_val Val_lit Lit_int 1 -> (hyp, formula) :: res
+      | Trm_lit Lit_int 1 -> (hyp, formula) :: res
       | _ -> (hyp, formula_read_only ~frac formula) :: res
       ) res fracs
   ) ro_buckets non_ro_res in
@@ -1011,12 +1011,13 @@ let rec compute_resources
     let** res in
     try begin match t.desc with
     (* new array is typed as MALLOCN with correct dims *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_ref_array (ty, dims))) }, _, []) ->
+    | Trm_apps ({ desc = Trm_prim (Prim_ref_array (ty, dims)) }, _, []) ->
       compute_resources (Some res) (Matrix_core.alloc_with_ty ~annot:referent ~annot_call:referent dims ty)
 
     (* Values and variables are pure. *)
-    | Trm_val _ -> (Some Var_map.empty, Some res)
     | Trm_var x -> (Some (Var_map.singleton x Required), Some res) (* TODO: Manage return values for pointers *)
+    | Trm_lit _ -> (Some Var_map.empty, Some res)
+    | Trm_prim _ -> (Some Var_map.empty, Some res)
 
     (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
     | Trm_let_fun (name, ret_type, args, body, contract) ->
