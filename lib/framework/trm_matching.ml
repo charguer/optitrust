@@ -67,7 +67,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   let (ctx_defs, main_fun) = List.unlast defs in
   let ctx_vars_to_orig = Var_map.of_seq (Seq.zip
     (Seq.filter_map Trm.decl_name (List.to_seq ctx_defs))
-    (Seq.filter_map (fun t -> Option.map trm_var (Trm.decl_name t))
+    (Seq.filter_map (fun t -> Option.map (trm_var ?typ:t.typ) (Trm.decl_name t))
       (List.to_seq ctx_defs_orig))) in
   match main_fun.desc with
   | Trm_let_fun (_, _, args, body, _) ->
@@ -147,7 +147,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
        | _ -> None
     in
   let with_binding ?(loc:location) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
-     inst := Var_map.add x (ty, trm_var ?loc y) !inst;
+     inst := Var_map.add x (ty, trm_var ?loc ~typ:ty y) !inst;
      f();
      inst := Var_map.remove x !inst;
     (* Note: it would be incorrect to simply restore the map to its value before the call to [f],

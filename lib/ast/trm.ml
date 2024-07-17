@@ -1105,7 +1105,7 @@ match trm_ref_inv t with
 
   (** [trm_any_bool]: generates ANY_BOOL () *)
   let trm_any_bool : trm =
-    trm_apps (trm_var var_any_bool) []
+    trm_apps (trm_var ~typ:typ_bool var_any_bool) []
 
   (** [trm_minus ?loc ?ctx ?typ t]: generates -t *)
   let trm_minus ?(loc) ?(ctx : ctx option) ?(typ) (t : trm) : trm =
@@ -2307,13 +2307,13 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
          or higher order functions with evars. *)
       let* evar_ctx, masked_ctx =
         try
-          Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
+          Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, argty) ->
               if var_eq arge arg then
                 (* This case is required to handle comparison of a trm with itself *)
                 (evar_ctx, masked)
               else
                 let masked_entry = Var_map.find_opt arge evar_ctx in
-                let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
+                let evar_ctx = Var_map.add arge (Some (trm_var ~typ:argty arg)) evar_ctx in
                 (evar_ctx, (arge, masked_entry) :: masked)
             ) (evar_ctx, []) argse args)
         with Invalid_argument _ -> None

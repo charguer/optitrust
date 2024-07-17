@@ -212,8 +212,20 @@ void simulate_single_cell(double stepDuration,
       const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
 
       // const particle p2 = { .pos = pos2, .speed = speed2, .charge = p.charge, .mass = p.mass };
+      __ghost([&] {
+        __consumes("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
+        __produces("&particles[MINDEX1(nbParticles, idPart)].pos ~> Cell");
+        __produces("&particles[MINDEX1(nbParticles, idPart)].speed ~> Cell");
+        __admitted();
+      }, "");
       particles[MINDEX1(nbParticles, idPart)].pos = pos2;
       particles[MINDEX1(nbParticles, idPart)].speed = speed2;
+      __ghost([&] {
+        __produces("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
+        __consumes("&particles[MINDEX1(nbParticles, idPart)].pos ~> Cell");
+        __consumes("&particles[MINDEX1(nbParticles, idPart)].speed ~> Cell");
+        __admitted();
+      }, "");
     }
   }
 }

@@ -162,8 +162,9 @@ let map_all_accesses (v : var) ?(ret_dims_and_typ : (trms * typ) option ref opti
     in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].
     *)
 let replace_all_accesses (prev_v : var) (v : var) (dims : trm list)
+  ?(ret_dims_and_typ : (trms * typ) option ref option)
   (map_indices : (trm -> trm) list) (mark : mark) (t : trm) : trm =
-  map_all_accesses prev_v (fun prev_dims prev_indices ->
+  map_all_accesses prev_v ?ret_dims_and_typ (fun prev_dims prev_indices ->
     let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
     trm_add_mark mark (access (trm_var v) dims indices)
   ) t

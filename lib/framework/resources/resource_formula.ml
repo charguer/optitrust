@@ -197,8 +197,8 @@ let formula_uninit (inner_formula: formula): formula =
 let var_cell = toplevel_var "Cell"
 let trm_cell = trm_var var_cell
 
-let formula_cell (x: var): formula =
-  formula_model (trm_var x) trm_cell
+let formula_cell ?(typ : typ option) (x: var): formula =
+  formula_model (trm_var ?typ x) trm_cell
 
 let var_range = toplevel_var "range"
 let trm_range = trm_var var_range

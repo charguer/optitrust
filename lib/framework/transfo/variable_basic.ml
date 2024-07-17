@@ -155,7 +155,7 @@ let%transfo local_name ~(var : var) (var_typ : typ)
         Nobrace_transfo.remove_after (fun () ->
         Target.apply_at_path (fun t ->
           let (_, open_w, close_w) = Resource_trm.ghost_pair_hide
-            (Resource_formula.formula_cell var) in
+            (Resource_formula.formula_cell ~typ:var_typ var) in
           trm_seq_nobrace_nomarks [open_w; t; close_w]
         ) p
         );

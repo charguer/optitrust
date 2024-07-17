@@ -1075,7 +1075,7 @@ let rec compute_resources
           | Some _ -> [formula_cell x]
           | None ->
             begin match trm_ref_array_inv t with
-            | Some (_, dims, _) -> [formula_matrix (trm_var x) dims]
+            | Some (ty, dims, _) -> [formula_matrix (trm_var ~typ:ty x) dims]
             | None -> []
             end
           end

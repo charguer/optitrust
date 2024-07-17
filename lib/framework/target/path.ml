@@ -341,11 +341,11 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         app_to_nth dl gl n (fun (_, nth_t) -> aux nth_t ctx)
       | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
         app_to_nth dl arg n
-          (fun (x, _) -> aux (trm_var ?loc x) ctx)
-      | Dir_name, Trm_let_fun (x, _, _, _, _) ->
-        aux (trm_var ?loc x) ctx
-      | Dir_name , Trm_let ((x,_),_) ->
-        aux (trm_var ?loc x) ctx
+          (fun (x, typ) -> aux (trm_var ?loc ~typ x) ctx)
+      | Dir_name, Trm_let_fun (x, typ, _, _, _) ->
+        aux (trm_var ?loc ~typ x) ctx
+      | Dir_name , Trm_let ((x,typ),_) ->
+        aux (trm_var ?loc ~typ x) ctx
       | Dir_name, Trm_goto x ->
         (* CHECK: #var-id-dir-name , is this correct? *)
         aux (trm_var ?loc (name_to_var x)) ctx

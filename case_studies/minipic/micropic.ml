@@ -1,27 +1,32 @@
 open Optitrust
 open Prelude
 
-(* let _ = Flags.check_validity := true
-let _ = Flags.recompute_resources_between_steps := true *)
+let _ = Flags.check_validity := true
+let _ = Flags.recompute_resources_between_steps := true
 
 (** Reproducing a subset of the PIC case study *)
 
 let _ = Run.script_cpp (fun () ->
-
   let ctx = cFunBody "simulate_single_cell" in
-  (* !! Resources.ensure_computed (); *)
-  !! Resources.delete_annots [ctx];
+  !! Resources.ensure_computed ();
 
   bigstep "make local copies of field and particles";
-  let fv n = find_var_in_current_ast ~target:[ctx] n in
+  (* let fv n = find_var_in_current_ast ~target:[ctx] n in *)
   let ft n = typ_var (find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n)) in
   (* TODO: get type and dims from resources *)
-  !! Matrix.local_name (fv "fieldAtCorners") ~type_and_dims:(ft "vect", [trm_var (fv "nbCorners")]) ~into:"lFieldAtCorners" [ctx; cFor "idStep"];
-  !! Matrix.local_name (fv "particles") ~type_and_dims:(ft "particle", [trm_var (fv "nbParticles")]) ~into:"lParticles" [ctx; cFor "idStep"];
+  !! Matrix.local_name_tile ~var:"fieldAtCorners"
+    (* ~type_and_dims:(ft "vect", [trm_var (fv "nbCorners")]) *)
+    ~elem_ty:(ft "vect") ~uninit_post:true
+    ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
+  !! Matrix.local_name_tile ~var:"particles"
+    (* ~type_and_dims:(ft "particle", [trm_var (fv "nbParticles")]) *)
+    ~elem_ty:(ft "particle")
+    ~local_var:"lParticles" [ctx; cFor "idStep"];
 
   bigstep "inline helper functions and reveal record fields";
   !! Function.inline [ctx; multi cFun ["matrix_vect_mul"]];
   (* TODO: regroup with previous inline, problem: phase ordering matters, need fixpoint? *)
+  (* CHECK: better inlining criteria *)
   !! Function.inline [ctx; multi cFun ["vect_add"; "vect_mul"]];
 
   (* TODO: regroup, set_explicit_all *)
