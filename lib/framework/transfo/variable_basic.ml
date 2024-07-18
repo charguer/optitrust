@@ -31,7 +31,7 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
       [delete_decl] - if true, then the declaration is removed during the inlining.
 *)
 let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : target) : unit =
-  Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
+  if !Flags.check_validity then Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
   Target.iter (fun p ->
     let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
     assert (p_local = []);
@@ -109,12 +109,13 @@ let%transfo init_detach (tg : target) : unit =
   )
 
 (** [init_attach const tg]: expects the target [tg] to point at a variable declaration,
-    Then it will search inside the sequence which contains the variable declaration
+    DEPRECATED: Then it will search inside the sequence which contains the variable declaration
     for an unique assigment. Then it will replace that assignment with a new initialized
     variable declaration.
-    [const] -denotes a booleean to decide if the new declaration is constant or not. *)
-let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
-  Target.apply_at_target_paths_in_seq (Variable_core.init_attach_at const) tg
+    INSTEAD: search immediately following set operation *)
+let%transfo init_attach (tg : target) : unit =
+  Trace.justif_always_correct ();
+  Target.apply_at_target_paths_in_seq Variable_core.init_attach_at tg
 
 
 (** [local_name_on mark curr_var var_typ local_var t] declares a local

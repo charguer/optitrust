@@ -255,9 +255,9 @@ let%transfo inline ?(resname : string = "")
           List.iter2 (fun a x ->
             if Resources.trm_is_pure x then begin
               if a = "" then () else
-              Function_basic.bind_intro ~fresh_name:a ~const:true [new_target; dArg !ind];
+              Variable_basic.bind a ~const:true [new_target; dArg !ind];
             end else begin
-              Function_basic.bind_intro ~my_mark:inline_mark ~fresh_name:"arg" ~const:true [new_target; dArg !ind];
+              Variable_basic.bind ~mark_let:inline_mark "arg" ~const:true [new_target; dArg !ind];
             end;
             incr ind;
           ) args !given_args;
@@ -271,16 +271,18 @@ let%transfo inline ?(resname : string = "")
           Accesses_basic.intro [cMark body_mark];);
         Stats.comp_stats "elim_body" (fun () ->
           elim_body ~vars [cMark body_mark];);
-        Variable.inline ~simpl [nbAny; cVarDef ~body:[cMark inline_mark] ""];
+        Variable.inline ~simpl [nbAny; (* cVarDef ~body:[ *) cMark inline_mark (* ] "" *)];
         if deep_cleanup then begin
           let success_attach = match Trace.step_backtrack_on_failure (fun () ->
+            Instr.move_in_seq ~dest:[tBefore; occFirst; cWriteVar !resname] [new_target];
             Variable_basic.init_attach [new_target]
           ) with
           | Success () -> true
-          | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences), _)
+          (* FIXME: more precise errors? | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences), _)
           | Failure (Contextualized_error (_, Variable_core.Init_attach_occurrence_below_control), _) ->
               false
-          | Failure (e, bt) -> Printexc.raise_with_backtrace e bt
+          | Failure (e, bt) -> Printexc.raise_with_backtrace e bt *)
+          | Failure (e, bt) -> false
           in
           if success_attach then begin
             Variable.inline ~simpl [new_target];
@@ -307,19 +309,19 @@ let%transfo inline ?(resname : string = "")
       | Trm_let _ ->
         Marks.add "__inline_instruction" (target_of_path path_to_instruction);
         Stats.comp_stats "bind_intro1" (fun () ->
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
+          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | Trm_apps (_, [ls; rs], _) when is_set_operation tg_out_trm ->
         Stats.comp_stats "bind_intro2" (fun () ->
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
+          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ()
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ ->
           if debug then Show.path ~msg:"Full_path to the call" path_to_call;
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call) ;
+          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call);
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | _ -> trm_fail tg_out_trm "Function.inline: please be sure that you're tageting a proper function call"

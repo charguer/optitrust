@@ -798,7 +798,7 @@ let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr var_type in
-  trm_let ?loc ?ctx (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_ref var_type)) [init])
+  trm_let ~annot ?loc ?ctx (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_ref var_type)) [init])
 
 (** [trm_let_immut ~annot ?ctx typed_var init]: an extension of trm_let for creating immutable variable declarations. *)
 let trm_let_immut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)

@@ -143,6 +143,8 @@ let trm_prim_compound binop ft1 ft2 k t =
     | _ -> raise Next
   ) ft1 ft2 k t
 
+let trm_set ft1 ft2 = trm_binop Binop_set ft1 ft2
+
 let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
 let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2
 let trm_mul ft1 ft2 = trm_binop Binop_mul ft1 ft2
