@@ -6,6 +6,7 @@ include Record_core.Rename
 (** [set_explicit tg]: expects the target [tg] to point at a set instruction where one struct
     instance has been assigned another struct instance. *)
 let%transfo set_explicit (tg : target) : unit =
+  Resources.required_for_check ();
   Nobrace_transfo.remove_after ( fun _ ->
     apply_at_target_paths (Record_core.set_explicit_on) tg)
 

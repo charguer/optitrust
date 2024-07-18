@@ -28,26 +28,95 @@ let set_explicit_on (t : trm) : trm =
       | _ -> trm_fail t (sprintf "could not get the declaration of typedef for %s" (var_to_string tid))
     in
     let field_list = Internal.get_field_list t struct_def in
-    begin match rt.desc with
+    let check_pure = if !Flags.check_validity then (fun name x ->
+      if Resources.trm_is_pure x then Trace.justif (sprintf "duplicated %s is pure" name)
+    ) else (fun name x ->
+      ()
+    ) in
+    check_pure "lhs" lt;
+    let unfold_cells locs =
+      let open Resource_formula in
+      if !Flags.check_validity then begin
+        let res_before = Resources.before_trm t in
+        List.map (fun loc ->
+          Option.unsome_or_else (List.find_map (fun (h, r) ->
+            let (mode, inner_r) = formula_mode_inv r in
+            Pattern.pattern_match_opt inner_r [
+              Pattern.(formula_model !__ (trm_var (var_eq var_cell))) (fun loc2 () ->
+                (* TODO: avoid are_same_trm *)
+                if not (are_same_trm loc loc2) then raise Pattern.Failed;
+                let field_to_res (sf, ty) =
+                  (* TODO: create fresh fracs for ROs? *)
+                  (new_anon_hyp (), formula_wrap_in_mode mode (formula_model
+                    (trm_struct_access ~typ:(typ_ptr ty) loc sf)
+                    trm_cell
+                  ))
+                in
+                Resource_trm.ghost_admitted {
+                  pre = Resource_set.make ~linear:[new_anon_hyp (), r] ();
+                  post = Resource_set.make ~linear:(List.map field_to_res field_list) ();
+                }
+              )
+            ]
+          ) res_before.linear) (fun () ->
+            trm_fail loc "expected to find location"
+          )
+        ) locs
+      end else []
+    in
+    let fold_cells locs =
+      let open Resource_formula in
+      if !Flags.check_validity then begin
+        let res_after = Resources.after_trm t in
+        List.map (fun loc ->
+          Option.unsome_or_else (List.find_map (fun (h, r) ->
+            let (mode, inner_r) = formula_mode_inv r in
+            Pattern.pattern_match_opt inner_r [
+              Pattern.(formula_model !__ (trm_var (var_eq var_cell))) (fun loc2 () ->
+                (* TODO: avoid are_same_trm *)
+                if not (are_same_trm loc loc2) then raise Pattern.Failed;
+                let field_to_res (sf, ty) =
+                  (* TODO: create fresh fracs for ROs? *)
+                  (new_anon_hyp (), formula_wrap_in_mode mode (formula_model
+                    (trm_struct_access ~typ:(typ_ptr ty) loc sf)
+                    trm_cell
+                  ))
+                in
+                Resource_trm.ghost_admitted {
+                  pre = Resource_set.make ~linear:(List.map field_to_res field_list) ();
+                  post = Resource_set.make ~linear:[new_anon_hyp (), r] ();
+                }
+              )
+            ]
+          ) res_after.linear) (fun () ->
+            trm_fail loc "expected to find location"
+          )
+        ) locs
+      end else []
+    in
+    (* TODO: cast resources on lhs / rhs cells to pointwise resources *)
+    let (before, set_one, after) = begin match rt.desc with
     | Trm_apps (f1, [rt1], _) when is_get_operation rt ->
-        let exp_assgn = List.mapi (fun i (sf, ty) ->
+      check_pure "rhs" rt;
+      let set_one i (sf, ty) =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf)
           {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
-        ) field_list in
-        trm_seq_nobrace_nomarks exp_assgn
+      in
+      (unfold_cells [lt; rt1], set_one, fold_cells [rt1; lt])
     | Trm_record st ->
       let st = List.split_pairs_snd (Mlist.to_list st) in
-      let exp_assgn = List.mapi (fun i (sf, ty) ->
+      let set_one i (sf, ty) =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf) (List.nth st i)
-      ) field_list
-        in
-      trm_seq_nobrace_nomarks exp_assgn
+      in
+      (unfold_cells [lt], set_one, fold_cells [lt])
     | _ ->  (* other cases are included here *)
-      let exp_assgn = List.mapi (fun i (sf, ty) ->
+      check_pure "rhs" rt;
+      let set_one i (sf, ty) =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf) (trm_struct_get ~typ:ty rt sf)
-        ) field_list in
-        trm_seq_nobrace_nomarks exp_assgn
-    end
+      in
+      (unfold_cells [lt], set_one, fold_cells [lt])
+    end in
+    trm_seq_helper ~braces:false [ TrmList before; TrmList (List.mapi set_one field_list); TrmList after]
   | _ -> trm_fail t "expected a set operation"
 
 (** [set_implicit t]: transform a sequence with a list of explicit field assignments into a single assignment,

@@ -85,7 +85,7 @@ let collapse_on (simpl_mark : mark) (index : string)
     List.map (fun (_, formula) ->
       let ghost, formula = match formula_mode_inv formula with
       | Full, f -> ghost, f
-      | RO, f -> ghost_ro, f
+      | RO _, f -> ghost_ro, f
       | Uninit, f -> ghost_uninit, f
       in
       let items = trm_copy (formula_fun [ri.index, typ_int; rj.index, typ_int] None formula) in

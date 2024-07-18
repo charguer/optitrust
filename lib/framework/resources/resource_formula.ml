@@ -287,16 +287,22 @@ let formula_map_under_uninit (f_map: formula -> formula) (formula: formula) =
   | Some formula -> formula_uninit (f_map formula)
   | None -> f_map formula
 
-type formula_mode = RO | Uninit | Full
+type formula_mode = RO of trm | Uninit | Full
 
 let formula_mode_inv (formula : formula) : (formula_mode * formula) =
   match formula_uninit_inv formula with
   | Some formula -> Uninit, formula
   | None ->
     begin match formula_read_only_inv formula with
-    | Some { formula } -> RO, formula
+    | Some { frac; formula } -> RO frac, formula
     | None -> Full, formula
     end
+
+let formula_wrap_in_mode (mode : formula_mode) (f : formula) : formula =
+  match mode with
+  | RO frac -> formula_read_only ~frac f
+  | Uninit -> formula_uninit f
+  | Full -> f
 
 (** Applies a function below a resource mode wrapper if there is one,
     otherwise simply applies the function.
