@@ -136,7 +136,8 @@ let subst_aliases (aliases: trm Var_map.t) (res: resource_set): resource_set =
   { (subst aliases { res with fun_specs = Var_map.empty }) with fun_specs = res.fun_specs }
 
 let subst_all_aliases (res: resource_set): resource_set =
-  subst_aliases res.aliases { res with aliases = Var_map.empty }
+  let res' = subst_aliases res.aliases { res with aliases = Var_map.empty } in
+  { res' with aliases = res.aliases }
 
 (** Substitutes a loop index with its starting value. *)
 let subst_loop_range_start range = subst_var range.index range.start
