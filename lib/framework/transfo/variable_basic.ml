@@ -55,9 +55,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
           (* -- *)
           Resources.assert_not_self_interfering init;
-          Show.path ~msg:"inlined" p;
           let occurences = Constr.resolve_target ~prefix:p_seq [nbMulti; cVarId x] t_seq in
-          Show.paths ~msg:"occurences" occurences;
           let end_occ_index = match snd (List.unlast occurences) with
           | Dir_seq_nth i :: _ -> i
           | p -> path_fail p "expected path to be inside current sequence"
@@ -79,7 +77,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
           let usage = Resources.usage_of_trm init in
           let _, instrs_after_let = Mlist.split (index + 1) tl in
-          let context_instrs, _ = Mlist.split end_occ_index instrs_after_let in
+          let context_instrs, _ = Mlist.split (end_occ_index - 1) instrs_after_let in
           let context_usage = Resources.compute_usage_of_instrs context_instrs in
           (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
           Resources.assert_usages_commute ~res_ctx:(Resources.after_trm init) [path_error_context p] usage context_usage;

@@ -26,9 +26,9 @@ let _ = Run.script_cpp (fun () ->
   bigstep "inline helper functions and reveal record fields";
   !! Function.inline [ctx; multi cFun ["matrix_vect_mul"]];
   (* TODO: regroup with previous inline, problem: phase ordering matters, need fixpoint? *)
-  (* CHECK: better inlining criteria *)
   !! Function.inline [ctx; multi cFun ["vect_add"; "vect_mul"]];
 
+  (* CHECK *)
   (* TODO: regroup, set_explicit_all *)
   !!! Record.set_explicit [ctx; multi cArrayWrite ["particles"; "lParticles"]];
   !! Record.set_explicit [nbMulti; ctx; cWrite ~lhs:[Constr_depth (DepthAt 0); cAccesses ~base:[cOr (List.map (fun x -> [cVar x]) ["particles"; "lParticles"])] ~inner_accesses:false ~accesses:[cIndex (); cField ~regexp:true ~field:"\\(pos\\)\\|\\(speed\\)" ()] ()] ()];
