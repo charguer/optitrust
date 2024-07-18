@@ -34,12 +34,11 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
   Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
   Target.iter (fun p ->
     let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
+    assert (p_local = []);
     let error = "Variable_core.inline: expected the surrounding sequence." in
     Target.apply_at_path (fun t_seq ->
-      let t_seq = Target.resolve_path p_seq in
       let tl = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
-      let dl = Path.resolve_path p_local dl in
       let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
       if !Flags.check_validity then begin
         if Resources.trm_is_pure init then
@@ -53,12 +52,11 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           let t_seq = Target.resolve_path p_seq in
           let tl = trm_inv ~error trm_seq_inv t_seq in
           let dl = Mlist.nth tl index in
-          let dl = Path.resolve_path p_local dl in
           let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
           (* -- *)
           Resources.assert_not_self_interfering init;
           Show.path ~msg:"inlined" p;
-          let occurences = Constr.resolve_target [cVarId x] t_seq in
+          let occurences = Constr.resolve_target ~prefix:p_seq [nbMulti; cVarId x] t_seq in
           Show.paths ~msg:"occurences" occurences;
           let end_occ_index = match snd (List.unlast occurences) with
           | Dir_seq_nth i :: _ -> i
@@ -72,8 +70,9 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
               | Dir_body | Dir_then | Dir_else
               | Dir_for_start | Dir_for_stop | Dir_for_step
               | Dir_for_c_init | Dir_for_c_step | Dir_case _
-              | Dir_contract _ | Dir_ghost_arg_nth _ -> ()
-              | _ -> path_fail occ_p (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
+              | Dir_contract _ | Dir_ghost_arg_nth _ ->
+                path_fail occ_p (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
+              | _ -> ()
             ) occ_p
           ) (List.drop 1 occurences);
           (* is calling this useful?
@@ -83,7 +82,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           let context_instrs, _ = Mlist.split end_occ_index instrs_after_let in
           let context_usage = Resources.compute_usage_of_instrs context_instrs in
           (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
-          Resources.assert_usages_commute [path_error_context p] usage context_usage;
+          Resources.assert_usages_commute ~res_ctx:(Resources.after_trm init) [path_error_context p] usage context_usage;
           Trace.justif "inlining a duplicable expression through a non-interfering, non-control-flow and non-formula context is correct"
           (* TODO: Case 3 ? recursive traversal analysis with special constructor cases? *)
           (* trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc" *)

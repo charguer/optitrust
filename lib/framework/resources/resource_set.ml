@@ -31,6 +31,14 @@ let bind ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
     fun_specs = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_specs old_res.fun_specs;
     aliases = Var_map.union (fun _ new_d _ -> Some new_d) new_res.aliases old_res.aliases; }
 
+let find (hyp : var) (res : resource_set) : formula option =
+  let pred = fun (h, r) ->
+    if var_eq h hyp then Some r else None
+  in
+  Option.or_else
+    (List.find_map pred res.pure)
+    (fun () -> List.find_map pred res.linear)
+
 (** Returns the set of resource names bound by a resource set.*)
 (* DEPRECATED
 let resource_names (res: resource_set) : Var_set.t =

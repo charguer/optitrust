@@ -1245,12 +1245,12 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
 (** [target_resolve_step] has a special handling because it saves a diff
    between an AST and an AST decorated with marks for targeted paths,
    even though the [cur_ast] is not updated with the marks. *)
-let target_resolve_step (f: unit -> Path.path list) : Path.path list =
+let target_resolve_step ?(prefix : Path.path = []) (f: unit -> Path.path list) : Path.path list =
   ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"Target-resolve" ());
   let ps = f () in
   if Flags.is_execution_mode_trace() then begin
     let cur_ast = the_trace.cur_ast in
-    let marked_ast, _marks = Path.add_marks_at_paths ps cur_ast in
+    let marked_ast, _marks = Path.add_marks_at_paths ~prefix ps cur_ast in
     the_trace.cur_ast <- marked_ast;
     close_step();
     the_trace.cur_ast <- cur_ast

@@ -1202,11 +1202,11 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : paths =
 
 (** [resolve_target tg t]: resolves the target [tg];
    Marks are set in the ast_after inside the trace only if -dump-trace is provided *)
-and resolve_target (tg : target) (t : trm) : paths =
+and resolve_target ?(prefix : Path.path = []) (tg : target) (t : trm) : paths =
   match tg with
   (* shortcut: paths are already resolved *)
   | [Constr_paths ps] -> ps
-  | _ -> Trace.target_resolve_step (fun () ->
+  | _ -> Trace.target_resolve_step ~prefix (fun () ->
     Trace.step_arg (target_to_string tg);
     let tgs = target_to_target_struct tg in
     let res = resolve_target_struct tgs t in

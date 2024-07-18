@@ -569,17 +569,20 @@ let collect_trm_interferences (before : trm) (after : trm) : (resource_usage opt
   collect_interferences (usage_of_trm before) (usage_of_trm after)
 
 (** <private> *)
-let string_of_interference (interference : (resource_usage option * resource_usage option) Var_map.t) : string =
-  sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2)) (Var_map.bindings interference)))
+let string_of_interference
+  ?(res_ctx : resource_set option)
+  (interference : (resource_usage option * resource_usage option) Var_map.t) : string =
+  sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s (%s)" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2) (Option.to_string Resource_computation.formula_to_string (Option.bind res_ctx (Resource_set.find x)))) (Var_map.bindings interference)))
 
 (** Checks that resource usages commute, infer var ids to check pure facts scope. *)
 let assert_usages_commute
   (ctxs : error_context list)
+  ?(res_ctx : resource_set option)
   (before : resource_usage_map)
   (after : resource_usage_map) : unit =
   let interference = collect_interferences before after in
   if not (Var_map.is_empty interference) then
-    contextualized_error ctxs (string_of_interference interference)
+    contextualized_error ctxs (string_of_interference ?res_ctx interference)
 
 (** Checks that the effects from the instruction at path [p] are shadowed by following effects
    in the program.

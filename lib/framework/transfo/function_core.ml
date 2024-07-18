@@ -71,10 +71,9 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
           (Seq.map (fun (g, f) -> (g, trm_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
         in
         if !Flags.check_validity then begin
-          (* FIXME: this check should be done by Variable.inline instead of this transfo, which should bind temporary variables *)
           Var_map.iter (fun _ arg_val ->
             if not (Resources.trm_is_pure arg_val) then
-              trm_fail arg_val "inlining non-pure argument is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc"
+              trm_fail arg_val "basic function inlining does not support non-pure arguments, combine with variable binding and inline"
           ) subst_map;
           Trace.justif "inlining pure expressions is always correct"
         end;

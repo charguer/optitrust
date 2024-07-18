@@ -536,11 +536,12 @@ let split_common_prefix (a : path) (b : path) : path * path * path =
 
 
 (* TODO: move elsewhere to Paths ? *)
-let add_marks_at_paths (ps:path list) (t:trm) : trm * mark list =
+let add_marks_at_paths ?(prefix : path = []) (ps:path list) (t:trm) : trm * mark list =
   let marks = List.map (fun _ -> Mark.next()) ps in
   (* LATER: could use a system to set all the marks in a single pass over the ast,
       able to hand the Dir_before *)
   let res = List.fold_left2 (fun t p m ->
+    let p = prefix @ p in
     match extract_last_dir p with
     | p_to_seq, Before i -> apply_on_path (trm_add_mark_between i m) t p_to_seq
     | p_to_seq, Span span -> apply_on_path (trm_add_mark_span span m) t p_to_seq
