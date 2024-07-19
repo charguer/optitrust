@@ -35,9 +35,9 @@ let _ = Run.script_cpp (fun () ->
   (* TODO: avoid binding tmp *)
   !! Variable.bind ~const:true "fieldAtPosTmp" [cWriteVar "fieldAtPos"; dArg 1];
   !! Record.set_explicit [ctx; cWriteVar "fieldAtPos"];
-  (* CHECK: TODO: expand Cell formulas and validate *)
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPosTmp"; "fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
+  (* CHECK *)
   bigstep "scale field and particles";
   (*
   let p = trm_var (find_var_in_current_ast ~target:[ctx] "p") in

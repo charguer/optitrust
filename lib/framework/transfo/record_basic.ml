@@ -47,9 +47,13 @@ let%transfo reveal_fields ?(reparse : bool = false) (fields_to_reveal_field : fi
     of these variables is inherited from the type of the struct definition. All the struct_accesses
     are going to be changed to variable occurrences. *)
 let%transfo to_variables (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun () ->
-    apply_at_target_paths_in_seq (Record_core.to_variables_at) tg
-  )
+  Trace.justif "correct when produced code typechecks";
+  Target.iter (fun p ->
+    (* FIXME: this is to remove braces before typing is triggered *)
+    Nobrace_transfo.remove_after (fun () ->
+      apply_at_target_paths_in_seq (Record_core.to_variables_at) (target_of_path p)
+    )
+  ) tg
 
 (** [rename_fields rename tg] expects the target [tg] to point at a struct declaration,
     then it will rename all the fields that are matched when applying the type [rename]

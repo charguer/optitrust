@@ -432,6 +432,29 @@ let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
 
 (** <internal> *)
 let to_variables_update (var : var) (is_ref : bool) (fields : (field * typ * var) list) (t : trm) : trm =
+  let aux_resource_items =
+    let open Resource_formula in
+    List.concat_map (fun (h, r) ->
+      let (mode, inner_r) = formula_mode_inv r in
+      Pattern.pattern_match inner_r [
+        Pattern.(formula_model (trm_var (var_eq var)) (trm_var (var_eq var_cell))) (fun () ->
+          List.map (fun (f, t, v) ->
+            (new_anon_hyp (), formula_map_under_mode (fun _ -> formula_model (trm_var v) (trm_var (var_cell))) r)
+          ) fields
+        );
+        Pattern.__ (fun () -> [(h, r)])
+      ]
+    )
+  in
+  let aux_resource_set res =
+    { res with
+      pure = aux_resource_items res.pure;
+      linear = aux_resource_items res.linear }
+  in
+  let aux_fun_contract contract =
+    { pre = aux_resource_set contract.pre;
+      post = aux_resource_set contract.post }
+  in
   let rec aux (t : trm) : trm =
     Pattern.pattern_match t [
       Pattern.(
@@ -453,6 +476,19 @@ let to_variables_update (var : var) (is_ref : bool) (fields : (field * typ * var
         trm_record (Mlist.of_list (List.map (fun (f, t, v) ->
           None, trm_var_get v
         ) fields))
+      );
+      (* TODO: also do other contracts *)
+      Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+        let contract = { spec with
+          invariant = aux_resource_set spec.invariant;
+          parallel_reads = aux_resource_items spec.parallel_reads;
+          iter_contract = aux_fun_contract spec.iter_contract;
+        } in
+        trm_map aux (trm_for ~annot:t.annot ~contract range body)
+      );
+      Pattern.(trm_fun_with_contract !__ !__ !__) (fun args body contract () ->
+        let contract = aux_fun_contract contract in
+        trm_map aux (trm_fun ~annot:t.annot ~contract:(FunSpecContract contract) args None body)
       );
       Pattern.__ (fun () -> trm_map aux t)
     ]
