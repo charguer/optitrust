@@ -226,7 +226,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
     let open Resource_formula in
     let dispatch_ghosts ghost ro_ghost uninit_ghost formula =
       match formula_mode_inv formula with
-      | RO _, formula -> ro_ghost, formula
+      | RO, formula -> ro_ghost, formula
       | Uninit, formula -> uninit_ghost, formula
       | Full, formula -> ghost, formula
     in

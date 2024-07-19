@@ -35,57 +35,65 @@ let set_explicit_on (t : trm) : trm =
       ()
     ) in
      check_pure "lhs" lt; *)
-    let field_to_res mode loc (sf, ty) =
+    if !Flags.check_validity then Trace.justif "duplicated terms are pure";
+    (* clause is Reads or Writes *)
+    let unfold_cells clause_locs =
       let open Resource_formula in
-      (* TODO: create fresh fracs for ROs? *)
-      (new_anon_hyp (), formula_wrap_in_mode mode (formula_model
-        (trm_struct_access ~typ:(typ_ptr ty) loc sf)
-        trm_cell
-      ))
-    in
-    let find_mode res loc =
-      let open Resource_formula in
-      Option.unsome_or_else (List.find_map (fun (h, r) ->
-        let (mode, inner_r) = formula_mode_inv r in
-        Pattern.pattern_match_opt inner_r [
-          Pattern.(formula_model !__ (trm_var (var_eq var_cell))) (fun loc2 () ->
-            (* TODO: avoid are_same_trm *)
-            if not (are_same_trm loc loc2) then raise Pattern.Failed;
-            (r, mode)
-          )
-        ]
-      ) res.linear) (fun () ->
-        trm_fail loc "expected to find location"
-      )
-    in
-    let unfold_cells locs =
-      let open Resource_formula in
+      let open Resource_contract in
       if !Flags.check_validity then begin
-        let res_before = Resources.before_trm t in
-        List.map (fun loc ->
-          let (r, mode) = find_mode res_before loc in
+        let make_admitted pure linear1 linear2 =
           Resource_trm.ghost_admitted {
-            pre = Resource_set.make ~linear:[new_anon_hyp (), r] ();
-            post = Resource_set.make ~linear:(List.map (field_to_res mode loc) field_list) ();
-          }
-        ) locs
-      end else []
-    in
-    let fold_cells locs =
-      let open Resource_formula in
-      if !Flags.check_validity then begin
-        let res_after = Resources.after_trm t in
-        List.map (fun loc ->
-          let (r, mode) = find_mode res_after loc in
-          Resource_trm.ghost_admitted {
-            pre = Resource_set.make ~linear:(List.map (field_to_res mode loc) field_list) ();
-            post = Resource_set.make ~linear:[new_anon_hyp (), r] ();
-          }
-        ) locs
-      end else []
+            pre = Resource_set.make ~pure ~linear:linear1 ();
+            post = Resource_set.make ~linear:linear2 () }
+        in
+        let make_one_pair (clause, loc) =
+          match clause with
+          | Reads ->
+            let per_field_admits = List.map (fun (sf, ty) ->
+              let with_fresh_fracs () =
+                let frac_var, frac_ghost = new_frac () in
+                let folded_res =
+                  formula_read_only ~frac:(trm_var frac_var) (formula_model loc trm_cell)
+                in
+                let unfolded_res =
+                  formula_read_only ~frac:(trm_var frac_var)
+                    (formula_model (trm_struct_access ~typ:(typ_ptr ty) loc sf) trm_cell)
+                in
+                let wand = formula_wand unfolded_res folded_res in
+                let folded_linear = [(new_anon_hyp (), folded_res)] in
+                let unfolded_linear = [
+                  (new_anon_hyp (), wand);
+                  (new_anon_hyp (), unfolded_res)] in
+                (frac_ghost, folded_linear, unfolded_linear)
+              in
+              let (p, f, u) = with_fresh_fracs () in
+              let (p2, f2, u2) = with_fresh_fracs () in
+              (make_admitted [p] f u, make_admitted [p2] u2 f2)
+            ) field_list in
+            let (per_field_unfolds, per_field_folds) = List.split per_field_admits in
+            (trm_seq_nobrace_nomarks per_field_unfolds,
+             trm_seq_nobrace_nomarks per_field_folds)
+          | Writes ->
+            let folded_linear = [(
+              new_anon_hyp (), formula_model loc trm_cell
+            )] in
+            let unfolded_linear = List.map (fun (sf, ty) ->
+              (new_anon_hyp (), formula_model
+                (trm_struct_access ~typ:(typ_ptr ty) loc sf)
+                trm_cell
+              )
+            ) field_list in
+            let make_uninit = List.map resource_item_uninit in
+            (make_admitted [] (make_uninit folded_linear) (make_uninit unfolded_linear),
+             make_admitted [] unfolded_linear folded_linear)
+          | _ -> failwith "unexpected unfold clause"
+        in
+        let pairs = List.map make_one_pair clause_locs in
+        List.split pairs
+      end else ([], [])
     in
     (* TODO: cast resources on lhs / rhs cells to pointwise resources *)
-    let (before, set_one, after) = begin match rt.desc with
+    let ((before, after), set_one) = begin match rt.desc with
     | Trm_apps (f1, [rt1], _) when is_get_operation rt ->
       (* NOTE: already checked by ghosts
         check_pure "rhs" rt; *)
@@ -93,20 +101,21 @@ let set_explicit_on (t : trm) : trm =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf)
           {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
       in
-      (unfold_cells [lt; rt1], set_one, fold_cells [rt1; lt])
+      (unfold_cells [Writes, lt; Reads, rt1], set_one)
     | Trm_record st ->
+      (* FIXME: does not work well if resources overlap between lhs and rhs *)
       let st = List.split_pairs_snd (Mlist.to_list st) in
       let set_one i (sf, ty) =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf) (List.nth st i)
       in
-      (unfold_cells [lt], set_one, fold_cells [lt])
+      (unfold_cells [Writes,lt], set_one)
     | _ ->  (* other cases are included here *)
-      (* NOTE: already checked by ghosts
+      (* NOTE: already checked by get contract
         check_pure "rhs" rt; *)
       let set_one i (sf, ty) =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf) (trm_struct_get ~typ:ty rt sf)
       in
-      (unfold_cells [lt], set_one, fold_cells [lt])
+      (unfold_cells [Writes,lt], set_one)
     end in
     trm_seq_helper ~braces:false [ TrmList before; TrmList (List.mapi set_one field_list); TrmList after]
   | _ -> trm_fail t "expected a set operation"

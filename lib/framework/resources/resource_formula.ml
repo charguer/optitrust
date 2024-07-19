@@ -230,6 +230,11 @@ let trm_range_count = trm_var var_range_count
 let formula_range_count (range: trm) =
   trm_apps trm_range_count [range]
 
+let var_wand = toplevel_var "Wand"
+
+let formula_wand (f_available : formula) (f_recoverable : formula) : formula =
+  trm_apps (trm_var var_wand) [f_available; f_recoverable]
+
 module Pattern = struct
   include Pattern
 
@@ -287,22 +292,16 @@ let formula_map_under_uninit (f_map: formula -> formula) (formula: formula) =
   | Some formula -> formula_uninit (f_map formula)
   | None -> f_map formula
 
-type formula_mode = RO of trm | Uninit | Full
+type formula_mode = RO | Uninit | Full
 
 let formula_mode_inv (formula : formula) : (formula_mode * formula) =
   match formula_uninit_inv formula with
   | Some formula -> Uninit, formula
   | None ->
     begin match formula_read_only_inv formula with
-    | Some { frac; formula } -> RO frac, formula
+    | Some { (* frac; *) formula } -> RO, formula
     | None -> Full, formula
     end
-
-let formula_wrap_in_mode (mode : formula_mode) (f : formula) : formula =
-  match mode with
-  | RO frac -> formula_read_only ~frac f
-  | Uninit -> formula_uninit f
-  | Full -> f
 
 (** Applies a function below a resource mode wrapper if there is one,
     otherwise simply applies the function.

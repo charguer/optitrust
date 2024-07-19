@@ -28,13 +28,15 @@ let _ = Run.script_cpp (fun () ->
   (* TODO: regroup with previous inline, problem: phase ordering matters, need fixpoint? *)
   !! Function.inline [ctx; multi cFun ["vect_add"; "vect_mul"]];
 
-  (* CHECK *)
   (* TODO: regroup, set_explicit_all *)
-  !!! Record.set_explicit [ctx; multi cArrayWrite ["particles"; "lParticles"]];
+  !! Record.set_explicit [ctx; multi cArrayWrite ["particles"; "lParticles"]];
   !! Record.set_explicit [nbMulti; ctx; cWrite ~lhs:[Constr_depth (DepthAt 0); cAccesses ~base:[cOr (List.map (fun x -> [cVar x]) ["particles"; "lParticles"])] ~inner_accesses:false ~accesses:[cIndex (); cField ~regexp:true ~field:"\\(pos\\)\\|\\(speed\\)" ()] ()] ()];
   !! Record.set_explicit [ctx; multi cArrayWrite ["fieldAtCorners"; "lFieldAtCorners"]];
+  (* TODO: avoid binding tmp *)
+  !! Variable.bind ~const:true "fieldAtPosTmp" [cWriteVar "fieldAtPos"; dArg 1];
   !! Record.set_explicit [ctx; cWriteVar "fieldAtPos"];
-  !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
+  (* CHECK: TODO: expand Cell formulas and validate *)
+  !! Record.to_variables [ctx; cVarDefs ["fieldAtPosTmp"; "fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
   bigstep "scale field and particles";
   (*

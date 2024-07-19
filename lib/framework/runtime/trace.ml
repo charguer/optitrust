@@ -1019,7 +1019,7 @@ and error_step (exn : exn): unit =
   let preprend_to_step_name (prefix: string) : unit =
     let step = get_cur_step () in
     let infos = step.step_infos in
-    infos.step_name <- prefix ^ infos.step_name
+    infos.step_name <- prefix ^ " " ^ infos.step_name
   in
   let process_context (contexts : error_context list) : unit =
     List.iter (fun c ->
@@ -1044,8 +1044,8 @@ and error_step (exn : exn): unit =
         done;
         let prefix_len = List.length !prefix in
         if prefix_len == List.length p
-          then preprend_to_step_name (" @ path " ^ mark)
-          else preprend_to_step_name (" @ path " ^ mark ^ "+" ^ (Path.path_to_string (List.drop prefix_len p)));
+          then preprend_to_step_name ("@ path " ^ mark)
+          else preprend_to_step_name ("@ path " ^ mark ^ "+" ^ (Path.path_to_string (List.drop prefix_len p)));
       ) c.path;
       Option.iter (fun trm ->
         let mark = Mark.next () in
@@ -1058,11 +1058,11 @@ and error_step (exn : exn): unit =
             trm_map apply_mark t
         in
         the_trace.cur_ast <- apply_mark the_trace.cur_ast;
-        preprend_to_step_name (" @ term " ^ mark);
+        preprend_to_step_name ("@ term " ^ mark);
       ) c.trm;
       (* TODO: c.loc *)
       if c.ctx_desc <> "" then
-        preprend_to_step_name (" " ^ c.ctx_desc);
+        preprend_to_step_name (c.ctx_desc);
     ) (List.rev contexts)
   in
   let print_var_id = ref false in

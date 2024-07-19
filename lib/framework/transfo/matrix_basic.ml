@@ -183,8 +183,11 @@ let local_name_tile_on (mark_dims : mark)
      Option.unsome ~error:"expected elem_ty" elem_ty)
   end in
   let alloc_instr = Matrix_core.let_alloc_with_ty local_var tile_dims elem_ty in
-  let access_var = access (trm_var var) dims indices in
-  let access_local_var = access (trm_var local_var) tile_dims tile_indices in
+  let ptr_ty = typ_ptr elem_ty in
+  let var_t = trm_var ~typ:ptr_ty var in
+  let local_var_t = trm_var ~typ:ptr_ty local_var in
+  let access_var = access var_t dims indices in
+  let access_local_var = access local_var_t tile_dims tile_indices in
   let write_on_local_var = trm_set access_local_var (trm_get access_var) in
   let write_on_var = trm_set access_var (trm_get access_local_var) in
   let var_cell = Resource_formula.(formula_model access_var trm_cell) in
@@ -197,11 +200,11 @@ let local_name_tile_on (mark_dims : mark)
     then trm_seq_nobrace_nomarks []
     else trm_copy (Matrix_core.pointwise_fors
       ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var) in
-  let free_instr = free tile_dims (trm_var ~typ:(typ_ptr elem_ty) local_var) in
+  let free_instr = free tile_dims local_var_t in
   let alloc_range = List.map2 (fun size index ->
     { index; start = trm_int 0; direction = DirUp; stop = size; step = trm_step_one () }
   ) tile_dims indices_list in
-  let alloc_access = access (trm_var ~typ:(typ_ptr elem_ty) local_var) tile_dims indices in
+  let alloc_access = access local_var_t tile_dims indices in
   let alloc_cell = Resource_formula.(formula_model alloc_access trm_cell) in
   let alloc_range_cell = (alloc_range, alloc_cell) in
   let local_var_range_cell = (nested_loop_range, local_var_cell) in

@@ -166,7 +166,11 @@ let replace_all_accesses (prev_v : var) (v : var) (dims : trm list)
   (map_indices : (trm -> trm) list) (mark : mark) (t : trm) : trm =
   map_all_accesses prev_v ?ret_dims_and_typ (fun prev_dims prev_indices ->
     let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
-    trm_add_mark mark (access (trm_var v) dims indices)
+    let typ = Option.bind ret_dims_and_typ (fun dt ->
+      (* best effort type recovery .. *)
+      Option.map (fun (d, t) -> t) !dt
+    ) in
+    trm_add_mark mark (access (trm_var ?typ v) dims indices)
   ) t
 
 (** [pointwise_fors ?reads ?writes ?modifies ranges body] creates nested loops
