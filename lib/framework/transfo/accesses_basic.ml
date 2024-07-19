@@ -59,6 +59,7 @@ let%transfo scale ?(inv:bool=false) ~(factor:trm) ?(mark : mark = no_mark) (tg :
 
 (* TODO: check / 0 *)
 let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
+  (* TODO: Trace.justif "correct when not / 0"; *)
   let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
   let f_use t = trm_add_mark mark (Arith_core.apply op_get factor t) in
   let f_init t = trm_add_mark mark (Arith_core.apply op_set factor t) in

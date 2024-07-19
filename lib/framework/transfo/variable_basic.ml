@@ -77,7 +77,8 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
           let usage = Resources.usage_of_trm init in
           let _, instrs_after_let = Mlist.split (index + 1) tl in
-          let context_instrs, _ = Mlist.split (end_occ_index - 1) instrs_after_let in
+          let context_instrs, _ = Mlist.split (end_occ_index - index - 1) instrs_after_let in
+          (* DEBUG: Show.trms ~msg:"\n---- HERE:\n" (Mlist.to_list context_instrs); *)
           let context_usage = Resources.compute_usage_of_instrs context_instrs in
           (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
           Resources.assert_usages_commute ~res_ctx:(Resources.after_trm init) [path_error_context p] usage context_usage;

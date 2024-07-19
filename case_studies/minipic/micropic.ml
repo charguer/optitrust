@@ -6,6 +6,14 @@ let _ = Flags.recompute_resources_between_steps := true
 
 (** Reproducing a subset of the PIC case study *)
 
+(* FIXME: should be done by flag ~elimoptitrust:true *)
+let%transfo postprocessing (_u: unit) : unit =
+  Trace.tag "pre-post-processing";
+  Flags.recompute_resources_between_steps := false;
+  Matrix.elim_mops [];
+  Resources.delete_annots [];
+  Loop.delete_all_void []
+
 let _ = Run.script_cpp (fun () ->
   let ctx = cFunBody "simulate_single_cell" in
   !! Resources.ensure_computed ();
@@ -36,6 +44,8 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.bind ~const:true "fieldAtPosTmp" [cWriteVar "fieldAtPos"; dArg 1];
   !! Record.set_explicit [ctx; cWriteVar "fieldAtPos"];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPosTmp"; "fieldAtPos"; "pos2"; "speed2"; "accel"]];
+  (* TODO:
+  !! List.iter (fun d -> Variable.inline [cVarDef ("fieldAtPosTmp" ^ d)]) ["X"; "Y"; "Z"]; *)
 
   (* CHECK *)
   bigstep "scale field and particles";
@@ -55,7 +65,7 @@ let _ = Run.script_cpp (fun () ->
   !! Accesses.scale ~factor:scaleFieldFactor [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lFieldAtCorners"] ~accesses:[cField ()] ()] ()];
   let scaleSpeed d = Accesses.scale_immut ~factor:stepDuration [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
   !! List.iter scaleSpeed ["X"; "Y"; "Z"];
-  !! Variable.inline [cVarDef "p"]; (* TODO: think about this *)
+  (* !! Variable.inline [cVarDef "p"]; TODO: think about this *)
   (* !! Variable.bind_multi ~const:true ~is_ptr:true ~dest:[tBefore; cVarDef "p"] "paddr" [nbMulti; ctx; cCellAccess ~base:[cVar "lParticles"] ()]; *)
 
   !!! (); (* FIXME: why are things not found without reparse ? *)
@@ -67,8 +77,7 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
   !! Function.use_infix_ops ~indepth:true [ctx];
-  !! Matrix.elim_mops [];
-  !! Resources.delete_annots [];
+  !! postprocessing ();
 
   (* TODO:
     - cleanup script
