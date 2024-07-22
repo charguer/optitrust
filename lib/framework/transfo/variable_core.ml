@@ -47,7 +47,7 @@ let init_detach_on (t : trm) : trm =
     | _ -> trm_fail t "init_detach_on: can't detach an uninitialized or constant declaration"
   in
   let var_type = get_inner_ptr_type tx in
-  let var_decl = trm_pass_marks t (trm_let_mut ~annot:t.annot (x, var_type) (trm_uninitialized ())) in
+  let var_decl = trm_pass_marks t (trm_let_uninit ~annot:t.annot (x, var_type)) in
   (* Check if variable was declared as a reference *)
   let var_assgn = trm_set (trm_var ~typ:var_type x) {init with typ = (Some var_type)} in
   trm_seq_nobrace_nomarks [var_decl; var_assgn]
@@ -88,7 +88,7 @@ let init_attach_at (const : bool) (index : int) (t : trm) : trm =
       Path.apply_on_path (fun t1 ->
         begin match t1.desc with
         | Trm_apps (_, [_;rs],_) ->
-          let decl = if const then trm_let_immut (x, tx) rs else trm_let_mut (x, get_inner_ptr_type tx) rs in
+          let decl = if const then trm_let (x, tx) rs else trm_let_mut (x, get_inner_ptr_type tx) rs in
           trm_pass_marks trm_to_change decl
         | _ -> t1
         end
@@ -130,14 +130,14 @@ let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm
               trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
       end in
       let new_first_trm = trm_seq_nobrace_nomarks[
-          trm_let_array (local_var, var_type) ~size:array_size (trm_uninitialized ());
-          trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]) (trm_get curr_var_trm);
+          trm_let_array (local_var, var_type) ~size:array_size (trm_uninitialized (typ_array var_type ~size:array_size));
+          trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_int 0]) (trm_get curr_var_trm);
           trm_copy (trm_for { index; start = trm_int 1; direction = DirUp; stop = array_size; step = trm_step_one () }
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm]))]
           in
       let new_snd_instr = trm_subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var (name_to_var "ANY")) [array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_nobrace_nomarks [
-                      trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]));
+                      trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_int 0]));
                       trm_for { index; start = trm_int 1; direction = DirUp; stop = array_size; step = trm_step_one () } (trm_seq_nomarks [op])
                      ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
@@ -158,7 +158,7 @@ let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm
 let insert_at (index : int) (const : bool) (name : string) (typ : typ) (value : trm) (t : trm) : trm =
   let error = "Variable_core.insert_at: expected the sequence where the declaration is oing to be inserted" in
   let tl = trm_inv ~error trm_seq_inv t in
-  let new_decl = if const then trm_let_immut (new_var name, typ) value else trm_let_mut (new_var name, typ) value in
+  let new_decl = if const then trm_let (new_var name, typ) value else trm_let_mut (new_var name, typ) value in
   let new_tl = Mlist.insert_at index new_decl tl in
   trm_seq ~annot:t.annot new_tl
 
@@ -217,7 +217,7 @@ let bind_at (mark_let:mark) (mark_occ:mark) (mark_body : mark) (index : int) (fr
       let node_type = if is_ptr then typ_ptr node_type else node_type in
       let node_type = match typ with | Some ty -> ty | _ -> node_type in
       if const
-        then trm_let_immut (fresh_var, node_type) targeted_node
+        then trm_let (fresh_var, node_type) targeted_node
         else trm_let_mut (fresh_var, node_type) targeted_node
     in
     let decl_to_insert = trm_add_mark mark_let decl_to_insert in
@@ -303,7 +303,7 @@ let to_const_at (index : int) (t : trm) : trm =
     ) lback;
     (* replace all get(x) with x *)
     let init_type = get_inner_ptr_type tx in
-    let new_dl = trm_pass_marks dl (trm_let_immut (x, init_type) init_val) in
+    let new_dl = trm_pass_marks dl (trm_let (x, init_type) init_val) in
     let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var x t1) lback in
     trm_seq_helper ~annot:t.annot [TrmMlist lfront; Trm new_dl; TrmMlist new_lback]
 

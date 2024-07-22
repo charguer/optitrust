@@ -670,7 +670,7 @@ let cLit : constr =
 let cIntPred (pred : int -> bool) : constr =
   cLitPred (function l ->
    begin match l with
-   | Lit_int n -> pred n
+   | Lit_int (_, n) -> pred n
    | _ -> false
    end )
 
@@ -682,7 +682,7 @@ let cInt (n : int) : constr =
 let cDoublePred (pred : float -> bool) : constr =
   cLitPred (function l ->
    begin match l with
-   | Lit_float d -> pred d
+   | Lit_float (_, d) -> pred d
    | _ -> false
    end )
 

@@ -14,13 +14,13 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
       begin match base.desc with
       | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [{desc = Trm_var x}], _) when (var_eq x array_var) ->
         begin match index.desc with
-        | Trm_lit (Lit_int i) ->
+        | Trm_lit (Lit_int (_, i)) ->
           if i >= List.length new_vars
             then trm_fail index "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
             else (trm_var (List.nth new_vars i))
         | Trm_apps ({desc = Trm_var x; _}, _, _) when var_has_name x "ANY" ->
           let nb_vars = List.length new_vars in
-          trm_address_of (trm_apps (trm_var (name_to_var "CHOOSE")) ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars)))
+          trm_address_of (trm_apps (trm_var (name_to_var "CHOOSE")) ((trm_int nb_vars) :: (List.map trm_var_get new_vars)))
         | _ -> trm_fail index "Arrays_core.inline_array_access: only integer indices are supported"
         end
       | _ ->  trm_map aux t
@@ -48,7 +48,7 @@ let to_variables_at (new_vars : string list) (index : int) (t : trm) : trm =
           | Some (t_var, _) ->
             trm_seq_nobrace_nomarks (
               List.map (fun x ->
-              trm_let_mut ~annot:t.annot (x, t_var) (trm_uninitialized ?loc:init.loc ())) new_vars)
+              trm_let_uninit ~annot:t.annot (x, t_var)) new_vars)
           | _ -> trm_fail t "Arrays_core.to_variables_aux: expected an array type"
           end
         | _ -> trm_fail t "Arrays_core.to_variables_aux: expected a variable declaration"
@@ -383,7 +383,7 @@ let aos_to_soa_rec (struct_name : typvar) (sz : var) (t : trm) : trm =
     | Trm_let ((n, dx), init) ->
       Pattern.pattern_match dx [
         Pattern.(typ_ptr !(typ_array (typ_constr (var_eq struct_name)) __)) (fun a () ->
-          trm_let_mut ~annot:t.annot (n, a) (trm_uninitialized ?loc:init.loc ())
+          trm_let_uninit ~annot:t.annot (n, a)
         );
         Pattern.__ (fun () -> trm_map aux t)
       ]
@@ -406,7 +406,8 @@ let detach_init_on (t : trm) : trm =
       List.mapi ( fun i t1 ->
         trm_set (trm_apps (trm_binop (Binop_array_access)) [trm_var_get x;trm_int i]) t1
       ) (Mlist.to_list tl) in
-      let new_decl = trm_let_mut ~annot:t.annot (x, (get_inner_ptr_type tx)) (trm_uninitialized ?loc:init.loc ()) in
+      let typ = get_inner_ptr_type tx in
+      let new_decl = trm_let_mut ~annot:t.annot (x, typ) (trm_uninitialized ?loc:init.loc typ) in
       trm_seq_nobrace_nomarks ([new_decl] @ array_set_list)
     | _ -> trm_fail init "detach_init_on: expected an array initialization"
     end

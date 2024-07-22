@@ -196,7 +196,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [] ]
     | Trm_lit l ->
         [ kind_to_field "lit";
-          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(lit_to_doc (default_style())) (trm_get_cstyles t) t.typ l))));
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(lit_to_doc (default_style())) (trm_get_cstyles t) l))));
           children_to_field [] ]
     | Trm_prim p ->
         [ kind_to_field "prim";

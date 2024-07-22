@@ -299,7 +299,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         let args_decl =
           List.rev_map
             (fun (x, tx) ->
-              trm_let_mut (x, tx) (trm_lit Lit_uninitialized)
+              trm_let_mut (x, tx) (trm_lit (Lit_uninitialized tx))
             )
             args
         in

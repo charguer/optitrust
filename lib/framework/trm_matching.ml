@@ -119,7 +119,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
      when pattern variables are not yet instantiated,
      they are bound to the special term trm_uninitialized. *)
      (* LATER: we may need one day to introduce another special term Trm_uninstantiated  *)
-  let pat_vars_association = Trm.trm_uninitialized() in
+  let pat_vars_association = trm_uninitialized typ_auto in
   let inst = ref (List.fold_left (fun acc (x,ty) -> Var_map.add x (ty, pat_vars_association) acc) Var_map.empty vars) in
   let is_var (x : var) : bool =
     Var_map.mem x !inst in

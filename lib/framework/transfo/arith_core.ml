@@ -560,8 +560,8 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
     if has_mark_nosimpl t then force_atom() else
     match t.desc with
      (* Recognize constants *)
-     | Trm_lit (Lit_int n) -> expr_int ?loc n
-     | Trm_lit (Lit_float n) -> expr_float ?loc ?typ n
+     | Trm_lit (Lit_int (_, n)) -> expr_int ?loc n
+     | Trm_lit (Lit_float (typ, n)) -> expr_float ?loc ~typ:(typ_to_expr_typ typ) n
      (* Recognize unary operators *)
      | Trm_apps (f, [t1], _) ->
        begin match trm_prim_inv f with

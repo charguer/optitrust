@@ -203,7 +203,7 @@ let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm
             if i = 0 then let acc = trm_var ind in acc
             else trm_apps (trm_binop Binop_add) [trm_apps (trm_binop Binop_mul) [
                 acc; bnd]; trm_var ind])  (trm_unit ()) indices_and_bounds in
-        let old_loop_index_decl = trm_let_immut (range.index, typ_int) old_loop_index_val in
+        let old_loop_index_decl = trm_let (range.index, typ_int) old_loop_index_val in
         let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
         trm_seq new_tl
     | _ -> trm_fail body "Loop_core.grid_enumerate_on: the body of the loop should be a sequence"
@@ -351,7 +351,7 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
   let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_var_get index) t) body_trms in
   let aux (start : trm) (stop : trm) : trm =
     match trm_lit_inv start with
-    | Some (Lit_int 0) ->
+    | Some (Lit_int (_, 0)) ->
       stop
     | _ -> trm_sub stop start
   in
@@ -393,13 +393,13 @@ let scale_range (factor : trm) (new_index : string) (t : trm) : trm =
   let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_exact_div ~typ:typ_int (trm_var ~typ:typ_int new_index) factor) t) body_trms in
   let new_start =
     match trm_lit_inv start with
-    | Some (Lit_int 0) -> start
+    | Some (Lit_int (_, 0)) -> start
     | _ -> trm_fail t "Loop_core.scale_range: only start at zero is supported."
     in
 
   let new_step =
     match trm_lit_inv step with
-    | Some (Lit_int 1) -> factor
+    | Some (Lit_int (_, 1)) -> factor
     | _ -> trm_mul factor step
     in
 

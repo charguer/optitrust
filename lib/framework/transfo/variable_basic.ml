@@ -232,7 +232,7 @@ let%transfo change_type (new_type : string) (tg : target) : unit =
      [typ] - typ of the inserted variable;.
 
     NOTE: if initialization [value] is not provided then the declaration will be un-initialized. *)
-let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ?(value : trm = trm_lit (Lit_uninitialized)) ~name:(name : string) ~typ:(typ : typ) (tg : target) : unit =
+let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : string) ~(typ : typ) ?(value : trm = trm_uninitialized typ) (tg : target) : unit =
   Target.reparse_after ~reparse (Target.apply_at_target_paths_before (fun t i -> Variable_core.insert_at i const name typ value t)) tg
 
 

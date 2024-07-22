@@ -544,13 +544,13 @@ and prim =
 
 (** [lit]: literals *)
 and lit =
-  | Lit_unit              (* void, e.g. "return;" is represented as "Lit_unit" *)
-  | Lit_uninitialized     (* e.g. "int x;" is "int x = Lit_uninitalized" *)
-  | Lit_bool of bool      (* true, false *)
-  | Lit_int of int        (* 1, 10, 100 *)
-  | Lit_float of float   (* 1.0, 2.0, 0.5 *)
-  | Lit_string of string  (* "hello" *)
-  | Lit_nullptr           (* nullptr *)
+  | Lit_unit                 (* void, e.g. "return;" is represented as "Lit_unit" *)
+  | Lit_uninitialized of typ (* e.g. "int x;" is "int x = Lit_uninitalized" *)
+  | Lit_bool of bool         (* true, false *)
+  | Lit_int of typ * int     (* 1, 10, 100 *)
+  | Lit_float of typ * float (* 1.0, 2.0, 0.5 *)
+  | Lit_string of string     (* "hello" *)
+  | Lit_nullptr of typ       (* nullptr *)
 
 
 (** [loop_range]: a type for representing for loops range *)

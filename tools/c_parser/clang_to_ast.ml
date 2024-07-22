@@ -570,17 +570,17 @@ and tr_expr (e : expr) : trm =
   | CompoundLiteral {init = init_expr; qual_type = _q} -> tr_expr init_expr
   | IntegerLiteral i ->
     begin match i with
-      | Int i -> trm_lit ?typ ?loc (Lit_int i)
+      | Int i -> trm_int ?typ ?loc i
       | CXInt _ -> loc_fail loc "Clang_to_astRawC.tr_expr: found an integer literal that does not fit in OCaml's int"
     end
-  | BoolLiteral b -> trm_lit ?typ ?loc (Lit_bool b)
+  | BoolLiteral b -> trm_bool ?loc b
   | FloatingLiteral f ->
     begin match f with
-      | Float f -> trm_lit ?typ ?loc (Lit_float f)
+      | Float f -> trm_float ?typ ?loc f
       | CXFloat _ -> loc_fail loc "Clang_to_astRawC.tr_expr: found a float literal that does not fit in OCaml's float"
     end
   | StringLiteral {byte_width = _; bytes = s; string_kind = _} ->
-    trm_lit ?typ ?loc (Lit_string s)
+    trm_string ?loc s
 
 
   | InitList el ->
@@ -821,19 +821,23 @@ and tr_expr (e : expr) : trm =
   | This -> trm_this ?loc ?typ ()
   | UnexposedExpr ImplicitValueInitExpr ->
     verbose_warn "%s: tr_expr: implicit initial value" (loc_to_string loc);
-    trm_lit ?loc Lit_uninitialized
-  | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) ->
-      Tools.warn "Unknown expressions are parsed as null pointers";
-      trm_add_mark "unknown_expr" (trm_null ?loc () )
-  | ImplicitValueInit _ -> trm_lit ?loc Lit_uninitialized
+    trm_uninitialized ?loc (Option.value ~default:typ_auto typ)
+  | ImplicitValueInit _ ->
+    (* FIXME: This is weird given the name ImplicitValueInit *)
+    trm_uninitialized ?loc (Option.value ~default:typ_auto typ)
 
-  (* TODO: clean up and use trm_null everywhere;
-     TODO: check whether UnknownExpr (GNUNullExpr, GNUNullExpr) is actually used sometimes *)
-  | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~uppercase:true ?loc () (* sometimes Null is translated like this *) (* LATER: in which condition? *)
-  | NullPtrLiteral -> trm_null ?loc ()
-  | UnexposedExpr (GNUNullExpr) -> trm_null ~uppercase:true ?loc ()
+  | NullPtrLiteral ->
+    begin match typ with
+    | Some typ ->  trm_null ?loc typ
+    | None -> loc_fail loc "found an occurence of nullptr without a type set"
+    end;
 
-    (* TODO: use Lit_nullptr, and use annotation to know if should print NULL or nullptr *)
+  | UnknownExpr (GNUNullExpr, GNUNullExpr) (* sometimes NULL is translated with UnknownExpr (GNUNullExpr, GNUNullExpr). LATER: in which condition? is it actually used sometimes? *)
+  | UnexposedExpr (GNUNullExpr) ->
+    begin match typ with
+    | Some typ -> trm_null ~uppercase:true ?loc typ
+    | None -> loc_fail loc "found an occurence of NULL without a type set"
+    end;
 
   | UnresolvedConstruct {qual_type = q; args = args} | TemporaryObject {qual_type = q; args = args} ->
     let args = List.filter (fun (d : expr) -> match d.desc with | TemplateRef _ -> false | _ -> true) args in
@@ -969,7 +973,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               loc_fail loc "Clang_to_astRawC.tr_decl: wrong size of argument list";
             let tb =
               match bo with
-              | None -> trm_lit ?loc Lit_uninitialized
+              | None -> trm_uninitialized ?loc tt
               | Some s -> tr_stmt s
             in
             trm_let_fun ?loc (name_to_var ~namespaces:qpath s) out_t [] tb
@@ -986,7 +990,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
             List.iter (fun (y, ty) -> ctx_var_add y ty) args;
             let tb =
               match bo with
-              | None -> trm_lit ?loc Lit_uninitialized
+              | None -> trm_uninitialized ?loc tt
               | Some s -> tr_stmt s
             in
             trm_let_fun ?loc (name_to_var ~namespaces:qpath s) out_t args tb
@@ -1029,7 +1033,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
         List.iter (fun (y, ty) -> ctx_var_add y ty) args;
         let tb =
           match bo with
-          | None -> trm_lit ?loc Lit_uninitialized
+          | None -> trm_uninitialized ?loc tt
           | Some s -> tr_stmt s
         in
         trm_add_cstyle Method (trm_let_fun ?loc (name_to_var ~namespaces:qpath s) out_t  args tb)
@@ -1046,7 +1050,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let args = List.map (fun {decoration = _;
        desc = {qual_type = q; name = n; default = _}} -> (name_to_var n,tr_qual_type ?loc q)) pl in
     let tb = match bd with
-    | None -> trm_lit ?loc Lit_uninitialized
+    | None -> trm_uninitialized ?loc typ_auto
     | Some s -> tr_stmt s in
     let tb =
       if List.length il = 0
@@ -1065,7 +1069,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
 
   | Destructor {class_name = cn; body = bd; defaulted = df; deleted = dl; _} ->
     let tb = match bd with
-    | None -> trm_lit ?loc Lit_uninitialized
+    | None -> trm_uninitialized ?loc typ_auto
     | Some s -> tr_stmt s in
     let class_name = Tools.clean_class_name cn in
     let res = trm_let_fun ?loc (name_to_var class_name) typ_unit [] tb in
@@ -1078,7 +1082,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let tt = tr_qual_type ?loc t in
     let te =
       begin match eo with
-      | None -> trm_lit ?loc Lit_uninitialized
+      | None -> trm_uninitialized ?loc tt
       | Some e ->
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)

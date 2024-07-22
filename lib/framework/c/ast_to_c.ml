@@ -238,21 +238,21 @@ and typed_var_to_doc : 'a. style -> ('a -> document) -> ('a * typ) -> document =
   ]
 
 (** [lit_to_doc style l]: converts literals to pprint documents. *)
-and lit_to_doc style (cstyles: cstyle_annot list) (typ : typ option) (l : lit) : document =
+and lit_to_doc style (cstyles: cstyle_annot list) (l : lit) : document =
   match l with
   | Lit_unit -> semi
-  | Lit_uninitialized -> empty
+  | Lit_uninitialized _ -> empty
   | Lit_bool b -> string (string_of_bool b)
-  | Lit_int i -> string (string_of_int i)
-  | Lit_float f ->
-    begin match Option.bind typ typ_var_inv with
+  | Lit_int (_, i) -> string (string_of_int i)
+  | Lit_float (typ, f) ->
+    begin match typ_var_inv typ with
     | Some v when var_eq v typ_f32_var ->
       string ((string_of_float f) ^ "f")
     | _ ->
       string (string_of_float f)
     end
   | Lit_string s -> dquotes (separate (backslash ^^ string "n") (lines s))
-  | Lit_nullptr ->
+  | Lit_nullptr _ ->
       if List.mem Display_null_uppercase cstyles
         then string "NULL"
         else string "nullptr"
@@ -427,7 +427,7 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
     | Trm_lit l ->
       if trm_has_cstyle Empty_cond t
         then empty
-        else dattr ^^ lit_to_doc style (trm_get_cstyles t) t.typ l
+        else dattr ^^ lit_to_doc style (trm_get_cstyles t) l
     | Trm_prim p ->
       dattr ^^ prim_to_doc style p
     | Trm_array tl -> let tl = Mlist.to_list tl in
@@ -611,7 +611,7 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc style ((var_to_doc style)) tv in
   match init.desc with
-  | Trm_lit Lit_uninitialized -> dtx ^^ semi
+  | Trm_lit (Lit_uninitialized _) -> dtx ^^ semi
   | Trm_apps (_, args, _) when trm_has_cstyle Constructed_init init ->
     dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm style) args) ^^ dsemi
   | Trm_array tl when trm_has_cstyle Brace_init init ->
@@ -815,7 +815,7 @@ and multi_decl_to_doc style (loc : location) (tl : trms) : document =
   begin match t.desc with
   | Trm_let ((x, _), init) ->
     begin match init.desc with
-      | Trm_lit Lit_uninitialized -> var_to_doc style x
+      | Trm_lit (Lit_uninitialized _) -> var_to_doc style x
       (*| Trm_apps (GET?, [base], _)-> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style base*)
       | _ -> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style init
     end

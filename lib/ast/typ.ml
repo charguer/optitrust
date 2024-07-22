@@ -295,15 +295,15 @@ let typ_of_get (t : typ) : typ option =
   Option.or_ (Option.map fst (typ_array_inv t)) (typ_ptr_inv t)
 
 (** [typ_of_lit l]: get the type of a literal *)
-let typ_of_lit (l : lit) : typ option =
+let typ_of_lit (l : lit) : typ =
   match l with
-  | Lit_unit -> Some typ_unit
-  | Lit_uninitialized -> None
-  | Lit_bool _ -> Some typ_bool
-  | Lit_int _ -> Some typ_int
-  | Lit_float _ -> Some typ_f64
-  | Lit_string _ -> Some typ_string
-  | Lit_nullptr -> None
+  | Lit_unit -> typ_unit
+  | Lit_uninitialized typ -> typ
+  | Lit_bool _ -> typ_bool
+  | Lit_int (typ, _) -> typ
+  | Lit_float (typ, _) -> typ
+  | Lit_string _ -> typ_string
+  | Lit_nullptr typ -> typ
 
 (*****************************************************************************)
 

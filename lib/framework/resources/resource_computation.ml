@@ -697,7 +697,7 @@ let simplify_read_only_resources (res: linear_resource_set): (linear_resource_se
     List.fold_left (fun res (hyp, frac_wand) ->
       let frac = frac_wand_to_formula frac_wand in
       match frac.desc with
-      | Trm_lit Lit_int 1 -> (hyp, formula) :: res
+      | Trm_lit (Lit_int (_, 1)) -> (hyp, formula) :: res
       | _ -> (hyp, formula_read_only ~frac formula) :: res
       ) res fracs
   ) ro_buckets non_ro_res in

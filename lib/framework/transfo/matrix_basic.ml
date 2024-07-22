@@ -45,7 +45,7 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
-let%transfo local_name ?(my_mark : mark = no_mark) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name ?(my_mark : mark = no_mark) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) ?(local_ops : local_ops = Local_arith (Lit_int (typ_int, 0), Binop_add)) (tg : target) : unit =
   let remove = (my_mark = no_mark) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
@@ -311,7 +311,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         if label_to_add = ""
                         then new_decl
                         else trm_add_label label_to_add (trm_seq_nobrace_nomarks [
-                          trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ());
+                          trm_let_uninit (local_var, (get_inner_ptr_type ty));
                           (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
                       end
                     else new_decl in
@@ -347,7 +347,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         if label_to_add = ""
                         then new_decl
                         else (trm_seq_nobrace_nomarks [
-                          trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ());
+                          trm_let_uninit (local_var, (get_inner_ptr_type ty));
                           (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
                       end
                     else new_decl in
@@ -613,7 +613,7 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
   (* let array_typ = List.fold_left (fun acc i -> typ_array acc (Trm i)) typ new_dims in *)
   trm_seq_nobrace_nomarks [
     (* TODO: define Matrix_core.stack_alloc, FIXME: new with dims has to be uninit? use different prim? *)
-    trm_let (stack_var, typ_ptr typ) (trm_ref typ ~dims:new_dims (trm_uninitialized ()));
+    trm_let (stack_var, typ_ptr typ) (trm_ref typ ~dims:new_dims (trm_uninitialized typ));
     Matrix_core.memcpy_with_ty
       (trm_var stack_var) [] new_dims
       (trm_var var) common_indices dims

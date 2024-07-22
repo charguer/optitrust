@@ -472,7 +472,7 @@ let class_member_elim (t : trm) : trm =
         let new_tl = Mlist.push_back ret_this new_tl in
         let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
         trm_alter ~desc:(Trm_let_fun (v, this_typ, vl, new_body, contract)) t
-      | Trm_lit Lit_uninitialized ->  t
+      | Trm_lit (Lit_uninitialized _) ->  t
       | _ ->  trm_fail t "C_encoding.class_member_elim: ill defined class constructor."
       end
     | _ -> trm_map (aux current_class) t

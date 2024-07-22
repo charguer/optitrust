@@ -165,10 +165,11 @@ let trm_goto ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (l : label) : trm =
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_goto l)
 
-(** [trm_uninitialized ~annot ?loc ?ctx ()]: used for variable declarations without initialization
+(** [trm_uninitialized ~annot ?loc ?ctx typ]: used for variables without initialization
     and function declarations *)
-let trm_uninitialized ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) () : trm =
-  trm_make ~annot ?loc ?ctx (Trm_lit (Lit_uninitialized))
+(* FIXME: Replace with a proper construction for declarations *)
+let trm_uninitialized ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) typ : trm =
+  trm_make ~annot ?loc ~typ ?ctx (Trm_lit (Lit_uninitialized typ))
 
 (** [trm_for ~annot ?loc ?ctx index start direction stop step body]: simple for loop *)
 let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_contract = empty_loop_contract)
@@ -232,26 +233,26 @@ let trm_cast ?(annot : trm_annot = trm_annot_default) (ty : typ) (t : trm) : trm
   trm_apps ~annot (trm_unop (Unop_cast ty)) [t]
 
 (** [trm_lit ~annot ?loc ?ctx l]: literal *)
-let trm_lit ?(typ : typ option) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : trm =
-  let typ = Option.or_ typ (typ_of_lit l) in
-  trm_make ~annot:annot ?loc ?ctx ?typ (Trm_lit l)
+let trm_lit ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : trm =
+  let typ = typ_of_lit l in
+  trm_make ~annot:annot ?loc ?ctx ~typ (Trm_lit l)
 
 let trm_unit ?(loc) () : trm =
-  trm_lit ~typ:typ_unit ?loc (Lit_unit)
+  trm_lit ?loc Lit_unit
 let trm_bool ?(loc) (b : bool) =
-  trm_lit ~typ:typ_bool ?loc (Lit_bool b)
+  trm_lit ?loc (Lit_bool b)
 (* LATER: allow arbitrary sized integer types/values *)
-let trm_int ?(loc) (i : int) =
-  trm_lit ~typ:typ_int ?loc (Lit_int i)
+let trm_int ?(typ: typ = typ_int) ?(loc) (i : int) =
+  trm_lit ?loc (Lit_int (typ, i))
 (* LATER: may need arbitrary sized float values *)
-let trm_float ?(typ : typ = typ_f64) ?(loc) (d : float) =
-  trm_lit ~typ ?loc (Lit_float d)
+let trm_float ?(typ : typ = typ_f64) ?(loc) (v : float) =
+  trm_lit ?loc (Lit_float (typ, v))
 let trm_string ?(loc) (s : string) =
-  trm_lit ~typ:typ_string ?loc (Lit_string s)
+  trm_lit ?loc (Lit_string s)
 
 (** [trm_null ~annot ?loc ?ctx ()]: build the term [nullptr], or [NULL] if [~uppercase:true] *)
-let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) () : trm =
-  let t = trm_lit ?loc ?ctx Lit_nullptr in
+let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (typ: typ) : trm =
+  let t = trm_lit ?loc ?ctx (Lit_nullptr typ) in
   if uppercase then trm_add_cstyle Display_null_uppercase t else t
 
 let var_free = toplevel_var "free"
@@ -476,7 +477,7 @@ let trm_lit_inv (t : trm) : lit option =
 (** [trm_int_inv t] gets an int literal from a trm *)
 let trm_int_inv (t : trm) : int option =
   match trm_lit_inv t with
-  | Some (Lit_int n) -> Some n
+  | Some (Lit_int (_, n)) -> Some n
   | _ -> None
 
 (** [trm_is_one step]: checks if the step of the loop is one or not *)
@@ -789,11 +790,9 @@ let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   let var_type_ptr = typ_ptr var_type in
   trm_let ?loc ?ctx (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_ref var_type)) [init])
 
-(** [trm_let_immut ~annot ?ctx typed_var init]: an extension of trm_let for creating immutable variable declarations. *)
-let trm_let_immut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
-  (typed_var : typed_var) (init : trm): trm =
+let trm_let_uninit ?(annot) ?(loc) ?(ctx : ctx option) (typed_var : typed_var) =
   let var_name, var_type = typed_var in
-  trm_let ~annot ?loc ?ctx (var_name, var_type) (init)
+  trm_let_mut ?annot ?loc ?ctx typed_var (trm_uninitialized var_type)
 
 (** [trm_let_array ~annot ?ctx ~const typed_var sz init]: an extension of trm_let for creating array variable declarations *)
 (* FIXME: This function is weird and creates a ref instead of ref_array... *)
@@ -808,44 +807,44 @@ let trm_let_array ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(cons
 let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
   match p, v1 with
   | Unop_neg, Lit_bool b -> trm_bool (not b)
-  | Unop_post_inc, Lit_int n -> trm_int (n + 1)
-  | Unop_pre_inc, Lit_int n -> trm_int (n + 1)
-  | Unop_post_dec, Lit_int n -> trm_int (n - 1)
-  | Unop_pre_dec, Lit_int n -> trm_int (n - 1)
+  | Unop_post_inc, Lit_int (typ, n) -> trm_int ~typ (n + 1)
+  | Unop_pre_inc, Lit_int (typ, n) -> trm_int ~typ (n + 1)
+  | Unop_post_dec, Lit_int (typ, n) -> trm_int ~typ (n - 1)
+  | Unop_pre_dec, Lit_int (typ, n) -> trm_int ~typ (n - 1)
   | _ -> failwith "Ast.compute_app_unop_value: only negation can be applied here"
 
 (** [compute_app_binop_value]: simplifies binary operations on literals. *)
 let compute_app_binop_value (p : binary_op) (typ1 : typ option) (typ2 : typ option) (v1 : lit) (v2 : lit) : trm =
   match p,v1, v2 with
-  | Binop_eq , Lit_int n1, Lit_int n2 -> trm_bool (n1 == n2)
-  | Binop_eq, Lit_float d1, Lit_float d2 -> trm_bool (d1 == d2)
-  | Binop_neq , Lit_int n1, Lit_int n2 -> trm_bool (n1 <> n2)
-  | Binop_neq, Lit_float d1, Lit_float d2 -> trm_bool (d1 <> d2)
-  | Binop_sub, Lit_int n1, Lit_int n2 -> trm_int (n1 - n2)
-  | Binop_sub, Lit_float d1, Lit_float d2 ->
+  | Binop_eq , Lit_int (_, n1), Lit_int (_, n2) -> trm_bool (n1 == n2)
+  | Binop_eq, Lit_float (_, d1), Lit_float (_, d2) -> trm_bool (d1 == d2)
+  | Binop_neq , Lit_int (_, n1), Lit_int (_, n2) -> trm_bool (n1 <> n2)
+  | Binop_neq, Lit_float (_, d1), Lit_float (_, d2) -> trm_bool (d1 <> d2)
+  | Binop_sub, Lit_int (_, n1), Lit_int (_, n2) -> trm_int (n1 - n2)
+  | Binop_sub, Lit_float (_, d1), Lit_float (_, d2) ->
     let typ = Option.or_ typ1 typ2 in
     trm_float ?typ (d1 -. d2)
-  | Binop_add, Lit_int n1, Lit_int n2 -> trm_int (n1 + n2)
-  | Binop_add, Lit_float d1, Lit_float d2 ->
+  | Binop_add, Lit_int (_, n1), Lit_int (_, n2) -> trm_int (n1 + n2)
+  | Binop_add, Lit_float (_, d1), Lit_float (_, d2) ->
     let typ = Option.or_ typ1 typ2 in
     trm_float ?typ (d1 +. d2)
-  | Binop_mul, Lit_int n1, Lit_int n2 -> trm_int (n1 * n2)
-  | Binop_mul, Lit_float n1, Lit_float n2 ->
+  | Binop_mul, Lit_int (_, n1), Lit_int (_, n2) -> trm_int (n1 * n2)
+  | Binop_mul, Lit_float (_, n1), Lit_float (_, n2) ->
     let typ = Option.or_ typ1 typ2 in
     trm_float ?typ (n1 *. n2)
-  | Binop_mod, Lit_int n1, Lit_int n2 -> trm_int (n1 mod n2)
-  | Binop_div, Lit_int n1, Lit_int n2 -> trm_int (n1 / n2)
-  | Binop_div, Lit_float d1, Lit_float d2 ->
+  | Binop_mod, Lit_int (_, n1), Lit_int (_, n2) -> trm_int (n1 mod n2)
+  | Binop_div, Lit_int (_, n1), Lit_int (_, n2) -> trm_int (n1 / n2)
+  | Binop_div, Lit_float (_, d1), Lit_float (_, d2) ->
     let typ = Option.or_ typ1 typ2 in
     trm_float ?typ (d1 /. d2)
-  | Binop_le, Lit_int n1, Lit_int n2 -> trm_bool (n1 <= n2)
-  | Binop_le, Lit_float d1, Lit_float d2 -> trm_bool (d1 <= d2)
-  | Binop_lt, Lit_int n1, Lit_int n2 -> trm_bool (n1 < n2)
-  | Binop_lt, Lit_float d1, Lit_float d2 -> trm_bool (d1 < d2)
-  | Binop_ge, Lit_int n1, Lit_int n2 -> trm_bool (n1 >= n2)
-  | Binop_ge, Lit_float d1, Lit_float d2 -> trm_bool (d1 >= d2)
-  | Binop_gt, Lit_int n1, Lit_int n2 -> trm_bool (n1 > n2)
-  | Binop_gt, Lit_float d1, Lit_float d2 -> trm_bool (d1 > d2)
+  | Binop_le, Lit_int (_, n1), Lit_int (_, n2) -> trm_bool (n1 <= n2)
+  | Binop_le, Lit_float (_, d1), Lit_float (_, d2) -> trm_bool (d1 <= d2)
+  | Binop_lt, Lit_int (_, n1), Lit_int (_, n2) -> trm_bool (n1 < n2)
+  | Binop_lt, Lit_float (_, d1), Lit_float (_, d2) -> trm_bool (d1 < d2)
+  | Binop_ge, Lit_int (_, n1), Lit_int (_, n2) -> trm_bool (n1 >= n2)
+  | Binop_ge, Lit_float (_, d1), Lit_float (_, d2) -> trm_bool (d1 >= d2)
+  | Binop_gt, Lit_int (_, n1), Lit_int (_, n2) -> trm_bool (n1 > n2)
+  | Binop_gt, Lit_float (_, d1), Lit_float (_, d2) -> trm_bool (d1 > d2)
   | _ -> failwith "Ast.compute_app_binop_value: operator not supporeted"
 
 (** [decl_list_to_typed_vars tl]: converts a list of variable declarations to a list of paris where each pair
@@ -955,7 +954,7 @@ let trm_ref_array_inv (t: trm) : (typ * trm list * trm) option =
 (** [is_trm_uninitialized t]: checks if [t] is the body of an uninitialized function or variable *)
 let is_trm_uninitialized (t:trm) : bool =
 match t.desc with
-| Trm_lit Lit_uninitialized -> true
+| Trm_lit (Lit_uninitialized _) -> true
 | _ -> false
 
 let is_trm_ref_uninitialized (t : trm) : bool =
@@ -1442,7 +1441,7 @@ let var_has_name (v : var) (n : string) : bool =
 
   let is_trm_int (cst : int) (t : trm) : bool =
     match trm_lit_inv t with
-    | Some (Lit_int c) when c = cst -> true
+    | Some (Lit_int (_, c)) when c = cst -> true
     | _ -> false
 
 (** [is_fun_with_empty_body t]: checks if the function [t] has an empty body or not. *)
@@ -1450,12 +1449,6 @@ let is_fun_with_empty_body (t : trm) : bool =
   match t.desc with
   | Trm_let_fun (_, _, _, body, _) when is_trm_uninitialized body -> true
   | _ -> false
-
-let fun_with_empty_body (t : trm) : trm =
-  match t.desc with
-  | Trm_let_fun (v, vt, args, _body, contract) ->
-    trm_alter ~desc:(Trm_let_fun (v, vt, args, trm_uninitialized (), contract)) t
-  | _ -> failwith "Trm.fun_with_empty_body expected let fun"
 
 (** [trm_seq_enforce t]: if [t] is not already a sequence, wrap it in one. *)
 let trm_seq_enforce (t : trm) : trm =
@@ -2356,7 +2349,7 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
         if f_pred f then begin
           t_map := Var_map.add f t !t_map;
           (* replace the body with an empty body with an annotation *)
-          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_uninitialized()) in
+          let t2 = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_uninitialized typ_auto) in
           trm_add_cstyle BodyHiddenForLightDiff t2
         end else
           t

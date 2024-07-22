@@ -442,7 +442,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
 (** [insert ~constr name typ value tg]: expects the target [tg] to point at a location in a sequence then it wil insert a
     new variable declaration with name: [name] and type:[typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument. *)
-let%transfo insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto) ~name:(name : string) ?(value : trm = trm_uninitialized()) (tg : target) : unit =
+let%transfo insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto) ~name:(name : string) ?(value : trm = trm_uninitialized typ) (tg : target) : unit =
  Variable_basic.insert ~const ~reparse ~name ~typ ~value tg
 
 (** [insert_list ~const names typ values tg]: expects the target [tg] to be poiting to a location in a sequence

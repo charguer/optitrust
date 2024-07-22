@@ -79,7 +79,7 @@ let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses 
     trm_fail base error;
   (* TODO: check that moving trm evaluation here is ok *)
   begin match trm_inv ~error trm_lit_inv index with
-  | Lit_int i -> trm_add_mark mark_accesses (List.nth array_vals i)
+  | Lit_int (_, i) -> trm_add_mark mark_accesses (List.nth array_vals i)
   | _ -> trm_fail index error
   end
 

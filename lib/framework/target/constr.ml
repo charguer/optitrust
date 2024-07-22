@@ -552,15 +552,16 @@ let add_dir (d : dir) (dll : paths) : paths =
   List.map (fun dl -> d :: dl) dll
 
 (** [is_equal_lit l l']: compares literals l and l' based on their values *)
+(* LATER: Decide if similar lit with different types should be different or not *)
 let is_equal_lit (l : lit) (l' : lit) =
   match l, l' with
   | Lit_unit, Lit_unit -> true
-  | Lit_uninitialized, Lit_uninitialized -> true
+  | Lit_uninitialized _, Lit_uninitialized _ -> true
   | Lit_bool b, Lit_bool b' when b = b' -> true
-  | Lit_int n, Lit_int n' when n = n' -> true
-  | Lit_float d, Lit_float d' when d = d' -> true
+  | Lit_int (_, n), Lit_int (_, n') when n = n' -> true
+  | Lit_float (_, d), Lit_float (_, d') when d = d' -> true
   | Lit_string s, Lit_string s' when s = s' -> true
-  | Lit_nullptr, Lit_nullptr -> true
+  | Lit_nullptr _, Lit_nullptr _ -> true
   | _ -> false
 
 (** [get_trm_kind t]: gets the kind of trm [t] *)
@@ -907,7 +908,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
      | Constr_hastype pred , _ ->
         check_hastype pred t
      | Constr_var_init , Trm_apps ({desc = Trm_prim (Prim_ref _); _}, [arg], _) -> false
-     | Constr_var_init, Trm_lit Lit_uninitialized -> false
+     | Constr_var_init, Trm_lit (Lit_uninitialized _) -> false
      | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
      | Constr_struct_init, Trm_record _ -> true

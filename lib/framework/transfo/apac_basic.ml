@@ -131,7 +131,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
   let body' = if is_typ_unit ret_ty then trm_seq_nomarks [
     body'
   ] else trm_seq_nomarks [
-    (trm_let_mut (res_var, ret_ty) (trm_uninitialized ()));
+    (trm_let_uninit (res_var, ret_ty));
     body';
     trm_ret (Some (trm_var_get res_var))
   ] in

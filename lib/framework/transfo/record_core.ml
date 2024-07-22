@@ -417,7 +417,7 @@ let to_variables_at (index : int) (t : trm) : trm =
         (* FIXME: #var-id *)
         let new_name = new_var (Convention.name_app x.name sf) in
         match struct_init_list with
-        | [] -> trm_let_mut (new_name, ty) (trm_uninitialized ())
+        | [] -> trm_let_uninit (new_name, ty)
         | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
 
         ) !field_list in

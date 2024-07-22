@@ -144,13 +144,13 @@ and print_prim style (p : prim) : document =
 and print_lit (l : lit) : document =
   match l with
   | Lit_unit -> string "Lit_unit"
-  | Lit_uninitialized -> string "Lit_uninitialized"
+  | Lit_uninitialized _ -> string "Lit_uninitialized"
   | Lit_bool b -> print_node "Lit_bool" ^^ string (string_of_bool b)
-  | Lit_int n -> print_node "Lit_int" ^^ string (string_of_int n)
-  | Lit_float f -> print_node "Lit_float" ^^ string (string_of_float f)
+  | Lit_int (ty, n) -> print_node "Lit_int" ^^ string (string_of_int n)
+  | Lit_float (ty, f) -> print_node "Lit_float" ^^ string (string_of_float f)
   | Lit_string s ->
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
-  | Lit_nullptr -> print_node "Lit_nullptr"
+  | Lit_nullptr _ -> print_node "Lit_nullptr"
 
 (** [print_attribute style a]: converts attribute [a] to pprint document *)
 and print_attribute style (a : attribute) : document =

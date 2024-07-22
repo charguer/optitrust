@@ -27,7 +27,7 @@ let bind_intro_at (my_mark : string) (index : int) (fresh_name : string) (const 
       let function_call = trm_add_mark my_mark function_call in
       let decl_to_insert =
       if const
-        then trm_let_immut (fresh_var, function_type) function_call
+        then trm_let (fresh_var, function_type) function_call
         else trm_let_mut (fresh_var, function_type) function_call
       in
       trm_seq_nobrace_nomarks [decl_to_insert; decl_to_change]
@@ -99,7 +99,7 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
           if is_typ_unit ty
             then [marked_body; exit_label]
             else
-              [trm_pass_marks fun_call (trm_let_mut (name, ty) (trm_uninitialized ()));marked_body; exit_label]
+              [trm_pass_marks fun_call (trm_let_uninit (name, ty));marked_body; exit_label]
           in
         trm_seq_nobrace_nomarks inlined_body
 

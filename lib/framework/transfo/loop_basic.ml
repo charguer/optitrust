@@ -214,7 +214,7 @@ let hoist_on (name : string)
     elem_ty := etyp;
     new_dims := (arith_f array_size) :: dims;
     let partial_indices = (arith_f new_index) ::
-      (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
+      (List.init (List.length dims) (fun _ -> trm_int 0)) in
     let mindex = mindex !new_dims partial_indices in
     let new_access = trm_array_access (trm_var !new_var) mindex in
     let tmp_var = trm_let (x, typ_ptr etyp) new_access in
@@ -905,7 +905,7 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let index_expr = trm_sub (trm_var index') shift in
   (* NOTE: assuming int type if no type is available *)
   let body_terms' = Mlist.push_front (
-    trm_let_immut (index, (Option.value ~default:(typ_int) start.typ)) index_expr) body_terms in
+    trm_let (index, (Option.value ~default:(typ_int) start.typ)) index_expr) body_terms in
   let range' = { index = index'; start = start'; direction; stop = stop'; step } in
   begin if not contract.strict then
     trm_for_instrs ~annot:t.annot range' body_terms'
