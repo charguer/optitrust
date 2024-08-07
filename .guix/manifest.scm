@@ -16,7 +16,7 @@
          "emacs-org-ref"
          "emacs-tuareg"
          "emacs-projectile"
-         "emacs-dired-sidebar"
+         "emacs-treemacs"
          "emacs-spacemacs-theme"
          "git"))
   (package->development-manifest
