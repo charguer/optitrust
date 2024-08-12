@@ -1210,84 +1210,117 @@ let taskify_on (p : path) (t : trm) : unit =
 let taskify (tg : target) : unit =
   Target.iter (fun t p -> taskify_on p (get_trm_at_path p t)) tg
 
-(* [merge_on p t]: see [merge]. *)
+(** [merge_on p t]: see [merge]. *)
 let merge_on (p : path) (t : trm) : unit =
+  (** [merge_on.seq g start]: find the longest sequence of mergeable vertices
+      beginning with the [start] vertex in the task candidate graph [g]. *)
   let rec seq (g : TaskGraph.t) (start : TaskGraph.V.t) :
             TaskGraph.V.t list =
-    if (TaskGraph.out_degree g start) > 1 then
-      begin
-        [start]
-      end
+    (** Retrieve the successors of the first vertex, i.e. the [start] vertex, in
+        the future sequence. *)
+    let next = TaskGraph.succ g start in
+    (** If the [start] vertex does not have exactly one successor, it can not
+        represent the beginning of a sequence of vertices to merge. Indeed,
+        multiple successors indicate independent task candidates and there are
+        no vertices to merge if there are no successors. In these cases, we
+        simply return a single-vertex sequence with the [start] vertex. *)
+    if (List.length next) <> 1 then [start]
     else
-      begin
-        let child = TaskGraph.succ g start in
-        if (List.length child) < 1 then
-          begin
-            [start]
-          end
-        else
-          begin
-            let child = List.hd child in
-            let chtask = TaskGraph.V.label child in
-            if not (Task.attributed chtask Singleton) &&
-                 (TaskGraph.in_degree g child) < 2 then
-              start :: (seq g child)
-            else [start]
-          end
-      end
+      let next = List.hd next in
+      (** Otherwise, we check whether the successor *)
+      let next' = TaskGraph.V.label next in
+      (** can be merged, i.e. does not carry the [Singleton] attribute, and *)
+      if not (Task.attributed next' Singleton) &&
+           (** whether it has no other predecessors than [start]. Indeed,
+               merging such a node with another one would break the original
+               lexicographic order of the input program. *)
+           (TaskGraph.in_degree g next) < 2 then
+        (** If the successor of [start] meets the above conditions, we can
+            include it into the sequence. *)
+        start :: (seq g next)
+      (** Otherwise, we simply return a single-vertex sequence with the [start]
+          vertex. *)
+      else [start]
   in
-  let rec iter (g : TaskGraph.t) : unit =
+  (** [merge_on.one g]: traverse the task candidate graph [g] in search for
+      sequences of mergeable vertices, perform the merges, if any, and update
+      connecting edges. *)
+  let rec one (g : TaskGraph.t) : unit =
+    (** Retrieve all the vertices of [g] in a list. *)
     let vs = TaskGraph.fold_vertex (fun v acc -> v::acc) g [] in
+    (** Get the number of vertices in [g]. *)
     let nb = TaskGraph.nb_vertex g in
+    (** Loop over the list of vertices of [g] and *)
     for i = 0 to (nb - 1) do
-      begin
-        let vi = List.nth vs i in
-        let ti = TaskGraph.V.label vi in
-        if not (Task.attributed ti Singleton) &&
-             (TaskGraph.mem_vertex g vi) && (TaskGraph.in_degree g vi > 0) then
+      (** for each of them: *)
+      let vi = List.nth vs i in
+      (** - retrieve the label, *)
+      let ti = TaskGraph.V.label vi in
+      (** - check whether we can merge it with other vertices, i.e. whether it
+          does not carry the [Singleton] attribute, and whether it is not the
+          root vertex of [g], i.e. whether it has at least one predecessor.
+          Indeed, the root vertex is a symbolic vertex representing the entire
+          tuple of statements behind [g] and therefore, we should not merge it
+          with any other vertex. *)
+      if not (Task.attributed ti Singleton) && (TaskGraph.in_degree g vi > 0)
+      then
+        (** If the i-th vertex [vi] represents a valid beginning of a potential
+            sequences of mergeable vertices, constitue the largest such
+            sequence. *)
+        let s : TaskGraph.V.t list = seq g vi in
+        (** Get the length of the resulting sequence. *)
+        let slen = List.length s in
+        (** If there is more than one element, there are vertices to merge. *)
+        if slen > 1 then
           begin
-            let sq : TaskGraph.V.t list = seq g vi in 
-            let st = List.length sq in
-            if st > 1 then
-              begin
-                let start = List.hd sq in
-                let tail = List.tl sq in
-                let first = TaskGraph.V.label start in
-                let task : Task.t = List.fold_left (fun t v ->
-                                        let curr : Task.t =
-                                          TaskGraph.V.label v in
-                                        Task.merge t curr) first tail in
-                let stop = List.nth sq (st - 1) in
-                let pred = TaskGraph.pred g start in
-                let succ = TaskGraph.succ g stop in
-                let vi' = TaskGraph.V.create task in
-                TaskGraph.add_vertex g vi';
-                List.iter (fun v -> TaskGraph.add_edge g v vi') pred;
-                List.iter (fun v -> TaskGraph.add_edge g vi' v) succ;
-                List.iter (fun v -> TaskGraph.remove_vertex g v) sq
-              end
+            (** [vi] is the first element of [s]. Get the other elements to
+                merge with [vi]. *)
+            let others = List.tl s in
+            (** Get the label of [vi]. *)
+            let first = TaskGraph.V.label vi in
+            (** Merge the labels of [others] with the label of [vi]. *)
+            let task : Task.t = List.fold_left (fun t v ->
+                                    let c : Task.t = TaskGraph.V.label v in
+                                    Task.merge t c
+                                  ) first others in
+            (** Update the label elements of [vi] for it to represent the merged
+                task candidate. *)
+            first.current <- task.current;
+            first.attrs <- task.attrs;
+            first.ins <- task.ins;
+            first.inouts <- task.inouts;
+            first.ioattrs <- task.ioattrs;
+            first.children <- task.children;
+            (** Retrieve the last vertex in the sequence and *)
+            let last = List.nth s (slen - 1) in
+            (** make its successors the successors of [vi]. *)
+            TaskGraph.iter_succ (fun v ->
+                TaskGraph.add_edge g vi v) g last;
+            (** Remove the merged vertices. *)
+            List.iter (fun v -> TaskGraph.remove_vertex g v) others
           end
-      end
     done;
     TaskGraph.iter_vertex (fun v ->
         let t : Task.t = TaskGraph.V.label v in
-        List.iter (fun l -> List.iter (fun g -> iter g) l) t.children) g
+        List.iter (fun l -> List.iter (fun g -> one g) l) t.children) g
   in
-  (* Find the parent function. *)
+  (** Find the parent function. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_core.merge_on: unable to find parent \
+    | None -> fail t.loc "Apac_taskify.merge_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (* Find the corresponding constification record in [const_records]. *)
+  (** Find its constification record in [const_records]. *)
   let const_record = Var_Hashtbl.find const_records f in
-  (* Build the augmented AST correspoding to the function's body. *)
+  (** Retrieve the associated task candidate graph. *)
   let g = match const_record.task_graph with
     | Some (g') -> g'
-    | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
-                          taskify?" in
-  iter g;
+    | None -> fail t.loc "Apac_taskify.merge_on: Missing task candidate graph. \
+                          Did you taskify?" in
+  (** Apply the merging transformation on the task candidate graph. *)
+  one g;
   Printf.printf "Merged task graph of << %s >> follows:\n" (var_to_string f);
   TaskGraphPrinter.print g;
+  (** Save the resulting graph to a DOT, then to a PDF file. *)
   let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_merged.dot" in
   export_task_graph g dot;
   dot_to_pdf dot
