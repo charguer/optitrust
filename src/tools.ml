@@ -85,6 +85,14 @@ let fresh_generator () : (unit -> int) =
     incr n;
     !n
 
+(* [fresh_generator_from_zero ()]: generates a function that can be used to
+   return the next integer (starting from zero) at each invokation. *)
+let fresh_generator_from_zero () : (unit -> int) =
+  let n = ref (-1) in
+  fun () ->
+    incr n;
+    !n
+
 (* [resetable_fresh_generator()]: returns a pair of a generator and its reset function *)
 let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
