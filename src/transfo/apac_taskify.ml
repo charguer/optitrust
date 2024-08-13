@@ -522,17 +522,17 @@ let trm_discover_dependencies (locals : symbols)
   let inouts : dep Stack.t = Stack.create () in
   let attrs : (dep * DepAttr_set.t) Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
-  let (exists, isfun) =
+  let (_, _) =
     aux ins inouts attrs (Var_set.empty) 0 false ArgIn t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
   let ins' = Dep_set.of_stack ins in
   let inouts' = Dep_set.of_stack inouts in
   let attrs' = Dep_map.of_stack attrs in
   let tas = TaskAttr_set.empty in
-  let tas = if (not exists) then TaskAttr_set.add WaitForAll tas else tas in
+  (*let tas = if (not exists) then TaskAttr_set.add WaitForAll tas else tas in
   let tas = if (not isfun) && exists then
               TaskAttr_set.add WaitForSome tas
-            else tas in
+            else tas in*)
   (ins', inouts', attrs', tas)
 
 (* [taskify_on p t]: see [taskify]. *)
