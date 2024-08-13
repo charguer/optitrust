@@ -111,6 +111,7 @@ end
     Nodes can be merged or removed. *)
 module rec Task : sig
          type t = {
+             mutable schedule : int;
              mutable current : trms;
              mutable attrs : TaskAttr_set.t;
              mutable ins : Dep_set.t;
@@ -119,19 +120,24 @@ module rec Task : sig
              mutable children : TaskGraph.t list list;
            }
          val create :
-           trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t -> Dep_set.t ->
-           ioattrs_map -> TaskGraph.t list list -> t
+           int -> trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t ->
+           Dep_set.t -> ioattrs_map -> TaskGraph.t list list -> t
          val depending : t -> t -> bool
          val attributed : t -> TaskAttr.t -> bool
          val subscripted : t -> bool
          val taskified : t -> bool
          val merge : t -> t -> t
          val empty : unit -> t
+         val to_excerpt : t -> string
          val to_string : t -> string
          val to_label : t -> string
        end = struct
   (** A task graph node is represented by: *)
   type t = {
+      (** - a logical schedule allowing us to preserve the original
+          lexicographic order of statements in the output program (-1 means that
+          the task candidate has no valid schedule), *)
+      mutable schedule : int;
       (** - a list of AST terms associated with it (initially, only one term is
           in the list; multiple terms may appear after merging of two or more
           nodes), *)
@@ -153,46 +159,47 @@ module rec Task : sig
       mutable children : TaskGraph.t list list;
     }
   
-  (** [Task.create current attrs scope ins inouts children]: creates a new task
-      graph node based on the [current] AST term, the set of task [attrs], the
-      set of the current scope's variables, the set of input dependencies [ins],
-      the set of input-output dependencies [inouts] and the list of lists of
-      nested task graphs. *)
-  let create (current : trm) (attrs : TaskAttr_set.t) (scope : Var_set.t)
-        (ins : Dep_set.t) (inouts : Dep_set.t) (ioattrs : ioattrs_map)
-        (children : TaskGraph.t list list) : t =
-    (* Filter out the input dependencies on variables that are not defined in
-       the current scope. *)
+  (** [Task.create schedule current attrs scope ins inouts children]: creates a
+      new task candiate based on the logical [schedule], the [current] AST term,
+      the set of task [attrs], the set of the current scope's variables, the set
+      of input dependencies [ins], the set of input-output dependencies [inouts]
+      and the list of lists of nested task graphs. *)
+  let create (schedule : int) (current : trm) (attrs : TaskAttr_set.t)
+        (scope : Var_set.t) (ins : Dep_set.t) (inouts : Dep_set.t)
+        (ioattrs : ioattrs_map) (children : TaskGraph.t list list) : t =
+    (** Filter out the input dependencies on variables that are not defined in
+        the current scope. *)
     let ins' = Dep_set.filter (
                    fun d -> match d with
                             | Dep_var v -> Var_set.mem v scope
                             | Dep_trm (_, v) -> Var_set.mem v scope
                             | _ -> false
                  ) ins in
-    (* Filter out the input-output dependencies on variables that are not
-       defined in the current scope. *)
+    (** Filter out the input-output dependencies on variables that are not
+        defined in the current scope. *)
     let inouts' = Dep_set.filter (
                       fun d -> match d with
                                | Dep_var v -> Var_set.mem v scope
                                | Dep_trm (_, v) -> Var_set.mem v scope
                                | _ -> false
                     ) inouts in
-    (* Filter out the attributes for dependencies on variables that are not
-       defined in the current scope. *)
+    (** Filter out the attributes for dependencies on variables that are not
+        defined in the current scope. *)
     let ioattrs' = Dep_map.filter (
                       fun d _ -> match d with
                                | Dep_var v -> Var_set.mem v scope
                                | Dep_trm (_, v) -> Var_set.mem v scope
                                | _ -> false
                     ) ioattrs in
-    (* The dependency analysis may conclude that a dependency is both an input
-       and an input-output dependency. To simplify further computations on
-       dependencies, we remove this kind of dependencies from the set of input
-       dependencies and keep them only in the set of input-output
-       dependencies. *)
+    (** The dependency analysis may conclude that a dependency is both an input
+        and an input-output dependency. To simplify further computations on
+        dependencies, we remove this kind of dependencies from the set of input
+        dependencies and keep them only in the set of input-output
+        dependencies. *)
     let ins' = Dep_set.diff ins' inouts' in
     {
-      (* Initially, a task is represented by a single instruction. *)
+      schedule = schedule;
+      (** Initially, a task is represented by a single instruction. *)
       current = [current];
       attrs = attrs;
       ins = ins';
@@ -207,16 +214,15 @@ module rec Task : sig
     let dsf (ioa : ioattrs_map) (d : Dep.t) : bool =
       Dep_map.has_with_attribute d Subscripted ioa
     in
-    (* let _ = Printf.printf "Test between:\n%s\nand\n%s\n" (Task.to_string t1) (Task.to_string t2) in *)
     let i1 =
-      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) true t2.ins (dsf t2.ioattrs) false in
-    (* let _ = Printf.printf "i1: %s\n" (Dep_set.to_string i1) in *)
+      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) true
+        t2.ins (dsf t2.ioattrs) false in
     let i2 =
-      Dep_set.inter2 t1.ins (dsf t1.ioattrs) false t2.inouts (dsf t2.ioattrs) true in
-    (* let _ = Printf.printf "i2: %s\n" (Dep_set.to_string i2) in *)
+      Dep_set.inter2 t1.ins (dsf t1.ioattrs) false
+        t2.inouts (dsf t2.ioattrs) true in
     let i3 =
-      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) true t2.inouts (dsf t2.ioattrs) true in
-    (* let _ = Printf.printf "i3: %s\n" (Dep_set.to_string i3) in *)
+      Dep_set.inter2 t1.inouts (dsf t1.ioattrs) true
+        t2.inouts (dsf t2.ioattrs) true in
     not ((Dep_set.is_empty i1) && (Dep_set.is_empty i2) &&
            (Dep_set.is_empty i3))
 
@@ -244,20 +250,20 @@ module rec Task : sig
   let merge (t1 : t) (t2 : t) : t =
     (** [Task.merge.xor a b]: computes the exclusive OR of [a] and [b]. *)
     let xor (a : bool) (b : bool) : bool = (a || b) && not (a && b) in
-    (* For this, we concatenate the lists of associated AST terms, *)
+    (** For this, we concatenate the lists of associated AST terms, *)
     let current' = t1.current @ t2.current in
-    (* compute the union of attributes, *)
+    (** compute the union of attributes, *)
     let attrs' = TaskAttr_set.union t1.attrs t2.attrs in
-    (* compute the union of the input dependency sets, *)
+    (** compute the union of the input dependency sets, *)
     let ins' = Dep_set.union t1.ins t2.ins in
-    (* compute the union of the input-output dependency sets, *)
+    (** compute the union of the input-output dependency sets, *)
     let inouts' = Dep_set.union t1.inouts t2.inouts in
     (** remove from the set of input dependencies the dependencies that are both
         input and input-output dependencies, *)
     let ins' = Dep_set.diff ins' inouts' in
-    (* compute the union of maps of dependency attributes, *)
+    (** compute the union of maps of dependency attributes, *)
     let ioattrs' = Dep_map.union2 t1.ioattrs t2.ioattrs in
-    (* concatenate the list of lists of nested graphs of [t1] and [t2]. *)
+    (** concatenate the list of lists of nested graphs of [t1] and [t2]. *)
     let children' = t1.children @ t2.children in
     (** If we are merging a suitable task candidate with an unsuitble task
         candidate, the result is a suitable task candidate. *)
@@ -265,6 +271,7 @@ module rec Task : sig
       if xor (attributed t1 WaitForSome) (attributed t2 WaitForSome) then
         TaskAttr_set.remove WaitForSome attrs' else attrs' in
     {
+      schedule = t1.schedule;
       current = current';
       attrs = attrs';
       ins = ins';
@@ -276,6 +283,7 @@ module rec Task : sig
   (** [Task.empty]: produces an empty task having no AST term associated with it
       as well as without any attributes, dependencies or nested graphs. *)
   let empty () = {
+      schedule = -1;
       current = [];
       attrs = TaskAttr_set.empty;
       ins = Dep_set.empty;
@@ -283,10 +291,24 @@ module rec Task : sig
       ioattrs = Dep_map.empty;
       children = [];
     }
+
+  (** [Task.to_excerpt task]: returns a string representation of an excerpt of
+      the first statement in [task]. *)
+  let to_excerpt (task : t) : string =
+    let instr = AstC_to_c.ast_to_string (List.hd task.current) in
+    let instr = String.split_on_char '\n' instr in
+    let instr = List.hd instr in
+    let instr = String.split_on_char '"' instr in
+    let instr = List.hd instr in
+    let instr = String.trim instr in
+    let limit = String.length instr in
+    let limit = if limit > 20 then 20 else limit in
+    String.sub instr 0 limit
   
   (** [Task.to_string task]: returns a string representation of [task]. *)
   let to_string (task : t) : string =
-    let what = List.fold_left (fun acc term ->
+    let what = (string_of_int task.schedule) ^ ": " ^
+                 List.fold_left (fun acc term ->
                    let desc = trm_desc_to_string term.desc in
                    acc ^ " > " ^ desc
                  ) "" task.current in
@@ -309,15 +331,7 @@ module rec Task : sig
                      let ioa = if ioa <> "" then " " ^ ioa else ioa in
                      acc ^ " " ^ (Dep.to_string a) ^ ioa
                    ) task.inouts "" in
-    let instr = AstC_to_c.ast_to_string (List.hd task.current) in
-    let instr = String.split_on_char '\n' instr in
-    let instr = List.hd instr in
-    let instr = String.split_on_char '"' instr in
-    let instr = List.hd instr in
-    let instr = String.trim instr in
-    let limit = String.length instr in
-    let limit = if limit > 20 then 20 else limit in
-    let excerpt = String.sub instr 0 limit in
+    let excerpt = to_excerpt task in
     what ^ "[ " ^ excerpt  ^ " ]" ^
       " (in: [" ^ ins ^ " ], inout: [" ^ inouts ^ " ]) (" ^
         (TaskAttr_set.to_string task.attrs) ^ ")\n"
@@ -326,19 +340,12 @@ module rec Task : sig
       converting a task graph into the Dot text format. See
       [TaskGraphPrinter]. *)
   let to_label (task : t) : string =
-    let what = List.fold_left (fun acc term ->
+    let what = (string_of_int task.schedule) ^ ": " ^
+                 List.fold_left (fun acc term ->
                    let desc = trm_desc_to_string term.desc in
                    acc ^ " > " ^ desc
                  ) "" task.current in
-    let instr = AstC_to_c.ast_to_string (List.hd task.current) in
-    let instr = String.split_on_char '\n' instr in
-    let instr = List.hd instr in
-    let instr = String.split_on_char '"' instr in
-    let instr = List.hd instr in
-    let instr = String.trim instr in
-    let limit = String.length instr in
-    let limit = if limit > 20 then 20 else limit in
-    let excerpt = String.sub instr 0 limit in
+    let excerpt = to_excerpt task in
     what ^ "\\n" ^ (TaskAttr_set.to_string task.attrs) ^ "\\n" ^ excerpt
 end and TaskGraph : Sig.IM
         with type V.label = Task.t and
@@ -355,17 +362,15 @@ module TaskGraphPrinter = struct
   (** [TaskGraphPrinter.vertex_name vertex]: returns a string representation of
       [vertex] in a [TaskGraph]. *)
   let vertex_name (vertex : V.t) : string =
-    (* Get the [Task] corresponding to [vertex]. *)
+    (** Get the [Task] corresponding to [vertex]. *)
     let task = TaskGraph.V.label vertex in
-    (* Hash [vertex]. *)
-    let id = TaskGraph.V.hash vertex in
-    (* Determine the kinds of the AST terms associated with the task and *)
+    (** Determine the kinds of the AST terms associated with the task and *)
     let what = List.fold_left (fun acc term ->
                    let desc = trm_desc_to_string term.desc in
                    acc ^ "_" ^ desc
                  ) "" task.current in
-    (* append a unique identifier, i.e. the hash of [vertex], to it. *)
-    what ^ "_" ^ (string_of_int id)
+    (** append a unique identifier, i.e. the schedule of [vertex], to it. *)
+    what ^ "_" ^ (string_of_int task.schedule)
   (** [TaskGraphPrinter.vertex_attributes vertex]: associates a list of
       attributes to a given [vertex] of a [TaskGraph]. Here, we consider only
       the [Label] attributed, which is produced using the [to_label] method of
@@ -402,7 +407,8 @@ module TaskGraphPrinter = struct
                                              let o = aux g' (indent ^ "    ") in
                                              acc ^ o) "" gl
                                 in acc ^ og) "" vl.children in
-          acc ^ indent ^ (string_of_int (TaskGraph.V.hash v)) ^ ": " ^ (Task.to_string vl) ^ sg) g ""
+          acc ^ indent ^ (string_of_int (TaskGraph.V.hash v)) ^ ": " ^
+            (Task.to_string vl) ^ sg) g ""
     in
     aux g ""
   (** [TaskGraphPrinter.print g]: prints a string representation of a possibly

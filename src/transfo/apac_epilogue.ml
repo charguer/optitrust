@@ -859,6 +859,7 @@ let reduce_waits2_on (p : path) (t : trm) : unit =
                       Dep_map.has_with_attribute d Condition task.ioattrs
                        ) task.inouts in
         let task' : Task.t = {
+            schedule = task.schedule;
             current = task.current;
             attrs = task.attrs;
             ins = ins;
