@@ -491,52 +491,19 @@ end = struct
       each vertex into the corresponding output AST term thanks to the
       user-provided codification function [c]. *)
   let codify (c : (TaskGraph.V.t -> trms)) (g : TaskGraph.t) : trms =
-    (** Find and extract the root node. *)
-    let r = TaskGraphOper.root g in
-    (** Create an hash table for already visited nodes. *)
-    let v = H.create 97 in
-    (** Create a queue for elements to visit. *)
-    let q = Queue.create () in
-    let rec visit (root : bool) (ts : trms) : trms =
-      (** If the queue of elements to visit is empty, we are done. Return the
-          list of codified elements. *)
-      if (Queue.is_empty q) then ts else
-        begin
-          (** Otherwise, get the first element from the queue of vertices to
-              visit. This will be the current element to process. *)
-          let hd = Queue.take q in
-          (** If all of its predecessors has been visited, i.e. if all of them
-              are in the hash table of visited nodes, *)
-          let all = TaskGraph.fold_pred (fun p a -> a && H.mem v p) g hd true in
-          if all && not (H.mem v hd) then
-            begin
-              (** visit the current element, *)
-              H.add v hd ();
-              (** push its successors to the queue of vertices to visit, *)
-              TaskGraph.iter_succ (fun e ->
-                  (** If a successor is a part of a sequence of nodes we could
-                      merge in the future due to in-between data dependencies,
-                      push them to the queue of vertices to visit as well. This
-                      allows us to further preserve the original lexicographic
-                      order of the input source code in the output source
-                      code. See [TaskGraphTraverse.seq]. *)
-                  let es = seq e g in List.iter (fun f -> Queue.push f q) es
-                ) g hd;
-              (** codify the current element, *)
-              let ce = if root then [] else c hd in
-              (** append it to the list of already codified elements and
-                  recurse. *)
-              visit false (ts @ ce)
-            end
-              (** Otherwise, do nothing and recurse. *)
-          else visit false ts
-        end
-    in
-    (** Push the root element to the queue and *)
-    Queue.push r q;
-    (** Start the codification process with an empty list of codified
-        elements. *)
-    visit true []
+    (** Retrieve all the vertices of [g] in a list. *)
+    let vs = TaskGraph.fold_vertex (fun v acc -> v::acc) g [] in
+    (** Sort the list of vertices in the ascending order following their
+        schedules (see [Task.t]). *)
+    let vs = List.sort (fun v1 v2 ->
+                 let t1 = TaskGraph.V.label v1 in
+                 let t2 = TaskGraph.V.label v2 in
+                 Int.compare t1.schedule t2.schedule
+               ) vs in
+    (** Discard the virtual root vertex, i.e. the vertex of schedule 0. *)
+    let vs = List.tl vs in
+    (** Codify all the vertices and return the result. *)
+    List.fold_left (fun acc v -> acc @ (c v)) [] vs
   
   (** [TaskGraphTraverse.iter c g]: iterates over the vertices of the task graph
       [g] while applying the user-provided function [f] on each of them. *)
