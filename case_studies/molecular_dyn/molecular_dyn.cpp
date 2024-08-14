@@ -69,13 +69,13 @@ Cell * cell_self_compute(Cell * cell) {
       dy *= inv_square_distance;
       dz *= inv_square_distance;
 
-      cell->particles[idxSrc].x += dx;
-      cell->particles[idxSrc].y += dy;
-      cell->particles[idxSrc].z += dz;
+      cell->particles[idxSrc].vx += dx;
+      cell->particles[idxSrc].vy += dy;
+      cell->particles[idxSrc].vz += dz;
 
-      cell->particles[idxTgt].x -= dx;
-      cell->particles[idxTgt].y -= dy;
-      cell->particles[idxTgt].z -= dz;
+      cell->particles[idxTgt].vx -= dx;
+      cell->particles[idxTgt].vy -= dy;
+      cell->particles[idxTgt].vz -= dz;
     }
   }
 
@@ -103,9 +103,9 @@ Cell * cell_neighbor_compute(Cell * me, Cell * neighbor) {
       dy *= inv_square_distance;
       dz *= inv_square_distance;
 
-      me->particles[idxSrc].x += dx;
-      me->particles[idxSrc].y += dy;
-      me->particles[idxSrc].z += dz;
+      me->particles[idxSrc].vx += dx;
+      me->particles[idxSrc].vy += dy;
+      me->particles[idxSrc].vz += dz;
     }
   }
 
