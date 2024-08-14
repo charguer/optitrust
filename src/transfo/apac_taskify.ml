@@ -1286,6 +1286,24 @@ let merge (tg : target) : unit =
 
 (** [detect_tasks_simple_on p t]: see [detect_tasks_simple_on]. *)
 let detect_tasks_simple_on (p : path) (t : trm) : unit =
+  (** [detect_tasks_simple_on.aux v]: if the vertex [v] features a call to a
+      function we know the definition of, attribute it [Taskifiable]. Otherwise,
+      if [v] involves nested candidate graphs, process them recursively. *)
+  let rec aux (v : TaskGraph.V.t) : unit =
+    let t = TaskGraph.V.label v in
+    if (List.exists (fun s ->
+            match s.desc with
+            | Trm_apps ({ desc = Trm_var (_ , f); _ }, _)
+                 when Var_Hashtbl.mem const_records f -> true
+            | _ -> false) t.current) then
+      t.attrs <- TaskAttr_set.add Taskifiable t.attrs;
+    (** Process the task candidates in nested task candidate graphs, if any. *)
+    List.iter (fun gl ->
+        List.iter (fun go ->
+            TaskGraphTraverse.iter aux go
+          ) gl
+      ) t.children
+  in
   (** Find the parent function. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
@@ -1298,17 +1316,13 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
     | Some (g') -> g'
     | None -> fail t.loc "Apac_taskify.detect_tasks_simple_on: Missing task \
                           candidate graph. Did you taskify?" in
-  (** Add the [Taskifiable] attribute to every task candidate consisting of a
-      call to a function we know the definition of. *)
-  TaskGraphTraverse.iter (fun v ->
-      let t = TaskGraph.V.label v in
-      let c = List.hd t.current in
-      match c.desc with
-      | Trm_apps ({ desc = Trm_var (_ , f); _ }, _)
-           when Var_Hashtbl.mem const_records f ->
-         t.attrs <- TaskAttr_set.add Taskifiable t.attrs
-      | _ -> ()         
-    ) g
+  (** Add the [Taskifiable] attribute to every task candidate featuring a call
+      to a function we know the definition of. *)
+  TaskGraphTraverse.iter aux g;
+  (** Save the resulting graph to a DOT, then to a PDF file. *)
+  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_detect.dot" in
+  export_task_graph g dot;
+  dot_to_pdf dot
 
 let detect_tasks_simple (tg : target) : unit =
   Target.iter (fun t p -> detect_tasks_simple_on p (get_trm_at_path p t)) tg
