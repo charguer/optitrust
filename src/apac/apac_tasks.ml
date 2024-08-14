@@ -350,8 +350,8 @@ module TaskGraphPrinter = struct
                    let desc = trm_desc_to_string term.desc in
                    acc ^ "_" ^ desc
                  ) "" task.current in
-    (** append a unique identifier, i.e. the schedule of [vertex], to it. *)
-    what ^ "_" ^ (string_of_int task.schedule)
+    (** append a unique identifier, i.e. the hash of [vertex], to it. *)
+    what ^ "_" ^ (string_of_int (TaskGraph.V.hash vertex))
   (** [TaskGraphPrinter.vertex_attributes vertex]: associates a list of
       attributes to a given [vertex] of a [TaskGraph]. Here, we consider only
       the [Label] attributed, which is produced using the [to_label] method of
