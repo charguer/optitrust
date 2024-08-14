@@ -467,8 +467,8 @@ module TaskGraphOper = struct
   (** [TaskGraphOper.root g]: find the root node of the task graph [g], i.e. the
       node without any predecessor. *)
   let root (g : TaskGraph.t) : TaskGraph.V.t =
-    (* Traverse the graph [g] and find the node without predecessors. This will
-       be the root node. *)
+    (** Traverse the graph [g] and find the node without predecessors. This will
+        be the root node. *)
     let vs = TaskGraph.fold_vertex (fun v acc ->
                  if TaskGraph.in_degree g v < 1 then v::acc else acc
                ) g [] in
