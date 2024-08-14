@@ -700,10 +700,7 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins ct.ins,
           Dep_set.union inouts ct.inouts,
           Dep_map.union2 ioattrs ct.ioattrs) in
-       (* A for-loop node should not become a task by itself. *)
-       let tas = TaskAttr_set.add WaitForSome tas in
-       (* As it won't become a task, it should not be merged with other
-          potential tasks. *)
+       (* A for-loop node should not be merged with other potential tasks. *)
        let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
@@ -786,10 +783,7 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins ct.ins,
           Dep_set.union inouts ct.inouts,
           Dep_map.union2 ioattrs ct.ioattrs) in
-       (* A for-loop node should not become a task by itself. *)
-       let tas = TaskAttr_set.add WaitForSome tas in
-       (* As it won't become a task, it should not be merged with other
-          potential tasks. *)
+       (* A for-loop node should not be merged with other potential tasks. *)
        let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
@@ -884,10 +878,7 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins tn.ins,
           Dep_set.union inouts tn.inouts,
           Dep_map.union2 ioattrs tn.ioattrs) in
-       (* An [if] node should not become a task by itself. *)
-       let tas = TaskAttr_set.add WaitForSome tas in
-       (* As it won't become a task, it should not be merged with other
-          potential tasks. *)
+       (* An [if] node should not be merged with other potential tasks. *)
        let tas = TaskAttr_set.add Singleton tas in
        (* Initialize the list of sub-graphs corresponding to the [then] branch
           and, if present, for the [else] branch too. *)
@@ -928,10 +919,7 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins tb.ins,
           Dep_set.union inouts tb.inouts,
           Dep_map.union2 ioattrs tb.ioattrs) in
-       (* A while-loop node should not become a task by itself. *)
-       let tas = TaskAttr_set.add WaitForSome tas in
-       (* As it won't become a task, it should not be merged with other
-          potential tasks. *)
+       (* A while-loop node should not be merged with other potential tasks. *)
        let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current [while] graph node using
           all the elements computed above. *)
@@ -968,10 +956,8 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins tb.ins,
           Dep_set.union inouts tb.inouts,
           Dep_map.union2 ioattrs tb.ioattrs) in
-       (* A do-while-loop node should not become a task by itself. *)
-       let tas = TaskAttr_set.add WaitForSome tas in
-       (* As it won't become a task, it should not be merged with other
-          potential tasks. *)
+       (* A do-while-loop node should not be merged with other potential
+          tasks. *)
        let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current [do-while] graph node
           using all the elements computed above. *)
@@ -1031,10 +1017,7 @@ let taskify_on (p : path) (t : trm) : unit =
               Dep_set.union inouts' tb.inouts,
               Dep_map.union2 ioattrs' tb.ioattrs))
            (ins, inouts, ioattrs) tbs in
-       (* A switch node should not become a task by itself. *)
-       let tas = TaskAttr_set.add WaitForSome tas in
-       (* As it won't become a task, it should not be merged with other
-          potential tasks. *)
+       (* A switch node should not be merged with other potential tasks. *)
        let tas = TaskAttr_set.add Singleton tas in
        (* Create the task corresponding to the current [switch] graph node
           using all the elements computed above. *)

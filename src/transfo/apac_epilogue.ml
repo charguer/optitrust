@@ -838,64 +838,94 @@ let synchronize_subscripts (tg : target) : unit =
   Target.iter (fun t p ->
       synchronize_subscripts_on p (Path.get_trm_at_path p t)) tg
 
-(* [reduce_waits2_on p t]: see [reduce_waits2]. *)
-let reduce_waits2_on (p : path) (t : trm) : unit =
-  let rec process (previous : (Task.t * int) Stack.t) (level : int)
-            (vertex : TaskGraph.V.t) : unit =
-    let task : Task.t = TaskGraph.V.label vertex in
-    if (Task.attributed task Taskifiable) then
-      Stack.push (task, level) previous
-    else if (Task.attributed task WaitForSome) then
-      begin
-        let ins = Dep_set.filter (fun d ->
-                      Dep_map.has_with_attribute d Condition task.ioattrs
-                    ) task.ins in
-        let inouts = Dep_set.filter (fun d ->
-                      Dep_map.has_with_attribute d Condition task.ioattrs
-                       ) task.inouts in
-        let task' : Task.t = {
-            schedule = task.schedule;
-            current = task.current;
-            attrs = task.attrs;
-            ins = ins;
-            inouts = inouts;
-            ioattrs = task.ioattrs;
-            children = task.children;
-          }
-        in
-        let depends = Stack.fold (fun acc (t, l) ->
-                          acc || (Task.depending t task')
-                        ) false previous in
-        if (not depends) then
-          begin
-            task.attrs <- TaskAttr_set.remove WaitForSome task.attrs
-          end
-      end;
+(** [place_barriers_on p t]: see [place_barriers]. *)
+let place_barriers_on (p : path) (t : trm) : unit =
+  (** [place_barriers_on.process previous vertex]: auxiliary function for
+      processing a vertex [v] based on preceding eligible task candidates in the
+      stack [ts]. *)
+  let rec process (ts : Task.t Stack.t) (v : TaskGraph.V.t) : unit =
+    (** Retrieve the label [t] of the task candidate [v]. *)
+    let t : Task.t = TaskGraph.V.label v in
+    (** If [t] indicates that [v] is an eligible task candidate, i.e. it carries
+        the [Taskifiable] attribute, add it to the stack of preceding eligible
+        task candidates [ts]. *)
+    if (Task.attributed t Taskifiable) then
+      Stack.push t ts
+    else if (Stack.length ts) > 0 then
+      (** Otherwise, if, according to [t], [v] does not represent a global
+          synchronization barrier (see the [WaitForAll] attribute) nor
+          [Apac_macros.goto_label] (see the [ExitPoint] attribute), we have to
+          determine whether [v] depends on a preceding eligible task
+          candidate, if any. *)
+      if not (Task.attributed t WaitForAll) &&
+              not (Task.attributed t ExitPoint) then
+        begin
+          (** To this end, we imagine a temporary task candidate with a label
+              [temp], based on [t], but omitting the dependencies from nested
+              task candidate graphs, if any. We process the task candidates in
+              nested task candidate graphs separately through a recurive call to
+              this function (see below). *)
+          let ins = if t.children <> [[]] then
+                      Dep_set.filter (fun d ->
+                          Dep_map.has_with_attribute d Condition t.ioattrs
+                        ) t.ins
+                    else t.ins in
+          let inouts = if t.children <> [[]] then
+                         Dep_set.filter (fun d ->
+                             Dep_map.has_with_attribute d Condition t.ioattrs
+                           ) t.inouts
+                       else t.inouts in
+          let temp : Task.t = {
+              schedule = t.schedule;
+              current = t.current;
+              attrs = t.attrs;
+              ins = ins;
+              inouts = inouts;
+              ioattrs = t.ioattrs;
+              children = t.children;
+            }
+          in
+          (** Check whether the temporary task candidate shares a data dependency
+              with a preceding eligible task candidate. *)
+          let depends = Stack.fold (fun acc task' ->
+                            acc || (Task.depending task' temp)
+                          ) false ts in
+          (** If so, we request a synchronization barrier for [v] through [t]
+              thanks to the [WaitForSome] attribute. *)
+          if depends then t.attrs <- TaskAttr_set.add WaitForSome t.attrs
+        end;
+    (** Process the task candidates in nested task candidate graphs, if any. *)
     List.iter (fun gl ->
         List.iter (fun go ->
-            TaskGraphTraverse.iter (process previous (level + 1)) go
+            TaskGraphTraverse.iter (process ts) go
           ) gl
-      ) task.children
+      ) t.children
   in
-  (* Find the parent function. *)
+  (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_epilogue.reduce_waits2_on: unable to find \
+    | None -> fail t.loc "Apac_epilogue.place_barriers_on: unable to find \
                           parent function. Task group outside of a function?" in
-  (* Find the corresponding constification record in [const_records]. *)
+  (** Find the constification record of [f] in [const_records]. *)
   let const_record = Var_Hashtbl.find const_records f in
-  (* Build the augmented AST correspoding to the function's body. *)
+  (** Try to retrieve the task candidate graph representation [g] of [f]. *)
   let g = match const_record.task_graph with
     | Some (g') -> g'
-    | None -> fail t.loc "Apac_epilogue.reduce_waits2_on: Missing task graph. \
-                          Did you taskify?" in
-  let previous : (Task.t * int) Stack.t = Stack.create () in
-  TaskGraphTraverse.iter (process previous 1) g;
-  Printf.printf "Reduced waits2 task graph of << %s >> follows:\n" (var_to_string f);
-  TaskGraphPrinter.print g;
-  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_waits2.dot" in
+    | None -> fail t.loc "Apac_epilogue.place_barriers_on: Missing task \
+                          candidate graph. Did you taskify?" in
+  (** Initialize a stack of preceding eligible task candiates. *)
+  let ts : Task.t Stack.t = Stack.create () in
+  (** Process each task candidate in [g]. *)
+  TaskGraphTraverse.iter (process ts) g;
+  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_barriers.dot" in
   export_task_graph g dot;
   dot_to_pdf dot
 
-let reduce_waits2 (tg : target) : unit =
-  Target.iter (fun t p -> reduce_waits2_on p (Path.get_trm_at_path p t)) tg
+(** [place_barriers tg]: expects the target [tg] to point at the body of a
+    function having a task candidate graph representation. If a vertex in the
+    latter does not represent an eligible task candidate, i.e. it does not carry
+    the [Taskifiable] attribute, this transformation translates it into a
+    synchronization barrier if necessary, i.e. if it depends on a preceding
+    eligible task candidate in the task candidate graph. *)
+let place_barriers (tg : target) : unit =
+  Target.iter (fun t p -> place_barriers_on p (Path.get_trm_at_path p t)) tg
