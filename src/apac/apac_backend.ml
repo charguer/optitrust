@@ -100,17 +100,15 @@ let depth_update () : trm =
   trm_if condition increment (trm_unit ())
 
 let emit_omp_task (t : Task.t) : trms =
-  if (Task.attributed t WaitForNone) ||
-       ((Task.attributed t ExitPoint) && not (Task.attributed t IsJump)) then
-    t.current
-  else if (Task.attributed t WaitForAll) || (Task.attributed t IsJump) then
+  if (Task.attributed t WaitForAll) then
     begin
       let pragma = Taskwait [] in
       let first = List.hd t.current in
       let first = trm_add_pragma pragma first in
       first :: (List.tl t.current)
     end
-  else
+  else if (Task.attributed t Taskifiable) ||
+            (Task.attributed t WaitForSome) then
     begin
       let sync = Dep_set.filter (fun d ->
                      Dep_map.has_with_attribute d Accessor t.ioattrs
@@ -210,6 +208,7 @@ let emit_omp_task (t : Task.t) : trms =
           else [instr]
         end
     end
+  else t.current
 
 let emit_profiler_task (t : Task.t) : trms =
   let get_begin (loc : location) : string =
@@ -222,9 +221,8 @@ let emit_profiler_task (t : Task.t) : trms =
     | None -> "_"
     | Some { loc_end = {pos_line = line; _}; _} -> string_of_int line
   in
-  if (Task.attributed t ExitPoint) ||
-       (Task.attributed t HasJump) ||
-         (Task.attributed t WaitForNone) then t.current
+  if (Task.attributed t WaitForAll)
+     || (Task.attributed t ExitPoint) then t.current
   else
     let reads = Dep_set.cardinal t.ins in
     let writes = Dep_set.cardinal t.inouts in

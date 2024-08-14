@@ -12,42 +12,37 @@ open Ast
 open Graph
 open Apac_dep
 
-(** [TaskAttr]: a module to represent task attributes. See [Task]. *)
+(** [TaskAttr]: a module to represent task candidate attributes. See [Task]. *)
 module TaskAttr : sig
   type t =
+    | ExitPoint
     | Singleton
-    | WaitForNone
+    | Taskifiable
     | WaitForSome
     | WaitForAll
-    | HasJump
-    | IsJump
-    | ExitPoint
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val to_string : t -> string
 end = struct
   type t =
-    (** Never merge the task with other tasks. *)
-    | Singleton
-    (** Do not create a task. *)
-    | WaitForNone
-    (** Do not create a task. In the resulting code, prepend the associated
-       statements with a synchronisation barrier on selected dependencies. *)
-    | WaitForSome
-    (** Do not create a task. In the resulting code, prepend the associated
-       statements with a global synchronisation barrier. *)
-    | WaitForAll
-    (** The task contains an unconditional jump, i.e. a [goto]. *)
-    | HasJump
-    (** The task is an unconditional jump, i.e. a [goto]. *)
-    | IsJump
-    (** The task represents the last instruction before exiting the execution
-        sequence, i.e. the [Apac_core.goto_label]. *)
+    (** The task candidate represents the [Apac_macros.goto_label] we introduce
+        during the return statement replacement transformation
+        [Apac_basic.use_goto_for_return]. *)
     | ExitPoint
+    (** Never merge the task candidate with other task candidates. *)
+    | Singleton
+    (** Mark the task candidate as eligible to become a parallelizable task. *)
+    | Taskifiable
+    (** Instead of becoming a parallelizable task, the task candidate should
+        translate into a synchronization barrier with explicit data
+        dependencies. *)
+    | WaitForSome
+    (** Instead of becoming a parallelizable task, the task candidate should
+        translate into a global synchronization barrier. *)
+    | WaitForAll
   (** [TaskAttr.compare ta1 ta2]: compares two task attributes [ta1] and [ta2].
       As [TaskAttr.t] is an enumeration type, this is a simple comparison
-      between two integer values representing the associated enumeration labels
-      being compared. *)
+      between two integer values representing enumeration labels. *)
   let compare (ta1 : t) (ta2 : t) : int =
     if ta1 = ta2 then 0
     else if ta1 > ta2 then 1
@@ -59,22 +54,19 @@ end = struct
       attribute [ta]. *)
   let to_string (ta : t) : string =
     match ta with
+    | ExitPoint -> "ExitPoint"
     | Singleton -> "Singleton"
-    | WaitForNone -> "WaitForNone"
+    | Taskifiable -> "Taskifiable"
     | WaitForSome -> "WaitForSome"
     | WaitForAll -> "WaitForAll"
-    | HasJump -> "HasJump"
-    | IsJump -> "IsJump"
-    | ExitPoint -> "ExitPoint"
 end
 
-(** [TaskAttr_set]: a module to represent sets of task attributes. *)
+(** [TaskAttr_set]: a module to represent sets of task candidate attributes. *)
 module TaskAttr_set = struct
   include Set.Make(TaskAttr)
   (** [TaskAttr_set.union2 tas1 tas2]: same as [TaskAttr_set.union], but if the
-      union of the sets of task attributes [tas1] and [tas2] contains both the
-      [WaitForSome] attribute and the [WaitForAll] attribute, only the latter is
-      kept. *)
+      union of [tas1] and [tas2] contains both the [WaitForSome] and the
+      [WaitForAll] attributes, we keep only the latter. *)
   let union2 (tas1 : t) (tas2 : t) : t =
     let tas = union tas1 tas2 in
     if mem WaitForAll tas then remove WaitForSome tas else tas
@@ -125,7 +117,6 @@ module rec Task : sig
          val depending : t -> t -> bool
          val attributed : t -> TaskAttr.t -> bool
          val subscripted : t -> bool
-         val taskified : t -> bool
          val merge : t -> t -> t
          val empty : unit -> t
          val to_excerpt : t -> string
@@ -235,16 +226,6 @@ module rec Task : sig
       of the task [task] has the [Subscripted] attribute (see [TaskAttr.t]). *)
   let subscripted (task : t) : bool =
     Dep_map.exists (fun _ das -> DepAttr_set.mem Subscripted das) task.ioattrs
-
-  (** [Task.taskified task]: checks whether the task [task] has been taskified,
-      i.e. it should become a parallelizable task, not a synchronization barrier
-      for instance. *)
-  let taskified (task : t) : bool =
-    let waits = attributed task WaitForSome ||
-                  attributed task WaitForAll ||
-                    attributed task WaitForNone in
-    let exits = attributed task IsJump || attributed task ExitPoint in
-    not (waits) && not (exits)
   
   (** [Task.merge t1 t2]: merges two tasks into a new single task. *)
   let merge (t1 : t) (t2 : t) : t =

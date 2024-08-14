@@ -99,13 +99,9 @@ let rec taskify_callers () : unit =
                   Var_Hashtbl.add const_candidates f ();
                   is_caller := true;
                   is_candidate_caller := false;
-                  t.attrs <- TaskAttr_set.add Singleton t.attrs
-                end
-              (** Otherwise, prevent [t] from actually becoming a
-                  parallelizable task, if necessary. *)
-              else if not (TaskAttr_set.mem WaitForNone t.attrs) &&
-                        not (TaskAttr_set.mem WaitForAll t.attrs) then
-                t.attrs <- TaskAttr_set.add WaitForSome t.attrs) g;
+                  t.attrs <- TaskAttr_set.add Singleton t.attrs;
+                  t.attrs <- TaskAttr_set.add Taskifiable t.attrs
+                end) g;
           (** If the current caller becomes a taskification candidate, it means
               that we make a new insertion into [const_candidates]. *)
           if !is_caller then ins + 1 else ins
@@ -602,10 +598,9 @@ let taskify_on (p : path) (t : trm) : unit =
            let task_j = TaskGraph.V.label vertex_j in
            (** A task candidate [j] depend on a task candidate [i] (with [i <>
                j]) either when the Bernstein's condition verify (see
-               [Task.depending]) or if the task candidate [j] represents an exit
-               label or when one of the task candidates requests a global
-               synchronization barrier (see the [WaitForAll] task candidate
-               attribute). *)
+               [Task.depending]) or when one of the task candidates requests a
+               global synchronization barrier (see the [WaitForAll] task
+               candidate attribute). *)
            let j_depends_on_i = Task.depending task_i task_j in
            let j_depends_on_i = j_depends_on_i ||
                                   Task.attributed task_j ExitPoint ||
@@ -698,11 +693,6 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins ct.ins,
           Dep_set.union inouts ct.inouts,
           Dep_map.union2 ioattrs ct.ioattrs) in
-       (* If the body sequence contains an unconditional jump, we need to
-          propagate this information upwards. *)
-       let tas = if (Task.attributed ct HasJump) then
-                   TaskAttr_set.add HasJump tas
-                 else tas in
        (* A for-loop node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -789,11 +779,6 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins ct.ins,
           Dep_set.union inouts ct.inouts,
           Dep_map.union2 ioattrs ct.ioattrs) in
-       (* If the body sequence contains an unconditional jump, we need to
-          propagate this information upwards. *)
-       let tas = if (Task.attributed ct HasJump) then
-                   TaskAttr_set.add HasJump tas
-                 else tas in
        (* A for-loop node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -892,12 +877,6 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins tn.ins,
           Dep_set.union inouts tn.inouts,
           Dep_map.union2 ioattrs tn.ioattrs) in
-       (* If the [then] or the [else] branch contains an unconditional jump, we
-          need to propagate this information upwards. *)
-       let tas = if (Task.attributed ty HasJump) ||
-                      (Task.attributed tn HasJump)
-                 then TaskAttr_set.add HasJump tas
-                 else tas in
        (* An [if] node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -942,11 +921,6 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins tb.ins,
           Dep_set.union inouts tb.inouts,
           Dep_map.union2 ioattrs tb.ioattrs) in
-       (* If the body sequence contains an unconditional jump, we need to
-          propagate this information upwards. *)
-       let tas = if (Task.attributed tb HasJump) then
-                   TaskAttr_set.add HasJump tas
-                 else tas in
        (* A while-loop node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -987,11 +961,6 @@ let taskify_on (p : path) (t : trm) : unit =
          (Dep_set.union ins tb.ins,
           Dep_set.union inouts tb.inouts,
           Dep_map.union2 ioattrs tb.ioattrs) in
-       (* If the body sequence contains an unconditional jump, we need to
-          propagate this information upwards. *)
-       let tas = if (Task.attributed tb HasJump) then
-                   TaskAttr_set.add HasJump tas
-                 else tas in
        (* A do-while-loop node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -1055,11 +1024,6 @@ let taskify_on (p : path) (t : trm) : unit =
               Dep_set.union inouts' tb.inouts,
               Dep_map.union2 ioattrs' tb.ioattrs))
            (ins, inouts, ioattrs) tbs in
-       (* If at least one of the block sequences contains an unconditional jump
-          other than [break], we need to propagate this information upwards. *)
-       let has_jump = List.exists (fun e -> Task.attributed e HasJump) tbs in
-       let tas = if has_jump then TaskAttr_set.add HasJump tas
-                 else tas in
        (* A switch node should not become a task by itself. *)
        let tas = TaskAttr_set.add WaitForSome tas in
        (* As it won't become a task, it should not be merged with other
@@ -1084,49 +1048,43 @@ let taskify_on (p : path) (t : trm) : unit =
           the current [delete] graph node. *)
        Task.create (-1) t tas scope Dep_set.empty inouts Dep_map.empty [[]]
     | Trm_goto target ->
-       (* If the target label of the [goto] is not the [Apac_core.goto_label] we
-          use within the return statement replacement transformation
-          [Apac_basic.use_goto_for_return], fail. Other goto statements than
-          those we add are not allowed within a taskification target. *)
+       (** If the target label of the 'goto' is not the [Apac_core.goto_label]
+           we use within the return statement replacement transformation
+           [Apac_basic.use_goto_for_return], fail. We do not allow for other
+           'goto' statements than [Apac_core.goto_label]. *)
        if target <> Apac_macros.goto_label then
-         fail t.loc "Apac_core.taskify_on.fill: illegal goto statement"
+         fail t.loc "Apac_taskify.taskify_on.fill: illegal 'goto' statement"
        else
-         (* If [target] is [Apac_core.goto_label], we can create a [Task]
-            instance for it, even if it will actually nevery become a task. The
-            [Singleton] and the [HasJump] attributes mean that the [Task] will
-            not be merged with any other task and that it contains an
-            unconditional jump. We assign the task with the [IsJump] attribute
-            too in order to indicate that the task itself is an unconditional
-            jump. See [Apac_tasks.TaskAttr]. *)
-         let attrs = TaskAttr_set.singleton Singleton in
-         let attrs = TaskAttr_set.add HasJump attrs in
-         let attrs = TaskAttr_set.add IsJump attrs in
+         (** If [target] is [Apac_core.goto_label], we can transform it into a
+             task candidate carrying the [WaitForAll] attribute. See
+             [TaskAttr.t] for more details on the meaning of task candidate
+             attributes. *)
+         let attrs = TaskAttr_set.singleton WaitForAll in
          Task.create (-1) t attrs Var_set.empty
            Dep_set.empty Dep_set.empty Dep_map.empty [[]]
     | Trm_val v ->
-       (* Retrieve the first label attribute of the current term, if any. *)
+       (** Retrieve the first label attribute of the current term, if any. *)
        let l = trm_get_labels t in
        let l = if (List.length l) > 0 then List.nth l 0 else "" in
-       (* We have to check whether this value term is a goto label arising from
-          [Apac_basic.use_goto_for_return]. *)
+       (** Check whether the label is [Apac_core.goto_label] we use within the
+           return statement replacement transformation
+           [Apac_basic.use_goto_for_return]. *)
        begin match v with
-       (* If it is the case, we can create a [Task] instance for it, even if
-          it will actually nevery become a task. The [Singleton] and the
-          [ExitPoint] attributes mean that the [Task] will not be merged with
-          any other task and that it represents the exit point of the
-          execution sequence. See [Apac_tasks.TaskAttr]. *)
+       (** If so, we can transform it into a task candidate carrying the
+           [Singleton] and the [ExitPoint] attributes. See [TaskAttr.t] for more
+           details on the meaning of task candidate attributes. *)
        | Val_lit (Lit_unit) when l = Apac_macros.goto_label ->
           let attrs = TaskAttr_set.singleton Singleton in
           let attrs = TaskAttr_set.add ExitPoint attrs in
           Task.create (-1) t attrs Var_set.empty
             Dep_set.empty Dep_set.empty Dep_map.empty [[]]
-       (* Otherwise, fail. Other types of values are not allowed as first-level
-          instructions within a task group. *)
+       (** Otherwise, fail. We do not allow for other types of values in
+           first-level instructions. *)
        | _ ->
           let it = AstC_to_c.ast_to_string t in
           let error =
             Printf.sprintf
-              "Apac_core.taskify_on.fill: illegal value term '%s'" it in
+              "Apac_taskify.taskify_on.fill: illegal value term '%s'" it in
           fail t.loc error
        end
     | Trm_omp_routine r ->
@@ -1245,8 +1203,14 @@ let merge_on (p : path) (t : trm) : unit =
           root vertex of [g], i.e. whether it has at least one predecessor.
           Indeed, the root vertex is a symbolic vertex representing the entire
           tuple of statements behind [g] and therefore, we should not merge it
-          with any other vertex. *)
-      if not (Task.attributed ti Singleton) && (TaskGraph.in_degree g vi > 0)
+          with any other vertex. Note that we have to verify the existence of
+          [vi] in [g] too. This is due to the fact that merging involves vertex
+          removal from [g]. However, this removal does not affect the list of
+          vertices [vs] of [g] we work on and which we retrieved at the very
+          beginning of the merge transformation. *)
+      if not (Task.attributed ti Singleton) &&
+           (TaskGraph.mem_vertex g vi) &&
+             (TaskGraph.in_degree g vi > 0)
       then
         (** If the i-th vertex [vi] represents a valid beginning of a potential
             sequences of mergeable vertices, constitue the largest such
@@ -1312,6 +1276,35 @@ let merge_on (p : path) (t : trm) : unit =
 let merge (tg : target) : unit =
   Nobrace.enter ();
   Target.iter (fun t p -> merge_on p (get_trm_at_path p t)) tg
+
+(** [detect_tasks_simple_on p t]: see [detect_tasks_simple_on]. *)
+let detect_tasks_simple_on (p : path) (t : trm) : unit =
+  (** Find the parent function. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_taskify.detect_tasks_simple_on: unable to find \
+                          parent function. Task group outside of a function?" in
+  (** Find its constification record in [Apac_const.const_records]. *)
+  let const_record = Var_Hashtbl.find const_records f in
+  (** Check whether the function definition has a task candidate graph. *)
+  let g = match const_record.task_graph with
+    | Some (g') -> g'
+    | None -> fail t.loc "Apac_taskify.detect_tasks_simple_on: Missing task \
+                          candidate graph. Did you taskify?" in
+  (** Add the [Taskifiable] attribute to every task candidate consisting of a
+      call to a function we know the definition of. *)
+  TaskGraphTraverse.iter (fun v ->
+      let t = TaskGraph.V.label v in
+      let c = List.hd t.current in
+      match c.desc with
+      | Trm_apps ({ desc = Trm_var (_ , f); _ }, _)
+           when Var_Hashtbl.mem const_records f ->
+         t.attrs <- TaskAttr_set.add Taskifiable t.attrs
+      | _ -> ()         
+    ) g
+
+let detect_tasks_simple (tg : target) : unit =
+  Target.iter (fun t p -> detect_tasks_simple_on p (get_trm_at_path p t)) tg
 
 (* [insert_tasks_on p t]: see [insert_tasks_on]. *)
 (* TODO: mettre sur papier des idées de stratégies de transformation de

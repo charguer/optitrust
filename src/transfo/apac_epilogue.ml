@@ -669,8 +669,7 @@ let reduce_waits_on (p : path) (t : trm) : unit =
     let t = TaskGraph.V.label v in
     let w = (Task.attributed t WaitForSome) ||
               (Task.attributed t WaitForAll) ||
-                (Task.attributed t WaitForNone) ||
-                  (TaskGraph.in_degree g v < 1) in
+                (TaskGraph.in_degree g v < 1) in
     List.fold_left (fun al gl ->
         al && List.fold_left (fun ao go ->
                  ao && TaskGraph.fold_vertex (fun v' av ->
@@ -683,7 +682,6 @@ let reduce_waits_on (p : path) (t : trm) : unit =
     let t = TaskGraph.V.label v in
     t.attrs <- TaskAttr_set.remove WaitForSome t.attrs;
     t.attrs <- TaskAttr_set.remove WaitForAll t.attrs;
-    t.attrs <- TaskAttr_set.add WaitForNone t.attrs;
     List.iter (fun g ->
         List.iter (fun g' ->
             TaskGraph.iter_vertex (fun v' ->
@@ -761,7 +759,6 @@ let reduce_waits_on (p : path) (t : trm) : unit =
       if TaskGraph.V.equal v !last then
         let t = TaskGraph.V.label v in
         let _ = Printf.printf "EQUALITY on %s\n" (Task.to_string t) in
-        t.attrs <- TaskAttr_set.remove WaitForNone t.attrs;
         t.attrs <- TaskAttr_set.add WaitForAll t.attrs
     ) g;
   let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_join.dot" in
@@ -791,9 +788,7 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
           ) subscripted;
         task.ioattrs <- Dep_map.remove_attribute Accessor task.ioattrs
       end;
-    if (not (Task.attributed task WaitForAll)) &&
-         (not (Task.attributed task WaitForSome)) &&
-           (not (Task.attributed task WaitForNone)) then
+    if (Task.attributed task Taskifiable) then
       Dep_set.iter (fun d ->
           Dep_hashtbl.add scope d (vertex, graph)
         ) task.inouts;
@@ -848,7 +843,7 @@ let reduce_waits2_on (p : path) (t : trm) : unit =
   let rec process (previous : (Task.t * int) Stack.t) (level : int)
             (vertex : TaskGraph.V.t) : unit =
     let task : Task.t = TaskGraph.V.label vertex in
-    if (Task.taskified task) then
+    if (Task.attributed task Taskifiable) then
       Stack.push (task, level) previous
     else if (Task.attributed task WaitForSome) then
       begin
@@ -873,8 +868,7 @@ let reduce_waits2_on (p : path) (t : trm) : unit =
                         ) false previous in
         if (not depends) then
           begin
-            task.attrs <- TaskAttr_set.remove WaitForSome task.attrs;
-            task.attrs <- TaskAttr_set.add WaitForNone task.attrs
+            task.attrs <- TaskAttr_set.remove WaitForSome task.attrs
           end
       end;
     List.iter (fun gl ->
