@@ -407,7 +407,7 @@ let trm_discover_dependencies (locals : symbols)
                   Stack.push (rd, (DepAttr_set.singleton Subscripted)) attrs
                 ) d';
               ex
-           | _ -> fail t.loc error
+           | _ -> fail base.loc error
          end;
        in
        List.fold_left (fun (e, f) a ->
