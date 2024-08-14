@@ -1178,8 +1178,12 @@ let merge_on (p : path) (t : trm) : unit =
       let next = List.hd next in
       (** Otherwise, we check whether the successor *)
       let next' = TaskGraph.V.label next in
-      (** can be merged, i.e. does not carry the [Singleton] attribute, and *)
-      if not (Task.attributed next' Singleton) &&
+      (** can be merged, i.e. does not carry the [Singleton] attribute or both
+          [start] and its successor represent global synchronization barriers
+          (see the [WaitForAll] attribute), and *)
+      if (not (Task.attributed next' Singleton) ||
+            (Task.attributed (TaskGraph.V.label start) WaitForAll) &&
+              (Task.attributed next' WaitForAll)) &&
            (** whether it has no other predecessors than [start]. Indeed,
                merging such a node with another one would break the original
                lexicographic order of the input program. *)
@@ -1206,16 +1210,18 @@ let merge_on (p : path) (t : trm) : unit =
       (** - retrieve the label, *)
       let ti = TaskGraph.V.label vi in
       (** - check whether we can merge it with other vertices, i.e. whether it
-          does not carry the [Singleton] attribute, and whether it is not the
-          root vertex of [g], i.e. whether it has at least one predecessor.
-          Indeed, the root vertex is a symbolic vertex representing the entire
-          tuple of statements behind [g] and therefore, we should not merge it
-          with any other vertex. Note that we have to verify the existence of
-          [vi] in [g] too. This is due to the fact that merging involves vertex
-          removal from [g]. However, this removal does not affect the list of
-          vertices [vs] of [g] we work on and which we retrieved at the very
-          beginning of the merge transformation. *)
-      if not (Task.attributed ti Singleton) &&
+          does not carry the [Singleton] attribute or whether it carries the
+          [WaitForAll] attribute, and whether it is not the root vertex of [g],
+          i.e. whether it has at least one predecessor. Indeed, the root vertex
+          is a symbolic vertex representing the entire tuple of statements
+          behind [g] and therefore, we should not merge it with any other
+          vertex. Note that we have to verify the existence of [vi] in [g] too.
+          This is due to the fact that merging involves vertex removal from [g].
+          However, this removal does not affect the list of vertices [vs] of [g]
+          we work on and which we retrieved at the very beginning of the merge
+          transformation. *)
+      if (not (Task.attributed ti Singleton)
+          || (Task.attributed ti WaitForAll)) &&
            (TaskGraph.mem_vertex g vi) &&
              (TaskGraph.in_degree g vi > 0)
       then
