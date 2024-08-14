@@ -24,15 +24,19 @@ let _ = Run.script_cpp (fun () ->
             !! Apac_taskify.taskify_callers ();
             !! Apac_taskify.restore [nbAny; cFunDefAndDecl ""];
             !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
+            !! Apac_taskify.detect_tasks_simple [
+                nbAny;
+                cMark Apac_macros.task_group_mark
+              ];
             !! Apac_epilogue.synchronize_subscripts [
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ];
-            !! Apac_epilogue.reduce_waits [
+           (* !! Apac_epilogue.reduce_waits [
                 nbAny;
                 cMark Apac_macros.task_group_mark
-              ]; 
-            !! Apac_epilogue.reduce_waits2 [
+              ]; *)
+            !! Apac_epilogue.place_barriers [
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ]; 
@@ -57,5 +61,5 @@ let _ = Run.script_cpp (fun () ->
             !! Marks.remove Apac_macros.heapify_breakable_mark [
                 nbAny;
                 cMark Apac_macros.heapify_breakable_mark
-              ];
+              ]; 
           )

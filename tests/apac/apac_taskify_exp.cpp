@@ -45,8 +45,9 @@ int main() {
     int* t = (int*)malloc(4 * sizeof(int));
 #pragma omp task default(shared) depend(in : t) depend(inout : t[0])
     c(t, 4);
-#pragma omp taskwait
+#pragma omp taskwait depend(in : t) depend(inout : t[0])
     free(t);
+#pragma omp taskwait
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;
