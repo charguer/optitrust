@@ -151,6 +151,7 @@ end = struct
                             (Val_prim
                                (Prim_binop Binop_array_access)); _}, [t'; i]) ->
          t :: (accesses t')
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, _) -> [t]
       | Trm_var _ -> [t]
       | _ -> failwith "Dep.of_array: Inconsistent array access."
     in

@@ -368,6 +368,13 @@ let trm_discover_dependencies (locals : symbols)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
        let (base, accesses) = get_nested_accesses t in
+       let base =
+         match base.desc with
+         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
+            vt
+         | Trm_var (_, v) -> base
+         | _ -> fail base.loc error
+       in
        let cd = List.length accesses in
        let exists =
          begin
