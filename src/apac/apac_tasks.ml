@@ -483,91 +483,128 @@ module TaskGraphTraverse : sig
 end = struct
   (** [TaskGraphTraverse.H]: a hash table module for task graph vertices. *)
   module H = Hashtbl.Make(TaskGraph.V)
+  (** [TaskGraphTraverse.seq v g]: starting from the vertex [v] in the task
+      candidate graph [g], find the longest sequence of inter-dependent
+      vertices, where the first vertex has exactly one successor, the last
+      vertex has exactly one predecessor and all the intermediate vertices have
+      exactly one predecessor and exactly one successor. The resulting sequence
+      always contains at least one element, which is [v]. Note that this is a
+      module-local function, i.e. the signature of [TaskGraphTraverse] does not
+      expose it. See [TaskGraphTraverse.codify] and [TaskGraphTraverse.iter] for
+      the usage context. *)
+  let rec seq (v : TaskGraph.V.t) (g : TaskGraph.t) : TaskGraph.V.t list =
+    (** Retrieve the list of successor of [v] in [g]. *)
+    let n = TaskGraph.succ g v in
+    (** If [v] has more than one successor, we can not build a sequence with
+        more than one element, i.e. the vertex [v]. *)
+    if (List.length n) <> 1 then [v]
+    else
+      (** Otherwise, we extract the successor of [v] from the list. *)
+      let n = List.hd n in
+      (** If the successor has exactly one predecessor, we can continue building
+          the resulting sequence. Otherwise, we simply return a sequence
+          consisting of [v]. *)
+      if (TaskGraph.in_degree g n) < 2 then v :: (seq n g) else [v]
+  
   (** [TaskGraphTraverse.codify c g]: traverses the task graph [g] and codifies
       each vertex into the corresponding output AST term thanks to the
       user-provided codification function [c]. *)
   let codify (c : (TaskGraph.V.t -> trms)) (g : TaskGraph.t) : trms =
-    (* Find and extract the root node. *)
-    let vs = TaskGraph.fold_vertex (fun v acc ->
-                 if TaskGraph.in_degree g v < 1 then v::acc else acc
-               ) g [] in
-    let r = List.hd vs in
-    (* Create an hash table for already visited nodes. *)
+    (** Find and extract the root node. *)
+    let r = TaskGraphOper.root g in
+    (** Create an hash table for already visited nodes. *)
     let v = H.create 97 in
-    (* Create a queue for elements to visit. *)
+    (** Create a queue for elements to visit. *)
     let q = Queue.create () in
     let rec visit (root : bool) (ts : trms) : trms =
-      (* If the queue of elements to visit is empty, we are done. Return the
-         list of codified elements. *)
+      (** If the queue of elements to visit is empty, we are done. Return the
+          list of codified elements. *)
       if (Queue.is_empty q) then ts else
         begin
-          (* Get the first element from the queue of vertices to visit. This
-             will be the current element to process. *)
+          (** Otherwise, get the first element from the queue of vertices to
+              visit. This will be the current element to process. *)
           let hd = Queue.take q in
-          (* If all of its predecessors has been visited, i.e. if all of them
-             are in the hash table of visited nodes, *)
+          (** If all of its predecessors has been visited, i.e. if all of them
+              are in the hash table of visited nodes, *)
           let all = TaskGraph.fold_pred (fun p a -> a && H.mem v p) g hd true in
           if all && not (H.mem v hd) then
             begin
-              (* visit the current element, *)
+              (** visit the current element, *)
               H.add v hd ();
-              (* push its successors to the queue of vertices to visit, *)
-              TaskGraph.iter_succ (fun e -> Queue.push e q) g hd;
-              (* codify the current element, *)
+              (** push its successors to the queue of vertices to visit, *)
+              TaskGraph.iter_succ (fun e ->
+                  (** If a successor is a part of a sequence of nodes we could
+                      merge in the future due to in-between data dependencies,
+                      push them to the queue of vertices to visit as well. This
+                      allows us to further preserve the original lexicographic
+                      order of the input source code in the output source
+                      code. See [TaskGraphTraverse.seq]. *)
+                  let es = seq e g in List.iter (fun f -> Queue.push f q) es
+                ) g hd;
+              (** codify the current element, *)
               let ce = if root then [] else c hd in
-              (* append it to the list of already codified elements and
-                 recurse. *)
+              (** append it to the list of already codified elements and
+                  recurse. *)
               visit false (ts @ ce)
             end
-              (* Otherwise, do nothing and recurse. *)
+              (** Otherwise, do nothing and recurse. *)
           else visit false ts
         end
     in
-    (* Push the root element to the queue and *)
+    (** Push the root element to the queue and *)
     Queue.push r q;
-    (* Start the codification process with an empty list of codified
-       elements. *)
+    (** Start the codification process with an empty list of codified
+        elements. *)
     visit true []
+  
   (** [TaskGraphTraverse.iter c g]: iterates over the vertices of the task graph
       [g] while applying the user-provided function [f] on each of them. *)
   let iter (f : (TaskGraph.V.t -> unit)) (g : TaskGraph.t) : unit =
-    (* Find and extract the root node. *)
+    (** Find and extract the root node. *)
     let r = TaskGraphOper.root g in
-    (* Create an hash table for already visited nodes. *)
+    (** Create an hash table for already visited nodes. *)
     let v = H.create 97 in
-    (* Create a queue for elements to visit. *)
+    (** Create a queue for elements to visit. *)
     let q = Queue.create () in
     let rec visit (root : bool) : unit =
-      (* If the queue of elements to visit is empty, we are done. Return the
-         list of codified elements. *)
+      (** If the queue of elements to visit is empty, we are done. Return the
+          list of codified elements. *)
       if not (Queue.is_empty q) then
         begin
-          (* Get the first element from the queue of vertices to visit. This
-             will be the current element to process. *)
+          (** Get the first element from the queue of vertices to visit. This
+              will be the current element to process. *)
           let hd = Queue.take q in
-          (* If all of its predecessors has been visited, i.e. if all of them
-             are in the hash table of visited nodes, *)
+          (** If all of its predecessors has been visited, i.e. if all of them
+              are in the hash table of visited nodes, *)
           let all = TaskGraph.fold_pred (fun p a -> a && H.mem v p) g hd true in
           if all && not (H.mem v hd) then
             begin
-              (* visit the current element, *)
+              (** visit the current element, *)
               H.add v hd ();
-              (* push its successors to the queue of vertices to visit, *)
-              TaskGraph.iter_succ (fun e -> Queue.push e q) g hd;
-              (* apply [f] on the current element, *)
+              (** push its successors to the queue of vertices to visit, *)
+              TaskGraph.iter_succ (fun e ->
+                  (** If a successor is a part of a sequence of nodes we could
+                      merge in the future due to in-between data dependencies,
+                      push them to the queue of vertices to visit as well. This
+                      allows us to further preserve the original lexicographic
+                      order of the input source code in the output source
+                      code. See [TaskGraphTraverse.seq]. *)
+                  let es = seq e g in List.iter (fun f -> Queue.push f q) es
+                ) g hd;
+              (** apply [f] on the current element, *)
               if (not root) then f hd; 
-              (* append it to the list of already codified elements and
-                 recurse. *)
+              (** append it to the list of already codified elements and
+                  recurse. *)
               visit false
             end
-          (* Otherwise, do nothing and recurse. *)
+          (** Otherwise, do nothing and recurse. *)
           else visit false
         end
     in
-    (* Push the root element to the queue and *)
+    (** Push the root element to the queue and *)
     Queue.push r q;
-    (* Start the codification process with an empty list of codified
-       elements. *)
+    (** Start the codification process with an empty list of codified
+        elements. *)
     visit true
 end
 
