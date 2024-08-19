@@ -663,111 +663,6 @@ let instrument ?(backend : task_backend = OpenMP)
   instrument_unit ~backend tgu;
   instrument_task_group tgg
 
-(* [reduce_waits_on p t]: see [reduce_waits]. *)
-let reduce_waits_on (p : path) (t : trm) : unit =
-  let rec waits (g : TaskGraph.t) (v : TaskGraph.V.t) : bool =
-    let t = TaskGraph.V.label v in
-    let w = (Task.attributed t WaitForSome) ||
-              (Task.attributed t WaitForAll) ||
-                (TaskGraph.in_degree g v < 1) in
-    List.fold_left (fun al gl ->
-        al && List.fold_left (fun ao go ->
-                 ao && TaskGraph.fold_vertex (fun v' av ->
-                           av && (waits go v')
-                         ) go w
-               ) w gl
-      ) w t.children
-  in
-  let rec propagate (v : TaskGraph.V.t) : unit =
-    let t = TaskGraph.V.label v in
-    t.attrs <- TaskAttr_set.remove WaitForSome t.attrs;
-    t.attrs <- TaskAttr_set.remove WaitForAll t.attrs;
-    List.iter (fun g ->
-        List.iter (fun g' ->
-            TaskGraph.iter_vertex (fun v' ->
-                propagate v'
-              ) g'
-          ) g
-      ) t.children
-  in
-  let rec iter (f : TaskGraph.V.t -> bool)
-            (g : TaskGraph.t) (v : TaskGraph.V.t) : unit =
-    let me = f v in
-    if (TaskGraph.fold_succ (fun v' a -> a && waits g v') g v me) then
-      TaskGraph.iter_succ (fun v' -> iter f g v') g v
-  in
-  let rec prev (f : TaskGraph.V.t -> bool)
-            (g : TaskGraph.t) (v : TaskGraph.V.t) : unit =
-    let me = f v in
-    if (TaskGraph.fold_pred (fun v' a -> a && waits g v') g v me) then
-      TaskGraph.iter_pred (fun v' -> prev f g v') g v
-  in
-  (* Find the parent function. *)
-  let f = match (find_parent_function p) with
-    | Some (v) -> v
-    | None -> fail t.loc "Apac_taskify.join_on: unable to find parent \
-                          function. Task group outside of a function?" in
-  (* Find the corresponding constification record in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (* Build the augmented AST correspoding to the function's body. *)
-  let g = match const_record.task_graph with
-    | Some (g') -> g'
-    | None -> fail t.loc "Apac_taskify.join_on: Missing task graph. Did you \
-                          taskify?" in
-  let r = TaskGraphOper.root g in
-  let s = TaskGraph.fold_vertex (fun v acc ->
-              if TaskGraph.out_degree g v < 1 then v::acc else acc
-            ) g [] in
-  let s = List.hd s in
-  let continue = ref true in
-  let last = ref s in
-  Printf.printf "Joining '%s'\n" (var_to_string f);
-  iter (fun v ->
-      if !continue then
-        begin
-          let w = waits g v in
-          if w then propagate v
-          else
-            begin
-              continue := false
-            end;
-          w
-        end
-      else false) g r;
-  continue := true;
-  Printf.printf "Bottom-up '%s'\n" (var_to_string f);
-  prev (fun v ->
-      if !continue then
-        begin
-          let w = waits g v in
-          if w then
-            begin
-              propagate v;
-              last := v
-            end
-          else
-            begin
-    (*          let t = TaskGraph.V.label !last in
-              t.attrs <- TaskAttr_set.remove WaitForNone t.attrs;
-              t.attrs <- TaskAttr_set.add WaitForAll t.attrs; *)
-              continue := false
-            end;
-          w
-        end
-      else false) g s;
-  TaskGraph.iter_vertex (fun v ->
-      if TaskGraph.V.equal v !last then
-        let t = TaskGraph.V.label v in
-        let _ = Printf.printf "EQUALITY on %s\n" (Task.to_string t) in
-        t.attrs <- TaskAttr_set.add WaitForAll t.attrs
-    ) g;
-  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_join.dot" in
-  export_task_graph g dot;
-  dot_to_pdf dot
-
-let reduce_waits (tg : target) : unit =
-  Target.iter (fun t p -> reduce_waits_on p (Path.get_trm_at_path p t)) tg
-
 (* [synchronize_subscripts_on p t]: see [synchronize_subscripts]. *)
 let synchronize_subscripts_on (p : path) (t : trm) : unit =
   let rec synchronize (scope : depscope) (subscripts : substack)
@@ -840,10 +735,54 @@ let synchronize_subscripts (tg : target) : unit =
 
 (** [place_barriers_on p t]: see [place_barriers]. *)
 let place_barriers_on (p : path) (t : trm) : unit =
-  (** [place_barriers_on.process previous vertex]: auxiliary function for
-      processing a vertex [v] based on preceding eligible task candidates in the
-      stack [ts]. *)
-  let rec process (ts : Task.t Stack.t) (v : TaskGraph.V.t) : unit =
+  (** [place_barriers_on.find g]: looks in the task candidate graph [g] for a
+      task candidate immediately preceding the task candidate which is either
+      itself the first eligible task candidate or the first task candidate to
+      involve an eligible task candidate (in a nested task candidate graph). *)
+  let find (g : TaskGraph.t) : TaskGraph.V.t option =
+    (** [place_barriers_on.find.taskifiable v]: checks whether the task
+        candidate vertex [v] is an eligible task candidate or whether it
+        involves an eligible task candidate in a nested task candidate graph. *)
+    let rec taskifiable (v : TaskGraph.V.t) : bool =
+      let t = TaskGraph.V.label v in
+      if (Task.attributed t Taskifiable) then true
+      else
+        List.fold_left (fun al gl ->
+            List.fold_left (fun ao go ->
+                TaskGraph.fold_vertex (fun v' a ->
+                    a || (taskifiable v')
+                  ) go false
+              ) false gl
+          ) false t.children
+    in
+    (** [place_barriers_on.find.core p l]: core function operating on a list [l]
+        of the task candidate vertices of [g]. [p] represents the previously
+        visited vertex ([None] in the initial call to the function). *)
+    let rec core (p : TaskGraph.V.t option)
+              (l : TaskGraph.V.t list) : TaskGraph.V.t option =
+      match l with
+      | t :: tl -> if (taskifiable t) then p else core (Some t) tl
+      | [] -> p
+    in
+    (** Retrieve all the vertices of [g] in a list following the ascending order
+        of their schedules (see [Task.t]). *)
+    let vs = TaskGraphTraverse.fold g in
+    (** Reverse the list so as to follow the schedules in descending order. *)
+    let vs = List.rev vs in
+    (** This way, the task candidate immediately preceding the first eligible
+        task candidate in [vs] amounts to the task candidate immediately
+        following the last eligible task candidate in [g]. *)
+    core None vs 
+  in
+  (** [place_barriers_on.process l c ts v]: auxiliary function for placing a
+      bariier in front of a vertex [v] depending on the presence of preceding
+      eligible task candidates in the stack [ts]. [l] represents the task
+      candidate immediately following the last eligible task candidate in the
+      task candidate graph we apply the function on. When [v] equals [p], place
+      a global synchronization barrier on the latter and set [c] to [true] so as
+      to prevent the function from placing further barriers. *)
+  let rec process (l : TaskGraph.V.t) (c : bool ref) (ts : Task.t Stack.t)
+            (v : TaskGraph.V.t) : unit =
     (** Retrieve the label [t] of the task candidate [v]. *)
     let t : Task.t = TaskGraph.V.label v in
     (** If [t] indicates that [v] is an eligible task candidate, i.e. it carries
@@ -851,14 +790,25 @@ let place_barriers_on (p : path) (t : trm) : unit =
         task candidates [ts]. *)
     if (Task.attributed t Taskifiable) then
       Stack.push t ts
-    else if (Stack.length ts) > 0 then
+    else if (TaskGraph.V.equal l v) then
+      begin
+        (** If [v] is the task candidate [l] immediately following the last
+            eligible task candidate in the target task candidate graph, place a
+            global synchronization barrier on the latter and *)
+        t.attrs <- TaskAttr_set.add WaitForAll t.attrs;
+        (** set [c] to [true] so as to prevent the function from placing further
+            barriers. *)
+        c := true
+      end
+    else if (Stack.length ts) > 0 && !c = false then
       (** Otherwise, if, according to [t], [v] does not represent a global
           synchronization barrier (see the [WaitForAll] attribute) nor
-          [Apac_macros.goto_label] (see the [ExitPoint] attribute), we have to
-          determine whether [v] depends on a preceding eligible task
-          candidate, if any. *)
+          [Apac_macros.goto_label] (see the [ExitPoint] attribute) nor a jump to
+          the latter (see the [IsJump] attribute), we have to determine whether
+          [v] depends on a preceding eligible task candidate, if any. *)
       if not (Task.attributed t WaitForAll) &&
-              not (Task.attributed t ExitPoint) then
+           not (Task.attributed t ExitPoint)  &&
+             not (Task.attributed t IsJump) then
         begin
           (** To this end, we imagine a temporary task candidate with a label
               [temp], based on [t], but omitting the dependencies from nested
@@ -885,19 +835,26 @@ let place_barriers_on (p : path) (t : trm) : unit =
               children = t.children;
             }
           in
-          (** Check whether the temporary task candidate shares a data dependency
-              with a preceding eligible task candidate. *)
+          (** Check whether the temporary task candidate shares a data
+              dependency with a preceding eligible task candidate. *)
           let depends = Stack.fold (fun acc task' ->
                             acc || (Task.depending task' temp)
                           ) false ts in
           (** If so, we request a synchronization barrier for [v] through [t]
               thanks to the [WaitForSome] attribute. *)
           if depends then t.attrs <- TaskAttr_set.add WaitForSome t.attrs
+        end
+      else if (Task.attributed t IsJump) then
+        (** However, a jump to [Apac_macros.goto_label] (see the [IsJump]
+            attribute) requires a global synchronization barrier if any eligible
+            task candidate precedes it in the task candidate graph. *)
+        begin
+          t.attrs <- TaskAttr_set.add WaitForAll t.attrs
         end;
     (** Process the task candidates in nested task candidate graphs, if any. *)
     List.iter (fun gl ->
         List.iter (fun go ->
-            TaskGraphTraverse.iter (process ts) go
+            TaskGraphTraverse.iter_schedule (process l c ts) go
           ) gl
       ) t.children
   in
@@ -913,13 +870,27 @@ let place_barriers_on (p : path) (t : trm) : unit =
     | Some (g') -> g'
     | None -> fail t.loc "Apac_epilogue.place_barriers_on: missing task \
                           candidate graph. Did you taskify?" in
-  (** Initialize a stack of preceding eligible task candiates. *)
-  let ts : Task.t Stack.t = Stack.create () in
-  (** Process each task candidate in [g]. *)
-  TaskGraphTraverse.iter (process ts) g;
-  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_barriers.dot" in
-  export_task_graph g dot;
-  dot_to_pdf dot
+  (** Based on schedules, identify the task candidate immediately following the
+      last eligible task candidate in [g]. To this end, iterate over the task
+      candidates of [g], including the those from nested task candidate graphs,
+      in descending schedule order (see [Task.t]). *)
+  let bl : TaskGraph.V.t option = find g in
+  match bl with
+  | Some e ->
+     (** Initialize a stack of preceding eligible task candiates. *)
+     let ts : Task.t Stack.t = Stack.create () in
+     (** Process each task candidate in [g]. *)
+     let stop = ref false in
+     TaskGraphTraverse.iter_schedule (process e stop ts) g;
+     let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_barriers.dot" in
+     export_task_graph g dot;
+     dot_to_pdf dot
+  | None ->
+     let error = Printf.sprintf
+                   "Apac_epilogue.place_barriers_on: no eligible task \
+                    candidates. There is nothing to do for the function '%s'. "
+                   (var_to_string f) in
+     fail t.loc error
 
 (** [place_barriers tg]: expects the target [tg] to point at the body of a
     function having a task candidate graph representation. If a vertex in the

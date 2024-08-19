@@ -178,16 +178,16 @@ int main(const int argc, char** argv) {
       goto __apac_exit;
     }
     error = store_matrix(matrix_LU, "LU", matrix, matrix_size, submatrix_size);
+    if (error) {
+      fprintf(stderr, "Error: Failed to store the LU matrix.\n");
+      __apac_result = 1;
+      goto __apac_exit;
+    }
     if (need_free) {
       free(struct_A);
       free(struct_LU);
       free(matrix_A);
       free(matrix_LU);
-    }
-    if (error) {
-      fprintf(stderr, "Error: Failed to store the LU matrix.\n");
-      __apac_result = 1;
-      goto __apac_exit;
     }
     __apac_result = 0;
     goto __apac_exit;
