@@ -557,6 +557,26 @@ let taskify_on (p : path) (t : trm) : unit =
        (** Transform the statements of the [sequence] into task candidates
            within the task candidate graph [g]. *)
        let tasks = List.map (fun instr -> fill s instr g) instrs in
+       (** If the [sequence] features both a task candidate consisting of an
+           assignment to [Apac_macros.result_variable] as well as a task
+           candidate consisting of a 'goto' jump to [Apac_macros.goto_label] we
+           introduce during the the 'return' replacement transformation
+           [Apac_prologue.use_goto_for_return], merge them and prevent the
+           resulting task candidate from merging with others (see the
+           [Singleton] attribute). This makes it easier later to protect these
+           statements with a global synchronization barrier within the barrier
+           placement transformation [Apac_epilogue.place_barriers]). *)
+       let rec merge = fun ts ->
+         match ts with
+         | t1 :: t2 :: tn ->
+            if (Task.attributed t1 IsJump) && (Task.attributed t2 IsJump) then
+              let tm = Task.merge t1 t2 in
+              tm.attrs <- TaskAttr_set.add Singleton tm.attrs;
+              tm :: (merge tn)
+            else t1 :: (merge (t2 :: tn))
+         | _ -> ts
+       in
+       let tasks = merge tasks in
        (** The sets of dependencies and the map of dependencies to sets of
            dependency attributes of the [sequence] correspond to the unions of
            the sets of dependencies and the maps of dependencies to sets of
@@ -611,8 +631,9 @@ let taskify_on (p : path) (t : trm) : unit =
            let j_depends_on_i = Task.depending task_i task_j in
            let j_depends_on_i = j_depends_on_i ||
                                   Task.attributed task_j ExitPoint ||
-                                    Task.attributed task_i WaitForAll ||
-                                      Task.attributed task_j WaitForAll
+                                    Task.attributed task_j IsJump ||
+                                      Task.attributed task_i WaitForAll ||
+                                        Task.attributed task_j WaitForAll
            in
            if j_depends_on_i then
              begin
@@ -803,8 +824,8 @@ let taskify_on (p : path) (t : trm) : unit =
           term. Variable declarations should never appear in tasks. *)
        Task.create (-1) t tas scope' ins inouts Dep_map.empty [[]]
     | Trm_apps _ ->
-       (** Is [t] an assignment to [Apac_macros.result_variable] replacing an
-           original return statement? *)
+       (** Is [t] an assignment to [Apac_macros.result_variable] we introduce in
+           the 'return' replacement [Apac_prologue.use_goto_for_return]? *)
        let isjump = if (is_set_operation t) then
                       let error = "Apac_taskify.taskify_on.fill: expected set \
                                    operation." in
@@ -816,24 +837,20 @@ let taskify_on (p : path) (t : trm) : unit =
                     else false
        in
        if isjump then
-         (** If so, all the other tasks must complete their execution before
-             performing the assignment. To achieve this, we request a global
-             synchronization barrier for the corresponding task candidate, hence
-             the [WaitForAll] attribute. Moreover, it must not be merged with
-             any other task candidate, hence the [Singleton] attribute. *)
-         let attrs = TaskAttr_set.singleton WaitForAll in
-         let attrs = TaskAttr_set.add Singleton attrs in
+         (** If so, we must make it clear the statement is related to a 'goto'
+             jump to [Apac_macros.goto_label], hence the [IsJump] attribute. *)
+         let attrs = TaskAttr_set.singleton IsJump in
          Task.create (-1) t attrs Var_set.empty
            Dep_set.empty Dep_set.empty Dep_map.empty []
        else
-         (* Look for dependencies and their attributes in the current term and
-            initialize the in and in-out dependency sets as well as the map of
-            dependency attribute sets. *)
+         (** Look for dependencies and their attributes in the current term and
+             initialize the in and inout-dependency sets as well as the map of
+             dependency attribute sets. *)
          let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s t in
-         (* Convert the local scope to a set. *)
+         (** Convert the local scope to a set. *)
          let scope = var_set_of_var_hashtbl s in
-         (* Create the task corresponding to the current graph node using all
-            the elements computed above. *)
+         (** Create the corresponding task candidate using all the elements
+             computed above. *)
          Task.create (-1) t tas scope ins inouts ioattrs [[]]
     | Trm_if (cond, yes, no) ->
        (* Keep a copy of the local scope of variables as a set. We need this
@@ -1046,10 +1063,9 @@ let taskify_on (p : path) (t : trm) : unit =
          fail t.loc "Apac_taskify.taskify_on.fill: illegal 'goto' statement"
        else
          (** If [target] is [Apac_core.goto_label], we can transform it into a
-             task candidate carrying the [WaitForAll] attribute. See
-             [TaskAttr.t] for more details on the meaning of task candidate
-             attributes. *)
-         let attrs = TaskAttr_set.singleton WaitForAll in
+             task candidate carrying the [IsJump] attribute to indicate the
+             presence of the 'goto' statement. *)
+         let attrs = TaskAttr_set.singleton IsJump in
          Task.create (-1) t attrs Var_set.empty
            Dep_set.empty Dep_set.empty Dep_map.empty [[]]
     | Trm_val v ->

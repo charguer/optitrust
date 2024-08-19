@@ -16,6 +16,7 @@ open Apac_dep
 module TaskAttr : sig
   type t =
     | ExitPoint
+    | IsJump
     | Singleton
     | Taskifiable
     | WaitForSome
@@ -26,9 +27,10 @@ module TaskAttr : sig
 end = struct
   type t =
     (** The task candidate represents the [Apac_macros.goto_label] we introduce
-        during the return statement replacement transformation
-        [Apac_basic.use_goto_for_return]. *)
+        during the 'return' replacement [Apac_basic.use_goto_for_return]. *)
     | ExitPoint
+    (** The task candidate involves a jump to the [Apac_macros.goto_label]. *)
+    | IsJump
     (** Never merge the task candidate with other task candidates. *)
     | Singleton
     (** Mark the task candidate as eligible to become a parallelizable task. *)
@@ -55,6 +57,7 @@ end = struct
   let to_string (ta : t) : string =
     match ta with
     | ExitPoint -> "ExitPoint"
+    | IsJump -> "IsJump"
     | Singleton -> "Singleton"
     | Taskifiable -> "Taskifiable"
     | WaitForSome -> "WaitForSome"
