@@ -462,8 +462,10 @@ end
 (** [TaskGraphTraverse]: a module implementing a traversal function for task
     graphs. *)
 module TaskGraphTraverse : sig
+  val fold : TaskGraph.t -> TaskGraph.V.t list
   val codify : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
   val iter : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
+  val iter_schedule : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
 end = struct
   (** [TaskGraphTraverse.H]: a hash table module for task graph vertices. *)
   module H = Hashtbl.Make(TaskGraph.V)
@@ -490,25 +492,45 @@ end = struct
           consisting of [v]. *)
       if (TaskGraph.in_degree g n) < 2 then v :: (seq n g) else [v]
   
+  (** [TaskGraphTraverse.fold g]: folds the task candidate graph [g] into a
+      single list of task candidate vertices in the ascending order of task
+      candidate schedules. *)
+  let fold (g : TaskGraph.t) : TaskGraph.V.t list =
+    (** Retrieve all the vertices of [g] in a list. *)
+    let vs = TaskGraph.fold_vertex (fun v acc -> v::acc) g [] in
+    (** Sort the list of vertices in the ascending order following their
+        schedules (see [Task.t]) and return the resutling list. *)
+    List.sort (fun v1 v2 ->
+        let t1 = TaskGraph.V.label v1 in
+        let t2 = TaskGraph.V.label v2 in
+        Int.compare t1.schedule t2.schedule
+      ) vs
+  
   (** [TaskGraphTraverse.codify c g]: traverses the task graph [g] and codifies
       each vertex into the corresponding output AST term thanks to the
       user-provided codification function [c]. *)
   let codify (c : (TaskGraph.V.t -> trms)) (g : TaskGraph.t) : trms =
-    (** Retrieve all the vertices of [g] in a list. *)
-    let vs = TaskGraph.fold_vertex (fun v acc -> v::acc) g [] in
-    (** Sort the list of vertices in the ascending order following their
-        schedules (see [Task.t]). *)
-    let vs = List.sort (fun v1 v2 ->
-                 let t1 = TaskGraph.V.label v1 in
-                 let t2 = TaskGraph.V.label v2 in
-                 Int.compare t1.schedule t2.schedule
-               ) vs in
+    (** Retrieve all the vertices of [g] in a list following the ascending order
+        of their schedules (see [Task.t]). *)
+    let vs = fold g in
     (** Discard the virtual root vertex, i.e. the vertex of schedule 0. *)
     let vs = List.tl vs in
     (** Codify all the vertices and return the result. *)
     List.fold_left (fun acc v -> acc @ (c v)) [] vs
   
-  (** [TaskGraphTraverse.iter c g]: iterates over the vertices of the task graph
+  (** [TaskGraphTraverse.iter_schedule f g]: iterates over the vertices of the
+      task graph [g] in the ascending order of their schedules while applying
+      the user-provided function [f] on each of them. *)
+  let iter_schedule (f : (TaskGraph.V.t -> unit)) (g : TaskGraph.t) : unit =
+    (** Retrieve all the vertices of [g] in a list following the ascending order
+        of their schedules (see [Task.t]). *)
+    let vs = fold g in
+    (** Discard the virtual root vertex, i.e. the vertex of schedule 0. *)
+    let vs = List.tl vs in
+    (** Apply [f] on all the vertices. *)
+    List.iter (fun v -> f v) vs
+  
+  (** [TaskGraphTraverse.iter f g]: iterates over the vertices of the task graph
       [g] while applying the user-provided function [f] on each of them. *)
   let iter (f : (TaskGraph.V.t -> unit)) (g : TaskGraph.t) : unit =
     (** Find and extract the root node. *)
