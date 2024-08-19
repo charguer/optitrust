@@ -911,7 +911,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
   (** Try to retrieve the task candidate graph representation [g] of [f]. *)
   let g = match const_record.task_graph with
     | Some (g') -> g'
-    | None -> fail t.loc "Apac_epilogue.place_barriers_on: Missing task \
+    | None -> fail t.loc "Apac_epilogue.place_barriers_on: missing task \
                           candidate graph. Did you taskify?" in
   (** Initialize a stack of preceding eligible task candiates. *)
   let ts : Task.t Stack.t = Stack.create () in
