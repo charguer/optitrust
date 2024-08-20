@@ -211,12 +211,15 @@ let fix_flags () =
    If args are given, add them to the list of possible flags.
    This function has no effect if it was already called before. *)
 let process_cmdline_args ?(args : cmdline_args = []) () : unit =
-  process_program_name();
-  Arg.parse
-    (Arg.align (spec @ args))
-    (fun _ -> raise (Arg.Bad "Error: no argument expected"))
-    ("usage: no argument expected, only options");
-  fix_flags()
+  if not !Flags.skip_argument_processing then
+    begin
+      process_program_name();
+      Arg.parse
+        (Arg.align (spec @ args))
+        (fun _ -> raise (Arg.Bad "Error: no argument expected"))
+        ("usage: no argument expected, only options");
+      fix_flags()
+    end
 
 (* [documentation_ssave_file_atfirst_check]: flag used for a hack used by function [doc_script_cpp], for generating
     the output associated with the documentation of a unit test, before running the main contents of the file. *)
