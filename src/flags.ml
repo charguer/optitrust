@@ -107,6 +107,10 @@ let execute_show_even_in_batch_mode : bool ref = ref false
 (* [check_validity]: perform validation of transformations *)
 let check_validity = ref false
 
+(* [skip_argument_processing]: do not process command-line arguments. This is
+   useful when using OptiTrust as a library instead of calling it directly. *)
+let skip_argument_processing : bool ref = ref false
+
 (* [serialized_mode]: type to deal with serialized AST ,
   | Serialized_None: do not read or write any serialized ast, just parse the input file.
   | Serialized_Build: parse the input file, save its serialized ast, exit

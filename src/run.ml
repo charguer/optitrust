@@ -28,7 +28,8 @@ let _ =
 
 (* [add_cmdline_args]: registers additional command line flags; see Flags.ml *)
 let process_cmdline_args (args : Flags.cmdline_args) : unit =
-   Flags.process_cmdline_args ~args ()
+  if not !Flags.skip_argument_processing then
+    Flags.process_cmdline_args ~args ()
 
 (* [generate_source_with_inlined_header_cpp input_file inline output_file]:
    takes a file [input_file] and produces a file [output_file] obtained by
