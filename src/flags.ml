@@ -211,7 +211,7 @@ let fix_flags () =
    If args are given, add them to the list of possible flags.
    This function has no effect if it was already called before. *)
 let process_cmdline_args ?(args : cmdline_args = []) () : unit =
-  if not !Flags.skip_argument_processing then
+  if not !skip_argument_processing then
     begin
       process_program_name();
       Arg.parse
