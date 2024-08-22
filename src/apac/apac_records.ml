@@ -1,6 +1,50 @@
 open Ast
 open Apac_dep
+open Apac_tasks
 open Apac_const
+
+(** [f]: a function definition record. *)
+type f = {
+    (** [args]: a list storing the access classification (see [!type:arg]) of
+        each function argument. List indices match the positions of the
+        arguments in the function definition. *)
+    mutable args : arg list;
+    (** [graph]: the task candidate graph intermediate representation of the
+        function (see [!module:TaskGraph]). *)
+    mutable graph : TaskGraph.t;
+    (** [scope]: a hash table of function-local variables, including the
+        arguments, and their number of levels of indirection. For example, in
+        the case of the following function definition,
+
+        {[void f(int a, int * tab) {
+          float b;
+          void ** data;
+          ...
+        }]}
+
+        we would find
+
+        a -> 0
+        tab -> 1
+        b -> 0
+        data -> 2
+
+        in [scope]. *)
+    scope : int Var_Hashtbl.t;
+    (** [ast]: a copy of the original abstract syntax tree intermediate
+        representation of the function (see [!type:trm]). *)
+    ast : trm
+  }
+(** [arg]: a function argument access classification. *)
+and arg =
+  (** The function {b does not alter} the argument by side-effect. *)
+  | Read
+  (** The function {b does alter} the argument by side-effect. *)
+  | ReadWrite
+
+(** [functions]: a hash table of function definition records with an initial
+    size of 10 entries (see [!module:Var_Hashtbl]). *)
+let functions : f Var_Hashtbl.t = Var_Hashtbl.create 10
 
 (** [const_records]: hash table of [const_fun] with an initial size of 10. The
     size of the table will grow automatically if needed. *)
