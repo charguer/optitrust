@@ -234,7 +234,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
               the function and the number of argument constification records
               associated with the function may not be the same. If [shift], the
               difference of these two values, has a positive value, we know that
-              the current function call as a call to a class member method. *)
+              the current function call is a call to a class member method. *)
            let shift = (List.length args) - (Int_map.cardinal fun_args_const) in
            (* For each argument of the function call, we *)
            List.iteri (fun index arg ->
