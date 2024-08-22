@@ -2,7 +2,8 @@
 
 void e(int* a) { free(a); }
 
-int f(const int a) {
+int f(int a) {
+  a++;
   int b = a;
   b = 1;
   return b;
@@ -10,11 +11,11 @@ int f(const int a) {
 
 void g(int a[2]) { a[f(1)]--; }
 
-void h(int& a) { a = 1; }
+void h(int a) { a = 1; }
 
-void j(int& a) { h(a); }
+void j(const int& a) { h(a); }
 
-void k(int* a, int* b, const int c) {
+void k(int* a, int* b, int c) {
   int* d = a;
   d = b;
   *d = 1;
@@ -28,6 +29,10 @@ void l3(int& a) {
   int& b = a;
   l2(b);
 }
+
+void l4(int& a) { --a; }
+
+int l5(int a) { return a; }
 
 void m(const int& a, int* b, const int* const& c) {
   int* d = a + b;
@@ -51,36 +56,51 @@ int& n4(int& a, const int& b) {
   return n3(c, b);
 }
 
-void n5(int* a, int& b, const int c) {
+void n5(int* a, int& b, int c) {
   int* d = n2(a, c);
   int& e = n4(b, c);
 }
 
-void o(int a, int b, const int c) {
+void o0(int a, int b, int c) {
   int &d = a, *e = &b;
   d = 1;
   *e = 1;
 }
 
-void c1(int* a, const int* const b, const int* const c, int* d) {
+void o1(int*& a) {
+  int*& d = a;
+  d = NULL;
+}
+
+void o2(int* a) {
+  int*& d = a;
+  d = NULL;
+}
+
+void o3(int a) {
+  int& d = a;
+  d = 42;
+}
+
+void c1(int* a, const int* b, const int* c, int* d) {
   int* aa = a;
-  const int* const bb = b;
-  const int* const cc = c;
+  const int* bb = b;
+  const int* cc = c;
   int* dd = d;
   *aa = 42;
   *dd = 12;
 }
 
-void c2(int* a, const int* const b, const int* const c, int* d) {
+void c2(int* a, const int* b, const int* c, int* d) {
   int *aa = a, *dd = d;
-  const int *const bb = b, *const cc = c;
+  const int *bb = b, *cc = c;
   *aa = 42;
   *dd = 12;
 }
 
-void c3(int* a, const int* const b, const int* const c, int* d) {
+void c3(int* a, const int* b, const int* c, int* d) {
   int *aa = a, *dd = d;
-  const int *const bb = b, *const cc = c, e = 2;
+  const int *bb = b, *cc = c, e = 2;
   *aa = 42;
   *dd = 12;
 }
@@ -91,27 +111,27 @@ void h(int& a) { a = 1; }
 
 namespace AA {
 void f(int& a) { a = 1; }
-void g(int a, int b, const int c) {
+void g(int a, int b, int c) {
   f(a);
   BB::h(b);
 }
 }  // namespace AA
 
-void p(int a, const int b) { AA::f(a); }
+void p(int a, int b) { AA::f(a); }
 
 class CC {
  public:
   int* i;
   int* j;
-  void f(int* a, const int b) {
+  void f(int* a, int b) {
     i = a;
     *j = 42;
     p(i, j);
   }
-  int q(const int a) const;
-  void p(int* a, const int* const b) const { *a = *b + 1; }
+  int q(int a) const;
+  void p(int* a, const int* b) const { *a = *b + 1; }
 };
 
-int CC::q(const int a) const { return a; }
+int CC::q(int a) const { return a; }
 
-void q(CC a, int b, const int c) { a.f(&b, 1); }
+void q(CC a, int b, int c) { a.f(&b, 1); }

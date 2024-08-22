@@ -6,6 +6,7 @@ void e(int * a) {
 }
 
 int f(int a) {
+	  a++;
     int b = a;
     b = 1;
     return b;
@@ -15,7 +16,7 @@ void g(int a[2]) {
     a[f(1)]--;
 }
 
-void h(int & a) {
+void h(int  a) {
     a = 1;
 }
 
@@ -40,6 +41,14 @@ void l2(int & a) {
 void l3(int & a) {
     int &b = a;
     l2(b);
+}
+
+void l4(int & a) {
+    --a;
+}
+
+int l5(int a) {
+    return a;
 }
 
 void m(int &a, int * b, int *& c) {
@@ -71,10 +80,25 @@ void n5(int * a, int & b, int c) {
     int & e = n4(b, c);
 }
 
-void o(int a, int b, int c) {
+void o0(int a, int b, int c) {
     int &d=a, *e=&b;
     d = 1;
     *e = 1;
+}
+
+void o1(int* &a) {
+  int* &d = a;
+  d = NULL;
+}
+
+void o2(int* a) {
+  int* &d = a;
+  d = NULL;
+}
+
+void o3(int a) {
+  int &d = a;
+  d = 42;
 }
 
 void c1(int * a, int * b, int * c, int * d) {

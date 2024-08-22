@@ -269,7 +269,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                                  reference, *)
                               if arg_const.is_ptr_or_ref then
                                 begin
-                                  (* we will have to unconstify it by
+                                  (* we may have to unconstify it by
                                      propagation. *)
                                   arg_const.to_unconst_by_propagation <-
                                     Var_map.add fun_var aliased
@@ -296,11 +296,11 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                | None -> ()
              ) args;
          end
-           (* Otherwise, we do not have other choice but consider that the
-              function call may modify its arguments by side-effect. Therefore,
-              if the function call involves one or more arguments or alises to
-              arguments of the currently processed function definition
-              [fun_var], we have to unconstify them. *)
+       (* Otherwise, we do not have other choice but consider that the
+          function call may modify its arguments by side-effect. Therefore,
+          if the function call involves one or more arguments or alises to
+          arguments of the currently processed function definition
+          [fun_var], we have to unconstify them. *)
        else
          begin
            (* Let us warn the user about that. *)
@@ -340,14 +340,12 @@ let identify_mutables_on (p : path) (t : trm) : unit =
          ) lvals rvals;
        trm_iter (aux aliases fun_var) fun_body
     (* Assignment or compound assignment: update the unconstification stack. *)
-    | Trm_apps _ when is_set_operation fun_body ->
-       let error = "Apac_basic.identify_mutables_on: expected set operation." in
-       let (lval, rval) = trm_inv ~error set_inv fun_body in
+    | Trm_apps (_, [lval; rval]) when is_set_operation fun_body ->
        begin
          (* The lvalue has been modified by assignment. Resolve the labelled
             variable behind the lvalue and determine whether it has been
             dereferenced. *)
-         match trm_resolve_binop_lval_and_get_with_deref lval with
+         match trm_resolve_binop_lval_and_get_with_deref ~plus:true lval with
          | Some (lval_lvar, lval_deref) ->
             (* If the lvalue is [this], it means that the function we are in is
                modifying a member variable of the parent class. Therefore, we
@@ -356,10 +354,18 @@ let identify_mutables_on (p : path) (t : trm) : unit =
               begin
                 Stack.push (fun_var, -1) to_unconst
               end;
-            (* If it is an argument or an alias to an argument, we must not
-               constify it. *)
+            (* If it is an argument or an alias to an argument which was
+               dereferenced or a reference, we must not constify it. *)
             if LVar_Hashtbl.mem aliases lval_lvar then
-              begin
+              let (lval_aliased, lval_degree) =
+                LVar_Hashtbl.find aliases lval_lvar in
+              let lval_aliased = if lval_lvar.v.name = "this" then
+                                   lval_aliased + 1
+                                 else lval_aliased in
+              let fun_call_const = Var_Hashtbl.find const_records fun_var in
+              let fun_args_const = fun_call_const.const_args in
+              let arg_const = Int_map.find lval_aliased fun_args_const in 
+              if lval_deref || (lval_degree < 0 && arg_const.is_ptr_or_ref) then
                 (* An alias of the same name may have been used multiple times
                    to alias different memory locations.
                    
@@ -395,7 +401,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                        classes. *)
                     if aliased > -1 then
                       Stack.push (fun_var, aliased) to_unconst
-                  ) all_aliases;
+                  ) all_aliases
+              else
                 (* When an alias changes a target, i.e. when the lvalue variable
                    was not dereferenced, *)
                 begin
@@ -409,43 +416,53 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                      [aliases]. This happens, for example, on L3 in the
                      aforementioned example. *)
                   | Some (_, aliased) ->
-                     let (_, lval_degree) = List.nth all_aliases 0 in
                      (* The value of [lval_deref] is incorrect when the lvalue
                         refers to the parent [this]. This is because
                         [trm_resolve_binop_lval_and_get_with_deref] operates on
                         [this] and not on the concerned structure member. In
                         this case, to verify that the lvalue was not
                         dereferenced, we have to check that the pointer degree
-                        of the lvalue is still greater than 0. *)
+                        of the lvalue is greater than 0. *)
                      if
                        not lval_deref ||
-                         (lval_lvar.v.name = "this" && lval_degree > 0) then
+                         (lval_lvar.v.name = "this" && lval_degree <> 0) then
                        LVar_Hashtbl.add aliases
                          lval_lvar (aliased, lval_degree)
                   | None -> ()
                 end
-              end
          | _ -> ()
        end;
        trm_iter (aux aliases fun_var) fun_body
     (* Increment or decrement unary operation: update the unconstification
        stack. *)
-    | Trm_apps _ when trm_is_unop_inc_or_dec fun_body ->
-       let error = "Apac_basic.identify_mutables_on: unable to retrieve
-                    variable name" in
-       let var_lvar = trm_inv ~error
-                        trm_resolve_var_in_unop_or_array_access_and_get
-                        fun_body
-       in
-       (* Propagate the unconstification to all previously aliased arguments. *)
-       let all_aliases = LVar_Hashtbl.find_all aliases var_lvar in
-       List.iter (fun (aliased , _) ->
-           (* Again, we do not consider parent class members because the
-              constification process does not analyze entire classes yet. See an
-              aforementioned TODO. *)
-           if aliased > -1 then
-             Stack.push (fun_var, aliased) to_unconst
-         ) all_aliases;
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, [t]) when
+           (is_prefix_unary op) || (is_postfix_unary op) ->
+       begin
+         match trm_resolve_binop_lval_and_get_with_deref t with
+         | Some (lval_lvar, lval_deref) ->
+            if LVar_Hashtbl.mem aliases lval_lvar then
+              let (lval_aliased, lval_degree) =
+                LVar_Hashtbl.find aliases lval_lvar in
+              let lval_aliased = if lval_lvar.v.name = "this" then
+                                   lval_aliased + 1
+                                 else lval_aliased in
+              let fun_call_const = Var_Hashtbl.find const_records fun_var in
+              let fun_args_const = fun_call_const.const_args in
+              let arg_const = Int_map.find lval_aliased fun_args_const in 
+              if lval_deref || (lval_degree < 0 && arg_const.is_ptr_or_ref) then
+                (* Propagate the unconstification to all previously aliased
+                   arguments. *)
+                let all_aliases = LVar_Hashtbl.find_all aliases lval_lvar in
+                List.iter (fun (aliased , _) ->
+                    (** We do not consider parent class members because the
+                        constification process does not analyze entire classes
+                        yet. *)
+                    if aliased > -1 then
+                      Stack.push (fun_var, aliased) to_unconst
+                  ) all_aliases
+         | None -> fail fun_body.loc "Apac_constify.identify_mutables_on.aux: \
+                                      unable to retrieve variable name"
+       end;
        trm_iter (aux aliases fun_var) fun_body
     (* Return statement: update the unconstification stack if the return value
        is a reference or a pointer. *)
@@ -501,6 +518,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
   let error = "Apac_basic.identify_mutables_on: expected target to a function \
                definition." in
   let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+  let _ = Printf.printf "Processing function %s\n" (var_to_string var) in
   (* Find the corresponding constification record in [const_records]. *)
   let const_record = Var_Hashtbl.find const_records var in
   (* Create a hash table for aliases to arguments of the function. *)
@@ -542,7 +560,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
   let args = if const_record.is_class_method then List.tl args else args in
   List.iteri (fun pos (v, ty) ->
       let lv : lvar = { v = v; l = String.empty } in
-      LVar_Hashtbl.add aliases lv (pos, typ_get_degree ty)
+      let d = if (is_reference ty) then (-1) else typ_get_degree ty in
+      LVar_Hashtbl.add aliases lv (pos, d)
     ) args;
   (* Actually compute the dependencies of the function definition at [path]
      and fill [to_unconst]. *)
@@ -784,7 +803,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
           if (Int_map.mem arg_pos const_record.const_args) then
             begin
               let arg_cr = Int_map.find arg_pos const_record.const_args in
-              if arg_cr.is_const then
+              if arg_cr.is_const && arg_cr.is_ptr_or_ref then
                 begin
                   let arg_lv : lvar = { v = arg_var; l = String.empty } in
                   LVar_Hashtbl.add
