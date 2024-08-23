@@ -39,6 +39,19 @@ let gdot ?(suffix : string = "") (f : var) : string =
                (if suffix <> "" then "-" ^ suffix else "") ^ ".dot" in
   dir ^ "/" ^ name
 
+(** [excerpt ?max ast]: returns an excerpt of a string representation of an
+    [ast] term at most [max] characters long. *)
+let excerpt ?(max : int = 20) (ast : trm) =
+  let instr = AstC_to_c.ast_to_string ast in
+  let instr = String.split_on_char '\n' instr in
+  let instr = List.hd instr in
+  let instr = String.split_on_char '"' instr in
+  let instr = List.hd instr in
+  let instr = String.trim instr in
+  let limit = String.length instr in
+  let limit = if limit > max then max else limit in
+  String.sub instr 0 limit
+
 (* [typ_is_alias ty]: checks if [ty] is a user-defined alias to a basic type. *)
 let typ_is_alias (ty : typ) : bool =
   match ty.typ_desc with

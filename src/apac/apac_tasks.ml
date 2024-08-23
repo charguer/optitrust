@@ -276,18 +276,10 @@ module rec Task : sig
       children = [];
     }
 
-  (** [Task.to_excerpt task]: returns a string representation of an excerpt of
+  (** [Task.to_excerpt task]: returns an excerpt of a string representation of
       the first statement in [task]. *)
   let to_excerpt (task : t) : string =
-    let instr = AstC_to_c.ast_to_string (List.hd task.current) in
-    let instr = String.split_on_char '\n' instr in
-    let instr = List.hd instr in
-    let instr = String.split_on_char '"' instr in
-    let instr = List.hd instr in
-    let instr = String.trim instr in
-    let limit = String.length instr in
-    let limit = if limit > 20 then 20 else limit in
-    String.sub instr 0 limit
+    Apac_miscellaneous.excerpt (List.hd task.current)
   
   (** [Task.to_string task]: returns a string representation of [task]. *)
   let to_string (task : t) : string =
