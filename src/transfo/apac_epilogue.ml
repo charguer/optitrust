@@ -715,21 +715,17 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
           Dep_map.add d (DepAttr_set.singleton Accessor) task.ioattrs
       end
   in
-  (* Find the parent function. *)
+  (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_core.merge_on: unable to find parent \
-                          function. Task group outside of a function?" in
-  (* Find the corresponding constification record in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (* Build the augmented AST correspoding to the function's body. *)
-  let g = match const_record.task_graph with
-    | Some (g') -> g'
-    | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
-                          taskify?" in
+    | None -> fail t.loc "Apac_epilogue.synchronize_subscripts_on: unable to \
+                          find parent function. Task group outside of a \
+                          function?" in
+  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
   let scope = Dep_hashtbl.create 97 in
   let subscripts = Stack.create () in
-  TaskGraphTraverse.iter (synchronize scope subscripts g) g;
+  TaskGraphTraverse.iter (synchronize scope subscripts r.graph) r.graph;
   Stack.iter (fun (d, v, g) -> process d v g) subscripts;
   (** Dump the resulting task candidate graph, if requested. *)
   if !Apac_macros.verbose then
@@ -879,25 +875,21 @@ let place_barriers_on (p : path) (t : trm) : unit =
     | Some (v) -> v
     | None -> fail t.loc "Apac_epilogue.place_barriers_on: unable to find \
                           parent function. Task group outside of a function?" in
-  (** Find the constification record of [f] in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (** Try to retrieve the task candidate graph representation [g] of [f]. *)
-  let g = match const_record.task_graph with
-    | Some (g') -> g'
-    | None -> fail t.loc "Apac_epilogue.place_barriers_on: missing task \
-                          candidate graph. Did you taskify?" in
+  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
   (** Based on schedules, identify the task candidate immediately following the
-      last eligible task candidate in [g]. To this end, iterate over the task
-      candidates of [g], including the those from nested task candidate graphs,
-      in descending schedule order (see [Task.t]). *)
-  let bl : TaskGraph.V.t option = find g in
+      last eligible task candidate in the task candidate graph [r.graph] of [f].
+      To this end, iterate over the task candidates of [r.graph], including the
+      those from nested task candidate graphs, in descending schedule order (see
+      [Task.t]). *)
+  let bl : TaskGraph.V.t option = find r.graph in
   match bl with
   | Some e ->
      (** Initialize a stack of preceding eligible task candiates. *)
      let ts : Task.t Stack.t = Stack.create () in
-     (** Process each task candidate in [g]. *)
+     (** Process each task candidate in [r.graph]. *)
      let stop = ref false in
-     TaskGraphTraverse.iter_schedule (process e stop ts) g;
+     TaskGraphTraverse.iter_schedule (process e stop ts) r.graph;
      (** Dump the resulting task candidate graph, if requested. *)
      if !Apac_macros.verbose then
        begin

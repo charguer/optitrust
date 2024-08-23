@@ -6,7 +6,6 @@ open Target
 open Tools
 open Apac_records
 open Apac_miscellaneous
-open Apac_const
 open Apac_dep
 open Apac_tasks
 open Apac_backend
@@ -15,37 +14,36 @@ open Apac_backend
     [find_candidates_minimum_funcalls]. *)
 let find_candidates_minimum_funcalls_on ?(min : int = 2)
       (p : path) (t : trm) : unit =
-  (** Initialize function calls counter. *)
+  (** Initialize a counter of function calls. We use a reference because the
+      [trm_iter] function we use to loop over the elements of [t] has no return
+      value. *)
   let counter = ref 0 in
   let rec count (t : trm) : unit =
     match t.desc with
-    (** If [t] is a call to a function with a known definition, increase
-        [counter] and recurse deeper in the AST. *)
-    | Trm_apps ({ desc = Trm_var (_, f)}, _)
-         when Var_Hashtbl.mem const_records f ->
+    (** If [t] is a call to a function with a known definition, i.e. a function
+        with a function definition record in [!Apac_records.functions], increase
+        [counter] and recurse deeper in the abstract syntax tree. *)
+    | Trm_apps ({ desc = Trm_var (_, f)}, _) when Var_Hashtbl.mem functions f ->
        incr counter; trm_iter count t
-    (** Otherwise, just recurse deeper in the AST. *)
+    (** Otherwise, just recurse deeper in the abstract syntax tree. *)
     | _ -> trm_iter count t
   in
-  (** Find the parent function. *)
+  (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.find_candidates_minimum_funcalls_on: \
                           unable to find parent function. Task group outside \
                           of a function?" in
-  (** Find the corresponding constification record in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (** Retrieve the root node of the corresponding task graph. *)
-  let r = match const_record.task_graph with
-    | Some (g) -> TaskGraphOper.root g
-    | None -> fail t.loc "Apac_taskify.find_candidates_minimum_funcalls_on: \
-                          Missing task graph. Did you taskify?" in
-  (** Retrieve the root node's task. *)
-  let r = TaskGraph.V.label r in
-  (** Count function calls in the underlying AST. *)
-  count (List.hd r.current);
-  (** If the AST contains at least [min] function calls, mark the function as
-      taskification candidate. *)
+  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
+  (** Retrieve the root vertex [rv] of the task candidate graph of [f]. *)
+  let rv = TaskGraphOper.root r.graph in
+  (** Retrieve the label of [rv]. *)
+  let rv = TaskGraph.V.label rv in
+  (** Count function calls in the underlying abstract syntax tree. *)
+  count (List.hd rv.current);
+  (** If the abstract syntax tree contains at least [min] function calls, mark
+      the function as taskification candidate. *)
   if !counter >= min then Var_Hashtbl.add const_candidates f ()
 
 (** [find_candidates_minimum_funcalls ~min tg]: expects the target [tg] to point
@@ -68,18 +66,13 @@ let rec taskify_callers () : unit =
     | _ -> trm_iter (calls c) t
   in
   let insertions =
-    Var_Hashtbl.fold (fun f cr ins ->
+    Var_Hashtbl.fold (fun f r ins ->
         (** We shall update only the callers which has not been qualified as
             taskification candidates yet. *)
         if not (Var_Hashtbl.mem const_candidates f) then
           (** Tells whether the current caller calls one of the taskification
               candidates. *)
           let is_caller = ref false in
-          (** Retrieve the task graph of [f]. *)
-          let g = match cr.task_graph with
-            | Some g' -> g'
-            | None -> fail None "Apac_taskify.taskify_callers: Missing task \
-                                 graph. Did you taskify?" in
           (** Update its task graph as follows. *)
           TaskGraph.iter_vertex (fun v ->
               (** Get the task [t] from the current task graph vertex [v].*)
@@ -101,11 +94,11 @@ let rec taskify_callers () : unit =
                   is_candidate_caller := false;
                   t.attrs <- TaskAttr_set.add Singleton t.attrs;
                   t.attrs <- TaskAttr_set.add Taskifiable t.attrs
-                end) g;
+                end) r.graph;
           (** If the current caller becomes a taskification candidate, it means
               that we make a new insertion into [const_candidates]. *)
           if !is_caller then ins + 1 else ins
-        else ins) Apac_records.const_records 0
+        else ins) functions 0
   in
   (** If the current call to this routine did insert a new element into
       [const_candidates], we have to call it again. *)
@@ -118,11 +111,11 @@ let restore_on (t : trm) : trm =
     "Apac_taskify.restore_on: expected a target to a function definition" in
   let (f, _, _, _) = trm_inv ~error trm_let_fun_inv t in
   (** If the target function [f] is not a taskification candidate, restore its
-      original AST from [Apac_records.const_records]. *)
+      original AST from [!Apac_records.functions]. *)
   if not (Var_Hashtbl.mem const_candidates f) then
     let _ = Printf.printf " > > > > > NOT Candidate: %s\n" (var_to_string f) in
-    let cr = Var_Hashtbl.find const_records f in
-    cr.ast_backup
+    let r = Var_Hashtbl.find functions f in
+    r.ast
   else t
 
 (** [restore tg]: expects the target [tg] to point at a function definition. If
@@ -266,7 +259,7 @@ let parallel_task_group
     returns two lists. The first list holds the access terms where each term is
     paired with an access attribute. The second list contains all the variables
     involved in the data accesses. *)
-let trm_discover_dependencies (locals : symbols)
+let trm_discover_dependencies (locals : int Var_Hashtbl.t)
       (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map * TaskAttr_set.t)  =
   (** [trm_look_for_dependencies.aux ins inouts attrs filter nested fc attr t]:
       builds [ins], a stack of input (read-only) data dependencies in [t],
@@ -436,34 +429,22 @@ let trm_discover_dependencies (locals : symbols)
        aux ins inouts attrs filter 0 fc ArgInOut t''
     (** - function calls ('f(args)'). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
-       if Var_Hashtbl.mem const_records v then
-         let const_record : const_fun = Var_Hashtbl.find const_records v in
+       if Var_Hashtbl.mem functions v then
+         let r : f = Var_Hashtbl.find functions v in
+         let args = if v.name = "this" then List.tl args else args in
          let exists = ref true in
-         List.iteri (
-             fun pos arg ->
-             if (Int_map.mem pos const_record.const_args) then
-               begin
-                 let const = Int_map.find pos const_record.const_args in
-                 let aa : DepAttr.t =
-                   if const.is_const then ArgIn else ArgInOut in
-                 let (exists', _) =
-                   aux ins inouts attrs filter 0 true aa arg in
-                 exists := !exists && exists'
-               end
-             else
-               begin
-                 let error =
-                   Printf.sprintf
-                     "Apac_taskify.trm_look_for_dependencies.aux: the \
-                      constification record of '%s' has no argument \
-                      constification record for the argument on position \
-                      '%d'."
-                     (var_to_string v)
-                     pos
-                 in
-                 fail None error
-               end
-           ) args;
+         
+  let _ = List.iteri (fun i a -> 
+              Printf.printf "Function %s, arg %d: %s\n"
+                     v.name i (if a = ReadWrite then "RW" else "R")
+            ) r.args in
+         List.iter2 (fun arg kind ->
+             let dk : DepAttr.t = match kind with
+               | Read -> ArgIn
+               | ReadWrite -> ArgInOut
+             in
+             let (exists', _) = aux ins inouts attrs filter 0 true dk arg in
+             exists := !exists && exists') args r.args;
          (!exists, true)
        else
          begin
@@ -478,7 +459,7 @@ let trm_discover_dependencies (locals : symbols)
                      operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
        begin
-         match (trm_resolve_binop_lval_and_get_with_deref lval) with
+         match (trm_resolve_binop_lval_and_get_with_deref ~plus:true lval) with
          | Some (lv, _) ->
             let (le, lf) =
               aux ins inouts attrs filter 0 false ArgInOut lval in
@@ -546,7 +527,7 @@ let trm_discover_dependencies (locals : symbols)
 let taskify_on (p : path) (t : trm) : unit =
   (* Auxiliary function to transform a portion of the existing AST into a local
      fill_task_graphed AST (see [atrm]). *)
-  let rec fill (s : symbols) (t : trm) (g : TaskGraph.t) : Task.t =
+  let rec fill (s : int Var_Hashtbl.t) (t : trm) (g : TaskGraph.t) : Task.t =
     match t.desc with
     | Trm_seq sequence ->
        (** Keep a copy of the local scope of variables as a set. We need this
@@ -606,17 +587,13 @@ let taskify_on (p : path) (t : trm) : unit =
            graph (see further below). *)
        let this' = TaskGraph.V.create this in
        TaskGraph.add_vertex g this';
-       Printf.printf "\n\n\nLIST OF TASKS\n\n\n";
        (** Add the task candidates representing the statements of the [sequence]
            into the task candidate graph [g] while assigning them a logical
            schedule. *)
-       let tasks = List.map (
-                       fun task ->
-                       Printf.printf "Task: %s\n" (Task.to_string task);
+       let tasks = List.map (fun (task : Task.t) ->
                        task.schedule <- schedule ();
                        let v = TaskGraph.V.create task in
-                       TaskGraph.add_vertex g v; v
-                     ) tasks in
+                       TaskGraph.add_vertex g v; v) tasks in
        (** Translate dependencies between task candidates into edges in the task
            candidate graph [g]. To do this, we check each couple of task
            candidates in [tasks]. *)
@@ -641,8 +618,6 @@ let taskify_on (p : path) (t : trm) : unit =
            in
            if j_depends_on_i then
              begin
-               Printf.printf "'%s' ---> '%s'\n"
-                 (Task.to_excerpt task_i) (Task.to_excerpt task_j);
                TaskGraph.add_edge g vertex_i vertex_j
              end
          done
@@ -1137,28 +1112,30 @@ let taskify_on (p : path) (t : trm) : unit =
        end
     | _ ->
        let error = Printf.sprintf
-                     "Apac_core.taskify_on.fill: '%s' should not appear in a \
-                      task group" (trm_desc_to_string t.desc) in
+                     "Apac_taskify.taskify_on.fill: statements of type `%s' \
+                      should not appear in a task group"
+                     (trm_desc_to_string t.desc) in
        fail t.loc error
   in
-  (* Find the parent function. *)
+  (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_core.taskify_on: unable to find parent \
+    | None -> fail t.loc "Apac_taskify.taskify_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (* Find the corresponding constification record in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (* Build the augmented AST correspoding to the function's body. *)
-  let g = TaskGraph.create () in
-  let _ = fill const_record.variables t g in
-  let g' = TaskGraphOper.recursive_transitive_reduction g in
-  const_record.task_graph <- Some (g');
-  Printf.printf "Task graph of << %s >> follows:\n" (var_to_string f);
-  TaskGraphPrinter.print g';
-  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ ".dot" in
-  export_task_graph g' dot;
-  dot_to_pdf dot
-    
+  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
+  (** Verify that the task candidate graph representation of [f] does not exist
+      yet. Indeed, we are about to build it. *)
+  if not (TaskGraph.is_empty r.graph) then
+    let error = Printf.sprintf "Apac_taskify.taskify_on: task candidate graph \
+                                of '%s' should not exist yet." f.name in
+    fail t.loc error
+  else
+    (** Translate the function definition into task candidate graph intermediate
+        representation and store the latter in [r]. *)
+    let _ = fill r.scope t r.graph in
+    (** Optimize the edges of the graph thanks to transitive reduction. *)
+    r.graph <- TaskGraphOper.recursive_transitive_reduction r.graph;
     (** Dump the output task candidate graph, if requested. *)
     if !Apac_macros.verbose then
       begin
@@ -1284,15 +1261,15 @@ let merge_on (p : path) (t : trm) : unit =
         let t : Task.t = TaskGraph.V.label v in
         List.iter (fun l -> List.iter (fun g -> one g) l) t.children) g
   in
-  (** Find the parent function. *)
+  (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.merge_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (** Find its constification record in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (** Retrieve the associated task candidate graph. *)
-  let g = match const_record.task_graph with
+  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
+  (** Apply the merge on the task candidate graph of [f] in [r]. *)
+  one r.graph;
   (** Dump the resulting task candidate graph, if requested. *)
   if !Apac_macros.verbose then
     begin
@@ -1378,7 +1355,7 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
     if (List.exists (fun s ->
             match s.desc with
             | Trm_apps ({ desc = Trm_var (_ , f); _ }, _)
-                 when Var_Hashtbl.mem const_records f -> true
+                 when Var_Hashtbl.mem functions f -> true
             | _ -> false) t.current) then
       t.attrs <- TaskAttr_set.add Taskifiable t.attrs;
     (** Process the task candidates in nested task candidate graphs, if any. *)
@@ -1388,21 +1365,16 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
           ) gl
       ) t.children
   in
-  (** Find the parent function. *)
+  (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.detect_tasks_simple_on: unable to find \
                           parent function. Task group outside of a function?" in
-  (** Find its constification record in [Apac_const.const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (** Check whether the function definition has a task candidate graph. *)
-  let g = match const_record.task_graph with
-    | Some (g') -> g'
-    | None -> fail t.loc "Apac_taskify.detect_tasks_simple_on: Missing task \
-                          candidate graph. Did you taskify?" in
+  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
   (** Add the [Taskifiable] attribute to every task candidate featuring a call
       to a function we know the definition of. *)
-  TaskGraphTraverse.iter aux g;
+  TaskGraphTraverse.iter aux r.graph;
   (** Dump the resulting task candidate graph, if requested. *)
   if !Apac_macros.verbose then
     begin
@@ -1426,23 +1398,19 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
 let detect_tasks_simple (tg : target) : unit =
   Target.iter (fun t p -> detect_tasks_simple_on p (get_trm_at_path p t)) tg
 
-(* [insert_tasks_on p t]: see [insert_tasks_on]. *)
-(* TODO: mettre sur papier des idées de stratégies de transformation de
-   graphes. *)
+(** [insert_tasks_on p t]: see [insert_tasks_on]. *)
 let insert_tasks_on (p : path) (t : trm) : trm =
-  (* Find the parent function. *)
+  (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_core.insert_tasks_on: unable to find parent \
+    | None -> fail t.loc "Apac_taskify.insert_tasks_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (* Find the corresponding constification record in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (* Build the augmented AST correspoding to the function's body. *)
-  let g = match const_record.task_graph with
-    | Some (g') -> g'
-    | None -> fail t.loc "Apac_core.merge_on: Missing task graph. Did you \
-                          taskify?" in
-  let instrs = TaskGraphTraverse.codify (trm_from_task ~backend:OpenMP) g in
+  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
+  (** Translate the task candidate graph representation [r.graph] of [f] to a
+      parallel abstract syntax tree. *)
+  let instrs = TaskGraphTraverse.codify
+                 (trm_from_task ~backend:OpenMP) r.graph in
   let instrs = Mlist.of_list instrs in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   (** Dump the resulting abstract syntax tree, if requested. *)
@@ -1461,22 +1429,19 @@ let insert_tasks_on (p : path) (t : trm) : trm =
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
 
-(* [profile_tasks_on p t]: see [profile_tasks_on]. *)
+(** [profile_tasks_on p t]: see [profile_tasks_on]. *)
 let profile_tasks_on (p : path) (t : trm) : trm =
-  (* Find the parent function. *)
+  (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_core.profile_tasks_on: unable to find parent \
+    | None -> fail t.loc "Apac_taskify.profile_tasks_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (* Find the corresponding constification record in [const_records]. *)
-  let const_record = Var_Hashtbl.find const_records f in
-  (* Build the augmented AST correspoding to the function's body. *)
-  let g = match const_record.task_graph with
-    | Some (g') -> g'
-    | None -> fail t.loc "Apac_core.profile_tasks_on: Missing task graph. Did \
-                          you taskify?" in
+  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
+  (** Translate the task candidate graph representation [r.graph] of [f] to a
+      abstract syntax tree using the profiler back-end. *)
   let instrs = TaskGraphTraverse.codify
-                 (trm_from_task ~backend:ApacProfiler) g in
+                 (trm_from_task ~backend:ApacProfiler) r.graph in
   let instrs = Mlist.of_list instrs in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   (** Dump the resulting abstract syntax tree, if requested. *)
