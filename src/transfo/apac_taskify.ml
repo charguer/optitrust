@@ -259,7 +259,7 @@ let parallel_task_group
     returns two lists. The first list holds the access terms where each term is
     paired with an access attribute. The second list contains all the variables
     involved in the data accesses. *)
-let trm_discover_dependencies (locals : int Var_Hashtbl.t)
+let trm_discover_dependencies (locals : FunctionRecord.s)
       (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map * TaskAttr_set.t)  =
   (** [trm_look_for_dependencies.aux ins inouts attrs filter nested fc attr t]:
       builds [ins], a stack of input (read-only) data dependencies in [t],
@@ -520,7 +520,7 @@ let trm_discover_dependencies (locals : int Var_Hashtbl.t)
 let taskify_on (p : path) (t : trm) : unit =
   (* Auxiliary function to transform a portion of the existing AST into a local
      fill_task_graphed AST (see [atrm]). *)
-  let rec fill (s : int Var_Hashtbl.t) (t : trm) (g : TaskGraph.t) : Task.t =
+  let rec fill (s : FunctionRecord.s) (t : trm) (g : TaskGraph.t) : Task.t =
     match t.desc with
     | Trm_seq sequence ->
        (** Keep a copy of the local scope of variables as a set. We need this
