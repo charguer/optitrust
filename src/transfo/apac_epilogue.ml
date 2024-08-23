@@ -53,14 +53,22 @@ let subst_pragmas (va : var) (tv : trm)
                   List.map (fun c ->
                       match c with
                       | Depend dl ->
+                         let io : deps ref = ref [] in
                          let dl' = List.map (fun dt ->
                                        match dt with
-                                       | In dl -> In (aux dl)
-                                       | Out dl -> Out (aux dl)
-                                       | Inout dl -> Inout (aux dl)
-                                       | Outin dl -> Outin (aux dl)
-                                       | Sink dl -> Sink (aux dl)
+                                       | In dl -> io := !io @ dl; In (aux dl)
+                                       | Inout dl ->
+                                          io := !io @ dl; Inout (aux dl)
                                        | _ -> dt) dl in
+                         io := List.filter (fun d ->
+                                   match d with
+                                   | Dep_trm (_, v) when v = va -> true
+                                   | Dep_var v when v = va -> true
+                                   | _ -> false) !io;
+                         let dl' = List.map (fun dt ->
+                                       match dt with
+                                       | In dl -> In (dl @ !io)
+                                       | _ -> dt) dl' in
                          Depend dl'
                       | _ -> c) cl'
                 else []
