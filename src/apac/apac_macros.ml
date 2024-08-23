@@ -1,5 +1,16 @@
 open Ast
 
+(** [verbose]: toggles verbose output for debugging purposes. *)
+let verbose : bool ref = ref false
+
+(** [keep_graphs]: tells whether we should dump task candidate graphs to the Dot
+    and subsequently to the Pdf format at each transformation. *)
+let keep_graphs : bool ref = ref false
+
+(** [keep_graphs_in]: name of the directory within the current working directory
+    to keep the task candidate graphs in (see [!Apac_miscellaneous.gwd]). *)
+let keep_graphs_in : string ref = ref "apac_task_candidate_graphs"
+
 (** [task_group_mark]: string used to mark instruction sequences targeted by
     task group insertion. See [Apac_basic.task_group] and
     [Apac_basic.use_goto_for_return]. *)
