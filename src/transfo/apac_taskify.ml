@@ -1159,6 +1159,9 @@ let taskify_on (p : path) (t : trm) : unit =
   export_task_graph g' dot;
   dot_to_pdf dot
     
+(** [taskify tg]: expects the target [tg] to point at a function body. It then
+    translates its abstract syntax tree representation into a task candidate
+    graph representation. *)
 let taskify (tg : target) : unit =
   Target.iter (fun t p -> taskify_on p (get_trm_at_path p t)) tg
 
@@ -1289,6 +1292,64 @@ let merge_on (p : path) (t : trm) : unit =
   export_task_graph g dot;
   dot_to_pdf dot
 
+(** [merge tg]: expects the target [tg] to point at a function body. It then
+    tries to optimize its task candidate graph representation by merging
+    inter-dependent task candidates that could not yield parallelizable tasks.
+    The idea is to identify and squash sequences of inter-dependent task
+    candidates beginning with a task candidate having a single successor,
+    containing task candidates with a single predecessor and a single successor,
+    to end with a task candidate having a single predecessor.
+
+    Let us take the example of the following task candidate graph with 5
+    vertices ([{v1}] to [{v5}]):
+
+    {[+-----------------------+     +-----------------------------+
+      |         {v3}          |     |            {v1}             |
+      |    c = add(c, b);     |     | int a = 10, b = 11, c = 10; |
+      | (in: [b], inout: [c]) | <-- | (in: [], inout: [a, b, c])  |
+      +-----------------------+     +-----------------------------+
+        |                             |
+        |                             |
+        v                             v
+      +-----------------------+     +-----------------------------+
+      |         {v5}          |     |            {v2}             |  
+      |    c = mul(c, b);     |     |       a = add(a, b);        |
+      | (in: [b], inout: [c]) |     |    (in: [b], inout: [a])    |
+      +-----------------------+     +-----------------------------+
+                                      |
+                                      |
+                                      v
+                                    +-----------------------------+
+                                    |            {v4}             |  
+                                    |       a = mul(a, b);        |
+                                    |    (in: [b], inout: [a])    |
+                                    +-----------------------------+]}
+
+    There are two sequences of mergeable vertices in the above graph, i.e. the
+    sequence containing [{v2}] and [{v4}] as well as the sequence containing
+    [{v3}] and [{v5}]. The application of the [merge] transformation on the
+    above task candidate graph would result in this task candidate graph with 3
+    vertices:
+
+    {[+-----------------------+     +-----------------------------+
+      |         {v3}          |     |            {v1}             |
+      |    c = add(c, b);     |     | int a = 10, b = 11, c = 10; |
+      |    c = mul(c, b);     |     | (in: [], inout: [a, b, c])  |
+      | (in: [b], inout: [c]) | <-- |                             |
+      +-----------------------+     +-----------------------------+
+                                      |
+                                      |
+                                      v
+                                    +-----------------------------+
+                                    |            {v2}             |
+                                    |       a = add(a, b);        |
+                                    |       a = mul(a, b);        |
+                                    |    (in: [b], inout: [a])    |
+                                    +-----------------------------+]}
+
+    Indeed, the transformation merged the vertices [{v2}] and [{v4}] into a
+    single vertex [{v2}] as well as the vertices [{v3}] and [{v5}] into a single
+    vertex [{v3}]. *)
 let merge (tg : target) : unit =
   Nobrace.enter ();
   Target.iter (fun t p -> merge_on p (get_trm_at_path p t)) tg
@@ -1333,6 +1394,12 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
   export_task_graph g dot;
   dot_to_pdf dot
 
+(** [detect_tasks_simple tg]: expects the target [tg] to point at a function
+    body. It then scans its task candidate graph representation for eligible
+    task candidates. This function applies a simple strategy which consists in
+    adding the [Taskifiable] attribute to every task candidate featuring a call
+    to a function we know the definition of, i.e. a function with a function
+    definition record in [!Apac_records.functions]. *)
 let detect_tasks_simple (tg : target) : unit =
   Target.iter (fun t p -> detect_tasks_simple_on p (get_trm_at_path p t)) tg
 
@@ -1357,7 +1424,10 @@ let insert_tasks_on (p : path) (t : trm) : trm =
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   let _ = Debug_transfo.trm "output" result in
   result
-    
+
+(** [insert_tasks tg]: expects the target [tg] to point at a function body. It
+    then translates its task candidate graph representation into a parallel
+    abstract syntax tree. *)
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
 
@@ -1381,7 +1451,11 @@ let profile_tasks_on (p : path) (t : trm) : trm =
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   result
 
+(** [profile_tasks tg]: expects the target [tg] to point at a function body. It
+    then translates its task candidate graph representation into a abstract
+    syntax tree annotated with profiling instructions. *)
 let profile_tasks (tg : target) : unit =
+  (** Include the header providing the profiling functions. *)
   Trace.ensure_header Apac_macros.profiler_header;
   Target.apply (fun t p -> Path.apply_on_path (profile_tasks_on p) t p) tg
 
