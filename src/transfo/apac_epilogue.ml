@@ -721,7 +721,7 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
     | None -> fail t.loc "Apac_epilogue.synchronize_subscripts_on: unable to \
                           find parent function. Task group outside of a \
                           function?" in
-  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   let scope = Dep_hashtbl.create 97 in
   let subscripts = Stack.create () in
@@ -875,7 +875,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
     | Some (v) -> v
     | None -> fail t.loc "Apac_epilogue.place_barriers_on: unable to find \
                           parent function. Task group outside of a function?" in
-  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Based on schedules, identify the task candidate immediately following the
       last eligible task candidate in the task candidate graph [r.graph] of [f].

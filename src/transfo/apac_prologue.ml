@@ -23,7 +23,7 @@ let build_records_on (t : trm) : unit =
       let (first, _) = List.hd args in
       if first.name = "this" then List.tl args else args
     else args in
-  (** Build the function definition record of [fn] and *)
+  (** Build the function record of [fn] and *)
   let r = FunctionRecord.create args t in
   (** add it to [!functions] if it is not present in the hash table already,
       e.g. in the case of a pre-declaration. *)
@@ -31,8 +31,8 @@ let build_records_on (t : trm) : unit =
     Var_Hashtbl.add functions fn r
       
 (** [build_records tg]: expects the target [tg] to point at a function
-    definition and builds a function definition record for it (see
-    [!type:f] and [!build_records_on]). *)
+    definition and builds a function record for it (see [!type:f] and
+    [!build_records_on]). *)
 let build_records (tg : target) : unit =
   Target.iter_at_target_paths (build_records_on) tg
 

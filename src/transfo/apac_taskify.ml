@@ -21,8 +21,8 @@ let find_candidates_minimum_funcalls_on ?(min : int = 2)
   let rec count (t : trm) : unit =
     match t.desc with
     (** If [t] is a call to a function with a known definition, i.e. a function
-        with a function definition record in [!Apac_records.functions], increase
-        [counter] and recurse deeper in the abstract syntax tree. *)
+        with a function record in [!Apac_records.functions], increase [counter]
+        and recurse deeper in the abstract syntax tree. *)
     | Trm_apps ({ desc = Trm_var (_, f)}, _) when Var_Hashtbl.mem functions f ->
        incr counter; trm_iter count t
     (** Otherwise, just recurse deeper in the abstract syntax tree. *)
@@ -34,7 +34,7 @@ let find_candidates_minimum_funcalls_on ?(min : int = 2)
     | None -> fail t.loc "Apac_taskify.find_candidates_minimum_funcalls_on: \
                           unable to find parent function. Task group outside \
                           of a function?" in
-  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  (** Find its function record [r] in [!Apac_records.functions]. *)
   let r : FunctionRecord.t = Var_Hashtbl.find functions f in
   (** Retrieve the root vertex [rv] of the task candidate graph of [f]. *)
   let rv = TaskGraphOper.root r.graph in
@@ -1115,7 +1115,7 @@ let taskify_on (p : path) (t : trm) : unit =
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.taskify_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Verify that the task candidate graph representation of [f] does not exist
       yet. Indeed, we are about to build it. *)
@@ -1259,7 +1259,7 @@ let merge_on (p : path) (t : trm) : unit =
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.merge_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Apply the merge on the task candidate graph of [f] in [r]. *)
   one r.graph;
@@ -1363,7 +1363,7 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.detect_tasks_simple_on: unable to find \
                           parent function. Task group outside of a function?" in
-  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Add the [Taskifiable] attribute to every task candidate featuring a call
       to a function we know the definition of. *)
@@ -1398,7 +1398,7 @@ let insert_tasks_on (p : path) (t : trm) : trm =
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.insert_tasks_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Translate the task candidate graph representation [r.graph] of [f] to a
       parallel abstract syntax tree. *)
@@ -1429,7 +1429,7 @@ let profile_tasks_on (p : path) (t : trm) : trm =
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.profile_tasks_on: unable to find parent \
                           function. Task group outside of a function?" in
-  (** Find its function definition record [r] in [!Apac_records.functions]. *)
+  (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Translate the task candidate graph representation [r.graph] of [f] to a
       abstract syntax tree using the profiler back-end. *)
