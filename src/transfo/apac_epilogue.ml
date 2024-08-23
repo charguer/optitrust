@@ -731,11 +731,19 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
   let subscripts = Stack.create () in
   TaskGraphTraverse.iter (synchronize scope subscripts g) g;
   Stack.iter (fun (d, v, g) -> process d v g) subscripts;
-  Printf.printf "Sync. subscripts task graph of << %s >> follows:\n" (var_to_string f);
-  TaskGraphPrinter.print g;
-  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_sync.dot" in
-  export_task_graph g dot;
-  dot_to_pdf dot
+  (** Dump the resulting task candidate graph, if requested. *)
+  if !Apac_macros.verbose then
+    begin
+      Printf.printf "Task candidate graph of `%s' (sync. subscripts):\n"
+        (var_to_string f);
+      TaskGraphPrinter.print r.graph
+    end;
+  if !Apac_macros.keep_graphs then
+    begin
+      let dot = gdot ~suffix:"sync-subscripts" f in
+      export_task_graph r.graph dot;
+      dot_to_pdf dot
+    end
 
 let synchronize_subscripts (tg : target) : unit =
   Target.iter (fun t p ->
@@ -890,9 +898,19 @@ let place_barriers_on (p : path) (t : trm) : unit =
      (** Process each task candidate in [g]. *)
      let stop = ref false in
      TaskGraphTraverse.iter_schedule (process e stop ts) g;
-     let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_barriers.dot" in
-     export_task_graph g dot;
-     dot_to_pdf dot
+     (** Dump the resulting task candidate graph, if requested. *)
+     if !Apac_macros.verbose then
+       begin
+         Printf.printf "Task candidate graph of `%s' (with barriers):\n"
+           (var_to_string f);
+         TaskGraphPrinter.print r.graph
+       end;
+     if !Apac_macros.keep_graphs then
+       begin
+         let dot = gdot ~suffix:"barriers" f in
+         export_task_graph r.graph dot;
+         dot_to_pdf dot
+       end
   | None ->
      let error = Printf.sprintf
                    "Apac_epilogue.place_barriers_on: no eligible task \

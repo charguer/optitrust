@@ -1159,6 +1159,19 @@ let taskify_on (p : path) (t : trm) : unit =
   export_task_graph g' dot;
   dot_to_pdf dot
     
+    (** Dump the output task candidate graph, if requested. *)
+    if !Apac_macros.verbose then
+      begin
+        Printf.printf "Task candidate graph of `%s':\n" (var_to_string f);
+        TaskGraphPrinter.print r.graph
+      end;
+    if !Apac_macros.keep_graphs then
+      begin
+        let dot = gdot f in
+        export_task_graph r.graph dot;
+        dot_to_pdf dot
+      end
+
 (** [taskify tg]: expects the target [tg] to point at a function body. It then
     translates its abstract syntax tree representation into a task candidate
     graph representation. *)
@@ -1280,17 +1293,18 @@ let merge_on (p : path) (t : trm) : unit =
   let const_record = Var_Hashtbl.find const_records f in
   (** Retrieve the associated task candidate graph. *)
   let g = match const_record.task_graph with
-    | Some (g') -> g'
-    | None -> fail t.loc "Apac_taskify.merge_on: Missing task candidate graph. \
-                          Did you taskify?" in
-  (** Apply the merging transformation on the task candidate graph. *)
-  one g;
-  Printf.printf "Merged task graph of << %s >> follows:\n" (var_to_string f);
-  TaskGraphPrinter.print g;
-  (** Save the resulting graph to a DOT, then to a PDF file. *)
-  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_merged.dot" in
-  export_task_graph g dot;
-  dot_to_pdf dot
+  (** Dump the resulting task candidate graph, if requested. *)
+  if !Apac_macros.verbose then
+    begin
+      Printf.printf "Task candidate graph of `%s' (merge):\n" (var_to_string f);
+      TaskGraphPrinter.print r.graph
+    end;
+  if !Apac_macros.keep_graphs then
+    begin
+      let dot = gdot ~suffix:"merge" f in
+      export_task_graph r.graph dot;
+      dot_to_pdf dot
+    end
 
 (** [merge tg]: expects the target [tg] to point at a function body. It then
     tries to optimize its task candidate graph representation by merging
@@ -1389,10 +1403,19 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
   (** Add the [Taskifiable] attribute to every task candidate featuring a call
       to a function we know the definition of. *)
   TaskGraphTraverse.iter aux g;
-  (** Save the resulting graph to a DOT, then to a PDF file. *)
-  let dot = (cwd ()) ^ "/apac_task_graph_" ^ f.name ^ "_detect.dot" in
-  export_task_graph g dot;
-  dot_to_pdf dot
+  (** Dump the resulting task candidate graph, if requested. *)
+  if !Apac_macros.verbose then
+    begin
+      Printf.printf "Task candidate graph of `%s' (detection):\n"
+        (var_to_string f);
+      TaskGraphPrinter.print r.graph
+    end;
+  if !Apac_macros.keep_graphs then
+    begin
+      let dot = gdot ~suffix:"detection" f in
+      export_task_graph r.graph dot;
+      dot_to_pdf dot
+    end
 
 (** [detect_tasks_simple tg]: expects the target [tg] to point at a function
     body. It then scans its task candidate graph representation for eligible
@@ -1422,7 +1445,14 @@ let insert_tasks_on (p : path) (t : trm) : trm =
   let instrs = TaskGraphTraverse.codify (trm_from_task ~backend:OpenMP) g in
   let instrs = Mlist.of_list instrs in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
-  let _ = Debug_transfo.trm "output" result in
+  (** Dump the resulting abstract syntax tree, if requested. *)
+  if !Apac_macros.verbose then
+    begin
+      let msg = Printf.sprintf "Parallel abstract syntax tree of `%s'"
+                  (var_to_string f) in
+      Debug_transfo.trm msg result
+    end;
+  (** Return the resulting abstract syntax tree. *)
   result
 
 (** [insert_tasks tg]: expects the target [tg] to point at a function body. It
@@ -1449,6 +1479,14 @@ let profile_tasks_on (p : path) (t : trm) : trm =
                  (trm_from_task ~backend:ApacProfiler) g in
   let instrs = Mlist.of_list instrs in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
+  (** Dump the resulting abstract syntax tree, if requested. *)
+  if !Apac_macros.verbose then
+    begin
+      let msg = Printf.sprintf "Abstract syntax tree of `%s' with profiling \
+                                instructions" (var_to_string f) in
+      Debug_transfo.trm msg result
+    end;
+  (** Return the resulting abstract syntax tree. *)
   result
 
 (** [profile_tasks tg]: expects the target [tg] to point at a function body. It
