@@ -4,7 +4,40 @@ open Typ
 (** [cwd]: returns the path to the current working directory. *)
 let cwd () : string =
   Flags.process_program_name ();
-  Filename.dirname (!Flags.program_name) 
+  Filename.dirname (!Flags.program_name)
+
+(** [gwd]: returns the path to a directory within the current working directory
+    to store task candidate graphs in. If this directory does not exists, this
+    function creates it. *)
+let gwd () : string =
+  (** Build the full path to the destination directory. *)
+  let path = (cwd ()) ^ !Apac_macros.keep_graphs_in in
+  if (Sys.file_exists path) then
+    if (Sys.is_directory path) then
+      (** If the path points to an existing directory, just return it. *)
+      path
+    else
+      (** If the path points to an existing file which is not a directory,
+          fail. *)
+      let error = Printf.sprintf "Apac_miscellaneous.gwd: `%s' exists, but it \
+                                  is not a directory." path in
+      failwith error
+  else
+    (** Otherwise, create the destination directory with ususal permission set
+        and return the path to it. *)
+    begin
+      Sys.mkdir path 644;
+      path
+    end
+
+(** [gdot]: returns the full path (see [!gwd]) to a Dot file containing the task
+    candidate graph of a function [f]. The name of the Dot file may carry an
+    optional [suffix]. *)
+let gdot ?(suffix : string = "") (f : var) : string =
+  let dir = gwd () in
+  let name = f.name ^ "-" ^ (string_of_int f.id) ^
+               (if suffix <> "" then "-" ^ suffix else "") ^ ".dot" in
+  dir ^ "/" ^ name
 
 (* [typ_is_alias ty]: checks if [ty] is a user-defined alias to a basic type. *)
 let typ_is_alias (ty : typ) : bool =
