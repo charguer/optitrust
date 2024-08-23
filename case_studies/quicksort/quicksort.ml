@@ -6,10 +6,15 @@ open Ast
 let _ = Run.script_cpp (fun () ->
             let _ = Flags.code_print_width := 1024 in
             let _ = Apac_macros.instrument_code := false in
+            let _ = Apac_macros.verbose := false in
             let _ = Apac_macros.apac_main := "main" in
             (* Target all of the function definitions except for the 'main'
                function. *)
-            !! Apac_constify.constify [
+            (* !! Apac_constify.constify [
+                nbAny;
+                cFunDefAndDecl ""
+              ];*)
+            !! Apac_prologue.build_records [
                 nbAny;
                 cFunDefAndDecl ""
               ];
@@ -24,11 +29,15 @@ let _ = Run.script_cpp (fun () ->
             !! Apac_taskify.taskify_callers ();
             !! Apac_taskify.restore [nbAny; cFunDefAndDecl ""];
             !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
+            !! Apac_taskify.detect_tasks_simple [
+                nbAny;
+                cMark Apac_macros.task_group_mark
+              ];
             !! Apac_epilogue.synchronize_subscripts [
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ];
-            !! Apac_epilogue.reduce_waits [
+            !! Apac_epilogue.place_barriers [
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ];

@@ -35,44 +35,43 @@ void insertion_sort(int* arr, int right_limit) {
   }
 }
 
-void sort_core(int* in_out_data, const int right_limit) {
+void sort_core(int* in_out_data, int right_limit) {
 #pragma omp taskgroup
   {
-#pragma omp taskwait depend(in : right_limit)
     if (0 >= right_limit) {
-#pragma omp taskwait
       goto __apac_exit;
     }
-#pragma omp taskwait depend(in : right_limit)
     if (right_limit <= 256) {
-#pragma omp task default(shared) depend(in : right_limit) depend(inout : in_out_data[0])
+#pragma omp task default(shared) depend(in : in_out_data, right_limit) depend(inout : in_out_data[0])
       insertion_sort(in_out_data, right_limit);
     } else {
       int* pivot = new int();
-#pragma omp task default(shared) depend(in : right_limit) depend(inout : in_out_data[0], pivot[0])
+#pragma omp task default(shared) depend(in : in_out_data, right_limit, pivot) depend(inout : in_out_data[0], pivot[0])
       partition(pivot, in_out_data, right_limit);
-#pragma omp taskwait depend(in : pivot[0])
-#pragma omp task default(shared) depend(in : pivot[0]) depend(inout : in_out_data[0])
+#pragma omp taskwait depend(in : pivot[0], pivot)
+#pragma omp task default(shared) depend(in : in_out_data, pivot[0], pivot) depend(inout : in_out_data[0])
       sort_core(&in_out_data[0], *pivot);
-#pragma omp task default(shared) depend(in : pivot[0], right_limit) depend(inout : in_out_data[*pivot + 1])
+#pragma omp task default(shared) depend(in : in_out_data, pivot[0], right_limit, pivot) depend(inout : in_out_data[*pivot + 1])
       sort_core(&in_out_data[*pivot + 1], right_limit - (*pivot + 1));
-#pragma omp task default(shared) depend(inout : pivot[0])
+#pragma omp task default(shared) depend(inout : pivot)
       delete pivot;
     }
+#pragma omp taskwait
   __apac_exit:;
   }
 }
 
-void sort(int* in_out_data, const int in_size) {
+void sort(int* in_out_data, int in_size) {
 #pragma omp taskgroup
   {
-#pragma omp task default(shared) depend(in : in_size) depend(inout : in_out_data[0])
+#pragma omp task default(shared) depend(in : in_out_data, in_size) depend(inout : in_out_data[0])
     sort_core(in_out_data, in_size);
+#pragma omp taskwait
   __apac_exit:;
   }
 }
 
-int main(const int argc, char** argv) {
+int main(int argc, char** argv) {
   int __apac_result;
 #pragma omp parallel
 #pragma omp master
@@ -92,10 +91,10 @@ int main(const int argc, char** argv) {
     for (int idx = 0; idx < size; idx++) {
       data[idx] = rand();
     }
-    int idx;
-#pragma omp task default(shared) depend(in : size) depend(inout : data[0])
+#pragma omp task default(shared) depend(in : data, size) depend(inout : data[0])
     sort(data, size);
 #pragma omp taskwait
+    int idx;
     for (idx = 1; idx < size; idx++) {
       if (data[idx - 1] > data[idx]) {
         fprintf(stderr, "Error: array is not sorted\n");
