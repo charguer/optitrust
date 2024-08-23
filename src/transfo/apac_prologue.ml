@@ -7,48 +7,6 @@ open Apac_records
 
 (** [build_records_on]: see [!build_records]. *)
 let build_records_on (t : trm) : unit =
-  (** [build_records_on.is_read_only ty]: checks whether a function argument of
-      type [ty] is read-only. This is the case when [ty] is
-      
-      - a primitive type such as [int],
-      - a pointer or a reference to constant types (primitives, references or
-        pointers), i.e. the number of inner constant types in [ty] is the same
-        as the number of levels of indirections of [ty],
-      - an array of constant elements,
-      - a constant user-defined type. *)
-  let is_read_only (ty : typ) : bool =
-    (** [build_records_on.is_read_only.count ty]: recursively count the number
-        [cc] of constant types and the number [nli] of levels of indirections
-        within the type [ty]. *)
-    let rec count (cc : int) (nli : int) (ty : typ) : int * int =
-      match ty.typ_desc with
-      (** When [ty] is a pointer, we have a new level of indirection. *)
-      | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } ->
-         count cc (nli + 1) ty
-      (** When [ty] is a constant type, increment the [cc] counter. *)
-      | Typ_const ty -> count (cc + 1) nli ty
-      (** Otherwise, return the counts. *)
-      | _ -> (cc, nli)
-    in
-    match ty.typ_desc with
-    (** If [ty] is constant, check if all the inner types are constant too, i.e.
-        if the number of inner constant types in [ty] is the same as the number
-        of levels of indirections in [ty]. *)
-    | Typ_const ty -> let (cc, nli) = count 0 0 ty in cc = nli
-    (** If [ty] is a pointer or a reference, check if all the inner types are
-        constant, i.e. if the number of inner constant types in [ty] is the same
-        as the number of levels of indirections in [ty]. *)
-    | Typ_ptr { ptr_kind = _; inner_typ = ty } ->
-       let (cc, nli) = count 0 1 ty in cc = nli
-    (** If [ty] is an array, check if the inner data type is constant. *)
-    | Typ_array _ -> is_typ_const (get_inner_array_type ty)
-    (** If [ty] is a user-defined non-constant type, the argument can not be
-        read-only. *)
-    | Typ_constr _ -> false
-    (** If [ty] is none of the above, it represents a primitive data type. In
-        this case, the argument is passed by value and is thus read-only. *)
-    | _ -> true
-  in
   (** Explode the function definition term into the function name variable [f],
       its return type [ret_ty] and the list of its arguments [args]. *)
   let error = "Apac_prologue.build_records: expected a target to a function \
@@ -65,24 +23,8 @@ let build_records_on (t : trm) : unit =
       let (first, _) = List.hd args in
       if first.name = "this" then List.tl args else args
     else args in
-  (** Create a hash table for function-local variables. *)
-  let scope = Var_Hashtbl.create 10 in
-  (** For each function argument [arg] in [args], *)
-  let args = List.mapi (fun i (arg, ty) ->
-                 (** determine its number of level of indirections (0 if it
-                     isn't a pointer), *)
-                 let nli = Apac_miscellaneous.typ_get_degree ty in
-                 (** add it to the hash table of function-local variables, *)
-                 Var_Hashtbl.add scope arg nli;
-                 (** determine its access classification (see [!type:arg]). *)
-                 if (is_read_only ty) then Read else ReadWrite) args in
   (** Build the function definition record of [fn] and *)
-  let r : f = {
-      args = args;
-      graph = Apac_tasks.TaskGraph.create ();
-      scope = scope;
-      ast = t
-    } in
+  let r = FunctionRecord.create args t in
   (** add it to [!functions] if it is not present in the hash table already,
       e.g. in the case of a pre-declaration. *)
   if not (Var_Hashtbl.mem functions fn) then

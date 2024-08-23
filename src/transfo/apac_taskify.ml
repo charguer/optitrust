@@ -35,7 +35,7 @@ let find_candidates_minimum_funcalls_on ?(min : int = 2)
                           unable to find parent function. Task group outside \
                           of a function?" in
   (** Find its function definition record [r] in [!Apac_records.functions]. *)
-  let r = Var_Hashtbl.find functions f in
+  let r : FunctionRecord.t = Var_Hashtbl.find functions f in
   (** Retrieve the root vertex [rv] of the task candidate graph of [f]. *)
   let rv = TaskGraphOper.root r.graph in
   (** Retrieve the label of [rv]. *)
@@ -66,7 +66,7 @@ let rec taskify_callers () : unit =
     | _ -> trm_iter (calls c) t
   in
   let insertions =
-    Var_Hashtbl.fold (fun f r ins ->
+    Var_Hashtbl.fold (fun f (r : FunctionRecord.t) ins ->
         (** We shall update only the callers which has not been qualified as
             taskification candidates yet. *)
         if not (Var_Hashtbl.mem const_candidates f) then
@@ -430,21 +430,14 @@ let trm_discover_dependencies (locals : int Var_Hashtbl.t)
     (** - function calls ('f(args)'). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        if Var_Hashtbl.mem functions v then
-         let r : f = Var_Hashtbl.find functions v in
+         let r : FunctionRecord.t = Var_Hashtbl.find functions v in
          let args = if v.name = "this" then List.tl args else args in
          let exists = ref true in
-         
-  let _ = List.iteri (fun i a -> 
-              Printf.printf "Function %s, arg %d: %s\n"
-                     v.name i (if a = ReadWrite then "RW" else "R")
-            ) r.args in
-         List.iter2 (fun arg kind ->
-             let dk : DepAttr.t = match kind with
-               | Read -> ArgIn
-               | ReadWrite -> ArgInOut
-             in
+         List.iteri (fun i arg ->
+             let dk : DepAttr.t =
+               if (FunctionRecord.is_rw r i) then ArgInOut else ArgIn in
              let (exists', _) = aux ins inouts attrs filter 0 true dk arg in
-             exists := !exists && exists') args r.args;
+             exists := !exists && exists') args;
          (!exists, true)
        else
          begin
