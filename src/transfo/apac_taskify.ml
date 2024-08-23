@@ -306,40 +306,44 @@ let trm_discover_dependencies (locals : symbols)
     | Trm_var (vk, v) when not (Var_set.mem v filter) ->
        if not (String.starts_with ~prefix:"sizeof(" v.name) then
          let (degree, exists) = Var_Hashtbl.find_or_default locals v 0 in
-         let d =
-           if degree < 1 then
-             [Dep_var v]
-           else
-             begin
-               let degree' = if fc then degree else derefs in
-               let d' = Dep.of_degree t v degree' in
-               if vk <> Var_immutable then
-                 begin
-                   let t' = trm_get t in
-                   let d'' = Dep.of_degree t' v degree' in
-                   List.iter2 (fun pk pv ->
-                       mutables := Dep_map.add pk pv !mutables
-                     ) d' d'';
-                 end;
-               d'
-             end
-         in
-         begin
-           match attr with
-           | Accessor ->
-              List.iter (fun e ->
-                  Stack.push e ins;
-                  Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
-                ) d
-           | ArgIn -> List.iter (fun e -> Stack.push e ins) d
-           | ArgInOut ->
-              List.iteri (fun i e ->
-                  if ((i > derefs) && fc) || ((not fc) && (i >= derefs)) then
-                    Stack.push e inouts
-                  else
-                    Stack.push e ins) (List.rev d)
-           | _ -> fail t.loc ebadattr
-         end;
+         if degree < 1 then
+           begin
+             let d = Dep_var v in
+             match attr with
+             | Accessor ->
+                Stack.push d ins;
+                Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
+             | ArgIn -> Stack.push d ins
+             | ArgInOut -> Stack.push d inouts
+             | _ -> fail t.loc ebadattr
+           end
+         else
+           begin
+             let degree' = if fc then degree else derefs in
+             let d = Dep.of_degree t v degree' in
+             if vk <> Var_immutable then
+               begin
+                 let t' = trm_get t in
+                 let d' = Dep.of_degree t' v degree' in
+                 List.iter2 (fun pk pv ->
+                     mutables := Dep_map.add pk pv !mutables
+                   ) d d';
+               end;
+             match attr with
+             | Accessor ->
+                List.iter (fun e ->
+                    Stack.push e ins;
+                    Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
+                  ) d
+             | ArgIn -> List.iter (fun e -> Stack.push e ins) d
+             | ArgInOut ->
+                List.iteri (fun i e ->
+                    if ((i > derefs) && fc) || ((not fc) && (i >= derefs)) then
+                      Stack.push e inouts
+                    else
+                      Stack.push e ins) (List.rev d)
+             | _ -> fail t.loc ebadattr
+           end;
          (exists, false)
        else (true, true)
     (** - get operations ('*t', '**t', ...), *)
