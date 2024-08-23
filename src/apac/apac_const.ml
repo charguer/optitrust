@@ -268,49 +268,6 @@ let typ_constify (ty : typ) : typ =
   (* [ty] is of any other type. *)
   | _ -> first ty
 
-(* [trm_resolve_binop_lval_and_get_with_deref] tries to resolve the variable
-   behind an lvalue and check whether it has been dereferenced, i.e. following
-   an array access or the use of [*]. Upon success, it returns the corresponding
-   labelled variable. See [LVar] for more details on labelled variables. *)
-let trm_resolve_binop_lval_and_get_with_deref ?(plus : bool = false)
-      (t : trm) : (lvar * bool) option =
-  let rec aux (d : int) (l : label) (t : trm) : (lvar * bool) option =
-    match t.desc with
-    (* We have found the variable, build and return the resulting labelled
-       variable. *)
-    | Trm_var (vk, var) ->
-       let lv : lvar = { v = var; l = l } in
-       let _ = Printf.printf "%s has %d derefs\n" var.name d in
-       let d' = if vk = Var_immutable && plus then d + 1 else d in
-       Some (lv, d' > 0)
-    (* [t] is an array access, which means that the operand was dereferenced.
-       Continue resolution on the latter. *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> aux (d + 1) l t
-    (* [t] is a unary operation. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (op))); _ }, [t]) ->
-       begin
-         match op with
-         (* A get operation, e.g. [*operand], as well as a structure access,
-            e.g. [operand.field], both imply that the operand was dereferenced.
-            Continue resolution on the latter. *)
-         | Unop_get -> aux (d + 1) l t
-         | Unop_address -> aux (d - 1) l t
-         | Unop_cast ty -> aux (d + typ_get_degree ty) l t
-         | Unop_struct_access field -> aux (d + 1) field t
-         (* A structure access through pointer, e.g. [operand->field], means
-            that the operand was not dereferenced. To finish finished resolving,
-            iterate once more on [t]. *)
-         | Unop_struct_get field -> aux d field t
-         (* In case of another binary operation, do nothing and continue
-            resolution on the operand. *)
-         | _ -> aux d l t
-       end
-    | _ -> None
-  in
-  aux 0 "" t
-
 (* [trm_resolve_var_in_unop_or_array_access_and_get t] tries to resolve the
    variable (including the associated label if we are dealing with a class
    member variable) involved in a unary operation (++, --, & or get) or array
