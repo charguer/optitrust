@@ -1298,7 +1298,7 @@ and formula_to_doc style (f: formula): document =
     Pattern.(formula_range !__ !__ (trm_int (eq 1))) (fun start stop () ->
       trm_to_doc ~prec:16 style start ^^ string ".." ^^ trm_to_doc ~prec:16 style stop
     );
-    Pattern.(trm_apps2 (trm_var (var_eq var_group)) !__ (trm_fun (!__ ^:: nil) !__)) (fun range (index, _) body () ->
+    Pattern.(trm_apps2 (trm_var (var_eq var_group)) !__ (trm_fun (!__ ^:: nil) __ !__ __)) (fun range (index, _) body () ->
       string "for" ^^ blank 1 ^^ var_to_doc style index ^^ blank 1 ^^ string "in" ^^ blank 1 ^^ trm_to_doc style range ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style body
     );
     Pattern.__ (fun () -> trm_to_doc style {f with annot = {f.annot with trm_annot_cstyle = []}})

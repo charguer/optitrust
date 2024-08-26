@@ -1048,19 +1048,19 @@ match trm_ref_inv t with
 
   (** [trm_struct_access ~annot ?typ base field]: creates a struct_access encoding *)
   let trm_struct_access ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (field : field) : trm =
-    trm_apps ?typ (trm_unop ~annot (Unop_struct_access field)) [base]
+    trm_apps ~annot ?typ (trm_unop (Unop_struct_access field)) [base]
 
   (** [trm_struct_get ~annot ?typ base field]: creates a struct_get encoding *)
   let trm_struct_get ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (field : field) : trm =
-    trm_apps ?typ (trm_unop ~annot (Unop_struct_get field)) [base]
+    trm_apps ~annot ?typ (trm_unop (Unop_struct_get field)) [base]
 
   (** [trm_array_access~annot ?typ base index]: creates array_access(base, index) encoding *)
   let trm_array_access ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (index : trm) : trm =
-    trm_apps ?typ (trm_binop ~annot Binop_array_access) [base; index]
+    trm_apps ~annot ?typ (trm_binop Binop_array_access) [base; index]
 
   (** [trm_array_get ~annot ?typ base index]: creates array_get (base, index) encoding *)
   let trm_array_get ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (index : trm) : trm =
-    trm_apps ?typ (trm_binop ~annot Binop_array_get) [base; index]
+    trm_apps ~annot ?typ (trm_binop Binop_array_get) [base; index]
 
   (** [trm_get ~annot ?typ t]: embeds [t] into a get operation *)
   let trm_get ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : trm =

@@ -60,9 +60,6 @@ let find_var_in_current_ast ?(target : target = []) (name : string) : var =
   | 1 -> Var_set.choose candidates
   | n -> failwith "%d variables with name '%s' found in current AST: %s" n name (vars_to_string (Var_set.elements candidates))
 
-let foreach_target (tg : target) (f : constr -> unit) : unit =
-  Target.iter (fun p -> f (cTarget (target_of_path p))) tg
-
 (* TODO: DEPRECATE *)
 let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
   try f () with

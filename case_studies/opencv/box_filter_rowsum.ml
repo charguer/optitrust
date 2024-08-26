@@ -53,7 +53,7 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
   !! Reduce.elim ~inline:true [nbMulti; cMark "cn"; cFor "i"; cFun "reduce_spe1"]; *)
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
-  !! foreach_target [nbMulti; cMark "cn"] (fun c ->
+  !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
     Instr.gather_targets [c; cStrict; cArrayWrite "D"];
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor ~stop:[cVar "kn"] "i"];

@@ -1333,6 +1333,9 @@ let iteri ?(rev : bool = false) (tr : int -> path -> unit) (tg : target) : unit 
 let iter ?(rev : bool = false) (tr : path -> unit) : target -> unit =
   iteri ~rev (fun occ p -> tr p)
 
+let foreach (tg : target) (f : constr -> unit) : unit =
+  iteri (fun _ p -> f (cPath p)) tg
+
 (** [resolve_path p]: follow a path from the AST root and return the subterm found *)
 let resolve_path (p: path): trm =
   Path.resolve_path p (Trace.ast ())

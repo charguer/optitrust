@@ -29,8 +29,8 @@ let mindex_var_inv = toplevel_var_with_dim_inv mindex_var
      MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3
      Here, dims = [N1, N2, N3] and indices = [i1, i2, i3]. *)
 let mindex (dims : trms) (indices : trms) : trm =
-  if List.length dims <> List.length indices then failwith "Matrix_core.mindex: the number of
-      dimension should correspond to the number of indices";
+  if List.length dims <> List.length indices then
+    failwith "Matrix_core.mindex: the number of dimensions (%d) should correspond to the number of indices (%d)" (List.length dims) (List.length indices);
   let n = List.length dims in
   trm_apps (trm_var (mindex_var n)) (dims @ indices)
 

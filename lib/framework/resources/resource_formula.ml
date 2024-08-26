@@ -321,7 +321,7 @@ let formula_matrix_inv (f: formula): (trm * trm list) option =
   let open Option.Monad in
   let rec nested_group_inv (f: formula): (formula * var list * trm list) =
     Pattern.pattern_match f [
-      Pattern.(formula_group (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) (trm_fun (pair !__ __ ^:: nil) !__))
+      Pattern.(formula_group (formula_range (trm_int (eq 0)) !__ (trm_int (eq 1))) (trm_fun (pair !__ __ ^:: nil) __ !__ __))
         (fun dim idx inner_formula () ->
           let inner_formula, indices, dims = nested_group_inv inner_formula in
           (inner_formula, idx::indices, dim::dims)
