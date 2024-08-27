@@ -64,7 +64,7 @@ void fwd(float* diag, float* col, size_t submatrix_size) {
   }
 }
 
-int sparselu(float** matrix, const size_t matrix_size, const size_t submatrix_size) {
+int sparselu(float** matrix, size_t matrix_size, size_t submatrix_size) {
   int __apac_result;
 #pragma omp taskgroup
   {
@@ -105,7 +105,7 @@ int sparselu(float** matrix, const size_t matrix_size, const size_t submatrix_si
   return __apac_result;
 }
 
-int main(const int argc, char** argv) {
+int main(int argc, char** argv) {
   int __apac_result;
 #pragma omp parallel
 #pragma omp master

@@ -25,6 +25,11 @@ let goto_label : label = "__apac_exit"
     [Apac_basic.use_goto_for_return]. *)
 let result_variable : string = "__apac_result"
 
+(** [const_mult_mark]: string used to mark multiple variable declarations we
+    need to split into simple variable declarations before constifying them. See
+    [!Apac_constification.constify_args] and [!Apac_constification.constify]. *)
+let const_mult_mark : mark = "__apac_let_mult"
+
 (** [heapify_mark]: string used to mark sequences for heapification. See
     [Apac_basic.heapify]. *)
 let heapify_mark : mark = "__apac_heapify"

@@ -112,7 +112,7 @@ let typ_get_degree (ty : typ) : int =
 (* [trm_strip_accesses_and_references_and_get_lvar t]: strips [*t, &t, ...]
    recursively and if [t] is a variable, it returns the associated labelled
    variable. *)
-let trm_strip_accesses_and_references_and_get_lvar (t : trm) : lvar option =
+let trm_strip_and_get_lvar (t : trm) : lvar option =
   (* Internal auxiliary recursive function allowing us to hide the [l] parameter
      to the outside world. *)
   let rec aux (l : label) (t : trm) : lvar option =

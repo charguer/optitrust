@@ -7,9 +7,14 @@ let _ = Run.script_cpp (fun () ->
             let _ = Flags.code_print_width := 1024 in
             let _ = Apac_macros.instrument_code := false in
             let _ = Apac_macros.apac_main := "main" in
+            !! Apac_prologue.build_records [
+                nbAny;
+                cFunDefAndDecl ""
+              ];
             (* Target all of the function definitions except for the 'main'
                function. *)
-            !! Apac_constify.constify [
+            !! Apac_constification.constify
+              ~frs:(Some Apac_records.functions) ~trans:false [
                 nbAny;
                 cFunDefAndDecl ""
               ];

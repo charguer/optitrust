@@ -1,7 +1,6 @@
 open Ast
 open Apac_dep
 open Apac_tasks
-open Apac_const
 
 (** [FunctionRecord]: a module to represent function records. *)
 module FunctionRecord : sig
@@ -196,10 +195,6 @@ end
 (** [functions]: a hash table of function records with an initial size of 10
     entries (see [!module:Var_Hashtbl] and [!module:FunctionRecord]). *)
 let functions : FunctionRecord.t Var_Hashtbl.t = Var_Hashtbl.create 10
-
-(** [const_records]: hash table of [const_fun] with an initial size of 10. The
-    size of the table will grow automatically if needed. *)
-let const_records : const_funs = Var_Hashtbl.create 10
 
 (** [const_candidates]: hash table of functions identified as candidates for
     taskification with an initial size of 10. The size of the table will grow

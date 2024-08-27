@@ -51,13 +51,13 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
   let res_var = new_var Apac_macros.result_variable in
   let body', _ = Internal.replace_return_with_assign ~check_terminal:false
                    ~exit_label:Apac_macros.goto_label res_var body in
-  (* Add the the return variable into the function's constification record, if
-     it exists. This may not be the case when testing the transformation
-     separately, for example. *)
-  if (Var_Hashtbl.mem Apac_records.const_records var) then
+  (* Add the the return variable into the function record, if it exists. This
+     may not be the case when testing the transformation separately, for
+     example. *)
+  if (Var_Hashtbl.mem Apac_records.functions var) then
     begin
-      let const_record = Var_Hashtbl.find Apac_records.const_records var in
-      Var_Hashtbl.add const_record.variables res_var 0
+      let r = Var_Hashtbl.find Apac_records.functions var in
+      Var_Hashtbl.add r.scope res_var 0
     end;
   (* Add the '__exit' label at the end of the sequence. *)
   let body' = trm_seq_add_last
@@ -104,64 +104,6 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
 let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     Target.apply_at_target_paths (use_goto_for_return_on mark) tg)
-
-(* [unfold_let_mult_on ?constify t]: see [unfold_let_mult]. *)
-let unfold_let_mult_on ?(constify : bool list = []) (t : trm) : trm =
-  (* Deconstruct the target multiple variable declaration term [t] into the
-     variable kind [vk], the list of typed variables [tvs] being declared and
-     the list of initialization terms [tis]. *)
-  let error = "Apac_basic.unfold_let_mult_on: expected a target to a multiple \
-               variable declaration." in
-  let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
-  (* In addition to the unfolding of the target multiple variable declaration,
-     this transformation allows for constifying one or more of the underlying
-     declarations. Which declarations will be constified, if any, will be
-     determined by the list of booleans [constify]. This list contains one
-     boolean value for each element in [tvs] telling whether the corresponding
-     declaration should be constified or not. This information is determined
-     earlier during the constification process in [constify_args] and can be
-     found in the hash table [Apac_core.const_mult]. 
-
-     If [constify] is empty, no constification should take place. In this case,
-     [constify] becomes a list full of [false] values. *)
-  let constify =
-    if constify <> [] then
-      constify
-    else
-      List.init (List.length tvs) (Fun.const false)
-  in
-  (* Perform the constification of the concerned variable declarations. *)
-  let tvs' = List.map2 (
-                 fun (v, ty) const ->
-                 if const then (v, Apac_const.typ_constify ty) else (v, ty)
-               ) tvs constify
-  in
-  (* Transform the multiple variable declaration into a sequence of simple
-     variable declarations. *)
-  let simple = List.map2 (fun tv ti -> trm_let vk tv ti) tvs' tis in
-  (* Return a new sequence (without braces) containing the newly generated
-     simple variable declarations. *)
-    Syntax.trm_seq_no_brace simple
-
-(* [unfold_let_mult ~constify tg]: expects target [tg] to point
-   at a multiple variable declaration. Then, it replaces it by a sequence of
-   simple variable declarations.
-
-   For example:
-
-     int a = 1, b = a;
-
-   becomes:
-
-     int a = 1;
-     int b = a; 
-
-   If [constify] is [true] one or more variable declarations from the target
-   multiple variable declaration [tg] will be constified. See comments in
-   [unfold_let_mult_on] for more details. *)
-let unfold_let_mult ?(constify : bool list = []) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
-      Target.apply_at_target_paths (unfold_let_mult_on ~constify) tg)
 
 (* [unfold_function_calls tg]: expects target [tg] to point at a function
    definition. It moves all function calls under target [tg] out of variable
