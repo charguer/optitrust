@@ -16,14 +16,6 @@ let _ = Flags.recompute_resources_between_steps := true
 
 let int = trm_int
 
-(* FIXME: should be done by flag ~elimoptitrust:true *)
-let%transfo postprocessing (_u: unit) : unit =
-  Trace.tag "pre-post-processing";
-  Flags.recompute_resources_between_steps := false;
-  Matrix.elim_mops [];
-  Resources.delete_annots [];
-  Loop.delete_all_void []
-
 (* FIXME: avoid inlining *)
 let _ = Run.script_cpp (fun () ->
 
@@ -39,5 +31,5 @@ let _ = Run.script_cpp (fun () ->
   !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
 
-  !! postprocessing ();
+  !! Cleanup.std ();
 )

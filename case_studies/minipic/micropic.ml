@@ -6,14 +6,6 @@ let _ = Flags.recompute_resources_between_steps := true
 
 (** Reproducing a subset of the PIC case study *)
 
-(* FIXME: should be done by flag ~elimoptitrust:true *)
-let%transfo postprocessing (_u: unit) : unit =
-  Trace.tag "pre-post-processing";
-  Flags.recompute_resources_between_steps := false;
-  Matrix.elim_mops [];
-  Resources.delete_annots [];
-  Loop.delete_all_void []
-
 let _ = Run.script_cpp (fun () ->
   let ctx = cFunBody "simulate_single_cell" in
   !! Resources.ensure_computed ();
@@ -77,7 +69,7 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
   !! Function.use_infix_ops ~indepth:true [ctx];
-  !! postprocessing ();
+  !! Cleanup.std ();
 
   (* TODO:
     - cleanup script

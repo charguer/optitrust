@@ -17,16 +17,7 @@ let _ = Flags.recompute_resources_between_steps := true
    - no template support yet for S/ST types; OpenCV also casts inputs from uchar
    *)
 
-(* FIXME: should be done by flag ~elimoptitrust:true *)
-let%transfo postprocessing (_u: unit) : unit =
-  Trace.tag "pre-post-processing";
-  Flags.recompute_resources_between_steps := false;
-  Matrix.elim_mops [];
-  Resources.delete_annots [];
-  Loop.delete_all_void []
-
 let int = trm_int
-
 
 (* FIXME: removing cFor from specialize targets is not working, because we need to go inside seq. *)
 
@@ -53,7 +44,7 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
   );
 
-  !! postprocessing ();
+  !! Cleanup.std ();
 )
 
 
