@@ -25,27 +25,26 @@ let%transfo postprocessing (_u: unit) : unit =
   Resources.delete_annots [];
   Loop.delete_all_void []
 
+let int = trm_int
+
+
+(* FIXME: removing cFor from specialize targets is not working, because we need to go inside seq. *)
+
 let _ = Run.script_cpp (fun () ->
-  (* FIXME: not working on fun body because need to go inside seq. *)
-  bigstep "prepare for specialization";
   let mark_then (var, _value) = sprintf "%s" var in
-  !! Specialize.variable_multi ~mark_then ~mark_else:"generic"
-    ["kn", trm_int 3; "kn", trm_int 5; "cn", trm_int 1; "cn", trm_int 3; "cn", trm_int 4]
-    [cFunBody "rowSum"; cFor "i"];
-
-  bigstep "generic + cn";
-  let c = cMarks ["generic"; "cn"] in
-  !! Loop.swap [nbMulti; c; cFor "i"];
-  !! Reduce.slide ~mark_alloc:"acc" [nbMulti; c; cArrayWrite "D"];
-  !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
-  !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  !! Reduce.elim ~inline:true [nbMulti; c; cFor "i"; cFun "reduce_spe1"];
-
-  bigstep "kn";
+  !! Specialize.variable_multi ~mark_then ~mark_else:"nokn"
+    ["kn", int 3; "kn", int 5] [cFunBody "rowSum"; cFor "i"];
   !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cFun "reduce_spe1"];
   !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
 
-  bigstep "cn";
+  !! Loop.swap [nbMulti; cMark "nokn"; cFor "i"];
+  !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "nokn"; cArrayWrite "D"];
+  !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
+  !! Variable.elim_reuse [nbMulti; cMark "acc"];
+  !! Reduce.elim ~inline:true [nbMulti; cMark "nokn"; cFor "i"; cFun "reduce_spe1"];
+
+  !! Specialize.variable_multi ~mark_then
+    ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
@@ -54,7 +53,6 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
   );
 
-  bigstep "postprocessing and optional style";
   !! postprocessing ();
 )
 
