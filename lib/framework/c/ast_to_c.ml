@@ -403,7 +403,7 @@ and trm_var_to_doc style (x : var) (t : trm) : document =
   var_to_doc style x ^^ typ_args_d
 
 (** [trm_to_doc style ~semicolon ~prec ~print_struct_init_type  t]: converts [t] to a pprint document *)
-and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false) (t : trm) : document =
+and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false) ?(print_record_hack : bool = true) (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
   let t_attributes = trm_get_attr t in
@@ -441,14 +441,22 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
         | Some lb -> dot ^^ string lb ^^ equals  ^^ dec_trm t1
         | None -> dec_trm t1
       ) tl in
-      let init_type = if not print_struct_init_type
-        then empty
-        else begin match t.typ with
-        | Some ty -> parens (typ_to_doc style ty)
-        | None -> empty
-        end
-      in
-      dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
+      if print_record_hack then
+        let init_type = match t.typ with
+          | Some ty -> parens (typ_to_doc style ty)
+          | None -> empty
+        in
+        parens (dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl))
+      else begin
+        let init_type = if not print_struct_init_type
+          then empty
+          else begin match t.typ with
+          | Some ty -> parens (typ_to_doc style ty)
+          | None -> empty
+          end
+        in
+        dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
+      end
     | Trm_let (tx,t) -> dattr ^^ trm_let_to_doc style ~semicolon tx t
     | Trm_let_mult bs -> dattr ^^ trm_let_mult_to_doc style ~semicolon bs
     | Trm_let_fun (f, r, tvl, b, _) ->
