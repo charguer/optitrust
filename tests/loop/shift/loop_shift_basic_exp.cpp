@@ -14,7 +14,7 @@ int main() {
   for (int j2 = 0; j2 < st + N - st; j2++) {
     __strict();
     __smodifies("&x ~> Cell");
-    const int const j = j2 - -st;
+    const int j = j2 - -st;
     x += j;
   }
   int shift = 5;

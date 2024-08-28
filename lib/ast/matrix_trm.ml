@@ -52,7 +52,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
     Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
 let access ?(annot : trm_annot = trm_annot_default) (t : trm) (dims : trms) (indices : trms) : trm =
   let mindex_trm = mindex dims indices in
-  trm_apps ~annot (trm_binop Binop_array_access) [t; mindex_trm]
+  trm_apps ~annot ?typ:t.typ (trm_binop Binop_array_access) [t; mindex_trm]
 
 (** [access_inv t]: returns the array access base, the list of dimensions and indices used as args at matrix access [t]. *)
 let access_inv (t : trm) : (trm * trms * trms) option=

@@ -1076,7 +1076,7 @@ let rec compute_resources
           | Some _ -> [formula_cell x]
           | None ->
             begin match trm_ref_array_inv t with
-            | Some (_, dims, _) -> [formula_matrix (trm_var x) dims]
+            | Some (ty, dims, _) -> [formula_matrix (trm_var ~typ:ty x) dims]
             | None -> []
             end
           end
@@ -1118,10 +1118,12 @@ let rec compute_resources
           Some (unused_res, post, usage_map)
         ) (Some (res, empty_resource_set, empty_usage_map)) (Mlist.to_list fields)
       in
+      let unused_res = Resource_set.subst_all_aliases unused_res in (* Needed to simplify RO *)
       let res_after = Resource_set.union unused_res post in
       let linear_res_after, ro_simpl_steps = simplify_read_only_resources res_after.linear in
       let res_after = { res_after with linear = linear_res_after } in
       let usage_map = add_joined_frac_usage ro_simpl_steps usage_map in
+      let usage_map, res_after = Resource_set.remove_useless_fracs usage_map res_after in
       Some usage_map, Some res_after
 
     (* TODO: try to factorize *)

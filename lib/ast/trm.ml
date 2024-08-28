@@ -788,11 +788,17 @@ let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr var_type in
-  trm_let ?loc ?ctx (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_ref var_type)) [init])
+  trm_let ~annot ?loc ?ctx (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_ref var_type)) [init])
 
 let trm_let_uninit ?(annot) ?(loc) ?(ctx : ctx option) (typed_var : typed_var) =
   let var_name, var_type = typed_var in
   trm_let_mut ?annot ?loc ?ctx typed_var (trm_uninitialized var_type)
+
+let trm_let_maybemut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (should_be_mut : bool)
+(typed_var : typed_var) (init : trm): trm =
+  if should_be_mut
+  then trm_let_mut ~annot ?loc ?ctx typed_var (init)
+  else trm_let ~annot ?loc ?ctx typed_var (init)
 
 (** [trm_let_array ~annot ?ctx ~const typed_var sz init]: an extension of trm_let for creating array variable declarations *)
 (* FIXME: This function is weird and creates a ref instead of ref_array... *)
@@ -1087,7 +1093,7 @@ match trm_ref_inv t with
 
   (** [trm_any_bool]: generates ANY_BOOL () *)
   let trm_any_bool : trm =
-    trm_apps (trm_var var_any_bool) []
+    trm_apps (trm_var ~typ:typ_bool var_any_bool) []
 
   (** [trm_minus ?loc ?ctx ?typ t]: generates -t *)
   let trm_minus ?(loc) ?(ctx : ctx option) ?(typ) (t : trm) : trm =
@@ -2287,13 +2293,13 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
          or higher order functions with evars. *)
       let* evar_ctx, masked_ctx =
         try
-          Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
+          Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, argty) ->
               if var_eq arge arg then
                 (* This case is required to handle comparison of a trm with itself *)
                 (evar_ctx, masked)
               else
                 let masked_entry = Var_map.find_opt arge evar_ctx in
-                let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
+                let evar_ctx = Var_map.add arge (Some (trm_var ~typ:argty arg)) evar_ctx in
                 (evar_ctx, (arge, masked_entry) :: masked)
             ) (evar_ctx, []) argse args)
         with Invalid_argument _ -> None

@@ -404,7 +404,7 @@ let detach_init_on (t : trm) : trm =
     | Trm_array tl ->
       let array_set_list =
       List.mapi ( fun i t1 ->
-        trm_set (trm_apps (trm_binop (Binop_array_access)) [trm_var_get x;trm_int i]) t1
+        trm_set (trm_apps (trm_binop (Binop_array_access)) [trm_var_get ~typ:tx x;trm_int i]) t1
       ) (Mlist.to_list tl) in
       let typ = get_inner_ptr_type tx in
       let new_decl = trm_let_mut ~annot:t.annot (x, typ) (trm_uninitialized ?loc:init.loc typ) in

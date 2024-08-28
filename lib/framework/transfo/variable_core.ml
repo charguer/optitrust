@@ -59,43 +59,24 @@ exception Init_attach_no_occurrences
 exception Init_attach_occurrence_below_control
 
 
-(** [init_attach_at t]: attaches a variable declaration to its unique write operation,
-      [const] - a boolean to decide if the attached variable should be mutable or not,
+(** [init_attach_at t]: attaches a variable declaration to its succeeding write operation,
       [index] - index of the targeted instruction inside its surrounding sequence,
       [t] - ast of the surrounding sequence of the variable declaration.
-
-    NOTE: if no set operation on the targeted variable was found then Init_attach_no_occurrences is raised
-          if more then one set operation on the targeted variable was found then Init_attach_occurrence_below_control is raised *)
-let init_attach_at (const : bool) (index : int) (t : trm) : trm =
-  let error = "Variable_core.init_attach_axu: expected the surrounding sequence." in
-  let tl = trm_inv ~error trm_seq_inv t in
-    let lfront, trm_to_change, lback  = Mlist.get_item_and_its_relatives index tl in
-    let error = "Variable_core.init_attach_aux: expected a variable declaration." in
-    let (x, tx, _) = trm_inv ~error trm_let_inv trm_to_change in
-    let new_tl = Mlist.merge lfront lback in
-    let new_t = trm_seq ~annot:t.annot new_tl in
-    let tg = [nbAny; cWriteVar x.name] in
-    let ps = Constr.resolve_target tg new_t in
-    let nb_occs = List.length ps in
-    let nb_seq_occs = List.length (List.filter (fun p -> List.length p = 1) ps) in
-    (* Show.trm "new_t" new_t;
-    Show.current_ast_at_target "tg" tg;
-    printf "nb_seq_occs: %d\n" nb_seq_occs; *)
-    if nb_occs = 0 then raise Init_attach_no_occurrences
-     else if nb_occs > nb_seq_occs then raise Init_attach_occurrence_below_control;
-    List.fold_lefti (fun i acc p ->
-      if i = 0 then begin
-      Path.apply_on_path (fun t1 ->
-        begin match t1.desc with
-        | Trm_apps (_, [_;rs],_) ->
-          let decl = if const then trm_let (x, tx) rs else trm_let_mut (x, get_inner_ptr_type tx) rs in
-          trm_pass_marks trm_to_change decl
-        | _ -> t1
-        end
-      ) acc p
-      end
-      else acc
-    ) new_t ps
+ *)
+let init_attach_at (index : int) (t : trm) : trm =
+  let error = "expected the surrounding sequence." in
+  let instrs = trm_inv ~error trm_seq_inv t in
+  let lfront, decl, lback  = Mlist.get_item_and_its_relatives index instrs in
+  let error = "expected a variable declaration." in
+  let (x, tx, init) = trm_inv ~error trm_let_inv decl in
+  if not (is_trm_ref_uninitialized init) then trm_fail init "expected uninitialized variable";
+  let _, next, lback = Mlist.get_item_and_its_relatives 0 lback in
+  let init2 = Pattern.pattern_match next [
+    Pattern.(trm_set (trm_var (eq x)) !__) (fun init2 () -> init2);
+    Pattern.__ (fun () -> trm_fail next "expected a succeeding set on that variable")
+  ] in
+  let new_decl = trm_let_mut ~annot:decl.annot (x, (get_inner_ptr_type tx)) init2 in
+  trm_seq_helper [TrmMlist lfront; Trm new_decl; TrmMlist lback]
 
 (** [delocalize_at array_size ops index t]: see [Variable_basic.delocalize],
       [array_size] - size of the arrays to be declared inside the targeted sequence,

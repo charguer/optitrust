@@ -949,12 +949,7 @@ and check_arg (tg:arg_constraint) ((var, var_typ) : typed_var) : bool =
 and check_accesses ~(incontracts:bool) ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
-    | [], a -> if not inner_accesses
-                  then begin match a with
-                       | [] -> true
-                       | _  -> false
-                       end
-                  else true
+    | [], a -> if not inner_accesses then a = [] else true
     | Array_access p_index :: cal, Array_access_get index :: al ->
        check_target ~incontracts p_index index &&
        aux cal al
@@ -1209,11 +1204,11 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : paths =
 
 (** [resolve_target tg t]: resolves the target [tg];
    Marks are set in the ast_after inside the trace only if -dump-trace is provided *)
-and resolve_target (tg : target) (t : trm) : paths =
+and resolve_target ?(prefix : Path.path = []) (tg : target) (t : trm) : paths =
   match tg with
   (* shortcut: paths are already resolved *)
   | [Constr_paths ps] -> ps
-  | _ -> Trace.target_resolve_step (fun () ->
+  | _ -> Trace.target_resolve_step ~prefix (fun () ->
     Trace.step_arg (target_to_string tg);
     let tgs = target_to_target_struct tg in
     let res = resolve_target_struct tgs t in

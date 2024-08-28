@@ -802,7 +802,13 @@ let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "")
   ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
   let lhs_typed = with_type ~typ ~typ_pred lhs in
   let rhs_typed = with_type ~typ ~typ_pred rhs in
-  cPrimPredFun ~args:[lhs_typed; rhs_typed] (fun p -> match p with | Prim_binop Binop_set | Prim_compound_assgn_op _ -> true | _ -> false)
+  cPrimPredFun ~args:[lhs_typed; rhs_typed] (fun p ->
+     match p with
+    | Prim_binop Binop_set
+    | Prim_compound_assgn_op _ -> true
+    | Prim_overloaded_op (Prim_binop Binop_set) -> true
+    | _ -> false
+  )
 
 (** [cRead ~addr ()]: matches a get operation
     [addr] - match based on the read argument. *)

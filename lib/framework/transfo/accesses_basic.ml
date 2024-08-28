@@ -12,23 +12,73 @@ let%transfo transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : tr
     if get_or_set_path <> [] then Target.apply_at_path (Accesses_core.transform_on f_get f_set) get_or_set_path
   ) tg
 
+(** <private> *)
+let transform_immut_on
+  (f_init : trm -> trm) (f_use : trm -> trm)
+  (i : int) (seq : trm) : trm =
+  let instrs = trm_inv ~error:"expected seq" trm_seq_inv seq in
+  let var = ref dummy_var in
+  let update let_t =
+    Pattern.pattern_match let_t [
+      Pattern.(trm_let !__ !__ !__) (fun v typ init () ->
+        var := v;
+        trm_let ~annot:let_t.annot (v, typ) (f_init init)
+      )
+    ]
+  in
+  let rec fix t =
+    let var = !var in
+    Pattern.pattern_match t [
+      Pattern.(trm_var (var_eq var)) (fun () ->
+        f_use t
+      );
+      Pattern.__ (fun () ->
+        trm_map fix t
+      )
+    ]
+  in
+  let instrs' = Mlist.update_at_index_and_fix_beyond i update fix instrs in
+  trm_seq ~annot:seq.annot instrs'
+
+(** like {!transform}, but for immutable variables.
+    target should be variable decl. *)
+let%transfo transform_immut (f_init : trm -> trm) (f_use : trm -> trm) (tg : target) : unit =
+  Target.iter (fun p ->
+    let (i, p_seq) = Path.index_in_seq p in
+    Target.apply_at_path (transform_immut_on f_init f_use i) p_seq
+  ) tg
+
 (** [scale ~inv ~factor tg]: this transformation just calls the [transform] function  with [f_get] and [f_set] args
    defined as a multiplication and a division operation respectively. If [inv] is set to true then these two
    operations will be swapped. *)
-let%transfo scale ?(inv:bool=false) ~factor:(factor:trm) (tg : target) : unit =
+let%transfo scale ?(inv:bool=false) ~(factor:trm) ?(mark : mark = no_mark) (tg : target) : unit =
   let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
-  let f_get t = Arith_core.apply op_get factor t in
-  let f_set t = Arith_core.apply op_set factor t in
+  let f_get t = trm_add_mark mark (Arith_core.apply op_get factor t) in
+  let f_set t = trm_add_mark mark (Arith_core.apply op_set factor t) in
   transform f_get f_set tg
+
+(* TODO: check / 0 *)
+let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
+  (* TODO: Trace.justif "correct when not / 0"; *)
+  let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
+  let f_use t = trm_add_mark mark (Arith_core.apply op_get factor t) in
+  let f_init t = trm_add_mark mark (Arith_core.apply op_set factor t) in
+  transform_immut f_init f_use tg
 
 (** [shift ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args
    defined as a multiplication and a division respectively. If [inv] is set to true then these two operations
    will be swapped. *)
-let%transfo shift ?(inv:bool=false) ~factor:(factor : trm) (tg : target) : unit =
+let%transfo shift ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
   let op_get, op_set = if inv then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
-  let f_get t = Arith_core.apply op_get factor t in
-  let f_set t = Arith_core.apply op_set factor t in
+  let f_get t = trm_add_mark mark (Arith_core.apply op_get factor t) in
+  let f_set t = trm_add_mark mark (Arith_core.apply op_set factor t) in
   transform f_get f_set tg
+
+let%transfo shift_immut ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
+  let op_get, op_set = if inv then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
+  let f_use t = trm_add_mark mark (Arith_core.apply op_get factor t) in
+  let f_init t = trm_add_mark mark (Arith_core.apply op_set factor t) in
+  transform f_init f_use tg
 
 (** [intro tg]: expects the target [tg] to be pointing at any node that could contain struct accesses, preferably
    a sequence, then it will transform all the encodings of the form struct_get (get (t), f) to

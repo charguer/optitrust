@@ -50,8 +50,11 @@ vect vect_mul(double d, vect v) {
 typedef struct {
   vect pos;
   vect speed;
+  /*
+  Scaling makes no sense if charge/mass vary ?
   double charge;
   double mass;
+  */
 } particle;
 
 REGISTER_STRUCT_ACCESS(pos)
@@ -184,44 +187,48 @@ int idCellOfPos(vect pos) {
 
 void simulate_single_cell(double stepDuration,
   particle* particles, int nbParticles,
-  vect* fieldAtCorners, int nbSteps)
+  vect* fieldAtCorners, int nbSteps,
+  double particleCharge, double particleMass)
 {
   __modifies("particles ~> Matrix1(nbParticles)");
   __reads("fieldAtCorners ~> Matrix1(nbCorners)");
 
-  // 1. copy particles for scaling, simulating calling code
-  particle *const localParticles = MALLOC1(nbParticles, sizeof(particle));
-  for (int idPart = 0; idPart < nbParticles; idPart++) {
-      __xmodifies("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
-    particles[MINDEX1(nbParticles, idPart)]
-  }
-
-  // 2. simulation code
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
       __xmodifies("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
 
-      const particle p = particles[MINDEX1(nbParticles, idPart)];
+      /* TODO?
+      particle *const p = &particles[MINDEX1(nbParticles, idPart)]; */
+      __ghost([&] {
+        __consumes("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
+        __produces("&particles[MINDEX1(nbParticles, idPart)].pos ~> Cell");
+        __produces("&particles[MINDEX1(nbParticles, idPart)].speed ~> Cell");
+        __admitted();
+      }, "");
 
       // Interpolate the field based on the position relative to the corners of the cell
-      double* const coeffs = cornerInterpolationCoeff(p.pos);
+      double* const coeffs = cornerInterpolationCoeff(particles[MINDEX1(nbParticles, idPart)].pos);
       const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
       MFREE1(nbCorners, coeffs);
 
       // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-      const vect accel = vect_mul(p.charge / p.mass, fieldAtPos);
+      const vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
 
       // Compute the new speed and position for the particle.
-      const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
-      const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
-      const particle p2 = { pos2, speed2 };
+      const vect speed2 = vect_add(particles[MINDEX1(nbParticles, idPart)].speed, vect_mul(stepDuration, accel));
+      const vect pos2 = vect_add(particles[MINDEX1(nbParticles, idPart)].pos, vect_mul(stepDuration, speed2));
 
-      particles[MINDEX1(nbParticles, idPart)] = p2;
+      // const particle p2 = { .pos = pos2, .speed = speed2, .charge = p.charge, .mass = p.mass };
+      particles[MINDEX1(nbParticles, idPart)].pos = pos2;
+      particles[MINDEX1(nbParticles, idPart)].speed = speed2;
+      __ghost([&] {
+        __produces("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
+        __consumes("&particles[MINDEX1(nbParticles, idPart)].pos ~> Cell");
+        __consumes("&particles[MINDEX1(nbParticles, idPart)].speed ~> Cell");
+        __admitted();
+      }, "");
     }
   }
-
-  // 3. copy particles back, simulating calling code
-  MFREE1(nbParticles, localParticles);
 }
 
 /*

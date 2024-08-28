@@ -108,6 +108,9 @@ let _ = Run.script_cpp (fun () ->
   !! show [cDef "s"];
   !! show [cDef "p2"];
 
+  (* Fields *)
+  !! show [cAccesses ~accesses:[cField ~field:"pos" (); cField ~field:"x" ()] ()];
+
 )
 (* LATER: match typedef using a function over the body of the type definition *)
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)

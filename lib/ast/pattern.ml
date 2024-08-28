@@ -156,6 +156,8 @@ let trm_prim_compound binop ft1 ft2 k t =
     | _ -> raise Next
   ) ft1 ft2 k t
 
+let trm_set ft1 ft2 = trm_binop Binop_set ft1 ft2
+
 let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
 let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2
 let trm_mul ft1 ft2 = trm_binop Binop_mul ft1 ft2
@@ -172,6 +174,20 @@ let trm_arbitrary fa k t =
   match t.desc with
   | Trm_arbitrary a -> fa k a
   | _ -> raise Next
+
+let trm_struct_access ffield fbase k =
+  trm_unop (fun k op ->
+    match op with
+    | Unop_struct_access f -> ffield k f
+    | _ -> raise Next
+  ) fbase k
+
+let trm_struct_get ffield fbase k =
+  trm_unop (fun k op ->
+    match op with
+    | Unop_struct_get f -> ffield k f
+    | _ -> raise Next
+  ) fbase k
 
 let typ_var = trm_var
 let typ_apps ft fargs k ty =

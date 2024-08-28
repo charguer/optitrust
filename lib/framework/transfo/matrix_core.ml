@@ -142,7 +142,7 @@ let map_all_accesses (v : var) ?(ret_dims_and_typ : (trms * typ) option ref opti
       | Some x when var_eq x v ->
         Option.iter (fun rdt ->
           if Option.is_none !rdt then begin
-            let typ = Option.get (typ_ptr_inv (Option.get (typ_const_inv (Option.get f.typ)))) in
+            let typ = Option.get (typ_ptr_inv (Option.get f.typ)) in
             rdt := Some (dims, typ);
           end;
         ) ret_dims_and_typ;
@@ -162,10 +162,15 @@ let map_all_accesses (v : var) ?(ret_dims_and_typ : (trms * typ) option ref opti
     in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].
     *)
 let replace_all_accesses (prev_v : var) (v : var) (dims : trm list)
+  ?(ret_dims_and_typ : (trms * typ) option ref option)
   (map_indices : (trm -> trm) list) (mark : mark) (t : trm) : trm =
-  map_all_accesses prev_v (fun prev_dims prev_indices ->
+  map_all_accesses prev_v ?ret_dims_and_typ (fun prev_dims prev_indices ->
     let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
-    trm_add_mark mark (access (trm_var v) dims indices)
+    let typ = Option.bind ret_dims_and_typ (fun dt ->
+      (* best effort type recovery .. *)
+      Option.map (fun (d, t) -> t) !dt
+    ) in
+    trm_add_mark mark (access (trm_var ?typ v) dims indices)
   ) t
 
 (** [pointwise_fors ?reads ?writes ?modifies ranges body] creates nested loops
@@ -300,12 +305,13 @@ let insert_access_dim_index_aux ?(last : bool = false) (new_dim : trm) (new_inde
       [new_var] - the name of the local matrix which replaces all the current accesses of [var],
       [t] - ast of thee instuction which contains accesses to [var]. *)
 (* TODO: superseded by tile version *)
-let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
-  let dims, size, zero_init = malloc_trms in
+let local_name_aux (mark : mark)
+  (var : var) (local_var : string)
+  (dims : trms) (elem_type : typ) (indices : string list)
+  (local_ops : local_ops) (t : trm) : trm =
   let local_var = new_var local_var in
-  let local_var_type = var_type in
-  let init = if zero_init then Some (trm_int 0) else None in
-  let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ?init dims size )) in
+  let local_var_type = typ_ptr elem_type in
+  let fst_instr = trm_let (local_var,local_var_type) (alloc_with_ty dims elem_type) in
   let indices_list = begin match indices with
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices_list = List.map new_var indices_list in
@@ -314,27 +320,27 @@ let local_name_aux (mark : mark) (var : var) (local_var : string) (malloc_trms :
   begin match local_ops with
     | Local_arith _ ->
       let write_on_local_var =
-        trm_set (access (trm_var_get local_var) dims indices) (trm_get (access (trm_var_get var) dims indices)) in
+        trm_set (access (trm_var local_var) dims indices) (trm_get (access (trm_var var) dims indices)) in
       let write_on_var =
-        trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) dims indices)) in
+        trm_set (access (trm_var var) dims indices) (trm_get (access (trm_var local_var) dims indices)) in
       let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
       let new_t = trm_subst_var var (trm_var local_var) t in
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
-      let last_instr = free dims (trm_var_get local_var) in
+      let last_instr = free dims (trm_var local_var) in
       let final_trm = Nobrace.trm_seq_nomarks [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
       trm_add_mark mark final_trm
     | Local_obj (init, swap, free_fn) ->
       let write_on_local_var =
-        trm_apps (trm_var init)  [access (trm_var_get local_var) dims indices] in
+        trm_apps (trm_var init)  [access (trm_var local_var) dims indices] in
       let write_on_var =
-        trm_apps (trm_var swap) [access (trm_var_get var) dims indices; access (trm_var_get local_var) dims indices] in
+        trm_apps (trm_var swap) [access (trm_var var) dims indices; access (trm_var local_var) dims indices] in
       let free_local_var =
-        trm_apps (trm_var free_fn)  [access (trm_var_get local_var) dims indices] in
+        trm_apps (trm_var free_fn)  [access (trm_var local_var) dims indices] in
       let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
       let new_t = trm_subst_var var (trm_var local_var) t in
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
-      let last_instr = free dims (trm_var_get local_var) in
+      let last_instr = free dims (trm_var local_var) in
       let final_trm = Nobrace.trm_seq_nomarks [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
       trm_add_mark mark final_trm
     end

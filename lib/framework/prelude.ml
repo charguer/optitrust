@@ -47,18 +47,21 @@ let skip_includes (t : trm) : trm =
   | None -> t
 
 (* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
-let find_var_in_current_ast ?(target : target = []) (name : string) : var =
+let find_var_in_current_ast_filter ?(target : target = []) (filter : var -> bool) : var =
   let vars =
     if target = [] then trm_def_or_used_vars (skip_includes (Trace.ast ()))
     else List.fold_left (fun acc p ->
       Var_set.union acc (trm_def_or_used_vars (Target.resolve_path p))
     ) Var_set.empty (resolve_target target)
   in
-  let candidates = Var_set.filter (fun v -> v.namespaces = [] && v.name = name) vars in
+  let candidates = Var_set.filter filter vars in
   match Var_set.cardinal candidates with
-  | 0 -> failwith "could not find variable '%s' in current AST variables: %s" name (vars_to_string (Var_set.elements vars))
+  | 0 -> failwith "could not find variable in current AST variables: %s" (vars_to_string (Var_set.elements vars))
   | 1 -> Var_set.choose candidates
-  | n -> failwith "%d variables with name '%s' found in current AST: %s" n name (vars_to_string (Var_set.elements candidates))
+  | n -> failwith "%d variables found in current AST: %s" n (vars_to_string (Var_set.elements candidates))
+
+let find_var_in_current_ast ?(target : target = []) (name : string) : var =
+  find_var_in_current_ast_filter ~target (fun v -> v.namespaces = [] && v.name = name)
 
 (* TODO: DEPRECATE *)
 let assert_transfo_error (msg : string) (f : unit -> unit) : unit =

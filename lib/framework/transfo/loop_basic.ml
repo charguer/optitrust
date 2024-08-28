@@ -216,7 +216,7 @@ let hoist_on (name : string)
     let partial_indices = (arith_f new_index) ::
       (List.init (List.length dims) (fun _ -> trm_int 0)) in
     let mindex = mindex !new_dims partial_indices in
-    let new_access = trm_array_access (trm_var !new_var) mindex in
+    let new_access = trm_array_access (trm_var ~typ:(typ_ptr !elem_ty) !new_var) mindex in
     let tmp_var = trm_let (x, typ_ptr etyp) new_access in
     trm_add_mark mark_tmp_var tmp_var
   in
@@ -244,7 +244,7 @@ let hoist_on (name : string)
     let other_indices = List.init (List.length dims) (fun _ -> Ast.new_var (fresh_var_name ())) in
     let indices = (arith_f new_index) :: (List.map trm_var other_indices) in
     let mindex = mindex !new_dims indices in
-    let access = trm_array_access (trm_var !new_var) mindex in
+    let access = trm_array_access (trm_var ~typ:(typ_ptr !elem_ty) !new_var) mindex in
     let grouped_access = List.fold_right (fun (i, d) acc ->
       (* FIXME: need to match inner loop ranges. *)
       Resource_formula.formula_group_range { index = i; start = trm_int 0; direction = DirUp; stop = d; step = trm_step_one () } acc
@@ -260,7 +260,7 @@ let hoist_on (name : string)
       (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
     trm_for ~contract:new_contract ~annot:t.annot range new_body;
     trm_add_mark mark_free
-      (Matrix_trm.free !new_dims (trm_var !new_var));
+      (Matrix_trm.free !new_dims (trm_var ~typ:(typ_ptr !elem_ty) !new_var));
   ]
 
 (* TODO: document *)

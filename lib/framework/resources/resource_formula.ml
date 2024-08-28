@@ -197,8 +197,8 @@ let formula_uninit (inner_formula: formula): formula =
 let var_cell = toplevel_var "Cell"
 let trm_cell = trm_var var_cell
 
-let formula_cell (x: var): formula =
-  formula_model (trm_var x) trm_cell
+let formula_cell ?(typ : typ option) (x: var): formula =
+  formula_model (trm_var ?typ x) trm_cell
 
 let var_range = toplevel_var "range"
 let trm_range = trm_var var_range
@@ -229,6 +229,11 @@ let var_range_count = toplevel_var "range_count"
 let trm_range_count = trm_var var_range_count
 let formula_range_count (range: trm) =
   trm_apps trm_range_count [range]
+
+let var_wand = toplevel_var "Wand"
+
+let formula_wand (f_available : formula) (f_recoverable : formula) : formula =
+  trm_apps (trm_var var_wand) [f_available; f_recoverable]
 
 module Pattern = struct
   include Pattern
@@ -294,7 +299,7 @@ let formula_mode_inv (formula : formula) : (formula_mode * formula) =
   | Some formula -> Uninit, formula
   | None ->
     begin match formula_read_only_inv formula with
-    | Some { formula } -> RO, formula
+    | Some { (* frac; *) formula } -> RO, formula
     | None -> Full, formula
     end
 

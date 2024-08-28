@@ -63,7 +63,7 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
       ]))) in
       let contract = Resource_contract.(Resource_formula.(empty_strict_loop_contract |>
         push_loop_contract_clause SharedModifies
-          (new_anon_hyp (), formula_cell acc) |>
+          (new_anon_hyp (), formula_cell ~typ:acc_typ acc) |>
         push_loop_contract_clause SharedReads
           (new_anon_hyp (), formula_matrix input [n; m])
       )) in
@@ -263,7 +263,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
     let (unroll_ghosts, roll_ghosts) = Loop_core.unroll_ghost_pair one_range contract [range.start] in
     let new_contract = contract |>
       Resource_contract.push_loop_contract_clause SharedModifies
-        (new_anon_hyp (), formula_cell acc)
+        (new_anon_hyp (), formula_cell ~typ:acc_typ acc)
     in
     trm_seq_helper ~braces:false [
       TrmList split_assumption;

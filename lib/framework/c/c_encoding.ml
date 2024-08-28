@@ -102,7 +102,7 @@ let create_env () = ref env_empty
 (** [stackvar_elim t]: applies the following encodings
     - [int a = 5] with [int* a = ref int(5)]
     - a variable occurrence [a] becomes [* a]
-    - [const int c = 5] remains unchanged
+    - [const int c = 5] becomes [int c = 5]
     - simplify patterns of the form [&*p] and [*&p] into [p].
     - [int& b = a] becomes [<annotation:reference> int* b = &*a] which simplifies to [<annot..>int* b = a]
     - [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [int* const].
@@ -122,8 +122,7 @@ let stackvar_elim (t : trm) : trm =
     ]
   in
   let rec aux (t : trm) : trm =
-    trm_simplify_addressof_and_get
-    begin match t.desc with
+    let t = match t.desc with
     | Trm_var x ->
       if is_var_mutable !env x
         then trm_get (trm_replace (Trm_var x) t)
@@ -174,7 +173,11 @@ let stackvar_elim (t : trm) : trm =
     | Trm_for_c _ ->
         onscope env t (fun t -> trm_map aux t)
     | _ -> trm_map aux t
-   end in
+    in
+    let t = trm_simplify_addressof_and_get t in
+    let ty = Option.map (fun ty -> fst (extract_constness ty)) t.typ in
+    { t with typ = ty }
+   in
    debug_before_after_trm "stackvar_elim" aux t
 
 

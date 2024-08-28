@@ -31,15 +31,14 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
       [delete_decl] - if true, then the declaration is removed during the inlining.
 *)
 let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : target) : unit =
-  Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
+  if !Flags.check_validity then Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
   Target.iter (fun p ->
     let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
+    assert (p_local = []);
     let error = "Variable_core.inline: expected the surrounding sequence." in
     Target.apply_at_path (fun t_seq ->
-      let t_seq = Target.resolve_path p_seq in
       let tl = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
-      let dl = Path.resolve_path p_local dl in
       let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
       if !Flags.check_validity then begin
         if Resources.trm_is_pure init then
@@ -49,12 +48,14 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           (* Case 2: duplicable expression can be inlined if we don't go through interfering context, control flow or formulas *)
           Resources.required_for_check ();
           (* Resources.assert_instr_effects_shadowed p; *)
-          let t_seq = Target.resolve_path p_seq in (* -- DUPLICATE CODE *)
+          (* -- DUPLICATE CODE *)
+          let t_seq = Target.resolve_path p_seq in
           let tl = trm_inv ~error trm_seq_inv t_seq in
           let dl = Mlist.nth tl index in
-          let dl = Path.resolve_path p_local dl in (* -- *)
-          Resources.assert_not_self_interfering dl;
-          let occurences = Constr.resolve_target [cVarId x] t_seq in
+          let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
+          (* -- *)
+          Resources.assert_not_self_interfering init;
+          let occurences = Constr.resolve_target ~prefix:p_seq [nbMulti; cVarId x] t_seq in
           let end_occ_index = match snd (List.unlast occurences) with
           | Dir_seq_nth i :: _ -> i
           | p -> path_fail p "expected path to be inside current sequence"
@@ -67,18 +68,20 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
               | Dir_body | Dir_then | Dir_else
               | Dir_for_start | Dir_for_stop | Dir_for_step
               | Dir_for_c_init | Dir_for_c_step | Dir_case _
-              | Dir_contract _ | Dir_ghost_arg_nth _ -> ()
-              | _ -> path_fail occ_p (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
+              | Dir_contract _ | Dir_ghost_arg_nth _ ->
+                path_fail occ_p (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
+              | _ -> ()
             ) occ_p
           ) (List.drop 1 occurences);
           (* is calling this useful?
           Resources.assert_dup_instr_redundant index last_occ_index t_seq; *)
-          let usage = Resources.usage_of_trm dl in
+          let usage = Resources.usage_of_trm init in
           let _, instrs_after_let = Mlist.split (index + 1) tl in
-          let context_instrs, _ = Mlist.split end_occ_index instrs_after_let in
+          let context_instrs, _ = Mlist.split (end_occ_index - index - 1) instrs_after_let in
+          (* DEBUG: Show.trms ~msg:"\n---- HERE:\n" (Mlist.to_list context_instrs); *)
           let context_usage = Resources.compute_usage_of_instrs context_instrs in
           (* TODO: double check that we don't need to check commute for every occ and not just last one. *)
-          Resources.assert_usages_commute [path_error_context p] usage context_usage;
+          Resources.assert_usages_commute ~res_ctx:(Resources.after_trm init) [path_error_context p] usage context_usage;
           Trace.justif "inlining a duplicable expression through a non-interfering, non-control-flow and non-formula context is correct"
           (* TODO: Case 3 ? recursive traversal analysis with special constructor cases? *)
           (* trm_fail init "inlining non-pure expression is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc" *)
@@ -105,12 +108,13 @@ let%transfo init_detach (tg : target) : unit =
   )
 
 (** [init_attach const tg]: expects the target [tg] to point at a variable declaration,
-    Then it will search inside the sequence which contains the variable declaration
+    DEPRECATED: Then it will search inside the sequence which contains the variable declaration
     for an unique assigment. Then it will replace that assignment with a new initialized
     variable declaration.
-    [const] -denotes a booleean to decide if the new declaration is constant or not. *)
-let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
-  Target.apply_at_target_paths_in_seq (Variable_core.init_attach_at const) tg
+    INSTEAD: search immediately following set operation *)
+let%transfo init_attach (tg : target) : unit =
+  Trace.justif_always_correct ();
+  Target.apply_at_target_paths_in_seq Variable_core.init_attach_at tg
 
 
 (** [local_name_on mark curr_var var_typ local_var t] declares a local
@@ -150,7 +154,7 @@ let%transfo local_name ~(var : var) (var_typ : typ)
         Nobrace_transfo.remove_after (fun () ->
         Target.apply_at_path (fun t ->
           let (_, open_w, close_w) = Resource_trm.ghost_pair_hide
-            (Resource_formula.formula_cell var) in
+            (Resource_formula.formula_cell ~typ:var_typ var) in
           trm_seq_nobrace_nomarks [open_w; t; close_w]
         ) p
         );

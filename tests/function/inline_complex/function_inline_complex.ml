@@ -11,6 +11,7 @@ let _ = Run.script_cpp (fun _ ->
     !! Function.bind_args ["a";"";"b";""] [cFun "g"];
     !! Function_basic.inline ~body_mark:"body" [cFun "g"];
     !! Function.elim_body [cMark "body"];
+    !! Instr_basic.move ~dest:[tBefore; occFirst; cWriteVar "r"] [cVarDef "r"];
     !! Variable_basic.init_attach [cVarDef "r"];
 
     (* Demo without a result name *)
@@ -23,6 +24,7 @@ let _ = Run.script_cpp (fun _ ->
     !! Function.bind_args ["a";"";"b";""] [cFun "g"];
     !! Function_basic.inline ~body_mark:"body" [cFun "g"];
     !! Function.elim_body [cMark "body"];
+    !! Instr_basic.move ~dest:[tBefore; occFirst; cWriteVar r] [cVarDef r];
     !! Variable_basic.init_attach [cVarDef r];
     !! Variable.inline [cVarDef r];
 

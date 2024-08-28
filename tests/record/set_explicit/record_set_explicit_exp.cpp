@@ -26,4 +26,9 @@ int main() {
   vect u;
   u.x = a.pos.x;
   u.y = a.pos.y;
+  const obj c = {0, {0, 0}, {0, 0}};
+  obj* const v = &a;
+  v->weight = c.weight;
+  v->pos = c.pos;
+  v->speed = c.speed;
 }

@@ -40,6 +40,11 @@ let unsome ?(error:string="Option.unsome found None") (x_opt : 'a option) : 'a =
   | Some x -> x
   | None -> failwith error
 
+let or_else (x_opt : 'a option) (f : unit -> 'a option) : 'a option =
+  match x_opt with
+  | Some x -> x_opt
+  | None -> f ()
+
 let unsome_or_else (x_opt : 'a option) (f : unit -> 'a) : 'a =
   match x_opt with
   | Some x -> x

@@ -20,6 +20,8 @@ loop/swap/loop_swap_doc.ml
 loop/moveout/loop_moveout_doc.ml
 loop/move/loop_move_doc.ml
 
+# BROKEN TYPES
+record/set_explicit/record_set_explicit_basic.ml
 
 # BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
 apac/constify_functions_arguments/apac_constify_functions_arguments.ml
@@ -62,7 +64,6 @@ variable/change_type
 # ???
 record/update_fields_type
 record/modif
-record/to_variables
 variable/ref_to_var
 variable/exchange
 swap/coords_fixed

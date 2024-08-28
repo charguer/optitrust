@@ -71,10 +71,9 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
           (Seq.map (fun (g, f) -> (g, trm_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
         in
         if !Flags.check_validity then begin
-          (* FIXME: this check should be done by Variable.inline instead of this transfo, which should bind temporary variables *)
           Var_map.iter (fun _ arg_val ->
             if not (Resources.trm_is_pure arg_val) then
-              trm_fail arg_val "inlining non-pure argument is not yet supported, requires checking for interference similar to instr.swap, loop.move_out, etc"
+              trm_fail arg_val "basic function inlining does not support non-pure arguments, combine with variable binding and inline"
           ) subst_map;
           Trace.justif "inlining pure expressions is always correct"
         end;
@@ -122,11 +121,16 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
       begin match trm_prim_inv f1 with
       | Some p when is_infix_prim_fun p ->
         let aux s = Ast_to_c.ast_to_string s in
-        if aux ls <> aux (get_operation_arg get_ls) && aux ls <> aux (get_operation_arg arg)
+        let repr_ls = aux ls in
+        let repr_get_ls = aux (get_operation_arg get_ls) in
+        let repr_arg = aux (get_operation_arg arg) in
+        if repr_ls <> repr_get_ls && repr_ls <> repr_arg
           then t
           else
             let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> trm_fail f "Function_core.use_infix_ops_on: this should never happen" in
-            if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~annot:t.annot binop ls get_ls else  trm_prim_compound ~annot:t.annot binop ls arg
+            if not (repr_ls = repr_get_ls)
+              then trm_prim_compound ~annot:t.annot binop ls get_ls
+              else trm_prim_compound ~annot:t.annot binop ls arg
       | _ ->
         if allow_identity then t else
         trm_fail f1 "Function_core.use_infix_ops_on: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
@@ -143,10 +147,10 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
    and returns the term [gtwice(3)], which is equivalent to [t] up to inlining. *)
 let uninline_on (fct_decl : trm) (t : trm) : trm =
   let error = "Function_core.uninline: fct argument should target a function definition" in
-  let (f, _, targs, body) = trm_inv ~error trm_let_fun_inv fct_decl in
+  let (f, typ, targs, body) = trm_inv ~error trm_let_fun_inv fct_decl in
   let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
   let args = Trm.tmap_to_list (List.map fst targs) inst in
-  trm_pass_labels t (trm_apps (trm_var f) args)
+  trm_pass_labels t (trm_apps (trm_var ~typ f) args)
 
 (** [trm_var_assoc_list to_map al]: creates a map from an association list wher keys are variables and values are trms *)
 let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =
@@ -161,7 +165,7 @@ let rename_args_on (vl : var list) (t : trm) : trm =
   let error = "Function_core.rename_args_on: expected a target to a function declaration" in
   let (f, retty, args, body) = trm_inv ~error trm_let_fun_inv t in
   let renamed_args = List.map2 (fun v1 (arg1, ty1) -> if v1 <> dummy_var then (v1, ty1) else (arg1, ty1)) vl args in
-  let assoc_list = List.fold_left2 (fun acc v1 (arg1, _ty1) -> if v1 <> dummy_var then (arg1, trm_var v1) ::  acc else acc) [] vl args in
+  let assoc_list = List.fold_left2 (fun acc v1 (arg1, ty1) -> if v1 <> dummy_var then (arg1, trm_var ~typ:ty1 v1) ::  acc else acc) [] vl args in
   let tm = map_from_trm_var_assoc_list assoc_list in
   let new_body = trm_subst tm body in
   trm_let_fun f retty renamed_args new_body

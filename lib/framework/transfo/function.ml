@@ -13,23 +13,24 @@ type rename = Variable.Rename.t
       then it just leaves it as an empty string "". Basically this transformation is
       just an aplication of bind_intro n times. Where n is the numer of strings inside
       [fresh_names] different from "". *)
-let%transfo bind_args (fresh_names : string list) (tg : target) : unit =
+let%transfo bind_args ?(const : bool = false) (fresh_names : string list) (tg : target) : unit =
+  (* DEPRECATED? *)
   Target.iter (fun p ->
     let call_trm = Target.resolve_path p in
     let call_mark = "bind_args_mark" in
     let nb_fresh_names = List.length fresh_names in
-    let error = "Function.bind_args: expected a target to a function call." in
+    let error = "expected a target to a function call." in
     let _, tl = trm_inv ~error trm_apps_inv call_trm in
     if nb_fresh_names = 0
       then ()
       else if List.length tl <> nb_fresh_names then
-        trm_fail call_trm "Function.bind_args: each argument should be binded to a variable or the empty string. "
+        trm_fail call_trm "each argument should be binded to a variable or the empty string. "
       else begin
         Marks.add call_mark (target_of_path p);
         List.iteri (fun ind fresh_name ->
           if fresh_name = ""
             then ()
-            else Function_basic.bind_intro ~fresh_name ~const:false [cMark call_mark; dArg ind]
+            else Function_basic.bind_intro ~fresh_name ~const [cMark call_mark; dArg ind]
         ) fresh_names;
         Marks.remove call_mark [cMark call_mark] end
 ) tg
@@ -58,7 +59,7 @@ let%transfo bind ?(fresh_name : string = "res") ?(args : string list = []) (tg :
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
-(** [inline ~resname ~vars ~args ~keep_res ~delete ~debug tg]: expects the target [ŧg] to point at a function call
+(** [inline ~resname ~vars ~args ~keep_res ~delete ~debug tg]: expects the target [tg] to point at a function call
     Then it will try to inline that function call. If it's possible this transformation tries to
     perform as many simplifications as possible.
 
@@ -210,8 +211,12 @@ int f2() { // result of Funciton_basic.inline_cal
   _exit:;
   int s = r;
 } *)
-let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : string list = []) ?(keep_res : bool = false)
-  ?(delete : bool = false) ?(debug : bool = false) ?(simpl : target -> unit = Variable.default_inline_simpl) (tg : target) : unit
+let%transfo inline ?(resname : string = "")
+  ?(vars : rename = AddSuffix "") ?(args : string list = [])
+  ?(keep_res : bool = false) ?(delete : bool = false)
+  ?(debug : bool = false)
+  ?(simpl : target -> unit = Variable.default_inline_simpl)
+  (tg : target) : unit
   =
   Marks.with_fresh_mark (fun subst_mark ->
     (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
@@ -228,16 +233,37 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
       let call_trm = Target.resolve_path path_to_call in
+      let given_args = ref [] in
       begin match call_trm.desc with
-        | Trm_apps ({desc = Trm_var f}, _, _) -> function_names := Var_set.add f !function_names;
+        | Trm_apps ({desc = Trm_var f}, xs, _) ->
+          function_names := Var_set.add f !function_names;
+          given_args := xs;
         | _ ->  trm_fail call_trm "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;
 
-      let post_processing ?(deep_cleanup : bool = false)() : unit =
+      let post_processing ?(deep_cleanup : bool = false) () : unit =
       Stats.comp_stats "post_processing" (fun () ->
         let new_target = cMark my_mark in
+        let inline_mark = Mark.next () in
         if not !mark_added then Marks.add my_mark (target_of_path path_to_call);
-        if args <> [] then bind_args args [new_target];
+        if !Flags.check_validity then begin
+          let args = if args = []
+            then List.init (List.length !given_args) (fun _ -> "")
+            else args
+          in
+          let ind = ref 0 in
+          List.iter2 (fun a x ->
+            if Resources.trm_is_pure x then begin
+              if a = "" then () else
+              Variable_basic.bind a ~const:true [new_target; dArg !ind];
+            end else begin
+              Variable_basic.bind ~mark_let:inline_mark "arg" ~const:true [new_target; dArg !ind];
+            end;
+            incr ind;
+          ) args !given_args;
+        end else begin
+          if args <> [] then bind_args ~const:false args [new_target];
+        end;
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Stats.comp_stats "inline" (fun () ->
           Function_basic.inline ~body_mark ~subst_mark [new_target];);
@@ -245,15 +271,18 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           Accesses_basic.intro [cMark body_mark];);
         Stats.comp_stats "elim_body" (fun () ->
           elim_body ~vars [cMark body_mark];);
+        Variable.inline ~simpl [nbAny; (* cVarDef ~body:[ *) cMark inline_mark (* ] "" *)];
         if deep_cleanup then begin
           let success_attach = match Trace.step_backtrack_on_failure (fun () ->
+            Instr.move_in_seq ~dest:[tBefore; occFirst; cWriteVar !resname] [new_target];
             Variable_basic.init_attach [new_target]
           ) with
           | Success () -> true
-          | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences), _)
+          (* FIXME: more precise errors? | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences), _)
           | Failure (Contextualized_error (_, Variable_core.Init_attach_occurrence_below_control), _) ->
               false
-          | Failure (e, bt) -> Printexc.raise_with_backtrace e bt
+          | Failure (e, bt) -> Printexc.raise_with_backtrace e bt *)
+          | Failure (e, bt) -> false
           in
           if success_attach then begin
             Variable.inline ~simpl [new_target];
@@ -280,19 +309,19 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       | Trm_let _ ->
         Marks.add "__inline_instruction" (target_of_path path_to_instruction);
         Stats.comp_stats "bind_intro1" (fun () ->
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
+          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | Trm_apps (_, [ls; rs], _) when is_set_operation tg_out_trm ->
         Stats.comp_stats "bind_intro2" (fun () ->
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
+          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ()
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ ->
           if debug then Show.path ~msg:"Full_path to the call" path_to_call;
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call) ;
+          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call);
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | _ -> trm_fail tg_out_trm "Function.inline: please be sure that you're tageting a proper function call"

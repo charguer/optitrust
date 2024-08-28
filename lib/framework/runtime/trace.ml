@@ -1019,7 +1019,7 @@ and error_step (exn : exn): unit =
   let preprend_to_step_name (prefix: string) : unit =
     let step = get_cur_step () in
     let infos = step.step_infos in
-    infos.step_name <- prefix ^ infos.step_name
+    infos.step_name <- prefix ^ " " ^ infos.step_name
   in
   let process_context (contexts : error_context list) : unit =
     List.iter (fun c ->
@@ -1044,8 +1044,8 @@ and error_step (exn : exn): unit =
         done;
         let prefix_len = List.length !prefix in
         if prefix_len == List.length p
-          then preprend_to_step_name (" @ path " ^ mark)
-          else preprend_to_step_name (" @ path " ^ mark ^ "+" ^ (Path.path_to_string (List.drop prefix_len p)));
+          then preprend_to_step_name ("@ path " ^ mark)
+          else preprend_to_step_name ("@ path " ^ mark ^ "+" ^ (Path.path_to_string (List.drop prefix_len p)));
       ) c.path;
       Option.iter (fun trm ->
         let mark = Mark.next () in
@@ -1058,11 +1058,11 @@ and error_step (exn : exn): unit =
             trm_map apply_mark t
         in
         the_trace.cur_ast <- apply_mark the_trace.cur_ast;
-        preprend_to_step_name (" @ term " ^ mark);
+        preprend_to_step_name ("@ term " ^ mark);
       ) c.trm;
       (* TODO: c.loc *)
       if c.ctx_desc <> "" then
-        preprend_to_step_name (" " ^ c.ctx_desc);
+        preprend_to_step_name (c.ctx_desc);
     ) (List.rev contexts)
   in
   let print_var_id = ref false in
@@ -1245,12 +1245,12 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
 (** [target_resolve_step] has a special handling because it saves a diff
    between an AST and an AST decorated with marks for targeted paths,
    even though the [cur_ast] is not updated with the marks. *)
-let target_resolve_step (f: unit -> Path.path list) : Path.path list =
+let target_resolve_step ?(prefix : Path.path = []) (f: unit -> Path.path list) : Path.path list =
   ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"Target-resolve" ());
   let ps = f () in
   if Flags.is_execution_mode_trace() then begin
     let cur_ast = the_trace.cur_ast in
-    let marked_ast, _marks = Path.add_marks_at_paths ps cur_ast in
+    let marked_ast, _marks = Path.add_marks_at_paths ~prefix ps cur_ast in
     the_trace.cur_ast <- marked_ast;
     close_step();
     the_trace.cur_ast <- cur_ast

@@ -45,6 +45,7 @@ int main() {
   v2 = v;
   particle p1 = { v, v };
   particle p2 = { v, { 7,8 } };
+  p1.pos.x = p2.pos.y;
   // sequences
   {
     int r1 = 1;
