@@ -270,7 +270,7 @@ type step_kind =
   | Step_group (* produced in particular by [backtrack] steps, or [target_iter] steps *)
   | Step_backtrack (* [backtrack] or [backtrack_on_failure] *)
   | Step_show (* produced by [show_step] *)
-  | Step_typing (* produced by [typing_step] *)
+  | Step_typing (* produced by [step] *)
   | Step_trustme (* produced by [trustme] *)
   | Step_change (* change step introduced by [finalize_step] -- TODO: add this feature *)
   | Step_error (* fatal error caught *)
@@ -1733,6 +1733,10 @@ let produce_diff_output_internal (step:step_tree) : unit =
   let ast_before, ast_after = process_ast_before_after_for_diff style_before style_after ast_before ast_after in
   (* Common printing function *)
   let output_ast style filename_prefix ast =
+    let style =
+      if not !Flags.print_only_code then style else
+        Style.{ style with typing = typing_none }
+      in
     output_prog_check_empty style ctx filename_prefix ast;
     Flags.verbose_info "Generated: %s%s" filename_prefix ctx.extension;
     in

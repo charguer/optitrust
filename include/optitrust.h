@@ -351,6 +351,22 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
   return 0;
 }
 
+
+void reduce_spe1_loop_out(uint8_t* out, int start, int stop, const uint8_t* in, int n, int m, int j) {
+  uint16_t s = 0;
+  for (int i = start; i < stop; i++) {
+    //__smodifies("&s ~> Cell");
+    //__sreads("in ~> Matrix2(n, m)");
+    s += in[MINDEX2(n, m, i, j)];
+  }
+  *out = s;
+}
+
+void reduce_spe1_out(uint8_t* out, int start, int stop, const uint8_t* in, int n, int m, int j) {
+  *out = reduce_spe1(start, stop, in, n, m, j);
+}
+
+
 /* ---- Ghosts ---- */
 
 __GHOST(assume) {

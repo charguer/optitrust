@@ -101,6 +101,9 @@ let bypass_cfeatures : bool ref = ref false
 (** [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
 let print_optitrust_syntax = ref false
 
+(** [print_only_code]: flag used for printing the optitrust AST without contracts and ghosts *)
+let print_only_code = ref false
+
 (** [stop_on_first_resource_error]: Stops on the first resource error found.
    This allows for the propagation of the backtrace. *)
 let stop_on_first_resource_error = ref true
@@ -240,6 +243,7 @@ let spec : cmdline_args =
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
+     ("-print-only-code", Arg.Set print_only_code, " print output with only code, no contracts and ghosts");
      ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
      ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");

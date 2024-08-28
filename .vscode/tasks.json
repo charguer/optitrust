@@ -43,6 +43,26 @@
         ]
       },
       {
+        "label": "View diff only code",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "step_diff",
+          "${relativeFile}",
+          "${lineNumber}",
+          "-print-only-code"
+        ]
+      },
+      {
         "label": "View diff using internal syntax",
         "type": "shell",
         "command": "tools/view_result.sh",
