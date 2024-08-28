@@ -25,16 +25,18 @@ let%transfo variable_multi ?(mark_then : (string * trm) -> mark = fun _ ->  no_m
   ?(mark_else : mark = no_mark)
   (pairs: (string * trm) list) (tg : target) : unit =
   Marks.with_marks (fun next_mark ->
-    let generic_mark = Mark.reuse_or_next next_mark mark_else in
+    let generic_mark = next_mark () in
     Marks.add generic_mark tg;
-    let specialize (var, value) = begin
+    let n = List.length pairs in
+    let specialize i (var, value) = begin
       let this_mark_then = next_mark () in
-      variable ~var ~value ~mark_then:this_mark_then [cMark generic_mark];
+      let this_mark_else = if i = n - 1 then mark_else else no_mark in
+      variable ~var ~value ~mark_then:this_mark_then ~mark_else:this_mark_else [cMark generic_mark];
       Marks.remove generic_mark [cMark this_mark_then; cMark generic_mark];
       let mark_then = mark_then (var, value) in
       Marks.add mark_then [cMark this_mark_then];
     end in
-    List.iter specialize pairs;
+    List.iteri specialize pairs;
   )
 
 (* TOFIX LATER

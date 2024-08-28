@@ -26,8 +26,6 @@ let%transfo postprocessing (_u: unit) : unit =
   Loop.delete_all_void []
 
 let _ = Run.script_cpp (fun () ->
-  (* !! Resources.ensure_computed (); *)
-
   (* FIXME: not working on fun body because need to go inside seq. *)
   bigstep "prepare for specialization";
   let mark_then (var, _value) = sprintf "%s" var in
@@ -48,10 +46,6 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
 
   bigstep "cn";
-  (* !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "cn"; cArrayWrite "D"];
-  !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
-  !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "cn"; cFor "i"; cFun "reduce_spe1"]; *)
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
