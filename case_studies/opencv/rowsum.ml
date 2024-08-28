@@ -1,5 +1,4 @@
 open Optitrust
-(*open Prelude_valid*)
 open Prelude
 let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
@@ -23,10 +22,10 @@ let _ = Run.script_cpp (fun () ->
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
-    Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
-    Instr.gather_targets [c; cStrict; cArrayWrite "D"];
-    Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor ~stop:[cVar "kn"] "i"];
-    Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
+      Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
+      Instr.gather_targets [c; cStrict; cArrayWrite "D"];
+      Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor ~stop:[cVar "kn"] "i"];
+      Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
   );
 
   !! Cleanup.std ();

@@ -16,7 +16,6 @@ let _ = Flags.recompute_resources_between_steps := true
 
 let int = trm_int
 
-(* FIXME: avoid inlining *)
 let _ = Run.script_cpp (fun () ->
 
   !! Function.inline_def [cFunDef "mm"];
@@ -30,8 +29,6 @@ let _ = Run.script_cpp (fun () ->
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
-
   !! Cleanup.std ();
 )
 
-(* LATER: are the "~lhs" necessary ? *) *
