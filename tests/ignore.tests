@@ -52,6 +52,8 @@ apac/heapify_nested_seq
 apac/unfold_let_mult_const
 variable/delocalize
 variable/delocalize_in_vars
+array/to_variables
+array/swap
 
 # NO FIX:
 aos_to_soa

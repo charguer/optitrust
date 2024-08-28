@@ -4,33 +4,33 @@
  * and writes the result in the matrix C (dim m x n):
  *   C = A * B
  */
-void mm(float* C, float* A, float* B, int m, int n, int p) {
-  __reads("A ~> Matrix2(m, p), B ~> Matrix2(p, n)");
-  __modifies("C ~> Matrix2(m, n)");
+void mm(int m, int n, int p, float C[m][n], float A[m][p], float B[p][n]) {
+  __reads("A, B");
+  __modifies("C");
 
   for (int i = 0; i < m; i++) {
-    __xmodifies("for j in 0..n -> &C[MINDEX2(m, n, i, j)] ~> Cell");
+    __xmodifies("for j in 0..n -> &C[i][j] ~> Cell");
 
     for (int j = 0; j < n; j++) {
-      __xmodifies("&C[MINDEX2(m, n, i, j)] ~> Cell");
+      __xmodifies("&C[i][j] ~> Cell");
 
       float sum = 0.0f;
       for (int k = 0; k < p; k++) {
         __GHOST_BEGIN(focusA, matrix2_ro_focus, "A, i, k");
         __GHOST_BEGIN(focusB, matrix2_ro_focus, "B, k, j");
-        sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
+        sum += A[i][k] * B[k][j];
         __GHOST_END(focusA);
         __GHOST_END(focusB);
       }
 
-      C[MINDEX2(m, n, i, j)] = sum;
+      C[i][j] = sum;
     }
   }
 }
 
-void mm1024(float* C, float* A, float* B) {
-  __reads("A ~> Matrix2(1024, 1024), B ~> Matrix2(1024, 1024)");
-  __modifies("C ~> Matrix2(1024, 1024)");
+void mm1024(float C[1024][1024], float A[1024][1024], float B[1024][1024]) {
+  __reads("A, B");
+  __modifies("C");
 
-  mm(C, A, B, 1024, 1024, 1024);
+  mm(1024, 1024, 1024, C, A, B);
 }

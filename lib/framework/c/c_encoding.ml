@@ -247,10 +247,92 @@ let stackvar_intro (t : trm) : trm =
    aux t
 
 
+let trm_nested_array_get_inv (t : trm) : trm * (trm list) =
+  let rec aux t dims =
+    match trm_binop_inv Binop_array_get t with
+    | Some (t', i) -> aux t' (i::dims)
+    | _ -> (t, dims)
+  in
+  aux t []
+
+(** [propagate_sizes]:
+    - replaces arguments of the form [int t[n][m]] with [int* t]
+    - replaces occurrences [t[a][b]] with [t[MINDEX2(N, M, a, b)]]
+    - replaces [__modifies("t")] with [__modifies("t ~> Matrix2(N, M)")]
+    - replaces [__modifies("c")] with [__modifies("c ~> Cell")] *)
+let propagate_sizes (t: trm): trm =
+  let env = Var_Hashtbl.create 1 in (* maps variables to list of dims *)
+  let process_decl ((x, ty): typed_var) =
+    match typ_nested_array_inv ty with
+    | (_, []) -> (* Not an array type *)
+      begin match typ_ptr_inv ty with
+      | Some _ -> Var_Hashtbl.add env x []
+      | None -> ()
+      end;
+      (x, ty)
+    | (base_typ, dims) ->
+      let dims = List.map (fun dim -> match dim with
+        | Some d -> d
+        | None -> trm_fail t "Does not support implicit array sizes") dims in
+      Var_Hashtbl.add env x dims;
+      (x, typ_ptr base_typ)
+  in
+  let rec aux_linear_res (y, h) =
+    let open Resource_formula in
+    match trm_var_inv h with
+    | Some v ->
+      begin match Var_Hashtbl.find_opt env v with
+      | Some [] -> (y, formula_cell v)
+      | Some dims -> (y, formula_matrix h dims)
+      | None -> (y, trm_map aux h)
+      end
+    | None -> (y, trm_map aux h)
+  and aux (t: trm) =
+    Pattern.pattern_match t [
+      Pattern.(trm_fun !__ !__ !__ !__) (fun args rettyp body contract () ->
+        let args' = List.map process_decl args in
+        let rettyp' = Option.map aux rettyp in
+        let body' = aux body in
+        let contract' = match contract with
+          | FunSpecContract contract -> FunSpecContract {
+              pre = { contract.pre with linear = List.map aux_linear_res contract.pre.linear };
+              post = { contract.post with linear = List.map aux_linear_res contract.post.linear }
+            }
+          | _ -> contract
+        in
+        trm_like ~old:t (trm_fun args' rettyp' body' ~contract:contract')
+      );
+      Pattern.(trm_let_fun !__ !__ !__ !__ !__) (fun name rettyp args body contract () ->
+        match trm_fun_inv (aux (trm_fun args (Some rettyp) body ~contract)) with
+        | Some (args, Some rettyp, body, contract) ->
+          trm_like ~old:t (trm_let_fun name rettyp args body ~contract)
+        | _ -> assert false
+      );
+      Pattern.(trm_array_get __ __) (fun () ->
+        let base, indices = trm_nested_array_get_inv t in
+        match trm_var_inv base with
+        | Some base_var ->
+          assert (indices <> []);
+          begin match Var_Hashtbl.find_opt env base_var with
+          | Some dims when List.length dims == List.length indices ->
+            Matrix_trm.get base dims indices
+          | _ -> trm_map aux t
+          end
+        | None -> trm_map aux t
+      );
+      (* LATER: handle local decl *)
+      (* LATER: handle loop contracts *)
+      (* LATER: handle typedefs *)
+      (* LATER: handle structs *)
+      Pattern.__ (fun () -> trm_map aux t)
+    ]
+  in
+  aux t
+
 (** [caddress_elim t]: applies the following encodings
      - [get(t).f] becomes get(t + offset(f))
      - [t.f] becomes t + offset(f) -- nothing to do in the code of the translation
-     - [get(t)[i] ] becomes [get (t + i)]
+     - [get(t)[i]] becomes [get (t + i)]
      - [t[i]] becomes [t + i] -- nothing to do in the code of the translation
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_prim (Prim_array_access, [t; i]))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_prim (Prim_struct_access "f"),[t])] *)
@@ -1117,6 +1199,7 @@ let cfeatures_elim: trm -> trm =
   infix_elim |>
   (* TODO: remove some infer var ids? *)
   Scope_computation.infer_var_ids ~check_uniqueness:false |>
+  propagate_sizes |>
   stackvar_elim |>
   Scope_computation.infer_var_ids ~check_uniqueness:false |>
   caddress_elim |>

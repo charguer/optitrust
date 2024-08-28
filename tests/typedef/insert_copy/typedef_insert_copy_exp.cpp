@@ -16,7 +16,7 @@ vect w[N];
 
 vect u[N];
 
-void f(vect r[N]) { r[0].x++; }
+void f(vect* r) { r[MINDEX1(N, 0)].x++; }
 
 int main() {
   int i;

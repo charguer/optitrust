@@ -168,6 +168,9 @@ let trm_ge ft1 ft2 = trm_binop Binop_ge ft1 ft2
 let trm_eq ft1 ft2 = trm_binop Binop_eq ft1 ft2
 let trm_neq ft1 ft2 = trm_binop Binop_neq ft1 ft2
 
+let trm_array_access ftb fti = trm_binop Binop_array_access ftb fti
+let trm_array_get ftb fti = trm_binop Binop_array_get ftb fti
+
 let trm_arbitrary fa k t =
   match t.desc with
   | Trm_arbitrary a -> fa k a

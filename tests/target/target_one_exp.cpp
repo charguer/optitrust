@@ -14,9 +14,9 @@ typedef struct {
   return n;              /*20_0@*/
 } /*24_0@*/
 
-/*@27_0, 26_0, 25_0*/ void g(int t[2], vect* varg) {
-  /*@33_0*/ int b = t[0];    /*33_0@*/
-  /*@33_1*/ int a = varg->x; /*33_1@*/
+/*@27_0, 26_0, 25_0*/ void g(int* t, vect* varg) {
+  /*@33_0*/ int b = t[MINDEX1(2, 0)]; /*33_0@*/
+  /*@33_1*/ int a = varg->x;          /*33_1@*/
 } /*27_0, 26_0, 25_0@*/
 
 /*@23_0*/ int main() {
