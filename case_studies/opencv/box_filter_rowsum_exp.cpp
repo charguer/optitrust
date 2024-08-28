@@ -89,8 +89,8 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
               D[3 + 4 * i] = s9;
             }
           } /*cn@*/
-          else {
-            /*@generic*/ for (int c = 0; c < cn; c++) {
+          else /*@generic*/ {
+            for (int c = 0; c < cn; c++) {
               uint16_t s = (uint16_t)0;
               for (int i = 0; i < kn; i++) {
                 s = s + (uint16_t)S[i * cn + c];
@@ -101,8 +101,8 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
                     (uint16_t)S[(-1 + i) * cn + c];
                 D[i * cn + c] = s;
               }
-            } /*generic@*/
           }
+          } /*generic@*/
         }
       }
     }

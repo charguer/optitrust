@@ -33,10 +33,11 @@ let _ = Run.script_cpp (fun () ->
   let mark_then (var, _value) = sprintf "%s" var in
   !! Specialize.variable_multi ~mark_then ~mark_else:"generic"
     ["kn", trm_int 3; "kn", trm_int 5; "cn", trm_int 1; "cn", trm_int 3; "cn", trm_int 4]
-    [cFunBody "rowSum"; cFor "c"];
+    [cFunBody "rowSum"; cFor "i"];
 
   bigstep "generic + cn";
   let c = cMarks ["generic"; "cn"] in
+  !! Loop.swap [nbMulti; c; cFor "i"];
   !! Reduce.slide ~mark_alloc:"acc" [nbMulti; c; cArrayWrite "D"];
   !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
@@ -44,7 +45,6 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "kn";
   !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cFun "reduce_spe1"];
-  !! Loop.swap [nbMulti; cMark "kn"; cFor "c"];
   !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
 
   bigstep "cn";

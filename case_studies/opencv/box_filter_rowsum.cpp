@@ -13,12 +13,11 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
   __reads("S ~> Matrix2(n+kn, cn)");
   __modifies("D ~> Matrix2(n, cn)"); // TODO: writes?
 
-  __ghost(swap_groups, "items := fun i, c -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
-  for (int c = 0; c < cn; c++) { // foreach channel
+  for (int i = 0; i < n; i++) { // for each pixel
     __sreads("S ~> Matrix2(n+kn, cn)");
-    __xmodifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+    __xmodifies("for c in 0..cn -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
-    for (int i = 0; i < n; i++) { // for each pixel
+    for (int c = 0; c < cn; c++) { // foreach channel
       __sreads("S ~> Matrix2(n+kn, cn)");
       __xmodifies("&D[MINDEX2(n, cn, i, c)] ~> Cell");
 
@@ -34,7 +33,6 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
       // __GHOST_END(dfc);
     }
   }
-  __ghost(swap_groups_rev, "items := fun i, c -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 }
 
 /* explicit sliding window version:
