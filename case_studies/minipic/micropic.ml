@@ -47,23 +47,23 @@ let _ = Run.script_cpp (fun () ->
    (trm_struct_get p "mass")
   *)
   (* TODO: allow writing C code, need to parse and put in correct context with local ids *)
-  let particleCharge = trm_var (find_var_in_current_ast ~target:[ctx] "particleCharge") in
-  let particleMass = trm_var (find_var_in_current_ast ~target:[ctx] "particleMass") in
-  let stepDuration = trm_var (find_var_in_current_ast ~target:[ctx] "stepDuration") in
-  let scaleFieldFactor = trm_mul (trm_div particleCharge particleMass) (trm_mul stepDuration stepDuration) in
+  let pCharge = trm_var (find_var_in_current_ast ~target:[ctx] "pCharge") in
+  let pMass = trm_var (find_var_in_current_ast ~target:[ctx] "pMass") in
+  let deltaT = trm_var (find_var_in_current_ast ~target:[ctx] "deltaT") in
+  let scaleFieldFactor = trm_mul (trm_div pCharge pMass) (trm_mul deltaT deltaT) in
   (* TODO: Insert var for scaleFieldFactor *)
   let scaleField d = Accesses.scale ~factor:scaleFieldFactor [nbMulti; ctx; cVar ("fieldAtPos" ^ d)] in
   !! List.iter scaleField ["X"; "Y"; "Z"];
   !! Accesses.scale ~factor:scaleFieldFactor [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lFieldAtCorners"] ~accesses:[cField ()] ()] ()];
-  let scaleSpeed d = Accesses.scale_immut ~factor:stepDuration [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
+  let scaleSpeed d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
   !! List.iter scaleSpeed ["X"; "Y"; "Z"];
   (* !! Variable.inline [cVarDef "p"]; TODO: think about this *)
   (* !! Variable.bind_multi ~const:true ~is_ptr:true ~dest:[tBefore; cVarDef "p"] "paddr" [nbMulti; ctx; cCellAccess ~base:[cVar "lParticles"] ()]; *)
 
   !!! (); (* FIXME: why are things not found without reparse ? *)
-  let stepDuration = trm_var (find_var_in_current_ast ~target:[ctx] "stepDuration") in
+  let deltaT = trm_var (find_var_in_current_ast ~target:[ctx] "deltaT") in
 
-  !! Accesses.scale ~factor:stepDuration [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lParticles"] ~accesses:[cField ~field:"speed" (); cField ()] ()] ()];
+  !! Accesses.scale ~factor:deltaT [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lParticles"] ~accesses:[cField ~field:"speed" (); cField ()] ()] ()];
 
   bigstep "finish with style";
   !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];

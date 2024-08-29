@@ -185,10 +185,10 @@ int idCellOfPos(vect pos) {
 // =========================================================
 // Core loop
 
-void simulate_single_cell(double stepDuration,
+void simulate_single_cell(double deltaT,
   particle* particles, int nbParticles,
   vect* fieldAtCorners, int nbSteps,
-  double particleCharge, double particleMass)
+  double pCharge, double pMass)
 {
   __modifies("particles ~> Matrix1(nbParticles)");
   __reads("fieldAtCorners ~> Matrix1(nbCorners)");
@@ -212,11 +212,11 @@ void simulate_single_cell(double stepDuration,
       MFREE1(nbCorners, coeffs);
 
       // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-      const vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+      const vect accel = vect_mul(pCharge / pMass, fieldAtPos);
 
       // Compute the new speed and position for the particle.
-      const vect speed2 = vect_add(particles[MINDEX1(nbParticles, idPart)].speed, vect_mul(stepDuration, accel));
-      const vect pos2 = vect_add(particles[MINDEX1(nbParticles, idPart)].pos, vect_mul(stepDuration, speed2));
+      const vect speed2 = vect_add(particles[MINDEX1(nbParticles, idPart)].speed, vect_mul(deltaT, accel));
+      const vect pos2 = vect_add(particles[MINDEX1(nbParticles, idPart)].pos, vect_mul(deltaT, speed2));
 
       // const particle p2 = { .pos = pos2, .speed = speed2, .charge = p.charge, .mass = p.mass };
       particles[MINDEX1(nbParticles, idPart)].pos = pos2;
@@ -232,7 +232,7 @@ void simulate_single_cell(double stepDuration,
 }
 
 /*
-int simulate_core(double stepDuration,
+int simulate_core(double deltaT,
   particle* curBag, int* curBagSize,
   particle* nextBag, int* nextBagSize,
   vect_nbCorners fieldAtCorners, int idStep, int idCell)
@@ -261,8 +261,8 @@ int simulate_core(double stepDuration,
     const vect accel = vect_mul(p.charge / p.mass, fieldAtPos);
 
     // Compute the new speed and position for the particle.
-    const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
-    const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
+    const vect speed2 = vect_add(p.speed, vect_mul(deltaT, accel));
+    const vect pos2 = vect_add(p.pos, vect_mul(deltaT, speed2));
     const particle p2 = { pos2, speed2 };
 
     // Compute the location of the cell that now contains the particle
