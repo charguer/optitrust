@@ -53,76 +53,107 @@ let find_candidates_minimum_funcalls ?(min : int = 2) (tg : target) : unit =
   Target.iter (fun t p ->
       find_candidates_minimum_funcalls_on ~min p (get_trm_at_path p t)) tg
 
-(** [taskify_callers ()]: After the selection of candidate functions for the
-    taskification, we need to taskify also the functions calling the latter.
-    However, only the function calls to the taskification candidates shall be
-    transformed into parallelizable tasks. *)
-let rec taskify_callers () : unit =
-  let is_candidate_caller = ref false in
-  let rec calls (c : unit Var_Hashtbl.t) (t : trm) : unit =
+(** [select_candidates tg]: expects the target [tg] to point at a function
+    definition. It adds to a set of variables [candidates] (of type [!type:var])
+    the functions meeting the conditions to become taskification candidates. *)
+let select_candidates (candidates : Var_set.t ref) (tg : target) : unit =
+  (** Initialize a counter [c] of calls to functions we know the prototype of, a
+      counter of loops [l1] and a flag [l2] determining the presence of at least
+      two sibling loops in a sequence of statements. We use references because
+      the [trm_iter] function we use to loop over the abstract syntax tree has
+      no return value. *)
+  let c = ref 0 in
+  let l1 = ref 0 in
+  let l2 = ref false in
+  (** [select_candidates.count_calls_and_loops t]: counts calls to functions we
+      know the prototype of and loops in a term [t]. *)
+  let rec count_calls_and_loops (t : trm) : unit =
     match t.desc with
-    | Trm_apps ({ desc = Trm_var (_, f)}, _) when (Var_Hashtbl.mem c f) ->
-       is_candidate_caller := true
-    | _ -> trm_iter (calls c) t
+    (** If [t] is a call to a function with a known definition, i.e. a function
+        with a function record in [!Apac_records.functions], increase [c]. *)
+    | Trm_apps ({ desc = Trm_var (_, f)}, _) when Var_Hashtbl.mem functions f ->
+       incr c
+    (** If [t] is a loop, increase [l1] and continue exploring the abstract
+        syntax tree of the body [b] of the loop. *)
+    | Trm_for (_, b, _)
+      | Trm_for_c (_, _, _, b, _)
+      | Trm_while (_, b) 
+      | Trm_do_while (b, _) -> incr l1; trm_iter count_calls_and_loops b
+    (** Otherwise, simply continue exploring the abstract syntax tree. *)
+    | _ -> trm_iter count_calls_and_loops t
   in
-  let insertions =
-    Var_Hashtbl.fold (fun f (r : FunctionRecord.t) ins ->
-        (** We shall update only the callers which has not been qualified as
-            taskification candidates yet. *)
-        if not (Var_Hashtbl.mem const_candidates f) then
-          (** Tells whether the current caller calls one of the taskification
-              candidates. *)
-          let is_caller = ref false in
-          (** Update its task graph as follows. *)
-          TaskGraph.iter_vertex (fun v ->
-              (** Get the task [t] from the current task graph vertex [v].*)
-              let t : Task.t = TaskGraph.V.label v in
-              (** The [body] term of the function [f] corresponding to the
-                  current task [t] is the first element in the list of AST terms
-                  associated with [t]. *)
-              let body = List.hd t.current in
-              calls const_candidates body;
-              if !is_candidate_caller then
-                begin
-                  (** If [t] is a function call to one of the taskification
-                      candidates, make this call an un-mergeable task with the
-                      attributes from the task attribute set [tas]. *)
-                  (** Also, the current caller becomes a taskification
-                      candidate. *)
-                  Var_Hashtbl.add const_candidates f ();
-                  is_caller := true;
-                  is_candidate_caller := false;
-                  t.attrs <- TaskAttr_set.add Singleton t.attrs;
-                  t.attrs <- TaskAttr_set.add Taskifiable t.attrs
-                end) r.graph;
-          (** If the current caller becomes a taskification candidate, it means
-              that we make a new insertion into [const_candidates]. *)
-          if !is_caller then ins + 1 else ins
-        else ins) functions 0
+  (** [select_candidates.check_sibling_loops t]: checks for the presence of at
+      least two sibling loops in a term [t]. *)
+  let rec check_sibling_loops (t : trm) : unit =
+    match t.desc with
+    (** If [t] is a sequence of statements [s], check whether the latter
+        features at least two sibling loops. *)
+    | Trm_seq s ->
+       let n = Mlist.fold_left (fun acc e ->
+                   match e.desc with
+                   | Trm_for _
+                     | Trm_for_c _
+                     | Trm_while _
+                     | Trm_do_while _ -> acc + 1
+                   | _ -> acc
+                 ) 0 s in
+       if n > 1 then
+         (** If so, update [l2]. *)
+         l2 := true
+       else
+         (** Otherwise, check in the statements of [s]. *)
+         Mlist.iter (fun e -> trm_iter check_sibling_loops e) s
+    (** In any other case, continue exploring the abstract syntax tree. *)
+    | _ -> trm_iter check_sibling_loops t
   in
-  (** If the current call to this routine did insert a new element into
-      [const_candidates], we have to call it again. *)
-  if insertions > 0 then taskify_callers ()
+  Target.iter_at_target_paths (fun t ->
+      (** Deconstruct the function definition term [t]. *)
+      let error = "Apac_taskify.select_candidates: expected a target to a \
+                   function definition!" in
+      let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+      (** Count calls to functions we know the prototype of and loops in the
+          body of [f]. *)
+      count_calls_and_loops body;
+      (** If it contains at least two function calls or one function call and
+          one loop, push [f] to [r]. *)
+      if (!c > 1) || (!c > 0 && !l1 > 0) then
+        candidates := Var_set.add f !candidates
+      else if (!l1 > 1) then
+        begin
+          (** It it is not the case, but if there are at least two loops in the
+              body of [f], check the latter for the presence of at least two
+              sibling loops. *)
+          check_sibling_loops body;
+          (** It this condition verifies, push [f] to [r]. *)
+          if !l2 then candidates := Var_set.add f !candidates;
+        end;
+      (** Reset counters and flags. *)
+      c := 0; l1 := 0; l2 := false
+    ) tg
 
-(** [restore_on t]: see [restore]. *)
-let restore_on (t : trm) : trm =
-  (** Deconstruct the target function definition term. *)
-  let error =
-    "Apac_taskify.restore_on: expected a target to a function definition" in
-  let (f, _, _, _) = trm_inv ~error trm_let_fun_inv t in
-  (** If the target function [f] is not a taskification candidate, restore its
-      original AST from [!Apac_records.functions]. *)
-  if not (Var_Hashtbl.mem const_candidates f) then
-    let _ = Printf.printf " > > > > > NOT Candidate: %s\n" (var_to_string f) in
-    let r = Var_Hashtbl.find functions f in
-    r.ast
-  else t
-
-(** [restore tg]: expects the target [tg] to point at a function definition. If
-    the function is not a taskification candidate, the transformation shall
-    restore the function to its original term. *)
-let restore (tg : target) : unit =
-  Target.apply_at_target_paths restore_on tg
+(** [select_callers candidates tg]: expects the target [tg] to point at a
+    function definition. It updates the set of variables [candidates] (of type
+    [!type:var]) representing the functions meeting the conditions to become
+    taskification candidates with the variables representing the functions
+    featuring a call to a function already present in [candidates]. *)
+let select_callers (candidates : Var_set.t ref) (tg : target) : unit =
+  Target.iter_at_target_paths (fun t ->
+      (** Deconstruct the function definition term [t]. *)
+      let error = "Apac_taskify.select_callers: expected a target to a \
+                   function definition!" in
+      let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+      (** Loop over the body of [f] and if [f] features a call to a function
+          [f'] in [candidates], add [f] to [candidates]. *)
+      let rec loop = fun c ->
+        match c.desc with
+          | Trm_apps ({ desc = Trm_var (_, f')}, _)
+               when Var_set.mem f' !candidates ->
+             candidates := Var_set.add f !candidates;
+             trm_iter loop c
+          | _ -> trm_iter loop c
+      in
+      loop body;
+    ) tg
 
 (* [task_group_on ?mark_group ~master t]: see [task_group] *)
 let task_group_on ?(mark_group = false) ~(master : bool) (t : trm) : trm =
@@ -198,12 +229,14 @@ let task_group_on ?(mark_group = false) ~(master : bool) (t : trm) : trm =
 let task_group ?(mark_group = false) ~(master : bool) (tg : target) : unit =
   Target.apply_at_target_paths (task_group_on ~mark_group ~master:master) tg
 
-(** [parallel_task_group ?mark_group ?placeholder tg]: expects target [tg] to
-   point at a function definition.
+(** [parallel_task_group ?mark_group ?placeholder ?candidates tg]: expects
+    target [tg] to point at a function definition. If the set of variables
+    [candidates] is present, this pass applies exclusively on functions within
+    the [candidates] variable set.
 
-    The first step of the transformation consists in replacing return statements
-    by gotos. At the beginning of the process, the function's body is wrapped
-    into a sequence to which a mark is assigned.  See
+    The first step of the transformation consists in replacing [return]
+    statements by [goto] jumps. At the beginning of the process, we wrap the
+    body of the function into a sequence with a temporary mark. See
     [Apac_prologue.use_goto_for_return] for more details.
 
     In the second step, we put the marked sequence into an OpenMP task group.
@@ -213,10 +246,9 @@ let task_group ?(mark_group = false) ~(master : bool) (tg : target) : unit =
     [Apac_macros.task_group_mark] to the task group sequence. This way, we can
     target the task group sequences later when inserting tasks into the code.
     Note that the aforementioned mark is not the same thing. That mark is unique
-    and serves to identify the target function's body. It only lives within this
-    transformation function. We have to use this extra unique mark here,
-    otherwise the fourth step could target more than one AST term, which is not
-    desirable.
+    and serves to identify the target function body. It only lives within this
+    transformation pass. We have to use this extra unique mark here, otherwise
+    the fourth step could apply to more than one target, which is not desirable.
 
     If [placeholder] is [true], we will create no actual OpenMP task group.
     Instead, the function's body will be simply wrapped into a sequence marked
@@ -226,34 +258,42 @@ let task_group ?(mark_group = false) ~(master : bool) (tg : target) : unit =
     For the explanation of [master], see [task_group]. *)
 let parallel_task_group
       ?(mark_group = false) ?(placeholder = false)
-      ?(master = false) : Transfo.t =
+      ?(master = false) ?(candidates : Var_set.t ref option = None)
+    : Transfo.t =
   Target.iter (fun t p ->
-    (* 1) Create a mark. *)
-    let mark = Mark.next() in
-    (* 2) Wrap the target function's body into a marked sequence and replace
-       return statements by gotos. *)
-    Apac_prologue.use_goto_for_return ~mark (target_of_path p);
-    (* 3) Get the name of the target function through the deconstruction of the
-       corresponding AST term. *)
-    let error =
-      "Apac_taskify.parallel_task_group: expected a target to a function \
-     definition" in
-    let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv (
-      Path.get_trm_at_path p t
-    ) in
-    (* 4) Transform the marked instruction sequence corresponding to the target
-       function's body into an OpenMP task group if [placeholder] is [false].
-
-       Note that if the target function is the 'main' function, we want the
-       task group to be executed only by one thread, the master thread. *)
-    if not placeholder then
-      let master = master || (var_has_name qvar !Apac_macros.apac_main) in
-      task_group ~mark_group ~master [cMark mark]
-    else
-      Marks.add Apac_macros.task_group_mark [cMark mark];
-    (* 5) Remove the mark. *)
-    Marks.remove mark [cMark mark];
-  )
+      (** Deconstruct the definition of the function [f] in [t]. *)
+      let error =
+        "Apac_taskify.parallel_task_group: expected a target to a function \
+         definition" in
+      let (f, _, _, _) = trm_inv ~error trm_let_fun_inv (
+                             Path.get_trm_at_path p t
+                           ) in
+      (** If [candidates] is present, continue only if it contains [f]. *)
+      let go = if (Option.is_some candidates) then
+                 let candidates = Option.get candidates in
+                 Var_set.mem f !candidates
+               else true in
+      if go then
+        begin
+          (** Create a mark. *)
+          let mark = Mark.next() in
+          (** Wrap the body of [f] into a marked sequence and replace [return]
+              statements by [goto] jumps. *)
+          Apac_prologue.use_goto_for_return ~mark (target_of_path p);
+          (** Transform the marked sequence into an OpenMP task group if
+              [placeholder] is [false]. If the target function is the [main]
+              function, we want only one thread, the master thread, to execute
+              the task group. *)
+          if not placeholder then
+            let master =
+              master || (var_has_name f !Apac_macros.apac_main) in
+            task_group ~mark_group ~master [cMark mark]
+          else
+            Marks.add Apac_macros.task_group_mark [cMark mark];
+          (** Remove the mark. *)
+          Marks.remove mark [cMark mark]
+        end
+    )
 
 (** [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
     returns two lists. The first list holds the access terms where each term is
@@ -1331,18 +1371,41 @@ let merge (tg : target) : unit =
 
 (** [detect_tasks_simple_on p t]: see [detect_tasks_simple_on]. *)
 let detect_tasks_simple_on (p : path) (t : trm) : unit =
-  (** [detect_tasks_simple_on.aux v]: if the vertex [v] features a call to a
-      function we know the definition of, attribute it [Taskifiable]. Otherwise,
-      if [v] involves nested candidate graphs, process them recursively. *)
+  (** [detect_tasks_simple_on.aux v]: if the vertex [v] consists in a call to a
+      function we know the definition of without featuring child scopes,
+      attribute it [Taskifiable]. If [v] involves nested candidate graphs,
+      process them recursively. *)
   let rec aux (v : TaskGraph.V.t) : unit =
     let t = TaskGraph.V.label v in
-    if (List.exists (fun s ->
-            match s.desc with
-            | Trm_apps ({ desc = Trm_var (_ , f); _ }, _)
-                 when Var_Hashtbl.mem functions f -> true
-            | _ -> false) t.current) then
-      t.attrs <- TaskAttr_set.add Taskifiable t.attrs;
-    (** Process the task candidates in nested task candidate graphs, if any. *)
+    (** Initialize a counter of function calls [k]. *)
+    let k = ref 0 in
+    (** Loop over the abstract syntax tree representations [c] of [v] and *)
+    let rec loop = fun c ->
+      match c.desc with
+      (** and if [c] is a call to a function [f] we know the definition of, i.e.
+          if [f] is in [Apac_records.functions], increment [k] and continue
+          exploring the abstract syntax tree. *)
+      | Trm_apps ({ desc = Trm_var (_, f)}, _)
+           when Var_Hashtbl.mem functions f ->
+         incr k;
+         trm_iter loop c
+      (** When [c] implies a child scope, do nothing and stop exploring the
+          abstract syntax tree. *)
+      | Trm_seq _
+        | Trm_for _
+        | Trm_for_c _
+        | Trm_if _
+        | Trm_while _
+        | Trm_do_while _
+        | Trm_switch _ -> ()
+      (** Otherwise, simply continue exploring the abstract syntax tree. *)
+      | _ -> trm_iter loop c
+    in
+    List.iter (fun e -> loop e) t.current;
+    (** If there is at least one call to a function [f] we know the
+        definition of, mark the task candidate as [Taskifiable]. *)
+    if !k > 0 then t.attrs <- TaskAttr_set.add Taskifiable t.attrs;
+    (** When [v] features nested candidate graphs, explore the substatements. *)
     List.iter (fun gl ->
         List.iter (fun go ->
             TaskGraphTraverse.iter aux go

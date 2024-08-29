@@ -18,16 +18,22 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cFunDefAndDecl ""
               ];
+            let candidates = ref Var_set.empty in
+            Apac_taskify.select_candidates candidates [
+                nbAny;
+                cFunDefAndDecl ""
+              ];
+            Apac_taskify.select_callers candidates [
+                nbAny;
+                cFunDefAndDecl ""
+              ];
             (* Target the definition of the 'sort_core' function. *)
-            !! Apac_taskify.parallel_task_group ~mark_group:true [
+            !! Apac_taskify.parallel_task_group
+              ~mark_group:true ~candidates:(Some candidates) [
                 nbAny;
                 cFunDefAndDecl ""
               ];
             !! Apac_taskify.taskify [nbAny; cMark Apac_macros.task_group_mark];
-            !! Apac_taskify.find_candidates_minimum_funcalls ~min:2
-              [nbAny; cMark Apac_macros.task_group_mark];
-            !! Apac_taskify.taskify_callers ();
-            !! Apac_taskify.restore [nbAny; cFunDefAndDecl ""];
             !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
             !! Apac_taskify.detect_tasks_simple [
                 nbAny;
