@@ -79,22 +79,6 @@ module TaskAttr_set = struct
     fold (fun ta acc -> acc ^ (TaskAttr.to_string ta) ^ " ") tas " "
 end
 
-(** [TaskWeight]: a module to represent weights of edges in a task graph. See
-   [TaskGraph]. *)
-module TaskWeight : sig
-  type t = int
-  val default : t
-  val compare : t -> t -> int
-end = struct
-  (** [TaskWeight.t]: a weight of an edge is a simple integer value. *)
-  type t = int
-  (** [TaskWeight.default]: the default weight is one. *)
-  let default = 1
-  (** [TaskWeight.compare tw1 tw2]: compares two edge weights [tw1] and
-      [tw2]. *)
-  let compare tw1 tw2 = tw1 - tw2
-end
-
 (** [Task]: a module to represent a node of a task graph. The initial task graph
     of a function considers each instruction and each block of instructions
     (loops, scopes, switches, ...) as a separate task. While building the
@@ -324,9 +308,7 @@ module rec Task : sig
     let excerpt = to_excerpt task in
     what ^ "\\n" ^ (TaskAttr_set.to_string task.attrs) ^ "\\n" ^ excerpt
 end and TaskGraph : Sig.IM
-        with type V.label = Task.t and
-             type E.label = TaskWeight.t =
-         Imperative.Digraph.AbstractLabeled(Task)(TaskWeight)
+        with type V.label = Task.t = Imperative.Digraph.Abstract(Task)
 
 (** [TaskGraphPrinter]: a module to convert a [TaskGraph] into a text
     representation such as the Dot format. See [DotExport]. *)
