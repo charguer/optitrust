@@ -11,7 +11,7 @@ let cwd () : string =
     function creates it. *)
 let gwd () : string =
   (** Build the full path to the destination directory. *)
-  let path = (cwd ()) ^ !Apac_macros.keep_graphs_in in
+  let path = (cwd ()) ^ "/" ^ !Apac_macros.keep_graphs_in in
   if (Sys.file_exists path) then
     if (Sys.is_directory path) then
       (** If the path points to an existing directory, just return it. *)
@@ -26,7 +26,7 @@ let gwd () : string =
     (** Otherwise, create the destination directory with ususal permission set
         and return the path to it. *)
     begin
-      Sys.mkdir path 644;
+      Sys.mkdir path 0o755;
       path
     end
 
