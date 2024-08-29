@@ -81,32 +81,35 @@ let typ_get_alias (ty : typ) : typ option =
     end
   | _ -> None
 
-(* [typ_get_degree ty]: computes and returns the pointer degree of the type
-   [ty]. For example, for [int ** a], it returns 2. *)
-let typ_get_degree (ty : typ) : int =
-  (* Auxiliary function to actually compute the degree. *)
-  let rec aux (degree : int) (ty : typ) : int =
+(** [typ_get_nli ty]: returns the number of levels of indirection of the type
+    [ty], e.g. [2] for [int ** a]. *)
+let typ_get_nli (ty : typ) : int =
+  (** [typ_get_nli.aux nli ty]: auxiliary function hiding the counter [nli] of
+      levels of indirection of [ty]. *)
+  let rec aux (nli : int) (ty : typ) : int =
     match ty.typ_desc with
-    (* If [ty] is a constant type or a reference, keep the current degree value
-       and recurse. *)
-    | Typ_const ty -> aux degree ty
-    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> aux degree ty
-    (* If [ty] is a pointer or an array, increase the degree value and
-       recurse. *)
-    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } -> aux (degree + 1) ty
-    | Typ_array (ty, _) -> aux (degree + 1) ty
-    (* If [ty] is a constructed user-defined type and it is an alias to a basic
-       type, resolve the latter and compute the degree. *)
+    (** When [ty] is a constant type or a reference, [nli] does not change,
+        continue the computation on the inner type. *)
+    | Typ_const ty -> aux nli ty
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> aux nli ty
+    (** When [ty] is a pointer or an array, increase [nli] and continue the
+        computation on the inner type. *)
+    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } -> aux (nli + 1) ty
+    | Typ_array (ty, _) -> aux (nli + 1) ty
+    (** When [ty] is a constructed user-defined type and it is an alias to a
+        basic type, resolve the latter and continue computation. *)
     | Typ_constr _ when typ_is_alias ty ->
       begin match typ_get_alias ty with
-      | Some (ty) -> aux degree ty
-      | None -> fail None "Apac_core.typ_get_degree: unable to determine the \
-                           basic type of a typedef alias."
+      | Some (ty) -> aux nli ty
+      | None -> failwith "Apac_miscellaneous.typ_get_nli: unable to determine \
+                          the basic type behind an alias."
       end
-    | _ -> degree
+    (** When [ty] is a basic type or a constructed user-defined type which is {b
+        not} an alias to a basic type, we have finished computing, return the
+        final number of levels fo indirection of [ty]. *)
+    | _ -> nli
   in
-  (* Call the auxiliary function to compute the degree and hide the [degree]
-     parameter to the outside world. *)
+  (** Start counting the levels of indirection of [ty] at level [0]. *)
   aux 0 ty
 
 (* [trm_strip_accesses_and_references_and_get_lvar t]: strips [*t, &t, ...]
@@ -192,7 +195,7 @@ let trm_resolve_pointer_and_degree (t : trm) : (var * int) option =
        begin match op with
        | Unop_get -> aux (degree - 1) t'
        | Unop_address -> aux (degree + 1) t'
-       | Unop_cast ty -> aux (degree + typ_get_degree ty) t'
+       | Unop_cast ty -> aux (degree + typ_get_nli ty) t'
        | Unop_struct_access _
          | Unop_struct_get _ -> aux degree t'
        | _ -> None
@@ -280,7 +283,7 @@ let trm_resolve_binop_lval_and_get_with_deref ?(plus : bool = false)
             Continue resolution on the latter. *)
          | Unop_get -> aux (d + 1) l t
          | Unop_address -> aux (d - 1) l t
-         | Unop_cast ty -> aux (d + typ_get_degree ty) l t
+         | Unop_cast ty -> aux (d + typ_get_nli ty) l t
          | Unop_struct_access field -> aux (d + 1) field t
          (* A structure access through pointer, e.g. [operand->field], means
             that the operand was not dereferenced. To finish finished resolving,

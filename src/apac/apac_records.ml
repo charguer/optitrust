@@ -133,7 +133,7 @@ end = struct
       let args =
         List.mapi (fun i (arg, ty) ->
             (** determine its number of level of indirections, *)
-            let nli = Apac_miscellaneous.typ_get_degree ty in
+            let nli = Apac_miscellaneous.typ_get_nli ty in
             (** add it to the hash table of function-local variables, *)
             Var_Hashtbl.add scope arg nli;
             (** classify its access (see [!FunctionRecords.classify]). *)

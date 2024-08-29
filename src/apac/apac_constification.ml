@@ -367,7 +367,7 @@ let trm_resolve_pointer_and_alias (t : trm) (a : l) : (lvar * int) option =
            indirection corresponds to the sum of the current number of levels of
            indirection and the number of levels of indirection of the
            destination type. *)
-       | Unop_cast ty -> aux (nli + Apac_miscellaneous.typ_get_degree ty) l t
+       | Unop_cast ty -> aux (nli + Apac_miscellaneous.typ_get_nli ty) l t
        (** more precisely a structure access or a structure get operation, i.e.
            a [structure.member] or a [structure->member], extract the label of
            the [member] field [f] involved in the operation and continue the
@@ -471,7 +471,7 @@ let trm_let_update_aliases ?(r = false)
           to keep track of it and return [2] because we are decalring a
           pointer. *)
       | Some (_, tg) -> LVar_Hashtbl.add a lv
-                          (tg, Apac_miscellaneous.typ_get_degree ty); 2
+                          (tg, Apac_miscellaneous.typ_get_nli ty); 2
       (** Otherwise, we are not creating an alias, return [0]. *)
       | None -> 0
     end
@@ -944,7 +944,7 @@ let analyze_on (us : u) (ous : o) (crs : r) (p : path) (t : trm) : unit =
           (** add it to [aliases] while determining its number of levels of
               indirection. *)
           LVar_Hashtbl.add aliases lv (
-              (- i), Apac_miscellaneous.typ_get_degree ty
+              (- i), Apac_miscellaneous.typ_get_nli ty
             )
         ) siblings
     end;
@@ -962,7 +962,7 @@ let analyze_on (us : u) (ous : o) (crs : r) (p : path) (t : trm) : unit =
   List.iteri (fun i (v, ty) ->
       let lv : lvar = { v = v; l = String.empty } in
       let nli = if (is_reference ty) then (-1)
-                else Apac_miscellaneous.typ_get_degree ty in
+                else Apac_miscellaneous.typ_get_nli ty in
       LVar_Hashtbl.add aliases lv (i, nli)
     ) args;
   (** Analyze the body of [f] for data dependencies on arguments and their
@@ -1278,7 +1278,7 @@ let constify_aliases_on ?(cm : m option = None) ?(crs : r option = None)
                  (** add it to [aliases]. *)
                  let lv : lvar = { v = v; l = String.empty } in
                  LVar_Hashtbl.add
-                   aliases lv (i, Apac_miscellaneous.typ_get_degree ty)
+                   aliases lv (i, Apac_miscellaneous.typ_get_nli ty)
              end
            else
              (** If an argument constification record is missing, fail. This is
@@ -1294,7 +1294,7 @@ let constify_aliases_on ?(cm : m option = None) ?(crs : r option = None)
            if v.name <> "this" then
              let lv : lvar = { v = v; l = String.empty } in
              LVar_Hashtbl.add aliases
-               lv (i, Apac_miscellaneous.typ_get_degree ty)
+               lv (i, Apac_miscellaneous.typ_get_nli ty)
          ) args
   end;
   (** Constify the declarations of aliases in the body of [f]. *)

@@ -464,7 +464,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     (** - single variable declarations or defitinitions ('int a',
           'int * b = ptr'), *)
     | Trm_let (vk, (v, ty), init, _) ->
-       let degree = typ_get_degree ty in
+       let degree = typ_get_nli ty in
        let degree = if vk = Var_immutable then degree else degree - 1 in
        (* let d = Dep.of_trm (trm_var ~kind:vk v) v degree in *)
        Stack.push (Dep_var v) inouts;
@@ -475,7 +475,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
        let (vs, _) = List.split tvs in
        let filter = Var_set.of_list vs in
        List.fold_left2 (fun (exists, isfun) (v, ty) init ->
-           let degree = typ_get_degree ty in
+           let degree = typ_get_nli ty in
            let degree = if vk = Var_immutable then degree else degree - 1 in
            (* let d = Dep.of_trm (trm_var ~kind:vk v) v degree in *)
            Stack.push (Dep_var v) inouts;
