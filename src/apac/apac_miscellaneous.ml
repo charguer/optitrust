@@ -30,13 +30,14 @@ let gwd () : string =
       path
     end
 
-(** [gdot]: returns the full path (see [!gwd]) to a Dot file containing the task
-    candidate graph of a function [f]. The name of the Dot file may carry an
-    optional [suffix]. *)
-let gdot ?(suffix : string = "") (f : var) : string =
+(** [gf]: returns the full path (see [!gwd]) to a file of type [extension]
+    ([dot] or [pdf], which is the default) containing the task candidate graph
+    of a function [f]. The name of the file may carry an optional [suffix]. *)
+let gf ?(suffix : string = "") ?(extension : string = "pdf")
+      (f : var) : string =
   let dir = gwd () in
   let name = f.name ^ "-" ^ (string_of_int f.id) ^
-               (if suffix <> "" then "-" ^ suffix else "") ^ ".dot" in
+               (if suffix <> "" then "-" ^ suffix else "") ^ "." ^ extension in
   dir ^ "/" ^ name
 
 (** [excerpt ?max ast]: returns an excerpt of a string representation of an
