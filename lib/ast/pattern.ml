@@ -189,6 +189,8 @@ let trm_struct_get ffield fbase k =
     | _ -> raise Next
   ) fbase k
 
+let trm_get f = trm_unop (eq Unop_get) f
+
 let typ_var = trm_var
 let typ_apps ft fargs k ty =
   match typ_apps_inv ty with

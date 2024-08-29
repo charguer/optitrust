@@ -11,33 +11,24 @@ let _ = Run.script_cpp (fun () ->
   !! Resources.ensure_computed ();
 
   bigstep "make local copies of field and particles";
-  (* let fv n = find_var_in_current_ast ~target:[ctx] n in *)
   let ft n = typ_var (find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n)) in
-  (* TODO: get type and dims from resources *)
   !! Matrix.local_name_tile ~var:"fieldAtCorners"
-    (* ~type_and_dims:(ft "vect", [trm_var (fv "nbCorners")]) *)
     ~elem_ty:(ft "vect") ~uninit_post:true
     ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
   !! Matrix.local_name_tile ~var:"particles"
-    (* ~type_and_dims:(ft "particle", [trm_var (fv "nbParticles")]) *)
     ~elem_ty:(ft "particle")
     ~local_var:"lParticles" [ctx; cFor "idStep"];
 
   bigstep "inline helper functions and reveal record fields";
   !! Function.inline [ctx; multi cFun ["matrix_vect_mul"]];
-  (* TODO: regroup with previous inline, problem: phase ordering matters, need fixpoint? *)
   !! Function.inline [ctx; multi cFun ["vect_add"; "vect_mul"]];
 
-  (* TODO: regroup, set_explicit_all *)
   !! Record.set_explicit [ctx; multi cArrayWrite ["particles"; "lParticles"]];
   !! Record.set_explicit [nbMulti; ctx; cWrite ~lhs:[Constr_depth (DepthAt 0); cAccesses ~base:[cOr (List.map (fun x -> [cVar x]) ["particles"; "lParticles"])] ~inner_accesses:false ~accesses:[cIndex (); cField ~regexp:true ~field:"\\(pos\\)\\|\\(speed\\)" ()] ()] ()];
   !! Record.set_explicit [ctx; multi cArrayWrite ["fieldAtCorners"; "lFieldAtCorners"]];
-  (* TODO: avoid binding tmp *)
   !! Variable.bind ~const:true "fieldAtPosTmp" [cWriteVar "fieldAtPos"; dArg 1];
   !! Record.set_explicit [ctx; cWriteVar "fieldAtPos"];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPosTmp"; "fieldAtPos"; "pos2"; "speed2"; "accel"]];
-  (* TODO:
-  !! List.iter (fun d -> Variable.inline [cVarDef ("fieldAtPosTmp" ^ d)]) ["X"; "Y"; "Z"]; *)
 
   (* CHECK *)
   bigstep "scale field and particles";
@@ -73,6 +64,10 @@ let _ = Run.script_cpp (fun () ->
 
   (* TODO:
     - cleanup script
+    - local name tile: get elem_ty from program / resources
+    - inlines: regroup together, problem: phase ordering matters, need fixpoint?
+    - set_explicit: regroup
+    - avoid binding fieldAtPosTmp
     - bind pointer to lParticles cell?
     - inline cornerInterpolationCoeff to allow array on stack
   *)

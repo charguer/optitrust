@@ -40,6 +40,7 @@ void g() {
   }, "");
   s.x = p.x;
   s.y = p.y;
+  const obj s2 = { s.x + 2, s.y + 2 };
   __ghost([&] {
     __produces("&p ~> Cell");
     __consumes("&p.x ~> Cell");
@@ -73,4 +74,6 @@ void g() {
   }, "");
 
   const obj b = { .weight = 0, .pos = p, .speed = s};
+  const obj b2 = { .pos = b.pos, .speed = b.speed, .weight = b.weight };
+  const obj b3 = { b.weight, b.pos, b.speed };
 }

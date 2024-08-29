@@ -105,6 +105,7 @@ void g() {
       "");
   sX = p.x;
   sY = p.y;
+  const obj s2 = {sX + 2, sY + 2};
   __ghost(
       [&]() {
         __consumes("&p.x ~> Cell");
@@ -145,4 +146,6 @@ void g() {
   const int bWeight = 0;
   const vect bPos = p;
   const vect bSpeed = {sX, sY};
+  const obj b2 = {.pos = bPos, .speed = bSpeed, .weight = bWeight};
+  const obj b3 = {bWeight, bPos, bSpeed};
 }

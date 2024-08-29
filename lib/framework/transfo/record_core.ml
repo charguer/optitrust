@@ -28,13 +28,13 @@ let set_explicit_on (t : trm) : trm =
       | _ -> trm_fail t (sprintf "could not get the declaration of typedef for %s" (var_to_string tid))
     in
     let field_list = Internal.get_field_list t struct_def in
-    (* NOTE: already checked by ghosts:
     let check_pure = if !Flags.check_validity then (fun name x ->
       if Resources.trm_is_pure x then Trace.justif (sprintf "duplicated %s is pure" name)
     ) else (fun name x ->
       ()
     ) in
-     check_pure "lhs" lt; *)
+    (* already checked by set contract:
+       check_pure "lhs" lt; *)
     if !Flags.check_validity then Trace.justif "duplicated terms are pure";
     (* clause is Reads or Writes *)
     let unfold_cells clause_locs =
@@ -92,26 +92,28 @@ let set_explicit_on (t : trm) : trm =
         List.split pairs
       end else ([], [])
     in
-    (* TODO: cast resources on lhs / rhs cells to pointwise resources *)
+    (* TODO: handle unfolded resource overlap between rhs and lhs *)
     let ((before, after), set_one) = begin match rt.desc with
     | Trm_apps (f1, [rt1], _) when is_get_operation rt ->
+      (* lt = get(rt1) --> lt.f = get(rt1.f) *)
       (* NOTE: already checked by ghosts
         check_pure "rhs" rt; *)
       let set_one i (sf, ty) =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf)
-          {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty}
+          (trm_get (trm_struct_access ~typ:(typ_ptr ty) rt1 sf))
+          (* {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf], []); typ = Some ty} *)
       in
       (unfold_cells [Writes, lt; Reads, rt1], set_one)
     | Trm_record st ->
-      (* FIXME: does not work well if resources overlap between lhs and rhs *)
+      (* lt = { .f = v; .. } --> lt.f = v *)
       let st = List.split_pairs_snd (Mlist.to_list st) in
       let set_one i (sf, ty) =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf) (List.nth st i)
       in
       (unfold_cells [Writes,lt], set_one)
     | _ ->  (* other cases are included here *)
-      (* NOTE: already checked by get contract
-        check_pure "rhs" rt; *)
+      (* lt = rt --> lt.f = rt.f *)
+      check_pure "rhs" rt;
       let set_one i (sf, ty) =
         trm_set (trm_struct_access ~typ:(typ_ptr ty) lt sf) (trm_struct_get ~typ:ty rt sf)
       in
@@ -456,6 +458,8 @@ let to_variables_update (var : var) (is_ref : bool) (fields : (field * typ * var
       post = aux_resource_set contract.post }
   in
   let rec aux (t : trm) : trm =
+    (* if var.name = "fieldAtPos" && Var_set.mem var (trm_free_vars t) then
+      Show.trm ~style:Style.(internal_ast_only_desc ()) ~msg:"fieldAtPos update" t; *)
     Pattern.pattern_match t [
       Pattern.(
         (trm_struct_access !__ (trm_var (var_eq var)))
@@ -465,13 +469,18 @@ let to_variables_update (var : var) (is_ref : bool) (fields : (field * typ * var
         | Some (f, t, v) -> trm_var v
         | None -> raise Pattern.Next
       );
+      Pattern.(trm_struct_get !__ (trm_get (trm_var (var_eq var)))) (fun field () ->
+        match List.find_opt (fun (f, t, v) -> field = f) fields with
+        | Some (f, t, v) -> trm_var_get v
+        | None -> raise Pattern.Next
+      );
       Pattern.(trm_var (var_eq var)) (fun () ->
         Pattern.when_ (not is_ref);
         trm_record (Mlist.of_list (List.map (fun (f, t, v) ->
           None, trm_var v
         ) fields))
       );
-      Pattern.(trm_unop (eq Unop_get) (trm_var (var_eq var))) (fun () ->
+      Pattern.(trm_get (trm_var (var_eq var))) (fun () ->
         Pattern.when_ is_ref;
         trm_record (Mlist.of_list (List.map (fun (f, t, v) ->
           None, trm_var_get v
