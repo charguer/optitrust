@@ -284,8 +284,10 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
             (derefs : int) (fc : bool) (attr : DepAttr.t)
             (t : trm) : bool * bool =
     let error = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
-                                '%s' is not a valid OpenMP depends expression"
-                  (AstC_to_c.ast_to_string t) in
+                                '%s' or '%s' is not a valid OpenMP depends \
+                                expression"
+                  (AstC_to_c.ast_to_string t)
+                  (Ast_to_text.ast_to_string t) in
     let ebadattr = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
                                    dependency attribute '%s' can not be used \
                                    in this context"
@@ -336,8 +338,17 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
            end;
          (exists, false)
        else (true, true)
+    (** - structure member accesses ('s->m', 's.m', ...), *)
+    | Trm_apps ({ desc = Trm_val
+                           (Val_prim (Prim_unop (Unop_struct_access _)));
+                  _ }, _)
+      | Trm_apps ({ desc = Trm_val
+                             (Val_prim (Prim_unop (Unop_struct_get _)));
+                    _ }, _) ->
+       let (base, _) = get_nested_accesses t in
+       aux ins inouts attrs filter 0 fc attr base
     (** - get operations ('*t', '**t', ...), *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, _) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t'']) ->
        let t' = trm_simplify_addressof_and_get t in
        if t <> t' then
          aux ins inouts attrs filter 0 fc attr t'
@@ -347,6 +358,8 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
            | Some (t', d) ->
               let d' = if attr = ArgInOut && not fc then d else d - 1 in
               aux ins inouts attrs filter d' fc attr t'
+           | None when is_access t'' ->
+              aux ins inouts attrs filter 0 fc attr t''
            | None -> fail t.loc error
          end
     (** - address operations ('&t'), *)
@@ -362,57 +375,65 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
        let (base, accesses) = get_nested_accesses t in
+       let unknown = ref false in
        let base =
          match base.desc with
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
             vt
          | Trm_var (_, v) -> base
-         | _ -> fail base.loc error
+         | _ -> unknown := true; base
        in
-       let cd = List.length accesses in
-       let exists =
-         begin
-           match base.desc with
-           | Trm_var (_, v) when not (Var_set.mem v filter) ->
-              let (td, ex) = Var_Hashtbl.find_or_default locals v 0 in
-              let d = Dep.of_array t v in
-              let d = if fc && (cd + derefs) < td then
-                        (Dep.of_trm t v 1) :: d
-                      else d
-              in
-              begin
-                match attr with
-                | Accessor ->
-                   List.iter (fun e ->
-                       Stack.push e ins;
-                       Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
-                     ) d
-                | ArgIn -> List.iter (fun e -> Stack.push e ins) d
-                | ArgInOut ->
-                   let f = List.hd d in
-                   let o = List.tl d in
-                   Stack.push f inouts;
-                   List.iter (fun e -> Stack.push e ins) o
-                | _ -> fail t.loc ebadattr
-              end;
-              let d' = List.rev d in
-              let d' = List.tl d' in
-              List.iter (fun rd ->
-                  Stack.push (rd, (DepAttr_set.singleton Subscripted)) attrs
-                ) d';
-              ex
-           | _ -> fail base.loc error
-         end;
-       in
-       List.fold_left (fun (e, f) a ->
-           match a with
-           | Array_access_get t''
-             | Array_access_addr t'' ->
-              let (e', f') =
-                (aux ins inouts attrs filter 0 false Accessor t'') in
-              (e && e', f || f')
-           | _ -> (e, f)
-         ) (exists, false) accesses
+       if !unknown then
+         aux ins inouts attrs filter 0 fc attr base
+       else
+         let cd = List.length accesses in
+         unknown := false;
+         let exists =
+           begin
+             match base.desc with
+             | Trm_var (_, v) when not (Var_set.mem v filter) ->
+                let (td, ex) = Var_Hashtbl.find_or_default locals v 0 in
+                let d = Dep.of_array t v in
+                let d = if fc && (cd + derefs) < td then
+                          (Dep.of_trm t v 1) :: d
+                        else d
+                in
+                begin
+                  match attr with
+                  | Accessor ->
+                     List.iter (fun e ->
+                         Stack.push e ins;
+                         Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
+                       ) d
+                  | ArgIn -> List.iter (fun e -> Stack.push e ins) d
+                  | ArgInOut ->
+                     let f = List.hd d in
+                     let o = List.tl d in
+                     Stack.push f inouts;
+                     List.iter (fun e -> Stack.push e ins) o
+                  | _ -> fail t.loc ebadattr
+                end;
+                let d' = List.rev d in
+                let d' = List.tl d' in
+                List.iter (fun rd ->
+                    Stack.push (rd, (DepAttr_set.singleton Subscripted)) attrs
+                  ) d';
+                ex
+             | _ -> unknown := true; false
+           end;
+         in
+         if !unknown then
+           aux ins inouts attrs filter 0 fc attr base
+         else
+           List.fold_left (fun (e, f) a ->
+               match a with
+               | Array_access_get t''
+                 | Array_access_addr t'' ->
+                  let (e', f') =
+                    (aux ins inouts attrs filter 0 false Accessor t'') in
+                  (e && e', f || f')
+               | _ -> (e, f)
+             ) (exists, false) accesses
     (** - unary increment and decrement operations ('t++', '--t'), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
