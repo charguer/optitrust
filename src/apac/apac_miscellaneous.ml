@@ -131,10 +131,23 @@ let trm_strip_and_get_lvar (t : trm) : lvar option =
          | _ -> aux l t
        end
     (* [t] is a binary operation corresponding to an array access *)
-    | Trm_apps ({ desc = Trm_val (
-                             Val_prim (Prim_binop array_access)
-                             (* We continue to recurse on the internal term. *)
-                           ); _ }, [t; _]) -> aux l t
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t; _]) -> aux l t
+    (* [t] is a binary operation of another type: strip and recurse on both left
+       and right-hand sides. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+       (* We continue to recurse on both the left and the right internal
+          terms. *)
+       begin
+         match (aux l lhs, aux l rhs) with
+         | Some (res), None -> Some (res)
+         | None, Some (res) -> Some (res)
+         | None, None
+           (* In practice, binary operations between two pointers supported in
+              C/C++ can not lead to a valid alias of one of them. *)
+           | Some (_), Some (_) -> None
+       end
     (* [t] actually leads to a variable *)
     | Trm_var (_, var) ->
        (* Use [var] and the label [l] to build the associated labelled
