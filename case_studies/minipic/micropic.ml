@@ -32,28 +32,15 @@ let _ = Run.script_cpp (fun () ->
 
   (* CHECK *)
   bigstep "scale field and particles";
-  (*
-  let p = trm_var (find_var_in_current_ast ~target:[ctx] "p") in
-   (trm_struct_get p "charge")
-   (trm_struct_get p "mass")
-  *)
-  (* TODO: allow writing C code, need to parse and put in correct context with local ids *)
   let pCharge = trm_var (find_var_in_current_ast ~target:[ctx] "pCharge") in
   let pMass = trm_var (find_var_in_current_ast ~target:[ctx] "pMass") in
   let deltaT = trm_var (find_var_in_current_ast ~target:[ctx] "deltaT") in
   let scaleFieldFactor = trm_mul (trm_div pCharge pMass) (trm_mul deltaT deltaT) in
-  (* TODO: Insert var for scaleFieldFactor *)
   let scaleField d = Accesses.scale ~factor:scaleFieldFactor [nbMulti; ctx; cVar ("fieldAtPos" ^ d)] in
   !! List.iter scaleField ["X"; "Y"; "Z"];
   !! Accesses.scale ~factor:scaleFieldFactor [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lFieldAtCorners"] ~accesses:[cField ()] ()] ()];
   let scaleSpeed d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
   !! List.iter scaleSpeed ["X"; "Y"; "Z"];
-  (* !! Variable.inline [cVarDef "p"]; TODO: think about this *)
-  (* !! Variable.bind_multi ~const:true ~is_ptr:true ~dest:[tBefore; cVarDef "p"] "paddr" [nbMulti; ctx; cCellAccess ~base:[cVar "lParticles"] ()]; *)
-
-  !!! (); (* FIXME: why are things not found without reparse ? *)
-  let deltaT = trm_var (find_var_in_current_ast ~target:[ctx] "deltaT") in
-
   !! Accesses.scale ~factor:deltaT [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lParticles"] ~accesses:[cField ~field:"speed" (); cField ()] ()] ()];
 
   bigstep "finish with style";
@@ -68,7 +55,13 @@ let _ = Run.script_cpp (fun () ->
     - inlines: regroup together, problem: phase ordering matters, need fixpoint?
     - set_explicit: regroup
     - avoid binding fieldAtPosTmp
+    - allow writing C code for constructing factors, need to parse and put in correct context with local ids
+    - insert var for scaleFieldFactor
     - bind pointer to lParticles cell?
+
+    !! Variable.bind_multi ~const:true ~is_ptr:true ~dest:[tBefore; cVarDef "p"] "paddr" [nbMulti; ctx; cCellAccess ~base:[cVar "lParticles"] ()];
+
     - inline cornerInterpolationCoeff to allow array on stack
+    - FIXME: reparse triggers access normalization
   *)
 )
