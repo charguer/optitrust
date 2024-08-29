@@ -735,11 +735,7 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
       TaskGraphPrinter.print r.graph
     end;
   if !Apac_macros.keep_graphs then
-    begin
-      let dot = gdot ~suffix:"sync-subscripts" f in
-      export_task_graph r.graph dot;
-      dot_to_pdf dot
-    end
+    TaskGraphExport.to_pdf r.graph (gf ~suffix:"subscripts" f)
 
 let synchronize_subscripts (tg : target) : unit =
   Target.iter (fun t p ->
@@ -898,11 +894,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
          TaskGraphPrinter.print r.graph
        end;
      if !Apac_macros.keep_graphs then
-       begin
-         let dot = gdot ~suffix:"barriers" f in
-         export_task_graph r.graph dot;
-         dot_to_pdf dot
-       end
+       TaskGraphExport.to_pdf r.graph (gf ~suffix:"barriers" f)
   | None ->
      let error = Printf.sprintf
                    "Apac_epilogue.place_barriers_on: no eligible task \

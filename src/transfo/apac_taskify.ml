@@ -1135,12 +1135,7 @@ let taskify_on (p : path) (t : trm) : unit =
         Printf.printf "Task candidate graph of `%s':\n" (var_to_string f);
         TaskGraphPrinter.print r.graph
       end;
-    if !Apac_macros.keep_graphs then
-      begin
-        let dot = gdot f in
-        export_task_graph r.graph dot;
-        dot_to_pdf dot
-      end
+    if !Apac_macros.keep_graphs then TaskGraphExport.to_pdf r.graph (gf f)
 
 (** [taskify tg]: expects the target [tg] to point at a function body. It then
     translates its abstract syntax tree representation into a task candidate
@@ -1270,11 +1265,7 @@ let merge_on (p : path) (t : trm) : unit =
       TaskGraphPrinter.print r.graph
     end;
   if !Apac_macros.keep_graphs then
-    begin
-      let dot = gdot ~suffix:"merge" f in
-      export_task_graph r.graph dot;
-      dot_to_pdf dot
-    end
+    TaskGraphExport.to_pdf r.graph (gf ~suffix:"merge" f)
 
 (** [merge tg]: expects the target [tg] to point at a function body. It then
     tries to optimize its task candidate graph representation by merging
@@ -1376,11 +1367,7 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
       TaskGraphPrinter.print r.graph
     end;
   if !Apac_macros.keep_graphs then
-    begin
-      let dot = gdot ~suffix:"detection" f in
-      export_task_graph r.graph dot;
-      dot_to_pdf dot
-    end
+    TaskGraphExport.to_pdf r.graph (gf ~suffix:"detection" f)
 
 (** [detect_tasks_simple tg]: expects the target [tg] to point at a function
     body. It then scans its task candidate graph representation for eligible

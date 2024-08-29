@@ -376,22 +376,24 @@ module TaskGraphPrinter = struct
     Printf.printf "%s\n" gs
 end
 
-(** [DotExport]: a module for exporting a [TaskGraph] into the Dot format
-    through the [TaskGraphPrinter] module. *)
-module DotExport = Graph.Graphviz.Dot(TaskGraphPrinter)
+(** [TaskGraphExport]: a module for exporting a [TaskGraph] into the Dot and the
+    Pdf formats through the [TaskGraphPrinter] module. *)
+module TaskGraphExport = struct
+  include Graph.Graphviz.Dot(TaskGraphPrinter)
+  (** [to_dot g f]: exports the task candidate graph [g] into a Dot file [f]. *)
+  let to_dot (g : TaskGraph.t) (f : string) : unit =
+    let f = open_out f in output_nested_graph f g; close_out f
 
-(** [export_task_graph g f]: exports the task graph [g] into the Dot format and
-    saves it to the file [f]. *)
-let export_task_graph g f : unit =
-  let file = open_out f in
-  DotExport.output_nested_graph file g;
-  close_out file
-
-let dot_to_pdf (dot : string) : unit =
-  let location = Filename.dirname dot in
-  let file = Filename.basename dot in
-  let out = location ^ "/" ^ (Filename.remove_extension file) ^ ".pdf" in
-  ignore (Sys.command ("dot -Tpdf -o " ^ out ^ " " ^ dot))
+  (** [to_pdf g f]: exports the task candidate graph [g] into a Pdf file [f]. *)
+  let to_pdf (g : TaskGraph.t) (f : string) : unit =
+    (** Get the base name part [n] of [f]. *)
+    let n = Filename.basename f in
+    (** Export [g] to a temporary Dot file [tmp]. *)
+    let tmp = Filename.temp_file (Filename.remove_extension n) "dot" in
+    to_dot g tmp;
+    (** Export [tmp] to [f] using Graphviz. *)
+    ignore (Sys.command ("dot -Tpdf -o " ^ f ^ " " ^ tmp))
+end
 
 (** [TaskGraphBuilder]: a module allowing us to make the [TaskGraphOper]
     module. *)
