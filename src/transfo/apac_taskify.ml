@@ -10,49 +10,6 @@ open Apac_dep
 open Apac_tasks
 open Apac_backend
 
-(** [find_candidates_minimum_funcalls_on ~min p t]: see
-    [find_candidates_minimum_funcalls]. *)
-let find_candidates_minimum_funcalls_on ?(min : int = 2)
-      (p : path) (t : trm) : unit =
-  (** Initialize a counter of function calls. We use a reference because the
-      [trm_iter] function we use to loop over the elements of [t] has no return
-      value. *)
-  let counter = ref 0 in
-  let rec count (t : trm) : unit =
-    match t.desc with
-    (** If [t] is a call to a function with a known definition, i.e. a function
-        with a function record in [!Apac_records.functions], increase [counter]
-        and recurse deeper in the abstract syntax tree. *)
-    | Trm_apps ({ desc = Trm_var (_, f)}, _) when Var_Hashtbl.mem functions f ->
-       incr counter; trm_iter count t
-    (** Otherwise, just recurse deeper in the abstract syntax tree. *)
-    | _ -> trm_iter count t
-  in
-  (** Find the parent function [f]. *)
-  let f = match (find_parent_function p) with
-    | Some (v) -> v
-    | None -> fail t.loc "Apac_taskify.find_candidates_minimum_funcalls_on: \
-                          unable to find parent function. Task group outside \
-                          of a function?" in
-  (** Find its function record [r] in [!Apac_records.functions]. *)
-  let r : FunctionRecord.t = Var_Hashtbl.find functions f in
-  (** Retrieve the root vertex [rv] of the task candidate graph of [f]. *)
-  let rv = TaskGraphOper.root r.graph in
-  (** Retrieve the label of [rv]. *)
-  let rv = TaskGraph.V.label rv in
-  (** Count function calls in the underlying abstract syntax tree. *)
-  count (List.hd rv.current);
-  (** If the abstract syntax tree contains at least [min] function calls, mark
-      the function as taskification candidate. *)
-  if !counter >= min then Var_Hashtbl.add const_candidates f ()
-
-(** [find_candidates_minimum_funcalls ~min tg]: expects the target [tg] to point
-    at a function definition. It makes the functions a taskification candidate
-    if its body contains at least [min] function calls. *)
-let find_candidates_minimum_funcalls ?(min : int = 2) (tg : target) : unit =
-  Target.iter (fun t p ->
-      find_candidates_minimum_funcalls_on ~min p (get_trm_at_path p t)) tg
-
 (** [select_candidates tg]: expects the target [tg] to point at a function
     definition. It adds to a set of variables [candidates] (of type [!type:var])
     the functions meeting the conditions to become taskification candidates. *)

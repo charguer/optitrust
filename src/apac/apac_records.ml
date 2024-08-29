@@ -196,11 +196,6 @@ end
     entries (see [!module:Var_Hashtbl] and [!module:FunctionRecord]). *)
 let functions : FunctionRecord.t Var_Hashtbl.t = Var_Hashtbl.create 10
 
-(** [const_candidates]: hash table of functions identified as candidates for
-    taskification with an initial size of 10. The size of the table will grow
-    automatically if needed. *)
-let const_candidates : unit Var_Hashtbl.t = Var_Hashtbl.create 10
-
 (** [mutables]: map of dependencies on mutable, according to the OptiTrust
     definition, pointer variables to copies of themselves wrapped with a
     [Trm.trm_get]. We need these copies to ensure that dependencies involving
