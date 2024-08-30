@@ -1,5 +1,6 @@
 open Prelude
 
+(* DEPRECATED
 (** [transform_on f_get f_set t]: applies f_get or f_set depending on the fact if
     [t] is a get operation or a set operation,
       [f_get] - the get operation that is going to be applied,
@@ -17,6 +18,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
       | _ -> trm_fail t "Accesses_core.transform_on: expected either a get or a set operation"
       end
     else trm_fail t "Accesses_core.transform_on: expected a get operation"
+*)
 
 (** [intro_on t]: changes encodings "struct_get(get (t), f)" to "get(struct_access (t, f))",
       [t] - ast of the node where the accesses can be found. *)

@@ -1,9 +1,9 @@
 open Optitrust
 open Prelude
 
-(* Arthur: we should be more consistent with ~addr: and ~base:  => perhpas addr is better?
-   Begatim: we use base for array and struct accesses and we use addr for variables *)
+let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun _ ->
-    !! Accesses.scale ~factor:(trm_float 5.0) [cVarDef "y"; cVar "x"];
+  !! Accesses.scale ~factor:(trm_float 5.0) [cVarDef "x"];
+  (* TODO: !! Accesses.scale ~factor:(trm_float 5.0) [cVarDef "y"; cVar "x"]; *)
   )

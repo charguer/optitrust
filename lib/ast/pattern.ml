@@ -90,6 +90,14 @@ let trm_int (f: 'a -> int -> 'b) (k: 'a) (t: trm): 'b =
   | Some x -> f k x
   | _ -> raise Next
 
+let trm_ref finit fty k =
+  trm_apps1 (fun k t -> match trm_prim_inv t with
+    | Some (Prim_ref ty) ->
+      let k = fty k ty in
+      k
+    | _ -> raise Next
+  ) finit k
+
 let trm_fun args rettyp body spec k t =
   match t.desc with
   | Trm_fun (targs, tret_type, tbody, tspec) ->
