@@ -291,7 +291,55 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     let ebadattr = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
                                    dependency attribute '%s' can not be used \
                                    in this context"
-                    (DepAttr.to_string attr) in
+                     (DepAttr.to_string attr) in
+    let besteff (t : trm) : unit =
+      Printf.printf "WARNING: the analysis does not recognize the expression \
+                     `%s', proceeding with a best-effort dependency analysis.\n"
+        (AstC_to_c.ast_to_string t)
+    in
+    let rec omega (a : bool) (p: bool) (k : DepAttr.t) (t : trm) : unit =
+      match t.desc with
+      (* [t] is unary operation: strip and recurse. *)
+      | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t']) ->
+         omega a p k t'
+      (* [t] is a binary operation corresponding to an array access: strip and
+         recurse. *)
+      | Trm_apps ({
+              desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+              _ }, _) ->
+         let (base, accesses) = get_nested_accesses t in
+         List.iter (fun e ->
+             match e with
+             | Array_access_get t
+               | Array_access_addr t -> omega true p k t
+             | _ -> ()
+           ) accesses;
+         omega a p k base
+      (* [t] is a binary operation of another type: strip and recurse on both left
+         and right-hand sides. *)
+      | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [l; r]) ->
+         (* We continue to recurse on both the left and the right internal
+            terms. *)
+         omega a true k l;
+         omega a true k r
+      (* [t] actually leads to a variable. Return it. *)
+      | Trm_var (_, v) ->
+         let d = Dep_var v in
+         if a then
+           Stack.push d ins
+         else if p then
+           let (nli, _) = Var_Hashtbl.find_or_default locals v 1 in
+           if nli > 0 && k = ArgInOut then
+             Stack.push d inouts
+           else
+             Stack.push d ins
+         else if k = ArgInOut then
+           Stack.push d inouts
+         else
+           Stack.push d ins
+      (* In all the other cases, return [None]. *)
+      | _ -> ()
+    in
     (** We iteratively explore [t] and look for: *)
     match t.desc with
     (** - direct variable accesses ('t'), *)
@@ -345,8 +393,9 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
       | Trm_apps ({ desc = Trm_val
                              (Val_prim (Prim_unop (Unop_struct_get _)));
                     _ }, _) ->
-       let (base, _) = get_nested_accesses t in
-       aux ins inouts attrs filter 0 fc attr base
+       besteff t;
+       omega false false attr t;
+       (true, false)
     (** - get operations ('*t', '**t', ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t'']) ->
        let t' = trm_simplify_addressof_and_get t in
@@ -360,7 +409,10 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
               aux ins inouts attrs filter d' fc attr t'
            | None when is_access t'' ->
               aux ins inouts attrs filter 0 fc attr t''
-           | None -> fail t.loc error
+           | None ->
+              besteff t;
+              omega false false attr t;
+              (true, false)
          end
     (** - address operations ('&t'), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
@@ -370,7 +422,11 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
        else if (trm_is_array_or_direct_access t') then
          aux ins inouts attrs filter 0 fc attr t'
        else
-         fail t.loc error
+         begin
+           besteff t;
+           omega false false attr t;
+           (true, false)
+         end
     (** - array accesses ('t\[i\]'), *)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
@@ -384,7 +440,11 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
          | _ -> unknown := true; base
        in
        if !unknown then
-         aux ins inouts attrs filter 0 fc attr base
+         begin
+           besteff t;
+           omega false false attr t;
+           (true, false)
+         end
        else
          let cd = List.length accesses in
          unknown := false;
@@ -423,7 +483,11 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
            end;
          in
          if !unknown then
-           aux ins inouts attrs filter 0 fc attr base
+           begin
+             besteff t;
+             omega false false attr t;
+             (true, false)
+           end
          else
            List.fold_left (fun (e, f) a ->
                match a with
@@ -437,14 +501,22 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     (** - unary increment and decrement operations ('t++', '--t'), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
+       let unknown = ref false in
        let t'' =
          match t'.desc with
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
             vt
          | Trm_var (_, v) -> t'
-         | _ -> fail t.loc error
+         | _ -> unknown := true; t'
        in
-       aux ins inouts attrs filter 0 fc ArgInOut t''
+       if !unknown then
+         begin
+           besteff t;
+           omega false false attr t;
+           (true, false)
+         end
+       else
+         aux ins inouts attrs filter 0 fc ArgInOut t''
     (** - function calls ('f(args)'). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        if Var_Hashtbl.mem functions v then
@@ -754,7 +826,8 @@ let taskify_on (p : path) (t : trm) : unit =
             induction variable [index]. *)
          | _ ->
             let div = Dep_var index in
-            (ins, Dep_set.add div inouts, ioattrs, tas)
+            (Dep_set.empty, Dep_set.singleton div,
+             Dep_map.empty, TaskAttr_set.empty)
        in
        (* Add the [InductionVariable] attribute to the input and input-output
           dependencies discovered in the increment term of the for-loop. *)
