@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 typedef struct {
   int x, y;
 } Point;
@@ -11,7 +8,7 @@ typedef struct {
 
 typedef struct {
   Point * pts;
-  size_t angles;
+  unsigned long angles;
 } Polygone;
 
 Point move_point(Point pt) {
@@ -20,25 +17,32 @@ Point move_point(Point pt) {
   return pt;
 }
 
-void test_point(Point * pt) {
-  Point tmp;
-  tmp.x = 1;
-  tmp.y = 10;
-  tmp = move_point(tmp);
-  pt->x = tmp.x * 2;
-  pt->y = tmp.y / 5;
-  (*pt) = move_point(*pt);  
+void add_point(Point * pt1, const Point * pt2) {
+  pt1->x += pt2->x;
+  pt1->y += pt2->y;
 }
 
-void test_segment(Segment * sgmt) {
+void move_segment(Segment * sgmt) {
   sgmt->p1 = move_point(sgmt->p1);
-  test_point(&sgmt->p2);
+  add_point(&sgmt->p1, &sgmt->p2);
 }
 
-void test_polygone(Polygone * poly) {
-  for(size_t i = 0; i < poly->angles; i++) {
-    (*(poly->pts + i)).x = i;
+void move_polygone(Polygone * poly) {
+  for(unsigned long i = 1; i < poly->angles; i++) {
+    // (*(poly->pts + i)).x = i;
     poly->pts[i] = move_point(poly->pts[i]);
-    test_point(&poly->pts[i]);
+    add_point(&poly->pts[i - 1], &poly->pts[i]);
+  }
+}
+
+void add_polygone(Polygone * poly1, Polygone * poly2) {
+  for(unsigned long i = 0; i < poly1->angles; i++) {
+    add_point(&poly1->pts[i], &poly2->pts[i]);
+  }
+}
+
+void mul_polygone(Polygone * poly1, Polygone * poly2) {
+  for(unsigned long i = 0; i < poly1->angles; i++) {
+    poly1->pts[i] = poly2->pts[i];
   }
 }
