@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-int f(const int a, const int b) { return a + b; }
+int f(int a, int b) { return a + b; }
 
 int g(int* a) {
   *a = 2;
@@ -23,13 +23,14 @@ int h() {
       g(*c);
     }
     a = 1 + b++;
-    a = 2;
     b++;
+    a = 2;
 #pragma omp task default(shared) depend(in : b) depend(inout : a)
     {
       f(a, b);
       a = 3;
     }
+#pragma omp taskwait
     **c = a;
   __apac_exit:;
   }

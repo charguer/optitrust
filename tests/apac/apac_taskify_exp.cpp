@@ -2,11 +2,11 @@
 
 void f(int* tab) { tab[0] += 42; }
 
-void g(int* tab) {}
+void g(const int* tab) {}
 
-void h(int* tab) {}
+void h(const int* tab) {}
 
-void p(int v) {
+void p(int& v) {
   int a = 15;
   int b = a + 2;
   int c = a + b + v++;
@@ -14,7 +14,7 @@ void p(int v) {
 
 void r(int v, int z) { int a = 15 + z, b = a + 2, c = a + b + v++; }
 
-void c(int* tab, const int size) {
+void c(int* tab, int size) {
 #pragma omp taskgroup
   {
     int i;
@@ -45,9 +45,11 @@ int main() {
   {
     int* t = (int*)malloc(4 * sizeof(int));
 #pragma omp task default(shared) depend(in : t) depend(inout : t[0])
-    c(t, 4);
+    {
+      c(t, 4);
+      free(t);
+    }
 #pragma omp taskwait
-    free(t);
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;

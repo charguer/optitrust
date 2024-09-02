@@ -8,4 +8,5 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cFunDefAndDecl ""
               ];
-          )
+          );
+        Apac_reset.tnt_blast ()
