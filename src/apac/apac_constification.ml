@@ -295,6 +295,89 @@ let typ_constify (ty : typ) : typ =
   (** Otherwise, launch the constification. *)
   | _ -> first ty
 
+(** [arg_explode v ty]: if the type [ty] of the argument variable [v] represents
+    a structure or a class, this function returns a list of labelled variables
+    (see type [!type:lvar]) corresponding to each member of the structure or the
+    class. If a member of the latter is itself another structure or class, the
+    function explores it recursively.
+
+    For example, let us consider two structure types [Point] and [Polygone] we
+    define as follows:
+
+    {[
+    typedef struct {
+      int x;
+      int y;
+    } Point;
+
+    typedef struct {
+      Point* pts;
+      long unsigned int angles;
+    } Polygone;
+    ]}
+
+    For an argument variable [Polygone * poly], this function returns the list
+    [(poly, poly#pts, poly#pts#x, poly#pts#y, poly#angles)]. *)
+let arg_explode (v : var) (ty : typ) : lvar list =
+  (** [arg_explode.inner ty]: an auxiliary function returning the inner type of
+      [ty] when [ty] is a pointer type, const type or an array type. *)
+  let rec inner (ty : typ) : typ =
+    match ty.typ_desc with
+    | Typ_const ty -> inner ty
+    | Typ_ptr {inner_typ = ty; _} -> inner ty
+    | Typ_array (ty, _) -> inner ty
+    | _ -> ty
+  in
+  (** [arg_explode.core v l ty lvs]: an auxiliary function allowing us to
+      recursively explore the type [ty] of the argument variable [v] and to
+      build a list of labelled variables [lvs] (see type [!type:lvar]), with [v]
+      as the variable component and [l] as the label component, corresponding to
+      each member of a structure or a class within [ty]. At the end of the
+      explorations the function returns the final [lvs]. *)
+  let rec core (v : var) (l : label) (ty : typ) (lvs : lvar list) : lvar list =
+    match ty.typ_desc with
+    (** When [ty] is a user-defined record type *)
+    | Typ_constr (_, id, _) ->
+       begin match Context.typid_to_typedef id with
+       | Some td ->
+          begin match td.typdef_body with
+          | Typdef_record fs ->
+             (** recursively explore its members in order to represent them as
+                 labelled variables we add to [lvs]. *)
+             List.fold_left (fun acc (rf, _) ->
+                 match rf with
+                 | Record_field_member (l', ty') ->
+                    let l'' = if l <> "" then l ^ "#" ^ l' else l' in
+                    let lv : lvar = { v = v; l = l''} in
+                    acc @ (lv :: (core v l'' ty' lvs))
+                 | _ -> acc
+               ) lvs fs
+          (** Other types cannot have members, so there is nothing to explore,
+              we can return [lvs]. *)
+          | _ -> lvs
+          end
+       (** The same goes for user-defined types simply aliasing atomic types. *)
+       | None -> lvs
+       end
+    (** When [ty] is a class, a structure or a union, explore the underlying
+        record type. *)
+    | Typ_record (_, ty) -> core v l ty lvs
+    (** In any other case, there are no members to explore. *)
+    | _ -> lvs
+  in
+  (** Get the inner type of [ty], i.e. strip pointer, reference, constant and
+      array types from [ty]. *)
+  let ty = inner ty in
+  (** Build the top-level labelled variable from [v]. *)
+  let lv : lvar = { v = v; l = "" } in
+  (** When [ty] is a user-defined record type, a class, a structure or a union,
+      explore its members. *)
+  match ty.typ_desc with
+  | Typ_constr _
+    | Typ_record _ -> lv :: (core v "" ty [])
+  (** Otherwise, simply return the toplevel labelled variable [lv]. *)
+  | _ -> [lv]
+
 (** [trm_resolve_var_in_unop_or_array_access_and_get t] tries to resolve the
     labelled variable behind a unary operation (++, --, &, get) or array access
     in [t]. *)
@@ -960,10 +1043,14 @@ let analyze_on (us : u) (ous : o) (crs : r) (p : path) (t : trm) : unit =
       instance. Indeed, we have already added sibling class members [fcr]. *)
   let args = if fcr.member then List.tl args else args in
   List.iteri (fun i (v, ty) ->
-      let lv : lvar = { v = v; l = String.empty } in
+      (** If an argument is a structure or a class, we have to recursively
+          include its members (see [!arg_explode]). *)
+      let lvs = arg_explode v ty in
+      (** For now, we do not perform the below tests for structure and class
+          members. *)
       let nli = if (is_reference ty) then (-1)
                 else Apac_miscellaneous.typ_get_nli ty in
-      LVar_Hashtbl.add aliases lv (i, nli)
+      List.iter (fun lv -> LVar_Hashtbl.add aliases lv (i, nli)) lvs
     ) args;
   (** Analyze the body of [f] for data dependencies on arguments and their
       aliases. *)

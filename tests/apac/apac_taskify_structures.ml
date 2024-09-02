@@ -6,33 +6,50 @@ open Ast
 let _ = Run.script_cpp (fun () ->
             let _ = Flags.code_print_width := 1024 in
             let _ = Apac_macros.instrument_code := false in
+            let _ = Apac_macros.verbose := false in
+            let _ = Apac_macros.keep_graphs := false in
             let _ = Apac_macros.apac_main := "main" in
+            !! Apac_prologue.build_records [
+                nbAny;
+                cFunDefAndDecl ""
+              ];
             (* Target all of the function definitions except for the 'main'
                function. *)
-            !! Apac_constify.constify [
+            (* !! Apac_constification.constify
+              ~frs:(Some Apac_records.functions) ~trans:false [
+                nbAny;
+                cFunDefAndDecl ""
+              ]; *)
+            let candidates = ref Var_set.empty in
+            Apac_taskify.select_candidates candidates [
+                nbAny;
+                cFunDefAndDecl ""
+              ];
+            Apac_taskify.select_callers candidates [
                 nbAny;
                 cFunDefAndDecl ""
               ];
             (* Target the definition of the 'sort_core' function. *)
-            !! Apac_taskify.parallel_task_group ~mark_group:true [
+            !! Apac_taskify.parallel_task_group
+              ~mark_group:true ~candidates:(Some candidates) [
                 nbAny;
                 cFunDefAndDecl ""
               ];
             !! Apac_taskify.taskify [nbAny; cMark Apac_macros.task_group_mark];
-            !! Apac_taskify.find_candidates_minimum_funcalls ~min:2
-              [nbAny; cMark Apac_macros.task_group_mark];
-            !! Apac_taskify.taskify_callers ();
-            !! Apac_taskify.restore [nbAny; cFunDefAndDecl ""];
-            !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
+            (* !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];*)
+            !! Apac_taskify.detect_tasks_simple [
+                nbAny;
+                cMark Apac_macros.task_group_mark
+              ];
             !! Apac_epilogue.synchronize_subscripts [
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ];
-            !! Apac_epilogue.reduce_waits [
+           (* !! Apac_epilogue.reduce_waits [
                 nbAny;
                 cMark Apac_macros.task_group_mark
-              ]; 
-            !! Apac_epilogue.reduce_waits2 [
+              ]; *)
+            !! Apac_epilogue.place_barriers [
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ]; 
@@ -57,6 +74,5 @@ let _ = Run.script_cpp (fun () ->
             !! Marks.remove Apac_macros.heapify_breakable_mark [
                 nbAny;
                 cMark Apac_macros.heapify_breakable_mark
-              ];
-          );
-        Apac_reset.tnt_blast ()
+              ]; 
+          )

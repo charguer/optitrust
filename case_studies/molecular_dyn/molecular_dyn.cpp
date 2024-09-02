@@ -1,166 +1,173 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include "tools.hpp"
 
 typedef struct {
   double x, y, z;
   double weight;
-  double fx, fy, fz;
   double vx, vy, vz;
-} Particle;
+} Particle_symb;
 
 typedef struct {
-  Particle * particles;
+  double fx, fy, fz;
+} Particle_forces;
+
+typedef struct {
+  Particle_symb * particles_symb;
+  Particle_forces * particles_forces;
   size_t size, capacity;
 } Cell;
 
-Cell * cell_create(size_t capacity) {
-  Cell * new_cell = (Cell *) malloc(sizeof(Cell));
-  if(!new_cell) { return NULL; }
-  new_cell->particles = (Particle *) malloc(capacity * sizeof(Particle));
-  if(!new_cell->particles) { return NULL; }
-  new_cell->capacity = capacity;
-  new_cell->size = 0L;
+Cell cell_create(size_t capacity) {
+  Cell new_cell;
+  memset(&new_cell, 0, sizeof(Cell));
+
+  new_cell.particles_symb = (Particle_symb *) malloc(capacity * sizeof(Particle_symb));
+  if(!new_cell.particles_symb) { return new_cell; }
+
+  new_cell.particles_forces = (Particle_forces *) malloc(capacity * sizeof(Particle_forces));
+  if(!new_cell.particles_forces) { return new_cell; }
+
+  new_cell.capacity = capacity;
+  new_cell.size = 0L;
+
   return new_cell;
 }
 
-void cell_destroy(Cell * cell) {
-  if(cell) {
-    if(cell->particles) {
-      free(cell->particles);
-    }
-    free(cell);
+void cell_destroy(Cell* cell) {
+  if(!cell) { return; }
+
+  if(cell->particles_symb) {
+    free(cell->particles_symb);
   }
+  if(cell->particles_forces) {
+    free(cell->particles_forces);
+  }
+  cell->capacity = 0;
+  cell->size = 0;
 }
 
-Cell * cell_add_particle(Cell * cell, Particle particle) {
-  if(!cell) { return NULL; }
-  if(!cell->particles) { return NULL; }
+void cell_add_particle(Cell * cell, Particle_symb particle_symb, Particle_forces particle_forces) {
+  if(!cell) { return; }
+
   if(cell->size == cell->capacity) {
     size_t new_capacity = cell->capacity * 2;
-    cell->particles = (Particle *)
-      realloc(cell->particles, new_capacity * sizeof(Particle));
-    if(!cell->particles) { return NULL; }
+
+    cell->particles_symb = (Particle_symb *)
+      realloc(cell->particles_symb, new_capacity * sizeof(Particle_symb));
+    if(!cell->particles_symb) { return; }
+
+    cell->particles_forces = (Particle_forces *)
+      realloc(cell->particles_forces, new_capacity * sizeof(Particle_forces));
+    if(!cell->particles_forces) { return; }
+
     cell->capacity = new_capacity;
   }
-  cell->particles[cell->size] = particle;
-  cell->size++;
-  return cell;
+  cell->particles_symb[cell->size] = particle_symb;
+  cell->particles_forces[cell->size] = particle_forces;
+  cell->size += 1;
 }
 
-Cell * cell_self_compute(Cell * cell) {
-  if(!cell) { return NULL; }
-  
-  for(size_t idxSrc = 0; idxSrc < cell->size; idxSrc++) {
-    for(size_t idxTgt = idxSrc + 1; idxTgt < cell->size; idxTgt++) {
-      double dx = cell->particles[idxSrc].x - cell->particles[idxTgt].x;
-      double dy = cell->particles[idxSrc].y - cell->particles[idxTgt].y;
-      double dz = cell->particles[idxSrc].z - cell->particles[idxTgt].z;
+void cell_self_compute(Particle_symb* particles_symb, Particle_forces* particles_forces, const size_t size) {  
+  for(size_t idxTgt = 0; idxTgt < size; idxTgt++) {
+    for(size_t idxSrc = 0; idxSrc < idxTgt+1; idxSrc++) {
+      const double dx = particles_symb[idxSrc].x - particles_symb[idxTgt].x;
+      const double dy = particles_symb[idxSrc].y - particles_symb[idxTgt].y;
+      const double dz = particles_symb[idxSrc].z - particles_symb[idxTgt].z;
 
-      double inv_square_distance = (double) 1.0 / (dx * dx + dy * dy + dz * dz);
-      double inv_distance = sqrt(inv_square_distance);
+      const double square_distance = (dx * dx + dy * dy + dz * dz);
+      const double distance = sqrt(square_distance);
+      const double cube_distance = square_distance * distance;
 
-      inv_square_distance *= inv_distance;
-      inv_square_distance *=
-        cell->particles[idxTgt].weight * cell->particles[idxSrc].weight;
+      const double coef = particles_symb[idxTgt].weight * particles_symb[idxSrc].weight / cube_distance;
 
-      dx *= inv_square_distance;
-      dy *= inv_square_distance;
-      dz *= inv_square_distance;
+      const double fx = dx * coef;
+      const double fy = dy * coef;
+      const double fz = dz * coef;
 
-      cell->particles[idxSrc].fx += dx;
-      cell->particles[idxSrc].fy += dy;
-      cell->particles[idxSrc].fz += dz;
+      particles_forces[idxTgt].fx += fx;
+      particles_forces[idxTgt].fy += fy;
+      particles_forces[idxTgt].fz += fz;
 
-      cell->particles[idxTgt].fx -= dx;
-      cell->particles[idxTgt].fy -= dy;
-      cell->particles[idxTgt].fz -= dz;
+      particles_forces[idxSrc].fx -= fx;
+      particles_forces[idxSrc].fy -= fy;
+      particles_forces[idxSrc].fz -= fz;
     }
   }
-
-  return cell;
 }
 
-Cell * cell_neighbor_compute(Cell * me, Cell * neighbor) {
-  if(!me || !neighbor) { return NULL; }
-  if(me == neighbor) { return me; }
-  
-  for(size_t idxSrc = 0; idxSrc < me->size; idxSrc++) {
-    for(size_t idxTgt = 0; idxTgt < neighbor->size; idxTgt++) {
-      double dx = me->particles[idxSrc].x - neighbor->particles[idxTgt].x;
-      double dy = me->particles[idxSrc].y - neighbor->particles[idxTgt].y;
-      double dz = me->particles[idxSrc].z - neighbor->particles[idxTgt].z;
+void cell_neighbor_compute(Particle_symb* particles_symb, Particle_forces* particles_forces, const size_t size,
+                             Particle_symb* particles_symbNeigh, const size_t sizeNeighbor) {  
+  for(size_t idxTgt = 0; idxTgt < size; idxTgt++) {
+    for(size_t idxSrc = 0; idxSrc < sizeNeighbor; idxSrc++) {
+      const double dx = particles_symbNeigh[idxSrc].x - particles_symb[idxTgt].x;
+      const double dy = particles_symbNeigh[idxSrc].y - particles_symb[idxTgt].y;
+      const double dz = particles_symbNeigh[idxSrc].z - particles_symb[idxTgt].z;
 
-      double inv_square_distance = (double) 1.0 / (dx * dx + dy * dy + dz * dz);
-      double inv_distance = sqrt(inv_square_distance);
+      const double square_distance = (dx * dx + dy * dy + dz * dz);
+      const double distance = sqrt(square_distance);
+      const double cube_distance = square_distance * distance;
 
-      inv_square_distance *= inv_distance;
-      inv_square_distance *=
-        neighbor->particles[idxTgt].weight * me->particles[idxSrc].weight;
+      const double coef = particles_symb[idxTgt].weight * particles_symbNeigh[idxSrc].weight / cube_distance;
 
-      dx *= inv_square_distance;
-      dy *= inv_square_distance;
-      dz *= inv_square_distance;
+      const double fx = dx * coef;
+      const double fy = dy * coef;
+      const double fz = dz * coef;
 
-      me->particles[idxSrc].fx += dx;
-      me->particles[idxSrc].fy += dy;
-      me->particles[idxSrc].fz += dz;
+      particles_forces[idxTgt].fx += fx;
+      particles_forces[idxTgt].fy += fy;
+      particles_forces[idxTgt].fz += fz;
     }
   }
-
-  return me;
 }
 
-Cell * cell_update(Cell * cell, double time_step){
-  if(!cell) { return NULL; }
-  
-  for(size_t idxSrc = 0; idxSrc < cell->size; idxSrc++) {
-    cell->particles[idxSrc].vx +=
-      (cell->particles[idxSrc].fx / cell->particles[idxSrc].weight) * time_step;
-    cell->particles[idxSrc].vy +=
-      (cell->particles[idxSrc].fy / cell->particles[idxSrc].weight) * time_step;
-    cell->particles[idxSrc].vz +=
-      (cell->particles[idxSrc].fz / cell->particles[idxSrc].weight) * time_step;
+void cell_update(Particle_symb* particles_symb, Particle_forces* particles_forces, const size_t size,
+                   double time_step){  
+  for(size_t idxPart = 0; idxPart < size; idxPart++) {
+    particles_symb[idxPart].vx +=
+      (particles_forces[idxPart].fx / particles_symb[idxPart].weight) * time_step;
+    particles_symb[idxPart].vy +=
+      (particles_forces[idxPart].fy / particles_symb[idxPart].weight) * time_step;
+    particles_symb[idxPart].vz +=
+      (particles_forces[idxPart].fz / particles_symb[idxPart].weight) * time_step;
     
-    cell->particles[idxSrc].x += cell->particles[idxSrc].vx * time_step;
-    cell->particles[idxSrc].y += cell->particles[idxSrc].vy * time_step;
-    cell->particles[idxSrc].z += cell->particles[idxSrc].vz * time_step;
+    particles_symb[idxPart].x += particles_symb[idxPart].vx * time_step;
+    particles_symb[idxPart].y += particles_symb[idxPart].vy * time_step;
+    particles_symb[idxPart].z += particles_symb[idxPart].vz * time_step;
   }
-
-  return cell;
 }
 
-Cell * cell_remove_ot_of_intervals(Cell * cell, Cell ** removed_particles,
-                                   double minPosCell[3], double maxPosCell[3]) {
-  if(!cell) { return NULL; }
-
+void cell_remove_ot_of_intervals( Particle_symb* particles_symb, Particle_forces* particles_forces, size_t* size,
+                                  Cell* removed_particles,
+                                  double minPosCell[3], double maxPosCell[3]) {
   size_t idxPart = 0;
-  while(idxPart != cell->size) {
-    if(cell->particles[idxPart].x < minPosCell[0]
-       || cell->particles[idxPart].y < minPosCell[1]
-       || cell->particles[idxPart].z < minPosCell[2]
-       || maxPosCell[0] <= cell->particles[idxPart].x
-       || maxPosCell[1] <= cell->particles[idxPart].y
-       || maxPosCell[2] <= cell->particles[idxPart].z) {
-      (*removed_particles) =
-        cell_add_particle((*removed_particles), cell->particles[idxPart]);
-      cell->particles[idxPart] = cell->particles[--cell->size];
+  while(idxPart != *size) {
+    if(particles_symb[idxPart].x < minPosCell[0]
+       || particles_symb[idxPart].y < minPosCell[1]
+       || particles_symb[idxPart].z < minPosCell[2]
+       || maxPosCell[0] <= particles_symb[idxPart].x
+       || maxPosCell[1] <= particles_symb[idxPart].y
+       || maxPosCell[2] <= particles_symb[idxPart].z) {
+      cell_add_particle(removed_particles,
+                        particles_symb[idxPart], particles_forces[idxPart]);
+      particles_symb[idxPart] = particles_symb[(*size)-1];
+      particles_forces[idxPart] = particles_forces[(*size)-1];
+      (*size)--;
     } else {
       idxPart++;
     }
   }
-  
-  return cell;
 }
 
 typedef struct {
   double box_width, cell_width;
   size_t nb_cells_per_dim, capacity;
-  Cell ** cells;
+  Cell* cells;
 } Grid;
 
-int grid_cell_idx_from_position(Grid * grid, Particle particle) {
+int grid_cell_idx_from_position(Grid * grid, Particle_symb particle) {
   if(!grid) { return -1; }
   
   int x = (int) (particle.x / grid->cell_width),
@@ -169,43 +176,30 @@ int grid_cell_idx_from_position(Grid * grid, Particle particle) {
   return (x * grid->nb_cells_per_dim + y) * grid->nb_cells_per_dim + z;
 }
 
-Grid * grid_create(double box_width, double cell_width, Cell * cell) {
-  if(!cell) { return NULL; }
-  
-  Grid * new_grid = (Grid *) malloc(sizeof(Grid));
-  if(!new_grid) { return NULL; }
+Grid grid_create(double box_width, double cell_width, Cell* cell) {  
+  Grid new_grid;
+  memset(&new_grid, 0, sizeof(Grid));
 
-  new_grid->box_width = box_width;
-  new_grid->cell_width = cell_width;
-  new_grid->nb_cells_per_dim = (size_t) (box_width / cell_width);
-  new_grid->capacity =
-    new_grid->nb_cells_per_dim *
-    new_grid->nb_cells_per_dim *
-    new_grid->nb_cells_per_dim;
+  new_grid.box_width = box_width;
+  new_grid.cell_width = cell_width;
+  new_grid.nb_cells_per_dim = (size_t) (box_width / cell_width);
+  new_grid.capacity =
+    new_grid.nb_cells_per_dim *
+    new_grid.nb_cells_per_dim *
+    new_grid.nb_cells_per_dim;
   
-  new_grid->cells = (Cell **) calloc(new_grid->capacity, sizeof(Cell *));
-  if(!new_grid->cells) { return NULL; }
+  new_grid.cells = (Cell*) calloc(new_grid.capacity, sizeof(Cell));
+  for(size_t idxCell = 0 ; idxCell < new_grid.capacity ; idxCell++) {
+    new_grid.cells[idxCell] = cell_create(10);
+  }
 
   for(size_t idxPart = 0; idxPart < cell->size; idxPart++) {
     int cell_idx =
-      grid_cell_idx_from_position(new_grid, cell->particles[idxPart]);
-    if(cell_idx < 0) { return NULL; }
-    if(!new_grid->cells[cell_idx]) {
-      new_grid->cells[cell_idx] = cell_create(10);
-    }
-
-    new_grid->cells[cell_idx] = cell_add_particle(new_grid->cells[cell_idx],
-                                                  cell->particles[idxPart]);
-    if(!new_grid->cells[cell_idx]) { return NULL; }
+      grid_cell_idx_from_position(&new_grid, cell->particles_symb[idxPart]);
+    cell_add_particle(&new_grid.cells[cell_idx],
+                      cell->particles_symb[idxPart], cell->particles_forces[idxPart]);
   }
-
-  for(size_t idx = 0; idx < new_grid->capacity; idx++) {
-    if(!new_grid->cells[idx]) {
-      printf("Unallocated cell %lu\n", idx);
-    }
-  }
-
-  
+    
   return new_grid;
 }
 
@@ -213,15 +207,16 @@ void grid_destroy(Grid * grid) {
   if(grid) {
     if(grid->cells) {
       for(size_t idx = 0; idx < grid->capacity; idx++) {
-        cell_destroy(grid->cells[idx]);
+        cell_destroy(&grid->cells[idx]);
       }
       free(grid->cells);
     }
-    free(grid);
   }
 }
 
-Grid * grid_compute(Grid * grid) {
+void grid_compute(Grid * grid) {
+  if(!grid) { return; }
+
   size_t me, neighbor;
   for(size_t idx_x = 0; idx_x < grid->nb_cells_per_dim; idx_x++) {
     for(size_t idx_y = 0; idx_y < grid->nb_cells_per_dim; idx_y++) {
@@ -229,7 +224,7 @@ Grid * grid_compute(Grid * grid) {
         me = (idx_x * grid->nb_cells_per_dim + idx_y)
               * grid->nb_cells_per_dim + idx_z;
         
-        grid->cells[me] = cell_self_compute(grid->cells[me]);
+        cell_self_compute(grid->cells[me].particles_symb, grid->cells[me].particles_forces, grid->cells[me].size);
 
         for(int idx_x_neigh = -1; idx_x_neigh <= 1; idx_x_neigh++) {
           for(int idx_y_neigh = -1; idx_y_neigh <= 1; idx_y_neigh++) {
@@ -242,21 +237,18 @@ Grid * grid_compute(Grid * grid) {
                 + ((idx_z + idx_z_neigh + grid->nb_cells_per_dim) 
                     % grid->nb_cells_per_dim);
               
-              grid->cells[me] = 
-                cell_neighbor_compute(grid->cells[me], grid->cells[neighbor]);
+              cell_neighbor_compute(grid->cells[me].particles_symb, grid->cells[me].particles_forces, grid->cells[me].size,
+                                    grid->cells[neighbor].particles_symb, grid->cells[neighbor].size);
             }
           }
         }
       }
     }
   }
-
-  return grid;
 }
 
-Grid * grid_update(Grid * grid, double time_step) {
-  Cell * removed_particles = cell_create(10);
-  if(!removed_particles) { return NULL; }
+void grid_update(Grid * grid, double time_step) {
+  Cell removed_particles = cell_create(10);
   double minPosCell[3], maxPosCell[3];
   size_t cell;
 
@@ -271,85 +263,89 @@ Grid * grid_update(Grid * grid, double time_step) {
         maxPosCell[0] = (idx_x + 1) * grid->cell_width;
         maxPosCell[1] = (idx_y + 1) * grid->cell_width;
         maxPosCell[2] = (idx_z + 1) * grid->cell_width;
-        grid->cells[cell] = cell_update(grid->cells[cell], time_step);
-        grid->cells[cell] = cell_remove_ot_of_intervals(
-          grid->cells[cell], &removed_particles, minPosCell, maxPosCell
+        cell_update(grid->cells[cell].particles_symb, grid->cells[cell].particles_forces, grid->cells[cell].size, time_step);
+        cell_remove_ot_of_intervals(
+          grid->cells[cell].particles_symb, grid->cells[cell].particles_forces, &grid->cells[cell].size,
+          &removed_particles, minPosCell, maxPosCell
         );
       }
     }
   }
 
-  for(size_t idx = 0; idx < removed_particles->size; idx++) {
-    while(removed_particles->particles[idx].x < 0){
-      removed_particles->particles[idx].x += grid->box_width;
+  for(size_t idx = 0; idx < removed_particles.size; idx++) {
+    while(removed_particles.particles_symb[idx].x < 0){
+      removed_particles.particles_symb[idx].x += grid->box_width;
     }
 
-    while(grid->box_width <= removed_particles->particles[idx].x){
-      removed_particles->particles[idx].x -= grid->box_width;
+    while(grid->box_width <= removed_particles.particles_symb[idx].x){
+      removed_particles.particles_symb[idx].x -= grid->box_width;
     }
 
-    while(removed_particles->particles[idx].y < 0){
-      removed_particles->particles[idx].y += grid->box_width;
+    while(removed_particles.particles_symb[idx].y < 0){
+      removed_particles.particles_symb[idx].y += grid->box_width;
     }
 
-    while(grid->box_width <= removed_particles->particles[idx].y){
-      removed_particles->particles[idx].y -= grid->box_width;
+    while(grid->box_width <= removed_particles.particles_symb[idx].y){
+      removed_particles.particles_symb[idx].y -= grid->box_width;
     }
 
-    while(removed_particles->particles[idx].z < 0){
-      removed_particles->particles[idx].z += grid->box_width;
+    while(removed_particles.particles_symb[idx].z < 0){
+      removed_particles.particles_symb[idx].z += grid->box_width;
     }
 
-    while(grid->box_width <= removed_particles->particles[idx].z){
-      removed_particles->particles[idx].z -= grid->box_width;
+    while(grid->box_width <= removed_particles.particles_symb[idx].z){
+      removed_particles.particles_symb[idx].z -= grid->box_width;
     }
 
     size_t cell_idx = grid_cell_idx_from_position(
-      grid, removed_particles->particles[idx]
+      grid, removed_particles.particles_symb[idx]
     );
-    grid->cells[cell_idx] = cell_add_particle(
-      grid->cells[cell_idx], removed_particles->particles[idx]
+    cell_add_particle(
+      &grid->cells[cell_idx], removed_particles.particles_symb[idx], removed_particles.particles_forces[idx]
     );
   }
 
-  cell_destroy(removed_particles);
-  return grid;
+  cell_destroy(&removed_particles);
 }
 
-int main() {
-  const double box_width = 1;
-  const size_t size = 20000;
-  Cell * cell = cell_create(size);
-
+void fill_cell_with_rand_particles(Cell* inCell, double box_width, size_t size){
   initialize_random_number_generator(box_width);
 
   for(size_t idx = 0 ; idx < size ; idx++){
-    Particle particle;
+    Particle_symb particle;
     particle.x = random_number();
     particle.y = random_number();
     particle.z = random_number();
     particle.weight = 1.0;
-    particle.fx = random_number();
-    particle.fy = random_number();
-    particle.fz = random_number();
     particle.vx = 0.0;
     particle.vy = 0.0;
     particle.vz = 0.0;
-    cell = cell_add_particle(cell, particle);
+    Particle_forces particle_forces;
+    particle_forces.fx = random_number();
+    particle_forces.fy = random_number();
+    particle_forces.fz = random_number();
+    cell_add_particle(inCell, particle, particle_forces);
   }
+}
 
-  const size_t steps = 50;
-  const double time_step = 0.001;
+int main() {
+  const double box_width = 1;
   const double cell_width = 0.20;
+  const size_t steps = 5;
+  const double time_step = 0.001;
+  const size_t size = 20000;
 
-  Grid * grid = grid_create(box_width, cell_width, cell);
+  Cell cell = cell_create(size);
+  fill_cell_with_rand_particles(&cell, box_width, size);
+  
+  Grid grid = grid_create(box_width, cell_width, &cell);
+  cell_destroy(&cell);
 
   for(size_t idx = 0 ; idx < steps ; idx++){
-    grid = grid_compute(grid);
-    grid = grid_update(grid, time_step);
+    grid_compute(&grid);
+    grid_update(&grid, time_step);
   }
 
-  cell_destroy(cell);
-  grid_destroy(grid);
+  grid_destroy(&grid);
   return 0;
 }

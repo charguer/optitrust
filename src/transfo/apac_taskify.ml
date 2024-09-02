@@ -284,12 +284,65 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
             (derefs : int) (fc : bool) (attr : DepAttr.t)
             (t : trm) : bool * bool =
     let error = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
-                                '%s' is not a valid OpenMP depends expression"
-                  (AstC_to_c.ast_to_string t) in
+                                '%s' or '%s' is not a valid OpenMP depends \
+                                expression"
+                  (AstC_to_c.ast_to_string t)
+                  (Ast_to_text.ast_to_string t) in
     let ebadattr = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
                                    dependency attribute '%s' can not be used \
                                    in this context"
-                    (DepAttr.to_string attr) in
+                     (DepAttr.to_string attr) in
+    let besteff (t : trm) : unit =
+      Printf.printf "WARNING: the analysis does not recognize the expression \
+                     `%s', proceeding with a best-effort dependency analysis.\n"
+        (AstC_to_c.ast_to_string t)
+    in
+    let rec omega (a : bool) (p: bool) (k : DepAttr.t) (t : trm) : unit =
+      match t.desc with
+      (* [t] is unary operation: strip and recurse. *)
+      | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t']) ->
+         omega a p k t'
+      (* [t] is a binary operation corresponding to an array access: strip and
+         recurse. *)
+      | Trm_apps ({
+              desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+              _ }, _) ->
+         let (base, accesses) = get_nested_accesses t in
+         List.iter (fun e ->
+             match e with
+             | Array_access_get t
+               | Array_access_addr t -> omega true p k t
+             | _ -> ()
+           ) accesses;
+         omega a p k base
+      (* [t] is a binary operation of another type: strip and recurse on both left
+         and right-hand sides. *)
+      | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [l; r]) ->
+         (* We continue to recurse on both the left and the right internal
+            terms. *)
+         omega a true k l;
+         omega a true k r
+      (* [t] actually leads to a variable. Return it. *)
+      | Trm_var (_, v) ->
+         let d = Dep_var v in
+         if a then
+           begin
+             Stack.push d ins;
+             Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
+           end
+         else if p then
+           let (nli, _) = Var_Hashtbl.find_or_default locals v 1 in
+           if nli > 0 && k = ArgInOut then
+             Stack.push d inouts
+           else
+             Stack.push d ins
+         else if k = ArgInOut then
+           Stack.push d inouts
+         else
+           Stack.push d ins
+      (* In all the other cases, return [None]. *)
+      | _ -> ()
+    in
     (** We iteratively explore [t] and look for: *)
     match t.desc with
     (** - direct variable accesses ('t'), *)
@@ -336,8 +389,18 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
            end;
          (exists, false)
        else (true, true)
+    (** - structure member accesses ('s->m', 's.m', ...), *)
+    | Trm_apps ({ desc = Trm_val
+                           (Val_prim (Prim_unop (Unop_struct_access _)));
+                  _ }, _)
+      | Trm_apps ({ desc = Trm_val
+                             (Val_prim (Prim_unop (Unop_struct_get _)));
+                    _ }, _) ->
+       besteff t;
+       omega false false attr t;
+       (true, false)
     (** - get operations ('*t', '**t', ...), *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, _) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t'']) ->
        let t' = trm_simplify_addressof_and_get t in
        if t <> t' then
          aux ins inouts attrs filter 0 fc attr t'
@@ -347,7 +410,12 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
            | Some (t', d) ->
               let d' = if attr = ArgInOut && not fc then d else d - 1 in
               aux ins inouts attrs filter d' fc attr t'
-           | None -> fail t.loc error
+           | None when is_access t'' ->
+              aux ins inouts attrs filter 0 fc attr t''
+           | None ->
+              besteff t;
+              omega false false attr t;
+              (true, false)
          end
     (** - address operations ('&t'), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
@@ -357,73 +425,101 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
        else if (trm_is_array_or_direct_access t') then
          aux ins inouts attrs filter 0 fc attr t'
        else
-         fail t.loc error
+         begin
+           besteff t;
+           omega false false attr t;
+           (true, false)
+         end
     (** - array accesses ('t\[i\]'), *)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
        let (base, accesses) = get_nested_accesses t in
+       let unknown = ref false in
        let base =
          match base.desc with
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
             vt
          | Trm_var (_, v) -> base
-         | _ -> fail base.loc error
+         | _ -> unknown := true; base
        in
-       let cd = List.length accesses in
-       let exists =
+       if !unknown then
          begin
-           match base.desc with
-           | Trm_var (_, v) when not (Var_set.mem v filter) ->
-              let (td, ex) = Var_Hashtbl.find_or_default locals v 0 in
-              let d = Dep.of_array t v in
-              let d = if fc && (cd + derefs) < td then
-                        (Dep.of_trm t v 1) :: d
-                      else d
-              in
-              begin
-                match attr with
-                | Accessor ->
-                   List.iter (fun e ->
-                       Stack.push e ins;
-                       Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
-                     ) d
-                | ArgIn -> List.iter (fun e -> Stack.push e ins) d
-                | ArgInOut ->
-                   let f = List.hd d in
-                   let o = List.tl d in
-                   Stack.push f inouts;
-                   List.iter (fun e -> Stack.push e ins) o
-                | _ -> fail t.loc ebadattr
-              end;
-              let d' = List.rev d in
-              let d' = List.tl d' in
-              List.iter (fun rd ->
-                  Stack.push (rd, (DepAttr_set.singleton Subscripted)) attrs
-                ) d';
-              ex
-           | _ -> fail base.loc error
-         end;
-       in
-       List.fold_left (fun (e, f) a ->
-           match a with
-           | Array_access_get t''
-             | Array_access_addr t'' ->
-              let (e', f') =
-                (aux ins inouts attrs filter 0 false Accessor t'') in
-              (e && e', f || f')
-           | _ -> (e, f)
-         ) (exists, false) accesses
+           besteff t;
+           omega false false attr t;
+           (true, false)
+         end
+       else
+         let cd = List.length accesses in
+         unknown := false;
+         let exists =
+           begin
+             match base.desc with
+             | Trm_var (_, v) when not (Var_set.mem v filter) ->
+                let (td, ex) = Var_Hashtbl.find_or_default locals v 0 in
+                let d = Dep.of_array t v in
+                let d = if fc && (cd + derefs) < td then
+                          (Dep.of_trm t v 1) :: d
+                        else d
+                in
+                begin
+                  match attr with
+                  | Accessor ->
+                     List.iter (fun e ->
+                         Stack.push e ins;
+                         Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
+                       ) d
+                  | ArgIn -> List.iter (fun e -> Stack.push e ins) d
+                  | ArgInOut ->
+                     let f = List.hd d in
+                     let o = List.tl d in
+                     Stack.push f inouts;
+                     List.iter (fun e -> Stack.push e ins) o
+                  | _ -> fail t.loc ebadattr
+                end;
+                let d' = List.rev d in
+                let d' = List.tl d' in
+                List.iter (fun rd ->
+                    Stack.push (rd, (DepAttr_set.singleton Subscripted)) attrs
+                  ) d';
+                ex
+             | _ -> unknown := true; false
+           end;
+         in
+         if !unknown then
+           begin
+             besteff t;
+             omega false false attr t;
+             (true, false)
+           end
+         else
+           List.fold_left (fun (e, f) a ->
+               match a with
+               | Array_access_get t''
+                 | Array_access_addr t'' ->
+                  let (e', f') =
+                    (aux ins inouts attrs filter 0 false Accessor t'') in
+                  (e && e', f || f')
+               | _ -> (e, f)
+             ) (exists, false) accesses
     (** - unary increment and decrement operations ('t++', '--t'), *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
+       let unknown = ref false in
        let t'' =
          match t'.desc with
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
             vt
          | Trm_var (_, v) -> t'
-         | _ -> fail t.loc error
+         | _ -> unknown := true; t'
        in
-       aux ins inouts attrs filter 0 fc ArgInOut t''
+       if !unknown then
+         begin
+           besteff t;
+           omega false false attr t;
+           (true, false)
+         end
+       else
+         aux ins inouts attrs filter 0 fc ArgInOut t''
     (** - function calls ('f(args)'). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        if Var_Hashtbl.mem functions v then
@@ -733,7 +829,8 @@ let taskify_on (p : path) (t : trm) : unit =
             induction variable [index]. *)
          | _ ->
             let div = Dep_var index in
-            (ins, Dep_set.add div inouts, ioattrs, tas)
+            (Dep_set.empty, Dep_set.singleton div,
+             Dep_map.empty, TaskAttr_set.empty)
        in
        (* Add the [InductionVariable] attribute to the input and input-output
           dependencies discovered in the increment term of the for-loop. *)
