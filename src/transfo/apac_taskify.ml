@@ -1293,12 +1293,19 @@ let profile_tasks_on (p : path) (t : trm) : trm =
                           function. Task group outside of a function?" in
   (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
+  (** Initialize a stack [sections] for storing the definitions of future
+      profiling sections. *)
+  let sections = Stack.create () in
   (** Translate the task candidate graph representation [r.graph] of [f] to a
       abstract syntax tree using the profiler back-end. *)
   let instrs = TaskGraphTraverse.codify
-                 (trm_from_task ~backend:ApacProfiler ~scope:(Some r.scope))
+                 (trm_from_task
+                    ~backend:ApacProfiler
+                    ~scope:(Some r.scope)
+                    ~sections:(Some sections))
                  r.graph in
-  let instrs = Mlist.of_list instrs in
+  let sections = List.of_seq (Stack.to_seq sections) in
+  let instrs = Mlist.of_list (sections @ instrs) in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   (** Dump the resulting abstract syntax tree, if requested. *)
   if !Apac_macros.verbose then

@@ -211,6 +211,7 @@ let emit_omp_task (t : Task.t) : trms =
   else t.current
 
 let emit_profiler_task (scope : Apac_records.FunctionRecord.s)
+      (sections : trm Stack.t)
       (t : Task.t) : trms =
   let get_begin (loc : location) : string =
     match loc with
@@ -224,8 +225,15 @@ let emit_profiler_task (scope : Apac_records.FunctionRecord.s)
   in
   if not (Task.attributed t Taskifiable) then t.current
   else
-    let reads = Dep_set.cardinal t.ins in
-    let writes = Dep_set.cardinal t.inouts in
+    let simple = fun d ->
+      match d with
+      | Dep_var v when (Var_Hashtbl.find scope v) = 0 -> true
+      | _ -> false
+    in
+    let ins = Dep_set.filter simple t.ins in
+    let inouts = Dep_set.filter simple t.inouts in
+    let reads = Dep_set.cardinal ins in
+    let writes = Dep_set.cardinal inouts in
     let first = List.hd t.current in
     let first = get_begin first.loc in
     let last = (List.length t.current) - 1 in
@@ -239,30 +247,25 @@ let emit_profiler_task (scope : Apac_records.FunctionRecord.s)
                    range ^ "\", " ^ (string_of_int reads) ^ ", " ^
                         (string_of_int writes) ^ ")" in
     let section = code (Instr section) in
-    let simple = fun d ->
-      match d with
-      | Dep_var v when (Var_Hashtbl.find scope v) = 0 -> true
-      | _ -> false
-    in
     let encode = fun d ->
       let d = Dep.to_string d in
       let s = profsection ^ ".addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
       code (Instr s)
     in
-    let ins = Dep_set.filter simple t.ins in
-    let inouts = Dep_set.filter simple t.inouts in
     let ins = Dep_set.to_list ins in
     let ins = List.map encode ins in
     let inouts = Dep_set.to_list inouts in
     let inouts = List.map encode inouts in
     let before = code (Instr (profsection ^ ".beforeCall()")) in
     let after = code (Instr (profsection ^ ".afterCall()")) in
-    let preamble = (section :: ins) @ inouts @ [before] in
+    Stack.push section sections;
+    let preamble = ins @ inouts @ [before] in
     let postamble = [after] in
     preamble @ t.current @ postamble
 
 let rec trm_from_task ?(backend : task_backend = OpenMP)
           ?(scope : Apac_records.FunctionRecord.s option = None)
+          ?(sections : trm Stack.t option = None)
           (t : TaskGraph.V.t) : trms =
   let make (ts : trms) : trm =
     let ts' = Mlist.of_list ts in trm_seq ts'
@@ -275,7 +278,8 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let cg = List.nth task.children i in
                        let cg = List.hd cg in
                        let body = TaskGraphTraverse.codify
-                                    (trm_from_task ~backend ~scope) cg in
+                                    (trm_from_task ~backend ~scope ~sections)
+                                    cg in
                        let body = make body in
                        let body = if backend = OpenMP then
                                     trm_add_mark heapify_breakable_mark body
@@ -287,7 +291,8 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let cg = List.nth task.children i in
                        let cg = List.hd cg in
                        let body = TaskGraphTraverse.codify
-                                     (trm_from_task ~backend ~scope) cg in
+                                    (trm_from_task ~backend ~scope ~sections)
+                                    cg in
                        let body = make body in
                        let body = if backend = OpenMP then
                                     trm_add_mark heapify_breakable_mark body
@@ -299,7 +304,8 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let cg = List.nth task.children i in
                        let yes = List.nth cg 0 in
                        let yes = TaskGraphTraverse.codify
-                                     (trm_from_task ~backend ~scope) yes in
+                                   (trm_from_task ~backend ~scope ~sections)
+                                   yes in
                        let yes = make yes in
                        let yes = if backend = OpenMP then
                                     trm_add_mark heapify_mark yes
@@ -310,7 +316,8 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                                 else
                                   let no = List.nth cg 1 in
                                   let no = TaskGraphTraverse.codify
-                                             (trm_from_task ~backend ~scope)
+                                             (trm_from_task
+                                                ~backend ~scope ~sections)
                                              no in
                                   let no = make no in 
                                   if backend = OpenMP then
@@ -323,7 +330,8 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let cg = List.nth task.children i in
                        let cg = List.hd cg in
                        let body = TaskGraphTraverse.codify
-                                     (trm_from_task ~backend ~scope) cg in
+                                    (trm_from_task ~backend ~scope ~sections)
+                                    cg in
                        let body = make body in
                        let body = if backend = OpenMP then
                                     trm_add_mark heapify_breakable_mark body
@@ -334,7 +342,8 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let cg = List.nth task.children i in
                        let cg = List.hd cg in
                        let body = TaskGraphTraverse.codify
-                                     (trm_from_task ~backend ~scope) cg in
+                                    (trm_from_task ~backend ~scope ~sections)
+                                    cg in
                        let body = make body in
                        let body = if backend = OpenMP then
                                     trm_add_mark heapify_breakable_mark body
@@ -347,7 +356,7 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
                        let _ = List.iter2 (fun (labels, _) block ->
                                    let block' = TaskGraphTraverse.codify
                                                   (trm_from_task
-                                                     ~backend ~scope)
+                                                     ~backend ~scope ~sections)
                                                   block in
                                    let block' = make block' in
                                    let block' = if backend = OpenMP then
@@ -366,7 +375,8 @@ let rec trm_from_task ?(backend : task_backend = OpenMP)
   task.current <- current;
   match backend with
   | OpenMP -> emit_omp_task task
-  | ApacProfiler when (Option.is_some scope) ->
+  | ApacProfiler when (Option.is_some scope) && (Option.is_some sections) ->
      let scope = Option.get scope in
-     emit_profiler_task scope task
+     let sections = Option.get sections in
+     emit_profiler_task scope sections task
   | _ -> failwith "Apac_backend.trm_from_task: unknown taskification back-end."
