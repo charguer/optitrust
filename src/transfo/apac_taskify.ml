@@ -1296,7 +1296,8 @@ let profile_tasks_on (p : path) (t : trm) : trm =
   (** Translate the task candidate graph representation [r.graph] of [f] to a
       abstract syntax tree using the profiler back-end. *)
   let instrs = TaskGraphTraverse.codify
-                 (trm_from_task ~backend:ApacProfiler) r.graph in
+                 (trm_from_task ~backend:ApacProfiler ~scope:(Some r.scope))
+                 r.graph in
   let instrs = Mlist.of_list instrs in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx instrs in
   (** Dump the resulting abstract syntax tree, if requested. *)
