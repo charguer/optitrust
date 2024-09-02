@@ -402,7 +402,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     (** - get operations ('*t', '**t', ...), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t'']) ->
        let t' = trm_simplify_addressof_and_get t in
-       if t <> t' then
+       if t != t' then
          aux ins inouts attrs filter 0 fc attr t'
        else
          begin
@@ -420,7 +420,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     (** - address operations ('&t'), *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
        let t'' = trm_simplify_addressof_and_get t in
-       if t <> t'' then
+       if t != t'' then
          aux ins inouts attrs filter 0 fc attr t''
        else if (trm_is_array_or_direct_access t') then
          aux ins inouts attrs filter 0 fc attr t'
