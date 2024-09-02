@@ -69,17 +69,17 @@ int sparselu(float** matrix, size_t matrix_size, size_t submatrix_size) {
 #pragma omp taskgroup
   {
     for (int kk = 0; kk < matrix_size; kk++) {
-#pragma omp task default(shared) depend(in : matrix, matrix[kk * matrix_size + kk], submatrix_size) depend(inout : matrix[kk * matrix_size + kk][0]) firstprivate(matrix_size, kk)
+#pragma omp task default(shared) depend(in : matrix, matrix[kk * matrix_size + kk], matrix_size, submatrix_size) depend(inout : matrix[kk * matrix_size + kk][0]) firstprivate(kk)
       lu0(matrix[kk * matrix_size + kk], submatrix_size);
       for (int jj = kk + 1; jj < matrix_size; jj++) {
         if (matrix[kk * matrix_size + jj] != NULL) {
-#pragma omp task default(shared) depend(in : matrix, matrix[kk * matrix_size + jj], matrix[kk * matrix_size + kk], matrix[kk * matrix_size + kk][0], submatrix_size) depend(inout : matrix[kk * matrix_size + jj][0]) firstprivate(matrix_size, kk, jj)
+#pragma omp task default(shared) depend(in : matrix, matrix[kk * matrix_size + jj], matrix[kk * matrix_size + kk], matrix[kk * matrix_size + kk][0], matrix_size, submatrix_size) depend(inout : matrix[kk * matrix_size + jj][0]) firstprivate(kk, jj)
           fwd(matrix[kk * matrix_size + kk], matrix[kk * matrix_size + jj], submatrix_size);
         }
       }
       for (int ii = kk + 1; ii < matrix_size; ii++) {
         if (matrix[ii * matrix_size + kk] != NULL) {
-#pragma omp task default(shared) depend(in : matrix, matrix[ii * matrix_size + kk], matrix[kk * matrix_size + kk], matrix[kk * matrix_size + kk][0], submatrix_size) depend(inout : matrix[ii * matrix_size + kk][0]) firstprivate(matrix_size, kk, ii)
+#pragma omp task default(shared) depend(in : matrix, matrix[ii * matrix_size + kk], matrix[kk * matrix_size + kk], matrix[kk * matrix_size + kk][0], matrix_size, submatrix_size) depend(inout : matrix[ii * matrix_size + kk][0]) firstprivate(kk, ii)
           bdiv(matrix[kk * matrix_size + kk], matrix[ii * matrix_size + kk], submatrix_size);
         }
       }
@@ -87,7 +87,7 @@ int sparselu(float** matrix, size_t matrix_size, size_t submatrix_size) {
         if (matrix[ii * matrix_size + kk] != NULL) {
           for (int jj = kk + 1; jj < matrix_size; jj++) {
             if (matrix[kk * matrix_size + jj] != NULL) {
-#pragma omp task default(shared) depend(in : matrix, matrix[ii * matrix_size + kk], matrix[ii * matrix_size + kk][0], matrix[kk * matrix_size + jj], matrix[kk * matrix_size + jj][0], submatrix_size) depend(inout : matrix[ii * matrix_size + jj], matrix[ii * matrix_size + jj][0]) firstprivate(matrix_size, kk, jj, ii)
+#pragma omp task default(shared) depend(in : matrix, matrix[ii * matrix_size + kk], matrix[ii * matrix_size + kk][0], matrix[kk * matrix_size + jj], matrix[kk * matrix_size + jj][0], matrix_size, submatrix_size) depend(inout : matrix[ii * matrix_size + jj], matrix[ii * matrix_size + jj][0]) firstprivate(kk, jj, ii)
               {
                 matrix[ii * matrix_size + jj] = (!matrix[ii * matrix_size + jj] ? allocate_clean_block(submatrix_size) : matrix[ii * matrix_size + jj]);
                 bmod(matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj], matrix[ii * matrix_size + jj], submatrix_size);
