@@ -326,7 +326,10 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
       | Trm_var (_, v) ->
          let d = Dep_var v in
          if a then
-           Stack.push d ins
+           begin
+             Stack.push d ins;
+             Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
+           end
          else if p then
            let (nli, _) = Var_Hashtbl.find_or_default locals v 1 in
            if nli > 0 && k = ArgInOut then
