@@ -17,7 +17,7 @@ Point move_point(Point pt) {
   return pt;
 }
 
-void add_point(Point * pt1, const Point * pt2) {
+void add_point(Point * pt1, Point * pt2) {
   pt1->x += pt2->x;
   pt1->y += pt2->y;
 }
