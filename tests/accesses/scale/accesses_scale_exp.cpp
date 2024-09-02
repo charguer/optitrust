@@ -1,7 +1,3 @@
-const int N = 5;
-
-double t[N];
-
 void test_var() {
   double x = 0. * 5.;
   x = 1. * 5.;
