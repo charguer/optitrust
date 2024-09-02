@@ -6,12 +6,41 @@ let _ = Flags.recompute_resources_between_steps := true
 
 (** Reproducing a subset of the PIC case study *)
 
+(* TODO:
+  let ctx = cFunBody "simulate_single_cell" in
+  let var n = trm_var (find_var_in_current_ast ~target:[ctx] n) in
+  let type n = typ_var (find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n)) in
+  let vect = type "vect" in
+  let particle = type "particle" in
+
+  !! Matrix.local_name_tile ~var:"fieldAtCorners" ~elem_ty:vect
+    ~uninit_post:true ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
+  !! Matrix.local_name_tile ~var:"particles" ~elem_ty:particle
+    ~local_var:"lParticles" [ctx; cFor "idStep"];
+
+  !! Function.inline [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
+  !! Record.split_fields [nbMulti; ctx; cWrite ~typ:[multi cEq [vect; particle]] []];
+  // [ctx; tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
+  !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
+
+  let fieldFactor = trm_mul (trm_mul (var "deltaT") (var "deltaT")) (trm_div (var "pCharge") (var "pMass")) in
+  !! Variable.insert "fieldFactor" fieldFactor [tBefore; cVarDef "lFieldAtCorners"];
+  !! Accesses.scale ~factor:(var "fieldFactor") [nbMulti; cVarRe "fieldAtPos[XYZ]"];
+  !! Accesses.scale ~factor:(var "fieldFactor") [nbMulti; cVarRe "speed2[XYZ]"];
+  !! Accesses.scale ~factor:(var "deltaT") [nbMulti; sExprRe "particles\\.speed\\.[xyz]"];
+  !! Accesses.scale_immut ~factor:(var "deltaT") [nbMulti; cVarRe "speed2[XYZ]"];
+
+  !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];
+  !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
+  !! Function.use_infix_ops ~indepth:true [ctx];
+  !! Cleanup.std ();
+*)
+
 let _ = Run.script_cpp (fun () ->
   let ctx = cFunBody "simulate_single_cell" in
-  !! Resources.ensure_computed ();
+  let ft n = typ_var (find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n)) in
 
   bigstep "make local copies of field and particles";
-  let ft n = typ_var (find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n)) in
   !! Matrix.local_name_tile ~var:"fieldAtCorners"
     ~elem_ty:(ft "vect") ~uninit_post:true
     ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
@@ -20,9 +49,7 @@ let _ = Run.script_cpp (fun () ->
     ~local_var:"lParticles" [ctx; cFor "idStep"];
 
   bigstep "inline helper functions and reveal record fields";
-  !! Function.inline [ctx; multi cFun ["matrix_vect_mul"]];
-  !! Function.inline [ctx; multi cFun ["vect_add"; "vect_mul"]];
-
+  !! Function.inline ~recurse:true [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
   !! Record.set_explicit [ctx; multi cArrayWrite ["particles"; "lParticles"]];
   !! Record.set_explicit [nbMulti; ctx; cWrite ~lhs:[Constr_depth (DepthAt 0); cAccesses ~base:[cOr (List.map (fun x -> [cVar x]) ["particles"; "lParticles"])] ~inner_accesses:false ~accesses:[cIndex (); cField ~regexp:true ~field:"\\(pos\\)\\|\\(speed\\)" ()] ()] ()];
   !! Record.set_explicit [ctx; multi cArrayWrite ["fieldAtCorners"; "lFieldAtCorners"]];

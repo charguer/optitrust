@@ -59,10 +59,10 @@ let%transfo bind ?(fresh_name : string = "res") ?(args : string list = []) (tg :
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
-(** [inline ~resname ~vars ~args ~keep_res ~delete ~debug tg]: expects the target [tg] to point at a function call
+(** [inline ~resname ~vars ~args ~keep_res ~delete ~recurse ~debug tg]: expects the target [tg] to point at a function call
     Then it will try to inline that function call. If it's possible this transformation tries to
     perform as many simplifications as possible.
-
+    - [recurse]: inlines functions recursively within the inlined bodies
 
     -------------------------------------------------------------------------------------------------------------
     This transformation handles the following cases:
@@ -214,14 +214,16 @@ int f2() { // result of Funciton_basic.inline_cal
 let%transfo inline ?(resname : string = "")
   ?(vars : rename = AddSuffix "") ?(args : string list = [])
   ?(keep_res : bool = false) ?(delete : bool = false)
-  ?(debug : bool = false)
+  ?(debug : bool = false) ?(recurse : bool = false)
   ?(simpl : target -> unit = Variable.default_inline_simpl)
   (tg : target) : unit
   =
-  Marks.with_fresh_mark (fun subst_mark ->
-    (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
+  Marks.with_marks (fun next_mark ->
+    let subst_mark = next_mark () in
+    (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them, also used for [recurse]. *)
     let function_names = ref Var_set.empty in
-    Stats.comp_stats "iteri_on_transformed_targets" (fun () -> Target.iteri (fun i p ->
+    let still_to_process = ref [] in
+    let process i p =
       let (path_to_seq, local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
       let resname = ref resname in
@@ -267,6 +269,19 @@ let%transfo inline ?(resname : string = "")
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Stats.comp_stats "inline" (fun () ->
           Function_basic.inline ~body_mark ~subst_mark [new_target];);
+        if recurse then begin
+          let m = Marks.add_next_mark_on next_mark path_to_seq in
+          still_to_process := m :: !still_to_process;
+        end;
+        (* TODO: improvement for [recurse] ?
+           currently imprecise as it will inline in all the surrounding sequence
+
+        if recurse then begin
+          let (start, stop) = span_marks (next_mark ()) in
+          Marks.add start [tBefore; cMark body_mark];
+          Marks.add stop [tAfter; cMark body_mark];
+          still_to_process := (start, stop) :: !still_to_process;
+        end; *)
         Stats.comp_stats "intro" (fun () ->
           Accesses_basic.intro [cMark body_mark];);
         Stats.comp_stats "elim_body" (fun () ->
@@ -326,10 +341,16 @@ let%transfo inline ?(resname : string = "")
         post_processing ~deep_cleanup:true ();
       | _ -> trm_fail tg_out_trm "Function.inline: please be sure that you're tageting a proper function call"
       end;
-    ) tg;
+    in
+    Target.iteri process tg;
+    while !still_to_process <> [] do
+      let m = List.hd !still_to_process in
+      still_to_process := List.tl !still_to_process;
+      Target.iteri process [nbAny; cMark m; cOr
+        (List.map (fun f -> [cFun f.name]) (Var_set.elements !function_names))];
+    done;
     if delete then Function_basic.delete [cOr
       (List.map (fun f -> [cTopFunDef f.name]) (Var_set.elements !function_names))];
-    );
     simpl [cMark subst_mark];
   )
 

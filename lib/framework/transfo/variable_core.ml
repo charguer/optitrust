@@ -76,7 +76,7 @@ let init_attach_at (index : int) (t : trm) : trm =
     Pattern.__ (fun () -> trm_fail next "expected a succeeding set on that variable")
   ] in
   let new_decl = trm_let_mut ~annot:decl.annot (x, (get_inner_ptr_type tx)) init2 in
-  trm_seq_helper [TrmMlist lfront; Trm new_decl; TrmMlist lback]
+  trm_seq_helper ~annot:t.annot [TrmMlist lfront; Trm new_decl; TrmMlist lback]
 
 (** [delocalize_at array_size ops index t]: see [Variable_basic.delocalize],
       [array_size] - size of the arrays to be declared inside the targeted sequence,
