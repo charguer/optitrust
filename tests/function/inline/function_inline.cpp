@@ -94,4 +94,19 @@ void test_nameclash() {
   int y = f(2);
 }
 
-int main(){}
+int recurse3() {
+  return 0;
+}
+
+int recurse2() {
+  int a = recurse3();
+  int b = recurse3();
+  // TODO: inline a/b, doesn't work yet
+  return a + b;
+}
+
+int recurse1() {
+  int a = recurse2();
+  int b = recurse3();
+  return a + b;
+}

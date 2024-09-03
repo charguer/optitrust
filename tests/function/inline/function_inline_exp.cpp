@@ -35,8 +35,10 @@ void test_fun() {
 
   int u;
   /*@bodyh*/ {
-    if (x > 0) u = 1;
+    if (x > 0) /*no-brace*/ {
+      u = 1;
     goto exit_body;
+    }
     u = 2;
   } /*bodyh@*/
 exit_body:;
@@ -50,8 +52,10 @@ exit_body:;
 }
 
 class Test_method_inline {
- public:
+ private:
   int u;
+
+ public:
   int f(int x) {
     int a = x + x;
     return a + a;
@@ -77,38 +81,34 @@ class Test_method_inline {
 void test_class_method() {
   Test_method_inline c;
   int x = 3;
-  int y;
-  /*@bodyf1*/ {
-    int a = x + x;
-    y = a + a;
-  } /*bodyf1@*/
-
-  int y1;
-  /*@bodyf1*/ {
-    int a = c.u + c.u;
-    y1 = a + a;
-  } /*bodyf1@*/
-
-  int z;
-  if (x > 0)
-    z = 1;
-  else
-    z = 2;
-
-  int u;
-  /*@bodyh*/ {
-    if (x > 0) u = 1;
-    goto exit_body;
-    u = 2;
-  } /*bodyh@*/
-exit_body:;
+  int y = c.f(x);
+  int y1 = c.f1();
+  int z = c.g(x);
+  int u = c.h(x);
   int* q;
-  (*q)++;
-
+  c.m(q);
   int result;
   result = 10;
-  int;
-  /*@bodyk*/ { result + 4; } /*bodyk@*/
+  result = c.k(result, 4);
 }
 
-int main() {}
+void test_nameclash() {
+  int x = f(1);
+  int y = f(2);
+}
+
+int recurse3() { return 0; }
+
+int recurse2() {
+  int a = 0;
+  int b = 0;
+  return a + b;
+}
+
+int recurse1() {
+  int a = 0;
+  int b = 0;
+  int a1 = a + b;
+  int b2 = 0;
+  return a1 + b2;
+}

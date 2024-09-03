@@ -70,8 +70,6 @@ swap/coords_fixed
 swap/coords_vari
 specialize/function_arg
 
-function/inline
-
 # #var-id
 ast/cpp_varids.ml
 ast/cpp_basic.ml
