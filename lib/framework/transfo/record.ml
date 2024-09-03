@@ -41,7 +41,7 @@ let set_implicit (tg : Target.target) : unit =
         | Some td -> td
         | _ -> trm_fail tg_trm (sprintf "set_explicit_aux: could not get the declaration of typedef %s" (var_to_string tvar))
       in
-      let field_list = Internal.get_field_list tg_trm struct_def in
+      let field_list = Internal.get_field_list struct_def in
       let nb = List.length field_list in
       Sequence_basic.intro ~mark:"__SEQUENCE_MARK" nb tg;
       Record_basic.set_implicit [Target.cMark "__SEQUENCE_MARK"];

@@ -208,8 +208,8 @@ let local_name_tile_on (mark_dims : mark)
   let alloc_cell = Resource_formula.(formula_model alloc_access trm_cell) in
   let alloc_range_cell = (alloc_range, alloc_cell) in
   let local_var_range_cell = (nested_loop_range, local_var_cell) in
-  let shift_res = ghost_shift alloc_range_cell local_var_range_cell true uninit_pre in
-  let unshift_res = ghost_shift local_var_range_cell alloc_range_cell uninit_post true in
+  let shift_res = ghost_shift alloc_range_cell local_var_range_cell true true in
+  let unshift_res = ghost_shift local_var_range_cell alloc_range_cell true true in
   trm_seq_nobrace_nomarks [
     alloc_instr; shift_res; load_for;
     new_t;

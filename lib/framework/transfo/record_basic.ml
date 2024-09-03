@@ -3,6 +3,241 @@ open Target
 include Record_core
 include Record_core.Rename
 
+let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
+  (span : Dir.span) (t_seq : trm) : trm =
+  let instrs = trm_inv ~error:"expected seq" trm_seq_inv t_seq in
+  if span.start >= span.stop then begin
+    t_seq
+  end else begin
+    let (span_instrs, instrs_after) = Mlist.split span.stop instrs in
+    let (instrs_before, span_instrs) = Mlist.split span.start span_instrs in
+    (* DEBUG Show.trms ~msg:"span_instrs" (Mlist.to_list span_instrs); *)
+    let ptr_typ_matches typ =
+      Pattern.pattern_match typ [
+        Pattern.(typ_ptr (trm_var (var_eq typvar))) (fun () -> true);
+        Pattern.__ (fun () -> false)
+      ]
+    in
+    let trm_ptr_typ_matches base =
+      match base.typ with
+      | None ->
+        (* FIXME: this is a temporary workaround, look for the type in rest of code. *)
+        let evars = ref Var_map.empty in
+        let rec to_base_pattern t =
+          Pattern.pattern_match t [
+            Pattern.(trm_binop Binop_array_access !__ __) (fun base () ->
+              let evar = new_var "evar" in
+              evars := Var_map.add evar None !evars;
+              trm_array_access base (trm_var evar)
+            );
+            Pattern.__ (fun () -> trm_map to_base_pattern t)
+          ]
+        in
+        let base_pattern = to_base_pattern base in
+        let matches_base t =
+          Option.is_some (unify_trm t base_pattern !evars)
+        in
+        let exception TypeFound of typ in
+        begin try
+          Mlist.iter (fun t ->
+            let rec search t =
+              match base.typ with
+              | Some typ when matches_base t -> raise (TypeFound typ)
+              | _ -> trm_map search t
+            in
+            ignore (search t)
+          ) span_instrs;
+          Show.trm_internal base;
+          failwith "could not find type of base '%s'" (Ast_to_c.ast_to_string base_pattern)
+        with
+        | TypeFound typ -> ptr_typ_matches typ
+        end
+      | Some typ -> ptr_typ_matches typ
+    in
+    let process_matching_resource_item process_one_cell default (h, formula) =
+      let open Resource_formula in
+      let (mode, formula) = formula_mode_inv formula in
+      Printf.printf "R: %s\n" (Resource_computation.formula_to_string formula);
+      let rec aux wrap_cell formula =
+        Pattern.pattern_match formula [
+          Pattern.(formula_group !__ (trm_fun (pair !__ __ ^:: nil) !__ !__ __)) (fun range idx _frettyp inner_formula () ->
+            aux (fun c -> wrap_cell (trm_apps ~annot:formula.annot trm_group [range; trm_copy (formula_fun [idx, typ_int] None c)])) inner_formula
+          );
+          Pattern.(formula_model !__ (trm_var (var_eq var_cell))) (fun loc () ->
+            Pattern.when_ (trm_ptr_typ_matches loc);
+            Printf.printf "MATCH!\n";
+            [process_one_cell wrap_cell mode loc]
+          );
+          Pattern.__ (fun () -> default formula)
+        ]
+      in
+      aux (fun c -> c) formula
+    in
+    let (unfolds, folds) = if !Flags.check_validity then begin
+      let open Resource_formula in
+      let open Resource_contract in
+      let first = Option.unsome ~error:"expected first instruction" (Mlist.nth_opt instrs 0) in
+      let last = Option.unsome ~error:"expected last instruction" (Mlist.lst instrs) in
+      let res_start = Resources.before_trm first in
+      let res_stop = Resources.after_trm last in
+      let make_admitted pure linear1 linear2 =
+        Resource_trm.ghost_admitted {
+          pre = Resource_set.make ~pure ~linear:linear1 ();
+          post = Resource_set.make ~linear:linear2 () }
+      in
+      let fold_or_unfold ~(fold : bool) pure folded_linear unfolded_linear =
+        if fold
+        then make_admitted pure unfolded_linear folded_linear
+        else make_admitted pure folded_linear unfolded_linear
+      in
+      let process_one_cell ~(fold : bool) wrap_cell (mode, loc) =
+        let model loc = wrap_cell (formula_model loc trm_cell) in
+        match mode with
+        | RO ->
+          (* TODO: think more about fractions
+          let per_field_admits = List.map (fun (sf, ty) ->
+            let frac_var, frac_ghost = new_frac () in
+            let folded_res =
+              formula_read_only ~frac:(trm_var frac_var) (formula_model loc trm_cell)
+            in
+            let unfolded_res =
+              formula_read_only ~frac:(trm_var frac_var)
+                (formula_model (trm_struct_access ~typ:(typ_ptr ty) loc sf) trm_cell)
+            in
+            let wand = formula_wand unfolded_res folded_res in
+            let folded_linear = [(new_anon_hyp (), folded_res)] in
+            let unfolded_linear = [
+              (new_anon_hyp (), wand);
+              (new_anon_hyp (), unfolded_res)] in
+            if fold
+            then make_admitted [frac_ghost] unfolded_linear folded_linear
+            else make_admitted [frac_ghost] folded_linear unfolded_linear
+          ) field_list in
+          per_field_admits
+            *)
+          let frac_var, frac_ghost = new_frac () in
+          let folded_linear = [
+            (new_anon_hyp (), formula_read_only ~frac:(trm_var frac_var) (model loc))
+          ] in
+          let unfolded_linear = List.map (fun (sf, ty) ->
+            (new_anon_hyp (), formula_read_only ~frac:(trm_var frac_var)
+              (model (trm_struct_access ~typ:(typ_ptr ty) loc sf)))
+          ) field_list in
+          fold_or_unfold ~fold [frac_ghost] folded_linear unfolded_linear
+        | Uninit ->
+          let folded_linear = [(
+            new_anon_hyp (), formula_uninit (model loc)
+          )] in
+          let unfolded_linear = List.map (fun (sf, ty) ->
+            (new_anon_hyp (), formula_uninit (model
+              (trm_struct_access ~typ:(typ_ptr ty) loc sf)
+            ))
+          ) field_list in
+          fold_or_unfold ~fold [] folded_linear unfolded_linear
+        | Full ->
+          let folded_linear = [(
+            new_anon_hyp (), model loc
+          )] in
+          let unfolded_linear = List.map (fun (sf, ty) ->
+            (new_anon_hyp (), model
+              (trm_struct_access ~typ:(typ_ptr ty) loc sf)
+            )
+          ) field_list in
+          fold_or_unfold ~fold [] folded_linear unfolded_linear
+      in
+      let process_one_item ~(fold : bool) =
+        process_matching_resource_item (fun wrap mode c -> process_one_cell ~fold wrap (mode, c)) (fun _ -> [])
+      in
+      let unfolds = List.concat_map (process_one_item ~fold:false) res_start.linear in
+      let folds = List.concat_map (process_one_item ~fold:true) res_stop.linear in
+      (unfolds, folds)
+    end else begin
+      ([], [])
+    end in
+    let _update_term t =
+      (* TODO: factorize logic with to_variables / set_explicit ? *)
+      let aux_resource_items items =
+        let open Resource_formula in
+        List.concat (List.concat_map (fun (h, formula) ->
+          process_matching_resource_item (fun wrap _mode loc ->
+            List.map (fun (sf, ty) ->
+              (new_anon_hyp (), formula_map_under_mode (fun _ ->
+                wrap (formula_model (trm_struct_access ~typ:(typ_ptr ty) loc sf) trm_cell)
+              ) formula)
+            ) field_list
+          ) (fun f -> [[(h, f)]]) (h, formula)
+        ) items)
+      in
+      let aux_resource_set res =
+        { res with
+          pure = aux_resource_items res.pure;
+          linear = aux_resource_items res.linear }
+      in
+      let aux_fun_contract contract =
+        { pre = aux_resource_set contract.pre;
+          post = aux_resource_set contract.post }
+      in
+      let rec aux (t : trm) : trm =
+        Pattern.pattern_match t [
+          Pattern.(trm_set !__ !__) (fun base value () ->
+            Pattern.when_ (trm_ptr_typ_matches base);
+            let set_one (sf, ty) =
+              trm_set (trm_struct_access ~typ:(typ_ptr ty) base sf)
+                (trm_get (trm_struct_access ~typ:(typ_ptr ty) value sf))
+            in
+            trm_seq_nobrace_nomarks (List.map set_one field_list)
+          );
+          Pattern.(trm_struct_get !__ (trm_get !__)) (fun field base () ->
+            trm_get (trm_struct_access base field)
+          );
+          (* TODO: also do other contracts *)
+          Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+            let contract = { spec with
+              invariant = aux_resource_set spec.invariant;
+              parallel_reads = aux_resource_items spec.parallel_reads;
+              iter_contract = aux_fun_contract spec.iter_contract;
+            } in
+            trm_map aux (trm_for ~annot:t.annot ~contract range body)
+          );
+          Pattern.(trm_fun_with_contract !__ !__ !__) (fun args body contract () ->
+            let contract = aux_fun_contract contract in
+            trm_map aux (trm_fun ~annot:t.annot ~contract:(FunSpecContract contract) args None body)
+          );
+          Pattern.__ (fun () -> trm_map aux t)
+        ]
+       in aux t
+    in
+    (* let span_instrs = Mlist.map update_term span_instrs in *)
+    trm_seq_helper ~annot:t_seq.annot [
+      TrmMlist instrs_before;
+      TrmList unfolds; TrmMlist span_instrs; TrmList folds;
+      TrmMlist instrs_after]
+  end
+
+(** [split_fields]: expects the target [tg] to point at a sequence span to perform the mapping:
+  - `set(base, val)` --> `set(struct_access(base, f), val.f), ...`
+  - `struct_get(get(base), f)` --> `get(struct_access(base, f))`
+  For now, this mapping is applied across the entire span for operations on record type [typ].
+
+  Ghost instructions will be inserted to split the field resources around the span,
+  and resources will be mapped as well:
+  - `base ~> Cell` --> `struct_access(base, f) ~> Cell, ...`
+  *)
+let%transfo split_fields ~(typ : typvar) (tg : target) : unit =
+  Resources.required_for_check ();
+
+  let struct_def =
+    match Internal.typvar_to_typedef typ with
+    | Some td -> td
+    | _ -> failwith "could not get the declaration of typedef for %s" (var_to_string typ)
+  in
+  let field_list = Internal.get_field_list struct_def in
+
+  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+    let (p_seq, span) = Path.extract_last_dir_span p in
+    Target.apply_at_path (split_fields_on typ field_list span) p_seq
+  ) tg)
+
 (** [set_explicit tg]: expects the target [tg] to point at a set instruction where one struct
     instance has been assigned another struct instance. *)
 let%transfo set_explicit (tg : target) : unit =

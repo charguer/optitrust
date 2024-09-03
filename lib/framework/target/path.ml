@@ -533,7 +533,23 @@ let split_common_prefix (a : path) (b : path) : path * path * path =
    in
    aux [] a b
 
+let span_including (span : Dir.span) (i : int) : Dir.span =
+  { start = min span.start i; stop = max span.stop i+1 }
 
+(** [identify_common_seq_span]: given a previously identified [seq] and a [span],
+  updates the sequence and span to be a common prefix with a span including [p_instr]. *)
+let identify_common_seq_span (seq : path) (span : Dir.span) (p_instr : path) : path * Dir.span =
+  let (prefix, p1, p2) = split_common_prefix seq p_instr in
+  if p1 = []
+  then begin
+    let (i2, _) = index_in_seq p2 in
+    (prefix, span_including span i2)
+  end else begin
+    let (i1, _) = index_in_seq p1 in
+    let (i2, _) = index_in_seq p2 in
+    let span = { start =  min i1 i2; stop = max i1 i2 } in
+    (prefix, span)
+  end
 
 (* TODO: move elsewhere to Paths ? *)
 let add_marks_at_paths ?(prefix : path = []) (ps:path list) (t:trm) : trm * mark list =

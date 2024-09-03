@@ -126,16 +126,16 @@ let is_decl_body (dl : path) : bool =
   | Dir_body :: _ -> true
   | _ -> false
 
-(** [get_field_list t td]: in the case of typedef struct give back the list of struct fields *)
-let get_field_list (t : trm) (td : typedef) : (field * typ) list =
+(** [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
+let get_field_list (td : typedef) : (field * typ) list =
   match td.typedef_body with
   | Typedef_record rfl ->
     List.map (fun (rf, _) ->
       match rf with
       | Record_field_member (lb, ty) -> (lb, ty)
-      | _ -> trm_fail t "Internal.get_field_list: expected a struct without methods"
+      | _ -> failwith "Internal.get_field_list: expected a struct without methods"
     ) rfl
-  | _ -> trm_fail t "Internal.get_field_list: expected a Typedef_prod"
+  | _ -> failwith "Internal.get_field_list: expected a Typedef_prod"
 
 
 (** [get_typvar_from_typ t]: check if typ is a constructed type or a composed type

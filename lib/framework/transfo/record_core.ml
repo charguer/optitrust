@@ -27,7 +27,7 @@ let set_explicit_on (t : trm) : trm =
       | Some td -> td
       | _ -> trm_fail t (sprintf "could not get the declaration of typedef for %s" (var_to_string tid))
     in
-    let field_list = Internal.get_field_list t struct_def in
+    let field_list = Internal.get_field_list struct_def in
     let check_pure = if !Flags.check_validity then (fun name x ->
       if Resources.trm_is_pure x then Trace.justif (sprintf "duplicated %s is pure" name)
     ) else (fun name x ->
@@ -319,7 +319,7 @@ let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
           let field_list = List.insert_sublist_at !field_index inner_type_field_list field_list in
 
           td_name := td.typedef_name;
-          f_list := fst (List.split (Internal.get_field_list t struct_def));
+          f_list := fst (List.split (Internal.get_field_list struct_def));
 
           let new_typedef = {td with typedef_body = Typedef_record field_list} in
           trm_replace (Trm_typedef new_typedef) t
@@ -526,7 +526,7 @@ let to_variables_at (index : int) (t : trm) : trm =
     | Some td -> td
     | _ -> trm_fail t "could not get the declaration of typedef"
     in
-    let field_list = Internal.get_field_list t struct_def in
+    let field_list = Internal.get_field_list struct_def in
     let init' = match trm_ref_inv init with
     | Some (_, v) -> is_ref := true; v
     | _ -> is_ref := false; init
@@ -661,7 +661,7 @@ let simpl_proj_on (t : trm) : trm =
             let struct_def = match Internal.typvar_to_typedef tvar with
             | Some td -> td
             | _ -> trm_fail struct_list "Record_core.simpl_proj_aux: couldn't retrieve the the struct declaration" in
-            let field_list = Internal.get_field_list struct_list struct_def in
+            let field_list = Internal.get_field_list struct_def in
             let field_vars = fst (List.split field_list) in
             begin match List.index_of x field_vars  with
             | Some i -> snd (Mlist.nth tl i)

@@ -6,21 +6,34 @@ let _ = Flags.recompute_resources_between_steps := true
 
 (** Reproducing a subset of the PIC case study *)
 
-(* TODO:
+let _ = Run.script_cpp (fun () ->
   let ctx = cFunBody "simulate_single_cell" in
-  let var n = trm_var (find_var_in_current_ast ~target:[ctx] n) in
-  let type n = typ_var (find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n)) in
-  let vect = type "vect" in
-  let particle = type "particle" in
+  let _var n = trm_var (find_var_in_current_ast ~target:[ctx] n) in
+  let typv n = find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n) in
+  let typ n = typ_var (typv n) in
 
-  !! Matrix.local_name_tile ~var:"fieldAtCorners" ~elem_ty:vect
-    ~uninit_post:true ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
-  !! Matrix.local_name_tile ~var:"particles" ~elem_ty:particle
+  bigstep "make local copies of field and particles";
+  !! Matrix.local_name_tile ~var:"fieldAtCorners"
+    ~elem_ty:(typ "vect") ~uninit_post:true
+    ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
+  !! Matrix.local_name_tile ~var:"particles"
+    ~elem_ty:(typ "particle")
     ~local_var:"lParticles" [ctx; cFor "idStep"];
 
-  !! Function.inline [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
+  bigstep "inline helper functions and reveal record fields";
+  !! Function.inline ~recurse:true [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
+  !! Record.split_fields ~typ:(typv "particle") [ctx; tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
+  ignore (raise Pattern.Failed);
+  (* !! Record.set_explicit [ctx; multi cArrayWrite ["particles"; "lParticles"]];
+  !! Record.set_explicit [nbMulti; ctx; cWrite ~lhs:[Constr_depth (DepthAt 0); cAccesses ~base:[cOr (List.map (fun x -> [cVar x]) ["particles"; "lParticles"])] ~inner_accesses:false ~accesses:[cIndex (); cField ~regexp:true ~field:"\\(pos\\)\\|\\(speed\\)" ()] ()] ()];
+  !! Record.set_explicit [ctx; multi cArrayWrite ["fieldAtCorners"; "lFieldAtCorners"]];
+  !! Variable.bind ~const:true "fieldAtPosTmp" [cWriteVar "fieldAtPos"; dArg 1];
+  !! Record.set_explicit [ctx; cWriteVar "fieldAtPos"]; *)
+  !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
+
+(* TODO:
   !! Record.split_fields [nbMulti; ctx; cWrite ~typ:[multi cEq [vect; particle]] []];
-  // [ctx; tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
+  // ;
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
   let fieldFactor = trm_mul (trm_mul (var "deltaT") (var "deltaT")) (trm_div (var "pCharge") (var "pMass")) in
@@ -35,27 +48,6 @@ let _ = Flags.recompute_resources_between_steps := true
   !! Function.use_infix_ops ~indepth:true [ctx];
   !! Cleanup.std ();
 *)
-
-let _ = Run.script_cpp (fun () ->
-  let ctx = cFunBody "simulate_single_cell" in
-  let ft n = typ_var (find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n)) in
-
-  bigstep "make local copies of field and particles";
-  !! Matrix.local_name_tile ~var:"fieldAtCorners"
-    ~elem_ty:(ft "vect") ~uninit_post:true
-    ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
-  !! Matrix.local_name_tile ~var:"particles"
-    ~elem_ty:(ft "particle")
-    ~local_var:"lParticles" [ctx; cFor "idStep"];
-
-  bigstep "inline helper functions and reveal record fields";
-  !! Function.inline ~recurse:true [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
-  !! Record.set_explicit [ctx; multi cArrayWrite ["particles"; "lParticles"]];
-  !! Record.set_explicit [nbMulti; ctx; cWrite ~lhs:[Constr_depth (DepthAt 0); cAccesses ~base:[cOr (List.map (fun x -> [cVar x]) ["particles"; "lParticles"])] ~inner_accesses:false ~accesses:[cIndex (); cField ~regexp:true ~field:"\\(pos\\)\\|\\(speed\\)" ()] ()] ()];
-  !! Record.set_explicit [ctx; multi cArrayWrite ["fieldAtCorners"; "lFieldAtCorners"]];
-  !! Variable.bind ~const:true "fieldAtPosTmp" [cWriteVar "fieldAtPos"; dArg 1];
-  !! Record.set_explicit [ctx; cWriteVar "fieldAtPos"];
-  !! Record.to_variables [ctx; cVarDefs ["fieldAtPosTmp"; "fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
   (* CHECK *)
   bigstep "scale field and particles";
