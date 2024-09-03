@@ -11,6 +11,10 @@ let keep_graphs : bool ref = ref false
     to keep the task candidate graphs in (see [!Apac_miscellaneous.gwd]). *)
 let keep_graphs_in : string ref = ref "apac_task_candidate_graphs"
 
+(** [candidate_mark]: string for marking taskification candidate functions (see
+    [!Apac_prologue.select_candidates]). *)
+let candidate_mark : mark = "__apac_candidate"
+
 (** [task_group_mark]: string used to mark instruction sequences targeted by
     task group insertion. See [Apac_basic.task_group] and
     [Apac_basic.use_goto_for_return]. *)

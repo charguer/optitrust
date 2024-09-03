@@ -36,6 +36,138 @@ let build_records_on (t : trm) : unit =
 let build_records (tg : target) : unit =
   Target.iter_at_target_paths (build_records_on) tg
 
+(** [select_candidates tg]: expects the target [tg] to point at a function
+    definition. If the function meets the requirements of a taskification
+    candidate or if the function calls a taskification candidate, the pass marks
+    the function and its body with [!Apac_macros.candidate_mark] and
+    [!Apac_macros.task_group_mark], respectively. To consider a function a
+    taskification candidate, it must feature at least two calls to a function
+    having a record in [!Apac_records.functions] or one call to such a function
+    and one loop or two sibling, i.e. non-nested, loops. *)
+let select_candidates (tg : target) : unit =
+  (** Initialize a counter [calls] of calls to functions having a record in
+      [!Apac_records.functions], a counter [loops] of loops and a flag [sibling]
+      stating on the presence of at least two sibling loops in a sequence of
+      statements. *)
+  let calls = ref 0 in
+  let loops = ref 0 in
+  let sibling = ref false in
+  (** Initialize a set of variables [candidates] to store the variables refering
+      to functions meeting the taskification candidate requirements. *)
+  let candidates = ref Var_set.empty in
+  (** [select_candidates.count t]: counts calls to functions having a record in
+      [!Apac_records.functions] and loops in a term [t]. *)
+  let rec count (t : trm) : unit =
+    match t.desc with
+    (** If [t] is a call to a function having a record in
+        [!Apac_records.functions], increase [calls]. *)
+    | Trm_apps ({ desc = Trm_var (_, f)}, _) when Var_Hashtbl.mem functions f ->
+       incr calls
+    (** If [t] is a loop, increase [loops] and continue exploring the abstract
+        syntax tree of the body [b] of the loop. *)
+    | Trm_for (_, b, _)
+      | Trm_for_c (_, _, _, b, _)
+      | Trm_while (_, b) 
+      | Trm_do_while (b, _) -> incr loops; trm_iter count b
+    (** Otherwise, simply continue exploring the abstract syntax tree. *)
+    | _ -> trm_iter count t
+  in
+  (** [select_candidates.check t]: checks for the presence of at least two
+      sibling loops in a term [t]. *)
+  let rec check (t : trm) : unit =
+    match t.desc with
+    (** If [t] is a sequence of statements [s], check whether the latter
+        features at least two sibling loops. *)
+    | Trm_seq s ->
+       let n = Mlist.fold_left (fun acc e ->
+                   match e.desc with
+                   | Trm_for _
+                     | Trm_for_c _
+                     | Trm_while _
+                     | Trm_do_while _ -> acc + 1
+                   | _ -> acc
+                 ) 0 s in
+       if n > 1 then
+         (** If so, update [sibling]. *)
+         sibling := true
+       else
+         (** Otherwise, check in the statements of [s]. *)
+         Mlist.iter (fun e -> trm_iter check e) s
+    (** In any other case, continue exploring the abstract syntax tree. *)
+    | _ -> trm_iter check t
+  in
+  (** Iterate over the target function definitions and store each function
+      meeting the taskification candidate requirements in [candidates]. *)
+  Target.iter_at_target_paths (fun t ->
+      (** Deconstruct the definition term [t] of the function [f]. *)
+      let error = "Apac_prologue.select_candidates: expected a target to a \
+                   function definition!" in
+      let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+      (** Count calls to functions having a record in [!Apac_records.functions]
+          and loops in the [body] of [f]. *)
+      count body;
+      (** If it contains at least two calls to function having a record in
+          [!Apac_records.functions] or one call to such a function and at least
+          one loop, add [f] to [candidates]. *)
+      if (!calls > 1) || (!calls > 0 && !loops > 0) then
+        candidates := Var_set.add f !candidates
+      else if (!loops > 1) then
+        begin
+          (** If it is not the case, but if there are at least two loops in the
+              [body] of [f], check the latter for the presence of at least two
+              sibling loops. *)
+          check body;
+          (** It this condition verifies, add [f] to [candidates]. *)
+          if !sibling then candidates := Var_set.add f !candidates;
+        end;
+      (** Reset counters and flags. *)
+      calls := 0; loops := 0; sibling := false
+    ) tg;
+  (** Iterate again over the target function definitions and update [candidates]
+      with functions featuring a call to a function already present in
+      [candidates], i.e. with functions calling a function meeting the
+      taskficiation candidate requirements. *)
+  Target.iter_at_target_paths (fun t ->
+      (** Deconstruct the definition term [t] of the function [f]. *)
+      let error = "Apac_prologue.select_candidates: expected a target to a \
+                   function definition!" in
+      let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+      (** Loop over the [body] of [f] and if [f] features a call to a function
+          [f'] in [candidates], add [f] to [candidates]. *)
+      let rec loop = fun c ->
+        match c.desc with
+          | Trm_apps ({ desc = Trm_var (_, f')}, _)
+               when Var_set.mem f' !candidates ->
+             candidates := Var_set.add f !candidates;
+             trm_iter loop c
+          | _ -> trm_iter loop c
+      in
+      loop body
+    ) tg;
+  (** Iterate one last time over the target function definitions and mark each
+      function present in [candidates], i.e. each taskification candidate, and
+      its body with [!Apac_macros.candidate_mark] and
+      [!Apac_macros.task_group_mark], respectively. *)
+  Target.apply_at_target_paths (fun t ->
+      (** Deconstruct the definition term [t] of the function [f]. *)
+      let error = "Apac_prologue.select_candidates: expected a target to a \
+                   function definition!" in
+      let (f, ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+      (** If [f] belongs to [candidates], *)
+      if (Var_set.mem f !candidates) then
+        (** Add [!Apac_macros.task_group_mark] to the [body] of [f]. *)
+        let body = trm_add_mark Apac_macros.task_group_mark body in
+        (** Rebuild the function definition with the marked [body] as [t']. *)
+        let t' = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty args body in
+        (** Mark [t'] with [!Apac_macros.candidate_mark]. *)
+        let t' = trm_add_mark Apac_macros.candidate_mark t' in
+        (** Return the resulting function definition [t']. *)
+        t'
+      else
+        (** Otherwise, keep the definition of [f] as is. *)
+        t
+    ) tg
+
 (* [use_goto_for_return_on mark t]: see [use_goto_for_return]. *)
 let use_goto_for_return_on (mark : mark) (t : trm) : trm =
   (* Deconstruct the target function definition AST term. *)
