@@ -983,7 +983,81 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     ignore (trm_combinators_unsupported_case "trm_iter" t)
   | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
 
-
+(** [trm_fold f acc t]: similar to [!List.fold_left] but for a term [t]. *)
+let rec trm_fold (f : 'a -> trm -> 'a) (acc : 'a) (t : trm) : 'a =
+  match t.desc with
+  | Trm_array tl ->
+     Mlist.fold_left f (f acc t) tl
+  | Trm_record tl ->
+     let tl = Mlist.to_list tl in
+     let (_, tl) = List.split tl in
+     let tl = Mlist.of_list tl in
+     Mlist.fold_left f (f acc t) tl
+  | Trm_let (vk, tv, init, _) ->
+     trm_fold f (f acc t) init
+  | Trm_let_mult (vk, tvl, tl) ->
+     List.fold_left f (f acc t) tl
+  | Trm_let_fun (f', res, args, body, _) ->
+     trm_fold f (f acc t) body
+  | Trm_if (cond, then_, else_) ->
+     trm_fold f (trm_fold f (trm_fold f (f acc t) cond) then_) else_
+  | Trm_seq tl ->
+     Mlist.fold_left f (f acc t) tl
+  | Trm_apps (func, args) ->
+     List.fold_left f (f acc t) (func :: args)
+  | Trm_while (cond, body) ->
+     trm_fold f (trm_fold f (f acc t) cond) body
+  | Trm_for_c (init, cond, step, body, _) ->
+     trm_fold f
+       (trm_fold f (trm_fold f (trm_fold f (f acc t) init) cond) step) body
+  | Trm_for (l_range, body, _) ->
+     let (_, start, _, stop, step, _) = l_range in
+     let tl = [start; stop] in
+     let tl =
+       match step with
+       | Post_inc | Post_dec | Pre_inc | Pre_dec -> tl
+       | Step sp -> tl @ [sp]
+     in
+     let tl = tl @ [body] in
+     List.fold_left f (f acc t) tl
+  | Trm_do_while (body, cond) ->
+     trm_fold f (trm_fold f (f acc t) body) cond
+  | Trm_switch (cond, cases) ->
+     let (_, tl) = List.split cases in
+     let tl = cond :: tl in
+     List.fold_left f (f acc t) tl
+  | Trm_abort a ->
+     begin match a with
+     | Ret (Some t') -> trm_fold f (f acc t) t'
+     | _ -> f acc t
+     end
+  | Trm_namespace (_, t', _) ->
+     trm_fold f (f acc t) t'
+  | Trm_delete (_, t') ->
+     trm_fold f (f acc t) t'
+  | Trm_typedef td ->
+     begin match td.typdef_body with
+     | Typdef_record rfl ->
+        let tl = List.fold_right (fun (rf, _) acc ->
+                     match rf with
+                     | Record_field_method t1 -> t1 :: acc
+                     | _ -> acc
+                   ) rfl [] in
+        List.fold_left f (f acc t) tl
+     | _ -> f acc t
+     end
+  | Trm_fun (_, _, body, _) ->
+     trm_fold f (f acc t) body
+  | Trm_arbitrary _ ->
+     f acc t
+  | Trm_val _
+    | Trm_var _
+    | Trm_goto _
+    | Trm_extern _
+    | Trm_omp_routine _
+    | Trm_template _
+    | Trm_using_directive _ ->
+     f acc t
 
 (* The value associated with an existential variable (evar).
    None if the value is unknown, Some if the value is known (it was unified). *)
