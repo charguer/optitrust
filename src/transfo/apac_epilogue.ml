@@ -910,3 +910,74 @@ let place_barriers_on (p : path) (t : trm) : unit =
     eligible task candidate in the task candidate graph. *)
 let place_barriers (tg : target) : unit =
   Target.iter (fun t p -> place_barriers_on p (Path.get_trm_at_path p t)) tg
+
+(** [place_task_group tg]: expects the target [tg] to point at a sequence. It
+    transforms the sequence into an OpenMP task group.
+
+    For example, the sequence
+
+    {[
+    {
+      int a;
+      f();
+      return 0;
+    }
+    ]}
+
+    becomes
+
+    {[
+    #pragma omp taskgroup
+    {
+      int a;
+      f();
+      return 0;
+    }
+    ]}
+
+    However, if the target sequence carries [!Apac_macros.candidate_main_mark],
+    the transformation creates a master task group as follows.
+
+    {[
+    #pragma omp parallel
+    #pragma omp master
+    #pragma omp taskgroup
+    {
+      int a;
+      f();
+      return 0;
+    }
+    ]} *)
+let place_task_group (tg : target) : unit =
+  Target.apply_at_target_paths (fun t ->
+      (** Check for the presence of [!Apac_macros.candidate_main_mark] and draw
+          the list of pragmas to apply. *)
+      let pragmas = if (trm_has_mark Apac_macros.candidate_main_mark t) then
+                      [Parallel []; Master ; Taskgroup] else
+                      [Taskgroup] in
+      (** Apply the pragmas on the target sequence. *)
+      trm_add_pragmas pragmas t
+    ) tg
+
+(** [clear_marks ()]: clears all the marks we use during the compilation. *)
+let clear_marks () : unit =
+  Marks.remove Apac_macros.candidate_mark [
+      nbAny;
+      cMark Apac_macros.candidate_mark
+    ];
+  Marks.remove Apac_macros.candidate_main_mark [
+      nbAny;
+      cMark Apac_macros.candidate_main_mark
+    ];
+  Marks.remove Apac_macros.candidate_body_mark [
+      nbAny;
+      cMark Apac_macros.candidate_body_mark
+    ];
+  Marks.remove Apac_macros.heapify_mark [
+      nbAny;
+      cMark Apac_macros.heapify_mark
+    ];
+  Marks.remove Apac_macros.heapify_breakable_mark [
+      nbAny;
+      cMark Apac_macros.heapify_breakable_mark
+    ];

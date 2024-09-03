@@ -37,205 +37,263 @@ let build_records (tg : target) : unit =
   Target.iter_at_target_paths (build_records_on) tg
 
 (** [select_candidates tg]: expects the target [tg] to point at a function
-    definition. If the function meets the requirements of a taskification
-    candidate or if the function calls a taskification candidate, the pass marks
-    the function and its body with [!Apac_macros.candidate_mark] and
-    [!Apac_macros.task_group_mark], respectively. To consider a function a
-    taskification candidate, it must feature at least two calls to a function
-    having a record in [!Apac_records.functions] or one call to such a function
-    and one loop or two sibling, i.e. non-nested, loops. *)
+    definition. The pass then proceeds in two phases.
+
+    First, it iterates over the target function definitions and marks the
+    functions meeting the requirements of a taskification candidate with
+    [!Apac_macros.candidate_mark]. To consider a function a taskification
+    candidate, it must feature at least two calls to a function having a record
+    in [!Apac_records.functions] or one call to such a function and one loop or
+    two loop nests.
+
+    Second, it iterates again over the target function definitions and marks
+    with [!Apac_macros.candidate_mark] the functions calling any function
+    carrying the [!Apac_macros.candidate_mark] mark as a result of the first
+    phase. *)
 let select_candidates (tg : target) : unit =
-  (** Initialize a counter [calls] of calls to functions having a record in
-      [!Apac_records.functions], a counter [loops] of loops and a flag [sibling]
-      stating on the presence of at least two sibling loops in a sequence of
-      statements. *)
-  let calls = ref 0 in
-  let loops = ref 0 in
-  let sibling = ref false in
   (** Initialize a set of variables [candidates] to store the variables refering
-      to functions meeting the taskification candidate requirements. *)
+      to functions meeting the taskification candidate requirements we mark with
+      [!Apac_macros.candidate_mark] during the first phase of the pass so as to
+      make this information available to the second phase of the pass. *)
   let candidates = ref Var_set.empty in
-  (** [select_candidates.count t]: counts calls to functions having a record in
-      [!Apac_records.functions] and loops in a term [t]. *)
-  let rec count (t : trm) : unit =
-    match t.desc with
-    (** If [t] is a call to a function having a record in
-        [!Apac_records.functions], increase [calls]. *)
-    | Trm_apps ({ desc = Trm_var (_, f)}, _) when Var_Hashtbl.mem functions f ->
-       incr calls
-    (** If [t] is a loop, increase [loops] and continue exploring the abstract
-        syntax tree of the body [b] of the loop. *)
-    | Trm_for (_, b, _)
-      | Trm_for_c (_, _, _, b, _)
-      | Trm_while (_, b) 
-      | Trm_do_while (b, _) -> incr loops; trm_iter count b
-    (** Otherwise, simply continue exploring the abstract syntax tree. *)
-    | _ -> trm_iter count t
-  in
-  (** [select_candidates.check t]: checks for the presence of at least two
-      sibling loops in a term [t]. *)
-  let rec check (t : trm) : unit =
-    match t.desc with
-    (** If [t] is a sequence of statements [s], check whether the latter
-        features at least two sibling loops. *)
-    | Trm_seq s ->
-       let n = Mlist.fold_left (fun acc e ->
-                   match e.desc with
-                   | Trm_for _
-                     | Trm_for_c _
-                     | Trm_while _
-                     | Trm_do_while _ -> acc + 1
-                   | _ -> acc
-                 ) 0 s in
-       if n > 1 then
-         (** If so, update [sibling]. *)
-         sibling := true
-       else
-         (** Otherwise, check in the statements of [s]. *)
-         Mlist.iter (fun e -> trm_iter check e) s
-    (** In any other case, continue exploring the abstract syntax tree. *)
-    | _ -> trm_iter check t
-  in
   (** Iterate over the target function definitions and store each function
-      meeting the taskification candidate requirements in [candidates]. *)
-  Target.iter_at_target_paths (fun t ->
-      (** Deconstruct the definition term [t] of the function [f]. *)
-      let error = "Apac_prologue.select_candidates: expected a target to a \
-                   function definition!" in
-      let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
-      (** Count calls to functions having a record in [!Apac_records.functions]
-          and loops in the [body] of [f]. *)
-      count body;
-      (** If it contains at least two calls to function having a record in
-          [!Apac_records.functions] or one call to such a function and at least
-          one loop, add [f] to [candidates]. *)
-      if (!calls > 1) || (!calls > 0 && !loops > 0) then
-        candidates := Var_set.add f !candidates
-      else if (!loops > 1) then
-        begin
-          (** If it is not the case, but if there are at least two loops in the
-              [body] of [f], check the latter for the presence of at least two
-              sibling loops. *)
-          check body;
-          (** It this condition verifies, add [f] to [candidates]. *)
-          if !sibling then candidates := Var_set.add f !candidates;
-        end;
-      (** Reset counters and flags. *)
-      calls := 0; loops := 0; sibling := false
-    ) tg;
-  (** Iterate again over the target function definitions and update [candidates]
-      with functions featuring a call to a function already present in
-      [candidates], i.e. with functions calling a function meeting the
-      taskficiation candidate requirements. *)
-  Target.iter_at_target_paths (fun t ->
-      (** Deconstruct the definition term [t] of the function [f]. *)
-      let error = "Apac_prologue.select_candidates: expected a target to a \
-                   function definition!" in
-      let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
-      (** Loop over the [body] of [f] and if [f] features a call to a function
-          [f'] in [candidates], add [f] to [candidates]. *)
-      let rec loop = fun c ->
-        match c.desc with
-          | Trm_apps ({ desc = Trm_var (_, f')}, _)
-               when Var_set.mem f' !candidates ->
-             candidates := Var_set.add f !candidates;
-             trm_iter loop c
-          | _ -> trm_iter loop c
-      in
-      loop body
-    ) tg;
-  (** Iterate one last time over the target function definitions and mark each
-      function present in [candidates], i.e. each taskification candidate, and
-      its body with [!Apac_macros.candidate_mark] and
-      [!Apac_macros.task_group_mark], respectively. *)
+      meeting the taskification candidate requirements in [candidates] and mark
+      it with [!Apac_macros.candidate_mark]. *)
   Target.apply_at_target_paths (fun t ->
       (** Deconstruct the definition term [t] of the function [f]. *)
       let error = "Apac_prologue.select_candidates: expected a target to a \
                    function definition!" in
-      let (f, ty, args, body) = trm_inv ~error trm_let_fun_inv t in
-      (** If [f] belongs to [candidates], *)
-      if (Var_set.mem f !candidates) then
-        (** Add [!Apac_macros.task_group_mark] to the [body] of [f]. *)
-        let body = trm_add_mark Apac_macros.task_group_mark body in
-        (** Rebuild the function definition with the marked [body] as [t']. *)
-        let t' = trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty args body in
-        (** Mark [t'] with [!Apac_macros.candidate_mark]. *)
-        let t' = trm_add_mark Apac_macros.candidate_mark t' in
-        (** Return the resulting function definition [t']. *)
-        t'
+      let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+      (** Count [calls] to functions having a record in
+          [!Apac_records.functions] and [loops] in the [body] of [f]. *)
+      let (calls, loops) =
+        trm_fold (fun (c, l) t ->
+            match t.desc with
+            (** [t] is a call to a function in [!Apac_records.functions]. *)
+            | Trm_apps ({ desc = Trm_var (_, f)}, _) when
+                   Var_Hashtbl.mem functions f -> (c + 1, l)
+            (** [t] is a loop. *)
+            | Trm_for _
+              | Trm_for_c _
+              | Trm_while _ 
+              | Trm_do_while _ -> (c, l + 1) 
+            (** Otherwise, there is nothing to count. *)
+            | _ -> (c, l)
+          ) (0, 0) body in
+      (** Check whether it contains at least two calls to function having a
+          record in [!Apac_records.functions] or one call to such a function and
+          at least one loop. *)
+      let candidate =
+        if (calls > 1) || (calls > 0 && loops > 0) then
+          (** If this condition verifies, we can consider [f] a taskification
+              candidate. *)
+          true
+        else if (loops > 1) then
+          (** If it is not the case, but if there are at least two loops in the
+              [body] of [f], check the latter for the presence of at least two
+              loop nests. If this condition verifies, we can consider [f] a
+              taskification candidate. *)
+          trm_fold (fun n t ->
+              match t.desc with
+              (** [t] is a sequence of statements [s]. Check whether the latter
+                  features at least two loop nests. *)
+              | Trm_seq s ->
+                 let l = Mlist.fold_left (fun acc e ->
+                             match e.desc with
+                             | Trm_for _
+                               | Trm_for_c _
+                               | Trm_while _
+                               | Trm_do_while _ -> acc + 1
+                             | _ -> acc
+                           ) 0 s in
+                 if l > 1 then n || true else n
+              (** In any other case, there is nothing to check. *)
+              | _ -> n
+            ) false body
+        else
+          (** Otherwise, [f] does not meet the requirements of a taskification
+              candidate. *)
+          false
+      in
+      (** If [f] meets the requirements of a taskification candidate, add it to
+          [candidates] and mark the target function definition term with
+          [!Apac_macros.candidate_mark]. *)
+      if candidate then
+        begin
+          candidates := Var_set.add f !candidates;
+          trm_add_mark Apac_macros.candidate_mark t
+        end
       else
-        (** Otherwise, keep the definition of [f] as is. *)
+        (** Otherwise, return the function definition term as-is. *)
         t
-    ) tg
+    ) tg;
+  (** Iterate over the target function definitions, update [candidates] with
+      functions calling a function in [candidates], i.e. with functions calling
+      a taskficiation candidate, mark them with [!Apac_macros.candidate_mark]
+      and continue until [candidates] stabilizes, i.e. does not receive any new
+      elements.
 
-(* [use_goto_for_return_on mark t]: see [use_goto_for_return]. *)
-let use_goto_for_return_on (mark : mark) (t : trm) : trm =
-  (* Deconstruct the target function definition AST term. *)
-  let error =
-    "Apac_basic.use_goto_for_return_on: expected a target to a function \
-     definition." in
-  let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
-  (* Within the function's body, replace return statements with assignments to a
-     return variable '__res' (if the return type is other than 'void') and
-     gotos to an exiting label [Apac_core.goto_label]. The result is a sequence.
-     Note that both the return variable and the exiting label are defined in the
-     upcoming steps. *)
-  let res_var = new_var Apac_macros.result_variable in
-  let body', _ = Internal.replace_return_with_assign ~check_terminal:false
-                   ~exit_label:Apac_macros.goto_label res_var body in
-  (* Add the the return variable into the function record, if it exists. This
-     may not be the case when testing the transformation separately, for
-     example. *)
-  if (Var_Hashtbl.mem Apac_records.functions var) then
-    begin
-      let r = Var_Hashtbl.find Apac_records.functions var in
-      Var_Hashtbl.add r.scope res_var 0
-    end;
-  (* Add the '__exit' label at the end of the sequence. *)
-  let body' = trm_seq_add_last
-                (trm_add_label Apac_macros.goto_label (trm_unit())) body' in
-  (* Mark the sequence with [mark]. *)
-  let body' = trm_add_mark mark body' in
-  (* If the function's return type is not 'void', we need to declare the return
-     variable '__res' at the beginning of the sequence and return its value at
-     the end of the sequence. *)
-  let body' = if is_type_unit ret_ty then trm_seq_nomarks [
-    body'
-  ] else trm_seq_nomarks [
-    (trm_let_mut (res_var, ret_ty) (trm_uninitialized ()));
-    body';
-    trm_ret (Some (trm_var_get res_var))
-  ] in
-  (* Reconstruct the function definition with the update body instruction
-     sequence. *)
-  trm_let_fun ~annot:t.annot var ret_ty args body'
+      To this end, begin by initializing a variable [now] to keep the current
+      number of elements in [candidates]. *)
+  let now = ref (Var_set.cardinal !candidates) in
+  (** Then, iterate over the target function definitions... *)
+  let rec stabilize = fun () ->
+    (** For each function definition, *)
+    Target.apply_at_target_paths (fun t ->
+        (** deconstruct the definition term [t] of the function [f], *)
+        let error = "Apac_prologue.select_candidates: expected a target to a \
+                     function definition!" in
+        let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+        (** loop over the [body] of [f] and *)
+        let candidate =
+          trm_fold (fun acc c ->
+              match c.desc with
+              (** if [f] has a call to a function [f'] in [candidates], *)
+              | Trm_apps ({ desc = Trm_var (_, f')}, _)
+                   when Var_set.mem f' !candidates -> acc || true 
+              | _ -> acc
+            ) false body in
+        if candidate && not (trm_has_mark Apac_macros.candidate_mark t) then
+          begin
+            (** add [f] to [candidates] and *)
+            candidates := Var_set.add f !candidates;
+            (** mark it with [!Apac_macros.candidate_mark]. *)
+            trm_add_mark Apac_macros.candidate_mark t
+          end
+        else
+          t
+      ) tg;
+    (** ...while the number of elements in [candidates] increases. *)
+    if (Var_set.cardinal !candidates) > !now then
+      begin
+        now := Var_set.cardinal !candidates;
+        stabilize ()
+      end
+  in
+  stabilize ()
 
-(* [use_goto_for_return mark]: expects the target [tg] to point at a function
-    definition. It replaces potentially multiple return statements by a single
-    return statement at the end of the function definition through the usage of
-    gotos.
+(** [unify_returns tg]: expects the target [tg] to point at a function
+    definition. It replaces [return] statements within the body of the latter by
+    a single [return] statement through the usage of [goto] jumps.
 
-    First of all, the transformation wraps the function's body into a sequence
-    and marks it with [mark] if [mark] <> "". Then,
+    First of all, the transformation wraps the body of the target function into
+    a sequence and marks it with [!Apac_macros.candidate_body_mark], as well as
+    [!Apac_macros.candidate_body_mark] in the case of the [main] function. Then,
+    if the function returns [void], it appends the [!Apac_macros.goto_label] to
+    the sequence and replaces each [return] statement inside the sequence with a
+    [goto] jumping to that label.
 
-    if the function is of type 'void', it:
-        1) replaces each return statement inside the new sequence with
-           'goto __exit',
-        2) appends an empty exiting label [Apac_core.goto_label] to the
-           sequence;
-    if the function returns a value, it:
-        1) preprends the declaration of a return variable '__res' to the
-           sequence,
-        2) replaces each return statement inside the sequence with
-           '__res = x; goto __exit'.
-        3) appends the final and unique labelled return statement
-           '__exit; return __res;' to the sequence.
+    For example, the following function definition
 
-    [mark] - mark to put on the sequence the function's body is wrapped into,
-    [tg] - target function definition AST term. *)
-let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
+    {[
+    void returns_nothing(int a, int b) {
+      if(a > b) {
+        // ... some work with a ...
+        return;
+      }
+      // ... some work with b ...
+    }
+    ]}
+
+    becomes
+
+    {[
+    void returns_nothing(int a, int b) {
+      {
+        if(a > b) {
+          // ... some work with a ...
+          goto __apac_exit;
+        }
+        // ... some work with b ...
+    __apac_exit: ;
+      }
+    }
+    ]}
+
+    If the function returns a value, the transformation preprends the sequence
+    with the declaration of [!Apac_macros.result_variable], appends the
+    [!Apac_macros.goto_label] to the sequence and replaces each [return]
+    statement inside the sequence with an assignment of the value to return to
+    the [!Apac_macros.result_variable] and a [goto] jumping to
+    [!Apac_macros.goto_label].
+
+    For example, the following function definition
+
+    {[
+    void returns_something(int a, int b) {
+      if(a > b) {
+        // ... some work with a ...
+        return a;
+      }
+      // ... some work with b ...
+      return b;
+    }
+    ]}
+
+    becomes
+
+    {[
+    void returns_something(int a, int b) {
+      {
+        if(a > b) {
+          // ... some work with a ...
+          __apac_ret = a;
+          goto __apac_exit;
+        }
+        // ... some work with b ...
+        __apac_ret = b;
+        goto __apac_exit;
+    __apac_exit: ;
+      }
+    }
+    ]} *)
+let unify_returns (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    Target.apply_at_target_paths (use_goto_for_return_on mark) tg)
+      Target.apply_at_target_paths (fun t ->
+          (** Deconstruct the definition term [t] of the function [f]. *)
+          let error = "Apac_prologue.use_goto_for_return: expected a target to \
+                       a function definition." in
+          let (f, ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+          (** Unify the [return] statements within the [body] of [f]. The result
+              is a new body sequence. *)
+          let ret = new_var Apac_macros.result_variable in
+          let (body, _) =
+            Internal.replace_return_with_assign
+              ~check_terminal:false
+              ~exit_label:Apac_macros.goto_label ret body in
+          (** Add [ret] into the function record, if it exists. This may not be
+              the case when testing the transformation separately. *)
+          if (Var_Hashtbl.mem Apac_records.functions f) then
+            begin
+              let r = Var_Hashtbl.find Apac_records.functions f in
+              Var_Hashtbl.add r.scope ret 0
+            end;
+          (** Append [!Apac_macros.goto_label] to the new sequence. *)
+          let body = trm_seq_add_last
+                       (trm_add_label
+                          Apac_macros.goto_label (trm_unit())) body in
+          (** Mark the new sequence with [!Apac_macros.candidate_body_mark] *)
+          let body = trm_add_mark Apac_macros.candidate_body_mark body in
+          (** and with [!Apac_macros.candidate_main_mark] if [f] is the [main]
+              function. *)
+          let body = if f.name = !Apac_macros.apac_main then
+                       trm_add_mark Apac_macros.candidate_main_mark body
+                     else
+                       body in
+          (** If [f] returns something else than [void], we need to declare
+              [!Apac_macros.result_variable] at the beginning of the new
+              sequence and return its value at the end of the sequence. *)
+          let body = if (is_type_unit ty) then
+                       trm_seq_nomarks [body]
+                     else
+                       trm_seq_nomarks [
+                           (trm_let_mut (ret, ty) (trm_uninitialized ()));
+                           body;
+                           trm_ret (Some (trm_var_get ret))
+                         ] in
+          (** Rebuild and return the function definition term. *)
+          trm_let_fun ~annot:t.annot f ty args body
+        ) tg)
 
 (* [unfold_function_calls tg]: expects target [tg] to point at a function
    definition. It moves all function calls under target [tg] out of variable

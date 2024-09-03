@@ -15,6 +15,14 @@ let keep_graphs_in : string ref = ref "apac_task_candidate_graphs"
     [!Apac_prologue.select_candidates]). *)
 let candidate_mark : mark = "__apac_candidate"
 
+(** [candidate_main_mark]: string for marking taskification candidates reserved
+    for the [main] function (see [!Apac_prologue.select_candidates]). *)
+let candidate_main_mark : mark = "__apac_candidate_main"
+
+(** [candidate_body_mark]: string for marking bodies of taskification candidate
+    functions (see [!Apac_prologue.use_goto_for_return]). *)
+let candidate_body_mark : mark = "__apac_candidate_body"
+
 (** [task_group_mark]: string used to mark instruction sequences targeted by
     task group insertion. See [Apac_basic.task_group] and
     [Apac_basic.use_goto_for_return]. *)
