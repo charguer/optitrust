@@ -11,7 +11,7 @@ type style = {
 let style_of_output_style (style : Style.output_style) : style =
   match style.print with
   | Lang_C s -> { typing = style.typing; cstyle = s }
-  | _ -> failwith "style_of_custom_style: expected Lang_C"
+  | _ -> { typing = style.typing; cstyle = Ast_to_c.default_style () }
 
 let default_style () : style =
   style_of_output_style (Style.default_style ())
