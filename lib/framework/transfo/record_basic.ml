@@ -3,6 +3,8 @@ open Target
 include Record_core
 include Record_core.Rename
 
+type fracs_map = resource_item Tools.String_map.t option Var_map.t ref
+
 let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
   (span : Dir.span) (t_seq : trm) : trm =
   let instrs = trm_inv ~error:"expected seq" trm_seq_inv t_seq in
@@ -97,7 +99,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       let model loc = wrap_cell (formula_model loc trm_cell) in
       match mode with
       | RO ->
-        (* TODO: think more about fractions
+        (* TODO: think more about fractions, use same fracs_map as for ROs in contracts?
         let per_field_admits = List.map (fun (sf, ty) ->
           let frac_var, frac_ghost = new_frac () in
           let folded_res =
@@ -152,8 +154,8 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       process_matching_resource_item (fun wrap mode c -> process_one_cell ~fold wrap (mode, c)) (fun () -> [])
     in
     let (unfolds, folds) = if !Flags.check_validity then begin
-      let first = Option.unsome ~error:"expected first instruction" (Mlist.nth_opt instrs 0) in
-      let last = Option.unsome ~error:"expected last instruction" (Mlist.lst instrs) in
+      let first = Option.unsome ~error:"expected first instruction" (Mlist.nth_opt span_instrs 0) in
+      let last = Option.unsome ~error:"expected last instruction" (Mlist.lst span_instrs) in
       let res_start = Resources.before_trm first in
       let res_stop = Resources.after_trm last in
       let unfolds = List.concat_map (process_one_item ~fold:false) res_start.linear in
@@ -163,75 +165,139 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       ([], [])
     end in
     let update_term t =
-      (* TODO: factorize logic with to_variables / set_explicit ? *)
-      let aux_resource_items items =
+      let open Tools in
+      (* fracs_map : maps bound fractions to splitted bound fractions. *)
+      let fracs_map_init pure_res : fracs_map =
+        ref (List.fold_left (fun acc (h, pure_f) ->
+          Pattern.pattern_match pure_f [
+            Pattern.(trm_var (var_eq var_frac)) (fun () ->
+              Var_map.add h None acc
+            );
+            Pattern.__ (fun () -> acc)
+          ]
+        ) Var_map.empty pure_res)
+      in
+      let fracs_map_update_fracs (fracs_map : fracs_map) pure_res =
+        List.concat_map (fun (h, pure_f) ->
+          match Var_map.find_opt h !fracs_map with
+          | None | Some None -> [(h, pure_f)]
+          | Some (Some hs) -> List.map snd (String_map.bindings hs)
+        ) pure_res
+      in
+      let fracs_map_split_frac_var (fracs_map : fracs_map) sf field_list frac_var =
+        match Var_map.find_opt frac_var !fracs_map with
+        | None -> frac_var
+        | Some (Some hs) -> fst (String_map.find sf hs)
+        | Some None ->
+          let hs = List.fold_left (fun acc (sf, _) ->
+            String_map.add sf (snd (new_frac ())) acc
+          ) String_map.empty field_list in
+          fracs_map := Var_map.add frac_var (Some hs) !fracs_map;
+          fst (String_map.find sf hs)
+      in
+      let fracs_map_split_frac (fracs_map : fracs_map) sf field_list frac =
+        let rec aux frac =
+          Pattern.pattern_match frac [
+            Pattern.(trm_var !__) (fun frac_var () ->
+              trm_var ?typ:frac.typ (fracs_map_split_frac_var fracs_map sf field_list frac_var)
+            );
+            Pattern.__ (fun () -> trm_map aux frac)
+          ]
+        in aux frac
+      in
+      let aux_resource_items (fracs_map : fracs_map) items =
         List.concat (List.concat_map (fun (h, formula) ->
           process_matching_resource_item (fun wrap _mode loc ->
             (* DEBUG Printf.printf "formula:%s\n" (Ast_to_c.ast_to_string ~style formula); *)
             List.map (fun (sf, ty) ->
-              let new_formula = formula_map_under_mode (fun _ ->
+              let new_formula = match formula_read_only_inv formula with
+              | Some { frac; formula } ->
+                let new_frac = fracs_map_split_frac fracs_map sf field_list frac in
+                formula_read_only ~frac:new_frac (wrap (formula_model (trm_struct_access ~typ:(typ_ptr ty) loc sf) trm_cell))
+              | None -> formula_map_under_mode (fun _ ->
                 wrap (formula_model (trm_struct_access ~typ:(typ_ptr ty) loc sf) trm_cell)
-              ) formula in
+              ) formula
+              in
               (new_anon_hyp (), new_formula)
             ) field_list
           ) (fun () -> [[(h, formula)]]) (h, formula)
         ) items)
       in
-      let aux_resource_set res =
+      let aux_resource_set fracs_map res =
         { res with
-          pure = aux_resource_items res.pure;
-          linear = aux_resource_items res.linear }
+          pure = aux_resource_items fracs_map res.pure;
+          linear = aux_resource_items fracs_map res.linear }
       in
-      let aux_fun_contract contract =
-        { pre = aux_resource_set contract.pre;
-          post = aux_resource_set contract.post }
+      let aux_fun_contract fracs_map contract =
+        { pre = aux_resource_set fracs_map contract.pre;
+          post = aux_resource_set fracs_map contract.post }
+      in
+      let unfold_alloc t =
+        let res = Resources.after_trm t in
+        let usage = Resources.usage_of_trm t in
+        let produced = List.filter (Resource_set.(linear_usage_filter usage keep_produced)) res.linear in
+        let unfolds = List.concat_map (process_one_item ~fold:false) produced in
+        trm_seq_nobrace_nomarks ([t] @ unfolds)
+      in
+      let fold_free t =
+        let res = Resources.before_trm t in
+        let usage = Resources.usage_of_trm t in
+        let consumed = List.filter (Resource_set.(linear_usage_filter usage keep_used)) res.linear in
+        let folds = List.concat_map (process_one_item ~fold:true) consumed in
+        trm_seq_nobrace_nomarks (folds @ [t])
       in
       let rec aux (t : trm) : trm =
         Pattern.pattern_match t [
+          Pattern.(trm_let !__ !__ !(trm_ref !__ __)) (fun v typ ref init () ->
+            Pattern.when_ (ptr_typ_matches typ);
+            unfold_alloc t
+          );
           Pattern.__ (fun () ->
             match Matrix_core.let_alloc_inv_with_ty t with
             | Some (v, dims, typ, size) ->
               Pattern.when_ (typ_matches typ);
-              let res = Resources.after_trm t in
-              let usage = Resources.usage_of_trm t in
-              let produced = List.filter (Resource_set.(linear_usage_filter usage keep_produced)) res.linear in
-              let unfolds = List.concat_map (process_one_item ~fold:false) produced in
-              trm_seq_nobrace_nomarks ([t] @ unfolds)
+              unfold_alloc t
             | None -> raise Pattern.Next
           );
           Pattern.__ (fun () ->
             match Matrix_trm.free_inv t with
             | Some to_free ->
               Pattern.when_ (trm_ptr_typ_matches to_free);
-              let res = Resources.before_trm t in
-              let usage = Resources.usage_of_trm t in
-              let consumed = List.filter (Resource_set.(linear_usage_filter usage keep_full)) res.linear in
-              let folds = List.concat_map (process_one_item ~fold:true) consumed in
-              trm_seq_nobrace_nomarks (folds @ [t])
+              fold_free t
             | None -> raise Pattern.Next
           );
-          Pattern.(trm_set !__ (trm_get !__)) (fun base value () ->
+          Pattern.(trm_set !__ (trm_get !__)) (fun base get_base () ->
+            (* NOTE: base and get_base are pure as they appear in contracts. *)
             Pattern.when_ (trm_ptr_typ_matches base);
             let set_one (sf, ty) =
               trm_set (trm_struct_access ~typ:(typ_ptr ty) base sf)
-                (trm_get (trm_struct_access ~typ:(typ_ptr ty) value sf))
+                (trm_get (trm_struct_access ~typ:(typ_ptr ty) get_base sf))
             in
             trm_seq_nobrace_nomarks (List.map set_one field_list)
           );
           Pattern.(trm_struct_get !__ (trm_get !__)) (fun field base () ->
+            Pattern.when_ (trm_ptr_typ_matches base);
             trm_get (trm_struct_access base field)
           );
           (* TODO: also do other contracts *)
           Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
+            let fracs_map = fracs_map_init spec.loop_ghosts in
             let contract = { spec with
-              invariant = aux_resource_set spec.invariant;
-              parallel_reads = aux_resource_items spec.parallel_reads;
-              iter_contract = aux_fun_contract spec.iter_contract;
+              invariant = aux_resource_set fracs_map spec.invariant;
+              parallel_reads = aux_resource_items fracs_map spec.parallel_reads;
+              iter_contract = aux_fun_contract fracs_map spec.iter_contract;
+            } in
+            let contract = { contract with
+              loop_ghosts = fracs_map_update_fracs fracs_map spec.loop_ghosts;
             } in
             trm_map aux (trm_for ~annot:t.annot ~contract range body)
           );
           Pattern.(trm_fun_with_contract !__ !__ !__) (fun args body contract () ->
-            let contract = aux_fun_contract contract in
+            let fracs_map = fracs_map_init contract.pre.pure in
+            let contract = aux_fun_contract fracs_map contract in
+            let contract = { contract with pre = { contract.pre with pure =
+              fracs_map_update_fracs fracs_map contract.pre.pure
+            }} in
             trm_map aux (trm_fun ~annot:t.annot ~contract:(FunSpecContract contract) args None body)
           );
           Pattern.__ (fun () -> trm_map aux t)
@@ -264,6 +330,9 @@ let%transfo split_fields ~(typ : typvar) (tg : target) : unit =
     | _ -> failwith "could not get the declaration of typedef for %s" (var_to_string typ)
   in
   let field_list = Internal.get_field_list struct_def in
+
+  if !Flags.check_validity then
+    Trace.justif "correct if the produced code typechecks";
 
   Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in

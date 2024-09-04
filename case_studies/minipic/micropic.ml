@@ -23,7 +23,7 @@ let _ = Run.script_cpp (fun () ->
   bigstep "inline helper functions and reveal record fields";
   !! Function.inline ~recurse:true [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
   !! Record.split_fields ~typ:(typv "particle") [ctx; tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
-  !! ignore (raise Pattern.Failed);
+  !! Record.split_fields ~typ:(typv "vect") [ctx; tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
   (* !! Record.set_explicit [ctx; multi cArrayWrite ["particles"; "lParticles"]];
   !! Record.set_explicit [nbMulti; ctx; cWrite ~lhs:[Constr_depth (DepthAt 0); cAccesses ~base:[cOr (List.map (fun x -> [cVar x]) ["particles"; "lParticles"])] ~inner_accesses:false ~accesses:[cIndex (); cField ~regexp:true ~field:"\\(pos\\)\\|\\(speed\\)" ()] ()] ()];
   !! Record.set_explicit [ctx; multi cArrayWrite ["fieldAtCorners"; "lFieldAtCorners"]];
