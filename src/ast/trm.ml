@@ -987,24 +987,24 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
 let rec trm_fold (f : 'a -> trm -> 'a) (acc : 'a) (t : trm) : 'a =
   match t.desc with
   | Trm_array tl ->
-     Mlist.fold_left f (f acc t) tl
+     Mlist.fold_left (trm_fold f) (f acc t) tl
   | Trm_record tl ->
      let tl = Mlist.to_list tl in
      let (_, tl) = List.split tl in
      let tl = Mlist.of_list tl in
-     Mlist.fold_left f (f acc t) tl
+     Mlist.fold_left (trm_fold f) (f acc t) tl
   | Trm_let (vk, tv, init, _) ->
      trm_fold f (f acc t) init
   | Trm_let_mult (vk, tvl, tl) ->
-     List.fold_left f (f acc t) tl
+     List.fold_left (trm_fold f) (f acc t) tl
   | Trm_let_fun (f', res, args, body, _) ->
      trm_fold f (f acc t) body
   | Trm_if (cond, then_, else_) ->
      trm_fold f (trm_fold f (trm_fold f (f acc t) cond) then_) else_
   | Trm_seq tl ->
-     Mlist.fold_left f (f acc t) tl
+     Mlist.fold_left (trm_fold f) (f acc t) tl
   | Trm_apps (func, args) ->
-     List.fold_left f (f acc t) (func :: args)
+     List.fold_left (trm_fold f) (f acc t) (func :: args)
   | Trm_while (cond, body) ->
      trm_fold f (trm_fold f (f acc t) cond) body
   | Trm_for_c (init, cond, step, body, _) ->
@@ -1019,13 +1019,13 @@ let rec trm_fold (f : 'a -> trm -> 'a) (acc : 'a) (t : trm) : 'a =
        | Step sp -> tl @ [sp]
      in
      let tl = tl @ [body] in
-     List.fold_left f (f acc t) tl
+     List.fold_left (trm_fold f) (f acc t) tl
   | Trm_do_while (body, cond) ->
      trm_fold f (trm_fold f (f acc t) body) cond
   | Trm_switch (cond, cases) ->
      let (_, tl) = List.split cases in
      let tl = cond :: tl in
-     List.fold_left f (f acc t) tl
+     List.fold_left (trm_fold f) (f acc t) tl
   | Trm_abort a ->
      begin match a with
      | Ret (Some t') -> trm_fold f (f acc t) t'
@@ -1043,7 +1043,7 @@ let rec trm_fold (f : 'a -> trm -> 'a) (acc : 'a) (t : trm) : 'a =
                      | Record_field_method t1 -> t1 :: acc
                      | _ -> acc
                    ) rfl [] in
-        List.fold_left f (f acc t) tl
+        List.fold_left (trm_fold f) (f acc t) tl
      | _ -> f acc t
      end
   | Trm_fun (_, _, body, _) ->
