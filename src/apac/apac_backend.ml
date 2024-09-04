@@ -241,21 +241,20 @@ let emit_profiler_task (scope : Apac_records.FunctionRecord.s)
     let last = get_end last.loc in
     let profsection = next_profsection () in
     let range = if first <> "_" && last <> "_" then
-                  first ^ "-" ^ last
+                  first ^ "_" ^ last
                 else profsection in
     let section = "ApacProfilerSection " ^ profsection ^ "(\"" ^
-                   range ^ "\", " ^ (string_of_int reads) ^ ", " ^
-                        (string_of_int writes) ^ ")" in
+                   range ^ "\", " ^ (string_of_int (reads + writes)) ^ ")" in
     let section = code (Instr section) in
-    let encode = fun d ->
+    let encode = fun m d ->
       let d = Dep.to_string d in
-      let s = profsection ^ ".addParam(\"" ^ d ^ "\", " ^ d ^ ")" in
+      let s = profsection ^ ".addParam(\'" ^ m ^ "\', " ^ d ^ ")" in
       code (Instr s)
     in
     let ins = Dep_set.to_list ins in
-    let ins = List.map encode ins in
+    let ins = List.map (encode "R") ins in
     let inouts = Dep_set.to_list inouts in
-    let inouts = List.map encode inouts in
+    let inouts = List.map (encode "R") inouts in (** W mode is not recognized in the modelizer. *)
     let before = code (Instr (profsection ^ ".beforeCall()")) in
     let after = code (Instr (profsection ^ ".afterCall()")) in
     Stack.push section sections;

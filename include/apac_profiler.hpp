@@ -10,6 +10,8 @@
 #include <type_traits>
 #include <vector>
 
+bool isFirstEvent = true;
+
 /// This namespace include the utils function to perform meta programming
 namespace ApacMetaUtils{
 
@@ -107,91 +109,79 @@ public:
     }
 };
 
-// Wrapper to save an event in a csv
 class ApacProfilerSection {
-    const std::string taskName;
-    const int nbReads;
-    const int nbWrites;
-    
-    std::string csvFilename;
-    
-    std::string header;
-    std::string currentLine;
-    ApacProfileTimer perftimer;
-
+  std::string currentLine;
+  ApacProfileTimer profileTimer;
+  const std::string profileFile;
+  
 public:
-    ApacProfilerSection(const std::string inTaskName, const int inNbReads, const int inNbWrites)
-            : taskName(std::move(inTaskName)), nbReads(inNbReads), nbWrites(inNbWrites){
-        std::stringstream outFileName;
-        // This will be our taskName
-        outFileName << taskName
-                    << "." << (nbReads+nbWrites)
-                    << ".R" << nbReads
-                    << ".W" << nbWrites
-                    << ".apac_prof.csv";
-                    
-        csvFilename = outFileName.str(); 
+  ApacProfilerSection(const std::string inTaskName,
+                      const int inNbParams) : profileFile("apac_profile") {
+    currentLine.append("{ ");
+    currentLine.append(inTaskName);
+    currentLine.append(", ");
+    currentLine.append(std::to_string(inNbParams));
+    currentLine.append(", ");
+  }
+  
+  // This method should be called for each param that the task will depend on
+  template <class T>
+  void addParam(const char inMode, const T & inParam) {
+    currentLine.append(1, inMode);
+    currentLine.append("=");
+    
+    using RawType = typename std::decay<T>::type;
+    if constexpr(ApacMetaUtils::is_stdvector<RawType>::value){
+      currentLine.append(std::to_string(inParam.size()));
+    }
+    else if constexpr (ApacMetaUtils::has_size_methode<RawType>::value){
+      currentLine.append(std::to_string(inParam.size()));
+    }
+    else if constexpr (ApacMetaUtils::has_getsize_methode<RawType>::value){
+      currentLine.append(std::to_string(inParam.getSize()));
+    }
+    else if constexpr (ApacMetaUtils::has_nbelements_methode<RawType>::value){
+      currentLine.append(std::to_string(inParam.nbElements()));
+    }
+    else if constexpr (std::is_arithmetic<RawType>::value){
+      currentLine.append(std::to_string(inParam));
+    }
+    else{
+      currentLine.append(std::to_string(sizeof(RawType)));
     }
     
-    // This method should be called for each param that the task will depend on
-    template <class T>
-    void addParam(const char* inParamName, const T& inParam){
-        header.append(inParamName);
-        header.append(",");
+    currentLine.append(", ");
+  }
+  
+  // This should be called right before calling the target function
+  void beforeCall(){
+    profileTimer.start();
+  }
+  
+  // This should be called right after the target function
+  void afterCall(){
+    profileTimer.stop();
 
-        using RawType = typename std::decay<T>::type;
-        if constexpr(ApacMetaUtils::is_stdvector<RawType>::value){
-            currentLine.append(std::to_string(inParam.size()));
-        }
-        else if constexpr (ApacMetaUtils::has_size_methode<RawType>::value){
-            currentLine.append(std::to_string(inParam.size()));
-        }
-        else if constexpr (ApacMetaUtils::has_getsize_methode<RawType>::value){
-            currentLine.append(std::to_string(inParam.getSize()));
-        }
-        else if constexpr (ApacMetaUtils::has_nbelements_methode<RawType>::value){
-            currentLine.append(std::to_string(inParam.nbElements()));
-        }
-        else if constexpr (std::is_arithmetic<RawType>::value){
-            currentLine.append(std::to_string(inParam));
-        }
-        else{
-            currentLine.append(std::to_string(sizeof(RawType)));
-        }
-        currentLine.append(",");
+    if (isFirstEvent) {
+      if (std::filesystem::exists(profileFile)) {
+        std::remove(profileFile.c_str());
+      }
+
+      std::ofstream profileStream(profileFile, std::ios_base::app);
+      profileStream.close();
+      isFirstEvent = false;
     }
-
-    // This should be called right before calling the target function
-    void beforeCall(){
-        perftimer.start();
+    
+    std::ofstream profileStream(profileFile, std::ios_base::app);
+    if(!profileStream.is_open()){
+      throw std::runtime_error("Error opening profile file!");
     }
-
-    // This should be called right after the target function
-    void afterCall(){
-        perftimer.stop();
-
-        // Does the file exist (to decide if header should be put)
-        const bool putHeader = (!std::filesystem::exists(csvFilename));
-        std::ofstream csvFileWriter(csvFilename, std::ios_base::app);
-
-        // Stop if cannot open file
-        if(!csvFileWriter.is_open()){
-            throw  std::runtime_error("Error in opening file " + csvFilename);
-        }
-
-        // Add the header line if the csv does not exist yet
-        if(putHeader){
-            header.append("duration\n");
-            csvFileWriter << header;
-        }
-
-        // Add the event
-        currentLine.append(std::to_string(perftimer.getElapsed()));
-        currentLine.append("\n");
-        csvFileWriter << currentLine;
-
-        currentLine.clear();
-    }
+    
+    currentLine.append(std::to_string(profileTimer.getElapsed()));
+    currentLine.append(" }\n");
+    profileStream << currentLine;
+    currentLine.clear();
+  }
 };
 
 #endif // __APAC_PROFILER_HPP
