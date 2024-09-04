@@ -9,30 +9,29 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cFunDefAndDecl ""
               ];
-            let candidates = ref Var_set.empty in
-            Apac_taskify.select_candidates candidates [
+            !! Apac_prologue.select_candidates [
                 nbAny;
                 cFunDefAndDecl ""
               ];
-            Apac_taskify.select_callers candidates [
+            !! Apac_prologue.unify_returns [
                 nbAny;
-                cFunDefAndDecl ""
+                cMark Apac_macros.candidate_mark
               ];
-            !! Apac_taskify.parallel_task_group
-              ~mark_group:true ~placeholder:true ~candidates:(Some candidates) [
+            !! Apac_taskify.taskify [
                 nbAny;
-                cFunDefAndDecl ""
+                cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_taskify.taskify [nbAny; cMark Apac_macros.task_group_mark];
-            !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
+            !! Apac_taskify.merge [
+                nbAny;
+                cMark Apac_macros.candidate_body_mark
+              ];
             !! Apac_taskify.detect_tasks_simple [
                 nbAny;
-                cMark Apac_macros.task_group_mark
+                cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_taskify.profile_tasks
-              [nbAny; cMark Apac_macros.task_group_mark];
-            !! Marks.remove Apac_macros.task_group_mark [
+            !! Apac_taskify.profile_tasks [
                 nbAny;
-                cMark Apac_macros.task_group_mark
+                cMark Apac_macros.candidate_body_mark
               ];
+            !! Apac_epilogue.clear_marks ()
           )
