@@ -40,7 +40,7 @@ let _ = Run.script_cpp (fun () ->
             !! Apac_epilogue.place_barriers [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
-              ]; 
+              ];
             !! Apac_taskify.insert_tasks [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
