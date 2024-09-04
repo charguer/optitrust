@@ -25,10 +25,10 @@ let intro_on (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [arg], _) ->
       begin match trm_prim_inv f with
-      | Some (Prim_unop (Unop_struct_get x)) ->
+      | Some (struct_typ, Prim_unop (Unop_struct_get x)) ->
         begin match arg.desc with
         | Trm_apps (_, [arg1], _) when is_get_operation arg ->
-          trm_get ~annot:arg.annot (trm_apps (trm_unop (Unop_struct_access x)) [arg1])
+          trm_get ~annot:arg.annot (trm_apps (trm_unop struct_typ (Unop_struct_access x)) [arg1])
         | _ -> t
         end
       | _ -> trm_map aux t

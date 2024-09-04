@@ -16,7 +16,7 @@ let precedence_prim (p : prim) : precedence =
   | Prim_unop unop ->
     begin match unop with
     | Unop_struct_get _ | Unop_struct_access _
-    | Unop_post_inc | Unop_post_dec -> (16, LtoR)
+    | Unop_post_incr | Unop_post_decr -> (16, LtoR)
     | Unop_cast _ -> (14, RtoL)
     | _ -> (15, RtoL)
     end
@@ -36,7 +36,7 @@ let precedence_prim (p : prim) : precedence =
     | _ -> precedence_none
     end
   | Prim_conditional_op -> (3, RtoL)
-  | Prim_compound_assgn_op binop ->
+  | Prim_compound_assign_op binop ->
     begin match binop with
     | Binop_set | Binop_add | Binop_sub | Binop_mul | Binop_div
      | Binop_mod | Binop_and | Binop_or | Binop_xor | Binop_shiftl
@@ -51,10 +51,10 @@ let precedence_trm (t : trm) : precedence =
   match t.desc with
   | Trm_apps (f, _, _) ->
      begin match trm_prim_inv f with
-     | Some p -> precedence_prim p
+     | Some (_, p) -> precedence_prim p
      | _ -> (16, LtoR)
      end
-  | Trm_prim p -> precedence_prim p
+  | Trm_prim (_, p) -> precedence_prim p
   | Trm_lit _  -> (30, NA)
   | Trm_var _ -> (20, NA)
   | Trm_arbitrary _ -> (100, NA)

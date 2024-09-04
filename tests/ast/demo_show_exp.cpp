@@ -30,12 +30,13 @@ for-trm-internal-desc: Trm_for (i,
   Trm_lit (Lit_int 3),
   Trm_lit (Lit_int 1),
   Trm_seq [
-    Trm_apps (Trm_prim (Prim_unop Unop_post_inc), [ Trm_var(x) ])
+    Trm_apps (Trm_prim (Trm_var(__typ::int), Prim_unop Unop_post_incr),
+      [ Trm_var(x) ])
   ])
 desc: Trm_for
 typ: target resolves to 3 paths
-[occ #1] int
-[occ #2] int
+[occ #1] int*
+[occ #2] int*
 [occ #3] <no_typ>
 marks: [mymark2; mymark1]
 cstyle-item: annot: { trm_annot_file = Main_file; }

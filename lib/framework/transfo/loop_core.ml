@@ -17,8 +17,8 @@ let color_on (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let nb_colors = nb_colors in
     trm_pass_labels t (trm_for { index = i_color; start; direction; stop = nb_colors; step = trm_step_one () } (
       trm_seq_nomarks [
-        trm_for { index; start = (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; step]); direction; stop;
-          step = (if is_step_one then nb_colors else (trm_apps (trm_binop Binop_mul) [nb_colors; step])) } body
+        trm_for { index; start = (if is_step_one then trm_var i_color else trm_mul ~typ:typ_isize (trm_var i_color) step); direction; stop;
+          step = (if is_step_one then nb_colors else (trm_mul ~typ:typ_isize nb_colors step)) } body
       ]
   ))
 
@@ -151,8 +151,8 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
             then (trm_add (trm_var tile_index) tile_size)
             else (trm_add (trm_var tile_index) (trm_mul tile_size step) ))) (trm_ineq direction (trm_var_get index) stop)
           in
-        let step =  if trm_is_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
-          else trm_prim_compound Binop_add (trm_var index) step in
+        let step =  if trm_is_one step then trm_post_incr (trm_var index)
+          else trm_compound_assign Binop_add (trm_var index) step in
         let new_body = trm_subst_var index (trm_var_get index) body in
         trm_for_c init cond step new_body
       | TileDivides -> assert false
@@ -201,8 +201,8 @@ let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm
     | Trm_seq tl ->
         let old_loop_index_val = List.fold_lefti (fun i acc (ind, bnd) ->
             if i = 0 then let acc = trm_var ind in acc
-            else trm_apps (trm_binop Binop_add) [trm_apps (trm_binop Binop_mul) [
-                acc; bnd]; trm_var ind])  (trm_unit ()) indices_and_bounds in
+            else trm_add (trm_mul acc bnd) (trm_var ind)
+          ) (trm_unit ()) indices_and_bounds in
         let old_loop_index_decl = trm_let (range.index, typ_int) old_loop_index_val in
         let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
         trm_seq new_tl
@@ -363,10 +363,7 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
     | DirDownEq -> (trm_div (aux start stop) step)
   in
   (* TODO: this should be an immutable binding *)
-  let new_decl = trm_let_mut (index, typ_int ) (trm_apps (trm_binop Binop_add)[
-          start;
-          trm_apps (trm_binop Binop_mul) [trm_var new_index; step]
-        ]) in
+  let new_decl = trm_let_mut (index, typ_int) (trm_add start (trm_mul (trm_var new_index) step)) in
   trm_for { index = new_index; start = trm_int 0; direction; stop = new_stop; step = trm_step_one () }
     (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
 

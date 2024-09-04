@@ -72,7 +72,7 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
         trm_add_mark mark_loop (trm_for loop_range ~contract (trm_seq_nomarks [
           derive_in_range;
           focus_reduce_item input (trm_var index) j n m (
-            (* trm_prim_compound Binop_add (trm_var acc) value *)
+            (* trm_compound_assign Binop_add (trm_var acc) value *)
             trm_set (trm_var acc) (trm_add (trm_var_get acc) value))
         ]))
       ];
@@ -278,7 +278,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
       Trm (trm_for new_range ~contract:new_contract (trm_seq_helper [
         TrmList subrange_assumptions;
         TrmMlist before_instrs;
-        (* trm_prim_compound Binop_add (trm_var acc) value *)
+        (* trm_compound_assign Binop_add (trm_var acc) value *)
         Trm (trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
         Trm (trm_set out (trm_var_get acc));
         TrmMlist after_instrs;
@@ -294,7 +294,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
       TrmMlist (Mlist.map (fun t -> trm_copy (subst_start_index t)) after_instrs);
       Trm (trm_for new_range (trm_seq_helper [
         TrmMlist before_instrs;
-        (* trm_prim_compound Binop_add (trm_var acc) value *)
+        (* trm_compound_assign Binop_add (trm_var acc) value *)
         Trm (trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
         Trm (trm_set out (trm_var_get acc));
         TrmMlist after_instrs;

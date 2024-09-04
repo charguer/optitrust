@@ -19,7 +19,6 @@ let typvar_to_typedef (var : typvar) : typedef option =
 (* Is this function useful ? *)
 let rec record_typ_to_typvar (ty : typ) : typvar option =
   Pattern.pattern_match ty [
-    Pattern.(typ_const !__) (fun ty () -> record_typ_to_typvar ty);
     Pattern.(typ_ptr !__) (fun ty () -> record_typ_to_typvar ty);
     Pattern.(typ_var !__) (fun var () ->
       match typvar_to_typedef var with
@@ -148,7 +147,6 @@ let get_field_list (t : trm) (td : typedef) : (field * typ) list =
 let rec get_typvar_from_typ (ty : typ) : typvar option =
   Pattern.pattern_match ty [
     Pattern.(typ_var !__) (fun var () -> Some var);
-    Pattern.(typ_const !__) (fun ty () -> get_typvar_from_typ ty);
     Pattern.(typ_ptr !__) (fun ty () -> get_typvar_from_typ ty);
     Pattern.(typ_array !__ __) (fun ty () -> get_typvar_from_typ ty);
     Pattern.(typ_fun __ !__) (fun ty () -> get_typvar_from_typ ty); (* FIXME: This case is weird *)

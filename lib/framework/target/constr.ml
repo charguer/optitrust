@@ -684,24 +684,25 @@ type trm_access =
 (** [get_nested_accesses t]: for a given trm [t], if it's an access trm return the list of accesses,
     the list starts with the base, and ends with the last access *)
 let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
-  match t.desc with
-  | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_access f)); _},
-              [t'], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Struct_access_addr f :: al)
-  | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_get f)); _},
-              [t'], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Struct_access_get f :: al)
-  | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_access); _},
-              [t'; i], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Array_access_addr i :: al)
-  | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_get); _},
-              [t'; i], _) ->
-     let (base, al) = get_nested_accesses t' in
-     (base, Array_access_get i :: al)
-  | _ -> (t, [])
+  Pattern.pattern_match t [
+    Pattern.(trm_struct_access !__ !__) (fun t' f () ->
+      let (base, al) = get_nested_accesses t' in
+      (base, Struct_access_addr f :: al)
+    );
+    Pattern.(trm_struct_get !__ !__) (fun t' f () ->
+      let (base, al) = get_nested_accesses t' in
+      (base, Struct_access_get f :: al)
+    );
+    Pattern.(trm_array_access !__ !__) (fun t' i () ->
+      let (base, al) = get_nested_accesses t' in
+      (base, Array_access_addr i :: al)
+    );
+    Pattern.(trm_array_get !__ !__) (fun t' i () ->
+      let (base, al) = get_nested_accesses t' in
+      (base, Array_access_get i :: al)
+    );
+    Pattern.__ (fun () -> (t, []))
+  ]
 
 
 (** [extract_last_path_item p]: extracts the last direction from a nonempty path *)
@@ -861,8 +862,8 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
         if not accept_encoded then
           begin match f.desc with
-          | Trm_prim (Prim_ref _)
-          | Trm_prim (Prim_unop Unop_get) -> false
+          | Trm_prim (_, Prim_ref)
+          | Trm_prim (_, Prim_unop Unop_get) -> false
           |  _ -> check_target p_fun f &&
                   check_list ~incontracts ~depth:(DepthAny) cl_args args
           end
@@ -891,15 +892,15 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
      | Constr_bool b, _ -> b
      | Constr_root, _ -> trm_is_mainfile t
 
-     | Constr_prim pred, Trm_prim p1 ->
+     | Constr_prim pred, Trm_prim (_, p1) ->
         pred p1
      | Constr_mark (pred, _m), _ ->
         if !old_resolution then begin
           let t_marks = trm_get_marks t in
           begin match t.desc with
-          | Trm_seq tl | Trm_array tl ->
+          | Trm_seq tl | Trm_array (_, tl) ->
             (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
-          | Trm_record tl -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
+          | Trm_record (_, tl) -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
           | _ -> List.exists pred t_marks
           end
         end else begin
@@ -907,7 +908,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
-     | Constr_var_init , Trm_apps ({desc = Trm_prim (Prim_ref _); _}, [arg], _) -> false
+     | Constr_var_init , Trm_apps ({desc = Trm_prim (_, Prim_ref); _}, [arg], _) -> false
      | Constr_var_init, Trm_lit (Lit_uninitialized _) -> false
      | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
@@ -1491,11 +1492,11 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
         (explore_list args (fun n -> Dir_arg_nth n) (aux)) @
         (* ghost args *)
         (explore_list ghost_args (fun n -> Dir_ghost_arg_nth n) (fun (g, t) -> aux t))
-     | Trm_array tl ->
+     | Trm_array (_, tl) ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
      | Trm_seq tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
-     | Trm_record tl ->
+     | Trm_record (_, tl) ->
         explore_list (List.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
@@ -1539,13 +1540,13 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
       loc_fail loc "follow_dir: Dir_before should not remain at this stage"
   | Dir_span _, _ ->
       loc_fail loc "follow_dir: Dir_span should not remain at this stage"
-  | Dir_array_nth n, Trm_array tl ->
+  | Dir_array_nth n, Trm_array (_, tl) ->
     app_to_nth_dflt (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_array_nth n) (aux nth_t))
   | Dir_seq_nth n, Trm_seq tl ->
     app_to_nth_dflt (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
-  | Dir_struct_nth n, Trm_record tl ->
+  | Dir_struct_nth n, Trm_record (_, tl) ->
      app_to_nth_dflt (List.split_pairs_snd (Mlist.to_list tl)) n
        (fun nth_t -> add_dir (Dir_struct_nth n) (aux nth_t))
   | Dir_cond, Trm_if (cond, _, _)

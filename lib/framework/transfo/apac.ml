@@ -478,7 +478,7 @@ let is_unary_mutation (t : trm) : bool =
   match t.desc with
   | Trm_apps ({ desc = Trm_prim (Prim_unop uo); _}, _) ->
     begin match uo with
-    | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> true
+    | Unop_post_decr | Unop_post_incr | Unop_pre_decr | Unop_pre_incr -> true
     | _ -> false
     end
   | _ -> false
@@ -496,7 +496,7 @@ let get_unary_mutation_qvar (t : trm) : var =
   match t.desc with
   | Trm_apps ({ desc = Trm_prim (Prim_unop uo); _}, [tr]) ->
     begin match uo with
-    | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> aux tr
+    | Unop_post_decr | Unop_post_incr | Unop_pre_decr | Unop_pre_incr -> aux tr
     | _ -> new_var "hello"
     end
   | _ -> new_var "hello"

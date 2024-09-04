@@ -246,9 +246,9 @@ and trms = trm list
 and trm_desc =
   | Trm_var of var
   | Trm_lit of lit   (* literal values *)
-  | Trm_prim of prim (* primitive values *) (* TODO: Remove and replace with overloaded builtin functions *)
-  | Trm_array of trm mlist (* { 0, 3, 5 } as an array *)
-  | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
+  | Trm_prim of typ * prim (* overloaded primitive operators on the specified type *) (* TODO: Remove and replace with overloaded builtin functions *)
+  | Trm_array of typ * trm mlist (* { 0, 3, 5 } as an array *)
+  | Trm_record of typ * (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of typed_var * trm (* int x = 3 *)
   | Trm_let_mult of (typed_var * trm) list (* TODO: replace with non-scoping seq *)
   | Trm_let_fun of var * typ * typed_vars * trm * fun_spec (* TODO: Remove and replace with Trm_let (Trm_fun _) *)
@@ -348,7 +348,7 @@ and cstyle_annot =
 
   (* distinguish [p->f] vs [( *p ).f], represented as [get(access(p,f)],
      with an annotation carried by the [get] operation *)
-  | Display_no_arrow
+  | No_struct_get_arrow
 
   (* [ for (int i = 0; ; i++) ]  vs [for (int i = 0; true; i++)],
      the latter form is used in the encoding. *)
@@ -485,21 +485,20 @@ and unary_op =
   | Unop_neg                     (* !true *)
   | Unop_minus                   (* -a *)
   | Unop_plus                    (* +a *)
-  | Unop_post_inc                (* x++ *)
-  | Unop_post_dec                (* x-- *)
-  | Unop_pre_inc                 (* ++x *)
-  | Unop_pre_dec                 (* --x *)
-  | Unop_struct_access of field  (* struct access encoding*)
-  | Unop_struct_get of field     (* struct access *)
+  | Unop_post_incr               (* x++ *)
+  | Unop_post_decr               (* x-- *)
+  | Unop_pre_incr                (* ++x *)
+  | Unop_pre_decr                (* --x *)
+  | Unop_struct_access of field  (* &(s->field) *)
+  | Unop_struct_get of field     (* s.field *)
   | Unop_cast of typ             (* (int)x *)
 
-(* LATER: numeric operation takes a type argument *)
 (** [binary_op]: binary operators *)
 and binary_op =
   | Binop_set           (* lvalue = rvalue *)
-  | Binop_array_access  (* array acces encoding *)
-  | Binop_array_get     (* array access *)
-  | Binop_eq            (* a = b *)
+  | Binop_array_access  (* &(a[i]) *)
+  | Binop_array_get     (* a[i] *)
+  | Binop_eq            (* a == b *)
   | Binop_neq           (* a != b *)
   | Binop_sub           (* a - b *)
   | Binop_add           (* a + b *)
@@ -518,10 +517,6 @@ and binary_op =
   | Binop_shiftl        (* a >> k*)
   | Binop_shiftr        (* a << k *)
   | Binop_xor           (* a ^ b *)
-  (* LATER: add types to operations wherever relevant *)
-  (* TODO: not coherent to use a grammar of binary_op for certain ops, and use conventional functions for others, eg. fmod *)
-  (* | Binop_fmod          (* floatting point modulo, LATER: merge with mod when annotated with type *) *)
-
 
 (** [consistency_mode]: C++ memory model consistency *)
 and consistency_mode =
@@ -533,11 +528,10 @@ and consistency_mode =
 and prim =
   | Prim_unop of unary_op (* e.g. "!b" *)
   | Prim_binop of binary_op (* e.g. "n + m" *)
-  | Prim_compound_assgn_op of binary_op (* e.g. "a += b" *)
-  | Prim_overloaded_op of prim (* used for overloaded operators *)
-  | Prim_ref of typ (* "ref T", used to wrap mutable variables *)
-  | Prim_ref_array of typ * trm list (* "ref[m,n] T", used to wrap mutable arrays *)
-  | Prim_new of typ (* C++ "new T" *)
+  | Prim_compound_assign_op of binary_op (* e.g. "a += b" *)
+  | Prim_ref (* "ref T", used to wrap mutable variables *)
+  | Prim_ref_array of trm list (* "ref[m,n] T", used to wrap mutable arrays *)
+  | Prim_new (* C++ "new T" *)
   | Prim_delete (* C++ "delete t" *)
   | Prim_delete_array (* C++ "delete[] t" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)

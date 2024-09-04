@@ -76,37 +76,31 @@ inline void __reverts(__ghost_fn) {}
 template<typename T> T* __ref(T init) {
   __produces("_Res ~> Cell");
   __admitted();
-  return new T(init);
 }
 
 template<typename T> T __get(T* p) {
   __reads("p ~> Cell");
   __admitted();
-  return *p;
 }
 
 template<typename T> void __set(T* p, T x) {
   __writes("p ~> Cell");
   __admitted();
-  *p = x;
 }
 
 template<typename T> T __add(T x1, T x2) {
   __pure();
   __admitted();
-  return x1 + x2;
 }
 
 template<typename T> T __sub(T x1, T x2) {
   __pure();
   __admitted();
-  return x1 - x2;
 }
 
 template<typename T> T __mul(T x1, T x2) {
   __pure();
   __admitted();
-  return x1 * x2;
 }
 
 template<typename T> T __div(T x1, T x2) {
@@ -114,68 +108,57 @@ template<typename T> T __div(T x1, T x2) {
   // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
   // + only for integer types?
   __admitted();
-  return x1 / x2;
 }
 
 template<typename T> T __mod(T x1, T x2) {
   __pure();
   // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
   __admitted();
-  return x1 % x2;
 }
 
 template<typename T> T __eq(T x1, T x2) {
   __pure();
   __admitted();
-  return x1 == x2;
 }
 
 template<typename T> T* __array_access(T* tab, int i) {
   __pure();
   __admitted();
-  return &tab[i];
 }
 
 template<typename T> void __add_inplace(T* p, T x) {
   __modifies("p ~> Cell");
   __admitted();
-  *p += x;
 }
 
 template<typename T> void __sub_inplace(T* p, T x) {
   __modifies("p ~> Cell");
   __admitted();
-  *p -= x;
 }
 
 template<typename T> void __mul_inplace(T* p, T x) {
   __modifies("p ~> Cell");
   __admitted();
-  *p *= x;
 }
 
-template<typename T> T __post_inc(T* p) {
+template<typename T> T __post_incr(T* p) {
   __modifies("p ~> Cell");
   __admitted();
-  return (*p)++;
 }
 
-template<typename T> T __post_dec(T* p) {
+template<typename T> T __post_decr(T* p) {
   __modifies("p ~> Cell");
   __admitted();
-  return (*p)--;
 }
 
-template<typename T> T __pre_inc(T* p) {
+template<typename T> T __pre_incr(T* p) {
   __modifies("p ~> Cell");
   __admitted();
-  return ++(*p);
 }
 
-template<typename T> T __pre_dec(T* p) {
+template<typename T> T __pre_decr(T* p) {
   __modifies("p ~> Cell");
   __admitted();
-  return --(*p);
 }
 
 // LATER: remove the need for this
@@ -183,12 +166,10 @@ template<typename T> T __pre_dec(T* p) {
 template<typename T, typename U> U* __struct_access_##f(T* v) {\
   __pure();\
   __admitted();\
-  return &(v->f);\
 }\
 template<typename T, typename U> U __struct_get_##f(T v) {\
   __pure();\
   __admitted();\
-  return v.f;\
 }
 
 /* ---- Matrix Functions ---- */

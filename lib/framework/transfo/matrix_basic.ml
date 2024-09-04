@@ -389,7 +389,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         trm_for { index; start = trm_int 1; direction = DirUp; stop = dim; step = trm_step_one () } (set base new_dims new_indices init_val;)]
                       in
 
-                    let op_fun (l_arg : trm) (r_arg : trm) = trm_prim_compound op l_arg r_arg in
+                    let op_fun (l_arg : trm) (r_arg : trm) = trm_compound_assign op l_arg r_arg in
                     let acc_trm  =
                     if acc_in_place
                       then
@@ -587,13 +587,13 @@ let%transfo simpl_index_add (tg : target) : unit =
 
 let simpl_access_of_access_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in
-  let (base1, i1) = match array_access_inv t with
+  let (base1, i1) = match trm_array_access_inv t with
   | Some res -> res
   (* FIXME: don't want to deal with this here? *)
-  | None -> trm_inv ~error array_get_inv t
+  | None -> trm_inv ~error trm_array_get_inv t
   in
-  let (base0, i0) = trm_inv ~error array_access_inv base1 in
-  array_access base0 (trm_add i0 i1)
+  let (base0, i0) = trm_inv ~error trm_array_access_inv base1 in
+  trm_array_access base0 (trm_add i0 i1)
 
 (** [simpl_access_of_access]: simplifies &((&p[i0])[i1]) into &p[i0 + i1]
 

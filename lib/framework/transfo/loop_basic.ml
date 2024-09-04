@@ -1019,8 +1019,8 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
         then (trm_add (trm_var tile_index) tile_size)
         else (trm_add (trm_var tile_index) (trm_mul tile_size step) ))) (trm_ineq direction (trm_var_get index) stop)
       in
-    let step =  if trm_is_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
-      else trm_prim_compound Binop_add (trm_var index) step in
+    let step =  if trm_is_one step then trm_post_incr (trm_var index)
+      else trm_compound_assign Binop_add (trm_var index) step in
     let new_body = trm_subst_var index (trm_var_get index) body in
     trm_for_c init cond step new_body
   end in

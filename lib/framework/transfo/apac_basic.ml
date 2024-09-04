@@ -726,7 +726,7 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
   let rec aux (depth : int) (t: trm) : 'a option =
     match t.desc with
     (* unop : progress deeper + update depth *)
-    | Trm_apps ({ desc = Trm_prim (Prim_unop uo); _ }, [t], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_unop uo); _ }, [t], _) ->
       begin match uo with
       | Unop_get -> aux (depth-1) t
       | Unop_address -> aux (depth+1) t
@@ -734,10 +734,10 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
       | _ -> None
       end
     (* binop array access : progress deeper + update depth *)
-    | Trm_apps ({ desc = Trm_prim (Prim_binop (Binop_array_access)); _ },
+    | Trm_apps ({ desc = Trm_prim (_, Prim_binop (Binop_array_access)); _ },
         [t; _], _) -> aux (depth-1) t
     (* binop : progress deeper + resolve left and right sides *)
-    | Trm_apps ({ desc = Trm_prim (Prim_binop _ ); _ }, [lhs; rhs], _) ->
+    | Trm_apps ({ desc = Trm_prim (_, Prim_binop _ ); _ }, [lhs; rhs], _) ->
       begin match (aux depth lhs, aux depth rhs) with
       | Some(res), None -> Some(res)
       | None, Some(res) -> Some(res)

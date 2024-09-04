@@ -103,8 +103,8 @@ type rewrite_rule = {
     the the list of  variables used in that rule,  the rule itself and the result after applying that rule. *)
 let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : rewrite_rule =
   let pattern_vars, aux_vars, pattern_instr = parse_pattern ~glob_defs ~ctx pattern in
-  match pattern_instr.desc with
-  | Trm_apps ({desc = Trm_prim (Prim_binop Binop_eq);_},[t1; t2], _) ->
+  match trm_eq_inv pattern_instr with
+  | Some (t1, t2) ->
     {rule_vars = pattern_vars; rule_aux_vars = aux_vars; rule_from = t1; rule_to = t2}
   | _ ->
     trm_fail pattern_instr "Trm_matching.parse_rule: could not parse the given rule"
@@ -212,7 +212,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         let xargs = List.mapi (fun i ti -> match ti.desc with
           | Trm_var x
           (* LATER: find out if it is really correct to igore the get operation here *)
-          | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [{desc = Trm_var x; _}], _) -> x
+          | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _}, [{desc = Trm_var x; _}], _) -> x
           | _ -> msg1 i ti) ts1 in
         (* DEPRECATED
           let msg2 i = trm_fail t2 (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in

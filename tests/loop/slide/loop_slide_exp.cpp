@@ -15,7 +15,7 @@ int main() {
   }
   for (int bk = 0; bk < 15 + (1 - 2) * 3; bk += 1 * 3) {
     for (int k = bk; k < min(15, bk + 2 * 3); k += 3) {
-      s[MINDEX1(32, k)] = 1.f;
+      s[MINDEX1(32, k)] = 1.;
     }
   }
   free(s);

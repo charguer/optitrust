@@ -27,7 +27,7 @@ int main() {
   float* output;
   for (int bi = 0; bi < N; bi += 32) {
     for (int i = 0; i < 32; i++) {
-      float sum = 0.f;
+      float sum = 0.;
       for (int k2 = 0; k2 < N; k2++) {
         sum += input[k2 + N * (i + bi)];
       }

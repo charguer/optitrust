@@ -128,8 +128,8 @@ let local_name_on (curr_var : var) (var_typ : typ)
   ~(uninit_pre : bool) ~(uninit_post : bool)
   (local_var : string) (t : trm) : trm =
   let local_var = new_var local_var in
-  let let_instr = trm_let_mut (local_var, var_typ) (trm_var_possibly_mut ~typ:var_typ curr_var) in
-  let set_instr = trm_set (trm_var ~typ:var_typ curr_var) (trm_var_possibly_mut ~typ:var_typ local_var) in
+  let let_instr = trm_let_mut (local_var, var_typ) (trm_var_get ~typ:var_typ curr_var) in
+  let set_instr = trm_set (trm_var ~typ:var_typ curr_var) (trm_var_get ~typ:var_typ local_var) in
   let new_t = trm_subst_var curr_var (trm_var local_var) t in
   trm_seq_nobrace_nomarks [let_instr; new_t; set_instr]
 
@@ -336,13 +336,13 @@ let%transfo elim_reuse (tg : target) : unit =
       (* LATER: document the behavior of ${occ} in the case [tg] aims at multiple targets *)
       (* LATER: document the [îs_ptr] and explain why it is needed *)
       (* LATER: it seems that a mark is introduced and not eliminated *)
-let%transfo bind ?(const : bool = false) ?(mark_let : mark = no_mark) ?(mark_occ : mark = no_mark) ?(mark_body : mark = no_mark) ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : string) (tg : target) : unit =
+let%transfo bind ?(const : bool = false) ?(mark_let : mark = no_mark) ?(mark_occ : mark = no_mark) ?(mark_body : mark = no_mark) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : string) (tg : target) : unit =
   Resources.justif_correct "the extracted sub-expression is required by typing to use resources that do not interfere with the other sub-expressions";
   Nobrace_transfo.remove_after ~remove:remove_nobrace (fun _ ->
     Target.iteri (fun occ p ->
       let p, p_local, i = Internal.get_instruction_in_surrounding_sequence p in
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
-      Target.apply_at_path (Variable_core.bind_at mark_let mark_occ mark_body i fresh_name const is_ptr typ p_local) p
+      Target.apply_at_path (Variable_core.bind_at mark_let mark_occ mark_body i fresh_name const typ p_local) p
     ) tg
   )
 

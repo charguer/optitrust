@@ -23,7 +23,7 @@ let tile_none: trm * trm = trm_int 0, trm_int 0
   is for annotating the inner call to malloc *)
 let alloc_with_ty ?(annot : trm_annot = trm_annot_default) ?(annot_call : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
-  let size = trm_toplevel_var ("sizeof(" ^ (Ast_to_c.typ_to_string ty) ^ ")") in
+  let size = trm_sizeof ty in
   trm_cast ~annot (typ_ptr ty) (
     trm_apps ~annot:annot_call (trm_var (malloc_var n)) (dims @ [size]))
 
@@ -122,7 +122,7 @@ let memcpy_with_ty
   (dest : trm) (d_offset : trm list) (d_dims : trm list)
   (src : trm) (s_offset : trm list) (s_dims : trm list)
   (copy_dims : trm list) (ty : typ) : trm =
-  let size = trm_toplevel_var ("sizeof(" ^ (Ast_to_c.typ_to_string ty) ^ ")") in
+  let size = trm_sizeof ty in
   memcpy dest d_offset d_dims src s_offset s_dims copy_dims size
 
 (** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
@@ -229,14 +229,10 @@ let intro_malloc_aux (t : trm) : trm =
       [dim] - the size of the array accesses with [t],
       [t] - the ast of the array access. *)
 let intro_mindex_aux (dim : trm) (t : trm) : trm =
-  match t.desc with
-  | Trm_apps (f, [base;index], _) ->
-    begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_array_access) ->
-      trm_apps ~annot:t.annot f [base; mindex [dim] [index]]
-    | _ -> trm_fail t "Matrix_core.intro_mindex_aux: expected a primitive array access operation"
-    end
-  | _ -> trm_fail t "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
+  match trm_array_access_inv t with
+  | Some (base, index) ->
+    trm_array_access ~annot:t.annot ?loc:t.loc base (mindex [dim] [index])
+  | None -> trm_fail t "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
 
 (** [reorder_dims_aux order t]: reorders the dimensions in a call to CALLOC, MALLOC or MINDEX,
       [order] - a list of indices based on which the elements in dims should be ordered,

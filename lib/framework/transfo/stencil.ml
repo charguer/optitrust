@@ -88,7 +88,7 @@ let may_slide (written : var list) (sizes : trm list) (steps : trm list) ~(simpl
 (* TODO: move elsewhere? *)
 let var_of_access (access_t : trm) : var =
   let error = "Stencil.var_of_access: expected array write on base variable" in
-  let (base, index) = trm_inv ~error array_access_inv access_t in
+  let (base, index) = trm_inv ~error trm_array_access_inv access_t in
   let var = begin match trm_var_inv base with
   | Some x -> x
   | None -> trm_inv ~error trm_var_get_inv base

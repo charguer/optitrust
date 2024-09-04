@@ -21,7 +21,7 @@ let bind_intro_at (my_mark : string) (index : int) (fresh_name : string) (const 
       let function_type = match function_call.typ with
       | Some typ -> typ
       |  None -> typ_auto in
-      let change_with = (trm_var_possibly_mut ~const ~typ:function_type fresh_var) in
+      let change_with = (trm_var_possibly_get ~const ~typ:function_type fresh_var) in
       let decl_to_change = Internal.change_trm function_call change_with t in
 
       let function_call = trm_add_mark my_mark function_call in
@@ -119,7 +119,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
     begin match rs.desc with
     | Trm_apps (f1, [get_ls; arg], _) ->
       begin match trm_prim_inv f1 with
-      | Some p when is_infix_prim_fun p ->
+      | Some (_, p) when is_infix_prim_fun p ->
         let aux s = Ast_to_c.ast_to_string s in
         let repr_ls = aux ls in
         let repr_get_ls = aux (get_operation_arg get_ls) in
@@ -129,8 +129,8 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
           else
             let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> trm_fail f "Function_core.use_infix_ops_on: this should never happen" in
             if not (repr_ls = repr_get_ls)
-              then trm_prim_compound ~annot:t.annot binop ls get_ls
-              else trm_prim_compound ~annot:t.annot binop ls arg
+              then trm_compound_assign ~annot:t.annot binop ls get_ls
+              else trm_compound_assign ~annot:t.annot binop ls arg
       | _ ->
         if allow_identity then t else
         trm_fail f1 "Function_core.use_infix_ops_on: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"

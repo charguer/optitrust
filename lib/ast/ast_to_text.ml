@@ -67,10 +67,10 @@ and print_unop style (op : unary_op) : document =
   | Unop_bitwise_neg -> string "Unop_bitwise_neg"
   | Unop_minus -> string "Unop_minus"
   | Unop_plus -> string "Unop_plus"
-  | Unop_post_inc -> string "Unop_post_inc"
-  | Unop_post_dec -> string "Unop_post_dec"
-  | Unop_pre_inc -> string "Unop_pre_inc"
-  | Unop_pre_dec -> string "Unop_pre_dec"
+  | Unop_post_incr -> string "Unop_post_incr"
+  | Unop_post_decr -> string "Unop_post_decr"
+  | Unop_pre_incr -> string "Unop_pre_incr"
+  | Unop_pre_decr -> string "Unop_pre_decr"
   | Unop_struct_access f -> print_node "Unop_struct_access" ^^ string f
   | Unop_struct_get f -> print_node "Unop_struct_get" ^^ string f
   | Unop_cast t ->
@@ -120,22 +120,16 @@ and print_prim style (p : prim) : document =
   | Prim_binop op ->
      let dop = print_binop op in
      print_node "Prim_binop" ^^ dop
-  | Prim_compound_assgn_op op ->
+  | Prim_compound_assign_op op ->
     let dop = print_binop op in
-    print_node "Prim_compound_assgn_op" ^^ dop
-  | Prim_overloaded_op p ->
-    let dp = print_prim style p in
-    print_node "Prim_overloaded_op" ^^ dp
-  | Prim_ref t ->
-     let dt = print_typ style t in
-     print_node "Prim_ref" ^^ dt
-  | Prim_ref_array (t, dims) ->
-     let dt = print_typ style t in
+    print_node "Prim_compound_assign_op" ^^ dop
+  | Prim_ref ->
+     print_node "Prim_ref"
+  | Prim_ref_array dims ->
      let dims_doc = list_to_doc ~empty ~bounds:[lbracket; rbracket] (List.map (print_trm style) dims) in
-     print_node "Prim_ref_array" ^^ dt ^^ dims_doc
-  | Prim_new t ->
-     let dt = print_typ style t in
-     print_node "Prim_new" ^^ dt
+     print_node "Prim_ref_array" ^^ dims_doc
+  | Prim_new ->
+     print_node "Prim_new"
   | Prim_delete -> print_node "Prim_delete"
   | Prim_delete_array -> print_node "Prim_delete_array"
   | Prim_conditional_op -> print_node "Prim_conditional_op"
@@ -177,19 +171,22 @@ and print_trm_desc style (t : trm_desc) : document =
   | Trm_lit l ->
      let dl = print_lit l in
      print_node "Trm_lit" ^^ parens dl
-  | Trm_prim p ->
+  | Trm_prim (typ, p) ->
+     let dt = print_typ style typ in
      let dp = print_prim style p in
-     print_node "Trm_prim" ^^ parens dp
-  | Trm_array tl ->
+     print_node "Trm_prim" ^^ parens (dt ^^ comma ^^ blank 1 ^^ dp)
+  | Trm_array (typ, tl) ->
+     let dt = print_typ style typ in
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm style) tl in
-     print_node "Trm_array" ^^ print_list dtl
-  | Trm_record tl ->
+     print_node "Trm_array" ^^ blank 1 ^^ parens dt ^^ blank 1 ^^ print_list dtl
+  | Trm_record (typ, tl) ->
+     let dt = print_typ style typ in
      let tl = Mlist.to_list tl in
      let dtl = List.map (fun (lb, t) ->
       let td = print_trm style t in
       match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
-     print_node "Trm_record" ^^ print_list dtl
+     print_node "Trm_record" ^^ blank 1 ^^ parens dt ^^ blank 1 ^^ print_list dtl
   | Trm_let ((x,tx),t) ->
     let dtx = print_typ style tx in
     let dt = print_trm style t in
@@ -464,7 +461,7 @@ and print_cstyles_annot style (anns : cstyle_annot list) : document =
 (** [print_cstyle_annot style ann]: prints a cstyle annotation [ann]. *)
 and print_cstyle_annot style (ann : cstyle_annot) : document =
  match ann with
- | Display_no_arrow -> string "Display_no_arrow"
+ | No_struct_get_arrow -> string "No_struct_get_arrow"
  | Empty_cond -> string "Empty_cond"
  | Fun_inline -> string "Fun_inline"
  | No_braces id -> string ("No_braces " ^ string_of_int id)

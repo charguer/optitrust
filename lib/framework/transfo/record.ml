@@ -54,7 +54,7 @@ let set_implicit (tg : Target.target) : unit =
       when one wants to rename only one field of a Record. [field] is the current field name
       [into] is the new name that is going to replace all the occurrences of field in the context of
       the targeted typedef Record. *)
-let rename_field (field : field) ~into:(into : string): target -> unit =
+let rename_field (field : field) ~(into : string): target -> unit =
   rename_fields (only_for field (fun _ -> into))
 
 

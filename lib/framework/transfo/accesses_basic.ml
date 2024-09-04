@@ -52,33 +52,38 @@ let%transfo transform_immut (f_init : trm -> trm) (f_use : trm -> trm) (tg : tar
    defined as a multiplication and a division operation respectively. If [inv] is set to true then these two
    operations will be swapped. *)
 let%transfo scale ?(inv:bool=false) ~(factor:trm) ?(mark : mark = no_mark) (tg : target) : unit =
-  let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
-  let f_get t = trm_add_mark mark (Arith_core.apply op_get factor t) in
-  let f_set t = trm_add_mark mark (Arith_core.apply op_set factor t) in
+  let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
+  (* TODO: Trace.justif "correct when factor is not 0 and is a float type" *)
+  let op_get, op_set = if inv then (trm_mul, trm_div) else (trm_div, trm_mul) in
+  let f_get t = trm_add_mark mark (op_get ~typ t factor) in
+  let f_set t = trm_add_mark mark (op_set ~typ t factor) in
   transform f_get f_set tg
 
 (* TODO: check / 0 *)
 let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
+  let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
   (* TODO: Trace.justif "correct when not / 0"; *)
-  let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
-  let f_use t = trm_add_mark mark (Arith_core.apply op_get factor t) in
-  let f_init t = trm_add_mark mark (Arith_core.apply op_set factor t) in
+  let op_get, op_set = if inv then (trm_mul, trm_div) else (trm_div, trm_mul) in
+  let f_use t = trm_add_mark mark (op_get ~typ t factor) in
+  let f_init t = trm_add_mark mark (op_set ~typ t factor) in
   transform_immut f_init f_use tg
 
 (** [shift ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args
    defined as a multiplication and a division respectively. If [inv] is set to true then these two operations
    will be swapped. *)
 let%transfo shift ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
-  let op_get, op_set = if inv then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
-  let f_get t = trm_add_mark mark (Arith_core.apply op_get factor t) in
-  let f_set t = trm_add_mark mark (Arith_core.apply op_set factor t) in
+  let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
+  let op_get, op_set = if inv then (trm_add, trm_sub) else (trm_sub, trm_add) in
+  let f_get t = trm_add_mark mark (op_get ~typ t factor) in
+  let f_set t = trm_add_mark mark (op_set ~typ t factor) in
   transform f_get f_set tg
 
 let%transfo shift_immut ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
-  let op_get, op_set = if inv then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
-  let f_use t = trm_add_mark mark (Arith_core.apply op_get factor t) in
-  let f_init t = trm_add_mark mark (Arith_core.apply op_set factor t) in
-  transform f_init f_use tg
+  let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
+  let op_get, op_set = if inv then (trm_add, trm_sub) else (trm_sub, trm_add) in
+  let f_use t = trm_add_mark mark (op_get ~typ t factor) in
+  let f_init t = trm_add_mark mark (op_set ~typ t factor) in
+  transform_immut f_init f_use tg
 
 (** [intro tg]: expects the target [tg] to be pointing at any node that could contain struct accesses, preferably
    a sequence, then it will transform all the encodings of the form struct_get (get (t), f) to

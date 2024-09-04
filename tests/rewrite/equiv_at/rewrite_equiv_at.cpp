@@ -1,11 +1,11 @@
 inline int min(int a, int b) { return a < b ? a : b; }
 
 int main() {
-  int x = 1;
-  int y = 2;
-  int z = 3;
-  int res;
-  res = x + y * z ;
+  double x = 1.;
+  double y = 2.;
+  int n = 3;
+  double res;
+  res = x + n * y;
   int res1;
   res1 = 5 + 8 * 5;
   const int res2 = 5 + 8 * 5;

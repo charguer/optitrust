@@ -70,15 +70,15 @@ let rec formula_of_trm (t: trm): formula option =
   | Trm_apps (fn, args, _) ->
     let* f_args = try Some (List.map (fun arg -> Option.get (formula_of_trm arg)) args) with Invalid_argument _ -> None in
     begin match trm_prim_inv fn with
-      | Some Prim_binop Binop_add
-      | Some Prim_binop Binop_sub
-      | Some Prim_binop Binop_mul
-      | Some Prim_binop Binop_eq
-      | Some Prim_binop Binop_div (* TODO: think hard about 'div' totality *)
-      | Some Prim_binop Binop_mod
-      | Some Prim_binop Binop_array_access
-      | Some Prim_unop (Unop_struct_access _)
-      | Some Prim_unop (Unop_struct_get _)
+      | Some (_, Prim_binop Binop_add)
+      | Some (_, Prim_binop Binop_sub)
+      | Some (_, Prim_binop Binop_mul)
+      | Some (_, Prim_binop Binop_eq)
+      | Some (_, Prim_binop Binop_div) (* TODO: think hard about 'div' totality *)
+      | Some (_, Prim_binop Binop_mod)
+      | Some (_, Prim_binop Binop_array_access)
+      | Some (_, Prim_unop (Unop_struct_access _))
+      | Some (_, Prim_unop (Unop_struct_get _))
         -> Some (trm_apps fn f_args)
       | Some _ -> None
       | None ->
@@ -88,13 +88,15 @@ let rec formula_of_trm (t: trm): formula option =
           | _ -> None
         end
     end
-  | Trm_record fields ->
+  | Trm_record (typ, fields) ->
     let* fields' = try Some (Mlist.map (fun (f, t) ->
       (f, Option.get (formula_of_trm t))
     ) fields) with Invalid_argument _ -> None in
-    Some (trm_record fields')
+    Some (trm_record ~typ fields')
   | _ -> None
 
+(* FIXME: There should be one of such comparisons for each type ! *)
+(* Do we make a conversion between bool and Prop instead ? *)
 let var_is_eq = toplevel_var "__is_eq"
 let var_is_neq = toplevel_var "__is_neq"
 let var_is_lt = toplevel_var "__is_lt"
@@ -124,7 +126,7 @@ let rec trm_to_formula_prop (t: trm): formula option =
   let formula_prop = match t.desc with
     | Trm_apps (fn, args, _) ->
       begin match trm_prim_inv fn with
-      | Some Prim_unop Unop_neg ->
+      | Some (_, Prim_unop Unop_neg) ->
         let* arg = match args with [arg] -> Some arg | _ -> None in
         begin match trm_to_formula_prop arg with
         | Some negated_prop ->
@@ -133,7 +135,7 @@ let rec trm_to_formula_prop (t: trm): formula option =
           let* bool_formula = formula_of_trm t in
           Some (formula_eq t (trm_bool false))
         end
-      | Some Prim_binop binop ->
+      | Some (_, Prim_binop binop) ->
         let* arg_l, arg_r = match args with [arg_l; arg_r] -> Some (arg_l, arg_r) | _ -> None in
         begin match binop with
         | Binop_eq | Binop_neq | Binop_le | Binop_lt | Binop_ge | Binop_gt ->

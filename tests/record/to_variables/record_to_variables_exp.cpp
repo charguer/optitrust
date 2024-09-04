@@ -15,70 +15,60 @@ template <typename T, typename U>
 U* __struct_access_x(T* v) {
   __pure();
   __admitted();
-  return &v->x;
 }
 
 template <typename T, typename U>
 U __struct_get_x(T v) {
   __pure();
   __admitted();
-  return v.x;
 }
 
 template <typename T, typename U>
 U* __struct_access_y(T* v) {
   __pure();
   __admitted();
-  return &v->y;
 }
 
 template <typename T, typename U>
 U __struct_get_y(T v) {
   __pure();
   __admitted();
-  return v.y;
 }
 
 template <typename T, typename U>
 U* __struct_access_weight(T* v) {
   __pure();
   __admitted();
-  return &v->weight;
 }
 
 template <typename T, typename U>
 U __struct_get_weight(T v) {
   __pure();
   __admitted();
-  return v.weight;
 }
 
 template <typename T, typename U>
 U* __struct_access_pos(T* v) {
   __pure();
   __admitted();
-  return &v->pos;
 }
 
 template <typename T, typename U>
 U __struct_get_pos(T v) {
   __pure();
   __admitted();
-  return v.pos;
 }
 
 template <typename T, typename U>
 U* __struct_access_speed(T* v) {
   __pure();
   __admitted();
-  return &v->speed;
 }
 
 template <typename T, typename U>
 U __struct_get_speed(T v) {
   __pure();
   __admitted();
-  return v.speed;
 }
 
 vect f() { return (vect){1, 1}; }
@@ -133,7 +123,7 @@ void g() {
       "");
   aWeight = 0;
   aPos = p;
-  aSpeed = {sX, sY};
+  aSpeed = (vect){sX, sY};
   __ghost(
       [&]() {
         __modifies("&aWeight ~> Cell");

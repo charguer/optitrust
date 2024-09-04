@@ -12,34 +12,6 @@ let any_on (e : trm) (t : trm) : trm =
     then  e
     else trm_fail f "Specialize_core.any_on: expected the special function ANY"
 
-(** [choose_on selelct_arg t]: replaces the function call [t] with one of its arguments that satisfies
-     the predicate  [select_arg],
-      [select_arg] - a predicate on the index of the argument that should be choosed,
-      [t] - ast of the call to function choose. *)
-let choose_on (select_arg : var list -> int) (t : trm) : trm =
-  match t.desc with
-  | Trm_apps (_f, argnb :: args, _)  ->
-    begin match argnb.desc with
-    | Trm_lit (Lit_int (_, nb)) ->
-       if nb <> List.length args then trm_fail t "Specialize_core.choose_aux: number of args is not correct";
-        let choices = List.map (fun arg ->
-          match arg.desc with
-          | Trm_var s -> s
-          | Trm_apps (_, [v], _)  ->
-            begin match v.desc with
-            | Trm_var v -> v
-            | _ -> trm_fail arg "Specialize_core.choose_aux: could not match non constant variable"
-            end
-          | _ ->
-          trm_fail arg "Specialize_core.choose_aux: all the arguments of a
-          function call should be variable occurrences\n and %s is not one \n") args  in
-        let id = select_arg choices in
-        if id < 0 || id > List.length choices -1 then trm_fail t "Specialize_core.choose_aux: select_arg function does not give a correct index";
-        trm_var_get (List.nth choices id )
-    | _ -> trm_fail argnb "Specialize_core.choose_aux: expected a literel trm"
-    end
-  | _ -> trm_fail t "Specialize_core.choose_on: expected a call to funtion choose"
-
 (** [fun_def_aux spec_name spec_args t]: inserts a copy of the function definition [t], specializing
       one of its arguments based on the list [spec_args].
       [spec_name] - the name of the copy
