@@ -67,9 +67,9 @@ void malloc_uninit_pre() {
   __ghost(
       [&]() {
         __consumes(
-            "for i1 in 0..10 -> for i2 in 2..10 -> for i3 in 0..4 -> "
+            "_Uninit(for i1 in 0..10 -> for i2 in 2..10 -> for i3 in 0..4 -> "
             "&x[MINDEX3(10 - 0, 10 - 2, 4 - 0, i1 - 0, i2 - 2, i3 - 0)] ~> "
-            "Cell");
+            "Cell)");
         __produces("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");
         __admitted();
         __with("justif := shift_groups");
@@ -96,7 +96,8 @@ void malloc_uninit_post() {
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix1(10 - 2))");
-        __produces("for i1 in 2..10 -> &x[MINDEX1(10 - 2, i1 - 2)] ~> Cell");
+        __produces(
+            "_Uninit(for i1 in 2..10 -> &x[MINDEX1(10 - 2, i1 - 2)] ~> Cell)");
         __admitted();
         __with("justif := shift_groups");
       },

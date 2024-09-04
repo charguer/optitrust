@@ -63,6 +63,19 @@ let style_for_reparse () : style =
     pretty_matrix_notation = false;
     commented_pragma = false; }
 
+(** Style for debugging var ids *)
+let style_for_varids () : style = {
+  print_contract_internal_repr = false;
+  print_var_id = true;
+  print_string_repr = false;
+  print_mark = true;
+  print_annot = false;
+  print_errors = true;
+  optitrust_syntax = false;
+  pretty_matrix_notation = false;
+  commented_pragma = false;
+}
+
 (*----------------------------------------------------------------------------------*)
 (* An optional memoization table that maps a [stringreprid] of a term
    to the [document] obtained by executing [trm_to_doc style] on it.

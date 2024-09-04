@@ -198,6 +198,7 @@ let keep_all_linear = { unused = true; read_only = true; joined_read_only = true
 let keep_none_linear = { unused = false; read_only = false; joined_read_only = false; uninit = false; full = false; produced = false; }
 let keep_touched_linear = { keep_all_linear with unused = false; }
 let keep_used = { keep_touched_linear with produced = false; }
+let keep_full = { keep_none_linear with full = true; }
 let keep_produced = { keep_none_linear with produced = true; }
 let keep_unused = { keep_none_linear with unused = true; }
 let keep_written = { keep_used with read_only = false; joined_read_only = false; }

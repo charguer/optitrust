@@ -97,7 +97,7 @@ let trm ?(style = default_style ()) ?(msg : string = "") (t : trm) : unit =
   prt ~suffix:"\n" st
 
 let trms ?(style = default_style ()) ?(msg : string = "") (ts : trms) : unit =
-  prt_list ~msg trm ts
+  prt_list ~msg (trm ~style) ts
 
 let trm_internal ?(msg : string option) (t : trm) : unit =
   trm ~style:(internal ()) ?msg t
