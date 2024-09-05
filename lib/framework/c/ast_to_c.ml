@@ -895,8 +895,7 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
         | [t] ->
           let d = decorate_trm style ~prec t in
           begin match op with
-          | Unop_get when style.optitrust_syntax ->
-              string "get(" ^^ d ^^ string ")"
+          (* | Unop_get when style.optitrust_syntax -> star ^^ d *)
           | Unop_get -> star ^^ d
           | Unop_address ->ampersand ^^ d
           | Unop_neg -> bang ^^ d
@@ -908,9 +907,9 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
           | Unop_pre_incr -> twice plus ^^ d
           | Unop_pre_decr -> twice minus ^^ d
           | Unop_struct_access f1 when style.optitrust_syntax ->
-              string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
+              string "(" ^^ d ^^ string "++" ^^ dquotes (string f1) ^^ string ")"
           | Unop_struct_get f1 when style.optitrust_syntax ->
-              string "struct_get(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
+              string "(" ^^ d ^^ string "." ^^ dquotes (string f1) ^^ string ")"
           | (Unop_struct_get f1 | Unop_struct_access f1) ->
             if is_get_implicit_this t then string f1
             else if is_get_operation t then
@@ -943,9 +942,9 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
           | Binop_exact_div ->
             string "exact_div(" ^^ d1 ^^ comma ^^ space ^^ d2 ^^ string ")"
           | Binop_set when style.optitrust_syntax ->
-            string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+            d1 ^^ string "=" ^^ d2
           | Binop_array_access when style.optitrust_syntax ->
-            string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+            string "(" ^^ d1 ^^ string "++" ^^ d2 ^^ string ")"
           | Binop_array_access | Binop_array_get ->
             let bracketed_trm t = brackets (decorate_trm style ~prec:0 t) in
             d1 ^^ if not style.pretty_matrix_notation then

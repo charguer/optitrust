@@ -229,7 +229,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
       let r, t1' = aux t1 in
       let _, t2' = aux t2 in
       if r then (true, trm_array_get ~typ ~annot:t.annot t1' t2')
-      else (false, trm_array_access ~typ ~annot:t.annot t1' t2')
+      else (false, trm_array_access ~elem_typ:typ ~annot:t.annot t1' t2')
     | _ -> false, trm_map aux_unwrap t
   in
   snd (aux t)

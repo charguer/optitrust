@@ -50,9 +50,9 @@ let mindex_inv (t : trm) : (trms * trms) option =
 
 (** [access t dims indices]: builds the a matrix access with the index defined by macro [MINDEX], see [mindex] function.
     Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
-let access ?(annot : trm_annot = trm_annot_default) ?(typ: typ option) (t : trm) (dims : trms) (indices : trms) : trm =
+let access ?(annot : trm_annot = trm_annot_default) ?(elem_typ: typ option) (t : trm) (dims : trms) (indices : trms) : trm =
   let mindex_trm = mindex dims indices in
-  trm_array_access ~annot ?typ t mindex_trm
+  trm_array_access ~annot ?elem_typ t mindex_trm
 
 (** [access_inv t]: returns the array access base, the list of dimensions and indices used as args at matrix access [t]. *)
 let access_inv (t : trm) : (trm * trms * trms) option=
@@ -66,7 +66,7 @@ let access_inv (t : trm) : (trm * trms * trms) option=
 
 (** [get base dims indices]: takes the trm built from access function and puts it into a get operation. *)
 let get ?(typ: typ option) (base : trm) (dims : trms) (indices : trms) : trm =
-  trm_get ?typ (access ?typ base dims indices)
+  trm_get ?typ (access ?elem_typ:typ base dims indices)
 
 (** [get_inv t]: gets the trm inside a get oepration on an access. *)
 let get_inv (t : trm) : (trm * trms * trms) option =

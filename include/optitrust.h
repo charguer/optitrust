@@ -91,7 +91,7 @@ template<typename T> void __set(T* p, T x) {
 template<typename T> T __minus(T x) {
   __pure();
   __admitted();
-  return -x;
+  // return -x;
 }
 
 template<typename T> T __add(T x1, T x2) {
