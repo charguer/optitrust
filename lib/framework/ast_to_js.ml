@@ -198,16 +198,19 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "lit";
           (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(lit_to_doc (default_style())) (trm_get_cstyles t) l))));
           children_to_field [] ]
-    | Trm_prim p ->
+    | Trm_prim (ty, p) ->
         [ kind_to_field "prim";
-          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(prim_to_doc (default_style())) p))));
+          (strquote "type", typ_to_json ty);
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes (Ast_to_c.(prim_to_doc (default_style())) ty p))));
           children_to_field [] ]
-    | Trm_record l ->
-        [ kind_to_field  "struct";
+    | Trm_record (ty, l) ->
+        [ kind_to_field "struct";
+          (strquote "type", typ_to_json ty);
           (* LATER: Temporary hack for labelled struct inits. *)
           children_to_field (List.mapi ichild_to_json (List.map aux(List.split_pairs_snd (Mlist.to_list l)))) ]
-    | Trm_array l ->
+    | Trm_array (ty, l) ->
         [ kind_to_field "array";
+          (strquote "type", typ_to_json ty);
           children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
     | Trm_let ((x,typ),init) ->
         [ kind_to_field "var-def";

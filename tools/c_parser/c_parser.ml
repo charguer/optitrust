@@ -31,6 +31,24 @@ let get_c_includes (filename : string) : string =
   with
   | End_of_file -> close_in c_in; !includes
 
+let clangml_options : Clang.Ast.Options.t = {
+  ignore_implicit_cast = false;
+  ignore_paren = true;
+  ignore_paren_in_types = true;
+  ignore_expr_with_cleanups = true;
+  ignore_materialize_temporary_expr = true;
+  ignore_bind_temporary_expr = true;
+  ignore_injected_class_names = true;
+  ignore_implicit_constructors = true;
+  ignore_implicit_methods = true;
+  ignore_anonymous_fields = true;
+  ignore_indirect_fields = true;
+  ignore_using_types = true;
+  convert_integer_literals = true;
+  convert_floating_literals = true;
+  init_list_form = Syntactic;
+}
+
 let raw_parser (filename: string): trm =
   let command_line_include =
     List.map Clang.Command_line.include_directory
@@ -44,7 +62,7 @@ let raw_parser (filename: string): trm =
     []
   end in
   let command_line_args = command_line_warnings @ command_line_include @ command_line_pch in
-  Clang_to_ast.tr_ast (Clang.Ast.parse_file ~command_line_args filename)
+  Clang_to_ast.tr_ast (Clang.Ast.parse_file ~command_line_args ~options:clangml_options filename)
 
 let parse (filename: string) : unit =
   (* "ser" means serialized *)

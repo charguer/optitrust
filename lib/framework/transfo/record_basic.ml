@@ -126,7 +126,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         ] in
         let unfolded_linear = List.map (fun (sf, ty) ->
           (new_anon_hyp (), formula_read_only ~frac:(trm_var frac_var)
-            (model (trm_struct_access ~typ:(typ_ptr ty) loc sf)))
+            (model (trm_struct_access ~field_typ:ty loc sf)))
         ) field_list in
         fold_or_unfold ~fold [frac_ghost] folded_linear unfolded_linear
       | Uninit ->
@@ -135,7 +135,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         )] in
         let unfolded_linear = List.map (fun (sf, ty) ->
           (new_anon_hyp (), formula_uninit (model
-            (trm_struct_access ~typ:(typ_ptr ty) loc sf)
+            (trm_struct_access ~field_typ:ty loc sf)
           ))
         ) field_list in
         fold_or_unfold ~fold [] folded_linear unfolded_linear
@@ -145,7 +145,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         )] in
         let unfolded_linear = List.map (fun (sf, ty) ->
           (new_anon_hyp (), model
-            (trm_struct_access ~typ:(typ_ptr ty) loc sf)
+            (trm_struct_access ~field_typ:ty loc sf)
           )
         ) field_list in
         fold_or_unfold ~fold [] folded_linear unfolded_linear
@@ -213,9 +213,9 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
               let new_formula = match formula_read_only_inv formula with
               | Some { frac; formula } ->
                 let new_frac = fracs_map_split_frac fracs_map sf field_list frac in
-                formula_read_only ~frac:new_frac (wrap (formula_model (trm_struct_access ~typ:(typ_ptr ty) loc sf) trm_cell))
+                formula_read_only ~frac:new_frac (wrap (formula_model (trm_struct_access ~field_typ:ty loc sf) trm_cell))
               | None -> formula_map_under_mode (fun _ ->
-                wrap (formula_model (trm_struct_access ~typ:(typ_ptr ty) loc sf) trm_cell)
+                wrap (formula_model (trm_struct_access ~field_typ:ty loc sf) trm_cell)
               ) formula
               in
               (new_anon_hyp (), new_formula)
@@ -254,7 +254,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       ) in
       let rec aux (t : trm) : trm =
         Pattern.pattern_match t [
-          Pattern.(trm_let !__ !__ !(trm_ref !__ __)) (fun v typ ref init () ->
+          Pattern.(trm_let !__ !__ !(trm_ref __ !__)) (fun v typ ref init () ->
             Pattern.when_ (ptr_typ_matches typ);
             unfold_alloc t
           );
@@ -276,17 +276,17 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             (* NOTE: base and get_base are pure as they appear in contracts. *)
             Pattern.when_ (trm_ptr_typ_matches base);
             let set_one (sf, ty) =
-              trm_set (trm_struct_access ~typ:(typ_ptr ty) base sf)
-                (trm_get (trm_struct_access ~typ:(typ_ptr ty) get_base sf))
+              trm_set (trm_struct_access ~field_typ:ty base sf)
+                (trm_get (trm_struct_access ~field_typ:ty get_base sf))
             in
             trm_seq_nobrace_nomarks (List.map set_one field_list)
           );
-          Pattern.(trm_set !__ (trm_record !__)) (fun base fs () ->
+          Pattern.(trm_set !__ (trm_record !__)) (fun base (_, fs) () ->
             Pattern.when_ (trm_ptr_typ_matches base);
             Printf.printf "%s\n" Ast_to_text.(ast_to_string ~style:style_types t);
             let st = List.split_pairs_snd (Mlist.to_list fs) in
             let set_one i (sf, ty) =
-              trm_set (trm_struct_access ~typ:(typ_ptr ty) base sf) (List.nth st i)
+              trm_set (trm_struct_access ~field_typ:ty base sf) (List.nth st i)
             in
             trm_seq_nobrace_nomarks (List.mapi set_one field_list)
           );
@@ -295,11 +295,11 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             Pattern.when_ (trm_ptr_typ_matches base);
             check_pure "set value" value;
             let set_one (sf, ty) =
-              trm_set (trm_struct_access ~typ:(typ_ptr ty) base sf) (trm_struct_get ~typ:ty value sf)
+              trm_set (trm_struct_access ~field_typ:ty base sf) (trm_struct_get ~field_typ:ty value sf)
             in
             trm_seq_nobrace_nomarks (List.map set_one field_list)
           );
-          Pattern.(trm_struct_get !__ (trm_get !__)) (fun field base () ->
+          Pattern.(trm_struct_get (trm_get !__) !__) (fun base field () ->
             Pattern.when_ (trm_ptr_typ_matches base);
             trm_get (trm_struct_access base field)
           );

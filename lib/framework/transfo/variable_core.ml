@@ -101,24 +101,24 @@ let delocalize_at (array_size : trm) (ops : local_ops) (index : string) (t : trm
       let var_type = (get_inner_ptr_type tx) in
       let init_trm, op = begin match ops with
         | Local_arith (li, op) ->
-            trm_lit li, (trm_prim_compound op
+            trm_lit li, (trm_compound_assign op
                                curr_var_trm
-                                (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])))
+                                (trm_get (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_var index))))
         | Local_obj (clear_f, transfer_f, _) ->
             trm_apps ~typ:typ_unit (trm_var clear_f) [],
             trm_apps ~typ:typ_unit (trm_var transfer_f)
               [trm_get curr_var_trm ;
-              trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
+              trm_get (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_var index))]
       end in
       let new_first_trm = trm_seq_nobrace_nomarks[
           trm_let_array (local_var, var_type) ~size:array_size (trm_uninitialized (typ_array var_type ~size:array_size));
-          trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_int 0]) (trm_get curr_var_trm);
+          trm_set (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_int 0)) (trm_get curr_var_trm);
           trm_copy (trm_for { index; start = trm_int 1; direction = DirUp; stop = array_size; step = trm_step_one () }
-         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm]))]
+         (trm_seq_nomarks [trm_set (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_var index)) init_trm]))]
           in
-      let new_snd_instr = trm_subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var (name_to_var "ANY")) [array_size] ]) snd_instr  in
+      let new_snd_instr = trm_subst_var local_var  (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_apps (trm_var (name_to_var "ANY")) [array_size])) snd_instr  in
       let new_thrd_trm = trm_seq_nobrace_nomarks [
-                      trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_int 0]));
+                      trm_set (curr_var_trm) (trm_get (trm_array_access (trm_var_get ~typ:var_type local_var) (trm_int 0)));
                       trm_for { index; start = trm_int 1; direction = DirUp; stop = array_size; step = trm_step_one () } (trm_seq_nomarks [op])
                      ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
@@ -178,7 +178,7 @@ let change_type_at (new_type : string) (index : int) (t : trm) : trm =
       [t] - ast of the sequence containing the targeted node. *)
       (* LATER: cleanup this code, and pull out into auxiliary functions the tooling needed
          to handle arrays *)
-let bind_at (mark_let:mark) (mark_occ:mark) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
+let bind_at (mark_let:mark) (mark_occ:mark) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
   let tl = trm_inv ~error:"Variable_core.bind_aux: expected the surrounding sequence" trm_seq_inv t in
   let f_update (t : trm) : trm =
     let targeted_node = Path.resolve_path p_local t in
@@ -190,12 +190,11 @@ let bind_at (mark_let:mark) (mark_occ:mark) (mark_body : mark) (index : int) (fr
     in
     let fresh_var = new_var fresh_name in
     let replacement_node = trm_add_mark mark_occ (
-      trm_var_possibly_mut ~const ~typ:node_type fresh_var) in
+      trm_var_possibly_get ~const ~typ:node_type fresh_var) in
     let node_to_change =
       Path.apply_on_path (fun _tsub -> replacement_node) t p_local in
     let targeted_node = trm_add_mark mark_body targeted_node in
     let decl_to_insert =
-      let node_type = if is_ptr then typ_ptr node_type else node_type in
       let node_type = match typ with | Some ty -> ty | _ -> node_type in
       if const
         then trm_let (fresh_var, node_type) targeted_node
@@ -222,15 +221,15 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     | Trm_apps (_, [t1], _) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
-    | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_access f))}, [t1], _) ->
+    | Trm_apps ({desc = Trm_prim (struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _) ->
       let r, t1' = aux t1 in
-      if r then (true, trm_struct_get ?typ:t.typ ~annot:t.annot t1' f)
-      else (false, trm_struct_access ?typ:t.typ ~annot:t.annot t1' f)
-    | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_access))}, [t1; t2], _) ->
+      if r then (true, trm_struct_get ~struct_typ ?field_typ:t.typ ~annot:t.annot t1' f)
+      else (false, trm_struct_access ~struct_typ ?field_typ:t.typ ~annot:t.annot t1' f)
+    | Trm_apps ({desc = Trm_prim (typ, Prim_binop (Binop_array_access))}, [t1; t2], _) ->
       let r, t1' = aux t1 in
       let _, t2' = aux t2 in
-      if r then (true, trm_array_get ~annot:t.annot t1' t2')
-      else (false, trm_array_access ~annot:t.annot t1' t2')
+      if r then (true, trm_array_get ~typ ~annot:t.annot t1' t2')
+      else (false, trm_array_access ~typ ~annot:t.annot t1' t2')
     | _ -> false, trm_map aux_unwrap t
   in
   snd (aux t)
@@ -238,7 +237,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
 (** [remove_get_operations_on_var_temporary x t]: to be removed. *)
 let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
   match t.desc with
-  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get)}, [{desc = Trm_var y;_}as ty], _) when y = x -> ty
+  | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get)}, [{desc = Trm_var y;_}as ty], _) when y = x -> ty
   | _ -> trm_map (remove_get_operations_on_var_temporary x) t
 
 (** [to_nonconst_at index t]: transforms a constant into a mutable variable.
@@ -303,16 +302,18 @@ let ref_to_pointer_at (index : int) (t : trm) : trm =
   let error = "Variable_core.ref_to_pointer_aux: expected the surrounding sequence of the targeted reference declaration." in
   let tl = trm_inv ~error trm_seq_inv t in
   let var_name = ref dummy_var in
+  let var_typ = ref typ_auto in
   let f_update (t : trm) : trm =
     match t.desc with
     | Trm_let ((x, tx), init) when trm_has_cstyle Reference t ->
       var_name := x;
       let tx = get_inner_ptr_type tx in
+      var_typ := tx;
       trm_let_mut (x, typ_ptr tx) init
     | _ -> trm_fail t "Variable_core.ref_to_pointer_aux: expected a target to a variable declaration"
     in
   let f_update_further (t : trm) : trm =
-    trm_subst_var !var_name (trm_var_get !var_name) t in
+    trm_subst_var !var_name (trm_var_get ~typ:!var_typ !var_name) t in
 
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl

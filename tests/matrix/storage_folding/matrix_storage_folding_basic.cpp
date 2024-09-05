@@ -2,11 +2,10 @@
 #include <stdio.h>
 
 extern int N;
-typedef float T;
 
 int main() {
-  T* const a = (T*) MALLOC1(N, sizeof(T));
-  T* const b = (T*) MALLOC1(N - 2, sizeof(T));
+  float* const a = (float*) MALLOC1(N, sizeof(float));
+  float* const b = (float*) MALLOC1(N - 2, sizeof(float));
   for (int i = 0; i < N; i++) {
     a[MINDEX1(N, i)] = i;
     if (i >= 2) {

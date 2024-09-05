@@ -40,6 +40,8 @@ let typ_apps ?loc (t: typ) (args: trm list) =
 let typ_auto_var = toplevel_typvar "auto"
 let typ_auto = typ_var typ_auto_var
 
+let typ_or_auto (ty: typ option): typ = Option.value ~default:typ_auto ty
+
 (* Types int (resp. uint) represent signed (resp. unsigned) integers without bound checks *)
 let typ_int_var = toplevel_typvar "int"
 let typ_int = typ_var typ_int_var
@@ -199,6 +201,64 @@ let typ_constr_inv (ty: typ): var option =
     | Some (tv, _) -> Some tv
     | None -> None
 
+type signedness =
+  | Signed
+  | Unsigned
+
+type typ_builtin =
+  | Typ_float of int
+  | Typ_int of signedness
+  | Typ_size of signedness
+  | Typ_fixed_int of signedness * int
+  | Typ_char
+  | Typ_bool
+
+let typ_builtin (builtin: typ_builtin) : typ =
+  match builtin with
+  | Typ_float 64 -> typ_f64
+  | Typ_float 32 -> typ_f32
+  | Typ_float sz -> failwith "Floats cannot have size %d" sz
+  | Typ_int Signed -> typ_int
+  | Typ_int Unsigned -> typ_uint
+  | Typ_size Signed -> typ_isize
+  | Typ_size Unsigned -> typ_usize
+  | Typ_fixed_int (Signed, 8) -> typ_i8
+  | Typ_fixed_int (Unsigned, 8) -> typ_u8
+  | Typ_fixed_int (Signed, 16) -> typ_i16
+  | Typ_fixed_int (Unsigned, 16) -> typ_u16
+  | Typ_fixed_int (Signed, 32) -> typ_i32
+  | Typ_fixed_int (Unsigned, 32) -> typ_u32
+  | Typ_fixed_int (Signed, 64) -> typ_i64
+  | Typ_fixed_int (Unsigned, 64) -> typ_u64
+  | Typ_fixed_int (_, sz) -> failwith "Integers cannot have size %d" sz
+  | Typ_char -> typ_char
+  | Typ_bool -> typ_bool
+
+let typ_builtin_inv (t: typ) : typ_builtin option =
+  (* Do not use var_eq: this is used in Clang_to_ast where ids are not set *)
+  let open Option.Monad in
+  let* typvar = typ_var_inv t in
+  List.find_map
+    (fun (bv, b) -> if typvar.id = bv.id then Some b else None)
+    [
+      typ_f64_var, Typ_float 64;
+      typ_f32_var, Typ_float 32;
+      typ_int_var, Typ_int Signed;
+      typ_uint_var, Typ_int Unsigned;
+      typ_isize_var, Typ_size Signed;
+      typ_usize_var, Typ_size Unsigned;
+      typ_i8_var, Typ_fixed_int (Signed, 8);
+      typ_u8_var, Typ_fixed_int (Unsigned, 8);
+      typ_i16_var, Typ_fixed_int (Signed, 16);
+      typ_u16_var, Typ_fixed_int (Unsigned, 16);
+      typ_i32_var, Typ_fixed_int (Signed, 32);
+      typ_u32_var, Typ_fixed_int (Unsigned, 32);
+      typ_i64_var, Typ_fixed_int (Signed, 64);
+      typ_u64_var, Typ_fixed_int (Unsigned, 64);
+      typ_char_var, Typ_char;
+      typ_bool_var, Typ_bool
+    ]
+
 (*****************************************************************************)
 
 let typ_inv ?(error : string = "") (trm : trm) (k : typ -> 'a option) (t : typ) : 'a =
@@ -206,19 +266,23 @@ let typ_inv ?(error : string = "") (trm : trm) (k : typ -> 'a option) (t : typ) 
   | None -> if error = "" then assert false else trm_fail trm error
   | Some r -> r
 
-(** [get_inner_ptr_type ty]: gets the underlying type of [ty] when [ty] is a generated pointer type *)
+(** [get_inner_ptr_type ty]: gets the base type of [ty] when [ty] is a pointer type, return [ty] otherwise.
+  Should only be used for resolving targets.
+  Transformations should always use [typ_ptr_inv] directly and maybe raise an error. *)
 let get_inner_ptr_type (ty : typ) : typ =
   match typ_ptr_inv ty with
   | Some ty -> ty
   | None -> ty
 
-(** [get_inner_array_type ty]: returns the underlying type of [ty] when [ty] is an array type. *)
+(** [get_inner_array_type ty]: returns the base type of [ty] when [ty] is an array type, return [ty] otherwise.
+  Should only be used for resolving targets.
+  Transformations should always use [typ_array_inv] directly and maybe raise an error. *)
 let get_inner_array_type (ty : typ) : typ =
   match typ_array_inv ty with
   | Some (ty, _) -> ty
   | None -> ty
 
-(** [get_inner_const_type ty]: gets the underlying type of [ty] when [ty] is a const type *)
+(** [get_inner_const_type ty]: remove a const qualifier on [ty] if such qualifier exists. *)
 let get_inner_const_type (ty : typ) : typ =
   match typ_const_inv ty with
   | Some ty -> ty
@@ -290,9 +354,10 @@ let is_typ_array (ty : typ) : bool =
 
 (*****************************************************************************)
 
+(* LATER: Maybe split between typ_of_array_get and typ_of_get *)
 let typ_of_get (t : typ) : typ option =
-  let t = get_inner_const_type t in
-  Option.or_ (Option.map fst (typ_array_inv t)) (typ_ptr_inv t)
+  let t = Option.or_ (Option.map fst (typ_array_inv t)) (typ_ptr_inv t) in
+  Option.map get_inner_const_type t
 
 (** [typ_of_lit l]: get the type of a literal *)
 let typ_of_lit (l : lit) : typ =

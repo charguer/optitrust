@@ -11,7 +11,7 @@ type style = {
 let style_of_output_style (style : Style.output_style) : style =
   match style.print with
   | Lang_C s -> { typing = style.typing; cstyle = s }
-  | _ -> failwith "style_of_custom_style: expected Lang_C"
+  | _ -> { typing = style.typing; cstyle = Ast_to_c.default_style () }
 
 let default_style () : style =
   style_of_output_style (Style.default_style ())
@@ -78,13 +78,13 @@ let add_var (env : env ref) (x : var) (xm : mutability) : unit =
 (** [trm_address_of t]: adds the "&" operator before [t]
     Note: if for example t = *a then [trm_address_of t] = &( *a) = a *)
 let trm_address_of (t : trm) : trm =
-  let u = trm_apps ?typ:t.typ (trm_unop Unop_address) [t] in
+  let u = trm_address_of t in
   trm_simplify_addressof_and_get u
 
 (** [trm_get t]: adds the "*" operator before [t]
     Note: if for example t = &a then [trm_get t] = *( &a) = a *)
-let trm_get ?annot (t : trm) : trm =
-  let u = trm_apps ?annot ?typ:t.typ (trm_unop Unop_get) [t] in
+let trm_get ?(typ: typ option) (t : trm) : trm =
+  let u = trm_get ?typ t in
   trm_simplify_addressof_and_get u
 
 (** [onscope env t f]: applies function [f] on [t] without loosing [env]
@@ -125,8 +125,8 @@ let stackvar_elim (t : trm) : trm =
     let t = match t.desc with
     | Trm_var x ->
       if is_var_mutable !env x
-        then trm_get (trm_replace (Trm_var x) t)
-        else trm_replace (Trm_var x) t
+        then trm_like ~old:t (trm_get ?typ:t.typ (trm_var ?typ:(Option.map typ_ptr t.typ) x))
+        else t
     | Trm_let ((x, ty), tbody) ->
       (* is the type of x (or elements of x in case it is a fixed-size array) a const type? *)
       let ty, xm = extract_constness ty in
@@ -209,14 +209,14 @@ let stackvar_intro (t : trm) : trm =
         then trm_address_of t
         else t
     | Trm_let ((x, tx), tbody) ->
-      begin match typ_ptr_inv tx, tbody.desc with
-      | _, Trm_apps ({desc = Trm_prim (Prim_ref tx1);_}, [tbody1], [])  ->
+      begin match typ_ptr_inv tx, trm_ref_inv tbody with
+      | _, Some (tx1, tbody1)  ->
         add_var env x Var_mutable;
         trm_replace (Trm_let ((x, tx1), aux tbody1)) t
-      | Some tx1, _ when trm_has_cstyle Reference t ->
+      | Some tx1, None when trm_has_cstyle Reference t ->
         add_var env x Var_mutable;
         trm_rem_cstyle Reference { t with desc = Trm_let ((x, typ_ref tx1), trm_get (aux tbody))}
-      | Some tx1, _ when trm_has_cstyle Constructed_init tbody ->
+      | Some tx1, None when trm_has_cstyle Constructed_init tbody ->
         add_var env x Var_mutable;
         trm_replace (Trm_let ((x, tx1), aux tbody)) t
       | _ ->
@@ -226,8 +226,8 @@ let stackvar_intro (t : trm) : trm =
     | Trm_let_mult bs ->
       (* FIXME: Is it possible to handle C++ references and Constructed_init in let_mult ? *)
       let bs = List.map (fun ((x, tx), tbody) ->
-        match typ_ptr_inv tx, tbody.desc with
-        | Some tx1, Trm_apps ({desc = Trm_prim (Prim_ref _);_}, [tbody1], [])  ->
+        match typ_ptr_inv tx, trm_ref_inv tbody with
+        | Some tx1, Some (_, tbody1)  ->
           add_var env x Var_mutable;
           ((x, tx1), aux tbody1)
         | _ ->
@@ -244,7 +244,7 @@ let stackvar_intro (t : trm) : trm =
     | Trm_for (range, _, _) ->
       onscope env t (fun t -> begin add_var env range.index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
-    | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get);_}, [{desc = Trm_var x; _} as t1], _) when is_var_mutable !env x  -> t1
+    | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get);_}, [{desc = Trm_var x; _} as t1], _) when is_var_mutable !env x  -> t1
     | _ -> trm_map aux t
     end in
    aux t
@@ -261,25 +261,27 @@ let stackvar_intro (t : trm) : trm =
 let caddress_elim (t : trm) : trm =
   debug_current_stage "caddress_elim";
   let rec aux t =
-  let mk ?(annot = trm_annot_default) td = trm_alter ~desc:td ~annot t in
-  trm_simplify_addressof_and_get
-  (begin
-    match t.desc with
-    | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_get f)); _} as op, [t1], _) ->
-      let u1 = aux t1 in
-      begin match u1.desc with
-      | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _} as op1, [u11], _)  ->
-        (* struct_get (get(t1), f) is encoded as get(struct_access(t1,f)) where get is a hidden '*' operator,
-            in terms of C syntax: ( * t).f is compiled into * (t + offset(f)) *)
-        mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_prim (Prim_unop (Unop_struct_access f))}, [u11], []))], []))
-      | _ -> mk (Trm_apps (op, [u1], []))
-      end
-    | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_get)); _} as _op, [t1; t2], _) ->
-        let u1 = aux t1 in
-        let u2 = aux t2 in
-        trm_get ~annot:t.annot (trm_array_access u1 u2)
-    | _ -> trm_map aux t
-    end)
+    trm_simplify_addressof_and_get
+      (Pattern.pattern_match t [
+        Pattern.(trm_struct_get !__ !__) (fun t1 field () ->
+          let u1 = aux t1 in
+          match trm_get_inv u1 with
+          | Some base ->
+            (* struct_get (get(t1), f) is encoded as get(struct_access(t1,f)) where get is a hidden '*' operator,
+                in terms of C syntax: ( *t).f is compiled into *(t + offset(f)) *)
+            if trm_has_cstyle No_struct_get_arrow t then
+              trm_like ~old:(trm_rem_cstyle No_struct_get_arrow t) (trm_get (trm_add_cstyle No_struct_get_arrow (trm_struct_access ?loc:t.loc base field)))
+            else
+              trm_like ~old:t (trm_get (trm_struct_access ?loc:t.loc base field))
+          | None -> trm_like ~old:t (trm_struct_get ?loc:t.loc u1 field)
+        );
+        Pattern.(trm_array_get !__ !__) (fun t1 t2 () ->
+            let u1 = aux t1 in
+            let u2 = aux t2 in
+            trm_like ~old:t (trm_get (trm_array_access ?loc:t.loc u1 u2))
+        );
+        Pattern.__ (fun () -> trm_map aux t)
+      ])
   in
   debug_before_after_trm "caddress_elim" aux t
 
@@ -288,12 +290,12 @@ let is_access (t : trm) : bool =
   match t.desc with
   | Trm_apps (tprim, _, _) ->
     begin match trm_prim_inv tprim with
-    | Some (Prim_unop (Unop_struct_access _) |  (Prim_binop (Binop_array_access))) -> true
+    | Some (_, Prim_unop (Unop_struct_access _) | (_, Prim_binop (Binop_array_access))) -> true
     | _ -> false
     end
   | _ -> false
 
-(** [caddress_intro_aux false t]: is the inverse of [caddress_elim], hence if applies the following decodings:
+(** [caddress_intro_aux t]: is the inverse of [caddress_elim], hence if applies the following decodings:
      - [get(t + offset(f))] becomes [get(t).f]
      - [t + offset(f)] becomes [t.f]
      - [get (t + i)] becomes [get(t)[i]]
@@ -301,36 +303,35 @@ let is_access (t : trm) : bool =
 
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_prim (Prim_array_access, [t; i]))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_prim (Prim_struct_access "f"),[ŧ])] *)
-let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
-  let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)
-  let access t = caddress_intro_aux true t in (* recursive calls for lvalues *)
-  let mk td = trm_alter ~desc:td t in
-  trm_simplify_addressof_and_get (* Note: might not be needed *)
-  begin if is_access_t then begin
-    match t.desc with
-    | Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_access f)); _} as op, [t1], _) ->
-      (* struct_access (f, t1) is reverted to struct_get (f, access t1) *)
-      let u1 = access t1 in
-      mk (Trm_apps ({op with desc = Trm_prim (Prim_unop (Unop_struct_get f))}, [u1], []))
-    | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_access)); _} as op, [t1; t2], _) ->
-      (* array_access (t1, t2) is reverted to array_get (aux t1, aux t2) *)
-      let u1 = aux t1 in
-      let u2 = aux t2 in
-      mk (Trm_apps ({op with desc = Trm_prim (Prim_binop (Binop_array_get))}, [u1; u2], []))
-    | _ -> trm_get (aux t)
-    end
-    else begin
-    match t.desc with
-    | _ when is_access t ->
-      (* [access(..)] becomes [& ...] *)
+let caddress_intro_aux (t : trm) : trm =
+  let rec aux t = (* recursive calls for rvalues *)
+    trm_simplify_addressof_and_get
+      (if is_access t then
+        (* [access(..)] becomes [& ...] *)
         trm_address_of (access t)
-    | _ -> trm_map aux t
-    end
-  end
+      else trm_map aux t)
+  and access t =  (* recursive calls for lvalues *)
+    trm_simplify_addressof_and_get (* Note: might not be needed *)
+      (Pattern.pattern_match t [
+        Pattern.(trm_struct_access !__ !__) (fun t1 f () ->
+          (* struct_access (f, t1) is reverted to struct_get (f, access t1) *)
+          let u1 = access t1 in
+          trm_like ~old:t (trm_struct_get u1 f)
+        );
+        Pattern.(trm_array_access !__ !__) (fun t1 t2 () ->
+          (* array_access (t1, t2) is reverted to array_get (aux t1, aux t2) *)
+          let u1 = aux t1 in
+          let u2 = aux t2 in
+          trm_like ~old:t (trm_array_get u1 u2)
+        );
+        Pattern.__ (fun () -> trm_get (aux t))
+      ])
+  in
+  aux t
 
 let caddress_intro =
   debug_current_stage "caddress_intro";
-  caddress_intro_aux false
+  caddress_intro_aux
 
 (** [cseq_items_void_type t]: updates [t] in such a way that all instructions appearing in sequences
    have type [Typ_unit]. This might not be the case, for example on [x += 2;], Menhir provides an
@@ -345,28 +346,25 @@ let rec cseq_items_void_type (t : trm) : trm =
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
-(** [infix_elim t]: encode unary and binary operators as OCaml functions, for instance
-    - [x++] becomes ++(&x)
-    - x = y becomes =(&x, y)
-    - x += y becomes +=(&x,y) *)
+(** [infix_elim t]: encode unary and binary operators as Caml functions, for instance
+    - [x++] becomes [++(&x)]
+    - [x = y] becomes [=(&x, y)]
+    - [x += y] becomes [+=(&x,y)] *)
 let infix_elim (t : trm) : trm =
   debug_current_stage "infix_elim";
   let rec aux (t : trm) : trm =
     match t.desc with
     (* Convert [ x += y ]  into [ (+=)(&x, y) ]
-         represented as [Trm_apps (Prim_compound_assgn_op binop) [trm_addressof(x),y]],
+         represented as [Trm_apps (Prim_compound_assign_op binop) [trm_addressof(x),y]],
        likewise for [ x -= y]*)
-    | Trm_apps ({desc = Trm_prim (Prim_compound_assgn_op binop)} as op, [tl; tr], _) ->
+    | Trm_apps ({desc = Trm_prim (_, Prim_compound_assign_op binop)} as op, [tl; tr], _) ->
       trm_alter ~typ:typ_unit ~desc:(Trm_apps(op, [trm_address_of tl; tr], [])) t
     (* Convert [ x++ ] into [ (++)(&x) ], where [(++)] is like the [incr] function in OCaml *)
-    | Trm_apps ({desc = Trm_prim (Prim_unop unop); _} as op, [base], _) when is_unary_compound_assign unop ->
+    | Trm_apps ({desc = Trm_prim (_, Prim_unop unop); _} as op, [base], _) when is_unary_compound_assign unop ->
       trm_replace (Trm_apps(op, [trm_address_of base], [])) t
     (* Convert [ x = y ] into [ (=)(&x, y) ] *)
-    | Trm_apps ({desc = Trm_prim (Prim_binop Binop_set)} as op, [tl; tr], _) ->
-      trm_replace (Trm_apps (op, [trm_address_of tl;tr], [])) t
-    (* FIXME: for now, do the same for overloaded (=), is this correct? *)
-    | Trm_apps ({desc = Trm_prim (Prim_overloaded_op (Prim_binop Binop_set))} as op, [tl; tr], _) ->
-      trm_replace (Trm_apps (op, [trm_address_of tl;tr], [])) t
+    | Trm_apps ({desc = Trm_prim (_, Prim_binop Binop_set)} as op, [tl; tr], _) ->
+      trm_replace (Trm_apps (op, [trm_address_of tl; tr], [])) t
     | _ -> trm_map aux t
   in
   debug_before_after_trm "infix_elim" aux t
@@ -379,14 +377,12 @@ let infix_intro (t : trm) : trm =
   debug_current_stage "infix_intro";
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps ({desc = Trm_prim (Prim_compound_assgn_op binop)} as op, [tl; tr], _) ->
+    | Trm_apps ({desc = Trm_prim (_, Prim_compound_assign_op binop)} as op, [tl; tr], _) ->
       trm_replace (Trm_apps(op, [trm_get tl; tr], [])) t
-    | Trm_apps ({desc = Trm_prim (Prim_unop unop); _} as op, [base], _) when is_unary_compound_assign unop ->
+    | Trm_apps ({desc = Trm_prim (_, Prim_unop unop); _} as op, [base], _) when is_unary_compound_assign unop ->
       trm_replace (Trm_apps(op, [trm_get base], [])) t
-    | Trm_apps ({desc = Trm_prim (Prim_binop Binop_set)} as op, [tl; tr], _) ->
-      trm_replace (Trm_apps (op, [trm_get tl;tr], [])) t
-    | Trm_apps ({desc = Trm_prim (Prim_overloaded_op (Prim_binop Binop_set))} as op, [tl; tr], _) ->
-      trm_replace (Trm_apps (op, [trm_get tl;tr], [])) t
+    | Trm_apps ({desc = Trm_prim (_, Prim_binop Binop_set)} as op, [tl; tr], _) ->
+      trm_replace (Trm_apps (op, [trm_get tl; tr], [])) t
     | _ -> trm_map aux t
   in aux t
 
@@ -396,19 +392,12 @@ let method_call_elim (t : trm) : trm =
   debug_current_stage "method_call_elim";
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps ({desc = Trm_apps ({desc = Trm_prim (Prim_unop (Unop_struct_get f))}, [base], _)} as _tr, args, ghost_args) ->
+    | Trm_apps ({desc = Trm_apps ({desc = Trm_prim (class_typ, Prim_unop (Unop_struct_get f))}, [base], _)} as _tr, args, ghost_args) ->
       (* LATER: Manage templated class *)
       let class_var =
-        match Option.bind base.typ typ_var_inv with
-        | Some class_var -> class_var
-        | None ->
-        begin match Option.bind (trm_get_inv base) (fun gb ->
-                    Option.bind gb.typ (fun gbt ->
-                    Option.bind (typ_ptr_inv gbt) (fun btyp ->
-                    typ_var_inv btyp))) with
+        match typ_var_inv class_typ with
         | Some class_var -> class_var
         | None -> failwith "C_encoding.method_call_elim: unsupported base: %s\n" (Ast_to_text.ast_to_string base)
-        end
       in
       let class_var = remove_typ_namespace class_var in
       let namespaces = class_var.namespaces @ [class_var.name] in
@@ -463,7 +452,7 @@ let class_member_elim (t : trm) : trm =
     | Trm_let_fun (v, ty, vl, body, contract) when is_class_constructor t ->
       let var_this = new_var "this" in
       let this_typ = get_class_typ current_class v in
-      let this_body = trm_apps (trm_toplevel_var "malloc") [trm_toplevel_var ("sizeof(" ^ v.name ^ ")")] in
+      let this_body = trm_apps (trm_toplevel_var "malloc") [trm_sizeof this_typ] in
       let this_alloc = trm_let (var_this, this_typ) this_body in
       let typed_this = trm_var ~typ:this_typ var_this in
       to_subst := Var_map.add var_this typed_this !to_subst;
@@ -820,7 +809,7 @@ let seq_push (code : trm) (t : trm) : trm =
   trm_replace (Trm_seq new_tl) t
 
 let trm_array_of_string list =
-  trm_array (Mlist.of_list (List.map trm_string list))
+  trm_array ~typ:typ_string (Mlist.of_list (List.map trm_string list))
 
 let ctx_resources_to_trm (style: style) (res: resource_set) : trm =
   let used_vars = Resource_set.used_vars res in

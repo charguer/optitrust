@@ -15,11 +15,11 @@ let qual_type_to_string (typ: qual_type): string =
 
 let warned_array_subscript_not_supported = resetable_ref String_set.empty
 
-let warn_array_subscript_not_supported (t : typ option) : unit =
+let warn_array_subscript_not_supported ?(loc: location) (t : typ option) : unit =
   let str = Option.to_string Ast_to_text.typ_to_string t in
   if not (String_set.mem str !warned_array_subscript_not_supported) then begin
     warned_array_subscript_not_supported := String_set.add str !warned_array_subscript_not_supported;
-    verbose_warn "does not support array subscript base type '%s'" str;
+    verbose_warn "%s: does not support array subscript base type '%s'" (loc_to_string loc) str;
   end
 
 (** [loc_of_node n]: gets the location of node [n] *)
@@ -86,7 +86,7 @@ let ctx_var_add (tv : var) (t : typ) : unit =
 (** [string_of_overloaded_op ?loc op]: gets names of overloaded operators (later matched for printing) *)
  let string_of_overloaded_op ?(loc : location)
     (op : clang_ext_overloadedoperatorkind) : string =
-  match op with
+  "operator" ^ match op with
   | Plus -> "+"
   | Minus -> "-"
   | Star -> "*"
@@ -118,41 +118,6 @@ let ctx_var_add (tv : var) (t : typ) : unit =
   | Subscript -> "[]"
   | Call -> "()"
   | _ -> loc_fail loc "Clang_to_astRawC.string_of_overloaded_op: non supported operator"
-
-(** [overload_op ?loc ?ctx op]: gets the primitive operation associated with the overloaded operator [op] *)
- let overloaded_op ?(loc : location) ?(ctx : ctx option) (op : clang_ext_overloadedoperatorkind) : trm =
-  match op with
-  | Plus -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_add))
-  | Minus -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_sub))
-  | Star -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_mul))
-  | Equal -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_set))
-  | ExclaimEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_neq))
-  | PlusEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_add))
-  | MinusEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_sub))
-  | StarEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_mul))
-  | Slash -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_div))
-  | Percent -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_mod))
-  | Amp -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_bitwise_and))
-  | Pipe -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_bitwise_or))
-  | Less -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_lt))
-  | Greater -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_gt))
-  | SlashEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_div))
-  | PercentEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_mod))
-  | AmpEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_and))
-  | PipeEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_or))
-  | LessLess -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_shiftl))
-  | GreaterGreater -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_shiftr))
-  | LessLessEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_shiftl))
-  | GreaterGreaterEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_shiftr))
-  | EqualEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_eq))
-  | LessEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_le))
-  | GreaterEqual -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_ge))
-  | AmpAmp -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_and))
-  | PipePipe -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_or))
-  | PlusPlus -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_unop (Unop_post_inc)))
-  | Subscript -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop (Binop_array_get)))
-  | Call -> trm_var (name_to_var "overloaded_call")
-  | _ -> loc_fail loc "Clang_to_astRawC.overloaded_op: non supported operator"
 
 (** [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)
 let wrap_const ~(const : bool) (t : typ) : typ =
@@ -187,15 +152,15 @@ let trm_for_c_inv_simple_step (loop_index: var) (loop_dir: loop_dir) (step_expr 
   | DirUp | DirUpEq ->
     (* Using eq instead of the more efficient var_eq because var ids are not computed at this step *)
     Pattern.pattern_match_opt step_expr [
-      Pattern.(trm_unop (eq Unop_post_inc) (trm_var (eq loop_index))) (fun () -> trm_step_one_post ());
-      Pattern.(trm_unop (eq Unop_pre_inc) (trm_var (eq loop_index))) (fun () -> trm_step_one_pre ());
-      Pattern.(trm_prim_compound Binop_add (trm_var (eq loop_index)) !__) (fun x () -> x);
+      Pattern.(trm_unop Unop_post_incr (trm_var (eq loop_index))) (fun () -> trm_step_one_post ());
+      Pattern.(trm_unop Unop_pre_incr (trm_var (eq loop_index))) (fun () -> trm_step_one_pre ());
+      Pattern.(trm_compound_assign Binop_add (trm_var (eq loop_index)) !__) (fun x () -> x);
     ]
   | DirDown | DirDownEq ->
     Pattern.pattern_match_opt step_expr [
-      Pattern.(trm_unop (eq Unop_post_dec) (trm_var (eq loop_index))) (fun () -> trm_step_one_post ());
-      Pattern.(trm_unop (eq Unop_pre_dec) (trm_var (eq loop_index))) (fun () -> trm_step_one_pre ());
-      Pattern.(trm_prim_compound Binop_sub (trm_var (eq loop_index)) !__) (fun x () -> x);
+      Pattern.(trm_unop Unop_post_decr (trm_var (eq loop_index))) (fun () -> trm_step_one_post ());
+      Pattern.(trm_unop Unop_pre_decr (trm_var (eq loop_index))) (fun () -> trm_step_one_pre ());
+      Pattern.(trm_compound_assign Binop_sub (trm_var (eq loop_index)) !__) (fun x () -> x);
     ]
 
 (** [trm_for_of_trm_for_c t]: checks if loops [t] is a simple loop or not, if yes then return the simple loop else returns [t]. *)
@@ -528,10 +493,11 @@ and compute_body (loc : location) (body_acc : trms)
      is determined. *)
 (* FIXME: #odoc why is annotation required on callees? *)
 and tr_init_list ?(loc : location) (ty : typ) (el : expr list) : trm =
-  if is_typ_array ty then
+  match typ_array_inv ty with
+  | Some (base_ty, _) ->
     let tl = List.map tr_expr el in
-    trm_array ?loc ~typ:ty (Mlist.of_list tl)
-  else
+    trm_array ?loc ~typ:base_ty (Mlist.of_list tl)
+  | None ->
     let tl = List.map (fun (e : expr) ->
       match e.desc with
       | DesignatedInit { designators = dl; init = e } ->
@@ -545,14 +511,14 @@ and tr_init_list ?(loc : location) (ty : typ) (el : expr list) : trm =
     trm_record ?loc ~typ:ty (Mlist.of_list tl)
 
 (** [tr_expr e]: translates expression [e] into an OptiTrust trm *)
-and tr_expr (e : expr) : trm =
+and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
   (* let aux = tr_expr *)
   let loc = loc_of_node e in
   let typ : typ option =
     let q = Clang.Type.of_node e in
     try Some (tr_qual_type ?loc q) with
-    | _ ->
-      verbose_warn "%s: tr_expr: unable to translate type %s" (loc_to_string loc)
+    | exn ->
+      verbose_warn "%s: tr_expr: unable to translate type %s: %s" (loc_to_string loc) (Printexc.to_string exn)
         (Clang.Type.show q);
       None
   in
@@ -562,7 +528,8 @@ and tr_expr (e : expr) : trm =
     let t_cond = tr_expr cond in
     let t_then = tr_expr e_then in
     let t_else = tr_expr e_else in
-    trm_apps ?loc ?typ (trm_prim ?loc Prim_conditional_op)
+    let typ = Option.unsome typ in
+    trm_apps ?loc ~typ (trm_prim typ ?loc Prim_conditional_op)
       [t_cond; t_then; t_else]
   | ConditionalOperator _ ->
     loc_fail loc
@@ -594,92 +561,128 @@ and tr_expr (e : expr) : trm =
   | UnaryExpr {kind = k; argument = a} ->
     begin match k with
       | SizeOf ->
-        begin match a with
-          | ArgumentExpr e ->
-            let t = tr_expr e in
-            trm_apps ?loc ?typ (trm_var ?loc (name_to_var "sizeof")) [t]
-          | ArgumentType q ->
-            trm_var ?loc ?typ (name_to_var ("sizeof(" ^ qual_type_to_string q ^ ")"))
-        end
+        let q = match a with
+          | ArgumentExpr e -> Clang.Type.of_node e
+          | ArgumentType q -> q
+        in
+        let typ = tr_qual_type q ?loc in
+        trm_sizeof typ
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: unsupported unary expr"
     end
+
   | UnaryOperator {kind = k; operand = e} ->
     let loc = loc_from_to loc (loc_of_node e) in
     let t = tr_expr e in
+    let typ = Option.unsome_or_else typ (fun () -> failwith "%s: Missing type on unary expression" (loc_to_string t.loc)) in
     begin match k with
-      | AddrOf -> (* expectation: e is not a const variable *)
-        (* We are translating a term of the form that involves [&p],
-           for example, [int p = 3; f(&p)]. In our AST, [p] represents
-           the address of the cell at which [3] is stored, thus the
-           call is actually [f(p)]. In other words we drop the [&] operator. *)
-        trm_apps ?loc ?typ (trm_unop Unop_address) [t]
-      | _ ->
-        let trm_apps1 unop t1 = trm_apps ?loc ?typ (trm_unop ?loc unop) [t1] in
-        begin match k with
-          | PostInc -> trm_apps1 Unop_post_inc t
-          | PostDec -> trm_apps1 Unop_post_dec t
-          | PreInc -> trm_apps1 Unop_pre_inc t
-          | PreDec -> trm_apps1 Unop_pre_dec t
-          | Deref -> trm_apps1 Unop_get t
-          | Minus -> trm_apps1 Unop_minus t
-          | Plus -> trm_apps1 Unop_plus t
-          | Not -> trm_apps1 Unop_bitwise_neg t
-          | LNot -> trm_apps1 Unop_neg t
-          | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: unary operator not implemented"
-        end
+      | AddrOf ->
+        let typ = Option.unsome_or_else (typ_ptr_inv typ) (fun () -> failwith "%s: Type of the address-of expression is not a pointer" (loc_to_string t.loc)) in
+        trm_address_of ~typ t
+      | Deref -> trm_get ~typ t
+      | PostInc -> trm_post_incr ~typ t
+      | PostDec -> trm_post_decr ~typ t
+      | PreInc -> trm_pre_incr ~typ t
+      | PreDec -> trm_pre_decr ~typ t
+      | Minus -> trm_minus ~typ t
+      | Plus -> trm_plus ~typ t
+      | Not -> trm_bitwise_neg ~typ t
+      | LNot -> trm_neg t
+      | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: unary operator not implemented"
     end
+
   | BinaryOperator {lhs = le; kind = k; rhs = re} ->
     let loc = loc_from_to (loc_of_node le) (loc_of_node re) in
-    let tr = tr_expr re in
     let tl = tr_expr le in
-    let trm_prim_c binop tl tr =
-       trm_prim_compound ?loc binop tl tr in
+    let tr = tr_expr re in
+    let compound_assign binop =
+      let ltyp = Option.unsome_or_else tl.typ (fun () -> failwith "%s: Missing type on the l-value of an assignment" (loc_to_string tl.loc)) in
+      trm_compound_assign ?loc ~typ:ltyp binop tl tr
+    in
+    let find_binop_typ ?(cmp = false) () =
+      let rec unwrap_operand_typ ty_opt loc =
+        let ty = Option.unsome_or_else ty_opt (fun () -> failwith "%s: Missing type on arithmetic operand" (loc_to_string loc)) in
+        Pattern.pattern_match ty [
+          Pattern.(typ_builtin !__) (fun builtin () -> builtin);
+          Pattern.(typ_const !__) (fun ty () -> unwrap_operand_typ (Some ty) loc);
+          Pattern.(typ_ref !__) (fun ty () -> unwrap_operand_typ (Some ty) loc);
+          Pattern.(typ_ptr __) (fun () ->
+            (* When performing comparison, pointers are the same as usize *)
+            if cmp then Typ_size Unsigned else
+            failwith "%s: Direct arithmetic on pointers is not supported (use &p[i] syntax instead of (p+i))" (loc_to_string loc));
+          Pattern.__ (fun () -> failwith "%s: Arithmetic operand has a non standard type (%s)" (loc_to_string loc) (Ast_to_text.typ_to_string ty))
+        ]
+      in
+
+      let tyl = unwrap_operand_typ tl.typ tl.loc in
+      let tyr = unwrap_operand_typ tr.typ tr.loc in
+
+      (* Here we define custom coercion rules that are inspired but do not perfectly match C rules:
+      - integers coerce to pointer size since computation on isize never need more precision
+      - as the unspecified width type, int is "bigger" that other specified width types
+      - there is no small type that is always converted to at least int32
+      *)
+      let btyp = match tyl, tyr with
+      | Typ_float fl, Typ_float fr -> Typ_float (max fl fr)
+      | Typ_float f, _ | _, Typ_float f -> Typ_float f
+      | Typ_size Unsigned, _ | _, Typ_size Unsigned -> Typ_size Unsigned
+      | Typ_size Signed, _ | _, Typ_size Signed -> Typ_size Signed
+      | Typ_int Unsigned, _ | _, Typ_int Unsigned -> Typ_int Unsigned
+      | Typ_int Signed, _ | _, Typ_int Signed -> Typ_int Signed
+      | Typ_fixed_int (sl, nl), Typ_fixed_int (sr, nr) when nl > nr -> Typ_fixed_int (sl, nl)
+      | Typ_fixed_int (sl, nl), Typ_fixed_int (sr, nr) when nl < nr -> Typ_fixed_int (sr, nr)
+      | Typ_fixed_int (Unsigned, n), Typ_fixed_int _ | Typ_fixed_int _, Typ_fixed_int (Unsigned, n) -> Typ_fixed_int (Unsigned, n)
+      | Typ_fixed_int (s, n), _ | _, Typ_fixed_int (s, n) -> Typ_fixed_int (s, n)
+      | Typ_char, _ | _, Typ_char -> Typ_char
+      | Typ_bool, Typ_bool -> Typ_bool
+      in
+      typ_builtin btyp
+    in
+    let arith_binop binop =
+      trm_arith_binop ?loc ~typ:(find_binop_typ ()) binop tl tr
+    in
+    let cmp_binop binop =
+      trm_cmp_binop ?loc ~typ:(find_binop_typ ~cmp:true ()) binop tl tr
+    in
     begin match k with
       | Assign ->
-        trm_set ?loc tl tr
-      | AddAssign ->
-        trm_prim_c Binop_add tl tr
-      | SubAssign ->
-        trm_prim_c Binop_sub tl tr
-      | MulAssign ->
-         trm_prim_c Binop_mul tl tr
-      | DivAssign ->
-         trm_prim_c Binop_div tl tr
-      | RemAssign ->
-         trm_prim_c Binop_mod tl tr
-      | ShlAssign ->
-         trm_prim_c Binop_shiftl tl tr
-      | ShrAssign ->
-         trm_prim_c Binop_shiftr tl tr
-      | AndAssign ->
-         trm_prim_c Binop_and tl tr
-      | OrAssign ->
-         trm_prim_c Binop_or tl tr
-      | XorAssign ->
-         trm_prim_c Binop_xor tl tr
-      | _ ->
-        begin match k with
-          | Mul -> trm_mul ?loc ?typ tl tr
-          | Div -> trm_div ?loc ?typ tl tr
-          | Add -> trm_add ?loc ?typ tl tr
-          | Sub -> trm_sub ?loc ?typ tl tr
-          | LT ->  trm_lt ?loc ?typ tl tr
-          | GT ->  trm_gt ?loc ?typ tl tr
-          | LE ->  trm_le ?loc ?typ tl tr
-          | GE ->  trm_ge ?loc ?typ tl tr
-          | EQ ->  trm_eq ?loc ?typ tl tr
-          | NE ->  trm_neq ?loc ?typ tl tr
-          | And -> trm_bit_and ?loc ?typ tl tr
-          | LAnd -> trm_and ?loc ?typ tl tr
-          | Or ->  trm_bit_or ?loc ?typ tl tr
-          | LOr -> trm_or ?loc ?typ tl tr
-          | Shl -> trm_shiftl ?loc ?typ tl tr
-          | Shr -> trm_shiftr ?loc ?typ tl tr
-          | Rem -> trm_mod ?loc ?typ tl tr
-          | Xor -> trm_xor ?loc ?typ tl tr
-          | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: binary operator not implemented"
-        end
+        let ltyp = Option.unsome_or_else tl.typ (fun () -> failwith "%s: Missing the type on the l-value of an assignment" (loc_to_string tl.loc)) in
+        trm_set ?loc ~typ:ltyp tl tr
+
+      | AddAssign -> compound_assign Binop_add
+      | SubAssign -> compound_assign Binop_sub
+      | MulAssign -> compound_assign Binop_mul
+      | DivAssign -> compound_assign Binop_div
+      | RemAssign -> compound_assign Binop_mod
+      | ShlAssign -> compound_assign Binop_shiftl
+      | ShrAssign -> compound_assign Binop_shiftr
+      | AndAssign -> compound_assign Binop_and
+      | OrAssign -> compound_assign Binop_or
+      | XorAssign -> compound_assign Binop_xor
+
+      | Add -> arith_binop Binop_add
+      | Sub -> arith_binop Binop_sub
+      | Mul -> arith_binop Binop_mul
+      | Div -> arith_binop Binop_div
+      | Rem -> arith_binop Binop_mod
+      | And -> arith_binop Binop_bitwise_and
+      | Or ->  arith_binop Binop_bitwise_or
+      | Shl -> arith_binop Binop_shiftl
+      | Shr -> arith_binop Binop_shiftr
+      | Xor -> arith_binop Binop_xor
+
+      | LT ->  cmp_binop Binop_lt
+      | GT ->  cmp_binop Binop_gt
+      | LE ->  cmp_binop Binop_le
+      | GE ->  cmp_binop Binop_ge
+      | EQ ->  cmp_binop Binop_eq
+      | NE ->  cmp_binop Binop_neq
+
+      | LAnd -> trm_and ?loc tl tr
+      | LOr -> trm_or ?loc tl tr
+
+      | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: binary operator not implemented"
     end
+
   | Call {callee = f; args = el} ->
     let tf = tr_expr f in
     (* DEPREACTED let tf = trm_add_cstyle_clang_cursor (cursor_of_node f) tf in*)
@@ -687,15 +690,19 @@ and tr_expr (e : expr) : trm =
     | Trm_var x when var_has_name x "exact_div" ->
       begin match List.map tr_expr el with
       | [n; b] ->
-        trm_apps ?loc ?typ (trm_binop Binop_exact_div) [n; b]
+        trm_exact_div ?loc ?typ n b
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: 'exact_div' expects two arguments"
       end
-    | Trm_var x when Str.string_match (Str.regexp "overloaded=") x.name 0 ->
+    | Trm_var x when var_has_name x "operator=" ->
+        (* FIXME: For C++ this only works if operator= is the default one *)
         begin match el with
-        | [tl;tr] -> trm_set ?loc (tr_expr tl) (tr_expr tr)
-        | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
+        | [tl;tr] ->
+          let tl = tr_expr tl in
+          let tr = tr_expr tr in
+          trm_set ?loc ?typ:tl.typ tl tr
+        | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: operator= expects two arguments"
         end
-    | Trm_var x when var_has_name x "overloaded_call" ->
+    | Trm_var x when var_has_name x "operator()" ->
       let t_args = List.map tr_expr el in
       let call_name , call_args = List.uncons t_args in
       trm_apps ?loc ?typ call_name call_args
@@ -703,6 +710,7 @@ and tr_expr (e : expr) : trm =
       trm_apps ?loc ?typ tf (List.map tr_expr el)
     end
   | DeclRef {nested_name_specifier = nns; name = n; template_arguments = targs} -> (* Occurrence of a variable *)
+    let qpath = tr_nested_name_specifier ?loc nns in
     begin match n with
       | IdentifierName s ->
         (*
@@ -710,7 +718,6 @@ and tr_expr (e : expr) : trm =
           we look at the type given in their declaration to take into account
           type aliases
          *)
-        let qpath = tr_nested_name_specifier ?loc nns in
         let typ : typ option =
           (*
             clangml version: does not work (q = InvalidType for several vars in
@@ -732,7 +739,7 @@ and tr_expr (e : expr) : trm =
         | [] -> res
         | _ -> trm_add_cstyle (Typ_arguments targs) res
         end
-      | OperatorName op -> overloaded_op ?loc op
+      | OperatorName op -> trm_var ?loc ?typ (name_to_var ~namespaces:qpath (string_of_overloaded_op op))
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only identifiers allowed for variables"
     end
   | Member {base = eo; arrow = has_arrow; field = f} ->
@@ -745,7 +752,7 @@ and tr_expr (e : expr) : trm =
             let f = tr_ident id in
             (* TODO: give type to trm_this *)
             let t_this = trm_get (trm_add_cstyle Implicit_this (trm_this ())) in
-            trm_apps ?loc ?typ (trm_unop (Unop_struct_get f)) [t_this]
+            trm_struct_get ?loc ?field_typ:typ t_this f
           | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: fields should be accesses by names"
           end
         else loc_fail loc "Clang_to_astRawC.tr_expr: field accesses should have a base"
@@ -761,17 +768,18 @@ and tr_expr (e : expr) : trm =
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
       end in
       let base = tr_expr e in
-        if has_arrow then
-          trm_apps ?loc ?typ (trm_unop (Unop_struct_get f) ) [trm_get base]
-        else
-          let get_op = trm_unop ?loc (Unop_struct_get f) in
-          let get_op = if is_get_operation base then trm_add_cstyle Display_no_arrow get_op else get_op in
-          trm_apps ?loc ?typ get_op [base]
+      if has_arrow then
+        trm_struct_get ?loc ?field_typ:typ (trm_get base) f
+      else
+        let get_op = trm_struct_get ?loc ?field_typ:typ base f in
+        if is_get_operation base then
+          trm_add_cstyle No_struct_get_arrow get_op
+        else get_op
     end
   | ArraySubscript {base = e; index = i} ->
     let ti = tr_expr i in
     let te = tr_expr e in
-    (*
+    (*(*
        override typ to account for typedefs:
        if e's type is x*, make sure typ is x (it is not always the case if x is
        declared through a typedef)
@@ -779,9 +787,9 @@ and tr_expr (e : expr) : trm =
     let typ = Option.bind te.typ typ_of_get in
     if typ = None then begin
       (* happens for, e.g., typedef T = int*; *)
-      warn_array_subscript_not_supported te.typ;
-    end;
-    trm_apps ?loc ?typ (trm_binop ?loc (Binop_array_get)) [te; ti]
+      warn_array_subscript_not_supported ?loc te.typ;
+    end;*)
+    trm_array_get ?loc ?typ te ti
 
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
@@ -795,17 +803,17 @@ and tr_expr (e : expr) : trm =
       | CStyle | Static | Functional ->
         let t = tr_qual_type ?loc q in
         let te' = tr_expr e' in
-        trm_apps ?loc ?typ (trm_unop ?loc (Unop_cast t)) [te']
-
+        trm_cast ?loc t te'
+      | Implicit -> (* Ignore implicit casts to get the real internal type *) tr_expr ?cast_typ:(Option.or_ cast_typ typ) e'
       | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: only static casts are allowed"
     end
   | New {placement_args = _; qual_type = q; array_size = seo; init = _} ->
     let tq = tr_qual_type ?loc q in
     begin match seo with
-      | None -> trm_prim ?loc (Prim_new tq)
+      | None -> trm_prim ?loc tq Prim_new
       | Some se ->
         let size = tr_expr se in
-        trm_prim ?loc (Prim_new (typ_array tq ~size))
+        trm_prim ?loc (typ_array tq ~size) Prim_new
     end
   | Delete {global_delete = _; array_form = b; argument = e} ->
     let te = tr_expr e in
@@ -821,22 +829,17 @@ and tr_expr (e : expr) : trm =
   | This -> trm_this ?loc ?typ ()
   | UnexposedExpr ImplicitValueInitExpr ->
     verbose_warn "%s: tr_expr: implicit initial value" (loc_to_string loc);
-    trm_uninitialized ?loc (Option.value ~default:typ_auto typ)
+    trm_uninitialized ?loc (typ_or_auto typ)
   | ImplicitValueInit _ ->
     (* FIXME: This is weird given the name ImplicitValueInit *)
-    trm_uninitialized ?loc (Option.value ~default:typ_auto typ)
+    trm_uninitialized ?loc (typ_or_auto typ)
 
-  | NullPtrLiteral ->
-    begin match typ with
-    | Some typ ->  trm_null ?loc typ
-    | None -> loc_fail loc "found an occurence of nullptr without a type set"
-    end;
-
+  | NullPtrLiteral
   | UnknownExpr (GNUNullExpr, GNUNullExpr) (* sometimes NULL is translated with UnknownExpr (GNUNullExpr, GNUNullExpr). LATER: in which condition? is it actually used sometimes? *)
   | UnexposedExpr (GNUNullExpr) ->
-    begin match typ with
-    | Some typ -> trm_null ~uppercase:true ?loc typ
-    | None -> loc_fail loc "found an occurence of NULL without a type set"
+    begin match Option.or_ typ cast_typ with
+    | Some typ -> trm_null ~uppercase:(e.desc <> NullPtrLiteral) ?loc typ
+    | None -> loc_fail loc "found an occurence of null without a type set"
     end;
 
   | UnresolvedConstruct {qual_type = q; args = args} | TemporaryObject {qual_type = q; args = args} ->
@@ -923,7 +926,7 @@ and tr_member_initialized_list ?(loc : location) (init_list :  constructor_initi
     match k with
     | Member {indirect = b; field = {desc = f}} ->
       let ti = tr_expr ie in
-      trm_add_cstyle Member_initializer (trm_set (trm_apps (trm_unop (Unop_struct_get f)) [trm_this()]) (ti))
+      trm_add_cstyle Member_initializer (trm_set (trm_struct_get (trm_this ()) f) ti)
     | _ -> loc_fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple member initializers are supported."
   ) init_list
 
@@ -1005,7 +1008,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let s =
       begin match n with
       | IdentifierName s -> s
-      | OperatorName op -> "operator" ^ string_of_overloaded_op ?loc op
+      | OperatorName op -> string_of_overloaded_op ?loc op
       | _ -> loc_fail loc "Clang_to_astRawC.tr_decl: only identifiers and overloaded operators allowed for method declarations"
       end
       in

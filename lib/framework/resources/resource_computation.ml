@@ -35,10 +35,10 @@ module Resource_primitives = struct
     match u with
     | Unop_get -> "__get"
     | Unop_minus -> "__minus"
-    | Unop_pre_inc -> "__pre_inc"
-    | Unop_pre_dec -> "__pre_dec"
-    | Unop_post_inc -> "__post_inc"
-    | Unop_post_dec -> "__post_dec"
+    | Unop_pre_incr -> "__pre_incr"
+    | Unop_pre_decr -> "__pre_decr"
+    | Unop_post_incr -> "__post_incr"
+    | Unop_post_decr -> "__post_decr"
     | Unop_cast t -> "__cast"
     | Unop_struct_access f -> "__struct_access_" ^ f (* FIXME: is this a good encoding? *)
     | Unop_struct_get f -> "__struct_get_" ^ f (* FIXME: is this a good encoding? *)
@@ -57,13 +57,12 @@ module Resource_primitives = struct
     | _ -> raise Unknown
 
   let to_var (p: prim): var =
-    let rec to_var_name p =
+    let to_var_name p =
       match p with
       | Prim_unop u -> unop_to_var_name u
       | Prim_binop b -> binop_to_var_name b
-      | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
-      | Prim_overloaded_op p -> to_var_name p
-      | Prim_ref _ -> "__ref"
+      | Prim_compound_assign_op b -> (binop_to_var_name b ^ "_inplace")
+      | Prim_ref -> "__ref"
       (* | Prim_ref_array (_, dims) -> "__ref_array"  SAME AS MALLOCN but with implicit trm_apps *)
       | _ -> raise Unknown
     in
@@ -741,7 +740,7 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
 let trm_fun_var_inv (t:trm): var option =
   try
     match trm_prim_inv t with
-    | Some p -> Some (Resource_primitives.to_var p)
+    | Some (_, p) -> Some (Resource_primitives.to_var p)
     | None -> trm_var_inv t
   with Resource_primitives.Unknown ->
     let trm_internal (msg : string) (t : trm) : string =
@@ -1012,7 +1011,7 @@ let rec compute_resources
     let** res in
     try begin match t.desc with
     (* new array is typed as MALLOCN with correct dims *)
-    | Trm_apps ({ desc = Trm_prim (Prim_ref_array (ty, dims)) }, _, []) ->
+    | Trm_apps ({ desc = Trm_prim (ty, Prim_ref_array dims) }, _, []) ->
       compute_resources (Some res) (Matrix_core.alloc_with_ty ~annot:referent ~annot_call:referent dims ty)
 
     (* Values and variables are pure. *)
@@ -1107,7 +1106,7 @@ let rec compute_resources
       let usage_map = Option.map (Var_map.add var Ensured) usage_map in
       usage_map, Option.map (fun res_after -> Resource_set.rename_var var_result var res_after) res_after
 
-    | Trm_record fields ->
+    | Trm_record (_, fields) ->
       (* TODO: factorize more subexpr logic with Trm_apps *)
       let** unused_res, post, usage_map =
         List.fold_left (fun acc ((_, v) : label option * trm) ->
@@ -1201,6 +1200,14 @@ let rec compute_resources
         begin match effective_args with
         | [arg] -> compute_resources (Some res) arg
         | _ -> failwith "expected 1 argument for cast"
+        end
+
+      | exception Spec_not_found fn when var_eq fn Trm.var_sizeof ->
+        begin match effective_args with
+        | [ty_arg] ->
+          (* LATER: Count the type as a required resource *)
+          Some empty_usage_map, Some res
+        | _ -> failwith "expected 1 argument for sizeof"
         end
 
       | exception Spec_not_found fn when var_eq fn Resource_trm.var_ghost_begin ->

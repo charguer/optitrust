@@ -19,8 +19,9 @@ let%transfo scale ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : t
 (** [apply op arg] expects the target [tg] to be pointing at any node of the ast
       then it applies the binary operation [op] at that node with the second argument
       of that operation being [arg] *)
-let%transfo apply (op : binary_op) (arg : trm) (tg : target) : unit =
+(*let%transfo apply (op : binary_op) (arg : trm) (tg : target) : unit =
   Target.apply_at_target_paths (Arith_core.apply op arg) tg
+*)
 
 (** [simpl f] applies a arithmetic rewriting method from the module Arith_core:
    - gather  for grouping and cancelling out similar expressions in sums and produts

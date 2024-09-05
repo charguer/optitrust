@@ -90,14 +90,6 @@ let trm_int (f: 'a -> int -> 'b) (k: 'a) (t: trm): 'b =
   | Some x -> f k x
   | _ -> raise Next
 
-let trm_ref finit fty k =
-  trm_apps1 (fun k t -> match trm_prim_inv t with
-    | Some (Prim_ref ty) ->
-      let k = fty k ty in
-      k
-    | _ -> raise Next
-  ) finit k
-
 let trm_fun args rettyp body spec k t =
   match t.desc with
   | Trm_fun (targs, tret_type, tbody, tspec) ->
@@ -147,12 +139,9 @@ let trm_record f k t =
   | Some fs -> f k fs
   | _ -> raise Next
 
-let trm_unop funop ft k t =
-  match trm_unop_inv t with
-  | Some (unop, t0) ->
-    let k = funop k unop in
-    let k = ft k t0 in
-    k
+let trm_unop unop ft k t =
+  match trm_unop_inv unop t with
+  | Some t0 -> ft k t0
   | None -> raise Next
 
 let trm_binop binop ft1 ft2 k t =
@@ -163,19 +152,15 @@ let trm_binop binop ft1 ft2 k t =
     k
   | None -> raise Next
 
-let trm_prim_compound binop ft1 ft2 k t =
-  trm_apps2 (fun k t -> match trm_prim_inv t with
-    | Some (Prim_compound_assgn_op op) when op = binop -> k
-    | _ -> raise Next
-  ) ft1 ft2 k t
+let trm_compound_assign binop ft1 ft2 k t =
+  match trm_compound_assign_inv binop t with
+  | Some (t1, t2) ->
+    let k = ft1 k t1 in
+    let k = ft2 k t2 in
+    k
+  | None -> raise Next
 
-let trm_prim_overloaded_binop binop ft1 ft2 k t =
-  trm_apps2 (fun k t -> match trm_prim_inv t with
-    | Some (Prim_overloaded_op (Prim_binop op)) when op = binop -> k
-    | _ -> raise Next
-  ) ft1 ft2 k t
-
-let trm_set ft1 ft2 = (trm_binop Binop_set ft1 ft2) ^| (trm_prim_overloaded_binop Binop_set ft1 ft2)
+let trm_set ft1 ft2 = trm_binop Binop_set ft1 ft2
 
 let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
 let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2
@@ -189,26 +174,68 @@ let trm_ge ft1 ft2 = trm_binop Binop_ge ft1 ft2
 let trm_eq ft1 ft2 = trm_binop Binop_eq ft1 ft2
 let trm_neq ft1 ft2 = trm_binop Binop_neq ft1 ft2
 
+let trm_struct_get ft ffield k t =
+  match trm_struct_get_inv t with
+  | Some (t, field) ->
+    let k = ft k t in
+    let k = ffield k field in
+    k
+  | None -> raise Next
+
+let trm_struct_access ft ffield k t =
+  match trm_struct_access_inv t with
+  | Some (t, field) ->
+    let k = ft k t in
+    let k = ffield k field in
+    k
+  | None -> raise Next
+
+let trm_array_get fbase findex k t =
+  match trm_array_get_inv t with
+  | Some (base, index) ->
+    let k = fbase k base in
+    let k = findex k index in
+    k
+  | None -> raise Next
+
+let trm_array_access fbase findex k t =
+  match trm_array_access_inv t with
+  | Some (base, index) ->
+    let k = fbase k base in
+    let k = findex k index in
+    k
+  | None -> raise Next
+
 let trm_arbitrary fa k t =
   match t.desc with
   | Trm_arbitrary a -> fa k a
   | _ -> raise Next
 
-let trm_struct_access ffield fbase k =
-  trm_unop (fun k op ->
-    match op with
-    | Unop_struct_access f -> ffield k f
-    | _ -> raise Next
-  ) fbase k
+let trm_struct_access fbase ffield k t =
+  match trm_struct_access_inv t with
+  | Some (ttrm, tfield) ->
+    let k = fbase k ttrm in
+    let k = ffield k tfield in
+    k
+  | None -> raise Next
 
-let trm_struct_get ffield fbase k =
-  trm_unop (fun k op ->
-    match op with
-    | Unop_struct_get f -> ffield k f
-    | _ -> raise Next
-  ) fbase k
+let trm_struct_get fbase ffield k t =
+  match trm_struct_get_inv t with
+  | Some (ttrm, tfield) ->
+    let k = fbase k ttrm in
+    let k = ffield k tfield in
+    k
+  | None -> raise Next
 
-let trm_get f = trm_unop (eq Unop_get) f
+let trm_ref fty ft k t =
+  match trm_ref_inv t with
+  | Some (ty, t) ->
+    let k = ft k t in
+    let k = fty k ty in
+    k
+  | None -> raise Next
+
+let trm_get f = trm_unop Unop_get f
 
 let typ_var = trm_var
 let typ_apps ft fargs k ty =
@@ -269,9 +296,19 @@ let typ_fun fargs fres k ty =
     k
   | None -> raise Next
 
+let typ_builtin fbuiltin k ty =
+  match typ_builtin_inv ty with
+  | Some bt -> fbuiltin k bt
+  | None -> raise Next
+
 (* FIXME: This construction is slightly weird because it confuses types and type constructors. It is here for transitionning old code that also makes this confusion. *)
 let typ_constr ftv k ty =
   (typ_var !__ ^| typ_apps !__ __) (fun var -> ftv k var) ty
+
+let trm_with_typ fty k t =
+  match t.typ with
+  | Some ty -> fty k ty
+  | None -> raise Next
 
 let mlist f k t = f k (Mlist.to_list t)
 

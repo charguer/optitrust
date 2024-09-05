@@ -31,24 +31,31 @@ let compute_on (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, ts, _) ->
     begin match (trm_prim_inv f), ts with
-    | Some (Prim_unop Unop_get) , _ | Some (Prim_unop (Unop_bitwise_neg)), _ | Some (Prim_unop Unop_minus), _ | Some (Prim_unop (Unop_struct_access _)), _ | Some (Prim_unop (Unop_struct_get _)), _ -> t
-    | Some (Prim_unop p), [t1] ->
+    | Some (_, Prim_unop p), [t1] ->
       begin match trm_lit_inv t1 with
-      | Some v1 -> compute_app_unop_value p v1
+      | Some v1 ->
+        begin match compute_app_unop_value p v1 with
+        | Some lit -> trm_lit lit
+        | None -> t
+        end
       | None -> t
       end
-    | Some (Prim_binop Binop_and), [{desc = Trm_lit (Lit_bool true);_}; t2] -> t2
-    | Some (Prim_binop Binop_and), [{desc = Trm_lit (Lit_bool false);_};_] -> trm_bool false
-    | Some (Prim_binop Binop_and), [t2; {desc = Trm_lit (Lit_bool true);_}] when trm_is_val_or_var t2 -> t2
-    | Some (Prim_binop Binop_and), [t2;{desc = Trm_lit (Lit_bool false);_}] when trm_is_val_or_var t2 -> trm_bool false
-    | Some (Prim_binop Binop_or), [{desc = Trm_lit (Lit_bool true);_}; _] -> trm_bool true
-    | Some (Prim_binop Binop_or), [{desc = Trm_lit (Lit_bool false);_}; _] -> trm_bool false
-    | Some (Prim_binop Binop_or), [t2; {desc = Trm_lit (Lit_bool true);_}] when trm_is_val_or_var t2 -> trm_bool true
-    | Some (Prim_binop Binop_or), [t2; {desc = Trm_lit (Lit_bool false);_}] when trm_is_val_or_var t2 -> t2
-    | Some (Prim_binop p), [t1;t2] ->
+    | Some (_, Prim_binop Binop_and), [{desc = Trm_lit (Lit_bool true);_}; t2] -> t2
+    | Some (_, Prim_binop Binop_and), [{desc = Trm_lit (Lit_bool false);_};_] -> trm_bool false
+    | Some (_, Prim_binop Binop_and), [t2; {desc = Trm_lit (Lit_bool true);_}] when trm_is_val_or_var t2 -> t2
+    | Some (_, Prim_binop Binop_and), [t2;{desc = Trm_lit (Lit_bool false);_}] when trm_is_val_or_var t2 -> trm_bool false
+    | Some (_, Prim_binop Binop_or), [{desc = Trm_lit (Lit_bool true);_}; _] -> trm_bool true
+    | Some (_, Prim_binop Binop_or), [{desc = Trm_lit (Lit_bool false);_}; _] -> trm_bool false
+    | Some (_, Prim_binop Binop_or), [t2; {desc = Trm_lit (Lit_bool true);_}] when trm_is_val_or_var t2 -> trm_bool true
+    | Some (_, Prim_binop Binop_or), [t2; {desc = Trm_lit (Lit_bool false);_}] when trm_is_val_or_var t2 -> t2
+    | Some (_, Prim_binop p), [t1;t2] ->
       begin match (trm_lit_inv t1), (trm_lit_inv t2) with
-      | Some v1, Some v2 -> compute_app_binop_value p t1.typ t2.typ v1 v2
-      | _,_ -> t
+      | Some v1, Some v2 ->
+        begin match compute_app_binop_value p v1 v2 with
+        | Some lit -> trm_lit lit
+        | None -> t
+        end
+      | _, _ -> t
       end
     | Some _ ,_ | None, _-> t
     end

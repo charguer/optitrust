@@ -21,7 +21,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
   let var = ref dummy_var in
   let update let_t =
     Pattern.pattern_match let_t [
-      Pattern.(trm_let !__ !__ !(trm_ref !__ __)) (fun v typ ref init () ->
+      Pattern.(trm_let !__ !__ !(trm_ref __ !__)) (fun v typ ref init () ->
         var := v;
         let new_init = if is_trm_uninitialized init then init else f_set init in
         trm_let ~annot:let_t.annot (v, typ) (trm_ref ~annot:ref.annot (get_inner_ptr_type typ) new_init)
@@ -35,7 +35,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         f_get t
       );
       Pattern.(trm_set (trm_var (var_eq var)) !__) (fun value () ->
-        trm_set (trm_var var) (f_set (trm_map fix value))
+        trm_set (trm_var ?typ:value.typ var) (f_set (trm_map fix value))
       );
       Pattern.(trm_var (var_eq var)) (fun () ->
         trm_fail t "variable is used outside of get/set operations"
@@ -106,9 +106,10 @@ let%transfo scale ?(inv:bool=false) ~(factor:trm) ?(mark : mark = no_mark) (tg :
       trm_fail factor "basic variable scaling does not support non-pure arguments";
   Tools.warn "need to check that scaling factor != 0"; (* TODO: check / 0 *)
   Trace.justif "all variable occurences are covered, factor is pure and != 0";
-  let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
-  let f_get t = trm_add_mark mark (Arith_core.apply op_get factor t) in
-  let f_set t = trm_add_mark mark (Arith_core.apply op_set factor t) in
+  let typ = Option.unsome ~error:"factor needs to have a known type" factor.typ in
+  let op_get, op_set = if inv then (trm_mul, trm_div) else (trm_div, trm_mul) in
+  let f_get t = trm_add_mark mark (op_get ~typ t factor) in
+  let f_set t = trm_add_mark mark (op_set ~typ t factor) in
   transform f_get f_set tg
 
 let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
@@ -117,9 +118,10 @@ let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no
       trm_fail factor "basic variable scaling does not support non-pure arguments";
   Tools.warn "need to check that scaling factor != 0"; (* TODO: check / 0 *)
   Trace.justif "factor is pure and != 0";
-  let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
-  let f_use t = trm_add_mark mark (Arith_core.apply op_get factor t) in
-  let f_init t = trm_add_mark mark (Arith_core.apply op_set factor t) in
+  let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
+  let op_get, op_set = if inv then (trm_mul, trm_div) else (trm_div, trm_mul) in
+  let f_use t = trm_add_mark mark (op_get ~typ t factor) in
+  let f_init t = trm_add_mark mark (op_set ~typ t factor) in
   transform_immut f_init f_use tg
 
 (** [shift ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args
@@ -130,9 +132,10 @@ let%transfo shift ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mark) (tg
     if not (Resources.trm_is_pure factor) then
       trm_fail factor "basic variable shifting does not support non-pure arguments";
   Trace.justif "all variable occurences are covered, factor is pure";
-  let op_get, op_set = if inv then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
-  let f_get t = trm_add_mark mark (Arith_core.apply op_get factor t) in
-  let f_set t = trm_add_mark mark (Arith_core.apply op_set factor t) in
+  let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
+  let op_get, op_set = if inv then (trm_add, trm_sub) else (trm_sub, trm_add) in
+  let f_get t = trm_add_mark mark (op_get ~typ t factor) in
+  let f_set t = trm_add_mark mark (op_set ~typ t factor) in
   transform f_get f_set tg
 
 let%transfo shift_immut ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
@@ -140,10 +143,11 @@ let%transfo shift_immut ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mar
     if not (Resources.trm_is_pure factor) then
       trm_fail factor "basic variable shifting does not support non-pure arguments";
   Trace.justif "factor is pure";
-  let op_get, op_set = if inv then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
-  let f_use t = trm_add_mark mark (Arith_core.apply op_get factor t) in
-  let f_init t = trm_add_mark mark (Arith_core.apply op_set factor t) in
-  transform f_init f_use tg
+  let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
+  let op_get, op_set = if inv then (trm_add, trm_sub) else (trm_sub, trm_add) in
+  let f_use t = trm_add_mark mark (op_get ~typ t factor) in
+  let f_init t = trm_add_mark mark (op_set ~typ t factor) in
+  transform_immut f_init f_use tg
 
 (** [intro tg]: expects the target [tg] to be pointing at any node that could contain struct accesses, preferably
    a sequence, then it will transform all the encodings of the form struct_get (get (t), f) to

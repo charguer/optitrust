@@ -40,28 +40,28 @@ let accumulate_on (t : trm) : trm =
       begin match t1.desc with
       | Trm_apps (f, [ls; rs], _)  ->
         begin match rs.desc with
-        | Trm_apps ({desc = Trm_prim (Prim_binop binop)} as f, [ls1; rs1], _) ->
+        | Trm_apps ({desc = Trm_prim (typ, Prim_binop binop)} as f, [ls1; rs1], _) ->
           if i = 0 then rs1
           else if i = nb_instr - 1
             then
               let acc = trm_apps f [acc; rs1] in
               let acc_trm = trm_apps f [ls1; acc] in
               if !is_infix_op
-                then trm_pass_labels t (trm_prim_compound binop ls acc_trm)
+                then trm_pass_labels t (trm_compound_assign ~typ binop ls acc_trm)
                 else trm_pass_labels t (trm_set ls acc_trm)
           else
             (trm_apps f [acc; rs1])
         | _ when is_compound_assignment t1->
            let _ = is_infix_op := true in
            begin match trm_prim_inv f with
-           | Some (Prim_compound_assgn_op binop) ->
+           | Some (typ, Prim_compound_assign_op binop) ->
              if i = 0 then rs
              else if i = nb_instr - 1
               then
-                let acc_trm = trm_apps (trm_binop binop) [acc; rs] in
-                trm_pass_labels t (trm_prim_compound binop ls acc_trm)
+                let acc_trm = trm_apps (trm_binop typ binop) [acc; rs] in
+                trm_pass_labels t (trm_compound_assign ~typ binop ls acc_trm)
              else
-              trm_apps (trm_binop binop) [acc; rs]
+              trm_apps (trm_binop typ binop) [acc; rs]
            | _ -> trm_fail t "Instr_core.accumulate_on: this should never happen"
            end
         | _-> trm_fail t "Instr_core.accumulate_on: expected an instruction of the form x += A or x = x + A"

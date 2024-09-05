@@ -50,28 +50,23 @@ let mindex_inv (t : trm) : (trms * trms) option =
 
 (** [access t dims indices]: builds the a matrix access with the index defined by macro [MINDEX], see [mindex] function.
     Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
-let access ?(annot : trm_annot = trm_annot_default) (t : trm) (dims : trms) (indices : trms) : trm =
+let access ?(annot : trm_annot = trm_annot_default) ?(typ: typ option) (t : trm) (dims : trms) (indices : trms) : trm =
   let mindex_trm = mindex dims indices in
-  trm_apps ~annot ?typ:t.typ (trm_binop Binop_array_access) [t; mindex_trm]
+  trm_array_access ~annot ?typ t mindex_trm
 
 (** [access_inv t]: returns the array access base, the list of dimensions and indices used as args at matrix access [t]. *)
 let access_inv (t : trm) : (trm * trms * trms) option=
-  match t.desc with
-  | Trm_apps (f, [base;index], _) ->
-    begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_array_access) ->
-      begin match mindex_inv index with
-      | Some (dm, ind) -> Some (base, dm, ind)
-      | _ -> None
-      end
-    | _ -> None
+  match trm_array_access_inv t with
+  | Some (base, index) ->
+    begin match mindex_inv index with
+    | Some (dm, ind) -> Some (base, dm, ind)
+    | None -> None
     end
-  | _ -> None
+  | None -> None
 
 (** [get base dims indices]: takes the trm built from access function and puts it into a get operation. *)
-let get (base : trm) (dims : trms) (indices : trms) : trm =
-  let access_trm = access base dims indices in
-  trm_apps (trm_unop Unop_get) [access_trm]
+let get ?(typ: typ option) (base : trm) (dims : trms) (indices : trms) : trm =
+  trm_get ?typ (access ?typ base dims indices)
 
 (** [get_inv t]: gets the trm inside a get oepration on an access. *)
 let get_inv (t : trm) : (trm * trms * trms) option =
@@ -84,7 +79,7 @@ let get_inv (t : trm) : (trm * trms * trms) option =
     that address. *)
 let set (base : trm) (dims : trms) (indices : trms) (arg : trm) : trm =
   let write_trm = access base dims indices in
-  trm_apps (trm_binop (Binop_set)) [write_trm; arg]
+  trm_set write_trm arg
 
 (** [set_inv t]: returns the arguments used in the function [set]. *)
 let set_inv (t : trm) : (trm * trms * trms * trm)  option =

@@ -785,7 +785,7 @@ let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : con
 (** [let cPrimRef ~arg ()]: matches "ref" primitive operation
     [arg] - match based on the arguments of the "ref" primitive. *)
 let cPrimRef ?(arg : target = []) () : constr =
-  cPrimPredFun ~args:[arg] (function Prim_ref _ -> true | _ -> false)
+  cPrimPredFun ~args:[arg] (function Prim_ref -> true | _ -> false)
 
 (** [dVarInit] alias to dVarBody. *)
 let dVarInit : constr =
@@ -807,8 +807,7 @@ let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "")
   cPrimPredFun ~args:[lhs_typed; rhs_typed] (fun p ->
      match p with
     | Prim_binop Binop_set
-    | Prim_compound_assgn_op _ -> true
-    | Prim_overloaded_op (Prim_binop Binop_set) -> true
+    | Prim_compound_assign_op _ -> true
     | _ -> false
   )
 
@@ -1090,7 +1089,7 @@ let cArrayRead ?(index = []) (x : string) : constr =
     [[cArrayWriteAccess x]]] ()
 
 let cPlusEq ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
-  cPrimFun ~args:[lhs; rhs] (Prim_compound_assgn_op Binop_add)
+  cPrimFun ~args:[lhs; rhs] (Prim_compound_assign_op Binop_add)
 
 
 (** [cOmp_match_all]: matches an OpenMP directive. *)

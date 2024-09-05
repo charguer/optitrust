@@ -183,13 +183,13 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
     let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Option.unsome (get_trm_at (target_of_path p))) in
     let values = Trm_matching.tmap_to_list pattern_vars (Trm_matching.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
-    let inst = List.map (fun (x, _) -> get_array_access (trm_var_possibly_mut ~const x) (trm_int id_path)) pattern_vars in
+    let inst = List.map (fun (x, _) -> trm_get_array_access (trm_var_possibly_get ~const x) (trm_int id_path)) pattern_vars in
     let new_inst = Var_map.empty in
     let new_inst = List.fold_left2 (fun acc (x, _) y -> Var_map.add x y acc) new_inst pattern_vars inst in
     let new_t = trm_subst new_inst pattern_instr in
     Target.apply_at_path (fun _ -> new_t) p
   ) tg;
-  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array ~const (x, typ_f64) ~size:(trm_int nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
+  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array ~const (x, typ_f64) ~size:(trm_int nb_paths) (trm_array ~typ:typ_f64 (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
   Nobrace_transfo.remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_nobrace_nomarks instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
@@ -483,7 +483,7 @@ let%transfo insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_va
    LATER: document arguments passed to [bind].
    LATER: add arguments for marks that could remain at the end
 *)
-let%transfo bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ option) ?(dest : target = []) (fresh_name : string) (tg : target) : unit =
+let%transfo bind_multi ?(const : bool = false) ?(typ : typ option) ?(dest : target = []) (fresh_name : string) (tg : target) : unit =
   if dest = [] then failwith "bind_multi: optional dest not yet supported";
   (* mark all occurrences to be replaced *)
   let mark_tg = Mark.next() in
@@ -495,7 +495,7 @@ let%transfo bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : 
   (* introduce a binding for the first targeted occurrence *)
   let mark_let = Mark.next() in
   let mark_occ = Mark.next() in
-  Variable_basic.bind ~const ~is_ptr ~mark_let:mark_let ~mark_occ:mark_occ ?typ ~remove_nobrace:false fresh_name [cMark mark_fst];
+  Variable_basic.bind ~const ~mark_let:mark_let ~mark_occ:mark_occ ?typ ~remove_nobrace:false fresh_name [cMark mark_fst];
   (*Tools.debug "ex2: %s" (Ast_to_c.ast_to_string (Trace.ast()))*)
   (* move the binding to the desired target *)
   Instr.move ~dest [cMark mark_let];

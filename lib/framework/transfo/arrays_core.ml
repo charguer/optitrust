@@ -9,10 +9,10 @@ open Prelude
         updated ast with the replaced array accesses to variable references. *)
 let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
   let rec aux (t : trm) : trm =
-    match t.desc with
-    | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_access);_}, [base; index], _) ->
+    match trm_array_access_inv t with
+    | Some (base, index) ->
       begin match base.desc with
-      | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [{desc = Trm_var x}], _) when (var_eq x array_var) ->
+      | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _}, [{desc = Trm_var x}], _) when (var_eq x array_var) ->
         begin match index.desc with
         | Trm_lit (Lit_int (_, i)) ->
           if i >= List.length new_vars
@@ -78,13 +78,13 @@ let to_variables_at (new_vars : string list) (index : int) (t : trm) : trm =
     - for now: in any case, the number of elements is divisible by b. *)
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar) (t : trm) : trm =
   let aux = apply_tiling base_type block_name b x in
-  match t.desc with
-  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get)}, [arg], _) ->
-    begin match arg.desc with
-    | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_access)}, [base;index], _) ->
+  match trm_get_inv t with
+  | Some arg ->
+    begin match trm_array_access_inv arg with
+    | Some (base, index) ->
       Pattern.pattern_match base.typ [
         Pattern.(some (typ_constr (var_eq x))) (fun () ->
-          get_array_access (get_array_access base (trm_div index b)) (trm_mod index b)
+          trm_get_array_access (trm_get_array_access base (trm_div index b)) (trm_mod index b)
         );
         Pattern.__ (fun () -> trm_map aux t)
       ]
@@ -123,25 +123,26 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
     let block_name = if block_name = "" then base_type_name.name ^ "_BLOCK" else block_name in
     let block_typvar = name_to_typvar block_name in
     (* replace sizeof(base_type) with sizeof(block_name) if another term is used for size: use b * t_size *)
+    (* FIXME: Why this weird distinction ? *)
     let new_size (t_size : trm) : trm =
       if Ast_to_c.ast_to_string t_size =
          "sizeof(" ^ Ast_to_c.typ_to_string base_type ^ ")"
-      then trm_toplevel_var ("sizeof(" ^ block_name ^ ")")
-      else trm_apps (trm_binop Binop_mul) [trm_var block_size; t_size]
+      then trm_sizeof (typ_var block_typvar)
+      else trm_mul ~typ:typ_isize (trm_var block_size) t_size
     in
     let new_alloc (t_alloc : trm) : trm =
       match t_alloc.desc with
       (* expectation: my_alloc(nb_elements, size_element) *)
       | Trm_apps (t_alloc_fun, [t_nb_elts; t_size_elt], _) ->
          (* goal: my_alloc(nb_elements / b, b * size_element) *)
-         let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; trm_var block_size] in
+         let t_nb_elts = trm_div ~typ:typ_isize t_nb_elts (trm_var block_size) in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_alloc_fun [t_nb_elts; t_size_elt]
       (* there's possibly a cast first *)
       | Trm_apps (t_cast,
                   [{desc = Trm_apps (t_alloc_fun,
                                      [t_nb_elts; t_size_elt], _); _}], _) ->
-         let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; trm_var block_size] in
+         let t_nb_elts = trm_div t_nb_elts (trm_var block_size) in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
       | _ -> trm_fail t "Arrays_core.tile_at: expected array allocation"
@@ -166,7 +167,7 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
             match s with
             | None -> trm_fail t "Arrays_core.tile_at: array size must be provided"
             | Some t' ->
-              let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var block_size] in
+              let t'' = trm_div ~typ:typ_isize t' (trm_var block_size) in
               trm_seq_nobrace_nomarks [
                 trm_typedef {
                   typedef_name = name_to_typvar block_name;
@@ -188,11 +189,12 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
         );
         Pattern.__ (fun () -> trm_fail t "Arrays_core.tile_at: expected a pointer because of heap allocation")
       ]
-    | Trm_apps ({desc = Trm_prim (Prim_binop Binop_set); _}, [lhs; rhs], _) ->
+    | Trm_apps ({desc = Trm_prim (typ, Prim_binop Binop_set); _}, [lhs; rhs], _) ->
       (* lhs should have type x *)
+      (* FIXME: Weird to use the type of lhs that is supposed to be a pointer to something and match it against constr *)
       Pattern.pattern_match lhs.typ [
         Pattern.(some (typ_constr !(var_eq base_type_name))) (fun y () ->
-          trm_apps ~annot:t.annot ?loc:t.loc ?typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
+          trm_set ~annot:t.annot ?loc:t.loc ~typ lhs (new_alloc rhs)
         );
         Pattern.__ (fun () -> trm_map (apply_tiling base_type block_typvar (trm_var block_size) base_type_name) t)
       ]
@@ -213,14 +215,14 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
 let rec apply_swapping (x : typvar) (t : trm) : trm =
   let aux = apply_swapping x in
   match t.desc with
-  | Trm_apps ({desc = Trm_prim (Prim_unop Unop_get); _}, [arg], _) ->
+  | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _}, [arg], _) ->
     begin match arg.desc with
-    | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_access));_}, [base; index], _) ->
-      begin match get_array_access_inv base with
+    | Trm_apps ({desc = Trm_prim (_, Prim_binop (Binop_array_access));_}, [base; index], _) ->
+      begin match trm_get_array_access_inv base with
       | Some (base1, index1) ->
         Pattern.pattern_match base1.typ [
           Pattern.(some (typ_constr (var_eq x))) (fun () ->
-            get_array_access (get_array_access base1 index) index1
+            trm_get_array_access (trm_get_array_access base1 index) index1
           );
           Pattern.__ (fun () -> trm_map aux t)
         ]
@@ -228,12 +230,12 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
       end
     | _ -> trm_map aux t
     end
-  | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_access));_}, [base; index], _) ->
-      begin match get_array_access_inv base with
+  | Trm_apps ({desc = Trm_prim (_, Prim_binop (Binop_array_access));_}, [base; index], _) ->
+      begin match trm_get_array_access_inv base with
       | Some (base1, index1) ->
         Pattern.pattern_match base1.typ [
           Pattern.(some (typ_constr (var_eq x))) (fun () ->
-            trm_array_access (get_array_access base1 index) index1
+            trm_array_access (trm_get_array_access base1 index) index1
           );
           Pattern.__ (fun () -> trm_map aux t)
         ]
@@ -300,13 +302,13 @@ let aos_to_soa_rec (struct_name : typvar) (sz : var) (t : trm) : trm =
       begin match get_base.desc with
       | Trm_apps (f, [base], _) ->
          begin match f.desc with
-         | Trm_prim (Prim_unop (Unop_struct_access _))
-           | Trm_prim (Prim_unop (Unop_struct_get _)) ->
+         | Trm_prim (_, Prim_unop (Unop_struct_access _))
+           | Trm_prim (_, Prim_unop (Unop_struct_get _)) ->
             begin match base.desc with
             | Trm_apps (f', [base'; index], _) ->
                begin match f'.desc with
-               | Trm_prim (Prim_binop Binop_array_access)
-                 | Trm_prim (Prim_binop Binop_array_get) ->
+               | Trm_prim (_, Prim_binop Binop_array_access)
+                 | Trm_prim (_, Prim_binop Binop_array_get) ->
                   (*
                     swap accesses only if the type of base' is x (or x* in case of
                     an access on a heap allocated variable)
@@ -401,7 +403,7 @@ let detach_init_on (t : trm) : trm =
     | Some init -> init
     | None -> trm_fail t "detach_init_on: could not get the initialization trms for the targeted array declaration" in
     begin match init.desc with
-    | Trm_array tl ->
+    | Trm_array (arr_ty, tl) ->
       let array_set_list =
       List.mapi ( fun i t1 ->
         trm_set (trm_array_access (trm_var_get ~typ:tx x) (trm_int i)) t1

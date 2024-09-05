@@ -31,7 +31,7 @@ let unroll_index_vars_from_array_reads (tg : target) : unit =
     let read_t = Target.resolve_path p in
     let error = "Arrays.inline_index_vars_from_array_reads: expected array access" in
     let ptr_t = trm_inv ~error trm_get_inv read_t in
-    let (_, index) = trm_inv ~error array_access_inv ptr_t in
+    let (_, index) = trm_inv ~error trm_array_access_inv ptr_t in
     let vars = ref Var_set.empty in
     let rec collect_vars (t : trm) : unit =
       match trm_var_inv t with
