@@ -80,6 +80,20 @@ let style_for_varids () : style = {
   commented_pragma = false;
 }
 
+(** Style for debugging types *)
+let style_for_types () : style = {
+  print_contract_internal_repr = false;
+  print_var_id = false;
+  print_string_repr = false;
+  print_mark = true;
+  print_annot = false;
+  print_errors = true;
+  optitrust_syntax = true;
+  print_types = true;
+  pretty_matrix_notation = false;
+  commented_pragma = false;
+}
+
 (*----------------------------------------------------------------------------------*)
 (* An optional memoization table that maps a [stringreprid] of a term
    to the [document] obtained by executing [trm_to_doc style] on it.
@@ -923,9 +937,9 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
           | Unop_pre_incr -> twice plus ^^ d
           | Unop_pre_decr -> twice minus ^^ d
           | Unop_struct_access f1 when style.optitrust_syntax ->
-              string "(" ^^ d ^^ string "++" ^^ dquotes (string f1) ^^ string ")"
+              string "(" ^^ d ^^ (may_annot_typ style ty (string "[.]")) ^^ string f1 ^^ string ")"
           | Unop_struct_get f1 when style.optitrust_syntax ->
-              string "(" ^^ d ^^ string "." ^^ dquotes (string f1) ^^ string ")"
+              string "(" ^^ d ^^ string "." ^^ string f1 ^^ string ")"
           | (Unop_struct_get f1 | Unop_struct_access f1) ->
             if is_get_implicit_this t then string f1
             else if is_get_operation t then

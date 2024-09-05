@@ -206,7 +206,7 @@ let inline_struct_accesses (x : field) (t : trm) : trm =
             then aux z base'
             else if outer_field <> "" then
               let updated_field = Convention.name_app z outer_field in
-              trm_struct_access base' updated_field
+              trm_struct_access ?field_typ:t.typ base' updated_field
             else trm_map (aux "") t
         | _ -> trm_fail f "Record_core.inline_struct_access: suspicious struct access"
         end

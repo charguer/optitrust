@@ -31,17 +31,28 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       | None ->
         (* FIXME: this is a temporary workaround, look for the type in rest of code. *)
         let evars = ref Var_map.empty in
+        let add_evar ?(namespaces = []) () =
+          let evar = new_var ~namespaces "evar" in
+          evars := Var_map.add evar None !evars;
+          evar
+        in
         let rec to_base_pattern t =
           Pattern.pattern_match t [
             Pattern.(trm_binop Binop_array_access !__ __) (fun base () ->
-              let evar = new_var "evar" in
-              evars := Var_map.add evar None !evars;
-              trm_array_access base (trm_var evar)
+              trm_array_access base (trm_var (add_evar ()))
             );
             Pattern.__ (fun () -> trm_map to_base_pattern t)
           ]
         in
-        let base_pattern = to_base_pattern base in
+        let add_typ_evar () = trm_var (add_evar ~namespaces:typ_namespace ()) in
+        let rec erase_types t =
+          match t.desc with
+          | Trm_prim (tye, pe) -> { t with desc = Trm_prim (add_typ_evar (), pe) }
+          | Trm_array (tye, tse) -> { t with desc = Trm_array (add_typ_evar (), Mlist.map  erase_types tse) }
+          (* | Trm_record (tye, fieldse) -> { } *)
+          | _ -> trm_map erase_types t
+        in
+        let base_pattern = erase_types (to_base_pattern base) in
         let matches_base t =
           Option.is_some (unify_trm t base_pattern !evars)
         in
@@ -49,14 +60,16 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         begin try (
           Mlist.iter (fun t ->
             let rec search t =
-              (* DEBUG Printf.printf "found: %s\n" Ast_to_text.(ast_to_string ~style:style_types t); *)
+              (* DEBUG if Option.is_some (trm_struct_access_inv t)
+              then Printf.printf "found: %s, with type %s\n" Ast_to_c.(ast_to_string ~style:(style_for_types ()) t) (Option.to_string Ast_to_c.typ_to_string t.typ); *)
               match t.typ with
               | Some typ when matches_base t -> raise (TypeFound typ)
-              | _ -> trm_map search t
+              | _ ->
+                trm_map search t
             in
             ignore (search t)
           ) span_instrs;
-          failwith "could not find type of base '%s'" (Ast_to_c.ast_to_string base_pattern)
+          failwith "could not find type of base '%s'" Ast_to_c.(ast_to_string ~style:(style_for_types ()) base_pattern)
         ) with
         | TypeFound typ -> ptr_typ_matches typ
         end
@@ -283,7 +296,6 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
           );
           Pattern.(trm_set !__ (trm_record !__)) (fun base (_, fs) () ->
             Pattern.when_ (trm_ptr_typ_matches base);
-            Printf.printf "%s\n" Ast_to_text.(ast_to_string ~style:style_types t);
             let st = List.split_pairs_snd (Mlist.to_list fs) in
             let set_one i (sf, ty) =
               trm_set (trm_struct_access ~field_typ:ty base sf) (List.nth st i)
@@ -291,7 +303,6 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             trm_seq_nobrace_nomarks (List.mapi set_one field_list)
           );
           Pattern.(trm_set !__ !__) (fun base value () ->
-            Printf.printf "%s\n" Ast_to_text.(ast_to_string ~style:style_types t);
             Pattern.when_ (trm_ptr_typ_matches base);
             check_pure "set value" value;
             let set_one (sf, ty) =
@@ -301,7 +312,8 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
           );
           Pattern.(trm_struct_get (trm_get !__) !__) (fun base field () ->
             Pattern.when_ (trm_ptr_typ_matches base);
-            trm_get (trm_struct_access base field)
+            let field_typ = List.find_map (fun (f, t) -> if f = field then Some t else None) field_list in
+            trm_get (trm_struct_access ?field_typ base field)
           );
           (* TODO: also do other contracts *)
           Pattern.(trm_for !__ !__ !__) (fun range body spec () ->

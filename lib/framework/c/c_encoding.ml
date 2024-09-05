@@ -264,16 +264,17 @@ let caddress_elim (t : trm) : trm =
     trm_simplify_addressof_and_get
       (Pattern.pattern_match t [
         Pattern.(trm_struct_get !__ !__) (fun t1 field () ->
+          let field_typ = t.typ in
           let u1 = aux t1 in
           match trm_get_inv u1 with
           | Some base ->
             (* struct_get (get(t1), f) is encoded as get(struct_access(t1,f)) where get is a hidden '*' operator,
                 in terms of C syntax: ( *t).f is compiled into *(t + offset(f)) *)
             if trm_has_cstyle No_struct_get_arrow t then
-              trm_like ~old:(trm_rem_cstyle No_struct_get_arrow t) (trm_get (trm_add_cstyle No_struct_get_arrow (trm_struct_access ?loc:t.loc base field)))
+              trm_like ~old:(trm_rem_cstyle No_struct_get_arrow t) (trm_get (trm_add_cstyle No_struct_get_arrow (trm_struct_access ?loc:t.loc ?field_typ base field)))
             else
-              trm_like ~old:t (trm_get (trm_struct_access ?loc:t.loc base field))
-          | None -> trm_like ~old:t (trm_struct_get ?loc:t.loc u1 field)
+              trm_like ~old:t (trm_get (trm_struct_access ?loc:t.loc ?field_typ base field))
+          | None -> trm_like ~old:t (trm_struct_get ?loc:t.loc ?field_typ u1 field)
         );
         Pattern.(trm_array_get !__ !__) (fun t1 t2 () ->
             let u1 = aux t1 in

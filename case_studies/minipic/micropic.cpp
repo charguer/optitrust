@@ -228,9 +228,9 @@ void simulate_single_cell(double deltaT,
       particles[MINDEX1(nbParticles, idPart)].pos = pos2;
       particles[MINDEX1(nbParticles, idPart)].speed = speed2;
       __ghost([&] {
-        __produces("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
         __consumes("&particles[MINDEX1(nbParticles, idPart)].pos ~> Cell");
         __consumes("&particles[MINDEX1(nbParticles, idPart)].speed ~> Cell");
+        __produces("&particles[MINDEX1(nbParticles, idPart)] ~> Cell");
         __admitted();
       }, "");
     }

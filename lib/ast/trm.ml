@@ -1009,8 +1009,9 @@ let is_prim_arith_call (t : trm) : bool =
   | _ -> false
 
 (** [trm_struct_access ~annot ?typ base field]: creates a struct_access encoding *)
-let trm_struct_access ?(annot = trm_annot_default) ?(loc: location) ?(field_typ : typ option) ?(struct_typ: typ = typ_auto) (base : trm) (field : field) : trm =
-  trm_apps ~annot ?loc ?typ:(Option.map typ_ptr field_typ) (trm_unop struct_typ (Unop_struct_access field)) [base]
+let trm_struct_access ?(annot = trm_annot_default) ?(loc: location) ?(field_typ : typ option) ?(struct_typ: typ option) (base : trm) (field : field) : trm =
+  let struct_typ = None (* Option.or_ base.typ struct_typ *) in
+  trm_apps ~annot ?loc ?typ:(Option.map typ_ptr field_typ) (trm_unop (typ_or_auto struct_typ) (Unop_struct_access field)) [base]
 
 (** [trm_struct_access_inv t]: if [t] is  a struct access then return its base and the accessed field; else None *)
 let trm_struct_access_inv (t : trm) : (trm * field) option =
@@ -1983,14 +1984,14 @@ let rec unfold_if_resolved_evar (t: trm) (evar_ctx: unification_ctx): trm * unif
     that occur in [evar_ctx].
     If the unification succeeds, returns an updated unification context, with the newly resolved evars.
     If it fails, returns None. *)
-let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : unification_ctx option =
+let rec unify_trm ?(on_failure = fun a b -> ()) (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : unification_ctx option =
   let open Option.Monad in
   (* Pattern match on one component to get a warning if there is a missing one *)
   let check cond = if cond then Some evar_ctx else None in
   (* Unfold first to avoid problems on f(?x, ?y) = f(?y, ?y) *)
   let t_left, evar_ctx = unfold_if_resolved_evar t_left evar_ctx in
   let t_right, evar_ctx = unfold_if_resolved_evar t_right evar_ctx in
-  match trm_var_inv t_left, trm_var_inv t_right with
+  let res = match trm_var_inv t_left, trm_var_inv t_right with
   | Some x_left, Some x_right when var_eq x_left x_right ->
     Some evar_ctx
   | Some x_left, _ when Var_map.mem x_left evar_ctx ->
@@ -2013,24 +2014,24 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
     | Trm_prim (tye, pe) ->
       let* ty, p = trm_prim_inv t_left in
       (* FIXME: This can fail because primitives may recursively contain types and terms *)
-      if pe = p then unify_trm ty tye evar_ctx else None
+      if pe = p then unify_trm ~on_failure ty tye evar_ctx else None
 
     | Trm_array (tye, tse) ->
       let* ty, ts = trm_array_inv t_left in
-      let* evar_ctx = unify_trm ty tye evar_ctx in
+      let* evar_ctx = unify_trm ~on_failure ty tye evar_ctx in
       begin try
-        List.fold_left2 (fun evar_ctx t te -> let* evar_ctx in unify_trm t te evar_ctx) (Some evar_ctx) (Mlist.to_list ts) (Mlist.to_list tse)
+        List.fold_left2 (fun evar_ctx t te -> let* evar_ctx in unify_trm ~on_failure t te evar_ctx) (Some evar_ctx) (Mlist.to_list ts) (Mlist.to_list tse)
       with Invalid_argument _ -> None end
 
     | Trm_record (tye, fieldse) ->
       (* TODO: Order of named fields should not matter, but currently it does *)
       let* ty, fields = trm_record_inv t_left in
-      let* evar_ctx = unify_trm ty tye evar_ctx in
+      let* evar_ctx = unify_trm ~on_failure ty tye evar_ctx in
       begin try
         List.fold_left2 (fun evar_ctx (fname, t) (fnamee, te) ->
             let* evar_ctx in
             if fname = fnamee
-              then unify_trm t te evar_ctx
+              then unify_trm ~on_failure t te evar_ctx
               else None
           )
           (Some evar_ctx) (Mlist.to_list fields) (Mlist.to_list fieldse)
@@ -2038,9 +2039,9 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
 
     | Trm_apps (fe, argse, ghost_args) ->
       let* f, args = trm_apps_inv t_left in
-      let* evar_ctx = unify_trm f fe evar_ctx in
+      let* evar_ctx = unify_trm ~on_failure f fe evar_ctx in
       begin try
-        List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
+        List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm ~on_failure arg arge evar_ctx) (Some evar_ctx) args argse
       with Invalid_argument _ -> None end
 
     | Trm_fun (argse, _, bodye, _) ->
@@ -2060,7 +2061,7 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
             ) (evar_ctx, []) argse args)
         with Invalid_argument _ -> None
       in
-      let* evar_ctx = unify_trm body bodye evar_ctx in
+      let* evar_ctx = unify_trm ~on_failure body bodye evar_ctx in
       Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
           match masked_entry with
           | Some entry -> Var_map.add arge entry evar_ctx
@@ -2069,6 +2070,9 @@ let rec unify_trm (t_left: trm) (t_right: trm) (evar_ctx: unification_ctx) : uni
 
     | Trm_arbitrary _ -> failwith "unify_trm: found Trm_arbitrary during unification (a reparse is missing)"
     | _ -> failwith "unify_trm: unhandled constructor" (* TODO: Implement the rest of constructors *)
+    in
+    if Option.is_none res then on_failure t_left t_right;
+    res
 
 (** [are_same_trm t1 t2] checks that [t1] and [t2] are alpha-equivalent (same modulo name of the binders). *)
 let are_same_trm (t1: trm) (t2: trm): bool =

@@ -45,7 +45,10 @@ let style_of_query request : Trace.output_style =
   let c_style = Ast_to_c.default_style () in
   { decode = get_query_as_bool request "decode";
     typing;
-    print = Lang_C { c_style with optitrust_syntax = get_query_as_bool request "optitrust_syntax" } }
+    print = Lang_C { c_style with
+      optitrust_syntax = get_query_as_bool request "optitrust_syntax";
+      print_types = get_query_as_bool request "print_types";
+    } }
 
 type trace_cache_entry = {
   trace_path: string;

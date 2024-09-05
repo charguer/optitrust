@@ -24,7 +24,7 @@ let _ = Run.script_cpp (fun () ->
   !! Function.inline ~recurse:true [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
   !! Function.inline [ctx; cFun "cornerInterpolationCoeff"]; (* TODO: don't inline?
     requires split_fields to handle locally recovering joined view when necessary. *)
-  !! Record.split_fields ~typ:(typv "particle") [ctx; tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
+  !! Record.split_fields ~typ:(typv "particle") [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
   (* !! ShowAt.trm ~style:Style.(internal_ast ()) [ctx; cVarDef "fieldAtPos"];
   !! ShowAt.trm ~style:Style.(internal_ast ()) [ctx; nbMulti; cArrayWrite "lParticles"]; *)
   !! Record.split_fields ~typ:(typv "vect") [ctx; tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
