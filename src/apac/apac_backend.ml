@@ -38,15 +38,6 @@ let get_apac_variable (v : apac_variable) : string =
   | ApacCountMax -> "__apac_count_max"
   | ApacDepthMax -> "__apac_depth_max"
 
-(** [next_id]: generates unique integer identifiers starting from zero. *)
-let next_id = Tools.fresh_generator ()
-
-(** [next_profsection]: generates unique names for profiling sections used by
-    the profiler backend. See [emit_profiler_task]. *)
-let next_profsection () : string =
-  let id = next_id () in
-  "apac_profsection" ^ (string_of_int id)
-
 (** [count_update ~backend postamble]: generates the portion of the
     instrumentation code allowing to update the task count [ApacCount] variable.
     If [postamble] is [false], it produces code to increment the counter when a
@@ -99,7 +90,8 @@ let depth_update () : trm =
   (* building the final if-conditional. *)
   trm_if condition increment (trm_unit ())
 
-let emit_omp_task (t : Task.t) : trms =
+let codegen_openmp (v : TaskGraph.V.t) : trms =
+  let t = TaskGraph.V.label v in
   if (Task.attributed t WaitForAll) then
     begin
       let pragma = Taskwait [] in
@@ -121,7 +113,8 @@ let emit_omp_task (t : Task.t) : trms =
             (Dep_set.empty,
              Dep_set.filter (fun d ->
                  (Dep_map.has_with_attribute d Condition t.ioattrs) &&
-                   not (Dep_map.has_with_attribute d InductionVariable t.ioattrs)
+                   not (Dep_map.has_with_attribute
+                          d InductionVariable t.ioattrs)
                ) t.ins)
           else
             (Dep_set.empty, t.ins)
@@ -210,172 +203,185 @@ let emit_omp_task (t : Task.t) : trms =
     end
   else t.current
 
-let emit_profiler_task (scope : Apac_records.FunctionRecord.s)
-      (sections : trm Stack.t)
-      (t : Task.t) : trms =
-  let get_begin (loc : location) : string =
-    match loc with
-    | None -> "_"
-    | Some { loc_start = {pos_line = line; _}; _} -> string_of_int line
-  in
-  let get_end (loc : location) : string =
-    match loc with
-    | None -> "_"
-    | Some { loc_end = {pos_line = line; _}; _} -> string_of_int line
-  in
-  if not (Task.attributed t Taskifiable) then t.current
-  else
-    let simple = fun d ->
-      match d with
-      | Dep_var v when (Var_Hashtbl.find scope v) = 0 -> true
-      | _ -> false
-    in
-    let ins = Dep_set.filter simple t.ins in
-    let inouts = Dep_set.filter simple t.inouts in
-    let reads = Dep_set.cardinal ins in
-    let writes = Dep_set.cardinal inouts in
-    let first = List.hd t.current in
-    let first = get_begin first.loc in
-    let last = (List.length t.current) - 1 in
-    let last = List.nth t.current last in
-    let last = get_end last.loc in
-    let profsection = next_profsection () in
-    let range = if first <> "_" && last <> "_" then
-                  first ^ "_" ^ last
-                else profsection in
-    let section = "ApacProfilerSection " ^ profsection ^ "(\"" ^
-                   range ^ "\", " ^ (string_of_int (reads + writes)) ^ ")" in
-    let section = code (Instr section) in
-    let encode = fun m d ->
-      let d = Dep.to_string d in
-      let s = profsection ^ ".addParam(\'" ^ m ^ "\', " ^ d ^ ")" in
-      code (Instr s)
-    in
-    let ins = Dep_set.to_list ins in
-    let ins = List.map (encode "R") ins in
-    let inouts = Dep_set.to_list inouts in
-    let inouts = List.map (encode "R") inouts in (** W mode is not recognized in the modelizer. *)
-    let before = code (Instr (profsection ^ ".beforeCall()")) in
-    let after = code (Instr (profsection ^ ".afterCall()")) in
-    Stack.push section sections;
-    let preamble = ins @ inouts @ [before] in
-    let postamble = [after] in
-    preamble @ t.current @ postamble
-
-let rec trm_from_task ?(backend : task_backend = OpenMP)
-          ?(scope : Apac_records.FunctionRecord.s option = None)
-          ?(sections : trm Stack.t option = None)
-          (t : TaskGraph.V.t) : trms =
-  let make (ts : trms) : trm =
-    let ts' = Mlist.of_list ts in trm_seq ts'
-  in
+let rec trm_from_task_candidate ?(heapification : bool = true)
+          (codegen : TaskGraph.V.t -> trms) (candidate : TaskGraph.V.t) : trms =
   (* Get the [Task] element of the current vertex. *)
-  let task = TaskGraph.V.label t in
-  let current = List.mapi (fun i instr ->
-                    begin match instr.desc with
-                    | Trm_for_c (init, cond, step, _, _) ->
-                       let cg = List.nth task.children i in
-                       let cg = List.hd cg in
-                       let body = TaskGraphTraverse.codify
-                                    (trm_from_task ~backend ~scope ~sections)
-                                    cg in
-                       let body = make body in
-                       let body = if backend = OpenMP then
-                                    trm_add_mark heapify_breakable_mark body
-                                  else
-                                    body in
-                       trm_for_c ~annot:instr.annot ~ctx:instr.ctx
-                         init cond step body
-                    | Trm_for (range, _, _) ->
-                       let cg = List.nth task.children i in
-                       let cg = List.hd cg in
-                       let body = TaskGraphTraverse.codify
-                                    (trm_from_task ~backend ~scope ~sections)
-                                    cg in
-                       let body = make body in
-                       let body = if backend = OpenMP then
-                                    trm_add_mark heapify_breakable_mark body
-                                  else
-                                    body in
-                       trm_for ~annot:instr.annot ~ctx:instr.ctx
-                         range body
-                    | Trm_if (cond, _, no) ->
-                       let cg = List.nth task.children i in
-                       let yes = List.nth cg 0 in
-                       let yes = TaskGraphTraverse.codify
-                                   (trm_from_task ~backend ~scope ~sections)
-                                   yes in
-                       let yes = make yes in
-                       let yes = if backend = OpenMP then
-                                    trm_add_mark heapify_mark yes
-                                  else
-                                    yes in
-                       let no = if (is_trm_unit no) then
-                                  trm_unit ()
+  let t = TaskGraph.V.label candidate in
+  t.current <- List.mapi (fun i instr ->
+                   begin match instr.desc with
+                   | Trm_for_c (init, cond, step, _, _) ->
+                      let cg = List.nth t.children i in
+                      let cg = List.hd cg in
+                      let body = TaskGraphTraverse.codify
+                                   (trm_from_task_candidate
+                                      ~heapification backend)
+                                   cg in
+                      let body = trm_seq (Mlist.of_list body) in
+                      let body = if heapification then
+                                   trm_add_mark heapify_breakable_mark body
+                                 else
+                                   body in
+                      trm_for_c ~annot:instr.annot ~ctx:instr.ctx
+                        init cond step body
+                   | Trm_for (range, _, _) ->
+                      let cg = List.nth t.children i in
+                      let cg = List.hd cg in
+                      let body = TaskGraphTraverse.codify
+                                   (trm_from_task_candidate
+                                      ~heapification backend)
+                                   cg in
+                      let body = trm_seq (Mlist.of_list body) in
+                      let body = if heapification then
+                                   trm_add_mark heapify_breakable_mark body
+                                 else
+                                   body in
+                      trm_for ~annot:instr.annot ~ctx:instr.ctx
+                        range body
+                   | Trm_if (cond, _, no) ->
+                      let cg = List.nth t.children i in
+                      let yes = List.nth cg 0 in
+                      let yes = TaskGraphTraverse.codify
+                                  (trm_from_task_candidate
+                                     ~heapification backend)
+                                  yes in
+                      let yes = trm_seq (Mlist.of_list yes) in
+                      let yes = if heapification then
+                                  trm_add_mark heapify_mark yes
                                 else
-                                  let no = List.nth cg 1 in
-                                  let no = TaskGraphTraverse.codify
-                                             (trm_from_task
-                                                ~backend ~scope ~sections)
-                                             no in
-                                  let no = make no in 
-                                  if backend = OpenMP then
-                                    trm_add_mark heapify_mark no
-                                  else
-                                    no
-                       in
-                       trm_if ~annot:instr.annot ~ctx:instr.ctx cond yes no
-                    | Trm_while (cond, _) ->
-                       let cg = List.nth task.children i in
-                       let cg = List.hd cg in
-                       let body = TaskGraphTraverse.codify
-                                    (trm_from_task ~backend ~scope ~sections)
-                                    cg in
-                       let body = make body in
-                       let body = if backend = OpenMP then
-                                    trm_add_mark heapify_breakable_mark body
-                                  else
-                                    body in
-                       trm_while ~annot:instr.annot ~ctx:instr.ctx cond body
-                    | Trm_do_while (_, cond) ->
-                       let cg = List.nth task.children i in
-                       let cg = List.hd cg in
-                       let body = TaskGraphTraverse.codify
-                                    (trm_from_task ~backend ~scope ~sections)
-                                    cg in
-                       let body = make body in
-                       let body = if backend = OpenMP then
-                                    trm_add_mark heapify_breakable_mark body
-                                  else
-                                    body in
-                       trm_do_while ~annot:instr.annot ~ctx:instr.ctx body cond
-                    | Trm_switch (cond, cases) ->
-                       let cg = List.nth task.children i in
-                       let cgs = Queue.create () in
-                       let _ = List.iter2 (fun (labels, _) block ->
-                                   let block' = TaskGraphTraverse.codify
-                                                  (trm_from_task
-                                                     ~backend ~scope ~sections)
-                                                  block in
-                                   let block' = make block' in
-                                   let block' = if backend = OpenMP then
-                                                  trm_add_mark
-                                                    heapify_breakable_mark
-                                                    block'
-                                                else
-                                                  block' in
-                                   Queue.push (labels, block') cgs) cases cg in
-                       let cases' = List.of_seq (Queue.to_seq cgs) in
-                       trm_switch ~annot:instr.annot ~ctx:instr.ctx cond cases'
-                    | Trm_seq _ when backend = OpenMP ->
-                       trm_add_mark heapify_mark instr
-                    | _ -> instr
-                    end) task.current in
-  task.current <- current;
-  match backend with
-  | OpenMP -> emit_omp_task task
-  | ApacProfiler when (Option.is_some scope) && (Option.is_some sections) ->
-     let scope = Option.get scope in
-     let sections = Option.get sections in
-     emit_profiler_task scope sections task
-  | _ -> failwith "Apac_backend.trm_from_task: unknown taskification back-end."
+                                  yes in
+                      let no = if (is_trm_unit no) then
+                                 trm_unit ()
+                               else
+                                 let no = List.nth cg 1 in
+                                 let no = TaskGraphTraverse.codify
+                                            (trm_from_task_candidate
+                                               ~heapification backend)
+                                            no in
+                                 let no = trm_seq (Mlist.of_list no) in 
+                                 if heapification then
+                                   trm_add_mark heapify_mark no
+                                 else
+                                   no
+                      in
+                      trm_if ~annot:instr.annot ~ctx:instr.ctx cond yes no
+                   | Trm_while (cond, _) ->
+                      let cg = List.nth t.children i in
+                      let cg = List.hd cg in
+                      let body = TaskGraphTraverse.codify
+                                   (trm_from_task_candidate
+                                      ~heapification backend)
+                                   cg in
+                      let body = trm_seq (Mlist.of_list body) in
+                      let body = if heapification then
+                                   trm_add_mark heapify_breakable_mark body
+                                 else
+                                   body in
+                      trm_while ~annot:instr.annot ~ctx:instr.ctx cond body
+                   | Trm_do_while (_, cond) ->
+                      let cg = List.nth t.children i in
+                      let cg = List.hd cg in
+                      let body = TaskGraphTraverse.codify
+                                   (trm_from_task_candidate
+                                      ~heapification backend)
+                                   cg in
+                      let body = trm_seq (Mlist.of_list body) in
+                      let body = if heapification then
+                                   trm_add_mark heapify_breakable_mark body
+                                 else
+                                   body in
+                      trm_do_while ~annot:instr.annot ~ctx:instr.ctx body cond
+                   | Trm_switch (cond, cases) ->
+                      let cg = List.nth t.children i in
+                      let cgs = Queue.create () in
+                      let _ = List.iter2 (fun (labels, _) block ->
+                                  let block' = TaskGraphTraverse.codify
+                                                 (trm_from_task_candidate
+                                                    ~heapification backend)
+                                                 block in
+                                  let block' = trm_seq (Mlist.of_list block') in
+                                  let block' = if heapification then
+                                                 trm_add_mark
+                                                   heapify_breakable_mark
+                                                   block'
+                                               else
+                                                 block' in
+                                  Queue.push (labels, block') cgs) cases cg in
+                      let cases' = List.of_seq (Queue.to_seq cgs) in
+                      trm_switch ~annot:instr.annot ~ctx:instr.ctx cond cases'
+                   | Trm_seq _ when heapification ->
+                      trm_add_mark heapify_mark instr
+                   | _ -> instr
+                   end) t.current;
+  codegen candidate
+
+(** [profile_tasks tg]: expects the target [tg] to point at a function body. It
+    then translates its task candidate graph representation into an abstract
+    syntax tree while surrounding eligible task candidates with profiling
+    sections. *)
+let profile_tasks (tg : target) : unit =
+  (** Include the header providing profiling elements. *)
+  Trace.ensure_header Apac_macros.profiler_header;
+  Target.apply (fun t p ->
+      Path.apply_on_path (fun t ->
+          (** Find the parent function [f]. *)
+          let f = match (find_parent_function p) with
+            | Some (v) -> v
+            | None -> fail t.loc "Apac_backend.profile_tasks: unable to find \
+                                  parent function. Taskification candidate \
+                                  body outside of a task candidate?" in
+          (** Find its function record [r] in [!Apac_records.functions]. *)
+          let r = Var_Hashtbl.find functions f in
+          (** Initialize a stack [sections] for storing the definitions of
+              future profiling sections. *)
+          let sections = Stack.create () in
+          (** Translate the task candidate graph representation [r.graph] of [f]
+              to a abstract syntax tree using the profiler back-end. *)
+          let ast = TaskGraphTraverse.codify
+                      (trm_from_task_candidate
+                         ~heapification:false codegen_profiler)
+                      r.graph in
+          let sections = List.of_seq (Stack.to_seq sections) in
+          let ast = Mlist.of_list (sections @ ast) in
+          let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
+          (** Dump the resulting abstract syntax tree, if requested. *)
+          if !Apac_macros.verbose then
+            begin
+              let msg = Printf.sprintf "Abstract syntax tree of `%s' with profiling \
+                                        instructions" (var_to_string f) in
+              Debug_transfo.trm msg result
+            end;
+          (** Return the resulting abstract syntax tree. *)
+          result
+        ) t p) tg
+
+(** [insert_tasks_on p t]: see [insert_tasks_on]. *)
+let insert_tasks_on (p : path) (t : trm) : trm =
+  (** Find the parent function [f]. *)
+  let f = match (find_parent_function p) with
+    | Some (v) -> v
+    | None -> fail t.loc "Apac_taskify.insert_tasks_on: unable to find parent \
+                          function. Task group outside of a function?" in
+  (** Find its function record [r] in [!Apac_records.functions]. *)
+  let r = Var_Hashtbl.find functions f in
+  (** Translate the task candidate graph representation [r.graph] of [f] to a
+      parallel abstract syntax tree. *)
+  let ast = TaskGraphTraverse.codify (
+                trm_from_task_candidate codegen_openmp
+              ) r.graph in
+  let ast = Mlist.of_list ast in
+  let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
+  (** Dump the resulting abstract syntax tree, if requested. *)
+  if !Apac_macros.verbose then
+    begin
+      let msg = Printf.sprintf "Parallel abstract syntax tree of `%s'"
+                  (var_to_string f) in
+      Debug_transfo.trm msg result
+    end;
+  (** Return the resulting abstract syntax tree. *)
+  result
+
+(** [insert_tasks tg]: expects the target [tg] to point at a function body. It
+    then translates its task candidate graph representation into a parallel
+    abstract syntax tree. *)
+let insert_tasks (tg : target) : unit =
+  Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg

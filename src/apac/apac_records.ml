@@ -7,10 +7,13 @@ module FunctionRecord : sig
   type a
   type s = int Var_Hashtbl.t
   type t = {
-      mutable args : a list; mutable graph : TaskGraph.t; scope : s; ast : trm
+      mutable args : (a * int) list;
+      mutable graph : TaskGraph.t;
+      scope : s;
+      ast : trm
     }
   val create : (var * typ) list -> trm -> t
-  val constify : bool list -> a list -> a list
+  val constify : bool list -> (a * int) list -> (a * int) list
   val is_rw : t -> int -> bool
   val to_string : t -> string
 end = struct
@@ -33,13 +36,14 @@ end = struct
     
     (** [FunctionRecord.t]: a type of function records. *)
     type t = {
-        (** [args]: a list storing the access classification (see [!type:a]).
-            List indices match the positions of the arguments in the function
+        (** [args]: a list storing the access classifications (see [!type:a]) of
+            arguments and their respective number of levels of indirection. List
+            indices match the positions of the arguments in the function
             definition. In the case of class member methods where the 0-th
             argument refers to the current object instance, i.e. [this] in C++,
             the 1-st argument becomes the 0-th argument in the corresponding
             function record. In other terms, the [args] list skips [this]. *)
-        mutable args : a list;
+        mutable args : (a * int) list;
         (** [graph]: the task candidate graph intermediate representation of the
             function (see [!module:TaskGraph]). *)
         mutable graph : TaskGraph.t;
@@ -75,7 +79,7 @@ end = struct
           - a primitive type such as [int],
           - a pointer or a reference to constant types (primitives, references
             or pointers), i.e. the number of inner constant types in [ty] is the
-            same as the number of levels of indirections of [ty],
+            same as the number of levels of indirection of [ty],
           - an array of constant elements,
           - a constant user-defined type.
 
@@ -97,14 +101,14 @@ end = struct
       match ty.typ_desc with
       (** If [ty] is constant, check if all the inner types are constant too,
           i.e. if the number of inner constant types in [ty] is the same as the
-          number of levels of indirections in [ty]. If so, the argument is
+          number of levels of indirection in [ty]. If so, the argument is
           [ReadOnly]. *)
       | Typ_const ty ->
          let (cc, nli) = count 0 0 ty in
          if cc = nli then ReadOnly else ReadWrite
       (** If [ty] is a pointer or a reference, check if all the inner types are
           constant, i.e. if the number of inner constant types in [ty] is the
-          same as the number of levels of indirections in [ty]. If so, the
+          same as the number of levels of indirection in [ty]. If so, the
           argument is [ReadOnly]. *)
       | Typ_ptr { ptr_kind = _; inner_typ = ty } ->
          let (cc, nli) = count 0 1 ty in
@@ -132,12 +136,14 @@ end = struct
       (** For each function argument [arg] in [args], *)
       let args =
         List.mapi (fun i (arg, ty) ->
-            (** determine its number of level of indirections, *)
+            (** determine its number of levels of indirection, *)
             let nli = Apac_miscellaneous.typ_get_nli ty in
             (** add it to the hash table of function-local variables, *)
             Var_Hashtbl.add scope arg nli;
-            (** classify its access (see [!FunctionRecords.classify]). *)
-            classify ty) args in
+            (** classify its access (see [!FunctionRecords.classify]) and return
+                the classification together with the number of levels of
+                indirection. *)
+            (classify ty, nli)) args in
       {
         args = args;
         graph = Apac_tasks.TaskGraph.create ();
@@ -147,16 +153,19 @@ end = struct
     
     (** [FunctionRecord.constify const args]: the function takes as argument a
         list of booleans [const] having the same length as a list of argument
-        access classifications [args]. Like in the case of [args], the indices
-        of [const] match the positions of the arguments of the corresponding
-        function. [true] values in [const] mean we can change the access
-        classification of the matching argument in [args] from [ReadWrite] to
-        [ReadOnly]. If [const] and [args] do not have the same length, fail. *)
-    let constify (const : bool list) (args : a list) : a list =
+        access classifications and numbers of levels of indirection [args]. Like
+        in the case of [args], the indices of [const] match the positions of the
+        arguments of the corresponding function. [true] values in [const] mean
+        we can change the access classification of the matching argument in
+        [args] from [ReadWrite] to [ReadOnly]. If [const] and [args] do not have
+        the same length, fail. *)
+    let constify (const : bool list) (args : (a * int) list) : (a * int) list =
       if (List.length const) <> (List.length args) then
         failwith "Apac_records.FunctionRecord.constify: incompatible lists of \
                   arguments."
-      else List.map2 (fun c a -> if c then ReadOnly else a) const args
+      else List.map2 (fun c (a, nli)  ->
+               if c then (ReadOnly, nli) else (a, nli)
+             ) const args
 
     (** [FunctionRecord.is_rw record i]: checks whether the access
         classification of the [i]-th argument of the function [record] is
@@ -165,20 +174,20 @@ end = struct
       if i >= (List.length record.args) then
         failwith "Apac_records.FunctionRecord.is_rw: out of range."
       else
-        (List.nth record.args i) = ReadWrite
+        (List.nth record.args i) = (ReadWrite, _)
 
     (** [FunctionRecord.to_string record]: returns a string representation of
         the function [record]. *)
     let to_string (record : t) : string =
-      let string_of_a (arg : a) : string =
+      let string_of_a_nli (arg : a * int) : string =
         match arg with
-        | ReadWrite -> "ReadWrite"
-        | ReadOnly -> "ReadOnly"
+        | (ReadWrite, _) -> "ReadWrite"
+        | (ReadOnly, _) -> "ReadOnly"
       in
       let output = "{\n\targs: [" in
-      let args = (string_of_a (List.hd record.args)) ^
+      let args = (string_of_a_nli (List.hd record.args)) ^
                    (List.fold_left
-                      (fun acc a -> acc ^ "," ^ (string_of_a a))
+                      (fun acc a -> acc ^ "," ^ (string_of_a_nli a))
                       "" (List.tl record.args)) in
       let output = output ^ args ^ "],\n\tgraph: " ^
                      (if (Apac_tasks.TaskGraph.is_empty record.graph)

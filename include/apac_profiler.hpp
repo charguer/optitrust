@@ -110,18 +110,18 @@ public:
 };
 
 class ApacProfilerSection {
+  int nbParams;
+  std::string prefixLine;
   std::string currentLine;
   ApacProfileTimer profileTimer;
   const std::string profileFile;
   
 public:
-  ApacProfilerSection(const std::string inTaskName,
-                      const int inNbParams) : profileFile("apac_profile") {
-    currentLine.append("{ ");
-    currentLine.append(inTaskName);
-    currentLine.append(", ");
-    currentLine.append(std::to_string(inNbParams));
-    currentLine.append(", ");
+  ApacProfilerSection(const std::string inTaskName) :
+    profileFile("apac_profile") {
+    prefixLine.append("{ ");
+    prefixLine.append(inTaskName);
+    prefixLine.append(", ");
   }
   
   // This method should be called for each param that the task will depend on
@@ -151,10 +151,13 @@ public:
     }
     
     currentLine.append(", ");
+    nbParams++;
   }
   
   // This should be called right before calling the target function
-  void beforeCall(){
+  void beforeCall() {
+    prefixLine.append(std::to_string(nbParams));
+    prefixLine.append(", ");
     profileTimer.start();
   }
   
@@ -179,7 +182,7 @@ public:
     
     currentLine.append(std::to_string(profileTimer.getElapsed()));
     currentLine.append(" }\n");
-    profileStream << currentLine;
+    profileStream << prefixLine << currentLine;
     currentLine.clear();
   }
 };
