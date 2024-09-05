@@ -266,9 +266,27 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       ) in
       let rec aux (t : trm) : trm =
         Pattern.pattern_match t [
-          Pattern.(trm_let !__ !__ !(trm_ref __ !__)) (fun v typ ref init () ->
-            Pattern.when_ (ptr_typ_matches typ);
-            unfold_alloc t
+          Pattern.(trm_seq !__) (fun instrs () ->
+            let to_free = ref [] in
+            let instrs' = Mlist.map (fun t ->
+              Pattern.pattern_match t [
+                Pattern.(trm_let !__ !__ !(trm_ref __ !__)) (fun v typ ref init () ->
+                  Pattern.when_ (ptr_typ_matches typ);
+                  to_free := t :: !to_free;
+                  unfold_alloc t
+                );
+                Pattern.__ (fun () -> aux t)
+              ]
+            ) instrs in
+            let folds = Mlist.of_list (List.concat_map (fun t ->
+              (* FIXME: duplicated code with unfold_alloc. *)
+              let res = Resources.after_trm t in
+              let usage = Resources.usage_of_trm t in
+              let produced = List.filter (Resource_set.(linear_usage_filter usage keep_produced)) res.linear in
+              let folds = List.concat_map (process_one_item ~fold:true) produced in
+              folds
+            ) !to_free) in
+            trm_seq ~annot:t.annot (Mlist.merge instrs' folds)
           );
           Pattern.__ (fun () ->
             match Matrix_core.let_alloc_inv_with_ty t with
