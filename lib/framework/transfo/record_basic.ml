@@ -78,7 +78,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
     let process_matching_resource_item process_one_cell default (h, formula) =
       let open Resource_formula in
       let (mode, inner_formula) = formula_mode_inv formula in
-      (* DEBUG Printf.printf "R: %s\n" (Resource_computation.formula_to_string formula); *)
+      (* Printf.printf "R: %s\n" (Resource_computation.formula_to_string formula); *)
       let rec aux wrap_cell formula =
         Pattern.pattern_match formula [
           Pattern.(formula_group !__ (trm_fun (pair !__ __ ^:: nil) !__ !__ __)) (fun range idx _frettyp body_formula () ->
@@ -86,7 +86,6 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
           );
           Pattern.(formula_model !__ (trm_var (var_eq var_cell))) (fun loc () ->
             Pattern.when_ (trm_ptr_typ_matches loc);
-            (* DEBUG Printf.printf "MATCH!\n"; *)
             Some [process_one_cell (fun c -> trm_copy (wrap_cell c)) mode loc]
           );
           Pattern.__ (fun () -> None)
@@ -296,7 +295,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
           );
           Pattern.(trm_set !__ (trm_record !__)) (fun base (_, fs) () ->
             Pattern.when_ (trm_ptr_typ_matches base);
-            let st = List.split_pairs_snd (Mlist.to_list fs) in
+            let st = List.map aux (List.split_pairs_snd (Mlist.to_list fs)) in
             let set_one i (sf, ty) =
               trm_set (trm_struct_access ~field_typ:ty base sf) (List.nth st i)
             in
@@ -330,10 +329,14 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
           );
           Pattern.(trm_fun_with_contract !__ !__ !__) (fun args body contract () ->
             let fracs_map = fracs_map_init contract.pre.pure in
+            (* Printf.printf "pre before: %s\n" (Resource_computation.resource_set_to_string contract.pre);
+            Printf.printf "post before: %s\n" (Resource_computation.resource_set_to_string contract.post); *)
             let contract = aux_fun_contract fracs_map contract in
             let contract = { contract with pre = { contract.pre with pure =
               fracs_map_update_fracs fracs_map contract.pre.pure
             }} in
+            (* Printf.printf "pre after: %s\n" (Resource_computation.resource_set_to_string contract.pre);
+            Printf.printf "post after: %s\n" (Resource_computation.resource_set_to_string contract.post); *)
             trm_map aux (trm_fun ~annot:t.annot ~contract:(FunSpecContract contract) args None body)
           );
           Pattern.__ (fun () -> trm_map aux t)
