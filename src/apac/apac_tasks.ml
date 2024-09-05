@@ -198,6 +198,19 @@ module rec Task : sig
       cost = None
     }
 
+  (** [Task.copy task]: creates a copy of the [task]. *)
+  let copy (task : t) = {
+      schedule = task.schedule;
+      current = task.current;
+      attrs = task.attrs;
+      scope = task.scope;
+      ins = task.ins;
+      inouts = task.inouts;
+      ioattrs = task.ioattrs;
+      children = task.children;
+      cost = task.cost
+    }
+
   (** [Task.depending t1 t2]: checks whether the task [t2] depends on the task
       [t1]. *)
   let depending (t1 : t) (t2 : t) : bool =

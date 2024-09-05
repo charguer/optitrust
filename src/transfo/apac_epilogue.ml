@@ -823,27 +823,17 @@ let place_barriers_on (p : path) (t : trm) : unit =
               task candidate graphs, if any. We process the task candidates in
               nested task candidate graphs separately through a recurive call to
               this function (see below). *)
-          let ins = if t.children <> [[]] then
-                      Dep_set.filter (fun d ->
-                          Dep_map.has_with_attribute d Condition t.ioattrs
-                        ) t.ins
-                    else t.ins in
-          let inouts = if t.children <> [[]] then
-                         Dep_set.filter (fun d ->
-                             Dep_map.has_with_attribute d Condition t.ioattrs
-                           ) t.inouts
-                       else t.inouts in
-          let temp : Task.t = {
-              schedule = t.schedule;
-              current = t.current;
-              attrs = t.attrs;
-              ins = ins;
-              inouts = inouts;
-              ioattrs = t.ioattrs;
-              children = t.children;
-              cost = t.cost
-            }
-          in
+          let temp = Task.copy t in
+          temp.ins <- if t.children <> [[]] then
+                        Dep_set.filter (fun d ->
+                            Dep_map.has_with_attribute d Condition t.ioattrs
+                          ) t.ins
+                      else t.ins;
+          temp.inouts <- if t.children <> [[]] then
+                           Dep_set.filter (fun d ->
+                               Dep_map.has_with_attribute d Condition t.ioattrs
+                             ) t.inouts
+                         else t.inouts;
           (** Check whether the temporary task candidate shares a data
               dependency with a preceding eligible task candidate. *)
           let depends = Stack.fold (fun acc task' ->
