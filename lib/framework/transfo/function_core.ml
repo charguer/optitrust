@@ -64,7 +64,7 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
       | _ -> trm_fail tfun "Function_core.inline_at: expected either a function call or a beta function call"
       end in
       begin match fun_decl.desc with
-      | Trm_let_fun (_f, ty, args, body, _) ->
+      | Trm_let_fun (_f, ret_ty, args, body, _) ->
         let fun_decl_arg_vars = fst (List.split args) in
         let subst_map = Var_map.of_seq (Seq.append
           (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
@@ -82,7 +82,7 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
           | Trm_let ((x, _), _) -> x
           | _ -> dummy_var
         in
-        let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
+        let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" (typ_ptr ret_ty) name fun_decl_body in
         if !Flags.check_validity && nb_gotos > 0 then
           trm_fail t "inlining functions featuring return instructions in the body is not yet supported";
         let processed_body = begin
@@ -95,10 +95,10 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
         let marked_body = if body_mark <> "" then trm_add_mark body_mark processed_body else Nobrace.set_if_sequence processed_body in
         let exit_label = if nb_gotos = 0 then trm_seq_nobrace_nomarks [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
-          if is_typ_unit ty
+          if is_typ_unit ret_ty
             then [marked_body; exit_label]
             else
-              [trm_pass_marks fun_call (trm_let_uninit (name, ty));marked_body; exit_label]
+              [trm_pass_marks fun_call (trm_let_uninit (name, ret_ty));marked_body; exit_label]
           in
         trm_seq_nobrace_nomarks inlined_body
 
@@ -194,7 +194,7 @@ let dsp_def_at (index : int) (arg : string) (func : string) (t : trm) : trm =
   let f_update (t : trm) : trm =
     let error = "Function_core.dsp_def_at: expected a target to a function definition." in
     let (f, ret_ty, tvl, body) = trm_inv ~error trm_let_fun_inv t in
-    let new_body, _ = Internal.replace_return_with_assign arg body in
+    let new_body, _ = Internal.replace_return_with_assign (typ_ptr ret_ty) arg body in
     let new_args = tvl @ [(arg, typ_ptr ret_ty)] in
     let new_fun = if func = "dsp" then f.name ^ "_dsp" else func in
     let new_fun_var = new_var new_fun in

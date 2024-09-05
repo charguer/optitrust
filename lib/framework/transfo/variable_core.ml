@@ -216,20 +216,25 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     let aux_unwrap (t : trm) : trm =
       let _, t' = aux t in t'
     in
+    let fix_typ t =
+      Option.bind t.typ typ_ptr_inv
+    in
     match t.desc with
-    | Trm_var y when y = x -> (true, t)
+    | Trm_var y when y = x -> (true, { t with typ = fix_typ t })
     | Trm_apps (_, [t1], _) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
-    | Trm_apps ({desc = Trm_prim (struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _) ->
+    | Trm_apps ({desc = Trm_prim (_struct_typ, Prim_unop (Unop_struct_access f))}, [t1], _) ->
+      let field_typ = Option.bind t.typ typ_ptr_inv in
       let r, t1' = aux t1 in
-      if r then (true, trm_struct_get ~struct_typ ?field_typ:t.typ ~annot:t.annot t1' f)
-      else (false, trm_struct_access ~struct_typ ?field_typ:t.typ ~annot:t.annot t1' f)
-    | Trm_apps ({desc = Trm_prim (typ, Prim_binop (Binop_array_access))}, [t1; t2], _) ->
+      if r then (true, trm_struct_get ?field_typ ~annot:t.annot t1' f)
+      else (false, trm_struct_access ?field_typ ~annot:t.annot t1' f)
+    | Trm_apps ({desc = Trm_prim (_typ, Prim_binop (Binop_array_access))}, [t1; t2], _) ->
+      let elem_typ = Option.bind t.typ typ_ptr_inv in
       let r, t1' = aux t1 in
       let _, t2' = aux t2 in
-      if r then (true, trm_array_get ~typ ~annot:t.annot t1' t2')
-      else (false, trm_array_access ~elem_typ:typ ~annot:t.annot t1' t2')
+      if r then (true, trm_array_get ?typ:elem_typ ~annot:t.annot t1' t2')
+      else (false, trm_array_access ?elem_typ ~annot:t.annot t1' t2')
     | _ -> false, trm_map aux_unwrap t
   in
   snd (aux t)
@@ -282,7 +287,7 @@ let to_const_at (index : int) (t : trm) : trm =
       end
     ) lback;
     (* replace all get(x) with x *)
-    let init_type = get_inner_ptr_type tx in
+    let init_type = Option.unsome ~error:"expected ptr type" (typ_ptr_inv tx) in
     let new_dl = trm_pass_marks dl (trm_let (x, init_type) init_val) in
     let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var x t1) lback in
     trm_seq_helper ~annot:t.annot [TrmMlist lfront; Trm new_dl; TrmMlist new_lback]

@@ -120,7 +120,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
      upcoming steps. *)
   let res_var = new_var "__res" in
   let body', _ = Internal.replace_return_with_assign ~check_terminal:false
-    ~exit_label:"__exit" res_var body in
+    ~exit_label:"__exit" (typ_ptr ret_ty) res_var body in
   (* Add the '__exit' label at the end of the sequence. *)
   let body' = trm_seq_add_last (trm_add_label "__exit" (trm_unit())) body' in
   (* Mark the sequence with [mark]. *)

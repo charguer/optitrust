@@ -335,7 +335,7 @@ let get_constr_from_target (tg : target) : constr =
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
       [r] - the name of the variable replacing the return statement, can be [dummy_var] to ... ?
       [t] - ast of the body of the function. *)
-let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : label = no_label) (r : var) (t : trm) : (trm * int) =
+let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : label = no_label) (rty : typ) (r : var) (t : trm) : (trm * int) =
   let nb_gotos = ref 0 in
   let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with
@@ -345,7 +345,7 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
         begin match t1 with
         | Some t2 ->
           let t1' = (aux false t2) in
-          let t_assign = if r = dummy_var then t2 else trm_set (trm_var r) t1' in
+          let t_assign = if r = dummy_var then t2 else trm_set (trm_var ~typ:rty r) t1' in
           if is_terminal
             then t_assign
             else begin
