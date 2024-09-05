@@ -841,6 +841,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
               inouts = inouts;
               ioattrs = t.ioattrs;
               children = t.children;
+              cost = t.cost
             }
           in
           (** Check whether the temporary task candidate shares a data

@@ -97,6 +97,7 @@ module rec Task : sig
              mutable inouts : Dep_set.t;
              mutable ioattrs : ioattrs_map;
              mutable children : TaskGraph.t list list;
+             mutable cost : trm option
            }
          val create :
            int -> trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t ->
@@ -135,6 +136,10 @@ module rec Task : sig
           have more than one child task graph associated to it, i.e. a then and
           an else branch in the case of an if-conditional statement). *)
       mutable children : TaskGraph.t list list;
+      (** - an optional cost model, i.e. a polynomial expression in the form of
+          an abstract syntax tree term, allowing us to estimate the execution
+          time of the task candidate at run-time. *)
+      mutable cost : trm option
     }
   
   (** [Task.create schedule current attrs scope ins inouts children]: creates a
@@ -184,6 +189,7 @@ module rec Task : sig
       inouts = inouts';
       ioattrs = ioattrs';
       children = children;
+      cost = None
     }
 
   (** [Task.depending t1 t2]: checks whether the task [t2] depends on the task
@@ -231,8 +237,21 @@ module rec Task : sig
     let ins' = Dep_set.diff ins' inouts' in
     (** compute the union of maps of dependency attributes, *)
     let ioattrs' = Dep_map.union2 t1.ioattrs t2.ioattrs in
-    (** concatenate the list of lists of nested graphs of [t1] and [t2]. *)
+    (** concatenate the list of lists of nested graphs of [t1] and [t2], *)
     let children' = t1.children @ t2.children in
+    (** determine the cost model of the resulting task candidate, if any. *)
+    let cost' = match (t1.cost, t2.cost) with
+      (** When both [t1] and [t2] have a cost model, i.e. respectively [c1] and
+          [c2], the cost model of the resulting task candidate is the sum of
+          [c1] and [c2]. *)
+      | (Some c1, Some c2) -> Some (Trm.trm_add c1 c2)
+      (** When either only [t1] or only [t2] has a cost model, the latter
+          becomes the cost model of the resulting task candidate. *)
+      | (Some c, None)
+        | (None, Some c) -> Some c
+      (** When nor [t1] nor [t2] has a cost model, the resulting task candidate
+          won't have a cost model either. *)
+      | (None, None) -> None in
     (** If we are merging a suitable task candidate with an unsuitble task
         candidate, the result is a suitable task candidate. *)
     let attrs' =
@@ -246,6 +265,7 @@ module rec Task : sig
       inouts = inouts';
       ioattrs = ioattrs';
       children = children';
+      cost = cost'
     }
   
   (** [Task.empty]: produces an empty task having no AST term associated with it
@@ -258,6 +278,7 @@ module rec Task : sig
       inouts = Dep_set.empty;
       ioattrs = Dep_map.empty;
       children = [];
+      cost = None
     }
 
   (** [Task.to_excerpt task]: returns an excerpt of a string representation of
