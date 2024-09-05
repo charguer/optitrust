@@ -1031,7 +1031,7 @@ let trm_struct_get_inv (t : trm) : (trm * field) option =
 (** [trm_array_access ~annot ?typ base index]: creates array_access(base, index) encoding *)
 let trm_array_access ?(annot = trm_annot_default) ?(loc: location) ?(elem_typ : typ option) (base : trm) (index : trm) : trm =
   let elem_typ = Option.or_ elem_typ (Option.bind base.typ typ_ptr_inv) in
-  trm_apps ~annot ?loc ?typ:(Option.map typ_ptr elem_typ) (trm_binop (typ_or_auto elem_typ) Binop_array_access) [base; index]
+  trm_apps ~annot ?loc ?typ:(Option.map typ_ptr elem_typ) (trm_binop typ_auto (*(typ_or_auto elem_typ)*) Binop_array_access) [base; index]
 
 let trm_array_access_inv (t : trm) : (trm * trm) option =
   trm_binop_inv Binop_array_access t

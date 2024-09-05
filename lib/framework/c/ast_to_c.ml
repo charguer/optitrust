@@ -35,6 +35,7 @@ type style = {
   print_annot: bool; (* print annotations *)
   print_errors: bool; (* print errors *)
   optitrust_syntax: bool; (* print "set(p,v)" instead of "p=v", and print "array_access(t,i)" etc *)
+  print_types: bool;
   pretty_matrix_notation: bool; (* print t[MINDEX(n,m,a,b)] as t[a][b] *)
   commented_pragma: bool; (* comment out pragram lines, for better tabulation by clang-format *)
 }
@@ -47,6 +48,7 @@ let default_style () : style =
     print_mark = true;
     print_annot = false; (* LATER: add support for this *)
     print_errors = true;
+    print_types = false;
     optitrust_syntax = !Flags.print_optitrust_syntax;
     pretty_matrix_notation = !Flags.pretty_matrix_notation;
     commented_pragma = !Flags.use_clang_format; }
@@ -60,6 +62,7 @@ let style_for_reparse () : style =
     print_annot = false;
     print_errors = false;
     optitrust_syntax = false;
+    print_types = false;
     pretty_matrix_notation = false;
     commented_pragma = false; }
 
@@ -72,6 +75,7 @@ let style_for_varids () : style = {
   print_annot = false;
   print_errors = true;
   optitrust_syntax = false;
+  print_types = false;
   pretty_matrix_notation = false;
   commented_pragma = false;
 }
@@ -224,6 +228,9 @@ and typ_to_doc style (t : typ) : document =
   in
   dattr ^^ d
 
+and may_annot_typ style (t : typ) (doc : document) : document =
+  if style.print_types then parens (typ_to_doc style t) ^^ doc else doc
+
 (** [typed_var_to_doc style tx]: pairs like (x, int) are printed as int x. *)
 and typed_var_to_doc : 'a. style -> ('a -> document) -> ('a * typ) -> document =
   fun style (x_to_doc: 'a -> document) ((x, ty) : 'a * typ) ->
@@ -317,8 +324,8 @@ and binop_to_doc style (op : binary_op) : document =
 (** [prim_to_doc style p]: converts primitives to pprint documents. *)
 and prim_to_doc style (ty: typ) (p : prim) : document =
   match p with
-  | Prim_unop op -> unop_to_doc style op
-  | Prim_binop op -> binop_to_doc style op
+  | Prim_unop op -> may_annot_typ style ty (unop_to_doc style op)
+  | Prim_binop op -> may_annot_typ style ty (binop_to_doc style op)
   | Prim_compound_assign_op op -> (binop_to_doc style op) ^^ equals
   | Prim_ref ->
     string "ref" ^^ blank 1 ^^ typ_to_doc style ty
@@ -394,6 +401,15 @@ and decorate_trm style ?(semicolon : bool = false) ?(prec : int = 0) ?(print_str
       sleft ^^ dt ^^ sright
     end
     in
+
+  let dt =
+    match t.typ with
+    | Some typ when style.print_types ->
+      may_annot_typ style typ dt
+    | _ ->
+      dt
+  in
+
   (*printf "ERRORS L=%d\n" (List.length t.errors);*)
   if t.errors = [] || not style.print_errors then
     dt
@@ -944,7 +960,7 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
           | Binop_set when style.optitrust_syntax ->
             d1 ^^ string "=" ^^ d2
           | Binop_array_access when style.optitrust_syntax ->
-            string "(" ^^ d1 ^^ string "++" ^^ d2 ^^ string ")"
+            string "(" ^^ d1 ^^ (may_annot_typ style ty (string "[+]")) ^^ d2 ^^ string ")"
           | Binop_array_access | Binop_array_get ->
             let bracketed_trm t = brackets (decorate_trm style ~prec:0 t) in
             d1 ^^ if not style.pretty_matrix_notation then

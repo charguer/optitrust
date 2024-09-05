@@ -14,7 +14,7 @@ let _ = Run.script_cpp (fun () ->
   !! show [ nbMulti; cFor "i" ];
   !! show [ nbMulti; cCall "f" ];
   !! show [ nbMulti; cFunDef "main"; cFor "i" ];
-  !! show [ nbMulti; cVarDef "s"; dBody; cStrict; cTrue ];
+  !! show [ nbMulti; cVarDef "s"; dLetBody; cStrict; cTrue ];
 
   (* NbExact*)
   !! show [ nbExact 0; cFunDef "main"; cFor "j" ]; (* zero match *)

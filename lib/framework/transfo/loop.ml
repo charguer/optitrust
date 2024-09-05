@@ -288,7 +288,7 @@ let%transfo hoist_decl_loop_list
     let tg_trm = Target.resolve_path p in
     let error = "Loop.hoist_decl_loop_list: expected let" in
     let _ = trm_inv ~error trm_let_inv tg_trm in
-    Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
+    Marks.with_fresh_mark_on (p @ [Dir_let_body; Dir_arg_nth 0]) (fun m ->
       hoist_alloc_loop_list ~tmp_names ~name ~inline loops tg;
       hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
     )) tg

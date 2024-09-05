@@ -94,12 +94,13 @@ let c_res () : output_style  =
 let c_ctx () : output_style =
   c ~typing_style:typing_ctx ()
 
-let internal () : output_style =
+let internal ?(print_types = false) () : output_style =
   let s = Ast_to_c.default_style () in
   { decode = false;
     typing = { typing_annot with print_generated_res_ids = true };
     print = Lang_C { s with
       optitrust_syntax = true;
+      print_types;
       print_var_id = true } }
 
 let internal_ast () : output_style =

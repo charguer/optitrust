@@ -69,6 +69,7 @@ variable/exchange
 swap/coords_fixed
 swap/coords_vari
 specialize/function_arg
+function/inline/function_inline_doc.ml
 
 # #var-id
 ast/cpp_varids.ml

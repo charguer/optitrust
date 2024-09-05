@@ -793,7 +793,7 @@ let dVarInit : constr =
 
 (** [dInit] alias to dBody used for variable initializations. *)
 let dInit : constr =
-  dBody
+  dLetBody
 
 (** [cWrite ~lhs ~rhs ~typ ~typ_pred ()]: matches a write(set) operation
      [lhs] - match based on the left operand
@@ -976,7 +976,7 @@ let cTargetInDepth (tg : target) : constr =
     Note:
       the empty list is interpreted as no constraint on the accesses,
       accesses are reversed so that users give constraints on what they see. *)
-let cAccesses ?(base : target = []) ?(accesses : constr_access list = []) ?(inner_accesses : bool = true)() : constr =
+let cAccesses ?(base : target = []) ?(accesses : constr_access list = []) ?(inner_accesses : bool = true) () : constr =
   let p_base =  base in
   let accesses =
     match accesses with | [] -> None | cal -> Some (List.rev cal)
