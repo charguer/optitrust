@@ -374,12 +374,12 @@ let taskify_on (p : path) (t : trm) : unit =
   let rec fill (s : FunctionRecord.s) (t : trm) (g : TaskGraph.t) : Task.t =
     match t.desc with
     | Trm_seq sequence ->
-       (** Keep a copy of the local scope of variables as a set. We need this
+       (** Keep a copy of the local scope of variables as a map. We need this
            because we do not want any variables potentially defined in child
            scopes (added to [s] within [trm_discover_dependencies]) to end up in
            the dependency sets of the parent scope, which is the current
            scope. *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (** Convert the marked list of statements of the [sequence] into a simple
            list of statements. *)
        let instrs = Mlist.to_list sequence in
@@ -485,7 +485,7 @@ let taskify_on (p : path) (t : trm) : unit =
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the dependency sets of the parent scope, which is the current
           scope. *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (* Launch dependency discovery in the initialization term as well as *)
        let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s init in
        (* in the conditional statement representing the upper loop bound. *)
@@ -555,7 +555,7 @@ let taskify_on (p : path) (t : trm) : unit =
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the dependency sets of the parent scope, which is the current
           scope. *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (* Explode the [range] specifier to allow for dependency discovery. *)
        let (index, init, _, cond, step, _) = range in
        (* Launch dependency discovery in the initialization term as well as *)
@@ -639,7 +639,7 @@ let taskify_on (p : path) (t : trm) : unit =
           initialize the in and in-out dependency sets. *)
        let (ins, inouts, _, tas) = trm_discover_dependencies s t in
        (* Convert the updated local scope to a set. *)
-       let scope' = var_set_of_var_hashtbl s in
+       let scope' = var_map_of_var_hashtbl s in
        (* Variable declarations should never become tasks, but rather
           synchronization barriers, nor be merged with other task graph
           nodes. *)
@@ -664,7 +664,7 @@ let taskify_on (p : path) (t : trm) : unit =
          (** If so, we must make it clear the statement is related to a 'goto'
              jump to [Apac_macros.goto_label], hence the [IsJump] attribute. *)
          let attrs = TaskAttr_set.singleton IsJump in
-         Task.create (-1) t attrs Var_set.empty
+         Task.create (-1) t attrs Var_map.empty
            Dep_set.empty Dep_set.empty Dep_map.empty []
        else
          (** Look for dependencies and their attributes in the current term and
@@ -672,7 +672,7 @@ let taskify_on (p : path) (t : trm) : unit =
              dependency attribute sets. *)
          let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s t in
          (** Convert the local scope to a set. *)
-         let scope = var_set_of_var_hashtbl s in
+         let scope = var_map_of_var_hashtbl s in
          (** Create the corresponding task candidate using all the elements
              computed above. *)
          Task.create (-1) t tas scope ins inouts ioattrs [[]]
@@ -681,7 +681,7 @@ let taskify_on (p : path) (t : trm) : unit =
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (* Look for dependencies and their attributes in the conditional
           expression of the [if] and initialize the in and in-out dependency
           sets as well as the map of dependency attribute sets. *)
@@ -733,7 +733,7 @@ let taskify_on (p : path) (t : trm) : unit =
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (* Look for dependencies and their attributes in the conditional
           expression of the [while] and initialize the in and in-out dependency
           sets as well as the map of dependency attributes. *)
@@ -770,7 +770,7 @@ let taskify_on (p : path) (t : trm) : unit =
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (* Look for dependencies in the conditional expression of the do-while
           and initialize the in and in-out dependency sets as well as the map of
           dependency attribute sets. *)
@@ -808,7 +808,7 @@ let taskify_on (p : path) (t : trm) : unit =
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (* Look for dependencies and their attributes in the conditional
           expression of the [switch] and initialize the in and in-out dependency
           sets as well as the map of dependency attribute sets. *)
@@ -870,7 +870,7 @@ let taskify_on (p : path) (t : trm) : unit =
        let (ins, inouts, _, tas) = trm_discover_dependencies s target in
        let inouts = Dep_set.union ins inouts in
        (* Convert the local scope to a set *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (* Transform this task into a synchronization barrier. See
           [Apac_tasks.TaskAttr]. *)
        let tas = TaskAttr_set.union2
@@ -890,7 +890,7 @@ let taskify_on (p : path) (t : trm) : unit =
              task candidate carrying the [IsJump] attribute to indicate the
              presence of the 'goto' statement. *)
          let attrs = TaskAttr_set.singleton IsJump in
-         Task.create (-1) t attrs Var_set.empty
+         Task.create (-1) t attrs Var_map.empty
            Dep_set.empty Dep_set.empty Dep_map.empty [[]]
     | Trm_val v ->
        (** Retrieve the first label attribute of the current term, if any. *)
@@ -906,7 +906,7 @@ let taskify_on (p : path) (t : trm) : unit =
        | Val_lit (Lit_unit) when l = Apac_macros.goto_label ->
           let attrs = TaskAttr_set.singleton Singleton in
           let attrs = TaskAttr_set.add ExitPoint attrs in
-          Task.create (-1) t attrs Var_set.empty
+          Task.create (-1) t attrs Var_map.empty
             Dep_set.empty Dep_set.empty Dep_map.empty [[]]
        (** Otherwise, fail. We do not allow for other types of values in
            first-level instructions. *)
@@ -919,7 +919,7 @@ let taskify_on (p : path) (t : trm) : unit =
        end
     | Trm_omp_routine r ->
        (* Convert the local scope to a set. *)
-       let scope = var_set_of_var_hashtbl s in
+       let scope = var_map_of_var_hashtbl s in
        (* Calls to OpenMP routines must not become parallelizable tasks! *)
        let attrs = TaskAttr_set.singleton WaitForAll in
        (* When it comes to OpenMP routine calls, we consider two different

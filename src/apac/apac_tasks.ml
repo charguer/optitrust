@@ -93,6 +93,7 @@ module rec Task : sig
              mutable schedule : int;
              mutable current : trms;
              mutable attrs : TaskAttr_set.t;
+             mutable scope : int Var_map.t;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
              mutable ioattrs : ioattrs_map;
@@ -100,8 +101,9 @@ module rec Task : sig
              mutable cost : trm option
            }
          val create :
-           int -> trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t ->
+           int -> trm -> TaskAttr_set.t -> int Var_map.t -> Dep_set.t ->
            Dep_set.t -> ioattrs_map -> TaskGraph.t list list -> t
+         val copy : t -> t
          val depending : t -> t -> bool
          val attributed : t -> TaskAttr.t -> bool
          val subscripted : t -> bool
@@ -125,6 +127,9 @@ module rec Task : sig
           taskified source code (see [TaskAttr] as well as the `backend.ml'
           file), *)
       mutable attrs : TaskAttr_set.t;
+      (** - a map of variables, to their respective numbers of levels of
+          indirections, present in the scope of the task candidate, *)
+      mutable scope : int Var_map.t;
       (** - a set of input (read only) data dependencies (see [Dep]), *)
       mutable ins : Dep_set.t;
       (** - a set of input-output (read-write) data dependencies (see [Dep]), *)
@@ -144,34 +149,34 @@ module rec Task : sig
   
   (** [Task.create schedule current attrs scope ins inouts children]: creates a
       new task candiate based on the logical [schedule], the [current] AST term,
-      the set of task [attrs], the set of the current scope's variables, the set
-      of input dependencies [ins], the set of input-output dependencies [inouts]
+      the set of task [attrs], the current [scope] of variables, the set of
+      input dependencies [ins], the set of input-output dependencies [inouts]
       and the list of lists of nested task graphs. *)
   let create (schedule : int) (current : trm) (attrs : TaskAttr_set.t)
-        (scope : Var_set.t) (ins : Dep_set.t) (inouts : Dep_set.t)
+        (scope : int Var_map.t) (ins : Dep_set.t) (inouts : Dep_set.t)
         (ioattrs : ioattrs_map) (children : TaskGraph.t list list) : t =
     (** Filter out the input dependencies on variables that are not defined in
         the current scope. *)
     let ins' = Dep_set.filter (
                    fun d -> match d with
-                            | Dep_var v -> Var_set.mem v scope
-                            | Dep_trm (_, v) -> Var_set.mem v scope
+                            | Dep_var v -> Var_map.mem v scope
+                            | Dep_trm (_, v) -> Var_map.mem v scope
                             | _ -> false
                  ) ins in
     (** Filter out the input-output dependencies on variables that are not
         defined in the current scope. *)
     let inouts' = Dep_set.filter (
                       fun d -> match d with
-                               | Dep_var v -> Var_set.mem v scope
-                               | Dep_trm (_, v) -> Var_set.mem v scope
+                               | Dep_var v -> Var_map.mem v scope
+                               | Dep_trm (_, v) -> Var_map.mem v scope
                                | _ -> false
                     ) inouts in
     (** Filter out the attributes for dependencies on variables that are not
         defined in the current scope. *)
     let ioattrs' = Dep_map.filter (
                       fun d _ -> match d with
-                               | Dep_var v -> Var_set.mem v scope
-                               | Dep_trm (_, v) -> Var_set.mem v scope
+                               | Dep_var v -> Var_map.mem v scope
+                               | Dep_trm (_, v) -> Var_map.mem v scope
                                | _ -> false
                     ) ioattrs in
     (** The dependency analysis may conclude that a dependency is both an input
@@ -185,6 +190,7 @@ module rec Task : sig
       (** Initially, a task is represented by a single instruction. *)
       current = [current];
       attrs = attrs;
+      scope = scope;
       ins = ins';
       inouts = inouts';
       ioattrs = ioattrs';
@@ -228,6 +234,8 @@ module rec Task : sig
     let current' = t1.current @ t2.current in
     (** compute the union of attributes, *)
     let attrs' = TaskAttr_set.union t1.attrs t2.attrs in
+    (** compute the union of the scopes, *)
+    let scope' = Var_map.union (fun k v1 v2 -> Some v1) t1.scope t2.scope in
     (** compute the union of the input dependency sets, *)
     let ins' = Dep_set.union t1.ins t2.ins in
     (** compute the union of the input-output dependency sets, *)
@@ -261,6 +269,7 @@ module rec Task : sig
       schedule = t1.schedule;
       current = current';
       attrs = attrs';
+      scope = scope';
       ins = ins';
       inouts = inouts';
       ioattrs = ioattrs';
@@ -274,6 +283,7 @@ module rec Task : sig
       schedule = -1;
       current = [];
       attrs = TaskAttr_set.empty;
+      scope = Var_map.empty;
       ins = Dep_set.empty;
       inouts = Dep_set.empty;
       ioattrs = Dep_map.empty;
