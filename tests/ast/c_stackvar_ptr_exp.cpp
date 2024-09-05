@@ -24,7 +24,7 @@ int f(int arg, int* argp) {
   int w = arg;
   int* x = &arg;
   int* y = argp;
-  int z = get(argp);
+  int z = *argp;
 }
 
 int g(int arg, int* argp) {
@@ -33,5 +33,5 @@ int g(int arg, int* argp) {
       *g = e, *const h = &i, *const j = &a, *const k = e;
   const int l = 1, m = i, &n = 1, &o = i, *q = &i, *r = &l,
             *s = q, *const t = &i, *const u = &l, *const v = q;
-  int w = arg, *x = &arg, *y = argp, z = get(argp);
+  int w = arg, *x = &arg, *y = argp, z = *argp;
 }

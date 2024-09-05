@@ -679,7 +679,7 @@ and trm_let_mult_to_doc style ?(semicolon : bool = true) (bs : (typed_var * trm)
       then empty
       else equals ^^ decorate_trm style init
     in
-    common_ty, (dptr ^^ var_to_doc style x ^^ dinit) :: decl_list
+    common_ty, (dptr ^^ blank 1 ^^ var_to_doc style x ^^ dinit) :: decl_list
     ) (typ_unit, []) bs
   in
   let decl_list = List.rev decl_list in
@@ -957,8 +957,8 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
         begin match op with
           | Binop_exact_div ->
             string "exact_div(" ^^ d1 ^^ comma ^^ space ^^ d2 ^^ string ")"
-          | Binop_set when style.optitrust_syntax ->
-            d1 ^^ string "=" ^^ d2
+          (* | Binop_set when style.optitrust_syntax ->
+            d1 ^^ string "=" ^^ d2 *)
           | Binop_array_access when style.optitrust_syntax ->
             string "(" ^^ d1 ^^ (may_annot_typ style ty (string "[+]")) ^^ d2 ^^ string ")"
           | Binop_array_access | Binop_array_get ->
