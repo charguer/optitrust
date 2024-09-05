@@ -117,26 +117,31 @@ double relativePosZ(double z) {
 
 const int nbCorners = 8;
 
-double* cornerInterpolationCoeff(vect pos) {
-  __produces("_Res ~> Matrix1(nbCorners)");
+void cornerInterpolationCoeff2(double rX, double rY, double rZ, double* r) {
+  __writes("r ~> Matrix1(nbCorners)");
+  __admitted();
+
+  const double cX = 1. + -1. * rX;
+  const double cY = 1. + -1. * rY;
+  const double cZ = 1. + -1. * rZ;
+  r[MINDEX1(8, 0)] = cX * cY * cZ;
+  r[MINDEX1(8, 1)] = cX * cY * rZ;
+  r[MINDEX1(8, 2)] = cX * rY * cZ;
+  r[MINDEX1(8, 3)] = cX * rY * rZ;
+  r[MINDEX1(8, 4)] = rX * cY * cZ;
+  r[MINDEX1(8, 5)] = rX * cY * rZ;
+  r[MINDEX1(8, 6)] = rX * rY * cZ;
+  r[MINDEX1(8, 7)] = rX * rY * rZ;
+}
+
+void cornerInterpolationCoeff(vect pos, double* r) {
+  __writes("r ~> Matrix1(nbCorners)");
   __admitted();
 
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);
-  const double cX = 1. + -1. * rX;
-  const double cY = 1. + -1. * rY;
-  const double cZ = 1. + -1. * rZ;
-  double* const r = (double* const) MALLOC1(nbCorners, sizeof(double));
-  r[0] = cX * cY * cZ;
-  r[1] = cX * cY * rZ;
-  r[2] = cX * rY * cZ;
-  r[3] = cX * rY * rZ;
-  r[4] = rX * cY * cZ;
-  r[5] = rX * cY * rZ;
-  r[6] = rX * rY * cZ;
-  r[7] = rX * rY * rZ;
-  return r;
+  cornerInterpolationCoeff2(rX, rY, rZ, r);
 }
 
 vect matrix_vect_mul(double* coeffs, vect* matrix) {
@@ -207,7 +212,8 @@ void simulate_single_cell(double deltaT,
       }, "");
 
       // Interpolate the field based on the position relative to the corners of the cell
-      double* const coeffs = cornerInterpolationCoeff(particles[MINDEX1(nbParticles, idPart)].pos);
+      double* const coeffs = (double*) MALLOC1(nbCorners, sizeof(double));
+      cornerInterpolationCoeff(particles[MINDEX1(nbParticles, idPart)].pos, coeffs);
       const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
       MFREE1(nbCorners, coeffs);
 

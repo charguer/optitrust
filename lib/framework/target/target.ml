@@ -175,6 +175,8 @@ let dElse : constr =
 let dBody : constr =
   Constr_dir Dir_body
 
+let dLetBody : constr = Constr_dir Dir_let_body
+
 (** [dVarBody]: matches the body of a variable definition, bypassing the new operation. *)
 let dVarBody : constr =
   Constr_dir Dir_var_body

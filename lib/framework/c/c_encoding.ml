@@ -83,8 +83,8 @@ let trm_address_of (t : trm) : trm =
 
 (** [trm_get t]: adds the "*" operator before [t]
     Note: if for example t = &a then [trm_get t] = *( &a) = a *)
-let trm_get (t : trm) : trm =
-  let u = trm_apps ?typ:t.typ (trm_unop Unop_get) [t] in
+let trm_get ?annot (t : trm) : trm =
+  let u = trm_apps ?annot ?typ:t.typ (trm_unop Unop_get) [t] in
   trm_simplify_addressof_and_get u
 
 (** [onscope env t f]: applies function [f] on [t] without loosing [env]
@@ -277,7 +277,7 @@ let caddress_elim (t : trm) : trm =
     | Trm_apps ({desc = Trm_prim (Prim_binop (Binop_array_get)); _} as _op, [t1; t2], _) ->
         let u1 = aux t1 in
         let u2 = aux t2 in
-        trm_get { t with desc = Trm_apps ({ t with desc = Trm_prim (Prim_binop (Binop_array_access))}, [u1; u2], []) }
+        trm_get ~annot:t.annot (trm_array_access u1 u2)
     | _ -> trm_map aux t
     end)
   in

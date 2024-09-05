@@ -593,7 +593,7 @@ let simpl_access_of_access_on (t : trm) : trm =
   | None -> trm_inv ~error array_get_inv t
   in
   let (base0, i0) = trm_inv ~error array_access_inv base1 in
-  array_access base0 (trm_add i0 i1)
+  trm_array_access base0 (trm_add i0 i1)
 
 (** [simpl_access_of_access]: simplifies &((&p[i0])[i1]) into &p[i0 + i1]
 

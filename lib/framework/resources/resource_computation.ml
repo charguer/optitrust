@@ -34,6 +34,7 @@ module Resource_primitives = struct
   let unop_to_var_name (u: unary_op): string =
     match u with
     | Unop_get -> "__get"
+    | Unop_minus -> "__minus"
     | Unop_pre_inc -> "__pre_inc"
     | Unop_pre_dec -> "__pre_dec"
     | Unop_post_inc -> "__post_inc"

@@ -920,6 +920,8 @@ and apps_to_doc style ?(prec : int = 0) (f : trm) (tl : trms) : document =
           | Unop_pre_dec -> twice minus ^^ d
           | Unop_struct_access f1 when style.optitrust_syntax ->
               string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
+          | Unop_struct_get f1 when style.optitrust_syntax ->
+              string "struct_get(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
           | (Unop_struct_get f1 | Unop_struct_access f1) ->
             if is_get_implicit_this t then string f1
             else if is_get_operation t then

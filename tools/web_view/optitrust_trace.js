@@ -155,6 +155,11 @@ var optionsDescr = [ // extended by initAllTags
     kind: "serialized_ast",
     default: true,
   },
+  { key: "optitrust_syntax",
+    name: "OptiTrust syntax",
+    kind: "serialized_ast",
+    default: false,
+  },
   { radio: "typing_style",
     value: "hide",
     name: "Hide res",
@@ -545,7 +550,7 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
   var stepCode;
   if (serialized_trace) {
     // We have a serialized trace server, get the step details from there
-    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&decode=${options.decode}&typing_style=${getRadioOption("typing_style")}&timestamp=${serialized_trace_timestamp}`)
+    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&decode=${options.decode}&optitrust_syntax=${options.optitrust_syntax}&typing_style=${getRadioOption("typing_style")}&timestamp=${serialized_trace_timestamp}`)
       .then((response) => {
         if (response.status == 419) {
           window.location.reload();

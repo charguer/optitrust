@@ -11,7 +11,7 @@ let _ = Run.script_cpp (fun _ ->
   *) (* LATER: remove the show *)
   (*show [cCellAccess ~base:[cVar "arr"] ()];
   show [cAccesses ~base:[cStrict; cCellAccess ~base:[cVar "arr"] ()] ()];*)
-  !! Variable_basic.bind "a0" [nbMulti; cAccesses ~base:[cStrict; cCellAccess ~base:[cVar "arr"] ()] ()];
+  !! Variable_basic.bind "a0" [nbMulti; cRead ~addr:[cAccesses ~base:[cStrict; cCellAccess ~base:[cVar "arr"] ()] ()] ()];
 
   !! Variable_basic.bind "z" ~is_ptr:true [cFun "pointer_arg"; dArg 0];
 )

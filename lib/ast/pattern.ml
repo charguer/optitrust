@@ -142,6 +142,11 @@ let trm_string f k t =
   | Some (Lit_string str) -> f k str
   | _ -> raise Next
 
+let trm_record f k t =
+  match trm_record_inv t with
+  | Some fs -> f k fs
+  | _ -> raise Next
+
 let trm_unop funop ft k t =
   match trm_unop_inv t with
   | Some (unop, t0) ->
@@ -164,7 +169,13 @@ let trm_prim_compound binop ft1 ft2 k t =
     | _ -> raise Next
   ) ft1 ft2 k t
 
-let trm_set ft1 ft2 = trm_binop Binop_set ft1 ft2
+let trm_prim_overloaded_binop binop ft1 ft2 k t =
+  trm_apps2 (fun k t -> match trm_prim_inv t with
+    | Some (Prim_overloaded_op (Prim_binop op)) when op = binop -> k
+    | _ -> raise Next
+  ) ft1 ft2 k t
+
+let trm_set ft1 ft2 = (trm_binop Binop_set ft1 ft2) ^| (trm_prim_overloaded_binop Binop_set ft1 ft2)
 
 let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
 let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2

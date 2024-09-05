@@ -69,7 +69,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
               | Dir_for_start | Dir_for_stop | Dir_for_step
               | Dir_for_c_init | Dir_for_c_step | Dir_case _
               | Dir_contract _ | Dir_ghost_arg_nth _ ->
-                path_fail occ_p (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
+                path_fail (p_seq @ occ_p) (sprintf "inlining non-pure expression does not support going through %s yet" (Dir.dir_to_string dir))
               | _ -> ()
             ) occ_p
           ) (List.drop 1 occurences);

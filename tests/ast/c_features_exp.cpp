@@ -14,10 +14,15 @@ typedef struct {
 } particle;
 
 vect vect_add(vect v1, vect v2) {
-  return (vect){v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
+  return (vect){struct_get(v1, "x") + struct_get(v2, "x"),
+                struct_get(v1, "y") + struct_get(v2, "y"),
+                struct_get(v1, "z") + struct_get(v2, "z")};
 }
 
-vect vect_mul(double d, vect v) { return (vect){d * v.x, d * v.y, d * v.z}; }
+vect vect_mul(double d, vect v) {
+  return (vect){d * struct_get(v, "x"), d * struct_get(v, "y"),
+                d * struct_get(v, "z")};
+}
 
 const int CHUNK_SIZE = 128;
 
@@ -44,66 +49,67 @@ void chunk_free(chunk* c) { free(c); }
 
 void bag_init(bag* b, int id_bag, int id_cell) {
   chunk* c = chunk_alloc();
-  set(c->size, 0);
-  set(c->next, NULL);
-  set(b->front, c);
-  set(b->back, c);
+  set(struct_get((get(c)), "size"), 0);
+  set(struct_get((get(c)), "next"), NULL);
+  set(struct_get((get(b)), "front"), c);
+  set(struct_get((get(b)), "back"), c);
 }
 
 void bag_append(bag* b, bag* other, int id_bag, int id_cell) {
-  if (other->front) {
-    set(b->back->next, other->front);
-    set(b->back, other->back);
+  if (struct_get((get(other)), "front")) {
+    set(struct_get((get(struct_get((get(b)), "back"))), "next"),
+        struct_get((get(other)), "front"));
+    set(struct_get((get(b)), "back"), struct_get((get(other)), "back"));
     bag_init(other, id_bag, id_cell);
   }
 }
 
 void bag_nullify(bag* b) {
-  set(b->front, NULL);
-  set(b->back, NULL);
+  set(struct_get((get(b)), "front"), NULL);
+  set(struct_get((get(b)), "back"), NULL);
 }
 
 int bag_size(bag* b) {
-  chunk* c = b->front;
+  chunk* c = struct_get((get(b)), "front");
   int size = 0;
   while (c) {
-    += (size, c->size);
-    set(c, c->next);
+    += (size, struct_get((get(c)), "size"));
+    set(c, struct_get((get(c)), "next"));
   }
   return size;
 }
 
 void bag_add_front_chunk(bag* b) {
   chunk* c = chunk_alloc();
-  set(c->size, 0);
-  set(c->next, b->front);
-  set(b->front, c);
+  set(struct_get((get(c)), "size"), 0);
+  set(struct_get((get(c)), "next"), struct_get((get(b)), "front"));
+  set(struct_get((get(b)), "front"), c);
 }
 
 void bag_push_concurrent(bag* b, particle p) {
   chunk* c;
   int index;
   while (true) {
-    set(c, b->front);
-    set(index, c->size++);
+    set(c, struct_get((get(b)), "front"));
+    set(index, struct_get((get(c)), "size")++);
     if (index < CHUNK_SIZE) {
-      set(c->items[index], p);
+      set(struct_get((get(c)), "items")[index], p);
       if (index == CHUNK_SIZE - 1) {
         bag_add_front_chunk(b);
       }
       return;
     } else {
-      set(c->size, CHUNK_SIZE);
-      while (atomic_read(&b->front) == c) {
+      set(struct_get((get(c)), "size"), CHUNK_SIZE);
+      while (atomic_read(&struct_get((get(b)), "front")) == c) {
       }
     }
   }
 }
 
 void bag_push_serial(bag* b, particle p) {
-  chunk* c = b->front;
-  int index = c->size++;
-  set(c->items[index], p);
+  chunk* c = struct_get((get(b)), "front");
+  int index = struct_get((get(c)), "size")++;
+  set(struct_get((get(c)), "items")[index], p);
   if (index == CHUNK_SIZE - 1) {
     bag_add_front_chunk(b);
   }
@@ -124,18 +130,23 @@ typedef struct bag_iter {
 } bag_iter;
 
 void bag_iter_load_chunk(bag_iter* it, chunk* c) {
-  set(it->iter_chunk, c);
-  set(it->size, c->size);
-  set(it->index, 0);
+  set(struct_get((get(it)), "iter_chunk"), c);
+  set(struct_get((get(it)), "size"), struct_get((get(c)), "size"));
+  set(struct_get((get(it)), "index"), 0);
 }
 
-void bag_iter_init(bag_iter* it, bag* b) { bag_iter_load_chunk(it, b->front); }
+void bag_iter_init(bag_iter* it, bag* b) {
+  bag_iter_load_chunk(it, struct_get((get(b)), "front"));
+}
 
 particle* bag_iter_get(bag_iter* it) {
-  return &it->iter_chunk->items[it->index];
+  return &struct_get((get(struct_get((get(it)), "iter_chunk"))),
+                     "items")[struct_get((get(it)), "index")];
 }
 
-chunk* bag_iter_get_chunk(bag_iter* it) { return it->iter_chunk; }
+chunk* bag_iter_get_chunk(bag_iter* it) {
+  return struct_get((get(it)), "iter_chunk");
+}
 
 particle* bag_iter_begin(bag_iter* it, bag* b) {
   bag_iter_init(it, b);
@@ -143,7 +154,7 @@ particle* bag_iter_begin(bag_iter* it, bag* b) {
 }
 
 chunk* chunk_next(chunk* c, bool destructive) {
-  chunk* cnext = c->next;
+  chunk* cnext = struct_get((get(c)), "next");
   if (destructive) {
     chunk_free(c);
   }
@@ -151,9 +162,9 @@ chunk* chunk_next(chunk* c, bool destructive) {
 }
 
 particle* bag_iter_next(bag_iter* it, bool destructive) {
-  it->index++;
-  if (it->index == it->size) {
-    chunk* c = it->iter_chunk;
+  struct_get((get(it)), "index")++;
+  if (struct_get((get(it)), "index") == struct_get((get(it)), "size")) {
+    chunk* c = struct_get((get(it)), "iter_chunk");
     chunk* cnext = chunk_next(c, destructive);
     if (cnext == NULL) {
       return NULL;
@@ -172,10 +183,11 @@ void bag_ho_iter_basic(bag* b, void (*body)(particle*)) {
 }
 
 void bag_ho_iter_chunk(bag* b, void (*body)(particle*)) {
-  for (chunk* c = b->front; c != NULL; set(c, chunk_next(c, true))) {
-    int nb = c->size;
+  for (chunk* c = struct_get((get(b)), "front"); c != NULL;
+       set(c, chunk_next(c, true))) {
+    int nb = struct_get((get(c)), "size");
     for (int i = 0; i < nb; i++) {
-      particle* p = &c->items[i];
+      particle* p = &struct_get((get(c)), "items")[i];
       body(p);
     }
   }
@@ -337,9 +349,9 @@ int cellOfCoord(int i, int j, int k) {
 }
 
 int idCellOfPos(vect pos) {
-  int iX = int_of_double(pos.x / cellX);
-  int iY = int_of_double(pos.y / cellY);
-  int iZ = int_of_double(pos.z / cellZ);
+  int iX = int_of_double(struct_get(pos, "x") / cellX);
+  int iY = int_of_double(struct_get(pos, "y") / cellY);
+  int iZ = int_of_double(struct_get(pos, "z") / cellZ);
   return cellOfCoord(iX, iY, iZ);
 }
 
@@ -386,9 +398,9 @@ typedef struct {
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);
-  const int x = coord.iX;
-  const int y = coord.iY;
-  const int z = coord.iZ;
+  const int x = struct_get(coord, "iX");
+  const int y = struct_get(coord, "iY");
+  const int z = struct_get(coord, "iZ");
   const int x2 = wrap(gridX, x + 1);
   const int y2 = wrap(gridY, y + 1);
   const int z2 = wrap(gridZ, z + 1);
@@ -402,7 +414,7 @@ vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
   const int_nbCorners indices = indicesOfCorners(idCell);
   vect_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
-    set(res.v[k], field[indices.v[k]]);
+    set(struct_get(res, "v")[k], field[struct_get(indices, "v")[k]]);
   }
   return res;
 }
@@ -411,26 +423,26 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell,
                                double_nbCorners charges) {
   const int_nbCorners indices = indicesOfCorners(idCell);
   for (int k = 0; k < nbCorners; k++) {
-    += (nextCharge[indices.v[k]], charges.v[k]);
+    += (nextCharge[struct_get(indices, "v")[k]], struct_get(charges, "v")[k]);
   }
 }
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
-  const double rX = relativePosX(pos.x);
-  const double rY = relativePosY(pos.y);
-  const double rZ = relativePosZ(pos.z);
+  const double rX = relativePosX(struct_get(pos, "x"));
+  const double rY = relativePosY(struct_get(pos, "y"));
+  const double rZ = relativePosZ(struct_get(pos, "z"));
   const double cX = 1. + -1. * rX;
   const double cY = 1. + -1. * rY;
   const double cZ = 1. + -1. * rZ;
   double_nbCorners r;
-  set(r.v[0], cX * cY * cZ);
-  set(r.v[1], cX * cY * rZ);
-  set(r.v[2], cX * rY * cZ);
-  set(r.v[3], cX * rY * rZ);
-  set(r.v[4], rX * cY * cZ);
-  set(r.v[5], rX * cY * rZ);
-  set(r.v[6], rX * rY * cZ);
-  set(r.v[7], rX * rY * rZ);
+  set(struct_get(r, "v")[0], cX * cY * cZ);
+  set(struct_get(r, "v")[1], cX * cY * rZ);
+  set(struct_get(r, "v")[2], cX * rY * cZ);
+  set(struct_get(r, "v")[3], cX * rY * rZ);
+  set(struct_get(r, "v")[4], rX * cY * cZ);
+  set(struct_get(r, "v")[5], rX * cY * rZ);
+  set(struct_get(r, "v")[6], rX * rY * cZ);
+  set(struct_get(r, "v")[7], rX * rY * rZ);
   return r;
 }
 
@@ -438,7 +450,8 @@ vect matrix_vect_mul(const double_nbCorners coeffs,
                      const vect_nbCorners matrix) {
   vect res = {0., 0., 0.};
   for (int k = 0; k < nbCorners; k++) {
-    set(res, vect_add(res, vect_mul(coeffs.v[k], matrix.v[k])));
+    set(res, vect_add(res, vect_mul(struct_get(coeffs, "v")[k],
+                                    struct_get(matrix, "v")[k])));
   }
   return res;
 }
@@ -446,7 +459,7 @@ vect matrix_vect_mul(const double_nbCorners coeffs,
 double_nbCorners vect8_mul(const double a, const double_nbCorners data) {
   double_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
-    set(res.v[k], a * data.v[k]);
+    set(struct_get(res, "v")[k], a * struct_get(data, "v")[k]);
   }
   return res;
 }
@@ -472,11 +485,14 @@ int main() {
       bag_iter bag_it;
       for (particle* p = bag_iter_begin(&bag_it, b); p != NULL;
            set(p, bag_iter_next(&bag_it, true))) {
-        double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
+        double_nbCorners coeffs =
+            cornerInterpolationCoeff(struct_get((get(p)), "pos"));
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-        vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
-        vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
+        vect speed2 = vect_add(struct_get((get(p)), "speed"),
+                               vect_mul(stepDuration, accel));
+        vect pos2 = vect_add(struct_get((get(p)), "pos"),
+                             vect_mul(stepDuration, speed2));
         particle p2 = {pos2, speed2};
         int idCell2 = idCellOfPos(pos2);
         bag_push(&bagsNext[idCell2], p2);

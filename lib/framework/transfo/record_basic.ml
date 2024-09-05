@@ -246,6 +246,12 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         let folds = List.concat_map (process_one_item ~fold:true) consumed in
         trm_seq_nobrace_nomarks (folds @ [t])
       in
+      (* FIXME: duplicated code with set_explicit *)
+      let check_pure = if !Flags.check_validity then (fun name x ->
+        if Resources.trm_is_pure x then Trace.justif (sprintf "duplicated %s is pure" name)
+      ) else (fun name x ->
+        ()
+      ) in
       let rec aux (t : trm) : trm =
         Pattern.pattern_match t [
           Pattern.(trm_let !__ !__ !(trm_ref !__ __)) (fun v typ ref init () ->
@@ -272,6 +278,24 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             let set_one (sf, ty) =
               trm_set (trm_struct_access ~typ:(typ_ptr ty) base sf)
                 (trm_get (trm_struct_access ~typ:(typ_ptr ty) get_base sf))
+            in
+            trm_seq_nobrace_nomarks (List.map set_one field_list)
+          );
+          Pattern.(trm_set !__ (trm_record !__)) (fun base fs () ->
+            Pattern.when_ (trm_ptr_typ_matches base);
+            Printf.printf "%s\n" Ast_to_text.(ast_to_string ~style:style_types t);
+            let st = List.split_pairs_snd (Mlist.to_list fs) in
+            let set_one i (sf, ty) =
+              trm_set (trm_struct_access ~typ:(typ_ptr ty) base sf) (List.nth st i)
+            in
+            trm_seq_nobrace_nomarks (List.mapi set_one field_list)
+          );
+          Pattern.(trm_set !__ !__) (fun base value () ->
+            Printf.printf "%s\n" Ast_to_text.(ast_to_string ~style:style_types t);
+            Pattern.when_ (trm_ptr_typ_matches base);
+            check_pure "set value" value;
+            let set_one (sf, ty) =
+              trm_set (trm_struct_access ~typ:(typ_ptr ty) base sf) (trm_struct_get ~typ:ty value sf)
             in
             trm_seq_nobrace_nomarks (List.map set_one field_list)
           );
@@ -305,7 +329,6 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
        in aux t
     in
     let span_instrs = Mlist.map update_term span_instrs in
-    (* DEBUG Show.trms ~msg:"span_instrs" ~style:Style.{ decode = false; typing = typing_annot; print = Lang_C (style) } (Mlist.to_list span_instrs); *)
     trm_seq_helper ~annot:t_seq.annot [
       TrmMlist instrs_before;
       TrmList unfolds; TrmMlist span_instrs; TrmList folds;
@@ -313,11 +336,13 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
   end
 
 (** [split_fields]: expects the target [tg] to point at a sequence span to perform the mapping:
-  - `set(base, val)` --> `set(struct_access(base, f), val.f), ...`
+  - `set(base, get(get_base))` --> `set(struct_access(base, f), get(struct_access(get_base, f))), ...`
+  - `set(base, { .f = v; .. })` --> `set(struct_access(base, f) = v`
+  - `set(base, val)` --> `set(struct_access(base, f), struct_get(val, f)), ...`
   - `struct_get(get(base), f)` --> `get(struct_access(base, f))`
   For now, this mapping is applied across the entire span for operations on record type [typ].
 
-  Ghost instructions will be inserted to split the field resources around the span,
+  Ghost instructions will be inserted to split the field resources in the span,
   and resources will be mapped as well:
   - `base ~> Cell` --> `struct_access(base, f) ~> Cell, ...`
   *)

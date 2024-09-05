@@ -33,6 +33,8 @@ type dir =
   | Dir_else
   (* body: direction to the body of a function definition, loop, then or else branche, or switch case *)
   | Dir_body
+  (* direction to the body of a let binding, i.e. the bound value *)
+  | Dir_let_body
   (* var_body: direction to the body of a variable, similar to Dir_body but this one bypasses the encoded new operation  *)
   | Dir_var_body
   (* for start: direction to initialization trm of a simple for loop *)

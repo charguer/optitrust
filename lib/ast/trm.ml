@@ -1062,6 +1062,7 @@ match trm_ref_inv t with
 
   (** [trm_array_access~annot ?typ base index]: creates array_access(base, index) encoding *)
   let trm_array_access ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (index : trm) : trm =
+    let typ = Option.or_ typ base.typ in
     trm_apps ~annot ?typ (trm_binop Binop_array_access) [base; index]
 
   (** [trm_array_get ~annot ?typ base index]: creates array_get (base, index) encoding *)
@@ -1248,12 +1249,6 @@ let trm_delete ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (is_array
 let empty_ast : trm =
   trm_set_mainfile (trm_seq_nomarks [])
 
-
-
-(** [array_access base index]: generates array_access (base, index) *)
-let array_access (base : trm) (index : trm) : trm =
-  trm_apps (trm_binop Binop_array_access) [base; index]
-
 let array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_prim (Prim_binop Binop_array_access);_},
@@ -1273,7 +1268,7 @@ let array_get_inv (t : trm) : (trm * trm) option =
 
 (** [get_array_access base index]: generates get(array_access (base, index)) *)
 let get_array_access (base : trm) (index : trm) : trm =
-  trm_get (array_access base index)
+  trm_get (trm_array_access base index)
 
 (** [get_array_access_inv t] returns the Some(base, index) of an array_access if [t]
      is of the form get(array_access(base, index) otherwise None *)

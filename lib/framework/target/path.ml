@@ -92,7 +92,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           | None -> aux body
           end in
           { t with desc = Trm_let (tx, body)}
-       | Dir_body, Trm_let (tx, body) ->
+       | Dir_let_body, Trm_let (tx, body) ->
           trm_replace (Trm_let (tx, aux body)) t
        | Dir_body, Trm_let_fun (x, tx, txl, body, contract) ->
           { t with desc = Trm_let_fun (x, tx, txl, aux body, contract)}
@@ -315,8 +315,9 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       | Dir_var_body, Trm_let (_, body) ->
         let ref_op_arg = ref_operation_arg body in
         if is_ref_operation body then aux ref_op_arg (body :: ctx) else aux body ctx
-      | Dir_body, Trm_let (_, body)
-        | Dir_body, Trm_while (_, body)
+      | Dir_let_body, Trm_let (_, body) ->
+        aux body ctx
+      | Dir_body, Trm_while (_, body)
         | Dir_body, Trm_do_while (body, _)
         | Dir_body, Trm_abort (Ret (Some body)) ->
         aux body ctx

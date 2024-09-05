@@ -1397,7 +1397,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
   else
      begin match t.desc with
      | Trm_let ((_, _), body) ->
-       add_dir Dir_body (aux body)
+       add_dir Dir_let_body (aux body)
      | Trm_let_fun (_, _ , _, body, contract)
      | Trm_fun (_, _, body, contract) ->
         add_dir Dir_body (aux_body body) @
@@ -1561,8 +1561,9 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   | Dir_var_body, Trm_let (_, body) ->
      let ref_op_arg = ref_operation_arg body in
      add_dir Dir_var_body (aux ref_op_arg)
-  | Dir_body, Trm_let (_, body)
-    | Dir_body, Trm_let_fun (_, _, _, body, _)
+  | Dir_let_body, Trm_let (_, body) ->
+    add_dir Dir_let_body (aux body)
+  | Dir_body, Trm_let_fun (_, _, _, body, _)
     | Dir_body, Trm_for_c (_, _, _, body, _)
     | Dir_body, Trm_for (_, body, _)
     | Dir_body, Trm_while (_, body)
