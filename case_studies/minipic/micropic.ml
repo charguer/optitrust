@@ -29,10 +29,6 @@ let _ = Run.script_cpp (fun () ->
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
 (* TODO:
-  !! Record.split_fields [nbMulti; ctx; cWrite ~typ:[multi cEq [vect; particle]] []];
-  // ;
-  !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
-
   let fieldFactor = trm_mul (trm_mul (var "deltaT") (var "deltaT")) (trm_div (var "pCharge") (var "pMass")) in
   !! Variable.insert "fieldFactor" fieldFactor [tBefore; cVarDef "lFieldAtCorners"];
   !! Accesses.scale ~factor:(var "fieldFactor") [nbMulti; cVarRe "fieldAtPos[XYZ]"];

@@ -107,40 +107,73 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       then make_admitted pure unfolded_linear folded_linear
       else make_admitted pure folded_linear unfolded_linear
     in
+    let open Tools in
+    (* fracs_map : maps bound fractions to splitted bound fractions. *)
+    let fracs_map_register_frac (fracs_map : fracs_map) (h, pure_f) =
+      Pattern.pattern_match pure_f [
+        Pattern.(trm_var (var_eq var_frac)) (fun () ->
+          assert (Var_map.find_opt h !fracs_map = None);
+          fracs_map := Var_map.add h None !fracs_map
+        );
+        Pattern.__ (fun () -> ())
+      ]
+    in
+    let fracs_map_init pure_res : fracs_map =
+      let fracs_map = ref Var_map.empty in
+      List.iter (fracs_map_register_frac fracs_map) pure_res;
+      fracs_map
+    in
+    let fracs_map_update_fracs (fracs_map : fracs_map) pure_res =
+      List.concat_map (fun (h, pure_f) ->
+        match Var_map.find_opt h !fracs_map with
+        | None | Some None -> [(h, pure_f)]
+        | Some (Some hs) -> List.map snd (String_map.bindings hs)
+      ) pure_res
+    in
+    let fracs_map_split_frac_var (fracs_map : fracs_map) sf field_list frac_var =
+      match Var_map.find_opt frac_var !fracs_map with
+      | None -> frac_var
+      | Some (Some hs) ->
+        Printf.printf "reuse\n";
+        fst (String_map.find sf hs)
+      | Some None ->
+        Printf.printf "split\n";
+        let hs = List.fold_left (fun acc (sf, _) ->
+          String_map.add sf (snd (new_frac ())) acc
+        ) String_map.empty field_list in
+        fracs_map := Var_map.add frac_var (Some hs) !fracs_map;
+        fst (String_map.find sf hs)
+    in
+    let fracs_map_split_frac (fracs_map : fracs_map) sf field_list frac =
+      let rec aux frac =
+        Pattern.pattern_match frac [
+          Pattern.(trm_var !__) (fun frac_var () ->
+            trm_var ?typ:frac.typ (fracs_map_split_frac_var fracs_map sf field_list frac_var)
+          );
+          Pattern.__ (fun () -> trm_map aux frac)
+        ]
+      in aux frac
+    in
     let process_one_cell ~(fold : bool) wrap_cell (mode, loc) =
       let model loc = wrap_cell (formula_model loc trm_cell) in
       match mode with
       | RO ->
-        (* TODO: think more about fractions, use same fracs_map as for ROs in contracts?
-        let per_field_admits = List.map (fun (sf, ty) ->
-          let frac_var, frac_ghost = new_frac () in
-          let folded_res =
-            formula_read_only ~frac:(trm_var frac_var) (formula_model loc trm_cell)
-          in
-          let unfolded_res =
-            formula_read_only ~frac:(trm_var frac_var)
-              (formula_model (trm_struct_access ~typ:(typ_ptr ty) loc sf) trm_cell)
-          in
-          let wand = formula_wand unfolded_res folded_res in
-          let folded_linear = [(new_anon_hyp (), folded_res)] in
-          let unfolded_linear = [
-            (new_anon_hyp (), wand);
-            (new_anon_hyp (), unfolded_res)] in
-          if fold
-          then make_admitted [frac_ghost] unfolded_linear folded_linear
-          else make_admitted [frac_ghost] folded_linear unfolded_linear
-        ) field_list in
-        per_field_admits
-          *)
-        let frac_var, frac_ghost = new_frac () in
-        let folded_linear = [
-          (new_anon_hyp (), formula_read_only ~frac:(trm_var frac_var) (model loc))
-        ] in
-        let unfolded_linear = List.map (fun (sf, ty) ->
-          (new_anon_hyp (), formula_read_only ~frac:(trm_var frac_var)
-            (model (trm_struct_access ~field_typ:ty loc sf)))
-        ) field_list in
-        fold_or_unfold ~fold [frac_ghost] folded_linear unfolded_linear
+        let fracs = List.map (fun _ -> new_frac ()) field_list in
+        let folded_res = List.map (fun (frac_var, _) ->
+          formula_read_only ~frac:(trm_var frac_var) (model loc)
+        ) fracs in
+        let unfolded_res = List.map2 (fun (sf, ty) (frac_var, _) ->
+          formula_read_only ~frac:(trm_var frac_var)
+            (model (trm_struct_access ~field_typ:ty loc sf))
+        ) field_list fracs in
+        let wands = List.map2 formula_wand unfolded_res folded_res in
+        let res_to_linear = List.map (fun r -> (new_anon_hyp (), r)) in
+        let folded_linear = res_to_linear folded_res in
+        let unfolded_linear =
+          (res_to_linear wands) @ (res_to_linear unfolded_res)
+        in
+        let pure = List.map snd fracs in
+        fold_or_unfold ~fold pure folded_linear unfolded_linear
       | Uninit ->
         let folded_linear = [(
           new_anon_hyp (), formula_uninit (model loc)
@@ -177,46 +210,6 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       ([], [])
     end in
     let update_term t =
-      let open Tools in
-      (* fracs_map : maps bound fractions to splitted bound fractions. *)
-      let fracs_map_init pure_res : fracs_map =
-        ref (List.fold_left (fun acc (h, pure_f) ->
-          Pattern.pattern_match pure_f [
-            Pattern.(trm_var (var_eq var_frac)) (fun () ->
-              Var_map.add h None acc
-            );
-            Pattern.__ (fun () -> acc)
-          ]
-        ) Var_map.empty pure_res)
-      in
-      let fracs_map_update_fracs (fracs_map : fracs_map) pure_res =
-        List.concat_map (fun (h, pure_f) ->
-          match Var_map.find_opt h !fracs_map with
-          | None | Some None -> [(h, pure_f)]
-          | Some (Some hs) -> List.map snd (String_map.bindings hs)
-        ) pure_res
-      in
-      let fracs_map_split_frac_var (fracs_map : fracs_map) sf field_list frac_var =
-        match Var_map.find_opt frac_var !fracs_map with
-        | None -> frac_var
-        | Some (Some hs) -> fst (String_map.find sf hs)
-        | Some None ->
-          let hs = List.fold_left (fun acc (sf, _) ->
-            String_map.add sf (snd (new_frac ())) acc
-          ) String_map.empty field_list in
-          fracs_map := Var_map.add frac_var (Some hs) !fracs_map;
-          fst (String_map.find sf hs)
-      in
-      let fracs_map_split_frac (fracs_map : fracs_map) sf field_list frac =
-        let rec aux frac =
-          Pattern.pattern_match frac [
-            Pattern.(trm_var !__) (fun frac_var () ->
-              trm_var ?typ:frac.typ (fracs_map_split_frac_var fracs_map sf field_list frac_var)
-            );
-            Pattern.__ (fun () -> trm_map aux frac)
-          ]
-        in aux frac
-      in
       let aux_resource_items (fracs_map : fracs_map) items =
         List.concat (List.concat_map (fun (h, formula) ->
           process_matching_resource_item (fun wrap _mode loc ->
