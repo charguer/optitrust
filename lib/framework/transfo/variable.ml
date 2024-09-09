@@ -72,7 +72,7 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
   - deal with _Uninit cases in pre/post where reading/writing value around term is not needed.
   *)
 let%transfo local_name ~(var : string) ~(local_var : string) (tg : target) : unit =
-  let var = find_var_in_current_ast ~target:tg var in
+  let var = find_var var tg in
   (* FIXME: find type in context. *)
   Variable_basic.local_name ~var typ_auto ~local_var tg
 

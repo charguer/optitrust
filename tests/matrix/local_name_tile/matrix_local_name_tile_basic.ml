@@ -7,7 +7,7 @@ let _ = Flags.check_validity := true
 let _ = Run.script_cpp (fun _ ->
   !! Resources.ensure_computed ();
   (* let range a b = (trm_int a, trm_int b) in *)
-  let rv f_name name = ref (find_var_in_current_ast ~target:[cFunBody f_name] name) in
+  let rv f_name name = ref (find_var name [cFunBody f_name]) in
 
   (* uninit_pre *)
   !! Trace.failure_expected (fun _e -> true) (fun () ->

@@ -47,7 +47,7 @@ let skip_includes (t : trm) : trm =
   | None -> t
 
 (* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
-let find_var_in_current_ast_filter ?(target : target = []) (filter : var -> bool) : var =
+let find_var_filter ?(target : target = []) (filter : var -> bool) : var =
   let vars =
     if target = [] then trm_def_or_used_vars (skip_includes (Trace.ast ()))
     else List.fold_left (fun acc p ->
@@ -60,8 +60,17 @@ let find_var_in_current_ast_filter ?(target : target = []) (filter : var -> bool
   | 1 -> Var_set.choose candidates
   | n -> failwith "%d variables found in current AST: %s" n (vars_to_string (Var_set.elements candidates))
 
-let find_var_in_current_ast ?(target : target = []) (name : string) : var =
-  find_var_in_current_ast_filter ~target (fun v -> v.namespaces = [] && v.name = name)
+let find_var (name : string) (target : target) : var =
+  find_var_filter ~target (fun v -> v.namespaces = [] && v.name = name)
+
+let trm_find_var (name : string) (target : target) : trm =
+  trm_var (find_var name target)
+
+let find_typ_var (name : string) (target : target) : var =
+  find_var_filter ~target (fun v -> v.namespaces = typ_namespace && v.name = name)
+
+let typ_find_var (name  : string) (target : target) : typ =
+  typ_var (find_typ_var name target)
 
 (* TODO: DEPRECATE *)
 let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
@@ -71,10 +80,10 @@ let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
 (** [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct
   let var v = trm_var (name_to_var v)
-  (* DEPRECATED: (find_var_in_current_ast v) *)
+  (* DEPRECATED: (find_var v) *)
 
   let var_mut v = trm_var_get (name_to_var v)
-  (* DEPRECATED: (find_var_in_current_ast v) *)
+  (* DEPRECATED: (find_var v) *)
 
   let lit l = code (Lit l)
 

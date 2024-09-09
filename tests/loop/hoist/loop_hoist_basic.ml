@@ -6,9 +6,9 @@ let _ = Flags.check_validity := true
 
 let _ = Run.script_cpp (fun () ->
   !! Resources.show ();
-  let x = find_var_in_current_ast "x" in
-  let z = find_var_in_current_ast "z" in
-  let y = find_var_in_current_ast "y" in
+  let x = find_var "x" [] in
+  let z = find_var "z" [] in
+  let y = find_var "y" [] in
   !! Matrix_basic.intro_malloc0 x [cFunBody "f"; cFor "i"; dBody];
   !! Matrix_basic.intro_malloc0 z [cFunBody "f"; cFor "i"; dBody];
   !! Matrix_basic.intro_malloc0 y [cFunBody "f"; cFor "n"; dBody];
@@ -26,7 +26,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop_basic.hoist ~name:"yl" [cFunBody "f"; cVarDef "ym"];
   *)
 
-  let y = find_var_in_current_ast "sum" in
+  let y = find_var "sum" [] in
   !! Matrix_basic.intro_malloc0 y [cFunBody "f2"; cFor "j"; dBody];
   !! Loop_basic.hoist [cFunBody "f2"; cVarDef "sum"];
 

@@ -7,7 +7,7 @@ include Specialize_basic
 let%transfo variable ~(var : string) ~(value : trm)
   ?(mark_then : mark = no_mark) ?(mark_else : mark = no_mark)
   (tg : target) : unit =
-  let var = find_var_in_current_ast ~target:tg var in
+  let var = find_var var tg in
   Marks.with_marks (fun next_mark ->
     let mark_then = Mark.reuse_or_next next_mark mark_then in
     let mark_else = Mark.reuse_or_next next_mark mark_else in
@@ -65,7 +65,7 @@ let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) :
       (* FIXME: #var-id,
           1. recover var from previous transfo?
           2. create var before previous transfo? *)
-      let spec_var = find_var_in_current_ast spec_name in
+      let spec_var = find_var spec_name in
       Specialize_basic.funcalls spec_var args_to_keep (target_of_path p);
 
     | _ -> trm_fail tg_trm "Specialize.function_arg: expected a target to a function call."

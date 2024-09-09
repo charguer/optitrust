@@ -298,7 +298,7 @@ let%transfo local_name_tile
     then (true, true, fresh_var_name ())
     else (delete, false, local_var)
   in
-  let var = find_var_in_current_ast ~target:tg var in
+  let var = find_var var tg in
   let (uninit_pre, uninit_post) = if delete then (true, true) else (uninit_pre, uninit_post) in
   Marks.with_fresh_mark (fun mark_simpl -> Target.iter (fun p ->
     let v = ref var in
@@ -345,5 +345,5 @@ let%transfo storage_folding ~(dim : int) ~(size : trm)
   ) tg
 
 let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
-  let var = find_var_in_current_ast ~target:tg var in
+  let var = find_var var tg in
   Matrix_basic.stack_copy ~var ~copy_var ~copy_dims tg

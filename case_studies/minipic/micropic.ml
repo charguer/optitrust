@@ -8,9 +8,7 @@ let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun () ->
   let ctx = cFunBody "simulate_single_cell" in
-  let _var n = trm_var (find_var_in_current_ast ~target:[ctx] n) in
-  let typv n = find_var_in_current_ast_filter ~target:[ctx] (fun v -> v.name = n) in
-  let typ n = typ_var (typv n) in
+  let typ n = typ_find_var n [ctx] in
 
   bigstep "make local copies of field and particles";
   !! Matrix.local_name_tile ~var:"fieldAtCorners"
@@ -24,8 +22,9 @@ let _ = Run.script_cpp (fun () ->
   !! Function.inline ~recurse:true [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
   !! Function.inline [ctx; cFun "cornerInterpolationCoeff"]; (* TODO: don't inline?
     requires split_fields to handle locally recovering joined view when necessary. *)
-  !! Record.split_fields ~typ:(typv "particle") [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
-  !! Record.split_fields ~typ:(typv "vect") [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
+  (* TODO: typ *)
+  !! Record.split_fields ~typ:(typ "particle") [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
+  !! Record.split_fields ~typ:(typ "vect") [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
 (* TODO:
@@ -44,9 +43,9 @@ let _ = Run.script_cpp (fun () ->
 
   (* CHECK *)
   bigstep "scale field and particles";
-  let pCharge = trm_var (find_var_in_current_ast ~target:[ctx] "pCharge") in
-  let pMass = trm_var (find_var_in_current_ast ~target:[ctx] "pMass") in
-  let deltaT = trm_var (find_var_in_current_ast ~target:[ctx] "deltaT") in
+  let pCharge = trm_find_var "pCharge" [ctx] in
+  let pMass = trm_find_var "pMass" [ctx] in
+  let deltaT = trm_find_var "deltaT" [ctx] in
   let scaleFieldFactor = trm_mul (trm_div pCharge pMass) (trm_mul deltaT deltaT) in
   let scaleField d = Accesses.scale ~factor:scaleFieldFactor [nbMulti; ctx; cVar ("fieldAtPos" ^ d)] in
   !! List.iter scaleField ["X"; "Y"; "Z"];

@@ -10,8 +10,8 @@ let _ = Run.script_cpp (fun _ ->
       COMBI target alloc instead of ~var
        + may introduce variable for basic
      *)
-  let a = find_var_in_current_ast "a" in
-  let b = find_var_in_current_ast "b" in
+  let a = find_var "a" [] in
+  let b = find_var "b" [] in
   !! Matrix_basic.storage_folding ~var:a ~dim:0 ~size:(trm_int 3) [cFunBody "main"];
   !! Matrix_basic.storage_folding ~var:b ~dim:0 ~size:(trm_int 3) [cFunBody "main"];
   (* TODO?
