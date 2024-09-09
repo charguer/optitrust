@@ -8,23 +8,21 @@ let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun () ->
   let ctx = cFunBody "simulate_single_cell" in
-  let typ n = typ_find_var n [ctx] in
+  let vect = typ_find_var "vect" [ctx] in
+  let particle = typ_find_var "particle" [ctx] in
 
   bigstep "make local copies of field and particles";
   !! Matrix.local_name_tile ~var:"fieldAtCorners"
-    ~elem_ty:(typ "vect") ~uninit_post:true
+    ~elem_ty:vect ~uninit_post:true
     ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
   !! Matrix.local_name_tile ~var:"particles"
-    ~elem_ty:(typ "particle")
+    ~elem_ty:particle
     ~local_var:"lParticles" [ctx; cFor "idStep"];
 
   bigstep "inline helper functions and reveal record fields";
-  !! Function.inline ~recurse:true [ctx; multi cFun ["matrix_vect_mul"; "vect_add"; "vect_mul"]];
-  !! Function.inline [ctx; cFun "cornerInterpolationCoeff"]; (* TODO: don't inline?
-    requires split_fields to handle locally recovering joined view when necessary. *)
-  (* TODO: typ *)
-  !! Record.split_fields ~typ:(typ "particle") [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
-  !! Record.split_fields ~typ:(typ "vect") [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
+  !! Function.inline_multi [ctx; multi cFun ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
+  !! Record.split_fields ~typ:particle [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
+  !! Record.split_fields ~typ:vect [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
 (* TODO:
