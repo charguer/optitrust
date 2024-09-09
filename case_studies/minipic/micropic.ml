@@ -20,9 +20,9 @@ let _ = Run.script_cpp (fun () ->
     ~local_var:"lParticles" [ctx; cFor "idStep"];
 
   bigstep "inline helper functions and reveal record fields";
-  !! Function.inline_multi [ctx; multi cFun ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
-  !! Record.split_fields ~typ:particle [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
-  !! Record.split_fields ~typ:vect [ctx; tSpan [tBefore; cVarDef "lFieldAtCorners"] [tLast]];
+  !! Function.inline_multi [ctx; cFuns ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
+  !! Record.split_fields ~typ:particle [tSpanSeq [ctx]];
+  !! Record.split_fields ~typ:vect [tSpanSeq [ctx]];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
 (* TODO:

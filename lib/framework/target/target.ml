@@ -90,6 +90,8 @@ let tBetweenAll : constr =
 let tSpan (tbegin: target) (tend: target): constr =
   Constr_span (tbegin, tend)
 
+let tSpanSeq (tseq : target) : constr = cTarget (tseq @ [Constr_depth (DepthAt 0); tSpan [tFirst] [tLast]])
+
 (******************************************************************************)
 (*                            Number of targets                               *)
 (******************************************************************************)
