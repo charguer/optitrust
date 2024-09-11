@@ -51,12 +51,18 @@ let heapify_mark : mark = "__apac_heapify"
     [continue] statements. See [Apac_basic.heapify]. *)
 let heapify_breakable_mark : mark = "__apac_heapify_breakable"
 
-(** [profiler_header]: include directive required by the profiler backend. *)
-let profiler_header : string = "#include \"apac_profiler.hpp\""
-
 (** [instrument_code]: tells whether the resulting source code should be
     instrumented to enable task granularity control. *)
 let instrument_code : bool ref = ref false
+
+(** [profiler_section]: variable name prefix for profiling sections. *)
+let profiler_section : string = "__apac_section"
+
+(** [profiler_header]: profiling header file name. *)
+let profiler_header : string = "apac_profiling.hpp"
+
+(** [profiler_include]: directive to include the profiling header. *)
+let profiler_include : string = "#include \"" ^ profiler_header ^ "\""
 
 (** [apac_count_infinite]: expected name of the optional environment variable
     allowing the end-user to disable the task creation cut-off based on the

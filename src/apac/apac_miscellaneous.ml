@@ -40,6 +40,21 @@ let gf ?(suffix : string = "") ?(extension : string = "pdf")
                (if suffix <> "" then "-" ^ suffix else "") ^ "." ^ extension in
   dir ^ "/" ^ name
 
+(** [hcbpm]: returns the full paths (see [!cwd]) to the profiling [h]eader, the
+    source [c]ode with profiling instructions, the corresponding [b]inary
+    executable, the resulting [p]rofile and performance [m]odel files. *)
+let hcbpm () : string * string * string * string * string =
+  let here = cwd () ^ "/" in
+  let this = Filename.remove_extension
+               (Filename.basename !Flags.program_name) in
+  let _ = Printf.printf "this is %s\n" this in
+  let header = here ^ Apac_macros.profiler_header in
+  let code = here ^ this ^ "_profiling" in
+  let binary = here ^ this ^ "_profiling.bin" in
+  let profile = here ^ this ^ ".profile" in
+  let model = profile ^ ".model" in
+  (header, code, binary, profile, model)
+
 (** [excerpt ?max ast]: returns an excerpt of a string representation of an
     [ast] term at most [max] characters long. *)
 let excerpt ?(max : int = 20) (ast : trm) =
@@ -297,3 +312,98 @@ let trm_resolve_binop_lval_and_get_with_deref ?(plus : bool = false)
     | _ -> None
   in
   aux 0 "" t
+
+(** [profiler_hpp profile output]: generates the contents of the profiler header
+    while considering [profile] as the name of the profiling output file and
+    saves it to an [output] file. *)
+let profiler_hpp (profile : string) (output : string) : unit =
+  let output = open_out output in
+  output_string output
+    ("\
+#ifndef __APAC_PROFILER_HPP
+#define __APAC_PROFILER_HPP
+
+#include <iostream>
+#include <cstdlib>
+#include <fstream>
+#include <string>
+#include <chrono>
+#include <filesystem>
+
+class apac_t {
+private:
+  std::chrono::high_resolution_clock::time_point begin;
+  std::chrono::high_resolution_clock::time_point end;
+
+public:
+  apac_t() { start(); }
+  void start() { begin = std::chrono::high_resolution_clock::now(); }
+  void stop() { end = std::chrono::high_resolution_clock::now(); }
+  double elapsed() const {
+    return
+      std::chrono::duration_cast<std::chrono::nanoseconds>
+      (end - begin).count() / 1e9;
+  }
+};
+
+class apac_s {
+private:
+  int params;
+  std::string prefix;
+  std::string current;
+  apac_t timer;
+  const std::string profile;
+
+void ensure_profile() const {
+  static bool first = true;
+  if (first) {
+    if (std::filesystem::exists(this->profile)) {
+      std::remove(this->profile.c_str());
+    }
+
+    std::ofstream profile(this->profile, std::ios_base::app);
+    profile.close();
+    first = false;
+  }
+}
+
+public:
+  apac_s() : params(0), profile(\"" ^ profile ^ "\") { }
+
+  void initialize(const std::string id) {
+    prefix.append(\"{ \");
+    prefix.append(id);
+    prefix.append(\", \");
+  }
+
+  template <class T> void add(const T & parameter) {
+    current.append(\"R=\");
+    current.append(std::to_string(parameter));
+    current.append(\", \");
+    params++;
+  }
+
+  void before() {
+    prefix.append(std::to_string(params));
+    prefix.append(\", \");
+    timer.start();
+  }
+
+  void after() {
+    timer.stop();
+    ensure_profile();
+
+    std::ofstream profile(this->profile, std::ios_base::app);
+    if(!profile.is_open())
+      throw std::runtime_error(\"Error opening profile!\");
+
+    current.append(std::to_string(timer.elapsed()));
+    current.append(\" }\\n\");
+    profile << prefix << current;
+    current.clear();
+  }
+};
+
+#endif // __APAC_PROFILER_HPP\
+    ");
+  close_out output

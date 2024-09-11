@@ -1,5 +1,7 @@
 open Ast
 open Trm
+open Path
+open Target
 open Mark
 open Apac_macros
 open Apac_dep
@@ -214,7 +216,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
                       let cg = List.hd cg in
                       let body = TaskGraphTraverse.codify
                                    (trm_from_task_candidate
-                                      ~heapification backend)
+                                      ~heapification codegen)
                                    cg in
                       let body = trm_seq (Mlist.of_list body) in
                       let body = if heapification then
@@ -228,7 +230,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
                       let cg = List.hd cg in
                       let body = TaskGraphTraverse.codify
                                    (trm_from_task_candidate
-                                      ~heapification backend)
+                                      ~heapification codegen)
                                    cg in
                       let body = trm_seq (Mlist.of_list body) in
                       let body = if heapification then
@@ -242,7 +244,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
                       let yes = List.nth cg 0 in
                       let yes = TaskGraphTraverse.codify
                                   (trm_from_task_candidate
-                                     ~heapification backend)
+                                     ~heapification codegen)
                                   yes in
                       let yes = trm_seq (Mlist.of_list yes) in
                       let yes = if heapification then
@@ -255,7 +257,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
                                  let no = List.nth cg 1 in
                                  let no = TaskGraphTraverse.codify
                                             (trm_from_task_candidate
-                                               ~heapification backend)
+                                               ~heapification codegen)
                                             no in
                                  let no = trm_seq (Mlist.of_list no) in 
                                  if heapification then
@@ -269,7 +271,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
                       let cg = List.hd cg in
                       let body = TaskGraphTraverse.codify
                                    (trm_from_task_candidate
-                                      ~heapification backend)
+                                      ~heapification codegen)
                                    cg in
                       let body = trm_seq (Mlist.of_list body) in
                       let body = if heapification then
@@ -282,7 +284,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
                       let cg = List.hd cg in
                       let body = TaskGraphTraverse.codify
                                    (trm_from_task_candidate
-                                      ~heapification backend)
+                                      ~heapification codegen)
                                    cg in
                       let body = trm_seq (Mlist.of_list body) in
                       let body = if heapification then
@@ -296,7 +298,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
                       let _ = List.iter2 (fun (labels, _) block ->
                                   let block' = TaskGraphTraverse.codify
                                                  (trm_from_task_candidate
-                                                    ~heapification backend)
+                                                    ~heapification codegen)
                                                  block in
                                   let block' = trm_seq (Mlist.of_list block') in
                                   let block' = if heapification then
@@ -320,7 +322,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
     sections. *)
 let profile_tasks (tg : target) : unit =
   (** Include the header providing profiling elements. *)
-  Trace.ensure_header Apac_macros.profiler_header;
+  Trace.ensure_header Apac_macros.profiler_include;
   Target.apply (fun t p ->
       Path.apply_on_path (fun t ->
           (** Find the parent function [f]. *)
@@ -330,7 +332,8 @@ let profile_tasks (tg : target) : unit =
                                   parent function. Taskification candidate \
                                   body outside of a task candidate?" in
           (** Find its function record [r] in [!Apac_records.functions]. *)
-          let r = Var_Hashtbl.find functions f in
+          let _ = Printf.printf "Profiling `%s'\n" (var_to_string f) in
+          let r = Var_Hashtbl.find Apac_records.functions f in
           (** Initialize a stack [sections] for storing the definitions of
               future profiling sections. *)
           let sections = Stack.create () in
@@ -338,7 +341,8 @@ let profile_tasks (tg : target) : unit =
               to a abstract syntax tree using the profiler back-end. *)
           let ast = TaskGraphTraverse.codify
                       (trm_from_task_candidate
-                         ~heapification:false codegen_profiler)
+                         ~heapification:false
+                         (Apac_profiler.codegen_profiler sections))
                       r.graph in
           let sections = List.of_seq (Stack.to_seq sections) in
           let ast = Mlist.of_list (sections @ ast) in
@@ -362,7 +366,7 @@ let insert_tasks_on (p : path) (t : trm) : trm =
     | None -> fail t.loc "Apac_taskify.insert_tasks_on: unable to find parent \
                           function. Task group outside of a function?" in
   (** Find its function record [r] in [!Apac_records.functions]. *)
-  let r = Var_Hashtbl.find functions f in
+  let r = Var_Hashtbl.find Apac_records.functions f in
   (** Translate the task candidate graph representation [r.graph] of [f] to a
       parallel abstract syntax tree. *)
   let ast = TaskGraphTraverse.codify (
