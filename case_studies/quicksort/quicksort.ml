@@ -1,45 +1,43 @@
 open Optitrust
 open Target
-open Typ (* TODO: avoid this *)
+open Typ
 open Ast
 
 let _ = Run.script_cpp (fun () ->
             let _ = Flags.code_print_width := 1024 in
             let _ = Apac_macros.instrument_code := false in
             let _ = Apac_macros.keep_graphs := true in
-            let _ = Apac_macros.apac_main := "main" in
-            (* Target all of the function definitions except for the 'main'
-               function. *)
-            (* !! Apac_constify.constify [
-                nbAny;
-                cFunDefAndDecl ""
-              ];*)
             !! Apac_prologue.build_records [
                 nbAny;
                 cFunDefAndDecl ""
               ];
-            let candidates = ref Var_set.empty in
-            Apac_taskify.select_candidates candidates [
+            !! Apac_prologue.select_candidates [
                 nbAny;
                 cFunDefAndDecl ""
               ];
-            Apac_taskify.select_callers candidates [
+            !! Apac_prologue.unify_returns [
                 nbAny;
-                cFunDefAndDecl ""
+                cMark Apac_macros.candidate_mark
               ];
-            (* Target the definition of the 'sort_core' function. *)
-            !! Apac_taskify.parallel_task_group
-              ~mark_group:true ~candidates:(Some candidates) [
+            !! Apac_taskify.taskify [
                 nbAny;
-                cFunDefAndDecl ""
+                cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_taskify.taskify [nbAny; cMark Apac_macros.task_group_mark];
-            !! Apac_taskify.merge [nbAny; cMark Apac_macros.task_group_mark];
+            !! Apac_taskify.merge [
+                nbAny;
+                cMark Apac_macros.candidate_body_mark
+              ];
             !! Apac_taskify.detect_tasks_simple [
                 nbAny;
-                cMark Apac_macros.task_group_mark
+                cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_epilogue.synchronize_subscripts [
+            !! Apac_backend.profile_tasks [
+                nbAny;
+                cMark Apac_macros.candidate_body_mark
+              ];
+            !! Apac_epilogue.clear_marks ();
+            !! Apac_profiler.modelize [];
+            (* !! Apac_epilogue.synchronize_subscripts [
                 nbAny;
                 cMark Apac_macros.task_group_mark
               ];
@@ -68,8 +66,5 @@ let _ = Run.script_cpp (fun () ->
             !! Marks.remove Apac_macros.heapify_breakable_mark [
                 nbAny;
                 cMark Apac_macros.heapify_breakable_mark
-              ];
-          (* !! Apac_core.taskify [nbAny; cMark Apac_core.task_group_mark];
-             !! Apac_core.profile_tasks [nbAny; cMark Apac_core.task_group_mark];
-             !! Apac_core.include_apac_profiler []; *)
+              ]; *)
           )
