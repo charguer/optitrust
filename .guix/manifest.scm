@@ -9,7 +9,7 @@
          "gcc-toolchain@11.3"
          "libomp@13"
          "nano"
-	 "graphviz"
+         "graphviz"
          "ocaml-merlin"
          "emacs"
          "emacs-org"
