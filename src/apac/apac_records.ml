@@ -174,7 +174,7 @@ end = struct
       if i >= (List.length record.args) then
         failwith "Apac_records.FunctionRecord.is_rw: out of range."
       else
-        (List.nth record.args i) = (ReadWrite, _)
+        let (ac, _) = List.nth record.args i in ac = ReadWrite
 
     (** [FunctionRecord.to_string record]: returns a string representation of
         the function [record]. *)
