@@ -8,6 +8,8 @@
          "valgrind"
          "gcc-toolchain@11.3"
          "libomp@13"
+         "python"
+         "python-apac-modelizer"
          "nano"
          "graphviz"
          "ocaml-merlin"
