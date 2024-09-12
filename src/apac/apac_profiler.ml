@@ -8,9 +8,13 @@ open Apac_tasks
 (** [parameters]: a hash table of mappings between performance model parameters
     of type [!type:int] and their expressions in the source code of type
     [!type:trm] (see [!module:Int_map]). The table associates each mapping to a
-    task candidate. To achieve this, the table uses task candidate hashes of
-    type [!type:int] (see [!TaskGraph.V.hash]) as keys. *)
-let parameters = Hashtbl.create 10
+    task candidate vertex through its hash (see type [!type:TaskGraph.V.t]). *)
+let parameters = Hashtbl.create 97
+
+(** [formulas]: a hash table of formulas for estimating execution times of task
+    candidates. The table associates each formula to a task candidate vertex
+    through its hash (see type [!type:TaskGraph.V.t]). *)
+let formulas = Hashtbl.create 97
 
 let codegen_profiler (sections : trm Stack.t) (v : TaskGraph.V.t) : trms =
   let call (c : var) (m : label) (args : trms) : trm =
@@ -54,6 +58,112 @@ let codegen_profiler (sections : trm Stack.t) (v : TaskGraph.V.t) : trms =
     opening :: (params @ [before] @ t.current @ [after])
 
 let modelize (tg : target) : unit =
+  let exception IllFormedModel of string in
+  let exception UnknownParameter of int in
+  let exception UnknownTaskCandidate of int in
+  let exception IllFormedPower of string in
+  let one (line : string) : int * string =
+    let regex =
+      Str.regexp "\\([0-9]+\\)(nbparams=[0-9]+)=\\(None\\|[^=\n]+\\)" in
+    if Str.string_match regex line 1 then
+      let vertex = Str.matched_group 1 line in
+      let formula = Str.matched_group 2 line in
+      (int_of_string vertex, formula)
+    else
+      raise (IllFormedModel line)
+  in
+  let process (model : string) : unit =
+    let to_double (c : string) : trm =
+      try
+        let v = Val_lit (Lit_double (Float.of_string c)) in trm_val v
+      with
+      | Failure _ ->
+         failwith ("[modelize]: `" ^ c ^ "' is not a valid floating-point \
+                                          constant.")
+    in
+    let pow (p : trm Int_map.t) (op : string) : trm =
+      let re = Str.regexp "apac_fpow<\\([0-9]+\\)>(X\\([0-9]+\\))" in
+      if Str.string_match re op 0 then
+        let exp = int_of_string (Str.matched_group 1 op) in
+        let base = int_of_string (Str.matched_group 2 op) in
+        if Int_map.mem base p then
+          let exp = trm_val (Val_lit (Lit_int exp)) in
+          let base = Int_map.find base p in
+          let f = trm_var (new_var "apac_fpow") in
+          trm_apps f [exp; base]
+        else
+          raise (UnknownParameter base)
+      else
+        raise (IllFormedPower op)
+    in
+    let mul (p : trm Int_map.t) (op : string) : trm =
+      let re = Str.regexp "\\*" in
+      let ops = Str.split re op in
+      let ops = List.map String.trim ops in
+      let ops = List.map (fun op ->
+                    if (String.starts_with ~prefix:"apac_fpow" op) then
+                      pow p op
+                    else if (String.starts_with ~prefix:"X" op) then
+                      let id = int_of_string (String.make 1 op.[1]) in
+                      if (Int_map.mem id p) then
+                        Int_map.find id p
+                      else
+                        raise (UnknownParameter id)
+                    else
+                      to_double op
+                  ) ops in
+      List.fold_left (fun acc op -> trm_mul acc op) (List.hd ops) (List.tl ops)
+    in
+    let model' = open_in model in
+    begin
+      try
+        ignore (input_line model')
+      with
+      | End_of_file ->
+         begin
+           close_in model';
+           failwith ("[modelize]: `" ^ model ^ "' is not a valid model file.")
+         end
+    end;
+    try
+      while true do
+        let line = input_line model' in
+        let (v, f) = one line in
+        if (Hashtbl.mem parameters v) then
+          let p = Hashtbl.find parameters v in
+          if f <> "None" then
+            let re = Str.regexp "\\+" in
+            let ops = Str.split re f in
+            let ops = List.map String.trim ops in
+            let hd = List.hd ops in
+            let hd = to_double hd in
+            let ops = List.tl ops in
+            let ft = List.fold_left (fun acc op ->
+                         let op = if (String.contains op '*') then mul p op
+                                  else to_double op in
+                         trm_add acc op
+                       ) hd ops in
+            Hashtbl.add formulas v (Some ft)
+          else
+            Hashtbl.add formulas v None
+        else
+          raise (UnknownTaskCandidate v)
+      done
+    with
+    | End_of_file -> close_in model'
+    | IllFormedModel m ->
+       failwith ("[modelize]: `" ^ m ^ "' is not a valid performance model.")
+    | UnknownParameter p ->
+       failwith ("[modelize]: unknown parameter `" ^ (string_of_int p) ^ "'.")
+    | UnknownTaskCandidate c ->       
+       failwith
+         ("[modelize]: unknown task candidate `" ^ (string_of_int c) ^ "'.")
+    | IllFormedPower p ->
+       failwith ("[modelize]: `" ^ p ^ "' is not a valid power expression.")
+    | e -> failwith
+             ("[modelize]: unexpected error occurred (" ^
+                (Printexc.to_string e) ^ ")")
+  in
   Target.iter_at_target_paths (fun t ->
       let (header, code, binary, profile, model) =
         Apac_miscellaneous.hcbpm () in
@@ -71,5 +181,12 @@ let modelize (tg : target) : unit =
           let err = Sys.command ("python3 -m apac_modelizer " ^ profile) in
           if err <> 0 then
             failwith "[modelize]: could not compute execution time model."
+          else
+            let _ = process model in
+            Hashtbl.iter (fun v f ->
+                match f with
+                | Some f -> Printf.printf "%d: %s\n" v (AstC_to_c.ast_to_string f)
+                | None -> Printf.printf "%d: None\n" v
+              ) formulas
           
     ) tg
