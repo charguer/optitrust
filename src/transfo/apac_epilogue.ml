@@ -70,6 +70,15 @@ let subst_pragmas (va : var) (tv : trm)
                                        | In dl -> In (dl @ !io)
                                        | _ -> dt) dl' in
                          Depend dl'
+                      | If e ->
+                         let v0 = Val_lit (Lit_int 0) in
+                         let v0 = trm_val v0 in
+                         let tv' = match e.desc with
+                           | Trm_var (_, v') when v' = va ->
+                              trm_array_get (trm_get tv) v0
+                           | _ -> trm_get tv
+                         in
+                         If (trm_subst_var va tv' e)
                       | _ -> c) cl'
                 else []
       in
@@ -380,9 +389,7 @@ let heapify_on (t : trm) : trm =
         let dt = trm_delete (!delete = 2) vt in
         let fp = new_var (get_apac_variable ApacDepthLocal) in
         let fp = [FirstPrivate [fp]] in
-        let co = (get_apac_variable ApacCountOk) ^ " || " ^
-                         (get_apac_variable ApacDepthOk) in
-        let co = [If co] in
+        let co = [If (Apac_backend.get_cutoff ())] in
         let inout = Dep_var v in
         let inout = [Inout [inout]] in
         let depend = [Depend inout] in

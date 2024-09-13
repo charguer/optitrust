@@ -802,7 +802,7 @@ and mode =
   | None_
 
 (* [expression]: representing the code inside an If OpenMP clause *)
-and expression = string
+and expression = trm
 
 (* [sched_type]: scheduling type for OpenMP *)
 and sched_type =

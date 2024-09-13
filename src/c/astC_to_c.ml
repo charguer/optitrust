@@ -1113,7 +1113,7 @@ and clause_to_doc (cl : clause) : document =
   | NotInbranch -> string "notinbranch"
   | Nowait -> string "nowait"
   | Ordered_c i -> string "ordered" ^^ (if i = 0 then empty else parens (string (string_of_int i)))
-  | If e-> string "if" ^^ parens (string e)
+  | If e -> string "if" ^^ parens (trm_to_doc e)
   | Device i -> string "device" ^^ parens (var_to_doc i)
   | Num_threads i -> string "num_threads" ^^ parens (var_to_doc i)
   | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ comma ^^ blank 1 ^^ var_to_doc i)
@@ -1132,7 +1132,7 @@ and clause_to_doc (cl : clause) : document =
   | Nogroup -> string "nogroup"
   | Num_tasks i -> string "num_tasks" ^^ parens (string (string_of_int i))
   | Untied -> string "untied"
-  | Final e -> string "final" ^^ parens (string e)
+  | Final e -> string "final" ^^ parens (trm_to_doc e)
   | To_c vl -> string "to" ^^ parens (vl_to_doc vl)
   | From_c vl -> string "from" ^^ parens (vl_to_doc vl)
   | Link vl -> string "link" ^^ parens (vl_to_doc vl)
@@ -1165,7 +1165,7 @@ and directive_to_doc (d : directive) : document =
   | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
     reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ tvl_to_doc tvl ^^
-    string e ^^ clause_to_doc c)
+    trm_to_doc e ^^ clause_to_doc c)
   | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Distribute cl -> string "distribute" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
   | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))

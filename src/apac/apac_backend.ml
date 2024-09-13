@@ -39,6 +39,13 @@ let get_apac_variable (v : apac_variable) : string =
   | ApacDepthInfinite -> "__apac_depth_infinite"
   | ApacCountMax -> "__apac_count_max"
   | ApacDepthMax -> "__apac_depth_max"
+  | ApacCutOff -> "__apac_cutoff"
+
+(** [get_cutoff]: generates static cut-off condition term. *)
+let get_cutoff () : trm =
+  let count = trm_var (new_var (get_apac_variable ApacCountOk)) in
+  let depth = trm_var (new_var (get_apac_variable ApacDepthOk)) in
+  trm_or count depth
 
 (** [count_update ~backend postamble]: generates the portion of the
     instrumentation code allowing to update the task count [ApacCount] variable.
@@ -173,9 +180,7 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let firstprivate = if (List.length firstprivate) > 0 then
                                [FirstPrivate firstprivate]
                              else [] in
-          let cutoff = (get_apac_variable ApacCountOk) ^ " || " ^
-                         (get_apac_variable ApacDepthOk) in
-          let cutoff = [If cutoff] in
+          let cutoff = [If (get_cutoff ())] in
           let clauses = shared @ depend in
           let clauses = clauses @ firstprivate in
           let clauses = if !Apac_macros.instrument_code then
