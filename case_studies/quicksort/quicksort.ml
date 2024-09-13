@@ -43,34 +43,27 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            (* !! Apac_epilogue.synchronize_subscripts [
+            !! Apac_epilogue.synchronize_subscripts [
                 nbAny;
-                cMark Apac_macros.task_group_mark
+                cMark Apac_macros.candidate_body_mark
               ];
             !! Apac_epilogue.place_barriers [
                 nbAny;
-                cMark Apac_macros.task_group_mark
+                cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_taskify.insert_tasks
-              [nbAny; cMark Apac_macros.task_group_mark];
-          (*  !! Apac_epilogue.instrument
-              []
-              [nbAny; cMark Apac_macros.task_group_mark]; *)
-            !! Marks.remove Apac_macros.task_group_mark [
+            !! Apac_backend.insert_tasks [
                 nbAny;
-                cMark Apac_macros.task_group_mark
+                cMark Apac_macros.candidate_body_mark
+              ];
+            !! Apac_epilogue.place_task_group [
+                nbAny;
+                cMark Apac_macros.candidate_body_mark
               ];
             !! Apac_epilogue.heapify [
                 nbAny;
                 cOr [[cMark Apac_macros.heapify_mark];
                      [cMark Apac_macros.heapify_breakable_mark]]
               ];
-            !! Marks.remove Apac_macros.heapify_mark [
-                nbAny;
-                cMark Apac_macros.heapify_mark
-              ];
-            !! Marks.remove Apac_macros.heapify_breakable_mark [
-                nbAny;
-                cMark Apac_macros.heapify_breakable_mark
-              ]; *)
+            !! Apac_epilogue.dynamic_cutoff [];
+            !! Apac_epilogue.clear_marks ()
           )
