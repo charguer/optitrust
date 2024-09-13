@@ -54,6 +54,7 @@ let _ = Run.script_cpp (fun () ->
                 cOr [[cMark Apac_macros.heapify_mark];
                      [cMark Apac_macros.heapify_breakable_mark]]
               ];
-            !! Apac_epilogue.clear_marks ()
+            !! Apac_epilogue.clear_marks ();
+            !! Apac_epilogue.dynamic_cutoff [];
           );
         Apac_reset.tnt_blast ()

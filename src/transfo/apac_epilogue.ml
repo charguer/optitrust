@@ -978,4 +978,47 @@ let clear_marks () : unit =
   Marks.remove Apac_macros.heapify_breakable_mark [
       nbAny;
       cMark Apac_macros.heapify_breakable_mark
-    ];
+    ]
+
+let dynamic_cutoff (tg : target) : unit =
+  Target.apply_at_target_paths (fun t ->
+      (** Deconstruct the sequence [s] in the term [t]. *)
+      let error = "Apac_epilogue.dynamic_cutoff: expected a target to a \
+                   sequence" in
+      let s = trm_inv ~error trm_seq_inv t in
+      (** Build the definition term [co] of the global variable [ApacCutOff]
+          (see type [!type:apac_variable]) while [init]ializing it to
+          [!Apac_macros.apac_dynamic_cutoff]. *)
+      let init =
+        code
+          (Expr
+             ("getenv(\"" ^ Apac_macros.apac_dynamic_cutoff ^
+                "\") ? atof(getenv(\"" ^  Apac_macros.apac_dynamic_cutoff ^
+                  "\")) : 2.22100e-6")) in
+      let co = new_var (get_apac_variable ApacCutOff) in
+      let co = trm_let_immut (co, typ_double ()) init in
+      (** Include the definition of a function to compute powers. *)
+      let pow =
+        code
+          (Stmt
+             "
+template <class T> T apac_fpow(int exp, const T & base) {
+  T result = T(1);
+  T pow = base;
+  int i = exp;
+  while(i){
+    if(i & 1){
+      result *= pow;
+    }
+    pow *= pow;
+    i /= 2;
+  }
+  return result;
+}
+              ") in
+      (** Build a marked list [header] containg [co] and [pow] so as to *)
+      let header = Mlist.of_list [co; pow] in
+      (** finally build a sequence consisting of [header] pre-pending the
+          original sequence [s]. *)
+      trm_seq ~ctx:t.ctx ~annot:t.annot (Mlist.merge header s)
+    ) tg

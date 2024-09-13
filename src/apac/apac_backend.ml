@@ -16,15 +16,26 @@ type task_backend =
 (** [apac_variable]: enumeration of instrumentation variables that might appear
     in the resulting source code. *)
 type apac_variable =
-  | ApacCount (* Gives the current task count. *)
-  | ApacDepth (* Gives the current task depth. *)
-  | ApacDepthLocal (* Task-private copy of [ApacDepth]. *)
-  | ApacCountOk (* True if the task count limit was not reached yet. *)
-  | ApacDepthOk (* True if the task depth limit was not reached yet. *)
-  | ApacCountInfinite (* True when the task count is not limited. *)
-  | ApacDepthInfinite (* True when the task depth is not limited. *)
-  | ApacCountMax (* Gives the maximum task count. *)
-  | ApacDepthMax (* Gives the maximum task depth. *)
+  (** Gives the current task count. *)
+  | ApacCount
+  (** Gives the current task depth. *)
+  | ApacDepth
+  (** Task-private copy of [ApacDepth]. *)
+  | ApacDepthLocal
+  (** True if the task count limit was not reached yet. *)
+  | ApacCountOk
+  (** True if the task depth limit was not reached yet. *)
+  | ApacDepthOk
+  (** True when the task count is not limited. *)
+  | ApacCountInfinite
+  (** True when the task depth is not limited. *)
+  | ApacDepthInfinite
+  (** Gives the maximum task count. *)
+  | ApacCountMax
+  (** Gives the maximum task depth. *)
+  | ApacDepthMax
+  (** Task submission cut-off value. *)
+  | ApacCutOff
 
 (** [get_apac_variable]: generates a string representation of the
     instrumentation variable [v]. *)
@@ -185,6 +196,12 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let clauses = clauses @ firstprivate in
           let clauses = if !Apac_macros.instrument_code then
                           clauses @ cutoff
+                        else clauses in
+          let clauses = if Option.is_some t.cost then
+                          let c = trm_var
+                                    (new_var (get_apac_variable ApacCutOff)) in
+                          let c = trm_gt (Option.get t.cost) c in
+                          clauses @ [If c]
                         else clauses in
           let pragma = Task clauses in
           let count_preamble = count_update false in

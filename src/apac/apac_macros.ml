@@ -82,6 +82,11 @@ let apac_count_max : string = "APAC_TASK_COUNT_MAX"
     allowing the end-user to manually set the maximum task depth. *)
 let apac_depth_max : string = "APAC_TASK_DEPTH_MAX"
 
+(** [apac_dynamic_cutoff]: expected name of the optional environment variable
+    allowing the end-user to manually set the cut-off value limiting the task
+    insertion according to their cost model. *)
+let apac_dynamic_cutoff : string = "APAC_DYNAMIC_CUTOFF"
+
 (** [apac_count_thread_factor]: the default value of [apac_count_max] is a
     multiple of the maximum amount of threads available for parallel task
     execution. This multiple, or this factor, is initially set to [10], but it
