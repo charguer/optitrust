@@ -190,3 +190,51 @@ let modelize (tg : target) : unit =
               ) formulas
           
     ) tg
+
+let optimize (tg : target) : unit =
+  let rec aux (v : TaskGraph.V.t) : unit =
+    let t = TaskGraph.V.label v in
+    if (Task.attributed t Taskifiable) then
+      begin
+        let h = TaskGraph.V.hash v in
+        let f =
+          try
+            Hashtbl.find formulas h
+          with
+          | Not_found ->
+             failwith ("Apac_profiler.optimize: task candidate `" ^
+                         (Task.to_string t) ^ "' has no performance model.") in
+        if Option.is_none f then
+          t.attrs <- TaskAttr_set.remove Taskifiable t.attrs
+        else
+          t.cost <- f
+      end;
+    (** When [v] features nested candidate graphs, explore the substatements. *)
+    List.iter (fun gl ->
+        List.iter (fun go ->
+            TaskGraphTraverse.iter aux go
+          ) gl
+      ) t.children      
+  in
+  Target.iter (fun t p ->
+      (** Find the parent function [f]. *)
+      let f = match (find_parent_function p) with
+        | Some (v) -> v
+        | None -> fail t.loc "Apac_profiler.optimize: unable to find parent \
+                              function. Task group outside of a function?" in
+      (** Find its function record [r] in [!Apac_records.functions]. *)
+      let r = Var_Hashtbl.find Apac_records.functions f in
+      (** Optimize the task candidate graph [r.graph] of [f] according to its
+          performance model, i.e. the execution time estimation [formulas]. *)
+      TaskGraphTraverse.iter aux r.graph;
+      (** Dump the resulting task candidate graph, if requested. *)
+      if !Apac_macros.verbose then
+        begin
+          Printf.printf "Task candidate graph of `%s' (optimization):\n"
+            (var_to_string f);
+          TaskGraphPrinter.print r.graph
+        end;
+      if !Apac_macros.keep_graphs then
+        TaskGraphExport.to_pdf
+          r.graph (Apac_miscellaneous.gf ~suffix:"optimization" f)
+    ) tg
