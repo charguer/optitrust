@@ -364,7 +364,7 @@ let profile_tasks (tg : target) : unit =
           let ast = TaskGraphTraverse.codify
                       (trm_from_task_candidate
                          ~heapification:false
-                         (Apac_profiler.codegen_profiler sections))
+                         (Apac_profiler.codegen sections))
                       r.graph in
           let sections = List.of_seq (Stack.to_seq sections) in
           let ast = Mlist.of_list (sections @ ast) in
