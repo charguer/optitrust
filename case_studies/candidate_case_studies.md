@@ -3,6 +3,9 @@
 - PolyBench
 - NAS: https://github.com/GMAP/NPB-CPP
 
+- https://arxiv.org/pdf/2405.05118
+  benchmarks from "(De/Re)-Composition of Data-Parallel Computations via Multi-Dimensional Homomorphisms" (toplas'24)
+
 # Physical Simulation Case Studies
 
 - [PIC](pic).
