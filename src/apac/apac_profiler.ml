@@ -89,7 +89,7 @@ let modelize (tg : target) : unit =
         if Int_map.mem base p then
           let exp = trm_val (Val_lit (Lit_int exp)) in
           let base = Int_map.find base p in
-          let f = trm_var (new_var "apac_fpow") in
+          let f = trm_toplevel_free_var "apac_fpow" in
           trm_apps f [exp; base]
         else
           raise (UnknownParameter base)
