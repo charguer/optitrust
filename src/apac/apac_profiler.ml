@@ -207,7 +207,13 @@ let optimize (tg : target) : unit =
         if Option.is_none f then
           t.attrs <- TaskAttr_set.remove Taskifiable t.attrs
         else
-          t.cost <- f
+          let const = trm_fold (fun acc t ->
+                          match t.desc with
+                          | Trm_apps _ -> acc && false
+                          | _ -> acc && true
+                        ) true (Option.get f) in
+          if (not const) then
+            t.cost <- f
       end;
     (** When [v] features nested candidate graphs, explore the substatements. *)
     List.iter (fun gl ->
