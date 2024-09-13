@@ -31,12 +31,18 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_backend.profile_tasks [
+            ?? (fun () ->
+                !! Apac_backend.profile_tasks [
+                    nbAny;
+                    cMark Apac_macros.candidate_body_mark
+                  ];
+                !! Apac_epilogue.clear_marks ();
+                !! Apac_profiler.modelize []
+              );
+            !! Apac_profiler.optimize [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_epilogue.clear_marks ();
-            !! Apac_profiler.modelize [];
             (* !! Apac_epilogue.synchronize_subscripts [
                 nbAny;
                 cMark Apac_macros.task_group_mark
