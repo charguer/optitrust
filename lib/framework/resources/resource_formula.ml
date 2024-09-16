@@ -243,6 +243,9 @@ module Pattern = struct
   let formula_model f_var f_model =
     trm_apps_specific_var var_has_model (f_var ^:: f_model ^:: nil)
 
+  let formula_cell f_var =
+    formula_model f_var (trm_var (var_eq var_cell))
+
   let formula_read_only f_frac f_formula =
     trm_apps2 (trm_var (var_eq var_read_only)) f_frac f_formula
 

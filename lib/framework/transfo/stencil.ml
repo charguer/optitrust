@@ -130,8 +130,8 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
     | None ->
       surrounding_sequence := Some p_seq;
       let find_var n = find_var n (target_of_path p_seq) in
-      overlaps' := List.map (fun (v_name, l) -> (find_var v_name, l)) overlaps;
-      outputs' := Var_set.of_list (List.map find_var outputs);
+      overlaps' := List.map (fun (v_name, l) -> (fst (find_var v_name), l)) overlaps;
+      outputs' := Var_set.of_list (List.map (fun n -> fst (find_var n)) outputs);
     | Some p_seq' -> assert (p_seq = p_seq')
   in
   Marks.with_fresh_mark (fun to_fuse ->

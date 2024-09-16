@@ -7,7 +7,7 @@ include Specialize_basic
 let%transfo variable ~(var : string) ~(value : trm)
   ?(mark_then : mark = no_mark) ?(mark_else : mark = no_mark)
   (tg : target) : unit =
-  let var = find_var var tg in
+  let (var, _) = find_var var tg in
   Marks.with_marks (fun next_mark ->
     let mark_then = Mark.reuse_or_next next_mark mark_then in
     let mark_else = Mark.reuse_or_next next_mark mark_else in

@@ -15,9 +15,9 @@ let _ = Run.script_cpp (fun () ->
   !! Matrix.local_name_tile ~var:"fieldAtCorners"
     ~elem_ty:vect ~uninit_post:true
     ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
-  !! Matrix.local_name_tile ~var:"particles"
+  (* !! Matrix.local_name_tile ~var:"particles"
     ~elem_ty:particle
-    ~local_var:"lParticles" [ctx; cFor "idStep"];
+    ~local_var:"lParticles" [ctx; cFor "idStep"]; *)
 
   bigstep "inline helper functions and reveal record fields";
   !! Function.inline_multi [ctx; cFuns ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
@@ -32,24 +32,18 @@ let _ = Run.script_cpp (fun () ->
   !! Accesses.scale ~factor:(var "fieldFactor") [nbMulti; cVarRe "speed2[XYZ]"];
   !! Accesses.scale ~factor:(var "deltaT") [nbMulti; sExprRe "particles\\.speed\\.[xyz]"];
   !! Accesses.scale_immut ~factor:(var "deltaT") [nbMulti; cVarRe "speed2[XYZ]"];
-
-  !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];
-  !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
-  !! Function.use_infix_ops ~indepth:true [ctx];
-  !! Cleanup.std ();
 *)
-
-  (* CHECK *)
   bigstep "scale field and particles";
   let pCharge = trm_find_var "pCharge" [ctx] in
   let pMass = trm_find_var "pMass" [ctx] in
   let deltaT = trm_find_var "deltaT" [ctx] in
-  let scaleFieldFactor = trm_mul (trm_div pCharge pMass) (trm_mul deltaT deltaT) in
-  let scaleField d = Accesses.scale ~factor:scaleFieldFactor [nbMulti; ctx; cVar ("fieldAtPos" ^ d)] in
+  let fieldFactor = trm_mul (trm_div pCharge pMass) (trm_mul deltaT deltaT) in
+  let scaleField d = Accesses.scale_var ~factor:fieldFactor [nbMulti; ctx; cVarDef ("fieldAtPos" ^ d)] in
   !! List.iter scaleField ["X"; "Y"; "Z"];
-  !! Accesses.scale ~factor:scaleFieldFactor [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lFieldAtCorners"] ~accesses:[cField ()] ()] ()];
   let scaleSpeed d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
   !! List.iter scaleSpeed ["X"; "Y"; "Z"];
+  (* CHECK *)
+  !! Accesses.scale ~factor:fieldFactor [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lFieldAtCorners"] ~accesses:[cField ()] ()] ()];
   !! Accesses.scale ~factor:deltaT [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lParticles"] ~accesses:[cField ~field:"speed" (); cField ()] ()] ()];
 
   bigstep "finish with style";

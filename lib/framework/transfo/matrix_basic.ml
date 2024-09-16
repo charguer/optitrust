@@ -54,7 +54,7 @@ let rec formula_mindex_group_inv (f : formula) : ((formula * var) list * trm * t
           ((range, idx) :: ranges, matrix_ptr, mindex_dims, mindex_indices)
         | None -> raise Pattern.Failed
       );
-    Pattern.(formula_model !__ (trm_var (var_eq var_cell))) (fun location () ->
+    Pattern.(formula_cell !__) (fun location () ->
       match Matrix_trm.access_inv location with
       | Some (matrix, mindex_dims, mindex_indices) -> ([], matrix, mindex_dims, mindex_indices)
       | None -> raise Pattern.Failed

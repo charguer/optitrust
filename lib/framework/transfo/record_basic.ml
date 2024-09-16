@@ -84,7 +84,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
           Pattern.(formula_group !__ (trm_fun (pair !__ __ ^:: nil) !__ !__ __)) (fun range idx _frettyp body_formula () ->
             aux (fun c -> wrap_cell (trm_apps ~annot:formula.annot trm_group [range; formula_fun [idx, typ_int] None c])) body_formula
           );
-          Pattern.(formula_model !__ (trm_var (var_eq var_cell))) (fun loc () ->
+          Pattern.(formula_cell !__) (fun loc () ->
             Pattern.when_ (trm_ptr_typ_matches loc);
             Some [process_one_cell (fun c -> trm_copy (wrap_cell c)) mode loc]
           );
