@@ -46,22 +46,51 @@ let skip_includes (t : trm) : trm =
     trm_seq not_include
   | None -> t
 
-(* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
-let find_var_in_current_ast_filter ?(target : target = []) (filter : var -> bool) : var =
-  let vars =
-    if target = [] then trm_def_or_used_vars (skip_includes (Trace.ast ()))
-    else List.fold_left (fun acc p ->
-      Var_set.union acc (trm_def_or_used_vars (Target.resolve_path p))
-    ) Var_set.empty (resolve_target target)
+let rec find_var_filter_on (candidates : typ option varmap ref) (filter : var -> bool) (t : trm) : unit =
+  let update_map v ty =
+    if filter v
+    then begin
+      candidates := Var_map.update v (fun prev_ty_entry ->
+        match Option.join prev_ty_entry with
+        | None -> Some ty
+        | Some ty -> Some (Some ty)
+      ) !candidates
+    end
   in
-  let candidates = Var_set.filter filter vars in
-  match Var_set.cardinal candidates with
-  | 0 -> failwith "could not find variable in current AST variables: %s" (vars_to_string (Var_set.elements vars))
-  | 1 -> Var_set.choose candidates
-  | n -> failwith "%d variables found in current AST: %s" n (vars_to_string (Var_set.elements candidates))
+  Pattern.pattern_match t [
+    Pattern.(trm_var !__) (fun v () -> update_map v t.typ);
+    Pattern.(trm_let !__ !__ __) (fun v typ () -> update_map v (Some typ));
+    Pattern.(trm_let_fun !__ __ __ __ __) (fun v () -> update_map v None);
+    Pattern.(trm_for !__ __ __) (fun range () -> update_map range.index range.start.typ);
+    Pattern.__ (fun () -> ())
+  ];
+  trm_iter (find_var_filter_on candidates filter) t
 
-let find_var_in_current_ast ?(target : target = []) (name : string) : var =
-  find_var_in_current_ast_filter ~target (fun v -> v.namespaces = [] && v.name = name)
+let find_var_filter ?(target : target = []) (filter : var -> bool) : var * typ option =
+  let candidates = ref Var_map.empty in
+  if target = []
+  then find_var_filter_on candidates filter (skip_includes (Trace.ast ()))
+  else List.iter (fun p ->
+    find_var_filter_on candidates filter (Target.resolve_path p)
+  ) (resolve_target target);
+  (* let candidates = Var_set.filter filter vars in *)
+  match Var_map.cardinal !candidates with
+  | 0 -> failwith "could not find variable in current AST variables" (* ": %s" (vars_to_string (Var_set.elements vars)) *)
+  | 1 -> Var_map.choose !candidates
+  | n -> failwith "%d variables found in current AST: %s" n (vars_to_string (List.map fst (Var_map.bindings !candidates)))
+
+let find_var (name : string) (target : target) : var * typ option =
+  find_var_filter ~target (fun v -> v.namespaces = [] && v.name = name)
+
+let trm_find_var (name : string) (target : target) : trm =
+  let (v, typ) = find_var name target in
+  trm_var ?typ v
+
+let find_typ_var (name : string) (target : target) : var =
+  fst (find_var_filter ~target (fun v -> v.namespaces = typ_namespace && v.name = name))
+
+let typ_find_var (name  : string) (target : target) : typ =
+  typ_var (find_typ_var name target)
 
 (* TODO: DEPRECATE *)
 let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
@@ -71,10 +100,10 @@ let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
 (** [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct
   let var v = trm_var (name_to_var v)
-  (* DEPRECATED: (find_var_in_current_ast v) *)
+  (* DEPRECATED: (find_var v) *)
 
   let var_mut v = trm_var_get (name_to_var v)
-  (* DEPRECATED: (find_var_in_current_ast v) *)
+  (* DEPRECATED: (find_var v) *)
 
   let lit l = code (Lit l)
 

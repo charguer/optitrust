@@ -1,6 +1,19 @@
 open Prelude
 include Record_basic
 
+(** [split_fields]: an extension to [Record_basic.split_fields].
+  It takes as argument ~(typ : typ) instead of ~(typ : typvar).
+   *)
+let%transfo split_fields ~(typ : typ) (tg : target) : unit =
+  Pattern.pattern_match typ [
+    Pattern.(trm_var !__) (fun typ () ->
+      split_fields ~typ tg
+    );
+    Pattern.__ (fun () ->
+      trm_fail typ "expected type variable"
+    )
+  ]
+
 (** [set_explicit tg]: an extension to [Record_basic.set_explicit](see Record_basic.ml), contrary to the basic
     on this transformation supports automatic variable declaration detachment.
     vect v = {0,0}; becomes vect v; v.x = 0; v.y = 0; *)

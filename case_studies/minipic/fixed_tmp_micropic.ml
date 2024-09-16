@@ -8,7 +8,7 @@ let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun () ->
   let ctx = cFunBody "simulate_single_cell" in
-  let stepDuration = trm_var (find_var_in_current_ast ~target:[ctx] "stepDuration") in
+  let stepDuration = trm_find_var "stepDuration" [ctx] in
 
   !! Accesses.scale ~factor:stepDuration [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lParticles"] ~accesses:[cField ~field:"speed" (); cField ()] ()] ()];
 

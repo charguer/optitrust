@@ -2306,6 +2306,7 @@ let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : tr
 (*****************************************************************************)
 
 let trm_def_or_used_vars (t : trm) : Var_set.t =
+  (* FIXME: duplicate code with find_var_filter_on *)
   let vars = ref Var_set.empty in
   let rec aux t =
     match trm_var_inv t with

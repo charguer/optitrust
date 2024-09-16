@@ -117,13 +117,27 @@ double relativePosZ(double z) {
 
 const int nbCorners = 8;
 
-void cornerInterpolationCoeff2(double rX, double rY, double rZ, double* r) {
+void cornerInterpolationCoeff(vect pos, double* r) {
   __writes("r ~> Matrix1(nbCorners)");
-  __admitted();
 
+  const double rX = relativePosX(pos.x);
+  const double rY = relativePosY(pos.y);
+  const double rZ = relativePosZ(pos.z);
   const double cX = 1. + -1. * rX;
   const double cY = 1. + -1. * rY;
   const double cZ = 1. + -1. * rZ;
+  __ghost([&] {
+    __consumes("_Uninit(r ~> Matrix1(nbCorners))");
+    __produces("_Uninit(&r[MINDEX1(8, 0)] ~> Cell)");
+    __produces("_Uninit(&r[MINDEX1(8, 1)] ~> Cell)");
+    __produces("_Uninit(&r[MINDEX1(8, 2)] ~> Cell)");
+    __produces("_Uninit(&r[MINDEX1(8, 3)] ~> Cell)");
+    __produces("_Uninit(&r[MINDEX1(8, 4)] ~> Cell)");
+    __produces("_Uninit(&r[MINDEX1(8, 5)] ~> Cell)");
+    __produces("_Uninit(&r[MINDEX1(8, 6)] ~> Cell)");
+    __produces("_Uninit(&r[MINDEX1(8, 7)] ~> Cell)");
+    __admitted();
+  }, "");
   r[MINDEX1(8, 0)] = cX * cY * cZ;
   r[MINDEX1(8, 1)] = cX * cY * rZ;
   r[MINDEX1(8, 2)] = cX * rY * cZ;
@@ -132,16 +146,18 @@ void cornerInterpolationCoeff2(double rX, double rY, double rZ, double* r) {
   r[MINDEX1(8, 5)] = rX * cY * rZ;
   r[MINDEX1(8, 6)] = rX * rY * cZ;
   r[MINDEX1(8, 7)] = rX * rY * rZ;
-}
-
-void cornerInterpolationCoeff(vect pos, double* r) {
-  __writes("r ~> Matrix1(nbCorners)");
-  __admitted();
-
-  const double rX = relativePosX(pos.x);
-  const double rY = relativePosY(pos.y);
-  const double rZ = relativePosZ(pos.z);
-  cornerInterpolationCoeff2(rX, rY, rZ, r);
+  __ghost([&] {
+    __consumes("&r[MINDEX1(8, 0)] ~> Cell");
+    __consumes("&r[MINDEX1(8, 1)] ~> Cell");
+    __consumes("&r[MINDEX1(8, 2)] ~> Cell");
+    __consumes("&r[MINDEX1(8, 3)] ~> Cell");
+    __consumes("&r[MINDEX1(8, 4)] ~> Cell");
+    __consumes("&r[MINDEX1(8, 5)] ~> Cell");
+    __consumes("&r[MINDEX1(8, 6)] ~> Cell");
+    __consumes("&r[MINDEX1(8, 7)] ~> Cell");
+    __produces("r ~> Matrix1(nbCorners)");
+    __admitted();
+  }, "");
 }
 
 vect matrix_vect_mul(double* coeffs, vect* matrix) {

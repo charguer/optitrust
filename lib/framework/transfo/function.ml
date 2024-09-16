@@ -354,6 +354,9 @@ let%transfo inline ?(resname : string = "")
     simpl [cMark subst_mark];
   )
 
+(* TODO: remove ~recurse from inline and implement here? *)
+let inline_multi = inline ~recurse:true
+
 (** [inline_def]: like [inline], but with [tg] targeting the function definition.
    All function calls are inlined, with [delete = true] as default. *)
 let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : string list = []) ?(keep_res : bool = false)

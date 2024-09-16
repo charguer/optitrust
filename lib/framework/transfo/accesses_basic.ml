@@ -29,6 +29,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     ]
   in
   let rec fix t =
+    let open Resource_formula in
     let var = !var in
     Pattern.pattern_match t [
       Pattern.(trm_get (trm_var (var_eq var))) (fun () ->
@@ -36,6 +37,9 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
       );
       Pattern.(trm_set (trm_var (var_eq var)) !__) (fun value () ->
         trm_set (trm_var ?typ:value.typ var) (f_set (trm_map fix value))
+      );
+      Pattern.(formula_cell (trm_var (var_eq var))) (fun () ->
+        t
       );
       Pattern.(trm_var (var_eq var)) (fun () ->
         trm_fail t "variable is used outside of get/set operations"
@@ -60,6 +64,8 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm) (tg : target) : 
     let (i, p_seq) = Path.index_in_seq p in
     Target.apply_at_path (transform_on f_get f_set i) p_seq
   ) tg
+
+(* TODO: ~mark_preprocess ~mark_postprocess + span tg *)
 
 (** <private> *)
 let transform_immut_on

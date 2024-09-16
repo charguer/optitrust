@@ -72,7 +72,7 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
   - deal with _Uninit cases in pre/post where reading/writing value around term is not needed.
   *)
 let%transfo local_name ~(var : string) ~(local_var : string) (tg : target) : unit =
-  let var = find_var_in_current_ast ~target:tg var in
+  let (var, _) = find_var var tg in
   (* FIXME: find type in context. *)
   Variable_basic.local_name ~var typ_auto ~local_var tg
 
@@ -197,14 +197,16 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
 (** [detach_if_needed tg]: expects the target [tg] to be pointing at a variable declaration, then it will
     check if that declaration was already initialized or not, if that's the case than it will deatch that
     declaration, otherwise no change is applied. *)
-let%transfo detach_if_needed (tg : target) : unit =
+let%transfo detach_if_needed ?(detatched : bool ref = ref false) (tg : target) : unit =
   Target.iter (fun p ->
     let decl_t = Target.resolve_path p in
     match decl_t.desc with
     | Trm_let((_, _), init) ->
       begin match trm_ref_inv init with
       | None -> ()
-      | Some init -> Variable_basic.init_detach (target_of_path p)
+      | Some init ->
+        detatched := true;
+        Variable_basic.init_detach (target_of_path p)
       end
     | _ -> trm_fail decl_t "Variable.init_detach_aux: variable could not be matched, make sure your path is correct"
   ) tg

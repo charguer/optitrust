@@ -431,7 +431,7 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
     List.concat_map (fun (h, r) ->
       let (mode, inner_r) = formula_mode_inv r in
       Pattern.pattern_match inner_r [
-        Pattern.(formula_model (trm_var (var_eq var)) (trm_var (var_eq var_cell))) (fun () ->
+        Pattern.(formula_cell (trm_var (var_eq var))) (fun () ->
           List.map (fun (f, t, v) ->
             (new_anon_hyp (), formula_map_under_mode (fun _ -> formula_model (trm_var v) (trm_var (var_cell))) r)
           ) fields

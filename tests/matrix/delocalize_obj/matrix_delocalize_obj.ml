@@ -7,7 +7,7 @@ let _ = Run.script_cpp (fun _ ->
     name_to_var "bag_merge",
     name_to_var "bag_free"
   ) in
-  let fv = find_var_in_current_ast in
+  let fv n = find_var n [] in
 
   !! Matrix.delocalize ~last:true (fv "bagNext") ~into:"bagNexts" ~init_zero:true ~acc_in_place:false ~dim:(var "N0") ~index:"bagKind" ~indices:["idCell"] ~acc:"sum" ~ops [cFor "idCell" ~body:[cFun "bag_push"; cVar "bagNext"]];
 
