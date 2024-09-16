@@ -24,13 +24,15 @@ let%transfo add (m : mark) (tg : target) : unit =
     | _ -> Target.apply_at_path (trm_add_mark m) p
   ) tg)
 
-(** [remove m tg]: removes mark m from the term or interstice that corresponds to target [tg]. *)
+(** [remove m tg]: removes mark m from the term, interstice, or span that corresponds to target [tg]. *)
 let%transfo remove (m : mark) (tg : target) : unit =
   justif();
   Trace.preserves_resource_typing (fun () -> Target.iter (fun p ->
-    match Path.last_dir_before_inv p with
-    | Some (p_seq, i) -> Target.apply_at_path (trm_rem_mark_between m) p_seq
-    | None -> Target.apply_at_path (trm_rem_mark m) p
+    (* DEBUG Printf.eprintf "remove %s!\n" m; *)
+    match Path.extract_last_dir p with
+    | p_seq, Before i -> Target.apply_at_path (trm_rem_mark_between m) p_seq
+    | p_seq, Span span -> Target.apply_at_path (trm_rem_mark_span m) p_seq
+    | _ -> Target.apply_at_path (trm_rem_mark m) p
   ) tg)
 
 (** [remove_st pred tg]: cleans all the marks satisfying [pred] from the trm

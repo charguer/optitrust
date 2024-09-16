@@ -197,15 +197,18 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
 (** [detach_if_needed tg]: expects the target [tg] to be pointing at a variable declaration, then it will
     check if that declaration was already initialized or not, if that's the case than it will deatch that
     declaration, otherwise no change is applied. *)
-let%transfo detach_if_needed ?(detatched : bool ref = ref false) (tg : target) : unit =
+let%transfo detach_if_needed
+  ?(detached_ret : bool ref = ref false) ?(typed_var_ret : (var * typ) ref = ref (dummy_var, typ_auto))
+  (tg : target) : unit =
   Target.iter (fun p ->
     let decl_t = Target.resolve_path p in
     match decl_t.desc with
-    | Trm_let((_, _), init) ->
+    | Trm_let(typed_v, init) ->
+      typed_var_ret := typed_v;
       begin match trm_ref_inv init with
       | None -> ()
       | Some init ->
-        detatched := true;
+        detached_ret := true;
         Variable_basic.init_detach (target_of_path p)
       end
     | _ -> trm_fail decl_t "Variable.init_detach_aux: variable could not be matched, make sure your path is correct"

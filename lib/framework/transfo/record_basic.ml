@@ -7,13 +7,7 @@ type fracs_map = resource_item Tools.String_map.t option Var_map.t ref
 
 let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
   (span : Dir.span) (t_seq : trm) : trm =
-  let instrs = trm_inv ~error:"expected seq" trm_seq_inv t_seq in
-  if span.start >= span.stop then begin
-    t_seq
-  end else begin
-    let (span_instrs, instrs_after) = Mlist.split span.stop instrs in
-    let (instrs_before, span_instrs) = Mlist.split span.start span_instrs in
-    (* DEBUG Show.trms ~msg:"span_instrs" (Mlist.to_list span_instrs); *)
+  update_span_helper span t_seq (fun span_instrs ->
     let typ_matches typ =
       Pattern.pattern_match typ [
         Pattern.(trm_var (var_eq typvar)) (fun () -> true);
@@ -134,10 +128,10 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       match Var_map.find_opt frac_var !fracs_map with
       | None -> frac_var
       | Some (Some hs) ->
-        Printf.printf "reuse\n";
+        (* Printf.printf "reuse\n"; *)
         fst (String_map.find sf hs)
       | Some None ->
-        Printf.printf "split\n";
+        (* Printf.printf "split\n"; *)
         let hs = List.fold_left (fun acc (sf, _) ->
           String_map.add sf (snd (new_frac ())) acc
         ) String_map.empty field_list in
@@ -199,10 +193,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       process_matching_resource_item (fun wrap mode c -> process_one_cell ~fold wrap (mode, c)) (fun () -> [])
     in
     let (unfolds, folds) = if !Flags.check_validity then begin
-      let first = Option.unsome ~error:"expected first instruction" (Mlist.nth_opt span_instrs 0) in
-      let last = Option.unsome ~error:"expected last instruction" (Mlist.lst span_instrs) in
-      let res_start = Resources.before_trm first in
-      let res_stop = Resources.after_trm last in
+      let (res_start, res_stop) = Resources.around_instrs span_instrs in
       let unfolds = List.concat_map (process_one_item ~fold:false) res_start.linear in
       let folds = List.concat_map (process_one_item ~fold:true) res_stop.linear in
       (unfolds, folds)
@@ -355,11 +346,8 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
        in aux t
     in
     let span_instrs = Mlist.map update_term span_instrs in
-    trm_seq_helper ~annot:t_seq.annot [
-      TrmMlist instrs_before;
-      TrmList unfolds; TrmMlist span_instrs; TrmList folds;
-      TrmMlist instrs_after]
-  end
+    [ TrmList unfolds; TrmMlist span_instrs; TrmList folds ]
+  )
 
 (** [split_fields]: expects the target [tg] to point at a sequence span to perform the mapping:
   - `set(base, get(get_base))` --> `set(struct_access(base, f), get(struct_access(get_base, f))), ...`

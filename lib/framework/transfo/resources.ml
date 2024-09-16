@@ -41,6 +41,12 @@ let compute_usage_of_instrs (instrs : trm mlist) : resource_usage_map =
     Resource_computation.update_usage_map ~current_usage:usage_map ~extra_usage:(usage_of_trm t)
   ) Resource_computation.empty_usage_map (Mlist.to_list instrs)
 
+(** Retrieves resources around a sequence of instructions. *)
+let around_instrs (instrs : trm mlist) : (resource_set * resource_set) =
+  let first = Option.unsome ~error:"expected first instruction" (Mlist.nth_opt instrs 0) in
+  let last = Option.unsome ~error:"expected last instruction" (Mlist.lst instrs) in
+  (before_trm first, after_trm last)
+
 (** [trm_is_pure]: Does this term always evaluate to the same value?
     The computed value should no be affected by observable program state.
     Computing the value should not affect the observable program state. *)
@@ -584,26 +590,30 @@ let assert_usages_commute
   if not (Var_map.is_empty interference) then
     contextualized_error ctxs (string_of_interference ?res_ctx interference)
 
-(** Checks that the effects from the instruction at path [p] are shadowed by following effects
+(** Checks that the effects from the instructions at path [p] are shadowed by following effects
    in the program.
 
    - if provided [pred], allows specifying which formulas to include in the shadowing check.
-   - [keep_instr]: is this ever useful? for inlining binding?
+   - [keep_instrs]: is this ever useful? for inlining binding?
     *)
-let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(keep_instr : bool = false) (p : path) : unit =
+let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(keep_instrs : bool = false) (p : path) : unit =
+  let p_seq, span = Path.extract_last_dir_span p in
   step_backtrack ~discard_after:true (fun () ->
     Nobrace_transfo.remove_after ~check_scoping:false (fun () ->
-      Target.apply_at_path (fun instr ->
-        let res_before = before_trm instr in
-        let write_res = List.filter (Resource_set.(linear_usage_filter (usage_of_trm instr) keep_written)) res_before.linear in
-        let write_res = List.map (fun (_, formula) -> formula) write_res in
-        let write_res = List.filter pred write_res in
-        let uninit_ghosts = List.filter_map (fun res ->
-          if Option.is_none (formula_uninit_inv res) then Some (Resource_trm.ghost_forget_init res) else None) write_res in
-        if keep_instr
-          then trm_seq_nobrace_nomarks (instr :: uninit_ghosts)
-          else trm_seq_nobrace_nomarks uninit_ghosts
-      ) p
+      Target.apply_at_path (fun t_seq ->
+        update_span_helper span t_seq (fun instrs ->
+          let (res_before, _) = around_instrs instrs in
+          let usage = compute_usage_of_instrs instrs in
+          let write_res = List.filter (Resource_set.(linear_usage_filter usage keep_written)) res_before.linear in
+          let write_res = List.map (fun (_, formula) -> formula) write_res in
+          let write_res = List.filter pred write_res in
+          let uninit_ghosts = List.filter_map (fun res ->
+            if Option.is_none (formula_uninit_inv res) then Some (Resource_trm.ghost_forget_init res) else None) write_res in
+          if keep_instrs
+            then [ TrmMlist instrs; TrmList uninit_ghosts ]
+            else [ TrmList uninit_ghosts ]
+        )
+      ) p_seq
     );
     recompute_resources ()
   )

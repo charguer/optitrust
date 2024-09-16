@@ -54,7 +54,7 @@ let minimize_all_in (seq : trm) : trm =
           Var_map.is_empty (Resources.collect_interferences pure_usage post_inst_usage)
     in
     if delete_pure then
-      Sequence_core.delete_at pure_i seq
+      Sequence_core.delete_at (Dir.span_around pure_i) seq
     else if desired_pos <= pure_i + 1 then
       seq
     else

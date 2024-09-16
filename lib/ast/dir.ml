@@ -163,3 +163,8 @@ let diff (p1 : paths) (p2 : paths) : paths =
   let set_of_p2 = set_of_paths p2 in
   let diff_p1_p2 = Path_set.diff set_of_p1 set_of_p2 in
   Path_set.elements diff_p1_p2
+
+let span_around (i : int) : span = { start = i; stop = i + 1 }
+let span_before (i : int) : span = { start = i; stop = i }
+let span_including (span : span) (i : int) : span =
+  { start = min span.start i; stop = max span.stop i+1 }

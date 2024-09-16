@@ -17,26 +17,40 @@ type seq_component =
   | TrmList of trm list
   | TrmMlist of trm mlist
   | Mark of mark
+  | SeqComponents of seq_component list
 
 let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(braces = true) (components: seq_component list) : trm =
-  let mlist = List.fold_right (fun comp acc ->
-    let res = match comp with
+  let rec aux cs acc = List.fold_right (fun comp acc ->
+    match comp with
     | Trm t -> Mlist.push_front t acc
     | TrmList tl -> Mlist.merge (Mlist.of_list tl) acc
     | TrmMlist tml -> Mlist.merge tml acc
     | Mark "" -> acc
     | Mark m -> Mlist.insert_mark_at 0 m acc
-    in
-    (* DEBUG:
-      Show.trm ~msg:"res" (trm_seq res); *)
-    res
-  ) components Mlist.empty in
+    | SeqComponents cs -> aux cs acc
+  ) cs acc in
+  let mlist = aux components Mlist.empty in
   if braces then
     trm_seq ?annot ?loc mlist
   else begin
     assert (annot = None);
     assert (loc = None);
     trm_seq_nobrace mlist
+  end
+
+let update_span_helper (span : Dir.span) (t_seq : trm) (f : trm mlist -> seq_component list) : trm =
+  let instrs = trm_inv ~error:"expected seq" trm_seq_inv t_seq in
+  if span.start >= span.stop then begin
+    t_seq
+  end else begin
+    let (span_instrs, instrs_after) = Mlist.split ~left_bias:false span.stop instrs in
+    let (instrs_before, span_instrs) = Mlist.split ~left_bias:true span.start span_instrs in
+    let new_span_components = f span_instrs in
+    trm_seq_helper ~annot:t_seq.annot [
+      TrmMlist instrs_before;
+      SeqComponents new_span_components;
+      TrmMlist instrs_after;
+    ]
   end
 
 let skip_includes (t : trm) : trm =

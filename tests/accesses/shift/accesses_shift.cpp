@@ -1,4 +1,8 @@
+#include <optitrust.h>
+
 void test_var() {
+  __pure();
+
   double x = 0.0;
   x = 1.0;
   double y = x * 1.0;

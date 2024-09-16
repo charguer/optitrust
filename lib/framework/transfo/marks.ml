@@ -2,10 +2,14 @@ include Marks_basic
 
 open Prelude
 
+let remove_maybe_span m =
+  let m_begin, m_end = span_marks m in
+  remove m [nbAny; cOr [[cMark m]; [cMark m_begin]; [cMark m_end]]]
+
 let with_fresh_mark (f : mark -> unit) : unit =
   let m = Mark.next () in
   f m;
-  remove m [nbAny; cMark m]
+  remove_maybe_span m
 
 let with_fresh_mark_on (p : path) (f : mark -> unit) : unit =
   with_fresh_mark (fun m ->
@@ -22,7 +26,7 @@ let with_marks (k : (unit -> mark) -> unit) : unit =
   in
   k(next);
   (* TODO: Marks.remove_all, would be much more efficient --see clean_all? *)
-  List.iter (fun m -> remove m [nbAny; cMark m]) !marks_to_remove
+  List.iter remove_maybe_span !marks_to_remove
 
 let add_next_mark (next_m : unit -> mark) (tg : target) : mark =
   let m = next_m () in

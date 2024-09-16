@@ -516,8 +516,8 @@ let extract_last_dir_before (p : path) : path * int =
 let extract_last_dir_span (p: path) : path * span =
   match extract_last_dir p with
   | parent_path, Span span -> parent_path, span
-  | parent_path, Nth i -> parent_path, { start = i; stop = i+1 }
-  | parent_path, Before i -> parent_path, { start = i; stop = i }
+  | parent_path, Nth i -> parent_path, Dir.span_around i
+  | parent_path, Before i -> parent_path, Dir.span_before i
   | _ ->
       if debug_path then Tools.debug "Path: %s" (path_to_string p);
       path_fail p "Path.extract_last_dir_span expects the last direction to be inside a sequence."
@@ -534,9 +534,6 @@ let split_common_prefix (a : path) (b : path) : path * path * path =
    in
    aux [] a b
 
-let span_including (span : Dir.span) (i : int) : Dir.span =
-  { start = min span.start i; stop = max span.stop i+1 }
-
 (** [identify_common_seq_span]: given a previously identified [seq] and a [span],
   updates the sequence and span to be a common prefix with a span including [p_instr]. *)
 let identify_common_seq_span (seq : path) (span : Dir.span) (p_instr : path) : path * Dir.span =
@@ -544,7 +541,7 @@ let identify_common_seq_span (seq : path) (span : Dir.span) (p_instr : path) : p
   if p1 = []
   then begin
     let (i2, _) = index_in_seq p2 in
-    (prefix, span_including span i2)
+    (prefix, Dir.span_including span i2)
   end else begin
     let (i1, _) = index_in_seq p1 in
     let (i2, _) = index_in_seq p2 in

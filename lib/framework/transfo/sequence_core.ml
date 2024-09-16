@@ -12,15 +12,9 @@ let insert_at (code : trm) (index : int) (t : trm) : trm =
   (* TODO: Should use alter here ? *)
   trm_seq ~annot:t.annot new_tl
 
-(** [delete_at index nb_instr t]: deletes a number of instructions inside the sequence starting
-      from [index] and ending at ([index] + [nb]),
-      [index] - starting index,
-      [nb] - number of instructions to delete,
-      [t] - ast of the outer sequence where the deletion is performed. *)
-let delete_at (index : int) ?(nb_instr : int = 1) (t : trm) : trm =
-  let error = "Sequence_core.delete_aux: expected the sequence on which the trms are deleted." in
-  let tl = trm_inv ~error trm_seq_inv t in
-  trm_seq ~annot:t.annot (Mlist.remove index nb_instr tl)
+(** [delete_at span t_seq]: deletes a span of instructions inside a sequence. *)
+let delete_at (span : Dir.span) (t_seq : trm) : trm =
+  update_span_helper span t_seq (fun _ -> [])
 
 (** [intro_at index nb t]: regroups instructions with indices falling in the range \[index, index + nb) into a sub-sequence,
        [mark] - mark to insert on the new sub-sequence,

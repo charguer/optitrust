@@ -42,9 +42,20 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter scaleField ["X"; "Y"; "Z"];
   let scaleSpeed d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
   !! List.iter scaleSpeed ["X"; "Y"; "Z"];
-  (* CHECK *)
-  !! Accesses.scale ~factor:fieldFactor [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lFieldAtCorners"] ~accesses:[cField ()] ()] ()];
-  !! Accesses.scale ~factor:deltaT [nbMulti; ctx; cReadOrWrite ~addr:[cAccesses ~base:[cVar "lParticles"] ~accesses:[cField ~field:"speed" (); cField ()] ()] ()];
+
+  let lFieldAtCorners = trm_find_var "lFieldAtCorners" [ctx] in
+  let idx_evar = new_var "i" in
+  let pattern_evars = Var_map.(singleton idx_evar None) in
+  let address_pattern field = trm_struct_access (trm_array_access lFieldAtCorners (trm_var idx_evar)) field in
+  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "x") ~pattern_evars [tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
+  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "y") ~pattern_evars [tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
+  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "z") ~pattern_evars [tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
+
+  let particles = trm_find_var "particles" [ctx] in
+  let address_pattern field = trm_struct_access (trm_struct_access (trm_array_access particles (trm_var idx_evar)) "speed") field in
+  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "x") ~pattern_evars [tSpan [tBefore; cFor "idStep"] [tLast]];
+  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "y") ~pattern_evars [tSpan [tBefore; cFor "idStep"] [tLast]];
+  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "z") ~pattern_evars [tSpan [tBefore; cFor "idStep"] [tLast]];
 
   bigstep "finish with style";
   !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];

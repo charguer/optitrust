@@ -20,12 +20,12 @@ let%transfo delete (tg : target) : unit =
   (* TODO: Manage delete of spans *)
   Resources.required_for_check ();
   Target.iter (fun p ->
+    let p_seq, span = Path.extract_last_dir_span p in
     if !Flags.check_validity then begin
       Resources.assert_instr_effects_shadowed p;
       Trace.justif "nothing modified by the instruction is observed later"
     end;
-    let p, i = Internal.isolate_last_dir_in_seq p in
-    apply_at_path (Sequence_core.delete_at i) p
+    apply_at_path (Sequence_core.delete_at span) p_seq
   ) tg
 
 (** [intro i nb tg]: expects the target [tg] to point at an instruction inside a sequence.

@@ -1050,7 +1050,7 @@ let delete_void_on (i : int) (t_seq : trm) : trm option =
       if Mlist.is_empty body && Resources.trm_is_pure range.start && Resources.trm_is_pure range.stop && Resources.trm_is_pure range.step
       (* TODO: No need to check pure range if this is a global invariant of Trm_for *)
       (* 2. delete *)
-      then Some (Sequence_core.delete_at i t_seq)
+      then Some (Sequence_core.delete_at (Dir.span_around i) t_seq)
       else None
     ))
 

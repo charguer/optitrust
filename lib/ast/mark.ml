@@ -74,7 +74,6 @@ let trm_rem_mark_between (m : mark) (t : trm) : trm =
     trm_seq ~annot:t.annot ~ctx:t.ctx ?loc:t.loc new_tl
   | _ -> trm_fail t "Ast.trm_rem_mark_between: expected a sequence"
 
-(** [trm_rem_mark_between m t]: removes the span mark [m] from trm [t] *)
 let trm_rem_mark_span (m: mark) (t: trm): trm =
   let (m_begin, m_end) = span_marks m in
   let t = trm_rem_mark_between m_begin t in
