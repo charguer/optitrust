@@ -792,6 +792,14 @@ let ensure_header (h : string) : unit =
   if not found then
     the_trace.context <- { ctx with header = ctx.header ^ h ^ "\n" }
 
+(** [drop_header h]: removes the header [h] from the current file, if needed. *)
+let drop_header (h : string) : unit =
+  let ctx = the_trace.context in
+  let found = Tools.pattern_matches h (ctx.header) in
+  if found then
+    let without = Tools.string_subst (h ^ "\n") "" ctx.header in
+    the_trace.context <- { ctx with header = without }
+
 (* [output_prog ctx prefix ast]: writes the program described by the term [ast]
    in several files:
    - one describing the raw AST ("prefix.ast")
