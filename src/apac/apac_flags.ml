@@ -5,6 +5,12 @@
 
 (** {1 Generic parameters} *)
 
+(** [input]: path to the input source code. *)
+let input : string ref = ref ""
+
+(** [output]: path to the output source code. *)
+let output : string ref = ref ""
+
 (** [verbose]: toggles verbose output for debugging purposes. *)
 let verbose : bool ref = ref false
 
