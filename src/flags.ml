@@ -107,10 +107,6 @@ let execute_show_even_in_batch_mode : bool ref = ref false
 (* [check_validity]: perform validation of transformations *)
 let check_validity = ref false
 
-(* [skip_argument_processing]: do not process command-line arguments. This is
-   useful when using OptiTrust as a library instead of calling it directly. *)
-let skip_argument_processing : bool ref = ref false
-
 (* [serialized_mode]: type to deal with serialized AST ,
   | Serialized_None: do not read or write any serialized ast, just parse the input file.
   | Serialized_Build: parse the input file, save its serialized ast, exit
@@ -211,15 +207,12 @@ let fix_flags () =
    If args are given, add them to the list of possible flags.
    This function has no effect if it was already called before. *)
 let process_cmdline_args ?(args : cmdline_args = []) () : unit =
-  if not !skip_argument_processing then
-    begin
-      process_program_name();
-      Arg.parse
-        (Arg.align (spec @ args))
-        (fun _ -> raise (Arg.Bad "Error: no argument expected"))
-        ("usage: no argument expected, only options");
-      fix_flags()
-    end
+  process_program_name();
+  Arg.parse
+    (Arg.align (spec @ args))
+    (fun _ -> raise (Arg.Bad "Error: no argument expected"))
+    ("usage: no argument expected, only options");
+  fix_flags()
 
 (* [documentation_ssave_file_atfirst_check]: flag used for a hack used by function [doc_script_cpp], for generating
     the output associated with the documentation of a unit test, before running the main contents of the file. *)
