@@ -185,7 +185,7 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
                                  | Dep_trm (t, v) -> v :: acc
                                  | _ -> acc) firstprivate [] in
           let depth_local_var = new_var (get_apac_variable ApacDepthLocal) in
-          let firstprivate = if !Apac_macros.instrument_code then
+          let firstprivate = if !Apac_flags.instrument then
                                depth_local_var :: firstprivate
                              else firstprivate in
           let firstprivate = if (List.length firstprivate) > 0 then
@@ -194,7 +194,7 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let cutoff = [If (get_cutoff ())] in
           let clauses = shared @ depend in
           let clauses = clauses @ firstprivate in
-          let clauses = if !Apac_macros.instrument_code then
+          let clauses = if !Apac_flags.instrument then
                           clauses @ cutoff
                         else clauses in
           let clauses = if Option.is_some t.cost then
@@ -207,13 +207,13 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let count_preamble = count_update false in
           let depth_preamble = depth_update () in
           let count_postamble = count_update true in
-          let instr = if !Apac_macros.instrument_code then
+          let instr = if !Apac_flags.instrument then
                         depth_preamble :: t.current
                       else t.current in
-          let instr = if !Apac_macros.instrument_code then
+          let instr = if !Apac_flags.instrument then
                         instr @ [count_postamble]
                       else instr in
-          let instr = if not (!Apac_macros.instrument_code) &&
+          let instr = if not (!Apac_flags.instrument) &&
                            (List.length instr < 2) then
                         List.hd instr
                       else trm_seq_nomarks instr in
@@ -221,7 +221,7 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let instr = if sync <> [] then
                         trm_add_pragma (Taskwait sync) instr
                       else instr in
-          if !Apac_macros.instrument_code then [count_preamble; instr]
+          if !Apac_flags.instrument then [count_preamble; instr]
           else [instr]
         end
     end
@@ -344,7 +344,7 @@ let rec trm_from_task_candidate ?(heapification : bool = true)
     sections. *)
 let profile_tasks (tg : target) : unit =
   (** Include the header providing profiling elements. *)
-  Trace.ensure_header Apac_macros.profiler_include;
+  Trace.ensure_header Apac_macros.profile_include;
   Target.apply (fun t p ->
       Path.apply_on_path (fun t ->
           (** Find the parent function [f]. *)
@@ -370,7 +370,7 @@ let profile_tasks (tg : target) : unit =
           let ast = Mlist.of_list (sections @ ast) in
           let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
           (** Dump the resulting abstract syntax tree, if requested. *)
-          if !Apac_macros.verbose then
+          if !Apac_flags.verbose then
             begin
               let msg = Printf.sprintf "Abstract syntax tree of `%s' with profiling \
                                         instructions" (var_to_string f) in
@@ -397,7 +397,7 @@ let insert_tasks_on (p : path) (t : trm) : trm =
   let ast = Mlist.of_list ast in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
   (** Dump the resulting abstract syntax tree, if requested. *)
-  if !Apac_macros.verbose then
+  if !Apac_flags.verbose then
     begin
       let msg = Printf.sprintf "Parallel abstract syntax tree of `%s'"
                   (var_to_string f) in

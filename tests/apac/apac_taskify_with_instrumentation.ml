@@ -2,8 +2,8 @@ open Optitrust
 open Target 
 
 let _ = Run.script_cpp (fun () ->
-            let _ = Flags.code_print_width := 1024 in
-            let _ = Apac_macros.instrument_code := true in
+            Flags.code_print_width := 1024;
+            Apac_flags.instrument := true;
             !! Apac_prologue.build_records [
                 nbAny;
                 cFunDefAndDecl ""

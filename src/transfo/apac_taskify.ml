@@ -982,12 +982,13 @@ let taskify_on (p : path) (t : trm) : unit =
     (** Optimize the edges of the graph thanks to transitive reduction. *)
     r.graph <- TaskGraphOper.recursive_transitive_reduction r.graph;
     (** Dump the output task candidate graph, if requested. *)
-    if !Apac_macros.verbose then
+    if !Apac_flags.verbose then
       begin
         Printf.printf "Task candidate graph of `%s':\n" (var_to_string f);
         TaskGraphPrinter.print r.graph
       end;
-    if !Apac_macros.keep_graphs then TaskGraphExport.to_pdf r.graph (gf f)
+    if !Apac_flags.keep_graphs then
+      TaskGraphExport.to_pdf r.graph (Apac_macros.gf f)
 
 (** [taskify tg]: expects the target [tg] to point at a function body. It then
     translates its abstract syntax tree representation into a task candidate
@@ -1111,13 +1112,13 @@ let merge_on (p : path) (t : trm) : unit =
   (** Apply the merge on the task candidate graph of [f] in [r]. *)
   one r.graph;
   (** Dump the resulting task candidate graph, if requested. *)
-  if !Apac_macros.verbose then
+  if !Apac_flags.verbose then
     begin
       Printf.printf "Task candidate graph of `%s' (merge):\n" (var_to_string f);
       TaskGraphPrinter.print r.graph
     end;
-  if !Apac_macros.keep_graphs then
-    TaskGraphExport.to_pdf r.graph (gf ~suffix:"merge" f)
+  if !Apac_flags.keep_graphs then
+    TaskGraphExport.to_pdf r.graph (Apac_macros.gf ~suffix:"merge" f)
 
 (** [merge tg]: expects the target [tg] to point at a function body. It then
     tries to optimize its task candidate graph representation by merging
@@ -1235,14 +1236,14 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
       to a function we know the definition of. *)
   TaskGraphTraverse.iter aux r.graph;
   (** Dump the resulting task candidate graph, if requested. *)
-  if !Apac_macros.verbose then
+  if !Apac_flags.verbose then
     begin
       Printf.printf "Task candidate graph of `%s' (detection):\n"
         (var_to_string f);
       TaskGraphPrinter.print r.graph
     end;
-  if !Apac_macros.keep_graphs then
-    TaskGraphExport.to_pdf r.graph (gf ~suffix:"detection" f)
+  if !Apac_flags.keep_graphs then
+    TaskGraphExport.to_pdf r.graph (Apac_macros.gf ~suffix:"detection" f)
 
 (** [detect_tasks_simple tg]: expects the target [tg] to point at a function
     body. It then scans its task candidate graph representation for eligible

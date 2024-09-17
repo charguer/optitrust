@@ -42,7 +42,7 @@ let formulas = Hashtbl.create 97
     ]}
 
     generates the following additional statements involving the elements of
-    the profiling header [!Apac_miscellaneous.profiler_hpp]
+    the profiling header [!Apac_macros.profile_hpp]
 
     - a declaration of a profiling section (see [apac_s] in the header),
     - a call to the initialization method of the profiling section (see
@@ -109,12 +109,13 @@ let codegen (sections : trm Stack.t) (v : TaskGraph.V.t) : trms =
     let h' = string_of_int h in
     (** This allows us to generate a unique name as well as the corresponding
         variable for the new profiling section to surround [v] with. *)
-    let s = Apac_macros.profiler_section ^ h' in
+    let s = Apac_macros.profile_section_prefix ^ h' in
     let s' = new_var s in
     (** We then generate the declaration of the section variable without
         explicitly initializing it. *)
-    let section = trm_let_mut (s', Typ.typ_str (Atyp "apac_s"))
-                    (trm_uninitialized ()) in
+    let section = trm_let_mut (
+                      s', Typ.typ_str (Atyp Apac_macros.profile_section_type)
+                    ) (trm_uninitialized ()) in
     (** In the next step, we produce the [add] calls, in [params], for each
         parameter of the task candidate, we want to record the value of for the
         performance modelization. [i] increases with each call to [add] and
@@ -155,7 +156,8 @@ let codegen (sections : trm Stack.t) (v : TaskGraph.V.t) : trms =
                          an argument so as to effectively record the value [arg]
                          evaluates to at runtime for performance
                          modelization. *)
-                     let p' = (call s' "add" [arg]) :: p in
+                     let p' =
+                       (call s' Apac_macros.profile_section_add [arg]) :: p in
                      incr i; (m, p')
                    end
                  else
@@ -166,11 +168,15 @@ let codegen (sections : trm Stack.t) (v : TaskGraph.V.t) : trms =
         ) t.current (Int_map.empty, []) in
     (** Finally, we produce the call to [apac_s::initialize] for the new
         profiling section as well as *)
-    let opening = call s' "initialize" [trm_string h'] in
+    let opening = call s' Apac_macros.profile_section_init [trm_string h'] in
     (** the call to [apac_s::before] and *)
-    let before = code (Instr (s ^ ".before()")) in
+    let before = code
+                   (Instr
+                      (s ^ "." ^ Apac_macros.profile_section_before ^ "()")) in
     (** the call to [apac_s::after]. *)
-    let after = code (Instr (s ^ ".after()")) in
+    let after = code
+                  (Instr
+                     (s ^ "." ^ Apac_macros.profile_section_after ^ "()")) in
     (** We store the section declaration term in the [sections] stack and *)
     Stack.push section sections;
     (** the correspondences between parameter terms and their generic names in
@@ -198,8 +204,7 @@ let modelize (tg : target) : unit =
       the parsing fails, it raises [IllFormedModel] with the problematic [line]
       as an argument. *)
   let one (line : string) : int * string =
-    let regex =
-      Str.regexp "\\([0-9]+\\)(nbparams=[0-9]+)=\\(None\\|[^=\n]+\\)" in
+    let regex = Str.regexp Apac_macros.model_re in
     if Str.string_match regex line 1 then
       let vertex = Str.matched_group 1 line in
       let formula = Str.matched_group 2 line in
@@ -235,7 +240,7 @@ let modelize (tg : target) : unit =
         as an argument. If it fails to decode the power expression, it raises
         [IllFormedPower] and passes [op] as an argument. *)
     let pow (p : trm Int_map.t) (op : string) : trm =
-      let re = Str.regexp "apac_fpow<\\([0-9]+\\)>(X\\([0-9]+\\))" in
+      let re = Str.regexp Apac_macros.model_pow_re in
       if Str.string_match re op 0 then
         let exp = int_of_string (Str.matched_group 1 op) in
         let base = int_of_string (Str.matched_group 2 op) in
@@ -245,7 +250,7 @@ let modelize (tg : target) : unit =
           (** Building the power function variable term using
               [trm_toplevel_free_var] allows us to use it without declaring
               it in the abstract syntax tree of the input program. *)
-          let f = trm_toplevel_free_var "apac_fpow" in
+          let f = trm_toplevel_free_var Apac_macros.model_pow in
           (** The resulting call is like [apac_fpow(exponent, base)]. *)
           trm_apps f [exp; base]
         else
@@ -267,9 +272,11 @@ let modelize (tg : target) : unit =
       let ops = Str.split re op in
       let ops = List.map String.trim ops in
       let ops = List.map (fun op ->
-                    if (String.starts_with ~prefix:"apac_fpow" op) then
+                    if (String.starts_with
+                          ~prefix:Apac_macros.model_pow op) then
                       pow p op
-                    else if (String.starts_with ~prefix:"X" op) then
+                    else if (String.starts_with
+                               ~prefix:Apac_macros.model_parameter op) then
                       let id = int_of_string (String.make 1 op.[1]) in
                       if (Int_map.mem id p) then
                         Int_map.find id p
@@ -296,8 +303,8 @@ let modelize (tg : target) : unit =
         if (Hashtbl.mem parameters v) then
           let p = Hashtbl.find parameters v in
           (** If the modelization judges [v] is worth of becoming a
-              parallelizable task, i.e. when [f] is not [None], *)
-          if f <> "None" then
+              parallelizable task, *)
+          if f <> Apac_macros.model_na then
             (** transpile the formula from its string form into the
                 corresponding abstract syntax tree term and *)
             let re = Str.regexp "\\+" in
@@ -351,27 +358,42 @@ let modelize (tg : target) : unit =
           profiling instructions, the corresponding [binary], [profile] and
           execution time [model] files. *)
       let (header, code, binary, profile, model) =
-        Apac_miscellaneous.hcbpm () in
+        Apac_macros.runtime_analysis_files () in
+      (** Generate file names for logs from building [code], running [binary]
+          and computing an execution time model from [profile]. *)
+      let (build, run, modeling) = Apac_macros.runtime_analysis_logs () in
       (** Synthesize the contents of the header with profiling class definitions
           and save it as [header]. *)
-      Apac_miscellaneous.profiler_hpp profile header;
+      Apac_macros.profile_hpp profile header;
       (** Take the current abstract syntax tree of the program and output it as
           C++ source code to [code]. *)
       Trace.output_prog ~ast_and_enc:false (Trace.get_context ()) code t;
+      (** Remove the header with profiling class definitions from the current
+          context, so it does not appear in the final parallel source code. We
+          have just produced the source code using the header, so we do not need
+          it in the current context anymore. *)
+      Trace.drop_header Apac_macros.profile_include;
       (** Compile [code] into [binary]. *)
-      let err = Sys.command ("g++ -o " ^ binary ^ " " ^ code ^ ".cpp") in
+      let err = Sys.command (
+                    Apac_macros.compile_cmdline code binary ^ " > " ^ build
+                  ) in
       if err <> 0 then
         failwith "Apac_profiler.modelize: could not compile source code with \
                   profiling instructions."
       else
         (** Run [binary] which produces [profile]. *)
-        let err = Sys.command binary in
+        let err = Sys.command (
+                      Apac_macros.profile_cmdline binary ^ " > " ^ run
+                    ) in
         if err <> 0 then
           failwith "Apac_profiler.modelize: could not perform the profiling \
                     run."
         else
           (** Run the modelizer script on [profile] which produces [model]. *)
-          let err = Sys.command ("python3 -m apac_modelizer " ^ profile) in
+          let err = Sys.command (
+                        Apac_macros.model_cmdline profile model ^ " > " ^
+                          modeling
+                      ) in
           if err <> 0 then
             failwith "Apac_profiler.modelize: could not compute execution time \
                       model."
@@ -381,7 +403,7 @@ let modelize (tg : target) : unit =
               process model;
               (** Dump the resulting execution time estimation formulas when in
                   verbose mode. *)
-              if !Apac_macros.verbose then
+              if !Apac_flags.verbose then
                 begin
                   Printf.printf
                     "Execution time estimation formulas (task candidate hash, \
@@ -392,7 +414,8 @@ let modelize (tg : target) : unit =
                          Printf.printf "(%d: %s)\n" v
                            (AstC_to_c.ast_to_string f)
                       | None ->
-                         Printf.printf "(%d: None)\n" v
+                         Printf.printf "(%d: %s)\n" v
+                           Apac_macros.model_na
                     ) formulas
                 end
             end          
@@ -464,13 +487,13 @@ let optimize (tg : target) : unit =
           performance model, i.e. the execution time estimation [formulas]. *)
       TaskGraphTraverse.iter aux r.graph;
       (** Dump the resulting task candidate graph, if requested. *)
-      if !Apac_macros.verbose then
+      if !Apac_flags.verbose then
         begin
           Printf.printf "Task candidate graph of `%s' (optimization):\n"
             (var_to_string f);
           TaskGraphPrinter.print r.graph
         end;
-      if !Apac_macros.keep_graphs then
+      if !Apac_flags.keep_graphs then
         TaskGraphExport.to_pdf
-          r.graph (Apac_miscellaneous.gf ~suffix:"optimization" f)
+          r.graph (Apac_macros.gf ~suffix:"optimization" f)
     ) tg

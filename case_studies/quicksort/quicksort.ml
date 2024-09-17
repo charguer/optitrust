@@ -4,9 +4,9 @@ open Typ
 open Ast
 
 let _ = Run.script_cpp (fun () ->
-            let _ = Flags.code_print_width := 1024 in
-            let _ = Apac_macros.instrument_code := false in
-            let _ = Apac_macros.keep_graphs := true in
+            Flags.code_print_width := 1024;
+            Apac_flags.instrument := false;
+            Apac_flags.keep_graphs := true;
             !! Apac_prologue.build_records [
                 nbAny;
                 cFunDefAndDecl ""

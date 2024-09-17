@@ -1311,7 +1311,8 @@ let constify_aliases_on ?(cm : m option = None) ?(crs : r option = None)
                    mark the multiple variable declaration and keep track of it
                    in the hash table [cm] (see type [!type:m]) and process it
                    later in [!constify]. *)
-               let mark = Apac_macros.const_mult_mark ^ (Mark.next ()) in
+               let mark = Apac_macros.constify_declaration_mark  ^
+                            (Mark.next ()) in
                Hashtbl.add (Option.get cm) mark a;
                (** At this stage, we leave [t] unchanged. We only mark it. *)
                Mark.trm_add_mark mark t
