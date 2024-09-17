@@ -10,9 +10,7 @@ open Ast
 (** {1 Generic parameters} *)
 
 (** [cwd]: returns the path to the current working directory. *)
-let cwd () : string =
-  Flags.process_program_name ();
-  Filename.dirname (!Flags.program_name)
+let cwd () : string = Filename.dirname (!Apac_flags.input)
 
 (** {1 Pre-processing stage} *)
 
@@ -254,11 +252,10 @@ let model_cmdline (p : string) (m : string) : string =
     binary executable, the resulting profile and model files. *)
 let runtime_analysis_files () : string * string * string * string * string =
   let here = cwd () ^ "/" in
-  let this = Filename.remove_extension
-               (Filename.basename !Flags.program_name) in
+  let this = Filename.remove_extension (Filename.basename !Apac_flags.input) in
   let header = here ^ profile_header in
   let here = here ^ this in
-  let code = here ^ "_profiling.cpp" in
+  let code = here ^ "_profiling" in
   let binary = here ^ "_profiling.bin" in
   let profile = here ^ ".profile" in
   let model =  here ^ ".model" in
@@ -268,8 +265,7 @@ let runtime_analysis_files () : string * string * string * string * string =
     and modeling logs. *)
 let runtime_analysis_logs () : string * string * string =
   let here = cwd () ^ "/" in
-  let this = Filename.remove_extension
-               (Filename.basename !Flags.program_name) in
+  let this = Filename.remove_extension (Filename.basename !Apac_flags.input) in
   let here = here ^ this in
   let build = here ^ "_build.log" in
   let run = here ^ "_run.log" in

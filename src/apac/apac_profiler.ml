@@ -367,7 +367,8 @@ let modelize (tg : target) : unit =
       Apac_macros.profile_hpp profile header;
       (** Take the current abstract syntax tree of the program and output it as
           C++ source code to [code]. *)
-      Trace.output_prog ~ast_and_enc:false (Trace.get_context ()) code t;
+      let context = Trace.get_context () in
+      Trace.output_prog ~ast_and_enc:false context code t;
       (** Remove the header with profiling class definitions from the current
           context, so it does not appear in the final parallel source code. We
           have just produced the source code using the header, so we do not need
@@ -375,7 +376,8 @@ let modelize (tg : target) : unit =
       Trace.drop_header Apac_macros.profile_include;
       (** Compile [code] into [binary]. *)
       let err = Sys.command (
-                    Apac_macros.compile_cmdline code binary ^ " > " ^ build
+                    Apac_macros.compile_cmdline
+                      (code ^ context.extension) binary ^ " > " ^ build
                   ) in
       if err <> 0 then
         failwith "Apac_profiler.modelize: could not compile source code with \
