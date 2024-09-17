@@ -327,7 +327,8 @@ let apac (input : string) (output : string) : unit =
             may_report_time "apac-exec" Apac_main.compile
           with
           | Stop -> Printf.printf "Run.apac: compilation succeeded."
-          | e -> failwith "Run.apac: compilation failed."
+          | exn ->
+             begin Printf.printf "Run.apac: compilation failed."; raise exn end
         end;
         (** Ensure the messages from within the sequence are on the screen. *)
         flush stdout;
