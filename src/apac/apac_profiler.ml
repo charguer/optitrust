@@ -280,22 +280,9 @@ let modelize (tg : target) : unit =
                   ) ops in
       List.fold_left (fun acc op -> trm_mul acc op) (List.hd ops) (List.tl ops)
     in
-    (** This is the core of the [process] function. It begins by skipping the
-        first line of [model] giving the number of entries in the file. We do
-        not need this information here. *)
+    (** This is the core of the [process] function. We simply read [model]
+        line-by-line until the end of the file. *)
     let model' = open_in model in
-    begin
-      try
-        ignore (input_line model')
-      with
-      | End_of_file ->
-         begin
-           close_in model';
-           failwith ("Apac_profiler.modelize: `" ^ model ^
-                       "' is not a valid model file.")
-         end
-    end;
-    (** We simply read [model] line-by-line until the end of the file. *)
     try
       while true do
         (** For each [line] we read, *)
