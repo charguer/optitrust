@@ -155,6 +155,8 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     | None -> default_basename ^ extension
   in
 
+  Apac_flags.input := filename;
+
   let produce_trace () : unit =
     may_report_time "dump-trace" (fun () ->
       Trace.dump_trace_to_js ~beautify:true ~prefix ();
