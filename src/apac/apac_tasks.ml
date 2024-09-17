@@ -482,6 +482,7 @@ end
 (** [TaskGraphTraverse]: a module implementing a traversal function for task
     graphs. *)
 module TaskGraphTraverse : sig
+  type t = Strict | Priority | Relaxed
   val fold : TaskGraph.t -> TaskGraph.V.t list
   val codify : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
   val iter : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
@@ -489,6 +490,21 @@ module TaskGraphTraverse : sig
 end = struct
   (** [TaskGraphTraverse.H]: a hash table module for task graph vertices. *)
   module H = Hashtbl.Make(TaskGraph.V)
+  
+  (** [TaskGraphTraverse.t]: enumeration of algorithmic variants for traversing
+      task candidate graphs. *)
+  type t =
+    (** Follow the original lexical order of statements in the input program. *)
+    | Strict
+    (** Perform a breadth-first traversal, but when a task candidate [v] belongs
+        to a sequence of inter-dependent vertices, where the first vertex has
+        exactly one successor, the last vertex has exactly one predecessor and
+        all the intermediate vertices have exactly one predecessor and exactly
+        one successor, visit the entire sequence in addition to [v]. *)
+    | Priority
+    (** Perform a conventional breadth-first traversal. *)
+    | Relaxed
+  
   (** [TaskGraphTraverse.seq v g]: starting from the vertex [v] in the task
       candidate graph [g], find the longest sequence of inter-dependent
       vertices, where the first vertex has exactly one successor, the last
