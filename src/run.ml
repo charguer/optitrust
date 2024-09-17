@@ -303,6 +303,50 @@ let script_cpp ?(filename : string option) ?(prepro : string list = [])
       
       script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f)
 
+(** [apac input output]: parse the [input] source code, apply Automatic
+    PArallelizer for C on its abstract syntax tree representation and generate
+    the resulting [output] source code. *)
+let apac (input : string) (output : string) : unit =
+  let exi = Filename.extension input in
+  let exo = Filename.extension output in
+  if exi <> exo then
+    failwith "Run.apac: extension mismatch between the input and the output \
+              source code files.";
+  may_report_time "apac" (fun () ->
+      try
+        (** Set the input file to [input]. *)
+        Apac_flags.input := input;
+        Trace.init ~parser:(CParsers.get_default ()) !Apac_flags.input;
+        (** Set the output file to [output]. *)
+        Apac_flags.output := output;
+        (** Perform and benchmark the transformation [sequence]. *)
+        begin
+          try
+            may_report_time "apac-exec" Apac_main.compile
+          with
+          | Stop -> Printf.printf "Run.apac: compilation succeeded."
+          | e -> failwith "Run.apac: compilation failed."
+        end;
+        (** Ensure the messages from within the sequence are on the screen. *)
+        flush stdout;
+        (** Store the current abstract syntax tree as the last history point. *)
+        Trace.close_smallstep_if_needed ();
+        Trace.close_bigstep_if_needed ();
+        (** Write the current abstract syntax tree to the [output] file. *)
+        Trace.dumping_step (fun () ->
+            Trace.output_prog
+              (Trace.get_context ())
+              (Filename.chop_extension output)
+              (Trace.ast ())
+          );
+        (** Finalize the compilation process. *)
+        Trace.finalize ();
+        Trace.close_logs ();
+      with
+      | exn ->
+         begin Printf.printf "Run.apac: compilation failed."; raise exn end
+    )
+
 (* [doc_script_cpp ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
     as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
     executes the transformation [f] using [script_cpp]  *)
