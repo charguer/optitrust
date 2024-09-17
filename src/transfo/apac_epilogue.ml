@@ -70,6 +70,15 @@ let subst_pragmas (va : var) (tv : trm)
                                        | In dl -> In (dl @ !io)
                                        | _ -> dt) dl' in
                          Depend dl'
+                      | If e ->
+                         let v0 = Val_lit (Lit_int 0) in
+                         let v0 = trm_val v0 in
+                         let tv' = match e.desc with
+                           | Trm_var (_, v') when v' = va ->
+                              trm_array_get (trm_get tv) v0
+                           | _ -> trm_get tv
+                         in
+                         If (trm_subst_var va tv' e)
                       | _ -> c) cl'
                 else []
       in
@@ -380,26 +389,24 @@ let heapify_on (t : trm) : trm =
         let dt = trm_delete (!delete = 2) vt in
         let fp = new_var (get_apac_variable ApacDepthLocal) in
         let fp = [FirstPrivate [fp]] in
-        let co = (get_apac_variable ApacCountOk) ^ " || " ^
-                         (get_apac_variable ApacDepthOk) in
-        let co = [If co] in
+        let co = [If (Apac_backend.get_cutoff ())] in
         let inout = Dep_var v in
         let inout = [Inout [inout]] in
         let depend = [Depend inout] in
         let clauses = [Default Shared_m] in
         let clauses = clauses @ depend in
-        let clauses = if !Apac_macros.instrument_code then clauses @ fp @ co
+        let clauses = if !Apac_flags.instrument then clauses @ fp @ co
                       else clauses in
         let pragma = Task clauses in
         let count_preamble = count_update false in
         let depth_preamble = depth_update () in
         let count_postamble = count_update true in
-        let dt = if !Apac_macros.instrument_code then
+        let dt = if !Apac_flags.instrument then
                    let dt' = [depth_preamble; dt; count_postamble] in
                    trm_seq_nomarks dt'
                  else dt in
         let dt = trm_add_pragma pragma dt in
-        let dt = if !Apac_macros.instrument_code then
+        let dt = if !Apac_flags.instrument then
                    Syntax.trm_seq_no_brace [count_preamble; dt]
                  else dt in
         Queue.add dt deletes;
@@ -576,7 +583,7 @@ let instrument_unit_on ?(backend : task_backend = OpenMP) (t : trm) : trm =
                  ("const static int " ^
                     (get_apac_variable ApacCountInfinite) ^
                       " = getenv(\"" ^
-                        Apac_macros.apac_count_infinite ^
+                        Apac_macros.count_infinite ^
                           "\") ? 1 : 0"))
   in
   (* Build the definition term of the flag allowing the end-user to disable the
@@ -586,7 +593,7 @@ let instrument_unit_on ?(backend : task_backend = OpenMP) (t : trm) : trm =
                  ("const static int " ^
                     (get_apac_variable ApacDepthInfinite) ^
                       " = getenv(\"" ^
-                        Apac_macros.apac_depth_infinite ^
+                        Apac_macros.depth_infinite ^
                           "\") ? 1 : 0"))
   in
   (* Build the definition term of the parameter allowing the end-user to
@@ -596,12 +603,12 @@ let instrument_unit_on ?(backend : task_backend = OpenMP) (t : trm) : trm =
                  ("const static int " ^
                     (get_apac_variable ApacCountMax) ^
                       " = getenv(\"" ^
-                        Apac_macros.apac_count_max ^
+                        Apac_macros.count_max ^
                           "\") ? atoi(getenv(\"" ^
-                            Apac_macros.apac_count_max ^
+                            Apac_macros.count_max ^
                               "\")) : omp_get_max_threads() * " ^
                                 (string_of_int
-                                   Apac_macros.apac_count_thread_factor)))
+                                   !Apac_flags.count_max_thread_factor)))
   in
   (* Build the definition term of the parameter allowing the end-user to
      manually set the maximum task depth. *)
@@ -610,12 +617,12 @@ let instrument_unit_on ?(backend : task_backend = OpenMP) (t : trm) : trm =
                  ("const static int " ^
                     (get_apac_variable ApacDepthMax) ^
                       " = getenv(\"" ^
-                        Apac_macros.apac_depth_max ^
+                        Apac_macros.depth_max ^
                           "\") ? atoi(getenv(\"" ^
-                            Apac_macros.apac_depth_max ^
+                            Apac_macros.depth_max ^
                               "\")) : " ^
                                 (string_of_int
-                                   Apac_macros.apac_depth_max_default)))
+                                   !Apac_flags.depth_max_default)))
   in
   (* Build the definition term of the counter of active tasks. *)
   let c1 = code
@@ -728,14 +735,14 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
   TaskGraphTraverse.iter (synchronize scope subscripts r.graph) r.graph;
   Stack.iter (fun (d, v, g) -> process d v g) subscripts;
   (** Dump the resulting task candidate graph, if requested. *)
-  if !Apac_macros.verbose then
+  if !Apac_flags.verbose then
     begin
       Printf.printf "Task candidate graph of `%s' (sync. subscripts):\n"
         (var_to_string f);
       TaskGraphPrinter.print r.graph
     end;
-  if !Apac_macros.keep_graphs then
-    TaskGraphExport.to_pdf r.graph (gf ~suffix:"subscripts" f)
+  if !Apac_flags.keep_graphs then
+    TaskGraphExport.to_pdf r.graph (Apac_macros.gf ~suffix:"subscripts" f)
 
 let synchronize_subscripts (tg : target) : unit =
   Target.iter (fun t p ->
@@ -823,26 +830,17 @@ let place_barriers_on (p : path) (t : trm) : unit =
               task candidate graphs, if any. We process the task candidates in
               nested task candidate graphs separately through a recurive call to
               this function (see below). *)
-          let ins = if t.children <> [[]] then
-                      Dep_set.filter (fun d ->
-                          Dep_map.has_with_attribute d Condition t.ioattrs
-                        ) t.ins
-                    else t.ins in
-          let inouts = if t.children <> [[]] then
-                         Dep_set.filter (fun d ->
-                             Dep_map.has_with_attribute d Condition t.ioattrs
-                           ) t.inouts
-                       else t.inouts in
-          let temp : Task.t = {
-              schedule = t.schedule;
-              current = t.current;
-              attrs = t.attrs;
-              ins = ins;
-              inouts = inouts;
-              ioattrs = t.ioattrs;
-              children = t.children;
-            }
-          in
+          let temp = Task.copy t in
+          temp.ins <- if t.children <> [[]] then
+                        Dep_set.filter (fun d ->
+                            Dep_map.has_with_attribute d Condition t.ioattrs
+                          ) t.ins
+                      else t.ins;
+          temp.inouts <- if t.children <> [[]] then
+                           Dep_set.filter (fun d ->
+                               Dep_map.has_with_attribute d Condition t.ioattrs
+                             ) t.inouts
+                         else t.inouts;
           (** Check whether the temporary task candidate shares a data
               dependency with a preceding eligible task candidate. *)
           let depends = Stack.fold (fun acc task' ->
@@ -887,14 +885,14 @@ let place_barriers_on (p : path) (t : trm) : unit =
      let stop = ref false in
      TaskGraphTraverse.iter_schedule (process e stop ts) r.graph;
      (** Dump the resulting task candidate graph, if requested. *)
-     if !Apac_macros.verbose then
+     if !Apac_flags.verbose then
        begin
          Printf.printf "Task candidate graph of `%s' (with barriers):\n"
            (var_to_string f);
          TaskGraphPrinter.print r.graph
        end;
-     if !Apac_macros.keep_graphs then
-       TaskGraphExport.to_pdf r.graph (gf ~suffix:"barriers" f)
+     if !Apac_flags.keep_graphs then
+       TaskGraphExport.to_pdf r.graph (Apac_macros.gf ~suffix:"barriers" f)
   | None ->
      let error = Printf.sprintf
                    "Apac_epilogue.place_barriers_on: no eligible task \
@@ -980,4 +978,30 @@ let clear_marks () : unit =
   Marks.remove Apac_macros.heapify_breakable_mark [
       nbAny;
       cMark Apac_macros.heapify_breakable_mark
-    ];
+    ]
+
+let dynamic_cutoff (tg : target) : unit =
+  Target.apply_at_target_paths (fun t ->
+      (** Deconstruct the sequence [s] in the term [t]. *)
+      let error = "Apac_epilogue.dynamic_cutoff: expected a target to a \
+                   sequence" in
+      let s = trm_inv ~error trm_seq_inv t in
+      (** Build the definition term [co] of the global variable [ApacCutOff]
+          (see type [!type:apac_variable]) while [init]ializing it to
+          [!Apac_macros.apac_dynamic_cutoff]. *)
+      let init =
+        code
+          (Expr
+             ("getenv(\"" ^ Apac_macros.dynamic_cutoff ^
+                "\") ? atof(getenv(\"" ^  Apac_macros.dynamic_cutoff ^
+                  "\")) : 2.22100e-6")) in
+      let co = new_var (get_apac_variable ApacCutOff) in
+      let co = trm_let_immut (co, typ_double ()) init in
+      (** Include the definition of a function to compute powers. *)
+      let pow = code (Stmt Apac_macros.pow) in
+      (** Build a marked list [header] containg [co] and [pow] so as to *)
+      let header = Mlist.of_list [co; pow] in
+      (** finally build a sequence consisting of [header] pre-pending the
+          original sequence [s]. *)
+      trm_seq ~ctx:t.ctx ~annot:t.annot (Mlist.merge header s)
+    ) tg

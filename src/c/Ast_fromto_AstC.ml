@@ -182,6 +182,9 @@ let stackvar_intro_pragmas
                                        | Sink dl -> Sink (aux dl)
                                        | _ -> dt) dl in
                          Depend dl'
+                      | If e ->
+                         let e = trm_simplify_addressof_and_get (f e) in
+                         If e
                       | _ -> c) cl'
                 else []
       in

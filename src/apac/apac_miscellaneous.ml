@@ -1,45 +1,6 @@
 open Ast
 open Typ
 
-(** [cwd]: returns the path to the current working directory. *)
-let cwd () : string =
-  Flags.process_program_name ();
-  Filename.dirname (!Flags.program_name)
-
-(** [gwd]: returns the path to a directory within the current working directory
-    to store task candidate graphs in. If this directory does not exists, this
-    function creates it. *)
-let gwd () : string =
-  (** Build the full path to the destination directory. *)
-  let path = (cwd ()) ^ "/" ^ !Apac_macros.keep_graphs_in in
-  if (Sys.file_exists path) then
-    if (Sys.is_directory path) then
-      (** If the path points to an existing directory, just return it. *)
-      path
-    else
-      (** If the path points to an existing file which is not a directory,
-          fail. *)
-      let error = Printf.sprintf "Apac_miscellaneous.gwd: `%s' exists, but it \
-                                  is not a directory." path in
-      failwith error
-  else
-    (** Otherwise, create the destination directory with ususal permission set
-        and return the path to it. *)
-    begin
-      Sys.mkdir path 0o755;
-      path
-    end
-
-(** [gf]: returns the full path (see [!gwd]) to a file of type [extension]
-    ([dot] or [pdf], which is the default) containing the task candidate graph
-    of a function [f]. The name of the file may carry an optional [suffix]. *)
-let gf ?(suffix : string = "") ?(extension : string = "pdf")
-      (f : var) : string =
-  let dir = gwd () in
-  let name = f.name ^ "-" ^ (string_of_int f.id) ^
-               (if suffix <> "" then "-" ^ suffix else "") ^ "." ^ extension in
-  dir ^ "/" ^ name
-
 (** [excerpt ?max ast]: returns an excerpt of a string representation of an
     [ast] term at most [max] characters long. *)
 let excerpt ?(max : int = 20) (ast : trm) =

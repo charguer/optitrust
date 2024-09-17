@@ -2,8 +2,8 @@ open Optitrust
 open Target 
 
 let _ = Run.script_cpp (fun () ->
-            let _ = Flags.code_print_width := 1024 in
-            let _ = Apac_macros.instrument_code := true in
+            Flags.code_print_width := 1024;
+            Apac_flags.instrument := true;
             !! Apac_prologue.build_records [
                 nbAny;
                 cFunDefAndDecl ""
@@ -37,7 +37,7 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ]; 
-            !! Apac_taskify.insert_tasks [
+            !! Apac_backend.insert_tasks [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];

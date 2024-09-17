@@ -93,14 +93,17 @@ module rec Task : sig
              mutable schedule : int;
              mutable current : trms;
              mutable attrs : TaskAttr_set.t;
+             mutable scope : int Var_map.t;
              mutable ins : Dep_set.t;
              mutable inouts : Dep_set.t;
              mutable ioattrs : ioattrs_map;
              mutable children : TaskGraph.t list list;
+             mutable cost : trm option
            }
          val create :
-           int -> trm -> TaskAttr_set.t -> Var_set.t -> Dep_set.t ->
+           int -> trm -> TaskAttr_set.t -> int Var_map.t -> Dep_set.t ->
            Dep_set.t -> ioattrs_map -> TaskGraph.t list list -> t
+         val copy : t -> t
          val depending : t -> t -> bool
          val attributed : t -> TaskAttr.t -> bool
          val subscripted : t -> bool
@@ -124,6 +127,9 @@ module rec Task : sig
           taskified source code (see [TaskAttr] as well as the `backend.ml'
           file), *)
       mutable attrs : TaskAttr_set.t;
+      (** - a map of variables, to their respective numbers of levels of
+          indirections, present in the scope of the task candidate, *)
+      mutable scope : int Var_map.t;
       (** - a set of input (read only) data dependencies (see [Dep]), *)
       mutable ins : Dep_set.t;
       (** - a set of input-output (read-write) data dependencies (see [Dep]), *)
@@ -135,38 +141,42 @@ module rec Task : sig
           have more than one child task graph associated to it, i.e. a then and
           an else branch in the case of an if-conditional statement). *)
       mutable children : TaskGraph.t list list;
+      (** - an optional cost model, i.e. a polynomial expression in the form of
+          an abstract syntax tree term, allowing us to estimate the execution
+          time of the task candidate at run-time. *)
+      mutable cost : trm option
     }
   
   (** [Task.create schedule current attrs scope ins inouts children]: creates a
       new task candiate based on the logical [schedule], the [current] AST term,
-      the set of task [attrs], the set of the current scope's variables, the set
-      of input dependencies [ins], the set of input-output dependencies [inouts]
+      the set of task [attrs], the current [scope] of variables, the set of
+      input dependencies [ins], the set of input-output dependencies [inouts]
       and the list of lists of nested task graphs. *)
   let create (schedule : int) (current : trm) (attrs : TaskAttr_set.t)
-        (scope : Var_set.t) (ins : Dep_set.t) (inouts : Dep_set.t)
+        (scope : int Var_map.t) (ins : Dep_set.t) (inouts : Dep_set.t)
         (ioattrs : ioattrs_map) (children : TaskGraph.t list list) : t =
     (** Filter out the input dependencies on variables that are not defined in
         the current scope. *)
     let ins' = Dep_set.filter (
                    fun d -> match d with
-                            | Dep_var v -> Var_set.mem v scope
-                            | Dep_trm (_, v) -> Var_set.mem v scope
+                            | Dep_var v -> Var_map.mem v scope
+                            | Dep_trm (_, v) -> Var_map.mem v scope
                             | _ -> false
                  ) ins in
     (** Filter out the input-output dependencies on variables that are not
         defined in the current scope. *)
     let inouts' = Dep_set.filter (
                       fun d -> match d with
-                               | Dep_var v -> Var_set.mem v scope
-                               | Dep_trm (_, v) -> Var_set.mem v scope
+                               | Dep_var v -> Var_map.mem v scope
+                               | Dep_trm (_, v) -> Var_map.mem v scope
                                | _ -> false
                     ) inouts in
     (** Filter out the attributes for dependencies on variables that are not
         defined in the current scope. *)
     let ioattrs' = Dep_map.filter (
                       fun d _ -> match d with
-                               | Dep_var v -> Var_set.mem v scope
-                               | Dep_trm (_, v) -> Var_set.mem v scope
+                               | Dep_var v -> Var_map.mem v scope
+                               | Dep_trm (_, v) -> Var_map.mem v scope
                                | _ -> false
                     ) ioattrs in
     (** The dependency analysis may conclude that a dependency is both an input
@@ -180,10 +190,25 @@ module rec Task : sig
       (** Initially, a task is represented by a single instruction. *)
       current = [current];
       attrs = attrs;
+      scope = scope;
       ins = ins';
       inouts = inouts';
       ioattrs = ioattrs';
       children = children;
+      cost = None
+    }
+
+  (** [Task.copy task]: creates a copy of the [task]. *)
+  let copy (task : t) = {
+      schedule = task.schedule;
+      current = task.current;
+      attrs = task.attrs;
+      scope = task.scope;
+      ins = task.ins;
+      inouts = task.inouts;
+      ioattrs = task.ioattrs;
+      children = task.children;
+      cost = task.cost
     }
 
   (** [Task.depending t1 t2]: checks whether the task [t2] depends on the task
@@ -222,6 +247,8 @@ module rec Task : sig
     let current' = t1.current @ t2.current in
     (** compute the union of attributes, *)
     let attrs' = TaskAttr_set.union t1.attrs t2.attrs in
+    (** compute the union of the scopes, *)
+    let scope' = Var_map.union (fun k v1 v2 -> Some v1) t1.scope t2.scope in
     (** compute the union of the input dependency sets, *)
     let ins' = Dep_set.union t1.ins t2.ins in
     (** compute the union of the input-output dependency sets, *)
@@ -231,8 +258,21 @@ module rec Task : sig
     let ins' = Dep_set.diff ins' inouts' in
     (** compute the union of maps of dependency attributes, *)
     let ioattrs' = Dep_map.union2 t1.ioattrs t2.ioattrs in
-    (** concatenate the list of lists of nested graphs of [t1] and [t2]. *)
+    (** concatenate the list of lists of nested graphs of [t1] and [t2], *)
     let children' = t1.children @ t2.children in
+    (** determine the cost model of the resulting task candidate, if any. *)
+    let cost' = match (t1.cost, t2.cost) with
+      (** When both [t1] and [t2] have a cost model, i.e. respectively [c1] and
+          [c2], the cost model of the resulting task candidate is the sum of
+          [c1] and [c2]. *)
+      | (Some c1, Some c2) -> Some (Trm.trm_add c1 c2)
+      (** When either only [t1] or only [t2] has a cost model, the latter
+          becomes the cost model of the resulting task candidate. *)
+      | (Some c, None)
+        | (None, Some c) -> Some c
+      (** When nor [t1] nor [t2] has a cost model, the resulting task candidate
+          won't have a cost model either. *)
+      | (None, None) -> None in
     (** If we are merging a suitable task candidate with an unsuitble task
         candidate, the result is a suitable task candidate. *)
     let attrs' =
@@ -242,10 +282,12 @@ module rec Task : sig
       schedule = t1.schedule;
       current = current';
       attrs = attrs';
+      scope = scope';
       ins = ins';
       inouts = inouts';
       ioattrs = ioattrs';
       children = children';
+      cost = cost'
     }
   
   (** [Task.empty]: produces an empty task having no AST term associated with it
@@ -254,10 +296,12 @@ module rec Task : sig
       schedule = -1;
       current = [];
       attrs = TaskAttr_set.empty;
+      scope = Var_map.empty;
       ins = Dep_set.empty;
       inouts = Dep_set.empty;
       ioattrs = Dep_map.empty;
       children = [];
+      cost = None
     }
 
   (** [Task.to_excerpt task]: returns an excerpt of a string representation of
@@ -438,6 +482,7 @@ end
 (** [TaskGraphTraverse]: a module implementing a traversal function for task
     graphs. *)
 module TaskGraphTraverse : sig
+  type t = Strict | Priority | Relaxed
   val fold : TaskGraph.t -> TaskGraph.V.t list
   val codify : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
   val iter : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
@@ -445,6 +490,21 @@ module TaskGraphTraverse : sig
 end = struct
   (** [TaskGraphTraverse.H]: a hash table module for task graph vertices. *)
   module H = Hashtbl.Make(TaskGraph.V)
+  
+  (** [TaskGraphTraverse.t]: enumeration of algorithmic variants for traversing
+      task candidate graphs. *)
+  type t =
+    (** Follow the original lexical order of statements in the input program. *)
+    | Strict
+    (** Perform a breadth-first traversal, but when a task candidate [v] belongs
+        to a sequence of inter-dependent vertices, where the first vertex has
+        exactly one successor, the last vertex has exactly one predecessor and
+        all the intermediate vertices have exactly one predecessor and exactly
+        one successor, visit the entire sequence in addition to [v]. *)
+    | Priority
+    (** Perform a conventional breadth-first traversal. *)
+    | Relaxed
+  
   (** [TaskGraphTraverse.seq v g]: starting from the vertex [v] in the task
       candidate graph [g], find the longest sequence of inter-dependent
       vertices, where the first vertex has exactly one successor, the last

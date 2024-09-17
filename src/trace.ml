@@ -792,6 +792,14 @@ let ensure_header (h : string) : unit =
   if not found then
     the_trace.context <- { ctx with header = ctx.header ^ h ^ "\n" }
 
+(** [drop_header h]: removes the header [h] from the current file, if needed. *)
+let drop_header (h : string) : unit =
+  let ctx = the_trace.context in
+  let found = Tools.pattern_matches h (ctx.header) in
+  if found then
+    let without = Tools.string_subst (h ^ "\n") "" ctx.header in
+    the_trace.context <- { ctx with header = without }
+
 (* [output_prog ctx prefix ast]: writes the program described by the term [ast]
    in several files:
    - one describing the raw AST ("prefix.ast")
@@ -1334,6 +1342,20 @@ let (!!) (x:'a) : 'a =
 let (!!!) (x : 'a) : 'a =
   open_smallstep ~line:(-1) ~reparse:true ();
   x
+
+(** [?? f]: opens a temporary scope to perform the [f] transformation function
+    in, then closes all scope-local steps automatically, if necessary, and
+    restores the abstract syntax tree to what it was before the scope. *)
+let (??) (f : unit -> unit) : unit =
+  let ast_bak = the_trace.cur_ast in
+  let s = open_step ~kind:Step_aborted ~name:"temporary" () in
+  f ();
+  let error = "Trace.(??): did not find 's'" in
+  while (get_cur_step ~error () != s) do
+    close_step ()
+  done;
+  the_trace.cur_ast <- ast_bak;
+  close_step ~check:s ()
 
 (* [bigstep s]: an alias for [open_bigstep s], for usage in user scripts. *)
 let bigstep (s : string) : unit =

@@ -1,2 +1,4 @@
+*_profiling*
+*.profile
+*.model
 *.bin
-*.target

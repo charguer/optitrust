@@ -276,7 +276,7 @@ let unify_returns (tg : target) : unit =
           let body = trm_add_mark Apac_macros.candidate_body_mark body in
           (** and with [!Apac_macros.candidate_main_mark] if [f] is the [main]
               function. *)
-          let body = if f.name = !Apac_macros.apac_main then
+          let body = if f.name = !Apac_flags.main then
                        trm_add_mark Apac_macros.candidate_main_mark body
                      else
                        body in

@@ -2,4 +2,5 @@
 *_trace.*
 tmp_*
 *.csv
-*.apac_prof
+apac_profile
+*.model

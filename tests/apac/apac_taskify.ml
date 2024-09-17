@@ -40,8 +40,8 @@ let _ = Run.script_cpp (fun () ->
             !! Apac_epilogue.place_barriers [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
-              ]; 
-            !! Apac_taskify.insert_tasks [
+              ];
+            !! Apac_backend.insert_tasks [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
@@ -54,6 +54,6 @@ let _ = Run.script_cpp (fun () ->
                 cOr [[cMark Apac_macros.heapify_mark];
                      [cMark Apac_macros.heapify_breakable_mark]]
               ];
-            !! Apac_epilogue.clear_marks ()
+            !! Apac_epilogue.clear_marks ();
           );
         Apac_reset.tnt_blast ()
