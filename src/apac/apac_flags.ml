@@ -23,6 +23,9 @@ let main : string ref = ref "main"
 
 (** {1 Task candidate discovery and optimization stage} *)
 
+(** [constify]: toggles constification of [input]. *)
+let constify : bool ref = ref false
+
 (** [traversal]: algorithmic variant for traversing task candidate graphs (see
     [!module:TaskGraphTraverse]). *)
 let traversal : Apac_tasks.TaskGraphTraverse.t ref =
