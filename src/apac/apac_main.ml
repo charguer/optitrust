@@ -5,12 +5,13 @@ open Target
 let compile () : unit =
   !! Apac_prologue.build_records [nbAny; cFunDefAndDecl ""];
   if !Apac_flags.constify then
-    !! Apac_constification.constify ~frs:(Some Apac_records.functions) [
+    !! Apac_preprocessing.Constification.constify
+      ~frs:(Some Apac_records.functions) [
         nbAny;
         cFunDefAndDecl ""
       ];
   !! Apac_prologue.select_candidates [nbAny; cFunDefAndDecl ""];
-  !! Apac_prologue.unify_returns [nbAny; cMark Apac_macros.candidate_mark];
+  !! Apac_preprocessing.unify_returns [nbAny; cMark Apac_macros.candidate_mark];
   !! Apac_taskify.taskify [nbAny; cMark Apac_macros.candidate_body_mark];
   !! Apac_taskify.merge [nbAny; cMark Apac_macros.candidate_body_mark];
   !! Apac_taskify.detect_tasks_simple [

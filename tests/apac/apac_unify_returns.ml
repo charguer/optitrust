@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-            !! Apac_prologue.unify_returns [
+            !! Apac_preprocessing.unify_returns [
                 nbAny;
                 cFunDefAndDecl ""
               ];

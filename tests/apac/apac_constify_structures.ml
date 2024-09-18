@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-            !! Apac_constification.constify [
+            !! Apac_preprocessing.Constification.constify [
                 nbAny;
                 cFunDefAndDecl ""
               ];
