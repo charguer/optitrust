@@ -7,45 +7,6 @@ open Apac_macros
 open Apac_dep
 open Apac_tasks
 
-(** [apac_variable]: enumeration of instrumentation variables that might appear
-    in the resulting source code. *)
-type apac_variable =
-  (** Gives the current task count. *)
-  | ApacCount
-  (** Gives the current task depth. *)
-  | ApacDepth
-  (** Task-private copy of [ApacDepth]. *)
-  | ApacDepthLocal
-  (** True if the task count limit was not reached yet. *)
-  | ApacCountOk
-  (** True if the task depth limit was not reached yet. *)
-  | ApacDepthOk
-  (** True when the task count is not limited. *)
-  | ApacCountInfinite
-  (** True when the task depth is not limited. *)
-  | ApacDepthInfinite
-  (** Gives the maximum task count. *)
-  | ApacCountMax
-  (** Gives the maximum task depth. *)
-  | ApacDepthMax
-  (** Task submission cut-off value. *)
-  | ApacCutOff
-
-(** [get_apac_variable]: generates a string representation of the
-    instrumentation variable [v]. *)
-let get_apac_variable (v : apac_variable) : string =
-  match v with
-  | ApacCount -> "__apac_count"
-  | ApacDepth -> "__apac_depth"
-  | ApacDepthLocal -> "__apac_depth_local"
-  | ApacCountOk -> "__apac_count_ok"
-  | ApacDepthOk -> "__apac_depth_ok"
-  | ApacCountInfinite -> "__apac_count_infinite"
-  | ApacDepthInfinite -> "__apac_depth_infinite"
-  | ApacCountMax -> "__apac_count_max"
-  | ApacDepthMax -> "__apac_depth_max"
-  | ApacCutOff -> "__apac_cutoff"
-
 (** [get_cutoff]: generates static cut-off condition term. *)
 let get_cutoff () : trm =
   let count = trm_var (new_var (get_apac_variable ApacCountOk)) in

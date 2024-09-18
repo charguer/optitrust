@@ -48,6 +48,6 @@ let compile () : unit =
            [cMark Apac_macros.heapify_breakable_mark]]
     ];
   if !Apac_flags.profile then
-    !! Apac_epilogue.dynamic_cutoff [];
+    !! Apac_epilogue.execution_time_cutoff [];
   !! Apac_epilogue.clear_marks ()
               

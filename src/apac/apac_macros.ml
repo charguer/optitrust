@@ -274,6 +274,45 @@ let runtime_analysis_logs () : string * string * string =
 
 (** {1 Parallel code generation} *)
 
+(** [apac_variable]: enumeration of instrumentation variables that might appear
+    in the resulting source code. *)
+type apac_variable =
+  (** Gives the current task count. *)
+  | ApacCount
+  (** Gives the current task depth. *)
+  | ApacDepth
+  (** Task-private copy of [ApacDepth]. *)
+  | ApacDepthLocal
+  (** True if the task count limit was not reached yet. *)
+  | ApacCountOk
+  (** True if the task depth limit was not reached yet. *)
+  | ApacDepthOk
+  (** True when the task count is not limited. *)
+  | ApacCountInfinite
+  (** True when the task depth is not limited. *)
+  | ApacDepthInfinite
+  (** Gives the maximum task count. *)
+  | ApacCountMax
+  (** Gives the maximum task depth. *)
+  | ApacDepthMax
+  (** Task submission cut-off value. *)
+  | ApacCutOff
+
+(** [get_apac_variable]: generates a string representation of the
+    instrumentation variable [v]. *)
+let get_apac_variable (v : apac_variable) : string =
+  match v with
+  | ApacCount -> "__apac_count"
+  | ApacDepth -> "__apac_depth"
+  | ApacDepthLocal -> "__apac_depth_local"
+  | ApacCountOk -> "__apac_count_ok"
+  | ApacDepthOk -> "__apac_depth_ok"
+  | ApacCountInfinite -> "__apac_count_infinite"
+  | ApacDepthInfinite -> "__apac_depth_infinite"
+  | ApacCountMax -> "__apac_count_max"
+  | ApacDepthMax -> "__apac_depth_max"
+  | ApacCutOff -> "__apac_cutoff"
+
 (** [heapify_mark]: string for marking sequences of statements for heapification
     (see [Apac_epilogue.heapify]). *)
 let heapify_mark : mark = "__apac_heapify"
@@ -300,10 +339,10 @@ let count_max : string = "APAC_TASK_COUNT_MAX"
     to set the maximum task depth. *)
 let depth_max : string = "APAC_TASK_DEPTH_MAX"
 
-(** [dynamic_cutoff]: name of the optional environment variable allowing the
-    end-user to set the cut-off value limiting the insertion of tasks according
-    to their cost model. *)
-let dynamic_cutoff : string = "APAC_DYNAMIC_CUTOFF"
+(** [execution_time_cutoff]: name of the optional environment variable allowing
+    the end-user to set the cut-off value limiting the insertion of tasks
+    according to their estimated execution time. *)
+let execution_time_cutoff : string = "APAC_EXECUTION_TIME_CUTOFF"
 
 (** [pow]: an implementation of [model_pow] to include in the parallel
     source code when using execution time modeling (see [section:modeling]). *)

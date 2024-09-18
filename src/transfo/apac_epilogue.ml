@@ -387,7 +387,7 @@ let heapify_on (t : trm) : trm =
       begin
         let vt = trm_var ~kind:vk v in
         let dt = trm_delete (!delete = 2) vt in
-        let fp = new_var (get_apac_variable ApacDepthLocal) in
+        let fp = new_var (Apac_macros.get_apac_variable ApacDepthLocal) in
         let fp = [FirstPrivate [fp]] in
         let co = [If (Apac_backend.get_cutoff ())] in
         let inout = Dep_var v in
@@ -524,6 +524,7 @@ let instrument_task_group_on (t : trm) : trm =
   let seq = trm_inv ~error trm_seq_inv t in
   (* Build the definition term of the boolean deciding whether the task spawning
      should be cut off based on the current task count. *)
+  let open Apac_macros in 
   let ok1 = code
               (Instr
                  ("int " ^
@@ -578,6 +579,7 @@ let instrument_unit_on (t : trm) : trm =
   let seq = trm_inv ~error trm_seq_inv t in
   (* Build the definition term of the flag allowing the end-user to disable the
      task creation cut-off based on the number of active tasks. *)
+  let open Apac_macros in
   let ok1 = code
               (Instr
                  ("const static int " ^
@@ -973,7 +975,7 @@ let clear_marks () : unit =
       cMark Apac_macros.heapify_breakable_mark
     ]
 
-let dynamic_cutoff (tg : target) : unit =
+let execution_time_cutoff (tg : target) : unit =
   Target.apply_at_target_paths (fun t ->
       (** Deconstruct the sequence [s] in the term [t]. *)
       let error = "Apac_epilogue.dynamic_cutoff: expected a target to a \
@@ -981,14 +983,14 @@ let dynamic_cutoff (tg : target) : unit =
       let s = trm_inv ~error trm_seq_inv t in
       (** Build the definition term [co] of the global variable [ApacCutOff]
           (see type [!type:apac_variable]) while [init]ializing it to
-          [!Apac_macros.apac_dynamic_cutoff]. *)
+          [!Apac_macros.execution_time_cutoff]. *)
       let init =
         code
           (Expr
-             ("getenv(\"" ^ Apac_macros.dynamic_cutoff ^
-                "\") ? atof(getenv(\"" ^  Apac_macros.dynamic_cutoff ^
+             ("getenv(\"" ^ Apac_macros.execution_time_cutoff ^
+                "\") ? atof(getenv(\"" ^  Apac_macros.execution_time_cutoff ^
                   "\")) : 2.22100e-6")) in
-      let co = new_var (get_apac_variable ApacCutOff) in
+      let co = new_var (Apac_macros.get_apac_variable ApacCutOff) in
       let co = trm_let_immut (co, typ_double ()) init in
       (** Include the definition of a function to compute powers. *)
       let pow = code (Stmt Apac_macros.pow) in
