@@ -7,12 +7,6 @@ open Apac_macros
 open Apac_dep
 open Apac_tasks
 
-(** [task_backend]: enumeration of supported task runtimes. *)
-type task_backend =
-  | OpenMP (* Emit OpenMP tasks. *)
-  | ApacProfiler (* Do not create tasks. Insert calls to profiling functions
-                    instead. *)
-
 (** [apac_variable]: enumeration of instrumentation variables that might appear
     in the resulting source code. *)
 type apac_variable =
@@ -65,7 +59,7 @@ let get_cutoff () : trm =
     counter at the end of a task, set [postamble] to [true]. Also, by default,
     the target backend is OpenMP. This can be changed through the optional
     [backend] argument. *)
-let count_update ?(backend : task_backend = OpenMP) (postamble : bool) : trm =
+let count_update (postamble : bool) : trm =
   (* Retrieve the string representation of the involved instrumentation
      variables. *)
   let count = get_apac_variable ApacCount in
@@ -74,15 +68,8 @@ let count_update ?(backend : task_backend = OpenMP) (postamble : bool) : trm =
   let op = if postamble then "--" else "++" in
   (* Build the task count update term. *)
   let update = code (Instr (count ^ op)) in
-  (* When the target backend is *)
-  let update = match backend with
-    | OpenMP ->
-       (* Prepend it with the OpenMP atomic pragma. *)
-       trm_add_pragma (Atomic None) update
-    | ApacProfiler ->
-       (* Keep it as is. *)
-       update
-  in
+  (* Prepend it with the OpenMP atomic pragma. *)
+  let update = trm_add_pragma (Atomic None) update in
   (* Put the update statement into a sequence. *)
   let update = trm_seq_nomarks [update] in
   (* Convert the string representation of [ok] to a term prior to *)

@@ -570,8 +570,8 @@ let instrument_task_group_on (t : trm) : trm =
 let instrument_task_group (tg : target) : unit =
   Target.apply_at_target_paths instrument_task_group_on tg
 
-(* [instrument_unit_on ~backend t]: see [instrument_unit]. *)
-let instrument_unit_on ?(backend : task_backend = OpenMP) (t : trm) : trm =
+(* [instrument_unit_on  t]: see [instrument_unit]. *)
+let instrument_unit_on (t : trm) : trm =
   (* Deconstruct the sequence term [t]. *)
   let error = "Apac_epilogue.instrument_unit_on: expected a target to a \
                sequence" in
@@ -642,40 +642,33 @@ let instrument_unit_on ?(backend : task_backend = OpenMP) (t : trm) : trm =
   let seq' = [ok1; ok2; max1; max2; c1; c2] in
   (* If the backend is OpenMP, we have to include an extra pragma directive to
      make [ApacDepth] thread-private. *)
-  let seq' = match backend with
-    | OpenMP ->
-       let pragma = code
-                      (Stmt
-                         ("#pragma omp threadprivate(" ^
-                            (get_apac_variable ApacDepth) ^
-                              ")")) in
-       seq' @ [pragma]
-    | _ -> seq'
-  in
+  let seq' =
+    let pragma = code
+                   (Stmt
+                      ("#pragma omp threadprivate(" ^
+                         (get_apac_variable ApacDepth) ^
+                           ")")) in
+    seq' @ [pragma] in
   let seq' = Mlist.of_list seq' in
   let seq' = Mlist.merge seq' seq in
   (* Finally, we rebuild an updated sequence. *)
   trm_seq ~ctx:t.ctx ~annot:t.annot seq'
 
-(* [instrument_unit ~backend tg]: expects the target [tg] to point at the
-   top-level sequence in which it prepends all the terms with instrumentation
-   terms involved in the task granularity control in the resulting source code.
-   The optional argument [backend] controls the target task-based programming
-   backend. By default, we consider OpenMP. *)
-let instrument_unit ?(backend : task_backend = OpenMP) (tg : target) : unit =
-  Target.apply_at_target_paths (instrument_unit_on ~backend) tg
+(* [instrument_unit tg]: expects the target [tg] to point at the top-level
+   sequence in which it prepends all the terms with instrumentation terms
+   involved in the task granularity control in the resulting source code. *)
+let instrument_unit (tg : target) : unit =
+  Target.apply_at_target_paths instrument_unit_on tg
 
-(* [instrument ~backend tgu tgg]: expects the target [tgu] to point at the
-   top-level sequence and the target [tgg] to point at a task group sequence.
-   The transformation then prepends all the terms in these sequences with
+(* [instrument tgu tgg]: expects the target [tgu] to point at the top-level
+   sequence and the target [tgg] to point at a task group sequence. The
+   transformation then prepends all the terms in these sequences with
    instrumentation terms involved in the task granularity control in the
-   resulting source code. The optional argument [backend] controls the target
-   task-based programming backend. By default, we consider OpenMP. *)
-let instrument ?(backend : task_backend = OpenMP)
-      (tgu : target) (tgg : target) : unit =
+   resulting source code. *)
+let instrument (tgu : target) (tgg : target) : unit =
   Trace.ensure_header "#include <stdlib.h>";
   Trace.ensure_header "#include <omp.h>";
-  instrument_unit ~backend tgu;
+  instrument_unit tgu;
   instrument_task_group tgg
 
 (* [synchronize_subscripts_on p t]: see [synchronize_subscripts]. *)
