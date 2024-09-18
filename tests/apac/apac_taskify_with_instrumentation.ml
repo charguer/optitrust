@@ -17,15 +17,15 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cFunDefAndDecl "c"
               ];
-            !! Apac_taskify.taskify [
+            !! Apac_task_candidate_discovery.taskify [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_taskify.merge [
+            !! Apac_task_candidate_discovery.merge [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_taskify.detect_tasks_simple [
+            !! Apac_task_candidate_discovery.detect_tasks_simple [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];

@@ -41,15 +41,17 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
             (attrs : (dep * DepAttr_set.t) Stack.t) (filter : Var_set.t)
             (derefs : int) (fc : bool) (attr : DepAttr.t)
             (t : trm) : bool * bool =
-    let error = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
-                                '%s' or '%s' is not a valid OpenMP depends \
-                                expression"
-                  (AstC_to_c.ast_to_string t)
-                  (Ast_to_text.ast_to_string t) in
-    let ebadattr = Printf.sprintf "Apac_taskify.trm_look_for_dependencies.aux: \
-                                   dependency attribute '%s' can not be used \
-                                   in this context"
-                     (DepAttr.to_string attr) in
+    let error =
+      Printf.sprintf
+        "Apac_task_candidate_discovery.trm_look_for_dependencies.aux: '%s' or \
+         '%s' is not a valid OpenMP depends expression"
+        (AstC_to_c.ast_to_string t)
+        (Ast_to_text.ast_to_string t) in
+    let ebadattr =
+      Printf.sprintf
+        "Apac_task_candidate_discovery.trm_look_for_dependencies.aux: \
+         dependency attribute '%s' can not be used in this context"
+        (DepAttr.to_string attr) in
     let besteff (t : trm) : unit =
       Printf.printf "WARNING: the analysis does not recognize the expression \
                      `%s', proceeding with a best-effort dependency analysis.\n"
@@ -299,8 +301,9 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
          end
     (** - set operations ('a = 1', 'b = ptr', '*c = 42', ...), *)
     | Trm_apps _ when is_set_operation t ->
-       let error' = "Apac_taskify.trm_look_for_dependencies.aux: expected set \
-                     operation." in
+       let error' =
+         "Apac_task_candidate_discovery.trm_look_for_dependencies.aux: \
+          expected set operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
        begin
          match (trm_resolve_binop_lval_and_get_with_deref ~plus:true lval) with
@@ -313,7 +316,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
          | None -> fail t.loc error
        end
     (** - single variable declarations or defitinitions ('int a',
-          'int * b = ptr'), *)
+        'int * b = ptr'), *)
     | Trm_let (vk, (v, ty), init, _) ->
        let degree = typ_get_nli ty in
        let degree = if vk = Var_immutable then degree else degree - 1 in
@@ -362,9 +365,9 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
   let attrs' = Dep_map.of_stack attrs in
   let tas = TaskAttr_set.empty in
   (*let tas = if (not exists) then TaskAttr_set.add WaitForAll tas else tas in
-  let tas = if (not isfun) && exists then
-              TaskAttr_set.add WaitForSome tas
-            else tas in*)
+    let tas = if (not isfun) && exists then
+    TaskAttr_set.add WaitForSome tas
+    else tas in*)
   (ins', inouts', attrs', tas)
 
 (* [taskify_on p t]: see [taskify]. *)
@@ -651,8 +654,9 @@ let taskify_on (p : path) (t : trm) : unit =
        (** Is [t] an assignment to [Apac_macros.result_variable] we introduce in
            the 'return' replacement [Apac_prologue.use_goto_for_return]? *)
        let isjump = if (is_set_operation t) then
-                      let error = "Apac_taskify.taskify_on.fill: expected set \
-                                   operation." in
+                      let error =
+                        "Apac_task_candidate_discovery.taskify_on.fill: \
+                         expected set operation." in
                       let (lval, _) = trm_inv ~error set_inv t in
                       match trm_resolve_binop_lval_and_get_with_deref lval with
                       | Some (lvar, _) when
@@ -884,7 +888,8 @@ let taskify_on (p : path) (t : trm) : unit =
            [Apac_basic.use_goto_for_return], fail. We do not allow for other
            'goto' statements than [Apac_core.goto_label]. *)
        if target <> Apac_macros.goto_label then
-         fail t.loc "Apac_taskify.taskify_on.fill: illegal 'goto' statement"
+         fail t.loc "Apac_task_candidate_discovery.taskify_on.fill: illegal \
+                     'goto' statement."
        else
          (** If [target] is [Apac_core.goto_label], we can transform it into a
              task candidate carrying the [IsJump] attribute to indicate the
@@ -914,7 +919,8 @@ let taskify_on (p : path) (t : trm) : unit =
           let it = AstC_to_c.ast_to_string t in
           let error =
             Printf.sprintf
-              "Apac_taskify.taskify_on.fill: illegal value term '%s'" it in
+              "Apac_task_candidate_discovery.taskify_on.fill: illegal value \
+               term '%s'." it in
           fail t.loc error
        end
     | Trm_omp_routine r ->
@@ -957,23 +963,26 @@ let taskify_on (p : path) (t : trm) : unit =
        end
     | _ ->
        let error = Printf.sprintf
-                     "Apac_taskify.taskify_on.fill: statements of type `%s' \
-                      should not appear in a task group"
+                     "Apac_task_candidate_discovery.taskify_on.fill: \
+                      statements of type `%s' should not appear in a task \
+                      group."
                      (trm_desc_to_string t.desc) in
        fail t.loc error
   in
   (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_taskify.taskify_on: unable to find parent \
-                          function. Task group outside of a function?" in
+    | None -> fail t.loc "Apac_task_candidate_discovery.taskify_on: unable to \
+                          find parent function. Task group outside of a \
+                          function?" in
   (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Verify that the task candidate graph representation of [f] does not exist
       yet. Indeed, we are about to build it. *)
   if not (TaskGraph.is_empty r.graph) then
-    let error = Printf.sprintf "Apac_taskify.taskify_on: task candidate graph \
-                                of '%s' should not exist yet." f.name in
+    let error = Printf.sprintf "Apac_task_candidate_discovery.taskify_on: task \
+                                candidate graph of '%s' should not exist yet."
+                  f.name in
     fail t.loc error
   else
     (** Translate the function definition into task candidate graph intermediate
@@ -1105,8 +1114,9 @@ let merge_on (p : path) (t : trm) : unit =
   (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_taskify.merge_on: unable to find parent \
-                          function. Task group outside of a function?" in
+    | None -> fail t.loc "Apac_task_candidate_discovery.merge_on: unable to \
+                          find parent function. Task group outside of a \
+                          function?" in
   (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Apply the merge on the task candidate graph of [f] in [r]. *)
@@ -1228,8 +1238,9 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
   (** Find the parent function [f]. *)
   let f = match (find_parent_function p) with
     | Some (v) -> v
-    | None -> fail t.loc "Apac_taskify.detect_tasks_simple_on: unable to find \
-                          parent function. Task group outside of a function?" in
+    | None -> fail t.loc
+                "Apac_task_candidate_discovery.detect_tasks_simple_on: unable \
+                 to find parent function. Task group outside of a function?" in
   (** Find its function record [r] in [!Apac_records.functions]. *)
   let r = Var_Hashtbl.find functions f in
   (** Add the [Taskifiable] attribute to every task candidate featuring a call

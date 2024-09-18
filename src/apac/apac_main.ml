@@ -12,9 +12,15 @@ let compile () : unit =
       ];
   !! Apac_prologue.select_candidates [nbAny; cFunDefAndDecl ""];
   !! Apac_preprocessing.unify_returns [nbAny; cMark Apac_macros.candidate_mark];
-  !! Apac_taskify.taskify [nbAny; cMark Apac_macros.candidate_body_mark];
-  !! Apac_taskify.merge [nbAny; cMark Apac_macros.candidate_body_mark];
-  !! Apac_taskify.detect_tasks_simple [
+  !! Apac_task_candidate_discovery.taskify [
+      nbAny;
+      cMark Apac_macros.candidate_body_mark
+    ];
+  !! Apac_task_candidate_discovery.merge [
+      nbAny;
+      cMark Apac_macros.candidate_body_mark
+    ];
+  !! Apac_task_candidate_discovery.detect_tasks_simple [
       nbAny;
       cMark Apac_macros.candidate_body_mark
     ];
