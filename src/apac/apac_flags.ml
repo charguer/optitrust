@@ -26,10 +26,9 @@ let main : string ref = ref "main"
 (** [constify]: toggles constification of [input]. *)
 let constify : bool ref = ref false
 
-(** [traversal]: algorithmic variant for traversing task candidate graphs (see
-    [!module:TaskGraphTraverse]). *)
-let traversal : Apac_tasks.TaskGraphTraverse.t ref =
-  ref Apac_tasks.TaskGraphTraverse.Strict
+(** [traversal]: name of the algorithmic variant for traversing task candidate
+    graphs (see [!module:TaskGraphTraverse]). *)
+let traversal : string ref = ref "strict"
 
 (** [keep_graphs]: tells whether we should dump task candidate graphs to Dot and
     subsequently to Pdf files at each transformation. *)
