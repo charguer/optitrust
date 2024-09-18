@@ -227,117 +227,6 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
     end
   else t.current
 
-let rec trm_from_task_candidate ?(heapification : bool = true)
-          (codegen : TaskGraph.V.t -> trms) (candidate : TaskGraph.V.t) : trms =
-  (* Get the [Task] element of the current vertex. *)
-  let t = TaskGraph.V.label candidate in
-  t.current <- List.mapi (fun i instr ->
-                   begin match instr.desc with
-                   | Trm_for_c (init, cond, step, _, _) ->
-                      let cg = List.nth t.children i in
-                      let cg = List.hd cg in
-                      let body = TaskGraphTraverse.codify
-                                   (trm_from_task_candidate
-                                      ~heapification codegen)
-                                   cg in
-                      let body = trm_seq (Mlist.of_list body) in
-                      let body = if heapification then
-                                   trm_add_mark heapify_breakable_mark body
-                                 else
-                                   body in
-                      trm_for_c ~annot:instr.annot ~ctx:instr.ctx
-                        init cond step body
-                   | Trm_for (range, _, _) ->
-                      let cg = List.nth t.children i in
-                      let cg = List.hd cg in
-                      let body = TaskGraphTraverse.codify
-                                   (trm_from_task_candidate
-                                      ~heapification codegen)
-                                   cg in
-                      let body = trm_seq (Mlist.of_list body) in
-                      let body = if heapification then
-                                   trm_add_mark heapify_breakable_mark body
-                                 else
-                                   body in
-                      trm_for ~annot:instr.annot ~ctx:instr.ctx
-                        range body
-                   | Trm_if (cond, _, no) ->
-                      let cg = List.nth t.children i in
-                      let yes = List.nth cg 0 in
-                      let yes = TaskGraphTraverse.codify
-                                  (trm_from_task_candidate
-                                     ~heapification codegen)
-                                  yes in
-                      let yes = trm_seq (Mlist.of_list yes) in
-                      let yes = if heapification then
-                                  trm_add_mark heapify_mark yes
-                                else
-                                  yes in
-                      let no = if (is_trm_unit no) then
-                                 trm_unit ()
-                               else
-                                 let no = List.nth cg 1 in
-                                 let no = TaskGraphTraverse.codify
-                                            (trm_from_task_candidate
-                                               ~heapification codegen)
-                                            no in
-                                 let no = trm_seq (Mlist.of_list no) in 
-                                 if heapification then
-                                   trm_add_mark heapify_mark no
-                                 else
-                                   no
-                      in
-                      trm_if ~annot:instr.annot ~ctx:instr.ctx cond yes no
-                   | Trm_while (cond, _) ->
-                      let cg = List.nth t.children i in
-                      let cg = List.hd cg in
-                      let body = TaskGraphTraverse.codify
-                                   (trm_from_task_candidate
-                                      ~heapification codegen)
-                                   cg in
-                      let body = trm_seq (Mlist.of_list body) in
-                      let body = if heapification then
-                                   trm_add_mark heapify_breakable_mark body
-                                 else
-                                   body in
-                      trm_while ~annot:instr.annot ~ctx:instr.ctx cond body
-                   | Trm_do_while (_, cond) ->
-                      let cg = List.nth t.children i in
-                      let cg = List.hd cg in
-                      let body = TaskGraphTraverse.codify
-                                   (trm_from_task_candidate
-                                      ~heapification codegen)
-                                   cg in
-                      let body = trm_seq (Mlist.of_list body) in
-                      let body = if heapification then
-                                   trm_add_mark heapify_breakable_mark body
-                                 else
-                                   body in
-                      trm_do_while ~annot:instr.annot ~ctx:instr.ctx body cond
-                   | Trm_switch (cond, cases) ->
-                      let cg = List.nth t.children i in
-                      let cgs = Queue.create () in
-                      let _ = List.iter2 (fun (labels, _) block ->
-                                  let block' = TaskGraphTraverse.codify
-                                                 (trm_from_task_candidate
-                                                    ~heapification codegen)
-                                                 block in
-                                  let block' = trm_seq (Mlist.of_list block') in
-                                  let block' = if heapification then
-                                                 trm_add_mark
-                                                   heapify_breakable_mark
-                                                   block'
-                                               else
-                                                 block' in
-                                  Queue.push (labels, block') cgs) cases cg in
-                      let cases' = List.of_seq (Queue.to_seq cgs) in
-                      trm_switch ~annot:instr.annot ~ctx:instr.ctx cond cases'
-                   | Trm_seq _ when heapification ->
-                      trm_add_mark heapify_mark instr
-                   | _ -> instr
-                   end) t.current;
-  codegen candidate
-
 (** [profile_tasks tg]: expects the target [tg] to point at a function body. It
     then translates its task candidate graph representation into an abstract
     syntax tree while surrounding eligible task candidates with profiling
@@ -361,11 +250,8 @@ let profile_tasks (tg : target) : unit =
           let sections = Stack.create () in
           (** Translate the task candidate graph representation [r.graph] of [f]
               to a abstract syntax tree using the profiler back-end. *)
-          let ast = TaskGraphTraverse.codify
-                      (trm_from_task_candidate
-                         ~heapification:false
-                         (Apac_profiler.codegen sections))
-                      r.graph in
+          let ast = TaskGraphTraverse.to_ast
+                      (Apac_profiler.codegen sections) r.graph in
           let sections = List.of_seq (Stack.to_seq sections) in
           let ast = Mlist.of_list (sections @ ast) in
           let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
@@ -391,9 +277,7 @@ let insert_tasks_on (p : path) (t : trm) : trm =
   let r = Var_Hashtbl.find Apac_records.functions f in
   (** Translate the task candidate graph representation [r.graph] of [f] to a
       parallel abstract syntax tree. *)
-  let ast = TaskGraphTraverse.codify (
-                trm_from_task_candidate codegen_openmp
-              ) r.graph in
+  let ast = TaskGraphTraverse.to_ast codegen_openmp r.graph in
   let ast = Mlist.of_list ast in
   let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
   (** Dump the resulting abstract syntax tree, if requested. *)

@@ -484,7 +484,7 @@ end
 module TaskGraphTraverse : sig
   type t = Strict | Priority | Relaxed
   val fold : TaskGraph.t -> TaskGraph.V.t list
-  val codify : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
+  val to_ast : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
   val iter : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
   val iter_schedule : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
 end = struct
@@ -542,17 +542,134 @@ end = struct
         Int.compare t1.schedule t2.schedule
       ) vs
   
-  (** [TaskGraphTraverse.codify c g]: traverses the task graph [g] and codifies
-      each vertex into the corresponding output AST term thanks to the
-      user-provided codification function [c]. *)
-  let codify (c : (TaskGraph.V.t -> trms)) (g : TaskGraph.t) : trms =
+  (** [TaskGraphTraverse.to_ast f g]: recursively traverses and translates the
+      task candidate graph [g] into an abstract syntax tree by applying the
+      translation function [f] on each task candidate vertex of [g]. *)
+  let rec to_ast (f : (TaskGraph.V.t -> trms)) (g : TaskGraph.t) : trms =
     (** Retrieve all the vertices of [g] in a list following the ascending order
         of their schedules (see [Task.t]). *)
     let vs = fold g in
     (** Discard the virtual root vertex, i.e. the vertex of schedule 0. *)
     let vs = List.tl vs in
-    (** Codify all the vertices and return the result. *)
-    List.fold_left (fun acc v -> acc @ (c v)) [] vs
+    (** Translate all the vertices and return the result. *)
+    let open Trm in
+    let open Mark in
+    List.fold_left (fun acc v ->
+        (** Retrieve the label [l] of the current task candidate vertex [v]. *)
+        let l = TaskGraph.V.label v in
+        (** When [v] involves one or more nested task candidate graphs, we have
+            to translate them recursively. *)
+        l.current <-
+          (** To this end, for an [i]-th statement [s] in [v] (see the [current]
+              memeber in [!module:Task.t]), whether it is an iteration or a
+              selection statment, i.e. a statement involving substatements, and
+              if so, we recursively translate the latter. *)
+          List.mapi (fun i s ->
+              match s.desc with
+              (** [s] is a for-loop, *)
+              | Trm_for_c (init, cond, step, _, _) ->
+                 let cg = List.nth l.children i in
+                 let cg = List.hd cg in
+                 (** translate the task candidate graph [cg] of its [body], *)
+                 let body = to_ast f cg in
+                 let body = trm_seq (Mlist.of_list body) in
+                 (** add the heapification helper mark
+                     [!Apac_macros.heapify_breakable_mark] to the [body]'s
+                     abstract syntax tree and *)
+                 let body = trm_add_mark
+                              Apac_macros.heapify_breakable_mark body in
+                 (** rebuild the loop term. *)
+                 trm_for_c ~annot:s.annot ~ctx:s.ctx init cond step body
+              (** [s] is a for-loop, *)
+              | Trm_for (range, _, _) ->
+                 let cg = List.nth l.children i in
+                 let cg = List.hd cg in
+                 (** translate the task candidate graph [cg] of its [body], *)
+                 let body = to_ast f cg in
+                 let body = trm_seq (Mlist.of_list body) in
+                 (** add the heapification helper mark
+                     [!Apac_macros.heapify_breakable_mark] mark to the [body]'s
+                     abstract syntax tree and *)
+                 let body = trm_add_mark
+                              Apac_macros.heapify_breakable_mark body in
+                 (** rebuild the for-term. *)
+                 trm_for ~annot:s.annot ~ctx:s.ctx range body
+              (** [s] is an if-conditional, *)
+              | Trm_if (cond, _, no) ->
+                 let cg = List.nth l.children i in
+                 let yes = List.nth cg 0 in
+                 (** translate the task candidate graph [cg] of its then-branch
+                     [yes], *)
+                 let yes = to_ast f yes in
+                 let yes = trm_seq (Mlist.of_list yes) in
+                 (** add the heapification helper mark
+                     [!Apac_macros.heapify_mark] to the [yes]'s abstract syntax
+                     tree and *)
+                 let yes = trm_add_mark Apac_macros.heapify_mark yes in
+                 (** if an else-branch [no] is present, process it too. *)
+                 let no = if (is_trm_unit no) then
+                            trm_unit ()
+                          else
+                            let no = List.nth cg 1 in
+                            let no = to_ast f no in
+                            let no = trm_seq (Mlist.of_list no) in 
+                            trm_add_mark Apac_macros.heapify_mark no in
+                 (** Finally, rebuild the if-term. *)
+                 trm_if ~annot:s.annot ~ctx:s.ctx cond yes no
+              (** [s] is a while-loop, *)
+              | Trm_while (cond, _) ->
+                 let cg = List.nth l.children i in
+                 let cg = List.hd cg in
+                 (** translate the task candidate graph [cg] of its [body], *)
+                 let body = to_ast f cg in
+                 let body = trm_seq (Mlist.of_list body) in
+                 (** add the heapification helper mark
+                     [!Apac_macros.heapify_breakable_mark] to the [body]'s
+                     abstract syntax tree and *)
+                 let body = trm_add_mark
+                              Apac_macros.heapify_breakable_mark body in
+                 (** rebuild the while-term. *)
+                 trm_while ~annot:s.annot ~ctx:s.ctx cond body
+              (** [s] is a do-while-loop, *)
+              | Trm_do_while (_, cond) ->
+                 let cg = List.nth l.children i in
+                 let cg = List.hd cg in
+                 (** translate the task candidate graph [cg] of its [body], *)
+                 let body = to_ast f cg in
+                 let body = trm_seq (Mlist.of_list body) in
+                 (** add the heapification helper mark
+                     [!Apac_macros.heapify_breakable_mark] to the [body]'s
+                     abstract syntax tree and *)
+                 let body = trm_add_mark
+                              Apac_macros.heapify_breakable_mark body in
+                 (** rebuild the while-term. *)
+                 trm_do_while ~annot:s.annot ~ctx:s.ctx body cond
+              (** [s] is a switch-statement, *)
+              | Trm_switch (cond, cases) ->
+                 let cg = List.nth l.children i in                 
+                 (** translate the task candidate graph [bg] of each of its
+                     [cases] and add the heapification helper mark
+                     [!Apac_macros.heapify_breakable_mark] to its abstract
+                     syntax tree. *)
+                 let cases =
+                   List.map2 (fun (labels, _) bg ->
+                       let b = to_ast f bg in
+                       let b = trm_seq (Mlist.of_list b) in
+                       let b = trm_add_mark
+                                 Apac_macros.heapify_breakable_mark b in
+                       (labels, b)
+                     ) cases cg in
+                 (** Finally, rebuild the switch-term. *)
+                 trm_switch ~annot:s.annot ~ctx:s.ctx cond cases
+              (** When [s] is a compound statements, we just need to mark it
+                  with the heapification helper mark
+                  [!Apac_macros.heapify_mark]. *)
+              | Trm_seq _ -> trm_add_mark Apac_macros.heapify_mark s
+              (** In any other case, we leave [s] as is. *)
+              | _ -> s
+            ) l.current;
+        (** Translate the current vertex [v] itself. *)
+        acc @ (f v)) [] vs
   
   (** [TaskGraphTraverse.iter_schedule f g]: iterates over the vertices of the
       task graph [g] in the ascending order of their schedules while applying
