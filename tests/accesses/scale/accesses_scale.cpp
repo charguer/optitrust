@@ -9,14 +9,11 @@ void test_var() {
   x = x + 2.0;
 }
 
-/* TODO
-void test_array() {
-  __pure();
-
-  double t[2] = { 1., 2 };
+void test_array(double* t) {
+  __modifies("&t[0] ~> Cell, &t[1] ~> Cell");
   t[0] = t[0] + 1.0;
 }
-
+/*
 int main() {
   __pure();
 

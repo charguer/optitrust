@@ -147,6 +147,12 @@ template<typename T> void __mul_inplace(T* p, T x) {
   __admitted();
 }
 
+template<typename T> void __div_inplace(T* p, T x) {
+  __modifies("p ~> Cell");
+  // TODO: requires x != 0 and add preprocessing to insert assumes in initial code
+  __admitted();
+}
+
 template<typename T> T __post_incr(T* p) {
   __modifies("p ~> Cell");
   __admitted();

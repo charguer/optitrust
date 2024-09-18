@@ -796,7 +796,7 @@ let trm_let_mut ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   let var_type_ptr = typ_ptr var_type in
   trm_let ~annot ?loc ?ctx (var_name, var_type_ptr) (trm_apps (trm_prim var_type Prim_ref) [init])
 
-let trm_let_uninit ?(annot) ?(loc) ?(ctx : ctx option) (typed_var : typed_var) =
+let trm_let_mut_uninit ?(annot) ?(loc) ?(ctx : ctx option) (typed_var : typed_var) =
   let var_name, var_type = typed_var in
   trm_let_mut ?annot ?loc ?ctx typed_var (trm_uninitialized var_type)
 
@@ -1050,17 +1050,13 @@ let trm_get ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : trm =
   trm_apps ~annot ?typ (trm_unop (typ_or_auto typ) Unop_get) [t]
 
 (** [trm_address_of ~anot ?typ t]: creates an address operation in [t] *)
-let trm_address_of ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : trm =
-  let typ = Option.or_ typ t.typ in
+let trm_address_of ?(annot = trm_annot_default) ?(arg_typ : typ option) (t : trm) : trm =
+  let typ = Option.or_ arg_typ t.typ in
   trm_apps ~annot ?typ:(Option.map typ_ptr typ) (trm_unop (typ_or_auto typ) Unop_address) [t]
 
 (** [trm_var_get ?typ x]: generates *x *)
 let trm_var_get ?(typ : typ option) (x : var) : trm =
   trm_get ?typ (trm_var ?typ:(Option.map typ_ptr typ) x)
-
-(** [trm_var_addr ?typ x]: generates &x*)
-let trm_var_addr ?(typ : typ option) (x : var) : trm =
-  trm_address_of ?typ (trm_var ?typ x)
 
 (** [trm_var_possibly_get ~const ?typ x]: reads the value of x, it can be x or *x  *)
 let trm_var_possibly_get ~(const : bool) ?(typ : typ option) (x : var) : trm =

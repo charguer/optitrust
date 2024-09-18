@@ -92,6 +92,8 @@ let tSpan (tbegin: target) (tend: target): constr =
 
 let tSpanSeq (tseq : target) : constr = cTarget (tseq @ [Constr_depth (DepthAt 0); tSpan [tFirst] [tLast]])
 
+let tSpanAround (tinstr : target) : constr = tSpan (tBefore :: tinstr) (tAfter :: tinstr)
+
 (******************************************************************************)
 (*                            Number of targets                               *)
 (******************************************************************************)
@@ -856,6 +858,12 @@ let cMarkAny : constr =
 let cMarkSpan (m: mark) : constr =
   let m_begin, m_end = span_marks m in
   tSpan [cMark m_begin] [cMark m_end]
+
+let cMarkSpanStart (m: mark) : constr =
+  cMark (fst (span_marks m))
+
+let cMarkSpanStop (m: mark) : constr =
+  cMark (snd (span_marks m))
 
 (** [cLabel ~substr ~body ~regexp label]:  match a  C labels
     [substr] - match label name partially

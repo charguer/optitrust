@@ -143,7 +143,9 @@ let ghost_shift
 
 (** <private> *)
 let local_name_tile_on (mark_dims : mark)
-  (mark_accesses : mark) (var : var) (nd_range : Matrix_core.nd_range)
+  (mark_accesses : mark)
+  (mark_alloc : mark) (mark_load : mark) (mark_unload : mark)
+  (var : var) (nd_range : Matrix_core.nd_range)
   (local_var : string) (dims : trms) (elem_ty : typ option)
   (indices : string list) (uninit_pre : bool) (uninit_post : bool)
   (t : trm) : trm =
@@ -182,7 +184,8 @@ let local_name_tile_on (mark_dims : mark)
     (trm_subst_var var (trm_var local_var) t,
      Option.unsome ~error:"expected elem_ty" elem_ty)
   end in
-  let alloc_instr = Matrix_core.let_alloc_with_ty local_var tile_dims elem_ty in
+  let alloc_instr = trm_add_mark mark_alloc
+    (Matrix_core.let_alloc_with_ty local_var tile_dims elem_ty) in
   let ptr_ty = typ_ptr elem_ty in
   let var_t = trm_var ~typ:ptr_ty var in
   let local_var_t = trm_var ~typ:ptr_ty local_var in
@@ -190,22 +193,22 @@ let local_name_tile_on (mark_dims : mark)
   let access_local_var = access local_var_t tile_dims tile_indices in
   let write_on_local_var = trm_set access_local_var (trm_get access_var) in
   let write_on_var = trm_set access_var (trm_get access_local_var) in
-  let var_cell = Resource_formula.(formula_model access_var trm_cell) in
-  let local_var_cell = Resource_formula.(formula_model access_local_var trm_cell) in
+  let var_cell = Resource_formula.(formula_cell access_var) in
+  let local_var_cell = Resource_formula.(formula_cell access_local_var) in
   let load_for = if uninit_pre
     then trm_seq_nobrace_nomarks []
-    else trm_copy (Matrix_core.pointwise_fors
-      ~reads:[var_cell] ~writes:[local_var_cell] nested_loop_range write_on_local_var) in
+    else trm_add_mark mark_load (trm_copy (Matrix_core.pointwise_fors
+      ~reads:[var_cell] ~writes:[local_var_cell] nested_loop_range write_on_local_var)) in
   let unload_for = if uninit_post
     then trm_seq_nobrace_nomarks []
-    else trm_copy (Matrix_core.pointwise_fors
-      ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var) in
+    else trm_add_mark mark_unload (trm_copy (Matrix_core.pointwise_fors
+      ~reads:[local_var_cell] ~writes:[var_cell] nested_loop_range write_on_var)) in
   let free_instr = free tile_dims local_var_t in
   let alloc_range = List.map2 (fun size index ->
     { index; start = trm_int 0; direction = DirUp; stop = size; step = trm_step_one () }
   ) tile_dims indices_list in
   let alloc_access = access local_var_t tile_dims indices in
-  let alloc_cell = Resource_formula.(formula_model alloc_access trm_cell) in
+  let alloc_cell = Resource_formula.(formula_cell alloc_access) in
   let alloc_range_cell = (alloc_range, alloc_cell) in
   let local_var_range_cell = (nested_loop_range, local_var_cell) in
   let shift_res = ghost_shift alloc_range_cell local_var_range_cell true true in
@@ -245,6 +248,9 @@ let local_name_tile_on (mark_dims : mark)
 let%transfo local_name_tile
   ?(mark_dims : mark = no_mark)
   ?(mark_accesses : mark = no_mark)
+  ?(mark_alloc : mark = no_mark)
+  ?(mark_load : mark = no_mark)
+  ?(mark_unload : mark = no_mark)
   ?(indices : string list = [])
   ?(alloc_instr : target option) (* if alloc_instr, return ret_var *)
   ?(ret_var : var ref = ref dummy_var) (* otherwise, input ret_var *)
@@ -309,7 +315,7 @@ let%transfo local_name_tile
       let (tile, dims, collected_elem_ty) = Option.unsome !tile_dims_typ in
       let elem_ty = Option.or_ elem_ty collected_elem_ty in
       Target.apply_at_path (local_name_tile_on
-        mark_dims mark_accesses !ret_var tile local_var dims elem_ty indices uninit_pre uninit_post
+        mark_dims mark_accesses mark_alloc mark_load mark_unload !ret_var tile local_var dims elem_ty indices uninit_pre uninit_post
       ) p;
       if !Flags.check_validity then begin
         Resources.ensure_computed ();
@@ -414,7 +420,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         if label_to_add = ""
                         then new_decl
                         else trm_add_label label_to_add (trm_seq_nobrace_nomarks [
-                          trm_let_uninit (local_var, (get_inner_ptr_type ty));
+                          trm_let_mut_uninit (local_var, (get_inner_ptr_type ty));
                           (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
                       end
                     else new_decl in
@@ -450,7 +456,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         if label_to_add = ""
                         then new_decl
                         else (trm_seq_nobrace_nomarks [
-                          trm_let_uninit (local_var, (get_inner_ptr_type ty));
+                          trm_let_mut_uninit (local_var, (get_inner_ptr_type ty));
                           (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
                       end
                     else new_decl in

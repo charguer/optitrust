@@ -199,7 +199,10 @@ let formula_uninit (inner_formula: formula): formula =
 let var_cell = toplevel_var "Cell"
 let trm_cell = trm_var var_cell
 
-let formula_cell ?(typ : typ option) (x: var): formula =
+let formula_cell (addr: trm): formula =
+  formula_model addr trm_cell
+
+let formula_cell_var ?(typ : typ option) (x: var): formula =
   formula_model (trm_var ?typ x) trm_cell
 
 let var_range = toplevel_var "range"
@@ -212,7 +215,7 @@ let trm_group = trm_var var_group
 
 let formula_matrix (m: trm) (dims: trm list) : formula =
   let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
-  let inner_trm = formula_model (Matrix_trm.access m dims (List.map trm_var indices)) trm_cell in
+  let inner_trm = formula_cell (Matrix_trm.access m dims (List.map trm_var indices)) in
   List.fold_right2 (fun idx dim formula ->
     trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] None formula])
     indices dims inner_trm

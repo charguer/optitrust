@@ -98,7 +98,7 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
           if is_typ_unit ret_ty
             then [marked_body; exit_label]
             else
-              [trm_pass_marks fun_call (trm_let_uninit (name, ret_ty));marked_body; exit_label]
+              [trm_pass_marks fun_call (trm_let_mut_uninit (name, ret_ty));marked_body; exit_label]
           in
         trm_seq_nobrace_nomarks inlined_body
 

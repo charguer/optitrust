@@ -51,11 +51,11 @@ let set_explicit_on (t : trm) : trm =
               let with_fresh_fracs () =
                 let frac_var, frac_ghost = new_frac () in
                 let folded_res =
-                  formula_read_only ~frac:(trm_var frac_var) (formula_model loc trm_cell)
+                  formula_read_only ~frac:(trm_var frac_var) (formula_cell loc)
                 in
                 let unfolded_res =
                   formula_read_only ~frac:(trm_var frac_var)
-                    (formula_model (trm_struct_access ~field_typ:ty loc sf) trm_cell)
+                    (formula_cell (trm_struct_access ~field_typ:ty loc sf))
                 in
                 let wand = formula_wand unfolded_res folded_res in
                 let folded_linear = [(new_anon_hyp (), folded_res)] in
@@ -73,7 +73,7 @@ let set_explicit_on (t : trm) : trm =
              trm_seq_nobrace_nomarks per_field_folds)
           | Writes ->
             let folded_linear = [(
-              new_anon_hyp (), formula_model loc trm_cell
+              new_anon_hyp (), formula_cell loc
             )] in
             let unfolded_linear = List.map (fun (sf, ty) ->
               (new_anon_hyp (), formula_model
@@ -535,7 +535,9 @@ let to_variables_at (index : int) (t : trm) : trm =
       let field_var = new_var (Convention.name_app x.name sf) in
       fields := !fields @ [sf, ty, field_var];
       begin match init_list with
-      | None -> trm_let_maybemut !is_ref (field_var, ty) (trm_uninitialized ty)
+      | None ->
+        if not !is_ref then failwith "expected mutable declaration if not initialized";
+        trm_let_mut_uninit (field_var, ty)
       | Some (_, inits) -> trm_let_maybemut !is_ref (field_var, ty) (snd (Mlist.nth inits i))
       end
     ) field_list in

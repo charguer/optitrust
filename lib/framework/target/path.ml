@@ -297,11 +297,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       | Dir_body, (Trm_let_fun (_, _, args, body, _) | Trm_fun (args, _, body, _)) ->
         (* do as if fun args were heap allocated *)
         let args_decl =
-          List.rev_map
-            (fun (x, tx) ->
-              trm_let_mut (x, tx) (trm_lit (Lit_uninitialized tx))
-            )
-            args
+          List.rev_map trm_let_mut_uninit args
         in
         aux body (args_decl@ctx)
       | Dir_body, Trm_for_c (init, _, _, body, _) ->

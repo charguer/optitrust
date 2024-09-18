@@ -13,11 +13,8 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "make local copies of field and particles";
   !! Matrix.local_name_tile ~var:"fieldAtCorners"
-    ~elem_ty:vect ~uninit_post:true
+    ~elem_ty:vect ~uninit_post:true ~mark_load:"loadField"
     ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
-  (* !! Matrix.local_name_tile ~var:"particles"
-    ~elem_ty:particle
-    ~local_var:"lParticles" [ctx; cFor "idStep"]; *)
 
   bigstep "inline helper functions and reveal record fields";
   !! Function.inline_multi [ctx; cFuns ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
@@ -38,29 +35,31 @@ let _ = Run.script_cpp (fun () ->
   let pMass = trm_find_var "pMass" [ctx] in
   let deltaT = trm_find_var "deltaT" [ctx] in
   let fieldFactor = trm_mul (trm_div pCharge pMass) (trm_mul deltaT deltaT) in
-  let scaleField d = Accesses.scale_var ~factor:fieldFactor [nbMulti; ctx; cVarDef ("fieldAtPos" ^ d)] in
-  !! List.iter scaleField ["X"; "Y"; "Z"];
-  let scaleSpeed d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
-  !! List.iter scaleSpeed ["X"; "Y"; "Z"];
+  let scaleFieldAtPos d = Accesses.scale_var ~factor:fieldFactor [nbMulti; ctx; cVarDef ("fieldAtPos" ^ d)] in
+  !! List.iter scaleFieldAtPos ["X"; "Y"; "Z"];
+  let scaleSpeed2 d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
+  !! List.iter scaleSpeed2 ["X"; "Y"; "Z"];
 
   let lFieldAtCorners = trm_find_var "lFieldAtCorners" [ctx] in
   let idx_evar = new_var "i" in
   let pattern_evars = Var_map.(singleton idx_evar None) in
-  let address_pattern field = trm_struct_access (trm_array_access lFieldAtCorners (trm_var idx_evar)) field in
-  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "x") ~pattern_evars [tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
-  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "y") ~pattern_evars [tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
-  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "z") ~pattern_evars [tSpan [tAfter; cVarDef "lFieldAtCorners"] [tLast]];
+  let scaleFieldAtCorners field =
+    let address_pattern = trm_struct_access (trm_array_access lFieldAtCorners (trm_var idx_evar)) field in
+    Accesses.scale ~factor:fieldFactor ~address_pattern ~pattern_evars ~uninit_post:true [ctx; tSpan [tBefore; cMark "loadField"] [tAfter; cFor "idStep"]]
+  in
+  !! List.iter scaleFieldAtCorners ["x"; "y"; "z"];
 
   let particles = trm_find_var "particles" [ctx] in
-  let address_pattern field = trm_struct_access (trm_struct_access (trm_array_access particles (trm_var idx_evar)) "speed") field in
-  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "x") ~pattern_evars [tSpan [tBefore; cFor "idStep"] [tLast]];
-  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "y") ~pattern_evars [tSpan [tBefore; cFor "idStep"] [tLast]];
-  !! Accesses.scale ~factor:fieldFactor ~address_pattern:(address_pattern "z") ~pattern_evars [tSpan [tBefore; cFor "idStep"] [tLast]];
+  let scaleParticles field =
+    let address_pattern = trm_struct_access (trm_struct_access (trm_array_access particles (trm_var idx_evar)) "speed") field in
+    Accesses.scale ~factor:deltaT ~address_pattern ~pattern_evars [ctx; tSpanAround [cFor "idStep"]];
+  in
+  !! List.iter scaleParticles ["x"; "y"; "z"];
 
   bigstep "finish with style";
   !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
-  !! Function.use_infix_ops ~indepth:true [ctx];
+  !! Function.use_infix_ops ~indepth:true [ctx]; (* TODO: check *)
   !! Cleanup.std ();
 
   (* TODO:

@@ -1073,7 +1073,7 @@ let rec compute_resources
         match trm_let_inv ti with
         | Some (x, _, t) ->
           begin match trm_ref_inv t with
-          | Some _ -> [formula_cell x]
+          | Some _ -> [formula_cell_var x]
           | None ->
             begin match trm_ref_array_inv t with
             | Some (ty, dims, _) -> [formula_matrix (trm_var ~typ:ty x) dims]

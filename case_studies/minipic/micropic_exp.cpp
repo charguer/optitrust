@@ -6,40 +6,34 @@ typedef struct {
   double z;
 } vect;
 
-template <typename T>
-T* __struct_access_x(T* v) {
+template <typename T, typename U>
+U* __struct_access_x(T* v) {
   __admitted();
-  return &v->x;
 }
 
-template <typename T>
-T __struct_get_x(T v) {
+template <typename T, typename U>
+U __struct_get_x(T v) {
   __admitted();
-  return v.x;
 }
 
-template <typename T>
-T* __struct_access_y(T* v) {
+template <typename T, typename U>
+U* __struct_access_y(T* v) {
   __admitted();
-  return &v->y;
 }
 
-template <typename T>
-T __struct_get_y(T v) {
+template <typename T, typename U>
+U __struct_get_y(T v) {
   __admitted();
-  return v.y;
 }
 
-template <typename T>
-T* __struct_access_z(T* v) {
+template <typename T, typename U>
+U* __struct_access_z(T* v) {
   __admitted();
-  return &v->z;
 }
 
-template <typename T>
-T __struct_get_z(T v) {
+template <typename T, typename U>
+U __struct_get_z(T v) {
   __admitted();
-  return v.z;
 }
 
 vect vect_add(vect v1, vect v2) {
@@ -57,52 +51,44 @@ typedef struct {
   vect speed;
 } particle;
 
-template <typename T>
-T* __struct_access_pos(T* v) {
+template <typename T, typename U>
+U* __struct_access_pos(T* v) {
   __admitted();
-  return &v->pos;
 }
 
-template <typename T>
-T __struct_get_pos(T v) {
+template <typename T, typename U>
+U __struct_get_pos(T v) {
   __admitted();
-  return v.pos;
 }
 
-template <typename T>
-T* __struct_access_speed(T* v) {
+template <typename T, typename U>
+U* __struct_access_speed(T* v) {
   __admitted();
-  return &v->speed;
 }
 
-template <typename T>
-T __struct_get_speed(T v) {
+template <typename T, typename U>
+U __struct_get_speed(T v) {
   __admitted();
-  return v.speed;
 }
 
-template <typename T>
-T* __struct_access_charge(T* v) {
+template <typename T, typename U>
+U* __struct_access_charge(T* v) {
   __admitted();
-  return &v->charge;
 }
 
-template <typename T>
-T __struct_get_charge(T v) {
+template <typename T, typename U>
+U __struct_get_charge(T v) {
   __admitted();
-  return v.charge;
 }
 
-template <typename T>
-T* __struct_access_mass(T* v) {
+template <typename T, typename U>
+U* __struct_access_mass(T* v) {
   __admitted();
-  return &v->mass;
 }
 
-template <typename T>
-T __struct_get_mass(T v) {
+template <typename T, typename U>
+U __struct_get_mass(T v) {
   __admitted();
-  return v.mass;
 }
 
 const double areaX = 10.;
@@ -150,15 +136,13 @@ double relativePosZ(double z) {
 
 const int nbCorners = 8;
 
-double* cornerInterpolationCoeff(vect pos) {
-  __admitted();
+void cornerInterpolationCoeff(vect pos, double* r) {
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);
   const double cX = 1. + -1. * rX;
   const double cY = 1. + -1. * rY;
   const double cZ = 1. + -1. * rZ;
-  double* const r = (double* const)MALLOC1(nbCorners, sizeof(double));
   r[0] = cX * cY * cZ;
   r[1] = cX * cY * rZ;
   r[2] = cX * rY * cZ;
@@ -167,7 +151,6 @@ double* cornerInterpolationCoeff(vect pos) {
   r[5] = rX * cY * rZ;
   r[6] = rX * rY * cZ;
   r[7] = rX * rY * rZ;
-  return r;
 }
 
 vect matrix_vect_mul(double* coeffs, vect* matrix) {
@@ -179,17 +162,17 @@ vect matrix_vect_mul(double* coeffs, vect* matrix) {
   return res;
 }
 
-void simulate_single_cell(double stepDuration, particle* particles,
-                          int nbParticles, vect* fieldAtCorners, int nbSteps,
-                          double particleCharge, double particleMass) {
+void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
+                          vect* fieldAtCorners, int nbSteps, double pCharge,
+                          double pMass) {
   vect* const lFieldAtCorners = (vect*)MALLOC1(nbCorners, sizeof(vect));
   for (int i1 = 0; i1 < nbCorners; i1++) {
-    lFieldAtCorners[i1].x = fieldAtCorners[i1].x * particleCharge *
-                            stepDuration * stepDuration / particleMass;
-    lFieldAtCorners[i1].y = fieldAtCorners[i1].y * particleCharge *
-                            stepDuration * stepDuration / particleMass;
-    lFieldAtCorners[i1].z = fieldAtCorners[i1].z * particleCharge *
-                            stepDuration * stepDuration / particleMass;
+    lFieldAtCorners[i1].x =
+        fieldAtCorners[i1].x * pCharge * deltaT * deltaT / pMass;
+    lFieldAtCorners[i1].y =
+        fieldAtCorners[i1].y * pCharge * deltaT * deltaT / pMass;
+    lFieldAtCorners[i1].z =
+        fieldAtCorners[i1].z * pCharge * deltaT * deltaT / pMass;
   }
   particle* const lParticles =
       (particle*)MALLOC1(nbParticles, sizeof(particle));
@@ -203,7 +186,21 @@ void simulate_single_cell(double stepDuration, particle* particles,
   }
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
-      double* const coeffs = cornerInterpolationCoeff(lParticles[idPart].pos);
+      double* const coeffs = (double*)MALLOC1(nbCorners, sizeof(double));
+      const double rX = relativePosX(particles[idPart].pos.x);
+      const double rY = relativePosY(particles[idPart].pos.y);
+      const double rZ = relativePosZ(particles[idPart].pos.z);
+      const double cX = 1. + -1. * rX;
+      const double cY = 1. + -1. * rY;
+      const double cZ = 1. + -1. * rZ;
+      coeffs[0] = cX * cY * cZ;
+      coeffs[1] = cX * cY * rZ;
+      coeffs[2] = cX * rY * cZ;
+      coeffs[3] = cX * rY * rZ;
+      coeffs[4] = rX * cY * cZ;
+      coeffs[5] = rX * cY * rZ;
+      coeffs[6] = rX * rY * cZ;
+      coeffs[7] = rX * rY * rZ;
       double fieldAtPosX = 0.;
       double fieldAtPosY = 0.;
       double fieldAtPosZ = 0.;
@@ -213,15 +210,15 @@ void simulate_single_cell(double stepDuration, particle* particles,
         fieldAtPosZ += coeffs[k] * lFieldAtCorners[k].z;
       }
       MFREE1(nbCorners, coeffs);
-      const double speed2X = lParticles[idPart].speed.x + fieldAtPosX;
-      const double speed2Y = lParticles[idPart].speed.y + fieldAtPosY;
-      const double speed2Z = lParticles[idPart].speed.z + fieldAtPosZ;
-      lParticles[idPart].pos.x += speed2X;
-      lParticles[idPart].pos.y += speed2Y;
-      lParticles[idPart].pos.z += speed2Z;
-      lParticles[idPart].speed.x = speed2X;
-      lParticles[idPart].speed.y = speed2Y;
-      lParticles[idPart].speed.z = speed2Z;
+      const double speed2X = particles[idPart].speed.x + fieldAtPosX;
+      const double speed2Y = particles[idPart].speed.y + fieldAtPosY;
+      const double speed2Z = particles[idPart].speed.z + fieldAtPosZ;
+      particles[idPart].pos.x += speed2X;
+      particles[idPart].pos.y += speed2Y;
+      particles[idPart].pos.z += speed2Z;
+      particles[idPart].speed.x = speed2X;
+      particles[idPart].speed.y = speed2Y;
+      particles[idPart].speed.z = speed2Z;
     }
   }
   for (int i1 = 0; i1 < nbParticles; i1++) {
@@ -231,15 +228,6 @@ void simulate_single_cell(double stepDuration, particle* particles,
     particles[i1].speed.x = lParticles[i1].speed.x / stepDuration;
     particles[i1].speed.y = lParticles[i1].speed.y / stepDuration;
     particles[i1].speed.z = lParticles[i1].speed.z / stepDuration;
-  }
-  MFREE1(nbParticles, lParticles);
-  for (int i1 = 0; i1 < nbCorners; i1++) {
-    fieldAtCorners[i1].x = lFieldAtCorners[i1].x * particleMass /
-                           (particleCharge * stepDuration * stepDuration);
-    fieldAtCorners[i1].y = lFieldAtCorners[i1].y * particleMass /
-                           (particleCharge * stepDuration * stepDuration);
-    fieldAtCorners[i1].z = lFieldAtCorners[i1].z * particleMass /
-                           (particleCharge * stepDuration * stepDuration);
   }
   MFREE1(nbCorners, lFieldAtCorners);
 }

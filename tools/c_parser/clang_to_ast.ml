@@ -576,8 +576,8 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     let typ = Option.unsome_or_else typ (fun () -> failwith "%s: Missing type on unary expression" (loc_to_string t.loc)) in
     begin match k with
       | AddrOf ->
-        let typ = Option.unsome_or_else (typ_ptr_inv typ) (fun () -> failwith "%s: Type of the address-of expression is not a pointer" (loc_to_string t.loc)) in
-        trm_address_of ~typ t
+        let arg_typ = Option.unsome_or_else (typ_ptr_inv typ) (fun () -> failwith "%s: Type of the address-of expression is not a pointer" (loc_to_string t.loc)) in
+        trm_address_of ~arg_typ t
       | Deref -> trm_get ~typ t
       | PostInc -> trm_post_incr ~typ t
       | PostDec -> trm_post_decr ~typ t

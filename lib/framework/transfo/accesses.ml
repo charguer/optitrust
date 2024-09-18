@@ -30,3 +30,17 @@ let%transfo scale_var ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_m
 (** Like [shift], but targeting a variable declaration instead of a scope. *)
 let%transfo shift_var ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
   transform_var (shift ~inv ~factor ~mark) tg
+
+let%transfo scale ?(inv : bool = false) ~(factor : trm)
+ ~(address_pattern : trm) ~(pattern_evars : eval varmap)
+ ?(mark : mark = no_mark)
+ ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
+ (tg : target) =
+ (* TODO: generic transform to factorize with shift *)
+  Marks.with_marks (fun next_mark ->
+    let mark_preprocess = next_mark () in
+    let mark_postprocess = next_mark () in
+    Accesses_basic.scale ~inv ~factor ~address_pattern ~pattern_evars ~mark ~mark_preprocess ~mark_postprocess tg;
+    if uninit_pre then Instr.delete [nbAny; cMarkSpan mark_preprocess];
+    if uninit_post then Instr.delete [nbAny; cMarkSpan mark_postprocess];
+  )

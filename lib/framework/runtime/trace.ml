@@ -894,7 +894,9 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
         if !Flags.reparse_between_steps
           then reparse ();
         if !Flags.recompute_resources_between_steps
-          then recompute_resources ()
+          then
+            (*DEBUG: Printf.printf "recompute between steps: %s\n" (step_kind_to_string step.step_kind); *)
+            recompute_resources ()
   end;
   (* Save the ast_after and its style *)
   step.step_ast_after <- the_trace.cur_ast;

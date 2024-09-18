@@ -8,3 +8,15 @@ void test_var() {
   x = (x / 5. + 2.) * 5.;
   /*@ __3__begin, __3__end @*/
 }
+
+void test_array(double* t) {
+  __modifies("&t[0] ~> Cell");
+  __modifies("&t[1] ~> Cell");
+  /*@ __15__begin @*/
+  t[0] = t[0] * 5.;
+  /*@ __15__end @*/
+  t[0] = (t[0] / 5. + 1.) * 5.;
+  /*@ __16__begin @*/
+  t[0] = t[0] / 5.;
+  /*@ __16__end @*/
+}

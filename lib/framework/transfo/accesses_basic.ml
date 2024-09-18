@@ -18,33 +18,64 @@ let%transfo transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : tr
 let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
   (address_pattern : trm) (pattern_evars : eval varmap)
   (mark_preprocess_span : mark) (mark_postprocess_span : mark)
+  (mark_handled_addresses : mark)
+  (typedvar_ret : (var * typ option) option ref)
+  (res_pre_ret : formula list ref) (res_post_ret : formula list ref)
   (span : Dir.span) (seq : trm) : trm =
+  let rec identify_typedvar addr =
+    Pattern.pattern_match addr [
+      Pattern.(trm_array_access !__ !__) (fun base index () ->
+        identify_typedvar base
+      );
+      Pattern.(trm_struct_access !__ !__) (fun base field () ->
+        identify_typedvar base
+      );
+      Pattern.(trm_var !__) (fun v () ->
+        match !typedvar_ret with
+        | None ->
+          typedvar_ret := Some (v, addr.typ)
+        | Some (stored_v, stored_typ) ->
+          if not (var_eq stored_v v) then trm_fail addr "expected all addresses to be based on same inner pointer variable";
+          match (stored_typ, addr.typ) with
+          | _, None -> ()
+          | None, _ -> typedvar_ret := Some (v, addr.typ)
+          | Some t1, Some t2 ->
+            if are_same_trm t1 t2
+            then ()
+            else trm_fail addr (sprintf "addresses are on same inner pointer variable, but types vary: %s != %s" (Ast_to_c.typ_to_string t1) (Ast_to_c.typ_to_string t2))
+      );
+      Pattern.__ (fun () ->
+        trm_fail addr "unexpected address constructors"
+      )
+    ]
+  in
   let address_matches addr =
-    Option.is_some (unify_trm addr address_pattern pattern_evars)
+    let matches = Option.is_some (unify_trm addr address_pattern pattern_evars) in
+    if matches then identify_typedvar addr;
+    matches
   in
   let rec fix_inside_span t =
     let open Resource_formula in
     Pattern.pattern_match t [
       Pattern.(trm_get !__) (fun addr () ->
         Pattern.when_ (address_matches addr);
-        f_get t
+        f_get (trm_get (trm_add_mark mark_handled_addresses addr))
       );
       Pattern.(trm_set !__ !__) (fun addr value () ->
         Pattern.when_ (address_matches addr);
-        trm_set addr (f_set (trm_map fix_inside_span value))
+        trm_set (trm_add_mark mark_handled_addresses addr)
+          (f_set (trm_map fix_inside_span value))
       );
       Pattern.(formula_cell !__) (fun addr () ->
         Pattern.when_ (address_matches addr);
-        t
+        formula_cell (trm_add_mark mark_handled_addresses addr)
       );
       Pattern.__ (fun () ->
-        if address_matches t
-        then trm_fail t "target addresses are used outside of get/set operations and model relations"
-        else trm_map fix_inside_span t
+        trm_map fix_inside_span t
       )
     ]
   in
-  let fix_one_resource_item (f : trm -> trm) ((_, formula) : resource_item) : trm option =
+  let fix_one_resource_item (res_ret : formula list ref) (f : trm -> trm) ((_, formula) : resource_item) : trm option =
     let open Resource_formula in
     let (mode, inner_formula) = formula_mode_inv formula in
     let rec aux acc_rev_ranges formula =
@@ -54,36 +85,40 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
         );
         Pattern.(formula_cell !__) (fun addr () ->
           Pattern.when_ (address_matches addr);
-          let modifies = [formula] in
-          let fix_body = trm_set addr (f (trm_get addr)) in
-          Some (Matrix_core.pointwise_fors ~modifies (List.rev acc_rev_ranges) fix_body)
+          let res = List.fold_right (fun r acc ->
+            formula_group_range r acc
+          ) acc_rev_ranges formula in
+          match mode with
+          | Uninit ->
+            res_ret := (formula_uninit res) :: !res_ret;
+            None
+          | RO -> trm_fail inner_formula "can't scale read-only resource in-place"
+          | Full ->
+            res_ret := res :: !res_ret;
+            let modifies = [formula] in
+            let fix_body = trm_set addr (f (trm_get addr)) in
+            Some (Matrix_core.pointwise_fors ~modifies (List.rev acc_rev_ranges) fix_body)
         );
         Pattern.__ (fun () ->
-          let rec occur_check formula =
+          (* let rec occur_check formula =
             if address_matches formula
             then trm_fail formula "found matching address in unsupported formula";
             trm_iter occur_check formula
           in
-          occur_check formula;
+          occur_check formula; *)
           None
         )
       ]
     in
-    match mode with
-    | Uninit -> None
-    (* Only if resource matches:
-      | RO -> trm_fail formula "can't scale read-only resource in-place"
-      currently, will generate code that does not typecheck with no generic message
-    *)
-    | _ (* Full *) -> aux [] inner_formula
+    aux [] inner_formula
   in
-  let fix_outside_span (f : trm -> trm) (res : resource_set) =
-    List.filter_map (fix_one_resource_item f) res.linear
+  let fix_outside_span (res_ret : formula list ref) (f : trm -> trm) (res : resource_set) =
+    List.filter_map (fix_one_resource_item res_ret f) res.linear
   in
   update_span_helper span seq (fun span_instrs ->
     let (res_start, res_stop) = Resources.around_instrs span_instrs in
-    let fix_start = fix_outside_span f_set res_start in
-    let fix_stop = fix_outside_span f_get res_stop in
+    let fix_start = fix_outside_span res_pre_ret f_set res_start in
+    let fix_stop = fix_outside_span res_post_ret f_get res_stop in
     let (m1, m2) = span_marks mark_preprocess_span in
     let (m3, m4) = span_marks mark_postprocess_span in
     [ Mark m1; TrmList fix_start; Mark m2;
@@ -96,19 +131,86 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     and transform them with [f_get] and [f_set], respectively.
     The transformation may also insert preprocessing and postprocessing steps.
 
-    For correctness, [f_get] and [f_set] must be inverses, and all operations on the matching addresses must be gets and sets exclusively.
-    This allows predictably changing the values stored in the matching addresses, and restoring the values previously read from them. *)
+    For correctness, [f_get] and [f_set] must be inverses and pure.
+    It is checked that all of the transformed gets and sets operate on resources found at the begining of the scope. *)
 let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
   (* TODO: (address_pattern : pattern) ? *)
   ~(address_pattern : trm) ~(pattern_evars : eval varmap)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
-  Target.iter (fun p ->
+  Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
-    Target.apply_at_path (transform_on f_get f_set address_pattern pattern_evars mark_preprocess mark_postprocess span) p_seq
-  ) tg
-
-(* TODO: ~mark_preprocess ~mark_postprocess + span tg *)
+    let (mark_preprocess, mark_postprocess, mark_handled_resources) =
+      if !Flags.check_validity then begin
+        (Mark.reuse_or_next next_mark mark_preprocess,
+         Mark.reuse_or_next next_mark mark_postprocess,
+         next_mark ())
+      end else
+        (mark_preprocess, mark_postprocess, no_mark)
+    in
+    let typedvar_ret = ref None in
+    let res_pre_ret = ref [] in
+    let res_post_ret = ref [] in
+    Target.apply_at_path (transform_on f_get f_set address_pattern pattern_evars mark_preprocess mark_postprocess mark_handled_resources typedvar_ret res_pre_ret res_post_ret span) p_seq;
+    if !Flags.check_validity then begin
+      (* TODO: factorize with local_name, should this be a Resource.assert_??? feature? may also be decomposed via elim_reuse? *)
+      let error = "did not find on which inner pointer variable addresses where based" in
+      let (v, ty_opt) = Option.unsome ~error !typedvar_ret in
+      let typ = Option.unsome ~error ty_opt in
+      Trace.without_resource_computation_between_steps (fun () ->
+      step_backtrack ~discard_after:true (fun () ->
+        let v_tr = new_var (v.name ^ "_tr") in
+        Target.apply_at_path (fun t_seq ->
+          let alloc = trm_let_mut_uninit (v_tr, Option.unsome ~error:"expected ptr typ" (typ_ptr_inv typ)) in
+          (* NOTE: ghost below is a combination of changing the model of 'v_tr' and hiding matched resources on 'v'.
+          let open_ws = ref [] in
+          let close_ws = ref [] in
+          List.iter (fun matched_res ->
+            let (_, open_w, close_w) = Resource_trm.ghost_pair_hide matched_res in
+            open_ws := open_w :: !open_ws;
+            close_ws := close_w :: !close_ws;
+          ) !matched_res_ret;
+          *)
+          let formulas_to_res = List.map (fun r -> Resource_formula.new_anon_hyp (), r) in
+          let linear_original res = formulas_to_res (
+            (Resource_formula.formula_cell_var ~typ v_tr) :: res
+          ) in
+          let linear_renamed res = formulas_to_res (
+            List.map (trm_subst_var v (trm_var ~typ v_tr)) res
+          ) in
+          (* invariant: pre and post ret are the same resources modulo Uninit? *)
+          let forget_addr = Resource_trm.ghost_admitted {
+            pre = Resource_set.make ~linear:(linear_original !res_pre_ret) ();
+            post = Resource_set.make ~linear:(linear_renamed !res_pre_ret) ();
+          } in
+          let remember_addr = Resource_trm.ghost_admitted {
+            pre = Resource_set.make ~linear:(linear_renamed !res_post_ret) ();
+            post = Resource_set.make ~linear:(linear_original !res_post_ret) ();
+          } in
+          let insert_at tg to_insert instrs =
+            let idxs = Target.resolve_target_between_children tg (trm_seq instrs) in
+            match idxs with
+            | [i] ->
+              Mlist.insert_sublist_at i to_insert instrs
+            | _ -> failwith "expected a single index"
+          in
+          let instrs = trm_inv ~error:"expected sequence" trm_seq_inv t_seq in
+          let new_instrs = instrs
+            (* FIXME: natural pipe order doesn't work due to marks moving poorly *)
+            |> insert_at [cMarkSpanStart mark_postprocess] [remember_addr]
+            |> insert_at [cMarkSpanStop mark_preprocess] [forget_addr]
+            |> insert_at [cMarkSpanStart mark_preprocess] [alloc]
+          in
+          trm_seq ~annot:t_seq.annot new_instrs
+        ) p_seq;
+        Target.iter (fun p ->
+          Target.apply_at_path (trm_subst_var v (trm_var ~typ v_tr)) p
+        ) [nbAny; cMark mark_handled_resources];
+        recompute_resources ()
+      ));
+      Trace.justif "all of the transformed gets and sets operate on resources found at the begining of the scope"
+    end;
+  ) tg)
 
 (** <private> *)
 let transform_immut_on
@@ -158,7 +260,7 @@ let%transfo scale ?(inv:bool=false) ~(factor:trm)
     if not (Resources.trm_is_pure factor) then
       trm_fail factor "basic variable scaling does not support non-pure arguments";
   Tools.warn "need to check that scaling factor != 0"; (* TODO: check / 0 *)
-  Trace.justif "all address occurences are covered, factor is pure and != 0";
+  Trace.justif "factor is pure and != 0";
   let typ = Option.unsome ~error:"factor needs to have a known type" factor.typ in
   let op_get, op_set = if inv then (trm_mul, trm_div) else (trm_div, trm_mul) in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in
@@ -188,7 +290,7 @@ let%transfo shift ?(inv:bool=false) ~(factor : trm)
   if !Flags.check_validity then
     if not (Resources.trm_is_pure factor) then
       trm_fail factor "basic variable shifting does not support non-pure arguments";
-  Trace.justif "all address occurences are covered, factor is pure";
+  Trace.justif "factor is pure";
   let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
   let op_get, op_set = if inv then (trm_add, trm_sub) else (trm_sub, trm_add) in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in

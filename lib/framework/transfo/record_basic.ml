@@ -149,7 +149,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       in aux frac
     in
     let process_one_cell ~(fold : bool) wrap_cell (mode, loc) =
-      let model loc = wrap_cell (formula_model loc trm_cell) in
+      let model loc = wrap_cell (formula_cell loc) in
       match mode with
       | RO ->
         let fracs = List.map (fun _ -> new_frac ()) field_list in
@@ -209,9 +209,9 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
               let new_formula = match formula_read_only_inv formula with
               | Some { frac; formula } ->
                 let new_frac = fracs_map_split_frac fracs_map sf field_list frac in
-                formula_read_only ~frac:new_frac (wrap (formula_model (trm_struct_access ~field_typ:ty loc sf) trm_cell))
+                formula_read_only ~frac:new_frac (wrap (formula_cell (trm_struct_access ~field_typ:ty loc sf)))
               | None -> formula_map_under_mode (fun _ ->
-                wrap (formula_model (trm_struct_access ~field_typ:ty loc sf) trm_cell)
+                wrap (formula_cell (trm_struct_access ~field_typ:ty loc sf))
               ) formula
               in
               (new_anon_hyp (), new_formula)

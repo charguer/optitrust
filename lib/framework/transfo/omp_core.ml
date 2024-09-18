@@ -26,7 +26,7 @@ let get_num_threads_at (nb_threads : var) (index : int) (t : trm) : trm =
 let declare_num_threads_at (nb_threads : var) (index : int) (t : trm) : trm =
   let error = "Omp_core.declare_num_threads: expected the sequence where the call to the routine is going to be added" in
   let tl = trm_inv ~error trm_seq_inv t in
-  let new_dl = trm_let_uninit (nb_threads, typ_int) in
+  let new_dl = trm_let_mut_uninit (nb_threads, typ_int) in
   let new_tl = Mlist.insert_at index new_dl tl in
   trm_seq ~annot:t.annot new_tl
 
