@@ -28,9 +28,10 @@ void move_segment(Segment* sgmt) {
 #pragma omp taskgroup
   {
 #pragma omp task default(shared) depend(inout : sgmt)
-    sgmt->p1 = move_point(sgmt->p1);
-#pragma omp task default(shared) depend(inout : sgmt)
-    add_point(&sgmt->p1, &sgmt->p2);
+    {
+      sgmt->p1 = move_point(sgmt->p1);
+      add_point(&sgmt->p1, &sgmt->p2);
+    }
 #pragma omp taskwait
   __apac_exit:;
   }
@@ -41,16 +42,17 @@ void move_polygone(Polygone* poly) {
   {
     for (int i = 1; i < poly->angles; i++) {
 #pragma omp task default(shared) depend(inout : poly) firstprivate(i)
-      poly->pts[i] = move_point(poly->pts[i]);
-#pragma omp task default(shared) depend(inout : poly) firstprivate(i)
-      add_point(&poly->pts[i - 1], &poly->pts[i]);
+      {
+        poly->pts[i] = move_point(poly->pts[i]);
+        add_point(&poly->pts[i - 1], &poly->pts[i]);
+      }
     }
 #pragma omp taskwait
   __apac_exit:;
   }
 }
 
-void add_polygone(Polygone* poly1, Polygone* poly2) {
+void add_polygone(Polygone* poly1, const Polygone* poly2) {
 #pragma omp taskgroup
   {
     for (int i = 0; i < poly1->angles; i++) {
@@ -62,7 +64,7 @@ void add_polygone(Polygone* poly1, Polygone* poly2) {
   }
 }
 
-void mul_polygone(Polygone* poly1, Polygone* poly2) {
+void mul_polygone(Polygone* poly1, const Polygone* poly2) {
   for (int i = 0; i < poly1->angles; i++) {
     poly1->pts[i] = poly2->pts[i];
   }

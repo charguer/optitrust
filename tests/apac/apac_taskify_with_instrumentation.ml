@@ -8,12 +8,12 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cFunDefAndDecl ""
               ];
-            !! Apac_constification.constify
+            !! Apac_preprocessing.Constification.constify
               ~frs:(Some Apac_records.functions) [
                 nbAny;
                 cFunDefAndDecl ""
               ];
-            !! Apac_prologue.unify_returns [
+            !! Apac_preprocessing.unify_returns [
                 nbAny;
                 cFunDefAndDecl "c"
               ];
