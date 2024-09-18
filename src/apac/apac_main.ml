@@ -40,30 +40,36 @@ let compile () : unit =
               nbAny;
               cMark Apac_macros.candidate_body_mark
             ];
-          !! Apac_epilogue.clear_marks ();
+          !! Apac_parallelization.clear_marks ();
           !! Apac_profiling.modelize []
         );
-      !! Apac_profiling.optimize [nbAny; cMark Apac_macros.candidate_body_mark];
+      !! Apac_profiling.optimize [
+          nbAny;
+          cMark Apac_macros.candidate_body_mark
+        ];
     end;
-  !! Apac_epilogue.synchronize_subscripts [
+  !! Apac_parallelization.synchronize_subscripts [
       nbAny;
       cMark Apac_macros.candidate_body_mark
     ];
-  !! Apac_epilogue.place_barriers [
+  !! Apac_parallelization.place_barriers [
       nbAny;
       cMark Apac_macros.candidate_body_mark
     ];
-  !! Apac_backend.insert_tasks [nbAny; cMark Apac_macros.candidate_body_mark];
-  !! Apac_epilogue.place_task_group [
+  !! Apac_parallelization.insert_tasks [
       nbAny;
       cMark Apac_macros.candidate_body_mark
     ];
-  !! Apac_epilogue.heapify [
+  !! Apac_parallelization.place_task_group [
+      nbAny;
+      cMark Apac_macros.candidate_body_mark
+    ];
+  !! Apac_parallelization.heapify [
       nbAny;
       cOr [[cMark Apac_macros.heapify_mark];
            [cMark Apac_macros.heapify_breakable_mark]]
     ];
   if !Apac_flags.profile then
-    !! Apac_epilogue.execution_time_cutoff [];
-  !! Apac_epilogue.clear_marks ()
+    !! Apac_parallelization.execution_time_cutoff [];
+  !! Apac_parallelization.clear_marks ()
               

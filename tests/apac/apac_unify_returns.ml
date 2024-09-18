@@ -6,6 +6,6 @@ let _ = Run.script_cpp (fun _ ->
                 nbAny;
                 cFunDefAndDecl ""
               ];
-            !! Apac_epilogue.clear_marks ()
+            !! Apac_parallelization.clear_marks ()
           );
         Apac_reset.tnt_blast ()

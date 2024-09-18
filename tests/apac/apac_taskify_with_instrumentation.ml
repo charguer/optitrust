@@ -29,26 +29,26 @@ let _ = Run.script_cpp (fun () ->
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_epilogue.synchronize_subscripts [
+            !! Apac_parallelization.synchronize_subscripts [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_epilogue.place_barriers [
+            !! Apac_parallelization.place_barriers [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ]; 
-            !! Apac_backend.insert_tasks [
+            !! Apac_parallelization.insert_tasks [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_epilogue.place_task_group [
+            !! Apac_parallelization.place_task_group [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_epilogue.instrument [] [
+            !! Apac_parallelization.instrument [] [
                 nbAny;
                 cMark Apac_macros.candidate_body_mark
               ];
-            !! Apac_epilogue.clear_marks ()
+            !! Apac_parallelization.clear_marks ()
           );
         Apac_reset.tnt_blast ()
