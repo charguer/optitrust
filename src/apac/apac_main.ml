@@ -3,15 +3,24 @@ open Target
 (** [compile]: applies the compilation chain of the Automatic PArallelizer for C
     on the current abstract syntax tree. *)
 let compile () : unit =
-  !! Apac_preprocessing.build_records [nbAny; cFunDefAndDecl ""];
+  !! Apac_preprocessing.build_records [
+      nbAny;
+      cFunDefAndDecl ""
+    ];
   if !Apac_flags.constify then
     !! Apac_preprocessing.Constification.constify
       ~frs:(Some Apac_records.functions) [
         nbAny;
         cFunDefAndDecl ""
       ];
-  !! Apac_preprocessing.select_candidates [nbAny; cFunDefAndDecl ""];
-  !! Apac_preprocessing.unify_returns [nbAny; cMark Apac_macros.candidate_mark];
+  !! Apac_preprocessing.select_candidates [
+      nbAny;
+      cFunDefAndDecl ""
+    ];
+  !! Apac_preprocessing.unify_returns [
+      nbAny;
+      cMark Apac_macros.candidate_mark
+    ];
   !! Apac_task_candidate_discovery.taskify [
       nbAny;
       cMark Apac_macros.candidate_body_mark
