@@ -4,7 +4,7 @@ open Target
 let _ = Run.script_cpp (fun () ->
             Flags.code_print_width := 1024;
             Apac_flags.instrument := true;
-            !! Apac_prologue.build_records [
+            !! Apac_preprocessing.build_records [
                 nbAny;
                 cFunDefAndDecl ""
               ];
