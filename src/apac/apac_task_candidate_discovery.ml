@@ -8,7 +8,6 @@ open Apac_records
 open Apac_miscellaneous
 open Apac_dep
 open Apac_tasks
-open Apac_backend
 
 (** [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
     returns two lists. The first list holds the access terms where each term is
