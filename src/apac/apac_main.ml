@@ -20,7 +20,7 @@ let compile () : unit =
   if !Apac_flags.profile then
     begin
       ?? (fun () ->
-          !! Apac_backend.profile_tasks [
+          !! Apac_profiler.annotate [
               nbAny;
               cMark Apac_macros.candidate_body_mark
             ];

@@ -175,45 +175,6 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
     end
   else t.current
 
-(** [profile_tasks tg]: expects the target [tg] to point at a function body. It
-    then translates its task candidate graph representation into an abstract
-    syntax tree while surrounding eligible task candidates with profiling
-    sections. *)
-let profile_tasks (tg : target) : unit =
-  (** Include the header providing profiling elements. *)
-  Trace.ensure_header Apac_macros.profile_include;
-  Target.apply (fun t p ->
-      Path.apply_on_path (fun t ->
-          (** Find the parent function [f]. *)
-          let f = match (find_parent_function p) with
-            | Some (v) -> v
-            | None -> fail t.loc "Apac_backend.profile_tasks: unable to find \
-                                  parent function. Taskification candidate \
-                                  body outside of a task candidate?" in
-          (** Find its function record [r] in [!Apac_records.functions]. *)
-          let _ = Printf.printf "Profiling `%s'\n" (var_to_string f) in
-          let r = Var_Hashtbl.find Apac_records.functions f in
-          (** Initialize a stack [sections] for storing the definitions of
-              future profiling sections. *)
-          let sections = Stack.create () in
-          (** Translate the task candidate graph representation [r.graph] of [f]
-              to a abstract syntax tree using the profiler back-end. *)
-          let ast = TaskGraphTraverse.to_ast
-                      (Apac_profiler.codegen sections) r.graph in
-          let sections = List.of_seq (Stack.to_seq sections) in
-          let ast = Mlist.of_list (sections @ ast) in
-          let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
-          (** Dump the resulting abstract syntax tree, if requested. *)
-          if !Apac_flags.verbose then
-            begin
-              let msg = Printf.sprintf "Abstract syntax tree of `%s' with profiling \
-                                        instructions" (var_to_string f) in
-              Debug_transfo.trm msg result
-            end;
-          (** Return the resulting abstract syntax tree. *)
-          result
-        ) t p) tg
-
 (** [insert_tasks_on p t]: see [insert_tasks_on]. *)
 let insert_tasks_on (p : path) (t : trm) : trm =
   (** Find the parent function [f]. *)

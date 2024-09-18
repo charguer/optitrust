@@ -186,6 +186,44 @@ let codegen (sections : trm Stack.t) (v : TaskGraph.V.t) : trms =
         surrounded with the profiling statements we have just built. *)
     opening :: (params @ [before] @ t.current @ [after])
 
+(** [annotate tg]: expects the target [tg] to point at a function body. It then
+    translates its task candidate graph representation into an abstract syntax
+    tree while annotating eligible task candidates with profiling sections. *)
+let annotate (tg : target) : unit =
+  (** Include the header providing profiling elements. *)
+  Trace.ensure_header Apac_macros.profile_include;
+  (** Perform the translation. *)
+  Target.apply (fun t p ->
+      Path.apply_on_path (fun t ->
+          (** Find the parent function [f]. *)
+          let f = match (find_parent_function p) with
+            | Some (v) -> v
+            | None -> fail t.loc "Apac_profiling.annotate: unable to find \
+                                  parent function. Taskification candidate \
+                                  body outside of a task candidate?" in
+          (** Find its function record [r] in [!Apac_records.functions]. *)
+          let r = Var_Hashtbl.find Apac_records.functions f in
+          (** Initialize a stack [sections] for storing the definitions of
+              future profiling sections. *)
+          let sections = Stack.create () in
+          (** Translate the task candidate graph representation [r.graph] of [f]
+              to an abstract syntax tree. *)
+          let ast = TaskGraphTraverse.to_ast (codegen sections) r.graph in
+          let sections = List.of_seq (Stack.to_seq sections) in
+          let ast = Mlist.of_list (sections @ ast) in
+          let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
+          (** Dump the resulting abstract syntax tree, if requested. *)
+          if !Apac_flags.verbose then
+            begin
+              let msg = Printf.sprintf
+                          "Abstract syntax tree of `%s' with profiling \
+                           instructions" (var_to_string f) in
+              Debug_transfo.trm msg result
+            end;
+          (** Return the resulting abstract syntax tree. *)
+          result
+        ) t p) tg
+
 (** [modelize tg]: expects the target [tg] to point at the entire abstract
     syntax tree featuring profiling instructions. It then generates the
     corresponding C source code, compiles it, runs it and modelizes the
