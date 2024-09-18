@@ -14,6 +14,11 @@ let cwd () : string = Filename.dirname (!Apac_flags.input)
 
 (** {1 Pre-processing stage} *)
 
+(** [intermediate_variable]: prefix for the names of the intermediate variables
+    we may introduce during the function call extraction (see
+    [!Apac_preprocessing.extract_function_calls]). *)
+let intermediate_variable : string = "__apac_var"
+
 (** [candidate_mark]: string for marking taskification candidate functions (see
     [!Apac_prologue.select_candidates]). *)
 let candidate_mark : mark = "__apac_candidate"
