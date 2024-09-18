@@ -16,10 +16,10 @@ let parameters = Hashtbl.create 97
     through its hash (see type [!type:TaskGraph.V.t]). *)
 let formulas = Hashtbl.create 97
 
-(** [codegen sections v]: takes the abstract syntax tree representation of the
-    task candidate vertex [v] and extends it with profiling instructions if the
-    latter is an eligible task candidate, i.e. it carries the [Taskifiable]
-    attribute.
+(** [annotate tg]: expects the target [tg] to point at a function body. It then
+    translates its task candidate graph representation into an abstract syntax
+    tree while annotating eligible task candidates, i.e. those carrying the
+    [Taskifiable] attribute, with profiling sections.
 
     To profile a task candidate, we associate it with a profiling section. For
     example, let us apply [codegen] on the task candidate [v1] below.
@@ -87,108 +87,6 @@ let formulas = Hashtbl.create 97
     function's body rather than in-place. This is to prevent [goto] statements
     potenitally crossing declarations of profile sections leading to compilation
     errors. *)
-let codegen (sections : trm Stack.t) (v : TaskGraph.V.t) : trms =
-  (** [codegen.call c m args]: an auxiliary function to generate a call to a
-      method [m] of the profiling section [c] while passing it [args] as
-      arguments. *)
-  let call (c : var) (m : label) (args : trms) : trm =
-    let f = trm_struct_get (trm_get (trm_var c)) m in
-    trm_apps f args
-  in
-  (** Retrieve the label [t] of the task candidate [v]. *)
-  let t = TaskGraph.V.label v in
-  (** If [v] does not represent an eligible task candidate, i.e. it does not
-      carry the [Taskifiable] attribute, do not place [v] into a profiling
-      section and return its abstract syntax tree representation as-is. *)
-  if not (Task.attributed t Taskifiable) then
-    t.current
-  else
-    (** Otherwise, start by computing the hash [h] of [v]. *)
-    let h = TaskGraph.V.hash v in
-    (** Keep also a string representation of [h] as [h']. *)
-    let h' = string_of_int h in
-    (** This allows us to generate a unique name as well as the corresponding
-        variable for the new profiling section to surround [v] with. *)
-    let s = Apac_macros.profile_section_prefix ^ h' in
-    let s' = new_var s in
-    (** We then generate the declaration of the section variable without
-        explicitly initializing it. *)
-    let section = trm_let_mut (
-                      s', Typ.typ_str (Atyp Apac_macros.profile_section_type)
-                    ) (trm_uninitialized ()) in
-    (** In the next step, we produce the [add] calls, in [params], for each
-        parameter of the task candidate, we want to record the value of for the
-        performance modelization. [i] increases with each call to [add] and
-        represents the key in a [map] (see type [!type:Int_map.t]) keeping the
-        track of the correspondence between a parameter abstract syntax tree
-        term and its generic variable name within the performance modelization.
-        We store this [map], for each task candidate of hash [h], in the global
-        hash table [!parameters] for later processing in [!optimize]. *)
-    let i = ref 0 in
-    let (map, params) =
-      (** We loop over each statement [c] within the task candidate [v] and *)
-      List.fold_right (fun c (m, p) ->
-          (** based on its kind, we decide which parameters we want to record
-              for performance modelization. *)
-          match c.desc with
-          (** When [c] is a call to a function [f], *)
-          | Trm_apps ({ desc = Trm_var (_ , f); _ }, args) ->
-             (** we retrieve the function record as well as *)
-             let r = Var_Hashtbl.find Apac_records.functions f in
-             (** the list of arguments of the call (ignoring the reference to
-                 [this] in the case of class memeber methods) and *)
-             let args = if f.name = "this" then List.tl args else args in
-             (** record the value, in the form of an abstract syntax tree term,
-                 of each argument [arg] *)
-             List.fold_right2 (fun arg (_, nli) (m, p) ->
-                 (** which is a simple variable or a reference to the latter,
-                     i.e. the number of levels of indirections of which is
-                     smaller than [1] according to the corresponding argument
-                     classification in [r.args]. *)
-                 if nli < 1 then
-                   begin
-                     (** To this end, we, at first, create a new binding in the
-                         map [m] (resulting in [map] at the end of the process)
-                         between the ordinal of [arg], i.e. [i], and [arg]
-                         itself. *)
-                     let m = Int_map.add !i arg m in
-                     (** We then generate a call to [apac_s::add] with [arg] as
-                         an argument so as to effectively record the value [arg]
-                         evaluates to at runtime for performance
-                         modelization. *)
-                     let p' =
-                       (call s' Apac_macros.profile_section_add [arg]) :: p in
-                     incr i; (m, p')
-                   end
-                 else
-                   (m, p)
-               ) args r.args (m, p)
-          (** TODO: Implement support for loops. *)
-          | _ -> (m, p)
-        ) t.current (Int_map.empty, []) in
-    (** Finally, we produce the call to [apac_s::initialize] for the new
-        profiling section as well as *)
-    let opening = call s' Apac_macros.profile_section_init [trm_string h'] in
-    (** the call to [apac_s::before] and *)
-    let before = code
-                   (Instr
-                      (s ^ "." ^ Apac_macros.profile_section_before ^ "()")) in
-    (** the call to [apac_s::after]. *)
-    let after = code
-                  (Instr
-                     (s ^ "." ^ Apac_macros.profile_section_after ^ "()")) in
-    (** We store the section declaration term in the [sections] stack and *)
-    Stack.push section sections;
-    (** the correspondences between parameter terms and their generic names in
-        the hash table of maps [parameters] prior to *)
-    Hashtbl.add parameters h map;
-    (** returning the abstract syntax tree representation [t.current] of [v]
-        surrounded with the profiling statements we have just built. *)
-    opening :: (params @ [before] @ t.current @ [after])
-
-(** [annotate tg]: expects the target [tg] to point at a function body. It then
-    translates its task candidate graph representation into an abstract syntax
-    tree while annotating eligible task candidates with profiling sections. *)
 let annotate (tg : target) : unit =
   (** Include the header providing profiling elements. *)
   Trace.ensure_header Apac_macros.profile_include;
@@ -208,7 +106,129 @@ let annotate (tg : target) : unit =
           let sections = Stack.create () in
           (** Translate the task candidate graph representation [r.graph] of [f]
               to an abstract syntax tree. *)
-          let ast = TaskGraphTraverse.to_ast (codegen sections) r.graph in
+          let ast =
+            TaskGraphTraverse.to_ast
+              (fun v ->
+                (** [annotate.<anonymous>.call c m args]: an auxiliary function
+                    to generate a call to a method [m] of the profiling section
+                    [c] while passing it [args] as arguments. *)
+                let call (c : var) (m : label) (args : trms) : trm =
+                  let f = trm_struct_get (trm_get (trm_var c)) m in
+                  trm_apps f args
+                in
+                (** Retrieve the label [t] of the task candidate [v]. *)
+                let t = TaskGraph.V.label v in
+                (** If [v] does not represent an eligible task candidate, i.e.
+                    it does not carry the [Taskifiable] attribute, do not place
+                    [v] into a profiling section and return its abstract syntax
+                    tree representation as-is. *)
+                if not (Task.attributed t Taskifiable) then
+                  t.current
+                else
+                  (** Otherwise, start by computing the hash [h] of [v]. *)
+                  let h = TaskGraph.V.hash v in
+                  (** Keep also a string representation of [h] as [h']. *)
+                  let h' = string_of_int h in
+                  (** This allows us to generate a unique name as well as the
+                      corresponding variable for the new profiling section to
+                      surround [v] with. *)
+                  let s = Apac_macros.profile_section_prefix ^ h' in
+                  let s' = new_var s in
+                  (** We then generate the declaration of the section variable
+                      without explicitly initializing it. *)
+                  let section =
+                    trm_let_mut (
+                        s', Typ.typ_str (Atyp Apac_macros.profile_section_type)
+                      ) (trm_uninitialized ()) in
+                  (** In the next step, we produce the [add] calls, in [params],
+                      for each parameter of the task candidate, we want to
+                      record the value of for the performance modelization. [i]
+                      increases with each call to [add] and represents the key
+                      in a [map] (see type [!type:Int_map.t]) keeping the track
+                      of the correspondence between a parameter abstract syntax
+                      tree term and its generic variable name within the
+                      performance modelization. We store this [map], for each
+                      task candidate of hash [h], in the global hash table
+                      [!parameters] for later processing in [!optimize]. *)
+                  let i = ref 0 in
+                  let (map, params) =
+                    (** We loop over each statement [c] within the task
+                        candidate [v] and *)
+                    List.fold_right (fun c (m, p) ->
+                        (** based on its kind, we decide which parameters we
+                            want to record for performance modelization. *)
+                        match c.desc with
+                        (** When [c] is a call to a function [f], *)
+                        | Trm_apps ({ desc = Trm_var (_ , f); _ }, args) ->
+                           (** we retrieve the function record as well as *)
+                           let r = Var_Hashtbl.find Apac_records.functions f in
+                           (** the list of arguments of the call (ignoring the
+                               reference to [this] in the case of class memeber
+                               methods) and *)
+                           let args =
+                             if f.name = "this" then List.tl args else args in
+                           (** record the value, in the form of an abstract
+                               syntax tree term, of each argument [arg] *)
+                           List.fold_right2 (fun arg (_, nli) (m, p) ->
+                               (** which is a simple variable or a reference to
+                                   the latter, i.e. the number of levels of
+                                   indirections of which is smaller than [1]
+                                   according to the corresponding argument
+                                   classification in [r.args]. *)
+                               if nli < 1 then
+                                 begin
+                                   (** To this end, we, at first, create a new
+                                       binding in the map [m] (resulting in
+                                       [map] at the end of the process) between
+                                       the ordinal of [arg], i.e. [i], and [arg]
+                                       itself. *)
+                                   let m = Int_map.add !i arg m in
+                                   (** We then generate a call to [apac_s::add]
+                                       with [arg] as an argument so as to
+                                       effectively record the value [arg]
+                                       evaluates to at runtime for performance
+                                       modelization. *)
+                                   let p' =
+                                     (call
+                                        s'
+                                        Apac_macros.profile_section_add [arg]
+                                     ) :: p in
+                                   incr i; (m, p')
+                                 end
+                               else
+                                 (m, p)
+                             ) args r.args (m, p)
+                        (** TODO: Implement support for loops. *)
+                        | _ -> (m, p)
+                      ) t.current (Int_map.empty, []) in
+                  (** Finally, we produce the call to [apac_s::initialize] for
+                      the new profiling section as well as *)
+                  let opening =
+                    call s' Apac_macros.profile_section_init [trm_string h'] in
+                  (** the call to [apac_s::before] and *)
+                  let before = code
+                                 (Instr
+                                    (s ^ "." ^
+                                       Apac_macros.profile_section_before ^
+                                         "()")) in
+                  (** the call to [apac_s::after]. *)
+                  let after = code
+                                (Instr
+                                   (s ^ "." ^
+                                      Apac_macros.profile_section_after ^
+                                        "()")) in
+                  (** We store the section declaration term in the [sections]
+                      stack and *)
+                  Stack.push section sections;
+                  (** the correspondences between parameter terms and their
+                      generic names in the hash table of maps [parameters] prior
+                      to *)
+                  Hashtbl.add parameters h map;
+                  (** returning the abstract syntax tree representation
+                      [t.current] of [v] surrounded with the profiling
+                      statements we have just built. *)
+                  opening :: (params @ [before] @ t.current @ [after])
+              ) r.graph in
           let sections = List.of_seq (Stack.to_seq sections) in
           let ast = Mlist.of_list (sections @ ast) in
           let result = trm_seq ~annot:t.annot ~ctx:t.ctx ast in
@@ -263,7 +283,7 @@ let modelize (tg : target) : unit =
         let v = Val_lit (Lit_double (Float.of_string c)) in trm_val v
       with
       | Failure _ ->
-         failwith ("Apac_profiler.modelize: `" ^ c ^
+         failwith ("Apac_profiling.modelize: `" ^ c ^
                      "' is not a valid floating-point constant.")
     in
     (** [modelize.process.pow p op]: an auxiliary function to transpile the
@@ -373,20 +393,20 @@ let modelize (tg : target) : unit =
     (** Other exceptions indicate an irreparable error. Show an adequate error
         message. *)
     | IllFormedModel m ->
-       failwith ("Apac_profiler.modelize: `" ^ m ^
+       failwith ("Apac_profiling.modelize: `" ^ m ^
                    "' is not a valid performance model.")
     | UnknownParameter p ->
-       failwith ("Apac_profiler.modelize: unknown parameter `" ^
+       failwith ("Apac_profiling.modelize: unknown parameter `" ^
                    (string_of_int p) ^ "'.")
     | UnknownTaskCandidate c ->       
        failwith
-         ("Apac_profiler.modelize: unknown task candidate `" ^
+         ("Apac_profiling.modelize: unknown task candidate `" ^
             (string_of_int c) ^ "'.")
     | IllFormedPower p ->
-       failwith ("Apac_profiler.modelize: `" ^ p ^
+       failwith ("Apac_profiling.modelize: `" ^ p ^
                    "' is not a valid power expression.")
     | e -> failwith
-             ("Apac_profiler.modelize: unexpected error occurred (" ^
+             ("Apac_profiling.modelize: unexpected error occurred (" ^
                 (Printexc.to_string e) ^ ")")
   in
   (** This is the core of the [modelize] pass. *)
@@ -418,7 +438,7 @@ let modelize (tg : target) : unit =
                       (code ^ context.extension) binary ^ " > " ^ build
                   ) in
       if err <> 0 then
-        failwith "Apac_profiler.modelize: could not compile source code with \
+        failwith "Apac_profiling.modelize: could not compile source code with \
                   profiling instructions."
       else
         (** Run [binary] which produces [profile]. *)
@@ -426,7 +446,7 @@ let modelize (tg : target) : unit =
                       Apac_macros.profile_cmdline binary ^ " > " ^ run
                     ) in
         if err <> 0 then
-          failwith "Apac_profiler.modelize: could not perform the profiling \
+          failwith "Apac_profiling.modelize: could not perform the profiling \
                     run."
         else
           (** Run the modelizer script on [profile] which produces [model]. *)
@@ -435,8 +455,8 @@ let modelize (tg : target) : unit =
                           modeling
                       ) in
           if err <> 0 then
-            failwith "Apac_profiler.modelize: could not compute execution time \
-                      model."
+            failwith "Apac_profiling.modelize: could not compute execution \
+                      time model."
           else
             begin
               (** Parse [model]. *)
@@ -483,7 +503,7 @@ let optimize (tg : target) : unit =
             Hashtbl.find formulas h
           with
           | Not_found ->
-             failwith ("Apac_profiler.optimize: task candidate `" ^
+             failwith ("Apac_profiling.optimize: task candidate `" ^
                          (Task.to_string t) ^ "' has no performance model.") in
         (** If there is no formula, the modelization judges [v] is not an
             eligible candidate. *)
@@ -519,7 +539,7 @@ let optimize (tg : target) : unit =
       (** Find the parent function [f]. *)
       let f = match (find_parent_function p) with
         | Some (v) -> v
-        | None -> fail t.loc "Apac_profiler.optimize: unable to find parent \
+        | None -> fail t.loc "Apac_profiling.optimize: unable to find parent \
                               function. Task group outside of a function?" in
       (** Find its function record [r] in [!Apac_records.functions]. *)
       let r = Var_Hashtbl.find Apac_records.functions f in

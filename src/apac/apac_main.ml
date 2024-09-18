@@ -20,14 +20,14 @@ let compile () : unit =
   if !Apac_flags.profile then
     begin
       ?? (fun () ->
-          !! Apac_profiler.annotate [
+          !! Apac_profiling.annotate [
               nbAny;
               cMark Apac_macros.candidate_body_mark
             ];
           !! Apac_epilogue.clear_marks ();
-          !! Apac_profiler.modelize []
+          !! Apac_profiling.modelize []
         );
-      !! Apac_profiler.optimize [nbAny; cMark Apac_macros.candidate_body_mark];
+      !! Apac_profiling.optimize [nbAny; cMark Apac_macros.candidate_body_mark];
     end;
   !! Apac_epilogue.synchronize_subscripts [
       nbAny;
