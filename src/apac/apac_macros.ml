@@ -349,6 +349,10 @@ let depth_max : string = "APAC_TASK_DEPTH_MAX"
     according to their estimated execution time. *)
 let execution_time_cutoff : string = "APAC_EXECUTION_TIME_CUTOFF"
 
+(** [execution_time_min]: the estimation of the minimal execution time for a
+    task to be worth of spawning. *)
+let execution_time_min : string = "2.22100e-6"
+
 (** [pow]: an implementation of [model_pow] to include in the parallel
     source code when using execution time modeling (see [section:modeling]). *)
 let pow : string = "
