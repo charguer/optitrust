@@ -568,163 +568,6 @@ let heapify (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
       Target.apply_at_target_paths heapify_on tg)
 
-(* [instrument_task_group_on t]: see [instrument_task_group]. *)
-let instrument_task_group_on (t : trm) : trm =
-  (* Deconstruct the sequence term [t]. *)
-  let error = "Apac_epilogue.instrument_task_group_on: expected a target to a \
-               sequence" in
-  let seq = trm_inv ~error trm_seq_inv t in
-  (* Build the definition term of the boolean deciding whether the task spawning
-     should be cut off based on the current task count. *)
-  let open Apac_macros in 
-  let ok1 = code
-              (Instr
-                 ("int " ^
-                    (get_apac_variable ApacCountOk) ^
-                      " = " ^
-                        (get_apac_variable ApacCountInfinite) ^
-                          " || " ^
-                            (get_apac_variable ApacCount) ^
-                              " < " ^
-                                (get_apac_variable ApacCountMax)))
-  in
-  (* Build the definition term of the local task-private copy of the current
-     task depth [ApacDepthLocal] variable. *)
-  let local = code
-                (Instr
-                   ("int " ^
-                      (get_apac_variable ApacDepthLocal) ^
-                        " = " ^
-                          (get_apac_variable ApacDepth)))
-  in
-  (* Build the definition term of the boolean deciding whether the task spawning
-     should be cut off based on the current task depth. *)
-  let ok2 = code
-              (Instr
-                 ("int " ^
-                    (get_apac_variable ApacDepthOk) ^
-                      " = " ^
-                        (get_apac_variable ApacDepthInfinite) ^
-                          " || " ^
-                            (get_apac_variable ApacDepthLocal) ^
-                              " < " ^
-                                (get_apac_variable ApacDepthMax)))
-  in
-  (* Prepend these three terms to the original sequence and *)
-  let seq' = [ok1; local; ok2] in
-  let seq' = Mlist.of_list seq' in
-  let seq' = Mlist.merge seq' seq in
-  (* rebuild a new one. *)
-  trm_seq ~ctx:t.ctx ~annot:t.annot seq'
-  
-(* [instrument_task_group tg]: expects the target [tg] to point at a task group
-   sequence in which it prepends all the terms with instrumentation terms
-   involved in the task granularity control in the resulting source code. *)
-let instrument_task_group (tg : target) : unit =
-  Target.apply_at_target_paths instrument_task_group_on tg
-
-(* [instrument_unit_on  t]: see [instrument_unit]. *)
-let instrument_unit_on (t : trm) : trm =
-  (* Deconstruct the sequence term [t]. *)
-  let error = "Apac_epilogue.instrument_unit_on: expected a target to a \
-               sequence" in
-  let seq = trm_inv ~error trm_seq_inv t in
-  (* Build the definition term of the flag allowing the end-user to disable the
-     task creation cut-off based on the number of active tasks. *)
-  let open Apac_macros in
-  let ok1 = code
-              (Instr
-                 ("const static int " ^
-                    (get_apac_variable ApacCountInfinite) ^
-                      " = getenv(\"" ^
-                        Apac_macros.count_infinite ^
-                          "\") ? 1 : 0"))
-  in
-  (* Build the definition term of the flag allowing the end-user to disable the
-     task creation cut-off based on the current task depth. *)
-  let ok2 = code
-              (Instr
-                 ("const static int " ^
-                    (get_apac_variable ApacDepthInfinite) ^
-                      " = getenv(\"" ^
-                        Apac_macros.depth_infinite ^
-                          "\") ? 1 : 0"))
-  in
-  (* Build the definition term of the parameter allowing the end-user to
-     manually set the maximum count of active tasks. *)
-  let max1 = code
-              (Instr
-                 ("const static int " ^
-                    (get_apac_variable ApacCountMax) ^
-                      " = getenv(\"" ^
-                        Apac_macros.count_max ^
-                          "\") ? atoi(getenv(\"" ^
-                            Apac_macros.count_max ^
-                              "\")) : omp_get_max_threads() * " ^
-                                (string_of_int
-                                   !Apac_flags.count_max_thread_factor)))
-  in
-  (* Build the definition term of the parameter allowing the end-user to
-     manually set the maximum task depth. *)
-  let max2 = code
-              (Instr
-                 ("const static int " ^
-                    (get_apac_variable ApacDepthMax) ^
-                      " = getenv(\"" ^
-                        Apac_macros.depth_max ^
-                          "\") ? atoi(getenv(\"" ^
-                            Apac_macros.depth_max ^
-                              "\")) : " ^
-                                (string_of_int
-                                   !Apac_flags.depth_max_default)))
-  in
-  (* Build the definition term of the counter of active tasks. *)
-  let c1 = code
-             (Instr
-                ("int " ^
-                   (get_apac_variable ApacCount) ^
-                     " = 0"))
-  in
-  (* Build the definition term of the counter of the current task depth. *)
-  let c2 = code
-             (Instr
-                ("int " ^
-                   (get_apac_variable ApacDepth) ^
-                     " = 0"))
-  in
-  (* Prepend these three terms to the original sequence.*)
-  let seq' = [ok1; ok2; max1; max2; c1; c2] in
-  (* If the backend is OpenMP, we have to include an extra pragma directive to
-     make [ApacDepth] thread-private. *)
-  let seq' =
-    let pragma = code
-                   (Stmt
-                      ("#pragma omp threadprivate(" ^
-                         (get_apac_variable ApacDepth) ^
-                           ")")) in
-    seq' @ [pragma] in
-  let seq' = Mlist.of_list seq' in
-  let seq' = Mlist.merge seq' seq in
-  (* Finally, we rebuild an updated sequence. *)
-  trm_seq ~ctx:t.ctx ~annot:t.annot seq'
-
-(* [instrument_unit tg]: expects the target [tg] to point at the top-level
-   sequence in which it prepends all the terms with instrumentation terms
-   involved in the task granularity control in the resulting source code. *)
-let instrument_unit (tg : target) : unit =
-  Target.apply_at_target_paths instrument_unit_on tg
-
-(* [instrument tgu tgg]: expects the target [tgu] to point at the top-level
-   sequence and the target [tgg] to point at a task group sequence. The
-   transformation then prepends all the terms in these sequences with
-   instrumentation terms involved in the task granularity control in the
-   resulting source code. *)
-let instrument (tgu : target) (tgg : target) : unit =
-  Trace.ensure_header "#include <stdlib.h>";
-  Trace.ensure_header "#include <omp.h>";
-  instrument_unit tgu;
-  instrument_task_group tgg
-
 (* [synchronize_subscripts_on p t]: see [synchronize_subscripts]. *)
 let synchronize_subscripts_on (p : path) (t : trm) : unit =
   let rec synchronize (scope : depscope) (subscripts : substack)
@@ -1173,6 +1016,220 @@ let insert_tasks_on (p : path) (t : trm) : trm =
     abstract syntax tree. *)
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
+
+(** [cutoff_count_and_depth tg]: expects the target [tg] to point at a task
+    group, i.e. a statement sequence with the
+    [!Apac_macros.candidate_body_mark]. It then extends the sequence with the
+    definitions of function-local variables for controlling task granularity
+    according to the number of submitted tasks and the parallelism depth. The
+    pass also adds to the abstract syntax tree of the input program the
+    [#include] directives and definitions of global variables involved in this
+    granularity control mechanism.
+
+    For example, let us consider the following C source code.
+
+    {[
+    void f(int * tab) { tab[0] += 42; }
+
+    void p(int & v) { int a = 15; int b = a + 2; int c = a + b + v++; }
+
+    void c(int * tab, int size) {
+    /*@__apac_candidate_body*/ {
+        f(tab);
+        for(int i = 0; i < size; i++) {
+          p(tab[i]);
+        }
+      } /*@__apac_candidate_body*/
+    }
+    ]}
+
+    Here, the sequence wrapping the body of the function [c] carries the
+    [!Apac_macros.candidate_body_mark]. In the first place, the pass adds to the
+    beginning of this sequence the definitions of [ApacCountOk],
+    [ApacDepthLocal] and [ApacDepth] (see enumeration
+    [!type:Apac_macros.apac_variable]).
+
+    {[
+    void f(int * tab) { tab[0] += 42; }
+
+    void p(int & v) { int a = 15; int b = a + 2; int c = a + b + v++; }
+
+    void c(int * tab, int size) {
+    /*@__apac_candidate_body*/ {
+        int __apac_count_ok =
+          __apac_count_infinite || __apac_count < __apac_count_max;
+        int __apac_depth_local = __apac_depth;
+        int __apac_depth_ok =
+          __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
+        f(tab);
+        for(int i = 0; i < size; i++) {
+          p(tab[i]);
+        }
+      } /*@__apac_candidate_body*/
+    }
+    ]}
+
+    Then, the pass extends the abstract syntax tree of the input program with
+    the global definitions of [ApacCountInfinite], [ApacDepthInfinite],
+    [ApacCountMax], [ApacDepthMax], [ApacCount] and [ApacDepth] (see enumeration
+    [!type:Apac_macros.apac_variable]). Finally, it ensures the presence of
+    [#include] directives for the headers [omp.h] and [stdlib.h] the granularity
+    control mechanism relies on.
+
+    {[
+    #include <omp.h>
+    #include <stdlib.h>
+
+    const static int __apac_count_infinite =
+      getenv("APAC_TASK_COUNT_INFINITE") ? 1 : 0;
+
+    const static int __apac_depth_infinite =
+      getenv("APAC_TASK_DEPTH_INFINITE") ? 1 : 0;
+    
+    const static int __apac_count_max =
+      getenv("APAC_TASK_COUNT_MAX") ?
+        atoi(getenv("APAC_TASK_COUNT_MAX")) : omp_get_max_threads() * 10;
+
+    const static int __apac_depth_max =
+      getenv("APAC_TASK_DEPTH_MAX") ?
+        atoi(getenv("APAC_TASK_DEPTH_MAX")) : 5;
+
+    int __apac_count = 0;
+
+    int __apac_depth = 0;
+
+    #pragma omp threadprivate(__apac_depth)
+
+    void f(int * tab) { tab[0] += 42; }
+
+    void p(int & v) { int a = 15; int b = a + 2; int c = a + b + v++; }
+
+    void c(int * tab, int size) {
+    /*@__apac_candidate_body*/ {
+        int __apac_count_ok =
+          __apac_count_infinite || __apac_count < __apac_count_max;
+        int __apac_depth_local = __apac_depth;
+        int __apac_depth_ok =
+          __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
+        f(tab);
+        for(int i = 0; i < size; i++) {
+          p(tab[i]);
+        }
+      } /*@__apac_candidate_body*/
+    }
+    ]}
+
+    Note that we insert the statements updating and referring to the variables
+    we introduce within the [!parallelize] pass responsible for the generation
+    of parallel source code with OpenMP task-based programming pragmas. The
+    [cutoff_count_and_depth] pass is responsible only for declaring,
+    initializing and configuring the granularity control variables. *)
+let cutoff_count_and_depth (tg : target) : unit =
+  (** Define a common error message. *)
+  let error = "Apac_parallelization.cutoff_count_and_depth: expected a target \
+               to a sequence" in
+  (** Introduce the function-local granularity control variables. *)
+  Target.apply_at_target_paths (fun t ->
+      (** Deconstruct the target sequence term [t] into an [!module:Mlist] of
+          statement terms [s]. *)
+      let s = trm_inv ~error trm_seq_inv t in
+  (** Build the definition of [ApacCountOk] relying on the globals
+      [ApacCountInfinite], [ApacCount] and [ApacCountMax] (see enumeration
+      [!type:Apac_macros.apac_variable]). *)
+      let open Apac_macros in 
+      let ok1 = code
+                  (Instr
+                     ("int " ^ (get_apac_variable ApacCountOk) ^
+                        " = " ^ (get_apac_variable ApacCountInfinite) ^
+                          " || " ^ (get_apac_variable ApacCount) ^
+                            " < " ^ (get_apac_variable ApacCountMax))) in
+      (** Build the definition of [ApacDepthLocal] relying on the global
+          [ApacDepth] (see enumeration [!type:Apac_macros.apac_variable]). *)
+      let local = code
+                    (Instr
+                       ("int " ^ (get_apac_variable ApacDepthLocal) ^
+                          " = " ^ (get_apac_variable ApacDepth))) in
+      (** Build the definition of [ApacDepthOk] relying on the globals
+          [ApacDepthInfinite], [ApacDepthLocal] and [ApacDepthMax] (see
+          enumeration [!type:Apac_macros.apac_variable]). *)
+      let ok2 = code
+                  (Instr
+                     ("int " ^ (get_apac_variable ApacDepthOk) ^
+                        " = " ^ (get_apac_variable ApacDepthInfinite) ^
+                          " || " ^ (get_apac_variable ApacDepthLocal) ^
+                            " < " ^ (get_apac_variable ApacDepthMax))) in
+      (** Insert the definition statements at the beginning of [s] and *)
+      let s = Mlist.insert_sublist_at 0 [ok1; local; ok2] s in
+      (** re-build [s]. *)
+      trm_seq ~ctx:t.ctx ~annot:t.annot s
+    ) tg;  
+  (** Introduce the global granularity control variables. *)
+  Target.apply_at_target_paths (fun t ->
+      (** Deconstruct the sequence term [t] representing the root of the
+          abstract syntax tree of the input program into an [!module:Mlist] of
+          statement terms [s]. *)
+      let s = trm_inv ~error trm_seq_inv t in
+      (** Build the definition of [ApacCountInfinite] (see enumeration
+          [!type:Apac_macros.apac_variable]) relying on the environment variable
+          [!Apac_macros.count_infinite]. *)
+      let open Apac_macros in
+      let ok1 = code
+                  (Instr
+                     ("const static int " ^
+                        (get_apac_variable ApacCountInfinite) ^
+                          " = getenv(\"" ^ Apac_macros.count_infinite ^
+                            "\") ? 1 : 0")) in
+      (** Build the definition of [ApacDepthInfinite] (see enumeration
+          [!type:Apac_macros.apac_variable]) relying on the environment variable
+          [!Apac_macros.depth_infinite]. *)
+      let ok2 = code
+                  (Instr
+                     ("const static int " ^
+                        (get_apac_variable ApacDepthInfinite) ^
+                          " = getenv(\"" ^ Apac_macros.depth_infinite ^
+                            "\") ? 1 : 0")) in
+      (** Build the definition of [ApacCountMax] (see enumeration
+          [!type:Apac_macros.apac_variable]) relying on the environment variable
+          [!Apac_macros.count_max]. *)
+      let max1 = code
+                   (Instr
+                      ("const static int " ^
+                         (get_apac_variable ApacCountMax) ^
+                           " = getenv(\"" ^ Apac_macros.count_max ^
+                             "\") ? atoi(getenv(\"" ^ Apac_macros.count_max ^
+                               "\")) : omp_get_max_threads() * " ^
+                                 (string_of_int
+                                    !Apac_flags.count_max_thread_factor))) in
+      (** Build the definition of [ApacDepthMax] (see enumeration
+          [!type:Apac_macros.apac_variable]) relying on the environment variable
+          [!Apac_macros.depth_max]. *)
+      let max2 = code
+                   (Instr
+                      ("const static int " ^ (get_apac_variable ApacDepthMax) ^
+                         " = getenv(\"" ^ Apac_macros.depth_max ^
+                           "\") ? atoi(getenv(\"" ^ Apac_macros.depth_max ^
+                             "\")) : " ^
+                               (string_of_int
+                                  !Apac_flags.depth_max_default))) in
+      (** Build the definition of [ApacCount] (see enumeration
+          [!type:Apac_macros.apac_variable]). *)
+      let c1 = code (Instr ("int " ^ (get_apac_variable ApacCount) ^ " = 0")) in
+      (** Build the definition of [ApacDepth] (see enumeration
+          [!type:Apac_macros.apac_variable]). *)
+      let c2 = code (Instr ("int " ^ (get_apac_variable ApacDepth) ^ " = 0")) in
+      (** Make [ApacDepth] (see enumeration [!type:Apac_macros.apac_variable])
+          thread-private. *)
+      let pragma = code (Stmt ("#pragma omp threadprivate(" ^
+                                 (get_apac_variable ApacDepth) ^ ")")) in
+      (** Insert the definition statements at the beginning of [s] and *)
+      let s =
+        Mlist.insert_sublist_at 0 [ok1; ok2; max1; max2; c1; c2; pragma] s in
+      (** re-build [s]. *)
+      trm_seq ~ctx:t.ctx ~annot:t.annot s
+    ) [];
+  (** Ensure the [#include] directives for [stdlib.h] and [omp.h]. *)
+  Trace.ensure_header "#include <stdlib.h>";
+  Trace.ensure_header "#include <omp.h>"
 
 (** [cutoff_execution_time ()]: adds to the abstract syntax tree of the input
     program the definition of a global variable allowing for task granularity
