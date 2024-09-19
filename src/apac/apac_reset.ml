@@ -4,7 +4,9 @@ open Ast
 let tnt_blast () : unit =
   Var_Hashtbl.clear Apac_records.functions;
   Apac_records.mutables := Apac_dep.Dep_map.empty;
-  Apac_flags.instrument := false;
+  Apac_flags.constify := false;
+  Apac_flags.cutoff_count_and_depth := false;
+  Apac_flags.profile := false;
   Apac_flags.keep_graphs := false;
   Apac_flags.verbose := false;
   Apac_flags.main := "main";
