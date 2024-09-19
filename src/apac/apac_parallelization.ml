@@ -446,18 +446,19 @@ let heapify_on (t : trm) : trm =
         let depend = [Depend inout] in
         let clauses = [Default Shared_m] in
         let clauses = clauses @ depend in
-        let clauses = if !Apac_flags.instrument then clauses @ fp @ co
+        let clauses = if !Apac_flags.cutoff_count_and_depth then
+                        clauses @ fp @ co
                       else clauses in
         let pragma = Task clauses in
         let count_preamble = count_update false in
         let depth_preamble = depth_update () in
         let count_postamble = count_update true in
-        let dt = if !Apac_flags.instrument then
+        let dt = if !Apac_flags.cutoff_count_and_depth then
                    let dt' = [depth_preamble; dt; count_postamble] in
                    trm_seq_nomarks dt'
                  else dt in
         let dt = trm_add_pragma pragma dt in
-        let dt = if !Apac_flags.instrument then
+        let dt = if !Apac_flags.cutoff_count_and_depth then
                    Syntax.trm_seq_no_brace [count_preamble; dt]
                  else dt in
         Queue.add dt deletes;
@@ -1101,7 +1102,7 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
                                  | Dep_trm (t, v) -> v :: acc
                                  | _ -> acc) firstprivate [] in
           let depth_local_var = new_var (get_apac_variable ApacDepthLocal) in
-          let firstprivate = if !Apac_flags.instrument then
+          let firstprivate = if !Apac_flags.cutoff_count_and_depth then
                                depth_local_var :: firstprivate
                              else firstprivate in
           let firstprivate = if (List.length firstprivate) > 0 then
@@ -1123,13 +1124,13 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let count_preamble = count_update false in
           let depth_preamble = depth_update () in
           let count_postamble = count_update true in
-          let instr = if !Apac_flags.instrument then
+          let instr = if !Apac_flags.cutoff_count_and_depth then
                         depth_preamble :: t.current
                       else t.current in
-          let instr = if !Apac_flags.instrument then
+          let instr = if !Apac_flags.cutoff_count_and_depth then
                         instr @ [count_postamble]
                       else instr in
-          let instr = if not (!Apac_flags.instrument) &&
+          let instr = if not (!Apac_flags.cutoff_count_and_depth) &&
                            (List.length instr < 2) then
                         List.hd instr
                       else trm_seq_nomarks instr in
@@ -1137,7 +1138,7 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let instr = if sync <> [] then
                         trm_add_pragma (Taskwait sync) instr
                       else instr in
-          if !Apac_flags.instrument then [count_preamble; instr]
+          if !Apac_flags.cutoff_count_and_depth then [count_preamble; instr]
           else [instr]
         end
     end

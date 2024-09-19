@@ -64,10 +64,12 @@ let model_with : string ref = ref ""
 
 (** {1 Parallel code generation} *)
 
-(** [instrument]: toggles output source code instrumentation for task depth and
-    granularity control according to global counters (see [ApacDepth] and
-    [ApacCount] in type [!type:apac_variable]). *)
-let instrument : bool ref = ref false
+(** [cutoff_count_and_depth]: toggles task granularity control according to
+    global task submission count and parallelism depth counters (see [ApacDepth]
+    and [ApacCount] in enumeration [!type:apac_variable]). See also
+    [!Apac_parallelization.cutoff_count_and_depth] and
+    [!Apac_parallelization.parallelize]. *)
+let cutoff_count_and_depth : bool ref = ref false
 
 (** [count_max_thread_factor]: this value times the number of threads available
     for parallel execution gives the maximum amount of submitted tasks (see
