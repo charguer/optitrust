@@ -69,7 +69,12 @@ let compile () : unit =
       cOr [[cMark Apac_macros.heapify_mark];
            [cMark Apac_macros.heapify_breakable_mark]]
     ];
+  if !Apac_flags.cutoff_count_and_depth then
+    !! Apac_parallelization.cutoff_count_and_depth [
+        nbAny;
+        cMark Apac_macros.candidate_body_mark
+      ];
   if !Apac_flags.profile then
-    !! Apac_parallelization.execution_time_cutoff [];
+    !! Apac_parallelization.cutoff_execution_time ();
   !! Apac_parallelization.clear_marks ()
               
