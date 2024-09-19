@@ -1026,32 +1026,6 @@ let clear_marks () : unit =
       cMark Apac_macros.heapify_breakable_mark
     ]
 
-let execution_time_cutoff (tg : target) : unit =
-  Target.apply_at_target_paths (fun t ->
-      (** Deconstruct the sequence [s] in the term [t]. *)
-      let error = "Apac_epilogue.dynamic_cutoff: expected a target to a \
-                   sequence" in
-      let s = trm_inv ~error trm_seq_inv t in
-      (** Build the definition term [co] of the global variable [ApacCutOff]
-          (see type [!type:apac_variable]) while [init]ializing it to
-          [!Apac_macros.execution_time_cutoff]. *)
-      let init =
-        code
-          (Expr
-             ("getenv(\"" ^ Apac_macros.execution_time_cutoff ^
-                "\") ? atof(getenv(\"" ^  Apac_macros.execution_time_cutoff ^
-                  "\")) : 2.22100e-6")) in
-      let co = new_var (Apac_macros.get_apac_variable ApacCutOff) in
-      let co = trm_let_immut (co, Typ.typ_double ()) init in
-      (** Include the definition of a function to compute powers. *)
-      let pow = code (Stmt Apac_macros.pow) in
-      (** Build a marked list [header] containg [co] and [pow] so as to *)
-      let header = Mlist.of_list [co; pow] in
-      (** finally build a sequence consisting of [header] pre-pending the
-          original sequence [s]. *)
-      trm_seq ~ctx:t.ctx ~annot:t.annot (Mlist.merge header s)
-    ) tg
-
 let codegen_openmp (v : TaskGraph.V.t) : trms =
   let t = TaskGraph.V.label v in
   if (Task.attributed t WaitForAll) then
@@ -1198,3 +1172,72 @@ let insert_tasks_on (p : path) (t : trm) : trm =
     abstract syntax tree. *)
 let insert_tasks (tg : target) : unit =
   Target.apply (fun t p -> Path.apply_on_path (insert_tasks_on p) t p) tg
+
+(** [cutoff_execution_time ()]: adds to the abstract syntax tree of the input
+    program the definition of a global variable allowing for task granularity
+    control relying on execution time models as well as the definition of a
+    power computing function the latter may resort to in its formulas.
+
+    For example, let us consider the following C source code.
+
+    {[
+    void f() { }
+    ]}
+
+    Applying the pass on the above results in
+
+    {[
+    const double __apac_cutoff =
+      getenv("APAC_EXECUTION_TIME_CUTOFF") ?
+        atof(getenv("APAC_EXECUTION_TIME_CUTOFF")) : 2.22100e-6;
+
+    template <class T> T apac_fpow(int exp, const T& base) {
+      T result = T(1);
+      T pow = base;
+      int i = exp;
+      while (i) {
+        if (i & 1) {
+          result *= pow;
+        }
+        pow *= pow;
+        i /= 2;
+      }
+      return result;
+    }
+    
+    void f() { }
+    ]}
+
+    Note that we the task submission conditions referring to the cut-off
+    variable we introduce within the [!parallelize] pass responsible for the
+    generation of parallel source code with OpenMP task-based programming
+    pragmas. The [cutoff_execution_time] pass is responsible only for declaring
+    and initializing the granularity control variable as well as the power
+    function. *)
+let cutoff_execution_time () : unit =
+  Target.apply_at_target_paths (fun t ->
+      (** Deconstruct the sequence term [t] representing the root of the
+          abstract syntax tree of the input program into an [!module:Mlist] of
+          statement terms [s]. *)
+      let error = "Apac_parallelization.cutoff_execution_time: expected a \
+                   target to a sequence." in
+      let s = trm_inv ~error trm_seq_inv t in
+      (** Build the definition term [co] of the global variable [ApacCutOff]
+          (see type [!type:apac_variable]) while [init]ializing it to the value
+          of the environment variable [!Apac_macros.execution_time_cutoff], if
+          set, or to the default value [!Apac_macros.execution_time_min]. *)
+      let init = code (Expr
+                         ("getenv(\"" ^ Apac_macros.execution_time_cutoff ^
+                            "\") ? atof(getenv(\"" ^
+                              Apac_macros.execution_time_cutoff ^
+                                "\")) : " ^ Apac_macros.execution_time_min)) in
+      let co = new_var (Apac_macros.get_apac_variable ApacCutOff) in
+      let co = trm_let_immut (co, Typ.typ_double ()) init in
+      (** Include the definition [!Apac_macros.pow] of the function
+          [!Apac_macros.model_pow] to compute powers. *)
+      let pow = code (Stmt Apac_macros.pow) in
+      (** Insert the definitions [co] and [pow] at the beginning of [s] and *)
+      let s = Mlist.insert_sublist_at 0 [co; pow] s in
+      (** re-build [s]. *)
+      trm_seq ~ctx:t.ctx ~annot:t.annot s
+    ) []
