@@ -951,18 +951,31 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
           let firstprivate = if (List.length firstprivate) > 0 then
                                [FirstPrivate firstprivate]
                              else [] in
-          let cutoff = [If (get_cutoff ())] in
           let clauses = shared @ depend in
           let clauses = clauses @ firstprivate in
-          let clauses = if !Apac_flags.instrument then
-                          clauses @ cutoff
-                        else clauses in
-          let clauses = if Option.is_some t.cost then
-                          let c = trm_var
-                                    (new_var (get_apac_variable ApacCutOff)) in
-                          let c = trm_gt (Option.get t.cost) c in
-                          clauses @ [If c]
-                        else clauses in
+          let clauses =
+            match (
+              !Apac_flags.profile && (Option.is_some t.cost),
+              !Apac_flags.cutoff_count_and_depth
+            ) with
+            | (true, true) ->
+               let count_and_depth = get_cutoff () in
+               let execution_time =
+                 trm_gt
+                   (Option.get t.cost)
+                   (trm_var (new_var (get_apac_variable ApacCutOff))) in
+               let cutoff = trm_and count_and_depth execution_time in
+               clauses @ [If cutoff]
+            | (true, false) ->
+               let cutoff =
+                 trm_gt
+                   (Option.get t.cost)
+                   (trm_var (new_var (get_apac_variable ApacCutOff))) in
+               clauses @ [If cutoff]
+            | (false, true) ->
+               clauses @ [If (get_cutoff ())]
+            | (false, false) -> clauses
+          in
           let pragma = Task clauses in
           let count_preamble = count_update false in
           let depth_preamble = depth_update () in
