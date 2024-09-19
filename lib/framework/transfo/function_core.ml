@@ -114,32 +114,54 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
       [allow_identity] - if true then the transformation will never fail
       [t] - ast of the write operation *)
 let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
+  let trm_fail_or_identity fail_t msg =
+    if allow_identity then begin
+      Trace.justif_always_correct ();
+      t
+    end else
+      trm_fail fail_t msg
+  in
   match t.desc with
   | Trm_apps (f, [ls; rs], _) when is_set_operation t ->
     begin match rs.desc with
     | Trm_apps (f1, [get_ls; arg], _) ->
       begin match trm_prim_inv f1 with
       | Some (_, p) when is_infix_prim_fun p ->
-        let aux s = Ast_to_c.ast_to_string s in
-        let repr_ls = aux ls in
-        let repr_get_ls = aux (get_operation_arg get_ls) in
-        let repr_arg = aux (get_operation_arg arg) in
-        if repr_ls <> repr_get_ls && repr_ls <> repr_arg
-          then t
-          else
-            let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> trm_fail f "Function_core.use_infix_ops_on: this should never happen" in
-            if not (repr_ls = repr_get_ls)
-              then trm_compound_assign ~annot:t.annot binop ls get_ls
-              else trm_compound_assign ~annot:t.annot binop ls arg
+        let binop = match get_binop_from_prim p with
+        | Some binop -> binop
+        | _ -> trm_fail f "Function_core.use_infix_ops_on: this should never happen"
+        in
+        let check_validity () = if !Flags.check_validity then begin
+          (* FIXME: duplicated code with variable inline / bind *)
+          if Resources.trm_is_pure ls then
+            (* Case 1: pure expression *)
+            Trace.justif "address is a pure expression"
+          else begin
+            (* Case 2: duplicable expression *)
+            Resources.assert_not_self_interfering ls;
+            Trace.justif "address is duplicable"
+          end
+        end in
+        let same_ls_get_ls = are_same_trm ls (get_operation_arg get_ls) in
+        let same_ls_arg = are_same_trm ls (get_operation_arg arg) in
+        begin match (same_ls_get_ls, same_ls_arg) with
+        | false, false ->
+          trm_fail_or_identity ls "addresses were not equal"
+        | false, true ->
+          check_validity ();
+          trm_compound_assign ~annot:t.annot binop ls get_ls
+        | true, false ->
+          check_validity ();
+          trm_compound_assign ~annot:t.annot binop ls arg
+        | true, true -> failwith "this should not happen"
+        end
       | _ ->
-        if allow_identity then t else
-        trm_fail f1 "Function_core.use_infix_ops_on: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
+        trm_fail_or_identity f1 "Function_core.use_infix_ops_on: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
 
       end
-    | _ -> if allow_identity then t else
-           trm_fail rs "Function_core.use_infix_ops_on: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
+    | _ -> trm_fail_or_identity rs "Function_core.use_infix_ops_on: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
     end
-  | _-> if allow_identity then t else trm_fail t "Function_core.use_infix_ops_on: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
+  | _-> trm_fail_or_identity t "Function_core.use_infix_ops_on: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
 
 (** [uninline_on fct_decl t]: takes a function declaration [fct_decl], for example
    [void gtwice(int x) { g(x, x); }], and expects a term [t] that matches the body

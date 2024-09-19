@@ -1,14 +1,16 @@
+#include <optitrust.h>
 
-int f(int a, int b) {
-  return a + b;
+void f(int a, int b, int* r) {
+  __writes("r ~> Cell");
+  *r = a + b;
+  // TODO: return a + b;
 }
 
-int main()
-{
+void g() {
+  __pure();
   int x = 0;
-  x = f(5,x);
+  f(5,x,&x);
   x = x + 3;
   x = 3 + x;
   x = x - 2;
-  return 0;
 }

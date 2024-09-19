@@ -67,16 +67,13 @@ let _ = Run.script_cpp (fun () ->
   (* TODO:
     - cleanup script
     - local name tile: get elem_ty from program / resources
-    - inlines: regroup together, problem: phase ordering matters, need fixpoint?
-    - set_explicit: regroup
-    - avoid binding fieldAtPosTmp
     - allow writing C code for constructing factors, need to parse and put in correct context with local ids
     - insert var for scaleFieldFactor
-    - bind pointer to lParticles cell?
+    - bind pointer to particles cell?
 
     !! Variable.bind_multi ~const:true ~is_ptr:true ~dest:[tBefore; cVarDef "p"] "paddr" [nbMulti; ctx; cCellAccess ~base:[cVar "lParticles"] ()];
 
-    - inline cornerInterpolationCoeff to allow array on stack
+    - put 'coeffs' array on stack?
     - FIXME: reparse triggers access normalization
   *)
 )
