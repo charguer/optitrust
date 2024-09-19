@@ -103,8 +103,35 @@ void c(int* tab, int size) {
 }
 
 int main() {
-  int* t = (int*)malloc(4 * sizeof(int));
-  c(t, 4);
-  free(t);
-  return 0;
+  int __apac_result;
+#pragma omp parallel
+#pragma omp master
+#pragma omp taskgroup
+  {
+    int __apac_count_ok = __apac_count_infinite || __apac_count < __apac_count_max;
+    int __apac_depth_local = __apac_depth;
+    int __apac_depth_ok = __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
+    int* t = (int*)malloc(4 * sizeof(int));
+    if (__apac_count_ok) {
+#pragma omp atomic
+      __apac_count++;
+    }
+#pragma omp task default(shared) depend(in : t) depend(inout : t[0]) firstprivate(__apac_depth_local) if (__apac_count_ok || __apac_depth_ok)
+    {
+      if (__apac_count_ok || __apac_depth_ok) {
+        __apac_depth = __apac_depth_local + 1;
+      }
+      c(t, 4);
+      free(t);
+      if (__apac_count_ok) {
+#pragma omp atomic
+        __apac_count--;
+      }
+    }
+#pragma omp taskwait
+    __apac_result = 0;
+    goto __apac_exit;
+  __apac_exit:;
+  }
+  return __apac_result;
 }
