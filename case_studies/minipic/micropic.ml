@@ -57,6 +57,8 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter scaleParticles ["x"; "y"; "z"];
 
   bigstep "finish with style";
+  !! Loop.fusion_targets [cFor ~body:[cMul ~lhs:[cVar "particles"] ()] "i1"];
+  !! Loop.fusion_targets [cFor ~body:[cDiv ~lhs:[cVar "particles"] ()] "i1"];
   !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
   !! Function.use_infix_ops ~indepth:true [ctx]; (* TODO: check *)

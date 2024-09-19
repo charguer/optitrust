@@ -223,6 +223,9 @@ let rec typ_desc_to_doc style (t : typ) : document =
       | Typ ty -> string "/* @arbitrary */" ^^ string ty ^^ string "/* arbitary@ */"
       | _ -> failwith "Ast_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Typ"
     );
+    Pattern.__ (fun () ->
+      failwith "no printing implemented for %s\n" (Ast_to_text.typ_to_string t)
+    )
   ]
 
 and var_to_doc style (v : var) : document =

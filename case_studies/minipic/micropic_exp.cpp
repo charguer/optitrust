@@ -174,15 +174,10 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
     lFieldAtCorners[i1].z =
         fieldAtCorners[i1].z * pCharge * deltaT * deltaT / pMass;
   }
-  particle* const lParticles =
-      (particle*)MALLOC1(nbParticles, sizeof(particle));
-  for (int i1 = 0; i1 < nbParticles; i1++) {
-    lParticles[i1].pos.x = particles[i1].pos.x;
-    lParticles[i1].pos.y = particles[i1].pos.y;
-    lParticles[i1].pos.z = particles[i1].pos.z;
-    lParticles[i1].speed.x = particles[i1].speed.x * stepDuration;
-    lParticles[i1].speed.y = particles[i1].speed.y * stepDuration;
-    lParticles[i1].speed.z = particles[i1].speed.z * stepDuration;
+  for (int i1 = 0; i1 < nbParticles; i1 += 1) {
+    particles[i1].speed.x *= deltaT;
+    particles[i1].speed.y *= deltaT;
+    particles[i1].speed.z *= deltaT;
   }
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
@@ -221,13 +216,10 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
       particles[idPart].speed.z = speed2Z;
     }
   }
-  for (int i1 = 0; i1 < nbParticles; i1++) {
-    particles[i1].pos.x = lParticles[i1].pos.x;
-    particles[i1].pos.y = lParticles[i1].pos.y;
-    particles[i1].pos.z = lParticles[i1].pos.z;
-    particles[i1].speed.x = lParticles[i1].speed.x / stepDuration;
-    particles[i1].speed.y = lParticles[i1].speed.y / stepDuration;
-    particles[i1].speed.z = lParticles[i1].speed.z / stepDuration;
+  for (int i1 = 0; i1 < nbParticles; i1 += 1) {
+    particles[i1].speed.z /= deltaT;
+    particles[i1].speed.y /= deltaT;
+    particles[i1].speed.x /= deltaT;
   }
   MFREE1(nbCorners, lFieldAtCorners);
 }

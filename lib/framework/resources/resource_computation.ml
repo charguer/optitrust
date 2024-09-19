@@ -962,6 +962,26 @@ let handle_resource_errors (t: trm) (phase:resource_error_phase) (exn: exn) =
 
 let empty_usage_map = Var_map.empty
 
+let delete_stack_allocs instrs res =
+  let extract_let_mut ti =
+    match trm_let_inv ti with
+    | Some (x, _, t) ->
+      begin match trm_ref_inv t with
+      | Some _ -> [formula_cell_var x]
+      | None ->
+        begin match trm_ref_array_inv t with
+        | Some (ty, dims, _) -> [formula_matrix (trm_var ~typ:ty x) dims]
+        | None -> []
+        end
+      end
+    | None -> []
+  in
+  let to_free = List.concat_map extract_let_mut instrs in
+  (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
+  let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), formula_uninit f)) to_free) () in
+  let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
+  (removed_res, linear)
+
 (* TODO?
 Resources.Computation.compute_resource
 Resources.compute = Resources.Computation.compute_resource
@@ -1069,23 +1089,7 @@ let rec compute_resources
 
       (* Free the cells allocated with stack new *)
       let** res in
-      let extract_let_mut ti =
-        match trm_let_inv ti with
-        | Some (x, _, t) ->
-          begin match trm_ref_inv t with
-          | Some _ -> [formula_cell_var x]
-          | None ->
-            begin match trm_ref_array_inv t with
-            | Some (ty, dims, _) -> [formula_matrix (trm_var ~typ:ty x) dims]
-            | None -> []
-            end
-          end
-        | None -> []
-      in
-      let to_free = List.concat_map extract_let_mut instrs in
-      (*Tools.debug "Trying to free %s from %s\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-      let res_to_free = Resource_set.make ~linear:(List.map (fun f -> (new_anon_hyp (), formula_uninit f)) to_free) () in
-      let _, removed_res, linear = extract_resources ~split_frac:false res res_to_free in
+      let (removed_res, linear) = delete_stack_allocs instrs res in
       let usage_map = update_usage_map_opt ~current_usage:usage_map ~extra_usage:(Some (used_set_to_usage_map removed_res)) in
 
       usage_map, Some { res with linear }

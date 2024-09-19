@@ -1101,6 +1101,11 @@ let cArrayRead ?(index = []) (x : string) : constr =
 let cPlusEq ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_compound_assign_op Binop_add)
 
+let cDiv ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
+  cBinop ~lhs ~rhs Binop_div
+
+let cMul ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
+  cBinop ~lhs ~rhs Binop_mul
 
 (** [cOmp_match_all]: matches an OpenMP directive. *)
 let cOmp_match_all : directive->bool =
