@@ -25,7 +25,7 @@ let view_subterms_on (stringreprs : Ast_to_c.stringreprs) (ro : Constr.rexp opti
           else sprintf "%d(%d)-%d(%d)" start_row start_column end_row end_column
       in
     let strm =
-      match Trm.trm_get_stringreprid t with
+      match Trm.get_stringreprid t with
       | Some id ->
         begin match Hashtbl.find_opt stringreprs id with
         | None -> sprintf "<no_stringrepr_for:%d>" id

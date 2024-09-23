@@ -6,6 +6,18 @@ include Typ
 include Contextualized_error
 include Mark
 include Target
+include Trm_pattern
+
+module Trm = struct
+  include Trm
+  (* short aliases *)
+  let var = trm_var
+  let struct_access = trm_struct_access
+  let array_access = trm_array_access
+  let get_stringreprid = trm_get_stringreprid
+
+  let pattern_var = trm_pattern_var
+end
 
 module ShowAt = Show.At
 
@@ -113,11 +125,9 @@ let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
 
 (** [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct
-  let var v = trm_var (name_to_var v)
-  (* DEPRECATED: (find_var v) *)
+  let var v = trm_find_var v []
 
-  let var_mut v = trm_var_get (name_to_var v)
-  (* DEPRECATED: (find_var v) *)
+  let var_mut v = trm_get (var v)
 
   let lit l = code (Lit l)
 

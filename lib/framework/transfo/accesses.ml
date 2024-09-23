@@ -1,7 +1,7 @@
 open Prelude
 include Accesses_basic
 
-type transform_typ = address_pattern: trm -> pattern_evars: eval varmap -> ?mark_preprocess: mark -> ?mark_postprocess: mark -> target -> unit
+type transform_typ = address_pattern: compiled_pattern -> ?mark_preprocess: mark -> ?mark_postprocess: mark -> target -> unit
 
 let transform_var (transform : transform_typ) (tg : target) : unit =
 Marks.with_marks (fun next_mark ->
@@ -14,9 +14,8 @@ Marks.with_marks (fun next_mark ->
     let mark_preprocess = next_mark () in
     let mark_postprocess = next_mark () in
     let (var, typ) = !typed_var_ret in
-    let address_pattern = trm_var ~typ var in
-    let pattern_evars = Var_map.empty in
-    transform ~address_pattern ~pattern_evars ~mark_preprocess ~mark_postprocess [cPath p_seq; tSpan [tAfter; cMark mark_let] [tLast]];
+    let address_pattern = pattern_compile (trm_var ~typ var) in
+    transform ~address_pattern ~mark_preprocess ~mark_postprocess [cPath p_seq; tSpan [tAfter; cMark mark_let] [tLast]];
     Instr.delete [nbAny; cMarkSpan mark_preprocess];
     Instr.delete [nbAny; cMarkSpan mark_postprocess];
     if !detached_ret then Variable.init_attach [cMark mark_let];
@@ -32,7 +31,7 @@ let%transfo shift_var ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_m
   transform_var (shift ~inv ~factor ~mark) tg
 
 let%transfo scale ?(inv : bool = false) ~(factor : trm)
- ~(address_pattern : trm) ~(pattern_evars : eval varmap)
+ ~(address_pattern : pattern)
  ?(mark : mark = no_mark)
  ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
  (tg : target) =
@@ -40,7 +39,8 @@ let%transfo scale ?(inv : bool = false) ~(factor : trm)
   Marks.with_marks (fun next_mark ->
     let mark_preprocess = next_mark () in
     let mark_postprocess = next_mark () in
-    Accesses_basic.scale ~inv ~factor ~address_pattern ~pattern_evars ~mark ~mark_preprocess ~mark_postprocess tg;
+    let address_pattern = pattern_compile address_pattern in
+    Accesses_basic.scale ~inv ~factor ~address_pattern ~mark ~mark_preprocess ~mark_postprocess tg;
     if uninit_pre then Instr.delete [nbAny; cMarkSpan mark_preprocess];
     if uninit_post then Instr.delete [nbAny; cMarkSpan mark_postprocess];
   )

@@ -26,7 +26,7 @@ type transform_ret = {
 
 (** <private *)
 let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
-  (address_pattern : trm) (pattern_evars : eval varmap)
+  (address_pattern : compiled_pattern)
   (mark_preprocess_span : mark) (mark_postprocess_span : mark)
   (mark_handled_addresses : mark)
   (ret : transform_ret)
@@ -59,7 +59,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     ]
   in
   let address_matches addr =
-    let matches = Option.is_some (unify_trm addr address_pattern pattern_evars) in
+    let matches = trm_matches_pattern addr address_pattern in
     if matches then identify_typedvar addr;
     matches
   in
@@ -145,8 +145,7 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     For correctness, [f_get] and [f_set] must be inverses and pure.
     It is checked that all of the transformed gets and sets operate on resources found at the begining of the scope. *)
 let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
-  (* TODO: (address_pattern : pattern) ? *)
-  ~(address_pattern : trm) ~(pattern_evars : eval varmap)
+  ~(address_pattern : compiled_pattern)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
@@ -168,7 +167,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
       others_post = ref [];
       pure_post = ref [];
     } in
-    Target.apply_at_path (transform_on f_get f_set address_pattern pattern_evars mark_preprocess mark_postprocess mark_handled_resources ret span) p_seq;
+    Target.apply_at_path (transform_on f_get f_set address_pattern mark_preprocess mark_postprocess mark_handled_resources ret span) p_seq;
     if !Flags.check_validity then begin
       (* TODO: factorize with local_name, should this be a Resource.assert_??? feature? may also be decomposed via elim_reuse? *)
       let error = "did not find on which inner pointer variable addresses where based" in
@@ -262,7 +261,7 @@ let%transfo transform_immut (f_init : trm -> trm) (f_use : trm -> trm) (tg : tar
    defined as a multiplication and a division operation respectively. If [inv] is set to true then these two
    operations will be swapped. *)
 let%transfo scale ?(inv:bool=false) ~(factor:trm)
-  ~(address_pattern : trm) ~(pattern_evars : eval varmap)
+  ~(address_pattern : compiled_pattern)
   ?(mark : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
@@ -275,7 +274,7 @@ let%transfo scale ?(inv:bool=false) ~(factor:trm)
   let op_get, op_set = if inv then (trm_mul, trm_div) else (trm_div, trm_mul) in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in
   let f_set t = trm_add_mark mark (op_set ~typ t factor) in
-  transform f_get f_set ~address_pattern ~pattern_evars ~mark_preprocess ~mark_postprocess tg
+  transform f_get f_set ~address_pattern ~mark_preprocess ~mark_postprocess tg
 
 let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
   if !Flags.check_validity then
@@ -293,7 +292,7 @@ let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no
    defined as a multiplication and a division respectively. If [inv] is set to true then these two operations
    will be swapped. *)
 let%transfo shift ?(inv:bool=false) ~(factor : trm)
-  ~(address_pattern : trm) ~(pattern_evars : eval varmap)
+  ~(address_pattern : compiled_pattern)
   ?(mark : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
@@ -305,7 +304,7 @@ let%transfo shift ?(inv:bool=false) ~(factor : trm)
   let op_get, op_set = if inv then (trm_add, trm_sub) else (trm_sub, trm_add) in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in
   let f_set t = trm_add_mark mark (op_set ~typ t factor) in
-  transform f_get f_set ~address_pattern ~pattern_evars ~mark_preprocess ~mark_postprocess tg
+  transform f_get f_set ~address_pattern ~mark_preprocess ~mark_postprocess tg
 
 let%transfo shift_immut ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
   if !Flags.check_validity then

@@ -3,10 +3,9 @@ open Prelude
 
 
 let _ = Run.script_cpp (fun () ->
-
-   !! Arith_basic.shift ~inv:true (var "i")  [cCellWrite ~base:[cVar "t"] ~index:[cVar "i"] ()];
-   !! Arith_basic.shift  (var "i") [cCellRead ~base:[cVar "t"] ~index:[cVar "i"] ()];
-   !! Arith_basic.shift (var "i") ~pre_cast:typ_f64 [cCellRead ~base:[cVar "u"] ~index:[cVar "i"] ()];
-   !! Arith_basic.shift (var "i") ~post_cast:typ_f32 [cCellWrite ~base:[cVar "u"] ~index:[cVar "i"] ()];
-
+  let shift_with_index_in ?inv ?pre_cast ?post_cast i tg = Arith_basic.shift ?inv ?pre_cast ?post_cast (trm_find_var i tg) tg in
+  !! shift_with_index_in ~inv:true "i" [cCellWrite ~base:[cVar "t"] ~index:[cVar "i"] ()];
+  !! shift_with_index_in "i" [cCellRead ~base:[cVar "t"] ~index:[cVar "i"] ()];
+  !! shift_with_index_in "i" ~pre_cast:typ_f64 [cCellRead ~base:[cVar "u"] ~index:[cVar "i"] ()];
+  !! shift_with_index_in "i" ~post_cast:typ_f32 [cCellWrite ~base:[cVar "u"] ~index:[cVar "i"] ()];
 )

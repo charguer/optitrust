@@ -168,11 +168,11 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
   vect* const lFieldAtCorners = (vect*)MALLOC1(nbCorners, sizeof(vect));
   for (int i1 = 0; i1 < nbCorners; i1++) {
     lFieldAtCorners[i1].x =
-        fieldAtCorners[i1].x * pCharge * deltaT * deltaT / pMass;
+        fieldAtCorners[i1].x * deltaT * deltaT * pCharge / pMass;
     lFieldAtCorners[i1].y =
-        fieldAtCorners[i1].y * pCharge * deltaT * deltaT / pMass;
+        fieldAtCorners[i1].y * deltaT * deltaT * pCharge / pMass;
     lFieldAtCorners[i1].z =
-        fieldAtCorners[i1].z * pCharge * deltaT * deltaT / pMass;
+        fieldAtCorners[i1].z * deltaT * deltaT * pCharge / pMass;
   }
   for (int i1 = 0; i1 < nbParticles; i1 += 1) {
     particles[i1].speed.x *= deltaT;
