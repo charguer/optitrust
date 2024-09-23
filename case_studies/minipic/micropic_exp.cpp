@@ -165,14 +165,12 @@ vect matrix_vect_mul(double* coeffs, vect* matrix) {
 void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
                           vect* fieldAtCorners, int nbSteps, double pCharge,
                           double pMass) {
+  const int fieldFactor = deltaT * deltaT * pCharge / pMass;
   vect* const lFieldAtCorners = (vect*)MALLOC1(nbCorners, sizeof(vect));
   for (int i1 = 0; i1 < nbCorners; i1++) {
-    lFieldAtCorners[i1].x =
-        fieldAtCorners[i1].x * deltaT * deltaT * pCharge / pMass;
-    lFieldAtCorners[i1].y =
-        fieldAtCorners[i1].y * deltaT * deltaT * pCharge / pMass;
-    lFieldAtCorners[i1].z =
-        fieldAtCorners[i1].z * deltaT * deltaT * pCharge / pMass;
+    lFieldAtCorners[i1].x = fieldAtCorners[i1].x * fieldFactor;
+    lFieldAtCorners[i1].y = fieldAtCorners[i1].y * fieldFactor;
+    lFieldAtCorners[i1].z = fieldAtCorners[i1].z * fieldFactor;
   }
   for (int i1 = 0; i1 < nbParticles; i1 += 1) {
     particles[i1].speed.x *= deltaT;

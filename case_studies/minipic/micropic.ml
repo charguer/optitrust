@@ -24,16 +24,14 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "scale field and particles";
   let deltaT = find_var "deltaT" in
-  let fieldFactor = trm_mul (trm_mul deltaT deltaT) (trm_div (find_var "pCharge") (find_var "pMass")) in
-  (* Variable.def + inline on scope
-    - insert var for scaleFieldFactor *)
-  let scaleFieldAtPos d = Accesses.scale_var ~factor:fieldFactor [nbMulti; ctx; cVarDef ("fieldAtPos" ^ d)] in
+  !! Variable.insert ~name:"fieldFactor" ~value:(trm_mul (trm_mul deltaT deltaT) (trm_div (find_var "pCharge") (find_var "pMass"))) [ctx; tBefore; cVarDef "lFieldAtCorners"];
+  let scaleFieldAtPos d = Accesses.scale_var ~factor:(find_var "fieldFactor") [nbMulti; ctx; cVarDef ("fieldAtPos" ^ d)] in
   !! List.iter scaleFieldAtPos ["X"; "Y"; "Z"];
   let scaleSpeed2 d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
   !! List.iter scaleSpeed2 ["X"; "Y"; "Z"];
   let scaleFieldAtCorners field =
     let address_pattern = Trm.(struct_access (array_access (find_var "lFieldAtCorners") (pattern_var "i")) field) in
-    Accesses.scale ~factor:fieldFactor ~address_pattern ~uninit_post:true [ctx; tSpan [tBefore; cMark "loadField"] [tAfter; cFor "idStep"]]
+    Accesses.scale ~factor:(find_var "fieldFactor") ~address_pattern ~uninit_post:true [ctx; tSpan [tBefore; cMark "loadField"] [tAfter; cFor "idStep"]]
   in
   !! List.iter scaleFieldAtCorners ["x"; "y"; "z"];
   let scaleParticles field =
@@ -44,8 +42,8 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter scaleParticles ["x"; "y"; "z"];
   !! List.iter Loop.fusion_targets [[cMark "partsPrep"]; [cMark "partsPostp"]];
 
-  bigstep "arithmetic simplifications";
-  (* INLINE fieldFactor *)
+  bigstep "inline variables and simplify arithmetic";
+  !! Variable.unfold ~delete:false ~at:[cFor "idStep"] [cVarDef "fieldFactor"];
   !! Variable.inline [ctx; cVarDefs (Tools.concat_prod ["accel"; "pos2"] ["X"; "Y"; "Z"])];
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
 
