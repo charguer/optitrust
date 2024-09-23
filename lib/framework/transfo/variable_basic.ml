@@ -21,6 +21,13 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
   Target.iter (fun p ->
     let t_decl = Target.resolve_path p in
     let x, _, init = trm_inv ~error:"Variable_core.unfold: expected a target to a variable definition" trm_let_inv t_decl in
+    if !Flags.check_validity then begin
+      if Resources.trm_is_pure init then
+        (* Case 1: pure expression *)
+        Trace.justif "inlining a pure expression is always correct"
+      else
+        failwith "not yet implemented: factorize validity check with inlining"
+    end;
     let init = trm_add_mark mark init in
     Target.apply_at_target_paths (trm_subst_var x init) at
   ) tg
@@ -237,8 +244,15 @@ let%transfo change_type (new_type : string) (tg : target) : unit =
 
     NOTE: if initialization [value] is not provided then the declaration will be un-initialized. *)
 let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ~(name : string) ~(typ : typ) ?(value : trm = trm_uninitialized typ) (tg : target) : unit =
-  Target.reparse_after ~reparse (Target.apply_at_target_paths_before (fun t i -> Variable_core.insert_at i const name typ value t)) tg
-
+  Target.reparse_after ~reparse (Target.iter (fun p ->
+    let (p_seq, i) = Path.extract_last_dir_before p in
+    Target.apply_at_path (Variable_core.insert_at i const name typ value) p_seq;
+    if !Flags.check_validity then begin (* NOTE: same as instruction insertion *)
+      Resources.ensure_computed ();
+      Resources.assert_instr_effects_shadowed (p_seq @ [Dir_seq_nth i]);
+      Trace.justif "nothing modified by the instruction is observed later"
+    end
+  )) tg
 
 (** [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
     variable [subst], then it will check for occurrences of the variable [subst] and replace is with [put]. *)

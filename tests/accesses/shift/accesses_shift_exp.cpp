@@ -6,7 +6,6 @@ void test_var() {
   x = 1. + 5.;
   double y = (x - 5.) * 1.;
   x = (x - 5.) * 2. + 5.;
-  /*@ __3__begin, __3__end @*/
 }
 
 void test_array() {

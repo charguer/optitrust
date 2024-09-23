@@ -40,7 +40,7 @@ let%transfo remove (m : mark) (tg : target) : unit =
 let%transfo remove_st ?(indepth:bool=false) (pred: mark->bool) (tg : target) : unit =
   justif();
   let rec aux (t:trm) : trm =
-    trm_remove_marks pred (trm_map aux t) in
+    trm_remove_marks pred (trm_map ~keep_ctx:true aux t) in
   Trace.preserves_resource_typing (fun () ->
   if indepth
     then Target.apply_at_target_paths aux tg

@@ -1,15 +1,22 @@
 include Marks_basic
 
 open Prelude
+open Tools
 
-let remove_maybe_span m =
-  let m_begin, m_end = span_marks m in
-  remove m [nbAny; cOr [[cMark m]; [cMark m_begin]; [cMark m_end]]]
+let remove_maybe_spans (ms : String_set.t) =
+  if String_set.is_empty ms then ()
+  else begin
+    let ms = String_set.fold (fun m acc ->
+      let m_begin, m_end = span_marks m in
+      String_set.(acc |> add m_begin |> add m_end)
+    ) ms ms in
+    remove_st ~indepth:true (fun m -> String_set.mem m ms) []
+  end
 
 let with_fresh_mark (f : mark -> unit) : unit =
   let m = Mark.next () in
   f m;
-  remove_maybe_span m
+  remove_maybe_spans (String_set.singleton m)
 
 let with_fresh_mark_on (p : path) (f : mark -> unit) : unit =
   with_fresh_mark (fun m ->
@@ -18,15 +25,14 @@ let with_fresh_mark_on (p : path) (f : mark -> unit) : unit =
   )
 
 let with_marks (k : (unit -> mark) -> unit) : unit =
-  let marks_to_remove = ref [] in
+  let marks_to_remove = ref String_set.empty in
   let next () =
     let m = Mark.next () in
-    marks_to_remove := m :: !marks_to_remove;
+    marks_to_remove := String_set.add m !marks_to_remove;
     m
   in
   k(next);
-  (* TODO: Marks.remove_all, would be much more efficient --see clean_all? *)
-  List.iter remove_maybe_span !marks_to_remove
+  remove_maybe_spans !marks_to_remove
 
 let add_next_mark (next_m : unit -> mark) (tg : target) : mark =
   let m = next_m () in
