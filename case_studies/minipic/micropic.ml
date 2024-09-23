@@ -38,13 +38,13 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter scaleFieldAtCorners ["x"; "y"; "z"];
   let scaleParticles field =
     let address_pattern = Trm.(struct_access (struct_access (array_access (find_var "particles") (pattern_var "i")) "speed") field) in
-    Accesses.scale ~factor:deltaT ~address_pattern [ctx; tSpanAround [cFor "idStep"]];
+    Accesses.scale ~factor:deltaT ~address_pattern ~mark_preprocess:"partsPrep" ~mark_postprocess:"partsPostp" [ctx; tSpanAround [cFor "idStep"]];
+    (* TODO: shorter terminology: prelude and postlude? *)
   in
   !! List.iter scaleParticles ["x"; "y"; "z"];
+  !! List.iter Loop.fusion_targets [[cMark "partsPrep"]; [cMark "partsPostp"]];
 
   bigstep "arithmetic simplifications";
-  !! Loop.fusion_targets [cFor ~body:[cMul ~lhs:[cVar "particles"] ()] "i1"]; (* marks pre/post + List.iter *)
-  !! Loop.fusion_targets [cFor ~body:[cDiv ~lhs:[cVar "particles"] ()] "i1"];
   (* INLINE fieldFactor *)
   !! Variable.inline [ctx; cVarDefs (Tools.concat_prod ["accel"; "pos2"] ["X"; "Y"; "Z"])];
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];

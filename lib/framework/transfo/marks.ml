@@ -56,3 +56,16 @@ let%transfo remove_fake_instr (tg : target) : unit =
     Sequence.delete (target_of_path p)
   ) tg
 
+let%transfo add_on_all_span (mark : mark) (tg : target) : unit =
+  Marks_basic.justif ();
+  if mark = no_mark then ()
+  else begin
+    Target.iter (fun p ->
+      let (p_seq, span) = Path.extract_last_dir_span p in
+      Target.apply_at_path (fun t_seq ->
+        update_span_helper span t_seq (fun instrs ->
+          [TrmMlist (Mlist.map (trm_add_mark mark) instrs)]
+        )
+      ) p_seq
+    ) tg
+  end

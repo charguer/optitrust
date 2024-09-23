@@ -33,9 +33,12 @@ let%transfo shift_var ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_m
 let%transfo scale ?(inv : bool = false) ~(factor : trm)
  ~(address_pattern : pattern)
  ?(mark : mark = no_mark)
+ ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
  ?(uninit_pre : bool = false) ?(uninit_post : bool = false)
  (tg : target) =
  (* TODO: generic transform to factorize with shift *)
+  let user_mark_pre = mark_preprocess in
+  let user_mark_post = mark_postprocess in
   Marks.with_marks (fun next_mark ->
     let mark_preprocess = next_mark () in
     let mark_postprocess = next_mark () in
@@ -43,4 +46,6 @@ let%transfo scale ?(inv : bool = false) ~(factor : trm)
     Accesses_basic.scale ~inv ~factor ~address_pattern ~mark ~mark_preprocess ~mark_postprocess tg;
     if uninit_pre then Instr.delete [nbAny; cMarkSpan mark_preprocess];
     if uninit_post then Instr.delete [nbAny; cMarkSpan mark_postprocess];
+    Marks.add_on_all_span user_mark_pre [nbAny; cMarkSpan mark_preprocess];
+    Marks.add_on_all_span user_mark_post [nbAny; cMarkSpan mark_postprocess];
   )
