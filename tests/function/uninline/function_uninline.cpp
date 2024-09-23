@@ -1,17 +1,22 @@
-void g(int x, int y) {}
+#include <optitrust.h>
+
+void g(int x, int y) {
+  __pure();
+}
 
 
 void f(int x) {
+  __pure();
   int a = x+1;
   g(a, x);
 }
 
 
-int main() {
+void h() {
+  __pure();
   int r = 5;
-  int b = (r+2)+1;
-  g(b, r+2);
-  int s = r;
-
-  return 0;
+  const int r_pure = r;
+  int b = (r_pure+2)+1;
+  g(b, r_pure+2);
+  int s = r_pure;
 }

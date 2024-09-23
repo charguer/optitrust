@@ -1,29 +1,37 @@
-#include <stdbool.h>
+#include <optitrust.h>
 
-void g(int x, int y) {}
+void g(int x, int y) {
+  __pure();
+}
 
 void gtwice(int x) {
+  __pure();
   g(x, x);
 }
 
 void test_trivial() {
+  __pure();
   gtwice_body: { g(3, 3); }
 }
 
 void f(int x) {
+  __pure();
   int a = x+1;
   g(a, x);
 }
 
 void test_basic() {
+  __pure();
   int r = 5;
+  const int r_pure = r;
   fbody:{
-    int b = (r+2)+1;
-    g(b, r+2);
+    int b = (r_pure+2)+1;
+    g(b, r_pure+2);
   }
 }
 
 void test_basic2() {
+  __pure();
   const int r = 5;
   fbody:{
     int b = r+1;
@@ -33,10 +41,12 @@ void test_basic2() {
 
 
 void test_basic3() {
+  __pure();
   int r = 5;
+  const int r_pure = r;
   fbody:{
-    int b = r+1;
-    g(b, r);
+    int b = r_pure+1;
+    g(b, r_pure);
   }
 }
 

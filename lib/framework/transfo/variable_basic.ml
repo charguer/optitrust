@@ -31,7 +31,7 @@ let%transfo unfold ?(mark : mark = no_mark) ~(at : target) (tg : target) : unit 
       [delete_decl] - if true, then the declaration is removed during the inlining.
 *)
 let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : target) : unit =
-  if !Flags.check_validity then Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *)
+  (* if !Flags.check_validity then Scope.infer_var_ids (); (* FIXME: This should be done by previous transfo instead *) *)
   Target.iter (fun p ->
     let (p_seq, p_local, index) = Internal.get_instruction_in_surrounding_sequence p in
     assert (p_local = []);

@@ -9,16 +9,25 @@ open Target
    in the future, we may want to introduce an annotation to allow preserving the presentation
   used by the original code in case it involves a star. *)
 
+let _ = Flags.check_validity := true
+let _ = Flags.recompute_resources_between_steps := true
+
 let _ = Run.script_cpp (fun _ ->
 
     !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabel "gtwice_body"];
     !! Function_basic.uninline ~fct:[cFunDef "f"] [nbMulti; cLabel "fbody"];
+    !! Variable_basic.inline [nbMulti; cVarDef "r_pure"];
+
+    (* FIXME: validation for higher-order functions
+    Flags.check_validity := false;
+    Flags.recompute_resources_between_steps := false;
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabel "hobody"];
 
     !! Function_basic.uninline ~fct:[cFunDef "iter_bag2"] [cLabel "bagbody2"];
     (* Test to undo the action of the unlining: *)
       !! Function_basic.inline [cFun "iter_bag2"];
       !! Function_basic.beta [cTopFunDef "test_bag2"; cFor_c ""; dBody; cFun""];
+
 
     !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabel "bagbody"];
     (* LATER: bug if iter_bag uses variable name "it" instead of "iter", the variable
@@ -29,6 +38,7 @@ let _ = Run.script_cpp (fun _ ->
     (* Test to undo the action of the unlining: *)
       !! Function_basic.inline [cFun "iter_bag"];
       !! Function_basic.beta [cTopFunDef "test_bag"; cFor_c ""; dBody; cFun""];
+      *)
 
 )
 

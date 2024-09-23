@@ -171,6 +171,13 @@ let uninline_on (fct_decl : trm) (t : trm) : trm =
   let error = "Function_core.uninline: fct argument should target a function definition" in
   let (f, typ, targs, body) = trm_inv ~error trm_let_fun_inv fct_decl in
   let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
+  if !Flags.check_validity then begin
+    Var_map.iter (fun _ arg_val ->
+      if not (Resources.trm_is_pure arg_val) then
+        trm_fail arg_val "basic function uninlining does not support non-pure arguments, combine with variable binding and inline"
+    ) inst;
+    Trace.justif "uninlining pure expressions is always correct"
+  end;
   let args = Trm.tmap_to_list (List.map fst targs) inst in
   trm_pass_labels t (trm_apps (trm_var ~typ f) args)
 
