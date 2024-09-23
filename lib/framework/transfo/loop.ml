@@ -333,7 +333,7 @@ begin
     *)
     let hoist_before_index = match hoist_relpath with
     | Dir_before bi :: [] -> bi
-    | _ -> path_fail hoist_relpath "Loop.targets_iter_with_loop_lists expects [before] to point a sequence surrounding its target"
+    | _ -> path_fail hoist_relpath "expects [before] to point a sequence surrounding its target"
     in
     (* TODO: otherwise, need to move instrs after hoist. *)
     assert ((List.hd target_relpath) = (Dir_seq_nth hoist_before_index));

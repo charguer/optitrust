@@ -4,15 +4,23 @@ include Record_basic
 (** [split_fields]: an extension to [Record_basic.split_fields].
   It takes as argument ~(typ : typ) instead of ~(typ : typvar).
    *)
-let%transfo split_fields ~(typ : typ) (tg : target) : unit =
-  Pattern.pattern_match typ [
-    Pattern.(trm_var !__) (fun typ () ->
-      split_fields ~typ tg
-    );
-    Pattern.__ (fun () ->
-      trm_fail typ "expected type variable"
-    )
-  ]
+let%transfo split_fields ?(typ : typ option) ?(typs : typ list = []) (tg : target) : unit =
+  let typs = match (typ, typs) with
+  | None, [] -> failwith "expected at least one type to split on"
+  | None, _ -> typs
+  | Some typ, [] -> [typ]
+  | Some _, _ -> failwith "both ~typ and ~typs were given"
+  in
+  List.iter (fun typ ->
+    Pattern.pattern_match typ [
+      Pattern.(trm_var !__) (fun typ () ->
+        split_fields ~typ tg
+      );
+      Pattern.__ (fun () ->
+        trm_fail typ "expected type variable"
+      )
+    ]
+  ) typs
 
 (** [set_explicit tg]: an extension to [Record_basic.set_explicit](see Record_basic.ml), contrary to the basic
     on this transformation supports automatic variable declaration detachment.

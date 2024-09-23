@@ -12,26 +12,16 @@ let _ = Run.script_cpp (fun () ->
   let particle = typ_find_var "particle" [ctx] in
   let find_var n = trm_find_var n [ctx] in
 
-  bigstep "make local copies of field and particles";
+  bigstep "make local copy of field";
   !! Matrix.local_name_tile ~var:"fieldAtCorners"
     ~elem_ty:vect ~uninit_post:true ~mark_load:"loadField"
     ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
 
   bigstep "inline helper functions and reveal record fields";
   !! Function.inline_multi [ctx; cFuns ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
-  !! Record.split_fields ~typ:particle [tSpanSeq [ctx]];
-  !! Record.split_fields ~typ:vect [tSpanSeq [ctx]];
-  (* TODO: ~typs *)
+  !! Record.split_fields ~typs:[particle; vect] [tSpanSeq [ctx]];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
-(* TODO:
-  let fieldFactor = trm_mul (trm_mul (var "deltaT") (var "deltaT")) (trm_div (var "pCharge") (var "pMass")) in
-  !! Variable.insert "fieldFactor" fieldFactor [tBefore; cVarDef "lFieldAtCorners"];
-  !! Accesses.scale ~factor:(var "fieldFactor") [nbMulti; cVarRe "fieldAtPos[XYZ]"];
-  !! Accesses.scale ~factor:(var "fieldFactor") [nbMulti; cVarRe "speed2[XYZ]"];
-  !! Accesses.scale ~factor:(var "deltaT") [nbMulti; sExprRe "particles\\.speed\\.[xyz]"];
-  !! Accesses.scale_immut ~factor:(var "deltaT") [nbMulti; cVarRe "speed2[XYZ]"];
-*)
   bigstep "scale field and particles";
   let deltaT = find_var "deltaT" in
   let fieldFactor = trm_mul (trm_mul deltaT deltaT) (trm_div (find_var "pCharge") (find_var "pMass")) in
@@ -52,7 +42,6 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter scaleParticles ["x"; "y"; "z"];
 
   bigstep "arithmetic simplifications";
-  (* TODO: hoist coeffs *)
   !! Loop.fusion_targets [cFor ~body:[cMul ~lhs:[cVar "particles"] ()] "i1"]; (* marks pre/post + List.iter *)
   !! Loop.fusion_targets [cFor ~body:[cDiv ~lhs:[cVar "particles"] ()] "i1"];
   (* INLINE fieldFactor *)
@@ -61,8 +50,8 @@ let _ = Run.script_cpp (fun () ->
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
 
   bigstep "final polish";
-  !! Function.use_infix_ops ~indepth:true [ctx]; (* TODO: check *)
-  !! Cleanup.std (); (* cleanup += 1 --> ++ *)
+  !! Loop.hoist_alloc ~indep:["idStep"; "idPart"] ~dest:[tBefore; cFor "idStep"] [cVarDef "coeffs"];
+  !! Cleanup.std (); (* TODO: cleanup += 1 --> ++ *)
 
   (* TODO:
     - cleanup script

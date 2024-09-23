@@ -539,11 +539,10 @@ let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false
     Target.apply_at_target_paths (delocalize_aux dim init_zero acc_in_place acc any_mark labels index dl_o) tg
 
 let assert_same_dims (a : trms) (b : trms) : unit =
-  (* TODO: need something better for term equality *)
   if not (List.for_all2 are_same_trm a b) then begin
-    Tools.warn "Matrix_basic: dimensions mismatch";
-    Show.trms ~msg:"a" a;
-    Show.trms ~msg:"b" b;
+    Tools.warn "Matrix_basic: potential dimensions mismatch";
+    (* DEBUG: Show.trms ~msg:"a" a;
+    Show.trms ~msg:"b" b; *)
   end
 
 (* TODO: check that size and index expressions are pure, otherwise fail *)

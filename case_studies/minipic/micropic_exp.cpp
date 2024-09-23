@@ -179,9 +179,9 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
     particles[i1].speed.y *= deltaT;
     particles[i1].speed.z *= deltaT;
   }
+  double* const coeffs = (double*)MALLOC1(nbCorners, sizeof(double));
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
-      double* const coeffs = (double*)MALLOC1(nbCorners, sizeof(double));
       const double rX = relativePosX(particles[idPart].pos.x);
       const double rY = relativePosY(particles[idPart].pos.y);
       const double rZ = relativePosZ(particles[idPart].pos.z);
@@ -204,7 +204,6 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
         fieldAtPosY += coeffs[k] * lFieldAtCorners[k].y;
         fieldAtPosZ += coeffs[k] * lFieldAtCorners[k].z;
       }
-      MFREE1(nbCorners, coeffs);
       const double speed2X = particles[idPart].speed.x + fieldAtPosX;
       const double speed2Y = particles[idPart].speed.y + fieldAtPosY;
       const double speed2Z = particles[idPart].speed.z + fieldAtPosZ;
@@ -216,6 +215,7 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
       particles[idPart].speed.z = speed2Z;
     }
   }
+  MFREE1(nbCorners, coeffs);
   for (int i1 = 0; i1 < nbParticles; i1 += 1) {
     particles[i1].speed.z /= deltaT;
     particles[i1].speed.y /= deltaT;
