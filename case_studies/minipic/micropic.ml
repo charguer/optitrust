@@ -25,7 +25,8 @@ let _ = Run.script_cpp (fun () ->
   bigstep "scale field and particles";
   let deltaT = find_var "deltaT" in
   let fieldFactor = trm_mul (trm_mul deltaT deltaT) (trm_div (find_var "pCharge") (find_var "pMass")) in
-  (* Variable.def + inline on scope *)
+  (* Variable.def + inline on scope
+    - insert var for scaleFieldFactor *)
   let scaleFieldAtPos d = Accesses.scale_var ~factor:fieldFactor [nbMulti; ctx; cVarDef ("fieldAtPos" ^ d)] in
   !! List.iter scaleFieldAtPos ["X"; "Y"; "Z"];
   let scaleSpeed2 d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
@@ -45,21 +46,18 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.fusion_targets [cFor ~body:[cMul ~lhs:[cVar "particles"] ()] "i1"]; (* marks pre/post + List.iter *)
   !! Loop.fusion_targets [cFor ~body:[cDiv ~lhs:[cVar "particles"] ()] "i1"];
   (* INLINE fieldFactor *)
-  !! Variable.inline [ctx; cVarDefs ["accelX"; "accelY"; "accelZ"; "pos2X"; "pos2Y"; "pos2Z"]];
-  (* accel product dims *)
+  !! Variable.inline [ctx; cVarDefs (Tools.concat_prod ["accel"; "pos2"] ["X"; "Y"; "Z"])];
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
 
   bigstep "final polish";
   !! Loop.hoist_alloc ~indep:["idStep"; "idPart"] ~dest:[tBefore; cFor "idStep"] [cVarDef "coeffs"];
   !! Cleanup.std (); (* TODO: cleanup += 1 --> ++ *)
 
-  (* TODO:
-    - cleanup script
+  (* LATER:
     - local name tile: get elem_ty from program / resources
-    - allow writing C code for constructing factors, need to parse and put in correct context with local ids
-    - insert var for scaleFieldFactor
     - bind pointer to particles cell?
     - put 'coeffs' array on stack?
+    - allow writing C code for constructing factors, need to parse and put in correct context with local ids
     - FIXME: reparse triggers access normalization
   *)
 )
