@@ -315,35 +315,6 @@ inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
   memcpy((void*)(dest2), (void*)(src2), elems*bytes_per_item);
 }
 
-/* ---- Algorithmic Functions ---- */
-
-/* TODO: generalize to any monoid/group, see doc/sliding-window.md */
-// template<typename T, typename ST>
-uint16_t reduce_spe2(int start, int stop, const uint8_t* input, int n, int m, int j) {
-  // TODO: allow negative ranges
-  // not necessary here?:
-  // __requires("check_bound1: 0 <= start, check_bound2: start <= stop, check_bound3: stop <= n");
-  __reads("for k in start..stop -> &input[MINDEX2(n, m, k, j)] ~> Cell");
-  __admitted();
-
-  return 0;
-  /* T acc = 0;
-  for (int k = start; k < stop; k++) {
-    __xreads("&input[MINDEX1(n, k)] ~> Cell");
-    acc = acc + input[MINDEX(n, k)];
-  }
-  return acc; */
-}
-
-uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, int j) {
-  __requires("check_range: is_subrange(start..stop, 0..n)");
-  __requires("bound_check: in_range(j, 0..m)");
-  __reads("input ~> Matrix2(n, m)");
-  __admitted();
-  // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
-  return 0;
-}
-
 /* ---- Ghosts ---- */
 
 __GHOST(assume) {
@@ -1120,5 +1091,45 @@ inline void MFREE(void* p) {
 }
 
 inline int ANY(int maxValue) { return 0; }
+
+/* ---- Algorithmic Functions ---- */
+
+/* TODO: generalize to any monoid/group, see doc/sliding-window.md */
+// template<typename T, typename ST>
+uint16_t reduce_spe2(int start, int stop, const uint8_t* input, int n, int m, int j) {
+  // TODO: allow negative ranges
+  // not necessary here?:
+  // __requires("check_bound1: 0 <= start, check_bound2: start <= stop, check_bound3: stop <= n");
+  __reads("for k in start..stop -> &input[MINDEX2(n, m, k, j)] ~> Cell");
+  __admitted();
+
+  return 0;
+  /* T acc = 0;
+  for (int k = start; k < stop; k++) {
+    __xreads("&input[MINDEX1(n, k)] ~> Cell");
+    acc = acc + input[MINDEX(n, k)];
+  }
+  return acc; */
+}
+
+uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, int j) {
+  __requires("check_range: is_subrange(start..stop, 0..n)");
+  __requires("bound_check: in_range(j, 0..m)");
+  __reads("input ~> Matrix2(n, m)");
+  // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
+
+  uint16_t s = 0;
+  for (int i = start; i < stop; i++) {
+    __smodifies("&s ~> Cell");
+    __sreads("input ~> Matrix2(n, m)");
+
+    __ghost(in_range_extend, "i, start..stop, 0..n");
+    __GHOST_BEGIN(focus, matrix2_ro_focus, "input, i, j");
+    s += input[MINDEX2(n, m, i, j)];
+    __GHOST_END(focus);
+  }
+  __admitted();
+  return s;
+}
 
 #endif
