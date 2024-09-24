@@ -195,7 +195,7 @@ let clean_class_name (class_name : string) : string =
     else List.nth splitted_string 0
 
 (* cartesian product of strings *)
-let concat_prod s1 s2 = List.concat_map (fun x1 -> List.map (fun x2 -> x1 ^ x2) s2) s1
+let cart_prod op s1 s2 = List.concat_map (fun x1 -> List.map (fun x2 -> op x1 x2) s2) s1
 
 (******************************************************************************)
 (*                          Extensions for Time                               *)

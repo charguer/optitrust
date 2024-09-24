@@ -7,10 +7,13 @@ let _ = Flags.recompute_resources_between_steps := true
 (** Reproducing a subset of the PIC case study *)
 
 let _ = Run.script_cpp (fun () ->
+  Convention.default_naming_policy := Naming_underscore;
+
   let ctx = cFunBody "simulate_single_cell" in
+  let find_var n = trm_find_var n [ctx] in
   let vect = typ_find_var "vect" [ctx] in
   let particle = typ_find_var "particle" [ctx] in
-  let find_var n = trm_find_var n [ctx] in
+  let dims = ["x"; "y"; "z"] in
 
   bigstep "make local copy of field";
   !! Matrix.local_name_tile ~var:"fieldAtCorners"
@@ -22,36 +25,40 @@ let _ = Run.script_cpp (fun () ->
   !! Record.split_fields ~typs:[particle; vect] [tSpanSeq [ctx]];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
-  bigstep "scale field and particles";
+  bigstep "scale field and particles"; (* check factors != 0 *)
   let deltaT = find_var "deltaT" in
   !! Variable.insert ~name:"fieldFactor" ~value:(trm_mul (trm_mul deltaT deltaT) (trm_div (find_var "pCharge") (find_var "pMass"))) [ctx; tBefore; cVarDef "lFieldAtCorners"];
-  let scaleFieldAtPos d = Accesses.scale_var ~factor:(find_var "fieldFactor") [nbMulti; ctx; cVarDef ("fieldAtPos" ^ d)] in
-  !! List.iter scaleFieldAtPos ["X"; "Y"; "Z"];
-  let scaleSpeed2 d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2" ^ d)] in
-  !! List.iter scaleSpeed2 ["X"; "Y"; "Z"];
-  let scaleFieldAtCorners field =
-    let address_pattern = Trm.(struct_access (array_access (find_var "lFieldAtCorners") (pattern_var "i")) field) in
+  (* tFirst *)
+  let scaleFieldAtPos d = Accesses.scale_var ~factor:(find_var "fieldFactor") [nbMulti; ctx; cVarDef ("fieldAtPos_" ^ d)] in
+  !! List.iter scaleFieldAtPos dims;
+  let scaleSpeed2 d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2_" ^ d)] in
+  !! List.iter scaleSpeed2 dims;
+  let scaleFieldAtCorners d =
+    (* lFieldAtCorners[?i].(x|y|z) *)
+    let address_pattern = Trm.(struct_access (array_access (find_var "lFieldAtCorners") (pattern_var "i")) d) in
     Accesses.scale ~factor:(find_var "fieldFactor") ~address_pattern ~uninit_post:true [ctx; tSpan [tBefore; cMark "loadField"] [tAfter; cFor "idStep"]]
   in
-  !! List.iter scaleFieldAtCorners ["x"; "y"; "z"];
-  let scaleParticles field =
-    let address_pattern = Trm.(struct_access (struct_access (array_access (find_var "particles") (pattern_var "i")) "speed") field) in
+  !! List.iter scaleFieldAtCorners dims;
+  let scaleParticles d =
+    (* particles[?i].speed.(x|y|z)] *)
+    let address_pattern = Trm.(struct_access (struct_access (array_access (find_var "particles") (pattern_var "i")) "speed") d) in
     Accesses.scale ~factor:deltaT ~address_pattern ~mark_preprocess:"partsPrep" ~mark_postprocess:"partsPostp" [ctx; tSpanAround [cFor "idStep"]];
     (* TODO: shorter terminology: prelude and postlude? *)
   in
-  !! List.iter scaleParticles ["x"; "y"; "z"];
+  !! List.iter scaleParticles dims;
   !! List.iter Loop.fusion_targets [[cMark "partsPrep"]; [cMark "partsPostp"]];
 
   bigstep "inline variables and simplify arithmetic";
-  !! Variable.unfold ~delete:false ~at:[cFor "idStep"] [cVarDef "fieldFactor"];
-  !! Variable.inline [ctx; cVarDefs (Tools.concat_prod ["accel"; "pos2"] ["X"; "Y"; "Z"])];
+  !! Variable.unfold ~at:[cFor "idStep"] [cVarDef "fieldFactor"];
+  !! Variable.inline [ctx; cVarDefs (Tools.cart_prod (^) ["accel_"; "pos2_"] dims)];
   !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
 
   bigstep "final polish";
   !! Loop.hoist_alloc ~indep:["idStep"; "idPart"] ~dest:[tBefore; cFor "idStep"] [cVarDef "coeffs"];
   !! Cleanup.std (); (* TODO: cleanup += 1 --> ++ *)
 
-  (* LATER:
+  (* IMPROVEMENTS:
+    - nicer open ghosts in input code
     - local name tile: get elem_ty from program / resources
     - bind pointer to particles cell?
     - put 'coeffs' array on stack?

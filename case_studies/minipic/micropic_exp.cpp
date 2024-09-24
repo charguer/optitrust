@@ -194,23 +194,23 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
       coeffs[5] = rX * cY * rZ;
       coeffs[6] = rX * rY * cZ;
       coeffs[7] = rX * rY * rZ;
-      double fieldAtPosX = 0.;
-      double fieldAtPosY = 0.;
-      double fieldAtPosZ = 0.;
+      double fieldAtPos_x = 0.;
+      double fieldAtPos_y = 0.;
+      double fieldAtPos_z = 0.;
       for (int k = 0; k < nbCorners; k++) {
-        fieldAtPosX += coeffs[k] * lFieldAtCorners[k].x;
-        fieldAtPosY += coeffs[k] * lFieldAtCorners[k].y;
-        fieldAtPosZ += coeffs[k] * lFieldAtCorners[k].z;
+        fieldAtPos_x += coeffs[k] * lFieldAtCorners[k].x;
+        fieldAtPos_y += coeffs[k] * lFieldAtCorners[k].y;
+        fieldAtPos_z += coeffs[k] * lFieldAtCorners[k].z;
       }
-      const double speed2X = particles[idPart].speed.x + fieldAtPosX;
-      const double speed2Y = particles[idPart].speed.y + fieldAtPosY;
-      const double speed2Z = particles[idPart].speed.z + fieldAtPosZ;
-      particles[idPart].pos.x += speed2X;
-      particles[idPart].pos.y += speed2Y;
-      particles[idPart].pos.z += speed2Z;
-      particles[idPart].speed.x = speed2X;
-      particles[idPart].speed.y = speed2Y;
-      particles[idPart].speed.z = speed2Z;
+      const double speed2_x = particles[idPart].speed.x + fieldAtPos_x;
+      const double speed2_y = particles[idPart].speed.y + fieldAtPos_y;
+      const double speed2_z = particles[idPart].speed.z + fieldAtPos_z;
+      particles[idPart].pos.x += speed2_x;
+      particles[idPart].pos.y += speed2_y;
+      particles[idPart].pos.z += speed2_z;
+      particles[idPart].speed.x = speed2_x;
+      particles[idPart].speed.y = speed2_y;
+      particles[idPart].speed.z = speed2_z;
     }
   }
   MFREE1(nbCorners, coeffs);

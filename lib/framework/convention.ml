@@ -1,5 +1,5 @@
 (** [naming_policy]: naming policy used for string concatentation *)
-type naming_policy = Naming_capitalize | Naming_underscore
+type naming_policy = Naming_capitalize | Naming_underscore | Naming_concat
 
 (** [default_naming_policy]: by default the second string is capitalized *)
 let default_naming_policy = ref Naming_capitalize
@@ -15,3 +15,4 @@ let name_app ?(policy:naming_policy option) (s1 : string) (s2 : string) : string
   match policy with
   | Naming_underscore -> s1 ^ "_" ^ s2
   | Naming_capitalize -> s1 ^ String.capitalize_ascii s2
+  | Naming_concat -> s1 ^ s2

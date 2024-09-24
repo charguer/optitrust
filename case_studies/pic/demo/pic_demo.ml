@@ -124,8 +124,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cFor "idCorner"; cFieldWrite ~field:(lowercase_ascii d) ()];
       Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
-  !! Variable.unfold [step; cVarDef  "factorC"];
-  !! Variable.unfold ~at:[cVarDef "accel"] [nbMulti; step; cVarDefReg "factor."];
+  !! Variable.unfold ~delete:true [step; cVarDef  "factorC"];
+  !! Variable.unfold ~delete:true ~at:[cVarDef "accel"] [nbMulti; step; cVarDefReg "factor."];
   !! Arith.(simpl_rec expand) [nbMulti; steps; cVarDef "accel"];
 
   bigstep "Applying a scaling factor on speeds";

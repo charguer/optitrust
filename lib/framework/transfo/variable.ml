@@ -336,7 +336,7 @@ let default_unfold_simpl (tg : target) : unit =
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
           After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
-let%transfo unfold ?(simpl : target -> unit = default_unfold_simpl) ?(delete : bool = true) ?(at : target = []) (tg : target) : unit =
+let%transfo unfold ?(simpl : target -> unit = default_unfold_simpl) ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
   Target.iter (fun p ->
     let tg_trm = Target.resolve_path p in
     let tg_decl = target_of_path p in
