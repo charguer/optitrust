@@ -1102,7 +1102,7 @@ let cPlusEq ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_compound_assign_op Binop_add)
 
 let cDiv ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
-  cBinop ~lhs ~rhs Binop_div
+  cOr [[cBinop ~lhs ~rhs Binop_trunc_div]; [cBinop ~lhs ~rhs Binop_exact_div]]
 
 let cMul ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
   cBinop ~lhs ~rhs Binop_mul

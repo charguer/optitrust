@@ -487,7 +487,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
         splitted_hyp, subst
       else
         let nb_splits = 1 + List.length carved_arbitrary in
-        let repl_frac = trm_div base_frac (trm_int nb_splits) in
+        let repl_frac = trm_trunc_div base_frac (trm_int nb_splits) in
         let subst = List.fold_left (fun subst var ->
           if Var_map.mem var subst then failwith "Arbitrarily chosen variable %s is carved twice" (var_to_string var);
           Var_map.add var repl_frac subst) subst carved_arbitrary in

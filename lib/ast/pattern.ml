@@ -165,7 +165,9 @@ let trm_set ft1 ft2 = trm_binop Binop_set ft1 ft2
 let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
 let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2
 let trm_mul ft1 ft2 = trm_binop Binop_mul ft1 ft2
-let trm_div ft1 ft2 = trm_binop Binop_div ft1 ft2
+let trm_exact_div ft1 ft2 = trm_binop Binop_exact_div ft1 ft2
+let trm_trunc_div ft1 ft2 = trm_binop Binop_trunc_div ft1 ft2
+let trm_trunc_mod ft1 ft2 = trm_binop Binop_trunc_mod ft1 ft2
 
 let trm_lt ft1 ft2 = trm_binop Binop_lt ft1 ft2
 let trm_le ft1 ft2 = trm_binop Binop_le ft1 ft2

@@ -35,7 +35,7 @@ let transform (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option)
   (post_cast : typ option) (t : trm) : trm =
   let trm_apps_binop = match aop with
     | Arith_shift -> if inv then trm_sub else trm_add
-    | Arith_scale -> if inv then trm_div else trm_mul
+    | Arith_scale -> if inv then trm_exact_div else trm_mul
     in
   match t.desc with
   | Trm_apps(f, [lhs; rhs],_) when is_set_operation t ->
@@ -204,10 +204,6 @@ let expr_div ?(loc : loc) ~(typ : typ_builtin) (e1 : expr) (e2 : expr) : expr =
 let expr_binop ?(loc : loc) ~(typ : typ_builtin) (op : binary_op) (e1 : expr) (e2 : expr) : expr =
   expr_make ?loc ~typ (Expr_binop (op, e1, e2))
 
-(** [expr_div_floor e1 e2] produces the integer division [e1 / e2], rounded below *)
-let expr_div_floor ?(loc : loc) ~(typ: typ_builtin) (e1 : expr) (e2 : expr) : expr =
-  expr_binop ?loc ~typ Binop_div e1 e2
-
 (* LATER: might add constructors for other binary_ops *)
 
 let expr_typ (e: expr) : typ_builtin =
@@ -272,12 +268,12 @@ let normalize_one (e : expr) : expr =
       | Some v -> v
       end
     (* [e1 / 1 = 1] *)
-    | Expr_binop (Binop_div, e1, { expr_desc = Expr_int 1; _}) -> e1
-    | Expr_binop (Binop_div, e1, { expr_desc = Expr_prod []; _}) -> e1
+    | Expr_binop (Binop_trunc_div, e1, { expr_desc = Expr_int 1; _}) -> e1
+    | Expr_binop (Binop_trunc_div, e1, { expr_desc = Expr_prod []; _}) -> e1
     (* [0 mod e2 = 0] *)
-    | Expr_binop (Binop_mod, ({ expr_desc = Expr_int 0; _} as ezero), e2) -> ezero
+    | Expr_binop (Binop_trunc_mod, ({ expr_desc = Expr_int 0; _} as ezero), e2) -> ezero
     (* [e1 % 1 = 0] *)
-    | Expr_binop (Binop_mod, e1, { expr_desc = Expr_int 1; _ }) -> expr_int ~typ:(expr_typ e) 0
+    | Expr_binop (Binop_trunc_mod, e1, { expr_desc = Expr_int 1; _ }) -> expr_int ~typ:(expr_typ e) 0
     (* [e1 << 0 = e1] and [e1 >> 0 = e1] *)
     | Expr_binop ((Binop_shiftr | Binop_shiftl), e1, { expr_desc = Expr_int 0; _}) -> e1
     | _ -> e
@@ -321,9 +317,9 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
     | Expr_prod wes -> string "Prod" ^^ (auxwes wes)
     | Expr_binop (op, e1, e2) ->
         let sop = match op with
-          | Binop_div -> "Div"
+          | Binop_trunc_div -> "TruncDiv"
+          | Binop_trunc_mod -> "TruncMod"
           | Binop_exact_div -> "ExactDiv"
-          | Binop_mod -> "Mod"
           | Binop_shiftl -> "ShiftL"
           | Binop_shiftr -> "ShiftR"
           | Binop_xor -> "Xor"
@@ -394,7 +390,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
       end
      | Expr_binop (op, e1, e2) ->
         let sop = match op with
-          | Binop_div -> "/"
+          | Binop_trunc_div -> "/"
           | Binop_shiftr -> ">>"
           | Binop_shiftl -> "<<"
           | Binop_xor -> "^" (* LATER: use other symbol to avoid confusion *)
@@ -533,15 +529,8 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           | Binop_add -> expr_add ?loc ~typ (aux t1) (aux t2)
           | Binop_sub -> expr_sub ?loc ~typ (aux t1) (aux t2)
           | Binop_mul -> expr_mul ?loc ~typ (aux t1) (aux t2)
-          | Binop_exact_div ->
-              if not (is_integer_typ typ)
-                then trm_fail t "trm_to_naive_expr: Binop_exact_div expected to be an integer operation";
-              expr_div ?loc ~typ (aux t1) (aux t2)
-          | Binop_div ->
-              if is_integer_typ typ
-                then expr_div_floor ?loc ~typ (aux t1) (aux t2)
-                else expr_div ?loc ~typ (aux t1) (aux t2)
-          | Binop_mod | Binop_shiftl | Binop_shiftr | Binop_xor | Binop_bitwise_and | Binop_bitwise_or ->
+          | Binop_exact_div -> expr_div ?loc ~typ (aux t1) (aux t2)
+          | Binop_trunc_div | Binop_trunc_mod | Binop_shiftl | Binop_shiftr | Binop_xor | Binop_bitwise_and | Binop_bitwise_or ->
               expr_binop op ?loc ~typ (aux t1) (aux t2)
           | _ -> force_atom ()
           end
@@ -613,8 +602,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
       let trm_one () =
         if is_integer_typ expr_typ then trm_int ~typ 1 else trm_float ~typ 1.0 in
       let trm_div (t1:trm) (t2:trm) : trm =
-        let binop_div = if is_integer_typ expr_typ then trm_exact_div else trm_div in
-        binop_div ?loc ~typ t1 t2 in
+        trm_exact_div ?loc ~typ t1 t2 in
       let rec trm_mul_nonempty (ts : trm list) : trm =
         match ts with
         | [] -> assert false
@@ -718,13 +706,13 @@ let rec gather_one (e : expr) : expr =
   | Expr_sum wes -> mk (Expr_sum (gather_wexprs wes))
   | Expr_prod wes -> mk (Expr_prod (gather_wexprs wes))
   (* simplify  [(a / b) / c] into [a / (b * c)] *)
-  | Expr_binop (Binop_div, { expr_desc = Expr_binop (Binop_div, e1, e2); _ }, e3) ->
+  | Expr_binop (Binop_trunc_div, { expr_desc = Expr_binop (Binop_trunc_div, e1, e2); _ }, e3) ->
       let e23 = normalize_one (mk (Expr_prod [(1, e2); (1, e3)])) in
-      gather_one (mk (Expr_binop (Binop_div, e1, e23))) (* attempt further simplifications *)
+      gather_one (mk (Expr_binop (Binop_trunc_div, e1, e23))) (* attempt further simplifications *)
   (* simplify [a/a] to [1]. *)
-  | Expr_binop (Binop_div, e1, e2) when e1 = e2 -> expr_int ?loc ~typ:(Option.unsome e.expr_typ) 1
+  | Expr_binop (Binop_trunc_div, e1, e2) when e1 = e2 -> expr_int ?loc ~typ:(Option.unsome e.expr_typ) 1
   (* simplify [(a*b)/(c*a)] to [b/c] and [(a^k*b)/(c*a)] to [(a^(k-1)*b)/c]. *)
-  | Expr_binop (Binop_div, ({ expr_desc = Expr_prod wes1; _ } as e1),
+  | Expr_binop (Binop_trunc_div, ({ expr_desc = Expr_prod wes1; _ } as e1),
                            ({ expr_desc = Expr_prod wes2; _ } as e2)) ->
      let rec aux wes1 wes2 : wexprs * wexprs =
        let add_to_snd k (a,b) = (a,k::b) in
@@ -746,9 +734,9 @@ let rec gather_one (e : expr) : expr =
      let wes1',wes2' = aux wes1 wes2 in
      let e1' = expr_make_like e1 (Expr_prod wes1') in
      let e2' = expr_make_like e2 (Expr_prod wes2') in
-     normalize_one (mk (Expr_binop (Binop_div, e1', e2')))
+     normalize_one (mk (Expr_binop (Binop_trunc_div, e1', e2')))
   (* simplify [(a*b)/a] to [b] and [(a^k*b)/a] to [a^(k-1)*b]. *)
-  | Expr_binop (Binop_div, { expr_desc = Expr_prod wes; _ }, e) -> (* when [e] is not an [Expr_prod] *)
+  | Expr_binop (Binop_trunc_div, { expr_desc = Expr_prod wes; _ }, e) -> (* when [e] is not an [Expr_prod] *)
       begin match cancel_div_floor_prod wes e with
       | None -> e
       | Some wes' -> normalize_one (mk (Expr_prod wes'))
@@ -862,14 +850,14 @@ let euclidian (e : expr) : expr =
       (* filter [1 * (a % q)] items in the original sum [wes] *)
       let aq_pairs, wes_nonmod = List.partition_map
         (function
-          | (1, { expr_desc = Expr_binop (Binop_mod, a, q); _ }) as modaq -> Left (a,q,modaq)
+          | (1, { expr_desc = Expr_binop (Binop_trunc_mod, a, q); _ }) as modaq -> Left (a,q,modaq)
           | we -> Right(we))
           wes in
       let wes':wexprs = List.fold_left (fun (wes:wexprs) (a,q,modaq) ->
           (* auxiliary function to recognize [a/q] -- LATER: could use same_expr to do this? *)
           let is_a_div_q e =
             match e.expr_desc with
-            | Expr_binop (Binop_div, a', q') when same_expr a a' && same_expr q q' -> true
+            | Expr_binop (Binop_trunc_div, a', q') when same_expr a a' && same_expr q q' -> true
             | _ -> false
             in
           (* filter at most one [q*(a/q)] or [(a/q)*q] item in the current sum [wes] *)
@@ -1016,10 +1004,10 @@ let compute_one (e : expr) : expr =
       if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: integer division by zero: exact_div(%d, %d)" n1 n2);
       if (n1 mod n2) <> 0 then loc_fail loc (Printf.sprintf "compute_one: division is not exact: exact_div(%d, %d)" n1 n2);
       expr_int ~typ (n1 / n2) (* integer division with rounding *)
-    | Binop_div ->
+    | Binop_trunc_div ->
       if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
       expr_int ~typ (n1 / n2) (* integer division with rounding *)
-    | Binop_mod ->
+    | Binop_trunc_mod ->
       if n2 = 0 then loc_fail loc (Printf.sprintf "compute_one: modulo by zero: %d / %d" n1 n2);
       expr_int ~typ (n1 mod n2)
     | Binop_shiftl ->

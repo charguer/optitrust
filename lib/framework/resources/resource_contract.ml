@@ -164,7 +164,7 @@ let contract_outside_loop range contract =
 let parallel_reads_inside_loop range par_reads =
   List.map (fun (x, formula) ->
       let { frac; formula } = formula_read_only_inv_all formula in
-      (x, formula_read_only ~frac:(trm_div frac (formula_range_count (formula_loop_range range))) formula)
+      (x, formula_read_only ~frac:(trm_trunc_div frac (formula_range_count (formula_loop_range range))) formula)
     ) par_reads
 
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns

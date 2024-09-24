@@ -352,6 +352,11 @@ let is_typ_array (ty : typ) : bool =
   | Some _ -> true
   | _ -> false
 
+let is_typ_float (ty: typ) : bool =
+  match typ_builtin_inv ty with
+  | Some Typ_float _ -> true
+  | _ -> false
+
 (*****************************************************************************)
 
 (* LATER: Maybe split between typ_of_array_get and typ_of_get *)

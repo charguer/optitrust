@@ -84,7 +84,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
     | Some (base, index) ->
       Pattern.pattern_match base.typ [
         Pattern.(some (typ_constr (var_eq x))) (fun () ->
-          trm_get_array_access (trm_get_array_access base (trm_div index b)) (trm_mod index b)
+          trm_get_array_access (trm_get_array_access base (trm_trunc_div index b)) (trm_trunc_mod index b)
         );
         Pattern.__ (fun () -> trm_map aux t)
       ]
@@ -135,14 +135,14 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
       (* expectation: my_alloc(nb_elements, size_element) *)
       | Trm_apps (t_alloc_fun, [t_nb_elts; t_size_elt], _) ->
          (* goal: my_alloc(nb_elements / b, b * size_element) *)
-         let t_nb_elts = trm_div ~typ:typ_isize t_nb_elts (trm_var block_size) in
+         let t_nb_elts = trm_trunc_div ~typ:typ_isize t_nb_elts (trm_var block_size) in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_alloc_fun [t_nb_elts; t_size_elt]
       (* there's possibly a cast first *)
       | Trm_apps (t_cast,
                   [{desc = Trm_apps (t_alloc_fun,
                                      [t_nb_elts; t_size_elt], _); _}], _) ->
-         let t_nb_elts = trm_div t_nb_elts (trm_var block_size) in
+         let t_nb_elts = trm_trunc_div t_nb_elts (trm_var block_size) in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
       | _ -> trm_fail t "Arrays_core.tile_at: expected array allocation"
@@ -167,7 +167,7 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
             match s with
             | None -> trm_fail t "Arrays_core.tile_at: array size must be provided"
             | Some t' ->
-              let t'' = trm_div ~typ:typ_isize t' (trm_var block_size) in
+              let t'' = trm_trunc_div ~typ:typ_isize t' (trm_var block_size) in
               trm_seq_nobrace_nomarks [
                 trm_typedef {
                   typedef_name = name_to_typvar block_name;

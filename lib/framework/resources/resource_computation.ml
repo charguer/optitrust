@@ -49,8 +49,9 @@ module Resource_primitives = struct
     | Binop_add -> "__add"
     | Binop_sub -> "__sub"
     | Binop_mul -> "__mul"
-    | Binop_div -> "__div"
-    | Binop_mod -> "__mod"
+    | Binop_exact_div -> "__exact_div"
+    | Binop_trunc_div -> "__div"
+    | Binop_trunc_mod -> "__mod"
     | Binop_array_access -> "__array_access"
     | Binop_set -> "__set"
     | Binop_eq -> "__eq"
@@ -146,10 +147,10 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
   let formula = trm_subst subst_ctx formula in
   let arith_solved = Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_var (var_eq var_in_range)) !__ (formula_range !__ !__ !__)) (fun index start stop step () ->
-      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_mod index step) (trm_int 0))
+      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_trunc_mod index step) (trm_int 0))
     );
     Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
-      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))
+      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_trunc_mod sub_step step) (trm_int 0))
     );
     Pattern.(trm_apps2 (trm_var (var_eq var_is_eq)) !__ !__) (fun t1 t2 () -> Arith_core.check_eq t1 t2);
     Pattern.(trm_apps2 (trm_var (var_eq var_is_neq)) !__ !__) (fun t1 t2 () -> Arith_core.check_neq t1 t2);
@@ -436,7 +437,8 @@ let rec frac_to_quotient (frac: formula) =
       in
       { removed_quot with num }
     );
-    Pattern.(trm_div !__ (trm_int !__)) (fun base_frac den () ->
+    (* FIXME: The division for fractions should be another operation *)
+    Pattern.(trm_trunc_div !__ (trm_int !__)) (fun base_frac den () ->
       { base = base_frac; num = 1; den = den }
     );
     Pattern.__ (fun () ->

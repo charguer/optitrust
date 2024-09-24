@@ -322,10 +322,9 @@ and binop_to_doc style (op : binary_op) : document =
   | Binop_sub -> minus
   | Binop_add -> plus
   | Binop_mul -> star
-  | Binop_mod -> percent
-  | Binop_div -> slash
-  (* FIXME: should not be used *)
-  | Binop_exact_div -> string "exact_div"
+  | Binop_exact_div -> slash
+  | Binop_trunc_div -> slash
+  | Binop_trunc_mod -> percent
   | Binop_le -> langle ^^ equals
   | Binop_lt -> langle
   | Binop_ge -> rangle ^^ equals
@@ -966,13 +965,12 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
           then (prec, prec + 1)
           else (prec + 1, prec)
         in
-      let op_d = binop_to_doc style op in
       begin match tl with
       | [t1; t2] ->
         let d1 = decorate_trm style ~prec:prec1 t1 in
         let d2 = decorate_trm style ~prec:prec2 t2 in
         begin match op with
-          | Binop_exact_div ->
+          | Binop_exact_div when not (is_typ_float ty) ->
             string "exact_div(" ^^ d1 ^^ comma ^^ space ^^ d2 ^^ string ")"
           (* | Binop_set when style.optitrust_syntax ->
             d1 ^^ string "=" ^^ d2 *)
@@ -986,7 +984,9 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
             | None -> bracketed_trm (t2)
             | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
             end
-          | _ -> separate (blank 1) [d1; op_d; d2]
+          | _ ->
+            let op_d = binop_to_doc style op in
+            separate (blank 1) [d1; op_d; d2]
           end
       | _ -> trm_fail f "Ast_to_c.apps_to_doc: binary_operators must have two arguments"
       end

@@ -838,9 +838,9 @@ let compute_app_binop_value (p : binary_op) (v1 : lit) (v2 : lit) : lit option =
   | Binop_sub, Lit_float (typ, d1), Lit_float (_, d2) -> Some (Lit_float (typ, d1 -. d2))
   | Binop_mul, Lit_int (typ, n1), Lit_int (_, n2) -> Some (Lit_int (typ, n1 * n2))
   | Binop_mul, Lit_float (typ, n1), Lit_float (_, n2) -> Some (Lit_float (typ, n1 *. n2))
-  | Binop_div, Lit_int (typ, n1), Lit_int (_, n2) -> Some (Lit_int (typ, n1 / n2))
-  | Binop_div, Lit_float (typ, d1), Lit_float (_, d2) -> Some (Lit_float (typ, d1 /. d2))
-  | Binop_mod, Lit_int (typ, n1), Lit_int (_, n2) -> Some (Lit_int (typ, n1 mod n2))
+  | Binop_exact_div, Lit_float (typ, d1), Lit_float (_, d2) -> Some (Lit_float (typ, d1 /. d2))
+  | Binop_trunc_div, Lit_int (typ, n1), Lit_int (_, n2) -> Some (Lit_int (typ, n1 / n2))
+  | Binop_trunc_mod, Lit_int (typ, n1), Lit_int (_, n2) -> Some (Lit_int (typ, n1 mod n2))
   | Binop_le, Lit_int (_, n1), Lit_int (_, n2) -> Some (Lit_bool (n1 <= n2))
   | Binop_le, Lit_float (_, d1), Lit_float (_, d2) -> Some (Lit_bool (d1 <= d2))
   | Binop_lt, Lit_int (_, n1), Lit_int (_, n2) -> Some (Lit_bool (n1 < n2))
@@ -972,7 +972,7 @@ let is_infix_prim_fun (p : prim) : bool =
   | Prim_compound_assign_op _ -> true
   | Prim_binop op ->
     begin match op with
-    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod | Binop_shiftl | Binop_shiftr | Binop_and | Binop_or -> true
+    | Binop_add | Binop_sub | Binop_mul | Binop_exact_div | Binop_trunc_div | Binop_trunc_mod | Binop_shiftl | Binop_shiftr | Binop_and | Binop_or -> true
     | _ -> false
     end
   | _ -> false
@@ -989,7 +989,7 @@ let is_arith_fun (p : prim) : bool =
   match p with
   | Prim_binop bin_op ->
     begin match bin_op with
-    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod -> true
+    | Binop_add | Binop_sub | Binop_mul | Binop_exact_div | Binop_trunc_div | Binop_trunc_mod -> true
     | _ -> false
     end
   | _ -> false
@@ -997,7 +997,7 @@ let is_arith_fun (p : prim) : bool =
 (** [is_prim_arith p]: checks if [p] is a primitive arithmetic operation *)
 let is_prim_arith (p : prim) : bool =
   match p with
-  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_exact_div)
+  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_exact_div | Binop_trunc_div | Binop_trunc_mod)
   | Prim_unop Unop_neg ->
       true
   | _ -> false
@@ -2160,14 +2160,14 @@ let trm_add_inv (t : trm) : (trm * trm) option  =
 (** [trm_mul t1 t2]: generates t1 * t2 *)
 let trm_mul = trm_arith_binop Binop_mul
 
-(** [trm_div t1 t2]: generates t1 / t2 *)
-let trm_div = trm_arith_binop Binop_div
-
 (** [trm_exact_div t1 t2]: generates exact_div(t1, t2) *)
 let trm_exact_div = trm_arith_binop Binop_exact_div
 
-(** [trm_mod t1 t2]: generates t1 % t2 *)
-let trm_mod = trm_arith_binop Binop_mod
+(** [trm_trunc_div t1 t2]: generates t1 / t2 *)
+let trm_trunc_div = trm_arith_binop Binop_trunc_div
+
+(** [trm_trunc_mod t1 t2]: generates t1 % t2 *)
+let trm_trunc_mod = trm_arith_binop Binop_trunc_mod
 
   (** [trm_and t1 t2]: generates t1 && t2 *)
 let trm_and ?(loc) ?(ctx : ctx option) (t1 : trm) (t2 : trm) : trm =

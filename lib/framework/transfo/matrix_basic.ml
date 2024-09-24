@@ -815,7 +815,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
       begin match trm_var_inv f with
       | Some v when v = var -> begin
         new_dims := List.update_nth dim (fun _ -> n) dims;
-        let new_indices = List.update_nth dim (fun i -> trm_mod i n) indices in
+        let new_indices = List.update_nth dim (fun i -> trm_trunc_mod i n) indices in
         Matrix_trm.access ~annot:t.annot f !new_dims new_indices
         end
       | _ -> trm_map update_accesses_and_alloc t

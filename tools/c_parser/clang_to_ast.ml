@@ -651,8 +651,12 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
       | AddAssign -> compound_assign Binop_add
       | SubAssign -> compound_assign Binop_sub
       | MulAssign -> compound_assign Binop_mul
-      | DivAssign -> compound_assign Binop_div
-      | RemAssign -> compound_assign Binop_mod
+      | DivAssign ->
+        if is_typ_float (find_binop_typ ()) then
+          compound_assign Binop_exact_div
+        else
+          compound_assign Binop_trunc_div
+      | RemAssign -> compound_assign Binop_trunc_mod
       | ShlAssign -> compound_assign Binop_shiftl
       | ShrAssign -> compound_assign Binop_shiftr
       | AndAssign -> compound_assign Binop_and
@@ -662,8 +666,12 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
       | Add -> arith_binop Binop_add
       | Sub -> arith_binop Binop_sub
       | Mul -> arith_binop Binop_mul
-      | Div -> arith_binop Binop_div
-      | Rem -> arith_binop Binop_mod
+      | Div ->
+        if is_typ_float (find_binop_typ ()) then
+          arith_binop Binop_exact_div
+        else
+          arith_binop Binop_trunc_div
+      | Rem -> arith_binop Binop_trunc_mod
       | And -> arith_binop Binop_bitwise_and
       | Or ->  arith_binop Binop_bitwise_or
       | Shl -> arith_binop Binop_shiftl

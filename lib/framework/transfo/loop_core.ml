@@ -55,7 +55,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
     let (count, iteration_to_index) =
       if trm_is_one step
         then (stop, fun i -> i)
-        else (trm_div stop step, fun i -> trm_mul i step)
+        else (trm_trunc_div stop step, fun i -> trm_mul i step)
     in
     let ratio : int option =
       match trm_int_inv count, trm_int_inv tile_size with
@@ -357,10 +357,10 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
   in
 
   let new_stop = match direction with
-    | DirUp -> (trm_div (aux start stop) step)
-    | DirUpEq -> (trm_div (aux start stop) step)
-    | DirDown -> (trm_div (aux start stop) step)
-    | DirDownEq -> (trm_div (aux start stop) step)
+    | DirUp -> (trm_trunc_div (aux start stop) step)
+    | DirUpEq -> (trm_trunc_div (aux start stop) step)
+    | DirDown -> (trm_trunc_div (aux start stop) step)
+    | DirDownEq -> (trm_trunc_div (aux start stop) step)
   in
   (* TODO: this should be an immutable binding *)
   let new_decl = trm_let_mut (index, typ_int) (trm_add start (trm_mul (trm_var new_index) step)) in

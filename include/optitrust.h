@@ -109,6 +109,13 @@ template<typename T> T __mul(T x1, T x2) {
   __admitted();
 }
 
+template<typename T> T __exact_div(T x1, T x2) {
+  __pure();
+  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
+  // + only for integer types?
+  __admitted();
+}
+
 template<typename T> T __div(T x1, T x2) {
   __pure();
   // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code

@@ -74,8 +74,8 @@ let collapse_on (simpl_mark : mark) (index : string)
     index = k; start = trm_int 0; stop = trm_add_mark simpl_mark (trm_mul nbi nbj);
     direction = DirUp; step = trm_step_one ()
   } in
-  let new_i = trm_add_mark simpl_mark (* (trm_add ri.start = 0 *) (trm_div var_k nbj) in
-  let new_j = trm_add_mark simpl_mark (* (trm_add rj.start = 0 *) (trm_mod var_k nbj) in
+  let new_i = trm_add_mark simpl_mark (* (trm_add ri.start = 0 *) (trm_trunc_div var_k nbj) in
+  let new_j = trm_add_mark simpl_mark (* (trm_add rj.start = 0 *) (trm_trunc_mod var_k nbj) in
   let subst = Var_map.(empty |> add ri.index new_i |> add rj.index new_j) in
   (* TODO: works when invariants are the same, and pre/post are the same modulo a star,
     still need to insert ghosts to flatten the double star. *)
@@ -196,10 +196,10 @@ let hoist_on (name : string)
     else
       (* i = start; i < stop; i += step *)
       let trm_ceil_div a b =
-        trm_div (trm_add a (trm_sub b (trm_int 1))) b
+        trm_trunc_div (trm_add a (trm_sub b (trm_int 1))) b
       in
       (trm_ceil_div (trm_sub stop start) step,
-        trm_div (trm_sub (trm_var index) start) step)
+        trm_trunc_div (trm_sub (trm_var index) start) step)
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
   let elem_ty = ref typ_auto in

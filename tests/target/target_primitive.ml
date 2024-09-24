@@ -7,6 +7,8 @@ let _ = Run.script_cpp (fun _ ->
 
   !! show [cPrimFun (Prim_binop Binop_add)];
   !! show [cPrimFun (Prim_binop Binop_mul)];
-  !! show [cPrimFun (Prim_binop Binop_div)];
-  !! show [cPrimFun (Prim_binop Binop_mod)];
+  !! show [cPrimFun (Prim_binop Binop_exact_div)];
+  !! show [cPrimFun (Prim_binop Binop_trunc_div)];
+  !! show [cPrimFun (Prim_binop Binop_trunc_mod)];
+  !! show [cDiv ()];
 )

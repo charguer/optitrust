@@ -52,9 +52,9 @@ arith_factor:
   | a=arith_factor; STAR; b=atomic_formula;
     { trm_mul a b }
   | a=arith_factor; SLASH; b=atomic_formula;
-    { trm_div a b }
+    { trm_trunc_div a b }
   | a=arith_factor; PERCENT; b=atomic_formula;
-    { trm_mod a b }
+    { trm_trunc_mod a b }
   | a=atomic_formula;
     { a }
 
