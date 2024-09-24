@@ -10,22 +10,22 @@ typedef uint16_t ST;
 */
 void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
   __requires("kn >= 0, n >= 1, cn >= 0");
-  __reads("S ~> Matrix2(n+kn, cn)");
+  __reads("S ~> Matrix2(n+kn-1, cn)");
   __modifies("D ~> Matrix2(n, cn)"); // TODO: writes?
 
   for (int i = 0; i < n; i++) { // for each pixel
-    __sreads("S ~> Matrix2(n+kn, cn)");
+    __sreads("S ~> Matrix2(n+kn-1, cn)");
     __xmodifies("for c in 0..cn -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
 
     for (int c = 0; c < cn; c++) { // foreach channel
-      __sreads("S ~> Matrix2(n+kn, cn)");
+      __sreads("S ~> Matrix2(n+kn-1, cn)");
       __xmodifies("&D[MINDEX2(n, cn, i, c)] ~> Cell");
 
-      __ghost(assume, "is_subrange(i..i + kn, 0..n + kn)"); // TODO: solve
+      __ghost(assume, "is_subrange(i..i + kn, 0..n + kn - 1)"); // TODO: solve
 
       // __GHOST_BEGIN(dfc, group2_ro_focus, "i := c, items := fun i, c -> &S[MINDEX2(n+kn, cn, i, c)] ~> Cell");
       // __GHOST_BEGIN(dfi, group_focus_subrange_ro, "i..i+kn, 0..n+kn");
-      D[MINDEX2(n, cn, i, c)] = reduce_spe1(i, i+kn, S, n+kn, cn, c);
+      D[MINDEX2(n, cn, i, c)] = reduce_spe1(i, i+kn, S, n+kn-1, cn, c);
       /* reduce_add(i, i+kn, [&](int k) {
         (ST) S[MINDEX2(n+kn, cn, k, c)]
       }); */

@@ -25,10 +25,11 @@ let _ = Run.script_cpp (fun () ->
   let mark_then (var, _value) = sprintf "%s" var in
   !! Specialize.variable_multi ~mark_then ~mark_else:"nokn"
     ["kn", int 3; "kn", int 5] [cFunBody "rowSum"; cFor "i"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cFun "reduce_spe1"];
+  !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cFun "reduce_spe1"]; (* DELETE *)
   !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
 
   !! Loop.swap [nbMulti; cMark "nokn"; cFor "i"];
+  (* Reduce.intro *)
   !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "nokn"; cArrayWrite "D"];
   !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
@@ -43,6 +44,10 @@ let _ = Run.script_cpp (fun () ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor ~stop:[cVar "kn"] "i"];
     Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
   );
+
+  (* loop scale / shift /  simpl ~unfold_alias:true *)
+  (* Loop.scale_range ~factor:? [];
+  Loop.shift_range ~factor:? []; *)
 
   !! Cleanup.std ();
 )

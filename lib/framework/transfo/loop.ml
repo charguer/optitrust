@@ -1154,6 +1154,13 @@ let%transfo tile ?(index : string = "b${id}")
     end
   ) tg
 
+
+let default_collapse_simpl (tg : target) : unit = default_simpl tg
+
+(* ONLY AFTER FLATTENING ARRAYS:
+  Arith.(simpl_surrounding_expr (compose [gather_rec; euclidian])) (nbAny :: tg)
+  *)
+
 (** [collapse]: expects the target [tg] to point at a simple loop nest:
     [for i in 0..Ni { for j in 0..Nj { b(i, j) } }]
     And collapses the loop nest, producing:
@@ -1161,7 +1168,7 @@ let%transfo tile ?(index : string = "b${id}")
 
     This is the opposite of [tile].
     *)
-let%transfo collapse ?(simpl : target -> unit = default_simpl)
+let%transfo collapse ?(simpl : target -> unit = default_collapse_simpl)
   ?(index : string = "${i}${j}") (tg : target) : unit =
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let simpl_mark = next_mark () in

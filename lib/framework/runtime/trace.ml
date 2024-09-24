@@ -1651,10 +1651,10 @@ let dump_trace_to_js ?(prefix : string = "") ?(serialized_trace_timestamp : stri
 (** [serialize_full_trace_and_get_timestamp] serializes the current trace object
     into a file named "prefix.trace", and return the timestamp of that file
     as a string. *)
-let serialize_full_trace_and_get_timestamp ~(prefix : string) : string =
+let serialize_full_trace_and_get_timestamp ~(prefix : string) (tree : step_tree) : string =
   let ser_filename = prefix ^ ".trace" in
   let out_file = open_out_bin ser_filename in
-  Marshal.to_channel out_file (get_root_step()) [];
+  Marshal.to_channel out_file tree [];
   close_out out_file;
   let timestamp = string_of_float ((Unix.stat ser_filename).st_mtime) in
   timestamp
@@ -1666,12 +1666,28 @@ let serialize_full_trace_and_get_timestamp ~(prefix : string) : string =
      [var serialized_trace_timestamp = "...";] storing the timestamp of the
      serialized trace (as a string). *)
 let dump_full_trace_to_js ~(prefix : string) : unit =
+  (* filter out things, replace ast_before/ast_after with dummy
+    TODO: gate with a flag *)
+  let tree = get_root_step () in
+  let rec erase_some_asts s =
+    (* FIXME: duplicated code with iter_step_tree *)
+    let erase = match s.step_kind with
+    | Step_typing | Step_io | Step_target_resolve | Step_mark_manip | Step_backtrack -> true
+    | _ -> false
+    in
+    if erase then begin
+      s.step_ast_before <- trm_dummy;
+      s.step_ast_after <- trm_dummy;
+    end;
+    List.iter erase_some_asts s.step_sub
+  in
+  erase_some_asts tree;
   let serialized_trace_timestamp =
     if !Flags.serialize_trace
-      then Some (serialize_full_trace_and_get_timestamp ~prefix)
+      then Some (serialize_full_trace_and_get_timestamp ~prefix tree)
       else None
     in
-  dump_trace_to_js ~prefix ?serialized_trace_timestamp (get_root_step())
+  dump_trace_to_js ~prefix ?serialized_trace_timestamp tree
 
 (** [step_tree_to_doc step_tree] takes a step tree and gives a string
    representation of it, using indentation to represent substeps *)

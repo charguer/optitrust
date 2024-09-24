@@ -26,7 +26,7 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
       if (cn == 1) /*@cn*/ {
         uint16_t s = (uint16_t)0;
         for (int i = 0; i < kn; i++) {
-          s = s + (uint16_t)S[i];
+          s += (uint16_t)S[i];
         }
         D[0] = s;
         for (int i = 1; i < n; i++) {
@@ -40,9 +40,9 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
           uint16_t s2 = (uint16_t)0;
           uint16_t s3 = (uint16_t)0;
           for (int i = 0; i < kn; i++) {
-            s = s + (uint16_t)S[3 * i];
-            s2 = s2 + (uint16_t)S[1 + 3 * i];
-            s3 = s3 + (uint16_t)S[2 + 3 * i];
+            s += (uint16_t)S[3 * i];
+            s2 += (uint16_t)S[1 + 3 * i];
+            s3 += (uint16_t)S[2 + 3 * i];
           }
           D[0] = s;
           D[1] = s2;
@@ -65,10 +65,10 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
             uint16_t s5 = (uint16_t)0;
             uint16_t s6 = (uint16_t)0;
             for (int i = 0; i < kn; i++) {
-              s = s + (uint16_t)S[4 * i];
-              s4 = s4 + (uint16_t)S[1 + 4 * i];
-              s5 = s5 + (uint16_t)S[2 + 4 * i];
-              s6 = s6 + (uint16_t)S[3 + 4 * i];
+              s += (uint16_t)S[4 * i];
+              s4 += (uint16_t)S[1 + 4 * i];
+              s5 += (uint16_t)S[2 + 4 * i];
+              s6 += (uint16_t)S[3 + 4 * i];
             }
             D[0] = s;
             D[1] = s4;
@@ -93,7 +93,7 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
             for (int c = 0; c < cn; c++) {
               uint16_t s = (uint16_t)0;
               for (int i = 0; i < kn; i++) {
-                s = s + (uint16_t)S[i * cn + c];
+                s += (uint16_t)S[i * cn + c];
               }
               D[c] = s;
               for (int i = 1; i < n; i++) {
