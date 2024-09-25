@@ -134,6 +134,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
             Tools.debug "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'." (var_to_string x)
               (Ast_to_c.ast_to_string ~optitrust_syntax:true t0) (Ast_to_c.ast_to_string ~optitrust_syntax:true u);
             Tools.debug "Witout encodings: '%s' is not identical to '%s'." (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string  u);
+            (* TODO: debug type *)
             Tools.debug "Locations: '%s' and '%s.'" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
           end;
           raise Rule_mismatch

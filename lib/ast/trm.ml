@@ -2210,8 +2210,9 @@ let trm_ref ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (ty : typ) ?
   | Some dims -> trm_apps ?loc ~annot ?ctx (trm_prim ty (Prim_ref_array dims)) [t]
 
 (** [trm_set ~annot ?loc ?ctx t1 t2] *)
-let trm_set ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(typ: typ = typ_auto)
+let trm_set ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(typ: typ option)
   (lhs : trm) (rhs : trm) : trm =
+  let typ = typ_or_auto (Option.ors [typ; rhs.typ; Option.bind lhs.typ typ_ptr_inv]) in
   trm_apps ~annot:annot ?loc ?ctx ~typ:typ_unit (trm_binop typ Binop_set) [lhs; rhs]
 
 (** [trm_new ~annot ?loc ?ctx ty t]: new operator from C++ *)

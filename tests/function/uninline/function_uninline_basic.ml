@@ -18,6 +18,8 @@ let _ = Run.script_cpp (fun _ ->
     !! Function_basic.uninline ~fct:[cFunDef "f"] [nbMulti; cLabel "fbody"];
     !! Variable_basic.inline [nbMulti; cVarDef "r_pure"];
 
+    !! Function_basic.uninline ~fct:[cFunDef "loop_with_ret"] [cLabel "loop_with_ret_body"];
+
     (* FIXME: validation for higher-order functions
     Flags.check_validity := false;
     Flags.recompute_resources_between_steps := false;

@@ -167,19 +167,84 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
    [void gtwice(int x) { g(x, x); }], and expects a term [t] that matches the body
    of the function, for example [g(3,3)]. It performs some matching to resolve [x]
    and returns the term [gtwice(3)], which is equivalent to [t] up to inlining. *)
-let uninline_on (fct_decl : trm) (t : trm) : trm =
-  let error = "Function_core.uninline: fct argument should target a function definition" in
-  let (f, typ, targs, body) = trm_inv ~error trm_let_fun_inv fct_decl in
-  let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
+let uninline_on (fct_decl : trm)
+ (to_type_ret_t : seq_component list option ref)
+ (t : trm) : trm =
+  let (f, ret_typ, targs, body, spec) = Pattern.pattern_match fct_decl [
+    Pattern.(trm_let_fun !__ !__ !__ !__ !__) (fun f ret_typ targs body spec () ->
+      (f, ret_typ, targs, body, spec)
+    );
+    Pattern.__ (fun () ->
+      trm_fail fct_decl "fct argument should target a function definition"
+    )
+  ] in
+  let body_instrs = trm_inv ~error:"expected sequence" trm_seq_inv body in
+  let ret_var = ref None in
+  let ret_ptr_typ = typ_ptr ret_typ in
+  (* 1. if last function instruction is return v, change to x = v with x fresh var. *)
+  let ret_body_instrs = Pattern.pattern_match (Mlist.lst body_instrs) [
+    Pattern.(some (trm_return !__)) (fun val_opt () ->
+      let prev_instrs = Mlist.pop_back body_instrs in
+      match val_opt with
+      | None -> prev_instrs
+      | Some v ->
+        let rv = new_var "ret" in
+        ret_var := Some rv;
+        let replacement_instr = trm_set (trm_var ~typ:ret_ptr_typ rv) v in
+        Mlist.push_back replacement_instr prev_instrs
+    );
+    Pattern.__ (fun () -> body_instrs);
+  ] in
+  (* 2. check that there is no return in the rest of the function.
+        also delete admitted instructions. *)
+  let rec check_body t =
+    Pattern.pattern_match t [
+      Pattern.(trm_return __) (fun () ->
+        trm_fail t "function has unsupported return instruction"
+      );
+      Resource_trm.Pattern.(admitted __) (fun () ->
+        trm_seq_nobrace_nomarks []
+      );
+      Pattern.__ (fun () -> trm_map check_body t)
+    ]
+  in
+  let ret_body = Nobrace.remove_after_trm_op check_body (trm_seq ret_body_instrs) in
+  (* 3. try matching patched function body with target code. *)
+  let ret_targs =
+    match !ret_var with
+    | None -> targs
+    | Some rv -> (rv, ret_ptr_typ) :: targs
+  in
+  let inst = Trm_matching.rule_match (*~higher_order_inst:true*) ret_targs ret_body t in
+  let ret_args = Trm.tmap_to_list (List.map fst ret_targs) inst in
+  (* 4. check validity: instantiated arguments must be pure,
+        and a separate resource must be owned on the eventual return variable  *)
   if !Flags.check_validity then begin
+    let _f_contract = match spec with
+    | FunSpecUnknown | FunSpecReverts _ -> failwith "expected function contract"
+    | FunSpecContract c -> c
+    in
     Var_map.iter (fun _ arg_val ->
       if not (Resources.trm_is_pure arg_val) then
         trm_fail arg_val "basic function uninlining does not support non-pure arguments, combine with variable binding and inline"
     ) inst;
+    (* DEPRECATED: is it really dangerous to alias an argument resource with the return address resource?
+    match !ret_var with
+    | None -> ()
+    | Some rv ->
+      let f_dsp = new_var (f.name ^ "_dsp") in
+      let ret_cell = Resource_formula.formula_cell_var ~typ:ret_ptr_typ rv in
+      let contract = FunSpecContract (Resource_contract.push_fun_contract_clause Modifies (Resource_formula.new_anon_hyp (), ret_cell) f_contract) in
+      let f_def = trm_let_fun ~contract f_dsp typ_unit ret_targs ret_body in
+      let f_call = trm_apps (trm_var f_dsp) ret_args in
+      to_type_ret_t := Some [Trm f_def; Trm f_call];
+    *)
     Trace.justif "uninlining pure expressions is always correct"
   end;
-  let args = Trm.tmap_to_list (List.map fst targs) inst in
-  trm_pass_labels t (trm_apps (trm_var ~typ f) args)
+  match !ret_var with
+  | None -> trm_pass_labels t (trm_apps (trm_var f) ret_args)
+  | Some rv -> (trm_pass_labels t (trm_set (List.hd ret_args)
+    (trm_apps (trm_var f) (List.tl ret_args))))
 
 (** [trm_var_assoc_list to_map al]: creates a map from an association list wher keys are variables and values are trms *)
 let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =

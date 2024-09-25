@@ -129,6 +129,18 @@ let trm_for range body spec k t =
     k
   | _ -> raise Next
 
+let trm_abort fabort k t =
+  match t.desc with
+  | Trm_abort abort -> fabort k abort
+  | _ -> raise Next
+
+let return fret k abort =
+  match abort with
+  | Ret topt -> fret k topt
+  | _ -> raise Next
+
+let trm_return fret = trm_abort (return fret)
+
 let trm_string f k t =
   match trm_lit_inv t with
   | Some (Lit_string str) -> f k str

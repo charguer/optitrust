@@ -23,14 +23,13 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
 
       __ghost(assume, "is_subrange(i..i + kn, 0..n + kn - 1)"); // TODO: solve
 
-      // __GHOST_BEGIN(dfc, group2_ro_focus, "i := c, items := fun i, c -> &S[MINDEX2(n+kn, cn, i, c)] ~> Cell");
-      // __GHOST_BEGIN(dfi, group_focus_subrange_ro, "i..i+kn, 0..n+kn");
-      D[MINDEX2(n, cn, i, c)] = reduce_spe1(i, i+kn, S, n+kn-1, cn, c);
-      /* reduce_add(i, i+kn, [&](int k) {
-        (ST) S[MINDEX2(n+kn, cn, k, c)]
-      }); */
-      // __GHOST_END(dfi);
-      // __GHOST_END(dfc);
+      uint16_t s = 0;
+      for (int k = i; k < i+kn; k++) {
+        __ghost(in_range_extend, "k, i..i+kn, 0..n+kn-1");
+        __GHOST_BEGIN(focus, matrix2_ro_focus, "S, k, c");
+        s += S[MINDEX2(n+kn-1, cn, k, c)];
+        __GHOST_END(focus);
+      }
     }
   }
 }

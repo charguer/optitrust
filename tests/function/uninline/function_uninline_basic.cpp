@@ -50,6 +50,28 @@ void test_basic3() {
   }
 }
 
+int loop_with_ret(int n, int v) {
+  __pure();
+  int s = 0;
+  for (int i = 0; i < n; i++) {
+    s += v;
+  }
+  __admitted();
+  return s;
+}
+
+void call_loop_with_ret() {
+  __pure();
+  int ret;
+  loop_with_ret_body: {
+    int sum = 0;
+    for (int i = 0; i < 7; i++) {
+      sum += 7 + 4;
+    }
+    ret = sum;
+  }
+}
+
 void iter_nat_for(int n, void body(int)) {
   for (int i = 0; i < n; i++) {
     body(i);

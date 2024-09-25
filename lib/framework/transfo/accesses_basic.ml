@@ -175,7 +175,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
       let typ = Option.unsome ~error ty_opt in
       Trace.without_resource_computation_between_steps (fun () ->
       let f_body_mark = next_mark () in
-      step_backtrack ~discard_after:false (fun () ->
+      step_backtrack ~discard_after:true (fun () ->
         let f = new_var "isolate_addr" in
         let v_tr = new_var (v.name ^ "_tr") in
         Target.apply_at_path (fun t_seq ->

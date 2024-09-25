@@ -42,6 +42,25 @@ fbody:
   f(r);
 }
 
+int loop_with_ret(int n, int v) {
+  __pure();
+  int s = 0;
+  for (int i = 0; i < n; i++) {
+    __strict();
+    __smodifies("&s ~> Cell");
+    s += v;
+  }
+  __admitted();
+  return s;
+}
+
+void call_loop_with_ret() {
+  __pure();
+  int ret;
+loop_with_ret_body:
+  ret = loop_with_ret(7, 7 + 4);
+}
+
 void iter_nat_for(int n, void (*body)(int)) {
   for (int i = 0; i < n; i++) {
     body(i);
