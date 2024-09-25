@@ -95,8 +95,9 @@ let admitted_inv (t : trm) : (resource_item list) option =
   ]
 
 let ghost_admitted ?(justif: trm option) (contract: fun_contract): trm =
-  ghost (ghost_closure_call contract (trm_seq_nomarks [admitted ?justif ()]))
-
+  if Resource_set.is_empty contract.pre && Resource_set.is_empty contract.post
+  then Nobrace.trm_seq_nomarks []
+  else ghost (ghost_closure_call contract (trm_seq_nomarks [admitted ?justif ()]))
 
 let ghost_rewrite (before: formula) (after: formula) (justif: formula): trm =
   let contract = {
@@ -114,6 +115,11 @@ let var_assert_alias = toplevel_var "assert_alias"
 
 let ghost_intro_alias (x : var) (t : trm) : trm =
   ghost (ghost_call var_assert_alias ["x", trm_var x; "y", t])
+
+let may_ghost_intro_alias (x : var) (t : trm) (res : resource_set) : trm =
+  if Var_map.mem x res.aliases
+  then Nobrace.trm_seq_nomarks []
+  else ghost_intro_alias x t
 
 let is_ghost_alias (t : trm) : bool =
   begin match ghost_inv t with

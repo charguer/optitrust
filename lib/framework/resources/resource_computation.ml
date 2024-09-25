@@ -483,7 +483,8 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: 
     | Some _, Some _ -> failwith "an alias binding conflicts with a unification variable"
     | None, None -> None) evar_ctx res_from.aliases in
   let res_from = Resource_set.subst_all_aliases res_from in
-  assert (Var_map.is_empty res_to.aliases);
+  if not (Var_map.is_empty res_to.aliases)
+  then failwith "cannot extract resources into a resource set with aliases";
 
   let used_linear, leftover_linear, evar_ctx = subtract_linear_resource_set ~split_frac ~evar_ctx res_from.linear res_to.linear in
   (* Prefer the most recently generated pure fact when a choice has to be made *)

@@ -1,5 +1,8 @@
+#include <optitrust.h>
 
-int main() {
+void f() {
+  __pure();
+
   const int a = (2 + 1);
   int b = a;
 }

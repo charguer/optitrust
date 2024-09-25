@@ -22,6 +22,9 @@ let make ?(pure = []) ?(linear = []) ?(fun_specs = Var_map.empty) ?(aliases = Va
 (** The empty resource set. *)
 let empty = empty_resource_set
 
+let is_empty (res : resource_set) : bool =
+  res.pure = [] && res.linear = [] && Var_map.is_empty res.fun_specs && Var_map.is_empty res.aliases
+
 (** If after consuming [old_res], [new_res] was produced, then [bind] generates the resulting resource set.
     Pure resources are accumulated, and linear resources are replaced.
 *)
@@ -93,9 +96,31 @@ let union (res1: resource_set) (res2: resource_set): resource_set =
 let var_result = toplevel_var "_Res"
 let trm_result: formula = trm_var var_result
 
+let map
+  ?(f_pure : resource_item -> resource_item = fun r -> r)
+  ?(f_linear : resource_item -> resource_item = fun r -> r)
+  ?(f_alias : formula -> formula = fun f -> f)
+  (res : resource_set) : resource_set =
+  let pure = List.map f_pure res.pure in
+  let linear = List.map f_linear res.linear in
+  (* TODO: fun specs? *)
+  let aliases = Var_map.map f_alias res.aliases in
+  { pure; linear; fun_specs = res.fun_specs; aliases }
+
+let filter_map
+  ?(f_pure : resource_item -> resource_item option = fun r -> Some r)
+  ?(f_linear : resource_item -> resource_item option = fun r -> Some r)
+  ?(f_alias : var -> formula -> formula option = fun v f -> Some f)
+  (res : resource_set) : resource_set =
+  let pure = List.filter_map f_pure res.pure in
+  let linear = List.filter_map f_linear res.linear in
+  (* TODO: fun specs? *)
+  let aliases = Var_map.filter_map f_alias res.aliases in
+  { pure; linear; fun_specs = res.fun_specs; aliases }
 
 (** Substitutes variables in a given resource set. *)
 let rec subst (subst_map: tmap) (res: resource_set): resource_set =
+  (* TODO: use map combinator? *)
   let subst_var_in_resource_list =
     List.map (fun (h, t) -> (h, trm_subst subst_map t))
   in
@@ -187,9 +212,16 @@ let remove_useless_fracs (usage: resource_usage_map) (res: resource_set): resour
 
 (** [filter ?pure_filter ?linear_filter res] removes the resources for which the corresponding filter returns false.
     If a filter function is not given, do not filter the corresponding field. *)
-let filter ?(pure_filter = fun _ -> true) ?(linear_filter = fun _ -> true) res =
-  { res with pure = List.filter pure_filter res.pure; linear = List.filter linear_filter res.linear }
-
+let filter
+  ?(pure_filter = fun _ -> true)
+  ?(linear_filter = fun _ -> true)
+  ?(aliases_filter = fun _ _ -> true)
+  ?(spec_filter = fun _ _ -> true)
+  (res : resource_set) : resource_set =
+  { pure = List.filter pure_filter res.pure;
+    linear = List.filter linear_filter res.linear;
+    aliases = Var_map.filter aliases_filter res.aliases;
+    fun_specs = Var_map.filter spec_filter res.fun_specs }
 
 type linear_usage_filter =
  { unused: bool; read_only: bool; joined_read_only: bool; uninit: bool; full: bool; produced: bool; }

@@ -7,19 +7,17 @@ typedef uint16_t ST;
 void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
   if (kn == 3) /*@kn*/ {
     for (int ic = 0; ic < n * cn; ic++) {
-      D[ic / cn * cn + ic % cn] = (uint16_t)S[ic / cn * cn + ic % cn] +
-                                  (uint16_t)S[(1 + ic / cn) * cn + ic % cn] +
-                                  (uint16_t)S[(2 + ic / cn) * cn + ic % cn];
+      D[ic] = (uint16_t)S[ic] + (uint16_t)S[ic % cn + (1 + ic / cn) * cn] +
+              (uint16_t)S[ic % cn + (2 + ic / cn) * cn];
     }
   } /*kn@*/
   else {
     if (kn == 5) /*@kn*/ {
       for (int ic = 0; ic < n * cn; ic++) {
-        D[ic / cn * cn + ic % cn] = (uint16_t)S[ic / cn * cn + ic % cn] +
-                                    (uint16_t)S[(1 + ic / cn) * cn + ic % cn] +
-                                    (uint16_t)S[(2 + ic / cn) * cn + ic % cn] +
-                                    (uint16_t)S[(3 + ic / cn) * cn + ic % cn] +
-                                    (uint16_t)S[(4 + ic / cn) * cn + ic % cn];
+        D[ic] = (uint16_t)S[ic] + (uint16_t)S[ic % cn + (1 + ic / cn) * cn] +
+                (uint16_t)S[ic % cn + (2 + ic / cn) * cn] +
+                (uint16_t)S[ic % cn + (3 + ic / cn) * cn] +
+                (uint16_t)S[ic % cn + (4 + ic / cn) * cn];
       }
     } /*kn@*/
     else /*@nokn*/ {
@@ -48,7 +46,8 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
           D[1] = s2;
           D[2] = s3;
           for (int i = 1; i < n; i++) {
-            s = s + (uint16_t)S[3 * (-1 + i + kn)] - (uint16_t)S[3 * (-1 + i)];
+            s = s + (uint16_t)S[3 * -1 + 3 * i + 3 * kn] -
+                (uint16_t)S[3 * -1 + 3 * i];
             s2 = s2 + (uint16_t)S[1 + 3 * (-1 + i + kn)] -
                  (uint16_t)S[1 + 3 * (-1 + i)];
             s3 = s3 + (uint16_t)S[2 + 3 * (-1 + i + kn)] -
@@ -75,8 +74,8 @@ void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
             D[2] = s5;
             D[3] = s6;
             for (int i = 1; i < n; i++) {
-              s = s + (uint16_t)S[4 * (-1 + i + kn)] -
-                  (uint16_t)S[4 * (-1 + i)];
+              s = s + (uint16_t)S[4 * -1 + 4 * i + 4 * kn] -
+                  (uint16_t)S[4 * -1 + 4 * i];
               s4 = s4 + (uint16_t)S[1 + 4 * (-1 + i + kn)] -
                    (uint16_t)S[1 + 4 * (-1 + i)];
               s5 = s5 + (uint16_t)S[2 + 4 * (-1 + i + kn)] -
