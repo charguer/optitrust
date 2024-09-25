@@ -1669,9 +1669,9 @@ let dump_full_trace_to_js ~(prefix : string) : unit =
   (* filter out things, replace ast_before/ast_after with dummy
     TODO: gate with a flag *)
   let tree = get_root_step () in
-  let rec erase_some_asts s =
+  let rec erase_some_asts parent_erases s =
     (* FIXME: duplicated code with iter_step_tree *)
-    let erase = match s.step_kind with
+    let erase = parent_erases || match s.step_kind with
     | Step_typing | Step_io | Step_target_resolve | Step_mark_manip | Step_backtrack -> true
     | _ -> false
     in
@@ -1679,9 +1679,11 @@ let dump_full_trace_to_js ~(prefix : string) : unit =
       s.step_ast_before <- trm_dummy;
       s.step_ast_after <- trm_dummy;
     end;
-    List.iter erase_some_asts s.step_sub
+    (* TODO: else clear all t.loc and t.annot.trm_annot_stringrepr *)
+    List.iter (erase_some_asts erase) s.step_sub
   in
-  erase_some_asts tree;
+  if !Flags.strip_trace
+  then erase_some_asts false tree;
   let serialized_trace_timestamp =
     if !Flags.serialize_trace
       then Some (serialize_full_trace_and_get_timestamp ~prefix tree)

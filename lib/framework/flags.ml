@@ -61,6 +61,9 @@ let debug_errors_msg_embedded_in_ast : bool ref = ref false
 (** [debug_reparse]: flag to print the line numbers at which reparsing is triggered. *)
 let debug_reparse : bool ref = ref false
 
+(** [disable_stringreprs]: flag to disable computing string representations *)
+let disable_stringreprs : bool ref = ref false
+
 (** [debug_stringreprs]: flag to print stringreprs debugging info *)
 let debug_stringreprs : bool ref = ref false
 
@@ -138,6 +141,9 @@ let execution_mode : execution_mode ref = ref Execution_mode_exec
 (* Option to serialize the ML trace object in addition to dumping its JS respresentation;
    Currently only set when the requested mode in [full-trace] *)
 let serialize_trace : bool ref = ref false
+
+(* option to strip data from the trace to make it lighter *)
+let strip_trace : bool ref = ref true
 
 let process_mode (mode : string) : unit =
   execution_mode :=
@@ -285,6 +291,8 @@ let reset_flags_to_default () : unit =
   dump_ast_details := false;
   bypass_cfeatures := false;
   print_optitrust_syntax := false;
+  disable_stringreprs := false;
+  debug_stringreprs := false;
   use_light_diff := false;
   pretty_matrix_notation := false;
   display_includes := false;
@@ -293,7 +301,8 @@ let reset_flags_to_default () : unit =
   check_validity := false;
   reparse_between_steps := false;
   recompute_resources_between_steps := false;
-  serialize_trace := false
+  serialize_trace := false;
+  strip_trace := true
 
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =
   let init_value = !flag in

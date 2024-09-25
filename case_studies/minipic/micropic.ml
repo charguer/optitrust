@@ -3,6 +3,7 @@ open Prelude
 
 let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.disable_stringreprs := true
 
 (** Reproducing a subset of the PIC case study *)
 

@@ -169,7 +169,8 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
    and returns the term [gtwice(3)], which is equivalent to [t] up to inlining. *)
 let uninline_on (fct_decl : trm)
  (to_type_ret_t : seq_component list option ref)
- (t : trm) : trm =
+ (span : Dir.span) (t_seq : trm) : trm =
+  update_span_helper span t_seq (fun instrs ->
   let (f, ret_typ, targs, body, spec) = Pattern.pattern_match fct_decl [
     Pattern.(trm_let_fun !__ !__ !__ !__ !__) (fun f ret_typ targs body spec () ->
       (f, ret_typ, targs, body, spec)
@@ -215,7 +216,7 @@ let uninline_on (fct_decl : trm)
     | None -> targs
     | Some rv -> (rv, ret_ptr_typ) :: targs
   in
-  let inst = Trm_matching.rule_match (*~higher_order_inst:true*) ret_targs ret_body t in
+  let inst = Trm_matching.rule_match (*~higher_order_inst:true*) ret_targs ret_body (trm_seq instrs) in
   let ret_args = Trm.tmap_to_list (List.map fst ret_targs) inst in
   (* 4. check validity: instantiated arguments must be pure,
         and a separate resource must be owned on the eventual return variable  *)
@@ -241,10 +242,12 @@ let uninline_on (fct_decl : trm)
     *)
     Trace.justif "uninlining pure expressions is always correct"
   end;
-  match !ret_var with
-  | None -> trm_pass_labels t (trm_apps (trm_var f) ret_args)
-  | Some rv -> (trm_pass_labels t (trm_set (List.hd ret_args)
-    (trm_apps (trm_var f) (List.tl ret_args))))
+  [Trm (match !ret_var with
+  | None -> trm_apps ~typ:ret_typ (trm_var f) ret_args
+  | Some rv -> trm_set (List.hd ret_args)
+    (trm_apps ~typ:ret_typ (trm_var f) (List.tl ret_args))
+  )]
+  )
 
 (** [trm_var_assoc_list to_map al]: creates a map from an association list wher keys are variables and values are trms *)
 let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =

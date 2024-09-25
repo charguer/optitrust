@@ -13,12 +13,12 @@ let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
 
 let _ = Run.script_cpp (fun _ ->
+  let tLabelSpan label = tSpan [tAfter; cLabel (label ^ "_start")] [tBefore; cLabel (label ^ "_end")] in
+  !! Function_basic.uninline ~f:[cFunDef "gtwice"] [tLabelSpan "gtwice"];
+  !! Function_basic.uninline ~f:[cFunDef "f"] [nbMulti; tLabelSpan "f"];
+  !! Variable_basic.inline [nbMulti; cVarDef "r_pure"];
 
-    !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabel "gtwice_body"];
-    !! Function_basic.uninline ~fct:[cFunDef "f"] [nbMulti; cLabel "fbody"];
-    !! Variable_basic.inline [nbMulti; cVarDef "r_pure"];
-
-    !! Function_basic.uninline ~fct:[cFunDef "loop_with_ret"] [cLabel "loop_with_ret_body"];
+  !! Function_basic.uninline ~f:[cFunDef "loop_with_ret"] [tLabelSpan "loop_with_ret"];
 
     (* FIXME: validation for higher-order functions
     Flags.check_validity := false;

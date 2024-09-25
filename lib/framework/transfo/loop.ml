@@ -1123,7 +1123,7 @@ let%transfo change_iter ~src:(it_fun : var) ~dst:(loop_fun : var) (tg : target) 
     let mark = "loop_change_iter_mark" in
     Marks.add mark (target_of_path p);
     let mark_tg = cMark mark in
-    Function.uninline ~contains_for_loop:true ~fct:[cTopFunDef it_fun.name] tg_instr;
+    Function.uninline ~f:[cTopFunDef it_fun.name] tg_instr;
     Expr.replace_fun ~inline:true loop_fun [mark_tg; cFun it_fun.name];
     Function.beta ~indepth:true [mark_tg];
     Marks.remove mark [cMark mark]

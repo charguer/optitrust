@@ -113,25 +113,25 @@ let beta ?(body_mark : mark = no_mark) (tg : target) : unit =
 let%transfo use_infix_ops_at ?(allow_identity : bool = true) (tg : target) : unit =
   apply_at_target_paths (Function_core.use_infix_ops_on allow_identity) tg
 
-(** [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
-    Then it will replace that sequence with a call to the fuction with declaration targeted by [fct]. *)
-let%transfo uninline ~fct:(fct : target) (tg : target) : unit =
+(** [uninline ~f tg] expects [tg] to target a span of instructions.
+    Then it will replace that span with a call to the fuction with declaration targeted by [f]. *)
+let%transfo uninline ~(f : target) (tg : target) : unit =
   Trace.call (fun t ->
-    let fct_path = resolve_target_exactly_one_with_stringreprs_available fct t in
-    let fct_decl = Path.resolve_path fct_path t in
-    Target.iter (fun p ->
-      let to_type_ret_t = ref None in
-      Target.apply_at_path (Function_core.uninline_on fct_decl to_type_ret_t) p;
-      Option.iter (fun to_type_t ->
-        (* DEPRECATED: is it really a problem to alias arguments with return address? *)
-        step_backtrack ~discard_after:false (fun () ->
-          let (p_seq, span) = Path.extract_last_dir_span p in
-          Target.apply_at_path (fun t_seq ->
-            update_span_helper span t_seq (fun _ -> to_type_t)
-          ) p_seq
-        )
-      ) !to_type_ret_t;
-    ) tg)
+  let f_path = resolve_target_exactly_one_with_stringreprs_available f t in
+  let f_decl = Path.resolve_path f_path t in
+  Target.iter (fun p ->
+    let (p_seq, span) = Path.extract_last_dir_span p in
+    let to_type_ret_t = ref None in
+    Target.apply_at_path (Function_core.uninline_on f_decl to_type_ret_t span) p_seq;
+    Option.iter (fun to_type_t ->
+      (* DEPRECATED: is it really a problem to alias arguments with return address? *)
+      step_backtrack ~discard_after:false (fun () ->
+        Target.apply_at_path (fun t_seq ->
+          update_span_helper span t_seq (fun _ -> to_type_t)
+        ) p_seq
+      )
+    ) !to_type_ret_t;
+  ) tg)
 
 (** [rename_args new_args tg]: expects the target [tg] to point at a function declaration, then it will rename the args of
      that function. If there are local variables declared inside the body of the function that have the same name as one

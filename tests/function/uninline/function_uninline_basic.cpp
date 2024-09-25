@@ -11,7 +11,9 @@ void gtwice(int x) {
 
 void test_trivial() {
   __pure();
-  gtwice_body: { g(3, 3); }
+  gtwice_start:;
+  g(3, 3);
+  gtwice_end:;
 }
 
 void f(int x) {
@@ -24,19 +26,19 @@ void test_basic() {
   __pure();
   int r = 5;
   const int r_pure = r;
-  fbody:{
-    int b = (r_pure+2)+1;
-    g(b, r_pure+2);
-  }
+  f_start:;
+  int b = (r_pure+2)+1;
+  g(b, r_pure+2);
+  f_end:;
 }
 
 void test_basic2() {
   __pure();
   const int r = 5;
-  fbody:{
-    int b = r+1;
-    g(b, r);
-  }
+  f_start:;
+  int b = r+1;
+  g(b, r);
+  f_end:;
 }
 
 
@@ -44,10 +46,10 @@ void test_basic3() {
   __pure();
   int r = 5;
   const int r_pure = r;
-  fbody:{
-    int b = r_pure+1;
-    g(b, r_pure);
-  }
+  f_start:;
+  int b = r_pure+1;
+  g(b, r_pure);
+  f_end:;
 }
 
 int loop_with_ret(int n, int v) {
@@ -63,13 +65,13 @@ int loop_with_ret(int n, int v) {
 void call_loop_with_ret() {
   __pure();
   int ret;
-  loop_with_ret_body: {
-    int sum = 0;
-    for (int i = 0; i < 7; i++) {
-      sum += 7 + 4;
-    }
-    ret = sum;
+  loop_with_ret_start:;
+  int sum = 0;
+  for (int i = 0; i < 7; i++) {
+    sum += 7 + 4;
   }
+  ret = sum;
+  loop_with_ret_end:;
 }
 
 void iter_nat_for(int n, void body(int)) {

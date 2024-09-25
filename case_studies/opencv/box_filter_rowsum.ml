@@ -3,6 +3,7 @@ open Prelude
 
 let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
+let _ = Flags.disable_stringreprs := true
 
 (** Reproducing OpenCV code from:
    https://github.com/opencv/opencv/blob/4.x/modules/imgproc/src/box_filter.simd.hpp
@@ -21,9 +22,7 @@ let int = trm_int
 (* FIXME: removing cFor from specialize targets is not working, because we need to go inside seq. *)
 
 let _ = Run.script_cpp (fun () ->
-  !! Resources.ensure_computed ();
-  (* TODO: FIX AFTER THIS *)
-  !! Function.uninline ~fct:[cFunDef "reduce_spe1"] [cVarDef "s"];
+  !! Reduce.intro [cVarDef "s"];
 
   let mark_then (var, _value) = sprintf "%s" var in
   !! Specialize.variable_multi ~mark_then ~mark_else:"nokn"
@@ -32,7 +31,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
 
   !! Loop.swap [nbMulti; cMark "nokn"; cFor "i"];
-  (* Reduce.intro *)
+  (* move Reduce.intro here? *)
   !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "nokn"; cArrayWrite "D"];
   !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];

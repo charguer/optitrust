@@ -1157,6 +1157,7 @@ let convert_stringreprs_from_documentation_to_string (m : Ast_to_c.stringreprs) 
     targeted by the targets; to that end, we need to hide the body of the
     top level definitions that are not targeted). *)
 let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_name list option) (f : trm->bool) (t : trm) : trm * Ast_to_c.stringreprs =
+  if !Flags.disable_stringreprs then (t, Hashtbl.create 0) else begin
   (* DEBUG Tools.debug "compute_stringreprs %d" (match topfuns with
     | None -> -1
     | Some ts -> List.length ts); *)
@@ -1183,6 +1184,7 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
   let _doc = Ast_to_c.(ast_to_doc { cstyle with optitrust_syntax }) t3_c_syntax in (* fill in the [Ast_to_c.stringreprs] table, ignore the result *)
   let m = Ast_to_c.get_and_clear_stringreprs() in
   t2, m (* we return t2, not t3, because t3 has hidden bodies *)
+  end
 
 (** [compute_stringreprs_and_update_ast ~optitrust_syntax f]: label subterms with fresh stringreprsid, then build
      a table that maps stringreprids to the corresponding documents

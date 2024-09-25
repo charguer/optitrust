@@ -416,24 +416,26 @@ let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = tr
 
 (** [uninline ~fxt tg]: expects the target [tg] to be pointing at an instruction that is similar to the first instruction
     of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation
-    will put the targeted instruction together with the following (nb -1) instructions into a sequence marked with a mark.
-    Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that
-    everything went fine we can now eliminate the introduced sequence. The arg [with_for_loop] should be set to true if the
-    original function declaration contains a for loop.*)
-let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg : target) : unit =
-  let tg_fun_def = match get_trm_at fct with
+    will put the targeted instruction together with the following (nb -1) instructions.
+    Now the stage is ready for applying the basic version of uninline.
+    *)
+let%transfo uninline ~(f : target) (tg : target) : unit =
+  let tg_fun_def = match get_trm_at f with
   | Some td -> td
   | None -> failwith "Function.uninline: fct target does point to any node" in
   Target.iter (fun p ->
-    let mark = Mark.next () in
     match tg_fun_def.desc with
     | Trm_let_fun (_, _, _, body, _) ->
       begin match body.desc with
       | Trm_seq tl ->
-        let nb = Mlist.length tl in
-        Sequence_basic.intro nb ~mark (target_of_path p);
-        if contains_for_loop then Sequence_basic.intro_on_instr [cMark mark; cFor_c "";dBody];
-        Function_basic.uninline ~fct [cMark mark]
+        let (start, p_seq) = Path.index_in_seq p in
+        let stop = ref start in
+        Mlist.iter (fun t ->
+          if Option.is_none (Resource_trm.admitted_inv t)
+          then incr stop
+        ) tl;
+        let span = { start; stop = !stop } in
+        Function_basic.uninline ~f (target_of_path (p_seq @ [Dir_span span]))
       | _ -> trm_fail tg_fun_def "Function.uninline: weird function declaration "
       end
     | _ -> trm_fail tg_fun_def "Function.uinline: fct arg should point to a a function declaration"

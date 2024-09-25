@@ -44,6 +44,9 @@ let focus_reduce_item (input : trm) (i : trm) (j : trm) (n : trm) (m : trm)
   else
     wrapped_t
 
+let%transfo intro (tg : target) : unit =
+  Function.uninline ~f:[cInclude "optitrust.h"; cFunDef "reduce_spe1"] tg
+
 (** <private> *)
 let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : trm) : trm =
   let prefix = ref None in
