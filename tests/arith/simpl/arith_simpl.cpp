@@ -103,6 +103,7 @@ int main()
   // test euclidian
   eu = (n / m) * m + (n % m); // = n
   eu = m + (n % m) + m * (n / m); // = m + n
+  eu = m % n + (1 + m / n) * n;
 
   // test integer addition
   p = (2 + m) - (m + -2); // = 4

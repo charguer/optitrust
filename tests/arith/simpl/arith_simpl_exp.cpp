@@ -85,12 +85,13 @@ int main() {
   q = n;
   eu = n;
   eu = n + m;
+  eu = n;
   p = 4;
   p = 4;
   p = m - 2;
   int* arr = (int*)MALLOC1(32, sizeof(int));
   free(arr);
-  arr = (int*)malloc(sizeof(int[exact_div(1024, 32)]));
+  arr = (int*)malloc(sizeof(int[32]));
   for (q = 0; q < 32; q++) {
     arr[q] = 0;
   }
