@@ -1,4 +1,30 @@
 
+# More
+
+- Output_prog to html format
+
+- Split dune build between parser part and rest
+
+- don't serialize computed typing infos
+
+- allow case study outside optitrust folder
+
+- trace serialization for restarting
+
+- store intermediate non-functional let-values in trace
+
+- make tester execute in parallel
+
+- reimplement mlist as a tree
+
+- make typechecker incremental
+
+- deal with string-repr targets with addressof
+
+- implement provenance mechanism
+
+- fun%script syntax to avoid small-step markers
+
 
 # Cleanup
 
