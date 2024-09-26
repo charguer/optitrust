@@ -78,8 +78,8 @@ let select_candidates (tg : target) : unit =
       it with [!Apac_macros.candidate_mark]. *)
   Target.apply_at_target_paths (fun t ->
       (** Deconstruct the definition term [t] of the function [f]. *)
-      let error = "Apac_task_candidate_discovery.select_candidates: expected a \
-                   target to a function definition!" in
+      let error = "Apac_preprocessing.select_candidates: expected a target to \
+                   a function definition!" in
       let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
       (** Count [calls] to functions having a record in
           [!Apac_records.functions] and [loops] in the [body] of [f]. *)
@@ -159,8 +159,8 @@ let select_candidates (tg : target) : unit =
     Target.apply_at_target_paths (fun t ->
         (** deconstruct the definition term [t] of the function [f], *)
         let error =
-          "Apac_task_candidate_discovery.select_candidates.stabilize: expected \
-           a target to a function definition!" in
+          "Apac_preprocessing.select_candidates.stabilize: expected a target \
+           to a function definition!" in
         let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
         (** loop over the [body] of [f] and *)
         let candidate =
