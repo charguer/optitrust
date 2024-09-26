@@ -73,6 +73,9 @@ module TaskAttr_set = struct
   let union2 (tas1 : t) (tas2 : t) : t =
     let tas = union tas1 tas2 in
     if mem WaitForAll tas then remove WaitForSome tas else tas
+  (** [TaskAttr_set.of_stack s]: converts the stack of task candidate attributes
+      [s] into a set of task candidate attributes. *)
+  let of_stack (s : TaskAttr.t Stack.t) : t = of_seq (Stack.to_seq s)
   (** [TaskAttr_set.to_string tas]: returns a string representation of the set
       of task attributes [tas]. *)
   let to_string (tas : t) : string =
