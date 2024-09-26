@@ -919,7 +919,7 @@ and directive =
   | Barrier
   | Cancel of clause * clause list
   | Cancellation_point of clause * clause list
-  | Critical of var * string
+  | Critical of string option * string option
   | Declare_simd of clause list
   | Declare_reduction of reduction_identifier * typvars * expression * clause
   | Declare_target of clause list

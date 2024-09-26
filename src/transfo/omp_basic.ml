@@ -23,8 +23,8 @@ let%transfo cancel ?(clause : clause list = []) (construct_type_clause : clause)
 let%transfo cancellation_point ?(clause : clause list = []) (construct_type_clause : clause) (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Cancellation_point (construct_type_clause, clause))) tg
 
-let%transfo critical ?(hint : string = "") (v : var) (tg : target) : unit =
-  transfo_on_targets (trm_add_pragma (Critical (v, hint))) tg
+let%transfo critical ?(name : string option = None) ?(hint : string option = None) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Critical (name, hint))) tg
 
 let%transfo declare_simd ?(clause : clause list = []) (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Declare_simd clause )) tg
