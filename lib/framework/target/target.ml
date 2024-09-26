@@ -267,7 +267,7 @@ let string_to_rexp_opt (regexp : bool) (substr : bool) (s : string) (trmKind : t
     [tk] - matches only trms of [tk] kind
     [s] - string representation of a trm. *)
 let sInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =
-  Constr_regexp (string_to_rexp false substr s  tk)
+  Constr_regexp (string_to_rexp false substr s tk)
 
 (** [sInstr ~substr s]: matches an instruction. *)
 let sInstr ?(substr : bool = true) (s : string) : constr =

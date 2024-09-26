@@ -252,6 +252,11 @@ let trm_binop ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (typ: typ)
   trm_make ~annot:annot ?loc ?ctx (Trm_prim (typ, Prim_binop p))
 
 
+let var_ignore = toplevel_var "__ignore"
+
+let trm_ignore ?(annot = trm_annot_default) ?loc ?ctx t: trm =
+  trm_apps ~annot ?loc ?ctx ~typ:typ_unit (trm_var var_ignore) [t]
+
 let var_sizeof = toplevel_var "sizeof"
 
 (** [trm_sizeof]: build a term evaluating to the size of type [ty]. *)

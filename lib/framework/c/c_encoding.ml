@@ -334,18 +334,40 @@ let caddress_intro =
   debug_current_stage "caddress_intro";
   caddress_intro_aux
 
-(** [cseq_items_void_type t]: updates [t] in such a way that all instructions appearing in sequences
-   have type [Typ_unit]. This might not be the case, for example on [x += 2;], Menhir provides an
-   [int] type, whereas [Clang] provides a [void] type. *)
-let rec cseq_items_void_type (t : trm) : trm =
-  let t2 = trm_map cseq_items_void_type t in
-  match t2.desc with
-  | Trm_seq ts ->
-      let enforce_unit (u : trm) : trm =
-        { u with typ = Some typ_unit }
-      in
-      { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
-  | _ -> t2
+(** [expr_in_seq_elim t]: updates [t] in such a way that all instructions appearing in sequences
+   have type [unit] by inserting calls to [ignore] whenever necessary.
+   This might not be the case when ignoring the result of an effectful expression.
+   For example [x++;] is transformed into [ignore(x++)]. *)
+let rec expr_in_seq_elim (t : trm) : trm =
+  match trm_seq_inv t with
+  | Some ts ->
+    let ts = Mlist.map (fun u ->
+        let u = expr_in_seq_elim u in
+        match u.typ with
+        | None -> u
+        | Some typ when is_typ_unit typ -> u
+        | Some _ -> trm_ignore ~annot:u.annot (trm_alter ~annot:trm_annot_default u)
+      ) ts
+    in
+    trm_like ~old:t (trm_seq ts)
+  | None ->
+    trm_map expr_in_seq_elim t
+
+(** [expr_in_seq_intro t]: remove calls to [ignore]
+   For example [ignore(x++);] is transformed into [x++]. *)
+let rec expr_in_seq_intro (t : trm) : trm =
+  Pattern.pattern_match t [
+    Pattern.(trm_apps1 (trm_var (var_eq var_ignore)) !__) (fun expr () ->
+      let annot = { expr.annot with
+        trm_annot_stringrepr = Option.or_ t.annot.trm_annot_stringrepr expr.annot.trm_annot_stringrepr;
+        trm_annot_marks = t.annot.trm_annot_marks @ expr.annot.trm_annot_marks;
+        trm_annot_labels = t.annot.trm_annot_labels;
+        trm_annot_pragma = t.annot.trm_annot_pragma @ expr.annot.trm_annot_pragma;
+      } in
+      expr_in_seq_intro (trm_alter ~annot expr)
+    );
+    Pattern.__ (fun () -> trm_map expr_in_seq_intro t)
+  ]
 
 (** [infix_elim t]: encode unary and binary operators as Caml functions, for instance
     - [x++] becomes [++(&x)]
@@ -1111,10 +1133,8 @@ let cfeatures_elim: trm -> trm =
   (* TODO: remove some infer var ids? *)
   Scope_computation.infer_var_ids ~check_uniqueness:false |>
   stackvar_elim |>
-  Scope_computation.infer_var_ids ~check_uniqueness:false |>
   caddress_elim |>
-  Scope_computation.infer_var_ids ~check_uniqueness:false |>
-  cseq_items_void_type |>
+  expr_in_seq_elim |>
   formula_sugar_elim |>
   Scope_computation.infer_var_ids)
 
@@ -1123,6 +1143,7 @@ let cfeatures_intro (style : style) : trm -> trm =
   debug_before_after_trm "cfeatures_intro" (fun t ->
   Scope_computation.infer_var_ids t |>
   formula_sugar_intro |>
+  expr_in_seq_intro |>
   caddress_intro |>
   stackvar_intro |>
   infix_intro |>

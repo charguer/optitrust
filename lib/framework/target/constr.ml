@@ -625,7 +625,7 @@ let get_stringrepr (t : trm) : string =
     let print (t : trm) : unit =
       let s = Ast_to_c.default_style () in
       let style = { s with print_string_repr = true } in
-      Tools.debug "==\n%s\n===" (Ast_to_c.ast_to_string ~style t)
+      Tools.debug "==\n%s\n==" (Ast_to_c.ast_to_string ~style t)
       in
     match !stringreprs with
     | None -> trm_fail t (Printf.sprintf "Constr.get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))

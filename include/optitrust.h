@@ -180,6 +180,10 @@ template<typename T> T __pre_decr(T* p) {
   __admitted();
 }
 
+template<typename T> void __ignore(T) {
+  __pure();
+}
+
 // LATER: remove the need for this
 #define REGISTER_STRUCT_ACCESS(f)\
 template<typename T, typename U> U* __struct_access_##f(T* v) {\
