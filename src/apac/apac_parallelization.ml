@@ -613,7 +613,7 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
       end
   in
   (** Find the parent function [f]. *)
-  let f = match (find_parent_function p) with
+  let f = match (Apac_miscellaneous.find_parent_function p) with
     | Some (v) -> v
     | None -> fail t.loc "Apac_epilogue.synchronize_subscripts_on: unable to \
                           find parent function. Task group outside of a \
@@ -755,7 +755,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
       ) t.children
   in
   (** Find the parent function [f]. *)
-  let f = match (find_parent_function p) with
+  let f = match (Apac_miscellaneous.find_parent_function p) with
     | Some (v) -> v
     | None -> fail t.loc "Apac_epilogue.place_barriers_on: unable to find \
                           parent function. Task group outside of a function?" in
@@ -1003,7 +1003,7 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
 (** [insert_tasks_on p t]: see [insert_tasks_on]. *)
 let insert_tasks_on (p : path) (t : trm) : trm =
   (** Find the parent function [f]. *)
-  let f = match (find_parent_function p) with
+  let f = match (Apac_miscellaneous.find_parent_function p) with
     | Some (v) -> v
     | None -> fail t.loc "Apac_taskify.insert_tasks_on: unable to find parent \
                           function. Task group outside of a function?" in

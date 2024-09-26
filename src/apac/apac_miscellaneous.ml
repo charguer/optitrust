@@ -258,3 +258,31 @@ let trm_resolve_binop_lval_and_get_with_deref ?(plus : bool = false)
     | _ -> None
   in
   aux 0 "" t
+
+(** [find_parent_function p]: goes back up the path [p] and looks for the first
+    term corresponding to a function definition. If a function definition is
+    found, it returns the name of the function as a variable. We use
+    [find_parent_function] to determine the parent function of a task group
+    sequence in order to access its constification record in [const_funs]. *)
+let find_parent_function (p : Path.path) : var option =
+  (** We shall go back on our steps in the path, i.e. in the direction of the
+      root of the AST, so we need to reverse [p]. *)
+  let reversed = List.tl (List.rev p) in
+  (** We use an auxiliary function in order to hide to the outside world the
+      need for the path reversal. *)
+  let rec aux (p : Path.path) : var option =
+    (** The function simply goes recursively through the reversed [p] *)
+    match p with
+    | e :: f -> 
+       begin
+         (** and if it detects a function definition, it returns it. *)
+         (** FIXME : Optimize by passing non-reversed list as argument ? *)
+         let tg = Target.target_of_path (List.rev p) in
+         let t = Target.get_trm_at_exn tg in
+         match t.desc with
+         | Trm_let_fun (v, _, _, _, _) -> Some (v)
+         | _ -> aux f
+       end
+    | [] -> None
+  in
+  aux reversed 

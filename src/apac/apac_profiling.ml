@@ -94,7 +94,7 @@ let annotate (tg : target) : unit =
   Target.apply (fun t p ->
       Path.apply_on_path (fun t ->
           (** Find the parent function [f]. *)
-          let f = match (find_parent_function p) with
+          let f = match (Apac_miscellaneous.find_parent_function p) with
             | Some (v) -> v
             | None -> fail t.loc "Apac_profiling.annotate: unable to find \
                                   parent function. Taskification candidate \
@@ -537,7 +537,7 @@ let optimize (tg : target) : unit =
   in
   Target.iter (fun t p ->
       (** Find the parent function [f]. *)
-      let f = match (find_parent_function p) with
+      let f = match (Apac_miscellaneous.find_parent_function p) with
         | Some (v) -> v
         | None -> fail t.loc "Apac_profiling.optimize: unable to find parent \
                               function. Task group outside of a function?" in
