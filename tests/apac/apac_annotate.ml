@@ -2,7 +2,7 @@ open Optitrust
 open Target 
 
 let _ = Run.script_cpp (fun () ->
-            !! Apac_preprocessing.build_records [
+            !! Apac_preprocessing.record_functions [
                 nbAny;
                 cFunDefAndDecl ""
               ];

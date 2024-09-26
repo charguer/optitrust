@@ -3,7 +3,12 @@ open Target
 (** [compile]: applies the compilation chain of the Automatic PArallelizer for C
     on the current abstract syntax tree. *)
 let compile () : unit =
-  !! Apac_preprocessing.build_records [
+  !! Apac_preprocessing.record_globals [
+      nbAny;
+      cStrict;
+      cVarDef ""
+    ];
+  !! Apac_preprocessing.record_functions [
       nbAny;
       cFunDefAndDecl ""
     ];

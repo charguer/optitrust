@@ -10,9 +10,10 @@ module FunctionRecord : sig
       mutable args : (a * int) list;
       mutable graph : TaskGraph.t;
       scope : s;
+      writes : Var_set.t;
       ast : trm
     }
-  val create : (var * typ) list -> trm -> t
+  val create : (var * typ) list -> Var_set.t -> trm -> t
   val constify : bool list -> (a * int) list -> (a * int) list
   val is_rw : t -> int -> bool
   val to_string : t -> string
@@ -67,6 +68,8 @@ end = struct
             
             in [scope]. *)
         scope : s;
+        (** [writes]: a set of global variables the function writes to. *)
+        writes : Var_set.t;
         (** [ast]: a copy of the original abstract syntax tree intermediate
             representation of the function (see [!type:trm]). *)
         ast : trm
@@ -126,11 +129,11 @@ end = struct
           this case, the argument is passed by value and is thus [ReadOnly]. *)
       | _ -> ReadOnly
     
-    (** [FunctionRecord.create args scope ast]: creates a new function record
-        based on the argument acess classifications in the list [args], the
-        local variable scope in the hash table [scope] and the corresponding
-        abstract syntax tree [ast]. *)
-    let create (args : (var * typ) list) (ast : trm) : t =
+    (** [FunctionRecord.create args writes ast]: creates a new function record
+        based on the argument acess classifications in the list [args], the set
+        [writes] of global variables the function writes to within its body and
+        the corresponding abstract syntax tree [ast]. *)
+    let create (args : (var * typ) list) (writes : Var_set.t) (ast : trm) : t =
       (** Create a hash table for function-local variables. *)
       let scope = Var_Hashtbl.create 10 in
       (** For each function argument [arg] in [args], *)
@@ -148,6 +151,7 @@ end = struct
         args = args;
         graph = Apac_tasks.TaskGraph.create ();
         scope = scope;
+        writes = writes;
         ast = ast
       }
     
@@ -185,25 +189,46 @@ end = struct
         | (ReadOnly, _) -> "ReadOnly"
       in
       let output = "{\n\targs: [" in
-      let args = (string_of_a_nli (List.hd record.args)) ^
-                   (List.fold_left
-                      (fun acc a -> acc ^ "," ^ (string_of_a_nli a))
-                      "" (List.tl record.args)) in
+      let n = List.length record.args in
+      let args = if n > 0 then
+                   (string_of_a_nli (List.hd record.args)) ^
+                     (if n > 1 then
+                        List.fold_left
+                          (fun acc a -> acc ^ "," ^ (string_of_a_nli a))
+                          "" (List.tl record.args)
+                      else "")
+                 else "" in
       let output = output ^ args ^ "],\n\tgraph: " ^
                      (if (Apac_tasks.TaskGraph.is_empty record.graph)
-                      then "empty" else "ready") ^ ",\n\tscope:" in
-      let scope = Var_Hashtbl.fold (fun k v acc ->
-                      acc ^ "\t\t(" ^
-                        (var_to_string k) ^ ", " ^ (string_of_int v) ^
-                          ")\n") record.scope "" in
-      output ^ scope ^ "\tast: " ^
-        (Apac_miscellaneous.excerpt record.ast) ^ ",\n}\n"
+                      then "empty" else "ready") ^ ",\n\twrites: [" in
+      let writes = var_set_to_list record.writes in
+      let n = List.length writes in
+      let writes = if n > 0 then
+                     (var_to_string (List.hd writes)) ^
+                       (if n > 1 then
+                          List.fold_left (fun acc v ->
+                              acc ^ "," ^ (var_to_string v)
+                            ) "" (List.tl writes)
+                        else "")
+                   else "" in
+      let output = output ^ writes ^ "],\n\tscope: [" in
+      let n = Var_Hashtbl.length record.scope in
+      let scope = if n > 0 then
+                    Var_Hashtbl.fold (fun k v acc ->
+                        acc ^ "\t\t(" ^
+                          (var_to_string k) ^ ", " ^ (string_of_int v) ^
+                            ")\n") record.scope ""
+                  else "" in
+      output ^ scope ^ "],\n\tast: \"" ^
+        (Apac_miscellaneous.excerpt record.ast) ^ "\",\n}"
       
 end
 
 (** [functions]: a hash table of function records with an initial size of 10
     entries (see [!module:Var_Hashtbl] and [!module:FunctionRecord]). *)
 let functions : FunctionRecord.t Var_Hashtbl.t = Var_Hashtbl.create 10
+
+let globals : Var_set.t ref = ref Var_set.empty
 
 (** [mutables]: map of dependencies on mutable, according to the OptiTrust
     definition, pointer variables to copies of themselves wrapped with a

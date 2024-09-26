@@ -13,38 +13,85 @@ open Target
     {1:building_records Building records}
 
     For these passes to work smoothly, we begin by constituting records about
-    all the function definitions in the latter. *)
+    all the function and global variable definitions in the latter. *)
 
-(** [build_records_on]: see [!build_records]. *)
-let build_records_on (t : trm) : unit =
-  (** Explode the function definition term into the function name variable [f],
-      its return type [ret_ty] and the list of its arguments [args]. *)
-  let error = "Apac_task_candidate_discovery.build_records: expected a target \
-               to a function definition!" in
-  let (fn, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv t in
-  (** If [fn] is a class member method, its first argument in [args] is the
-      [this] variable referring to the parent class. Ignore it. *)
-  let args =
-    (** This is necessary only if [fn] does not refer to the [main] function and
-        if it has at least one argument. *)
-    if fn.name <> "main" && (List.length args) > 0 then
-      (** In this case, extract the first argument of the function and if it is
-          [this], discard it. *)
-      let (first, _) = List.hd args in
-      if first.name = "this" then List.tl args else args
-    else args in
-  (** Build the function record of [fn] and *)
-  let r = Apac_records.FunctionRecord.create args t in
-  (** add it to [!Apac_records.functions] if it is not present in the hash table
-      already, e.g. in the case of a pre-declaration. *)
-  if not (Var_Hashtbl.mem Apac_records.functions fn) then
-    Var_Hashtbl.add Apac_records.functions fn r
-      
-(** [build_records tg]: expects the target [tg] to point at a function
-    definition and builds a function record for it (see [!type:f] and
-    [!build_records_on]). *)
-let build_records (tg : target) : unit =
-  Target.iter_at_target_paths (build_records_on) tg
+(** [record_functions tg]: expects the target [tg] to point at a function
+    definition and builds a function record for it (see [!type:f]). *)
+let record_functions (tg : target) : unit =
+  (** [record_functions.writes t]: looks for write operations to global
+      variables (see [!Apac_records.globals]) in the term [t] and returns the
+      target global variables in a set. *)
+  let writes (t : trm) : Var_set.t =
+    (** [record_functions.writes.aux t w]: same as [!writes], but hides the
+        intermediate result argument [w]. *)
+    let aux (w : Var_set.t) (t : trm) : Var_set.t =
+      (** [record_functions.writes.aux.one t]: try to resolve the variable
+          behind the lvalue term [t] and if it's a global variable, i.e. a
+          variable from [!Apac_records.globals], add it to [w] and return the
+          resulting set. Otherwise, return [w] as is. *)
+      let one (t : trm) : Var_set.t =
+        match (Apac_miscellaneous.trm_resolve_binop_lval_and_get_with_deref t)
+        with
+        | Some ({ v; _ }, _) when Var_set.mem v !Apac_records.globals ->
+           Var_set.add v w
+        | _ -> w
+      in
+      match t.desc with
+      (** If [t] is an assignment or a compound assignment to an [lval]ue or *)
+      | Trm_apps (_, [lval; _]) when is_set_operation t -> one lval
+      (** if [t] is an increment or decrement unary operation on an [lval]ue,
+          process it with [!one]. *)
+      | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, [lval]) when
+             (is_prefix_unary op) || (is_postfix_unary op) -> one lval
+      (** In any other case, [t] is not an assignment, so do nothing. *)
+      | _ -> w
+    in
+    (** Launch the discovery of write operations to global variables. *)
+    trm_fold aux Var_set.empty t
+  in
+  Target.iter_at_target_paths (fun t ->
+      (** Explode the function definition term into the function name variable
+          [f], its return type [ret_ty] and the list of its arguments [args]. *)
+      let error = "Apac_preprocessing.record_functions: expected a target to a \
+                   function definition!" in
+      let (fn, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+      (** If [fn] is a class member method, its first argument in [args] is the
+          [this] variable referring to the parent class. Ignore it. *)
+      let args =
+        (** This is necessary only if [fn] does not refer to the [main] function
+            and if it has at least one argument. *)
+        if fn.name <> "main" && (List.length args) > 0 then
+          (** In this case, extract the first argument of the function and if it
+              is [this], discard it. *)
+          let (first, _) = List.hd args in
+          if first.name = "this" then List.tl args else args
+        else args in
+      (** Build the function record of [fn] while looking and recording write
+          operations to global variables, i.e. variables from
+          [!Apac_records.globals], and *)
+      let r = Apac_records.FunctionRecord.create args (writes body) t in
+      (** add it to [!Apac_records.functions] if it is not present in the hash
+          table already, e.g. in the case of a pre-declaration. *)
+      if not (Var_Hashtbl.mem Apac_records.functions fn) then
+        Var_Hashtbl.add Apac_records.functions fn r;
+      (** Dump the records on the screen, if requested. *)
+      if !Apac_flags.verbose then
+        Printf.printf "%s = %s\n"
+          (var_to_string fn) (Apac_records.FunctionRecord.to_string r)
+    ) tg
+
+(** [record_globals]: expect the target [tg] to point at a top-level variable
+    definition. To keep track of global variables, this pass stores the target
+    variables in the set of global variables [!Apac_records.globals]. *)
+let record_globals (tg : target) : unit =
+  Target.iter_at_target_paths (fun t ->
+      (** Extract the variable [v] from the variable definition term [t]. *)
+      let error = "Apac_preprocessing.record_globals: expected a target to a \
+                   variable definition!" in
+      let (_, v, _, _) = trm_inv ~error trm_let_inv t in
+      (** Add [v] to the record of global variables [!Apac_records.globals]. *)
+      Apac_records.globals := Var_set.add v !Apac_records.globals
+    ) tg
 
 (** {1:candidate_preselection Candidate pre-selection}
 
