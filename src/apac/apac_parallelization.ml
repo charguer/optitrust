@@ -680,7 +680,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
     core None vs 
   in
   (** [place_barriers_on.process l c ts v]: auxiliary function for placing a
-      bariier in front of a vertex [v] depending on the presence of preceding
+      barrier in front of a vertex [v] depending on the presence of preceding
       eligible task candidates in the stack [ts]. [l] represents the task
       candidate immediately following the last eligible task candidate in the
       task candidate graph we apply the function on. When [v] equals [p], place
