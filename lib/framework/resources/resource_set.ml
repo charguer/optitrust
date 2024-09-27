@@ -150,7 +150,7 @@ let subst_loop_range_end range = subst_var range.index range.stop
 
 (** [copy res]: refreshes all the binders in [res] to preserve var-id unicity. *)
 let copy ?(subst = Var_map.empty) (res: resource_set): resource_set =
-  match trm_fun_inv (trm_copy (trm_fun ~contract:(FunSpecContract { pre = res; post = empty }) [] None (trm_uninitialized Typ.typ_auto))) with
+  match trm_fun_inv (trm_copy (trm_fun ~contract:(FunSpecContract { pre = res; post = empty }) [] Typ.typ_auto (trm_uninitialized Typ.typ_auto))) with
   | Some (_, _, _, FunSpecContract { pre }) -> pre
   | _ -> failwith "Resource_set.copy failed"
 

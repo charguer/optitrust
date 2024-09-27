@@ -710,7 +710,7 @@ let build_constification_records_on (t : trm) : unit =
   (* Deconstruct the function definition term. *)
   let error = "Apac_basic.const_lookup_candidates: expected a target to a \
                function definition!" in
-  let (var, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv t in
+  let (var, ret_ty, args, _, _) = trm_inv ~error trm_let_fun_inv t in
   (* Extract the first argument of the function. *)
   let (first, _) = List.hd args in
   (* If the function is a class member method, its first argument is the [this]
@@ -994,7 +994,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
   (* Deconstruct the target function definition term. *)
   let error = "Apac_basic.identify_mutables_on: expected target to a function \
                definition." in
-  let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+  let (var, ret_ty, args, body, _) = trm_inv ~error trm_let_fun_inv t in
   (* Find the corresponding constification record in [const_records]. *)
   let const_record = Var_Hashtbl.find const_records var in
   (* Create a hash table for aliases to arguments of the function. *)
@@ -1002,7 +1002,7 @@ let identify_mutables_on (p : path) (t : trm) : unit =
   (* Try to find the parent class of the function. If any, get all the member
      variables of the class and *)
   let class_siblings = match (find_parent_typedef_record p) with
-    | Some (td) -> typedef_get_members td
+    | Some (td) -> typedef_get_fields td
     | None -> [] in
   (* add them to the table of aliases in the form of labelled variables. *)
   if List.length class_siblings > 0 then

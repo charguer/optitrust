@@ -59,7 +59,7 @@ let trm_let_or_let_fun_inv t =
   | Some (x, _, _) -> Some x
   | _ ->
   begin match trm_let_fun_inv t with
-  | Some (x, _, _, _) -> Some x
+  | Some (x, _, _, _, _) -> Some x
   | _ -> None
   end
 

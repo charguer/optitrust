@@ -14,7 +14,7 @@ let _ = Run.script_cpp (fun () ->
   !! Label.add "m0" [cVarDef "a"];
   ShowAt.trm [cVarDef "a"];
   ShowAt.trm [cVarDef "b"];
-  ShowAt.trm [tFirst; cFunDef "main"; cStrict; dBody];
+  ShowAt.trm [tFirst; cFunBody "main"];
 
   (* uncomment to test wrong path:
   let ps = Target.resolve_target [cVarDef "a"] in

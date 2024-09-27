@@ -110,8 +110,8 @@ let trm_fun_with_contract args body contract k t =
   | _ -> raise Next
 
 let trm_let_fun name ret args body spec k t =
-  match t.desc with
-  | Trm_let_fun (tname, tret, targs, tbody, tspec) ->
+  match trm_let_fun_inv t with
+  | Some (tname, tret, targs, tbody, tspec) ->
     let k = name k tname in
     let k = ret k tret in
     let k = args k targs in
@@ -138,6 +138,11 @@ let trm_record f k t =
   match trm_record_inv t with
   | Some fs -> f k fs
   | _ -> raise Next
+
+let trm_typedef f k t =
+  match trm_typedef_inv t with
+  | Some td -> f k td
+  | None -> raise Next
 
 let trm_unop unop ft k t =
   match trm_unop_inv unop t with

@@ -235,7 +235,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
       List.map (fun (_, formula) ->
         let ghost, formula = ghost_fn formula in
         let i = new_var range.index.name in
-        let items = formula_fun [i, typ_int] None (trm_subst_var range.index (trm_var i) formula) in
+        let items = formula_fun [i, typ_int] (trm_subst_var range.index (trm_var i) formula) in
         Resource_trm.ghost (ghost_call ghost [
           "start", range.start; "stop", range.stop; "step", step;
           "split", new_range.start; "items", items

@@ -7,6 +7,6 @@ open Target
 let _ = Run.script_cpp (fun _ ->
 
 
- !! Omp.task [nbMulti; cFun "traverse"];
+ !! Omp.task [nbMulti; cCall "traverse"];
 
 )

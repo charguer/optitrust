@@ -87,10 +87,11 @@ let _ = Run.script_cpp (fun () ->
   !! show [nbExact 0; sInstr ~substr:false "+= 2"];
   !! show [sInstr "r += 2"];
   !! show [sInstr "i++"];
+  !! show [sInstr "for (int i"];
 
   (* !! show [nbExact 2; sInstrRegexp ~substr:false "int . = .."]; *)
-  !! show [nbExact 8; sInstrRegexp "int . = .."];
-  !! show [nbExact 6; sInstrRegexp ~substr:true " .. ="];
+  !! show [nbMulti; sInstrRegexp "int . = .."];
+  !! show [nbMulti; sInstrRegexp ~substr:true " .. ="];
 
   (* !! show [nbExact 1; sInstr "int r = 3"]; *)
   !! show [nbExact 0; sExpr "int r = 3"];

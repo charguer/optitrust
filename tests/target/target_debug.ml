@@ -31,6 +31,6 @@ let _ = Run.script_cpp (fun () ->
   show [sInstr "s + 1"];
   !! Expr.view_subterms ~constr:(sInstr "s + 1") [dRoot];
   !! Expr.view_subterms ~constr:(sInstr "+= 2") [dRoot];
-  !! Expr.view_subterms ~constr:(sInstr "+= 2") [cTopFunDef "main"; dBody; dSeqNth 1];
+  !! Expr.view_subterms ~constr:(sInstr "+= 2") [cTopFunBody "main"; dSeqNth 1];
   *)
 )

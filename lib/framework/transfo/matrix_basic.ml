@@ -87,7 +87,7 @@ let%transfo local_name
       | _ -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
           target doesn't point to a write operation or a variable declaration \n'" (var_to_string v))
       end in
-      let dims = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
+      let dims = begin match Target.get_trm_at (tg1 @ [Target.cCall ~regexp:true ".ALLOC."]) with
         | Some at ->
           begin match Matrix_trm.alloc_inv at with
           | Some (dims, sz, zero_init) -> dims

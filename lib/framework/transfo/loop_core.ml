@@ -118,7 +118,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
               | None -> ghost, formula
             in
             let i = new_var index.name in
-            let items = formula_fun [i, typ_int] None (trm_subst_var index (trm_var i) formula) in
+            let items = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
             Resource_trm.ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("size", count); ("items", items)])
           )
       in

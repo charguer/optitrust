@@ -27,5 +27,5 @@ let _ = Run.script_cpp (fun () ->
   !! Ghost_pair.reintro_pairs_at (Option.get !pairs) p;
   !! Trace.check_recover_original();
 
-  !! Ghost_pair.elim [nbMulti; cVarDef ~body:[cCall "__ghost_begin"] ""];
+  !! Ghost_pair.elim [nbMulti; cVarDef ~body:[cStrictNew; cCall "__ghost_begin"] ""];
 )

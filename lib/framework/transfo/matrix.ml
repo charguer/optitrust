@@ -17,12 +17,12 @@ let%transfo intro_calloc (tg : target) : unit =
         | Trm_apps ({desc = Trm_prim (_, Prim_unop (Unop_cast _));_},[calloc_trm], _) ->
           begin match calloc_trm.desc with
           | Trm_apps ({desc = Trm_var f;_}, _, _) when (var_has_name f "calloc") ->
-            Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
+            Matrix_basic.intro_calloc ((target_of_path p) @ [cCall "calloc"])
           | _ -> trm_fail t1 "intro_calloc: couldn't find the call to calloc function"
           end
         | Trm_apps ({desc = Trm_var f;_},_,_) when (var_has_name f "calloc") ->
-          Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
-        | _ -> try Matrix_basic.intro_calloc [cWriteVar x.name; cFun "calloc"]
+          Matrix_basic.intro_calloc ((target_of_path p) @ [cCall "calloc"])
+        | _ -> try Matrix_basic.intro_calloc [cWriteVar x.name; cCall "calloc"]
           with | _ ->
             (* TODO: wrap caught exception *)
             trm_fail tg_trm "intro_calloc: couldn't find the calloc
@@ -30,7 +30,7 @@ let%transfo intro_calloc (tg : target) : unit =
         end
 
       | _ ->
-         try Matrix_basic.intro_calloc [cWriteVar x.name; cFun "calloc"]
+         try Matrix_basic.intro_calloc [cWriteVar x.name; cCall "calloc"]
           with | _ ->
             (* TODO: wrap caught exception *)
             trm_fail tg_trm "intro_calloc: couldn't find the calloc
@@ -66,13 +66,13 @@ let%transfo intro_malloc (tg : target) : unit =
         | Trm_apps ({desc = Trm_prim (_, Prim_unop (Unop_cast _));_},[malloc_trm], _) ->
           begin match malloc_trm.desc with
           | Trm_apps ({desc = Trm_var f;_}, _, _) when (var_has_name f "malloc") ->
-            Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
+            Matrix_basic.intro_malloc ((target_of_path p) @ [cCall "malloc"])
           | _ -> trm_fail t1 "intro_malloc: couldn't find the call to malloc function"
           end
         | Trm_apps ({desc = Trm_var f;_},_,_) when  (var_has_name f "malloc") ->
-          Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
+          Matrix_basic.intro_malloc ((target_of_path p) @ [cCall "malloc"])
         | _ ->
-         try Matrix_basic.intro_malloc [cWriteVar x.name; cFun "malloc"]
+         try Matrix_basic.intro_malloc [cWriteVar x.name; cCall "malloc"]
           with _ ->
             (* TODO: wrap caught exception *)
             trm_fail tg_trm "intro_malloc: couldn't find the malloc
@@ -80,7 +80,7 @@ let%transfo intro_malloc (tg : target) : unit =
         end
 
       | _ ->
-         try Matrix_basic.intro_malloc [cWriteVar x.name; cFun "malloc"]
+         try Matrix_basic.intro_malloc [cWriteVar x.name; cCall "malloc"]
           with _ ->
             (* TODO: wrap caught exception *)
             trm_fail tg_trm "intro_malloc: couldn't find the malloc
@@ -98,9 +98,9 @@ let%transfo biject (fun_bij : var) (tg : target) : unit =
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with
     | Trm_let ((p, _), _) ->
-      Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVarId p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
+      Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVarId p] ~index:[cCall ""] (); cCall ~regexp:true "MINDEX."]
     | Trm_apps (_, [{desc = Trm_var p}; _], _)  when is_set_operation tg_trm ->
-      Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVarId p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
+      Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVarId p] ~index:[cCall ""] (); cCall ~regexp:true "MINDEX."])
     | _ -> trm_fail tg_trm "biject: expected a variable declaration"
   ) tg
 
@@ -162,7 +162,7 @@ let%transfo delocalize ?(mark : mark = no_mark) ?(init_zero : bool = false) ?(ac
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
 
     let tg_decl_access = cOr [[cVarDef into];[cWriteVar into]; [cCellAccess ~base:[cVar into] ()]] in
-    if last then Matrix_basic.reorder_dims ~rotate_n:1 [nbAny; tg_decl_access; cFun ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
+    if last then Matrix_basic.reorder_dims ~rotate_n:1 [nbAny; tg_decl_access; cCall ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
     begin match use with
       | Some e ->   Specialize.any e [nbAny; cMark any_mark]
       | None -> ()
@@ -200,7 +200,7 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
     let tg_trm = Target.resolve_path p in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
     let (x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x.name; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVarId x] (); cFun ~regexp:true "MINDEX."]]])
+    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x.name; cCall ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVarId x] (); cCall ~regexp:true "MINDEX."]]])
   ) tg
 
 (* FIXME:

@@ -23,7 +23,7 @@ let mark_taskification_candidates_on (t : trm) : trm =
   (* Deconstruct the function definition term [t]. *)
   let error = "Apac_basic.mark_taskification_candidates_on: expected a target \
                to a function definition." in
-  let (_, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+  let (_, _, _, body, _) = trm_inv ~error trm_let_fun_inv t in
   (* Call the locally-defined auxiliary function to count the number of function
      calls within the body of [t]. *)
   aux body;
@@ -112,7 +112,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
   let error =
     "Apac_basic.use_goto_for_return_on: expected a target to a function \
      definition." in
-  let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+  let (var, ret_ty, args, body, _) = trm_inv ~error trm_let_fun_inv t in
   (* Within the function's body, replace return statements with assignments to a
      return variable '__res' (if the return type is other than 'void') and
      gotos to an exiting label '__exit'. The result is a sequence.
@@ -229,7 +229,7 @@ let constify_args_on ?(force = false) (t : trm) : trm =
   (* Try to deconstruct the target function definition term. *)
   let error = "Apac_basic.constify_args_on expected a target to a function \
                definition." in
-  let (var, ret_typ, args, body) = trm_inv ~error trm_let_fun_inv t in
+  let (var, ret_typ, args, body, _) = trm_inv ~error trm_let_fun_inv t in
   (* Optionally, force the constification of all of the function's arguments as
      well as the constification of the function itself. *)
   if force then
@@ -398,7 +398,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
      Deconstruct the function definition term. *)
   let error = "Apac_basic.constify_aliases_on: expected a target to a function \
                definition." in
-  let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+  let (var, ret_ty, args, body, _) = trm_inv ~error trm_let_fun_inv t in
   (* Gather the constification record of the function. *)
   let const_record = Var_Hashtbl.find Apac_core.const_records var in
   (* If the function is a class member method, its first argument is the [this]

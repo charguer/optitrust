@@ -5,7 +5,7 @@ let show = Show.add_marks_for_target_unit_tests
 
 let _ = Run.script_cpp (fun () ->
 
-  !! show [cFunDef "main"; dBody];
+  !! show [cFunBody "main"];
   (* find sequences of exactly 2 items, first with var def x, second with var def y *)
   !! show [ nbExact 2; cSeq ~args:[[cVarDef "x"]; [cVarDef "y"]] () ];
   (* find sequences of exactly 2 var defs *)
@@ -29,8 +29,8 @@ let _ = Run.script_cpp (fun () ->
 
   !! show [ cFunDef ~args_pred:(target_list_one_st [cArg "x"]) "" ];
 
-  !! show [ cFun ~args_pred:(target_list_all_st [cLit ]) "" ];
+  !! show [ cCall ~args_pred:(target_list_all_st [cLit ]) "" ];
 
-  !! show [ cFun ~args_pred:(target_list_one_st [cLit ]) "" ];
+  !! show [ cCall ~args_pred:(target_list_one_st [cLit ]) "" ];
 
 )

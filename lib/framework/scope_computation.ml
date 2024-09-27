@@ -84,14 +84,10 @@ let check_unique_var_ids (t : trm) : unit =
   in
   let rec aux t =
     begin match t.desc with
-    | Trm_let ((x, _), _) ->
+    | Trm_let ((x, _), body) when not (Trm.is_fun_predecl t) ->
       add_var x
     | Trm_let_mult bs ->
       List.iter (fun ((x, _), _) -> add_var x) bs
-    | Trm_let_fun (x, _, _, _, _)
-      (* FIXME: kind of C-specific? *)
-      when not (Trm.is_fun_with_empty_body t) ->
-      add_var x
     | Trm_for (range, _, _) ->
       add_var range.index
     (* | Trm_typedef td -> *)
@@ -272,11 +268,11 @@ let enter_scope check_binder scope_ctx t =
          this is equivalent to implicit predefinitions. *)
       List.fold_left (fun scope_ctx (rf, _) ->
         begin match rf with
-        (* TODO: also predefine members *)
-        | Record_field_member _ -> scope_ctx
-        | Record_field_method rfm ->
+        (* TODO: also predefine fields *)
+        | Record_field _ -> scope_ctx
+        | Record_method rfm ->
           let error = "Scope_computation.enter_scope: expected field method" in
-          let (v, _, _, _) = trm_inv ~error trm_let_fun_inv rfm in
+          let (v, _, _, _, _) = trm_inv ~error trm_let_fun_inv rfm in
           assert (v.namespaces = []);
           check_binder scope_ctx v true
         end
@@ -330,10 +326,10 @@ let scope_ctx_exit outer_ctx inner_ctx t =
   | _ -> { outer_ctx with renames = inner_ctx.renames }
 
 let post_process_ctx ~(failure_allowed : bool) ctx t =
-  match t.desc with
-  | Trm_let_fun (f_var, _, _, _, FunSpecContract spec) ->
+  match trm_let_fun_inv t with
+  | Some (f_var, _, _, _, FunSpecContract spec) ->
     { ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map fst spec.pre.pure } ctx.fun_prototypes }
-  | Trm_let_fun (f_var, _, _, _, FunSpecReverts f_reverted) ->
+  | Some (f_var, _, _, _, FunSpecReverts f_reverted) ->
     let f_reverted = infer_map_var ~failure_allowed ctx f_reverted in
     begin match Var_map.find_opt f_reverted ctx.fun_prototypes with
     | Some proto -> { ctx with fun_prototypes = Var_map.add f_var proto ctx.fun_prototypes }

@@ -69,8 +69,8 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     (Seq.filter_map Trm.decl_name (List.to_seq ctx_defs))
     (Seq.filter_map (fun t -> Option.map (trm_var ?typ:t.typ) (Trm.decl_name t))
       (List.to_seq ctx_defs_orig))) in
-  match main_fun.desc with
-  | Trm_let_fun (_, _, args, body, _) ->
+  match trm_let_fun_inv main_fun with
+  | Some (_, _, args, body, _) ->
     begin match body.desc with
     | Trm_seq tl1 ->
       if Mlist.length tl1 < 1 then trm_fail body "Trm_matching.parse_pattern: please enter a pattern

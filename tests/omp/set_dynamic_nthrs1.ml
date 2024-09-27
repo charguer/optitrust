@@ -4,7 +4,7 @@ open Target
 
 let _ = Run.script_cpp (fun () ->
 
-  !! If_basic.insert ~cond:(expr "omp_get_num_threads() != 16") ~else_branch:false [cFun "abort"];
+  !! If_basic.insert ~cond:(expr "omp_get_num_threads() != 16") ~else_branch:false [cCall "abort"];
   !! Sequence_basic.intro 4 [cIf ()];
      let tg = cSeq ~args_pred:(target_list_one_st [cIf ()]) () in
   !! Omp.set_dynamic 0 [tBefore; tg];

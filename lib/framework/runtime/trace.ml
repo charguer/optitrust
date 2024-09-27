@@ -194,8 +194,8 @@ let top_level_fun_bindings (t : trm) : tmap =
       match t.desc with
       | Trm_seq tl ->
         Mlist.iter (fun t1 ->
-          match t1.desc with
-          | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
+          match trm_let_fun_inv t1 with
+          | Some (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
           | _ -> ()
         ) tl
       | _ -> failwith "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"

@@ -159,7 +159,7 @@ let find_inverse (ghost_fn: trm) (res: resource_set option) =
       Some (trm_var inv)
     );
     Pattern.(trm_apps2 (trm_var (var_eq Resource_trm.var_with_reverse)) (trm_fun_with_contract __ __ !__) (trm_fun !__ __ !__ __)) (fun fwd_contract bwd_args bwd_body () ->
-        Some (trm_fun bwd_args None bwd_body ~contract:(FunSpecContract (revert_fun_contract fwd_contract)))
+        Some (trm_fun bwd_args typ_auto bwd_body ~contract:(FunSpecContract (revert_fun_contract fwd_contract)))
     );
     Pattern.(trm_apps2 (trm_var (var_eq Resource_trm.var_with_reverse)) __ !__) (fun inv () -> Some inv);
     Pattern.__ (fun () -> None)

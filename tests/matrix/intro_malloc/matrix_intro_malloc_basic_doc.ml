@@ -4,6 +4,6 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Matrix_basic.intro_malloc [nbMulti; cFun "malloc"];
+  !! Matrix_basic.intro_malloc [nbMulti; cCall "malloc"];
 
 )

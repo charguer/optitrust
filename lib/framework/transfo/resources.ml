@@ -90,8 +90,8 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
   }
 
 let fun_minimize_on (t: trm): trm =
-  let name, typ, args, body, contract = match t.desc with
-    | Trm_let_fun (name, typ, args, body, FunSpecContract contract) ->
+  let name, typ, args, body, contract = match trm_let_fun_inv t with
+    | Some (name, typ, args, body, FunSpecContract contract) ->
         name, typ, args, body, contract
     | _ -> failwith "fun_minimize_on: not a function definition with a contract"
   in
@@ -413,7 +413,7 @@ let%transfo delete_annots (tg : Target.target) : unit =
   )
 
 let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
-  let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
+  let name, ret_typ, args, body, _ = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
   trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
 
 let%transfo set_fun_contract (contract: unparsed_fun_contract) (tg : Target.target) : unit =
@@ -448,7 +448,7 @@ let detach_loop_ro_focus_on (t: trm): trm =
   let new_body = List.fold_right (fun (_, formula) ->
     let { formula } = Option.get (formula_read_only_inv formula) in
     let i = new_var range.index.name in
-    let items = formula_fun [i, typ_int] None (trm_subst_var range.index (trm_var i) formula) in
+    let items = formula_fun [i, typ_int] (trm_subst_var range.index (trm_var i) formula) in
     Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
   in
   let new_body = trm_like ~old:body new_body in

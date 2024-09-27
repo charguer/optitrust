@@ -57,14 +57,16 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
       let fun_decl = begin match tfun.desc with
       | Trm_var f ->
         begin match Internal.toplevel_decl ~require_body:true f with
-        | Some decl -> decl
+        | Some decl ->
+          let _, _, body = trm_inv trm_let_inv decl in
+          body
         | _ -> trm_fail tfun (sprintf "Function_core.inline_at: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
         end
-      | Trm_let_fun _ -> tfun
-      | _ -> trm_fail tfun "Function_core.inline_at: expected either a function call or a beta function call"
+      | Trm_fun _ -> tfun
+      | _ -> trm_fail tfun "Function_core.inline_at: expected either a function call or a beta-redex"
       end in
       begin match fun_decl.desc with
-      | Trm_let_fun (_f, ret_ty, args, body, _) ->
+      | Trm_fun (args, ret_ty, body, _) ->
         let fun_decl_arg_vars = fst (List.split args) in
         let subst_map = Var_map.of_seq (Seq.append
           (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
@@ -169,7 +171,7 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
    and returns the term [gtwice(3)], which is equivalent to [t] up to inlining. *)
 let uninline_on (fct_decl : trm) (t : trm) : trm =
   let error = "Function_core.uninline: fct argument should target a function definition" in
-  let (f, typ, targs, body) = trm_inv ~error trm_let_fun_inv fct_decl in
+  let (f, typ, targs, body, _) = trm_inv ~error trm_let_fun_inv fct_decl in
   let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
   if !Flags.check_validity then begin
     Var_map.iter (fun _ arg_val ->
@@ -192,7 +194,7 @@ let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =
       [t] - ast of the function declaration whose arguments are going to be altered. *)
 let rename_args_on (vl : var list) (t : trm) : trm =
   let error = "Function_core.rename_args_on: expected a target to a function declaration" in
-  let (f, retty, args, body) = trm_inv ~error trm_let_fun_inv t in
+  let (f, retty, args, body, _) = trm_inv ~error trm_let_fun_inv t in
   let renamed_args = List.map2 (fun v1 (arg1, ty1) -> if v1 <> dummy_var then (v1, ty1) else (arg1, ty1)) vl args in
   let assoc_list = List.fold_left2 (fun acc v1 (arg1, ty1) -> if v1 <> dummy_var then (arg1, trm_var ~typ:ty1 v1) ::  acc else acc) [] vl args in
   let tm = map_from_trm_var_assoc_list assoc_list in
@@ -222,7 +224,7 @@ let dsp_def_at (index : int) (arg : string) (func : string) (t : trm) : trm =
   let arg = new_var arg in
   let f_update (t : trm) : trm =
     let error = "Function_core.dsp_def_at: expected a target to a function definition." in
-    let (f, ret_ty, tvl, body) = trm_inv ~error trm_let_fun_inv t in
+    let (f, ret_ty, tvl, body, _) = trm_inv ~error trm_let_fun_inv t in
     let new_body, _ = Internal.replace_return_with_assign (typ_ptr ret_ty) arg body in
     let new_args = tvl @ [(arg, typ_ptr ret_ty)] in
     let new_fun = if func = "dsp" then f.name ^ "_dsp" else func in
@@ -251,7 +253,7 @@ let dsp_call_on (dsp : string) (t : trm) : trm =
 
 (** [get_prototype t]: returns the return type of the function and the types of all its arguments.*)
 let get_prototype (t : trm) : (typ * typed_vars) option =
-  match t.desc with
-  | Trm_let_fun (f, ret_ty, args, body, _) ->
+  match trm_let_fun_inv t with
+  | Some (f, ret_ty, args, body, _) ->
     Some (ret_ty, args)
   | _ -> None

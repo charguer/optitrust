@@ -11,7 +11,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* And constraints *)
   !! show [ cAnd [[cFor "i"];[cFor ""]]];
-  !! show [ nbExact 0; cAnd []];
+  !! show [ nbExact 0; cAnd []]; (* WTF? This should be match everything *)
   !! show [ nbExact 0; cAnd [[cFor "i"];[cFor "j"];[cFor "k"]]];
   !! show [ cAnd [[cWrite()]; [sInstr "k + j"]]];
 

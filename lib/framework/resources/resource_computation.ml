@@ -1041,11 +1041,6 @@ let rec compute_resources
     | Trm_lit _ -> (Some Var_map.empty, Some res)
     | Trm_prim _ -> (Some Var_map.empty, Some res)
 
-    (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
-    | Trm_let_fun (name, ret_type, args, body, contract) ->
-      (* TODO: Remove trm_let_fun *)
-      compute_resources (Some res) (trm_let ~annot:referent (name, typ_auto) (trm_fun ~annot:referent args (Some ret_type) body ~contract))
-
     (* Defining a function is pure by itself, we check that the body satisfies the contract.
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
     | Trm_fun (args, ret_type, body, contract) ->

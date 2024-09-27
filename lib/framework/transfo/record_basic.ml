@@ -76,7 +76,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       let rec aux wrap_cell formula =
         Pattern.pattern_match formula [
           Pattern.(formula_group !__ (trm_fun (pair !__ __ ^:: nil) !__ !__ __)) (fun range idx _frettyp body_formula () ->
-            aux (fun c -> wrap_cell (trm_apps ~annot:formula.annot trm_group [range; formula_fun [idx, typ_int] None c])) body_formula
+            aux (fun c -> wrap_cell (trm_apps ~annot:formula.annot trm_group [range; formula_fun [idx, typ_int] c])) body_formula
           );
           Pattern.(formula_cell !__) (fun loc () ->
             Pattern.when_ (trm_ptr_typ_matches loc);
@@ -339,7 +339,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             }} in
             (* Printf.printf "pre after: %s\n" (Resource_computation.resource_set_to_string contract.pre);
             Printf.printf "post after: %s\n" (Resource_computation.resource_set_to_string contract.post); *)
-            trm_map aux (trm_fun ~annot:t.annot ~contract:(FunSpecContract contract) args None body)
+            trm_map aux (trm_fun ~annot:t.annot ~contract:(FunSpecContract contract) args typ_auto body)
           );
           Pattern.__ (fun () -> trm_map aux t)
         ]
@@ -475,7 +475,7 @@ let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * t
 
 (** [change_field_access_kind acc_kind f tg]: expects the target [tg] to point a typedef, then it will find
     field [f] at change its access kind to [acc_kind]. *)
-let%transfo change_field_access_kind ?(field : field = "") (acc_kind : record_field_annot) (tg : target) : unit =
+let%transfo change_field_access_kind ?(field : field = "") (acc_kind : record_member_annot) (tg : target) : unit =
   apply_at_target_paths (Record_core.change_field_access_kind_on acc_kind field) tg
 
 (** [make_all_members_public tg]: expects the target [tg] to point at a typedef struct or class.

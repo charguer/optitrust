@@ -281,7 +281,7 @@ let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
         | Typedef_record field_list ->
           field_index := Internal.get_field_index t field_to_reveal field_list;
           let (field_to_reveal_rf,_),field_list  = List.extract_element field_list !field_index in
-          let field_type = get_member_type t field_to_reveal_rf in
+          let field_type = get_field_type t field_to_reveal_rf in
           let tyvar =
             Pattern.pattern_match field_type [
               Pattern.(typ_array (typ_constr !__) __ ^| typ_constr !__) (fun tv () -> tv);
@@ -298,7 +298,7 @@ let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
           | _ -> trm_fail t "Record_core.reveal_field_aux: the field wanted to inline should also be of struct type"
           in
 
-          let inner_type_field_list = Internal.rename_record_fields (fun f ->
+          let inner_type_field_list = Internal.rename_record_members (fun f ->
              Convention.name_app field_to_reveal f) inner_type_field_list in
 
           let typ_update (ty : typ) : typ =
@@ -388,8 +388,8 @@ let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
       | Typedef_record rfl ->
         let rfl_str_rep = List.mapi (fun i (rf, _) ->
           match rf with
-          | Record_field_member (lb, _) -> (lb, i)
-          | Record_field_method t1 ->
+          | Record_field (lb, _) -> (lb, i)
+          | Record_method t1 ->
             begin match trm_typedef_inv t1 with
             | Some td -> (td.typedef_name.name, i)
             | _ -> trm_fail t "Record_core.reorder_fields_at: unkown method definition."
@@ -489,7 +489,7 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
       );
       Pattern.(trm_fun_with_contract !__ !__ !__) (fun args body contract () ->
         let contract = aux_fun_contract contract in
-        trm_map aux (trm_fun ~annot:t.annot ~contract:(FunSpecContract contract) args None body)
+        trm_map aux (trm_fun ~annot:t.annot ~contract:(FunSpecContract contract) args typ_auto body)
       );
       Pattern.__ (fun () -> trm_map aux t)
     ]
@@ -611,7 +611,7 @@ let rename_fields_at (index : int) (rename : rename) (t : trm) : trm =
     match t.desc with
     | Trm_typedef ({typedef_name = name; typedef_body = Typedef_record rfl;_} as td) ->
       struct_name := name;
-      let rfl = Internal.rename_record_fields rename rfl in
+      let rfl = Internal.rename_record_members rename rfl in
       trm_typedef ~annot:t.annot {td with typedef_body = Typedef_record rfl}
    | _ -> trm_fail t "Record_core.reanme_fields_aux: expected a typedef declaration"
    in
@@ -676,7 +676,7 @@ let simpl_proj_on (t : trm) : trm =
 module Struct_modif = struct
   (* Fields of a struct *)
 
-  type fields = record_fields
+  type fields = record_members
   (* type fields = (label * typ) list *)
 
   let fields_identity :  fields -> fields =
@@ -794,7 +794,7 @@ let struct_modif_at (arg : Struct_modif.arg) (index : int) (t : trm) : trm =
   | _ -> trm_fail t "Record_core.Record_core.struct_modif: exepcted the surrounding sequence of the typedef "
 
 (** [change_field_access_kind_on acc_kind f t]: changes the access_kind for field [f] to [acc_kind] of class or struct [t]. *)
-let change_field_access_kind_on (acc_kind : record_field_annot) (f : field) (t : trm) : trm =
+let change_field_access_kind_on (acc_kind : record_member_annot) (f : field) (t : trm) : trm =
   match t.desc with
   | Trm_typedef td ->
     begin match td.typedef_body with
@@ -827,10 +827,10 @@ let method_to_const_on (method_name : var) (t : trm) : trm =
     | Typedef_record rfl ->
         let upd_rfl = List.map (fun (rf, rf_ann) ->
             match rf with
-            | Record_field_method t1  ->
+            | Record_method t1  ->
               if is_class_constructor t1
                 then (rf, rf_ann)
-                else if method_name = dummy_var then (Record_field_method (trm_add_cstyle Const_method t1), rf_ann)
+                else if method_name = dummy_var then (Record_method (trm_add_cstyle Const_method t1), rf_ann)
                 else
                   failwith "unimplemented, #var-id"
                   (*
@@ -840,7 +840,7 @@ let method_to_const_on (method_name : var) (t : trm) : trm =
                       then (rf, rf_ann)(* begin Printf.printf ("Nothing to change, method %s is already const." method_name); (rf, rf_ann) end *)
                       else
                         let t1 = trm_add_cstyle Const_method t1 in
-                        (Record_field_method t1, rf_ann)
+                        (Record_method t1, rf_ann)
                   | _ -> (rf, rf_ann)
                   end *)
             | _ -> (rf, rf_ann)

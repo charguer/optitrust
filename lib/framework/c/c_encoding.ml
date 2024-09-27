@@ -118,6 +118,7 @@ let stackvar_elim (t : trm) : trm =
     Pattern.pattern_match ty [
       Pattern.(typ_const !__) (fun ty () -> ty, Var_immutable);
       Pattern.(typ_array (typ_const !__) !__) (fun ty size () -> typ_array ?size ty, Var_immutable);
+      Pattern.(typ_fun __ __) (fun () -> ty, Var_immutable);
       Pattern.__ (fun () -> ty, Var_mutable)
     ]
   in
@@ -162,12 +163,6 @@ let stackvar_elim (t : trm) : trm =
       in
       trm_replace (Trm_let_mult bs) t
     | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
-    | Trm_let_fun (f, _retty, targs, _tbody, _) ->
-      (* function names are by default immutable *)
-      add_var env f Var_immutable;
-      onscope env t (fun t -> List.iter (fun (x, _tx) ->
-       let mut = Var_immutable in (* if is_typ_ptr tx then Var_mutable else Var_immutable in *)
-       add_var env x mut) targs; trm_map aux t)
     | Trm_for (range, _, _) ->
         onscope env t (fun t -> add_var env range.index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
@@ -237,10 +232,6 @@ let stackvar_intro (t : trm) : trm =
       trm_replace (Trm_let_mult bs) t
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
-    | Trm_let_fun (f, _retty, targs, _tbody, _) ->
-      add_var env f Var_immutable;
-      onscope env t (fun t ->
-      List.iter (fun (x, _tx) -> let mut = Var_immutable in (add_var env x mut)) targs; trm_map aux t)
     | Trm_for (range, _, _) ->
       onscope env t (fun t -> begin add_var env range.index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
@@ -462,36 +453,40 @@ let class_member_elim (t : trm) : trm =
     typ_ptr (typ_var current_class)
   in
   let rec aux (current_class : var option) (t : trm) : trm =
-    begin match t.desc with
-    | Trm_typedef td ->
-      let current_class = Some td.typedef_name in
-      trm_map (aux current_class) t
-    | Trm_let_fun (v, ty, vl, body, contract) when trm_has_cstyle Method t ->
-      let var_this = new_var "this" in
-      let this_typ = get_class_typ current_class v in
-      let typed_this = trm_var ~typ:this_typ var_this in
-      to_subst := Var_map.add var_this typed_this !to_subst;
-      trm_alter ~desc:(Trm_let_fun (v, ty, (var_this, this_typ) :: vl, body, contract)) t
-    | Trm_let_fun (v, ty, vl, body, contract) when is_class_constructor t ->
-      let var_this = new_var "this" in
-      let this_typ = get_class_typ current_class v in
-      let this_body = trm_apps (trm_toplevel_var "malloc") [trm_sizeof this_typ] in
-      let this_alloc = trm_let (var_this, this_typ) this_body in
-      let typed_this = trm_var ~typ:this_typ var_this in
-      to_subst := Var_map.add var_this typed_this !to_subst;
-      let ret_this = trm_ret (Some (trm_get typed_this)) in
-      begin match body.desc with
-      | Trm_seq tl ->
-        let new_tl = Mlist.map (trm_subst_var var_this typed_this) tl in
-        let new_tl = Mlist.push_front this_alloc new_tl in
-        let new_tl = Mlist.push_back ret_this new_tl in
-        let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
-        trm_alter ~desc:(Trm_let_fun (v, this_typ, vl, new_body, contract)) t
-      | Trm_lit (Lit_uninitialized _) ->  t
-      | _ ->  trm_fail t "C_encoding.class_member_elim: ill defined class constructor."
-      end
-    | _ -> trm_map (aux current_class) t
-    end
+    Pattern.pattern_match t [
+      Pattern.(trm_typedef !__) (fun td () ->
+        let current_class = Some td.typedef_name in
+        trm_map (aux current_class) t
+      );
+      Pattern.(trm_let_fun !__ !__ !__ !__ !__) (fun v ty vl body contract () ->
+        if trm_has_cstyle Method t then begin
+          let var_this = new_var "this" in
+          let this_typ = get_class_typ current_class v in
+          let typed_this = trm_var ~typ:this_typ var_this in
+          to_subst := Var_map.add var_this typed_this !to_subst;
+          trm_like ~old:t (trm_let_fun v ty ((var_this, this_typ) :: vl) body ~contract)
+        end else if is_class_constructor t then begin
+          let var_this = new_var "this" in
+          let this_typ = get_class_typ current_class v in
+          let this_body = trm_apps (trm_toplevel_var "malloc") [trm_sizeof this_typ] in
+          let this_alloc = trm_let (var_this, this_typ) this_body in
+          let typed_this = trm_var ~typ:this_typ var_this in
+          to_subst := Var_map.add var_this typed_this !to_subst;
+          let ret_this = trm_ret (Some (trm_get typed_this)) in
+          begin match body.desc with
+          | Trm_seq tl ->
+            let new_tl = Mlist.map (trm_subst_var var_this typed_this) tl in
+            let new_tl = Mlist.push_front this_alloc new_tl in
+            let new_tl = Mlist.push_back ret_this new_tl in
+            let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
+            trm_like ~old:t (trm_let_fun v this_typ vl new_body ~contract)
+          | Trm_lit (Lit_uninitialized _) ->  t
+          | _ ->  trm_fail t "C_encoding.class_member_elim: ill defined class constructor."
+          end
+        end else raise Pattern.Next
+      );
+      Pattern.__ (fun () -> trm_map (aux current_class) t)
+    ]
   in
   let on_subst old_t new_t =
     (* keep implicit this annotations etc *)
@@ -506,8 +501,8 @@ let class_member_elim (t : trm) : trm =
 let class_member_intro (t : trm) : trm =
   debug_current_stage "class_member_intro";
   let rec aux (t : trm) : trm =
-    match t.desc with
-    | Trm_let_fun (qv, ty, vl, body, contract) when trm_has_cstyle Method t ->
+    match trm_let_fun_inv t with
+    | Some (qv, ty, vl, body, contract) when trm_has_cstyle Method t ->
       let ((v_this, _), vl') = List.uncons vl in
       let rec fix_body t =
         match trm_var_inv t with
@@ -516,8 +511,8 @@ let class_member_intro (t : trm) : trm =
         | _ -> trm_map fix_body t
       in
       let body' = fix_body body in
-      trm_alter ~desc:(Trm_let_fun (qv, ty, vl', body', contract)) t
-    | Trm_let_fun (qv, ty, vl, body, contract) when is_class_constructor t ->
+      trm_like ~old:t (trm_let_fun qv ty vl' body' ~contract)
+    | Some (qv, ty, vl, body, contract) when is_class_constructor t ->
       begin match body.desc with
       | Trm_seq tl ->
         if Mlist.is_empty tl
@@ -525,7 +520,7 @@ let class_member_intro (t : trm) : trm =
           else
             let tl = Mlist.(pop_front (pop_back tl)) in
             let new_body = trm_alter ~desc:(Trm_seq tl) body in
-            trm_alter ~desc:(Trm_let_fun (qv, typ_unit, vl, new_body, contract)) t
+            trm_like ~old:t (trm_let_fun qv typ_unit vl new_body ~contract)
       | _ -> trm_map aux t
       end
    | _ -> trm_map aux t
@@ -780,16 +775,6 @@ let contract_elim (t: trm): trm =
   debug_current_stage "contract_elim";
   let rec aux t =
   match t.desc with
-  | Trm_let_fun (qv, ty, args, body, contract) ->
-    assert (contract = FunSpecUnknown);
-    begin match trm_seq_inv body with
-    | Some body_seq ->
-      let contract, new_body = extract_fun_spec body_seq in
-      let new_body = Mlist.map aux new_body in
-      trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
-    | None -> trm_map aux t
-    end
-
   | Trm_fun (args, ty, body, spec) ->
     assert (spec = FunSpecUnknown);
     begin match trm_seq_inv body with
@@ -1027,12 +1012,6 @@ let rec contract_intro (style: style) (t: trm): trm =
   in
 
   match t.desc with
-  | Trm_let_fun (qv, ty, args, body0, contract) ->
-    let body = add_contract_to_fun_body body0 contract in
-    if body == body0
-      then t
-      else trm_like ~old:t (trm_let_fun qv ty args body)
-
   | Trm_fun (args, ty, body0, contract) ->
     let body = add_contract_to_fun_body body0 contract in
     if body == body0

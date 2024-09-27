@@ -251,15 +251,14 @@ and trm_desc =
   | Trm_record of typ * (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of typed_var * trm (* int x = 3 *)
   | Trm_let_mult of (typed_var * trm) list (* TODO: replace with non-scoping seq *)
-  | Trm_let_fun of var * typ * typed_vars * trm * fun_spec (* TODO: Remove and replace with Trm_let (Trm_fun _) *)
-  | Trm_fun of typed_vars * typ option * trm * fun_spec (* anonymous functions, [&](int const& x) -> void {r += x;} *) (* TODO: Remove option on return type *)
+  | Trm_fun of typed_vars * typ * trm * fun_spec (* function abstractions: [&](int const& x) -> void {r += x;} *)
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
   | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
   | Trm_for of loop_range * trm * loop_contract
   | Trm_for_c of trm * trm * trm * trm * resource_set option (* TODO: Remove from here and desugar into while *)
-  | Trm_while of trm * trm     (* while (t1) { t2 } *)
+  | Trm_while of trm * trm     (* while (t1) { t2 } *) (* TODO: Add resource_set invariant *)
   | Trm_do_while of trm * trm (* TODO: Remove from here and desugar into while *)
   (* Remark: in the AST, arguments of cases that are enum labels
      appear as variables, hence the use of terms as opposed to
@@ -277,17 +276,18 @@ and trm_desc =
         b3;
         break;
     }
+    TODO: Replace with real pattern matching
    *)
   | Trm_switch of trm * ((trms * trm) list)
   | Trm_abort of abort                            (* return or break or continue *)
   | Trm_goto of label                             (* goto foo *)
   | Trm_arbitrary of code_kind                    (* "int x = 10" *)
-  (* TODO: new root for multi-files
-    | Trm_files of trms *)
+  (* TODO: new root for multi-files ?
+    | Trm_file of trms *)
   | Trm_omp_routine of omp_routine                (* get_thread_id *)
   | Trm_extern of string * trms                   (* extern keyword *)
   | Trm_namespace of string * trm * bool          (* namespaces *)
-  | Trm_template of template_parameter_list * trm (* templates *) (* TODO: Replace by annotated arguments on definitions and calls? *)
+  | Trm_template of template_parameter_list * trm (* templates *) (* TODO: Replace by annotated arguments on definitions and calls *)
   | Trm_using_directive of string                 (* using namespace std *)
 
 (*****************************************************************************)
@@ -314,14 +314,14 @@ and typedef = {
                             i.e. the description of [...] *)
 }
 
-(** [record_fields]: fields representation for classes, structs and unions. *)
-and record_fields = (record_field * record_field_annot) list
+(** [record_members]: fields and methods representation for classes, structs and unions. *)
+and record_members = (record_member * record_member_annot) list
 
-and record_field =
-  | Record_field_member of (label * typ)
-  | Record_field_method of trm
+and record_member =
+  | Record_field of (label * typ)
+  | Record_method of trm
 
-and record_field_annot = access_control
+and record_member_annot = access_control
 
 and access_control =
   | Access_public
@@ -334,7 +334,7 @@ and access_control =
 and typedef_body =
   | Typedef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
                           list] or [typedef vect t] *)
-  | Typedef_record of record_fields
+  | Typedef_record of record_members
     (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typedef_enum of (var * (trm option)) list (* for C/C++ enums *)
 
@@ -399,6 +399,8 @@ and cstyle_annot =
   (* LATER: keep track of whether the user has written it explicitly;
      ---would be needed in particular when the return type is generic *)
   | Typ_arguments of typ list  (* <int, float> , type arguments used for template specializations. *)
+
+  | Closure (* The expression should be written as [auto t = [&](args) -> ret { v }] *)
 
   (* Automatically-synthesized constructors *)
   | Implicit_constructor
@@ -939,7 +941,6 @@ let trm_desc_to_string : trm_desc -> string =
   | Trm_record _ -> "Trm_record"
   | Trm_let _ -> "Trm_let"
   | Trm_let_mult _ -> "Trm_let_mult"
-  | Trm_let_fun _ -> "Trm_let_fun"
   | Trm_typedef _ -> "Trm_typedef"
   | Trm_if _ -> "Trm_if"
   | Trm_seq _ -> "Trm_seq"

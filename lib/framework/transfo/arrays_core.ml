@@ -356,8 +356,8 @@ let aos_to_soa_rec (struct_name : typvar) (sz : var) (t : trm) : trm =
       | Typedef_record rf ->
         let rf = List.map (fun (rf1, rf_annot) ->
           match rf1 with
-          | Record_field_member (lb, ty) -> ((Record_field_member (lb, typ_array ty ~size:(trm_var sz))), rf_annot)
-          | Record_field_method _ -> (Record_field_method (trm_map aux t), rf_annot)
+          | Record_field (lb, ty) -> ((Record_field (lb, typ_array ty ~size:(trm_var sz))), rf_annot)
+          | Record_method _ -> (Record_method (trm_map aux t), rf_annot)
         ) rf in
         trm_typedef ~annot:t.annot {td with typedef_body = Typedef_record rf}
 

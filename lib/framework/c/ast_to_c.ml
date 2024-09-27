@@ -490,13 +490,16 @@ and trm_to_doc style ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_ty
         else parens (typ_to_doc style ty)
       in
       dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
-    | Trm_let (tx,t) -> dattr ^^ trm_let_to_doc style ~semicolon tx t
+    | Trm_let ((x,ty),t) ->
+      begin match trm_fun_inv t with
+      | Some (args, rettyp, body, _) when not (trm_has_cstyle Closure t) ->
+        let fun_annot = trm_get_cstyles t in
+        let static = if trm_has_cstyle Static_fun t then string "static" else empty in
+        let hidden = if trm_has_cstyle BodyHiddenForLightDiff t then string " /* unchanged, collapsed for light diff */" else empty in
+        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc style ~semicolon fun_annot x rettyp args body ^^ hidden
+      | _ -> dattr ^^ trm_let_to_doc style ~semicolon (x,ty) t
+      end
     | Trm_let_mult bs -> dattr ^^ trm_let_mult_to_doc style ~semicolon bs
-    | Trm_let_fun (f, r, tvl, b, _) ->
-      let fun_annot = trm_get_cstyles t in
-      let static = if trm_has_cstyle Static_fun t then string "static" else empty in
-      let hidden = if trm_has_cstyle BodyHiddenForLightDiff t then string " /* unchanged, collapsed for light diff */" else empty in
-      dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc style ~semicolon fun_annot f r tvl b ^^ hidden
     | Trm_typedef td ->
       let t_annot = trm_get_cstyles t in
       dattr ^^ typedef_to_doc style ~semicolon ~t_annot td
@@ -779,15 +782,15 @@ and trm_let_fun_to_doc style ?(semicolon : bool = false) (fun_annot : cstyle_ann
       aux_fun_to_doc style ~semicolon ~const ~inline f r args b
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
-and formula_fun_to_doc style ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
+and formula_fun_to_doc style ?(semicolon : bool = true) (ty : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   string "fun" ^^ blank 1 ^^ separate (comma ^^ blank 1) (List.map (fun (v, _) -> var_to_doc style v) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc style b ^^ dsemi
 
 (** [trm_fun_to_doc style ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
-and trm_fun_to_doc style ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
+and trm_fun_to_doc style ?(semicolon : bool = true) (ty : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc style (var_to_doc style) tv) tvl) in
-  let dr = match ty with | Some ty -> string "->" ^^ blank 1 ^^ typ_to_doc style ty ^^ blank 1 | None -> blank 1 in
+  let dr = if Typ.is_typ_auto ty then blank 1 else string "->" ^^ blank 1 ^^ typ_to_doc style ty ^^ blank 1 in
   let capt = brackets (ampersand) in
   separate (blank 1) ([capt; parens (argd); dr; decorate_trm style b]) ^^ dsemi
 
@@ -807,19 +810,16 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
   | Typedef_alias t ->
      string "typedef" ^^ blank 1 ^^ typed_var_to_doc style (var_to_doc style) (remove_typ_namespace td.typedef_name, t) ^^ dsemi
   | Typedef_record rfl ->
-    let get_document_list ?(default_access : access_control = Access_private) (rtl : record_fields) : document list =
+    let get_document_list ?(default_access : access_control = Access_private) (rtl : record_members) : document list =
       let access_ctrl = ref default_access in
       List.fold_left (fun acc (rt, rt_annot) ->
         let fd =
-        match rt with
-        | Record_field_member (lb, ty) -> typed_var_to_doc style string (lb, ty) ^^ semi
-        (* DEPRECATED
-        | Record_field_method t1 -> trm_to_doc style t1
-        *)
-        | Record_field_method t1 ->
-          let semi = if is_fun_with_empty_body t1 then semi else empty in
-          decorate_trm style t1 ^^ semi
-         in
+          match rt with
+          | Record_field (lb, ty) -> typed_var_to_doc style string (lb, ty) ^^ semi
+          | Record_method t1 ->
+            let semi = if is_fun_predecl t1 then semi else empty in
+            decorate_trm style t1 ^^ semi
+        in
         if rt_annot <> !access_ctrl
             then begin access_ctrl := rt_annot;acc @ [access_ctrl_to_doc style !access_ctrl; fd ] end
             else acc @ [fd ]
@@ -916,9 +916,6 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
   | Trm_var x ->
     let var_doc = trm_var_to_doc style x f in
     aux_arguments var_doc
-  (* Case of inlined function *)
-  | Trm_let_fun _ ->
-        parens (decorate_trm style f) ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map (decorate_trm style) tl)
   (* Case of primitive operations *)
   | Trm_prim (ty, p) ->
     begin match p with

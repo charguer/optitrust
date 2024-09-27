@@ -71,7 +71,7 @@ let change_typ ?(change_at : target list option) (ty_before : typ)
 let isolate_last_dir_in_seq (dl : path) : path * int =
     match List.rev dl with
     | Dir_seq_nth i :: dl' -> (List.rev dl',i)
-    | Dir_record_field _ :: Dir_seq_nth i :: dl'  -> (List.rev dl', i)
+    | Dir_record_member _ :: Dir_seq_nth i :: dl'  -> (List.rev dl', i)
       (* Tools.debug "Path: %s" (Path.path_to_string dl); *)
     | _ ->
       path_fail dl "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
@@ -116,7 +116,7 @@ let get_ascendant_write_path (dl : path) (t : trm) : path =
      the trm where the path [dl] points to. *)
 let get_ascendant_topfun_path (dl : path) : path option =
   match dl with
-  | Dir_seq_nth i :: Dir_body :: _ -> Some [Dir_seq_nth i]
+  | Dir_seq_nth i :: Dir_let_body :: Dir_body :: _ -> Some [Dir_seq_nth i]
   | _ -> None
 
 (** [is_decl_body dl]: check if [dl] points to a declaration body *)
@@ -131,7 +131,7 @@ let get_field_list (td : typedef) : (field * typ) list =
   | Typedef_record rfl ->
     List.map (fun (rf, _) ->
       match rf with
-      | Record_field_member (lb, ty) -> (lb, ty)
+      | Record_field (lb, ty) -> (lb, ty)
       | _ -> failwith "Internal.get_field_list: expected a struct without methods"
     ) rfl
   | _ -> failwith "Internal.get_field_list: expected a Typedef_prod"
@@ -181,53 +181,25 @@ let rec get_typvar_from_trm ?(first_match : bool = true) (t : trm) : typvar opti
   | _ -> None
 
 
+(** [local_decl x t]: check if [t] contains a declaration with name [x], if that's the case return the body of the declaration *)
+let local_decl ?(require_body:bool=false) (x : var) (t : trm) : trm option =
+  let tl = trm_inv ~error:"local_decl: expects a sequence" trm_seq_inv t in
+  Mlist.fold_left (fun acc t1 ->
+    match acc with
+    | Some _ -> acc
+    | None ->
+      begin match t1.desc with
+      | Trm_let ((y, _), body) when var_eq y x ->
+        if require_body && is_fun_predecl t1 then None else Some t1
+      | _ -> None
+      end
+  ) None tl
+
 (** [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function or variable.
-    If [require_body] is set to true, then only definitions are considered.*)
+  If [require_body] is set to true, then only definitions are considered. *)
 let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
-  let aux (t1 : trm) : trm option =
-    match t1.desc with
-    | Trm_let ((y, _), _) when var_eq y x -> Some t1
-    | Trm_let_fun (y, _, _, body, _) when var_eq y x ->
-      if require_body then begin
-        match body.desc with
-        | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
-        | _ -> None
-      end else begin
-        Some t1
-      end
-    | _ -> None
-   in
-  match full_ast.desc with
-  | Trm_seq tl ->
-    Mlist.fold_left(
-      fun acc t1 ->
-      match acc with
-      | Some _ -> acc
-      | _ -> aux t1
-  ) None tl
-  | _ -> trm_fail full_ast "Internal.top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
-
-
-(** [local_decl x t]: check if [t] is a declaration with name [x], if that's the case the return that declaration *)
-let rec local_decl (x : var) (t : trm) : trm option =
-  match t.desc with
-  | Trm_let ((y, _), _) when var_eq y x -> Some t
-  | Trm_let_fun (y, _, _, body, _) ->
-    if var_eq y x then Some t else local_decl x body
-  | Trm_seq tl ->
-    Mlist.fold_left(
-      fun acc t1 ->
-      match acc with
-      | Some _ -> acc
-      | _ ->
-        let t2 = local_decl x t1 in
-        begin match t2 with
-        | Some _->  t2
-        | _ -> None
-        end
-    ) None tl
-  | _ -> None
+  local_decl ~require_body x full_ast
 
 (* LATER: Use trm_fors_inv instead *)
 (** [get_loop_nest_indices t]: if node [t] represents a loop nest then go through all of them an return an
@@ -264,12 +236,12 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
 
 (** [get_field_index field fields]: for a struct field with name [field] and [fields] being the list of fields of the
     same struct, return back the index of field [field] in the list of fields [fields]. *)
-let get_field_index (t : trm) (field : field) (fields : record_fields) : int =
+let get_field_index (t : trm) (field : field) (fields : record_members) : int =
   let rec aux field fields c = match fields with
     | [] -> trm_fail t "Internal.get_field_index: empty list"
     | (rf, _) :: tl ->
       begin match rf with
-      | Record_field_member (f, _) ->
+      | Record_field (f, _) ->
         if f = field then c else aux field tl (c + 1)
       | _ -> aux field tl (c+1)
       end
@@ -277,38 +249,38 @@ let get_field_index (t : trm) (field : field) (fields : record_fields) : int =
   aux field fields 0
 
 
-(** [apply_on_record_fields app_fun rfs]: applies [app_fun] on all the elements of [rfs]. *)
-let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : record_fields) : record_fields =
+(** [apply_on_record_members app_fun rfs]: applies [app_fun] on all the elements of [rfs]. *)
+let apply_on_record_members (app_fun : record_member -> record_member ) (rfs : record_members) : record_members =
   List.map (fun (rf, rf_annot) -> (app_fun rf, rf_annot)) rfs
 
 
-(** [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
+(** [rename_record_members]: renames all the fields [rfs] by applying function [rename_fun]. *)
 (* FIXME: #var-id , sets id to inferred_var_id, requiring id inference afterwards. *)
-let rename_record_fields (rename_fun : string -> string) (rfs : record_fields) : record_fields =
-  let app_fun (rf : record_field) : record_field =
+let rename_record_members (rename_fun : string -> string) (rfs : record_members) : record_members =
+  let app_fun (rf : record_member) : record_member =
     match rf with
-    | Record_field_member (f, ty) -> Record_field_member (rename_fun f, ty)
-    | Record_field_method t ->
-      begin match t.desc with
-      | Trm_let_fun (fn, ret_ty, args, body, contract) ->
+    | Record_field (f, ty) -> Record_field (rename_fun f, ty)
+    | Record_method t ->
+      begin match trm_let_fun_inv t with
+      | Some (fn, ret_ty, args, body, contract) ->
         let new_fn = { namespaces = fn.namespaces; name = (rename_fun fn.name); id = unset_var_id } in
-        let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body, contract)) t in
-        Record_field_method new_t
-      | _ -> trm_fail t "Internal.rename_record_fields: record member not supported."
+        let new_t = trm_like ~old:t (trm_let_fun new_fn ret_ty args body ~contract) in
+        Record_method new_t
+      | _ -> trm_fail t "Internal.rename_record_members: record member not supported."
       end
   in
-  apply_on_record_fields app_fun rfs
+  apply_on_record_members app_fun rfs
 
 (** [update_record_fields_type typ_update rfs]: updates the type of [rfs] based on [typ_update] function. *)
-let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ ) (rfs : record_fields) : record_fields =
-  let app_fun (rf : record_field) : record_field =
+let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ ) (rfs : record_members) : record_members =
+  let app_fun (rf : record_member) : record_member =
     match rf with
-    | Record_field_member (f, ty) ->
+    | Record_field (f, ty) ->
       let ty = if Tools.pattern_matches pattern f then typ_update ty else ty in
-      Record_field_member (f, ty)
-    | Record_field_method t -> trm_fail t "Internal.update_record_fields_type: can't update the type of a method."
+      Record_field (f, ty)
+    | Record_method t -> trm_fail t "Internal.update_record_fields_type: can't update the type of a method."
       in
-    apply_on_record_fields app_fun rfs
+    apply_on_record_members app_fun rfs
 
 (** [change_loop_body loop body]: change the current body of loop [loop] with [body] *)
 let change_loop_body (loop : trm) (body : trm) : trm =
@@ -360,7 +332,6 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
           incr nb_gotos;
           if exit_label = no_label then trm_unit () else trm_goto exit_label
       end
-    | Trm_let_fun _ -> t (* do not recurse through local function definitions *)
     | _-> trm_map_with_terminal is_terminal aux t
   in
   let t = aux check_terminal t in
@@ -368,13 +339,12 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
 
 
 (** [get_field_name rf]: returns the name of the field [rf]. *)
-let get_field_name (rf : record_field) : string option =
+let get_field_name (rf : record_member) : string option =
   match rf with
-  | Record_field_member (n, _) -> Some n
-  | Record_field_method t1 ->
+  | Record_field (n, _) -> Some n
+  | Record_method t1 ->
     (* CHECK: #var-id *)
     begin match t1.desc with
     | Trm_let ((n, _), _) -> Some n.name
-    | Trm_let_fun (qn, _, _, _, _) -> Some qn.name
     | _ -> None
     end

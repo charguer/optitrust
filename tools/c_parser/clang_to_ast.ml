@@ -827,7 +827,7 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     let te = tr_expr e in
     trm_delete ?loc b te
   | Lambda {capture_default = ByRef; captures = _; is_mutable = _; parameters = po; result_type = rt; body = b} ->
-    let tt = begin match rt with | Some ty -> Some (tr_qual_type ?loc ty ) | None -> None end in
+    let tt = begin match rt with | Some ty -> tr_qual_type ?loc ty | None -> typ_auto end in
     let tb = tr_stmt b in
     let pl = match po with | Some pl -> pl | None -> [] in
     let args = List.map (fun {decoration = _;
@@ -899,7 +899,7 @@ and tr_decl_list (dl : decl list) : trms =
             let ft = tr_qual_type ?loc q in
             let al = List.map (tr_attribute loc) al in
             let ty = {ft with annot = { ft.annot with trm_annot_attributes = al } } in
-            (Record_field_member (fn, ty), Access_unspecified)
+            (Record_field (fn, ty), Access_unspecified)
           | _ ->
             Tools.debug "Failing from here";
             loc_fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in struct declaration"
@@ -1163,16 +1163,16 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       let ft = tr_qual_type ?loc q in
       let al = List.map (tr_attribute loc) al in
       let ty = { ft with annot = { ft.annot with trm_annot_attributes = al } } in
-      acc @ [(Record_field_member (fn, ty), !access_spec)]
+      acc @ [(Record_field (fn, ty), !access_spec)]
     | {decoration = _; desc = CXXMethod _; _} ->
       let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_field_method tdl, !access_spec)]
+      acc @ [(Record_method tdl, !access_spec)]
     | {decoration = _; desc = Constructor _; _} ->
       let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_field_method tdl, !access_spec)]
+      acc @ [(Record_method tdl, !access_spec)]
     | {decoration = _; desc = Destructor _; _} ->
       let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_field_method tdl, !access_spec)]
+      acc @ [(Record_method tdl, !access_spec)]
     | {decoration = _; desc = AccessSpecifier (spec); _} ->
       begin match spec with
       | CXXPublic -> access_spec := Access_public; acc

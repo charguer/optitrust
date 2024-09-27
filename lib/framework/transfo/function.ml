@@ -347,7 +347,7 @@ let%transfo inline ?(resname : string = "")
       let m = List.hd !still_to_process in
       still_to_process := List.tl !still_to_process;
       Target.iteri process [nbAny; cMark m; cOr
-        (List.map (fun f -> [cFun f.name]) (Var_set.elements !function_names))];
+        (List.map (fun f -> [cCall f.name]) (Var_set.elements !function_names))];
     done;
     if delete then Function_basic.delete [cOr
       (List.map (fun f -> [cTopFunDef f.name]) (Var_set.elements !function_names))];
@@ -366,9 +366,9 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
   Target.iter (fun p ->
     let def_trm = Target.resolve_path p in
     let error = "Function.inline_def: expected function definition" in
-    let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
+    let (qvar, _, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
     (* FIXME: deal with qvar *)
-    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbAny; cFun qvar.name];
+    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbAny; cCall qvar.name];
   ) tg
 
 (** [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose
@@ -387,14 +387,14 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
     either "exactly at" or "anywhere in depth" in the target [tg], depending on the value of ~indepth. *)
 let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = no_mark) (tg : target) : unit =
   let tg = if indepth
-    then tg @ [cFun ~fun_:[cFunDef ""] ""]
+    then tg @ [cCall ~fun_:[cFun ()] ""]
     else tg in
   Target.iter (fun p ->
     let tg_trm = Target.resolve_path p in
     match tg_trm.desc with
     | Trm_apps _ ->
       Function_basic.beta ~body_mark tg
-    | Trm_let_fun (_f, _, _, _, _) ->
+    | Trm_fun _ ->
       let parent_path, _ = List.unlast p in
       let parent_node = Target.resolve_path parent_path in
       begin match parent_node.desc with
@@ -426,8 +426,8 @@ let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg
   | None -> failwith "Function.uninline: fct target does point to any node" in
   Target.iter (fun p ->
     let mark = Mark.next () in
-    match tg_fun_def.desc with
-    | Trm_let_fun (_, _, _, body, _) ->
+    match trm_let_fun_inv tg_fun_def with
+    | Some (_, _, _, body, _) ->
       begin match body.desc with
       | Trm_seq tl ->
         let nb = Mlist.length tl in

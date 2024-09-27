@@ -89,7 +89,7 @@ let typ_const_var = toplevel_typvar "const"
 let typ_const_constr = typ_var typ_const_var
 (** [typ_const ?loc t]: wrapper for making the corresponding const type.
   After decoding, const types should only appear behind a pointer.
-  LATER: Think about constness of struct members, for now we only support structs without const fields. *)
+  LATER: Think about constness of struct fields, for now we only support structs without const fields. *)
 let typ_const ?loc (t : typ) : typ =
   typ_apps ?loc typ_const_constr [t]
 
@@ -352,6 +352,11 @@ let is_typ_array (ty : typ) : bool =
   | Some _ -> true
   | _ -> false
 
+let is_typ_auto (ty: typ) : bool =
+  match typ_var_inv ty with
+  | Some v when var_eq v typ_auto_var -> true
+  | _ -> false
+
 let is_typ_float (ty: typ) : bool =
   match typ_builtin_inv ty with
   | Some Typ_float _ -> true
@@ -377,25 +382,25 @@ let typ_of_lit (l : lit) : typ =
 
 (*****************************************************************************)
 
-(** [typedef_get_members ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
-     then only members with the specified access_control are returned. *)
-let typedef_get_members ?(access : access_control option) (t : trm) : (label * typ) list =
+(** [typedef_get_fields ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
+     then only fields with the specified access_control are returned. *)
+let typedef_get_fields ?(access : access_control option) (t : trm) : (label * typ) list =
   match t.desc with
   | Trm_typedef td ->
     begin match td.typedef_body with
     | Typedef_record rf ->
       List.fold_left (fun acc (rf, rf_ann) ->
         match rf with
-        | Record_field_member (lb, ty) ->
+        | Record_field (lb, ty) ->
           begin match access with
           | Some accs -> if accs = rf_ann then (lb, ty) :: acc else acc
           | None -> (lb, ty) :: acc
           end
-        | Record_field_method _ -> acc
+        | Record_method _ -> acc
       ) [] (List.rev rf)
-    | _ -> trm_fail t "Ast.typdef_get_members: this function should be called only for typedef structs and classes"
+    | _ -> trm_fail t "Ast.typdef_get_fields: this function should be called only for typedef structs and classes"
     end
-  | _ -> trm_fail t "Ast.typedef_get_members: can't get members of a trm that's not a type definition."
+  | _ -> trm_fail t "Ast.typedef_get_fields: can't get fields of a trm that's not a type definition."
 
 
 (** [typedef_get_methods ~access t]: returns all the methods of typedef [t]. If [access] is provided as an argument
@@ -407,11 +412,11 @@ let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
     | Typedef_record rf ->
       List.fold_left (fun acc (rf, rf_ann) ->
         match rf with
-        | Record_field_member _fm ->  acc
-        | Record_field_method trm ->
+        | Record_field _fm -> acc
+        | Record_method meth ->
           begin match access with
-          | Some accss -> if accss = rf_ann then trm :: acc else acc
-          | None -> trm :: acc
+          | Some accss -> if accss = rf_ann then meth :: acc else acc
+          | None -> meth :: acc
           end
       ) [] (List.rev rf)
     | _ -> trm_fail t "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
@@ -419,7 +424,7 @@ let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
   | _ -> trm_fail t "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
 
 (** [typedef_get_all_fields t]: returns all the fields of [t]. *)
-let typedef_get_all_fields (t : trm) : record_fields =
+let typedef_get_all_fields (t : trm) : record_members =
   match t.desc with
   | Trm_typedef td ->
     begin match td.typedef_body with
@@ -429,12 +434,9 @@ let typedef_get_all_fields (t : trm) : record_fields =
   | _ -> trm_fail t "Ast.get_all_fields: only structs and classes have fields"
 
 
-(** [get_member_type t rf]: returns the type of the member [rf]. *)
-let get_member_type (t : trm) (rf : record_field) : typ =
+(** [get_field_type t rf]: returns the type of the field [rf]. *)
+let get_field_type (t : trm) (rf : record_member) : typ =
   match rf with
-  | Record_field_member (_, ty) -> ty
-  | Record_field_method t1 ->
-    begin match t1.desc with
-    | Trm_let_fun (_, ty, _, _, _) -> ty
-    | _ -> trm_fail t "Ast.get_member_type: can't get the type of the member [rf]."
-    end
+  | Record_field (_, ty) -> ty
+  | Record_method _ ->
+    trm_fail t "Ast.get_field_type: the record field is a method."

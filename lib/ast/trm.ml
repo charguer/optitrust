@@ -119,17 +119,19 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
    (tl : (typed_var * trm) list) : trm =
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_let_mult tl)
 
-(** [trm_let ~annot ?loc ?ctx name ret_typ args body]: function definition *)
-let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec = FunSpecUnknown)
-  (v : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
-  trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_let_fun (v, ret_typ, args, body, contract))
-
 (** [trm_fun ~annot ?loc args ret_typ body]: anonymous function.  *)
 let trm_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec = FunSpecUnknown)
-  (args : typed_vars) (ret_typ : typ option) (body : trm) =
+  (args : typed_vars) (ret_typ : typ) (body : trm) =
   trm_make ~annot ?loc ?ctx (Trm_fun (args, ret_typ, body, contract))
 
-let trm_fun_inv (t: trm) : (typed_vars * typ option * trm * fun_spec) option =
+(** [trm_let_fun ~annot ?loc ?ctx name ret_typ args body]: function definition
+  FIXME: Swap argument order between ret_typ and args
+*)
+let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec = FunSpecUnknown)
+  (v : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
+  trm_let ~annot ?loc ?ctx (v, typ_fun ?loc (List.map snd args) ret_typ) (trm_fun ?loc ~contract args ret_typ body)
+
+let trm_fun_inv (t: trm) : (typed_vars * typ * trm * fun_spec) option =
     match t.desc with
     | Trm_fun (args, typ, body, contract) -> Some (args, typ, body, contract)
     | _ -> None
@@ -290,7 +292,7 @@ let ghost_call (ghost_var: var) (ghost_args: (string * formula) list): ghost_cal
   { ghost_fn = trm_var ghost_var; ghost_args = List.map (fun (g, t) -> (name_to_var g, t)) ghost_args }
 
 let ghost_closure_call contract body =
-  { ghost_fn = trm_fun [] None ~contract:(FunSpecContract contract) body; ghost_args = [] }
+  { ghost_fn = trm_fun [] typ_auto ~contract:(FunSpecContract contract) body; ghost_args = [] }
 
 (*****************************************************************************)
 
@@ -310,7 +312,7 @@ let trm_attr_add (att : attribute) (t : trm) : trm =
 (** [trm_is_statement t]: checks if [t] corresponds to a statement or not *)
 let trm_is_statement (t : trm) : bool =
   match t.desc with
-  | Trm_let _ | Trm_let_mult _ | Trm_let_fun _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _
+  | Trm_let _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _
   | Trm_do_while _ | Trm_for_c _ | Trm_for _ | Trm_switch _ | Trm_abort _ | Trm_goto _  -> true
   | Trm_apps _ ->
     begin match t.typ with
@@ -509,12 +511,14 @@ let trm_let_mult_inv (t : trm) : (typed_var * trm) list option =
   | _ -> None
 
 (** [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
-     Otherwise it returns a [None]. *)
-let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm) option =
-  match t.desc with
-  | Trm_let_fun (f, ret_ty, args, body, _) -> Some (f, ret_ty, args, body)
-  | _ -> None
-
+     Otherwise it returns a [None].
+    TODO: Refactor this function : ret_typ should go after arguments and spec should not be ignored
+*)
+let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm * fun_spec) option =
+  let open Option.Monad in
+  let* xf, _, tf = trm_let_inv t in
+  let* args, ret_ty, body, fun_spec = trm_fun_inv tf in
+  Some (xf, ret_ty, args, body, fun_spec)
 
 (** [trm_apps_inv t]: returns the components of a [trm_apps] constructor in case [t] is function application.
     Otherwise it returns [None]. *)
@@ -655,7 +659,6 @@ let trm_mlist_inv_marks (t : trm) : mark list list option =
 let decl_name (t : trm) : var option =
   match t.desc with
   | Trm_let ((x,_),_) -> Some x
-  | Trm_let_fun (f, _, _, _, _) -> Some f
   | _ -> None
 
 (** [vars_bound_in_trm_init t]: gets the list of variables that are bound inside the initialization trm of the for_c loop*)
@@ -1203,10 +1206,12 @@ let var_has_name (v : var) (n : string) : bool =
     | Some (Lit_int (_, c)) when c = cst -> true
     | _ -> false
 
-(** [is_fun_with_empty_body t]: checks if the function [t] has an empty body or not. *)
-let is_fun_with_empty_body (t : trm) : bool =
-  match t.desc with
-  | Trm_let_fun (_, _, _, body, _) when is_trm_uninitialized body -> true
+(** [is_fun_predecl t]: checks if the function [t] has an empty body or not.
+  FIXME: Using let nodes for function predeclaration is semantically weird and will never typecheck. To handle predeclarations properly add a new Trm_predecl in the AST.
+  *)
+let is_fun_predecl (t : trm) : bool =
+  match trm_let_fun_inv t with
+  | Some (_, _, _, body, _) when is_trm_uninitialized body -> true
   | _ -> false
 
 (** [trm_seq_enforce t]: if [t] is not already a sequence, wrap it in one. *)
@@ -1334,16 +1339,8 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
     let ts' = list_map (fun ((x, ty), init) -> ((x, f false ty), f false init)) (fun ((_, ty1), init1) ((_, ty2), init2) -> ty1 == ty2 && init1 == init2) ts in
     if (ts' == ts) then t else
       (trm_let_mult ~annot ?loc ~ctx ts')
-  | Trm_let_fun (f', res, args, body, contract) ->
-    let res' = f false res in
-    let args' = list_map (fun (x, ty) -> (x, f false ty)) (fun (_, ty1) (_, ty2) -> ty1 == ty2) args in
-    let body' = f false body in
-    let contract' = fun_spec_map fun_contract_map (==) contract in
-    if (share_if_no_change && res' == res && args' == args && body' == body && contract' == contract)
-      then t
-      else (trm_let_fun ~annot ?loc ~contract:contract' ~ctx f' res' args' body')
   | Trm_fun (args, res, body, contract) ->
-    let res' = opt_map (f false) (==) res in
+    let res' = f false res in
     let args' = list_map (fun (x, ty) -> (x, f false ty)) (fun (_, ty1) (_, ty2) -> ty1 == ty2) args in
     let body' = f false body in
     let contract' = fun_spec_map fun_contract_map (==) contract in
@@ -1436,14 +1433,14 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       let rfl' = list_map
         (fun (rf, rf_ann) ->
           let rf' = begin match rf with
-          | Record_field_method rft ->
+          | Record_method rft ->
             let rft' = f false rft in
             if share_if_no_change && rft == rft'
               then rf
-              else Record_field_method rft'
-          | Record_field_member (name, ty) ->
+              else Record_method rft'
+          | Record_field (name, ty) ->
             let ty' = f false ty in
-            if ty == ty' then rf else Record_field_member (name, ty')
+            if ty == ty' then rf else Record_field (name, ty')
           end in
           rf', rf_ann
         )
@@ -1556,26 +1553,6 @@ let trm_map_vars_ret_ctx
       in
       (!cont_ctx, t')
 
-    | Trm_let_fun (fn, rettyp, args, body, contract) ->
-      let _, rettyp' = f_map ctx rettyp in
-      let body_ctx, args' = List.fold_left_map (fun ctx typ_arg ->
-        let arg, typ = typ_arg in
-        let _, typ' = f_map ctx typ in
-        let ctx, arg' = map_binder ctx arg false in
-        let typ_arg' = if arg' == arg && typ' == typ then typ_arg else (arg', typ') in
-        (ctx, typ_arg')
-      ) (enter_scope ctx t) args in
-      let body_ctx, contract' = fun_spec_map body_ctx contract in
-      let body_ctx, body' = f_map body_ctx body in
-      let cont_ctx, fn' = map_binder ctx fn (is_fun_with_empty_body t) in
-      let t' = if (body' == body && rettyp == rettyp' && List.for_all2 (==) args args' && fn == fn' && contract == contract')
-        then t
-        else (trm_let_fun ~annot ?loc ~ctx:t_ctx ~contract:contract' fn' rettyp' args' body')
-      in
-      (* TODO: Proper function type here *)
-      let ctx = exit_scope cont_ctx body_ctx t' in
-      (ctx, t')
-
     | Trm_for (range, body, contract) ->
       let loop_ctx, index = map_binder (enter_scope ctx t) range.index false in
       let _, start = f_map loop_ctx range.start in
@@ -1614,12 +1591,7 @@ let trm_map_vars_ret_ctx
       (ctx, t')
 
     | Trm_fun (args, ret, body, contract) ->
-      let ret' = match ret with
-        | Some rettyp ->
-          let _, rettyp' = f_map ctx rettyp in
-          if rettyp' == rettyp then ret else Some rettyp'
-        | None -> ret
-      in
+      let _, ret' = f_map ctx ret in
       let body_ctx, args' = List.fold_left_map (fun ctx typ_arg ->
         let arg, typ = typ_arg in
         let _, typ' = f_map ctx typ in
@@ -1682,13 +1654,13 @@ let trm_map_vars_ret_ctx
       | Typedef_record rfl ->
         let rfl' = List.map (fun (rf, rf_ann) ->
           let rf' = begin match rf with
-          | Record_field_method rft ->
-            let (class_ctx', rft') = f_map !class_ctx rft in
+          | Record_method rft ->
+            let class_ctx', rft' = f_map !class_ctx rft in
             class_ctx := class_ctx';
-            if rft == rft' then rf else Record_field_method rft'
-          | Record_field_member (field, ty) ->
+            if rft == rft' then rf else Record_method rft'
+          | Record_field (field, ty) ->
             let _, ty' = f_map !class_ctx ty in
-            if ty == ty' then rf else Record_field_member (field, ty')
+            if ty == ty' then rf else Record_field (field, ty')
           end in
           rf', rf_ann
         ) rfl in
@@ -1839,9 +1811,6 @@ let trm_rename_vars_ret_ctx
       let map_ghost_arg_name = map_ghost_arg_name ctx fn in
       let ghost_args = List.map (fun (g, gt) -> (map_ghost_arg_name g, gt)) ghost_args in
       post_process ctx (trm_alter ~desc:(Trm_apps (fn, args, ghost_args)) t)
-    | Trm_let_fun (fn, rettyp, args, body, FunSpecReverts other_fn) ->
-      let other_fn' = map_var ctx other_fn in
-      post_process ctx (trm_alter ~desc:(Trm_let_fun (fn, rettyp, args, body, FunSpecReverts other_fn')) t)
     | Trm_fun (args, rettyp, body, FunSpecReverts other_fn) ->
       let other_fn' = map_var ctx other_fn in
       post_process ctx (trm_alter ~desc:(Trm_fun (args, rettyp, body, FunSpecReverts other_fn')) t)
@@ -2070,7 +2039,7 @@ let rec unify_trm ?(on_failure = fun a b -> ()) (t_left: trm) (t_right: trm) (ev
         ) evar_ctx masked_ctx)
 
     | Trm_arbitrary _ -> failwith "unify_trm: found Trm_arbitrary during unification (a reparse is missing)"
-    | _ -> failwith "unify_trm: unhandled constructor" (* TODO: Implement the rest of constructors *)
+    | _ -> failwith "unify_trm: unhandled constructor (%s)" (Ast_to_text.ast_to_string t_right) (* TODO: Implement the rest of constructors *)
     in
     if Option.is_none res then on_failure t_left t_right;
     res
@@ -2249,8 +2218,8 @@ let tmap_filter (keys : vars) (map : tmap) : tmap =
 let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
   let t_map = ref Var_map.empty in
     let rec aux (t : trm) : trm =
-      match t.desc with
-      | Trm_let_fun (f, ty, tv, _, _) ->
+      match trm_let_fun_inv t with
+      | Some (f, ty, tv, _, _) ->
         if f_pred f then begin
           t_map := Var_map.add f t !t_map;
           (* replace the body with an empty body with an annotation *)
@@ -2258,7 +2227,7 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
           trm_add_cstyle BodyHiddenForLightDiff t2
         end else
           t
-      | _ -> trm_map aux t
+      | None -> trm_map aux t
       in
   let res = aux t in
   res, !t_map
@@ -2271,14 +2240,7 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
   | Trm_seq tl ->
       let new_tl =
       Mlist.map (fun def -> match def.desc with
-      | Trm_let_fun (f, _, _, _, _) ->
-        begin match Var_map.find_opt f chopped_fun_map with
-        | Some tdef ->  tdef
-        | _ -> def
-        end
       | Trm_let ((x, _), _) ->
-        (* There is a slight difference between clang and menhir how they handle function declarations, that's why we
-         need to check if there are variables inside the function map *)
         begin match Var_map.find_opt x chopped_fun_map with
         | Some tdef -> tdef
         | _ -> def
@@ -2317,7 +2279,7 @@ let trm_def_or_used_vars (t : trm) : Var_set.t =
     | Some (x, _, _) -> vars := Var_set.add x !vars
     | _ ->
     begin match trm_let_fun_inv t with
-    | Some (x, _, _, _) -> vars := Var_set.add x !vars
+    | Some (x, _, _, _, _) -> vars := Var_set.add x !vars
     | _ ->
     begin match trm_for_inv t with
     | Some (range, _, _) -> vars := Var_set.add range.index !vars

@@ -166,8 +166,6 @@ let delete_annots_on ?(delete_contracts = true) ?(delete_ghost = true) (t : trm)
       begin match t.desc with
       | Trm_fun (args, ret_ty, body, contract) ->
         trm_replace (Trm_fun (args, ret_ty, body, FunSpecUnknown)) t
-      | Trm_let_fun (f, ty, args, body, contract) ->
-        trm_replace (Trm_let_fun (f, ty, args, body, FunSpecUnknown)) t
       | Trm_for (loop_range, body, contract) ->
         trm_replace (Trm_for (loop_range, body, empty_loop_contract)) t
       | Trm_for_c (start, cond, stop, body, contract) ->

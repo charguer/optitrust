@@ -9,11 +9,11 @@ let _ = Run.script_cpp (fun _ ->
   ) in
   let fv n = find_var n [] in
 
-  !! Matrix.delocalize ~last:true (fv "bagNext") ~into:"bagNexts" ~init_zero:true ~acc_in_place:false ~dim:(var "N0") ~index:"bagKind" ~indices:["idCell"] ~acc:"sum" ~ops [cFor "idCell" ~body:[cFun "bag_push"; cVar "bagNext"]];
+  !! Matrix.delocalize ~last:true (fv "bagNext") ~into:"bagNexts" ~init_zero:true ~acc_in_place:false ~dim:(var "N0") ~index:"bagKind" ~indices:["idCell"] ~acc:"sum" ~ops [cFor "idCell" ~body:[cCall "bag_push"; cVar "bagNext"]];
 
   let alloc_instr = [cTopFunDef "allocate"; cWriteVar "bagNext1"] in
-  !! Matrix.delocalize ~last:true (fv "bagNext1") ~into:"bagNexts1" ~alloc_instr ~labels:["alloc"; ""; "dealloc"] ~init_zero:true ~acc_in_place:false ~dim:(var "N0") ~index:"bagKind" ~indices:["idCell"] ~acc:"sum" ~ops [cFor "idCell" ~body:[cFun "bag_push"; cVar "bagNext1"]];
+  !! Matrix.delocalize ~last:true (fv "bagNext1") ~into:"bagNexts1" ~alloc_instr ~labels:["alloc"; ""; "dealloc"] ~init_zero:true ~acc_in_place:false ~dim:(var "N0") ~index:"bagKind" ~indices:["idCell"] ~acc:"sum" ~ops [cFor "idCell" ~body:[cCall "bag_push"; cVar "bagNext1"]];
 
   !! Trace.restore_original();
-  !! Matrix.delocalize (fv "bagNext") ~into:"bagNexts" ~init_zero:true ~acc_in_place:false ~dim:(var "N0") ~index:"i0" ~acc:"sum" ~ops [cFor "idCell" ~body:[cFun "bag_push"; cVar "bagNext"]];
+  !! Matrix.delocalize (fv "bagNext") ~into:"bagNexts" ~init_zero:true ~acc_in_place:false ~dim:(var "N0") ~index:"i0" ~acc:"sum" ~ops [cFor "idCell" ~body:[cCall "bag_push"; cVar "bagNext"]];
 )

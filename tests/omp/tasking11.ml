@@ -5,7 +5,7 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Sequence.intro_on_instr ~mark:"seq" [sInstr "x++"];
   !! Omp.task ~clause:[Shared ["x"]; Mergeable] [cMark "seq"];
-  !! Omp.taskwait [cFun "printf"];
+  !! Omp.taskwait [cCall "printf"];
   !! Marks.remove "seq" [cMark "seq"];
-  
+
 )

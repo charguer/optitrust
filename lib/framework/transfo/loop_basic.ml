@@ -88,7 +88,7 @@ let collapse_on (simpl_mark : mark) (index : string)
       | RO, f -> ghost_ro, f
       | Uninit, f -> ghost_uninit, f
       in
-      let items = trm_copy (formula_fun [ri.index, typ_int; rj.index, typ_int] None formula) in
+      let items = trm_copy (formula_fun [ri.index, typ_int; rj.index, typ_int] formula) in
       Resource_trm.ghost (ghost_call ghost [
         "n", nbi; "m", nbj; "items", items
       ])
@@ -915,7 +915,7 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
     let shift_ghosts ghost =
       List.map (fun (_, formula) ->
         let i = new_var index.name in
-        let items = formula_fun [i, typ_int] None (trm_subst_var index (trm_var i) formula) in
+        let items = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
         Resource_trm.ghost (ghost_call ghost [
           "start", start; "stop", stop; "step", step; "items", items;
           "shift", shift; "new_start", start'; "new_stop", stop'])

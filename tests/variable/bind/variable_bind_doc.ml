@@ -3,6 +3,6 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Variable_basic.bind "b" [cFun "f"];
+  !! Variable_basic.bind "b" [cCall "f"];
 
 )
