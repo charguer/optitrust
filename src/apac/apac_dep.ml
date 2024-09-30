@@ -5,7 +5,13 @@ open Target
 (** [DepAttr]: a module to represent dependency attributes. See [Dep]. *)
 module DepAttr : sig
   type t =
-    ArgIn | ArgInOut | InductionVariable | Condition | Subscripted | Accessor
+    | ArgIn
+    | ArgInOut
+    | InductionVariable
+    | Condition
+    | Subscripted
+    | Accessor
+    | GlobalVariable
   val compare : t -> t -> int
   val equal : t -> t -> bool
   val to_string : t -> string
@@ -25,6 +31,9 @@ end = struct
     (** non-constant element of an array accessor, e.g. `i' in `tab\[i + 1\]' or
        `idx\[i\]' and `i' in `tab\[idx\[i\]\]' *)
     | Accessor
+    (** global variable *)
+    | GlobalVariable
+  
   (** [DepAttr.compare da1 da2]: compares two dependency attributes [da1] and
       [da2]. As [DepAttr.t] is an enumeration type, this is a simple comparison
       between two integer values representing the associated enumeration labels
@@ -46,6 +55,7 @@ end = struct
     | Condition -> "Condition"
     | Subscripted -> "Subscripted"
     | Accessor -> "Accessor"
+    | GlobalVariable -> "GlobalVariable"
 end
 
 (** [DepAttr_set]: a module to represent sets of dependency attributes. *)
