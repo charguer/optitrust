@@ -882,6 +882,38 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
   else if (Task.attributed t Taskifiable) ||
             (Task.attributed t WaitForSome) then
     begin
+      if (Task.attributed t Taskifiable) then
+        begin
+          let gd = Dep_set.filter (fun d ->
+                     Dep_map.has_with_attribute d GlobalVariable t.ioattrs
+                   ) t.inouts in
+          Dep_set.iter (fun d ->
+              let v = Dep.variable d in
+              let (ty, _) = Var_map.find v !Apac_records.globals in
+              Apac_records.globals :=
+                Var_map.add v (ty, true) !Apac_records.globals
+            ) gd;
+          List.iter (fun t ->
+              let rec callees = fun s t ->
+                match t.desc with
+                | Trm_apps ({ desc = Trm_var (_ , f); _ }, _) when
+                       Var_Hashtbl.mem Apac_records.functions f &&
+                         not (Var_set.mem f s) ->
+                   let r = Var_Hashtbl.find Apac_records.functions f in
+                   trm_fold callees (Var_set.add f s) r.ast 
+                | _ -> s
+              in
+              let fs = trm_fold callees Var_set.empty t in
+              Var_set.iter (fun f ->
+                  let r = Var_Hashtbl.find Apac_records.functions f in
+                  Var_set.iter (fun v ->
+                      let (ty, _) = Var_map.find v !Apac_records.globals in
+                      Apac_records.globals :=
+                        Var_map.add v (ty, true) !Apac_records.globals
+                    ) r.writes
+                ) fs
+            ) t.current
+        end;
       let sync = Dep_set.filter (fun d ->
                      Dep_map.has_with_attribute d Accessor t.ioattrs
                    ) t.ins in
@@ -1312,3 +1344,94 @@ let cutoff_execution_time () : unit =
       (** re-build [s]. *)
       trm_seq ~ctx:t.ctx ~annot:t.annot s
     ) []
+
+let secure_globals (tg : target) : unit =
+  let check (t : trm) : bool =
+    trm_fold (fun acc t ->
+        let chk = match (trm_var_inv t) with
+          | Some v -> Var_map.mem v !Apac_records.globals
+          | None -> false in
+        acc || chk
+      ) false t
+  in
+  let rec aux (t : trm) : trm * bool =
+    match t.desc with
+    | Trm_seq stmts ->
+       let stmts = Mlist.to_list stmts in
+       let stmts = List.map (fun s -> aux s) stmts in
+       let rec merge = fun s ->
+         match s with
+         | (t1, b1) :: (t2, b2) :: tt ->
+            if b1 && b2 &&
+                 not (trm_has_any_pragmas t1) && not (trm_has_any_pragmas t2)
+            then merge ((Syntax.trm_seq_no_brace [t1; t2], true) :: tt)
+            else (t1, b1) :: (merge ((t2, b2) :: tt))
+         | _ -> s
+       in
+       let stmts = merge stmts in
+       let stmts =
+         List.map (fun (t, b) ->
+             if b then
+               let task =
+                 trm_has_pragma (fun p ->
+                     match p with Task _ -> true | _ -> false
+                   ) t in
+               if task then
+                 let pragmas = trm_get_pragmas t in
+                 let t = trm_rem_pragmas t in
+                 let t = trm_append_pragma (Critical (None, None)) t in
+                 let t = trm_seq_nomarks [t] in
+                 trm_add_pragmas pragmas t
+               else
+                 let t =
+                   if (Nobrace.is_nobrace t) then
+                     trm_seq_nomarks [t] else t in       
+                 trm_append_pragma (Critical (None, None)) t
+             else t
+           ) stmts in
+       (trm_seq_nomarks ~annot:t.annot stmts, false)
+    | Trm_for_c (init, cond, inc, body, _) ->
+       if (check init) || (check cond) || (check inc) then (t, true)
+       else
+         let body, _ = aux body in
+         (trm_for_c ~annot:t.annot init cond inc body, false)
+    | Trm_for (range, body, _) ->
+       let _, init, _, cond, step, _ = range in
+       let step = match step with Step st -> check st | _ -> false in
+       if (check init) || (check cond) || step then (t, true)
+       else
+         let body, _ = aux body in
+         (trm_for ~annot:t.annot range body, false)
+    | Trm_if (cond, yes, no) ->
+       if (check cond) then (t, true)
+       else
+         let yes, _ = aux yes in
+         let no, _ = aux no in
+         (trm_if ~annot:t.annot cond yes no, false)
+    | Trm_while (cond, body) ->
+       if (check cond) then (t, true)
+       else
+         let body, _ = aux body in
+         (trm_while ~annot:t.annot cond body, false)
+    | Trm_do_while (body, cond) ->
+       if (check cond) then (t, true)
+       else
+         let body, _ = aux body in
+         (trm_do_while ~annot:t.annot body cond, false)
+    | Trm_switch (cond, cases) ->
+       if (check cond) then (t, true)
+       else
+         let cases =
+           List.map (fun (ls, b) ->
+               let b, _ = aux b in
+               (ls, b)
+             ) cases in
+         (trm_switch ~annot:t.annot cond cases, false)
+    | _ -> (t, check t)
+  in
+  Nobrace_transfo.remove_after (fun _ ->
+      Target.apply_at_target_paths (fun t ->
+          Apac_records.globals :=
+            Var_map.filter (fun _ (_, v) -> v) !Apac_records.globals;
+          let t, _ = aux t in t
+        ) tg)
