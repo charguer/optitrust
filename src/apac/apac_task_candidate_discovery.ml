@@ -1194,9 +1194,9 @@ let merge (tg : target) : unit =
 (** [detect_tasks_simple_on p t]: see [detect_tasks_simple_on]. *)
 let detect_tasks_simple_on (p : path) (t : trm) : unit =
   (** [detect_tasks_simple_on.aux v]: if the vertex [v] consists in a call to a
-      function we know the definition of without featuring child scopes,
-      attribute it [Taskifiable]. If [v] involves nested candidate graphs,
-      process them recursively. *)
+      function we know the definition of without featuring child scopes or
+      references to global variables, attribute it [Taskifiable]. If [v]
+      involves nested candidate graphs, process them recursively. *)
   let rec aux (v : TaskGraph.V.t) : unit =
     let t = TaskGraph.V.label v in
     (** Initialize a counter of function calls [k]. *)
@@ -1224,9 +1224,10 @@ let detect_tasks_simple_on (p : path) (t : trm) : unit =
       | _ -> trm_iter loop c
     in
     List.iter (fun e -> loop e) t.current;
-    (** If there is at least one call to a function [f] we know the
-        definition of, mark the task candidate as [Taskifiable]. *)
-    if !k > 0 then t.attrs <- TaskAttr_set.add Taskifiable t.attrs;
+    (** Mark the task candidate as [Taskifiable] if there is at least one call
+        to a function [f] we know the definition of. *)
+    if !k > 0 then
+      t.attrs <- TaskAttr_set.add Taskifiable t.attrs;
     (** When [v] features nested candidate graphs, explore the substatements. *)
     List.iter (fun gl ->
         List.iter (fun go ->
