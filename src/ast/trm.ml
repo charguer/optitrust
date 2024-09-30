@@ -447,6 +447,10 @@ let trm_get_labels (t : trm) =
  let trm_add_pragmas (p : cpragma list) (t : trm) : trm =
    apply_on_pragmas (fun pragmas -> p @ pragmas) t
 
+ (** [trm_append_pragma p t]: appends the pragma [p] to the term [t]. *)
+ let trm_append_pragma (p : cpragma) (t : trm) : trm =
+   apply_on_pragmas (fun pragmas -> pragmas @ [p]) t
+
  (* [trm_filter_pragma pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
  let trm_filter_pragma (pred : cpragma -> bool) (t : trm) : trm =
    apply_on_pragmas (fun pragmas -> List.filter (fun p -> pred p) pragmas) t
@@ -454,6 +458,11 @@ let trm_get_labels (t : trm) =
  (* [trm_rem_pragma p t]: removes the pragma [p] from [t]. *)
  let trm_rem_pragma (p : cpragma) (t : trm) : trm =
    trm_filter_pragma (fun p1 -> p <> p1) t
+
+ (** [trm_rem_pragmas p t]: removes all the pragmas from the term [t]. *)
+ let trm_rem_pragmas (t : trm) : trm =
+   let annot = { t.annot with trm_annot_pragma = [] } in
+   trm_alter ~annot t
 
  (* [trm_get_pragmas t]: returns all the pragmas annotated to [t]. *)
  let trm_get_pragmas (t : trm) : cpragma list =
@@ -463,6 +472,11 @@ let trm_get_labels (t : trm) =
  let trm_has_pragma (pred : cpragma -> bool) (t : trm) : bool =
    let t_pragmas = trm_get_pragmas t in
    List.exists pred t_pragmas
+
+ (** [trm_has_any_pragmas t]: checks whether the term [t] has any pragmas. *)
+ let trm_has_any_pragmas (t : trm) : bool =
+   let t_pragmas = trm_get_pragmas t in
+   (List.length t_pragmas) > 0
 
  (* [trm_pass_pragmas t1 t2]: pass pragmas of trm [t1] to trm [t2]. *)
  let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =
