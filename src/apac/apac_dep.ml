@@ -66,6 +66,7 @@ module Dep : sig
   type t = dep
   type subscripted_mode = ElementWise | Dimension | Variable
   val degree : t -> int
+  val variable : t -> var
   val is_trm : t -> bool
   val of_trm : trm -> var -> int -> t
   val of_degree : trm -> var -> int -> t list
@@ -102,6 +103,13 @@ end = struct
     (** If [d] is a direct variable access, the degree is null. *)
     | Dep_var _ -> 0
     (** Fail in all other cases. *)
+    | Dep_ptr _ -> failwith "Dep.to_string: Unsupported dependency type."
+  
+  (** [Dep.variable d]: returns the variable component of the dependency [d]. *)
+  let variable (d : t) : var =
+    match d with
+    | Dep_trm (_, v) -> v
+    | Dep_var v -> v
     | Dep_ptr _ -> failwith "Dep.to_string: Unsupported dependency type."
 
   (** [Dep.is_trm d]: checks whether the dependency [d] is of type [Dep_trm]. *)
