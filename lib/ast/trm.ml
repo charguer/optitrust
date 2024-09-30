@@ -558,6 +558,16 @@ let trm_record_inv (t: trm) : (typ * (label option * trm) mlist) option =
   | Trm_record (typ, fs) -> Some (typ, fs)
   | _ -> None
 
+(** [trm_ignore_inv]: deconstructs a 'ignore(x)' call. *)
+let trm_ignore_inv (t: trm): trm option =
+  match trm_apps_inv t with
+  | Some (f, [x]) ->
+    begin match trm_var_inv f with
+    | Some f_var when var_eq f_var var_ignore -> Some x
+    | _ -> None
+    end
+  | _ -> None
+
 let trm_sizeof_inv (t: trm): typ option =
   match trm_apps_inv t with
   | Some (f, [ty]) ->

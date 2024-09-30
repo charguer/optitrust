@@ -165,6 +165,7 @@ let trm_compound_assign binop ft1 ft2 k t =
     k
   | None -> raise Next
 
+let trm_get f = trm_unop Unop_get f
 let trm_set ft1 ft2 = trm_binop Binop_set ft1 ft2
 
 let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
@@ -242,7 +243,10 @@ let trm_ref fty ft k t =
     k
   | None -> raise Next
 
-let trm_get f = trm_unop Unop_get f
+let trm_ignore f k t =
+  match trm_ignore_inv t with
+  | Some t' -> f k t'
+  | None -> raise Next
 
 let typ_var = trm_var
 let typ_apps ft fargs k ty =
