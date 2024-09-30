@@ -13,7 +13,7 @@ module FunctionRecord : sig
       writes : Var_set.t;
       ast : trm
     }
-  val create : (var * typ) list -> Var_set.t -> trm -> t
+  val create : (var * typ) list -> (var * typ) list -> Var_set.t -> trm -> t
   val constify : bool list -> (a * int) list -> (a * int) list
   val is_rw : t -> int -> bool
   val to_string : t -> string
@@ -129,11 +129,13 @@ end = struct
           this case, the argument is passed by value and is thus [ReadOnly]. *)
       | _ -> ReadOnly
     
-    (** [FunctionRecord.create args writes ast]: creates a new function record
-        based on the argument acess classifications in the list [args], the set
-        [writes] of global variables the function writes to within its body and
-        the corresponding abstract syntax tree [ast]. *)
-    let create (args : (var * typ) list) (writes : Var_set.t) (ast : trm) : t =
+    (** [FunctionRecord.create args globs writes ast]: creates a new function
+        record based on the arguments in the list [args], the global variables
+        in the list [globs], the set [writes] of global variables the function
+        writes to within its body and the corresponding abstract syntax tree
+        [ast]. *)
+    let create (args : (var * typ) list) (globs : (var * typ) list)
+          (writes : Var_set.t) (ast : trm) : t =
       (** Create a hash table for function-local variables. *)
       let scope = Var_Hashtbl.create 10 in
       (** For each function argument [arg] in [args], *)
@@ -147,6 +149,16 @@ end = struct
                 the classification together with the number of levels of
                 indirection. *)
             (classify ty, nli)) args in
+      (** Add the global variables from [globs] to the [scope] of the function
+          so as to make them available during dependency discovery (see
+          [!Apac_task_candidate_discovery.trm_discover_dependencies]). *)
+      List.iter (fun (glob, ty) ->
+          (** For this, we have to determine the number of levels of indirection
+              of each global variable and *)
+          let nli = Apac_miscellaneous.typ_get_nli ty in
+          (** add it to the hash table of function-local variables. *)
+          Var_Hashtbl.add scope glob nli
+        ) globs;
       {
         args = args;
         graph = Apac_tasks.TaskGraph.create ();
