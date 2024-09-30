@@ -15,7 +15,7 @@ open Apac_tasks
     involved in the data accesses. *)
 let trm_discover_dependencies (locals : FunctionRecord.s)
       (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map * TaskAttr_set.t)  =
-  (** [trm_look_for_dependencies.aux ins inouts attrs filter nested fc attr t]:
+  (** [trm_look_for_dependencies.aux ins inouts tas das filter nested fc attr t]:
       builds [ins], a stack of input (read-only) data dependencies in [t],
       [inouts], a stack of input-output (read-write) data dependencies in [t],
       [attrs], a set stack of dependency-dependency attribute pairs indicating
@@ -37,8 +37,8 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
       calls to [aux], e.g. in the case of nested data accesses (see the
       [access_attr] type for more details). *)
   let rec aux (ins : dep Stack.t) (inouts : dep Stack.t)
-            (attrs : (dep * DepAttr_set.t) Stack.t) (filter : Var_set.t)
-            (derefs : int) (fc : bool) (attr : DepAttr.t)
+            (tas : TaskAttr.t Stack.t) (das : (dep * DepAttr_set.t) Stack.t)
+            (filter : Var_set.t) (derefs : int) (fc : bool) (attr : DepAttr.t)
             (t : trm) : bool * bool =
     let error =
       Printf.sprintf
@@ -84,21 +84,38 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
       (* [t] actually leads to a variable. Return it. *)
       | Trm_var (_, v) ->
          let d = Dep_var v in
+         let ds =
+           if (Var_map.mem v !Apac_records.globals) then
+             DepAttr_set.singleton GlobalVariable
+           else
+             DepAttr_set.empty in
          if a then
            begin
              Stack.push d ins;
-             Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
+             Stack.push (d, (DepAttr_set.add Accessor ds)) das
            end
          else if p then
            let (nli, _) = Var_Hashtbl.find_or_default locals v 1 in
            if nli > 0 && k = ArgInOut then
-             Stack.push d inouts
+             begin
+               Stack.push d inouts;
+               Stack.push (d, ds) das
+             end
            else
-             Stack.push d ins
+             begin
+               Stack.push d ins;
+               Stack.push (d, ds) das
+             end
          else if k = ArgInOut then
-           Stack.push d inouts
+           begin
+             Stack.push d inouts;
+             Stack.push (d, ds) das
+           end
          else
-           Stack.push d ins
+           begin
+             Stack.push d ins;
+             Stack.push (d, ds) das
+           end
       (* In all the other cases, return [None]. *)
       | _ -> ()
     in
@@ -108,15 +125,24 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     | Trm_var (vk, v) when not (Var_set.mem v filter) ->
        if not (String.starts_with ~prefix:"sizeof(" v.name) then
          let (degree, exists) = Var_Hashtbl.find_or_default locals v 0 in
+         let ds =
+           if (Var_map.mem v !Apac_records.globals) then
+             DepAttr_set.singleton GlobalVariable
+           else
+             DepAttr_set.empty in
          if degree < 1 then
            begin
              let d = Dep_var v in
              match attr with
              | Accessor ->
                 Stack.push d ins;
-                Stack.push (d, (DepAttr_set.singleton Accessor)) attrs
-             | ArgIn -> Stack.push d ins
-             | ArgInOut -> Stack.push d inouts
+                Stack.push (d, (DepAttr_set.add Accessor ds)) das
+             | ArgIn ->
+                Stack.push d ins;
+                Stack.push (d, ds) das
+             | ArgInOut ->
+                Stack.push d inouts;
+                Stack.push (d, ds) das
              | _ -> fail t.loc ebadattr
            end
          else
@@ -135,15 +161,21 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
              | Accessor ->
                 List.iter (fun e ->
                     Stack.push e ins;
-                    Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
+                    Stack.push (e, (DepAttr_set.add Accessor ds)) das
                   ) d
-             | ArgIn -> List.iter (fun e -> Stack.push e ins) d
+             | ArgIn ->
+                List.iter (fun e ->
+                    Stack.push e ins;
+                    Stack.push (e, ds) das
+                  ) d
              | ArgInOut ->
                 List.iteri (fun i e ->
                     if ((i > derefs) && fc) || ((not fc) && (i >= derefs)) then
                       Stack.push e inouts
                     else
-                      Stack.push e ins) (List.rev d)
+                      Stack.push e ins;
+                    Stack.push (e, ds) das
+                  ) (List.rev d)
              | _ -> fail t.loc ebadattr
            end;
          (exists, false)
@@ -162,15 +194,15 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t'']) ->
        let t' = trm_simplify_addressof_and_get t in
        if t != t' then
-         aux ins inouts attrs filter 0 fc attr t'
+         aux ins inouts tas das filter 0 fc attr t'
        else
          begin
            match (trm_resolve_dereferenced_with_degree t) with
            | Some (t', d) ->
               let d' = if attr = ArgInOut && not fc then d else d - 1 in
-              aux ins inouts attrs filter d' fc attr t'
+              aux ins inouts tas das filter d' fc attr t'
            | None when is_access t'' ->
-              aux ins inouts attrs filter 0 fc attr t''
+              aux ins inouts tas das filter 0 fc attr t''
            | None ->
               besteff t;
               omega false false attr t;
@@ -180,9 +212,9 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
        let t'' = trm_simplify_addressof_and_get t in
        if t != t'' then
-         aux ins inouts attrs filter 0 fc attr t''
+         aux ins inouts tas das filter 0 fc attr t''
        else if (trm_is_array_or_direct_access t') then
-         aux ins inouts attrs filter 0 fc attr t'
+         aux ins inouts tas das filter 0 fc attr t'
        else
          begin
            besteff t;
@@ -225,7 +257,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
                   | Accessor ->
                      List.iter (fun e ->
                          Stack.push e ins;
-                         Stack.push (e, (DepAttr_set.singleton Accessor)) attrs
+                         Stack.push (e, (DepAttr_set.singleton Accessor)) das
                        ) d
                   | ArgIn -> List.iter (fun e -> Stack.push e ins) d
                   | ArgInOut ->
@@ -238,7 +270,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
                 let d' = List.rev d in
                 let d' = List.tl d' in
                 List.iter (fun rd ->
-                    Stack.push (rd, (DepAttr_set.singleton Subscripted)) attrs
+                    Stack.push (rd, (DepAttr_set.singleton Subscripted)) das
                   ) d';
                 ex
              | _ -> unknown := true; false
@@ -256,7 +288,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
                | Array_access_get t''
                  | Array_access_addr t'' ->
                   let (e', f') =
-                    (aux ins inouts attrs filter 0 false Accessor t'') in
+                    (aux ins inouts tas das filter 0 false Accessor t'') in
                   (e && e', f || f')
                | _ -> (e, f)
              ) (exists, false) accesses
@@ -278,7 +310,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
            (true, false)
          end
        else
-         aux ins inouts attrs filter 0 fc ArgInOut t''
+         aux ins inouts tas das filter 0 fc ArgInOut t''
     (** - function calls ('f(args)'). *)
     | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
        if Var_Hashtbl.mem functions v then
@@ -288,13 +320,13 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
          List.iteri (fun i arg ->
              let dk : DepAttr.t =
                if (FunctionRecord.is_rw r i) then ArgInOut else ArgIn in
-             let (exists', _) = aux ins inouts attrs filter 0 true dk arg in
+             let (exists', _) = aux ins inouts tas das filter 0 true dk arg in
              exists := !exists && exists') args;
          (!exists, true)
        else
          begin
            List.iter (fun arg ->
-               let _ = aux ins inouts attrs filter 0 true ArgInOut arg in ()
+               let _ = aux ins inouts tas das filter 0 true ArgInOut arg in ()
              ) args;
            (false, true)
          end
@@ -308,9 +340,9 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
          match (trm_resolve_binop_lval_and_get_with_deref ~plus:true lval) with
          | Some (lv, _) ->
             let (le, lf) =
-              aux ins inouts attrs filter 0 false ArgInOut lval in
+              aux ins inouts tas das filter 0 false ArgInOut lval in
             let (re, rf) =
-              aux ins inouts attrs filter 0 false ArgIn rval in
+              aux ins inouts tas das filter 0 false ArgIn rval in
             (le && re, lf || rf)
          | None -> fail t.loc error
        end
@@ -322,7 +354,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
        (* let d = Dep.of_trm (trm_var ~kind:vk v) v degree in *)
        Stack.push (Dep_var v) inouts;
        Var_Hashtbl.add locals v degree;
-       aux ins inouts attrs filter 0 false ArgIn init
+       aux ins inouts tas das filter 0 false ArgIn init
     (** - multiple variable declarations or definitions ('int a = 1, b'). *)
     | Trm_let_mult (vk, tvs, inits) ->
        let (vs, _) = List.split tvs in
@@ -334,7 +366,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
            Stack.push (Dep_var v) inouts;
            Var_Hashtbl.add locals v degree;
            let (exists', isfun') =
-             aux ins inouts attrs filter 0 false ArgIn init in
+             aux ins inouts tas das filter 0 false ArgIn init in
            (exists && exists', isfun || isfun')
          ) (true, false) tvs inits
     (** In the case of any other term, we explore the child terms. *)
@@ -343,7 +375,7 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
        let isfun = ref false in
        trm_iter (fun t' ->
            let (exists', isfun') =
-             aux ins inouts attrs filter 0 false attr t' in
+             aux ins inouts tas das filter 0 false attr t' in
            exists := !exists && exists';
            isfun := !isfun || isfun'
          ) t;
@@ -354,20 +386,21 @@ let trm_discover_dependencies (locals : FunctionRecord.s)
      dependency-dependecy attribute stack. *)
   let ins : dep Stack.t = Stack.create () in
   let inouts : dep Stack.t = Stack.create () in
-  let attrs : (dep * DepAttr_set.t) Stack.t = Stack.create () in
+  let das : (dep * DepAttr_set.t) Stack.t = Stack.create () in
+  let tas : TaskAttr.t Stack.t = Stack.create () in
   (* Then, we launch the discovery process using the auxiliary function. *)
   let (_, _) =
-    aux ins inouts attrs (Var_set.empty) 0 false ArgIn t in
+    aux ins inouts tas das (Var_set.empty) 0 false ArgIn t in
   (* Finally, we gather the results from the stacks and return them in lists. *)
   let ins' = Dep_set.of_stack ins in
   let inouts' = Dep_set.of_stack inouts in
-  let attrs' = Dep_map.of_stack attrs in
-  let tas = TaskAttr_set.empty in
+  let das = Dep_map.of_stack das in
+  let tas = TaskAttr_set.of_stack tas in
   (*let tas = if (not exists) then TaskAttr_set.add WaitForAll tas else tas in
     let tas = if (not isfun) && exists then
     TaskAttr_set.add WaitForSome tas
     else tas in*)
-  (ins', inouts', attrs', tas)
+  (ins', inouts', das, tas)
 
 (* [taskify_on p t]: see [taskify]. *)
 let taskify_on (p : path) (t : trm) : unit =
