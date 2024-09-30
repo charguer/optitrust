@@ -1,4 +1,6 @@
 open Target
+open Ast
+open Trm
 
 (** [compile]: applies the compilation chain of the Automatic PArallelizer for C
     on the current abstract syntax tree. *)
@@ -73,6 +75,11 @@ let compile () : unit =
       nbAny;
       cOr [[cMark Apac_macros.heapify_mark];
            [cMark Apac_macros.heapify_breakable_mark]]
+    ];
+  !! Apac_parallelization.secure_globals [
+      nbAny;
+      cFunDefAndDecl "";
+      dBody
     ];
   if !Apac_flags.cutoff_count_and_depth then
     !! Apac_parallelization.cutoff_count_and_depth [
