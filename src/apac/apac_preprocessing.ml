@@ -66,10 +66,18 @@ let record_functions (tg : target) : unit =
           let (first, _) = List.hd args in
           if first.name = "this" then List.tl args else args
         else args in
+      (** Retrieve the global variables from [!Apac_records.globals] as a list
+          of typed variables (see type [!type:typed_var]) so as to include them
+          into the local scope of the function in the function record (see the
+          call to [!Apac_records.FunctionRecord.create] below). *)
+      let globs =
+        Var_map.fold (fun v (ty, _) acc ->
+            (v, ty) :: acc
+          ) !Apac_records.globals [] in
       (** Build the function record of [fn] while looking and recording write
-          operations to global variables, i.e. variables from
-          [!Apac_records.globals], and *)
-      let r = Apac_records.FunctionRecord.create args (writes body) t in
+          operations to global variables and *)
+      let r =
+        Apac_records.FunctionRecord.create args globs (writes body) t in
       (** add it to [!Apac_records.functions] if it is not present in the hash
           table already, e.g. in the case of a pre-declaration. *)
       if not (Var_Hashtbl.mem Apac_records.functions fn) then
