@@ -32,7 +32,7 @@ let record_functions (tg : target) : unit =
       let one (t : trm) : Var_set.t =
         match (Apac_miscellaneous.trm_resolve_binop_lval_and_get_with_deref t)
         with
-        | Some ({ v; _ }, _) when Var_set.mem v !Apac_records.globals ->
+        | Some ({ v; _ }, _) when Var_map.mem v !Apac_records.globals ->
            Var_set.add v w
         | _ -> w
       in
@@ -88,9 +88,9 @@ let record_globals (tg : target) : unit =
       (** Extract the variable [v] from the variable definition term [t]. *)
       let error = "Apac_preprocessing.record_globals: expected a target to a \
                    variable definition!" in
-      let (_, v, _, _) = trm_inv ~error trm_let_inv t in
+      let (_, v, ty, _) = trm_inv ~error trm_let_inv t in
       (** Add [v] to the record of global variables [!Apac_records.globals]. *)
-      Apac_records.globals := Var_set.add v !Apac_records.globals
+      Apac_records.globals := Var_map.add v (ty, false) !Apac_records.globals
     ) tg
 
 (** {1:candidate_preselection Candidate pre-selection}

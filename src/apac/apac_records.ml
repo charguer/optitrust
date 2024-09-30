@@ -240,7 +240,7 @@ end
     entries (see [!module:Var_Hashtbl] and [!module:FunctionRecord]). *)
 let functions : FunctionRecord.t Var_Hashtbl.t = Var_Hashtbl.create 10
 
-let globals : Var_set.t ref = ref Var_set.empty
+let globals : (typ * bool) Var_map.t ref = ref Var_map.empty
 
 (** [mutables]: map of dependencies on mutable, according to the OptiTrust
     definition, pointer variables to copies of themselves wrapped with a

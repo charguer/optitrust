@@ -8,7 +8,7 @@ let _ = Run.script_cpp (fun () ->
                 cStrict;
                 cVarDef ""
               ];
-            Var_set.iter (fun v ->
+            Var_map.iter (fun v _ ->
                 !! Marks_basic.add "global" [
                     cVarDef v.name
                   ];
