@@ -211,7 +211,7 @@ end = struct
                             ) "" (List.tl writes)
                         else "")
                    else "" in
-      let output = output ^ writes ^ "],\n\tscope: [" in
+      let output = output ^ writes ^ "],\n\tscope: [\n" in
       let n = Var_Hashtbl.length record.scope in
       let scope = if n > 0 then
                     Var_Hashtbl.fold (fun k v acc ->
@@ -219,7 +219,7 @@ end = struct
                           (var_to_string k) ^ ", " ^ (string_of_int v) ^
                             ")\n") record.scope ""
                   else "" in
-      output ^ scope ^ "],\n\tast: \"" ^
+      output ^ scope ^ "\t],\n\tast: \"" ^
         (Apac_miscellaneous.excerpt record.ast) ^ "\",\n}"
       
 end
