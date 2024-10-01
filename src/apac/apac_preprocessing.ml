@@ -884,7 +884,7 @@ end = struct
                (** So we have to create a new entry in [a] to keep track of
                    it. *)
                let (tg, _) = LVar_Hashtbl.find a lv' in
-               (** Note that we consider that the number of level os
+               (** Note that we consider that the number of level of
                    indirections of references is -1. *)
                LVar_Hashtbl.add a lv (tg, -1);
                (** Return 1 because we are declaring a reference. *)

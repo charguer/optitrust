@@ -248,8 +248,8 @@ let trm_resolve_binop_lval_and_get_with_deref ?(plus : bool = false)
          | Unop_cast ty -> aux (d + typ_get_nli ty) l t
          | Unop_struct_access field -> aux (d + 1) field t
          (* A structure access through pointer, e.g. [operand->field], means
-            that the operand was not dereferenced. To finish finished resolving,
-            iterate once more on [t]. *)
+            that the operand was not dereferenced. To finish resolving, iterate
+            once more on [t]. *)
          | Unop_struct_get field -> aux d field t
          (* In case of another binary operation, do nothing and continue
             resolution on the operand. *)
