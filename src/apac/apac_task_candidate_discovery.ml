@@ -360,7 +360,7 @@ let discover_dependencies
               dependencies ([arr3D], [\*arr3D], [\*arr3D\[2\]],
               [\*arr3D\[2\]\[0\]]). *)
           let rec complete = fun ds n b ->
-            if n < b then complete ((Dep.of_trm t v n) :: ds) (n + 1) b
+            if n < b then complete ((Dep.of_trm t v 1) :: ds) (n + 1) b
             else ds in
           let ds =
             if call && (c + gets) < nli then complete ds 0 (nli - c - gets)
@@ -501,7 +501,8 @@ let discover_dependencies
            its type [ty]. *)
        let nli = typ_get_nli ty in
        (** Mutable variables in OptiTruts feature an addition dereferencement
-           operation we must not take into account here. *)
+           operation we must not take into account here. This appears to be
+           necessary only in the case of single variable declarations. *)
        let nli = if vk = Var_immutable then nli else nli - 1 in
        (** Transform [v] into an inout-dependency and add it to the
            corresponding dependency set. *)
@@ -524,9 +525,6 @@ let discover_dependencies
            (** Determine the number of levels of indirection [nli] of [v] thanks
                to its type [ty]. *)
            let nli = typ_get_nli ty in
-           (** Mutable variables in OptiTruts feature an addition
-               dereferencement operation we must not take into account here. *)
-           let nli = if vk = Var_immutable then nli else nli - 1 in
            (** Transform [v] into an inout-dependency and add it to the
                corresponding dependency set. *)
            let inouts = Dep_set.add (Dep_var v) inouts in
