@@ -146,7 +146,6 @@ let discover_dependencies
          let das = if iao then DepAttr_set.add Accessor das else das in
          (** If [v] is not a pointer but a simple variable or a reference, *)
          if nli < 1 then
-           let _ = Printf.printf "Dep on var %s\n" (var_to_string v) in
            (** simply transform it into an adequate data dependency. *)
            let d = Dep_var v in
            (** Finally, add the dependency into either the set of input or the
@@ -314,7 +313,6 @@ let discover_dependencies
        (** When [base] represents a variable term, we can continue the
            dependency discovery process. *)
        | Trm_var (_, v) ->
-          let _ = Printf.printf "base (%s): %s\n" (var_to_string v) (if access = `InOut then "InOut" else "In") in
           (** Look for [v] and its number of levels of indirection [nli] in the
               local [scope]. If [v] is not in the local scope, set [e] to
               [false] and suppose that [nli] is null, i.e. that [v] is a simple
@@ -367,7 +365,6 @@ let discover_dependencies
           let ds =
             if call && (c + gets) < nli then complete ds 0 (nli - c - gets)
             else ds in
-          let _ = List.iter (fun d -> Printf.printf "d': %s\n" (Dep.to_string d)) ds in
           (** At the end, we add the dependencies arising from [v] and [t] into
               either the set of input or the set of input-output dependencies
               according to their [access] classification. *)
