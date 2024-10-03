@@ -111,7 +111,7 @@ let discover_dependencies
             (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
     let error =
       Printf.sprintf
-        "Apac_task_candidate_discovery.trm_look_for_dependencies.aux: '%s' or \
+        "Apac_task_candidate_discovery.discover_dependencies.main: '%s' or \
          '%s' is not a valid OpenMP depends expression"
         (AstC_to_c.ast_to_string t)
         (Ast_to_text.ast_to_string t) in
@@ -477,8 +477,8 @@ let discover_dependencies
     | Trm_apps _ when is_set_operation t ->
        (** Deconstruct the set operation term [t] into [lval] and [rval]. *)
        let error' =
-         "Apac_task_candidate_discovery.trm_look_for_dependencies.aux: \
-          expected set operation." in
+         "Apac_task_candidate_discovery.discover_dependencies.main: expected \
+          set operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
        (** Check whether we can resolve the variable behind [lval] and if so,
            continue the dependency discovery in [lval] and [rval]. On the one
