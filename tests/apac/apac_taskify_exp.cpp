@@ -6,10 +6,10 @@ void g(const int* tab) {}
 
 void h(const int* tab) {}
 
-void p(int& v) {
+void p(int* v) {
   int a = 15;
   int b = a + 2;
-  int c = a + b + v++;
+  int c = a + b + (*v)++;
 }
 
 void r(int v, int z) { int a = 15 + z, b = a + 2, c = a + b + v++; }
@@ -24,8 +24,8 @@ void c(int* tab, int size) {
 #pragma omp task default(shared) depend(in : tab) depend(inout : tab[i]) firstprivate(i)
       {
         tab[i] += 2;
-        p(tab[i]);
-        p(tab[i]);
+        p(&tab[i]);
+        p(&tab[i]);
       }
     }
 #pragma omp task default(shared) depend(in : tab, tab[0])
