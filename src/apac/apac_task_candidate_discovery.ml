@@ -401,6 +401,19 @@ let discover_dependencies
             | `InOut ->
                let _, ins, inouts, dam =
                  List.fold_left (fun (i, ins, inouts, dam) d ->
+                     (** Add the [Subscripted] attribute to the dependencies
+                         dereferencing [base] using index array operators.
+
+                         Considering the example of [\*arr3D\[2\]], we have to
+                         add the [Subscripted] attribute to [\*arr3D\[2\]] and
+                         to [\*arr3D\[2\]\[0\]] if the access apears within a
+                         function call. *)
+                     let das =
+                       if i > gets then DepAttr_set.add Subscripted das
+                       else das in
+                     let dam =
+                       if (DepAttr_set.is_empty das) then dam
+                       else Dep_map.add d das dam in
                      (** When [v] is an inout-dependency, we add to [inouts]
                          the dependencies on the level of indirection of [v]
                          appearing the original access term. The dependencies
@@ -417,11 +430,6 @@ let discover_dependencies
                          [f(\*arr3D\[2\])], we add ([\*arr3D\[2\]],
                          [\*arr3D\[2\]\[0\]]) to [inouts] and ([arr3D],
                          [\*arr3D]) to [ins]. *)
-                     let das =
-                       if i > 0 then DepAttr_set.add Subscripted das else das in
-                     let dam =
-                       if (DepAttr_set.is_empty das) then dam
-                       else Dep_map.add d das dam in
                      if (call && (i > c)) ||
                           (call && (c + gets) >= nli && (i >= c))  ||
                             ((not call) && (i >= c)) then
