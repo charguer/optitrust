@@ -15,7 +15,7 @@ module FunctionRecord : sig
     }
   val create : (var * typ) list -> (var * typ) list -> Var_set.t -> trm -> t
   val constify : bool list -> (a * int) list -> (a * int) list
-  val is_rw : t -> int -> bool
+  val is_rw : a -> bool
   val to_string : t -> string
 end = struct
     (** [FunctionRecord.a]: an enumeration of function argument access
@@ -183,14 +183,9 @@ end = struct
                if c then (ReadOnly, nli) else (a, nli)
              ) const args
 
-    (** [FunctionRecord.is_rw record i]: checks whether the access
-        classification of the [i]-th argument of the function [record] is
-        [ReadWrite]. *)
-    let is_rw (record : t) (i : int) : bool =
-      if i >= (List.length record.args) then
-        failwith "Apac_records.FunctionRecord.is_rw: out of range."
-      else
-        let (ac, _) = List.nth record.args i in ac = ReadWrite
+    (** [FunctionRecord.is_rw arg i]: checks whether the access classification
+        of the argument [arg] is [ReadWrite]. *)
+    let is_rw (arg : a) : bool = arg = ReadWrite
 
     (** [FunctionRecord.to_string record]: returns a string representation of
         the function [record]. *)

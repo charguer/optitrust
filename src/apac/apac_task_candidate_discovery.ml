@@ -9,404 +9,572 @@ open Apac_miscellaneous
 open Apac_dep
 open Apac_tasks
 
-(** [trm_look_for_dependencies t]: searches the term [t] for data accesses. It
-    returns two lists. The first list holds the access terms where each term is
-    paired with an access attribute. The second list contains all the variables
-    involved in the data accesses. *)
-let trm_discover_dependencies (locals : FunctionRecord.s)
-      (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map * TaskAttr_set.t)  =
-  (** [trm_look_for_dependencies.aux ins inouts tas das filter nested fc attr t]:
-      builds [ins], a stack of input (read-only) data dependencies in [t],
-      [inouts], a stack of input-output (read-write) data dependencies in [t],
-      [attrs], a set stack of dependency-dependency attribute pairs indicating
-      which of the dependencies have the [Subscripted] or the [Accessor]
-      attribute.
+(** [discover_dependencies scope aliases t]: searches the term [t] for data
+    dependencies and returns a set of input dependencies, a set of input-output
+    dependencies and a map of dependencies to set of dependency attributes.
+    During the discovery process, the function takes into account the local
+    [scope] of [t] as well as the hash table of [aliases]. *)
+let discover_dependencies
+      (scope : FunctionRecord.s) (aliases : var Var_Hashtbl.t)
+      (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
+  (** [discover_dependencies.best_effort ins inouts dam access iao t]: a
+      best-effort dependency discovery for language constructs we do not fully
+      support yet such as structure member accesses. For the main dependency
+      discovery see [!discover_dependencies.main]. The hereby function
+      recursively builds and returns [ins], a set of input data dependencies in
+      [t], [inouts], a set of input-output data dependencies in [t], [dam], a
+      map of dependencies to set of dependency attributes. [access] classifies
+      the data dependency either as [In], an input dependency, or [InOut], an
+      input-output dependency. Finally, the [iao] flag indicates whether the
+      data dependency arises from within an [i]ndex [a]rray [o]perator. *)
+  let rec best_effort (ins : Dep_set.t) (inouts : Dep_set.t) (dam : ioattrs_map)
+            (access : [ `In | `InOut ]) (iao : bool)
+            (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
+    match t.desc with
+    (** When [t] is unary operation, e.g. a structure member access or a
+        dereferencement, try to determine the underlying variable. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+       (** Note that if the unary operation is a unary increment or decrement,
+           we must classify the access as input-output. *)
+       let access =
+         if (is_prefix_unary op) || (is_postfix_unary op) then
+           `InOut else access in
+       best_effort ins inouts dam access iao t
+    (** When [t] is an array access, *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, _) ->
+       let (base, accesses) = get_nested_accesses t in
+       (** try to determine the [base] variable as well as *)
+       let ins, inouts, dam =
+         best_effort ins inouts dam access iao base in
+       (** the dependencies potentially arising from the [accesses] within
+           index array operators. *)
+       List.fold_left (fun (ins, inouts, dam) a ->
+           match a with
+           | Array_access_get t
+             | Array_access_addr t -> best_effort ins inouts dam `In true t
+           | _ -> (ins, inouts, dam)
+         ) (ins, inouts, dam) accesses
+    (** When [t] is another binary operation, recurse on both left and
+        right-hand sides, i.e. [lhs] and [rhs], so as to see whether there are
+        some data dependencies. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ },
+                [lhs; rhs]) ->
+       let ins, inouts, dam = best_effort ins inouts dam access iao lhs in
+       best_effort ins inouts dam access iao rhs
+    (** When [t] leads to a variable [v], add the dependency arising from [v]
+        into either the set of input or the set of input-output dependencies
+        according to its [access] classification. *)
+    | Trm_var (_, v) ->
+       (** Look for [v] in the local [scope]. If [v] is not in the local
+           scope, set [e] to [false] and suppose that [nli] is null, i.e. that
+           [v] is a simple variable, not a pointer or a reference. *)
+       let (_, e) = Var_Hashtbl.find_or_default scope v 0 in
+       (** If [v] is not in the local scope or if it is a global variable we
+           know the definition of, i.e. if [v] is present in
+           [!Apac_records.globals], add [GlobalVariable] to the dependency
+           attribute set [das] we are about to map to the dependency on [v]. *)
+       let das =
+         if (not e) || (Var_map.mem v !Apac_records.globals) then
+           DepAttr_set.singleton GlobalVariable
+         else
+           DepAttr_set.empty in
+       (** If the dependency appears within an index array operator, we
+           must attribute it with [Accessor]. *)
+       let das = if iao then DepAttr_set.add Accessor das else das in
+       (** Transform [v] into a data dependency and *)
+       let d = Dep_var v in
+       (** add it to the adequate dependency set according to the [access]
+           qualifier. *)
+       begin match access with
+       | `In -> (Dep_set.add d ins, inouts, Dep_map.add d das dam)
+       | `InOut -> (ins, Dep_set.add d inouts, Dep_map.add d das dam) end
+    (** This is the best we can do. When [t] does not fit any of the above
+        cases, finish the discovery process. *)
+    | _ -> (ins, inouts, dam)
+  in
+  (** [discover_dependencies.main ins inouts dam gets call access iao t]: the
+      main dependency discovery. It recursively builds and returns [ins], a set
+      of input data dependencies in [t], [inouts], a set of input-output data
+      dependencies in [t], [dam], a map of dependencies to set of dependency
+      attributes.
 
-      Note that we build stacks by side-effect instead of returning a list.
-      This is due to the usage of [trm_iter] for visiting [t]. [trm_iter] allows
-      us to call [aux] on each term it visits but the latter has to have a
-      [unit] return type.
-
-      When [nested] is [true], the function does not push a new item to stack,
-      it simply continues to explore the AST. This happens, for example, in the
-      case of a nested get operation such as [***ptr].
-
-      When [fc] is [true], it means that [t] is part of a function call.
-
-      Finally, [attr] allows for passing access attributes between recursive
-      calls to [aux], e.g. in the case of nested data accesses (see the
-      [access_attr] type for more details). *)
-  let rec aux (ins : dep Stack.t) (inouts : dep Stack.t)
-            (tas : TaskAttr.t Stack.t) (das : (dep * DepAttr_set.t) Stack.t)
-            (filter : Var_set.t) (derefs : int) (fc : bool) (attr : DepAttr.t)
-            (t : trm) : bool * bool =
+      When [t] represents a dereferencement, [gets] gives the number of
+      dereferencement, or get, operations. The [call] flag indicates whether [t]
+      is a part of a function call. [access] classifies the data dependency
+      either as [In], an input dependency, or [InOut], an input-output
+      dependency. Finally, the [iao] flag indicates whether the data dependency
+      arises from within an [i]ndex [a]rray [o]perator. *)
+  let rec main (ins : Dep_set.t) (inouts : Dep_set.t) (dam : ioattrs_map)
+            (gets : int) (call : bool) (access : [ `In | `InOut ]) (iao : bool)
+            (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
     let error =
       Printf.sprintf
         "Apac_task_candidate_discovery.trm_look_for_dependencies.aux: '%s' or \
          '%s' is not a valid OpenMP depends expression"
         (AstC_to_c.ast_to_string t)
         (Ast_to_text.ast_to_string t) in
-    let ebadattr =
-      Printf.sprintf
-        "Apac_task_candidate_discovery.trm_look_for_dependencies.aux: \
-         dependency attribute '%s' can not be used in this context"
-        (DepAttr.to_string attr) in
-    let besteff (t : trm) : unit =
-      Printf.printf "WARNING: the analysis does not recognize the expression \
-                     `%s', proceeding with a best-effort dependency analysis.\n"
+    let warning (t : trm) : unit =
+      Printf.printf "WARNING: the dependency discovery does not recognize the \
+                     expression `%s', proceeding with a best-effort analysis.\n"
         (AstC_to_c.ast_to_string t)
     in
-    let rec omega (a : bool) (p: bool) (k : DepAttr.t) (t : trm) : unit =
-      match t.desc with
-      (* [t] is unary operation: strip and recurse. *)
-      | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t']) ->
-         omega a p k t'
-      (* [t] is a binary operation corresponding to an array access: strip and
-         recurse. *)
-      | Trm_apps ({
-              desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-              _ }, _) ->
-         let (base, accesses) = get_nested_accesses t in
-         List.iter (fun e ->
-             match e with
-             | Array_access_get t
-               | Array_access_addr t -> omega true p k t
-             | _ -> ()
-           ) accesses;
-         omega a p k base
-      (* [t] is a binary operation of another type: strip and recurse on both left
-         and right-hand sides. *)
-      | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [l; r]) ->
-         (* We continue to recurse on both the left and the right internal
-            terms. *)
-         omega a true k l;
-         omega a true k r
-      (* [t] actually leads to a variable. Return it. *)
-      | Trm_var (_, v) ->
-         let d = Dep_var v in
-         let ds =
-           if (Var_map.mem v !Apac_records.globals) then
-             DepAttr_set.singleton GlobalVariable
-           else
-             DepAttr_set.empty in
-         if a then
-           begin
-             Stack.push d ins;
-             Stack.push (d, (DepAttr_set.add Accessor ds)) das
-           end
-         else if p then
-           let (nli, _) = Var_Hashtbl.find_or_default locals v 1 in
-           if nli > 0 && k = ArgInOut then
-             begin
-               Stack.push d inouts;
-               Stack.push (d, ds) das
-             end
-           else
-             begin
-               Stack.push d ins;
-               Stack.push (d, ds) das
-             end
-         else if k = ArgInOut then
-           begin
-             Stack.push d inouts;
-             Stack.push (d, ds) das
-           end
-         else
-           begin
-             Stack.push d ins;
-             Stack.push (d, ds) das
-           end
-      (* In all the other cases, return [None]. *)
-      | _ -> ()
-    in
-    (** We iteratively explore [t] and look for: *)
+    (** The behavior of the dependency discovery varies according to the nature
+        of [t]. *)
     match t.desc with
-    (** - direct variable accesses ('t'), *)
-    | Trm_var (vk, v) when not (Var_set.mem v filter) ->
+    (** [t] is a direct variable access to a variable [v] of kind [vk]. *)
+    | Trm_var (vk, v) ->
+       (** OptiTrust considers calls to [sizeof] as variables, ignore those. *)
        if not (String.starts_with ~prefix:"sizeof(" v.name) then
-         let (degree, exists) = Var_Hashtbl.find_or_default locals v 0 in
-         let ds =
-           if (Var_map.mem v !Apac_records.globals) then
+         (** Look for [v] and its number of levels of indirection [nli] in the
+             local [scope]. If [v] is not in the local scope, set [e] to [false]
+             and suppose that [nli] is null, i.e. that [v] is a simple variable,
+             not a pointer or a reference. *)
+         let (nli, e) = Var_Hashtbl.find_or_default scope v 0 in
+         (** If [v] is not in the local scope or if it is a global variable we
+             know the definition of, i.e. if [v] is in [!Apac_records.globals],
+             add [GlobalVariable] to the dependency attribute set [das] we are
+             about to map to the dependency on [v]. *)
+         let das =
+           if (not e) || (Var_map.mem v !Apac_records.globals) then
              DepAttr_set.singleton GlobalVariable
            else
              DepAttr_set.empty in
-         if degree < 1 then
-           begin
-             let d = Dep_var v in
-             match attr with
-             | Accessor ->
-                Stack.push d ins;
-                Stack.push (d, (DepAttr_set.add Accessor ds)) das
-             | ArgIn ->
-                Stack.push d ins;
-                Stack.push (d, ds) das
-             | ArgInOut ->
-                Stack.push d inouts;
-                Stack.push (d, ds) das
-             | _ -> fail t.loc ebadattr
-           end
+         (** If the dependency appears within an index array operator, we must
+             attribute it with [Accessor]. *)
+         let das = if iao then DepAttr_set.add Accessor das else das in
+         (** If [v] is not a pointer but a simple variable or a reference, *)
+         if nli < 1 then
+           let _ = Printf.printf "Dep on var %s\n" (var_to_string v) in
+           (** simply transform it into an adequate data dependency. *)
+           let d = Dep_var v in
+           (** Finally, add the dependency into either the set of input or the
+               set of input-output dependencies according to its [access]
+               classification. *)
+           match access with
+           | `In -> (Dep_set.add d ins, inouts, Dep_map.add d das dam) 
+           | `InOut -> (ins, Dep_set.add d inouts, Dep_map.add d das dam)
          else
+           (** If [v] is a pointer, it may lead to multiple dependencies
+               following the number of dereferencements, i.e. [gets]. In this
+               case, we have to add a dependency on [v] as well as to each level
+               of indirection of [v] between 0 and [gets].
+
+               For example, let us consider a pointer variable [ptr] with 3
+               levels of indirection. An access to [ptr] of the form [**ptr]
+               generates the following dependencies ([ptr], [ptr\[0\]],
+               [ptr\[0\]\[0\]]). *)
            begin
-             let degree' = if fc then degree else derefs in
-             let d = Dep.of_degree t v degree' in
+             (** However, if the [v] appears within a function call, we must
+                 consider every single level of indirection of [v] as a
+                 dependency, i.e. consider [nli] instead of [gets], as we do not
+                 know at which level of indirection the function accesses [v].
+
+                 For example, the access [**ptr] would lead to the following
+                 dependencies ([ptr], [ptr\[0\]], [ptr\[0\]\[0\]],
+                 [ptr\[0\]\[0\]\[0\]]). *)
+             let degree = if call then nli else gets in
+             let ds = Dep.of_degree t v degree in
+             (** Processing of immutable variables *)
              if vk <> Var_immutable then
                begin
-                 let t' = trm_get t in
-                 let d' = Dep.of_degree t' v degree' in
+                 (** requires adding an extra get operation on [v] when
+                     producing the output source code. *)
+                 let t = trm_get t in
+                 let ds' = Dep.of_degree t v degree in
+                 (** To defer this operation until the code generation stage, we
+                     use the [!Apac_records.mutables] map. *)
                  List.iter2 (fun pk pv ->
                      mutables := Dep_map.add pk pv !mutables
-                   ) d d';
+                   ) ds ds';
                end;
-             match attr with
-             | Accessor ->
-                List.iter (fun e ->
-                    Stack.push e ins;
-                    Stack.push (e, (DepAttr_set.add Accessor ds)) das
-                  ) d
-             | ArgIn ->
-                List.iter (fun e ->
-                    Stack.push e ins;
-                    Stack.push (e, ds) das
-                  ) d
-             | ArgInOut ->
-                List.iteri (fun i e ->
-                    if ((i > derefs) && fc) || ((not fc) && (i >= derefs)) then
-                      Stack.push e inouts
-                    else
-                      Stack.push e ins;
-                    Stack.push (e, ds) das
-                  ) (List.rev d)
-             | _ -> fail t.loc ebadattr
-           end;
-         (exists, false)
-       else (true, true)
-    (** - structure member accesses ('s->m', 's.m', ...), *)
+             (** At the end, we add the dependencies arising from [v] into
+                 either the set of input or the set of input-output dependencies
+                 according to their [access] classification. *)
+             match access with
+             | `In ->
+                let ins, dam =
+                  List.fold_left (fun (ins, dam) d ->
+                      (Dep_set.add d ins, Dep_map.add d das dam)
+                    ) (ins, dam) ds in
+                (ins, inouts, dam)
+             | `InOut ->
+                let _, ins, inouts, dam =
+                  List.fold_left (fun (i, ins, inouts, dam) d ->
+                      (** When [v] is an inout-dependency, we add to [inouts]
+                          the dependencies on the level of indirection of [v]
+                          appearing the original access term. The dependencies
+                          on preceding levels of indirection belong to [ins].
+                          However, when [v] appears with a function call, we
+                          have to add to [inouts] the dependencies on all the
+                          levels of indirection of [v] the function can alter by
+                          side-effect.
+
+                          Considering the example of [ptr] and the access
+                          [**ptr], if the latter is an inout-dependency, we add
+                          [ptr\[0\]\[0\]] to [inouts] and ([ptr], [ptr\[0\]]) to
+                          [ins]. However, if the access appears within a
+                          function call, e.g. [f(\*\*ptr)], we add
+                          ([ptr\[0\]\[0\]], [ptr\[0\]\[0\]\[0\]]) to [inouts]
+                          and ([ptr], [ptr\[0\]]) to [ins]. *)
+                      if ((i > gets) && call) ||
+                           ((not call) && (i >= gets)) then
+                        (i + 1, ins,
+                         Dep_set.add d inouts, Dep_map.add d das dam)
+                      else
+                        (i + 1, Dep_set.add d ins,
+                         inouts, Dep_map.add d das dam)
+                    ) (0, ins, inouts, dam) (List.rev ds) in
+                (ins, inouts, dam)
+           end
+       else (ins, inouts, dam)
+    (** [t] is a structure member access ([s->m], [s.m], ...). *)
     | Trm_apps ({ desc = Trm_val
                            (Val_prim (Prim_unop (Unop_struct_access _)));
                   _ }, _)
       | Trm_apps ({ desc = Trm_val
                              (Val_prim (Prim_unop (Unop_struct_get _)));
                     _ }, _) ->
-       besteff t;
-       omega false false attr t;
-       (true, false)
-    (** - get operations ('*t', '**t', ...), *)
+       (** Our analysis is not clever enough yet. Try the best-effort dependency
+           discovery, but warn the user about it. *)
+       warning t; best_effort ins inouts dam access iao t
+    (** [t] is a dereferencement ([\*ptr], [\*\*ptr], ...) of a term [t'']. *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t'']) ->
+       (** Simplify [\&\*t] and [\*\&t] in [t] to [t']. *)
        let t' = trm_simplify_addressof_and_get t in
+       (** However, the simplification is not recursive. Continue until
+           [!trm_simplify_addressof_and_get] has an effect on [t']. *)
        if t != t' then
-         aux ins inouts tas das filter 0 fc attr t'
+         main ins inouts dam gets call access iao t'
        else
-         begin
-           match (trm_resolve_dereferenced_with_degree t) with
-           | Some (t', d) ->
-              let d' = if attr = ArgInOut && not fc then d else d - 1 in
-              aux ins inouts tas das filter d' fc attr t'
-           | None when is_access t'' ->
-              aux ins inouts tas das filter 0 fc attr t''
-           | None ->
-              besteff t;
-              omega false false attr t;
-              (true, false)
+         (** Then, try to resolve the term [t'] of the variable being
+             dereferenced as well as the number [d] of dereferencements. *)
+         begin match (trm_resolve_dereferenced_with_degree t) with
+         | Some (t', d) ->
+            (** The encoding of OptiTrust implies an extra dereferencement when
+                reading a variable, i.e. when [access] is [`In], or when the
+                variable appears as an argument in a function call (see the
+                [call] flag). Therefore, in these cases, we have to decrease [d]
+                by one. *)
+            let d' = if access = `InOut && not call then d else d - 1 in
+            (** After ensuring a correct value of [d] in [d'], we continue the
+                dependency discovery on the variable term [t']. *)
+            main ins inouts dam d' call access iao t'
+         (** In the case we are unable to resolve the term of the variable being
+             dereferenced, we are facing two possible situations:
+
+             - [t''] is a memory access consisting of more than a simple
+             combination of dereferencements and array accesses the
+             [!trm_resolve_dereferenced_with_degree] function understands. *)
+         | None when is_access t'' ->
+            (** If so, we continue the dependency discovery on [t'']. *)
+            main ins inouts dam 0 call access iao t''
+         (** - [t''] represents another kind of term. *)
+         | None ->
+            (** If so, we try the best-effort dependency discovery and warn the
+                user about it. *)
+            warning t; best_effort ins inouts dam access false t
          end
-    (** - address operations ('&t'), *)
+    (** [t] is a referencement ([\&ptr]) of a term [t']. *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
+       (** Simplify [\&\*t] and [\*\&t] in [t] to [t']. *)
        let t'' = trm_simplify_addressof_and_get t in
+       (** However, the simplification is not recursive. Continue until
+           [!trm_simplify_addressof_and_get] has an effect on [t']. *)
        if t != t'' then
-         aux ins inouts tas das filter 0 fc attr t''
+         main ins inouts dam 0 call access iao t''
        else if (trm_is_array_or_direct_access t') then
-         aux ins inouts tas das filter 0 fc attr t'
+         (** If [t'] can resolve to an array or direct variable access, i.e.
+             forms of data accesses our discovery algorithm understands, we
+             continue the dependency discovery on [t']. *)
+         main ins inouts dam 0 call access iao t'
        else
-         begin
-           besteff t;
-           omega false false attr t;
-           (true, false)
-         end
-    (** - array accesses ('t\[i\]'), *)
+         (** Otherwise, we try the best-effort dependency discovery and warn the
+             user about it. *)
+         begin warning t; best_effort ins inouts dam access false t end
+    (** [t] is an array accesses ([t\[i\]]). *)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
+       (** Retrieve the [base] variable term as well as the [accesses] within
+           index array operators. *)
        let (base, accesses) = get_nested_accesses t in
-       let unknown = ref false in
+       (** Due to OptiTrust encoding, an extra dereferencement may hide the
+           variable term in [base]. *)
        let base =
          match base.desc with
+         (** In such a case, we have to unwrap the [base] term and return the
+             underlying variable term [vt]. *)
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
             vt
-         | Trm_var (_, v) -> base
-         | _ -> unknown := true; base
+         (** Otherwise, we keep the [base] term as-is. *)
+         | _ -> base
        in
-       if !unknown then
-         begin
-           besteff t;
-           omega false false attr t;
-           (true, false)
-         end
-       else
-         let cd = List.length accesses in
-         unknown := false;
-         let exists =
-           begin
-             match base.desc with
-             | Trm_var (_, v) when not (Var_set.mem v filter) ->
-                let (td, ex) = Var_Hashtbl.find_or_default locals v 0 in
-                let d = Dep.of_array t v in
-                let d = if fc && (cd + derefs) < td then
-                          (Dep.of_trm t v 1) :: d
-                        else d
-                in
-                begin
-                  match attr with
-                  | Accessor ->
-                     List.iter (fun e ->
-                         Stack.push e ins;
-                         Stack.push (e, (DepAttr_set.singleton Accessor)) das
-                       ) d
-                  | ArgIn -> List.iter (fun e -> Stack.push e ins) d
-                  | ArgInOut ->
-                     let f = List.hd d in
-                     let o = List.tl d in
-                     Stack.push f inouts;
-                     List.iter (fun e -> Stack.push e ins) o
-                  | _ -> fail t.loc ebadattr
-                end;
-                let d' = List.rev d in
-                let d' = List.tl d' in
-                List.iter (fun rd ->
-                    Stack.push (rd, (DepAttr_set.singleton Subscripted)) das
-                  ) d';
-                ex
-             | _ -> unknown := true; false
-           end;
-         in
-         if !unknown then
-           begin
-             besteff t;
-             omega false false attr t;
-             (true, false)
-           end
-         else
-           List.fold_left (fun (e, f) a ->
-               match a with
-               | Array_access_get t''
-                 | Array_access_addr t'' ->
-                  let (e', f') =
-                    (aux ins inouts tas das filter 0 false Accessor t'') in
-                  (e && e', f || f')
-               | _ -> (e, f)
-             ) (exists, false) accesses
-    (** - unary increment and decrement operations ('t++', '--t'), *)
+       begin match base.desc with
+       (** When [base] represents a variable term, we can continue the
+           dependency discovery process. *)
+       | Trm_var (_, v) ->
+          let _ = Printf.printf "base (%s): %s\n" (var_to_string v) (if access = `InOut then "InOut" else "In") in
+          (** Look for [v] and its number of levels of indirection [nli] in the
+              local [scope]. If [v] is not in the local scope, set [e] to
+              [false] and suppose that [nli] is null, i.e. that [v] is a simple
+              variable, not a pointer or a reference. *)
+          let (nli, e) = Var_Hashtbl.find_or_default scope v 0 in
+          (** If [v] is not in the local scope or if it is a global variable we
+              know the definition of, i.e. if [v] is in [!Apac_records.globals],
+              add [GlobalVariable] to the dependency attribute set [das] we are
+              about to map to the dependency on [v]. *)
+          let das =
+            if (not e) || (Var_map.mem v !Apac_records.globals) then
+              DepAttr_set.singleton GlobalVariable
+            else
+              DepAttr_set.empty in
+          (** If the dependency appears within an index array operator, we must
+              attribute it with [Accessor]. *)
+          let das = if iao then DepAttr_set.add Accessor das else das in
+          (** Count the number [c] of index array operator pairs involved in
+              this array access. *)
+          let c = List.length accesses in
+          (** Transform [v] and the access term [t] into a dependency. As this
+              is an array access, it leads to multiple dependencies following
+              the number of dereferencements, i.e. [gets], and the number [c] of
+              index array operator pairs, of course. In this case, we have to
+              add a dependency on [v] and [t] as well as to each level of
+              indirection of [v] and [t] between 0 and [gets + c].
+              
+              For example, let us consider an access [\*arr3D\[2\]] to a
+              3-dimensional array [arr3D]. The latter has 3 levels of
+              indirection and the access itself consists of a dereferencement of
+              the first level of indirection using the [\*] operator and of a
+              dereferencement of the second level of indirection using the index
+              array operator. In this case, [c] is 1 and [gets] is 1 too. With
+              [!Dep.of_array] we generate the following dependencies ([arr3D],
+              [\*arr3D], [\*arr3D\[2\]]).*)
+          let ds = Dep.of_array t v in
+          (** However, if the [t] appears within a function call and [v] is not
+              fully dereferenced, i.e. the number of dereferencements [gets + c]
+              is less than [nli], we must consider the remaining levels of
+              indirection of [v] as dependencies as well, i.e. consider [nli]
+              instead of [gets + c], as the function may access [v] through the
+              remaining levels of indirection.
+              
+              For example, the access [\*arr3D\[2\]] would lead to the following
+              dependencies ([arr3D], [\*arr3D], [\*arr3D\[2\]],
+              [\*arr3D\[2\]\[0\]]). *)
+          let rec complete = fun ds n b ->
+            if n < b then complete ((Dep.of_trm t v n) :: ds) (n + 1) b
+            else ds in
+          let ds =
+            if call && (c + gets) < nli then complete ds 0 (nli - c - gets)
+            else ds in
+          let _ = List.iter (fun d -> Printf.printf "d': %s\n" (Dep.to_string d)) ds in
+          (** At the end, we add the dependencies arising from [v] and [t] into
+              either the set of input or the set of input-output dependencies
+              according to their [access] classification. *)
+          let ins, inouts, dam =
+            match access with
+            | `In ->
+               let ins, dam =
+                 List.fold_left (fun (ins, dam) d ->
+                     (Dep_set.add d ins, Dep_map.add d das dam)
+                   ) (ins, dam) ds in
+               (ins, inouts, dam)
+            | `InOut ->
+               let _, ins, inouts, dam =
+                 List.fold_left (fun (i, ins, inouts, dam) d ->
+                     (** When [v] is an inout-dependency, we add to [inouts]
+                         the dependencies on the level of indirection of [v]
+                         appearing the original access term. The dependencies
+                         on preceding levels of indirection belong to [ins].
+                         However, when [v] appears with a function call, we
+                         have to add to [inouts] the dependencies on all the
+                         levels of indirection of [v] the function can alter by
+                         side-effect.
+                         
+                         Considering the example of [\*arr3D\[2\]], if the
+                         latter is an inout-dependency, we add [\*arr3D\[2\]] to
+                         [inouts] and ([arr3D], [\*arr3D]) to [ins]. However, if
+                         the access appears within a function call, e.g.
+                         [f(\*arr3D\[2\])], we add ([\*arr3D\[2\]],
+                         [\*arr3D\[2\]\[0\]]) to [inouts] and ([arr3D],
+                         [\*arr3D]) to [ins]. *)
+                     let das =
+                       if i > 0 then DepAttr_set.add Subscripted das else das in
+                     let dam =
+                       if (DepAttr_set.is_empty das) then dam
+                       else Dep_map.add d das dam in
+                     if (call && (i > c)) ||
+                          (call && (c + gets) >= nli && (i >= c))  ||
+                            ((not call) && (i >= c)) then
+                       (i + 1, ins, Dep_set.add d inouts, dam)
+                     else
+                       (i + 1, Dep_set.add d ins, inouts, dam)
+                   ) (0, ins, inouts, dam) (List.rev ds) in
+               (ins, inouts, dam)
+          in
+          
+          
+          (** At the end, we must look for data dependencies among the
+              [accesses] within index array operators.*)
+         List.fold_left (fun (ins, inouts, dam) a ->
+              match a with
+              | Array_access_get t
+                | Array_access_addr t -> main ins inouts dam 0 false `In true t
+              | _ -> (ins, inouts, dam)
+                                  ) (ins, inouts, dam) accesses
+       (** When [base] does not represent a variable term, it is not an access
+           pattern our dependency discovery fully recognizes so we try the
+           best-effort approach and warn the user about it. *)
+       | _ -> warning t; best_effort ins inouts dam access false t
+       end
+    (** [t] is a unary increment or decrement operation [op] ([t++], [--t]) with
+        the operand [t']. *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
-       let unknown = ref false in
-       let t'' =
+       (** Due to OptiTrust encoding, an extra dereferencement may hide the
+           variable term [vt] in the operand [t']. *)
+       let t' =
          match t'.desc with
+         (** In such a case, we have to unwrap the [t'] term and return the
+             underlying variable term [vt]. *)
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
             vt
-         | Trm_var (_, v) -> t'
-         | _ -> unknown := true; t'
+         (** Otherwise, we keep the [t'] term as-is. *)
+         | _ -> t'
        in
-       if !unknown then
-         begin
-           besteff t;
-           omega false false attr t;
-           (true, false)
-         end
+       begin match t'.desc with
+       (** When [t'] represents a variable term, we can continue the dependency
+           discovery process. *)
+       | Trm_var _ -> main ins inouts dam 0 call `InOut iao t'
+       (** Otherwise, it is not an access pattern we fully recognize so we try
+           the best-effort approach and warn the user about it. *)
+       | _ -> warning t'; best_effort ins inouts dam `InOut iao t'
+       end
+    (** [t] is a call ([f(arg0, arg1, ...)]) to a function [f] with [args]. *)
+    | Trm_apps ({ desc = Trm_var (_ , f); _ }, args) ->
+       (** If we have [f] on the record in [!Apac_records.functions], *)
+       if Var_Hashtbl.mem functions f then
+         (** we retrieve the corresponding record [r] while *)
+         let r : FunctionRecord.t = Var_Hashtbl.find functions f in
+         (** skipping [this] in [args], if any, and *)
+         let args = if f.name = "this" then List.tl args else args in
+         (** continue the dependency discovery on each argument [arg] in [args].
+             Here, each corresponding argument record [ar] in [r.args] tell us
+             if an [arg] is read or read-write (see [!type:FunctionRecord.a]).
+             This way, we can analyze each [arg] while passing the correct
+             access classification to [!discover_dependencies.main] through its
+             [access] enumeration parameter. *)
+         List.fold_left2 (fun (ins, inouts, dam) arg (ar, _) ->
+             let access = if (FunctionRecord.is_rw ar) then `InOut else `In in
+             main ins inouts dam 0 true access iao arg
+           ) (ins, inouts, dam) args r.args
        else
-         aux ins inouts tas das filter 0 fc ArgInOut t''
-    (** - function calls ('f(args)'). *)
-    | Trm_apps ({ desc = Trm_var (_ , v); _ }, args) ->
-       if Var_Hashtbl.mem functions v then
-         let r : FunctionRecord.t = Var_Hashtbl.find functions v in
-         let args = if v.name = "this" then List.tl args else args in
-         let exists = ref true in
-         List.iteri (fun i arg ->
-             let dk : DepAttr.t =
-               if (FunctionRecord.is_rw r i) then ArgInOut else ArgIn in
-             let (exists', _) = aux ins inouts tas das filter 0 true dk arg in
-             exists := !exists && exists') args;
-         (!exists, true)
-       else
-         begin
-           List.iter (fun arg ->
-               let _ = aux ins inouts tas das filter 0 true ArgInOut arg in ()
-             ) args;
-           (false, true)
-         end
-    (** - set operations ('a = 1', 'b = ptr', '*c = 42', ...), *)
+         (** If we do not have [f] on the record, we cannot know which of the
+             arguments [f] is likely to modify by side-effect. We thus safely
+             consider each argument [arg] in [args] as a potential input-output
+             dependency. *)
+         List.fold_left (fun (ins, inouts, dam) arg ->
+             main ins inouts dam 0 true `InOut iao arg
+           ) (ins, inouts, dam) args
+    (** [t] is a set operation ([a = 1]) between an [lval] and an [rval]. *)
     | Trm_apps _ when is_set_operation t ->
+       (** Deconstruct the set operation term [t] into [lval] and [rval]. *)
        let error' =
          "Apac_task_candidate_discovery.trm_look_for_dependencies.aux: \
           expected set operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
-       begin
-         match (trm_resolve_binop_lval_and_get_with_deref ~plus:true lval) with
-         | Some (lv, _) ->
-            let (le, lf) =
-              aux ins inouts tas das filter 0 false ArgInOut lval in
-            let (re, rf) =
-              aux ins inouts tas das filter 0 false ArgIn rval in
-            (le && re, lf || rf)
-         | None -> fail t.loc error
-       end
-    (** - single variable declarations or defitinitions ('int a',
-        'int * b = ptr'), *)
+       (** Check whether we can resolve the variable behind [lval] and if so,
+           continue the dependency discovery in [lval] and [rval]. On the one
+           hand, [lval] is the memory area being modified, we thus classify the
+           dependency as an inout-dependency. On the other hand, [rval] is being
+           read assigned to [lval], we thus consider it as an in-dependency.
+           However, this might change later if we discover a unary increment or
+           decrement in [rval]. *)
+       if Option.is_some
+            (trm_resolve_binop_lval_and_get_with_deref ~plus:true lval) then
+         let ins, inouts, dam = main ins inouts dam 0 false `InOut false lval in
+         main ins inouts dam 0 false `In false rval
+       else
+         fail t.loc error
+    (** [t] is a single declaration ([int a;], [int \* b = ptr;]) of a variable
+        [v] of type [ty] and kind [vk] optionally involving an initialization
+        term [init]. *)
     | Trm_let (vk, (v, ty), init, _) ->
-       let degree = typ_get_nli ty in
-       let degree = if vk = Var_immutable then degree else degree - 1 in
-       (* let d = Dep.of_trm (trm_var ~kind:vk v) v degree in *)
-       Stack.push (Dep_var v) inouts;
-       Var_Hashtbl.add locals v degree;
-       aux ins inouts tas das filter 0 false ArgIn init
-    (** - multiple variable declarations or definitions ('int a = 1, b'). *)
+       (** Determine the number of levels of indirection [nli] of [v] thanks to
+           its type [ty]. *)
+       let nli = typ_get_nli ty in
+       (** Mutable variables in OptiTruts feature an addition dereferencement
+           operation we must not take into account here. *)
+       let nli = if vk = Var_immutable then nli else nli - 1 in
+       (** Transform [v] into an inout-dependency and add it to the
+           corresponding dependency set. *)
+       let inouts = Dep_set.add (Dep_var v) inouts in
+       (** [v] also represents a new variable in the local [scope], we thus need
+           to introduce it to the latter together with its [nli]. *)
+       Var_Hashtbl.add scope v nli;
+       (** Finally, we continue the dependency discovery within the
+           initialization term [init]. At this point, we consider them as
+           in-dependencies. However, this might change later if we discover a
+           unary increment or decrement in [init]. *)
+       main ins inouts dam 0 false `In false init
+    (** [t] is a multiple declaration ([int a = 1, b]) of variables [tvs]
+        including their types and of kind [vk] optionally involving
+        initialization terms [inits]. *)
     | Trm_let_mult (vk, tvs, inits) ->
-       let (vs, _) = List.split tvs in
-       let filter = Var_set.of_list vs in
-       List.fold_left2 (fun (exists, isfun) (v, ty) init ->
-           let degree = typ_get_nli ty in
-           let degree = if vk = Var_immutable then degree else degree - 1 in
-           (* let d = Dep.of_trm (trm_var ~kind:vk v) v degree in *)
-           Stack.push (Dep_var v) inouts;
-           Var_Hashtbl.add locals v degree;
-           let (exists', isfun') =
-             aux ins inouts tas das filter 0 false ArgIn init in
-           (exists && exists', isfun || isfun')
-         ) (true, false) tvs inits
-    (** In the case of any other term, we explore the child terms. *)
-    | _ ->
-       let exists = ref true in
-       let isfun = ref false in
-       trm_iter (fun t' ->
-           let (exists', isfun') =
-             aux ins inouts tas das filter 0 false attr t' in
-           exists := !exists && exists';
-           isfun := !isfun || isfun'
-         ) t;
-       (!exists, !isfun)
+       (** For each variable [v] of type [ty] optionally involving an
+           initialization term [init], *)
+       List.fold_left2 (fun (ins, inouts, dam) (v, ty) init ->
+           (** Determine the number of levels of indirection [nli] of [v] thanks
+               to its type [ty]. *)
+           let nli = typ_get_nli ty in
+           (** Mutable variables in OptiTruts feature an addition
+               dereferencement operation we must not take into account here. *)
+           let nli = if vk = Var_immutable then nli else nli - 1 in
+           (** Transform [v] into an inout-dependency and add it to the
+               corresponding dependency set. *)
+           let inouts = Dep_set.add (Dep_var v) inouts in
+           (** We continue the dependency discovery within the initialization
+               term [init]. At this point, we consider them as in-dependencies.
+               However, this might change later if we discover a unary increment
+               or decrement in [init]. *)
+           let ins, inouts, dam = main ins inouts dam 0 false `In false init in
+           (** [v] also represents a new variable in the local [scope], we thus
+               need to introduce it to the latter together with its [nli]. In
+               the case of a multiple variable declaration we perform this
+               operation after the dependency discovery in [init] so as [v] does
+               not appear too early in the local [scope]. Indeed, we cannot
+               refer to a variable deing declared within its own initialization
+               term. *)
+           Var_Hashtbl.add scope v nli;
+           (ins, inouts, dam)
+         ) (ins, inouts, dam) tvs inits
+    (** [t] is none of the above, explore the child terms. *)
+    | Trm_apps (f, args) ->
+       List.fold_left (fun (ins, inouts, dam) item ->
+           main ins inouts dam 0 call `In false item
+         ) (ins, inouts, dam) (f :: args)
+    | Trm_array { items; _ } ->
+       List.fold_left (fun (ins, inouts, dam) item ->
+           main ins inouts dam 0 call `In false item
+         ) (ins, inouts, dam) items
+    | Trm_record { items; _ } ->
+       List.fold_left (fun (ins, inouts, dam) (_, record) ->
+           main ins inouts dam 0 call `In false record
+         ) (ins, inouts, dam) items
+    | Trm_abort (Ret (Some return)) ->
+       main ins inouts dam 0 false access false return
+    (** This function cannot explore any other term, return. *)
+    | _ -> (ins, inouts, dam)
   in
-  (* In the main part of the function, we begin by creating empty stacks to
-     contain the discovered in and in-out dependencies as well as an
-     dependency-dependecy attribute stack. *)
-  let ins : dep Stack.t = Stack.create () in
-  let inouts : dep Stack.t = Stack.create () in
-  let das : (dep * DepAttr_set.t) Stack.t = Stack.create () in
-  let tas : TaskAttr.t Stack.t = Stack.create () in
-  (* Then, we launch the discovery process using the auxiliary function. *)
-  let (_, _) =
-    aux ins inouts tas das (Var_set.empty) 0 false ArgIn t in
-  (* Finally, we gather the results from the stacks and return them in lists. *)
-  let ins' = Dep_set.of_stack ins in
-  let inouts' = Dep_set.of_stack inouts in
-  let das = Dep_map.of_stack das in
-  let tas = TaskAttr_set.of_stack tas in
-  (*let tas = if (not exists) then TaskAttr_set.add WaitForAll tas else tas in
-    let tas = if (not isfun) && exists then
-    TaskAttr_set.add WaitForSome tas
-    else tas in*)
-  (ins', inouts', das, tas)
+  (** Launch the dependency discovery process with default parameters. *)
+  main (Dep_set.empty) (Dep_set.empty) (Dep_map.empty) 0 false `In false t
 
 (* [taskify_on p t]: see [taskify]. *)
 let taskify_on (p : path) (t : trm) : unit =
   (* Auxiliary function to transform a portion of the existing AST into a local
      fill_task_graphed AST (see [atrm]). *)
-  let rec fill (s : FunctionRecord.s) (t : trm) (g : TaskGraph.t) : Task.t =
+  let rec fill (s : FunctionRecord.s) (a : var Var_Hashtbl.t)
+            (t : trm) (g : TaskGraph.t) : Task.t =
     match t.desc with
     | Trm_seq sequence ->
        (** Keep a copy of the local scope of variables as a map. We need this
@@ -420,7 +588,7 @@ let taskify_on (p : path) (t : trm) : unit =
        let instrs = Mlist.to_list sequence in
        (** Transform the statements of the [sequence] into task candidates
            within the task candidate graph [g]. *)
-       let tasks = List.map (fun instr -> fill s instr g) instrs in
+       let tasks = List.map (fun instr -> fill s a instr g) instrs in
        (** If the [sequence] features both a task candidate consisting of an
            assignment to [Apac_macros.result_variable] as well as a task
            candidate consisting of a 'goto' jump to [Apac_macros.goto_label] we
@@ -522,10 +690,9 @@ let taskify_on (p : path) (t : trm) : unit =
           scope. *)
        let scope = var_map_of_var_hashtbl s in
        (* Launch dependency discovery in the initialization term as well as *)
-       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s init in
+       let (ins, inouts, ioattrs) = discover_dependencies s a init in
        (* in the conditional statement representing the upper loop bound. *)
-       let (ins', inouts', ioattrs', tas') =
-         trm_discover_dependencies s cond in
+       let (ins', inouts', ioattrs') = discover_dependencies s a cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the for-loop. *)
        let ioattrs' = Dep_map.bind_set ins'
@@ -533,14 +700,12 @@ let taskify_on (p : path) (t : trm) : unit =
        let ioattrs' = Dep_map.bind_set inouts'
                         (DepAttr_set.singleton Condition) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
-       let (ins, inouts, ioattrs, tas) =
+       let (ins, inouts, ioattrs) =
          (Dep_set.union ins ins',
           Dep_set.union inouts inouts',
-          Dep_map.union2 ioattrs ioattrs',
-          TaskAttr_set.union2 tas tas') in
+          Dep_map.union2 ioattrs ioattrs') in
        (* Launch dependency discovery in the increment term. *)
-       let (ins', inouts', ioattrs', tas') =
-         trm_discover_dependencies s inc in
+       let (ins', inouts', ioattrs') = discover_dependencies s a inc in
        (* Add the [InductionVariable] attribute to the input and input-output
           dependencies discovered in the increment term of the for-loop. *)
        let ioattrs' = Dep_map.bind_set ins'
@@ -548,16 +713,15 @@ let taskify_on (p : path) (t : trm) : unit =
        let ioattrs' = Dep_map.bind_set inouts'
                         (DepAttr_set.singleton InductionVariable) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
-       let (ins, inouts, ioattrs, tas) =
+       let (ins, inouts, ioattrs) =
          (Dep_set.union ins ins',
           Dep_set.union inouts inouts',
-          Dep_map.union2 ioattrs ioattrs',
-          TaskAttr_set.union2 tas tas') in
+          Dep_map.union2 ioattrs ioattrs') in
        (* Create a sub-graph for the body sequence, i.e. [instr], of the
           for-loop. *)
        let c = TaskGraph.create() in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
-       let ct = fill s instr c in
+       let ct = fill s a instr c in
        (* Propagate the [InductionVariable] attribute to the input and
           input-output dependencies discovered in the body sequence of the
           for-loop whenever they feature the dependencies from [ins'] and
@@ -580,7 +744,7 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_set.union inouts ct.inouts,
           Dep_map.union2 ioattrs ct.ioattrs) in
        (* A for-loop node should not be merged with other potential tasks. *)
-       let tas = TaskAttr_set.add Singleton tas in
+       let tas = TaskAttr_set.singleton Singleton in
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
        Task.create (-1) t tas scope ins inouts ioattrs [[c]]
@@ -594,12 +758,11 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Explode the [range] specifier to allow for dependency discovery. *)
        let (index, init, _, cond, step, _) = range in
        (* Launch dependency discovery in the initialization term as well as *)
-       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s init in
+       let (ins, inouts, ioattrs) = discover_dependencies s a init in
        (** Add the iterator [index] to the scope of the current loop. *)
        Var_Hashtbl.add s index 0;
        (* in the conditional statement representing the upper loop bound. *)
-       let (ins', inouts', ioattrs', tas') =
-         trm_discover_dependencies s cond in
+       let (ins', inouts', ioattrs') = discover_dependencies s a cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the for-loop. *)
        let ioattrs' = Dep_map.bind_set ins'
@@ -607,23 +770,21 @@ let taskify_on (p : path) (t : trm) : unit =
        let ioattrs' = Dep_map.bind_set inouts'
                         (DepAttr_set.singleton Condition) ioattrs' in
        (* Gather the discovered dependencies and attributes. *)
-       let (ins, inouts, ioattrs, tas) =
+       let (ins, inouts, ioattrs) =
          (Dep_set.union ins ins',
           Dep_set.union inouts inouts',
-          Dep_map.union2 ioattrs ioattrs',
-          TaskAttr_set.union2 tas tas') in
+          Dep_map.union2 ioattrs ioattrs') in
        (* Check whether [step] is formed of a term. In other words, check
           whether it is not simply a unary increment or decrement, but something
           like [i += a * 2]. In this case, *)
-       let (ins', inouts', ioattrs', tas') = match step with
+       let (ins', inouts', ioattrs') = match step with
          (* we have to look for dependencies in this term. *)
-         | Step st -> trm_discover_dependencies s st
+         | Step st -> discover_dependencies s a st
          (* Otherwise, we have to add an input-output dependency on the
             induction variable [index]. *)
          | _ ->
             let div = Dep_var index in
-            (Dep_set.empty, Dep_set.singleton div,
-             Dep_map.empty, TaskAttr_set.empty)
+            (Dep_set.empty, Dep_set.singleton div, Dep_map.empty)
        in
        (* Add the [InductionVariable] attribute to the input and input-output
           dependencies discovered in the increment term of the for-loop. *)
@@ -632,16 +793,15 @@ let taskify_on (p : path) (t : trm) : unit =
        let ioattrs' = Dep_map.bind_set inouts'
                         (DepAttr_set.singleton InductionVariable) ioattrs' in
        (* Gather the discovered dependencies, if any. *)
-       let (ins, inouts, ioattrs, tas) =
+       let (ins, inouts, ioattrs) =
          (Dep_set.union ins ins',
           Dep_set.union inouts inouts',
-          Dep_map.union2 ioattrs ioattrs',
-          TaskAttr_set.union2 tas tas') in
+          Dep_map.union2 ioattrs ioattrs') in
        (* Create a sub-graph for the body sequence, i.e. [instr], of the
           for-loop. *)
        let c = TaskGraph.create() in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
-       let ct = fill s instr c in
+       let ct = fill s a instr c in
        (* Propagate the [InductionVariable] attribute to the input and
           input-output dependencies discovered in the body sequence of the
           for-loop whenever they feature the dependencies from [ins'] and
@@ -664,7 +824,7 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_set.union inouts ct.inouts,
           Dep_map.union2 ioattrs ct.ioattrs) in
        (* A for-loop node should not be merged with other potential tasks. *)
-       let tas = TaskAttr_set.add Singleton tas in
+       let tas = TaskAttr_set.singleton Singleton in
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
        Task.create (-1) t tas scope ins inouts ioattrs [[c]] 
@@ -672,16 +832,16 @@ let taskify_on (p : path) (t : trm) : unit =
       | Trm_let_mult _ ->
        (* Look for dependencies in the current variable declaration term and
           initialize the in and in-out dependency sets. *)
-       let (ins, inouts, _, tas) = trm_discover_dependencies s t in
+       let (ins, inouts, ioattrs) = discover_dependencies s a t in
        (* Convert the updated local scope to a set. *)
        let scope' = var_map_of_var_hashtbl s in
        (* Variable declarations should never become tasks, but rather
           synchronization barriers, nor be merged with other task graph
           nodes. *)
-       let tas = TaskAttr_set.add Singleton tas in
+       let tas = TaskAttr_set.singleton Singleton in
        (* Create a barrier corresponding to the current variable declaration
           term. Variable declarations should never appear in tasks. *)
-       Task.create (-1) t tas scope' ins inouts Dep_map.empty [[]]
+       Task.create (-1) t tas scope' ins inouts ioattrs [[]]
     | Trm_apps _ ->
        (** Is [t] an assignment to [Apac_macros.result_variable] we introduce in
            the 'return' replacement [Apac_prologue.use_goto_for_return]? *)
@@ -706,12 +866,12 @@ let taskify_on (p : path) (t : trm) : unit =
          (** Look for dependencies and their attributes in the current term and
              initialize the in and inout-dependency sets as well as the map of
              dependency attribute sets. *)
-         let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s t in
+         let (ins, inouts, ioattrs) = discover_dependencies s a t in
          (** Convert the local scope to a set. *)
          let scope = var_map_of_var_hashtbl s in
          (** Create the corresponding task candidate using all the elements
              computed above. *)
-         Task.create (-1) t tas scope ins inouts ioattrs [[]]
+         Task.create (-1) t (TaskAttr_set.empty) scope ins inouts ioattrs [[]]
     | Trm_if (cond, yes, no) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
@@ -721,7 +881,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies and their attributes in the conditional
           expression of the [if] and initialize the in and in-out dependency
           sets as well as the map of dependency attribute sets. *)
-       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s cond in
+       let (ins, inouts, ioattrs) = discover_dependencies s a cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the if-statement. *)
        let ioattrs = Dep_map.bind_set ins
@@ -732,10 +892,10 @@ let taskify_on (p : path) (t : trm) : unit =
        let gy = TaskGraph.create () in
        let gn = TaskGraph.create () in
        (* Taskify the branches while filling the correspoding sub-graphs. *)
-       let ty = fill s yes gy in
+       let ty = fill s a yes gy in
        (* If there is no [else] branch, create an empty task. *)
        let missing_tn = is_trm_unit no in 
-       let tn = if missing_tn then Task.empty () else fill s no gn in
+       let tn = if missing_tn then Task.empty () else fill s a no gn in
        (** The [Condition], the [Accessor] and the [Subscripted] dependency
            attributes are not valid outside of their initial scope. *)
        ty.ioattrs <- Dep_map.remove_attribute Condition ty.ioattrs;
@@ -756,7 +916,7 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_set.union inouts tn.inouts,
           Dep_map.union2 ioattrs tn.ioattrs) in
        (* An [if] node should not be merged with other potential tasks. *)
-       let tas = TaskAttr_set.add Singleton tas in
+       let tas = TaskAttr_set.singleton Singleton in
        (* Initialize the list of sub-graphs corresponding to the [then] branch
           and, if present, for the [else] branch too. *)
        let children = if missing_tn then [] else [gn] in
@@ -773,7 +933,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies and their attributes in the conditional
           expression of the [while] and initialize the in and in-out dependency
           sets as well as the map of dependency attributes. *)
-       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s cond in
+       let (ins, inouts, ioattrs) = discover_dependencies s a cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the while-loop. *)
        let ioattrs = Dep_map.bind_set ins
@@ -783,7 +943,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Create a sub-graph for the body sequence of the [while]. *)
        let gb = TaskGraph.create () in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
-       let tb = fill s body gb in
+       let tb = fill s a body gb in
        (** The [Condition], the [Accessor] and the [Subscripted] dependency
            attributes are not valid outside of their initial scope. *)
        tb.ioattrs <- Dep_map.remove_attribute Condition tb.ioattrs;
@@ -797,7 +957,7 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_set.union inouts tb.inouts,
           Dep_map.union2 ioattrs tb.ioattrs) in
        (* A while-loop node should not be merged with other potential tasks. *)
-       let tas = TaskAttr_set.add Singleton tas in
+       let tas = TaskAttr_set.singleton Singleton in
        (* Create the task corresponding to the current [while] graph node using
           all the elements computed above. *)
        Task.create (-1) t tas scope ins inouts ioattrs [[gb]]
@@ -810,7 +970,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies in the conditional expression of the do-while
           and initialize the in and in-out dependency sets as well as the map of
           dependency attribute sets. *)
-       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s cond in
+       let (ins, inouts, ioattrs) = discover_dependencies s a cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the do-while-loop. *)
        let ioattrs = Dep_map.bind_set ins
@@ -820,7 +980,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Create a sub-graph for the body sequence of the [do-while]. *)
        let gb = TaskGraph.create () in
        (* Taskify the body sequence while filling the correspoding sub-graph. *)
-       let tb = fill s body gb in
+       let tb = fill s a body gb in
        (** The [Condition], the [Accessor] and the [Subscripted] dependency
            attributes are not valid outside of their initial scope. *)
        tb.ioattrs <- Dep_map.remove_attribute Condition tb.ioattrs;
@@ -835,7 +995,7 @@ let taskify_on (p : path) (t : trm) : unit =
           Dep_map.union2 ioattrs tb.ioattrs) in
        (* A do-while-loop node should not be merged with other potential
           tasks. *)
-       let tas = TaskAttr_set.add Singleton tas in
+       let tas = TaskAttr_set.singleton Singleton in
        (* Create the task corresponding to the current [do-while] graph node
           using all the elements computed above. *)
        Task.create (-1) t tas scope ins inouts ioattrs [[gb]]
@@ -848,7 +1008,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies and their attributes in the conditional
           expression of the [switch] and initialize the in and in-out dependency
           sets as well as the map of dependency attribute sets. *)
-       let (ins, inouts, ioattrs, tas) = trm_discover_dependencies s cond in
+       let (ins, inouts, ioattrs) = discover_dependencies s a cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the
           switch-statement. *)
@@ -869,7 +1029,7 @@ let taskify_on (p : path) (t : trm) : unit =
            let gb = TaskGraph.create () in
            (* - taskify the block sequence while filling the
               corresponding graph, *)
-           let tb = fill s block gb in
+           let tb = fill s a block gb in
            (* - push both the task and the graph associated
               with the currently processed block sequence into
               the temporary stack. *)
@@ -895,7 +1055,7 @@ let taskify_on (p : path) (t : trm) : unit =
               Dep_map.union2 ioattrs' tb.ioattrs))
            (ins, inouts, ioattrs) tbs in
        (* A switch node should not be merged with other potential tasks. *)
-       let tas = TaskAttr_set.add Singleton tas in
+       let tas = TaskAttr_set.singleton Singleton in
        (* Create the task corresponding to the current [switch] graph node
           using all the elements computed above. *)
        Task.create (-1) t tas scope ins inouts ioattrs [gbs]
@@ -903,14 +1063,12 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Look for dependencies in the target term of the [delete]. [delete] is
           a destructive operation, we need to consider all of the dependencies
           as in-out dependencies, of course. *)
-       let (ins, inouts, _, tas) = trm_discover_dependencies s target in
+       let (ins, inouts, ioattrs) = discover_dependencies s a target in
        let inouts = Dep_set.union ins inouts in
        (* Convert the local scope to a set *)
        let scope = var_map_of_var_hashtbl s in
-       (* Transform this task into a synchronization barrier. See
-          [Apac_tasks.TaskAttr]. *)
-       let tas = TaskAttr_set.union2
-                   tas (TaskAttr_set.singleton WaitForSome) in
+       (* Transform this task into a synchronization barrier. *)
+       let tas = TaskAttr_set.singleton WaitForSome in
        (* in order to be able to use it when creating the task corresponding to
           the current [delete] graph node. *)
        Task.create (-1) t tas scope Dep_set.empty inouts Dep_map.empty [[]]
@@ -980,11 +1138,11 @@ let taskify_on (p : path) (t : trm) : unit =
              routines modify the variable they take as an argument. Therefore,
              we need to consider all of the dependencies as in-out
              dependencies. *)
-          let (ins, inouts, _, _) = trm_discover_dependencies s (trm_var v) in
+          let (ins, inouts, ioattrs) = discover_dependencies s a (trm_var v) in
           let inouts = Dep_set.union ins inouts in
           (* Create the task corresponding to the current OpenMP routine call
              graph node. *)
-          Task.create (-1) t attrs scope Dep_set.empty inouts Dep_map.empty [[]]
+          Task.create (-1) t attrs scope Dep_set.empty inouts ioattrs [[]]
        (* 2) On the other hand, all the other routines do not involve any
           variables and thus do not require dependency discovery. *)
        | _ ->
@@ -1017,9 +1175,12 @@ let taskify_on (p : path) (t : trm) : unit =
                   f.name in
     fail t.loc error
   else
+    (** Initialize a hash table of variables for storing aliasing relationships
+        ([!type:var] -> [!type:var]) during the dependency discovery. *)
+    let aliases : var Var_Hashtbl.t = Var_Hashtbl.create 99 in
     (** Translate the function definition into task candidate graph intermediate
         representation and store the latter in [r]. *)
-    let _ = fill r.scope t r.graph in
+    let _ = fill r.scope aliases t r.graph in
     (** Optimize the edges of the graph thanks to transitive reduction. *)
     r.graph <- TaskGraphOper.recursive_transitive_reduction r.graph;
     (** Dump the output task candidate graph, if requested. *)
