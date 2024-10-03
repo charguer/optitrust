@@ -409,16 +409,14 @@ let discover_dependencies
                    ) (0, ins, inouts, dam) (List.rev ds) in
                (ins, inouts, dam)
           in
-          
-          
           (** At the end, we must look for data dependencies among the
               [accesses] within index array operators.*)
-         List.fold_left (fun (ins, inouts, dam) a ->
+          List.fold_left (fun (ins, inouts, dam) a ->
               match a with
               | Array_access_get t
                 | Array_access_addr t -> main ins inouts dam 0 false `In true t
               | _ -> (ins, inouts, dam)
-                                  ) (ins, inouts, dam) accesses
+            ) (ins, inouts, dam) accesses
        (** When [base] does not represent a variable term, it is not an access
            pattern our dependency discovery fully recognizes so we try the
            best-effort approach and warn the user about it. *)
