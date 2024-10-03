@@ -83,13 +83,17 @@ let discover_dependencies
        (** If the dependency appears within an index array operator, we
            must attribute it with [Accessor]. *)
        let das = if iao then DepAttr_set.add Accessor das else das in
-       (** Transform [v] into a data dependency and *)
+       (** Transform [v] into a data dependency [d], *)
        let d = Dep_var v in
        (** add it to the adequate dependency set according to the [access]
-           qualifier. *)
+           qualifier and update [dam], the map of dependencies to sets of
+           dependency attributes, if necessary, i.e. if [das] contains at least
+           one new dependency attribute to go with [d]. *)
+       let dam =
+         if (DepAttr_set.is_empty das) then dam else Dep_map.add d das dam in
        begin match access with
-       | `In -> (Dep_set.add d ins, inouts, Dep_map.add d das dam)
-       | `InOut -> (ins, Dep_set.add d inouts, Dep_map.add d das dam) end
+       | `In -> (Dep_set.add d ins, inouts, dam)
+       | `InOut -> (ins, Dep_set.add d inouts, dam) end
     (** This is the best we can do. When [t] does not fit any of the above
         cases, finish the discovery process. *)
     | _ -> (ins, inouts, dam)
@@ -146,14 +150,19 @@ let discover_dependencies
          let das = if iao then DepAttr_set.add Accessor das else das in
          (** If [v] is not a pointer but a simple variable or a reference, *)
          if nli < 1 then
-           (** simply transform it into an adequate data dependency. *)
+           (** simply transform it into an adequate data dependency [d]. *)
            let d = Dep_var v in
-           (** Finally, add the dependency into either the set of input or the
-               set of input-output dependencies according to its [access]
-               classification. *)
+           (** Finally, add [d] into either the set of input or the set of
+               input-output dependencies according to its [access]
+               classification and update [dam], the map of dependencies to sets
+               of dependency attributes, if necessary, i.e. if [das] contains at
+               least one new dependency attribute to go with [d]. *)
+           let dam =
+             if (DepAttr_set.is_empty das) then dam
+             else Dep_map.add d das dam in
            match access with
-           | `In -> (Dep_set.add d ins, inouts, Dep_map.add d das dam) 
-           | `InOut -> (ins, Dep_set.add d inouts, Dep_map.add d das dam)
+           | `In -> (Dep_set.add d ins, inouts, dam) 
+           | `InOut -> (ins, Dep_set.add d inouts, dam)
          else
            (** If [v] is a pointer, it may lead to multiple dependencies
                following the number of dereferencements, i.e. [gets]. In this
@@ -188,19 +197,28 @@ let discover_dependencies
                      mutables := Dep_map.add pk pv !mutables
                    ) ds ds';
                end;
-             (** At the end, we add the dependencies arising from [v] into
+             (** At the end, we add the dependencies [ds] arising from [v] into
                  either the set of input or the set of input-output dependencies
-                 according to their [access] classification. *)
+                 according to their [access] classification. For each dependency
+                 [d] in [ds], update also [dam], the map of dependencies to sets
+                 of dependency attributes, if necessary, i.e. if [das] contains
+                 at least one new dependency attribute to go with [d]. *)
              match access with
              | `In ->
                 let ins, dam =
                   List.fold_left (fun (ins, dam) d ->
-                      (Dep_set.add d ins, Dep_map.add d das dam)
+                      let dam =
+                        if (DepAttr_set.is_empty das) then dam
+                        else Dep_map.add d das dam in
+                      (Dep_set.add d ins, dam)
                     ) (ins, dam) ds in
                 (ins, inouts, dam)
              | `InOut ->
                 let _, ins, inouts, dam =
                   List.fold_left (fun (i, ins, inouts, dam) d ->
+                      let dam =
+                        if (DepAttr_set.is_empty das) then dam
+                        else Dep_map.add d das dam in
                       (** When [v] is an inout-dependency, we add to [inouts]
                           the dependencies on the level of indirection of [v]
                           appearing the original access term. The dependencies
@@ -219,11 +237,9 @@ let discover_dependencies
                           and ([ptr], [ptr\[0\]]) to [ins]. *)
                       if ((i > gets) && call) ||
                            ((not call) && (i >= gets)) then
-                        (i + 1, ins,
-                         Dep_set.add d inouts, Dep_map.add d das dam)
+                        (i + 1, ins, Dep_set.add d inouts, dam)
                       else
-                        (i + 1, Dep_set.add d ins,
-                         inouts, Dep_map.add d das dam)
+                        (i + 1, Dep_set.add d ins, inouts, dam)
                     ) (0, ins, inouts, dam) (List.rev ds) in
                 (ins, inouts, dam)
            end
@@ -365,15 +381,21 @@ let discover_dependencies
           let ds =
             if call && (c + gets) < nli then complete ds 0 (nli - c - gets)
             else ds in
-          (** At the end, we add the dependencies arising from [v] and [t] into
-              either the set of input or the set of input-output dependencies
-              according to their [access] classification. *)
+          (** At the end, we add the dependencies [ds] arising from [v] and [t]
+              into either the set of input or the set of input-output
+              dependencies according to their [access] classification. For each
+              dependency [d] in [ds], update also [dam], the map of dependencies
+              to sets of dependency attributes, if necessary, i.e. if [das]
+              contains at least one new dependency attribute to go with [d]. *)
           let ins, inouts, dam =
             match access with
             | `In ->
                let ins, dam =
                  List.fold_left (fun (ins, dam) d ->
-                     (Dep_set.add d ins, Dep_map.add d das dam)
+                      let dam =
+                        if (DepAttr_set.is_empty das) then dam
+                        else Dep_map.add d das dam in
+                     (Dep_set.add d ins, dam)
                    ) (ins, dam) ds in
                (ins, inouts, dam)
             | `InOut ->
