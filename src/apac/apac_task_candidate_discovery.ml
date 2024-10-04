@@ -26,12 +26,18 @@ let discover_dependencies
     let open Typ in
     (** We may be creating an alias only if [v] is a reference or a pointer. *)
     if r || is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then
-      (** In this case, we need to go through any referencements or
-          dereferencements in [init] to try to determine the target variable
-          [tg] we may be aliasing (see [!trm_resolve_pointer_and_degree]). *)
-      let tg = trm_resolve_pointer_and_degree init in
+      (** In this case, we need to go through any [new] operations,
+          referencements or dereferencements in [init] to try to determine the
+          target variable [tg] we may be aliasing (see
+          [!trm_strip_and_get_lvar]). *)
+      let tg =
+        match (trm_new_inv init) with
+        | Some (_, v') -> v'
+        | None -> init in
+      let tg = trm_strip_and_get_lvar tg in
       if Option.is_some tg then
-        let tg, _ = Option.get tg in
+        let tg = Option.get tg in
+        let tg = tg.v in
         (** If [tg] is in [aliases], it is itself an alias to an existing
             variable [tg'], *)
         if Var_Hashtbl.mem aliases tg then
@@ -561,19 +567,24 @@ let discover_dependencies
          "Apac_task_candidate_discovery.discover_dependencies.main: expected \
           set operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
-       (** Check whether we can resolve the variable behind [lval] and if so,
-           continue the dependency discovery in [lval] and [rval]. On the one
-           hand, [lval] is the memory area being modified, we thus classify the
+       (** Check whether we can resolve the variable [v] behind [lval]. If so,
+           we check whether this variable declaration introduces an alias to an
+           existing variable in which case we update [aliases], then we continue
+           the dependency discovery in [lval] and [rval]. On the one hand,
+           [lval] is the memory area being modified, we thus classify the
            dependency as an inout-dependency. On the other hand, [rval] is being
            read assigned to [lval], we thus consider it as an in-dependency.
            However, this might change later if we discover a unary increment or
            decrement in [rval]. *)
-       if Option.is_some
-            (trm_resolve_binop_lval_and_get_with_deref ~plus:true lval) then
-         let ins, inouts, dam = main ins inouts dam 0 false `InOut false lval in
-         main ins inouts dam 0 false `In false rval
-       else
-         fail t.loc error
+       begin
+         match trm_resolve_binop_lval_and_get_with_deref ~plus:true lval with
+         | Some ({ v; _}, d) ->
+            may_update_aliases (not d) v (Typ.typ_unit ()) rval;
+            let ins, inouts, dam =
+              main ins inouts dam 0 false `InOut false lval in
+            main ins inouts dam 0 false `In false rval
+         | None -> fail t.loc error
+       end
     (** [t] is a single declaration ([int a;], [int \* b = ptr;]) of a variable
         [v] of type [ty] and kind [vk] optionally involving an initialization
         term [init]. *)
