@@ -1154,102 +1154,113 @@ end = struct
       (** When [t] is an assignment or a compound assignment of an [rval] to an
           [lval] term, we may have to update the unconstification stack [us]. *)
       | Trm_apps (_, [lval; rval]) when is_set_operation t ->
-         begin
-           (** We are modifying [lval] by assignment. Resolve the underlying
-               labelled variable [lv] and determine whether it has been
-               dereferenced based on the value of [deref]. *)
-           match
-             (Apac_miscellaneous.trm_resolve_binop_lval_and_get_with_deref
-                ~plus:true lval)
-           with
-           | Some (lv, deref) ->
-              (** If [lv] is [this], it means that the function we are in is
-                  modifying a member variable of the parent class. Therefore, we
-                  will have to unconstify the function itself. *)
-              if lv.v.name = "this" then Stack.push (f, -1) us;
-              (** If [lv] is an argument or an alias to an argument, *)
-              if LVar_Hashtbl.mem aliases lv then
-                (** determine the position [tg] of the argument [lv] stands for
-                    or is aliasing together with the number of levels of
-                    indirection [nli] of [lv], *)
-                let (tg, nli) = LVar_Hashtbl.find aliases lv in
-                let tg = if lv.v.name = "this" then tg + 1 else tg in
-                (** acquire the constification record [fcr] of [f] as well as
-                    the constification record [acr] of the argument of [f] the
-                    [lv] variable represents or is aliasing. If these records do
-                    not exist, fail. This is not normal! *)
-                if not (Var_Hashtbl.mem crs f) then
-                  fail t.loc (missing_record "analyze_on.aux" f (-1));
-                let fcr = Var_Hashtbl.find crs f in
-                if not (Tools.Int_map.mem tg fcr.args) then
-                  fail t.loc (missing_record "analyze_on.aux" f tg);
-                let acr = Tools.Int_map.find tg fcr.args in
-                (** If [lv] represents a dereferenced pointer, an array acces or
-                    a reference, we must unconstify it. *)
-                if deref || (nli < 0 && acr.self <> Variable) then
-                  (** An alias of the same name may have been used multiple
-                      times to alias different memory locations.
-                      
-                      For example, in:
-                      
-                      [{
-                      L1: void f(int * a, int * b, int * c) {
-                      L2:   int * d = a;
-                      L3:   d = c; 
-                      L4:   *d = 1;
-                      L5: }
-                      ]}
-                      
-                      [d] is declared as an alias to [a] on L2. The function
-                      does not modify The data pointed to by [a]. On L3, [d]
-                      becomes an alias for [c]. Then, on L4, the function
-                      modifies the data pointed to by [c] through its alias [d].
-                      Therefore, the analysis concludes that nor [c] nor [d]
-                      should be constified. However, for [a] it concludes that
-                      we can constify the argument as the function never
-                      modifies the data it is pointing to. In the end, this
-                      produces a compilation error as the function assignes [a],
-                      which became [const], to the non-[const] variable [d] on
-                      L2.
-                      
-                      In order to avoid this situation, we must propagate the
-                      unconstification to previously aliased arguments too. As
-                      [aliases] stores all the values that were ever assigned to
-                      a given key, we simply have to [find_all] of them and push
-                      them to the unconstification stack. *)
-                  let all = LVar_Hashtbl.find_all aliases lv in
-                  List.iter (fun (tg, _) ->
-                      (** Again, we do not consider parent class members because
-                          the constification process does not analyze entire
-                          classes for now. *)
-                      if tg > -1 then Stack.push (f, tg) us
-                    ) all
-                else
-                  (** Otherwise, the alias comes to have a new target, i.e. we
-                      did not dereference [lv]. *)
-                  begin
-                    (** In this case, we have to resolve the pointer labelled
-                        variable behind [rval] and check if it is an argument an
-                        alias to an argument at [tg]-th position. *)
-                    match (trm_resolve_pointer_and_alias rval aliases) with
-                    (** If so, we have to add a new entry into [aliases]. This
-                        happens, for example, on L3 in the above example. *)
-                    | Some (_, tg) ->
-                       (** The value of [deref] is incorrect when [lval] refers
-                           to the parent [this] because we operate on [this] and
-                           not on the underlying structure member. In this case,
-                           to verify that [lv] was not dereferenced, we have to
-                           check that [nli] is greater than [0]. *)
-                       if (not deref) || (lv.v.name = "this" && nli <> 0) then
-                         LVar_Hashtbl.add aliases lv (tg, nli)
-                    (** If [rval] is something else than a variable, there is
-                        nothing to do. *)
-                    | None -> ()
-                  end
-           (** If [lval] is something else than a variable, there is nothing to
-               do. *)
-           | _ -> ()
-         end;
+ 
+           (** We are modifying [lval] by assignment. Try to resolve the
+               underlying labelled variable [lv] and determine whether it has
+               been dereferenced based on the value of [deref]. *)
+         let lval =
+           Apac_miscellaneous.trm_resolve_binop_lval_and_get_with_deref
+             ~plus:true lval in
+         if Option.is_some lval then
+           begin
+             let lv, deref = Option.get lval in
+             (** If [lv] is [this], it means that the function we are in is
+                 modifying a member variable of the parent class. Therefore, we
+                 will have to unconstify the function itself. *)
+             if lv.v.name = "this" then Stack.push (f, -1) us;
+             (** If [lv] is an argument or an alias to an argument, *)
+             if LVar_Hashtbl.mem aliases lv then
+               begin
+                 (** determine the position [tg] of the argument [lv] stands for
+                     or is aliasing together with the number of levels of
+                     indirection [nli] of the latter. *)
+                 let (tg, nli) = LVar_Hashtbl.find aliases lv in
+                 let tg = if lv.v.name = "this" then tg + 1 else tg in
+                 (** acquire the constification record [fcr] of [f] as well as
+                     the constification record [acr] of the argument of [f] the
+                     [lv] variable represents or is aliasing. If these records
+                     do not exist, fail. This is not normal! *)
+                 if not (Var_Hashtbl.mem crs f) then
+                   fail t.loc (missing_record "analyze_on.aux" f (-1));
+                 let fcr = Var_Hashtbl.find crs f in
+                 if not (Tools.Int_map.mem tg fcr.args) then
+                   fail t.loc (missing_record "analyze_on.aux" f tg);
+                 let acr = Tools.Int_map.find tg fcr.args in
+                 (** If [lv] represents a dereferenced pointer, an array acces
+                     or a reference, we must unconstify it. *)
+                 if deref || (nli < 0 && acr.self <> Variable) then
+                   (** An alias of the same name may have been used multiple
+                       times to alias different memory locations.
+                       
+                       For example, in:
+                       
+                       [{
+                       L1: void f(int * a, int * b, int * c) {
+                       L2:   int * d = a;
+                       L3:   d = c; 
+                       L4:   *d = 1;
+                       L5: }
+                       ]}
+                       
+                       [d] is declared as an alias to [a] on L2. The function
+                       does not modify The data pointed to by [a]. On L3, [d]
+                       becomes an alias for [c]. Then, on L4, the function
+                       modifies the data pointed to by [c] through its alias
+                       [d]. Therefore, the analysis concludes that nor [c] nor
+                       [d] should be constified. However, for [a] it concludes
+                       that we can constify the argument as the function never
+                       modifies the data it is pointing to. In the end, this
+                       produces a compilation error as the function assignes
+                       [a], which became [const], to the non-[const] variable
+                       [d] on L2.
+                       
+                       In order to avoid this situation, we must propagate the
+                       unconstification to previously aliased arguments too. As
+                       [aliases] stores all the values that were ever assigned
+                       to a given key, we simply have to [find_all] of them and
+                       push them to the unconstification stack. *)
+                   let all = LVar_Hashtbl.find_all aliases lv in
+                   List.iter (fun (tg, _) ->
+                       (** Again, we do not consider parent class members
+                           because the constification process does not analyze
+                           entire classes for now. *)
+                       if tg > -1 then Stack.push (f, tg) us
+                     ) all
+                 else
+                   (** Otherwise, the alias comes to have a new target, i.e. we
+                       did not dereference [lv]. In this case, we have to
+                       resolve the pointer labelled variable behind [rval] and
+                       check if it is an argument an alias to an argument at
+                       [tg]-th position. *)
+                   let rval = trm_resolve_pointer_and_alias rval aliases in
+                   if Option.is_some rval then
+                     (** If so, we have to add a new entry into [aliases]. This
+                         happens, for example, on L3 in the above example. *)
+                     let _, tg = Option.get rval in
+                     (** The value of [deref] is incorrect when [lval] refers to
+                         the parent [this] because we operate on [this] and not
+                         on the underlying structure member. In this case, to
+                         verify that [lv] was not dereferenced, we have to check
+                         that [nli] is greater than [0]. *)
+                     if (not deref) || (lv.v.name = "this" && nli <> 0) then
+                       LVar_Hashtbl.add aliases lv (tg, nli)
+               end
+             else
+               (** If [lv] was not dereferenced, is it not an argument and it
+                   is not an alias yet, *)
+               if not deref then
+                 (** we have to resolve the pointer labelled variable [rv]
+                     behind [rval] and check if it is an argument an alias to
+                     an argument at [tg]-th position. *)
+                 let rval = trm_resolve_pointer_and_alias rval aliases in
+                 if Option.is_some rval then
+                   (** If so, we have to add a new entry into [aliases]. *)
+                   let rv, tg = Option.get rval in
+                   (** For this, we need the number of levels of indirection
+                       [nli] of [rv]. *)
+                   let _, nli = LVar_Hashtbl.find aliases rv in
+                   LVar_Hashtbl.add aliases lv (tg, nli)
+           end;
          (** Continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
       (** When [t] is an increment or decrement unary operation on an operand
