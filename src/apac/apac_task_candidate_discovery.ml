@@ -17,6 +17,31 @@ open Apac_tasks
 let discover_dependencies
       (scope : FunctionRecord.s) (aliases : var Var_Hashtbl.t)
       (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
+  (** [discover_dependencies.may_update_aliases r tv ti]: checks in the hash
+      table of aliases [aliases] whether the definition of the variable [v] of
+      type [ty] using the initializaion term [init] creates an alias to an
+      existing variable. If so, the function updates [aliases]. The [r] flag
+      indicates whether [tv] is a reference or not. *)
+  let may_update_aliases (r : bool) (v : var) (ty : typ) (init : trm) : unit =
+    let open Typ in
+    (** We may be creating an alias only if [v] is a reference or a pointer. *)
+    if r || is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then
+      (** In this case, we need to go through any referencements or
+          dereferencements in [init] to try to determine the target variable
+          [tg] we may be aliasing (see [!trm_resolve_pointer_and_degree]). *)
+      let tg = trm_resolve_pointer_and_degree init in
+      if Option.is_some tg then
+        let tg, _ = Option.get tg in
+        (** If [tg] is in [aliases], it is itself an alias to an existing
+            variable [tg'], *)
+        if Var_Hashtbl.mem aliases tg then
+          (** we are about to create an alias to [tg']. *)
+          let tg' = Var_Hashtbl.find aliases tg in
+          Var_Hashtbl.add aliases v tg'
+        else
+          (** Otherwise, [v] becomes the first alias to [tg]. *)
+          Var_Hashtbl.add aliases v tg
+  in
   (** [discover_dependencies.best_effort ins inouts dam access iao t]: a
       best-effort dependency discovery for language constructs we do not fully
       support yet such as structure member accesses. For the main dependency
@@ -67,6 +92,9 @@ let discover_dependencies
         into either the set of input or the set of input-output dependencies
         according to its [access] classification. *)
     | Trm_var (_, v) ->
+       (** If [v] is an alias to an existing variable, make [v] become the
+           latter. *)
+       let v, _ = Var_Hashtbl.find_or_default aliases v v in
        (** Look for [v] in the local [scope]. If [v] is not in the local
            scope, set [e] to [false] and suppose that [nli] is null, i.e. that
            [v] is a simple variable, not a pointer or a reference. *)
@@ -129,6 +157,9 @@ let discover_dependencies
     match t.desc with
     (** [t] is a direct variable access to a variable [v] of kind [vk]. *)
     | Trm_var (vk, v) ->
+       (** If [v] is an [alias] to an existing variable, make [v] become the
+           latter. *)
+       let v, alias = Var_Hashtbl.find_or_default aliases v v in
        (** OptiTrust considers calls to [sizeof] as variables, ignore those. *)
        if not (String.starts_with ~prefix:"sizeof(" v.name) then
          (** Look for [v] and its number of levels of indirection [nli] in the
@@ -148,8 +179,9 @@ let discover_dependencies
          (** If the dependency appears within an index array operator, we must
              attribute it with [Accessor]. *)
          let das = if iao then DepAttr_set.add Accessor das else das in
-         (** If [v] is not a pointer but a simple variable or a reference, *)
-         if nli < 1 then
+         (** If [v] is not a pointer but a simple variable, a reference or an
+             alias, *)
+         if nli < 1 || alias then
            (** simply transform it into an adequate data dependency [d]. *)
            let d = Dep_var v in
            (** Finally, add [d] into either the set of input or the set of
@@ -329,6 +361,9 @@ let discover_dependencies
        (** When [base] represents a variable term, we can continue the
            dependency discovery process. *)
        | Trm_var (_, v) ->
+          (** If [v] is an [alias] to an existing variable, make [v] become the
+              latter. *)
+          let v, alias = Var_Hashtbl.find_or_default aliases v v in
           (** Look for [v] and its number of levels of indirection [nli] in the
               local [scope]. If [v] is not in the local scope, set [e] to
               [false] and suppose that [nli] is null, i.e. that [v] is a simple
@@ -346,107 +381,125 @@ let discover_dependencies
           (** If the dependency appears within an index array operator, we must
               attribute it with [Accessor]. *)
           let das = if iao then DepAttr_set.add Accessor das else das in
-          (** Count the number [c] of index array operator pairs involved in
-              this array access. *)
-          let c = List.length accesses in
-          (** Transform [v] and the access term [t] into a dependency. As this
-              is an array access, it leads to multiple dependencies following
-              the number of dereferencements, i.e. [gets], and the number [c] of
-              index array operator pairs, of course. In this case, we have to
-              add a dependency on [v] and [t] as well as to each level of
-              indirection of [v] and [t] between 0 and [gets + c].
-              
-              For example, let us consider an access [\*arr3D\[2\]] to a
-              3-dimensional array [arr3D]. The latter has 3 levels of
-              indirection and the access itself consists of a dereferencement of
-              the first level of indirection using the [\*] operator and of a
-              dereferencement of the second level of indirection using the index
-              array operator. In this case, [c] is 1 and [gets] is 1 too. With
-              [!Dep.of_array] we generate the following dependencies ([arr3D],
-              [\*arr3D], [\*arr3D\[2\]]).*)
-          let ds = Dep.of_array t v in
-          (** However, if the [t] appears within a function call and [v] is not
-              fully dereferenced, i.e. the number of dereferencements [gets + c]
-              is less than [nli], we must consider the remaining levels of
-              indirection of [v] as dependencies as well, i.e. consider [nli]
-              instead of [gets + c], as the function may access [v] through the
-              remaining levels of indirection.
-              
-              For example, the access [\*arr3D\[2\]] would lead to the following
-              dependencies ([arr3D], [\*arr3D], [\*arr3D\[2\]],
-              [\*arr3D\[2\]\[0\]]). *)
-          let rec complete = fun ds n b ->
-            if n < b then complete ((Dep.of_trm t v 1) :: ds) (n + 1) b
-            else ds in
-          let ds =
-            if call && (c + gets) < nli then complete ds 0 (nli - c - gets)
-            else ds in
-          (** At the end, we add the dependencies [ds] arising from [v] and [t]
-              into either the set of input or the set of input-output
-              dependencies according to their [access] classification. For each
-              dependency [d] in [ds], update also [dam], the map of dependencies
-              to sets of dependency attributes, if necessary, i.e. if [das]
-              contains at least one new dependency attribute to go with [d]. *)
-          let ins, inouts, dam =
+          (** If [v] is an alias, *)
+          if alias then
+            (** simply transform it into an adequate data dependency [d]. *)
+            let d = Dep_var v in
+            (** Finally, add [d] into either the set of input or the set of
+                input-output dependencies according to its [access]
+                classification and update [dam], the map of dependencies to sets
+                of dependency attributes, if necessary, i.e. if [das] contains
+                at least one new dependency attribute to go with [d]. *)
+            let dam =
+              if (DepAttr_set.is_empty das) then dam
+              else Dep_map.add d das dam in
             match access with
-            | `In ->
-               let ins, dam =
-                 List.fold_left (fun (ins, dam) d ->
-                      let dam =
-                        if (DepAttr_set.is_empty das) then dam
-                        else Dep_map.add d das dam in
-                     (Dep_set.add d ins, dam)
-                   ) (ins, dam) ds in
-               (ins, inouts, dam)
-            | `InOut ->
-               let _, ins, inouts, dam =
-                 List.fold_left (fun (i, ins, inouts, dam) d ->
-                     (** Add the [Subscripted] attribute to the dependencies
-                         dereferencing [base] using index array operators.
+            | `In -> (Dep_set.add d ins, inouts, dam) 
+            | `InOut -> (ins, Dep_set.add d inouts, dam)
+          else
+            (** Count the number [c] of index array operator pairs involved in
+                this array access. *)
+            let c = List.length accesses in
+            (** Transform [v] and the access term [t] into a dependency. As this
+                is an array access, it leads to multiple dependencies following
+                the number of dereferencements, i.e. [gets], and the number [c]
+                of index array operator pairs, of course. In this case, we have
+                to add a dependency on [v] and [t] as well as to each level of
+                indirection of [v] and [t] between 0 and [gets + c].
+                
+                For example, let us consider an access [\*arr3D\[2\]] to a
+                3-dimensional array [arr3D]. The latter has 3 levels of
+                indirection and the access itself consists of a dereferencement
+                of the first level of indirection using the [\*] operator and of
+                a dereferencement of the second level of indirection using the
+                index array operator. In this case, [c] is 1 and [gets] is 1
+                too. With [!Dep.of_array] we generate the following dependencies
+                ([arr3D], [\*arr3D], [\*arr3D\[2\]]).*)
+            let ds = Dep.of_array t v in
+            (** However, if the [t] appears within a function call and [v] is
+                not fully dereferenced, i.e. the number of dereferencements
+                [gets + c] is less than [nli], we must consider the remaining
+                levels of indirection of [v] as dependencies as well, i.e.
+                consider [nli] instead of [gets + c], as the function may access
+                [v] through the remaining levels of indirection.
+                
+                For example, the access [\*arr3D\[2\]] would lead to the
+                following dependencies ([arr3D], [\*arr3D], [\*arr3D\[2\]],
+                [\*arr3D\[2\]\[0\]]). *)
+            let rec complete = fun ds n b ->
+              if n < b then complete ((Dep.of_trm t v 1) :: ds) (n + 1) b
+              else ds in
+            let ds =
+              if call && (c + gets) < nli then complete ds 0 (nli - c - gets)
+              else ds in
+            (** At the end, we add the dependencies [ds] arising from [v] and
+                [t] into either the set of input or the set of input-output
+                dependencies according to their [access] classification. For
+                each dependency [d] in [ds], update also [dam], the map of
+                dependencies to sets of dependency attributes, if necessary,
+                i.e. if [das] contains at least one new dependency attribute to
+                go with [d]. *)
+            let ins, inouts, dam =
+              match access with
+              | `In ->
+                 let ins, dam =
+                   List.fold_left (fun (ins, dam) d ->
+                       let dam =
+                         if (DepAttr_set.is_empty das) then dam
+                         else Dep_map.add d das dam in
+                       (Dep_set.add d ins, dam)
+                     ) (ins, dam) ds in
+                 (ins, inouts, dam)
+              | `InOut ->
+                 let _, ins, inouts, dam =
+                   List.fold_left (fun (i, ins, inouts, dam) d ->
+                       (** Add the [Subscripted] attribute to the dependencies
+                           dereferencing [base] using index array operators.
 
-                         Considering the example of [\*arr3D\[2\]], we have to
-                         add the [Subscripted] attribute to [\*arr3D\[2\]] and
-                         to [\*arr3D\[2\]\[0\]] if the access apears within a
-                         function call. *)
-                     let das =
-                       if i > gets then DepAttr_set.add Subscripted das
-                       else das in
-                     let dam =
-                       if (DepAttr_set.is_empty das) then dam
-                       else Dep_map.add d das dam in
-                     (** When [v] is an inout-dependency, we add to [inouts]
-                         the dependencies on the level of indirection of [v]
-                         appearing the original access term. The dependencies
-                         on preceding levels of indirection belong to [ins].
-                         However, when [v] appears with a function call, we
-                         have to add to [inouts] the dependencies on all the
-                         levels of indirection of [v] the function can alter by
-                         side-effect.
-                         
-                         Considering the example of [\*arr3D\[2\]], if the
-                         latter is an inout-dependency, we add [\*arr3D\[2\]] to
-                         [inouts] and ([arr3D], [\*arr3D]) to [ins]. However, if
-                         the access appears within a function call, e.g.
-                         [f(\*arr3D\[2\])], we add ([\*arr3D\[2\]],
-                         [\*arr3D\[2\]\[0\]]) to [inouts] and ([arr3D],
-                         [\*arr3D]) to [ins]. *)
-                     if (call && (i > c)) ||
-                          (call && (c + gets) >= nli && (i >= c))  ||
-                            ((not call) && (i >= c)) then
-                       (i + 1, ins, Dep_set.add d inouts, dam)
-                     else
-                       (i + 1, Dep_set.add d ins, inouts, dam)
-                   ) (0, ins, inouts, dam) (List.rev ds) in
-               (ins, inouts, dam)
-          in
-          (** At the end, we must look for data dependencies among the
-              [accesses] within index array operators.*)
-          List.fold_left (fun (ins, inouts, dam) a ->
-              match a with
-              | Array_access_get t
-                | Array_access_addr t -> main ins inouts dam 0 false `In true t
-              | _ -> (ins, inouts, dam)
-            ) (ins, inouts, dam) accesses
+                           Considering the example of [\*arr3D\[2\]], we have to
+                           add the [Subscripted] attribute to [\*arr3D\[2\]] and
+                           to [\*arr3D\[2\]\[0\]] if the access apears within a
+                           function call. *)
+                       let das =
+                         if i > gets then DepAttr_set.add Subscripted das
+                         else das in
+                       let dam =
+                         if (DepAttr_set.is_empty das) then dam
+                         else Dep_map.add d das dam in
+                       (** When [v] is an inout-dependency, we add to [inouts]
+                           the dependencies on the level of indirection of [v]
+                           appearing the original access term. The dependencies
+                           on preceding levels of indirection belong to [ins].
+                           However, when [v] appears with a function call, we
+                           have to add to [inouts] the dependencies on all the
+                           levels of indirection of [v] the function can alter
+                           by side-effect.
+                           
+                           Considering the example of [\*arr3D\[2\]], if the
+                           latter is an inout-dependency, we add [\*arr3D\[2\]]
+                           to [inouts] and ([arr3D], [\*arr3D]) to [ins].
+                           However, if the access appears within a function
+                           call, e.g. [f(\*arr3D\[2\])], we add ([\*arr3D\[2\]],
+                           [\*arr3D\[2\]\[0\]]) to [inouts] and ([arr3D],
+                           [\*arr3D]) to [ins]. *)
+                       if (call && (i > c)) ||
+                            (call && (c + gets) >= nli && (i >= c))  ||
+                              ((not call) && (i >= c)) then
+                         (i + 1, ins, Dep_set.add d inouts, dam)
+                       else
+                         (i + 1, Dep_set.add d ins, inouts, dam)
+                     ) (0, ins, inouts, dam) (List.rev ds) in
+                 (ins, inouts, dam)
+            in
+            (** At the end, we must look for data dependencies among the
+                [accesses] within index array operators.*)
+            List.fold_left (fun (ins, inouts, dam) a ->
+                match a with
+                | Array_access_get t
+                  | Array_access_addr t ->
+                   main ins inouts dam 0 false `In true t
+                | _ -> (ins, inouts, dam)
+              ) (ins, inouts, dam) accesses
        (** When [base] does not represent a variable term, it is not an access
            pattern our dependency discovery fully recognizes so we try the
            best-effort approach and warn the user about it. *)
@@ -535,14 +588,18 @@ let discover_dependencies
        (** Transform [v] into an inout-dependency and add it to the
            corresponding dependency set. *)
        let inouts = Dep_set.add (Dep_var v) inouts in
+       (** We continue the dependency discovery within the initialization term
+           [init]. At this point, we consider them as in-dependencies. However,
+           this might change later if we discover a unary increment or decrement
+           in [init]. *)
+       let ins, inouts, dam = main ins inouts dam 0 false `In false init in
        (** [v] also represents a new variable in the local [scope], we thus need
            to introduce it to the latter together with its [nli]. *)
        Var_Hashtbl.add scope v nli;
-       (** Finally, we continue the dependency discovery within the
-           initialization term [init]. At this point, we consider them as
-           in-dependencies. However, this might change later if we discover a
-           unary increment or decrement in [init]. *)
-       main ins inouts dam 0 false `In false init
+       (** Finally, we check whether this variable declaration introduces an
+           alias to an existing variable and if so, we update [aliases]. *)
+       may_update_aliases (trm_has_cstyle Reference t) v ty init;
+       (ins, inouts, dam)
     (** [t] is a multiple declaration ([int a = 1, b]) of variables [tvs]
         including their types and of kind [vk] optionally involving
         initialization terms [inits]. *)
@@ -562,13 +619,11 @@ let discover_dependencies
                or decrement in [init]. *)
            let ins, inouts, dam = main ins inouts dam 0 false `In false init in
            (** [v] also represents a new variable in the local [scope], we thus
-               need to introduce it to the latter together with its [nli]. In
-               the case of a multiple variable declaration we perform this
-               operation after the dependency discovery in [init] so as [v] does
-               not appear too early in the local [scope]. Indeed, we cannot
-               refer to a variable deing declared within its own initialization
-               term. *)
+               need to introduce it to the latter together with its [nli]. *)
            Var_Hashtbl.add scope v nli;
+           (** Finally, we check whether this variable declaration introduces an
+               alias to an existing variable and if so, we update [aliases]. *)
+           may_update_aliases (Typ.is_reference ty) v ty init;
            (ins, inouts, dam)
          ) (ins, inouts, dam) tvs inits
     (** [t] is none of the above, explore the child terms. *)
