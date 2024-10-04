@@ -229,7 +229,6 @@ let trm_resolve_binop_lval_and_get_with_deref ?(plus : bool = false)
     | Trm_var (vk, var) ->
        let lv : lvar = { v = var; l = l } in
        let d' = if vk = Var_immutable && plus then d + 1 else d in
-       let _ = Printf.printf "%s has finally %d derefs\n" var.name d' in
        Some (lv, d' > 0)
     (* [t] is an array access, which means that the operand was dereferenced.
        Continue resolution on the latter. *)
