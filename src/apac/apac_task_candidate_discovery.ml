@@ -579,7 +579,11 @@ let discover_dependencies
        begin
          match trm_resolve_binop_lval_and_get_with_deref ~plus:true lval with
          | Some ({ v; _}, d) ->
-            may_update_aliases (not d) v (Typ.typ_unit ()) rval;
+            (** [v] can become an alias only if it is a pointer, i.e. its number
+                of levels of indirection [nli] is greater than zero, and if it
+                was not [d]ereferenced. *)
+            let nli = Var_Hashtbl.find scope v in
+            may_update_aliases (not d && nli > 0) v (Typ.typ_unit ()) rval;
             let ins, inouts, dam =
               main ins inouts dam 0 false `InOut false lval in
             main ins inouts dam 0 false `In false rval
