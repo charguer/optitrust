@@ -568,10 +568,10 @@ let discover_dependencies
           set operation." in
        let (lval, rval) = trm_inv ~error:error' set_inv t in
        (** Check whether we can resolve the variable [v] behind [lval]. If so,
-           we check whether this variable declaration introduces an alias to an
-           existing variable in which case we update [aliases], then we continue
-           the dependency discovery in [lval] and [rval]. On the one hand,
-           [lval] is the memory area being modified, we thus classify the
+           we then verify whether this variable declaration introduces an alias
+           to an existing variable in which case we update [aliases], then we
+           continue the dependency discovery in [lval] and [rval]. On the one
+           hand, [lval] is the memory area being modified, we thus classify the
            dependency as an inout-dependency. On the other hand, [rval] is being
            read assigned to [lval], we thus consider it as an in-dependency.
            However, this might change later if we discover a unary increment or
