@@ -873,8 +873,7 @@ end = struct
       begin
         (** we need to go through potential access and reference operations in
             the initialization term [ti] to get the labelled variable [lv'] we
-            might be creating an alias for (see
-            [!trm_strip_accesses_and_references_and_get_lvar]). *)
+            might be creating an alias for (see [!trm_strip_and_get_lvar]). *)
         match (Apac_miscellaneous.trm_strip_and_get_lvar ti) with
         | Some lv' ->
            (** If [lv'] is in [a], i.e. it is an argument or an alias to an
