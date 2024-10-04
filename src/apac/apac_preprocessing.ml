@@ -98,7 +98,8 @@ let record_globals (tg : target) : unit =
                    variable definition!" in
       let (_, v, ty, _) = trm_inv ~error trm_let_inv t in
       (** Add [v] to the record of global variables [!Apac_records.globals]. *)
-      Apac_records.globals := Var_map.add v (ty, false) !Apac_records.globals
+      Apac_records.globals :=
+        Var_map.add v (Typ.get_inner_ptr_type ty, false) !Apac_records.globals
     ) tg
 
 (** {1:candidate_preselection Candidate pre-selection}
