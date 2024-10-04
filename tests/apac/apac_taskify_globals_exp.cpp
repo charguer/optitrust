@@ -25,7 +25,7 @@ void foo() {
     func();
 #pragma omp task default(shared)
     func();
-#pragma omp task default(shared) depend(in : j) depend(inout : i, i[0])
+#pragma omp task default(shared) depend(in : j) depend(inout : i)
     {
 #pragma omp critical
       {
