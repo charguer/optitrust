@@ -216,13 +216,16 @@ type lvar = { v : var; l : label; }
 (** [LVar]: module to represent labelled variables. *)
 module LVar = struct
   type t = lvar
+  
   (** [LVar.equal lv1 lv2]: checks equality of two labelled variables [lv1] and
       [lv2]. At first, [var_eq] checks checks the equality of the variable part.
       Then, we check the equality of the labels. *)
   let equal (lv1 : t) (lv2 : t) : bool = var_eq lv1.v lv2.v && lv1.l = lv2.l
+
   (** [LVar.hash lv]: hashes the [lv] key of type [Lvar.t]. Note that the hash
       is based on both the variable unique identifier and the label. *)
   let hash (lv : t) : int = Hashtbl.hash ((string_of_int lv.v.id) ^ lv.l)
+
   (** [LVar.to_string lv]: returns a string representation of the labelled
       variable [lv]. *)
   let to_string (lv : t) : string =
