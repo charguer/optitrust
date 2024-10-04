@@ -1,17 +1,17 @@
 #include <stdlib.h>
 
 int ** f(int ** v) {
-	v = (int **) malloc(sizeof(int*));
-	return v;
+  v = (int **) malloc(sizeof(int*));
+  return v;
 }
 
 int * g(int * v) {
-	v = (int *) malloc(sizeof(int));
-	return v;
+  v = (int *) malloc(sizeof(int));
+  return v;
 }
 
 int k() {
-	return 42;
+  return 42;
 }
 
 int h(int ** v1, int * v2, int v3) {
@@ -27,4 +27,5 @@ int h(int ** v1, int * v2, int v3) {
   a2bis[0] = k();
   int a3 = v3;
   a3++;
+  return a3;
 }
