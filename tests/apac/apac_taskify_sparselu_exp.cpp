@@ -256,7 +256,7 @@ int main(int argc, const char* const* argv) {
       goto __apac_exit;
     }
     int error = 0;
-#pragma omp task default(shared) depend(in : matrix, matrix[0], matrix[0][0], matrix_size, struct_A, struct_A[0]) depend(inout : error)
+#pragma omp task default(shared) depend(in : argv, matrix, matrix[0], matrix[0][0], matrix_size) depend(inout : error)
     error = store_structure(struct_A, "A", matrix, matrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -265,7 +265,7 @@ int main(int argc, const char* const* argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : matrix, matrix[0], matrix[0][0], matrix_A, matrix_A[0], matrix_size, submatrix_size) depend(inout : error)
+#pragma omp task default(shared) depend(in : argv, matrix, matrix[0], matrix[0][0], matrix_size, submatrix_size) depend(inout : error)
     error = store_matrix(matrix_A, "A", matrix, matrix_size, submatrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -283,7 +283,7 @@ int main(int argc, const char* const* argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : matrix, matrix[0], matrix[0][0], matrix_size, struct_LU, struct_LU[0]) depend(inout : error)
+#pragma omp task default(shared) depend(in : argv, matrix, matrix[0], matrix[0][0], matrix_size) depend(inout : error)
     error = store_structure(struct_LU, "LU", matrix, matrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -292,7 +292,7 @@ int main(int argc, const char* const* argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : matrix, matrix[0], matrix[0][0], matrix_LU, matrix_LU[0], matrix_size, submatrix_size) depend(inout : error)
+#pragma omp task default(shared) depend(in : argv, matrix, matrix[0], matrix[0][0], matrix_size, submatrix_size) depend(inout : error)
     error = store_matrix(matrix_LU, "LU", matrix, matrix_size, submatrix_size);
 #pragma omp taskwait
     if (error) {
