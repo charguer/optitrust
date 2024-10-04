@@ -1,3 +1,4 @@
+
 int f(int x) {
   if (x > 0) {
     return x;
@@ -6,13 +7,14 @@ int f(int x) {
   }
 }
 
-void f_dsp(int x, int* res) {
+void f_dps(int x, int* res) {
   if (x > 0) {
     *res = x;
   } else {
     *res = -x;
   }
 }
+
 
 int g(int x, int y) {
   if (x > 0) {
@@ -22,7 +24,7 @@ int g(int x, int y) {
   }
 }
 
-void g_dsp(int x, int y, int* res) {
+void g_dps(int x, int y, int* res) {
   if (x > 0) {
     *res = x + y;
   } else {
@@ -30,26 +32,32 @@ void g_dsp(int x, int y, int* res) {
   }
 }
 
-int h() { return 3; }
-
-void my_h(int* res) { *res = 3; }
-
-void test_one_arg() {
-  int r;
-  int x = 1;
-  f_dsp(x, &r);
+int h() {
+  return 3;
 }
 
-void test_two_args() {
+void my_h(int* res) {
+  *res = 3;
+}
+
+
+void test_one_arg () {
+  int r;
+  int x = 1;
+  r = f(x);
+
+}
+
+void test_two_args () {
   int r;
   int x = 1;
   int y = 2;
-  g_dsp(x, y, &r);
+  r = g(x, y);
 }
 
-void test_zero_arg() {
+void test_zero_arg () {
   int r;
-  my_h(&r);
+  r = h();
 }
 
 int main() { return 0; }

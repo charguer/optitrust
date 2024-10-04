@@ -212,43 +212,42 @@ let replace_with_change_args_on (new_fun_name : var) (arg_mapper : trms -> trms)
   { namespaces = fv.namespaces; name = new_fun_name; id = fv.id } *)
   trm_replace (Trm_apps ((trm_var new_fun_name), arg_mapper args, [])) t
 
-(** [dsp_def_at index arg func t]: changes the destination pasing style,
+(** [dps_def_at index arg func t]: changes the destination pasing style,
      [index] - index of the targeted function definition on its surrounding sequence,
-     [arg] - the new argument to be added on the new function definition,
-     [func] - name of the newly added function definition,
+     [arg_name] - the new argument to be added on the new function definition,
+     [fn_name] - name of the newly added function definition,
      [t] - ast of the original function definition. *)
-let dsp_def_at (index : int) (arg : string) (func : string) (t : trm) : trm =
-  let error = "Function_core.dsp_def_at: expected the surrounding sequence of the targeted function definition." in
+let dps_def_at (index : int) (arg_name : string) ?(fn_name : string = "") (t : trm) : trm =
+  let error = "Function_core.dps_def_at: expected the surrounding sequence of the targeted function definition." in
   let tl = trm_inv ~error trm_seq_inv t in
-
-  let arg = new_var arg in
+  let arg = new_var arg_name in
   let f_update (t : trm) : trm =
-    let error = "Function_core.dsp_def_at: expected a target to a function definition." in
+    let error = "Function_core.dps_def_at: expected a target to a function definition." in
     let (f, ret_ty, tvl, body, _) = trm_inv ~error trm_let_fun_inv t in
     let new_body, _ = Internal.replace_return_with_assign (typ_ptr ret_ty) arg body in
     let new_args = tvl @ [(arg, typ_ptr ret_ty)] in
-    let new_fun = if func = "dsp" then f.name ^ "_dsp" else func in
-    let new_fun_var = new_var new_fun in
+    let new_fun_name = if fn_name = "" then f.name ^ "_dps" else fn_name in
+    let new_fun_var = new_var new_fun_name in
     let new_fun_def = trm_let_fun ~annot:t.annot new_fun_var typ_unit new_args new_body in
     trm_seq_nobrace_nomarks [t; new_fun_def]
-   in
+  in
   let new_tl = Mlist.update_nth index f_update tl in
   trm_seq ~annot:t.annot new_tl
 
-(** [dsp_call_on dps t]: changes a write operation with lhs a function call to a function call,
-    [dsp] - the name of the function call, possibly empty to use the default name
+(** [dps_call_on dps t]: changes a write operation with lhs a function call to a function call,
+    [dps] - the name of the function call, possibly empty to use the default name
     [t] - ast of the write operation. *)
-let dsp_call_on (dsp : string) (t : trm) : trm =
+let dps_call_on (dps : string) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_, [lhs; rhs], _) when is_set_operation t ->
     begin match rhs.desc with
     | Trm_apps ({desc = Trm_var f; _}, args, _) ->
-        let dsp_name = if dsp = "" then f.name ^ "_dsp" else dsp in
+        let dps_name = if dps = "" then f.name ^ "_dps" else dps in
         (* TODO: avoid using name_to_var, take var as arg. *)
-        trm_apps (trm_var (name_to_var dsp_name)) (args @ [lhs])
-    | _ -> trm_fail rhs "Function_core.dsp_call_on: expected a target to a function call."
+        trm_apps (trm_var (name_to_var dps_name)) (args @ [lhs])
+    | _ -> trm_fail rhs "Function_core.dps_call_on: expected a target to a function call."
     end
-  | _ -> trm_fail t "Function_core.dsp_call_on: expected a target to a function call, whose parent is a write operation."
+  | _ -> trm_fail t "Function_core.dps_call_on: expected a target to a function call, whose parent is a write operation."
 
 
 (** [get_prototype t]: returns the return type of the function and the types of all its arguments.*)

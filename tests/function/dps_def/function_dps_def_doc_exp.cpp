@@ -6,7 +6,7 @@ int f(int x) {
   }
 }
 
-void f_dsp(int x, int* res) {
+void f_dps(int x, int* res) {
   if (x > 0) {
     *res = x;
   } else {

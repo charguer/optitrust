@@ -133,20 +133,20 @@ let%transfo rename_args (new_args : var list) (tg : target) : unit =
 let%transfo replace_with_change_args (new_fun_name : var) (arg_mapper : trms -> trms) (tg : target) : unit =
   apply_at_target_paths (Function_core.replace_with_change_args_on new_fun_name arg_mapper) tg
 
-(** [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will
+(** [dps_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will
      inserts a new version of that definition whose return type is void.
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
-let%transfo dsp_def ?(arg : string = "res") ?(func : string = "dsp") (tg : target) : unit =
+let%transfo dps_def ?(arg : string = "res") ?(fn_name: string = "") (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
-    apply_at_target_paths_in_seq (fun i t -> Function_core.dsp_def_at i arg func t) tg)
+    apply_at_target_paths_in_seq (fun i t -> Function_core.dps_def_at i arg ~fn_name t) tg)
 
-(** [dsp_call ~dsp tg]: expects the target [tg] to point at a function call whose parent trm is a write operation
+(** [dps_call ~dps tg]: expects the target [tg] to point at a function call whose parent trm is a write operation
     then it will convert that write operation into a function call.
     Let's say that the targeted function call is r = f(x, y);
-    If [dsp] is the empty string, then "f_dsp" will be used as a name based on the original name "f".
-    Note: This transformation assumes that dsp_def has been already applied to the definition of the called function. *)
-let%transfo dsp_call ?(dsp : string = "") (tg : target) : unit =
+    If [dps] is the empty string, then "f_dps" will be used as a name based on the original name "f".
+    Note: This transformation assumes that dps_def has been already applied to the definition of the called function. *)
+let%transfo dps_call ?(dps : string = "") (tg : target) : unit =
   Target.iter (fun p ->
-    Target.apply_at_path (Function_core.dsp_call_on dsp) (Path.parent p)
+    Target.apply_at_path (Function_core.dps_call_on dps) (Path.parent p)
   ) tg

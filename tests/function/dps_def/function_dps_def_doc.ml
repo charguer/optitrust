@@ -4,6 +4,6 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Function_basic.dsp_call [cCall "f"];
+  !! Function_basic.dps_def [cFunDef "f"];
 
 )
