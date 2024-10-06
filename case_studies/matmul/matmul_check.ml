@@ -17,7 +17,6 @@ let _ = Flags.disable_stringreprs := true
 
 let int = trm_int
 
-(* FIXME: avoid inlining *)
 let _ = Run.script_cpp (fun () ->
 
   !! Function.inline_def [cFunDef "mm"];
@@ -31,6 +30,9 @@ let _ = Run.script_cpp (fun () ->
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
-
   !! Cleanup.std ();
 )
+
+(* for demos:
+    !! Loop.tile (int 32) ~index:("bj") ~bound:TileDivides [cFor "i"];
+  *)

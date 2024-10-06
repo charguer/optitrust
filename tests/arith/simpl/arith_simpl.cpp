@@ -52,6 +52,7 @@ int main()
   u = a * (b + c); // = a * b + a * c
   u = (a + b) * (c + d); // = a * c + a * d + b * c + b * d
   u = 5*a * (2*b + 3*c + 4*d);
+  u = a + a * (b + c); // = a + a * b + c NOTWORKING
 
   // test expand from pic demo
   v = (a / b * c / (a * d * d / b * e)); // = c / (d * d * e)
@@ -103,7 +104,7 @@ int main()
   // test euclidian
   eu = (n / m) * m + (n % m); // = n
   eu = m + (n % m) + m * (n / m); // = m + n
-  eu = m % n + (1 + m / n) * n;
+  eu = n % m + (2 + n / m) * m; // = n + 2
 
   // test integer addition
   p = (2 + m) - (m + -2); // = 4
