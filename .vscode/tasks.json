@@ -218,8 +218,7 @@
         "args": [
           "step_trace",
           "${relativeFile}",
-          "${lineNumber}",
-          "-mode step-trace"
+          "${lineNumber}"
         ]
       },
       {
