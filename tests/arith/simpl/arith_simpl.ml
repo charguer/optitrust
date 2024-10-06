@@ -7,7 +7,7 @@ let _ = Run.script_cpp (fun _ ->
      WARNING: trm_to_naive_expr: missing type information for binary division, assuming double
      appears, and whether we can rebuild the type information *)
 
-  !! Arith_basic.(simpl_rec expand) [nbMulti; cWriteVar "eu"; dRHS];
+  !! Arith_basic.(simpl expand_rec) [nbMulti; cWriteVar "eu"; dRHS];
   !! Arith_basic.(simpl euclidian) [nbMulti; cWriteVar "eu"; dRHS];
 
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "ci"; dRHS];
@@ -27,7 +27,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "y"; dRHS];
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "z"; dRHS];
   !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "t"; dRHS];
-  !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "u"; dRHS];
+  !! Arith_basic.(simpl expand_rec) [nbMulti; cWriteVar "u"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
 
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "f"; dRHS];

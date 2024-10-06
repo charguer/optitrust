@@ -25,6 +25,7 @@
 
 - fun%script syntax to avoid small-step markers
 
+- the %transfo ppx should not require the syntax (_u : unit) 
 
 # Cleanup
 

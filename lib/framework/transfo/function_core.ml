@@ -110,6 +110,7 @@ let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : pa
     let new_tl = Mlist.update_nth index f_update tl in
     trm_seq ~annot:t.annot new_tl
 
+
 (** [use_infix_ops_on allow_identity t]: transforms an explicit write operation to an implicit one
       [allow_identity] - if true then the transformation will never fail
       [t] - ast of the write operation *)
