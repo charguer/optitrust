@@ -101,6 +101,27 @@
         ]
       },
       {
+        "label": "View trace light",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "full_trace",
+          "${relativeFile}",
+          "${lineNumber}",
+          "-substeps-including-ast",
+          "small"
+        ]
+      },
+      {
         "label": "View standalone trace",
         "type": "shell",
         "command": "tools/view_result.sh",
@@ -137,7 +158,8 @@
           "${relativeFile}",
           "${lineNumber}",
           "-substeps-including-ast",
-          "small"
+          "small",
+          "-trace-as-text"
         ]
       },
       {

@@ -88,6 +88,9 @@ let c ?(typing_style : typing_style = typing_annot) () : output_style =
     typing = typing_style;
     print = Lang_C ( Ast_to_c.( default_style ()) ) }
 
+let c_code () : output_style =
+  c ~typing_style:typing_none ()
+
 let c_res () : output_style  =
   c ~typing_style:typing_all ()
 

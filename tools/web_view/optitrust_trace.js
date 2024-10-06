@@ -167,37 +167,37 @@ var optionsDescr = [ // extended by initAllTags
   },
   { radio: "typing_style",
     value: "hide",
-    name: "Hide res",
+    name: "Code",
     kind: "serialized_ast",
     default: false,
   },
   { radio: "typing_style",
     value: "annot",
-    name: "Res annot",
+    name: "+Annot",
     kind: "serialized_ast",
     default: true,
   },
   { radio: "typing_style",
     value: "ctx",
-    name: "Res context",
+    name: "+Context",
     kind: "serialized_ast",
     default: false,
   },
   { radio: "typing_style",
     value: "usage",
-    name: "Res usage",
+    name: "+Usage",
     kind: "serialized_ast",
     default: false,
   },
   { radio: "typing_style",
     value: "full",
-    name: "Full res",
+    name: "+Details",
     kind: "serialized_ast",
     default: false,
   },
   { key: "compact",
-    name: "Compact",
-    kind: "ast",
+    name: "compact-font",
+    kind: "advanced",
     default: true,
   },
 ];
@@ -550,12 +550,14 @@ function loadStepDetails(idStep) {
   queryStepDetails(step, view);
 }
 
+
 function queryStepDetails(step, view, hadEmptyDiff = false) {
+  let typing_style = getRadioOption("typing_style");
   // Print diff for step
   var stepCode;
   if (serialized_trace) {
     // We have a serialized trace server, get the step details from there
-    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&decode=${options.decode}&optitrust_syntax=${options.optitrust_syntax}&print_types=${options.print_types}&typing_style=${getRadioOption("typing_style")}&timestamp=${serialized_trace_timestamp}`)
+    stepCode = fetch(serialized_trace + `?view=${view}&step=${step.id + root_serialized_step_id}&decode=${options.decode}&optitrust_syntax=${options.optitrust_syntax}&print_types=${options.print_types}&typing_style=${typing_style}&timestamp=${serialized_trace_timestamp}`)
       .then((response) => {
         if (response.status == 419) {
           window.location.reload();
@@ -571,26 +573,13 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
   }
   else {
     // No trace server: get the step details directly from the step object or fail
-    if (view == "diff") {
-      if (step.diff == undefined) {
-        stepCode = Promise.reject(new Error("Diff was not computed for this step and there is no serialized trace"))
-      } else {
-        stepCode = Promise.resolve(step.diff);
-      }
-    } else if (view == "code_before") {
-      if (step.code_before == undefined) {
-        stepCode = Promise.reject(new Error("Code before this step was not saved, request the trace of a specific step or set the flag detailed_trace"))
-      } else {
-        stepCode = Promise.resolve(step.code_before);
-      }
-    } else if (view == "code_after") {
-      if (step.code_after == undefined) {
-        stepCode = Promise.reject(new Error("Code after this step was not saved, request the trace of a specific step or set the flag detailed_trace"))
-      } else {
-        stepCode = Promise.resolve(step.code_after);
-      }
+    var field = view + ((typing_style == "hide") ? "_raw" : "");
+    // field is one of: "diff", "code_before", "code_after", "diff_raw", "code_before_raw", "code_after_raw",
+    // where the "_raw" suffix indicates that annotations/contracts should be hidden
+    if (step[field] == undefined) {
+      stepCode = Promise.reject(new Error(field + " was not recorded for this step."))
     } else {
-      stepCode = Promise.reject(new Error(`View mode ${view} is not included in standalone traces`))
+      stepCode = Promise.resolve(step[field]);
     }
   }
   stepCode
@@ -940,7 +929,12 @@ function initControls() {
     if (descr.kind == "ast") {
       sAstControls += sControl;
     } else if (descr.kind == "serialized_ast") {
-      if (serialized_trace) {
+      // use only two styles if not in serialized-trace mode
+      if (    serialized_trace
+           || (descr.radio && descr.radio == "typing_style" && (descr.value == "hide" || descr.value == "annot"))) {
+        if (descr.value == "hide") { // title for radio group
+          sAstControls += "&nbsp;<b>Show:</b>";
+        }
         sAstControls += sControl;
       }
     } else {
@@ -988,10 +982,12 @@ function initTree(id, parent_id, has_valid_parent) {
 function initAllTags() {
   // fills the object allTags with keys that correspond to all possible tags
   for (var i = 0; i < steps.length; i++) {
-    var tags = steps[i].tags;
-    for (var t = 0; t < tags.length; t++) {
-      var tag = tags[t];
-      allTags[tag] = true;
+    if (steps[i] !== undefined) {
+      var tags = steps[i].tags;
+      for (var t = 0; t < tags.length; t++) {
+        var tag = tags[t];
+        allTags[tag] = true;
+      }
     }
   }
   // LATER: organize known tags to the front
