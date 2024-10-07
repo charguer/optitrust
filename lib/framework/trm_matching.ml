@@ -74,7 +74,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x.name aux_var_decls then Some (x, ty) else None) args in
     let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars)) args in
     let pattern_expr = Pattern.pattern_match body [
-      Pattern.(trm_seq (mlist (!__ ^:: nil))) (fun t' () ->
+      Pattern.(trm_seq (mlist (!__ ^:: nil)) none) (fun t' () ->
         match trm_ignore_inv t' with
         | Some t' -> t'
         | None -> t'
@@ -234,7 +234,8 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
     | Trm_for_c (init1, cond1, step1, body1, _), Trm_for_c (init2, cond2, step2, body2, _) ->
         aux_with_bindings [init1; cond1; step1; body1] [init2; cond2; step2; body2]
 
-    | Trm_seq tl1, Trm_seq tl2 ->
+    | Trm_seq (tl1, None), Trm_seq (tl2, None) ->
+        (* TODO: manage sequence with results *)
         if Mlist.length tl1 <> Mlist.length tl2 then mismatch ();
         aux_with_bindings (Mlist.to_list tl1) (Mlist.to_list tl2)
 

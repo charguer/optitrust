@@ -4,7 +4,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Function.inline ~resname:"r" [cCall "g"; cCall "f"];
-  !! Function.inline ~resname:"r" [cVarDef "p"; cCall "f"];
+  !! Function.inline [cCall "g"; cCall "f"];
+  !! Function.inline [cVarDef "p"; cCall "f"];
 
 )

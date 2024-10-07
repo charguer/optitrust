@@ -12,34 +12,42 @@ type rename = Variable.Rename.t
       of the function call. If one doesn't want to bind the argument at index i
       then it just leaves it as an empty string "". Basically this transformation is
       just an aplication of bind_intro n times. Where n is the numer of strings inside
-      [fresh_names] different from "". *)
-let%transfo bind_args ?(const : bool = false) (fresh_names : string list) (tg : target) : unit =
-  (* DEPRECATED? *)
+      [fresh_names] different from "".
+      If [inline_impure_mark] is set, forces every impure argument to be bound before
+      but add the [inline_impure_mark] to those that should be inlined later because they
+      were given no name. *)
+let%transfo bind_args ?(inline_impure_mark: mark = no_mark) (fresh_names : string list) (tg : target) : unit =
   Target.iter (fun p ->
-    let call_trm = Target.resolve_path p in
-    let call_mark = "bind_args_mark" in
-    let nb_fresh_names = List.length fresh_names in
-    let error = "expected a target to a function call." in
-    let _, tl = trm_inv ~error trm_apps_inv call_trm in
-    if nb_fresh_names = 0
-      then ()
-      else if List.length tl <> nb_fresh_names then
-        trm_fail call_trm "each argument should be binded to a variable or the empty string. "
-      else begin
-        Marks.add call_mark (target_of_path p);
-        List.iteri (fun ind fresh_name ->
-          if fresh_name = ""
-            then ()
-            else Function_basic.bind_intro ~fresh_name ~const [cMark call_mark; dArg ind]
-        ) fresh_names;
-        Marks.remove call_mark [cMark call_mark] end
-) tg
+    Marks.with_fresh_mark_on p (fun call_mark ->
+      let call_trm = Target.resolve_path p in
+      let nb_fresh_names = List.length fresh_names in
+      let error = "expected a target to a function call." in
+      let _, effective_args = trm_inv ~error trm_apps_inv call_trm in
+      let fresh_names = if nb_fresh_names = 0
+        then List.init (List.length effective_args) (fun _ -> "")
+        else if List.length effective_args <> nb_fresh_names then
+          trm_fail call_trm "each argument should be binded to a variable or the empty string. "
+        else fresh_names
+      in
+      let ind = ref 0 in
+      List.iter2 (fun fresh_name effective_arg ->
+        begin if fresh_name = "" then begin
+          if inline_impure_mark <> no_mark && not (Resources.trm_is_pure effective_arg) then
+            Variable_basic.bind ~mark_let:inline_impure_mark "arg" ~const:true [cMark call_mark; dArg !ind]
+          else ()
+        end else
+          Variable_basic.bind fresh_name ~const:true [cMark call_mark; dArg !ind]
+        end;
+        incr ind
+      ) fresh_names effective_args
+    )
+  ) tg
 
 (** [elim_body ~vars tg]: expects the target [tg] to point at a marked sequence.
-     Then it will change all the declaraed variables inside that sequence  based on [vars]
+     Then it will change all the declaraed variables inside that sequence based on [vars]
      Either the user can give a list of variables together with their new names, or he can give the postifx
      that's going to be assigned to all the declared vairables. *)
-let%transfo elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
+let%transfo elim_body ?(resname: string = "") ?(vars : rename = AddSuffix "") (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Target.iter (fun p ->
     let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Target.resolve_path p) in
@@ -48,175 +56,23 @@ let%transfo elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
     Stats.comp_stats "elim_body_renames" (fun () ->
       Variable.renames vars (target_of_path p));
     Stats.comp_stats "elim_body_elim" (fun () ->
-      Sequence_basic.elim (target_of_path p));
+      Sequence.elim ~resname (target_of_path p));
   ) tg
 
-(** [bind ~fresh_name ~args tg]: expects the target [tg] to point at a function call,
-    Then it will just call bind args and bind_intro.
-    Basically this tranasformation just binds a variable to the targeted function call
-    and its arguments.*)
-let%transfo bind ?(fresh_name : string = "res") ?(args : string list = []) (tg : target) : unit =
-  bind_args args tg;
-  Function_basic.bind_intro ~const:false ~fresh_name tg
-
-(** [inline ~resname ~vars ~args ~keep_res ~delete ~recurse ~debug tg]: expects the target [tg] to point at a function call
+(** [inline ?resname ?vars ?args ?delete ?recurse ?simpl tg]: expects the target [tg] to point at a function call
     Then it will try to inline that function call. If it's possible this transformation tries to
     perform as many simplifications as possible.
+    - [resname]: if present the result of the function call will be bound with this name.
+    - [vars]: renaming scheme for local variables that occur in the body of the inlined function
+    - [args]: names for binding the function arguments before the call, any empty string corresponds to an argument that should not be bound outside and inlined instead (by default we consider that each argument should be inlined inside).
+    - [delete]: if true, the function definition should be removed as well
     - [recurse]: inlines functions recursively within the inlined bodies
-
-    -------------------------------------------------------------------------------------------------------------
-    This transformation handles the following cases:
-
-    Case 1: Function call belongs to a variable declaration:
-      Ex:
-      int f(int x){
-        return x + 1;
-      }
-      int a = 10;
-      int b = f(a);
-    Case 2: Function call belongs to a write operation
-      Ex:
-      int f(int x){
-        return x + 1;
-      }
-      int a = 10;
-      a = f(a);
-    Case 3: Function call is does not return any value(a call to a function of void type)
-      Ex:
-        void f(int& x){
-          x = x + 1;
-        }
-        int& a = 10;
-        f(a);
-    Case 4: Function call belongs to a for loop component
-      Ex:
-        int f(int x){
-          return x + 1;
-        }
-        int a = 10;
-        for(int i = f(a); i < 20; i ++){
-          ..
-        }
-    -------------------------------------------------------------------------------------------------------------
-      STEPS:
-
-      Step 1(Only for case 1):
-        Mark the instruction that contains the function call as "__inline_instruction"
-
-      Step 2:
-        Bind [resname] variable to the function call, if [resname] was not provided by the user then "__TEMP_Optitrust" is going to be
-        used as a temporary variable.
-
-      Step 3:
-        Mark the function call for easier targeting in case it hasn't been marked by previous transformation.
-
-      Step 4:
-        Create a special mark for the inline body of the function [body_mark = "__TEMP_BODY" ^ (string_of_int i)] for easy targeting that inilin
-        function body.
-
-      Step 5:
-        Call [Function_basic.inline] with target being the marked function call.
-        Note: This step detaches the binded declaration.
-
-      Step 6:
-        Function arguments are encoded as const variables and that's different from the encodings of declared variables.
-        This introduces wrong struct and array accesses. To fix this [Accesses.intro] with target being the marked body genereated
-        from [Step 5] is called.
-
-      Step 7:
-        Integrates the sequence from [Step 6] to its surrouding sequence.
-        To avoid name clashes this transformation renames all the variables defined inside that sequence by using the rule defined
-        by [vars] variable.
-        Note: It's the users responsibility to introduce a good renaming strategy(See [Variable_core.rename module]).
-
-      Step 8:
-        Recall [Step 5] detaches the binded declaration. This step tries to attach that variable declaration with the value returned
-        by the function.
-
-      Step 9:
-        TODO: Add all the steps when function inline was completely debugged
-
-      TODO: when the system of intermediate steps for combi transformations is available,
-      apply it to generate the intermediate steps for the inlining example.
-
-   EXAMPLE:
-    int g(int x, int y, int z, int w) {
-  int p = x + x + y + z + w;
-  return p + p;
-}
-int main1() { // initial step : target on g(..)
-  int u = 1, v = 2, w = 3;
-  int t = f(g(h(4), u, m(v, 2), (w + 1)));
-}
-int main2() { // Function_basic.bind_intro
-  int u = 1, v = 2, w = 3;
-  int r = [mymark:](g(h(4), u, m(v, 2), (w + 1)));
-  int t = f(r);
-}
-int main3() { // Function.bind_args ~[cMark mymark]
-  int u = 1, v = 2, w = 3;
-  int a = h(4);
-  int b = m(v, 2);
-  int r = [mymark:](g(a, u, b, (w + 1)));
-  int t = f(r);
-}
-int main4() { // Function_basic.inline ~[cMark mymark]
-              // The mark gets moved to the surrounding declaration
-  int u = 1, v = 2, w = 3;
-  mymark: int r; // same as before, only you remove the initialization term
-  mybody: {
-    int p = ((((a + a) + u) + b) + (w + 1));
-    r = (p + p);
-  }
-  int t = f(r);
-}
-int main5() { // Function.elim_body ~[cMark mark]
-  int u = 1, v = 2, w = 3;
-  int a = h(4);
-  int b = m(v, 2);
-  mymark: int r;
-  int p = ((((a + a) + u) + b) + (w + 1));
-  r = (p + p);
-  int t = f(r);
-}
-int main6() { // Variable_basic.init_attach
-  int u = 1, v = 2, w = 3;
-  int a = h(4);
-  int b = m(v, 2);
-  int p = ((((a + a) + u) + b) + (w + 1));
-  int r = (p + p);
-}
-
-Other example in the case of return:
-
-int h(int x) {
-  if (x > 0)
-    return -x;
-  return x;
-}
-int f1() {
-  int a = 3;
-  int r = [mymark:]h(a);
-  int s = r;
-}
-int f2() { // result of Funciton_basic.inline_cal
-    // generate goto, generate label, don't call init_attach
-  int a = 3
-  [mymark:]int r;
-  if (a > 0) {
-    r = -a;
-    goto _exit;
-  }
-  r = a;
-  _exit:;
-  int s = r;
-} *)
+    - [simpl]: simplifications to perform around subtituted arguments (by default [Variable.default_inline_simpl]).
+*)
 let%transfo inline ?(resname : string = "")
   ?(vars : rename = AddSuffix "") ?(args : string list = [])
-  ?(keep_res : bool = false) ?(delete : bool = false)
-  ?(debug : bool = false) ?(recurse : bool = false)
-  ?(simpl : target -> unit = Variable.default_inline_simpl)
-  (tg : target) : unit
+  ?(delete : bool = false) ?(recurse : bool = false)
+  ?(simpl : target -> unit = Variable.default_inline_simpl) (tg : target) : unit
   =
   Marks.with_marks (fun next_mark ->
     let subst_mark = next_mark () in
@@ -224,123 +80,43 @@ let%transfo inline ?(resname : string = "")
     let function_names = ref Var_set.empty in
     let still_to_process = ref [] in
     let process i p =
-      let (path_to_seq, local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
-      let resname = ref resname in
-      if !resname = "" then resname := sprintf "__res_%d" i;
-      let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
-      let path_to_call = path_to_instruction @ local_path in
 
-      let tg_out_trm = Target.resolve_path path_to_instruction in
-      let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
-      let mark_added = ref false in
-      let call_trm = Target.resolve_path path_to_call in
-      let given_args = ref [] in
+      let call_trm = Target.resolve_path p in
       begin match call_trm.desc with
         | Trm_apps ({desc = Trm_var f}, xs, _) ->
-          function_names := Var_set.add f !function_names;
-          given_args := xs;
+          function_names := Var_set.add f !function_names
         | _ ->  trm_fail call_trm "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;
 
-      let post_processing ?(deep_cleanup : bool = false) () : unit =
-      Stats.comp_stats "post_processing" (fun () ->
-        let new_target = cMark my_mark in
-        let inline_mark = Mark.next () in
-        if not !mark_added then Marks.add my_mark (target_of_path path_to_call);
-        if !Flags.check_validity then begin
-          let args = if args = []
-            then List.init (List.length !given_args) (fun _ -> "")
-            else args
-          in
-          let ind = ref 0 in
-          List.iter2 (fun a x ->
-            if Resources.trm_is_pure x then begin
-              if a = "" then () else
-              Variable_basic.bind a ~const:true [new_target; dArg !ind];
-            end else begin
-              Variable_basic.bind ~mark_let:inline_mark "arg" ~const:true [new_target; dArg !ind];
-            end;
-            incr ind;
-          ) args !given_args;
-        end else begin
-          if args <> [] then bind_args ~const:false args [new_target];
-        end;
-        let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
-        Stats.comp_stats "inline" (fun () ->
-          Function_basic.inline ~body_mark ~subst_mark [new_target];);
-        if recurse then begin
-          let m = Marks.add_next_mark_on next_mark path_to_seq in
-          still_to_process := m :: !still_to_process;
-        end;
-        (* TODO: improvement for [recurse] ?
-           currently imprecise as it will inline in all the surrounding sequence
+      let call_mark = next_mark () in
+      Marks.add call_mark (target_of_path p);
+      let new_target = cMark call_mark in
 
-        if recurse then begin
-          let (start, stop) = span_marks (next_mark ()) in
-          Marks.add start [tBefore; cMark body_mark];
-          Marks.add stop [tAfter; cMark body_mark];
-          still_to_process := (start, stop) :: !still_to_process;
-        end; *)
-        Stats.comp_stats "intro" (fun () ->
-          Accesses_basic.intro [cMark body_mark];);
-        Stats.comp_stats "elim_body" (fun () ->
-          elim_body ~vars [cMark body_mark];);
-        Variable.inline ~simpl [nbAny; (* cVarDef ~body:[ *) cMark inline_mark (* ] "" *)];
-        if deep_cleanup then begin
-          let success_attach = match Trace.step_backtrack_on_failure (fun () ->
-            Instr.move_in_seq ~dest:[tBefore; occFirst; cWriteVar !resname] [new_target];
-            Variable_basic.init_attach [new_target]
-          ) with
-          | Success () -> true
-          (* FIXME: more precise errors? | Failure (Contextualized_error (_, Variable_core.Init_attach_no_occurrences), _)
-          | Failure (Contextualized_error (_, Variable_core.Init_attach_occurrence_below_control), _) ->
-              false
-          | Failure (e, bt) -> Printexc.raise_with_backtrace e bt *)
-          | Failure (e, bt) -> false
-          in
-          if success_attach then begin
-            Variable.inline ~simpl [new_target];
-            Variable.inline_and_rename ~simpl [nbAny; cVarDef !resname];
-            if not keep_res then begin
-              ignore (Trace.step_backtrack_on_failure (fun () ->
-                Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]
-              ));
-              (* TODO: only with | TransfoError ? *)
-              Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ]
-            end;
-          end else if not keep_res then
-            ignore (Trace.step_backtrack_on_failure (fun () ->
-              Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]
-              (* TODO: only with | TransfoError ? *)
-            ));
-          Marks.remove my_mark [nbAny; new_target]
-        end;
-        Marks.remove my_mark [nbAny; new_target];
-        Record_basic.simpl_proj (target_of_path path_to_seq);
-      )
-        in
-      begin match tg_out_trm.desc with
-      | Trm_let _ ->
-        Marks.add "__inline_instruction" (target_of_path path_to_instruction);
-        Stats.comp_stats "bind_intro1" (fun () ->
-          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call));
-        mark_added := true;
-        post_processing ~deep_cleanup:true ();
-      | Trm_apps (_, [ls; rs], _) when is_set_operation tg_out_trm ->
-        Stats.comp_stats "bind_intro2" (fun () ->
-          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call));
-        mark_added := true;
-        post_processing ~deep_cleanup:true ()
-      | Trm_apps _ ->
-        post_processing ();
-      | Trm_for _ | Trm_for_c _ ->
-          if debug then Show.path ~msg:"Full_path to the call" path_to_call;
-          Variable_basic.bind ~mark_body:my_mark !resname ~const:false (target_of_path path_to_call);
-        mark_added := true;
-        post_processing ~deep_cleanup:true ();
-      | _ -> trm_fail tg_out_trm "Function.inline: please be sure that you're tageting a proper function call"
+      let inline_mark = if !Flags.check_validity then next_mark () else no_mark in
+      bind_args ~inline_impure_mark:inline_mark args [new_target];
+
+      let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
+      Stats.comp_stats "inline" (fun () ->
+        Function_basic.inline ~body_mark ~subst_mark [new_target]);
+      if recurse then begin
+        let path_to_seq, _, _ = Internal.get_instruction_in_surrounding_sequence p in
+        let m = Marks.add_next_mark_on next_mark path_to_seq in
+        still_to_process := m :: !still_to_process;
       end;
+      (* TODO: improvement for [recurse] ?
+          currently imprecise as it will inline in all the surrounding sequence
+
+      if recurse then begin
+        let (start, stop) = span_marks (next_mark ()) in
+        Marks.add start [tBefore; cMark body_mark];
+        Marks.add stop [tAfter; cMark body_mark];
+        still_to_process := (start, stop) :: !still_to_process;
+      end; *)
+      Stats.comp_stats "intro" (fun () -> Accesses_basic.intro [cMark body_mark]);
+      Record_basic.simpl_proj [cMark body_mark];
+      Stats.comp_stats "elim_body" (fun () -> elim_body ~resname ~vars [cMark body_mark]);
+      Variable.inline ~simpl [nbAny; cMark inline_mark];
     in
     Target.iteri process tg;
     while !still_to_process <> [] do
@@ -359,7 +135,7 @@ let inline_multi = inline ~recurse:true
 
 (** [inline_def]: like [inline], but with [tg] targeting the function definition.
    All function calls are inlined, with [delete = true] as default. *)
-let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : string list = []) ?(keep_res : bool = false)
+let%transfo inline_def ?(vars : rename = AddSuffix "") ?(args : string list = [])
   ?(delete : bool = true) ?(simpl : target -> unit = Variable.default_inline_simpl) (tg : target) : unit
   =
   Trace.tag_valid_by_composition ();
@@ -368,7 +144,7 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
     let error = "Function.inline_def: expected function definition" in
     let (qvar, _, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
     (* FIXME: deal with qvar *)
-    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbAny; cCall qvar.name];
+    inline ~vars ~args ~delete ~simpl [nbAny; cCall qvar.name];
   ) tg
 
 (** [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose
@@ -429,7 +205,7 @@ let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg
     match trm_let_fun_inv tg_fun_def with
     | Some (_, _, _, body, _) ->
       begin match body.desc with
-      | Trm_seq tl ->
+      | Trm_seq (tl, _) ->
         let nb = Mlist.length tl in
         Sequence_basic.intro nb ~mark (target_of_path p);
         if contains_for_loop then Sequence_basic.intro_on_instr [cMark mark; cFor_c "";dBody];

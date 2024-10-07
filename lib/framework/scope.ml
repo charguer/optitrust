@@ -95,6 +95,11 @@ let justif_unused (p : Path.path) : unit =
   let error = "expected a variable or function definition within a sequence" in
   let x = trm_inv ~error trm_let_or_let_fun_inv t in
   let (index, pseq) = Path.index_in_seq p in
-  let instrs = trm_inv ~error trm_seq_inv (Path.resolve_path pseq (Trace.ast ())) in
+  let instrs, result = trm_inv ~error trm_seq_inv (Path.resolve_path pseq (Trace.ast ())) in
+  begin match result with
+  | Some res_var when var_eq x res_var ->
+    failwith "'%s' is used as the result of the sequence around it" (var_to_string x)
+  | _ -> ()
+  end;
   let _, instrs_after = Mlist.split (index + 1) instrs in
   justif_unused_in x instrs_after

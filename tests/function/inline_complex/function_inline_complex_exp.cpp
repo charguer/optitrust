@@ -13,8 +13,8 @@ int main() {
   int u = 1;
   int v = 2;
   int w = 3;
-  int a = h(4);
-  int b = m(v, 2);
+  const int a = h(4);
+  const int b = m(v, 2);
   int p = a + a + u + b + (w + 1);
 
   int t = f(p + p);

@@ -162,7 +162,13 @@ let stackvar_elim (t : trm) : trm =
         ) bs
       in
       trm_replace (Trm_let_mult bs) t
-    | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
+    | Trm_seq (_, result) when not (trm_is_nobrace_seq t) ->
+      onscope env t (fun t ->
+        let t = trm_map aux t in
+        match result with
+        | Some r when is_var_mutable !env r -> trm_fail t "C_encoding.stackvar_elim: the result of a sequence cannot be a mutable variable"
+        | _ -> t
+      )
     | Trm_for (range, _, _) ->
         onscope env t (fun t -> add_var env range.index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
@@ -331,7 +337,7 @@ let caddress_intro =
    For example [x++;] is transformed into [ignore(x++)]. *)
 let rec expr_in_seq_elim (t : trm) : trm =
   match trm_seq_inv t with
-  | Some ts ->
+  | Some (ts, result) ->
     let ts = Mlist.map (fun u ->
         let u = expr_in_seq_elim u in
         match u.typ with
@@ -340,7 +346,7 @@ let rec expr_in_seq_elim (t : trm) : trm =
         | Some _ -> trm_ignore ~annot:u.annot (trm_alter ~annot:trm_annot_default u)
       ) ts
     in
-    trm_like ~old:t (trm_seq ts)
+    trm_like ~old:t (trm_seq ?result ts)
   | None ->
     trm_map expr_in_seq_elim t
 
@@ -472,16 +478,14 @@ let class_member_elim (t : trm) : trm =
           let this_alloc = trm_let (var_this, this_typ) this_body in
           let typed_this = trm_var ~typ:this_typ var_this in
           to_subst := Var_map.add var_this typed_this !to_subst;
-          let ret_this = trm_ret (Some (trm_get typed_this)) in
           begin match body.desc with
-          | Trm_seq tl ->
+          | Trm_seq (tl, None) ->
             let new_tl = Mlist.map (trm_subst_var var_this typed_this) tl in
             let new_tl = Mlist.push_front this_alloc new_tl in
-            let new_tl = Mlist.push_back ret_this new_tl in
-            let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
+            let new_body = trm_alter ~desc:(Trm_seq (new_tl, Some var_this)) t in
             trm_like ~old:t (trm_let_fun v this_typ vl new_body ~contract)
           | Trm_lit (Lit_uninitialized _) ->  t
-          | _ ->  trm_fail t "C_encoding.class_member_elim: ill defined class constructor."
+          | _ -> trm_fail t "C_encoding.class_member_elim: ill defined class constructor."
           end
         end else raise Pattern.Next
       );
@@ -514,17 +518,98 @@ let class_member_intro (t : trm) : trm =
       trm_like ~old:t (trm_let_fun qv ty vl' body' ~contract)
     | Some (qv, ty, vl, body, contract) when is_class_constructor t ->
       begin match body.desc with
-      | Trm_seq tl ->
+      | Trm_seq (tl, result) ->
         if Mlist.is_empty tl
           then t
           else
-            let tl = Mlist.(pop_front (pop_back tl)) in
-            let new_body = trm_alter ~desc:(Trm_seq tl) body in
+            (* FIXME: Here we should check that the first instruction is indeed the allocation *)
+            let tl = Mlist.pop_front tl in
+            let new_body = trm_alter ~desc:(Trm_seq (tl, None)) body in
             trm_like ~old:t (trm_let_fun qv typ_unit vl new_body ~contract)
       | _ -> trm_map aux t
       end
    | _ -> trm_map aux t
 in aux t
+
+(********************** Decode return ***************************)
+
+let rec return_elim (t: trm): trm =
+  let open Option.Monad in
+  let rec replace_terminal_return (t: trm) : trm option =
+    match t.desc with
+    | Trm_abort (Ret expr) -> expr
+    | Trm_seq (instrs, None) ->
+      let* last_instr = Mlist.last instrs in
+      let* terminal_expr = replace_terminal_return last_instr in
+      let* typ = terminal_expr.typ in
+      let other_instrs = Mlist.pop_back instrs in
+      let is_bound_in_seq (v: var) =
+        List.exists (fun instr -> match trm_let_inv instr with
+          | Some (x, _, _) when var_eq x v -> true
+          | _ -> false
+        ) (Mlist.to_list other_instrs)
+      in
+      begin match trm_var_inv terminal_expr with
+      | Some v when is_bound_in_seq v ->
+        Some (trm_alter ~typ ~desc:(Trm_seq (other_instrs, Some v)) t)
+      | _ ->
+        let res_var = new_var "__res" in
+        let new_last_instr = trm_like ~old:last_instr (trm_let (res_var, typ) terminal_expr) in
+        Some (trm_alter ~typ ~desc:(Trm_seq (Mlist.push_back new_last_instr other_instrs, Some res_var)) t)
+      end
+    | Trm_if (tcond, tthen, telse) ->
+      let* tthen = replace_terminal_return tthen in
+      let* telse = replace_terminal_return telse in
+      let* typ = tthen.typ in
+      Some (trm_alter ~typ ~desc:(Trm_if (tcond, tthen, telse)) t)
+    | _ -> None
+  in
+  let t = trm_map return_elim t in
+  match t.desc with
+  | Trm_fun (args, ret, body, contract) ->
+    begin match replace_terminal_return body with
+    | None -> t
+    | Some body -> trm_like ~old:t (trm_fun args ret body ~contract)
+    end
+  | _ -> t
+
+let rec return_intro (t: trm): trm =
+  let rec add_terminal_return t =
+    match t.desc with
+    | Trm_seq (instrs, Some v) ->
+      begin match Mlist.last instrs with
+      | Some last_instr when v.name = "__res" ->
+        begin match trm_let_inv last_instr with
+        | Some (x, _, expr) when var_eq x v ->
+          let last_instr = match into_returning_instr expr with
+          | Some t -> t
+          | None -> trm_like ~old:last_instr (trm_ret (Some expr))
+          in
+          trm_like ~old:t (trm_seq (Mlist.push_back last_instr (Mlist.pop_back instrs)))
+        | _ -> trm_like ~old:t (trm_seq (Mlist.push_back (trm_ret (Some (trm_var v))) instrs))
+        end
+      | _ -> trm_like ~old:t (trm_seq (Mlist.push_back (trm_ret (Some (trm_var v))) instrs))
+      end
+    | _ -> t
+  and into_returning_instr t =
+    match t.desc with
+    | Trm_seq (_, Some _) -> Some (add_terminal_return t)
+    | Trm_if (tcond, tthen, telse) ->
+      let process_branch t =
+        match into_returning_instr t with
+        | Some t -> t
+        | None -> trm_ret (Some t)
+      in
+      let tthen = process_branch tthen in
+      let telse = process_branch telse in
+      Some (trm_like ~old:t (trm_if tcond tthen telse))
+    | _ -> None
+  in
+  let t = trm_map return_intro t in
+  match t.desc with
+  | Trm_fun (args, ret, body, contract) ->
+    trm_like ~old:t (trm_fun args ret (add_terminal_return body) ~contract)
+  | _ -> t
 
 (********************** Decode ghost arguments for applications ***************************)
 
@@ -558,7 +643,7 @@ let rec ghost_args_elim (t: trm): trm =
           trm_alter ~annot:{t.annot with trm_annot_attributes = [GhostCall]} ~desc:(Trm_apps (ghost_fn, [], ghost_args)) t
         ]
       );
-    Pattern.(trm_seq !__) (fun seq () -> trm_alter ~desc:(Trm_seq (Mlist.of_list (ghost_args_elim_in_seq (Mlist.to_list seq)))) t);
+    Pattern.(trm_seq !__ !__) (fun seq result () -> trm_alter ~desc:(Trm_seq (Mlist.of_list (ghost_args_elim_in_seq (Mlist.to_list seq)), result)) t);
     Pattern.__ (fun () -> trm_map ghost_args_elim t)
   ]
 
@@ -606,7 +691,7 @@ let ghost_args_intro (style: style) (t: trm) : trm =
       (* Outside sequence add __call_with *)
       let t = trm_map aux t in
       trm_apps var__call_with [t; ghost_args_to_trm_string ghost_args]
-    | Trm_seq seq ->
+    | Trm_seq (seq, result) ->
       (* Inside sequence add __with *)
       Nobrace.enter ();
       let seq = Mlist.map (fun t -> Pattern.pattern_match t [
@@ -631,7 +716,7 @@ let ghost_args_intro (style: style) (t: trm) : trm =
       ]) seq in
       let nobrace_id = Nobrace.exit () in
       let seq = Nobrace.flatten_seq nobrace_id seq in
-      trm_alter ~desc:(Trm_seq seq) t
+      trm_alter ~desc:(Trm_seq (seq, result)) t
     | _ -> trm_map aux t
   in
   aux t
@@ -778,20 +863,20 @@ let contract_elim (t: trm): trm =
   | Trm_fun (args, ty, body, spec) ->
     assert (spec = FunSpecUnknown);
     begin match trm_seq_inv body with
-    | Some body_seq ->
+    | Some (body_seq, result) ->
       let spec, new_body = extract_fun_spec body_seq in
       let new_body = Mlist.map aux new_body in
-      trm_alter ~desc:(Trm_fun (args, ty, trm_seq new_body, spec)) t
+      trm_alter ~desc:(Trm_fun (args, ty, trm_seq ?result new_body, spec)) t
     | None -> trm_map aux t
     end
 
   | Trm_for (range, body, contract) ->
     assert (contract = empty_loop_contract);
     begin match trm_seq_inv body with
-    | Some body_seq ->
+    | Some (body_seq, result) ->
       let contract, new_body = extract_loop_contract body_seq in
       let new_body = Mlist.map aux new_body in
-      trm_alter ~desc:(Trm_for (range, trm_seq new_body, contract)) t
+      trm_alter ~desc:(Trm_for (range, trm_seq ?result new_body, contract)) t
     | None -> trm_map aux t
     end
 
@@ -812,9 +897,9 @@ let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, fo
     [t] - ast of the outer sequence where the insertion will be performed. *)
 let seq_push (code : trm) (t : trm) : trm =
   let error = "seq_push: expected a sequence where insertion is performed." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let new_tl = Mlist.push_front code tl in
-  trm_replace (Trm_seq new_tl) t
+  trm_replace (Trm_seq (new_tl, result)) t
 
 let trm_array_of_string list =
   trm_array ~typ:typ_string (Mlist.of_list (List.map trm_string list))
@@ -911,7 +996,7 @@ let display_ctx_resources (style: style) (t: trm): trm list =
 let computed_resources_intro (style: style) (t: trm): trm =
   let rec aux t =
     match t.desc with
-    | Trm_seq instrs when not (trm_is_mainfile t) ->
+    | Trm_seq (instrs, result) when not (trm_is_mainfile t) ->
       let tl_before =
         if style.typing.typing_ctx_res
           then Option.to_list (Option.map (ctx_resources_to_trm style) t.ctx.ctx_resources_before)
@@ -924,7 +1009,7 @@ let computed_resources_intro (style: style) (t: trm): trm =
         in
       let process_instr instr = Mlist.of_list (display_ctx_resources style (aux instr)) in
       let tl_instrs = Mlist.concat_map process_instr instrs in
-      trm_like ~old:t (trm_seq (Mlist.merge_list [Mlist.of_list tl_before; tl_instrs; Mlist.of_list tl_post_inst]))
+      trm_like ~old:t (trm_seq ?result (Mlist.merge_list [Mlist.of_list tl_before; tl_instrs; Mlist.of_list tl_post_inst]))
     | _ -> trm_map ~keep_ctx:true aux t
   in
   aux t
@@ -1044,8 +1129,8 @@ let rec contract_intro (style: style) (t: trm): trm =
       then t
       else trm_like ~old:t (trm_for range body)
 
-  | Trm_seq instrs ->
-    trm_like ~old:t (trm_seq (Mlist.map (contract_intro style) instrs))
+  | Trm_seq (instrs, result) ->
+    trm_like ~old:t (trm_seq ?result (Mlist.map (contract_intro style) instrs))
 
   | _ -> trm_map (contract_intro style) t
 
@@ -1109,10 +1194,10 @@ let cfeatures_elim: trm -> trm =
   class_member_elim |>
   method_call_elim |>
   infix_elim |>
-  (* TODO: remove some infer var ids? *)
   Scope_computation.infer_var_ids ~check_uniqueness:false |>
   stackvar_elim |>
   caddress_elim |>
+  return_elim |>
   expr_in_seq_elim |>
   formula_sugar_elim |>
   Scope_computation.infer_var_ids)
@@ -1123,6 +1208,7 @@ let cfeatures_intro (style : style) : trm -> trm =
   Scope_computation.infer_var_ids t |>
   formula_sugar_intro |>
   expr_in_seq_intro |>
+  return_intro |>
   caddress_intro |>
   stackvar_intro |>
   infix_intro |>

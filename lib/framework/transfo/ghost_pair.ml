@@ -8,7 +8,7 @@ open Resources
     Moves all begins downwards, starting from downmost ones. *)
 let move_all_begins_downwards (seq : trm) : trm =
   let error = "Ghost_pair.move_all_begins_downwards: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, _ = trm_inv ~error trm_seq_inv seq in
   let begins = ref [] in
   let find_begins i instr =
     match Resource_trm.ghost_begin_inv instr with
@@ -26,7 +26,7 @@ let move_all_begins_downwards (seq : trm) : trm =
     Moves all ends upwards, starting from upwardmost ones. *)
 let move_all_ends_upwards (seq : trm) : trm =
   let error = "Ghost_pair.move_all_ends_upwards: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, _ = trm_inv ~error trm_seq_inv seq in
   let ends = ref [] in
   let find_ends i instr =
     match Resource_trm.ghost_end_inv instr with
@@ -44,7 +44,7 @@ let move_all_ends_upwards (seq : trm) : trm =
     Cancels all ghost pairs that have an empty scope, starting from innermost ones. *)
 let cancel_all_ghost_pairs (seq : trm) : trm =
   let error = "Ghost_pair.cancel_all_ghost_pairs: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, result = trm_inv ~error trm_seq_inv seq in
   let begins_stack = ref [] in (* stack of open begins vars and indices *)
   let to_delete = ref [] in (* upwards list of indices *)
   let populate_to_delete i instr =
@@ -77,7 +77,7 @@ let cancel_all_ghost_pairs (seq : trm) : trm =
     | _ ->
       true
   ) instrs in
-  trm_seq ~annot:seq.annot ?loc:seq.loc instrs'
+  trm_seq ~annot:seq.annot ?loc:seq.loc ?result instrs'
 
 (** Minimizes the scope of ghost pairs in the given sequence. *)
 let minimize_all_on_seq (seq : trm) : trm =
@@ -98,7 +98,7 @@ let%transfo minimize_all_in_seq (tg : target) : unit =
     cf. [fission]. *)
 let fission_at (mark_between : mark) (split_i : int) (seq : trm) : trm =
   let error = "Ghost_pair.fission_at: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, result = trm_inv ~error trm_seq_inv seq in
   let tl1, tl2 = Mlist.split split_i instrs in
 
   (* 1. Find all scope begins before split point. *)
@@ -138,7 +138,7 @@ let fission_at (mark_between : mark) (split_i : int) (seq : trm) : trm =
   let tl2' = Mlist.map (trm_subst !subst_after_split) tl2 in
 
   (* 4. Construct resulting sequence. *)
-  trm_seq_helper ~annot:seq.annot ?loc:seq.loc [TrmMlist tl1; TrmList ends; Mark mark_between; TrmList begins; TrmMlist tl2']
+  trm_seq_helper ~annot:seq.annot ?loc:seq.loc ?result [TrmMlist tl1; TrmList ends; Mark mark_between; TrmList begins; TrmMlist tl2']
 
 (** Distributes the scope of ghost pairs at the targeted sequence interstice. *)
 let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
@@ -174,7 +174,7 @@ let without_inverse (ghost_fn: trm) =
 let debug_intro = false
 
 let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq: trm) : trm =
-  let seq = trm_inv ~error:"Ghost_pair.intro_on: Expect a sequence" trm_seq_inv t_seq in
+  let seq, result = trm_inv ~error:"Ghost_pair.intro_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
   let ghost_call = trm_inv ~error:"Ghost_pair.intro_on: Should target a ghost call" Resource_trm.ghost_inv ghost_begin in
 
@@ -228,7 +228,7 @@ let intro_at ?(name: string option) ?(end_mark: mark = no_mark) (i: int) (t_seq:
     in
     let seq_after = Mlist.replace_at i ghost_end seq_after in
     let seq = Mlist.merge_list [seq_before; Mlist.of_list [ghost_begin]; seq_after] in
-    trm_replace (Trm_seq seq) t_seq
+    trm_replace (Trm_seq (seq, result)) t_seq
 
 (** Introduce a ghost pair starting on the targeted ghost, and ending at the first closing candidate. *)
 let%transfo intro ?(name: string option) ?(end_mark: mark = no_mark) (tg: target) =
@@ -238,7 +238,7 @@ let%transfo intro ?(name: string option) ?(end_mark: mark = no_mark) (tg: target
 
 
 let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (t_seq: trm): trm =
-  let seq = trm_inv ~error:"Ghost_pair.elim_on: Expect a sequence" trm_seq_inv t_seq in
+  let seq, result = trm_inv ~error:"Ghost_pair.elim_on: Expect a sequence" trm_seq_inv t_seq in
   let seq_before, ghost_begin, seq_after = Mlist.get_item_and_its_relatives i seq in
   let pair_var, { ghost_fn; ghost_args } = trm_inv ~error:"Ghost_pair.elim_on: Should target a ghost_begin" Resource_trm.ghost_begin_inv ghost_begin in
 
@@ -259,7 +259,7 @@ let elim_at ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (i: int) (
 
     let seq_after = Mlist.replace_at i (trm_add_mark mark_end (Resource_trm.ghost { ghost_fn = inverse_ghost_fn; ghost_args })) seq_after in
     let seq = Mlist.merge_list [seq_before; Mlist.of_list [trm_add_mark mark_begin (Resource_trm.ghost { ghost_fn = without_inverse ghost_fn; ghost_args })]; seq_after] in
-    trm_replace (Trm_seq seq) t_seq
+    trm_replace (Trm_seq (seq, result)) t_seq
 
 (** Split a ghost pair into two independant ghost calls *)
 let%transfo elim ?(mark_begin: mark = no_mark) ?(mark_end: mark = no_mark) (tg: target) =

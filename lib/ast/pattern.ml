@@ -43,9 +43,12 @@ let trm_let (var: 'a -> var -> 'b) (typ: 'b -> typ -> 'c) (body: 'c -> trm -> 'd
     k
   | None -> raise Next
 
-let trm_seq (fn: 'a -> trm mlist -> 'b) (k: 'a) (t: trm): 'b =
+let trm_seq (instrs: 'a -> trm mlist -> 'b) (result: 'b -> var option -> 'c) (k: 'a) (t: trm): 'c =
   match trm_seq_inv t with
-  | Some seq -> fn k seq
+  | Some (tinstrs, tresult) ->
+    let k = instrs k tinstrs in
+    let k = result k tresult in
+    k
   | None -> raise Next
 
 let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> resource_item list -> 'd) (k: 'a) (t: trm): 'd =
@@ -238,8 +241,8 @@ let trm_struct_get fbase ffield k t =
 let trm_ref fty ft k t =
   match trm_ref_inv t with
   | Some (ty, t) ->
-    let k = ft k t in
     let k = fty k ty in
+    let k = ft k t in
     k
   | None -> raise Next
 

@@ -20,24 +20,6 @@ let%transfo delete (tg : target) : unit =
   end else
     tr ()
 
-
-(** [bind_intro ~fresh_name ~const ~my_mark tg]: expects the target [t] to point at a function call.
-     Then it will generate a new variable declaration named as [fresh_name] with type being the same
-     as the one of the function call, and initialized to the function call itself.
-     If [const] is true the the bound variable will be declared as an immutable variable otherwise immutable.
-     Then it will fold the newly declared variable.
-
-     @correctness: correct if the new order of evaluation of expressions is
-      not changed or does not matter. *)
-let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = no_mark) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
-    Target.iteri (fun occ p ->
-      let (p, p_local, i) = Internal.get_instruction_in_surrounding_sequence p in
-      let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
-      Target.apply_at_path (Function_core.bind_intro_at my_mark i fresh_name const p_local) p
-    ) tg
-  )
-
 (** [inline ~body_mark tg]: expects the target [tg] to point at a function call inside a declaration
     or inside a sequence in case the function is of void type. Example:
           int r = g(a);
@@ -90,22 +72,13 @@ let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bo
    local invariants in the body. *)
 
 let%transfo inline ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
-    Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
-    Target.iter (fun p ->
-      let (p, p_local, i) = Internal.get_instruction_in_surrounding_sequence p in
-      Stats.comp_stats "inline call to Function_core.inline" (fun () ->
-        Target.apply_at_path (Function_core.inline_at i body_mark subst_mark p_local) p
-      )
-    ) tg
-  ))
-
+  Target.apply_at_target_paths (Function_core.inline_on ~body_mark ~subst_mark) tg
 
 (** [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases
     when the decaration of the function call can be founded at the targeted function call contrary to [inline]
     which will need to find first the toplevel declaration.  *)
 let beta ?(body_mark : mark = no_mark) (tg : target) : unit =
-  inline ~body_mark tg
+  Target.apply_at_target_paths (Function_core.beta_reduce_on ~body_mark) tg
 
 
 (** [use_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x = x (op) a,
@@ -113,7 +86,7 @@ let beta ?(body_mark : mark = no_mark) (tg : target) : unit =
 let%transfo use_infix_ops_at ?(allow_identity : bool = true) (tg : target) : unit =
   apply_at_target_paths (Function_core.use_infix_ops_on allow_identity) tg
 
-(** [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
+(** [uninline ~fct tg] expects the target [tg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
     Then it will replace that sequence with a call to the fuction with declaration targeted by [fct]. *)
 let%transfo uninline ~fct:(fct : target) (tg : target) : unit =
   Trace.call (fun t ->

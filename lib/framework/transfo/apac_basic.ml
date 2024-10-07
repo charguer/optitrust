@@ -118,23 +118,10 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
      gotos to an exiting label '__exit'. The result is a sequence.
      Note that both the return variable and the exiting label are defined in the
      upcoming steps. *)
-  let res_var = new_var "__res" in
-  let body', _ = Internal.replace_return_with_assign ~check_terminal:false
-    ~exit_label:"__exit" (typ_ptr ret_ty) res_var body in
-  (* Add the '__exit' label at the end of the sequence. *)
-  let body' = trm_seq_add_last (trm_add_label "__exit" (trm_unit())) body' in
+  let body' = Function_core.replace_return_with_assign_goto
+    ~exit_label:"__exit" ~res_ptr_name:"__res" body in
   (* Mark the sequence with [mark]. *)
   let body' = trm_add_mark mark body' in
-  (* If the function's return type is not 'void', we need to declare the return
-     variable '__res' at the beginning of the sequence and return its value at
-     the end of the sequence. *)
-  let body' = if is_typ_unit ret_ty then trm_seq_nomarks [
-    body'
-  ] else trm_seq_nomarks [
-    (trm_let_mut_uninit (res_var, ret_ty));
-    body';
-    trm_ret (Some (trm_var_get res_var))
-  ] in
   (* Reconstruct the function definition with the update body instruction
      sequence. *)
   trm_let_fun ~annot:t.annot var ret_ty args body'

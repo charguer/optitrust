@@ -2,115 +2,116 @@ open Prelude
 open Path
 open Target
 
-(** [bind_intro_at my_mark index fresh_name vonst p_local t]: bind the variable [fresh_name] to the targeted function call,
-      [my_mark] - put a mark on the targeted function call,
-      [index] - index of the instruction that contains the targeted function call on its surrouding sequence,
-      [const] - flag for the mutability of the binded variable,
-      [p_local] - path from the instruction containing the function call to the function call itself,
-      [t] - ast of the sequence that contains the targeted function call. *)
-let bind_intro_at (my_mark : string) (index : int) (fresh_name : string) (const : bool) (p_local : path) (t : trm) : trm =
-  let error = "Function_core.bind_intro_at: expected the surrouding sequence of the targeted call" in
-  let tl = trm_inv ~error trm_seq_inv t in
-
-  let f_update (t : trm) : trm =
-     let function_call = Path.resolve_path p_local t in
-     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
-     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-     let fresh_var = new_var fresh_name in
-
-      let function_type = match function_call.typ with
-      | Some typ -> typ
-      |  None -> typ_auto in
-      let change_with = (trm_var_possibly_get ~const ~typ:function_type fresh_var) in
-      let decl_to_change = Internal.change_trm function_call change_with t in
-
-      let function_call = trm_add_mark my_mark function_call in
-      let decl_to_insert =
-      if const
-        then trm_let (fresh_var, function_type) function_call
-        else trm_let_mut (fresh_var, function_type) function_call
-      in
-      trm_seq_nobrace_nomarks [decl_to_insert; decl_to_change]
-    in
-
-  let new_tl = Mlist.update_nth index f_update tl in
-  trm_seq ~annot:t.annot new_tl
-
-
-(** [inline_at index body_mark p_local t]: inline a function call,
-      [index] - index of the instruction containing the function call,
-      [body_mark] - mark usef for the transflated body of the function,
-      [p_local] - path from the instructions that contains the function call to the function call itself,
-      [t] - ast of the sequence containing the function call. *)
-
-(* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
-   but for now we implement a function that covers both beta and inline at once, as it is simpler *)
-let inline_at (index : int) (body_mark : mark) (subst_mark : mark) (p_local : path) (t : trm) : trm =
-  let error = "Function_core.inline_at: the targeted function call should be contained into an instruction that
-     belongs toa local or global scope" in
-  let tl = trm_inv ~error trm_seq_inv t in
-
-  let f_update (t : trm) : trm =
-    let fun_call = Path.resolve_path p_local t in
-    begin match fun_call.desc with
-    | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
-      let fun_decl = begin match tfun.desc with
-      | Trm_var f ->
-        begin match Internal.toplevel_decl ~require_body:true f with
-        | Some decl ->
-          let _, _, body = trm_inv trm_let_inv decl in
-          body
-        | _ -> trm_fail tfun (sprintf "Function_core.inline_at: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
-        end
-      | Trm_fun _ -> tfun
-      | _ -> trm_fail tfun "Function_core.inline_at: expected either a function call or a beta-redex"
-      end in
-      begin match fun_decl.desc with
-      | Trm_fun (args, ret_ty, body, _) ->
-        let fun_decl_arg_vars = fst (List.split args) in
-        let subst_map = Var_map.of_seq (Seq.append
-          (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
-          (Seq.map (fun (g, f) -> (g, trm_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
-        in
-        if !Flags.check_validity then begin
-          Var_map.iter (fun _ arg_val ->
-            if not (Resources.trm_is_pure arg_val) then
-              trm_fail arg_val "basic function inlining does not support non-pure arguments, combine with variable binding and inline"
-          ) subst_map;
-          Trace.justif "inlining pure expressions is always correct"
-        end;
-        let fun_decl_body = trm_subst subst_map (trm_copy body) in
-        let name = match t.desc with
-          | Trm_let ((x, _), _) -> x
-          | _ -> dummy_var
-        in
-        let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" (typ_ptr ret_ty) name fun_decl_body in
-        if !Flags.check_validity && nb_gotos > 0 then
-          trm_fail t "inlining functions featuring return instructions in the body is not yet supported";
-        let processed_body = begin
-          (* TODO: for now, remove top level admitteds during inlining, think about alternatives *)
-          let instrs = trm_inv ~error:"expected sequence" trm_seq_inv processed_body in
-          trm_like ~old:processed_body (trm_seq (Mlist.filter (fun t ->
-            Option.is_none (Resource_trm.admitted_inv t)
-          ) instrs))
-        end in
-        let marked_body = if body_mark <> "" then trm_add_mark body_mark processed_body else Nobrace.set_if_sequence processed_body in
-        let exit_label = if nb_gotos = 0 then trm_seq_nobrace_nomarks [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
-        let inlined_body =
-          if is_typ_unit ret_ty
-            then [marked_body; exit_label]
-            else
-              [trm_pass_marks fun_call (trm_let_mut_uninit (name, ret_ty));marked_body; exit_label]
+(** [replace_return_with_assign_goto exit_label r t]: removes all the return statements from the body of a function declaration,
+      [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
+      [t] - ast of the body of the function. *)
+let replace_return_with_assign_goto ?(exit_label = "exit") ?(res_ptr_name = "res") (t : trm) : trm =
+  Nobrace.remove_after_trm_op (fun t ->
+    (* TODO: Replace those goto with sequence block exits *)
+    let result_ptr = ref None in
+    let rec aux (t : trm) : trm =
+      match t.desc with
+      | Trm_abort (Ret t1) ->
+        begin match t1 with
+        | Some t2 ->
+          let t2 = aux t2 in
+          let r = match !result_ptr with
+            | None ->
+              let r = new_var res_ptr_name in
+              result_ptr := Some r;
+              r
+            | Some r when var_eq r dummy_var -> failwith "Mixing return with values and without values"
+            | Some r -> r
           in
-        trm_seq_nobrace_nomarks inlined_body
-
-      | _ -> trm_fail fun_decl "Function_core.inline_at: failed to find the top level declaration of the function"
-      end
-    | _ -> trm_fail fun_call "Function_core.inline_at: expected a target to a function call"
-    end
+          trm_seq_nobrace_nomarks [trm_set (trm_var r) t2; trm_goto exit_label]
+        | None ->
+          begin match !result_ptr with
+          | None -> result_ptr := Some dummy_var
+          | Some r when var_eq r dummy_var -> ()
+          | Some _ -> failwith "Mixing return with values and without values"
+          end;
+          trm_goto exit_label
+        end
+      | _ -> trm_map aux t
     in
-    let new_tl = Mlist.update_nth index f_update tl in
-    trm_seq ~annot:t.annot new_tl
+    let t' = aux t in
+    match !result_ptr with
+    | None -> t
+    | Some res_ptr ->
+      let instrs, seq_res = trm_inv trm_seq_inv t' in
+      let exit_label_instr = trm_add_label exit_label (trm_unit ()) in
+      if var_eq res_ptr dummy_var then begin
+        if Option.is_some seq_res then failwith "Return without values for a body with a result";
+        trm_like ~old:t' (trm_seq (Mlist.push_back exit_label_instr instrs))
+      end else begin
+        let seq_res_var = Option.unsome_or_else seq_res (fun () -> failwith "Return with values for a body without result") in
+        let res_typ = ref typ_unit in
+        let instrs = Sequence_core.change_binding seq_res_var (fun ty expr ->
+            res_typ := ty;
+            trm_set (trm_var res_ptr) expr
+          ) instrs
+        in
+        let res_typ = !res_typ in
+        let decl_res_ptr = trm_let_mut_uninit (res_ptr, res_typ) in
+        let get_res_ptr = trm_let (seq_res_var, res_typ) (trm_get (trm_var res_ptr)) in
+        trm_like ~old:t' (trm_seq_helper ~result:seq_res_var [Trm decl_res_ptr; TrmMlist instrs; Trm exit_label_instr; Trm get_res_ptr])
+      end
+  ) t
+
+(** [beta_reduce_on ?body_mark ?subst_mark t]: beta reduce a function application.
+      [body_mark] - mark used for the translated body of the function,
+      [subst_mark] - mark added on substituted parameters
+      [t] - ast of the sequence containing the function call. *)
+let beta_reduce_on ?(body_mark : mark = no_mark) ?(subst_mark : mark = no_mark) (t : trm) : trm =
+  match t.desc with
+  | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
+    begin match tfun.desc with
+    | Trm_fun (args, ret_ty, body, _) ->
+      let fun_decl_arg_vars = fst (List.split args) in
+      let subst_map = Var_map.of_seq (Seq.append
+        (List.to_seq (List.map2 (fun dv cv -> (dv, (trm_add_mark subst_mark cv))) fun_decl_arg_vars fun_call_args))
+        (Seq.map (fun (g, f) -> (g, trm_add_mark subst_mark f)) (List.to_seq fun_ghost_args)))
+      in
+      if !Flags.check_validity then begin
+        Var_map.iter (fun _ arg_val ->
+          if not (Resources.trm_is_pure arg_val) then
+            trm_fail arg_val "basic function inlining does not support non-pure arguments, combine with variable binding and inline"
+        ) subst_map;
+        Trace.justif "inlining a function when all arguments are pure is always correct"
+      end;
+      let fun_decl_body = trm_subst subst_map (trm_copy body) in
+      (* LATER: In presence of a goto, this generates an ugly varaible name (res) and label name (exit) while we should be able to handle user given names. *)
+      let processed_body = replace_return_with_assign_goto fun_decl_body in
+      let processed_body =
+        (* TODO: for now, remove top level admitted during inlining, think about alternatives *)
+        let instrs, result = trm_inv ~error:"expected sequence" trm_seq_inv processed_body in
+        trm_like ~old:processed_body (trm_seq ?result (Mlist.filter (fun t -> Option.is_none (Resource_trm.admitted_inv t)) instrs))
+      in
+      trm_add_mark body_mark processed_body
+    | _ -> trm_fail tfun "Function_core.beta_reduce: expected a lambda abstraction on the left of the application"
+    end
+  | _ -> trm_fail t "Function_core.beta_reduce: expected a target to a function call"
+
+(** [inline_on ?body_mark ?subst_mark t]: inline and beta reduce a function application.
+      [body_mark] - mark used for the translated body of the function,
+      [subst_mark] - mark added on substituted parameters
+      [t] - ast of the sequence containing the function call. *)
+(* TODO: Replace by a form of unfold that works for any variable *)
+let inline_on ?(body_mark = no_mark) ?(subst_mark = no_mark) (t: trm): trm =
+  match t.desc with
+  | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
+    begin match tfun.desc with
+    | Trm_var f ->
+      begin match Internal.toplevel_decl ~require_body:true f with
+      | Some decl ->
+        let _, _, fn_def = trm_inv trm_let_inv decl in
+        beta_reduce_on ~body_mark ~subst_mark (trm_apps fn_def fun_call_args ~ghost_args:fun_ghost_args)
+      | _ -> trm_fail tfun (sprintf "Function_core.inline_on: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
+      end
+    | Trm_fun _ -> beta_reduce_on ~body_mark ~subst_mark t
+    | _ -> trm_fail tfun "Function_core.inline_on: expected either a function call or a beta-redex"
+    end
+  | _ -> trm_fail t "Function_core.inline_on: expected a target to a function call"
 
 (** [use_infix_ops_on allow_identity t]: transforms an explicit write operation to an implicit one
       [allow_identity] - if true then the transformation will never fail
@@ -219,12 +220,42 @@ let replace_with_change_args_on (new_fun_name : var) (arg_mapper : trms -> trms)
      [t] - ast of the original function definition. *)
 let dps_def_at (index : int) (arg_name : string) ?(fn_name : string = "") (t : trm) : trm =
   let error = "Function_core.dps_def_at: expected the surrounding sequence of the targeted function definition." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let arg = new_var arg_name in
   let f_update (t : trm) : trm =
     let error = "Function_core.dps_def_at: expected a target to a function definition." in
     let (f, ret_ty, tvl, body, _) = trm_inv ~error trm_let_fun_inv t in
-    let new_body, _ = Internal.replace_return_with_assign (typ_ptr ret_ty) arg body in
+    let instrs, result = trm_inv ~error:"expected a sequence as the function body." trm_seq_inv body in
+    let rec dps_return (t : trm) : trm =
+      match t.desc with
+      | Trm_abort (Ret (Some r)) ->
+        let r = dps_return r in
+        trm_seq_nobrace_nomarks [trm_set (trm_var arg) r; trm_ret None]
+      | Trm_abort (Ret None) ->
+        failwith "Function_core.dps_def_at: expect all the return to have a value"
+      | _ ->
+        trm_map dps_return t
+    in
+    let new_instrs = Mlist.map dps_return instrs in
+    let rec dps_result (t: trm) : trm option =
+      let open Option.Monad in
+      match t.desc with
+      | Trm_if (tcond, tthen, telse) ->
+        let* tthen = dps_result tthen in
+        let* telse = dps_result telse in
+        Some (trm_like ~old:t (trm_if tcond tthen telse))
+      | Trm_seq (instrs, Some seqres) ->
+        Some (trm_like ~old:t (trm_seq (Sequence_core.change_binding seqres (fun _ expr ->
+          match dps_result expr with
+          | None -> trm_set (trm_var arg) expr
+          | Some t -> t
+        ) instrs)))
+      | _ -> None
+    in
+    let new_body = match dps_result (trm_seq new_instrs ?result) with
+      | None -> trm_fail t "Function_core.dps_def_at: the function body should have a result"
+      | Some new_body -> new_body
+    in
     let new_args = tvl @ [(arg, typ_ptr ret_ty)] in
     let new_fun_name = if fn_name = "" then f.name ^ "_dps" else fn_name in
     let new_fun_var = new_var new_fun_name in
@@ -232,7 +263,7 @@ let dps_def_at (index : int) (arg_name : string) ?(fn_name : string = "") (t : t
     trm_seq_nobrace_nomarks [t; new_fun_def]
   in
   let new_tl = Mlist.update_nth index f_update tl in
-  trm_seq ~annot:t.annot new_tl
+  trm_seq ~annot:t.annot ?result new_tl
 
 (** [dps_call_on dps t]: changes a write operation with lhs a function call to a function call,
     [dps] - the name of the function call, possibly empty to use the default name

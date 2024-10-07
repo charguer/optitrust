@@ -61,8 +61,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)"
        | Dir_array_nth n, Trm_array (ty, tl) ->
           { t with desc = Trm_array (ty, Mlist.update_nth n aux tl)}
-       | Dir_seq_nth n, Trm_seq tl ->
-          { t with desc = Trm_seq (Mlist.update_nth n aux tl) }
+       | Dir_seq_nth n, Trm_seq (tl, result) ->
+          { t with desc = Trm_seq (Mlist.update_nth n aux tl, result) }
        | Dir_struct_nth n, Trm_record (ty, tl) ->
           let aux (lb, t1) = (lb, aux t1) in
           { t with desc = Trm_record (ty, Mlist.update_nth n aux tl)}
@@ -244,7 +244,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       begin match d, t.desc with
       | Dir_before _, _ -> trm_fail t "aux_on_path_rec: Dir_before should not remain at this stage"
       | Dir_span _, _ -> trm_fail t "aux_on_path_rec: Dir_span should not remain at this stage"
-      | Dir_seq_nth n, Trm_seq tl ->
+      | Dir_seq_nth n, Trm_seq (tl, result) ->
         let tl = Mlist.to_list tl in
         let decl_before (n : int) (tl : trm list) =
           List.fold_lefti
@@ -539,6 +539,7 @@ let add_marks_at_paths ?(prefix : path = []) (ps:path list) (t:trm) : trm * mark
 
 
 let find_surrounding_expr (p : path) (t : trm) : path =
+  (* FIXME: This implementation is stupidly expansive to compute *)
   let rec aux p =
     let pp = parent p in
     let pp_t = resolve_path pp t in

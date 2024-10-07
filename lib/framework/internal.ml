@@ -5,7 +5,7 @@ open Target
 let typvar_to_typedef (var : typvar) : typedef option =
   let rec aux (t : trm) : typedef option =
     match t.desc with
-    | Trm_seq tl -> Mlist.find_map aux tl
+    | Trm_seq (tl, _) -> Mlist.find_map aux tl
     | Trm_namespace (_, t, _) -> aux t
     | Trm_typedef ({ typedef_name } as td) when var_eq typedef_name var -> Some td
     | _ -> None
@@ -183,7 +183,7 @@ let rec get_typvar_from_trm ?(first_match : bool = true) (t : trm) : typvar opti
 
 (** [local_decl x t]: check if [t] contains a declaration with name [x], if that's the case return the body of the declaration *)
 let local_decl ?(require_body:bool=false) (x : var) (t : trm) : trm option =
-  let tl = trm_inv ~error:"local_decl: expects a sequence" trm_seq_inv t in
+  let tl, _ = trm_inv ~error:"local_decl: expects a sequence" trm_seq_inv t in
   Mlist.fold_left (fun acc t1 ->
     match acc with
     | Some _ -> acc
@@ -208,7 +208,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
   | Trm_for (range, body, _) ->
     begin match body.desc with
-    | Trm_seq tl when Mlist.length tl = 1  ->
+    | Trm_seq (tl, _) when Mlist.length tl = 1  ->
       let f_loop = Mlist.nth tl 0 in
       range.index :: get_loop_nest_indices f_loop
     | _ -> range.index :: []
@@ -216,7 +216,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
   | Trm_for_c (_, _, _, body, _) ->
     let index = for_loop_index t in
     begin match body.desc with
-    | Trm_seq tl when Mlist.length tl = 1 ->
+    | Trm_seq (tl, _) when Mlist.length tl = 1 ->
       let f_loop = Mlist.nth tl 0 in
       index :: get_loop_nest_indices f_loop
     | _ -> index :: []
@@ -303,39 +303,6 @@ let get_constr_from_target (tg : target) : constr =
   | [cnst] -> cnst
   | _ -> cTarget tg
 
-(** [replace_return_with_assign exit_label r t]: removes all the return statements from the body of a function declaration,
-      [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
-      [r] - the name of the variable replacing the return statement, can be [dummy_var] to ... ?
-      [t] - ast of the body of the function. *)
-let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : label = no_label) (rty : typ) (r : var) (t : trm) : (trm * int) =
-  let nb_gotos = ref 0 in
-  let rec aux (is_terminal : bool) (t : trm) : trm =
-    match t.desc with
-    | Trm_abort ab ->
-      begin match ab with
-      | Ret t1 ->
-        begin match t1 with
-        | Some t2 ->
-          let t1' = (aux false t2) in
-          let t_assign = if r = dummy_var then t2 else trm_set (trm_var ~typ:rty r) t1' in
-          if is_terminal
-            then t_assign
-            else begin
-                 incr nb_gotos;
-                 if exit_label = no_label then t_assign else trm_seq_nobrace_nomarks [t_assign; trm_goto exit_label]
-                 end
-        | _ ->
-            incr nb_gotos;
-            if exit_label = no_label then trm_unit () else trm_goto exit_label
-        end
-      | _ ->
-          incr nb_gotos;
-          if exit_label = no_label then trm_unit () else trm_goto exit_label
-      end
-    | _-> trm_map_with_terminal is_terminal aux t
-  in
-  let t = aux check_terminal t in
-  (t, !nb_gotos)
 
 
 (** [get_field_name rf]: returns the name of the field [rf]. *)

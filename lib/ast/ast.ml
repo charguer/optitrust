@@ -254,7 +254,7 @@ and trm_desc =
   | Trm_fun of typed_vars * typ * trm * fun_spec (* function abstractions: [&](int const& x) -> void {r += x;} *)
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
-  | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
+  | Trm_seq of trm mlist * var option (* { st1; st2; st3; x } the optional variable (x) acts as the result value of the sequence *)
   | Trm_apps of trm * trm list * resource_item list (* f(t1, t2) / __with_ghosts(f(t1, t2), "g1 := e1, g2 := e2")*)
   | Trm_for of loop_range * trm * loop_contract
   | Trm_for_c of trm * trm * trm * trm * resource_set option (* TODO: Remove from here and desugar into while *)
@@ -363,6 +363,9 @@ and cstyle_annot =
 
   (* [int x, y]  encoded as [{ int x; int y}] with an annotation
      on this special kind of no-scope block *)
+  (* FIXME: cstyle_annot is used for printing only. It should never encode semantic properties.
+    Moreover non scoping blocks of lets should always be printed as multi-declaration anyway.
+    Remove when non-scoping blocks are either implemented or multiple declaration support is dropped. *)
   | Multi_decl      (* annotation for encoding mutiple one line declarations *)
 
   | Prefix_step (* on a loop step, writes ++i / --i instead of i += 1 / i -= 1 *)

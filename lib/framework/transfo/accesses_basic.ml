@@ -226,7 +226,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
 let transform_immut_on
   (f_init : trm -> trm) (f_use : trm -> trm)
   (i : int) (seq : trm) : trm =
-  let instrs = trm_inv ~error:"expected seq" trm_seq_inv seq in
+  let instrs, result = trm_inv ~error:"expected seq" trm_seq_inv seq in
   let var = ref dummy_var in
   let update let_t =
     Pattern.pattern_match let_t [
@@ -248,7 +248,7 @@ let transform_immut_on
     ]
   in
   let instrs' = Mlist.update_at_index_and_fix_beyond i update fix instrs in
-  trm_seq ~annot:seq.annot instrs'
+  trm_seq ~annot:seq.annot ?result instrs'
 
 (** like {!transform}, but for immutable variables.
     target should be variable decl. *)

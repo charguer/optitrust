@@ -54,7 +54,7 @@ let%transfo intro ?(mark : string = no_mark) ?(label : label = no_label) (nb : i
 let%transfo intro_after ?(mark : mark = no_mark) ?(label : label = no_label) (tg : target) : unit =
   Target.apply_at_target_paths_in_seq (fun index seq_trm ->
     match seq_trm.desc with
-    | Trm_seq tl ->
+    | Trm_seq (tl, _) ->
       let seq_len = Mlist.length tl in
       Sequence_core.intro_at mark label index (seq_len - index) seq_trm
     | _ -> trm_fail seq_trm "Sequence_basic.intro_after: the targeted instruction should belong to a sequence"
@@ -76,7 +76,7 @@ let%transfo intro_before ?(mark : mark = no_mark) ? (label : label = no_label) (
      are going to be isolated into a sequence. *)
 (* TODO: Refactor to use spans *)
 let%transfo intro_between ?(mark : string = no_mark) ?(label : label = no_label) (tg_beg : target) (tg_end : target) : unit =
-  Nobrace_transfo.remove_after ( fun  _ ->
+  Nobrace_transfo.remove_after (fun  _ ->
   Trace.apply (fun t ->
     let ps_beg : (path * int) list = resolve_target_between tg_beg in
     let ps_end : (path * int) list = resolve_target_between tg_end in
@@ -90,14 +90,23 @@ let%transfo intro_between ?(mark : string = no_mark) ?(label : label = no_label)
       (p1, i1, i2 - i1)) ps_beg ps_end in
     List.fold_left (fun t (p,i,nb) -> Path.apply_on_path (Sequence_core.intro_at mark label i nb) t p) t pis))
 
-(** [elim tg]: expects the target [tg] to point at a sequence that appears nested inside another sequence,
-    e.g., points at [{t2;t3}] inside [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
-    producing e.g., [{ t1; t2; t3; t3}]. *)
-let%transfo elim (tg : target) : unit =
-  Nobrace_transfo.remove_after ( fun _ ->
-  Target.apply_at_target_paths (Sequence_core.elim_on) tg);
-  (* checked by Nobrace_transfo.remove_after:  *)
-  Trace.justif "local variables are not used after eliminated sequence"
+(** [elim_instr tg]: expects the target [tg] to point at a sequence without result value that appears nested inside another sequence.
+  If [tg] points at [{t2;t3}] inside [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
+    producing e.g., [{ t1; t2; t3; t4 }]. *)
+let%transfo elim_instr (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun _ ->
+    Target.apply_at_target_paths (Sequence_core.elim_on) tg
+  );
+  Trace.justif "eliminating a sequence only extend the lifetime of stack variables"
+
+(** [elim_let tg]: expects the target [tg] to point at a let binding with sequence body.
+  If [tg] points at [let x = { t2; let v = e; t3; v}] inside [{ t1; let x = { t2; let v = e; t3; v }; t4 }],
+  [elim_let] produces [{ t1; t2; let x = e; t3; t4}]. *)
+let%transfo elim_let ?(mark_result: mark = no_mark) (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun _ ->
+    Target.apply_at_target_paths (Sequence_core.elim_inside_let ~mark_result) tg
+  );
+  Trace.justif "eliminating a sequence only extend the lifetime of stack variables"
 
 (** [intro_on_instr ~mark ~visible tg]: expecets the target [tg] to point at an instruction,
     then it will wrap a sequence around that instruction.

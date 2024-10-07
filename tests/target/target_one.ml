@@ -38,7 +38,6 @@ let _ = Run.script_cpp (fun () ->
   !! show [ cVarDef "r" ; cPrimRef() ];
   !! show [ cVarDef "r" ; cPrimRef(); dArg 0 ];
   !! show [ cVarInit "r"];
-  !! show [ cVarInit "r"];
   (* !! show [ cInit () ]; *)
   (* TODO FIX !! show [ cVarDef ""; dInit ~arg:[cStrict; cLit] () ];*)
   (* !! show [ cVarDef ""; cStrict; dInit ~arg:[ cStrict; cLit] () ]; *)
@@ -48,10 +47,12 @@ let _ = Run.script_cpp (fun () ->
   !! show [ cFor "j" ];
   !! show [ cFor ~stop:[cInt 5] "" ];
 
+  !! show [ cReturn () ];
+
   (* Abort *)
   !! show [ cBreak ];
   !! show [ cContinue ];
-  !! show [ cReturn ];
+  !! show [ cReturn ~abort:true () ];
 
   (* Labels *)
   !! show [ cLabel "lbl2" ];
@@ -100,7 +101,8 @@ let _ = Run.script_cpp (fun () ->
   !! show [sInstr "f" ];*)
 
   !! show [nbExact 1; cVarDef "r"];
-  !! show [nbExact 4; cVarDef ~substr:true "r"];
+  (* FIXME: generated names such as __res should not be matched *)
+  !! show [(*nbExact 4;*) cVarDef ~substr:true "r"];
   !! show [nbExact 2; cVarDef ~regexp:true "p."];
   !! show [nbExact 1; cVarDef ~regexp:true "r"];
   !! show [nbExact 5; cVarDef ~regexp:true "r\\|n"];

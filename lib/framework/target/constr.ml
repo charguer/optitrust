@@ -669,7 +669,7 @@ let extract_last_path_item (p : path) : dir * path =
   (** [get_sequence_length t]: gets the number of instructions on a sequence *)
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
-  | Trm_seq tl -> Mlist.length tl
+  | Trm_seq (tl, _) -> Mlist.length tl
   | _ -> trm_fail t "Constr.get_sequence_length: expected a sequence"
   end
 
@@ -730,7 +730,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
        is true
       *)
      begin match t.desc with
-     | Trm_seq tl -> List.mem true (List.map (check_constraint ~incontracts c) (Mlist.to_list tl))
+     | Trm_seq (tl, None) -> List.mem true (List.map (check_constraint ~incontracts c) (Mlist.to_list tl))
      | _ -> trm_fail t "Constr.check_constraint: bad multi_decl annotation"
      end
   else
@@ -797,7 +797,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         | Typedef_enum xto_l -> check_name name td.typedef_name.name && check_enum_const ~incontracts cec xto_l
         | _ -> false
         end
-     | Constr_seq cl, Trm_seq tl when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
+     | Constr_seq cl, Trm_seq (tl, _) when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
         check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER: check why depth 0 here and not
         in Constr_app *)
      | Constr_var name, Trm_var x ->
@@ -851,7 +851,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         if !old_resolution then begin
           let t_marks = trm_get_marks t in
           begin match t.desc with
-          | Trm_seq tl | Trm_array (_, tl) ->
+          | Trm_seq (tl, _) | Trm_array (_, tl) ->
             (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
           | Trm_record (_, tl) -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
           | _ -> List.exists pred t_marks
@@ -1344,7 +1344,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
   else if trm_has_cstyle Multi_decl t then
      (* explore each declaration in the seq *)
      begin match t.desc with
-     | Trm_seq tl ->
+     | Trm_seq (tl, _) ->
         explore_list (Mlist.to_list tl) (fun i -> Dir_seq_nth i) (explore_in_depth ~incontracts p)
      | _ -> loc_fail loc "Constr.explore_in_depth: bad multi_decl annotation"
      end
@@ -1446,7 +1446,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
         (explore_list ghost_args (fun n -> Dir_ghost_arg_nth n) (fun (g, t) -> aux t))
      | Trm_array (_, tl) ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
-     | Trm_seq tl ->
+     | Trm_seq (tl, _) ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
      | Trm_record (_, tl) ->
         explore_list (List.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
@@ -1495,7 +1495,7 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   | Dir_array_nth n, Trm_array (_, tl) ->
     app_to_nth_dflt (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_array_nth n) (aux nth_t))
-  | Dir_seq_nth n, Trm_seq tl ->
+  | Dir_seq_nth n, Trm_seq (tl, _) ->
     app_to_nth_dflt (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
   | Dir_struct_nth n, Trm_record (_, tl) ->

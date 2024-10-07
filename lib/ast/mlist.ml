@@ -142,7 +142,7 @@ let extract ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (st
   let ml13 = merge ml1 ml3 in
   (ml13, ml2)
 
-(** [remove start nb ml]: removes items that fall in the range [start, start + nb).  *)
+(** [remove start nb ml]: removes items that fall in the range [start, start + nb)].  *)
 let remove (start : int) (nb : int) (ml : 'a t) : 'a t =
   fst (extract ~stop_left_bias:false start nb ml)
 
@@ -208,10 +208,10 @@ let pop_back (ml : 'a t) : 'a t =
   let ln = length ml in
   remove (ln - 1) 1 ml
 
-(** [lst ml]: returns the last element from the mlist [ml]. *)
-let lst (ml : 'a t) : 'a option =
-  let ln = length ml in
-  nth_opt ml (ln - 1)
+(** [last ml]: returns the last element from the mlist [ml]. *)
+let last (ml : 'a t) : 'a option =
+  let len = length ml in
+  if len = 0 then None else Some (nth ml (len - 1))
 
 (** [update_nth n transfo ml]: applies function [transfo] at the item with index [n] in mlist [ml]. *)
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =

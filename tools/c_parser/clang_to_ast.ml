@@ -340,8 +340,19 @@ and tr_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
   match s.desc with
   | Compound sl ->
-    let tl = List.map tr_stmt sl in
-    trm_seq_nomarks ?loc tl
+    let instrs = List.map tr_stmt sl in
+    let open Option in
+    let instrs, result, typ =
+      if instrs = [] then
+        [], None, None
+      else
+        let first_instrs, last_instr = List.unlast instrs in
+        begin match trm_var_inv last_instr with
+        | Some r -> first_instrs, Some r, last_instr.typ
+        | None -> instrs, None, None
+        end
+    in
+    trm_seq ?loc ?result ?typ (Mlist.of_list instrs)
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
     let tc = tr_expr c in
@@ -861,12 +872,14 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: inheritance not yet supported."
     end
 
+  | StmtExpr stmt -> tr_stmt stmt
+
   | UnexposedExpr RecoveryExpr ->
-    loc_fail loc "Clang_to_astRawC.tr_expr: parsing failure"
+    loc_fail loc "Clang_to_ast.tr_expr: parsing failure"
 
   | _ ->
     loc_fail loc
-      ("Clang_to_astRawC.tr_expr: the following expression is unsupported: " ^
+      ("Clang_to_ast.tr_expr: the following expression is unsupported: " ^
        Clang.Expr.show e)
 
 (** [tr_attribute loc a]: translates an attribute [a] to an OptiTrust attribute *)

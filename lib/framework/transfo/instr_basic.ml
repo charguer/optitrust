@@ -56,7 +56,7 @@ let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
           (dest_index, span.start, span.stop)
       in
 
-      let seq = trm_inv trm_seq_inv t_seq in
+      let seq, result = trm_inv trm_seq_inv t_seq in
       let seq, untouched_after = Mlist.split ~left_bias:false after_index seq in
       let seq, swapped_after = Mlist.split mid_index seq in
       let untouched_before, swapped_before = Mlist.split ~left_bias:true before_index seq in
@@ -73,7 +73,7 @@ let%transfo move ?(rev : bool = false) ~(dest : target) (tg : target) : unit =
       end;
 
       let seq = Mlist.merge_list [untouched_before; swapped_after; swapped_before; untouched_after] in
-      trm_alter ~desc:(Trm_seq seq) t_seq
+      trm_alter ~desc:(Trm_seq (seq, result)) t_seq
     ) p_seq
   ) tg;
   Scope.infer_var_ids ()

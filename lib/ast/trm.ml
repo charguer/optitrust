@@ -147,9 +147,9 @@ let trm_if ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cond : trm)
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_if (cond, tb, eb))
 
 (** [trm_seq ~annot ?loc ?ctx tl]: block statement *)
-let trm_seq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
+let trm_seq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(result: var option) ?(typ: typ option)
   (tl : trm mlist) : trm =
-  trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_seq tl)
+  trm_make ~annot ?loc ?typ:(if Option.is_none result then Some typ_unit else typ) ?ctx (Trm_seq (tl, result))
 
 (** [trm_seq_nomarks ~annot ?loc ?ctx tl]: like [trm_seq] but takes
    a list as arguments --LATER: use it everywhere it should instead of
@@ -456,7 +456,7 @@ let trm_add_label (l : label) (t : trm) : trm =
 let rec trm_vardef_get_vars (t : trm) : var list =
   match t.desc with
   | Trm_let ((x, _), _) -> [x]
-  | Trm_seq tl when trm_has_cstyle Multi_decl t -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
+  | Trm_seq (tl, _) when trm_has_cstyle Multi_decl t -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
   | _ -> []
 
 (** [trm_ret ~annot a]; special trm_abort case, used for return statements *)
@@ -529,13 +529,13 @@ let trm_apps_inv (t : trm) : (trm * trm list) option =
 
 (** [trm_seq_inv t]: returns the components of a [trm_seq] constructor when [t] is a sequence.
     Otherwise it returns [None]. *)
-let trm_seq_inv (t : trm) : (trm mlist) option =
+let trm_seq_inv (t : trm) : (trm mlist * var option) option =
   match t.desc with
-  | Trm_seq tl ->  Some tl
+  | Trm_seq (tl, result) ->  Some (tl, result)
   | _ -> None
 
 let trm_seq_nth_inv (i : int) (t : trm) : trm option =
-  Option.bind (trm_seq_inv t) (fun instrs ->
+  Option.bind (trm_seq_inv t) (fun (instrs, _) ->
     if i < Mlist.length instrs
     then Some (Mlist.nth instrs i)
     else None
@@ -659,7 +659,7 @@ let trm_prod_inv (t : trm) : trm list =
    contains a Mlist, for example [Trm_seq], [Trm_array], or [Trm_record]. *)
 let trm_mlist_inv_marks (t : trm) : mark list list option =
   match t.desc with
-  | Trm_seq tl | Trm_array (_, tl) -> Some (Mlist.get_marks tl)
+  | Trm_seq (tl, _) | Trm_array (_, tl) -> Some (Mlist.get_marks tl)
   | Trm_record (_, tl) -> Some (Mlist.get_marks tl)
   | _ -> None
 
@@ -717,12 +717,12 @@ let for_loop_body_trms (t : trm) : trm mlist =
   match t.desc with
   | Trm_for (_, body, _) ->
     begin match body.desc with
-    | Trm_seq tl -> tl
+    | Trm_seq (tl, _) -> tl
     | _ -> trm_fail body "Ast.for_loop_body_trms: body of a simple loop should be a sequence"
     end
   | Trm_for_c (_, _, _, body, _) ->
     begin match body.desc with
-    | Trm_seq tl -> tl
+    | Trm_seq (tl, _) -> tl
     | _ -> trm_fail body "Ast.for_loop_body_trms: body of a generic loop should be a sequence"
     end
   | _ -> trm_fail t "Ast.for_loop_body_trms: expected a loop"
@@ -732,15 +732,15 @@ let for_loop_body_trms (t : trm) : trm mlist =
 (** [trm_main_inv_toplevel_defs ast]: returns a list of all toplevel declarations *)
 let trm_main_inv_toplevel_defs (ast : trm) : trm list =
   match ast.desc with
-  | Trm_seq tl when trm_is_mainfile ast -> Mlist.to_list tl
+  | Trm_seq (tl, None) when trm_is_mainfile ast -> Mlist.to_list tl
   | _ -> trm_fail ast "Ast.trm_main_inv_toplevel_defs: expected the ast of the main file"
 
 (** [trm_seq_add_last t_insert t]: appends [t_insert] at the end of the sequence [t] *)
 let trm_seq_add_last (t_insert : trm) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
-  let new_tl = Mlist.insert_at (Mlist.length tl) t_insert tl in
-  trm_seq ~annot:t.annot new_tl
+  | Trm_seq (tl, result) ->
+    let new_tl = Mlist.push_back t_insert tl in
+    trm_seq ~annot:t.annot ?result new_tl
   | _ -> trm_fail t "Ast.trm_seq_add_last: expected a sequence"
 
 
@@ -920,8 +920,10 @@ match t.desc with
 
 (** [trm_for_inv_instrs t]: gets the loop range and body instructions from loop [t]. *)
 let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist * loop_contract) option =
-  Option.bind (trm_for_inv t) (fun (r, b, c) ->
-    Option.map (fun instrs -> (r, instrs, c)) (trm_seq_inv b))
+  let open Option.Monad in
+  let* r, b, c = trm_for_inv t in
+  let* instrs, _ = trm_seq_inv b in
+  Some (r, instrs, c)
 
 (** [is_trm_seq t]: checks if [t] is a sequence. *)
 let is_trm_seq (t : trm) : bool =
@@ -945,13 +947,12 @@ let trm_fors_inv (nb : int) (t : trm) : ((loop_range * loop_contract) list * trm
         (* at first, 't' should be the for loop *)
         then Some t
         (* then, 't' is the sequence of a surrounding loop *)
-        else Option.bind (trm_seq_inv t) (fun instrs -> Mlist.nth_opt instrs 0)
+        else Option.bind (trm_seq_inv t) (fun (instrs, _) -> Mlist.nth_opt instrs 0)
       in
-      Option.bind t (fun t -> begin match trm_for_inv t with
-      | Some (range, body, contract) ->
-        aux (nb - 1) ((range, contract) :: ranges_rev) body
-      | _ -> None
-      end)
+      let open Option.Monad in
+      let* t in
+      let* range, body, contract = trm_for_inv t in
+      aux (nb - 1) ((range, contract) :: ranges_rev) body
   in
   aux nb [] t
 
@@ -1152,9 +1153,9 @@ let set_struct_get_inv (t : trm) : (trm * field * trm) option =
 (** [insert_at_top_of_seq tl t]: insert the list of trms [tl] at the top of sequence [t]. *)
 let insert_at_top_of_seq (tl : trm list) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl1 ->
+  | Trm_seq (tl1, result) ->
     let new_tl = Mlist.insert_sublist_at 0 tl tl1 in
-    trm_alter ~desc:(Trm_seq new_tl) t
+    trm_alter ~desc:(Trm_seq (new_tl, result)) t
   | _ -> t
 
 
@@ -1162,10 +1163,10 @@ let insert_at_top_of_seq (tl : trm list) (t : trm) : trm =
     The final result is a pair consisting of the final sequence and the filtered out trms.*)
 let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
     (* FIXME: Preserve marks *)
     let tl_to_remove, tl_to_keep = List.partition f (Mlist.to_list tl) in
-    (trm_alter ~desc:(Trm_seq (Mlist.of_list tl_to_keep)) t , tl_to_remove)
+    (trm_alter ~desc:(Trm_seq (Mlist.of_list tl_to_keep, result)) t, tl_to_remove)
   | _  -> (t, [])
 
 (** [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
@@ -1241,12 +1242,10 @@ let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
   end;
   t
 
-(** [trm_map_with_terminal]: applies function [f] over ast nodes,
-   where [f] may treat terminal nodes differently.
-   Here, terminal means that the end of the term would be the end of the function.
+(** [trm_map]: applies function [f] over ast nodes.
    - [share_if_no_change]: enables sharing trm nodes if they are unchanged by [f].
   *)
-let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
+let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
   let typ = t.typ in
@@ -1280,7 +1279,7 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
 
   let resource_items_map resources: resource_item list =
     list_map
-      (fun (name, formula) -> (name, f false formula))
+      (fun (name, formula) -> (name, f formula))
       (fun (_, fa) (_, fb) -> fa == fb)
       resources
   in
@@ -1311,13 +1310,13 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   let t' = match t.desc with
   | Trm_var _ | Trm_lit _ -> t
   | Trm_prim (ty, prim) ->
-    let ty' = f false ty in
+    let ty' = f ty in
     let prim' = match prim with
       | Prim_unop (Unop_cast ty_to) ->
-        let ty_to' = f false ty_to in
+        let ty_to' = f ty_to in
         if ty_to == ty_to' then prim else Prim_unop (Unop_cast ty_to')
       | Prim_ref_array sizes ->
-        let sizes' = list_map (f false) (==) sizes in
+        let sizes' = list_map f (==) sizes in
         if sizes == sizes' then prim else Prim_ref_array sizes'
       | _ -> prim
     in
@@ -1325,97 +1324,90 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       then t
       else trm_prim ~annot ?loc ~ctx ty' prim'
   | Trm_array (ty, tl) ->
-    let ty' = f false ty in
-    let tl' = mlist_map (f false) (==) tl in
+    let ty' = f ty in
+    let tl' = mlist_map f (==) tl in
     if (share_if_no_change(*redundant*) && ty == ty' && tl' == tl)
       then t
       else (trm_array ~annot ?loc ~typ:ty' ~ctx tl')
   | Trm_record (ty, tl) ->
-    let ty' = f false ty in
+    let ty' = f ty in
     let tl' = mlist_map
-      (fun (lb, t) -> (lb, f false t))
+      (fun (lb, t) -> (lb, f t))
       (fun (_, ta) (_, tb) -> ta == tb) tl
     in
     if (share_if_no_change(*redundant*) && ty == ty' && tl' == tl)
       then t
       else (trm_record ~annot ?loc ~typ:ty' ~ctx tl')
   | Trm_let ((var, ty), init) ->
-    let ty' = f false ty in
-    let init' = f false init in
+    let ty' = f ty in
+    let init' = f init in
     if (share_if_no_change && ty' == ty && init' == init)
       then t
       else (trm_let ~annot ?loc ~ctx (var, ty') init')
   | Trm_let_mult ts ->
-    let ts' = list_map (fun ((x, ty), init) -> ((x, f false ty), f false init)) (fun ((_, ty1), init1) ((_, ty2), init2) -> ty1 == ty2 && init1 == init2) ts in
+    let ts' = list_map (fun ((x, ty), init) -> ((x, f ty), f init)) (fun ((_, ty1), init1) ((_, ty2), init2) -> ty1 == ty2 && init1 == init2) ts in
     if (ts' == ts) then t else
       (trm_let_mult ~annot ?loc ~ctx ts')
   | Trm_fun (args, res, body, contract) ->
-    let res' = f false res in
-    let args' = list_map (fun (x, ty) -> (x, f false ty)) (fun (_, ty1) (_, ty2) -> ty1 == ty2) args in
-    let body' = f false body in
+    let res' = f res in
+    let args' = list_map (fun (x, ty) -> (x, f ty)) (fun (_, ty1) (_, ty2) -> ty1 == ty2) args in
+    let body' = f body in
     let contract' = fun_spec_map fun_contract_map (==) contract in
     if (share_if_no_change && res' == res && args' == args && body' == body && contract' == contract)
       then t
       else (trm_fun ~annot ?loc ~contract:contract' ~ctx args' res' body')
   | Trm_if (cond, then_, else_) ->
-    let cond' = f false cond in
-    let then_' = f is_terminal then_ in
-    let else_' = f is_terminal else_ in
+    let cond' = f cond in
+    let then_' = f then_ in
+    let else_' = f else_ in
     if (share_if_no_change && cond' == cond && then_' == then_ && else_' == else_)
       then t
       else (trm_if ~annot ?loc ~ctx cond' then_' else_')
-  | Trm_seq tl ->
-    let n = ref (Mlist.length tl) in
-    let tl' = mlist_map
-      (fun tsub ->
-        n := !n - 1;
-        let sub_is_terminal = (is_terminal && !n == 0) in
-        f sub_is_terminal tsub)
-      (==) tl
-    in
+  | Trm_seq (tl, result) ->
+    let tl' = mlist_map f (==) tl in
     if (share_if_no_change(*redundant*) && tl == tl')
       then t
-      else (trm_seq ~annot ?loc ~ctx tl')
+      else (trm_seq ~annot ?loc ~ctx ?result tl')
   | Trm_apps (func, args, ghost_args) ->
-    let func' = f false func in
-    let args' = list_map (f false) (==) args in
+    let func' = f func in
+    let args' = list_map f (==) args in
     let ghost_args' = resource_items_map ghost_args in
     if (share_if_no_change(*redundant*) && func' == func && args' == args && ghost_args' == ghost_args)
       then t
       (* warning: may have different type *)
       else (trm_apps ~annot ?loc ?typ ~ctx ~ghost_args:ghost_args' func' args')
   | Trm_while (cond, body) ->
-    let cond' = f false cond in
-    let body' = f false body in
+    let cond' = f cond in
+    let body' = f body in
     if (share_if_no_change && cond' == cond && body' == body)
       then t
       else (trm_while ~annot ?loc ~ctx cond' body')
   | Trm_for_c (init, cond, step, body, invariant) ->
-      let init' = f false init in
-      let cond' = f false cond in
-      let step' = f false step in
-      let body' = f is_terminal body in
+      let init' = f init in
+      let cond' = f cond in
+      let step' = f step in
+      let body' = f body in
       let invariant' = opt_map resource_set_map (==) invariant in
       if (share_if_no_change && init' == init && cond' == cond && step' == step && body' == body && invariant' == invariant)
         then t
         else (trm_for_c ~annot ?loc ?invariant:invariant' ~ctx init' cond' step' body')
   | Trm_for (range, body, contract) ->
-    let start = f false range.start in
-    let stop = f false range.stop in
-    let step = f false range.step in
+    let start = f range.start in
+    let stop = f range.stop in
+    let step = f range.step in
     let range' = if share_if_no_change && range.step == step && range.start == start && range.stop == stop
       then range
       else { range with start; stop; step }
     in
-    let body' = f is_terminal body in
+    let body' = f body in
     let contract' = loop_contract_map contract in
     if (share_if_no_change && range' == range && body' == body && contract' == contract)
       then t
       else (trm_for ~annot ?loc ~contract:contract' ~ctx range' body')
   | Trm_switch (cond, cases) ->
-      let cond' = f false cond in
+      let cond' = f cond in
       let cases' = list_map
-        (fun (tl, body) -> (tl, f is_terminal body))
+        (fun (tl, body) -> (tl, f body))
         (fun (_, body1) (_, body2) -> body1 == body2) cases in
       if (share_if_no_change(*redundant*) && cond' == cond && cases' == cases)
         then t
@@ -1423,33 +1415,33 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   | Trm_abort a ->
     begin match a with
     | Ret (Some r) ->
-        let r' = f false r in
+        let r' = f r in
         if (share_if_no_change && r' == r)
           then t
           else (trm_ret ~annot ?loc ~ctx (Some r'))
     | _ -> t
     end
   | Trm_namespace (name, body, inline) ->
-    let body' = f false body in
+    let body' = f body in
     if (share_if_no_change && body == body')
       then t
       else (trm_namespace ~annot ?loc ~ctx name body' inline)
   | Trm_typedef td ->
     let body' = begin match td.typedef_body with
     | Typedef_alias ty ->
-      let ty' = f false ty in
+      let ty' = f ty in
       if ty' == ty then td.typedef_body else Typedef_alias ty'
     | Typedef_record rfl ->
       let rfl' = list_map
         (fun (rf, rf_ann) ->
           let rf' = begin match rf with
           | Record_method rft ->
-            let rft' = f false rft in
+            let rft' = f rft in
             if share_if_no_change && rft == rft'
               then rf
               else Record_method rft'
           | Record_field (name, ty) ->
-            let ty' = f false ty in
+            let ty' = f ty in
             if ty == ty' then rf else Record_field (name, ty')
           end in
           rf', rf_ann
@@ -1459,19 +1451,19 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
       if share_if_no_change(*redundant*) && rfl == rfl'
         then td.typedef_body
         else Typedef_record rfl'
-    | _ -> failwith "trm_map_with_terminal: unexpected typedef_body"
+    | _ -> failwith "trm_map: unexpected typedef_body"
     end in
     if (share_if_no_change(*redundant*) && body' == td.typedef_body)
       then t
       else trm_typedef ~annot ?loc ~ctx { td with typedef_body = body' }
   | Trm_template (typ_params, templated) ->
-    let templated' = f false templated in
+    let templated' = f templated in
     if (share_if_no_change && templated == templated')
       then t
       else trm_template ~annot ?loc ~ctx typ_params templated'
   | Trm_arbitrary (Comment _) -> t
   | _ ->
-    trm_combinators_unsupported_case "trm_map_with_terminal"  t
+    trm_combinators_unsupported_case "trm_map"  t
   in
   t'.errors <- errors;(* LATER: errors is not treated like other arguments *)
 
@@ -1479,12 +1471,8 @@ let trm_map_with_terminal ?(share_if_no_change = true) ?(keep_ctx = false) (is_t
   match typ with
   | None -> t'
   | Some typ ->
-    let typ' = f false typ in
+    let typ' = f typ in
     if typ == typ' then t' else trm_alter ~typ:typ' t'
-
-(** [trm_map f]: applies f on t recursively *)
-let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =
-  trm_map_with_terminal ~keep_ctx false (fun _is_terminal t -> f t) t
 
 (** [trm_bottom_up]: applies f on t recursively from bottom to top. *)
 let rec trm_bottom_up (f : trm -> trm) (t : trm) : trm =
@@ -1507,6 +1495,9 @@ let trm_used_vars (t: trm): Var_set.t =
   !vars
 
 type var_metadata = trm_annot * location * typ option * ctx
+
+let empty_var_metadata () =
+  trm_annot_default, None, None, unknown_ctx ()
 
 let trm_map_vars_ret_ctx
   ?(keep_ctx = false)
@@ -1617,7 +1608,7 @@ let trm_map_vars_ret_ctx
       let ctx = exit_scope ctx body_ctx t' in
       (ctx, t')
 
-    | Trm_seq instrs ->
+    | Trm_seq (instrs, result) ->
       (* LATER: add bool for no scope seq? *)
       let no_scope = trm_is_include t || trm_is_mainfile t in
       let cont_ctx = ref (if no_scope then ctx else enter_scope ctx t) in
@@ -1626,9 +1617,18 @@ let trm_map_vars_ret_ctx
         cont_ctx := cont_ctx';
         t'
       ) instrs in
-      let t' = if Mlist.for_all2 (==) instrs instrs'
+      let result' = match result with
+        | None -> result
+        | Some resvar ->
+          begin match trm_var_inv (map_var !cont_ctx (empty_var_metadata ()) resvar) with
+          | Some new_resvar ->
+            if resvar == new_resvar then result else Some new_resvar
+          | None -> failwith "trm_map_vars: Cannot map variable '%s' to a term that is not a variable because it is used as the result of a sequence." (var_to_string resvar)
+          end
+      in
+      let t' = if result' == result && Mlist.for_all2 (==) instrs instrs'
         then t
-        else trm_seq ~annot ?loc ~ctx:t_ctx instrs'
+        else trm_seq ~annot ?loc ~ctx:t_ctx ?result:result' instrs'
       in
       let ctx = if no_scope then !cont_ctx else exit_scope ctx !cont_ctx t' in
       (ctx, t')
@@ -1691,7 +1691,7 @@ let trm_map_vars_ret_ctx
     | Trm_namespace (name, body, inline) ->
       let body_ctx = ref (enter_scope ctx t) in
       let body' = begin match body.desc with
-      | Trm_seq instrs ->
+      | Trm_seq (instrs, None) ->
         (* FIXME: duplicated code with Trm_seq case *)
         let instrs' = Mlist.map (fun t ->
           let body_ctx', t' = f_map !body_ctx t in
@@ -1824,7 +1824,7 @@ let trm_rename_vars_ret_ctx
     | Trm_fun (args, rettyp, body, FunSpecReverts other_fn) ->
       let other_fn' = map_var ctx other_fn in
       post_process ctx (trm_alter ~desc:(Trm_fun (args, rettyp, body, FunSpecReverts other_fn')) t)
-    | _ -> post_process ctx t
+      | _ -> post_process ctx t
     ) ~map_binder (fun ctx (annot, loc, typ, vctx) var ->
       let var = map_var ctx var in
       trm_var ~annot ?loc ?typ ~ctx:vctx var
@@ -2247,7 +2247,7 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
     of the functions that were chopped and values being their actual declaration *)
 let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
   match chopped_ast.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, None) ->
       let new_tl =
       Mlist.map (fun def -> match def.desc with
       | Trm_let ((x, _), _) ->

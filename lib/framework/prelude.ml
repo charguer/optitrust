@@ -31,7 +31,7 @@ type seq_component =
   | Mark of mark
   | SeqComponents of seq_component list
 
-let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(braces = true) (components: seq_component list) : trm =
+let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(result: var option) ?(braces = true) (components: seq_component list) : trm =
   let rec aux cs acc = List.fold_right (fun comp acc ->
     match comp with
     | Trm t -> Mlist.push_front t acc
@@ -43,22 +43,23 @@ let trm_seq_helper ?(annot : trm_annot option) ?(loc : location) ?(braces = true
   ) cs acc in
   let mlist = aux components Mlist.empty in
   if braces then
-    trm_seq ?annot ?loc mlist
+    trm_seq ?annot ?loc ?result mlist
   else begin
     assert (annot = None);
     assert (loc = None);
+    assert (result = None);
     trm_seq_nobrace mlist
   end
 
 let update_span_helper (span : Dir.span) (t_seq : trm) (f : trm mlist -> seq_component list) : trm =
-  let instrs = trm_inv ~error:"expected seq" trm_seq_inv t_seq in
+  let instrs, result = trm_inv ~error:"expected seq" trm_seq_inv t_seq in
   if span.start >= span.stop then begin
     t_seq
   end else begin
     let (span_instrs, instrs_after) = Mlist.split ~left_bias:false span.stop instrs in
     let (instrs_before, span_instrs) = Mlist.split ~left_bias:true span.start span_instrs in
     let new_span_components = f span_instrs in
-    trm_seq_helper ~annot:t_seq.annot [
+    trm_seq_helper ~annot:t_seq.annot ?result [
       TrmMlist instrs_before;
       SeqComponents new_span_components;
       TrmMlist instrs_after;
@@ -67,10 +68,10 @@ let update_span_helper (span : Dir.span) (t_seq : trm) (f : trm mlist -> seq_com
 
 let skip_includes (t : trm) : trm =
   match trm_seq_inv t with
-  | Some instrs ->
+  | Some (instrs, None) ->
     let not_include = Mlist.filter (fun t -> not (trm_is_include t)) instrs in
     trm_seq not_include
-  | None -> t
+  | _ -> failwith "skip_includes should be called on the root of the AST"
 
 let rec find_var_filter_on (candidates : typ option varmap ref) (filter : var -> bool) (t : trm) : unit =
   let update_map v ty =

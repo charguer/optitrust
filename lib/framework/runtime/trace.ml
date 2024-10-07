@@ -192,7 +192,7 @@ let top_level_fun_bindings (t : trm) : tmap =
   let tmap = ref Var_map.empty in
     let aux (t : trm) : unit =
       match t.desc with
-      | Trm_seq tl ->
+      | Trm_seq (tl, None) ->
         Mlist.iter (fun t1 ->
           match trm_let_fun_inv t1 with
           | Some (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
@@ -1717,7 +1717,7 @@ let dump_trace_to_textfile ~(prefix : string) : unit =
    LATER: this function could be inlined at its unique call site. *)
 let output_prog_check_empty (style : output_style) (ctx : context) (prefix : string) (ast_opt : trm) : unit =
   match ast_opt.desc with (* TODO: add and use a function [trm_empty_inv] *)
-  | Trm_seq tl when Mlist.length tl <> 0 ->
+  | Trm_seq (tl, None) when Mlist.length tl <> 0 ->
       output_prog style ctx prefix ast_opt
   | _ ->
       let file_prog = prefix ^ ctx.extension in

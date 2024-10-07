@@ -229,10 +229,15 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             child_to_json "cond" (aux cond);
             child_to_json "then" (aux then_);
             child_to_json "else" (aux else_) ] ]
-    | Trm_seq l ->
+    | Trm_seq (l, None) ->
         let l = Mlist.to_list l in
         [ kind_to_field "seq";
           children_to_field (List.mapi ichild_to_json (List.map aux l))]
+    | Trm_seq (l, Some result) ->
+        let l = Mlist.to_list l in
+        [ kind_to_field "seq";
+          children_to_field (List.mapi ichild_to_json (List.map aux l));
+          (strquote "result", strquote result.name)]
     | Trm_apps (f,args,_) ->
         let args_children = List.mapi (ichild_to_json ~prefix:"_arg" ) (List.map aux args) in
         let children = (child_to_json "fun" (aux f)) :: args_children in

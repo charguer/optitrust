@@ -529,7 +529,7 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
      [args_pred] - match based on arguments
      [ret_typ] - match based on the return type
      [ret_typ_pred] - match based on the return type
-     [is_def] - if false matches also declarations
+     [is_def] - if false matches also pre-declarations
      [body] - match based on the body of the function *)
 let cFun ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(is_def = true) ?(body : target = [])
   () : constr =
@@ -541,7 +541,7 @@ let cFun ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pre
      [args_pred] - match based on arguments
      [ret_typ] - match based on the return type
      [ret_typ_pred] - match based on the return type
-     [is_def] - if false matches also declarations
+     [is_def] - if false matches also pre-declarations
      [body] - match based on the body of the function
      [regexp] - match based on regexp
      [name] - match based on the name of the function. *)
@@ -659,11 +659,11 @@ let cEnum ?(name : string = "") ?(substr : bool = false) ?(constants : (string *
   in
   Constr_decl_enum (c_n, cec_o)
 
-(** [cSeq ~args ~args_pred ()]: matches a sequence
-    [args] - match based on instructions
-    [args_pred] - match based on instructions that satisfy [args_pred]. *)
-let cSeq ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
-  Constr_seq (combine_args args args_pred)
+(** [cSeq ~instrs ~instrs_pred ()]: matches a sequence
+    [instrs] - match based on instructions
+    [instrs_pred] - match based on instructions that satisfy [instrs_pred]. *)
+let cSeq ?(instrs : targets = []) ?(instrs_pred:target_list_pred = target_list_pred_default) () : constr =
+  Constr_seq (combine_args instrs instrs_pred)
 
 (** [cVar ~regexp ~substr ~trmkind ~typ ~typ_pred name]: matches variable occurrences
     [regepx] - match based on regexp
@@ -750,16 +750,19 @@ let cString (s : string) : constr =
      [accept_encoded] - match encoded functions
      [regexp] - match based on regexp
      [name] - match based on name of the function. *)
-let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default)
+let cCall ?(fun_ : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default)
   ?(accept_encoded : bool = false) ?(regexp : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
-  let p_fun = match fun_ with
-  | [] -> [cVar ~regexp  name]
-  | _ ->
-    begin match name with
+
+  let p_fun =
+    match name with
     | "" -> fun_
-    | _ -> raise (Argument_Error "Can't provide both the path and the name of the function")
-    end in
+    | _ -> match fun_ with
+      | [] -> [cVar ~regexp name]
+      | _ ->
+        raise (Argument_Error "Can't provide both the path and the name of the function")
+  in
+
   Constr_app (p_fun, combine_args args args_pred, accept_encoded)
 
 (** [cCalls funs]: matches a list of function calls based on their names. *)
@@ -896,38 +899,21 @@ let cGoto ?(label : string = "") ?(substr : bool = false) ?(regexp : bool = fals
   let ro = string_to_rexp_opt ~regexp ~substr label TrmKind_Expr in
   Constr_goto ro
 
-(** [cReturn_tg ~res ()]: matches a return statement. *)
-let cReturn_tg ?(res : target = []) () : constr =
-  let p_res =  res in
-  Constr_return p_res
-
-(** [cAbrtAny]: any abort kind. *)
-let cAbrtAny : abort_kind = Any
-
-(** [cAbrtRet]: return abort kind. *)
-let cAbrtRet : abort_kind = Return
-
-(** [cAbrtBrk]: brake abort kind. *)
-let cAbrtBrk : abort_kind = Break
-
-(** [cAbrtCtn]: continue abort kind. *)
-let cAbrtCtn : abort_kind = Continue
-
 (** [cAbort ~kind ()]: matches an abort statement based on its [kind]. *)
 let cAbort ?(kind : abort_kind = Any) () : constr =
   Constr_abort kind
 
-(** [cReturn]: matches a return statement. *)
-let cReturn : constr =
-  Constr_abort (cAbrtRet)
+(** [cReturn ~res ()]: matches a return statement. *)
+let cReturn ?(res : target = []) ?(abort = false) () : constr =
+  if abort then Constr_return res else cVarDef "__res" ~body:res
 
-(** [cBreadk]: matches a break statement. *)
+(** [cBreak]: matches a break statement. *)
 let cBreak : constr =
-  Constr_abort (cAbrtBrk)
+  Constr_abort Break
 
 (** [cContinue]: matches a continue statement. *)
 let cContinue : constr =
-  Constr_abort (cAbrtCtn)
+  Constr_abort Continue
 
 (** [cAny]: matches a call to function "ANY". *)
 let cAny : constr =
@@ -1204,12 +1190,9 @@ let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option 
 let convert_stringreprs_from_documentation_to_string (m : Ast_to_c.stringreprs) : (stringreprid, string) Hashtbl.t =
   Tools.hashtbl_map_values (fun _id d -> Tools.document_to_string ~width:PPrint.infinity d) m
 
-(** [compute_stringreprs ~optitrust_syntax ~topfuns f t]: compute string representation recursively for trm [t]
-
-    LATER: we should only compute stringreprs in top level functions that are
-    targeted by the targets; to that end, we need to hide the body of the
-    top level definitions that are not targeted). *)
-let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_name list option) (f : trm->bool) (t : trm) : trm * Ast_to_c.stringreprs =
+(** [compute_stringreprs ~topfuns f t]: compute string representation recursively for trm [t]
+*)
+let compute_stringreprs ?(topfuns:Constr.constr_name list option) (f : trm->bool) (t : trm) : trm * Ast_to_c.stringreprs =
   (* DEBUG Tools.debug "compute_stringreprs %d" (match topfuns with
     | None -> -1
     | Some ts -> List.length ts); *)
@@ -1229,22 +1212,22 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
         let t3, _ = hide_function_bodies hidetopfun t2 in
         t3
     in
-  Ast_to_c.init_stringreprs();
-  let cstyle = Ast_to_c.default_style() in
+  Ast_to_c.init_stringreprs ();
+  let cstyle = Ast_to_c.style_for_stringrepr in
   let fromto_style = C_encoding.{ cstyle; typing = Style.typing_annot } in
   let t3_c_syntax = C_encoding.cfeatures_intro fromto_style (trm_erase_var_ids t3) in
-  let _doc = Ast_to_c.(ast_to_doc { cstyle with optitrust_syntax }) t3_c_syntax in (* fill in the [Ast_to_c.stringreprs] table, ignore the result *)
-  let m = Ast_to_c.get_and_clear_stringreprs() in
+  let _doc = Ast_to_c.(ast_to_doc cstyle) t3_c_syntax in (* fill in the [Ast_to_c.stringreprs] table, ignore the result *)
+  let m = Ast_to_c.get_and_clear_stringreprs () in
   t2, m (* we return t2, not t3, because t3 has hidden bodies *)
 
-(** [compute_stringreprs_and_update_ast ~optitrust_syntax f]: label subterms with fresh stringreprsid, then build
+(** [compute_stringreprs_and_update_ast f]: label subterms with fresh stringreprsid, then build
      a table that maps stringreprids to the corresponding documents
      LATER: this function should proabably be moved/merged into the view_subterms function. . *)
-let compute_stringreprs_and_update_ast ?(optitrust_syntax:bool=false) (f : trm->bool) : Ast_to_c.stringreprs =
+let compute_stringreprs_and_update_ast (f : trm->bool) : Ast_to_c.stringreprs =
   let stringreprs = ref None in
   (* Note: through [Trace.apply], we modify the current AST by adding ids in the term annotation. *)
   Trace.apply (fun t ->
-    let t2, m = compute_stringreprs ~optitrust_syntax f t in
+    let t2, m = compute_stringreprs f t in
     stringreprs := Some m;
     t2
     );

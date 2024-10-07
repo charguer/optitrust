@@ -123,7 +123,7 @@ let set_explicit_on (t : trm) : trm =
       [t] - ast of the sequence containing the assignments. *)
 let set_implicit_on (t: trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, None) ->
     let rhs_trms = Mlist.fold_left (fun acc instr ->
       match instr.desc with
       | Trm_apps (_, [_;rhs], _) ->
@@ -270,7 +270,7 @@ let inline_struct_initialization (struct_name : typvar) (field_list : field list
       [t] - trm corresponding to a typedef struct definition. *)
 let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
     let td_name = ref dummy_var in
     let f_list = ref [] in
     let field_index = ref 0 in
@@ -325,7 +325,7 @@ let reveal_field_at (field_to_reveal : field) (index : int) (t : trm) : trm =
       inline_struct_initialization !td_name !f_list !field_index t
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ?result new_tl
 
   | _ -> trm_fail t "Record_core.reveal_field_aux: expected the surrounding sequence"
 
@@ -377,7 +377,7 @@ let compute_bijection (order : fields_order) (fl : (field * int) list) : int lis
      [t] - ast of the typedef Record. *)
 let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
   let error = "Record_core.reorder_fields_aux: expected the surrouding sequence of the targeted declaration." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let bij = ref [] in
   let struct_name = ref dummy_var in
   let f_update (t : trm) : trm =
@@ -422,7 +422,7 @@ let reorder_fields_at (order : fields_order) (index : int) (t : trm) : trm =
     aux t
    in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-  trm_replace (Trm_seq new_tl) t
+  trm_replace (Trm_seq (new_tl, result)) t
 
 (** <internal> *)
 let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field * typ * var) list) (t : trm) : trm =
@@ -501,7 +501,7 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
       [t] - ast of the surrounding sequence of the variable declarations. *)
 let to_variables_at (index : int) (t : trm) : trm =
   let error = "expected a surrounding sequence" in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let typ = ref typ_auto in
   let fields = ref [] in
   let var = ref dummy_var in
@@ -545,7 +545,7 @@ let to_variables_at (index : int) (t : trm) : trm =
   in
   let f_update_further (t : trm) : trm = to_variables_update !var !is_ref !typ !fields t in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-  trm_seq ~annot:t.annot new_tl
+  trm_seq ~annot:t.annot ?result new_tl
 
 (* TODO: merge with Variable.Rename *)
 (** [Rename]: a module used for renaming the struct fields. *)
@@ -605,7 +605,7 @@ let rename_struct_accesses (struct_name : typvar) (rename : rename) (t : trm) : 
       [t] - the ast of the sequence which contains the struct declaration. *)
 let rename_fields_at (index : int) (rename : rename) (t : trm) : trm =
   let error = "Record_core.rename_fields_aux: expected the sequence which contains the typedef declaration." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let struct_name = ref dummy_var in
   let f_update (t : trm) : trm =
     match t.desc with
@@ -619,7 +619,7 @@ let rename_fields_at (index : int) (rename : rename) (t : trm) : trm =
     rename_struct_accesses !struct_name rename t
    in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-  trm_seq ~annot:t.annot new_tl
+  trm_seq ~annot:t.annot ?result new_tl
 
 (** [update_fields_type_aux pattern ty t]: changes the current type for all the struct fields,
       that are matched with [pattern] and whose type can be changed by [typ_update].
@@ -771,7 +771,7 @@ let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fiel
      [t] - ast of the main sequence containing the typedef definition. *)
 let struct_modif_at (arg : Struct_modif.arg) (index : int) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
     let tdef = begin match Mlist.nth_opt tl index with
     | Some t1 -> t1
     | None -> assert false end in
@@ -786,7 +786,7 @@ let struct_modif_at (arg : Struct_modif.arg) (index : int) (t : trm) : trm =
          let f_update = fun t -> new_td in
          let f_update_further = fun t -> modif_accesses (old_fields, new_fields) struct_name arg t in
          let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-         trm_replace (Trm_seq new_tl) t
+         trm_replace (Trm_seq (new_tl, result)) t
       | _ -> trm_fail tdef "Record_core.Record_core.struct_modif: expected a struct definition"
       end
     | _ -> trm_fail tdef "Record_core.Record_core.struct_modif: expected a target to a typedef struct definition"

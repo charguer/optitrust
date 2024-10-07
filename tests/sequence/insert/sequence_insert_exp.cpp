@@ -28,5 +28,7 @@ int main() {
   }
   int z = 5;
   p++;
-  return 0;
+  const int __res = 0;
+  p++;
+  return __res;
 }

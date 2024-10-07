@@ -23,7 +23,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     (* Apply fission in innermost loop *)
     let p_interstice = Target.resolve_mark_exactly_one m_interstice in
     let (p_loop_body, i) = Path.extract_last_dir_before p_interstice in
-    let loop_body_instrs = trm_inv ~error:"expected seq" trm_seq_inv (Target.resolve_path p_loop_body) in
+    let loop_body_instrs, _ = trm_inv ~error:"expected seq" trm_seq_inv (Target.resolve_path p_loop_body) in
 
     let p_loop = Path.parent_with_dir p_loop_body Dir_body in
     let (_, p_outer_seq) = Path.index_in_seq p_loop in
@@ -1243,7 +1243,7 @@ let%transfo delete_all_void (tg : target) : unit =
   Target.iter (fun p ->
     Target.apply_at_path (trm_bottom_up (fun t ->
       match trm_seq_inv t with
-      | Some instrs ->
+      | Some (instrs, None) ->
         let res_t = ref t in
         for i = (Mlist.length instrs) - 1 downto 0 do
           match Loop_basic.delete_void_on i !res_t with
@@ -1251,7 +1251,7 @@ let%transfo delete_all_void (tg : target) : unit =
           | None -> ()
         done;
         !res_t
-      | None -> t
+      | _ -> t
     )) p
   ) tg
 

@@ -24,7 +24,7 @@ let%transfo read_last_write ?(write_mark : mark = no_mark) ?(write : target = []
             let seq_trm = Target.resolve_path path_to_seq in
             let write_index = ref None in
             begin match seq_trm.desc with
-            | Trm_seq tl ->
+            | Trm_seq (tl, _) ->
               Mlist.iteri (fun i t1 ->
                 if i >= index
                   then ()

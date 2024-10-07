@@ -98,18 +98,17 @@ let elim_on (decl_index : int) (t : trm) : trm =
   let remove_decl (t : trm) : trm =
     let error = "Arrays.elim_constant_on: expected constant array literal declaration" in
     let (name, typ, init) = trm_inv ~error trm_let_inv t in
-    (* Tools.debug "QSJIDO:\n%s" (Ast_to_text.ast_to_string t); *)
     let (_elem_ty, _size) = typ_inv ~error t typ_array_inv typ in
     let _array_mlist = trm_inv ~error trm_array_inv init in
     trm_seq_nobrace_nomarks []
   in
   (* TODO: check that its not used anywhere *)
 
-  let instrs = trm_inv
+  let instrs, result = trm_inv
    ~error:"Arrays.elim_constant_on: expected sequence"
    trm_seq_inv t in
   let new_instrs = Mlist.update_nth decl_index remove_decl instrs in
-  trm_seq ~annot:t.annot ?loc:t.loc new_instrs
+  trm_seq ~annot:t.annot ?loc:t.loc ?result new_instrs
 
 (** [elim] expects the target [tg] to point at a constant array literal declaration, and eliminates it if it is not accessed anymore.
   *)

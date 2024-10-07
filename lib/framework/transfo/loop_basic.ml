@@ -98,7 +98,7 @@ let collapse_on (simpl_mark : mark) (index : string)
   let ghosts_after = add_collapse_ghost ghost_group_uncollapse ghost_group_uncollapse_ro ghost_group_uncollapse_uninit cj.iter_contract.post.linear in
   let contract = Resource_contract.loop_contract_subst subst cj in
   let body2 = if !Flags.check_validity then
-    let instrs = trm_inv ~error:"expected seq" trm_seq_inv body in
+    let instrs, _ = trm_inv ~error:"expected seq" trm_seq_inv body in
     let open Resource_formula in
     let open Resource_trm in
     let instrs2 = instrs |>
@@ -201,7 +201,7 @@ let hoist_on (name : string)
       (trm_ceil_div (trm_sub stop start) step,
         trm_trunc_div (trm_sub (trm_var index) start) step)
   in
-  let body_instrs = trm_inv ~error trm_seq_inv body in
+  let body_instrs, _ = trm_inv ~error trm_seq_inv body in
   let elem_ty = ref typ_auto in
   let old_var = ref dummy_var in
   let new_var = ref dummy_var in
@@ -287,7 +287,7 @@ let fission_on_as_pair (mark_loops : mark) (index : int) (t : trm) : trm * trm =
     ~error:"Loop_basic.fission_on: only simple loops are supported"
     trm_for_inv t
   in
-  let tl = trm_inv trm_seq_inv t_seq in
+  let tl, _ = trm_inv trm_seq_inv t_seq in
   let tl1, tl2 = Mlist.split index tl in
   let fst_contract, snd_contract =
     if not !Flags.check_validity then
@@ -464,7 +464,7 @@ let same_loop_index (a : loop_range) (b : loop_range) : bool =
    if [not upwards], [index - 1] is the index of the second loop to fuse.
   *)
 let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
-  let instrs = trm_inv
+  let instrs, result = trm_inv
     ~error:"Loop_basic.fusion_on: expected sequence"
     trm_seq_inv t in
   (* LATER:
@@ -571,7 +571,7 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     (* TODO: trm_for_update on loop1? *)
     let new_loop = trm_for_instrs ~annot:lt.annot ?loc:lt.loc ~contract new_loop_range new_loop_instrs in
     let new_instrs = Mlist.insert_at update_index new_loop other_instrs in
-    trm_seq ~annot:t.annot ?loc:t.loc new_instrs
+    trm_seq ~annot:t.annot ?loc:t.loc ?result new_instrs
   | _ -> failwith "unreachable"
 
 (** [fusion]: expects the target [tg] to point at a loop that is followed by another loop with the same range (start, stop, step).
@@ -645,7 +645,7 @@ let move_out_on (instr_mark : mark) (loop_mark : mark) (empty_range: empty_range
   if (trm_index <> 0) then failwith "Loop_basic.move_out: not targeting the first instruction in a loop";
   let error = "Loop_basic.move_out: expected for loop" in
   let (range, body, contract) = trm_inv ~error trm_for_inv t in
-  let instrs = trm_inv ~error trm_seq_inv body in
+  let instrs, _ = trm_inv ~error trm_seq_inv body in
   let instr = Mlist.nth instrs 0 in
   let rest = Mlist.pop_front instrs in
 
@@ -730,7 +730,7 @@ let move_out_alloc_on (empty_range: empty_range_mode) (trm_index : int) (t : trm
   if (trm_index <> 0) then failwith "not targeting the first instruction in a loop";
   let error = "expected for loop" in
   let (range, body, contract) = trm_inv ~error trm_for_inv t in
-  let instrs = trm_inv ~error trm_seq_inv body in
+  let instrs, _ = trm_inv ~error trm_seq_inv body in
   let instr_count = Mlist.length instrs in
   if (instr_count < 2) then failwith "expected at least two instructions";
   let alloc_instr = Mlist.nth instrs 0 in

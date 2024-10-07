@@ -203,9 +203,10 @@ and print_trm_desc style (t : trm_desc) : document =
      let dt = print_trm style t in
      let de = print_trm style e in
      print_node "Trm_if" ^^ parens (separate (comma ^^ break 1) [dc; dt; de])
-  | Trm_seq tl ->
+  | Trm_seq (tl, res) ->
      let dtl = List.map (print_trm style) (Mlist.to_list tl) in
-     print_node "Trm_seq" ^^ print_list dtl
+     let dres = Option.map_or (fun x -> print_var style x) empty res in
+     print_node "Trm_seq" ^^ print_list dtl ^^ dres
   | Trm_apps (f, tl, _) ->
      let df = print_trm style f in
      let dtl = List.map (print_trm style) tl in

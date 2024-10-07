@@ -63,7 +63,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             in
             ignore (search t)
           ) span_instrs;
-          failwith "could not find type of base '%s'" Ast_to_c.(ast_to_string ~style:(style_for_types ()) base_pattern)
+          failwith "could not find type of base '%s'" Ast_to_c.(ast_to_string ~style:style_for_types base_pattern)
         ) with
         | TypeFound typ -> ptr_typ_matches typ
         end
@@ -250,7 +250,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
       ) in
       let rec aux (t : trm) : trm =
         Pattern.pattern_match t [
-          Pattern.(trm_seq !__) (fun instrs () ->
+          Pattern.(trm_seq !__ !__) (fun instrs result () ->
             let to_free = ref [] in
             let instrs' = Mlist.map (fun t ->
               Pattern.pattern_match t [
@@ -270,7 +270,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
               let folds = List.concat_map (process_one_item ~fold:true) produced in
               folds
             ) !to_free) in
-            trm_seq ~annot:t.annot (Mlist.merge instrs' folds)
+            trm_seq ~annot:t.annot ?result (Mlist.merge instrs' folds)
           );
           Pattern.__ (fun () ->
             match Matrix_core.let_alloc_inv_with_ty t with

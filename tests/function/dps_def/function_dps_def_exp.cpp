@@ -14,6 +14,7 @@ int test_one_branch(int x) {
 void test_one_branch_dps(int x, int* res) {
   if (x < 0) {
     *res = -x;
+    return;
   }
   *res = x;
 }

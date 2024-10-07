@@ -1077,7 +1077,7 @@ let rec compute_resources
 
     (* Transitively compute resources through all sequence instructions.
        At the end of the sequence, take into account that all stack allocations are freed. *)
-    | Trm_seq instrs ->
+    | Trm_seq (instrs, result) ->
       let instrs = Mlist.to_list instrs in
       let usage_map, res = List.fold_left (fun (usage_map, res) inst ->
           compute_resources_and_merge_usage res usage_map inst)
@@ -1443,7 +1443,7 @@ and compute_resources_and_merge_usage
 
 
 let rec trm_deep_copy (t: trm) : trm =
-  let t = trm_map_with_terminal ~share_if_no_change:false false (fun _ ti -> trm_deep_copy ti) t in
+  let t = trm_map ~share_if_no_change:false trm_deep_copy t in
   t.ctx <- unknown_ctx (); (* LATER *)
   t
 

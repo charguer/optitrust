@@ -1,4 +1,3 @@
-
 int main() {
   int x = 3;
   {
@@ -12,18 +11,19 @@ int main() {
     int y = 1;
     int z = 5;
   }
-  for (int i = 0; i < 2; i++) {
-    {
-      int s0 = i;
-    }
-  }
-  for (int s1 = 0; s1 < 2; s1++) {
-    {
-      int s1 = 0;
-      // x = s1;
-    }
-    x = s1;
-  }
+  ({
+    const int res = 42;
+    res;
+  });
+  int c = ({
+    const int res = 2;
+    res;
+  });
+  c += 3 * ({
+    const int k = 5;
+    const int res = k * k;
+    res;
+  });
   return 0;
 }
 

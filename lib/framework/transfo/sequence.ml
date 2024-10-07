@@ -52,6 +52,34 @@ let%transfo intro_targets ?(mark : string = no_mark)(tg : target) : unit =
   if !nb_targets < 1 then failwith "Sequence.intro_targets: expected at least 1 instruction";
   Sequence_basic.intro ~mark !nb_targets first_target
 
+(** [elim tg]: expects the target [tg] to point at a sequence that appears nested inside another sequence and inline the elements of that nested sequence in its parent.
+
+  Example: if [tg] points at [{ t2; t3 }] inside [{ t1; { t2; t3 }; t4 }], it "elims" the contents of the inner sequence, producing e.g., [{ t1; t2; t3; t3 }].
+
+  If the sequence appears behind a let, use the sequence result to bind the value:
+    if [tg] points at [{ t2; let v = e; t3; v}] inside [{ t1; let x = { t2; let v = e; t3; v }; t4 }], [elim] produces [{ t1; t2; let x = e; t3; t4}].
+
+  If the sequence appears behind other nodes, first perform a Variable.bind and then inlines the generated sequence behind a let.
+  In that case, if [res_name] is given, it becomes the new name of the result of the eliminated sequence.
+  Else the result of the eliminated sequence is inlined.
+  *)
+let%transfo elim ?(resname : string = "") (tg : target) : unit =
+  Target.iter (fun p ->
+    let path_to_seq, local_path, index = Internal.get_instruction_in_surrounding_sequence p in
+    match local_path with
+    | [] -> Sequence_basic.elim_instr (target_of_path p)
+    | [Dir_let_body] -> Sequence_basic.elim_let [cPath path_to_seq; dSeqNth index]
+    | _ ->
+      Marks.with_marks (fun gen_mark ->
+        let mark_let = gen_mark () in
+        let mark_result = gen_mark () in
+        let resvar = if resname = "" then "TEMP_res" else resname in
+        Variable_basic.bind ~const:true ~mark_let resvar (target_of_path p);
+        Sequence_basic.elim_let ~mark_result [cMark mark_let];
+        if resname = "" then Variable_basic.inline [cMark mark_result]
+      )
+    ) tg
+
 (** [apply ~start ~stop ~nb f]: invokes [f mark] where the [mark] is attached to a temporary sequence created
    by [Sequence.intro ~start ~stop ~nb]. This sequence is eliminated immediately afterwards. *)
 let apply ?(start : target = []) ?(stop : target = []) ?(nb : int = 0) (f : mark -> unit) : unit =

@@ -4,6 +4,6 @@ int g(int a) { return a - 1; }
 
 int main() {
   int u;
-  int a = f(u);
+  const int a = f(u);
   int t = g(a);
 }

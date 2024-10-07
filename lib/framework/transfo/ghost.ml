@@ -6,7 +6,7 @@ open Resources
 let rec contains_only_ghost_code (t: trm): bool =
   match t.desc with
   | Trm_apps _ when trm_has_attribute GhostCall t -> true
-  | Trm_seq seq -> List.for_all contains_only_ghost_code (Mlist.to_list seq)
+  | Trm_seq (seq, None) -> List.for_all contains_only_ghost_code (Mlist.to_list seq)
   | Trm_for (_, body, _) -> contains_only_ghost_code body
   | _ -> false
 
@@ -25,7 +25,7 @@ let%transfo embed_loop ?(mark : mark = "") (tg: target): unit =
 (** <private> *)
 let farthest_commuting_pos (i : int) (direction : int) (seq : trm) : int =
   let error = "Ghost_pair.move_in_seq: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, _ = trm_inv ~error trm_seq_inv seq in
   let instr = Mlist.nth instrs i in
   let current_i = ref i in
   let dest_offset, interference_with_instr =
