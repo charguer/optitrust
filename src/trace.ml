@@ -1241,17 +1241,19 @@ let open_bigstep ~(line : int) (title:string) : unit =
    and registers a string description for that step, based on the excerpt
    frmo the file. The [close_smallstep] is implicitly handled. *)
 (* LATER: add the line argument in the generation of the _with_lines file *)
-let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
+let open_smallstep ~(line : int) ?(reparse:bool = false) ?(title : string = "")
+      () : unit =
   close_smallstep_if_needed();
   if not !Flags.only_big_steps
     then check_exit ~line;
   if reparse
     then reparse_alias();
   let step_script =
-    if !Flags.dump_trace
-      then get_excerpt line
-      else ""
-    in
+    if !Flags.dump_trace then
+      if title <> "" then title
+      else get_excerpt line
+    else ""
+  in
   ignore (open_step ~kind:Step_small ~name:"" ~line ~step_script ())
 
 (* [interactive_step] is used to implement functions such as [show_ast] to show a target,
@@ -1343,10 +1345,11 @@ let (!!!) (x : 'a) : 'a =
   open_smallstep ~line:(-1) ~reparse:true ();
   x
 
-(** [?? f]: opens a temporary scope to perform the [f] transformation function
-    in, then closes all scope-local steps automatically, if necessary, and
-    restores the abstract syntax tree to what it was before the scope. *)
-let (??) (f : unit -> unit) : unit =
+(** [!? title]: same as [!!], but allows for specifying a step [title]. *)
+let (!?) (title : string) (x:'a) : 'a =
+  open_smallstep ~line:(-1) ~reparse:false ~title ();
+  x
+
   let ast_bak = the_trace.cur_ast in
   let s = open_step ~kind:Step_aborted ~name:"temporary" () in
   f ();
