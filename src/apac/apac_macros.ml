@@ -369,5 +369,4 @@ template <class T> T " ^ model_pow ^ "(int exp, const T & base) {
   }
   return result;
 }
-                    "
-  
+"
