@@ -1350,13 +1350,14 @@ let (!?) (title : string) (x:'a) : 'a =
   open_smallstep ~line:(-1) ~reparse:false ~title ();
   x
 
+(** [?? title f]: opens a new step with [title], performs [f] within the latter,
+    then closes all the steps arising from [f] as well as the [title] step while
+    restoring the abstract syntax tree to what it was before calling [??]. *)
+let (??) (title : string) (f : unit -> unit) : unit =
   let ast_bak = the_trace.cur_ast in
-  let s = open_step ~kind:Step_aborted ~name:"temporary" () in
   f ();
-  let error = "Trace.(??): did not find 's'" in
-  while (get_cur_step ~error () != s) do
-    close_step ()
-  done;
+  close_step ();
+  let s = open_step ~kind:Step_small ~name:"" ~step_script:title () in
   the_trace.cur_ast <- ast_bak;
   close_step ~check:s ()
 
