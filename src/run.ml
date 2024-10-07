@@ -344,7 +344,15 @@ let apac (input : string) (output : string) : unit =
           );
         (** Finalize the compilation process. *)
         Trace.finalize ();
-        Trace.close_logs ();
+        (** Dump abstract syntax tree transformation trace, if requested. *)
+        if !Flags.dump_trace then
+          may_report_time "apac-dump-trace" (fun () ->
+              let prefix = Filename.chop_extension output in
+              Trace.dump_trace_to_js ~beautify:true ~prefix ();
+              Trace.dump_trace_to_textfile ~prefix ()
+            );
+        (** Close log files. *)
+        Trace.close_logs ()
       with
       | exn ->
          begin Printf.printf "Run.apac: compilation failed."; raise exn end
