@@ -490,7 +490,7 @@ function loadStepDetails(idStep) {
 }
 
 function stepToHTML(step, isOutermostLevel) {
-  if (!options.noop_steps && (step.ast_before == step.ast_after)) {
+  if (!(step.kind == "Big") && !options.noop_steps && (step.ast_before == step.ast_after)) {
     // TODO: precompute '==' somewhere
     return "";
   }
