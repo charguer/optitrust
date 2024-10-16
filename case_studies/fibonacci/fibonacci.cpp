@@ -12,7 +12,7 @@ long long int fibonacci(int n) {
 }
 
 int main(int argc, char ** argv) {
-  int n = 16;
+  int n = 30;
   if(argc > 1) {
     n = atoi(argv[1]);
   }
