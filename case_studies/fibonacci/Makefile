@@ -1,10 +1,5 @@
-all: sequential parallel
+BENCHMARK = fibonacci
 
-parallel: fibonacci_out.cpp
-	g++ -Wall -g -fopenmp -o fibonacci-parallel.bin $<
+include ../Apac.Makefile
 
-sequential: fibonacci.cpp
-	g++ -Wall -g -o fibonacci.bin $<
-
-clean:
-	rm -f *.bin
+dependencies:
