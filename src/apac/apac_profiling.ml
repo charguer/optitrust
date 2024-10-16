@@ -159,7 +159,8 @@ let annotate (tg : target) : unit =
                             want to record for performance modelization. *)
                         match c.desc with
                         (** When [c] is a call to a function [f], *)
-                        | Trm_apps ({ desc = Trm_var (_ , f); _ }, args) ->
+                        | Trm_apps ({ desc = Trm_var (_ , f); _ }, args) when
+                               Var_Hashtbl.mem Apac_records.functions f ->
                            (** we retrieve the function record as well as *)
                            let r = Var_Hashtbl.find Apac_records.functions f in
                            (** the list of arguments of the call (ignoring the
