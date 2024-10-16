@@ -16,19 +16,15 @@ let verbose : bool ref = ref false
 
 (** {1 Pre-processing stage} *)
 
+(** [constify]: toggles constification of [input]. *)
+let constify : bool ref = ref false
+
 (** [main]: name of the function in the input source code we consider as the
     taskification starting point, i.e. the one we put the initial task group in.
     By default, it is the `main' function. *)
 let main : string ref = ref "main"
 
 (** {1 Task candidate discovery and optimization stage} *)
-
-(** [constify]: toggles constification of [input]. *)
-let constify : bool ref = ref false
-
-(** [traversal]: name of the algorithmic variant for traversing task candidate
-    graphs (see [!module:TaskGraphTraverse]). *)
-let traversal : string ref = ref "strict"
 
 (** [keep_graphs]: tells whether we should dump task candidate graphs to Dot and
     subsequently to Pdf files at each transformation. *)
@@ -37,6 +33,10 @@ let keep_graphs : bool ref = ref false
 (** [keep_graphs_in]: name of a folder in the current working directory to keep
     the task candidate graphs in (see [!Apac_miscellaneous.gwd]). *)
 let keep_graphs_in : string ref = ref "apac_task_candidate_graphs"
+
+(** [traversal]: name of the algorithmic variant for traversing task candidate
+    graphs (see [!module:Apac_tasks.TaskGraphTraverse]). *)
+let traversal : string ref = ref "strict"
 
 (** {1 Instrumented code generation and run-time analysis} *)
 
