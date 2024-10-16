@@ -1,4 +1,4 @@
-(executable
- (public_name quicksort)
- (name quicksort)
+(executables
+ (public_names quicksort_none quicksort_counters quicksort_model quicksort_both)
+ (names quicksort_none quicksort_counters quicksort_model quicksort_both)
  (libraries optitrust))
