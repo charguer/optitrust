@@ -2,5 +2,10 @@
 *_trace.*
 tmp_*
 *.csv
-apac_profile
+*.profile
 *.model
+*.exe
+*_parallel.c*
+*_profiling.c*
+*.o
+apac_*.hpp
