@@ -261,7 +261,7 @@ let runtime_analysis_files () : string * string * string * string * string =
   let header = here ^ profile_header in
   let here = here ^ this in
   let code = here ^ "_profiling" in
-  let binary = here ^ "_profiling.bin" in
+  let binary = here ^ "_profiling.exe" in
   let profile = here ^ ".profile" in
   let model =  here ^ ".model" in
   (header, code, binary, profile, model)
