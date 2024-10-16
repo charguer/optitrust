@@ -790,6 +790,8 @@ let place_barriers_on (p : path) (t : trm) : unit =
                    (var_to_string f) in
      fail t.loc error
 
+(* TODO: Pas de taskwait à la fin d'un taskgroup. *)
+
 (** [place_barriers tg]: expects the target [tg] to point at the body of a
     function having a task candidate graph representation. If a vertex in the
     latter does not represent an eligible task candidate, i.e. it does not carry
