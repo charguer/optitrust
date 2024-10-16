@@ -2,13 +2,13 @@
 #include <stdlib.h>
 
 long long int fibonacci(int n) {
-	long long int x, y;
-	if (n < 2) return n;
-
-	x = fibonacci(n - 1);
-	y = fibonacci(n - 2);
-
-	return x + y;
+  long long int x, y;
+  if (n < 2) return n;
+  
+  x = fibonacci(n - 1);
+  y = fibonacci(n - 2);
+  
+  return x + y;
 }
 
 int main(int argc, char ** argv) {
