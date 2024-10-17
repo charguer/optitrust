@@ -1312,7 +1312,7 @@ end = struct
                        LVar_Hashtbl.add aliases lv (tg, nli)
                end
              else
-               (** If [lv] was not dereferenced, is it not an argument and it
+               (** If [lv] was not dereferenced, it is not an argument and it
                    is not an alias yet, *)
                if not deref then
                  (** we have to resolve the pointer labelled variable [rv]
