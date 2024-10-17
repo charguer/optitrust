@@ -162,6 +162,12 @@ void ensure_profile() const {
   }
 }
 
+void clear() {
+  params = 0;
+  prefix.clear();
+  current.clear();
+}
+
 public:
   " ^ profile_section_type ^ "() : params(0), profile(\"" ^ profile ^ "\") { }
 
@@ -195,7 +201,7 @@ public:
     current.append(std::to_string(timer.elapsed()));
     current.append(\" }\\n\");
     profile << prefix << current;
-    current.clear();
+    clear();
   }
 };
 
