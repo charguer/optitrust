@@ -566,6 +566,49 @@ end = struct
       that we have to constify the corresponding variable declaration. *)
   type m = (mark, bool list) Hashtbl.t
 
+  (** [k_to_string kind]: returns a string representation of the [kind]. *)
+  let k_to_string (kind : k) : string =
+    match kind with
+    | Variable -> "Variable"
+    | Pointer -> "Pointer"
+    | Reference -> "Reference"
+    | Array -> "Array"
+
+  (** [a_to_string ?indent record]: returns a string representation of the
+      argument constification [record]. The [indent] flag allows for turning on
+      additional indentation in the output string. This is useful when calling
+      the function from within [!f_to_string]. *)
+  let a_to_string ?(indent : bool = false) (record : a) : string =
+    let kind = k_to_string record.self in
+    let propagate =
+      Var_map.fold (fun func i acc ->
+          acc ^ (if indent then "\t\t\t\t" else "") ^
+            "(" ^ (var_to_string func) ^ ", " ^ (string_of_int i) ^ "),\n"
+        ) record.propagate "\n" in
+    let propagate =
+      let l = String.length propagate in
+      if l > 2 then String.sub propagate 0 (l - 2) else "empty" in
+    "{\n" ^ (if indent then "\t\t" else "") ^ "\tself: " ^ kind ^ ",\n" ^
+      (if indent then "\t\t" else "") ^ "\tconst: " ^
+        (if record.const then "yes" else "no") ^ ",\n" ^
+          (if indent then "\t\t" else "") ^ "\tpropagate: " ^
+            propagate ^ "\n" ^ (if indent then "\t\t" else "") ^ "}"
+  
+  (** [f_to_string record]: returns a string representation of the function
+      constification [record]. *)
+  let f_to_string (record : f) : string =
+    let args =
+      Tools.Int_map.fold (fun i arg acc ->
+          acc ^ "\t\t" ^ (string_of_int i) ^ ": " ^
+            (a_to_string ~indent:true arg) ^ ",\n"
+        ) record.args "\n" in
+    let args =
+      let l = String.length args in
+      if l > 2 then String.sub args 0 (l - 2) else "empty" in
+    "{\n\targs: " ^ args ^ "\n\tconst: " ^
+      (if record.const then "yes" else "no") ^ ",\n\tmember: " ^
+        (if record.member then "yes" else "no") ^ "\n}"
+
   (** [typ_constify ty]: augment the type [ty] with the [const] qualifier so as
       to prevent a function with an argument of type [ty] to alter it by
       side-effect. Basically, if [ty] is a pointer or a reference type, i.e. we
