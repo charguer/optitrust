@@ -76,7 +76,7 @@ int store_structure(const char* output, const char* name, const float* const* ma
   return 0;
 }
 
-int store_matrix(const char* output, const char* name, const float* const* matrix, const size_t matrix_size, const size_t submatrix_size) {
+int store_matrix(const char* output, const char* name, float** matrix, const size_t matrix_size, const size_t submatrix_size) {
   FILE* file = fopen(output, "w");
   if (file == NULL) {
     fprintf(stderr, "Error: Failed to open the file for writing.\n");
@@ -207,7 +207,7 @@ int sparselu(float** matrix, const size_t matrix_size, const size_t submatrix_si
   return __apac_result;
 }
 
-int main(int argc, const char* const* argv) {
+int main(int argc, char** argv) {
   int __apac_result;
 #pragma omp parallel
 #pragma omp master
@@ -265,7 +265,7 @@ int main(int argc, const char* const* argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : argv, matrix, matrix[0], matrix[0][0], matrix_size, submatrix_size) depend(inout : error)
+#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : error, matrix[0], matrix[0][0])
     error = store_matrix(matrix_A, "A", matrix, matrix_size, submatrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -292,7 +292,7 @@ int main(int argc, const char* const* argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : argv, matrix, matrix[0], matrix[0][0], matrix_size, submatrix_size) depend(inout : error)
+#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : error, matrix[0], matrix[0][0])
     error = store_matrix(matrix_LU, "LU", matrix, matrix_size, submatrix_size);
 #pragma omp taskwait
     if (error) {

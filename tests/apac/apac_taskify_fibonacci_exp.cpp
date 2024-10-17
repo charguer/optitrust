@@ -22,7 +22,7 @@ long long int fibonacci(int n) {
   return __apac_result;
 }
 
-int main(int argc, const char* const* argv) {
+int main(int argc, char** argv) {
   int __apac_result;
 #pragma omp parallel
 #pragma omp master

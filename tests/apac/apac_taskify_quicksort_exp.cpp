@@ -70,7 +70,7 @@ void sort(int* in_out_data, int in_size) {
   }
 }
 
-int main(int argc, const char* const* argv) {
+int main(int argc, char** argv) {
   int __apac_result;
 #pragma omp parallel
 #pragma omp master
