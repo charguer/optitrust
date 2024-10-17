@@ -826,32 +826,34 @@ end = struct
       the labelled variable corresponding to the resulting pointer as well as
       the 0-based position of the argument it is aliasing. *)
   let trm_resolve_pointer_and_alias (t : trm) (a : l) : (lvar * int) option =
-    (** [trm_resolve_pointer_and_alias.aux nli l t]: auxiliary function to
-        recursively inspect [t]. [l] is the label we use to produce the final
-        labelled variable, if any. [nli] counts the number of levels of
-        indirections in [t]. *)
-    let rec aux (nli : int) (l : label) (t : trm) : (lvar * int) option =
+    (** [trm_resolve_pointer_and_alias.aux nli g l t]: auxiliary function to
+        recursively inspect [t]. [g] tells whether [t] involves a
+        dereferencement using the [*] operator. [l] is the label we use to
+        produce the final labelled variable, if any. [nli] counts the number of
+        levels of indirections in [t]. *)
+    let rec aux (nli : int) (g : bool) (l : label) (t : trm) :
+              (lvar * int) option =
       match t.desc with
       (** When [t] is a unary operation *)
       | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
          begin match op with
          (** and more precisely a get operation such as [*i], the number of
              levels of indirection decreases. *)
-         | Unop_get -> aux (nli - 1) l t
+         | Unop_get -> aux (nli - 1) true l t
          (** and more precisely an address operation such as [&i], the number of
              levels of indirection increases. *)
-         | Unop_address -> aux (nli + 1) l t
+         | Unop_address -> aux (nli + 1) g l t
          (** and more precisely a cast operation, the number of levels of
              indirection corresponds to the sum of the current number of levels
              of indirection and the number of levels of indirection of the
              destination type. *)
-         | Unop_cast ty -> aux (nli + Apac_miscellaneous.typ_get_nli ty) l t
+         | Unop_cast ty -> aux (nli + Apac_miscellaneous.typ_get_nli ty) g l t
          (** more precisely a structure access or a structure get operation,
              i.e. a [structure.member] or a [structure->member], extract the
              label of the [member] field [f] involved in the operation and
              continue the resolution. *)
-         | Unop_struct_access f -> aux nli f t
-         | Unop_struct_get f -> aux nli f t
+         | Unop_struct_access f -> aux nli g f t
+         | Unop_struct_get f -> aux nli g f t
          (** Otherwise, there is nothing to resolve. *)
          | _ -> None
          end
@@ -859,13 +861,13 @@ end = struct
       | Trm_apps ({
               desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
               (** continue the resolution on the underlying term. *)
-              _ }, [t; _]) -> aux (nli - 1) l t
+              _ }, [t; _]) -> aux (nli - 1) g l t
       (** When [t] is another kind of binary operation, *)
       | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ ));
                     _ }, [lhs; rhs]) ->
          (** continue the resolution on both the left-hand side and the right
              hand-side operand. *)
-         begin match (aux nli l lhs, aux nli l rhs) with
+         begin match (aux nli g l lhs, aux nli g l rhs) with
          | Some (res), None -> Some (res)
          | None, Some (res) -> Some (res)
          | None, None
@@ -873,12 +875,28 @@ end = struct
                valid alias of one of them. *)
            | Some (_), Some (_) -> None
          end
-      (** When [t] leads to a variable, *)
+      (** When [t] is a [new] operation, *)
+      | Trm_apps ({ desc = Trm_val (Val_prim (Prim_new _)); _ }, [t]) ->
+         (** explore the uderlying initialization term. *)
+         aux nli g l t
+      (** When [t] leads to a variable [v] of kind [vk], *)
       | Trm_var (_, v) ->
          (** use the [!type:var] component [v] of the corresponding term and the
              label [l], if any, to build the associated labelled variable and
              return. *)
          let lv : lvar = { v = v; l = l } in
+         (** The OptiTrust encoding of dereferencements involves an additional
+             dereferencement we must not take into account when comuting [nli]
+             here. Therefore, if there is at least one dereferencement in [t],
+             we do not count it. Note that [return] statements are an exception
+             to this encoding. However, we do not need a special treatement for
+             those cases, as the [when (nli + nli')] test below gives us correct
+             results anyway. The important thing here is that [nli] does not
+             decrease because of an additional dereferencement. If we
+             incorrectly increase it when [t] appears within a [return]
+             statement, the [when (nli + nli')] test will still give us a
+             correct result. *)
+         let nli = if g then nli + 1 else nli in
          (** If [lv] is an argument or an alias to an argument, then return [lv]
              as well as the corresponding 0-based position of the argument it
              aliases. *)       
@@ -891,7 +909,7 @@ end = struct
       | _ -> None
     in
     (** Call the auxiliary function. *)
-    aux 0 "" t
+    aux 0 false "" t
 
   (** [trm_let_update_aliases ?r tv ti a]: checks in the hash table of arguments
       and aliases [a] (see [!type:l]) whether the variable declaration the typed
