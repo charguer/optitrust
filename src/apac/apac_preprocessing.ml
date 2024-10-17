@@ -1061,7 +1061,11 @@ end = struct
         it is not present there already, e.g. in the case of a
         pre-declaration. *)
     if not (Var_Hashtbl.mem crs f) then
-      Var_Hashtbl.add crs f fcr
+      Var_Hashtbl.add crs f fcr;
+    (** Dump the record on the screen, if requested. *)
+      if !Apac_flags.verbose then
+        Printf.printf "%s = %s\n"
+          (var_to_string f) (f_to_string fcr)
   
   (** [build_records crs tg]: expects the target [tg] to point at a function
       definition, builds a function constification record for it and stores the
