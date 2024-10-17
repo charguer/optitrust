@@ -248,7 +248,8 @@ int main(int argc, char ** argv) {
   size_t matrix_size = 50LU, submatrix_size = 100LU;
   char * struct_A = NULL, * struct_LU = NULL;
   char * matrix_A = NULL, * matrix_LU = NULL;
-  int need_free = 0;
+  int need_free = 0; float ** matrix = NULL;
+  int error = 0;
 
   if(argc > 6) {
     matrix_size = strtoul(argv[1], NULL, 0);
@@ -276,8 +277,7 @@ int main(int argc, char ** argv) {
     need_free = 1;
   }
 
-  float ** matrix = 
-    (float **) malloc(matrix_size * matrix_size * sizeof(float *));
+  matrix = (float **) malloc(matrix_size * matrix_size * sizeof(float *));
 
   if (matrix == NULL) {
     fprintf(stderr, "Error: Failed to reserve memory for the matrix.\n");
@@ -291,7 +291,6 @@ int main(int argc, char ** argv) {
     return 1;
   }
 
-  int error = 0;
   error = store_structure(struct_A, "A", matrix, matrix_size);
 
   if (error) {
