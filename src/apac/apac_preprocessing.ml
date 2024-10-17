@@ -1180,9 +1180,9 @@ end = struct
                           unconstify it. *)
                       let (tg, _) = LVar_Hashtbl.find aliases lv in
                       let fcr = Var_Hashtbl.find crs f in
-                      if (Tools.Int_map.mem i fcr.args) then
+                      if (Tools.Int_map.mem tg fcr.args) then
                         begin
-                          let acr = Tools.Int_map.find i fcr.args in
+                          let acr = Tools.Int_map.find tg fcr.args in
                           if acr.self <> Variable then
                             Stack.push (f, tg) us
                         end
