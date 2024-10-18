@@ -12,6 +12,7 @@
          "python-apac-modelizer"
          "nano"
          "graphviz"
+         "xdotool"
          "ocaml-merlin"
          "emacs"
          "emacs-org"
