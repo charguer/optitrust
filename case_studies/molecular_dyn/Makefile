@@ -1,13 +1,7 @@
-all: sequential parallel
+BENCHMARK = molecular_dyn
+LDFLAGS = -lm
 
-parallel: molecular_dyn_out.cpp tools
-	clang++ -Wall -g -fopenmp -o molecular_dyn-parallel.bin $< tools.o
+include ../Apac.Makefile
 
-sequential: molecular_dyn.cpp tools
-	clang++ -Wall -g -o molecular_dyn.bin $< tools.o
-
-tools: tools.cpp tools.hpp
-	clang++ -Wall -g -c -o tools.o $<
-
-clean:
-	rm -f *.bin
+dependencies: tools.cpp tools.hpp
+	$(CC) $(CFLAGS) -c -o tools.o $<

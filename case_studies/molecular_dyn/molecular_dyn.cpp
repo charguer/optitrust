@@ -223,8 +223,10 @@ void grid_compute(Grid * grid) {
       for(size_t idx_z = 0; idx_z < grid->nb_cells_per_dim; idx_z++) {
         me = (idx_x * grid->nb_cells_per_dim + idx_y)
               * grid->nb_cells_per_dim + idx_z;
+        Particle_symb * me_particles_symb = grid->cells[me].particles_symb;
+        Particle_forces * me_particles_forces = grid->cells[me].particles_forces;
         
-        cell_self_compute(grid->cells[me].particles_symb, grid->cells[me].particles_forces, grid->cells[me].size);
+        cell_self_compute(me_particles_symb, me_particles_forces, grid->cells[me].size);
 
         for(int idx_x_neigh = -1; idx_x_neigh <= 1; idx_x_neigh++) {
           for(int idx_y_neigh = -1; idx_y_neigh <= 1; idx_y_neigh++) {
@@ -236,9 +238,10 @@ void grid_compute(Grid * grid) {
                     % grid->nb_cells_per_dim)) * grid->nb_cells_per_dim
                 + ((idx_z + idx_z_neigh + grid->nb_cells_per_dim) 
                     % grid->nb_cells_per_dim);
+              Particle_symb * neighbor_particles_symb = grid->cells[neighbor].particles_symb;
               
-              cell_neighbor_compute(grid->cells[me].particles_symb, grid->cells[me].particles_forces, grid->cells[me].size,
-                                    grid->cells[neighbor].particles_symb, grid->cells[neighbor].size);
+              cell_neighbor_compute(me_particles_symb, me_particles_forces, grid->cells[me].size,
+                                    neighbor_particles_symb, grid->cells[neighbor].size);
             }
           }
         }
