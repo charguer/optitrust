@@ -350,9 +350,7 @@ and binop_to_doc style (op : binary_op) : document =
   | Binop_lt -> langle
   | Binop_ge -> rangle ^^ equals
   | Binop_gt -> rangle
-  | Binop_and -> twice ampersand
   | Binop_bitwise_and -> ampersand
-  | Binop_or -> twice bar
   | Binop_bitwise_or -> bar
   | Binop_shiftl -> twice langle
   | Binop_shiftr -> twice rangle
@@ -371,10 +369,7 @@ and prim_to_doc style (ty: typ) (p : prim) : document =
   | Prim_new ->
     string "new" ^^ blank 1 ^^ typ_to_doc style ty
   | Prim_delete ->
-    string "delete"
-  | Prim_delete_array ->
-    string "delete[]"
-  | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
+    if is_typ_array ty then string "delete[]" else string "delete"
 
 (** [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc style (a : attribute) : document =
@@ -467,7 +462,6 @@ and trm_var_to_doc style (x : var) (t : trm) : document =
 
 (** [trm_to_doc style ~semicolon ~force_expr ~prec ~print_struct_init_type  t]: converts [t] to a pprint document *)
 and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false) (t : trm) : document =
-  let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
   let t_attributes = trm_get_attr t in
   let dattr =
@@ -515,12 +509,27 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       let t_annot = trm_get_cstyles t in
       dattr ^^ typedef_to_doc style ~semicolon ~t_annot td
     | Trm_if (b, then_, else_) ->
-      let db = decorate_trm style ~force_expr:true ~semicolon:false b in
-      if force_expr then
+      let shortcircuit = match (trm_bool_inv then_, trm_bool_inv else_) with
+        | _, Some false when trm_has_cstyle Shortcircuit_and t -> Some (b, then_, string "&&", precedence_and)
+        | Some true, _ when trm_has_cstyle Shortcircuit_or t -> Some (b, else_, string "||", precedence_or)
+        | _ -> None
+      in
+      begin match shortcircuit with
+      | Some (t1, t2, op, precedence) ->
+        let (lprec, rprec) = sub_prec precedence in
+        let d1 = decorate_trm style ~prec:lprec ~force_expr:true ~semicolon:false t1 in
+        let d2 = decorate_trm style ~prec:rprec ~force_expr:true t2 in
+        let d = dattr ^^ separate (blank 1) [ d1; op; d2 ] ^^ dsemi in
+        if expr_prec precedence < prec then parens d else d
+      | None when force_expr || trm_has_cstyle Ternary_cond t ->
+        let (lprec, rprec) = sub_prec precedence_ternary_cond in
+        let db = decorate_trm style ~prec:lprec ~force_expr:true ~semicolon:false b in
         let dt = decorate_trm style ~force_expr:true then_ in
-        let de = decorate_trm style ~force_expr:true else_ in
-        dattr ^^ separate (blank 1) [db; string "?"; dt; string ":"; de] ^^ dsemi
-      else
+        let de = decorate_trm style ~prec:rprec ~force_expr:true else_ in
+        let d = dattr ^^ separate (blank 1) [db; string "?"; dt; string ":"; de] ^^ dsemi in
+        if expr_prec precedence_ternary_cond < prec then parens d else d
+      | None ->
+        let db = decorate_trm style ~force_expr:true ~semicolon:false b in
         let dt = decorate_trm style ~semicolon:true then_ in
         begin match else_.desc with
         | Trm_lit Lit_unit ->
@@ -530,10 +539,9 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
           dattr ^^ separate (blank 1) [string "if"; parens db; dt] ^^
             hardline ^^ string "else" ^^ blank 1 ^^ de
         end
+      end
     | Trm_seq (tl, result) ->
-      if trm_has_cstyle Multi_decl t then
-        dattr ^^ multi_decl_to_doc style loc (Mlist.to_list tl)
-      else if (not !Flags.display_includes) && (trm_is_include t) then
+      if (not !Flags.display_includes) && (trm_is_include t) then
         empty
       else
         let dl = Mlist.flatten_marks (decorate_trm style ~semicolon:true)
@@ -623,7 +631,7 @@ and trm_to_doc style ?(semicolon=false) ?(force_expr=false) ?(prec : int = 0) ?(
       | Ret t_o ->
           begin match t_o with
           | None -> dattr ^^ string "return" ^^ dsemi
-          | Some t -> dattr ^^ string "return " ^^ decorate_trm style ~print_struct_init_type:true t ^^ dsemi
+          | Some t -> dattr ^^ string "return " ^^ decorate_trm style ~force_expr:true ~print_struct_init_type:true t ^^ dsemi
           end
       | Break _ -> dattr ^^ string "break" ^^ dsemi
       | Continue _ -> dattr ^^ string "continue" ^^ dsemi
@@ -892,38 +900,6 @@ and typedef_to_doc style ?(semicolon : bool = true) ?(t_annot : cstyle_annot lis
       separate (blank 1) [string "enum"; dname;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
-(** [multi_decl_to_doc style loc tl]: converts a sequence with multiple variable declarations into a single multi variable declaration *)
-and multi_decl_to_doc style (loc : location) (tl : trms) : document =
- let get_info (t : trm) : document =
-  begin match t.desc with
-  | Trm_let ((x, _), init) ->
-    begin match init.desc with
-      | Trm_lit (Lit_uninitialized _) -> var_to_doc style x
-      (*| Trm_apps (GET?, [base], _)-> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style base*)
-      | _ -> var_to_doc style x ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style init
-    end
-  | Trm_typedef _ -> string ""
-  | _ -> loc_fail loc "Ast_to_c.multi_decl_to_doc: only variables declarations allowed"
-  end
- in
- let dnames = separate (comma ^^ blank 1) (List.map get_info tl) in
-  begin match tl with
-  | [] -> loc_fail loc "Ast_to_c.multi_deco_to_doc: empty multiple declaration"
-  | [d] -> begin match d.desc with
-           | Trm_typedef td -> typedef_to_doc style td
-           | _ -> loc_fail loc "Ast_to_c.multi_decl_to_doc: expected a typedef"
-           end
-  | hd :: _ ->
-    match hd.desc with
-    | Trm_let ((_, ty), _) ->
-      string " " ^^ blank 1 ^^ typ_to_doc style ty ^^ blank 1 ^^ dnames ^^ semi
-      (*| Var_mutable -> begin match ty.typ_desc with
-            | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} when is_generated_typ ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
-            | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
-            end*)
-  | _ -> loc_fail loc "Ast_to_c.multi_decl_to_doc: expected a trm_let"
-  end
-
 (** [apps_to_doc style ~prec f tl]: converts a function call to pprint document *)
 and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
@@ -988,7 +964,7 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
                   then
                     d ^^ dot ^^ string f1
                   else
-                    let d = decorate_trm style ~prec (get_operation_arg t) in
+                    let d = decorate_trm style ~force_expr:true ~prec (get_operation_arg t) in
                     d ^^ minus ^^ rangle ^^ string f1
               else d ^^ dot ^^ string f1
           | Unop_cast ty ->
@@ -999,15 +975,11 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
           trm_fail f "Ast_to_c.apps_to_doc: unary operators must have one argument"
         end
     | Prim_binop op ->
-      let (prec1, prec2) =
-        if assoc = LtoR
-          then (prec, prec + 1)
-          else (prec + 1, prec)
-        in
+      let (prec1, prec2) = sub_prec (prec, assoc) in
       begin match tl with
       | [t1; t2] ->
-        let d1 = decorate_trm style ~prec:prec1 t1 in
-        let d2 = decorate_trm style ~prec:prec2 t2 in
+        let d1 = decorate_trm style ~force_expr:true ~prec:prec1 t1 in
+        let d2 = decorate_trm style ~force_expr:true ~prec:prec2 t2 in
         begin match op with
           | Binop_exact_div when not (is_typ_float ty) ->
             string "exact_div(" ^^ d1 ^^ comma ^^ space ^^ d2 ^^ string ")"
@@ -1032,35 +1004,24 @@ and apps_to_doc style ?(prec : int = 0) ~(annot: trm_annot) (f : trm) (tl : trms
     | Prim_compound_assign_op _  ->
         begin match tl with
         | [t1; t2] ->
-          let d1 = decorate_trm style ~prec t1 in
-          let d2 = decorate_trm style ~prec t2 in
+          let d1 = decorate_trm style ~force_expr:true ~prec t1 in
+          let d2 = decorate_trm style ~force_expr:true ~prec t2 in
           let op_d = prim_to_doc style ty p in
           if style.optitrust_syntax
             then op_d ^^ parens (d1 ^^ comma ^^ d2)
             else separate (blank 1) [d1; op_d; d2]
       | _ -> trm_fail f "Ast_to_c.apps_to_doc: expected at most two argumetns."
       end
-    | Prim_conditional_op ->
-        begin match tl with
-        | [t1; t2; t3] ->
-          let d1 = decorate_trm style ~prec:4 t1 in
-          let d2 = decorate_trm style ~prec:4 t2 in
-          let d3 = decorate_trm style ~prec:4 t3 in
-          parens (separate (blank 1) [d1; qmark; d2; colon; d3])
-        | _ ->
-          trm_fail f
-            "apps_to_doc: conditional operator must have three arguments"
-        end
     | Prim_ref | Prim_ref_array _ | Prim_new ->
       (* Here we assume that trm_apps has only one trm as argument *)
       let value = List.hd tl in
-      let tr_init = decorate_trm style ~print_struct_init_type:false value in
+      let tr_init = decorate_trm style ~force_expr:true ~print_struct_init_type:false value in
       let tr_prim = prim_to_doc style ty p in
       let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
       tr_prim ^^ init_val
-    | Prim_delete | Prim_delete_array ->
+    | Prim_delete ->
       let ptr = List.hd tl in
-      let tr_ptr = decorate_trm style ptr in
+      let tr_ptr = decorate_trm style ~force_expr:true ptr in
       let tr_prim = prim_to_doc style ty p in
       tr_prim ^^ blank 1 ^^ tr_ptr
     end

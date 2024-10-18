@@ -40,14 +40,6 @@ let compute_on (t : trm) : trm =
         end
       | None -> t
       end
-    | Some (_, Prim_binop Binop_and), [{desc = Trm_lit (Lit_bool true);_}; t2] -> t2
-    | Some (_, Prim_binop Binop_and), [{desc = Trm_lit (Lit_bool false);_};_] -> trm_bool false
-    | Some (_, Prim_binop Binop_and), [t2; {desc = Trm_lit (Lit_bool true);_}] when trm_is_val_or_var t2 -> t2
-    | Some (_, Prim_binop Binop_and), [t2;{desc = Trm_lit (Lit_bool false);_}] when trm_is_val_or_var t2 -> trm_bool false
-    | Some (_, Prim_binop Binop_or), [{desc = Trm_lit (Lit_bool true);_}; _] -> trm_bool true
-    | Some (_, Prim_binop Binop_or), [{desc = Trm_lit (Lit_bool false);_}; _] -> trm_bool false
-    | Some (_, Prim_binop Binop_or), [t2; {desc = Trm_lit (Lit_bool true);_}] when trm_is_val_or_var t2 -> trm_bool true
-    | Some (_, Prim_binop Binop_or), [t2; {desc = Trm_lit (Lit_bool false);_}] when trm_is_val_or_var t2 -> t2
     | Some (_, Prim_binop p), [t1;t2] ->
       begin match (trm_lit_inv t1), (trm_lit_inv t2) with
       | Some v1, Some v2 ->
@@ -58,5 +50,18 @@ let compute_on (t : trm) : trm =
       | _, _ -> t
       end
     | Some _ ,_ | None, _-> t
+    end
+  | Trm_if (cond, tt, te) -> (* This handles in particular && and || *)
+    begin match trm_bool_inv cond with
+    | Some true -> tt
+    | Some false -> te
+    | None ->
+      begin match (trm_bool_inv tt, trm_bool_inv te) with
+      | Some true, Some true -> trm_bool true
+      | Some false, Some false -> trm_bool false
+      | Some true, Some false -> cond
+      | Some false, Some true -> trm_neg cond
+      | _ -> t
+      end
     end
   | _ -> t

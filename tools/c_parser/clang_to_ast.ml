@@ -358,10 +358,10 @@ and tr_stmt (s : stmt) : trm =
     let tc = tr_expr c in
     let tt = tr_stmt st in
     begin match seo with
-      | None -> trm_if ?loc tc tt (trm_lit Lit_unit)
+      | None -> trm_if ?loc ~typ:typ_unit tc tt (trm_lit Lit_unit)
       | Some se ->
         let te = tr_stmt se in
-        trm_if ?loc tc tt te
+        trm_if ?loc ~typ:typ_unit tc tt te
     end
   | If _ ->
     (* Add support for this feature. *)
@@ -540,8 +540,7 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     let t_then = tr_expr e_then in
     let t_else = tr_expr e_else in
     let typ = Option.unsome typ in
-    trm_apps ?loc ~typ (trm_prim typ ?loc Prim_conditional_op)
-      [t_cond; t_then; t_else]
+    trm_add_cstyle Ternary_cond (trm_if ?loc ~typ t_cond t_then t_else)
   | ConditionalOperator _ ->
     loc_fail loc
       "tr_expr: conditional operators without then branch unsupported"
@@ -670,8 +669,8 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
       | RemAssign -> compound_assign Binop_trunc_mod
       | ShlAssign -> compound_assign Binop_shiftl
       | ShrAssign -> compound_assign Binop_shiftr
-      | AndAssign -> compound_assign Binop_and
-      | OrAssign -> compound_assign Binop_or
+      | AndAssign -> compound_assign Binop_bitwise_and
+      | OrAssign -> compound_assign Binop_bitwise_or
       | XorAssign -> compound_assign Binop_xor
 
       | Add -> arith_binop Binop_add
@@ -834,9 +833,13 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
         let size = tr_expr se in
         trm_prim ?loc (typ_array tq ~size) Prim_new
     end
-  | Delete {global_delete = _; array_form = b; argument = e} ->
+  | Delete {global_delete = _; array_form; argument = e} ->
     let te = tr_expr e in
-    trm_delete ?loc b te
+    let typ = if array_form then
+        Some (typ_array (typ_or_auto (Option.bind te.typ typ_ptr_inv)))
+      else te.typ
+    in
+    trm_delete ?loc ?typ te
   | Lambda {capture_default = ByRef; captures = _; is_mutable = _; parameters = po; result_type = rt; body = b} ->
     let tt = begin match rt with | Some ty -> tr_qual_type ?loc ty | None -> typ_auto end in
     let tb = tr_stmt b in

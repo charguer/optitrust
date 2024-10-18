@@ -8,7 +8,7 @@ type associativity = LtoR | RtoL | NA
 type precedence = int * associativity
 
 (** [precedence_none]: no precedence. *)
-let precedence_none : precedence = (0, NA)
+let precedence_default : precedence = (100, NA)
 
 (** [precedence_prim p]: computes precedence of the primitive [p]. *)
 let precedence_prim (p : prim) : precedence =
@@ -31,22 +31,21 @@ let precedence_prim (p : prim) : precedence =
     | Binop_bitwise_and -> (8, LtoR)
     | Binop_xor -> (7, LtoR)
     | Binop_bitwise_or -> (6, LtoR)
-    | Binop_and -> (5, LtoR)
-    | Binop_or -> (4, LtoR)
-    | _ -> precedence_none
+    | Binop_set -> (2, RtoL)
     end
-  | Prim_conditional_op -> (3, RtoL)
-  | Prim_compound_assign_op binop ->
-    begin match binop with
-    | Binop_set | Binop_add | Binop_sub | Binop_mul | Binop_exact_div
-     | Binop_trunc_div | Binop_trunc_mod | Binop_and | Binop_or | Binop_xor | Binop_shiftl
-     | Binop_shiftr -> (2, RtoL)
-    | _ -> precedence_none
-    end
-  | _ -> precedence_none
+  | Prim_compound_assign_op _ -> (2, RtoL)
+  | _ -> precedence_default
 
+let precedence_and = (5, LtoR)
+let precedence_or = (4, LtoR)
+let precedence_ternary_cond = (3, RtoL)
 
-(** [precedence_trm t]: computes precedence of the trm [t]. *)
+(** [precedence_trm t]: computes precedence of the trm [t].
+   FIXME: Remove this badly designed precedence system.
+   There is no good concept of the precedence of a trm.
+   Instead there should be a concept of precedence of a generated subdocument.
+   The choice of the precedence can depend on the choices made when building the subdocument.
+   *)
 let precedence_trm (t : trm) : precedence =
   match t.desc with
   | Trm_apps (f, _, _) ->
@@ -55,12 +54,15 @@ let precedence_trm (t : trm) : precedence =
      | _ -> (16, LtoR)
      end
   | Trm_prim (_, p) -> precedence_prim p
-  | Trm_lit _  -> (30, NA)
-  | Trm_var _ -> (20, NA)
-  | Trm_arbitrary _ -> (100, NA)
-  | Trm_record _ | Trm_array _ -> (100, NA)
-  | _ -> precedence_none
+  | _ -> precedence_default
 
+let expr_prec ((prec, _): precedence): int = prec
+
+let sub_prec ((prec, assoc): precedence): int * int =
+  match assoc with
+  | LtoR -> (prec, prec + 1)
+  | RtoL -> (prec + 1, prec)
+  | NA -> (prec, prec)
 
 (** [parentheses_needed ~prec t]: checks if the precedence of [t] is greater then [prec]. *)
 let parentheses_needed ?(prec : int = 0)  (t : trm) =

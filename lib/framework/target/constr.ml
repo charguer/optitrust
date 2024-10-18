@@ -723,154 +723,141 @@ let explore_list_ind (tl : 'a list) (d : int -> dir) (dom : int list)
 
 (** [check_constraint ~incontracts c]: checks if constraint c is satisfied by trm t *)
 let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
-   let check_target = check_target ~incontracts in
-   if trm_has_cstyle Multi_decl t then
-     (*
-       check the constraint on each element of the seq and return true if one
-       is true
-      *)
-     begin match t.desc with
-     | Trm_seq (tl, None) -> List.mem true (List.map (check_constraint ~incontracts c) (Mlist.to_list tl))
-     | _ -> trm_fail t "Constr.check_constraint: bad multi_decl annotation"
-     end
-  else
-
-     let _loc = t.loc in
-     begin match c, t.desc with
-     (*
-       target constraints never hold since they are checked against nodes before
-       calling check_constraint in resolve_target
-      *)
-      | Constr_depth _,_
-       | Constr_dir _, _
-       | Constr_include _, _ ->
-        false
-     | Constr_regexp r, _ -> match_regexp_trm r t
-     | Constr_for_c (p_init, p_cond, p_step, p_body),
-       Trm_for_c (init, cond, step, body, _) ->
-        check_target p_init init &&
-        check_target p_cond cond &&
-        check_target p_step step &&
-        check_target p_body body
-     | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, body, _) ->
-        let direction_match = match p_direction with
-        | None -> true
-        | Some d -> d = range.direction in
-        check_name p_index range.index.name &&
-        direction_match &&
-        check_target p_start range.start &&
-        check_target p_stop range.stop &&
-        check_target p_step range.step &&
-        check_target p_body body
-     | Constr_while (p_cond, p_body), Trm_while (cond, body) ->
-        check_target p_cond cond &&
-        check_target p_body body
-     | Constr_do_while (p_body, p_cond), Trm_do_while (body, cond) ->
-        check_target p_body body &&
-        check_target p_cond cond
-     | Constr_if (p_cond, p_then, p_else), Trm_if (cond, then_t, else_t) ->
-        check_target p_cond cond &&
-        check_target p_then then_t &&
-        check_target p_else else_t
-      | Constr_decl_var (ty_pred, name, p_body) , Trm_let ((x,tx), body) ->
-        ty_pred (get_inner_ptr_type tx) &&
+  let check_target = check_target ~incontracts in
+  match c, t.desc with
+  (*
+    target constraints never hold since they are checked against nodes before
+    calling check_constraint in resolve_target
+  *)
+  | Constr_depth _,_
+    | Constr_dir _, _
+    | Constr_include _, _ ->
+    false
+  | Constr_regexp r, _ -> match_regexp_trm r t
+  | Constr_for_c (p_init, p_cond, p_step, p_body),
+    Trm_for_c (init, cond, step, body, _) ->
+    check_target p_init init &&
+    check_target p_cond cond &&
+    check_target p_step step &&
+    check_target p_body body
+  | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body), Trm_for(range, body, _) ->
+    let direction_match = match p_direction with
+    | None -> true
+    | Some d -> d = range.direction in
+    check_name p_index range.index.name &&
+    direction_match &&
+    check_target p_start range.start &&
+    check_target p_stop range.stop &&
+    check_target p_step range.step &&
+    check_target p_body body
+  | Constr_while (p_cond, p_body), Trm_while (cond, body) ->
+    check_target p_cond cond &&
+    check_target p_body body
+  | Constr_do_while (p_body, p_cond), Trm_do_while (body, cond) ->
+    check_target p_body body &&
+    check_target p_cond cond
+  | Constr_if (p_cond, p_then, p_else), Trm_if (cond, then_t, else_t) ->
+    check_target p_cond cond &&
+    check_target p_then then_t &&
+    check_target p_else else_t
+  | Constr_decl_var (ty_pred, name, p_body) , Trm_let ((x,tx), body) ->
+    ty_pred (get_inner_ptr_type tx) &&
+    check_name name x.name &&
+    check_target p_body body
+  | Constr_decl_vars (ty_pred, name, p_body), Trm_let_mult bs ->
+    List.fold_left (fun acc ((x, tx), body) ->
+      let b = ty_pred (get_inner_ptr_type tx) &&
         check_name name x.name &&
-        check_target p_body body
-     | Constr_decl_vars (ty_pred, name, p_body), Trm_let_mult bs ->
-        List.fold_left (fun acc ((x, tx), body) ->
-          let b = ty_pred (get_inner_ptr_type tx) &&
-            check_name name x.name &&
-            check_target p_body body in
-          acc || b
-        ) false bs
-     | Constr_decl_type name, Trm_typedef td ->
-        (* TODO: Why do we check this ? *)
-        let is_new_typ = begin match td.typedef_body with
-        | Typedef_alias _ -> true
-        | Typedef_record _ -> true
-        | _ -> false
-        end in
-        let x = td.typedef_name in
-        is_new_typ && check_name name x.name
-     | Constr_decl_enum (name, cec), Trm_typedef td ->
-        begin match td.typedef_body with
-        | Typedef_enum xto_l -> check_name name td.typedef_name.name && check_enum_const ~incontracts cec xto_l
-        | _ -> false
-        end
-     | Constr_seq cl, Trm_seq (tl, _) when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
-        check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER: check why depth 0 here and not
-        in Constr_app *)
-     | Constr_var name, Trm_var x ->
-        check_name name x.name
-     | Constr_lit pred_l, Trm_lit l ->
-        pred_l l
-     | Constr_fun (cl_args, ty_pred, is_def, p_body), Trm_fun (args, tx, body, _) ->
-        let body_check =
-          let is_body_unit = is_trm_uninitialized body in
-          if is_def then (check_target p_body body && not (is_body_unit))
-           else is_body_unit in
-        ty_pred tx &&
-        check_args cl_args args &&
-        body_check
-     | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
-        if not accept_encoded then
-          begin match f.desc with
-          | Trm_prim (_, Prim_ref)
-          | Trm_prim (_, Prim_unop Unop_get) -> false
-          |  _ -> check_target p_fun f &&
-                  check_list ~incontracts ~depth:(DepthAny) cl_args args
-          end
-        else
-          check_target p_fun f &&
-          check_list ~incontracts ~depth:(DepthAny) cl_args args
-     | Constr_label (so, p_body), _ ->
-        let t_labels = trm_get_labels t in
-        List.fold_left (fun acc (l : label) -> check_name so l || acc) false t_labels &&
-        check_target p_body t
-     | Constr_goto so, Trm_goto l ->
-        check_name so l
-     | Constr_return p_res, Trm_abort (Ret (Some res)) ->
-        check_target p_res res
-     | Constr_abort Any, Trm_abort _ -> true
-     | Constr_abort Return, Trm_abort (Ret _) -> true
-     | Constr_abort Break, Trm_abort (Break _) -> true
-     | Constr_abort Continue, Trm_abort (Continue _) -> true
-     | Constr_access (p_base, ca,ia), _ ->
-        let (base, al) = get_nested_accesses t in
-        check_target p_base base &&
-        check_accesses ~incontracts ~inner_accesses:ia ca al
-     | Constr_switch (p_cond, cc), Trm_switch (cond, cases) ->
-        check_target p_cond cond &&
-        check_cases ~incontracts cc cases
-     | Constr_bool b, _ -> b
-     | Constr_root, _ -> trm_is_mainfile t
+        check_target p_body body in
+      acc || b
+    ) false bs
+  | Constr_decl_type name, Trm_typedef td ->
+    (* TODO: Why do we check this ? *)
+    let is_new_typ = begin match td.typedef_body with
+    | Typedef_alias _ -> true
+    | Typedef_record _ -> true
+    | _ -> false
+    end in
+    let x = td.typedef_name in
+    is_new_typ && check_name name x.name
+  | Constr_decl_enum (name, cec), Trm_typedef td ->
+    begin match td.typedef_body with
+    | Typedef_enum xto_l -> check_name name td.typedef_name.name && check_enum_const ~incontracts cec xto_l
+    | _ -> false
+    end
+  | Constr_seq cl, Trm_seq (tl, _) when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
+    check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER: check why depth 0 here and not
+    in Constr_app *)
+  | Constr_var name, Trm_var x ->
+    check_name name x.name
+  | Constr_lit pred_l, Trm_lit l ->
+    pred_l l
+  | Constr_fun (cl_args, ty_pred, is_def, p_body), Trm_fun (args, tx, body, _) ->
+    let body_check =
+      let is_body_unit = is_trm_uninitialized body in
+      if is_def then (check_target p_body body && not (is_body_unit))
+        else is_body_unit in
+    ty_pred tx &&
+    check_args cl_args args &&
+    body_check
+  | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
+    if not accept_encoded then
+      begin match f.desc with
+      | Trm_prim (_, Prim_ref)
+      | Trm_prim (_, Prim_unop Unop_get) -> false
+      |  _ -> check_target p_fun f &&
+              check_list ~incontracts ~depth:(DepthAny) cl_args args
+      end
+    else
+      check_target p_fun f &&
+      check_list ~incontracts ~depth:(DepthAny) cl_args args
+  | Constr_label (so, p_body), _ ->
+    let t_labels = trm_get_labels t in
+    List.fold_left (fun acc (l : label) -> check_name so l || acc) false t_labels &&
+    check_target p_body t
+  | Constr_goto so, Trm_goto l ->
+    check_name so l
+  | Constr_return p_res, Trm_abort (Ret (Some res)) ->
+    check_target p_res res
+  | Constr_abort Any, Trm_abort _ -> true
+  | Constr_abort Return, Trm_abort (Ret _) -> true
+  | Constr_abort Break, Trm_abort (Break _) -> true
+  | Constr_abort Continue, Trm_abort (Continue _) -> true
+  | Constr_access (p_base, ca,ia), _ ->
+    let (base, al) = get_nested_accesses t in
+    check_target p_base base &&
+    check_accesses ~incontracts ~inner_accesses:ia ca al
+  | Constr_switch (p_cond, cc), Trm_switch (cond, cases) ->
+    check_target p_cond cond &&
+    check_cases ~incontracts cc cases
+  | Constr_bool b, _ -> b
+  | Constr_root, _ -> trm_is_mainfile t
 
-     | Constr_prim pred, Trm_prim (_, p1) ->
-        pred p1
-     | Constr_mark (pred, _m), _ ->
-        if !old_resolution then begin
-          let t_marks = trm_get_marks t in
-          begin match t.desc with
-          | Trm_seq (tl, _) | Trm_array (_, tl) ->
-            (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
-          | Trm_record (_, tl) -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
-          | _ -> List.exists pred t_marks
-          end
-        end else begin
-          List.exists pred (trm_get_marks t)
-        end
-     | Constr_hastype pred , _ ->
-        check_hastype pred t
-     | Constr_var_init , Trm_apps ({desc = Trm_prim (_, Prim_ref); _}, [arg], _) -> false
-     | Constr_var_init, Trm_lit (Lit_uninitialized _) -> false
-     | Constr_var_init , _ -> true
-     | Constr_array_init, Trm_array _ -> true
-     | Constr_struct_init, Trm_record _ -> true
-     | Constr_omp (pred, _), _ -> trm_has_pragma pred t
-     | Constr_namespace cn, Trm_namespace (name, _, _) -> check_name cn name
-     | Constr_pred pred, _ -> pred t
-     | _ -> false
-     end
+  | Constr_prim pred, Trm_prim (_, p1) ->
+    pred p1
+  | Constr_mark (pred, _m), _ ->
+    if !old_resolution then begin
+      let t_marks = trm_get_marks t in
+      begin match t.desc with
+      | Trm_seq (tl, _) | Trm_array (_, tl) ->
+        (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
+      | Trm_record (_, tl) -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
+      | _ -> List.exists pred t_marks
+      end
+    end else begin
+      List.exists pred (trm_get_marks t)
+    end
+  | Constr_hastype pred , _ ->
+    check_hastype pred t
+  | Constr_var_init , Trm_apps ({desc = Trm_prim (_, Prim_ref); _}, [arg], _) -> false
+  | Constr_var_init, Trm_lit (Lit_uninitialized _) -> false
+  | Constr_var_init , _ -> true
+  | Constr_array_init, Trm_array _ -> true
+  | Constr_struct_init, Trm_record _ -> true
+  | Constr_omp (pred, _), _ -> trm_has_pragma pred t
+  | Constr_namespace cn, Trm_namespace (name, _, _) -> check_name cn name
+  | Constr_pred pred, _ -> pred t
+  | _ -> false
 
 (** [check_list ~incontracts ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)
 and check_list ~(incontracts:bool) ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
@@ -1340,13 +1327,6 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
   if trm_is_include t then begin
      Flags.verbose_warn loc "Constr.explore_in_depth: no exploration in included files";
      []
-     end
-  else if trm_has_cstyle Multi_decl t then
-     (* explore each declaration in the seq *)
-     begin match t.desc with
-     | Trm_seq (tl, _) ->
-        explore_list (Mlist.to_list tl) (fun i -> Dir_seq_nth i) (explore_in_depth ~incontracts p)
-     | _ -> loc_fail loc "Constr.explore_in_depth: bad multi_decl annotation"
      end
   else
      begin match t.desc with

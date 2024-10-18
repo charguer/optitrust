@@ -127,9 +127,9 @@ let formula_not (formula: formula) = trm_apps ~annot:formula_annot (trm_var var_
 
 let rec trm_to_formula_prop (t: trm): formula option =
   let open Option.Monad in
-  let formula_prop = match t.desc with
-    | Trm_apps (fn, args, _) ->
-      begin match trm_prim_inv fn with
+  let formula_prop = Pattern.pattern_match t [
+    Pattern.(trm_apps !__ !__ __) (fun fn args () ->
+      match trm_prim_inv fn with
       | Some (_, Prim_unop Unop_neg) ->
         let* arg = match args with [arg] -> Some arg | _ -> None in
         begin match trm_to_formula_prop arg with
@@ -155,21 +155,22 @@ let rec trm_to_formula_prop (t: trm): formula option =
             | _ -> assert false
           in
           Some (formula_cmp arg_l arg_r)
-        | Binop_and | Binop_or ->
-          let* arg_l = trm_to_formula_prop arg_l in
-          let* arg_r = trm_to_formula_prop arg_r in
-          let formula_binop = match binop with
-            | Binop_and -> formula_and
-            | Binop_or -> formula_or
-            | _ -> assert false
-          in
-          Some (formula_binop arg_l arg_r)
         | _ -> None
         end
       | _ -> None
-      end
-    | _ -> None
-  in
+    );
+    Pattern.(trm_and !__ !__) (fun arg_l arg_r () ->
+      let* arg_l = trm_to_formula_prop arg_l in
+      let* arg_r = trm_to_formula_prop arg_r in
+      Some (formula_and arg_l arg_r)
+    );
+    Pattern.(trm_or !__ !__) (fun arg_l arg_r () ->
+      let* arg_l = trm_to_formula_prop arg_l in
+      let* arg_r = trm_to_formula_prop arg_r in
+      Some (formula_or arg_l arg_r)
+    );
+    Pattern.__ (fun () -> None)
+  ] in
   match formula_prop with
   | Some prop -> Some prop
   | None ->

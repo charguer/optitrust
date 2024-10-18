@@ -142,9 +142,9 @@ let trm_typedef ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_typedef def_typ)
 
 (** [trm_if ~annot ?loc ?ctx cond tb eb]: if statement *)
-let trm_if ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (cond : trm)
+let trm_if ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(typ : typ option) (cond : trm)
   (tb : trm) (eb : trm) : trm =
-  trm_make ~annot ?loc ~typ:typ_unit ?ctx (Trm_if (cond, tb, eb))
+  trm_make ~annot ?loc ?typ ?ctx (Trm_if (cond, tb, eb))
 
 (** [trm_seq ~annot ?loc ?ctx tl]: block statement *)
 let trm_seq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(result: var option) ?(typ: typ option)
@@ -453,10 +453,10 @@ let trm_add_label (l : label) (t : trm) : trm =
 
 (** [trm_vardef_get_trm_varse]: gets the singleton declaration variable in the case when [t] is a variable declaration
     or a list of variable in the case when we have multiple variable declarations in one line *)
-let rec trm_vardef_get_vars (t : trm) : var list =
+let trm_vardef_get_vars (t : trm) : var list =
   match t.desc with
   | Trm_let ((x, _), _) -> [x]
-  | Trm_seq (tl, _) when trm_has_cstyle Multi_decl t -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
+  | Trm_let_mult tl -> List.map (fun ((x, _), _) -> x) tl
   | _ -> []
 
 (** [trm_ret ~annot a]; special trm_abort case, used for return statements *)
@@ -479,6 +479,12 @@ let trm_lit_inv (t : trm) : lit option =
 let trm_int_inv (t : trm) : int option =
   match trm_lit_inv t with
   | Some (Lit_int (_, n)) -> Some n
+  | _ -> None
+
+(** [trm_bool_inv t] gets a bool literal from a trm *)
+let trm_bool_inv (t: trm) : bool option =
+  match trm_lit_inv t with
+  | Some (Lit_bool b) -> Some b
   | _ -> None
 
 (** [trm_is_one step]: checks if the step of the loop is one or not *)
@@ -991,7 +997,7 @@ let is_infix_prim_fun (p : prim) : bool =
   | Prim_compound_assign_op _ -> true
   | Prim_binop op ->
     begin match op with
-    | Binop_add | Binop_sub | Binop_mul | Binop_exact_div | Binop_trunc_div | Binop_trunc_mod | Binop_shiftl | Binop_shiftr | Binop_and | Binop_or -> true
+    | Binop_add | Binop_sub | Binop_mul | Binop_exact_div | Binop_trunc_div | Binop_trunc_mod | Binop_shiftl | Binop_shiftr | Binop_bitwise_and | Binop_bitwise_or -> true
     | _ -> false
     end
   | _ -> false
@@ -2153,14 +2159,6 @@ let trm_trunc_div = trm_arith_binop Binop_trunc_div
 (** [trm_trunc_mod t1 t2]: generates t1 % t2 *)
 let trm_trunc_mod = trm_arith_binop Binop_trunc_mod
 
-  (** [trm_and t1 t2]: generates t1 && t2 *)
-let trm_and ?(loc) ?(ctx : ctx option) (t1 : trm) (t2 : trm) : trm =
-  trm_apps ?loc ?ctx ~typ:typ_bool (trm_binop typ_bool Binop_and) [t1;t2]
-
-(** [trm_or t1 t2]: generates t1 || t2 *)
-let trm_or ?(loc) ?(ctx : ctx option) (t1 : trm) (t2 : trm) : trm =
-  trm_apps ?loc ?ctx ~typ:typ_bool (trm_binop typ_bool Binop_or) [t1;t2]
-
 (** [trm_bit_and t1 t2]: generates t1 & t2 *)
 let trm_bit_and = trm_arith_binop Binop_bitwise_and
 
@@ -2175,12 +2173,6 @@ let trm_shiftr = trm_arith_binop Binop_shiftr
 
 (** [trm_xor t1 t2]: generates t1 ^ t2 *)
 let trm_xor = trm_arith_binop Binop_xor
-
-(** [trm_ands ts] generalized version of trm_and *)
-let trm_ands (ts : trm list) : trm =
-  List.fold_lefti (fun i acc t1 ->
-    if i = 0 then t1 else trm_and acc t1
-  ) (trm_bool true) ts
 
 (** [trm_compound_assign ~annot ?ctx ?loc ?typ binop t1 t2]: generates a compound operation, ex t1+=t2*)
 let trm_compound_assign ?(annot : trm_annot = trm_annot_default) ?(ctx : ctx option) ?(loc) ?(typ = typ_auto)
@@ -2204,9 +2196,24 @@ let trm_new ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (ty : typ) (
   trm_apps ?loc ~annot ?ctx (trm_prim ty Prim_new) [t]
 
 (** [trm_delete ~annot ?loc ?ctx is_array_form t]: delete operator from C++ *)
-let trm_delete ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(ty: typ = typ_auto) (is_array_form : bool) (t : trm) =
-  let prim_delete = if is_array_form then Prim_delete_array else Prim_delete in
-  trm_apps ?loc ~annot ?ctx ~typ:typ_unit (trm_prim ty prim_delete) [t]
+let trm_delete ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(typ: typ = typ_auto) (t : trm) =
+  trm_apps ?loc ~annot ?ctx ~typ:typ_unit (trm_prim typ Prim_delete) [t]
+
+(*****************************************************************************)
+
+  (** [trm_and t1 t2]: generates t1 && t2 *)
+let trm_and ?(loc) ?(ctx : ctx option) (t1 : trm) (t2 : trm) : trm =
+  trm_add_cstyle Shortcircuit_and (trm_if ?loc ?ctx ~typ:typ_bool t1 t2 (trm_bool false))
+
+(** [trm_or t1 t2]: generates t1 || t2 *)
+let trm_or ?(loc) ?(ctx : ctx option) (t1 : trm) (t2 : trm) : trm =
+  trm_add_cstyle Shortcircuit_or (trm_if ?loc ?ctx ~typ:typ_bool t1 (trm_bool true) t2)
+
+(** [trm_ands ts] generalized version of trm_and *)
+let trm_ands (ts : trm list) : trm =
+  List.fold_lefti (fun i acc t1 ->
+    if i = 0 then t1 else trm_and acc t1
+  ) (trm_bool true) ts
 
 (*****************************************************************************)
 

@@ -93,6 +93,11 @@ let trm_int (f: 'a -> int -> 'b) (k: 'a) (t: trm): 'b =
   | Some x -> f k x
   | _ -> raise Next
 
+let trm_bool f k t =
+  match trm_lit_inv t with
+  | Some (Lit_bool b) -> f k b
+  | _ -> raise Next
+
 let trm_fun args rettyp body spec k t =
   match t.desc with
   | Trm_fun (targs, tret_type, tbody, tspec) ->
@@ -262,6 +267,18 @@ let trm_ignore f k t =
   match trm_ignore_inv t with
   | Some t' -> f k t'
   | None -> raise Next
+
+let trm_if fcond fthen felse k t =
+  match trm_if_inv t with
+  | Some (tc, tt, te) ->
+    let k = fcond k tc in
+    let k = fthen k tt in
+    let k = felse k te in
+    k
+  | None -> raise Next
+
+let trm_and ft1 ft2 = trm_if ft1 ft2 (trm_bool (eq false))
+let trm_or ft1 ft2 = trm_if ft1 (trm_bool (eq true)) ft2
 
 let typ_var = trm_var
 let typ_apps ft fargs k ty =

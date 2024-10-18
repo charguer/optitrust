@@ -603,7 +603,7 @@ let rec return_intro (t: trm): trm =
   and into_returning_instr t =
     match t.desc with
     | Trm_seq (_, Some _) -> Some (add_terminal_return t)
-    | Trm_if (tcond, tthen, telse) ->
+    | Trm_if (tcond, tthen, telse) when not (trm_has_cstyle Ternary_cond t || trm_has_cstyle Shortcircuit_and t || trm_has_cstyle Shortcircuit_or t) ->
       let process_branch t =
         match into_returning_instr t with
         | Some t -> t
