@@ -110,28 +110,16 @@ let record_globals (tg : target) : unit =
   we mark these functions with [!Apac_macros.candidate_mark]. *)
 
 (** [select_candidates tg]: expects the target [tg] to point at a function
-    definition. The pass then proceeds in two phases.
-
-    First, it iterates over the target function definitions and marks the
-    functions meeting the requirements of a taskification candidate with
+    definition. If the corresponding function meets the requirements of a
+    taskification candidate, the pass marks it with
     [!Apac_macros.candidate_mark]. To consider a function a taskification
     candidate, it must feature at least two calls to a function having a record
     in [!Apac_records.functions] or one call to such a function and one loop or
-    two loop nests.
-
-    Second, it iterates again over the target function definitions and marks
-    with [!Apac_macros.candidate_mark] the functions calling any function
-    carrying the [!Apac_macros.candidate_mark] mark as a result of the first
-    phase. *)
+    two loop nests. *)
 let select_candidates (tg : target) : unit =
-  (** Initialize a set of variables [candidates] to store the variables refering
-      to functions meeting the taskification candidate requirements we mark with
-      [!Apac_macros.candidate_mark] during the first phase of the pass so as to
-      make this information available to the second phase of the pass. *)
-  let candidates = ref Var_set.empty in
-  (** Iterate over the target function definitions and store each function
-      meeting the taskification candidate requirements in [candidates] and mark
-      it with [!Apac_macros.candidate_mark]. *)
+  (** Iterate over the target function definitions and mark each function
+      meeting the taskification candidate requirements with
+      [!Apac_macros.candidate_mark]. *)
   Target.apply_at_target_paths (fun t ->
       (** Deconstruct the definition term [t] of the function [f]. *)
       let error = "Apac_preprocessing.select_candidates: expected a target to \
@@ -188,64 +176,12 @@ let select_candidates (tg : target) : unit =
               candidate. *)
           false
       in
-      (** If [f] meets the requirements of a taskification candidate, add it to
-          [candidates] and mark the target function definition term with
-          [!Apac_macros.candidate_mark]. *)
-      if candidate then
-        begin
-          candidates := Var_set.add f !candidates;
-          Mark.trm_add_mark Apac_macros.candidate_mark t
-        end
-      else
-        (** Otherwise, return the function definition term as-is. *)
-        t
-    ) tg;
-  (** Iterate over the target function definitions, update [candidates] with
-      functions calling a function in [candidates], i.e. with functions calling
-      a taskficiation candidate, mark them with [!Apac_macros.candidate_mark]
-      and continue until [candidates] stabilizes, i.e. does not receive any new
-      elements.
-
-      To this end, begin by initializing a variable [now] to keep the current
-      number of elements in [candidates]. *)
-  let now = ref (Var_set.cardinal !candidates) in
-  (** Then, iterate over the target function definitions... *)
-  let rec stabilize = fun () ->
-    (** For each function definition, *)
-    Target.apply_at_target_paths (fun t ->
-        (** deconstruct the definition term [t] of the function [f], *)
-        let error =
-          "Apac_preprocessing.select_candidates.stabilize: expected a target \
-           to a function definition!" in
-        let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
-        (** loop over the [body] of [f] and *)
-        let candidate =
-          trm_fold (fun acc c ->
-              match c.desc with
-              (** if [f] has a call to a function [f'] in [candidates], *)
-              | Trm_apps ({ desc = Trm_var (_, f')}, _)
-                   when Var_set.mem f' !candidates -> acc || true 
-              | _ -> acc
-            ) false body in
-        if candidate &&
-             not (Mark.trm_has_mark Apac_macros.candidate_mark t) then
-          begin
-            (** add [f] to [candidates] and *)
-            candidates := Var_set.add f !candidates;
-            (** mark it with [!Apac_macros.candidate_mark]. *)
-            Mark.trm_add_mark Apac_macros.candidate_mark t
-          end
-        else
-          t
-      ) tg;
-    (** ...while the number of elements in [candidates] increases. *)
-    if (Var_set.cardinal !candidates) > !now then
-      begin
-        now := Var_set.cardinal !candidates;
-        stabilize ()
-      end
-  in
-  stabilize ()
+      (** If [f] meets the requirements of a taskification candidate, mark its
+          definition term [t] with [!Apac_macros.candidate_mark]. Otherwise,
+          return [t] as-is. *)
+      if candidate then Mark.trm_add_mark Apac_macros.candidate_mark t
+      else t
+    ) tg
 
 (** Operating on its abstract syntax tree representation, the passes below
     intend to make the input program ready for the automatic parallelization
@@ -2067,10 +2003,10 @@ end
 
     First of all, the transformation wraps the body of the target function into
     a sequence and marks it with [!Apac_macros.candidate_body_mark], as well as
-    [!Apac_macros.candidate_body_mark] in the case of the [main] function. Then,
-    if the function returns [void], it appends the [!Apac_macros.goto_label] to
-    the sequence and replaces each [return] statement inside the sequence with a
-    [goto] jumping to that label.
+    [!Apac_macros.candidate_main_mark] in the case of the [!Apac_flags.main]
+    function. Then, if the function returns [void], it appends the
+    [!Apac_macros.goto_label] to the sequence and replaces each [return]
+    statement inside the sequence with a [goto] jumping to that label.
 
     For example, the following function definition
 
@@ -2161,15 +2097,16 @@ let unify_returns (tg : target) : unit =
           let body = trm_seq_add_last
                        (trm_add_label
                           Apac_macros.goto_label (trm_unit())) body in
-          (** Mark the new sequence with [!Apac_macros.candidate_body_mark] *)
-          let open Mark in
-          let body = trm_add_mark Apac_macros.candidate_body_mark body in
-          (** and with [!Apac_macros.candidate_main_mark] if [f] is the [main]
-              function. *)
-          let body = if f.name = !Apac_flags.main then
-                       trm_add_mark Apac_macros.candidate_main_mark body
-                     else
-                       body in
+          (** Mark the new sequence with [!Apac_macros.candidate_body_mark]. *)
+          let body = Mark.trm_add_mark Apac_macros.candidate_body_mark body in
+          (** and with [!Apac_macros.candidate_main_mark] if [f] is the
+              [!Apac_flags.main] function. *)
+          let body =
+            if f.name = !Apac_flags.main then
+              Mark.trm_add_mark Apac_macros.candidate_main_mark body
+            else
+              body
+          in
           (** If [f] returns something else than [void], we need to declare
               [!Apac_macros.result_variable] at the beginning of the new
               sequence and return its value at the end of the sequence. *)

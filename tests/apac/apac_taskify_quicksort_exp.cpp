@@ -60,15 +60,7 @@ void sort_core(int* in_out_data, int right_limit) {
   }
 }
 
-void sort(int* in_out_data, int in_size) {
-#pragma omp taskgroup
-  {
-#pragma omp task default(shared) depend(in : in_out_data, in_size) depend(inout : in_out_data[0])
-    sort_core(in_out_data, in_size);
-#pragma omp taskwait
-  __apac_exit:;
-  }
-}
+void sort(int* in_out_data, int in_size) { sort_core(in_out_data, in_size); }
 
 int main(int argc, char** argv) {
   int __apac_result;

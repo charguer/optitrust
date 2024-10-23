@@ -32,7 +32,8 @@ let compile () : unit =
   !? "Unify returns"
     Apac_preprocessing.unify_returns [
       nbAny;
-      cMark Apac_macros.candidate_mark
+      cOr [[cMark Apac_macros.candidate_mark];
+           [cFunDefAndDecl !Apac_flags.main]]
     ];
   bigstep "Task candidate discovery";
   !? "Translate into task candidate representation"
@@ -89,7 +90,8 @@ let compile () : unit =
   !? "Place task groups"
     Apac_parallelization.place_task_group [
       nbAny;
-      cMark Apac_macros.candidate_body_mark
+      cOr [[cMark Apac_macros.candidate_body_mark];
+           [cMark Apac_macros.candidate_main_mark]]
     ];
   !? "Heapify"
     Apac_parallelization.heapify [
