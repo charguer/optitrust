@@ -350,6 +350,8 @@ let _main : unit =
   Xfile.put_lines "errors.tests" !error_tests;
 
   printf "%i tests passed, %i tests failed, %i tests ignored\n" !ok_count !ko_count (List.length ignored_tests);
+
+  if !ko_count > 0 then exit 1
   (*
      Produire une liste de (testname, result)
 
