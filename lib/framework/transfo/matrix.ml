@@ -140,7 +140,7 @@ let%transfo elim_mops (tg : target): unit =
     Target.iter (fun p ->
       (* FIXME: bugged target
         elim_mindex [nbAny; cPath p; cMindex ()]; *)
-      elim_all_mindex (target_of_path p);
+      elim_all_mops (target_of_path p);
       (* TODO: more precise target ? *)
       Arith.(simpl_rec gather_rec) (target_of_path p);
       Arith.(simpl_rec compute) (target_of_path p)

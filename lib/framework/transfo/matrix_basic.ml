@@ -779,6 +779,25 @@ let elim_mindex_on_opt (t : trm) : trm option =
   | Some (dims, idxs) -> Some (generate_index (trm_int 0) dims idxs)
   | None -> None
 
+let elim_malloc_on_opt (t : trm) : trm option =
+  match alloc_inv t with
+  | Some (dims, size, zero_init) ->
+    let size_expr = List.fold_right trm_mul dims size in
+    let f = if zero_init then "calloc" else "malloc" in
+    Some (trm_apps (trm_var (toplevel_var f)) [size_expr])
+  | None -> None
+
+let elim_mfree_on_opt (t : trm) : trm option =
+  match free_inv t with
+  | Some v -> Some (trm_apps (trm_var (toplevel_var "free")) [v])
+  | None -> None
+
+let elim_mops_on_opt (t : trm) =
+  Option.or_else (elim_mindex_on_opt t) (fun () ->
+  Option.or_else (elim_malloc_on_opt t) (fun () ->
+    elim_mfree_on_opt t
+  ))
+
 let elim_mindex_on (t : trm) : trm =
   match elim_mindex_on_opt t with
   | Some t2 -> t2
@@ -796,12 +815,12 @@ let%transfo elim_mindex (tg : target) : unit =
   Resources.justif_correct "size and index expressions are pure";
   Target.apply_at_target_paths elim_mindex_on tg
 
-(** recursive version of [elim_mindex]. *)
-let%transfo elim_all_mindex (tg : target) : unit =
+(** recursive version of [elim_mindex] that also removes other matrix operations like allocs, frees, and memcopies. *)
+let%transfo elim_all_mops (tg : target) : unit =
   Resources.justif_correct "size and index expressions are pure";
   Target.iter (fun p ->
     Target.apply_at_path (trm_bottom_up (fun t ->
-      match elim_mindex_on_opt t with
+      match elim_mops_on_opt t with
       | Some t2 -> t2
       | None -> t
     )) p

@@ -17,7 +17,7 @@ let _ = Flags.disable_stringreprs := true
 
 let int = trm_int
 
-(* FIXME: avoid inlining *)
+(* TODO: avoid inlining, use specialize instead? *)
 let _ = Run.script_cpp (fun () ->
 
   !! Function.inline_def [cFunDef "mm"];

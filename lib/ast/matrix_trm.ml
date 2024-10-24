@@ -91,9 +91,6 @@ let set_inv (t : trm) : (trm * trms * trms * trm)  option =
     end
   | _ -> None
 
-let malloc_vars = Array.init 5 (fun n -> toplevel_var (sprintf "MALLOC%d" n))
-let calloc_vars = Array.init 5 (fun n -> toplevel_var (sprintf "CALLOC%d" n))
-
 let malloc_var = toplevel_var_with_dim "MALLOC%d"
 let calloc_var = toplevel_var_with_dim "CALLOC%d"
 
