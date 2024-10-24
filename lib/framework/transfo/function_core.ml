@@ -124,16 +124,20 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
     end else
       trm_fail fail_t msg
   in
+
   match t.desc with
   | Trm_apps (f, [ls; rs], _) when is_set_operation t ->
+    (* t  =  set(ls, rs) *)
     begin match rs.desc with
-    | Trm_apps (f1, [get_ls; arg], _) ->
+    | Trm_apps (f1, [a; b], _) ->
+      (* t  =  set(ls, f1 a b) *)
       begin match trm_prim_inv f1 with
       | Some (_, p) when is_infix_prim_fun p ->
         let binop = match get_binop_from_prim p with
         | Some binop -> binop
-        | _ -> trm_fail f "Function_core.use_infix_ops_on: this should never happen"
+        | _ -> trm_fail f "use_infix_ops_on: this should never happen"
         in
+        (* t  =  set(ls, a binop b) *)
         let check_validity () = if !Flags.check_validity then begin
           (* FIXME: duplicated code with variable inline / bind *)
           if Resources.trm_is_pure ls then
@@ -145,26 +149,36 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
             Trace.justif "address is duplicable"
           end
         end in
-        let same_ls_get_ls = are_same_trm ls (get_operation_arg get_ls) in
-        let same_ls_arg = are_same_trm ls (get_operation_arg arg) in
-        begin match (same_ls_get_ls, same_ls_arg) with
+        let is_get_of addr t = Option.value ~default:false (
+          Option.map (are_same_trm addr) (trm_get_inv t)
+        ) in
+        let same_a = is_get_of ls a in
+        let same_b = is_get_of ls b in
+        begin match (same_a, same_b) with
         | false, false ->
           trm_fail_or_identity ls "addresses were not equal"
-        | false, true ->
+        | true, _ ->
           check_validity ();
-          trm_compound_assign ~annot:t.annot binop ls get_ls
-        | true, false ->
-          check_validity ();
-          trm_compound_assign ~annot:t.annot binop ls arg
-        | true, true -> failwith "this should not happen"
+          trm_compound_assign ~annot:t.annot binop ls b
+        | _, true ->
+          (* NOTE: this requires commutativity a op b = b op a,
+            e.g. not correct for Binop_sub,
+            for commutative operators, we may want to support finding gets of ls in depth,
+            e.g. a = b + (a + c) --> a += b + c
+                 a = (a + b) - c --> a += b - c
+            should we always do that, and should we check the type, for example only do this on reals / idealised ints, not on floats and fixed size ints.
+           *)
+          trm_fail_or_identity ls "requires commutativity"
+          (* check_validity ();
+          trm_compound_assign ~annot:t.annot binop ls a *)
         end
       | _ ->
-        trm_fail_or_identity f1 "Function_core.use_infix_ops_on: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
+        trm_fail_or_identity f1 "use_infix_ops_on: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
 
       end
-    | _ -> trm_fail_or_identity rs "Function_core.use_infix_ops_on: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
+    | _ -> trm_fail_or_identity rs "use_infix_ops_on: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
     end
-  | _-> trm_fail_or_identity t "Function_core.use_infix_ops_on: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
+  | _-> trm_fail_or_identity t "use_infix_ops_on: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
 
 (** [uninline_on fct_decl t]: takes a function declaration [fct_decl], for example
    [void gtwice(int x) { g(x, x); }], and expects a term [t] that matches the body

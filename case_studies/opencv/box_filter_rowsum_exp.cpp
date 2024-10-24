@@ -4,7 +4,8 @@ typedef uint8_t T;
 
 typedef uint16_t ST;
 
-void rowSum(const int kn, const T* S, ST* D, const int n, const int cn) {
+void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
+            const int cn) {
   if (kn == 3) /*@kn*/ {
     for (int ic = 0; ic < n * cn; ic++) {
       D[ic] = (uint16_t)S[ic] + (uint16_t)S[ic % cn + (1 + ic / cn) * cn] +
