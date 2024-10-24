@@ -117,6 +117,13 @@ let memcpy
   (* TODO: call matrixN_contiguous on copy_dims *)
   t
 
+let memcpy_inv (t : trm) : (trm * trm * trm * trm * trm * trm) option =
+  Pattern.pattern_match_opt t [
+    Pattern.(trm_apps (trm_var (var_eq mmemcpy_var)) (!__ ^:: !__ ^:: !__ ^:: !__ ^:: !__ ^:: !__ ^:: nil) __) (fun dest d_flat_offset src s_flat_offset flat_elems elem_size () ->
+      (dest, d_flat_offset, src, s_flat_offset, flat_elems, elem_size)
+    )
+  ]
+
 (** same as {!memcpy}, but constructs [elem_size] parameter from element type [ty]. *)
 let memcpy_with_ty
   (dest : trm) (d_offset : trm list) (d_dims : trm list)

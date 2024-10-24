@@ -549,6 +549,9 @@ let cFunDef ?args ?args_pred ?ret_typ ?ret_typ_pred ?is_def ?body
   ?(regexp : bool = false) (name : string) : constr =
   cVarDef ~regexp ~body:[cStrictNew; cFun ?args ?args_pred ?ret_typ ?ret_typ_pred ?is_def ?body ()] name
 
+let cFunDefs (vars : string list) : constr =
+  cOr (List.map (fun v -> [cFunDef v]) vars)
+
 (** [cFunBody] same as [cFunDef] followed by [dBody]. *)
 let cFunBody ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)

@@ -1,11 +1,10 @@
 #include <optitrust.h>
-#include "matmul.h"
+
 #include "omp.h"
 // NOTE: using pretty matrix notation
 
-
-  void mm1024 (float* C, float* A, float* B)  {
-  float* const pB = (float*) malloc(1048576 * sizeof(float));
+void mm1024(float* C, float* A, float* B) {
+  float* const pB = (float*)malloc(1048576 * sizeof(float));
 #pragma omp parallel for
   for (int bj = 0; bj < 32; bj++) {
     for (int bk = 0; bk < 256; bk++) {
@@ -20,7 +19,7 @@
 #pragma omp parallel for
   for (int bi = 0; bi < 32; bi++) {
     for (int bj = 0; bj < 32; bj++) {
-      float* const sum = (float*) malloc(1024 * sizeof(float));
+      float* const sum = (float*)malloc(1024 * sizeof(float));
       for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 32; j++) {
           sum[32 * i + j] = 0.f;
@@ -28,8 +27,8 @@
       }
       for (int bk = 0; bk < 256; bk++) {
         for (int i = 0; i < 32; i++) {
-          float s[32];
-          memcpy(s, &sum[32 * i], sizeof(float[32]));
+          float* const s = ref[32] float();
+          memcpy(&s[0], &sum[32 * i], 32 * sizeof(float));
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
             s[j] += A[1024 * (32 * bi + i) + 4 * bk] *
@@ -37,20 +36,20 @@
           }
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
-            s[j] += A[1024 * (32 * bi + i) + 4 * bk + 1] *
-                    pB[32768 * bj + 128 * bk + 32 + j];
+            s[j] += A[1 + 1024 * (32 * bi + i) + 4 * bk] *
+                    pB[32 + 32768 * bj + 128 * bk + j];
           }
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
-            s[j] += A[1024 * (32 * bi + i) + 4 * bk + 2] *
-                    pB[32768 * bj + 128 * bk + 32 * 2 + j];
+            s[j] += A[2 + 1024 * (32 * bi + i) + 4 * bk] *
+                    pB[64 + 32768 * bj + 128 * bk + j];
           }
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
-            s[j] += A[1024 * (32 * bi + i) + 4 * bk + 3] *
-                    pB[32768 * bj + 128 * bk + 32 * 3 + j];
+            s[j] += A[3 + 1024 * (32 * bi + i) + 4 * bk] *
+                    pB[96 + 32768 * bj + 128 * bk + j];
           }
-          memcpy(&sum[32 * i], s, sizeof(float[32]));
+          memcpy(&sum[32 * i], &s[0], 32 * sizeof(float));
         }
       }
       for (int i = 0; i < 32; i++) {

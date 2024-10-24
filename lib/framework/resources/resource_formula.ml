@@ -83,11 +83,13 @@ let rec formula_of_trm (t: trm): formula option =
         -> Some (trm_apps fn f_args)
       | Some _ -> None
       | None ->
-        begin match trm_var_inv fn with
-          | Some fv when Matrix_trm.mindex_var_inv fv <> None
-              -> Some (trm_apps fn f_args)
-          | _ -> None
-        end
+      begin match trm_var_inv fn with
+      | Some fv when Matrix_trm.mindex_var_inv fv <> None ->
+        Some (trm_apps fn f_args)
+      | Some fv when var_eq fv var_sizeof ->
+        Some (trm_apps fn f_args)
+      | _ -> None
+      end
     end
   | Trm_record (typ, fields) ->
     let* fields' = try Some (Mlist.map (fun (f, t) ->

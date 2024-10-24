@@ -29,3 +29,12 @@ void inner_alloc(int n, int m) {
   }
   MFREE2(n, m, p);
 }
+
+void copy(int* src, int* dest) {
+  __reads("src ~> Matrix1(10)");
+  __modifies("dest ~> Matrix1(25)");
+
+  __GHOST_BEGIN(f1, group_focus_subrange, "15..25, 0..25");
+  MMEMCPY(dest, 15, src, 0, 10, sizeof(int));
+  __GHOST_END(f1);
+}

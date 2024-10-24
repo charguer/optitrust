@@ -112,9 +112,12 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
   | Trm_apps (f, args,_) ->
     begin match f.desc with
     | Trm_var f_var ->
-      let dims , size = List.unlast args in
-      if (Tools.pattern_matches "CALLOC" f_var.name) then Some (dims, size, true)
-        else if (Tools.pattern_matches "MALLOC" f_var.name) then Some (dims, size, false)
+      let ret zero_init =
+        let dims, size = List.unlast args in
+        Some (dims, size, zero_init)
+      in
+      if (Tools.pattern_matches "CALLOC" f_var.name) then ret true
+        else if (Tools.pattern_matches "MALLOC" f_var.name) then ret false
         else None
     | _ -> None
     end

@@ -713,9 +713,11 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
     end;
     let new_dims = List.take_last copy_dims dims in
     List.fold_left (fun acc i -> Matrix_trm.access acc new_dims [i])
+      (* TODO: ~typ *)
       (trm_var stack_var) new_indices
   ) t in
   let (dims, typ) = Option.get !ret_dims_and_typ in
+  let ptr_typ = typ_ptr typ in
   let common_indices = Option.get !common_indices_opt in
   let new_dims = List.take_last copy_dims dims in
   (* let array_typ = List.fold_left (fun acc i -> typ_array acc (Trm i)) typ new_dims in *)
@@ -723,13 +725,13 @@ let stack_copy_on (var : var) (copy_name : string) (copy_dims : int) (t : trm) :
     (* TODO: define Matrix_core.stack_alloc, FIXME: new with dims has to be uninit? use different prim? *)
     trm_let (stack_var, typ_ptr typ) (trm_ref typ ~dims:new_dims (trm_uninitialized typ));
     Matrix_core.memcpy_with_ty
-      (trm_var stack_var) [] new_dims
-      (trm_var var) common_indices dims
+      (trm_var ~typ:ptr_typ stack_var) [] new_dims
+      (trm_var ~typ:ptr_typ var) common_indices dims
       new_dims typ;
     new_t;
     Matrix_core.memcpy_with_ty
-      (trm_var var) common_indices dims
-      (trm_var stack_var) [] new_dims
+      (trm_var ~typ:ptr_typ var) common_indices dims
+      (trm_var ~typ:ptr_typ stack_var) [] new_dims
       new_dims typ;
   ]
 
@@ -792,11 +794,35 @@ let elim_mfree_on_opt (t : trm) : trm option =
   | Some v -> Some (trm_apps (trm_var (toplevel_var "free")) [v])
   | None -> None
 
+let elim_memcpy_on_opt (t : trm) : trm option =
+  match Matrix_core.memcpy_inv t with
+  | Some (dest, d_offset, src, s_offset, elems, elem_size) ->
+    assert (Resources.trm_is_pure elem_size); (* TODO: otherwise, create binder *)
+    let apply_offset ptr offset = match (trm_sizeof_inv elem_size, Option.bind  ptr.typ typ_ptr_inv) with
+    | (Some typ, Some typ2) when are_same_trm typ typ2 ->
+      trm_array_access ptr offset
+    | _ ->
+      (* DEBUG: Show.trm_internal ~msg:"elem_size" elem_size;
+      begin match ptr.typ with
+      | None -> Printf.printf "ptr.typ = None\n"
+      | Some typ -> Show.trm_internal ~msg:"ptr.typ" typ
+      end; *)
+      trm_cast (typ_ptr typ_unit) (
+        trm_add (trm_cast typ_usize ptr) (trm_mul offset elem_size))
+    in
+    Some (trm_apps (trm_var (toplevel_var "memcpy")) [
+      apply_offset dest d_offset;
+      apply_offset src s_offset;
+      trm_mul elems elem_size
+    ])
+  | None -> None
+
 let elim_mops_on_opt (t : trm) =
   Option.or_else (elim_mindex_on_opt t) (fun () ->
   Option.or_else (elim_malloc_on_opt t) (fun () ->
-    elim_mfree_on_opt t
-  ))
+  Option.or_else (elim_mfree_on_opt t) (fun () ->
+    elim_memcpy_on_opt t
+  )))
 
 let elim_mindex_on (t : trm) : trm =
   match elim_mindex_on_opt t with
