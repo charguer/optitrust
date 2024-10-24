@@ -694,6 +694,10 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
   | Trm_array (_, tl) when trm_has_cstyle Brace_init init ->
       let tl = Mlist.to_list tl in
       dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map (decorate_trm style) tl) ^^ dsemi
+  | Trm_apps ({ desc = Trm_prim (typ, Prim_ref_array dims) }, [t], ghosts) ->
+    assert (is_trm_uninitialized t);
+    assert (ghosts = []);
+    (typ_to_doc style typ) ^^ blank 1 ^^ (var_to_doc style (fst tv)) ^^ list_to_doc ~bounds:[empty;empty] ~sep:empty (List.map (fun d -> lbracket ^^ (trm_to_doc style) d ^^ rbracket) dims) ^^ dsemi
   | _ ->
     dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm style ~force_expr:true ~print_struct_init_type:false init ^^ dsemi
 
