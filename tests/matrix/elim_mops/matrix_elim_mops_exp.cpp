@@ -36,3 +36,13 @@ void copy(int* src, int* dest) {
   memcpy(&dest[15], &src[0], 10 * sizeof(int));
   __ghost_end(f1);
 }
+
+void copy_void(void* src, void* dest) {
+  __modifies("for i1 in 0..25 -> &dest[i1] ~> Cell");
+  __reads("for i1 in 0..10 -> &src[i1] ~> Cell");
+  const __ghost_fn f1 = __ghost_begin(
+      group_focus_subrange, "sub_range := 15..25, big_range := 0..25");
+  memcpy((void*)((size_t)dest + 15 * sizeof(int)), (void*)(size_t)src,
+         10 * sizeof(int));
+  __ghost_end(f1);
+}
