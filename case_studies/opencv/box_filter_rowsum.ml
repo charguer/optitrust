@@ -27,15 +27,14 @@ let _ = Run.script_cpp (fun () ->
   let mark_then (var, _value) = sprintf "%s" var in
   !! Specialize.variable_multi ~mark_then ~mark_else:"nokn"
     ["kn", int 3; "kn", int 5] [cFunBody "rowSum"; cFor "i"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cFun "reduce_spe1"]; (* DELETE *)
+  !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cCall "reduce_spe1"];
   !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
 
   !! Loop.swap [nbMulti; cMark "nokn"; cFor "i"];
-  (* move Reduce.intro here? *)
   !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "nokn"; cArrayWrite "D"];
-  !! Reduce.elim [nbMulti; cMark "acc"; cFun "reduce_spe1"];
+  !! Reduce.elim [nbMulti; cMark "acc"; cCall "reduce_spe1"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
-  !! Reduce.elim ~inline:true [nbMulti; cMark "nokn"; cFor "i"; cFun "reduce_spe1"];
+  !! Reduce.elim ~inline:true [nbMulti; cMark "nokn"; cFor "i"; cCall "reduce_spe1"];
 
   !! Specialize.variable_multi ~mark_then
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];

@@ -58,13 +58,13 @@ void grayscale(float* out,
 - FIXME: duplicates even with suffix:
   ```
   !! ["conv3x3"; "sobelX"; "sobelY"; (* "binomial"; *) "mul"; "coarsity"] |>  List.iter (fun fun_to_inline ->
-    Function.inline ~delete:true ~vars:(Variable.Rename.add_suffix ("_" ^ fun_to_inline)) [nbMulti; cFun fun_to_inline];
+    Function.inline ~delete:true ~vars:(Variable.Rename.add_suffix ("_" ^ fun_to_inline)) [nbMulti; cCall fun_to_inline];
   );
   ```
 - could specialize 'conv2D' into 'conv3x3':
   ```
   (* Function.specialize ? *)
-  !! Specialize.function_arg "conv3x3" [true; true; true; true; false; false; true] [nbMulti; cFun "conv2D"];
+  !! Specialize.function_arg "conv3x3" [true; true; true; true; false; false; true] [nbMulti; cCall "conv2D"];
   ```
 
 # Script Notes

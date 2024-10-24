@@ -55,7 +55,7 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
     let (count, iteration_to_index) =
       if trm_is_one step
         then (stop, fun i -> i)
-        else (trm_div stop step, fun i -> trm_mul i step)
+        else (trm_trunc_div stop step, fun i -> trm_mul i step)
     in
     let ratio : int option =
       match trm_int_inv count, trm_int_inv tile_size with
@@ -118,14 +118,14 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
               | None -> ghost, formula
             in
             let i = new_var index.name in
-            let items = formula_fun [i, typ_int] None (trm_subst_var index (trm_var i) formula) in
+            let items = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
             Resource_trm.ghost (ghost_call ghost [("tile_count", tile_count); ("tile_size", tile_size); ("size", count); ("items", items)])
           )
       in
       let ghosts_before = add_tiling_ghost ghost_tile_divides ghost_ro_tile_divides contract.iter_contract.pre.linear in
       let ghosts_after = add_tiling_ghost ghost_untile_divides ghost_ro_untile_divides contract.iter_contract.post.linear in
 
-      let body_seq = trm_inv trm_seq_inv (trm_subst_var index new_index body) in
+      let body_seq, _ = trm_inv trm_seq_inv (trm_subst_var index new_index body) in
       let ghost_tile_index = Resource_trm.ghost (ghost_call ghost_tiled_index_in_range [("tile_index", trm_var tile_index); ("index", trm_var index); ("tile_count", tile_count); ("tile_size", tile_size); ("size", count)]) in
       let body = trm_like ~old:body (trm_seq (Mlist.push_front ghost_tile_index body_seq)) in
 
@@ -169,11 +169,11 @@ let tile_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : tr
       [t] - ast of the sequence containing the loops. *)
 let fusion_on_block_on (keep_label : bool) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, None) ->
     let n = Mlist.length tl in
     if n < 2 then trm_fail t "fusion_on_block_on: there must be >= 2 loops to apply fussion";
     let first_loop = Mlist.nth tl 0 in
-     begin match  first_loop.desc with
+    begin match first_loop.desc with
     | Trm_for (l_range, _, contract) ->
       let fusioned_body = Mlist.fold_lefti (
         fun i acc loop ->
@@ -198,7 +198,7 @@ let grid_enumerate_on (indices_and_bounds : (string * trm) list) (t : trm) : trm
   let indices_and_bounds = List.map (fun (i, b) -> new_var i, b) indices_and_bounds in
   let new_body =
     begin match body.desc with
-    | Trm_seq tl ->
+    | Trm_seq (tl, None) ->
         let old_loop_index_val = List.fold_lefti (fun i acc (ind, bnd) ->
             if i = 0 then let acc = trm_var ind in acc
             else trm_add (trm_mul acc bnd) (trm_var ind)
@@ -306,9 +306,7 @@ let unroll_on (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : m
   let new_indices = List.map (trm_add_mark subst_mark) new_indices in
   let unrolled_body = List.map (fun new_index ->
     let body_i = trm_subst_var index new_index (trm_copy body) in
-    let body_i = if inner_braces
-                  then Nobrace.remove_if_sequence body_i
-                  else Nobrace.set_if_sequence body_i in
+    let body_i = Nobrace.set_mark (not inner_braces) body_i in
     body_i) new_indices
   in
   let outer_seq = if outer_seq_with_mark <> no_mark then
@@ -332,8 +330,8 @@ let unswitch_at (trm_index : int) (t : trm) : trm =
   let if_stmt = Mlist.nth tl trm_index in
   let error = "Loop_core.unswitch_aux: expected an if statement."  in
   let (cond, then_, else_) = trm_inv ~error trm_if_inv if_stmt in
-  let then_ = Nobrace.set_if_sequence then_ in
-  let else_ = Nobrace.set_if_sequence else_ in
+  let then_ = Nobrace.mark then_ in
+  let else_ = Nobrace.mark else_ in
   let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (Mlist.replace_at trm_index t1 tl )) in
   trm_if cond (wrap_branch then_) (trm_copy (wrap_branch else_))
 
@@ -357,10 +355,10 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
   in
 
   let new_stop = match direction with
-    | DirUp -> (trm_div (aux start stop) step)
-    | DirUpEq -> (trm_div (aux start stop) step)
-    | DirDown -> (trm_div (aux start stop) step)
-    | DirDownEq -> (trm_div (aux start stop) step)
+    | DirUp -> (trm_trunc_div (aux start stop) step)
+    | DirUpEq -> (trm_trunc_div (aux start stop) step)
+    | DirDown -> (trm_trunc_div (aux start stop) step)
+    | DirDownEq -> (trm_trunc_div (aux start stop) step)
   in
   (* TODO: this should be an immutable binding *)
   let new_decl = trm_let_mut (index, typ_int) (trm_add start (trm_mul (trm_var new_index) step)) in
@@ -425,8 +423,9 @@ let scale_range (factor : trm) (new_index : string) (t : trm) : trm =
     then you can Generic.replace at these marks.*)
 let fold_at (index : string) (start : int) (step : int) (t : trm) : trm =
   let index = new_var index in
-  let error = "Loop_core.fold_aux: expected a sequence of instructions" in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let error = "Loop_core.fold_at: expected a sequence of instructions" in
+  let tl, result = trm_inv ~error trm_seq_inv t in
+  if Option.is_some result then failwith "Loop_core.fold_at: expected a sequence without result value";
   let nb = Mlist.length tl in
   if nb = 0
     then trm_fail t "Loop_core.fold_aux: expected a non-empty list of instructions";

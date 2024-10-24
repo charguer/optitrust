@@ -44,7 +44,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
 
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
 
-  let main_fun_str = "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
+  let main_fun_str = "\nvoid f(" ^ fun_args ^ "){ \n" ^ pat ^ ";\n}" in
   let ctx_defs_orig = if ctx
     then begin
       let ast = Target.get_ast () in
@@ -69,27 +69,19 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     (Seq.filter_map Trm.decl_name (List.to_seq ctx_defs))
     (Seq.filter_map (fun t -> Option.map (trm_var ?typ:t.typ) (Trm.decl_name t))
       (List.to_seq ctx_defs_orig))) in
-  match main_fun.desc with
-  | Trm_let_fun (_, _, args, body, _) ->
-    begin match body.desc with
-    | Trm_seq tl1 ->
-      if Mlist.length tl1 < 1 then trm_fail body "Trm_matching.parse_pattern: please enter a pattern
-                                                  of the shape var_decls ==> rule_to_apply";
-      let pattern_instr_ret = Mlist.nth tl1 0 in
-      let pattern_instr =
-      begin match pattern_instr_ret.desc with
-      | Trm_abort (Ret r1) ->
-        begin match  r1 with
-        | Some t1 -> t1
-        | _ -> trm_fail pattern_instr_ret "Trm_matching.parse_pattern: this should never appear"
-        end
-      | _ -> pattern_instr_ret
-      end in
-      let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x.name aux_var_decls then Some (x, ty) else None ) args in
-      let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
-      (pattern_vars, aux_vars, trm_subst ctx_vars_to_orig pattern_instr)
-    | _ -> trm_fail body ("Trm_matching.parse_pattern: body of the function f should be a sequence " ^ (Ast_to_c.ast_to_string body))
-      end
+  match trm_let_fun_inv main_fun with
+  | Some (_, _, args, body, _) ->
+    let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x.name aux_var_decls then Some (x, ty) else None) args in
+    let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars)) args in
+    let pattern_expr = Pattern.pattern_match body [
+      Pattern.(trm_seq (mlist (!__ ^:: nil)) none) (fun t' () ->
+        match trm_ignore_inv t' with
+        | Some t' -> t'
+        | None -> t'
+      );
+      Pattern.__ (fun () -> failwith "Trm_matching.parse_pattern: the pattern was not reparsed correctly")
+    ] in
+    (pattern_vars, aux_vars, trm_subst ctx_vars_to_orig pattern_expr)
   | _ -> trm_fail main_fun "Trm_matching.parse_pattern: the pattern was not entered correctly"
 
 (** [rewrite_rule]: a type for defining rewrite rules *)
@@ -113,7 +105,7 @@ let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : strin
 exception Rule_mismatch
 
 (** [rule_match ~higher_order_inst vars pat t]: LATER: Arthur  *)
-let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
+let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
 
   (** [inst] maps each pattern variable to a term and to a type;
      when pattern variables are not yet instantiated,
@@ -226,7 +218,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         (* let body = t2 in *)
         let body = List.fold_left (fun tacc x ->
           Variable_core.remove_get_operations_on_var_temporary x tacc) t2 xargs in
-        let func = trm_let_fun x typ_ret targs body in
+        let func = trm_fun targs typ_ret body in
         find_var x func
 
     | Trm_var x1, Trm_var x2 when var_eq x1 x2 -> ()
@@ -243,8 +235,9 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     | Trm_for_c (init1, cond1, step1, body1, _), Trm_for_c (init2, cond2, step2, body2, _) ->
         aux_with_bindings [init1; cond1; step1; body1] [init2; cond2; step2; body2]
 
-    | Trm_seq tl1, Trm_seq tl2 ->
-        if Mlist.length tl1 <> Mlist.length tl2 then mismatch();
+    | Trm_seq (tl1, None), Trm_seq (tl2, None) ->
+        (* TODO: manage sequence with results *)
+        if Mlist.length tl1 <> Mlist.length tl2 then mismatch ();
         aux_with_bindings (Mlist.to_list tl1) (Mlist.to_list tl2)
 
     | Trm_apps (f1, ts1, _), Trm_apps (f2, ts2, _) ->

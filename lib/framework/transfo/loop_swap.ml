@@ -8,7 +8,7 @@ let swap_on_any_loop (t : trm) : trm =
   match Internal.extract_loop t with
   | Some (loop1, body1) ->
     begin match body1.desc with
-    | Trm_seq tl when Mlist.length tl = 1 ->
+    | Trm_seq (tl, None) when Mlist.length tl = 1 ->
       let loop2 = Mlist.nth tl 0 in
       begin match Internal.extract_loop loop2 with
       | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
@@ -37,7 +37,7 @@ let ghost_swap (outer_range: loop_range) inner_range (_, formula) =
   let outer_var = new_var outer_range.index.name in
   let inner_var = new_var inner_range.index.name in
   let formula = trm_subst (Var_map.add outer_range.index (trm_var outer_var) (Var_map.singleton inner_range.index (trm_var inner_var))) formula in
-  let items = formula_fun [outer_var, typ_int; inner_var, typ_int] None formula in
+  let items = formula_fun [outer_var, typ_int; inner_var, typ_int] formula in
   Resource_trm.ghost (ghost_call ghost_var ["outer_range", formula_loop_range outer_range; "inner_range", formula_loop_range inner_range; "items", items])
 
 
@@ -87,7 +87,7 @@ let swap_on (t: trm): trm =
   (* TODO: refactor *)
   Pattern.pattern_match t [
     Pattern.(!(trm_for !__ (
-      trm_seq (mlist (!(trm_for !__ !__ !strict_loop_contract) ^:: nil)))
+      trm_seq (mlist (!(trm_for !__ !__ !strict_loop_contract) ^:: nil)) __)
       !strict_loop_contract))
     (fun outer_loop outer_range inner_loop inner_range body inner_contract outer_contract () ->
       let open Resource_contract in

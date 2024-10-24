@@ -36,9 +36,9 @@ let trm_add_mark (m : mark) (t : trm) : trm =
 let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
   if m = "" then t else
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
     let new_tl = Mlist.insert_mark_at index m tl in
-    trm_seq ~annot:t.annot ?loc:t.loc ~ctx:t.ctx new_tl
+    trm_seq ~annot:t.annot ?loc:t.loc ~ctx:t.ctx ?result new_tl
   | _ -> trm_fail t "Ast.trm_add_mark_between: expected a sequence"
 
 let trm_add_mark_span ({ start; stop }: Dir.span) (m: mark) (t: trm): trm =
@@ -62,16 +62,16 @@ let trm_remove_marks (pred: mark->bool) (t : trm) : trm =
   let res =
   match t.desc with
   (* In the case of sequences, special treatment is needed for in between marks*)
-  | Trm_seq tl -> trm_replace (Trm_seq (Mlist.filter_marks (fun m -> not (pred m)) tl)) t
+  | Trm_seq (tl, result) -> trm_replace (Trm_seq (Mlist.filter_marks (fun m -> not (pred m)) tl, result)) t
   | _ -> t in
   trm_filter_mark (fun m -> not (pred m)) res
 
 (** [trm_rem_mark_between m t]: removes the between mark [m] from trm [t] *)
 let trm_rem_mark_between (m : mark) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
     let new_tl = Mlist.remove_mark m tl in
-    trm_seq ~annot:t.annot ~ctx:t.ctx ?loc:t.loc new_tl
+    trm_seq ~annot:t.annot ~ctx:t.ctx ?loc:t.loc ?result new_tl
   | _ -> trm_fail t "Ast.trm_rem_mark_between: expected a sequence"
 
 let trm_rem_mark_span (m: mark) (t: trm): trm =
@@ -106,7 +106,7 @@ let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
    that mark m targets to *)
 let get_mark_index (m : mark) (t : trm) : int option =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
     List.fold_lefti (fun i acc ml ->
       match acc with
       | Some _ -> acc

@@ -61,8 +61,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           path_fail dl "apply_on_path: Dir_span should not remain at this stage; probably the transformation was not expecting a target-span (tSpan)"
        | Dir_array_nth n, Trm_array (ty, tl) ->
           { t with desc = Trm_array (ty, Mlist.update_nth n aux tl)}
-       | Dir_seq_nth n, Trm_seq tl ->
-          { t with desc = Trm_seq (Mlist.update_nth n aux tl) }
+       | Dir_seq_nth n, Trm_seq (tl, result) ->
+          { t with desc = Trm_seq (Mlist.update_nth n aux tl, result) }
        | Dir_struct_nth n, Trm_record (ty, tl) ->
           let aux (lb, t1) = (lb, aux t1) in
           { t with desc = Trm_record (ty, Mlist.update_nth n aux tl)}
@@ -94,8 +94,6 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_let (tx, body)}
        | Dir_let_body, Trm_let (tx, body) ->
           trm_replace (Trm_let (tx, aux body)) t
-       | Dir_body, Trm_let_fun (x, tx, txl, body, contract) ->
-          { t with desc = Trm_let_fun (x, tx, txl, aux body, contract)}
        | Dir_body, Trm_for (l_range, body, contract) ->
           { t with desc = Trm_for (l_range, aux body, contract) }
        | Dir_body, Trm_for_c (init, cond, step, body, contract) ->
@@ -128,7 +126,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_apps (f, List.update_nth n aux tl, gargs)}
        | Dir_ghost_arg_nth n, Trm_apps (f, tl, gargs) ->
           { t with desc = Trm_apps (f, tl, List.update_nth n aux_resource_item gargs)}
-       | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body, contract) ->
+       | Dir_arg_nth n, Trm_fun (txl, tx, body, contract) ->
           let txl' =
             List.update_nth n
               (fun (x1, tx) ->
@@ -141,20 +139,13 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               )
               txl
           in
-          trm_replace (Trm_let_fun (x, tx, txl', body, contract)) t
+          trm_replace (Trm_fun (txl', tx, body, contract)) t
         | Dir_name , Trm_let ((x,tx),body) ->
           let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
           | Trm_var x' -> { t with desc = Trm_let ((x', tx), body)}
           | _ -> (* trm_fail t *)
             path_fail dl "Path.apply_on_path: transformation must preserve variable names"
-          end
-       | Dir_name, Trm_let_fun (x, tx, txl, body, contract) ->
-          let t' = aux (trm_var ?loc:t.loc x) in
-          begin match t'.desc with
-          | Trm_var x' -> { t with desc = Trm_let_fun (x', tx, txl, body, contract)}
-          | _ ->
-            path_fail dl "Path.apply_on_path: transformation must preserve names(function)"
           end
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
           let updated_cases =
@@ -167,13 +158,13 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                )
                cases
             ) in trm_replace (Trm_switch (cond, updated_cases)) t
-        | Dir_record_field n, Trm_typedef td ->
+        | Dir_record_member n, Trm_typedef td ->
           begin match td.typedef_body with
           | Typedef_record rfl ->
             let updated_rfl =
               (List.update_nth n (fun (rf, rf_ann) ->
                 match rf with
-                | Record_field_method t1 -> (Record_field_method (aux t1), rf_ann )
+                | Record_method t1 -> (Record_method (aux t1), rf_ann )
                 | _ -> path_fail dl "Path.apply_on_path: expected a method."
               ) rfl )
               in
@@ -182,13 +173,6 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           end
         | Dir_namespace, Trm_namespace (name, body, inline) ->
           { t with desc = Trm_namespace (name, aux body, inline) }
-
-        | Dir_contract (Contract_pre, resource_set_dir, i), Trm_let_fun (v, vty, args, body, FunSpecContract contract) ->
-          let pre = apply_on_resource_set resource_set_dir i contract.pre in
-          trm_replace (Trm_let_fun (v, vty, args, body, FunSpecContract { contract with pre })) t
-        | Dir_contract (Contract_post, resource_set_dir, i), Trm_let_fun (v, vty, args, body, FunSpecContract contract) ->
-          let post = apply_on_resource_set resource_set_dir i contract.post in
-          trm_replace (Trm_let_fun (v, vty, args, body, FunSpecContract { contract with post })) t
 
         | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
           let pre = apply_on_resource_set resource_set_dir i contract.pre in
@@ -260,7 +244,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       begin match d, t.desc with
       | Dir_before _, _ -> trm_fail t "aux_on_path_rec: Dir_before should not remain at this stage"
       | Dir_span _, _ -> trm_fail t "aux_on_path_rec: Dir_span should not remain at this stage"
-      | Dir_seq_nth n, Trm_seq tl ->
+      | Dir_seq_nth n, Trm_seq (tl, result) ->
         let tl = Mlist.to_list tl in
         let decl_before (n : int) (tl : trm list) =
           List.fold_lefti
@@ -270,7 +254,6 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
                 else
                   match t.desc with
                   | Trm_let _ -> t :: acc
-                  | Trm_let_fun _ -> t :: acc
                   | Trm_typedef _ -> t :: acc
                   | _ -> acc) [] tl
           in
@@ -294,7 +277,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         aux then_t ctx
       | Dir_else, Trm_if (_, _, else_t) ->
         aux else_t ctx
-      | Dir_body, (Trm_let_fun (_, _, args, body, _) | Trm_fun (args, _, body, _)) ->
+      | Dir_body, Trm_fun (args, _, body, _) ->
         (* do as if fun args were heap allocated *)
         let args_decl =
           List.rev_map trm_let_mut_uninit args
@@ -336,11 +319,9 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         app_to_nth dl tl n (fun nth_t -> aux nth_t ctx)
       | Dir_ghost_arg_nth n, Trm_apps (_, _, gl) ->
         app_to_nth dl gl n (fun (_, nth_t) -> aux nth_t ctx)
-      | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
+      | Dir_arg_nth n, Trm_fun (arg, _, _, _) ->
         app_to_nth dl arg n
           (fun (x, typ) -> aux (trm_var ?loc ~typ x) ctx)
-      | Dir_name, Trm_let_fun (x, typ, _, _, _) ->
-        aux (trm_var ?loc ~typ x) ctx
       | Dir_name , Trm_let ((x,typ),_) ->
         aux (trm_var ?loc ~typ x) ctx
       | Dir_name, Trm_goto x ->
@@ -374,22 +355,18 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
             )
         | _ -> loc_fail loc "Path.resolving_path: direction"
         end
-      | Dir_record_field n, Trm_typedef td ->
+      | Dir_record_member n, Trm_typedef td ->
         begin match td.typedef_body with
         | Typedef_record rfl ->
           app_to_nth dl rfl n
             (fun (rf, rf_annt) -> match rf with
-              | Record_field_method t1 -> aux t1 ctx
+              | Record_method t1 -> aux t1 ctx
               | _ -> trm_fail t "Path.apply_on_path: expected a method.")
         | _ -> trm_fail t "Path.apply_on_path: transformation applied on the wrong typedef."
         end
       | Dir_namespace, Trm_namespace (name, body, inline) ->
         aux body ctx
 
-      | Dir_contract (Contract_pre, resource_set_dir, i), Trm_let_fun (v, vty, args, body, FunSpecContract contract) ->
-        aux_resource_set resource_set_dir i contract.pre
-      | Dir_contract (Contract_post, resource_set_dir, i), Trm_let_fun (v, vty, args, body, FunSpecContract contract) ->
-        aux_resource_set resource_set_dir i contract.post
       | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
         aux_resource_set resource_set_dir i contract.pre
       | Dir_contract (Contract_post, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
@@ -562,6 +539,7 @@ let add_marks_at_paths ?(prefix : path = []) (ps:path list) (t:trm) : trm * mark
 
 
 let find_surrounding_expr (p : path) (t : trm) : path =
+  (* FIXME: This implementation is stupidly expansive to compute *)
   let rec aux p =
     let pp = parent p in
     let pp_t = resolve_path pp t in

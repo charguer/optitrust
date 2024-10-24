@@ -39,7 +39,7 @@
   (* LATER: menhir should support "res[]" syntax *)
 
   (* LATER: !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
-           [step; cLabel "charge"; cFun "mybij"];
+           [step; cLabel "charge"; cCall "mybij"];
       instead use: sExpr "mybij(nbCorners, nbCells, indicesOfCorners(idCell2).v[k], k)"
        ARTHUR: simplify mybij calls in the sum *)
 
@@ -86,7 +86,7 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
 (* LATER: keep this code, it might be useful in the future
      let wrapPow_def = "int wrapPowersOfTwo(int gridSize, int a) {return a & (gridSize - 1);}" in
   !! Sequence.insert ~reparse:true (stmt wrapPow_def) [tBefore; step];
-  !! Function.inline [nbMulti; step; cFun "wrapPowersOfTwo"];*)
+  !! Function.inline [nbMulti; step; cCall "wrapPowersOfTwo"];*)
 
 
 (* LATER: the C standard parses

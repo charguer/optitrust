@@ -87,7 +87,7 @@ let%transfo local_name
       | _ -> trm_fail t (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
           target doesn't point to a write operation or a variable declaration \n'" (var_to_string v))
       end in
-      let dims = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
+      let dims = begin match Target.get_trm_at (tg1 @ [Target.cCall ~regexp:true ".ALLOC."]) with
         | Some at ->
           begin match Matrix_trm.alloc_inv at with
           | Some (dims, sz, zero_init) -> dims
@@ -346,8 +346,8 @@ let%transfo local_name_tile
 let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (labels : label list) (index : string) (ops : local_ops) (t : trm) : trm =
   let index = new_var index in
   match t.desc with
-  | Trm_seq tl ->
-    if Mlist.length tl < 5 then trm_fail t "Matrix_core.delocalize_aux: the targeted  sequence does not have the correct shape";
+  | Trm_seq (tl, None) ->
+    if Mlist.length tl < 5 then trm_fail t "Matrix_core.delocalize_aux: the targeted sequence does not have the correct shape";
     let add_labels = List.length labels = 3 in
     let decl = Mlist.nth tl 0 in
     begin match decl.desc with
@@ -372,7 +372,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                 let tg = [nbAny; cCellAccess ~base:[cVarId local_var] ()] in
                 let set_instr =
                 begin match body.desc with
-                | Trm_seq tl when Mlist.length tl = 1->
+                | Trm_seq (tl, None) when Mlist.length tl = 1->
                   Mlist.nth tl 0
                 | _ -> body
                 end in
@@ -623,7 +623,7 @@ let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =
   (!found, res_t)
 
 let intro_malloc0_on (mark_alloc : mark) (mark_free : mark) (x : var) (t : trm) : trm = begin
-  let instrs = trm_inv
+  let instrs, result = trm_inv
     ~error:"Matrix_basic.intro_malloc0_on: expected sequence"
     trm_seq_inv t
   in
@@ -656,7 +656,7 @@ let intro_malloc0_on (mark_alloc : mark) (mark_free : mark) (x : var) (t : trm) 
     ) instrs2 in
     let free_instr = trm_add_mark mark_free (Matrix_trm.free [] (trm_var x)) in
     let instrs4 = Mlist.insert_at (!last_use + 1) free_instr instrs3 in
-    trm_seq ~annot:t.annot instrs4
+    trm_seq ~annot:t.annot ?result instrs4
   | None -> trm_fail t "Matrix_basic.intro_malloc0_on: expected unintialized stack allocation"
 end
 
@@ -815,7 +815,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
       begin match trm_var_inv f with
       | Some v when v = var -> begin
         new_dims := List.update_nth dim (fun _ -> n) dims;
-        let new_indices = List.update_nth dim (fun i -> trm_mod i n) indices in
+        let new_indices = List.update_nth dim (fun i -> trm_trunc_mod i n) indices in
         Matrix_trm.access ~annot:t.annot f !new_dims new_indices
         end
       | _ -> trm_map update_accesses_and_alloc t

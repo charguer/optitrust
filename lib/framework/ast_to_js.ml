@@ -218,12 +218,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           (strquote "def-type", typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_let_mult _ -> [] (* TODO: *)
-    | Trm_let_fun (f, typ, xts, tbody, _) ->
-      [ kind_to_field "fun-def";
-            (strquote "name", strquote f.name); (* TODO: #var-id , also encode namespaces and id ? *)
-            (strquote "args", typed_var_list_to_json xts);
-            (strquote "return_type", typ_to_json typ);
-            children_to_field ([(child_to_json "body" (aux tbody))]) ]
     | Trm_typedef td ->
       [ kind_to_field "typdef";
         (strquote "name", strquote td.typedef_name.name); (* TODO: #var-id , also encode namespaces and id ? *)
@@ -235,10 +229,15 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             child_to_json "cond" (aux cond);
             child_to_json "then" (aux then_);
             child_to_json "else" (aux else_) ] ]
-    | Trm_seq l ->
+    | Trm_seq (l, None) ->
         let l = Mlist.to_list l in
         [ kind_to_field "seq";
           children_to_field (List.mapi ichild_to_json (List.map aux l))]
+    | Trm_seq (l, Some result) ->
+        let l = Mlist.to_list l in
+        [ kind_to_field "seq";
+          children_to_field (List.mapi ichild_to_json (List.map aux l));
+          (strquote "result", strquote result.name)]
     | Trm_apps (f,args,_) ->
         let args_children = List.mapi (ichild_to_json ~prefix:"_arg" ) (List.map aux args) in
         let children = (child_to_json "fun" (aux f)) :: args_children in
@@ -328,11 +327,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_using_directive nmspc ->
       [ kind_to_field "using namespace";
           value_to_field nmspc]
-    | Trm_fun (xfs, ty_opt, tbody, _) ->
-      let ret_ty_js = begin match ty_opt with | Some ty -> typ_to_json ty | None -> Json.str "" end in
+    | Trm_fun (xfs, ty, tbody, _) ->
       [ kind_to_field "lambda";
             (strquote "args", typed_var_list_to_json xfs);
-            (strquote "return_type", ret_ty_js);
+            (strquote "return_type", typ_to_json ty);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
 
 (** [ast_to_json trm_root]: converts a full ast to a Json object *)

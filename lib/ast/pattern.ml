@@ -43,9 +43,12 @@ let trm_let (var: 'a -> var -> 'b) (typ: 'b -> typ -> 'c) (body: 'c -> trm -> 'd
     k
   | None -> raise Next
 
-let trm_seq (fn: 'a -> trm mlist -> 'b) (k: 'a) (t: trm): 'b =
+let trm_seq (instrs: 'a -> trm mlist -> 'b) (result: 'b -> var option -> 'c) (k: 'a) (t: trm): 'c =
   match trm_seq_inv t with
-  | Some seq -> fn k seq
+  | Some (tinstrs, tresult) ->
+    let k = instrs k tinstrs in
+    let k = result k tresult in
+    k
   | None -> raise Next
 
 let trm_apps (fn: 'a -> trm -> 'b) (args: 'b -> trm list -> 'c) (ghost_args: 'c -> resource_item list -> 'd) (k: 'a) (t: trm): 'd =
@@ -110,8 +113,8 @@ let trm_fun_with_contract args body contract k t =
   | _ -> raise Next
 
 let trm_let_fun name ret args body spec k t =
-  match t.desc with
-  | Trm_let_fun (tname, tret, targs, tbody, tspec) ->
+  match trm_let_fun_inv t with
+  | Some (tname, tret, targs, tbody, tspec) ->
     let k = name k tname in
     let k = ret k tret in
     let k = args k targs in
@@ -151,6 +154,11 @@ let trm_record f k t =
   | Some fs -> f k fs
   | _ -> raise Next
 
+let trm_typedef f k t =
+  match trm_typedef_inv t with
+  | Some td -> f k td
+  | None -> raise Next
+
 let trm_unop unop ft k t =
   match trm_unop_inv unop t with
   | Some t0 -> ft k t0
@@ -172,12 +180,15 @@ let trm_compound_assign binop ft1 ft2 k t =
     k
   | None -> raise Next
 
+let trm_get f = trm_unop Unop_get f
 let trm_set ft1 ft2 = trm_binop Binop_set ft1 ft2
 
 let trm_add ft1 ft2 = trm_binop Binop_add ft1 ft2
 let trm_sub ft1 ft2 = trm_binop Binop_sub ft1 ft2
 let trm_mul ft1 ft2 = trm_binop Binop_mul ft1 ft2
-let trm_div ft1 ft2 = trm_binop Binop_div ft1 ft2
+let trm_exact_div ft1 ft2 = trm_binop Binop_exact_div ft1 ft2
+let trm_trunc_div ft1 ft2 = trm_binop Binop_trunc_div ft1 ft2
+let trm_trunc_mod ft1 ft2 = trm_binop Binop_trunc_mod ft1 ft2
 
 let trm_lt ft1 ft2 = trm_binop Binop_lt ft1 ft2
 let trm_le ft1 ft2 = trm_binop Binop_le ft1 ft2
@@ -242,12 +253,15 @@ let trm_struct_get fbase ffield k t =
 let trm_ref fty ft k t =
   match trm_ref_inv t with
   | Some (ty, t) ->
-    let k = ft k t in
     let k = fty k ty in
+    let k = ft k t in
     k
   | None -> raise Next
 
-let trm_get f = trm_unop Unop_get f
+let trm_ignore f k t =
+  match trm_ignore_inv t with
+  | Some t' -> f k t'
+  | None -> raise Next
 
 let typ_var = trm_var
 let typ_apps ft fargs k ty =

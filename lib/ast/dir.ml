@@ -58,7 +58,7 @@ type dir =
   (* enum_const: direction to constant in enum declaration *)
   | Dir_enum_const of int * enum_const_dir
   (* struct, class methods *)
-  | Dir_record_field of int
+  | Dir_record_member of int
   (* namespace *)
   | Dir_namespace
   (* contracts inside let_fun, for, for_c *)

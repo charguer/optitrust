@@ -13,6 +13,5 @@ let _ = Run.script_cpp  (fun _ ->
   !! Sequence_basic.insert (stmt "typedef vect myvect;") [tAfter; cTypDef "vect"];
   !! Sequence_basic.insert (stmt "int test () {return 0;}") [tAfter; cTypDef "vect"];
 
-  !! Sequence_basic.insert ~reparse:true (stmt "p++;") [nbMulti; tAfter; cTopFunDef "main"; cVarDef ""];
-
+  !! Sequence_basic.insert ~reparse:true (stmt "p++;") [nbMulti; tAfter; cTopFunBody "main"; cVarDef ""];
 )

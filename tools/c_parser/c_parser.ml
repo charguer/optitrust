@@ -102,7 +102,7 @@ let parse (filename: string) : unit =
     (* Parsing per se *)
     let header = get_c_includes filename in (* header contains include *)
     let ast = raw_parser filename in
-    let toplevel_seq = trm_inv trm_seq_inv ast in
+    let toplevel_seq, _ = trm_inv trm_seq_inv ast in
     let deps = Mlist.fold_left (fun deps instr ->
       match trm_include_inv instr with
       | Some filename -> filename :: deps

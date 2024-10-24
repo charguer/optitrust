@@ -54,6 +54,8 @@ matrix/delocalize
 apac/heapify
 apac/heapify_nested_seq
 apac/unfold_let_mult_const
+apac/use_goto_for_return
+apac/parallel_task_group
 variable/delocalize
 variable/delocalize_in_vars
 

@@ -123,4 +123,4 @@ let default_style () : output_style =
 let style_for_reparse () : output_style =
   { decode = true;
     typing = typing_annot;
-    print = Lang_C (Ast_to_c.style_for_reparse ()) }
+    print = Lang_C (Ast_to_c.style_for_reparse) }

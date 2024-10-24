@@ -27,7 +27,7 @@ let _ = Run.script_cpp (fun _ ->
 
     !! Function_basic.uninline ~fct:[cFunDef "iter_bag2"] [cLabel "bagbody2"];
     (* Test to undo the action of the unlining: *)
-      !! Function_basic.inline [cFun "iter_bag2"];
+      !! Function_basic.inline [cCall "iter_bag2"];
       !! Function_basic.beta [cTopFunDef "test_bag2"; cFor_c ""; dBody; cFun""];
 
 
@@ -38,7 +38,7 @@ let _ = Run.script_cpp (fun _ ->
        not currently check that the types in the pattern match the types in the term;
        thus, a "const int x" can match against an "int x", and this is an issue it seems *)
     (* Test to undo the action of the unlining: *)
-      !! Function_basic.inline [cFun "iter_bag"];
+      !! Function_basic.inline [cCall "iter_bag"];
       !! Function_basic.beta [cTopFunDef "test_bag"; cFor_c ""; dBody; cFun""];
       *)
 
@@ -190,7 +190,7 @@ Implementation:
 
 ----------------
 // Note in passing (for LATER)
-// here we may want to call  Function.bind_arg ["","?"] [cFun "iter_nat_for"]
+// here we may want to call  Function.bind_arg ["","?"] [cCall "iter_nat_for"]
 //   where the "?" means that we should guess a good name to use for the
 //   fresh variable; in case the argument is a trm_let_fun, we take the
 //   existing name from that function. we get:

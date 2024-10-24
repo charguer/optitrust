@@ -58,7 +58,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission_one ~split_between:true [ctx; cFor "idCorner"];
   !! Loop.unroll [nbMulti; ctx; cFor "idCorner"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
-  !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
+  !! Function.inline ~delete:true [nbMulti;cCall "matrix_vect_mul"];
 
   bigstep "Optimization in [cornerInterpolationCoeff] debug";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
@@ -81,14 +81,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   let tg = cOr [[steps]; [cTopFunDefReg "bag_push_.*"]] in
   !! List.iter (fun typ -> Record.set_explicit [nbMulti; tg; cWrite ~typ ()]) ["particle"; "vect"];
-  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
+  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cCall "wrapArea"];
   !! Variable.inline [nbMulti; step; cVarDefReg "[xyz]."];
 
   bigstep "Inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
-  !! Function.inline [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
-  !! Function.inline [step; cFun "accumulateChargeAtCorners"];
-  !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
-  !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
+  !! Function.inline [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cCall ~regexp:true "relativePos."];
+  !! Function.inline [step; cCall "accumulateChargeAtCorners"];
+  !! Function.inline ~vars:(AddSuffix "2") [step; cCall "idCellOfPos"];
+  !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cCall "cornerInterpolationCoeff"])
      stepsl;
   !! iter_dims (fun d -> Variable.reuse (var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
   !! Trace.reparse();
@@ -118,7 +118,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Record.to_variables [steps; cVarDef "fieldAtPos"];
   !! Variable.insert_list_same_type ~reparse:true (ty "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
       @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d))))) [tBefore; steps; cFor "idCell" ~body:[cFor "i"]];
-  !! Function.inline ~delete:true [steps; cFun "getFieldAtCorners"];
+  !! Function.inline ~delete:true [steps; cCall "getFieldAtCorners"];
   !! Variable.rename ~into:"field_at_corners" [step; cVarDef "res"];
   !! Record.set_explicit [steps; cFor "idCorner"; cCellWrite ~base:[cFieldRead ~base:[cVar "field_at_corners"] ()] ()];
   !! iter_dims (fun d ->
@@ -184,7 +184,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Simplify arithmetic expressions after shifting of positions";
   !! Rewrite.equiv_at ~ctx:true "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDefReg "p.2"; dVarInit];
   !! iter_dims (fun d ->
-      Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
+      Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cCall "fwrap";cReadVar ("cell"^d)];);
   !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "idCorner"] (fun () ->
        Arith.(simpl_rec expand) [nbMulti; stepsReal]);
   !! Variable.inline [stepsReal; cVarDefReg "r.."];
@@ -204,11 +204,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       return j + r;
     }" in
   !! Function.insert ~reparse:true fwrapInt [tBefore; step];
-  !! Expr.replace_fun "fwrapInt" [nbMulti; step; cFun "fwrap"];
+  !! Expr.replace_fun "fwrapInt" [nbMulti; step; cCall "fwrap"];
   !! iter_dims (fun d ->
-      Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
+      Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cCall "fwrapInt"]);
   if grid_dims_power_of_2 then
-    !! Rewrite.equiv_at ~ctx:true "int a, b; ==> wrap(a,b) == (b & (a -1))" [nbMulti; step; cFun "wrap"];
+    !! Rewrite.equiv_at ~ctx:true "int a, b; ==> wrap(a,b) == (b & (a -1))" [nbMulti; step; cCall "wrap"];
 
   bigstep "Simplification of computations for positions and destination cell";
   !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarInit ("i"^d^"2")];);
@@ -262,7 +262,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.reorder ~order:Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   (* TODO: Fix thes issue with label passing *)
   !! Label.add "core" [step; cFor "cX"];
-  !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
+  !! Expr.replace_fun "bag_push_concurrent" [step; cCall "bag_push"];
   !! Instr.set_atomic [step; cLabel "charge"; cWrite ()];
   !! Omp.parallel_for ~collapse:3 [step; cFor "bX"];
 
@@ -270,7 +270,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.header ();
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(ty "int") [tBefore; cVarDef "nbCells"];
   !! Omp.get_thread_num "idThread" [step; cFor "iX"];
-  !! Omp.set_num_threads ("nbThreads") [tFirst; cTopFunDef "main"; dBody];
+  !! Omp.set_num_threads ("nbThreads") [tFirst; cTopFunBody "main"];
   !! Trace.reparse();
 
   bigstep "Duplicate the charge of a corner for each of the threads";
@@ -288,11 +288,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
     ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
   !! Variable.insert_list_same_type (ty "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")] [tBefore; step];
-  !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
+  !! Instr.delete [step; cFor "idCell" ~body:[cCall "bag_swap"]];
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
-  !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
+  !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cCall ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
   !! Variable.insert ~typ:(ty "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
-  let pushop = cFun "bag_push_concurrent" in
+  let pushop = cCall "bag_push_concurrent" in
   let push_cond = trm_ands (map_dims (fun d ->
          expr ~vars:[d] "(co.i${0} >= b${0} - halfBlock && co.i${0} < b${0} + block + halfBlock)
                       || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock)
@@ -306,7 +306,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Trace.reparse();
 
   bigstep "Parallelize and optimize loops that process bags";
-  !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
+  !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cCall "bag_append"]];
   !! Omp.parallel_for [nbMulti;stepsReal; cFor "idCell"];
   !! Function.use_infix_ops ~indepth:true [step; dBody];
 
@@ -335,7 +335,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
                                          [step; cVarDef "idCell2_step"];
                                          [cStrict; cVarDef ~substr:true "deposit"]]];
   !! Record.align_field (lit "64") ("items.") [cTypDef "chunk"];
-  !! Function.inline [step; cFun "cellOfCoord"];
+  !! Function.inline [step; cCall "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
 
   bigstep "Function inlining on loops to be vectorized";

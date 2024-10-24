@@ -123,7 +123,7 @@ let parallel_task_group : target -> unit =
        corresponding AST term. *)
     let error =
     "Apac.parallel_task_group: expected a target to a function definition" in
-    let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv (
+    let (qvar, _, _, _, _) = trm_inv ~error trm_let_fun_inv (
       Target.resolve_path p
     ) in
     (* Transform the marked instruction sequence corresponding to the target

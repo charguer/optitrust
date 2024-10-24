@@ -340,8 +340,19 @@ and tr_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
   match s.desc with
   | Compound sl ->
-    let tl = List.map tr_stmt sl in
-    trm_seq_nomarks ?loc tl
+    let instrs = List.map tr_stmt sl in
+    let open Option in
+    let instrs, result, typ =
+      if instrs = [] then
+        [], None, None
+      else
+        let first_instrs, last_instr = List.unlast instrs in
+        begin match trm_var_inv last_instr with
+        | Some r -> first_instrs, Some r, last_instr.typ
+        | None -> instrs, None, None
+        end
+    in
+    trm_seq ?loc ?result ?typ (Mlist.of_list instrs)
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
     let tc = tr_expr c in
@@ -651,8 +662,12 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
       | AddAssign -> compound_assign Binop_add
       | SubAssign -> compound_assign Binop_sub
       | MulAssign -> compound_assign Binop_mul
-      | DivAssign -> compound_assign Binop_div
-      | RemAssign -> compound_assign Binop_mod
+      | DivAssign ->
+        if is_typ_float (find_binop_typ ()) then
+          compound_assign Binop_exact_div
+        else
+          compound_assign Binop_trunc_div
+      | RemAssign -> compound_assign Binop_trunc_mod
       | ShlAssign -> compound_assign Binop_shiftl
       | ShrAssign -> compound_assign Binop_shiftr
       | AndAssign -> compound_assign Binop_and
@@ -662,8 +677,12 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
       | Add -> arith_binop Binop_add
       | Sub -> arith_binop Binop_sub
       | Mul -> arith_binop Binop_mul
-      | Div -> arith_binop Binop_div
-      | Rem -> arith_binop Binop_mod
+      | Div ->
+        if is_typ_float (find_binop_typ ()) then
+          arith_binop Binop_exact_div
+        else
+          arith_binop Binop_trunc_div
+      | Rem -> arith_binop Binop_trunc_mod
       | And -> arith_binop Binop_bitwise_and
       | Or ->  arith_binop Binop_bitwise_or
       | Shl -> arith_binop Binop_shiftl
@@ -819,7 +838,7 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     let te = tr_expr e in
     trm_delete ?loc b te
   | Lambda {capture_default = ByRef; captures = _; is_mutable = _; parameters = po; result_type = rt; body = b} ->
-    let tt = begin match rt with | Some ty -> Some (tr_qual_type ?loc ty ) | None -> None end in
+    let tt = begin match rt with | Some ty -> tr_qual_type ?loc ty | None -> typ_auto end in
     let tb = tr_stmt b in
     let pl = match po with | Some pl -> pl | None -> [] in
     let args = List.map (fun {decoration = _;
@@ -853,12 +872,14 @@ and tr_expr ?(cast_typ: typ option) (e : expr) : trm =
     | _ -> loc_fail loc "Clang_to_astRawC.tr_expr: inheritance not yet supported."
     end
 
+  | StmtExpr stmt -> tr_stmt stmt
+
   | UnexposedExpr RecoveryExpr ->
-    loc_fail loc "Clang_to_astRawC.tr_expr: parsing failure"
+    loc_fail loc "Clang_to_ast.tr_expr: parsing failure"
 
   | _ ->
     loc_fail loc
-      ("Clang_to_astRawC.tr_expr: the following expression is unsupported: " ^
+      ("Clang_to_ast.tr_expr: the following expression is unsupported: " ^
        Clang.Expr.show e)
 
 (** [tr_attribute loc a]: translates an attribute [a] to an OptiTrust attribute *)
@@ -891,7 +912,7 @@ and tr_decl_list (dl : decl list) : trms =
             let ft = tr_qual_type ?loc q in
             let al = List.map (tr_attribute loc) al in
             let ty = {ft with annot = { ft.annot with trm_annot_attributes = al } } in
-            (Record_field_member (fn, ty), Access_unspecified)
+            (Record_field (fn, ty), Access_unspecified)
           | _ ->
             Tools.debug "Failing from here";
             loc_fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in struct declaration"
@@ -1155,16 +1176,16 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       let ft = tr_qual_type ?loc q in
       let al = List.map (tr_attribute loc) al in
       let ty = { ft with annot = { ft.annot with trm_annot_attributes = al } } in
-      acc @ [(Record_field_member (fn, ty), !access_spec)]
+      acc @ [(Record_field (fn, ty), !access_spec)]
     | {decoration = _; desc = CXXMethod _; _} ->
       let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_field_method tdl, !access_spec)]
+      acc @ [(Record_method tdl, !access_spec)]
     | {decoration = _; desc = Constructor _; _} ->
       let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_field_method tdl, !access_spec)]
+      acc @ [(Record_method tdl, !access_spec)]
     | {decoration = _; desc = Destructor _; _} ->
       let tdl = tr_decl ~in_class_decl d in
-      acc @ [(Record_field_method tdl, !access_spec)]
+      acc @ [(Record_method tdl, !access_spec)]
     | {decoration = _; desc = AccessSpecifier (spec); _} ->
       begin match spec with
       | CXXPublic -> access_spec := Access_public; acc

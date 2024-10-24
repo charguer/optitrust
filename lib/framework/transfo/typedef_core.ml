@@ -6,9 +6,9 @@ open Target
                  on all the trms that belong to the same sequence as typedef,
        [index] - index of the typedef on its surrounding sequence,
        [t] - ast of the sequence that contains the targeted typedef. *)
-let fold_at (fold_at : target) (index : int) (t : trm) : trm=
+let fold_at (fold_at : target) (index : int) (t : trm) : trm =
   let error = "Typedef_core.fold_at: expected the surrounding sequence." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let f_update (t : trm) : trm = t in
   let f_update_further (t : trm) : trm =
     let d = Mlist.nth tl index in
@@ -25,7 +25,7 @@ let fold_at (fold_at : target) (index : int) (t : trm) : trm=
 
   Internal.change_typ ~change_at:[fold_at] dx ty_x t in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-  trm_seq ~annot:t.annot new_tl
+  trm_seq ~annot:t.annot ?result new_tl
 
 (** [unfold_at unfold_at]: replaces occurrences of the defined type with its underlying type,
       [delete] - a flag for deciding if we should delete or not the typedef declaration,
@@ -34,7 +34,7 @@ let fold_at (fold_at : target) (index : int) (t : trm) : trm=
       [t] - ast of the sequence that contains the targeted typedef. *)
 let unfold_at (delete : bool) (unfold_at : target) (index : int) (t : trm) : trm =
   let error = "Typedef_core.unfold_at: expected the surrounding sequence." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let f_update (t : trm) : trm = t in
   let f_update_further (t : trm) : trm =
     let d = Mlist.nth tl index in
@@ -50,7 +50,7 @@ let unfold_at (delete : bool) (unfold_at : target) (index : int) (t : trm) : trm
     | _ -> trm_fail d "Typedef_core.unfold_at: expected a typdef_alias"
     end in Internal.change_typ ~change_at:[unfold_at] ty_x dx t in
   let new_tl = Mlist.update_at_index_and_fix_beyond ~delete index f_update f_update_further tl in
-  trm_seq ~annot:t.annot new_tl
+  trm_seq ~annot:t.annot ?result new_tl
 
 (** [insert_copy_of name index t]: creates a copy of the targeted typedef
       [name] - new typ name
@@ -67,7 +67,7 @@ let insert_copy_of (name : string) (t : trm) : trm =
       [index] - location where the typedef should be inserted inside a sequence. *)
 let insert_at (name : string) (td_body : typedef_body) (index : int) (t : trm) : trm =
   let error = "Typedef_core.insert_at: expected the surrounding sequence." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let trm_to_insert = trm_typedef {typedef_name = name_to_typvar name; typedef_body = td_body } in
   let new_tl = Mlist.insert_at index trm_to_insert tl in
-  trm_seq ~annot:t.annot new_tl
+  trm_seq ~annot:t.annot ?result new_tl

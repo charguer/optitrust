@@ -16,12 +16,12 @@ let enter () =
 
 let current () =
   match !ids with
-  | [] ->  failwith "current:empty list"
+  | [] ->  failwith "Nobrace.current: forgot to wrap the transformation using Nobrace sequences with Nobrace_transfo.remove_after"
   | id :: _rest -> id
 
 let exit () =
   match !ids with
-  | [] -> failwith "exit: empty list"
+  | [] -> failwith "Nobrace.exit: badly scoped Nobrace context"
   | id :: rest ->
       ids := rest;
       id
@@ -51,26 +51,31 @@ let get_id (t : trm) : int option =
   end in
   aux t.annot.trm_annot_cstyle
 
-(** [set_if_sequence t]: convert a normal sequence into a hidden sequence *)
-let set_if_sequence (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl1 -> trm_seq tl1
-  | _-> t
-
 (** [is_nobrace t]: check if the current sequence is a hidden sequence or not *)
 let is_nobrace (t : trm) : bool =
   List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
 
-(** [remove_if_sequence t]: converts a hidden sequence to a normal one *)
-let remove_if_sequence (t : trm) : trm =
+(** [mark t]: convert a normal sequence into a hidden sequence *)
+let mark (t : trm) : trm =
+  match t.desc with
+  | Trm_seq (tl1, None) -> trm_seq tl1
+  | Trm_seq (_, Some _) -> failwith "Only sequences without return value can be marked with Nobrace"
+  | _ -> t (* Maybe we should error on this and be more strict about sequence inside Trm_if *)
+
+(** [unmark t]: converts a hidden sequence to a normal one *)
+let unmark (t : trm) : trm =
   trm_filter_cstyle (function No_braces _ -> false | _ -> true) t
+
+let set_mark (nobraces: bool) (t: trm) : trm =
+  if nobraces then mark t else unmark t
 
 (** [flatten_seq]: flatten inside [tl] the sequences with annotation [No_braces id] *)
 let flatten_seq (id: int) (tl: trm Mlist.t): trm Mlist.t =
   Mlist.concat_map (fun ti ->
     match get_id ti with
     | Some c_i when c_i = id ->
-      let tl = trm_inv ~error:"expected an ast node which taks a mlist as parameter" trm_seq_inv ti in
+      let tl, result = trm_inv ~error:"expected an ast node which taks a mlist as parameter" trm_seq_inv ti in
+      if Option.is_some result then failwith "a sequence with a return value has a Nobrace mark, but this is unsupported";
       tl
     | _ -> Mlist.of_list [ti]
   ) tl
@@ -80,10 +85,10 @@ let flatten_seq (id: int) (tl: trm Mlist.t): trm Mlist.t =
 let clean_all_seq (id : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_seq tl ->
+    | Trm_seq (tl, result) ->
       let tl = Mlist.map aux tl in
       let tl = flatten_seq id tl in
-      trm_replace (Trm_seq tl) t
+      trm_replace (Trm_seq (tl, result)) t
     | _ -> Trm.trm_map aux t
   in aux t
 

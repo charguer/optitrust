@@ -241,12 +241,12 @@ let%transfo renames (rename : rename) (tg : target) : unit =
   Target.iter (fun p ->
     let tg_trm = Target.resolve_path p in
     match tg_trm.desc with
-    | Trm_seq tl ->
+    | Trm_seq (tl, _) ->
       let decl_vars = List.map decl_name (Mlist.to_list tl) in
       let decl_vars = List.filter_map (fun d -> d) decl_vars in
       let new_decl_vars = begin match rename with
       | AddSuffix s ->
-        List.map (fun d -> d.name ^ s) decl_vars
+        List.map (fun d -> if d.name = "__res" then "__res" else d.name ^ s) decl_vars
       | Renamefn g ->
         List.map (fun d -> g d.name) decl_vars
       | ByList l ->
@@ -255,10 +255,9 @@ let%transfo renames (rename : rename) (tg : target) : unit =
           | Some d1 -> d1
           | _ -> d.name
           end) decl_vars
-
       end in
       List.iter2 (fun d into -> Variable_basic.rename ~into ((target_of_path p) @  [cVarDef d.name])) decl_vars new_decl_vars
-    | _ -> trm_fail tg_trm "Variable.renames: the target should be pointing at a sequence" ) tg
+    | _ -> trm_fail tg_trm "Variable.renames: the target should be pointing at a sequence") tg
 
 let default_unfold_simpl (tg : target) : unit =
   Record_basic.simpl_proj [nbAny; cFieldAccess ~base:tg ()]
@@ -423,7 +422,7 @@ let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
       if source = []
       then
         begin match seq_trm.desc with
-        | Trm_seq tl ->
+        | Trm_seq (tl, _) ->
           Mlist.iteri (fun i t1 ->
             if i >= index then ()
             else

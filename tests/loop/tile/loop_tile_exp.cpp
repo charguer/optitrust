@@ -24,7 +24,7 @@ void f() {
   int t1 = 0;
   int t2 = 0;
   int t3 = 0;
-  for (int bi = 0; bi < exact_div((12 / 3), 2); bi++) {
+  for (int bi = 0; bi < exact_div(12 / 3, 2); bi++) {
     for (int i = 0; i < 2; i++) {
       t1 += (bi * 2 + i) * 3;
     }

@@ -52,9 +52,9 @@ arith_factor:
   | a=arith_factor; STAR; b=atomic_formula;
     { trm_mul a b }
   | a=arith_factor; SLASH; b=atomic_formula;
-    { trm_div a b }
+    { trm_trunc_div a b }
   | a=arith_factor; PERCENT; b=atomic_formula;
-    { trm_mod a b }
+    { trm_trunc_mod a b }
   | a=atomic_formula;
     { a }
 
@@ -96,9 +96,9 @@ formula:
   | t=atomic_formula; SQUIG_ARROW; f=atomic_formula;
     { formula_model t f }
   | FUN; args=separated_nonempty_list(COMMA, IDENT); ARROW; body=formula;
-    { trm_fun ~annot:formula_annot (List.map (fun x -> name_to_var x, typ_auto) args) None body }
+    { trm_fun ~annot:formula_annot (List.map (fun x -> name_to_var x, typ_auto) args) typ_auto body }
   | FOR; index=IDENT; IN; range=formula_cmp; ARROW; body=formula;
-    { trm_apps ~annot:formula_annot trm_group [range; trm_fun ~annot:formula_annot [name_to_var index, typ_int] None body] }
+    { trm_apps ~annot:formula_annot trm_group [range; trm_fun ~annot:formula_annot [name_to_var index, typ_int] typ_auto body] }
 
 resource:
   | f=formula

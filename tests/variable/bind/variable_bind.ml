@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  !! Variable_basic.bind "a" ~const:true [cFunDef "test"; cReturn; cArrayInit];
+  !! Variable_basic.bind "a" ~const:true [cFunDef "test"; cReturn (); cArrayInit];
   !! Variable_basic.bind "b" [cVarDef "arr"; cArrayInit];
 
   (* FIXME:
@@ -13,5 +13,5 @@ let _ = Run.script_cpp (fun _ ->
   show [cAccesses ~base:[cStrict; cCellAccess ~base:[cVar "arr"] ()] ()];*)
   !! Variable_basic.bind "a0" [nbMulti; cRead ~addr:[cCellAccess ~base:[cVar "arr"] ()] ()];
 
-  !! Variable_basic.bind "z" [cFun "pointer_arg"; dArg 0];
+  !! Variable_basic.bind "z" [cCall "pointer_arg"; dArg 0];
 )

@@ -88,9 +88,9 @@ and print_binop (op : binary_op) : document =
   | Binop_sub -> string "Binop_sub"
   | Binop_add -> string "Binop_add"
   | Binop_mul -> string "Binop_mul"
-  | Binop_mod -> string "Binop_mod"
-  | Binop_div -> string "Binop_div"
   | Binop_exact_div -> string "Binop_exact_div"
+  | Binop_trunc_div -> string "Binop_trunc_div"
+  | Binop_trunc_mod -> string "Binop_trunc_mod"
   | Binop_le -> string "Binop_le"
   | Binop_lt -> string "Binop_lt"
   | Binop_ge -> string "Binop_ge"
@@ -196,16 +196,6 @@ and print_trm_desc style (t : trm_desc) : document =
     let dtl = List.map (fun ((x, ty), t) ->
       parens (parens (print_var style x ^^ comma ^^ print_typ style ty) ^^ comma ^^ print_trm style t)) bs in
     print_node "Trm_let_mult" ^^ parens (print_list dtl)
-  | Trm_let_fun (f, r, tvl, b, _) ->
-    let dout = print_typ style r in
-    let dtvl = List.map(function (x,tx) ->
-          let dtx = print_typ style tx in
-          print_pair (print_var style x) dtx) tvl in
-    let dt = print_trm style b in
-    let fd = print_var style f in
-    print_node "Trm_let_fun" ^^
-      parens (separate (comma ^^ break 1)
-        [fd; dout; print_list dtvl; dt])
   | Trm_typedef td ->
     print_node "Trm_typedef" ^^ print_typedef style td
   | Trm_if (c, t, e) ->
@@ -213,9 +203,10 @@ and print_trm_desc style (t : trm_desc) : document =
      let dt = print_trm style t in
      let de = print_trm style e in
      print_node "Trm_if" ^^ parens (separate (comma ^^ break 1) [dc; dt; de])
-  | Trm_seq tl ->
+  | Trm_seq (tl, res) ->
      let dtl = List.map (print_trm style) (Mlist.to_list tl) in
-     print_node "Trm_seq" ^^ print_list dtl
+     let dres = Option.map_or (fun x -> print_var style x) empty res in
+     print_node "Trm_seq" ^^ print_list dtl ^^ dres
   | Trm_apps (f, tl, _) ->
      let df = print_trm style f in
      let dtl = List.map (print_trm style) tl in
@@ -303,8 +294,8 @@ and print_trm_desc style (t : trm_desc) : document =
       print_var style name) template_params in
     print_node "Trm_template" ^^  print_list template_params ^^ break 1 ^^ print_trm style t
   | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
-  | Trm_fun (tvl , ty_opt, b, _) ->
-    let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ style ty | None -> string "None" end in
+  | Trm_fun (tvl, ty, b, _) ->
+    let dtout = print_typ style ty in
     let dtvl = List.map(function (x,tx) ->
           let dtx = print_typ style tx in
           print_pair (print_var style x) dtx) tvl in
@@ -327,15 +318,15 @@ and print_typedef_body style (tdbody : typedef_body) : document =
     let dt = print_typ style t in
     print_node "Typedef_alias" ^^ parens dt
   | Typedef_record rfl ->
-    let get_document_list (rfl : record_fields) : document list =
+    let get_document_list (rfl : record_members) : document list =
       let rec aux acc = function
       | [] -> acc
       | (rf, _) :: tl ->
         begin match rf with
-        | Record_field_member (lb, ty) ->
+        | Record_field (lb, ty) ->
           let dt = print_typ style ty in
           aux (print_pair (string lb) dt :: acc) tl
-        | Record_field_method t1 ->
+        | Record_method t1 ->
           let dt = print_trm style t1 in
           aux (dt :: acc) tl
         end
@@ -476,6 +467,7 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Method_call -> string "Method_call"
  | Implicit_this -> string "Implicit_this"
  | Typ_arguments tyl -> string "Typ_arguments " ^^ list_to_doc ~bounds:[langle; rangle] (List.map (print_typ style) tyl)
+ | Closure -> string "Closure"
  | Implicit_constructor -> string "Implicit_constructor"
  | Explicit_constructor -> string "Explicit_constructor"
  | Default_constructor -> string "Default_constructor"

@@ -6,11 +6,11 @@ open Prelude
      [t] - ast of the surrounding sequence of the targeted instruction. *)
 let copy_at (mark_copy : mark) (dest_index : int) (index : int) (t: trm) : trm =
   let error = "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let instr_to_copy = trm_add_mark mark_copy (Mlist.nth tl index) in
   let instr_to_copy = trm_copy instr_to_copy in
   let new_tl = Mlist.insert_at dest_index instr_to_copy tl in
-  trm_seq ~annot:t.annot new_tl
+  trm_seq ~annot:t.annot ?result new_tl
 
 
 (** [move_at dest_index index t]: moves instruction at [index] to the [dest_index],
@@ -19,12 +19,12 @@ let copy_at (mark_copy : mark) (dest_index : int) (index : int) (t: trm) : trm =
      [t] - ast of the surrounding sequence of the targeted instruction. *)
 let move_at (dest_index: int) (index: int) (t: trm): trm =
   let error = "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions." in
-  let tl = trm_inv ~error trm_seq_inv t in
+  let tl, result = trm_inv ~error trm_seq_inv t in
   let instr_to_copy = Mlist.nth tl index in
   let index_to_remove = if dest_index <= index then index + 1 else index in
   let new_tl = Mlist.insert_at dest_index instr_to_copy tl in
   let new_tl = Mlist.remove index_to_remove 1 new_tl in
-  trm_seq ~annot:t.annot new_tl
+  trm_seq ~annot:t.annot ?result new_tl
 
 
 (** [accumulate_on t]: transform a list of write instructions into a single instruction,
@@ -32,7 +32,8 @@ let move_at (dest_index: int) (index: int) (t: trm): trm =
 (* LATER: Factorize me! *)
 let accumulate_on (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
+    if Option.is_some result then trm_fail t "Instr_core.accumulate_on: expected a sequence without return value";
     let nb_instr = Mlist.length tl in
     if nb_instr < 2 then trm_fail t "Instr_core.accumulate_on: expected at least two instructions";
     let is_infix_op = ref false in

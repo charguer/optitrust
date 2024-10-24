@@ -7,11 +7,9 @@ int main() {
   int u = 2;
   int y = 1;
   int z = 5;
-  int s0 = 0;
-  int s01 = 1;
-  for (int s1 = 0; s1 < 2; s1++) {
-    { int s1 = 0; }
-    x = s1;
-  }
+  42;
+  int c = 2;
+  const int k = 5;
+  c += 3 * (k * k);
   return 0;
 }

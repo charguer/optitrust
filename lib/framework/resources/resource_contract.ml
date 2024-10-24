@@ -63,7 +63,7 @@ type contract_clause = contract_clause_type * contract_resource_item*)
 (** {!trm_copy} for fun contracts. *)
 let fun_contract_copy (contract : fun_contract) : fun_contract =
   let (_, _, _, spec) =
-    trm_fun ~contract:(FunSpecContract contract) [] None (trm_seq_nomarks [])
+    trm_fun ~contract:(FunSpecContract contract) [] typ_auto (trm_seq_nomarks [])
     |> trm_copy
     |> trm_fun_inv |> Option.unsome
   in
@@ -164,7 +164,7 @@ let contract_outside_loop range contract =
 let parallel_reads_inside_loop range par_reads =
   List.map (fun (x, formula) ->
       let { frac; formula } = formula_read_only_inv_all formula in
-      (x, formula_read_only ~frac:(trm_div frac (formula_range_count (formula_loop_range range))) formula)
+      (x, formula_read_only ~frac:(trm_trunc_div frac (formula_range_count (formula_loop_range range))) formula)
     ) par_reads
 
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
@@ -222,7 +222,7 @@ let trm_specialized_ghost_closure ?(remove_contract = false) (ghost_call: trm) =
       let subst = List.fold_left (fun subst (g, t) -> Var_map.add g t subst) Var_map.empty ghost_args in
       let body = trm_subst subst ghost_body in
       let contract = if remove_contract then FunSpecUnknown else FunSpecContract (specialize_contract contract subst) in
-      trm_fun [] None body ~contract
+      trm_fun [] typ_auto body ~contract
     );
     Pattern.(trm_apps !__ nil nil) (fun ghost_fn () -> ghost_fn);
     Pattern.(trm_apps !__ nil !__) (fun ghost_fn ghost_args () ->

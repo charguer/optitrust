@@ -23,7 +23,7 @@ let rec fission_rec (next_mark : unit -> mark) (nest_of : int) (m_interstice : m
     (* Apply fission in innermost loop *)
     let p_interstice = Target.resolve_mark_exactly_one m_interstice in
     let (p_loop_body, i) = Path.extract_last_dir_before p_interstice in
-    let loop_body_instrs = trm_inv ~error:"expected seq" trm_seq_inv (Target.resolve_path p_loop_body) in
+    let loop_body_instrs, _ = trm_inv ~error:"expected seq" trm_seq_inv (Target.resolve_path p_loop_body) in
 
     let p_loop = Path.parent_with_dir p_loop_body Dir_body in
     let (_, p_outer_seq) = Path.index_in_seq p_loop in
@@ -120,7 +120,7 @@ let%transfo hoist_alloc_loop_list
       Matrix_basic.intro_malloc0 ~mark_alloc ~mark_free x (target_of_path seq_path);
     end else begin
       Marks.add mark_alloc (target_of_path p);
-      Marks.add mark_free [cFun ~args:((List.init !dim_count (fun _ -> [])) @ [[cVarId x]]) (sprintf "MFREE%d" !dim_count)];
+      Marks.add mark_free [cCall ~args:((List.init !dim_count (fun _ -> [])) @ [[cVarId x]]) (sprintf "MFREE%d" !dim_count)];
     end
   in
   let simpl_hoist_tmp_var () : unit =
@@ -1055,7 +1055,7 @@ let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (
     ) tg;
   if !nb_targets < 1 then failwith "Loop.fold_instrs: expected at least 1 instruction";
   fold ~index ~start ~step !nb_targets first_target;
-  Variable.fold ~nonconst:true [nbAny;cVarDef "" ~body:[cInt !nb_targets]]
+  Variable.fold ~nonconst:true [nbAny; cVarDef "" ~body:[cStrictNew; cInt !nb_targets]]
 
 (** [unroll_first_iterations nb tg]: expects the target [tg] to be pointing at a simple loop;
    it extracts the sequences associated with the [nb] first iterations before loop.
@@ -1124,7 +1124,7 @@ let%transfo change_iter ~src:(it_fun : var) ~dst:(loop_fun : var) (tg : target) 
     Marks.add mark (target_of_path p);
     let mark_tg = cMark mark in
     Function.uninline ~f:[cTopFunDef it_fun.name] tg_instr;
-    Expr.replace_fun ~inline:true loop_fun [mark_tg; cFun it_fun.name];
+    Expr.replace_fun ~inline:true loop_fun [mark_tg; cCall it_fun.name];
     Function.beta ~indepth:true [mark_tg];
     Marks.remove mark [cMark mark]
   ) tg
@@ -1250,7 +1250,7 @@ let%transfo delete_all_void (tg : target) : unit =
   Target.iter (fun p ->
     Target.apply_at_path (trm_bottom_up (fun t ->
       match trm_seq_inv t with
-      | Some instrs ->
+      | Some (instrs, None) ->
         let res_t = ref t in
         for i = (Mlist.length instrs) - 1 downto 0 do
           match Loop_basic.delete_void_on i !res_t with
@@ -1258,7 +1258,7 @@ let%transfo delete_all_void (tg : target) : unit =
           | None -> ()
         done;
         !res_t
-      | None -> t
+      | _ -> t
     )) p
   ) tg
 

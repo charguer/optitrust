@@ -21,34 +21,33 @@ int k(int a, int b) { return a + b; }
 
 void test_fun() {
   int x = 3;
-  int y;
-  /*@bodyf*/ {
+  int y = /*@bodyf*/ ({
     int a = x + x;
-    y = a + a;
-  } /*bodyf@*/
-
-  int z;
-  if (x > 0)
-    z = 1;
-  else
-    z = 2;
-
-  int u;
-  /*@bodyh*/ {
+    const int __res = a + a;
+    __res;
+  }) /*bodyf@*/;
+  int z = ({
+    const int __res = x > 0 ? 1 : 2;
+    __res;
+  });
+  int u = /*@bodyh*/ ({
+    int res;
     if (x > 0) /*no-brace*/ {
-      u = 1;
-    goto exit_body;
+      res = 1;
+      goto exit;
     }
-    u = 2;
-  } /*bodyh@*/
-exit_body:;
+    res = 2;
+  exit:;
+    const int __res = res;
+    __res;
+  }) /*bodyh@*/;
   int* q;
-  (*q)++;
-
+  { (*q)++; }
   int result;
   result = 10;
-  int;
-  /*@bodyk*/ { result + /*@substk*/ 4 /*substk@*/; } /*bodyk@*/
+  result = /*@bodyk*/ { const int __res = result + /*@substk*/ 4 /*substk@*/;
+  __res;
+} /*bodyk@*/;
 }
 
 class Test_method_inline {

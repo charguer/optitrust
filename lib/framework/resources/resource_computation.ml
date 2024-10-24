@@ -49,8 +49,9 @@ module Resource_primitives = struct
     | Binop_add -> "__add"
     | Binop_sub -> "__sub"
     | Binop_mul -> "__mul"
-    | Binop_div -> "__div"
-    | Binop_mod -> "__mod"
+    | Binop_exact_div -> "__exact_div"
+    | Binop_trunc_div -> "__div"
+    | Binop_trunc_mod -> "__mod"
     | Binop_array_access -> "__array_access"
     | Binop_set -> "__set"
     | Binop_eq -> "__eq"
@@ -146,10 +147,10 @@ let arith_goal_solver ((x, formula): resource_item) (evar_ctx: unification_ctx):
   let formula = trm_subst subst_ctx formula in
   let arith_solved = Pattern.pattern_match formula [
     Pattern.(trm_apps2 (trm_var (var_eq var_in_range)) !__ (formula_range !__ !__ !__)) (fun index start stop step () ->
-      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_mod index step) (trm_int 0))
+      Arith_core.(check_geq index start && check_lt index stop && check_eq (trm_trunc_mod index step) (trm_int 0))
     );
     Pattern.(trm_apps2 (trm_var (var_eq var_is_subrange)) (formula_range !__ !__ !__) (formula_range !__ !__ !__)) (fun sub_start sub_stop sub_step start stop step () ->
-      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_mod sub_step step) (trm_int 0))
+      Arith_core.(check_geq sub_start start && check_leq sub_stop stop && check_eq (trm_trunc_mod sub_step step) (trm_int 0))
     );
     Pattern.(trm_apps2 (trm_var (var_eq var_is_eq)) !__ !__) (fun t1 t2 () -> Arith_core.check_eq t1 t2);
     Pattern.(trm_apps2 (trm_var (var_eq var_is_neq)) !__ !__) (fun t1 t2 () -> Arith_core.check_neq t1 t2);
@@ -436,7 +437,8 @@ let rec frac_to_quotient (frac: formula) =
       in
       { removed_quot with num }
     );
-    Pattern.(trm_div !__ (trm_int !__)) (fun base_frac den () ->
+    (* FIXME: The division for fractions should be another operation *)
+    Pattern.(trm_trunc_div !__ (trm_int !__)) (fun base_frac den () ->
       { base = base_frac; num = 1; den = den }
     );
     Pattern.__ (fun () ->
@@ -1040,11 +1042,6 @@ let rec compute_resources
     | Trm_lit _ -> (Some Var_map.empty, Some res)
     | Trm_prim _ -> (Some Var_map.empty, Some res)
 
-    (* [let_fun f ... = ... types like [let f = fun ... -> ...] *)
-    | Trm_let_fun (name, ret_type, args, body, contract) ->
-      (* TODO: Remove trm_let_fun *)
-      compute_resources (Some res) (trm_let ~annot:referent (name, typ_auto) (trm_fun ~annot:referent args (Some ret_type) body ~contract))
-
     (* Defining a function is pure by itself, we check that the body satisfies the contract.
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
     | Trm_fun (args, ret_type, body, contract) ->
@@ -1081,7 +1078,7 @@ let rec compute_resources
 
     (* Transitively compute resources through all sequence instructions.
        At the end of the sequence, take into account that all stack allocations are freed. *)
-    | Trm_seq instrs ->
+    | Trm_seq (instrs, result) ->
       let instrs = Mlist.to_list instrs in
       let usage_map, res = List.fold_left (fun (usage_map, res) inst ->
           compute_resources_and_merge_usage res usage_map inst)
@@ -1447,7 +1444,7 @@ and compute_resources_and_merge_usage
 
 
 let rec trm_deep_copy (t: trm) : trm =
-  let t = trm_map_with_terminal ~share_if_no_change:false false (fun _ ti -> trm_deep_copy ti) t in
+  let t = trm_map ~share_if_no_change:false trm_deep_copy t in
   t.ctx <- unknown_ctx (); (* LATER *)
   t
 

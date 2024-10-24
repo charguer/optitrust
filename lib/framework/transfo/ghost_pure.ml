@@ -6,7 +6,7 @@ let is_pure_ghost_call (t: trm): bool =
 (** Moves all pure ghosts upwards, starting from upmost ones. *)
 let move_all_upwards_in (seq : trm) : trm =
   let error = "Ghost.move_all_pure_upwards: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, _ = trm_inv ~error trm_seq_inv seq in
   let pures = ref [] in
   Mlist.iteri (fun i instr ->
     if is_pure_ghost_call instr then
@@ -28,7 +28,7 @@ let%transfo move_all_upwards (tg: target): unit =
     instantiation, remove them *)
 let minimize_all_in (seq : trm) : trm =
   let error = "expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, _ = trm_inv ~error trm_seq_inv seq in
   let pures_rev = ref [] in
   Mlist.iteri (fun i instr ->
     if is_pure_ghost_call instr && not (Resource_trm.is_ghost_alias instr) then
@@ -46,7 +46,7 @@ let minimize_all_in (seq : trm) : trm =
       match post_inst_usage with
       | None -> false (* LATER: Should we move out of the sequence in this case ? *)
       | Some post_inst_usage ->
-        let instrs = trm_inv trm_seq_inv seq in
+        let instrs, _ = trm_inv trm_seq_inv seq in
         if desired_pos <> Mlist.length instrs then
           false
         else
@@ -68,7 +68,7 @@ let%transfo minimize_all_in_seq (tg: target): unit =
 
 let fission_at (mark_between: mark) (split_i: int) (seq: trm) : trm =
   let error = "Ghost_pair.fission_at: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, result = trm_inv ~error trm_seq_inv seq in
   let tl1, tl2 = Mlist.split split_i instrs in
 
   let pure_ghosts1 = List.filter_map (fun instr ->
@@ -76,7 +76,7 @@ let fission_at (mark_between: mark) (split_i: int) (seq: trm) : trm =
       Some (trm_copy instr)
     else
       None) (Mlist.to_list tl1) in
-  trm_like ~old:seq (trm_seq_helper [TrmMlist tl1; Mark mark_between; TrmList pure_ghosts1; TrmMlist tl2])
+  trm_like ~old:seq (trm_seq_helper ?result [TrmMlist tl1; Mark mark_between; TrmList pure_ghosts1; TrmMlist tl2])
 
 (** Duplicates the pure ghosts at the targeted sequence interstice, to remove dependencies between the two parts of the sequence. *)
 let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
@@ -89,7 +89,7 @@ let%transfo fission ?(mark_between : mark = no_mark) (tg : target) : unit =
 
 let copy_inside_from_seq (index: int) (seq: trm): trm =
   let error = "Ghost_pair.copy_inside_from_seq: expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq in
+  let instrs, result = trm_inv ~error trm_seq_inv seq in
   let tl_before, t, tl_after = Mlist.get_item_and_its_relatives index instrs in
 
   let pure_ghosts_before = List.filter_map (fun instr ->
@@ -99,14 +99,14 @@ let copy_inside_from_seq (index: int) (seq: trm): trm =
       None) (Mlist.to_list tl_before) in
 
   let new_t = Pattern.pattern_match t [
-    Pattern.(trm_for !__ (trm_seq !__) !__) (fun range body contract () ->
+    Pattern.(trm_for !__ (trm_seq !__ __) !__) (fun range body contract () ->
       trm_like ~old:t (trm_for ~contract range (trm_seq_helper [TrmList pure_ghosts_before; TrmMlist body]))
     );
     (* LATER: Manage other kinds of terms with a notion of inside *)
     Pattern.__ (fun () -> failwith "Ghost_pair.copy_inside_from_seq: the targetted item is not handled")
   ] in
 
-  trm_like ~old:seq (trm_seq_helper [TrmMlist tl_before; Trm new_t; TrmMlist tl_after])
+  trm_like ~old:seq (trm_seq_helper ?result [TrmMlist tl_before; Trm new_t; TrmMlist tl_after])
 
 (** Copies all the pure ghosts of the surrounding sequence at the begining of the body of the targetted instruction. *)
 let%transfo copy_surrounding_inside (tg: target): unit =

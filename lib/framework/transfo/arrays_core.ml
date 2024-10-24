@@ -38,7 +38,7 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
 let to_variables_at (new_vars : string list) (index : int) (t : trm) : trm =
   let new_vars = List.map new_var new_vars in
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
     let array_var = ref dummy_var in
     let f_update_at (t : trm) : trm =
       begin match t.desc with
@@ -60,7 +60,7 @@ let to_variables_at (new_vars : string list) (index : int) (t : trm) : trm =
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update_at f_update_further tl in
 
-    trm_seq ~annot:t.annot ?loc:t.loc new_tl
+    trm_seq ~annot:t.annot ?loc:t.loc ?result new_tl
 
   | _ -> trm_fail t "Arrays_core.to_variables_aux: expected the outer sequence of the targeted trm"
 
@@ -84,7 +84,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
     | Some (base, index) ->
       Pattern.pattern_match base.typ [
         Pattern.(some (typ_constr (var_eq x))) (fun () ->
-          trm_get_array_access (trm_get_array_access base (trm_div index b)) (trm_mod index b)
+          trm_get_array_access (trm_get_array_access base (trm_trunc_div index b)) (trm_trunc_mod index b)
         );
         Pattern.__ (fun () -> trm_map aux t)
       ]
@@ -104,7 +104,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
     t[i] -> t[i/B][i%B] *)
 let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
     let lfront, d, lback = Mlist.get_item_and_its_relatives index tl in
     let base_type_name, base_type =
     begin match d.desc with
@@ -135,14 +135,14 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
       (* expectation: my_alloc(nb_elements, size_element) *)
       | Trm_apps (t_alloc_fun, [t_nb_elts; t_size_elt], _) ->
          (* goal: my_alloc(nb_elements / b, b * size_element) *)
-         let t_nb_elts = trm_div ~typ:typ_isize t_nb_elts (trm_var block_size) in
+         let t_nb_elts = trm_trunc_div ~typ:typ_isize t_nb_elts (trm_var block_size) in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_alloc_fun [t_nb_elts; t_size_elt]
       (* there's possibly a cast first *)
       | Trm_apps (t_cast,
                   [{desc = Trm_apps (t_alloc_fun,
                                      [t_nb_elts; t_size_elt], _); _}], _) ->
-         let t_nb_elts = trm_div t_nb_elts (trm_var block_size) in
+         let t_nb_elts = trm_trunc_div t_nb_elts (trm_var block_size) in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
       | _ -> trm_fail t "Arrays_core.tile_at: expected array allocation"
@@ -167,7 +167,7 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
             match s with
             | None -> trm_fail t "Arrays_core.tile_at: array size must be provided"
             | Some t' ->
-              let t'' = trm_div ~typ:typ_isize t' (trm_var block_size) in
+              let t'' = trm_trunc_div ~typ:typ_isize t' (trm_var block_size) in
               trm_seq_nobrace_nomarks [
                 trm_typedef {
                   typedef_name = name_to_typvar block_name;
@@ -204,7 +204,7 @@ let tile_at (block_name : string) (block_size : var) (index: int) (t : trm) : tr
     let lback = Mlist.map (apply_tiling base_type block_typvar (trm_var block_size) base_type_name) lback in
     let new_tl = Mlist.merge lfront lback in
     let new_tl = Mlist.insert_at index array_decl new_tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ?result new_tl
 
   | _ -> trm_fail t "Arrays_core.tile_at: expected the surrounding sequence of the targeted trm"
 
@@ -249,7 +249,7 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
      [t] - AST of the surrouding sequence of the targeted array declaration. *)
 let swap_at (index : int) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_seq (tl, result) ->
 
     let rec swap_type (ty : typ) : typ =
       Pattern.pattern_match ty [
@@ -287,7 +287,7 @@ let swap_at (index : int) (t : trm) : trm =
       | _ -> trm_fail t "Arrays_core.swap_aux: expected a target to a type definition"
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ?result new_tl
 
   | _ -> trm_fail t "swap_aux: expected the surrounding sequence of the targeted trm"
 
@@ -356,8 +356,8 @@ let aos_to_soa_rec (struct_name : typvar) (sz : var) (t : trm) : trm =
       | Typedef_record rf ->
         let rf = List.map (fun (rf1, rf_annot) ->
           match rf1 with
-          | Record_field_member (lb, ty) -> ((Record_field_member (lb, typ_array ty ~size:(trm_var sz))), rf_annot)
-          | Record_field_method _ -> (Record_field_method (trm_map aux t), rf_annot)
+          | Record_field (lb, ty) -> ((Record_field (lb, typ_array ty ~size:(trm_var sz))), rf_annot)
+          | Record_method _ -> (Record_method (trm_map aux t), rf_annot)
         ) rf in
         trm_typedef ~annot:t.annot {td with typedef_body = Typedef_record rf}
 

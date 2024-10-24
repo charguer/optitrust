@@ -22,6 +22,7 @@ int main() {
      }
      continue;
   }
+  if (false) return 1;
   // local variables
   int val = 13;
   int r = 3;

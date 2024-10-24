@@ -33,19 +33,16 @@ int main() {
   int x = 3;
   int a0 = x + x;
   int y = a0 + a0;
-  int z;
-  if (x > 0)
-    z = 1;
-  else
-    z = 2;
+  int z = x > 0 ? 1 : 2;
   int s = y + z;
-  int u;
+  int res;
   if (x > 0) /*no-brace*/ {
-    u = 1;
-    goto exit_body;
+    res = 1;
+    goto exit;
   }
-  u = 2;
-exit_body:;
+  res = 2;
+exit:;
+  int u = res;
   int* q;
   (*q)++;
   vect a = {0, 1, 2};
@@ -71,24 +68,21 @@ void test_const_ret() {
   int x = 3;
   int a1 = x + x;
   const int y = a1 + a1;
-  int z;
-  if (x > 0)
-    z = 1;
-  else
-    z = 2;
+  const int z = x > 0 ? 1 : 2;
   int s = y + z;
   const vect t = {0, 1};
   const vect v = {t.x + x * t.x, t.y + x * t.y, t.z + x * t.z};
-  vect w;
+  vect res;
   if (true) {
-    w = v;
-    goto exit_body;
+    res = v;
+    goto exit;
   }
-  w = v;
-exit_body:;
-  vect res = {0, 0};
-  res.x = 1;
-  vect w2 = res;
+  res = v;
+exit:;
+  const vect w = res;
+  vect res1 = {0, 0};
+  res1.x = 1;
+  vect w2 = res1;
 }
 
 void test_const_arg() {

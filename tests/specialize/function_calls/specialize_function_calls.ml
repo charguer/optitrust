@@ -2,7 +2,7 @@ open Optitrust
 open Prelude
 
 let _ = Run.script_cpp (fun _ ->
-  let call_tg = [occIndex 0; cTopFunDef "main"; cFun "f"]  in
+  let call_tg = [occIndex 0; cTopFunDef "main"; cCall "f"]  in
 
   let (f1, _) = find_var "f1" [] in
   let (f2, _) = find_var "f2" [] in

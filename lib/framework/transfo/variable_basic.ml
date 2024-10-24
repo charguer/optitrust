@@ -44,7 +44,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
     assert (p_local = []);
     let error = "Variable_core.inline: expected the surrounding sequence." in
     Target.apply_at_path (fun t_seq ->
-      let tl = trm_inv ~error trm_seq_inv t_seq in
+      let tl, result = trm_inv ~error trm_seq_inv t_seq in
       let dl = Mlist.nth tl index in
       let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
       if !Flags.check_validity then begin
@@ -57,7 +57,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
           (* Resources.assert_instr_effects_shadowed p; *)
           (* -- DUPLICATE CODE *)
           let t_seq = Target.resolve_path p_seq in
-          let tl = trm_inv ~error trm_seq_inv t_seq in
+          let tl, _ = trm_inv ~error trm_seq_inv t_seq in
           let dl = Mlist.nth tl index in
           let x, _, init = trm_inv ~error:"expected a target to a variable definition" trm_let_inv dl in
           (* -- *)
@@ -96,7 +96,7 @@ let%transfo inline ?(delete_decl : bool = true) ?(mark : mark = no_mark) (tg : t
       end;
       let init = trm_add_mark mark init in
       let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index (fun t -> t) (trm_subst_var x init) tl in
-      trm_seq ~annot:t_seq.annot new_tl
+      trm_seq ~annot:t_seq.annot ?result new_tl
     ) p_seq
   ) tg
 
@@ -284,9 +284,9 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
           } in
           let t = Path.apply_on_path (trm_subst_var subst put) instr_t expr_p in
           match trm_seq_inv t with
-          | Some instrs ->
+          | Some (instrs, result) ->
             (* is this code path used? *)
-            trm_seq_helper ~annot:t.annot [Trm g; Trm change_res_before; TrmMlist instrs; Trm change_res_after]
+            trm_seq_helper ~annot:t.annot ?result [Trm g; Trm change_res_before; TrmMlist instrs; Trm change_res_after]
           | None ->
             trm_seq_helper ~braces:false [Trm g; Trm change_res_before; Trm t; Trm change_res_after]
         ) instr_p);
@@ -312,7 +312,7 @@ let elim_analyse (xy : (var * var) option ref) (t : trm) : trm =
 (** <private> *)
 let elim_reuse_on (i : int) (x : var) (y : var) (seq_t : trm) : trm =
   let error = "expected sequence" in
-  let instrs = trm_inv ~error trm_seq_inv seq_t in
+  let instrs, result = trm_inv ~error trm_seq_inv seq_t in
   let update_decl t =
     trm_seq_nobrace_nomarks []
   in
@@ -322,7 +322,7 @@ let elim_reuse_on (i : int) (x : var) (y : var) (seq_t : trm) : trm =
   let new_instrs = Mlist.update_at_index_and_fix_beyond i ~delete:true
     update_decl substitute_var instrs
   in
-  trm_seq ~annot:seq_t.annot ?loc:seq_t.loc new_instrs
+  trm_seq ~annot:seq_t.annot ?loc:seq_t.loc ?result new_instrs
 
 (** [elim_reuse]: given a targeted variable declaration [let x = get(y)], eliminates the variable
   declaration, reusing variable [y] instead of [x].
@@ -341,14 +341,14 @@ let%transfo elim_reuse (tg : target) : unit =
       step_backtrack ~discard_after:true (fun () ->
         Target.apply_at_path (fun t_seq ->
           let error = "expected sequence" in
-          let instrs = trm_inv ~error trm_seq_inv t_seq in
+          let instrs, result = trm_inv ~error trm_seq_inv t_seq in
           let y_cell = Resource_formula.formula_cell_var y in
           let (_, open_hide, close_hide) = Resource_trm.ghost_pair_hide y_cell in
           let instrs = Mlist.insert_at (i + 1) open_hide instrs in
           let instrs = Mlist.push_back close_hide instrs in
           let forget_init = Resource_trm.ghost_forget_init y_cell in
           let instrs = Mlist.push_back forget_init instrs in
-          trm_seq ~annot:t_seq.annot instrs
+          trm_seq ~annot:t_seq.annot ?result instrs
         ) p_seq;
         recompute_resources ()
       );
@@ -367,16 +367,16 @@ let%transfo elim_reuse (tg : target) : unit =
       [mark_body] - mark used for marking the body of the targeted trm,
       [typ] - type of the binded variable, needed when the type can't be deducted from the targeted trm,
       [fresh_name] - name of the binded variable. *)
-      (* LATER: document the behavior of ${occ} in the case [tg] aims at multiple targets *)
-      (* LATER: document the [îs_ptr] and explain why it is needed *)
-      (* LATER: it seems that a mark is introduced and not eliminated *)
+(* LATER: document the behavior of ${occ} in the case [tg] aims at multiple targets *)
+(* LATER: it seems that a mark is introduced and not eliminated *)
+(* FIXME: should handle only the case const = true and let a combi perform the transformation into a mutable variable. In any case const = false is the wrong default ! *)
 let%transfo bind ?(const : bool = false) ?(mark_let : mark = no_mark) ?(mark_occ : mark = no_mark) ?(mark_body : mark = no_mark) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : string) (tg : target) : unit =
   Resources.justif_correct "the extracted sub-expression is required by typing to use resources that do not interfere with the other sub-expressions";
   Nobrace_transfo.remove_after ~remove:remove_nobrace (fun _ ->
     Target.iteri (fun occ p ->
       let p, p_local, i = Internal.get_instruction_in_surrounding_sequence p in
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
-      Target.apply_at_path (Variable_core.bind_at mark_let mark_occ mark_body i fresh_name const typ p_local) p
+      Target.apply_at_path (Variable_core.bind_at ~mark_let ~mark_occ ~mark_body i fresh_name ~const ?typ p_local) p
     ) tg
   )
 

@@ -1,9 +1,11 @@
 open Optitrust
 open Target
 
+let _ = Flags.print_optitrust_syntax := true
+
 let _ = Run.script_cpp (fun _ ->
 
-    !! Function_basic.inline ~body_mark:"body" [nbMulti; cFun "foo"];
+    !! Function_basic.inline ~body_mark:"body" [nbMulti; cCall "foo"];
     !! Accesses_basic.intro [nbMulti; cMark "body"];
 
 

@@ -24,7 +24,6 @@ let old_resolution = ref false
     4) others  *)
 type trm_kind =
   | TrmKind_Typedef (* type definition that appears in the AST *)
-  | TrmKind_Ctrl    (* control statement, for loops, while loops and unit-type if statements  *)
   | TrmKind_Instr
   | TrmKind_Expr
   | TrmKind_Any
@@ -122,8 +121,6 @@ and constr =
   | Constr_decl_var of typ_constraint * constr_name * target
   (* decl_vars *)
   | Constr_decl_vars of typ_constraint * constr_name * target
-  (* decl_fun: name, args, body is_def*)
-  | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target * bool
   (* decl_type: name *)
   | Constr_decl_type of constr_name
   (* decl_enum: name, constants *)
@@ -134,6 +131,8 @@ and constr =
   | Constr_var of constr_name
   (* lit *)
   | Constr_lit of (lit -> bool)
+  (* decl_fun: args, rettyp, is_def, body *)
+  | Constr_fun of target_list_pred * typ_constraint * bool * target
   (* app: function, arguments *)
   | Constr_app of target * target_list_pred * bool
   (* label *)
@@ -336,9 +335,6 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_decl_vars (ty_pred, name, p_body) ->
     let s_body = aux p_body in
     Constr_decl_vars (ty_pred, name, s_body)
-  | Constr_decl_fun (ty_pred,name, tgt_list_pred, p_body, is_def) ->
-     let s_body = if is_def then aux p_body else p_body in
-     Constr_decl_fun (ty_pred,name, tgt_list_pred, s_body, is_def)
   | Constr_decl_type name -> c
   | Constr_decl_enum (name, c_const) ->
      let s_const = Option.map (List.map (fun (n,tg) -> (n,aux tg))) c_const in
@@ -346,6 +342,8 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_seq _tgt_list_pred -> c
   | Constr_var _name -> c
   | Constr_lit _-> c
+  | Constr_fun (tgt_list_pred, ty_pred, is_def, p_body) ->
+     Constr_fun (tgt_list_pred, ty_pred, is_def, aux p_body)
   | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
      let s_fun = aux p_fun in
      Constr_app (s_fun, tgt_list_pred, accept_encoded)
@@ -420,48 +418,6 @@ let get_target_regexp_kinds (tgs : target list) : trm_kind list =
     List.iter (fun c -> ignore (explore c)) tg in
   List.iter iter_in_target tgs;
   !res
-
-(** [get_target_regexp_kinds tgs]: gets the list of the regexp characterizing
-   toplevel functions that appear in the targets that contain constraints based
-   on string representation. If one of the targets does not contain the subsequence
-   [cTop name] or [cTopFun name], which generate
-   [Constr_target [Constr_root; Constr_depth (DepthAt 1); Constr_decl_fun (Some rexp)]],
-   then the result will be [None]. *)
-
-exception Topfuns_cannot_filter
-let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option =
-
-  let has_regexp (c : constr) : bool =
-    let answer = ref false in
-      let rec aux c = (* LATER: optimize using a constr_iter instead of constr_map *)
-        match c with
-        | Constr_regexp _ -> answer := true; c
-        | _ -> ignore (constr_map aux c); c
-        in
-      ignore (aux c);
-      !answer in
-  (* Tools.debug "get_target_regexp_topfuns_opt %d" (List.length tgs); *)
-  let tgs = List.filter (fun tg -> List.exists has_regexp tg) tgs in
-  (*Tools.debug "get_target_regexp_topfuns_opt filter %d" (List.length tgs);*)
-  try
-    let constr_names : constr_name list ref = ref [] in
-    let rec find_in_target (cs : constr list) : unit =
-      match cs with
-      | Constr_target [ Constr_root;
-                        Constr_depth (DepthAt 1);
-                        Constr_decl_fun (_, ((Some _) as constr_name), _, _, _) ]
-            :: _ ->
-          constr_names := constr_name :: !constr_names
-      | _ :: cs2 -> find_in_target cs2
-      | [] -> raise Topfuns_cannot_filter
-      in
-    List.iter find_in_target tgs;
-    (*Tools.debug "get_target_regexp_topfuns_opt Some %d" (List.length !constr_names);*)
-    Some !constr_names
-  with Topfuns_cannot_filter ->
-    (* Tools.debug "get_target_regexp_topfuns_opt None";*)
-    None
-
 
 (******************************************************************************)
 (*                        Preprocessing of targets before resolution          *)
@@ -566,24 +522,23 @@ let is_equal_lit (l : lit) (l' : lit) =
 
 (** [get_trm_kind t]: gets the kind of trm [t] *)
 let get_trm_kind (t : trm) : trm_kind =
-  let is_unit = begin match t.typ with
-    | Some ty when is_typ_unit ty -> true
-    | _ -> false
+  let instr_if_unit = begin match t.typ with
+    | Some ty when is_typ_unit ty -> TrmKind_Instr
+    | _ -> TrmKind_Expr
     end
     in
   match t.desc with
   | Trm_var _ -> TrmKind_Expr
-  | Trm_lit _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+  | Trm_lit _ -> instr_if_unit
   | Trm_prim _ -> TrmKind_Expr
   | Trm_record _ | Trm_array _ -> TrmKind_Expr
-  | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
   | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
   | Trm_typedef _ -> TrmKind_Typedef
-  | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
+  | Trm_if _-> instr_if_unit
   | Trm_fun _ -> TrmKind_Expr
-  | Trm_seq _ -> TrmKind_Ctrl
-  | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
-  | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
+  | Trm_seq _ -> instr_if_unit
+  | Trm_apps _ -> instr_if_unit
+  | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Instr
   | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ | Trm_using_directive _ -> TrmKind_Any
 
 
@@ -625,7 +580,7 @@ let get_stringrepr (t : trm) : string =
     let print (t : trm) : unit =
       let s = Ast_to_c.default_style () in
       let style = { s with print_string_repr = true } in
-      Tools.debug "==\n%s\n===" (Ast_to_c.ast_to_string ~style t)
+      Tools.debug "==\n%s\n==" (Ast_to_c.ast_to_string ~style t)
       in
     match !stringreprs with
     | None -> trm_fail t (Printf.sprintf "Constr.get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
@@ -714,7 +669,7 @@ let extract_last_path_item (p : path) : dir * path =
   (** [get_sequence_length t]: gets the number of instructions on a sequence *)
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
-  | Trm_seq tl -> Mlist.length tl
+  | Trm_seq (tl, _) -> Mlist.length tl
   | _ -> trm_fail t "Constr.get_sequence_length: expected a sequence"
   end
 
@@ -775,7 +730,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
        is true
       *)
      begin match t.desc with
-     | Trm_seq tl -> List.mem true (List.map (check_constraint ~incontracts c) (Mlist.to_list tl))
+     | Trm_seq (tl, None) -> List.mem true (List.map (check_constraint ~incontracts c) (Mlist.to_list tl))
      | _ -> trm_fail t "Constr.check_constraint: bad multi_decl annotation"
      end
   else
@@ -828,16 +783,6 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
             check_target p_body body in
           acc || b
         ) false bs
-     | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def),
-       Trm_let_fun (x, tx, args, body, _) ->
-        let body_check =
-          let is_body_unit = is_trm_uninitialized body in
-          if is_def then (check_target p_body body && not (is_body_unit))
-           else is_body_unit in
-        ty_pred tx &&
-        check_name name x.name &&
-        check_args cl_args args &&
-        body_check
      | Constr_decl_type name, Trm_typedef td ->
         (* TODO: Why do we check this ? *)
         let is_new_typ = begin match td.typedef_body with
@@ -852,13 +797,21 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         | Typedef_enum xto_l -> check_name name td.typedef_name.name && check_enum_const ~incontracts cec xto_l
         | _ -> false
         end
-     | Constr_seq cl, Trm_seq tl when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
+     | Constr_seq cl, Trm_seq (tl, _) when not (trm_is_nobrace_seq t || trm_is_mainfile t) ->
         check_list ~incontracts ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER: check why depth 0 here and not
         in Constr_app *)
      | Constr_var name, Trm_var x ->
         check_name name x.name
      | Constr_lit pred_l, Trm_lit l ->
         pred_l l
+     | Constr_fun (cl_args, ty_pred, is_def, p_body), Trm_fun (args, tx, body, _) ->
+        let body_check =
+          let is_body_unit = is_trm_uninitialized body in
+          if is_def then (check_target p_body body && not (is_body_unit))
+           else is_body_unit in
+        ty_pred tx &&
+        check_args cl_args args &&
+        body_check
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
         if not accept_encoded then
           begin match f.desc with
@@ -898,7 +851,7 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
         if !old_resolution then begin
           let t_marks = trm_get_marks t in
           begin match t.desc with
-          | Trm_seq tl | Trm_array (_, tl) ->
+          | Trm_seq (tl, _) | Trm_array (_, tl) ->
             (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
           | Trm_record (_, tl) -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false (Mlist.get_marks tl))
           | _ -> List.exists pred t_marks
@@ -1391,7 +1344,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
   else if trm_has_cstyle Multi_decl t then
      (* explore each declaration in the seq *)
      begin match t.desc with
-     | Trm_seq tl ->
+     | Trm_seq (tl, _) ->
         explore_list (Mlist.to_list tl) (fun i -> Dir_seq_nth i) (explore_in_depth ~incontracts p)
      | _ -> loc_fail loc "Constr.explore_in_depth: bad multi_decl annotation"
      end
@@ -1399,7 +1352,6 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
      begin match t.desc with
      | Trm_let ((_, _), body) ->
        add_dir Dir_let_body (aux body)
-     | Trm_let_fun (_, _ , _, body, contract)
      | Trm_fun (_, _, body, contract) ->
         add_dir Dir_body (aux_body body) @
         begin match contract with
@@ -1415,8 +1367,8 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
       | Typedef_record rfl ->
         let res = List.fold_lefti (fun i acc (rf, _) ->
           begin match rf with
-          | Record_field_method t1 ->
-            (add_dir (Dir_record_field i) (aux_body t1)) @ acc
+          | Record_method t1 ->
+            (add_dir (Dir_record_member i) (aux_body t1)) @ acc
           | _ -> acc
           end
         ) [] rfl in
@@ -1494,7 +1446,7 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
         (explore_list ghost_args (fun n -> Dir_ghost_arg_nth n) (fun (g, t) -> aux t))
      | Trm_array (_, tl) ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
-     | Trm_seq tl ->
+     | Trm_seq (tl, _) ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
      | Trm_record (_, tl) ->
         explore_list (List.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
@@ -1543,7 +1495,7 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   | Dir_array_nth n, Trm_array (_, tl) ->
     app_to_nth_dflt (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_array_nth n) (aux nth_t))
-  | Dir_seq_nth n, Trm_seq tl ->
+  | Dir_seq_nth n, Trm_seq (tl, _) ->
     app_to_nth_dflt (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
   | Dir_struct_nth n, Trm_record (_, tl) ->
@@ -1564,12 +1516,12 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
      add_dir Dir_var_body (aux ref_op_arg)
   | Dir_let_body, Trm_let (_, body) ->
     add_dir Dir_let_body (aux body)
-  | Dir_body, Trm_let_fun (_, _, _, body, _)
-    | Dir_body, Trm_for_c (_, _, _, body, _)
-    | Dir_body, Trm_for (_, body, _)
-    | Dir_body, Trm_while (_, body)
-    | Dir_body, Trm_do_while (body, _)
-    | Dir_body, Trm_abort (Ret (Some body)) ->
+  | Dir_body, Trm_fun (_, _, body, _)
+  | Dir_body, Trm_for_c (_, _, _, body, _)
+  | Dir_body, Trm_for (_, body, _)
+  | Dir_body, Trm_while (_, body)
+  | Dir_body, Trm_do_while (body, _)
+  | Dir_body, Trm_abort (Ret (Some body)) ->
      add_dir Dir_body (aux body)
   | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
      add_dir Dir_for_c_init (aux init)
@@ -1583,14 +1535,12 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   | Dir_arg_nth n, Trm_apps (_, tl, _) ->
      app_to_nth_dflt tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
-  | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
+  | Dir_arg_nth n, Trm_fun (arg, _, _, _) ->
      let tl = List.map (fun (x, _) -> trm_var ?loc x) arg in
      app_to_nth_dflt tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
     add_dir Dir_name (aux (trm_var ?loc td.typedef_name))
-  | Dir_name, Trm_let_fun (x, _, _, _, _) ->
-    add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_let ((x,_),_) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_goto x ->
@@ -1626,13 +1576,13 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
           )
       | _ -> []
       end
-  | Dir_record_field i, Trm_typedef td ->
+  | Dir_record_member i, Trm_typedef td ->
     begin match td.typedef_body with
     | Typedef_record rfl ->
       app_to_nth_dflt rfl i (fun (rf, rf_ann) ->
         begin match rf with
-        | Record_field_method  t1 ->
-          add_dir (Dir_record_field i) (aux t1)
+        | Record_method t1 ->
+          add_dir (Dir_record_member i) (aux t1)
         | _ -> loc_fail loc "follow_dir: wrong field index"
         end
       )

@@ -19,14 +19,14 @@ let _ = Run.script_cpp (fun () ->
   (* Mutliple *)
   !! show [ nbExact 1; cFunDef "f"; sInstr "j++" ];
 
-  !! show [ nbExact 2; cFun "f" ];
+  !! show [ nbExact 2; cCall "f" ];
 
   (* Inside loop bodies *)
   !! show [ nbExact 1; cFor "j"; sInstr "i++" ];
 
   !! show [ nbExact 1; cFor "i"; cFor "j" ];
 
-  !! show [ nbExact 3; cFunDef ""; dBody; cStrict; cFor "" ];
+  !! show [ nbExact 3; cFunBody ""; cStrict; cFor "" ];
 
   !! show [ nbAny; cFor "i"; sExpr "i++" ];
 
@@ -42,13 +42,13 @@ let _ = Run.script_cpp (fun () ->
 
   !! show [ nbExact 3; cTopFunDef "main"; cFor "" ];
 
-  !! show [ nbExact 2; cTopFunDef "main"; cStrict; cFor "" ];
+  !! show [ nbExact 3; cTopFunBody "main"; cFor "" ];
 
-  !! show [ nbExact 3; cTopFunDef "main"; dBody; cFor "" ];
+  !! show [ nbExact 2; cTopFunBody "main"; cStrict; cFor "" ];
 
-  !! show [ cTopFunDef "main"; dBody; cFor "i" ];
+  !! show [ cTopFunBody "main"; cFor "i" ];
 
-  !! show [ cTopFunDef "main"; cStrict; cFor "j" ];
+  !! show [ cTopFunBody "main"; cStrict; cFor "j" ];
 
   !! show [ cTopFunDef "main"; cIf (); dCond];
 

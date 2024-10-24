@@ -27,7 +27,7 @@ let _ = Run.script_cpp (fun () ->
   !! show [ nbAny; cFor "i" ];
 
   (* Or constraint *)
-  !! show [ nbExact 3; cOr [[cReturn]; [cTypDef "vect"]; [cFunDef "main"; cFor "i"]]];
+  !! show [ nbExact 3; cOr [[cReturn ()]; [cTypDef "vect"]; [cFunDef "main"; cFor "i"]]];
 
   (* TopFun *)
   !! show [ nbExact 1; cTopFunDef "f" ];

@@ -5,7 +5,7 @@ open Target
 let _ = Run.script_cpp (fun _ ->
 
   (* LATER: ARTHUR why is this giving 2 results? show [ cFunDef "main"; cSeq(); cSeq()]; *)
-  let tg = [cSeq ~args_pred:(target_list_one_st [cVarDef "a"]) ()] in (* LATER: simplify *)
+  let tg = [cSeq ~instrs_pred:(target_list_one_st [cVarDef "a"]) ()] in (* LATER: simplify *)
   !! Sequence_basic.partition ~braces:true [2;3;2] tg;
 
 

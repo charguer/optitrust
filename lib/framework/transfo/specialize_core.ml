@@ -19,8 +19,8 @@ let any_on (e : trm) (t : trm) : trm =
       [t] - ast of the function definition. *)
 let fun_def_on (spec_name : string) (spec_args : (trm option) list) (t : trm) : trm =
   let spec_var = new_var spec_name in
-  match t.desc with
-  | Trm_let_fun (qf, ret_ty, args, body, _) ->
+  match trm_let_fun_inv t with
+  | Some (qf, ret_ty, args, body, _) ->
     (* Check if spec_args is of the correct shape. *)
     if List.length spec_args <> List.length args then trm_fail t "Specialize_core.fun_def_on: the list of arguments to specialize
         should match the list of the arguments of the targeted function.";

@@ -33,7 +33,7 @@ let _ = Run.script_cpp (fun () ->
 
   !! Variable.inline ~simpl [ctx; multi cVarDef ["h1"; "w1"; "h2"; "w2"]];
   let fuse (ops, overlaps, outputs) =
-    Stencil.fusion_targets ~nest_of:2 ~outputs ~overlaps [ctx; any cFun ops] in
+    Stencil.fusion_targets ~nest_of:2 ~outputs ~overlaps [ctx; any cCall ops] in
   let overlaps_2x2 vars = List.map (fun i -> i, [int 2; int 2]) vars in
   !! List.iter fuse [
     ["grayscale"], [], ["gray"];

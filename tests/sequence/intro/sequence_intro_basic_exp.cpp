@@ -1,4 +1,4 @@
-int main() {
+void f() {
   int x = 3;
   {
     int y = 2;
@@ -33,6 +33,5 @@ int main() {
         }
       }
     }
-    return 0;
   }
 }

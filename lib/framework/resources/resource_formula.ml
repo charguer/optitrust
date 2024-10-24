@@ -74,8 +74,9 @@ let rec formula_of_trm (t: trm): formula option =
       | Some (_, Prim_binop Binop_sub)
       | Some (_, Prim_binop Binop_mul)
       | Some (_, Prim_binop Binop_eq)
-      | Some (_, Prim_binop Binop_div) (* TODO: think hard about 'div' totality *)
-      | Some (_, Prim_binop Binop_mod)
+      | Some (_, Prim_binop Binop_exact_div) (* TODO: think hard about 'div' totality *)
+      | Some (_, Prim_binop Binop_trunc_div)
+      | Some (_, Prim_binop Binop_trunc_mod)
       | Some (_, Prim_binop Binop_array_access)
       | Some (_, Prim_unop (Unop_struct_access _))
       | Some (_, Prim_unop (Unop_struct_get _))
@@ -175,8 +176,8 @@ let rec trm_to_formula_prop (t: trm): formula option =
 
 (* -------- SMART FORMULA CONSTRUCTORS, INVERTERS and COMBINATORS -------- *)
 
-let formula_fun =
-  trm_fun ~annot:formula_annot
+let formula_fun ?(rettyp = typ_auto) args body =
+  trm_fun ~annot:formula_annot args rettyp body
 
 let formula_model (x: trm) (model: formula): formula =
   trm_apps ~annot:formula_annot trm_has_model [x; model]
@@ -217,7 +218,7 @@ let formula_matrix (m: trm) (dims: trm list) : formula =
   let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
   let inner_trm = formula_cell (Matrix_trm.access m dims (List.map trm_var indices)) in
   List.fold_right2 (fun idx dim formula ->
-    trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] None formula])
+    trm_apps ~annot:formula_annot trm_group [formula_range (trm_int 0) dim (trm_int 1); formula_fun [idx, typ_int] formula])
     indices dims inner_trm
 
 let var_in_range = toplevel_var "in_range"
@@ -327,7 +328,7 @@ let formula_group_range (range: loop_range) =
   formula_map_under_mode (fun fi ->
     let range_var = new_var ~namespaces:range.index.namespaces range.index.name in
     let fi = trm_subst_var range.index (trm_var range_var) fi in
-    trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int] None fi]
+    trm_apps ~annot:formula_annot trm_group [formula_loop_range range; formula_fun [range_var, typ_int] fi]
   )
 
 let formula_matrix_inv (f: formula): (trm * trm list) option =

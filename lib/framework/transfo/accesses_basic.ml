@@ -201,8 +201,9 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
             let isolated_post = isolated_linear !(ret.matched_post) in
             let others_pre = formulas_to_res !(ret.others_pre) in
             let others_post = formulas_to_res !(ret.others_post) in
-            let pre = Resource_set.make ~pure:!(ret.pure_pre) ~linear:(isolated_pre @ others_pre) () in
-            let post =  Resource_set.make ~linear:(isolated_post @ others_post) () in
+            let pre = Resource_set.make ~linear:(isolated_pre @ others_pre) () in
+            (* TODO: Add ensured linear vars to post.pre *)
+            let post = Resource_set.make ~linear:(isolated_post @ others_post) () in
             let post = { post with linear = snd (Resource_computation.delete_stack_allocs (Mlist.to_list instrs) post) } in
             let contract = FunSpecContract { pre; post } in
             let f_body = trm_add_mark f_body_mark (trm_seq instrs) in
@@ -225,7 +226,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
 let transform_immut_on
   (f_init : trm -> trm) (f_use : trm -> trm)
   (i : int) (seq : trm) : trm =
-  let instrs = trm_inv ~error:"expected seq" trm_seq_inv seq in
+  let instrs, result = trm_inv ~error:"expected seq" trm_seq_inv seq in
   let var = ref dummy_var in
   let update let_t =
     Pattern.pattern_match let_t [
@@ -247,7 +248,7 @@ let transform_immut_on
     ]
   in
   let instrs' = Mlist.update_at_index_and_fix_beyond i update fix instrs in
-  trm_seq ~annot:seq.annot instrs'
+  trm_seq ~annot:seq.annot ?result instrs'
 
 (** like {!transform}, but for immutable variables.
     target should be variable decl. *)
@@ -271,7 +272,7 @@ let%transfo scale ?(inv:bool=false) ~(factor:trm)
   Tools.warn "need to check that scaling factor != 0"; (* TODO: check / 0 *)
   Trace.justif "factor is pure and != 0";
   let typ = Option.unsome ~error:"factor needs to have a known type" factor.typ in
-  let op_get, op_set = if inv then (trm_mul, trm_div) else (trm_div, trm_mul) in
+  let op_get, op_set = if inv then (trm_mul, trm_exact_div) else (trm_exact_div, trm_mul) in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in
   let f_set t = trm_add_mark mark (op_set ~typ t factor) in
   transform f_get f_set ~address_pattern ~mark_preprocess ~mark_postprocess tg
@@ -283,7 +284,7 @@ let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no
   Tools.warn "need to check that scaling factor != 0"; (* TODO: check / 0 *)
   Trace.justif "factor is pure and != 0";
   let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
-  let op_get, op_set = if inv then (trm_mul, trm_div) else (trm_div, trm_mul) in
+  let op_get, op_set = if inv then (trm_mul, trm_exact_div) else (trm_exact_div, trm_mul) in
   let f_use t = trm_add_mark mark (op_get ~typ t factor) in
   let f_init t = trm_add_mark mark (op_set ~typ t factor) in
   transform_immut f_init f_use tg

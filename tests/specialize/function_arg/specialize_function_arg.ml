@@ -2,12 +2,12 @@ open Optitrust
 open Target
 
 
-let _ = Run.script_cpp (fun _ -> 
+let _ = Run.script_cpp (fun _ ->
 
 
-    let tg = [occFirst; cTopFunDef "main"; cFun "f"] in
+    let tg = [occFirst; cTopFunDef "main"; cCall "f"] in
   !! Specialize.function_arg "f1" [true; true] tg;
-  
+
   !! Specialize.function_arg "f2" [true; false] tg;
 
   !! Specialize.function_arg "f3" [false; true] tg;

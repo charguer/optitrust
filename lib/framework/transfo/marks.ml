@@ -49,7 +49,7 @@ let%transfo add_fake_instr (m : mark) (tg : target) : unit =
   Marks_basic.justif ();
   if m = "" then ()
   else
-    Sequence.insert (trm_add_mark m (trm_seq Mlist.empty)) tg
+    Sequence_basic.insert (trm_add_mark m (trm_seq Mlist.empty)) tg
 
 (** [remove_fake_instr m tg]: remove a fake sequence item mark. *)
 let%transfo remove_fake_instr (tg : target) : unit =
@@ -57,9 +57,9 @@ let%transfo remove_fake_instr (tg : target) : unit =
   Target.iter (fun p ->
     let t = Target.resolve_path p in
     let error ="Marks.remove_fake_instr: should target a fake instr mark" in
-    let t_seq = trm_inv ~error trm_seq_inv t in
-    if Mlist.length t_seq <> 0 then failwith "%s" error;
-    Sequence.delete (target_of_path p)
+    let t_seq, result = trm_inv ~error trm_seq_inv t in
+    if Mlist.length t_seq <> 0 || Option.is_some result then failwith "%s" error;
+    Sequence_basic.delete (target_of_path p)
   ) tg
 
 let%transfo add_on_all_span (mark : mark) (tg : target) : unit =

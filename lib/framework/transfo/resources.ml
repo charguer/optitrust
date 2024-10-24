@@ -44,7 +44,7 @@ let compute_usage_of_instrs (instrs : trm mlist) : resource_usage_map =
 (** Retrieves resources around a sequence of instructions. *)
 let around_instrs (instrs : trm mlist) : (resource_set * resource_set) =
   let first = Option.unsome ~error:"expected first instruction" (Mlist.nth_opt instrs 0) in
-  let last = Option.unsome ~error:"expected last instruction" (Mlist.lst instrs) in
+  let last = Option.unsome ~error:"expected last instruction" (Mlist.last instrs) in
   (before_trm first, after_trm last)
 
 (** [trm_is_pure]: Does this term always evaluate to the same value?
@@ -90,8 +90,8 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
   }
 
 let fun_minimize_on (t: trm): trm =
-  let name, typ, args, body, contract = match t.desc with
-    | Trm_let_fun (name, typ, args, body, FunSpecContract contract) ->
+  let name, typ, args, body, contract = match trm_let_fun_inv t with
+    | Some (name, typ, args, body, FunSpecContract contract) ->
         name, typ, args, body, contract
     | _ -> failwith "fun_minimize_on: not a function definition with a contract"
   in
@@ -413,7 +413,7 @@ let%transfo delete_annots (tg : Target.target) : unit =
   )
 
 let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
-  let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
+  let name, ret_typ, args, body, _ = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
   trm_like ~old:t (trm_let_fun name ret_typ args ~contract:(FunSpecContract contract) body)
 
 let%transfo set_fun_contract (contract: unparsed_fun_contract) (tg : Target.target) : unit =
@@ -444,11 +444,11 @@ let detach_loop_ro_focus_on (t: trm): trm =
     };
     parallel_reads = new_par_reads @ contract.parallel_reads
   } in
-  let new_body = trm_seq_nobrace (trm_inv trm_seq_inv body) in
+  let new_body = Nobrace.mark body in
   let new_body = List.fold_right (fun (_, formula) ->
     let { formula } = Option.get (formula_read_only_inv formula) in
     let i = new_var range.index.name in
-    let items = formula_fun [i, typ_int] None (trm_subst_var range.index (trm_var i) formula) in
+    let items = formula_fun [i, typ_int] (trm_subst_var range.index (trm_var i) formula) in
     Resource_trm.ghost_scope (ghost_call ghost_group_ro_focus ["i", (trm_var range.index); "items", items])) iter_reads new_body
   in
   let new_body = trm_like ~old:body new_body in
@@ -463,7 +463,7 @@ let%transfo detach_loop_ro_focus (tg: target): unit =
 
 
 let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
-  let t_seq = trm_inv trm_seq_inv t in
+  let t_seq, result = trm_inv trm_seq_inv t in
   let t_seq_before, t_seq_after = Mlist.split split_index t_seq in
   let split_res = if Mlist.is_empty t_seq_after then after_trm t else before_trm (Mlist.nth t_seq_after 0) in
   let usage = compute_usage_of_instrs t_seq_before in
@@ -487,7 +487,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
         splitted_hyp, subst
       else
         let nb_splits = 1 + List.length carved_arbitrary in
-        let repl_frac = trm_div base_frac (trm_int nb_splits) in
+        let repl_frac = trm_trunc_div base_frac (trm_int nb_splits) in
         let subst = List.fold_left (fun subst var ->
           if Var_map.mem var subst then failwith "Arbitrarily chosen variable %s is carved twice" (var_to_string var);
           Var_map.add var repl_frac subst) subst carved_arbitrary in
@@ -532,7 +532,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
   ) splitted_hyps
   in
 
-  trm_like ~old:t (trm_subst subst (trm_seq_helper [TrmList top_splits; TrmMlist t_seq_before; TrmList allow_joins; TrmMlist t_seq_after]))
+  trm_like ~old:t (trm_subst subst (trm_seq_helper ?result [TrmList top_splits; TrmMlist t_seq_before; TrmList allow_joins; TrmMlist t_seq_after]))
 
 (** [specialize_arbitrary_fracs tg] specializes all the arbitrarily chosen fractions that appear at the given point in a sequence.
 
@@ -650,7 +650,7 @@ let assert_not_self_interfering (t : trm) : unit =
   instr; // exactly the same instruction as above including ghosts args --> can be deleted because it will produce the same W value from the same R dependencies
   *)
 let assert_dup_instr_redundant (index : int) (skip : int) (seq : trm) : unit =
-  let instrs = trm_inv ~error:"Resources.assert_instr_redundant: expected sequence" trm_seq_inv seq in
+  let instrs, _ = trm_inv ~error:"Resources.assert_instr_redundant: expected sequence" trm_seq_inv seq in
   let useful_instrs = List.take (skip + 1) (List.drop index (Mlist.to_list instrs)) in
   let instr, other_instrs = List.extract_element useful_instrs 0 in
   assert_not_self_interfering instr;
