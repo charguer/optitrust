@@ -1,106 +1,87 @@
 #include <optitrust.h>
 
-void rowSum(const int kn, const int* S, int* D, const int n, const int cn) {
-  if (kn == 3) /*@kn*/ {
-    for (int ic = 0; ic < n * cn; ic++) {
-      D[ic / cn * cn + ic % cn] = (uint16_t)S[ic / cn * cn + ic % cn] +
-                                  (uint16_t)S[(1 + ic / cn) * cn + ic % cn] +
-                                  (uint16_t)S[(2 + ic / cn) * cn + ic % cn];
-    }
-  } /*kn@*/
-  else {
-    if (kn == 5) /*@kn*/ {
-      for (int ic = 0; ic < n * cn; ic++) {
-        D[ic / cn * cn + ic % cn] = (uint16_t)S[ic / cn * cn + ic % cn] +
-                                    (uint16_t)S[(1 + ic / cn) * cn + ic % cn] +
-                                    (uint16_t)S[(2 + ic / cn) * cn + ic % cn] +
-                                    (uint16_t)S[(3 + ic / cn) * cn + ic % cn] +
-                                    (uint16_t)S[(4 + ic / cn) * cn + ic % cn];
-      }
-    } /*kn@*/
-    else {
-      if (cn == 1) /*@cn*/ {
+void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
+            const int cn) {
+  __requires("__is_geq(kn, 0)");
+  __requires("__is_geq(n, 1)");
+  __requires("__is_geq(cn, 0)");
+  __modifies("D ~> Matrix2(n, cn)");
+  __requires("#4: _Fraction");
+  __consumes("_RO(#4, S ~> Matrix2(n + kn - 1, cn))");
+  __produces("_RO(#4, S ~> Matrix2(n + kn - 1, cn))");
+
+      __ghost(swap_groups,
+              "outer_range := 0..n, inner_range := 0..cn, items := fun i, c -> "
+              "&D[MINDEX2(n, cn, i, c)] ~> Cell");
+      for (int c = 0; c < cn; c++) {
+        __strict();
+        __sreads("S ~> Matrix2(n + kn - 1, cn)");
+        __xmodifies("for i in 0..n -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+        __ghost(assume, "F := in_range(1, 0..n)");
+        __ghost(group_split,
+                "start := 0, stop := n, step := 1, split := 1, items := fun i "
+                "-> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+        __ghost(
+            [&]() {
+              __consumes("for i in 0..1 -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+              __produces("&D[MINDEX2(n, cn, 0, c)] ~> Cell");
+              __admitted();
+              __with("justif := unroll");
+            },
+            "");
+        __ghost(assume, "F := is_subrange(0..kn, 0..n + kn - 1)");
         uint16_t s = (uint16_t)0;
         for (int i = 0; i < kn; i++) {
-          s = s + (uint16_t)S[i];
+          __strict();
+          __smodifies("&s ~> Cell");
+          __sreads("S ~> Matrix2(n + kn - 1, cn)");
+          __ghost(in_range_extend, "x := i, r1 := 0..kn, r2 := 0..n + kn - 1");
+          const __ghost_fn __ghost_pair_9 =
+              __ghost_begin(matrix2_ro_focus,
+                            "M := S, i := i, j := c, m := n + kn - 1, n := cn");
+          s = s + (uint16_t)S[MINDEX2(n + kn - 1, cn, i, c)];
+          __ghost_end(__ghost_pair_9);
         }
-        D[0] = s;
-        for (int i = 1; i < n; i++) {
-          s = s + (uint16_t)S[-1 + i + kn] - (uint16_t)S[-1 + i];
-          D[i] = s;
-        }
-      } /*cn@*/
-      else {
-        if (cn == 3) /*@cn*/ {
-          uint16_t s = (uint16_t)0;
-          uint16_t s5 = (uint16_t)0;
-          uint16_t s6 = (uint16_t)0;
-          for (int i = 0; i < kn; i++) {
-            s = s + (uint16_t)S[3 * i];
-            s5 = s5 + (uint16_t)S[1 + 3 * i];
-            s6 = s6 + (uint16_t)S[2 + 3 * i];
-          }
-          D[0] = s;
-          D[1] = s5;
-          D[2] = s6;
-          for (int i = 1; i < n; i++) {
-            s = s + (uint16_t)S[3 * (-1 + i + kn)] - (uint16_t)S[3 * (-1 + i)];
-            s5 = s5 + (uint16_t)S[1 + 3 * (-1 + i + kn)] -
-                 (uint16_t)S[1 + 3 * (-1 + i)];
-            s6 = s6 + (uint16_t)S[2 + 3 * (-1 + i + kn)] -
-                 (uint16_t)S[2 + 3 * (-1 + i)];
-            D[3 * i] = s;
-            D[1 + 3 * i] = s5;
-            D[2 + 3 * i] = s6;
-          }
-        } /*cn@*/
-        else {
-          if (cn == 4) /*@cn*/ {
-            uint16_t s = (uint16_t)0;
-            uint16_t s7 = (uint16_t)0;
-            uint16_t s8 = (uint16_t)0;
-            uint16_t s9 = (uint16_t)0;
-            for (int i = 0; i < kn; i++) {
-              s = s + (uint16_t)S[4 * i];
-              s7 = s7 + (uint16_t)S[1 + 4 * i];
-              s8 = s8 + (uint16_t)S[2 + 4 * i];
-              s9 = s9 + (uint16_t)S[3 + 4 * i];
-            }
-            D[0] = s;
-            D[1] = s7;
-            D[2] = s8;
-            D[3] = s9;
-            for (int i = 1; i < n; i++) {
-              s = s + (uint16_t)S[4 * (-1 + i + kn)] -
-                  (uint16_t)S[4 * (-1 + i)];
-              s7 = s7 + (uint16_t)S[1 + 4 * (-1 + i + kn)] -
-                   (uint16_t)S[1 + 4 * (-1 + i)];
-              s8 = s8 + (uint16_t)S[2 + 4 * (-1 + i + kn)] -
-                   (uint16_t)S[2 + 4 * (-1 + i)];
-              s9 = s9 + (uint16_t)S[3 + 4 * (-1 + i + kn)] -
-                   (uint16_t)S[3 + 4 * (-1 + i)];
-              D[4 * i] = s;
-              D[1 + 4 * i] = s7;
-              D[2 + 4 * i] = s8;
-              D[3 + 4 * i] = s9;
-            }
-          } /*cn@*/
-          else {
-            /*@generic*/ for (int c = 0; c < cn; c++) {
-              uint16_t s = (uint16_t)0;
-              for (int i = 0; i < kn; i++) {
-                s = s + (uint16_t)S[i * cn + c];
-              }
-              D[c] = s;
-              for (int i = 1; i < n; i++) {
-                s = s + (uint16_t)S[(-1 + i + kn) * cn + c] -
-                    (uint16_t)S[(-1 + i) * cn + c];
-                D[i * cn + c] = s;
-              }
-            } /*generic@*/
-          }
-        }
+        D[MINDEX2(n, cn, 0, c)] = s;
+        __ghost(
+            [&]() {
+              __consumes("&D[MINDEX2(n, cn, 0, c)] ~> Cell");
+              __produces("for i in 0..1 -> &D[MINDEX2(n, cn, i, c)] ~> Cell");
+              __admitted();
+              __with("justif := roll");
+            },
+            "");
+        /*@__547*/ for (int i = 1; i < n; i++) {
+          __strict();
+          __smodifies("&s ~> Cell");
+          __sreads("S ~> Matrix2(n + kn - 1, cn)");
+          __xmodifies("&D[MINDEX2(n, cn, i, c)] ~> Cell");
+          __ghost(assume,
+                  "F := is_subrange(i + kn - 1..i + kn, 0..n + kn - 1)");
+          __ghost(assume, "F := is_subrange(i - 1..i, 0..n + kn - 1)");
+          __ghost(assume, "F := is_subrange(i..i + kn, 0..n + kn - 1)");
+          __ghost(
+              in_range_extend,
+              "x := i + kn - 1, r1 := i + kn - 1..i + kn, r2 := 0..n + kn - 1");
+          const __ghost_fn __ghost_pair_11 = __ghost_begin(
+              matrix2_ro_focus,
+              "M := S, i := i + kn - 1, j := c, m := n + kn - 1, n := cn");
+          __ghost(in_range_extend,
+                  "x := i - 1, r1 := i - 1..i, r2 := 0..n + kn - 1");
+          const __ghost_fn __ghost_pair_12 = __ghost_begin(
+              matrix2_ro_focus,
+              "M := S, i := i - 1, j := c, m := n + kn - 1, n := cn");
+          s = s + (uint16_t)S[MINDEX2(n + kn - 1, cn, i + kn - 1, c)] -
+              (uint16_t)S[MINDEX2(n + kn - 1, cn, i - 1, c)];
+          __ghost_end(__ghost_pair_12);
+          __ghost_end(__ghost_pair_11);
+          D[MINDEX2(n, cn, i, c)] = s;
+        } /*__547@*/
+        __ghost(group_join,
+                "start := 0, stop := n, step := 1, split := 1, items := fun i "
+                "-> &D[MINDEX2(n, cn, i, c)] ~> Cell");
       }
-    }
-  }
+      __ghost(swap_groups,
+              "outer_range := 0..cn, inner_range := 0..n, items := fun c, i -> "
+              "&D[MINDEX2(n, cn, i, c)] ~> Cell");
 }

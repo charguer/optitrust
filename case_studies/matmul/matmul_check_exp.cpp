@@ -27,7 +27,7 @@ void mm1024(float* C, float* A, float* B) {
       }
       for (int bk = 0; bk < 256; bk++) {
         for (int i = 0; i < 32; i++) {
-          float* const s = ref[32] float();
+          float s[32];
           memcpy(&s[0], &sum[32 * i], 32 * sizeof(float));
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
