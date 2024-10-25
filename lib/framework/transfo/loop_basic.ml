@@ -874,10 +874,12 @@ let ghost_group_shift = toplevel_var "group_shift"
 let ghost_group_unshift = toplevel_var "group_unshift"
 
 (** [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
-let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
+let shift_on (index : string) (kind : shift_kind)
+  (mark_let : mark) (mark_for : mark)
+  (t : trm): trm =
   let index' = new_var index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
-  let ({ index; start; direction; stop; step }, body_terms, contract) =
+  let ({ index; start; direction; stop; step } as loop_range, body_terms, contract) =
     trm_inv ~error trm_for_inv_instrs t in
   if !Flags.check_validity then begin
     match kind with
@@ -904,11 +906,14 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   in
   let index_expr = trm_sub (trm_var index') shift in
   (* NOTE: assuming int type if no type is available *)
-  let body_terms' = Mlist.push_front (
-    trm_let (index, (Option.value ~default:(typ_int) start.typ)) index_expr) body_terms in
+  let body_terms' =
+    Mlist.push_front (trm_add_mark mark_let (trm_let (index, (Option.value ~default:(typ_int) start.typ)) index_expr)) (
+    Mlist.push_front (Resource_trm.(Resource_formula.(assume (formula_in_range (trm_var index) (formula_loop_range loop_range))))) (
+    body_terms))
+  in
   let range' = { index = index'; start = start'; direction; stop = stop'; step } in
   begin if not contract.strict then
-    trm_for_instrs ~annot:t.annot range' body_terms'
+    trm_add_mark mark_for (trm_for_instrs ~annot:t.annot range' body_terms')
     (* trm_fail t "expected loop contract when checking validity" ? *)
   else
     let open Resource_formula in
@@ -925,20 +930,20 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
     let ghosts_after = shift_ghosts ghost_group_unshift contract.iter_contract.post.linear in
     let contract' = Resource_contract.loop_contract_subst (Var_map.singleton index index_expr) contract in
     trm_seq_nobrace_nomarks (ghosts_before @ [
-     trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms'
-     ] @ ghosts_after)
+     trm_add_mark mark_for (trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms'
+    )] @ ghosts_after)
   end
 
 (** [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
 
   validity: expressions used in shifting must be referentially transparent, other expressions can be bound before using [Sequence.insert].
   *)
-let%transfo shift ?(reparse : bool = false) (index : string) (kind : shift_kind) (tg : target) : unit =
-  (* FIXME: having to think about reparse here is not great *)
-  reparse_after ~reparse (fun tg ->
-    Nobrace_transfo.remove_after (fun () ->
-      Target.apply_at_target_paths (shift_on index kind) tg)
-  ) tg
+let%transfo shift (index : string) (kind : shift_kind)
+  ?(mark_let : mark = no_mark)
+  ?(mark_for : mark = no_mark)
+  (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun () ->
+    Target.apply_at_target_paths (shift_on index kind mark_let mark_for) tg)
 
 type extension_kind =
 | ExtendNothing

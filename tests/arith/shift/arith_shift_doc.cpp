@@ -1,3 +1,4 @@
+#include <optitrust.h>
 
 int x;
 

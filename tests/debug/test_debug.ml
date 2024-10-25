@@ -8,7 +8,7 @@ let _ = Flags.disable_stringreprs := true
 let _ = Run.script_cpp (fun () ->
   !! Resources.ensure_computed ();
 
-  !! Loop.shift (StartAtZero) [nbMulti; cFor "i"];
+  !! Loop.shift ~simpl:(fun _ -> ()) (StartAtZero) [nbMulti; cFor "i"];
   !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cFor "i"];
 
   (* repase needed before simplifications *)

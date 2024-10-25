@@ -392,29 +392,33 @@ let%transfo simpl_range ~(simpl : target -> unit) (tg : target) : unit =
 (** [shift ~index kind ~inline]: shifts a loop index according to [kind].
 - [inline] if true, inline the index shift in the loop body *)
 (* TODO: what if index name is same as original loop index name? *)
-let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift_kind) ?(inline : bool = true) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
+let%transfo shift ?(index : string = "") (kind : shift_kind) ?(inline : bool = true) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let index' = if index = "" then begin
     if not inline then
       failwith "Loop.shift: expected name for index variable when inline = false";
-    Tools.next_tmp_name ();
+    Tools.next_tmp_name ()
   end else
     index
   in
+  Marks.with_marks (fun next_mark ->
   Target.iter (fun p ->
+    let (_, p_seq) = Path.index_in_seq p in
     let tg_trm = Target.resolve_path p in
     let error = "Loop.shift: expected target to be a simple loop" in
     let ({ index = prev_index }, _, _) = trm_inv ~error trm_for_inv tg_trm in
-    Loop_basic.shift ~reparse index' kind (target_of_path p);
+    let mark_let = if inline then next_mark () else no_mark in
+    let mark_for = if index = "" then next_mark () else no_mark in
+    Loop_basic.shift index' kind ~mark_let ~mark_for (target_of_path p);
     simpl_range ~simpl (target_of_path p);
     if inline then begin
       let mark = Mark.next() in
-      let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
+      let  _ = Variable_basic.inline ~mark ((target_of_path p_seq) @ [cMark mark_let]) in
       simpl [nbAny; cMark mark]
     end;
     if index = "" then
-      Loop_basic.rename_index prev_index.name (target_of_path p)
-  ) tg
+      Loop_basic.rename_index prev_index.name ((target_of_path p_seq) @ [cMark mark_for])
+  ) tg)
 
 (** [extend_range]: like [Loop_basic.extend_range], plus arithmetic and conditional simplifications.
    *)

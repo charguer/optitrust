@@ -80,6 +80,7 @@ let rec formula_of_trm (t: trm): formula option =
       | Some (_, Prim_binop Binop_array_access)
       | Some (_, Prim_unop (Unop_struct_access _))
       | Some (_, Prim_unop (Unop_struct_get _))
+      | Some (_, Prim_unop Unop_minus)
         -> Some (trm_apps fn f_args)
       | Some _ -> None
       | None ->

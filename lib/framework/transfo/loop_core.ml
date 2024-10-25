@@ -374,7 +374,7 @@ let to_unit_steps_on (new_index : string) (t : trm) : trm =
       [t] - ast of the loop to be transformed. *)
 let scale_range (factor : trm) (new_index : string) (t : trm) : trm =
   let error = "Loop_core.scale_range: only simple loops are supported." in
-  let ({ index; start; direction; stop; step }, _, _) = trm_inv ~error trm_for_inv t in
+  let ({ index; start; direction; stop; step } as loop_range, _, contract) = trm_inv ~error trm_for_inv t in
   let new_index : var =
     match new_index with
     | "" -> index
@@ -382,10 +382,10 @@ let scale_range (factor : trm) (new_index : string) (t : trm) : trm =
     in
 
   let body_trms = for_loop_body_trms t in
-  (* LATER: could introduce a variable name for the formula of the old index in terms of the new one:
-   let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_var_get index) t) body_trms in *)
-   (* LATER: replace change_trm with a more efficient substitution *)
-  let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_exact_div ~typ:typ_int (trm_var ~typ:typ_int new_index) factor) t) body_trms in
+  (* LATER: could introduce a variable name for the formula of the old index in terms of the new one. *)
+  let index_val = trm_exact_div ~typ:typ_int (trm_var ~typ:typ_int new_index) factor in
+  let body_trms = Mlist.push_front (Resource_trm.(Resource_formula.(assume (formula_in_range index_val (formula_loop_range loop_range))))) (
+    Mlist.map (trm_subst_var index index_val) body_trms) in
   let new_start =
     match trm_lit_inv start with
     | Some (Lit_int (_, 0)) -> start
@@ -410,7 +410,7 @@ let scale_range (factor : trm) (new_index : string) (t : trm) : trm =
         ]) in
   let new_body = (trm_seq (Mlist.insert_at 0 new_decl body_trms )) in *)
   let new_body = trm_seq body_trms in
-  trm_for { index = new_index; start = new_start; direction; stop = new_stop; step = new_step } new_body
+  trm_for ~contract { index = new_index; start = new_start; direction; stop = new_stop; step = new_step } new_body
 
 (** [fold_at index start step t]: transforms a sequence of instructions into a for loop,
       [index] - index of the generated for loop,
