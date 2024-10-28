@@ -29,12 +29,6 @@ void f() {
     x += l;
   }
 */
-  for (int m = 2; m < N-2; m++) {
-    __ghost([&] {
-      __requires("in_range(m, 2..(N-2))");
-    }, "");
-    x += m;
-  }
 /* FIXME:
   float* input;
   float* output;
@@ -48,4 +42,27 @@ void f() {
     }
   }
 */
+}
+
+void ghost_in_range(int* x, int N) {
+  for (int m = 2; m < N-2; m++) {
+    __ghost([&] {
+      __requires("in_range(m, 2..(N-2))");
+    }, "");
+    x += m;
+  }
+}
+
+void arrays(int N, int* w, int* r, int* f) {
+  __writes("w ~> Matrix1(N)");
+  __reads("r ~> Matrix1(N)");
+  __modifies("f ~> Matrix1(N)");
+
+  for (int i = 0; i < N; i++) {
+    __xwrites("&w[MINDEX1(N, i)] ~> Cell");
+    // FIXME: __xreads("&r[MINDEX1(N, i)] ~> Cell");
+    __xmodifies("&f[MINDEX1(N, i)] ~> Cell");
+    w[MINDEX1(N, i)] = i; /* FIXME: + r[MINDEX1(N, i)]; */
+    f[MINDEX1(N, i)] = i + f[MINDEX1(N, i)];
+  }
 }

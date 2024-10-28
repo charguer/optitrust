@@ -841,6 +841,52 @@ __GHOST(group_unshift_ro) {
   __admitted();
 }
 
+/* --- group_scale and nested variants: */
+
+__GHOST(group_scale) {
+  __requires("stop: int, step: int, items: int -> formula");
+  __requires("factor: int, new_step: int, new_stop: int");
+  __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
+  // TODO: check factor != 0
+  __consumes("for i in range(0, stop, step) -> items(i)");
+  __produces("for i in range(0, new_stop, new_step) -> items(exact_div(i, factor))");
+  __admitted();
+}
+
+__GHOST(group_unscale) {
+  __reverts(group_scale);
+  __admitted();
+}
+
+__GHOST(group_scale_uninit) {
+  __requires("stop: int, step: int, items: int -> formula");
+  __requires("factor: int, new_step: int, new_stop: int");
+  __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
+  __consumes("_Uninit(for i in range(0, stop, step) -> items(i))");
+  __produces("_Uninit(for i in range(0, new_stop, new_step) -> items(exact_div(i, factor)))");
+  __admitted();
+}
+
+__GHOST(group_unscale_uninit) {
+  __reverts(group_scale_uninit);
+  __admitted();
+}
+
+__GHOST(group_scale_ro) {
+  __requires("stop: int, step: int, items: int -> formula");
+  __requires("factor: int, new_step: int, new_stop: int");
+  __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
+  __requires("f: _Fraction");
+  __consumes("_RO(f, for i in range(0, stop, step) -> items(i))");
+  __produces("_RO(f, for i in range(0, new_stop, new_step) -> items(exact_div(i, factor)))");
+  __admitted();
+}
+
+__GHOST(group_unscale_ro) {
+  __reverts(group_scale_ro);
+  __admitted();
+}
+
 /* --- group split/join and nested variants: */
 
 __GHOST(group_split) {

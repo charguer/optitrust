@@ -12,6 +12,9 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Resources.ensure_computed ();
   !! Loop_basic.tile (trm_int 4) ~bound:TileDivides [cFunDef "matrix_copy"; cFor "i"];
+  (* FIXME:
+  !! Loop_basic.tile (trm_int 4) ~bound:TileDivides [cFunDef "xreads"; cFor "i"];
+  *)
   !! Resources.ensure_computed ();
 
 )

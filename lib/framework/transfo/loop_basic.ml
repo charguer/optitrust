@@ -83,6 +83,7 @@ let collapse_on (simpl_mark : mark) (index : string)
   let open Resource_formula in
   let add_collapse_ghost ghost ghost_ro ghost_uninit =
     List.map (fun (_, formula) ->
+      (* TODO: factorize generic ghost mode code for all transfos *)
       let ghost, formula = match formula_mode_inv formula with
       | Full, f -> ghost, f
       | RO, f -> ghost_ro, f
@@ -838,13 +839,6 @@ let%transfo unswitch (tg : target) : unit =
 let%transfo to_unit_steps ?(index : string = "" ) (tg : target) : unit =
   apply_at_target_paths (Loop_core.to_unit_steps_on index) tg
 
-
-(** [scale_range ~factor ?index tg]: expects target [tg] to point at a for loop
-    [index]. [factor] denotes the factor by which indices are multiplied. *)
-let%transfo scale_range ~(factor : trm) ?(index : string = "" ) (tg : target) : unit =
-  apply_at_target_paths (Loop_core.scale_range factor index) tg
-
-
 (** [fold ~direction index start stop step tg]: expects the target [tg] to point at the first instruction in a sequence
     and it assumes that the sequence containing the target [tg] is composed of a list of instructions which
     can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop
@@ -871,16 +865,88 @@ let shift_kind_to_string = function
 | StopAt t -> "StopAt " ^ (Ast_to_c.ast_to_string t)
 
 let ghost_group_shift = toplevel_var "group_shift"
+let ghost_group_shift_ro = toplevel_var "group_shift_ro"
+let ghost_group_shift_uninit = toplevel_var "group_shift_uninit"
 let ghost_group_unshift = toplevel_var "group_unshift"
+let ghost_group_unshift_ro = toplevel_var "group_unshift_ro"
+let ghost_group_unshift_uninit = toplevel_var "group_unshift_uninit"
 
-(** [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
-let shift_on (index : string) (kind : shift_kind)
-  (mark_let : mark) (mark_for : mark)
-  (t : trm): trm =
-  let index' = new_var index in
-  let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
-  let ({ index; start; direction; stop; step } as loop_range, body_terms, contract) =
-    trm_inv ~error trm_for_inv_instrs t in
+(** transforms a loop index (e.g. shift, scale). *)
+let transform_range_on
+ (new_range : loop_range -> var -> loop_range * trm * 'a)
+ (pre_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
+ (post_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
+ (new_index : string) (mark_let : mark) (mark_for : mark) (t : trm) : trm =
+ let index' = new_var new_index in
+ let error = "expected a target to a simple for loop" in
+ let (range, body_terms, contract) = trm_inv ~error trm_for_inv_instrs t in
+ let (range', index_expr, data) = new_range range index' in
+ (* NOTE: assuming int type if no type is available *)
+ let body_terms' =
+   Mlist.push_front (trm_add_mark mark_let (trm_let (range.index, (Option.value ~default:(typ_int) range.start.typ)) index_expr)) (
+   Mlist.push_front (Resource_trm.(Resource_formula.(assume (formula_in_range (trm_var range.index) (formula_loop_range range))))) (
+   body_terms))
+ in
+ begin if not contract.strict then
+   trm_add_mark mark_for (trm_for_instrs ~annot:t.annot range' body_terms')
+   (* trm_fail t "expected loop contract when checking validity" ? *)
+ else
+   let ghosts_before = pre_res_trans range range' data contract.iter_contract.pre.linear in
+   let ghosts_after = post_res_trans range range' data contract.iter_contract.post.linear in
+   let contract' = Resource_contract.loop_contract_subst (Var_map.singleton range.index index_expr) contract in
+   trm_seq_nobrace_nomarks (ghosts_before @ [
+    trm_add_mark mark_for (trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms'
+   )] @ ghosts_after)
+ end
+
+let shift_range_on (kind : shift_kind) =
+  let new_range { index; start; direction; stop; step } index' =
+    (* spec:
+      let start' = trm_add start shift in
+      let stop' = trm_add stop shift in *)
+    let (shift, start', stop') = match kind with
+    (* spec:
+      let start' = trm_add start shift in
+      let stop' = trm_add stop shift in *)
+    | ShiftBy s -> (s, trm_add start s, trm_add stop s)
+    (* NOTE: assuming int type *)
+    | StartAtZero -> (trm_minus start, trm_int 0, trm_sub stop start)
+    | StartAt v -> (trm_sub v start, v, trm_add stop (trm_sub v start))
+    | StopAt v -> (trm_sub v stop, trm_add start (trm_sub v stop), v)
+    in
+    let range' = { index = index'; start = start'; direction; stop = stop'; step } in
+    let index_expr = trm_sub (trm_var index') shift in
+    (range', index_expr, shift)
+  in
+  let open Resource_formula in
+  let shift_ghosts ghost ghost_ro ghost_uninit r r' shift =
+    List.map (fun (_, formula) ->
+      (* TODO: factorize generic ghost mode code for all transfos *)
+      let ghost, formula, extra_params = match formula_mode_inv formula with
+      | Full, f -> ghost, f, []
+      | RO, f -> ghost_ro, f, ["f", (Option.unsome (formula_read_only_inv formula)).frac]
+      | Uninit, f -> ghost_uninit, f, []
+      in
+      let i = new_var r.index.name in
+      let items = formula_fun [i, typ_int] (trm_subst_var r.index (trm_var i) formula) in
+      Resource_trm.ghost (ghost_call ghost ([
+        "start", r.start; "stop", r.stop; "step", r.step; "items", items;
+        "shift", shift; "new_start", r'.start; "new_stop", r'.stop
+      ] @ extra_params))
+    )
+  in
+  let pre_res_trans = shift_ghosts ghost_group_shift ghost_group_shift_ro ghost_group_shift_uninit in
+  let post_res_trans = shift_ghosts ghost_group_unshift ghost_group_unshift_ro ghost_group_unshift_uninit in
+  transform_range_on new_range pre_res_trans post_res_trans
+
+(** [shift_range index kind]: shifts a loop index range according to [kind], using a new [index] name.
+
+  validity: expressions used in shifting must be referentially transparent, other expressions can be bound before using [Sequence.insert].
+  *)
+let%transfo shift_range (index : string) (kind : shift_kind)
+  ?(mark_let : mark = no_mark)
+  ?(mark_for : mark = no_mark)
+  (tg : target) : unit =
   if !Flags.check_validity then begin
     match kind with
     | ShiftBy v | StartAt v | StopAt v ->
@@ -891,59 +957,76 @@ let shift_on (index : string) (kind : shift_kind)
         trm_fail v "shifting by a non-pure expression is not yet supported, requires checking that expression is read-only, introduce a binding with 'Sequence.insert' to workaround" (* TODO: combi doing this *)
     | StartAtZero -> Trace.justif "shifting to zero is always correct, loop range is read-only"
   end;
-  (* spec:
-    let start' = trm_add start shift in
-    let stop' = trm_add stop shift in *)
-  let (shift, start', stop') = match kind with
-  (* spec:
-    let start' = trm_add start shift in
-    let stop' = trm_add stop shift in *)
-  | ShiftBy s -> (s, trm_add start s, trm_add stop s)
-  (* NOTE: assuming int type *)
-  | StartAtZero -> (trm_minus start, trm_int 0, trm_sub stop start)
-  | StartAt v -> (trm_sub v start, v, trm_add stop (trm_sub v start))
-  | StopAt v -> (trm_sub v stop, trm_add start (trm_sub v stop), v)
-  in
-  let index_expr = trm_sub (trm_var index') shift in
-  (* NOTE: assuming int type if no type is available *)
-  let body_terms' =
-    Mlist.push_front (trm_add_mark mark_let (trm_let (index, (Option.value ~default:(typ_int) start.typ)) index_expr)) (
-    Mlist.push_front (Resource_trm.(Resource_formula.(assume (formula_in_range (trm_var index) (formula_loop_range loop_range))))) (
-    body_terms))
-  in
-  let range' = { index = index'; start = start'; direction; stop = stop'; step } in
-  begin if not contract.strict then
-    trm_add_mark mark_for (trm_for_instrs ~annot:t.annot range' body_terms')
-    (* trm_fail t "expected loop contract when checking validity" ? *)
-  else
-    let open Resource_formula in
-    let shift_ghosts ghost =
-      List.map (fun (_, formula) ->
-        let i = new_var index.name in
-        let items = formula_fun [i, typ_int] (trm_subst_var index (trm_var i) formula) in
-        Resource_trm.ghost (ghost_call ghost [
-          "start", start; "stop", stop; "step", step; "items", items;
-          "shift", shift; "new_start", start'; "new_stop", stop'])
-      )
-    in
-    let ghosts_before = shift_ghosts ghost_group_shift contract.iter_contract.pre.linear in
-    let ghosts_after = shift_ghosts ghost_group_unshift contract.iter_contract.post.linear in
-    let contract' = Resource_contract.loop_contract_subst (Var_map.singleton index index_expr) contract in
-    trm_seq_nobrace_nomarks (ghosts_before @ [
-     trm_add_mark mark_for (trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms'
-    )] @ ghosts_after)
-  end
-
-(** [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
-
-  validity: expressions used in shifting must be referentially transparent, other expressions can be bound before using [Sequence.insert].
-  *)
-let%transfo shift (index : string) (kind : shift_kind)
-  ?(mark_let : mark = no_mark)
-  ?(mark_for : mark = no_mark)
-  (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths (shift_on index kind mark_let mark_for) tg)
+    Target.apply_at_target_paths (shift_range_on kind index mark_let mark_for) tg)
+
+let ghost_group_scale = toplevel_var "group_scale"
+let ghost_group_scale_ro = toplevel_var "group_scale_ro"
+let ghost_group_scale_uninit = toplevel_var "group_scale_uninit"
+let ghost_group_unscale = toplevel_var "group_unscale"
+let ghost_group_unscale_ro = toplevel_var "group_unscale_ro"
+let ghost_group_unscale_uninit = toplevel_var "group_unscale_uninit"
+
+let scale_range_on (factor : trm) =
+  let new_range { index; start; direction; stop; step } index' =
+    let new_start =
+      match trm_lit_inv start with
+      | Some (Lit_int (_, 0)) -> start
+      | _ -> trm_fail start "scale_range: only start at zero is supported."
+    in
+    let new_step =
+      match trm_lit_inv step with
+      | Some (Lit_int (_, 1)) -> factor
+      | _ -> trm_mul factor step
+    in
+    let new_stop = match direction with
+      | DirUp -> (trm_mul factor stop)
+      | DirUpEq | DirDown | DirDownEq -> failwith "scale_range: only up to loops are supported."
+    in
+    let range' = { index = index'; start = new_start; direction; stop = new_stop; step = new_step } in
+    let index_expr = trm_exact_div ~typ:typ_int (trm_var ~typ:typ_int index') factor in
+    (range', index_expr, ())
+  in
+  let open Resource_formula in
+  let scale_ghosts ghost ghost_ro ghost_uninit r r' () =
+    List.map (fun (_, formula) ->
+      (* TODO: factorize generic ghost mode code for all transfos *)
+      let ghost, formula = match formula_mode_inv formula with
+      | Full, f -> ghost, f
+      | RO, f -> ghost_ro, f (* FIXME: wrong fraction splits *)
+      | Uninit, f -> ghost_uninit, f
+      in
+      let i = new_var r.index.name in
+      let items = formula_fun [i, typ_int] (trm_subst_var r.index (trm_var i) formula) in
+      Resource_trm.ghost (ghost_call ghost [
+        "stop", r.stop; "step", r.step; "items", items;
+        "factor", factor; "new_step", r'.step; "new_stop", r'.stop])
+    )
+  in
+  let pre_res_trans = scale_ghosts ghost_group_scale ghost_group_scale_ro ghost_group_scale_uninit in
+  let post_res_trans = scale_ghosts ghost_group_unscale ghost_group_scale_ro ghost_group_scale_uninit in
+  transform_range_on new_range pre_res_trans post_res_trans
+
+(** [scale_range index factor tg]: expects target [tg] to point at a for loop
+  [index]. [factor] denotes the factor by which indices are multiplied.
+
+  validity: factor must be a pure expression, and cannot be equal to 0
+    *)
+let%transfo scale_range (index : string) (factor : trm)
+ ?(mark_let : mark = no_mark)
+ ?(mark_for : mark = no_mark)
+ (tg : target) : unit =
+ if !Flags.check_validity then begin
+    if Resources.trm_is_pure factor then
+      (* TODO: also works for read-only *)
+      Trace.justif "scaling by a pure expression is always correct"
+    else
+      trm_fail factor "scaling by a non-pure expression is not yet supported, requires checking that expression is read-only, introduce a binding with 'Sequence.insert' to workaround" (* TODO: combi doing this *)
+ end;
+ Tools.warn "need to check that scaling factor != 0, including in group scale ghosts";
+ Nobrace_transfo.remove_after (fun () ->
+  apply_at_target_paths (scale_range_on factor index mark_let mark_for) tg
+ )
 
 type extension_kind =
 | ExtendNothing

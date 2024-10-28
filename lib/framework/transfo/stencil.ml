@@ -13,7 +13,7 @@ let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : 
     if (are_same_trm start start') && (are_same_trm stop stop') then
       ()
     else begin
-      Loop.shift ~simpl (StopAt stop) (target_of_path p);
+      Loop.shift_range ~simpl (StopAt stop) (target_of_path p);
       Loop.extend_range ~simpl ~start:(ExtendTo start) (target_of_path p)
     end
   ) tg

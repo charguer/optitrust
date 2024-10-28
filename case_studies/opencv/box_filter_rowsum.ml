@@ -31,8 +31,8 @@ let _ = Run.script_cpp (fun () ->
   !! Reduce.elim [nbMulti; cMark "acc"; cCall "reduce_spe1"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
   !! Reduce.elim ~inline:true [nbMulti; cMark "nokn"; cFor "i"; cCall "reduce_spe1"];
-  !! Loop.shift (StartAtZero) [nbMulti; cMark "nokn"; cFor "i"];
-  !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cMark "nokn"; cFor "i"];
+  !! Loop.shift_range ~simpl:(fun _ -> ()) (StartAtZero) [nbMulti; cMark "nokn"; cFor "i"];
+  !! Loop.scale_range ~simpl:(fun _ -> ()) ~factor:(trm_find_var "cn" []) [nbMulti; cMark "nokn"; cFor "i"];
 
   !! Specialize.variable_multi ~mark_then
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];
