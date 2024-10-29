@@ -34,7 +34,6 @@ void foo() {
         i = j + 5;
       }
     }
-#pragma omp taskwait
   __apac_exit:;
   }
 }

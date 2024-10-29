@@ -17,7 +17,6 @@ void f(int* tab1, int* tab2, int size) {
     g(tab1);
 #pragma omp task default(shared) depend(in : tab2) depend(inout : tab2[0])
     g(tab2);
-#pragma omp taskwait
   __apac_exit:;
   }
 }

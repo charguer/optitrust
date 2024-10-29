@@ -32,7 +32,6 @@ void move_segment(Segment* sgmt) {
       sgmt->p1 = move_point(sgmt->p1);
       add_point(&sgmt->p1, &sgmt->p2);
     }
-#pragma omp taskwait
   __apac_exit:;
   }
 }
@@ -47,7 +46,6 @@ void move_polygone(Polygone* poly) {
         add_point(&poly->pts[i - 1], &poly->pts[i]);
       }
     }
-#pragma omp taskwait
   __apac_exit:;
   }
 }
@@ -59,7 +57,6 @@ void add_polygone(Polygone* poly1, const Polygone* poly2) {
 #pragma omp task default(shared) depend(in : poly2) depend(inout : poly1) firstprivate(i)
       add_point(&poly1->pts[i], &poly2->pts[i]);
     }
-#pragma omp taskwait
   __apac_exit:;
   }
 }

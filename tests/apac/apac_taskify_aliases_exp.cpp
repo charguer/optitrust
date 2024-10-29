@@ -34,7 +34,6 @@ int h(int** v1, int* v2, int v3) {
       a2[0] = k();
       a2bis[0] = k();
     }
-#pragma omp taskwait
     int a3 = v3;
     a3++;
     __apac_result = a3;

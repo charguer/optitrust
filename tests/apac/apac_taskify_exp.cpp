@@ -32,7 +32,6 @@ void c(int* tab, int size) {
     g(tab);
 #pragma omp task default(shared) depend(in : tab, tab[0])
     h(tab);
-#pragma omp taskwait
   __apac_exit:;
   }
 }
@@ -49,7 +48,6 @@ int main() {
       c(t, 4);
       free(t);
     }
-#pragma omp taskwait
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;

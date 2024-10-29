@@ -203,7 +203,6 @@ int sparselu(float** matrix, const size_t matrix_size, const size_t submatrix_si
         }
       }
     }
-#pragma omp taskwait
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;

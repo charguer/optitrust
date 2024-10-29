@@ -38,7 +38,6 @@ int main(int argc, char** argv) {
       result = fibonacci(n);
       printf("fibonacci(%d) = %lld\n", n, result);
     }
-#pragma omp taskwait
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;

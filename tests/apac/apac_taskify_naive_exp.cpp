@@ -18,7 +18,6 @@ int h() {
       f(a, b);
       a = 3;
     }
-#pragma omp taskwait
   __apac_exit:;
   }
   return __apac_result;

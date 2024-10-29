@@ -55,7 +55,6 @@ void sort_core(int* in_out_data, int right_limit) {
 #pragma omp task default(shared) depend(inout : pivot)
       delete pivot;
     }
-#pragma omp taskwait
   __apac_exit:;
   }
 }

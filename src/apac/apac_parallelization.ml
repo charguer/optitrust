@@ -640,11 +640,11 @@ let synchronize_subscripts (tg : target) : unit =
 
 (** [place_barriers_on p t]: see [place_barriers]. *)
 let place_barriers_on (p : path) (t : trm) : unit =
-  (** [place_barriers_on.find g]: looks in the task candidate graph [g] for a
-      task candidate immediately preceding the task candidate which is either
-      itself the first eligible task candidate or the first task candidate to
-      involve an eligible task candidate (in a nested task candidate graph). *)
-  let find (g : TaskGraph.t) : TaskGraph.V.t option =
+  (** [place_barriers_on.find g]: looks in the task candidate graph [g] for task
+      candidates immediately preceding the task candidate which is either itself
+      the first eligible task candidate or the first task candidate to involve
+      an eligible task candidate (in a nested task candidate graph). *)
+  let find (g : TaskGraph.t) : TaskGraph.V.t list =
     (** [place_barriers_on.find.taskifiable v]: checks whether the task
         candidate vertex [v] is an eligible task candidate or whether it
         involves an eligible task candidate in a nested task candidate graph. *)
@@ -662,11 +662,11 @@ let place_barriers_on (p : path) (t : trm) : unit =
     in
     (** [place_barriers_on.find.core p l]: core function operating on a list [l]
         of the task candidate vertices of [g]. [p] represents the previously
-        visited vertex ([None] in the initial call to the function). *)
-    let rec core (p : TaskGraph.V.t option)
-              (l : TaskGraph.V.t list) : TaskGraph.V.t option =
+        visited vertices (empty in the initial call to the function). *)
+    let rec core (p : TaskGraph.V.t list)
+              (l : TaskGraph.V.t list) : TaskGraph.V.t list =
       match l with
-      | t :: tl -> if (taskifiable t) then p else core (Some t) tl
+      | t :: tl -> if (taskifiable t) then p else core (t :: p) tl
       | [] -> p
     in
     (** Retrieve all the vertices of [g] in a list following the ascending order
@@ -677,7 +677,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
     (** This way, the task candidate immediately preceding the first eligible
         task candidate in [vs] amounts to the task candidate immediately
         following the last eligible task candidate in [g]. *)
-    core None vs 
+    core [] vs 
   in
   (** [place_barriers_on.tasks ts v]: auxiliary function to explore each task
       candidate vertex [v] of a task candidate graph in search for eligible task
@@ -699,18 +699,18 @@ let place_barriers_on (p : path) (t : trm) : unit =
   in
   (** [place_barriers_on.process l c s ts v]: auxiliary function for placing a
       barrier in front of a vertex [v] depending on the presence of preceding
-      eligible task candidates in the stack [ts]. [l] represents the task
-      candidate immediately following the last eligible task candidate in the
-      task candidate graph we apply the function on. When [v] equals [p], place
-      a global synchronization barrier on the latter and set [c] to [true] so as
-      to prevent the function from placing further barriers. When processing a
-      loop nest, we do not consider only preceding eligible task candidates but
-      all the eligible task candidates of its outermost loop. To this end, we
-      pre-load [ts] with all the eligible task candidates from [v] and its
-      nested task candidate graphs before recursively processing it. In this
-      case, we set the [s] flag to [true] so as to prevent the function from
-      pushing eligible task candidates from [v] into [ts] twice. *)
-  let rec process (l : TaskGraph.V.t) (c : bool ref) (s : bool)
+      eligible task candidates in the stack [ts]. [l] represents the list of
+      task candidates immediately following the last eligible task candidate in
+      the task candidate graph we apply the function on. When [v] equals [p],
+      place a global synchronization barrier on the latter and set [c] to [true]
+      so as to prevent the function from placing further barriers. When
+      processing a loop nest, we do not consider only preceding eligible task
+      candidates but all the eligible task candidates of its outermost loop. To
+      this end, we pre-load [ts] with all the eligible task candidates from [v]
+      and its nested task candidate graphs before recursively processing it. In
+      this case, we set the [s] flag to [true] so as to prevent the function
+      from pushing eligible task candidates from [v] into [ts] twice. *)
+  let rec process (l : TaskGraph.V.t list) (c : bool ref) (s : bool)
             (ts : Task.t Stack.t) (v : TaskGraph.V.t) : unit =
     (** Retrieve the label [t] of the task candidate [v]. *)
     let t : Task.t = TaskGraph.V.label v in
@@ -721,12 +721,23 @@ let place_barriers_on (p : path) (t : trm) : unit =
       begin
         if not s then Stack.push t ts
       end
-    else if (TaskGraph.V.equal l v) then
+    else if (TaskGraph.V.equal (List.hd l) v) then
       begin
-        (** If [v] is the task candidate [l] immediately following the last
-            eligible task candidate in the target task candidate graph, place a
-            global synchronization barrier on the latter and *)
-        t.attrs <- TaskAttr_set.add WaitForAll t.attrs;
+        (** If [v] is the first task candidate in [l] immediately following the
+            last eligible task candidate in the target task candidate graph and
+            if any task candidate [e] from the list [l] depends on any preceding
+            eligible task candidate [e'] from the stack [ts], *)
+        let depend =
+          List.fold_left (fun acc e ->
+              let e : Task.t = TaskGraph.V.label e in
+              acc || (Stack.fold (fun acc' e' ->
+                          acc' || (Task.depending e' e)
+                        ) false ts)
+            ) false l
+        in
+        if depend then
+          (** place a global synchronization barrier on [v] and *)
+          t.attrs <- TaskAttr_set.add WaitForAll t.attrs;
         (** set [c] to [true] so as to prevent the function from placing further
             barriers. *)
         c := true
@@ -809,31 +820,30 @@ let place_barriers_on (p : path) (t : trm) : unit =
       To this end, iterate over the task candidates of [r.graph], including the
       those from nested task candidate graphs, in descending schedule order (see
       [Task.t]). *)
-  let bl : TaskGraph.V.t option = find r.graph in
-  match bl with
-  | Some e ->
-     (** Initialize a stack of preceding eligible task candiates. *)
-     let ts : Task.t Stack.t = Stack.create () in
-     (** Process each task candidate in [r.graph]. *)
-     let stop = ref false in
-     TaskGraphTraverse.iter_schedule (process e stop false ts) r.graph;
-     (** Dump the resulting task candidate graph, if requested. *)
-     if !Apac_flags.verbose then
-       begin
-         Printf.printf "Task candidate graph of `%s' (with barriers):\n"
-           (var_to_string f);
-         TaskGraphPrinter.print r.graph
-       end;
-     if !Apac_flags.keep_graphs then
-       TaskGraphExport.to_pdf r.graph (Apac_macros.gf ~suffix:"barriers" f)
-  | None ->
-     let error = Printf.sprintf
-                   "Apac_epilogue.place_barriers_on: no eligible task \
-                    candidates. There is nothing to do for the function '%s'. "
-                   (var_to_string f) in
-     fail t.loc error
-
-(* TODO: Pas de taskwait à la fin d'un taskgroup. *)
+  let bl : TaskGraph.V.t list = find r.graph in
+  if bl <> [] then
+    begin
+      (** Initialize a stack of preceding eligible task candiates. *)
+      let ts : Task.t Stack.t = Stack.create () in
+      (** Process each task candidate in [r.graph]. *)
+      let stop = ref false in
+      TaskGraphTraverse.iter_schedule (process bl stop false ts) r.graph;
+      (** Dump the resulting task candidate graph, if requested. *)
+      if !Apac_flags.verbose then
+        begin
+          Printf.printf "Task candidate graph of `%s' (with barriers):\n"
+            (var_to_string f);
+          TaskGraphPrinter.print r.graph
+        end;
+      if !Apac_flags.keep_graphs then
+        TaskGraphExport.to_pdf r.graph (Apac_macros.gf ~suffix:"barriers" f)
+    end
+  else
+    let error = Printf.sprintf
+                  "Apac_epilogue.place_barriers_on: no eligible task \
+                   candidates. There is nothing to do for the function '%s'. "
+                  (var_to_string f) in
+    fail t.loc error
 
 (** [place_barriers tg]: expects the target [tg] to point at the body of a
     function having a task candidate graph representation. If a vertex in the

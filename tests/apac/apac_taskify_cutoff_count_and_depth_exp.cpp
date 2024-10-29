@@ -97,7 +97,6 @@ void c(int* tab, int size) {
         __apac_count--;
       }
     }
-#pragma omp taskwait
   __apac_exit:;
   }
 }
@@ -128,7 +127,6 @@ int main() {
         __apac_count--;
       }
     }
-#pragma omp taskwait
     __apac_result = 0;
     goto __apac_exit;
   __apac_exit:;
