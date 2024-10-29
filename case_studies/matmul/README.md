@@ -4,6 +4,11 @@ Matrix Multiplication case study corresponding to [TVM's schedule](https://tvm.a
 
 # How do I run the benchmarks?
 
+Install `icx` Intel OneAPI, and run:
+```sh
+source /opt/intel/oneapi/setvars.sh
+```
+
 Install python dependencies:
 ```sh
 python -m pip install -r pip_requirements.txt 
