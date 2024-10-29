@@ -33,6 +33,10 @@ let _ = Run.script_cpp (fun () ->
   !! Reduce.elim ~inline:true [nbMulti; cMark "nokn"; cFor "i"; cCall "reduce_spe1"];
   !! Loop.shift_range ~simpl:(fun _ -> ()) (StartAtZero) [nbMulti; cMark "nokn"; cFor "i"];
   !! Loop.scale_range ~simpl:(fun _ -> ()) ~factor:(trm_find_var "cn" []) [nbMulti; cMark "nokn"; cFor "i"];
+  (* TODO:
+    - insert ghosts around simplified for loop (range and body) to maintain prior pre/post.
+    - insert to_prove instead of warning for / 0.
+   *)
 
   !! Specialize.variable_multi ~mark_then
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];
@@ -44,6 +48,6 @@ let _ = Run.script_cpp (fun () ->
     Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
   );
 
-  (* simpl ~unfold_alias:true *)
+  (* TODO? simpl ~unfold_alias:true *)
   !! Cleanup.std ();
 )
