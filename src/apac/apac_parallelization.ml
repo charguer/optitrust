@@ -679,22 +679,48 @@ let place_barriers_on (p : path) (t : trm) : unit =
         following the last eligible task candidate in [g]. *)
     core None vs 
   in
-  (** [place_barriers_on.process l c ts v]: auxiliary function for placing a
-      barrier in front of a vertex [v] depending on the presence of preceding
-      eligible task candidates in the stack [ts]. [l] represents the task
-      candidate immediately following the last eligible task candidate in the
-      task candidate graph we apply the function on. When [v] equals [p], place
-      a global synchronization barrier on the latter and set [c] to [true] so as
-      to prevent the function from placing further barriers. *)
-  let rec process (l : TaskGraph.V.t) (c : bool ref) (ts : Task.t Stack.t)
-            (v : TaskGraph.V.t) : unit =
+  (** [place_barriers_on.tasks ts v]: auxiliary function to explore each task
+      candidate vertex [v] of a task candidate graph in search for eligible task
+      candidates to store into the task candidate stack [ts]. *)
+  let rec tasks (ts : Task.t Stack.t) (v : TaskGraph.V.t) : unit =
     (** Retrieve the label [t] of the task candidate [v]. *)
     let t : Task.t = TaskGraph.V.label v in
     (** If [t] indicates that [v] is an eligible task candidate, i.e. it carries
         the [Taskifiable] attribute, add it to the stack of preceding eligible
         task candidates [ts]. *)
     if (Task.attributed t Taskifiable) then
-      Stack.push t ts
+      Stack.push t ts;
+    (** Explore the task candidates in nested task candidate graphs, if any. *)
+    List.iter (fun gl ->
+        List.iter (fun go ->
+            TaskGraphTraverse.iter_schedule (tasks ts) go
+          ) gl
+      ) t.children
+  in
+  (** [place_barriers_on.process l c s ts v]: auxiliary function for placing a
+      barrier in front of a vertex [v] depending on the presence of preceding
+      eligible task candidates in the stack [ts]. [l] represents the task
+      candidate immediately following the last eligible task candidate in the
+      task candidate graph we apply the function on. When [v] equals [p], place
+      a global synchronization barrier on the latter and set [c] to [true] so as
+      to prevent the function from placing further barriers. When processing a
+      loop nest, we do not consider only preceding eligible task candidates but
+      all the eligible task candidates of its outermost loop. To this end, we
+      pre-load [ts] with all the eligible task candidates from [v] and its
+      nested task candidate graphs before recursively processing it. In this
+      case, we set the [s] flag to [true] so as to prevent the function from
+      pushing eligible task candidates from [v] into [ts] twice. *)
+  let rec process (l : TaskGraph.V.t) (c : bool ref) (s : bool)
+            (ts : Task.t Stack.t) (v : TaskGraph.V.t) : unit =
+    (** Retrieve the label [t] of the task candidate [v]. *)
+    let t : Task.t = TaskGraph.V.label v in
+    (** If [t] indicates that [v] is an eligible task candidate, i.e. it carries
+        the [Taskifiable] attribute, and if we are not in a loop, i.e. [s] is
+        [false], add [t] to [ts]. *)
+    if (Task.attributed t Taskifiable) then
+      begin
+        if not s then Stack.push t ts
+      end
     else if (TaskGraph.V.equal l v) then
       begin
         (** If [v] is the task candidate [l] immediately following the last
@@ -705,54 +731,71 @@ let place_barriers_on (p : path) (t : trm) : unit =
             barriers. *)
         c := true
       end
-    else if (Stack.length ts) > 0 && !c = false then
-      (** Otherwise, if, according to [t], [v] does not represent a global
-          synchronization barrier (see the [WaitForAll] attribute) nor
-          [Apac_macros.goto_label] (see the [ExitPoint] attribute) nor a jump to
-          the latter (see the [IsJump] attribute), we have to determine whether
-          [v] depends on a preceding eligible task candidate, if any. *)
-      if not (Task.attributed t WaitForAll) &&
-           not (Task.attributed t ExitPoint)  &&
-             not (Task.attributed t IsJump) then
-        begin
-          (** To this end, we imagine a temporary task candidate with a label
-              [temp], based on [t], but omitting the dependencies from nested
-              task candidate graphs, if any. We process the task candidates in
-              nested task candidate graphs separately through a recurive call to
-              this function (see below). *)
-          let temp = Task.copy t in
-          temp.ins <- if t.children <> [[]] then
-                        Dep_set.filter (fun d ->
-                            Dep_map.has_with_attribute d Condition t.ioattrs
-                          ) t.ins
-                      else t.ins;
-          temp.inouts <- if t.children <> [[]] then
-                           Dep_set.filter (fun d ->
-                               Dep_map.has_with_attribute d Condition t.ioattrs
-                             ) t.inouts
-                         else t.inouts;
-          (** Check whether the temporary task candidate shares a data
-              dependency with a preceding eligible task candidate. *)
-          let depends = Stack.fold (fun acc task' ->
-                            acc || (Task.depending task' temp)
-                          ) false ts in
-          (** If so, we request a synchronization barrier for [v] through [t]
-              thanks to the [WaitForSome] attribute. *)
-          if depends then t.attrs <- TaskAttr_set.add WaitForSome t.attrs
-        end
-      else if (Task.attributed t IsJump) then
-        (** However, a jump to [Apac_macros.goto_label] (see the [IsJump]
-            attribute) requires a global synchronization barrier if any eligible
-            task candidate precedes it in the task candidate graph. *)
-        begin
-          t.attrs <- TaskAttr_set.add WaitForAll t.attrs
-        end;
+      else if (Stack.length ts) > 0 && !c = false then
+        (** Otherwise, if, according to [t], [v] does not represent a global
+            synchronization barrier (see the [WaitForAll] attribute) nor
+            [Apac_macros.goto_label] (see the [ExitPoint] attribute) nor a jump
+            to the latter (see the [IsJump] attribute), we have to determine
+            whether [v] depends on a preceding eligible task candidate, if
+            any. *)
+        if not (Task.attributed t WaitForAll) &&
+             not (Task.attributed t ExitPoint)  &&
+               not (Task.attributed t IsJump) then
+          begin
+            (** To this end, we imagine a temporary task candidate with a label
+                [temp], based on [t], but omitting the dependencies from nested
+                task candidate graphs, if any. We process the task candidates in
+                nested task candidate graphs separately through a recurive call
+                to this function (see below). *)
+            let temp = Task.copy t in
+            temp.ins <- if t.children <> [[]] then
+                          Dep_set.filter (fun d ->
+                              Dep_map.has_with_attribute d Condition t.ioattrs
+                            ) t.ins
+                        else t.ins;
+            temp.inouts <- if t.children <> [[]] then
+                             Dep_set.filter (fun d ->
+                                 Dep_map.has_with_attribute
+                                   d Condition t.ioattrs
+                               ) t.inouts
+                           else t.inouts;
+            (** Check whether the temporary task candidate shares a data
+                dependency with a preceding eligible task candidate. *)
+            let depends = Stack.fold (fun acc task' ->
+                              acc || (Task.depending task' temp)
+                            ) false ts in
+            (** If so, we request a synchronization barrier for [v] through [t]
+                thanks to the [WaitForSome] attribute. *)
+            if depends then t.attrs <- TaskAttr_set.add WaitForSome t.attrs
+          end
+        else if (Task.attributed t IsJump) then
+          (** However, a jump to [Apac_macros.goto_label] (see the [IsJump]
+              attribute) requires a global synchronization barrier if any
+              eligible task candidate precedes it in the task candidate
+              graph. *)
+          begin
+            t.attrs <- TaskAttr_set.add WaitForAll t.attrs
+          end;
     (** Process the task candidates in nested task candidate graphs, if any. *)
-    List.iter (fun gl ->
+    List.iter2 (fun ct gl ->
+        (** If [t] features a loop, *)
+        let s = match ct.desc with
+          | Trm_for_c _
+            | Trm_for _
+            | Trm_while _
+            | Trm_do_while _ ->
+             (** pre-load [ts] with all the eligible task candidates from
+                 within the body of the loop. *)
+             List.iter (fun go ->
+                 TaskGraphTraverse.iter_schedule (tasks ts) go
+               ) gl;
+             true
+          | _ -> false
+        in
         List.iter (fun go ->
-            TaskGraphTraverse.iter_schedule (process l c ts) go
+            TaskGraphTraverse.iter_schedule (process l c s ts) go
           ) gl
-      ) t.children
+      ) t.current t.children
   in
   (** Find the parent function [f]. *)
   let f = match (Apac_miscellaneous.find_parent_function p) with
@@ -773,7 +816,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
      let ts : Task.t Stack.t = Stack.create () in
      (** Process each task candidate in [r.graph]. *)
      let stop = ref false in
-     TaskGraphTraverse.iter_schedule (process e stop ts) r.graph;
+     TaskGraphTraverse.iter_schedule (process e stop false ts) r.graph;
      (** Dump the resulting task candidate graph, if requested. *)
      if !Apac_flags.verbose then
        begin
