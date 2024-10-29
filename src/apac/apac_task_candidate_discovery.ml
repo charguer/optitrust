@@ -936,8 +936,11 @@ let taskify_on (p : path) (t : trm) : unit =
           term. Variable declarations should never appear in tasks. *)
        Task.create (-1) t tas scope' ins inouts ioattrs [[]]
     | Trm_apps _ ->
-       (** Is [t] an assignment to [Apac_macros.result_variable] we introduce in
-           the 'return' replacement [Apac_prologue.use_goto_for_return]? *)
+       (** If [t] is an assignment to [Apac_macros.result_variable] we introduce
+           in the 'return' replacement [Apac_prologue.use_goto_for_return], we
+           must make it clear in the resulting task candidate that the statement
+           is related to a 'goto' jump to [Apac_macros.goto_label], hence the
+           [IsJump] attribute (see below). *)
        let isjump = if (is_set_operation t) then
                       let error =
                         "Apac_task_candidate_discovery.taskify_on.fill: \
@@ -949,22 +952,18 @@ let taskify_on (p : path) (t : trm) : unit =
                       | _ -> false
                     else false
        in
-       if isjump then
-         (** If so, we must make it clear the statement is related to a 'goto'
-             jump to [Apac_macros.goto_label], hence the [IsJump] attribute. *)
-         let attrs = TaskAttr_set.singleton IsJump in
-         Task.create (-1) t attrs Var_map.empty
-           Dep_set.empty Dep_set.empty Dep_map.empty [[]]
-       else
-         (** Look for dependencies and their attributes in the current term and
-             initialize the in and inout-dependency sets as well as the map of
-             dependency attribute sets. *)
-         let (ins, inouts, ioattrs) = discover_dependencies s a t in
-         (** Convert the local scope to a set. *)
-         let scope = var_map_of_var_hashtbl s in
-         (** Create the corresponding task candidate using all the elements
-             computed above. *)
-         Task.create (-1) t (TaskAttr_set.empty) scope ins inouts ioattrs [[]]
+       (** Look for dependencies and their attributes in the current term and
+           initialize the in and inout-dependency sets as well as the map of
+           dependency attribute sets. *)
+       let (ins, inouts, ioattrs) = discover_dependencies s a t in
+       (** Convert the local scope to a set. *)
+       let scope = var_map_of_var_hashtbl s in
+       (** Create the corresponding task candidate using all the elements
+           computed above. *)
+       Task.create
+         (-1) t
+         (if isjump then TaskAttr_set.singleton IsJump else TaskAttr_set.empty)
+         scope ins inouts ioattrs [[]]
     | Trm_if (cond, yes, no) ->
        (* Keep a copy of the local scope of variables as a set. We need this
           because we do not want any variables potentially defined in child
