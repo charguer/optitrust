@@ -60,7 +60,11 @@ let _ = Run.script_cpp (fun () ->
 
   (* IMPROVEMENTS:
     - nicer open ghosts in input code
+    - ghosts modifies can become reads
+    - a ghost with only reads/modifies can disappear
+    - a ghost whose effects is identity can be removed
     - local name tile: get elem_ty from program / resources
+      + POUR GUILLAUME: si on a les types dans les ressources
     - bind pointer to particles cell?
     - put 'coeffs' array on stack?
     - allow writing C code for constructing factors, need to parse and put in correct context with local ids
