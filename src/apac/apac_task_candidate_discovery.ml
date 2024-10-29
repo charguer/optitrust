@@ -722,7 +722,7 @@ let taskify_on (p : path) (t : trm) : unit =
            mergeable with other task candidates. *)
        let this =
          Task.create (schedule ()) t (TaskAttr_set.singleton Singleton) scope
-           ins inouts ioattrs [] in
+           ins inouts ioattrs [[]] in
        (** The corresponding vertex in [g] shall become the root vertex of the
            graph (see further below). *)
        let this' = TaskGraph.V.create this in
@@ -954,7 +954,7 @@ let taskify_on (p : path) (t : trm) : unit =
              jump to [Apac_macros.goto_label], hence the [IsJump] attribute. *)
          let attrs = TaskAttr_set.singleton IsJump in
          Task.create (-1) t attrs Var_map.empty
-           Dep_set.empty Dep_set.empty Dep_map.empty []
+           Dep_set.empty Dep_set.empty Dep_map.empty [[]]
        else
          (** Look for dependencies and their attributes in the current term and
              initialize the in and inout-dependency sets as well as the map of
