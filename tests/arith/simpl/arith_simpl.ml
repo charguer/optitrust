@@ -1,11 +1,19 @@
 open Optitrust
 open Target
 
+let _ = Flags.check_validity := true
+let _ = Flags.recompute_resources_between_steps := true
+
 let _ = Run.script_cpp (fun _ ->
   (* TODO: split this files into one file for each type of simplification *)
   (* TODO: figure out when
      WARNING: trm_to_naive_expr: missing type information for binary division, assuming double
      appears, and whether we can rebuild the type information *)
+
+  !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "ra"; dRHS];
+
+  !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "re"; dRHS];
+  !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "rf"; dRHS];
 
   !! Arith_basic.(simpl euclidian) [nbMulti; cWriteVar "eu"; dRHS];
 

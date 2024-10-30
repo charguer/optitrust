@@ -5,8 +5,9 @@ open Typ
 open Contextualized_error
 
 (* debug flags *)
-let debug = false
-let debug_rec = false
+let debug = true
+let debug_purity = false
+let debug_rec = true
 
 (* mark used for marking trms that should be skipped by the simplifier *)
 let mark_nosimpl = "__arith_core_nosimpl"
@@ -78,7 +79,7 @@ type expr = {
   expr_loc : loc; }
 
 (*  Grammar of expressions.
-  Atoms : uninterpreted expressions
+  Atoms : uninterpreted expressions, with an indication of whether it is deletable
   Int, Float : base types
   Expr_sum  : w1 * e1 + ... + wN * eN
   Expr_prod : e1 ^ w1 * ... * eN ^ wN
@@ -96,10 +97,17 @@ type expr = {
 and expr_desc =
   | Expr_int of int
   | Expr_float of float
-  | Expr_atom of id
+  | Expr_atom of id * purity
   | Expr_sum of wexprs
   | Expr_prod of wexprs
   | Expr_binop of binary_op * expr * expr
+
+(** [purity]:
+    redundant means that [e+e] is equivalent to [2*e].
+    deletable means that [0*e] can be replaced by [0]. *)
+and purity = {
+  redundant : bool;
+  deletable : bool; }
 
 (** [exprs]: list of expressions *)
 and exprs = expr list
@@ -118,6 +126,7 @@ type atom_map = trm Atom_map.t
 
 (** [no_atoms]: empty atom map *)
 let no_atoms = Atom_map.empty
+
 
 (******************************************************************************)
 (*                          Smart constructors                                *)
@@ -156,8 +165,8 @@ let expr_one ?loc (typ : typ_builtin) : expr =
   | _ -> failwith "Arith does not support types bool and char"
 
 (** [expr_atom id] produces a variable [id], denoting an arbitrary subterm form ast.ml *)
-let expr_atom ?(loc : loc) ?(typ : typ_builtin option) (id : id) : expr =
-  expr_make ?loc ?typ (Expr_atom id)
+let expr_atom ?(loc : loc) ?(typ : typ_builtin option) (id : id) (purity : purity) : expr =
+  expr_make ?loc ?typ (Expr_atom (id, purity))
 
 (** [expr_sum [(w1,e1);(w2,e2)]] produces [w1*e1 + w2*e2] *)
 let expr_sum ?(loc : loc) ~(typ : typ_builtin) (wes : wexprs) : expr =
@@ -210,6 +219,34 @@ let expr_typ (e: expr) : typ_builtin =
   Option.unsome_or_else e.expr_typ (fun () -> failwith "Expression has an unset type")
 
 (******************************************************************************)
+(*                          Purity queries                                 *)
+(******************************************************************************)
+
+(** [for_all_atoms f e]  returns whether [f] evaluates to [true] on every [atoms] in [e] *)
+let for_all_atoms (f : id -> purity -> bool) (e : expr) : bool =
+  let res = ref true in
+  let rec aux (e : expr) : unit =
+    match e.expr_desc with
+    | Expr_int _ | Expr_float _ -> ()
+    | Expr_sum wes | Expr_prod wes -> List.iter (fun (_ai,ei) -> aux ei) wes
+    | Expr_binop (_op, e1, e2) -> aux e1; aux e2
+    | Expr_atom (id, purity) -> if not (f id purity) then res := false
+    in
+  aux e;
+  !res
+
+(** [is_deletable e]: indicates whether [e] is an expression that contains only
+    deletable atoms. *)
+let is_deletable (e : expr) : bool =
+  for_all_atoms (fun _id purity -> purity.deletable) e
+
+(** [is_redundant e]: indicates whether [e] is an expression that contains only
+    redundant atoms. *)
+let is_redundant (e : expr) : bool =
+  for_all_atoms (fun _id purity -> purity.redundant) e
+
+
+(******************************************************************************)
 (*                          Normalize                                 *)
 (******************************************************************************)
 
@@ -219,8 +256,8 @@ let expr_typ (e: expr) : typ_builtin =
      expression in the parent sum
    - eliminates products and sums with a single expression of weight one
    - eliminates products and sums with an empty list
-   - eliminates elements with weight zero
-   - eliminates +0 is sums and *1 in produts
+   - eliminates deletable elements with weight zero
+   - eliminates +0 is sums and *1 in products
    - simplifies interger-division by 1
    - simplifies modulo operations applied to zero
    - simplifies binary shifting operations by zero
@@ -235,7 +272,7 @@ let normalize_one (e : expr) : expr =
           | (_ai, { expr_desc = Expr_float 0.; _ }) -> []
           | (1, { expr_desc = Expr_int n; _ }) -> [(n, expr_int ~typ:(expr_typ e) 1)]
           | (-1, { expr_desc = Expr_int n; _ }) -> [(-n, expr_int ~typ:(expr_typ e) 1)]
-          | (0, _ei) -> []
+          | (0, ei) when is_deletable ei -> []
           | (1, { expr_desc = Expr_sum wesi; _ }) -> wesi
           | (-1, { expr_desc = Expr_sum wesi; _ }) -> List.map (fun (ai, ei) -> (-ai,ei)) wesi
           | (ai, { expr_desc = Expr_prod [(1, { expr_desc = Expr_int bi; _}); (1,ei)]; _ }) (* Optional? *)
@@ -255,7 +292,7 @@ let normalize_one (e : expr) : expr =
         []
       | (_ai, { expr_desc = Expr_int 1; _ }) -> []
       | (_ai, { expr_desc = Expr_float 1.; _}) -> []
-      | (0, _ei) -> []
+      | (0, ei) when is_deletable ei -> []
       | (1, { expr_desc = Expr_prod wesi; _}) -> wesi
       | (-1, { expr_desc = Expr_prod wesi; _}) -> List.map (fun (w,ei) -> (-w, ei)) wesi
       | (ai, { expr_desc = Expr_sum [(bi, { expr_desc = Expr_int 1; _})]; expr_loc = loc; _}) -> [(ai, expr_int ?loc ~typ bi)]
@@ -271,9 +308,13 @@ let normalize_one (e : expr) : expr =
     | Expr_binop (Binop_trunc_div, e1, { expr_desc = Expr_int 1; _}) -> e1
     | Expr_binop (Binop_trunc_div, e1, { expr_desc = Expr_prod []; _}) -> e1
     (* [0 mod e2 = 0] *)
-    | Expr_binop (Binop_trunc_mod, ({ expr_desc = Expr_int 0; _} as ezero), e2) -> ezero
+    | Expr_binop (Binop_trunc_mod, ({ expr_desc = Expr_int 0; _} as ezero), e2)
+      when is_deletable e2 ->
+        ezero
     (* [e1 % 1 = 0] *)
-    | Expr_binop (Binop_trunc_mod, e1, { expr_desc = Expr_int 1; _ }) -> expr_int ~typ:(expr_typ e) 0
+    | Expr_binop (Binop_trunc_mod, e1, { expr_desc = Expr_int 1; _ })
+      when is_deletable e1 ->
+        expr_int ~typ:(expr_typ e) 0
     (* [e1 << 0 = e1] and [e1 >> 0 = e1] *)
     | Expr_binop ((Binop_shiftr | Binop_shiftl), e1, { expr_desc = Expr_int 0; _}) -> e1
     | _ -> e
@@ -328,7 +369,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
           | _ -> unsupported_binop op
           in
         string sop ^^ string "(" ^^ aux e1 ^^ string "," ^^ aux e2 ^^ string ")"
-    | Expr_atom id ->
+    | Expr_atom (id, _purity) -> (* LATER: print purity using [debug_purity] *)
         let style = Ast_to_c.default_style() in
         begin match Atom_map.find_opt id atoms with
         | Some t1 ->
@@ -399,7 +440,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
           | _ -> unsupported_binop op
           in
         parens (aux e1) ^^ string sop ^^ parens (aux e2)
-     | Expr_atom id ->
+     | Expr_atom (id,_purity) ->
       begin match Atom_map.find_opt id atoms with
       | Some t1 -> Ast_to_c.(trm_to_doc (default_style())) t1
       | _  -> failwith "Arith_core.expr_to_math_string: couldn't convert
@@ -481,28 +522,73 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
 (*                          From trm to expr                                 *)
 (******************************************************************************)
 
-(** [create_or_reuse_atom_for_trm atoms t]: auxiliary function for [trm_to_naive_expr]*)
+(* Hooks to avoid circular dependency *)
+let hook_not_set (t:trm) : 'a = failwith "hook not set in arith_core"
+let hook_trm_is_pure : (trm -> bool) ref = ref hook_not_set
+let hook_is_not_self_interfering : (trm -> bool) ref = ref hook_not_set
+let hook_is_deletable : (trm -> bool) ref = ref hook_not_set
+
+
+(** [is_syntactically_pure t] approximates whether [t] should be
+    considered redundant and deletable when resource information is missing *)
+let is_syntactically_pure (t : trm) : bool =
+  if !Flags.check_validity then !hook_trm_is_pure t else
+    Pattern.pattern_match t [
+      Pattern.(trm_var __) (fun () -> true);
+      Pattern.(trm_int __) (fun () -> true);
+      Pattern.(trm_float __) (fun () -> true);
+      (* TODO: add get operations *)
+      Pattern.__ (fun () -> false)
+    ]
+  (* LATER: use an extended version of trm_is_pure that also allows
+     get operations *)
+
+(** [get_purity t] computes whether [t]
+    should be considered redundant and deletable *)
+let get_purity (t : trm) : purity =
+  if not !Flags.check_validity then begin
+    let pure = is_syntactically_pure t in
+    { redundant = pure;
+      deletable = pure }
+  end else begin
+    let redundant = !hook_is_not_self_interfering t in
+    let deletable = !hook_is_deletable t in
+    { redundant; deletable }
+  end
+
+(** [create_atom_for_trm atoms t] creates a fresh id for the atom [t] and register
+    it in the table [atoms]. *)
+let create_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
+  let new_id = next_id() in
+  atoms := Atom_map.add new_id t !atoms;
+  new_id
+
+(** [create_or_reuse_atom_for_trm atoms t]
+   Try to find an existing id that was already bound to the term [t] in the table [atoms],
+   else create a fresh id and extends the table [atoms] *)
 let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
+  (* A nonzero value for [occ] indicates an existing [id] has been found for [t]. *)
   let occ = ref 0 in
   Atom_map.iter (fun id tid ->
     if !occ = 0 && are_same_trm t tid then occ := id) !atoms;
-    if !occ = 0
-      then begin
-        let new_id = next_id() in
-        atoms := Atom_map.add new_id t !atoms;
-        occ := new_id
-      end;
-  !occ
+  (* If no existing id was found, create a new id, and extends the [atoms] table. *)
+  if !occ = 0
+    then !occ
+    else create_atom_for_trm atoms t
 
-(** [trm_to_naive_expr]: conversion of a trm from the AST into an expr, plus a map that for each atom gives
-    the corresponding term *)
+(** [trm_to_naive_expr]: conversion of a trm from the AST into an expr, plus a map that for each atom gives the corresponding term. If a term is not 'redundant' then multiple occurrences of that term are not collapsed onto a same atom identifier. *)
 let trm_to_naive_expr (t : trm) : expr * atom_map =
   let atoms = ref Atom_map.empty in
   let rec aux (t : trm) : expr =
     let loc = t.loc in
     let force_atom () =
+      let purity = get_purity t in
+      let id =
+        if not purity.redundant
+          then create_atom_for_trm atoms t
+          else create_or_reuse_atom_for_trm atoms t in
       let typ = Option.bind t.typ typ_builtin_inv in
-      expr_atom ?loc ?typ (create_or_reuse_atom_for_trm atoms t)
+      expr_atom ?loc ?typ id purity
     in
     let to_expr_typ (typ : typ) =
       match typ_builtin_inv typ with
@@ -635,7 +721,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     | Expr_binop (op, e1, e2) ->
       trm_apps ?loc (trm_binop (typ_builtin (expr_typ e)) op) [aux e1; aux e2]
 
-    | Expr_atom id ->
+    | Expr_atom (id, _purity) ->
       begin match Atom_map.find_opt id atoms with
       | Some t1 -> t1
       | _ -> failwith "Arith_core.expr_to_trm: couldn't convert an atom expr to a trm"
@@ -653,7 +739,7 @@ let rec same_expr (a : expr) (b : expr) : bool =
     match (a, b) with
     | (Expr_int a, Expr_int b) -> a = b
     | (Expr_float a, Expr_float b) -> a = b
-    | (Expr_atom a, Expr_atom b) -> a = b
+    | (Expr_atom (a,_puritya), Expr_atom (b,_purityb)) -> a = b
     | (Expr_sum a, Expr_sum b) | (Expr_prod a, Expr_prod b) ->
        List.for_all2 same_wexprs a b
     | (Expr_binop (op1, a1, a2), Expr_binop (op2, b1, b2)) ->
@@ -664,22 +750,25 @@ let rec same_expr (a : expr) (b : expr) : bool =
   in
   same_desc a.expr_desc b.expr_desc
 
-(** [cancel_div_floor_prod wes n] simplifies
+(** [cancel_div_floor_prod wes e] simplifies
    [Expr_div (Expr_prod wes) e] into [Expr_prod wes'].
    It returns [Some wes'], or [None] if no simplification is possible *)
-
-let rec cancel_div_floor_prod (wes : wexprs) (e : expr) : wexprs option =
-  match wes with
-  | [] -> None
-  | (wi,ei)::wes' when (same_expr ei e) && wi > 0->
-      if wi = 1
-        then Some wes'
-        else Some ((wi-1,ei)::wes')
-  | (wi,ei)::wes' ->
-      begin match cancel_div_floor_prod wes' e with (* LATER: use a monadic notation? *)
-      | None -> None
-      | Some res -> Some ((wi,ei)::res)
-      end
+let cancel_div_floor_prod (wes : wexprs) (e : expr) : wexprs option =
+  if not (is_deletable e) then None else
+  let rec aux wes e =
+    match wes with
+    | [] -> None
+    | (wi,ei)::wes' when (same_expr ei e) && wi > 0 ->
+        assert (is_deletable ei); (* because same expr as e *)
+        if wi = 1
+          then Some wes'
+          else Some ((wi-1,ei)::wes')
+    | (wi,ei)::wes' ->
+        begin match aux wes' e with (* LATER: use a monadic notation? *)
+        | None -> None
+        | Some res -> Some ((wi,ei)::res)
+        end in
+  aux wes e
 
 (** [gather_one e]: regroups similar expression that appear inside a same product
     or sum. For example, [2 * e1 + (-1)*e1] simplifies to [e1] and
@@ -711,7 +800,8 @@ let rec gather_one (e : expr) : expr =
       gather_one (mk (Expr_binop (Binop_trunc_div, e1, e23))) (* attempt further simplifications *)
   (* simplify [a/a] to [1]. *)
   | Expr_binop (Binop_trunc_div, e1, e2) when e1 = e2 -> expr_int ?loc ~typ:(Option.unsome e.expr_typ) 1
-  (* simplify [(a*b)/(c*a)] to [b/c] and [(a^k*b)/(c*a)] to [(a^(k-1)*b)/c]. *)
+  (* simplify [(a*b)/(c*a)] to [b/c] and [(a^k*b)/(c*a)] to [(a^(k-1)*b)/c].
+      LATER: check is_deletable is called where needed *)
   | Expr_binop (Binop_trunc_div, ({ expr_desc = Expr_prod wes1; _ } as e1),
                            ({ expr_desc = Expr_prod wes2; _ } as e2)) ->
      let rec aux wes1 wes2 : wexprs * wexprs =
@@ -760,6 +850,7 @@ let gather_rec = gather_common true
 (** [expand_one e]: expands a sum that appears inside a product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3].
     It can also expand e.g. [(e1 + e2) * (e3 + e4) * (e5 + e6)].
+    NOW TODO: must check that terms that are duplicated must be 'redundant'.
     The function performs nothing if no expansion can be performed.
     At the very end, it applies [normalize] to the result.*)
 let expand_one (e : expr) : expr =
@@ -850,14 +941,17 @@ let euclidian (e : expr) : expr =
       (* filter [1 * (a % q)] items in the original sum [wes] *)
       let aq_pairs, wes_nonmod = List.partition_map
         (function
-          | (1, { expr_desc = Expr_binop (Binop_trunc_mod, a, q); _ }) as modaq -> Left (a,q,modaq)
+          | (1, { expr_desc = Expr_binop (Binop_trunc_mod, a, q); _ }) as modaq
+             when is_deletable q && is_redundant a -> Left (a,q,modaq)
           | we -> Right(we))
           wes in
       let wes':wexprs = List.fold_left (fun (wes:wexprs) (a,q,modaq) ->
           (* auxiliary function to recognize [a/q] -- LATER: could use same_expr to do this? *)
           let is_a_div_q e =
             match e.expr_desc with
-            | Expr_binop (Binop_trunc_div, a', q') when same_expr a a' && same_expr q q' -> true
+            | Expr_binop (Binop_trunc_div, a', q')
+                when same_expr a a' && same_expr q q'
+                -> true
             | _ -> false
             in
           (* filter at most one [q*(a/q)] or [(a/q)*q] item in the current sum [wes] *)
@@ -1054,7 +1148,7 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
     (* If we could not extract any structure, then we don't process recursively the atoms
        using [f_atom], else we would trigger an infinite loop when [indepth=true]. *)
     match expr.expr_desc with
-    | Expr_atom _id -> atoms
+    | Expr_atom (_id,_purity) -> atoms
     | _ -> Atom_map.map f_atom atoms
     in
   let expr2 = f expr in

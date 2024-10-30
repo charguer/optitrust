@@ -481,6 +481,12 @@ let trm_int_inv (t : trm) : int option =
   | Some (Lit_int (_, n)) -> Some n
   | _ -> None
 
+(** [trm_float_inv t] gets a float literal from a trm *)
+let trm_float_inv (t : trm) : float option =
+  match trm_lit_inv t with
+  | Some (Lit_float (_, n)) -> Some n
+  | _ -> None
+
 (** [trm_is_one step]: checks if the step of the loop is one or not *)
 let trm_is_one (step : trm) : bool =
   match trm_int_inv step with

@@ -93,6 +93,11 @@ let trm_int (f: 'a -> int -> 'b) (k: 'a) (t: trm): 'b =
   | Some x -> f k x
   | _ -> raise Next
 
+let trm_float (f: 'a -> float -> 'b) (k: 'a) (t: trm): 'b =
+  match trm_float_inv t with
+  | Some x -> f k x
+  | _ -> raise Next
+
 let trm_fun args rettyp body spec k t =
   match t.desc with
   | Trm_fun (targs, tret_type, tbody, tspec) ->

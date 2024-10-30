@@ -1,22 +1,38 @@
 #include <optitrust.h>
 
 int f(int x) {
+  __pure();
   return x;
 }
 
 int g(int x) {
+  __pure();
   return x+1;
 }
 
 void simpl_in_depth () {
+  __pure();
   // FIXME: simplified to 2 * g(5), could be wrong if not pure.
   int x = g(1 + 2 + f(2 + 4)) + g(5) + g(5);
   int y = g(1 + 2 + f(2 + 4)) + g(5) + g(5);
 }
 
+int simple() {
+  __pure();
+  const double a = 1;
+  const double b = 2;
+  int ra;
+  ra = a + b + b - a;
+}
+
 int main()
 {
-  double a; double  b; double  c; double d; double  e;
+  __pure();
+  double a;
+  double b;
+  double c;
+  double d;
+  double e;
   double r; double  s; double t; double  u; double  v; double w; double  x; double  y; double z;
 
   // test parsing and normalizing
@@ -78,7 +94,7 @@ int main()
   }
 
   // test integer division
-  int n, m, p, q, eu;
+  int n; int m; int p; int q; int eu;
   q = exact_div(5 + 5, 2); // = 5
   q = exact_div(n * m, n); // = m, would also be true if non-exact division
   q = exact_div(n, m) * m; // = n, true because when b divides a
@@ -110,25 +126,11 @@ int main()
   p = 4 + n - n; // = 4
   p = m + -2;
 
-  int* arr = (int*) MALLOC1(exact_div(1024, 32), sizeof(int));
-  free(arr);
-  arr = (int*) malloc(sizeof(int[exact_div(1024, 32)]));
-  for (q = 0; q < exact_div(1024, 32); q++) { // q < 32
-    arr[q] = 0;
-  }
-  free(arr);
-
   // compute int
   int ci;
   ci = 5 + 5; // = 10
   ci = 3 + n + 1 + n; // = n + n + 4
   ci = 2 * 3 - 1; // = 5
-  ci = 1 << 4; // = 16
-  ci = 1024 >> 4; // = 64
-  ci = 14 ^ 5; // = 11 because 1110b ^ 101b = 1011b
-  ci = 14 | 5; // = 15
-  ci = 14 & 5; // = 4
-  ci = 15 % 4; // = 3
   ci = n * 4 * 2; // = n * 8
 
   // compute int div
@@ -148,7 +150,54 @@ int main()
 
   // LATER: compute casts from/to int/double
 
-
   return 0;
+}
+
+void more_ops() {
+  int ci;
+  ci = 1 << 4; // = 16
+  ci = 1024 >> 4; // = 64
+  ci = 14 ^ 5; // = 11 because 1110b ^ 101b = 1011b
+  ci = 14 | 5; // = 15
+  ci = 14 & 5; // = 4
+  ci = 15 % 4; // = 3
+}
+
+int eff(int* p) {
+  __modifies("p ~> Cell");
+  //*p++;
+  return 0;
+}
+
+/*
+void impurity(int* p) {
+  __modifies("p ~> Cell");
+  int re = 0;
+  int rf = 0;
+  int const a = 1;
+  int const b = 1;
+  re = eff(p) + eff(p); // cannot simplify to 2*eff(p)
+  rf = (a + b) * eff(p); // cannot expand
+}
+*/
+
+void purity(int* p) {
+  __pure();
+  int re = 0;
+  int rf = 0;
+  int const a = 1;
+  int const b = 1;
+  re = f(1) + f(1); // = 2*f(1)
+  rf = (a + b) * f(1); // = a * f(1) + b * f(1)
+}
+
+void alloc() { // LATER: add __pure()
+  int* arr = (int*) MALLOC1(exact_div(1024, 32), sizeof(int));
+  free(arr);
+  arr = (int*) malloc(sizeof(int[exact_div(1024, 32)]));
+  for (int q = 0; q < exact_div(1024, 32); q++) { // q < 32
+    arr[q] = 0;
+  }
+  free(arr);
 }
 

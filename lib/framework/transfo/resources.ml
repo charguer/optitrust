@@ -53,6 +53,7 @@ let around_instrs (instrs : trm mlist) : (resource_set * resource_set) =
 let trm_is_pure (t: trm): bool =
   (* TODO: ? look at resource usage, empty linear usage is pure *)
   Option.is_some (Resource_formula.formula_of_trm t)
+let _ = Arith_core.hook_trm_is_pure := trm_is_pure
 
 (** If output_new_fracs is given, do not add new fractions to the pure precondition but add them to the list instead. *)
 let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (contract: fun_contract) (post_inst: used_resource_set) (usage: resource_usage_map): fun_contract =
@@ -618,11 +619,36 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(ke
     recompute_resources ()
   )
 
-
 (** <private>
     Checks that the trm resource usage does not contain any resources used Full or Produced.
     This corresponds to self interference of the trm:
     A trm is not self interfere if `t; t` is the same as `t`
+*)
+let deletable (t : trm) : unit =
+  let res_before = before_trm t in
+  let res_after = after_trm t in
+  let res_usage = usage_of_trm t in
+  let res_used_uninit = List.filter (fun (h, f) ->
+    match Var_map.find_opt h res_usage with
+    | Some ConsumedFull -> trm_fail t "trm has self interfering resource usage"
+    | Some ConsumedUninit -> true
+    | Some (SplittedFrac|JoinedFrac) | None -> false
+    | Some (Produced|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
+  ) res_before.linear in
+  let res_produced = List.filter (fun (h, f) ->
+    match Var_map.find_opt h res_usage with
+    | Some Produced -> true
+    | Some (SplittedFrac|JoinedFrac) | None -> false
+    | Some (ConsumedFull|ConsumedUninit|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
+  ) res_after.linear in
+  ignore (Resource_computation.subtract_linear_resource_set res_produced res_used_uninit)
+
+(** <private>
+    Checks that the trm resource usage does not contain any resources used Full or Produced.
+    This corresponds to self interference of the trm:
+    A trm is not self interfere if `t; t` is the same as `t`.
+    LATER: reimplement this function to return a boolean result,
+    or an option with details on the cause.
 *)
 let assert_not_self_interfering (t : trm) : unit =
   let res_before = before_trm t in
@@ -642,6 +668,31 @@ let assert_not_self_interfering (t : trm) : unit =
     | Some (ConsumedFull|ConsumedUninit|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
   ) res_after.linear in
   ignore (Resource_computation.subtract_linear_resource_set res_produced res_used_uninit)
+
+(** <private>
+    Boolean function that corresponds to [assert_not_self_interfering].
+    LATER: avoid using exceptions, see comment above.
+*)
+let is_not_self_interfering (t : trm) : bool =
+   try assert_not_self_interfering t; true
+   with Contextualized_error _ -> false
+let _ = Arith_core.hook_is_not_self_interfering := is_not_self_interfering
+
+(** <private>
+    Checks that the term [t] can be deleted.
+    Currently, we check that only read effects are performed.
+    LATER: might want to accept production of pure facts, or affine resources
+    that are never used.
+*)
+let is_deletable (t : trm) : bool =
+  let res_usage = usage_of_trm t in
+  let is_ro (r:resource_usage) : bool =
+    match r with
+    | SplittedFrac | Required -> true
+    | Ensured | ArbitrarilyChosen | ConsumedFull | ConsumedUninit | JoinedFrac | Produced -> false
+    in
+  Var_map.fold (fun h usage deletable -> deletable && is_ro usage) res_usage false
+let _ = Arith_core.hook_is_deletable := is_deletable
 
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.
 
