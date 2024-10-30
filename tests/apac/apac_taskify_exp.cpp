@@ -42,7 +42,9 @@ int main() {
 #pragma omp master
 #pragma omp taskgroup
   {
-    int* t = (int*)malloc(4 * sizeof(int));
+    void* __apac_var1;
+    __apac_var1 = malloc(4 * sizeof(int));
+    int* t = (int*)__apac_var1;
 #pragma omp task default(shared) depend(in : t) depend(inout : t[0])
     {
       c(t, 4);

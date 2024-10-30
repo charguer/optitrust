@@ -110,7 +110,9 @@ int main() {
     int __apac_count_ok = __apac_count_infinite || __apac_count < __apac_count_max;
     int __apac_depth_local = __apac_depth;
     int __apac_depth_ok = __apac_depth_infinite || __apac_depth_local < __apac_depth_max;
-    int* t = (int*)malloc(4 * sizeof(int));
+    void* __apac_var1;
+    __apac_var1 = malloc(4 * sizeof(int));
+    int* t = (int*)__apac_var1;
     if (__apac_count_ok) {
 #pragma omp atomic
       __apac_count++;

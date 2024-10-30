@@ -35,12 +35,12 @@ let compile () : unit =
       cOr [[cMark Apac_macros.candidate_mark];
            [cFunDefAndDecl !Apac_flags.main]]
     ];
-  (* !? "Extract function calls"
+  !? "Extract function calls"
     Apac_preprocessing.extract_function_calls [
       nbAny;
       cDiff [[cMark Apac_macros.candidate_body_mark; cFun ""]]
         [[cHasTypeAst (Typ.typ_unit ())]]
-    ]; *)
+    ];
   bigstep "Task candidate discovery";
   !? "Translate into task candidate representation"
     Apac_task_candidate_discovery.taskify [

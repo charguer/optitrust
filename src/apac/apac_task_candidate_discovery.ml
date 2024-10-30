@@ -38,15 +38,22 @@ let discover_dependencies
       if Option.is_some tg then
         let tg = Option.get tg in
         let tg = tg.v in
-        (** If [tg] is in [aliases], it is itself an alias to an existing
-            variable [tg'], *)
-        if Var_Hashtbl.mem aliases tg then
-          (** we are about to create an alias to [tg']. *)
-          let tg' = Var_Hashtbl.find aliases tg in
-          Var_Hashtbl.add aliases v tg'
-        else
-          (** Otherwise, [v] becomes the first alias to [tg]. *)
-          Var_Hashtbl.add aliases v tg
+        (** Note that we do not consider as aliases the intermediate variables
+            starting with [!Apac_macros.intermediate_variable] we introduce
+            during the function call extraction (see
+            [!Apac_preprocessing.extract_function_calls]). *)
+        if not (String.starts_with
+                  ~prefix:Apac_macros.intermediate_variable tg.name)
+        then
+          (** If [tg] is in [aliases], it is itself an alias to an existing
+              variable [tg'], *)
+          if Var_Hashtbl.mem aliases tg then
+            (** we are about to create an alias to [tg']. *)
+            let tg' = Var_Hashtbl.find aliases tg in
+            Var_Hashtbl.add aliases v tg'
+          else
+            (** Otherwise, [v] becomes the first alias to [tg]. *)
+            Var_Hashtbl.add aliases v tg
   in
   (** [discover_dependencies.best_effort ins inouts dam access iao t]: a
       best-effort dependency discovery for language constructs we do not fully

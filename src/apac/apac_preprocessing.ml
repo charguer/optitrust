@@ -204,8 +204,9 @@ let select_candidates (tg : target) : unit =
     return values into temporary variables. *)
 
 (** [extract_function_calls tg]: expects target [tg] to point at a function
-    body. It moves all function calls under target [tg] out of variable
-    declarations and nested function calls.
+    call. If the latter resides within another function call or within a
+    variable declaration, the transformation pass separates the target function
+    call and the parent function call or variable declaration.
 
     For example
 
@@ -256,14 +257,18 @@ let select_candidates (tg : target) : unit =
 
     as we must remove the [const] property. *)
 let extract_function_calls (tg : target) : unit =
-  Target.iter (fun t p ->
-    (** Get the parent term to check whether it is an assignment (outside of a
-        declaration). If it is the case, we do not need to apply the
-        transformation. It would only create a superfluous variable. *)
-    let parent_path = Path.parent p in
-    let parent_target = target_of_path parent_path in
-    if not (is_set_operation (get_trm_at_exn parent_target))
-    then begin
+  Target.iter (fun t' p ->
+    (** Apply the transformation only on function calls within variable
+        definitions or nested within other function calls. *)
+    let proceed =
+      Apac_miscellaneous.has_trm (Path.parent p) (fun t ->
+          match t.desc with
+          | Trm_let _
+            | Trm_let_mult _
+            | Trm_apps ({ desc = Trm_var (_ , _); _ }, _) -> true
+          | _ -> false
+        ) in
+    if proceed then
       (** Define new intermediate variable. *)
       let var = fresh_var_name ~prefix:Apac_macros.intermediate_variable () in
       (** Bind the return value of the current call to that variable. *)
@@ -271,7 +276,6 @@ let extract_function_calls (tg : target) : unit =
       (** Separate the assignment of the return value from the declaration of
           the variable. *)
       Variable_basic.init_detach [cVarDef var];
-    end
   ) tg
 
 (** {1:constification Constification}
