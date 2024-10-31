@@ -501,17 +501,25 @@ let heapify_on (t : trm) : trm =
   let deletes = Queue.create () in
   (* Initialize a queue for the deleted variables.*)
   let variables = Queue.create () in
+  (** Initialize a queue storing a set of declared variables for each statement
+      in [ml]. *)
+  let declarations = Queue.create () in
   (* Map over the terms in [ml] and perform the heapification of single and
      multiple variable declarations using the
      [Apac_basic.heapify_intro_on.single] function. *)
   let ml = Mlist.map (fun t ->
                match t.desc with
                | Trm_let (kind, (v, ty), init, _) ->
+                  (** Store the declared variable [v] in [declarations]. *)
+                  Queue.push (Var_set.singleton v) declarations;
                   let ((v2, ty2), init2) =
                     one ~reference:(trm_has_cstyle Reference t) deletes
                       variables kind v ty init in
-                  trm_let kind (v2, ty2) init2
+                  trm_pass_pragmas t (trm_let kind (v2, ty2) init2)                   
                | Trm_let_mult (kind, vtys, inits) ->
+                  (** Store the declared variables [vs] in [declarations]. *)
+                  let vs, _ = List.split vtys in
+                  Queue.push (Var_set.of_list vs) declarations;
                   (* To heapify a multiple variable declaration, we loop over
                      all the declarations in the corresponding term. *)
                   let updated = List.map2 (
@@ -523,15 +531,36 @@ let heapify_on (t : trm) : trm =
                      [trm_let_mult] expects the typed variables and
                      initialization terms in separate lists. *)
                   let (vtys2, inits2) = List.split updated in
-                  trm_let_mult kind vtys2 inits2
-               | _ -> t) ml in
+                  trm_pass_pragmas t (trm_let_mult kind vtys2 inits2)
+               | _ ->
+                  (** [t] is not a declaration. There is nothing to store in
+                      [declarations] for this statement. *)
+                  Queue.push (Var_set.empty) declarations; t
+             ) ml in
   (* Transform the [deletes] queue into a list. *)
   let deletes = List.of_seq (Queue.to_seq deletes) in
   (* Transform the [variables] queue into a list. *)
   let variables = List.of_seq (Queue.to_seq variables) in
-  let ml = Mlist.map (fun t ->
+  (** Transform the [declarations] queue into a list. *)
+  let declarations = List.of_seq (Queue.to_seq declarations) in
+  (** Update occurrences of [variables] in the pragmas of each statement [t] in
+      [ml], if any. *)
+  let ml = Mlist.mapi (fun i t ->
+               let ds = List.nth declarations i in
                List.fold_left (fun acc (v, tv) ->
-                  apply_on_pragmas (fun pl -> (subst_pragmas v tv) pl) acc
+                   (** However, do not update the occurrences of variables being
+                       declared in [t]. Indeed, the declaration of a variable
+                       [v] simply generates an inout-dependency on [v] whether
+                       it is a pointer or not. When we promote a variable from
+                       the stack to the heap, it becomes a pointer and the
+                       pragma update would result in splitting the dependency in
+                       two, i.e. an inout-dependency on [v\[0\]] and an
+                       in-dependency on [v]. We do not want this, so we do not
+                       perform the pragma update in the case of variables being
+                       declared in [t]. *)
+                   if not (Var_set.mem v ds) then
+                     apply_on_pragmas (fun pl -> (subst_pragmas v tv) pl) acc
+                   else acc
                  ) t variables) ml in
   (* Re-build the sequence term. *)
   let t' = trm_seq ~annot:t.annot ml in
