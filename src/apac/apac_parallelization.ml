@@ -533,7 +533,7 @@ let heapify_on (t : trm) : trm =
                List.fold_left (fun acc (v, tv) ->
                   apply_on_pragmas (fun pl -> (subst_pragmas v tv) pl) acc
                  ) t variables) ml in
-  (* Build an updated the sequence term. *)
+  (* Re-build the sequence term. *)
   let t' = trm_seq ~annot:t.annot ml in
   let t' = List.fold_left (fun acc (v, tv) ->
                trm_subst_var v (trm_get tv) acc
