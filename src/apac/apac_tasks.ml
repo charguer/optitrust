@@ -487,6 +487,7 @@ end
 module TaskGraphTraverse : sig
   type t = Strict | Priority | Relaxed
   val fold : TaskGraph.t -> TaskGraph.V.t list
+  val has_taskifiable : TaskGraph.t -> bool
   val to_ast : (TaskGraph.V.t -> trms) -> TaskGraph.t -> trms
   val iter : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
   val iter_schedule : (TaskGraph.V.t -> unit) -> TaskGraph.t -> unit
@@ -544,6 +545,23 @@ end = struct
         let t2 = TaskGraph.V.label v2 in
         Int.compare t1.schedule t2.schedule
       ) vs
+
+  (** [TaskGraphTraverse.has_taskifiable g]: checks whether the task candidate
+      graph [g] or any of its nested task candidate graphs feature at least one
+      eligible task candidate, i.e. a task candidate carrying the [Taskifiable]
+      attribute. *)
+  let rec has_taskifiable (g : TaskGraph.t) : bool =
+    TaskGraph.fold_vertex (fun v acc ->
+        let t = TaskGraph.V.label v in
+        acc ||
+          (Task.attributed t Taskifiable) ||
+            (List.fold_left (fun acc gl ->
+                 acc ||
+                   (List.fold_left (fun acc go ->
+                        acc || (has_taskifiable go)
+                      ) false gl)
+               ) false t.children)
+      ) g false
   
   (** [TaskGraphTraverse.to_ast f g]: recursively traverses and translates the
       task candidate graph [g] into an abstract syntax tree by applying the
