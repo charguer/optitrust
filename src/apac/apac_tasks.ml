@@ -596,9 +596,14 @@ end = struct
                  let body = trm_seq (Mlist.of_list body) in
                  (** add the heapification helper mark
                      [!Apac_macros.heapify_breakable_mark] to the [body]'s
-                     abstract syntax tree and *)
-                 let body = trm_add_mark
-                              Apac_macros.heapify_breakable_mark body in
+                     abstract syntax tree, if the latter features at least one
+                     eligible task candidate (a task candidate carrying the
+                     [Taskifiable] attribute), and *)
+                 let body =
+                   if (has_taskifiable cg) then
+                     trm_add_mark Apac_macros.heapify_breakable_mark body
+                   else body
+                 in
                  (** rebuild the loop term. *)
                  trm_for_c ~annot:s.annot ~ctx:s.ctx init cond step body
               (** [s] is a for-loop, *)
@@ -610,31 +615,46 @@ end = struct
                  let body = trm_seq (Mlist.of_list body) in
                  (** add the heapification helper mark
                      [!Apac_macros.heapify_breakable_mark] mark to the [body]'s
-                     abstract syntax tree and *)
-                 let body = trm_add_mark
-                              Apac_macros.heapify_breakable_mark body in
+                     abstract syntax tree, if the latter features at least one
+                     eligible task candidate (a task candidate carrying the
+                     [Taskifiable] attribute), and *)
+                 let body =
+                   if (has_taskifiable cg) then
+                     trm_add_mark Apac_macros.heapify_breakable_mark body
+                   else body
+                 in
                  (** rebuild the for-term. *)
                  trm_for ~annot:s.annot ~ctx:s.ctx range body
               (** [s] is an if-conditional, *)
               | Trm_if (cond, _, no) ->
                  let cg = List.nth l.children i in
-                 let yes = List.nth cg 0 in
-                 (** translate the task candidate graph [cg] of its then-branch
+                 let yg = List.nth cg 0 in
+                 (** translate the task candidate graph [yg] of its then-branch
                      [yes], *)
-                 let yes = to_ast f yes in
+                 let yes = to_ast f yg in
                  let yes = trm_seq (Mlist.of_list yes) in
                  (** add the heapification helper mark
                      [!Apac_macros.heapify_mark] to the [yes]'s abstract syntax
-                     tree and *)
-                 let yes = trm_add_mark Apac_macros.heapify_mark yes in
+                     tree, if the latter features at least one eligible task
+                     candidate (a task candidate carrying the [Taskifiable]
+                     attribute), and *)
+                 let yes =
+                   if (has_taskifiable yg) then
+                     trm_add_mark Apac_macros.heapify_mark yes
+                   else yes
+                 in
                  (** if an else-branch [no] is present, process it too. *)
-                 let no = if (is_trm_unit no) then
-                            trm_unit ()
-                          else
-                            let no = List.nth cg 1 in
-                            let no = to_ast f no in
-                            let no = trm_seq (Mlist.of_list no) in 
-                            trm_add_mark Apac_macros.heapify_mark no in
+                 let no =
+                   if (is_trm_unit no) then
+                     trm_unit ()
+                   else
+                     let ng = List.nth cg 1 in
+                     let no = to_ast f ng in
+                     let no = trm_seq (Mlist.of_list no) in 
+                     if (has_taskifiable ng) then
+                       trm_add_mark Apac_macros.heapify_mark no
+                     else no
+                 in
                  (** Finally, rebuild the if-term. *)
                  trm_if ~annot:s.annot ~ctx:s.ctx cond yes no
               (** [s] is a while-loop, *)
@@ -645,10 +665,15 @@ end = struct
                  let body = to_ast f cg in
                  let body = trm_seq (Mlist.of_list body) in
                  (** add the heapification helper mark
-                     [!Apac_macros.heapify_breakable_mark] to the [body]'s
-                     abstract syntax tree and *)
-                 let body = trm_add_mark
-                              Apac_macros.heapify_breakable_mark body in
+                     [!Apac_macros.heapify_breakable_mark] mark to the [body]'s
+                     abstract syntax tree, if the latter features at least one
+                     eligible task candidate (a task candidate carrying the
+                     [Taskifiable] attribute), and *)
+                 let body =
+                   if (has_taskifiable cg) then
+                     trm_add_mark Apac_macros.heapify_breakable_mark body
+                   else body
+                 in
                  (** rebuild the while-term. *)
                  trm_while ~annot:s.annot ~ctx:s.ctx cond body
               (** [s] is a do-while-loop, *)
@@ -659,10 +684,15 @@ end = struct
                  let body = to_ast f cg in
                  let body = trm_seq (Mlist.of_list body) in
                  (** add the heapification helper mark
-                     [!Apac_macros.heapify_breakable_mark] to the [body]'s
-                     abstract syntax tree and *)
-                 let body = trm_add_mark
-                              Apac_macros.heapify_breakable_mark body in
+                     [!Apac_macros.heapify_breakable_mark] mark to the [body]'s
+                     abstract syntax tree, if the latter features at least one
+                     eligible task candidate (a task candidate carrying the
+                     [Taskifiable] attribute), and *)
+                 let body =
+                   if (has_taskifiable cg) then
+                     trm_add_mark Apac_macros.heapify_breakable_mark body
+                   else body
+                 in
                  (** rebuild the while-term. *)
                  trm_do_while ~annot:s.annot ~ctx:s.ctx body cond
               (** [s] is a switch-statement, *)
@@ -671,13 +701,18 @@ end = struct
                  (** translate the task candidate graph [bg] of each of its
                      [cases] and add the heapification helper mark
                      [!Apac_macros.heapify_breakable_mark] to its abstract
-                     syntax tree. *)
+                     syntax tree, if it features at least one eligible task
+                     candidate (a task candidate carrying the [Taskifiable]
+                     attribute). *)
                  let cases =
                    List.map2 (fun (labels, _) bg ->
                        let b = to_ast f bg in
                        let b = trm_seq (Mlist.of_list b) in
-                       let b = trm_add_mark
-                                 Apac_macros.heapify_breakable_mark b in
+                       let b =
+                         if (has_taskifiable bg) then
+                           trm_add_mark Apac_macros.heapify_breakable_mark b
+                         else b
+                       in
                        (labels, b)
                      ) cases cg in
                  (** Finally, rebuild the switch-term. *)
