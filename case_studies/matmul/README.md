@@ -2,31 +2,59 @@
 
 Matrix Multiplication case study corresponding to [TVM's schedule](https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html) for Intel CPU.
 
-# How do I run the benchmarks?
+# How do I install dependencies?
 
-Install `icx` Intel OneAPI, and run:
+Install the Intel OneAPI Base Toolkit to get access to the `icx` compiler and Intel MKL library (following instructions copy pasted from official documentation):
+```sh
+# download the key to system keyring
+wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+| gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+
+# add signed entry to apt sources and configure the APT client to use Intel repository:
+echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+
+# update packages list and repository index:
+sudo apt update
+
+# install the Intel® oneAPI Base Toolkit package
+sudo apt install intel-basekit
+```
+
+Then, everytime you want the Intel tools in your shell environment, run:
 ```sh
 source /opt/intel/oneapi/setvars.sh
 ```
 
-Install python dependencies:
+Install python dependencies (numpy, Intel MKL and Apache TVM):
 ```sh
-python -m pip install -r pip_requirements.txt 
+python3 -m pip install -r pip_requirements.txt 
 ```
 
-Benchmark all:
+## Versions successfully used
+
 ```sh
-make bench
+> oneapi-cli version
+v0.2.0-36-g69364e768c
+
+> icx --version
+Intel(R) oneAPI DPC++/C++ Compiler 2023.2.0 (2023.2.0.20230721)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+
+> python3 --version
+Python 3.10.12
 ```
 
-Benchmark interesting subset:
-```sh
-make bench_demo
-```
+# How do I run the benchmarks?
 
-Benchmark numpy and TVM reference:
+Benchmark only numpy and TVM baselines:
 ```sh
 make bench_ref
+```
+
+Benchmark baselines and OptiTrust generated code:
+```sh
+make bench
 ```
 
 Benchmark `[name].c` implementation:
@@ -34,28 +62,21 @@ Benchmark `[name].c` implementation:
 make bench_[name]
 ```
 
+Benchmarks baselines and all visible matmul C files (generated or handwritten):
+```sh
+make bench_all
+```
+
 # Notes
-
-## Static Analysis
-
-- add divides hypothesis to mm function 'List.forall (divides 32) [n; m; p]'
-- check hypothesis that loop iterations are disjoint for reorder/fission
-    - pfor { for { } } --> for { pfor { } }
-- parallel for:
-    - (1) add ghost instr; (2) loop invariant; (3) tag loop as parallel in logic
-    - !! Loop.writes_to_tiles ~parallel:true ... [cFor "bj"];
 
 ## Script Improvements
 
-- simplify `exact_div` with `Arith.(simpl compute)`
 - allocate one 'sum' accumulator per thread?
     - hoist = create array + reuse space
 - '*' '/' to bitshift
 - memset/memcpy insertions
 
 - allow unrolling without requiring shift?
-- allow SIMD before unroll
-- avoid requiring an explicit reparse to get types for shift_to_zero
 - convenient loop hoist with static analysis inference
 - define 'Loop.multi_tile' to replace foreach?
     Loop.multi_tile (trm_int size) ~index:"b${index}" ~bound:TileDivides

@@ -1,5 +1,8 @@
-#include <optitrust.h>
 
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 #include "omp.h"
 // NOTE: using pretty matrix notation
 
