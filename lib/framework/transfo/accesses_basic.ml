@@ -201,9 +201,9 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
             let isolated_post = isolated_linear !(ret.matched_post) in
             let others_pre = formulas_to_res !(ret.others_pre) in
             let others_post = formulas_to_res !(ret.others_post) in
-            let pre = Resource_set.make ~linear:(isolated_pre @ others_pre) () in
+            let pre = Resource_set.make ~pure:!(ret.pure_pre) ~linear:(isolated_pre @ others_pre) () in
             (* TODO: Add ensured linear vars to post.pre *)
-            let post = Resource_set.make ~linear:(isolated_post @ others_post) () in
+            let post = Resource_set.make ~pure:(List.filter (fun (h, f) -> f <> Resource_formula.trm_frac) !(ret.pure_post)) ~linear:(isolated_post @ others_post) () in
             let post = { post with linear = snd (Resource_computation.delete_stack_allocs (Mlist.to_list instrs) post) } in
             let contract = FunSpecContract { pre; post } in
             let f_body = trm_add_mark f_body_mark (trm_seq instrs) in
@@ -213,6 +213,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
             [Trm f_def; (* Trm f_call; *) TrmMlist instrs]
           )
         ) p_seq;
+        (* DEBUG: Show.(trm ~style:(internal ~print_var_id:false ()) (get_trm_at_exn (target_of_path p_seq))); *)
         Target.iter (fun p ->
           Target.apply_at_path (trm_subst_var v (trm_var ~typ v_tr)) p
         ) [nbAny; cMark f_body_mark; cMark mark_handled_resources];

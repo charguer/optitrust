@@ -154,6 +154,13 @@ template<typename T> void __mul_inplace(T* p, T x) {
   __admitted();
 }
 
+template<typename T> T __exact_div_inplace(T* p, T x) {
+  __modifies("p ~> Cell");
+  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
+  // + only for integer types?
+  __admitted();
+}
+
 template<typename T> void __div_inplace(T* p, T x) {
   __modifies("p ~> Cell");
   // TODO: requires x != 0 and add preprocessing to insert assumes in initial code
@@ -328,7 +335,15 @@ inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
 
 /* ---- Ghosts ---- */
 
+// assumes a formula with no need to prove it later
 __GHOST(assume) {
+  __requires("F: formula");
+  __ensures("P: F");
+  __admitted();
+}
+
+// defers proving a formula to later
+__GHOST(to_prove) {
   __requires("F: formula");
   __ensures("P: F");
   __admitted();

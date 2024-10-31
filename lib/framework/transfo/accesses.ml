@@ -14,6 +14,8 @@ Marks.with_marks (fun next_mark ->
     let mark_preprocess = next_mark () in
     let mark_postprocess = next_mark () in
     let (var, typ) = !typed_var_ret in
+    if Option.is_none (typ_ptr_inv typ) then
+      failwith "expected mutable variable, consider calling `_immut` version or making this combi smarted";
     let address_pattern = pattern_compile (trm_var ~typ var) in
     transform ~address_pattern ~mark_preprocess ~mark_postprocess [cPath p_seq; tSpan [tAfter; cMark mark_let] [tLast]];
     Instr.delete [nbAny; cMarkSpan mark_preprocess];

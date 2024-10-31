@@ -316,6 +316,12 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             let field_typ = List.find_map (fun (f, t) -> if f = field then Some t else None) field_list in
             trm_get (trm_struct_access ?field_typ base field)
           );
+          Pattern.(trm_get !__) (fun base () ->
+            Pattern.when_ (trm_ptr_typ_matches base);
+            trm_record ~typ:(trm_var typvar) (Mlist.of_list (List.map (fun (f, t) ->
+              None, trm_get (trm_struct_access ~field_typ:t base f)
+            ) field_list))
+          );
           (* TODO: also do other contracts *)
           Pattern.(trm_for !__ !__ !__) (fun range body spec () ->
             let fracs_map = fracs_map_init spec.loop_ghosts in

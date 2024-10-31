@@ -7,6 +7,7 @@ let _ = Flags.recompute_resources_between_steps := true
 let _ = Run.script_cpp (fun _ ->
 
   !! Accesses.scale_var ~factor:(trm_float 5.0) [cTopFunDef "test_var"; cVarDef "x"];
+  !! Accesses.scale_immut ~factor:(trm_float 3.0) [cTopFunDef "test_var"; cVarDef "z"];
 
   let t = trm_find_var "t" [cTopFunDef "test_array"] in
   let address_pattern = trm_array_access t (trm_int 0) in

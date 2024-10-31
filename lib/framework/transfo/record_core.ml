@@ -432,8 +432,8 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
       let (mode, inner_r) = formula_mode_inv r in
       Pattern.pattern_match inner_r [
         Pattern.(formula_cell (trm_var (var_eq var))) (fun () ->
-          List.map (fun (f, t, v) ->
-            (new_anon_hyp (), formula_map_under_mode (fun _ -> formula_model (trm_var v) (trm_var (var_cell))) r)
+          List.map (fun (f, f_typ, v) ->
+            (new_anon_hyp (), formula_map_under_mode (fun _ -> formula_model (trm_var ~typ:(typ_ptr f_typ) v) (trm_var (var_cell))) r)
           ) fields
         );
         Pattern.__ (fun () -> [(h, r)])
@@ -457,25 +457,25 @@ let to_variables_update (var : var) (is_ref : bool) (typ: typ) (fields : (field 
         (trm_struct_access (trm_var (var_eq var)) !__)
         ^| (trm_struct_get (trm_var (var_eq var)) !__)
       ) (fun field () ->
-        match List.find_opt (fun (f, t, v) -> field = f) fields with
-        | Some (f, t, v) -> trm_var v
+        match List.find_opt (fun (f, f_typ, v) -> field = f) fields with
+        | Some (f, f_typ, v) -> trm_var ?typ:t.typ v
         | None -> raise Pattern.Next
       );
       Pattern.(trm_struct_get (trm_get (trm_var (var_eq var))) !__) (fun field () ->
-        match List.find_opt (fun (f, t, v) -> field = f) fields with
-        | Some (f, t, v) -> trm_var_get ?typ:t.typ v
+        match List.find_opt (fun (f, f_typ, v) -> field = f) fields with
+        | Some (f, f_typ, v) -> trm_var_get ?typ:t.typ v
         | None -> raise Pattern.Next
       );
       Pattern.(trm_var (var_eq var)) (fun () ->
         Pattern.when_ (not is_ref);
-        trm_record ~typ (Mlist.of_list (List.map (fun (f, t, v) ->
-          None, trm_var v
+        trm_record ~typ (Mlist.of_list (List.map (fun (f, f_typ, v) ->
+          None, trm_var ~typ:f_typ v
         ) fields))
       );
       Pattern.(trm_get (trm_var (var_eq var))) (fun () ->
         Pattern.when_ is_ref;
-        trm_record ~typ (Mlist.of_list (List.map (fun (f, t, v) ->
-          None, trm_var_get ~typ:t v
+        trm_record ~typ (Mlist.of_list (List.map (fun (f, f_typ, v) ->
+          None, trm_var_get ~typ:f_typ v
         ) fields))
       );
       (* TODO: also do other contracts *)

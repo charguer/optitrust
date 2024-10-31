@@ -1666,8 +1666,6 @@ let serialize_full_trace_and_get_timestamp ~(prefix : string) (tree : step_tree)
      [var serialized_trace_timestamp = "...";] storing the timestamp of the
      serialized trace (as a string). *)
 let dump_full_trace_to_js ~(prefix : string) : unit =
-  (* filter out things, replace ast_before/ast_after with dummy
-    TODO: gate with a flag *)
   let tree = get_root_step () in
   let rec erase_some_asts parent_erases s =
     (* FIXME: duplicated code with iter_step_tree *)
