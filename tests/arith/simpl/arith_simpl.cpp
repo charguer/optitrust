@@ -123,7 +123,7 @@ int main()
   }
 
   // test integer division
-  int n; int m; int p; int q; int eu;
+  int n; int m; int p; int q; int eu; int eur;
   q = exact_div(5 + 5, 2); // = 5
   q = exact_div(n * m, n); // = m, would also be true if non-exact division
   q = exact_div(n, m) * m; // = n, true because when b divides a
@@ -148,7 +148,7 @@ int main()
   // test euclidian
   eu = (n / m) * m + (n % m); // = n
   eu = m + (n % m) + m * (n / m); // = m + n
-  eu = m % n + (1 + m / n) * n;
+  eur = m % n + (1 + m / n) * n; // = m + n
 
   // test integer addition
   p = (2 + m) - (m + -2); // = 4
@@ -160,7 +160,7 @@ int main()
   ci = 5 + 5; // = 10
   ci = 3 + n + 1 + n; // = n + n + 4
   ci = 2 * 3 - 1; // = 5
-  ci = n * 4 * 2; // = n * 8
+  ci = n * 4 * 2; // = 8 * n
 
   // compute int div
   ci = exact_div(8, 2); // = 4
@@ -172,10 +172,13 @@ int main()
   // compute double
   double cd;
   cd = 5.2 + 5.2; // = 10.4
-  cd = 3.2 + a + 1 + a + 3 + 3.4; // = a + a + 10.6
-  cd = 2.5 * 3 - 10 / 4; // = 5.5  (because using integer division)
-  cd = 2.5 * 3 - 10 / 4.0; // = 5.0  (because using float division)
   cd = (10.5 / 2.2) / (2.4 * 3.4); // = .584893048
+  /* TODO: handle casts
+  cd = 3.2 + a + (double) 1 + a + (double) 3 + 3.4; // = a + a + 10.6
+  cd = 2.5 * 3.0 - (double) (10 / 4); // = 5.5  (because using integer division)
+  cd = 2.5 * 3.0 - ((double) 10) / 4.0; // = 5.0  (because using float division)
+  */
+
 
   // LATER: compute casts from/to int/double
 

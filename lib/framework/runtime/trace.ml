@@ -384,8 +384,6 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
 let dummy_exectime : float = 0.
 
 
-
-
 (******************************************************************************)
 (*                                   Checker                                  *)
 (******************************************************************************)
@@ -2114,5 +2112,32 @@ let update_style () : unit =
 
 (* LATER:  need to reparse to hide spurious parentheses *)
 (* LATER: add a mechanism for automatic simplifications after every step *)
+
+(* *)
+
+
+(******************************************************************************)
+(*                                   Error reporting                          *)
+(******************************************************************************)
+
+(** [get_current_script_line ()] returns the script line associated with the
+    last opened small or big step, if any. *)
+let get_current_script_line () : int option =
+  let small_step_opt =
+    List.find_opt (fun s -> s.step_kind = Step_small || s.step_kind = Step_big)
+     the_trace.step_stack in
+  Option.value ~default:None (Option.map (fun s -> s.step_infos.step_script_line) small_step_opt)
+
+
+(** Extend error-reporting functions to include the current script line number.
+    LATER: make sure to obtain line numbers during script execution via ppx. *)
+
+let get_current_script_line_as_string () : string =
+  Option.value (Option.map (fun line -> ": line " ^ string_of_int line) (get_current_script_line())) ~default:""
+
+let () = (* LATER: better factorization with Tools module; how should we handle debug_fun? *)
+  Tools.error_fun := Terminal.(report red ("ERROR" ^ get_current_script_line_as_string()));
+  Tools.warn_fun := Terminal.(report orange ("WARNING" ^ get_current_script_line_as_string()));
+  Tools.info_fun := Terminal.(report blue ("INFO" ^ get_current_script_line_as_string()))
 
 

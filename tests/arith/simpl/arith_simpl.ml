@@ -35,10 +35,11 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "rf"; dRHS];
 
   !! Arith_basic.(simpl euclidian) [nbMulti; cWriteVar "eu"; dRHS];
+  !! Arith_basic.(simpl (compose [expand_rec; euclidian; gather_rec])) [nbMulti; cWriteVar "eur"; dRHS];
 
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "ci"; dRHS];
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "cd"; dRHS];
-(*
+
   (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
 
   !! Arith_basic.nosimpl [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"; cCall "g"];
@@ -62,12 +63,17 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStop];
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStart];
 
+  !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
+  !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "p"; dRHS];
+  !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "q"; dRHS; cBinop Binop_exact_div]
+
+  (* TODO FIX
   (* needs all types to be valid *)
   !! Trace.reparse(); (* TODO: fix problem with reparse *)
   !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
   !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "p"; dRHS];
   !!! Arith_basic.(simpl compute) [nbMulti; cBinop Binop_exact_div];
-*)
+  *)
 )
 
 

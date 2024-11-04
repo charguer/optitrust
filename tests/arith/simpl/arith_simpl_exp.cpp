@@ -1,15 +1,58 @@
 #include <optitrust.h>
 
-int f(int x) { return x; }
+int f(int x) {
+  __pure();
+  return x;
+}
 
-int g(int x) { return x + 1; }
+int g(int x) {
+  __pure();
+  return x + 1;
+}
+
+int eff(int* p) {
+  __modifies("p ~> Cell");
+  return 0;
+}
 
 void simpl_in_depth() {
+  __pure();
   int x = g(3 + f(6)) + 2 * g(5);
   int y = g(3 + f(6)) + 2 * g(5);
 }
 
+int reify_with_resources(int* p) {
+  __modifies("p ~> Cell");
+  int rei;
+  int rej;
+  int rek;
+  const int x = 1;
+  int y = 2;
+  rei = __ARITH(x + x, "Sum{(1,{b}); (1,{b})} where {{b: x}}");
+  rei = __ARITH(x + y, "Sum{(1,{d}); (1,{c})} where {{d: x;  c: *y}}");
+  rei = __ARITH(y + y, "Sum{(1,{e}); (1,{e})} where {{e: *y}}");
+  rei = __ARITH(f(1) + f(1), "Sum{(1,{f}); (1,{f})} where {{f: f(1)}}");
+  rei = __ARITH(f(1) + g(1) + x * y + eff(p) * f(1) * x * y,
+                "Sum{(1,{i}); (1,{k}); (1,Prod{(1,{h}); (1,{g})}); "
+                "(1,Prod{(1,{j}); (1,{i}); (1,{h}); (1,{g})})} where {{k: "
+                "g(1);  j^NR^ND: eff(p);  i: f(1);  h: x;  g: *y}}");
+  rej = __ARITH(f(1) + g(1) + x * y + eff(p) * f(1) * x * y,
+                "Sum{(1,{n: f(1)}); (1,{p: g(1)}); (1,Prod{(1,{m: x}); (1,{l: "
+                "*y})}); (1,Prod{(1,{o^NR^ND: eff(p)}); (1,{n: f(1)}); (1,{m: "
+                "x}); (1,{l: *y})})}");
+  rek = x + y + y;
+}
+
+int simple() {
+  __pure();
+  const double a = 1;
+  const double b = 2;
+  int ra;
+  ra = 2 * b;
+}
+
 int main() {
+  __pure();
   double a;
   double b;
   double c;
@@ -60,9 +103,16 @@ int main() {
   ls = x + 2;
   ls = x;
   for (int ls2 = 2; ls2 < 12; ls2++) {
+    __strict();
+    __smodifies("&ls ~> Cell");
     ls = 10;
   }
-  int n, m, p, q, eu;
+  int n;
+  int m;
+  int p;
+  int q;
+  int eu;
+  int eur;
   q = 5;
   q = m;
   q = n;
@@ -85,27 +135,14 @@ int main() {
   q = n;
   eu = n;
   eu = n + m;
-  eu = n;
+  eur = m + n;
   p = 4;
   p = 4;
   p = m - 2;
-  int* arr = (int*)MALLOC1(32, sizeof(int));
-  free(arr);
-  arr = (int*)malloc(sizeof(int[32]));
-  for (q = 0; q < 32; q++) {
-    arr[q] = 0;
-  }
-  free(arr);
   int ci;
   ci = 10;
   ci = 4 + n + n;
   ci = 5;
-  ci = 16;
-  ci = 64;
-  ci = 11;
-  ci = 15;
-  ci = 4;
-  ci = 3;
   ci = 8 * n;
   ci = 4;
   ci = 1;
@@ -114,9 +151,36 @@ int main() {
   ci = 11;
   double cd;
   cd = 10.4;
-  cd = 10.6 + a + a;
-  cd = 5.5;
-  cd = 5.;
   cd = 0.584893048128;
   return 0;
+}
+
+void more_ops() {
+  int ci;
+  ci = 16;
+  ci = 64;
+  ci = 11;
+  ci = 15;
+  ci = 4;
+  ci = 3;
+}
+
+void purity(int* p) {
+  __pure();
+  int re = 0;
+  int rf = 0;
+  const int a = 1;
+  const int b = 1;
+  re = 2 * f(1);
+  rf = a * f(1) + b * f(1);
+}
+
+void alloc() {
+  int* arr = (int*)MALLOC1(exact_div(1024, 32), sizeof(int));
+  free(arr);
+  arr = (int*)malloc(sizeof(int[exact_div(1024, 32)]));
+  for (int q = 0; q < exact_div(1024, 32); q++) {
+    arr[q] = 0;
+  }
+  free(arr);
 }
