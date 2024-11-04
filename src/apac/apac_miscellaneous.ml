@@ -290,15 +290,15 @@ let find_parent_function (p : Path.path) : var option =
     term verifying the predicate [f]. *)
 let has_trm (p : Path.path) (f : trm -> bool) : bool =
   (** Go recursively through the path [p], *)
-  let rec aux (p : Path.path) (o : bool) : bool =
+  let rec aux (p : Path.path) : bool =
     match p with
     | _ :: r ->
-       (** check whether the term [t] behind the current path [p] verifies the
-           predicate [f] while updating the result [o] and continue on the
-           remaining part [r] of [p]. *)
+       (** if the term [t] behind the current path [p] verifies the predicate
+           [f], return [true] and stop exploring the path. Otherwise, continue
+           on the remaining part [r] of [p]. *)
        let t = Path.get_trm_at_path (List.rev p) (Trace.ast ()) in
-       aux r (o || (f t))
-    | [] -> o
+       if f t then true else aux r
+    | [] -> false
   in
   (** Apply the auxiliary function on the reversed [p]. *)
-  aux (List.rev p) false
+  aux (List.rev p)
