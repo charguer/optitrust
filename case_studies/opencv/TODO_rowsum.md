@@ -25,3 +25,13 @@ cleanup of accesses
   (*let mark_then (var, _value) = sprintf "%s" var in*)
 
 (* DELETE reduce_elim in first branches *)
+
+
+
+  !! Arith_basic.(simpls_rec [expand_rec; euclidian; gather_rec]) [nbMulti; cAccesses()];
+  !! Loop.shift (StartAtZero) [nbMulti; cFor "i"];
+  let scale_range_for_cn (cn:int) =
+    Loop_basic.scale_range ~factor:(trm_int cn) [nbMulti; cIf ~cond:[sExpr ("cn == " ^ string_of_int cn)] (); dThen; cFor "i"] in
+  !! List.iter scale_range_for_cn [3; 4];
+  !! Loop_basic.scale_range ~factor:(var "cn") [nbMulti; cIf ~cond:[sExpr "cn == 4"] (); dElse; cFor "i"];
+  !!! Cleanup.std ~arith_simpl:Arith.([expand; euclidian; gather_rec]) ();
