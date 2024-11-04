@@ -873,7 +873,11 @@ let cancel_div_floor_prod (wes : wexprs) (e : expr) : wexprs option =
     Also changes [(a / b) / c] into [a / (b * c)], and simplifies
     [(a1 * c * a2) / (b1 * c * b2)] into  [(a1 * a2) / (b1 * b2)]
     where [c] is a common item to the numerator and divisor (order-insensitive).
-    This includes simplifications of [a / a] to [1] and of [(a*b)/a] to [b]. *)
+    This includes simplifications of [a / a] to [1] and of [(a*b)/a] to [b].
+    Correctness: currently, if [e1] has several occurrences, the typechecking
+    with resources will force the occurrences to have non-overlapping effects,
+    hence the term will necessarily be treated as redundant; hence the present
+    function needs no further checks. *)
 let rec gather_one (e : expr) : expr =
 
   let rec insert (acc : wexprs) ((w,e) : wexpr) : wexprs =
