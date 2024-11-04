@@ -645,11 +645,13 @@ let action_run ?(exit_on_error = true) (tests : string list) : unit =
   List.iter delete_output tests_to_process;
 
   (* Compile the `batch.ml` file, using dune hacks *)
-  do_or_die "cp tools/tester/batch/dune_disabled tools/tester/batch/dune";
-  let compile_success = do_is_ok "dune build tools/tester/batch/batch.cmxs" in
+  let copy_cmd = "cp tools/tester/batch/dune_disabled tools/tester/batch/dune" in
+  do_or_die copy_cmd;
+  let compile_cmd = "dune build tools/tester/batch/batch.cmxs" in
+  let compile_success = do_is_ok compile_cmd in
   do_or_die "rm tools/tester/batch/dune";
   if not compile_success then begin
-    eprintf "failed to compile tools/tester/batch/batch.ml";
+    eprintf "Failed to compile tools/tester/batch/batch.ml (error location might be incorrectly reported); command used:\n %s; %s\nIf using it make sure to then run:  rm tools/tester/batch/dune \n" copy_cmd compile_cmd;
     exit 2
   end;
   (* DEPRECATED printf "\n"; *)
