@@ -10,6 +10,25 @@ let _ = Run.script_cpp (fun _ ->
      WARNING: trm_to_naive_expr: missing type information for binary division, assuming double
      appears, and whether we can rebuild the type information *)
 
+  (*-----------------------------------------------------*)
+
+  (* Show reification without inlined atoms *)
+  !! Arith_basic.debug_without_inlined_atoms := true;
+  !! Arith_basic.show [nbMulti; cWriteVar "rei"; dRHS];
+  !! Arith_basic.debug_without_inlined_atoms := false;
+
+  (* Show reification with inlined atoms *)
+  !! Arith_basic.show [nbMulti; cWriteVar "rej"; dRHS];
+
+  (* Show reification then remove printed information *)
+  !! Arith_basic.show [nbMulti; cWriteVar "rek"; dRHS];
+  !! Arith_basic.remove_show [nbMulti; cWriteVar "rek"; dRHS];
+
+  (* LATER: add a test with a subterm non-deletable but redundant,
+     and one deletable but non-redundant. *)
+
+  (*-----------------------------------------------------*)
+
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "ra"; dRHS];
 
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "re"; dRHS];
@@ -19,7 +38,7 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "ci"; dRHS];
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "cd"; dRHS];
-
+(*
   (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
 
   !! Arith_basic.nosimpl [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"; cCall "g"];
@@ -48,7 +67,7 @@ let _ = Run.script_cpp (fun _ ->
   !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
   !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "p"; dRHS];
   !!! Arith_basic.(simpl compute) [nbMulti; cBinop Binop_exact_div];
-
+*)
 )
 
 

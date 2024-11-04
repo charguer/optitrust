@@ -5,9 +5,11 @@ open Typ
 open Contextualized_error
 
 (* debug flags *)
-let debug = true
-let debug_purity = false
-let debug_rec = true
+let debug = false
+let debug_rec = false
+
+(* [debug_without_inlined_atoms] controls the behavior of [expr_to_string] *)
+let debug_without_inlined_atoms = ref false
 
 (* mark used for marking trms that should be skipped by the simplifier *)
 let mark_nosimpl = "__arith_core_nosimpl"
@@ -68,7 +70,7 @@ let transform (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option)
 type id = int
 
 (* generate a new id *)
-let next_id = Tools.fresh_generator ()
+let next_id : unit -> id = Tools.fresh_generator ()
 
 type loc = location (* alias *)
 
@@ -80,6 +82,10 @@ type expr = {
 
 (*  Grammar of expressions.
   Atoms : uninterpreted expressions, with an indication of whether it is deletable
+    and redundant. This "purity" information is stored both in the atom map and in
+    the atom occurrences. This redundance is on purpose, to be able to display the
+    contents of the atom map with the purity information, and to be able to obtain
+    purity information about the atoms without an expensive lookup in the atom map.
   Int, Float : base types
   Expr_sum  : w1 * e1 + ... + wN * eN
   Expr_prod : e1 ^ w1 * ... * eN ^ wN
@@ -121,11 +127,15 @@ and wexpr = (int * expr)
 (** [Atom_map]: a map from atom ids to the corresponding terms *)
 module Atom_map = Map.Make(Int)
 
-(** [atom_map]: atom map for storing atoms *)
-type atom_map = trm Atom_map.t
+(** [atom_map]: atom map for storing atoms together with their purity information *)
+type atom_map = (trm * purity) Atom_map.t
 
 (** [no_atoms]: empty atom map *)
 let no_atoms = Atom_map.empty
+
+(* LATER: [to_list] seems to be available in recent versions of ocaml stdlib Map. *)
+let atom_map_to_list (atom_map : atom_map) : (id * (trm * purity)) list =
+  Atom_map.fold (fun id trm_purity acc -> (id, trm_purity) :: acc) atom_map []
 
 
 (******************************************************************************)
@@ -344,8 +354,43 @@ let is_one (e : expr) : bool =
 let parens_if_neg (n:int) (d:document) : document =
   if n < 0 then parens d else d
 
-(** [expr_to_string atoms e]: convert an expression to a string, in AST form *)
-let expr_to_string (atoms : atom_map) (e : expr) : string =
+(** [id_to_string id] gives a human readable name for an atom id.
+    To identify atoms, we use letters 'a', 'b', ... then
+    'aa', 'ab', etc. In the very hypothethetical case where we'd need
+    for than 256 distinct atoms in a single expression, we'd continue
+    with numbers, e.g. 'a676', 'a677', etc... *)
+let id_to_string (id : id) : string =
+  let letter_of_small_int (i:int) : string =
+    let c = Char.chr ((Char.code 'a') + i) in
+    String.make 1 c in
+  if id < 26 then begin
+    letter_of_small_int id
+  end else if id < 26*26 then begin
+    let s1 = letter_of_small_int (id / 26) in
+    let s2 = letter_of_small_int (id mod 26) in
+    s1 ^ s2
+  end else
+    "a" ^ string_of_int id
+
+(** [purity_to_string purity] gives a short string to display purity
+    information: "^NR" or "^ND" or "^NR^ND" or "", to indicate non-redundant
+    and non-deletable properties. *)
+let purity_to_string (purity : purity) : string =
+    (* if not purity.redundant && not purity.deletable then string "^NDR" else *)
+     (if purity.redundant then "" else "^NR")
+   ^ (if purity.deletable then "" else "^ND")
+
+(** [expr_to_string ~inline_atoms ~print_atom_map atoms e]: convert an expression to a string.
+    The flag [inline_atoms] controls whether the subterms associated with atoms
+    should be printed next to atom identifiers, or should be printed in a separate
+    atom map. Default is true.
+    The flat [print_atom_map] controls whether to print the table of atoms after
+    the expression. Default is true.
+    Default values can be swapped by setting the global flag [debug_without_inlined_atoms]. *)
+let expr_to_string
+  ?(inline_atoms : bool = not !debug_without_inlined_atoms)
+  ?(print_atom_map : bool = !debug_without_inlined_atoms)
+  (atoms : atom_map) (e : expr) : string =
   let rec aux (e : expr) : document =
     let auxw ((w,e) : wexpr) : document =
       parens ((string (string_of_int w)) ^^ comma ^^ aux e) in
@@ -369,29 +414,52 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
           | _ -> unsupported_binop op
           in
         string sop ^^ string "(" ^^ aux e1 ^^ string "," ^^ aux e2 ^^ string ")"
-    | Expr_atom (id, _purity) -> (* LATER: print purity using [debug_purity] *)
-        let style = Ast_to_c.default_style() in
-        begin match Atom_map.find_opt id atoms with
-        | Some t1 ->
-            begin match t1.desc with
-            | Trm_var x -> Ast_to_c.var_to_doc style x
-            | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _},
-               [{desc = Trm_var x; _}], _) -> Ast_to_c.var_to_doc style x
-            | _ -> braces (Ast_to_c.trm_to_doc style t1)
-            end
-        | _  ->
-          (* To identify atoms, we use letters 'a', 'b', ... then
-             'aa', 'ab', etc, ... then use 'a676', 'a677', etc... *)
-          if id > 26*26 then braces (string ("a" ^ (string_of_int id))) else
-            let string_of_small_int i =
-              let c = Char.chr ((Char.code 'a') + i) in
-              String.make 1 c in
-            let s1 = (if id >= 26 then string_of_small_int (id / 26) else "") in
-            let s2 = string_of_small_int (id mod 26) in
-            braces (string "!" ^^ string (s1 ^ s2))
-        end
+    | Expr_atom (id, purity) ->
+        (* format is e.g.:
+            "{c}" for an atom with id 3,
+            "{c: t[i]}" for an atom with id 3 and associated subterm t[i].
+            "{c^NR}" if atom is non-redundant and atom map is not printed separately.
+            *)
+        let d_name = string (id_to_string id) in
+        let d_purity =
+          if print_atom_map then empty else string (purity_to_string purity) in
+        let d_trm =
+          if not inline_atoms then empty else begin
+            let style = Ast_to_c.default_style() in
+            match Atom_map.find_opt id atoms with
+            | Some (t1,_purity) ->
+                (* Deprecated code that was used for printing variables without braces.
+                    Might be useful in the future.
+                begin match t1.desc with
+                | Trm_var x -> Ast_to_c.var_to_doc style x
+                | Trm_apps ({desc = Trm_prim (_, Prim_unop Unop_get); _},
+                    [{desc = Trm_var x; _}], _) -> Ast_to_c.var_to_doc style x
+                | _ -> Ast_to_c.trm_to_doc style t1
+                end *)
+                string ":" ^^ blank 1 ^^ (Ast_to_c.trm_to_doc style t1)
+            | _  ->
+                Tools.warn "expr_to_string: atom occurrence without entry in atom map---broken invariant.";
+                string ": <missing-entry-in-atom-map>"
+          end in
+        braces (d_name ^^ d_purity ^^ d_trm)
   in
-  Tools.document_to_string (aux e)
+  let d_atoms =
+    (* The atom map takes the form "{{a: trma; b: trmb}}".
+       Each atom may be decorated with purity information, e.g., "c^NR: t[i]". *)
+    if not print_atom_map then empty else begin
+      let style = Ast_to_c.default_style() in
+      let atom_to_doc (id,(ti,purity)) =
+           string (id_to_string id)
+        ^^ string (purity_to_string purity)
+        ^^ string ":"
+        ^^ blank 1
+        ^^ Ast_to_c.trm_to_doc style ti
+        in
+      let d_atoms_items = List.map atom_to_doc (atom_map_to_list atoms) in
+         blank 1 ^^ string "where" ^^ blank 1
+      ^^ (Tools.list_to_doc ~sep:(semi ^^ blank 1) ~bounds:[string "{{"; string "}}"] d_atoms_items)
+    end in
+  Tools.document_to_string (aux e ^^ d_atoms)
 
 (** [expr_to_math_string atoms e]: converts an expression to a string, using mathematical notations *)
 let expr_to_math_string (atoms : atom_map) (e : expr) : string =
@@ -441,11 +509,11 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
           in
         parens (aux e1) ^^ string sop ^^ parens (aux e2)
      | Expr_atom (id,_purity) ->
-      begin match Atom_map.find_opt id atoms with
-      | Some t1 -> Ast_to_c.(trm_to_doc (default_style())) t1
-      | _  -> failwith "Arith_core.expr_to_math_string: couldn't convert
-                        an atom expr to a trm"
-      end
+        begin match Atom_map.find_opt id atoms with
+        | Some (t1,_purity) -> Ast_to_c.(trm_to_doc (default_style())) t1
+        | _  -> failwith "Arith_core.expr_to_math_string: couldn't convert
+                          an atom expr to a trm"
+        end
   in
   Tools.document_to_string (aux e)
 
@@ -558,23 +626,25 @@ let get_purity (t : trm) : purity =
 
 (** [create_atom_for_trm atoms t] creates a fresh id for the atom [t] and register
     it in the table [atoms]. *)
-let create_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
+let create_atom_for_trm (atoms : atom_map ref) (purity : purity) (t : trm) : id =
   let new_id = next_id() in
-  atoms := Atom_map.add new_id t !atoms;
+  atoms := Atom_map.add new_id (t,purity) !atoms;
   new_id
 
 (** [create_or_reuse_atom_for_trm atoms t]
    Try to find an existing id that was already bound to the term [t] in the table [atoms],
    else create a fresh id and extends the table [atoms] *)
-let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
+let create_or_reuse_atom_for_trm (atoms : atom_map ref) (purity : purity) (t : trm) : id =
   (* A nonzero value for [occ] indicates an existing [id] has been found for [t]. *)
-  let occ = ref 0 in
-  Atom_map.iter (fun id tid ->
-    if !occ = 0 && are_same_trm t tid then occ := id) !atoms;
+  let no_id = -1 in
+  let id_found = ref no_id in
+  Atom_map.iter (fun id (tid,_purity) ->
+    if !id_found = no_id && are_same_trm t tid then id_found := id) !atoms;
+      (* LATER: ideally we should check that the purity computed for tid is the same as that of t *)
   (* If no existing id was found, create a new id, and extends the [atoms] table. *)
-  if !occ = 0
-    then !occ
-    else create_atom_for_trm atoms t
+  if !id_found = no_id
+    then create_atom_for_trm atoms purity t
+    else !id_found
 
 (** [trm_to_naive_expr]: conversion of a trm from the AST into an expr, plus a map that for each atom gives the corresponding term. If a term is not 'redundant' then multiple occurrences of that term are not collapsed onto a same atom identifier. *)
 let trm_to_naive_expr (t : trm) : expr * atom_map =
@@ -585,15 +655,15 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
       let purity = get_purity t in
       let id =
         if not purity.redundant
-          then create_atom_for_trm atoms t
-          else create_or_reuse_atom_for_trm atoms t in
+          then create_atom_for_trm atoms purity t
+          else create_or_reuse_atom_for_trm atoms purity t in
       let typ = Option.bind t.typ typ_builtin_inv in
       expr_atom ?loc ?typ id purity
     in
     let to_expr_typ (typ : typ) =
       match typ_builtin_inv typ with
       | Some btyp -> btyp
-      | None -> failwith "trm_to_naive_expr: expression has a type incompatible with arith simplifications"
+      | None -> failwith "trm_to_naive_expr: expression has a type incompatible with arith simplifications: %s" (Ast_to_text.ast_to_string typ)
     in
     if has_mark_nosimpl t then force_atom () else
     match t.desc with
@@ -722,10 +792,10 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
       trm_apps ?loc (trm_binop (typ_builtin (expr_typ e)) op) [aux e1; aux e2]
 
     | Expr_atom (id, _purity) ->
-      begin match Atom_map.find_opt id atoms with
-      | Some t1 -> t1
-      | _ -> failwith "Arith_core.expr_to_trm: couldn't convert an atom expr to a trm"
-      end
+        begin match Atom_map.find_opt id atoms with
+        | Some (t1,_purity) -> t1
+        | _ -> failwith "Arith_core.expr_to_trm: couldn't convert an atom expr to a trm"
+        end
     in
   aux e
 
@@ -1140,6 +1210,10 @@ let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
       trm_map (map_on_arith_nodes tr) t
 
 (* DEBUG let c = ref 0 *)
+(** [simplify_at_node f_atom f t] transforms a term [t] by reifying it as an [expr]
+    AST, with non-arithmetic subterms described as "atoms"; then it applies the
+    transformation [f_atom] on every atom; then it applies the transformation [f]
+    on the reified expression; finally, it reconstructs the output term. *)
 let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
   try (
   let expr, atoms = trm_to_expr t in
@@ -1149,7 +1223,7 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
        using [f_atom], else we would trigger an infinite loop when [indepth=true]. *)
     match expr.expr_desc with
     | Expr_atom (_id,_purity) -> atoms
-    | _ -> Atom_map.map f_atom atoms
+    | _ -> Atom_map.map (fun (t_atom,purity) -> (f_atom t_atom,purity)) atoms
     in
   let expr2 = f expr in
   if debug then Tools.debug "Expr after transformation: %s" (expr_to_string atoms expr2);
@@ -1178,6 +1252,17 @@ let rec simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
     let f_atom_simplify = simplify indepth f in
     map_on_arith_nodes (simplify_at_node f_atom_simplify f) t
   end
+
+(** [show_expr t] applies to a term [t] and replaces it with a term of the form
+    [ARITH(t, "<expr-descr>")] where the term [t] is decorated,
+    as part of a call to an identity function, with its representation as an [expr],
+    as well as the description of the atoms involved. Moreover, for each atom the
+    description indicates whether it is "non-duplicable" or "non-redundant".
+    The keyword "ND" means non-duplicable, "NR" means non-redundant. *)
+let show_expr (t : trm) : trm =
+  let expr, atoms = trm_to_expr t in
+  let sexpr = expr_to_string atoms expr in
+  trm_apps (trm_var (toplevel_var "__ARITH")) [t; trm_string sexpr]
 
 
 (******************************************************************************)

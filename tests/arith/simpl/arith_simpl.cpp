@@ -10,11 +10,40 @@ int g(int x) {
   return x+1;
 }
 
+int eff(int* p) {
+  __modifies("p ~> Cell");
+  //*p++;
+  return 0;
+}
+
 void simpl_in_depth () {
   __pure();
   // FIXME: simplified to 2 * g(5), could be wrong if not pure.
   int x = g(1 + 2 + f(2 + 4)) + g(5) + g(5);
   int y = g(1 + 2 + f(2 + 4)) + g(5) + g(5);
+}
+
+/* LATER
+int reify_without_resources(int* p) {
+  int rei;
+  int a = 1;
+  const int b = 2;
+  rei = f(1) + g(1) + a * b + eff(p) * f(1) * a * b;
+}
+*/
+
+int reify_with_resources(int* p) {
+  __modifies("p ~> Cell");
+  int rei; int rej; int rek;
+  const int x = 1;
+  int y = 2;
+  rei = x + x;
+  rei = x + y;
+  rei = y + y;
+  rei = f(1) + f(1);
+  rei = f(1) + g(1) + x * y + eff(p) * f(1) * x * y;
+  rej = f(1) + g(1) + x * y + eff(p) * f(1) * x * y;
+  rek = x + y + y;
 }
 
 int simple() {
@@ -161,12 +190,6 @@ void more_ops() {
   ci = 14 | 5; // = 15
   ci = 14 & 5; // = 4
   ci = 15 % 4; // = 3
-}
-
-int eff(int* p) {
-  __modifies("p ~> Cell");
-  //*p++;
-  return 0;
 }
 
 /*

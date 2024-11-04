@@ -308,11 +308,27 @@
         }
       },
       {
-        "label": "Open diff for the current test",
+        "label": "Run and open diff for the current test",
         "type": "shell",
         "command": "./tester",
         "args": [
-          "diff",
+          "rundiff",
+          "-with-ignored",
+          "${relativeFile}"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        }
+      },
+      {
+        "label": "Run and open meld for the current test",
+        "type": "shell",
+        "command": "./tester",
+        "args": [
+          "runmeld",
           "-with-ignored",
           "${relativeFile}"
         ],

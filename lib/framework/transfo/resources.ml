@@ -691,7 +691,7 @@ let is_deletable (t : trm) : bool =
     | SplittedFrac | Required -> true
     | Ensured | ArbitrarilyChosen | ConsumedFull | ConsumedUninit | JoinedFrac | Produced -> false
     in
-  Var_map.fold (fun h usage deletable -> deletable && is_ro usage) res_usage false
+  Var_map.fold (fun h usage deletable -> deletable && is_ro usage) res_usage true
 let _ = Arith_core.hook_is_deletable := is_deletable
 
 (** Checks that duplicating the instruction at index [index] after [skip] instructions in the sequence [seq] would be redundant.

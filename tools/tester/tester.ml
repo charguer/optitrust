@@ -147,6 +147,16 @@ module StringSet = Set.Make(String)
   - `errors.tests`: tests that are not success
   Besides, the file `tofix.tests` is updated in a same was as for the 'run' command.
 
+  Action 'runmeld'
+  ==============
+
+  Execute 'run' then 'meld' actions.
+
+  Action 'rundiff'
+  ==============
+
+  Execute 'run' then 'diff' actions.
+
   ----
   LATER: an action 'sort':
   interactively navigate through the list of unsuccessful tests,
@@ -603,7 +613,7 @@ let get_tests_to_process_for_run_and_compile (action : string) (tests : string l
   if nb_tests_to_process = 0 then printf "Empty set of tests considered.\n";
   result
 
-let action_run (tests : string list) : unit =
+let action_run ?(exit_on_error = true) (tests : string list) : unit =
   let tests_to_process, tests_ignored = get_tests_to_process_for_run_and_compile "run" tests in
   let nb_tests_to_process = List.length tests_to_process in
   (* Always enable [-all-warnings] if there is only one test *)
@@ -749,7 +759,7 @@ let action_run (tests : string list) : unit =
   print_count Terminal.light_gray "ignored" tests_ignored;
   print_count Terminal.green "success" !tests_success;
   printf "\n";
-  if !tests_failed <> [] || !tests_noexp <> [] || !tests_wrong <> [] then
+  if exit_on_error && (!tests_failed <> [] || !tests_noexp <> [] || !tests_wrong <> []) then
     exit 1
 
 
@@ -974,12 +984,14 @@ let _main : unit =
     | "diff" -> action_diff args
     | "meld" -> action_meld args
     | "compile" -> action_compile args
+    | "runmeld" -> action_run ~exit_on_error:false args; action_meld args
+    | "rundiff" -> action_run ~exit_on_error:false args; action_diff args
     | x -> fail (sprintf "unknown action %s" x)
     in
 
   (* Handle confirmation *)
   begin try
-    let without_confirmation = ["run"; "meld"; "diff"; "compile"] in
+    let without_confirmation = ["run"; "meld"; "diff"; "compile"; "runmeld"; "rundiff"] in
     let needs_confirmation = (not (List.mem !action without_confirmation)) && not !skip_confirmation in
     if not needs_confirmation then begin
       execute()

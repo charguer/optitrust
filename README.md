@@ -206,7 +206,7 @@ If you have a nonempty file, copy the bindings into your file.
   {
     "key": "ctrl+shift+f10",
     "command": "workbench.action.tasks.runTask",
-    "args": "Open diff for the current test",
+    "args": "Run and open diff for the current test",
     "when": "config.optitrust.enableKeybindings"
   },
   {

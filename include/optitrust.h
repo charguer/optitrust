@@ -33,6 +33,15 @@ inline void __sreads(const char*) {}
 
 inline void __admitted() {}
 
+/* ---- Debug annotations ---- */
+
+// Printing of internal representation of reified arithmetic expressions
+template<typename T> T __ARITH(T t, const char* s) {
+  __pure();
+  __admitted();
+  return t;
+}
+
 /* ---- Ghost annotations ---- */
 
 // Return type for ghost functions
