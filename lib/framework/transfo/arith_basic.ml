@@ -4,8 +4,8 @@ include Arith_core
 
 (** [show tg] annotates the target with a string describing the reified
     expression that corresponds to the arithmetic term considered. *)
-let%transfo show (tg : target) : unit =
-  Target.apply_at_target_paths (Arith_core.show_expr) tg
+let%transfo show ?(normalized : bool = true) (tg : target) : unit =
+  Target.apply_at_target_paths (Arith_core.show_expr ~normalized) tg
 
 (** [remove_show tg] unannotates the target with a string describing the reified
     expression that corresponds to the arithmetic term considered. *)

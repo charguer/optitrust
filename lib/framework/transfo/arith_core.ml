@@ -256,6 +256,27 @@ let is_redundant (e : expr) : bool =
   for_all_atoms (fun _id purity -> purity.redundant) e
 
 
+(** Exception [Unexpected_non_redundant] is used to cancelled computations when
+    discovering a non-redundant expression *)
+exception Unexpected_non_redundant
+
+(** [check_redundant e] raises the exception [Unexpected_non_redundant] if [e]
+    is not redundant. *)
+let check_redundant (e : expr) : unit =
+  if not (is_redundant e)
+    then raise Unexpected_non_redundant
+
+(** Exception [Unexpected_non_deletable] is used to cancelled computations when
+    discovering a non-deletable expression *)
+exception Unexpected_non_deletable
+
+(** [check_deletable e] raises the exception [Unexpected_non_deletable] if [e]
+    is not deletable. *)
+let check_deletable (e : expr) : unit =
+  if not (is_deletable e)
+    then raise Unexpected_non_deletable
+
+
 (******************************************************************************)
 (*                          Normalize                                 *)
 (******************************************************************************)
@@ -291,29 +312,35 @@ let normalize_one (e : expr) : expr =
           | (ai, { expr_desc = Expr_prod [(1,ei); (bi, { expr_desc = Expr_int 1; _})]; _ }) -> [(ai * bi, ei)]
           | we -> [we]) wes))
     | Expr_prod wes ->
-      let typ = expr_typ e in
-      let is_val = ref None in  (* TODO: replace side effect with dedicated recursion for early abort *)
-      let p2 = Expr_prod (List.concat_map (function
-      | (_ai, ({ expr_desc = Expr_int 0; _ } as ezero)) ->
-        is_val := Some ezero;
-        []
-      | (_ai, ({ expr_desc = Expr_float 0.; _} as ezero)) ->
-        is_val := Some ezero;
-        []
-      | (_ai, { expr_desc = Expr_int 1; _ }) -> []
-      | (_ai, { expr_desc = Expr_float 1.; _}) -> []
-      | (0, ei) when is_deletable ei -> []
-      | (1, { expr_desc = Expr_prod wesi; _}) -> wesi
-      | (-1, { expr_desc = Expr_prod wesi; _}) -> List.map (fun (w,ei) -> (-w, ei)) wesi
-      | (ai, { expr_desc = Expr_sum [(bi, { expr_desc = Expr_int 1; _})]; expr_loc = loc; _}) -> [(ai, expr_int ?loc ~typ bi)]
-      | (ai, { expr_desc = Expr_sum [(bi, ei)]; expr_loc = loc; _}) when is_integer_typ typ ->
-        [(ai, expr_int ?loc ~typ bi); (ai, ei)]
-      | we -> [we]) wes)
-      in
-      begin match !is_val with
-      | None -> mk p2
-      | Some v -> v
-      end
+        let typ = expr_typ e in
+        (* simplify integer coefficients, and keep track of whether a zero is found *)
+        let found_zero = ref None in
+        let wes2 = List.concat_map (function
+          | (_ai, ({ expr_desc = Expr_int 0; _ } as ezero)) ->
+            found_zero := Some ezero;
+            []
+          | (_ai, ({ expr_desc = Expr_float 0.; _} as ezero)) ->
+            found_zero := Some ezero;
+            []
+          | (_ai, { expr_desc = Expr_int 1; _ }) -> []
+          | (_ai, { expr_desc = Expr_float 1.; _}) -> []
+          | (0, ei) when is_deletable ei -> []
+          | (1, { expr_desc = Expr_prod wesi; _}) -> wesi
+          | (-1, { expr_desc = Expr_prod wesi; _}) -> List.map (fun (w,ei) -> (-w, ei)) wesi
+          | (ai, { expr_desc = Expr_sum [(bi, { expr_desc = Expr_int 1; _})]; expr_loc = loc; _}) -> [(ai, expr_int ?loc ~typ bi)]
+          | (ai, { expr_desc = Expr_sum [(bi, ei)]; expr_loc = loc; _}) when is_integer_typ typ ->
+            [(ai, expr_int ?loc ~typ bi); (ai, ei)]
+          | we -> [we]) wes in
+        (* if a zero is found and all expressions are deletable, then the result is zero;
+           otherwise we keep one zero in the product, and keep all non-deletable expressions *)
+        begin match !found_zero with
+        | None -> mk (Expr_prod wes2)
+        | Some zero_expr ->
+            let wes_nondeletable = List.filter (fun (ai,ei) -> not (is_deletable ei)) wes2 in
+            if wes_nondeletable = []
+              then zero_expr
+              else mk (Expr_prod ((1,zero_expr)::wes_nondeletable))
+        end
     (* [e1 / 1 = 1] *)
     | Expr_binop (Binop_trunc_div, e1, { expr_desc = Expr_int 1; _}) -> e1
     | Expr_binop (Binop_trunc_div, e1, { expr_desc = Expr_prod []; _}) -> e1
@@ -698,13 +725,13 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
     res, !atoms
 
 (** [trm_to_expr t]: convert trm [t] to an expression*)
-let trm_to_expr (t : trm) : expr * atom_map =
+let trm_to_expr ?(normalized=true) (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
   if debug && false
     then Tools.debug "Expr before conversion: %s" (Ast_to_text.ast_to_string t);
   if debug
     then Tools.debug "Expr after conversion: %s" (expr_to_string atoms expr);
-  let res = normalize expr in
+  let res = if normalized then normalize expr else expr in
   if debug
     then Tools.debug "Expr after normalization: %s" (expr_to_string atoms res);
   res, atoms
@@ -920,18 +947,24 @@ let gather_rec = gather_common true
 (** [expand_one e]: expands a sum that appears inside a product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3].
     It can also expand e.g. [(e1 + e2) * (e3 + e4) * (e5 + e6)].
-    NOW TODO: must check that terms that are duplicated must be 'redundant'.
     The function performs nothing if no expansion can be performed.
-    At the very end, it applies [normalize] to the result.*)
+    At the very end, it applies [normalize] to the result.
+    Correctness: terms that are duplicated need to be redundant.
+    We here assume that there is no empty [Expr_prod], else we'd need to check for deletable.
+    LATER: the current check for redundancy is probably suboptimal in terms of efficiency. *)
 let expand_one (e : expr) : expr =
   (* [aux (w,e) [e1; e2]]
      - if [w=1] and [e] is a sum [w1*a1 + w2*a2], then produce
-       [w1*a1*e1 + w1*a1*e2 + w2*a2*e1 + w2*a2*e2]
-     - otherwise it computes [e^w*e1 + e^w*e2]. *)
+       [w1*a1*e1 + w1*a1*e2 + w2*a2*e1 + w2*a2*e2],
+       and all the [ai] and [ei] must be redundant
+     - otherwise it computes [e^w*e1 + e^w*e2],
+       and only [e] needs to be redundant if there is more than one [ei]. *)
   let aux (typ : typ_builtin) ((w,e) : wexpr) (acc : exprs) : exprs =
+    if List.length acc > 1 then check_redundant e;
     (* LATER: check that e.typ does not conflict with typ *)
     match (w, e.expr_desc) with
     | 1, (Expr_sum wes) ->
+        if List.length wes > 1 then List.iter check_redundant acc;
         List.concat_map (fun (wk,ak) ->
           List.map (fun ei ->
             expr_prod_nonweighted ~typ [(expr_int ~typ wk); ak; ei]) acc
@@ -949,12 +982,14 @@ let expand_one (e : expr) : expr =
       List.map (fun ei -> expr_distrib_we ei) acc
     in
   let res =
-    match e.expr_desc with
-    | Expr_prod wes ->
-        let typ = Option.unsome e.expr_typ in
-        let exprs_in_sum = List.fold_right (aux typ) wes [expr_one ?loc:e.expr_loc typ] in
-        expr_sum_nonweighted ~typ exprs_in_sum
-    | _ -> e
+    try
+      match e.expr_desc with
+      | Expr_prod wes ->
+          let typ = Option.unsome e.expr_typ in
+          let exprs_in_sum = List.fold_right (aux typ) wes [expr_one ?loc:e.expr_loc typ] in
+          expr_sum_nonweighted ~typ exprs_in_sum
+      | _ -> e
+    with Unexpected_non_redundant -> e
     in
   normalize res
 
@@ -1259,8 +1294,8 @@ let rec simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
     as well as the description of the atoms involved. Moreover, for each atom the
     description indicates whether it is "non-duplicable" or "non-redundant".
     The keyword "ND" means non-duplicable, "NR" means non-redundant. *)
-let show_expr (t : trm) : trm =
-  let expr, atoms = trm_to_expr t in
+let show_expr ?(normalized = true) (t : trm) : trm =
+  let expr, atoms = trm_to_expr ~normalized t in
   let sexpr = expr_to_string atoms expr in
   trm_apps (trm_var (toplevel_var "__ARITH")) [t; trm_string sexpr]
 

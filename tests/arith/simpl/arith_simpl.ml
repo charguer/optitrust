@@ -14,7 +14,7 @@ let _ = Run.script_cpp (fun _ ->
 
   (* Show reification without inlined atoms *)
   !! Arith_basic.debug_without_inlined_atoms := true;
-  !! Arith_basic.show [nbMulti; cWriteVar "rei"; dRHS];
+  !! Arith_basic.show ~normalized:false [nbMulti; cWriteVar "rei"; dRHS];
   !! Arith_basic.debug_without_inlined_atoms := false;
 
   (* Show reification with inlined atoms *)
@@ -31,6 +31,7 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "ra"; dRHS];
 
+  !! Arith_basic.(simpl normalize) [nbMulti; cWriteVar "re"; dRHS];
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "re"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "rf"; dRHS];
 

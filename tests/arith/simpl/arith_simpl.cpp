@@ -40,6 +40,7 @@ int reify_with_resources(int* p) {
   rei = x + x;
   rei = x + y;
   rei = y + y;
+  rei = 0 * eff(p);
   rei = f(1) + f(1);
   rei = f(1) + g(1) + x * y + eff(p) * f(1) * x * y;
   rej = f(1) + g(1) + x * y + eff(p) * f(1) * x * y;
@@ -51,7 +52,7 @@ int simple() {
   const double a = 1;
   const double b = 2;
   int ra;
-  ra = a + b + b - a;
+  ra = a + b + b - a; // simplifiable because redundant
 }
 
 int main()
@@ -195,17 +196,17 @@ void more_ops() {
   ci = 15 % 4; // = 3
 }
 
-/*
 void impurity(int* p) {
   __modifies("p ~> Cell");
   int re = 0;
   int rf = 0;
   int const a = 1;
   int const b = 1;
-  re = eff(p) + eff(p); // cannot simplify to 2*eff(p)
-  rf = (a + b) * eff(p); // cannot expand
+  // re = eff(p) + eff(p); // does not typecheck because overlapping effects
+  re = 0 * eff(p); // cannot be simplified because non-deletable
+  rf = (a + b) * eff(p); // cannot expand because non-redundant
 }
-*/
+
 
 void purity(int* p) {
   __pure();
@@ -213,8 +214,9 @@ void purity(int* p) {
   int rf = 0;
   int const a = 1;
   int const b = 1;
-  re = f(1) + f(1); // = 2*f(1)
-  rf = (a + b) * f(1); // = a * f(1) + b * f(1)
+  re = f(1) + f(1) + a + a; // = 2*f(1) + 2*a // ok because redundant
+  re = 0 * f(1) + 0 * a; // = 0 // ok because deletable
+  rf = (a + b) * f(1); // = a * f(1) + b * f(1) // ok because redundant
 }
 
 void alloc() { // LATER: add __pure()

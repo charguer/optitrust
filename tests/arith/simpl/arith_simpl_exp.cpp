@@ -31,15 +31,17 @@ int reify_with_resources(int* p) {
   rei = __ARITH(x + x, "Sum{(1,{b}); (1,{b})} where {{b: x}}");
   rei = __ARITH(x + y, "Sum{(1,{d}); (1,{c})} where {{d: x;  c: *y}}");
   rei = __ARITH(y + y, "Sum{(1,{e}); (1,{e})} where {{e: *y}}");
-  rei = __ARITH(f(1) + f(1), "Sum{(1,{f}); (1,{f})} where {{f: f(1)}}");
-  rei = __ARITH(f(1) + g(1) + x * y + eff(p) * f(1) * x * y,
-                "Sum{(1,{i}); (1,{k}); (1,Prod{(1,{h}); (1,{g})}); "
-                "(1,Prod{(1,{j}); (1,{i}); (1,{h}); (1,{g})})} where {{k: "
-                "g(1);  j^NR^ND: eff(p);  i: f(1);  h: x;  g: *y}}");
+  rei = __ARITH(0 * eff(p), "Prod{(1,0); (1,{f})} where {{f^NR^ND: eff(p)}}");
+  rei = __ARITH(f(1) + f(1), "Sum{(1,{g}); (1,{g})} where {{g: f(1)}}");
+  rei = __ARITH(
+      f(1) + g(1) + x * y + eff(p) * f(1) * x * y,
+      "Sum{(1,Sum{(1,Sum{(1,{j}); (1,{l})}); (1,Prod{(1,{i}); (1,{h})})}); "
+      "(1,Prod{(1,Prod{(1,Prod{(1,{k}); (1,{j})}); (1,{i})}); (1,{h})})} where "
+      "{{l: g(1);  k^NR^ND: eff(p);  j: f(1);  i: x;  h: *y}}");
   rej = __ARITH(f(1) + g(1) + x * y + eff(p) * f(1) * x * y,
-                "Sum{(1,{n: f(1)}); (1,{p: g(1)}); (1,Prod{(1,{m: x}); (1,{l: "
-                "*y})}); (1,Prod{(1,{o^NR^ND: eff(p)}); (1,{n: f(1)}); (1,{m: "
-                "x}); (1,{l: *y})})}");
+                "Sum{(1,{o: f(1)}); (1,{q: g(1)}); (1,Prod{(1,{n: x}); (1,{m: "
+                "*y})}); (1,Prod{(1,{p^NR^ND: eff(p)}); (1,{o: f(1)}); (1,{n: "
+                "x}); (1,{m: *y})})}");
   rek = x + y + y;
 }
 
@@ -165,13 +167,24 @@ void more_ops() {
   ci = 3;
 }
 
+void impurity(int* p) {
+  __modifies("p ~> Cell");
+  int re = 0;
+  int rf = 0;
+  const int a = 1;
+  const int b = 1;
+  re = 0 * eff(p);
+  rf = (a + b) * eff(p);
+}
+
 void purity(int* p) {
   __pure();
   int re = 0;
   int rf = 0;
   const int a = 1;
   const int b = 1;
-  re = 2 * f(1);
+  re = 2 * f(1) + 2 * a;
+  re = 0;
   rf = a * f(1) + b * f(1);
 }
 
