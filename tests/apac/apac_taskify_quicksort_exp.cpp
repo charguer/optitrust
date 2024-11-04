@@ -71,17 +71,16 @@ int main(int argc, char** argv) {
     if (argc > 1) {
       size = atoi(argv[1]);
     }
-    void* __apac_var1;
-    __apac_var1 = malloc(size * sizeof(int));
-    int* data = (int*)__apac_var1;
+    int* data;
+    data = (int*)malloc(size * sizeof(int));
     if (!data) {
       perror("Array allocation failure");
       __apac_result = 1;
       goto __apac_exit;
     }
-    unsigned int __apac_var2;
-    __apac_var2 = time(NULL);
-    srand(__apac_var2);
+    unsigned int __apac_var1;
+    __apac_var1 = time(NULL);
+    srand(__apac_var1);
     for (int idx = 0; idx < size; idx++) {
       data[idx] = rand();
     }

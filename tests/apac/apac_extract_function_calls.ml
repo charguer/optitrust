@@ -4,9 +4,15 @@ open Ast
 open Typ
 
 let _ = Run.script_cpp (fun () ->
-            !! Apac_preprocessing.extract_function_calls [
+            !! Apac_preprocessing.unfold_function_calls [
                 nbAny;
-                cDiff [[cFunBody "h"; cFun ""]] [[cHasTypeAst (typ_unit ())]]
+                cFunBody "h";
+                cFun ""
+              ];
+            !! Apac_preprocessing.detach_function_calls [
+                nbAny;
+                cFunBody "h";
+                cVarDef ""
               ];
           );
         Apac_reset.tnt_blast ()

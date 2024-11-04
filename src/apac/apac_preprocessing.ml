@@ -189,60 +189,75 @@ let select_candidates (tg : target) : unit =
 
     {1:function_call_extraction Function call extraction}
 
-    Function calls represent our main parallelization target. The goal of this
-    transformation pass is to make their identification as task candidates
-    easier. Indeed, we may find function calls within variable declaration
-    statements which we do not consider as suitable task candidates. One of the
-    goals of this pass is to detach the initialization, provided it is a
-    function call, from the variable declaration and replace the original
-    statement by two new statements, i.e. a variable declaration and a value
-    assignment. If the initial declaration qualifies the variable as [const],
-    this property must be removed. Moreover, a single statement may feature a
-    nested call involving multiple functions. This situation prevents us from
-    considering each of the function calls as an individual task candidate. The
-    pass thus unfolds nested function calls while assigning the intermediate
-    return values into temporary variables. *)
+    Function calls represent our main parallelization target. The goal of the
+    [!unfold_function_calls] and [!detach_function_calls] transformation passes
+    is to make their identification as task candidates easier. Indeed, we may
+    find function calls within variable declaration statements which we do not
+    consider as suitable task candidates. The goal of [!detach_function_calls]
+    is to detach the initialization, provided it is or it contains a function
+    call, from the variable declaration and replace the original statement by
+    two new statements, i.e. a variable declaration and a value assignment. If
+    the initial declaration qualifies the variable as [const], this property
+    must be removed. Moreover, a single statement may feature a nested call
+    involving multiple functions. This situation prevents us from considering
+    each of the function calls as an individual task candidate. Therefore, the
+    pass [!unfold_function_calls] unfolds nested function calls while assigning
+    the intermediate return values into temporary variables. *)
 
-(** [extract_function_calls tg]: expects target [tg] to point at a function
-    call. If the latter resides within another function call or within a
-    variable declaration, the transformation pass separates the target function
-    call and the parent function call or variable declaration.
+(** [unfold_function_calls tg]: expects target [tg] to point at a function call.
+    If the function call resides within another function call, the pass then
+    separates the target inner function call and the parent function call by
+    passing the result from the former to the latter through an interdmediate
+    variable.
 
     For example
 
     {[
-    int a = f(g(2));
-    ]}
-    
-    becomes
-
-    {[
-    int __apac_var1;
-    __apac_var1 = g(2);
-    int __apac_var2;
-    __apac_var2 = f(__apac_var1);
-    int a = __apac_var2;
-    ]}
-    
-    However
-
-    {[
-    int a;
     a = f(g(2));
     ]}
     
     becomes
 
     {[
-    int a;
     int __apac_var1;
     __apac_var1 = g(2);
-    a = f(__apac_var1);
+    a = __apac_var1;
+    ]} *)
+let unfold_function_calls (tg : target) : unit =
+  Target.iter (fun _ p ->
+      (** Check whether the target function call resides within another function
+          call. *)
+      if (Apac_miscellaneous.has_trm (Path.parent p) (fun t ->
+              match t.desc with
+              | Trm_apps ({ desc = Trm_var (_ , _); _ }, _) -> true
+              | _ -> false
+         )) then
+        (** If so, define a new intermediate variable, *)
+        let var = fresh_var_name ~prefix:Apac_macros.intermediate_variable () in
+        (** save the result from the target function call into the intermediate
+            variable and pass the latter to the parent function call. *)
+        Variable_basic.bind var (target_of_path p)
+    ) tg
+
+(** [detach_function_calls tg]: expects target [tg] to point at a variable
+    definition. If the latter has an initialization term featuring a function
+    call, the transformation pass detaches the initialization of the variable
+    from its declaration.
+
+    For example
+
+    {[
+    int a = f(2);
     ]}
     
-    as the call to [f] is already apart from the declaration of [a].
+    becomes
 
-    Also note that
+    {[
+    int a;
+    a = f(2);
+    ]}
+    
+    Note that
 
     {[
     const int * a = foo();
@@ -255,28 +270,29 @@ let select_candidates (tg : target) : unit =
     a = foo();
     ]}
 
-    as we must remove the [const] property. *)
-let extract_function_calls (tg : target) : unit =
-  Target.iter (fun t' p ->
-    (** Apply the transformation only on function calls within variable
-        definitions or nested within other function calls. *)
-    let proceed =
-      Apac_miscellaneous.has_trm (Path.parent p) (fun t ->
-          match t.desc with
-          | Trm_let _
-            | Trm_let_mult _
-            | Trm_apps ({ desc = Trm_var (_ , _); _ }, _) -> true
-          | _ -> false
-        ) in
-    if proceed then
-      (** Define new intermediate variable. *)
-      let var = fresh_var_name ~prefix:Apac_macros.intermediate_variable () in
-      (** Bind the return value of the current call to that variable. *)
-      Variable_basic.bind var (target_of_path p);
-      (** Separate the assignment of the return value from the declaration of
-          the variable. *)
-      Variable_basic.init_detach [cVarDef var];
-  ) tg
+    as we must remove the [const] property from [a]. *)
+let detach_function_calls (tg : target) : unit =
+  Target.iter (fun t p ->
+      (** Extract the variable [v] and the initialization term [init] from the
+          target variable definition term. *)
+      let error = "Apac_preprocessing.detach_function_calls: expected a target \
+                   to a variable definition!" in
+      let (_, v, _, init) =
+        trm_inv ~error trm_let_inv (Path.get_trm_at_path p t) in
+      (** If [init] features a function call, *)
+      if (trm_fold (fun acc t ->
+              match t.desc with
+              | Trm_apps ({ desc = Trm_var (_ , _); _ }, _) -> acc || true
+              | _ -> acc || false
+            ) false init) then
+        begin
+          (** detach the declaration and the initialization of [v] while
+              removing the [const] property of [v] if present.*)
+          let tg = Target.target_of_path p in
+          Variable_basic.to_nonconst tg;
+          Variable_basic.init_detach tg
+        end
+    ) tg
 
 (** {1:constification Constification}
 

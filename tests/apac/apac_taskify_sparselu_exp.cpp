@@ -243,9 +243,8 @@ int main(int argc, char** argv) {
       matrix_LU = strncpy(matrix_LU, "LU.matrix", 10);
       need_free = 1;
     }
-    void* __apac_var1;
-    __apac_var1 = malloc(matrix_size * matrix_size * sizeof(float*));
-    float** matrix = (float**)__apac_var1;
+    float** matrix;
+    matrix = (float**)malloc(matrix_size * matrix_size * sizeof(float*));
     if (matrix == NULL) {
       fprintf(stderr, "Error: Failed to reserve memory for the matrix.\n");
       __apac_result = 1;
