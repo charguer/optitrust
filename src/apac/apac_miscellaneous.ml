@@ -286,6 +286,29 @@ let find_parent_function (p : Path.path) : var option =
   in
   aux reversed 
 
+(** [find_parent p f]: goes back up the path [p] and returns the path to the
+    first term satisfying the predicate [f] or [None] if [p] does not feature
+    such term. *)
+let find_parent (p : Path.path) (f : trm -> bool) : Path.path option =
+  (** We shall go back on our steps in the path, i.e. in the direction of the
+      root of the AST, so we need to reverse [p]. *)
+  let rev = List.tl (List.rev p) in
+  (** We use an auxiliary function in order to hide to the outside world the
+      need for the path reversal. *)
+  let rec aux (p : Path.path) : Path.path option =
+    (** The function simply goes recursively through [rev] and *)
+    match p with
+    | _ :: r -> 
+       begin
+         (** if it finds a term satisfying [f], it returns the path to it. *)
+         let p' = List.rev p in
+         let t = Path.get_trm_at_path p' (Trace.ast ()) in
+         if f t then Some p' else aux r
+       end
+    | [] -> None
+  in
+  aux rev
+
 (** [has_trm p f]: goes back up the path [p] and checks whether it features a
     term verifying the predicate [f]. *)
 let has_trm (p : Path.path) (f : trm -> bool) : bool =
