@@ -688,7 +688,14 @@ and trm_let_to_doc style ?(semicolon : bool = true) (tv : typed_var) (init : trm
     let fun_annot = trm_get_cstyles init in
     let static = if trm_has_cstyle Static_fun init then string "static" else empty in
     let hidden = if trm_has_cstyle BodyHiddenForLightDiff init then string " /* unchanged, collapsed for light diff */" else empty in
-    static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon style fun_annot (fst tv) rettyp args body ^^ hidden
+    let dexectime = empty in
+      (* TODO: find why it does not work
+      if not !Flags.report_exectime then empty else begin
+        let exectime = init.ctx.ctx_resources_exectime in
+        let microsec =  (1000000. *. exectime) in
+        blank 1 ^^ string "/* typing time: " ^^ string (string_of_float microsec) ^^ string " */"
+      end in *)
+    static ^^ blank 1 ^^ dexectime ^^ trm_let_fun_to_doc ~semicolon style fun_annot (fst tv) rettyp args body ^^ hidden
   | Trm_apps (_, args, _) when trm_has_cstyle Constructed_init init ->
     dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm style) args) ^^ dsemi
   | Trm_array (_, tl) when trm_has_cstyle Brace_init init ->

@@ -6,6 +6,8 @@ let _ = Flags.pretty_matrix_notation := true
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 
+(* let _ = Flags.report_exectime := true *)
+
 (* Reproducing a TVM schedule from:
    https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html
 

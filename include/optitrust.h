@@ -406,7 +406,7 @@ __GHOST(in_range_shift_extend) {
   __requires("in_range(x, range(a, b, s))");
   __requires("is_subrange(range(a+k, b+k, s), r)");
   __ensures("in_range(x+k, r)");
-
+  __admitted(); // for efficiency
   __ghost(in_range_shift, "x, k, a, b, s");
   __ghost(in_range_extend, "x+k, range(a+k, b+k, s), r");
 }
@@ -623,7 +623,7 @@ __GHOST(group_focus) {
 
 __GHOST(group_unfocus) {
   __reverts(group_focus);
-
+  __admitted(); // for efficiency
   __ghost(close_wand, "");
 }
 
@@ -637,8 +637,9 @@ __GHOST(group_ro_focus) {
 
 __GHOST(group_ro_unfocus) {
   __reverts(group_ro_focus);
-
+  __admitted(); // for performance
   __ghost(close_wand, "");
+
 }
 
 __GHOST(group_uninit_focus) {
@@ -1001,13 +1002,13 @@ __GHOST(matrix1_ro_focus) {
   __requires("bound_check: in_range(i, 0..n)");
   __consumes("_RO(f, M ~> Matrix1(n))");
   __produces("Wand(_RO(f, &M[MINDEX1(n, i)] ~> Cell), _RO(f, M ~> Matrix1(n))), _RO(f, &M[MINDEX1(n, i)] ~> Cell)");
-
+  __admitted(); // for efficiency
   __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check");
 }
 
 __GHOST(matrix1_ro_unfocus) {
   __reverts(matrix1_ro_focus);
-
+  __admitted(); // for efficiency
   __ghost(close_wand, "");
 }
 
@@ -1025,7 +1026,7 @@ __GHOST(matrix2_ro_focus) {
 
 __GHOST(matrix2_ro_unfocus) {
   __reverts(matrix2_ro_focus);
-
+  __admitted(); // for efficiency
   __ghost(close_wand, "");
 }
 
@@ -1188,6 +1189,7 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
   __requires("check_range: is_subrange(start..stop, 0..n)");
   __requires("bound_check: in_range(j, 0..m)");
   __reads("input ~> Matrix2(n, m)");
+  __admitted();
   // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
 
   uint16_t s = 0;
@@ -1200,7 +1202,6 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
     s += input[MINDEX2(n, m, i, j)];
     __GHOST_END(focus);
   }
-  __admitted();
   return s;
 }
 

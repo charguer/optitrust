@@ -576,6 +576,8 @@ and ctx = {
   mutable ctx_resources_after: resource_set option;
   (* The instantiation of the requested post condition *)
   mutable ctx_resources_post_inst: used_resource_set option;
+  (* The time taken to typecheck the term, only measured for [Trm_fun] when [Flags.report_exectime] is one, else zero. *)
+  mutable ctx_resources_exectime : float;
 }
 
 and formula = trm
@@ -981,7 +983,7 @@ type tmap = trm Var_map.t
 let unknown_ctx (): ctx = {
   ctx_resources_before = None; ctx_resources_after = None;
   ctx_resources_usage = None; ctx_resources_contract_invoc = None;
-  ctx_resources_post_inst = None;
+  ctx_resources_post_inst = None; ctx_resources_exectime = 0.;
 }
 
 (** The empty resource set. *)
