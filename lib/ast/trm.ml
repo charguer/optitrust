@@ -1066,12 +1066,12 @@ let trm_array_get_inv (t : trm) : (trm * trm) option =
 (** [trm_get ~annot ?typ t]: embeds [t] into a get operation *)
 let trm_get ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : trm =
   let typ = Option.or_ typ (Option.bind t.typ typ_ptr_inv) in
-  trm_apps ~annot ?typ (trm_unop (typ_or_auto typ) Unop_get) [t]
+  trm_apps ~annot ?typ (trm_unop typ_auto Unop_get) [t]
 
 (** [trm_address_of ~anot ?typ t]: creates an address operation in [t] *)
 let trm_address_of ?(annot = trm_annot_default) ?(arg_typ : typ option) (t : trm) : trm =
   let typ = Option.or_ arg_typ t.typ in
-  trm_apps ~annot ?typ:(Option.map typ_ptr typ) (trm_unop (typ_or_auto typ) Unop_address) [t]
+  trm_apps ~annot ?typ:(Option.map typ_ptr typ) (trm_unop typ_auto Unop_address) [t]
 
 (** [trm_var_get ?typ x]: generates *x *)
 let trm_var_get ?(typ : typ option) (x : var) : trm =
