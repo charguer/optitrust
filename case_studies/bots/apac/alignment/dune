@@ -1,0 +1,4 @@
+(executable
+ (public_name bots_alignment)
+ (name alignment)
+ (libraries optitrust))

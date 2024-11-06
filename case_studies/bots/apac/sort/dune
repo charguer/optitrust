@@ -1,0 +1,4 @@
+(executable
+ (public_name bots_sort)
+ (name sort)
+ (libraries optitrust))

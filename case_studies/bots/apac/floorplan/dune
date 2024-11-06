@@ -1,0 +1,4 @@
+(executable
+ (public_name bots_floorplan)
+ (name floorplan)
+ (libraries optitrust))

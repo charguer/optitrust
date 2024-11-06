@@ -1,0 +1,4 @@
+(executable
+ (public_name bots_knapsack)
+ (name knapsack)
+ (libraries optitrust))
