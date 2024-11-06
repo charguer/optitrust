@@ -791,7 +791,7 @@ let taskify_on (p : path) (t : trm) : unit =
        let scope = var_map_of_var_hashtbl s in
        (* Launch dependency discovery in the initialization term as well as *)
        let (ins, inouts, ioattrs) = discover_dependencies s a init in
-       (* in the conditional statement representing the upper loop bound. *)
+       (* in the conditional statement. *)
        let (ins', inouts', ioattrs') = discover_dependencies s a cond in
        (* Add the [Condition] attribute to the input and input-output
           dependencies discovered in the condition term of the for-loop. *)
