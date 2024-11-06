@@ -7,10 +7,21 @@ open Ast
     of parameters the user can alter using command-line options or environment
     variables. *)
 
-(** {1 Generic parameters} *)
+(** {1 Miscellaneous and pre-sets} *)
 
 (** [cwd]: returns the path to the current working directory. *)
 let cwd () : string = Filename.dirname (!Apac_flags.input)
+
+(** [preset_bots]: sets up OptiTrust and APAC flags for the parallelization of
+    the Barcelona OpenMP Task Suite (= BOTS) case studies and returns the path
+    to the input sequential implementation of the [case] we want to consider and
+    the destination path for the output parallel implementation. *)
+let preset_bots (case : string) : string * string =
+  let root = cwd () ^ "/case_studies/bots/" in
+  Flags.c_parser_includes := [(root ^ "common")];
+  Apac_flags.constify := true;
+  (root ^ "serial/" ^ case ^ "/" ^ case ^ ".c",
+   root ^ "apac/" ^ case ^ "/" ^ case ^ ".c")
 
 (** {1 Pre-processing stage} *)
 
