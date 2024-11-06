@@ -48,6 +48,7 @@ tools/_last_view_result.sh
 
 # other ignored files
 .idea
+.emacs.d
 
 # swap and backup files
 *~
