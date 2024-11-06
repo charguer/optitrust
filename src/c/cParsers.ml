@@ -21,7 +21,7 @@ let get_c_includes (filename : string) : string =
 let clang_raw_parser (filename: string): trm =
   let command_line_include =
     List.map Clang.Command_line.include_directory
-      (Clang.default_include_directories ()) in
+      (Clang.default_include_directories () @ !Flags.c_parser_includes) in
   let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
   let command_line_args = command_line_warnings @ command_line_include in
   Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename)
