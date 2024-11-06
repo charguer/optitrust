@@ -1172,17 +1172,24 @@ let taskify_on (p : path) (t : trm) : unit =
           the current [delete] graph node. *)
        Task.create (-1) t tas scope Dep_set.empty inouts Dep_map.empty [[]]
     | Trm_goto target ->
-       (** If the target label of the 'goto' is not the [Apac_core.goto_label]
-           we use within the return statement replacement transformation
-           [Apac_basic.use_goto_for_return], fail. We do not allow for other
-           'goto' statements than [Apac_core.goto_label]. *)
+       (** If the target label of the [goto] jump is not
+           [!Apac_macros.goto_label] (see [!Apac_preprocessing.unify_returns]),
+           let us inform the user we do not really know what to do with it, but
+           accept the term in the task candidate graph with the [Singleton]
+           attribute. *)
        if target <> Apac_macros.goto_label then
-         fail t.loc "Apac_task_candidate_discovery.taskify_on.fill: illegal \
-                     'goto' statement."
+         begin
+           Printf.printf
+             "[WARNING] The input source code features a `goto' jump which may \
+              lead to uncorrect parallel source code on output. Consider \
+              rewriting your program without using `goto' jumps.";
+           let attrs = TaskAttr_set.singleton Singleton in
+           Task.create (-1) t attrs Var_map.empty
+             Dep_set.empty Dep_set.empty Dep_map.empty [[]]
+         end
        else
-         (** If [target] is [Apac_core.goto_label], we can transform it into a
-             task candidate carrying the [IsJump] attribute to indicate the
-             presence of the 'goto' statement. *)
+         (** If [target] is [Apac_macros.goto_label], we can transform it into a
+             task candidate carrying the [IsJump] attribute. *)
          let attrs = TaskAttr_set.singleton IsJump in
          Task.create (-1) t attrs Var_map.empty
            Dep_set.empty Dep_set.empty Dep_map.empty [[]]
