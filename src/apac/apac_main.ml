@@ -36,12 +36,13 @@ let compile () : unit =
       cOr [[cMark Apac_macros.candidate_mark];
            [cFunDefAndDecl !Apac_flags.main]]
     ];
-  !? "Extract function calls"
+  !? "Unfold function calls"
     Apac_preprocessing.unfold_function_calls [
       nbAny;
       cMark Apac_macros.candidate_body_mark;
       cFun "";
     ];
+  !? "Detach function calls"
     Apac_preprocessing.detach_function_calls [
       nbAny;
       cMark Apac_macros.candidate_body_mark;
