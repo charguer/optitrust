@@ -1,0 +1,16 @@
+apac/alignment/alignment.c
+apac/fft/fft.c
+apac/fib/fib.c
+apac/floorplan/floorplan.c
+apac/health/health.c
+apac/knapsack/knapsack.c
+apac/nqueens/nqueens.c
+apac/sort/sort.c
+apac/sparselu/sparselu.c
+apac/strassen/strassen.c
+apac/uts/uts.c
+*.o
+*.log
+bin/*
+config/make.config
+bots-*.tar.gz
