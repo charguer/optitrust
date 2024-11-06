@@ -1481,7 +1481,6 @@ let merge_on (p : path) (t : trm) : unit =
     single vertex [{v2}] as well as the vertices [{v3}] and [{v5}] into a single
     vertex [{v3}]. *)
 let merge (tg : target) : unit =
-  Nobrace.enter ();
   Target.iter (fun t p -> merge_on p (get_trm_at_path p t)) tg
 
 (** [detect_tasks_simple_on p t]: see [detect_tasks_simple_on]. *)
