@@ -23,11 +23,6 @@ let skip : Tools.String_set.t ref = ref Tools.String_set.empty
 (** [constify]: toggles constification of [input]. *)
 let constify : bool ref = ref false
 
-(** [main]: name of the function in the input source code we consider as the
-    taskification starting point, i.e. the one we put the initial task group in.
-    By default, it is the `main' function. *)
-let main : string ref = ref "main"
-
 (** {1 Task candidate discovery and optimization stage} *)
 
 (** [keep_graphs]: tells whether we should dump task candidate graphs to Dot and
@@ -67,6 +62,11 @@ let compile_with : (compiler * string) ref =
 let model_with : string ref = ref ""
 
 (** {1 Parallel code generation} *)
+
+(** [main]: name of the function in the input source code we consider as the
+    taskification starting point, i.e. the one we put the initial task group in.
+    By default, it is the `main' function. *)
+let main : string ref = ref "main"
 
 (** [cutoff_count_and_depth]: toggles task granularity control according to
     global task submission count and parallelism depth counters (see [ApacDepth]
