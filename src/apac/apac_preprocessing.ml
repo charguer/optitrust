@@ -117,69 +117,73 @@ let record_globals (tg : target) : unit =
     in [!Apac_records.functions] or one call to such a function and one loop or
     two loop nests. *)
 let select_candidates (tg : target) : unit =
-  (** Iterate over the target function definitions and mark each function
-      meeting the taskification candidate requirements with
+  (** Iterate over each target function definition term [t] and mark each
+      function meeting the taskification candidate requirements with
       [!Apac_macros.candidate_mark]. *)
   Target.apply_at_target_paths (fun t ->
       (** Deconstruct the definition term [t] of the function [f]. *)
       let error = "Apac_preprocessing.select_candidates: expected a target to \
                    a function definition!" in
       let (f, _, _, body) = trm_inv ~error trm_let_fun_inv t in
-      (** Count [calls] to functions having a record in
-          [!Apac_records.functions] and [loops] in the [body] of [f]. *)
-      let (calls, loops) =
-        trm_fold (fun (c, l) t ->
-            match t.desc with
-            (** [t] is a call to a function in [!Apac_records.functions]. *)
-            | Trm_apps ({ desc = Trm_var (_, f)}, _) when
-                   Var_Hashtbl.mem Apac_records.functions f -> (c + 1, l)
-            (** [t] is a loop. *)
-            | Trm_for _
-              | Trm_for_c _
-              | Trm_while _ 
-              | Trm_do_while _ -> (c, l + 1) 
-            (** Otherwise, there is nothing to count. *)
-            | _ -> (c, l)
-          ) (0, 0) body in
-      (** Check whether it contains at least two calls to function having a
-          record in [!Apac_records.functions] or one call to such a function and
-          at least one loop. *)
-      let candidate =
-        if (calls > 1) || (calls > 0 && loops > 0) then
-          (** If this condition verifies, we can consider [f] a taskification
-              candidate. *)
-          true
-        else if (loops > 1) then
-          (** If it is not the case, but if there are at least two loops in the
-              [body] of [f], check the latter for the presence of at least two
-              loop nests. If this condition verifies, we can consider [f] a
-              taskification candidate. *)
-          trm_fold (fun n t ->
+      (** If [t] is in the [!Apac_flags.skip] set, we must not consider it as a
+          taskification candidate even if it fulfills the conditions. *)
+      if not (Tools.String_set.mem f.name !Apac_flags.skip) then
+        (** Count [calls] to functions having a record in
+            [!Apac_records.functions] and [loops] in the [body] of [f]. *)
+        let (calls, loops) =
+          trm_fold (fun (c, l) t ->
               match t.desc with
-              (** [t] is a sequence of statements [s]. Check whether the latter
-                  features at least two loop nests. *)
-              | Trm_seq s ->
-                 let l = Mlist.fold_left (fun acc e ->
-                             match e.desc with
-                             | Trm_for _
-                               | Trm_for_c _
-                               | Trm_while _
-                               | Trm_do_while _ -> acc + 1
-                             | _ -> acc
-                           ) 0 s in
-                 if l > 1 then n || true else n
-              (** In any other case, there is nothing to check. *)
-              | _ -> n
-            ) false body
-        else
-          (** Otherwise, [f] does not meet the requirements of a taskification
-              candidate. *)
-          false
-      in
-      (** If [f] meets the requirements of a taskification candidate, mark its
-          definition term [t] with [!Apac_macros.candidate_mark]. Otherwise,
-          return [t] as-is. *)
-      if candidate then Mark.trm_add_mark Apac_macros.candidate_mark t
+              (** [t] is a call to a function in [!Apac_records.functions]. *)
+              | Trm_apps ({ desc = Trm_var (_, f)}, _) when
+                     Var_Hashtbl.mem Apac_records.functions f -> (c + 1, l)
+              (** [t] is a loop. *)
+              | Trm_for _
+                | Trm_for_c _
+                | Trm_while _ 
+                | Trm_do_while _ -> (c, l + 1) 
+              (** Otherwise, there is nothing to count. *)
+              | _ -> (c, l)
+            ) (0, 0) body in
+        (** Check whether it contains at least two calls to function having a
+            record in [!Apac_records.functions] or one call to such a function
+            and at least one loop. *)
+        let candidate =
+          if (calls > 1) || (calls > 0 && loops > 0) then
+            (** If this condition verifies, we can consider [f] a taskification
+                candidate. *)
+            true
+          else if (loops > 1) then
+            (** If it is not the case, but if there are at least two loops in
+                the [body] of [f], check the latter for the presence of at least
+                two loop nests. If this condition verifies, we can consider [f]
+                a taskification candidate. *)
+            trm_fold (fun n t ->
+                match t.desc with
+                (** [t] is a sequence of statements [s]. Check whether the
+                    latter features at least two loop nests. *)
+                | Trm_seq s ->
+                   let l = Mlist.fold_left (fun acc e ->
+                               match e.desc with
+                               | Trm_for _
+                                 | Trm_for_c _
+                                 | Trm_while _
+                                 | Trm_do_while _ -> acc + 1
+                               | _ -> acc
+                             ) 0 s in
+                   if l > 1 then n || true else n
+                (** In any other case, there is nothing to check. *)
+                | _ -> n
+              ) false body
+          else
+            (** Otherwise, [f] does not meet the requirements of a taskification
+                candidate. *)
+            false
+        in
+        (** If [f] meets the requirements of a taskification candidate, mark its
+            definition term [t] with [!Apac_macros.candidate_mark]. Otherwise,
+            return [t] as-is. *)
+        if candidate then Mark.trm_add_mark Apac_macros.candidate_mark t
+        else t
       else t
     ) tg
 
