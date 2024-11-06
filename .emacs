@@ -15,7 +15,8 @@
 
 ;; Indent with two spaces.
 (defun set-indent (n)
-  (setq indent-tabs-mode nil))
+  (setq indent-tabs-mode nil)
+  (setq sh-basic-offset n))
 (add-hook 'prog-mode-hook (lambda () (set-indent 2)))
 (add-hook 'text-mode-hook (lambda () (set-indent 2)))
 
