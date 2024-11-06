@@ -1194,30 +1194,30 @@ let taskify_on (p : path) (t : trm) : unit =
          Task.create (-1) t attrs Var_map.empty
            Dep_set.empty Dep_set.empty Dep_map.empty [[]]
     | Trm_val v ->
-       (** Retrieve the first label attribute of the current term, if any. *)
+       (** Get the first label [l] of [t], if any. *)
        let l = trm_get_labels t in
        let l = if (List.length l) > 0 then List.nth l 0 else "" in
-       (** Check whether the label is [Apac_core.goto_label] we use within the
-           return statement replacement transformation
-           [Apac_basic.use_goto_for_return]. *)
-       begin match v with
-       (** If so, we can transform it into a task candidate carrying the
-           [Singleton] and the [ExitPoint] attributes. See [TaskAttr.t] for more
-           details on the meaning of task candidate attributes. *)
-       | Val_lit (Lit_unit) when l = Apac_macros.goto_label ->
-          let attrs = TaskAttr_set.singleton Singleton in
-          let attrs = TaskAttr_set.add ExitPoint attrs in
-          Task.create (-1) t attrs Var_map.empty
-            Dep_set.empty Dep_set.empty Dep_map.empty [[]]
-       (** Otherwise, fail. We do not allow for other types of values in
-           first-level instructions. *)
-       | _ ->
-          let it = AstC_to_c.ast_to_string t in
-          let error =
-            Printf.sprintf
-              "Apac_task_candidate_discovery.taskify_on.fill: illegal value \
-               term '%s'." it in
-          fail t.loc error
+       (** Start preparing the list of attributes of the resulting task
+           candidate (see below). *)
+       let attrs = TaskAttr_set.singleton Singleton in
+       begin
+         match v with
+         (** If [v] is an empty value statement where [l] is the
+             [!Apac_macros.goto_label], i.e. [__apac_exit:;] (see
+             [!Apac_preprocessing.unify_returns]), we transform the term [t]
+             into a task candidate carrying the [Singleton] and the [ExitPoint]
+             attributes (see [!type:Apac_tasks.TaskAttr.t]). *)
+         | Val_lit (Lit_unit) when l = Apac_macros.goto_label ->
+            let attrs = TaskAttr_set.add ExitPoint attrs in
+            Task.create (-1) t attrs Var_map.empty
+              Dep_set.empty Dep_set.empty Dep_map.empty [[]]
+         (** For now, we do not really know what to do with other kinds of value
+             statements. We suppose they don't generate any data dependencies
+             and accept them in the task candidate graph with the [Singleton]
+             attribute. *)
+         | _ ->
+            Task.create (-1) t attrs Var_map.empty
+              Dep_set.empty Dep_set.empty Dep_map.empty [[]]
        end
     | Trm_omp_routine r ->
        (* Convert the local scope to a set. *)
