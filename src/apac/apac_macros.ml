@@ -12,6 +12,13 @@ open Ast
 (** [cwd]: returns the path to the current working directory. *)
 let cwd () : string = Filename.dirname (!Apac_flags.input)
 
+(** [skip fs]: adds the function names from the list [fs] into the set
+    [!Apac_flags.skip]. *)
+let skip (fs : string list) : unit =
+  List.iter (fun f ->
+      Apac_flags.skip := Tools.String_set.add f !Apac_flags.skip
+    ) fs
+
 (** [preset_bots]: sets up OptiTrust and APAC flags for the parallelization of
     the Barcelona OpenMP Task Suite (= BOTS) case studies and returns the path
     to the input sequential implementation of the [case] we want to consider and
