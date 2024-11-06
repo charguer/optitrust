@@ -7,7 +7,9 @@ let _ = Flags.report_exectime := true
 
 let _ = Run.script_cpp (fun () ->
 
-  !! (); (** Typedef_basic.insert "T" (Typedef_alias typ_int) [tBefore; cFunDef "mm"]; *)
+  !! (for i = 0 to 1000 do
+     Typedef_basic.insert ("T" ^ string_of_int i) (Typedef_alias typ_int) [tBefore; cFunDef "mm1024"];
+  done)
 
 )
 
