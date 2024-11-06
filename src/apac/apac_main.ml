@@ -48,6 +48,12 @@ let compile () : unit =
       cMark Apac_macros.candidate_body_mark;
       cVarDef ""
     ];
+  !? "Normalize statement bodies"
+    Apac_preprocessing.normalize_statement_bodies [
+      nbAny;
+      cMark Apac_macros.candidate_body_mark;
+      cOr [[cFor ""]; [cFor_c ""]; [cWhile ()]; [cDoWhile ()]; [cIf ()]]
+    ];
   bigstep "Task candidate discovery";
   !? "Translate into task candidate representation"
     Apac_task_candidate_discovery.taskify [

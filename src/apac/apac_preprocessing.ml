@@ -298,6 +298,73 @@ let detach_function_calls (tg : target) : unit =
         end
     ) tg
 
+(** {1:statement_body_normalization Statement body normalization}
+
+    Iteration and if-statements involve substatements, i.e. a loop body as well
+    as a then and optionally an else branch, respectively. For the sake of
+    consistency, when building a task candidate graph, we expect such a
+    substatement to be a compund statement. However, in the input source code,
+    it is not always the case. Therefore, we rely on the
+    [!normalize_statement_bodies] transformation pass to ensure that all the
+    loop bodies and if-conditional branches consist of compound statements. At
+    the end of the compilation process, we restore the original form of the
+    target statements before producing the output source code. *)
+
+(** [normalize_statement_bodies tg]: expects target [tg] to point at an
+    iteration statement or an if-conditional. If the body, or the branches, of
+    the latter do not consist of a compound statement, the transformation places
+    the body of the iteration statement or the branches of the if-conditional
+    into no-brace compound statements, i.e. compound statements existing only in
+    the abstract syntax tree and invisible in the output source code.
+
+    For example
+
+    {[
+    for (int jj = kk + 1; jj < bots_arg_size; jj++)
+      if (BENCH[kk * bots_arg_size + jj] != NULL)
+      {
+        fwd(BENCH[kk*bots_arg_size+kk], BENCH[kk*bots_arg_size+jj]);
+      }
+    ]}
+    
+    becomes the equivalent of
+
+    {[
+    for (int jj = kk + 1; jj < bots_arg_size; jj++) {
+      if (BENCH[kk * bots_arg_size + jj] != NULL)
+      {
+        fwd(BENCH[kk*bots_arg_size+kk], BENCH[kk*bots_arg_size+jj]);
+      }
+    }
+    ]}
+
+    in the abstract syntax tree, but appears in its original form in the output
+    source code. *)
+let normalize_statement_bodies (tg : target) : unit =
+  Target.apply_at_target_paths (fun t ->
+      match t.desc with
+      | Trm_for (range, body, _) when not (is_trm_seq body) ->
+         trm_for ~annot:t.annot range (Syntax.trm_seq_no_brace [body])
+      | Trm_for_c (init, cond, inc, body, _) when not (is_trm_seq body) ->
+         trm_for_c
+           ~annot:t.annot init cond inc (Syntax.trm_seq_no_brace [body])
+      | Trm_while (cond, body) when not (is_trm_seq body) ->
+         trm_while ~annot:t.annot cond (Syntax.trm_seq_no_brace [body])
+      | Trm_do_while (body, cond) when not (is_trm_seq body) ->
+         trm_do_while ~annot:t.annot (Syntax.trm_seq_no_brace [body]) cond
+      | Trm_if (cond, yes, no) when
+             not (is_trm_seq yes) &&
+               not (is_trm_unit no) && not (is_trm_seq no) ->
+         trm_if
+           ~annot:t.annot cond
+           (Syntax.trm_seq_no_brace [yes]) (Syntax.trm_seq_no_brace [no])
+      | Trm_if (cond, yes, no) when
+             not (is_trm_seq yes) &&
+               ((is_trm_unit no) || (is_trm_seq no)) ->
+         trm_if ~annot:t.annot cond (Syntax.trm_seq_no_brace [yes]) no
+      | _ -> t
+    ) tg
+
 (** {1:constification Constification}
 
     The presence of the [const] qualifier in a function prototype helps us to
