@@ -1182,7 +1182,7 @@ let taskify_on (p : path) (t : trm) : unit =
            Printf.printf
              "[WARNING] The input source code features a `goto' jump which may \
               lead to uncorrect parallel source code on output. Consider \
-              rewriting your program without using `goto' jumps.";
+              rewriting your program without using `goto' jumps.\n";
            let attrs = TaskAttr_set.singleton Singleton in
            Task.create (-1) t attrs Var_map.empty
              Dep_set.empty Dep_set.empty Dep_map.empty [[]]
