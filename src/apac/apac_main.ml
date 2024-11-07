@@ -5,7 +5,6 @@ open Trm
 (** [compile]: applies the compilation chain of the Automatic PArallelizer for C
     on the current abstract syntax tree. *)
 let compile () : unit =
-  Nobrace.enter ();
   bigstep "Pre-processing";
   !? "Build global variable records"
     Apac_preprocessing.record_globals [
