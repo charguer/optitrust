@@ -589,7 +589,12 @@ let discover_dependencies
             (** [v] can become an alias only if it is a pointer, i.e. its number
                 of levels of indirection [nli] is greater than zero, and if it
                 was not [d]ereferenced. *)
-            let nli = Var_Hashtbl.find scope v in
+            let nli, e = Var_Hashtbl.find_or_default scope v 0 in
+            let nli =
+              if (not e) && (Var_map.mem v !Apac_records.globals) then
+                let ty, _ = Var_map.find v !Apac_records.globals in
+                typ_get_nli ty
+              else nli in
             may_update_aliases (not d && nli > 0) v (Typ.typ_unit ()) rval;
             let ins, inouts, dam =
               main ins inouts dam 0 false `InOut false lval in
