@@ -192,7 +192,7 @@ static void write_outputs() {
     for (i = 0; i < MIN_FOOTPRINT[0]; i++) {
       for (j = 0; j < MIN_FOOTPRINT[1]; j++) {
           if (BEST_BOARD[i][j] == 0) {bots_message(" ");}
-          else                       bots_message("%c", 'A' + BEST_BOARD[i][j] - 1);
+          else                       bots_message("%c", 65 + BEST_BOARD[i][j] - 1);
       } 
       bots_message("\n");
     }  

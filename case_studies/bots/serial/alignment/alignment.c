@@ -441,13 +441,13 @@ int pairalign()
 
       for (si = 0; si < nseqs; si++) {
          n = seqlen_array[si+1];
-         for (i = 1, len1 = 0; i <= n; i++) {
+         len1 = 0;
+         for (i = 1; i <= n; i++) {
             char c = seq_array[si+1][i];
             if ((c != gap_pos1) && (c != gap_pos2)) len1++;
          }
 
          for (sj = si + 1; sj < nseqs; sj++) {
-            {
                m = seqlen_array[sj+1];
                if ( n == 0 || m == 0 ) {
                   bench_output[si*nseqs+sj] = (int) 1.0;
@@ -455,8 +455,9 @@ int pairalign()
                   int se1, se2, sb1, sb2, maxscore, seq1, seq2, g, gh;
                   int displ[2*MAX_ALN_LENGTH+1];
                   int print_ptr, last_print;
-
-                  for (i = 1, len2 = 0; i <= m; i++) {
+                  
+                  len2 = 0;
+                  for (i = 1; i <= m; i++) {
                      char c = seq_array[sj+1][i];
                      if ((c != gap_pos1) && (c != gap_pos2)) len2++;
                   }
@@ -487,7 +488,6 @@ int pairalign()
 
                   bench_output[si*nseqs+sj] = (int) mm_score;
                }
-            }
          }
       }
    bots_message(" completed!\n");
