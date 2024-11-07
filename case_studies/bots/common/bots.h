@@ -65,6 +65,8 @@ extern int bots_arg_size_2;
 /* function could be used in app. code but are implemented in bots_common.c */
 long bots_usecs();
 void bots_message(char *message, ...);
+void bots_debug(char *message, ...);
+void bots_debug_with_location_info(char *message, ...);
 void bots_error(int error, char *message);
 void bots_warning(int warning, char *message);
 
@@ -79,24 +81,6 @@ typedef enum { BOTS_VERBOSE_NONE=0,
                BOTS_VERBOSE_DEBUG } bots_verbose_mode_t;
 
 extern bots_verbose_mode_t bots_verbose_mode;
-
-#ifdef BOTS_DEBUG
-#define bots_debug(msg, ...) \
-   {\
-      if ( bots_verbose_mode >= BOTS_VERBOSE_DEBUG ) {\
-       fprintf(stdout, msg , ##__VA_ARGS__);\
-      }\
-   }
-#define bots_debug_with_location_info(msg, ...) \
-   {\
-      if ( bots_verbose_mode >= BOTS_VERBOSE_DEBUG ) {\
-       fprintf(stdout, "%s:%d:%s:" msg ,__FILE__, __LINE__,__func__,##__VA_ARGS__);\
-      }\
-   }
-#else
-#define bots_debug(msg, ...)
-#define bots_debug_with_location_info(msg, ...)
-#endif
 
 #define FALSE 0
 #define TRUE 1
