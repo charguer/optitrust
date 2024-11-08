@@ -186,7 +186,7 @@ let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = no_mark) (tg : t
     [allow_identity]: if true it stops the transformation from failing when it finds nodes that can't be transformed.*)
 let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : target) : unit =
   let tg = if indepth
-    then [nbMulti] @ tg @ [cWrite ~rhs:[cPrimPredFun is_infix_prim_fun] ()] else tg in
+    then [nbMulti] @ tg @ [cWrite ~rhs:[cPrimPredCall is_infix_prim_fun] ()] else tg in
   Function_basic.use_infix_ops_at ~allow_identity tg
 
 

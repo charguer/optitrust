@@ -61,7 +61,7 @@ let%transfo simplify ?(indepth : bool = false) (tg : target) : unit =
 
 (* alias cPrimArith *)
 let constr =
-  cPrimPredFun is_prim_arith
+  cPrimPredCall is_prim_arith
 
 (** [clear_nosimpl tg]: clears all the marks on all the instructions that where
     skipped by the simplifier *)

@@ -781,34 +781,34 @@ let cPrimPred (f_pred : prim -> bool) : constr =
 let cPrim (p : prim) : constr =
   cPrimPred (fun p2 -> p2 = p)
 
-(** [cPrimPredFun ~args ~args_pred  prim_pred]: matches only primitive function calls that satisfy the predicate [prim_pred]
+(** [cPrimPredCall ~args ~args_pred  prim_pred]: matches only primitive function calls that satisfy the predicate [prim_pred]
     and the other constraints in [args] or [args_pred]
     [args] - match based on the arguments
     [args_pred] - match based on a predicate on arguments
     [prim_pred] - match based on a primitive predicate. *)
-let cPrimPredFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (prim_pred:prim -> bool) : constr =
+let cPrimPredCall ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (prim_pred:prim -> bool) : constr =
    cCall ~fun_:[cPrimPred prim_pred] ~args ~args_pred ~accept_encoded:true ""
 
-(** [cPrimFun ~args ~args_pred p]: matches only primitive function calls with primitive [p]
+(** [cPrimCall ~args ~args_pred p]: matches only primitive function calls with primitive [p]
     [args] - match based on the arguments
     [args_pred] - match based on a predicated over arguments
     [p] - match based on the primitive [p]. *)
-let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
-   cPrimPredFun ~args ~args_pred (fun p2 -> p2 = p)
+let cPrimCall ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
+   cPrimPredCall ~args ~args_pred (fun p2 -> p2 = p)
 
-(** [cPrimFunArith ~args ~args_pred ()]: matches primitive arithmetic operations
+(** [cPrimCallArith ~args ~args_pred ()]: matches primitive arithmetic operations
      [args] - match based on the arguments
      [args_pred] - match based on a predicate on the arguments. *)
-let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
-  cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
+let cPrimCallArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
+  cPrimPredCall ~args ~args_pred (fun p2 -> (is_arith_fun p2))
 
 let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : constr =
-  cPrimFun ~args:[lhs; rhs] (Prim_binop op)
+  cPrimCall ~args:[lhs; rhs] (Prim_binop op)
 
 (** [let cPrimRef ~arg ()]: matches "ref" primitive operation
     [arg] - match based on the arguments of the "ref" primitive. *)
 let cPrimRef ?(arg : target = []) () : constr =
-  cPrimPredFun ~args:[arg] (function Prim_ref -> true | _ -> false)
+  cPrimCall ~args:[arg] Prim_ref
 
 (** [dVarInit] alias to dVarBody. *)
 let dVarInit : constr =
@@ -827,7 +827,7 @@ let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "")
   ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
   let lhs_typed = with_type ~typ ~typ_pred lhs in
   let rhs_typed = with_type ~typ ~typ_pred rhs in
-  cPrimPredFun ~args:[lhs_typed; rhs_typed] (fun p ->
+  cPrimPredCall ~args:[lhs_typed; rhs_typed] (fun p ->
      match p with
     | Prim_binop Binop_set
     | Prim_compound_assign_op _ -> true
@@ -837,7 +837,7 @@ let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "")
 (** [cRead ~addr ()]: matches a get operation
     [addr] - match based on the read argument. *)
 let cRead ?(addr : target = [cTrue]) () : constr =
-  cPrimFun ~args:[addr] (Prim_unop Unop_get)
+  cPrimCall ~args:[addr] (Prim_unop Unop_get)
 
 (** [cReadOrWrite ~addr ()]: matches a read or a write operation
      [addr] - match based on the read argument. *)
@@ -1101,7 +1101,7 @@ let cArrayRead ?(index = []) (x : string) : constr =
     [[cArrayWriteAccess x]]] ()
 
 let cPlusEq ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
-  cPrimFun ~args:[lhs; rhs] (Prim_compound_assign_op Binop_add)
+  cPrimCall ~args:[lhs; rhs] (Prim_compound_assign_op Binop_add)
 
 let cDiv ?(lhs : target = [cTrue]) ?(rhs : target = [cTrue]) () : constr =
   cOr [[cBinop ~lhs ~rhs Binop_trunc_div]; [cBinop ~lhs ~rhs Binop_exact_div]]

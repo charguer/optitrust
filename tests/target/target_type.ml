@@ -38,8 +38,8 @@ let _ = Run.script_cpp (fun () ->
   !! show [ nbExact 1; cWrite ~typ:"double" () ];
   !! show [ nbExact 0; cWrite ~typ:"bool" () ];
 
-  !! show [ nbExact 1; cPrimFun ~args:[[cHasType "int"]; []] (Prim_binop Binop_set) ];
-  !! show [ nbExact 2; cPrimFun ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
+  !! show [ nbExact 1; cPrimCall ~args:[[cHasType "int"]; []] (Prim_binop Binop_set) ];
+  !! show [ nbExact 2; cPrimCall ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
 
   !! show [ nbExact 1; cFunDef ~args:[ [cArg ~typ:"int" ""]; [cArg ""] ] "" ];
   !! show [ nbExact 2; cFunDef ~args_pred:(target_list_one_st [ cArg ~typ:"double" "" ]) "" ];
