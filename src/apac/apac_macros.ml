@@ -19,17 +19,6 @@ let skip (fs : string list) : unit =
       Apac_flags.skip := Tools.String_set.add f !Apac_flags.skip
     ) fs
 
-(** [preset_bots]: sets up OptiTrust and APAC flags for the parallelization of
-    the Barcelona OpenMP Task Suite (= BOTS) case studies and returns the path
-    to the input sequential implementation of the [case] we want to consider and
-    the destination path for the output parallel implementation. *)
-let preset_bots (case : string) : string * string =
-  let root = cwd () ^ "/case_studies/bots/" in
-  Flags.c_parser_includes := [(root ^ "common")];
-  Apac_flags.constify := true;
-  (root ^ "serial/" ^ case ^ "/" ^ case ^ ".c",
-   root ^ "apac/" ^ case ^ "/" ^ case ^ ".c")
-
 (** {1 Pre-processing stage} *)
 
 (** [intermediate_variable]: prefix for the names of the intermediate variables

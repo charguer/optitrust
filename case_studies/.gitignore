@@ -1,11 +1,3 @@
 # should these ignores be in tests/ as well?
 *_trace.*
 tmp_*
-*.csv
-*.profile
-*.model
-*.exe
-*_parallel.c*
-*_profiling.c*
-*.o
-apac_*.hpp

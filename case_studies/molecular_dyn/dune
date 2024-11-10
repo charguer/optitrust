@@ -1,8 +1,0 @@
-(executables
- (public_names
-   molecular_dyn_none molecular_dyn_counters molecular_dyn_model
-   molecular_dyn_both)
- (names
-   molecular_dyn_none molecular_dyn_counters molecular_dyn_model
-   molecular_dyn_both)
- (libraries optitrust))

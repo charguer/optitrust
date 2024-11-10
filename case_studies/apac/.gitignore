@@ -1,0 +1,10 @@
+*.csv
+*.profile
+*.model
+*.exe
+*.o
+*_none.c*
+*_counters.c*
+*_model.c*
+*_both.c*
+apac_*.hpp
