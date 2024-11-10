@@ -1,0 +1,3 @@
+[submodule "bots"]
+	path = case_studies/apac/bots
+	url = https://github.com/felsocim/bots
