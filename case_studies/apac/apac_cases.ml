@@ -91,6 +91,8 @@ let setup (case : string) (cutoff : string) : string * string =
   in
   Apac_flags.constify := true;
   Flags.c_parser_includes := includes;
+  if _bots then
+    Apac_flags.omit := ".*_seq$";
   Apac_macros.skip skip;
   Apac_flags.main := main;
   let path, ext =
