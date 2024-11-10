@@ -16,6 +16,10 @@ let verbose : bool ref = ref false
 
 (** {1 Pre-processing stage} *)
 
+(** [omit]: a pattern of names of functions to omit entirely during the
+    compilation process. *)
+let omit : string ref = ref ""
+
 (** [skip]: a set of names of functions to exclude from the selection of
     taskification candidates (see [!Apac_preprocessing.select_candidates]). *)
 let skip : Tools.String_set.t ref = ref Tools.String_set.empty

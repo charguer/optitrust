@@ -12,22 +12,30 @@ let compile () : unit =
       cStrict;
       cVarDef ""
     ];
+  let selector : constr =
+    if !Apac_flags.omit <> "" then
+      cDiff
+        [[cFunDefAndDecl ""]]
+        [[cFunDefAndDecl ~regexp:true !Apac_flags.omit]]
+    else
+      cFunDefAndDecl ""
+  in
   !? "Build function records"
     Apac_preprocessing.record_functions [
       nbAny;
-      cFunDefAndDecl ""
+      selector
     ];
   if !Apac_flags.constify then
     !? "Constify"
       (Apac_preprocessing.Constification.constify
       ~frs:(Some Apac_records.functions)) [
         nbAny;
-        cFunDefAndDecl ""
+        selector
       ];
   !? "Select taskification targets"
     Apac_preprocessing.select_candidates [
       nbAny;
-      cFunDefAndDecl ""
+      selector
     ];
   !? "Unify returns"
     Apac_preprocessing.unify_returns [
