@@ -356,6 +356,10 @@ let normalize_statement_bodies (tg : target) : unit =
              not (is_trm_seq yes) &&
                ((is_trm_unit no) || (is_trm_seq no)) ->
          trm_if ~annot:t.annot cond (trm_seq (Mlist.of_list [yes])) no
+      | Trm_if (cond, yes, no) when
+             (is_trm_seq yes) &&
+               not (is_trm_unit no) && not (is_trm_seq no) ->
+         trm_if ~annot:t.annot cond yes (trm_seq (Mlist.of_list [no]))
       | _ -> t
     ) tg
 
