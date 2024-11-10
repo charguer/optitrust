@@ -41,7 +41,7 @@ let setup (case : string) (cutoff : string) : string * string =
         [bots ^ "common"],
         "knapsack_main_par",
         true)
-    | "molcular_dyn" ->
+    | "molecular_dyn" ->
        ([], [], "main", false)
     | "nqueens" ->
        (["verify_queens"], [bots ^ "common"], "find_queens", true)
@@ -72,7 +72,7 @@ let setup (case : string) (cutoff : string) : string * string =
     | "none" ->
        Apac_flags.profile := false;
        Apac_flags.cutoff_count_and_depth := false;
-       cutoff
+       ""
     | "counters" ->
        Apac_flags.profile := false;
        Apac_flags.cutoff_count_and_depth := true;
@@ -99,7 +99,8 @@ let setup (case : string) (cutoff : string) : string * string =
     if _bots then (bots ^ "omp-apac/" ^ case ^ "/", ".c")
     else (apac ^ case ^ "/", ".cpp")
   in
-  (path ^ case ^ ext, path ^ case ^ "_" ^ cutoff ^ ext)
+  let cutoff = if cutoff <> "" then ("-" ^ cutoff) else "" in
+  (path ^ case ^ ".in" ^ ext, path ^ case ^ cutoff ^ ext)
 
 let () =
   let argc = Array.length Sys.argv in
