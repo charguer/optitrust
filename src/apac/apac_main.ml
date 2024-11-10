@@ -142,4 +142,3 @@ let compile () : unit =
       Apac_parallelization.cutoff_execution_time ();
   !? "Output parallel source code"
     Apac_parallelization.clear_marks ()
-
