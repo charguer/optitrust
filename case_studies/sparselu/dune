@@ -1,4 +1,0 @@
-(executables
- (public_names sparselu_none sparselu_counters sparselu_model sparselu_both)
- (names sparselu_none sparselu_counters sparselu_model sparselu_both)
- (libraries optitrust))

@@ -1,4 +1,0 @@
-(executables
- (public_names fibonacci_none fibonacci_counters fibonacci_model fibonacci_both)
- (names fibonacci_none fibonacci_counters fibonacci_model fibonacci_both)
- (libraries optitrust))
