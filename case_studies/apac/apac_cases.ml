@@ -31,8 +31,8 @@ let setup (case : string) (cutoff : string) : string * string =
         "fib0",
         true)
     | "floorplan" ->
-       (["read_inputs"; "write_outputs"; "floorplan_init"; "floorplan_end";
-         "floorplan_verify"],
+       (["read_integer"; "read_inputs"; "write_outputs"; "floorplan_init";
+         "floorplan_end"; "floorplan_verify"],
         [bots ^ "common"],
         "compute_floorplan",
         true)
