@@ -1,4 +1,0 @@
-(executable
- (public_name bots_uts)
- (name uts)
- (libraries optitrust))

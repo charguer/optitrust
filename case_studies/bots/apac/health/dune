@@ -1,4 +1,0 @@
-(executable
- (public_name bots_health)
- (name health)
- (libraries optitrust))
