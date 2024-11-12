@@ -53,12 +53,12 @@ let profile_with : string ref = ref ""
 
 (** [compiler]: enumeration of C/C++ compilers we can choose from to build the
     profiling executable. *)
-type compiler = Gnu | Clang
+type compiler = Gnu | Clang | Custom
 
 (** [compile_with]: the compiler and the compilation options we use to build the
     profiling executable. *)
 let compile_with : (compiler * string) ref =
-  ref (Gnu, "-Wall -Wno-unused-label")
+  ref (Clang, "-Wall -Wno-unused-label")
 
 (** {2 Modeling} *)
 

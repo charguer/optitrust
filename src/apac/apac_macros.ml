@@ -221,10 +221,14 @@ public:
     the compiler and the compilation options in [!Apac_flags.compile_with]. *)
 let compile_cmdline (c : string) (o : string) : string =
   let cc, options = !Apac_flags.compile_with in
-  let options = if options = "" then "" else " " ^ options in
   match cc with
-  | Gnu -> "g++ -o " ^ o ^ " " ^ c ^ " " ^ options
-  | Clang -> "clang++ -o " ^ o ^ " " ^ c ^ " " ^ options
+  | Gnu ->
+     let options = if options = "" then "" else " " ^ options in
+     "g++ -o " ^ o ^ " " ^ c ^ " " ^ options
+  | Clang ->
+     let options = if options = "" then "" else " " ^ options in
+     "clang++ -o " ^ o ^ " " ^ c ^ " " ^ options
+  | Custom -> options
 
 (** [profile_cmdline p]: returns the command line for running the executable
     with profiling instructions [p] while considering additional paramaters in
