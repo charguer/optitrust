@@ -27,6 +27,10 @@ let skip : Tools.String_set.t ref = ref Tools.String_set.empty
 (** [constify]: toggles constification of [input]. *)
 let constify : bool ref = ref false
 
+(** [constify_quietly]: toggles the application of the constification results on
+    the [input] source code. *)
+let constify_quietly : bool ref = ref false
+
 (** {1 Task candidate discovery and optimization stage} *)
 
 (** [keep_graphs]: tells whether we should dump task candidate graphs to Dot and

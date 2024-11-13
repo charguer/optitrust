@@ -28,7 +28,8 @@ let compile () : unit =
   if !Apac_flags.constify then
     !? "Constify"
       (Apac_preprocessing.Constification.constify
-      ~frs:(Some Apac_records.functions)) [
+         ~frs:(Some Apac_records.functions)
+         ~trans:(not !Apac_flags.constify_quietly)) [
         nbAny;
         selector
       ];
