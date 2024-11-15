@@ -55,6 +55,10 @@ let profile : bool ref = ref false
 (** [profile_with]: arguments to pass to the profiling executable. *)
 let profile_with : string ref = ref ""
 
+(** [profile_with_custom]: custom command line for running the profiling
+    executable. *)
+let profile_with_custom : string ref = ref ""
+
 (** [compiler]: enumeration of C/C++ compilers we can choose from to build the
     profiling executable. *)
 type compiler = Gnu | Clang | Custom

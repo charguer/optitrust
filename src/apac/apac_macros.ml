@@ -234,9 +234,13 @@ let compile_cmdline (c : string) (o : string) : string =
     with profiling instructions [p] while considering additional paramaters in
     [!Apac_flags.profile_with], if any. *)
 let profile_cmdline (p : string) : string =
-  let args = if !Apac_flags.profile_with = "" then ""
-             else " " ^ !Apac_flags.profile_with in
-  p ^ args
+  if !Apac_flags.profile_with_custom <> "" then
+    !Apac_flags.profile_with_custom
+  else
+    let args =
+      if !Apac_flags.profile_with = "" then ""
+      else " " ^ !Apac_flags.profile_with in
+    p ^ args
 
 (** {2:modeling Modeling} *)
 
