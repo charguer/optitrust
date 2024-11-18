@@ -1,8 +1,0 @@
-tests/loop/swap/loop_swap.ml
-tests/loop/reorder_at/loop_reorder_at.ml
-tests/loop/moveout/loop_moveout.ml
-tests/loop/fusion_targets/loop_fusion_targets.ml
-tests/accesses/shift/accesses_shift_doc.ml
-tests/accesses/shift/accesses_shift.ml
-tests/accesses/scale/accesses_scale_doc.ml
-tests/accesses/scale/accesses_scale.ml

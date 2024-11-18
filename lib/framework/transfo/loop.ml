@@ -293,16 +293,6 @@ let%transfo hoist_decl_loop_list
       hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
     )) tg
 
-(* private *)
-let find_surrounding_instr (p : path) (t : trm) : path =
-  let rec aux p =
-    let p_t = Path.resolve_path p t in
-    (* TODO: use resolve_path_and_ctx instead of is_statement *)
-    if trm_is_statement p_t then p else aux (Path.parent p)
-  in
-  assert (not (trm_is_statement (Path.resolve_path p t)));
-  aux p
-
 (** [hoist_expr_loop_list]: this transformation hoists an expression outside of multiple loops
    using a combination of [Variable.bind] to create a variable and [hoist_decl_loop_list] to hoist the variable declaration. *)
 let%transfo hoist_expr_loop_list (name : string)
@@ -310,7 +300,8 @@ let%transfo hoist_expr_loop_list (name : string)
                          (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Target.iter (fun p ->
-    let instr_path = find_surrounding_instr p (Trace.ast ()) in
+    assert (not (trm_is_statement (Path.resolve_path p (Trace.ast ()))));
+    let instr_path = Path.find_surrounding_instr p (Trace.ast ()) in
     Variable.bind name (target_of_path p);
     hoist_decl_loop_list loops (target_of_path instr_path);
   ) tg
@@ -381,19 +372,72 @@ let%transfo hoist_expr (name : string)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
 
+(* <internal> *)
+let%transfo simpl_scoped_ghosts (ghosts_before : trm list) (ghosts_after : trm list) (p_span : path) : unit =
+  Trace.justif_always_correct ();
+  let (p_seq, span) = Path.extract_last_dir_span p_span in
+  Target.apply_at_path (fun t_span ->
+    update_span_helper span t_span (fun instrs ->
+      [TrmList ghosts_before; TrmMlist instrs; TrmList ghosts_after]
+    )
+  ) p_seq
+
+(* performs arithmetic simplifications on a loop,
+   avoiding to compute resources between sub-steps,
+   then compute them at the end, potentially adding ghosts to deal with the arithmetic rewrites.
+
+   #equiv-rewrite: fixes a similar problem as the code in Variable_basic.subst . *)
+let%transfo simpl_scoped ~(simpl : unit -> unit) (tg : target) : unit =
+  if !Flags.check_validity then Target.iter (fun p ->
+  Trace.without_resource_computation_between_steps (fun () ->
+    let error = "expected for loop" in
+    let t = Target.get_trm_at_exn (target_of_path p) in
+    let (range, _, contract) = trm_inv ~error trm_for_inv t in
+    simpl ();
+    let new_t = Target.get_trm_at_exn (target_of_path p) in
+    let (new_range, _, new_contract) = trm_inv ~error trm_for_inv new_t in
+
+    let resource_item_rewrite_group acc range new_range r1 r2 =
+      let open Resource_formula in
+      let r1 = formula_group_range range r1 in
+      let r2 = formula_group_range new_range r2 in
+      (* if r1 == r2 then () else begin *)
+      acc := (Arith.ghost_arith_rewrite r1 r2) :: !acc;
+      (* end *)
+    in
+    let resource_item_list_rewrite_group acc range new_range rs1 rs2 =
+      List.iter2 (fun (_, r1) (_, r2) ->
+        resource_item_rewrite_group acc range new_range r1 r2
+      ) rs1 rs2;
+    in
+    let resource_set_rewrite_group acc range new_range r1 r2 =
+      (* TODO: fun_specs, aliases? *)
+      resource_item_list_rewrite_group acc range new_range r1.pure r2.pure;
+      resource_item_list_rewrite_group acc range new_range r1.linear r2.linear;
+    in
+    let rewrites_before = ref [] in
+    (* resource_set_rewrite rewrites_before contract.invariant new_contract.invariant; *)
+    resource_set_rewrite_group rewrites_before range new_range contract.iter_contract.pre new_contract.iter_contract.pre;
+    let rewrites_after = ref [] in
+    (* resource_set_rewrite rewrites_after new_contract.invariant contract.invariant; *)
+    resource_set_rewrite_group rewrites_after new_range range new_contract.iter_contract.post contract.iter_contract.post;
+    simpl_scoped_ghosts !rewrites_before !rewrites_after p
+  )) tg
+  else simpl ()
+
 let%transfo simpl_range ~(simpl : target -> unit) (tg : target) : unit =
   Trace.tag_simpl_arith ();
   Target.iter (fun p ->
-    simpl (target_of_path (p @ [Dir_for_start]));
-    simpl (target_of_path (p @ [Dir_for_stop]));
-    simpl (nbAny :: (target_of_path (p @ [Dir_for_step])));
+    simpl (target_of_path (p @ [Dir.Dir_for_start]));
+    simpl (target_of_path (p @ [Dir.Dir_for_stop]));
+    simpl (nbAny :: (target_of_path (p @ [Dir.Dir_for_step])))
   ) tg
 
 (** helper function to transform a range using a transformation that creates
     a new index variable. this helper allows not specifying the variable name,
     inlining the variable, and simplifying arithmetic expression. *)
 let transform_range
-  (tr : string -> ?mark_let : mark -> ?mark_for : mark -> target -> unit)
+  (tr : string -> ?mark_let : mark -> ?mark_for : mark -> ?mark_contract_occs : mark -> target -> unit)
   (index : string) ~(inline : bool)
   ~(simpl : target -> unit)
   (tg : target) : unit =
@@ -413,30 +457,35 @@ let transform_range
     let ({ index = prev_index }, _, _) = trm_inv ~error trm_for_inv tg_trm in
     let mark_let = if inline then next_mark () else no_mark in
     let mark_for = next_mark () in
-    tr index' ~mark_let ~mark_for (target_of_path p);
-    simpl_range ~simpl ((target_of_path p_seq) @ [cMark mark_for]);
+    let mark_occs = next_mark () in
+    tr index' ~mark_let ~mark_for ~mark_contract_occs:mark_occs (target_of_path p);
     if inline then begin
-      let mark = next_mark () in
-      let  _ = Variable_basic.inline ~mark ((target_of_path p_seq) @ [cMark mark_let]) in
-      simpl [nbAny; cMark mark]
+      (* FIXME: might a bit weird that index expr is inlined in contracts but not in body? *)
+      Variable_basic.inline ~mark:mark_occs ((target_of_path p_seq) @ [cMark mark_let])
     end;
+    simpl_scoped ~simpl:(fun () ->
+      simpl_range ~simpl ((target_of_path p_seq) @ [cMark mark_for]);
+      simpl [nbAny; cMark mark_occs];
+    ) [cMark mark_for];
     if index = "" then
       Loop_basic.rename_index prev_index.name ((target_of_path p_seq) @ [cMark mark_for])
   ) tg)
-
 
 (** [shift_range ~index kind ~inline]: shifts a loop index according to [kind].
 - [inline] if true, inline the index shift in the loop body *)
 let%transfo shift_range ?(index : string = "") (kind : shift_kind)
  ?(inline : bool = true) ?(simpl: target -> unit = default_simpl)
  (tg : target) : unit =
-  transform_range (fun i -> Loop_basic.shift_range i kind) index ~inline ~simpl tg
+  match kind with
+  | ShiftBy shift when is_trm_int 0 shift -> ()
+  | _ -> transform_range (fun i -> Loop_basic.shift_range i kind) index ~inline ~simpl tg
 
 (** [scale_range ~index ~factor ~inline]: scales a loop index according to [factor].
 - [inline] if true, inline the index shift in the loop body *)
 let%transfo scale_range ?(index : string = "") ~(factor : trm)
  ?(inline : bool = true) ?(simpl: target -> unit = default_simpl)
  (tg : target) : unit =
+  if is_trm_int 1 factor then () else
   transform_range (fun i -> Loop_basic.scale_range i factor) index ~inline ~simpl tg
 
 (** [extend_range]: like [Loop_basic.extend_range], plus arithmetic and conditional simplifications.

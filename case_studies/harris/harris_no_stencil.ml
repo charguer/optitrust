@@ -34,7 +34,7 @@ let%transfo simpl_mins ?(simpl : target -> unit = Arith.default_simpl) (tg : tar
 let%transfo simpl_inplace_noop (tg : target) : unit =
   Trace.tag_atomic ();
   Target.iter (fun _ p ->
-    let surrounding_instr_p = Loop.find_surrounding_instr p (Trace.ast ()) in
+    let surrounding_instr_p = Path.find_surrounding_instr p (Trace.ast ()) in
     Arith.default_simpl (target_of_path p);
     let surrounding_instr = (target_of_path surrounding_instr_p) in
     Instr.delete (surrounding_instr @ [nbAny; sInstr "+= 0"]);

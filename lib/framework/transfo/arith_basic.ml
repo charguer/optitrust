@@ -2,6 +2,11 @@ open Prelude
 open Target
 include Arith_core
 
+let arith_simpl = toplevel_var "arith_simpl"
+
+let ghost_arith_rewrite r1 r2 =
+  Resource_trm.ghost_rewrite r1 r2 (trm_var arith_simpl)
+
 (** [shift ~inv ~pre_cast ~post_cast u tg]:  expects the target [tg]
     to point at a trm on which an arithmetic operation can be applied, then
     depending on the value of [inv] it will add or substract [u] to that trm.*)

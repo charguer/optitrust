@@ -225,15 +225,14 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 (*                           Explicit path resolution                              *)
 (***********************************************************************************)
 
-(** [resolve_path_and_ctx dl t]: follow the explicit path and return the corresponding subterm and its context *)
-(* TODO: The context part of this function is never used *)
+(** [resolve_path_and_ctx dl t]: follow the explicit path and return the corresponding subterm and its context (the visited terms with the latest first). *)
 let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   let rec aux_on_path_rec (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
-    | [] -> (t, List.rev ctx)
+    | [] -> (t, ctx)
     | d :: dl_rest ->
-      let aux t ctx = aux_on_path_rec dl_rest t ctx in
-      let aux_resource_item (h, formula) = aux formula ctx in
+      let aux t2 = aux_on_path_rec dl_rest t2 (t :: ctx) in
+      let aux_resource_item (h, formula) = aux formula in
       let aux_resource_set resource_set_dir i res : trm * (trm list) =
         match resource_set_dir with
         | Resource_set_pure -> aux_resource_item (List.nth res.pure i)
@@ -246,6 +245,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
       | Dir_span _, _ -> trm_fail t "aux_on_path_rec: Dir_span should not remain at this stage"
       | Dir_seq_nth n, Trm_seq (tl, result) ->
         let tl = Mlist.to_list tl in
+        (* DEPRECATED:
         let decl_before (n : int) (tl : trm list) =
           List.fold_lefti
             (fun i acc (t : trm) ->
@@ -257,85 +257,96 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
                   | Trm_typedef _ -> t :: acc
                   | _ -> acc) [] tl
           in
-        app_to_nth dl tl n
-          (fun nth_t -> aux nth_t ((decl_before n tl)@ctx))
+          ((decl_before n tl)@ctx)
+        *)
+        app_to_nth dl tl n (fun nth_t -> aux nth_t)
       | Dir_array_nth n, Trm_array (_, tl) ->
-        app_to_nth dl (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
+        app_to_nth dl (Mlist.to_list tl) n (fun nth_t -> aux nth_t)
       | Dir_struct_nth n, Trm_record (_, tl) ->
-        app_to_nth dl (List.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t ctx)
+        app_to_nth dl (List.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t)
       | Dir_cond, Trm_if (cond, _, _)
         | Dir_cond, Trm_while (cond, _)
         | Dir_cond, Trm_do_while (_, cond)
         | Dir_cond, Trm_switch (cond, _) ->
-        aux cond ctx
+        aux cond
       | Dir_cond, Trm_for_c (init, cond, _, _, _) ->
+        aux cond
+        (* DEPRECATED:
         begin match init.desc with
         | Trm_let _  -> aux cond (init :: ctx)
-        | _ -> aux cond ctx
-        end
+        | _ -> aux cond
+        end *)
       | Dir_then, Trm_if (_, then_t, _) ->
-        aux then_t ctx
+        aux then_t
       | Dir_else, Trm_if (_, _, else_t) ->
-        aux else_t ctx
+        aux else_t
       | Dir_body, Trm_fun (args, _, body, _) ->
+        (* DEPRECATED:
         (* do as if fun args were heap allocated *)
         let args_decl =
           List.rev_map trm_let_mut_uninit args
         in
-        aux body (args_decl@ctx)
+        (args_decl@ctx) *)
+        aux body
       | Dir_body, Trm_for_c (init, _, _, body, _) ->
+        (* DEPRECATED:
         begin match init.desc with
         | Trm_let _ ->
             aux body (init :: ctx)
         | _ -> aux body ctx
-        end
+        end *)
+        aux body
       | Dir_body, Trm_for (_, body, _) ->
-        aux body ctx
+        aux body
       | Dir_var_body, Trm_let (_, body) ->
+        (* DEPRECATED:
         let ref_op_arg = ref_operation_arg body in
-        if is_ref_operation body then aux ref_op_arg (body :: ctx) else aux body ctx
+        if is_ref_operation body then aux ref_op_arg (body :: ctx) else aux body ctx *)
+        aux body
       | Dir_let_body, Trm_let (_, body) ->
-        aux body ctx
+        aux body
       | Dir_body, Trm_while (_, body)
         | Dir_body, Trm_do_while (body, _)
         | Dir_body, Trm_abort (Ret (Some body)) ->
-        aux body ctx
+        aux body
       | Dir_for_start, Trm_for (range, _, _) ->
-        aux range.start ctx
+        aux range.start
       | Dir_for_stop, Trm_for (range, _, _) ->
-        aux range.stop ctx
+        aux range.stop
       | Dir_for_step, Trm_for (range, _, _) ->
-        aux range.step ctx
+        aux range.step
       | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
-        aux init ctx
+        aux init
       | Dir_for_c_step, Trm_for_c (init, _, step, _, _) ->
+        (* DEPRECATED!
         begin match init.desc with
         | Trm_let _ ->
             aux step (init :: ctx)
         | _ -> aux step ctx
-        end
-      | Dir_app_fun, Trm_apps (f, _, _) -> aux f ctx
+        end *)
+        aux step
+      | Dir_app_fun, Trm_apps (f, _, _) -> aux f
       | Dir_arg_nth n, Trm_apps (_, tl, _) ->
-        app_to_nth dl tl n (fun nth_t -> aux nth_t ctx)
+        app_to_nth dl tl n (fun nth_t -> aux nth_t)
       | Dir_ghost_arg_nth n, Trm_apps (_, _, gl) ->
-        app_to_nth dl gl n (fun (_, nth_t) -> aux nth_t ctx)
+        app_to_nth dl gl n (fun (_, nth_t) -> aux nth_t)
       | Dir_arg_nth n, Trm_fun (arg, _, _, _) ->
         app_to_nth dl arg n
-          (fun (x, typ) -> aux (trm_var ?loc ~typ x) ctx)
+          (fun (x, typ) -> aux (trm_var ?loc ~typ x))
       | Dir_name , Trm_let ((x,typ),_) ->
-        aux (trm_var ?loc ~typ x) ctx
+        aux (trm_var ?loc ~typ x)
       | Dir_name, Trm_goto x ->
         (* CHECK: #var-id-dir-name , is this correct? *)
-        aux (trm_var ?loc (name_to_var x)) ctx
+        aux (trm_var ?loc (name_to_var x))
       | Dir_name, Trm_typedef td ->
-        aux (trm_var ?loc td.typedef_name) ctx
+        aux (trm_var ?loc td.typedef_name)
       | Dir_case (n, cd), Trm_switch (_, cases) ->
         app_to_nth dl cases n
           (fun (tl, body) ->
             match cd with
-            | Case_body -> aux body ctx
+            | Case_body -> aux body
             | Case_name i ->
-                app_to_nth dl tl i (fun ith_t -> aux ith_t ctx)
+                app_to_nth dl tl i (fun ith_t -> aux ith_t)
           )
       | Dir_enum_const (n, ecd), Trm_typedef td ->
         begin match td.typedef_body with
@@ -343,14 +354,14 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           app_to_nth dl xto_l n
             (fun (x, t_o) ->
               match ecd with
-              | Enum_const_name -> aux (trm_var ?loc x) ctx
+              | Enum_const_name -> aux (trm_var ?loc x)
               | Enum_const_val ->
                 begin match t_o with
                 | None ->
                     loc_fail loc
                       "Path.resolve_path_and_ctx: no value for enum constant"
                 | Some t ->
-                    aux t ctx
+                    aux t
                 end
             )
         | _ -> loc_fail loc "Path.resolving_path: direction"
@@ -360,12 +371,12 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
         | Typedef_record rfl ->
           app_to_nth dl rfl n
             (fun (rf, rf_annt) -> match rf with
-              | Record_method t1 -> aux t1 ctx
+              | Record_method t1 -> aux t1
               | _ -> trm_fail t "Path.apply_on_path: expected a method.")
         | _ -> trm_fail t "Path.apply_on_path: transformation applied on the wrong typedef."
         end
       | Dir_namespace, Trm_namespace (name, body, inline) ->
-        aux body ctx
+        aux body
 
       | Dir_contract (Contract_pre, resource_set_dir, i), Trm_fun (params, tyret, body, FunSpecContract contract) ->
         aux_resource_set resource_set_dir i contract.pre
@@ -537,23 +548,42 @@ let add_marks_at_paths ?(prefix : path = []) (ps:path list) (t:trm) : trm * mark
     in
   res, marks
 
-
-let find_surrounding_expr (p : path) (t : trm) : path =
-  (* FIXME: This implementation is stupidly expansive to compute *)
-  let rec aux p =
-    let pp = parent p in
-    let pp_t = resolve_path pp t in
-    if not (trm_is_statement pp_t) then aux pp else p
+(* given a path in an arithmetic expression and the entire ast,
+   find the root of that expression,
+   otherwise immediately return the provided path.
+   returns (path_to_trm, path). *)
+let find_arith_expr_root (p : path) (t : trm) : (trm * path) =
+  (* TODO: it is worth factorizing with 'find_surrounding_instr'?
+    'find_surrounding_trm_such_that' ? *)
+  (* TODO: is it worth having some kind of check?
+  assert ((Option.is_some (trm_lit_inv t)) || (Option.is_some (trm_var_inv t)) || (is_prim_arith_call t)); *)
+  let p_t, ctx = resolve_path_and_ctx p t in
+  let rec aux p t ctx =
+    match ctx with
+    | parent_t :: ctx ->
+      let parent_p = parent p in
+      if not (is_prim_arith_call parent_t) then (t, p)
+      else aux parent_p parent_t ctx
+    | [] -> (t, p)
   in
-  (* can be useful for user to directly target statement
-  assert (not (Path.resolve_path p t).is_statement); *)
-  aux p
+  aux p p_t ctx
+
+(* given a path in a term, go up this path until hitting an instruction.
+   returns that instruction and its path. *)
+let find_surrounding_instr (p : path) (t : trm) : path =
+  let p_t, ctx = resolve_path_and_ctx p t in
+  let rec aux p p_t ctx =
+    if trm_is_statement p_t then p else begin match ctx with
+    | parent_t :: ctx -> aux (parent p) parent_t ctx
+    | [] -> failwith "could not find surrounding instruction"
+    end
+  in
+  aux p p_t ctx
 
 (** Given a path to a sub-expression of an instruction,
     returns the path to the instruction, and the rest of the path.
     Given a path to an instruction, returns it. *)
 let path_in_instr (p : path) (t : trm) : (path * path) =
-  let p_t = resolve_path p t in
-  let to_instr = if trm_is_statement p_t then p else parent (find_surrounding_expr p t) in
+  let to_instr = find_surrounding_instr p t in
   let to_expr = List.drop (List.length to_instr) p in
   (to_instr, to_expr)
