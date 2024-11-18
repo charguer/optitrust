@@ -93,9 +93,14 @@ int main()
   t = a + b * a / b; // = 2 * a
   t = (a + (3 + 2)*a) / a * b; // = 6 * b
   t = a / (b * a * b) / (1 / b); // = 1. / b
+  t = 4 * exact_div(a, 2); // = exact_div(4 * a, 2)
+  t = exact_div(exact_div(a, 2), 3); // = exact_div(a, 2 * 3)
 
   // test expand
   u = a * (b + c); // = a * b + a * c
+  u = 2 * (b + c); // = 2 * b + 2 * c
+  u = 2 * (exact_div(a, 3) + 3); // = exact_div(2 * a, 2) + 2 * 3
+  u = 2 * (exact_div(a, 2) + 3); // = a + 2 * 3
   u = (a + b) * (c + d); // = a * c + a * d + b * c + b * d
   u = 5*a * (2*b + 3*c + 4*d);
 
