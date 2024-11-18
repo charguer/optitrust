@@ -17,7 +17,7 @@ void simpl_in_depth () {
 int main()
 {
   double a; double  b; double  c; double d; double  e;
-  double r; double  s; double t; double  u; double  v; double w; double  x; double  y; double z;
+  double  s; double t; double  u; double  v; double w; double  x; double  y; double z;
 
   // test parsing and normalizing
   x = 2 + 2;
