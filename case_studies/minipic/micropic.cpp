@@ -126,6 +126,7 @@ void cornerInterpolationCoeff(vect pos, double* r) {
   const double cX = 1. + -1. * rX;
   const double cY = 1. + -1. * rY;
   const double cZ = 1. + -1. * rZ;
+  // these ghosts will not be necessary once we have autofocus on array accesses
   __ghost([&] {
     __consumes("_Uninit(r ~> Matrix1(nbCorners))");
     __produces("_Uninit(&r[MINDEX1(8, 0)] ~> Cell)");
@@ -172,7 +173,7 @@ vect matrix_vect_mul(double* coeffs, vect* matrix) {
     res = vect_add(res, vect_mul(coeffs[MINDEX1(nbCorners, k)], matrix[MINDEX1(nbCorners, k)]));
   }
 
-  __admitted();
+  __admitted(); // TODO: remove?
   return res;
 }
 
@@ -226,6 +227,20 @@ void simulate_single_cell(double deltaT,
         __produces("&particles[MINDEX1(nbParticles, idPart)].speed ~> Cell");
         __admitted();
       }, "");
+      // TODO: __ghost(particle_open, "&particles[MINDEX1(nbParticles, idPart)]");
+      /*
+      LATER: Generate for every record:
+
+      __GHOST(particle_open) {
+        __requires("p : ptr<particle>");
+        __consumes("p ~> Cell");
+        __produces("p.pos ~> Cell");
+        __produces("p.speed ~> Cell");
+        __admitted();
+      }, "");
+
+      + ghost_inline
+      */
 
       // Interpolate the field based on the position relative to the corners of the cell
       double* const coeffs = (double*) MALLOC1(nbCorners, sizeof(double));

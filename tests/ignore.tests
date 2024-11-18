@@ -19,6 +19,8 @@ matrix/delocalize_obj/matrix_delocalize_obj.ml
 loop/swap/loop_swap_doc.ml
 loop/moveout/loop_moveout_doc.ml
 loop/move/loop_move_doc.ml
+loop/slides/loop_slides.ml
+stencil/fusion_targets/stencil_fusion_targets.ml
 
 # BROKEN TYPES
 record/set_explicit/record_set_explicit_basic.ml

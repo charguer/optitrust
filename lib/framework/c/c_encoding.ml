@@ -366,10 +366,15 @@ let rec expr_in_seq_intro (t : trm) : trm =
     Pattern.__ (fun () -> trm_map expr_in_seq_intro t)
   ]
 
+let var_exact_div = toplevel_var "exact_div"
+
 (** [infix_elim t]: encode unary and binary operators as Caml functions, for instance
     - [x++] becomes [++(&x)]
     - [x = y] becomes [=(&x, y)]
-    - [x += y] becomes [+=(&x,y)] *)
+    - [x += y] becomes [+=(&x,y)]
+
+  also, [exact_div(a, b)] becomes the primitive equivalent.
+  *)
 let infix_elim (t : trm) : trm =
   debug_current_stage "infix_elim";
   let rec aux (t : trm) : trm =
@@ -385,6 +390,10 @@ let infix_elim (t : trm) : trm =
     (* Convert [ x = y ] into [ (=)(&x, y) ] *)
     | Trm_apps ({desc = Trm_prim (_, Prim_binop Binop_set)} as op, [tl; tr], _) ->
       trm_replace (Trm_apps (op, [trm_address_of tl; tr], [])) t
+    (* Recognize exact_div primitive *)
+    | Trm_apps ({desc = Trm_var v}, [tl; tr], _) when var_eq v var_exact_div ->
+      (* FIXME: this should probably not happen here *)
+      trm_replace (Trm_apps (trm_prim (Option.value ~default:typ_int tl.typ) (Prim_binop Binop_exact_div), [tl; tr], [])) t
     | _ -> trm_map aux t
   in
   debug_before_after_trm "infix_elim" aux t
@@ -594,7 +603,7 @@ let rec return_intro (t: trm): trm =
   and into_returning_instr t =
     match t.desc with
     | Trm_seq (_, Some _) -> Some (add_terminal_return t)
-    | Trm_if (tcond, tthen, telse) ->
+    | Trm_if (tcond, tthen, telse) when not (trm_has_cstyle Ternary_cond t || trm_has_cstyle Shortcircuit_and t || trm_has_cstyle Shortcircuit_or t) ->
       let process_branch t =
         match into_returning_instr t with
         | Some t -> t
@@ -1193,8 +1202,8 @@ let cfeatures_elim: trm -> trm =
   ghost_args_elim |>
   class_member_elim |>
   method_call_elim |>
-  infix_elim |>
   Scope_computation.infer_var_ids ~check_uniqueness:false |>
+  infix_elim |>
   stackvar_elim |>
   caddress_elim |>
   return_elim |>

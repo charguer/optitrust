@@ -591,8 +591,8 @@ let assert_usages_commute
   if not (Var_map.is_empty interference) then
     contextualized_error ctxs (string_of_interference ?res_ctx interference)
 
-(** Checks that the effects from the instructions at path [p] are shadowed by following effects
-   in the program.
+(** Checks that the effects from the instructions at path [p] are shadowed by following effects in the program.
+    Therefore, the instructions can be deleted.
 
    - if provided [pred], allows specifying which formulas to include in the shadowing check.
    - [keep_instrs]: is this ever useful? for inlining binding?
@@ -623,6 +623,7 @@ let assert_instr_effects_shadowed ?(pred : formula -> bool = fun _ -> true) ?(ke
     Checks that the trm resource usage does not contain any resources used Full or Produced.
     This corresponds to self interference of the trm:
     A trm is not self interfere if `t; t` is the same as `t`
+    more precisely, `let x = t; let y = t` is the same as `let x = t; let y = x`.
 *)
 let deletable (t : trm) : unit =
   let res_before = before_trm t in

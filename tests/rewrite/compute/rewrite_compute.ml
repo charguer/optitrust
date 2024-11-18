@@ -3,6 +3,6 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Rewrite_basic.compute [nbMulti; cPrimFunArith ()];
+  !! Rewrite_basic.compute [nbMulti; cPrimCallArith ()];
 
 )

@@ -163,6 +163,13 @@ template<typename T> void __mul_inplace(T* p, T x) {
   __admitted();
 }
 
+template<typename T> T __exact_div_inplace(T* p, T x) {
+  __modifies("p ~> Cell");
+  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
+  // + only for integer types?
+  __admitted();
+}
+
 template<typename T> void __div_inplace(T* p, T x) {
   __modifies("p ~> Cell");
   // TODO: requires x != 0 and add preprocessing to insert assumes in initial code
@@ -337,7 +344,15 @@ inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
 
 /* ---- Ghosts ---- */
 
+// assumes a formula with no need to prove it later
 __GHOST(assume) {
+  __requires("F: formula");
+  __ensures("P: F");
+  __admitted();
+}
+
+// defers proving a formula to later
+__GHOST(to_prove) {
   __requires("F: formula");
   __ensures("P: F");
   __admitted();
@@ -400,7 +415,7 @@ __GHOST(in_range_shift_extend) {
   __requires("in_range(x, range(a, b, s))");
   __requires("is_subrange(range(a+k, b+k, s), r)");
   __ensures("in_range(x+k, r)");
-
+  __admitted(); // for efficiency
   __ghost(in_range_shift, "x, k, a, b, s");
   __ghost(in_range_extend, "x+k, range(a+k, b+k, s), r");
 }
@@ -617,7 +632,7 @@ __GHOST(group_focus) {
 
 __GHOST(group_unfocus) {
   __reverts(group_focus);
-
+  __admitted(); // for efficiency
   __ghost(close_wand, "");
 }
 
@@ -631,8 +646,9 @@ __GHOST(group_ro_focus) {
 
 __GHOST(group_ro_unfocus) {
   __reverts(group_ro_focus);
-
+  __admitted(); // for performance
   __ghost(close_wand, "");
+
 }
 
 __GHOST(group_uninit_focus) {
@@ -850,6 +866,52 @@ __GHOST(group_unshift_ro) {
   __admitted();
 }
 
+/* --- group_scale and nested variants: */
+
+__GHOST(group_scale) {
+  __requires("stop: int, step: int, items: int -> formula");
+  __requires("factor: int, new_step: int, new_stop: int");
+  __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
+  // TODO: check factor != 0
+  __consumes("for i in range(0, stop, step) -> items(i)");
+  __produces("for i in range(0, new_stop, new_step) -> items(exact_div(i, factor))");
+  __admitted();
+}
+
+__GHOST(group_unscale) {
+  __reverts(group_scale);
+  __admitted();
+}
+
+__GHOST(group_scale_uninit) {
+  __requires("stop: int, step: int, items: int -> formula");
+  __requires("factor: int, new_step: int, new_stop: int");
+  __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
+  __consumes("_Uninit(for i in range(0, stop, step) -> items(i))");
+  __produces("_Uninit(for i in range(0, new_stop, new_step) -> items(exact_div(i, factor)))");
+  __admitted();
+}
+
+__GHOST(group_unscale_uninit) {
+  __reverts(group_scale_uninit);
+  __admitted();
+}
+
+__GHOST(group_scale_ro) {
+  __requires("stop: int, step: int, items: int -> formula");
+  __requires("factor: int, new_step: int, new_stop: int");
+  __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
+  __requires("f: _Fraction");
+  __consumes("_RO(f, for i in range(0, stop, step) -> items(i))");
+  __produces("_RO(f, for i in range(0, new_stop, new_step) -> items(exact_div(i, factor)))");
+  __admitted();
+}
+
+__GHOST(group_unscale_ro) {
+  __reverts(group_scale_ro);
+  __admitted();
+}
+
 /* --- group split/join and nested variants: */
 
 __GHOST(group_split) {
@@ -949,13 +1011,13 @@ __GHOST(matrix1_ro_focus) {
   __requires("bound_check: in_range(i, 0..n)");
   __consumes("_RO(f, M ~> Matrix1(n))");
   __produces("Wand(_RO(f, &M[MINDEX1(n, i)] ~> Cell), _RO(f, M ~> Matrix1(n))), _RO(f, &M[MINDEX1(n, i)] ~> Cell)");
-
+  __admitted(); // for efficiency
   __ghost(group_ro_focus, "f := f, i := i, bound_check := bound_check");
 }
 
 __GHOST(matrix1_ro_unfocus) {
   __reverts(matrix1_ro_focus);
-
+  __admitted(); // for efficiency
   __ghost(close_wand, "");
 }
 
@@ -973,7 +1035,7 @@ __GHOST(matrix2_ro_focus) {
 
 __GHOST(matrix2_ro_unfocus) {
   __reverts(matrix2_ro_focus);
-
+  __admitted(); // for efficiency
   __ghost(close_wand, "");
 }
 
@@ -1136,6 +1198,7 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
   __requires("check_range: is_subrange(start..stop, 0..n)");
   __requires("bound_check: in_range(j, 0..m)");
   __reads("input ~> Matrix2(n, m)");
+  __admitted();
   // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
 
   uint16_t s = 0;
@@ -1148,7 +1211,6 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
     s += input[MINDEX2(n, m, i, j)];
     __GHOST_END(focus);
   }
-  __admitted();
   return s;
 }
 

@@ -95,9 +95,7 @@ and print_binop (op : binary_op) : document =
   | Binop_lt -> string "Binop_lt"
   | Binop_ge -> string "Binop_ge"
   | Binop_gt -> string "Binop_gt"
-  | Binop_and -> string "Binop_and"
   | Binop_bitwise_and -> string "Binop_bitwise_and"
-  | Binop_or -> string "Binop_or"
   | Binop_bitwise_or -> string "Binop_bitwise_or"
   | Binop_shiftl -> string "Binop_shiftl"
   | Binop_shiftr -> string "Binop_shiftr"
@@ -131,8 +129,6 @@ and print_prim style (p : prim) : document =
   | Prim_new ->
      print_node "Prim_new"
   | Prim_delete -> print_node "Prim_delete"
-  | Prim_delete_array -> print_node "Prim_delete_array"
-  | Prim_conditional_op -> print_node "Prim_conditional_op"
 
 (** [print_lit l]: converts literals to pprint document *)
 and print_lit (l : lit) : document =
@@ -455,8 +451,10 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | No_struct_get_arrow -> string "No_struct_get_arrow"
  | Empty_cond -> string "Empty_cond"
  | Fun_inline -> string "Fun_inline"
+ | Ternary_cond -> string "Ternary_cond"
+ | Shortcircuit_and -> string "Shortcircuit_and"
+ | Shortcircuit_or -> string "Shortcircuit_or"
  | No_braces id -> string ("No_braces " ^ string_of_int id)
- | Multi_decl -> string "Multi_decl"
  | Prefix_step -> string "Prefix_step"
  | Postfix_step -> string "Postfix_step"
  | Reference -> string "Reference"

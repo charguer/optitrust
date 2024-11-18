@@ -5,6 +5,15 @@ open Contextualized_error
 open Resource_formula
 open Resource_contract
 
+(* LATER: to move *)
+(** [may_measure_time f]: returns the result of [f()] and, if in [report_exectime] mode reports the execution time, else gives zero. *)
+let may_measure_time (f : unit -> 'a) : 'a * float =
+  if not !Flags.report_exectime then
+    f(), 0.
+  else
+    Tools.measure_time_float f
+
+
 type pure_resource_set = resource_item list
 type linear_resource_set = resource_item list
 
@@ -1045,36 +1054,40 @@ let rec compute_resources
     (* Defining a function is pure by itself, we check that the body satisfies the contract.
        If possible, we register a new function specification on [var_result], as well as potential inverse function metadata. *)
     | Trm_fun (args, ret_type, body, contract) ->
-      let compute_resources_in_body contract =
-        let body_res = Resource_set.bind ~old_res:res ~new_res:contract.pre in
-        let body_usage, _ = compute_resources ~expected_res:contract.post (Some body_res) body in
-        match body_usage with
-        | Some body_usage -> Var_map.filter (fun _ usage -> usage = Required) body_usage
-        | None -> Var_map.empty
-      in
-      begin match contract with
-      | FunSpecContract contract ->
-        let body_usage = compute_resources_in_body contract in
-        let contract = fun_contract_subst res.aliases contract in
-        let args = List.map (fun (x, _) -> x) args in
-        (Some body_usage, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
-      | FunSpecReverts reverted_fn ->
-        (* LATER: allow non empty arg list for reversible functions, this requires subtitution in the reversed contract *)
-        assert (args = []);
-        (* TODO: Also register reverse in the fun_contracts entry *)
-        let reverted_spec = Var_map.find reverted_fn res.fun_specs in
-        assert (reverted_spec.args = []);
-        let reverse_contract = revert_fun_contract reverted_spec.contract in
-        let body_usage = compute_resources_in_body reverse_contract in
-        let args = List.map (fun (x, _) -> x) args in
-        let fun_specs =
-          res.fun_specs |>
-          Var_map.add reverted_fn { reverted_spec with inverse = Some var_result } |>
-          Var_map.add var_result { args; contract = reverse_contract; inverse = Some reverted_fn }
+      let res, exectime = may_measure_time (fun () ->
+        let compute_resources_in_body contract =
+          let body_res = Resource_set.bind ~old_res:res ~new_res:contract.pre in
+          let body_usage, _ = compute_resources ~expected_res:contract.post (Some body_res) body in
+          match body_usage with
+          | Some body_usage -> Var_map.filter (fun _ usage -> usage = Required) body_usage
+          | None -> Var_map.empty
         in
-        (Some body_usage, Some { res with fun_specs })
-      | FunSpecUnknown -> (Some Var_map.empty, Some res)
-      end
+        begin match contract with
+        | FunSpecContract contract ->
+          let body_usage = compute_resources_in_body contract in
+          let contract = fun_contract_subst res.aliases contract in
+          let args = List.map (fun (x, _) -> x) args in
+          (Some body_usage, Some { res with fun_specs = Var_map.add var_result {args; contract; inverse = None} res.fun_specs })
+        | FunSpecReverts reverted_fn ->
+          (* LATER: allow non empty arg list for reversible functions, this requires subtitution in the reversed contract *)
+          assert (args = []);
+          (* TODO: Also register reverse in the fun_contracts entry *)
+          let reverted_spec = Var_map.find reverted_fn res.fun_specs in
+          assert (reverted_spec.args = []);
+          let reverse_contract = revert_fun_contract reverted_spec.contract in
+          let body_usage = compute_resources_in_body reverse_contract in
+          let args = List.map (fun (x, _) -> x) args in
+          let fun_specs =
+            res.fun_specs |>
+            Var_map.add reverted_fn { reverted_spec with inverse = Some var_result } |>
+            Var_map.add var_result { args; contract = reverse_contract; inverse = Some reverted_fn }
+          in
+          (Some body_usage, Some { res with fun_specs })
+        | FunSpecUnknown -> (Some Var_map.empty, Some res)
+        end) in
+      (* For debug: Tools.info "exectime: %f\n" exectime; *)
+      t.ctx.ctx_resources_exectime <- exectime;
+      res
 
     (* Transitively compute resources through all sequence instructions.
        At the end of the sequence, take into account that all stack allocations are freed. *)

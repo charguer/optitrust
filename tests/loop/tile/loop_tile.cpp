@@ -44,3 +44,14 @@ void matrix_copy(int* D, int* S) {
     __GHOST_END(focus);
   }
 }
+
+/* FIXME:
+void xreads(int* Sx) {
+  __reads("Sx ~> Matrix1(1024)");
+
+  for (int i = 0; i < 1024; ++i) {
+    __strict();
+    __xreads("&Sx[MINDEX1(1024, i)] ~> Cell");
+  }
+}
+*/

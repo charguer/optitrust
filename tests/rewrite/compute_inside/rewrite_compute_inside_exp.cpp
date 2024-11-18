@@ -23,17 +23,17 @@ block3 : {
   bool b;
   bool c;
   c = true;
-  c = false;
+  c = a;
   c = true;
   c = a;
   c = a;
   c = false;
   c = a;
   c = false;
-  c = a || b || true;
+  c = a || b;
   c = false;
   c = true;
-  a = a & b;
+  a = a && b;
 }
   return 0;
 }

@@ -6,6 +6,8 @@ let _ = Flags.pretty_matrix_notation := true
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 
+(* let _ = Flags.report_exectime := true *)
+
 (* Reproducing a TVM schedule from:
    https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html
 
@@ -17,7 +19,6 @@ let _ = Flags.disable_stringreprs := true
 
 let int = trm_int
 
-(* TODO: avoid inlining, use specialize instead? *)
 let _ = Run.script_cpp (fun () ->
 
   !! Function.inline_def [cFunDef "mm"];
@@ -30,7 +31,11 @@ let _ = Run.script_cpp (fun () ->
     [cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "k"];
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
   !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
+  (* TODO: why do_nothing? *)
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
 
   !! Cleanup.std ();
+  (* TODO: expand should only duplicate `Resources.trm_is_pure`
+    + do !! Arith_basic.(simpls_rec [expand; gather_rec; compute]) [nbMulti; cAccesses()];
+    *)
 )

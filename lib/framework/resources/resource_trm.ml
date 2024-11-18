@@ -160,6 +160,11 @@ let var_ghost_assume = toplevel_var "assume"
 let assume (f: formula): trm =
   ghost (ghost_call var_ghost_assume ["F", f])
 
+let var_ghost_to_prove = toplevel_var "to_prove"
+
+let to_prove (f: formula): trm =
+  ghost (ghost_call var_ghost_to_prove ["F", f])
+
 (*****************************************************************************)
 (* Contracts and annotations *)
 

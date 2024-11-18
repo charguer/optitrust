@@ -18,6 +18,6 @@ let compute_inside (tg : Target.target) : unit =
     if List.exists (function Constr.Constr_occurrences _ -> true | _ -> false) tg
       then tg
       else Target.nbMulti::tg in
-  let cPrimFunAny = Target.cPrimPredFun (function (Prim_binop _) | (Prim_unop _ )-> true | _ -> false) in
-  let new_tg = tg @ [cPrimFunAny] in
+  let cPrimCallAny = Target.cPrimPredCall (function (Prim_binop _) | (Prim_unop _) -> true | _ -> false) in
+  let new_tg = tg @ [cOr [[cPrimCallAny]; [cIf ()]]] in
   Target.apply_at_target_paths (Rewrite_core.compute_on) new_tg

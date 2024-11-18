@@ -21,19 +21,17 @@ let%transfo remove_show (tg : target) : unit =
     | _ -> t
   ) tg
 
-(** [shift ~reparse ~inv ~pre_cast ~post_cast u tg]:  expects the target [tg]
+(** [shift ~inv ~pre_cast ~post_cast u tg]:  expects the target [tg]
     to point at a trm on which an arithmetic operation can be applied, then
     depending on the value of [inv] it will add or substract [u] to that trm.*)
-let%transfo shift ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option)
+let%transfo shift ?(inv : bool = false) ?(pre_cast : typ option)
   ?(post_cast : typ option) (u : trm) (tg : target) : unit =
-  reparse_after ~reparse (
-    Target.apply_at_target_paths (Arith_core.transform Arith_shift inv u pre_cast post_cast)) tg
+  Target.apply_at_target_paths (Arith_core.transform Arith_shift inv u pre_cast post_cast) tg
 
 (** [scale ~inv ~pre_cast ~post_cast u] *)
-let%transfo scale ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option)
+let%transfo scale ?(inv : bool = false) ?(pre_cast : typ option)
   ?(post_cast : typ option) (u : trm) (tg : target) : unit =
-  reparse_after ~reparse (
-    Target.apply_at_target_paths (Arith_core.transform Arith_scale inv u pre_cast post_cast) ) tg
+  Target.apply_at_target_paths (Arith_core.transform Arith_scale inv u pre_cast post_cast)tg
 
 (** [apply op arg] expects the target [tg] to be pointing at any node of the ast
       then it applies the binary operation [op] at that node with the second argument
@@ -82,7 +80,7 @@ let%transfo simplify ?(indepth : bool = false) (tg : target) : unit =
 
 (* alias cPrimArith *)
 let constr =
-  cPrimPredFun is_prim_arith
+  cPrimPredCall is_prim_arith
 
 (** [clear_nosimpl tg]: clears all the marks on all the instructions that where
     skipped by the simplifier *)

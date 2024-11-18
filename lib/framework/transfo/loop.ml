@@ -389,32 +389,55 @@ let%transfo simpl_range ~(simpl : target -> unit) (tg : target) : unit =
     simpl (nbAny :: (target_of_path (p @ [Dir_for_step])));
   ) tg
 
-(** [shift ~index kind ~inline]: shifts a loop index according to [kind].
-- [inline] if true, inline the index shift in the loop body *)
-(* TODO: what if index name is same as original loop index name? *)
-let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift_kind) ?(inline : bool = true) ?(simpl: target -> unit = default_simpl) (tg : target) : unit =
-  Trace.tag_valid_by_composition ();
+(** helper function to transform a range using a transformation that creates
+    a new index variable. this helper allows not specifying the variable name,
+    inlining the variable, and simplifying arithmetic expression. *)
+let transform_range
+  (tr : string -> ?mark_let : mark -> ?mark_for : mark -> target -> unit)
+  (index : string) ~(inline : bool)
+  ~(simpl : target -> unit)
+  (tg : target) : unit =
+  (* TODO: what if index name is same as original loop index name? *)
   let index' = if index = "" then begin
     if not inline then
-      failwith "Loop.shift: expected name for index variable when inline = false";
-    Tools.next_tmp_name ();
+      failwith "expected name for index variable when inline = false";
+    Tools.next_tmp_name ()
   end else
     index
   in
+  Marks.with_marks (fun next_mark ->
   Target.iter (fun p ->
+    let (_, p_seq) = Path.index_in_seq p in
     let tg_trm = Target.resolve_path p in
     let error = "Loop.shift: expected target to be a simple loop" in
     let ({ index = prev_index }, _, _) = trm_inv ~error trm_for_inv tg_trm in
-    Loop_basic.shift ~reparse index' kind (target_of_path p);
-    simpl_range ~simpl (target_of_path p);
+    let mark_let = if inline then next_mark () else no_mark in
+    let mark_for = next_mark () in
+    tr index' ~mark_let ~mark_for (target_of_path p);
+    simpl_range ~simpl ((target_of_path p_seq) @ [cMark mark_for]);
     if inline then begin
-      let mark = Mark.next() in
-      let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
+      let mark = next_mark () in
+      let  _ = Variable_basic.inline ~mark ((target_of_path p_seq) @ [cMark mark_let]) in
       simpl [nbAny; cMark mark]
     end;
     if index = "" then
-      Loop_basic.rename_index prev_index.name (target_of_path p)
-  ) tg
+      Loop_basic.rename_index prev_index.name ((target_of_path p_seq) @ [cMark mark_for])
+  ) tg)
+
+
+(** [shift_range ~index kind ~inline]: shifts a loop index according to [kind].
+- [inline] if true, inline the index shift in the loop body *)
+let%transfo shift_range ?(index : string = "") (kind : shift_kind)
+ ?(inline : bool = true) ?(simpl: target -> unit = default_simpl)
+ (tg : target) : unit =
+  transform_range (fun i -> Loop_basic.shift_range i kind) index ~inline ~simpl tg
+
+(** [scale_range ~index ~factor ~inline]: scales a loop index according to [factor].
+- [inline] if true, inline the index shift in the loop body *)
+let%transfo scale_range ?(index : string = "") ~(factor : trm)
+ ?(inline : bool = true) ?(simpl: target -> unit = default_simpl)
+ (tg : target) : unit =
+  transform_range (fun i -> Loop_basic.scale_range i factor) index ~inline ~simpl tg
 
 (** [extend_range]: like [Loop_basic.extend_range], plus arithmetic and conditional simplifications.
    *)
@@ -422,7 +445,7 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
   Trace.tag_valid_by_composition ();
   Target.iter (fun p ->
     Loop_basic.extend_range ~start ~stop (target_of_path p);
-    (* TODO: simpl_range? *)
+    (* TODO: simpl_range? factorize with transform_range? *)
     simpl (target_of_path (p @ [Dir_for_start]));
     simpl (target_of_path (p @ [Dir_for_stop]));
     let tg_loop = Target.resolve_path p in
@@ -1150,7 +1173,7 @@ let%transfo tile ?(index : string = "b${id}")
       Loop_basic.tile ~index ~bound tile_size (target_of_path p)
     | _ -> begin
       reparse_after (Loop_basic.tile ~index ~bound tile_size) (target_of_path p);
-      shift StartAtZero (target_of_path (Path.to_inner_loop p));
+      shift_range StartAtZero (target_of_path (Path.to_inner_loop p));
     end
   ) tg
 
@@ -1192,7 +1215,7 @@ let%transfo slide ?(index : string = "b${id}")
     simpl_range ~simpl (target_of_path p);
     begin match iter with
     | TileIterLocal ->
-      shift StartAtZero ~simpl (target_of_path (Path.to_inner_loop p));
+      shift_range StartAtZero ~simpl (target_of_path (Path.to_inner_loop p));
     | _  ->
       simpl_range ~simpl (target_of_path (Path.to_inner_loop p));
     end;

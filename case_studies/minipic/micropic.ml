@@ -22,13 +22,14 @@ let _ = Run.script_cpp (fun () ->
     ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
 
   bigstep "inline helper functions and reveal record fields";
-  !! Function.inline_multi [ctx; cFuns ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
+  !! Function.inline_multi [ctx; cCalls ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
+  !! Variable.inline_and_rename [ctx; cVarDef "fieldAtPos"];
   !! Record.split_fields ~typs:[particle; vect] [tSpanSeq [ctx]];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
   bigstep "scale field and particles"; (* check factors != 0 *)
   let deltaT = find_var "deltaT" in
-  !! Variable.insert ~name:"fieldFactor" ~value:(trm_mul (trm_mul deltaT deltaT) (trm_div (find_var "pCharge") (find_var "pMass"))) [ctx; tBefore; cVarDef "lFieldAtCorners"];
+  !! Variable.insert ~name:"fieldFactor" ~value:(trm_mul (trm_mul deltaT deltaT) (trm_exact_div (find_var "pCharge") (find_var "pMass"))) [ctx; tBefore; cVarDef "lFieldAtCorners"];
   (* tFirst *)
   let scaleFieldAtPos d = Accesses.scale_var ~factor:(find_var "fieldFactor") [nbMulti; ctx; cVarDef ("fieldAtPos_" ^ d)] in
   !! List.iter scaleFieldAtPos dims;
@@ -60,7 +61,11 @@ let _ = Run.script_cpp (fun () ->
 
   (* IMPROVEMENTS:
     - nicer open ghosts in input code
+    - ghosts modifies can become reads
+    - a ghost with only reads/modifies can disappear
+    - a ghost whose effects is identity can be removed
     - local name tile: get elem_ty from program / resources
+      + POUR GUILLAUME: si on a les types dans les ressources
     - bind pointer to particles cell?
     - put 'coeffs' array on stack?
     - allow writing C code for constructing factors, need to parse and put in correct context with local ids

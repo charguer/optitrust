@@ -45,9 +45,10 @@ void test_fun() {
   { (*q)++; }
   int result;
   result = 10;
-  result = /*@bodyk*/ { const int __res = result + /*@substk*/ 4 /*substk@*/;
-  __res;
-} /*bodyk@*/;
+  result = /*@bodyk*/ ({
+    const int __res = result + /*@substk*/ 4 /*substk@*/;
+    __res;
+  }) /*bodyk@*/;
 }
 
 class Test_method_inline {

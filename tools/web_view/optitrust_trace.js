@@ -680,9 +680,12 @@ function stepToHTML(step, display) {
     } else {
       nb = Math.round(100 * t) / 100;
     }
+    /* LATER: display microseconds
     if (t < 0.1) { // don't display < 0.1ms
       sTime = "";
-    } else {
+    } else
+    */
+    {
       sTime = nb + "ms";
     }
     var sTimeClass = "exectime-small";

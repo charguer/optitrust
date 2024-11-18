@@ -10,15 +10,15 @@ int foo(vect v) {
 
 void demo() {
   vect a = {0, 1};
-  int* ax = ref int(/*@body*/ {
+  int* ax = ref int(/*@body*/ ({
     int __res = (a.x);
     __res;
-  } /*body@*/);
+  }) /*body@*/);
   vect* c = ref vect(a);
-  int* cx = ref int(/*@body*/ {
+  int* cx = ref int(/*@body*/ ({
     int __res = *(c[.] x);
     __res;
-  } /*body@*/);
+  }) /*body@*/);
   vect* b = ref vect{0, 1};
   vect** p = ref vect * (b);
   int e = *((*p)[.] x);

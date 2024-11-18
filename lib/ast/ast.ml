@@ -357,16 +357,13 @@ and cstyle_annot =
   (* [inline] meta-information on a C-function *)
   | Fun_inline
 
+  | Ternary_cond (* ask to print Trm_if as [cond ? then_branch : else_branch] *)
+  | Shortcircuit_and (* ask to print Trm_if as [a && b] *)
+  | Shortcircuit_or (* ask to print Trm_if as [a || b] *)
+
   (* describe a sequence that does not impose a scope;
      LATER: maybe refine this notion *)
   | No_braces of int (* LATER: Add another category *)
-
-  (* [int x, y]  encoded as [{ int x; int y}] with an annotation
-     on this special kind of no-scope block *)
-  (* FIXME: cstyle_annot is used for printing only. It should never encode semantic properties.
-    Moreover non scoping blocks of lets should always be printed as multi-declaration anyway.
-    Remove when non-scoping blocks are either implemented or multiple declaration support is dropped. *)
-  | Multi_decl      (* annotation for encoding mutiple one line declarations *)
 
   | Prefix_step (* on a loop step, writes ++i / --i instead of i += 1 / i -= 1 *)
   | Postfix_step (* on a loop step, writes i++ / i-- instead of i += 1 / i -= 1 *)
@@ -515,9 +512,7 @@ and binary_op =
   | Binop_lt            (* a < b *)
   | Binop_ge            (* a >= b *)
   | Binop_gt            (* a > b *)
-  | Binop_and           (* a && b *) (* FIXME: binop must be call by value *)
   | Binop_bitwise_and   (* a & b *)
-  | Binop_or            (* a || b *) (* FIXME: binop must be call by value *)
   | Binop_bitwise_or    (* a | b *)
   | Binop_shiftl        (* a >> k *)
   | Binop_shiftr        (* a << k *)
@@ -538,8 +533,6 @@ and prim =
   | Prim_ref_array of trm list (* "ref[m,n] T", used to wrap mutable arrays *)
   | Prim_new (* C++ "new T" *)
   | Prim_delete (* C++ "delete t" *)
-  | Prim_delete_array (* C++ "delete[] t" *)
-  | Prim_conditional_op (* "(foo) ? x : y" *)
 
 (** [lit]: literals *)
 and lit =
@@ -576,6 +569,8 @@ and ctx = {
   mutable ctx_resources_after: resource_set option;
   (* The instantiation of the requested post condition *)
   mutable ctx_resources_post_inst: used_resource_set option;
+  (* The time taken to typecheck the term, only measured for [Trm_fun] when [Flags.report_exectime] is one, else zero. *)
+  mutable ctx_resources_exectime : float;
 }
 
 and formula = trm
@@ -981,7 +976,7 @@ type tmap = trm Var_map.t
 let unknown_ctx (): ctx = {
   ctx_resources_before = None; ctx_resources_after = None;
   ctx_resources_usage = None; ctx_resources_contract_invoc = None;
-  ctx_resources_post_inst = None;
+  ctx_resources_post_inst = None; ctx_resources_exectime = 0.;
 }
 
 (** The empty resource set. *)

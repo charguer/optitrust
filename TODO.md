@@ -351,6 +351,7 @@ Ex:
 
 - Verify that a ghost/contract modifiying transformation indeed modifies only ghosts and contracts
 
+- In run_script, if `Flags.pretty_matrix_notation := true`, then warn if the production of the final _out.cpp triggers pretty printing
 
 # Flags
 
