@@ -876,7 +876,9 @@ let transform_range_on
  (new_range : loop_range -> var -> loop_range * trm * 'a)
  (pre_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
  (post_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
- (new_index : string) (mark_let : mark) (mark_for : mark) (t : trm) : trm =
+ (new_index : string)
+ (mark_let : mark) (mark_for : mark) (mark_contract_occs : mark)
+ (t : trm) : trm =
  let index' = new_var new_index in
  let error = "expected a target to a simple for loop" in
  let (range, body_terms, contract) = trm_inv ~error trm_for_inv_instrs t in
@@ -893,7 +895,7 @@ let transform_range_on
  else
    let ghosts_before = pre_res_trans range range' data contract.iter_contract.pre.linear in
    let ghosts_after = post_res_trans range range' data contract.iter_contract.post.linear in
-   let contract' = Resource_contract.loop_contract_subst (Var_map.singleton range.index index_expr) contract in
+   let contract' = Resource_contract.loop_contract_subst (Var_map.singleton range.index (trm_add_mark mark_contract_occs index_expr)) contract in
    trm_seq_nobrace_nomarks (ghosts_before @ [
     trm_add_mark mark_for (trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms'
    )] @ ghosts_after)
@@ -946,6 +948,7 @@ let shift_range_on (kind : shift_kind) =
 let%transfo shift_range (index : string) (kind : shift_kind)
   ?(mark_let : mark = no_mark)
   ?(mark_for : mark = no_mark)
+  ?(mark_contract_occs : mark = no_mark)
   (tg : target) : unit =
   if !Flags.check_validity then begin
     match kind with
@@ -958,7 +961,7 @@ let%transfo shift_range (index : string) (kind : shift_kind)
     | StartAtZero -> Trace.justif "shifting to zero is always correct, loop range is read-only"
   end;
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths (shift_range_on kind index mark_let mark_for) tg)
+    Target.apply_at_target_paths (shift_range_on kind index mark_let mark_for mark_contract_occs) tg)
 
 let ghost_group_scale = toplevel_var "group_scale"
 let ghost_group_scale_ro = toplevel_var "group_scale_ro"
@@ -1015,6 +1018,7 @@ let scale_range_on (factor : trm) =
 let%transfo scale_range (index : string) (factor : trm)
  ?(mark_let : mark = no_mark)
  ?(mark_for : mark = no_mark)
+ ?(mark_contract_occs : mark = no_mark)
  (tg : target) : unit =
  if !Flags.check_validity then begin
     if Resources.trm_is_pure factor then
@@ -1025,8 +1029,43 @@ let%transfo scale_range (index : string) (factor : trm)
  end;
  Tools.warn "need to check that scaling factor != 0, including in group scale ghosts";
  Nobrace_transfo.remove_after (fun () ->
-  apply_at_target_paths (scale_range_on factor index mark_let mark_for) tg
+  apply_at_target_paths (scale_range_on factor index mark_let mark_for mark_contract_occs) tg
  )
+
+let simplify_ghost_group_scale_on_opt (t : trm) : trm option =
+  let open Option.Monad in
+  let* ghost_call = Resource_trm.ghost_inv t in
+  let* gv = trm_var_inv ghost_call.ghost_fn in
+  let is_group_scale = var_eq gv ghost_group_scale ||
+    var_eq gv ghost_group_scale_ro ||
+    var_eq gv ghost_group_scale_uninit ||
+    var_eq gv ghost_group_unscale ||
+    var_eq gv ghost_group_unscale_ro ||
+    var_eq gv ghost_group_unscale_uninit
+  in
+  if not is_group_scale then None else begin
+    let arg_is name (arg, _) = arg.name = name in
+    let* (_, factor) = List.find_opt (arg_is "factor") ghost_call.ghost_args in
+    let* (_, stop) = List.find_opt (arg_is "stop") ghost_call.ghost_args in
+    let* (_, step) = List.find_opt (arg_is "step") ghost_call.ghost_args in
+    let* (_, new_stop) = List.find_opt (arg_is "new_stop") ghost_call.ghost_args in
+    let* (_, new_step) = List.find_opt (arg_is "new_step") ghost_call.ghost_args in
+    if is_trm_int 1 factor then Some (trm_seq_nobrace_nomarks []) else begin
+      if are_same_trm stop new_stop && are_same_trm step new_step
+      then Some (trm_seq_nobrace_nomarks [])
+      else None
+    end
+  end
+
+let%transfo simplify_all_ghosts_group_scale (tg : target) : unit =
+  Trace.justif_always_correct ();
+  Nobrace_transfo.remove_after (fun () -> Target.iter (fun p ->
+    Target.apply_at_path (trm_bottom_up (fun t ->
+      match simplify_ghost_group_scale_on_opt t with
+      | Some t2 -> t2
+      | None -> t
+    )) p
+  ) tg)
 
 type extension_kind =
 | ExtendNothing

@@ -2,6 +2,7 @@ open Prelude
 open Target
 include Arith_core
 
+
 (** [show tg] annotates the target with a string describing the reified
     expression that corresponds to the arithmetic term considered. *)
 let%transfo show ?(normalized : bool = true) (tg : target) : unit =
@@ -20,6 +21,12 @@ let%transfo remove_show (tg : target) : unit =
       (* LATER: use trm_apps_var_inv and trm_apps_toplevel_var_inv *)
     | _ -> t
   ) tg
+
+let arith_simpl = toplevel_var "arith_simpl"
+
+let ghost_arith_rewrite r1 r2 =
+  Resource_trm.ghost_rewrite r1 r2 (trm_var arith_simpl)
+
 
 (** [shift ~inv ~pre_cast ~post_cast u tg]:  expects the target [tg]
     to point at a trm on which an arithmetic operation can be applied, then

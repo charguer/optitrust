@@ -60,7 +60,6 @@ int main() {
   double c;
   double d;
   double e;
-  double r;
   double s;
   double t;
   double u;

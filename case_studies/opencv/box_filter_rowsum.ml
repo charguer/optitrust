@@ -15,6 +15,12 @@ let _ = Flags.disable_stringreprs := true
 
 let int = trm_int
 
+let custom_specialize_simpl tg =
+  Trace.without_resource_computation_between_steps (fun () ->
+    Arith.default_simpl tg;
+    Loop.simplify_all_ghosts_group_scale [];
+  )
+
 (* FIXME: removing cFor from specialize targets is not working, because we need to go inside seq. *)
 
 let _ = Run.script_cpp (fun () ->
@@ -31,14 +37,13 @@ let _ = Run.script_cpp (fun () ->
   !! Reduce.elim [nbMulti; cMark "acc"; cCall "reduce_spe1"];
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
   !! Reduce.elim ~inline:true [nbMulti; cMark "nokn"; cFor "i"; cCall "reduce_spe1"];
-  !! Loop.shift_range ~simpl:(fun _ -> ()) (StartAtZero) [nbMulti; cMark "nokn"; cFor "i"];
-  !! Loop.scale_range ~simpl:(fun _ -> ()) ~factor:(trm_find_var "cn" []) [nbMulti; cMark "nokn"; cFor "i"];
+  !! Loop.shift_range (StartAtZero) [nbMulti; cMark "nokn"; cFor "i"];
+  !! Loop.scale_range ~factor:(trm_find_var "cn" []) [nbMulti; cMark "nokn"; cFor "i"];
   (* TODO:
-    - insert ghosts around simplified for loop (range and body) to maintain prior pre/post.
     - insert to_prove instead of warning for / 0.
    *)
 
-  !! Specialize.variable_multi ~mark_then
+  !! Specialize.variable_multi ~mark_then ~simpl:custom_specialize_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
   !! Target.foreach [nbMulti; cMark "cn"] (fun c ->

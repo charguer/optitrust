@@ -12,7 +12,7 @@ let%transfo simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr))
   let t = Trace.ast () in
   Trace.without_resource_computation_between_steps (fun () ->
     Target.iter (fun p ->
-      paths_to_simpl := Path_set.add (Path.find_surrounding_expr p t) !paths_to_simpl;
+      paths_to_simpl := Path_set.add (snd (Path.find_arith_expr_root p t)) !paths_to_simpl;
     ) tg;
     Path_set.iter (fun p ->
       Arith_basic.simpl ~indepth f (target_of_path p);

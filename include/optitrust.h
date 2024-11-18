@@ -1198,7 +1198,7 @@ uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, in
   __requires("check_range: is_subrange(start..stop, 0..n)");
   __requires("bound_check: in_range(j, 0..m)");
   __reads("input ~> Matrix2(n, m)");
-  __admitted();
+  __admitted(); // NOT NECESSARY, BUT FASTER
   // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
 
   uint16_t s = 0;

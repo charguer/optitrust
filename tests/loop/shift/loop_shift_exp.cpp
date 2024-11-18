@@ -53,7 +53,30 @@ void arrays(int N, int* w, int* r, int* f) {
   __ghost(group_shift,
           "start := 0, stop := N, step := 1, items := fun i -> &f[MINDEX1(N, "
           "i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop := N + 2");
-  for (int i = 0 + 2; i < N + 2; i++) {
+  __ghost(
+      [&]() {
+        __consumes(
+            "for __TMP_4 in 0 + 2..N + 2 -> &f[MINDEX1(N, __TMP_4 - 2)] ~> "
+            "Cell");
+        __produces(
+            "for __TMP_4 in 2..N + 2 -> &f[MINDEX1(N, __TMP_4 - 2)] ~> Cell");
+        __admitted();
+        __with("justif := arith_simpl");
+      },
+      "");
+  __ghost(
+      [&]() {
+        __consumes(
+            "_Uninit(for __TMP_4 in 0 + 2..N + 2 -> &w[MINDEX1(N, __TMP_4 - "
+            "2)] ~> Cell)");
+        __produces(
+            "_Uninit(for __TMP_4 in 2..N + 2 -> &w[MINDEX1(N, __TMP_4 - 2)] ~> "
+            "Cell)");
+        __admitted();
+        __with("justif := arith_simpl");
+      },
+      "");
+  for (int i = 2; i < N + 2; i++) {
     __strict();
     __xmodifies("&f[MINDEX1(N, i - 2)] ~> Cell");
     __xwrites("&w[MINDEX1(N, i - 2)] ~> Cell");
@@ -61,6 +84,28 @@ void arrays(int N, int* w, int* r, int* f) {
     w[MINDEX1(N, i - 2)] = i - 2;
     f[MINDEX1(N, i - 2)] = i - 2 + f[MINDEX1(N, i - 2)];
   }
+  __ghost(
+      [&]() {
+        __consumes(
+            "for __TMP_4 in 2..N + 2 -> &f[MINDEX1(N, __TMP_4 - 2)] ~> Cell");
+        __produces(
+            "for __TMP_4 in 0 + 2..N + 2 -> &f[MINDEX1(N, __TMP_4 - 2)] ~> "
+            "Cell");
+        __admitted();
+        __with("justif := arith_simpl");
+      },
+      "");
+  __ghost(
+      [&]() {
+        __consumes(
+            "for __TMP_4 in 2..N + 2 -> &w[MINDEX1(N, __TMP_4 - 2)] ~> Cell");
+        __produces(
+            "for __TMP_4 in 0 + 2..N + 2 -> &w[MINDEX1(N, __TMP_4 - 2)] ~> "
+            "Cell");
+        __admitted();
+        __with("justif := arith_simpl");
+      },
+      "");
   __ghost(group_unshift,
           "start := 0, stop := N, step := 1, items := fun i -> &w[MINDEX1(N, "
           "i)] ~> Cell, shift := 2, new_start := 0 + 2, new_stop := N + 2");

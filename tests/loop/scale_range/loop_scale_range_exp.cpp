@@ -40,6 +40,24 @@ void arrays(int N, int* w, int* r, int* f) {
   __ghost(group_scale,
           "stop := N, step := 1, items := fun i -> &f[MINDEX1(N, i)] ~> Cell, "
           "factor := 2, new_step := 2, new_stop := 2 * N");
+  __ghost(
+      [&]() {
+        __modifies(
+            "for __TMP_3 in range(0, 2 * N, 2) -> &f[MINDEX1(N, "
+            "exact_div(__TMP_3, 2))] ~> Cell");
+        __admitted();
+        __with("justif := arith_simpl");
+      },
+      "");
+  __ghost(
+      [&]() {
+        __modifies(
+            "_Uninit(for __TMP_3 in range(0, 2 * N, 2) -> &w[MINDEX1(N, "
+            "exact_div(__TMP_3, 2))] ~> Cell)");
+        __admitted();
+        __with("justif := arith_simpl");
+      },
+      "");
   for (int i = 0; i < 2 * N; i += 2) {
     __strict();
     __xmodifies("&f[MINDEX1(N, exact_div(i, 2))] ~> Cell");
@@ -49,6 +67,24 @@ void arrays(int N, int* w, int* r, int* f) {
     f[MINDEX1(N, exact_div(i, 2))] =
         exact_div(i, 2) + f[MINDEX1(N, exact_div(i, 2))];
   }
+  __ghost(
+      [&]() {
+        __modifies(
+            "for __TMP_3 in range(0, 2 * N, 2) -> &f[MINDEX1(N, "
+            "exact_div(__TMP_3, 2))] ~> Cell");
+        __admitted();
+        __with("justif := arith_simpl");
+      },
+      "");
+  __ghost(
+      [&]() {
+        __modifies(
+            "for __TMP_3 in range(0, 2 * N, 2) -> &w[MINDEX1(N, "
+            "exact_div(__TMP_3, 2))] ~> Cell");
+        __admitted();
+        __with("justif := arith_simpl");
+      },
+      "");
   __ghost(group_unscale,
           "stop := N, step := 1, items := fun i -> &w[MINDEX1(N, i)] ~> Cell, "
           "factor := 2, new_step := 2, new_stop := 2 * N");

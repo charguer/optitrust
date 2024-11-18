@@ -6,6 +6,7 @@ include Specialize_basic
 (** [variable]: adds a specialized execution path when [var == value]. *)
 let%transfo variable ~(var : string) ~(value : trm)
   ?(mark_then : mark = no_mark) ?(mark_else : mark = no_mark)
+  ?(simpl : target -> unit = Arith.default_simpl)
   (tg : target) : unit =
   let (var, _) = find_var var tg in
   Marks.with_marks (fun next_mark ->
@@ -14,7 +15,7 @@ let%transfo variable ~(var : string) ~(value : trm)
     Target.iter (fun p ->
       let cond = trm_eq (trm_var var) value in
       If.insert ~cond ~mark_then ~mark_else (target_of_path p);
-      Variable.subst ~simpl:Arith.default_simpl ~subst:var ~put:value [cMark mark_then];
+      Variable.subst ~simpl ~subst:var ~put:value [cMark mark_then];
     ) tg)
 
 (** [variable_multi]: repeats [variable] transfo to create multiple specialized paths.
@@ -23,6 +24,7 @@ let%transfo variable ~(var : string) ~(value : trm)
     *)
 let%transfo variable_multi ?(mark_then : (string * trm) -> mark = fun _ ->  no_mark)
   ?(mark_else : mark = no_mark)
+  ?(simpl : target -> unit = Arith.default_simpl)
   (pairs: (string * trm) list) (tg : target) : unit =
   Marks.with_marks (fun next_mark ->
     let generic_mark = next_mark () in
@@ -31,7 +33,7 @@ let%transfo variable_multi ?(mark_then : (string * trm) -> mark = fun _ ->  no_m
     let specialize i (var, value) = begin
       let this_mark_then = next_mark () in
       let this_mark_else = if i = n - 1 then mark_else else no_mark in
-      variable ~var ~value ~mark_then:this_mark_then ~mark_else:this_mark_else [cMark generic_mark];
+      variable ~var ~value ~mark_then:this_mark_then ~mark_else:this_mark_else ~simpl [cMark generic_mark];
       Marks.remove generic_mark [cMark this_mark_then; cMark generic_mark];
       let mark_then = mark_then (var, value) in
       Marks.add mark_then [cMark this_mark_then];

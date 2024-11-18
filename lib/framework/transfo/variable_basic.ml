@@ -274,7 +274,8 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
           let res_after_touched = res_filter res_after in
           let res_before_changed = Resource_set.subst_var subst put res_before_touched in
           let res_after_changed = Resource_set.subst_var subst put res_after_touched in
-          (* NOTE: these ghosts assume that all affected code typechecks with the substitution applied to the entire resource context, this is not always true, it might be necessary to forget the substitution on resources consumed by function calls, and learn the substitution on resources produced by function calls.
+          (* NOTE: #equiv-rewrite
+          these ghosts assume that all affected code typechecks with the substitution applied to the entire resource context, this is not always true, it might be necessary to forget the substitution on resources consumed by function calls, and learn the substitution on resources produced by function calls.
           This is a general problem for any equivalence rewrite, in particular for arithmetic simplification. *)
           let change_res_before = Resource_trm.ghost_admitted {
             pre = res_before_touched; post = res_before_changed
@@ -295,7 +296,6 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
         Target.apply_at_path (trm_subst_var subst put) p
     )
   ) tg
-
 
 (** <private> *)
 let elim_analyse (xy : (var * var) option ref) (t : trm) : trm =

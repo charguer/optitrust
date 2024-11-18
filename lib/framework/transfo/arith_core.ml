@@ -951,6 +951,8 @@ let gather_rec = gather_common true
 (** [expand_one e]: expands a sum that appears inside a product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3].
     It can also expand e.g. [(e1 + e2) * (e3 + e4) * (e5 + e6)].
+    Distribution is also supported:
+    For example, [2 * (3*e2 + 4*e3)] becomes [6*e2 + 8*e3]
     The function performs nothing if no expansion can be performed.
     At the very end, it applies [normalize] to the result.
     Correctness: terms that are duplicated need to be redundant.
@@ -987,9 +989,17 @@ let expand_one (e : expr) : expr =
     in
   let res =
     try
+      let typ = Option.unsome e.expr_typ in
       match e.expr_desc with
-      | Expr_prod wes ->
-          let typ = Option.unsome e.expr_typ in
+      | Expr_sum wes -> (* case: [a1 * (b11*e11 + b12*e12) + a2 * (b21*e21 + b22*e22) + e3]
+                           gives [(a1*b11) e11 + (a1*b12)*e12 + ... + e3] *)
+          let expand_cst ((ai,ei) as aiei) =
+            match ei.expr_desc with
+            | Expr_sum wesi -> List.map (fun (bj,eij) -> (ai*bj, eij)) wesi
+            | _ -> [aiei]
+            in
+          expr_sum ~typ (List.concat_map expand_cst wes)
+      | Expr_prod wes -> (* case: [(e1 + e2) * (e3 + e4) * (e5 + e6)] *)
           let exprs_in_sum = List.fold_right (aux typ) wes [expr_one ?loc:e.expr_loc typ] in
           expr_sum_nonweighted ~typ exprs_in_sum
       | _ -> e

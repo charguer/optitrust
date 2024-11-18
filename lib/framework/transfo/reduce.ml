@@ -119,6 +119,9 @@ let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
           let focuses_prev = !focuses in
           focuses := (fun x -> focuses_prev (trm_seq_nobrace_nomarks [
             (* is_subrange(start..stop, 0..n) --> in_range(k, 0..n) *)
+            Resource_formula.(Resource_trm.(assume (
+              formula_in_range i (formula_range start stop (trm_int 1))
+            )));
             Resource_formula.(Resource_trm.(ghost (ghost_call
               var_ghost_in_range_extend [
               "x", i;
