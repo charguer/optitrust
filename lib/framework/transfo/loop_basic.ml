@@ -874,6 +874,7 @@ let ghost_group_unshift_uninit = toplevel_var "group_unshift_uninit"
 (** transforms a loop index (e.g. shift, scale). *)
 let transform_range_on
  (new_range : loop_range -> var -> loop_range * trm * 'a)
+ (to_prove : trm list)
  (pre_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
  (post_res_trans : loop_range -> loop_range -> 'a -> resource_item list -> trm list)
  (new_index : string)
@@ -896,7 +897,7 @@ let transform_range_on
    let ghosts_before = pre_res_trans range range' data contract.iter_contract.pre.linear in
    let ghosts_after = post_res_trans range range' data contract.iter_contract.post.linear in
    let contract' = Resource_contract.loop_contract_subst (Var_map.singleton range.index (trm_add_mark mark_contract_occs index_expr)) contract in
-   trm_seq_nobrace_nomarks (ghosts_before @ [
+   trm_seq_nobrace_nomarks (to_prove @ ghosts_before @ [
     trm_add_mark mark_for (trm_for_instrs ~annot:t.annot ~contract:contract' range' body_terms'
    )] @ ghosts_after)
  end
@@ -937,9 +938,10 @@ let shift_range_on (kind : shift_kind) =
       ] @ extra_params))
     )
   in
+  let to_prove = [] in
   let pre_res_trans = shift_ghosts ghost_group_shift ghost_group_shift_ro ghost_group_shift_uninit in
   let post_res_trans = shift_ghosts ghost_group_unshift ghost_group_unshift_ro ghost_group_unshift_uninit in
-  transform_range_on new_range pre_res_trans post_res_trans
+  transform_range_on new_range to_prove pre_res_trans post_res_trans
 
 (** [shift_range index kind]: shifts a loop index range according to [kind], using a new [index] name.
 
@@ -991,6 +993,7 @@ let scale_range_on (factor : trm) =
     (range', index_expr, ())
   in
   let open Resource_formula in
+  let to_prove = [Resource_trm.to_prove (formula_neq factor (trm_int 0))] in
   let scale_ghosts ghost ghost_ro ghost_uninit r r' () =
     List.map (fun (_, formula) ->
       (* TODO: factorize generic ghost mode code for all transfos *)
@@ -1008,7 +1011,7 @@ let scale_range_on (factor : trm) =
   in
   let pre_res_trans = scale_ghosts ghost_group_scale ghost_group_scale_ro ghost_group_scale_uninit in
   let post_res_trans = scale_ghosts ghost_group_unscale ghost_group_scale_ro ghost_group_scale_uninit in
-  transform_range_on new_range pre_res_trans post_res_trans
+  transform_range_on new_range to_prove pre_res_trans post_res_trans
 
 (** [scale_range index factor tg]: expects target [tg] to point at a for loop
   [index]. [factor] denotes the factor by which indices are multiplied.
@@ -1023,11 +1026,10 @@ let%transfo scale_range (index : string) (factor : trm)
  if !Flags.check_validity then begin
     if Resources.trm_is_pure factor then
       (* TODO: also works for read-only *)
-      Trace.justif "scaling by a pure expression is always correct"
+      Trace.justif "scaling by a pure factor is correct when proving that factor != 0"
     else
       trm_fail factor "scaling by a non-pure expression is not yet supported, requires checking that expression is read-only, introduce a binding with 'Sequence.insert' to workaround" (* TODO: combi doing this *)
  end;
- Tools.warn "need to check that scaling factor != 0, including in group scale ghosts";
  Nobrace_transfo.remove_after (fun () ->
   apply_at_target_paths (scale_range_on factor index mark_let mark_for mark_contract_occs) tg
  )

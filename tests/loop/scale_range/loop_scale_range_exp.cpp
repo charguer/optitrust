@@ -3,6 +3,7 @@
 void f(int N) {
   __pure();
   int x = 0;
+  __ghost(to_prove, "F := __is_neq(2, 0)");
   for (int i_s = 0; i_s < 2 * 10; i_s += 2) {
     __strict();
     __smodifies("&x ~> Cell");
@@ -10,6 +11,7 @@ void f(int N) {
     x += i_s;
   }
   const int ratio = 5;
+  __ghost(to_prove, "F := __is_neq(ratio, 0)");
   for (int j = 0; j < ratio * N; j += ratio) {
     __strict();
     __smodifies("&x ~> Cell");
@@ -21,6 +23,7 @@ void f(int N) {
 void ghost_in_range(int N) {
   __pure();
   int x;
+  __ghost(to_prove, "F := __is_neq(4, 0)");
   for (int i = 0; i < 4 * (N - 2); i += 4) {
     __strict();
     __smodifies("&x ~> Cell");
@@ -34,6 +37,7 @@ void arrays(int N, int* w, int* r, int* f) {
   __modifies("f ~> Matrix1(N)");
   __writes("w ~> Matrix1(N)");
   __reads("r ~> Matrix1(N)");
+  __ghost(to_prove, "F := __is_neq(2, 0)");
   __ghost(group_scale_uninit,
           "stop := N, step := 1, items := fun i -> &w[MINDEX1(N, i)] ~> Cell, "
           "factor := 2, new_step := 2, new_stop := 2 * N");

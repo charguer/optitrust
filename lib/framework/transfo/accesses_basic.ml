@@ -26,7 +26,9 @@ type transform_ret = {
 
 (** <private *)
 let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
+  (to_prove : trm list)
   (address_pattern : compiled_pattern)
+  (mark_to_prove : mark)
   (mark_preprocess_span : mark) (mark_postprocess_span : mark)
   (mark_handled_addresses : mark)
   (ret : transform_ret)
@@ -130,9 +132,10 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     ret.pure_post := res_stop.pure;
     let fix_start = fix_outside_span ret.matched_pre ret.others_pre f_set res_start in
     let fix_stop = fix_outside_span ret.matched_post ret.others_post f_get res_stop in
+    let m0 = mark_to_prove in
     let (m1, m2) = span_marks mark_preprocess_span in
     let (m3, m4) = span_marks mark_postprocess_span in
-    [ Mark m1; TrmList fix_start; Mark m2;
+    [ Mark m0; TrmList to_prove; Mark m1; TrmList fix_start; Mark m2;
       TrmMlist (Mlist.map fix_inside_span span_instrs);
       Mark m3; TrmList fix_stop; Mark m4 ]
   )
@@ -145,18 +148,21 @@ let transform_on (f_get : trm -> trm) (f_set : trm -> trm)
     For correctness, [f_get] and [f_set] must be inverses and pure.
     It is checked that all of the transformed gets and sets operate on resources found at the begining of the scope. *)
 let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
+  ?(to_prove : trm list = [])
   ~(address_pattern : compiled_pattern)
+  ?(mark_to_prove : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
   Marks.with_marks (fun next_mark -> Target.iter (fun p ->
     let (p_seq, span) = Path.extract_last_dir_span p in
-    let (mark_preprocess, mark_postprocess, mark_handled_resources) =
+    let (mark_to_prove, mark_preprocess, mark_postprocess, mark_handled_resources) =
       if !Flags.check_validity then begin
-        (Mark.reuse_or_next next_mark mark_preprocess,
+        (Mark.reuse_or_next next_mark mark_to_prove,
+         Mark.reuse_or_next next_mark mark_preprocess,
          Mark.reuse_or_next next_mark mark_postprocess,
          next_mark ())
       end else
-        (mark_preprocess, mark_postprocess, no_mark)
+        (mark_to_prove, mark_preprocess, mark_postprocess, no_mark)
     in
     let ret = {
       typedvar = ref None;
@@ -167,7 +173,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
       others_post = ref [];
       pure_post = ref [];
     } in
-    Target.apply_at_path (transform_on f_get f_set address_pattern mark_preprocess mark_postprocess mark_handled_resources ret span) p_seq;
+    Target.apply_at_path (transform_on f_get f_set to_prove address_pattern mark_to_prove mark_preprocess mark_postprocess mark_handled_resources ret span) p_seq;
     if !Flags.check_validity then begin
       (* TODO: factorize with local_name, should this be a Resource.assert_??? feature? may also be decomposed via elim_reuse? *)
       let error = "did not find on which inner pointer variable addresses where based" in
@@ -225,7 +231,7 @@ let%transfo transform (f_get : trm -> trm) (f_set : trm -> trm)
 
 (** <private> *)
 let transform_immut_on
-  (f_init : trm -> trm) (f_use : trm -> trm)
+  (f_init : trm -> trm) (f_use : trm -> trm) (to_prove : trm list)
   (i : int) (seq : trm) : trm =
   let instrs, result = trm_inv ~error:"expected seq" trm_seq_inv seq in
   let var = ref dummy_var in
@@ -233,7 +239,9 @@ let transform_immut_on
     Pattern.pattern_match let_t [
       Pattern.(trm_let !__ !__ !__) (fun v typ init () ->
         var := v;
-        trm_let ~annot:let_t.annot (v, typ) (f_init init)
+        trm_seq_nobrace_nomarks (to_prove @ [
+          trm_let ~annot:let_t.annot (v, typ) (f_init init)
+        ])
       )
     ]
   in
@@ -253,10 +261,12 @@ let transform_immut_on
 
 (** like {!transform}, but for immutable variables.
     target should be variable decl. *)
-let%transfo transform_immut (f_init : trm -> trm) (f_use : trm -> trm) (tg : target) : unit =
+let%transfo transform_immut (f_init : trm -> trm) (f_use : trm -> trm) (to_prove : trm list) (tg : target) : unit =
   Target.iter (fun p ->
+    Nobrace_transfo.remove_after (fun () ->
     let (i, p_seq) = Path.index_in_seq p in
-    Target.apply_at_path (transform_immut_on f_init f_use i) p_seq
+    Target.apply_at_path (transform_immut_on f_init f_use to_prove i) p_seq
+    )
   ) tg
 
 (** [scale ~inv ~factor tg]: this transformation just calls the [transform] function  with [f_get] and [f_set] args
@@ -265,30 +275,31 @@ let%transfo transform_immut (f_init : trm -> trm) (f_use : trm -> trm) (tg : tar
 let%transfo scale ?(inv:bool=false) ~(factor:trm)
   ~(address_pattern : compiled_pattern)
   ?(mark : mark = no_mark)
+  ?(mark_to_prove : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
   if !Flags.check_validity then
     if not (Resources.trm_is_pure factor) then
       trm_fail factor "basic variable scaling does not support non-pure arguments";
-  Tools.warn "need to check that scaling factor != 0"; (* TODO: check / 0 *)
-  Trace.justif "factor is pure and != 0";
+  Trace.justif "factor is pure and will be proved != 0";
   let typ = Option.unsome ~error:"factor needs to have a known type" factor.typ in
   let op_get, op_set = if inv then (trm_mul, trm_exact_div) else (trm_exact_div, trm_mul) in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in
   let f_set t = trm_add_mark mark (op_set ~typ t factor) in
-  transform f_get f_set ~address_pattern ~mark_preprocess ~mark_postprocess tg
+  let to_prove = [Resource_trm.to_prove Resource_formula.(formula_neq factor (trm_int 0))] in
+  transform f_get f_set ~to_prove ~address_pattern ~mark_to_prove ~mark_preprocess ~mark_postprocess tg
 
 let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
   if !Flags.check_validity then
     if not (Resources.trm_is_pure factor) then
       trm_fail factor "basic variable scaling does not support non-pure arguments";
-  Tools.warn "need to check that scaling factor != 0"; (* TODO: check / 0 *)
-  Trace.justif "factor is pure and != 0";
+  Trace.justif "factor is pure and will be proved != 0";
   let typ = Option.unsome ~error:"Arith.scale: factor needs to have a known type" factor.typ in
   let op_get, op_set = if inv then (trm_mul, trm_exact_div) else (trm_exact_div, trm_mul) in
   let f_use t = trm_add_mark mark (op_get ~typ t factor) in
   let f_init t = trm_add_mark mark (op_set ~typ t factor) in
-  transform_immut f_init f_use tg
+  let to_prove = [Resource_trm.to_prove Resource_formula.(formula_neq factor (trm_int 0))] in
+  transform_immut f_init f_use to_prove tg
 
 (** [shift ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args
    defined as a multiplication and a division respectively. If [inv] is set to true then these two operations
@@ -296,6 +307,7 @@ let%transfo scale_immut ?(inv : bool = false) ~(factor : trm) ?(mark : mark = no
 let%transfo shift ?(inv:bool=false) ~(factor : trm)
   ~(address_pattern : compiled_pattern)
   ?(mark : mark = no_mark)
+  ?(mark_to_prove : mark = no_mark)
   ?(mark_preprocess : mark = no_mark) ?(mark_postprocess : mark = no_mark)
   (tg : target) : unit =
   if !Flags.check_validity then
@@ -306,7 +318,7 @@ let%transfo shift ?(inv:bool=false) ~(factor : trm)
   let op_get, op_set = if inv then (trm_add, trm_sub) else (trm_sub, trm_add) in
   let f_get t = trm_add_mark mark (op_get ~typ t factor) in
   let f_set t = trm_add_mark mark (op_set ~typ t factor) in
-  transform f_get f_set ~address_pattern ~mark_preprocess ~mark_postprocess tg
+  transform f_get f_set ~address_pattern ~mark_to_prove ~mark_preprocess ~mark_postprocess tg
 
 let%transfo shift_immut ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mark) (tg : target) : unit =
   if !Flags.check_validity then
@@ -317,7 +329,8 @@ let%transfo shift_immut ?(inv:bool=false) ~(factor : trm) ?(mark : mark = no_mar
   let op_get, op_set = if inv then (trm_add, trm_sub) else (trm_sub, trm_add) in
   let f_use t = trm_add_mark mark (op_get ~typ t factor) in
   let f_init t = trm_add_mark mark (op_set ~typ t factor) in
-  transform_immut f_init f_use tg
+  let to_prove = [] in
+  transform_immut f_init f_use to_prove tg
 
 (** [intro tg]: expects the target [tg] to be pointing at any node that could contain struct accesses, preferably
    a sequence, then it will transform all the encodings of the form struct_get (get (t), f) to

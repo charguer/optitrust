@@ -863,7 +863,7 @@ __GHOST(group_scale) {
   __requires("stop: int, step: int, items: int -> formula");
   __requires("factor: int, new_step: int, new_stop: int");
   __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
-  // TODO: check factor != 0
+  __requires("check_factor: factor <> 0");
   __consumes("for i in range(0, stop, step) -> items(i)");
   __produces("for i in range(0, new_stop, new_step) -> items(exact_div(i, factor))");
   __admitted();

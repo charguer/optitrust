@@ -1,3 +1,5 @@
+#include <optitrust.h>
+
 void f() {
   double t[3] = { 1., 2., 3. };
   double v;
