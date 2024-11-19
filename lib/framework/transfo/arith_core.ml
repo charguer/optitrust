@@ -624,9 +624,10 @@ let hook_is_not_self_interfering : (trm -> bool) ref = ref hook_not_set
 let hook_is_deletable : (trm -> bool) ref = ref hook_not_set
 
 
-(** [is_syntactically_pure t] approximates whether [t] should be
+(* DEPRECATED
+(** [is_syntactically_ro t] approximates whether [t] should be
     considered redundant and deletable when resource information is missing *)
-let is_syntactically_pure (t : trm) : bool =
+let is_syntactically_ro (t : trm) : bool =
   if !Flags.check_validity then !hook_trm_is_pure t else
     Pattern.pattern_match t [
       Pattern.(trm_var __) (fun () -> true);
@@ -634,22 +635,41 @@ let is_syntactically_pure (t : trm) : bool =
       Pattern.(trm_float __) (fun () -> true);
       (* TODO: add get operations *)
       Pattern.__ (fun () -> false)
+      (* TODO: inside contracts everything should be pure hence ro *)
     ]
   (* LATER: use an extended version of trm_is_pure that also allows
      get operations *)
+*)
 
 (** [get_purity t] computes whether [t]
     should be considered redundant and deletable *)
 let get_purity (t : trm) : purity =
-  if not !Flags.check_validity then begin
-    let pure = is_syntactically_pure t in
-    { redundant = pure;
-      deletable = pure }
+  (* Try syntactic criteria first
+     LATER: if resources are available, we may want to try resource-based
+            criteria first, because it does not recurse.
+     LATER: optimize trm_is_pure to avoid allocation,
+     LATER: extend trm_is_pure with an option to allow read operations. *)
+  if !hook_trm_is_pure t then begin
+    { redundant = true;
+      deletable = true }
   end else begin
-    let redundant = !hook_is_not_self_interfering t in
-    let deletable = !hook_is_deletable t in
-    { redundant; deletable }
+    let noinfo () = { redundant = false; deletable = false } in
+    if not !Flags.check_validity then begin
+      (* Second, if resources are never computed, don't try to read resources *)
+      noinfo()
+    end else begin
+      try
+        (* Else, try resource-based criteria *)
+        let redundant = !hook_is_not_self_interfering t in
+        let deletable = !hook_is_deletable t in
+        { redundant; deletable }
+      with _ ->
+       (* If resources are not available,
+          and syntactic criteria did fail, then assume nothing *)
+        noinfo()
+    end
   end
+
 
 (** [create_atom_for_trm atoms t] creates a fresh id for the atom [t] and register
     it in the table [atoms]. *)

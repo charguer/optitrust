@@ -87,7 +87,12 @@ int main() {
   t = 2 * a;
   t = 6 * a * b / a;
   t = 1. / b;
+  t = exact_div(4 * a, 2);
+  t = exact_div(a, (2 * 3));
   u = a * b + a * c;
+  u = 2 * b + 2 * c;
+  u = exact_div(2 * a, 3) + 2 * 3;
+  u = a + 2 * 3;
   u = a * c + a * d + b * c + b * d;
   u = 5 * a * 2 * b + 5 * a * 3 * c + 5 * a * 4 * d;
   v = c / (d * d * e);

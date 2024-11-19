@@ -59,7 +59,15 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.hoist_alloc ~indep:["idStep"; "idPart"] ~dest:[tBefore; cFor "idStep"] [cVarDef "coeffs"];
   !! Cleanup.std (); (* TODO: cleanup += 1 --> ++ *)
 
+)
+
+
+(* SPEEDUP:
+    infix_ops in one bottom-up pass : 2.5sec
+
+ *)
   (* IMPROVEMENTS:
+
     - nicer open ghosts in input code
     - ghosts modifies can become reads
     - a ghost with only reads/modifies can disappear
@@ -71,4 +79,3 @@ let _ = Run.script_cpp (fun () ->
     - allow writing C code for constructing factors, need to parse and put in correct context with local ids
     - FIXME: reparse triggers access normalization
   *)
-)

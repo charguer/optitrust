@@ -23,6 +23,13 @@ let custom_specialize_simpl tg =
 
 (* FIXME: removing cFor from specialize targets is not working, because we need to go inside seq. *)
 
+let only = -1
+(* comment next line for doing all versions *)
+let only = 1
+
+let fast =
+  if only <> -1 then [occIndex only] else [nbMulti]
+
 let _ = Run.script_cpp (fun () ->
   !! Reduce.intro [cVarDef "s"];
 
@@ -35,6 +42,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.swap [nbMulti; cMark "nokn"; cFor "i"];
   !! Reduce.slide ~mark_alloc:"acc" [nbMulti; cMark "nokn"; cArrayWrite "D"];
   !! Reduce.elim [nbMulti; cMark "acc"; cCall "reduce_spe1"];
+
   !! Variable.elim_reuse [nbMulti; cMark "acc"];
   !! Reduce.elim ~inline:true [nbMulti; cMark "nokn"; cFor "i"; cCall "reduce_spe1"];
   !! Loop.shift_range (StartAtZero) [nbMulti; cMark "nokn"; cFor "i"];
@@ -46,14 +54,17 @@ let _ = Run.script_cpp (fun () ->
   !! Specialize.variable_multi ~mark_then ~simpl:custom_specialize_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
-  !! Target.foreach [nbMulti; cMark "cn"] (fun c ->
+
+  !! Target.foreach (fast@[cMark "cn"]) (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
     Instr.gather_targets [c; cStrict; cArrayWrite "D"];
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor ~stop:[cVar "kn"] "i"];
     Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
-  );
 
+  );
+    (**
   (* TODO? simpl ~unfold_alias:true *)
   (* TODO: [expand_rec; gather_rec; compute] *)
   !! Cleanup.std ();
+  *)
 )

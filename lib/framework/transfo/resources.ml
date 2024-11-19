@@ -662,6 +662,7 @@ let assert_not_self_interfering (t : trm) : unit =
     | Some (SplittedFrac|JoinedFrac) | None -> false
     | Some (Produced|Required|Ensured|ArbitrarilyChosen) -> trm_fail t "trm has invalid resource usage"
   ) res_before.linear in
+  (* TODO: if res_used_uninit is empty, we should have a fast path to succeed *)
   let res_produced = List.filter (fun (h, f) ->
     match Var_map.find_opt h res_usage with
     | Some Produced -> true
