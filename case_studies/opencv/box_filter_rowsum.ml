@@ -25,10 +25,9 @@ let custom_specialize_simpl tg =
 
 let only = -1
 (* comment next line for doing all versions *)
-let only = 1
+(* let only = 2 *)
 
-let fast =
-  if only <> -1 then [occIndex only] else [nbMulti]
+let fast = if only <> -1 then [occIndex only] else [nbMulti]
 
 let _ = Run.script_cpp (fun () ->
   !! Reduce.intro [cVarDef "s"];
