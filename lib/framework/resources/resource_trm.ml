@@ -168,11 +168,27 @@ let to_prove (f: formula): trm =
 (*****************************************************************************)
 (* Contracts and annotations *)
 
-let delete_annots_on ?(delete_contracts = true) ?(delete_ghost = true) (t : trm) : trm =
+let delete_annots_on
+  ?(delete_contracts = true)
+  ?(delete_ghost = true)
+  ?(on_delete_to_prove = fun formula -> ())
+  (t : trm) : trm =
   let rec aux t =
+    let test_is_ghost t =
+      match ghost_inv t with
+      | Some gc ->
+        begin match trm_var_inv gc.ghost_fn with
+        | Some v when var_eq v var_ghost_to_prove ->
+          assert (List.length gc.ghost_args = 1);
+          on_delete_to_prove (snd (List.hd gc.ghost_args))
+        | _ -> ()
+        end;
+        true
+      | None -> false
+    in
     let t =
       if delete_ghost &&
-        ((Option.is_some (ghost_inv t)) ||
+        ((test_is_ghost t) ||
         (Option.is_some (ghost_begin_inv t)) ||
         (Option.is_some (ghost_end_inv t)))
       then Nobrace.trm_seq_nomarks []

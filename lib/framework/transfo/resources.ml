@@ -404,11 +404,13 @@ let __invariant (r: string) = Invariant, r
 let __sreads (r: string) = SharedReads, r
 let __smodifies (r: string) = SharedModifies, r
 
-
 let%transfo delete_annots (tg : Target.target) : unit =
   Trace.justif "changes only annotations";
   Nobrace_transfo.remove_after (fun () ->
-    Target.apply_at_target_paths Resource_trm.delete_annots_on tg;
+    let on_delete_to_prove f =
+      Tools.warn "erased to_prove: %s" (Resource_computation.formula_to_string f)
+    in
+    Target.apply_at_target_paths (Resource_trm.delete_annots_on ~on_delete_to_prove) tg;
     Show.ast ()
   )
 
