@@ -32,8 +32,7 @@ let fast = if only <> -1 then [occIndex only] else [nbMulti]
 let _ = Run.script_cpp (fun () ->
   !! Reduce.intro [cVarDef "s"];
 
-  let mark_then (var, _value) = sprintf "%s" var in
-  !! Specialize.variable_multi ~mark_then ~mark_else:"nokn"
+  !! Specialize.variable_multi ~mark_then:fst ~mark_else:"nokn"
     ["kn", int 3; "kn", int 5] [cFunBody "rowSum"; cFor "i"];
   !! Reduce.elim ~inline:true [nbMulti; cMark "kn"; cCall "reduce_spe1"];
   !! Loop.collapse [nbMulti; cMark "kn"; cFor "i"];
@@ -50,7 +49,7 @@ let _ = Run.script_cpp (fun () ->
     - insert to_prove instead of warning for / 0.
    *)
 
-  !! Specialize.variable_multi ~mark_then ~simpl:custom_specialize_simpl
+  !! Specialize.variable_multi ~mark_then:fst ~simpl:custom_specialize_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
 

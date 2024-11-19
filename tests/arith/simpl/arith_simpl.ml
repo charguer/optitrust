@@ -35,6 +35,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "re"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "rf"; dRHS];
 
+  !! Arith_basic.(simpl expand_rec) [nbMulti; cWriteVar "eu"; dRHS];
   !! Arith_basic.(simpl euclidian) [nbMulti; cWriteVar "eu"; dRHS];
   !! Arith_basic.(simpl (compose [expand_rec; euclidian; gather_rec])) [nbMulti; cWriteVar "eur"; dRHS];
 
@@ -55,7 +56,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "y"; dRHS];
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "z"; dRHS];
   !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "t"; dRHS];
-  !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "u"; dRHS];
+  !! Arith_basic.(simpl expand_rec) [nbMulti; cWriteVar "u"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
 
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "f"; dRHS];

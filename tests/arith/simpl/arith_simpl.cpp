@@ -103,6 +103,7 @@ int main()
   u = 2 * (exact_div(a, 2) + 3); // = a + 2 * 3
   u = (a + b) * (c + d); // = a * c + a * d + b * c + b * d
   u = 5*a * (2*b + 3*c + 4*d);
+  u = a + a * (b + c); // = a + a * b + c
 
   // test expand from pic demo
   v = (a / b * c / (a * d * d / b * e)); // = c / (d * d * e)
@@ -154,7 +155,11 @@ int main()
   // test euclidian
   eu = (n / m) * m + (n % m); // = n
   eu = m + (n % m) + m * (n / m); // = m + n
+<<<<<<< HEAD
   eur = m % n + (1 + m / n) * n; // = m + n
+=======
+  eu = n % m + (2 + n / m) * m; // = n + 2 * m
+>>>>>>> arthur
 
   // test integer addition
   p = (2 + m) - (m + -2); // = 4

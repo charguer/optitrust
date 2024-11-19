@@ -149,10 +149,12 @@ let process_mode (mode : string) : unit =
   execution_mode :=
     begin match mode with
     | "step-diff" -> Execution_mode_step_diff
-    | "step-trace" -> Execution_mode_step_trace
+    | "step-trace" ->
+       (*later: serialize_trace := true; *)
+       Execution_mode_step_trace
     | "full-trace" ->
-      serialize_trace := true;
-      Execution_mode_full_trace
+       serialize_trace := true;
+       Execution_mode_full_trace
     | "standalone-full-trace" -> Execution_mode_full_trace
     | "exec" -> Execution_mode_exec
     | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"

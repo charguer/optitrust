@@ -5,6 +5,7 @@ let _ = Flags.check_validity := true
 let _ = Flags.recompute_resources_between_steps := true
 let _ = Flags.disable_stringreprs := true
 
+
 (** Reproducing a subset of the PIC case study *)
 
 let _ = Run.script_cpp (fun () ->
@@ -27,7 +28,7 @@ let _ = Run.script_cpp (fun () ->
   !! Record.split_fields ~typs:[particle; vect] [tSpanSeq [ctx]];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];
 
-  bigstep "scale field and particles"; (* check factors != 0 *)
+  bigstep "scale field and particles";
   let deltaT = find_var "deltaT" in
   !! Variable.insert ~name:"fieldFactor" ~value:(trm_mul (trm_mul deltaT deltaT) (trm_exact_div (find_var "pCharge") (find_var "pMass"))) [ctx; tBefore; cVarDef "lFieldAtCorners"];
   (* tFirst *)
@@ -36,17 +37,12 @@ let _ = Run.script_cpp (fun () ->
   let scaleSpeed2 d = Accesses.scale_immut ~factor:deltaT [nbMulti; ctx; cVarDef ("speed2_" ^ d)] in
   !! List.iter scaleSpeed2 dims;
   let scaleFieldAtCorners d =
-    (* lFieldAtCorners[?i].(x|y|z) *)
     let address_pattern = Trm.(struct_access (array_access (find_var "lFieldAtCorners") (pattern_var "i")) d) in
-    Accesses.scale ~factor:(find_var "fieldFactor") ~address_pattern ~uninit_post:true [ctx; tSpan [tBefore; cMark "loadField"] [tAfter; cFor "idStep"]]
-  in
+    Accesses.scale ~factor:(find_var "fieldFactor") ~address_pattern ~uninit_post:true [ctx; tSpan [tBefore; cMark "loadField"] [tAfter; cFor "idStep"]]in
   !! List.iter scaleFieldAtCorners dims;
   let scaleParticles d =
-    (* particles[?i].speed.(x|y|z)] *)
     let address_pattern = Trm.(struct_access (struct_access (array_access (find_var "particles") (pattern_var "i")) "speed") d) in
-    Accesses.scale ~factor:deltaT ~address_pattern ~mark_preprocess:"partsPrep" ~mark_postprocess:"partsPostp" [ctx; tSpanAround [cFor "idStep"]];
-    (* TODO: shorter terminology: prelude and postlude? *)
-  in
+    Accesses.scale ~factor:deltaT ~address_pattern ~mark_preprocess:"partsPrep" ~mark_postprocess:"partsPostp" [ctx; tSpanAround [cFor "idStep"]]; in
   !! List.iter scaleParticles dims;
   !! List.iter Loop.fusion_targets [[cMark "partsPrep"]; [cMark "partsPostp"]];
 
@@ -57,7 +53,7 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "final polish";
   !! Loop.hoist_alloc ~indep:["idStep"; "idPart"] ~dest:[tBefore; cFor "idStep"] [cVarDef "coeffs"];
-  !! Cleanup.std (); (* TODO: cleanup += 1 --> ++ *)
+  !! Cleanup.std ();
 
 )
 
@@ -79,3 +75,5 @@ let _ = Run.script_cpp (fun () ->
     - allow writing C code for constructing factors, need to parse and put in correct context with local ids
     - FIXME: reparse triggers access normalization
   *)
+  (* LATER: use a grammar for patterns such as:
+      lFieldAtCorners[?i].(x|y|z)  and   particles[?i].speed.(x|y|z)] *)

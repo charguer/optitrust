@@ -348,6 +348,10 @@ type trace = {
 let trm_dummy : trm =
   trm_lit Lit_unit
 
+(** [is_trm_dummy t]: evaluates whether [t] is a dummy trm or a proper trm. *)
+let is_trm_dummy (t:trm) : bool =
+  t == trm_dummy
+
 (** [the_trace]: the trace produced by the current script. *)
 let the_trace : trace = {
   next_step_id = 0;
@@ -619,6 +623,27 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
     the_trace.cur_ast_typed <- false;
   end
 
+
+(******************************************************************************)
+(*                               Step filtering                               *)
+(******************************************************************************)
+
+(** [step_should_be_kept_in_trace s] determines based on the kind of step [s]
+    and based on the flag [substeps_including_ast] whether the step should be
+    kept in the trace or not. *)
+let step_should_be_kept_in_trace (s:step_tree) : bool = (* LATER: this line might be redundant with the filtering *)
+   match !Flags.substeps_including_ast with
+  | SubstepsAST_all -> true
+  | SubstepsAST_small ->
+      begin match s.step_kind with
+      | Step_root | Step_big | Step_small -> true
+      | _ -> false
+      end
+  | SubstepsAST_all_important ->
+      begin match s.step_kind with (* select steps that are important for third-party reporting *)
+      | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
+      | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false
+      end
 
 
 (******************************************************************************)
@@ -942,6 +967,8 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
         if List.length (List.filter has_show_tag steps) > 1
           then Tools.warn "Should have only one show function after '!!'."
   end;
+  (* Filter out substeps that need not be kept in the trace *)
+  step.step_sub <- List.filter step_should_be_kept_in_trace step.step_sub;
   (* Save the time *)
   infos.step_exectime <- now() -. infos.step_time_start
 
@@ -1491,15 +1518,16 @@ let get_code_after ?(style:output_style option) (s:step_tree) : string =
   let style = Option.value ~default:s.step_style_after style in
   get_code ~temp_prefix:"after" style s.step_context s.step_ast_after
 
-let compute_before_after_and_diff ?(style:output_style option) ~(drop_before_after: bool) (s:step_tree) : string * string * string =
+let compute_before_after_and_diff ?(style:output_style option) ?(hide_annot:bool=false) ~(drop_before_after: bool) (s:step_tree) : string * string * string =
+  (* Get the requested style *)
+  let style_before = Option.value ~default:s.step_style_before style in
+  let style_after = Option.value ~default:s.step_style_after style in
+  let style_before, style_after = if hide_annot then (let st = Style.c_code() in st,st) else style_before, style_after in
   (* Handle the light-diff feature, which eliminates top-level functions that
      are physically identical in the AST before and after *)
-  let ast_before, ast_after = process_ast_before_after_for_diff s.step_style_before s.step_style_after s.step_ast_before s.step_ast_after in
-
+  let ast_before, ast_after = process_ast_before_after_for_diff style_before style_after s.step_ast_before s.step_ast_after in
   (* Dump the two files, and evaluate the diff command *)
-  let style_before = Option.value ~default:s.step_style_before style in
   let before_file = code_to_temp_file ~temp_prefix:"before" style_before s.step_context ast_before in
-  let style_after = Option.value ~default:s.step_style_after style in
   let after_file = code_to_temp_file ~temp_prefix:"after" style_after s.step_context ast_after in
   let sDiff = Tools.get_process_output (sprintf "git diff --ignore-all-space --no-index -U10 %s %s" before_file after_file) in
   let sBefore = if drop_before_after then "" else File.get_contents before_file in
@@ -1510,14 +1538,14 @@ let compute_before_after_and_diff ?(style:output_style option) ~(drop_before_aft
 
 (** [compute_diff s] returns the string describing the diff associated with the step [s].
     The AST are printed using the style_before and style_after of [s]. *)
-let compute_diff ?(style:output_style option) (s:step_tree) : string =
-  let _, _, diff = compute_before_after_and_diff ?style ~drop_before_after:true s in
+let compute_diff ?(hide_annot:bool=false) ?(style:output_style option) (s:step_tree) : string =
+  let _, _, diff = compute_before_after_and_diff ~hide_annot ?style ~drop_before_after:true s in
   diff
 
 (** [compute_before_after_and_diff s] returns not just the diff, but also the contents
     of the files that correspond to the AST-before and AST-after for the step [s]. *)
-let compute_before_after_and_diff ?(style:output_style option) (s:step_tree) : string * string * string =
-  compute_before_after_and_diff ?style ~drop_before_after:false s
+let compute_before_after_and_diff ?(hide_annot:bool=false) ?(style:output_style option) (s:step_tree) : string * string * string =
+  compute_before_after_and_diff ~hide_annot ?style ~drop_before_after:false s
 
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (** [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
@@ -1537,26 +1565,15 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
   let should_compute_diff =
       (not !Flags.serialize_trace)
       && ((not is_mode_step_trace) || is_substep_of_targeted_line)
-      && (match !Flags.substeps_including_ast with
-          | SubstepsAST_all -> true
-          | SubstepsAST_small ->
-              begin match s.step_kind with
-              | Step_root | Step_big | Step_small -> true
-              | _ -> false
-              end
-          | SubstepsAST_all_important ->
-              begin match s.step_kind with (* select steps that deserve a diff in non-detailed mode, based on their kind *)
-              | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
-              | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false
-             end)
+      && step_should_be_kept_in_trace s (* LATER: this line might be redundant with the filtering *)
     in
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line root_id out in
-  (* Dump Json for this node *)
+  (* Compute code display for this node *)
   let sBefore, sAfter, sDiff =
     if should_compute_diff then begin
       try
-        let sBefore, sAfter, sDiff = compute_before_after_and_diff s in
+        let sBefore, sAfter, sDiff = compute_before_after_and_diff ~hide_annot:false s in
         Some sBefore, Some sAfter, Some sDiff
       with e ->
         (* Prevent any exception during printing to corrupt the entire trace *)
@@ -1566,6 +1583,20 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
     end else
       None, None, None
     in
+  let sBefore_raw, sAfter_raw, sDiff_raw =
+    if should_compute_diff then begin
+      try
+        let sBefore_raw, sAfter_raw, sDiff_raw = compute_before_after_and_diff ~hide_annot:true s in
+        Some sBefore_raw, Some sAfter_raw, Some sDiff_raw
+      with e ->
+        (* Prevent any exception during printing to corrupt the entire trace *)
+        let exn = Printexc.to_string e in
+        Tools.warn "Error while saving trace:\n%s" exn;
+        None, None, None
+    end else
+      None, None, None
+    in
+  (* Dump Json for this node *)
   let id = s.step_infos.step_id - root_id in
   let json = (* TODO: check if ~html_newlines:true is needed for certain calls to [Json.str] *)
     Json.obj_quoted_keys [
@@ -1587,6 +1618,9 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
       "code_before", Json.(optionof base64) sBefore;
       "code_after", Json.(optionof base64) sAfter;
       "diff", Json.(optionof base64) sDiff;
+      "code_before_raw", Json.(optionof base64) sBefore_raw;
+      "code_after_raw", Json.(optionof base64) sAfter_raw;
+      "diff_raw", Json.(optionof base64) sDiff_raw;
     ] in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
   (* If this step is the targeted step, mention it as such *)

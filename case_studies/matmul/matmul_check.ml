@@ -33,9 +33,12 @@ let _ = Run.script_cpp (fun () ->
   !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
   (* TODO: why do_nothing? *)
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
-
   !! Cleanup.std ();
   (* TODO: expand should only duplicate `Resources.trm_is_pure`
     + do !! Arith_basic.(simpls_rec [expand; gather_rec; compute]) [nbMulti; cAccesses()];
     *)
 )
+
+(* for demos:
+    !! Loop.tile (int 32) ~index:("bj") ~bound:TileDivides [cFor "i"];
+  *)

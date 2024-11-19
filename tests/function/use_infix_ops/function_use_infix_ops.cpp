@@ -13,4 +13,6 @@ void g() {
   x = x + 3;
   x = 3 + x;
   x = x - 2;
+  int y = 4;
+  x = x - 2 + y;
 }
