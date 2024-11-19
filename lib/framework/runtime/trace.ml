@@ -40,6 +40,8 @@ let debug_notify_dump_trace = ref false
 
 let debug_compute_ml_file_excerpts = ref false
 
+let debug_total_typechecking_time = ref 0.
+
 
 (******************************************************************************)
 (*                             File excerpts                                  *)
@@ -632,7 +634,9 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
     and based on the flag [substeps_including_ast] whether the step should be
     kept in the trace or not. *)
 let step_should_be_kept_in_trace (s:step_tree) : bool = (* LATER: this line might be redundant with the filtering *)
-   match !Flags.substeps_including_ast with
+  match !Flags.substeps_including_ast with
+  | SubstepsAST_default -> failwith "execution mode has not been set"
+  | SubstepsAST_none -> false
   | SubstepsAST_all -> true
   | SubstepsAST_small ->
       begin match s.step_kind with
@@ -970,8 +974,10 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
   (* Filter out substeps that need not be kept in the trace *)
   step.step_sub <- List.filter step_should_be_kept_in_trace step.step_sub;
   (* Save the time *)
-  infos.step_exectime <- now() -. infos.step_time_start
-
+  infos.step_exectime <- now() -. infos.step_time_start;
+  (* Accumulate total typechecking time *)
+  if step.step_kind = Step_typing then
+    debug_total_typechecking_time := !debug_total_typechecking_time +. infos.step_exectime
 
 and without_reparsing_between_steps (f: unit -> unit): unit =
   Flags.with_flag Flags.reparse_between_steps false f;
@@ -1699,6 +1705,8 @@ let serialize_full_trace_and_get_timestamp ~(prefix : string) (tree : step_tree)
      serialized trace (as a string). *)
 let dump_full_trace_to_js ~(prefix : string) : unit =
   let tree = get_root_step () in
+  (* LATER the [erase_some_asts] and [strip_trace] are subsumed by the
+     [substeps_including_ast] flag. *)
   let rec erase_some_asts parent_erases s =
     (* FIXME: duplicated code with iter_step_tree *)
     let erase = parent_erases || match s.step_kind with
@@ -1713,7 +1721,7 @@ let dump_full_trace_to_js ~(prefix : string) : unit =
     List.iter (erase_some_asts erase) s.step_sub
   in
   if !Flags.strip_trace
-  then erase_some_asts false tree;
+    then erase_some_asts false tree;
   let serialized_trace_timestamp =
     if !Flags.serialize_trace
       then Some (serialize_full_trace_and_get_timestamp ~prefix tree)
