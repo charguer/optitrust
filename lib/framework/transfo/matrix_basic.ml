@@ -769,7 +769,7 @@ let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg 
       end
     )) tg)
 
-let elim_mindex_on_opt (t : trm) : trm option =
+let elim_mindex_on_opt (simpl : trm -> trm) (t : trm) : trm option =
   let rec generate_index (acc : trm) (dims : trms) (idxs : trms) : trm =
     match (dims, idxs) with
     | (d :: dr, i :: ir) ->
@@ -778,13 +778,13 @@ let elim_mindex_on_opt (t : trm) : trm option =
     | _ -> acc
   in
   match mindex_inv t with
-  | Some (dims, idxs) -> Some (generate_index (trm_int 0) dims idxs)
+  | Some (dims, idxs) -> Some (simpl (generate_index (trm_int 0) dims idxs))
   | None -> None
 
-let elim_malloc_on_opt (t : trm) : trm option =
+let elim_malloc_on_opt (simpl : trm -> trm) (t : trm) : trm option =
   match alloc_inv t with
   | Some (dims, size, zero_init) ->
-    let size_expr = List.fold_right trm_mul dims size in
+    let size_expr = simpl (List.fold_right trm_mul dims size) in
     let f = if zero_init then "calloc" else "malloc" in
     Some (trm_apps (trm_var (toplevel_var f)) [size_expr])
   | None -> None
@@ -794,13 +794,13 @@ let elim_mfree_on_opt (t : trm) : trm option =
   | Some v -> Some (trm_apps (trm_var (toplevel_var "free")) [v])
   | None -> None
 
-let elim_memcpy_on_opt (t : trm) : trm option =
+let elim_memcpy_on_opt (simpl : trm -> trm) (t : trm) : trm option =
   match Matrix_core.memcpy_inv t with
   | Some (dest, d_offset, src, s_offset, elems, elem_size) ->
     assert (Resources.trm_is_pure elem_size); (* TODO: otherwise, create binder *)
     let apply_offset ptr offset = match (trm_sizeof_inv elem_size, Option.bind  ptr.typ typ_ptr_inv) with
     | (Some typ, Some typ2) when are_same_trm typ typ2 ->
-      trm_array_access ptr offset
+      trm_array_access ptr (simpl offset)
     | _ ->
       (* DEBUG: Show.trm_internal ~msg:"elem_size" elem_size;
       begin match ptr.typ with
@@ -808,24 +808,24 @@ let elim_memcpy_on_opt (t : trm) : trm option =
       | Some typ -> Show.trm_internal ~msg:"ptr.typ" typ
       end; *)
       trm_cast (typ_ptr typ_unit) (
-        trm_add (trm_cast typ_usize ptr) (trm_mul offset elem_size))
+        simpl (trm_add (trm_cast typ_usize ptr) (trm_mul offset elem_size)))
     in
     Some (trm_apps (trm_var (toplevel_var "memcpy")) [
       apply_offset dest d_offset;
       apply_offset src s_offset;
-      trm_mul elems elem_size
+      simpl (trm_mul elems elem_size)
     ])
   | None -> None
 
-let elim_mops_on_opt (t : trm) =
-  Option.or_else (elim_mindex_on_opt t) (fun () ->
-  Option.or_else (elim_malloc_on_opt t) (fun () ->
+let elim_mops_on_opt (simpl : trm -> trm) (t : trm) =
+  Option.or_else (elim_mindex_on_opt simpl t) (fun () ->
+  Option.or_else (elim_malloc_on_opt simpl t) (fun () ->
   Option.or_else (elim_mfree_on_opt t) (fun () ->
-    elim_memcpy_on_opt t
+    elim_memcpy_on_opt simpl t
   )))
 
 let elim_mindex_on (t : trm) : trm =
-  match elim_mindex_on_opt t with
+  match elim_mindex_on_opt (fun t -> t) t with
   | Some t2 -> t2
   | None -> trm_fail t "expected MINDEX expression"
 
@@ -842,11 +842,11 @@ let%transfo elim_mindex (tg : target) : unit =
   Target.apply_at_target_paths elim_mindex_on tg
 
 (** recursive version of [elim_mindex] that also removes other matrix operations like allocs, frees, and memcopies. *)
-let%transfo elim_all_mops (tg : target) : unit =
+let%transfo elim_all_mops ?(simpl : trm -> trm = Arith_basic.(Arith_core.simplify false (compose [gather_rec; compute]))) (tg : target) : unit =
   Resources.justif_correct "size and index expressions are pure";
   Target.iter (fun p ->
     Target.apply_at_path (trm_bottom_up (fun t ->
-      match elim_mops_on_opt t with
+      match elim_mops_on_opt simpl t with
       | Some t2 -> t2
       | None -> t
     )) p

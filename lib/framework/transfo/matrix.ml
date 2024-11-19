@@ -134,16 +134,13 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
   - eliminate MALLOC2 into malloc(sizeof(T[n][m]))?
   - ~simpl
 *)
-let%transfo elim_mops (tg : target): unit =
+let%transfo elim_mops ?(simpl : trm -> trm = Arith_basic.(Arith_core.simplify false (compose [gather_rec; compute]))) (tg : target): unit =
   Trace.tag_valid_by_composition ();
   Trace.without_resource_computation_between_steps (fun () ->
     Target.iter (fun p ->
       (* FIXME: bugged target
         elim_mindex [nbAny; cPath p; cMindex ()]; *)
-      elim_all_mops (target_of_path p);
-      (* TODO: more precise target ? *)
-      Arith.(simpl_rec gather_rec) (target_of_path p);
-      Arith.(simpl_rec compute) (target_of_path p)
+      elim_all_mops ~simpl (target_of_path p);
     ) tg
   )
 

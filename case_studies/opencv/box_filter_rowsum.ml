@@ -54,5 +54,6 @@ let _ = Run.script_cpp (fun () ->
   );
 
   (* TODO? simpl ~unfold_alias:true *)
+  (* TODO: [expand_rec; gather_rec; compute] *)
   !! Cleanup.std ();
 )
