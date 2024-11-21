@@ -8,6 +8,7 @@ module DepAttr : sig
     | ArgIn
     | ArgInOut
     | InductionVariable
+    | NewVariable
     | Condition
     | Subscripted
     | Accessor
@@ -23,6 +24,8 @@ end = struct
     | ArgInOut
     (** induction variable in a loop *)
     | InductionVariable
+    (** variable appearing for the first time *)
+    | NewVariable
     (** part of a conditionnal statement, e.g. in an if-statement or in a
         switch-statement *)
     | Condition
@@ -52,6 +55,7 @@ end = struct
     | ArgIn -> "ArgIn"
     | ArgInOut -> "ArgInOut"
     | InductionVariable -> "InductionVariable"
+    | NewVariable -> "NewVariable"
     | Condition -> "Condition"
     | Subscripted -> "Subscripted"
     | Accessor -> "Accessor"

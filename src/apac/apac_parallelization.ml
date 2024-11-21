@@ -784,9 +784,11 @@ let place_barriers_on (p : path) (t : trm) : unit =
           begin
             (** To this end, we imagine a temporary task candidate with a label
                 [temp], based on [t], but omitting the dependencies from nested
-                task candidate graphs, if any. We process the task candidates in
-                nested task candidate graphs separately through a recurive call
-                to this function (see below). *)
+                task candidate graphs, if any, as well as the dependencies on
+                new variables. Indeed, a variable must not appear in a pragma
+                before being declared. We process the task candidates in nested
+                task candidate graphs separately through a recurive call to this
+                function (see below). *)
             let temp = Task.copy t in
             temp.ins <- if t.children <> [[]] then
                           Dep_set.filter (fun d ->
@@ -795,14 +797,27 @@ let place_barriers_on (p : path) (t : trm) : unit =
                         else t.ins;
             temp.inouts <- if t.children <> [[]] then
                              Dep_set.filter (fun d ->
-                                 Dep_map.has_with_attribute
-                                   d Condition t.ioattrs
+                                 (Dep_map.has_with_attribute
+                                    d Condition t.ioattrs)
                                ) t.inouts
                            else t.inouts;
+            temp.inouts <- Dep_set.filter (fun d ->
+                               not (Dep_map.has_with_attribute
+                                      d NewVariable temp.ioattrs)
+                             ) temp.inouts;
             (** Check whether the temporary task candidate shares a data
                 dependency with a preceding eligible task candidate. *)
             let depends = Stack.fold (fun acc task' ->
-                              acc || (Task.depending task' temp)
+                              (** Note that we must filter out dependencies on
+                                  new variables from the preceding task
+                                  candidates too. *)
+                              let task'' = Task.copy task' in
+                              task''.inouts <-
+                                Dep_set.filter (fun d ->
+                                    not (Dep_map.has_with_attribute
+                                           d NewVariable task'.ioattrs)
+                                  ) task'.inouts;
+                              acc || (Task.depending task'' temp)
                             ) false ts in
             (** If so, we request a synchronization barrier for [v] through [t]
                 thanks to the [WaitForSome] attribute. *)

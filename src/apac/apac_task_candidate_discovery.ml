@@ -613,8 +613,10 @@ let discover_dependencies
            necessary only in the case of single variable declarations. *)
        let nli = if vk = Var_immutable then nli else nli - 1 in
        (** Transform [v] into an inout-dependency and add it to the
-           corresponding dependency set. *)
-       let inouts = Dep_set.add (Dep_var v) inouts in
+           corresponding dependency set with the [NewVariable] attribute. *)
+       let d = Dep_var v in
+       let inouts = Dep_set.add d inouts in
+       let dam = Dep_map.add d (DepAttr_set.singleton NewVariable) dam in
        (** We continue the dependency discovery within the initialization term
            [init]. At this point, we consider them as in-dependencies. However,
            this might change later if we discover a unary increment or decrement
@@ -638,8 +640,10 @@ let discover_dependencies
                to its type [ty]. *)
            let nli = typ_get_nli ty in
            (** Transform [v] into an inout-dependency and add it to the
-               corresponding dependency set. *)
-           let inouts = Dep_set.add (Dep_var v) inouts in
+               corresponding dependency set with the [NewVariable] attribute. *)
+           let d = Dep_var v in
+           let inouts = Dep_set.add d inouts in
+           let dam = Dep_map.add d (DepAttr_set.singleton NewVariable) dam in
            (** We continue the dependency discovery within the initialization
                term [init]. At this point, we consider them as in-dependencies.
                However, this might change later if we discover a unary increment
