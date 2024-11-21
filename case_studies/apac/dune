@@ -1,4 +1,0 @@
-(executable
- (public_name apac_cases)
- (name apac_cases)
- (libraries optitrust))

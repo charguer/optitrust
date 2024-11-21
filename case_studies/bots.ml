@@ -8,64 +8,40 @@ open Optitrust
     parameters selects the mehotd APAC uses to prune parallelizable tasks.
     Possible values are `none', `counters', `model' or `both'. *)
 let setup (case : string) (cutoff : string) : string * string =
-  let apac = Apac_macros.cwd () ^ "/case_studies/apac/" in
-  let bots = apac ^ "bots/" in
-  let skip, includes, main, _bots =
+  let bots = Apac_macros.cwd () ^ "/case_studies/bots/" in
+  let skip, main =
     match case with
     | "alignment" ->
        (["init_matrix"; "pairalign_init"; "align_init"; "align_end";
-         "align_verify"],
-        [bots ^ "common"],
-        "align",
-        true)       
+         "align_verify"], "align")       
     | "concom" ->
-       (["initialize"; "write_outputs"; "cc_init"; "cc_check"],
-        [bots ^ "common"],
-        "cc_par",
-        true)
+       (["initialize"; "write_outputs"; "cc_init"; "cc_check"], "cc_par")
     | "fft" ->
-       (["test_correctness"], [bots ^ "common"], "fft", true)
+       (["test_correctness"], "fft")
     | "fib" ->
-       (["fib_verify_value"; "fib_verify"],
-        [bots ^ "common"],
-        "fib0",
-        true)
+       (["fib_verify_value"; "fib_verify"], "fib0")
     | "floorplan" ->
        (["read_integer"; "read_inputs"; "write_outputs"; "floorplan_init";
-         "floorplan_end"; "floorplan_verify"],
-        [bots ^ "common"],
-        "compute_floorplan",
-        true)
+         "floorplan_end"; "floorplan_verify"], "compute_floorplan")
     | "knapsack" ->
-       (["read_input"; "knapsack_check"],
-        [bots ^ "common"],
-        "knapsack_main_par",
-        true)
+       (["read_input"; "knapsack_check"], "knapsack_main_par")
     | "molecular_dyn" ->
-       ([], [], "main", false)
+       (["check"; "check_symb"; "check_force"], "compute")
     | "nqueens" ->
-       (["verify_queens"], [bots ^ "common"], "find_queens", true)
+       (["verify_queens"], "find_queens")
     | "quicksort" ->
-       ([], [], "main", false)
+       (["check"], "sort")
     | "sort" ->
-       (["sort_init"; "sort_verify"], [bots ^ "common"], "sort_par", true)
+       (["sort_init"; "sort_verify"], "sort_par")
     | "sparselu" ->
        (["checkmat"; "genmat"; "print_structure"; "allocate_clean_block";
          "sparselu_init"; "sparselu_fini"; "sparselu_check"],
-        [bots ^ "common"],
-        "sparselu_par_call",
-        true)
+        "sparselu_par_call")
     | "strassen" ->
-       (["init_matrix"; "compare_matrix"; "alloc_matrix"],
-        [bots ^ "common"],
-        "strassen_main_par",
-        true)
+       (["init_matrix"; "compare_matrix"; "alloc_matrix"], "strassen_main_par")
     | "uts" ->
-       (["uts_read_file"; "uts_show_stats"; "uts_check_result"],
-        [bots ^ "common"],
-        "parallel_uts",
-        true)
-    | _ -> failwith ("[Apac_cases] error: unknown case study `" ^ case ^ "'!")
+       (["uts_read_file"; "uts_show_stats"; "uts_check_result"], "parallel_uts")
+    | _ -> failwith ("[bots] error: unknown case study `" ^ case ^ "'!")
   in
   let cutoff =
     match cutoff with
@@ -87,18 +63,14 @@ let setup (case : string) (cutoff : string) : string * string =
        cutoff
     | _ ->
        failwith
-         ("[Apac_cases] error: unknown cut-off strategy `" ^ cutoff ^ "'!")
+         ("[bots] error: unknown cut-off strategy `" ^ cutoff ^ "'!")
   in
   Apac_flags.constify := true;
-  Flags.c_parser_includes := includes;
-  if _bots then
-    Apac_flags.omit := ".*_seq$";
+  Flags.c_parser_includes := [bots ^ "common"];
+  Apac_flags.omit := ".*_seq$";
   Apac_macros.skip skip;
   Apac_flags.main := main;
-  let path, ext =
-    if _bots then (bots ^ "omp-apac/" ^ case ^ "/", ".c")
-    else (apac ^ case ^ "/", ".cpp")
-  in
+  let path, ext = bots ^ "omp-apac/" ^ case ^ "/", ".cpp" in
   let cutoff = if cutoff <> "" then ("-" ^ cutoff) else "" in
   (path ^ case ^ ".in" ^ ext, path ^ case ^ cutoff ^ ext)
 
