@@ -15,7 +15,7 @@ In the meanwhile, if you are interested in a demo, please get in touch with @cha
 --------------------------------------------------------------------------------
 ## Installation
 
-# Install OCaml and system packages
+### Install OCaml and system packages
 
 It takes about 30 minutes to install the required OCaml software.
 
@@ -46,13 +46,15 @@ Installation of OCaml ecosystem:
    eval $(opam env)
 ```
 
-# Install precommit hooks
+### Install precommit hooks
+
+This command configures git to automatically run unit tests between commits. It can be ignored if you just want to try OptiTrust without contributing, and you have not downloaded the source files through git.
 
 ```sh
   make install_git_hooks
 ```
 
-# Precompiling headers
+### Precompiling headers
 
 For faster compilation, we precompile header files.
 
@@ -60,7 +62,7 @@ For faster compilation, we precompile header files.
   make precompile
 ```
 
-# Install libraries for parsing
+### Install libraries for parsing
 
 Then, you need to either export the environment variable OPTITRUST by
 executing "export OPTITRUST=`pwd`", from the optitrust folder,
@@ -72,14 +74,14 @@ or more conveniently execute the command:
 
 which essentially performs a `sudo install src/c/compcert_parser/include/*.h usr/local/lib/compcert`
 
-# Test your installation from the command line
+### Test your installation from the command line
 
 Checking your installation of OptiTrust is working:
 ```sh
    make tests
 ```
 
-# Configure VScode (or VSCodium) for interactive usage
+### Configure VScode (or VSCodium) for interactive usage
 
 You can install either VSCode or VSCodium (more open).
 
