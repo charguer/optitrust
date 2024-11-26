@@ -247,6 +247,9 @@ end
     variables. *)
 module LVar_Hashtbl = Hashtbl.Make(LVar)
 
+(** [LVar_set]: a set module for storing labelled variables. *)
+module LVar_set = Set.Make(LVar)
+
 (* [string_trm]: description of a term as a string (convenient for the user) *)
 type string_trm = string
 
