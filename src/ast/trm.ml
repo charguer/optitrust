@@ -1807,6 +1807,21 @@ let get_lit_from_trm_lit (t : trm) : lit =
       end
     | _ -> false
 
+(** [is_array_access t]: check whether the term [t] is an array access. *)
+let is_array_access (t : trm) : bool =
+  match t.desc with
+  | Trm_apps (f, _) ->
+     begin match trm_prim_inv f with
+     | Some p ->
+        begin match p with
+        | Prim_binop (Binop_array_access)
+          | Prim_binop (Binop_array_get) -> true
+        | _ -> false
+        end
+     | None -> false
+     end
+  | _ -> false
+
   (* [get_operation_arg t]: gets the arg of a get operation. *)
   let get_operation_arg (t : trm) : trm =
     match t.desc with
