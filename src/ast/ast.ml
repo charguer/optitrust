@@ -222,6 +222,13 @@ module LVar = struct
       Then, we check the equality of the labels. *)
   let equal (lv1 : t) (lv2 : t) : bool = var_eq lv1.v lv2.v && lv1.l = lv2.l
 
+  (** [LVar.compare lv1 lv2]: compare the two labelled variables [lv1] and
+      [lv2]. If the variable parts are equal, we compare the labels. *)
+  let compare (lv1 : t) (lv2 : t) =
+    let v = Var.compare lv1.v lv2.v in
+    if v <> 0 then v
+    else String.compare lv1.l lv2.l
+
   (** [LVar.hash lv]: hashes the [lv] key of type [Lvar.t]. Note that the hash
       is based on both the variable unique identifier and the label. *)
   let hash (lv : t) : int = Hashtbl.hash ((string_of_int lv.v.id) ^ lv.l)
