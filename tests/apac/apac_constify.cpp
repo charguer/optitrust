@@ -16,11 +16,11 @@ void g(int a[2]) {
     a[f(1)]--;
 }
 
-void h(int  a) {
-    a = 1;
+void h(int a) {
+    a--;
 }
 
-void j(int & a) {
+void j(int a) {
     h(a);
 }
 
@@ -30,75 +30,43 @@ void k(int * a, int * b, int c) {
     *d = 1;
 }
 
-void l1(int & a) {
-    a += 1;
-}
-
-void l2(int & a) {
-    l1(a);
-}
-
-void l3(int & a) {
-    int &b = a;
-    l2(b);
-}
-
-void l4(int & a) {
-    --a;
-}
-
-int l5(int a) {
+int l(int a) {
     return a;
 }
 
-void m(int &a, int * b, int *& c) {
-    int * d = a + b;
+void m(int * a, int * b) {
+    int * d = a;
     d[0] = 1;
 }
 
-int * n1(int * a, int & b) {
+int * n1(int * a, int b) {
     int * c = a;
     return c;
 }
 
-int * n2(int * a, int & b) {
+int * n2(int * a, int b) {
     int * c = a;
     return n1(c, b);
 }
 
-int & n3(int & a, int& b) {
+int * n3(int * a, int * b) {
     return a;
 }
 
-int & n4(int & a, int & b) {
-    int &c = a;
+int * n4(int * a, int * b) {
+    int * c = a;
     return n3(c, b);
 }
 
-void n5(int * a, int & b, int c) {
+void n5(int * a, int * b, int c) {
     int * d = n2(a, c);
-    int & e = n4(b, c);
+    int * e = n4(b, &c);
 }
 
 void o0(int a, int b, int c) {
-    int &d=a, *e=&b;
+    int d=a, *e=&b;
     d = 1;
     *e = 1;
-}
-
-void o1(int* &a) {
-  int* &d = a;
-  d = NULL;
-}
-
-void o2(int* a) {
-  int* &d = a;
-  d = NULL;
-}
-
-void o3(int a) {
-  int &d = a;
-  d = 42;
 }
 
 void c1(int * a, int * b, int * c, int * d) {
@@ -122,24 +90,24 @@ void c3(int * a, int * b, int * c, int * d) {
 }
 
 namespace BB {
-    void h(int& a) {
+    void h(int a) {
         a = 1;
     }
 }
 
 namespace AA {
-    void f(int &a) {
-        a = 1;   
+    void f(int * a) {
+        *a = 1;   
     }
     
     void g(int a, int b, int c) {
-        f(a);
+        f(&a);
         BB::h(b);
     }
 }
 
 void p(int a, int b) {
-    AA::f(a);
+    AA::f(&a);
 }
 
 class CC {
@@ -165,4 +133,3 @@ int CC::q(int a) {
 void q(CC a, int b, int c) {
     a.f(&b, 1);
 }
-
