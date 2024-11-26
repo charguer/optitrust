@@ -22,38 +22,33 @@ let discover_dependencies
       type [ty] using the initializaion term [init] creates an alias to an
       existing variable. If so, the function updates [aliases]. The [r] flag
       indicates whether [tv] is a reference or not. *)
-  let may_update_aliases (r : bool) (v : var) (ty : typ) (init : trm) : unit =
+  let may_update_aliases (v : var) (ty : typ) (init : trm) : unit =
     let open Typ in
-    (** We may be creating an alias only if [v] is a reference or a pointer. *)
-    if r || is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then
-      (** In this case, we need to go through any [new] operations,
-          referencements or dereferencements in [init] to try to determine the
-          target variable [tg] we may be aliasing (see
-          [!trm_strip_and_get_lvar]). *)
-      let tg =
-        match (trm_new_inv init) with
-        | Some (_, v') -> v'
-        | None -> init in
-      let tg = trm_strip_and_get_lvar tg in
-      if Option.is_some tg then
-        let tg = Option.get tg in
-        let tg = tg.v in
-        (** Note that we do not consider as aliases the intermediate variables
-            starting with [!Apac_macros.intermediate_variable] we introduce
-            during the function call extraction (see
+    (** At first, we check whether [v] represents a new alias and if so, which
+        memory location [tg] it is aliasing. For this, we try to reduce [init]
+        to a unique memory location. *)
+    ignore (trm_reduce_and_apply (fun tg _ l nli ->
+        (** Note that we do not consider as alias targets the intermediate
+            variables starting with [!Apac_macros.intermediate_variable] we
+            introduce during the function call extraction (see
             [!Apac_preprocessing.extract_function_calls]). *)
         if not (String.starts_with
-                  ~prefix:Apac_macros.intermediate_variable tg.name)
-        then
+                  ~prefix:Apac_macros.intermediate_variable tg.name) then
           (** If [tg] is in [aliases], it is itself an alias to an existing
-              variable [tg'], *)
+            variable [tg']. *)
           if Var_Hashtbl.mem aliases tg then
-            (** we are about to create an alias to [tg']. *)
+            (** Therefore, we are about to create an alias to [tg']. *)
             let tg' = Var_Hashtbl.find aliases tg in
-            Var_Hashtbl.add aliases v tg'
+            Var_Hashtbl.add aliases v tg';
+            Some tg'
           else
             (** Otherwise, [v] becomes the first alias to [tg]. *)
-            Var_Hashtbl.add aliases v tg
+            begin
+              Var_Hashtbl.add aliases v tg;
+              Some tg
+            end
+        else None
+      ) init)
   in
   (** [discover_dependencies.best_effort ins inouts dam access iao t]: a
       best-effort dependency discovery for language constructs we do not fully
@@ -289,70 +284,26 @@ let discover_dependencies
                 (ins, inouts, dam)
            end
        else (ins, inouts, dam)
-    (** [t] is a structure member access ([s->m], [s.m], ...). *)
-    | Trm_apps ({ desc = Trm_val
-                           (Val_prim (Prim_unop (Unop_struct_access _)));
-                  _ }, _)
-      | Trm_apps ({ desc = Trm_val
-                             (Val_prim (Prim_unop (Unop_struct_get _)));
-                    _ }, _) ->
-       (** Our analysis is not clever enough yet. Try the best-effort dependency
-           discovery, but warn the user about it. *)
-       warning t; best_effort ins inouts dam access iao t
-    (** [t] is a dereferencement ([\*ptr], [\*\*ptr], ...) of a term [t'']. *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t'']) ->
-       (** Simplify [\&\*t] and [\*\&t] in [t] to [t']. *)
-       let t' = trm_simplify_addressof_and_get t in
-       (** However, the simplification is not recursive. Continue until
-           [!trm_simplify_addressof_and_get] has an effect on [t']. *)
-       if t != t' then
-         main ins inouts dam gets call access iao t'
-       else
-         (** Then, try to resolve the term [t'] of the variable being
-             dereferenced as well as the number [d] of dereferencements. *)
-         begin match (trm_resolve_dereferenced_with_degree t) with
-         | Some (t', d) ->
-            (** The encoding of OptiTrust implies an extra dereferencement when
-                reading a variable, i.e. when [access] is [`In], or when the
-                variable appears as an argument in a function call (see the
-                [call] flag). Therefore, in these cases, we have to decrease [d]
-                by one. *)
-            let d' = if access = `InOut && not call then d else d - 1 in
-            (** After ensuring a correct value of [d] in [d'], we continue the
-                dependency discovery on the variable term [t']. *)
-            main ins inouts dam d' call access iao t'
-         (** In the case we are unable to resolve the term of the variable being
-             dereferenced, we are facing two possible situations:
-
-             - [t''] is a memory access consisting of more than a simple
-             combination of dereferencements and array accesses the
-             [!trm_resolve_dereferenced_with_degree] function understands. *)
-         | None when is_access t'' ->
-            (** If so, we continue the dependency discovery on [t'']. *)
-            main ins inouts dam 0 call access iao t''
-         (** - [t''] represents another kind of term. *)
-         | None ->
-            (** If so, we try the best-effort dependency discovery and warn the
-                user about it. *)
-            warning t; best_effort ins inouts dam access false t
-         end
-    (** [t] is a referencement ([\&ptr]) of a term [t']. *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
-       (** Simplify [\&\*t] and [\*\&t] in [t] to [t']. *)
+    (** [t] is a dereferencement ([\*ptr], [\*\*ptr], ...) of a term [t']. *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
+       (** Simplify [\&\*t] and [\*\&t] in [t] to [t'']. *)
        let t'' = trm_simplify_addressof_and_get t in
        (** However, the simplification is not recursive. Continue until
-           [!trm_simplify_addressof_and_get] has an effect on [t']. *)
+           [!trm_simplify_addressof_and_get] has an effect. *)
+       if t != t'' then
+         main ins inouts dam gets call access iao t''
+       else
+         main ins inouts dam (gets + 1) call access iao t'
+    (** [t] is a referencement ([\&ptr]) of a term [t']. *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
+       (** Simplify [\&\*t] and [\*\&t] in [t] to [t'']. *)
+       let t'' = trm_simplify_addressof_and_get t in
+       (** However, the simplification is not recursive. Continue until
+           [!trm_simplify_addressof_and_get] has an effect. *)
        if t != t'' then
          main ins inouts dam 0 call access iao t''
-       else if (trm_is_array_or_direct_access t') then
-         (** If [t'] can resolve to an array or direct variable access, i.e.
-             forms of data accesses our discovery algorithm understands, we
-             continue the dependency discovery on [t']. *)
-         main ins inouts dam 0 call access iao t'
        else
-         (** Otherwise, we try the best-effort dependency discovery and warn the
-             user about it. *)
-         begin warning t; best_effort ins inouts dam access false t end
+         main ins inouts dam 0 call access iao t'
     (** [t] is an array accesses ([t\[i\]]). *)
     | Trm_apps ({desc = Trm_val
                           (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
@@ -584,18 +535,19 @@ let discover_dependencies
            However, this might change later if we discover a unary increment or
            decrement in [rval]. *)
        begin
-         match trm_resolve_binop_lval_and_get_with_deref ~plus:true lval with
-         | Some ({ v; _}, d) ->
-            (** [v] can become an alias only if it is a pointer, i.e. its number
-                of levels of indirection [nli] is greater than zero, and if it
-                was not [d]ereferenced. *)
+         match trm_reduce_and_apply (fun v _ _ nli -> Some (v, -nli)) lval with
+         | Some (v, gets) ->
+            (** [v] can become an alias only if it was not dereferenced, i.e. if
+                the number of dereferencements in [lval] is smaller than the
+                number of levels of indirection [nli] of [v]. *)
             let nli, e = Var_Hashtbl.find_or_default scope v 0 in
             let nli =
               if (not e) && (Var_map.mem v !Apac_records.globals) then
                 let ty, _ = Var_map.find v !Apac_records.globals in
                 typ_get_nli ty
               else nli in
-            may_update_aliases (not d && nli > 0) v (Typ.typ_unit ()) rval;
+            if gets < nli then
+              may_update_aliases v (Typ.typ_unit ()) rval;
             let ins, inouts, dam =
               main ins inouts dam 0 false `InOut false lval in
             main ins inouts dam 0 false `In false rval
@@ -608,10 +560,7 @@ let discover_dependencies
        (** Determine the number of levels of indirection [nli] of [v] thanks to
            its type [ty]. *)
        let nli = typ_get_nli ty in
-       (** Mutable variables in OptiTruts feature an addition dereferencement
-           operation we must not take into account here. This appears to be
-           necessary only in the case of single variable declarations. *)
-       let nli = if vk = Var_immutable then nli else nli - 1 in
+       let _ = Printf.printf "New variable '%s' of nli %d\n" (var_to_string v) nli in
        (** Transform [v] into an inout-dependency and add it to the
            corresponding dependency set with the [NewVariable] attribute. *)
        let d = Dep_var v in
@@ -627,7 +576,10 @@ let discover_dependencies
        Var_Hashtbl.add scope v nli;
        (** Finally, we check whether this variable declaration introduces an
            alias to an existing variable and if so, we update [aliases]. *)
-       may_update_aliases (trm_has_cstyle Reference t) v ty init;
+       if (trm_has_cstyle Reference t) ||
+            (Typ.is_typ_ptr
+               (Typ.get_inner_const_type (Typ.get_inner_ptr_type ty))) then
+         may_update_aliases v ty init;
        (ins, inouts, dam)
     (** [t] is a multiple declaration ([int a = 1, b]) of variables [tvs]
         including their types and of kind [vk] optionally involving
@@ -639,6 +591,7 @@ let discover_dependencies
            (** Determine the number of levels of indirection [nli] of [v] thanks
                to its type [ty]. *)
            let nli = typ_get_nli ty in
+           let _ = Printf.printf "MNew variable '%s' of nli %d\n" (var_to_string v) nli in
            (** Transform [v] into an inout-dependency and add it to the
                corresponding dependency set with the [NewVariable] attribute. *)
            let d = Dep_var v in
@@ -654,7 +607,10 @@ let discover_dependencies
            Var_Hashtbl.add scope v nli;
            (** Finally, we check whether this variable declaration introduces an
                alias to an existing variable and if so, we update [aliases]. *)
-           may_update_aliases (Typ.is_reference ty) v ty init;
+           if (Typ.is_reference ty) ||
+                (Typ.is_typ_ptr
+                   (Typ.get_inner_const_type (Typ.get_inner_ptr_type ty))) then
+             may_update_aliases  v ty init;
            (ins, inouts, dam)
          ) (ins, inouts, dam) tvs inits
     (** [t] is none of the above, explore the child terms. *)
@@ -672,8 +628,10 @@ let discover_dependencies
          ) (ins, inouts, dam) items
     | Trm_abort (Ret (Some return)) ->
        main ins inouts dam 0 false access false return
-    (** This function cannot explore any other term, return. *)
-    | _ -> (ins, inouts, dam)
+    (** This function cannot explore any other term, try the best-effort
+        dependency discovery and warn the user about it. *)
+    | _ ->
+       warning t; best_effort ins inouts dam access false t
   in
   (** Launch the dependency discovery process with default parameters. *)
   main (Dep_set.empty) (Dep_set.empty) (Dep_map.empty) 0 false `In false t
@@ -957,16 +915,16 @@ let taskify_on (p : path) (t : trm) : unit =
            must make it clear in the resulting task candidate that the statement
            is related to a 'goto' jump to [Apac_macros.goto_label], hence the
            [IsJump] attribute (see below). *)
-       let isjump = if (is_set_operation t) then
-                      let error =
-                        "Apac_task_candidate_discovery.taskify_on.fill: \
-                         expected set operation." in
-                      let (lval, _) = trm_inv ~error set_inv t in
-                      match trm_resolve_binop_lval_and_get_with_deref lval with
-                      | Some (lvar, _) when
-                             lvar.v.name = Apac_macros.result_variable -> true
-                      | _ -> false
-                    else false
+       let isjump =
+         if (is_set_operation t) then
+           let error =
+             "Apac_task_candidate_discovery.taskify_on.fill: expected set \
+              operation." in
+           let (lval, _) = trm_inv ~error set_inv t in
+           match trm_reduce_and_apply (fun v _ _ _ -> Some v) lval with
+           | Some v when v.name = Apac_macros.result_variable -> true
+           | _ -> false
+         else false
        in
        (** Look for dependencies and their attributes in the current term and
            initialize the in and inout-dependency sets as well as the map of

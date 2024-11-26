@@ -140,6 +140,13 @@ let subst_pragmas (va : var) (tv : trm)
 let heapify_on (t : trm) : trm =
   let open Typ in
   let open Apac_miscellaneous in
+  let variable (t : trm) : bool =
+    trm_fold (fun acc t ->
+        match t.desc with
+        | Trm_var _ -> acc || true
+        | _ -> acc
+      ) false t
+  in
   (* [heapify_on.one ?reference ?mult deletes v ty init] promotes a single
      variable declaration, represented by the variable [v] of type [ty] and by
      the initialization term [init], from the stack to the heap. When the [mult]
@@ -175,7 +182,7 @@ let heapify_on (t : trm) : trm =
               (* we have to do something only when it is a constant reference to
                  a literal value, i.e. it is not referencing a previously
                  user-allocated memory location. *)
-              if is_typ_const tyi && not (trm_can_resolve_pointer init) then
+              if is_typ_const tyi && not (variable init) then
                 (* In the case of a multiple variable declaration, [ty] is not a
                    reference. We have to constify it and assign it the pointer
                    type, not the reference type. Otherwise, we would have to
@@ -309,7 +316,7 @@ let heapify_on (t : trm) : trm =
               (* Here, we have to do something only when it is a constant
                  reference to a literal value, i.e. it is not referencing a
                  previously user-allocated memory location. *)
-              if is_typ_const tyi && not (trm_can_resolve_pointer init) then
+              if is_typ_const tyi && not (variable init) then
                 (* In the case of a simple variable declaration, [ty] is already
                    a reference. We only have to constify it. *)
                 ((v, typ_const ty), trm_new tyi init2)

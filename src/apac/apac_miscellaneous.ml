@@ -14,7 +14,8 @@ let excerpt ?(max : int = 20) (ast : trm) =
   let limit = if limit > max then max else limit in
   String.sub instr 0 limit
 
-(* [typ_is_alias ty]: checks if [ty] is a user-defined alias to a basic type. *)
+(** [typ_is_alias ty]: checks if the type [ty] is a constructed type aliasing a
+    basic type. *)
 let typ_is_alias (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_constr (_, id, _) ->
@@ -28,8 +29,8 @@ let typ_is_alias (ty : typ) : bool =
     end
   | _ -> false
 
-(* [typ_get_alias ty]: if [ty] is a user-defined alias to a basic type, it
-   returns the latter. *)
+(** [typ_get_alias ty]: if the type [ty] is a constructed type aliasing a basic
+    type, it returns the latter. *)
 let typ_get_alias (ty : typ) : typ option =
   match ty.typ_desc with
   | Typ_constr (_, id, _) ->
@@ -68,194 +69,82 @@ let typ_get_nli (ty : typ) : int =
       end
     (** When [ty] is a basic type or a constructed user-defined type which is {b
         not} an alias to a basic type, we have finished computing, return the
-        final number of levels fo indirection of [ty]. *)
+        final number of levels of indirection of [ty]. *)
     | _ -> nli
   in
   (** Start counting the levels of indirection of [ty] at level [0]. *)
   aux 0 ty
 
-(* [trm_strip_accesses_and_references_and_get_lvar t]: strips [*t, &t, ...]
-   recursively and if [t] is a variable, it returns the associated labelled
-   variable. *)
-let trm_strip_and_get_lvar (t : trm) : lvar option =
-  (* Internal auxiliary recursive function allowing us to hide the [l] parameter
-     to the outside world. *)
-  let rec aux (l : label) (t : trm) : lvar option =
+(** [trm_reduce_and_apply f t]: tries to reduce the term [t] to a unique memory
+    location and applies the [f] function on the latter. If the reduction
+    succeeds, the function returns the result of [f]. *)
+let trm_reduce_and_apply
+      (f : var -> varkind -> label -> int -> 'a option) (t : trm) : 'a option =
+  (** [trm_reduce_and_apply.aux nli l t]: auxiliary function to recursively
+      inspect [t]. If the latter features strcture or class member accesses, [l]
+      will keep the track of the label of the member. [nli] counts the number of
+      levels of indirections while accessing to the resulting memory location,
+      if any. *)
+  let rec aux (nli : int) (l : label) (t : trm) : 'a option =
     match t.desc with
-    (* [t] is a unary operation *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
-       begin
-         match op with
-         (* Whenever we stumble upon a structure access or get operation, we
-            extract the label of the structure field involved in the
-            operation. *)
-         | Unop_struct_access field -> aux field t
-         | Unop_struct_get field -> aux field t
-         (* In case of another unary operations, we simply recurse on the
-            internal term. *)
-         | _ -> aux l t
-       end
-    (* [t] is a binary operation corresponding to an array access *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> aux l t
-    (* [t] is a binary operation of another type: strip and recurse on both left
-       and right-hand sides. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-       (* We continue to recurse on both the left and the right internal
-          terms. *)
-       begin
-         match (aux l lhs, aux l rhs) with
-         | Some (res), None -> Some (res)
-         | None, Some (res) -> Some (res)
-         | None, None
-           (* In practice, binary operations between two pointers supported in
-              C/C++ can not lead to a valid alias of one of them. *)
-           | Some (_), Some (_) -> None
-       end
-    (* [t] actually leads to a variable *)
-    | Trm_var (_, var) ->
-       (* Use [var] and the label [l] to build the associated labelled
-          variable and return it. *)
-       let lv : lvar = { v = var; l = l } in Some lv
-    | _ -> None
-  in
-  aux "" t
-
-(* [trm_can_resolve_pointer t]: tries to resolve operation [t] to unique
-   variable and returns [true] on success and [false] otherwise. *)
-let rec trm_can_resolve_pointer (t : trm) : bool =
-    match t.desc with
-    (* [t] is unary operation: strip and recurse. *)
+    (** When [t] is a unary operation [op] and more precisely *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
        begin match op with
-       | Unop_get
-         | Unop_address
-         | Unop_cast _ -> trm_can_resolve_pointer t
-       | _ -> false
-       end
-    (* [t] is a binary operation corresponding to an array access: strip and
-       recurse. *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> trm_can_resolve_pointer t
-    (* [t] is a binary operation of another type: strip and recurse on both left
-       and right-hand sides. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-       (trm_can_resolve_pointer lhs) || (trm_can_resolve_pointer rhs)
-    (* [t] actually leads to a variable: success. Return [true]. *)
-    | Trm_var _ -> true
-    | _ -> false
-
-(* [trm_can_resolve_pointer t]: tries to resolve operation [t] to unique
-   variable. It then returns the latter on success and [None] otherwise. *)
-let trm_resolve_pointer_and_degree (t : trm) : (var * int) option =
-  let rec aux (degree : int) (t : trm) : (var * int) option =
-    match t.desc with
-    (* [t] is unary operation: strip and recurse. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) ->
-       begin match op with
-       | Unop_get -> aux (degree - 1) t'
-       | Unop_address -> aux (degree + 1) t'
-       | Unop_cast ty -> aux (degree + typ_get_nli ty) t'
-       | Unop_struct_access _
-         | Unop_struct_get _ -> aux degree t'
+       (** a dereferencement, e.g. [*i], the number of levels of indirection
+           decreases. *)
+       | Unop_get -> aux (nli - 1) l t
+       (** a referencement, e.g. [&i], the number of levels of indirection
+           increases. *)
+       | Unop_address -> aux (nli + 1) l t
+       (** a cast, the number of levels of indirection corresponds to the sum of
+           the current number of levels of indirection [nli] and the number of
+           levels of indirection of the destination type. *)
+       | Unop_cast ty -> aux (nli + typ_get_nli ty) l t
+       (** a structure or a class member access, e.g. [structure.member] or
+           [structure->member], extract the label of the member field [f]
+           involved in the operation and continue the reduction. *)
+       | Unop_struct_access f -> aux nli f t
+       | Unop_struct_get f -> aux nli f t
+       (** Otherwise, there is nothing to reduce. *)
        | _ -> None
        end
-    (* [t] is a binary operation corresponding to an array access: strip and
-       recurse. *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t'; _]) -> aux (degree - 1) t'
-    (* [t] is a binary operation of another type: strip and recurse on both left
-       and right-hand sides. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-       (* We continue to recurse on both the left and the right internal
-          terms. *)
-       begin
-         match (aux degree lhs, aux degree rhs) with
-         | Some (res), None -> Some (res)
-         | None, Some (res) -> Some (res)
-         | None, None
-           (* In practice, binary operations between two pointers supported in
-              C/C++ can not lead to a valid alias of one of them. *)
-           | Some (_), Some (_) -> None
-       end
-    (* [t] actually leads to a variable. Return it. *)
-    | Trm_var (vk, v) -> Some (v, degree)
-    (* In all the other cases, return [None]. *)
-    | _ -> None
-  in
-  aux 0 t
-
-(** [trm_is_array_or_direct_access t]: checks whether the term [t] represents an
-    array or a direct variable access. *)
-let trm_is_array_or_direct_access (t : trm) : bool =
-  match t.desc with
-    | Trm_apps ({desc = Trm_val
-                          (Val_prim (Prim_binop Binop_array_access)); _}, _) ->
-       true
-    | Trm_var _ -> true
-    | _ -> false
-
-(** [trm_resolve_dereferenced_with_degree t]: if the term [t] represents a stack
-    of dereference operations, it returns the underlying array or direct
-    variable access term and the number of dereferencings, i.e. the degree. *)
-let trm_resolve_dereferenced_with_degree (t : trm) : (trm * int) option =
-  let rec aux (degree : int) (t : trm) : (trm * int) option =
-    match t.desc with
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) ->
+    (** When [t] is a binary operation [op] with a left-hand side term [lhs] and
+        a right-hand side term [rhs], we have two possible situations. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop op));
+                  _ }, [lhs; rhs]) ->
        begin match op with
-       | Unop_get -> aux (degree + 1) t'
-       | _ -> None
+       (** When [t] is an array access, i.e. a dereferencement, the number of
+           levels of indirection decreases and we continue the reduction on the
+           accessed memory location [lhs]. *)
+       | Binop_array_access
+         | Binop_array_get -> aux (nli - 1) l lhs
+       (** Otherwise, we continue the reduction on both [lhs] and [rhs]. *)
+       | _ ->
+          begin match (aux nli l lhs, aux nli l rhs) with
+          | Some (res), None -> Some (res)
+          | None, Some (res) -> Some (res)
+          | None, None -> None
+          (** For now, we do not know what to do when the binary expression
+              involves more than one variable. *)
+          | Some (_), Some (_) ->
+             fail
+               t.loc ("Apac_miscellaneous.trm_reduce_and_apply.aux: nor the \
+                       dependency discovery nor the alias analysis support \
+                       rvalues, such as`" ^
+                        (AstC_to_c.ast_to_string t) ^
+                          "', featuring more than one variable.")
+          end
        end
-    | Trm_apps ({desc = Trm_val
-                          (Val_prim (Prim_binop Binop_array_access)); _}, _)
-      | Trm_var _ -> Some (t, degree)
+    (** When [t] is a [new] operation, explore the initialization term *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_new _)); _ }, [t]) ->
+       aux nli l t
+    (** When [t] leads to a variable [v], call [f]. *)
+    | Trm_var (vk, v) ->
+       f v vk l nli
+    (** Otherwise, there is nothing to reduce. *)
     | _ -> None
   in
-  aux 0 t
-
-(* [trm_resolve_binop_lval_and_get_with_deref] tries to resolve the variable
-   behind an lvalue and check whether it has been dereferenced, i.e. following
-   an array access or the use of [*]. Upon success, it returns the corresponding
-   labelled variable. See [LVar] for more details on labelled variables. *)
-let trm_resolve_binop_lval_and_get_with_deref ?(plus : bool = false)
-      (t : trm) : (lvar * bool) option =
-  let rec aux (d : int) (l : label) (t : trm) : (lvar * bool) option =
-    match t.desc with
-    (* We have found the variable, build and return the resulting labelled
-       variable. *)
-    | Trm_var (vk, var) ->
-       let lv : lvar = { v = var; l = l } in
-       let d' = if vk = Var_immutable && plus then d + 1 else d in
-       Some (lv, d' > 0)
-    (* [t] is an array access, which means that the operand was dereferenced.
-       Continue resolution on the latter. *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> aux (d + 1) l t
-    (* [t] is a unary operation. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (op))); _ }, [t]) ->
-       begin
-         match op with
-         (* A get operation, e.g. [*operand], as well as a structure access,
-            e.g. [operand.field], both imply that the operand was dereferenced.
-            Continue resolution on the latter. *)
-         | Unop_get -> aux (d + 1) l t
-         | Unop_address -> aux (d - 1) l t
-         | Unop_cast ty -> aux (d + typ_get_nli ty) l t
-         | Unop_struct_access field -> aux (d + 1) field t
-         (* A structure access through pointer, e.g. [operand->field], means
-            that the operand was not dereferenced. To finish resolving, iterate
-            once more on [t]. *)
-         | Unop_struct_get field -> aux d field t
-         (* In case of another binary operation, do nothing and continue
-            resolution on the operand. *)
-         | _ -> aux d l t
-       end
-    | _ -> None
-  in
+  (** Call the auxiliary function. *)
   aux 0 "" t
 
 (** [find_parent_function p]: goes back up the path [p] and looks for the first
