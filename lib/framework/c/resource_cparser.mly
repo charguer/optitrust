@@ -63,6 +63,8 @@ arith_term:
     { trm_add a b }
   | a=arith_term; MINUS; b=arith_factor;
     { trm_sub a b }
+  | MINUS; b=arith_factor;
+    { trm_minus b }
   | a=arith_factor;
     { a }
 
