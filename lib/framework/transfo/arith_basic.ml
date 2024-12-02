@@ -2,10 +2,31 @@ open Prelude
 open Target
 include Arith_core
 
+
+(** [show tg] annotates the target with a string describing the reified
+    expression that corresponds to the arithmetic term considered. *)
+let%transfo show ?(normalized : bool = true) (tg : target) : unit =
+  Target.apply_at_target_paths (Arith_core.show_expr ~normalized) tg
+
+(** [remove_show tg] unannotates the target with a string describing the reified
+    expression that corresponds to the arithmetic term considered. *)
+let%transfo remove_show (tg : target) : unit =
+  Target.apply_at_target_paths (fun t ->
+    match trm_apps_inv t with
+    | Some (f_arith, [t_arg; s_arg]) ->
+      begin match trm_var_inv f_arith with
+      | Some f_var when var_eq f_var (toplevel_var "__ARITH") -> t_arg
+      | _ -> t (* LATER: alternative would be to fail if no __ARITH found *)
+      end
+      (* LATER: use trm_apps_var_inv and trm_apps_toplevel_var_inv *)
+    | _ -> t
+  ) tg
+
 let arith_simpl = toplevel_var "arith_simpl"
 
 let ghost_arith_rewrite r1 r2 =
   Resource_trm.ghost_rewrite r1 r2 (trm_var arith_simpl)
+
 
 (** [shift ~inv ~pre_cast ~post_cast u tg]:  expects the target [tg]
     to point at a trm on which an arithmetic operation can be applied, then

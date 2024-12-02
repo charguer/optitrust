@@ -1,7 +1,9 @@
 open Prelude
 
+
+
 (* maybe: flag ~elimoptitrust:true on run script? *)
-let%transfo std (_u: unit) : unit =
+let%transfo std ?(arith_simpl : (Arith.expr -> Arith.expr) list = [Arith.gather_rec]) (_u : unit) : unit =
   Trace.tag "pre-post-processing";
   Function.use_infix_ops ~indepth:true [];
   Flags.recompute_resources_between_steps := false;
@@ -9,3 +11,4 @@ let%transfo std (_u: unit) : unit =
   Matrix.elim_mops ~simpl:(Arith_core.(simplify false Arith_basic.(compose [expand; euclidian; gather_rec; compute]))) [];
   Resources.delete_annots [];
   Loop.delete_all_void []
+

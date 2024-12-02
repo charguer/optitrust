@@ -171,7 +171,7 @@ If you have a nonempty file, copy the bindings into your file.
   {
     "key": "ctrl+shift+f5",
     "command": "workbench.action.tasks.runTask",
-    "args": "View standalone detailed trace",
+    "args": "View trace light",
     "when": "config.optitrust.enableKeybindings"
   },
   {
@@ -208,7 +208,7 @@ If you have a nonempty file, copy the bindings into your file.
   {
     "key": "ctrl+shift+f10",
     "command": "workbench.action.tasks.runTask",
-    "args": "Open diff for the current test",
+    "args": "Run and open diff for the current test",
     "when": "config.optitrust.enableKeybindings"
   },
   {

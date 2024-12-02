@@ -42,11 +42,12 @@ let _ = Run.script_cpp (fun _ ->
   !! Label.add "lab2" [cVarDef "xx"];
   *)
 
-  (* Details of multi-target processing *)
+  (* Details of multi-target processing --this code puts incorrect labels on functions
   bigstep "second part";
   !! Target.iteri (fun i p ->
        Label.add ("occ" ^ string_of_int i) [cPath p])
      [nbMulti; cVarDef ""];
+   *)
 
   bigstep "third part";
   (* Uncomment the line below to see a partial trace

@@ -101,6 +101,27 @@
         ]
       },
       {
+        "label": "View trace light",
+        "type": "shell",
+        "command": "tools/view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        },
+        "presentation": {
+          "clear": true
+        },
+        "args": [
+          "full_trace",
+          "${relativeFile}",
+          "${lineNumber}",
+          "-substeps-including-ast",
+          "small"
+        ]
+      },
+      {
         "label": "View standalone trace",
         "type": "shell",
         "command": "tools/view_result.sh",
@@ -137,7 +158,8 @@
           "${relativeFile}",
           "${lineNumber}",
           "-substeps-including-ast",
-          "small"
+          "small",
+          "-trace-as-text"
         ]
       },
       {
@@ -196,8 +218,7 @@
         "args": [
           "step_trace",
           "${relativeFile}",
-          "${lineNumber}",
-          "-mode step-trace"
+          "${lineNumber}"
         ]
       },
       {
@@ -308,11 +329,27 @@
         }
       },
       {
-        "label": "Open diff for the current test",
+        "label": "Run and open diff for the current test",
         "type": "shell",
         "command": "./tester",
         "args": [
-          "diff",
+          "rundiff",
+          "-with-ignored",
+          "${relativeFile}"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        }
+      },
+      {
+        "label": "Run and open meld for the current test",
+        "type": "shell",
+        "command": "./tester",
+        "args": [
+          "runmeld",
           "-with-ignored",
           "${relativeFile}"
         ],

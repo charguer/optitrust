@@ -113,6 +113,7 @@ let inline_on ?(body_mark = no_mark) ?(subst_mark = no_mark) (t: trm): trm =
     end
   | _ -> trm_fail t "Function_core.inline_on: expected a target to a function call"
 
+
 (** [use_infix_ops_on allow_identity t]: transforms an explicit write operation to an implicit one
       [allow_identity] - if true then the transformation will never fail
       [t] - ast of the write operation *)

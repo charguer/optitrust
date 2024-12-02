@@ -6,13 +6,13 @@ typedef uint16_t ST;
 
 void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             const int cn) {
-  __requires("#4: _Fraction");
+  __requires("#_4: _Fraction");
   __requires("__is_geq(kn, 0)");
   __requires("__is_geq(n, 1)");
   __requires("__is_geq(cn, 0)");
   __modifies("D ~> Matrix2(n, cn)");
-  __consumes("RO(#4, S ~> Matrix2(n + kn - 1, cn))");
-  __produces("RO(#4, S ~> Matrix2(n + kn - 1, cn))");
+  __consumes("_RO(#_4, S ~> Matrix2(n + kn - 1, cn))");
+  __produces("_RO(#_4, S ~> Matrix2(n + kn - 1, cn))");
   if (kn == 3) /*@kn*/ {
     __ghost(assert_alias, "x := kn, y := 3");
     __ghost(
@@ -243,10 +243,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
         __ghost(
             [&]() {
               __consumes(
-                  "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 1, TMP_1 - (-1), "
+                  "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 1, TMP_1 - (-1), "
                   "0)] ~> Cell");
               __produces(
-                  "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 1, TMP_1 + 1, "
+                  "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 1, TMP_1 + 1, "
                   "0)] ~> Cell");
               __admitted();
               __with("justif := arith_simpl");
@@ -256,7 +256,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
         __ghost(
             [&]() {
               __modifies(
-                  "for TMP_2 in 0..(n - 1) -> &D[MINDEX2(n, 1, TMP_2 + 1, "
+                  "for TMP_2 in 0..n - 1 -> &D[MINDEX2(n, 1, TMP_2 + 1, "
                   "0)] ~> Cell");
               __admitted();
               __with("justif := arith_simpl");
@@ -267,7 +267,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __smodifies("&s ~> Cell");
           __sreads("S ~> Matrix2(n + kn - 1, 1)");
           __xmodifies("&D[MINDEX2(n, 1, i + 1, 0)] ~> Cell");
-          __ghost(assume, "F := in_range(i, 0..(n - 1))");
+          __ghost(assume, "F := in_range(i, 0..n - 1)");
           __ghost(assume, "F := in_range(i + 1, 1..n)");
           __ghost(assume,
                   "F := is_subrange(i + kn..i + 1 + kn, 0..n + kn - 1)");
@@ -294,7 +294,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
         __ghost(
             [&]() {
               __modifies(
-                  "for TMP_2 in 0..(n - 1) -> &D[MINDEX2(n, 1, TMP_2 + 1, "
+                  "for TMP_2 in 0..n - 1 -> &D[MINDEX2(n, 1, TMP_2 + 1, "
                   "0)] ~> Cell");
               __admitted();
               __with("justif := arith_simpl");
@@ -303,10 +303,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
         __ghost(
             [&]() {
               __consumes(
-                  "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 1, TMP_1 + 1, "
+                  "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 1, TMP_1 + 1, "
                   "0)] ~> Cell");
               __produces(
-                  "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 1, TMP_1 - (-1), "
+                  "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 1, TMP_1 - (-1), "
                   "0)] ~> Cell");
               __admitted();
               __with("justif := arith_simpl");
@@ -403,10 +403,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __ghost(
               [&]() {
                 __consumes(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 - (-"
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 - (-"
                     "1), 0)] ~> Cell");
                 __produces(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 + 1, "
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 + 1, "
                     "0)] ~> Cell");
                 __admitted();
                 __with("justif := arith_simpl");
@@ -448,10 +448,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __ghost(
               [&]() {
                 __consumes(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 - (-"
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 - (-"
                     "1), 1)] ~> Cell");
                 __produces(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 + 1, "
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 + 1, "
                     "1)] ~> Cell");
                 __admitted();
                 __with("justif := arith_simpl");
@@ -559,10 +559,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __ghost(
               [&]() {
                 __consumes(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 - (-"
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 - (-"
                     "1), 2)] ~> Cell");
                 __produces(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 + 1, "
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 + 1, "
                     "2)] ~> Cell");
                 __admitted();
                 __with("justif := arith_simpl");
@@ -593,7 +593,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __xmodifies("&D[MINDEX2(n, 3, exact_div(i, 3) + 1, 0)] ~> Cell");
             __xmodifies("&D[MINDEX2(n, 3, exact_div(i, 3) + 1, 2)] ~> Cell");
             __xmodifies("&D[MINDEX2(n, 3, exact_div(i, 3) + 1, 1)] ~> Cell");
-            __ghost(assume, "F := in_range(exact_div(i, 3), 0..(n - 1))");
+            __ghost(assume, "F := in_range(exact_div(i, 3), 0..n - 1)");
             __ghost(assume, "F := in_range(exact_div(i, 3) + 1, 1..n)");
             __ghost(assume,
                     "F := is_subrange(exact_div(i, 3) + kn..exact_div(i, 3) + "
@@ -629,7 +629,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                 (uint16_t)S[MINDEX2(n + kn - 1, 3, exact_div(i, 3), 0)];
             __ghost_end(__ghost_pair_12);
             __ghost_end(__ghost_pair_11);
-            __ghost(assume, "F := in_range(exact_div(i, 3), 0..(n - 1))");
+            __ghost(assume, "F := in_range(exact_div(i, 3), 0..n - 1)");
             __ghost(assume, "F := in_range(exact_div(i, 3) + 1, 1..n)");
             __ghost(assume,
                     "F := is_subrange(exact_div(i, 3) + kn..exact_div(i, 3) + "
@@ -665,7 +665,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                  (uint16_t)S[MINDEX2(n + kn - 1, 3, exact_div(i, 3), 1)];
             __ghost_end(__ghost_pair_1220);
             __ghost_end(__ghost_pair_1119);
-            __ghost(assume, "F := in_range(exact_div(i, 3), 0..(n - 1))");
+            __ghost(assume, "F := in_range(exact_div(i, 3), 0..n - 1)");
             __ghost(assume, "F := in_range(exact_div(i, 3) + 1, 1..n)");
             __ghost(assume,
                     "F := is_subrange(exact_div(i, 3) + kn..exact_div(i, 3) + "
@@ -721,10 +721,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __ghost(
               [&]() {
                 __consumes(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 + 1, "
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 + 1, "
                     "0)] ~> Cell");
                 __produces(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 - (-"
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 - (-"
                     "1), 0)] ~> Cell");
                 __admitted();
                 __with("justif := arith_simpl");
@@ -753,10 +753,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __ghost(
               [&]() {
                 __consumes(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 + 1, "
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 + 1, "
                     "1)] ~> Cell");
                 __produces(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 - (-"
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 - (-"
                     "1), 1)] ~> Cell");
                 __admitted();
                 __with("justif := arith_simpl");
@@ -785,10 +785,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
           __ghost(
               [&]() {
                 __consumes(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 + 1, "
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 + 1, "
                     "2)] ~> Cell");
                 __produces(
-                    "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 3, TMP_1 - (-"
+                    "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 3, TMP_1 - (-"
                     "1), 2)] ~> Cell");
                 __admitted();
                 __with("justif := arith_simpl");
@@ -897,10 +897,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(
                 [&]() {
                   __consumes(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 - (-"
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 - (-"
                       "1), 0)] ~> Cell");
                   __produces(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 + "
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 + "
                       "1, 0)] ~> Cell");
                   __admitted();
                   __with("justif := arith_simpl");
@@ -944,10 +944,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(
                 [&]() {
                   __consumes(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 - (-"
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 - (-"
                       "1), 1)] ~> Cell");
                   __produces(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 + "
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 + "
                       "1, 1)] ~> Cell");
                   __admitted();
                   __with("justif := arith_simpl");
@@ -991,10 +991,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(
                 [&]() {
                   __consumes(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 - (-"
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 - (-"
                       "1), 2)] ~> Cell");
                   __produces(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 + "
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 + "
                       "1, 2)] ~> Cell");
                   __admitted();
                   __with("justif := arith_simpl");
@@ -1129,10 +1129,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(
                 [&]() {
                   __consumes(
-                      "for TMP_1 in 0 -> &D[MINDEX2(n, 4, TMP_1 - (-"
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 - (-"
                       "1), 3)] ~> Cell");
                   __produces(
-                      "for TMP_1 in 0 -> &D[MINDEX2(n, 4, TMP_1 + "
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 + "
                       "1, 3)] ~> Cell");
                   __admitted();
                   __with("justif := arith_simpl");
@@ -1167,7 +1167,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
               __xmodifies("&D[MINDEX2(n, 4, exact_div(i, 4) + 1, 2)] ~> Cell");
               __xmodifies("&D[MINDEX2(n, 4, exact_div(i, 4) + 1, 3)] ~> Cell");
               __xmodifies("&D[MINDEX2(n, 4, exact_div(i, 4) + 1, 1)] ~> Cell");
-              __ghost(assume, "F := in_range(exact_div(i, 4), 0..(n - 1))");
+              __ghost(assume, "F := in_range(exact_div(i, 4), 0..n - 1)");
               __ghost(assume, "F := in_range(exact_div(i, 4) + 1, 1..n)");
               __ghost(assume,
                       "F := is_subrange(exact_div(i, 4) + kn..exact_div(i, 4) "
@@ -1203,7 +1203,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                   (uint16_t)S[MINDEX2(n + kn - 1, 4, exact_div(i, 4), 0)];
               __ghost_end(__ghost_pair_12);
               __ghost_end(__ghost_pair_11);
-              __ghost(assume, "F := in_range(exact_div(i, 4), 0..(n - 1))");
+              __ghost(assume, "F := in_range(exact_div(i, 4), 0..n - 1)");
               __ghost(assume, "F := in_range(exact_div(i, 4) + 1, 1..n)");
               __ghost(assume,
                       "F := is_subrange(exact_div(i, 4) + kn..exact_div(i, 4) "
@@ -1240,7 +1240,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                   (uint16_t)S[MINDEX2(n + kn - 1, 4, exact_div(i, 4), 1)];
               __ghost_end(__ghost_pair_1249);
               __ghost_end(__ghost_pair_1148);
-              __ghost(assume, "F := in_range(exact_div(i, 4), 0..(n - 1))");
+              __ghost(assume, "F := in_range(exact_div(i, 4), 0..n - 1)");
               __ghost(assume, "F := in_range(exact_div(i, 4) + 1, 1..n)");
               __ghost(assume,
                       "F := is_subrange(exact_div(i, 4) + kn..exact_div(i, 4) "
@@ -1277,7 +1277,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                   (uint16_t)S[MINDEX2(n + kn - 1, 4, exact_div(i, 4), 2)];
               __ghost_end(__ghost_pair_1242);
               __ghost_end(__ghost_pair_1141);
-              __ghost(assume, "F := in_range(exact_div(i, 4), 0..(n - 1))");
+              __ghost(assume, "F := in_range(exact_div(i, 4), 0..n - 1)");
               __ghost(assume, "F := in_range(exact_div(i, 4) + 1, 1..n)");
               __ghost(assume,
                       "F := is_subrange(exact_div(i, 4) + kn..exact_div(i, 4) "
@@ -1336,10 +1336,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(
                 [&]() {
                   __consumes(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 + "
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 + "
                       "1, 0)] ~> Cell");
                   __produces(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 - (-"
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 - (-"
                       "1), 0)] ~> Cell");
                   __admitted();
                   __with("justif := arith_simpl");
@@ -1369,10 +1369,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(
                 [&]() {
                   __consumes(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 + "
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 + "
                       "1, 1)] ~> Cell");
                   __produces(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 - (-"
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 - (-"
                       "1), 1)] ~> Cell");
                   __admitted();
                   __with("justif := arith_simpl");
@@ -1402,10 +1402,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(
                 [&]() {
                   __consumes(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 + "
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 + "
                       "1, 2)] ~> Cell");
                   __produces(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 - (-"
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 - (-"
                       "1), 2)] ~> Cell");
                   __admitted();
                   __with("justif := arith_simpl");
@@ -1435,10 +1435,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
             __ghost(
                 [&]() {
                   __consumes(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 + "
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 + "
                       "1, 3)] ~> Cell");
                   __produces(
-                      "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, 4, TMP_1 - (-"
+                      "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, 4, TMP_1 - (-"
                       "1), 3)] ~> Cell");
                   __admitted();
                   __with("justif := arith_simpl");
@@ -1545,10 +1545,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
               __ghost(
                   [&]() {
                     __consumes(
-                        "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, cn, TMP_1 "
+                        "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, cn, TMP_1 "
                         "- (-1), c)] ~> Cell");
                     __produces(
-                        "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, cn, TMP_1 "
+                        "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, cn, TMP_1 "
                         "+ 1, c)] ~> Cell");
                     __admitted();
                     __with("justif := arith_simpl");
@@ -1598,7 +1598,7 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
                 __ghost(assume,
                         "F := in_range(i - c, range(0, cn * (n - 1), cn))");
                 __ghost(assume,
-                        "F := in_range(exact_div((i - c), cn), 0..(n - 1))");
+                        "F := in_range(exact_div((i - c), cn), 0..n - 1)");
                 __ghost(assume,
                         "F := in_range(exact_div((i - c), cn) + 1, 1..n)");
                 __ghost(assume,
@@ -1677,10 +1677,10 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n,
               __ghost(
                   [&]() {
                     __consumes(
-                        "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, cn, TMP_1 "
+                        "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, cn, TMP_1 "
                         "+ 1, c)] ~> Cell");
                     __produces(
-                        "for TMP_1 in 0..(n - 1) -> &D[MINDEX2(n, cn, TMP_1 "
+                        "for TMP_1 in 0..n - 1 -> &D[MINDEX2(n, cn, TMP_1 "
                         "- (-1), c)] ~> Cell");
                     __admitted();
                     __with("justif := arith_simpl");

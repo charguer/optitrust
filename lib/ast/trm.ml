@@ -481,6 +481,12 @@ let trm_int_inv (t : trm) : int option =
   | Some (Lit_int (_, n)) -> Some n
   | _ -> None
 
+(** [trm_float_inv t] gets a float literal from a trm *)
+let trm_float_inv (t : trm) : float option =
+  match trm_lit_inv t with
+  | Some (Lit_float (_, n)) -> Some n
+  | _ -> None
+
 (** [trm_bool_inv t] gets a bool literal from a trm *)
 let trm_bool_inv (t: trm) : bool option =
   match trm_lit_inv t with
