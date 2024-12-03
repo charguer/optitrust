@@ -19,6 +19,8 @@ Implementation in the CoLa Domain Specific Language for Block-Based Data Compres
 
 - Collision detection, Bullet, Franz Franchetti's work
 
+- Poseidon: A Source-to-Source Translator for Holistic HPC Optimizations of Ocean Models on Regular Grids: https://hal.sorbonne-universite.fr/INRIA2/hal-04811677v1
+
 # Image processing Case Studies
 
 - [Box Blur](box_blur) inspired from Halide's [blur](https://github.com/halide/Halide/blob/0782d80b4907f94b4bc2b0df806306952ad39111/apps/blur/) app. A simple stencil.
