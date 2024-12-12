@@ -133,6 +133,9 @@ type atom_map = (trm * purity) Atom_map.t
 (** [no_atoms]: empty atom map *)
 let no_atoms = Atom_map.empty
 
+(** [arith_transfo] is a transformation on atoms and expressions *)
+type arith_transfo = atom_map * expr -> atom_map * expr
+
 (* LATER: [to_list] seems to be available in recent versions of ocaml stdlib Map. *)
 let atom_map_to_list (atom_map : atom_map) : (id * (trm * purity)) list =
   Atom_map.fold (fun id trm_purity acc -> (id, trm_purity) :: acc) atom_map []
@@ -964,6 +967,71 @@ let gather = gather_common false
 let gather_rec = gather_common true
 
 
+
+(******************************************************************************)
+(*                          Sort                                              *)
+(******************************************************************************)
+
+(** [expr_atom_var_inv atoms e] returns [Some "x"] if [e] corresponds
+    to a [Trm_var x] or a [Unop_get] applied to a [Trm_var x]. *)
+let expr_atom_var_inv (atoms : atom_map) (e:expr) : var option =
+  match e.expr_desc with
+  | Expr_atom (id, _purity) ->
+      begin match Atom_map.find_opt id atoms with
+      | Some (t,_purity) ->
+          begin match trm_var_inv t with
+          | Some x -> Some x
+          | None -> trm_var_get_inv t
+          end
+      | _ -> Tools.warn "arith_core: broken invariant atoms in expr_atom_var_inv"; None
+      end
+  | _ -> None
+
+(** [sort_wes] is an auxiliary function for [sort], to sort weighted items. *)
+let sort_wes (atoms : atom_map) ~(constant_last:bool) (wes:wexprs) : wexprs =
+  let cmp (w1,e1) (w2,e2) : int =
+    match e1.expr_desc, e2.expr_desc with
+    | Expr_int _, _ ->
+        (* if e1 is constant, goes to back (if constant_last) *)
+        if constant_last then 1 else -1
+    | _, Expr_int _ ->
+        (* if e2 is constant, goes to back (if constant_last) *)
+        if constant_last then -1 else 1
+    | Expr_atom _, Expr_atom _ ->
+        begin match expr_atom_var_inv atoms e1, expr_atom_var_inv atoms e2 with
+        | Some x1, Some x2 ->
+            (* if one but not the other has weight one, it goes last; else alpha *)
+            if w1 = 1 && w2 <> 1 then 1
+            else if w1 <> 1 && w2 = 1 then -1
+            else if x1 <= x2 then -1 else 1
+        | Some x1, None -> 1 (* if e1 is compound, goes to head *)
+        | None, Some x2 -> -1 (* if e1 is compound, goes to head *)
+        | None, None -> 1 (* arbitrary *)
+        end
+    | Expr_atom _, _ -> 1
+    | _, Expr_atom _ -> -1
+    | _, _ ->
+        if w1 > 0 && w2 < 0 then -1
+        else if w1 < 0 && w2 > 0 then -1
+        else 0
+  in
+  List.sort cmp wes
+
+
+(** [sort e] sorts elements in a sum by putting:
+    1. compound subterms (unspecified order)
+    2. subterms that consist of a weighted variable, in alphabetical order
+    3. constants.
+    For products, the order is similar except that constants go to the front. *)
+let sort : arith_transfo  = fun (atoms,e) ->
+  let e2 =
+    match e.expr_desc with
+    | Expr_sum wes -> { e with expr_desc = Expr_sum (sort_wes atoms ~constant_last:true wes) }
+    | Expr_prod wes -> { e with expr_desc = Expr_prod (sort_wes atoms ~constant_last:false wes) }
+    | _ -> e in
+  (atoms,e2)
+
+
 (******************************************************************************)
 (*                          Expand                                 *)
 (******************************************************************************)
@@ -1283,19 +1351,19 @@ let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
     AST, with non-arithmetic subterms described as "atoms"; then it applies the
     transformation [f_atom] on every atom; then it applies the transformation [f]
     on the reified expression; finally, it reconstructs the output term. *)
-let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
+let simplify_at_node (f_atom : trm -> trm) (f : arith_transfo) (t : trm) : trm =
   try (
-  let expr, atoms = trm_to_expr t in
+  let expr, atoms0 = trm_to_expr t in
 
-  let atoms2 =
+  let atoms1 =
     (* If we could not extract any structure, then we don't process recursively the atoms
        using [f_atom], else we would trigger an infinite loop when [indepth=true]. *)
     match expr.expr_desc with
-    | Expr_atom (_id,_purity) -> atoms
-    | _ -> Atom_map.map (fun (t_atom,purity) -> (f_atom t_atom,purity)) atoms
+    | Expr_atom (_id,_purity) -> atoms0
+    | _ -> Atom_map.map (fun (t_atom,purity) -> (f_atom t_atom,purity)) atoms0
     in
-  let expr2 = f expr in
-  if debug then Tools.debug "Expr after transformation: %s" (expr_to_string atoms expr2);
+  let atoms2, expr2 = f (atoms1,expr) in
+  if debug then Tools.debug "Expr after transformation: %s" (expr_to_string atoms1 expr2);
   (* let expr3 = normalize expr2 in
   if debug then Tools.debug "Expr after normalization: %s" (expr_to_string atoms expr3); *)
   expr_to_trm atoms2 expr2
@@ -1313,7 +1381,7 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
     return:
       update t with the simplified expressions
   LATER: should [simplify false f t] fail if [t] is not an application of prim_arith? *)
-let rec simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
+let rec simplify (indepth : bool) (f : arith_transfo) (t : trm) : trm =
   if not indepth then begin
     let f_atom_identity = (fun ti -> ti) in
     simplify_at_node f_atom_identity f t
@@ -1321,6 +1389,13 @@ let rec simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
     let f_atom_simplify = simplify indepth f in
     map_on_arith_nodes (simplify_at_node f_atom_simplify f) t
   end
+
+(* TODO: export a better name *)
+let simplify2 = simplify
+
+let simplify (indepth : bool) (f : expr -> expr) (t : trm) : trm =
+  simplify indepth (fun (atoms,e) -> (atoms,f e)) t
+
 
 (** [show_expr t] applies to a term [t] and replaces it with a term of the form
     [ARITH(t, "<expr-descr>")] where the term [t] is decorated,

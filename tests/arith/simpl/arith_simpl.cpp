@@ -188,7 +188,6 @@ int main()
   cd = 2.5 * 3.0 - ((double) 10) / 4.0; // = 5.0  (because using float division)
   */
 
-
   // LATER: compute casts from/to int/double
 
   return 0;

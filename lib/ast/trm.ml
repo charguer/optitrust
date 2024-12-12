@@ -654,6 +654,7 @@ let trm_compound_assign_inv (op : binary_op) (t : trm) : (trm * trm) option =
 let trm_get_inv (t : trm) : trm option =
   trm_unop_inv Unop_get t
 
+(* LATER: rename to trm_get_var_inv *)
 let trm_var_get_inv (t : trm) : var option =
   match trm_get_inv t with
   | Some t2 -> trm_var_inv t2

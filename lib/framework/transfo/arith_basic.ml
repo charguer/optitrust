@@ -55,6 +55,14 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
   Trace.tag_simpl_arith ();
   Target.apply_at_target_paths (Arith_core.simplify indepth f) tg
 
+(** [simpl2 f] applies a arithmetic rewriting method from the module Arith_core:
+   - gather  for grouping and cancelling out similar expressions in sums and produts
+   - expand  for expanding products involving sums. *)
+let%transfo simpl2 ?(indepth : bool = false) (f: arith_transfo) (tg : target) : unit =
+  Trace.justif_always_correct ();
+  Trace.tag_simpl_arith ();
+  Target.apply_at_target_paths (Arith_core.simplify2 indepth f) tg
+
 (** [simpl_rec f tg] just an alias for simpl ~indepth:true tg *)
 let%transfo simpl_rec (f : (expr -> expr)) (tg : target) : unit =
   Trace.tag_simpl_arith ();

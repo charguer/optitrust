@@ -12,4 +12,5 @@ let _ = Run.script_cpp (fun () ->
   !! Arith.(simpl_rec (compose [euclidian; compute])) [];
   !! Arith.(simpl_rec gather_rec) [];
   !! Arith.(simpl_rec compute) [];
+  !! Arith.(simpl2 ~indepth:true sort) [];  (* LATER: simpl2_rec *)
 )
