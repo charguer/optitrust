@@ -155,11 +155,9 @@ int main()
   // test euclidian
   eu = (n / m) * m + (n % m); // = n
   eu = m + (n % m) + m * (n / m); // = m + n
-<<<<<<< HEAD
-  eur = m % n + (1 + m / n) * n; // = m + n
-=======
   eu = n % m + (2 + n / m) * m; // = n + 2 * m
->>>>>>> arthur
+  eur = m % n + (1 + m / n) * n; // = m + n
+  eur = (exact_div((n - m), p) + q) * p + m; // = n + p * q
 
   // test integer addition
   p = (2 + m) - (m + -2); // = 4

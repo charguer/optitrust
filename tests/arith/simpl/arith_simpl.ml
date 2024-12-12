@@ -10,6 +10,8 @@ let _ = Run.script_cpp (fun _ ->
      WARNING: trm_to_naive_expr: missing type information for binary division, assuming double
      appears, and whether we can rebuild the type information *)
 
+!!Cleanup.std ();
+
   (*-----------------------------------------------------*)
 
   (* Show reification without inlined atoms *)
