@@ -50,13 +50,14 @@ let _ = Run.script_cpp (fun () ->
   !! Specialize.variable_multi ~mark_then:fst ~mark_else:"generic" ~simpl:custom_specialize_simpl
     ["cn", int 1; "cn", int 3; "cn", int 4] [cMark "nokn"; cFor "c"];
   !! Loop.unroll [nbMulti; cMark "cn"; cFor "c"];
-
-  !! Target.foreach (fast@[cMark "cn"]) (fun c ->
+    !! Target.foreach (fast@[cMark "cn"]) (fun c ->
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor "i" ~body:[cArrayWrite "D"]];
     Instr.gather_targets [c; cStrict; cArrayWrite "D"];
     Loop.fusion_targets ~into:FuseIntoLast [nbMulti; c; cFor ~stop:[cVar "kn"] "i"];
     Instr.gather_targets [c; cFor "i"; cArrayWrite "D"];
 
+  !! Loop.shift_range (ShiftBy (trm_find_var "c" [cMark "generic"])) [cMark "generic"; cFor ~body:[cArrayWrite "D"] "i"];
+  !! Cleanup.std ();
   );
 
     (**

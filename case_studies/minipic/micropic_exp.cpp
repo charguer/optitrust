@@ -119,19 +119,19 @@ int int_of_double(double a) {
 double relativePosX(double x) {
   __admitted();
   int iX = int_of_double(x / cellX);
-  return (x - iX * cellX) / cellX;
+  return x / cellX - iX;
 }
 
 double relativePosY(double y) {
   __admitted();
   int iY = int_of_double(y / cellY);
-  return (y - iY * cellY) / cellY;
+  return y / cellY - iY;
 }
 
 double relativePosZ(double z) {
   __admitted();
   int iZ = int_of_double(z / cellZ);
-  return (z - iZ * cellZ) / cellZ;
+  return z / cellZ - iZ;
 }
 
 const int nbCorners = 8;
@@ -140,9 +140,9 @@ void cornerInterpolationCoeff(vect pos, double* r) {
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);
-  const double cX = 1. + -1. * rX;
-  const double cY = 1. + -1. * rY;
-  const double cZ = 1. + -1. * rZ;
+  const double cX = 1. - rX;
+  const double cY = 1. - rY;
+  const double cZ = 1. - rZ;
   r[0] = cX * cY * cZ;
   r[1] = cX * cY * rZ;
   r[2] = cX * rY * cZ;
@@ -183,9 +183,9 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
       const double rX = relativePosX(particles[idPart].pos.x);
       const double rY = relativePosY(particles[idPart].pos.y);
       const double rZ = relativePosZ(particles[idPart].pos.z);
-      const double cX = 1. + -1. * rX;
-      const double cY = 1. + -1. * rY;
-      const double cZ = 1. + -1. * rZ;
+      const double cX = 1. - rX;
+      const double cY = 1. - rY;
+      const double cZ = 1. - rZ;
       coeffs[0] = cX * cY * cZ;
       coeffs[1] = cX * cY * rZ;
       coeffs[2] = cX * rY * cZ;
