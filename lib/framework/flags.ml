@@ -168,7 +168,7 @@ type substeps_including_ast =
 
 (* Options to control how much details are exported in the trace;
    Should only be modified via [process_mode] and [process_substeps_including_ast]. *)
-let substeps_including_ast : substeps_including_ast ref = ref SubstepsAST_all
+let substeps_including_ast : substeps_including_ast ref = ref SubstepsAST_none
 
 (* Function to set the [execution_mode] *)
 let process_mode (mode : string) : unit =

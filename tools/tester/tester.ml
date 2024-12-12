@@ -942,10 +942,14 @@ let _main : unit =
         Tools.ref_list_add args arg)
     "Usage: ./tester [action] [options] [arg1] .. [argN]\naction = run | create | addexp | fixexp | ignore | code | diff | meld\noptions:\n";
 
-  (* Handle the dump_trace flag *)
+  (* Handle the dump_trace flag, else make sure traces are not computed *)
   if !dump_trace then begin
     Flags.execution_mode := Execution_mode_full_trace;
+    Flags.serialize_trace := true; (* LATER: should be false if we wanted standalone traces. *)
     Flags.use_clang_format := original_use_clang_format;
+  end else begin
+    Flags.substeps_including_ast := SubstepsAST_none;
+    Flags.serialize_trace := false;
   end;
 
   (* Check caller_folder has been provided *)
