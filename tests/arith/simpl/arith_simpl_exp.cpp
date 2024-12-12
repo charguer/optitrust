@@ -95,6 +95,7 @@ int main() {
   u = a + 2 * 3;
   u = a * c + a * d + b * c + b * d;
   u = 5 * a * 2 * b + 5 * a * 3 * c + 5 * a * 4 * d;
+  u = a + a * b + a * c;
   v = c / (d * d * e);
   v = b * c;
   v = a + d;

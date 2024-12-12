@@ -114,72 +114,85 @@ let inline_on ?(body_mark = no_mark) ?(subst_mark = no_mark) (t: trm): trm =
   | _ -> trm_fail t "Function_core.inline_on: expected a target to a function call"
 
 
+exception Use_infix_ops_on_failure of string
+
 (** [use_infix_ops_on allow_identity t]: transforms an explicit write operation to an implicit one
       [allow_identity] - if true then the transformation will never fail
       [t] - ast of the write operation *)
+    (* TODO: generalize to handle the cleanup of operations that are already infix,
+       for example x += -4   to convert to  x -= 4. *)
 let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
-  let trm_fail_or_identity fail_t msg =
+  let fail : 'a. string -> 'a = fun (msg : string) ->
+    raise (Use_infix_ops_on_failure msg) in
+  try
+    Arith_core.(
+    match t.desc with
+    | Trm_apps (f, [ls; rs], _) when is_set_operation t -> (* LATER: use a proper inversor? *)
+      (* t  =  set(ls, rs) *)
+      (* Let's define the check that a given subterm is a [get(ls)] *)
+      let is_get_of_ls (ti:trm) : bool =
+        Option.value ~default:false (
+          Option.map (are_same_trm ls) (trm_get_inv ti)
+        ) in
+      (* Let's reify the right-hand side as a arith-core AST *)
+      let expr, atoms = trm_to_expr ~normalized:true rs in
+      (* Let's define the operation that finds it an list of weighted
+        expressions an atom of the form [get(ls)] with factor 1;
+        if so, we remove it from the list. Could fail *)
+      let rec remove_one_get_ls (wes:wexprs) : wexprs =
+        match wes with
+        | ((1,{expr_desc=Expr_atom (id,purity)}) as we)::wes' ->
+              begin match Atom_map.find_opt id atoms with
+              | Some (ti,_purity) ->
+                  if is_get_of_ls ti then begin
+                    (* found the [get(ls)], check duplicatability, then remove the item from the list *)
+                    if !Flags.check_validity && not purity.redundant
+                      then fail "Unable to introduce an infix op, because the LHS is not a duplicatable expressions."
+                      else wes'
+                  end else begin
+                    (* else search further *)
+                    we::(remove_one_get_ls wes')
+                  end
+              | None -> Tools.warn "expr_to_string: atom occurrence without entry in atom map---broken invariant."; fail "Internal error in use_infix_ops"
+              end
+        | we::wes' -> we::(remove_one_get_ls wes') (* else search further *)
+        | [] -> (* [get(ls)] was not found in the list *)
+            fail "Unable to introduce an infix op, because no occurence of the LHS in the RHS with unit weight"
+        in
+      (* We search in both sums (for [+=]) and products (for [*=]). *)
+      let expr2, binop =
+        match expr.expr_desc with
+        | Expr_sum wes -> { expr with expr_desc = Expr_sum (remove_one_get_ls wes)}, Binop_add
+        | Expr_prod wes -> { expr with expr_desc = Expr_prod (remove_one_get_ls wes)}, Binop_mul
+        | _ -> fail ("Unable to introduce an infix op, because not a product or a sum on the RHS: "
+                    ^ expr_to_string atoms expr)
+        in
+      (* Change [x += -a] into [x -= a] in case [a] is a single subexpression.
+         Change [x += -3] into [x -= 3].
+         Change [x *= 1/a] into [x /= a].  (only for exact_div, not integer division)
+         Do not change [x *= 1/3] into [x /= 0.333333] due to harm of readability / loss of precision. *)
+      let expr2, binop =
+        (* for debug: Tools.warn "%s\n" (expr_to_string atoms expr2); *)
+        match binop, expr2.expr_desc with
+        | Binop_add, Expr_sum [(w, ({expr_desc = Expr_int 1; _} as eone))] when w < 0 ->
+          { expr2 with expr_desc = Expr_sum [(-w,eone)] }, Binop_sub
+        | Binop_add, Expr_int a when a < 0 -> { expr2 with expr_desc = Expr_int (- a) }, Binop_sub
+        | Binop_add, Expr_float a when a < 0. -> { expr2 with expr_desc = Expr_float (-. a) }, Binop_sub
+        | Binop_add, Expr_sum [(-1,e)] -> { expr2 with expr_desc = Expr_sum [(1,e)]}, Binop_sub
+        | Binop_mul, Expr_prod [(-1,e)] -> { expr2 with expr_desc = Expr_sum [(1,e)]}, Binop_exact_div
+        | _ -> expr2, binop
+        in
+      (* Finally we build the infix operation *)
+      let rs2 = expr_to_trm atoms expr2 in
+      trm_compound_assign ~annot:t.annot binop ls rs2
+    | _-> fail "use_infix_ops_on: expected a set operation to be targeted"
+    )
+  with Use_infix_ops_on_failure msg ->
     if allow_identity then begin
       Trace.justif_always_correct ();
       t
     end else
-      trm_fail fail_t msg
-  in
-
-  match t.desc with
-  | Trm_apps (f, [ls; rs], _) when is_set_operation t ->
-    (* t  =  set(ls, rs) *)
-    begin match rs.desc with
-    | Trm_apps (f1, [a; b], _) ->
-      (* t  =  set(ls, f1 a b) *)
-      begin match trm_prim_inv f1 with
-      | Some (_, p) when is_infix_prim_fun p ->
-        let binop = match get_binop_from_prim p with
-        | Some binop -> binop
-        | _ -> trm_fail f "use_infix_ops_on: this should never happen"
-        in
-        (* t  =  set(ls, a binop b) *)
-        let check_validity () = if !Flags.check_validity then begin
-          (* FIXME: duplicated code with variable inline / bind *)
-          if Resources.trm_is_pure ls then
-            (* Case 1: pure expression *)
-            Trace.justif "address is a pure expression"
-          else begin
-            (* Case 2: duplicable expression *)
-            Resources.assert_not_self_interfering ls;
-            Trace.justif "address is duplicable"
-          end
-        end in
-        let is_get_of addr t = Option.value ~default:false (
-          Option.map (are_same_trm addr) (trm_get_inv t)
-        ) in
-        let same_a = is_get_of ls a in
-        let same_b = is_get_of ls b in
-        begin match (same_a, same_b) with
-        | false, false ->
-          trm_fail_or_identity ls "addresses were not equal"
-        | true, _ ->
-          check_validity ();
-          trm_compound_assign ~annot:t.annot binop ls b
-        | _, true ->
-          (* NOTE: this requires commutativity a op b = b op a,
-            e.g. not correct for Binop_sub,
-            for commutative operators, we may want to support finding gets of ls in depth,
-            e.g. a = b + (a + c) --> a += b + c
-                 a = (a + b) - c --> a += b - c
-            should we always do that, and should we check the type, for example only do this on reals / idealised ints, not on floats and fixed size ints.
-           *)
-          trm_fail_or_identity ls "requires commutativity"
-          (* check_validity ();
-          trm_compound_assign ~annot:t.annot binop ls a *)
-        end
-      | _ ->
-        trm_fail_or_identity f1 "use_infix_ops_on: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
-
-      end
-    | _ -> trm_fail_or_identity rs "use_infix_ops_on: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
-    end
-  | _-> trm_fail_or_identity t "use_infix_ops_on: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
+      trm_fail t msg
 
 (** [uninline_on fct_decl t]: takes a function declaration [fct_decl], for example
    [void gtwice(int x) { g(x, x); }], and expects a term [t] that matches the body

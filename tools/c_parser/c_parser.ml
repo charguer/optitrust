@@ -5,6 +5,11 @@ open Ast
 open Trm
 open Flags
 
+(* [light_verbose_info] documents calls to [verbose_info] that could be
+   turned on without turning all other [verbose_info] calls on.
+   Could be defined as [Tools.info] for debugging. *)
+let light_verbose_info = verbose_info
+
 (** [dune exec optitrust_parser foo.cpp] produces a file [foo.ser],
     that contains the AST of the file (type [trm] of [src/ast/ast.ml],
     serialized using OCaml's marshal.
@@ -73,13 +78,13 @@ let parse (filename: string) : unit =
       verbose_info "forced to refresh the serialization of %s" ser_filename;
       false
     end else if not (Sys.file_exists ser_filename) then begin
-      Tools.info "no previously generated serialized ast %s" ser_filename;
+      light_verbose_info "no previously generated serialized ast %s" ser_filename;
       false
     end else if not (File.is_newer_than ser_filename program_path) then begin
-      Tools.info "parser have changed since last serialization of %s" ser_filename;
+      light_verbose_info "parser have changed since last serialization of %s" ser_filename;
       false
     end else if not (File.is_newer_than ser_filename filename) then begin
-      Tools.info "serialized ast %s is outdated" ser_filename;
+      light_verbose_info "serialized ast %s is outdated" ser_filename;
       false
     end else begin
       try
@@ -89,7 +94,7 @@ let parse (filename: string) : unit =
           verbose_info "serialized ast %s is up to date" ser_filename;
           true
         end else begin
-          Tools.info "serialized ast %s is outdated because of header files" ser_filename;
+          light_verbose_info "serialized ast %s is outdated because of header files" ser_filename;
           false
         end
       with _ ->
