@@ -136,7 +136,7 @@ double relativePosZ(double z) {
 
 const int nbCorners = 8;
 
-void cornerInterpolationCoeff(vect pos, double* r) {
+void corner_interpolation_coeff(vect pos, double* r) {
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);

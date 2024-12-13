@@ -117,7 +117,7 @@ double relativePosZ(double z) {
 
 const int nbCorners = 8;
 
-void cornerInterpolationCoeff(vect pos, double* r) {
+void corner_interpolation_coeff(vect pos, double* r) {
   __writes("r ~> Matrix1(nbCorners)");
 
   const double rX = relativePosX(pos.x);
@@ -244,7 +244,7 @@ void simulate_single_cell(double deltaT,
 
       // Interpolate the field based on the position relative to the corners of the cell
       double* const coeffs = (double*) MALLOC1(nbCorners, sizeof(double));
-      cornerInterpolationCoeff(particles[MINDEX1(nbParticles, idPart)].pos, coeffs);
+      corner_interpolation_coeff(particles[MINDEX1(nbParticles, idPart)].pos, coeffs);
       const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
       MFREE1(nbCorners, coeffs);
 
@@ -291,7 +291,7 @@ int simulate_core(double deltaT,
     __GHOST_END(focus2);
 
     // Interpolate the field based on the position relative to the corners of the cell
-    const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
+    const double_nbCorners coeffs = corner_interpolation_coeff(p.pos);
     const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
 
     // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E

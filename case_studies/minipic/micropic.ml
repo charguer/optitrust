@@ -22,7 +22,7 @@ let _ = Run.script_cpp (fun () ->
     ~local_var:"lFieldAtCorners" [ctx; cFor "idStep"];
 
   bigstep "inline helper functions and reveal record fields";
-  !! Function.inline_multi [ctx; cCalls ["cornerInterpolationCoeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
+  !! Function.inline_multi [ctx; cCalls ["corner_interpolation_coeff"; "matrix_vect_mul"; "vect_add"; "vect_mul"]];
   !! Variable.inline_and_rename [ctx; cVarDef "fieldAtPos"];
   !! Record.split_fields ~typs:[particle; vect] [tSpanSeq [ctx]];
   !! Record.to_variables [ctx; cVarDefs ["fieldAtPos"; "pos2"; "speed2"; "accel"]];

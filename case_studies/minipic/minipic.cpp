@@ -87,7 +87,7 @@ typedef struct { double v[nbCorners]; } double_nbCorners;
 
 typedef struct { vect v[nbCorners]; } vect_nbCorners;
 
-double_nbCorners cornerInterpolationCoeff(vect pos) {
+double_nbCorners corner_interpolation_coeff(vect pos) {
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);
@@ -208,7 +208,7 @@ int simulate(double stepDuration, int nbSteps, int* bagsSize, particle* bags, ve
         particle* p = &bags[MINDEX3(2, nbCells, maxPartsPerCell, idStep%2, idCell, idPart)];
 
         // Interpolate the field based on the position relative to the corners of the cell
-        double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
+        double_nbCorners coeffs = corner_interpolation_coeff(p->pos);
         vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
 
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
