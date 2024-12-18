@@ -314,6 +314,9 @@ Ex:
   We can use ocaml-style annotation, e.g., to know whether the prefered layout
   for a conditional is one line, on 3 lines, or on 4 lines.
 
+- Add parentheses around -1 to avoid printing - (-1) in debug mode. 
+  Add parentheses around a-b to avoiding printing (int)a-b incorrectly.
+
 # Debug
 
 - reparse and retype all intermediate steps up to depth d

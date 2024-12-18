@@ -63,10 +63,15 @@ let%transfo simpl2 ?(indepth : bool = false) (f: arith_transfo) (tg : target) : 
   Trace.tag_simpl_arith ();
   Target.apply_at_target_paths (Arith_core.simplify2 indepth f) tg
 
-(** [simpl_rec f tg] just an alias for simpl ~indepth:true tg *)
+(** [simpl_rec f tg] just an alias for [simpl ~indepth:true f tg] *)
 let%transfo simpl_rec (f : (expr -> expr)) (tg : target) : unit =
   Trace.tag_simpl_arith ();
   simpl ~indepth:true f tg
+
+(** [simpl2_rec f tg] just an alias for [simpl2 ~indepth:true f tg] *)
+let%transfo simpl2_rec (f : arith_transfo) (tg : target) : unit =
+  Trace.tag_simpl_arith ();
+  simpl2 ~indepth:true f tg
 
 (** [compose fs] returns the function obtained as the composition
     of the functions [fs] *)

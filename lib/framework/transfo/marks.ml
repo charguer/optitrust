@@ -42,6 +42,24 @@ let add_next_mark (next_m : unit -> mark) (tg : target) : mark =
 let add_next_mark_on (next_m : unit -> mark) (p : path) : mark =
   add_next_mark next_m (target_of_path p)
 
+(** [rem_all_marks_rec_on t] is a basic function for [rem_all_marks_rec] *)
+let rem_all_marks_rec_on (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    (* process subterms of t, get t2 as result *)
+    let t2 = Trm.trm_map aux t in
+    (* if marks on current node, remove them, else return t2 directly*)
+    if t2.annot.trm_annot_marks = []
+      then t2
+      else trm_alter ~annot:{t2.annot with trm_annot_marks=[]} t2
+  in
+  aux t
+
+(** [rem_all_marks_rec (tg : target)]: recursively remove all marks,
+    implemented using optimized code, instead of iterating
+    the removal of marks one by one on various targets.*)
+let%transfo rem_all_marks_rec (tg : target) : unit =
+  Marks_basic.justif ();
+  Target.apply_at_target_paths rem_all_marks_rec_on tg
 
 (** [add_fake_instr m tg]: adds a mark [m] at the location of the target [tg] as a fake sequence item.
    NOTE: if m = "" then does nothing. *)

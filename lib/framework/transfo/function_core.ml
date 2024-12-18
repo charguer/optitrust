@@ -146,9 +146,14 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
               | Some (ti,_purity) ->
                   if is_get_of_ls ti then begin
                     (* found the [get(ls)], check duplicatability, then remove the item from the list *)
-                    if !Flags.check_validity && not purity.redundant
-                      then fail "Unable to introduce an infix op, because the LHS is not a duplicatable expressions."
-                      else wes'
+                    if !Flags.check_validity then begin
+                      if not purity.redundant
+                        then fail "Unable to introduce an infix op, because the LHS is not a duplicatable expressions.";
+                      Trace.justif "the expression denoting the address is redundant.";
+                      wes'
+                    end else begin
+                      wes' (* validity not checked *)
+                    end
                   end else begin
                     (* else search further *)
                     we::(remove_one_get_ls wes')
@@ -184,7 +189,8 @@ let use_infix_ops_on (allow_identity : bool) (t : trm) : trm =
         in
       (* Finally we build the infix operation *)
       let rs2 = expr_to_trm atoms expr2 in
-      trm_compound_assign ~annot:t.annot binop ls rs2
+      let res = trm_compound_assign ~annot:t.annot binop ls rs2 in
+      res
     | _-> fail "use_infix_ops_on: expected a set operation to be targeted"
     )
   with Use_infix_ops_on_failure msg ->

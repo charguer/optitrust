@@ -1,4 +1,16 @@
 
+(**)
+  (* TODO: Variable.bind ~const:true cn*kn *)
+
+    (**
+  (* TODO? simpl ~unfold_alias:true *)
+  (* TODO: [expand_rec; gather_rec; compute] *)
+  !! Loop.shift_range (ShiftBy (trm_find_var "c" [cMark "generic"])) [cMark "generic"; cFor ~body:[cArrayWrite "D"] "i"];
+  !! Cleanup.std ();
+  *)
+
+(* FIXME: removing cFor from specialize targets is not working, because we need to go inside seq. *)
+
 
 
 (*

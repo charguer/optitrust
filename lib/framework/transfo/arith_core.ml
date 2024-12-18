@@ -991,6 +991,11 @@ let expr_atom_var_inv (atoms : atom_map) (e:expr) : var option =
 let sort_wes (atoms : atom_map) ~(constant_last:bool) (wes:wexprs) : wexprs =
   let cmp (w1,e1) (w2,e2) : int =
     match e1.expr_desc, e2.expr_desc with
+    | Expr_int _, Expr_int _ ->
+        (* if both are constants, keep the original order;
+           this case does not happen if "gather" is called first,
+           because the two integers would be added together *)
+        0
     | Expr_int _, _ ->
         (* if e1 is constant, goes to back (if constant_last) *)
         if constant_last then 1 else -1
@@ -1004,9 +1009,9 @@ let sort_wes (atoms : atom_map) ~(constant_last:bool) (wes:wexprs) : wexprs =
             if w1 = 1 && w2 <> 1 then 1
             else if w1 <> 1 && w2 = 1 then -1
             else if x1 <= x2 then -1 else 1
-        | Some x1, None -> 1 (* if e1 is compound, goes to head *)
-        | None, Some x2 -> -1 (* if e1 is compound, goes to head *)
-        | None, None -> 1 (* arbitrary *)
+        | Some x1, None -> 1 (* if e1 is compound but not e2, then e1 goes to head *)
+        | None, Some x2 -> -1 (* if e2 is compound but not e1, then e2 goes to head *)
+        | None, None -> 0 (* else keep original order *)
         end
     | Expr_atom _, _ -> 1
     | _, Expr_atom _ -> -1
@@ -1015,7 +1020,7 @@ let sort_wes (atoms : atom_map) ~(constant_last:bool) (wes:wexprs) : wexprs =
         else if w1 < 0 && w2 > 0 then -1
         else 0
   in
-  List.sort cmp wes
+  List.stable_sort cmp wes
 
 
 (** [sort e] sorts elements in a sum by putting:
