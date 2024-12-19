@@ -1358,3 +1358,6 @@ let set_indices (indices : string list) (outer_p : path) : unit =
   ()
 
 let f () = assert false
+
+let simd = Omp.simd
+let parallel = Omp.parallel_for

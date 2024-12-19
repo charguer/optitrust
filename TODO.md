@@ -557,3 +557,11 @@ void f2(int* p, bool b) {
 }
 
 ```
+
+# Note for demos
+
+```ocaml
+(* for demos:
+    !! Loop.tile (int 32) ~index:("bj") ~bound:TileDivides [cFor "i"];
+  *)
+```
