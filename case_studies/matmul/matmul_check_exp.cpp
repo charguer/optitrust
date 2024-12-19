@@ -14,7 +14,7 @@ void mm1024(float* C, float* A, float* B) {
       for (int k = 0; k < 4; k++) {
         for (int j = 0; j < 32; j++) {
           pB[32768 * bj + 128 * bk + 32 * k + j] =
-              B[4096 * bk + 1024 * k + 32 * bj + j];
+              B[32 * bj + 4096 * bk + 1024 * k + j];
         }
       }
     }
@@ -34,30 +34,30 @@ void mm1024(float* C, float* A, float* B) {
           memcpy(&s[0], &sum[32 * i], 32 * sizeof(float));
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
-            s[j] += A[32768 * bi + 1024 * i + 4 * bk] *
+            s[j] += A[32768 * bi + 4 * bk + 1024 * i] *
                     pB[32768 * bj + 128 * bk + j];
           }
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
-            s[j] += A[1 + 32768 * bi + 1024 * i + 4 * bk] *
-                    pB[32 + 32768 * bj + 128 * bk + j];
+            s[j] += A[32768 * bi + 4 * bk + 1024 * i + 1] *
+                    pB[32768 * bj + 128 * bk + j + 32];
           }
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
-            s[j] += A[2 + 32768 * bi + 1024 * i + 4 * bk] *
-                    pB[64 + 32768 * bj + 128 * bk + j];
+            s[j] += A[32768 * bi + 4 * bk + 1024 * i + 2] *
+                    pB[32768 * bj + 128 * bk + j + 64];
           }
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
-            s[j] += A[3 + 32768 * bi + 1024 * i + 4 * bk] *
-                    pB[96 + 32768 * bj + 128 * bk + j];
+            s[j] += A[32768 * bi + 4 * bk + 1024 * i + 3] *
+                    pB[32768 * bj + 128 * bk + j + 96];
           }
           memcpy(&sum[32 * i], &s[0], 32 * sizeof(float));
         }
       }
       for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 32; j++) {
-          C[32768 * bi + 1024 * i + 32 * bj + j] = sum[32 * i + j];
+          C[32768 * bi + 32 * bj + 1024 * i + j] = sum[32 * i + j];
         }
       }
       free(sum);

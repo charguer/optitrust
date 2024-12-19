@@ -166,7 +166,7 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
                           vect* fieldAtCorners, int nbSteps, double pCharge,
                           double pMass) {
   const int fieldFactor = deltaT * deltaT * pCharge / pMass;
-  vect* const lFieldAtCorners = (vect*)malloc(nbCorners * sizeof(vect));
+  vect* const lFieldAtCorners = (vect*)malloc(sizeof(vect) * nbCorners);
   for (int i1 = 0; i1 < nbCorners; i1++) {
     lFieldAtCorners[i1].x = fieldAtCorners[i1].x * fieldFactor;
     lFieldAtCorners[i1].y = fieldAtCorners[i1].y * fieldFactor;
@@ -177,7 +177,7 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
     particles[i1].speed.y *= deltaT;
     particles[i1].speed.z *= deltaT;
   }
-  double* const coeffs = (double*)malloc(nbCorners * sizeof(double));
+  double* const coeffs = (double*)malloc(sizeof(double) * nbCorners);
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
       const double rX = relativePosX(particles[idPart].pos.x);
