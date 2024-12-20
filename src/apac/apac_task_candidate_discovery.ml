@@ -43,7 +43,7 @@ let discover_dependencies
     | Some nli when (- n) < nli ->
        begin
          match Var_Hashtbl.find_opt aliases v with
-         | Some tg -> Some (Var_Hashtbl.find aliases tg)
+         | Some tg -> Some tg
          | None -> Some v
        end
     | Some _ -> None
