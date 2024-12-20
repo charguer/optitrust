@@ -796,7 +796,7 @@ end = struct
     | Typ_constr _
       | Typ_record _ -> (lv, ty) :: (core v "" ty [])
     (** Otherwise, simply return the toplevel labelled variable [lv]. *)
-    | _ -> [(lv, ty)] 
+    | _ -> [(lv, ty)]
 
   (** [aliasing a v l nli]: checks in the hash table of aliases [a] (see
       [!type:l]) whether an L-variable consisting of the variable [v] and the
