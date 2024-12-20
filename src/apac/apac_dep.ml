@@ -83,7 +83,7 @@ module Dep : sig
   val variable : t -> var
   val is_trm : t -> bool
   val of_trm : trm -> var -> int -> t
-  val of_degree : trm -> var -> int -> t list
+  val of_range : trm -> var -> (int * int) -> t list
   val of_array : trm -> var -> t list
   val to_string : ?mode:subscripted_mode -> t -> string
   val compare : t -> t -> int
@@ -132,32 +132,39 @@ end = struct
     | Dep_trm _ -> true
     | _ -> false
   
-  (** [Dep.of_trm t v degree]: converts the term [t] and the underlying variable
-      [v] into a dependency of type [Dep_trm]. This dependency type is meant for
-      subscripted accesses. Therefore, besides the variable [v] behind [t], a
+  (** [Dep.of_trm t v n]: converts the term [t] and the underlying variable [v]
+      into a dependency of type [Dep_trm], i.e. a dependency on an array acces
+      through the index array operator. Therefore, besides [v] behind [t], a
       [Dep_trm] features also an adequate term for accessing the first element
-      of [v].
+      of the [n]-th level of indirection of [v].
 
-      For example, if [t] as well as [v] are 'tab' and [degree] is 2, the
+      For example, if [t] as well as [v] are 'tab' and [n] is 2, the
       function produces ('tab\[0\]\[0\]', 'tab'). Moreover, if [t] is
       'tab\[i\]', [v] is 'tab' and [degree] is 1, the function produces
       ('tab\[i\]\[0\]', 'tab'). *)
-  let rec of_trm (t : trm) (v : var) (degree : int) : t =
-    if degree < 1 then
+  let rec of_trm (t : trm) (v : var) (n : int) : t =
+    if n < 1 then
       Dep_trm (t, v)
     else
+      let open Trm in
       let v0 = Val_lit (Lit_int 0) in
-      let v0 = Trm.trm_val v0 in
-      of_trm (Trm.trm_array_get t v0) v (degree - 1)
+      let v0 = trm_val v0 in
+      of_trm (trm_array_access t v0) v (n - 1)
   
-  (** [Dep.of_degree t v degree]: calls [Dep.of_trm vt v degree] for each value
-      of [degree] greather than 0 and puts the results of these calls into a
-      list appended with [Dep_var v]. *)
-  let rec of_degree (t : trm) (v : var) (degree : int) : t list =
-    if degree < 1 then
-      [Dep_var v]
+  (** [Dep.of_range t v range]: calls [Dep.of_trm t v n] for each value of [n]
+      within [range] (including the lower and the upper bounds) and returns the
+      results in a list. If [range] starts at 0, the output contains a
+      dependency on [v] itself. *)
+  let rec of_range (t : trm) (v : var) (range : int * int) : t list =
+    let l, u = range in
+    if u < l then
+      failwith "Dep.of_range: empty range"
+    else if l < u then
+      (of_trm t v u) :: (of_range t v (l, u - 1))
+    else if l > 0 then
+      [of_trm t v l]
     else
-      (of_trm t v degree) :: (of_degree t v (degree - 1))
+      [Dep_var v]
 
   (** [Dep.of_array t v]: based on the subscripted access term [t] and the
       underlying variable [v], it generates a list of [Dep_trm] dependencies

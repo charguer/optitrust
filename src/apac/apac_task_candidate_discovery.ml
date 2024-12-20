@@ -175,7 +175,7 @@ let discover_dependencies
              local [scope]. If [v] is not in the local scope, set [e] to [false]
              and suppose that [nli] is null, i.e. that [v] is a simple variable,
              not a pointer or a reference. *)
-         let (nli, e) = Var_Hashtbl.find_or_default scope v 0 in
+         let (nli, e) = Var_Hashtbl.find_or_default scope v 0 in 
          (** If [v] is not in the local scope or if it is a global variable we
              know the definition of, i.e. if [v] is in [!Apac_records.globals],
              add [GlobalVariable] to the dependency attribute set [das] we are
@@ -188,16 +188,15 @@ let discover_dependencies
          (** If the dependency appears within an index array operator, we must
              attribute it with [Accessor]. *)
          let das = if iao then DepAttr_set.add Accessor das else das in
-         (** If [v] is not a pointer but a simple variable, a reference or an
-             alias, *)
-         if (nli < 1 && vk = Var_immutable) || (nli < 2 && vk = Var_mutable) || alias then
-           (** simply transform it into an adequate data dependency [d]. *)
+         (** If [v] is an alias, *)
+         if alias then
+           (** we consider only the dependency [d] on [v] and add it into either
+               the set of input or the set of input-output dependencies
+               according to its [access] classification and update [dam], the
+               map of dependencies to sets of dependency attributes, if
+               necessary, i.e. if [das] contains at least one new dependency
+               attribute to go with [d]. *)
            let d = Dep_var v in
-           (** Finally, add [d] into either the set of input or the set of
-               input-output dependencies according to its [access]
-               classification and update [dam], the map of dependencies to sets
-               of dependency attributes, if necessary, i.e. if [das] contains at
-               least one new dependency attribute to go with [d]. *)
            let dam =
              if (DepAttr_set.is_empty das) then dam
              else Dep_map.add d das dam in
@@ -205,85 +204,99 @@ let discover_dependencies
            | `In -> (Dep_set.add d ins, inouts, dam) 
            | `InOut -> (ins, Dep_set.add d inouts, dam)
          else
-           (** If [v] is a pointer, it may lead to multiple dependencies
-               following the number of dereferencements, i.e. [gets]. In this
-               case, we have to add a dependency on [v] as well as to each level
-               of indirection of [v] between 0 and [gets].
-
-               For example, let us consider a pointer variable [ptr] with 3
-               levels of indirection. An access to [ptr] of the form [**ptr]
-               generates the following dependencies ([ptr], [ptr\[0\]],
-               [ptr\[0\]\[0\]]). *)
            begin
+             let t = if vk == Var_mutable && nli > 1 then trm_get t else t in
+             let gets, nli =
+               if vk == Var_mutable then (gets - 1, nli - 1) else gets, nli in
+             (** If [v] has at least one level of indirection, it leads to
+                 multiple dependencies following the number of dereferencements,
+                 i.e. [gets]. So, in addition to the dependency on [v], we have
+                 to add a dependency on each level of indirection of [v] between
+                 1 and [gets]. This processing results in a list of dependencies
+                 [ds].
+
+                 For example, let us consider a pointer variable [ptr] with 3
+                 levels of indirection. An access to [ptr] of the form [**ptr]
+                 generates the following dependencies ([ptr\[0\]\[0\]],
+                 [ptr\[0\]], [ptr]) in [ds]. *)
+             let ds =
+               if gets >= 0 then Dep.of_range t v (0, gets) else [Dep_var v] in
              (** However, if the [v] appears within a function call, we must
                  consider every single level of indirection of [v] as a
-                 dependency, i.e. consider [nli] instead of [gets], as we do not
-                 know at which level of indirection the function accesses [v].
+                 dependency, i.e. the levels from [gets + 1] to [nli], as we do
+                 not know at which level of indirection the function accesses
+                 [v]. This processing results in an additional list of
+                 dependencies [ds'].
 
                  For example, the access [**ptr] would lead to the following
-                 dependencies ([ptr], [ptr\[0\]], [ptr\[0\]\[0\]],
-                 [ptr\[0\]\[0\]\[0\]]). *)
-             let nli, gets = if vk = Var_mutable then nli - 1, gets - 1 else nli, gets in
-             let t = if vk = Var_mutable then trm_get t else t in
-             let degree = if call then nli else gets in
-             let ds = Dep.of_degree t v degree in
-             (** Processing of immutable variables *)
-             (* if vk <> Var_immutable then
-               begin
-                 (** requires adding an extra get operation on [v] when
-                     producing the output source code. *)
-                 let t = trm_get t in
-                 let ds' = Dep.of_degree t v degree in
-                 (** To defer this operation until the code generation stage, we
-                     use the [!Apac_records.mutables] map. *)
-                 List.iter2 (fun pk pv ->
-                     mutables := Dep_map.add pk pv !mutables
-                   ) ds ds';
-               end; *)
-             (** At the end, we add the dependencies [ds] arising from [v] into
-                 either the set of input or the set of input-output dependencies
-                 according to their [access] classification. For each dependency
-                 [d] in [ds], update also [dam], the map of dependencies to sets
-                 of dependency attributes, if necessary, i.e. if [das] contains
-                 at least one new dependency attribute to go with [d]. *)
+                 additional dependency ([ptr\[0\]\[0\]\[0\]]) in [ds']. *)
+             let ds' =
+               if call && gets + 1 <= nli then Dep.of_range t v (gets + 1, nli)
+               else [] in
+             (** At the end, we add the dependencies in [ds] and from [ds'], if
+                 any, into either the set of input or the set of input-output
+                 dependencies according to their [access] classification. For
+                 each dependency [d] in [ds], update also [dam], the map of
+                 dependencies to sets of dependency attributes, if necessary,
+                 i.e. if [das] contains at least one new dependency attribute to
+                 go with [d]. *)
              match access with
              | `In ->
                 let ins, dam =
                   List.fold_left (fun (ins, dam) d ->
-                      let dam =
-                        if (DepAttr_set.is_empty das) then dam
-                        else Dep_map.add d das dam in
-                      (Dep_set.add d ins, dam)
+                      (Dep_set.add d ins,
+                       if (DepAttr_set.is_empty das) then dam
+                       else Dep_map.add d das dam)
+                    ) (ins, dam) (ds @ ds') in
+                (ins, inouts, dam)
+             | `InOut when call ->
+                (** When [v] is an inout-dependency appearing with a function
+                    call, we have to add to [inouts] the dependencies on all the
+                    levels of indirection of [v] the function can alter by
+                    side-effect, i.e. the dependencies from [ds']. The
+                    dependencies from [ds] are in-dependencies.
+
+                    Considering the example of [ptr] and the access [\*\*ptr],
+                    if the access appears within a function call, e.g.
+                    [f(\*\*ptr)], we add ([ptr\[0\]\[0\]\[0\]]) to [inouts] and
+                    ([ptr], [ptr\[0\]], [ptr\[0\]\[0\]]) to [ins]. *)
+                let ins, dam = 
+                  List.fold_left (fun (ins, dam) d ->
+                      (Dep_set.add d ins,
+                       if (DepAttr_set.is_empty das) then dam
+                       else Dep_map.add d das dam)
                     ) (ins, dam) ds in
+                let inouts, dam = 
+                  List.fold_left (fun (inouts, dam) d ->
+                      (Dep_set.add d inouts,
+                       if (DepAttr_set.is_empty das) then dam
+                       else Dep_map.add d das dam)
+                    ) (inouts, dam) ds' in
                 (ins, inouts, dam)
              | `InOut ->
-                let _, ins, inouts, dam =
-                  List.fold_left (fun (i, ins, inouts, dam) d ->
-                      let dam =
-                        if (DepAttr_set.is_empty das) then dam
-                        else Dep_map.add d das dam in
-                      (** When [v] is an inout-dependency, we add to [inouts]
-                          the dependencies on the level of indirection of [v]
-                          appearing the original access term. The dependencies
-                          on preceding levels of indirection belong to [ins].
-                          However, when [v] appears with a function call, we
-                          have to add to [inouts] the dependencies on all the
-                          levels of indirection of [v] the function can alter by
-                          side-effect.
+                (** When [v] is an inout-dependency outside of a function call,
+                    we add to [inouts] the dependency on the level of
+                    indirection of [v] appearing the original access term, i.e.
+                    the head of [ds]. The dependencies on preceding levels of
+                    indirection, i.e. the tail of [ds], belong to [ins]. In this
+                    case, [ds'] is empty.
 
-                          Considering the example of [ptr] and the access
-                          [**ptr], if the latter is an inout-dependency, we add
-                          [ptr\[0\]\[0\]] to [inouts] and ([ptr], [ptr\[0\]]) to
-                          [ins]. However, if the access appears within a
-                          function call, e.g. [f(\*\*ptr)], we add
-                          ([ptr\[0\]\[0\]], [ptr\[0\]\[0\]\[0\]]) to [inouts]
-                          and ([ptr], [ptr\[0\]]) to [ins]. *)
-                      if ((i > gets) && call) ||
-                           ((not call) && (i >= gets)) then
-                        (i + 1, ins, Dep_set.add d inouts, dam)
-                      else
-                        (i + 1, Dep_set.add d ins, inouts, dam)
-                    ) (0, ins, inouts, dam) (List.rev ds) in
+                    Considering the example of [ptr] and the access [**ptr], if
+                    the latter is an inout-dependency, we add [ptr\[0\]\[0\]] to
+                    [inouts] and ([ptr], [ptr\[0\]]) to [ins]. *)
+                let ins, dam = 
+                  if (List.length ds) > 1 then
+                    List.fold_left (fun (ins, dam) d ->
+                        (Dep_set.add d ins,
+                         if (DepAttr_set.is_empty das) then dam
+                         else Dep_map.add d das dam)
+                      ) (ins, dam) (List.tl ds)
+                  else (ins, dam) in
+                let inouts, dam =
+                  let d = List.hd ds in
+                  (Dep_set.add d inouts,
+                   if (DepAttr_set.is_empty das) then dam
+                   else Dep_map.add d das dam) in
                 (ins, inouts, dam)
            end
        else (ins, inouts, dam)
@@ -433,25 +446,7 @@ let discover_dependencies
         the operand [t']. *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t']) when
            (is_prefix_unary op || is_postfix_unary op) ->
-       (** Due to OptiTrust encoding, an extra dereferencement may hide the
-           variable term [vt] in the operand [t']. *)
-       let t' =
-         match t'.desc with
-         (** In such a case, we have to unwrap the [t'] term and return the
-             underlying variable term [vt]. *)
-         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [vt]) ->
-            vt
-         (** Otherwise, we keep the [t'] term as-is. *)
-         | _ -> t'
-       in
-       begin match t'.desc with
-       (** When [t'] represents a variable term, we can continue the dependency
-           discovery process. *)
-       | Trm_var _ -> main ins inouts dam 0 call `InOut iao t'
-       (** Otherwise, it is not an access pattern we fully recognize so we try
-           the best-effort approach and warn the user about it. *)
-       | _ -> warning t'; best_effort ins inouts dam `InOut iao t'
-       end
+       main ins inouts dam 0 call `InOut iao t'
     (** [t] is a call ([f(arg0, arg1, ...)]) to a function [f] with [args]. *)
     | Trm_apps ({ desc = Trm_var (_ , f); _ }, args) ->
        (** If we have [f] on the record in [!Apac_records.functions], *)
@@ -563,6 +558,16 @@ let discover_dependencies
            end;
            (ins, inouts, dam)
          ) (ins, inouts, dam) tvs inits
+    (** [t] is a structure member access ([s->m], [s.m], ...). *)
+    | Trm_apps ({ desc = Trm_val
+                           (Val_prim (Prim_unop (Unop_struct_access _)));
+                  _ }, _)
+      | Trm_apps ({ desc = Trm_val
+                             (Val_prim (Prim_unop (Unop_struct_get _)));
+                    _ }, _) ->
+       (** Our analysis is not clever enough yet. Try the best-effort dependency
+           discovery, but warn the user about it. *)
+       warning t; best_effort ins inouts dam access iao t
     (** [t] is none of the above, explore the child terms. *)
     | Trm_apps (f, args) ->
        List.fold_left (fun (ins, inouts, dam) item ->
