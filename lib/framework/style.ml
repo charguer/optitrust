@@ -120,7 +120,7 @@ let internal_ast_only_desc () : output_style =
 
 let default_style () : output_style =
   { decode = not !Flags.bypass_cfeatures && not !Flags.print_optitrust_syntax;
-    typing = typing_annot;
+    typing = if !Flags.print_only_code then typing_none else typing_annot;
     print = Lang_C (Ast_to_c.default_style ()) }
 
 let style_for_reparse () : output_style =

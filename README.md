@@ -187,6 +187,12 @@ If you have a nonempty file, copy the bindings into your file.
     "when": "config.optitrust.enableKeybindings"
   },
   {
+    "key": "ctrl+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View diff only code",
+    "when": "config.optitrust.enableKeybindings"
+  },  
+  {
     "key": "ctrl+shift+f6",
     "command": "workbench.action.tasks.runTask",
     "args": "View diff using internal syntax",
