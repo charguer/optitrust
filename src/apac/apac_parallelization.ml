@@ -716,20 +716,21 @@ let place_barriers_on (p : path) (t : trm) : unit =
     core [] vs 
   in
   (** [place_barriers_on.tasks ts v]: auxiliary function to explore each task
-      candidate vertex [v] of a task candidate graph in search for eligible task
-      candidates to store into the task candidate stack [ts]. *)
-  let rec tasks (ts : Task.t Stack.t) (v : TaskGraph.V.t) : unit =
+      candidate vertex [v] of the task candidate graph [g] in search for
+      eligible task candidates to store into the task candidate stack [ts]. *)
+  let rec tasks (ts : (Task.t * TaskGraph.V.t) Stack.t) (g : TaskGraph.t)
+            (v : TaskGraph.V.t) : unit =
     (** Retrieve the label [t] of the task candidate [v]. *)
     let t : Task.t = TaskGraph.V.label v in
     (** If [t] indicates that [v] is an eligible task candidate, i.e. it carries
         the [Taskifiable] attribute, add it to the stack of preceding eligible
         task candidates [ts]. *)
     if (Task.attributed t Taskifiable) then
-      Stack.push t ts;
+      Stack.push (t, v) ts;
     (** Explore the task candidates in nested task candidate graphs, if any. *)
     List.iter (fun gl ->
         List.iter (fun go ->
-            TaskGraphTraverse.iter_schedule (tasks ts) go
+            TaskGraphTraverse.iter_schedule (tasks ts go) go
           ) gl
       ) t.children
   in
@@ -737,9 +738,9 @@ let place_barriers_on (p : path) (t : trm) : unit =
       barrier in front of a vertex [v] depending on the presence of preceding
       eligible task candidates in the stack [ts]. [l] represents the list of
       task candidates immediately following the last eligible task candidate in
-      the task candidate graph we apply the function on. When [v] equals [p],
-      place a global synchronization barrier on the latter and set [c] to [true]
-      so as to prevent the function from placing further barriers. When
+      the task candidate graph [g] we apply the function on. When [v] equals
+      [p], place a global synchronization barrier on the latter and set [c] to
+      [true] so as to prevent the function from placing further barriers. When
       processing a loop nest, we do not consider only preceding eligible task
       candidates but all the eligible task candidates of its outermost loop. To
       this end, we pre-load [ts] with all the eligible task candidates from [v]
@@ -747,7 +748,8 @@ let place_barriers_on (p : path) (t : trm) : unit =
       this case, we set the [s] flag to [true] so as to prevent the function
       from pushing eligible task candidates from [v] into [ts] twice. *)
   let rec process (l : TaskGraph.V.t list) (c : bool ref) (s : bool)
-            (ts : Task.t Stack.t) (v : TaskGraph.V.t) : unit =
+            (ts : (Task.t * TaskGraph.V.t) Stack.t) (g : TaskGraph.t)
+            (v : TaskGraph.V.t) : unit =
     (** Retrieve the label [t] of the task candidate [v]. *)
     let t : Task.t = TaskGraph.V.label v in
     (** If [t] indicates that [v] is an eligible task candidate, i.e. it carries
@@ -755,7 +757,7 @@ let place_barriers_on (p : path) (t : trm) : unit =
         [false], add [t] to [ts]. *)
     if (Task.attributed t Taskifiable) then
       begin
-        if not s then Stack.push t ts
+        if not s then Stack.push (t, v) ts
       end
     else if (TaskGraph.V.equal (List.hd l) v) then
       begin
@@ -766,8 +768,15 @@ let place_barriers_on (p : path) (t : trm) : unit =
         let depend =
           List.fold_left (fun acc e ->
               let e : Task.t = TaskGraph.V.label e in
-              acc || (Stack.fold (fun acc' e' ->
-                          acc' || (Task.depending e' e)
+              acc || (Stack.fold (fun acc' (e', v') ->
+                          if (TaskGraph.mem_vertex g v) &&
+                               (TaskGraph.mem_vertex g v') then
+                            acc' || (Task.depending e' e)
+                          else
+                            let ue' = Task.copy e' in
+                            ue'.ioattrs <-
+                              Dep_map.remove_attribute Subscripted ue'.ioattrs;
+                            acc' || (Task.depending ue' e)
                         ) false ts)
             ) false l
         in
@@ -814,18 +823,21 @@ let place_barriers_on (p : path) (t : trm) : unit =
                              ) temp.inouts;
             (** Check whether the temporary task candidate shares a data
                 dependency with a preceding eligible task candidate. *)
-            let depends = Stack.fold (fun acc task' ->
-                              (** Note that we must filter out dependencies on
-                                  new variables from the preceding task
-                                  candidates too. *)
-                              let task'' = Task.copy task' in
-                              task''.inouts <-
-                                Dep_set.filter (fun d ->
-                                    not (Dep_map.has_with_attribute
-                                           d NewVariable task'.ioattrs)
-                                  ) task'.inouts;
-                              acc || (Task.depending task'' temp)
-                            ) false ts in
+            let depends =
+              Stack.fold (fun acc (task', v') ->
+                  (** Note that we must filter out dependencies on new variables
+                      from the preceding task candidates too. *)
+                  let task'' = Task.copy task' in
+                  task''.inouts <-
+                    Dep_set.filter (fun d ->
+                        not (Dep_map.has_with_attribute
+                               d NewVariable task'.ioattrs)
+                      ) task'.inouts;
+                  if not (TaskGraph.mem_vertex g v') then
+                    task''.ioattrs <-
+                      Dep_map.remove_attribute Subscripted task''.ioattrs;
+                  acc || (Task.depending task'' temp)
+                ) false ts in
             (** If so, we request a synchronization barrier for [v] through [t]
                 thanks to the [WaitForSome] attribute. *)
             if depends then t.attrs <- TaskAttr_set.add WaitForSome t.attrs
@@ -849,13 +861,13 @@ let place_barriers_on (p : path) (t : trm) : unit =
              (** pre-load [ts] with all the eligible task candidates from
                  within the body of the loop. *)
              List.iter (fun go ->
-                 TaskGraphTraverse.iter_schedule (tasks ts) go
+                 TaskGraphTraverse.iter_schedule (tasks ts go) go
                ) gl;
              true
           | _ -> false
         in
         List.iter (fun go ->
-            TaskGraphTraverse.iter_schedule (process l c s ts) go
+            TaskGraphTraverse.iter_schedule (process l c s ts go) go
           ) gl
       ) t.current t.children
   in
@@ -875,10 +887,11 @@ let place_barriers_on (p : path) (t : trm) : unit =
   if bl <> [] then
     begin
       (** Initialize a stack of preceding eligible task candiates. *)
-      let ts : Task.t Stack.t = Stack.create () in
+      let ts : (Task.t * TaskGraph.V.t) Stack.t = Stack.create () in
       (** Process each task candidate in [r.graph]. *)
       let stop = ref false in
-      TaskGraphTraverse.iter_schedule (process bl stop false ts) r.graph;
+      TaskGraphTraverse.iter_schedule
+        (process bl stop false ts r.graph) r.graph;
       (** Dump the resulting task candidate graph, if requested. *)
       if !Apac_flags.verbose then
         begin
