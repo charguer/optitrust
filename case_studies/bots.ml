@@ -70,6 +70,7 @@ let setup (case : string) (cutoff : string) : string * string =
   Apac_flags.omit := ".*_se[qr]$";
   Apac_macros.skip skip;
   Apac_flags.main := main;
+  Apac_flags.verbose := true;
   let path, ext = bots ^ "omp-apac/" ^ case ^ "/", ".cpp" in
   let cutoff = if cutoff <> "" then ("-" ^ cutoff) else "" in
   (path ^ case ^ ".in" ^ ext, path ^ case ^ cutoff ^ ext)
