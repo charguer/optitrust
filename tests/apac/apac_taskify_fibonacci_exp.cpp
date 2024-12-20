@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
       n = atoi(argv[1]);
     }
     long long int result;
-#pragma omp task default(shared) depend(inout : n, result)
+#pragma omp task default(shared) depend(in : n) depend(inout : result)
     {
       result = fibonacci(n);
       printf("fibonacci(%d) = %lld\n", n, result);
