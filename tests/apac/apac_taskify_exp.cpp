@@ -43,7 +43,7 @@ int main() {
 #pragma omp taskgroup
   {
     int* t;
-#pragma omp task default(shared) depend(inout : t, t[0])
+#pragma omp task default(shared) depend(inout : t[0], t)
     {
       t = (int*)malloc(4 * sizeof(int));
       c(t, 4);

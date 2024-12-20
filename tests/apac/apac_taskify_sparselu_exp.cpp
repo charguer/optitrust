@@ -250,7 +250,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : matrix_size, submatrix_size) depend(inout : matrix, matrix[0], matrix[0][0])
+#pragma omp task default(shared) depend(in : matrix_size, submatrix_size) depend(inout : matrix[0], matrix[0][0], matrix)
     matrix = genmat(matrix, matrix_size, submatrix_size);
 #pragma omp taskwait depend(in : matrix)
     if (matrix == NULL) {
@@ -260,7 +260,7 @@ int main(int argc, char** argv) {
       goto __apac_exit;
     }
     int error = 0;
-#pragma omp task default(shared) depend(in : argv, matrix, matrix[0], matrix[0][0], matrix_size) depend(inout : error)
+#pragma omp task default(shared) depend(in : matrix[0], matrix[0][0], argv, matrix, matrix_size) depend(inout : error)
     error = store_structure(struct_A, "A", matrix, matrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -269,7 +269,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : error, matrix[0], matrix[0][0])
+#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : matrix[0], matrix[0][0], error)
     error = store_matrix(matrix_A, "A", matrix, matrix_size, submatrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -278,7 +278,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : matrix, matrix_size, submatrix_size) depend(inout : error, matrix[0], matrix[0][0])
+#pragma omp task default(shared) depend(in : matrix, matrix_size, submatrix_size) depend(inout : matrix[0], matrix[0][0], error)
     error = sparselu(matrix, matrix_size, submatrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -287,7 +287,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : argv, matrix, matrix[0], matrix[0][0], matrix_size) depend(inout : error)
+#pragma omp task default(shared) depend(in : matrix[0], matrix[0][0], argv, matrix, matrix_size) depend(inout : error)
     error = store_structure(struct_LU, "LU", matrix, matrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -296,7 +296,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : error, matrix[0], matrix[0][0])
+#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : matrix[0], matrix[0][0], error)
     error = store_matrix(matrix_LU, "LU", matrix, matrix_size, submatrix_size);
 #pragma omp taskwait
     if (error) {
