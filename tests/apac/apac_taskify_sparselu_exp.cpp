@@ -216,9 +216,12 @@ int main(int argc, char** argv) {
 #pragma omp master
 #pragma omp taskgroup
   {
-    size_t matrix_size = 50, submatrix_size = 100;
-    char *struct_A = NULL, *struct_LU = NULL;
-    char *matrix_A = NULL, *matrix_LU = NULL;
+    size_t matrix_size = 50;
+    size_t submatrix_size = 100;
+    char* struct_A = NULL;
+    char* struct_LU = NULL;
+    char* matrix_A = NULL;
+    char* matrix_LU = NULL;
     int need_free = 0;
     if (argc > 6) {
       matrix_size = strtoul(argv[1], NULL, 0);
