@@ -265,7 +265,13 @@ let discover_dependencies
                       (Dep_set.add d ins,
                        if (DepAttr_set.is_empty das) then dam
                        else Dep_map.add d das dam)
-                    ) (ins, dam) ds in
+                    ) (ins, dam) (if gets < 0 then (List.tl ds) else ds) in
+                let inouts, dam =
+                  if gets < 0 then 
+                    let d = List.hd ds in
+                    (Dep_set.add d inouts, Dep_map.add d das dam)
+                  else (inouts, dam)
+                in
                 let inouts, dam = 
                   List.fold_left (fun (inouts, dam) d ->
                       (Dep_set.add d inouts,
