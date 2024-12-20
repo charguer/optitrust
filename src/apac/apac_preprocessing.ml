@@ -1410,53 +1410,56 @@ end = struct
     let error = "Apac_preprocessing.Constification.constify_prototypes_on: \
                  expected a target to a function definition." in
     let (f, ret_typ, args, body) = trm_inv ~error trm_let_fun_inv t in
-    match crs with
-    (** If there are no constification records, *)
-    | None ->
-       (** constify all of the arguments as well as *)
-       let args = List.map (fun (v, ty) -> (v, (typ_constify ty))) args in
-       (** the function itself. *)
-       trm_add_cstyle Const_method (
-           trm_let_fun ~annot:t.annot f ret_typ args body
-         )
-    (** Otherwise, consult the constification record of [f] to find out which of
-        its arguments we should constify, if any, and whether we should constify
-        the function itself. *)
-    | Some crs when (Var_Hashtbl.mem crs f) ->
-       let crf = Var_Hashtbl.find crs f in
-       (** If the function is a class member method, its first argument is the
-           [this] variable referring to the parent class. Ignore it. *)
-       let args' = if crf.member then List.tl args else args in
-       (** Loop over the list of arguments and *)
-       let args' = List.mapi (fun i (v, ty) ->
-                       (** after checking whether there is an argument
-                           constification record for each argument of [f], *)
-                       if (Tools.Int_map.mem i crf.args) then
-                         let cra = Tools.Int_map.find i crf.args in
-                         if cra.const then
-                           (** constify it if the records says so *)
-                           (v, (typ_constify ty))
+    (** Proceed only if [f] is other than [!Apac_flags.main]. *)
+    if f.name <> !Apac_flags.main then
+      match crs with
+      (** If there are no constification records, *)
+      | None ->
+         (** constify all of the arguments as well as *)
+         let args = List.map (fun (v, ty) -> (v, (typ_constify ty))) args in
+         (** the function itself. *)
+         trm_add_cstyle Const_method (
+             trm_let_fun ~annot:t.annot f ret_typ args body
+           )
+      (** Otherwise, consult the constification record of [f] to find out which
+          of its arguments we should constify, if any, and whether we should
+          constify the function itself. *)
+      | Some crs when (Var_Hashtbl.mem crs f) ->
+         let crf = Var_Hashtbl.find crs f in
+         (** If the function is a class member method, its first argument is the
+             [this] variable referring to the parent class. Ignore it. *)
+         let args' = if crf.member then List.tl args else args in
+         (** Loop over the list of arguments and *)
+         let args' = List.mapi (fun i (v, ty) ->
+                         (** after checking whether there is an argument
+                             constification record for each argument of [f], *)
+                         if (Tools.Int_map.mem i crf.args) then
+                           let cra = Tools.Int_map.find i crf.args in
+                           if cra.const then
+                             (** constify it if the records says so *)
+                             (v, (typ_constify ty))
+                           else
+                             (** or leave it as is. *)
+                             (v, ty)
                          else
-                           (** or leave it as is. *)
-                           (v, ty)
-                       else
-                         (** If an argument constification record is missing,
-                             fail. This is not normal! *)
-                         fail t.loc
-                           (missing_record "constify_prototypes_on.aux" f i)
-                     ) args' in
-       (** Rebuild the definition term [t] of [f] using the updated list of
-           arguments [args']. However, we have to bring back [this] to the list
-           of arguments. If [f] is a class member method, [this] is a non-empty
-           list. *)
-       let args = if crf.member then (List.hd args) :: args' else args' in
-       let t = trm_let_fun ~annot:t.annot f ret_typ args body in
-       (** Constify the function too if its constification record says so. *)
-       if crf.const then trm_add_cstyle Const_method t
-       else t
-    (** If there is no constification record for [f], fail. This is not
-        normal! *)
-    | _ -> fail t.loc (missing_record "constify_prototypes_on.aux" f (-1))
+                           (** If an argument constification record is missing,
+                               fail. This is not normal! *)
+                           fail t.loc
+                             (missing_record "constify_prototypes_on.aux" f i)
+                       ) args' in
+         (** Rebuild the definition term [t] of [f] using the updated list of
+             arguments [args']. However, we have to bring back [this] to the
+             list of arguments. If [f] is a class member method, [this] is a
+             non-empty list. *)
+         let args = if crf.member then (List.hd args) :: args' else args' in
+         let t = trm_let_fun ~annot:t.annot f ret_typ args body in
+         (** Constify the function too if its constification record says so. *)
+         if crf.const then trm_add_cstyle Const_method t
+         else t
+      (** If there is no constification record for [f], fail. This is not
+          normal! *)
+      | _ -> fail t.loc (missing_record "constify_prototypes_on.aux" f (-1))
+  else t
 
   (** [constify_prototypes ?crs tg]: expects the target [tg] to point at a
       function definition. Then, based on the constification record of the
@@ -1594,72 +1597,76 @@ end = struct
     let error = "Apac_preprocessing.Constification.constify_aliases_on: \
                  expected a target to a function definition." in
     let (f, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
-    (** Create a hash table of arguments and aliases to arguments. *)
-    let aliases : l = LVar_Hashtbl.create 10 in
-    (** If the hash table of function constification records [crs] and the hash
-        table of multiple variable declarations [cm] are present, consult the
-        constification record [crf] of [f] to find out which of its arguments
-        have been constified, if any. Then, add them to [aliases] so the
-        auxiliary function constifies all of their aliases within the body of
-        [f] and stores multiple variable declarations needing partial
-        constification to [cm].
+    (** Proceed only if [f] is other than [!Apac_flags.main]. *)
+    if f.name <> !Apac_flags.main then
+      (** Create a hash table of arguments and aliases to arguments. *)
+      let aliases : l = LVar_Hashtbl.create 10 in
+      (** If the hash table of function constification records [crs] and the
+          hash table of multiple variable declarations [cm] are present, consult
+          the constification record [crf] of [f] to find out which of its
+          arguments have been constified, if any. Then, add them to [aliases] so
+          the auxiliary function constifies all of their aliases within the body
+          of [f] and stores multiple variable declarations needing partial
+          constification to [cm].
 
-        The principle we adopt here is the opposite of [!analyze]. In the
-        latter, we use a hash table of arguments and aliases to arguments (see
-        type [!type:l]) to keep track of arguments and aliases to arguments we
-        must not constify whereas, here, we use them to keep track of those
-        arguments that have been constified and their aliases to which we have
-        to propagate the constification process. *)
-    begin
-      match (cm, crs) with
-      | (Some cm, Some crs) ->
-         (** Find the constification record [fcr] of [f] in [crs]. If it does
-             not exist, fail. This is not normal! *)
-         if not (Var_Hashtbl.mem crs f) then
-           fail t.loc (missing_record "constify_aliases_on.aux" f (-1));
-         let fcr = Var_Hashtbl.find crs f in
-         (** If the function is a class member method, its first argument is the
-             [this] variable referring to the parent class. Ignore it. *)
-         let args' = if fcr.member then List.tl args else args in
-         (** Otherwise,  *)
-         (** Loop over the list of arguments and *)
-         List.iteri (fun i (v, ty) ->
-             (** after checking whether there is an argument constification
-                 record for each argument of [f], *)
-             if (Tools.Int_map.mem i fcr.args) then
-               begin
-                 (** gather the argument constification record [acr] of the
-                     [i]-th argument of [f]. *)
-                 let acr = Tools.Int_map.find i fcr.args in
-                 (** If it has been constified and if it does not represent a
-                     simple variable, *)
-                 if acr.const && acr.self <> Variable then
-                   (** add it to [aliases]. *)
-                   let lv : lvar = { v = v; l = String.empty } in
-                   LVar_Hashtbl.add
-                     aliases lv (i, Apac_miscellaneous.typ_get_nli ty)
-               end
-             else
-               (** If an argument constification record is missing, fail. This
-                   is not normal! *)
-               fail t.loc (missing_record "constify_aliases_on.aux" f i)
-           ) args'
-      | _ ->
-         (** If either [crs] or [cm] are not present, consider all the arguments
-             of [f] as [const]. Add them to [aliases], except for [this] in the
-             case of class member methods, so the auxiliary function constifies
-             all of their aliases within the body of [f]. *)
-         List.iteri (fun i (v, ty) ->
-             if v.name <> "this" then
-               let lv : lvar = { v = v; l = String.empty } in
-               LVar_Hashtbl.add aliases
-                 lv (i, Apac_miscellaneous.typ_get_nli ty)
-           ) args
-    end;
-    (** Constify the declarations of aliases in the body of [f]. *)
-    let body = aux aliases body in
-    (** Rebuild and return the definition term [t] of [f]. *)
-    trm_let_fun ~annot:t.annot f ret_ty args body
+          The principle we adopt here is the opposite of [!analyze]. In the
+          latter, we use a hash table of arguments and aliases to arguments (see
+          type [!type:l]) to keep track of arguments and aliases to arguments we
+          must not constify whereas, here, we use them to keep track of those
+          arguments that have been constified and their aliases to which we have
+          to propagate the constification process. *)
+      begin
+        match (cm, crs) with
+        | (Some cm, Some crs) ->
+           (** Find the constification record [fcr] of [f] in [crs]. If it does
+               not exist, fail. This is not normal! *)
+           if not (Var_Hashtbl.mem crs f) then
+             fail t.loc (missing_record "constify_aliases_on.aux" f (-1));
+           let fcr = Var_Hashtbl.find crs f in
+           (** If the function is a class member method, its first argument is
+               the [this] variable referring to the parent class. Ignore it. *)
+           let args' = if fcr.member then List.tl args else args in
+           (** Otherwise,  *)
+           (** Loop over the list of arguments and *)
+           List.iteri (fun i (v, ty) ->
+               (** after checking whether there is an argument constification
+                   record for each argument of [f], *)
+               if (Tools.Int_map.mem i fcr.args) then
+                 begin
+                   (** gather the argument constification record [acr] of the
+                       [i]-th argument of [f]. *)
+                   let acr = Tools.Int_map.find i fcr.args in
+                   (** If it has been constified and if it does not represent a
+                       simple variable, *)
+                   if acr.const && acr.self <> Variable then
+                     (** add it to [aliases]. *)
+                     let lv : lvar = { v = v; l = String.empty } in
+                     LVar_Hashtbl.add
+                       aliases lv (i, Apac_miscellaneous.typ_get_nli ty)
+                 end
+               else
+                 (** If an argument constification record is missing, fail. This
+                     is not normal! *)
+                 fail t.loc (missing_record "constify_aliases_on.aux" f i)
+             ) args'
+        | _ ->
+           (** If either [crs] or [cm] are not present, consider all the
+               arguments of [f] as [const]. Add them to [aliases], except for
+               [this] in the case of class member methods, so the auxiliary
+               function constifies all of their aliases within the body of
+               [f]. *)
+           List.iteri (fun i (v, ty) ->
+               if v.name <> "this" then
+                 let lv : lvar = { v = v; l = String.empty } in
+                 LVar_Hashtbl.add aliases
+                   lv (i, Apac_miscellaneous.typ_get_nli ty)
+             ) args
+      end;
+      (** Constify the declarations of aliases in the body of [f]. *)
+      let body = aux aliases body in
+      (** Rebuild and return the definition term [t] of [f]. *)
+      trm_let_fun ~annot:t.annot f ret_ty args body
+    else t
 
   (** [constify_aliases ?force cm crs tg]: expects target the target [tg] to
       point at a function definition. Then, based on the constification record
