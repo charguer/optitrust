@@ -356,6 +356,8 @@ let discover_dependencies
           else
             (** Update the number of dereferencements of [t]. *)
             let gets = gets + gets' in
+            let gets, nli =
+              if vk == Var_mutable then (gets - 1, nli - 1) else gets, nli in
             (** Transform the access term [t] into a dependency. As this is an
                 array access, it leads to multiple dependencies following the
                 number of dereferencements, i.e. [gets]. In this case, we have
