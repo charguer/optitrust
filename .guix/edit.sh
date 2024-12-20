@@ -1,14 +1,14 @@
 #! /usr/bin/env bash
 
-DEVHOME="$1"
+PRJ="$1"
 
-if test -d $DEVHOME/.guix && test -f $DEVHOME/.emacs;
+if test -d $PRJ/.guix && test -f $PRJ/.emacs && test -f $PRJ/.bashrc;
 then
-  if test -f $DEVHOME/.guix/channels.scm && test -f $DEVHOME/.guix/manifest.scm;
+  if test -f $PRJ/.guix/channels.scm && test -f $PRJ/.guix/manifest.scm;
   then
-    guix time-machine --channels=$DEVHOME/.guix/channels.scm -- \
-    shell --pure --manifest=$DEVHOME/.guix/manifest.scm -- \
-    emacs -q -l .emacs
+    guix time-machine --channels=$PRJ/.guix/channels.scm -- \
+    shell --pure --manifest=$PRJ/.guix/manifest.scm -- \
+    bash --norc -c "source .bashrc && emacs -q -l .emacs"
     exit 0
   fi
 fi
