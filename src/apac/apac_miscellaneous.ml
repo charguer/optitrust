@@ -104,7 +104,7 @@ let trm_reduce_and_apply
            [structure->member], extract the label of the member field [f]
            involved in the operation and continue the reduction. *)
        | Unop_struct_access f -> aux nli f t
-       | Unop_struct_get f -> aux nli f t
+       | Unop_struct_get f -> aux (nli - 1) f t
        (** Otherwise, there is nothing to reduce. *)
        | _ -> None
        end
@@ -116,8 +116,8 @@ let trm_reduce_and_apply
        (** When [t] is an array access, i.e. a dereferencement, the number of
            levels of indirection decreases and we continue the reduction on the
            accessed memory location [lhs]. *)
-       | Binop_array_access
-         | Binop_array_get -> aux (nli - 1) l lhs
+       | Binop_array_access -> aux nli l lhs
+       | Binop_array_get -> aux (nli - 1) l lhs
        (** Otherwise, we continue the reduction on both [lhs] and [rhs]. *)
        | _ ->
           begin match (aux nli l lhs, aux nli l rhs) with

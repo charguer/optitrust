@@ -1168,6 +1168,20 @@ let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
      (base, Array_access_get i :: al)
   | _ -> (t, [])
 
+let explode_array_accesses (t : trm) : trm * trms * int * int =
+  let rec aux (t : trm) (al : trms) (d : int)
+            (a : int) : trm * trms * int * int =
+    match t.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
+                [t'; i])
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
+                  [t'; i]) ->
+       aux t' (i :: al) d (a + 1)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
+       aux t' al (d + 1) a
+    | _ -> (t, al, d, a)
+  in
+  aux t [] 0 0
 
 (* ********************************************************************************************** *)
 

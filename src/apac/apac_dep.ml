@@ -159,22 +159,23 @@ end = struct
     else
       (of_trm t v degree) :: (of_degree t v (degree - 1))
 
-  (** [Dep.of_array t v]: based on the subscripted access term [t], it generates
-      a list of [Dep_trm] dependencies where the first dependency is on the
-      initially accessed element in [t] and the others are dependencies on
-      potential parent elements in the case of a multi-dimensional array.
+  (** [Dep.of_array t v]: based on the subscripted access term [t] and the
+      underlying variable [v], it generates a list of [Dep_trm] dependencies
+      where the first dependency is on the initially accessed element in [t] and
+      the others are dependencies on potential parent elements in the case of a
+      multi-dimensional array.
 
       For example, if [t] is 'tab\[i\]\[0\]' and [v] is 'tab', the function
-      produces a list containing ('tab\[i\]\[0\]', 'tab\[i\]', 'tab'). *)
+      produces a list containing ('tab\[i\]\[0\]', 'tab\[i\]'). *)
   let of_array (t : trm) (v : var) : t list =
     let rec accesses (t : trm) : trms =
       match t.desc with
       | Trm_apps ({desc = Trm_val
                             (Val_prim
-                               (Prim_binop Binop_array_access)); _}, [t'; i]) ->
+                               (Prim_binop Binop_array_access)); _}, [t'; _]) ->
          t :: (accesses t')
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, _) -> [t]
-      | Trm_var _ -> [t]
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, _)
+        | Trm_var _ -> []
       | _ -> failwith "Dep.of_array: Inconsistent array access."
     in
     let a = accesses t in
