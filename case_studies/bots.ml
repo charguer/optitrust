@@ -67,7 +67,7 @@ let setup (case : string) (cutoff : string) : string * string =
   in
   Apac_flags.constify := true;
   Flags.c_parser_includes := [bots ^ "common"];
-  Apac_flags.omit := ".*_seq$";
+  Apac_flags.omit := ".*_se[qr]$";
   Apac_macros.skip skip;
   Apac_flags.main := main;
   let path, ext = bots ^ "omp-apac/" ^ case ^ "/", ".cpp" in
