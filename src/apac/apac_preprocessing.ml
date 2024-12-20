@@ -1831,6 +1831,10 @@ end = struct
     (** After initially considering all arguments and functions as constifiable,
         unconstify those we cannot constify based on data accesses. *)
     unconstify us ous crs;
+    (** Dump the records on the screen, if requested. *)
+    if !Apac_flags.verbose then
+      Var_Hashtbl.iter (fun f fcr ->
+          Printf.printf "%s = %s\n" (var_to_string f) (f_to_string fcr)) crs;
     if trans then
       begin
         (** Add the [const] keyword to the function prototypes based on the
