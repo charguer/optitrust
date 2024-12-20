@@ -289,8 +289,6 @@ let discover_dependencies
        else (ins, inouts, dam)
     (** [t] is a dereferencement ([\*ptr], [\*\*ptr], ...) of a term [t']. *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) ->
-       
-       (*  let _ = Debug_transfo.trm "get of" t in*)
        main ins inouts dam (gets + 1) call access iao t'
     (** [t] is a referencement ([\&ptr]) of a term [t']. *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address))}, [t']) ->
@@ -373,11 +371,8 @@ let discover_dependencies
                 following dependencies ([arr3D], [\*arr3D], [\*arr3D\[2\]],
                 [\*arr3D\[2\]\[0\]]). *)
             let rec complete = fun ds n b ->
-              (* let _ = Debug_transfo.trm "complete" t in*)
               if n < b then complete ((Dep.of_trm t v 1) :: ds) (n + 1) b
               else ds in
-          (*  let _ = Debug_transfo.trm "array" t in
-            let _ = Printf.printf "%s: nli %d, c %d, gets %d\n" v.name nli c gets in*)
             let ds' =
               if call && gets < nli && gets >= ops then complete [] gets nli
               else [] in
@@ -389,21 +384,18 @@ let discover_dependencies
                 i.e. if [das] contains at least one new dependency attribute to
                 go with [d]. *)
             let ins, dam = (Dep_set.add d ins, Dep_map.add d das dam) in
-                         let _ = Printf.printf "dep-base: %s\n" (Dep.to_string d) in
             let das = DepAttr_set.add Subscripted das in
             let ins, inouts, dam =
               match access with
               | `In ->
                  let ins, dam =
                    List.fold_left (fun (ins, dam) d ->
-                       let _ = Printf.printf "depin: %s\n" (Dep.to_string d) in
                        (Dep_set.add d ins, Dep_map.add d das dam)
                      ) (ins, dam) (ds @ ds') in
                  (ins, inouts, dam)
               | `InOut when call  ->
                  let ins, dam =
                    List.fold_left (fun (ins, dam) d ->
-                       let _ = Printf.printf "depincall: %s\n" (Dep.to_string d) in
                        (Dep_set.add d ins, Dep_map.add d das dam)
                      ) (ins, dam) (if gets < ops then (List.tl ds) else ds) in
                  let inouts, dam =
@@ -414,7 +406,6 @@ let discover_dependencies
                  in
                  let inouts, dam =
                    List.fold_left (fun (inouts, dam) d ->
-                       let _ = Printf.printf "depinoutcall: %s\n" (Dep.to_string d) in
                        (Dep_set.add d inouts, Dep_map.add d das dam)
                      ) (inouts, dam) ds' in
                  (ins, inouts, dam)
@@ -422,10 +413,8 @@ let discover_dependencies
                  let d = List.hd ds in
                  let inouts, dam =
                    (Dep_set.add d inouts, Dep_map.add d das dam) in
-                         let _ = Printf.printf "depinout not call: %s\n" (Dep.to_string d) in
                  let ins, dam =
                    List.fold_left (fun (ins, dam) d ->
-                         let _ = Printf.printf "depinnot call: %s\n" (Dep.to_string d) in
                        (Dep_set.add d ins, Dep_map.add d das dam)
                      ) (ins, dam) (List.tl ds) in
                  (ins, inouts, dam)
@@ -479,7 +468,6 @@ let discover_dependencies
              [access] enumeration parameter. *)
          List.fold_left2 (fun (ins, inouts, dam) arg (ar, _) ->
              let access = if (FunctionRecord.is_rw ar) then `InOut else `In in
-             let _ = Debug_transfo.trm "arg" arg in
              main ins inouts dam 0 true access iao arg
            ) (ins, inouts, dam) args r.args
        else
@@ -501,14 +489,12 @@ let discover_dependencies
            read assigned to [lval], we thus consider it as an in-dependency.
            However, this might change later if we discover a unary increment or
            decrement in [rval]. *)
-       let _ = Debug_transfo.trm "set op" t in
        let la = trm_reduce_and_apply (fun v _ _ _ -> Some v) lval in
        let ra = trm_reduce_and_apply aliasing rval in
        begin
          if (Option.is_some la) && (Option.is_some ra) then
            let v = Option.get la in
            let target = Option.get ra in
-           let _ = Printf.printf "New alias from %s to %s\n" v.name target.name in
            Var_Hashtbl.add aliases v target
        end;
        (** Finally, we continue the dependency discovery within [lval] and
@@ -522,7 +508,6 @@ let discover_dependencies
        (** Determine the number of levels of indirection [nli] of [v] thanks to
            its type [ty]. *)
        let nli = typ_get_nli ty in
-       let _ = Printf.printf "New variable '%s' of nli %d\n" (var_to_string v) nli in
        (** Transform [v] into an inout-dependency and add it to the
            corresponding dependency set with the [NewVariable] attribute. *)
        let d = Dep_var v in
@@ -555,7 +540,6 @@ let discover_dependencies
            (** Determine the number of levels of indirection [nli] of [v] thanks
                to its type [ty]. *)
            let nli = typ_get_nli ty in
-           let _ = Printf.printf "MNew variable '%s' of nli %d\n" (var_to_string v) nli in
            (** Transform [v] into an inout-dependency and add it to the
                corresponding dependency set with the [NewVariable] attribute. *)
            let d = Dep_var v in
@@ -899,9 +883,6 @@ let taskify_on (p : path) (t : trm) : unit =
            initialize the in and inout-dependency sets as well as the map of
            dependency attribute sets. *)
        let (ins, inouts, ioattrs) = discover_dependencies s a t in
-       let _ = Debug_transfo.trm "scanning" t in
-       let _ = Printf.printf "ins: %s\n" (Dep_set.to_string ins) in
-       let _ = Printf.printf "inouts: %s\n" (Dep_set.to_string ins) in
        (** Convert the local scope to a set. *)
        let scope = var_map_of_var_hashtbl s in
        (** Create the corresponding task candidate using all the elements
