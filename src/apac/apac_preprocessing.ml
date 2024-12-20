@@ -1276,24 +1276,23 @@ end = struct
         first argument which is [this], a variable referring to the parent class
         instance. Indeed, we have already added sibling class members [fcr]. *)
     let args = if fcr.member then List.tl args else args in
-    let args =
-      List.filteri (fun i arg ->
-          if (Tools.Int_map.mem i fcr.args) then
-            let acr = Tools.Int_map.find i fcr.args in
-            acr.self <> Variable
-          else
-            failwith (missing_record "analyze_on" f i)
-        ) args in
     List.iteri (fun i (v, ty) ->
-        (** If an argument is a structure or a class, we have to recursively
-            include its members (see [!arg_explode]). *)
-        let lvs = arg_explode v ty in
-        (** For now, we do not perform the below tests for structure and class
-            members. *)
-        List.iter (fun (lv, ty) ->
-            let nli = Apac_miscellaneous.typ_get_nli ty in
-            LVar_Hashtbl.add aliases lv (i, nli)
-          ) lvs
+        if (Tools.Int_map.mem i fcr.args) then
+          begin
+            let acr = Tools.Int_map.find i fcr.args in
+            if acr.self <> Variable then
+              (** If an argument is a structure or a class, we have to
+                  recursively include its members (see [!arg_explode]). *)
+              let lvs = arg_explode v ty in
+              (** For now, we do not perform the below tests for structure and
+                  class members. *)
+              List.iter (fun (lv, ty) ->
+                  let nli = Apac_miscellaneous.typ_get_nli ty in
+                  LVar_Hashtbl.add aliases lv (i, nli)
+                ) lvs
+          end
+        else
+          failwith (missing_record "analyze_on" f i)
       ) args;
     (** Analyze the body of [f] for data dependencies on arguments and their
         aliases. *)
