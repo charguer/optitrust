@@ -20,10 +20,10 @@ void g(const int* tab) {}
 
 void h(const int* tab) {}
 
-void p(int& v) {
+void p(int* v) {
   int a = 15;
   int b = a + 2;
-  int c = a + b + v++;
+  int c = a + b + (*v)++;
 }
 
 void c(int* tab, int size) {
@@ -59,8 +59,8 @@ void c(int* tab, int size) {
           __apac_depth = __apac_depth_local + 1;
         }
         tab[i] += 2;
-        p(tab[i]);
-        p(tab[i]);
+        p(&tab[i]);
+        p(&tab[i]);
         if (__apac_count_ok) {
 #pragma omp atomic
           __apac_count--;
