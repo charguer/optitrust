@@ -52,38 +52,6 @@ let discover_dependencies
         always become the target of an alias. *)
     | _ -> Some v
   in
-  (** [discover_dependencies.variable v vk l n]: returns a quintuplet [(v, -n,
-      nli, alias, global)] featuring the variable [v], the number [-n] of
-      dereferencements [v] is subject to as well as its number of levels of
-      indirection [nli] and the boolean [alias] flag. If [v] is an alias to
-      another variable according to the hash table of [!aliases], [alias] is set
-      to [true]. In this case, [-n] and [nli] are irrelevant and potentially
-      incorrect. Otherwise, [alias] is set to [false]. If the resulting [v] is a
-      global variable, [global] is set to [true] and to [false] otherwise. *)
-  (*let variable (v : var) (vk : varkind) (l : label) (n : int) :
-        (var * int * int * bool * bool) option =
-    (** [discover_dependencies.variable.nli v]: tries to determine the number of
-        levels of indirection of the variable [v] and decide whether [v] is a
-        global variable. Note that this is possible only for local and global
-        variables from the current compilation unit. We consider that external
-        variables are global and have zero levels of indirection. *)
-    let nli v =
-      if (Var_Hashtbl.mem scope v) then
-        (Var_Hashtbl.find scope v, false)
-      else if (Var_map.mem v !Apac_records.globals) then
-        let ty, _ = Var_map.find v !Apac_records.globals in
-        (typ_get_nli ty, true)
-      else
-        (0, true)
-    in
-    let v, alias =
-      match Var_Hashtbl.find_opt aliases v with
-      | Some tg -> (Var_Hashtbl.find aliases tg, true)
-      | None -> (v, false)
-    in
-    let nli, global = nli v in
-    Some (v, - n, nli, alias, global)
-  in*)
   (** [discover_dependencies.best_effort ins inouts dam access iao t]: a
       best-effort dependency discovery for language constructs we do not fully
       support yet such as structure member accesses. For the main dependency
@@ -183,12 +151,6 @@ let discover_dependencies
   let rec main (ins : Dep_set.t) (inouts : Dep_set.t) (dam : ioattrs_map)
             (gets : int) (call : bool) (access : [ `In | `InOut ]) (iao : bool)
             (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
-   (* let error =
-      Printf.sprintf
-        "Apac_task_candidate_discovery.discover_dependencies.main: '%s' or \
-         '%s' is not a valid OpenMP depends expression"
-        (AstC_to_c.ast_to_string t)
-        (Ast_to_text.ast_to_string t) in*)
     let warning (t : trm) : unit =
       Printf.printf
         "WARNING: the dependency discovery does not recognize the \
