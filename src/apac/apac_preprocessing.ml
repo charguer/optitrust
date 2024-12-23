@@ -3,6 +3,7 @@ open Typ
 open Trm
 open Path
 open Target
+open Apac_miscellaneous
 
 (** {0:preprocessing Pre-processing}
     
@@ -30,11 +31,12 @@ let record_functions (tg : target) : unit =
           variable from [!Apac_records.globals], add it to [w] and return the
           resulting set. Otherwise, return [w] as is. *)
       let one (t : trm) : Var_set.t =
-        match
-          Apac_miscellaneous.trm_reduce_and_apply (fun v _ _ _ -> Some v) t with
-        | Some v when Var_map.mem v !Apac_records.globals ->
-           Var_set.add v w
-        | _ -> w
+        let ll = trm_find_memlocs t in
+        List.fold_left (fun w l ->
+            if (Var_map.mem l.variable !Apac_records.globals) then
+              Var_set.add l.variable w
+            else w
+          ) w ll
       in
       match t.desc with
       (** If [t] is an assignment or a compound assignment to an [lval]ue or *)
@@ -99,7 +101,7 @@ let record_globals (tg : target) : unit =
       let (_, v, ty, _) = trm_inv ~error trm_let_inv t in
       (** Add [v] to the record of global variables [!Apac_records.globals]. *)
       Apac_records.globals :=
-        Var_map.add v (Typ.get_inner_ptr_type ty, false) !Apac_records.globals
+        Var_map.add v (ty, false) !Apac_records.globals
     ) tg
 
 (** {1:candidate_preselection Candidate pre-selection}
@@ -798,17 +800,22 @@ end = struct
     (** Otherwise, simply return the toplevel labelled variable [lv]. *)
     | _ -> [(lv, ty)]
 
-  (** [aliasing a v l nli]: checks in the hash table of aliases [a] (see
-      [!type:l]) whether an L-variable consisting of the variable [v] and the
-      label [l], subject to [-n] dereferencements, is an argument or an alias to
-      an argument. If so, it returns the L-variable as well as the corresponding
-      0-based position of the argument it aliases. *)
-  let aliasing (a : l) (v : var) (vk : varkind) (l : label) (n : int) :
-        (lvar * int) option =
-    let lv : lvar = { v = v; l = l } in
-    match LVar_Hashtbl.find_opt a lv with
-    | Some (tg, _) -> Some (lv, tg)
-    | _ -> None
+  (** [aliasing a ll]: taking into account the hash table of aliases [a] (see
+      [!type:a]), the function filters the list of memory locations [ll] (see
+      [!type:memloc]) so as to keep only memory locations representing an
+      argument or an alias to an argument. It then transforms the resulting list
+      of memory locations into the list of pairs of L-variables and the
+      corresponding 0-based positions of the arguments they alias. *)
+  let rec aliasing (a : l) (ll : memloc list) : (lvar * int) list =
+    match ll with
+    | hd :: tl ->
+       let lv : lvar = { v = hd.variable; l = hd.label } in
+       let alias = LVar_Hashtbl.find_opt a lv in
+       if Option.is_some alias then
+         let tg, _ = Option.get alias in
+         (lv, tg) :: (aliasing a tl)
+       else aliasing a tl
+    | [] -> []
 
   (** [targeting a v l nli]: checks in the hash table of aliases [a] (see
       [!type:l]) whether an L-variable consisting of the variable [v] and the
@@ -956,16 +963,16 @@ end = struct
                (List.length args) > (Tools.Int_map.cardinal fcr.args) in
              if extra then
                begin
-                 (** If we are calling a class member method and *)
-                 let lva = Apac_miscellaneous.trm_reduce_and_apply
-                             (aliasing aliases) (List.hd args) in
-                 if (Option.is_some lva) then
-                   let lv, tg = Option.get lva in
-                   if lv.v.name <> "this" then
-                     (** if the parent is not [this], we may have to unconstify
-                         the argument (see [!unconstify]). For now, we do not
-                         take into account class member variables. *)
-                     Stack.push (f, tg, f') ous
+                 (** If we are calling a class member method and if the parent
+                     is not [this], we may have to unconstify the argument (see
+                     [!unconstify]). For now, we do not take into account class
+                     member variables. *)
+                 let ll = trm_find_memlocs (List.hd args) in
+                 let lva = aliasing aliases ll in
+                 List.iter (fun (lv, tg) ->
+                     if lv.v.name <> "this" then
+                       Stack.push (f, tg, f') ous
+                   ) lva
                end;
              (** For each argument of the function call (except for [this]), *)
              List.iteri (fun i arg ->
@@ -974,18 +981,16 @@ end = struct
                  if (Tools.Int_map.mem i fcr.args) then
                    begin
                      let acr = Tools.Int_map.find i fcr.args in
-                     (** Then, we have to try to resolve the unique L-variable
-                         [lv] behind [arg] and check whether it is an alias to
-                         an argument [tg] of [f]. *)
-                     let lva =
-                       Apac_miscellaneous.trm_reduce_and_apply
-                         (aliasing aliases) arg in
-                     (** If so, we may have to unconstify the argument of [f]
-                         (at the position [tg]) the variable [lv] behind [arg]
+                     (** Then, for each L-variable [lv] we find in [arg], we
+                         have to check whether it aliases an argument [tg] of
+                         [f]. If so, we may have to unconstify the [tg]-th
+                         argument of [f] the variable [lv] behind the [arg] it
                          is aliasing. *)
-                     if (Option.is_some lva) then
-                       let lv, tg = Option.get lva in
-                       acr.propagate <- Var_map.add f tg acr.propagate
+                     let ll = trm_find_memlocs arg in
+                     let lva = aliasing aliases ll in
+                     List.iter (fun (_, tg) ->
+                         acr.propagate <- Var_map.add f tg acr.propagate
+                       ) lva
                    end
                  else
                    (** If it's not possible, fail. This is not normal! *)
@@ -995,82 +1000,73 @@ end = struct
          (** When we do not have a constification record for [f'], it means that
              we do not know the definition of [f'] and thus, we are not able to
              perform the constification as usual. In this case, we consider that
-             [f'] may alter any of its arguments except for simple variables
-             which we always pass by copy. *)
+             [f'] may alter any of its arguments. *)
          else
            begin
              (** Let us warn the user about that. *)
              Printf.printf
                "Apac_preprocessing.Constification.analyze_on.aux: missing \
                 definition of `%s', considering the function may alter any of \
-                its arguments except for simple variables.\n"
+                its arguments.\n"
                (var_to_string f');
-             (** Then, for each argument of the function call, *)
+             (** Then, for each argument [arg] of the function call and *)
              List.iter (fun arg ->                 
-                 (** we try to resolve the unique L-variable [lv] behind [arg]
-                     and, as we de not have a function record for [f'], we
-                     suppose it is an alias to an argument [tg] of [f] and stack
-                     it for unconstification. *)
-                 let check =
-                   Apac_miscellaneous.trm_reduce_and_apply
-                     (aliasing aliases) arg in
-                 if (Option.is_some check) then
-                   let lv, tg = Option.get check in
-                   Stack.push (f, tg) us
-               ) args;
+                 (** for each L-variable [lv] we find in [arg], we have to check
+                     whether it aliases an argument [tg] of [f]. If so, we may
+                     have to unconstify the [tg]-th argument of [f] the variable
+                     [lv] behind the [arg] it is aliasing. *)
+                 let ll = trm_find_memlocs arg in
+                 let lva = aliasing aliases ll in
+                 List.iter (fun (_, tg) -> Stack.push (f, tg) us) lva
+               ) args
            end;
          (** Continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
       (** When [t] is a declararion of a variable [v] of type [ty] with an
           initialization term [ti], *)
       | Trm_let (_, (v, ty), { desc = Trm_apps (_, [ti]); _ }, _) ->
-         (** we [check] whether [ti] reduces to an [alias] to an argument [tg]
-             of [f] and if so, we have to update the hash table of [aliases]. *)
-         let check =
-           Apac_miscellaneous.trm_reduce_and_apply (aliasing aliases) ti in
-         if (Option.is_some check) then
-           begin
-             let _, tg = Option.get check in
+         (** we try to identify each memory location in [ti] representing an
+             argument or an alias to an argument [tg] of [f] and we update the
+             hash table of [aliases] accordingly if necessary. *)
+         let ll = trm_find_memlocs ti in
+         let lva = aliasing aliases ll in
+         List.iter (fun (_, tg) ->
              let alias : lvar = { v = v; l = String.empty } in
              LVar_Hashtbl.add
                aliases alias (tg, Apac_miscellaneous.typ_get_nli ty)
-           end;
+           ) lva;
          (** We then continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
       (** When [t] is a declararion of multiple variables [tvs] with optional
           initialization terms [tis], *)
       | Trm_let_mult (_, tvs, tis) ->
-         (** we [check], for each variable [v] of type [ty] and optional
-             initialization term [ti] in [tvs] and [tis], respectively, whether
-             [ti] reduces to an [alias] to an argument [tg] of [f] and if so, we
-             have to update the hash table of aliases for each . *)
+         (** we try to identify each memory location in each [ti] in [tis]
+             representing an argument or an alias to an argument [tg] of [f] and
+             we update the hash table of [aliases] accordingly if necessary. *)
          List.iter2 (fun (v, ty) ti ->
-             let check =
-               Apac_miscellaneous.trm_reduce_and_apply (aliasing aliases) ti in
-             if (Option.is_some check) then
-               let _, tg = Option.get check in
-               let alias : lvar = { v = v; l = String.empty } in
-               LVar_Hashtbl.add
-                 aliases alias (tg, Apac_miscellaneous.typ_get_nli ty)
+             let ll = trm_find_memlocs ti in
+             let lva = aliasing aliases ll in
+             List.iter (fun (_, tg) ->
+                 let alias : lvar = { v = v; l = String.empty } in
+                 LVar_Hashtbl.add
+                   aliases alias (tg, Apac_miscellaneous.typ_get_nli ty)
+               ) lva
            ) tvs tis;
          (** We then continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
       (** When [t] is an assignment or a compound assignment of an [rval] to an
           [lval] term, we may have to update the unconstification stack [us]. *)
       | Trm_apps (_, [lval; rval]) when is_set_operation t ->
-         (** We are modifying [lval] by assignment. Try to resolve the
-             underlying labelled variable [lv] and determine whether it has
-             been dereferenced based on the value of [deref]. *)
-         let lval =
-           Apac_miscellaneous.trm_reduce_and_apply (fun v vk l n ->
-               let lv : lvar = { v = v; l = l } in
-               Some (lv, (- n), vk)) lval in
-         if Option.is_some lval then
-           begin
-             let lv, n, vk = Option.get lval in
-             (** If [lv] is [this], it means that the function we are in is
-                 modifying a member variable of the parent class. Therefore, we
-                 will have to unconstify the function itself. *)
+         (** We are modifying [lval] by assignment. Find the underlying memory
+             locations [ll]. *)
+         let ll = trm_find_memlocs lval in
+         (** Then, for each memory location [l] in [ll] we do the follwing. *)
+         List.iter (fun l ->
+             (** We build the L-variable corresponding to [l]. *)
+             let lv : lvar = { v = l.variable; l = l.label } in
+             (** If [lv] is [this], it means that [f] is modifying a member
+                 variable of the parent class. Therefore, we will have to
+                 unconstify [f]. *)
              if lv.v.name = "this" then Stack.push (f, -1) us;
              (** If [lv] is an argument or an alias to an argument, *)
              if LVar_Hashtbl.mem aliases lv then
@@ -1084,31 +1080,32 @@ end = struct
                  (** Check whether [lv] simply becomes an [alias] to another
                      target. *)
                  let alias =
-                   match vk with
-                   | Var_mutable when n + 1 < nli -> true
-                   | Var_immutable when lv.l = "" && n < 0 -> true
-                   | Var_immutable when lv.l <> "" && n < nli -> true 
+                   match l.kind with
+                   | Var_mutable when l.dereferencements + 1 < nli ->
+                      true
+                   | Var_immutable when lv.l = "" && l.dereferencements < 0 ->
+                      true
+                   | Var_immutable when
+                          lv.l <> "" && l.dereferencements < nli ->
+                      true 
                    | _ -> false
                  in
                  if alias then
                    begin
-                     (** If so, we have to try to resolve [rval] to a unique
-                         memory location and check if it is an argument an
-                         alias to an argument at [tg]-th position. *)
-                     let rval =
-                       Apac_miscellaneous.trm_reduce_and_apply
-                         (aliasing aliases) rval in
-                     if !Apac_flags.verbose then
-                       Printf.printf "Constification of `%s': retargeting  \
-                                      alias %s (%d dereferencements, %d levels \
-                                      of indirection)\n"
-                         f.name (LVar.to_string lv) n nli;
-                     if Option.is_some rval then
-                       (** In such case, we have to add a new entry into
-                           [aliases]. This happens, for example, on L3 in the
-                           example below. *)
-                       let _, tg = Option.get rval in
-                       LVar_Hashtbl.add aliases lv (tg, nli)
+                     (** If so, for each memory location representing an
+                         argument or an alias to an argument [tg] we find in
+                         [rval], we add a new entry into [aliases]. This
+                         happens, for example, on L3 in the example below. *)
+                     let rval = trm_find_memlocs rval in
+                     let rval = aliasing aliases rval in
+                     List.iter (fun (_, tg) ->
+                         if !Apac_flags.verbose then
+                           Printf.printf "Constification of `%s': retargeting \
+                                          alias %s (%d dereferencements, %d \
+                                          levels of indirection)\n"
+                             f.name (LVar.to_string lv) l.dereferencements nli;
+                         LVar_Hashtbl.add aliases lv (tg, nli)
+                       ) rval
                    end
                  else
                    (** Otherwise, it means that we are modifying a function
@@ -1149,7 +1146,7 @@ end = struct
                      Printf.printf "Constification of `%s': modifying alias %s \
                                     (%d dereferencements, %d levels of \
                                     indirection)\n"
-                       f.name (LVar.to_string lv) n nli;
+                       f.name (LVar.to_string lv) l.dereferencements nli;
                    List.iter (fun (tg, _) ->
                        (** Again, we do not consider parent class members
                            because the constification process does not
@@ -1159,45 +1156,38 @@ end = struct
                end
              else
                (** When [lv] is not an argument and it is not an alias yet, we
-                   have to to try to reduce [rval] to a unique memory location
-                   [rv] and check if it is an argument an alias to an argument
-                   at [tg]-th position. *)
-               let rval =
-                 Apac_miscellaneous.trm_reduce_and_apply
-                   (aliasing aliases) rval in
-               if Option.is_some rval then
-                 (** If so, we have to add a new entry into [aliases]. *)
-                 let rv, tg = Option.get rval in
-                 (** As we do not know the number of levels of indirections of
-                     [lval], we use the number of levels of indirection [nli]
-                     of [rv]. *)
-                 let _, nli = LVar_Hashtbl.find aliases rv in
-                 LVar_Hashtbl.add aliases lv (tg, nli)
-           end;
+                   look for any memory location [rv] in [rval] and check if it
+                   is an argument an alias to an argument [tg]. If so, we have
+                   to add a new entry into [aliases]. As we do not know the
+                   number of levels of indirections of [lval], we use the number
+                   of levels of indirection [nli] of [rv]. *)
+               let rval = trm_find_memlocs rval in
+               let rval = aliasing aliases rval in
+               List.iter (fun (rv, tg) ->
+                   let _, nli = LVar_Hashtbl.find aliases rv in
+                   LVar_Hashtbl.add aliases lv (tg, nli)
+                 ) rval
+           ) ll;
          (** Continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
       (** When [t] is an increment or decrement unary operation on an operand
           [o], we may have to update the unconstification stack [us]. *)
       | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, [o]) when
              (is_prefix_unary op) || (is_postfix_unary op) ->
-         (** We are modifying [o] by assignment. Try to reduce [o] to a unique
-             memory location [lv] and check whether it is an argument or an
-             alias to an argument at [tg]-th position. *)
-         let o =
-           Apac_miscellaneous.trm_reduce_and_apply (aliasing aliases) o in
-         if (Option.is_some o) then
-           begin
-             let lv, tg = Option.get o in
-             (** If so, we must unconstify it and propagate this decision to all
-                 previous aliases. *)
+         (** We are modifying [o] by assignment. For each memory location [lv]
+             in [o], check whether it is an argument or an alias to an argument
+             [tg]. If so, we must unconstify it and propagate this decision to
+             all previous aliases. Again, we do not consider parent class
+             members because the constification process does not analyze entire
+             classes for now. *)
+         let o = trm_find_memlocs o in
+         let o = aliasing aliases o in
+         List.iter (fun (lv, tg) ->
              let all = LVar_Hashtbl.find_all aliases lv in
              List.iter (fun (tg, _) ->
-                 (** Again, we do not consider parent class members because the
-                     constification process does not analyze entire classes for
-                     now. *)
                  if tg > -1 then Stack.push (f, tg) us
                ) all
-           end;
+           ) o;
          (** Continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
       (** When [t] is a return statement returning [rt], we have to update the
@@ -1212,17 +1202,16 @@ end = struct
          (** If the return type of [f] is a pointer or a reference, *)
          if fcr.return = Reference || fcr.return = Pointer then
            begin
-             (** we try to reduce [rt] to a unique memory location and [check]
-                 whether the latter is an alias to an argument [tg]. *)
-             let check =
-               Apac_miscellaneous.trm_reduce_and_apply (aliasing aliases) rt in
-             (** If so, we must unconstify it. *)
-             if (Option.is_some check) then
-               let _, tg = Option.get check in
-               (** Again, we do not consider parent class members because the
-                   constification process does not analyze entire classes for
-                   now. *)
-               if tg > -1 then Stack.push (f, tg) us
+             (** we check for each memory location in [rt] whether it is an
+                 argument or an alias to an argument [tg]. If so, we must
+                 unconstify it. Again, we do not consider parent class members
+                 because the constification process does not analyze entire
+                 classes for now. *)
+             let rt = trm_find_memlocs rt in
+             let rt = aliasing aliases rt in
+             List.iter (fun (_, tg) ->
+                 if tg > -1 then Stack.push (f, tg) us
+               ) rt
            end;
          (** Continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
@@ -1504,52 +1493,52 @@ end = struct
                  Array
                else Variable in
          (** Then, check whether we are declaring an alias to an argument. *)
-         begin match Apac_miscellaneous.trm_reduce_and_apply
-                       (aliasing aliases) ti with
-         (** If we are creating an [alias] to an [argument], we have to update
-             [aliases] and constify the alias and rebuild its declaration. *)
-         | Some (_, argument) ->
-            let alias : lvar = { v = v; l = String.empty } in
-            LVar_Hashtbl.add
-              aliases alias (argument, Apac_miscellaneous.typ_get_nli ty);
-            begin match kind with
-            | Reference ->
-               let ty = typ_ref (typ_constify (get_inner_ptr_type ty)) in
-               trm_let_mut (v, ty) ti
-            | Pointer ->
-               let ty = typ_constify (get_inner_ptr_type ty) in
-               trm_let_mut (v, get_inner_const_type ty) ti
-            | Array ->
-               let ty = typ_constify (get_inner_array_type ty) in
-               trm_let_mut (v, get_inner_const_type ty) ti
-            (** Note that simple variables do not lead to aliases. *)
-            | Variable -> t
-            end
-         (** Otherwise, there is nothing to do, return the declaration term
-             [t] as is. *)
-         | None -> t
-         end
+         let ll = trm_find_memlocs ti in
+         let ll = aliasing aliases ll in
+         (** If so, i.e. if [ll] is not an empty list, *)
+         List.iter (fun (_, argument) ->
+             (** we have to update [aliases] for each [alias] to an
+                 [argument]. *)
+             let alias : lvar = { v = v; l = String.empty } in
+             LVar_Hashtbl.add
+               aliases alias (argument, Apac_miscellaneous.typ_get_nli ty)                    
+           ) ll;
+         (** Also, we have to constify the current variable declaration. *)
+         if (List.length ll) > 0 then
+           match kind with
+           | Reference ->
+              let ty = typ_ref (typ_constify (get_inner_ptr_type ty)) in
+              trm_let_mut (v, ty) ti
+           | Pointer ->
+              let ty = typ_constify (get_inner_ptr_type ty) in
+              trm_let_mut (v, get_inner_const_type ty) ti
+           | Array ->
+              let ty = typ_constify (get_inner_array_type ty) in
+              trm_let_mut (v, get_inner_const_type ty) ti
+           (** Note that simple variables do not lead to aliases. *)
+           | Variable -> t
+         else t
       (** When [t] is a declaration of multiple variables [tvs] of kind [vk]
           with optional initialization terms [tis], we may have to update the
           list of [aliases] depending on [ti] and constify the declarations of
           [tvs] representing aliases to constant variables. *)
       | Trm_let_mult (vk, tvs, tis) ->
          (** At first, we verify for each variable [v] of type [ty] among [tvs]
-             whether it represents a new alias and return the test results in
-             the form of a list [a] of booleans. *)
+             whether it represents a new alias and return the [test] test
+             results in the form of a list [a] of booleans. *)
          let a =
            List.map2 (fun (v, ty) ti ->
-               match Apac_miscellaneous.trm_reduce_and_apply
-                       (aliasing aliases) ti with
-               (** If we are creating an [alias] to an [argument], we have to
-                   update [aliases] and return [true]. *)
-               | Some (_, argument) ->
-                  let alias : lvar = { v = v; l = String.empty } in
-                  LVar_Hashtbl.add
-                    aliases alias (argument, Apac_miscellaneous.typ_get_nli ty);
-                  true
-               (** Otherwise, we return [false]. *)
-               | None -> false
+               let ll = trm_find_memlocs ti in
+               let ll = aliasing aliases ll in
+               List.fold_left (fun test (_, argument) ->
+                   (** If we are creating an [alias] to an [argument], we have
+                       to update [aliases] and return [true]. *)
+                   let alias : lvar = { v = v; l = String.empty } in
+                   LVar_Hashtbl.add
+                     aliases alias
+                     (argument, Apac_miscellaneous.typ_get_nli ty);
+                   test || true
+                 ) false ll
              ) tvs tis in
          (** If all the elements of [a] are [false], there are no aliases to
              constant variables and there is nothing todo. Return [t] as is. *)

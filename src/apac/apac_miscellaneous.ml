@@ -75,74 +75,83 @@ let typ_get_nli (ty : typ) : int =
   (** Start counting the levels of indirection of [ty] at level [0]. *)
   aux 0 ty
 
-(** [trm_reduce_and_apply f t]: tries to reduce the term [t] to a unique memory
-    location and applies the [f] function on the latter. If the reduction
-    succeeds, the function returns the result of [f]. *)
-let trm_reduce_and_apply
-      (f : var -> varkind -> label -> int -> 'a option) (t : trm) : 'a option =
-  (** [trm_reduce_and_apply.aux nli l t]: auxiliary function to recursively
-      inspect [t]. If the latter features strcture or class member accesses, [l]
-      will keep the track of the label of the member. [nli] counts the number of
-      levels of indirections while accessing to the resulting memory location,
-      if any. *)
-  let rec aux (nli : int) (l : label) (t : trm) : 'a option =
+(** [memloc]: a type to represent memory locations consisting of *)
+type memloc = {
+    (** variable [kind], *)
+    kind : varkind;
+    (** an actual [variable], *)
+    variable : var;
+    (** a [label] if the [variable] is a class or a structure member and *)
+    label : label;
+    (** the number of dereferencements of the [variable], if any. *)
+    dereferencements : int
+  }
+
+(** [trm_find_memlocs t]: searches the term [t] for memory locations
+    and returns them in a list. If [t] does not contain an identifiable memory
+    location, the function returns an empty list. *)
+let trm_find_memlocs (t : trm) : memloc list =
+  (** [trm_find_memlocs.aux d l t]: auxiliary function to recursively inspect
+      [t]. If the latter features strcture or class member accesses, [l] will
+      keep the track of the member's label. [gets] counts the number of
+      dereferencements of the variable corresponding to the resulting memory
+      location in [t], if any. *)
+  let rec aux (d : int) (l : label) (t : trm) : memloc list =
     match t.desc with
     (** When [t] is a unary operation [op] and more precisely *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
-       begin match op with
-       (** a dereferencement, e.g. [*i], the number of levels of indirection
-           decreases. *)
-       | Unop_get -> aux (nli - 1) l t
-       (** a referencement, e.g. [&i], the number of levels of indirection
-           increases. *)
-       | Unop_address -> aux (nli + 1) l t
-       (** a cast, the number of levels of indirection corresponds to the sum of
-           the current number of levels of indirection [nli] and the number of
-           levels of indirection of the destination type. *)
-       | Unop_cast ty -> aux (nli + typ_get_nli ty) l t
-       (** a structure or a class member access, e.g. [structure.member] or
-           [structure->member], extract the label of the member field [f]
-           involved in the operation and continue the reduction. *)
-       | Unop_struct_access f -> aux nli f t
-       | Unop_struct_get f -> aux (nli - 1) f t
-       (** Otherwise, there is nothing to reduce. *)
-       | _ -> None
+       begin
+         match op with
+         (** a dereferencement, e.g. [*i], [d] increases. *)
+         | Unop_get -> aux (d + 1) l t
+         (** a referencement, e.g. [&i], [d] decreases. *)
+         | Unop_address -> aux (d - 1) l t
+         (** a cast, we subtract from [d] the number of levels of indirection
+             of the destination type. *)
+         | Unop_cast ty -> aux (d - typ_get_nli ty) l t
+         (** a structure or a class member access, e.g. [structure.member] or
+             [structure->member], we extract the label of the member field [f]
+             and continue the reduction. *)
+         | Unop_struct_access f -> aux d f t
+         (** a structure or a class member access, e.g. [structure.member] or
+             [structure->member], involving a dereferencement, we extract the
+             label of the member field [f], increase [d] and continue the
+             reduction. *)
+         | Unop_struct_get f -> aux (d + 1) f t
+         (** Otherwise, there is no memory location to identify in [t]. *)
+         | _ -> []
        end
-    (** When [t] is a binary operation [op] with a left-hand side term [lhs] and
-        a right-hand side term [rhs], we have two possible situations. *)
+    (** When [t] is a binary operation [op] with a left-hand side term [lhs]
+        and a right-hand side term [rhs], we have three possible
+        situations. *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop op));
                   _ }, [lhs; rhs]) ->
-       begin match op with
-       (** When [t] is an array access, i.e. a dereferencement, the number of
-           levels of indirection decreases and we continue the reduction on the
-           accessed memory location [lhs]. *)
-       | Binop_array_access -> aux nli l lhs
-       | Binop_array_get -> aux (nli - 1) l lhs
-       (** Otherwise, we continue the reduction on both [lhs] and [rhs]. *)
-       | _ ->
-          begin match (aux nli l lhs, aux nli l rhs) with
-          | Some (res), None -> Some (res)
-          | None, Some (res) -> Some (res)
-          | None, None -> None
-          (** For now, we do not know what to do when the binary expression
-              involves more than one variable. *)
-          | Some (_), Some (_) ->
-             fail
-               t.loc ("Apac_miscellaneous.trm_reduce_and_apply.aux: nor the \
-                       dependency discovery nor the alias analysis support \
-                       rvalues, such as`" ^
-                        (AstC_to_c.ast_to_string t) ^
-                          "', featuring more than one variable.")
-          end
+       begin
+         match op with
+         (** If [t] is an array access without a dereferencement, we continue
+             the reduction on the target memory location [lhs]. *)
+         | Binop_array_access -> aux d l lhs               
+         (** If [t] is an array access with a dereferencement, [d] increases
+             and we continue the reduction on the target memory location
+             [lhs]. *)
+         | Binop_array_get -> aux (d + 1) l lhs
+         (** Otherwise, we continue the reduction on both [lhs] and [rhs]. *)
+         | _ -> (aux d l lhs) @ (aux d l rhs)
        end
-    (** When [t] is a [new] operation, explore the initialization term *)
+    (** When [t] is a [new] operation, we explore the initialization term *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_new _)); _ }, [t]) ->
-       aux nli l t
-    (** When [t] leads to a variable [v], call [f]. *)
+       aux d l t
+    (** When [t] leads to a variable [v], we transform it into a memory
+        location and return it within the resulting list. *)
     | Trm_var (vk, v) ->
-       f v vk l nli
-    (** Otherwise, there is nothing to reduce. *)
-    | _ -> None
+       [{
+           kind = vk;
+           variable = v;
+           label = l;
+           dereferencements = d
+       }]
+    (** Otherwise, there is no memory location to identify in [t]. *)
+    | _ -> []
   in
   (** Call the auxiliary function. *)
   aux 0 "" t

@@ -17,40 +17,39 @@ open Apac_tasks
 let discover_dependencies
       (scope : FunctionRecord.s) (aliases : var Var_Hashtbl.t)
       (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
-  (** [discover_dependencies.aliasing vk l n]: checks in the hash table of
-      [!aliases] whether the variable [v], subject to [-n] dereferencements, can
-      become the target of an alias and if so, the function returns [v]. If the
-      latter is itself an alias already, the function returns the original
-      target variable. *)
-  let aliasing (v : var) (vk : varkind) (l : label) (n : int) : var option =
-    (** In order to be able to check whether [v] can become the target of an
-        alias, we need to determine its number of levels of indirection [nli].
-        For local variables, we look into [scope]. If we do not find it there,
-        [v] might be a global variable, so then we try to determine its [nli]
-        based on the data from [!Apac_records.globals]. *)
-    let nli =
-      if (Var_Hashtbl.mem scope v) then
-        Some (Var_Hashtbl.find scope v)
-      else if (Var_map.mem v !Apac_records.globals) then
-        let ty, _ = Var_map.find v !Apac_records.globals in
-        Some (typ_get_nli ty)
-      else
-        None
-    in
-    match nli with
-    (** [v] can become the target of an alias if it was not completely
-        dereferenced, i.e. [-n] is less then [nli]. *)
-    | Some nli when (- n) < nli ->
+  (** [discover_dependencies.alias ll]: taking into account the hash table of
+      [aliases], the function filters the list of memory locations [ll] (see
+      [!type:memloc]) so as to keep only memory locations that can become the
+      target of an alias. It then transforms the resulting list of memory
+      locations into the list of corresponding variables. *)
+  let rec alias (ll : memloc list) : vars =
+    match ll with
+    | hd :: tl ->
+       (** In order to be able to check whether the variable [hd.variable]
+           corresponding to the memory location at the head of [ll] can become
+           the target of an alias, we need to determine its number of levels of
+           indirection [nli]. *)
        begin
-         match Var_Hashtbl.find_opt aliases v with
-         | Some tg -> Some tg
-         | None -> Some v
+         match Var_Hashtbl.find_opt scope hd.variable with
+         (** [hd.variable] can become the target of an alias if it was not
+             completely dereferenced, i.e. [hd.dereferencements] is less then
+             [nli]. *)
+         | Some nli when hd.dereferencements < nli ->
+            begin
+              match Var_Hashtbl.find_opt aliases hd.variable with
+              (** If [hd.variable] is already an alias by itself, we return the
+                  initially aliased variable. *)
+              | Some tg -> tg :: (alias tl)
+              (** Otherwise, we return [hd.variable]. *)
+              | None -> hd.variable :: (alias tl)
+            end
+         | Some _ -> alias tl
+         (** If we were not able to determine the [nli] of [hd.variable], it
+             means that it is an external variable and in this case, we safely
+             suppose that it can always become the target of an alias. *)
+         | _ -> hd.variable :: (alias tl)
        end
-    | Some _ -> None
-    (** If we were not able to determine the [nli] of [v], it means that it is
-        an external variable and in this case, we safely suppose that it can
-        always become the target of an alias. *)
-    | _ -> Some v
+    | [] -> []
   in
   (** [discover_dependencies.best_effort ins inouts dam access iao t]: a
       best-effort dependency discovery for language constructs we do not fully
@@ -483,27 +482,46 @@ let discover_dependencies
            ) (ins, inouts, dam) args
     (** [t] is a set operation ([a = 1]) between an [lval] and an [rval]. *)
     | Trm_apps (_, [lval; rval]) when is_set_operation t ->
-       (** Check whether we can resolve the variable [v] behind [lval]. If so,
-           we then verify whether this variable declaration introduces an alias
-           to an existing variable in which case we update [aliases], then we
-           continue the dependency discovery in [lval] and [rval]. On the one
-           hand, [lval] is the memory area being modified, we thus classify the
-           dependency as an inout-dependency. On the other hand, [rval] is being
-           read assigned to [lval], we thus consider it as an in-dependency.
-           However, this might change later if we discover a unary increment or
-           decrement in [rval]. *)
-       let la = trm_reduce_and_apply (fun v _ _ _ -> Some v) lval in
-       let ra = trm_reduce_and_apply aliasing rval in
-       begin
-         if (Option.is_some la) && (Option.is_some ra) then
-           let v = Option.get la in
-           let target = Option.get ra in
-           Var_Hashtbl.add aliases v target
-       end;
-       (** Finally, we continue the dependency discovery within [lval] and
-           [rval].*)
-       let ins, inouts, dam = main ins inouts dam 0 false `InOut false lval in
-       main ins inouts dam 0 false `In false rval
+       (** Look for the memory locations [lll] in [lval]. *)
+       let lll = trm_find_memlocs lval in
+       (** In [lll], try to identify the memory location representing the target
+           of the [set] operation, i.e. the memory location which has not been
+           fully dereferenced. *)
+       let set, _ =
+         List.partition (fun l ->
+             match Var_Hashtbl.find_opt scope l.variable with
+             | Some nli when l.label = "" -> l.dereferencements < nli
+             (** If [l] features a class or a structure member acces or if we
+                 can not determine the number of levels of indirection of a
+                 memory location [l] in [lll], we safely suppose that it is the
+                 target of the set operation. *)
+             | _ -> true
+           ) lll
+       in
+       (** If we find more than one target of the set operation, fail. This is
+           not normal! *)
+       if (List.length set) <> 1 then
+         fail
+           t.loc
+           ("Apac_task_candidate_discovery.discover_dependencies.main: \
+             ambiguous target in set operation `" ^
+              (AstC_to_c.ast_to_string t) ^ "'.")
+       else
+         let set = List.hd set in
+         (** Otherwise, we continue by identifying all the memory locations in
+             [rval]. *)
+         let rll = trm_find_memlocs rval in
+         (** We then compute the list [ra] of alias targets they represent, if
+             any. *)
+         let ra = alias rll in
+         List.iter (fun target ->
+             (** Then, for each alias target, we add a new entry to [alises]. *)
+             Var_Hashtbl.add aliases set.variable target
+           ) ra;
+         (** Finally, we continue the dependency discovery within [lval] and
+             [rval].*)
+         let ins, inouts, dam = main ins inouts dam 0 false `InOut false lval in
+         main ins inouts dam 0 false `In false rval
     (** [t] is a single declaration ([int a;], [int \* b = ptr;]) of a variable
         [v] of type [ty] and kind [vk] optionally involving an initialization
         term [init]. *)
@@ -524,14 +542,12 @@ let discover_dependencies
        (** [v] also represents a new variable in the local [scope], we thus need
            to introduce it to the latter together with its [nli]. *)
        Var_Hashtbl.add scope v nli;
-       (** Finally, we check whether this variable declaration introduces an
-           [alias] to an existing variable and if so, we update [aliases]. *)
-       let alias = trm_reduce_and_apply aliasing init in
-       begin
-         if (Option.is_some alias) then
-           let target = Option.get alias in
-           Var_Hashtbl.add aliases v target
-       end;
+       (** Finally, we check whether this variable declaration introduces
+           aliases to existing variables referred to in [init] and if so, we
+           update [aliases]. *)
+       let ll = trm_find_memlocs init in
+       let ll = alias ll in
+       List.iter (fun target -> Var_Hashtbl.add aliases v target) ll;
        (ins, inouts, dam)
     (** [t] is a multiple declaration ([int a = 1, b]) of variables [tvs]
         including their types and of kind [vk] optionally involving
@@ -556,14 +572,12 @@ let discover_dependencies
            (** [v] also represents a new variable in the local [scope], we thus
                need to introduce it to the latter together with its [nli]. *)
            Var_Hashtbl.add scope v nli;
-           (** Finally, we check whether this variable declaration introduces an
-               [alias] to an existing variable and update [aliases], if so. *)
-           let alias = trm_reduce_and_apply aliasing init in
-           begin
-             if (Option.is_some alias) then
-               let target = Option.get alias in
-               Var_Hashtbl.add aliases v target
-           end;
+           (** Finally, we check whether this variable declaration introduces
+               aliases to existing variables referred to in [init] and if so, we
+               update [aliases]. *)
+           let ll = trm_find_memlocs init in
+           let ll = alias ll in
+           List.iter (fun target -> Var_Hashtbl.add aliases v target) ll;
            (ins, inouts, dam)
          ) (ins, inouts, dam) tvs inits
     (** [t] is a structure member access ([s->m], [s.m], ...). *)
@@ -877,19 +891,21 @@ let taskify_on (p : path) (t : trm) : unit =
        Task.create (-1) t tas scope' ins inouts ioattrs [[]]
     | Trm_apps _ ->
        (** If [t] is an assignment to [Apac_macros.result_variable] we introduce
-           in the 'return' replacement [Apac_prologue.use_goto_for_return], we
-           must make it clear in the resulting task candidate that the statement
-           is related to a 'goto' jump to [Apac_macros.goto_label], hence the
-           [IsJump] attribute (see below). *)
+           during the [return] replacement [Apac_prologue.use_goto_for_return],
+           we must make it clear in the resulting task candidate that the
+           statement is related to a 'goto' jump to [Apac_macros.goto_label],
+           hence the [IsJump] attribute (see below). *)
        let isjump =
          if (is_set_operation t) then
            let error =
              "Apac_task_candidate_discovery.taskify_on.fill: expected set \
               operation." in
-           let (lval, _) = trm_inv ~error set_inv t in
-           match trm_reduce_and_apply (fun v _ _ _ -> Some v) lval with
-           | Some v when v.name = Apac_macros.result_variable -> true
-           | _ -> false
+           let lval, _ = trm_inv ~error set_inv t in
+           let lval = trm_find_memlocs lval in
+           if (List.length lval) = 1 then
+             let l = List.hd lval in
+             l.variable.name = Apac_macros.result_variable
+           else false
          else false
        in
        (** Look for dependencies and their attributes in the current term and
