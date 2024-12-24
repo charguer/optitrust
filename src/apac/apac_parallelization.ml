@@ -909,6 +909,10 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
                           Dep_map.has_with_attribute d Condition t.ioattrs
                         ) t.inouts
                     else t.inouts in
+      let inouts' = Dep_set.filter (fun d ->
+                        not (Dep_map.has_with_attribute
+                               d NewVariable t.ioattrs)
+                      ) inouts' in
       let inouts' = Dep_set.to_list inouts' in
       let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
       let depend = List.append ins' inouts' in
