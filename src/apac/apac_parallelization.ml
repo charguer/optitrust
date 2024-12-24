@@ -678,8 +678,8 @@ let place_barriers_on (p : path) (t : trm) : unit =
                   task''.inouts <-
                     Dep_set.filter (fun d ->
                         not (Dep_map.has_with_attribute
-                               d NewVariable task'.ioattrs)
-                      ) task'.inouts;
+                               d NewVariable task''.ioattrs)
+                      ) task''.inouts;
                   if not (TaskGraph.mem_vertex g v') then
                     task''.ioattrs <-
                       Dep_map.remove_attribute Subscripted task''.ioattrs;
