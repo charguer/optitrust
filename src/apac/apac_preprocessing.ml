@@ -11,7 +11,53 @@ open Apac_miscellaneous
     (see [!section:tcd]), it undergoes a series of preliminary analysis and
     transformation passes.
 
-    {1:building_records Building records}
+    {1:exploding_let_mult Exploding multiple variable definitions}
+
+    The first pass transforms all the multiple variable definitions in the
+    source code into equivalent simple variable definitions. It simplifies
+    further analyses and transformations but before all, it circumvents the
+    problem causing incorrect value when computing the number of levels of
+    indirection of variables in multiple variable declarations. *)
+
+(** [explode_let_mult tg]: expects target [tg] to point at a multiple variable
+    declaration. Then, it replaces the multiple variable declaration by a
+    sequence of simple variable declarations.
+
+    For example:
+
+    {[
+    int a = 1, b = a;
+    ]}
+
+    becomes:
+
+    {[
+    int a = 1;
+    int b = a;
+    ]}
+
+    Note that this pass requires reparsing to work properly. *)
+let explode_let_mult (tg : target) : unit =
+  Target.reparse_after (fun tg ->
+      Nobrace_transfo.remove_after (fun () ->
+          Target.apply_at_target_paths (fun t ->
+              (** Deconstruct the target multiple variable declaration term [t]
+                  into a variable kind [vk], a list of typed variables [tvs]
+                  being declared and a list of their initialization terms
+                  [tis]. *)
+              let error = "Apac_preprocessing.explode_let_mult: expected a \
+                           target to a multiple variable declaration." in
+              let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
+              (** Transform the multiple variable declaration into a sequence of
+                  simple variable declarations. *)
+              let s = List.map2 (fun tv ti -> trm_let vk tv ti) tvs tis in
+              (** Return a new sequence (without braces) containing the simple
+                  variable declarations. *)
+              Syntax.trm_seq_no_brace s
+            ) tg)
+    ) tg
+
+(** {1:building_records Building records}
 
     For these passes to work smoothly, we begin by constituting records about
     all the function and global variable definitions in the latter. *)
@@ -474,10 +520,8 @@ let normalize_statement_bodies (tg : target) : unit =
 
 module Constification : sig
   type r
-  type m
   val constify_prototypes : ?crs:(r option) -> target -> unit
-  val constify_aliases : ?cm:(m option) -> ?crs:(r option) -> target -> unit
-  val constify_let_mult : ?cl:(bool list option) -> target -> unit
+  val constify_aliases : ?crs:(r option) -> target -> unit
   val constify : ?frs:(Apac_records.FunctionRecord.t Var_Hashtbl.t option) ->
                  ?trans:bool -> target -> unit
 end = struct
@@ -580,18 +624,6 @@ end = struct
       do so for the argument (the second element) of the function behind the
       first element too. *)
   type o = (var * int * var) Stack.t
-  
-  (** [m]: type of hash table for multiple variable declarations we must
-      transform into sequences of simple variable declarations while constifying
-      some of them (see [!section:multi]).
-      
-      Keys are declaration marks (see type [!type:mark] which is actually a
-      [!type:string]) and values are lists of booleans (type [!type:bool]). The
-      latter have as many elements as there are declarations in the target
-      multiple variable declaration. In other terms, a boolean value is
-      associated to each variable declaration. If the value is [true], it means
-      that we have to constify the corresponding variable declaration. *)
-  type m = (mark, bool list) Hashtbl.t
 
   (** [k_to_string kind]: returns a string representation of the [kind]. *)
   let k_to_string (kind : k) : string =
@@ -1037,23 +1069,6 @@ end = struct
            ) lva;
          (** We then continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
-      (** When [t] is a declararion of multiple variables [tvs] with optional
-          initialization terms [tis], *)
-      | Trm_let_mult (_, tvs, tis) ->
-         (** we try to identify each memory location in each [ti] in [tis]
-             representing an argument or an alias to an argument [tg] of [f] and
-             we update the hash table of [aliases] accordingly if necessary. *)
-         List.iter2 (fun (v, ty) ti ->
-             let ll = trm_find_memlocs ti in
-             let lva = aliasing aliases ll in
-             List.iter (fun (_, tg) ->
-                 let alias : lvar = { v = v; l = String.empty } in
-                 LVar_Hashtbl.add
-                   aliases alias (tg, Apac_miscellaneous.typ_get_nli ty)
-               ) lva
-           ) tvs tis;
-         (** We then continue the analysis on substatements, if any. *)
-         trm_iter (aux aliases f) t
       (** When [t] is an assignment or a compound assignment of an [rval] to an
           [lval] term, we may have to update the unconstification stack [us]. *)
       | Trm_apps (_, [lval; rval]) when is_set_operation t ->
@@ -1461,9 +1476,8 @@ end = struct
   let constify_prototypes ?(crs : r option = None) (tg : target) : unit =
     Target.apply_at_target_paths (constify_prototypes_on ~crs) tg
 
-  (** [constify_aliases_on ?force cm crs t]: see [!constify_aliases]. *)
-  let constify_aliases_on ?(cm : m option = None) ?(crs : r option = None)
-        (t : trm) : trm =
+  (** [constify_aliases_on ?crs t]: see [!constify_aliases]. *)
+  let constify_aliases_on ?(crs : r option = None) (t : trm) : trm =
     (** [constify_aliases_on.aux aliases t]: auxiliary function to recursively
         constify the variable declarations of all the [aliases] in an abstract
         syntax tree term [t]. *)
@@ -1518,66 +1532,6 @@ end = struct
            (** Note that simple variables do not lead to aliases. *)
            | Variable -> t
          else t
-      (** When [t] is a declaration of multiple variables [tvs] of kind [vk]
-          with optional initialization terms [tis], we may have to update the
-          list of [aliases] depending on [ti] and constify the declarations of
-          [tvs] representing aliases to constant variables. *)
-      | Trm_let_mult (vk, tvs, tis) ->
-         (** At first, we verify for each variable [v] of type [ty] among [tvs]
-             whether it represents a new alias and return the [test] test
-             results in the form of a list [a] of booleans. *)
-         let a =
-           List.map2 (fun (v, ty) ti ->
-               let ll = trm_find_memlocs ti in
-               let ll = aliasing aliases ll in
-               List.fold_left (fun test (_, argument) ->
-                   (** If we are creating an [alias] to an [argument], we have
-                       to update [aliases] and return [true]. *)
-                   let alias : lvar = { v = v; l = String.empty } in
-                   LVar_Hashtbl.add
-                     aliases alias
-                     (argument, Apac_miscellaneous.typ_get_nli ty);
-                   test || true
-                 ) false ll
-             ) tvs tis in
-         (** If all the elements of [a] are [false], there are no aliases to
-             constant variables and there is nothing todo. Return [t] as is. *)
-         if (List.for_all (fun e -> e = false) a) then t
-         else
-           (** If all the elements of [a] are [true] or if the hash table of
-               multiple variable declaration [cm] is not present, we can safely
-               constify all the variable declarations in [t]. *)
-           if (List.for_all (fun e -> e = true) a) || cm = None then
-             let tvs = List.map (fun (v, ty) -> (v, typ_constify ty)) tvs in
-             trm_let_mult vk tvs tis
-           else
-             (** If only some of the elements of [a] are [true] but the inner
-                 type of [t] is already constant, *)
-             begin
-               let (_, ty) = List.nth tvs 0 in
-               if is_typ_const (get_inner_type ty) then
-                 (** we can complete the constification of selected variables
-                     within [t] without splitting the multiple variable
-                     declaration into simple variable declarations. *)
-                 let tvs =
-                   List.map2 (fun (v, ty) const ->
-                       if const then (v, typ_constify ty) else (v, ty)
-                     ) tvs a in
-                 trm_let_mult vk tvs tis
-               else
-                 (** Otherwise, we have to split the multiple variable
-                     delcaration into a sequence of simple variable declarations
-                     and constify selected variables according to the values in
-                     [a]. However, we cannot do this within this transformation.
-                     Therefore, we mark the multiple variable declaration and
-                     keep track of it in the hash table [cm] (see type
-                     [!type:m]) and process it later in [!constify]. *)
-                 let mark =
-                   Apac_macros.constify_declaration_mark ^ (Mark.next ()) in
-                 Hashtbl.add (Option.get cm) mark a;
-                 (** At this stage, we leave [t] unchanged. We only mark it. *)
-                 Mark.trm_add_mark mark t
-             end
       (** When [t] is none of the above, loop over its child elements. *)
       | _ -> trm_map (aux aliases) t
     in
@@ -1589,13 +1543,11 @@ end = struct
     if f.name <> !Apac_flags.main then
       (** Create a hash table of arguments and aliases to arguments. *)
       let aliases : l = LVar_Hashtbl.create 10 in
-      (** If the hash table of function constification records [crs] and the
-          hash table of multiple variable declarations [cm] are present, consult
-          the constification record [crf] of [f] to find out which of its
-          arguments have been constified, if any. Then, add them to [aliases] so
+      (** If the hash table of function constification records [crs] is present,
+          consult the constification record [crf] of [f] to find out which of
+          its arguments became constant, if any. Then, add them to [aliases] so
           the auxiliary function constifies all of their aliases within the body
-          of [f] and stores multiple variable declarations needing partial
-          constification to [cm].
+          of [f].
 
           The principle we adopt here is the opposite of [!analyze]. In the
           latter, we use a hash table of arguments and aliases to arguments (see
@@ -1604,8 +1556,8 @@ end = struct
           arguments that have been constified and their aliases to which we have
           to propagate the constification process. *)
       begin
-        match (cm, crs) with
-        | (Some cm, Some crs) ->
+        match crs with
+        | Some crs ->
            (** Find the constification record [fcr] of [f] in [crs]. If it does
                not exist, fail. This is not normal! *)
            if not (Var_Hashtbl.mem crs f) then
@@ -1638,11 +1590,10 @@ end = struct
                  fail t.loc (missing_record "constify_aliases_on.aux" f i)
              ) args'
         | _ ->
-           (** If either [crs] or [cm] are not present, consider all the
-               arguments of [f] as [const]. Add them to [aliases], except for
-               [this] in the case of class member methods, so the auxiliary
-               function constifies all of their aliases within the body of
-               [f]. *)
+           (** If [crs] is not present, consider all the arguments of [f] as
+               [const]. Add them to [aliases], except for [this] in the case of
+               class member methods, so the auxiliary function constifies all of
+               their aliases within the body of [f]. *)
            List.iteri (fun i (v, ty) ->
                if v.name <> "this" then
                  let lv : lvar = { v = v; l = String.empty } in
@@ -1656,80 +1607,17 @@ end = struct
       trm_let_fun ~annot:t.annot f ret_ty args body
     else t
 
-  (** [constify_aliases ?force cm crs tg]: expects target the target [tg] to
+  (** [constify_aliases ?crs tg]: expects target the target [tg] to
       point at a function definition. Then, based on the constification record
       of the function in the hash table of function constification records
-      [crs], it constifies the aliases to arguments that have been constified.
-      The hash table [cm] collects information about multiple variable
-      declarations we must split into simple variable declarations before
-      constifying them (see type [!type:m]).
+      [crs], it constifies the aliases to arguments that became constant.
 
       One can ignore, e.g. for testing purposes, the constification records and
       consider that all the function's arguments as well as the function itself
       have been constified and then constify all of the relevant aliases. For
-      this, omit either of the [cm] or the [crs] arguments or set either of them
-      to [None]. *)
-  let constify_aliases ?(cm : m option = None) ?(crs : r option = None)
-        (tg : target) : unit =
-    Target.apply_at_target_paths (constify_aliases_on ~cm ~crs) tg
-
-  (** [constify_let_mult_on ?cl t]: see [!constify_let_mult]. *)
-  let constify_let_mult_on ?(cl : bool list option = None) (t : trm) : trm =
-    (** Deconstruct the target multiple variable declaration term [t] into a
-        variable kind [vk], a list of typed variables [tvs] being declared and a
-        list of their initialization terms [tis]. *)
-    let error = "Apac_preprocessing.Constification.constify_let_mult_on: \
-                 expected a target to a multiple variable declaration." in
-    let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
-    (** There are as many elements in the boolean list [cl] as there are
-        declarations in [tvs]. A [true] element in [cl] means we have to
-        constify the corresponding variable declaration in [vs]. This is the
-        role of the mapping below. However, if the [cl] argument is not present,
-        we build [cl] full of [false] in order to be able to proceed with the
-        transformation. *)
-    let cl = match cl with
-      | Some cl -> cl
-      | None -> List.init (List.length tvs) (Fun.const false)
-    in
-    let tvs = List.map2 (fun (v, ty) const ->
-                  if const then (v, typ_constify ty) else (v, ty)
-                ) tvs cl in
-    (** Transform the multiple variable declaration into a sequence of simple
-        variable declarations. *)
-    let s = List.map2 (fun tv ti -> trm_let vk tv ti) tvs tis in
-    (** Return a new sequence (without braces) containing the simple variable
-        declarations. *)
-    Syntax.trm_seq_no_brace s
-
-  (** [constify_let_mult cl tg]: expects target [tg] to point at a multiple
-      variable declaration. Then, it constifies those variable declaration
-      within the lattern for which the boolean list [cl] contains [true] and
-      replaces the multiple variable declaration by a sequence of simple
-      variable declarations to ensure a correct constification (see type
-      [!type:m]).
-
-      For example:
-
-      {[
-      int a = 1, b = a;
-      ]}
-
-      becomes:
-
-      {[
-      int a = 1;
-      int b = a;
-      ]}
-
-      One can ignore, e.g. for testing purposes, the constification and perform
-      the declaration unfolding only. For this, omit the [cl] argument or set it
-      to [None]. It is also possible to force the constification of all
-      variables in the multiple variable declaration by providing in [cl] a list
-      of [true]s, but pay attention to its length! There must be as many [true]s
-      in [cl] as there are declarations in the multiple variable declaration. *)
-  let constify_let_mult ?(cl : bool list option = None) (tg : target) : unit =
-    Nobrace_transfo.remove_after (fun _ ->
-        Target.apply_at_target_paths (constify_let_mult_on ~cl) tg)
+      this, omit the [crs] argument or set it to [None]. *)
+  let constify_aliases ?(crs : r option = None) (tg : target) : unit =
+    Target.apply_at_target_paths (constify_aliases_on ~crs) tg
 
   (** [constify ?frs ?trans tg]: expects target [tg] to point at all the
       function definitions in the input source code. It constifies the
@@ -1821,22 +1709,18 @@ end = struct
     unconstify us ous crs;
     (** Dump the records on the screen, if requested. *)
     if !Apac_flags.verbose then
-      Var_Hashtbl.iter (fun f fcr ->
-          Printf.printf "%s = %s\n" (var_to_string f) (f_to_string fcr)) crs;
+      begin
+        Printf.printf "Constification records:\n";
+        Var_Hashtbl.iter (fun f fcr ->
+            Printf.printf "%s = %s\n" (var_to_string f) (f_to_string fcr)) crs
+      end;
     if trans then
       begin
         (** Add the [const] keyword to the function prototypes based on the
             above analysis and unconstification passes. *)
         constify_prototypes ~crs:(Some crs) tg;
-        (** Create a hash table, with an initial size of 10 entries, for
-            multiple variable declarations subject to partial constification. *)
-        let cm : m = Hashtbl.create 10 in
         (** Constify aliases to arguments or to previously declared aliases. *)
-        constify_aliases ~cm:(Some cm) ~crs:(Some crs) tg;
-        (** Partially constify the multiple variable declarations from [cm]. *)
-        Hashtbl.iter (fun k cl ->
-            constify_let_mult ~cl:(Some cl) (tg @ [cMark k])
-          ) cm
+        constify_aliases ~crs:(Some crs) tg
       end;
     (** Propagate the results of the constification to the function records in
         [frs], if any. *)

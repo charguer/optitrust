@@ -1,10 +1,15 @@
 open Optitrust
 open Target 
 
-let _ = Run.script_cpp (fun () ->
-            !! Apac_preprocessing.Constification.constify [
-                nbAny;
-                cFunDefAndDecl ""
-              ];
-          );
-        Apac_reset.tnt_blast ()
+let () =
+  Run.script_cpp (fun () ->
+      !! Apac_preprocessing.explode_let_mult [
+          nbMulti;
+          cVarsDef ""
+        ];
+      !! Apac_preprocessing.Constification.constify [
+          nbAny;
+          cFunDefAndDecl ""
+        ];
+    );
+  Apac_reset.tnt_blast ()

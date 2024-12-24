@@ -12,7 +12,11 @@ void p(int* v) {
   int c = a + b + (*v)++;
 }
 
-void r(int v, int z) { int a = 15 + z, b = a + 2, c = a + b + v++; }
+void r(int v, int z) {
+  int a = 15 + z;
+  int b = a + 2;
+  int c = a + b + v++;
+}
 
 void c(int* tab, int size) {
 #pragma omp taskgroup

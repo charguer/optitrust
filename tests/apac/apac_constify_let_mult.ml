@@ -1,9 +1,11 @@
 open Optitrust
 open Target 
 
-let _ = Run.script_cpp (fun () ->
-            let cl : bool list = List.init 10 (Fun.const true) in
-            !! Apac_preprocessing.Constification.constify_let_mult ~cl:(Some cl)
-              [nbAny; cVarsDef "" ];
-          );
-        Apac_reset.tnt_blast ()
+let () =
+  Run.script_cpp (fun () ->
+      !! Apac_preprocessing.explode_let_mult [
+          nbMulti;
+          cVarsDef ""
+        ];
+    );
+  Apac_reset.tnt_blast ()

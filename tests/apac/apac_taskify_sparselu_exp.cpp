@@ -3,7 +3,8 @@
 #include <string.h>
 
 float** genmat(float** matrix, const size_t matrix_size, const size_t submatrix_size) {
-  int null_entry, init_val = 1325;
+  int null_entry;
+  int init_val = 1325;
   float* p;
   for (int ii = 0; ii < matrix_size; ii++) {
     for (int jj = 0; jj < matrix_size; jj++) {
@@ -107,7 +108,8 @@ int store_matrix(const char* output, const char* name, float** matrix, const siz
 }
 
 float* allocate_clean_block(const size_t submatrix_size) {
-  float *p, *q;
+  float* p;
+  float* q;
   p = (float*)malloc(submatrix_size * submatrix_size * sizeof(float));
   q = p;
   if (p != NULL) {

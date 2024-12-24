@@ -3,7 +3,8 @@ void g(int* tab) { tab[0] += 42; }
 void f(int* tab1, int* tab2, int size) {
 #pragma omp taskgroup
   {
-    int a = 2, b = 0;
+    int a = 2;
+    int b = 0;
 #pragma omp task default(shared) depend(in : tab1) depend(inout : tab1[0])
     g(tab1);
 #pragma omp taskwait depend(in : tab1, tab2, tab2[0]) depend(inout : tab1[0])

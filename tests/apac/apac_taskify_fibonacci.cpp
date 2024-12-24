@@ -2,8 +2,7 @@
 #include <stdlib.h>
 
 long long int fibonacci(int n) {
-  long long int x;
-  long long int y;
+  long long int x, y;
   if (n < 2) return n;
   
   x = fibonacci(n - 1);

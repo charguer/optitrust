@@ -245,12 +245,9 @@ int sparselu(float ** matrix, size_t matrix_size, size_t submatrix_size) {
 }
 
 int main(int argc, char ** argv) {
-  size_t matrix_size = 50LU;
-  size_t submatrix_size = 100LU;
-  char * struct_A = NULL;
-  char * struct_LU = NULL;
-  char * matrix_A = NULL;
-  char * matrix_LU = NULL;
+  size_t matrix_size = 50LU, submatrix_size = 100LU;
+  char * struct_A = NULL, * struct_LU = NULL;
+  char * matrix_A = NULL, * matrix_LU = NULL;
   int need_free = 0;
 
   if(argc > 6) {

@@ -5,7 +5,8 @@
 void partition(int* out_pivot, int* arr, int right_limit) {
   int pivot = arr[right_limit - 1];
   int idx_left = -1;
-  int idx_iter, tmp;
+  int idx_iter;
+  int tmp;
   for (idx_iter = 0; idx_iter < right_limit - 1; idx_iter++) {
     if (arr[idx_iter] < pivot) {
       idx_left++;

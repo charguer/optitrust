@@ -6,6 +6,11 @@ open Trm
     on the current abstract syntax tree. *)
 let compile () : unit =
   bigstep "Pre-processing";
+  !? "Explode multiple variable declarations"
+    Apac_preprocessing.explode_let_mult [
+      nbAny;
+      cVarsDef ""
+    ];
   !? "Build global variable records"
     Apac_preprocessing.record_globals [
       nbAny;

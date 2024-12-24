@@ -12,19 +12,30 @@ int main() {
   const int& g = i;
   const int* const h = new const int[5]{1, 2, 3, 4, 5};
   int* j = new int[5]{1, 2, 3, 4, 5};
-  int *k = new int(1), *l = new int(i);
-  const int *m = new const int(1), *n = new const int(i);
-  int &o = i, &p = x;
-  const int *r = new const int(1), &s = i;
-  const int *const t = new const int[5]{1, 2, 3, 4, 5},
-                   *const u = new const int[2]{1, 2},
-                   *const v = new const int[1]{0};
-  int *w = new int[5]{1, 2, 3, 4, 5}, *y = new int[2]{1, 2}, *z = new int[1]{0};
-  int *aa = &i, *ab = &x, *ac = 0;
-  const int *ad = &i, *ae = &i, *const af = &x;
+  int* k = new int(1);
+  int* l = new int(i);
+  const int* const m = new const int(1);
+  const int* const n = new const int(i);
+  int& o = i;
+  int& p = x;
+  const int* const r = new const int(1);
+  const int& s = i;
+  const int* const t = new const int[5]{1, 2, 3, 4, 5};
+  const int* const u = new const int[2]{1, 2};
+  const int* const v = new const int[1]{0};
+  int* w = new int[5]{1, 2, 3, 4, 5};
+  int* y = new int[2]{1, 2};
+  int* z = new int[1]{0};
+  int* aa = &i;
+  int* ab = &x;
+  int* ac = 0;
+  const int* ad = &i;
+  const int* ae = &i;
+  const int* const af = &x;
   const int* const ag = af;
   const int* const ah = &x;
-  int **po = new int *[10](), **pl = new int *[2] { aa, ab };
+  int** po = new int*[10]();
+  int** pl = new int* [2] { aa, ab };
   int** pg = new int* [2] { aa, ab };
   int* ai = new int(1);
 #pragma omp task default(shared) depend(inout : a)

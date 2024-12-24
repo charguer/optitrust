@@ -47,11 +47,6 @@ let goto_label : label = "__apac_exit"
     stage (see [Apac_prologue.unify_returns]). *)
 let result_variable : string = "__apac_result"
 
-(** [constify_declaration_mark]: string for marking multiple variable
-    declarations to split into simple variable declarations before
-    constification (see [!Apac_constification.constify]). *)
-let constify_declaration_mark : mark = "__apac_let_mult"
-
 (** {1 Task candidate discovery and optimization stage} *)
 
 (** [gwd ()]: returns the path to a directory to store task candidate graphs in.

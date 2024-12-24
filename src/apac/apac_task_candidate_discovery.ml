@@ -549,37 +549,6 @@ let discover_dependencies
        let ll = alias ll in
        List.iter (fun target -> Var_Hashtbl.add aliases v target) ll;
        (ins, inouts, dam)
-    (** [t] is a multiple declaration ([int a = 1, b]) of variables [tvs]
-        including their types and of kind [vk] optionally involving
-        initialization terms [inits]. *)
-    | Trm_let_mult (vk, tvs, inits) ->
-       (** For each variable [v] of type [ty] optionally involving an
-           initialization term [init], *)
-       List.fold_left2 (fun (ins, inouts, dam) (v, ty) init ->
-           (** Determine the number of levels of indirection [nli] of [v] thanks
-               to its type [ty]. *)
-           let nli = typ_get_nli ty in
-           (** Transform [v] into an inout-dependency and add it to the
-               corresponding dependency set with the [NewVariable] attribute. *)
-           let d = Dep_var v in
-           let inouts = Dep_set.add d inouts in
-           let dam = Dep_map.add d (DepAttr_set.singleton NewVariable) dam in
-           (** We continue the dependency discovery within the initialization
-               term [init]. At this point, we consider them as in-dependencies.
-               However, this might change later if we discover a unary increment
-               or decrement in [init]. *)
-           let ins, inouts, dam = main ins inouts dam 0 false `In false init in
-           (** [v] also represents a new variable in the local [scope], we thus
-               need to introduce it to the latter together with its [nli]. *)
-           Var_Hashtbl.add scope v nli;
-           (** Finally, we check whether this variable declaration introduces
-               aliases to existing variables referred to in [init] and if so, we
-               update [aliases]. *)
-           let ll = trm_find_memlocs init in
-           let ll = alias ll in
-           List.iter (fun target -> Var_Hashtbl.add aliases v target) ll;
-           (ins, inouts, dam)
-         ) (ins, inouts, dam) tvs inits
     (** [t] is a structure member access ([s->m], [s.m], ...). *)
     | Trm_apps ({ desc = Trm_val
                            (Val_prim (Prim_unop (Unop_struct_access _)));
@@ -875,8 +844,7 @@ let taskify_on (p : path) (t : trm) : unit =
        (* Create the task corresponding to the current for-node using all the
           elements computed above. *)
        Task.create (-1) t tas scope ins inouts ioattrs [[c]] 
-    | Trm_let _
-      | Trm_let_mult _ ->
+    | Trm_let _ ->
        (* Look for dependencies in the current variable declaration term and
           initialize the in and in-out dependency sets. *)
        let (ins, inouts, ioattrs) = discover_dependencies s a t in
