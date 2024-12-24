@@ -487,41 +487,52 @@ let discover_dependencies
        (** In [lll], try to identify the memory location representing the target
            of the [set] operation, i.e. the memory location which has not been
            fully dereferenced. *)
-       let set, _ =
-         List.partition (fun l ->
+       let set =
+         List.find_all (fun l ->
              match Var_Hashtbl.find_opt scope l.variable with
-             | Some nli when l.label = "" -> l.dereferencements < nli
-             (** If [l] features a class or a structure member acces or if we
-                 can not determine the number of levels of indirection of a
-                 memory location [l] in [lll], we safely suppose that it is the
-                 target of the set operation. *)
-             | _ -> true
+             | Some nli -> l.dereferencements < nli
+             | _ -> false
            ) lll
        in
-       (** If we find more than one target of the set operation, fail. This is
-           not normal! *)
-       if (List.length set) <> 1 then
-         fail
-           t.loc
-           ("Apac_task_candidate_discovery.discover_dependencies.main: \
-             ambiguous target in set operation `" ^
-              (AstC_to_c.ast_to_string t) ^ "'.")
-       else
-         let set = List.hd set in
-         (** Otherwise, we continue by identifying all the memory locations in
-             [rval]. *)
-         let rll = trm_find_memlocs rval in
-         (** We then compute the list [ra] of alias targets they represent, if
-             any. *)
-         let ra = alias rll in
-         List.iter (fun target ->
-             (** Then, for each alias target, we add a new entry to [alises]. *)
-             Var_Hashtbl.add aliases set.variable target
-           ) ra;
-         (** Finally, we continue the dependency discovery within [lval] and
-             [rval].*)
-         let ins, inouts, dam = main ins inouts dam 0 false `InOut false lval in
-         main ins inouts dam 0 false `In false rval
+       let set =
+         let n = List.length set in
+         let a = List.length lll in
+         let ambiguous = fun () ->
+           Printf.printf
+             "[APAC] [Warning] Ambiguous target in set operation `%s', \
+              selecting the left-most one.\n" (AstC_to_c.ast_to_string t)
+         in
+         if n > 0 then
+           begin
+             if n > 1 then ambiguous ();
+             List.hd set
+           end
+         else if n < 1 && a > 0 then
+           begin
+             ambiguous ();               
+             List.hd lll
+           end
+         else 
+           fail
+             t.loc
+             ("Apac_task_candidate_discovery.discover_dependencies.main: \
+               invalid target in set operation `" ^
+                (AstC_to_c.ast_to_string t) ^ "'.")
+       in
+       (** Otherwise, we continue by identifying all the memory locations in
+           [rval]. *)
+       let rll = trm_find_memlocs rval in
+       (** We then compute the list [ra] of alias targets they represent, if
+           any. *)
+       let ra = alias rll in
+       List.iter (fun target ->
+           (** Then, for each alias target, we add a new entry to [alises]. *)
+           Var_Hashtbl.add aliases set.variable target
+         ) ra;
+       (** Finally, we continue the dependency discovery within [lval] and
+           [rval].*)
+       let ins, inouts, dam = main ins inouts dam 0 false `InOut false lval in
+       main ins inouts dam 0 false `In false rval
     (** [t] is a single declaration ([int a;], [int \* b = ptr;]) of a variable
         [v] of type [ty] and kind [vk] optionally involving an initialization
         term [init]. *)
