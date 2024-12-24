@@ -13,6 +13,7 @@
          "graphviz"
          "xdotool"
          "ocaml-merlin"
+         "ocaml-dot-merlin-reader"
          "emacs"
          "emacs-org"
          "emacs-org-ref"
