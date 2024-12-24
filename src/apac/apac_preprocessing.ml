@@ -1037,10 +1037,8 @@ end = struct
            begin
              (** Let us warn the user about that. *)
              Printf.printf
-               "Apac_preprocessing.Constification.analyze_on.aux: missing \
-                definition of `%s', considering the function may alter any of \
-                its arguments.\n"
-               (var_to_string f');
+               "[APAC] [Warning] Missing definition of `%s', considering the \
+                function may alter any of its arguments.\n" f'.name;
              (** Then, for each argument [arg] of the function call and *)
              List.iter (fun arg ->                 
                  (** for each L-variable [lv] we find in [arg], we have to check

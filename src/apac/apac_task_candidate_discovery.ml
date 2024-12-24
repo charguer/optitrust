@@ -152,7 +152,7 @@ let discover_dependencies
             (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
     let warning (t : trm) : unit =
       Printf.printf
-        "WARNING: the dependency discovery does not recognize the \
+        "[APAC] [Warning] The dependency discovery does not recognize the \
          expression `%s'%s, proceeding with a best-effort analysis.\n"
         (AstC_to_c.ast_to_string t)
         (if !Apac_flags.verbose then
