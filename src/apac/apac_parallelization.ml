@@ -902,10 +902,6 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
             ) t.ins
       in
       let ins' = Dep_set.to_list ins' in
-      let ins' = List.map (fun d ->
-                     match (Dep_map.find_opt d !Apac_records.mutables) with
-                     | Some d' -> d'
-                     | None -> d) ins' in
       let ins' = if (List.length ins') < 1 then [] else [In ins'] in
       let inouts' = if (Task.attributed t WaitForSome) && t.children <> [[]]
                     then
@@ -914,10 +910,6 @@ let codegen_openmp (v : TaskGraph.V.t) : trms =
                         ) t.inouts
                     else t.inouts in
       let inouts' = Dep_set.to_list inouts' in
-      let inouts' = List.map (fun d ->
-                        match (Dep_map.find_opt d !Apac_records.mutables) with
-                        | Some d' -> d'
-                        | None -> d) inouts' in
       let inouts' = if (List.length inouts') < 1 then [] else [Inout inouts'] in
       let depend = List.append ins' inouts' in
       let depend = if (List.length depend) < 1 then [] else [Depend depend] in

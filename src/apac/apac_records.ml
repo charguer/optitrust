@@ -235,15 +235,6 @@ end
     entries (see [!module:Var_Hashtbl] and [!module:FunctionRecord]). *)
 let functions : FunctionRecord.t Var_Hashtbl.t = Var_Hashtbl.create 10
 
+(** [globals]: a map of global variables to their types and flags indicating
+    whether they are written to from within a parallel region. *)
 let globals : (typ * bool) Var_map.t ref = ref Var_map.empty
-
-(** [mutables]: map of dependencies on mutable, according to the OptiTrust
-    definition, pointer variables to copies of themselves wrapped with a
-    [Trm.trm_get]. We need these copies to ensure that dependencies involving
-    mutable pointer variables appear correctly formatted with OpenMP pragmas.
-    However, this can be done only at the very last moment, i.e. when building
-    the pragmas in [Apac_backend.emit_omp_task]. Otherwise, it leads to
-    different [Dep] expressions and may impact the dependency-related
-    operations. This map allows us to differ the special encoding until the
-    transformation of program's task graph into a new AST. *)
-let mutables : Dep.t Dep_map.t ref = ref Dep_map.empty
