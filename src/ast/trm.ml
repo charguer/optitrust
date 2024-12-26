@@ -820,7 +820,7 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     if Mlist.for_all2 (==) tl tl' then tl else tl' in
 
   match t.desc with
-  | Trm_val _ | Trm_var _ | Trm_goto _ -> t
+  | Trm_arbitrary _ | Trm_val _ | Trm_var _ | Trm_goto _ -> t
   | Trm_array tl ->
     let tl' = fmlist false tl in
     if (tl' == tl) then t else
@@ -996,9 +996,7 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     | _ -> ()
     end
   | Trm_fun (_, _, body, _) -> f body
-  | Trm_arbitrary _ ->
-    ignore (trm_combinators_unsupported_case "trm_iter" t)
-  | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
+  | Trm_arbitrary _ | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
 
 (** [trm_fold f acc t]: similar to [!List.fold_left], but for a term [t]. *)
 let rec trm_fold (f : 'a -> trm -> 'a) (acc : 'a) (t : trm) : 'a =
