@@ -316,8 +316,9 @@ let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)
   let access t = caddress_intro_aux true t in (* recursive calls for lvalues *)
   let mk td = trm_alter ~desc:td t in
-  trm_simplify_addressof_and_get (* Note: might not be needed *)
-  begin if is_access_t then begin
+  let aux0 is_access_t t =
+    trm_simplify_addressof_and_get (* Note: might not be needed *)
+    begin if is_access_t then begin
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _} as op, [t1]) ->
       (* struct_access (f, t1) is reverted to struct_get (f, access t1) *)
@@ -337,7 +338,10 @@ let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
         trm_address_of (access t)
     | _ -> trm_map aux t
     end
-  end
+    end
+  in
+  let t' = aux0 is_access_t t in
+  apply_on_pragmas (fun pl -> cfeatures_intro_pragmas (aux0 is_access_t) pl) t'
 
 let caddress_intro =
   debug_current_stage "caddress_intro";
