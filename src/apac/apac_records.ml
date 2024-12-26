@@ -152,10 +152,8 @@ end = struct
         List.mapi (fun i (arg, ty) ->
             (** determine its number of levels of indirection, *)
             let nli = Apac_miscellaneous.typ_get_nli ty in
-            (** determine its kind, *)
-            let kind = kind ty in
             (** add it to the hash table of function-local variables, *)
-            Var_Hashtbl.add scope arg (nli, kind);
+            Var_Hashtbl.add scope arg (nli, Var_immutable);
             (** classify its access (see [!FunctionRecords.classify]) and return
                 the classification together with the number of levels of
                 indirection. *)
