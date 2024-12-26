@@ -147,7 +147,21 @@ let heapify_on (t : trm) : trm =
         | _ -> acc
       ) false t
   in
-  (** [heapify_on.one reference deletes v ty init] promotes a single variable
+  (** [heapify_on.typ_has_const ty]: checks whether the type [ty] features a
+      constant type (see [!type:ty]). *)
+  let rec typ_has_const (ty : typ) : bool =
+    match ty.typ_desc with
+    | Typ_const _ -> true
+    | Typ_ptr { ptr_kind = _; inner_typ = ty } -> typ_has_const ty
+    | Typ_array (ty, _) -> typ_has_const ty
+    | Typ_constr _ when typ_is_alias ty ->
+      begin match typ_get_alias ty with
+      | Some ty -> typ_has_const ty
+      | None -> false
+      end
+    | _ -> false
+  in
+  (** [heapify_on.one reference deletes v ty init]: promotes a single variable
       declaration, represented by the variable [v] of type [ty] and by the
       initialization term [init], from the stack to the heap. The [reference]
       flag tells us whether we are declaring a reference. The [deletes] queue
@@ -303,7 +317,8 @@ let heapify_on (t : trm) : trm =
     if !delete > 0 then
       begin
         let vt = trm_var ~kind:vk v in
-        let dt = trm_delete (!delete = 2) vt in
+        let vt' = if typ_has_const ty then vt else trm_get vt in
+        let dt = trm_delete (!delete = 2) vt' in
         let fp = new_var (Apac_macros.get_apac_variable ApacDepthLocal) in
         let fp = [FirstPrivate [fp]] in
         let co = [If (get_cutoff ())] in
@@ -454,7 +469,7 @@ let heapify (tg : target) : unit =
 (* [synchronize_subscripts_on p t]: see [synchronize_subscripts]. *)
 let synchronize_subscripts_on (p : path) (t : trm) : unit =
   let rec synchronize (scope : depscope) (subscripts : substack)
-          (graph : TaskGraph.t) (vertex : TaskGraph.V.t) : unit =
+            (graph : TaskGraph.t) (vertex : TaskGraph.V.t) : unit =
     let task = TaskGraph.V.label vertex in
     let subscripted = Dep_set.filter (fun d ->
                           Dep_map.has_with_attribute
@@ -485,7 +500,9 @@ let synchronize_subscripts_on (p : path) (t : trm) : unit =
   let process (d : Dep.t) (v : TaskGraph.V.t) (g : TaskGraph.t) : unit =
     let succ = TaskGraph.fold_succ (fun s a -> a @ [s]) g v [] in
     let v' = TaskGraph.V.label v in
-    let _ = Printf.printf "processing successors of: %s\n" (Task.to_string v') in
+    if !Apac_flags.verbose then
+      Printf.printf "Synchronizing subscripts, processing successors of the \
+                     task `%s'.\n" (Task.to_string v');
     if (List.length succ) > 0 then
       begin
         let first = List.hd succ in

@@ -920,7 +920,10 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     let body' = f false body in
     if (body == body') then t else
       (trm_namespace ~annot ?loc ~ctx name body' b)
-
+  | Trm_delete (is_array_form, target) ->
+     let target' = f false target in
+     if (target == target') then t else
+       trm_delete ~annot ?loc ~ctx is_array_form target'
   | _ ->
     trm_combinators_unsupported_case "trm_map_with_terminal_opt"  t
 
