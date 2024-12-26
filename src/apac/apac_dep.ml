@@ -221,7 +221,7 @@ end = struct
       - [Dep.to_string] or [Dep.to_string ~mode:ElementWise] of 'tab\[i\]\[2\]'
         gives 'tab\[i\]\[2\]';
       - [Dep.to_string ~mode:Dimension] of 'tab\[i\]\[2\]' gives 'tab\[\]\[\]';
-      - [Dep.to_string ~strict:Variable] of 'tab\[i\]\[2\]' gives 'tab'.
+      - [Dep.to_string ~mode:Variable] of 'tab\[i\]\[2\]' gives 'tab'.
    *)
   let to_string ?(mode : subscripted_mode = ElementWise) (d : t) : string =
     match d with
