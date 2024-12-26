@@ -82,9 +82,9 @@ module Dep : sig
   val degree : t -> int
   val variable : t -> var
   val is_trm : t -> bool
-  val of_trm : trm -> var -> int -> t
-  val of_range : trm -> var -> (int * int) -> t list
-  val of_array : trm -> var -> t list
+  val of_trm : (trm -> trm) -> trm -> var -> int -> t
+  val of_range : (trm -> trm) -> trm -> var -> (int * int) -> t list
+  val of_array : (trm -> trm) -> trm -> var -> t list
   val to_string : ?mode:subscripted_mode -> t -> string
   val compare : t -> t -> int
   val equal : t -> t -> bool
@@ -136,44 +136,52 @@ end = struct
       into a dependency of type [Dep_trm], i.e. a dependency on an array acces
       through the index array operator. Therefore, besides [v] behind [t], a
       [Dep_trm] features also an adequate term for accessing the first element
-      of the [n]-th level of indirection of [v].
+      of the [n]-th level of indirection of [v]. Finally, the function restores
+      C language features in the resulting dependency terms using [f].
 
       For example, if [t] as well as [v] are [tab] and [n] is 2, the function
       produces ([tab\[0\]\[0\]], [tab]). Moreover, if [t] is [tab\[i\]], [v] is
       [tab] and [n] is 1, the function produces ([tab\[i\]\[0\]], [tab]). *)
-  let rec of_trm (t : trm) (v : var) (n : int) : t =
-    if n < 1 then
-      Dep_trm (t, v)
-    else
-      let open Trm in
-      let v0 = Val_lit (Lit_int 0) in
-      let v0 = trm_val v0 in
-      of_trm (trm_get (trm_array_access t v0)) v (n - 1)
+  let of_trm (f : trm -> trm) (t : trm) (v : var) (n : int) : t =
+    let rec aux (t : trm) (n : int) : trm =
+      if n < 1 then
+        t
+      else
+        let open Trm in
+        let v0 = Val_lit (Lit_int 0) in
+        let v0 = trm_val v0 in
+        aux (trm_get (trm_array_access t v0)) (n - 1)
+    in
+    Dep_trm (f (aux t n), v)
   
   (** [Dep.of_range t v range]: calls [Dep.of_trm t v n] for each value of [n]
       within [range] (including the lower and the upper bounds) and returns the
       results in a list. If [range] starts at 0, the output contains a
-      dependency on [v] itself. *)
-  let rec of_range (t : trm) (v : var) (range : int * int) : t list =
+      dependency on [v] itself. Finally, the function restores C language
+      features in the resulting dependency terms using [f]. *)
+  let rec of_range (f : trm -> trm)
+            (t : trm) (v : var) (range : int * int) : t list =
     let l, u = range in
     if u < l then
       failwith "Dep.of_range: empty range"
     else if l < u then
-      (of_trm t v u) :: (of_range t v (l, u - 1))
+      (of_trm f t v u) :: (of_range f t v (l, u - 1))
     else if l > 0 then
-      [of_trm t v l]
+      [of_trm f t v l]
     else
       [Dep_var v]
 
+  
   (** [Dep.of_array t v]: based on the subscripted access term [t] and the
       underlying variable [v], it generates a list of [Dep_trm] dependencies
       where the first dependency is on the initially accessed element in [t] and
       the others are dependencies on potential parent elements in the case of a
-      multi-dimensional array.
+      multi-dimensional array. Finally, restore C language features in the
+      resulting dependency terms using [f].
 
       For example, if [t] is [tab\[i\]\[0\]] and [v] is [tab], the function
       produces a list containing ([tab\[i\]\[0\]], [tab\[i\]]). *)
-  let of_array (t : trm) (v : var) : t list =
+  let of_array (f : trm -> trm) (t : trm) (v : var) : t list =
     let rec accesses (t : trm) : trms =
       match t.desc with
       | Trm_apps
@@ -193,7 +201,7 @@ end = struct
       | _ -> failwith "Dep.of_array: Inconsistent array access."
     in
     let a = accesses t in
-    List.map (fun e -> Dep_trm (e, v)) a
+    List.map (fun e -> Dep_trm (f e, v)) a
   
   (** [Dep.to_string ?mode d]: returns a string form of the dependency [d].
 

@@ -51,6 +51,26 @@ let discover_dependencies
        end
     | [] -> []
   in
+  let restore_cfeatures (scope : FunctionRecord.s) (t : trm) : trm =
+    let caddress (t : trm) : trm = Ast_fromto_AstC.caddress_intro_aux false t in
+    let rec stackvars (t : trm) : trm =
+      trm_simplify_addressof_and_get
+        begin match t.desc with
+        | Trm_var (vk, v) ->
+           let ((_, vk), _) = Var_Hashtbl.find_or_default scope v (0, vk) in
+           if vk = Var_mutable then
+             trm_address_of (trm_replace (Trm_var (Var_mutable, v)) t)
+           else t
+        | Trm_apps ({desc = Trm_val
+                              (Val_prim (Prim_unop Unop_get));_},
+                    [{desc = Trm_var (vk, v); _} as t']) ->
+           let ((_, vk), _) = Var_Hashtbl.find_or_default scope v (0, vk) in
+           if vk = Var_mutable then t' else trm_map stackvars t
+        | _ -> trm_map stackvars t
+        end
+    in
+    stackvars (caddress t)
+  in
   (** [discover_dependencies.best_effort ins inouts dam access iao t]: a
       best-effort dependency discovery for language constructs we do not fully
       support yet such as structure member accesses. For the main dependency
@@ -219,7 +239,10 @@ let discover_dependencies
                  generates the following dependencies ([ptr\[0\]\[0\]],
                  [ptr\[0\]], [ptr]) in [ds]. *)
              let ds =
-               if gets >= 0 then Dep.of_range t v (0, gets) else [Dep_var v] in
+               if gets >= 0 then
+                 Dep.of_range (restore_cfeatures scope) t v (0, gets)
+               else [Dep_var v]
+             in
              (** However, if the [v] appears within a function call, we must
                  consider every single level of indirection of [v] as a
                  dependency, i.e. the levels from [gets + 1] to [nli], as we do
@@ -230,8 +253,10 @@ let discover_dependencies
                  For example, the access [**ptr] would lead to the following
                  additional dependency ([ptr\[0\]\[0\]\[0\]]) in [ds']. *)
              let ds' =
-               if call && gets + 1 <= nli then Dep.of_range t v (gets + 1, nli)
-               else [] in
+               if call && gets + 1 <= nli then
+                 Dep.of_range (restore_cfeatures scope) t v (gets + 1, nli)
+               else []
+             in
              (** At the end, we add the dependencies in [ds] and from [ds'], if
                  any, into either the set of input or the set of input-output
                  dependencies according to their [access] classification. For
@@ -386,7 +411,7 @@ let discover_dependencies
                 The extra dereferencement denotes a read access. In this case,
                 [gets] is 3. With [!Dep.of_array] we generate the following
                 dependencies ([arr3D], [\*arr3D], [\*arr3D\[2\]]).*)
-            let ds = Dep.of_array t v in
+            let ds = Dep.of_array (restore_cfeatures scope) t v in
             (** However, if the [t] appears within a function call and [v] is
                 not fully dereferenced, i.e. the number of dereferencements
                 [gets] is less than [nli], we must consider the remaining levels
@@ -398,11 +423,15 @@ let discover_dependencies
                 following dependencies ([arr3D], [\*arr3D], [\*arr3D\[2\]],
                 [\*arr3D\[2\]\[0\]]). *)
             let rec complete = fun ds n b ->
-              if n < b then complete ((Dep.of_trm t v 1) :: ds) (n + 1) b
-              else ds in
+              if n < b then
+                complete
+                  ((Dep.of_trm (restore_cfeatures scope) t v 1) :: ds) (n + 1) b
+              else ds
+            in
             let ds' =
               if call && gets < nli && gets >= ops then complete [] gets nli
-              else [] in
+              else []
+            in
             (** At the end, we add the dependencies [ds] arising from [v] and
                 [t] into either the set of input or the set of input-output
                 dependencies according to their [access] classification. For

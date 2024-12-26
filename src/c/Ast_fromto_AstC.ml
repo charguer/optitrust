@@ -257,8 +257,8 @@ let stackvar_intro (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x  -> t1
     | _ -> trm_map aux t
     end in
-    let t' = apply_on_pragmas (fun pl ->
-                 cfeatures_intro_pragmas aux pl) t' in
+    (*let t' = apply_on_pragmas (fun pl ->
+                 cfeatures_intro_pragmas aux pl) t' in*)
     trm_simplify_addressof_and_get t'
   in
   aux t
@@ -340,8 +340,9 @@ let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
     end
     end
   in
-  let t' = aux0 is_access_t t in
-  apply_on_pragmas (fun pl -> cfeatures_intro_pragmas (aux0 is_access_t) pl) t'
+  aux0 is_access_t t
+  (*let t' = aux0 is_access_t t in
+  apply_on_pragmas (fun pl -> cfeatures_intro_pragmas (aux0 is_access_t) pl) t'*)
 
 let caddress_intro =
   debug_current_stage "caddress_intro";
