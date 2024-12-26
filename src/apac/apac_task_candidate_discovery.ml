@@ -34,7 +34,7 @@ let discover_dependencies
          (** [hd.variable] can become the target of an alias if it was not
              completely dereferenced, i.e. [hd.dereferencements] is less then
              [nli]. *)
-         | Some nli when hd.dereferencements < nli ->
+         | Some (nli, _) when hd.dereferencements < nli ->
             begin
               match Var_Hashtbl.find_opt aliases hd.variable with
               (** If [hd.variable] is already an alias by itself, we return the
@@ -107,7 +107,7 @@ let discover_dependencies
        (** Look for [v] in the local [scope]. If [v] is not in the local
            scope, set [e] to [false] and suppose that [nli] is null, i.e. that
            [v] is a simple variable, not a pointer or a reference. *)
-       let (_, e) = Var_Hashtbl.find_or_default scope v 0 in
+       let e = Var_Hashtbl.mem scope v in
        (** If [v] is not in the local scope or if it is a global variable we
            know the definition of, i.e. if [v] is present in
            [!Apac_records.globals], add [GlobalVariable] to the dependency
@@ -172,9 +172,9 @@ let discover_dependencies
        if not (String.starts_with ~prefix:"sizeof(" v.name) then
          (** Look for [v] and its number of levels of indirection [nli] in the
              local [scope]. If [v] is not in the local scope, set [e] to [false]
-             and suppose that [nli] is null, i.e. that [v] is a simple variable,
-             not a pointer or a reference. *)
-         let (nli, e) = Var_Hashtbl.find_or_default scope v 0 in 
+             and suppose that [nli] is null, i.e. that [v] is a simple variable
+             of kind [vk], not a pointer or a reference. *)
+         let ((nli, _), e) = Var_Hashtbl.find_or_default scope v (0, vk) in 
          (** If [v] is not in the local scope or if it is a global variable we
              know the definition of, i.e. if [v] is in [!Apac_records.globals],
              add [GlobalVariable] to the dependency attribute set [das] we are
@@ -329,8 +329,8 @@ let discover_dependencies
           (** Look for [v] and its number of levels of indirection [nli] in the
               local [scope]. If [v] is not in the local scope, set [e] to
               [false] and suppose that [nli] is null, i.e. that [v] is a simple
-              variable, not a pointer or a reference. *)
-          let (nli, e) = Var_Hashtbl.find_or_default scope v 0 in
+              variable of kind [vk], not a pointer or a reference. *)
+          let ((nli, _), e) = Var_Hashtbl.find_or_default scope v (0, vk) in
           (** If [v] is not in the local scope or if it is a global variable we
               know the definition of, i.e. if [v] is in [!Apac_records.globals],
               add [GlobalVariable] to the dependency attribute set [das] we are
@@ -497,7 +497,7 @@ let discover_dependencies
        let set =
          List.find_all (fun l ->
              match Var_Hashtbl.find_opt scope l.variable with
-             | Some nli -> l.dereferencements < nli
+             | Some (nli, _) -> l.dereferencements < nli
              | _ -> false
            ) lll
        in
@@ -559,7 +559,7 @@ let discover_dependencies
        let ins, inouts, dam = main ins inouts dam 0 false `In false init in
        (** [v] also represents a new variable in the local [scope], we thus need
            to introduce it to the latter together with its [nli]. *)
-       Var_Hashtbl.add scope v nli;
+       Var_Hashtbl.add scope v (nli, FunctionRecord.kind ty);
        (** Finally, we check whether this variable declaration introduces
            aliases to existing variables referred to in [init] and if so, we
            update [aliases]. *)
@@ -605,6 +605,11 @@ let discover_dependencies
 
 (* [taskify_on p t]: see [taskify]. *)
 let taskify_on (p : path) (t : trm) : unit =
+  let var_map_of_scope (s : FunctionRecord.s) : int Var_map.t =
+    Var_Hashtbl.fold (fun k (nli, _) acc ->
+        if (Var_map.mem k acc) then acc else Var_map.add k nli acc
+      ) s Var_map.empty
+  in
   (* Auxiliary function to transform a portion of the existing AST into a local
      fill_task_graphed AST (see [atrm]). *)
   let rec fill (s : FunctionRecord.s) (a : var Var_Hashtbl.t)
@@ -616,7 +621,7 @@ let taskify_on (p : path) (t : trm) : unit =
            scopes (added to [s] within [trm_discover_dependencies]) to end up in
            the dependency sets of the parent scope, which is the current
            scope. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (** Convert the marked list of statements of the [sequence] into a simple
            list of statements. *)
        let instrs = Mlist.to_list sequence in
@@ -722,7 +727,7 @@ let taskify_on (p : path) (t : trm) : unit =
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the dependency sets of the parent scope, which is the current
           scope. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (* Launch dependency discovery in the initialization term as well as *)
        let (ins, inouts, ioattrs) = discover_dependencies s a init in
        (* in the conditional statement. *)
@@ -788,13 +793,13 @@ let taskify_on (p : path) (t : trm) : unit =
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the dependency sets of the parent scope, which is the current
           scope. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (* Explode the [range] specifier to allow for dependency discovery. *)
        let (index, init, _, cond, step, _) = range in
        (* Launch dependency discovery in the initialization term as well as *)
        let (ins, inouts, ioattrs) = discover_dependencies s a init in
        (** Add the iterator [index] to the scope of the current loop. *)
-       Var_Hashtbl.add s index 0;
+       Var_Hashtbl.add s index (0, Var_immutable);
        (* in the conditional statement representing the upper loop bound. *)
        let (ins', inouts', ioattrs') = discover_dependencies s a cond in
        (* Add the [Condition] attribute to the input and input-output
@@ -867,7 +872,7 @@ let taskify_on (p : path) (t : trm) : unit =
           initialize the in and in-out dependency sets. *)
        let (ins, inouts, ioattrs) = discover_dependencies s a t in
        (* Convert the updated local scope to a set. *)
-       let scope' = var_map_of_var_hashtbl s in
+       let scope' = var_map_of_scope s in
        (* Variable declarations should never become tasks, but rather
           synchronization barriers, nor be merged with other task graph
           nodes. *)
@@ -899,7 +904,7 @@ let taskify_on (p : path) (t : trm) : unit =
            dependency attribute sets. *)
        let (ins, inouts, ioattrs) = discover_dependencies s a t in
        (** Convert the local scope to a set. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (** Create the corresponding task candidate using all the elements
            computed above. *)
        Task.create
@@ -911,7 +916,7 @@ let taskify_on (p : path) (t : trm) : unit =
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (* Look for dependencies and their attributes in the conditional
           expression of the [if] and initialize the in and in-out dependency
           sets as well as the map of dependency attribute sets. *)
@@ -963,7 +968,7 @@ let taskify_on (p : path) (t : trm) : unit =
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (* Look for dependencies and their attributes in the conditional
           expression of the [while] and initialize the in and in-out dependency
           sets as well as the map of dependency attributes. *)
@@ -1000,7 +1005,7 @@ let taskify_on (p : path) (t : trm) : unit =
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (* Look for dependencies in the conditional expression of the do-while
           and initialize the in and in-out dependency sets as well as the map of
           dependency attribute sets. *)
@@ -1038,7 +1043,7 @@ let taskify_on (p : path) (t : trm) : unit =
           because we do not want any variables potentially defined in child
           scopes (added to [s] within [trm_discover_dependencies]) to end up in
           the parent scope, which is the current scope. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (* Look for dependencies and their attributes in the conditional
           expression of the [switch] and initialize the in and in-out dependency
           sets as well as the map of dependency attribute sets. *)
@@ -1100,7 +1105,7 @@ let taskify_on (p : path) (t : trm) : unit =
        let (ins, inouts, ioattrs) = discover_dependencies s a target in
        let inouts = Dep_set.union ins inouts in
        (* Convert the local scope to a set *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (* Transform this task into a synchronization barrier. *)
        let tas = TaskAttr_set.singleton WaitForSome in
        (* in order to be able to use it when creating the task corresponding to
@@ -1156,7 +1161,7 @@ let taskify_on (p : path) (t : trm) : unit =
        end
     | Trm_omp_routine r ->
        (* Convert the local scope to a set. *)
-       let scope = var_map_of_var_hashtbl s in
+       let scope = var_map_of_scope s in
        (* Calls to OpenMP routines must not become parallelizable tasks! *)
        let attrs = TaskAttr_set.singleton WaitForAll in
        (* When it comes to OpenMP routine calls, we consider two different

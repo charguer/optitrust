@@ -1864,7 +1864,7 @@ let unify_returns (tg : target) : unit =
           if (Var_Hashtbl.mem Apac_records.functions f) then
             begin
               let r = Var_Hashtbl.find Apac_records.functions f in
-              Var_Hashtbl.add r.scope ret 1
+              Var_Hashtbl.add r.scope ret (1, Var_mutable)
             end;
           (** Append [!Apac_macros.goto_label] to the new sequence. *)
           let body = trm_seq_add_last

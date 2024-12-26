@@ -1,11 +1,12 @@
 open Ast
+open Typ
 open Apac_dep
 open Apac_tasks
 
 (** [FunctionRecord]: a module to represent function records. *)
 module FunctionRecord : sig
   type a
-  type s = int Var_Hashtbl.t
+  type s = (int * varkind) Var_Hashtbl.t
   type t = {
       mutable args : (a * int) list;
       mutable graph : TaskGraph.t;
@@ -13,6 +14,7 @@ module FunctionRecord : sig
       writes : Var_set.t;
       ast : trm
     }
+  val kind : typ -> varkind
   val create : (var * typ) list -> (var * typ) list -> Var_set.t -> trm -> t
   val constify : bool list -> (a * int) list -> (a * int) list
   val is_rw : a -> bool
@@ -26,14 +28,15 @@ end = struct
       (** The function {b does not alter} the argument by side-effect. *)
       | ReadOnly
 
-    (** [FunctionRecord.s]: a type of hash table where the keys are variables,
-        of type [!type:var], and the values are their numbers of levels of
-        indirection, of type [!type:int]. For example, in the case of a variable
-        [data] declared in C as [int ** data], an entry in a hash table of type
-        [!type:s] would be the key-value pair ([\{ name: "data", ... \}], 2).
-        However, in the case of a variable [a] declared as [int a], it would be
-        ([\{ name: "a", ... \}], 0) as [a] is not a pointer variable. *)
-    type s = int Var_Hashtbl.t
+    (** [FunctionRecord.s]: a type of hash table where the keys are variables
+        (see [!type:var]) and the values are pairs where the first element is
+        the numbers of levels of indirection of the variables (see [!type:int])
+        and the second element is the kind of the variable (see
+        [!type:varkind]). For example, in the case of a variable [data] we would
+        declare in C as [int ** data] ([int *** data] in the OptiTrust syntax),
+        the corresponding entry in a hash table of type [!type:s] would be the
+        key-value pair ([\{ name: "data", ... \}], 3, [Var_mutable]). *)
+    type s = (int * varkind) Var_Hashtbl.t
     
     (** [FunctionRecord.t]: a type of function records. *)
     type t = {
@@ -128,6 +131,12 @@ end = struct
       (** If [ty] is none of the above, it represents a primitive data type. In
           this case, the argument is passed by value and is thus [ReadOnly]. *)
       | _ -> ReadOnly
+
+    (** [FunctionRecord.kind ty]: determines the variable kind (see
+        [!type:varkind]) according to the type [ty]. *)
+    let kind (ty : typ) : varkind =
+      if is_typ_const (get_inner_array_type ty) then Var_immutable
+      else Var_mutable
     
     (** [FunctionRecord.create args globs writes ast]: creates a new function
         record based on the arguments in the list [args], the global variables
@@ -143,8 +152,10 @@ end = struct
         List.mapi (fun i (arg, ty) ->
             (** determine its number of levels of indirection, *)
             let nli = Apac_miscellaneous.typ_get_nli ty in
+            (** determine its kind, *)
+            let kind = kind ty in
             (** add it to the hash table of function-local variables, *)
-            Var_Hashtbl.add scope arg nli;
+            Var_Hashtbl.add scope arg (nli, kind);
             (** classify its access (see [!FunctionRecords.classify]) and return
                 the classification together with the number of levels of
                 indirection. *)
@@ -154,10 +165,11 @@ end = struct
           [!Apac_task_candidate_discovery.trm_discover_dependencies]). *)
       List.iter (fun (glob, ty) ->
           (** For this, we have to determine the number of levels of indirection
-              of each global variable and *)
+              of each global variable as well as its kind and *)
           let nli = Apac_miscellaneous.typ_get_nli ty in
+          let kind = kind ty in
           (** add it to the hash table of function-local variables. *)
-          Var_Hashtbl.add scope glob nli
+          Var_Hashtbl.add scope glob (nli, kind)
         ) globs;
       {
         args = args;
@@ -195,6 +207,11 @@ end = struct
         | (ReadWrite, _) -> "ReadWrite"
         | (ReadOnly, _) -> "ReadOnly"
       in
+      let string_of_varkind (vk : varkind) : string =
+        match vk with
+        | Var_mutable -> "mutable"
+        | Var_immutable -> "immutable"
+      in
       let output = "{\n\targs: [" in
       let n = List.length record.args in
       let args = if n > 0 then
@@ -221,9 +238,10 @@ end = struct
       let output = output ^ writes ^ "],\n\tscope: [\n" in
       let n = Var_Hashtbl.length record.scope in
       let scope = if n > 0 then
-                    Var_Hashtbl.fold (fun k v acc ->
+                    Var_Hashtbl.fold (fun k (nli, kind) acc ->
                         acc ^ "\t\t(" ^
-                          (var_to_string k) ^ ", " ^ (string_of_int v) ^
+                          (var_to_string k) ^ ", " ^ (string_of_int nli) ^
+                            ", " ^ (string_of_varkind kind) ^
                             ")\n") record.scope ""
                   else "" in
       output ^ scope ^ "\t],\n\tast: \"" ^
