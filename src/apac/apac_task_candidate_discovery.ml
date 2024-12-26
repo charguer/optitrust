@@ -363,6 +363,13 @@ let discover_dependencies
             let gets = gets + gets' in
             let gets, nli =
               if vk == Var_mutable then (gets - 1, nli - 1) else gets, nli in
+            (** Add an extra get operation on [t]. If [t] was already within a
+                get operation, we removed it in the corresponding match case of
+                this function. It [t] was the destination of a set operation,
+                i.e. an lvalue, the extra get operation allows us to transform
+                it into an rvalue. This way, we uniformely represent
+                dependencies of type [Dep_trm] in the form of rvalues. *)
+            let t = trm_get t in
             (** Transform the access term [t] into a dependency. As this is an
                 array access, it leads to multiple dependencies following the
                 number of dereferencements, i.e. [gets]. In this case, we have

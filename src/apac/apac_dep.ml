@@ -148,7 +148,7 @@ end = struct
       let open Trm in
       let v0 = Val_lit (Lit_int 0) in
       let v0 = trm_val v0 in
-      of_trm (trm_array_access t v0) v (n - 1)
+      of_trm (trm_get (trm_array_access t v0)) v (n - 1)
   
   (** [Dep.of_range t v range]: calls [Dep.of_trm t v n] for each value of [n]
       within [range] (including the lower and the upper bounds) and returns the
@@ -176,12 +176,20 @@ end = struct
   let of_array (t : trm) (v : var) : t list =
     let rec accesses (t : trm) : trms =
       match t.desc with
-      | Trm_apps ({desc = Trm_val
-                            (Val_prim
-                               (Prim_binop Binop_array_access)); _}, [t'; _]) ->
+      | Trm_apps
+        ({desc = Trm_val (Val_prim (Prim_unop Unop_get))},
+         [({desc = Trm_apps
+            ({desc = Trm_val
+                       (Val_prim
+                          (Prim_binop Binop_array_access)); _}, [t'; _])})])
+        | Trm_apps
+            ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [t']) 
+        | Trm_apps
+            ({desc = Trm_val
+                       (Val_prim
+                          (Prim_binop Binop_array_access)); _}, [t'; _]) ->
          t :: (accesses t')
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, _)
-        | Trm_var _ -> []
+      | Trm_var _ -> []
       | _ -> failwith "Dep.of_array: Inconsistent array access."
     in
     let a = accesses t in
