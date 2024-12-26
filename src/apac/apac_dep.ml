@@ -138,10 +138,9 @@ end = struct
       [Dep_trm] features also an adequate term for accessing the first element
       of the [n]-th level of indirection of [v].
 
-      For example, if [t] as well as [v] are 'tab' and [n] is 2, the
-      function produces ('tab\[0\]\[0\]', 'tab'). Moreover, if [t] is
-      'tab\[i\]', [v] is 'tab' and [degree] is 1, the function produces
-      ('tab\[i\]\[0\]', 'tab'). *)
+      For example, if [t] as well as [v] are [tab] and [n] is 2, the function
+      produces ([tab\[0\]\[0\]], [tab]). Moreover, if [t] is [tab\[i\]], [v] is
+      [tab] and [n] is 1, the function produces ([tab\[i\]\[0\]], [tab]). *)
   let rec of_trm (t : trm) (v : var) (n : int) : t =
     if n < 1 then
       Dep_trm (t, v)
@@ -172,8 +171,8 @@ end = struct
       the others are dependencies on potential parent elements in the case of a
       multi-dimensional array.
 
-      For example, if [t] is 'tab\[i\]\[0\]' and [v] is 'tab', the function
-      produces a list containing ('tab\[i\]\[0\]', 'tab\[i\]'). *)
+      For example, if [t] is [tab\[i\]\[0\]] and [v] is [tab], the function
+      produces a list containing ([tab\[i\]\[0\]], [tab\[i\]]). *)
   let of_array (t : trm) (v : var) : t list =
     let rec accesses (t : trm) : trms =
       match t.desc with
