@@ -171,6 +171,9 @@ let discover_dependencies
             (gets : int) (call : bool) (access : [ `In | `InOut ]) (iao : bool)
             (t : trm) : (Dep_set.t * Dep_set.t * ioattrs_map) =
     let warning (t : trm) : unit =
+      let t =
+        if !Apac_flags.verbose then t
+        else restore_cfeatures scope (trm_get t) in
       Printf.printf
         "[APAC] [Warning] The dependency discovery does not recognize the \
          expression `%s'%s, proceeding with a best-effort analysis.\n"
@@ -536,7 +539,8 @@ let discover_dependencies
          let ambiguous = fun () ->
            Printf.printf
              "[APAC] [Warning] Ambiguous target in set operation `%s', \
-              selecting the left-most one.\n" (AstC_to_c.ast_to_string t)
+              selecting the left-most one.\n"
+             (AstC_to_c.ast_to_string (restore_cfeatures scope t))
          in
          if n > 0 then
            begin
@@ -553,7 +557,7 @@ let discover_dependencies
              t.loc
              ("Apac_task_candidate_discovery.discover_dependencies.main: \
                invalid target in set operation `" ^
-                (AstC_to_c.ast_to_string t) ^ "'.")
+                (AstC_to_c.ast_to_string (restore_cfeatures scope t)) ^ "'.")
        in
        (** Otherwise, we continue by identifying all the memory locations in
            [rval]. *)
