@@ -82,13 +82,13 @@ let subst_pragmas (va : var) (tv : trm)
         | Dep_trm (t, v) ->
            let tv' = match t.desc with
              | Trm_var (_, v') when v' = va ->
-                trm_array_get (trm_get tv) v0
+                trm_array_get tv v0
              | _ -> trm_get tv
            in
            let t' = trm_subst_var va tv' t in
            Dep_trm (t', v)
         | Dep_var v when v = va ->
-           let t' = trm_array_get (trm_get tv) v0 in
+           let t' = trm_array_get tv v0 in
            Dep_trm (t', v)
         | _ -> d) dl
   in
