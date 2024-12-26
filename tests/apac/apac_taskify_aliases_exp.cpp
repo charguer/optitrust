@@ -16,7 +16,7 @@ int h(int** v1, int* v2, int v3) {
   int __apac_result;
 #pragma omp taskgroup
   {
-#pragma omp task default(shared) depend(inout : v1[0][0], v1[0], v1)
+#pragma omp task default(shared) depend(inout : v1, v1[0], v1[0][0])
     v1 = f(v1);
 #pragma omp taskwait depend(in : v1)
     int** a1 = v1;

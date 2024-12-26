@@ -32,9 +32,9 @@ void c(int* tab, int size) {
         p(&tab[i]);
       }
     }
-#pragma omp task default(shared) depend(in : tab[0], tab)
+#pragma omp task default(shared) depend(in : tab, tab[0])
     g(tab);
-#pragma omp task default(shared) depend(in : tab[0], tab)
+#pragma omp task default(shared) depend(in : tab, tab[0])
     h(tab);
   __apac_exit:;
   }
@@ -47,7 +47,7 @@ int main() {
 #pragma omp taskgroup
   {
     int* t;
-#pragma omp task default(shared) depend(inout : t[0], t)
+#pragma omp task default(shared) depend(inout : t, t[0])
     {
       t = (int*)malloc(4 * sizeof(int));
       c(t, 4);

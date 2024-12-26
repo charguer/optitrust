@@ -17,7 +17,7 @@ int h() {
     b = b + 1;
     b--;
     int** c;
-#pragma omp task default(shared) depend(in : c[0]) depend(inout : c[0][0], c)
+#pragma omp task default(shared) depend(in : c[0]) depend(inout : c, c[0][0])
     {
       c = (int**)malloc(sizeof(int));
       g(*c);

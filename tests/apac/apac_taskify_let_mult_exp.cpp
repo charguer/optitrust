@@ -33,9 +33,9 @@ void foo(int* bar, int val) {
         p(&a[i]);
       }
     }
-#pragma omp task default(shared) depend(in : c[0], c)
+#pragma omp task default(shared) depend(in : c, c[0])
     g(c);
-#pragma omp task default(shared) depend(in : e[0], e)
+#pragma omp task default(shared) depend(in : e, e[0])
     h(e);
   __apac_exit:;
   }
