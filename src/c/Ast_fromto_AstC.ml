@@ -254,7 +254,7 @@ let stackvar_intro (t : trm) : trm =
     | _ -> trm_map aux t
     end in
     let t' = apply_on_pragmas (fun pl ->
-                 stackvar_intro_pragmas (trm_map aux) pl) t' in
+                 stackvar_intro_pragmas aux pl) t' in
     trm_simplify_addressof_and_get t'
   in
   aux t
