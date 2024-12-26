@@ -149,18 +149,22 @@ let stackvar_elim (t : trm) : trm =
    end in
    aux t
 
-(* [stackvar_intro_pragmas f pl]: Some of the OpenMP pragma directives may
-   feature AST terms, i.e. the [Depend] clauses of the [Task] and the [Taskwait]
-   directives. In this case, we need to apply [stackvar_intro] on these terms
-   too. This function takes [pl], a list of pragmas, and applies
-   [stackvar_intro] on the pragmas that may contain AST terms through the [f]
-   parameter. See the usage of this function in [stackvar_intro]. *)
-let stackvar_intro_pragmas
+(** [cfeatures_intro_pragmas f pl]: Some of the OpenMP pragma directives may
+    feature abstract syntax tree terms (see [!type:trm]), i.e. the [Depend]
+    clauses of the [Task] and the [Taskwait] directives. We need to apply
+    transformations such as [!stackvar_intro] and [!caddress_intro] on these
+    terms too. This function takes [pl], a list of pragmas, and applies a
+    function [f], e.g. [!stackvar_intro] or [!caddress_intro], on terms in the
+    [Task] and [Taskwait] pragmas. *)
+let cfeatures_intro_pragmas
       (f : (trm -> trm)) (pl : cpragma list) : cpragma list =
   let aux (dl : deps) : deps =
     List.map(fun d ->
         match d with
-        | Dep_trm (tt, v) -> let tt' = f tt in let tt' = trm_simplify_addressof_and_get tt' in Dep_trm (tt', v)
+        | Dep_trm (tt, v) ->
+           let tt' = f tt in
+           let tt' = trm_simplify_addressof_and_get tt' in
+           Dep_trm (tt', v)
         | _ -> d) dl
   in
   List.map (fun p ->
@@ -254,7 +258,7 @@ let stackvar_intro (t : trm) : trm =
     | _ -> trm_map aux t
     end in
     let t' = apply_on_pragmas (fun pl ->
-                 stackvar_intro_pragmas aux pl) t' in
+                 cfeatures_intro_pragmas aux pl) t' in
     trm_simplify_addressof_and_get t'
   in
   aux t
