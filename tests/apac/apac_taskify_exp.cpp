@@ -32,9 +32,9 @@ void c(int* tab, int size) {
         p(&tab[i]);
       }
     }
-#pragma omp task default(shared) depend(in : tab, tab[0])
+#pragma omp task default(shared) depend(in : tab[0], tab)
     g(tab);
-#pragma omp task default(shared) depend(in : tab, tab[0])
+#pragma omp task default(shared) depend(in : tab[0], tab)
     h(tab);
   __apac_exit:;
   }

@@ -71,7 +71,7 @@ void c(int* tab, int size) {
 #pragma omp atomic
       __apac_count++;
     }
-#pragma omp task default(shared) depend(in : tab, tab[0]) firstprivate(__apac_depth_local) if (__apac_count_ok || __apac_depth_ok)
+#pragma omp task default(shared) depend(in : tab[0], tab) firstprivate(__apac_depth_local) if (__apac_count_ok || __apac_depth_ok)
     {
       if (__apac_count_ok || __apac_depth_ok) {
         __apac_depth = __apac_depth_local + 1;
@@ -86,7 +86,7 @@ void c(int* tab, int size) {
 #pragma omp atomic
       __apac_count++;
     }
-#pragma omp task default(shared) depend(in : tab, tab[0]) firstprivate(__apac_depth_local) if (__apac_count_ok || __apac_depth_ok)
+#pragma omp task default(shared) depend(in : tab[0], tab) firstprivate(__apac_depth_local) if (__apac_count_ok || __apac_depth_ok)
     {
       if (__apac_count_ok || __apac_depth_ok) {
         __apac_depth = __apac_depth_local + 1;
@@ -115,7 +115,7 @@ int main() {
 #pragma omp atomic
       __apac_count++;
     }
-#pragma omp task default(shared) depend(inout : t, t[0]) firstprivate(__apac_depth_local) if (__apac_count_ok || __apac_depth_ok)
+#pragma omp task default(shared) depend(inout : t[0], t) firstprivate(__apac_depth_local) if (__apac_count_ok || __apac_depth_ok)
     {
       if (__apac_count_ok || __apac_depth_ok) {
         __apac_depth = __apac_depth_local + 1;

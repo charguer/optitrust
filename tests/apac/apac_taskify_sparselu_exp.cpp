@@ -173,29 +173,29 @@ int sparselu(float** matrix, const size_t matrix_size, const size_t submatrix_si
 #pragma omp taskgroup
   {
     for (int kk = 0; kk < matrix_size; kk++) {
-#pragma omp task default(shared) depend(in : matrix, matrix[kk * matrix_size + kk], matrix_size, submatrix_size) depend(inout : matrix[kk * matrix_size + kk][0]) firstprivate(kk)
+#pragma omp task default(shared) depend(in : matrix[kk * matrix_size + kk], matrix, matrix_size, submatrix_size) depend(inout : matrix[kk * matrix_size + kk][0]) firstprivate(kk)
       lu0(matrix[kk * matrix_size + kk], submatrix_size);
       for (int jj = kk + 1; jj < matrix_size; jj++) {
-#pragma omp taskwait depend(in : matrix, matrix[kk * matrix_size + jj], matrix_size)
+#pragma omp taskwait depend(in : matrix[kk * matrix_size + jj], matrix, matrix_size)
         if (matrix[kk * matrix_size + jj] != NULL) {
-#pragma omp task default(shared) depend(in : matrix, matrix[kk * matrix_size + jj], matrix[kk * matrix_size + kk], matrix[kk * matrix_size + kk][0], matrix_size, submatrix_size) depend(inout : matrix[kk * matrix_size + jj][0]) firstprivate(kk, jj)
+#pragma omp task default(shared) depend(in : matrix[kk * matrix_size + kk][0], matrix[kk * matrix_size + jj], matrix[kk * matrix_size + kk], matrix, matrix_size, submatrix_size) depend(inout : matrix[kk * matrix_size + jj][0]) firstprivate(kk, jj)
           fwd(matrix[kk * matrix_size + kk], matrix[kk * matrix_size + jj], submatrix_size);
         }
       }
       for (int ii = kk + 1; ii < matrix_size; ii++) {
-#pragma omp taskwait depend(in : matrix, matrix[ii * matrix_size + kk], matrix_size)
+#pragma omp taskwait depend(in : matrix[ii * matrix_size + kk], matrix, matrix_size)
         if (matrix[ii * matrix_size + kk] != NULL) {
-#pragma omp task default(shared) depend(in : matrix, matrix[ii * matrix_size + kk], matrix[kk * matrix_size + kk], matrix[kk * matrix_size + kk][0], matrix_size, submatrix_size) depend(inout : matrix[ii * matrix_size + kk][0]) firstprivate(kk, ii)
+#pragma omp task default(shared) depend(in : matrix[kk * matrix_size + kk][0], matrix[ii * matrix_size + kk], matrix[kk * matrix_size + kk], matrix, matrix_size, submatrix_size) depend(inout : matrix[ii * matrix_size + kk][0]) firstprivate(kk, ii)
           bdiv(matrix[kk * matrix_size + kk], matrix[ii * matrix_size + kk], submatrix_size);
         }
       }
       for (int ii = kk + 1; ii < matrix_size; ii++) {
-#pragma omp taskwait depend(in : matrix, matrix[ii * matrix_size + kk], matrix_size)
+#pragma omp taskwait depend(in : matrix[ii * matrix_size + kk], matrix, matrix_size)
         if (matrix[ii * matrix_size + kk] != NULL) {
           for (int jj = kk + 1; jj < matrix_size; jj++) {
-#pragma omp taskwait depend(in : matrix, matrix[kk * matrix_size + jj], matrix_size)
+#pragma omp taskwait depend(in : matrix[kk * matrix_size + jj], matrix, matrix_size)
             if (matrix[kk * matrix_size + jj] != NULL) {
-#pragma omp task default(shared) depend(in : matrix, matrix[ii * matrix_size + kk], matrix[ii * matrix_size + kk][0], matrix[kk * matrix_size + jj], matrix[kk * matrix_size + jj][0], matrix_size, submatrix_size) depend(inout : matrix[ii * matrix_size + jj], matrix[ii * matrix_size + jj][0]) firstprivate(kk, jj, ii)
+#pragma omp task default(shared) depend(in : matrix[ii * matrix_size + kk][0], matrix[kk * matrix_size + jj][0], matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj], matrix, matrix_size, submatrix_size) depend(inout : matrix[ii * matrix_size + jj][0], matrix[ii * matrix_size + jj]) firstprivate(kk, jj, ii)
               {
                 matrix[ii * matrix_size + jj] = (!matrix[ii * matrix_size + jj] ? allocate_clean_block(submatrix_size) : matrix[ii * matrix_size + jj]);
                 bmod(matrix[ii * matrix_size + kk], matrix[kk * matrix_size + jj], matrix[ii * matrix_size + jj], submatrix_size);
@@ -255,7 +255,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : matrix_size, submatrix_size) depend(inout : matrix[0], matrix[0][0], matrix)
+#pragma omp task default(shared) depend(in : matrix_size, submatrix_size) depend(inout : matrix[0][0], matrix[0], matrix)
     matrix = genmat(matrix, matrix_size, submatrix_size);
 #pragma omp taskwait depend(in : matrix)
     if (matrix == NULL) {
@@ -265,7 +265,7 @@ int main(int argc, char** argv) {
       goto __apac_exit;
     }
     int error = 0;
-#pragma omp task default(shared) depend(in : matrix[0], matrix[0][0], argv, matrix, matrix_size) depend(inout : error)
+#pragma omp task default(shared) depend(in : matrix[0][0], matrix[0], argv, matrix, matrix_size) depend(inout : error)
     error = store_structure(struct_A, "A", matrix, matrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : matrix[0], matrix[0][0], error)
+#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : matrix[0][0], matrix[0], error)
     error = store_matrix(matrix_A, "A", matrix, matrix_size, submatrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -283,7 +283,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : matrix, matrix_size, submatrix_size) depend(inout : matrix[0], matrix[0][0], error)
+#pragma omp task default(shared) depend(in : matrix, matrix_size, submatrix_size) depend(inout : matrix[0][0], matrix[0], error)
     error = sparselu(matrix, matrix_size, submatrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -292,7 +292,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : matrix[0], matrix[0][0], argv, matrix, matrix_size) depend(inout : error)
+#pragma omp task default(shared) depend(in : matrix[0][0], matrix[0], argv, matrix, matrix_size) depend(inout : error)
     error = store_structure(struct_LU, "LU", matrix, matrix_size);
 #pragma omp taskwait depend(in : error)
     if (error) {
@@ -301,7 +301,7 @@ int main(int argc, char** argv) {
       __apac_result = 1;
       goto __apac_exit;
     }
-#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : matrix[0], matrix[0][0], error)
+#pragma omp task default(shared) depend(in : argv, matrix, matrix_size, submatrix_size) depend(inout : matrix[0][0], matrix[0], error)
     error = store_matrix(matrix_LU, "LU", matrix, matrix_size, submatrix_size);
 #pragma omp taskwait
     if (error) {
