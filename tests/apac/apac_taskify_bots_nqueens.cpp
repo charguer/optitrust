@@ -1,0 +1,1 @@
+../../case_studies/bots/omp-apac/nqueens/nqueens.in.cpp
