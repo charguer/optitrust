@@ -25,7 +25,7 @@ let setup (case : string) (cutoff : string) : string * string =
          "floorplan_end"; "floorplan_verify"], "compute_floorplan")
     | "knapsack" ->
        (["read_input"; "knapsack_check"], "knapsack_main_par")
-    | "molecular_dyn" ->
+    | "moldyn" ->
        (["check"; "check_symb"; "check_force"], "compute")
     | "nqueens" ->
        (["verify_queens"], "find_queens")
