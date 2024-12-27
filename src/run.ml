@@ -114,9 +114,47 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
     let (r, t) = Tools.measure_time f in
     Printf.printf "Time %s: %dms\n" msg t;
     r
-  end
+    end
 
-(* [script ~filename ~extension ~batching ~check_exit_at_end ~prefix ~parser f]:
+(** [command_with_output command]: runs the system [command] and returns its
+    return code together with the concatenation of its standard output and its
+    standard error output. *)
+let command_with_output (command : string) : int * string =
+  let temp = Filename.temp_file "output" ".log" in
+  let code = Sys.command (command ^ " > " ^ temp ^ " 2>&1") in
+  let out =
+    let channel = open_in temp in
+    let n = in_channel_length channel in
+    let lines = really_input_string channel n in
+    close_in channel;
+    lines
+  in
+  Unix.unlink temp;
+  (code, out)
+
+(** [check_syntax file]: runs Clang on [file]. If the latter features any syntax
+    error, the function raises an exception carrying the error messages of the
+    compiler. *)
+let check_syntax (file : string) : unit =
+  let exception SyntaxError of string in
+  let includes =
+    List.fold_left (fun acc i ->
+        acc ^ "-I" ^ i ^ " "
+      ) " " !Flags.c_parser_includes in
+  let (code, messages) =
+    command_with_output (
+        "clang -fsyntax-only -fopenmp" ^ includes ^ file
+      )
+  in
+  if code <> 0 then
+    begin
+      Printf.eprintf "%s" messages;
+      raise (SyntaxError "Invalid syntax of the output source code file.")
+    end
+  else
+    Printf.printf "[OptiTrust] [Information] Output syntax check succeeded.\n"
+
+(* [script ~filename ~extension ~batching ~check_exit_at_end ~check_syntax_at_end ~prefix ~parser f]:
    serves as "main" function for an Optitrust script. It takes care of parsing
    the command line arguments, handling the errors, and parsing the file that will be processed,
    before running the function [f] provided and outputing the results.
@@ -136,9 +174,10 @@ let may_report_time (msg : string) (f : unit -> 'a) : 'a =
    - [~check_exit_at_end:false] is an option for deactivating the implicit call to [Trace.check_exit()]
       at the end of the execution of [f] (LATER: will be deprecated)
       This flag only has an effect if a [-exit_line] option was passed on the command line.
+   - [~check_exit_at_end:true] is an option for checking the syntax of the output script using the Clang compiler.
    - [~prefix:string] allows providing the basename for the output files produced
    *)
-let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ~(parser : Trace.parser) (f : unit -> unit) : unit =
+let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(check_syntax_at_end : bool = false) ?(prefix : string option) ~(parser : Trace.parser) (f : unit -> unit) : unit =
   Flags.process_cmdline_args ();
   Target.show_next_id_reset ();
 
@@ -165,7 +204,14 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
 
-  let stats_before = Stats.get_cur_stats () in
+    let stats_before = Stats.get_cur_stats () in
+
+    let postprocess =
+      if check_syntax_at_end then
+        check_syntax
+      else
+        fun _ -> ()
+    in
 
   (* Set the input file, execute the function [f], dump the results. *)
   (try
@@ -189,7 +235,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     (* Stores the current ast to the end of the history *)
     Trace.close_smallstep_if_needed();
     Trace.close_bigstep_if_needed();
-    Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
+    Trace.dump ~prefix ~postprocess (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     (* Collapse the step stack onto the root step *)
     Trace.finalize();
     (* TODO:
@@ -246,8 +292,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
    The rest of the options are the same as [script f]. *)
 let script_cpp ?(filename : string option) ?(prepro : string list = [])
       ?(inline : string list = []) ?(includes : string list = [])
-      ?(check_exit_at_end : bool = true) ?(prefix : string option)
-      ?(parser : Trace.parser option) (f : unit -> unit) : unit =
+      ?(check_exit_at_end : bool = true) ?(check_syntax_at_end : bool = false)
+      ?(prefix : string option) ?(parser : Trace.parser option)
+      (f : unit -> unit) : unit =
   may_report_time "script-cpp" (fun () ->
       (* Handles preprocessor *)
       Compcert_parser.Clflags.prepro_options := prepro;
@@ -303,12 +350,13 @@ let script_cpp ?(filename : string option) ?(prepro : string list = [])
         | None -> CParsers.get_default ()
       in
       
-      script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f)
+      script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ~check_syntax_at_end ?prefix f)
 
-(** [apac input output]: parse the [input] source code, apply Automatic
+(** [apac ?check input output]: parse the [input] source code, apply Automatic
     PArallelizer for C on its abstract syntax tree representation and generate
-    the resulting [output] source code. *)
-let apac (input : string) (output : string) : unit =
+    the resulting [output] source code. If the [check] flag is set to [true],
+    the function will check the syntax of [output]. *)
+let apac ?(check : bool = false) (input : string) (output : string) : unit =
   let exi = Filename.extension input in
   let exo = Filename.extension output in
   if exi <> exo then
@@ -342,6 +390,8 @@ let apac (input : string) (output : string) : unit =
               (Filename.chop_extension output)
               (Trace.ast ())
           );
+        (** Check syntax of the output source code, if requested. *)
+        if check then check_syntax output;
         (** Finalize the compilation process. *)
         Trace.finalize ();
         (** Dump abstract syntax tree transformation trace, if requested. *)
