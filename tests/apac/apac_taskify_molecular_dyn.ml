@@ -4,5 +4,5 @@ let () =
   Flags.code_print_width := 1024;
   Apac_flags.verbose := false;
   Apac_flags.constify := true;
-  Run.script_cpp Apac_main.compile;
+  Run.script_cpp ~check_syntax_at_end:true Apac_main.compile;
   Apac_reset.tnt_blast ()

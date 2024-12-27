@@ -23,5 +23,5 @@ let () =
   Apac_flags.omit := ".*_se[qr]$";
   Apac_macros.skip skip;
   Apac_flags.main := main;
-  Run.script_cpp Apac_main.compile;
+  Run.script_cpp ~check_syntax_at_end:true Apac_main.compile;
   Apac_reset.tnt_blast ()

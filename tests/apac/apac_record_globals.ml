@@ -2,7 +2,7 @@ open Optitrust
 open Ast
 open Target
 
-let _ = Run.script_cpp (fun () ->
+let _ = Run.script_cpp ~check_syntax_at_end:true (fun () ->
             !! Apac_preprocessing.record_globals [
                 nbAny;
                 cStrict;

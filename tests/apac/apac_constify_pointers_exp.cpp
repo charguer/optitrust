@@ -6,8 +6,9 @@ void p1(char** a1) {
   b1 = strcpy(b1, a1[1]);
 }
 
-void p2(int** a2, const int* d2) {
-  int *b2 = a2[1], *c2 = NULL;
+void p2(int** a2, int* d2) {
+  int* b2 = a2[1];
+  int* c2 = NULL;
   *b2 = 0;
   c2 = *a2;
   (*c2)++;

@@ -3,7 +3,7 @@ open Target
 open Ast
 open Typ
 
-let _ = Run.script_cpp (fun () ->
+let _ = Run.script_cpp ~check_syntax_at_end:true (fun () ->
             !! Apac_preprocessing.unfold_function_calls [
                 nbAny;
                 cFunBody "h";
