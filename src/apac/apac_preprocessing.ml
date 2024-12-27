@@ -1062,8 +1062,13 @@ end = struct
          let lva = aliasing aliases ll in
          List.iter (fun (_, tg) ->
              let alias : lvar = { v = v; l = String.empty } in
+             let nli = Apac_miscellaneous.typ_get_nli ty in
+             if !Apac_flags.verbose then
+               Printf.printf "Constification of `%s': defining new \
+                              alias %s (%d levels of indirection)\n"
+                 f.name (LVar.to_string alias) nli;
              LVar_Hashtbl.add
-               aliases alias (tg, Apac_miscellaneous.typ_get_nli ty)
+               aliases alias (tg, nli)
            ) lva;
          (** We then continue the analysis on substatements, if any. *)
          trm_iter (aux aliases f) t
@@ -1103,6 +1108,11 @@ end = struct
                       true 
                    | _ -> false
                  in
+                 if !Apac_flags.verbose then
+                   Printf.printf "Constification of `%s': existing alias %s \
+                                  (%d dereferencements, %d levels of \
+                                  indirection)\n"
+                     f.name (LVar.to_string lv) l.dereferencements nli;
                  if alias then
                    begin
                      (** If so, for each memory location representing an
@@ -1178,6 +1188,11 @@ end = struct
                let rval = aliasing aliases rval in
                List.iter (fun (rv, tg) ->
                    let _, nli = LVar_Hashtbl.find aliases rv in
+                   if !Apac_flags.verbose then
+                     Printf.printf "Constification of `%s': %s becomes an \
+                                    alias to the argument %s (%d levels of \
+                                    indirection)\n"
+                       f.name (LVar.to_string lv) (LVar.to_string rv) nli;
                    LVar_Hashtbl.add aliases lv (tg, nli)
                  ) rval
            ) ll;
@@ -1290,6 +1305,10 @@ end = struct
                   class members. *)
               List.iter (fun (lv, ty) ->
                   let nli = Apac_miscellaneous.typ_get_nli ty in
+                  if !Apac_flags.verbose then
+                    Printf.printf "Constification of `%s': %s is an argument \
+                                   (%d levels of indirection)\n"
+                      f.name (LVar.to_string lv) nli;
                   LVar_Hashtbl.add aliases lv (i, nli)
                 ) lvs
           end
