@@ -1406,7 +1406,8 @@ end = struct
     objects ()
 
   (** [constify_prototypes_on ?crs t]: see [!constify_prototypes]. *)
-  let constify_prototypes_on ?(crs : r option = None) (t : trm) : trm =
+  let constify_prototypes_on ?(crs : r option = None)
+        (p : path) (t : trm) : trm =
     (** Deconstruct the definition term [t] of the function [f]. *)
     let error = "Apac_preprocessing.Constification.constify_prototypes_on: \
                  expected a target to a function definition." in
@@ -1418,10 +1419,11 @@ end = struct
       | None ->
          (** constify all of the arguments as well as *)
          let args = List.map (fun (v, ty) -> (v, (typ_constify ty))) args in
-         (** the function itself. *)
-         trm_add_cstyle Const_method (
-             trm_let_fun ~annot:t.annot f ret_typ args body
-           )
+         let t = trm_let_fun ~annot:t.annot f ret_typ args body in
+         (** the function itself, if it is a class member method. *)
+         if Option.is_some (find_parent_typedef_record p) then
+           trm_add_cstyle Const_method t
+         else t
       (** Otherwise, consult the constification record of [f] to find out which
           of its arguments we should constify, if any, and whether we should
           constify the function itself. *)
@@ -1472,7 +1474,9 @@ end = struct
       constify all of the function's arguments as well as the function itself.
       For this, skip the [crs] argument or set it to [None]. *)
   let constify_prototypes ?(crs : r option = None) (tg : target) : unit =
-    Target.apply_at_target_paths (constify_prototypes_on ~crs) tg
+    Target.apply (fun t p ->
+        Path.apply_on_path (constify_prototypes_on ~crs p) t p
+      ) tg
 
   (** [constify_aliases_on ?crs t]: see [!constify_aliases]. *)
   let constify_aliases_on ?(crs : r option = None) (t : trm) : trm =
