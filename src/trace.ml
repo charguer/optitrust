@@ -1365,20 +1365,24 @@ let (??) (title : string) (f : unit -> unit) : unit =
 let bigstep (s : string) : unit =
   open_bigstep ~line:(-1) s
 
-(* [dump ~prefix]: invokes [output_prog] to write the contents of the current AST.
+(* [dump ~prefix ~postprocess]: invokes [output_prog] to write the contents of the current AST.
    If there are several traces (e.g., due to a [switch]), it writes one file for each.
    If the prefix is not provided, the input file basename is used as prefix,
    and in any case "_out" is appended to the prefix.
 
+   One can request to run a post-processing callback on the output source code file which takes the name of the latter as an argument.
+
    If you use [dump] in your script, make sure to call [!! Trace.dump] with the
    prefix [!!] in order for the diff visualization to work well for the last
    command before the call to dump. *)
-let dump ?(prefix : string = "") () : unit =
+let dump ?(prefix : string = "") ?(postprocess : string -> unit = fun _ -> ()) () : unit =
   dumping_step (fun () ->
     let ctx = the_trace.context in
     let prefix =
       if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
-    output_prog ctx (prefix ^ "_out") (the_trace.cur_ast)
+    let output = prefix ^ "_out" in
+    output_prog ctx output (the_trace.cur_ast);
+    postprocess (output ^ ctx.extension)
   )
 
 (* DEPRECATED? [only_interactive_step line f]: invokes [f] only if the argument [line]
