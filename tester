@@ -5,10 +5,10 @@ CURRENT_PATH=$(realpath --relative-to=${OPTITRUST} $(pwd))
 
 if [ "$1" == "bots" ]; then
   cd ${OPTITRUST}
-  for c in $(ls ./case_studies/bots/apac); do
-    if [ -d "./case_studies/bots/apac/${c}" ]; then
+  for c in $(ls ./case_studies/bots/omp-apac); do
+    if [ -d "./case_studies/bots/omp-apac/${c}" ]; then
       echo -n "Running ${c}..."
-      OCAMLRUNPARAM=b dune exec "bots_${c}" > "./case_studies/bots/apac/${c}/${c}.log" 2>&1
+      OCAMLRUNPARAM=b dune exec bots "${c}" > "./case_studies/bots/omp-apac/${c}/${c}.log" 2>&1
       if [ "$?" -ne 0 ]; then
         echo "Fail"
       else
