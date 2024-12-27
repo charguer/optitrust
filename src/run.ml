@@ -132,11 +132,14 @@ let command_with_output (command : string) : int * string =
   Unix.unlink temp;
   (code, out)
 
+(** [SyntaxError]: exception for signalizing failures during the syntax
+    verification of the output source code file. *)
+exception SyntaxError
+
 (** [check_syntax file]: runs Clang on [file]. If the latter features any syntax
     error, the function raises an exception carrying the error messages of the
     compiler. *)
 let check_syntax (file : string) : unit =
-  let exception SyntaxError of string in
   let includes =
     List.fold_left (fun acc i ->
         acc ^ "-I" ^ i ^ " "
@@ -148,11 +151,21 @@ let check_syntax (file : string) : unit =
   in
   if code <> 0 then
     begin
+      let base = Filename.remove_extension file in
+      let ext = Filename.extension file in
+      let invalid = base ^ ".invalid" ^ ext in
+      Unix.rename file invalid;
       Printf.eprintf "%s" messages;
-      raise (SyntaxError "Invalid syntax of the output source code file.")
+      Printf.eprintf
+        "[OptiTrust] [Error] There were syntax errors in `%s'! Keeping the \
+         output in `%s'.\n"
+        file invalid;
+      raise SyntaxError
     end
   else
-    Printf.printf "[OptiTrust] [Information] Output syntax check succeeded.\n"
+    Printf.printf
+      "[OptiTrust] [Information] Syntax verification of `%s' succeeded.\n"
+      file
 
 (* [script ~filename ~extension ~batching ~check_exit_at_end ~check_syntax_at_end ~prefix ~parser f]:
    serves as "main" function for an Optitrust script. It takes care of parsing
