@@ -1,12 +1,12 @@
 open Optitrust
 
 (** [setup]: sets up OptiTrust and APAC flags for the automatic parallelization
-    of the Barcelona OpenMP Task Suite (= BOTS) as well as the `quicksort' and
-    the `molecular_dyn' case studies. At the end, the function returns the path
-    to the input sequential implementation of the [case] we want to consider and
-    the destination path for the output parallel implementation. The [cutoff]
-    parameters selects the mehotd APAC uses to prune parallelizable tasks.
-    Possible values are `none', `counters', `model' or `both'. *)
+    of the Barcelona OpenMP Task Suite (= BOTS) case studies. At the end, the
+    function returns the path to the input sequential implementation of the
+    [case] we want to consider and the destination path for the output parallel
+    implementation. The [cutoff] parameter selects the method APAC uses to prune
+    parallelizable tasks. Possible values are `none', `counters', `model' or
+    `both'. *)
 let setup (case : string) (cutoff : string) : string * string =
   let bots = Apac_macros.cwd () ^ "/case_studies/bots/" in
   let skip, main =
