@@ -1057,7 +1057,7 @@ end = struct
       | Trm_let (_, (v, ty), { desc = Trm_apps (_, [ti]); _ }, _) ->
          (** we try to identify each memory location in [ti] representing an
              argument or an alias to an argument [tg] of [f] and we update the
-             hash table of [aliases] accordingly if necessary. *)
+             hash table of [aliases] accordingly, if necessary. *)
          let ll = trm_find_memlocs ti in
          let lva = aliasing aliases ll in
          List.iter (fun (_, tg) ->
@@ -1170,8 +1170,8 @@ end = struct
              else
                (** When [lv] is not an argument and it is not an alias yet, we
                    look for any memory location [rv] in [rval] and check if it
-                   is an argument an alias to an argument [tg]. If so, we have
-                   to add a new entry into [aliases]. As we do not know the
+                   is an argument or an alias to an argument [tg]. If so, we
+                   have to add a new entry into [aliases]. As we do not know the
                    number of levels of indirections of [lval], we use the number
                    of levels of indirection [nli] of [rv]. *)
                let rval = trm_find_memlocs rval in
