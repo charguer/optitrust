@@ -819,16 +819,16 @@ end = struct
       (** In any other case, there are no members to explore. *)
       | _ -> lvs
     in
-    (** Get the inner type of [ty], i.e. strip pointer, reference, constant and
+    (** Get the inner type of [ty'], i.e. strip pointer, reference, constant and
         array types from [ty]. *)
-    let ty = inner ty in
+    let ty' = inner ty in
     (** Build the top-level labelled variable from [v]. *)
     let lv : lvar = { v = v; l = "" } in
-    (** When [ty] is a user-defined record type, a class, a structure or a
+    (** When [ty'] is a user-defined record type, a class, a structure or a
         union, explore its members. *)
-    match ty.typ_desc with
+    match ty'.typ_desc with
     | Typ_constr _
-      | Typ_record _ -> (lv, ty) :: (core v "" ty [])
+      | Typ_record _ -> (lv, ty') :: (core v "" ty' [])
     (** Otherwise, simply return the toplevel labelled variable [lv]. *)
     | _ -> [(lv, ty)]
 
