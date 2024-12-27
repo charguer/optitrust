@@ -143,7 +143,7 @@ let check_syntax (file : string) : unit =
       ) " " !Flags.c_parser_includes in
   let (code, messages) =
     command_with_output (
-        "clang -fsyntax-only -fopenmp" ^ includes ^ file
+        "clang++ -std=c++17 -fsyntax-only -fopenmp" ^ includes ^ file
       )
   in
   if code <> 0 then
