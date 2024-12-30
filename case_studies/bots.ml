@@ -80,4 +80,4 @@ let () =
   let which = if argc < 2 then "all" else Sys.argv.(1) in
   let how = if argc < 3 then "none" else Sys.argv.(2) in
   let input, output = setup which how in
-  Run.apac input output
+  Run.apac ~check:true input output
