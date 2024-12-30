@@ -66,6 +66,7 @@ let setup (case : string) (cutoff : string) : string * string =
          ("[bots] error: unknown cut-off strategy `" ^ cutoff ^ "'!")
   in
   Apac_flags.constify := true;
+  Flags.code_print_width := 1024;
   Flags.c_parser_includes := [bots ^ "common"];
   Apac_flags.omit := ".*_se[qr]$";
   Apac_macros.skip skip;
