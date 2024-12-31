@@ -153,7 +153,7 @@ let check_syntax (file : string) : unit =
     begin
       let base = Filename.remove_extension file in
       let ext = Filename.extension file in
-      let invalid = base ^ ".invalid" ^ ext in
+      let invalid = base ^ "_invalid" ^ ext in
       Unix.rename file invalid;
       Printf.eprintf "%s" messages;
       Printf.eprintf
