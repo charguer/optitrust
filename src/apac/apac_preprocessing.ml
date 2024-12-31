@@ -828,7 +828,7 @@ end = struct
         union, explore its members. *)
     match ty'.typ_desc with
     | Typ_constr _
-      | Typ_record _ -> (lv, ty') :: (core v "" ty' [])
+      | Typ_record _ -> (lv, ty) :: (core v "" ty' [])
     (** Otherwise, simply return the toplevel labelled variable [lv]. *)
     | _ -> [(lv, ty)]
 
