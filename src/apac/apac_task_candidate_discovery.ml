@@ -675,12 +675,15 @@ let taskify_on (p : path) (t : trm) : unit =
          | t1 :: t2 :: tn ->
             if (Task.attributed t1 IsJump) && (Task.attributed t2 IsJump) then
               let tm = Task.merge t1 t2 in
-              tm.attrs <- TaskAttr_set.add Singleton tm.attrs;
               tm :: (merge tn)
             else t1 :: (merge (t2 :: tn))
          | _ -> ts
        in
        let tasks = merge tasks in
+       List.iter (fun task ->
+           if Task.attributed task IsJump then
+             task.attrs <- TaskAttr_set.add Singleton task.attrs
+         ) tasks;
        (** The sets of dependencies and the map of dependencies to sets of
            dependency attributes of the [sequence] correspond to the unions of
            the sets of dependencies and the maps of dependencies to sets of
