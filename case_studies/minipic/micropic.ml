@@ -53,7 +53,7 @@ let _ = Run.script_cpp (fun () ->
   bigstep "inline variables and simplify arithmetic";
   !! Variable.unfold ~at:[cFor "idStep"] [cVarDef "fieldFactor"];
   !! Variable.inline [ctx; cVarDefs (Tools.cart_prod (^) ["accel_"; "pos2_"] dims)];
-  !!! Arith.(simpls_rec [expand; gather_rec]) [ctx];
+  !! Arith.(simpls_rec [expand; gather_rec]) [ctx];
 
   bigstep "final polish";
   !! Loop.hoist_alloc ~indep:["idStep"; "idPart"] ~dest:[tBefore; cFor "idStep"] [cVarDef "coeffs"];

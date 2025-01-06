@@ -9,7 +9,7 @@ typedef uint16_t ST;
   kn: size of box filter (convolution window)
   n: size of the row resulting from filtering
 */
-void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n, const int cn) {
+void rowSum(int kn, uint8_t* S, uint16_t* D, int n, int cn) {
   __requires("kn >= 0, n >= 1, cn >= 0");
   __reads("S ~> Matrix2(n+kn-1, cn)");
   __modifies("D ~> Matrix2(n, cn)"); // TODO: writes?
@@ -24,11 +24,11 @@ void rowSum(const int kn, const uint8_t* S, uint16_t* D, const int n, const int 
 
       __ghost(assume, "is_subrange(i..i + kn, 0..n + kn - 1)"); // TODO: solve
 
-      uint16_t s = 0;
+      uint16_t s = (uint16_t)0;
       for (int k = i; k < i+kn; k++) {
         __ghost(in_range_extend, "k, i..i+kn, 0..n+kn-1");
         __GHOST_BEGIN(focus, matrix2_ro_focus, "S, k, c");
-        s += S[MINDEX2(n+kn-1, cn, k, c)];
+        s += (uint16_t)S[MINDEX2(n+kn-1, cn, k, c)];
         __GHOST_END(focus);
       }
       D[MINDEX2(n, cn, i, c)] = s;

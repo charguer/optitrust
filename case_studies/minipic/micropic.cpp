@@ -8,9 +8,6 @@ typedef struct {
   double x, y, z;
 } vect;
 
-REGISTER_STRUCT_ACCESS(x)
-REGISTER_STRUCT_ACCESS(y)
-REGISTER_STRUCT_ACCESS(z)
 /*
 template<typename T> T __struct_access_x(T* v) {
   __pure();
@@ -57,11 +54,6 @@ typedef struct {
   */
 } particle;
 
-REGISTER_STRUCT_ACCESS(pos)
-REGISTER_STRUCT_ACCESS(speed)
-REGISTER_STRUCT_ACCESS(charge)
-REGISTER_STRUCT_ACCESS(mass)
-
 // =========================================================
 // Grid representation
 
@@ -74,9 +66,9 @@ const int gridY = 64;
 const int gridZ = 64;
 
 const int nbCells = ((gridX * gridY) * gridZ);
-const double cellX = (areaX / gridX);
-const double cellY = (areaY / gridY);
-const double cellZ = (areaZ / gridZ);
+const double cellX = (areaX / (double)gridX);
+const double cellY = (areaY / (double)gridY);
+const double cellZ = (areaZ / (double)gridZ);
 
 // const int maxPartsPerCell = 1000000;
 
