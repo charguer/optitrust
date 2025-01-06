@@ -3,7 +3,7 @@
 void f(int* t, int* u) {
   __writes("u ~> Matrix1(10)");
   __reads("t ~> Matrix1(10)");
-  int* const t2 = (int*)MALLOC1(10, sizeof(int));
+  int* const t2 = (int*)malloc(MSIZE1(10) * sizeof(int));
   for (int i = 0; i < 10; i++) {
     __strict();
     __xwrites("&t2[MINDEX1(10, i)] ~> Cell");
@@ -18,9 +18,9 @@ void f(int* t, int* u) {
     u[MINDEX1(10, i)] = x;
     int z = x;
   }
-  MFREE1(10, t2);
+  free(t2);
   __ghost(matrix1_ro_focus, "M := t, i := 0");
-  int* const t02 = (int*)MALLOC0(sizeof(int));
+  int* const t02 = (int*)malloc(MSIZE0() * sizeof(int));
   t02[MINDEX0()] = t[MINDEX1(10, 0)];
   for (int l = 0; l < 5; l++) {
     __strict();
@@ -31,9 +31,9 @@ void f(int* t, int* u) {
       int x = l + m + t02[MINDEX0()];
     }
   }
-  MFREE0(t02);
+  free(t02);
   __ghost(matrix1_ro_unfocus, "M := t");
-  int* const a2 = (int*)MALLOC1(8, sizeof(int));
+  int* const a2 = (int*)malloc(MSIZE1(8) * sizeof(int));
   for (int a = 0; a < 8; a++) {
     __strict();
     __xwrites("&a2[MINDEX1(8, a)] ~> Cell");
@@ -54,5 +54,5 @@ void f(int* t, int* u) {
       int z = 0;
     }
   }
-  MFREE1(8, a2);
+  free(a2);
 }

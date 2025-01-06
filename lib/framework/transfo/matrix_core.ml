@@ -19,43 +19,23 @@ let tile_all: trm * trm = trm_int 1, trm_int 0
 let tile_none: trm * trm = trm_int 0, trm_int 0
 *)
 
-(* TODO: doc. [annot] is for annoting the outer cast operation, [annot_call]
-  is for annotating the inner call to malloc *)
-let alloc_with_ty ?(annot : trm_annot = trm_annot_default) ?(annot_call : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
-  let n = List.length dims in
-  let size = trm_sizeof ty in
-  trm_cast ~annot (typ_ptr ty) (
-    trm_apps ~annot:annot_call (trm_var (malloc_var n)) (dims @ [size]))
+let let_alloc ?(annot : trm_annot = trm_annot_default) ?(zero_init = false) (v : var) (ty : typ) (dims : trms) : trm =
+  trm_let (v, typ_ptr ty) (alloc ~zero_init ty dims)
 
-let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
-  (* Option.bind (trm_ref_inv t) (fun (_, t2) -> *)
-  Option.bind (trm_cast_inv t) (fun (ty, t3) ->
-  Option.bind (trm_apps_inv t3) (fun (f, args) ->
-  Option.bind (trm_var_inv f) (fun f_var ->
-    if Tools.pattern_matches "MALLOC" f_var.name
-    then begin
-      let dims, size = List.unlast args in
-      Some (dims, Option.get (typ_ptr_inv ty), size)
-    end else None
-  )))
-
-let let_alloc_with_ty ?(annot : trm_annot = trm_annot_default) (v : var) (dims : trms) (ty : typ) : trm =
-  trm_let (v, typ_ptr ty) (alloc_with_ty dims ty)
-
-let let_alloc_inv_with_ty (t : trm) : (var * trms * typ * trm) option =
-  Option.bind (trm_let_inv t) (fun (v, vt, init) ->
-  Option.bind (alloc_inv_with_ty init) (fun (dims, elem_t, size) ->
-    Some (v, dims, elem_t, size)
+let let_alloc_inv (t : trm) : (var * typ * trms * bool) option =
+  Option.bind (trm_let_inv t) (fun (v, _, init) ->
+  Option.bind (alloc_inv init) (fun (elem_t, dims, zeroinit) ->
+    Some (v, elem_t, dims, zeroinit)
   ))
 
-(* |alloc_aligned ~init dims size alignment] create a call to function MALLOC_ALIGNED$(N) where [N] is the
-     number of dimensions and [size] is the size in bytes occupied by a single matrix element in
-     the memory and [alignment] is the alignment size. *)
-let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
-  let n = List.length dims in
-  trm_apps (trm_toplevel_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
+let let_alloc_uninit_inv (t : trm) : (var * typ * trms) option =
+  Option.bind (trm_let_inv t) (fun (v, _, init) ->
+  Option.bind (alloc_uninit_inv init) (fun (elem_t, dims) ->
+    Some (v, elem_t, dims)
+  ))
 
-let mmemcpy_var = toplevel_var "MMEMCPY"
+let mmemcpy_var typ =
+  toplevel_var (sprintf "MMEMCPY_%s" (Ast_to_c.typ_to_string typ))
 
 (** [memcpy dest d_offset d_dims src s_offset s_dims copy_dims elem_size] uses a series
     of [matrixN_contiguous] and [mindexN_contiguous] ghosts to issue a [MMEMCPY] from
@@ -67,10 +47,10 @@ let mmemcpy_var = toplevel_var "MMEMCPY"
     - [(len d_dims) - (len d_offset) = (len s_dims) - (len s_offset) = (len copy_dims)]
     - [take_last (len copy_dims) d_dims = take_last (len copy_dims) s_dims]
   *)
-let memcpy
+let memcpy ~(typ: typ)
   (dest : trm) (d_offset : trm list) (d_dims : trm list)
    (src : trm) (s_offset : trm list) (s_dims : trm list)
-  (copy_dims : trm list) (elem_size : trm) : trm =
+  (copy_dims : trm list) : trm =
   let dol = List.length d_offset in
   let ddl = List.length d_dims in
   let sol = List.length s_offset in
@@ -97,8 +77,8 @@ let memcpy
   let d_flat_offset = compute_flat_offset d_offset dol d_dims in
   let s_flat_offset = compute_flat_offset s_offset sol s_dims in
   let flat_elems = List.reduce_left trm_mul copy_dims in
-  let t = trm_apps (trm_var mmemcpy_var)
-    [dest; d_flat_offset; src; s_flat_offset; flat_elems; elem_size] in
+  let t = trm_apps (trm_var (mmemcpy_var typ))
+    [dest; d_flat_offset; src; s_flat_offset; flat_elems] in
 
   let scoped_mindex_contiguous_write mat_trm dims offset t =
     if dims < 2 then t else
@@ -117,20 +97,12 @@ let memcpy
   (* TODO: call matrixN_contiguous on copy_dims *)
   t
 
-let memcpy_inv (t : trm) : (trm * trm * trm * trm * trm * trm) option =
+(*let memcpy_inv (t : trm) : (trm * trm * trm * trm * trm) option =
   Pattern.pattern_match_opt t [
-    Pattern.(trm_apps (trm_var (var_eq mmemcpy_var)) (!__ ^:: !__ ^:: !__ ^:: !__ ^:: !__ ^:: !__ ^:: nil) __) (fun dest d_flat_offset src s_flat_offset flat_elems elem_size () ->
-      (dest, d_flat_offset, src, s_flat_offset, flat_elems, elem_size)
+    Pattern.(trm_apps (trm_var (var_eq mmemcpy_var)) (!__ ^:: !__ ^:: !__ ^:: !__ ^:: !__ ^:: nil) __) (fun dest d_flat_offset src s_flat_offset flat_elems () ->
+      (dest, d_flat_offset, src, s_flat_offset, flat_elems)
     )
-  ]
-
-(** same as {!memcpy}, but constructs [elem_size] parameter from element type [ty]. *)
-let memcpy_with_ty
-  (dest : trm) (d_offset : trm list) (d_dims : trm list)
-  (src : trm) (s_offset : trm list) (s_dims : trm list)
-  (copy_dims : trm list) (ty : typ) : trm =
-  let size = trm_sizeof ty in
-  memcpy dest d_offset d_dims src s_offset s_dims copy_dims size
+  ]*)
 
 (** [map_all_accesses v dims map_indices mark t] maps all accesses to [v] in [t],
     using the [map_access] function.
@@ -216,76 +188,45 @@ let pointwise_fors
 (*                        Core transformations on C matrices                                        *)
 (****************************************************************************************************)
 
-(** [intro_calloc_aux t]: replaces a call to calloc with a call to the macro CALLOC,
-     [t] - ast of the call to alloc. *)
-let intro_calloc_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({desc = Trm_var f;_},[dim; size], _) when var_has_name f "calloc" ->
-    alloc ~init:(trm_int 0) [dim] size
-  | _ -> trm_fail t "Matrix_core.intro_calloc_aux: expected a function call to calloc"
-
-(** [intro_malloc_aux t]: replaces a call to calloc with a call to MALLOC,
-     [t] - ast of the call to alloc. *)
-let intro_malloc_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({desc = Trm_var f;_},[{desc = Trm_apps (_,[dim ;size],_);_}],_) when (var_has_name f "malloc") ->
-    alloc [dim] size
-  | _ -> trm_fail t "Matrix_core.intro_malloc: expected a function call to malloc"
-
-(** [intro_mindex_aux dim t] replaces an array access at index [i] with an array access at MINDEX([dim],i),
-      [dim] - the size of the array accesses with [t],
-      [t] - the ast of the array access. *)
-let intro_mindex_aux (dim : trm) (t : trm) : trm =
-  match trm_array_access_inv t with
-  | Some (base, index) ->
-    trm_array_access ~annot:t.annot ?loc:t.loc base (mindex [dim] [index])
-  | None -> trm_fail t "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
-
-(** [reorder_dims_aux order t]: reorders the dimensions in a call to CALLOC, MALLOC or MINDEX,
+(** [reorder_dims_aux order t]: reorders the dimensions in a call to MSIZE or MINDEX,
       [order] - a list of indices based on which the elements in dims should be ordered,
-      [t] - ast of the call to CALLOC, MALLOC, MINDEX. *)
+      [t] - ast of the call to MSIZE or MINDEX. *)
 let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
-  match mindex_inv t, alloc_inv t with
-  | Some (dims, indices), None ->
-    let nb = List.length dims in
-    let order = if rotate_n <> 0
-      then let id_perm = List.range 0 (nb - 1) in
-           List.rotate rotate_n id_perm
-      else
-        begin match order with
-      | [] -> trm_fail t "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
-      | _ -> order
-      end in
-    begin try List.check_permutation nb order with | List.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices" end;
-    let reordered_dims = List.reorder order dims in
+  let dims, indices =
+    match mindex_inv t with
+    | Some (dims, indices) -> dims, Some indices
+    | None -> match msize_inv t with
+      | Some dims -> dims, None
+      | None -> trm_fail t "Matrix_core.reorder_dims_aux: expected a function call to MSIZE or MINDEX"
+  in
+  let nb = List.length dims in
+  let order = if rotate_n <> 0
+    then let id_perm = List.range 0 (nb - 1) in
+          List.rotate rotate_n id_perm
+    else
+      begin match order with
+    | [] -> trm_fail t "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
+    | _ -> order
+    end in
+  begin try List.check_permutation nb order with | List.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices" end;
+  let reordered_dims = List.reorder order dims in
+  match indices with
+  | Some indices ->
     let reordered_indices = List.reorder order indices in
-    mindex (reordered_dims) (reordered_indices)
-  | None, Some (dims, size, zero_init) ->
-    let nb = List.length dims in
-    let order = if rotate_n <> 0
-      then let id_perm = List.range 0 (nb - 1) in
-           List.rotate rotate_n id_perm
-      else
-        begin match order with
-      | [] -> trm_fail t "Matrix_core.reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
-      | _ -> order
-      end in
-    begin try List.check_permutation nb order with | List.Invalid_permutation -> trm_fail t "Matrix_core.order is not a permutation of indices" end;
-    let reordered_dims = List.reorder order dims in
-    let init = if zero_init then Some (trm_int 0 ) else None in
-    alloc ?init reordered_dims size
-  | _ -> trm_fail t "Matrix_core.reorder_dims_aux: expected  a function call to CALLOC or MINDEX"
+    mindex reordered_dims reordered_indices
+  | None ->
+    msize reordered_dims
+
 
 (** [insert_alloc_dim_aux new_dim t]: adds a new dimension at the beginning of the list of dimension,
-     [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to CALLOC or MALLOC,
-     [t]: ast of the call to ALLOC functions. *)
+     [new_dim]: the new dimension which is going to be inserted into the list of dims in an allocation,
+     [t]: ast of the allocation. *)
 let insert_alloc_dim_aux ?(last : bool = false) (new_dim : trm) (t : trm) : trm =
   match alloc_inv t with
-  | Some (dims, size, zero_init) ->
+  | Some (ty, dims, zero_init) ->
     let new_dims = if last then dims @ [new_dim] else new_dim :: dims in
-    let init = if zero_init then Some (trm_int 0) else None in
-    alloc ?init new_dims size
-  | None -> trm_fail t "Matrix_core.insert_alloc_dim_aux: expected a function call to CALLOC"
+    alloc ~zero_init ty new_dims
+  | None -> trm_fail t "Matrix_core.insert_alloc_dim_aux: expected a matrix allocation"
 
 (** [insert_access_dim_index_aux new_dim new_index t]: add a new dimension at the beginning of the list of dimension
      and add a new index at the begining of the list of indices in the call to MINDEX inside the
@@ -313,8 +254,7 @@ let local_name_aux (mark : mark)
   (dims : trms) (elem_type : typ) (indices : string list)
   (local_ops : local_ops) (t : trm) : trm =
   let local_var = new_var local_var in
-  let local_var_type = typ_ptr elem_type in
-  let fst_instr = trm_let (local_var,local_var_type) (alloc_with_ty dims elem_type) in
+  let fst_instr = let_alloc local_var elem_type dims in
   let indices_list = begin match indices with
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices_list = List.map new_var indices_list in
@@ -329,7 +269,7 @@ let local_name_aux (mark : mark)
       let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
       let new_t = trm_subst_var var (trm_var local_var) t in
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
-      let last_instr = free dims (trm_var local_var) in
+      let last_instr = free (trm_var local_var) in
       let final_trm = Nobrace.trm_seq_nomarks [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
       trm_add_mark mark final_trm
     | Local_obj (init, swap, free_fn) ->
@@ -343,7 +283,7 @@ let local_name_aux (mark : mark)
       let new_t = trm_subst_var var (trm_var local_var) t in
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
-      let last_instr = free dims (trm_var local_var) in
+      let last_instr = free (trm_var local_var) in
       let final_trm = Nobrace.trm_seq_nomarks [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
       trm_add_mark mark final_trm
     end

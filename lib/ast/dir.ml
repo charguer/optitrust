@@ -53,6 +53,8 @@ type dir =
   | Dir_arg_nth of int
   (* name: direction to name of declared var/fun or label *)
   | Dir_name
+  (* type: direction of the type of the let binding / operator *)
+  | Dir_type
   (* case: direction to case group in switch, Dir_case (n, d) = follow d in nth case group *)
   | Dir_case of int * case_dir
   (* enum_const: direction to constant in enum declaration *)

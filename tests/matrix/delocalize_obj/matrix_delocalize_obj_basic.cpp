@@ -48,14 +48,14 @@ int main() {
   const int N1 = 10;
   const int N2 = 11;
   const int N3 = 12;
-  bag *bagCur = (bag *)MALLOC1(nbCells, sizeof(bag));
+  bag *bagCur = MALLOC1(bag, nbCells);
   bag_iter bag_it;
-  bag *bagNext = (bag *)MALLOC1(nbCells, sizeof(bag));
+  bag *bagNext = MALLOC1(bag, nbCells);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init(&bagNext[MINDEX1(nbCells, idCell)]);
   }
   mark:{
-    bag *bagNexts = (bag *)MALLOC1(nbCells, sizeof(bag));
+    bag *bagNexts = MALLOC1(bag, nbCells);
     for (int i1 = 0; i1 < nbCells; i1++) {
       bag_init(&bagNexts[MINDEX1(nbCells, i1)]);
     }
@@ -71,13 +71,13 @@ int main() {
     for (int i1 = 0; i1 < nbCells; i1++) {
       bag_free(&bagNexts[MINDEX1(nbCells, i1)]);
     }
-  MFREE(bagNexts);
+    free(bagNexts);
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagNext[MINDEX1(nbCells, idCell)],
              &bagCur[MINDEX1(nbCells, idCell)]);
   }
-  MFREE(bagCur);
-  MFREE(bagNext);
+  free(bagCur);
+  free(bagNext);
   return 0;
 }

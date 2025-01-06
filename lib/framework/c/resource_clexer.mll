@@ -18,6 +18,7 @@ rule lex_resources = parse
   | "~>" { SQUIG_ARROW }
   | "fun" { FUN }
   | "for" { FOR }
+  | "forall" { FORALL }
   | "in" { IN }
   | ":=" { COLON_EQUAL }
   | '(' { LPAR }

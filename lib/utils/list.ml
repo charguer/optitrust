@@ -1,18 +1,14 @@
 include Stdlib.List
 
 (** [range ~rev a b]: returns the list of integers between [a] and [b] inclusive.
-   If [a > b] then it returns the list [a (a-1) .. (b+1) b].*)
+   If [a > b] then it returns the empty list.*)
 let range ?rev:(reverse : bool = false) (a : int) (b : int) : int list =
   let rec aux a b =
     if a > b
       then []
       else a :: aux (a + 1) b
     in
-  let res =
-  if a > b
-    then rev (aux b a)
-    else aux a b
-    in
+  let res = aux a b in
   if reverse then rev res else res
 
 (** [fold_lefti f a xs]: similar to [fold_left] but with access to the indices.

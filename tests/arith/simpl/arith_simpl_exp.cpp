@@ -54,7 +54,7 @@ int main() {
   v = a + c;
   w = a + a * 3 + f(b * f(c + c) / b);
   float f;
-  f = -2.f / 12.f;
+  f = -0.166666666667f;
   f = 0.f;
   int ls;
   ls = x + 2;
@@ -85,13 +85,13 @@ int main() {
   q = n;
   eu = n;
   eu = n + m;
-  eu = n;
+  eu = m % n + (1 + m / n) * n;
   p = 4;
   p = 4;
   p = m - 2;
-  int* arr = (int*)MALLOC1(32, sizeof(int));
+  int* arr = (int*)malloc(MSIZE1(32) * sizeof(int));
   free(arr);
-  arr = (int*)malloc(sizeof(int[32]));
+  arr = (int*)malloc(32 * sizeof(int));
   for (q = 0; q < 32; q++) {
     arr[q] = 0;
   }

@@ -1,7 +1,7 @@
 #include <optitrust.h>
 
 __ghost_ret test() {
-  __requires("f: _Fun(int, formula)");
+  __requires("f: int -> Prop");
   __requires("k: int");
   __requires("valid: f(k)");
   __ensures("f(k + 1)");
@@ -9,15 +9,15 @@ __ghost_ret test() {
 }
 
 __ghost_ret two_closures() {
-  __requires("f: _Fun(_Fun(formula, formula), formula)");
-  __requires("g: _Fun(int, formula)");
+  __requires("f: int -> Prop -> Prop");
+  __requires("g: int -> Prop");
   __ensures("f(g)");
   __admitted();
 }
 
 void f() {
-  __pure();
-  __ghost(test, "f := fun i -> P(i), k := 0, valid := checked");
+  __requires("P: int -> Prop");
+  __ghost(test, "f := fun i -> P(i), k := 0, valid := __admitted");
   __ghost(test, "f := fun i -> P(i + 1), k := 0");
   __ghost(two_closures, "f := fun g -> g(1), g := fun x -> P(x - 1)");
 }

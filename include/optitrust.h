@@ -1,64 +1,7 @@
 #ifndef OPTITRUST_H
 #define OPTITRUST_H
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <assert.h>
-#include <string.h>
-#include <functional>
-
-/* ---- Resource Annotations ---- */
-
-inline void __pure() {}
-inline void __requires(const char*) {}
-inline void __ensures(const char*) {}
-inline void __reads(const char*) {}
-inline void __writes(const char*) {}
-inline void __modifies(const char*) {}
-inline void __consumes(const char*) {}
-inline void __produces(const char*) {}
-
-inline void __strict() {}
-inline void __xrequires(const char*) {}
-inline void __xensures(const char*) {}
-inline void __xreads(const char*) {}
-inline void __xwrites(const char*) {}
-inline void __xmodifies(const char*) {}
-inline void __xconsumes(const char*) {}
-inline void __xproduces(const char*) {}
-inline void __invariant(const char*) {}
-inline void __smodifies(const char*) {}
-inline void __sreads(const char*) {}
-
-inline void __admitted() {}
-
-/* ---- Ghost annotations ---- */
-
-// Return type for ghost functions
-typedef void __ghost_ret;
-
-// Type of ghost function pointers
-typedef std::function<__ghost_ret()> __ghost_fn;
-
-// Argument type for ghost functions
-typedef const char* __ghost_args;
-
-// Marcro for ghost function prototype
-#define __GHOST(f) inline __ghost_ret f()
-
-// Invoke a ghost function
-inline void __ghost(__ghost_fn, __ghost_args) {}
-
-/// Postfix call for specifying ghost arguments
-inline void __with(__ghost_args) {}
-template<typename T> T __call_with(T ret_val, __ghost_args) { return ret_val; }
-
-// TODO: bind et call_with
-/*
-template<typename T> T __bind(T ret_val, const char*) { return ret_val; }
-inline void __rename(const char*) {}
-*/
+#include <optitrust_intrinsics.h>
 
 inline __ghost_fn __ghost_begin(__ghost_fn, __ghost_args) { return __admitted; }
 inline void __ghost_end(__ghost_fn) {}
@@ -71,296 +14,103 @@ inline void __reverts(__ghost_fn) {}
 
 #define __GHOST_BEGIN_CUSTOM(rev_ghost, forward_ghost, backward_ghost) __GHOST_BEGIN(rev_ghost, __with_reverse(forward_ghost, backward_ghost), "")
 
-/* ---- Contract for primitive functions ---- */
-
-template<typename T> T* __ref(T init) {
-  __produces("_Res ~> Cell");
-  __admitted();
-}
-
-template<typename T> T __get(T* p) {
-  __reads("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> void __set(T* p, T x) {
-  __writes("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> T __minus(T x) {
-  __pure();
-  __admitted();
-  // return -x;
-}
-
-template<typename T> T __add(T x1, T x2) {
-  __pure();
-  __admitted();
-}
-
-template<typename T> T __sub(T x1, T x2) {
-  __pure();
-  __admitted();
-}
-
-template<typename T> T __mul(T x1, T x2) {
-  __pure();
-  __admitted();
-}
-
-template<typename T> T __exact_div(T x1, T x2) {
-  __pure();
-  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
-  // + only for integer types?
-  __admitted();
-}
-
-template<typename T> T __div(T x1, T x2) {
-  __pure();
-  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
-  // + only for integer types?
-  __admitted();
-}
-
-template<typename T> T __mod(T x1, T x2) {
-  __pure();
-  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
-  __admitted();
-}
-
-template<typename T> T __eq(T x1, T x2) {
-  __pure();
-  __admitted();
-}
-
-template<typename T> T* __array_access(T* tab, int i) {
-  __pure();
-  __admitted();
-}
-
-template<typename T> void __add_inplace(T* p, T x) {
-  __modifies("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> void __sub_inplace(T* p, T x) {
-  __modifies("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> void __mul_inplace(T* p, T x) {
-  __modifies("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> T __exact_div_inplace(T* p, T x) {
-  __modifies("p ~> Cell");
-  // TODO: requires x2 != 0 and add preprocessing to insert assumes in initial code
-  // + only for integer types?
-  __admitted();
-}
-
-template<typename T> void __div_inplace(T* p, T x) {
-  __modifies("p ~> Cell");
-  // TODO: requires x != 0 and add preprocessing to insert assumes in initial code
-  __admitted();
-}
-
-template<typename T> T __post_incr(T* p) {
-  __modifies("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> T __post_decr(T* p) {
-  __modifies("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> T __pre_incr(T* p) {
-  __modifies("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> T __pre_decr(T* p) {
-  __modifies("p ~> Cell");
-  __admitted();
-}
-
-template<typename T> void __ignore(T) {
-  __pure();
-}
-
-// LATER: remove the need for this
-#define REGISTER_STRUCT_ACCESS(f)\
-template<typename T, typename U> U* __struct_access_##f(T* v) {\
-  __pure();\
-  __admitted();\
-}\
-template<typename T, typename U> U __struct_get_##f(T v) {\
-  __pure();\
-  __admitted();\
-}
-
 /* ---- Matrix Functions ---- */
 
 inline int MINDEX0() {
-  __pure();
-  __admitted();
   return 0;
 }
 
 inline int MINDEX1(int N1, int i1) {
-  __pure();
-  __admitted();
   return i1;
 }
 
 inline int MINDEX2(int N1, int N2, int i1, int i2) {
-  __pure();
-  __admitted();
   return i1 * N2 + i2;
 }
 
 inline int MINDEX3(int N1, int N2, int N3, int i1, int i2, int i3) {
-  __pure();
-  __admitted();
   return i1 * N2 * N3 + i2 * N3 + i3;
 }
 
 inline int MINDEX4(int N1, int N2, int N3, int N4, int i1, int i2, int i3, int i4) {
-  __pure();
-  __admitted();
   return i1 * N2 * N3 * N4 + i2 * N3 * N4 + i3 * N4 + i4;
 }
 
-inline void* CALLOC1(int N1, size_t bytes_per_item) {
-  __produces("_Res ~> Matrix1(N1)");
-  __admitted();
-  return calloc(N1, bytes_per_item);
+inline size_t MSIZE0() {
+  return 1;
 }
 
-inline void* CALLOC2(int N1, int N2, size_t bytes_per_item) {
-  __produces("_Res ~> Matrix2(N1, N2)");
-  __admitted();
-  return calloc(N1 * N2, bytes_per_item);
+inline size_t MSIZE1(int N1) {
+  return (size_t)N1;
 }
 
-inline void* CALLOC3(int N1, int N2, int N3, size_t bytes_per_item) {
-  __produces("_Res ~> Matrix3(N1, N2, N3)");
-  __admitted();
-  return calloc(N1 * N2 * N3, bytes_per_item);
+inline size_t MSIZE2(int N1, int N2) {
+  return (size_t)N1 * (size_t)N2;
 }
 
-inline void* CALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item) {
-  __produces("_Res ~> Matrix4(N1, N2, N3, N4)");
-  __admitted();
-  return calloc(N1 * N2 * N3 * N4, bytes_per_item);
+inline size_t MSIZE3(int N1, int N2, int N3) {
+  return (size_t)N1 * (size_t)N2 * (size_t)N3;
 }
 
-inline void* MALLOC0(size_t bytes_per_item) {
-  __produces("_Uninit(_Res ~> Matrix0())");
-  __admitted();
-  return malloc(bytes_per_item);
+inline size_t MSIZE4(int N1, int N2, int N3, int N4) {
+  return (size_t)N1 * (size_t)N2 * (size_t)N3 * (size_t)N4;
 }
 
-inline void* MALLOC1(int N1, size_t bytes_per_item) {
-  __produces("_Uninit(_Res ~> Matrix1(N1))");
-  __admitted();
-  return malloc(N1 * bytes_per_item);
-}
+#define MALLOC0(T) (T*) malloc(MSIZE0() * sizeof(T))
+#define MALLOC1(T, N1) (T*) malloc(MSIZE1(N1) * sizeof(T))
+#define MALLOC2(T, N1, N2) (T*) malloc(MSIZE2(N1, N2) * sizeof(T))
+#define MALLOC3(T, N1, N2, N3) (T*) malloc(MSIZE3(N1, N2, N3) * sizeof(T))
+#define MALLOC4(T, N1, N2, N3, N4) (T*) malloc(MSIZE4(N1, N2, N3, N4) * sizeof(T))
 
-inline void* MALLOC2(int N1, int N2, size_t bytes_per_item) {
-  __produces("_Uninit(_Res ~> Matrix2(N1, N2))");
-  __admitted();
-  return malloc(N1 * N2 * bytes_per_item);
-}
+#define CALLOC0(T) (T*) calloc(MSIZE0(), sizeof(T))
+#define CALLOC1(T, N1) (T*) calloc(MSIZE1(N1), sizeof(T))
+#define CALLOC2(T, N1, N2) (T*) calloc(MSIZE2(N1, N2), sizeof(T))
+#define CALLOC3(T, N1, N2, N3) (T*) calloc(MSIZE3(N1, N2, N3), sizeof(T))
+#define CALLOC4(T, N1, N2, N3, N4) (T*) calloc(MSIZE4(N1, N2, N3, N4), sizeof(T))
 
-inline void* MALLOC3(int N1, int N2, int N3, size_t bytes_per_item) {
-  __produces("_Uninit(_Res ~> Matrix3(N1, N2, N3))");
-  __admitted();
-  return malloc(N1 * N2 * N3 * bytes_per_item);
-}
+#define DEFINE_MMEMCPY(T) \
+  inline void MMEMCPY_##T(T* dest, int d_offset, T* src, int s_offset, int length) { \
+    __requires("d_end: int, s_end: int, d_all: int, s_all: int"); \
+    __requires("check_d_size: d_end = d_offset + length"); \
+    __requires("check_s_size: s_end = s_offset + length"); \
+    __writes("for k in d_offset..d_end -> &dest[MINDEX1(d_all, k)] ~> Cell"); \
+    __reads("for k in s_offset..s_end -> &src[MINDEX1(s_all, k)] ~> Cell"); \
+    __admitted(); \
+    memcpy(&dest[d_offset], &src[s_offset], length * sizeof(T)); \
+  }
 
-inline void* MALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item) {
-  __produces("_Uninit(_Res ~> Matrix4(N1, N2, N3, N4))");
-  __admitted();
-  return malloc(N1 * N2 * N3 * N4 * bytes_per_item);
-}
-
-inline void MFREE0(void* p) {
-  __consumes("_Uninit(p ~> Matrix0())");
-  __admitted();
-  free(p);
-}
-
-inline void MFREE1(int N1, void* p) {
-  __consumes("_Uninit(p ~> Matrix1(N1))");
-  __admitted();
-  free(p);
-}
-
-inline void MFREE2(int N1, int N2, void* p) {
-  __consumes("_Uninit(p ~> Matrix2(N1, N2))");
-  __admitted();
-  free(p);
-}
-
-inline void MFREE3(int N1, int N2, int N3, void* p) {
-  __consumes("_Uninit(p ~> Matrix3(N1, N2, N3))");
-  __admitted();
-  free(p);
-}
-
-inline void MFREE4(int N1, int N2, int N3, int N4, void* p) {
-  __consumes("_Uninit(p ~> Matrix4(N1, N2, N3, N4))");
-  __admitted();
-  free(p);
-}
-
-inline void MMEMCPY(void*__restrict__ dest, size_t d_offset,
-                    const void*__restrict__ src, size_t s_offset,
-                    size_t elems, size_t bytes_per_item) {
-  __requires("d_end: size_t, s_end: size_t, d_all: size_t, s_all: size_t");
-  __requires("check_d_size: d_end = d_offset + elems");
-  __requires("check_s_size: s_end = s_offset + elems");
-  __writes("for k in d_offset..d_end -> &dest[MINDEX1(d_all, k)] ~> Cell");
-  __reads("for k in s_offset..s_end -> &src[MINDEX1(s_all, k)] ~> Cell");
-  __admitted();
-
-  size_t dest2 = (size_t)(dest) + d_offset*bytes_per_item;
-  size_t src2 = (size_t)(src) + s_offset*bytes_per_item;
-  memcpy((void*)(dest2), (void*)(src2), elems*bytes_per_item);
-}
+DEFINE_MMEMCPY(int)
+DEFINE_MMEMCPY(float)
+DEFINE_MMEMCPY(double)
 
 /* ---- Ghosts ---- */
 
 // assumes a formula with no need to prove it later
 __GHOST(assume) {
-  __requires("F: formula");
-  __ensures("P: F");
+  __requires("P: Prop");
+  __ensures("H: P");
   __admitted();
 }
 
 // defers proving a formula to later
 __GHOST(to_prove) {
-  __requires("F: formula");
-  __ensures("P: F");
+  __requires("P: Prop");
+  __ensures("H: P");
   __admitted();
 }
 
 __GHOST(close_wand) {
   /* LATER: Replace that id with a generated name on the respective open */
-  __requires("H1: formula, H2: formula");
+  __requires("H1: HProp, H2: HProp");
   __consumes("Wand(H1, H2), H1");
   __produces("H2");
   __admitted();
 }
 
 __GHOST(hide) {
-  __requires("H: formula");
+  __requires("H: HProp");
   __consumes("H");
-  __ensures("H2: formula");
+  __ensures("H2: HProp");
   __produces("Wand(H2, H), H2");
   __admitted();
 }
@@ -371,7 +121,7 @@ __GHOST(hide_rev) {
 }
 
 __GHOST(wand_simplify) {
-  __requires("H1: formula, H2: formula, H3: formula");
+  __requires("H1: HProp, H2: HProp, H3: HProp");
   __consumes("Wand(H1, H2), Wand(H2, H3)");
   __produces("Wand(H1, H3)");
   __admitted();
@@ -379,7 +129,7 @@ __GHOST(wand_simplify) {
 
 // NOTE: calling forget_init on _RO or _Uninit is possible but useless
 __GHOST(forget_init) {
-  __requires("H: formula");
+  __requires("H: HProp");
   __consumes("H");
   __produces("_Uninit(H)");
   __admitted();
@@ -388,7 +138,7 @@ __GHOST(forget_init) {
 /* ---- In Range ---- */
 
 __GHOST(in_range_extend) {
-  __requires("x: int, r1: range, r2: range");
+  __requires("x: int, r1: Range, r2: Range");
   __requires("in_range(x, r1), is_subrange(r1, r2)");
   __ensures("in_range(x, r2)");
   __admitted();
@@ -402,7 +152,7 @@ __GHOST(in_range_shift) {
 }
 
 __GHOST(in_range_shift_extend) {
-  __requires("x: int, k: int, r: range, a: int, b: int, s: int");
+  __requires("x: int, k: int, r: Range, a: int, b: int, s: int");
   __requires("in_range(x, range(a, b, s))");
   __requires("is_subrange(range(a+k, b+k, s), r)");
   __ensures("in_range(x+k, r)");
@@ -422,42 +172,42 @@ __GHOST(in_range_shift_extend) {
 /* ---- Manually split RO resources ---- */
 
 __GHOST(ro_split2) {
-  __requires("f: _Fraction, H: formula");
+  __requires("f: _Fraction, H: HProp");
   __consumes("_RO(f, H)");
   __produces("_RO(f/2, H), _RO(f/2, H)");
   __admitted();
 }
 
 __GHOST(ro_split3) {
-  __requires("f: _Fraction, H: formula");
+  __requires("f: _Fraction, H: HProp");
   __consumes("_RO(f, H)");
   __produces("_RO(f/3, H), _RO(f/3, H), _RO(f/3, H)");
   __admitted();
 }
 
 __GHOST(ro_split4) {
-  __requires("f: _Fraction, H: formula");
+  __requires("f: _Fraction, H: HProp");
   __consumes("_RO(f, H)");
   __produces("_RO(f/4, H), _RO(f/4, H), _RO(f/4, H), _RO(f/4, H)");
   __admitted();
 }
 
 __GHOST(ro_allow_join2) {
-  __requires("f: _Fraction, H: formula");
+  __requires("f: _Fraction, H: HProp");
   __consumes("_RO(f/2, H)");
   __produces("_RO(f - f/2, H)");
   __admitted();
 }
 
 __GHOST(ro_allow_join3) {
-  __requires("f: _Fraction, H: formula");
+  __requires("f: _Fraction, H: HProp");
   __consumes("_RO(f/3, H)");
   __produces("_RO(f - f/3 - f/3, H)");
   __admitted();
 }
 
 __GHOST(ro_allow_join4) {
-  __requires("f: _Fraction, H: formula");
+  __requires("f: _Fraction, H: HProp");
   __consumes("_RO(f/4, H)");
   __produces("_RO(f - f/4 - f/4 - f/4, H)");
   __admitted();
@@ -466,7 +216,7 @@ __GHOST(ro_allow_join4) {
 /* ---- Group Ghosts ---- */
 
 __GHOST(ro_fork_group) {
-  __requires("f: _Fraction, H: formula, r: range");
+  __requires("f: _Fraction, H: HProp, r: Range");
   __consumes("_RO(f, H)");
   // TODO: can we write: for _ in r -> _RO(f / range_count(r), H) ?
   __produces("_RO(f / range_count(r), for _ in r -> H)");
@@ -481,7 +231,7 @@ __GHOST(ro_join_group) {
 /* identities due to normal form:
 
 __GHOST(ro_distribute_group) {
-  __requires("range: range, items: int -> formula, f: _Fraction");
+  __requires("range: Range, items: int -> HProp, f: _Fraction");
   __consumes("_RO(f, Group(range, items))");
   __produces("for i in range -> _RO(f, items(i))");
   __admitted();
@@ -494,7 +244,7 @@ __GHOST(ro_factorize_group) {
 */
 
 __GHOST(swap_groups) {
-  __requires("items: int * int -> formula, inner_range: range, outer_range: range");
+  __requires("items: int * int -> HProp, inner_range: Range, outer_range: Range");
   __consumes("for i in outer_range -> for j in inner_range -> items(i,j)");
   __produces("for j in inner_range -> for i in outer_range -> items(i,j)");
   __admitted();
@@ -508,7 +258,7 @@ __GHOST(swap_groups_rev) {
 }
 
 __GHOST(ro_swap_groups) {
-  __requires("items: int * int -> formula, inner_range: range, outer_range: range, f: _Fraction");
+  __requires("items: int * int -> HProp, inner_range: Range, outer_range: Range, f: _Fraction");
   __consumes("_RO(f, for i in outer_range -> for j in inner_range -> items(i,j))");
   __produces("_RO(f, for j in inner_range -> for i in outer_range -> items(i,j))");
   __admitted();
@@ -520,7 +270,7 @@ __GHOST(ro_swap_groups_rev) {
 }
 
 __GHOST(uninit_swap_groups) {
-  __requires("items: int * int -> formula, inner_range: range, outer_range: range");
+  __requires("items: int * int -> HProp, inner_range: Range, outer_range: Range");
   __consumes("_Uninit(for i in outer_range -> for j in inner_range -> items(i,j))");
   __produces("_Uninit(for j in inner_range -> for i in outer_range -> items(i,j))");
   __admitted();
@@ -544,7 +294,7 @@ __GHOST(tiled_index_in_range) {
 __GHOST(tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
-    "size: int, items: int -> resource,"
+    "size: int, items: int -> HProp,"
     "bound_check: size = tile_size * tile_count"
   );
   __consumes("Group(0..size, items)");
@@ -561,7 +311,7 @@ __GHOST(untile_divides) {
 __GHOST(ro_tile_divides) {
   __requires(
     "tile_count: int, tile_size: int,"
-    "size: int, items: int -> resource,"
+    "size: int, items: int -> HProp,"
     "bound_check: size = tile_size * tile_count,"
     "f: _Fraction"
   );
@@ -577,7 +327,7 @@ __GHOST(ro_untile_divides) {
 }
 
 __GHOST(group_collapse) {
-  __requires("n: int, m: int, items: (int * int) -> resource");
+  __requires("n: int, m: int, items: (int * int) -> HProp");
   __consumes("for i in 0..n -> for j in 0..m -> items(i, j)");
   __produces("for ij in 0..(n * m) -> items(ij / m, ij % m)");
   __admitted();
@@ -589,7 +339,7 @@ __GHOST(group_uncollapse) {
 }
 
 __GHOST(group_collapse_ro) {
-  __requires("n: int, m: int, items: (int * int) -> resource, "
+  __requires("n: int, m: int, items: (int * int) -> HProp, "
              "f: _Fraction");
   __consumes("_RO(f, for i in 0..n -> for j in 0..m -> items(i, j))");
   __produces("_RO(f, for ij in 0..(n * m) -> items(ij / m, ij % m))");
@@ -602,7 +352,7 @@ __GHOST(group_uncollapse_ro) {
 }
 
 __GHOST(group_collapse_uninit) {
-  __requires("n: int, m: int, items: (int * int) -> resource");
+  __requires("n: int, m: int, items: (int * int) -> HProp");
   __consumes("_Uninit(for i in 0..n -> for j in 0..m -> items(i, j))");
   __produces("_Uninit(for ij in 0..(n * m) -> items(ij / m, ij % m))");
   __admitted();
@@ -614,7 +364,7 @@ __GHOST(group_uncollapse_uninit) {
 }
 
 __GHOST(group_focus) {
-  __requires("i: int, range: range, items: int -> formula");
+  __requires("i: int, range: Range, items: int -> HProp");
   __requires("bound_check: in_range(i, range)");
   __consumes("Group(range, items)");
   __produces("Wand(items(i), Group(range, items)), items(i)");
@@ -628,7 +378,7 @@ __GHOST(group_unfocus) {
 }
 
 __GHOST(group_ro_focus) {
-  __requires("i: int, range: range, items: int -> formula, f: _Fraction");
+  __requires("i: int, range: Range, items: int -> HProp, f: _Fraction");
   __requires("bound_check: in_range(i, range)");
   __consumes("_RO(f, Group(range, items))");
   __produces("Wand(_RO(f, items(i)), _RO(f, Group(range, items))), _RO(f, items(i))");
@@ -643,7 +393,7 @@ __GHOST(group_ro_unfocus) {
 }
 
 __GHOST(group_uninit_focus) {
-  __requires("i: int, range: range, items: int -> formula");
+  __requires("i: int, range: Range, items: int -> HProp");
   __requires("bound_check: in_range(i, range)");
   __consumes("_Uninit(Group(range, items))");
   __produces("Wand(_Uninit(items(i)), _Uninit(Group(range, items))), _Uninit(items(i))");
@@ -657,7 +407,7 @@ __GHOST(group_uninit_unfocus) {
 }
 
 __GHOST(group2_ro_focus) {
-  __requires("i: int, r: range, r2: range, items: int * int -> formula, f: _Fraction");
+  __requires("i: int, r: Range, r2: Range, items: int * int -> HProp, f: _Fraction");
   __requires("bound_check: in_range(i, r)");
   __consumes("_RO(f, for i2 in r2 -> for i in r -> items(i2, i))");
   __produces("Wand(_RO(f, for i2 in r2 -> items(i2, i)),"
@@ -673,7 +423,7 @@ __GHOST(group2_ro_unfocus) {
 }
 
 __GHOST(group_focus_subrange) {
-  __requires("sub_range: range, big_range: range, items: int -> formula");
+  __requires("sub_range: Range, big_range: Range, items: int -> HProp");
   __requires("bound_check: is_subrange(sub_range, big_range)");
   __consumes("Group(big_range, items)");
   __produces("Wand(Group(sub_range, items), Group(big_range, items)), Group(sub_range, items)");
@@ -686,7 +436,7 @@ __GHOST(group_unfocus_subrange) {
 }
 
 __GHOST(group_focus_subrange_ro) {
-  __requires("sub_range: range, big_range: range, items: int -> formula, f: _Fraction");
+  __requires("sub_range: Range, big_range: Range, items: int -> HProp, f: _Fraction");
   __requires("bound_check: is_subrange(sub_range, big_range)");
   __consumes("_RO(f, Group(big_range, items))");
   __produces("Wand(_RO(f, Group(sub_range, items)), _RO(f, Group(big_range, items)))");
@@ -700,7 +450,7 @@ __GHOST(group_unfocus_subrange_ro) {
 }
 
 __GHOST(group_focus_subrange_uninit) {
-  __requires("sub_range: range, big_range: range, items: int -> formula");
+  __requires("sub_range: Range, big_range: Range, items: int -> HProp");
   __requires("bound_check: is_subrange(sub_range, big_range)");
   __consumes("_Uninit(Group(big_range, items))");
   __produces(
@@ -715,7 +465,7 @@ __GHOST(group_unfocus_subrange_uninit) {
 }
 
 __GHOST(group2_focus_subrange_uninit) {
-  __requires("outer_range: range, sub_range: range, big_range: range, items: int -> int -> formula");
+  __requires("outer_range: Range, sub_range: Range, big_range: Range, items: int -> int -> HProp");
   __requires("bound_check: is_subrange(sub_range, big_range)");
   __consumes("_Uninit(for i in outer_range -> Group(big_range, items(i)))");
   __produces("Wand("
@@ -815,7 +565,7 @@ __GHOST(group2_unfocus_subrange_uninit) {
 /* --- group_shift and nested variants: */
 
 __GHOST(group_shift) {
-  __requires("start: int, stop: int, step: int, items: int -> formula");
+  __requires("start: int, stop: int, step: int, items: int -> HProp");
   __requires("shift: int, new_start: int, new_stop: int");
   __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
   __consumes("for i in range(start, stop, step) -> items(i)");
@@ -829,7 +579,7 @@ __GHOST(group_unshift) {
 }
 
 __GHOST(group_shift_uninit) {
-  __requires("start: int, stop: int, step: int, items: int -> formula");
+  __requires("start: int, stop: int, step: int, items: int -> HProp");
   __requires("shift: int, new_start: int, new_stop: int");
   __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
   __consumes("_Uninit(for i in range(start, stop, step) -> items(i))");
@@ -843,7 +593,7 @@ __GHOST(group_unshift_uninit) {
 }
 
 __GHOST(group_shift_ro) {
-  __requires("start: int, stop: int, step: int, items: int -> formula");
+  __requires("start: int, stop: int, step: int, items: int -> HProp");
   __requires("shift: int, new_start: int, new_stop: int");
   __requires("check_start: new_start = start + shift, check_stop: new_stop = stop + shift");
   __requires("f: _Fraction");
@@ -860,7 +610,7 @@ __GHOST(group_unshift_ro) {
 /* --- group_scale and nested variants: */
 
 __GHOST(group_scale) {
-  __requires("stop: int, step: int, items: int -> formula");
+  __requires("stop: int, step: int, items: int -> HProp");
   __requires("factor: int, new_step: int, new_stop: int");
   __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
   __requires("check_factor: factor <> 0");
@@ -875,7 +625,7 @@ __GHOST(group_unscale) {
 }
 
 __GHOST(group_scale_uninit) {
-  __requires("stop: int, step: int, items: int -> formula");
+  __requires("stop: int, step: int, items: int -> HProp");
   __requires("factor: int, new_step: int, new_stop: int");
   __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
   __consumes("_Uninit(for i in range(0, stop, step) -> items(i))");
@@ -889,7 +639,7 @@ __GHOST(group_unscale_uninit) {
 }
 
 __GHOST(group_scale_ro) {
-  __requires("stop: int, step: int, items: int -> formula");
+  __requires("stop: int, step: int, items: int -> HProp");
   __requires("factor: int, new_step: int, new_stop: int");
   __requires("check_stop: new_stop = factor * stop, check_step: new_step = factor * step");
   __requires("f: _Fraction");
@@ -906,7 +656,7 @@ __GHOST(group_unscale_ro) {
 /* --- group split/join and nested variants: */
 
 __GHOST(group_split) {
-  __requires("start: int, stop: int, step: int, split: int, items: int -> formula");
+  __requires("start: int, stop: int, step: int, split: int, items: int -> HProp");
   __requires("bound_check: in_range(split, range(start, stop, step))");
   __consumes("for i in range(start, stop, step) -> items(i)");
   __produces("for i in range(start, split, step) -> items(i)");
@@ -920,7 +670,7 @@ __GHOST(group_join) {
 }
 
 __GHOST(group_split_uninit) {
-  __requires("start: int, stop: int, step: int, split: int, items: int -> formula");
+  __requires("start: int, stop: int, step: int, split: int, items: int -> HProp");
   __requires("bound_check: in_range(split, range(start, stop, step))");
   __consumes("_Uninit(for i in range(start, stop, step) -> items(i))");
   __produces("_Uninit(for i in range(start, split, step) -> items(i))");
@@ -934,7 +684,7 @@ __GHOST(group_join_uninit) {
 }
 
 __GHOST(group_split_ro) {
-  __requires("start: int, stop: int, step: int, split: int, items: int -> formula");
+  __requires("start: int, stop: int, step: int, split: int, items: int -> HProp");
   __requires("bound_check: in_range(split, range(start, stop, step))");
   __requires("f: _Fraction");
   __consumes("_RO(f, for i in range(start, stop, step) -> items(i))");
@@ -949,11 +699,11 @@ __GHOST(group_join_ro) {
 }
 
 __GHOST(group_split_pure) {
-  __requires("start: int, stop: int, step: int, split: int, items: int -> formula");
+  __requires("start: int, stop: int, step: int, split: int, items: int -> Prop");
   __requires("bound_check: in_range(split, range(start, stop, step))");
-  __requires("for i in range(start, stop, step) -> items(i)");
-  __ensures("for i in range(start, split, step) -> items(i)");
-  __ensures("for i in range(split, stop, step) -> items(i)");
+  __requires("forall i in range(start, stop, step) -> items(i)");
+  __ensures("forall i in range(start, split, step) -> items(i)");
+  __ensures("forall i in range(split, stop, step) -> items(i)");
   __admitted();
 }
 
@@ -965,7 +715,7 @@ __GHOST(group_join_pure) {
 /* ---- Matrix Ghosts ---- */
 
 __GHOST(matrix2_focus)  {
-  __requires("M: ptr, i: int, j: int, m: int, n: int");
+  __requires("T: Type, M: ptr(T), i: int, j: int, m: int, n: int");
   __requires("bound_check_i: in_range(i, 0..m)");
   __requires("bound_check_j: in_range(j, 0..n)");
   __consumes("M ~> Matrix2(m, n)");
@@ -983,7 +733,7 @@ __GHOST(matrix2_unfocus) {
 }
 
 __GHOST(matrix1_focus) {
-  __requires("M: ptr, i: int, n: int");
+  __requires("T: Type, M: ptr(T), i: int, n: int");
   __requires("bound_check: in_range(i, 0..n)");
   __consumes("M ~> Matrix1(n)");
   __produces("Wand(&M[MINDEX1(n, i)] ~> Cell, M ~> Matrix1(n)), &M[MINDEX1(n, i)] ~> Cell");
@@ -998,7 +748,7 @@ __GHOST(matrix1_unfocus) {
 }
 
 __GHOST(matrix1_ro_focus) {
-  __requires("M: ptr, i: int, n: int, f: _Fraction");
+  __requires("T: Type, M: ptr(T), i: int, n: int, f: _Fraction");
   __requires("bound_check: in_range(i, 0..n)");
   __consumes("_RO(f, M ~> Matrix1(n))");
   __produces("Wand(_RO(f, &M[MINDEX1(n, i)] ~> Cell), _RO(f, M ~> Matrix1(n))), _RO(f, &M[MINDEX1(n, i)] ~> Cell)");
@@ -1013,7 +763,7 @@ __GHOST(matrix1_ro_unfocus) {
 }
 
 __GHOST(matrix2_ro_focus) {
-  __requires("M: ptr, i: int, j: int, m: int, n: int, f: _Fraction");
+  __requires("T: Type, M: ptr(T), i: int, j: int, m: int, n: int, f: _Fraction");
   __requires("bound_check_i: in_range(i, 0..m)");
   __requires("bound_check_j: in_range(j, 0..n)");
   __consumes("_RO(f, M ~> Matrix2(m, n))");
@@ -1033,23 +783,23 @@ __GHOST(matrix2_ro_unfocus) {
 // matrix*_contiguous
 
 __GHOST(matrix2_contiguous) {
-  __requires("M: ptr, a: int, b: int, n2: int, n1: int");
+  __requires("T: Type, M: ptr(T), a: int, b: int, n2: int, n1: int");
   __consumes("for i in a..b -> for j in 0..n1 -> "
                "&M[MINDEX2(n2, n1, i, j)] ~> Cell");
-  __produces("for k in a2*n1..b2*n1 -> &M[MINDEX1(n2*n1, k)] ~> Cell");
+  __produces("for k in a*n1..b*n1 -> &M[MINDEX1(n2*n1, k)] ~> Cell");
   __admitted();
 }
 
 __GHOST(matrix3_contiguous) {
-  __requires("M: ptr, a: int, b: int, n3: int, n2: int, n1: int");
+  __requires("T: Type, M: ptr(T), a: int, b: int, n3: int, n2: int, n1: int");
   __consumes("for i3 in a..b -> for i2 in 0..n2 -> "
              "for i1 in 0..n1 -> &M[MINDEX3(n3, n2, n1, i1, i2, i3)] ~> Cell");
-  __produces("for k in a3*n2*n1..b3*n2*n1 -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell");
+  __produces("for k in a*n2*n1..b*n2*n1 -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell");
   __admitted();
 }
 
 __GHOST(mindex2_contiguous) {
-  __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int");
+  __requires("T: Type, M: ptr(T), n2: int, i2: int, n1: int, a: int, b: int");
   __consumes("for i1 in a..b -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell");
   __produces("for k in i2*n1 + a..i2*n1 + b -> &M[MINDEX1(n2*n1, k)] ~> Cell");
   __admitted();
@@ -1061,10 +811,10 @@ __GHOST(mindex2_contiguous_rev) {
 }
 
 __GHOST(mindex3_contiguous) {
-  __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
+  __requires("T: Type, M: ptr(T), n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
   __consumes("for i1 in a..b -> &M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell");
-  __produces("Group((i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b), "
-               "fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell)");
+  __produces("for k in (i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b) -> "
+               "&M[MINDEX1(n3*n2*n1, k)] ~> Cell");
   __admitted();
 }
 
@@ -1074,10 +824,10 @@ __GHOST(mindex3_contiguous_rev) {
 }
 
 __GHOST(mindex2_contiguous_uninit) {
-  __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int");
+  __requires("T: Type, M: ptr(T), n2: int, i2: int, n1: int, a: int, b: int");
   __consumes("_Uninit(for i1 in a..b -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell)");
-  __produces("_Uninit(Group((i2*n1 + a)..(i2*n1 + b), "
-               "fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell))");
+  __produces("_Uninit(for k in (i2*n1 + a)..(i2*n1 + b) -> "
+               "&M[MINDEX1(n2*n1, k)] ~> Cell)");
   __admitted();
 }
 
@@ -1087,11 +837,11 @@ __GHOST(mindex2_contiguous_uninit_rev) {
 }
 
 __GHOST(mindex3_contiguous_uninit) {
-  __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
+  __requires("T: Type, M: ptr(T), n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int");
   __consumes("_Uninit(for i1 in a..b -> "
                 "&M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell)");
-  __produces("_Uninit(Group((i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b), "
-               "fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell))");
+  __produces("_Uninit(for k in (i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b) -> "
+               "&M[MINDEX1(n3*n2*n1, k)] ~> Cell)");
   __admitted();
 }
 
@@ -1101,10 +851,10 @@ __GHOST(mindex3_contiguous_uninit_rev) {
 }
 
 __GHOST(mindex2_contiguous_ro) {
-  __requires("M: ptr, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
+  __requires("T: Type, M: ptr(T), n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
   __consumes("_RO(f, for i1 in a..b -> &M[MINDEX2(n2, n1, i2, i1)] ~> Cell)");
-  __produces("_RO(f, Group((i2*n1 + a)..(i2*n1 + b), "
-               "fun k -> &M[MINDEX1(n2*n1, k)] ~> Cell))");
+  __produces("_RO(f, for k in (i2*n1 + a)..(i2*n1 + b) -> "
+               "&M[MINDEX1(n2*n1, k)] ~> Cell)");
   __admitted();
 }
 
@@ -1114,11 +864,11 @@ __GHOST(mindex2_contiguous_ro_rev) {
 }
 
 __GHOST(mindex3_contiguous_ro) {
-  __requires("M: ptr, n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
+  __requires("T: Type, M: ptr(T), n3: int, i3: int, n2: int, i2: int, n1: int, a: int, b: int, f: _Fraction");
   __consumes("_RO(f, for i1 in a..b -> "
                 "&M[MINDEX3(n3, n2, n1, i3, i2, i1)] ~> Cell)");
-  __produces("_RO(f, Group((i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b), "
-               "fun k -> &M[MINDEX1(n3*n2*n1, k)] ~> Cell))");
+  __produces("_RO(f, for k in (i3*n2*n1 + i2*n1 + a)..(i3*n2*n1 + i2*n1 + b) -> "
+                "&M[MINDEX1(n3*n2*n1, k)] ~> Cell)");
   __admitted();
 }
 
@@ -1159,47 +909,27 @@ inline int max(int a, int b) {
 
 /* ---- Other Functions ---- */
 
-inline void MFREE(void* p) {
-  free(p);
-}
-
 inline int ANY(int maxValue) { return 0; }
 
 /* ---- Algorithmic Functions ---- */
 
 /* TODO: generalize to any monoid/group, see doc/sliding-window.md */
 // template<typename T, typename ST>
-uint16_t reduce_spe2(int start, int stop, const uint8_t* input, int n, int m, int j) {
-  // TODO: allow negative ranges
-  // not necessary here?:
-  // __requires("check_bound1: 0 <= start, check_bound2: start <= stop, check_bound3: stop <= n");
-  __reads("for k in start..stop -> &input[MINDEX2(n, m, k, j)] ~> Cell");
-  __admitted();
-
-  return 0;
-  /* T acc = 0;
-  for (int k = start; k < stop; k++) {
-    __xreads("&input[MINDEX1(n, k)] ~> Cell");
-    acc = acc + input[MINDEX(n, k)];
-  }
-  return acc; */
-}
-
-uint16_t reduce_spe1(int start, int stop, const uint8_t* input, int n, int m, int j) {
+inline uint16_t reduce_spe1(int start, int stop, uint8_t* input, int n, int m, int j) {
   __requires("check_range: is_subrange(start..stop, 0..n)");
   __requires("bound_check: in_range(j, 0..m)");
   __reads("input ~> Matrix2(n, m)");
   __admitted(); // NOT NECESSARY, BUT FASTER
   // __reads("for k in 0..n -> &input[MINDEX2(n, m, k, j)] ~> Cell");
 
-  uint16_t s = 0;
+  uint16_t s = (uint16_t)0;
   for (int i = start; i < stop; i++) {
     __smodifies("&s ~> Cell");
     __sreads("input ~> Matrix2(n, m)");
 
     __ghost(in_range_extend, "i, start..stop, 0..n");
     __GHOST_BEGIN(focus, matrix2_ro_focus, "input, i, j");
-    s += input[MINDEX2(n, m, i, j)];
+    s += (uint16_t)input[MINDEX2(n, m, i, j)];
     __GHOST_END(focus);
   }
   return s;

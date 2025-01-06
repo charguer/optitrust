@@ -9,7 +9,7 @@ type pattern = trm
 
 type compiled_pattern = {
   trm : trm;
-  evars : eval varmap;
+  evars : unit unification_ctx;
 }
 
 let pattern_namespace = "__pattern"
@@ -42,7 +42,7 @@ let pattern_compile (pattern : trm) : compiled_pattern =
             v
           end
         in
-        evars := Var_map.add var None !evars;
+        evars := Var_map.add var (Unknown ()) !evars;
         var
       end else begin
         (* not a pattern variable *)
@@ -55,4 +55,4 @@ let pattern_compile (pattern : trm) : compiled_pattern =
   { trm; evars = !evars }
 
 let trm_matches_pattern (trm : trm) (pattern : compiled_pattern) : bool =
-  Option.is_some (unify_trm trm pattern.trm pattern.evars)
+  Option.is_some (unify_trm trm pattern.trm pattern.evars (fun _ () ctx -> ctx))

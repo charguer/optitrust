@@ -29,6 +29,9 @@ let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
 let debug_current_stage (msg: string) : unit =
   if debug then Tools.debug "%s" msg
 
+let var_uninitialized = Ast_to_c.var_uninitialized
+let trm_uninitialized = Ast_to_c.trm_uninitialized
+
 (*
 
   t[i]  =  get(array_access(t,i))  = array_read(t,i)
@@ -117,7 +120,6 @@ let stackvar_elim (t : trm) : trm =
   let extract_constness (ty: typ): typ * mutability =
     Pattern.pattern_match ty [
       Pattern.(typ_const !__) (fun ty () -> ty, Var_immutable);
-      Pattern.(typ_array (typ_const !__) !__) (fun ty size () -> typ_array ?size ty, Var_immutable);
       Pattern.(typ_fun __ __) (fun () -> ty, Var_immutable);
       Pattern.__ (fun () -> ty, Var_mutable)
     ]
@@ -129,39 +131,65 @@ let stackvar_elim (t : trm) : trm =
         then trm_like ~old:t (trm_get ?typ:t.typ (trm_var ?typ:(Option.map typ_ptr t.typ) x))
         else t
     | Trm_let ((x, ty), tbody) ->
-      (* is the type of x (or elements of x in case it is a fixed-size array) a const type? *)
-      let ty, xm = extract_constness ty in
-      add_var env x xm; (* Note: the onscope function will take care to remove this *)
-      (* is the type of x a reference type? *)
-      begin match typ_ref_inv ty with
-      | Some ty1 ->
-        begin match xm with
-        | Var_immutable -> trm_fail t "C_encoding.stackvar_elim: unsupported references on const variables"
-        | _ ->
-          (* generate a pointer type, with suitable annotations *)
-          trm_add_cstyle Reference (trm_replace (Trm_let ((x, typ_ptr ty1), trm_address_of (aux tbody))) t)
-        end
-      | None ->
-        begin match xm with
-        | Var_mutable ->
-          (* TODO: document the case that corresponds to Constructed_init *)
-          let new_body = if trm_has_cstyle Constructed_init tbody then aux tbody else trm_ref ty (aux tbody) in
-          trm_replace (Trm_let ((x, typ_ptr ty), new_body)) t
-        | Var_immutable ->
+      Pattern.pattern_match ty [
+        Pattern.(typ_const !__ ^| !(typ_fun __ __)) (fun ty () ->
+          add_var env x Var_immutable;
           let new_body = aux tbody in
           trm_replace (Trm_let ((x, ty), new_body)) t
-        end
-      end
+        );
+        Pattern.(typ_array !__ __) (fun elem_ty () ->
+          add_var env x Var_immutable;
+          let new_body = match trm_var_inv tbody with
+            | Some v when var_eq v var_uninitialized -> trm_ref_uninit ty
+            | _ -> trm_ref ty (aux tbody)
+          in
+          trm_replace (Trm_let ((x, typ_ptr elem_ty), new_body)) t
+        );
+        Pattern.(typ_ref !__) (fun ty () ->
+          add_var env x Var_mutable;
+          trm_add_cstyle Reference (trm_replace (Trm_let ((x, typ_ptr ty), trm_address_of (aux tbody))) t)
+        );
+        Pattern.__ (fun () ->
+          add_var env x Var_mutable;
+          let new_body = match trm_var_inv tbody with
+            | Some v when var_eq v var_uninitialized -> trm_ref_uninit ty
+            | _ -> trm_ref ty (aux tbody)
+          in
+          trm_replace (Trm_let ((x, typ_ptr ty), new_body)) t
+        )
+      ]
     | Trm_let_mult bs ->
+      (* FIXME: Broken with arrays *)
       let bs = List.map (fun ((x, ty), tbody) ->
           let ty, xm = extract_constness ty in
           add_var env x xm;
           match xm with
           | Var_immutable -> ((x, ty), aux tbody)
-          | Var_mutable -> ((x, typ_ptr ty), trm_ref ty (aux tbody))
+          | Var_mutable ->
+            let tbody = match trm_var_inv tbody with
+            | Some v when var_eq v var_uninitialized -> trm_ref_uninit ty
+            | _ -> trm_ref ty (aux tbody)
+            in
+            ((x, typ_ptr ty), tbody)
         ) bs
       in
       trm_replace (Trm_let_mult bs) t
+    (*| Trm_predecl (x, ty) ->
+      (* FIXME: Broken with arrays *)
+      let ty, xm = extract_constness ty in
+      add_var env x xm;
+      begin match typ_ref_inv ty with
+      | Some ty1 ->
+        begin match xm with
+        | Var_immutable -> trm_fail t "C_encoding.stackvar_elim: unsupported references on const variables"
+        | _ -> trm_add_cstyle Reference (trm_replace (Trm_predecl (x, typ_ptr ty1)) t)
+        end
+      | None ->
+        begin match xm with
+        | Var_mutable -> trm_replace (Trm_predecl (x, typ_ptr ty)) t
+        | Var_immutable -> trm_replace (Trm_predecl (x, ty)) t
+        end
+      end*)
     | Trm_seq (_, result) when not (trm_is_nobrace_seq t) ->
       onscope env t (fun t ->
         let t = trm_map aux t in
@@ -199,6 +227,7 @@ let stackvar_intro (t : trm) : trm =
   let add_const (ty: typ) : typ =
     Pattern.pattern_match ty [
       Pattern.(typ_array !__ !__) (fun ty size () -> typ_array ?size (typ_const ty));
+      Pattern.(typ_fun __ __) (fun () -> ty);
       Pattern.__ (fun () -> typ_const ty)
     ]
   in
@@ -210,10 +239,11 @@ let stackvar_intro (t : trm) : trm =
         then trm_address_of t
         else t
     | Trm_let ((x, tx), tbody) ->
-      begin match typ_ptr_inv tx, trm_ref_inv tbody with
-      | _, Some (tx1, tbody1)  ->
-        add_var env x Var_mutable;
-        trm_replace (Trm_let ((x, tx1), aux tbody1)) t
+      begin match typ_ptr_inv tx, trm_ref_maybe_init_inv tbody with
+      | _, Some (tx, tbody) ->
+        add_var env x (if is_typ_array tx then Var_immutable else Var_mutable);
+        let tbody = Option.map_or aux trm_uninitialized tbody in
+        trm_replace (Trm_let ((x, tx), tbody)) t
       | Some tx1, None when trm_has_cstyle Reference t ->
         add_var env x Var_mutable;
         trm_rem_cstyle Reference { t with desc = Trm_let ((x, typ_ref tx1), trm_get (aux tbody))}
@@ -227,15 +257,29 @@ let stackvar_intro (t : trm) : trm =
     | Trm_let_mult bs ->
       (* FIXME: Is it possible to handle C++ references and Constructed_init in let_mult ? *)
       let bs = List.map (fun ((x, tx), tbody) ->
-        match typ_ptr_inv tx, trm_ref_inv tbody with
-        | Some tx1, Some (_, tbody1)  ->
+        match typ_ptr_inv tx, trm_ref_maybe_init_inv tbody with
+        | Some tx, Some (_, tbody)  ->
           add_var env x Var_mutable;
-          ((x, tx1), aux tbody1)
+          let tbody = Option.map_or aux trm_uninitialized tbody in
+          ((x, tx), tbody)
         | _ ->
           add_var env x Var_immutable;
           ((x, add_const tx), aux tbody)
       ) bs in
       trm_replace (Trm_let_mult bs) t
+    (*| Trm_predecl (x, tx) ->
+      (* LATER: There is a confusion between extern int A; and extern int* const A; that are both encoded in the same way although they seem to not link together. Currently we always display encode it as extern int A; in this case. *)
+      begin match typ_ptr_inv tx with
+      | Some tx1 when trm_has_cstyle Reference t ->
+        add_var env x Var_mutable;
+        trm_rem_cstyle Reference { t with desc = Trm_predecl (x, typ_ref tx1)}
+      | Some tx1 ->
+        add_var env x Var_mutable;
+        trm_replace (Trm_predecl (x, tx1)) t
+      | _ ->
+        add_var env x Var_immutable;
+        trm_replace (Trm_predecl (x, add_const tx)) t
+      end*)
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_for (range, _, _) ->
@@ -343,6 +387,7 @@ let rec expr_in_seq_elim (t : trm) : trm =
         match u.typ with
         | None -> u
         | Some typ when is_typ_unit typ -> u
+        | Some typ when is_typ_auto typ -> failwith "%s: Cannot tell if there should be an ignore node or not on term %s" (loc_to_string t.loc) (Ast_to_c.ast_to_string u)
         | Some _ -> trm_ignore ~annot:u.annot (trm_alter ~annot:trm_annot_default u)
       ) ts
     in
@@ -493,7 +538,6 @@ let class_member_elim (t : trm) : trm =
             let new_tl = Mlist.push_front this_alloc new_tl in
             let new_body = trm_alter ~desc:(Trm_seq (new_tl, Some var_this)) t in
             trm_like ~old:t (trm_let_fun v this_typ vl new_body ~contract)
-          | Trm_lit (Lit_uninitialized _) ->  t
           | _ -> trm_fail t "C_encoding.class_member_elim: ill defined class constructor."
           end
         end else raise Pattern.Next
@@ -892,14 +936,17 @@ let contract_elim (t: trm): trm =
   | _ -> trm_map aux t
   in aux t
 
-let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) (hyp, formula): string =
+let named_formula_to_string (style: style) ?(used_vars = Var_set.empty) ?(aliases = Var_map.empty) (hyp, formula): string =
   let sformula = formula_to_string style formula in
-  if not (style.typing.print_generated_res_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" hyp.name
-    then Printf.sprintf "%s" sformula
-    else begin
-      let hyp_s = if style.cstyle.print_var_id then var_to_string hyp else hyp.name in
-      Printf.sprintf "%s: %s" hyp_s sformula
-    end
+  let shyp = if style.cstyle.print_var_id then sprintf "%s/*%d*/" hyp.name hyp.id else hyp.name in
+  match Var_map.find_opt hyp aliases with
+  | Some alias_val ->
+    let salias = formula_to_string style alias_val in
+    Printf.sprintf "%s := %s : %s" shyp salias sformula
+  | None ->
+    if not (style.typing.print_generated_res_ids || Var_set.mem hyp used_vars) && String.starts_with ~prefix:"#" hyp.name
+      then Printf.sprintf "%s" sformula
+      else Printf.sprintf "%s: %s" shyp sformula
 
 (** [seq_push code t]: inserts trm [code] at the begining of sequence [t],
     [code] - instruction to be added,
@@ -913,9 +960,18 @@ let seq_push (code : trm) (t : trm) : trm =
 let trm_array_of_string list =
   trm_array ~typ:typ_string (Mlist.of_list (List.map trm_string list))
 
+let filter_pure_resources (pure_res: resource_item list): resource_item list =
+  List.filter (fun (v, t) ->
+    Pattern.pattern_match t [
+      Pattern.(typ_fun __ __) (fun () -> false);
+      Pattern.(typ_pure_fun __ __) (fun () -> false);
+      Pattern.(typ_var (var_eq typ_type_var)) (fun () -> false);
+      Pattern.__ (fun () -> not (String.starts_with ~prefix:"__" v.name))
+    ]) pure_res
+
 let ctx_resources_to_trm (style: style) (res: resource_set) : trm =
   let used_vars = Resource_set.used_vars res in
-  let spure = trm_array_of_string (List.map (named_formula_to_string style ~used_vars) res.pure) in
+  let spure = trm_array_of_string (List.map (named_formula_to_string style ~used_vars ~aliases:res.aliases) (filter_pure_resources res.pure)) in
   let slin = trm_array_of_string (List.map (named_formula_to_string style) res.linear) in
   trm_apps (trm_var __ctx_res) [spure; slin]
 
@@ -929,13 +985,16 @@ let ctx_used_res_to_trm (style: style) ~(clause: var) (used_res: used_resource_s
   let slin = trm_array_of_string (List.map (ctx_used_res_item_to_string style) used_res.used_linear) in
   trm_apps (trm_var clause) [spure; slin]
 
-let ctx_produced_res_item_to_string (style: style) (res: produced_resource_item) : string =
-  let sformula = formula_to_string style res.produced_formula in
-  Printf.sprintf "%s := %s : %s" res.produced_hyp.name res.post_hyp.name sformula
+let ctx_produced_res_item_to_string (style: style) ?(aliases = Var_map.empty) (contract_hyp_names: var Var_map.t) ((hyp, formula): resource_item) : string =
+  let sformula = formula_to_string style formula in
+  let salias = Option.map_or (fun alias ->
+    sprintf " := %s" (formula_to_string style alias)
+    ) "" (Var_map.find_opt hyp aliases) in
+  Printf.sprintf "%s <- %s%s : %s" hyp.name (Option.map_or (fun h -> h.name) "?" (Var_map.find_opt hyp contract_hyp_names)) salias sformula
 
 let ctx_produced_res_to_trm (style: style) (produced_res: produced_resource_set) : trm =
-  let spure = trm_array_of_string (List.map (ctx_produced_res_item_to_string style) produced_res.produced_pure) in
-  let slin = trm_array_of_string (List.map (ctx_produced_res_item_to_string style) produced_res.produced_linear) in
+  let spure = trm_array_of_string (List.map (ctx_produced_res_item_to_string style produced_res.contract_hyp_names ~aliases:produced_res.produced_res.aliases) produced_res.produced_res.pure) in
+  let slin = trm_array_of_string (List.map (ctx_produced_res_item_to_string style produced_res.contract_hyp_names) produced_res.produced_res.linear) in
   trm_apps (trm_var __produced_res) [spure; slin]
 
 let ctx_usage_map_to_strings res_used =
@@ -954,9 +1013,12 @@ let debug_ctx_before = false
 
 let display_ctx_resources (style: style) (t: trm): trm list =
   let t =
-    match t.desc with
-    | Trm_let (_, body) -> { t with ctx = { body.ctx with ctx_resources_before = t.ctx.ctx_resources_before; ctx_resources_after = t.ctx.ctx_resources_after } }
-    | _ -> t
+    match trm_let_inv t with
+    | Some (_, _, body) -> { t with ctx = { t.ctx with ctx_resources_contract_invoc = body.ctx.ctx_resources_contract_invoc } }
+    | None ->
+      match trm_ignore_inv t with
+      | Some ignored -> { t with ctx = { t.ctx with ctx_resources_contract_invoc = ignored.ctx.ctx_resources_contract_invoc } }
+      | None -> t
   in
   let tl_used =
     if style.typing.typing_used_res
@@ -1158,6 +1220,59 @@ let rec formula_sugar_intro (t: trm): trm =
   else
     trm_map formula_sugar_intro t
 
+(*************************************** C allocation functions *********************************************)
+
+let typ_from_size (size: trm): typ =
+  Pattern.pattern_match size [
+    Pattern.(trm_sizeof !__) (fun typ () -> typ);
+    Pattern.(trm_mul !__ (trm_sizeof !__)) (fun nb_elems typ () -> typ_array typ ~size:nb_elems)
+  ]
+
+let var_malloc = toplevel_var "malloc"
+let var_calloc = toplevel_var "calloc"
+let var_free = toplevel_var "free"
+
+let rec alloc_elim (t: trm): trm =
+  let annot = t.annot in
+  let loc = t.loc in
+  Pattern.pattern_match t [
+    Pattern.(trm_cast !__ !__) (fun typto t () ->
+      let t_in = alloc_elim t in
+      match t_in.typ with
+      | Some ty when are_same_trm ty typto -> t_in
+      | _ -> trm_cast ~annot ?loc typto t_in
+    );
+    Pattern.(trm_apps1 (trm_var (var_eq var_malloc)) !__) (fun alloc_size () ->
+      trm_new_uninit ~annot ?loc (typ_from_size alloc_size)
+    );
+    Pattern.(trm_apps2 (trm_var (var_eq var_calloc)) !__ (trm_sizeof !__)) (fun nb_elems elem_typ () ->
+      let typ = typ_array elem_typ ~size:nb_elems in
+      trm_new ~annot ?loc typ (trm_null typ)
+    );
+    Pattern.(trm_apps1 (trm_var (var_eq var_free)) !__) (fun t () ->
+      trm_delete ~annot ?loc t
+    );
+    Pattern.__ (fun () -> trm_map alloc_elim t)
+  ]
+
+let alloc_intro (style: style) (t: trm): trm =
+  let rec aux t =
+    Pattern.pattern_match t [
+      Pattern.(trm_new_uninit !__) (fun ty () ->
+        match typ_array_inv ty with
+        | Some (elemty, Some size) -> trm_like ~old:t (trm_cast (typ_ptr elemty) (trm_apps (trm_var var_malloc) [trm_mul size (trm_sizeof elemty)]))
+        | _ -> trm_like ~old:t (trm_cast (typ_ptr ty) (trm_apps (trm_var var_malloc) [trm_sizeof ty]))
+      );
+      Pattern.(trm_new (typ_array !__ (some !__)) (trm_null __)) (fun basety nbelems () ->
+        trm_like ~old:t (trm_cast (typ_ptr basety) (trm_apps (trm_var var_calloc) [nbelems; trm_sizeof basety]))
+      );
+      Pattern.(trm_delete !__) (fun tptr () ->
+        trm_like ~old:t (trm_apps (trm_var var_free) [tptr])
+      );
+      Pattern.__ (fun () -> trm_map aux t)
+    ]
+  in
+  if style.cstyle.c_alloc then aux t else t
 
 (****************************** Alpha renaming of autogen variables ***************************************)
 
@@ -1209,12 +1324,14 @@ let cfeatures_elim: trm -> trm =
   return_elim |>
   expr_in_seq_elim |>
   formula_sugar_elim |>
+  alloc_elim |>
   Scope_computation.infer_var_ids)
 
 (** [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (style : style) : trm -> trm =
   debug_before_after_trm "cfeatures_intro" (fun t ->
   Scope_computation.infer_var_ids t |>
+  alloc_intro style |>
   formula_sugar_intro |>
   expr_in_seq_intro |>
   return_intro |>

@@ -563,7 +563,7 @@ function queryStepDetails(step, view, hadEmptyDiff = false) {
         }
         else if(!response.ok) {
         return response.text().then((error) => {
-            throw new Error(`Failed to retreive data: ${error}`);
+            throw new Error(`Failed to retreive data:<br/>${error}`);
           });
         }
         return response.text();

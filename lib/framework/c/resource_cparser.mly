@@ -3,13 +3,30 @@
   open Trm
   open Typ
   open Resource_formula
+  module String_map = Tools.String_map
+
+  let builtins = [
+    "size_t", typ_usize;
+    "ptrdiff_t", typ_isize;
+    "int8_t", typ_i8;
+    "uint8_t", typ_u8;
+    "int16_t", typ_i16;
+    "uint16_t", typ_u16;
+    "int32_t", typ_i32;
+    "uint32_t", typ_u32;
+    "int64_t", typ_i64;
+    "uint64_t", typ_u64;
+    "float", typ_f32;
+    "double", typ_f64;
+    "__full", full_frac;
+  ] |> List.to_seq |> String_map.of_seq
 %}
 
 %token <string> IDENT
 %token <int> INT_LIT
 %token LPAR RPAR LBRACKET RBRACKET
 %token COLON COMMA AMPERSAND ARROW SQUIG_ARROW COLON_EQUAL DOT DOTDOT
-%token FUN FOR IN EOF
+%token FUN FORALL FOR IN EOF
 %token PLUS MINUS STAR SLASH PERCENT
 %token EQUAL LT GT LEQ GEQ NEQ
 
@@ -28,11 +45,13 @@ flex_list(delimiter, X):
 
 atomic_formula:
   | x=IDENT
-    { trm_var (name_to_var x) }
+    { match String_map.find_opt x builtins with
+      | Some builtin -> builtin
+      | None -> trm_var ~annot:formula_annot (name_to_var x) }
   | x=INT_LIT
     { trm_int x }
   | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
-    { trm_apps func args }
+    { trm_apps ~annot:formula_annot func args }
   | AMPERSAND; x=address_formula;
     { trm_address_of x }
   | LPAR; f=formula; RPAR
@@ -85,8 +104,14 @@ formula_cmp:
     { a }
 
 formula_arrow:
-  | a=formula_cmp; ARROW; b=formula_arrow;
-    { formula_fun_type a b }
+  | args=formula_cmp; ARROW; ret=formula_arrow;
+    { let rec extract_arg_tuple t acc =
+        match trm_binop_inv Binop_mul t with
+        | Some (t1, t2) ->
+          extract_arg_tuple t1 (t2 :: acc)
+        | None -> t :: acc
+      in
+      typ_pure_fun (extract_arg_tuple args []) ret }
   | a=formula_cmp;
     { a }
 
@@ -97,6 +122,8 @@ formula:
     { formula_model t f }
   | FUN; args=separated_nonempty_list(COMMA, IDENT); ARROW; body=formula;
     { trm_fun ~annot:formula_annot (List.map (fun x -> name_to_var x, typ_auto) args) typ_auto body }
+  | FORALL; index=IDENT; IN; range=formula_cmp; ARROW; body=formula;
+    { trm_apps ~annot:formula_annot trm_forall_in [range; trm_fun ~annot:formula_annot [name_to_var index, typ_int] typ_auto body] }
   | FOR; index=IDENT; IN; range=formula_cmp; ARROW; body=formula;
     { trm_apps ~annot:formula_annot trm_group [range; trm_fun ~annot:formula_annot [name_to_var index, typ_int] typ_auto body] }
 

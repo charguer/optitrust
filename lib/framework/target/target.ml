@@ -210,6 +210,10 @@ let dForCStep : constr =
 let dName : constr =
     Constr_dir Dir_name
 
+(** [dType]: matches a type direction (for let bindings and operator types) *)
+let dType : constr =
+    Constr_dir Dir_type
+
 (** [dDirCase n cd]: matches a case group on switch statement. *)
 let dDirCase (n : int) (cd : case_dir) : constr =
     Constr_dir (Dir_case (n, cd))
@@ -529,25 +533,23 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
      [args_pred] - match based on arguments
      [ret_typ] - match based on the return type
      [ret_typ_pred] - match based on the return type
-     [is_def] - if false matches also pre-declarations
      [body] - match based on the body of the function *)
-let cFun ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(is_def = true) ?(body : target = [])
+let cFun ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(body : target = [])
   () : constr =
   let ty_pred = make_typ_constraint ~typ:ret_typ ~typ_pred:ret_typ_pred () in
-  Constr_fun (combine_args args args_pred, ty_pred, is_def, body)
+  Constr_fun (combine_args args args_pred, ty_pred, body)
 
-(** [cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions
+(** [cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp name]: matches function definitions
      [args] - match based on arguments
      [args_pred] - match based on arguments
      [ret_typ] - match based on the return type
      [ret_typ_pred] - match based on the return type
-     [is_def] - if false matches also pre-declarations
      [body] - match based on the body of the function
      [regexp] - match based on regexp
      [name] - match based on the name of the function. *)
 let cFunDef ?args ?args_pred ?ret_typ ?ret_typ_pred ?is_def ?body
   ?(regexp : bool = false) (name : string) : constr =
-  cVarDef ~regexp ~body:[cStrictNew; cFun ?args ?args_pred ?ret_typ ?ret_typ_pred ?is_def ?body ()] name
+  cVarDef ~regexp ~body:[cStrictNew; cFun ?args ?args_pred ?ret_typ ?ret_typ_pred ?body ()] name
 
 let cFunDefs (vars : string list) : constr =
   cOr (List.map (fun v -> [cFunDef v]) vars)
@@ -774,27 +776,28 @@ let cCalls (funs : string list) : constr =
   cOr funcalls
 
 (** [cPrimPred f_pred]: matches all primitive functions that satisfy the predicate [f_pred]*)
-let cPrimPred (f_pred : prim -> bool) : constr =
-  Constr_prim f_pred
+let cPrimPred ?(ty_pred = fun _ -> true) (f_pred : prim -> bool) : constr =
+  Constr_prim (ty_pred, f_pred)
 
 (** [cPrim p]: matches all [p] primitives. *)
-let cPrim (p : prim) : constr =
-  cPrimPred (fun p2 -> p2 = p)
+let cPrim ?(ty_pred = fun _ -> true) (p : prim) : constr =
+  cPrimPred ~ty_pred (fun p2 -> p2 = p)
 
-(** [cPrimPredCall ~args ~args_pred  prim_pred]: matches only primitive function calls that satisfy the predicate [prim_pred]
+(** [cPrimPredCall ~args ~args_pred ~ty_pred prim_pred]: matches only primitive function calls that satisfy the predicate [prim_pred]
     and the other constraints in [args] or [args_pred]
     [args] - match based on the arguments
     [args_pred] - match based on a predicate on arguments
+    [ty_pred] - match based on the type of the primitive
     [prim_pred] - match based on a primitive predicate. *)
-let cPrimPredCall ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (prim_pred:prim -> bool) : constr =
-   cCall ~fun_:[cPrimPred prim_pred] ~args ~args_pred ~accept_encoded:true ""
+let cPrimPredCall ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(ty_pred = fun _ -> true) (prim_pred:prim -> bool) : constr =
+   cCall ~fun_:[cPrimPred ~ty_pred prim_pred] ~args ~args_pred ~accept_encoded:true ""
 
 (** [cPrimCall ~args ~args_pred p]: matches only primitive function calls with primitive [p]
     [args] - match based on the arguments
     [args_pred] - match based on a predicated over arguments
     [p] - match based on the primitive [p]. *)
-let cPrimCall ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
-   cPrimPredCall ~args ~args_pred (fun p2 -> p2 = p)
+let cPrimCall ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(ty_pred = fun _ -> true) (p:prim) : constr =
+   cPrimPredCall ~args ~args_pred ~ty_pred (fun p2 -> p2 = p)
 
 (** [cPrimCallArith ~args ~args_pred ()]: matches primitive arithmetic operations
      [args] - match based on the arguments
@@ -805,10 +808,25 @@ let cPrimCallArith ?(args : targets = []) ?(args_pred:target_list_pred = target_
 let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : constr =
   cPrimCall ~args:[lhs; rhs] (Prim_binop op)
 
-(** [let cPrimRef ~arg ()]: matches "ref" primitive operation
+let cAlloc (prim_init: prim) (prim_uninit: prim) ?(init: bool option) ?(ty: typ option) ?(arg: target = []) () : constr =
+  let ty_pred = Option.map are_same_trm ty in
+  let init = match init, arg with
+    | _, [] -> init
+    | (Some true | None), _ :: _ -> Some true
+    | Some false, _ :: _ -> failwith "Cannot use ~init:false and ~arg at the same time"
+  in
+  match init with
+  | Some true -> cPrimCall ?ty_pred ~args:[arg] prim_init
+  | Some false -> cPrimCall ?ty_pred prim_uninit
+  | None -> cPrimPredCall ?ty_pred (fun prim -> prim = prim_init || prim = prim_uninit)
+
+(** [let cRef ~arg ()]: matches "ref" primitive operation
     [arg] - match based on the arguments of the "ref" primitive. *)
-let cPrimRef ?(arg : target = []) () : constr =
-  cPrimCall ~args:[arg] Prim_ref
+let cRef = cAlloc Prim_ref Prim_ref_uninit
+let cNew = cAlloc Prim_new Prim_new_uninit
+
+let cDelete ?(arg: target = []) () =
+  cPrimCall ~args:[arg] Prim_delete
 
 (** [dVarInit] alias to dVarBody. *)
 let dVarInit : constr =
@@ -926,26 +944,11 @@ let cAny : constr =
 let cChoose : constr =
   cCall "CHOOSE"
 
-(** [cAlloc ~d]: matches a call to Optitrust MALLOCI or CALLOCI where I = d. *)
-let cAlloc (d : int option) : constr =
-  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
-  cCall ~regexp:true ("M.\\(NDEX\\|ALLOC\\)" ^ d)
-
-(** [cMalloc ~d]: matches a call to Optitrust MALLOCI where I = d. *)
-let cMalloc ?(d : int option) () : constr =
-  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
-  cCall ~regexp:true ("MALLOC" ^ d)
-
 (** [cMindex ~d]:  match a call to Optitrust MINDEXI where I = d. *)
 let cMindex ?(d : int option) ?(args : targets = []) () : constr =
   match d with
   | Some d -> cCall ~args ("MINDEX" ^ (string_of_int d))
   | None -> cCall ~args ~regexp:true "MINDEX."
-
-(** [cCalloc ~d ()]: matches a call to Optitrust CALLOCI where I = d. *)
-let cCalloc ?(d : int option) () : constr =
-  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
-  cCall ~regexp:true ("MALLOC" ^ d)
 
 (** [cSwitch ~cond ~cases ()]: matches a switch statement
     [cond] - match based on the condition

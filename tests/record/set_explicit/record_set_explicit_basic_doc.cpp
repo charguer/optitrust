@@ -5,10 +5,10 @@ typedef struct {
   int y;
 } vect;
 
-int main() {
+void f() {
   __pure();
 
   vect a;
-  vect b;
+  vect b = {0, 0};
   a = b;
 }

@@ -11,12 +11,6 @@ typedef struct {
   vect speed;
 } obj;
 
-REGISTER_STRUCT_ACCESS(x)
-REGISTER_STRUCT_ACCESS(y)
-REGISTER_STRUCT_ACCESS(weight)
-REGISTER_STRUCT_ACCESS(pos)
-REGISTER_STRUCT_ACCESS(speed)
-
 vect f() {
   return {1,1};
 }

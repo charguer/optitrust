@@ -32,7 +32,7 @@ for-trm-internal-desc: Trm_for (i,
   Trm_seq [
     Trm_apps (Trm_var(__ignore),
       [
-        Trm_apps (Trm_prim (Trm_var(__typ::int), Prim_unop Unop_post_incr),
+        Trm_apps (Trm_prim (Trm_var(int), Prim_unop Unop_post_incr),
           [ Trm_var(x) ])
       ])
   ])

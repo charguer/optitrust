@@ -27,7 +27,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         let evars = ref Var_map.empty in
         let add_evar ?(namespaces = []) () =
           let evar = new_var ~namespaces "evar" in
-          evars := Var_map.add evar None !evars;
+          evars := Var_map.add evar (Unknown ()) !evars;
           evar
         in
         let rec to_base_pattern t =
@@ -48,7 +48,7 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
         in
         let base_pattern = erase_types (to_base_pattern base) in
         let matches_base t =
-          Option.is_some (unify_trm t base_pattern !evars)
+          Option.is_some (unify_trm t base_pattern !evars (fun _ _ ctx -> ctx))
         in
         let exception TypeFound of typ in
         begin try (
@@ -273,8 +273,8 @@ let split_fields_on (typvar : typvar) (field_list : (field * typ) list)
             trm_seq ~annot:t.annot ?result (Mlist.merge instrs' folds)
           );
           Pattern.__ (fun () ->
-            match Matrix_core.let_alloc_inv_with_ty t with
-            | Some (v, dims, typ, size) ->
+            match Matrix_core.let_alloc_uninit_inv t with
+            | Some (v, typ, dims) ->
               Pattern.when_ (typ_matches typ);
               unfold_alloc t
             | None -> raise Pattern.Next

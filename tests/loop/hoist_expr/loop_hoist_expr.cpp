@@ -55,7 +55,7 @@ int test1() {
 //    --> first hoist
 int test2() {
   for (int l = 0; l < 5; l++) {
-    int* x_step = (int*) MALLOC1(2, sizeof(int));
+    int* x_step = MALLOC1(int, 2);
     for (int m = 0; m < 2; m++) {
       int& x = x_step[MINDEX1(2, m)];
       x = 0;
@@ -64,7 +64,7 @@ int test2() {
 }
 //    --> second hoist
 int test3() {
-  int* x_step_bis = (int*) MALLOC2(5, 2, sizeof(int));
+  int* x_step_bis = MALLOC2(int, 5, 2);
   for (int l = 0; l < 5; l++) {
     int* x_step = &x_step_bis[MINDEX2(5, 2, l, 0)];
     // int* x_step = MREF2(x_step_bis, 5, 2, l, 0);
@@ -77,7 +77,7 @@ int test3() {
 // (&x_step_bis[MINDEX2(5, 2, l, 0)])[MINDEX1(2, m)]
 //    --> final
 int test4() {
-  int* x_step_bis = (int*) MALLOC2(5, 2, sizeof(int));
+  int* x_step_bis = MALLOC2(int, 5, 2);
   for (int l = 0; l < 5; l++) {
     for (int m = 0; m < 2; m++) {
       int& x = x_step_bis[MINDEX2(5, 2, l, m)];

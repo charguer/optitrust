@@ -197,7 +197,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm li
       let alloc_instr = (target_of_path surrounding_seq) @ [cVarDef var.name] in
       let alloc_trm = get_trm_at_exn (alloc_instr @ [dInit]) in
       let error = "Stencil.fusion_targets_tile: expected allocation instruction" in
-      let (dims, _ty, _size) = trm_inv ~error Matrix_core.alloc_inv_with_ty alloc_trm in
+      let (_, dims, _) = trm_inv ~error Matrix_trm.alloc_inv alloc_trm in
       let may_eliminate = (List.length sizes) = (List.length dims) && (List.for_all (is_trm_int 1) sizes) in
       if may_eliminate then
         Matrix.elim alloc_instr

@@ -1,24 +1,24 @@
 #include <optitrust.h>
 
-const int i0;
+extern const int i0;
 
-const int i1;
+extern const int i1;
 
-const int i2;
+extern const int i2;
 
-const int i3;
+extern const int i3;
 
-const int i4;
+extern const int i4;
 
-const int n0;
+extern const int n0;
 
-const int n1;
+extern const int n1;
 
-const int n2;
+extern const int n2;
 
-const int n3;
+extern const int n3;
 
-const int n4;
+extern const int n4;
 
 int main() {
   int* p;

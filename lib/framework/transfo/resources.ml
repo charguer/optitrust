@@ -80,7 +80,7 @@ let minimize_fun_contract ?(output_new_fracs: resource_item list ref option) (co
   let new_contract_used_vars = fun_contract_used_vars new_contract in
 
   let filter_pure_pre (x, formula) =
-    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula trm_frac) && Var_map.mem x usage)
+    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula typ_frac) && Var_map.mem x usage)
   in
 
   { new_contract with
@@ -299,7 +299,7 @@ let minimize_loop_contract contract post_inst usage =
   let new_contract_used_vars = loop_contract_used_vars new_contract in
 
   let filter_pure_pre (x, formula) =
-    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula trm_frac) && Var_map.mem x usage)
+    Var_set.mem x new_contract_used_vars || (not (are_same_trm formula typ_frac) && Var_map.mem x usage)
   in
 
   { new_contract with
@@ -476,7 +476,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
     | Some { frac; formula } ->
       let rec extract_arbitrary_carved_fracs frac =
         Pattern.pattern_match frac [
-          Pattern.(trm_sub !__ (trm_var !__)) (fun base_frac removed_var () ->
+          Pattern.(formula_frac_sub !__ (trm_var !__)) (fun base_frac removed_var () ->
             Pattern.when_ (Var_map.find_opt removed_var usage = Some ArbitrarilyChosen);
             let base_frac, arbitrarily_carved_fracs = extract_arbitrary_carved_fracs base_frac in
             base_frac, removed_var :: arbitrarily_carved_fracs
@@ -489,7 +489,7 @@ let specialize_arbitrary_fracs_at (t: trm) (split_index: int) : trm =
         splitted_hyp, subst
       else
         let nb_splits = 1 + List.length carved_arbitrary in
-        let repl_frac = trm_trunc_div base_frac (trm_int nb_splits) in
+        let repl_frac = formula_frac_div base_frac (trm_int nb_splits) in
         let subst = List.fold_left (fun subst var ->
           if Var_map.mem var subst then failwith "Arbitrarily chosen variable %s is carved twice" (var_to_string var);
           Var_map.add var repl_frac subst) subst carved_arbitrary in
@@ -580,7 +580,7 @@ let collect_trm_interferences (before : trm) (after : trm) : (resource_usage opt
 let string_of_interference
   ?(res_ctx : resource_set option)
   (interference : (resource_usage option * resource_usage option) Var_map.t) : string =
-  sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s (%s)" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2) (Option.to_string Resource_computation.formula_to_string (Option.bind res_ctx (Resource_set.find x)))) (Var_map.bindings interference)))
+  sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s >!< %s (%s)" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2) (Option.to_string Resource_computation.formula_to_string (Option.bind res_ctx (Resource_set.find x)))) (Var_map.bindings interference)))
 
 (** Checks that resource usages commute, infer var ids to check pure facts scope. *)
 let assert_usages_commute

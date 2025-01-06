@@ -521,16 +521,12 @@ let to_variables_at (index : int) (t : trm) : trm =
     | _ -> trm_fail t "could not get the declaration of typedef"
     in
     let field_list = Internal.get_field_list struct_def in
-    let init' = match trm_ref_inv init with
-    | Some (_, v) -> is_ref := true; v
-    | _ -> is_ref := false; init
-    in
-    let init_list =
-      if is_trm_uninitialized init' then None else begin
-        let error = "expected a struct initialization" in
-        Some (trm_inv ~error trm_record_inv init')
-      end
-    in
+    let init_opt = Pattern.pattern_match init [
+      Pattern.(trm_ref __ !__) (fun v () -> is_ref := true; Some v);
+      Pattern.(trm_ref_uninit __) (fun () -> is_ref := true; None);
+      Pattern.__ (fun () -> Some init)
+    ] in
+    let init_list = Option.map (trm_inv ~error:"expected a struct initialization" trm_record_inv) init_opt in
     let var_decls = List.mapi (fun i (sf, ty) ->
       let field_var = new_var (Convention.name_app x.name sf) in
       fields := !fields @ [sf, ty, field_var];
@@ -538,7 +534,9 @@ let to_variables_at (index : int) (t : trm) : trm =
       | None ->
         if not !is_ref then failwith "expected mutable declaration if not initialized";
         trm_let_mut_uninit (field_var, ty)
-      | Some (_, inits) -> trm_let_maybemut !is_ref (field_var, ty) (snd (Mlist.nth inits i))
+      | Some (_, inits) ->
+        let trm_let_maybemut = if !is_ref then trm_let_mut else trm_let in
+        trm_let_maybemut (field_var, ty) (snd (Mlist.nth inits i))
       end
     ) field_list in
     trm_seq_nobrace_nomarks var_decls

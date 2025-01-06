@@ -10,8 +10,8 @@ let _ = Run.script_cpp ( fun _ ->
   !! Loop_basic.fission_basic [tAfter; cFunDef "parallel"; sInstr "t[i] +="];
   !! Loop_basic.fission_basic [tBefore; cFunDef "parallel"; cVarDef "z"];
   !! Trace.failure_expected (fun _e -> true) (fun () ->
-    Loop_basic.fission_basic [tBefore; cFunDef "parallel"; sInstr "MFREE1(5, m1)"]);
-  !! Loop_basic.fission_basic [tAfter; cFunDef "parallel"; sInstr "MFREE1(5, m1)"];
+    Loop_basic.fission_basic [tBefore; cFunDef "parallel"; sInstr "free(m1)"]);
+  !! Loop_basic.fission_basic [tAfter; cFunDef "parallel"; sInstr "free(m1)"];
 
   (* 2. Loops where instrs before/after split commute through all iterations can be fissioned. *)
   !! Loop_basic.fission_basic [cFunDef "commute"; cFor "i"; dBody; dAfter 0];

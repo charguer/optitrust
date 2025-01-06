@@ -22,7 +22,17 @@ let ghost_inv t =
 
 let var_ghost_begin = toplevel_var "__ghost_begin"
 let var_ghost_end = toplevel_var "__ghost_end"
-let typ_ghost_fn: typ = typ_var (toplevel_typvar "__ghost_fn")
+
+let var_ghost_ret = toplevel_typvar "__ghost_ret"
+let typ_ghost_ret: typ = typ_var var_ghost_ret
+let var_ghost_fn = toplevel_typvar "__ghost_fn"
+let typ_ghost_fn: typ = typ_var var_ghost_fn
+
+let is_typ_ghost_ret (ty: typ): bool =
+  match typ_var_inv ty with
+  | Some v when var_eq v var_ghost_ret -> true
+  | _ -> false
+
 let var_with_reverse = toplevel_var "__with_reverse"
 
 let ghost_pair_fresh_id = Tools.fresh_generator ()
@@ -158,12 +168,12 @@ let var_ghost_in_range_extend = toplevel_var "in_range_extend"
 let var_ghost_assume = toplevel_var "assume"
 
 let assume (f: formula): trm =
-  ghost (ghost_call var_ghost_assume ["F", f])
+  ghost (ghost_call var_ghost_assume ["P", f])
 
 let var_ghost_to_prove = toplevel_var "to_prove"
 
 let to_prove (f: formula): trm =
-  ghost (ghost_call var_ghost_to_prove ["F", f])
+  ghost (ghost_call var_ghost_to_prove ["P", f])
 
 (*****************************************************************************)
 (* Contracts and annotations *)

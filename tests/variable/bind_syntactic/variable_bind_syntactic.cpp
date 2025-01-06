@@ -15,9 +15,9 @@ int main() {
 
   int r = (4 + 3) * (4 + 3) + (4 + 4) * (4 + 4);
 
-  float* const m = (float*) MALLOC2(5, 6, sizeof(float));
+  float* const m = MALLOC2(float, 5, 6);
   float x = m[MINDEX2(5, 6, 0, 1)] * m[MINDEX2(5, 6, 1, 0)];
-  MFREE2(5, 6, m);
+  free(m);
 
   return 0;
 }

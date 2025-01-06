@@ -95,11 +95,11 @@ typedef struct {
 typedef struct {
 } bag_iter;
 
-bag_iter* bag_iter_begin(bag* b);
+bag_iter* bag_iter_begin(bag*);
 
-particle* bag_iter_get(bag_iter* it);
+particle* bag_iter_get(bag_iter*);
 
-particle* bag_iter_next(bag_iter* it, bool destructive);
+particle* bag_iter_next(bag_iter*, bool);
 
 void iter_bag(bag* b, void (*body)(particle*)) {
   bag_iter* const iter = bag_iter_begin(b);
@@ -123,9 +123,9 @@ bagbody : {
 }
 }
 
-particle* bag2_iter_begin(bag_iter* it, bag* b);
+particle* bag2_iter_begin(bag_iter*, bag*);
 
-particle* bag2_iter_next(bag_iter* it, bool destructive);
+particle* bag2_iter_next(bag_iter*, bool);
 
 void iter_bag2(bag* b, void (*body)(particle*)) {
   bag_iter iter;

@@ -7,18 +7,6 @@ let arith_simpl = toplevel_var "arith_simpl"
 let ghost_arith_rewrite r1 r2 =
   Resource_trm.ghost_rewrite r1 r2 (trm_var arith_simpl)
 
-(** [shift ~inv ~pre_cast ~post_cast u tg]:  expects the target [tg]
-    to point at a trm on which an arithmetic operation can be applied, then
-    depending on the value of [inv] it will add or substract [u] to that trm.*)
-let%transfo shift ?(inv : bool = false) ?(pre_cast : typ option)
-  ?(post_cast : typ option) (u : trm) (tg : target) : unit =
-  Target.apply_at_target_paths (Arith_core.transform Arith_shift inv u pre_cast post_cast) tg
-
-(** [scale ~inv ~pre_cast ~post_cast u] *)
-let%transfo scale ?(inv : bool = false) ?(pre_cast : typ option)
-  ?(post_cast : typ option) (u : trm) (tg : target) : unit =
-  Target.apply_at_target_paths (Arith_core.transform Arith_scale inv u pre_cast post_cast)tg
-
 (** [apply op arg] expects the target [tg] to be pointing at any node of the ast
       then it applies the binary operation [op] at that node with the second argument
       of that operation being [arg] *)

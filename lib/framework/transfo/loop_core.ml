@@ -241,7 +241,7 @@ let unroll_ghost_pair (range : loop_range) (contract : loop_contract)
       new_indices
     in
     let rewrite_contract = {
-      pre = Resource_set.make ~pure:[new_anon_hyp (), formula_group_range range formula] () ;
+      pre = Resource_set.make ~pure:[new_anon_hyp (), formula_forall_range range formula] () ;
       post = Resource_set.make ~pure:output ()
     } in
     (* LATER: build proof term instead *)
@@ -267,7 +267,7 @@ let unroll_ghost_pair (range : loop_range) (contract : loop_contract)
     in
     let rewrite_contract = {
       pre = Resource_set.make ~pure:input ();
-      post = Resource_set.make ~pure:[new_anon_hyp (), formula_group_range range formula] ();
+      post = Resource_set.make ~pure:[new_anon_hyp (), formula_forall_range range formula] ();
     } in
     (* LATER: build proof term instead *)
     Resource_trm.ghost_admitted rewrite_contract ~justif:trm_roll

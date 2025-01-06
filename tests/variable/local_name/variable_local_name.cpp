@@ -1,11 +1,9 @@
 #include <optitrust.h>
 
-typedef int T;
-
 void ok1() {
   __pure();
 
-  T a;
+  int a = 0;
   for (int j = 0; j < 10; j++) {
     __strict();
     __smodifies("&a ~> Cell");
@@ -20,7 +18,7 @@ void ok1() {
 void ok2() {
   __pure();
 
-  T a;
+  int a = 0;
   l: {
     a++;
   }
@@ -31,7 +29,7 @@ void ok2() {
 void ko1() {
   __pure();
 
-  T a;
+  int a = 0;
   int& b = a;
   for (int j = 0; j < 10; j++) {
     __strict();
@@ -50,7 +48,7 @@ void ko1() {
 void ko2() {
   __pure();
 
-  T a;
+  int a = 0;
   int& b = a;
   l: {
     a++;
@@ -62,8 +60,8 @@ void ko2() {
 
 void ko_scope() {
   __pure();
-  T x;
-  T a;
+  int x = 0;
+  int a = 0;
   l: {
     a++;
   }

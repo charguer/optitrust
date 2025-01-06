@@ -1,6 +1,8 @@
 open Optitrust
 open Target
 
+let _ = Flags.strip_trace := false
+
 let _ = Run.script_cpp (fun _ ->
   (* TODO: split this files into one file for each type of simplification *)
   (* TODO: figure out when

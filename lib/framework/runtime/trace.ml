@@ -519,6 +519,8 @@ let ensure_header (h : string) : unit =
   if not found then
     the_trace.cur_context <- { ctx with header = ctx.header ^ h ^ "\n" }
 
+exception MissingAst
+
 (** [output_prog style ctx prefix ast]: writes the program described by the term [ast] into file.
    - one describing the CPP code ("prefix.cpp")
    If the flag [-dump-ast-details] is set, also produce:
@@ -526,6 +528,7 @@ let ensure_header (h : string) : unit =
    - one describing the internal AST ("prefix_enc.cpp")
    The CPP code is formatted using clang-format, unless [-disable-clang-format] is passed. *)
 let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
+  if ast = trm_dummy then raise MissingAst;
   let use_clang_format = beautify && !Flags.use_clang_format in
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
@@ -556,9 +559,11 @@ let output_prog (style:output_style) ?(beautify:bool=true) (ctx : context) (pref
     Ast_to_c.ast_to_outchannel cstyle out_prog ast;
     output_string out_prog "\n";
     close_out out_prog;
-  with | Failure _ as exn ->
+  with Failure _ as exn ->
+    let backtrace = Printexc.get_raw_backtrace () in
+    output_string out_prog (Printexc.to_string exn);
     close_out out_prog;
-    Printexc.(raise_with_backtrace exn (get_raw_backtrace ()))
+    Printexc.(raise_with_backtrace exn backtrace)
   end;
   (* Beautify the generated C++ code using clang-format *)
   if use_clang_format
@@ -1110,7 +1115,7 @@ and recompute_resources_on_ast () : unit =
 
   (* Printf.printf "%s\n" (AstC_to_c.ast_to_string ~style (Ast_fromto_AstC.(meta_intro ~skip_var_ids:true (style_of_custom_style custom_style)) t)); *)
   try
-    the_trace.cur_ast <- Resource_computation.trm_recompute_resources Resource_set.empty t;
+    the_trace.cur_ast <- Resource_computation.trm_recompute_resources t;
     the_trace.cur_ast_typed <- true;
   with (Resource_computation.ResourceError (t_with_error, _phase, _exn)) as e ->
     (* TODO: Resources computation warning when failing in non critical contexts:
@@ -1392,11 +1397,6 @@ let apply (f : trm -> trm) : unit =
   the_trace.cur_ast <- f the_trace.cur_ast;
   if ast_snapshot != the_trace.cur_ast then
     the_trace.cur_ast_typed <- false
-
-(** [reset] performs a step that sets the current ast to the original ast *)
-let reset () : unit =
-  let t = get_original_ast () in
-  apply (fun _cur_ast -> t)
 
 (** [call f]: is similar to [apply] except that it applies to a function [f]
    with unit return type: [f] is meant to update the [cur_ast] by itself
@@ -1728,18 +1728,6 @@ let dump_trace_to_textfile ~(prefix : string) : unit =
   if !debug_notify_dump_trace then Tools.debug "Dumping trace to '%s'" filename;
   step_tree_to_file filename (get_root_step())
 
-(** [output_prog_check_empty style ctx prefix ast_opt]: similar to [output_prog], but it
-   generates an empty file in case the [ast] is an empty ast.
-   LATER: this function could be inlined at its unique call site. *)
-let output_prog_check_empty (style : output_style) (ctx : context) (prefix : string) (ast_opt : trm) : unit =
-  match ast_opt.desc with (* TODO: add and use a function [trm_empty_inv] *)
-  | Trm_seq (tl, None) when Mlist.length tl <> 0 ->
-      output_prog style ctx prefix ast_opt
-  | _ ->
-      let file_prog = prefix ^ ctx.extension in
-      let out_prog = open_out file_prog in (* TODO: use a function [file_put_contents] *)
-      close_out out_prog
-
 (** [produce_diff_output_internal step] is an auxiliary function for [produce_diff_output]. *)
 let produce_diff_output_internal (step:step_tree) : unit =
   let ctx = step.step_context in
@@ -1751,7 +1739,7 @@ let produce_diff_output_internal (step:step_tree) : unit =
   let ast_before, ast_after = process_ast_before_after_for_diff style_before style_after ast_before ast_after in
   (* Common printing function *)
   let output_ast style filename_prefix ast =
-    output_prog_check_empty style ctx filename_prefix ast;
+    output_prog style ctx filename_prefix ast;
     Flags.verbose_info "Generated: %s%s" filename_prefix ctx.extension;
     in
   (* Generate files. *)

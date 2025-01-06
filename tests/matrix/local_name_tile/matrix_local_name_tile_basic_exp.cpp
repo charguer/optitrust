@@ -1,15 +1,13 @@
 #include <optitrust.h>
 
-typedef int T;
-
 void malloc_uninit_pre() {
   __pure();
-  T* const a = (T*)MALLOC3(10, 10, 4, sizeof(T));
+  int* const a = (int*)malloc(MSIZE3(10, 10, 4) * sizeof(int));
   const __ghost_fn focus = __ghost_begin(
       group2_focus_subrange_uninit,
       "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10, 10, 4, i, j, "
       "k)] ~> Cell, sub_range := 2..10");
-  T* const x = (T*)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
+  int* const x = (int*)malloc(MSIZE3(10 - 0, 10 - 2, 4 - 0) * sizeof(int));
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");
@@ -75,15 +73,15 @@ void malloc_uninit_pre() {
         __with("justif := shift_groups");
       },
       "");
-  MFREE3(10 - 0, 10 - 2, 4 - 0, x);
+  free(x);
   __ghost_end(focus);
-  MFREE3(10, 10, 4, a);
+  free(a);
   int z = 0;
 }
 
 void malloc_uninit_post() {
   __pure();
-  T* const a = (T*)MALLOC1(10, sizeof(T));
+  int* const a = (int*)malloc(MSIZE1(10) * sizeof(int));
   const __ghost_fn focus = __ghost_begin(
       group_focus_subrange_uninit,
       "items := fun i -> &a[MINDEX1(10, i)] ~> Cell, sub_range := 2..10");
@@ -92,7 +90,7 @@ void malloc_uninit_post() {
     __xwrites("&a[MINDEX1(10, i1)] ~> Cell");
     a[MINDEX1(10, i1)] = 1;
   }
-  T* const x = (T*)MALLOC1(10 - 2, sizeof(T));
+  int* const x = (int*)malloc(MSIZE1(10 - 2) * sizeof(int));
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix1(10 - 2))");
@@ -122,19 +120,19 @@ void malloc_uninit_post() {
         __with("justif := shift_groups");
       },
       "");
-  MFREE1(10 - 2, x);
+  free(x);
   __ghost_end(focus);
-  MFREE1(10, a);
+  free(a);
 }
 
 void malloc_uninit_prepost() {
   __pure();
-  T* const a = (T*)MALLOC3(10, 10, 4, sizeof(T));
+  int* const a = (int*)malloc(MSIZE3(10, 10, 4) * sizeof(int));
   const __ghost_fn focus = __ghost_begin(
       group2_focus_subrange_uninit,
       "items := fun i -> fun j -> for k in 0..4 -> &a[MINDEX3(10, 10, 4, i, j, "
       "k)] ~> Cell, sub_range := 2..10");
-  T* const x = (T*)MALLOC3(10 - 0, 10 - 2, 4 - 0, sizeof(T));
+  int* const x = (int*)malloc(MSIZE3(10 - 0, 10 - 2, 4 - 0) * sizeof(int));
   __ghost(
       [&]() {
         __consumes("_Uninit(x ~> Matrix3(10 - 0, 10 - 2, 4 - 0))");
@@ -175,7 +173,7 @@ void malloc_uninit_prepost() {
         __with("justif := shift_groups");
       },
       "");
-  MFREE3(10 - 0, 10 - 2, 4 - 0, x);
+  free(x);
   __ghost_end(focus);
-  MFREE3(10, 10, 4, a);
+  free(a);
 }

@@ -134,4 +134,5 @@ let%transfo dps_def ?(arg : string = "res") ?(fn_name: string = "") (tg : target
 let%transfo dps_call ?(dps : string = "") (tg : target) : unit =
   Target.iter (fun p ->
     Target.apply_at_path (Function_core.dps_call_on dps) (Path.parent p)
-  ) tg
+  ) tg;
+  Scope.infer_var_ids ()

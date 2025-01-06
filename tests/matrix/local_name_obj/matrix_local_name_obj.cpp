@@ -45,10 +45,10 @@ int main() {
 
 // Allocate bagsNext and bagsCur with empty bags in every cell
 
-  bag* const bagCur = (bag* const) MALLOC1(nbCells, sizeof(bag));
+  bag* const bagCur = MALLOC1(bag, nbCells);
   bag_iter bag_it;
 
-  bag* const bagNext = (bag* const) MALLOC1(nbCells, sizeof(bag));
+  bag* const bagNext = MALLOC1(bag, nbCells);
   for (int idCell = 0; idCell < nbCells; idCell++){
     bag_init(&bagNext[MINDEX1(nbCells,idCell)], 0, idCell);
   }
@@ -62,8 +62,8 @@ int main() {
   for (int idCell = 0; idCell < nbCells; idCell++){
     bag_swap(&bagNext[MINDEX1(nbCells,idCell)], &bagCur[MINDEX1(nbCells,idCell)]);
   }
-  MFREE(bagCur);
-  MFREE(bagNext);
+  free(bagCur);
+  free(bagNext);
 
   return 0;
 

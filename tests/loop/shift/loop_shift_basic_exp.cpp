@@ -9,14 +9,14 @@ int main() {
     __strict();
     __smodifies("&x ~> Cell");
     const int i = i2 - 2;
-    __ghost(assume, "F := in_range(i, 0..10)");
+    __ghost(assume, "P := in_range(i, 0..10)");
     x += i;
   }
   for (int j2 = 0; j2 < st + N - st; j2++) {
     __strict();
     __smodifies("&x ~> Cell");
     const int j = j2 - -st;
-    __ghost(assume, "F := in_range(j, st..st + N)");
+    __ghost(assume, "P := in_range(j, st..st + N)");
     x += j;
   }
   int shift = 5;
@@ -29,7 +29,7 @@ int main() {
     __strict();
     __smodifies("&x ~> Cell");
     const int m = m3 - (4 - 2);
-    __ghost(assume, "F := in_range(m, 2..N - 2)");
+    __ghost(assume, "P := in_range(m, 2..N - 2)");
     x += m;
   }
 }
@@ -43,7 +43,7 @@ void excl_array(int* t, int n) {
     __strict();
     __xmodifies("&t[MINDEX1(n, j - 2)] ~> Cell");
     const int i = j - 2;
-    __ghost(assume, "F := in_range(i, 0..n)");
+    __ghost(assume, "P := in_range(i, 0..n)");
     t[MINDEX1(n, i)] += i;
   }
   __ghost(group_unshift,

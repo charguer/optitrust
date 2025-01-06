@@ -218,6 +218,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           (strquote "def-type", typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_let_mult _ -> [] (* TODO: *)
+    | Trm_predecl (x,typ) ->
+        [ kind_to_field "var-predecl";
+          (strquote "name", strquote x.name); (* TODO: #var-id , also encode namespaces and id ? *)
+          (strquote "def-type", typ_to_json typ)]
     | Trm_typedef td ->
       [ kind_to_field "typdef";
         (strquote "name", strquote td.typedef_name.name); (* TODO: #var-id , also encode namespaces and id ? *)

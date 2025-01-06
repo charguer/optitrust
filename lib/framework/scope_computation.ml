@@ -8,7 +8,7 @@ exception InvalidVarId of string
 
 type fun_prototype = {
   (* args: var list; *)
-  ghost_args: var list;
+  ghost_args: (var * bool) list; (* ghost_name, is_implicit *)
 }
 
 (* LATER: support overloading. here or encoding? *)
@@ -84,7 +84,7 @@ let check_unique_var_ids (t : trm) : unit =
   in
   let rec aux t =
     begin match t.desc with
-    | Trm_let ((x, _), body) when not (Trm.is_fun_predecl t) ->
+    | Trm_let ((x, _), body) ->
       add_var x
     | Trm_let_mult bs ->
       List.iter (fun ((x, _), _) -> add_var x) bs
@@ -227,7 +227,7 @@ let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
     begin try
       Var_map.find x scope_ctx.fun_prototypes
     with
-    | Not_found when var_eq x Resource_trm.var_admitted -> { ghost_args = [Resource_trm.var_justif] }
+    | Not_found when var_eq x Resource_trm.var_admitted -> { ghost_args = [Resource_trm.var_justif, false] }
     | Not_found when var_eq x Resource_trm.var_assert_alias -> Var_map.find Resource_trm.var_assert_eq scope_ctx.fun_prototypes
     | Not_found -> failwith "Could not find a prototype for function %s" (var_to_string x)
     end
@@ -236,10 +236,10 @@ let find_prototype (scope_ctx: scope_ctx) (t: trm): fun_prototype =
 let on_ghost_arg_name (scope_ctx: scope_ctx) (fn: trm)
   (f : var Qualified_map.t -> var list ref -> 'a) : 'a =
   let fn_prototype = find_prototype scope_ctx fn in
-  let ghost_proto_arg_map = List.fold_left (fun map ghost_var ->
+  let ghost_proto_arg_map = List.fold_left (fun map (ghost_var, _) ->
     Qualified_map.add (ghost_var.namespaces, ghost_var.name) ghost_var map
   ) Qualified_map.empty fn_prototype.ghost_args in
-  let ghost_args_proto = ref fn_prototype.ghost_args in
+  let ghost_args_proto = ref (List.filter_map (fun (ghost_var, is_implicit) -> if is_implicit then None else Some ghost_var) fn_prototype.ghost_args) in
   f ghost_proto_arg_map ghost_args_proto
 
 let check_ghost_arg_name_aux (ghost_proto_arg_map : var Qualified_map.t) (_ : var list ref)
@@ -328,7 +328,7 @@ let scope_ctx_exit outer_ctx inner_ctx t =
 let post_process_ctx ~(failure_allowed : bool) ctx t =
   match trm_let_fun_inv t with
   | Some (f_var, _, _, _, FunSpecContract spec) ->
-    { ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map fst spec.pre.pure } ctx.fun_prototypes }
+    { ctx with fun_prototypes = Var_map.add f_var { ghost_args = List.map (fun (arg_var, arg_typ) -> (arg_var, Typ.is_typ_type arg_typ)) spec.pre.pure } ctx.fun_prototypes }
   | Some (f_var, _, _, _, FunSpecReverts f_reverted) ->
     let f_reverted = infer_map_var ~failure_allowed ctx f_reverted in
     begin match Var_map.find_opt f_reverted ctx.fun_prototypes with

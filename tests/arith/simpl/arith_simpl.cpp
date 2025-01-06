@@ -110,7 +110,7 @@ int main()
   p = 4 + n - n; // = 4
   p = m + -2;
 
-  int* arr = (int*) MALLOC1(exact_div(1024, 32), sizeof(int));
+  int* arr = MALLOC1(int, exact_div(1024, 32));
   free(arr);
   arr = (int*) malloc(sizeof(int[exact_div(1024, 32)]));
   for (q = 0; q < exact_div(1024, 32); q++) { // q < 32

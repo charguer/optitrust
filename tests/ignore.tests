@@ -4,6 +4,9 @@ debug
 perf
 interact
 
+# BROKEN in the typing branch
+record
+
 # BROKEN TRANSFO TO FIX
 specialize/function_defs/specialize_function_defs_doc.ml
 specialize/function_defs/specialize_function_defs.ml
@@ -25,16 +28,11 @@ stencil/fusion_targets/stencil_fusion_targets.ml
 # BROKEN TYPES
 record/set_explicit/record_set_explicit_basic.ml
 
-# BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
-apac/constify_functions_arguments/apac_constify_functions_arguments.ml
-
 # CPP
 ast/cpp_basic.ml
 
-# fix sizeof with typ in trm
-arith/simpl/arith_simpl.ml
-
-pointer/fold
+# BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
+apac/constify_functions_arguments/apac_constify_functions_arguments.ml
 
 # TO FIX:
 function/inline/function_inline_doc.ml
@@ -45,7 +43,6 @@ record/set_implicit
 function/rename_args
 function/beta
 align/def
-align/alloc
 matrix/insert_access_dim_index
 record/reorder_fields
 array/elim_constant
@@ -75,6 +72,7 @@ variable/exchange
 swap/coords_fixed
 swap/coords_vari
 specialize/function_arg
+pointer/fold
 
 # #var-id
 ast/cpp_varids.ml

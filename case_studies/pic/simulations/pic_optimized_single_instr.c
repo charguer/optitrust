@@ -64,12 +64,6 @@ void* MALLOC_ALIGNED3(size_t N1, size_t N2, size_t N3, size_t bytes_per_item,
 void* MALLOC_ALIGNED4(size_t N1, size_t N2, size_t N3, size_t N4,
                       size_t bytes_per_item, size_t alignment);
 
-void MFREE(void* p);
-
-void MFREE1(int N1, void* p);
-
-void MFREE2(int N1, int N2, void* p);
-
 bool ANY_BOOL();
 
 int ANY(int maxValue);
@@ -529,9 +523,9 @@ void deallocateStructures() {
       bag_free(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
   }
-  MFREE(bagsNexts);
-  MFREE(depositThreadCorners);
-  MFREE(depositCorners);
+  free(bagsNexts);
+  free(depositThreadCorners);
+  free(depositCorners);
   free(bagsCur);
   free(field);
 }

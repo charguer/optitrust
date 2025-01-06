@@ -6,9 +6,9 @@ int main () {
   const int N1 = 10;
   const int N2 = 10;
   const int N3 = 10;
-  int* p = (int*) CALLOC3(N1, N2, N3, sizeof(int));
+  int* p = CALLOC3(int, N1, N2, N3);
   p[MINDEX3(N1,N2,N3,i1,i2,i3)] = N1;
-  int* q = (int*) CALLOC3(N1, N2, N3, sizeof(int));
+  int* q = CALLOC3(int, N1, N2, N3);
   q[MINDEX3(N1,N2,N3,i1,i2,i3)] = N2;
   return 0;
 }

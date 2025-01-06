@@ -54,5 +54,5 @@ void g() {
   __GHOST_END(f);
   obj c;
   c = a;
-  MFREE1(2, t);
+  free(t);
 }

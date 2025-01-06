@@ -2,19 +2,19 @@
 
 __ghost_ret trivial_init() {
   __requires("k: int");
-  __ensures("Triv(k)");
+  __ensures("__is_true(k == k)");
   __admitted();
 }
 
 __ghost_ret trivial_change() {
   __requires("k: int");
   __requires("old_k: int");
-  __requires("Triv(old_k)");
-  __ensures("Triv(k)");
+  __requires("__is_true(old_k == old_k)");
+  __ensures("__is_true(k == k)");
   __admitted();
 }
 
-void req_triv(int k) { __requires("Triv(k)"); }
+void req_triv(int k) { __requires("__is_true(k == k)"); }
 
 void f() {
   __pure();

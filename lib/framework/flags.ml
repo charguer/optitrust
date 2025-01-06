@@ -23,7 +23,7 @@ let dump_ast_details : bool ref = ref false
 
 (** [pretty_matrix_notation]: flag to display matrix macros with syntactic sugar:
   MALLOC2(n, m, sizeof(T)) --> malloc(sizeof(T[n][m]))
-  x[MINDEX2(n, m, i, j)] --> x[i][j]
+  x[MINDEX2(n, m, i, j)] --> x[i;j]
    *)
 let pretty_matrix_notation : bool ref = ref false
 

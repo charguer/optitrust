@@ -121,26 +121,22 @@ and print_prim style (p : prim) : document =
   | Prim_compound_assign_op op ->
     let dop = print_binop op in
     print_node "Prim_compound_assign_op" ^^ dop
-  | Prim_ref ->
-     print_node "Prim_ref"
-  | Prim_ref_array dims ->
-     let dims_doc = list_to_doc ~empty ~bounds:[lbracket; rbracket] (List.map (print_trm style) dims) in
-     print_node "Prim_ref_array" ^^ dims_doc
-  | Prim_new ->
-     print_node "Prim_new"
+  | Prim_ref -> print_node "Prim_ref"
+  | Prim_ref_uninit -> print_node "Prim_ref_uninit"
+  | Prim_new -> print_node "Prim_new"
+  | Prim_new_uninit -> print_node "Prim_new_uninit"
   | Prim_delete -> print_node "Prim_delete"
 
 (** [print_lit l]: converts literals to pprint document *)
 and print_lit (l : lit) : document =
   match l with
   | Lit_unit -> string "Lit_unit"
-  | Lit_uninitialized _ -> string "Lit_uninitialized"
   | Lit_bool b -> print_node "Lit_bool" ^^ string (string_of_bool b)
   | Lit_int (ty, n) -> print_node "Lit_int" ^^ string (string_of_int n)
   | Lit_float (ty, f) -> print_node "Lit_float" ^^ string (string_of_float f)
   | Lit_string s ->
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
-  | Lit_nullptr _ -> print_node "Lit_nullptr"
+  | Lit_null _ -> print_node "Lit_null"
 
 (** [print_attribute style a]: converts attribute [a] to pprint document *)
 and print_attribute style (a : attribute) : document =
@@ -192,6 +188,8 @@ and print_trm_desc style (t : trm_desc) : document =
     let dtl = List.map (fun ((x, ty), t) ->
       parens (parens (print_var style x ^^ comma ^^ print_typ style ty) ^^ comma ^^ print_trm style t)) bs in
     print_node "Trm_let_mult" ^^ parens (print_list dtl)
+  | Trm_predecl (x, tx) ->
+    print_node "Trm_predecl" ^^ parens (print_var style x ^^ comma ^^ break 1 ^^ print_typ style tx)
   | Trm_typedef td ->
     print_node "Trm_typedef" ^^ print_typedef style td
   | Trm_if (c, t, e) ->
@@ -478,6 +476,7 @@ and print_cstyle_annot style (ann : cstyle_annot) : document =
  | Brace_init -> string "Brace_init"
  | Display_null_uppercase -> string "Display_null_uppercase"
  | ResourceFormula -> string "ResourceFormula"
+ | ResourceModel -> string "ResourceModel"
  | Type -> string "Type"
  | InjectedClassName -> string "InjectedClassName"
  | BodyHiddenForLightDiff -> string "BodyHiddenForLightDiff"

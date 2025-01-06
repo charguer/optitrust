@@ -78,9 +78,23 @@ let rec desugar_formula (formula: formula): formula =
   (* Warning: this function can be called on formulas with unresolved variable ids, therefore, we need to invert it by name *)
   (* With incremental var-id resolution we could heavily simplify this *)
   Pattern.pattern_match formula [
-    Pattern.(trm_apps2 (trm_var (check (fun v -> v.name = "_HasModel"))) !__ (trm_apps (trm_var !__) !__ __)) (fun var f args () ->
+    Pattern.(formula_model !__ (trm_apps (trm_var !__) !__ __)) (fun var f args () ->
         if f.name <> sprintf "Matrix%d" (List.length args) then raise_notrace Pattern.Next;
         formula_matrix var args
+      );
+    (* Allow using operators / and - in first argument of RO(_,_) while normally they are reserved for integers *)
+    Pattern.(trm_apps2 (trm_var (check (fun v -> v.name = var_read_only.name))) !__ !__) (fun frac hprop () ->
+        let rec desugar_frac f =
+          Pattern.pattern_match f [
+            Pattern.(trm_sub !__ !__) (fun frac1 frac2 () ->
+              formula_frac_sub (desugar_frac frac1) (desugar_frac frac2));
+            Pattern.(trm_trunc_div !__ !__) (fun base divisor () ->
+              formula_frac_div (desugar_frac base) divisor);
+            Pattern.(trm_int (eq 1)) (fun () -> full_frac);
+            Pattern.__ (fun () -> f)
+          ]
+        in
+        formula_read_only ~frac:(desugar_frac frac) (desugar_formula hprop)
       );
     Pattern.__ (fun () -> trm_map desugar_formula formula)
   ]
@@ -164,7 +178,7 @@ let contract_outside_loop range contract =
 let parallel_reads_inside_loop range par_reads =
   List.map (fun (x, formula) ->
       let { frac; formula } = formula_read_only_inv_all formula in
-      (x, formula_read_only ~frac:(trm_trunc_div frac (formula_range_count (formula_loop_range range))) formula)
+      (x, formula_read_only ~frac:(formula_frac_div frac (formula_range_count (formula_loop_range range))) formula)
     ) par_reads
 
 (** [contract_inside_loop range contract] takes the [contract] of a for-loop over [range] and returns
@@ -173,7 +187,7 @@ let contract_inside_loop range contract =
   let par_reads_inside = parallel_reads_inside_loop range contract.parallel_reads in
   let pre = Resource_set.union contract.invariant (Resource_set.add_linear_list par_reads_inside contract.iter_contract.pre) in
   let index_in_range_hyp = (new_anon_hyp (), formula_in_range (trm_var range.index) (formula_loop_range range)) in
-  let pre = { pre with pure = index_in_range_hyp :: contract.loop_ghosts @ pre.pure } in
+  let pre = { pre with pure = (range.index, typ_int) :: index_in_range_hyp :: contract.loop_ghosts @ pre.pure } in
   let invariant_after_one_iter = Resource_set.subst_loop_range_step range contract.invariant in
   let post = Resource_set.add_linear_list par_reads_inside contract.iter_contract.post in
   let post = Resource_set.union invariant_after_one_iter post in

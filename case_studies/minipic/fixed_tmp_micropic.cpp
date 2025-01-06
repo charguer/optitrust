@@ -211,7 +211,7 @@ const int nbCorners = 8;
   __consumes("_RO(#_1, fieldAtCorners ~> Matrix1(nbCorners))");
   __produces("particles ~> Matrix1(nbParticles)");
   __produces("_RO(#_1, fieldAtCorners ~> Matrix1(nbCorners))");
-  vect* const lFieldAtCorners = (vect*) MALLOC1(nbCorners, sizeof(vect));
+  vect* const lFieldAtCorners = MALLOC1(vect, nbCorners);
   __ghost([&] ()   {
     __consumes("_Uninit(lFieldAtCorners ~> Matrix1(nbCorners))");
     __produces("lFieldAtCorners ~> Matrix1(nbCorners)");
@@ -288,7 +288,7 @@ const int nbCorners = 8;
       __admitted();
     }, "");
   }
-  particle* const lParticles = (particle*) MALLOC1(nbParticles, sizeof(particle));
+  particle* const lParticles = MALLOC1(particle, nbParticles);
   __ghost([&] ()   {
     __consumes("_Uninit(lParticles ~> Matrix1(nbParticles))");
     __produces("lParticles ~> Matrix1(nbParticles)");
@@ -528,7 +528,7 @@ const int nbCorners = 8;
           __admitted();
         }, "");
       }
-      MFREE1(nbCorners, coeffs);
+      free(coeffs);
       const double accelX = particleCharge / particleMass * (  (vect) {fieldAtPosX / (particleCharge / particleMass * (
             stepDuration * stepDuration)), fieldAtPosY / (particleCharge / particleMass * (
             stepDuration * stepDuration)), fieldAtPosZ / (particleCharge / particleMass * (
@@ -767,12 +767,12 @@ const int nbCorners = 8;
     __admitted();
     __with("justif := shift_groups");
   }, "");
-  MFREE1(nbParticles, lParticles);
+  free(lParticles);
   __ghost([&] ()   {
     __consumes("_Uninit(lFieldAtCorners ~> Matrix1(nbCorners))");
     __produces("_Uninit(lFieldAtCorners ~> Matrix1(nbCorners))");
     __admitted();
     __with("justif := shift_groups");
   }, "");
-  MFREE1(nbCorners, lFieldAtCorners);
+  free(lFieldAtCorners);
 }

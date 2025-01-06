@@ -131,8 +131,8 @@ and constr =
   | Constr_var of constr_name
   (* lit *)
   | Constr_lit of (lit -> bool)
-  (* decl_fun: args, rettyp, is_def, body *)
-  | Constr_fun of target_list_pred * typ_constraint * bool * target
+  (* decl_fun: args, rettyp, body *)
+  | Constr_fun of target_list_pred * typ_constraint * target
   (* app: function, arguments *)
   | Constr_app of target * target_list_pred * bool
   (* label *)
@@ -160,7 +160,7 @@ and constr =
   (* Constraint that matches only the root of the AST *)
   | Constr_root
   (* Constraint that matches primitive operations *)
-  | Constr_prim of (prim -> bool)
+  | Constr_prim of (typ -> bool) * (prim -> bool)
   (* Constraint that matches ast nodes whose marks satisfy the predicate *)
   | Constr_mark of (mark -> bool) * string
   (* Constraint that matches a union of targets *)
@@ -342,8 +342,8 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_seq _tgt_list_pred -> c
   | Constr_var _name -> c
   | Constr_lit _-> c
-  | Constr_fun (tgt_list_pred, ty_pred, is_def, p_body) ->
-     Constr_fun (tgt_list_pred, ty_pred, is_def, aux p_body)
+  | Constr_fun (tgt_list_pred, ty_pred, p_body) ->
+     Constr_fun (tgt_list_pred, ty_pred, aux p_body)
   | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
      let s_fun = aux p_fun in
      Constr_app (s_fun, tgt_list_pred, accept_encoded)
@@ -512,12 +512,11 @@ let add_dir (d : dir) (dll : paths) : paths =
 let is_equal_lit (l : lit) (l' : lit) =
   match l, l' with
   | Lit_unit, Lit_unit -> true
-  | Lit_uninitialized _, Lit_uninitialized _ -> true
   | Lit_bool b, Lit_bool b' when b = b' -> true
   | Lit_int (_, n), Lit_int (_, n') when n = n' -> true
   | Lit_float (_, d), Lit_float (_, d') when d = d' -> true
   | Lit_string s, Lit_string s' when s = s' -> true
-  | Lit_nullptr _, Lit_nullptr _ -> true
+  | Lit_null _, Lit_null _ -> true
   | _ -> false
 
 (** [get_trm_kind t]: gets the kind of trm [t] *)
@@ -532,7 +531,7 @@ let get_trm_kind (t : trm) : trm_kind =
   | Trm_lit _ -> instr_if_unit
   | Trm_prim _ -> TrmKind_Expr
   | Trm_record _ | Trm_array _ -> TrmKind_Expr
-  | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
+  | Trm_let _ | Trm_let_mult _ | Trm_predecl _ -> TrmKind_Instr
   | Trm_typedef _ -> TrmKind_Typedef
   | Trm_if _-> instr_if_unit
   | Trm_fun _ -> TrmKind_Expr
@@ -792,14 +791,10 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     check_name name x.name
   | Constr_lit pred_l, Trm_lit l ->
     pred_l l
-  | Constr_fun (cl_args, ty_pred, is_def, p_body), Trm_fun (args, tx, body, _) ->
-    let body_check =
-      let is_body_unit = is_trm_uninitialized body in
-      if is_def then (check_target p_body body && not (is_body_unit))
-        else is_body_unit in
+  | Constr_fun (cl_args, ty_pred, p_body), Trm_fun (args, tx, body, _) ->
     ty_pred tx &&
     check_args cl_args args &&
-    body_check
+    check_target p_body body
   | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args, _) ->
     if not accept_encoded then
       begin match f.desc with
@@ -833,8 +828,8 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
   | Constr_bool b, _ -> b
   | Constr_root, _ -> trm_is_mainfile t
 
-  | Constr_prim pred, Trm_prim (_, p1) ->
-    pred p1
+  | Constr_prim (pred_ty, pred_prim), Trm_prim (ty1, p1) ->
+    pred_ty ty1 && pred_prim p1
   | Constr_mark (pred, _m), _ ->
     if !old_resolution then begin
       let t_marks = trm_get_marks t in
@@ -849,9 +844,8 @@ let rec check_constraint ~(incontracts:bool) (c : constr) (t : trm) : bool =
     end
   | Constr_hastype pred , _ ->
     check_hastype pred t
-  | Constr_var_init , Trm_apps ({desc = Trm_prim (_, Prim_ref); _}, [arg], _) -> false
-  | Constr_var_init, Trm_lit (Lit_uninitialized _) -> false
-  | Constr_var_init , _ -> true
+  | Constr_var_init, Trm_apps ({desc = Trm_prim (_, (Prim_ref | Prim_ref_uninit)); _}, _, _) -> false
+  | Constr_var_init, _ -> true
   | Constr_array_init, Trm_array _ -> true
   | Constr_struct_init, Trm_record _ -> true
   | Constr_omp (pred, _), _ -> trm_has_pragma pred t
@@ -1325,24 +1319,24 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
   let loc = t.loc in
   (* no exploration in depth in included files *)
   if trm_is_include t then begin
-     Flags.verbose_warn loc "Constr.explore_in_depth: no exploration in included files";
-     []
-     end
+    Flags.verbose_warn loc "Constr.explore_in_depth: no exploration in included files";
+    []
+  end
   else
-     begin match t.desc with
-     | Trm_let ((_, _), body) ->
-       add_dir Dir_let_body (aux body)
-     | Trm_fun (_, _, body, contract) ->
-        add_dir Dir_body (aux_body body) @
-        begin match contract with
-        | FunSpecContract contract ->
-          if incontracts then
-            (aux_contract_dir Contract_pre contract.pre) @
-            (aux_contract_dir Contract_post contract.post)
-          else []
-        | _ -> []
-        end
-     | Trm_typedef td  ->
+    begin match t.desc with
+    | Trm_let ((_, ty), body) ->
+      (if incontracts then add_dir Dir_type (aux ty) else []) @ add_dir Dir_let_body (aux body)
+    | Trm_fun (_, _, body, contract) ->
+      add_dir Dir_body (aux_body body) @
+      begin match contract with
+      | FunSpecContract contract ->
+        if incontracts then
+          (aux_contract_dir Contract_pre contract.pre) @
+          (aux_contract_dir Contract_post contract.post)
+        else []
+      | _ -> []
+      end
+    | Trm_typedef td ->
       begin match td.typedef_body with
       | Typedef_record rfl ->
         let res = List.fold_lefti (fun i acc (rf, _) ->
@@ -1373,72 +1367,74 @@ and explore_in_depth ~(incontracts:bool) ?(depth : depth = DepthAny) (p : target
            (aux))
       | _ -> []
       end
-     | Trm_abort (Ret (Some body)) ->
-        add_dir Dir_body (aux body)
-     | Trm_for (range, body, contract) ->
-        (add_dir Dir_for_start (aux range.start)) @
-        (add_dir Dir_for_stop (aux range.stop)) @
-        (add_dir Dir_for_step (aux range.step)) @
-        (add_dir Dir_body (aux_body body)) @
-        if incontracts then
-          (aux_contract_dir Contract_pre contract.iter_contract.pre) @
-          (aux_contract_dir Contract_post contract.iter_contract.post) @
-          (aux_resource_set_dir Contract_loop_ghosts Resource_set_pure contract.loop_ghosts) @
-          (aux_resource_set_dir Contract_parallel_reads Resource_set_linear contract.parallel_reads) @
-          (aux_contract_dir Contract_invariant contract.invariant)
-        else []
+    | Trm_abort (Ret (Some body)) ->
+      add_dir Dir_body (aux body)
+    | Trm_for (range, body, contract) ->
+      (add_dir Dir_for_start (aux range.start)) @
+      (add_dir Dir_for_stop (aux range.stop)) @
+      (add_dir Dir_for_step (aux range.step)) @
+      (add_dir Dir_body (aux_body body)) @
+      if incontracts then
+        (aux_contract_dir Contract_pre contract.iter_contract.pre) @
+        (aux_contract_dir Contract_post contract.iter_contract.post) @
+        (aux_resource_set_dir Contract_loop_ghosts Resource_set_pure contract.loop_ghosts) @
+        (aux_resource_set_dir Contract_parallel_reads Resource_set_linear contract.parallel_reads) @
+        (aux_contract_dir Contract_invariant contract.invariant)
+      else []
 
-     | Trm_for_c (init, cond, step, body, invariant) ->
-        (* init *)
-        (add_dir Dir_for_c_init (aux init)) @
-        (* cond *)
-        (add_dir Dir_cond (aux cond)) @
-        (* step *)
-        (add_dir Dir_for_c_step (aux step)) @
-        (* body *)
-        (add_dir Dir_body (aux_body body)) @
-        if incontracts then
-          Option.flat_map (fun invariant -> aux_contract_dir Contract_invariant invariant) invariant
-        else []
-     | Trm_while (cond, body) ->
-        (* cond *)
-        (add_dir Dir_cond (aux cond)) @
-        (* body *)
-        (add_dir Dir_body (aux_body body))
-     | Trm_do_while (body, cond) ->
-        (* body *)
-        (add_dir Dir_body (aux_body body)) @
-        (* cond *)
-        (add_dir Dir_cond (aux cond))
-     | Trm_if (cond, then_t, else_t) ->
-        (* cond *)
-        (add_dir Dir_cond (aux cond)) @
-        (* then *)
-        (add_dir Dir_then (aux_body then_t)) @
-        (* else *)
-        (add_dir Dir_else (aux_body else_t))
-     | Trm_apps (f, args, ghost_args) ->
-        (* fun *)
-        (add_dir Dir_app_fun (aux f)) @
-        (* args *)
-        (explore_list args (fun n -> Dir_arg_nth n) (aux)) @
-        (* ghost args *)
-        (explore_list ghost_args (fun n -> Dir_ghost_arg_nth n) (fun (g, t) -> aux t))
-     | Trm_array (_, tl) ->
-        explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
-     | Trm_seq (tl, _) ->
-        explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
-     | Trm_record (_, tl) ->
-        explore_list (List.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
-     | Trm_switch (cond, cases) ->
-        (add_dir Dir_cond (aux cond)) @
-        (List.fold_lefti (fun i epl case -> epl@explore_case ~incontracts depth i case p) [] cases)
-     | Trm_namespace (name, body, inline) ->
-        add_dir Dir_namespace (aux body)
-     | _ ->
-        Flags.verbose_warn loc "explore_in_depth: cannot find a subterm to explore";
-        []
-     end
+    | Trm_for_c (init, cond, step, body, invariant) ->
+      (* init *)
+      (add_dir Dir_for_c_init (aux init)) @
+      (* cond *)
+      (add_dir Dir_cond (aux cond)) @
+      (* step *)
+      (add_dir Dir_for_c_step (aux step)) @
+      (* body *)
+      (add_dir Dir_body (aux_body body)) @
+      if incontracts then
+        Option.flat_map (fun invariant -> aux_contract_dir Contract_invariant invariant) invariant
+      else []
+    | Trm_while (cond, body) ->
+      (* cond *)
+      (add_dir Dir_cond (aux cond)) @
+      (* body *)
+      (add_dir Dir_body (aux_body body))
+    | Trm_do_while (body, cond) ->
+      (* body *)
+      (add_dir Dir_body (aux_body body)) @
+      (* cond *)
+      (add_dir Dir_cond (aux cond))
+    | Trm_if (cond, then_t, else_t) ->
+      (* cond *)
+      (add_dir Dir_cond (aux cond)) @
+      (* then *)
+      (add_dir Dir_then (aux_body then_t)) @
+      (* else *)
+      (add_dir Dir_else (aux_body else_t))
+    | Trm_apps (f, args, ghost_args) ->
+      (* fun *)
+      (add_dir Dir_app_fun (aux f)) @
+      (* args *)
+      (explore_list args (fun n -> Dir_arg_nth n) (aux)) @
+      (* ghost args *)
+      (explore_list ghost_args (fun n -> Dir_ghost_arg_nth n) (fun (g, t) -> aux t))
+    | Trm_array (_, tl) ->
+      explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
+    | Trm_seq (tl, _) ->
+      explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
+    | Trm_record (_, tl) ->
+      explore_list (List.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
+    | Trm_switch (cond, cases) ->
+      (add_dir Dir_cond (aux cond)) @
+      (List.fold_lefti (fun i epl case -> epl@explore_case ~incontracts depth i case p) [] cases)
+    | Trm_namespace (name, body, inline) ->
+      add_dir Dir_namespace (aux body)
+    | Trm_prim (ty, _) ->
+      if incontracts then add_dir Dir_type (aux ty) else []
+    | _ ->
+      Flags.verbose_warn loc "explore_in_depth: cannot find a subterm to explore";
+      []
+    end
 
 (*
   call resolve_target_simple on given case name and body
@@ -1526,6 +1522,10 @@ and follow_dir (aux:trm->paths) (d : dir) (t : trm) : paths =
   | Dir_name, Trm_goto x ->
     (* CHECK: #var-id-dir-name , is this correct? *)
     add_dir Dir_name (aux (trm_var ?loc (name_to_var x)))
+  | Dir_type, Trm_let ((_,t), _) ->
+    add_dir Dir_type (aux t)
+  | Dir_type, Trm_prim (t, _) ->
+    add_dir Dir_type (aux t)
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt cases n
        (fun (tl, body) ->

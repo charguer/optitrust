@@ -13,6 +13,7 @@ let handle_exn_response sub_handler request =
   | Trace_deserialization_error path -> Dream.respond ~status:`Internal_Server_Error ("Trace deserialization failed for " ^ path)
   | Trace_out_of_date path -> Dream.respond ~status:(`Status 419) ("Wrong timestamp for " ^ path)
   | Step_not_found (path, step_id) -> Dream.respond ~status:`Not_Found ("Could not find step " ^ string_of_int step_id ^ " in trace " ^ path)
+  | Trace.MissingAst -> Dream.respond ~status:`Not_Found ("This AST is missing, maybe retry generating the trace with Flags.strip_trace := false")
 
 let get_query request query_name =
   match Dream.query request query_name with

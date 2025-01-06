@@ -5,12 +5,12 @@ extern int N;
 typedef float T;
 
 int main() {
-  T* a = (T*) MALLOC1(N, sizeof(T));
+  T* a = MALLOC1(T, N);
   for (int i = 0; i < N; i++) {
     a[MINDEX1(N, i)] = i;
   }
 
-  T* b = (T*) MALLOC1(N - 2, sizeof(T));
+  T* b = MALLOC1(T, N - 2);
   for (int i = 0; i < N - 2; i++) {
     b[MINDEX1(N, i)] = a[MINDEX1(N, i)] + a[MINDEX1(N, i + 1)] + a[MINDEX1(N, i + 1)];
   }

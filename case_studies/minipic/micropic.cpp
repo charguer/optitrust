@@ -243,10 +243,10 @@ void simulate_single_cell(double deltaT,
       */
 
       // Interpolate the field based on the position relative to the corners of the cell
-      double* const coeffs = (double*) MALLOC1(nbCorners, sizeof(double));
+      double* const coeffs = MALLOC1(double, nbCorners);
       corner_interpolation_coeff(particles[MINDEX1(nbParticles, idPart)].pos, coeffs);
       const vect fieldAtPos = matrix_vect_mul(coeffs, fieldAtCorners);
-      MFREE1(nbCorners, coeffs);
+      free(coeffs);
 
       // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
       const vect accel = vect_mul(pCharge / pMass, fieldAtPos);

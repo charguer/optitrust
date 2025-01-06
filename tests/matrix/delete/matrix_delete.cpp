@@ -6,23 +6,23 @@ typedef float T;
 void simple(int N) {
   __pure();
 
-  int x;
-  T* const a = (T*) MALLOC1(N, sizeof(T));
-  T* const b = (T*) MALLOC1(N - 2, sizeof(T));
+  int x = 0;
+  T* const a = MALLOC1(T, N);
+  T* const b = MALLOC1(T, N - 2);
   for (int i = 0; i < N; i++) {
     // printf("%i\n", i);
     x += i;
   }
 
-  MFREE1(N, a);
-  MFREE1(N - 2, b);
+  free(a);
+  free(b);
   x++;
 }
 
 void ko(int n) {
-  T* const c = (T*) MALLOC1(n, sizeof(T));
+  T* const c = MALLOC1(T, n);
   for (int i = 0; i < n; i++) {
     c[MINDEX1(n, i)] = i;
   }
-  MFREE1(n, c);
+  free(c);
 }

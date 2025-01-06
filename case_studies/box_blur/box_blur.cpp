@@ -6,7 +6,7 @@
 void blur(float* output, float* input, int w, int h) {
   int w2 = w - 8;
   int h2 = h - 2;
-  float* blur_y = (float*) MALLOC2(h2, w, sizeof(float));
+  float* blur_y = MALLOC2(float, h2, w);
 
   // pour toutes les colonnes
   for (int x = 0; x < w; x++) {

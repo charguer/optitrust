@@ -115,15 +115,15 @@ void harris(float* out, int h, int w, const float* in) {
   const int h2 = h1 - 2;
   const int w2 = w1 - 2;
 
-  float* const gray = (float*) MALLOC2(h, w, sizeof(float));
-  float* const ix = (float*) MALLOC2(h1, w1, sizeof(float));
-  float* const iy = (float*) MALLOC2(h1, w1, sizeof(float));
-  float* const ixx = (float*) MALLOC2(h1, w1, sizeof(float));
-  float* const ixy = (float*) MALLOC2(h1, w1, sizeof(float));
-  float* const iyy = (float*) MALLOC2(h1, w1, sizeof(float));
-  float* const sxx = (float*) MALLOC2(h2, w2, sizeof(float));
-  float* const sxy = (float*) MALLOC2(h2, w2, sizeof(float));
-  float* const syy = (float*) MALLOC2(h2, w2, sizeof(float));
+  float* const gray = MALLOC2(float, h, w);
+  float* const ix = MALLOC2(float, h1, w1);
+  float* const iy = MALLOC2(float, h1, w1);
+  float* const ixx = MALLOC2(float, h1, w1);
+  float* const ixy = MALLOC2(float, h1, w1);
+  float* const iyy = MALLOC2(float, h1, w1);
+  float* const sxx = MALLOC2(float, h2, w2);
+  float* const sxy = MALLOC2(float, h2, w2);
+  float* const syy = MALLOC2(float, h2, w2);
 
   grayscale(gray, h, w, in);
   sobelX(ix, h, w, gray);
@@ -136,13 +136,13 @@ void harris(float* out, int h, int w, const float* in) {
   sum3x3(syy, h1, w1, iyy);
   coarsity(out, h2, w2, sxx, sxy, syy, 0.04f);
 
-  MFREE2(h, w, gray);
-  MFREE2(h1, w1, ix);
-  MFREE2(h1, w1, iy);
-  MFREE2(h1, w1, ixx);
-  MFREE2(h1, w1, ixy);
-  MFREE2(h1, w1, iyy);
-  MFREE2(h2, w2, sxx);
-  MFREE2(h2, w2, sxy);
-  MFREE2(h2, w2, syy);
+  free(gray);
+  free(ix);
+  free(iy);
+  free(ixx);
+  free(ixy);
+  free(iyy);
+  free(sxx);
+  free(sxy);
+  free(syy);
 }

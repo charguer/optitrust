@@ -102,7 +102,7 @@ let inline_on ?(body_mark = no_mark) ?(subst_mark = no_mark) (t: trm): trm =
   | Trm_apps (tfun, fun_call_args, fun_ghost_args) ->
     begin match tfun.desc with
     | Trm_var f ->
-      begin match Internal.toplevel_decl ~require_body:true f with
+      begin match Internal.toplevel_decl f with
       | Some decl ->
         let _, _, fn_def = trm_inv trm_let_inv decl in
         beta_reduce_on ~body_mark ~subst_mark (trm_apps fn_def fun_call_args ~ghost_args:fun_ghost_args)

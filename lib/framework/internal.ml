@@ -181,25 +181,25 @@ let rec get_typvar_from_trm ?(first_match : bool = true) (t : trm) : typvar opti
   | _ -> None
 
 
-(** [local_decl x t]: check if [t] contains a declaration with name [x], if that's the case return the body of the declaration *)
-let local_decl ?(require_body:bool=false) (x : var) (t : trm) : trm option =
+(** [local_decl x t]: check if [t] contains a declaration with name [x], if that's the case return the declaration *)
+let local_decl ?(accept_predecl:bool=false) (x : var) (t : trm) : trm option =
   let tl, _ = trm_inv ~error:"local_decl: expects a sequence" trm_seq_inv t in
   Mlist.fold_left (fun acc t1 ->
     match acc with
     | Some _ -> acc
     | None ->
       begin match t1.desc with
-      | Trm_let ((y, _), body) when var_eq y x ->
-        if require_body && is_fun_predecl t1 then None else Some t1
+      | Trm_let ((y, _), body) when var_eq y x -> Some t1
+      | Trm_predecl (y, _) when accept_predecl && var_eq y x -> Some t1
       | _ -> None
       end
   ) None tl
 
 (** [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function or variable.
   If [require_body] is set to true, then only definitions are considered. *)
-let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
+let toplevel_decl ?(accept_predecl:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
-  local_decl ~require_body x full_ast
+  local_decl ~accept_predecl x full_ast
 
 (* LATER: Use trm_fors_inv instead *)
 (** [get_loop_nest_indices t]: if node [t] represents a loop nest then go through all of them an return an

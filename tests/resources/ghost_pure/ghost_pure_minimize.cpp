@@ -2,18 +2,18 @@
 
 __GHOST(trivial_init) {
   __requires("k: int");
-  __ensures("Triv(k)");
+  __ensures("k = k");
   __admitted();
 }
 
 __GHOST(trivial_change) {
-  __requires("k: int, old_k: int, Triv(old_k)");
-  __ensures("Triv(k)");
+  __requires("k: int, old_k: int, old_k = old_k");
+  __ensures("k = k");
   __admitted();
 }
 
 void req_triv(int k) {
-  __requires("Triv(k)");
+  __requires("k = k");
 }
 
 void f() {
@@ -33,7 +33,7 @@ void f() {
 void g() {
   __pure();
   for (int i = 0; i < 100; ++i) {
-    __xensures("Triv(i)");
+    __xensures("i = i");
     __ghost(trivial_init, "i");
     __ghost(trivial_init, "i*2");
     __ghost(trivial_init, "i+12");

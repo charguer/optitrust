@@ -2,10 +2,10 @@
 
 void f() {
   __pure();
-  int* const a = (int*)MALLOC1(10, sizeof(int));
+  int* const a = (int*)malloc(MSIZE1(10) * sizeof(int));
   const __ghost_fn focus =
       __ghost_begin(group_focus_subrange_uninit, "sub_range := 3..7");
-  int* const b = (int*)MALLOC1(7 - 3, sizeof(int));
+  int* const b = (int*)malloc(MSIZE1(7 - 3) * sizeof(int));
   __ghost(
       [&]() {
         __consumes("_Uninit(b ~> Matrix1(7 - 3))");
@@ -29,7 +29,7 @@ void f() {
         __with("justif := shift_groups");
       },
       "");
-  MFREE1(7 - 3, b);
+  free(b);
   __ghost_end(focus);
-  MFREE1(10, a);
+  free(a);
 }

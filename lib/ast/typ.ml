@@ -9,7 +9,8 @@ let typ_replace desc t = trm_replace desc t
 
 (***************************** Typ vars *************************** *)
 
-let typ_namespace = ["__typ"]
+(* LATER: #typ_namespace: Support for typ_namespace is non-trivial since we should automatically open it in formulas if we want a convenient API. *)
+let typ_namespace = [] (* ["__typ"] *)
 
 let toplevel_typvar ?(namespaces=[]) (name: string) : typvar = toplevel_var ~namespaces:(typ_namespace @ namespaces) name
 let name_to_typvar ?(namespaces=[]) (name: string): typvar =
@@ -18,18 +19,24 @@ let name_to_typvar ?(namespaces=[]) (name: string): typvar =
 
 (** [remove_typ_namespace var]: remove the type namespace from the variable [var] for printing in a type context. *)
 let remove_typ_namespace (var: typvar): var =
-  let stripped_nss = match var.namespaces with
+  (* #typ_namespace: Needed if typ namespace is re-enabled *)
+  (*let stripped_nss = match var.namespaces with
     | ns :: nss when ns = List.hd typ_namespace -> nss
     | _ -> failwith "variable %s is not in the type namespace" (var_to_string var)
   in
-  { var with namespaces = stripped_nss }
+  { var with namespaces = stripped_nss }*)
+  var
 
 let typ_var (x: typvar): typ = typ_make (Trm_var x)
 
-(* We may soon need a type for types:
 let typ_type_var = toplevel_typvar "Type"
 let typ_type = typ_var typ_type_var
-*)
+
+let typ_prop_var = toplevel_typvar "Prop"
+let typ_prop = typ_var typ_prop_var
+
+let typ_hprop_var = toplevel_typvar "HProp"
+let typ_hprop = typ_var typ_hprop_var
 
 let typ_unit_var = toplevel_typvar "unit"
 let typ_unit = typ_var typ_unit_var
@@ -89,7 +96,9 @@ let typ_const_var = toplevel_typvar "const"
 let typ_const_constr = typ_var typ_const_var
 (** [typ_const ?loc t]: wrapper for making the corresponding const type.
   After decoding, const types should only appear behind a pointer.
-  LATER: Think about constness of struct fields, for now we only support structs without const fields. *)
+  LATER: Think about constness of struct fields, for now we only support structs without const fields.
+  LATER: Probably this type constructor should be removed entirely, and only exist temporarily during the C encoding.
+  *)
 let typ_const ?loc (t : typ) : typ =
   typ_apps ?loc typ_const_constr [t]
 
@@ -126,6 +135,15 @@ let typ_fun_constr = typ_var typ_fun_var
 let typ_fun ?loc (args : typ list) (res : typ) : typ =
   typ_apps ?loc typ_fun_constr (res :: args)
 
+let typ_pure_fun_var = toplevel_typvar "pure_fun"
+let typ_pure_fun_constr = typ_var typ_pure_fun_var
+(** [typ_pure_fun ?loc args res]: function type constructor *)
+let typ_pure_fun ?loc (args : typ list) (res : typ) : typ =
+  typ_apps ?loc typ_pure_fun_constr (res :: args)
+
+let typ_range_var = toplevel_typvar "Range"
+let typ_range = typ_var typ_range_var
+
 (** [typ_arbitrary s]: arbitrary string as type, need reparse to eliminate *)
 let typ_arbitrary ?loc (s : string) : typ =
   typ_make ?loc (Trm_arbitrary (Typ s))
@@ -157,7 +175,7 @@ let typ_apps_inv (ty : typ) : (typvar * typ list) option =
   | Trm_apps ({ desc = Trm_var v }, args, []) -> Some (v, args)
   | _ -> None
 
-(** [typ_ptr_inv ty]: get the inner type of a const *)
+(** [typ_const_inv ty]: get the inner type of a const *)
 let typ_const_inv (ty : typ) : typ option =
   match typ_apps_inv ty with
   | Some (v, [ty]) when var_eq v typ_const_var -> Some ty
@@ -191,6 +209,11 @@ let rec typ_nested_array_inv (ty: typ) : typ * trm option list =
 let typ_fun_inv (ty: typ) : (typ list * typ) option =
   match typ_apps_inv ty with
   | Some (v, res :: args) when var_eq v typ_fun_var -> Some (args, res)
+  | _ -> None
+
+let typ_pure_fun_inv (ty: typ) : (typ list * typ) option =
+  match typ_apps_inv ty with
+  | Some (v, res :: args) when var_eq v typ_pure_fun_var -> Some (args, res)
   | _ -> None
 
 let typ_constr_inv (ty: typ): var option =
@@ -321,6 +344,30 @@ let is_typ_unit (t : typ) : bool =
   | Some v when var_eq v typ_unit_var -> true
   | _ -> false
 
+(** [is_typ_auto t]: checks if [t] is the auto type *)
+let is_typ_auto (t : typ) : bool =
+  match typ_var_inv t with
+  | Some v when var_eq v typ_auto_var -> true
+  | _ -> false
+
+(** [is_typ_type t]: checks if [t] is type Type *)
+let is_typ_type (t : typ) : bool =
+  match typ_var_inv t with
+  | Some v when var_eq v typ_type_var -> true
+  | _ -> false
+
+(** [is_typ_sort t]: checks if [t] is type Type or Prop *)
+let is_typ_sort (t : typ) : bool =
+  match typ_var_inv t with
+  | Some v when var_eq v typ_type_var || var_eq v typ_prop_var -> true
+  | _ -> false
+
+(** [is_typ_hprop t]: checks if [t] is type HProp *)
+let is_typ_hprop (t : typ) : bool =
+  match typ_var_inv t with
+  | Some v when var_eq v typ_hprop_var -> true
+  | _ -> false
+
 (** [is_typ_ptr ty]: checks if [ty] is a pointer type *)
 let is_typ_ptr (ty : typ) : bool =
   match typ_ptr_inv ty with
@@ -352,14 +399,34 @@ let is_typ_array (ty : typ) : bool =
   | Some _ -> true
   | _ -> false
 
-let is_typ_auto (ty: typ) : bool =
-  match typ_var_inv ty with
-  | Some v when var_eq v typ_auto_var -> true
+let is_typ_builtin (ty: typ): bool =
+  match typ_builtin_inv ty with
+  | Some _ -> true
+  | _ -> false
+
+let is_typ_numeric (ty: typ): bool =
+  match typ_builtin_inv ty with
+  | Some (Typ_float _ | Typ_int _ | Typ_fixed_int _ | Typ_size _) -> true
+  | _ -> false
+
+let is_typ_integer (ty: typ): bool =
+  match typ_builtin_inv ty with
+  | Some (Typ_int _ | Typ_fixed_int _ | Typ_size _) -> true
   | _ -> false
 
 let is_typ_float (ty: typ) : bool =
   match typ_builtin_inv ty with
   | Some Typ_float _ -> true
+  | _ -> false
+
+let is_typ_fixed_int (ty: typ): bool =
+  match typ_builtin_inv ty with
+  | Some (Typ_fixed_int _) -> true
+  | _ -> false
+
+let is_typ_bool (ty: typ): bool =
+  match typ_var_inv ty with
+  | Some t when var_eq t typ_bool_var -> true
   | _ -> false
 
 (*****************************************************************************)
@@ -369,16 +436,21 @@ let typ_of_get (t : typ) : typ option =
   let t = Option.or_ (Option.map fst (typ_array_inv t)) (typ_ptr_inv t) in
   Option.map get_inner_const_type t
 
+let typ_of_alloc (t: typ) : typ =
+  assert (not (is_typ_auto t));
+  match typ_array_inv t with
+  | Some (basetyp, _) -> typ_ptr basetyp
+  | None -> typ_ptr t
+
 (** [typ_of_lit l]: get the type of a literal *)
 let typ_of_lit (l : lit) : typ =
   match l with
   | Lit_unit -> typ_unit
-  | Lit_uninitialized typ -> typ
   | Lit_bool _ -> typ_bool
   | Lit_int (typ, _) -> typ
   | Lit_float (typ, _) -> typ
   | Lit_string _ -> typ_string
-  | Lit_nullptr typ -> typ
+  | Lit_null typ -> typ
 
 (*****************************************************************************)
 

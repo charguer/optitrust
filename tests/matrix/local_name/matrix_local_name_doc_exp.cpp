@@ -1,11 +1,9 @@
 #include <optitrust.h>
 
-typedef int T;
-
 int main() {
   const int N0 = 1;
-  T* const a = (T* const)CALLOC1(N0, sizeof(T));
-  T* const b = (T*)MALLOC1(N0, sizeof(T));
+  int* const a = (int*)calloc(MSIZE1(N0), sizeof(int));
+  int* const b = (int*)malloc(MSIZE1(N0) * sizeof(int));
   for (int i1 = 0; i1 < N0; i1++) {
     b[MINDEX1(N0, i1)] = a[MINDEX1(N0, i1)];
   }
@@ -15,5 +13,5 @@ int main() {
   for (int i1 = 0; i1 < N0; i1++) {
     a[MINDEX1(N0, i1)] = b[MINDEX1(N0, i1)];
   }
-  MFREE1(N0, b);
+  free(b);
 }

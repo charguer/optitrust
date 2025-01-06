@@ -3,15 +3,15 @@
 int main() {
   __pure();
   int x = 0;
-  float* const A = (float*)CALLOC1(10, sizeof(float));
+  int* const A = (int*)calloc(MSIZE1(10), sizeof(int));
   x += 1;
   const __ghost_fn focusA = __ghost_begin(matrix1_ro_focus, "M := A, i := 0");
   x += A[MINDEX1(10, 0)];
   __ghost_end(focusA);
   x += 1;
   x += 1;
-  MFREE1(10, A);
-  float* const B = (float*)CALLOC2(8, 6, sizeof(float));
+  free(A);
+  int* const B = (int*)calloc(MSIZE2(8, 6), sizeof(int));
   x += 2;
   x += 1;
   const __ghost_fn focusBi = __ghost_begin(group_focus, "i := 1");
@@ -28,5 +28,5 @@ int main() {
   __ghost_end(focusRoBj);
   __ghost_end(focusRoBi);
   x += 1;
-  MFREE2(8, 6, B);
+  free(B);
 }

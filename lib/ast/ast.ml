@@ -233,10 +233,9 @@ type trm =
  { annot : trm_annot; (* Annotations cannot be recomputed. Check if it should not be inlined here. *)
    desc : trm_desc;
    loc : location; (* TODO: move into annot ? *)
-   typ : typ option; (* TODO: #typfield: Remove this badly designed field and split between authoritative types for some trm_desc and computed types in ctx *)
+   mutable typ : typ option; (* TODO: #typfield: computed types should be moved in ctx *)
    mutable ctx : ctx; (* Context contains information that can be recomputed over the AST. Transformations can safely discard it. *)
    mutable errors : string list; (* Maybe split into two and merge with annot and ctx ? *)
-   (* LATER: mutable typing_aux should be the only mutable flag *)
 }
 
 (** [trms]: a list of trms *)
@@ -251,6 +250,7 @@ and trm_desc =
   | Trm_record of typ * (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of typed_var * trm (* int x = 3 *)
   | Trm_let_mult of (typed_var * trm) list (* TODO: replace with non-scoping seq *)
+  | Trm_predecl of typed_var (* declaration of a variable defined later *)
   | Trm_fun of typed_vars * typ * trm * fun_spec (* function abstractions: [&](int const& x) -> void {r += x;} *)
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
@@ -412,9 +412,7 @@ and cstyle_annot =
   (* meta-information identifying a C++ method *)
   | Method
 
-  (*  [class foo {  int x;  foo() : x(3) { bla} }] is encoded as
-     [class foo {  int x; foo() { x = 3; bla  }], where [x=3] is tagged as Constructed_init
-     LATER: verify.  *)
+  (* used for C++ `T i(a1, a2);` to distinguish it from `T i = T(a1, a2);`, it is not yet set by the parser *)
   | Constructed_init (* objects initialized with a constructor. *)
 
   (* LATER: document *)
@@ -431,6 +429,7 @@ and cstyle_annot =
   (* tag for printing using resource or type syntax
      LATER: Use different printers for different languages *)
   | ResourceFormula
+  | ResourceModel
   | Type
 
   | InjectedClassName
@@ -481,10 +480,11 @@ and trm_annot = {
 
 (** [unary_op]: unary operators *)
 and unary_op =
-  | Unop_get                     (* the "*" operator as in *p  *)
+  | Unop_get                     (* the "*" operator as in *p *)
   | Unop_address                 (* the "&" operator as in &p *)
-  | Unop_bitwise_neg             (* ~ *)
-  | Unop_neg                     (* !true *)
+  (* LATER: get and address should be polymorphic functions instead of overloaded operators, address should not exist after decoding anyway *)
+  | Unop_bitwise_neg             (* ~a *)
+  | Unop_neg                     (* !b *)
   | Unop_minus                   (* -a *)
   | Unop_plus                    (* +a *)
   | Unop_post_incr               (* x++ *)
@@ -529,20 +529,20 @@ and prim =
   | Prim_unop of unary_op (* e.g. "!b" *)
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_compound_assign_op of binary_op (* e.g. "a += b" *)
-  | Prim_ref (* "ref T", used to wrap mutable variables *)
-  | Prim_ref_array of trm list (* "ref[m,n] T", used to wrap mutable arrays *)
-  | Prim_new (* C++ "new T" *)
-  | Prim_delete (* C++ "delete t" *)
+  | Prim_ref (* "ref T", stack allocation with initialization, used for encoding mutable varaibles *)
+  | Prim_ref_uninit (* like "ref T" but without initialization *)
+  | Prim_new (* "new T", heap allocation with initialization *)
+  | Prim_new_uninit (* like "new T" but without initialization *)
+  | Prim_delete (* "delete t", heap deallocation *)
 
 (** [lit]: literals *)
 and lit =
   | Lit_unit                 (* void, e.g. "return;" is represented as "Lit_unit" *)
-  | Lit_uninitialized of typ (* e.g. "int x;" is "int x = Lit_uninitalized" *)
   | Lit_bool of bool         (* true, false *)
   | Lit_int of typ * int     (* 1, 10, 100 *)
   | Lit_float of typ * float (* 1.0, 2.0, 0.5 *)
   | Lit_string of string     (* "hello" *)
-  | Lit_nullptr of typ       (* nullptr *)
+  | Lit_null of typ          (* nullptr or zero-initialization *)
 
 
 (** [loop_range]: a type for representing for loops range *)
@@ -576,6 +576,8 @@ and ctx = {
 and formula = trm
 and resource_item = var * formula
 
+(* FIXME: Perf issue: Replace the resource_item lists with efficient datastructures:
+   We need push_back, push_front, find_opt, fold_left (in order), and map to be cheap *)
 and resource_set = {
   pure: resource_item list;
   linear: resource_item list;
@@ -627,14 +629,9 @@ and used_resource_set = {
   used_linear: used_resource_item list
 }
 
-and produced_resource_item = {
-  post_hyp: var;
-  produced_hyp: var;
-  produced_formula: formula;
-}
 and produced_resource_set = {
-  produced_pure: produced_resource_item list;
-  produced_linear: produced_resource_item list;
+  produced_res: resource_set;
+  contract_hyp_names: var Var_map.t;
 }
 
 and resource_usage =
@@ -939,6 +936,7 @@ let trm_desc_to_string : trm_desc -> string =
   | Trm_record _ -> "Trm_record"
   | Trm_let _ -> "Trm_let"
   | Trm_let_mult _ -> "Trm_let_mult"
+  | Trm_predecl _ -> "Trm_predecl"
   | Trm_typedef _ -> "Trm_typedef"
   | Trm_if _ -> "Trm_if"
   | Trm_seq _ -> "Trm_seq"

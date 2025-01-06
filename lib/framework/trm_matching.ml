@@ -107,40 +107,38 @@ exception Rule_mismatch
 (** [rule_match ~higher_order_inst vars pat t]: LATER: Arthur  *)
 let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
 
-  (** [inst] maps each pattern variable to a term and to a type;
-     when pattern variables are not yet instantiated,
-     they are bound to the special term trm_uninitialized. *)
-     (* LATER: we may need one day to introduce another special term Trm_uninstantiated  *)
-  let pat_vars_association = trm_uninitialized typ_auto in
-  let inst = ref (List.fold_left (fun acc (x,ty) -> Var_map.add x (ty, pat_vars_association) acc) Var_map.empty vars) in
+  (** [inst] maps each pattern variable to an optional term and to a type;
+     when pattern variables are not yet instantiated, the term is absent. *)
+  let inst = ref (List.fold_left (fun acc (x,ty) -> Var_map.add x (ty, None) acc) Var_map.empty vars) in
   let is_var (x : var) : bool =
     Var_map.mem x !inst in
   let find_var (x : var) (u : trm) : unit =
     match Var_map.find_opt x !inst with
     | None -> failwith "Trm_matching.rule_match: called find_var without first checking is_var"
-    | Some (ty,t0) ->
-        if Trm.is_trm_uninitialized t0 then
-          inst := Var_map.add x (ty,u) !inst
-        else if not (are_same_trm t0 u) then begin
-          if error_msg then begin (* TODO: if + raise helper *)
-            Tools.debug "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'." (var_to_string x)
-              (Ast_to_c.ast_to_string ~optitrust_syntax:true t0) (Ast_to_c.ast_to_string ~optitrust_syntax:true u);
-            Tools.debug "Witout encodings: '%s' is not identical to '%s'." (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string  u);
-            (* TODO: debug type *)
-            Tools.debug "Locations: '%s' and '%s.'" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
-          end;
-          raise Rule_mismatch
-        end
+    | Some (ty, None) ->
+      inst := Var_map.add x (ty, Some u) !inst
+    | Some (ty, Some t0) ->
+      if not (are_same_trm t0 u) then begin
+        if error_msg then begin (* TODO: if + raise helper *)
+          Tools.debug "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'." (var_to_string x)
+            (Ast_to_c.ast_to_string ~optitrust_syntax:true t0) (Ast_to_c.ast_to_string ~optitrust_syntax:true u);
+          Tools.debug "Witout encodings: '%s' is not identical to '%s'." (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string  u);
+          (* TODO: debug type *)
+          Tools.debug "Locations: '%s' and '%s.'" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
+        end;
+        raise Rule_mismatch
+      end
     in
   let _get_binding (x : var) : (var * typ) option =
     match Var_map.find_opt x !inst with
-    | None -> None
-    | Some (ty,t0) -> match t0.desc with
+    | Some (ty, Some t0) -> begin match t0.desc with
        | Trm_var y -> Some (y, ty)
        | _ -> None
+        end
+    | _ -> None
     in
   let with_binding ?(loc:location) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
-     inst := Var_map.add x (ty, trm_var ?loc ~typ:ty y) !inst;
+     inst := Var_map.add x (ty, Some (trm_var ?loc ~typ:ty y)) !inst;
      f();
      inst := Var_map.remove x !inst;
     (* Note: it would be incorrect to simply restore the map to its value before the call to [f],
@@ -254,7 +252,7 @@ let rule_match ?(higher_order_inst : bool = false) ?(error_msg = true) (vars : t
     end;
     raise Rule_mismatch
   end;
-  Var_map.map (fun (_ty,t) -> t) !inst
+  Var_map.map (fun (_ty,t) -> match t with Some t -> t | None -> failwith "Trm_matching.rule_match: at least one pattern variable is not filled") !inst
 
 (** [Rule_match_ast_list_no_occurrence_for]: exception raised by [tmap_to_list] *)
 exception Rule_match_ast_list_no_occurrence_for of var
