@@ -137,78 +137,28 @@ type execution_mode =
   | Execution_mode_step_diff (* produce a diff for a small-step, assumes [target_line] is provided *)
   | Execution_mode_step_trace (* produce a trace for a small-step, assumes [target_line] is provided *)
   | Execution_mode_full_trace (* produce a trace, and an output file, for the full script *)
+  | Execution_mode_standalone_full_trace (* produce a standalone trace, and an output file, for the full script *)
   | Execution_mode_exec (* produce only the final output file obtained at the end of the script *)
 
 (** [execution_mode] of the script, should only be modified via [process_mode] *)
 let execution_mode : execution_mode ref = ref Execution_mode_exec
 
-(* Option to serialize the ML trace object in addition to dumping its JS respresentation;
-   Should only be modified via [process_mode].
-   This flag is set to [true] when the requested mode in [full-trace]. *)
-let serialize_trace : bool ref = ref false
-
-(* option to strip data from the trace to make it lighter when dumping it to javascript.
-   LATER: this mechanism seems to be subsumed by the mechanism for not saving in
-   the trace the substeps. *)
-let strip_trace : bool ref = ref true
+(* Function to set the [execution_mode] *)
+let process_mode (mode : string) : unit =
+  execution_mode :=
+    match mode with
+    | "step-diff" -> Execution_mode_step_diff
+    | "step-trace" -> Execution_mode_step_trace
+    | "full-trace" -> Execution_mode_full_trace
+    | "standalone-full-trace" -> Execution_mode_standalone_full_trace
+    | "exec" -> Execution_mode_exec;
+    | _ -> failwith "Execution mode should be 'step-diff' or 'step-trace' or 'full-trace' or 'standalone-full-trace' or 'exec'"
 
 (* Options to report execution time information about script and trace generation *)
 let report_exectime : bool ref = ref false
 
 (* Options to generate a text version of the trace *)
 let trace_as_text : bool ref = ref false
-
-(* Possible choices for [substeps_including_ast], which controls the behavior
-   of [Trace.step_should_be_kept_in_trace]. The [SubstepsAST_default] constructor is
-   only temporary; we need it to ensure that [process_mode] does not modify
-   [substeps_including_ast] in case its value has already been forced by the user. *)
-type substeps_including_ast =
-  | SubstepsAST_default
-  | SubstepsAST_none
-  | SubstepsAST_all
-  | SubstepsAST_all_important
-  | SubstepsAST_small
-
-(* Options to control how much details are exported in the trace;
-   Should only be modified via [process_mode] and [process_substeps_including_ast]. *)
-let substeps_including_ast : substeps_including_ast ref = ref SubstepsAST_default
-
-(* Function to set the [execution_mode] *)
-let process_mode (mode : string) : unit =
-  let set_substeps_including_ast_if_default (value:substeps_including_ast) : unit =
-    if !substeps_including_ast = SubstepsAST_default
-      then substeps_including_ast := value
-    in
-  match mode with
-  | "step-diff" ->
-      set_substeps_including_ast_if_default SubstepsAST_none;
-      execution_mode := Execution_mode_step_diff;
-      serialize_trace := false;
-  | "step-trace" ->
-      set_substeps_including_ast_if_default SubstepsAST_all;
-      execution_mode := Execution_mode_step_trace;
-      serialize_trace := true;
-  | "full-trace" ->
-      set_substeps_including_ast_if_default SubstepsAST_all;
-      execution_mode := Execution_mode_full_trace;
-      serialize_trace := true;
-  | "standalone-full-trace" ->
-      set_substeps_including_ast_if_default SubstepsAST_all_important;
-      execution_mode := Execution_mode_full_trace;
-      serialize_trace := false;
-  | "exec" ->
-      set_substeps_including_ast_if_default SubstepsAST_none;
-      execution_mode := Execution_mode_exec;
-      serialize_trace := false;
-  | _ -> failwith "Execution mode should be 'step-diff' or 'step-trace' or 'full-trace' or 'standalone-full-trace' or 'exec'"
-
-let process_substeps_including_ast (s:string) : unit =
-  substeps_including_ast := match s with
-  | "none" -> SubstepsAST_none
-  | "all" -> SubstepsAST_all
-  | "all-important" -> SubstepsAST_all_important
-  | "small" -> SubstepsAST_small
-  | _ -> failwith "substeps_including_ast: invalid value"
 
 (* Option to display full resource information in the trace *)
 let detailed_resources_in_trace : bool ref = ref false
@@ -223,19 +173,30 @@ let get_target_line () : int =
     then failwith "Flags.get_target_line: trying to read an invalid line number";
   !target_line
 
-(** [is_execution_mode_step ()] returns the execution mode is targeting a specific step/line *)
-let is_execution_mode_step () : bool =
+(** [is_targetting_line ()] returns true if the execution mode is targeting a specific step/line *)
+let is_targetting_line () : bool =
   match !execution_mode with
   | Execution_mode_step_diff
   | Execution_mode_step_trace -> true
   | Execution_mode_exec
-  | Execution_mode_full_trace -> false
+  | Execution_mode_full_trace
+  | Execution_mode_standalone_full_trace -> false
 
-(** [is_execution_mode_trace ()] returns the execution mode is producing a trace *)
-let is_execution_mode_trace () : bool =
+(** [request_trace ()] returns true if the execution mode is producing a trace *)
+let request_trace () : bool =
+  match !execution_mode with
+  | Execution_mode_step_trace
+  | Execution_mode_full_trace
+  | Execution_mode_standalone_full_trace -> true
+  | Execution_mode_step_diff
+  | Execution_mode_exec -> false
+
+(** [request_trace ()] returns true if the execution mode is producing a serialized trace *)
+let request_serialized_trace () : bool =
   match !execution_mode with
   | Execution_mode_step_trace
   | Execution_mode_full_trace -> true
+  | Execution_mode_standalone_full_trace
   | Execution_mode_step_diff
   | Execution_mode_exec -> false
 
@@ -244,6 +205,53 @@ let is_execution_mode_trace () : bool =
    Besides, this flag is automatically set is requesting the diff or trace for a specific
    step with the cursor on a line starting with the words "bigstep". *)
 let only_big_steps : bool ref = ref false
+
+(* Possible choices for [save_steps], which controls the behavior
+   of [Trace.step_should_be_kept_in_trace]. The [Steps_default] constructor is
+   only temporary; we need it to ensure that [process_mode] does not modify
+   [save_steps] in case its value has already been forced by the user. *)
+type steps_selector =
+  | Steps_none
+  | Steps_script
+  | Steps_important
+  | Steps_effectful
+  | Steps_all
+
+let string_to_steps_selector (s:string) : steps_selector =
+  match s with
+  | "none" -> Steps_none
+  | "script" -> Steps_script
+  | "important" -> Steps_important
+  | "effectful" -> Steps_effectful
+  | "all" -> Steps_all
+  | _ -> failwith "invalid step selector, should be one of 'none', 'script', 'important', 'effectful', 'all'"
+
+(* Options to control which steps are exported in the trace. *)
+let save_steps : steps_selector option ref = ref None
+
+let get_save_steps (): steps_selector =
+  match !save_steps with
+  | Some save_steps -> save_steps
+  | None when request_trace () -> Steps_all
+  | None -> Steps_none
+
+let process_save_steps (s: string) =
+  save_steps := Some (string_to_steps_selector s)
+
+(* Options to control which steps will remember the AST before and after execution. *)
+let save_ast_for_steps : steps_selector option ref = ref None
+
+let get_save_ast_for_steps (): steps_selector =
+  match !save_ast_for_steps with
+  | Some steps -> steps
+  | None ->
+    match !execution_mode with
+    | Execution_mode_exec | Execution_mode_step_diff -> Steps_none
+    | Execution_mode_standalone_full_trace -> Steps_important
+    | Execution_mode_full_trace | Execution_mode_step_trace -> Steps_effectful
+
+let process_save_ast_in_steps (s: string) =
+  save_ast_for_steps := Some (string_to_steps_selector s)
 
 (** [c_parser_name]: name of the C parser to use *)
 let c_parser_name : string ref = ref "default"
@@ -267,7 +275,8 @@ let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'standalone-full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
      ("-trace-as-text", Arg.Set trace_as_text, " additionnaly generate a plain text trace in 'foo_trace.txt' ");
-     ("-substeps-including-ast", Arg.String process_substeps_including_ast, " control which AST are produced, among: 'all' (default), 'small' (only small steps), 'all-important' (all important); only applicable for modes that produce a trace.");
+     ("-save-steps", Arg.String process_save_steps, " control which steps are stored in the trace, among: 'all' (default), 'none', 'script' (only steps written in the script), 'important'.");
+     ("-save-ast", Arg.String process_save_ast_in_steps, " control which steps keep an AST stored in the trace, same options as -save-steps");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)
@@ -335,8 +344,9 @@ let reset_flags_to_default () : unit =
   check_validity := false;
   reparse_between_steps := false;
   recompute_resources_between_steps := false;
-  serialize_trace := false;
-  strip_trace := true
+  save_steps := None;
+  save_ast_for_steps := None;
+  execution_mode := Execution_mode_exec
 
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> 'b): 'b =
   let init_value = !flag in
