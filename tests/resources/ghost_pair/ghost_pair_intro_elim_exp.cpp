@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int main() {
+void f() {
   __pure();
   int x = 0;
   int* const A = (int*)calloc(MSIZE1(10), sizeof(int));

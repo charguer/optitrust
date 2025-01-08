@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int main() {
+void f() {
   __pure();
   int x = 2 + 5;
   int y = x - 5;

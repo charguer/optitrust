@@ -624,6 +624,25 @@ let rec return_elim (t: trm): trm =
     | None -> t
     | Some body -> trm_like ~old:t (trm_fun args ret body ~contract)
     end
+  (* Force the implicit return 0 at the end of the main function
+     Maybe this is not a good idea since it breaks existing tests *)
+  (*| Trm_let ((f, fty), main_body) when f.namespaces = [] && f.name = "main" ->
+    Pattern.pattern_match main_body [
+      Pattern.(trm_fun !__ !__ !(trm_seq !__ !__) !__) (fun args rettyp seq instrs result contract () ->
+        match result with
+        | Some _ -> t
+        | None ->
+          let res_var = new_var "__res" in
+          let new_last_instr = trm_let (res_var, typ_int) (trm_int 0) in
+          let seq = trm_alter ~typ:typ_int ~desc:(Trm_seq (Mlist.push_back new_last_instr instrs, Some res_var)) seq in
+          let main_body = trm_alter ~desc:(Trm_fun (args, rettyp, seq, contract)) main_body in
+          trm_alter ~desc:(Trm_let ((f, fty), main_body)) t
+      );
+      Pattern.__ (fun () ->
+        Tools.warn "%s: main is not defined as a function" (loc_to_string t.loc);
+        t
+      )
+    ]*)
   | _ -> t
 
 let rec return_intro (t: trm): trm =

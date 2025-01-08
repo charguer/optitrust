@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int main(){
+void seq_array(){
   __pure();
 
   int x = 0;

@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int main() {
+void f() {
   __pure();
   int a = 2;
   int c = 3;

@@ -22,7 +22,7 @@ void matrix_copy(float* src, float* dst, int n, int m) {
   /*__ensures("$dst = $src");*/
 }
 
-int main() {
+void test() {
   __pure();
   const int n = 3;
 
@@ -36,5 +36,3 @@ int main() {
   matrix_free(b);
   matrix_free(c);
 }
-
-

@@ -56,6 +56,7 @@ inline size_t MSIZE4(int N1, int N2, int N3, int N4) {
   return (size_t)N1 * (size_t)N2 * (size_t)N3 * (size_t)N4;
 }
 
+#define MALLOC(T) (T*) malloc(sizeof(T))
 #define MALLOC0(T) (T*) malloc(MSIZE0() * sizeof(T))
 #define MALLOC1(T, N1) (T*) malloc(MSIZE1(N1) * sizeof(T))
 #define MALLOC2(T, N1, N2) (T*) malloc(MSIZE2(N1, N2) * sizeof(T))

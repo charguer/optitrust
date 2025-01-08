@@ -283,6 +283,12 @@ let rec compute_pure_typ (env: pure_resource_set) ?(typ_hint: typ option) (t: tr
       let ptr_typ = compute_pure_typ env ptr in
       assert (is_typ_ptr ptr_typ);
       typ_hprop
+    | Trm_var xf, [ptr; alloc_cells] when var_eq xf var_free ->
+      let ptr_typ = compute_pure_typ env ptr in
+      let alloc_cells_typ = compute_pure_typ env alloc_cells in
+      assert (is_typ_ptr ptr_typ);
+      assert (is_typ_hprop alloc_cells_typ);
+      typ_hprop
     | Trm_var xf, _ when var_eq xf (Matrix_trm.mindex_var (List.length args / 2)) ->
       (* TODO: This should not be a special case. We should add a way to register pure arithmetic functions that can be used both in code and in specs *)
       assert ((List.length args) mod 2 = 0);
@@ -612,6 +618,7 @@ let check_frac_le subst_ctx (efrac, bigger_frac) =
   TODO: Add unit tests for this specific function
 *)
 let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
+  let inst_map = Var_map.add var_result (trm_var var_result) inst_map in (* Add _Res := _Res to force unification of results from both sides together *)
   let inst_map = Var_map.map (trm_subst res_from.aliases) inst_map in
   let res_from = Resource_set.subst_all_aliases res_from in
   let not_specialized_pure_res_to, evar_ctx = specialize_and_extract_evars res_to inst_map ~inst_ctx:res_from.pure in
@@ -620,7 +627,9 @@ let extract_resources ~(split_frac: bool) (res_from: resource_set) ?(inst_map: t
     match evar_ctx_binding, alias_binding with
     | Some _, None -> evar_ctx_binding
     | None, Some alias_binding -> Some (Resolved alias_binding)
-    | Some _, Some _ -> failwith "an alias binding conflicts with a unification variable"
+    | Some _, Some alias_binding ->
+      if var_eq x var_result then Some (Resolved alias_binding)
+      else failwith "Variable %s has an alias binding and is a unification variable at the same time" (var_to_string x)
     | None, None -> None) evar_ctx res_from.aliases in
   let res_from = Resource_set.subst_all_aliases res_from in
   if not (Var_map.is_empty res_to.aliases)
@@ -1224,7 +1233,7 @@ let find_prim_spec typ prim : typ * fun_spec_resource =
     in
     let post_linear = match prim with
       | Prim_ref | Prim_ref_uninit -> [new_anon_hyp (), alloc_res]
-      | _ -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_free alloc_cells]
+      | _ -> [new_anon_hyp (), alloc_res; new_anon_hyp (), formula_free var_result alloc_cells]
     in
     let contract = {
       pre = Resource_set.make ~pure:pure_pre ();
@@ -1238,7 +1247,7 @@ let find_prim_spec typ prim : typ * fun_spec_resource =
     let del_ptr = new_hyp "del_ptr" in
     let var_hprop = new_hyp "H" in
     let contract = {
-      pre = Resource_set.make ~pure:[var_typ, typ_type; del_ptr, typ_ptr (typ_var var_typ); var_hprop, typ_hprop] ~linear:[new_anon_hyp (), formula_free (trm_var var_hprop); new_anon_hyp (), formula_uninit (trm_var var_hprop)] ();
+      pre = Resource_set.make ~pure:[var_typ, typ_type; del_ptr, typ_ptr (typ_var var_typ); var_hprop, typ_hprop] ~linear:[new_anon_hyp (), formula_free del_ptr (trm_var var_hprop); new_anon_hyp (), formula_uninit (trm_var var_hprop)] ();
       post = Resource_set.make ()
     } in
     typ_auto, { args = [del_ptr]; contract; inverse = None }

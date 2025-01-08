@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-int main() {
+void f() {
   __pure();
   int x = 3;
   int y = 1;
@@ -12,6 +12,4 @@ int main() {
 
   const int v = 0;
   y = v;
-
-  // TODO: return 0;
 }

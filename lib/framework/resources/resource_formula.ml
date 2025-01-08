@@ -175,8 +175,8 @@ let formula_cell_var ?(typ : typ option) (x: var): formula =
   formula_model (trm_var ?typ:(Option.map typ_ptr typ) x) trm_cell
 
 let var_free = toplevel_var "_Free"
-let formula_free (cells: formula) : formula =
-  trm_apps ~annot:formula_annot (trm_var var_free) [cells]
+let formula_free (base_ptr: var) (cells: formula) : formula =
+  trm_apps ~annot:formula_annot (trm_var var_free) [trm_var base_ptr; cells]
 
 let var_range = toplevel_var "range"
 let trm_range = trm_var var_range
