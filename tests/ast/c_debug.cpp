@@ -1,8 +1,7 @@
-int x = 3;
-const int y = 10;
 
-void test(){
-  x++;
-  x += y;
-  x = y;
+int main()
+{
+  double a; double  b; double  c; double u;
+ // u = a * (b + c); // = a + a * b + c NOTWORKING
+  u = a + a * (b + c); // = a + a * b + c NOTWORKING
 }

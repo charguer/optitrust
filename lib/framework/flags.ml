@@ -101,6 +101,9 @@ let use_light_diff : bool ref = ref false
    no sense to print encoded terms without [print_optitrust_syntax] activated. *)
 let bypass_cfeatures : bool ref = ref false
 
+(** [print_only_code]: flag used for printing only code, hiding ghost variables *)
+let print_only_code = ref false
+
 (** [print_optitrust_syntax]: flag used for printing the optitrust AST in near-C syntax, without applying the decoding *)
 let print_optitrust_syntax = ref false
 
@@ -128,7 +131,7 @@ let recompute_resources_between_steps = ref false
 (** [ignore_serialized] disables the read of serialized AST saved after parsing *)
 let ignore_serialized = ref false
 
-(** [execution_mode] of the script *)
+(** Possible [execution_mode] of the script *)
 
 type execution_mode =
   | Execution_mode_step_diff (* produce a diff for a small-step, assumes [target_line] is provided *)
@@ -136,27 +139,18 @@ type execution_mode =
   | Execution_mode_full_trace (* produce a trace, and an output file, for the full script *)
   | Execution_mode_exec (* produce only the final output file obtained at the end of the script *)
 
+(** [execution_mode] of the script, should only be modified via [process_mode] *)
 let execution_mode : execution_mode ref = ref Execution_mode_exec
 
 (* Option to serialize the ML trace object in addition to dumping its JS respresentation;
-   Currently only set when the requested mode in [full-trace] *)
+   Should only be modified via [process_mode].
+   This flag is set to [true] when the requested mode in [full-trace]. *)
 let serialize_trace : bool ref = ref false
 
-(* option to strip data from the trace to make it lighter *)
+(* option to strip data from the trace to make it lighter when dumping it to javascript.
+   LATER: this mechanism seems to be subsumed by the mechanism for not saving in
+   the trace the substeps. *)
 let strip_trace : bool ref = ref true
-
-let process_mode (mode : string) : unit =
-  execution_mode :=
-    begin match mode with
-    | "step-diff" -> Execution_mode_step_diff
-    | "step-trace" -> Execution_mode_step_trace
-    | "full-trace" ->
-      serialize_trace := true;
-      Execution_mode_full_trace
-    | "standalone-full-trace" -> Execution_mode_full_trace
-    | "exec" -> Execution_mode_exec
-    | _ -> failwith "Execution mode should be 'exec', or 'diff', or 'trace'"
-    end
 
 (* Options to report execution time information about script and trace generation *)
 let report_exectime : bool ref = ref false
@@ -164,14 +158,53 @@ let report_exectime : bool ref = ref false
 (* Options to generate a text version of the trace *)
 let trace_as_text : bool ref = ref false
 
-(* Options to control how much details are exported in the trace *)
-type substeps_including_ast = SubstepsAST_all | SubstepsAST_all_important | SubstepsAST_small
-(* LATER: none *)
+(* Possible choices for [substeps_including_ast], which controls the behavior
+   of [Trace.step_should_be_kept_in_trace]. The [SubstepsAST_default] constructor is
+   only temporary; we need it to ensure that [process_mode] does not modify
+   [substeps_including_ast] in case its value has already been forced by the user. *)
+type substeps_including_ast =
+  | SubstepsAST_default
+  | SubstepsAST_none
+  | SubstepsAST_all
+  | SubstepsAST_all_important
+  | SubstepsAST_small
 
-let substeps_including_ast : substeps_including_ast ref = ref SubstepsAST_all
+(* Options to control how much details are exported in the trace;
+   Should only be modified via [process_mode] and [process_substeps_including_ast]. *)
+let substeps_including_ast : substeps_including_ast ref = ref SubstepsAST_default
+
+(* Function to set the [execution_mode] *)
+let process_mode (mode : string) : unit =
+  let set_substeps_including_ast_if_default (value:substeps_including_ast) : unit =
+    if !substeps_including_ast = SubstepsAST_default
+      then substeps_including_ast := value
+    in
+  match mode with
+  | "step-diff" ->
+      set_substeps_including_ast_if_default SubstepsAST_none;
+      execution_mode := Execution_mode_step_diff;
+      serialize_trace := false;
+  | "step-trace" ->
+      set_substeps_including_ast_if_default SubstepsAST_all;
+      execution_mode := Execution_mode_step_trace;
+      serialize_trace := true;
+  | "full-trace" ->
+      set_substeps_including_ast_if_default SubstepsAST_all;
+      execution_mode := Execution_mode_full_trace;
+      serialize_trace := true;
+  | "standalone-full-trace" ->
+      set_substeps_including_ast_if_default SubstepsAST_all_important;
+      execution_mode := Execution_mode_full_trace;
+      serialize_trace := false;
+  | "exec" ->
+      set_substeps_including_ast_if_default SubstepsAST_none;
+      execution_mode := Execution_mode_exec;
+      serialize_trace := false;
+  | _ -> failwith "Execution mode should be 'step-diff' or 'step-trace' or 'full-trace' or 'standalone-full-trace' or 'exec'"
 
 let process_substeps_including_ast (s:string) : unit =
   substeps_including_ast := match s with
+  | "none" -> SubstepsAST_none
   | "all" -> SubstepsAST_all
   | "all-important" -> SubstepsAST_all_important
   | "small" -> SubstepsAST_small
@@ -234,7 +267,7 @@ let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-mode", Arg.String process_mode, " mode is one of 'full-trace', 'standalone-full-trace', 'step-trace' or 'step-diff', or 'exec' (default)");
      ("-trace-as-text", Arg.Set trace_as_text, " additionnaly generate a plain text trace in 'foo_trace.txt' ");
-     ("-substeps-including-ast", Arg.String process_substeps_including_ast, " control which AST are produced, among: 'all' (default), 'small' (only small steps), 'all-important' (all important) ");
+     ("-substeps-including-ast", Arg.String process_substeps_including_ast, " control which AST are produced, among: 'all' (default), 'small' (only small steps), 'all-important' (all important); only applicable for modes that produce a trace.");
      ("-line", Arg.Set_int target_line, " specify one line of interest for viewing a diff or a trace");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)
@@ -245,6 +278,7 @@ let spec : cmdline_args =
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
+     ("-print-only-code", Arg.Set print_only_code, " print output without showing ghost operations");
      ("-print-optitrust-syntax", Arg.Set print_optitrust_syntax, " print output without conversion to C, i.e. print the internal AST, using near-C syntax");
      ("-ignore-serialized", Arg.Set ignore_serialized, " ignore the serialized AST, forces the reparse of source file");
      ("-use-light-diff", Arg.Set use_light_diff, " enable light diff");

@@ -918,7 +918,7 @@ let shift_range_on (kind : shift_kind) =
     | StopAt v -> (trm_sub v stop, trm_add start (trm_sub v stop), v)
     in
     let range' = { index = index'; start = start'; direction; stop = stop'; step } in
-    let index_expr = trm_sub (trm_var index') shift in
+    let index_expr = trm_sub (trm_var ~typ:typ_int index') shift in
     (range', index_expr, shift)
   in
   let open Resource_formula in
@@ -931,7 +931,7 @@ let shift_range_on (kind : shift_kind) =
       | Uninit, f -> ghost_uninit, f, []
       in
       let i = new_var r.index.name in
-      let items = formula_fun [i, typ_int] (trm_subst_var r.index (trm_var i) formula) in
+      let items = formula_fun [i, typ_int] (trm_subst_var r.index (trm_var ~typ:typ_int i) formula) in
       Resource_trm.ghost (ghost_call ghost ([
         "start", r.start; "stop", r.stop; "step", r.step; "items", items;
         "shift", shift; "new_start", r'.start; "new_stop", r'.stop

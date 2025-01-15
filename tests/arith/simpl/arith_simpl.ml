@@ -1,13 +1,43 @@
 open Optitrust
 open Target
 
+let _ = Flags.check_validity := true
+let _ = Flags.recompute_resources_between_steps := true
+
 let _ = Run.script_cpp (fun _ ->
   (* TODO: split this files into one file for each type of simplification *)
   (* TODO: figure out when
      WARNING: trm_to_naive_expr: missing type information for binary division, assuming double
      appears, and whether we can rebuild the type information *)
 
+  (*-----------------------------------------------------*)
+
+  (* Show reification without inlined atoms *)
+  !! Arith_basic.debug_without_inlined_atoms := true;
+  !! Arith_basic.show ~normalized:false [nbMulti; cWriteVar "rei"; dRHS];
+  !! Arith_basic.debug_without_inlined_atoms := false;
+
+  (* Show reification with inlined atoms *)
+  !! Arith_basic.show [nbMulti; cWriteVar "rej"; dRHS];
+
+  (* Show reification then remove printed information *)
+  !! Arith_basic.show [nbMulti; cWriteVar "rek"; dRHS];
+  !! Arith_basic.remove_show [nbMulti; cWriteVar "rek"; dRHS];
+
+  (* LATER: add a test with a subterm non-deletable but redundant,
+     and one deletable but non-redundant. *)
+
+  (*-----------------------------------------------------*)
+
+  !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "ra"; dRHS];
+
+  !! Arith_basic.(simpl normalize) [nbMulti; cWriteVar "re"; dRHS];
+  !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "re"; dRHS];
+  !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "rf"; dRHS];
+
+  !! Arith_basic.(simpl expand_rec) [nbMulti; cWriteVar "eu"; dRHS];
   !! Arith_basic.(simpl euclidian) [nbMulti; cWriteVar "eu"; dRHS];
+  !! Arith_basic.(simpl (compose [expand_rec; euclidian; gather_rec])) [nbMulti; cWriteVar "eur"; dRHS];
 
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "ci"; dRHS];
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "cd"; dRHS];
@@ -26,7 +56,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "y"; dRHS];
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "z"; dRHS];
   !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "t"; dRHS];
-  !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "u"; dRHS];
+  !! Arith_basic.(simpl expand_rec) [nbMulti; cWriteVar "u"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
 
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "f"; dRHS];
@@ -35,11 +65,9 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStop];
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStart];
 
-  (* needs all types to be valid *)
-  !! Trace.reparse(); (* TODO: fix problem with reparse *)
-  !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
-  !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "p"; dRHS];
-  !!! Arith_basic.(simpl compute) [nbMulti; cBinop Binop_exact_div];
+  !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
+  !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "p"; dRHS];
+  !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "q"; dRHS; cBinop Binop_exact_div]
 
 )
 

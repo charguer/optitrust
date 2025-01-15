@@ -93,6 +93,11 @@ let trm_int (f: 'a -> int -> 'b) (k: 'a) (t: trm): 'b =
   | Some x -> f k x
   | _ -> raise Next
 
+let trm_float (f: 'a -> float -> 'b) (k: 'a) (t: trm): 'b =
+  match trm_float_inv t with
+  | Some x -> f k x
+  | _ -> raise Next
+
 let trm_bool f k t =
   match trm_lit_inv t with
   | Some (Lit_bool b) -> f k b

@@ -235,6 +235,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     Printexc.(raise_with_backtrace e (get_raw_backtrace ()))
   );
   (* Dump statistics if they were requested *)
+  if !Flags.report_exectime
+    then Tools.info "Time typechecking: %.2fs" (!Trace.debug_total_typechecking_time);
+
   let stats_after = Stats.get_cur_stats () in
   if !Flags.analyse_stats
     then

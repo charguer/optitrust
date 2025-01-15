@@ -119,19 +119,19 @@ int int_of_double(double a) {
 double relativePosX(double x) {
   __admitted();
   int iX = int_of_double(x / cellX);
-  return (x - iX * cellX) / cellX;
+  return x / cellX - iX;
 }
 
 double relativePosY(double y) {
   __admitted();
   int iY = int_of_double(y / cellY);
-  return (y - iY * cellY) / cellY;
+  return y / cellY - iY;
 }
 
 double relativePosZ(double z) {
   __admitted();
   int iZ = int_of_double(z / cellZ);
-  return (z - iZ * cellZ) / cellZ;
+  return z / cellZ - iZ;
 }
 
 const int nbCorners = 8;
@@ -140,9 +140,9 @@ void corner_interpolation_coeff(vect pos, double* r) {
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);
-  const double cX = 1. + -1. * rX;
-  const double cY = 1. + -1. * rY;
-  const double cZ = 1. + -1. * rZ;
+  const double cX = 1. - rX;
+  const double cY = 1. - rY;
+  const double cZ = 1. - rZ;
   r[0] = cX * cY * cZ;
   r[1] = cX * cY * rZ;
   r[2] = cX * rY * cZ;
@@ -166,7 +166,7 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
                           vect* fieldAtCorners, int nbSteps, double pCharge,
                           double pMass) {
   const int fieldFactor = deltaT * deltaT * pCharge / pMass;
-  vect* const lFieldAtCorners = (vect*)malloc(nbCorners * sizeof(vect));
+  vect* const lFieldAtCorners = (vect*)malloc(sizeof(vect) * nbCorners);
   for (int i1 = 0; i1 < nbCorners; i1++) {
     lFieldAtCorners[i1].x = fieldAtCorners[i1].x * fieldFactor;
     lFieldAtCorners[i1].y = fieldAtCorners[i1].y * fieldFactor;
@@ -177,15 +177,15 @@ void simulate_single_cell(double deltaT, particle* particles, int nbParticles,
     particles[i1].speed.y *= deltaT;
     particles[i1].speed.z *= deltaT;
   }
-  double* const coeffs = (double*)malloc(nbCorners * sizeof(double));
+  double* const coeffs = (double*)malloc(sizeof(double) * nbCorners);
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idPart = 0; idPart < nbParticles; idPart++) {
       const double rX = relativePosX(particles[idPart].pos.x);
       const double rY = relativePosY(particles[idPart].pos.y);
       const double rZ = relativePosZ(particles[idPart].pos.z);
-      const double cX = 1. + -1. * rX;
-      const double cY = 1. + -1. * rY;
-      const double cZ = 1. + -1. * rZ;
+      const double cX = 1. - rX;
+      const double cY = 1. - rY;
+      const double cZ = 1. - rZ;
       coeffs[0] = cX * cY * cZ;
       coeffs[1] = cX * cY * rZ;
       coeffs[2] = cX * rY * cZ;
