@@ -142,7 +142,9 @@ int main() {
   q = n;
   eu = n;
   eu = n + m;
+  eu = n + 2 * m;
   eur = m + n;
+  eur = n + q * p;
   p = 4;
   p = 4;
   p = m - 2;
