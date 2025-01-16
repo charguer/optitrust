@@ -147,6 +147,16 @@ module StringSet = Set.Make(String)
   - `errors.tests`: tests that are not success
   Besides, the file `tofix.tests` is updated in a same was as for the 'run' command.
 
+  Action 'runmeld'
+  ==============
+
+  Execute 'run' then 'meld' actions.
+
+  Action 'rundiff'
+  ==============
+
+  Execute 'run' then 'diff' actions.
+
   ----
   LATER: an action 'sort':
   interactively navigate through the list of unsuccessful tests,
@@ -603,7 +613,7 @@ let get_tests_to_process_for_run_and_compile (action : string) (tests : string l
   if nb_tests_to_process = 0 then printf "Empty set of tests considered.\n";
   result
 
-let action_run (tests : string list) : unit =
+let action_run ?(exit_on_error = true) (tests : string list) : unit =
   let tests_to_process, tests_ignored = get_tests_to_process_for_run_and_compile "run" tests in
   let nb_tests_to_process = List.length tests_to_process in
   (* Always enable [-all-warnings] if there is only one test *)
@@ -635,11 +645,13 @@ let action_run (tests : string list) : unit =
   List.iter delete_output tests_to_process;
 
   (* Compile the `batch.ml` file, using dune hacks *)
-  do_or_die "cp tools/tester/batch/dune_disabled tools/tester/batch/dune";
-  let compile_success = do_is_ok "dune build tools/tester/batch/batch.cmxs" in
+  let copy_cmd = "cp tools/tester/batch/dune_disabled tools/tester/batch/dune" in
+  do_or_die copy_cmd;
+  let compile_cmd = "dune build tools/tester/batch/batch.cmxs" in
+  let compile_success = do_is_ok compile_cmd in
   do_or_die "rm tools/tester/batch/dune";
   if not compile_success then begin
-    eprintf "failed to compile tools/tester/batch/batch.ml";
+    eprintf "Failed to compile tools/tester/batch/batch.ml (error location might be incorrectly reported); command used:\n %s; %s\nIf using it make sure to then run:  rm tools/tester/batch/dune \n" copy_cmd compile_cmd;
     exit 2
   end;
   (* DEPRECATED printf "\n"; *)
@@ -749,7 +761,7 @@ let action_run (tests : string list) : unit =
   print_count Terminal.light_gray "ignored" tests_ignored;
   print_count Terminal.green "success" !tests_success;
   printf "\n";
-  if !tests_failed <> [] || !tests_noexp <> [] || !tests_wrong <> [] then
+  if exit_on_error && (!tests_failed <> [] || !tests_noexp <> [] || !tests_wrong <> []) then
     exit 1
 
 
@@ -930,10 +942,14 @@ let _main : unit =
         Tools.ref_list_add args arg)
     "Usage: ./tester [action] [options] [arg1] .. [argN]\naction = run | create | addexp | fixexp | ignore | code | diff | meld\noptions:\n";
 
-  (* Handle the dump_trace flag *)
+  (* Handle the dump_trace flag, else make sure traces are not computed *)
   if !dump_trace then begin
     Flags.execution_mode := Execution_mode_full_trace;
+    Flags.serialize_trace := true; (* LATER: should be false if we wanted standalone traces. *)
     Flags.use_clang_format := original_use_clang_format;
+  end else begin
+    Flags.substeps_including_ast := SubstepsAST_none;
+    Flags.serialize_trace := false;
   end;
 
   (* Check caller_folder has been provided *)
@@ -974,12 +990,14 @@ let _main : unit =
     | "diff" -> action_diff args
     | "meld" -> action_meld args
     | "compile" -> action_compile args
+    | "runmeld" -> action_run ~exit_on_error:false args; action_meld args
+    | "rundiff" -> action_run ~exit_on_error:false args; action_diff args
     | x -> fail (sprintf "unknown action %s" x)
     in
 
   (* Handle confirmation *)
   begin try
-    let without_confirmation = ["run"; "meld"; "diff"; "compile"] in
+    let without_confirmation = ["run"; "meld"; "diff"; "compile"; "runmeld"; "rundiff"] in
     let needs_confirmation = (not (List.mem !action without_confirmation)) && not !skip_confirmation in
     if not needs_confirmation then begin
       execute()

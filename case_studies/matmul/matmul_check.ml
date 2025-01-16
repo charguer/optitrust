@@ -29,13 +29,8 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "pB" ~indep:["bi"; "i"] [cArrayRead "B"];
   !! Matrix.stack_copy ~var:"sum" ~copy_var:"s" ~copy_dims:1
     [cFor ~body:[cPlusEq ~lhs:[cVar "sum"] ()] "k"];
-  !! Omp.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
-  !! Omp.parallel_for [nbMulti; cFunBody ""; cStrict; cFor ""];
-  (* TODO: why do_nothing? *)
+  !! Loop.simd [nbMulti; cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "j"];
+  !! Loop.parallel [nbMulti; cFunBody ""; cStrict; cFor ""];
   !! Loop.unroll ~simpl:Arith.do_nothing [cFor ~body:[cPlusEq ~lhs:[cVar "s"] ()] "k"];
-
   !! Cleanup.std ();
-  (* TODO: expand should only duplicate `Resources.trm_is_pure`
-    + do !! Arith_basic.(simpls_rec [expand; gather_rec; compute]) [nbMulti; cAccesses()];
-    *)
 )

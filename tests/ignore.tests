@@ -31,9 +31,6 @@ record/set_explicit/record_set_explicit_basic.ml
 # CPP
 ast/cpp_basic.ml
 
-# BROKEN VARIABLE IN SCOPE DUE TO CPP CLASSES
-apac/constify_functions_arguments/apac_constify_functions_arguments.ml
-
 # TO FIX:
 function/inline/function_inline_doc.ml
 function/uninline/function_uninline_doc.ml
@@ -55,6 +52,7 @@ apac/heapify_nested_seq
 apac/unfold_let_mult_const
 apac/use_goto_for_return
 apac/parallel_task_group
+apac/constify_functions_arguments
 variable/delocalize
 variable/delocalize_in_vars
 

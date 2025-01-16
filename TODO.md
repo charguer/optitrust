@@ -1,4 +1,31 @@
 
+# More
+
+- Output_prog to html format
+
+- Split dune build between parser part and rest
+
+- don't serialize computed typing infos
+
+- allow case study outside optitrust folder
+
+- trace serialization for restarting
+
+- store intermediate non-functional let-values in trace
+
+- make tester execute in parallel
+
+- reimplement mlist as a tree
+
+- make typechecker incremental
+
+- deal with string-repr targets with addressof
+
+- implement provenance mechanism
+
+- fun%script syntax to avoid small-step markers
+
+- the %transfo ppx should not require the syntax (_u : unit) 
 
 # Cleanup
 
@@ -193,6 +220,7 @@ Ex:
 - "failure_expected (fun _e -> true)" should be replaced with a catch of the
   relevant exception, e.g. RessourceError, etc.
 
+
 # VSCode
 
 - Investigate whether there is a better way to avoid the sandboxing of VSCode
@@ -285,6 +313,9 @@ Ex:
 - Add a printer for OCaml AST. Requires the integration of the OCaml parser.
   We can use ocaml-style annotation, e.g., to know whether the prefered layout
   for a conditional is one line, on 3 lines, or on 4 lines.
+
+- Add parentheses around -1 to avoid printing - (-1) in debug mode. 
+  Add parentheses around a-b to avoiding printing (int)a-b incorrectly.
 
 # Debug
 
@@ -525,4 +556,12 @@ void f2(int* p, bool b) {
   }
 }
 
+```
+
+# Note for demos
+
+```ocaml
+(* for demos:
+    !! Loop.tile (int 32) ~index:("bj") ~bound:TileDivides [cFor "i"];
+  *)
 ```

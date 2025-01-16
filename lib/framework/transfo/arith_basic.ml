@@ -2,6 +2,26 @@ open Prelude
 open Target
 include Arith_core
 
+
+(** [show tg] annotates the target with a string describing the reified
+    expression that corresponds to the arithmetic term considered. *)
+let%transfo show ?(normalized : bool = true) (tg : target) : unit =
+  Target.apply_at_target_paths (Arith_core.show_expr ~normalized) tg
+
+(** [remove_show tg] unannotates the target with a string describing the reified
+    expression that corresponds to the arithmetic term considered. *)
+let%transfo remove_show (tg : target) : unit =
+  Target.apply_at_target_paths (fun t ->
+    match trm_apps_inv t with
+    | Some (f_arith, [t_arg; s_arg]) ->
+      begin match trm_var_inv f_arith with
+      | Some f_var when var_eq f_var (toplevel_var "__ARITH") -> t_arg
+      | _ -> t (* LATER: alternative would be to fail if no __ARITH found *)
+      end
+      (* LATER: use trm_apps_var_inv and trm_apps_toplevel_var_inv *)
+    | _ -> t
+  ) tg
+
 let arith_simpl = toplevel_var "arith_simpl"
 
 let ghost_arith_rewrite r1 r2 =
@@ -20,12 +40,29 @@ let ghost_arith_rewrite r1 r2 =
 let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : unit =
   Trace.justif_always_correct ();
   Trace.tag_simpl_arith ();
-  Target.apply_at_target_paths (Arith_core.simplify indepth f) tg
+  Trace.without_resource_computation_between_steps (fun () ->
+    Target.apply_at_target_paths (Arith_core.simplify indepth f) tg
+  )
 
-(** [simpl_rec f tg] just an alias for simpl ~indepth:true tg *)
+(** [simpl2 f] applies a arithmetic rewriting method from the module Arith_core:
+   - gather  for grouping and cancelling out similar expressions in sums and produts
+   - expand  for expanding products involving sums. *)
+let%transfo simpl2 ?(indepth : bool = false) (f: arith_transfo) (tg : target) : unit =
+  Trace.justif_always_correct ();
+  Trace.tag_simpl_arith ();
+  Trace.without_resource_computation_between_steps (fun () ->
+    Target.apply_at_target_paths (Arith_core.simplify2 indepth f) tg
+  )
+
+(** [simpl_rec f tg] just an alias for [simpl ~indepth:true f tg] *)
 let%transfo simpl_rec (f : (expr -> expr)) (tg : target) : unit =
   Trace.tag_simpl_arith ();
   simpl ~indepth:true f tg
+
+(** [simpl2_rec f tg] just an alias for [simpl2 ~indepth:true f tg] *)
+let%transfo simpl2_rec (f : arith_transfo) (tg : target) : unit =
+  Trace.tag_simpl_arith ();
+  simpl2 ~indepth:true f tg
 
 (** [compose fs] returns the function obtained as the composition
     of the functions [fs] *)

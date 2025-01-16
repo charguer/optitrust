@@ -1,5 +1,7 @@
+#include <optitrust.h>
 
-int main() {
+void f() {
+  __pure();
   int a = 2 + 3;
   int b = 3 * a + 4 * a;
   int c = (a * 3 * a) / a;
