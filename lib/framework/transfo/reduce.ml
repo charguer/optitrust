@@ -76,14 +76,14 @@ let elim_basic_on (mark_alloc : mark) (mark_loop : mark) (to_expr : path) (t : t
           derive_in_range;
           focus_reduce_item input (trm_var index) j n m (
             (* trm_compound_assign Binop_add (trm_var acc) value *)
-            trm_set (trm_var acc) (trm_add (trm_var_get acc) value))
+            trm_set (trm_var acc) (trm_add ~typ:acc_typ (trm_var_get acc) value))
         ]))
       ];
     end else begin
       prefix := Some [
         trm_add_mark mark_alloc (trm_let_mut (acc, acc_typ) (trm_cast acc_typ (trm_int 0)));
         trm_add_mark mark_loop (trm_for loop_range (trm_seq_nomarks [
-          trm_set (trm_var acc) (trm_add (trm_var_get acc) value)
+          trm_set (trm_var acc) (trm_add ~typ:acc_typ (trm_var_get acc) value)
         ]))
       ];
     end;
@@ -132,7 +132,7 @@ let elim_inline_on (mark_simpl : mark) (red_p : path) (t : trm) : trm =
           ]));
           trm_cast acc_typ (Matrix_trm.get input [n; m] [i; j])
         ) in
-        List.reduce_left trm_add values
+        List.reduce_left (trm_add ~typ:acc_typ) values
       end
     | None ->
       trm_fail red_t "expected trivially constant loop range"
@@ -285,7 +285,7 @@ let slide_on (mark_alloc : mark) (mark_simpl : mark) (i : int) (t : trm) : trm =
         TrmList subrange_assumptions;
         TrmMlist before_instrs;
         (* trm_compound_assign Binop_add (trm_var acc) value *)
-        Trm (trm_set (trm_var acc) (trm_sub (trm_add (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
+        Trm (trm_set (trm_var acc) (trm_sub ~typ:acc_typ (trm_add ~typ:acc_typ (trm_var_get acc) rec_reduce_add) rec_reduce_sub));
         Trm (trm_set out (trm_var_get acc));
         TrmMlist after_instrs;
       ]));
