@@ -1380,7 +1380,7 @@ let trm_map ?(share_if_no_change = true) ?(keep_ctx = false) (f: trm -> trm) (t 
     let tl' = mlist_map f (==) tl in
     if (share_if_no_change(*redundant*) && tl == tl')
       then t
-      else (trm_seq ~annot ?loc ~ctx ?result tl')
+      else (trm_seq ~annot ?loc ~ctx ?typ ?result tl')
   | Trm_apps (func, args, ghost_args) ->
     let func' = f func in
     let args' = list_map f (==) args in

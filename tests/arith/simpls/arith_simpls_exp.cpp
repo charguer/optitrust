@@ -1,6 +1,6 @@
 #include <optitrust.h>
 
-void rowSum(const int kn, const int* S, int* D, const int n, const int cn) {
+void rowSum(int kn, int* S, int* D, int n, int cn) {
   for (int ic = 0; ic < n * cn; ic += 1) {
     D[ic] = S[ic] + S[ic + cn];
   }
