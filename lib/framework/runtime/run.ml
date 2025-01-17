@@ -167,7 +167,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   let stats_before = Stats.get_cur_stats () in
   let contents_captured_show = ref "" in
-  let activate_capture_show = capture_show_in_batch && not (Flags.is_execution_mode_step()) in
+  let activate_capture_show = capture_show_in_batch && not (Flags.is_targetting_line()) in
 
   (* Set the input file, execute the function [f], dump the results. *)
   (try
@@ -182,7 +182,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
           may_report_time "script-exec" f)
       with
       | Stop -> ()
-      | e when Flags.is_execution_mode_trace () -> (* FIXME: remove when cond *)
+      | e when Flags.request_trace () -> (* FIXME: remove when cond *)
           let backtrace = Printexc.get_backtrace () in
           Trace.finalize_on_error ~exn:e;
           produce_trace();

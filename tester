@@ -28,6 +28,9 @@ if [ "${FIRSTARG}" = "run" ]; then
   chmod +x ./tester_last.sh
 fi
 
+# Limit the amount of memory that can be allocated
+ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
+
 # Run the command
 # echo "Running: ${CMD}"
 eval ${CMD}

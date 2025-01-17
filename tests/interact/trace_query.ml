@@ -2,7 +2,7 @@ open Optitrust
 open Prelude
 
 let _ = Flags.check_validity := true
-let _ = Flags.serialize_trace := true
+let _ = Flags.execution_mode := Execution_mode_full_trace
 
 let _ = Run.script_cpp ~filename:"interact_traceview.cpp" (fun _ ->
   !! Label.add "lab1" [cVarDef "a"];

@@ -269,12 +269,12 @@ type step_kind =
   | Step_target_resolve (* produced by [target_resolve_step], for target_iter *)
   | Step_mark_manip (* produced during target_iter *)
   | Step_io (* produced by [io_step] *)
-  | Step_group (* produced in particular by [backtrack] steps, or [target_iter] steps *)
+  | Step_group (* produced in particular by [target_iter] steps *)
   | Step_backtrack (* [backtrack] or [backtrack_on_failure] *)
   | Step_show (* produced by [show_step] *)
   | Step_typing (* produced by [typing_step] *)
   | Step_trustme (* produced by [trustme] *)
-  | Step_change (* change step introduced by [finalize_step] -- TODO: add this feature *)
+  | Step_change (* change step introduced by [finalize_step] *)
   | Step_error (* fatal error caught *)
 
 
@@ -434,20 +434,6 @@ let check_the_trace ~(final:bool) : unit =
       | Step_small, _ -> err "A small step should only appear at depth one or two in the step_stack"
       | _, (Step_transfo | Step_small | Step_big) -> ()
       | _ -> raise (TraceFailure "Invalid argument for [expected_kind] in [check_tree]")
-    end;
-    (* A backtrack step always contains a single substep, which must be of kind group.
-       Moreover, if the trace is final, the ast_after matches the ast_before *)
-    if kind = Step_backtrack then begin
-      match sub with
-      | [] when not final -> () (* backtrack step should be currently opened;
-                    LATER: implement a check that there are more elements in the stack *)
-      | [substep] ->
-          if substep.step_kind <> Step_group
-            then err "A backtrack step should have a group step as child"
-      | [changestep; substep] when changestep.step_kind = Step_change -> ()
-      | [substep; changestep] when changestep.step_kind = Step_change -> ()
-          (* the end of the backtrack step restores the previous ast *)
-      | _ -> err (sprintf "A backtrack step should have exactly one substep, %d found for %d" (List.length sub) (step.step_infos.step_id))
     end;
     (* Check substeps, with a lower [expected_kind] *)
     let expected_kind_sub = kind_for_sub kind in
@@ -635,25 +621,37 @@ let reparse_ast ?(update_cur_ast : bool = true) ?(info : string = "the code duri
 (*                               Step filtering                               *)
 (******************************************************************************)
 
-(** [step_should_be_kept_in_trace s] determines based on the kind of step [s]
-    and based on the flag [substeps_including_ast] whether the step should be
-    kept in the trace or not. *)
-let step_should_be_kept_in_trace (s:step_tree) : bool = (* LATER: this line might be redundant with the filtering *)
-  match !Flags.substeps_including_ast with
-  | SubstepsAST_default -> failwith "execution mode has not been set"
-  | SubstepsAST_none -> false
-  | SubstepsAST_all -> true
-  | SubstepsAST_small ->
+let is_step_matching_selector (sel: Flags.steps_selector) (s:step_tree) : bool =
+  match sel with
+  | Steps_none -> false
+  | Steps_all -> true
+  | Steps_script ->
       begin match s.step_kind with
-      | Step_root | Step_big | Step_small -> true
+      | Step_root | Step_big | Step_small | Step_error -> true
       | _ -> false
       end
-  | SubstepsAST_all_important ->
+  | Steps_important ->
       begin match s.step_kind with (* select steps that are important for third-party reporting *)
       | Step_root | Step_big | Step_small | Step_transfo | Step_trustme | Step_error | Step_show -> true
       | Step_typing | Step_mark_manip | Step_target_resolve | Step_change | Step_backtrack | Step_group | Step_io -> false
       end
+  | Steps_effectful ->
+      begin match s.step_kind with
+      | Step_typing | Step_io | Step_target_resolve | Step_mark_manip | Step_backtrack -> false
+      | _ -> true
+      end
 
+(** [step_should_be_kept_in_trace s] determines based on the kind of step [s]
+    and based on the flag [save_steps] whether the step should be
+    kept in the trace or not. *)
+let step_should_be_kept_in_trace (s:step_tree) : bool =
+  is_step_matching_selector (Flags.get_save_steps ()) s
+
+(** [ast_should_be_kept_in_trace s] determines based on the kind of step [s]
+    and based on the flag [save_ast_for_steps] whether the ast of the step should be
+    kept in the trace or not. *)
+let ast_should_be_kept_in_trace (s:step_tree) : bool =
+  is_step_matching_selector (Flags.get_save_ast_for_steps ()) s
 
 (******************************************************************************)
 (*                               Step management                              *)
@@ -882,32 +880,14 @@ let make_substeps_chained (step:step_tree) : unit =
   end;
   step.step_sub <- List.rev !newsubrev
 
-(* DEPRECATED? *)
-let is_saved_step step =
-  match step.step_kind with
-  | Step_root | Step_big | Step_small | Step_transfo | Step_group | Step_typing | Step_io | Step_trustme | Step_change -> true
-  | Step_target_resolve | Step_mark_manip | Step_backtrack | Step_error | Step_show -> false
-
-(* DEPRECATED? *)
-let last_recorded_ast step: trm =
-  let rec browse_steps steps =
-    match steps with
-    | [] -> step.step_ast_before
-    | last_step :: _ when is_saved_step last_step -> last_step.step_ast_after
-    | _ :: previous_steps -> browse_steps previous_steps
-  in
-  browse_steps step.step_sub
-
 (** [is_kind_preserving_code kind] returns a boolean indicating whether
-    the steps of this [kind] may modify the underlying source code.
-    Beware that a [Step_backtrack] is preserving. *)
+    the steps of this [kind] may modify the underlying source code. *)
 let is_kind_preserving_code (kind:step_kind) : bool =
   match kind with
-  | Step_typing | Step_io | Step_target_resolve | Step_mark_manip
-  | Step_backtrack | Step_error | Step_show ->
+  | Step_typing | Step_io | Step_target_resolve | Step_mark_manip | Step_error | Step_show ->
       true
   | Step_root | Step_big | Step_small | Step_transfo
-  | Step_group | Step_trustme | Step_change ->
+  | Step_group | Step_trustme | Step_change | Step_backtrack ->
       false
 
 (** [finalize_step] is called by [close_root_step] and [close_step] *)
@@ -939,8 +919,7 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
   infos.step_debug_msgs <- List.rev infos.step_debug_msgs;
   infos.step_justif <- List.rev infos.step_justif;
   (* Finalize the list of substeps, by inserting [Step_change] steps
-     to ensure a well-chained list of asts; unless it is a [Step_backtrack],
-     or another kind of step that does not change the underlying code,
+     to ensure a well-chained list of asts; unless it is a step that does not change the underlying code,
      in which case we do nothing. *)
   step.step_sub <- List.rev step.step_sub;
   if not (is_kind_preserving_code step.step_kind)
@@ -976,8 +955,6 @@ let rec finalize_step ~(on_error: bool) (step : step_tree) : unit =
         if List.length (List.filter has_show_tag steps) > 1
           then Tools.warn "Should have only one show function after '!!'."
   end;
-  (* Filter out substeps that need not be kept in the trace *)
-  step.step_sub <- List.filter step_should_be_kept_in_trace step.step_sub;
   (* Save the time *)
   infos.step_exectime <- now() -. infos.step_time_start;
   (* Accumulate total typechecking time *)
@@ -1015,16 +992,16 @@ and close_step ?(discard = false) ?(on_error = false) ?(check:step_tree option) 
       end;
       if !debug_open_close_step
         then Tools.debug "%sTrace.close_step[%d]: %s" (String.make (List.length the_trace.step_stack) ' ') step.step_infos.step_id (step_kind_to_string step.step_kind);
-      if discard then
+      (* Finalize the step, by reversing the list of substeps and computing validity *)
+      if not discard then
+        finalize_step ~on_error step;
+      (* Folding step into parent substeps if we want to keep it *)
+      if not discard && (step_should_be_kept_in_trace step || on_error) then
+          parent_step.step_sub <- step :: parent_step.step_sub
+      else
         (* Discarded step id should be reused to prevent creating holes in recorded step ids.
            Non contiguous step ids break the JS displaying the trace. *)
-        the_trace.next_step_id <- step.step_infos.step_id
-      else begin
-        (* Finalize the step, by reversing the list of substeps and computing validity *)
-        finalize_step ~on_error step;
-        (* Folding step into parent substeps *)
-        parent_step.step_sub <- step :: parent_step.step_sub;
-      end;
+        the_trace.next_step_id <- step.step_infos.step_id;
       the_trace.step_stack <- stack_tail;
       (* In debug mode, check the trace invariant *)
       if !check_trace_at_every_step
@@ -1193,12 +1170,9 @@ let close_root_step ~(on_error: bool) () : unit =
     | _ -> raise (TraceFailure  "close_root_step: broken invariant, stack must have size one") in
   finalize_step ~on_error step
 
-(** [step_backtrack f] executes [f] wrapped in a step of kind [Step_backtrack],
-   and a nested step of kind [Step_group]. At the end of [f], the current ast is
+(** [step_backtrack f] executes [f] wrapped in a step of kind [Step_backtrack]. At the end of [f], the current ast is
    restored to its original value. The value returned is the result produced by [f].
    The backtrack-step will have the current ast as [ast_before] and [ast_after].
-   The group-step will have the current ast as [ast_before], and saves into
-   [ast_after] the state of the ast just before it is rolled back to its original state.
    Note: all the substeps that f might have opened but not closed are
    automatically closed.
    If the option [~discard_after:true] is provided, then the steps
@@ -1208,20 +1182,20 @@ let step_backtrack ?(tags:string list=[]) ?(discard_after = false) (f : unit -> 
   let ast_snapshot_typed = the_trace.cur_ast_typed in
   (* Open backtrack step and group step, then execute [f] *)
   let step_backtrack = open_step ~kind:Step_backtrack ~name:"step-backtrack" ~tags () in
-  let step_group = open_step ~kind:Step_group ~name:"step-backtrack-group" () in
   let res = f () in
-  (* Close the group step -- LATER: document why a while-loop may be useful here *)
-  let error = "Trace.step_backtrack: unable to close the group" in
-  while (get_cur_step ~error () != step_group) do
-    close_step ()
-  done;
-  close_step ~check:step_group ();
-  (* Restore the ast, then close the backtrack step;
-    This step is always correct because it corresponds to a noop. *)
-  the_trace.cur_ast <- ast_snapshot;
-  the_trace.cur_ast_typed <- ast_snapshot_typed;
-  justif "step-backtrack restored the ast";
-  close_step ~discard:discard_after ~check:step_backtrack ();
+  without_resource_computation_between_steps (fun () ->
+    (* Close the group step -- LATER: document why a while-loop may be useful here *)
+    let error = "Trace.step_backtrack: unable to close the group" in
+    while (get_cur_step ~error () != step_backtrack) do
+      close_step ()
+    done;
+    (* Restore the ast, then close the backtrack step;
+      This step is always correct because it corresponds to a noop. *)
+    the_trace.cur_ast <- ast_snapshot;
+    the_trace.cur_ast_typed <- ast_snapshot_typed;
+    justif "step-backtrack restored the ast";
+    close_step ~discard:discard_after ~check:step_backtrack ();
+  );
   res
 
 type 'a backtrack_result =
@@ -1230,37 +1204,29 @@ type 'a backtrack_result =
 
 (** [step_backtrack_on_failure f] executes [f].
    If [f] succeeds, the step terminates, and [Success] is returned.
-   The operations performed by [f] are wrapped in an outer step of kind
-   [Step_backtrack] and an inner step of kind [Step_group].
-   -- LATER: we could attempt to eliminate the [Step_backtrack] but it's tricky.
+   The operations performed by [f] are wrapped in a step of kind
+   [Step_backtrack].
    If [f] fails, the operation returns [Failure e]. In that case, the ast
    is restored to its original value. The operations performed by [f]
-   are wrapped as if [step_backtrack] had been called, that is, with
-   an outer [Step_backtrack] step, and an inner [Step_group] step.
+   are wrapped with a [Step_backtrack] step.
    If the option [~discard_on_failure:true] is provided, and if [f] raises an
    exception, then the steps performed by [f] are completely erased from the trace.
-   Implementation note: initially, the backtrack step is created; if [f]
-   succeeds, this step is discarded, and only the group step is kept. *)
+*)
 let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : 'a backtrack_result =
   let ast_snapshot = the_trace.cur_ast in
   let ast_snapshot_typed = the_trace.cur_ast_typed in
   let step_backtrack = open_step ~kind:Step_backtrack ~name:"step-backtrack-on-failure" () in
-  let step_group = open_step ~kind:Step_group ~name:"step-backtrack-on-failure-group" () in
   let res =
     try
       let x = f() in
-      (* Close the group step *)
-      close_step ~check:step_group ();
       Success x
     with e -> begin
       let bt = Printexc.get_raw_backtrace () in
       (* Close all the steps that have been interrupted by the exception *)
       let error = "Trace.step_backtrack_on_failure: unable to close the group" in
-      while (get_cur_step ~error () != step_group) do
+      while (get_cur_step ~error () != step_backtrack) do
         close_step ()
       done;
-      (* Close the group step *)
-      close_step ~check:step_group ();
       Failure (e, bt)
     end in
   (* Close the backtrack step *)
@@ -1270,12 +1236,14 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
        The changes performed on the ast remain. *)
     close_step ~discard:false ~check:step_backtrack ();
   end else begin
-    (* If failure, restore the ast, and close the backtrack step;
-       discard the whole step if [~discard_on_failure:true] is provided. *)
-    the_trace.cur_ast <- ast_snapshot;
-    the_trace.cur_ast_typed <- ast_snapshot_typed;
-    justif "step-backtrack-on-failure has backtracked and restored the ast";
-    close_step ~discard:discard_on_failure ~check:step_backtrack ();
+    without_resource_computation_between_steps (fun () ->
+      (* If failure, restore the ast, and close the backtrack step;
+        discard the whole step if [~discard_on_failure:true] is provided. *)
+      the_trace.cur_ast <- ast_snapshot;
+      the_trace.cur_ast_typed <- ast_snapshot_typed;
+      justif "step-backtrack-on-failure has backtracked and restored the ast";
+      close_step ~discard:discard_on_failure ~check:step_backtrack ();
+    )
   end;
   (* Return a description of the result of [f] *)
   res
@@ -1286,7 +1254,7 @@ let step_backtrack_on_failure ?(discard_on_failure = false) (f : unit -> 'a) : '
 let target_resolve_step ?(prefix : Path.path = []) (f: unit -> Path.path list) : Path.path list =
   ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"Target-resolve" ());
   let ps = f () in
-  if Flags.is_execution_mode_trace() then begin
+  if Flags.request_trace() then begin
     let cur_ast = the_trace.cur_ast in
     let marked_ast, _marks = Path.add_marks_at_paths ~prefix ps cur_ast in
     the_trace.cur_ast <- marked_ast;
@@ -1339,13 +1307,13 @@ let init ~(prefix : string) ~(program : string) (filename : string) : unit =
   (* TODO: could optimize the setting of the flag only_big_step by
      testing the target line only for "bigstep", without computing
      all of compute_ml_file_excerpts *)
-  if !Flags.analyse_stats || Flags.is_execution_mode_trace() then begin
+  if !Flags.analyse_stats || Flags.request_trace() then begin
     if Sys.file_exists script_filename then begin
       let lines = File.get_lines script_filename in
       (* printf "%s\n" (Tools.list_to_string ~sep:"\n" lines); *)
       ml_file_excerpts := compute_ml_file_excerpts lines;
       (* Automatically set the flag [only_big_steps] if targeted line  *)
-      if Flags.is_execution_mode_step() then begin
+      if Flags.is_targetting_line() then begin
         let line_num = Flags.get_target_line() in
         let line_str = get_excerpt line_num in
         let regexp_bigstep = Str.regexp "^[ ]*\\(bigstep\\)" in
@@ -1558,9 +1526,9 @@ let compute_before_after_and_diff ?(hide_annot:bool=false) ?(style:output_style 
 let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(out:string->unit)  (s:step_tree) : unit =
   let i = s.step_infos in
   (* Determine whether diff needs to be computed for this step *)
-  let is_mode_step_trace = Flags.is_execution_mode_step () in
+  let is_targetting_line = Flags.is_targetting_line () in
   let is_smallstep_of_targeted_line =
-       is_mode_step_trace
+       is_targetting_line
     && i.step_script_line = Some (Flags.get_target_line())
     in
   let is_substep_of_targeted_line =
@@ -1569,9 +1537,8 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) (root_id:int)(o
     || s.step_kind = Step_big
     || s.step_kind = Step_small *)
   let should_compute_diff =
-      (not !Flags.serialize_trace)
-      && ((not is_mode_step_trace) || is_substep_of_targeted_line)
-      && step_should_be_kept_in_trace s (* LATER: this line might be redundant with the filtering *)
+      (not (Flags.request_serialized_trace ()))
+      && ((not is_targetting_line) || is_substep_of_targeted_line)
     in
   (* Recursive calls *)
   let aux = dump_step_tree_to_js ~is_substep_of_targeted_line root_id out in
@@ -1705,14 +1672,10 @@ let serialize_full_trace_and_get_timestamp ~(prefix : string) (tree : step_tree)
      serialized trace (as a string). *)
 let dump_full_trace_to_js ~(prefix : string) : unit =
   let tree = get_root_step () in
-  (* LATER the [erase_some_asts] and [strip_trace] are subsumed by the
-     [substeps_including_ast] flag. *)
+  (* LATER: Perform [erase_some_asts] on the fly to save a lot of memory without needing to completely drop the substeps. *)
   let rec erase_some_asts parent_erases s =
     (* FIXME: duplicated code with iter_step_tree *)
-    let erase = parent_erases || match s.step_kind with
-    | Step_typing | Step_io | Step_target_resolve | Step_mark_manip | Step_backtrack -> true
-    | _ -> false
-    in
+    let erase = parent_erases || not (ast_should_be_kept_in_trace s) in
     if erase then begin
       s.step_ast_before <- trm_dummy;
       s.step_ast_after <- trm_dummy;
@@ -1720,10 +1683,10 @@ let dump_full_trace_to_js ~(prefix : string) : unit =
     (* TODO: else clear all t.loc and t.annot.trm_annot_stringrepr *)
     List.iter (erase_some_asts erase) s.step_sub
   in
-  if !Flags.strip_trace
+  if Flags.get_save_ast_for_steps () <> Steps_all
     then erase_some_asts false tree;
   let serialized_trace_timestamp =
-    if !Flags.serialize_trace
+    if Flags.request_serialized_trace ()
       then Some (serialize_full_trace_and_get_timestamp ~prefix tree)
       else None
     in
@@ -1836,7 +1799,8 @@ let produce_output_and_exit () : unit =
   | Execution_mode_step_diff -> produce_diff_output step
   | Execution_mode_step_trace -> produce_trace_output step
   | Execution_mode_exec
-  | Execution_mode_full_trace -> raise (TraceFailure "produce_output_and_exit should be in a 'step' execution mode")
+  | Execution_mode_full_trace
+  | Execution_mode_standalone_full_trace -> raise (TraceFailure "produce_output_and_exit should be in a 'step' execution mode")
   end;
   (* Print debug messages of the current step *)
   List.iter (fun s -> Tools.debug "%s" s) step.step_infos.step_debug_msgs;
@@ -1848,7 +1812,7 @@ let produce_output_and_exit () : unit =
    on the command line argument [-exit-line]. If so, it exists the program after dumping
    the diff. *)
 let check_exit ~(line:int) : unit (* may not return *) =
-  if Flags.is_execution_mode_step() && line > Flags.get_target_line()
+  if Flags.is_targetting_line() && line > Flags.get_target_line()
      then produce_output_and_exit()
 
 (** [check_exit_at_end] is called by [run.ml] when reaching the end of the script.
@@ -1859,7 +1823,7 @@ let check_exit ~(line:int) : unit (* may not return *) =
    parenthesis of the call to script_cpp, but this requires instrumenting the
    call to script_cpp, and obtaining the end position of this construction. *)
 let check_exit_at_end () : unit (* may not return *) =
-  if  Flags.is_execution_mode_step() then begin
+  if  Flags.is_targetting_line() then begin
     close_smallstep_if_needed();
     if !Flags.only_big_steps
       then close_bigstep_if_needed();
@@ -1905,7 +1869,7 @@ let open_smallstep ~(line : int) ?reparse:(need_reparse:bool=false) () : unit =
   if need_reparse
     then reparse ();
   let step_script =
-    if Flags.is_execution_mode_trace()
+    if Flags.request_trace()
       then get_excerpt line
       else ""
     in
@@ -2083,7 +2047,7 @@ let dump (style : output_style) ?(store_in_trace = true) ?(prefix : string = "")
 let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> unit) : unit =
   let stepdescr_for_interactive_step =
     { isbigstep = None; script = ""; exectime = 0; } in
-  if should_exit = Flags.is_execution_mode_step() && Flags.get_target_line() = line then
+  if should_exit = Flags.is_targetting_line() && Flags.get_target_line() = line then
     if reparse
       then
         reparse_alias ();

@@ -438,8 +438,7 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   return r;
 }
 
-vect matrix_vect_mul(const double_nbCorners coeffs,
-                     const vect_nbCorners matrix) {
+vect matrix_vect_mul(double_nbCorners coeffs, vect_nbCorners matrix) {
   vect res = {0., 0., 0.};
   for (int k = 0; k < nbCorners; k++) {
     res = vect_add(res, vect_mul((coeffs.v)[k], (matrix.v)[k]));
@@ -447,7 +446,7 @@ vect matrix_vect_mul(const double_nbCorners coeffs,
   return res;
 }
 
-double_nbCorners vect8_mul(const double a, const double_nbCorners data) {
+double_nbCorners vect8_mul(double a, double_nbCorners data) {
   double_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
     (res.v)[k] = a * (data.v)[k];

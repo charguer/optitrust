@@ -75,7 +75,7 @@ let _ = Run.script_cpp (fun () ->
     - instructions if return type is unit
     - expressions otherwise *)
   (* TODO: fix me, this target fails in noninteractive mode only
-  if Flags.is_execution_mode_step() then
+  if Flags.is_targetting_line() then
     !! show [sInstr "g("];
 
   !! show [sExpr "f("];

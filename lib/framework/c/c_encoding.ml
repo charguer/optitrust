@@ -101,7 +101,6 @@ let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
 (** [create_env]: creates an empty environment *)
 let create_env () = ref env_empty
 
-
 (** [stackvar_elim t]: applies the following encodings
     - [int a = 5] with [int* a = ref int(5)]
     - a variable occurrence [a] becomes [* a]
@@ -289,6 +288,34 @@ let stackvar_intro (t : trm) : trm =
     | _ -> trm_map aux t
     end in
    aux t
+
+
+(** [const_elim t]: removes all remaining const on types since those can mess with type unification *)
+let const_elim (t: trm): trm =
+  debug_current_stage "const_elim";
+  let rec remove_const (ty: typ): typ =
+    match typ_const_inv ty with
+    | Some ty -> remove_const ty
+    | None -> trm_map remove_const ty
+  in
+  let rec aux (t: trm): trm =
+    match t.desc with
+    | Trm_let ((x, ty), body) ->
+      trm_replace (Trm_let ((x, remove_const ty), aux body)) t
+    | Trm_let_mult bindings ->
+      trm_replace (Trm_let_mult (List.map (fun ((x, ty), body) -> ((x, remove_const ty), aux body)) bindings)) t
+    | Trm_fun (args, rettyp, body, contract) ->
+      let args = List.map (fun (x, ty) -> (x, remove_const ty)) args in
+      trm_replace (Trm_fun (args, remove_const rettyp, aux body, contract)) t
+    | Trm_prim (ty, prim) ->
+      trm_replace (Trm_prim (remove_const ty, prim)) t
+    | Trm_array (ty, elts) ->
+      trm_replace (Trm_array (remove_const ty, Mlist.map aux elts)) t
+    | Trm_record (ty, fields) ->
+      trm_replace (Trm_record (remove_const ty, Mlist.map (fun (lbl, t) -> (lbl, aux t)) fields)) t
+    | _ -> trm_map aux t
+  in
+  aux t
 
 
 (** [caddress_elim t]: applies the following encodings
@@ -1339,6 +1366,7 @@ let cfeatures_elim: trm -> trm =
   Scope_computation.infer_var_ids ~check_uniqueness:false |>
   infix_elim |>
   stackvar_elim |>
+  const_elim |>
   caddress_elim |>
   return_elim |>
   expr_in_seq_elim |>

@@ -321,10 +321,10 @@ let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : t
     unless a specific number is specified in the target. *)
 let add_marks_for_target_unit_tests (tg : target) : unit =
   let tg = enable_multi_targets tg in
-  if Flags.is_execution_mode_step ()
+  if Flags.is_targetting_line ()
     then Marks_basic.clean ~indepth:true [];
   let prefix =
-    if Flags.is_execution_mode_step ()
+    if Flags.is_targetting_line ()
       then ""
       else sprintf "%d_" (show_next_id())
     in

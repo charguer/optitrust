@@ -7,7 +7,7 @@ let _ = Flags.check_validity := true
 
 (* Use the line below to generate a smaller trace with ast
    only for big and small steps
-let _ = Flags.process_substeps_including_ast "small"
+let _ = Flags.save_steps := Some Steps_script
 *)
 
 (* Use the line below to shrink ASTs during diffs. *)
