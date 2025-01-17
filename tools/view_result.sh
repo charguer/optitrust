@@ -72,6 +72,9 @@ chmod +x "${TOOLS_FOLDER}/_last_view_result.sh"
 #==========================================================================
 # Setting up the environment, and read additional settings
 
+# Limit the amount of memory that can be allocated
+ulimit -v $((16 * 1024 * 1024)) # Never exceed 16 GiB of memory
+
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
 
