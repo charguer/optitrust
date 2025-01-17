@@ -155,7 +155,7 @@ void test_float() {
   __pure();
   float f;
   f = -2.f / 12.f;
-  f = 0.f * f;
+  f = 0.f;
 }
 
 void loop_shift(int x) {
@@ -230,7 +230,7 @@ void purity(int* p) {
   const int a = 1;
   const int b = 1;
   re = 2 * f(1) + 2 * a;
-  re = 0 * f(1);
+  re = 0;
   rf = a * f(1) + b * f(1);
 }
 

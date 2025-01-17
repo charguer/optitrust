@@ -1452,7 +1452,7 @@ let rec compute_resources
     | Trm_apps (fn, effective_args, ghost_args) ->
       (* Retrieve a function specification in a given context *)
       begin try
-        let** fn_var, res_after_fn, fn_post, usage_map = compute_subexpr_resources res fn in
+        let** fn_var, res_after_fn, fn_post, fn_usage_map = compute_subexpr_resources res fn in
         let fn_ctx = Option.unsome fn.ctx.ctx_resources_after in
         let spec = Resource_set.find_result_fun_spec fn_ctx in
 
@@ -1461,7 +1461,7 @@ let rec compute_resources
         Build the instantation context with the known [effective_args] and [ghost_args].
         Then [compute_contract_invoc] to deduct used and remaining resources. *)
 
-        let** inst_map, res_arg_frame, args_post, usage_map = try
+        let** inst_map, res_arg_frame, args_post, args_usage_map = try
           List.fold_left2 (fun acc contract_arg effective_arg ->
             let open Option.Monad in
             let* inst_map, unused_res, acc_post, usage_map = acc in
@@ -1470,14 +1470,14 @@ let rec compute_resources
             let acc_post = Resource_set.union new_post acc_post in
             let inst_map = Var_map.add contract_arg (trm_var arg_var) inst_map in
             Some (inst_map, unused_res, acc_post, usage_map)
-          ) (Some (Var_map.empty, res_after_fn, fn_post, usage_map)) spec.args effective_args
+          ) (Some (Var_map.empty, res_after_fn, fn_post, fn_usage_map)) spec.args effective_args
         with Invalid_argument _ ->
           failwith "Mismatching number of arguments for %s (expected %d and got %d)" (Ast_to_c.ast_to_string fn) (List.length spec.args) (List.length effective_args)
         in
         let res_after_args = Resource_set.union res_arg_frame args_post in
         let linear_res_after_args, ro_simpl_steps = simplify_read_only_resources res_after_args.linear in
         let res_after_args = { res_after_args with linear = linear_res_after_args } in
-        let usage_map = add_joined_frac_usage ro_simpl_steps usage_map in
+        let usage_map = add_joined_frac_usage ro_simpl_steps args_usage_map in
 
         let ghost_args_vars = ref Var_set.empty in
         let inst_map = List.fold_left (fun inst_map (ghost_var, ghost_inst) ->
@@ -1492,6 +1492,41 @@ let rec compute_resources
             Var_set.fold (fun x -> Var_map.add x Required) ghost_inst_fv usage_map
           ) usage_map ghost_args in
         let usage_map = update_usage_map ~current_usage:usage_map ~extra_usage:call_usage_map in
+
+        let arg_ensured_vars = Var_set.of_seq (Seq.filter_map (fun (key, usage) -> match usage with
+          | Ensured | ArbitrarilyChosen -> Some key
+          | _ -> None) (Var_map.to_seq args_usage_map)) in
+        let elim_pure_vars to_elim usage_map res =
+          (* LATER: If access to a binding in context is in log(n), read usage maps to only check resources added during the call *)
+          (* We cannot eliminate variables that occur in linear resources *)
+          let to_elim = List.fold_left (fun to_elim (_, formula) ->
+            Var_set.diff to_elim (trm_free_vars formula)) to_elim res.linear
+          in
+          let to_elim, rev_pure_res = List.fold_left (fun (to_elim, rev_pure_res) (x, ty) ->
+              if Var_set.mem x to_elim then
+                (to_elim, rev_pure_res)
+              else if Var_set.is_empty (Var_set.inter to_elim (trm_free_vars ty)) then
+                (to_elim, (x, ty) :: rev_pure_res)
+              else
+                (Var_set.add x to_elim, rev_pure_res)
+            ) (to_elim, []) res.pure
+          in
+          let aliases = Var_map.filter (fun x v ->
+              if Var_set.mem x to_elim then false
+              else Var_set.is_empty (Var_set.inter to_elim (trm_free_vars v))
+            ) res.aliases in
+          let fun_specs = Var_map.filter (fun x spec ->
+              if Var_set.mem x to_elim then false
+              else
+                (* Normally we should check if the contract refers to a variable in to_elim but it is too expansive *)
+                (* This can cause problems only with complicated higer order contracts *)
+                (* Var_set.is_empty (Var_set.inter to_elim (Resource_contract.fun_contract_free_vars spec.contract) *)
+                true
+            ) res.fun_specs in
+          let usage_map = Var_map.filter (fun x _ -> not (Var_set.mem x to_elim)) usage_map in
+          usage_map, { res with pure = List.rev rev_pure_res; aliases; fun_specs }
+        in
+        let usage_map, res_after = elim_pure_vars arg_ensured_vars usage_map res_after in
 
         Some usage_map, Some res_after
 
