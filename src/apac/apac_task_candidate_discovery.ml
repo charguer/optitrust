@@ -51,26 +51,6 @@ let discover_dependencies
        end
     | [] -> []
   in
-  let restore_cfeatures (scope : FunctionRecord.s) (t : trm) : trm =
-    let caddress (t : trm) : trm = Ast_fromto_AstC.caddress_intro_aux false t in
-    let rec stackvars (t : trm) : trm =
-      trm_simplify_addressof_and_get
-        begin match t.desc with
-        | Trm_var (vk, v) ->
-           let ((_, vk), _) = Var_Hashtbl.find_or_default scope v (0, vk) in
-           if vk = Var_mutable then
-             trm_address_of (trm_replace (Trm_var (Var_mutable, v)) t)
-           else t
-        | Trm_apps ({desc = Trm_val
-                              (Val_prim (Prim_unop Unop_get));_},
-                    [{desc = Trm_var (vk, v); _} as t']) ->
-           let ((_, vk), _) = Var_Hashtbl.find_or_default scope v (0, vk) in
-           if vk = Var_mutable then t' else trm_map stackvars t
-        | _ -> trm_map stackvars t
-        end
-    in
-    stackvars (caddress t)
-  in
   (** [discover_dependencies.best_effort ins inouts dam access iao t]: a
       best-effort dependency discovery for language constructs we do not fully
       support yet such as structure member accesses. For the main dependency
