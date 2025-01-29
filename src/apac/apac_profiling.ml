@@ -523,14 +523,17 @@ let optimize (tg : target) : unit =
           try
             Hashtbl.find formulas h
           with
-          | Not_found ->
-             failwith ("Apac_profiling.optimize: task candidate `" ^
-                         (Task.to_string t) ^ "' has no performance model.") in
-        (** If there is no formula, the modelization judges [v] is not an
-            eligible candidate. *)
+          (** If there is no corresponding formula in [!formulas], it means that
+              the modelizer has filtered the task candidate out due to its
+              supposedly negligible impact on the overall execution time of the
+              program. *)
+          | Not_found -> None
+        in
+        (** If there is no formula for [v], the modelization judges [v] is not
+            an eligible candidate. *)
         if Option.is_none f then
-          (** Remove the [Taskifiable] attribute from its set of task candidate
-              attributes. *)
+          (** In this case, remove the [Taskifiable] attribute from its set of
+              task candidate attributes. *)
           t.attrs <- TaskAttr_set.remove Taskifiable t.attrs
         else
           (** Otherwise, check whether the formula consists of a constant
