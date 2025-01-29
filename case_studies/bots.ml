@@ -69,6 +69,9 @@ let setup (case : string) (cutoff : string) : string * string =
   Apac_flags.constify_quietly := true;
   Flags.code_print_width := 1024;
   Flags.c_parser_includes := [bots ^ "common"];
+  let (cxx, options) = !Apac_flags.compile_with in
+  Apac_flags.compile_with :=
+    (cxx, options ^ " -I" ^ bots ^ "common" ^ " -std=c++17");
   Apac_flags.omit := ".*_se[qr]$";
   Apac_macros.skip skip;
   Apac_flags.main := main;
