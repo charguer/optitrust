@@ -35,7 +35,8 @@ let setup (case : string) (cutoff : string) : string * string =
        (["sort_init"; "sort_verify"], "sort_par")
     | "sparselu" ->
        (["checkmat"; "genmat"; "print_structure"; "allocate_clean_block";
-         "sparselu_init"; "sparselu_fini"; "sparselu_check"],
+         "prealloc_sparselu_par_call"; "sparselu_init"; "sparselu_fini";
+         "sparselu_check"],
         "sparselu_par_call")
     | "strassen" ->
        (["init_matrix"; "compare_matrix"; "alloc_matrix"], "strassen_main_par")
